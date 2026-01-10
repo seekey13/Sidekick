@@ -1,6 +1,6 @@
 --[[
 Medic
-Generic Job Automation Framework
+Healer Job Automation Framework
 Copyright (c) 2025 Seekey
 https://github.com/seekey13/Medic
 
@@ -428,11 +428,7 @@ end
 ]]--
 
 ashita.events.register('load', 'medic_load', function()
-    is_loaded = true
-    
-    -- Register nuke packet handler for skillchain detection
-    action_modules.nuke.register_packet_handler()
-    
+    is_loaded = true    
     common.printf('Loaded! Type /medic help for commands.')
 end)
 
