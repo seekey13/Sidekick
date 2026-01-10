@@ -150,24 +150,6 @@ return {
                 range = 20,
             },
             {
-                name = 'Reprisal',
-                level = 61,
-                cost = 24,
-                id = 97,  -- Reprisal spell ID
-                command = '/ma "Reprisal" <me>',
-                buff_id = 403,  -- Reprisal buff
-                combat_only = true,
-            },
-            {
-                name = 'Fealty',
-                level = 75,
-                cost = 0,
-                id = 78,  -- Fealty recast ID
-                command = '/ja "Fealty" <me>',
-                buff_id = 344,  -- Fealty buff
-                combat_only = true,
-            },
-            {
                 name = 'Majesty',
                 level = 70,
                 cost = 0,
@@ -176,117 +158,19 @@ return {
                 buff_id = 621,  -- Majesty buff
                 combat_only = true,
             },
-            {
-                name = 'Rampart',
-                level = 62,
-                cost = 0,
-                id = 77,  -- Rampart recast ID
-                command = '/ja "Rampart" <me>',
-                buff_id = 623,  -- Rampart buff
-                combat_only = true,
-            },
-            {
-                name = 'Sentinel',
-                level = 30,
-                cost = 0,
-                id = 75,  -- Sentinel recast ID
-                command = '/ja "Sentinel" <me>',
-                buff_id = 74,  -- Sentinel buff
-                combat_only = true,
-            },
-            {
-                name = 'Holy Circle',
-                level = 5,
-                cost = 0,
-                id = 74,  -- Holy Circle recast ID
-                command = '/ja "Holy Circle" <me>',
-                buff_id = 117,  -- Warding Circle buff
-                combat_only = true,
-            },
         },
         
-        -- Counter abilities
-        counter = {
-            {
-                name = 'Shield Bash',
-                level = 15,
-                cost = 0,
-                id = 73,  -- Shield Bash recast ID
-                command = '/ja "Shield Bash" <t>',
-                range = 5,
-                combat_only = true,
-            },
-        },
-        
-        -- Tank abilities
-        tank = {
-            {
-                name = 'Flash',
-                level = 37,
-                cost = 25,
-                id = 112,  -- Flash spell ID
-                command = '/ma "Flash" <t>',
-                range = 10,
-                combat_only = true,
-            },
-        },
-        
-        -- Nukes (Light-based)
-        nuke = {
-            {
-                name = 'Holy',
-                level = 55,
-                cost = 100,
-                id = 21,  -- Holy spell ID
-                command = '/ma "Holy" <t>',
-                element = 'Light',
-                range = 20,
-                combat_only = true,
-            },
-            {
-                name = 'Banish II',
-                level = 34,
-                cost = 57,
-                id = 29,  -- Banish II spell ID
-                command = '/ma "Banish II" <t>',
-                element = 'Light',
-                range = 20,
-                combat_only = true,
-            },
-            {
-                name = 'Banishga',
-                level = 30,
-                cost = 41,
-                id = 38,  -- Banishga spell ID
-                command = '/ma "Banishga" <t>',
-                element = 'Light',
-                range = 15,
-                combat_only = true,
-            },
-            {
-                name = 'Banish',
-                level = 7,
-                cost = 15,
-                id = 28,  -- Banish spell ID
-                command = '/ma "Banish" <t>',
-                element = 'Light',
-                range = 20,
-                combat_only = true,
-            },
-        },
-        
-        -- Recover (MP recovery)
-        recover = {
-            {
-                name = 'Chivalry',
-                level = 75,
-                cost = 0,
-                id = 79,  -- Chivalry recast ID
-                command = '/ja "Chivalry" <me>',
-                combat_only = false,
-                range = 10,
-            },
-        },
+        -- -- Recover (MP recovery)
+        -- recover = {
+        --     {
+        --         name = 'Chivalry',
+        --         level = 75,
+        --         cost = 0,
+        --         id = 79,  -- Chivalry recast ID
+        --         command = '/ja "Chivalry" <me>',
+        --         combat_only = false,
+        --     },
+        -- },
     },
     
     -- Job-specific validators

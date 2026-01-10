@@ -347,16 +347,6 @@ return {
                 combat_only = false,
             },
             {
-                name = 'Crusade',
-                level = 56,
-                cost = 18,
-                id = 476,
-                command = '/ma "Crusade" <me>',
-                element = 'Dark',
-                buff_id = 478,  -- Crusade buff
-                combat_only = true,
-            },
-            {
                 name = 'Foil',
                 level = 58,
                 cost = 10,

@@ -417,6 +417,21 @@ return {
                 command = '/ja "Convert" <me>',
             },
         }
+
+        -- Revive
+        -- revive = {
+        --     {
+        --         name = 'Raise',
+        --         level = 38,
+        --         cost = 150,
+        --         id = 12,  -- Spell ID
+        --         command = function(party_index)
+        --             return '/ma "Raise" <p' .. party_index .. '>'
+        --         end,
+        --         range = 18,
+        --         combat_only = false,
+        --     },
+        -- },
     },
     
     -- Default settings for UI

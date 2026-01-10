@@ -74,7 +74,6 @@ return {
         'heal_aoe',
         'heal',
         'wake',
-        'pet',
         'buff',
     },
 }

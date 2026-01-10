@@ -163,20 +163,6 @@ return {
                 end,
             },
         },
-
-        -- -- Recover
-        -- recover_tp = {
-        --     {
-        --         name = 'Reverse Flourish',
-        --         level = 40,
-        --         cost = 5,
-        --         id = 222,
-        --         command = '/ja "Reverse Flourish" <me>',
-        --         wakes = false,
-        --         combat_only = true,
-        --         value = 600,
-        --     },
-        -- },
     },
     
     -- Default settings for UI
@@ -192,8 +178,6 @@ return {
         focus_enabled = false,
         focus_target_index = nil,
         focus_threshold = 85,
-        recover_enabled = false,
-        recover_threshold = 50,
     },
     
     -- Action priority order
@@ -203,6 +187,5 @@ return {
         'debuff_removal',
         'wake',
         'buff',
-        'recover',
     },
 }

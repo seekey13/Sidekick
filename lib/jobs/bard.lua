@@ -4,9 +4,6 @@
     
     Bard abilities focus on:
     - Buff songs (Minuets, Paeons, Madrigals, etc.)
-    - Debuff songs (Requiems, Threnodies, Elegies)
-    - Sleep songs (Lullabies)
-    - Charm songs (Virelai)
 ]]--
 
 local common = require('lib.core.common')
@@ -346,6 +343,108 @@ return {
                 buff_id = 215,  -- Spirited Etude buff
                 combat_only = false,
             },
+            -- Carols
+            {
+                name = 'Dark Carol',
+                level = 50,
+                cost = 0,
+                id = 445,
+                command = '/ma "Dark Carol" <me>',
+                element = 'Light',
+                buff_id = 216,  -- Dark Carol buff
+                combat_only = false,
+            },
+            {
+                name = 'Lightning Carol',
+                level = 48,
+                cost = 0,
+                id = 442,
+                command = '/ma "Lightning Carol" <me>',
+                element = 'Earth',
+                buff_id = 216,  -- Lightning Carol buff
+                combat_only = false,
+            },
+            {
+                name = 'Ice Carol',
+                level = 46,
+                cost = 0,
+                id = 439,
+                command = '/ma "Ice Carol" <me>',
+                element = 'Fire',
+                buff_id = 216,  -- Ice Carol buff
+                combat_only = false,
+            },
+            {
+                name = 'Fire Carol',
+                level = 44,
+                cost = 0,
+                id = 438,
+                command = '/ma "Fire Carol" <me>',
+                element = 'Water',
+                buff_id = 216,  -- Fire Carol buff
+                combat_only = false,
+            },
+            {
+                name = 'Wind Carol',
+                level = 42,
+                cost = 0,
+                id = 440,
+                command = '/ma "Wind Carol" <me>',
+                element = 'Ice',
+                buff_id = 216,  -- Wind Carol buff
+                combat_only = false,
+            },
+            {
+                name = 'Water Carol',
+                level = 40,
+                cost = 0,
+                id = 441,
+                command = '/ma "Water Carol" <me>',
+                element = 'Lightning',
+                buff_id = 216,  -- Water Carol buff
+                combat_only = false,
+            },
+            {
+                name = 'Earth Carol',
+                level = 38,
+                cost = 0,
+                id = 443,
+                command = '/ma "Earth Carol" <me>',
+                element = 'Wind',
+                buff_id = 216,  -- Earth Carol buff
+                combat_only = false,
+            },
+            {
+                name = 'Light Carol',
+                level = 36,
+                cost = 0,
+                id = 444,
+                command = '/ma "Light Carol" <me>',
+                element = 'Dark',
+                buff_id = 216,  -- Light Carol buff
+                combat_only = false,
+            },
+            -- Mazurkas
+            {
+                name = 'Chocobo Mazurka',
+                level = 73,
+                cost = 0,
+                id = 465,
+                command = '/ma "Chocobo Mazurka" <me>',
+                element = 'Wind',
+                buff_id = 219,  -- Chocobo Mazurka buff
+                combat_only = false,
+            },
+            {
+                name = 'Raptor Mazurka',
+                level = 37,
+                cost = 0,
+                id = 467,
+                command = '/ma "Raptor Mazurka" <me>',
+                element = 'Wind',
+                buff_id = 219,  -- Raptor Mazurka buff
+                combat_only = false,
+            },
             -- Others
             {
                 name = 'Foe Sirvente',
@@ -375,16 +474,6 @@ return {
                 command = '/ma "Warding Round" <me>',
                 element = 'Light',
                 buff_id = 209,  -- Warding Round buff
-                combat_only = false,
-            },
-            {
-                name = 'Chocobo Mazurka',
-                level = 73,
-                cost = 0,
-                id = 465,
-                command = '/ma "Chocobo Mazurka" <me>',
-                element = 'Wind',
-                buff_id = 219,  -- Chocobo Mazurka buff
                 combat_only = false,
             },
             {
@@ -448,16 +537,6 @@ return {
                 combat_only = false,
             },
             {
-                name = 'Dark Carol',
-                level = 50,
-                cost = 0,
-                id = 445,
-                command = '/ma "Dark Carol" <me>',
-                element = 'Light',
-                buff_id = 216,  -- Dark Carol buff
-                combat_only = false,
-            },
-            {
                 name = 'Goblin Gavotte',
                 level = 49,
                 cost = 0,
@@ -468,56 +547,6 @@ return {
                 combat_only = false,
             },
             {
-                name = 'Lightning Carol',
-                level = 48,
-                cost = 0,
-                id = 442,
-                command = '/ma "Lightning Carol" <me>',
-                element = 'Earth',
-                buff_id = 216,  -- Lightning Carol buff
-                combat_only = false,
-            },
-            {
-                name = 'Ice Carol',
-                level = 46,
-                cost = 0,
-                id = 439,
-                command = '/ma "Ice Carol" <me>',
-                element = 'Fire',
-                buff_id = 216,  -- Ice Carol buff
-                combat_only = false,
-            },
-            {
-                name = 'Fire Carol',
-                level = 44,
-                cost = 0,
-                id = 438,
-                command = '/ma "Fire Carol" <me>',
-                element = 'Water',
-                buff_id = 216,  -- Fire Carol buff
-                combat_only = false,
-            },
-            {
-                name = 'Wind Carol',
-                level = 42,
-                cost = 0,
-                id = 440,
-                command = '/ma "Wind Carol" <me>',
-                element = 'Ice',
-                buff_id = 216,  -- Wind Carol buff
-                combat_only = false,
-            },
-            {
-                name = 'Water Carol',
-                level = 40,
-                cost = 0,
-                id = 441,
-                command = '/ma "Water Carol" <me>',
-                element = 'Lightning',
-                buff_id = 216,  -- Water Carol buff
-                combat_only = false,
-            },
-            {
                 name = 'Battlefield Elegy',
                 level = 39,
                 cost = 0,
@@ -525,36 +554,6 @@ return {
                 command = '/ma "Battlefield Elegy" <me>',
                 element = 'Earth',
                 buff_id = 194,  -- Battlefield Elegy buff
-                combat_only = false,
-            },
-            {
-                name = 'Earth Carol',
-                level = 38,
-                cost = 0,
-                id = 443,
-                command = '/ma "Earth Carol" <me>',
-                element = 'Wind',
-                buff_id = 216,  -- Earth Carol buff
-                combat_only = false,
-            },
-            {
-                name = 'Raptor Mazurka',
-                level = 37,
-                cost = 0,
-                id = 467,
-                command = '/ma "Raptor Mazurka" <me>',
-                element = 'Wind',
-                buff_id = 219,  -- Raptor Mazurka buff
-                combat_only = false,
-            },
-            {
-                name = 'Light Carol',
-                level = 36,
-                cost = 0,
-                id = 444,
-                command = '/ma "Light Carol" <me>',
-                element = 'Dark',
-                buff_id = 216,  -- Light Carol buff
                 combat_only = false,
             },
             {
