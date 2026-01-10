@@ -1,0 +1,442 @@
+--[[
+    Rune Fencer job definition
+    Defines abilities, validators, and configuration for Rune Fencer automation
+    
+    Rune Fencer abilities focus on:
+    - Rune management (elemental runes)
+    - Rune buffs (Vallation, Valiance, etc.)
+    - Buffs (Swordplay, Embolden, One for All, bar spells)
+    - Nukes (Swipe, Lunge)
+    - Healing (Vivacious Pulse)
+    - Rune debuffs (Gambit, Rayke)
+]]--
+
+local common = require('lib.core.common')
+
+return {
+    job_id = 22,  -- Rune Fencer
+    job_name = 'Rune Fencer',
+    resource_type = 'mp',
+    
+    abilities = {
+        
+        -- Buffs (Swordplay, Embolden, One for All, bar spells, etc.)
+        buff = {
+            -- Protect spells
+            {
+                name = 'Protect',
+                level = 20,
+                cost = 15,
+                id = 46,
+                command = '/ma "Protect" <me>',
+                element = 'Light',
+                buff_id = 17,  -- Protect buff
+                combat_only = false,
+            },
+            {
+                name = 'Protect II',
+                level = 40,
+                cost = 21,
+                id = 47,
+                command = '/ma "Protect II" <me>',
+                element = 'Light',
+                buff_id = 40,  -- Protect II buff
+                combat_only = false,
+            },
+            {
+                name = 'Protect III',
+                level = 60,
+                cost = 27,
+                id = 129,
+                command = '/ma "Protect III" <me>',
+                element = 'Light',
+                buff_id = 41,  -- Protect III buff
+                combat_only = false,
+            },
+            -- Shell spells
+            {
+                name = 'Shell',
+                level = 10,
+                cost = 18,
+                id = 48,
+                command = '/ma "Shell" <me>',
+                element = 'Light',
+                buff_id = 18,  -- Shell buff
+                combat_only = false,
+            },
+            {
+                name = 'Shell II',
+                level = 30,
+                cost = 24,
+                id = 49,
+                command = '/ma "Shell II" <me>',
+                element = 'Light',
+                buff_id = 19,  -- Shell II buff
+                combat_only = false,
+            },
+            {
+                name = 'Shell III',
+                level = 50,
+                cost = 30,
+                id = 50,
+                command = '/ma "Shell III" <me>',
+                element = 'Light',
+                buff_id = 20,  -- Shell III buff
+                combat_only = false,
+            },
+            {
+                name = 'Shell IV',
+                level = 70,
+                cost = 36,
+                id = 52,
+                command = '/ma "Shell IV" <me>',
+                element = 'Light',
+                buff_id = 21,  -- Shell IV buff
+                combat_only = false,
+            },
+            -- Barelement
+            {
+                name = 'Barstone',
+                level = 4,
+                cost = 5,
+                id = 60,
+                command = '/ma "Barstone" <me>',
+                element = 'Wind',
+                buff_id = 102,  -- Barstone buff
+                group = 'barelement',
+                combat_only = false,
+            },
+            {
+                name = 'Barwater',
+                level = 8,
+                cost = 7,
+                id = 62,
+                command = '/ma "Barwater" <me>',
+                element = 'Thunder',
+                buff_id = 104,  -- Barwater buff
+                group = 'barelement',
+                combat_only = false,
+            },
+            {
+                name = 'Baraero',
+                level = 12,
+                cost = 10,
+                id = 65,
+                command = '/ma "Baraero" <me>',
+                element = 'Ice',
+                buff_id = 107,  -- Baraero buff
+                group = 'barelement',
+                combat_only = false,
+            },
+            {
+                name = 'Barfire',
+                level = 16,
+                cost = 11,
+                id = 66,
+                command = '/ma "Barfire" <me>',
+                element = 'Water',
+                buff_id = 108,  -- Barfire buff
+                group = 'barelement',
+                combat_only = false,
+            },
+            {
+                name = 'Barblizzard',
+                level = 20,
+                cost = 13,
+                id = 68,
+                command = '/ma "Barblizzard" <me>',
+                element = 'Fire',
+                buff_id = 110,  -- Barblizzard buff
+                group = 'barelement',
+                combat_only = false,
+            },
+            {
+                name = 'Barthunder',
+                level = 24,
+                cost = 15,
+                id = 70,
+                command = '/ma "Barthunder" <me>',
+                element = 'Earth',
+                buff_id = 112,  -- Barthunder buff
+                group = 'barelement',
+                combat_only = false,
+            },
+            -- Barstatus
+            {
+                name = 'Barsleep',
+                level = 6,
+                cost = 6,
+                id = 61,
+                command = '/ma "Barsleep" <me>',
+                element = 'Light',
+                buff_id = 103,  -- Barsleep buff
+                group = 'barstatus',
+                combat_only = false,
+            },
+            {
+                name = 'Barpoison',
+                level = 9,
+                cost = 8,
+                id = 63,
+                command = '/ma "Barpoison" <me>',
+                element = 'Thunder',
+                buff_id = 105,  -- Barpoison buff
+                group = 'barstatus',
+                combat_only = false,
+            },
+            {
+                name = 'Barparalyze',
+                level = 11,
+                cost = 9,
+                id = 64,
+                command = '/ma "Barparalyze" <me>',
+                element = 'Fire',
+                buff_id = 106,  -- Barparalyze buff
+                group = 'barstatus',
+                combat_only = false,
+            },
+            {
+                name = 'Barblind',
+                level = 17,
+                cost = 12,
+                id = 67,
+                command = '/ma "Barblind" <me>',
+                element = 'Light',
+                buff_id = 109,  -- Barblind buff
+                group = 'barstatus',
+                combat_only = false,
+            },
+            {
+                name = 'Barsilence',
+                level = 22,
+                cost = 14,
+                id = 69,
+                command = '/ma "Barsilence" <me>',
+                element = 'Ice',
+                buff_id = 111,  -- Barsilence buff
+                group = 'barstatus',
+                combat_only = false,
+            },
+            {
+                name = 'Barvirus',
+                level = 38,
+                cost = 16,
+                id = 71,
+                command = '/ma "Barvirus" <me>',
+                element = 'Water',
+                buff_id = 113,  -- Barvirus buff
+                group = 'barstatus',
+                combat_only = false,
+            },
+            {
+                name = 'Barpetrify',
+                level = 42,
+                cost = 17,
+                id = 72,
+                command = '/ma "Barpetrify" <me>',
+                element = 'Wind',
+                buff_id = 114,  -- Barpetrify buff
+                group = 'barstatus',
+                combat_only = false,
+            },
+            {
+                name = 'Baramnesia',
+                level = 63,
+                cost = 18,
+                id = 73,
+                command = '/ma "Baramnesia" <me>',
+                element = 'Water',
+                buff_id = 115,  -- Baramnesia buff
+                group = 'barstatus',
+                combat_only = false,
+            },
+            -- Regen
+            {
+                name = 'Regen',
+                level = 23,
+                cost = 15,
+                id = 108,
+                command = '/ma "Regen" <me>',
+                element = 'Light',
+                buff_id = 33,  -- Regen buff
+                combat_only = false,
+            },
+            {
+                name = 'Regen II',
+                level = 48,
+                cost = 24,
+                id = 110,
+                command = '/ma "Regen II" <me>',
+                element = 'Light',
+                buff_id = 84,  -- Regen II buff
+                combat_only = false,
+            },
+            {
+                name = 'Regen III',
+                level = 70,
+                cost = 36,
+                id = 111,
+                command = '/ma "Regen III" <me>',
+                element = 'Light',
+                buff_id = 121,  -- Regen III buff
+                combat_only = false,
+            },
+            -- Refresh
+            {
+                name = 'Refresh',
+                level = 62,
+                cost = 40,
+                id = 109,
+                command = '/ma "Refresh" <me>',
+                element = 'Light',
+                buff_id = 43,  -- Refresh buff
+                combat_only = false,
+            },
+            -- Spikes
+            {
+                name = 'Blaze Spikes',
+                level = 45,
+                cost = 16,
+                id = 34,
+                command = '/ma "Blaze Spikes" <me>',
+                element = 'Fire',
+                buff_id = 35,  -- Blaze Spikes buff
+                group = 'spikes',
+                combat_only = true,
+            },
+            {
+                name = 'Ice Spikes',
+                level = 65,
+                cost = 16,
+                id = 250,
+                command = '/ma "Ice Spikes" <me>',
+                element = 'Ice',
+                buff_id = 42,  -- Ice Spikes buff
+                group = 'spikes',
+                combat_only = true,
+            },
+            -- Everything else
+            {
+                name = 'Aquaveil',
+                level = 15,
+                cost = 14,
+                id = 55,
+                command = '/ma "Aquaveil" <me>',
+                element = 'Water',
+                buff_id = 39,  -- Aquaveil buff
+                combat_only = true,
+            },
+            {
+                name = 'Blink',
+                level = 35,
+                cost = 20,
+                id = 53,
+                command = '/ma "Blink" <me>',
+                element = 'Wind',
+                buff_id = 36,  -- Blink buff
+                combat_only = true,
+            },
+            {
+                name = 'Stoneskin',
+                level = 55,
+                cost = 29,
+                id = 54,
+                command = '/ma "Stoneskin" <me>',
+                element = 'Earth',
+                buff_id = 37,  -- Stoneskin buff
+                combat_only = false,
+            },
+            {
+                name = 'Crusade',
+                level = 56,
+                cost = 18,
+                id = 476,
+                command = '/ma "Crusade" <me>',
+                element = 'Dark',
+                buff_id = 478,  -- Crusade buff
+                combat_only = true,
+            },
+            {
+                name = 'Foil',
+                level = 58,
+                cost = 10,
+                id = 840,
+                command = '/ma "Foil" <me>',
+                element = 'Wind',
+                buff_id = 480,  -- Foil buff
+                combat_only = true,
+            },
+            {
+                name = 'Swordplay',
+                level = 20,
+                cost = 0,
+                id = 24,  -- Swordplay recast ID
+                command = '/ja "Swordplay" <me>',
+                buff_id = 475,  -- Swordplay buff
+                combat_only = false,
+            },
+            {
+                name = 'Embolden',
+                level = 60,
+                cost = 0,
+                id = 29,  -- Embolden recast ID
+                command = '/ja "Embolden" <me>',
+                buff_id = 476,  -- Embolden buff
+                combat_only = false,
+            },
+            {
+                name = 'Phalanx',
+                level = 68,
+                cost = 21,
+                id = 106,
+                command = '/ma "Phalanx" <me>',
+                element = 'Light',
+                buff_id = 116,  -- Phalanx buff
+                combat_only = true,
+            },
+            {
+                name = "One for All",
+                level = 75,
+                cost = 0,
+                id = 32,  -- One for All recast ID
+                command = '/ja "One for All" <me>',
+                buff_id = 477,  -- One for All buff
+                combat_only = false,
+            },
+        },
+        
+        -- Healing
+        heal = {
+            {
+                name = 'Vivacious Pulse',
+                level = 65,
+                cost = 0,
+                id = 30,  -- Vivacious Pulse recast ID
+                command = '/ja "Vivacious Pulse" <me>',
+                combat_only = false,
+            },
+        },
+    },
+    
+    -- Job-specific validators
+    validators = {},
+    
+    -- Default settings for UI
+    default_settings = {
+        heal_enabled = true,
+        heal_threshold = 75,
+        heal_aoe_enabled = false,  -- Rune Fencer has no AOE heal
+        heal_aoe_threshold = 70,
+        heal_aoe_count_threshold = 2,
+        wake_enabled = false,
+        buff_enabled = true,
+        focus_enabled = false,
+        focus_target_index = nil,
+    },
+    
+    -- Action priority order
+    priority_order = {
+        'heal',
+        'buff',
+    },
+}

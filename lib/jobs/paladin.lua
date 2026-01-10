@@ -1,0 +1,321 @@
+--[[
+    Paladin job definition
+    Defines abilities, validators, and configuration for Paladin automation
+    
+    Paladin abilities focus on:
+    - Healing through Cure spells
+    - Party buffs (Protect, Shell)
+    - Light-based nukes (Banish, Holy)
+    - Tanking abilities (Flash, Cover, Sentinel)
+    - Defensive abilities (Rampart, Fealty, Majesty)
+]]--
+
+local common = require('lib.core.common')
+
+return {
+    job_id = 7,  -- Paladin
+    job_name = 'Paladin',
+    resource_type = 'mp',
+    
+    abilities = {
+        -- Single-target healing
+        heal = {
+            {
+                name = 'Cure IV',
+                level = 55,
+                cost = 88,
+                id = 4,  -- Spell ID
+                command = function(party_index)
+                    return '/ma "Cure IV" <p' .. party_index .. '>'
+                end,
+                range = 20,
+                value = 400,
+                wakes = true,
+            },
+            {
+                name = 'Cure III',
+                level = 30,
+                cost = 46,
+                id = 3,  -- Spell ID
+                command = function(party_index)
+                    return '/ma "Cure III" <p' .. party_index .. '>'
+                end,
+                range = 20,
+                value = 200,
+                wakes = true,
+            },
+            {
+                name = 'Cure II',
+                level = 17,
+                cost = 24,
+                id = 2,  -- Spell ID
+                command = function(party_index)
+                    return '/ma "Cure II" <p' .. party_index .. '>'
+                end,
+                range = 20,
+                value = 90,
+                wakes = true,
+            },
+            {
+                name = 'Cure',
+                level = 5,
+                cost = 8,
+                id = 1,  -- Spell ID
+                command = function(party_index)
+                    return '/ma "Cure" <p' .. party_index .. '>'
+                end,
+                range = 20,
+                value = 30,
+                wakes = true,
+            },
+        },
+        
+        -- Buffs (Protect, Shell, and Job Abilities)
+        buff = {
+            {
+                name = 'Protect IV',
+                level = 70,
+                cost = 65,
+                id = 46,  -- Protect IV spell ID
+                command = function(party_index)
+                    return '/ma "Protect IV" <p' .. party_index .. '>'
+                end,
+                buff_id = 40,  -- Protect buff
+                range = 20,
+            },
+            {
+                name = 'Protect III',
+                level = 50,
+                cost = 46,
+                id = 45,  -- Protect III spell ID
+                command = function(party_index)
+                    return '/ma "Protect III" <p' .. party_index .. '>'
+                end,
+                buff_id = 40,  -- Protect buff
+                range = 20,
+            },
+            {
+                name = 'Protect II',
+                level = 30,
+                cost = 28,
+                id = 44,  -- Protect II spell ID
+                command = function(party_index)
+                    return '/ma "Protect II" <p' .. party_index .. '>'
+                end,
+                buff_id = 40,  -- Protect buff
+                range = 20,
+            },
+            {
+                name = 'Protect',
+                level = 10,
+                cost = 9,
+                id = 43,  -- Protect spell ID
+                command = function(party_index)
+                    return '/ma "Protect" <p' .. party_index .. '>'
+                end,
+                buff_id = 40,  -- Protect buff
+                range = 20,
+            },
+            {
+                name = 'Shell III',
+                level = 60,
+                cost = 56,
+                id = 50,  -- Shell III spell ID
+                command = function(party_index)
+                    return '/ma "Shell III" <p' .. party_index .. '>'
+                end,
+                buff_id = 41,  -- Shell buff
+                range = 20,
+            },
+            {
+                name = 'Shell II',
+                level = 40,
+                cost = 37,
+                id = 49,  -- Shell II spell ID
+                command = function(party_index)
+                    return '/ma "Shell II" <p' .. party_index .. '>'
+                end,
+                buff_id = 41,  -- Shell buff
+                range = 20,
+            },
+            {
+                name = 'Shell',
+                level = 20,
+                cost = 18,
+                id = 48,  -- Shell spell ID
+                command = function(party_index)
+                    return '/ma "Shell" <p' .. party_index .. '>'
+                end,
+                buff_id = 41,  -- Shell buff
+                range = 20,
+            },
+            {
+                name = 'Reprisal',
+                level = 61,
+                cost = 24,
+                id = 97,  -- Reprisal spell ID
+                command = '/ma "Reprisal" <me>',
+                buff_id = 403,  -- Reprisal buff
+                combat_only = true,
+            },
+            {
+                name = 'Fealty',
+                level = 75,
+                cost = 0,
+                id = 78,  -- Fealty recast ID
+                command = '/ja "Fealty" <me>',
+                buff_id = 344,  -- Fealty buff
+                combat_only = true,
+            },
+            {
+                name = 'Majesty',
+                level = 70,
+                cost = 0,
+                id = 150,  -- Majesty recast ID
+                command = '/ja "Majesty" <me>',
+                buff_id = 621,  -- Majesty buff
+                combat_only = true,
+            },
+            {
+                name = 'Rampart',
+                level = 62,
+                cost = 0,
+                id = 77,  -- Rampart recast ID
+                command = '/ja "Rampart" <me>',
+                buff_id = 623,  -- Rampart buff
+                combat_only = true,
+            },
+            {
+                name = 'Sentinel',
+                level = 30,
+                cost = 0,
+                id = 75,  -- Sentinel recast ID
+                command = '/ja "Sentinel" <me>',
+                buff_id = 74,  -- Sentinel buff
+                combat_only = true,
+            },
+            {
+                name = 'Holy Circle',
+                level = 5,
+                cost = 0,
+                id = 74,  -- Holy Circle recast ID
+                command = '/ja "Holy Circle" <me>',
+                buff_id = 117,  -- Warding Circle buff
+                combat_only = true,
+            },
+        },
+        
+        -- Counter abilities
+        counter = {
+            {
+                name = 'Shield Bash',
+                level = 15,
+                cost = 0,
+                id = 73,  -- Shield Bash recast ID
+                command = '/ja "Shield Bash" <t>',
+                range = 5,
+                combat_only = true,
+            },
+        },
+        
+        -- Tank abilities
+        tank = {
+            {
+                name = 'Flash',
+                level = 37,
+                cost = 25,
+                id = 112,  -- Flash spell ID
+                command = '/ma "Flash" <t>',
+                range = 10,
+                combat_only = true,
+            },
+        },
+        
+        -- Nukes (Light-based)
+        nuke = {
+            {
+                name = 'Holy',
+                level = 55,
+                cost = 100,
+                id = 21,  -- Holy spell ID
+                command = '/ma "Holy" <t>',
+                element = 'Light',
+                range = 20,
+                combat_only = true,
+            },
+            {
+                name = 'Banish II',
+                level = 34,
+                cost = 57,
+                id = 29,  -- Banish II spell ID
+                command = '/ma "Banish II" <t>',
+                element = 'Light',
+                range = 20,
+                combat_only = true,
+            },
+            {
+                name = 'Banishga',
+                level = 30,
+                cost = 41,
+                id = 38,  -- Banishga spell ID
+                command = '/ma "Banishga" <t>',
+                element = 'Light',
+                range = 15,
+                combat_only = true,
+            },
+            {
+                name = 'Banish',
+                level = 7,
+                cost = 15,
+                id = 28,  -- Banish spell ID
+                command = '/ma "Banish" <t>',
+                element = 'Light',
+                range = 20,
+                combat_only = true,
+            },
+        },
+        
+        -- Recover (MP recovery)
+        recover = {
+            {
+                name = 'Chivalry',
+                level = 75,
+                cost = 0,
+                id = 79,  -- Chivalry recast ID
+                command = '/ja "Chivalry" <me>',
+                combat_only = false,
+                range = 10,
+            },
+        },
+    },
+    
+    -- Job-specific validators
+    validators = {},
+    
+    -- Default settings for UI
+    default_settings = {
+        heal_enabled = true,
+        heal_threshold = 75,
+        heal_aoe_enabled = false,  -- Paladin has no AOE heal
+        heal_aoe_threshold = 70,
+        heal_aoe_count_threshold = 2,
+        wake_enabled = false,
+        buff_enabled = true,
+        debuff_removal_enabled = false,  -- Paladin has no debuff removal
+        debuff_enabled = false,  -- Paladin has no debuffs
+        counter_enabled = true,
+        tank_enabled = true,
+        focus_enabled = false,
+        focus_target_index = nil,
+    },
+    
+    -- Action priority order
+    priority_order = {
+        'tank',
+        'counter',
+        'weaponskill',
+        'heal',
+        'buff',
+        'nuke',
+    },
+}
