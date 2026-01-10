@@ -3,12 +3,8 @@
     Defines abilities, validators, and configuration for Rune Fencer automation
     
     Rune Fencer abilities focus on:
-    - Rune management (elemental runes)
-    - Rune buffs (Vallation, Valiance, etc.)
-    - Buffs (Swordplay, Embolden, One for All, bar spells)
-    - Nukes (Swipe, Lunge)
+    - Buffs (Protect, Shell, bar spells)
     - Healing (Vivacious Pulse)
-    - Rune debuffs (Gambit, Rayke)
 ]]--
 
 local common = require('lib.core.common')
@@ -20,7 +16,7 @@ return {
     
     abilities = {
         
-        -- Buffs (Swordplay, Embolden, One for All, bar spells, etc.)
+        -- Buffs (Protect, Shell, bar spells, etc.)
         buff = {
             -- Protect spells
             {
@@ -403,6 +399,7 @@ return {
                 cost = 0,
                 id = 30,  -- Vivacious Pulse recast ID
                 command = '/ja "Vivacious Pulse" <me>',
+                self_only = true,
                 combat_only = false,
             },
         },

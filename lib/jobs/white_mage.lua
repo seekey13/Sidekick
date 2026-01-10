@@ -763,5 +763,6 @@ return {
         'debuff_removal',
         'wake',
         'buff',
+        -- revive,
     },
 }

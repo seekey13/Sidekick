@@ -74,12 +74,10 @@ local function load_single_job_definition(job_id)
     -- Map job IDs to job definition files
     local job_map = {
         [3] = 'white_mage',   -- White Mage
-        [4] = 'black_mage',   -- Black Mage
         [5] = 'red_mage',     -- Red Mage
         [7] = 'paladin',      -- Paladin
         [10] = 'bard',        -- Bard
         [15] = 'summoner',    -- Summoner
-        [16] = 'blue_mage',   -- Blue Mage
         [19] = 'dancer',      -- Dancer
         [20] = 'scholar',     -- Scholar
         [21] = 'geomancer',   -- Geomancer
@@ -170,12 +168,12 @@ local function load_job_definition(main_job_id, sub_job_id)
     -- Merge priority_order: use master list order, include actions from both jobs
     -- Master priority order (defines the execution sequence)
     local master_priority = {
-        'geo',
         'aoe_heal',
         'heal',
         'debuff_removal',
         'wake',
         'recover',
+        'geo',
         'buff',
     }
     
@@ -404,12 +402,12 @@ local function automation_tick()
     
     -- Get priority order
     local priority_order = job_def.priority_order or {
-        'geo',
         'aoe_heal',
         'heal',
         'debuff_removal',
         'wake',
         'recover',
+        'geo',
         'buff',
     }
     
@@ -438,10 +436,7 @@ ashita.events.register('load', 'medic_load', function()
     common.printf('Loaded! Type /medic help for commands.')
 end)
 
-ashita.events.register('unload', 'medic_unload', function()
-    -- Unregister nuke packet handler
-    action_modules.nuke.unregister_packet_handler()
-    
+ashita.events.register('unload', 'medic_unload', function()    
     if addon_settings and job_def then
         local settings_file = 'settings_' .. (job_def.job_name or 'default'):lower() .. '.json'
         settings.save(addon_settings, settings_file)
@@ -475,12 +470,7 @@ ashita.events.register('d3d_present', 'medic_render', function()
             settings.save()
         end
         
-        -- Update roll state for UI display
-        if action_modules.roll and action_modules.roll.get_state then
-            config_ui.roll_state = action_modules.roll.get_state()
-        end
-        
-        config_ui.render(addon_settings, job_def, save_settings_callback, action_modules.roll)
+        config_ui.render(addon_settings, job_def, save_settings_callback)
     end
     
     -- Run automation tick
@@ -602,34 +592,13 @@ ashita.events.register('packet_in', 'medic_packet_in', function(e)
                 end
             end
         end
-        
-        -- Handle counter detection (enemy ability packets) - only when automation is enabled
-        -- Pass settings and job_def so counter module doesn't need global state
-        if automation_enabled and addon_settings and job_def then
-            action_modules.counter.handle_action_packet(e.data, addon_settings, job_def)
-        end
-        
-        -- Handle roll detection (roll value packets) - only when automation is enabled
-        if automation_enabled and addon_settings and job_def then
-            action_modules.roll.handle_action_packet(e.data, addon_settings, job_def)
-        end
-    end
-    
-    -- Handle packets for debuff tracking - only when automation is enabled
-    if automation_enabled then
-        if e.id == 0x028 then
-            action_modules.debuff.handle_action_packet(e)  -- Pass full packet event with .data_raw
-        elseif e.id == 0x029 then
-            -- Message packet
-            action_modules.debuff.handle_message_packet(e)  -- Pass full packet event
-        end
     end
 end)
 
 ashita.events.register('command', 'medic_command', function(e)
     local args = e.command:args()
     
-    if args[1] ~= '/medic' and args[1] ~= '/sk' then
+    if args[1] ~= '/medic' and args[1] ~= '/med' then
         return
     end
     

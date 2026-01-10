@@ -5,9 +5,6 @@
     Paladin abilities focus on:
     - Healing through Cure spells
     - Party buffs (Protect, Shell)
-    - Light-based nukes (Banish, Holy)
-    - Tanking abilities (Flash, Cover, Sentinel)
-    - Defensive abilities (Rampart, Fealty, Majesty)
 ]]--
 
 local common = require('lib.core.common')
@@ -173,9 +170,6 @@ return {
         -- },
     },
     
-    -- Job-specific validators
-    validators = {},
-    
     -- Default settings for UI
     default_settings = {
         heal_enabled = true,
@@ -186,20 +180,14 @@ return {
         wake_enabled = false,
         buff_enabled = true,
         debuff_removal_enabled = false,  -- Paladin has no debuff removal
-        debuff_enabled = false,  -- Paladin has no debuffs
-        counter_enabled = true,
-        tank_enabled = true,
         focus_enabled = false,
         focus_target_index = nil,
     },
     
     -- Action priority order
     priority_order = {
-        'tank',
-        'counter',
-        'weaponskill',
         'heal',
         'buff',
-        'nuke',
+        -- recover,
     },
 }

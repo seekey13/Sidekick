@@ -457,5 +457,6 @@ return {
         'wake',
         'recover',
         'buff',
+        -- revive,
     },
 }
