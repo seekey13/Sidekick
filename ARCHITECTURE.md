@@ -1,14 +1,14 @@
-# Sidekick Architecture
+# Medic Architecture
 
-This document provides a detailed technical overview of the Sidekick automation framework architecture.
+This document provides a technical overview of the Medic support-only addon architecture.
 
 ## Design Philosophy
 
-Sidekick follows these core principles:
+Medic follows these core principles:
 
-1. **Separation of Concerns**: Logic, data, and presentation are clearly separated
+1. **Support-Only Focus**: No combat automation, only healing, buffing, and debuff removal
 2. **Configuration over Code**: Job-specific details are data-driven, not hard-coded
-3. **Extensibility**: New jobs can be added without modifying core logic
+3. **Extensibility**: New support jobs can be added without modifying core logic
 4. **Reusability**: Common patterns are extracted into shared modules
 5. **Safety**: Multiple validation layers prevent errors and resource exhaustion
 
@@ -16,7 +16,7 @@ Sidekick follows these core principles:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                        Sidekick.lua                          │
+│                        Medic.lua                             │
 │                    (Main Addon File)                         │
 │  - Job Detection                                             │
 │  - Event Loop (d3d_present)                                  │
@@ -46,8 +46,9 @@ Sidekick follows these core principles:
     ┌───────────────────────────────────────────┐
     │         Action Modules                     │
     │        (actions/*.lua)                     │
-    │  - heal, heal_aoe, wake                   │
-    │  - debuff_removal, buff, debuff           │
+    │  - heal, heal_aoe, heal_pet               │
+    │  - wake, debuff_removal                   │
+    │  - buff, recover, geo                     │
     └──────────────┬────────────────────────────┘
                    │
                    │ uses
@@ -132,22 +133,17 @@ Provides shared utilities used across all modules.
 - `printf/debugf/errorf/warnf`: Logging with consistent formatting
 - `get_player_level/job/mp/tp`: Player state access
 - `is_idle/engaged/in_event`: Status checking
-- `has_pet`: Pet validation (for Summoner)
+- `has_pet`: Pet validation
 - `get_party_size`: Party member counting
 - `get_party_member_*`: Party member data access
 - `check_party_hp(threshold, focus, focus_target)`: Returns members needing heal
-- `get_party_buffs(member_index)`: Returns buff array for party member (via memory pointers)
+- `get_party_buffs(member_index)`: Returns buff array for party member
 - `has_buff/get_player_buffs`: Buff checking via memory pointers
 - `has_status/get_removable_debuffs`: Status effect checking
 - `is_in_range(target, range)`: Distance validation
-- `is_valid_target(target)`: Target validity checking
-
-**Constants:**
-- `STATUS.*`: Status effect IDs (SLEEP, POISON, etc.)
-- `BUFF.*`: Buff IDs (PROTECT, SHELL, HASTE, etc.)
-
-**Memory Access:**
-Uses memory pointers to read buff/status data directly from party member structures. This is more reliable than relying on chat log parsing.
+- `get_pet_distance()`: Pet distance from player (for geo)
+- `is_casting()`: Casting state detection
+- `filter_abilities_by_level()`: Shared ability filtering logic
 
 #### resource.lua
 Manages resource checking and cooldown tracking.
@@ -158,10 +154,6 @@ Manages resource checking and cooldown tracking.
 - `is_ability_ready(id)`: Check ability recast timer
 - `get_ability_recast(id)`: Get remaining recast time
 - `is_spell_ready(id)`: Check spell recast timer
-- `set_custom_recast/is_custom_recast_ready`: Manual cooldown tracking
-
-**Recast System:**
-Uses Ashita's Recast Manager to check ability/spell cooldowns. Supports custom cooldown tracking for abilities that share timers.
 
 #### automation.lua
 Priority-based action selection engine.
@@ -171,10 +163,9 @@ Priority-based action selection engine.
 - `execute_command(cmd, desc)`: Execute command and log
 - `execute_priority_actions(...)`: Main loop for action selection
 - `set_throttle(seconds)`: Configure throttle time
-- `reset_throttle()`: Force immediate execution
 
 **Throttling:**
-Enforces 1-second minimum between commands to prevent spam. Configurable but defaults to safe value.
+Enforces 1-second minimum between commands to prevent spam.
 
 **Error Handling:**
 Uses pcall to catch errors in action modules, preventing one module's failure from breaking automation.
@@ -182,30 +173,33 @@ Uses pcall to catch errors in action modules, preventing one module's failure fr
 ### Action Modules
 
 #### heal.lua
-Single-target healing logic.
+Single-target healing logic with HP deficit-based selection.
 
 **Priority Order:**
 1. Focus target (if enabled and needs healing)
 2. Lowest HP party member
 
 **Ability Selection:**
-Tries abilities from strongest to weakest, checking:
-- Resource availability (MP/TP)
-- Cooldown status
-- Range (21 yalms)
-
-**Command Building:**
-Supports both function-based and string-based commands. Functions receive party_index parameter for dynamic targeting.
+- Calculates exact HP deficit
+- Selects heal that best matches deficit to minimize overheal
+- Falls back to smallest heal if all would overheal
+- Uses strongest heal for emergency situations (low HP with unreliable data)
 
 #### heal_aoe.lua
 AOE/party-wide healing logic.
 
 **Trigger Conditions:**
 - X or more members below threshold (default: 2)
-- OR average party HP below threshold
+- Prefers AOE when multiple members need healing
 
-**Ability Selection:**
-Similar to heal.lua but for AOE abilities. Prefers AOE when multiple members need healing.
+#### heal_pet.lua
+Pet healing logic.
+
+**Functionality:**
+- Monitors pet HP percentage
+- Configurable heal threshold (default 50%)
+- Always targets `<me>` for pet healing commands
+- Priority after player healing
 
 #### wake.lua
 Sleep removal logic.
@@ -213,23 +207,14 @@ Sleep removal logic.
 **Detection Method:**
 - Scans party members 1-5 (excludes player at 0)
 - Uses `get_party_buffs(i)` to read buff arrays directly
-- Uses `is_buff_sleep(buffs)` helper to check for sleep (buff ID 2 or 19)
-- Matches BackupDancer's proven approach for reliability
+- Checks for sleep (buff ID 2 or 19)
 
 **Strategy:**
-- 0 sleeping members: Exit, no action needed
 - 1 sleeping member: Use cheapest single-target ability
-- 2+ sleeping members: Use cheapest AOE ability (more efficient)
+- 2+ sleeping members: Use cheapest AOE ability
 
 **Focus Target Support:**
-- If focus is enabled and focus target is sleeping, prioritize them for single-target wake
-
-**Ability Sources:**
-Can use dedicated wake abilities OR healing abilities marked with `wakes = true` flag.
-
-**Constants:**
-- `wake.SLEEP_BUFF_ID = 2`: Sleep buff ID
-- `wake.SLEEP_II_BUFF_ID = 19`: Sleep II buff ID
+- Prioritizes focus target for single-target wake if they are sleeping
 
 #### debuff_removal.lua
 Debuff removal (erase/cleanse) logic.
@@ -239,9 +224,7 @@ Debuff removal (erase/cleanse) logic.
 2. Party member with most debuffs
 
 **Removable Debuffs:**
-Configurable whitelist in settings:
-- Poison, Paralysis, Blindness, Silence
-- Slow, Disease, Curse
+Configurable whitelist: Poison, Paralysis, Blindness, Silence, Slow, Disease, Curse
 
 #### buff.lua
 Buff maintenance logic.
@@ -256,71 +239,28 @@ Buff maintenance logic.
 - `requires_pet`: Requires pet active
 
 **Uptime Checking:**
-Checks player buffs to avoid reapplying active buffs. Uses buff_id or custom check_buff function.
+Checks player buffs to avoid reapplying active buffs using buff_id.
 
-#### debuff.lua
-Debuff application logic (Dancer steps pattern).
+#### recover.lua
+MP and TP recovery logic.
 
-**Stacking Debuffs:**
-Tracks debuff stacks per target using packet sniffing.
+**Functionality:**
+- MP recovery: Monitors MP percentage, triggers when below threshold
+- TP recovery: Monitors TP, triggers when below threshold
+- Prioritizes MP recovery over TP recovery
 
-**Packet Handling:**
-- **0x028 (Action)**: Contains step application data
-- **0x029 (Message)**: Confirms step level
+**Abilities:**
+- Red Mage: Convert (HP/MP swap)
+- Other jobs: Various MP/TP recovery abilities
 
-**Stack Tracking:**
-```lua
-step_levels[target_id][action_id] = level
-```
+#### geo.lua
+Geomancer-specific Full Circle automation.
 
-Maintains step levels per target, per step type. Stops at max stacks (5 for Dancer steps).
-
-**Cooldown Logic:**
-After reaching max stacks, respects cooldown timer before reapplying.
-
-#### counter.lua
-Enemy ability interruption logic.
-
-**Detection Method:**
-Parses incoming text messages (text_in event) to detect enemy abilities:
-- Looks for "readies" or "ready" patterns
-- Extracts enemy name and ability name
-- Tracks timing window for interrupt
-
-**Trigger Conditions:**
-- Enemy must be current target
-- Enemy must be a monster (spawn flag 0x10)
-- Ability must be within timing window (default: 0.5s - 2.5s)
-- Optional: Ability must match filter list
-
-**Timing Windows:**
-- `counter_min_delay`: Minimum delay before attempting counter (default 0.5s)
-- `counter_max_window`: Maximum window to attempt counter (default 2.5s)
-
-**Ability Filtering:**
-- `counter_filter_enabled`: Enable ability filtering
-- `counter_filter_abilities`: List of ability names to interrupt
-- If disabled, attempts to interrupt all enemy abilities
-
-**Priority System:**
-Counter abilities can specify priority (lower = higher priority):
-```lua
-{
-    name = 'Holy II',
-    priority = 1,  -- Try first
-    cost = 93,
-    -- ...
-}
-```
-
-**Text Pattern Examples:**
-- "The goblin readies Bomb Toss."
-- "Adamantoise ready Tortoise Stomp."
-
-**Reset Conditions:**
-- Enemy completes ability (detected via "uses"/"use" text)
-- Timing window expires (>3 seconds)
-- Target changes or becomes invalid
+**Functionality:**
+- Monitors pet luopan distance in real-time
+- Configurable distance threshold (7-30 yalms, default 10)
+- Automatically executes Full Circle when pet exceeds distance
+- Requires active pet and geo abilities enabled
 
 ### Job Definitions
 
@@ -329,19 +269,16 @@ Job definitions are Lua modules that return a configuration table.
 **Structure:**
 ```lua
 return {
-    job_id = 15,              -- FFXI job ID
-    job_name = 'Summoner',    -- Display name
+    job_id = 3,               -- FFXI job ID
+    job_name = 'White Mage',  -- Display name
     resource_type = 'mp',     -- 'mp' or 'tp'
     
     abilities = {
         heal = { ... },       -- Array of abilities
         heal_aoe = { ... },
+        heal_pet = { ... },
         buff = { ... },
         -- etc.
-    },
-    
-    validators = {
-        requires_pet = function() ... end
     },
     
     default_settings = {
@@ -352,8 +289,12 @@ return {
     
     priority_order = {
         'heal_aoe',
-        'wake',
         'heal',
+        'heal_pet',
+        'debuff_removal',
+        'wake',
+        'recover',
+        'geo',
         'buff',
     }
 }
@@ -362,51 +303,21 @@ return {
 **Ability Definition:**
 ```lua
 {
-    name = 'Healing Ruby',           -- Display name
-    level = 1,                       -- Required level
-    cost = 6,                        -- MP/TP cost
-    id = 174,                        -- Recast ID (optional)
-    command = function(idx)          -- Command to execute
-        return '/pet "Healing Ruby" <p' .. idx .. '>'
+    name = 'Cure IV',                 -- Display name
+    level = 48,                       -- Required level
+    cost = 88,                        -- MP/TP cost
+    value = 400,                      -- HP restored (for deficit selection)
+    id = 0,                           -- Recast ID (optional)
+    command = function(idx)           -- Command to execute
+        return '/ma "Cure IV" <p' .. idx .. '>'
     end,
-    buff_id = 43,                    -- Buff to check (optional)
-    combat_only = false,             -- Combat requirement (optional)
-    idle_only = false,               -- Idle requirement (optional)
-    requires_pet = true,             -- Pet requirement (optional)
-    wakes = true,                    -- Can wake from sleep (optional)
-    max_stacks = 5,                  -- Max debuff stacks (optional)
-    track_stacks = true,             -- Enable stack tracking (optional)
-    action_id = 617,                 -- For packet tracking (optional)
-    check_buff = function() ... end  -- Custom buff check (optional)
+    buff_id = 43,                     -- Buff to check (optional)
+    combat_only = false,              -- Combat requirement (optional)
+    idle_only = false,                -- Idle requirement (optional)
+    requires_pet = false,             -- Pet requirement (optional)
+    wakes = true,                     -- Can wake from sleep (optional)
 }
 ```
-
-**Validators:**
-Job-specific validation functions (e.g., requires_pet for Summoner).
-
-**Priority Order:**
-Defines the order in which action types are checked. Allows job-specific customization.
-
-### Configuration UI
-
-Dynamic ImGui interface that adapts to loaded job definition.
-
-**Features:**
-- Automatically generates UI elements from job abilities
-- Displays available abilities with level requirements
-- Provides sliders for thresholds
-- Checkboxes for enable/disable toggles
-- Saves settings per job (settings_summoner.json, etc.)
-
-**Sections:**
-- General Settings (debug mode)
-- Focus Target (party member prioritization)
-- Healing (threshold, abilities list)
-- AOE Healing (threshold, count, abilities)
-- Sleep Removal
-- Debuff Removal (abilities list)
-- Buffs (abilities list with combat/idle flags)
-- Debuffs (abilities list with stack info)
 
 ## Event System
 
@@ -431,29 +342,21 @@ Optimized to minimize frame impact:
 - Efficient party/buff checking
 
 ### packet_in Event
-Fires on incoming packets. Used for step tracking (Dancer).
-
-**Handled Packets:**
-- 0x028: Action packets (step application)
-- 0x029: Message packets (step confirmation)
+Fires on incoming packets. Used for:
+- Job change detection (packets 0x1B, 0x44, 0x1A)
+- Casting state tracking (packet 0x028)
 
 ### command Event
-Fires on chat commands. Handles /sidekick commands.
-
-**Command Processing:**
-1. Parse command arguments
-2. Route to appropriate handler
-3. Block command from game (e.blocked = true)
-4. Execute action and provide feedback
+Fires on chat commands. Handles /medic commands.
 
 ## Settings System
 
 Uses Ashita's settings module for JSON persistence.
 
 **File Naming:**
+- `settings_white_mage.json`
 - `settings_summoner.json`
 - `settings_dancer.json`
-- `settings_white_mage.json`
 - etc.
 
 **Loading:**
@@ -502,31 +405,25 @@ Automation runs every frame but:
 - Efficient algorithms for party checking
 
 ### Memory Management
-- Step tracking uses weak tables (could be added)
 - Buff checking reuses arrays
 - No memory leaks in event handlers
-
-### Optimization Opportunities
-1. Cache party data across multiple action modules
-2. Add configurable tick rate (not every frame)
-3. Implement ability priority caching
-4. Add smart throttling (faster in combat, slower idle)
+- Efficient data structures
 
 ## Extensibility
 
-### Adding a New Job
+### Adding a New Support Job
 
 1. **Create job definition** (`lib/jobs/newjob.lua`)
-2. **Register in job_map** (Sidekick.lua)
+2. **Register in job_map** (Medic.lua line ~75)
 3. **Test thoroughly**
 
 No core code changes needed!
 
-### Adding a New Action Type
+### Adding a New Support Action
 
 1. **Create action module** (`lib/actions/newaction.lua`)
-2. **Add to action_modules table** (Sidekick.lua)
-3. **Add to default priority_order**
+2. **Add to action_modules table** (Medic.lua line ~29)
+3. **Add to master_priority** (Medic.lua line ~170)
 4. **Update config_ui** (optional, for UI)
 
 ### Adding a New Ability
@@ -541,101 +438,40 @@ abilities = {
 }
 ```
 
-## Security Considerations
+## Design Constraints
 
-### Memory Safety
-Memory pointer access is wrapped in safe checks:
-```lua
-if ptr == 0 then return false end
-```
+### Support-Only Focus
+- **No** combat automation
+- **No** tanking/enmity management
+- **No** magic bursting or offensive spells
+- **Only** healing, buffing, debuff removal, and basic pet management
 
-### Command Injection
-Commands are constructed from validated data:
-- Ability names from job definitions (trusted)
-- Party indices validated (0-5)
-- No user input directly in commands
+### Safety First
+- Multiple validation layers
+- Automatic resource checking
+- Cooldown tracking
+- Event/cutscene blocking
 
-### Resource Safety
-Multiple validation layers prevent:
-- Spamming abilities without resources
-- Using abilities on cooldown
-- Targeting invalid entities
+### Configuration Over Code
+- Jobs defined via configuration files
+- No hard-coded ability names in core logic
+- Easy to adjust per-job settings
 
-## Future Enhancements
+## Known Limitations
 
-### Potential Improvements
-
-1. **Alliance Support**: Extend to 18-member alliances
-2. **Smart Throttling**: Dynamic throttle based on situation
-3. **Ability Priorities**: Configure ability preferences
-4. **Conditional Logic**: More complex ability triggers
-5. **Profile System**: Multiple setting profiles per job
-6. **Action Macros**: Chain multiple abilities
-7. **Notification System**: Alert on low resources, etc.
-8. **Telemetry**: Track usage statistics
-9. **Auto-Update**: Check for new versions
-10. **Job Templates**: Quick-start configurations
-
-### Refactoring Opportunities
-
-1. **Caching Layer**: Cache party data across modules
-2. **Event Bus**: Decouple modules with event system
-3. **Dependency Injection**: More testable architecture
-4. **State Machine**: Explicit state management
-5. **Async Actions**: Support for multi-step actions
-
-## Testing Strategy
-
-See TESTING.md for comprehensive testing guide.
-
-**Key Areas:**
-1. Unit tests (manual): Each component in isolation
-2. Integration tests: End-to-end job automation
-3. Stress tests: High-load scenarios
-4. Regression tests: Verify no breaking changes
-
-## Troubleshooting
-
-### Common Issues
-
-**Addon won't load:**
-- Check Lua syntax errors
-- Verify file structure
-- Check Ashita version (v4 required)
-
-**Automation not working:**
-- Check `/sidekick status`
-- Enable debug mode
-- Verify settings in config UI
-
-**Abilities not triggering:**
-- Check resource availability (MP/TP)
-- Verify cooldowns
-- Check range (21 yalms default)
-- Ensure conditions met (combat, idle, pet)
-
-**Focus target not working:**
-- Verify party member is active
-- Check same zone
-- Enable focus in config
-- Use `/sidekick focus <0-5>`
-
-### Debug Mode
-
-Enable with `/sidekick debug` to see:
-- Action selection logic
-- Resource checking
-- Cooldown status
-- Target validation
-- Packet processing (steps)
+- Party only (no alliance support)
+- Fixed 21 yalm range for most abilities
+- Some buff IDs may vary by private server
+- Requires Ashita v4
 
 ## Conclusion
 
-Sidekick's architecture prioritizes:
+Medic's architecture prioritizes:
+- **Support-Only Focus**: Clear boundaries on what is and isn't automated
 - **Modularity**: Clear separation of concerns
-- **Extensibility**: Easy to add jobs/abilities
+- **Extensibility**: Easy to add support jobs/abilities
 - **Safety**: Multiple validation layers
 - **Performance**: Efficient algorithms
 - **Maintainability**: Clean, documented code
 
-The result is a robust, flexible automation framework that can support nearly any job through configuration rather than code changes.
+The result is a robust, focused support-only addon that can be easily extended with new support jobs and abilities through configuration rather than code changes.
