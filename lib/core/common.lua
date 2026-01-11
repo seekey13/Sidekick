@@ -1,5 +1,5 @@
 --[[
-    Common utilities for Medic automation framework
+    Common utilities for Medic
     Shared across all jobs: party management, buffs, targeting, logging
 ]]--
 

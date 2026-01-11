@@ -288,25 +288,6 @@ function config_ui.render(settings, job_def, callback, roll_mod)
             imgui.Text('Job: ' .. (job_def.job_name or 'Unknown'))
             imgui.Separator()
         end
-        
-        -- Attack Range settings (global setting for all jobs)
-        local attack_range_options = { 'Off', 'Melee', 'Ranged' }
-        local attack_range_current = settings.attack_range or 'Off'
-        local attack_range_index = { 0 }
-        
-        -- Find current index
-        for i, option in ipairs(attack_range_options) do
-            if option == attack_range_current then
-                attack_range_index[1] = i - 1
-                break
-            end
-        end
-        
-        create_combo('Attack Range', 'attack_range', attack_range_index, attack_range_options, function(i)
-            return attack_range_options[i + 1]
-        end)
-        
-        imgui.Separator()
 
         -- Focus target settings (only show if job has party healing or debuff removal abilities)
         local has_party_healing = false
