@@ -1,6 +1,6 @@
 --[[
 Medic
-Support-Only Healer Addon
+Healer Job Automation Framework
 Copyright (c) 2025 Seekey
 https://github.com/seekey13/Medic
 
@@ -12,7 +12,7 @@ Main addon file: job detection, event loop, command handler
 addon.name      = 'Medic'
 addon.author    = 'Seekey'
 addon.version   = '0.1.0'
-addon.desc      = 'Support-only healer addon for FFXI'
+addon.desc      = 'Generic job automation framework'
 addon.link      = 'https://github.com/seekey13/Medic'
 
 require('common')
@@ -58,6 +58,13 @@ local default_settings = T{
     automation_enabled = false,
     focus_enabled = false,
     focus_target_index = nil,
+    attack_range = 'Off',
+}
+
+-- Range management state
+local range_state = {
+    follow_enabled = false,  -- Track current multisend follow state
+    last_check = 0,          -- Timestamp of last range check
 }
 
 --[[
@@ -349,6 +356,46 @@ local function automation_tick()
     -- Check if casting
     if common.is_casting() then
         return
+    end
+    
+    -- Range management logic
+    if addon_settings and addon_settings.attack_range and addon_settings.attack_range ~= 'Off' then
+        local is_engaged = common.is_engaged()
+        
+        -- If not engaged, ensure follow is enabled
+        if not is_engaged and range_state.follow_enabled == false then
+            AshitaCore:GetChatManager():QueueCommand(1, '/ms follow on')
+            range_state.follow_enabled = true
+            common.debugf('[Range] Not engaged, enabling follow')
+        end
+        
+        -- If engaged, manage range to target
+        if is_engaged then
+            local target_index = common.get_target_index()
+            if target_index and target_index > 0 then
+                -- Convert setting to yalms
+                local desired_range = 0
+                if addon_settings.attack_range == 'Melee' then
+                    desired_range = 3
+                elseif addon_settings.attack_range == 'Ranged' then
+                    desired_range = 15
+                end
+                
+                local in_range = common.is_in_range(target_index, desired_range)
+                
+                if in_range and range_state.follow_enabled == true then
+                    -- Within range, disable follow
+                    AshitaCore:GetChatManager():QueueCommand(1, '/ms follow off')
+                    range_state.follow_enabled = false
+                    common.debugf('[Range] Within %d yalms, disabling follow', desired_range)
+                elseif not in_range and range_state.follow_enabled == false then
+                    -- Out of range, enable follow
+                    AshitaCore:GetChatManager():QueueCommand(1, '/ms follow on')
+                    range_state.follow_enabled = true
+                    common.debugf('[Range] Beyond %d yalms, enabling follow', desired_range)
+                end
+            end
+        end
     end
     
     -- Get player info
