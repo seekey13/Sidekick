@@ -338,28 +338,6 @@ function common.has_pet()
     return true
 end
 
-function common.has_ammo()
-    -- Access the inventory manager
-    local inv = AshitaCore:GetMemoryManager():GetInventory()
-    if not inv then
-        return false
-    end
-    
-    -- Get the equipped item in slot 3 (ammo slot)
-    local eitem = inv:GetEquippedItem(3)
-    if not eitem or eitem.Index == 0 then
-        return false
-    end
-    
-    -- Get the actual item from the container
-    local iitem = inv:GetContainerItem(bit.band(eitem.Index, 0xFF00) / 0x0100, eitem.Index % 0x0100)
-    if not iitem or iitem.Id == nil or iitem.Id == 0 or iitem.Id == -1 or iitem.Id == 65535 then
-        return false
-    end
-    
-    return true
-end
-
 -- Get pet's HP percentage
 -- Returns: number (HP percentage 0-100) or 0 if no pet
 function common.get_pet_hp_percent()
