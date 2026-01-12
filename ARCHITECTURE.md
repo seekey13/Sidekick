@@ -15,59 +15,59 @@ Medic follows these core principles:
 ## Component Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│  Medic.lua                                                  │
-│  (Main Addon File)                                          │
-│  - Job Detection                                            │
-│  - Event Loop (d3d_present)                                 │
-│  - Command Handler                                          │
-│  - Settings Management                                      │
-└────────────┬──────────────────────────────────┬─────────────┘
-             │                                  │
-             │ loads                            │ loads
-             ▼                                  ▼
-    ┌─────────────────┐              ┌──────────────────┐
-    │  Job Definition │              │   Config UI      │
-    │  (jobs/*.lua)   │              │ (config_ui.lua)  │
-    └────────┬────────┘              └──────────────────┘
-             │
-             │ provides abilities
-             ▼
-    ┌──────────────────────────────────────────┐
-    │  Automation Engine                       │
-    │  (core/automation.lua)                   │
-    │  - Priority-based action selection       │
-    │  - Command throttling                    │
-    │  - Error handling (pcall)                │
-    └──────────────┬───────────────────────────┘
+┌─────────────────────────────────────────────┐
+│  Medic.lua                                  │
+│  (Main Addon File)                          │
+│  - Job Detection                            │
+│  - Event Loop (d3d_present)                 │
+│  - Command Handler                          │
+│  - Settings Management                      │
+└──────────┬───────────────────────┬──────────┘
+           │                       │
+           │ loads                 │ loads
+           ▼                       ▼
+  ┌─────────────────┐     ┌─────────────────┐
+  │  Job Definition │     │ Config UI       │
+  │  (jobs/*.lua)   │     │ (config_ui.lua) │
+  └────────┬────────┘     └─────────────────┘
+           │
+           │ provides abilities
+           ▼
+    ┌─────────────────────────────────────┐
+    │  Automation Engine                  │
+    │  (core/automation.lua)              │
+    │  - Priority-based action selection  │
+    │  - Command throttling               │
+    │  - Error handling (pcall)           │
+    └──────────────┬──────────────────────┘
                    │
                    │ executes in order
                    ▼
-    ┌───────────────────────────────────────────┐
-    │  Action Modules                           │
-    │  (actions/*.lua)                          │
-    │  - heal, heal_aoe, heal_pet               │
-    │  - wake, debuff_removal                   │
-    │  - buff, recover, geo                     │
-    └──────────────┬────────────────────────────┘
+    ┌─────────────────────────────────────┐
+    │  Action Modules                     │
+    │  (actions/*.lua)                    │
+    │  - heal, heal_aoe, heal_pet         │
+    │  - wake, debuff_removal             │
+    │  - buff, recover, geo               │
+    └──────────────┬──────────────────────┘
                    │
                    │ uses
                    ▼
-    ┌───────────────────────────────────────────┐
-    │  Core Utilities                           │
-    │  (core/common.lua)                        │
-    │  - Party management                       │
-    │  - Buff/status checking                   │
-    │  - Target validation                      │
-    │  - Logging                                │
-    └───────────────────────────────────────────┘
+    ┌─────────────────────────────────────┐
+    │  Core Utilities                     │
+    │  (core/common.lua)                  │
+    │  - Party management                 │
+    │  - Buff/status checking             │
+    │  - Target validation                │
+    │  - Logging                          │
+    └─────────────────────────────────────┘
     
-    ┌───────────────────────────────────────────┐
-    │  Resource Management                      │
-    │  (core/resource.lua)                      │
-    │  - MP/TP checking                         │
-    │  - Cooldown tracking                      │
-    └───────────────────────────────────────────┘
+    ┌─────────────────────────────────────┐
+    │  Resource Management                │
+    │  (core/resource.lua)                │
+    │  - MP/TP checking                   │
+    │  - Cooldown tracking                │
+    └─────────────────────────────────────┘
 ```
 
 ## Data Flow
