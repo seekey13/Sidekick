@@ -16,12 +16,12 @@ Medic follows these core principles:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                        Medic.lua                             │
-│                    (Main Addon File)                         │
-│  - Job Detection                                             │
-│  - Event Loop (d3d_present)                                  │
-│  - Command Handler                                           │
-│  - Settings Management                                       │
+│  Medic.lua                                                  │
+│  (Main Addon File)                                          │
+│  - Job Detection                                            │
+│  - Event Loop (d3d_present)                                 │
+│  - Command Handler                                          │
+│  - Settings Management                                      │
 └────────────┬──────────────────────────────────┬─────────────┘
              │                                  │
              │ loads                            │ loads
@@ -34,18 +34,18 @@ Medic follows these core principles:
              │ provides abilities
              ▼
     ┌──────────────────────────────────────────┐
-    │         Automation Engine                 │
-    │       (core/automation.lua)               │
-    │  - Priority-based action selection        │
-    │  - Command throttling                     │
-    │  - Error handling (pcall)                 │
+    │  Automation Engine                       │
+    │  (core/automation.lua)                   │
+    │  - Priority-based action selection       │
+    │  - Command throttling                    │
+    │  - Error handling (pcall)                │
     └──────────────┬───────────────────────────┘
                    │
                    │ executes in order
                    ▼
     ┌───────────────────────────────────────────┐
-    │         Action Modules                     │
-    │        (actions/*.lua)                     │
+    │  Action Modules                           │
+    │  (actions/*.lua)                          │
     │  - heal, heal_aoe, heal_pet               │
     │  - wake, debuff_removal                   │
     │  - buff, recover, geo                     │
@@ -54,20 +54,20 @@ Medic follows these core principles:
                    │ uses
                    ▼
     ┌───────────────────────────────────────────┐
-    │         Core Utilities                     │
-    │         (core/common.lua)                  │
-    │  - Party management                        │
-    │  - Buff/status checking                    │
-    │  - Target validation                       │
-    │  - Logging                                 │
-    └────────────────────────────────────────────┘
+    │  Core Utilities                           │
+    │  (core/common.lua)                        │
+    │  - Party management                       │
+    │  - Buff/status checking                   │
+    │  - Target validation                      │
+    │  - Logging                                │
+    └───────────────────────────────────────────┘
     
     ┌───────────────────────────────────────────┐
-    │      Resource Management                   │
-    │       (core/resource.lua)                  │
-    │  - MP/TP checking                          │
-    │  - Cooldown tracking                       │
-    └────────────────────────────────────────────┘
+    │  Resource Management                      │
+    │  (core/resource.lua)                      │
+    │  - MP/TP checking                         │
+    │  - Cooldown tracking                      │
+    └───────────────────────────────────────────┘
 ```
 
 ## Data Flow
@@ -437,15 +437,6 @@ abilities = {
     }
 }
 ```
-
-## Design Constraints
-
-### Support-Only Focus
-- **No** combat automation
-- **No** tanking/enmity management
-- **No** magic bursting or offensive spells
-- **Only** healing, buffing, debuff removal, and basic pet management
-
 ### Safety First
 - Multiple validation layers
 - Automatic resource checking
@@ -458,20 +449,7 @@ abilities = {
 - Easy to adjust per-job settings
 
 ## Known Limitations
-
 - Party only (no alliance support)
-- Fixed 21 yalm range for most abilities
 - Some buff IDs may vary by private server
 - Requires Ashita v4
-
-## Conclusion
-
-Medic's architecture prioritizes:
-- **Support-Only Focus**: Clear boundaries on what is and isn't automated
-- **Modularity**: Clear separation of concerns
-- **Extensibility**: Easy to add support jobs/abilities
-- **Safety**: Multiple validation layers
-- **Performance**: Efficient algorithms
-- **Maintainability**: Clean, documented code
-
-The result is a robust, focused support-only addon that can be easily extended with new support jobs and abilities through configuration rather than code changes.
+- Attack Range requires [Multisend](https://github.com/ThornyFFXI/Multisend)

@@ -63,7 +63,6 @@ return {
         heal_aoe_count_threshold = 2,
         wake_enabled = true,
         buff_enabled = true,
-        debuff_removal_enabled = false,
         focus_enabled = false,
         focus_target_index = nil,
         focus_threshold = 85,
