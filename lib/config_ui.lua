@@ -207,7 +207,7 @@ local function create_combo(label, setting_name, ui_var, options, converter, wid
 end
 
 -- Render an ability checkbox with spell knowledge checking
-local function render_ability_checkbox(ability, job_def, extra_desc)
+local function render_ability_checkbox(ability, job_def, extra_desc, id_suffix)
     -- Check if this ability is being displayed for the first time
     local key = 'disabled_' .. ability.name:gsub(' ', '_')
     if current_settings and current_settings[key] == nil then
@@ -239,12 +239,18 @@ local function render_ability_checkbox(ability, job_def, extra_desc)
     
     local desc = ability.name .. ' (Lv.' .. ability.level .. ')' .. (extra_desc or '') .. spell_suffix
     
+    -- Add unique ID suffix to prevent ImGui label collisions when same ability appears in multiple sections
+    local checkbox_label = desc
+    if id_suffix then
+        checkbox_label = desc .. '##' .. id_suffix
+    end
+    
     if not has_spell then
         imgui.PushStyleColor(ImGuiCol_Text, { 0.5, 0.5, 0.5, 1.0 })  -- Gray color for unknown spells
     end
     
     local ability_enabled = { is_ability_enabled(ability.name) }
-    if imgui.Checkbox(desc, ability_enabled) then
+    if imgui.Checkbox(checkbox_label, ability_enabled) then
         toggle_ability(ability.name, ability_enabled[1], job_def)
     end
     
@@ -412,7 +418,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                 imgui.TextWrapped('(Used by both Focus Healing and Party Healing)')
                 for _, ability in ipairs(job_def.abilities.heal) do
                     if can_use_ability(ability) then
-                        render_ability_checkbox(ability, job_def)
+                        render_ability_checkbox(ability, job_def, nil, 'heal')
                     end
                 end
             end
@@ -432,7 +438,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                 imgui.Text('AOE healing abilities:')
                 for _, ability in ipairs(job_def.abilities.heal_aoe) do
                     if can_use_ability(ability) then
-                        render_ability_checkbox(ability, job_def)
+                        render_ability_checkbox(ability, job_def, nil, 'heal_aoe')
                     end
                 end
             end
@@ -450,7 +456,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                 imgui.Text('Pet healing abilities:')
                 for _, ability in ipairs(job_def.abilities.heal_pet) do
                     if can_use_ability(ability) then
-                        render_ability_checkbox(ability, job_def)
+                        render_ability_checkbox(ability, job_def, nil, 'heal_pet')
                     end
                 end
             end
@@ -487,7 +493,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                 imgui.Text('Debuff removal abilities:')
                 for _, ability in ipairs(job_def.abilities.debuff_removal) do
                     if can_use_ability(ability) then
-                        render_ability_checkbox(ability, job_def)
+                        render_ability_checkbox(ability, job_def, nil, 'debuff_removal')
                     end
                 end
             end
@@ -511,7 +517,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                     imgui.Text('MP recovery abilities:')
                     for _, ability in ipairs(job_def.abilities.recover_mp) do
                         if can_use_ability(ability) then
-                            render_ability_checkbox(ability, job_def)
+                            render_ability_checkbox(ability, job_def, nil, 'recover_mp')
                         end
                     end
                 end
@@ -527,7 +533,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                     imgui.Text('TP recovery abilities:')
                     for _, ability in ipairs(job_def.abilities.recover_tp) do
                         if can_use_ability(ability) then
-                            render_ability_checkbox(ability, job_def)
+                            render_ability_checkbox(ability, job_def, nil, 'recover_tp')
                         end
                     end
                 end
@@ -550,7 +556,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                         elseif ability.idle_only then
                             extra_desc = ' [Idle Only]'
                         end
-                        render_ability_checkbox(ability, job_def, extra_desc)
+                        render_ability_checkbox(ability, job_def, extra_desc, 'buff')
                     end
                 end
             end
@@ -569,7 +575,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                 imgui.Text('Geo abilities:')
                 for _, ability in ipairs(job_def.abilities.geo) do
                     if can_use_ability(ability) then
-                        render_ability_checkbox(ability, job_def)
+                        render_ability_checkbox(ability, job_def, nil, 'geo')
                     end
                 end
             end
