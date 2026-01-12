@@ -119,10 +119,17 @@ end
 -- Check if an ability is enabled
 local function is_ability_enabled(ability_name)
     if not current_settings then
-        return true
+        return false  -- Default to disabled if no settings
     end
     -- Check flattened key: disabled_AbilityName
     local key = 'disabled_' .. ability_name:gsub(' ', '_')
+    
+    -- If this key has never been set, it's a newly discovered ability
+    -- Default to disabled on first display
+    if current_settings[key] == nil then
+        return false
+    end
+    
     return not current_settings[key]
 end
 
@@ -201,6 +208,16 @@ end
 
 -- Render an ability checkbox with spell knowledge checking
 local function render_ability_checkbox(ability, job_def, extra_desc)
+    -- Check if this ability is being displayed for the first time
+    local key = 'disabled_' .. ability.name:gsub(' ', '_')
+    if current_settings and current_settings[key] == nil then
+        -- First time seeing this ability, set to disabled
+        current_settings[key] = true
+        if save_callback then
+            save_callback()
+        end
+    end
+    
     -- Get the command string (handle both string and function commands)
     local cmd = type(ability.command) == 'function' and ability.command(0) or ability.command
     local is_spell = cmd and string.sub(cmd, 1, 3) == '/ma'
