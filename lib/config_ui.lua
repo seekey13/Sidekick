@@ -281,13 +281,32 @@ function config_ui.render(settings, job_def, callback, roll_mod)
     
     imgui.SetNextWindowSize({400, 600}, ImGuiCond_FirstUseEver)
     
-    if imgui.Begin('Medic Configuration', is_open, ImGuiWindowFlags_NoCollapse) then
+    -- Build window title with job name if available
+    local window_title = 'Medic Configuration'
+    if job_def and job_def.job_name then
+        window_title = window_title .. ' - ' .. job_def.job_name
+    end
+    
+    if imgui.Begin(window_title, is_open, ImGuiWindowFlags_NoCollapse) then
         
-        -- Job header
-        if job_def then
-            imgui.Text('Job: ' .. (job_def.job_name or 'Unknown'))
-            imgui.Separator()
+        -- Automation toggle button
+        local button_text = settings.automation_enabled and 'Stop' or 'Start'
+        local status_text = settings.automation_enabled and 'Automation running.' or 'Automation stopped.'
+        local status_color = settings.automation_enabled and { 0.0, 1.0, 0.0, 1.0 } or { 1.0, 0.0, 0.0, 1.0 }
+        
+        -- Use fixed width for button to keep consistent size
+        if imgui.Button(button_text, { 80, 0 }) then
+            -- Toggle automation
+            AshitaCore:GetChatManager():QueueCommand(1, '/medic toggle')
         end
+        
+        -- Display status on same line
+        imgui.SameLine()
+        imgui.PushStyleColor(ImGuiCol_Text, status_color)
+        imgui.Text(status_text)
+        imgui.PopStyleColor()
+        
+        imgui.Separator()
         
         -- Attack Range settings (global setting for all jobs)
         local attack_range_options = { 'Off', 'Melee', 'Ranged' }
