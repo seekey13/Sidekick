@@ -2,6 +2,8 @@
 
 A focused, support-oriented addon for Ashita v4 that automates healing, buffing, and debuff removal for select support jobs in Final Fantasy XI.  Tuned specifically for [CatsEyeXI private server](https://www.catseyexi.com/).
 
+<img width="400" alt="image" src="https://github.com/user-attachments/assets/0c9beb07-960e-4db4-b6d3-b6ad1c2149c4" />
+
 ## ⚠️ Important: This is NOT a Full Automation Tool
 
 **Medic is a support-only addon.** It provides healing, buffing, debuff removal, and basic pet management. It does **NOT** automate:
