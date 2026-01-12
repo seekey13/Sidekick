@@ -157,8 +157,8 @@ return {
             },
         },
         
-        -- -- Recover (MP recovery)
-        -- recover = {
+        -- -- Recover (MP recovery) need to add a 3000 TP check somehow
+        -- recover_mp = {
         --     {
         --         name = 'Chivalry',
         --         level = 75,

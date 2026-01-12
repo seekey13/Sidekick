@@ -1,6 +1,6 @@
 --[[
     Resource recovery action module
-    Handles MP recovery abilities
+    Handles MP and TP recovery abilities
 ]]--
 
 local recover = {}
@@ -15,9 +15,10 @@ function recover.execute(settings, job_def, main_level, sub_level, player_resour
     end
     
     -- Get recovery abilities from job definition
-    local recover_abilities = job_def.abilities.recover or {}
+    local recover_mp_abilities = job_def.abilities.recover_mp or {}
+    local recover_tp_abilities = job_def.abilities.recover_tp or {}
     
-    if #recover_abilities == 0 and #recover_tp_abilities == 0 then
+    if #recover_mp_abilities == 0 and #recover_tp_abilities == 0 then
         return nil
     end
     
@@ -36,13 +37,13 @@ function recover.execute(settings, job_def, main_level, sub_level, player_resour
     common.debugf('[RECOVER] Current MP: %d (%.1f%%), TP: %d', current_mp, mp_percent, current_tp)
     
     -- Check MP recovery first (higher priority)
-    if #recover_abilities > 0 and settings.recover_threshold then
-        common.debugf('[RECOVER] MP threshold: %.1f%%, current: %.1f%%', settings.recover_threshold, mp_percent)
+    if #recover_mp_abilities > 0 and settings.recover_mp_threshold then
+        common.debugf('[RECOVER] MP threshold: %.1f%%, current: %.1f%%', settings.recover_mp_threshold, mp_percent)
         
-        if mp_percent < settings.recover_threshold then
+        if mp_percent < settings.recover_mp_threshold then
             -- Filter abilities by level
             local available_abilities = common.filter_abilities_by_level(
-                recover_abilities,
+                recover_mp_abilities,
                 settings,
                 main_level,
                 sub_level

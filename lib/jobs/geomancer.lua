@@ -42,7 +42,7 @@ return {
                 combat_only = false,
             },
         },
-        recover = {
+        recover_mp = {
             {
                 name = 'Radial Arcana',
                 level = 75,

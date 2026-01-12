@@ -677,7 +677,7 @@ return {
         },
 
         -- Recover
-        recover = {
+        recover_mp = {
             {
                 name = 'Sublimation',
                 level = 30,

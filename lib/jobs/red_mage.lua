@@ -408,7 +408,7 @@ return {
         },
 
         -- Recover MP
-        recover = {
+        recover_mp = {
             {
                 name = 'Convert',
                 level = 40,
