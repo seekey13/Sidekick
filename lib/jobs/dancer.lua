@@ -1,6 +1,10 @@
 --[[
     Dancer job definition
     Defines abilities, validators, and configuration for Dancer automation
+    - Healing (Curing Waltz, Divine Waltz)
+    - Debuff removal (Healing Waltz)
+    - Buffs (Drain, Aspir, Haste Samba, and Spectral Jig)
+    - TP recovery (Reverse Flourish)
 ]]--
 
 local common = require('lib.core.common')

@@ -1,15 +1,11 @@
---[=[
+--[[
     Scholar job definition
     Defines abilities, validators, and configuration for Scholar automation
-    
-    Scholar is a hybrid job that combines:
-    - Healing magic (weaker than White Mage)
-    - Enfeebling magic (debuffs)
-    - Enhancing magic (buffs)
-    - Elemental magic (nukes, weaker than Black Mage)
-    - Geomancy (storms)
-    - Dark magic (drain, aspir)
-]=]--
+    - Healing (Cure spells)
+    - Debuff removal (Poisona, Paralyna, Blindna, Silena, Cursna, Erase, Viruna, Stona)
+    - Buffs (Arts, Addendums, Sublimation, Protect, Shell, Regen, Reraise, Stoneskin, Blink, Aquaveil, Storms, Klimaform, Spikes)
+    - MP recovery (Sublimation)
+]]--
 
 local common = require('lib.core.common')
 

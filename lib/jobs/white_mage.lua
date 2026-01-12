@@ -1,6 +1,9 @@
 --[[
     White Mage job definition
     Defines abilities, validators, and configuration for White Mage automation
+    - Healing (Cure, Curaga spells)
+    - Debuff removal (Poisona, Paralyna, Blindna, Silena, Cursna, Erase, Viruna, Stona)
+    - Buffs (Auspice, Haste, Regen, Protect, Shell, bar spells, Aquaveil, Blink, Stoneskin, Reraise)
 ]]--
 
 local common = require('lib.core.common')

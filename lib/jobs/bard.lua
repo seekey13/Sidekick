@@ -1,8 +1,6 @@
 --[[
     Bard job definition
     Defines abilities, validators, and configuration for Bard automation
-    
-    Bard abilities focus on:
     - Buff songs (Minuets, Paeons, Madrigals, etc.)
 ]]--
 

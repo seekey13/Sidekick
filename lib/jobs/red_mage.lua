@@ -1,12 +1,9 @@
 --[[
     Red Mage job definition
     Defines abilities, validators, and configuration for Red Mage automation
-    
-    Red Mage is a hybrid job that combines:
-    - Healing magic (weaker than White Mage)
-    - Enfeebling magic (debuffs)
-    - Enhancing magic (buffs)
-    - Elemental magic (nukes, weaker than Black Mage)
+    - Healing (Cure spells)
+    - Buffs (Haste, Refresh, Regen, Protect, Shell, Phalanx, Aquaveil, Blink, Stoneskin, Enspells)
+    - MP recovery (Convert)
 ]]--
 
 local common = require('lib.core.common')

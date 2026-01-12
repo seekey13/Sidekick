@@ -1,9 +1,7 @@
 --[[
     Rune Fencer job definition
     Defines abilities, validators, and configuration for Rune Fencer automation
-    
-    Rune Fencer abilities focus on:
-    - Buffs (Protect, Shell, bar spells)
+    - Buffs (Protect, Shell, bar spells, Regen, Refresh, Spikes, Aquaveil, Blink, Stoneskin, Foil, Phalanx, job abilities)
     - Healing (Vivacious Pulse)
 ]]--
 

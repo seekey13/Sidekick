@@ -1,6 +1,9 @@
 --[[
     Summoner job definition
     Defines abilities, validators, and configuration for Summoner automation
+    - Healing (Healing Ruby via Carbuncle)
+    - AOE healing (Healing Ruby II via Carbuncle)
+    - Buffs (Shining Ruby via Carbuncle)
 ]]--
 
 local common = require('lib.core.common')

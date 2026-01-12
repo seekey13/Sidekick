@@ -1,7 +1,11 @@
 --[[
     Geomancer job definition
     Defines abilities, validators, and configuration for Geomancer automation
-    Abilities and spells are based on job ability and magic lists provided.
+    - Geo positioning (Full Circle)
+    - Pet healing (Life Cycle)
+    - AOE healing (Mending Halation)
+    - MP recovery (Radial Arcana)
+    - Buffs (Indi and Geo spells)
 ]]--
 
 local common = require('lib.core.common')

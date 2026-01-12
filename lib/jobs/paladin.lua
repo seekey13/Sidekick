@@ -1,8 +1,6 @@
 --[[
     Paladin job definition
     Defines abilities, validators, and configuration for Paladin automation
-    
-    Paladin abilities focus on:
     - Healing through Cure spells
     - Party buffs (Protect, Shell)
 ]]--
