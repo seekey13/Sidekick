@@ -257,10 +257,6 @@ Settings are saved per job in JSON format in the Ashita config directory:
 - Some buff IDs may vary by private server
 - Requires Ashita v4
 
-## Credits
-
-Originally based on automation patterns from CyberSkunk and BackupDancer, refactored into a focused support-only addon.
-
 ## License
 
 See LICENSE file for details.

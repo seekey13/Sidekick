@@ -23,6 +23,22 @@ local casting_state = {
     cast_timeout = 10.0,  -- Maximum time for a cast (seconds)
 }
 
+-- Helper function for distance calculation
+local function calculate_distance(entity1, entity2)
+    local ok_calc, distance = pcall(function()
+        local dx = entity1.Movement.LocalPosition.X - entity2.Movement.LocalPosition.X
+        local dy = entity1.Movement.LocalPosition.Y - entity2.Movement.LocalPosition.Y
+        local dz = entity1.Movement.LocalPosition.Z - entity2.Movement.LocalPosition.Z
+        return math.sqrt(dx * dx + dy * dy + dz * dz)
+    end)
+    
+    if not ok_calc or not distance then
+        return nil
+    end
+    
+    return distance
+end
+
 --[[
     Logging Utilities
 ]]--
@@ -338,28 +354,6 @@ function common.has_pet()
     return true
 end
 
-function common.has_ammo()
-    -- Access the inventory manager
-    local inv = AshitaCore:GetMemoryManager():GetInventory()
-    if not inv then
-        return false
-    end
-    
-    -- Get the equipped item in slot 3 (ammo slot)
-    local eitem = inv:GetEquippedItem(3)
-    if not eitem or eitem.Index == 0 then
-        return false
-    end
-    
-    -- Get the actual item from the container
-    local iitem = inv:GetContainerItem(bit.band(eitem.Index, 0xFF00) / 0x0100, eitem.Index % 0x0100)
-    if not iitem or iitem.Id == nil or iitem.Id == 0 or iitem.Id == -1 or iitem.Id == 65535 then
-        return false
-    end
-    
-    return true
-end
-
 -- Get pet's HP percentage
 -- Returns: number (HP percentage 0-100) or 0 if no pet
 function common.get_pet_hp_percent()
@@ -402,7 +396,7 @@ function common.get_pet_hp_percent()
     return hpp
 end
 
--- Get entity by index (matching BackupDancer pattern)
+-- Get entity by index
 -- Args: entity_index (number) - Entity index (0 = player)
 -- Returns: entity object or nil on error
 function common.get_entity(entity_index)
@@ -576,7 +570,7 @@ function common.is_in_range(target_index, range)
     -- Ensure range is a number
     local range_value = type(range) == 'number' and range or 21
     
-    -- Get both entities using BackupDancer pattern
+    -- Get both entities
     local player_entity = common.get_entity(0)
     if not player_entity then
         return false
@@ -588,18 +582,8 @@ function common.is_in_range(target_index, range)
     end
     
     -- Calculate distance between player and target
-    local ok_calc, distance = pcall(function()
-        local dx = player_entity.Movement.LocalPosition.X - target_entity.Movement.LocalPosition.X
-        local dy = player_entity.Movement.LocalPosition.Y - target_entity.Movement.LocalPosition.Y
-        local dz = player_entity.Movement.LocalPosition.Z - target_entity.Movement.LocalPosition.Z
-        return math.sqrt(dx * dx + dy * dy + dz * dz)
-    end)
-    
-    if not ok_calc or not distance then
-        return false
-    end
-    
-    return distance <= range_value
+    local distance = calculate_distance(player_entity, target_entity)
+    return distance and distance <= range_value
 end
 
 -- Get distance between player and pet
@@ -627,18 +611,7 @@ function common.get_pet_distance()
     end
     
     -- Calculate distance between player and pet
-    local ok_calc, distance = pcall(function()
-        local dx = player_entity.Movement.LocalPosition.X - pet_entity.Movement.LocalPosition.X
-        local dy = player_entity.Movement.LocalPosition.Y - pet_entity.Movement.LocalPosition.Y
-        local dz = player_entity.Movement.LocalPosition.Z - pet_entity.Movement.LocalPosition.Z
-        return math.sqrt(dx * dx + dy * dy + dz * dz)
-    end)
-    
-    if not ok_calc or not distance then
-        return nil
-    end
-    
-    return distance
+    return calculate_distance(player_entity, pet_entity)
 end
 
 --[[
