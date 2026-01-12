@@ -12,7 +12,7 @@ A focused, support-oriented addon for Ashita v4 that automates healing, buffing,
 - Movement/positioning
 - Full job automation
 
-## Version 0.1.0 - Initial Support Release
+## Version 1.0.0 - Initial Support Release
 
 This is the first official release.
 
@@ -76,7 +76,6 @@ Currently implemented support jobs:
 - **Rune Fencer** (RUN)
   - AOE healing with job abilities (Vivacious Pulse)
   - Buff with enhancing magic (Protect I-III, Shell I-IV, Regen I-III, Refresh, Barfire, Barblizzard, Baraero, Barstone, Barthunder, Barwater, etc.)
-  - Buff with job abilities (Ignis, Gelus, Flabra, Tellus, Sulpor, Unda, Lux, Tenebrae, Vallation, Valiance, Pflug, Battuta, Liement)
 
 - **Scholar** (SCH)
   - Single-target healing with white magic (Cure I-IV)
