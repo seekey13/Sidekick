@@ -211,7 +211,7 @@ Settings are saved per job in JSON format in the Ashita config directory:
 - No combat automation
 - No tanking/enmity management
 - No magic bursting or offensive spells
-- Only healing, buffing, debuff removal, and basic pet management
+- Only healing, buffing, debuff removal, recovering, and basic Geo pet management
 
 ### Configuration Over Code
 - Jobs defined via configuration files
@@ -229,31 +229,10 @@ Settings are saved per job in JSON format in the Ashita config directory:
 - 1-second command throttle to prevent spam
 - Early returns for disabled states
 
-## Troubleshooting
-
-### Automation Not Working
-
-1. Check if automation is enabled: `/medic status`
-2. Enable debug mode: `/medic debug`
-3. Verify settings in config UI: `/medic config`
-
-### Abilities Not Triggering
-
-1. Check level requirements in job definition
-2. Verify resource availability (MP/TP)
-3. Check cooldowns with debug mode
-4. Ensure thresholds are set appropriately
-
-### Focus Target Not Working
-
-1. Verify party member is active: `/medic focus <index>`
-2. Check if member is in same zone
-3. Enable focus in config UI
-4. Use debug mode to see target selection
-
 ## Known Limitations
 
 - Party only (no alliance support)
+- Buffing limited to Self targeting
 - Some buff IDs may vary by private server
 - Requires Ashita v4
 
