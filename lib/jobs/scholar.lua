@@ -38,6 +38,7 @@ return {
                 command = '/ja "Addendum: White" <me>',
                 group = 'addendum',
                 buff_id = 401,
+                requires_buff = 358,  -- Requires Light Arts
             },
             {
                 name = 'Dark Arts',
@@ -55,7 +56,8 @@ return {
                 id = 235,  -- Job ability ID
                 command = '/ja "Addendum: Black" <me>',
                 group = 'addendum',
-                buff_id = 402,
+                buff_id = 402,                
+                requires_buff = 402,  -- Requires Dark Arts                    
             },
             {
                 name = 'Sublimation',

@@ -182,6 +182,8 @@ return {
         debuff_removal_enabled = false,  -- Paladin has no debuff removal
         focus_enabled = false,
         focus_target_index = nil,
+        -- recover_enabled = false,
+        -- recover_threshold = 25,
     },
     
     -- Action priority order

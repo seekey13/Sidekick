@@ -24,7 +24,9 @@ return {
                 level = 20,
                 cost = 15,
                 id = 46,
-                command = '/ma "Protect" <me>',
+                command = function(party_index)
+                    return '/ma "Protect" <p' .. party_index .. '>'
+                end,
                 element = 'Light',
                 buff_id = 17,  -- Protect buff
                 combat_only = false,
@@ -34,7 +36,9 @@ return {
                 level = 40,
                 cost = 21,
                 id = 47,
-                command = '/ma "Protect II" <me>',
+                command = function(party_index)
+                    return '/ma "Protect II" <p' .. party_index .. '>'
+                end,
                 element = 'Light',
                 buff_id = 40,  -- Protect II buff
                 combat_only = false,
@@ -44,7 +48,9 @@ return {
                 level = 60,
                 cost = 27,
                 id = 129,
-                command = '/ma "Protect III" <me>',
+                command = function(party_index)
+                    return '/ma "Protect III" <p' .. party_index .. '>'
+                end,
                 element = 'Light',
                 buff_id = 41,  -- Protect III buff
                 combat_only = false,
@@ -55,7 +61,9 @@ return {
                 level = 10,
                 cost = 18,
                 id = 48,
-                command = '/ma "Shell" <me>',
+                command = function(party_index)
+                    return '/ma "Shell" <p' .. party_index .. '>'
+                end,
                 element = 'Light',
                 buff_id = 18,  -- Shell buff
                 combat_only = false,
@@ -65,7 +73,9 @@ return {
                 level = 30,
                 cost = 24,
                 id = 49,
-                command = '/ma "Shell II" <me>',
+                command = function(party_index)
+                    return '/ma "Shell II" <p' .. party_index .. '>'
+                end,
                 element = 'Light',
                 buff_id = 19,  -- Shell II buff
                 combat_only = false,
@@ -75,7 +85,9 @@ return {
                 level = 50,
                 cost = 30,
                 id = 50,
-                command = '/ma "Shell III" <me>',
+                command = function(party_index)
+                    return '/ma "Shell III" <p' .. party_index .. '>'
+                end,
                 element = 'Light',
                 buff_id = 20,  -- Shell III buff
                 combat_only = false,
@@ -85,7 +97,9 @@ return {
                 level = 70,
                 cost = 36,
                 id = 52,
-                command = '/ma "Shell IV" <me>',
+                command = function(party_index)
+                    return '/ma "Shell IV" <p' .. party_index .. '>'
+                end,
                 element = 'Light',
                 buff_id = 21,  -- Shell IV buff
                 combat_only = false,
@@ -96,7 +110,9 @@ return {
                 level = 4,
                 cost = 5,
                 id = 60,
-                command = '/ma "Barstone" <me>',
+                command = function(party_index)
+                    return '/ma "Barstone" <' .. party_index .. '>'
+                end,
                 element = 'Wind',
                 buff_id = 102,  -- Barstone buff
                 group = 'barelement',
@@ -107,7 +123,9 @@ return {
                 level = 8,
                 cost = 7,
                 id = 62,
-                command = '/ma "Barwater" <me>',
+                command = function(party_index)
+                    return '/ma "Barwater" <' .. party_index .. '>'
+                end,
                 element = 'Thunder',
                 buff_id = 104,  -- Barwater buff
                 group = 'barelement',
@@ -118,7 +136,9 @@ return {
                 level = 12,
                 cost = 10,
                 id = 65,
-                command = '/ma "Baraero" <me>',
+                command = function(party_index)
+                    return '/ma "Baraero" <' .. party_index .. '>'
+                end,
                 element = 'Ice',
                 buff_id = 107,  -- Baraero buff
                 group = 'barelement',
@@ -129,7 +149,9 @@ return {
                 level = 16,
                 cost = 11,
                 id = 66,
-                command = '/ma "Barfire" <me>',
+                command = function(party_index)
+                    return '/ma "Barfire" <' .. party_index .. '>'
+                end,
                 element = 'Water',
                 buff_id = 108,  -- Barfire buff
                 group = 'barelement',
@@ -140,7 +162,9 @@ return {
                 level = 20,
                 cost = 13,
                 id = 68,
-                command = '/ma "Barblizzard" <me>',
+                command = function(party_index)
+                    return '/ma "Barblizzard" <' .. party_index .. '>'
+                end,
                 element = 'Fire',
                 buff_id = 110,  -- Barblizzard buff
                 group = 'barelement',
@@ -151,7 +175,9 @@ return {
                 level = 24,
                 cost = 15,
                 id = 70,
-                command = '/ma "Barthunder" <me>',
+                command = function(party_index)
+                    return '/ma "Barthunder" <' .. party_index .. '>'
+                end,
                 element = 'Earth',
                 buff_id = 112,  -- Barthunder buff
                 group = 'barelement',
@@ -163,7 +189,9 @@ return {
                 level = 6,
                 cost = 6,
                 id = 61,
-                command = '/ma "Barsleep" <me>',
+                command = function(party_index)
+                    return '/ma "Barsleep" <' .. party_index .. '>'
+                end,
                 element = 'Light',
                 buff_id = 103,  -- Barsleep buff
                 group = 'barstatus',
@@ -174,7 +202,9 @@ return {
                 level = 9,
                 cost = 8,
                 id = 63,
-                command = '/ma "Barpoison" <me>',
+                command = function(party_index)
+                    return '/ma "Barpoison" <' .. party_index .. '>'
+                end,
                 element = 'Thunder',
                 buff_id = 105,  -- Barpoison buff
                 group = 'barstatus',
@@ -185,7 +215,9 @@ return {
                 level = 11,
                 cost = 9,
                 id = 64,
-                command = '/ma "Barparalyze" <me>',
+                command = function(party_index)
+                    return '/ma "Barparalyze" <' .. party_index .. '>'
+                end,
                 element = 'Fire',
                 buff_id = 106,  -- Barparalyze buff
                 group = 'barstatus',
@@ -196,7 +228,9 @@ return {
                 level = 17,
                 cost = 12,
                 id = 67,
-                command = '/ma "Barblind" <me>',
+                command = function(party_index)
+                    return '/ma "Barblind" <' .. party_index .. '>'
+                end,
                 element = 'Light',
                 buff_id = 109,  -- Barblind buff
                 group = 'barstatus',
@@ -207,7 +241,9 @@ return {
                 level = 22,
                 cost = 14,
                 id = 69,
-                command = '/ma "Barsilence" <me>',
+                command = function(party_index)
+                    return '/ma "Barsilence" <' .. party_index .. '>'
+                end,
                 element = 'Ice',
                 buff_id = 111,  -- Barsilence buff
                 group = 'barstatus',
@@ -218,7 +254,9 @@ return {
                 level = 38,
                 cost = 16,
                 id = 71,
-                command = '/ma "Barvirus" <me>',
+                command = function(party_index)
+                    return '/ma "Barvirus" <' .. party_index .. '>'
+                end,
                 element = 'Water',
                 buff_id = 113,  -- Barvirus buff
                 group = 'barstatus',
@@ -229,7 +267,9 @@ return {
                 level = 42,
                 cost = 17,
                 id = 72,
-                command = '/ma "Barpetrify" <me>',
+                command = function(party_index)
+                    return '/ma "Barpetrify" <' .. party_index .. '>'
+                end,
                 element = 'Wind',
                 buff_id = 114,  -- Barpetrify buff
                 group = 'barstatus',
@@ -240,7 +280,9 @@ return {
                 level = 63,
                 cost = 18,
                 id = 73,
-                command = '/ma "Baramnesia" <me>',
+                command = function(party_index)
+                    return '/ma "Baramnesia" <' .. party_index .. '>'
+                end,
                 element = 'Water',
                 buff_id = 115,  -- Baramnesia buff
                 group = 'barstatus',
@@ -379,6 +421,7 @@ return {
                 element = 'Light',
                 buff_id = 116,  -- Phalanx buff
                 combat_only = true,
+                self_only = true,
             },
             {
                 name = "One for All",

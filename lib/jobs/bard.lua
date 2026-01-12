@@ -434,6 +434,7 @@ return {
                 element = 'Wind',
                 buff_id = 219,  -- Chocobo Mazurka buff
                 combat_only = false,
+                idle_only = true,
             },
             {
                 name = 'Raptor Mazurka',
@@ -444,6 +445,7 @@ return {
                 element = 'Wind',
                 buff_id = 219,  -- Raptor Mazurka buff
                 combat_only = false,
+                idle_only = true,
             },
             -- Others
             {
