@@ -1,5 +1,5 @@
 --[[
-⛑ Medic - Support Job Automation Framework
+Medic - Support Job Automation Framework
 Copyright (c) 2025 Seekey
 https://github.com/seekey13/Medic
 

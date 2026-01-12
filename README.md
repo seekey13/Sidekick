@@ -1,6 +1,6 @@
-# **⛑ Medic** - Support Job Automation Framework
+# **Medic** - Support Job Automation Framework
 
-A focused, support-oriented addon for Ashita v4 that automates healing, buffing, and debuff removal for select support jobs in Final Fantasy XI.
+A focused, support-oriented addon for Ashita v4 that automates healing, buffing, and debuff removal for select support jobs in Final Fantasy XI.  Tuned specifically for [CatsEyeXI private server](https://www.catseyexi.com/).
 
 ## ⚠️ Important: This is NOT a Full Automation Tool
 
