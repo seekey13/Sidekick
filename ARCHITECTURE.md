@@ -48,7 +48,8 @@ Medic follows these core principles:
     │  (actions/*.lua)                    │
     │  - heal, heal_aoe, heal_pet         │
     │  - wake, debuff_removal             │
-    │  - buff, recover, geo               │
+    │  - buff, geo                        │
+    │  - recover (recover_mp, recover_tp) │
     └──────────────┬──────────────────────┘
                    │
                    │ uses
@@ -224,22 +225,28 @@ Debuff removal (erase/cleanse) logic.
 2. Party member with most debuffs
 
 **Removable Debuffs:**
-Configurable whitelist: Poison, Paralysis, Blindness, Silence, Slow, Disease, Curse
+Checks for various debuff IDs (Poison, Paralysis, Blindness, Silence, Slow, Disease, Curse, etc.)
+
+**Ability Matching:**
+Matches debuff removal abilities with specific debuff IDs they can cure.
 
 #### buff.lua
 Buff maintenance logic.
 
 **Buff Types:**
 - Self buffs (apply to player)
-- Party buffs (apply to party)
+- Party buffs (apply to party members)
 
 **Conditions:**
 - `combat_only`: Only use in combat
 - `idle_only`: Only use when idle
 - `requires_pet`: Requires pet active
+- `requires_buff`: Requires specific buff prerequisite(s)
+- `group`: Groups mutually exclusive buffs (e.g., 'arts', 'storm', 'spikes')
+- `self_only`: Only applies to self
 
 **Uptime Checking:**
-Checks player buffs to avoid reapplying active buffs using buff_id.
+Checks player/party buffs to avoid reapplying active buffs using buff_id.
 
 #### recover.lua
 MP and TP recovery logic.
@@ -250,8 +257,10 @@ MP and TP recovery logic.
 - Prioritizes MP recovery over TP recovery
 
 **Abilities:**
-- Red Mage: Convert (HP/MP swap)
-- Other jobs: Various MP/TP recovery abilities
+- Uses `recover_mp` abilities from job definition for MP recovery
+- Uses `recover_tp` abilities from job definition for TP recovery
+- Checks `requires_buff` prerequisite for abilities that need specific buffs active
+- Supports `combat_only` and `idle_only` flags for conditional usage
 
 #### geo.lua
 Geomancer-specific Full Circle automation.
@@ -278,6 +287,11 @@ return {
         heal_aoe = { ... },
         heal_pet = { ... },
         buff = { ... },
+        debuff_removal = { ... },
+        wake = { ... },
+        recover_mp = { ... },
+        recover_tp = { ... },
+        geo = { ... },
         -- etc.
     },
     
@@ -308,14 +322,20 @@ return {
     cost = 88,                        -- MP/TP cost
     value = 400,                      -- HP restored (for deficit selection)
     id = 0,                           -- Recast ID (optional)
-    command = function(idx)           -- Command to execute
+    command = function(idx)           -- Command to execute (function or string)
         return '/ma "Cure IV" <p' .. idx .. '>'
     end,
-    buff_id = 43,                     -- Buff to check (optional)
+    buff_id = 43,                     -- Buff to check (optional, single or array)
+    debuff_id = 3,                    -- Debuff to remove (optional, single or array)
     combat_only = false,              -- Combat requirement (optional)
     idle_only = false,                -- Idle requirement (optional)
     requires_pet = false,             -- Pet requirement (optional)
+    requires_buff = 401,              -- Buff prerequisite (optional, single or array)
+    group = 'regen',                  -- Mutually exclusive group (optional)
+    self_only = false,                -- Self-only ability (optional)
     wakes = true,                     -- Can wake from sleep (optional)
+    range = 20,                       -- Ability range in yalms (optional)
+    pet_required = false,             -- Requires active pet (optional)
 }
 ```
 
