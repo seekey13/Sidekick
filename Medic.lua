@@ -1,6 +1,5 @@
 --[[
-Medic
-Healer Job Automation Framework
+Medic - Support Job Automation Framework
 Copyright (c) 2025 Seekey
 https://github.com/seekey13/Medic
 
@@ -11,7 +10,7 @@ Main addon file: job detection, event loop, command handler
 
 addon.name      = 'Medic'
 addon.author    = 'Seekey'
-addon.version   = '0.1.0'
+addon.version   = '1.0.0'
 addon.desc      = 'Generic job automation framework'
 addon.link      = 'https://github.com/seekey13/Medic'
 
