@@ -1,5 +1,5 @@
 --[[
-    Resource management for Medic automation framework
+    Resource management for Medic
     Handles MP/TP checking and cooldown tracking
 ]]--
 

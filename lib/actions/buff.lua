@@ -59,6 +59,31 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource)
             end
         end
         
+        -- Check required buff prerequisite
+        if not should_skip and ability.requires_buff then
+            local has_required_buff = false
+            local required_buff_ids = {}
+            
+            -- Handle both single buff_id and array of buff_ids
+            if type(ability.requires_buff) == 'table' then
+                required_buff_ids = ability.requires_buff
+            else
+                required_buff_ids = {ability.requires_buff}
+            end
+            
+            -- Check if player has any of the required buffs
+            for _, required_buff in ipairs(required_buff_ids) do
+                if common.has_buff(0, required_buff) then
+                    has_required_buff = true
+                    break
+                end
+            end
+            
+            if not has_required_buff then
+                should_skip = true
+            end
+        end
+        
         if not should_skip then
             -- Check if buff is already active
             local needs_buff = false

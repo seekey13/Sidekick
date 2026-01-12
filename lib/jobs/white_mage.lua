@@ -519,6 +519,7 @@ return {
                 command = '/ma "Enlight" <me>',
                 buff_id = 274,  -- Enlight
                 combat_only = true,
+                self_only = true,
             },
             -- Bar Element spells
             {

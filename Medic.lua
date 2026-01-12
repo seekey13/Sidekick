@@ -29,6 +29,7 @@ local automation = require('lib.core.automation')
 local action_modules = {
     heal = require('lib.actions.heal'),
     heal_aoe = require('lib.actions.heal_aoe'),
+    heal_pet = require('lib.actions.heal_pet'),
     wake = require('lib.actions.wake'),
     debuff_removal = require('lib.actions.debuff_removal'),
     buff = require('lib.actions.buff'),
@@ -168,8 +169,9 @@ local function load_job_definition(main_job_id, sub_job_id)
     -- Merge priority_order: use master list order, include actions from both jobs
     -- Master priority order (defines the execution sequence)
     local master_priority = {
-        'aoe_heal',
+        'heal_aoe',
         'heal',
+        'heal_pet',
         'debuff_removal',
         'wake',
         'recover',
@@ -402,8 +404,9 @@ local function automation_tick()
     
     -- Get priority order
     local priority_order = job_def.priority_order or {
-        'aoe_heal',
+        'heal_aoe',
         'heal',
+        'heal_pet',
         'debuff_removal',
         'wake',
         'recover',

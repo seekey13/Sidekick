@@ -38,6 +38,7 @@ return {
                 command = '/ja "Addendum: White" <me>',
                 group = 'addendum',
                 buff_id = 401,
+                requires_buff = 358,  -- Requires Light Arts
             },
             {
                 name = 'Dark Arts',
@@ -55,7 +56,8 @@ return {
                 id = 235,  -- Job ability ID
                 command = '/ja "Addendum: Black" <me>',
                 group = 'addendum',
-                buff_id = 402,
+                buff_id = 402,                
+                requires_buff = 359,  -- Requires Dark Arts
             },
             {
                 name = 'Sublimation',
@@ -64,7 +66,6 @@ return {
                 id = 234,  -- Job ability ID
                 command = '/ja "Sublimation" <me>',
                 buff_id = {187, 188},  -- Can be either 187 (activated) or 188 (complete)
-                complete_buff_id = 188,
             },
             -- {
             --     name = 'Equanimity',
@@ -315,7 +316,7 @@ return {
                 range = 20,
                 buff_id = 113,
                 group = 'reraise',
-                addendum = 'Addendum: White',
+                requires_buff = 401,  -- Requires Addendum: White
             },
             {
                 name = 'Reraise',
@@ -328,7 +329,7 @@ return {
                 range = 20,
                 buff_id = 113,
                 group = 'reraise',
-                addendum = 'Addendum: White',
+                requires_buff = 401,  -- Requires Addendum: White
             },
             -- Other buffs
             {
@@ -570,6 +571,7 @@ return {
                 id = 234,  -- Job ability ID
                 command = '/ja "Sublimation" <me>',
                 combat_only = false,
+                requires_buff = 188,  -- Requires Sublimation: Complete
             },
         },
 
@@ -585,7 +587,7 @@ return {
         --         end,
         --         range = 20,
         --         wakes = true,
-        --         addendum = 'Addendum: White',
+        --         requires_buff = 401,  -- Requires Addendum: White
         --     },
         --     {
         --         name = 'Raise',
@@ -597,6 +599,7 @@ return {
         --         end,
         --         range = 20,
         --         wakes = true,
+        --         requires_buff = 401,  -- Requires Addendum: White
         --     },
         -- },
     },

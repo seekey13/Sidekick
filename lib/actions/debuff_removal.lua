@@ -1,7 +1,6 @@
 --[[
     Debuff removal (erase/cleanse) action module
     Handles detecting and removing removable debuffs from party members
-    Based on BackupDancer's erase.lua logic
 ]]--
 
 local debuff_removal = {}

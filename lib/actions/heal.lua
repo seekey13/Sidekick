@@ -205,7 +205,7 @@ function heal.select_ability(abilities, target_hpp, resource_type, player_resour
                             is_ready = resource.is_ability_ready(ability.id)
                         end
                         if is_ready then
-                            common.debugf('[HEAL] ✓ Summoner: Using Healing Ruby (has pet, resources available)')
+                            common.debugf('[HEAL] Using Healing Ruby (has pet, resources available)')
                             return ability
                         else
                             common.debugf('[HEAL] ⚠ Summoner: Healing Ruby on cooldown, using fallback')
@@ -350,7 +350,7 @@ function heal.select_ability(abilities, target_hpp, resource_type, player_resour
         return best_ability
     else
         -- Fallback: no HP deficit info, use first available (already sorted by cost descending)
-        common.debugf('[HEAL] ℹ No HP deficit info available, using first available heal: %s (cost: %d)', 
+        common.debugf('[HEAL] ⚠ No HP deficit info available, using first available heal: %s (cost: %d)', 
             usable_abilities[1].name, usable_abilities[1].cost or 0)
         return usable_abilities[1]
     end
