@@ -164,20 +164,20 @@ return {
             },
         },
 
-        -- -- Recover
-        -- recover_tp = {
-        --     {
-        --         name = 'Reverse Flourish',
-        --         level = 40,
-        --         cost = 5,
-        --         id = 222,
-        --         command = '/ja "Reverse Flourish" <me>',
-        --         wakes = false,
-        --         combat_only = true,
-        --         value = 600,
-        --         requires_buff = 385,  -- Requires (5) Finishing Moves
-        --     },
-        -- },
+        -- Recover
+        recover_tp = {
+            {
+                name = 'Reverse Flourish',
+                level = 40,
+                cost = 5,
+                id = 222,
+                command = '/ja "Reverse Flourish" <me>',
+                wakes = false,
+                combat_only = true,
+                value = 600,
+                requires_buff = 385,  -- Requires (5) Finishing Moves
+            },
+        },
     },
     
     -- Default settings for UI
