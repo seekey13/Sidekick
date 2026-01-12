@@ -51,8 +51,32 @@ function recover.execute(settings, job_def, main_level, sub_level, player_resour
             if #available_abilities > 0 then
                 -- Select first available ability (highest cost = most effective)
                 for _, ability in ipairs(available_abilities) do
+                    -- Check required buff prerequisite
+                    local has_required_buff = true
+                    if ability.requires_buff then
+                        has_required_buff = false
+                        local required_buff_ids = {}
+                        
+                        -- Handle both single buff_id and array of buff_ids
+                        if type(ability.requires_buff) == 'table' then
+                            required_buff_ids = ability.requires_buff
+                        else
+                            required_buff_ids = {ability.requires_buff}
+                        end
+                        
+                        -- Check if player has any of the required buffs
+                        for _, required_buff in ipairs(required_buff_ids) do
+                            if common.has_buff(0, required_buff) then
+                                has_required_buff = true
+                                break
+                            end
+                        end
+                    end
+                    
+                    if not has_required_buff then
+                        common.debugf('[RECOVER] %s requires buff prerequisite, skipping', ability.name)
                     -- Check resource and cooldown
-                    if resource.has_resource(job_def.resource_type, ability.cost) and resource.is_ability_ready(ability.id) then
+                    elseif resource.has_resource(job_def.resource_type, ability.cost) and resource.is_ability_ready(ability.id) then
                         local command = common.build_ability_command(ability, nil)
                         
                         if command then
@@ -86,8 +110,32 @@ function recover.execute(settings, job_def, main_level, sub_level, player_resour
             if #available_abilities > 0 then
                 -- Select first available ability
                 for _, ability in ipairs(available_abilities) do
+                    -- Check required buff prerequisite
+                    local has_required_buff = true
+                    if ability.requires_buff then
+                        has_required_buff = false
+                        local required_buff_ids = {}
+                        
+                        -- Handle both single buff_id and array of buff_ids
+                        if type(ability.requires_buff) == 'table' then
+                            required_buff_ids = ability.requires_buff
+                        else
+                            required_buff_ids = {ability.requires_buff}
+                        end
+                        
+                        -- Check if player has any of the required buffs
+                        for _, required_buff in ipairs(required_buff_ids) do
+                            if common.has_buff(0, required_buff) then
+                                has_required_buff = true
+                                break
+                            end
+                        end
+                    end
+                    
                     -- Check combat_only flag
-                    if ability.combat_only and common.is_idle() then
+                    if not has_required_buff then
+                        common.debugf('[RECOVER] %s requires buff prerequisite, skipping', ability.name)
+                    elseif ability.combat_only and common.is_idle() then
                         common.debugf('[RECOVER] %s requires combat, skipping', ability.name)
                     elseif ability.idle_only and common.is_engaged() then
                         common.debugf('[RECOVER] %s requires idle, skipping', ability.name)
