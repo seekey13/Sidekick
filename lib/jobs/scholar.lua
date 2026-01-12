@@ -73,6 +73,7 @@ return {
             --     cost = 0,
             --     id = 243,  -- Job ability ID
             --     command = '/ja "Equanimity" <me>',
+            --     requires_buff = 402,  -- Addendum: Black
             --     buff_id = 415,
             -- },
             -- {
@@ -81,6 +82,7 @@ return {
             --     cost = 0,
             --     id = 242,  -- Job ability ID
             --     command = '/ja "Tranquility" <me>',
+            --     requires_buff = 401,  -- Addendum: White
             --     buff_id = 414,
             -- },
             -- {
@@ -89,6 +91,7 @@ return {
             --     cost = 0,
             --     id = 240,  -- Job ability ID
             --     command = '/ja "Altruism" <me>',
+            --     requires_buff = 401,  -- Addendum: White
             --     buff_id = 412,
             -- },
             -- {
@@ -97,6 +100,7 @@ return {
             --     cost = 0,
             --     id = 316,  -- Job ability ID
             --     command = '/ja "Perpetuance" <me>',
+            --     requires_buff = 401,  -- Addendum: White
             --     buff_id = 469,
             -- },
             -- {
@@ -105,6 +109,7 @@ return {
             --     cost = 0,
             --     id = 317,  -- Job ability ID
             --     command = '/ja "Immanence" <me>',
+            --     requires_buff = 402,  -- Addendum: Black
             --     buff_id = 470,
             -- },
             -- {
@@ -113,6 +118,7 @@ return {
             --     cost = 0,
             --     id = 241,  -- Job ability ID
             --     command = '/ja "Focalization" <me>',
+            --     requires_buff = 402,  -- Addendum: Black
             --     buff_id = 413,
             -- },
             -- {
@@ -121,6 +127,7 @@ return {
             --     cost = 0,
             --     id = 221,  -- Job ability ID
             --     command = '/ja "Ebullience" <me>',
+            --     requires_buff = 402,  -- Addendum: Black
             --     buff_id = 365,
             -- },
             -- {
@@ -129,6 +136,7 @@ return {
             --     cost = 0,
             --     id = 217,  -- Job ability ID
             --     command = '/ja "Rapture" <me>',
+            --     requires_buff = 401,  -- Addendum: White
             --     buff_id = 364,
             -- },
             -- {
@@ -137,6 +145,7 @@ return {
             --     cost = 0,
             --     id = 222,  -- Job ability ID
             --     command = '/ja "Manifestation" <me>',
+            --     requires_buff = 402,  -- Addendum: Black
             --     buff_id = 367,
             -- },
             -- {
@@ -145,6 +154,7 @@ return {
             --     cost = 0,
             --     id = 218,  -- Job ability ID
             --     command = '/ja "Accession" <me>',
+            --     requires_buff = 401,  -- Addendum: White
             --     buff_id = 366,
             -- },
             -- {
@@ -153,6 +163,7 @@ return {
             --     cost = 0,
             --     id = 220,  -- Job ability ID
             --     command = '/ja "Alacrity" <me>',
+            --     requires_buff = 402,  -- Addendum: Black
             --     buff_id = 363,
             -- },
             -- {
@@ -161,6 +172,7 @@ return {
             --     cost = 0,
             --     id = 216,  -- Job ability ID
             --     command = '/ja "Celerity" <me>',
+            --     requires_buff = 401,  -- Addendum: White
             --     buff_id = 362,
             -- },
             -- {
@@ -169,6 +181,7 @@ return {
             --     cost = 0,
             --     id = 361,  -- Job ability ID
             --     command = '/ja "Parsimony" <me>',
+            --     requires_buff = 402,  -- Addendum: Black
             --     buff_id = 361,
             -- },
             -- {
@@ -177,6 +190,7 @@ return {
             --     cost = 0,
             --     id = 215,  -- Job ability ID
             --     command = '/ja "Penury" <me>',
+            --     requires_buff = 401,  -- Addendum: White
             --     buff_id = 360,
             -- },
             -- Protect line
@@ -510,6 +524,106 @@ return {
             },
         },
         
+        -- Debuff removal
+        debuff_removal = {
+            {
+                name = 'Poisona',
+                level = 10,
+                cost = 8,
+                id = 14,  -- Spell ID
+                debuff_id = 3,  -- Poison
+                command = function(party_index)
+                    return '/ma "Poisona" <p' .. party_index .. '>'
+                end,
+                range = 20,
+                requires_buff = 401,  -- Requires Addendum: White
+            },
+            {
+                name = 'Paralyna',
+                level = 12,
+                cost = 12,
+                id = 15,  -- Spell ID
+                debuff_id = 4,  -- Paralysis
+                command = function(party_index)
+                    return '/ma "Paralyna" <p' .. party_index .. '>'
+                end,
+                range = 20,
+                requires_buff = 401,  -- Requires Addendum: White
+            },
+            {
+                name = 'Blindna',
+                level = 17,
+                cost = 16,
+                id = 16,  -- Spell ID
+                debuff_id = 5,  -- Blindness
+                command = function(party_index)
+                    return '/ma "Blindna" <p' .. party_index .. '>'
+                end,
+                range = 20,
+                requires_buff = 401,  -- Requires Addendum: White
+            },
+            {
+                name = 'Silena',
+                level = 22,
+                cost = 24,
+                id = 17,  -- Spell ID
+                debuff_id = 6,  -- Silence
+                command = function(party_index)
+                    return '/ma "Silena" <p' .. party_index .. '>'
+                end,
+                range = 20,
+                requires_buff = 401,  -- Requires Addendum: White
+            },
+            {
+                name = 'Cursna',
+                level = 32,
+                cost = 30,
+                id = 20,  -- Spell ID
+                debuff_id = {9, 20, 30},  -- Curse & Bane
+                command = function(party_index)
+                    return '/ma "Cursna" <p' .. party_index .. '>'
+                end,
+                range = 20,
+                requires_buff = 401,  -- Requires Addendum: White
+            },
+            {
+                name = 'Erase',
+                level = 39,
+                cost = 18,
+                id = 143,  -- Spell ID
+                debuff_id = {11, 12, 13, 31, 128, 129, 130, 131, 134, 135, 136, 137, 138, 139, 140, 141, 142, 144, 145, 146, 147, 148, 149, 156, 167, 174, 175, 189, 404},  -- Bind, Weight, Slow, Plague, Burn, Frost, Choke, Rasp, Dia, Bio, STR Down, DEX Down, VIT Down, AGI Down, INT Down, MND Down, CHR Down, Max HP Down, Max MP Down, Accuracy Down, Attack Down, Evasion Down, Defense Down, Flash, Magic Def Down, Magic Acc Down, Magic Atk Down, Max TP Down, Magic Eva Down
+                command = function(party_index)
+                    return '/ma "Erase" <p' .. party_index .. '>'
+                end,
+                range = 20,
+                requires_buff = 401,  -- Requires Addendum: White
+            },
+            {
+                name = 'Viruna',
+                level = 46,
+                cost = 48,
+                id = 19,  -- Spell ID
+                debuff_id = {8, 31},  -- Disease & Plague
+                command = function(party_index)
+                    return '/ma "Viruna" <p' .. party_index .. '>'
+                end,
+                range = 20,
+                requires_buff = 401,  -- Requires Addendum: White
+            },
+            {
+                name = 'Stona',
+                level = 50,
+                cost = 40,
+                id = 18,  -- Spell ID
+                debuff_id = 7,  -- Petrification
+                command = function(party_index)
+                    return '/ma "Stona" <p' .. party_index .. '>'
+                end,
+                range = 20,
+                requires_buff = 401,  -- Requires Addendum: White
+            },
+        },
+        
         -- Single-target healing
         heal = {
             {
@@ -628,6 +742,7 @@ return {
     -- Action priority order
     priority_order = {
         'heal',
+        'debuff_removal',
         'wake',
         'recover',
         'buff',
