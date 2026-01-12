@@ -1,4 +1,4 @@
-# Medic - Support-Only Healer Addon for FFXI
+# **⛑ Medic** - Support Job Automation Framework
 
 A focused, support-oriented addon for Ashita v4 that automates healing, buffing, and debuff removal for select support jobs in Final Fantasy XI.
 
