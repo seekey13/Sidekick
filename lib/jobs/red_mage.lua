@@ -82,6 +82,7 @@ return {
                 end,
                 buff_id = 40,  -- Protect
                 combat_only = false,
+                group = 'protect',
             },
             {
                 name = 'Protect III',
@@ -93,6 +94,7 @@ return {
                 end,
                 buff_id = 40,
                 combat_only = false,
+                group = 'protect',
             },
             {
                 name = 'Protect II',
@@ -104,6 +106,7 @@ return {
                 end,
                 buff_id = 40,
                 combat_only = false,
+                group = 'protect',
             },
             {
                 name = 'Protect',
@@ -115,6 +118,7 @@ return {
                 end,
                 buff_id = 40,
                 combat_only = false,
+                group = 'protect',
             },
             -- Shell line
             {
@@ -127,6 +131,7 @@ return {
                 end,
                 buff_id = 41,  -- Shell
                 combat_only = false,
+                group = 'shell',
             },
             {
                 name = 'Shell III',
@@ -138,6 +143,7 @@ return {
                 end,
                 buff_id = 41,
                 combat_only = false,
+                group = 'shell',
             },
             {
                 name = 'Shell II',
@@ -149,6 +155,7 @@ return {
                 end,
                 buff_id = 41,
                 combat_only = false,
+                group = 'shell',
             },
             {
                 name = 'Shell',
@@ -160,6 +167,7 @@ return {
                 end,
                 buff_id = 41,
                 combat_only = false,
+                group = 'shell',
             },
             -- Other buffs
             {

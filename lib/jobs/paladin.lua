@@ -79,6 +79,7 @@ return {
                 end,
                 buff_id = 40,  -- Protect buff
                 range = 20,
+                group = 'protect',
             },
             {
                 name = 'Protect III',
@@ -90,6 +91,7 @@ return {
                 end,
                 buff_id = 40,  -- Protect buff
                 range = 20,
+                group = 'protect',
             },
             {
                 name = 'Protect II',
@@ -101,6 +103,7 @@ return {
                 end,
                 buff_id = 40,  -- Protect buff
                 range = 20,
+                group = 'protect',
             },
             {
                 name = 'Protect',
@@ -112,6 +115,7 @@ return {
                 end,
                 buff_id = 40,  -- Protect buff
                 range = 20,
+                group = 'protect',
             },
             {
                 name = 'Shell III',
@@ -123,6 +127,7 @@ return {
                 end,
                 buff_id = 41,  -- Shell buff
                 range = 20,
+                group = 'shell',
             },
             {
                 name = 'Shell II',
@@ -134,6 +139,7 @@ return {
                 end,
                 buff_id = 41,  -- Shell buff
                 range = 20,
+                group = 'shell',
             },
             {
                 name = 'Shell',
@@ -145,6 +151,7 @@ return {
                 end,
                 buff_id = 41,  -- Shell buff
                 range = 20,
+                group = 'shell',
             },
             {
                 name = 'Majesty',

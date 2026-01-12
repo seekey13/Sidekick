@@ -284,6 +284,7 @@ return {
                 command = '/ma "Protectra V" <me>',
                 buff_id = 40,  -- Protect
                 combat_only = false,
+                group = 'protect',
             },
             {
                 name = 'Protectra IV',
@@ -293,6 +294,7 @@ return {
                 command = '/ma "Protectra IV" <me>',
                 buff_id = 40,
                 combat_only = false,
+                group = 'protect',
             },
             {
                 name = 'Protectra III',
@@ -302,6 +304,7 @@ return {
                 command = '/ma "Protectra III" <me>',
                 buff_id = 40,
                 combat_only = false,
+                group = 'protect',
             },
             {
                 name = 'Protectra II',
@@ -311,6 +314,7 @@ return {
                 command = '/ma "Protectra II" <me>',
                 buff_id = 40,
                 combat_only = false,
+                group = 'protect',
             },
             {
                 name = 'Protectra',
@@ -320,6 +324,7 @@ return {
                 command = '/ma "Protectra" <me>',
                 buff_id = 40,
                 combat_only = false,
+                group = 'protect',
             },
             {
                 name = 'Protect IV',
@@ -331,6 +336,7 @@ return {
                 end,
                 buff_id = 40,  -- Protect
                 combat_only = false,
+                group = 'protect',
             },
             {
                 name = 'Protect III',
@@ -342,6 +348,7 @@ return {
                 end,
                 buff_id = 40,  -- Protect
                 combat_only = false,
+                group = 'protect',
             },
             {
                 name = 'Protect II',
@@ -353,6 +360,7 @@ return {
                 end,
                 buff_id = 40,  -- Protect
                 combat_only = false,
+                group = 'protect',
             },
             {
                 name = 'Protect',
@@ -364,6 +372,7 @@ return {
                 end,
                 buff_id = 40,  -- Protect
                 combat_only = false,
+                group = 'protect',
             },
             {
                 name = 'Shellra V',
@@ -373,6 +382,7 @@ return {
                 command = '/ma "Shellra V" <me>',
                 buff_id = 41,  -- Shell
                 combat_only = false,
+                group = 'shell',
             },
             {
                 name = 'Shellra IV',
@@ -382,6 +392,7 @@ return {
                 command = '/ma "Shellra IV" <me>',
                 buff_id = 41,
                 combat_only = false,
+                group = 'shell',
             },
             {
                 name = 'Shellra III',
@@ -391,6 +402,7 @@ return {
                 command = '/ma "Shellra III" <me>',
                 buff_id = 41,
                 combat_only = false,
+                group = 'shell',
             },
             {
                 name = 'Shellra II',
@@ -400,6 +412,7 @@ return {
                 command = '/ma "Shellra II" <me>',
                 buff_id = 41,
                 combat_only = false,
+                group = 'shell',
             },
             {
                 name = 'Shellra',
@@ -409,6 +422,7 @@ return {
                 command = '/ma "Shellra" <me>',
                 buff_id = 41,
                 combat_only = false,
+                group = 'shell',
             },
             {
                 name = 'Shell IV',
@@ -420,6 +434,7 @@ return {
                 end,
                 buff_id = 41,  -- Shell
                 combat_only = false,
+                group = 'shell',
             },
             {
                 name = 'Shell III',
@@ -431,6 +446,7 @@ return {
                 end,
                 buff_id = 41,  -- Shell
                 combat_only = false,
+                group = 'shell',
             },
             {
                 name = 'Shell II',
@@ -442,6 +458,7 @@ return {
                 end,
                 buff_id = 41,  -- Shell
                 combat_only = false,
+                group = 'shell',
             },
             {
                 name = 'Shell',
@@ -453,6 +470,7 @@ return {
                 end,
                 buff_id = 41,  -- Shell
                 combat_only = false,
+                group = 'shell',
             },
             {
                 name = 'Aquaveil',

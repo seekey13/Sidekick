@@ -139,7 +139,7 @@ local function toggle_ability(ability_name, enabled, job_def)
     local key = 'disabled_' .. ability_name:gsub(' ', '_')
     
     if enabled then
-        current_settings[key] = nil
+        current_settings[key] = false  -- Explicitly set to not disabled (enabled)
         
         -- If this ability has a group, disable all other abilities in the same group
         local ability_group = get_ability_group(job_def, ability_name)
@@ -496,7 +496,8 @@ function config_ui.render(settings, job_def, callback, roll_mod)
         end
         
         -- Recovery settings
-        local has_mp_recovery = job_def and job_def.abilities.recover and has_usable_abilities(job_def.abilities.recover)
+        local has_mp_recovery = job_def and job_def.abilities.recover_mp and has_usable_abilities(job_def.abilities.recover_mp)
+        local has_tp_recovery = job_def and job_def.abilities.recover_tp and has_usable_abilities(job_def.abilities.recover_tp)
         
         if has_mp_recovery or has_tp_recovery then
             create_checkbox('Enable Resource Recovery', 'recover_enabled', { settings.recover_enabled or false })
@@ -504,11 +505,27 @@ function config_ui.render(settings, job_def, callback, roll_mod)
             if settings.recover_enabled then
                 -- MP Recovery
                 if has_mp_recovery then
-                    create_slider_int('MP Recovery Threshold (%)', 'recover_threshold', { settings.recover_threshold or 30 }, 1, 100)
+                    create_slider_int('MP Recovery Threshold (%)', 'recover_mp_threshold', { settings.recover_mp_threshold or 30 }, 1, 100)
                     imgui.TextWrapped('Use MP recovery abilities when MP falls below this percentage.')
                     
                     imgui.Text('MP recovery abilities:')
-                    for _, ability in ipairs(job_def.abilities.recover) do
+                    for _, ability in ipairs(job_def.abilities.recover_mp) do
+                        if can_use_ability(ability) then
+                            render_ability_checkbox(ability, job_def)
+                        end
+                    end
+                end
+                
+                -- TP Recovery
+                if has_tp_recovery then
+                    if has_mp_recovery then
+                        imgui.Spacing()
+                    end
+                    create_slider_int('TP Recovery Threshold', 'recover_tp_threshold', { settings.recover_tp_threshold or 500 }, 100, 3000)
+                    imgui.TextWrapped('Use TP recovery abilities when TP falls below this threshold.')
+                    
+                    imgui.Text('TP recovery abilities:')
+                    for _, ability in ipairs(job_def.abilities.recover_tp) do
                         if can_use_ability(ability) then
                             render_ability_checkbox(ability, job_def)
                         end
