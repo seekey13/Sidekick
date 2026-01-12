@@ -14,14 +14,14 @@ A focused, support-oriented addon for Ashita v4 that automates healing, buffing,
 
 ## Version 0.1.0 - Initial Support Release
 
-This is the first official release focusing purely on support functionality.
+This is the first official release.
 
 ## Features
 
 ### Core Support Actions
 - **Single-Target Healing**: Intelligent HP deficit-based heal selection
 - **AOE Healing**: Party-wide healing when multiple members need HP
-- **Pet Healing**: Automated healing for job pets (wyverns, avatars, luopans, etc.)
+- **Pet Healing**: Automated healing for luopan pets
 - **Sleep Removal (Wake)**: Automatically wake sleeping party members
 - **Debuff Removal**: Remove poison, paralysis, silence, and other negative status effects
 - **Buff Maintenance**: Auto-apply and maintain self-buffs and party buffs
@@ -39,7 +39,7 @@ This is the first official release focusing purely on support functionality.
 ### Core System Features
 - **Smart Resource Management**: Automatic MP/TP checking and cooldown tracking
 - **Focus Target Support**: Prioritize specific party members for healing/support
-- **Main/Sub Job Support**: Automatically loads and merges abilities from both jobs
+- **Main/Sub Job Support**: Automatically loads and merges abilities from both supported jobs
 - **Priority-Based Actions**: Configurable action priority order per job
 - **Settings Persistence**: Settings saved per job in JSON format
 
@@ -48,47 +48,55 @@ This is the first official release focusing purely on support functionality.
 Currently implemented support jobs:
 
 - **Bard** (BRD)
-  - Songs (Ballad, Minne, Paeon, Madrigal, Prelude, March, etc.)
-  - Buff maintenance and debuff abilities
+  - Buff with songs (Minuet, Minne, Paeon, Madrigal, Prelude, March, Ballad, Etude, Carol, Mambo, Mazurka, Scherzo, Threnody, etc.)
 
 - **Dancer** (DNC)
-  - Waltzes (Curing Waltz I/II/III, Divine Waltz, Healing Waltz)
-  - Sambas (Drain Samba, Aspir Samba, Haste Samba)
-  - Jigs (Spectral Jig for sneak/invis)
+  - Single-target healing with waltzes (Curing Waltz I/II/III)
+  - AOE healing with waltzes (Divine Waltz, Divine Waltz II)
+  - Debuff removal with waltz (Healing Waltz)
+  - Buff with sambas (Drain Samba I/II/III, Aspir Samba, Haste Samba)
+  - Buff with jigs (Spectral Jig)
 
 - **Geomancer** (GEO)
-  - Geomancy spells (Indi- and Geo-)
-  - Automatic Full Circle execution
-  - Healing and buff maintenance
+  - AOE healing with job abilities (Mending Halation)
+  - Pet healing with job abilities (Life Cycle)
+  - Buff with geomancy spells (Indi-Haste, Indi-STR, Indi-DEX, Indi-VIT, Indi-AGI, Indi-INT, Indi-MND, Indi-CHR, Indi-Acumen, Indi-Fury, Indi-Barrier, etc.)
+  - Buff with job abilities (Lasting Emanation, Ecliptic Attrition, Collimated Fervor, Blaze of Glory, Dematerialize)
+  - MP recovery with job abilities (Radial Arcana)
+  - Geomancy management (automatic Full Circle execution)
 
 - **Paladin** (PLD)
-  - Single-target healing (Cure I-IV)
-  - Party buffs (Protect/Shell)
-  - Defensive abilities
+  - Single-target healing with white magic (Cure I-IV)
+  - Buff with white magic (Protect I-IV, Shell I-IV)
 
 - **Red Mage** (RDM)
-  - Healing (Cure I-IV)
-  - Enhancing magic (Refresh, Haste, Phalanx, etc.)
-  - Debuff removal (Erase, Viruna, Paralyna, etc.)
+  - Single-target healing with white magic (Cure I-IV)
+  - Buff with enhancing magic (Protect I-IV, Shell I-IV, Haste, Refresh, Phalanx, Phalanx II, Enfire, Enblizzard, Enaero, Enstone, Enthunder, Enwater, Stoneskin, Blink, Aquaveil, Sneak, Invisible, Deodorize)
 
 - **Rune Fencer** (RUN)
-  - Rune effects (Ignis, Gelus, Flabra, Tellus, Sulpor, Unda, Lux, Tenebrae)
-  - Magic and Vivacious Pulse healing
+  - AOE healing with job abilities (Vivacious Pulse)
+  - Buff with enhancing magic (Protect I-III, Shell I-IV, Regen I-III, Refresh, Barfire, Barblizzard, Baraero, Barstone, Barthunder, Barwater, etc.)
+  - Buff with job abilities (Ignis, Gelus, Flabra, Tellus, Sulpor, Unda, Lux, Tenebrae, Vallation, Valiance, Pflug, Battuta, Liement)
 
 - **Scholar** (SCH)
-  - Light Arts/Dark Arts
-  - Stratagems (Penury, Celerity, Rapture, Accession, etc.)
-  - Healing and buff maintenance
+  - Single-target healing with white magic (Cure I-IV)
+  - Debuff removal with white magic (Poisona, Paralyna, Blindna, Silena, Cursna, Erase, Viruna, Stona)
+  - Buff with enhancing magic (Protect I-IV, Shell I-IV, Regen I-III, Reraise, Reraise II, Stoneskin, Blink, Aquaveil, Sneak, Invisible, Deodorize)
+  - Buff with geomancy spells (Sandstorm, Rainstorm, Windstorm, Firestorm, Hailstorm, Thunderstorm, Voidstorm, Aurorastorm, Klimaform)
+  - Buff with elemental magic (Blaze Spikes, Ice Spikes, Shock Spikes)
+  - Buff with job abilities (Light Arts, Dark Arts, Addendum: White, Addendum: Black, Sublimation)
+  - MP recovery with job abilities (Sublimation)
 
 - **Summoner** (SMN)
-  - Blood Pacts: Healing Ruby, Healing Ruby II
-  - Pet management and healing
+  - Single-target healing with blood pacts (Healing Ruby)
+  - AOE healing with blood pacts (Healing Ruby II)
+  - Buff with blood pacts (Shining Ruby)
 
 - **White Mage** (WHM)
-  - Single-target healing (Cure I-V)
-  - AOE healing (Curaga I-IV)
-  - Debuff removal (Erase, Viruna, Paralyna, Blindna, Silena, Poisona, Cursna)
-  - Buff maintenance (Protectra, Shellra, Haste, Regen, etc.)
+  - Single-target healing with white magic (Cure I-V)
+  - AOE healing with white magic (Curaga I-IV)
+  - Debuff removal with white magic (Poisona, Paralyna, Blindna, Silena, Cursna, Erase, Viruna, Stona, Esuna)
+  - Buff with white magic (Protectra I-V, Shellra I-V, Protect I-IV, Shell I-IV, Haste, Regen I-III, Reraise, Reraise II, Reraise III, Auspice, Aquaveil, Blink, Stoneskin, Enlight, Barfira, Barblizzara, Baraera, Barstonra, Barthundra, Barwatera, Barsleepra, Barpoisonra, Barparalyzra, Barblindra, Barsilencera, Barvira, Barpetra, Baramnesra)
 
 ## Installation
 
@@ -117,10 +125,10 @@ Currently implemented support jobs:
 ### Basic Setup
 
 1. Load the addon: `/addon load medic`
-2. Open config: `/medic config`
+2. Open config: `/med config`
 3. Enable desired features (healing, buffs, etc.)
 4. Adjust thresholds as needed
-5. Start automation: `/medic start`
+5. Start automation: `/med start`
 
 ### Focus Target
 
@@ -233,9 +241,9 @@ Settings are saved per job in JSON format in the Ashita config directory:
 
 - Party only (no alliance support)
 - Buffing limited to Self targeting
-- Some buff IDs may vary by private server
+- Designed to work on [CatsEyeXI private server](https://www.catseyexi.com/)
 - Requires Ashita v4
 
 ## License
 
-See LICENSE file for details.
+See [LICENSE file for details.](https://github.com/seekey13/Medic/blob/main/LICENSE)
