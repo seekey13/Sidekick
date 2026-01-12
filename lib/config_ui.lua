@@ -21,6 +21,9 @@ local roll_module = nil
 local focus_enabled = { false }
 local focus_target_index = { 0 }  -- 0 = None, 1-6 = P0-P5
 
+-- UI Constants
+local ABILITY_LIST_INDENT = 20  -- Indent for ability checkboxes within sections
+
 -- Dropdown options
 local focus_target_options = { 'None', 'P0', 'P1', 'P2', 'P3', 'P4', 'P5' }
 
@@ -399,7 +402,6 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                     end)
                     
                     create_slider_int('Focus Heal Threshold (HP%)', 'focus_threshold', { settings.focus_threshold or 85 }, 1, 100)
-                    imgui.TextWrapped('The focus target will be prioritized for healing when their HP falls below the threshold.')
                 end
                 
                 imgui.Separator()
@@ -412,15 +414,13 @@ function config_ui.render(settings, job_def, callback, roll_mod)
             
             if settings.heal_enabled then
                 create_slider_int('Party Heal Threshold (HP%)', 'heal_threshold', { settings.heal_threshold or 75 }, 1, 100)
-                imgui.TextWrapped('Heals the lowest HP party member when their HP falls below the threshold.')
-                
-                imgui.Text('Healing abilities:')
-                imgui.TextWrapped('(Used by both Focus Healing and Party Healing)')
+                imgui.Indent(ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.heal) do
                     if can_use_ability(ability) then
                         render_ability_checkbox(ability, job_def, nil, 'heal')
                     end
                 end
+                imgui.Unindent(ABILITY_LIST_INDENT)
             end
             
             imgui.Separator()
@@ -436,11 +436,13 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                 create_slider_int('Min Members Needing Heal', 'heal_aoe_count_threshold', { settings.heal_aoe_count_threshold or 2 }, 1, 6)
                 
                 imgui.Text('AOE healing abilities:')
+                imgui.Indent(ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.heal_aoe) do
                     if can_use_ability(ability) then
                         render_ability_checkbox(ability, job_def, nil, 'heal_aoe')
                     end
                 end
+                imgui.Unindent(ABILITY_LIST_INDENT)
             end
             
             imgui.Separator()
@@ -454,11 +456,13 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                 create_slider_int('Pet Heal Threshold (HP%)', 'heal_pet_threshold', { settings.heal_pet_threshold or 50 }, 1, 100)
                 
                 imgui.Text('Pet healing abilities:')
+                imgui.Indent(ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.heal_pet) do
                     if can_use_ability(ability) then
                         render_ability_checkbox(ability, job_def, nil, 'heal_pet')
                     end
                 end
+                imgui.Unindent(ABILITY_LIST_INDENT)
             end
             
             imgui.Separator()
@@ -478,10 +482,6 @@ function config_ui.render(settings, job_def, callback, roll_mod)
         if has_wake_abilities then
             create_checkbox('Enable Sleep Removal', 'wake_enabled', { settings.wake_enabled or false })
             
-            if settings.wake_enabled then
-                imgui.Text('Will automatically wake sleeping party members.')
-            end
-            
             imgui.Separator()
         end
         
@@ -491,11 +491,13 @@ function config_ui.render(settings, job_def, callback, roll_mod)
             
             if settings.debuff_removal_enabled then
                 imgui.Text('Debuff removal abilities:')
+                imgui.Indent(ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.debuff_removal) do
                     if can_use_ability(ability) then
                         render_ability_checkbox(ability, job_def, nil, 'debuff_removal')
                     end
                 end
+                imgui.Unindent(ABILITY_LIST_INDENT)
             end
             
             imgui.Separator()
@@ -512,14 +514,13 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                 -- MP Recovery
                 if has_mp_recovery then
                     create_slider_int('MP Recovery Threshold (%)', 'recover_mp_threshold', { settings.recover_mp_threshold or 30 }, 1, 100)
-                    imgui.TextWrapped('Use MP recovery abilities when MP falls below this percentage.')
-                    
-                    imgui.Text('MP recovery abilities:')
+                    imgui.Indent(ABILITY_LIST_INDENT)
                     for _, ability in ipairs(job_def.abilities.recover_mp) do
                         if can_use_ability(ability) then
                             render_ability_checkbox(ability, job_def, nil, 'recover_mp')
                         end
                     end
+                    imgui.Unindent(ABILITY_LIST_INDENT)
                 end
                 
                 -- TP Recovery
@@ -528,14 +529,13 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                         imgui.Spacing()
                     end
                     create_slider_int('TP Recovery Threshold', 'recover_tp_threshold', { settings.recover_tp_threshold or 500 }, 100, 3000)
-                    imgui.TextWrapped('Use TP recovery abilities when TP falls below this threshold.')
-                    
-                    imgui.Text('TP recovery abilities:')
+                    imgui.Indent(ABILITY_LIST_INDENT)
                     for _, ability in ipairs(job_def.abilities.recover_tp) do
                         if can_use_ability(ability) then
                             render_ability_checkbox(ability, job_def, nil, 'recover_tp')
                         end
                     end
+                    imgui.Unindent(ABILITY_LIST_INDENT)
                 end
             end
             
@@ -547,7 +547,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
             create_checkbox('Enable Buffs', 'buff_enabled', { settings.buff_enabled or false })
             
             if settings.buff_enabled then
-                imgui.Text('Buffs:')
+                imgui.Indent(ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.buff) do
                     if can_use_ability(ability) then
                         local extra_desc = ''
@@ -559,6 +559,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                         render_ability_checkbox(ability, job_def, extra_desc, 'buff')
                     end
                 end
+                imgui.Unindent(ABILITY_LIST_INDENT)
             end
             
             imgui.Separator()
@@ -570,14 +571,13 @@ function config_ui.render(settings, job_def, callback, roll_mod)
             
             if settings.geo_enabled then
                 create_slider_int('Pet Distance Threshold (yalms)', 'geo_distance_threshold', { settings.geo_distance_threshold or 10 }, 7, 30)
-                imgui.TextWrapped('Uses Full Circle when pet (Luopan) is farther than this distance.')
-                
-                imgui.Text('Geo abilities:')
+                imgui.Indent(ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.geo) do
                     if can_use_ability(ability) then
                         render_ability_checkbox(ability, job_def, nil, 'geo')
                     end
                 end
+                imgui.Unindent(ABILITY_LIST_INDENT)
             end
             
             imgui.Separator()
