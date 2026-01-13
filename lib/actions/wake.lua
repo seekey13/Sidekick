@@ -204,6 +204,8 @@ function wake.execute(settings, job_def, main_level, sub_level, player_resource)
                 end
             end
         end
+        
+        ::continue_single::
     end
     
     common.debugf('[Wake] No wake action taken')

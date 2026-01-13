@@ -127,6 +127,8 @@ function debuff_removal.execute(settings, job_def, main_level, sub_level, player
                 end
             end
         end
+        
+        ::continue_self::
     end
     
     -- Combine player buffs (index 0) with party buffs (indices 1-5)

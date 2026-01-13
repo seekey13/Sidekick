@@ -98,6 +98,8 @@ function heal_pet.execute(settings, job_def, main_level, sub_level, player_resou
             common.debugf('[HEAL_PET] Insufficient %s for %s (need: %d, have: %d)',
                          job_def.resource_type, ability.name, ability.cost, player_resource)
         end
+        
+        ::continue::
     end
     
     common.debugf('[HEAL_PET] No usable pet heal abilities (resource/cooldown)')

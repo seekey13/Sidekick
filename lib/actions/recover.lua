@@ -97,6 +97,8 @@ function recover.execute(settings, job_def, main_level, sub_level, player_resour
                     else
                         common.debugf('[RECOVER] %s not available (cooldown or insufficient resources)', ability.name)
                     end
+                    
+                    ::continue_mp::
                 end
             end
         end

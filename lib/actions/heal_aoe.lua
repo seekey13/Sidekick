@@ -101,6 +101,8 @@ function heal_aoe.execute(settings, job_def, main_level, sub_level, player_resou
                 end
             end
         end
+        
+        ::continue::
     end
     
     return nil
