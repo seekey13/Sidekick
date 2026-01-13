@@ -65,6 +65,13 @@ function heal_aoe.execute(settings, job_def, main_level, sub_level, player_resou
     
     -- Select best available ability
     for _, ability in ipairs(available_abilities) do
+        -- Check if this ability is blocked by status ailments
+        local blocked_by = common.is_command_blocked(ability.command)
+        if blocked_by then
+            common.debugf('[HEAL_AOE] %s is blocked by %s', ability.name, blocked_by)
+            goto continue
+        end
+        
         -- Check resource
         if resource.has_resource(job_def.resource_type, ability.cost) then
             -- Check cooldown
@@ -94,6 +101,8 @@ function heal_aoe.execute(settings, job_def, main_level, sub_level, player_resou
                 end
             end
         end
+        
+        ::continue::
     end
     
     return nil

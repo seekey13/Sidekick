@@ -92,6 +92,13 @@ function debuff_removal.execute(settings, job_def, main_level, sub_level, player
     -- Check for self-only abilities first (like Monk's Chakra)
     for _, ability in ipairs(available_abilities) do
         if ability.self_only then
+            -- Check if this ability is blocked by status ailments
+            local blocked_by = common.is_command_blocked(ability.command)
+            if blocked_by then
+                common.debugf('[DEBUFF_REMOVAL] %s is blocked by %s', ability.name, blocked_by)
+                goto continue_self
+            end
+            
             local player_buffs = common.get_player_buffs()
             if can_remove_debuffs(ability, player_buffs) then
                 -- Check resource
@@ -120,6 +127,8 @@ function debuff_removal.execute(settings, job_def, main_level, sub_level, player
                 end
             end
         end
+        
+        ::continue_self::
     end
     
     -- Combine player buffs (index 0) with party buffs (indices 1-5)

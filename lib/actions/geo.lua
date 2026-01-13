@@ -50,6 +50,13 @@ function geo.execute(settings, job_def, main_level, sub_level, player_resource)
     
     -- Try to use the first available geo ability (Full Circle)
     for _, ability in ipairs(available_abilities) do
+        -- Check if this ability is blocked by status ailments
+        local blocked_by = common.is_command_blocked(ability.command)
+        if blocked_by then
+            common.debugf('[GEO] %s is blocked by %s', ability.name, blocked_by)
+            goto continue
+        end
+        
         -- Check if ability is disabled in settings
         local disabled_key = 'disabled_' .. ability.name:gsub(' ', '_')
         if settings[disabled_key] then

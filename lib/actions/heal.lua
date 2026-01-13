@@ -260,6 +260,13 @@ function heal.select_ability(abilities, target_hpp, resource_type, player_resour
     local usable_abilities = {}
     common.debugf('[HEAL] Checking resource/cooldown availability for %d abilities', #abilities)
     for _, ability in ipairs(abilities) do
+        -- Check if this ability is blocked by status ailments
+        local blocked_by = common.is_command_blocked(ability.command)
+        if blocked_by then
+            common.debugf('[HEAL] %s is blocked by %s', ability.name, blocked_by)
+            goto continue
+        end
+        
         -- Check resource
         if resource.has_resource(resource_type, ability.cost) then
             -- Check cooldown
@@ -304,6 +311,8 @@ function heal.select_ability(abilities, target_hpp, resource_type, player_resour
             common.debugf('[HEAL]   ✗ Insufficient %s for %s (need: %d, have: %d)', 
                          resource_type, ability.name, ability.cost, player_resource)
         end
+        
+        ::continue::
     end
     
     if #usable_abilities == 0 then
