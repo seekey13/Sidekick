@@ -68,6 +68,16 @@ return {
         
         -- Buffs (Enhancing magic)
         buff = {
+            -- Job Abilities
+            {
+                name = 'Composure',
+                level = 50,
+                cost = 0,
+                id = 247,  -- Job Ability ID
+                command = '/ja "Composure" <me>',
+                buff_id = 419,  -- Composure
+                combat_only = true,
+            },
             -- Protect line
             {
                 name = 'Protect IV',
