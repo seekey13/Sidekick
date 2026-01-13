@@ -607,6 +607,7 @@ return {
                 combat_only = false,
             },
         },
+    },
 
     -- Default settings for UI
     default_settings = {
@@ -616,5 +617,5 @@ return {
     -- Action priority order
     priority_order = {
         'buff',
-    },
+    }, 
 }
