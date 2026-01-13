@@ -44,7 +44,7 @@ local non_combat_zone_ids = {
 }
 
 -- Helper function to get current zone ID
-local function get_zone_id()
+function common.get_zone_id()
     local ok, zone_id = pcall(function()
         return AshitaCore:GetMemoryManager():GetParty():GetMemberZone(0)
     end)
@@ -199,7 +199,7 @@ end
 
 function common.can_attack()
     -- Get current zone
-    local zone_id = get_zone_id()
+    local zone_id = common.get_zone_id()
     if zone_id == 0 then
         return false
     end

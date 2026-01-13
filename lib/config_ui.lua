@@ -605,6 +605,13 @@ function config_ui.render(settings, job_def, callback, roll_mod)
         if imgui.Checkbox('Debug Mode', debug_var) then
             common.debug = debug_var[1]
         end
+        
+        if common.debug then
+            imgui.Indent(ABILITY_LIST_INDENT)
+            local zone_id = common.get_zone_id()
+            imgui.Text(string.format('get_zone_id = %d', zone_id))
+        end
+        imgui.Unindent(ABILITY_LIST_INDENT)
 
         imgui.End()
     else
