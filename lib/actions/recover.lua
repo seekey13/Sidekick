@@ -52,6 +52,13 @@ function recover.execute(settings, job_def, main_level, sub_level, player_resour
             if #available_abilities > 0 then
                 -- Select first available ability (highest cost = most effective)
                 for _, ability in ipairs(available_abilities) do
+                    -- Check if this ability is blocked by status ailments
+                    local blocked_by = common.is_command_blocked(ability.command)
+                    if blocked_by then
+                        common.debugf('[RECOVER] %s is blocked by %s', ability.name, blocked_by)
+                        goto continue_mp
+                    end
+                    
                     -- Check required buff prerequisite
                     local has_required_buff = true
                     if ability.requires_buff then

@@ -84,6 +84,13 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource)
             end
         end
         
+        -- Check if this ability is blocked by status ailments
+        if not should_skip and common.is_command_blocked(ability.command) then
+            local blocked_by = common.is_command_blocked(ability.command)
+            common.debugf('[BUFF] %s is blocked by %s', ability.name, blocked_by)
+            should_skip = true
+        end
+        
         if not should_skip then
             -- Check if buff is already active
             local needs_buff = false

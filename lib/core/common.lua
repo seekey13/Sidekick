@@ -1031,6 +1031,54 @@ function common.show_recast_timers()
 end
 
 --[[
+    Status Ailment Blocking Checks
+]]--
+
+-- Check if player has Amnesia (blocks Job Abilities)
+-- Returns: boolean
+function common.has_amnesia()
+    return common.has_buff(0, 16)  -- Amnesia buff_id = 16
+end
+
+-- Check if player has Silence (blocks Magic)
+-- Returns: boolean
+function common.has_silence()
+    return common.has_buff(0, 6)  -- Silence buff_id = 6
+end
+
+-- Check if a command is blocked by status ailments
+-- Args:
+--   command (string or function) - Command string or function that generates one
+-- Returns: string or nil - Name of blocking status ailment, or nil if not blocked
+function common.is_command_blocked(command)
+    -- Get command string if it's a function
+    local command_str = command
+    if type(command) == 'function' then
+        -- Call with dummy parameter to get command string
+        command_str = command(0)
+    end
+    
+    if not command_str or type(command_str) ~= 'string' then
+        return nil  -- Can't determine, assume not blocked
+    end
+    
+    -- Check command type
+    if command_str:match('^/ma ') then
+        -- Magic command - blocked by Silence
+        if common.has_silence() then
+            return 'Silence'
+        end
+    elseif command_str:match('^/ja ') then
+        -- Job Ability command - blocked by Amnesia
+        if common.has_amnesia() then
+            return 'Amnesia'
+        end
+    end
+    
+    return nil  -- Not blocked
+end
+
+--[[
     DRY Helper Functions for Action Modules
 ]]--
 

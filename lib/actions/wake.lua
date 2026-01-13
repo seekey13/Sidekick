@@ -147,6 +147,8 @@ function wake.execute(settings, job_def, main_level, sub_level, player_resource)
                     end
                 end
             end
+            
+            ::continue_aoe::
         end
     end
     
@@ -169,6 +171,13 @@ function wake.execute(settings, job_def, main_level, sub_level, player_resource)
         common.debugf('[Wake] Using single-target wake on party[%d] %s', target_index, target_name)
         
         for _, ability in ipairs(available_single) do
+            -- Check if this ability is blocked by status ailments
+            local blocked_by = common.is_command_blocked(ability.command)
+            if blocked_by then
+                common.debugf('[Wake] %s is blocked by %s', ability.name, blocked_by)
+                goto continue_single
+            end
+            
             -- Check resource
             if resource.has_resource(job_def.resource_type, ability.cost) then
                 -- Check cooldown
