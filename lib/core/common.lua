@@ -23,6 +23,37 @@ local casting_state = {
     cast_timeout = 10.0,  -- Maximum time for a cast (seconds)
 }
 
+-- Non-combat zone IDs (safe zones where combat is blocked)
+local non_combat_zone_ids = {
+    230, 231, 232, 233, -- San d'Oria
+    234, 235, 236, 237, -- Bastok
+    238, 239, 240, 241, 242, -- Windurst
+    243, 244, 245, 246, -- Jeuno
+    80, 87, 94, -- WotG Cities of the past (San d'Oria [S], Bastok [S], Windurst [S])
+    48, 50, 53, -- Aht Urhgan cities/towns (Al Zahbi, Aht Urhgan Whitegate, Nashmau)
+    26, 247, 248, 249, 250, 252, -- Other Towns (Tavnazian Safehold, Rabao, Selbina, Mhaura, Kazham, Norg)
+    256, 257, -- Adoulin
+    280, -- Mog Garden
+    46, 47, -- Open sea routes
+    220, 221, -- Ships bound for Selbina/Mhaura
+    223, 224, 225, 226, -- Airships
+    227, 228, -- Ships with Pirates (still safe zones)
+    70, -- Chocobo Circuit
+    251, -- Hall of the Gods
+    284, -- Celennia Memorial Library
+}
+
+-- Helper function to get current zone ID
+local function get_zone_id()
+    local ok, zone_id = pcall(function()
+        return AshitaCore:GetMemoryManager():GetParty():GetMemberZone(0)
+    end)
+    if not ok or not zone_id then
+        return 0
+    end
+    return zone_id
+end
+
 -- Helper function for distance calculation
 local function calculate_distance(entity1, entity2)
     local ok_calc, distance = pcall(function()
@@ -164,6 +195,23 @@ function common.is_in_event()
     
     -- Event, cutscene, or other blocking status
     return status >= 2
+end
+
+function common.can_attack()
+    -- Get current zone
+    local zone_id = get_zone_id()
+    if zone_id == 0 then
+        return false
+    end
+    
+    -- Check if zone is in non-combat list
+    for _, safe_zone_id in ipairs(non_combat_zone_ids) do
+        if zone_id == safe_zone_id then
+            return false
+        end
+    end
+    
+    return true
 end
 
 function common.is_casting()
