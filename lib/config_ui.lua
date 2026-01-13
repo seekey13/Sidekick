@@ -435,7 +435,6 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                 
                 create_slider_int('Min Members Needing Heal', 'heal_aoe_count_threshold', { settings.heal_aoe_count_threshold or 2 }, 1, 6)
                 
-                imgui.Text('AOE healing abilities:')
                 imgui.Indent(ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.heal_aoe) do
                     if can_use_ability(ability) then
@@ -455,7 +454,6 @@ function config_ui.render(settings, job_def, callback, roll_mod)
             if settings.heal_pet_enabled then
                 create_slider_int('Pet Heal Threshold (HP%)', 'heal_pet_threshold', { settings.heal_pet_threshold or 50 }, 1, 100)
                 
-                imgui.Text('Pet healing abilities:')
                 imgui.Indent(ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.heal_pet) do
                     if can_use_ability(ability) then
@@ -490,7 +488,6 @@ function config_ui.render(settings, job_def, callback, roll_mod)
             create_checkbox('Enable Debuff Removal', 'debuff_removal_enabled', { settings.debuff_removal_enabled or false })
             
             if settings.debuff_removal_enabled then
-                imgui.Text('Debuff removal abilities:')
                 imgui.Indent(ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.debuff_removal) do
                     if can_use_ability(ability) then

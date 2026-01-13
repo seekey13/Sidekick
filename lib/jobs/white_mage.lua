@@ -126,9 +126,8 @@ return {
                 cost = 24,
                 id = 95,  -- Spell ID
                 debuff_id = {3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 20, 21, 30, 31},  -- Multiple debuffs
-                command = function(party_index)
-                    return '/ma "Esuna" <p' .. party_index .. '>'
-                end,
+                command = '/ma "Esuna" <me>',
+                self_only = true,
                 range = 20,
             },
             {
@@ -223,6 +222,26 @@ return {
 
         -- Buffs
         buff = {
+            {
+                name = 'Afflatus Solace',
+                level = 40,
+                cost = 0,
+                id = 245,  -- Job Ability ID
+                command = '/ja "Afflatus Solace" <me>',
+                buff_id = 417,  -- Afflatus Solace
+                combat_only = false,
+                group = 'afflatus',
+            },
+            {
+                name = 'Afflatus Misery',
+                level = 40,
+                cost = 0,
+                id = 246,  -- Job Ability ID
+                command = '/ja "Afflatus Misery" <me>',
+                buff_id = 418,  -- Afflatus Misery
+                combat_only = false,
+                group = 'afflatus',
+            },
             {
                 name = 'Auspice',
                 level = 55,
