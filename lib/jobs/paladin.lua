@@ -67,6 +67,17 @@ return {
         
         -- Buffs (Protect, Shell, and Job Abilities)
         buff = {
+            -- Job Abilities
+            {
+                name = 'Majesty',
+                level = 70,
+                cost = 0,
+                id = 150,  -- Majesty recast ID
+                command = '/ja "Majesty" <me>',
+                buff_id = 621,  -- Majesty buff
+                combat_only = true,
+            },
+            -- Protect spells
             {
                 name = 'Protect IV',
                 level = 70,
@@ -150,15 +161,6 @@ return {
                 buff_id = 41,  -- Shell buff
                 range = 20,
                 group = 'shell',
-            },
-            {
-                name = 'Majesty',
-                level = 70,
-                cost = 0,
-                id = 150,  -- Majesty recast ID
-                command = '/ja "Majesty" <me>',
-                buff_id = 621,  -- Majesty buff
-                combat_only = true,
             },
         },
         

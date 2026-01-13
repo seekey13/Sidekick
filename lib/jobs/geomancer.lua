@@ -118,7 +118,6 @@ return {
                 command = '/ma "Indi-Haste" <me>',
                 element = 'Wind',
                 group = 'Indi',
-                combat_only = true,
                 buff_id = 580,
             },
             {
@@ -129,7 +128,6 @@ return {
                 command = '/ma "Indi-Frailty" <me>',
                 element = 'Wind',
                 group = 'Indi',
-                combat_only = true,
                 buff_id = 564,
             },
             {
@@ -140,7 +138,6 @@ return {
                 command = '/ma "Indi-Vex" <me>',
                 element = 'Light',
                 group = 'Indi',
-                combat_only = true,
                 buff_id = 563,
             },
             {
@@ -151,7 +148,6 @@ return {
                 command = '/ma "Indi-Paralysis" <me>',
                 element = 'Ice',
                 group = 'Indi',
-                combat_only = true,
                 buff_id = 566,
             },
             {
@@ -162,7 +158,6 @@ return {
                 command = '/ma "Indi-Languor" <me>',
                 element = 'Dark',
                 group = 'Indi',
-                combat_only = true,
                 buff_id = 559,
             },
             {
@@ -173,7 +168,6 @@ return {
                 command = '/ma "Indi-Slip" <me>',
                 element = 'Earth',
                 group = 'Indi',
-                combat_only = true,
                 buff_id = 561,
             },
             {
@@ -184,7 +178,6 @@ return {
                 command = '/ma "Indi-Torpor" <me>',
                 element = 'Ice',
                 group = 'Indi',
-                combat_only = true,
                 buff_id = 562,
             },
             {
@@ -195,7 +188,6 @@ return {
                 command = '/ma "Indi-STR" <me>',
                 element = 'Fire',
                 group = 'Indi',
-                combat_only = true,
                 buff_id = 542,
             },
             {
@@ -206,7 +198,6 @@ return {
                 command = '/ma "Indi-Slow" <me>',
                 element = 'Earth',
                 group = 'Indi',
-                combat_only = true,
                 buff_id = 565,
             },
             {
@@ -217,7 +208,6 @@ return {
                 command = '/ma "Indi-Acumen" <me>',
                 element = 'Ice',
                 group = 'Indi',
-                combat_only = true,
                 buff_id = 555,
             },
             {
@@ -228,7 +218,6 @@ return {
                 command = '/ma "Indi-DEX" <me>',
                 element = 'Thunder',
                 group = 'Indi',
-                combat_only = true,
                 buff_id = 543,
             },
             {
@@ -239,7 +228,6 @@ return {
                 command = '/ma "Indi-VIT" <me>',
                 element = 'Earth',
                 group = 'Indi',
-                combat_only = true,
                 buff_id = 544,
             },
             {
@@ -250,7 +238,6 @@ return {
                 command = '/ma "Indi-Fend" <me>',
                 element = 'Water',
                 group = 'Indi',
-                combat_only = true,
                 buff_id = 550,
             },
             {
@@ -261,7 +248,6 @@ return {
                 command = '/ma "Indi-AGI" <me>',
                 element = 'Wind',
                 group = 'Indi',
-                combat_only = true,
                 buff_id = 545,
             },
             {
@@ -272,7 +258,6 @@ return {
                 command = '/ma "Indi-INT" <me>',
                 element = 'Ice',
                 group = 'Indi',
-                combat_only = true,
                 buff_id = 546,
             },
             {
@@ -283,7 +268,6 @@ return {
                 command = '/ma "Indi-Fury" <me>',
                 element = 'Fire',
                 group = 'Indi',
-                combat_only = true,
                 buff_id = 549,
             },
             {
@@ -294,7 +278,6 @@ return {
                 command = '/ma "Indi-MND" <me>',
                 element = 'Water',
                 group = 'Indi',
-                combat_only = true,
                 buff_id = 547,
             },
             {
@@ -305,7 +288,6 @@ return {
                 command = '/ma "Indi-Refresh" <me>',
                 element = 'Light',
                 group = 'Indi',
-                combat_only = true,
                 buff_id = 541,
             },
             {
@@ -316,7 +298,6 @@ return {
                 command = '/ma "Indi-Barrier" <me>',
                 element = 'Earth',
                 group = 'Indi',
-                combat_only = true,
                 buff_id = 552,
             },
             {
@@ -327,7 +308,6 @@ return {
                 command = '/ma "Indi-Focus" <me>',
                 element = 'Dark',
                 group = 'Indi',
-                combat_only = true,
                 buff_id = 553,
             },
             {
@@ -338,7 +318,6 @@ return {
                 command = '/ma "Indi-Attunement" <me>',
                 element = 'Light',
                 group = 'Indi',
-                combat_only = true,
                 buff_id = 556,
             },
             {
@@ -349,7 +328,6 @@ return {
                 command = '/ma "Indi-Regen" <me>',
                 element = 'Light',
                 group = 'Indi',
-                combat_only = true,
                 buff_id = 539,
             },
             {
@@ -360,7 +338,6 @@ return {
                 command = '/ma "Indi-Precision" <me>',
                 element = 'Thunder',
                 group = 'Indi',
-                combat_only = true,
                 buff_id = 553,
             },
             {
@@ -371,7 +348,6 @@ return {
                 command = '/ma "Indi-Voidance" <me>',
                 element = 'Wind',
                 group = 'Indi',
-                combat_only = true,
                 buff_id = 554,
             },
             {
@@ -382,7 +358,6 @@ return {
                 command = '/ma "Indi-Poison" <me>',
                 element = 'Water',
                 group = 'Indi',
-                combat_only = true,
                 buff_id = 540,
             },
             -- Geo spells (highest level first)

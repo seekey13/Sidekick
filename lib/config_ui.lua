@@ -316,9 +316,29 @@ function config_ui.render(settings, job_def, callback, roll_mod)
     if imgui.Begin(window_title, is_open, ImGuiWindowFlags_NoCollapse) then
         
         -- Automation toggle button
-        local button_text = settings.automation_enabled and 'Stop' or 'Start'
-        local status_text = settings.automation_enabled and 'Automation running.' or 'Automation stopped.'
-        local status_color = settings.automation_enabled and { 0.0, 1.0, 0.0, 1.0 } or { 1.0, 0.0, 0.0, 1.0 }
+        local can_attack = common.can_attack()
+        local button_text
+        local status_text
+        local status_color
+        
+        if settings.automation_enabled then
+            if can_attack then
+                -- Running state
+                button_text = 'Stop'
+                status_text = 'Automation running.'
+                status_color = { 0.0, 1.0, 0.0, 1.0 }  -- Green
+            else
+                -- Paused state (automation enabled but combat blocked)
+                button_text = 'Paused'
+                status_text = 'Automation paused.'
+                status_color = { 0.0, 0.5, 1.0, 1.0 }  -- Blue
+            end
+        else
+            -- Stopped state
+            button_text = 'Start'
+            status_text = 'Automation stopped.'
+            status_color = { 1.0, 0.0, 0.0, 1.0 }  -- Red
+        end
         
         -- Use fixed width for button to keep consistent size
         if imgui.Button(button_text, { 80, 0 }) then
