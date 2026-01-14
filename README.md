@@ -245,7 +245,6 @@ Settings are saved per job in JSON format in the Ashita config directory:
 ## Known Limitations
 
 - Party only (no alliance support)
-- Buffing limited to Self targeting
 - Designed to work on [CatsEyeXI private server](https://www.catseyexi.com/)
 - To target Trusts requires [Shorthand](https://github.com/ThornyFFXI/Shorthand)
 - To use attack range requires [Multisend](https://github.com/ThornyFFXI/Multisend)
