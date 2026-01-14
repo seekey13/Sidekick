@@ -186,6 +186,25 @@ local function toggle_party_buff(ability_name, party_index, enabled)
     party_buffs[ability_name][party_index] = enabled
 end
 
+-- Check if a party member is a Trust (server_id >= 0x1000000)
+local function is_trust(party_index)
+    local party = common.get_party()
+    if not party then
+        return false
+    end
+    
+    local ok_server, server_id = pcall(function()
+        return party:GetMemberServerId(party_index)
+    end)
+    
+    if not ok_server or not server_id or server_id == 0 then
+        return false
+    end
+    
+    -- Trusts have server IDs >= 0x1000000 (16777216)
+    return server_id >= 0x1000000
+end
+
 -- Check if ability can be cast on party members (has function command)
 local function can_cast_on_party(ability)
     return type(ability.command) == 'function'
@@ -294,11 +313,20 @@ local function render_buff_checkbox_with_party_toggles(ability, job_def, extra_d
                 
                 -- Only render buttons for active party members
                 if is_active then
+                    -- Check if this party member is a Trust
+                    local is_trust_member = is_trust(party_index)
+                    
                     -- Get current state
                     local is_enabled = is_party_buff_enabled(ability.name, party_index)
                     
-                    -- Set button color based on state
-                    if is_enabled then
+                    -- Set button color and disable state based on Trust status
+                    if is_trust_member then
+                        -- Trust: Dark gray and disabled
+                        imgui.PushStyleColor(ImGuiCol_Button, { 0.2, 0.2, 0.2, 1.0 })
+                        imgui.PushStyleColor(ImGuiCol_ButtonHovered, { 0.2, 0.2, 0.2, 1.0 })
+                        imgui.PushStyleColor(ImGuiCol_ButtonActive, { 0.2, 0.2, 0.2, 1.0 })
+                        imgui.PushStyleColor(ImGuiCol_Text, { 0.4, 0.4, 0.4, 1.0 })
+                    elseif is_enabled then
                         -- Selected: Use default button colors (no custom styling)
                     else
                         -- Not selected: Gray
@@ -309,10 +337,20 @@ local function render_buff_checkbox_with_party_toggles(ability, job_def, extra_d
                     
                     local button_label = 'P' .. party_index .. '##' .. ability.name .. '_p' .. party_index
                     if imgui.Button(button_label, { PARTY_BUTTON_WIDTH, 0 }) then
-                        toggle_party_buff(ability.name, party_index, not is_enabled)
+                        -- Only toggle if not a Trust
+                        if not is_trust_member then
+                            toggle_party_buff(ability.name, party_index, not is_enabled)
+                        end
                     end
                     
-                    if not is_enabled then
+                    -- Show tooltip for Trusts explaining why they're disabled
+                    if is_trust_member and imgui.IsItemHovered() then
+                        imgui.SetTooltip('Trust buffs are not available')
+                    end
+                    
+                    if is_trust_member then
+                        imgui.PopStyleColor(4)
+                    elseif not is_enabled then
                         imgui.PopStyleColor(3)
                     end
                     
