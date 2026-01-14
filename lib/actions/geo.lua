@@ -87,13 +87,4 @@ function geo.execute(settings, job_def, main_level, sub_level, player_resource)
     return nil
 end
 
-function geo.build_command(ability)
-    if type(ability.command) == 'function' then
-        return ability.command(0)
-    elseif type(ability.command) == 'string' then
-        return ability.command
-    end
-    return nil
-end
-
 return geo

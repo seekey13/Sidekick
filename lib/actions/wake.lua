@@ -196,21 +196,4 @@ function wake.execute(settings, job_def, main_level, sub_level, player_resource)
     return nil
 end
 
-function wake.build_command(ability, party_index)
-    if type(ability.command) == 'function' then
-        return ability.command(party_index)
-    elseif type(ability.command) == 'string' then
-        if party_index then
-            -- Replace <pN> placeholder if present
-            local command = ability.command:gsub('<p(%d+)>', function(idx)
-                return '<p' .. party_index .. '>'
-            end)
-            return command
-        else
-            return ability.command
-        end
-    end
-    return nil
-end
-
 return wake
