@@ -298,10 +298,11 @@ return {
                 name = 'Regen',
                 level = 23,
                 cost = 15,
-                id = 108,
-                command = '/ma "Regen" <me>',
-                element = 'Light',
-                buff_id = 33,  -- Regen buff
+                id = 108,  -- Spell ID
+                command = function(party_index)
+                    return '/ma "Regen" <p' .. party_index .. '>'
+                end,
+                buff_id = 42,  -- Regen
                 combat_only = false,
             },
             {
@@ -309,7 +310,9 @@ return {
                 level = 48,
                 cost = 24,
                 id = 110,
-                command = '/ma "Regen II" <me>',
+                command = function(party_index)
+                    return '/ma "Regen II" <p' .. party_index .. '>'
+                end,
                 element = 'Light',
                 buff_id = 84,  -- Regen II buff
                 combat_only = false,
@@ -319,7 +322,9 @@ return {
                 level = 70,
                 cost = 36,
                 id = 111,
-                command = '/ma "Regen III" <me>',
+                command = function(party_index)
+                    return '/ma "Regen III" <p' .. party_index .. '>'
+                end,
                 element = 'Light',
                 buff_id = 121,  -- Regen III buff
                 combat_only = false,
@@ -330,7 +335,9 @@ return {
                 level = 62,
                 cost = 40,
                 id = 109,
-                command = '/ma "Refresh" <me>',
+                command = function(party_index)
+                    return '/ma "Refresh" <p' .. party_index .. '>'
+                end,
                 element = 'Light',
                 buff_id = 43,  -- Refresh buff
                 combat_only = false,

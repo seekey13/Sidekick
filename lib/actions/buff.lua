@@ -122,9 +122,6 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                 end
                 
                 needs_buff = not has_buff
-            elseif ability.check_buff then
-                -- Custom buff checking function
-                needs_buff = not ability.check_buff()
             else
                 -- No buff tracking, always use if available
                 needs_buff = true
@@ -282,9 +279,6 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                             end
                             
                             needs_buff = not has_buff
-                        elseif ability.check_buff then
-                            -- Custom buff checking function (skip for party members)
-                            needs_buff = false
                         else
                             -- No buff tracking, always use if available
                             needs_buff = true

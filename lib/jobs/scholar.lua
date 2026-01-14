@@ -64,15 +64,6 @@ return {
                 buff_id = {187, 188},  -- Can be either 187 (activated) or 188 (complete)
             },
             -- {
-            --     name = 'Equanimity',
-            --     level = 75,
-            --     cost = 0,
-            --     id = 243,  -- Job ability ID
-            --     command = '/ja "Equanimity" <me>',
-            --     requires_buff = 402,  -- Addendum: Black
-            --     buff_id = 415,
-            -- },
-            -- {
             --     name = 'Tranquility',
             --     level = 75,
             --     cost = 0,
@@ -100,33 +91,6 @@ return {
             --     buff_id = 469,
             -- },
             -- {
-            --     name = 'Immanence',
-            --     level = 75,
-            --     cost = 0,
-            --     id = 317,  -- Job ability ID
-            --     command = '/ja "Immanence" <me>',
-            --     requires_buff = 402,  -- Addendum: Black
-            --     buff_id = 470,
-            -- },
-            -- {
-            --     name = 'Focalization',
-            --     level = 75,
-            --     cost = 0,
-            --     id = 241,  -- Job ability ID
-            --     command = '/ja "Focalization" <me>',
-            --     requires_buff = 402,  -- Addendum: Black
-            --     buff_id = 413,
-            -- },
-            -- {
-            --     name = 'Ebullience',
-            --     level = 55,
-            --     cost = 0,
-            --     id = 221,  -- Job ability ID
-            --     command = '/ja "Ebullience" <me>',
-            --     requires_buff = 402,  -- Addendum: Black
-            --     buff_id = 365,
-            -- },
-            -- {
             --     name = 'Rapture',
             --     level = 55,
             --     cost = 0,
@@ -134,15 +98,6 @@ return {
             --     command = '/ja "Rapture" <me>',
             --     requires_buff = 401,  -- Addendum: White
             --     buff_id = 364,
-            -- },
-            -- {
-            --     name = 'Manifestation',
-            --     level = 40,
-            --     cost = 0,
-            --     id = 222,  -- Job ability ID
-            --     command = '/ja "Manifestation" <me>',
-            --     requires_buff = 402,  -- Addendum: Black
-            --     buff_id = 367,
             -- },
             -- {
             --     name = 'Accession',
@@ -154,15 +109,6 @@ return {
             --     buff_id = 366,
             -- },
             -- {
-            --     name = 'Alacrity',
-            --     level = 25,
-            --     cost = 0,
-            --     id = 220,  -- Job ability ID
-            --     command = '/ja "Alacrity" <me>',
-            --     requires_buff = 402,  -- Addendum: Black
-            --     buff_id = 363,
-            -- },
-            -- {
             --     name = 'Celerity',
             --     level = 25,
             --     cost = 0,
@@ -170,15 +116,6 @@ return {
             --     command = '/ja "Celerity" <me>',
             --     requires_buff = 401,  -- Addendum: White
             --     buff_id = 362,
-            -- },
-            -- {
-            --     name = 'Parsimony',
-            --     level = 10,
-            --     cost = 0,
-            --     id = 361,  -- Job ability ID
-            --     command = '/ja "Parsimony" <me>',
-            --     requires_buff = 402,  -- Addendum: Black
-            --     buff_id = 361,
             -- },
             -- {
             --     name = 'Penury',
@@ -328,9 +265,7 @@ return {
                 level = 70,
                 cost = 150,
                 id = 142,  -- Spell ID
-                command = function(party_index)
-                    return '/ma "Reraise II" <p' .. party_index .. '>'
-                end,
+                command = '/ma "Reraise II" <me>',
                 range = 20,
                 buff_id = 113,
                 group = 'reraise',
@@ -341,9 +276,7 @@ return {
                 level = 35,
                 cost = 150,
                 id = 135,  -- Spell ID
-                command = function(party_index)
-                    return '/ma "Reraise" <p' .. party_index .. '>'
-                end,
+                command = '/ma "Reraise" <me>',
                 range = 20,
                 buff_id = 113,
                 group = 'reraise',

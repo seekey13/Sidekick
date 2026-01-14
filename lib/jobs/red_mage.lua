@@ -228,7 +228,6 @@ return {
                 id = 54,  -- Spell ID
                 command = '/ma "Stoneskin" <me>',
                 buff_id = 37,  -- Stoneskin
-                
             },
             {
                 name = 'Phalanx',
@@ -237,7 +236,6 @@ return {
                 id = 106,  -- Spell ID
                 command = '/ma "Phalanx" <me>',
                 buff_id = 116,  -- Phalanx
-                
             },
             {
                 name = 'Blink',
@@ -246,7 +244,6 @@ return {
                 id = 53,  -- Spell ID
                 command = '/ma "Blink" <me>',
                 buff_id = 36,  -- Blink
-                
             },
             {
                 name = 'Regen',
@@ -266,7 +263,6 @@ return {
                 id = 55,  -- Spell ID
                 command = '/ma "Aquaveil" <me>',
                 buff_id = 39,  -- Aquaveil
-                
             },
             -- Enspells (grouped by element)
             {

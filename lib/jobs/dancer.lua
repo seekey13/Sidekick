@@ -154,17 +154,8 @@ return {
                 cost = 0,
                 id = 195,  -- Jig recast ID
                 command = '/ja "Spectral Jig" <me>',
+                buff_id = {71, 69},  -- Sneak (71) and Invisible (69)
                 idle_only = true,
-                -- Custom check for Sneak (71) OR Invisible (69)
-                check_buff = function()
-                    local buffs = common.get_player_buffs()
-                    for _, buff_id in ipairs(buffs) do
-                        if buff_id == 71 or buff_id == 69 then
-                            return true
-                        end
-                    end
-                    return false
-                end,
             },
         },
 
