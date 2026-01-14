@@ -260,7 +260,7 @@ return {
                     return '/ma "Haste" <p' .. party_index .. '>'
                 end,
                 buff_id = 33,  -- Haste
-                combat_only = true,
+                
             },
             {
                 name = 'Regen III',
@@ -501,7 +501,7 @@ return {
                 id = 55,  -- Spell ID
                 command = '/ma "Aquaveil" <me>',
                 buff_id = 39,  -- Aquaveil
-                combat_only = true,
+                combat_only = false,
             },
             {
                 name = 'Blink',
@@ -510,7 +510,7 @@ return {
                 id = 53,  -- Spell ID
                 command = '/ma "Blink" <me>',
                 buff_id = 36,  -- Blink
-                combat_only = true,
+                combat_only = false,
             },
             {
                 name = 'Stoneskin',
@@ -519,7 +519,7 @@ return {
                 id = 54,  -- Spell ID
                 command = '/ma "Stoneskin" <me>',
                 buff_id = 37,  -- Stoneskin
-                combat_only = true,
+                combat_only = false,
             },
             {
                 name = 'Reraise III',

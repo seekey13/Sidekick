@@ -24,6 +24,7 @@ This is the first official release.
 ### User Interface
 - **ImGui Configuration UI**: User-friendly settings interface
 - **Per-Ability Toggles**: Enable/disable individual abilities
+- **Party Buff Configuration**: Per-party-member buttons to control which buffs to cast on each member (P1-P5)
 - **Threshold Configuration**: Customize HP/TP/MP thresholds
 - **Focus Target Support**: Prioritize specific party members
 - **Level-Based Filtering**: Shows only abilities available at your current level
@@ -31,6 +32,8 @@ This is the first official release.
 
 ### Core System Features
 - **Smart Resource Management**: Automatic MP/TP checking and cooldown tracking
+- **Status Ailment Detection**: Automatically detects and prevents casting when Silenced (magic) or Amnesiac (job abilities)
+- **Party Buff Management**: Per-party-member buff configuration with intelligent uptime tracking
 - **Focus Target Support**: Prioritize specific party members for healing/support
 - **Main/Sub Job Support**: Automatically loads and merges abilities from both supported jobs
 - **Priority-Based Actions**: Configurable action priority order per job

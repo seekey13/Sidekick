@@ -1160,7 +1160,13 @@ function common.filter_abilities_by_level(abilities, settings, main_level, sub_l
         
         -- Check if ability is disabled in settings
         local disabled_key = 'disabled_' .. ability.name:gsub(' ', '_')
-        if settings[disabled_key] then
+        -- Default to disabled (true) if key doesn't exist (nil)
+        local is_disabled = settings[disabled_key]
+        if is_disabled == nil then
+            is_disabled = true  -- Default new abilities to disabled
+        end
+        
+        if is_disabled then
             -- Skip disabled ability
         elseif ability.requires_pet and not common.has_pet() then
             -- Skip if requires pet but no pet available

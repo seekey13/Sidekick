@@ -357,7 +357,7 @@ return {
                 id = 54,  -- Spell ID
                 command = '/ma "Stoneskin" <me>',
                 buff_id = 37,  -- Stoneskin
-                combat_only = true,
+                
             },
             {
                 name = 'Blink',
@@ -366,7 +366,7 @@ return {
                 id = 53,  -- Spell ID
                 command = '/ma "Blink" <me>',
                 buff_id = 36,  -- Blink
-                combat_only = true,
+                
             },
             {
                 name = 'Aquaveil',
@@ -375,7 +375,7 @@ return {
                 id = 55,  -- Spell ID
                 command = '/ma "Aquaveil" <me>',
                 buff_id = 39,  -- Aquaveil
-                combat_only = true,
+                
             },
             -- {
             --     name = 'Sneak',
@@ -412,7 +412,7 @@ return {
                 id = 119,  -- Spell ID
                 command = '/ma "Aurorastorm" <me>',
                 buff_id = 184,  -- Aurorastorm
-                combat_only = true,
+                
                 group = 'storm',
             },
             {
@@ -422,7 +422,7 @@ return {
                 id = 118,  -- Spell ID
                 command = '/ma "Voidstorm" <me>',
                 buff_id = 185,  -- Voidstorm
-                combat_only = true,
+                
                 group = 'storm',
             },
             {
@@ -432,7 +432,7 @@ return {
                 id = 117,  -- Spell ID
                 command = '/ma "Thunderstorm" <me>',
                 buff_id = 182,  -- Thunderstorm
-                combat_only = true,
+                
                 group = 'storm',
             },
             {
@@ -442,7 +442,7 @@ return {
                 id = 116,  -- Spell ID
                 command = '/ma "Hailstorm" <me>',
                 buff_id = 179,  -- Hailstorm
-                combat_only = true,
+                
                 group = 'storm',
             },
             {
@@ -452,7 +452,7 @@ return {
                 id = 115,  -- Spell ID
                 command = '/ma "Firestorm" <me>',
                 buff_id = 178,  -- Firestorm
-                combat_only = true,
+                
                 group = 'storm',
             },
             {
@@ -462,7 +462,7 @@ return {
                 id = 114,  -- Spell ID
                 command = '/ma "Windstorm" <me>',
                 buff_id = 180,  -- Windstorm
-                combat_only = true,
+                
                 group = 'storm',
             },
             {
@@ -472,7 +472,7 @@ return {
                 id = 113,  -- Spell ID
                 command = '/ma "Rainstorm" <me>',
                 buff_id = 183,  -- Rainstorm
-                combat_only = true,
+                
                 group = 'storm',
             },
             {
@@ -482,7 +482,7 @@ return {
                 id = 112,  -- Spell ID
                 command = '/ma "Sandstorm" <me>',
                 buff_id = 181,  -- Sandstorm
-                combat_only = true,
+                
                 group = 'storm',
             },
             -- Klimaform
@@ -493,7 +493,7 @@ return {
                 id = 287,  -- Spell ID
                 command = '/ma "Klimaform" <me>',
                 buff_id = 407,  -- Klimaform
-                combat_only = true,
+                
             },
             -- Spikes
             {
@@ -503,7 +503,7 @@ return {
                 id = 251,  -- Spell ID
                 command = '/ma "Shock Spikes" <me>',
                 buff_id = 38,  -- Shock Spikes
-                combat_only = true,
+                
                 group = 'spikes',
             },
             {
@@ -513,7 +513,7 @@ return {
                 id = 250,  -- Spell ID
                 command = '/ma "Ice Spikes" <me>',
                 buff_id = 35,  -- Ice Spikes
-                combat_only = true,
+                
                 group = 'spikes',
             },
             {
@@ -523,7 +523,7 @@ return {
                 id = 249,  -- Spell ID
                 command = '/ma "Blaze Spikes" <me>',
                 buff_id = 34,  -- Blaze Spikes
-                combat_only = true,
+                
                 group = 'spikes',
             },
         },

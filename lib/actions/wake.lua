@@ -89,25 +89,9 @@ function wake.execute(settings, job_def, main_level, sub_level, player_resource)
         return nil
     end
     
-    -- Filter abilities by level and sort by cost (use cheapest)
-    local available_single = {}
-    local available_aoe = {}
-    
-    for _, ability in ipairs(wake_abilities.single) do
-        -- Determine which level to use based on ability source
-        local player_level = ability.is_main_job == false and sub_level or main_level
-        if ability.level <= player_level then
-            table.insert(available_single, ability)
-        end
-    end
-    
-    for _, ability in ipairs(wake_abilities.aoe) do
-        -- Determine which level to use based on ability source
-        local player_level = ability.is_main_job == false and sub_level or main_level
-        if ability.level <= player_level then
-            table.insert(available_aoe, ability)
-        end
-    end
+    -- Filter abilities by level and settings (respects disabled abilities)
+    local available_single = common.filter_abilities_by_level(wake_abilities.single, settings, main_level, sub_level)
+    local available_aoe = common.filter_abilities_by_level(wake_abilities.aoe, settings, main_level, sub_level)
     
     -- Sort by cost ascending (use cheapest effective option)
     table.sort(available_single, function(a, b)

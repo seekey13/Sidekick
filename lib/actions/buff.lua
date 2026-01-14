@@ -41,12 +41,6 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
     for _, ability in ipairs(available_abilities) do
         local should_skip = false
         
-        -- Check if ability is disabled in settings
-        local disabled_key = 'disabled_' .. ability.name:gsub(' ', '_')
-        if settings[disabled_key] then
-            should_skip = true
-        end
-        
         -- Check combat requirements
         if not should_skip and ability.combat_only and is_idle then
             -- Skip buffs that require combat
@@ -217,12 +211,6 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                     end
                     
                     local should_skip = false
-                    
-                    -- Check if ability is disabled in settings
-                    local disabled_key = 'disabled_' .. ability.name:gsub(' ', '_')
-                    if settings[disabled_key] then
-                        should_skip = true
-                    end
                     
                     -- Check combat requirements
                     if not should_skip and ability.combat_only and is_idle then

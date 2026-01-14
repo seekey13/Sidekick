@@ -367,7 +367,7 @@ return {
                 command = '/ma "Aquaveil" <me>',
                 element = 'Water',
                 buff_id = 39,  -- Aquaveil buff
-                combat_only = true,
+                
             },
             {
                 name = 'Blink',
@@ -377,7 +377,7 @@ return {
                 command = '/ma "Blink" <me>',
                 element = 'Wind',
                 buff_id = 36,  -- Blink buff
-                combat_only = true,
+                
             },
             {
                 name = 'Stoneskin',
@@ -397,7 +397,7 @@ return {
                 command = '/ma "Foil" <me>',
                 element = 'Wind',
                 buff_id = 480,  -- Foil buff
-                combat_only = true,
+                
             },
             {
                 name = 'Swordplay',
@@ -425,7 +425,7 @@ return {
                 command = '/ma "Phalanx" <me>',
                 element = 'Light',
                 buff_id = 116,  -- Phalanx buff
-                combat_only = true,
+                
                 self_only = true,
             },
             {

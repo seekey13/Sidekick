@@ -186,7 +186,7 @@ return {
                     return '/ma "Phalanx II" <p' .. party_index .. '>'
                 end,
                 buff_id = 116,  -- Phalanx
-                combat_only = true,
+                combat_only = false,
             },
             {
                 name = 'Haste',
@@ -197,7 +197,7 @@ return {
                     return '/ma "Haste" <p' .. party_index .. '>'
                 end,
                 buff_id = 33,  -- Haste
-                combat_only = true,
+                
             },
             {
                 name = 'Flurry',
@@ -208,7 +208,7 @@ return {
                     return '/ma "Flurry" <p' .. party_index .. '>'
                 end,
                 buff_id = 265,  -- Flurry
-                combat_only = true,
+                
             },
             {
                 name = 'Refresh',
@@ -228,7 +228,7 @@ return {
                 id = 54,  -- Spell ID
                 command = '/ma "Stoneskin" <me>',
                 buff_id = 37,  -- Stoneskin
-                combat_only = true,
+                
             },
             {
                 name = 'Phalanx',
@@ -237,7 +237,7 @@ return {
                 id = 106,  -- Spell ID
                 command = '/ma "Phalanx" <me>',
                 buff_id = 116,  -- Phalanx
-                combat_only = true,
+                
             },
             {
                 name = 'Blink',
@@ -246,7 +246,7 @@ return {
                 id = 53,  -- Spell ID
                 command = '/ma "Blink" <me>',
                 buff_id = 36,  -- Blink
-                combat_only = true,
+                
             },
             {
                 name = 'Regen',
@@ -266,7 +266,7 @@ return {
                 id = 55,  -- Spell ID
                 command = '/ma "Aquaveil" <me>',
                 buff_id = 39,  -- Aquaveil
-                combat_only = true,
+                
             },
             -- Enspells (grouped by element)
             {

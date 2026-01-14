@@ -136,6 +136,8 @@ local function is_ability_enabled(ability_name)
     -- If this key has never been set, it's a newly discovered ability
     -- Default to disabled on first display
     if current_settings[key] == nil then
+        -- Initialize as disabled
+        current_settings[key] = true
         return false
     end
     

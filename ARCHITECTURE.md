@@ -141,6 +141,9 @@ Provides shared utilities used across all modules.
 - `get_party_buffs(member_index)`: Returns buff array for party member
 - `has_buff/get_player_buffs`: Buff checking via memory pointers
 - `has_status/get_removable_debuffs`: Status effect checking
+- `has_amnesia()`: Check if player has Amnesia (blocks job abilities)
+- `has_silence()`: Check if player has Silence (blocks magic)
+- `is_command_blocked(command)`: Check if command is blocked by status ailments
 - `is_in_range(target, range)`: Distance validation
 - `get_pet_distance()`: Pet distance from player (for geo)
 - `is_casting()`: Casting state detection
@@ -231,11 +234,18 @@ Checks for various debuff IDs (Poison, Paralysis, Blindness, Silence, Slow, Dise
 Matches debuff removal abilities with specific debuff IDs they can cure.
 
 #### buff.lua
-Buff maintenance logic.
+Buff maintenance logic with per-party-member configuration.
 
 **Buff Types:**
 - Self buffs (apply to player)
-- Party buffs (apply to party members)
+- Party buffs (apply to party members with per-member targeting)
+
+**Party Buff System:**
+- Uses `party_buff_config` to control which buffs are enabled for each party member
+- UI provides checkboxes for each party member (P1-P5) to enable/disable specific buffs
+- Only buffs with function commands can be cast on party members
+- Automatically checks party member buffs to avoid reapplying active buffs
+- Validates range (20 yalms) before casting on party members
 
 **Conditions:**
 - `combat_only`: Only use in combat
@@ -247,6 +257,9 @@ Buff maintenance logic.
 
 **Uptime Checking:**
 Checks player/party buffs to avoid reapplying active buffs using buff_id.
+
+**Status Ailment Blocking:**
+Checks for Silence (blocks magic) and Amnesia (blocks job abilities) before attempting to cast.
 
 #### recover.lua
 MP and TP recovery logic.
@@ -460,6 +473,7 @@ abilities = {
 ### Safety First
 - Multiple validation layers
 - Automatic resource checking
+- Status ailment detection (Silence/Amnesia)
 - Cooldown tracking
 - Event/cutscene blocking
 

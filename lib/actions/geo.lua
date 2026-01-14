@@ -57,13 +57,6 @@ function geo.execute(settings, job_def, main_level, sub_level, player_resource)
             goto continue
         end
         
-        -- Check if ability is disabled in settings
-        local disabled_key = 'disabled_' .. ability.name:gsub(' ', '_')
-        if settings[disabled_key] then
-            common.debugf('[GEO] %s is disabled in settings', ability.name)
-            goto continue
-        end
-        
         -- Check resource (Full Circle has 0 cost)
         if resource.has_resource(job_def.resource_type, ability.cost) then
             -- Check cooldown
