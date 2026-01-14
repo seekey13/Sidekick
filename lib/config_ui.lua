@@ -735,8 +735,10 @@ function config_ui.render(settings, job_def, callback, roll_mod)
             imgui.Indent(ABILITY_LIST_INDENT)
             local zone_id = common.get_zone_id()
             imgui.Text(string.format('get_zone_id = %d', zone_id))
+            local target_id = common.get_target_id()
+            imgui.Text(string.format('get_target_id = %s', tostring(target_id)))
+            imgui.Unindent(ABILITY_LIST_INDENT)
         end
-        imgui.Unindent(ABILITY_LIST_INDENT)
 
         imgui.End()
     else
