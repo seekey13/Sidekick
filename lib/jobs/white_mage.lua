@@ -567,72 +567,66 @@ return {
                 level = 25,
                 cost = 12,
                 id = 70,  -- Spell ID
-                command = function(party_index)
-                    return '/ma "Barthundra" <p' .. party_index .. '>'
-                end,
+                command = '/ma "Barthundra" <me>',
                 buff_id = 104,  -- Barthundra
                 group = 'barelement',
                 combat_only = false,
+                self_only = true,
             },
             {
                 name = 'Barblizzara',
                 level = 21,
                 cost = 12,
                 id = 67,  -- Spell ID
-                command = function(party_index)
-                    return '/ma "Barblizzara" <p' .. party_index .. '>'
-                end,
+                command = '/ma "Barblizzara" <me>',
                 buff_id = 101,  -- Barblizzara
                 group = 'barelement',
                 combat_only = false,
+                self_only = true,
             },
             {
                 name = 'Barfira',
                 level = 17,
                 cost = 12,
                 id = 66,  -- Spell ID
-                command = function(party_index)
-                    return '/ma "Barfira" <p' .. party_index .. '>'
-                end,
+                command = '/ma "Barfira" <me>',
                 buff_id = 100,  -- Barfira
                 group = 'barelement',
                 combat_only = false,
+                self_only = true,
             },
             {
                 name = 'Baraera',
                 level = 13,
                 cost = 12,
                 id = 68,  -- Spell ID
-                command = function(party_index)
-                    return '/ma "Baraera" <p' .. party_index .. '>'
-                end,
+                command = '/ma "Baraera" <me>',
                 buff_id = 102,  -- Baraera
                 group = 'barelement',
                 combat_only = false,
+                self_only = true,
             },
             {
                 name = 'Barwatera',
                 level = 9,
                 cost = 12,
                 id = 79,  -- Spell ID
-                command = function(party_index)
-                    return '/ma "Barwatera" <p' .. party_index .. '>'
-                end,
+                command = '/ma "Barwatera" <me>',
                 buff_id = 105,  -- Barwatera
                 group = 'barelement',
                 combat_only = false,
+                self_only = true,
             },
             {
                 name = 'Barstonra',
                 level = 5,
                 cost = 12,
                 id = 78,  -- Spell ID
-                command = function(party_index)
-                    return '/ma "Barstonra" <p' .. party_index .. '>'
-                end,
+                command = '/ma "Barstonra" <me>',
                 buff_id = 103,  -- Barstonra
                 group = 'barelement',
                 combat_only = false,
+                self_only = true,
             },
             -- Bar Status spells
             {
@@ -640,96 +634,88 @@ return {
                 level = 65,
                 cost = 12,
                 id = 91,  -- Spell ID
-                command = function(party_index)
-                    return '/ma "Baramnesra" <p' .. party_index .. '>'
-                end,
-                buff_id = 113,  -- Baramnesra
+                command = '/ma "Baramnesra" <me>',
+                buff_id = 286,  -- Baramnesra
                 group = 'barstatus',
                 combat_only = false,
+                self_only = true,
             },
             {
                 name = 'Barpetra',
                 level = 43,
                 cost = 12,
                 id = 90,  -- Spell ID
-                command = function(party_index)
-                    return '/ma "Barpetra" <p' .. party_index .. '>'
-                end,
+                command = '/ma "Barpetra" <me>',
                 buff_id = 111,  -- Barpetra
                 group = 'barstatus',
                 combat_only = false,
+                self_only = true,
             },
             {
                 name = 'Barvira',
                 level = 39,
                 cost = 12,
                 id = 89,  -- Spell ID
-                command = function(party_index)
-                    return '/ma "Barvira" <p' .. party_index .. '>'
-                end,
+                command = '/ma "Barvira" <me>',
                 buff_id = 112,  -- Barvira
                 group = 'barstatus',
                 combat_only = false,
+                self_only = true,
             },
             {
                 name = 'Barsilencera',
                 level = 23,
                 cost = 12,
                 id = 88,  -- Spell ID
-                command = function(party_index)
-                    return '/ma "Barsilencera" <p' .. party_index .. '>'
-                end,
+                command = '/ma "Barsilencera" <me>',
                 buff_id = 110,  -- Barsilencera
                 group = 'barstatus',
                 combat_only = false,
+                self_only = true,
             },
             {
                 name = 'Barblindra',
                 level = 18,
                 cost = 12,
                 id = 87,  -- Spell ID
-                command = function(party_index)
-                    return '/ma "Barblindra" <p' .. party_index .. '>'
-                end,
+                command = '/ma "Barblindra" <me>',
                 buff_id = 109,  -- Barblindra
                 group = 'barstatus',
                 combat_only = false,
+                self_only = true,
             },
             {
                 name = 'Barparalyzra',
                 level = 12,
                 cost = 12,
                 id = 86,  -- Spell ID
-                command = function(party_index)
-                    return '/ma "Barparalyzra" <p' .. party_index .. '>'
-                end,
+                command = '/ma "Barparalyzra" <me>',
                 buff_id = 108,  -- Barparalyzra
                 group = 'barstatus',
                 combat_only = false,
+                self_only = true,
             },
             {
                 name = 'Barpoisonra',
                 level = 10,
                 cost = 12,
                 id = 85,  -- Spell ID
-                command = function(party_index)
-                    return '/ma "Barpoisonra" <p' .. party_index .. '>'
-                end,
+                command = '/ma "Barpoisonra" <me>',
                 buff_id = 107,  -- Barpoisonra
                 group = 'barstatus',
                 combat_only = false,
+                self_only = true,
             },
             {
                 name = 'Barsleepra',
                 level = 7,
                 cost = 12,
                 id = 84,  -- Spell ID
-                command = function(party_index)
-                    return '/ma "Barsleepra" <p' .. party_index .. '>'
-                end,
+                command = '/ma "Barsleepra" <me>',
                 buff_id = 106,  -- Barsleepra
                 group = 'barstatus',
                 combat_only = false,
+                self_only = true,
             },
         },
 
