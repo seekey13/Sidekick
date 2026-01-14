@@ -154,9 +154,14 @@ function debuff_removal.execute(settings, job_def, main_level, sub_level, player
         end
         
         if focus_party_index and debuff_counts[focus_party_index] > 0 then
-            -- Try to use an ability on focus target
-            for _, ability in ipairs(available_abilities) do
-                if can_remove_debuffs(ability, all_buffs[focus_party_index]) then
+            -- Check range to focus target (20 yalms for debuff removal spells)
+            local focus_target_index = party:GetMemberTargetIndex(focus_party_index)
+            local in_range = focus_party_index == 0 or common.is_in_range(focus_target_index, 20)
+            
+            if in_range then
+                -- Try to use an ability on focus target
+                for _, ability in ipairs(available_abilities) do
+                    if can_remove_debuffs(ability, all_buffs[focus_party_index]) then
                     -- Check resource
                     if resource.has_resource(job_def.resource_type, ability.cost) then
                         -- Check cooldown (if ability has an ID)
@@ -182,6 +187,9 @@ function debuff_removal.execute(settings, job_def, main_level, sub_level, player
                         end
                     end
                 end
+            end
+            else
+                common.debugf('[DEBUFF_REMOVAL] Focus target (p%d) out of range, skipping', focus_party_index)
             end
         end
     end
@@ -209,10 +217,16 @@ function debuff_removal.execute(settings, job_def, main_level, sub_level, player
         end
         
         if i ~= focus_party_index and debuff_counts[i] > 0 then
-            -- Update if this member has more debuffs, or same amount but lower index
-            if debuff_counts[i] > max_debuffs then
-                best_index = i
-                max_debuffs = debuff_counts[i]
+            -- Check range (20 yalms for debuff removal spells)
+            local target_index = common.get_party_member_target_index(i)
+            local in_range = i == 0 or (target_index and common.is_in_range(target_index, 20))
+            
+            if in_range then
+                -- Update if this member has more debuffs, or same amount but lower index
+                if debuff_counts[i] > max_debuffs then
+                    best_index = i
+                    max_debuffs = debuff_counts[i]
+                end
             end
         end
     end

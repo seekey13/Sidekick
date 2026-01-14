@@ -21,8 +21,14 @@ local roll_module = nil
 local focus_enabled = { false }
 local focus_target_index = { 0 }  -- 0 = None, 1-6 = P0-P5
 
+-- Party buff tracking (session only, not saved to settings)
+-- Structure: party_buffs[ability_name][party_index] = true/false
+-- party_index: 1-5 for P1-P5 (player is always handled separately)
+local party_buffs = {}
+
 -- UI Constants
 local ABILITY_LIST_INDENT = 20  -- Indent for ability checkboxes within sections
+local PARTY_BUTTON_WIDTH = 35  -- Width of party toggle buttons
 
 -- Dropdown options
 local focus_target_options = { 'None', 'P0', 'P1', 'P2', 'P3', 'P4', 'P5' }
@@ -164,6 +170,27 @@ local function toggle_ability(ability_name, enabled, job_def)
     end
 end
 
+-- Check if a buff is enabled for a specific party member (session only)
+local function is_party_buff_enabled(ability_name, party_index)
+    if not party_buffs[ability_name] then
+        return false
+    end
+    return party_buffs[ability_name][party_index] == true
+end
+
+-- Toggle buff enabled state for a specific party member (session only)
+local function toggle_party_buff(ability_name, party_index, enabled)
+    if not party_buffs[ability_name] then
+        party_buffs[ability_name] = {}
+    end
+    party_buffs[ability_name][party_index] = enabled
+end
+
+-- Check if ability can be cast on party members (has function command)
+local function can_cast_on_party(ability)
+    return type(ability.command) == 'function'
+end
+
 -- Create a checkbox UI element linked to a setting
 local function create_checkbox(label, setting_name, ui_var)
     if imgui.Checkbox(label, ui_var) then
@@ -207,6 +234,100 @@ local function create_combo(label, setting_name, ui_var, options, converter, wid
         imgui.EndCombo()
     end
     imgui.PopItemWidth()
+end
+
+-- Render a buff ability checkbox with party member toggle buttons
+local function render_buff_checkbox_with_party_toggles(ability, job_def, extra_desc)
+    -- Check if this ability is being displayed for the first time
+    local key = 'disabled_' .. ability.name:gsub(' ', '_')
+    if current_settings and current_settings[key] == nil then
+        -- First time seeing this ability, set to disabled
+        current_settings[key] = true
+        if save_callback then
+            save_callback()
+        end
+    end
+    
+    -- Get the command string (handle both string and function commands)
+    local cmd = type(ability.command) == 'function' and ability.command(0) or ability.command
+    local is_spell = cmd and string.sub(cmd, 1, 3) == '/ma'
+    local has_spell = true
+    local spell_suffix = ''
+    
+    if is_spell and ability.id then
+        local ok, known = pcall(function() return AshitaCore:GetMemoryManager():GetPlayer():HasSpell(ability.id) end)
+        if ok then
+            has_spell = known
+            if not has_spell then
+                spell_suffix = ' (Not Learned)'
+                current_settings['disabled_' .. ability.name:gsub(' ', '_')] = true
+            end
+        else
+            common.errorf('Failed to check spell knowledge for %s (ID: %d)', ability.name, ability.id)
+        end
+    end
+    
+    local desc = ability.name .. ' (Lv.' .. ability.level .. ')' .. (extra_desc or '') .. spell_suffix
+    local checkbox_label = desc .. '##buff'
+    
+    if not has_spell then
+        imgui.PushStyleColor(ImGuiCol_Text, { 0.5, 0.5, 0.5, 1.0 })  -- Gray color for unknown spells
+    end
+    
+    -- Render main checkbox for player
+    local ability_enabled = { is_ability_enabled(ability.name) }
+    if imgui.Checkbox(checkbox_label, ability_enabled) then
+        toggle_ability(ability.name, ability_enabled[1], job_def)
+    end
+    
+    -- Only show party toggles if spell is known and can be cast on party
+    if has_spell and can_cast_on_party(ability) then
+        local party_size = common.get_party_size()
+        
+        -- Only show party toggles if we're actually in a party (size > 1)
+        if party_size > 1 then
+            imgui.SameLine()
+            
+            -- Render toggle buttons for each active party member (P1-P5)
+            for party_index = 1, 5 do
+                local is_active = party_index < party_size  -- P1-P(size-1) are active
+                
+                -- Only render buttons for active party members
+                if is_active then
+                    -- Get current state
+                    local is_enabled = is_party_buff_enabled(ability.name, party_index)
+                    
+                    -- Set button color based on state
+                    if is_enabled then
+                        -- Selected: Use default button colors (no custom styling)
+                    else
+                        -- Not selected: Gray
+                        imgui.PushStyleColor(ImGuiCol_Button, { 0.3, 0.3, 0.3, 1.0 })
+                        imgui.PushStyleColor(ImGuiCol_ButtonHovered, { 0.4, 0.4, 0.4, 1.0 })
+                        imgui.PushStyleColor(ImGuiCol_ButtonActive, { 0.5, 0.5, 0.5, 1.0 })
+                    end
+                    
+                    local button_label = 'P' .. party_index .. '##' .. ability.name .. '_p' .. party_index
+                    if imgui.Button(button_label, { PARTY_BUTTON_WIDTH, 0 }) then
+                        toggle_party_buff(ability.name, party_index, not is_enabled)
+                    end
+                    
+                    if not is_enabled then
+                        imgui.PopStyleColor(3)
+                    end
+                    
+                    -- Add spacing between buttons for next active member
+                    if party_index < party_size - 1 then
+                        imgui.SameLine()
+                    end
+                end
+            end
+        end
+    end
+    
+    if not has_spell then
+        imgui.PopStyleColor()
+    end
 end
 
 -- Render an ability checkbox with spell knowledge checking
@@ -290,6 +411,10 @@ end
 
 function config_ui.is_visible()
     return ui_visible
+end
+
+function config_ui.get_party_buffs()
+    return party_buffs
 end
 
 function config_ui.render(settings, job_def, callback, roll_mod)
@@ -573,7 +698,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                         elseif ability.idle_only then
                             extra_desc = ' [Idle Only]'
                         end
-                        render_ability_checkbox(ability, job_def, extra_desc, 'buff')
+                        render_buff_checkbox_with_party_toggles(ability, job_def, extra_desc)
                     end
                 end
                 imgui.Unindent(ABILITY_LIST_INDENT)
