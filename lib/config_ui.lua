@@ -779,6 +779,30 @@ function config_ui.render(settings, job_def, callback, roll_mod)
             local target_id = common.get_target_id()
             imgui.Text(string.format('get_target_id = %s', tostring(target_id)))
             
+            local party_server_ids = common.get_party_server_ids()
+            if #party_server_ids > 0 then
+                local ids_str = table.concat(party_server_ids, ', ')
+                imgui.Text(string.format('get_party_server_ids = [%s]', ids_str))
+            else
+                imgui.Text('get_party_server_ids = []')
+            end
+            
+            -- Show target index of currently targeted party member
+            local party = common.get_party()
+            if party and target_id and target_id > 0 then
+                -- Find which party member matches the target server ID
+                for i = 0, 5 do
+                    if party:GetMemberIsActive(i) == 1 then
+                        local member_server_id = party:GetMemberServerId(i)
+                        if member_server_id == target_id then
+                            local member_target_index = party:GetMemberTargetIndex(i)
+                            imgui.Text(string.format('Target P%d GetMemberTargetIndex = %s', i, tostring(member_target_index)))
+                            break
+                        end
+                    end
+                end
+            end
+            
             imgui.Spacing()
             imgui.Text('get_player_buffs:')
             local player_buffs = common.get_player_buffs()

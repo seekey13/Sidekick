@@ -558,6 +558,27 @@ function common.get_target_id()
     return server_id
 end
 
+-- Get array of party member server IDs
+-- Returns: table of server IDs (numbers) for active party members
+function common.get_party_server_ids()
+    local party = common.get_party()
+    if not party then
+        return {}
+    end
+    
+    local server_ids = {}
+    for i = 0, 5 do
+        if party:GetMemberIsActive(i) == 1 then
+            local server_id = party:GetMemberServerId(i)
+            if server_id and server_id > 0 then
+                table.insert(server_ids, server_id)
+            end
+        end
+    end
+    
+    return server_ids
+end
+
 function common.get_party_size()
     local party = common.get_party()
     if not party then return 0 end
