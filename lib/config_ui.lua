@@ -737,6 +737,35 @@ function config_ui.render(settings, job_def, callback, roll_mod)
             imgui.Text(string.format('get_zone_id = %d', zone_id))
             local target_id = common.get_target_id()
             imgui.Text(string.format('get_target_id = %s', tostring(target_id)))
+            
+            imgui.Spacing()
+            imgui.Text('get_player_buffs:')
+            local player_buffs = common.get_player_buffs()
+            if #player_buffs > 0 then
+                local buff_str = table.concat(player_buffs, ', ')
+                imgui.Text(string.format('  %s', buff_str))
+            else
+                imgui.Text('  None')
+            end
+            
+            local party_size = common.get_party_size()
+            if party_size > 1 then
+                for i = 1, 5 do
+                    if i < party_size then
+                        imgui.Spacing()
+                        local member_name = common.get_party_member_name(i) or ('P' .. i)
+                        imgui.Text(string.format('get_party_buffs: %s', member_name))
+                        local member_buffs = common.get_party_buffs(i)
+                        if #member_buffs > 0 then
+                            local buff_str = table.concat(member_buffs, ', ')
+                            imgui.Text(string.format('  %s', buff_str))
+                        else
+                            imgui.Text('  None')
+                        end
+                    end
+                end
+            end
+            
             imgui.Unindent(ABILITY_LIST_INDENT)
         end
 
