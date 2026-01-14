@@ -192,9 +192,12 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                 break
             end
             
-            -- Check if party member is active and in range (20 yalms for buff spells)
+            -- Check if party member is in the same zone and in range (20 yalms for buff spells)
+            local player_zone = common.get_party_member_zone(0)
+            local member_zone = common.get_party_member_zone(party_index)
             local target_index = common.get_party_member_target_index(party_index)
-            if target_index and common.is_in_range(target_index, 20) then
+            
+            if target_index and player_zone == member_zone and common.is_in_range(target_index, 20) then
                 -- Get this party member's buffs
                 local member_buffs = common.get_party_buffs(party_index)
                 
