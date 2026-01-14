@@ -280,8 +280,8 @@ local function render_buff_checkbox_with_party_toggles(ability, job_def, extra_d
         toggle_ability(ability.name, ability_enabled[1], job_def)
     end
     
-    -- Only show party toggles if spell is known and can be cast on party
-    if has_spell and can_cast_on_party(ability) then
+    -- Only show party toggles if spell is known, can be cast on party, is enabled for self, and we're in a party
+    if has_spell and can_cast_on_party(ability) and ability_enabled[1] then
         local party_size = common.get_party_size()
         
         -- Only show party toggles if we're actually in a party (size > 1)
