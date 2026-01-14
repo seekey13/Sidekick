@@ -451,7 +451,7 @@ return {
                 command = function(party_index)
                     return '/ma "Sneak" <p' .. party_index .. '>'
                 end,
-                buff_id = 69,  -- Sneak
+                buff_id = 71,  -- Sneak
                 idle_only = true,
             },
             {
@@ -462,6 +462,7 @@ return {
                 command = function(party_index)
                     return '/ma "Deodorize" <p' .. party_index .. '>'
                 end,
+                buff_id = 70,  -- Deodorize
                 idle_only = true,
             },
         },

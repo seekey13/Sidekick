@@ -25,6 +25,7 @@ return {
                     return '/pet "Healing Ruby" <p' .. party_index .. '>'
                 end,
                 wakes = true,  -- Can wake from sleep
+                combat_only = false,
                 pet_required = true,
             },
         },
@@ -38,6 +39,7 @@ return {
                 id = 174,  -- Blood Pact: Ward recast ID
                 command = '/pet "Healing Ruby II" <me>',
                 wakes = true,  -- Can wake from sleep
+                combat_only = false,
                 pet_required = true,
             },
         },
