@@ -416,6 +416,38 @@ return {
                 combat_only = true,
                 group = 'spikes'
             },
+            {
+                name = 'Invisible',
+                level = 25,
+                cost = 25,
+                id = 65,  -- Spell ID
+                command = function(party_index)
+                    return '/ma "Invisible" <p' .. party_index .. '>'
+                end,
+                buff_id = 69,  -- Invisible
+                idle_only = true,
+            },
+            {
+                name = 'Sneak',
+                level = 20,
+                cost = 25,
+                id = 64,  -- Spell ID
+                command = function(party_index)
+                    return '/ma "Sneak" <p' .. party_index .. '>'
+                end,
+                buff_id = 69,  -- Sneak
+                idle_only = true,
+            },
+            {
+                name = 'Deodorize',
+                level = 15,
+                cost = 6,
+                id = 61,  -- Spell ID
+                command = function(party_index)
+                    return '/ma "Deodorize" <p' .. party_index .. '>'
+                end,
+                idle_only = true,
+            },
         },
 
         -- Recover MP

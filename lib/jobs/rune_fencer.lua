@@ -374,7 +374,7 @@ return {
                 command = '/ma "Aquaveil" <me>',
                 element = 'Water',
                 buff_id = 39,  -- Aquaveil buff
-                
+                combat_only = false,
             },
             {
                 name = 'Blink',
@@ -384,7 +384,7 @@ return {
                 command = '/ma "Blink" <me>',
                 element = 'Wind',
                 buff_id = 36,  -- Blink buff
-                
+                combat_only = false,
             },
             {
                 name = 'Stoneskin',
@@ -404,7 +404,7 @@ return {
                 command = '/ma "Foil" <me>',
                 element = 'Wind',
                 buff_id = 480,  -- Foil buff
-                
+                combat_only = true,
             },
             {
                 name = 'Swordplay',
@@ -413,16 +413,7 @@ return {
                 id = 24,  -- Swordplay recast ID
                 command = '/ja "Swordplay" <me>',
                 buff_id = 475,  -- Swordplay buff
-                combat_only = false,
-            },
-            {
-                name = 'Embolden',
-                level = 60,
-                cost = 0,
-                id = 29,  -- Embolden recast ID
-                command = '/ja "Embolden" <me>',
-                buff_id = 476,  -- Embolden buff
-                combat_only = false,
+                combat_only = true,
             },
             {
                 name = 'Phalanx',
@@ -432,17 +423,8 @@ return {
                 command = '/ma "Phalanx" <me>',
                 element = 'Light',
                 buff_id = 116,  -- Phalanx buff
-                
+                combat_only = true,
                 self_only = true,
-            },
-            {
-                name = "One for All",
-                level = 75,
-                cost = 0,
-                id = 32,  -- One for All recast ID
-                command = '/ja "One for All" <me>',
-                buff_id = 477,  -- One for All buff
-                combat_only = false,
             },
         },
         

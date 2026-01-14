@@ -290,7 +290,7 @@ return {
                 id = 54,  -- Spell ID
                 command = '/ma "Stoneskin" <me>',
                 buff_id = 37,  -- Stoneskin
-                
+                combat_only = false,
             },
             {
                 name = 'Blink',
@@ -299,7 +299,7 @@ return {
                 id = 53,  -- Spell ID
                 command = '/ma "Blink" <me>',
                 buff_id = 36,  -- Blink
-                
+                combat_only = false,
             },
             {
                 name = 'Aquaveil',
@@ -308,35 +308,8 @@ return {
                 id = 55,  -- Spell ID
                 command = '/ma "Aquaveil" <me>',
                 buff_id = 39,  -- Aquaveil
-                
+                combat_only = false,
             },
-            -- {
-            --     name = 'Sneak',
-            --     level = 20,
-            --     cost = 12,
-            --     id = 136,  -- Spell ID
-            --     command = '/ma "Sneak" <me>',
-            --     buff_id = 71,  -- Sneak
-            --     combat_only = false,
-            -- },
-            -- {
-            --     name = 'Invisible',
-            --     level = 25,
-            --     cost = 20,
-            --     id = 137,  -- Spell ID
-            --     command = '/ma "Invisible" <me>',
-            --     buff_id = 69,  -- Invisible
-            --     combat_only = false,
-            -- },
-            -- {
-            --     name = 'Deodorize',
-            --     level = 15,
-            --     cost = 10,
-            --     id = 138,  -- Spell ID
-            --     command = '/ma "Deodorize" <me>',
-            --     buff_id = 70,  -- Deodorize
-            --     combat_only = false,
-            -- },
             -- Storms
             {
                 name = 'Aurorastorm',
@@ -345,7 +318,7 @@ return {
                 id = 119,  -- Spell ID
                 command = '/ma "Aurorastorm" <me>',
                 buff_id = 184,  -- Aurorastorm
-                
+                combat_only = false,
                 group = 'storm',
             },
             {
@@ -355,7 +328,7 @@ return {
                 id = 118,  -- Spell ID
                 command = '/ma "Voidstorm" <me>',
                 buff_id = 185,  -- Voidstorm
-                
+                combat_only = false,
                 group = 'storm',
             },
             {
@@ -365,7 +338,7 @@ return {
                 id = 117,  -- Spell ID
                 command = '/ma "Thunderstorm" <me>',
                 buff_id = 182,  -- Thunderstorm
-                
+                combat_only = false,
                 group = 'storm',
             },
             {
@@ -375,7 +348,7 @@ return {
                 id = 116,  -- Spell ID
                 command = '/ma "Hailstorm" <me>',
                 buff_id = 179,  -- Hailstorm
-                
+                combat_only = false,
                 group = 'storm',
             },
             {
@@ -385,7 +358,7 @@ return {
                 id = 115,  -- Spell ID
                 command = '/ma "Firestorm" <me>',
                 buff_id = 178,  -- Firestorm
-                
+                combat_only = false,
                 group = 'storm',
             },
             {
@@ -395,7 +368,7 @@ return {
                 id = 114,  -- Spell ID
                 command = '/ma "Windstorm" <me>',
                 buff_id = 180,  -- Windstorm
-                
+                combat_only = false,
                 group = 'storm',
             },
             {
@@ -405,7 +378,7 @@ return {
                 id = 113,  -- Spell ID
                 command = '/ma "Rainstorm" <me>',
                 buff_id = 183,  -- Rainstorm
-                
+                combat_only = false,
                 group = 'storm',
             },
             {
@@ -415,7 +388,7 @@ return {
                 id = 112,  -- Spell ID
                 command = '/ma "Sandstorm" <me>',
                 buff_id = 181,  -- Sandstorm
-                
+                combat_only = false,
                 group = 'storm',
             },
             -- Klimaform
@@ -426,7 +399,7 @@ return {
                 id = 287,  -- Spell ID
                 command = '/ma "Klimaform" <me>',
                 buff_id = 407,  -- Klimaform
-                
+                combat_only = true,
             },
             -- Spikes
             {
@@ -436,7 +409,7 @@ return {
                 id = 251,  -- Spell ID
                 command = '/ma "Shock Spikes" <me>',
                 buff_id = 38,  -- Shock Spikes
-                
+                combat_only = true,
                 group = 'spikes',
             },
             {
@@ -446,7 +419,7 @@ return {
                 id = 250,  -- Spell ID
                 command = '/ma "Ice Spikes" <me>',
                 buff_id = 35,  -- Ice Spikes
-                
+                combat_only = true,
                 group = 'spikes',
             },
             {
@@ -456,8 +429,40 @@ return {
                 id = 249,  -- Spell ID
                 command = '/ma "Blaze Spikes" <me>',
                 buff_id = 34,  -- Blaze Spikes
-                
+                combat_only = true,
                 group = 'spikes',
+            },
+            {
+                name = 'Invisible',
+                level = 25,
+                cost = 25,
+                id = 65,  -- Spell ID
+                command = function(party_index)
+                    return '/ma "Invisible" <p' .. party_index .. '>'
+                end,
+                buff_id = 69,  -- Invisible
+                idle_only = true,
+            },
+            {
+                name = 'Sneak',
+                level = 20,
+                cost = 25,
+                id = 64,  -- Spell ID
+                command = function(party_index)
+                    return '/ma "Sneak" <p' .. party_index .. '>'
+                end,
+                buff_id = 69,  -- Sneak
+                idle_only = true,
+            },
+            {
+                name = 'Deodorize',
+                level = 15,
+                cost = 6,
+                id = 61,  -- Spell ID
+                command = function(party_index)
+                    return '/ma "Deodorize" <p' .. party_index .. '>'
+                end,
+                idle_only = true,
             },
         },
         
