@@ -235,7 +235,8 @@ end
 local function create_combo(label, setting_name, ui_var, options, converter, width)
     width = width or 250  -- Default width of 250 pixels
     imgui.PushItemWidth(width)
-    if imgui.BeginCombo(label, options[ui_var[1] + 1]) then
+    local current_value = options[ui_var[1] + 1] or options[1] or ""
+    if imgui.BeginCombo(label, current_value) then
         for i = 0, #options - 1 do
             local is_selected = (ui_var[1] == i)
             if imgui.Selectable(options[i + 1], is_selected) then
