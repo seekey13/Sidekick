@@ -178,19 +178,13 @@ function common.is_engaged()
 end
 
 function common.is_in_event()
-    local ok, player_entity = pcall(function()
-        return GetPlayerEntity()
-    end)
-    
-    if not ok or not player_entity then
+    local player_entity = targets.get_me()
+    if not player_entity then
         return false
     end
     
-    local ok_status, status = pcall(function()
-        return player_entity.Status
-    end)
-    
-    if not ok_status or not status then
+    local status = player_entity.Status
+    if not status then
         return false
     end
     
@@ -414,72 +408,23 @@ function common.get_player_tp()
 end
 
 function common.has_pet()
-    -- Get player entity
-    local ok, player = pcall(function()
-        return GetPlayerEntity()
-    end)
-    
-    if not ok or not player then
-        return false
-    end
-    
-    -- Check if player has a pet target index
-    local ok_index, pet_index = pcall(function()
-        return player.PetTargetIndex
-    end)
-    
-    if not ok_index or not pet_index or pet_index == 0 then
-        return false
-    end
-    
-    -- Verify the pet entity exists
-    local ok_pet, pet = pcall(function()
-        return GetEntity(pet_index)
-    end)
-    
-    if not ok_pet or not pet then
-        return false
-    end
-    
-    return true
+    -- Use targets module to get pet entity
+    local pet = targets.get_pet()
+    return pet ~= nil
 end
 
 -- Get pet's HP percentage
 -- Returns: number (HP percentage 0-100) or 0 if no pet
 function common.get_pet_hp_percent()
-    -- Get player entity
-    local ok, player = pcall(function()
-        return GetPlayerEntity()
-    end)
-    
-    if not ok or not player then
-        return 0
-    end
-    
-    -- Check if player has a pet target index
-    local ok_index, pet_index = pcall(function()
-        return player.PetTargetIndex
-    end)
-    
-    if not ok_index or not pet_index or pet_index == 0 then
-        return 0
-    end
-    
-    -- Get the pet entity
-    local ok_pet, pet = pcall(function()
-        return GetEntity(pet_index)
-    end)
-    
-    if not ok_pet or not pet then
+    -- Get pet entity
+    local pet = targets.get_pet()
+    if not pet then
         return 0
     end
     
     -- Get pet's HealthPercent
-    local ok_hpp, hpp = pcall(function()
-        return pet.HealthPercent
-    end)
-    
-    if not ok_hpp or not hpp then
+    local hpp = pet.HealthPercent
+    if not hpp then
         return 0
     end
     
@@ -492,25 +437,11 @@ end
 function common.get_entity(entity_index)
     -- Special case for player entity (index 0)
     if entity_index == 0 then
-        local ok, player = pcall(function()
-            return GetPlayerEntity()
-        end)
-        
-        if ok and player then
-            return player
-        end
+        return targets.get_me()
     end
     
-    -- Try standard GetEntity for all indices (including 0 as fallback)
-    local ok, entity = pcall(function()
-        return GetEntity(entity_index)
-    end)
-    
-    if ok and entity then
-        return entity
-    end
-    
-    return nil
+    -- Try standard GetEntity for all indices
+    return GetEntity(entity_index)
 end
 
 -- Get party manager
@@ -558,16 +489,13 @@ end
 -- Get player's current target index
 -- Returns: number (target index) or 0 if no target
 function common.get_target_index()
-    local target = common.get_target()
-    if not target then
+    local target_entity = targets.get_t()
+    if not target_entity then
         return 0
     end
     
-    local ok_index, target_index = pcall(function()
-        return target:GetTargetIndex(0)
-    end)
-    
-    if not ok_index or not target_index then
+    local target_index = target_entity.TargetIndex
+    if not target_index then
         return 0
     end
     
@@ -577,22 +505,12 @@ end
 -- Get player's current target server ID
 -- Returns: number (target server ID) or 0 if no target
 function common.get_target_id()
-    local target = common.get_target()
-    if not target then
+    local target_entity = targets.get_t()
+    if not target_entity then
         return 0
     end
     
-    local target_index = target:GetTargetIndex(0)
-    if target_index == 0 then
-        return 0
-    end
-    
-    local entity_mgr = common.get_entity_manager()
-    if not entity_mgr then
-        return 0
-    end
-    
-    local server_id = entity_mgr:GetServerId(target_index)
+    local server_id = target_entity.ServerId
     if not server_id or server_id == 0 then
         return 0
     end
@@ -665,6 +583,18 @@ function common.get_party_member_target_index(index)
     return party:GetMemberTargetIndex(index)
 end
 
+-- Get party member entity by party index (0-5)
+-- Returns: entity object or nil if not found
+function common.get_party_member_entity(index)
+    return targets.get_party_member(index)
+end
+
+-- Get battle target entity
+-- Returns: entity object or nil if no battle target
+function common.get_battle_target()
+    return targets.get_bt()
+end
+
 function common.get_party_member_name(index)
     local party = common.get_party()
     if not party then return nil end
@@ -701,22 +631,13 @@ end
 -- Returns: number (distance in yalms) or nil if no pet or error
 function common.get_pet_distance()
     -- Get player entity
-    local player_entity = common.get_entity(0)
+    local player_entity = targets.get_me()
     if not player_entity then
         return nil
     end
     
-    -- Check if player has a pet target index
-    local ok_index, pet_index = pcall(function()
-        return player_entity.PetTargetIndex
-    end)
-    
-    if not ok_index or not pet_index or pet_index == 0 then
-        return nil
-    end
-    
-    -- Get the pet entity
-    local pet_entity = common.get_entity(pet_index)
+    -- Get pet entity
+    local pet_entity = targets.get_pet()
     if not pet_entity then
         return nil
     end
