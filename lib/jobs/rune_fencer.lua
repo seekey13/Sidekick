@@ -22,8 +22,8 @@ return {
                 level = 20,
                 cost = 15,
                 id = 46,
-                command = function(party_index)
-                    return '/ma "Protect" <p' .. party_index .. '>'
+                command = function(target)
+                    return '/ma "Protect" '..target
                 end,
                 element = 'Light',
                 buff_id = 17,  -- Protect buff
@@ -35,8 +35,8 @@ return {
                 level = 40,
                 cost = 21,
                 id = 47,
-                command = function(party_index)
-                    return '/ma "Protect II" <p' .. party_index .. '>'
+                command = function(target)
+                    return '/ma "Protect II" '..target
                 end,
                 element = 'Light',
                 buff_id = 40,  -- Protect II buff
@@ -48,8 +48,8 @@ return {
                 level = 60,
                 cost = 27,
                 id = 129,
-                command = function(party_index)
-                    return '/ma "Protect III" <p' .. party_index .. '>'
+                command = function(target)
+                    return '/ma "Protect III" '..target
                 end,
                 element = 'Light',
                 buff_id = 41,  -- Protect III buff
@@ -62,8 +62,8 @@ return {
                 level = 10,
                 cost = 18,
                 id = 48,
-                command = function(party_index)
-                    return '/ma "Shell" <p' .. party_index .. '>'
+                command = function(target)
+                    return '/ma "Shell" '..target
                 end,
                 element = 'Light',
                 buff_id = 18,  -- Shell buff
@@ -75,8 +75,8 @@ return {
                 level = 30,
                 cost = 24,
                 id = 49,
-                command = function(party_index)
-                    return '/ma "Shell II" <p' .. party_index .. '>'
+                command = function(target)
+                    return '/ma "Shell II" '..target
                 end,
                 element = 'Light',
                 buff_id = 19,  -- Shell II buff
@@ -88,8 +88,8 @@ return {
                 level = 50,
                 cost = 30,
                 id = 50,
-                command = function(party_index)
-                    return '/ma "Shell III" <p' .. party_index .. '>'
+                command = function(target)
+                    return '/ma "Shell III" '..target
                 end,
                 element = 'Light',
                 buff_id = 20,  -- Shell III buff
@@ -101,8 +101,8 @@ return {
                 level = 70,
                 cost = 36,
                 id = 52,
-                command = function(party_index)
-                    return '/ma "Shell IV" <p' .. party_index .. '>'
+                command = function(target)
+                    return '/ma "Shell IV" '..target
                 end,
                 element = 'Light',
                 buff_id = 21,  -- Shell IV buff
@@ -115,8 +115,8 @@ return {
                 level = 4,
                 cost = 5,
                 id = 60,
-                command = function(party_index)
-                    return '/ma "Barstone" <' .. party_index .. '>'
+                command = function(target)
+                    return '/ma "Barstone" '..target
                 end,
                 element = 'Wind',
                 buff_id = 102,  -- Barstone buff
@@ -128,8 +128,8 @@ return {
                 level = 8,
                 cost = 7,
                 id = 62,
-                command = function(party_index)
-                    return '/ma "Barwater" <' .. party_index .. '>'
+                command = function(target)
+                    return '/ma "Barwater" '..target
                 end,
                 element = 'Thunder',
                 buff_id = 104,  -- Barwater buff
@@ -141,8 +141,8 @@ return {
                 level = 12,
                 cost = 10,
                 id = 65,
-                command = function(party_index)
-                    return '/ma "Baraero" <' .. party_index .. '>'
+                command = function(target)
+                    return '/ma "Baraero" '..target
                 end,
                 element = 'Ice',
                 buff_id = 107,  -- Baraero buff
@@ -154,8 +154,8 @@ return {
                 level = 16,
                 cost = 11,
                 id = 66,
-                command = function(party_index)
-                    return '/ma "Barfire" <' .. party_index .. '>'
+                command = function(target)
+                    return '/ma "Barfire" '..target
                 end,
                 element = 'Water',
                 buff_id = 108,  -- Barfire buff
@@ -167,8 +167,8 @@ return {
                 level = 20,
                 cost = 13,
                 id = 68,
-                command = function(party_index)
-                    return '/ma "Barblizzard" <' .. party_index .. '>'
+                command = function(target)
+                    return '/ma "Barblizzard" '..target
                 end,
                 element = 'Fire',
                 buff_id = 110,  -- Barblizzard buff
@@ -180,8 +180,8 @@ return {
                 level = 24,
                 cost = 15,
                 id = 70,
-                command = function(party_index)
-                    return '/ma "Barthunder" <' .. party_index .. '>'
+                command = function(target)
+                    return '/ma "Barthunder" '..target
                 end,
                 element = 'Earth',
                 buff_id = 112,  -- Barthunder buff
@@ -194,8 +194,8 @@ return {
                 level = 6,
                 cost = 6,
                 id = 61,
-                command = function(party_index)
-                    return '/ma "Barsleep" <' .. party_index .. '>'
+                command = function(target)
+                    return '/ma "Barsleep" '..target
                 end,
                 element = 'Light',
                 buff_id = 103,  -- Barsleep buff
@@ -207,8 +207,8 @@ return {
                 level = 9,
                 cost = 8,
                 id = 63,
-                command = function(party_index)
-                    return '/ma "Barpoison" <' .. party_index .. '>'
+                command = function(target)
+                    return '/ma "Barpoison" '..target
                 end,
                 element = 'Thunder',
                 buff_id = 105,  -- Barpoison buff
@@ -220,8 +220,8 @@ return {
                 level = 11,
                 cost = 9,
                 id = 64,
-                command = function(party_index)
-                    return '/ma "Barparalyze" <' .. party_index .. '>'
+                command = function(target)
+                    return '/ma "Barparalyze" '..target
                 end,
                 element = 'Fire',
                 buff_id = 106,  -- Barparalyze buff
@@ -233,8 +233,8 @@ return {
                 level = 17,
                 cost = 12,
                 id = 67,
-                command = function(party_index)
-                    return '/ma "Barblind" <' .. party_index .. '>'
+                command = function(target)
+                    return '/ma "Barblind" '..target
                 end,
                 element = 'Light',
                 buff_id = 109,  -- Barblind buff
@@ -246,8 +246,8 @@ return {
                 level = 22,
                 cost = 14,
                 id = 69,
-                command = function(party_index)
-                    return '/ma "Barsilence" <' .. party_index .. '>'
+                command = function(target)
+                    return '/ma "Barsilence" '..target
                 end,
                 element = 'Ice',
                 buff_id = 111,  -- Barsilence buff
@@ -259,8 +259,8 @@ return {
                 level = 38,
                 cost = 16,
                 id = 71,
-                command = function(party_index)
-                    return '/ma "Barvirus" <' .. party_index .. '>'
+                command = function(target)
+                    return '/ma "Barvirus" '..target
                 end,
                 element = 'Water',
                 buff_id = 113,  -- Barvirus buff
@@ -272,8 +272,8 @@ return {
                 level = 42,
                 cost = 17,
                 id = 72,
-                command = function(party_index)
-                    return '/ma "Barpetrify" <' .. party_index .. '>'
+                command = function(target)
+                    return '/ma "Barpetrify" '..target
                 end,
                 element = 'Wind',
                 buff_id = 114,  -- Barpetrify buff
@@ -285,8 +285,8 @@ return {
                 level = 63,
                 cost = 18,
                 id = 73,
-                command = function(party_index)
-                    return '/ma "Baramnesia" <' .. party_index .. '>'
+                command = function(target)
+                    return '/ma "Baramnesia" '..target
                 end,
                 element = 'Water',
                 buff_id = 115,  -- Baramnesia buff
@@ -299,8 +299,8 @@ return {
                 level = 23,
                 cost = 15,
                 id = 108,  -- Spell ID
-                command = function(party_index)
-                    return '/ma "Regen" <p' .. party_index .. '>'
+                command = function(target)
+                    return '/ma "Regen" '..target
                 end,
                 buff_id = 42,  -- Regen
                 combat_only = false,
@@ -310,8 +310,8 @@ return {
                 level = 48,
                 cost = 24,
                 id = 110,
-                command = function(party_index)
-                    return '/ma "Regen II" <p' .. party_index .. '>'
+                command = function(target)
+                    return '/ma "Regen II" '..target
                 end,
                 element = 'Light',
                 buff_id = 84,  -- Regen II buff
@@ -322,8 +322,8 @@ return {
                 level = 70,
                 cost = 36,
                 id = 111,
-                command = function(party_index)
-                    return '/ma "Regen III" <p' .. party_index .. '>'
+                command = function(target)
+                    return '/ma "Regen III" '..target
                 end,
                 element = 'Light',
                 buff_id = 121,  -- Regen III buff
@@ -335,8 +335,8 @@ return {
                 level = 62,
                 cost = 40,
                 id = 109,
-                command = function(party_index)
-                    return '/ma "Refresh" <p' .. party_index .. '>'
+                command = function(target)
+                    return '/ma "Refresh" '..target
                 end,
                 element = 'Light',
                 buff_id = 43,  -- Refresh buff

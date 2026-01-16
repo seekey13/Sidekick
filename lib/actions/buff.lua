@@ -294,7 +294,7 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                                         is_spell = ability.command:match('^/ma ') ~= nil
                                     else
                                         -- Function command, check if it generates a spell command
-                                        local test_cmd = ability.command(party_index)
+                                        local test_cmd = common.build_ability_command(ability, party_index)
                                         is_spell = test_cmd and test_cmd:match('^/ma ') ~= nil
                                     end
                                     
@@ -314,7 +314,7 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                                     end
                                     
                                     if is_ready then
-                                        local command = ability.command(party_index)
+                                        local command = common.build_ability_command(ability, party_index)
                                         if command then
                                             local member_name = common.get_party_member_name(party_index) or ('P' .. party_index)
                                             return {
@@ -324,7 +324,7 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                                         end
                                     end
                                 else
-                                    local command = ability.command(party_index)
+                                    local command = common.build_ability_command(ability, party_index)
                                     if command then
                                         local member_name = common.get_party_member_name(party_index) or ('P' .. party_index)
                                         return {
@@ -345,16 +345,6 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
         end
     end
     
-    return nil
-end
-
-function buff.build_command(ability)
-    if type(ability.command) == 'function' then
-        -- Pass party_index 0 for self-targeting
-        return ability.command(0)
-    elseif type(ability.command) == 'string' then
-        return ability.command
-    end
     return nil
 end
 

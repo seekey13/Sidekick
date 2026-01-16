@@ -21,8 +21,8 @@ return {
                 level = 48,
                 cost = 88,
                 id = 4,  -- Spell ID
-                command = function(party_index)
-                    return '/ma "Cure IV" <p' .. party_index .. '>'
+                command = function(target)
+                    return '/ma "Cure IV" '..target
                 end,
                 range = 20,
                 value = 400,
@@ -33,8 +33,8 @@ return {
                 level = 26,
                 cost = 46,
                 id = 3,  -- Spell ID
-                command = function(party_index)
-                    return '/ma "Cure III" <p' .. party_index .. '>'
+                command = function(target)
+                    return '/ma "Cure III" '..target
                 end,
                 range = 20,
                 value = 200,
@@ -45,8 +45,8 @@ return {
                 level = 14,
                 cost = 24,
                 id = 2,  -- Spell ID
-                command = function(party_index)
-                    return '/ma "Cure II" <p' .. party_index .. '>'
+                command = function(target)
+                    return '/ma "Cure II" '..target
                 end,
                 range = 20,
                 value = 90,
@@ -57,8 +57,8 @@ return {
                 level = 3,
                 cost = 8,
                 id = 1,  -- Spell ID
-                command = function(party_index)
-                    return '/ma "Cure" <p' .. party_index .. '>'
+                command = function(target)
+                    return '/ma "Cure" '..target
                 end,
                 range = 20,
                 value = 30,
@@ -84,8 +84,8 @@ return {
                 level = 63,
                 cost = 65,
                 id = 46,  -- Spell ID
-                command = function(party_index)
-                    return '/ma "Protect IV" <p' .. party_index .. '>'
+                command = function(target)
+                    return '/ma "Protect IV" '..target
                 end,
                 buff_id = 40,  -- Protect
                 combat_only = false,
@@ -96,8 +96,8 @@ return {
                 level = 47,
                 cost = 46,
                 id = 45,  -- Spell ID
-                command = function(party_index)
-                    return '/ma "Protect III" <p' .. party_index .. '>'
+                command = function(target)
+                    return '/ma "Protect III" '..target
                 end,
                 buff_id = 40,
                 combat_only = false,
@@ -108,8 +108,8 @@ return {
                 level = 27,
                 cost = 28,
                 id = 44,  -- Spell ID
-                command = function(party_index)
-                    return '/ma "Protect II" <p' .. party_index .. '>'
+                command = function(target)
+                    return '/ma "Protect II" '..target
                 end,
                 buff_id = 40,
                 combat_only = false,
@@ -120,8 +120,8 @@ return {
                 level = 7,
                 cost = 9,
                 id = 43,  -- Spell ID
-                command = function(party_index)
-                    return '/ma "Protect" <p' .. party_index .. '>'
+                command = function(target)
+                    return '/ma "Protect" '..target
                 end,
                 buff_id = 40,
                 combat_only = false,
@@ -133,8 +133,8 @@ return {
                 level = 68,
                 cost = 71,
                 id = 51,  -- Spell ID
-                command = function(party_index)
-                    return '/ma "Shell IV" <p' .. party_index .. '>'
+                command = function(target)
+                    return '/ma "Shell IV" '..target
                 end,
                 buff_id = 41,  -- Shell
                 combat_only = false,
@@ -145,8 +145,8 @@ return {
                 level = 57,
                 cost = 56,
                 id = 50,  -- Spell ID
-                command = function(party_index)
-                    return '/ma "Shell III" <p' .. party_index .. '>'
+                command = function(target)
+                    return '/ma "Shell III" '..target
                 end,
                 buff_id = 41,
                 combat_only = false,
@@ -157,8 +157,8 @@ return {
                 level = 37,
                 cost = 37,
                 id = 49,  -- Spell ID
-                command = function(party_index)
-                    return '/ma "Shell II" <p' .. party_index .. '>'
+                command = function(target)
+                    return '/ma "Shell II" '..target
                 end,
                 buff_id = 41,
                 combat_only = false,
@@ -169,8 +169,8 @@ return {
                 level = 17,
                 cost = 18,
                 id = 48,  -- Spell ID
-                command = function(party_index)
-                    return '/ma "Shell" <p' .. party_index .. '>'
+                command = function(target)
+                    return '/ma "Shell" '..target
                 end,
                 buff_id = 41,
                 combat_only = false,
@@ -182,8 +182,8 @@ return {
                 level = 75,
                 cost = 21,
                 id = 107,  -- Spell ID
-                command = function(party_index)
-                    return '/ma "Phalanx II" <p' .. party_index .. '>'
+                command = function(target)
+                    return '/ma "Phalanx II" '..target
                 end,
                 buff_id = 116,  -- Phalanx
                 combat_only = false,
@@ -193,8 +193,8 @@ return {
                 level = 48,
                 cost = 40,
                 id = 57,  -- Spell ID
-                command = function(party_index)
-                    return '/ma "Haste" <p' .. party_index .. '>'
+                command = function(target)
+                    return '/ma "Haste" '..target
                 end,
                 buff_id = 33,  -- Haste
                 
@@ -204,8 +204,8 @@ return {
                 level = 48,
                 cost = 40,
                 id = 58,  -- Spell ID
-                command = function(party_index)
-                    return '/ma "Flurry" <p' .. party_index .. '>'
+                command = function(target)
+                    return '/ma "Flurry" '..target
                 end,
                 buff_id = 265,  -- Flurry
                 
@@ -215,8 +215,8 @@ return {
                 level = 41,
                 cost = 40,
                 id = 109,  -- Spell ID
-                command = function(party_index)
-                    return '/ma "Refresh" <p' .. party_index .. '>'
+                command = function(target)
+                    return '/ma "Refresh" '..target
                 end,
                 buff_id = 43,  -- Refresh
                 combat_only = false,
@@ -250,8 +250,8 @@ return {
                 level = 21,
                 cost = 15,
                 id = 108,  -- Spell ID
-                command = function(party_index)
-                    return '/ma "Regen" <p' .. party_index .. '>'
+                command = function(target)
+                    return '/ma "Regen" '..target
                 end,
                 buff_id = 42,  -- Regen
                 combat_only = false,
@@ -421,8 +421,8 @@ return {
                 level = 25,
                 cost = 25,
                 id = 65,  -- Spell ID
-                command = function(party_index)
-                    return '/ma "Invisible" <p' .. party_index .. '>'
+                command = function(target)
+                    return '/ma "Invisible" '..target
                 end,
                 buff_id = 69,  -- Invisible
                 idle_only = true,
@@ -432,8 +432,8 @@ return {
                 level = 20,
                 cost = 25,
                 id = 64,  -- Spell ID
-                command = function(party_index)
-                    return '/ma "Sneak" <p' .. party_index .. '>'
+                command = function(target)
+                    return '/ma "Sneak" '..target
                 end,
                 buff_id = 71,  -- Sneak
                 idle_only = true,
@@ -443,8 +443,8 @@ return {
                 level = 15,
                 cost = 6,
                 id = 61,  -- Spell ID
-                command = function(party_index)
-                    return '/ma "Deodorize" <p' .. party_index .. '>'
+                command = function(target)
+                    return '/ma "Deodorize" '..target
                 end,
                 buff_id = 70,  -- Deodorize
                 idle_only = true,

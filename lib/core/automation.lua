@@ -28,7 +28,7 @@ function automation.execute_command(command, description)
     end
     
     -- Execute the command
-    AshitaCore:GetChatManager():QueueCommand(1, command)
+    AshitaCore:GetChatManager():QueueCommand(0, command)
     last_command_time = current_time
     
     -- if description then
