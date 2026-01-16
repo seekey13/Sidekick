@@ -752,6 +752,28 @@ return {
             },
         },
 
+        -- Critical
+        critical = {
+            {
+                name = 'Martyr',
+                level = 75,
+                cost = 0,
+                id = 27,  -- Job Ability ID
+                command = function(target)
+                    return 'ja "Martyr" '..target
+                end,
+                combat_only = true,
+            },
+            {
+                name = 'Divine Seal',
+                level = 30,
+                cost = 0,
+                id = 26,  -- Job Ability ID
+                command = '/ja "Divine Seal" <me>',
+                combat_only = true,
+            },
+        },
+
         -- Revive
         -- revive = {
         --     {
