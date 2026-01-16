@@ -20,7 +20,7 @@ local addon_name = 'Medic'
 local casting_state = {
     is_casting = false,
     last_action_time = 0,
-    cast_timeout = 10.0,  -- Maximum time for a cast (seconds)
+    cast_timeout = 5.0,  -- Maximum time for a cast (seconds)
 }
 
 -- Non-combat zone IDs (safe zones where combat is blocked)
@@ -1213,11 +1213,21 @@ end
 -- Build command string from ability definition
 -- Args:
 --   ability (table) - Ability definition with command field
---   target_param (number|nil) - Target parameter (party index, etc.)
+--   target_param (number|nil) - Target parameter (party index 0-5 for p0-p5)
 -- Returns: string - Command string or nil
 function common.build_ability_command(ability, target_param)
     if type(ability.command) == 'function' then
-        return ability.command(target_param)
+        -- If target_param is provided, convert party index to server ID
+        if target_param ~= nil then
+            local party = common.get_party()
+            if party then
+                -- Convert party index to server ID (like OnegaiGEO does)
+                local server_id = party:GetMemberServerId(target_param)
+                if server_id and server_id > 0 then
+                    return ability.command(server_id)
+                end
+            end
+        end
     elseif type(ability.command) == 'string' then
         return ability.command
     end
