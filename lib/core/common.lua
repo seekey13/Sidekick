@@ -28,7 +28,7 @@ local movement_state = {
     last_position = {0, 0, 0},
     last_check = 0,
     is_moving = false,
-    check_interval = 0.01  -- Check every 10ms
+    check_interval = 0.25  -- Check every 250ms
 }
 
 -- Non-combat zone IDs (safe zones where combat is blocked)
