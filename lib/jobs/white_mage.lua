@@ -762,7 +762,7 @@ return {
                 command = function(target)
                     return 'ja "Martyr" '..target
                 end,
-                combat_only = true,
+                combat_only = false,
             },
             {
                 name = 'Divine Seal',
@@ -770,7 +770,7 @@ return {
                 cost = 0,
                 id = 26,  -- Job Ability ID
                 command = '/ja "Divine Seal" <me>',
-                combat_only = true,
+                combat_only = false,
             },
         },
 
@@ -782,7 +782,7 @@ return {
         --         cost = 150,
         --         id = 147,  -- Spell ID
         --         command = function(party_index)
-        --             return '/ma "Arise" <p'..party_index..'>'
+        --             return '/ma "Arise" '..target
         --         end,
         --         range = 18,
         --         combat_only = false,
@@ -793,7 +793,7 @@ return {
         --         cost = 150,
         --         id = 140,  -- Spell ID
         --         command = function(party_index)
-        --             return '/ma "Raise III" <p'..party_index..'>'
+        --             return '/ma "Raise III" '..target
         --         end,
         --         range = 18,
         --         combat_only = false,
@@ -804,7 +804,7 @@ return {
         --         cost = 150,
         --         id = 139,  -- Spell ID
         --         command = function(party_index)
-        --             return '/ma "Raise II" <p'..party_index..'>'
+        --             return '/ma "Raise II" '..target
         --         end,
         --         range = 18,
         --         combat_only = false,
@@ -815,7 +815,7 @@ return {
         --         cost = 150,
         --         id = 12,  -- Spell ID
         --         command = function(party_index)
-        --             return '/ma "Raise" <p'..party_index..'>'
+        --             return '/ma "Raise" '..target
         --         end,
         --         range = 18,
         --         combat_only = false,

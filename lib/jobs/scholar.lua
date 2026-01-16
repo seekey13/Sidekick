@@ -640,7 +640,7 @@ return {
         --         cost = 150,
         --         id = 141,  -- Spell ID
         --         command = function(party_index)
-        --             return '/ma "Raise II" <p' .. party_index .. '>'
+        --             return '/ma "Raise II" '..target
         --         end,
         --         range = 20,
         --         wakes = true,
@@ -652,7 +652,7 @@ return {
         --         cost = 150,
         --         id = 12,  -- Spell ID
         --         command = function(party_index)
-        --             return '/ma "Raise" <p' .. party_index .. '>'
+        --             return '/ma "Raise" '..target
         --         end,
         --         range = 20,
         --         wakes = true,
