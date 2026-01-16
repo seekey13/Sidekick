@@ -339,50 +339,30 @@ function common.is_player_moving()
     
     movement_state.last_check = os.clock()
     
-    -- Get player entity and position
-    local ok_entity, entity_mgr = pcall(function()
-        return AshitaCore:GetMemoryManager():GetEntity()
-    end)
-    
-    if not ok_entity or not entity_mgr then
-        return movement_state.is_moving
-    end
-    
+    -- Get entity manager and party
+    local entity_mgr = common.get_entity_manager()
     local party = common.get_party()
-    if not party then
+    if not entity_mgr or not party then
         return movement_state.is_moving
     end
     
-    local ok_index, player_index = pcall(function()
-        return party:GetMemberTargetIndex(0)
-    end)
-    
-    if not ok_index or not player_index then
+    local player_index = party:GetMemberTargetIndex(0)
+    if not player_index then
         return movement_state.is_moving
     end
     
     -- Get current position
-    local ok_pos, current_pos = pcall(function()
-        return {
-            entity_mgr:GetLocalPositionX(player_index),
-            entity_mgr:GetLocalPositionY(player_index),
-            entity_mgr:GetLocalPositionZ(player_index)
-        }
-    end)
-    
-    if not ok_pos or not current_pos then
-        return movement_state.is_moving
-    end
+    local current_pos = {
+        entity_mgr:GetLocalPositionX(player_index),
+        entity_mgr:GetLocalPositionY(player_index),
+        entity_mgr:GetLocalPositionZ(player_index)
+    }
     
     -- Compare with last known position
     local last_pos = movement_state.last_position
-    if current_pos[1] == last_pos[1] and 
-       current_pos[2] == last_pos[2] and 
-       current_pos[3] == last_pos[3] then
-        movement_state.is_moving = false
-    else
-        movement_state.is_moving = true
-    end
+    movement_state.is_moving = (current_pos[1] ~= last_pos[1] or 
+                                current_pos[2] ~= last_pos[2] or 
+                                current_pos[3] ~= last_pos[3])
     
     -- Update last known position
     movement_state.last_position = current_pos
