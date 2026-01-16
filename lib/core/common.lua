@@ -23,6 +23,14 @@ local casting_state = {
     cast_timeout = 5.0,  -- Maximum time for a cast (seconds)
 }
 
+-- Movement tracking state
+local movement_state = {
+    last_position = {0, 0, 0},
+    last_check = 0,
+    is_moving = false,
+    check_interval = 0.01  -- Check every 10ms
+}
+
 -- Non-combat zone IDs (safe zones where combat is blocked)
 local non_combat_zone_ids = {
     230, 231, 232, 233, -- San d'Oria
@@ -318,6 +326,68 @@ function common.handle_action_packet(packet)
     elseif not casting_state.is_casting and was_casting then
         common.debugf('[CASTING ENDED]')
     end
+end
+
+function common.is_player_moving()
+    -- Check if player is currently moving (for magic casting restrictions)
+    -- Returns true if player has moved since last check
+    
+    -- Throttle checks to avoid excessive position queries
+    if os.clock() - movement_state.last_check < movement_state.check_interval then
+        return movement_state.is_moving
+    end
+    
+    movement_state.last_check = os.clock()
+    
+    -- Get player entity and position
+    local ok_entity, entity_mgr = pcall(function()
+        return AshitaCore:GetMemoryManager():GetEntity()
+    end)
+    
+    if not ok_entity or not entity_mgr then
+        return movement_state.is_moving
+    end
+    
+    local party = common.get_party()
+    if not party then
+        return movement_state.is_moving
+    end
+    
+    local ok_index, player_index = pcall(function()
+        return party:GetMemberTargetIndex(0)
+    end)
+    
+    if not ok_index or not player_index then
+        return movement_state.is_moving
+    end
+    
+    -- Get current position
+    local ok_pos, current_pos = pcall(function()
+        return {
+            entity_mgr:GetLocalPositionX(player_index),
+            entity_mgr:GetLocalPositionY(player_index),
+            entity_mgr:GetLocalPositionZ(player_index)
+        }
+    end)
+    
+    if not ok_pos or not current_pos then
+        return movement_state.is_moving
+    end
+    
+    -- Compare with last known position
+    local last_pos = movement_state.last_position
+    if current_pos[1] == last_pos[1] and 
+       current_pos[2] == last_pos[2] and 
+       current_pos[3] == last_pos[3] then
+        movement_state.is_moving = false
+    else
+        movement_state.is_moving = true
+    end
+    
+    -- Update last known position
+    movement_state.last_position = current_pos
+    
+    return movement_state.is_moving
 end
 
 function common.get_player_level()
@@ -1136,6 +1206,11 @@ function common.is_command_blocked(command)
         -- Magic command - blocked by Silence
         if common.has_silence() then
             return 'Silence'
+        end
+        
+        -- Magic command - blocked by movement (can only cast while stationary)
+        if common.is_player_moving() then
+            return 'Moving'
         end
     elseif command_str:match('^/ja ') then
         -- Job Ability command - blocked by Amnesia
