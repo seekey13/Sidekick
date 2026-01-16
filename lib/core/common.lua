@@ -5,6 +5,7 @@
 
 local common = {}
 local chat = require('chat')
+local targets = require('lib.core.targets')
 
 -- Ashita API references
 local ashita = ashita or {}
@@ -145,43 +146,35 @@ end
 ]]--
 
 function common.is_idle()
-    local ok, player_entity = pcall(function()
-        return GetPlayerEntity()
+    -- Returns true if not in combat (no valid mob battle target)
+    local ok, bt = pcall(function()
+        return targets.get_bt()
     end)
     
-    if not ok or not player_entity then
-        return false
+    if not ok then
+        return true  -- Assume idle if we can't get battle target
     end
     
-    local ok_status, status = pcall(function()
-        return player_entity.Status
-    end)
+    -- Check if battle target is a mob (0x10 flag in SpawnFlags)
+    local is_mob = bt and bit.band(bt.SpawnFlags, 0x10) ~= 0 or false
     
-    if not ok_status or not status then
-        return false
-    end
-    
-    return status == 0
+    return not is_mob
 end
 
 function common.is_engaged()
-    local ok, player_entity = pcall(function()
-        return GetPlayerEntity()
+    -- Returns true if in combat (valid mob battle target exists)
+    local ok, bt = pcall(function()
+        return targets.get_bt()
     end)
     
-    if not ok or not player_entity then
+    if not ok then
         return false
     end
     
-    local ok_status, status = pcall(function()
-        return player_entity.Status
-    end)
+    -- Check if battle target is a mob (0x10 flag in SpawnFlags)
+    local is_mob = bt and bit.band(bt.SpawnFlags, 0x10) ~= 0 or false
     
-    if not ok_status or not status then
-        return false
-    end
-    
-    return status == 1
+    return is_mob
 end
 
 function common.is_in_event()
