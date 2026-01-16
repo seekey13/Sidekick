@@ -331,15 +331,12 @@ end
 function common.is_player_moving()
     -- Check if player is currently moving (for magic casting restrictions)
     -- Returns true if player has moved since last check
-    
-    -- Throttle checks to avoid excessive position queries
     if os.clock() - movement_state.last_check < movement_state.check_interval then
         return movement_state.is_moving
     end
     
     movement_state.last_check = os.clock()
-    
-    -- Get entity manager and party
+
     local entity_mgr = common.get_entity_manager()
     local party = common.get_party()
     if not entity_mgr or not party then
@@ -347,25 +344,27 @@ function common.is_player_moving()
     end
     
     local player_index = party:GetMemberTargetIndex(0)
-    if not player_index then
+    if not player_index or player_index == 0 then
         return movement_state.is_moving
     end
     
-    -- Get current position
-    local current_pos = {
-        entity_mgr:GetLocalPositionX(player_index),
-        entity_mgr:GetLocalPositionY(player_index),
-        entity_mgr:GetLocalPositionZ(player_index)
-    }
+    -- Get current position (with error handling)
+    local ok, x, y, z = pcall(function()
+        return entity_mgr:GetLocalPositionX(player_index),
+               entity_mgr:GetLocalPositionY(player_index),
+               entity_mgr:GetLocalPositionZ(player_index)
+    end)
+    
+    if not ok then
+        return movement_state.is_moving
+    end
     
     -- Compare with last known position
     local last_pos = movement_state.last_position
-    movement_state.is_moving = (current_pos[1] ~= last_pos[1] or 
-                                current_pos[2] ~= last_pos[2] or 
-                                current_pos[3] ~= last_pos[3])
+    movement_state.is_moving = (x ~= last_pos[1] or y ~= last_pos[2] or z ~= last_pos[3])
     
     -- Update last known position
-    movement_state.last_position = current_pos
+    movement_state.last_position = {x, y, z}
     
     return movement_state.is_moving
 end
