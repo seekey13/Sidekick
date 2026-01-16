@@ -156,7 +156,7 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                         end
                         
                         if is_ready then
-                            local command = buff.build_command(ability)
+                            local command = common.build_ability_command(ability, 0)
                             if command then
                                 return {
                                     command = command,
@@ -165,7 +165,7 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                             end
                         end
                     else
-                        local command = buff.build_command(ability)
+                        local command = common.build_ability_command(ability, 0)
                         if command then
                             return {
                                 command = command,

@@ -112,7 +112,7 @@ function debuff_removal.execute(settings, job_def, main_level, sub_level, player
                     end
                     
                     if is_ready then
-                        local command = debuff_removal.build_command(ability, 0)
+                        local command = common.build_ability_command(ability, 0)
                         if command then
                             local debuff_count = count_removable_debuffs(player_buffs, {ability})
                             common.debugf('[DEBUFF_REMOVAL] Using %s on self (%d debuff%s)', 
@@ -182,7 +182,7 @@ function debuff_removal.execute(settings, job_def, main_level, sub_level, player
                         end
                         
                         if is_ready then
-                            local command = debuff_removal.build_command(ability, focus_party_index)
+                            local command = common.build_ability_command(ability, focus_party_index)
                             if command then
                                 common.debugf('[DEBUFF_REMOVAL] Using %s on focus target (p%d, %d debuff%s)', 
                                     ability.name, focus_party_index, debuff_counts[focus_party_index],
@@ -255,7 +255,7 @@ function debuff_removal.execute(settings, job_def, main_level, sub_level, player
                     end
                     
                     if is_ready then
-                        local command = debuff_removal.build_command(ability, best_index)
+                        local command = common.build_ability_command(ability, best_index)
                         if command then
                             common.debugf('[DEBUFF_REMOVAL] Using %s on p%d (%d debuff%s)', 
                                 ability.name, best_index, max_debuffs,
