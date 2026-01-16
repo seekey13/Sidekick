@@ -778,7 +778,8 @@ function config_ui.render(settings, job_def, callback, roll_mod)
             imgui.Text(string.format('get_zone_id = %d', zone_id))
             local target_id = common.get_target_id()
             imgui.Text(string.format('get_target_id = %s', tostring(target_id)))
-            
+            local is_moving = common.is_player_moving()
+            imgui.Text(string.format('is_player_moving = %s', tostring(is_moving)))
             local party_server_ids = common.get_party_server_ids()
             if #party_server_ids > 0 then
                 local ids_str = table.concat(party_server_ids, ', ')

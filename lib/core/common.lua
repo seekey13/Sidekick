@@ -23,6 +23,14 @@ local casting_state = {
     cast_timeout = 5.0,  -- Maximum time for a cast (seconds)
 }
 
+-- Movement tracking state
+local movement_state = {
+    last_position = {0, 0, 0},
+    last_check = 0,
+    is_moving = false,
+    check_interval = 0.25  -- Check every 250ms
+}
+
 -- Non-combat zone IDs (safe zones where combat is blocked)
 local non_combat_zone_ids = {
     230, 231, 232, 233, -- San d'Oria
@@ -318,6 +326,47 @@ function common.handle_action_packet(packet)
     elseif not casting_state.is_casting and was_casting then
         common.debugf('[CASTING ENDED]')
     end
+end
+
+function common.is_player_moving()
+    -- Check if player is currently moving (for magic casting restrictions)
+    -- Returns true if player has moved since last check
+    if os.clock() - movement_state.last_check < movement_state.check_interval then
+        return movement_state.is_moving
+    end
+    
+    movement_state.last_check = os.clock()
+
+    local entity_mgr = common.get_entity_manager()
+    local party = common.get_party()
+    if not entity_mgr or not party then
+        return movement_state.is_moving
+    end
+    
+    local player_index = party:GetMemberTargetIndex(0)
+    if not player_index or player_index == 0 then
+        return movement_state.is_moving
+    end
+    
+    -- Get current position (with error handling)
+    local ok, x, y, z = pcall(function()
+        return entity_mgr:GetLocalPositionX(player_index),
+               entity_mgr:GetLocalPositionY(player_index),
+               entity_mgr:GetLocalPositionZ(player_index)
+    end)
+    
+    if not ok then
+        return movement_state.is_moving
+    end
+    
+    -- Compare with last known position
+    local last_pos = movement_state.last_position
+    movement_state.is_moving = (x ~= last_pos[1] or y ~= last_pos[2] or z ~= last_pos[3])
+    
+    -- Update last known position
+    movement_state.last_position = {x, y, z}
+    
+    return movement_state.is_moving
 end
 
 function common.get_player_level()
@@ -1136,6 +1185,11 @@ function common.is_command_blocked(command)
         -- Magic command - blocked by Silence
         if common.has_silence() then
             return 'Silence'
+        end
+        
+        -- Magic command - blocked by movement (can only cast while stationary)
+        if common.is_player_moving() then
+            return 'Moving'
         end
     elseif command_str:match('^/ja ') then
         -- Job Ability command - blocked by Amnesia
