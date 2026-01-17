@@ -420,7 +420,7 @@ return {
                 name = 'Invisible',
                 level = 25,
                 cost = 25,
-                id = 65,  -- Spell ID
+                id = 136,  -- Spell ID
                 command = function(target)
                     return '/ma "Invisible" '..target
                 end,
@@ -431,7 +431,7 @@ return {
                 name = 'Sneak',
                 level = 20,
                 cost = 25,
-                id = 64,  -- Spell ID
+                id = 137,  -- Spell ID
                 command = function(target)
                     return '/ma "Sneak" '..target
                 end,
@@ -442,12 +442,12 @@ return {
                 name = 'Deodorize',
                 level = 15,
                 cost = 6,
-                id = 61,  -- Spell ID
+                id = 138,  -- Spell ID
                 command = function(target)
                     return '/ma "Deodorize" '..target
                 end,
-                buff_id = 70,  -- Deodorize
                 idle_only = true,
+                buff_id = 70,  -- Deodorize
             },
         },
 
