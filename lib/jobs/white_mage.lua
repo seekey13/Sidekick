@@ -841,7 +841,6 @@ return {
                     return '/ja "Devotion" '..target -- Cannot target self
                 end,
                 -- mp_recovered = user_max_hp * 0.25, -- Target will recieve 25% of the users max HP as MP 
-                combat_only = false,
                 -- need a validator to check if the target MP threshold is met
             },
         },

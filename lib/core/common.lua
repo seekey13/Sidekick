@@ -661,6 +661,22 @@ function common.get_party_member_hp_percent(index)
     return 0
 end
 
+function common.get_party_member_mp_percent(index)
+    local party = common.get_party()
+    if not party then return 0 end
+    
+    if not common.is_party_member_active(index) then
+        return 0
+    end
+    
+    local mpp = party:GetMemberMPPercent(index)
+    if mpp then
+        return mpp
+    end
+    
+    return 0
+end
+
 function common.get_party_member_target_index(index)
     local party = common.get_party()
     if not party then return nil end
