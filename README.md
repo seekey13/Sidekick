@@ -14,9 +14,22 @@ A focused, support-oriented addon for Ashita v4 that automates healing, buffing,
 - Movement/positioning
 - Full job automation
 
-## Version 1.0.0 - Initial Support Release
+## [1.1.0] - 2026-01-16 Button-Based Party Buff System
 
-This is the first official release.
+### Added
+- **Button-Based Party Buff Targeting**: Single-target buffs now display ME/P1-P5 buttons for precise control over who receives each buff (e.g., Haste, Refresh, Protect, Shell, Enspells, etc.)
+- **Trust Detection**: Party member buttons automatically disable for Trusts (server_id >= 0x1000000) since buffs cannot be cast on them
+- **Single-Target Buff Support**: Jobs can now cast single-target buffs on party members with intelligent uptime tracking and range validation (20 yalms)
+- **Movement Blocking**: Casting is now prevented while the player is moving to avoid interrupted spells
+
+### Changed
+- **Buff UI**: Single-target buffs (function commands) now use button-based targeting instead of checkboxes
+- **Buff Logic**: Abilities are automatically enabled when any ME/P1-P5 button is selected, and disabled when all buttons are deselected
+- **Party Buff Validation**: Added zone matching and range checking before casting buffs on party members
+
+### Fixed
+- Button-based buffs now properly check if the ability is enabled before attempting to cast
+- Party buff state correctly syncs with settings on button toggle
 
 ## Features
 
@@ -26,14 +39,16 @@ This is the first official release.
 - **Pet Healing**: Automated healing for luopan pets
 - **Sleep Removal (Wake)**: Automatically wake sleeping party members
 - **Debuff Removal**: Remove poison, paralysis, silence, and other negative status effects
-- **Buff Maintenance**: Auto-apply and maintain self-buffs and party buffs
+- **Buff Maintenance**: Auto-apply and maintain self-buffs with single-target party buff support
 - **Resource Recovery**: Automated MP and TP recovery abilities
 - **Geomancer Support**: Automatic Full Circle execution when luopan exceeds distance threshold
 
 ### User Interface
 - **ImGui Configuration UI**: User-friendly settings interface
 - **Per-Ability Toggles**: Enable/disable individual abilities
-- **Party Buff Configuration**: Per-party-member buttons to control which buffs to cast on each member (P1-P5)
+- **Button-Based Party Buff Targeting**: Single-target buffs display ME/P1-P5 buttons for precise control over who receives each buff
+- **Checkbox Party Buff Configuration**: Self-only buffs use traditional checkboxes with optional party member toggles
+- **Trust Detection**: Party member buttons automatically disable for Trusts (cannot be buffed)
 - **Threshold Configuration**: Customize HP/TP/MP thresholds
 - **Focus Target Support**: Prioritize specific party members
 - **Level-Based Filtering**: Shows only abilities available at your current level
@@ -42,7 +57,9 @@ This is the first official release.
 ### Core System Features
 - **Smart Resource Management**: Automatic MP/TP checking and cooldown tracking
 - **Status Ailment Detection**: Automatically detects and prevents casting when Silenced (magic) or Amnesiac (job abilities)
-- **Party Buff Management**: Per-party-member buff configuration with intelligent uptime tracking
+- **Movement Detection**: Prevents casting while moving to avoid interrupted spells
+- **Single-Target Party Buffs**: Cast buffs on specific party members with button-based targeting (Haste, Refresh, Protect, Shell, etc.)
+- **Party Buff Management**: Per-party-member buff configuration with intelligent uptime tracking and range validation (20 yalms)
 - **Focus Target Support**: Prioritize specific party members for healing/support
 - **Main/Sub Job Support**: Automatically loads and merges abilities from both supported jobs
 - **Priority-Based Actions**: Configurable action priority order per job

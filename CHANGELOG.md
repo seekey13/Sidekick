@@ -5,6 +5,23 @@ All notable changes to Medic will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-01-16
+
+### Added
+- **Button-Based Party Buff Targeting**: Single-target buffs now display ME/P1-P5 buttons for precise control over who receives each buff (e.g., Haste, Refresh, Protect, Shell, Enspells, etc.)
+- **Trust Detection**: Party member buttons automatically disable for Trusts (server_id >= 0x1000000) since buffs cannot be cast on them
+- **Single-Target Buff Support**: Jobs can now cast single-target buffs on party members with intelligent uptime tracking and range validation (20 yalms)
+- **Movement Blocking**: Casting is now prevented while the player is moving to avoid interrupted spells
+
+### Changed
+- **Buff UI**: Single-target buffs (function commands) now use button-based targeting instead of checkboxes
+- **Buff Logic**: Abilities are automatically enabled when any ME/P1-P5 button is selected, and disabled when all buttons are deselected
+- **Party Buff Validation**: Added zone matching and range checking before casting buffs on party members
+
+### Fixed
+- Button-based buffs now properly check if the ability is enabled before attempting to cast
+- Party buff state correctly syncs with settings on button toggle
+
 ## [1.0.0] - 2026-01-11
 
 This is the first official release.

@@ -63,6 +63,178 @@ return {
                 command = '/ja "Sublimation" <me>',
                 buff_id = {187, 188},  -- Can be either 187 (activated) or 188 (complete)
             },
+            {
+                name = 'Reraise II',
+                level = 70,
+                cost = 150,
+                id = 142,  -- Spell ID
+                command = '/ma "Reraise II" <me>',
+                range = 20,
+                buff_id = 113,
+                group = 'reraise',
+                requires_buff = 401,  -- Requires Addendum: White
+            },
+            {
+                name = 'Reraise',
+                level = 35,
+                cost = 150,
+                id = 135,  -- Spell ID
+                command = '/ma "Reraise" <me>',
+                range = 20,
+                buff_id = 113,
+                group = 'reraise',
+                requires_buff = 401,  -- Requires Addendum: White
+            },
+            -- Other buffs
+            {
+                name = 'Stoneskin',
+                level = 44,
+                cost = 29,
+                id = 54,  -- Spell ID
+                command = '/ma "Stoneskin" <me>',
+                buff_id = 37,  -- Stoneskin
+                combat_only = false,
+            },
+            {
+                name = 'Blink',
+                level = 30,
+                cost = 20,
+                id = 53,  -- Spell ID
+                command = '/ma "Blink" <me>',
+                buff_id = 36,  -- Blink
+                combat_only = false,
+            },
+            {
+                name = 'Aquaveil',
+                level = 13,
+                cost = 12,
+                id = 55,  -- Spell ID
+                command = '/ma "Aquaveil" <me>',
+                buff_id = 39,  -- Aquaveil
+                combat_only = false,
+            },
+            -- Storms
+            {
+                name = 'Aurorastorm',
+                level = 48,
+                cost = 30,
+                id = 119,  -- Spell ID
+                command = '/ma "Aurorastorm" <me>',
+                buff_id = 184,  -- Aurorastorm
+                combat_only = false,
+                group = 'storm',
+            },
+            {
+                name = 'Voidstorm',
+                level = 47,
+                cost = 30,
+                id = 118,  -- Spell ID
+                command = '/ma "Voidstorm" <me>',
+                buff_id = 185,  -- Voidstorm
+                combat_only = false,
+                group = 'storm',
+            },
+            {
+                name = 'Thunderstorm',
+                level = 46,
+                cost = 30,
+                id = 117,  -- Spell ID
+                command = '/ma "Thunderstorm" <me>',
+                buff_id = 182,  -- Thunderstorm
+                combat_only = false,
+                group = 'storm',
+            },
+            {
+                name = 'Hailstorm',
+                level = 45,
+                cost = 30,
+                id = 116,  -- Spell ID
+                command = '/ma "Hailstorm" <me>',
+                buff_id = 179,  -- Hailstorm
+                combat_only = false,
+                group = 'storm',
+            },
+            {
+                name = 'Firestorm',
+                level = 44,
+                cost = 30,
+                id = 115,  -- Spell ID
+                command = '/ma "Firestorm" <me>',
+                buff_id = 178,  -- Firestorm
+                combat_only = false,
+                group = 'storm',
+            },
+            {
+                name = 'Windstorm',
+                level = 43,
+                cost = 30,
+                id = 114,  -- Spell ID
+                command = '/ma "Windstorm" <me>',
+                buff_id = 180,  -- Windstorm
+                combat_only = false,
+                group = 'storm',
+            },
+            {
+                name = 'Rainstorm',
+                level = 42,
+                cost = 30,
+                id = 113,  -- Spell ID
+                command = '/ma "Rainstorm" <me>',
+                buff_id = 183,  -- Rainstorm
+                combat_only = false,
+                group = 'storm',
+            },
+            {
+                name = 'Sandstorm',
+                level = 41,
+                cost = 30,
+                id = 112,  -- Spell ID
+                command = '/ma "Sandstorm" <me>',
+                buff_id = 181,  -- Sandstorm
+                combat_only = false,
+                group = 'storm',
+            },
+            -- Klimaform
+            {
+                name = 'Klimaform',
+                level = 46,
+                cost = 30,
+                id = 287,  -- Spell ID
+                command = '/ma "Klimaform" <me>',
+                buff_id = 407,  -- Klimaform
+                combat_only = true,
+            },
+            -- Spikes
+            {
+                name = 'Shock Spikes',
+                level = 70,
+                cost = 24,
+                id = 251,  -- Spell ID
+                command = '/ma "Shock Spikes" <me>',
+                buff_id = 38,  -- Shock Spikes
+                combat_only = true,
+                group = 'spikes',
+            },
+            {
+                name = 'Ice Spikes',
+                level = 50,
+                cost = 16,
+                id = 250,  -- Spell ID
+                command = '/ma "Ice Spikes" <me>',
+                buff_id = 35,  -- Ice Spikes
+                combat_only = true,
+                group = 'spikes',
+            },
+            {
+                name = 'Blaze Spikes',
+                level = 30,
+                cost = 8,
+                id = 249,  -- Spell ID
+                command = '/ma "Blaze Spikes" <me>',
+                buff_id = 34,  -- Blaze Spikes
+                combat_only = true,
+                group = 'spikes',
+            },
             -- {
             --     name = 'Tranquility',
             --     level = 75,
@@ -259,178 +431,6 @@ return {
                 buff_id = 42,
                 range = 20,
                 group = 'regen',
-            },
-            {
-                name = 'Reraise II',
-                level = 70,
-                cost = 150,
-                id = 142,  -- Spell ID
-                command = '/ma "Reraise II" <me>',
-                range = 20,
-                buff_id = 113,
-                group = 'reraise',
-                requires_buff = 401,  -- Requires Addendum: White
-            },
-            {
-                name = 'Reraise',
-                level = 35,
-                cost = 150,
-                id = 135,  -- Spell ID
-                command = '/ma "Reraise" <me>',
-                range = 20,
-                buff_id = 113,
-                group = 'reraise',
-                requires_buff = 401,  -- Requires Addendum: White
-            },
-            -- Other buffs
-            {
-                name = 'Stoneskin',
-                level = 44,
-                cost = 29,
-                id = 54,  -- Spell ID
-                command = '/ma "Stoneskin" <me>',
-                buff_id = 37,  -- Stoneskin
-                combat_only = false,
-            },
-            {
-                name = 'Blink',
-                level = 30,
-                cost = 20,
-                id = 53,  -- Spell ID
-                command = '/ma "Blink" <me>',
-                buff_id = 36,  -- Blink
-                combat_only = false,
-            },
-            {
-                name = 'Aquaveil',
-                level = 13,
-                cost = 12,
-                id = 55,  -- Spell ID
-                command = '/ma "Aquaveil" <me>',
-                buff_id = 39,  -- Aquaveil
-                combat_only = false,
-            },
-            -- Storms
-            {
-                name = 'Aurorastorm',
-                level = 48,
-                cost = 30,
-                id = 119,  -- Spell ID
-                command = '/ma "Aurorastorm" <me>',
-                buff_id = 184,  -- Aurorastorm
-                combat_only = false,
-                group = 'storm',
-            },
-            {
-                name = 'Voidstorm',
-                level = 47,
-                cost = 30,
-                id = 118,  -- Spell ID
-                command = '/ma "Voidstorm" <me>',
-                buff_id = 185,  -- Voidstorm
-                combat_only = false,
-                group = 'storm',
-            },
-            {
-                name = 'Thunderstorm',
-                level = 46,
-                cost = 30,
-                id = 117,  -- Spell ID
-                command = '/ma "Thunderstorm" <me>',
-                buff_id = 182,  -- Thunderstorm
-                combat_only = false,
-                group = 'storm',
-            },
-            {
-                name = 'Hailstorm',
-                level = 45,
-                cost = 30,
-                id = 116,  -- Spell ID
-                command = '/ma "Hailstorm" <me>',
-                buff_id = 179,  -- Hailstorm
-                combat_only = false,
-                group = 'storm',
-            },
-            {
-                name = 'Firestorm',
-                level = 44,
-                cost = 30,
-                id = 115,  -- Spell ID
-                command = '/ma "Firestorm" <me>',
-                buff_id = 178,  -- Firestorm
-                combat_only = false,
-                group = 'storm',
-            },
-            {
-                name = 'Windstorm',
-                level = 43,
-                cost = 30,
-                id = 114,  -- Spell ID
-                command = '/ma "Windstorm" <me>',
-                buff_id = 180,  -- Windstorm
-                combat_only = false,
-                group = 'storm',
-            },
-            {
-                name = 'Rainstorm',
-                level = 42,
-                cost = 30,
-                id = 113,  -- Spell ID
-                command = '/ma "Rainstorm" <me>',
-                buff_id = 183,  -- Rainstorm
-                combat_only = false,
-                group = 'storm',
-            },
-            {
-                name = 'Sandstorm',
-                level = 41,
-                cost = 30,
-                id = 112,  -- Spell ID
-                command = '/ma "Sandstorm" <me>',
-                buff_id = 181,  -- Sandstorm
-                combat_only = false,
-                group = 'storm',
-            },
-            -- Klimaform
-            {
-                name = 'Klimaform',
-                level = 46,
-                cost = 30,
-                id = 287,  -- Spell ID
-                command = '/ma "Klimaform" <me>',
-                buff_id = 407,  -- Klimaform
-                combat_only = true,
-            },
-            -- Spikes
-            {
-                name = 'Shock Spikes',
-                level = 70,
-                cost = 24,
-                id = 251,  -- Spell ID
-                command = '/ma "Shock Spikes" <me>',
-                buff_id = 38,  -- Shock Spikes
-                combat_only = true,
-                group = 'spikes',
-            },
-            {
-                name = 'Ice Spikes',
-                level = 50,
-                cost = 16,
-                id = 250,  -- Spell ID
-                command = '/ma "Ice Spikes" <me>',
-                buff_id = 35,  -- Ice Spikes
-                combat_only = true,
-                group = 'spikes',
-            },
-            {
-                name = 'Blaze Spikes',
-                level = 30,
-                cost = 8,
-                id = 249,  -- Spell ID
-                command = '/ma "Blaze Spikes" <me>',
-                buff_id = 34,  -- Blaze Spikes
-                combat_only = true,
-                group = 'spikes',
             },
             {
                 name = 'Invisible',

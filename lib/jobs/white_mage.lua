@@ -285,53 +285,6 @@ return {
                 combat_only = true,
             },
             {
-                name = 'Haste',
-                level = 40,
-                cost = 40,
-                id = 57,  -- Spell ID
-                command = function(target)
-                    return '/ma "Haste" '..target
-                end,
-                buff_id = 33,  -- Haste
-                
-            },
-            {
-                name = 'Regen III',
-                level = 66,
-                cost = 64,
-                id = 111,  -- Spell ID
-                command = function(target)
-                    return '/ma "Regen III" '..target
-                end,
-                buff_id = 42,  -- Regen
-                combat_only = false,
-                group = 'regen',
-            },
-            {
-                name = 'Regen II',
-                level = 44,
-                cost = 36,
-                id = 110,  -- Spell ID
-                command = function(target)
-                    return '/ma "Regen II" '..target
-                end,
-                buff_id = 42,  -- Regen
-                combat_only = false,
-                group = 'regen',
-            },
-            {
-                name = 'Regen',
-                level = 21,
-                cost = 15,
-                id = 108,  -- Spell ID
-                command = function(target)
-                    return '/ma "Regen" '..target
-                end,
-                buff_id = 42,  -- Regen
-                combat_only = false,
-                group = 'regen',
-            },
-            {
                 name = 'Protectra V',
                 level = 75,
                 cost = 84,
@@ -339,7 +292,7 @@ return {
                 command = '/ma "Protectra V" <me>',
                 buff_id = 40,  -- Protect
                 combat_only = false,
-                group = 'protect',
+                group = 'protectra',
             },
             {
                 name = 'Protectra IV',
@@ -349,7 +302,7 @@ return {
                 command = '/ma "Protectra IV" <me>',
                 buff_id = 40,
                 combat_only = false,
-                group = 'protect',
+                group = 'protectra',
             },
             {
                 name = 'Protectra III',
@@ -359,7 +312,7 @@ return {
                 command = '/ma "Protectra III" <me>',
                 buff_id = 40,
                 combat_only = false,
-                group = 'protect',
+                group = 'protectra',
             },
             {
                 name = 'Protectra II',
@@ -369,7 +322,7 @@ return {
                 command = '/ma "Protectra II" <me>',
                 buff_id = 40,
                 combat_only = false,
-                group = 'protect',
+                group = 'protectra',
             },
             {
                 name = 'Protectra',
@@ -379,55 +332,7 @@ return {
                 command = '/ma "Protectra" <me>',
                 buff_id = 40,
                 combat_only = false,
-                group = 'protect',
-            },
-            {
-                name = 'Protect IV',
-                level = 63,
-                cost = 65,
-                id = 46,  -- Spell ID
-                command = function(target)
-                    return '/ma "Protect IV" '..target
-                end,
-                buff_id = 40,  -- Protect
-                combat_only = false,
-                group = 'protect',
-            },
-            {
-                name = 'Protect III',
-                level = 47,
-                cost = 46,
-                id = 45,  -- Spell ID
-                command = function(target)
-                    return '/ma "Protect III" '..target
-                end,
-                buff_id = 40,  -- Protect
-                combat_only = false,
-                group = 'protect',
-            },
-            {
-                name = 'Protect II',
-                level = 27,
-                cost = 28,
-                id = 44,  -- Spell ID
-                command = function(target)
-                    return '/ma "Protect II" '..target
-                end,
-                buff_id = 40,  -- Protect
-                combat_only = false,
-                group = 'protect',
-            },
-            {
-                name = 'Protect',
-                level = 7,
-                cost = 9,
-                id = 43,  -- Spell ID
-                command = function(target)
-                    return '/ma "Protect" '..target
-                end,
-                buff_id = 40,  -- Protect
-                combat_only = false,
-                group = 'protect',
+                group = 'protectra',
             },
             {
                 name = 'Shellra V',
@@ -437,7 +342,7 @@ return {
                 command = '/ma "Shellra V" <me>',
                 buff_id = 41,  -- Shell
                 combat_only = false,
-                group = 'shell',
+                group = 'shellra',
             },
             {
                 name = 'Shellra IV',
@@ -447,7 +352,7 @@ return {
                 command = '/ma "Shellra IV" <me>',
                 buff_id = 41,
                 combat_only = false,
-                group = 'shell',
+                group = 'shellra',
             },
             {
                 name = 'Shellra III',
@@ -457,7 +362,7 @@ return {
                 command = '/ma "Shellra III" <me>',
                 buff_id = 41,
                 combat_only = false,
-                group = 'shell',
+                group = 'shellra',
             },
             {
                 name = 'Shellra II',
@@ -467,7 +372,7 @@ return {
                 command = '/ma "Shellra II" <me>',
                 buff_id = 41,
                 combat_only = false,
-                group = 'shell',
+                group = 'shellra',
             },
             {
                 name = 'Shellra',
@@ -477,55 +382,7 @@ return {
                 command = '/ma "Shellra" <me>',
                 buff_id = 41,
                 combat_only = false,
-                group = 'shell',
-            },
-            {
-                name = 'Shell IV',
-                level = 68,
-                cost = 71,
-                id = 51,  -- Spell ID
-                command = function(target)
-                    return '/ma "Shell IV" '..target
-                end,
-                buff_id = 41,  -- Shell
-                combat_only = false,
-                group = 'shell',
-            },
-            {
-                name = 'Shell III',
-                level = 57,
-                cost = 56,
-                id = 50,  -- Spell ID
-                command = function(target)
-                    return '/ma "Shell III" '..target
-                end,
-                buff_id = 41,  -- Shell
-                combat_only = false,
-                group = 'shell',
-            },
-            {
-                name = 'Shell II',
-                level = 37,
-                cost = 37,
-                id = 49,  -- Spell ID
-                command = function(target)
-                    return '/ma "Shell II" '..target
-                end,
-                buff_id = 41,  -- Shell
-                combat_only = false,
-                group = 'shell',
-            },
-            {
-                name = 'Shell',
-                level = 17,
-                cost = 18,
-                id = 48,  -- Spell ID
-                command = function(target)
-                    return '/ma "Shell" '..target
-                end,
-                buff_id = 41,  -- Shell
-                combat_only = false,
-                group = 'shell',
+                group = 'shellra',
             },
             {
                 name = 'Aquaveil',
@@ -749,6 +606,160 @@ return {
                 group = 'barstatus',
                 combat_only = false,
                 self_only = true,
+            },
+            {
+                name = 'Protect IV',
+                level = 63,
+                cost = 65,
+                id = 46,  -- Spell ID
+                command = function(target)
+                    return '/ma "Protect IV" '..target
+                end,
+                buff_id = 40,  -- Protect
+                combat_only = false,
+                group = 'protect',
+                duration = 1800,
+            },
+            {
+                name = 'Protect III',
+                level = 47,
+                cost = 46,
+                id = 45,  -- Spell ID
+                command = function(target)
+                    return '/ma "Protect III" '..target
+                end,
+                buff_id = 40,  -- Protect
+                combat_only = false,
+                group = 'protect',
+                duration = 1800,
+            },
+            {
+                name = 'Protect II',
+                level = 27,
+                cost = 28,
+                id = 44,  -- Spell ID
+                command = function(target)
+                    return '/ma "Protect II" '..target
+                end,
+                buff_id = 40,  -- Protect
+                combat_only = false,
+                group = 'protect',
+                duration = 1800,
+            },
+            {
+                name = 'Protect',
+                level = 7,
+                cost = 9,
+                id = 43,  -- Spell ID
+                command = function(target)
+                    return '/ma "Protect" '..target
+                end,
+                buff_id = 40,  -- Protect
+                combat_only = false,
+                group = 'protect',
+                duration = 1800,
+            },
+            {
+                name = 'Shell IV',
+                level = 68,
+                cost = 71,
+                id = 51,  -- Spell ID
+                command = function(target)
+                    return '/ma "Shell IV" '..target
+                end,
+                buff_id = 41,  -- Shell
+                combat_only = false,
+                group = 'shell',
+                duration = 1800,
+            },
+            {
+                name = 'Shell III',
+                level = 57,
+                cost = 56,
+                id = 50,  -- Spell ID
+                command = function(target)
+                    return '/ma "Shell III" '..target
+                end,
+                buff_id = 41,  -- Shell
+                combat_only = false,
+                group = 'shell',
+                duration = 1800,
+            },
+            {
+                name = 'Shell II',
+                level = 37,
+                cost = 37,
+                id = 49,  -- Spell ID
+                command = function(target)
+                    return '/ma "Shell II" '..target
+                end,
+                buff_id = 41,  -- Shell
+                combat_only = false,
+                group = 'shell',
+                duration = 1800,
+            },
+            {
+                name = 'Shell',
+                level = 17,
+                cost = 18,
+                id = 48,  -- Spell ID
+                command = function(target)
+                    return '/ma "Shell" '..target
+                end,
+                buff_id = 41,  -- Shell
+                combat_only = false,
+                group = 'shell',
+                duration = 1800,
+            },
+            {
+                name = 'Haste',
+                level = 40,
+                cost = 40,
+                id = 57,  -- Spell ID
+                command = function(target)
+                    return '/ma "Haste" '..target
+                end,
+                buff_id = 33,  -- Haste
+                duration = 180,
+            },
+            {
+                name = 'Regen III',
+                level = 66,
+                cost = 64,
+                id = 111,  -- Spell ID
+                command = function(target)
+                    return '/ma "Regen III" '..target
+                end,
+                buff_id = 42,  -- Regen
+                combat_only = false,
+                group = 'regen',
+                duration = 60,
+            },
+            {
+                name = 'Regen II',
+                level = 44,
+                cost = 36,
+                id = 110,  -- Spell ID
+                command = function(target)
+                    return '/ma "Regen II" '..target
+                end,
+                buff_id = 42,  -- Regen
+                combat_only = false,
+                group = 'regen',
+                duration = 60,
+            },
+            {
+                name = 'Regen',
+                level = 21,
+                cost = 15,
+                id = 108,  -- Spell ID
+                command = function(target)
+                    return '/ma "Regen" '..target
+                end,
+                buff_id = 42,  -- Regen
+                combat_only = false,
+                group = 'regen',
+                duration = 75,
             },
         },
 
