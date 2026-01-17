@@ -14,9 +14,17 @@ A focused, support-oriented addon for Ashita v4 that automates healing, buffing,
 - Movement/positioning
 - Full job automation
 
-## Version 1.0.0 - Initial Support Release
+## Latest Updates
 
-This is the first official release.
+### [1.1.0] - 2026-01-17
+- **Button-Based Party Buff Targeting**: Single-target buffs display ME/P1-P5 buttons for precise control
+- **Trust Buff Support**: Buffs can now be tracked and cast on Trusts using packet-based detection
+- **Group Dropdowns**: Multiple abilities in a group (e.g., Cure I-V) now use dropdown selectors for cleaner UI
+- **Collapsible Sections**: All major feature sections are now collapsible for better organization
+- **Enhanced Casting Detection**: Improved packet-based casting state tracking for more reliable spell detection
+- **Subjob Filtering**: Duplicate abilities from subjob are now hidden when they exist in main job
+- **Single-Target Buff Support**: Cast buffs on specific party members with intelligent uptime tracking and range validation (20 yalms)
+- **Movement Blocking**: Casting prevented while moving to avoid interrupted spells
 
 ## Features
 
@@ -26,25 +34,33 @@ This is the first official release.
 - **Pet Healing**: Automated healing for luopan pets
 - **Sleep Removal (Wake)**: Automatically wake sleeping party members
 - **Debuff Removal**: Remove poison, paralysis, silence, and other negative status effects
-- **Buff Maintenance**: Auto-apply and maintain self-buffs and party buffs
+- **Buff Maintenance**: Auto-apply and maintain self-buffs with single-target party buff support
 - **Resource Recovery**: Automated MP and TP recovery abilities
 - **Geomancer Support**: Automatic Full Circle execution when luopan exceeds distance threshold
 
 ### User Interface
-- **ImGui Configuration UI**: User-friendly settings interface
+- **ImGui Configuration UI**: User-friendly settings interface with collapsible sections
+- **Group Dropdown Selectors**: Multiple abilities in a group (e.g., Cure I-V) consolidated into dropdown menus
 - **Per-Ability Toggles**: Enable/disable individual abilities
-- **Party Buff Configuration**: Per-party-member buttons to control which buffs to cast on each member (P1-P5)
+- **Button-Based Party Buff Targeting**: Single-target buffs display ME/P1-P5 buttons for precise control over who receives each buff
+- **Trust Buff Support**: Can track and cast buffs on Trusts using packet-based detection
+- **Subjob Duplicate Filtering**: Automatically hides duplicate abilities from subjob when they exist in main job
 - **Threshold Configuration**: Customize HP/TP/MP thresholds
 - **Focus Target Support**: Prioritize specific party members
 - **Level-Based Filtering**: Shows only abilities available at your current level
+- **Collapsible Sections**: All major features (Healing, Buffs, Debuff Removal, etc.) are collapsible for cleaner organization
 - **Auto-Refresh**: UI updates automatically when jobs or levels change
 
 ### Core System Features
 - **Smart Resource Management**: Automatic MP/TP checking and cooldown tracking
 - **Status Ailment Detection**: Automatically detects and prevents casting when Silenced (magic) or Amnesiac (job abilities)
-- **Party Buff Management**: Per-party-member buff configuration with intelligent uptime tracking
+- **Enhanced Casting State Detection**: Packet-based casting detection using offset 0x0F state byte for accurate spell tracking
+- **Movement Detection**: Prevents casting while moving to avoid interrupted spells
+- **Trust Buff Tracking**: Packet-based buff tracking for Trusts (0x028 for application, 0x029 for removal)
+- **Single-Target Party Buffs**: Cast buffs on specific party members with button-based targeting (Haste, Refresh, Protect, Shell, etc.)
+- **Party Buff Management**: Per-party-member buff configuration with intelligent uptime tracking and range validation (20 yalms)
 - **Focus Target Support**: Prioritize specific party members for healing/support
-- **Main/Sub Job Support**: Automatically loads and merges abilities from both supported jobs
+- **Main/Sub Job Support**: Automatically loads and merges abilities from both supported jobs with duplicate filtering
 - **Priority-Based Actions**: Configurable action priority order per job
 - **Settings Persistence**: Settings saved per job in JSON format
 

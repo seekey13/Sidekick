@@ -10,7 +10,7 @@ Main addon file: job detection, event loop, command handler
 
 addon.name      = 'Medic'
 addon.author    = 'Seekey'
-addon.version   = '1.0.0'
+addon.version   = '1.1.0'
 addon.desc      = 'Support Job Automation Framework'
 addon.link      = 'https://github.com/seekey13/Medic'
 
@@ -402,8 +402,95 @@ local function automation_tick()
         end
     end
     
-    -- Get player info
+    -- Check for job or level changes (direct reading, no packet dependency)
+    local job_id, sub_job_id = common.get_player_job()
     local main_level, sub_level = common.get_player_level()
+    
+    -- Skip if job_id or level is invalid
+    if job_id and job_id > 0 and main_level and main_level > 0 then
+        -- Initialize tracking on first valid job detection
+        if not last_job_id or last_job_id == 0 then
+            last_job_id = job_id
+            last_sub_job_id = sub_job_id or 0
+            last_level = main_level
+            common.debugf('Initialized job tracking: %s/%s (level %s)', tostring(job_id), tostring(sub_job_id), tostring(main_level))
+        else
+            -- Normalize sub job IDs (treat nil as 0)
+            local normalized_sub_job = sub_job_id or 0
+            local normalized_last_sub = last_sub_job_id or 0
+            
+            -- Detect job change
+            local job_changed = false
+            if job_id ~= last_job_id then
+                job_changed = true
+            elseif normalized_sub_job ~= normalized_last_sub and normalized_sub_job > 0 and normalized_last_sub > 0 then
+                job_changed = true
+            elseif normalized_sub_job > 0 and normalized_last_sub == 0 then
+                job_changed = true
+            elseif normalized_sub_job == 0 and normalized_last_sub > 0 then
+                job_changed = true
+            end
+            
+            -- Detect level change
+            local level_changed = false
+            if last_level and main_level ~= last_level and last_level > 0 then
+                level_changed = true
+            end
+            
+            -- Handle job change
+            if job_changed then
+                local old_job_str = common.get_job_name(last_job_id)
+                if last_sub_job_id and last_sub_job_id > 0 then
+                    old_job_str = old_job_str .. '/' .. common.get_job_name(last_sub_job_id)
+                end
+                local new_job_str = common.get_job_name(job_id)
+                if sub_job_id and sub_job_id > 0 then
+                    new_job_str = new_job_str .. '/' .. common.get_job_name(sub_job_id)
+                end
+                common.printf('Job change detected: %s -> %s, reloading job definition...', old_job_str, new_job_str)
+                
+                -- Update tracking
+                last_job_id = job_id
+                last_sub_job_id = sub_job_id
+                last_level = main_level
+                current_main_job_id = nil
+                current_sub_job_id = nil
+                main_job_def = nil
+                sub_job_def = nil
+                job_def = nil
+                addon_settings = nil
+                
+                -- Reload job
+                setup_job()
+                
+                -- Restore automation state after job change
+                if addon_settings and addon_settings.automation_enabled then
+                    automation_enabled = true
+                else
+                    automation_enabled = false
+                end
+                
+                -- Skip this frame after job reload
+                return
+            elseif level_changed then
+                common.printf('Level change detected: %d -> %d, reloading UI...', last_level, main_level)
+                
+                -- Update level tracking
+                last_level = main_level
+                
+                -- Force UI refresh by resetting job_def
+                current_main_job_id = nil
+                current_sub_job_id = nil
+                
+                -- Reload the job definition to pick up newly available abilities
+                setup_job()
+                
+                -- Skip this frame after reload
+                return
+            end
+        end
+    end
+    
     local player_resource = resource.get_resource(job_def.resource_type)
     
     -- Get priority order
@@ -485,103 +572,6 @@ ashita.events.register('packet_in', 'medic_packet_in', function(e)
         return
     end
     
-    -- Job change detection (0x1B = job info, 0x44 = character update, 0x1A = party update)
-    if e.id == 0x1B or e.id == 0x44 or e.id == 0x1A then
-        common.debugf('Received packet 0x%02X, scheduling job change check', e.id)
-        ashita.tasks.once(0.5, function()
-            local job_id, sub_job_id = common.get_player_job()
-            local main_level, sub_level = common.get_player_level()
-            common.debugf('Job check: current=%s/%s, last=%s/%s, level=%s', tostring(job_id), tostring(sub_job_id), tostring(last_job_id), tostring(last_sub_job_id), tostring(main_level))
-            
-            -- Skip if job_id or level is invalid
-            if not job_id or job_id == 0 or not main_level or main_level == 0 then
-                common.debugf('Skipping job check, invalid job_id or level: %s, level: %s', tostring(job_id), tostring(main_level))
-                return
-            end
-            
-            -- Initialize tracking on first valid job detection
-            if not last_job_id or last_job_id == 0 then
-                last_job_id = job_id
-                last_sub_job_id = sub_job_id or 0
-                last_level = main_level
-                common.debugf('Initialized last_job_id to %s/%s (level %s)', tostring(job_id), tostring(sub_job_id), tostring(main_level))
-                return
-            end
-            
-            -- Normalize sub job IDs (treat nil as 0)
-            local normalized_sub_job = sub_job_id or 0
-            local normalized_last_sub = last_sub_job_id or 0
-            
-            -- Detect job or level change (ignore changes from/to 0)
-            local job_changed = false
-            if job_id ~= last_job_id then
-                job_changed = true
-            elseif normalized_sub_job ~= normalized_last_sub and normalized_sub_job > 0 and normalized_last_sub > 0 then
-                -- Only consider it a change if both old and new sub jobs are valid (not 0)
-                job_changed = true
-            elseif normalized_sub_job > 0 and normalized_last_sub == 0 then
-                -- Sub job was gained
-                job_changed = true
-            elseif normalized_sub_job == 0 and normalized_last_sub > 0 then
-                -- Sub job was lost
-                job_changed = true
-            end
-            
-            local level_changed = false
-            if last_level and main_level ~= last_level and last_level > 0 then
-                -- Only consider it a level change if the previous level was valid
-                level_changed = true
-            end
-            
-            if job_changed then
-                local old_job_str = common.get_job_name(last_job_id)
-                if last_sub_job_id and last_sub_job_id > 0 then
-                    old_job_str = old_job_str .. '/' .. common.get_job_name(last_sub_job_id)
-                end
-                local new_job_str = common.get_job_name(job_id)
-                if sub_job_id and sub_job_id > 0 then
-                    new_job_str = new_job_str .. '/' .. common.get_job_name(sub_job_id)
-                end
-                common.printf('Job change detected: %s -> %s, reloading job definition...', old_job_str, new_job_str)
-                
-                -- Update tracking
-                last_job_id = job_id
-                last_sub_job_id = sub_job_id
-                last_level = main_level
-                current_main_job_id = nil
-                current_sub_job_id = nil
-                main_job_def = nil
-                sub_job_def = nil
-                job_def = nil
-                addon_settings = nil
-                
-                -- Reload job
-                setup_job()
-                
-                -- Restore automation state after job change
-                if addon_settings and addon_settings.automation_enabled then
-                    automation_enabled = true
-                else
-                    automation_enabled = false
-                end
-            elseif level_changed then
-                common.printf('Level change detected: %d -> %d, reloading UI...', last_level, main_level)
-                
-                -- Update level tracking
-                last_level = main_level
-                
-                -- Force UI refresh by resetting job_def (will be reloaded on next render)
-                -- This ensures new abilities unlocked by level are shown
-                current_main_job_id = nil
-                current_sub_job_id = nil
-                
-                -- Don't reset addon_settings to preserve user configuration
-                -- Just reload the job definition to pick up newly available abilities
-                setup_job()
-            end
-        end)
-    end
-    
     -- Handle action packets for casting detection (always active)
     if e.id == 0x028 then
         -- Parse actor ID to check if it's the player
@@ -592,9 +582,41 @@ ashita.events.register('packet_in', 'medic_packet_in', function(e)
                 local player_id = party:GetMemberServerId(0)
                 if player_id and actor_id == player_id then
                     common.handle_action_packet(e.data)  -- Casting detection
+                    
+                    -- Check if this is a casting completion (byte 0x0F != 0x00)
+                    if e.data and #e.data >= 16 then
+                        local completion_flag = struct.unpack('B', e.data, 0x0F + 1)
+                        common.debugf('[PACKET] 0x028 completion_flag = 0x%02X', completion_flag)
+                        if completion_flag ~= 0x00 then
+                            -- Casting completed, apply pending buff to Trust
+                            common.debugf('[PACKET] Calling handle_buff_application()')
+                            common.handle_buff_application()
+                        end
+                    end
                 end
             end
         end
+    end
+    
+    -- Handle status effect update packets for Trust buff removal (0x029)
+    if e.id == 0x029 then
+        if e.data and #e.data >= 16 then
+            -- Extract server_id (bytes 0x04-0x07, little-endian)
+            local server_id = struct.unpack('I', e.data, 0x04 + 1)
+            
+            -- Extract buff_id (byte 0x0C)
+            local buff_id = struct.unpack('B', e.data, 0x0C + 1)
+            
+            -- Only handle Trust buff removal (server_id >= 0x1000000)
+            if server_id >= 0x1000000 and buff_id > 0 and buff_id ~= 255 then
+                common.handle_buff_removal(server_id, buff_id)
+            end
+        end
+    end
+    
+    -- Clear Trust buffs on zone change
+    if e.id == 0x0A then  -- Zone change packet
+        common.clear_trust_buffs()
     end
 end)
 

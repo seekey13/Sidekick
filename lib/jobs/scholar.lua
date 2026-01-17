@@ -63,69 +63,16 @@ return {
                 command = '/ja "Sublimation" <me>',
                 buff_id = {187, 188},  -- Can be either 187 (activated) or 188 (complete)
             },
-            -- {
-            --     name = 'Tranquility',
-            --     level = 75,
-            --     cost = 0,
-            --     id = 242,  -- Job ability ID
-            --     command = '/ja "Tranquility" <me>',
-            --     requires_buff = 401,  -- Addendum: White
-            --     buff_id = 414,
-            -- },
-            -- {
-            --     name = 'Altruism',
-            --     level = 75,
-            --     cost = 0,
-            --     id = 240,  -- Job ability ID
-            --     command = '/ja "Altruism" <me>',
-            --     requires_buff = 401,  -- Addendum: White
-            --     buff_id = 412,
-            -- },
-            -- {
-            --     name = 'Perpetuance',
-            --     level = 75,
-            --     cost = 0,
-            --     id = 316,  -- Job ability ID
-            --     command = '/ja "Perpetuance" <me>',
-            --     requires_buff = 401,  -- Addendum: White
-            --     buff_id = 469,
-            -- },
-            -- {
-            --     name = 'Rapture',
-            --     level = 55,
-            --     cost = 0,
-            --     id = 217,  -- Job ability ID
-            --     command = '/ja "Rapture" <me>',
-            --     requires_buff = 401,  -- Addendum: White
-            --     buff_id = 364,
-            -- },
-            -- {
-            --     name = 'Accession',
-            --     level = 40,
-            --     cost = 0,
-            --     id = 218,  -- Job ability ID
-            --     command = '/ja "Accession" <me>',
-            --     requires_buff = 401,  -- Addendum: White
-            --     buff_id = 366,
-            -- },
-            -- {
-            --     name = 'Celerity',
-            --     level = 25,
-            --     cost = 0,
-            --     id = 216,  -- Job ability ID
-            --     command = '/ja "Celerity" <me>',
-            --     requires_buff = 401,  -- Addendum: White
-            --     buff_id = 362,
-            -- },
-            -- {
-            --     name = 'Penury',
-            --     level = 10,
-            --     cost = 0,
-            --     id = 215,  -- Job ability ID
-            --     command = '/ja "Penury" <me>',
-            --     requires_buff = 401,  -- Addendum: White
-            --     buff_id = 360,
-            -- },
+            -- Klimaform
+            {
+                name = 'Klimaform',
+                level = 46,
+                cost = 30,
+                id = 287,  -- Spell ID
+                command = '/ma "Klimaform" <me>',
+                buff_id = 407,  -- Klimaform
+                combat_only = true,
+            },
             -- Protect line
             {
                 name = 'Protect IV',
@@ -234,7 +181,6 @@ return {
                 end,
                 buff_id = 42,  -- Regen
                 range = 20,
-                group = 'regen',
             },
             {
                 name = 'Regen II',
@@ -246,7 +192,6 @@ return {
                 end,
                 buff_id = 42,
                 range = 20,
-                group = 'regen',
             },
             {
                 name = 'Regen',
@@ -258,57 +203,6 @@ return {
                 end,
                 buff_id = 42,
                 range = 20,
-                group = 'regen',
-            },
-            {
-                name = 'Reraise II',
-                level = 70,
-                cost = 150,
-                id = 142,  -- Spell ID
-                command = '/ma "Reraise II" <me>',
-                range = 20,
-                buff_id = 113,
-                group = 'reraise',
-                requires_buff = 401,  -- Requires Addendum: White
-            },
-            {
-                name = 'Reraise',
-                level = 35,
-                cost = 150,
-                id = 135,  -- Spell ID
-                command = '/ma "Reraise" <me>',
-                range = 20,
-                buff_id = 113,
-                group = 'reraise',
-                requires_buff = 401,  -- Requires Addendum: White
-            },
-            -- Other buffs
-            {
-                name = 'Stoneskin',
-                level = 44,
-                cost = 29,
-                id = 54,  -- Spell ID
-                command = '/ma "Stoneskin" <me>',
-                buff_id = 37,  -- Stoneskin
-                combat_only = false,
-            },
-            {
-                name = 'Blink',
-                level = 30,
-                cost = 20,
-                id = 53,  -- Spell ID
-                command = '/ma "Blink" <me>',
-                buff_id = 36,  -- Blink
-                combat_only = false,
-            },
-            {
-                name = 'Aquaveil',
-                level = 13,
-                cost = 12,
-                id = 55,  -- Spell ID
-                command = '/ma "Aquaveil" <me>',
-                buff_id = 39,  -- Aquaveil
-                combat_only = false,
             },
             -- Storms
             {
@@ -391,15 +285,33 @@ return {
                 combat_only = false,
                 group = 'storm',
             },
-            -- Klimaform
+            -- Other buffs
             {
-                name = 'Klimaform',
-                level = 46,
-                cost = 30,
-                id = 287,  -- Spell ID
-                command = '/ma "Klimaform" <me>',
-                buff_id = 407,  -- Klimaform
-                combat_only = true,
+                name = 'Stoneskin',
+                level = 44,
+                cost = 29,
+                id = 54,  -- Spell ID
+                command = '/ma "Stoneskin" <me>',
+                buff_id = 37,  -- Stoneskin
+                combat_only = false,
+            },
+            {
+                name = 'Blink',
+                level = 30,
+                cost = 20,
+                id = 53,  -- Spell ID
+                command = '/ma "Blink" <me>',
+                buff_id = 36,  -- Blink
+                combat_only = false,
+            },
+            {
+                name = 'Aquaveil',
+                level = 13,
+                cost = 12,
+                id = 55,  -- Spell ID
+                command = '/ma "Aquaveil" <me>',
+                buff_id = 39,  -- Aquaveil
+                combat_only = false,
             },
             -- Spikes
             {
@@ -433,10 +345,95 @@ return {
                 group = 'spikes',
             },
             {
+                name = 'Reraise II',
+                level = 70,
+                cost = 150,
+                id = 142,  -- Spell ID
+                command = '/ma "Reraise II" <me>',
+                range = 20,
+                buff_id = 113,
+                group = 'reraise',
+                requires_buff = 401,  -- Requires Addendum: White
+            },
+            {
+                name = 'Reraise',
+                level = 35,
+                cost = 150,
+                id = 135,  -- Spell ID
+                command = '/ma "Reraise" <me>',
+                range = 20,
+                buff_id = 113,
+                group = 'reraise',
+                requires_buff = 401,  -- Requires Addendum: White
+            },
+            -- {
+            --     name = 'Tranquility',
+            --     level = 75,
+            --     cost = 0,
+            --     id = 242,  -- Job ability ID
+            --     command = '/ja "Tranquility" <me>',
+            --     requires_buff = 401,  -- Addendum: White
+            --     buff_id = 414,
+            -- },
+            -- {
+            --     name = 'Altruism',
+            --     level = 75,
+            --     cost = 0,
+            --     id = 240,  -- Job ability ID
+            --     command = '/ja "Altruism" <me>',
+            --     requires_buff = 401,  -- Addendum: White
+            --     buff_id = 412,
+            -- },
+            -- {
+            --     name = 'Perpetuance',
+            --     level = 75,
+            --     cost = 0,
+            --     id = 316,  -- Job ability ID
+            --     command = '/ja "Perpetuance" <me>',
+            --     requires_buff = 401,  -- Addendum: White
+            --     buff_id = 469,
+            -- },
+            -- {
+            --     name = 'Rapture',
+            --     level = 55,
+            --     cost = 0,
+            --     id = 217,  -- Job ability ID
+            --     command = '/ja "Rapture" <me>',
+            --     requires_buff = 401,  -- Addendum: White
+            --     buff_id = 364,
+            -- },
+            -- {
+            --     name = 'Accession',
+            --     level = 40,
+            --     cost = 0,
+            --     id = 218,  -- Job ability ID
+            --     command = '/ja "Accession" <me>',
+            --     requires_buff = 401,  -- Addendum: White
+            --     buff_id = 366,
+            -- },
+            -- {
+            --     name = 'Celerity',
+            --     level = 25,
+            --     cost = 0,
+            --     id = 216,  -- Job ability ID
+            --     command = '/ja "Celerity" <me>',
+            --     requires_buff = 401,  -- Addendum: White
+            --     buff_id = 362,
+            -- },
+            -- {
+            --     name = 'Penury',
+            --     level = 10,
+            --     cost = 0,
+            --     id = 215,  -- Job ability ID
+            --     command = '/ja "Penury" <me>',
+            --     requires_buff = 401,  -- Addendum: White
+            --     buff_id = 360,
+            -- },
+            {
                 name = 'Invisible',
                 level = 25,
                 cost = 25,
-                id = 65,  -- Spell ID
+                id = 136,  -- Spell ID
                 command = function(target)
                     return '/ma "Invisible" '..target
                 end,
@@ -447,7 +444,7 @@ return {
                 name = 'Sneak',
                 level = 20,
                 cost = 25,
-                id = 64,  -- Spell ID
+                id = 137,  -- Spell ID
                 command = function(target)
                     return '/ma "Sneak" '..target
                 end,
@@ -458,12 +455,12 @@ return {
                 name = 'Deodorize',
                 level = 15,
                 cost = 6,
-                id = 61,  -- Spell ID
+                id = 138,  -- Spell ID
                 command = function(target)
                     return '/ma "Deodorize" '..target
                 end,
-                buff_id = 70,  -- Deodorize
                 idle_only = true,
+                buff_id = 70,  -- Deodorize
             },
         },
         
