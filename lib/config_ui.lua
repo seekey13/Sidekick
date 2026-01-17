@@ -258,6 +258,116 @@ local function create_combo(label, setting_name, ui_var, options, converter, wid
     imgui.PopItemWidth()
 end
 
+-- Render a buff ability with button-based selection for single-target buffs
+local function render_buff_with_buttons(ability, job_def, extra_desc)
+    -- Get the command string (handle both string and function commands)
+    local cmd = type(ability.command) == 'function' and ability.command(0) or ability.command
+    local is_spell = cmd and string.sub(cmd, 1, 3) == '/ma'
+    local has_spell = true
+    local spell_suffix = ''
+    
+    if is_spell and ability.id then
+        local ok, known = pcall(function() return AshitaCore:GetMemoryManager():GetPlayer():HasSpell(ability.id) end)
+        if ok then
+            has_spell = known
+            if not has_spell then
+                spell_suffix = ' (Not Learned)'
+            end
+        else
+            common.errorf('Failed to check spell knowledge for %s (ID: %d)', ability.name, ability.id)
+        end
+    end
+    
+    local desc = ability.name .. ' (Lv.' .. ability.level .. ')' .. (extra_desc or '') .. spell_suffix
+    
+    if not has_spell then
+        imgui.PushStyleColor(ImGuiCol_Text, { 0.5, 0.5, 0.5, 1.0 })  -- Gray color for unknown spells
+    end
+    
+    -- Render [ME] button
+    local me_enabled = is_party_buff_enabled(ability.name, 0)
+    
+    -- Set button color based on selection state
+    if me_enabled then
+        -- Selected: Use default button colors (no custom styling)
+    else
+        -- Not selected: Gray
+        imgui.PushStyleColor(ImGuiCol_Button, { 0.3, 0.3, 0.3, 1.0 })
+        imgui.PushStyleColor(ImGuiCol_ButtonHovered, { 0.4, 0.4, 0.4, 1.0 })
+        imgui.PushStyleColor(ImGuiCol_ButtonActive, { 0.5, 0.5, 0.5, 1.0 })
+    end
+    
+    local me_button_label = 'ME##' .. ability.name .. '_me'
+    if has_spell and imgui.Button(me_button_label, { PARTY_BUTTON_WIDTH, 0 }) then
+        toggle_party_buff(ability.name, 0, not me_enabled)
+    end
+    
+    if not me_enabled then
+        imgui.PopStyleColor(3)
+    end
+    
+    -- Render party member buttons (P1-P5)
+    local party_size = common.get_party_size()
+    if party_size > 1 then
+        for party_index = 1, 5 do
+            local is_active = party_index < party_size  -- P1-P(size-1) are active
+            
+            if is_active then
+                imgui.SameLine()
+                
+                -- Check if this party member is a Trust
+                local is_trust_member = is_trust(party_index)
+                
+                -- Get current state
+                local is_enabled = is_party_buff_enabled(ability.name, party_index)
+                
+                -- Set button color and disable state based on Trust status
+                if is_trust_member then
+                    -- Trust: Dark gray and disabled
+                    imgui.PushStyleColor(ImGuiCol_Button, { 0.2, 0.2, 0.2, 1.0 })
+                    imgui.PushStyleColor(ImGuiCol_ButtonHovered, { 0.2, 0.2, 0.2, 1.0 })
+                    imgui.PushStyleColor(ImGuiCol_ButtonActive, { 0.2, 0.2, 0.2, 1.0 })
+                    imgui.PushStyleColor(ImGuiCol_Text, { 0.4, 0.4, 0.4, 1.0 })
+                elseif is_enabled then
+                    -- Selected: Use default button colors (no custom styling)
+                else
+                    -- Not selected: Gray
+                    imgui.PushStyleColor(ImGuiCol_Button, { 0.3, 0.3, 0.3, 1.0 })
+                    imgui.PushStyleColor(ImGuiCol_ButtonHovered, { 0.4, 0.4, 0.4, 1.0 })
+                    imgui.PushStyleColor(ImGuiCol_ButtonActive, { 0.5, 0.5, 0.5, 1.0 })
+                end
+                
+                local button_label = 'P' .. party_index .. '##' .. ability.name .. '_p' .. party_index
+                if has_spell and imgui.Button(button_label, { PARTY_BUTTON_WIDTH, 0 }) then
+                    -- Only toggle if not a Trust
+                    if not is_trust_member then
+                        toggle_party_buff(ability.name, party_index, not is_enabled)
+                    end
+                end
+                
+                -- Show tooltip for Trusts explaining why they're disabled
+                if is_trust_member and imgui.IsItemHovered() then
+                    imgui.SetTooltip('Trust buffs are not available')
+                end
+                
+                if is_trust_member then
+                    imgui.PopStyleColor(4)
+                elseif not is_enabled then
+                    imgui.PopStyleColor(3)
+                end
+            end
+        end
+    end
+    
+    -- Display spell name after buttons
+    imgui.SameLine()
+    imgui.Text(desc)
+    
+    if not has_spell then
+        imgui.PopStyleColor()
+    end
+end
+
 -- Render a buff ability checkbox with party member toggle buttons
 local function render_buff_checkbox_with_party_toggles(ability, job_def, extra_desc)
     -- Check if this ability is being displayed for the first time
@@ -739,7 +849,15 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                         elseif ability.idle_only then
                             extra_desc = ' [Idle Only]'
                         end
-                        render_buff_checkbox_with_party_toggles(ability, job_def, extra_desc)
+                        
+                        -- Use button-based UI for single-target buffs, checkbox for self-only buffs
+                        if can_cast_on_party(ability) then
+                            -- Single-target buff: show [ME] [P1] [P2] [P3] [P4] [P5] buttons + spell name
+                            render_buff_with_buttons(ability, job_def, extra_desc)
+                        else
+                            -- Self-only buff: show checkbox
+                            render_ability_checkbox(ability, job_def, extra_desc, 'buff')
+                        end
                     end
                 end
                 imgui.Unindent(ABILITY_LIST_INDENT)
