@@ -17,8 +17,9 @@ function recover.execute(settings, job_def, main_level, sub_level, player_resour
     -- Get recovery abilities from job definition
     local recover_mp_abilities = job_def.abilities.recover_mp or {}
     local recover_tp_abilities = job_def.abilities.recover_tp or {}
+    local recover_party_mp_abilities = job_def.abilities.recover_party_mp or {}
     
-    if #recover_mp_abilities == 0 and #recover_tp_abilities == 0 then
+    if #recover_mp_abilities == 0 and #recover_tp_abilities == 0 and #recover_party_mp_abilities == 0 then
         return nil
     end
     
@@ -51,8 +52,8 @@ function recover.execute(settings, job_def, main_level, sub_level, player_resour
             
             -- Check if target needs MP recovery
             if target_mpp > 0 and target_mpp < threshold then
-                -- Find Devotion ability in recover_mp list
-                for _, ability in ipairs(recover_mp_abilities) do
+                -- Find Devotion ability in recover_party_mp list
+                for _, ability in ipairs(recover_party_mp_abilities) do
                     if ability.name == 'Devotion' then
                         local can_use_devotion = true
                         

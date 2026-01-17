@@ -1413,7 +1413,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                         else
                             return i
                         end
-                    end, 150)
+                    end)
                     
                     if focus_recovery_target_index[1] > 0 then
                         create_slider_int('Target Recover (MP%)', 'focus_recovery_threshold', { settings.focus_recovery_threshold or 30 }, 1, 100)
