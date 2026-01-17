@@ -23,7 +23,7 @@ return {
                 command = '/ma "Knight\'s Minne IV" <me>',
                 element = 'Earth',
                 buff_id = 197,  -- Knight's Minne IV buff
-                combat_only = false,
+                group = 'minne',
             },
             {
                 name = "Knight's Minne III",
@@ -33,7 +33,7 @@ return {
                 command = '/ma "Knight\'s Minne III" <me>',
                 element = 'Earth',
                 buff_id = 197,  -- Knight's Minne III buff
-                combat_only = false,
+                group = 'minne',
             },
             {
                 name = "Knight's Minne II",
@@ -43,7 +43,7 @@ return {
                 command = '/ma "Knight\'s Minne II" <me>',
                 element = 'Earth',
                 buff_id = 197,  -- Knight's Minne II buff
-                combat_only = false,
+                group = 'minne',
             },
             {
                 name = "Knight's Minne",
@@ -53,7 +53,7 @@ return {
                 command = '/ma "Knight\'s Minne" <me>',
                 element = 'Earth',
                 buff_id = 197,  -- Knight's Minne buff
-                combat_only = false,
+                group = 'minne',
             },
             -- Minuet
             {
@@ -64,7 +64,7 @@ return {
                 command = '/ma "Valor Minuet IV" <me>',
                 element = 'Fire',
                 buff_id = 198,  -- Valor Minuet IV buff
-                combat_only = false,
+                group = 'minuet',
             },
             {
                 name = 'Valor Minuet III',
@@ -74,7 +74,7 @@ return {
                 command = '/ma "Valor Minuet III" <me>',
                 element = 'Fire',
                 buff_id = 198,  -- Valor Minuet III buff
-                combat_only = false,
+                group = 'minuet',
             },
             {
                 name = 'Valor Minuet II',
@@ -84,7 +84,7 @@ return {
                 command = '/ma "Valor Minuet II" <me>',
                 element = 'Fire',
                 buff_id = 198,  -- Valor Minuet II buff
-                combat_only = false,
+                group = 'minuet',
             },
             {
                 name = 'Valor Minuet',
@@ -94,7 +94,7 @@ return {
                 command = '/ma "Valor Minuet" <me>',
                 element = 'Fire',
                 buff_id = 198,  -- Valor Minuet buff
-                combat_only = false,
+                group = 'minuet',
             },
             -- Paeon
             {
@@ -105,7 +105,7 @@ return {
                 command = '/ma "Army\'s Paeon V" <me>',
                 element = 'Light',
                 buff_id = 195,  -- Army's Paeon V buff
-                combat_only = false,
+                group = 'paeon',
             },
             {
                 name = "Army's Paeon IV",
@@ -115,7 +115,7 @@ return {
                 command = '/ma "Army\'s Paeon IV" <me>',
                 element = 'Light',
                 buff_id = 195,  -- Army's Paeon IV buff
-                combat_only = false,
+                group = 'paeon',
             },
             {
                 name = "Army's Paeon III",
@@ -125,7 +125,7 @@ return {
                 command = '/ma "Army\'s Paeon III" <me>',
                 element = 'Light',
                 buff_id = 195,  -- Army's Paeon III buff
-                combat_only = false,
+                group = 'paeon',
             },
             {
                 name = "Army's Paeon II",
@@ -135,7 +135,7 @@ return {
                 command = '/ma "Army\'s Paeon II" <me>',
                 element = 'Light',
                 buff_id = 195,  -- Army's Paeon II buff
-                combat_only = false,
+                group = 'paeon',
             },
             {
                 name = "Army's Paeon",
@@ -145,7 +145,7 @@ return {
                 command = '/ma "Army\'s Paeon" <me>',
                 element = 'Light',
                 buff_id = 195,  -- Army's Paeon buff
-                combat_only = false,
+                group = 'paeon',
             },
             -- Madrigal
             {
@@ -156,7 +156,7 @@ return {
                 command = '/ma "Blade Madrigal" <me>',
                 element = 'Lightning',
                 buff_id = 199,  -- Blade Madrigal buff
-                combat_only = false,
+                group = 'madrigal',
             },
             {
                 name = 'Sword Madrigal',
@@ -166,7 +166,7 @@ return {
                 command = '/ma "Sword Madrigal" <me>',
                 element = 'Lightning',
                 buff_id = 199,  -- Sword Madrigal buff
-                combat_only = false,
+                group = 'madrigal',
             },
             -- Ballad
             {
@@ -177,7 +177,7 @@ return {
                 command = '/ma "Mage\'s Ballad II" <me>',
                 element = 'Light',
                 buff_id = 196,  -- Mage's Ballad II buff
-                combat_only = false,
+                group = 'ballad',
             },
             {
                 name = "Mage's Ballad",
@@ -187,7 +187,7 @@ return {
                 command = '/ma "Mage\'s Ballad" <me>',
                 element = 'Light',
                 buff_id = 196,  -- Mage's Ballad buff
-                combat_only = false,
+                group = 'ballad',
             },
             -- March
             {
@@ -198,7 +198,7 @@ return {
                 command = '/ma "Victory March" <me>',
                 element = 'Lightning',
                 buff_id = 214,  -- Victory March buff
-                combat_only = false,
+                group = 'march',
             },
             {
                 name = 'Advancing March',
@@ -208,7 +208,7 @@ return {
                 command = '/ma "Advancing March" <me>',
                 element = 'Lightning',
                 buff_id = 214,  -- Advancing March buff
-                combat_only = false,
+                group = 'march',
             },
             -- Etude
             {
@@ -219,7 +219,7 @@ return {
                 command = '/ma "Herculean Etude" <me>',
                 element = 'Fire',
                 buff_id = 215,  -- Herculean Etude buff
-                combat_only = false,
+                group = 'etude',
             },
             {
                 name = 'Uncanny Etude',
@@ -229,7 +229,7 @@ return {
                 command = '/ma "Uncanny Etude" <me>',
                 element = 'Lightning',
                 buff_id = 215,  -- Uncanny Etude buff
-                combat_only = false,
+                group = 'etude',
             },
             {
                 name = 'Vital Etude',
@@ -239,7 +239,7 @@ return {
                 command = '/ma "Vital Etude" <me>',
                 element = 'Earth',
                 buff_id = 215,  -- Vital Etude buff
-                combat_only = false,
+                group = 'etude',
             },
             {
                 name = 'Swift Etude',
@@ -249,7 +249,7 @@ return {
                 command = '/ma "Swift Etude" <me>',
                 element = 'Wind',
                 buff_id = 215,  -- Swift Etude buff
-                combat_only = false,
+                group = 'etude',
             },
             {
                 name = 'Sage Etude',
@@ -259,7 +259,7 @@ return {
                 command = '/ma "Sage Etude" <me>',
                 element = 'Ice',
                 buff_id = 215,  -- Sage Etude buff
-                combat_only = false,
+                group = 'etude',
             },
             {
                 name = 'Logical Etude',
@@ -269,7 +269,7 @@ return {
                 command = '/ma "Logical Etude" <me>',
                 element = 'Water',
                 buff_id = 215,  -- Logical Etude buff
-                combat_only = false,
+                group = 'etude',
             },
             {
                 name = 'Bewitching Etude',
@@ -279,7 +279,7 @@ return {
                 command = '/ma "Bewitching Etude" <me>',
                 element = 'Light',
                 buff_id = 215,  -- Bewitching Etude buff
-                combat_only = false,
+                group = 'etude',
             },
             {
                 name = 'Sinewy Etude',
@@ -289,7 +289,7 @@ return {
                 command = '/ma "Sinewy Etude" <me>',
                 element = 'Fire',
                 buff_id = 215,  -- Sinewy Etude buff
-                combat_only = false,
+                group = 'etude',
             },
             {
                 name = 'Dextrous Etude',
@@ -299,7 +299,7 @@ return {
                 command = '/ma "Dextrous Etude" <me>',
                 element = 'Lightning',
                 buff_id = 215,  -- Dextrous Etude buff
-                combat_only = false,
+                group = 'etude',
             },
             {
                 name = 'Vivacious Etude',
@@ -309,7 +309,7 @@ return {
                 command = '/ma "Vivacious Etude" <me>',
                 element = 'Earth',
                 buff_id = 215,  -- Vivacious Etude buff
-                combat_only = false,
+                group = 'etude',
             },
             {
                 name = 'Quick Etude',
@@ -319,7 +319,7 @@ return {
                 command = '/ma "Quick Etude" <me>',
                 element = 'Wind',
                 buff_id = 215,  -- Quick Etude buff
-                combat_only = false,
+                group = 'etude',
             },
             {
                 name = 'Learned Etude',
@@ -329,7 +329,7 @@ return {
                 command = '/ma "Learned Etude" <me>',
                 element = 'Ice',
                 buff_id = 215,  -- Learned Etude buff
-                combat_only = false,
+                group = 'etude',
             },
             {
                 name = 'Spirited Etude',
@@ -339,7 +339,7 @@ return {
                 command = '/ma "Spirited Etude" <me>',
                 element = 'Water',
                 buff_id = 215,  -- Spirited Etude buff
-                combat_only = false,
+                group = 'etude',
             },
             -- Carols
             {
@@ -350,7 +350,7 @@ return {
                 command = '/ma "Dark Carol" <me>',
                 element = 'Light',
                 buff_id = 216,  -- Dark Carol buff
-                combat_only = false,
+                group = 'carol',
             },
             {
                 name = 'Lightning Carol',
@@ -360,7 +360,7 @@ return {
                 command = '/ma "Lightning Carol" <me>',
                 element = 'Earth',
                 buff_id = 216,  -- Lightning Carol buff
-                combat_only = false,
+                group = 'carol',
             },
             {
                 name = 'Ice Carol',
@@ -370,7 +370,7 @@ return {
                 command = '/ma "Ice Carol" <me>',
                 element = 'Fire',
                 buff_id = 216,  -- Ice Carol buff
-                combat_only = false,
+                group = 'carol',
             },
             {
                 name = 'Fire Carol',
@@ -380,7 +380,7 @@ return {
                 command = '/ma "Fire Carol" <me>',
                 element = 'Water',
                 buff_id = 216,  -- Fire Carol buff
-                combat_only = false,
+                group = 'carol',
             },
             {
                 name = 'Wind Carol',
@@ -390,7 +390,7 @@ return {
                 command = '/ma "Wind Carol" <me>',
                 element = 'Ice',
                 buff_id = 216,  -- Wind Carol buff
-                combat_only = false,
+                group = 'carol',
             },
             {
                 name = 'Water Carol',
@@ -400,7 +400,7 @@ return {
                 command = '/ma "Water Carol" <me>',
                 element = 'Lightning',
                 buff_id = 216,  -- Water Carol buff
-                combat_only = false,
+                group = 'carol',
             },
             {
                 name = 'Earth Carol',
@@ -410,7 +410,7 @@ return {
                 command = '/ma "Earth Carol" <me>',
                 element = 'Wind',
                 buff_id = 216,  -- Earth Carol buff
-                combat_only = false,
+                group = 'carol',
             },
             {
                 name = 'Light Carol',
@@ -420,7 +420,7 @@ return {
                 command = '/ma "Light Carol" <me>',
                 element = 'Dark',
                 buff_id = 216,  -- Light Carol buff
-                combat_only = false,
+                group = 'carol',
             },
             -- Mazurkas
             {
@@ -431,7 +431,7 @@ return {
                 command = '/ma "Chocobo Mazurka" <me>',
                 element = 'Wind',
                 buff_id = 219,  -- Chocobo Mazurka buff
-                combat_only = false,
+                group = 'mazurka',
                 idle_only = true,
             },
             {
@@ -442,7 +442,7 @@ return {
                 command = '/ma "Raptor Mazurka" <me>',
                 element = 'Wind',
                 buff_id = 219,  -- Raptor Mazurka buff
-                combat_only = false,
+                group = 'mazurka',
                 idle_only = true,
             },
             -- Others
@@ -454,7 +454,6 @@ return {
                 command = '/ma "Foe Sirvente" <me>',
                 element = 'Light',
                 buff_id = 220,  -- Foe Sirvente buff
-                combat_only = false,
             },
             {
                 name = "Adventurer's Dirge",
@@ -464,7 +463,6 @@ return {
                 command = '/ma "Adventurer\'s Dirge" <me>',
                 element = 'Light',
                 buff_id = 221,  -- Adventurer's Dirge buff
-                combat_only = false,
             },
             {
                 name = 'Warding Round',
@@ -474,7 +472,6 @@ return {
                 command = '/ma "Warding Round" <me>',
                 element = 'Light',
                 buff_id = 209,  -- Warding Round buff
-                combat_only = false,
             },
             {
                 name = "Goddess' Hymnus",
@@ -484,7 +481,6 @@ return {
                 command = '/ma "Goddess\' Hymnus" <me>',
                 element = 'Light',
                 buff_id = 218,  -- Goddess' Hymnus buff
-                combat_only = false,
             },
             {
                 name = "Archer's Prelude",
@@ -494,7 +490,6 @@ return {
                 command = '/ma "Archer\'s Prelude" <me>',
                 element = 'Lightning',
                 buff_id = 200,  -- Archer's Prelude buff
-                combat_only = false,
             },
             {
                 name = "Puppet's Operetta",
@@ -504,7 +499,6 @@ return {
                 command = '/ma "Puppet\'s Operetta" <me>',
                 element = 'Ice',
                 buff_id = 206,  -- Puppet's Operetta buff
-                combat_only = false,
             },
             {
                 name = 'Shining Fantasia',
@@ -514,7 +508,6 @@ return {
                 command = '/ma "Shining Fantasia" <me>',
                 element = 'Light',
                 buff_id = 205,  -- Shining Fantasia buff
-                combat_only = false,
             },
             {
                 name = 'Gold Capriccio',
@@ -524,7 +517,6 @@ return {
                 command = '/ma "Gold Capriccio" <me>',
                 element = 'Wind',
                 buff_id = 207,  -- Gold Capriccio buff
-                combat_only = false,
             },
             {
                 name = 'Dragonfoe Mambo',
@@ -534,7 +526,6 @@ return {
                 command = '/ma "Dragonfoe Mambo" <me>',
                 element = 'Wind',
                 buff_id = 201,  -- Dragonfoe Mambo buff
-                combat_only = false,
             },
             {
                 name = 'Goblin Gavotte',
@@ -544,7 +535,6 @@ return {
                 command = '/ma "Goblin Gavotte" <me>',
                 element = 'Fire',
                 buff_id = 210,  -- Goblin Gavotte buff
-                combat_only = false,
             },
             {
                 name = 'Battlefield Elegy',
@@ -554,7 +544,6 @@ return {
                 command = '/ma "Battlefield Elegy" <me>',
                 element = 'Earth',
                 buff_id = 194,  -- Battlefield Elegy buff
-                combat_only = false,
             },
             {
                 name = 'Fowl Aubade',
@@ -564,7 +553,6 @@ return {
                 command = '/ma "Fowl Aubade" <me>',
                 element = 'Light',
                 buff_id = 202,  -- Fowl Aubade buff
-                combat_only = false,
             },
             {
                 name = "Hunter's Prelude",
@@ -574,7 +562,6 @@ return {
                 command = '/ma "Hunter\'s Prelude" <me>',
                 element = 'Lightning',
                 buff_id = 200,  -- Hunter's Prelude buff
-                combat_only = false,
             },
             {
                 name = "Scop's Operetta",
@@ -584,7 +571,6 @@ return {
                 command = '/ma "Scop\'s Operetta" <me>',
                 element = 'Ice',
                 buff_id = 206,  -- Scop's Operetta buff
-                combat_only = false,
             },
             {
                 name = 'Sheepfoe Mambo',
@@ -594,7 +580,6 @@ return {
                 command = '/ma "Sheepfoe Mambo" <me>',
                 element = 'Wind',
                 buff_id = 201,  -- Sheepfoe Mambo buff
-                combat_only = false,
             },
             {
                 name = 'Herb Pastoral',
@@ -604,7 +589,6 @@ return {
                 command = '/ma "Herb Pastoral" <me>',
                 element = 'Lightning',
                 buff_id = 203,  -- Herb Pastoral buff
-                combat_only = false,
             },
         },
     },

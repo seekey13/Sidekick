@@ -189,6 +189,28 @@ return {
                 combat_only = false,
             },
             {
+                name = 'Regen',
+                level = 21,
+                cost = 15,
+                id = 108,  -- Spell ID
+                command = function(target)
+                    return '/ma "Regen" '..target
+                end,
+                buff_id = 42,  -- Regen
+                combat_only = false,
+            },
+            {
+                name = 'Refresh',
+                level = 41,
+                cost = 40,
+                id = 109,  -- Spell ID
+                command = function(target)
+                    return '/ma "Refresh" '..target
+                end,
+                buff_id = 43,  -- Refresh
+                combat_only = false,
+            },
+            {
                 name = 'Haste',
                 level = 48,
                 cost = 40,
@@ -209,17 +231,6 @@ return {
                 end,
                 buff_id = 265,  -- Flurry
                 
-            },
-            {
-                name = 'Refresh',
-                level = 41,
-                cost = 40,
-                id = 109,  -- Spell ID
-                command = function(target)
-                    return '/ma "Refresh" '..target
-                end,
-                buff_id = 43,  -- Refresh
-                combat_only = false,
             },
             {
                 name = 'Stoneskin',
@@ -244,17 +255,6 @@ return {
                 id = 53,  -- Spell ID
                 command = '/ma "Blink" <me>',
                 buff_id = 36,  -- Blink
-            },
-            {
-                name = 'Regen',
-                level = 21,
-                cost = 15,
-                id = 108,  -- Spell ID
-                command = function(target)
-                    return '/ma "Regen" '..target
-                end,
-                buff_id = 42,  -- Regen
-                combat_only = false,
             },
             {
                 name = 'Aquaveil',

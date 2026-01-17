@@ -360,7 +360,16 @@ local function render_group_dropdown(job_def, target_group, dropdown_width)
     
     -- Get currently selected ability
     local selected = get_selected_ability_for_group(job_def, target_group)
-    local current_display = selected and (selected.name .. ' (' .. selected.cost .. ' MP)') or 'None'
+    local current_display
+    if selected then
+        if selected.cost and selected.cost > 0 then
+            current_display = selected.name .. ' (' .. selected.cost .. ' MP)'
+        else
+            current_display = selected.name
+        end
+    else
+        current_display = 'None'
+    end
     
     local setting_key = 'selected_' .. target_group
     local combo_label = '##dropdown_' .. target_group
@@ -368,7 +377,12 @@ local function render_group_dropdown(job_def, target_group, dropdown_width)
     imgui.PushItemWidth(dropdown_width or 200)
     if imgui.BeginCombo(combo_label, current_display) then
         for _, ability in ipairs(usable) do
-            local display_text = ability.name .. ' (' .. ability.cost .. ' MP)'
+            local display_text
+            if ability.cost and ability.cost > 0 then
+                display_text = ability.name .. ' (' .. ability.cost .. ' MP)'
+            else
+                display_text = ability.name
+            end
             local is_selected = (selected and selected.name == ability.name)
             
             if imgui.Selectable(display_text, is_selected) then
