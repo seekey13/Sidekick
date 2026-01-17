@@ -310,7 +310,7 @@ local function render_buff_with_buttons(ability, job_def, extra_desc)
     local party_size = common.get_party_size()
     if party_size > 1 then
         for party_index = 1, 5 do
-            local is_active = party_index <= party_size - 1  -- P1-P(size-1) are active
+            local is_active = party_index < party_size  -- P1-P(size-1) are active
             
             if is_active then
                 imgui.SameLine()
@@ -422,7 +422,7 @@ local function render_buff_checkbox_with_party_toggles(ability, job_def, extra_d
             
             -- Render toggle buttons for each active party member (P1-P5)
             for party_index = 1, 5 do
-                local is_active = party_index <= party_size - 1  -- P1-P(size-1) are active
+                local is_active = party_index < party_size  -- P1-P(size-1) are active
                 
                 -- Only render buttons for active party members
                 if is_active then
