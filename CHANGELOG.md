@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Party Buff Validation**: Added zone matching and range checking before casting buffs on party members
 - **Casting State Logic**: Simplified casting detection to use action state byte only, not action ID, for more reliable state tracking
 - **Party Buff Buttons**: Trust members now show disabled (dark gray) buttons in party buff UI to indicate buffs cannot be cast
+- **Job Detection**: Moved job change detection from packet handler to automation loop for simpler, more reliable code (no longer uses packets 0x1B, 0x44, 0x1A)
 
 ### Fixed
 - Button-based buffs now properly check if the ability is enabled before attempting to cast

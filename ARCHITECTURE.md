@@ -373,8 +373,9 @@ Fires every frame. Main automation loop runs here.
 
 **Tasks:**
 1. One-time initialization (setup_job)
-2. Render config UI (if visible)
-3. Run automation tick (if enabled)
+2. Job change detection (checks job/level directly from memory)
+3. Render config UI (if visible)
+4. Run automation tick (if enabled)
 
 **Performance:**
 Optimized to minimize frame impact:
@@ -384,7 +385,6 @@ Optimized to minimize frame impact:
 
 ### packet_in Event
 Fires on incoming packets. Used for:
-- Job change detection (packets 0x1B, 0x44, 0x1A)
 - Casting state tracking (packet 0x028, offset 0x0F for state byte)
 - Trust buff application (packet 0x028 with completion flag)
 - Trust buff removal (packet 0x029 for status effect loss)
