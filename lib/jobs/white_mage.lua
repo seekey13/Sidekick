@@ -218,39 +218,6 @@ return {
                 end,
                 range = 20,
             },
-            {
-                name = 'Invisible',
-                level = 25,
-                cost = 25,
-                id = 65,  -- Spell ID
-                command = function(target)
-                    return '/ma "Invisible" '..target
-                end,
-                buff_id = 69,  -- Invisible
-                idle_only = true,
-            },
-            {
-                name = 'Sneak',
-                level = 20,
-                cost = 25,
-                id = 64,  -- Spell ID
-                command = function(target)
-                    return '/ma "Sneak" '..target
-                end,
-                buff_id = 71,  -- Sneak
-                idle_only = true,
-            },
-            {
-                name = 'Deodorize',
-                level = 15,
-                cost = 6,
-                id = 61,  -- Spell ID
-                command = function(target)
-                    return '/ma "Deodorize" '..target
-                end,
-                idle_only = true,
-                buff_id = 70,  -- Deodorize
-            },
         },
 
         -- Buffs
@@ -757,6 +724,39 @@ return {
                 command = '/ma "Auspice" <me>',
                 buff_id = 275,  -- Auspice
                 combat_only = true,
+            },
+            {
+                name = 'Invisible',
+                level = 25,
+                cost = 25,
+                id = 65,  -- Spell ID
+                command = function(target)
+                    return '/ma "Invisible" '..target
+                end,
+                buff_id = 69,  -- Invisible
+                idle_only = true,
+            },
+            {
+                name = 'Sneak',
+                level = 20,
+                cost = 25,
+                id = 64,  -- Spell ID
+                command = function(target)
+                    return '/ma "Sneak" '..target
+                end,
+                buff_id = 71,  -- Sneak
+                idle_only = true,
+            },
+            {
+                name = 'Deodorize',
+                level = 15,
+                cost = 6,
+                id = 61,  -- Spell ID
+                command = function(target)
+                    return '/ma "Deodorize" '..target
+                end,
+                idle_only = true,
+                buff_id = 70,  -- Deodorize
             },
         },
 

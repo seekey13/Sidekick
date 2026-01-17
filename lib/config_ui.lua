@@ -749,6 +749,23 @@ local function create_checkbox(label, setting_name, ui_var)
     end
 end
 
+-- Create a collapsible header with checkbox and blue styling
+-- Returns: is_open (bool), is_enabled (bool)
+local function create_collapsing_checkbox_header(label, setting_name, default_value)
+    local setting_var = { current_settings[setting_name] or default_value }
+    if imgui.Checkbox('##' .. setting_name, setting_var) then
+        current_settings[setting_name] = setting_var[1]
+        if save_callback then save_callback() end
+    end
+    imgui.SameLine()
+    imgui.PushStyleColor(ImGuiCol_Header, { 0.047, 0.110, 0.227, 0.31 })
+    imgui.PushStyleColor(ImGuiCol_HeaderHovered, { 0.047, 0.110, 0.227, 0.80 })
+    imgui.PushStyleColor(ImGuiCol_HeaderActive, { 0.047, 0.110, 0.227, 1.00 })
+    local is_open = imgui.CollapsingHeader(label, ImGuiTreeNodeFlags_DefaultOpen)
+    imgui.PopStyleColor(3)
+    return is_open, setting_var[1]
+end
+
 -- Create an integer slider UI element linked to a setting
 local function create_slider_int(label, setting_name, ui_var, min, max, width)
     width = width or 250  -- Default width of 250 pixels
@@ -1220,9 +1237,8 @@ function config_ui.render(settings, job_def, callback, roll_mod)
             end
             
             if has_non_self_heal then
-                create_checkbox('Enable Focus Healing', 'focus_enabled', { settings.focus_enabled or false })
-                
-                if settings.focus_enabled then
+                local is_open, is_enabled = create_collapsing_checkbox_header('Enable Focus Healing', 'focus_enabled', false)
+                if is_open and is_enabled then
                     -- Focus target dropdown
                     create_combo('Focus Target', 'focus_target_index', focus_target_index, focus_target_options, function(i)
                         -- Convert combo index (0-6) to focus_target_index (nil, 0-5)
@@ -1233,7 +1249,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                         end
                     end)
                     
-                    create_slider_int('Focus Heal Threshold (HP%)', 'focus_threshold', { settings.focus_threshold or 85 }, 1, 100)
+                    create_slider_int('Threshold (HP%)', 'focus_threshold', { settings.focus_threshold or 85 }, 1, 100)
                 end
                 
                 imgui.Separator()
@@ -1242,10 +1258,9 @@ function config_ui.render(settings, job_def, callback, roll_mod)
         
         -- Party Healing settings
         if job_def and job_def.abilities.heal and has_usable_abilities(job_def.abilities.heal) then
-            create_checkbox('Enable Party Healing', 'heal_enabled', { settings.heal_enabled or false })
-            
-            if settings.heal_enabled then
-                create_slider_int('Party Heal Threshold (HP%)', 'heal_threshold', { settings.heal_threshold or 75 }, 1, 100)
+            local is_open, is_enabled = create_collapsing_checkbox_header('Enable Party Healing', 'heal_enabled', false)
+            if is_open and is_enabled then
+                create_slider_int('Threshold (HP%)', 'heal_threshold', { settings.heal_threshold or 75 }, 1, 100)
                 imgui.Indent(ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.heal) do
                     if can_use_ability(ability) then
@@ -1260,12 +1275,11 @@ function config_ui.render(settings, job_def, callback, roll_mod)
         
         -- AOE Healing settings
         if job_def and job_def.abilities.heal_aoe and has_usable_abilities(job_def.abilities.heal_aoe) then
-            create_checkbox('Enable AOE Healing', 'heal_aoe_enabled', { settings.heal_aoe_enabled or false })
-            
-            if settings.heal_aoe_enabled then
-                create_slider_int('AOE Heal Threshold (HP%)', 'heal_aoe_threshold', { settings.heal_aoe_threshold or 70 }, 1, 100)
+            local is_open, is_enabled = create_collapsing_checkbox_header('Enable AOE Healing', 'heal_aoe_enabled', false)
+            if is_open and is_enabled then
+                create_slider_int('Threshold (HP%)', 'heal_aoe_threshold', { settings.heal_aoe_threshold or 70 }, 1, 100)
                 
-                create_slider_int('Min Members Needing Heal', 'heal_aoe_count_threshold', { settings.heal_aoe_count_threshold or 2 }, 1, 6)
+                create_slider_int('Min Members', 'heal_aoe_count_threshold', { settings.heal_aoe_count_threshold or 2 }, 1, 6)
                 
                 imgui.Indent(ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.heal_aoe) do
@@ -1281,10 +1295,9 @@ function config_ui.render(settings, job_def, callback, roll_mod)
         
         -- Pet Healing settings
         if job_def and job_def.abilities.heal_pet and has_usable_abilities(job_def.abilities.heal_pet) then
-            create_checkbox('Enable Pet Healing', 'heal_pet_enabled', { settings.heal_pet_enabled or false })
-            
-            if settings.heal_pet_enabled then
-                create_slider_int('Pet Heal Threshold (HP%)', 'heal_pet_threshold', { settings.heal_pet_threshold or 50 }, 1, 100)
+            local is_open, is_enabled = create_collapsing_checkbox_header('Enable Pet Healing', 'heal_pet_enabled', false)
+            if is_open and is_enabled then
+                create_slider_int('Threshold (HP%)', 'heal_pet_threshold', { settings.heal_pet_threshold or 50 }, 1, 100)
                 
                 imgui.Indent(ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.heal_pet) do
@@ -1317,9 +1330,8 @@ function config_ui.render(settings, job_def, callback, roll_mod)
         
         -- Debuff removal settings
         if job_def and job_def.abilities.debuff_removal and has_usable_abilities(job_def.abilities.debuff_removal) then
-            create_checkbox('Enable Debuff Removal', 'debuff_removal_enabled', { settings.debuff_removal_enabled or false })
-            
-            if settings.debuff_removal_enabled then
+            local is_open, is_enabled = create_collapsing_checkbox_header('Enable Debuff Removal', 'debuff_removal_enabled', false)
+            if is_open and is_enabled then
                 imgui.Indent(ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.debuff_removal) do
                     if can_use_ability(ability) then
@@ -1337,12 +1349,11 @@ function config_ui.render(settings, job_def, callback, roll_mod)
         local has_tp_recovery = job_def and job_def.abilities.recover_tp and has_usable_abilities(job_def.abilities.recover_tp)
         
         if has_mp_recovery or has_tp_recovery then
-            create_checkbox('Enable Resource Recovery', 'recover_enabled', { settings.recover_enabled or false })
-            
-            if settings.recover_enabled then
+            local is_open, is_enabled = create_collapsing_checkbox_header('Enable Resource Recovery', 'recover_enabled', false)
+            if is_open and is_enabled then
                 -- MP Recovery
                 if has_mp_recovery then
-                    create_slider_int('MP Recovery Threshold (%)', 'recover_mp_threshold', { settings.recover_mp_threshold or 30 }, 1, 100)
+                    create_slider_int('Threshold (MP%)', 'recover_mp_threshold', { settings.recover_mp_threshold or 30 }, 1, 100)
                     imgui.Indent(ABILITY_LIST_INDENT)
                     for _, ability in ipairs(job_def.abilities.recover_mp) do
                         if can_use_ability(ability) then
@@ -1357,7 +1368,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                     if has_mp_recovery then
                         imgui.Spacing()
                     end
-                    create_slider_int('TP Recovery Threshold', 'recover_tp_threshold', { settings.recover_tp_threshold or 500 }, 100, 3000)
+                    create_slider_int('Threshold (TP)', 'recover_tp_threshold', { settings.recover_tp_threshold or 500 }, 100, 3000)
                     imgui.Indent(ABILITY_LIST_INDENT)
                     for _, ability in ipairs(job_def.abilities.recover_tp) do
                         if can_use_ability(ability) then
@@ -1373,9 +1384,8 @@ function config_ui.render(settings, job_def, callback, roll_mod)
         
         -- Buff settings
         if job_def and job_def.abilities.buff and has_usable_abilities(job_def.abilities.buff) then
-            create_checkbox('Enable Buffs', 'buff_enabled', { settings.buff_enabled or false })
-            
-            if settings.buff_enabled then
+            local is_open, is_enabled = create_collapsing_checkbox_header('Enable Buffs', 'buff_enabled', false)
+            if is_open and is_enabled then
                 -- Clear temporary group rendering flags
                 if current_settings then
                     for key in pairs(current_settings) do
@@ -1404,10 +1414,9 @@ function config_ui.render(settings, job_def, callback, roll_mod)
         
         -- Geo settings (Geomancer)
         if job_def and job_def.abilities.geo and has_usable_abilities(job_def.abilities.geo) then
-            create_checkbox('Enable Geo (Full Circle)', 'geo_enabled', { settings.geo_enabled or false })
-            
-            if settings.geo_enabled then
-                create_slider_int('Pet Distance Threshold (yalms)', 'geo_distance_threshold', { settings.geo_distance_threshold or 10 }, 7, 30)
+            local is_open, is_enabled = create_collapsing_checkbox_header('Enable Geo (Full Circle)', 'geo_enabled', false)
+            if is_open and is_enabled then
+                create_slider_int('Threshold (yalms)', 'geo_distance_threshold', { settings.geo_distance_threshold or 10 }, 7, 30)
                 imgui.Indent(ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.geo) do
                     if can_use_ability(ability) then
