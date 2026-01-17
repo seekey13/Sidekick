@@ -111,7 +111,7 @@ function wake.execute(settings, job_def, main_level, sub_level, player_resource)
                 -- Check cooldown
                 if ability.id then
                     if resource.is_ability_ready(ability.id) then
-                        local command = wake.build_command(ability, nil)
+                        local command = common.build_ability_command(ability, 0)
                         if command then
                             common.debugf('[Wake] >>> Using %s to wake %d members', ability.name, #sleeping_members)
                             return {
@@ -121,7 +121,7 @@ function wake.execute(settings, job_def, main_level, sub_level, player_resource)
                         end
                     end
                 else
-                    local command = wake.build_command(ability, nil)
+                    local command = common.build_ability_command(ability, 0)
                     if command then
                         common.debugf('[Wake] >>> Using %s to wake %d members', ability.name, #sleeping_members)
                         return {
@@ -167,7 +167,7 @@ function wake.execute(settings, job_def, main_level, sub_level, player_resource)
                 -- Check cooldown
                 if ability.id then
                     if resource.is_ability_ready(ability.id) then
-                        local command = wake.build_command(ability, target_index)
+                        local command = common.build_ability_command(ability, party_index)
                         if command then
                             common.debugf('[Wake] >>> Using %s on %s', ability.name, target_name)
                             return {
@@ -177,7 +177,7 @@ function wake.execute(settings, job_def, main_level, sub_level, player_resource)
                         end
                     end
                 else
-                    local command = wake.build_command(ability, target_index)
+                    local command = common.build_ability_command(ability, party_index)
                     if command then
                         common.debugf('[Wake] >>> Using %s on %s', ability.name, target_name)
                         return {

@@ -19,7 +19,7 @@ local roll_module = nil
 
 -- UI State Variables (for imgui)
 local focus_enabled = { false }
-local focus_target_index = { 0 }  -- 0 = None, 1-6 = P0-P5
+local focus_target_index = { 0 }  -- 0 = None, 1-6 = <ME>-P5
 
 -- Party buff tracking (session only, not saved to settings)
 -- Structure: party_buffs[ability_name][party_index] = true/false
@@ -27,8 +27,8 @@ local focus_target_index = { 0 }  -- 0 = None, 1-6 = P0-P5
 local party_buffs = {}
 
 -- UI Constants
-local ABILITY_LIST_INDENT = 20  -- Indent for ability checkboxes within sections
-local PARTY_BUTTON_WIDTH = 35  -- Width of party toggle buttons
+local ABILITY_LIST_INDENT = 10  -- Indent for ability checkboxes within sections
+local PARTY_BUTTON_WIDTH = 45  -- Width of party toggle buttons
 
 -- Dropdown options
 local focus_target_options = { 'None', 'P0', 'P1', 'P2', 'P3', 'P4', 'P5' }
@@ -54,7 +54,7 @@ local function can_use_ability(ability)
     end
 end
 
--- Get all abilities in the same group as the given ability
+-- Get all abilities in the same group as the given ability (returns ability objects, not just names)
 local function get_abilities_in_group(job_def, target_group)
     local group_abilities = {}
     if not job_def or not target_group then
@@ -66,13 +66,90 @@ local function get_abilities_in_group(job_def, target_group)
         for category, abilities in pairs(job_def.abilities) do
             for _, ability in ipairs(abilities) do
                 if ability.group == target_group then
-                    table.insert(group_abilities, ability.name)
+                    table.insert(group_abilities, ability)
                 end
             end
         end
     end
     
     return group_abilities
+end
+
+-- Get usable abilities in a group (level-appropriate and spell learned)
+local function get_usable_abilities_in_group(job_def, target_group)
+    local all_abilities = get_abilities_in_group(job_def, target_group)
+    local usable = {}
+    
+    for _, ability in ipairs(all_abilities) do
+        if can_use_ability(ability) then
+            -- Check if spell is learned (for magic spells)
+            local cmd = type(ability.command) == 'function' and ability.command(0) or ability.command
+            local is_spell = cmd and string.sub(cmd, 1, 3) == '/ma'
+            local has_spell = true
+            
+            if is_spell and ability.id then
+                local ok, known = pcall(function() return AshitaCore:GetMemoryManager():GetPlayer():HasSpell(ability.id) end)
+                if ok then
+                    has_spell = known
+                end
+            end
+            
+            if has_spell then
+                table.insert(usable, ability)
+            end
+        end
+    end
+    
+    return usable
+end
+
+-- Get the highest level usable ability in a group
+local function get_highest_level_ability_in_group(job_def, target_group)
+    local usable = get_usable_abilities_in_group(job_def, target_group)
+    if #usable == 0 then
+        return nil
+    end
+    
+    -- Sort by level descending
+    table.sort(usable, function(a, b) return a.level > b.level end)
+    return usable[1]
+end
+
+-- Get selected ability for a group (from settings, or auto-select highest)
+local function get_selected_ability_for_group(job_def, target_group)
+    if not current_settings or not job_def or not target_group then
+        return nil
+    end
+    
+    local setting_key = 'selected_' .. target_group
+    local saved_name = current_settings[setting_key]
+    
+    -- Get all usable abilities in this group
+    local usable = get_usable_abilities_in_group(job_def, target_group)
+    if #usable == 0 then
+        return nil
+    end
+    
+    -- Check if saved ability is still usable
+    if saved_name then
+        for _, ability in ipairs(usable) do
+            if ability.name == saved_name then
+                return ability
+            end
+        end
+    end
+    
+    -- If saved ability not found or not set, auto-select highest level
+    local highest = get_highest_level_ability_in_group(job_def, target_group)
+    if highest then
+        current_settings[setting_key] = highest.name
+        -- Don't initialize disabled state - let it remain nil so automation treats it as enabled by default
+        if save_callback then
+            save_callback()
+        end
+    end
+    
+    return highest
 end
 
 -- Get the group of an ability by name
@@ -91,6 +168,31 @@ local function get_ability_group(job_def, ability_name)
     end
     
     return nil
+end
+
+-- Check if an ability is a duplicate from subjob (same name exists in main job)
+local function is_subjob_duplicate(job_def, ability)
+    -- If ability is from main job or flag not set, it's not a duplicate
+    if ability.is_main_job ~= false then
+        return false
+    end
+    
+    -- Check if an ability with the same name exists from main job
+    if not job_def or not job_def.abilities then
+        return false
+    end
+    
+    -- Search through all ability categories
+    for category, abilities in pairs(job_def.abilities) do
+        for _, other_ability in ipairs(abilities) do
+            -- Found a main job ability with the same name
+            if other_ability.name == ability.name and other_ability.is_main_job ~= false then
+                return true
+            end
+        end
+    end
+    
+    return false
 end
 
 -- Check if a list of abilities has any usable abilities (level-appropriate)
@@ -133,12 +235,10 @@ local function is_ability_enabled(ability_name)
     -- Check flattened key: disabled_AbilityName
     local key = 'disabled_' .. ability_name:gsub(' ', '_')
     
-    -- If this key has never been set, it's a newly discovered ability
-    -- Default to disabled on first display
+    -- If this key has never been set (nil), default to enabled for backward compatibility
+    -- The automation system treats nil as enabled
     if current_settings[key] == nil then
-        -- Initialize as disabled
-        current_settings[key] = true
-        return false
+        return true  -- Default to enabled if never set
     end
     
     return not current_settings[key]
@@ -157,8 +257,8 @@ local function toggle_ability(ability_name, enabled, job_def)
         if ability_group and job_def then
             local group_abilities = get_abilities_in_group(job_def, ability_group)
             for _, other_ability in ipairs(group_abilities) do
-                if other_ability ~= ability_name then
-                    local other_key = 'disabled_' .. other_ability:gsub(' ', '_')
+                if other_ability.name ~= ability_name then
+                    local other_key = 'disabled_' .. other_ability.name:gsub(' ', '_')
                     current_settings[other_key] = true
                 end
             end
@@ -186,6 +286,29 @@ local function toggle_party_buff(ability_name, party_index, enabled)
         party_buffs[ability_name] = {}
     end
     party_buffs[ability_name][party_index] = enabled
+    
+    -- Check if ANY button (ME or P1-P5) is enabled for this ability
+    local any_button_enabled = false
+    for i = 0, 5 do
+        if party_buffs[ability_name][i] == true then
+            any_button_enabled = true
+            break
+        end
+    end
+    
+    -- Update the ability's disabled setting based on button states
+    local key = 'disabled_' .. ability_name:gsub(' ', '_')
+    if any_button_enabled then
+        -- At least one button is enabled, so enable the ability
+        current_settings[key] = false
+    else
+        -- No buttons are enabled, so disable the ability
+        current_settings[key] = true
+    end
+    
+    if save_callback then
+        save_callback()
+    end
 end
 
 -- Check if a party member is a Trust (server_id >= 0x1000000)
@@ -212,12 +335,449 @@ local function can_cast_on_party(ability)
     return type(ability.command) == 'function'
 end
 
+-- Calculate the width for the ON/OFF button based on party size
+local function get_onoff_button_width()
+    local party_size = common.get_party_size()
+    -- Calculate width based on number of active members (ME + party members)
+    -- ME is always active, plus P1-P(party_size-1) if in party
+    local num_buttons = math.min(party_size, 6)
+    -- Add 1 button width spacing + 2px per party member
+    return PARTY_BUTTON_WIDTH * num_buttons + (num_buttons * 6)
+end
+
+-- Render an ON/OFF button for ability state
+local function render_onoff_button(ability_name, job_def)
+    local is_enabled = is_ability_enabled(ability_name)
+    local button_width = get_onoff_button_width()
+    
+    -- Set button color based on state
+    if is_enabled then
+        -- ON state: Use default button colors
+    else
+        -- OFF state: Gray
+        imgui.PushStyleColor(ImGuiCol_Button, { 0.3, 0.3, 0.3, 1.0 })
+        imgui.PushStyleColor(ImGuiCol_ButtonHovered, { 0.4, 0.4, 0.4, 1.0 })
+        imgui.PushStyleColor(ImGuiCol_ButtonActive, { 0.5, 0.5, 0.5, 1.0 })
+    end
+    
+    local button_text = is_enabled and 'ON' or 'OFF'
+    local button_label = button_text .. '##onoff_' .. ability_name
+    
+    if imgui.Button(button_label, { button_width, 0 }) then
+        toggle_ability(ability_name, not is_enabled, job_def)
+    end
+    
+    if not is_enabled then
+        imgui.PopStyleColor(3)
+    end
+end
+
+-- Render a dropdown for selecting ability from a group
+local function render_group_dropdown(job_def, target_group, dropdown_width)
+    if not job_def or not target_group then
+        return
+    end
+    
+    local usable = get_usable_abilities_in_group(job_def, target_group)
+    if #usable == 0 then
+        return
+    end
+    
+    -- Get currently selected ability
+    local selected = get_selected_ability_for_group(job_def, target_group)
+    local current_display
+    if selected then
+        if selected.cost and selected.cost > 0 then
+            current_display = selected.name .. ' (' .. selected.cost .. ' MP)'
+        else
+            current_display = selected.name
+        end
+    else
+        current_display = 'None'
+    end
+    
+    local setting_key = 'selected_' .. target_group
+    local combo_label = '##dropdown_' .. target_group
+    
+    imgui.PushItemWidth(dropdown_width or 200)
+    if imgui.BeginCombo(combo_label, current_display) then
+        for _, ability in ipairs(usable) do
+            local display_text
+            if ability.cost and ability.cost > 0 then
+                display_text = ability.name .. ' (' .. ability.cost .. ' MP)'
+            else
+                display_text = ability.name
+            end
+            local is_selected = (selected and selected.name == ability.name)
+            
+            if imgui.Selectable(display_text, is_selected) then
+                -- Save the newly selected ability
+                current_settings[setting_key] = ability.name
+                
+                -- If the old selected ability was enabled, disable it and enable the new one
+                if selected then
+                    local old_enabled = is_ability_enabled(selected.name)
+                    if old_enabled then
+                        -- Disable old selection
+                        local old_key = 'disabled_' .. selected.name:gsub(' ', '_')
+                        current_settings[old_key] = true
+                        -- Enable new selection
+                        local new_key = 'disabled_' .. ability.name:gsub(' ', '_')
+                        current_settings[new_key] = false
+                    end
+                end
+                
+                if save_callback then
+                    save_callback()
+                end
+            end
+            
+            if is_selected then
+                imgui.SetItemDefaultFocus()
+            end
+        end
+        imgui.EndCombo()
+    end
+    imgui.PopItemWidth()
+end
+
+-- Render a self-target single ability (not in a group)
+-- Layout: [ON/OFF Button] Ability Name (Lv.XX) [Extra Tags]
+local function render_self_single_ability(ability, job_def, extra_desc, id_suffix)
+    -- Check spell knowledge
+    local cmd = type(ability.command) == 'function' and ability.command(0) or ability.command
+    local is_spell = cmd and string.sub(cmd, 1, 3) == '/ma'
+    local has_spell = true
+    local spell_suffix = ''
+    
+    if is_spell and ability.id then
+        local ok, known = pcall(function() return AshitaCore:GetMemoryManager():GetPlayer():HasSpell(ability.id) end)
+        if ok then
+            has_spell = known
+            if not has_spell then
+                spell_suffix = ' (Not Learned)'
+            end
+        end
+    end
+    
+    -- Render ON/OFF button
+    if not has_spell then
+        imgui.PushStyleColor(ImGuiCol_Text, { 0.5, 0.5, 0.5, 1.0 })
+    end
+    
+    render_onoff_button(ability.name, job_def)
+    
+    -- Display ability name and info
+    imgui.SameLine()
+    local desc
+    if ability.cost and ability.cost > 0 then
+        desc = ability.name .. ' (' .. ability.cost .. ' MP)' .. (extra_desc or '') .. spell_suffix
+    else
+        desc = ability.name .. ' (Lv.' .. ability.level .. ')' .. (extra_desc or '') .. spell_suffix
+    end
+    imgui.Text(desc)
+    
+    if not has_spell then
+        imgui.PopStyleColor()
+    end
+end
+
+-- Render a self-target grouped ability with dropdown
+-- Layout: [ON/OFF Button] [Dropdown]
+local function render_self_grouped_ability(ability, job_def, extra_desc)
+    if not ability.group then
+        return
+    end
+    
+    -- Get usable abilities in this group
+    local usable = get_usable_abilities_in_group(job_def, ability.group)
+    if #usable == 0 then
+        return
+    end
+    
+    -- Get the selected ability for this group (for enable/disable state)
+    local selected = get_selected_ability_for_group(job_def, ability.group)
+    if not selected then
+        return
+    end
+    
+    -- Render ON/OFF button using the selected ability's name
+    render_onoff_button(selected.name, job_def)
+    
+    -- Render dropdown
+    imgui.SameLine()
+    render_group_dropdown(job_def, ability.group, 300)
+end
+
+-- Render a party-target single ability (not in a group)
+-- Layout: [<ME>] [<P1>] [<P2>]... Ability Name (Lv.XX) [Extra Tags]
+local function render_party_single_ability(ability, job_def, extra_desc)
+    -- Check spell knowledge
+    local cmd = type(ability.command) == 'function' and ability.command(0) or ability.command
+    local is_spell = cmd and string.sub(cmd, 1, 3) == '/ma'
+    local has_spell = true
+    local spell_suffix = ''
+    
+    if is_spell and ability.id then
+        local ok, known = pcall(function() return AshitaCore:GetMemoryManager():GetPlayer():HasSpell(ability.id) end)
+        if ok then
+            has_spell = known
+            if not has_spell then
+                spell_suffix = ' (Not Learned)'
+            end
+        end
+    end
+    
+    local desc
+    if ability.cost and ability.cost > 0 then
+        desc = ability.name .. ' (' .. ability.cost .. ' MP)' .. (extra_desc or '') .. spell_suffix
+    else
+        desc = ability.name .. ' (Lv.' .. ability.level .. ')' .. (extra_desc or '') .. spell_suffix
+    end
+    
+    if not has_spell then
+        imgui.PushStyleColor(ImGuiCol_Text, { 0.5, 0.5, 0.5, 1.0 })
+    end
+    
+    -- Render [<ME>] button
+    local me_enabled = is_party_buff_enabled(ability.name, 0)
+    
+    if me_enabled then
+        -- Selected: Use default button colors
+    else
+        -- Not selected: Gray
+        imgui.PushStyleColor(ImGuiCol_Button, { 0.3, 0.3, 0.3, 1.0 })
+        imgui.PushStyleColor(ImGuiCol_ButtonHovered, { 0.4, 0.4, 0.4, 1.0 })
+        imgui.PushStyleColor(ImGuiCol_ButtonActive, { 0.5, 0.5, 0.5, 1.0 })
+    end
+    
+    local me_button_label = '<ME>##' .. ability.name .. '_me'
+    if has_spell and imgui.Button(me_button_label, { PARTY_BUTTON_WIDTH, 0 }) then
+        toggle_party_buff(ability.name, 0, not me_enabled)
+    end
+    
+    if not me_enabled then
+        imgui.PopStyleColor(3)
+    end
+    
+    -- Render party member buttons (P1-P5)
+    local party_size = common.get_party_size()
+    if party_size > 1 then
+        for party_index = 1, 5 do
+            local is_active = party_index < party_size
+            
+            if is_active then
+                imgui.SameLine()
+                
+                local is_enabled = is_party_buff_enabled(ability.name, party_index)
+                
+                if is_enabled then
+                    -- Selected: Use default button colors
+                else
+                    -- Not selected: Gray
+                    imgui.PushStyleColor(ImGuiCol_Button, { 0.3, 0.3, 0.3, 1.0 })
+                    imgui.PushStyleColor(ImGuiCol_ButtonHovered, { 0.4, 0.4, 0.4, 1.0 })
+                    imgui.PushStyleColor(ImGuiCol_ButtonActive, { 0.5, 0.5, 0.5, 1.0 })
+                end
+                
+                local button_label = '<P' .. party_index .. '>##' .. ability.name .. '_p' .. party_index
+                if has_spell and imgui.Button(button_label, { PARTY_BUTTON_WIDTH, 0 }) then
+                    toggle_party_buff(ability.name, party_index, not is_enabled)
+                end
+                
+                if not is_enabled then
+                    imgui.PopStyleColor(3)
+                end
+            end
+        end
+    end
+    
+    -- Display spell name after buttons
+    imgui.SameLine()
+    imgui.Text(desc)
+    
+    if not has_spell then
+        imgui.PopStyleColor()
+    end
+end
+
+-- Render a party-target grouped ability with dropdown
+-- Layout: [<ME>] [<P1>] [<P2>]... [Dropdown]
+local function render_party_grouped_ability(ability, job_def, extra_desc)
+    if not ability.group then
+        return
+    end
+    
+    -- Get usable abilities in this group
+    local usable = get_usable_abilities_in_group(job_def, ability.group)
+    if #usable == 0 then
+        return
+    end
+    
+    -- Get the selected ability for this group
+    local selected = get_selected_ability_for_group(job_def, ability.group)
+    if not selected then
+        return
+    end
+    
+    -- Check spell knowledge for selected ability
+    local cmd = type(selected.command) == 'function' and selected.command(0) or selected.command
+    local is_spell = cmd and string.sub(cmd, 1, 3) == '/ma'
+    local has_spell = true
+    
+    if is_spell and selected.id then
+        local ok, known = pcall(function() return AshitaCore:GetMemoryManager():GetPlayer():HasSpell(selected.id) end)
+        if ok then
+            has_spell = known
+        end
+    end
+    
+    if not has_spell then
+        imgui.PushStyleColor(ImGuiCol_Text, { 0.5, 0.5, 0.5, 1.0 })
+    end
+    
+    -- Render [<ME>] button (using selected ability name)
+    local me_enabled = is_party_buff_enabled(selected.name, 0)
+    
+    if me_enabled then
+        -- Selected: Use default button colors
+    else
+        -- Not selected: Gray
+        imgui.PushStyleColor(ImGuiCol_Button, { 0.3, 0.3, 0.3, 1.0 })
+        imgui.PushStyleColor(ImGuiCol_ButtonHovered, { 0.4, 0.4, 0.4, 1.0 })
+        imgui.PushStyleColor(ImGuiCol_ButtonActive, { 0.5, 0.5, 0.5, 1.0 })
+    end
+    
+    local me_button_label = '<ME>##' .. selected.name .. '_me'
+    if has_spell and imgui.Button(me_button_label, { PARTY_BUTTON_WIDTH, 0 }) then
+        toggle_party_buff(selected.name, 0, not me_enabled)
+    end
+    
+    if not me_enabled then
+        imgui.PopStyleColor(3)
+    end
+    
+    -- Render party member buttons (P1-P5)
+    local party_size = common.get_party_size()
+    if party_size > 1 then
+        for party_index = 1, 5 do
+            local is_active = party_index < party_size
+            
+            if is_active then
+                imgui.SameLine()
+                
+                local is_enabled = is_party_buff_enabled(selected.name, party_index)
+                
+                if is_enabled then
+                    -- Selected: Use default button colors
+                else
+                    -- Not selected: Gray
+                    imgui.PushStyleColor(ImGuiCol_Button, { 0.3, 0.3, 0.3, 1.0 })
+                    imgui.PushStyleColor(ImGuiCol_ButtonHovered, { 0.4, 0.4, 0.4, 1.0 })
+                    imgui.PushStyleColor(ImGuiCol_ButtonActive, { 0.5, 0.5, 0.5, 1.0 })
+                end
+                
+                local button_label = '<P' .. party_index .. '>##' .. selected.name .. '_p' .. party_index
+                if has_spell and imgui.Button(button_label, { PARTY_BUTTON_WIDTH, 0 }) then
+                    toggle_party_buff(selected.name, party_index, not is_enabled)
+                end
+                
+                if not is_enabled then
+                    imgui.PopStyleColor(3)
+                end
+            end
+        end
+    end
+    
+    -- Display dropdown after buttons
+    imgui.SameLine()
+    render_group_dropdown(job_def, ability.group, 300)
+    
+    if not has_spell then
+        imgui.PopStyleColor()
+    end
+end
+
+-- Main ability renderer - determines which rendering function to use
+local function render_ability(ability, job_def, extra_desc, id_suffix)
+    if not ability or not can_use_ability(ability) then
+        return false
+    end
+    
+    -- Skip subjob duplicates
+    if is_subjob_duplicate(job_def, ability) then
+        return false
+    end
+    
+    local has_group = ability.group ~= nil
+    local is_party_target = can_cast_on_party(ability)
+    
+    -- Determine if this is the first ability in the group to be rendered
+    -- (to avoid rendering the same group multiple times)
+    if has_group then
+        -- Check if we've already rendered this group
+        local group_key = 'rendered_group_' .. ability.group
+        if current_settings and current_settings[group_key] then
+            return false
+        end
+        
+        -- Get usable abilities in group
+        local usable = get_usable_abilities_in_group(job_def, ability.group)
+        if #usable == 0 then
+            return false
+        end
+        
+        -- Only render if more than 1 usable ability in group
+        if #usable == 1 then
+            -- Treat as single ability
+            has_group = false
+        else
+            -- Mark group as rendered (temporary flag for this frame)
+            current_settings[group_key] = true
+        end
+    end
+    
+    -- Choose appropriate render function
+    if has_group then
+        if is_party_target then
+            render_party_grouped_ability(ability, job_def, extra_desc)
+        else
+            render_self_grouped_ability(ability, job_def, extra_desc)
+        end
+    else
+        if is_party_target then
+            render_party_single_ability(ability, job_def, extra_desc)
+        else
+            render_self_single_ability(ability, job_def, extra_desc, id_suffix)
+        end
+    end
+    
+    return true
+end
+
 -- Create a checkbox UI element linked to a setting
 local function create_checkbox(label, setting_name, ui_var)
     if imgui.Checkbox(label, ui_var) then
         current_settings[setting_name] = ui_var[1]
         if save_callback then save_callback() end
     end
+end
+
+-- Create a collapsible header with checkbox and blue styling
+-- Returns: is_open (bool), is_enabled (bool)
+local function create_collapsing_checkbox_header(label, setting_name, default_value)
+    local setting_var = { current_settings[setting_name] or default_value }
+    if imgui.Checkbox('##' .. setting_name, setting_var) then
+        current_settings[setting_name] = setting_var[1]
+        if save_callback then save_callback() end
+    end
+    imgui.SameLine()
+    imgui.PushStyleColor(ImGuiCol_Header, { 0.047, 0.110, 0.227, 0.31 })
+    imgui.PushStyleColor(ImGuiCol_HeaderHovered, { 0.047, 0.110, 0.227, 0.80 })
+    imgui.PushStyleColor(ImGuiCol_HeaderActive, { 0.047, 0.110, 0.227, 1.00 })
+    local is_open = imgui.CollapsingHeader(label, ImGuiTreeNodeFlags_DefaultOpen)
+    imgui.PopStyleColor(3)
+    return is_open, setting_var[1]
 end
 
 -- Create an integer slider UI element linked to a setting
@@ -258,6 +818,102 @@ local function create_combo(label, setting_name, ui_var, options, converter, wid
     imgui.PopItemWidth()
 end
 
+-- Render a buff ability with button-based selection for single-target buffs
+local function render_buff_with_buttons(ability, job_def, extra_desc)
+    -- Get the command string (handle both string and function commands)
+    local cmd = type(ability.command) == 'function' and ability.command(0) or ability.command
+    local is_spell = cmd and string.sub(cmd, 1, 3) == '/ma'
+    local has_spell = true
+    local spell_suffix = ''
+    
+    if is_spell and ability.id then
+        local ok, known = pcall(function() return AshitaCore:GetMemoryManager():GetPlayer():HasSpell(ability.id) end)
+        if ok then
+            has_spell = known
+            if not has_spell then
+                spell_suffix = ' (Not Learned)'
+            end
+        else
+            common.errorf('Failed to check spell knowledge for %s (ID: %d)', ability.name, ability.id)
+        end
+    end
+    
+    local desc
+    if ability.cost and ability.cost > 0 then
+        desc = ability.name .. ' (' .. ability.cost .. ' MP)' .. (extra_desc or '') .. spell_suffix
+    else
+        desc = ability.name .. ' (Lv.' .. ability.level .. ')' .. (extra_desc or '') .. spell_suffix
+    end
+    
+    if not has_spell then
+        imgui.PushStyleColor(ImGuiCol_Text, { 0.5, 0.5, 0.5, 1.0 })  -- Gray color for unknown spells
+    end
+    
+    -- Render [<ME>] button
+    local me_enabled = is_party_buff_enabled(ability.name, 0)
+    
+    -- Set button color based on selection state
+    if me_enabled then
+        -- Selected: Use default button colors (no custom styling)
+    else
+        -- Not selected: Gray
+        imgui.PushStyleColor(ImGuiCol_Button, { 0.3, 0.3, 0.3, 1.0 })
+        imgui.PushStyleColor(ImGuiCol_ButtonHovered, { 0.4, 0.4, 0.4, 1.0 })
+        imgui.PushStyleColor(ImGuiCol_ButtonActive, { 0.5, 0.5, 0.5, 1.0 })
+    end
+    
+    local me_button_label = '<ME>##' .. ability.name .. '_me'
+    if has_spell and imgui.Button(me_button_label, { PARTY_BUTTON_WIDTH, 0 }) then
+        toggle_party_buff(ability.name, 0, not me_enabled)
+    end
+    
+    if not me_enabled then
+        imgui.PopStyleColor(3)
+    end
+    
+    -- Render party member buttons (P1-P5)
+    local party_size = common.get_party_size()
+    if party_size > 1 then
+        for party_index = 1, 5 do
+            local is_active = party_index < party_size  -- P1-P(size-1) are active
+            
+            if is_active then
+                imgui.SameLine()
+                
+                -- Get current state
+                local is_enabled = is_party_buff_enabled(ability.name, party_index)
+                
+                -- Set button color based on selection state
+                if is_enabled then
+                    -- Selected: Use default button colors (no custom styling)
+                else
+                    -- Not selected: Gray
+                    imgui.PushStyleColor(ImGuiCol_Button, { 0.3, 0.3, 0.3, 1.0 })
+                    imgui.PushStyleColor(ImGuiCol_ButtonHovered, { 0.4, 0.4, 0.4, 1.0 })
+                    imgui.PushStyleColor(ImGuiCol_ButtonActive, { 0.5, 0.5, 0.5, 1.0 })
+                end
+                
+                local button_label = '<P' .. party_index .. '>##' .. ability.name .. '_p' .. party_index
+                if has_spell and imgui.Button(button_label, { PARTY_BUTTON_WIDTH, 0 }) then
+                    toggle_party_buff(ability.name, party_index, not is_enabled)
+                end
+                
+                if not is_enabled then
+                    imgui.PopStyleColor(3)
+                end
+            end
+        end
+    end
+    
+    -- Display spell name after buttons
+    imgui.SameLine()
+    imgui.Text(desc)
+    
+    if not has_spell then
+        imgui.PopStyleColor()
+    end
+end
+
 -- Render a buff ability checkbox with party member toggle buttons
 local function render_buff_checkbox_with_party_toggles(ability, job_def, extra_desc)
     -- Check if this ability is being displayed for the first time
@@ -289,7 +945,12 @@ local function render_buff_checkbox_with_party_toggles(ability, job_def, extra_d
         end
     end
     
-    local desc = ability.name .. ' (Lv.' .. ability.level .. ')' .. (extra_desc or '') .. spell_suffix
+    local desc
+    if ability.cost and ability.cost > 0 then
+        desc = ability.name .. ' (' .. ability.cost .. ' MP)' .. (extra_desc or '') .. spell_suffix
+    else
+        desc = ability.name .. ' (Lv.' .. ability.level .. ')' .. (extra_desc or '') .. spell_suffix
+    end
     local checkbox_label = desc .. '##buff'
     
     if not has_spell then
@@ -338,7 +999,7 @@ local function render_buff_checkbox_with_party_toggles(ability, job_def, extra_d
                         imgui.PushStyleColor(ImGuiCol_ButtonActive, { 0.5, 0.5, 0.5, 1.0 })
                     end
                     
-                    local button_label = 'P' .. party_index .. '##' .. ability.name .. '_p' .. party_index
+                    local button_label = '<P' .. party_index .. '>##' .. ability.name .. '_p' .. party_index
                     if imgui.Button(button_label, { PARTY_BUTTON_WIDTH, 0 }) then
                         -- Only toggle if not a Trust
                         if not is_trust_member then
@@ -402,7 +1063,12 @@ local function render_ability_checkbox(ability, job_def, extra_desc, id_suffix)
         end
     end
     
-    local desc = ability.name .. ' (Lv.' .. ability.level .. ')' .. (extra_desc or '') .. spell_suffix
+    local desc
+    if ability.cost and ability.cost > 0 then
+        desc = ability.name .. ' (' .. ability.cost .. ' MP)' .. (extra_desc or '') .. spell_suffix
+    else
+        desc = ability.name .. ' (Lv.' .. ability.level .. ')' .. (extra_desc or '') .. spell_suffix
+    end
     
     -- Add unique ID suffix to prevent ImGui label collisions when same ability appears in multiple sections
     local checkbox_label = desc
@@ -471,7 +1137,14 @@ function config_ui.render(settings, job_def, callback, roll_mod)
     -- Sync UI state from settings
     sync_from_settings()
     
-    imgui.SetNextWindowSize({400, 600}, ImGuiCond_FirstUseEver)
+    -- Calculate fixed window width based on party size
+    local party_size = common.get_party_size()
+    local num_buttons = math.min(party_size, 6)
+    local button_width = PARTY_BUTTON_WIDTH * num_buttons + (num_buttons * 6)
+    local dropdown_width = 300
+    local window_width = math.max((button_width + dropdown_width + ABILITY_LIST_INDENT * 2 + 15), (button_width + dropdown_width + ABILITY_LIST_INDENT * 2 + 15))
+    
+    imgui.SetNextWindowSize({window_width, 0}, ImGuiCond_Always)
     
     -- Build window title with job name if available
     local window_title = 'Medic Configuration'
@@ -479,7 +1152,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
         window_title = window_title .. ' - ' .. job_def.job_name
     end
     
-    if imgui.Begin(window_title, is_open, ImGuiWindowFlags_NoCollapse) then
+    if imgui.Begin(window_title, is_open, ImGuiWindowFlags_NoCollapse + ImGuiWindowFlags_NoResize + ImGuiWindowFlags_AlwaysAutoResize) then
         
         -- Automation toggle button
         local can_attack = common.can_attack()
@@ -574,9 +1247,8 @@ function config_ui.render(settings, job_def, callback, roll_mod)
             end
             
             if has_non_self_heal then
-                create_checkbox('Enable Focus Healing', 'focus_enabled', { settings.focus_enabled or false })
-                
-                if settings.focus_enabled then
+                local is_open, is_enabled = create_collapsing_checkbox_header('Enable Focus Healing', 'focus_enabled', false)
+                if is_open and is_enabled then
                     -- Focus target dropdown
                     create_combo('Focus Target', 'focus_target_index', focus_target_index, focus_target_options, function(i)
                         -- Convert combo index (0-6) to focus_target_index (nil, 0-5)
@@ -587,7 +1259,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                         end
                     end)
                     
-                    create_slider_int('Focus Heal Threshold (HP%)', 'focus_threshold', { settings.focus_threshold or 85 }, 1, 100)
+                    create_slider_int('Focus Threshold (HP%)', 'focus_threshold', { settings.focus_threshold or 85 }, 1, 100)
                 end
                 
                 imgui.Separator()
@@ -596,13 +1268,12 @@ function config_ui.render(settings, job_def, callback, roll_mod)
         
         -- Party Healing settings
         if job_def and job_def.abilities.heal and has_usable_abilities(job_def.abilities.heal) then
-            create_checkbox('Enable Party Healing', 'heal_enabled', { settings.heal_enabled or false })
-            
-            if settings.heal_enabled then
-                create_slider_int('Party Heal Threshold (HP%)', 'heal_threshold', { settings.heal_threshold or 75 }, 1, 100)
+            local is_open, is_enabled = create_collapsing_checkbox_header('Enable Party Healing', 'heal_enabled', false)
+            if is_open and is_enabled then
+                create_slider_int('Party Threshold (HP%)', 'heal_threshold', { settings.heal_threshold or 75 }, 1, 100)
                 imgui.Indent(ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.heal) do
-                    if can_use_ability(ability) then
+                    if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                         render_ability_checkbox(ability, job_def, nil, 'heal')
                     end
                 end
@@ -614,16 +1285,15 @@ function config_ui.render(settings, job_def, callback, roll_mod)
         
         -- AOE Healing settings
         if job_def and job_def.abilities.heal_aoe and has_usable_abilities(job_def.abilities.heal_aoe) then
-            create_checkbox('Enable AOE Healing', 'heal_aoe_enabled', { settings.heal_aoe_enabled or false })
-            
-            if settings.heal_aoe_enabled then
-                create_slider_int('AOE Heal Threshold (HP%)', 'heal_aoe_threshold', { settings.heal_aoe_threshold or 70 }, 1, 100)
+            local is_open, is_enabled = create_collapsing_checkbox_header('Enable AOE Healing', 'heal_aoe_enabled', false)
+            if is_open and is_enabled then
+                create_slider_int('AOE Threshold (HP%)', 'heal_aoe_threshold', { settings.heal_aoe_threshold or 70 }, 1, 100)
                 
-                create_slider_int('Min Members Needing Heal', 'heal_aoe_count_threshold', { settings.heal_aoe_count_threshold or 2 }, 1, 6)
+                create_slider_int('Min Members', 'heal_aoe_count_threshold', { settings.heal_aoe_count_threshold or 2 }, 1, 6)
                 
                 imgui.Indent(ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.heal_aoe) do
-                    if can_use_ability(ability) then
+                    if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                         render_ability_checkbox(ability, job_def, nil, 'heal_aoe')
                     end
                 end
@@ -635,14 +1305,13 @@ function config_ui.render(settings, job_def, callback, roll_mod)
         
         -- Pet Healing settings
         if job_def and job_def.abilities.heal_pet and has_usable_abilities(job_def.abilities.heal_pet) then
-            create_checkbox('Enable Pet Healing', 'heal_pet_enabled', { settings.heal_pet_enabled or false })
-            
-            if settings.heal_pet_enabled then
-                create_slider_int('Pet Heal Threshold (HP%)', 'heal_pet_threshold', { settings.heal_pet_threshold or 50 }, 1, 100)
+            local is_open, is_enabled = create_collapsing_checkbox_header('Enable Pet Healing', 'heal_pet_enabled', false)
+            if is_open and is_enabled then
+                create_slider_int('Pet Threshold (HP%)', 'heal_pet_threshold', { settings.heal_pet_threshold or 50 }, 1, 100)
                 
                 imgui.Indent(ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.heal_pet) do
-                    if can_use_ability(ability) then
+                    if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                         render_ability_checkbox(ability, job_def, nil, 'heal_pet')
                     end
                 end
@@ -671,12 +1340,11 @@ function config_ui.render(settings, job_def, callback, roll_mod)
         
         -- Debuff removal settings
         if job_def and job_def.abilities.debuff_removal and has_usable_abilities(job_def.abilities.debuff_removal) then
-            create_checkbox('Enable Debuff Removal', 'debuff_removal_enabled', { settings.debuff_removal_enabled or false })
-            
-            if settings.debuff_removal_enabled then
+            local is_open, is_enabled = create_collapsing_checkbox_header('Enable Debuff Removal', 'debuff_removal_enabled', false)
+            if is_open and is_enabled then
                 imgui.Indent(ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.debuff_removal) do
-                    if can_use_ability(ability) then
+                    if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                         render_ability_checkbox(ability, job_def, nil, 'debuff_removal')
                     end
                 end
@@ -691,15 +1359,14 @@ function config_ui.render(settings, job_def, callback, roll_mod)
         local has_tp_recovery = job_def and job_def.abilities.recover_tp and has_usable_abilities(job_def.abilities.recover_tp)
         
         if has_mp_recovery or has_tp_recovery then
-            create_checkbox('Enable Resource Recovery', 'recover_enabled', { settings.recover_enabled or false })
-            
-            if settings.recover_enabled then
+            local is_open, is_enabled = create_collapsing_checkbox_header('Enable Resource Recovery', 'recover_enabled', false)
+            if is_open and is_enabled then
                 -- MP Recovery
                 if has_mp_recovery then
-                    create_slider_int('MP Recovery Threshold (%)', 'recover_mp_threshold', { settings.recover_mp_threshold or 30 }, 1, 100)
+                    create_slider_int('Threshold (MP%)', 'recover_mp_threshold', { settings.recover_mp_threshold or 30 }, 1, 100)
                     imgui.Indent(ABILITY_LIST_INDENT)
                     for _, ability in ipairs(job_def.abilities.recover_mp) do
-                        if can_use_ability(ability) then
+                        if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                             render_ability_checkbox(ability, job_def, nil, 'recover_mp')
                         end
                     end
@@ -711,10 +1378,10 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                     if has_mp_recovery then
                         imgui.Spacing()
                     end
-                    create_slider_int('TP Recovery Threshold', 'recover_tp_threshold', { settings.recover_tp_threshold or 500 }, 100, 3000)
+                    create_slider_int('Threshold (TP)', 'recover_tp_threshold', { settings.recover_tp_threshold or 500 }, 100, 3000)
                     imgui.Indent(ABILITY_LIST_INDENT)
                     for _, ability in ipairs(job_def.abilities.recover_tp) do
-                        if can_use_ability(ability) then
+                        if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                             render_ability_checkbox(ability, job_def, nil, 'recover_tp')
                         end
                     end
@@ -727,20 +1394,27 @@ function config_ui.render(settings, job_def, callback, roll_mod)
         
         -- Buff settings
         if job_def and job_def.abilities.buff and has_usable_abilities(job_def.abilities.buff) then
-            create_checkbox('Enable Buffs', 'buff_enabled', { settings.buff_enabled or false })
-            
-            if settings.buff_enabled then
+            local is_open, is_enabled = create_collapsing_checkbox_header('Enable Buffs', 'buff_enabled', false)
+            if is_open and is_enabled then
+                -- Clear temporary group rendering flags
+                if current_settings then
+                    for key in pairs(current_settings) do
+                        if key:match('^rendered_group_') then
+                            current_settings[key] = nil
+                        end
+                    end
+                end
+                
                 imgui.Indent(ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.buff) do
-                    if can_use_ability(ability) then
-                        local extra_desc = ''
-                        if ability.combat_only then
-                            extra_desc = ' [Combat Only]'
-                        elseif ability.idle_only then
-                            extra_desc = ' [Idle Only]'
-                        end
-                        render_buff_checkbox_with_party_toggles(ability, job_def, extra_desc)
+                    local extra_desc = ''
+                    if ability.combat_only then
+                        extra_desc = ' [Combat Only]'
+                    elseif ability.idle_only then
+                        extra_desc = ' [Idle Only]'
                     end
+                    
+                    render_ability(ability, job_def, extra_desc, 'buff')
                 end
                 imgui.Unindent(ABILITY_LIST_INDENT)
             end
@@ -750,13 +1424,12 @@ function config_ui.render(settings, job_def, callback, roll_mod)
         
         -- Geo settings (Geomancer)
         if job_def and job_def.abilities.geo and has_usable_abilities(job_def.abilities.geo) then
-            create_checkbox('Enable Geo (Full Circle)', 'geo_enabled', { settings.geo_enabled or false })
-            
-            if settings.geo_enabled then
-                create_slider_int('Pet Distance Threshold (yalms)', 'geo_distance_threshold', { settings.geo_distance_threshold or 10 }, 7, 30)
+            local is_open, is_enabled = create_collapsing_checkbox_header('Enable Geo (Full Circle)', 'geo_enabled', false)
+            if is_open and is_enabled then
+                create_slider_int('Threshold (yalms)', 'geo_distance_threshold', { settings.geo_distance_threshold or 10 }, 7, 30)
                 imgui.Indent(ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.geo) do
-                    if can_use_ability(ability) then
+                    if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                         render_ability_checkbox(ability, job_def, nil, 'geo')
                     end
                 end
@@ -778,7 +1451,10 @@ function config_ui.render(settings, job_def, callback, roll_mod)
             imgui.Text(string.format('get_zone_id = %d', zone_id))
             local target_id = common.get_target_id()
             imgui.Text(string.format('get_target_id = %s', tostring(target_id)))
-            
+            local is_moving = common.is_player_moving()
+            imgui.Text(string.format('is_player_moving = %s', tostring(is_moving)))
+            local is_casting = common.is_casting()
+            imgui.Text(string.format('is_casting = %s', tostring(is_casting)))
             local party_server_ids = common.get_party_server_ids()
             if #party_server_ids > 0 then
                 local ids_str = table.concat(party_server_ids, ', ')

@@ -23,6 +23,19 @@ local casting_state = {
     cast_timeout = 5.0,  -- Maximum time for a cast (seconds)
 }
 
+-- Movement tracking state
+local movement_state = {
+    last_position = {0, 0, 0},
+    last_check = 0,
+    is_moving = false,
+    check_interval = 0.25  -- Check every 250ms
+}
+
+-- Trust buff tracking (packet-based since memory reads don't work for Trusts)
+local trust_buffs = {}  -- trust_buffs[server_id] = {buff_id1, buff_id2, ...}
+local pending_buffs = {}  -- pending_buffs[n] = {server_id=x, buff_id=y, timestamp=t}
+local PENDING_BUFF_TIMEOUT = 10.0  -- Seconds before pending buff expires
+
 -- Non-combat zone IDs (safe zones where combat is blocked)
 local non_combat_zone_ids = {
     230, 231, 232, 233, -- San d'Oria
@@ -215,7 +228,10 @@ function common.can_attack()
 end
 
 function common.is_casting()
-    -- Returns true when player is casting a spell (category 4 action packet received)
+    -- Returns true when player is casting a spell
+    -- State is tracked via packet 0x028 offset 0x0F:
+    --   0x00 = casting started
+    --   0x02 = casting complete
     -- Prevents automation from spamming actions during cast time
     
     -- Timeout check: if too much time has passed, clear the casting state
@@ -253,8 +269,13 @@ function common.handle_action_packet(packet)
     -- Parse category (offset 0x04, 1 byte)
     local category = struct.unpack('B', packet, 0x04 + 1)
     
-    -- Parse target count (offset 0x09, 1 byte)
-    local target_count = struct.unpack('B', packet, 0x09 + 1)
+    -- Parse action state byte (offset 0x0F, 1 byte)
+    -- 0x00 = Action/Casting started
+    -- 0x01-0x04 = Action/Casting complete (various completion states)
+    local action_state = 0
+    if #packet >= 16 then
+        action_state = struct.unpack('B', packet, 0x0F + 1)
+    end
     
     -- Parse action ID if available (offset 0x0A, 2 bytes)
     local action_id = 0
@@ -265,59 +286,82 @@ function common.handle_action_packet(packet)
     -- Track previous casting state to detect changes
     local was_casting = casting_state.is_casting
     
-    -- Check if this is a spell action (category 35 on this server)
-    -- Category 35 includes magic spells, ranged attacks, job abilities, AND autoattacks
-    -- We need to distinguish between them for proper casting state tracking
+    -- Debug: Log all packet details to understand the structure
+    common.debugf('[PACKET] Category: %d, ActionID: 0x%04X, State: 0x%02X', category, action_id, action_state)
     
-    if category == 35 then
-        -- Autoattack (action_id 0x1844/6212) clears casting state
-        -- If we can autoattack, we're free to act
-        if action_id == 0x1844 then
+    -- Simplified casting state logic based on action_state byte (offset 0x0F)
+    -- 0x00 = Action started (casting/channeling)
+    -- 0x01-0x04 = Action complete (various completion types)
+    -- Note: ActionID changes between start (0x58E0) and completion (spell ID), so we can't rely on it
+    
+    -- Autoattack check (should not affect casting state)
+    local is_autoattack = (action_id == 0x1844)
+    
+    common.debugf('[PACKET] is_autoattack: %s, was_casting: %s', tostring(is_autoattack), tostring(was_casting))
+    
+    if not is_autoattack then
+        -- Track casting state based on action_state byte
+        if action_state == 0x00 then
+            -- Action started (any action that's not autoattack)
+            common.debugf('[PACKET] Setting is_casting = true')
+            casting_state.is_casting = true
+            casting_state.last_action_time = os.clock()
+        elseif action_state > 0x00 then
+            -- Action complete
+            common.debugf('[PACKET] Setting is_casting = false')
             casting_state.is_casting = false
-        else
-            -- Spell IDs are typically in range 0-1535 (0x000-0x5FF)
-            local is_spell = (action_id >= 0 and action_id <= 0x5FF)
-            
-            -- Ranged attacks use specific action IDs (from packet analysis)
-            -- 0x58F0 (22768) = ranged attack start, 0x1CC8 (7368) = ranged attack complete
-            local is_ranged = (action_id == 0x58F0 or action_id == 0x1CC8)
-            
-            -- Weaponskills appear to be in range 0x1000-0x6000 but should NOT block actions
-            -- They execute instantly like job abilities
-            local is_weaponskill = (action_id >= 0x1000 and action_id <= 0x6000 and action_id ~= 0x1844)
-            
-            -- Job abilities are everything else in category 35 that isn't spell/ranged/weaponskill/autoattack
-            local is_job_ability = (not is_spell and not is_ranged and not is_weaponskill)
-            
-            if is_spell or is_ranged then
-                -- Spells and ranged attacks both have casting/animation time that blocks actions
-                -- Use toggle logic: first packet = start, second packet = complete
-                if not casting_state.is_casting then
-                    casting_state.is_casting = true
-                    casting_state.last_action_time = os.clock()
-                else
-                    casting_state.is_casting = false
-                end
-            else
-                -- Job abilities and weaponskills execute instantly - clear casting state
-                casting_state.is_casting = false
-            end
         end
-    elseif category == 6 or category == 7 or category == 8 or category == 9 then
-        -- Job abilities (6), weaponskills (7), items (8), ranged attacks (9) - always clear casting state
-        -- These should NOT set casting state, only clear it if it was somehow stuck
-        casting_state.is_casting = false
-    elseif category == 45 or category == 1 then
-        -- Autoattacks (category 45/0x2D and 1) - ignore completely, don't affect casting state
-        return
     end
     
-    -- Output simple state change messages
+    -- Output state change messages
     if casting_state.is_casting and not was_casting then
-        common.debugf('[CASTING STARTED]')
+        common.debugf('[CASTING STARTED] State: 0x%02X, Category: %d, ActionID: 0x%04X', action_state, category, action_id)
     elseif not casting_state.is_casting and was_casting then
-        common.debugf('[CASTING ENDED]')
+        common.debugf('[CASTING ENDED] State: 0x%02X, Category: %d, ActionID: 0x%04X', action_state, category, action_id)
     end
+    
+    common.debugf('[PACKET] Final is_casting: %s', tostring(casting_state.is_casting))
+end
+
+function common.is_player_moving()
+    -- Check if player is currently moving (for magic casting restrictions)
+    -- Returns true if player has moved since last check
+    if os.clock() - movement_state.last_check < movement_state.check_interval then
+        return movement_state.is_moving
+    end
+    
+    movement_state.last_check = os.clock()
+
+    local entity_mgr = common.get_entity_manager()
+    local party = common.get_party()
+    if not entity_mgr or not party then
+        return movement_state.is_moving
+    end
+    
+    local player_index = party:GetMemberTargetIndex(0)
+    if not player_index or player_index == 0 then
+        return movement_state.is_moving
+    end
+    
+    -- Get current position (with error handling)
+    local ok, x, y, z = pcall(function()
+        return entity_mgr:GetLocalPositionX(player_index),
+               entity_mgr:GetLocalPositionY(player_index),
+               entity_mgr:GetLocalPositionZ(player_index)
+    end)
+    
+    if not ok then
+        return movement_state.is_moving
+    end
+    
+    -- Compare with last known position
+    local last_pos = movement_state.last_position
+    movement_state.is_moving = (x ~= last_pos[1] or y ~= last_pos[2] or z ~= last_pos[3])
+    
+    -- Update last known position
+    movement_state.last_position = {x, y, z}
+    
+    return movement_state.is_moving
 end
 
 function common.get_player_level()
@@ -705,12 +749,19 @@ function common.has_buff(target_index, buff_id)
     local party = common.get_party()
     if not party then return false end
     
-    -- Find party member index for this target
+    -- Find party member index and server ID for this target
     local party_index = -1
+    local server_id = nil
     for i = 0, 5 do
         if party:GetMemberIsActive(i) == 1 then
             if party:GetMemberTargetIndex(i) == target_index then
                 party_index = i
+                local ok_server, sid = pcall(function()
+                    return party:GetMemberServerId(i)
+                end)
+                if ok_server then
+                    server_id = sid
+                end
                 break
             end
         end
@@ -718,7 +769,21 @@ function common.has_buff(target_index, buff_id)
     
     if party_index == -1 then return false end
     
-    -- Check buffs via memory pointer (complex but accurate)
+    -- Check if this is a Trust (server_id >= 0x1000000)
+    if server_id and server_id >= 0x1000000 then
+        -- Use Trust buff tracking
+        local trust_buff_list = common.get_trust_buffs(server_id)
+        common.debugf('has_buff check for Trust: server_id=%d, buff_id=%d, buffs=%s', 
+            server_id, buff_id, table.concat(trust_buff_list, ', '))
+        for _, trust_buff in ipairs(trust_buff_list) do
+            if trust_buff == buff_id then
+                return true
+            end
+        end
+        return false
+    end
+    
+    -- For regular party members, check buffs via memory pointer
     local ok_ptr, ptr = pcall(function() return party:GetMemberPointer(party_index) end)
     if not ok_ptr or not ptr or ptr == 0 then return false end
     
@@ -798,7 +863,8 @@ function common.get_party_buffs(member_index)
     
     -- Trusts have server IDs > 0x1000000 (16777216)
     if server_id >= 0x1000000 then
-        return {}
+        -- Return Trust buffs from packet-based tracking
+        return trust_buffs[server_id] or {}
     end
     
     -- Get the status icons pointer (direct memory reading)
@@ -862,6 +928,110 @@ function common.get_party_buffs(member_index)
     end
     
     return {}
+end
+
+--[[
+    Trust Buff Tracking Functions
+    Since Trusts' buffs cannot be read from memory, we track them via packets
+]]--
+
+-- Register a pending buff when we initiate a cast on a Trust
+-- Args: server_id (number), buff_id (number)
+function common.register_pending_buff(server_id, buff_id)
+    if not server_id or not buff_id then return end
+    
+    -- Clean up expired pending buffs first
+    local current_time = os.clock()
+    local i = 1
+    while i <= #pending_buffs do
+        if (current_time - pending_buffs[i].timestamp) > PENDING_BUFF_TIMEOUT then
+            table.remove(pending_buffs, i)
+        else
+            i = i + 1
+        end
+    end
+    
+    -- Add new pending buff
+    table.insert(pending_buffs, {
+        server_id = server_id,
+        buff_id = buff_id,
+        timestamp = current_time
+    })
+    
+    common.debugf('Registered pending buff: server_id=%d, buff_id=%d', server_id, buff_id)
+end
+
+-- Handle casting completion (packet 0x028 with byte 0x0F == 0x01)
+-- Matches the most recent pending buff and adds it to trust_buffs
+function common.handle_buff_application()
+    common.debugf('handle_buff_application called, pending_buffs count: %d', #pending_buffs)
+    
+    if #pending_buffs == 0 then return end
+    
+    -- Get the most recent pending buff
+    local pending = pending_buffs[#pending_buffs]
+    table.remove(pending_buffs, #pending_buffs)
+    
+    common.debugf('Processing pending buff: server_id=%d, buff_id=%d', pending.server_id, pending.buff_id)
+    
+    -- Initialize buff list for this Trust if needed
+    if not trust_buffs[pending.server_id] then
+        trust_buffs[pending.server_id] = {}
+    end
+    
+    -- Check if buff already exists
+    local already_has = false
+    for _, buff_id in ipairs(trust_buffs[pending.server_id]) do
+        if buff_id == pending.buff_id then
+            already_has = true
+            break
+        end
+    end
+    
+    -- Add buff if not already present
+    if not already_has then
+        table.insert(trust_buffs[pending.server_id], pending.buff_id)
+        common.debugf('Applied buff to Trust: server_id=%d, buff_id=%d', pending.server_id, pending.buff_id)
+    else
+        common.debugf('Trust already has buff: server_id=%d, buff_id=%d', pending.server_id, pending.buff_id)
+    end
+end
+
+-- Handle buff removal (packet 0x029)
+-- Args: server_id (number), buff_id (number)
+function common.handle_buff_removal(server_id, buff_id)
+    if not server_id or not buff_id then return end
+    if not trust_buffs[server_id] then return end
+    
+    -- Remove buff from Trust's buff list
+    for i = #trust_buffs[server_id], 1, -1 do
+        if trust_buffs[server_id][i] == buff_id then
+            table.remove(trust_buffs[server_id], i)
+            common.debugf('Removed buff from Trust: server_id=%d, buff_id=%d', server_id, buff_id)
+            break
+        end
+    end
+    
+    -- Clean up empty buff lists
+    if #trust_buffs[server_id] == 0 then
+        trust_buffs[server_id] = nil
+    end
+end
+
+-- Clear all Trust buffs (call on zone change)
+function common.clear_trust_buffs()
+    trust_buffs = {}
+    pending_buffs = {}
+    common.debugf('Cleared all Trust buffs')
+end
+
+-- Get Trust buffs by server_id
+-- Args: server_id (number)
+-- Returns: table of buff IDs, or empty table
+function common.get_trust_buffs(server_id)
+    if not server_id then return {} end
+    if server_id < 0x1000000 then return {} end  -- Not a Trust
+    return trust_buffs[server_id] or {}
 end
 
 function common.has_status(target_index, status_id)
@@ -1136,6 +1306,11 @@ function common.is_command_blocked(command)
         -- Magic command - blocked by Silence
         if common.has_silence() then
             return 'Silence'
+        end
+        
+        -- Magic command - blocked by movement (can only cast while stationary)
+        if common.is_player_moving() then
+            return 'Moving'
         end
     elseif command_str:match('^/ja ') then
         -- Job Ability command - blocked by Amnesia

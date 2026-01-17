@@ -342,6 +342,36 @@ return {
                 buff_id = 43,  -- Refresh buff
                 combat_only = false,
             },
+            {
+                name = 'Foil',
+                level = 58,
+                cost = 10,
+                id = 840,
+                command = '/ma "Foil" <me>',
+                element = 'Wind',
+                buff_id = 480,  -- Foil buff
+                combat_only = true,
+            },
+            {
+                name = 'Swordplay',
+                level = 20,
+                cost = 0,
+                id = 24,  -- Swordplay recast ID
+                command = '/ja "Swordplay" <me>',
+                buff_id = 475,  -- Swordplay buff
+                combat_only = true,
+            },
+            {
+                name = 'Phalanx',
+                level = 68,
+                cost = 21,
+                id = 106,
+                command = '/ma "Phalanx" <me>',
+                element = 'Light',
+                buff_id = 116,  -- Phalanx buff
+                combat_only = true,
+                self_only = true,
+            },
             -- Spikes
             {
                 name = 'Blaze Spikes',
@@ -395,36 +425,6 @@ return {
                 element = 'Earth',
                 buff_id = 37,  -- Stoneskin buff
                 combat_only = false,
-            },
-            {
-                name = 'Foil',
-                level = 58,
-                cost = 10,
-                id = 840,
-                command = '/ma "Foil" <me>',
-                element = 'Wind',
-                buff_id = 480,  -- Foil buff
-                combat_only = true,
-            },
-            {
-                name = 'Swordplay',
-                level = 20,
-                cost = 0,
-                id = 24,  -- Swordplay recast ID
-                command = '/ja "Swordplay" <me>',
-                buff_id = 475,  -- Swordplay buff
-                combat_only = true,
-            },
-            {
-                name = 'Phalanx',
-                level = 68,
-                cost = 21,
-                id = 106,
-                command = '/ma "Phalanx" <me>',
-                element = 'Light',
-                buff_id = 116,  -- Phalanx buff
-                combat_only = true,
-                self_only = true,
             },
         },
         

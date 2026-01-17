@@ -70,7 +70,7 @@ function geo.execute(settings, job_def, main_level, sub_level, player_resource)
                     ability.name, ability.id, (recast_time or 0) / 60.0, tostring(is_ready))
                 
                 if is_ready then
-                    local command = geo.build_command(ability)
+                    local command = common.build_ability_command(ability, 0)
                     if command then
                         return {
                             command = command,
