@@ -829,8 +829,28 @@ return {
         --         combat_only = false,
         --     },
         -- },
+
+
+        recover_mp = {
+            {
+                name = 'Devotion',
+                level = 75,
+                cost = 0,
+                id = 28,  -- Job Ability ID
+                command = function(party_index)
+                    return '/ja "Devotion" '..target -- Cannot target self
+                end,
+                -- mp_recovered = 25% max_hp, -- Target will recieve 25% of the users max HP as MP 
+                combat_only = false,
+                -- need a validator to check if the target MP threshold is met
+            },
+        },
     },
-    
+    -- -- Job-specific validators
+    -- validators = {
+
+    -- },
+
     -- Default settings for UI
     default_settings = {
         heal_enabled = true,

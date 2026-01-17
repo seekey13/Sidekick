@@ -1259,7 +1259,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                         end
                     end)
                     
-                    create_slider_int('Focus Threshold (HP%)', 'focus_threshold', { settings.focus_threshold or 85 }, 1, 100)
+                    create_slider_int('Focus Healing (HP%)', 'focus_threshold', { settings.focus_threshold or 85 }, 1, 100)
                 end
                 
                 imgui.Separator()
@@ -1270,7 +1270,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
         if job_def and job_def.abilities.heal and has_usable_abilities(job_def.abilities.heal) then
             local is_open, is_enabled = create_collapsing_checkbox_header('Enable Party Healing', 'heal_enabled', false)
             if is_open and is_enabled then
-                create_slider_int('Party Threshold (HP%)', 'heal_threshold', { settings.heal_threshold or 75 }, 1, 100)
+                create_slider_int('Party (HP%)', 'heal_threshold', { settings.heal_threshold or 75 }, 1, 100)
                 imgui.Indent(ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.heal) do
                     if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
@@ -1287,7 +1287,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
         if job_def and job_def.abilities.heal_aoe and has_usable_abilities(job_def.abilities.heal_aoe) then
             local is_open, is_enabled = create_collapsing_checkbox_header('Enable AOE Healing', 'heal_aoe_enabled', false)
             if is_open and is_enabled then
-                create_slider_int('AOE Threshold (HP%)', 'heal_aoe_threshold', { settings.heal_aoe_threshold or 70 }, 1, 100)
+                create_slider_int('AOE (HP%)', 'heal_aoe_threshold', { settings.heal_aoe_threshold or 70 }, 1, 100)
                 
                 create_slider_int('Min Members', 'heal_aoe_count_threshold', { settings.heal_aoe_count_threshold or 2 }, 1, 6)
                 
@@ -1307,7 +1307,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
         if job_def and job_def.abilities.heal_pet and has_usable_abilities(job_def.abilities.heal_pet) then
             local is_open, is_enabled = create_collapsing_checkbox_header('Enable Pet Healing', 'heal_pet_enabled', false)
             if is_open and is_enabled then
-                create_slider_int('Pet Threshold (HP%)', 'heal_pet_threshold', { settings.heal_pet_threshold or 50 }, 1, 100)
+                create_slider_int('Pet (HP%)', 'heal_pet_threshold', { settings.heal_pet_threshold or 50 }, 1, 100)
                 
                 imgui.Indent(ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.heal_pet) do
@@ -1363,7 +1363,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
             if is_open and is_enabled then
                 -- MP Recovery
                 if has_mp_recovery then
-                    create_slider_int('Threshold (MP%)', 'recover_mp_threshold', { settings.recover_mp_threshold or 30 }, 1, 100)
+                    create_slider_int('Recover (MP%)', 'recover_mp_threshold', { settings.recover_mp_threshold or 30 }, 1, 100)
                     imgui.Indent(ABILITY_LIST_INDENT)
                     for _, ability in ipairs(job_def.abilities.recover_mp) do
                         if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
@@ -1378,7 +1378,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                     if has_mp_recovery then
                         imgui.Spacing()
                     end
-                    create_slider_int('Threshold (TP)', 'recover_tp_threshold', { settings.recover_tp_threshold or 500 }, 100, 3000)
+                    create_slider_int('Recover (TP)', 'recover_tp_threshold', { settings.recover_tp_threshold or 500 }, 100, 3000)
                     imgui.Indent(ABILITY_LIST_INDENT)
                     for _, ability in ipairs(job_def.abilities.recover_tp) do
                         if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
@@ -1426,7 +1426,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
         if job_def and job_def.abilities.geo and has_usable_abilities(job_def.abilities.geo) then
             local is_open, is_enabled = create_collapsing_checkbox_header('Enable Geo (Full Circle)', 'geo_enabled', false)
             if is_open and is_enabled then
-                create_slider_int('Threshold (yalms)', 'geo_distance_threshold', { settings.geo_distance_threshold or 10 }, 7, 30)
+                create_slider_int('Distance (yalms)', 'geo_distance_threshold', { settings.geo_distance_threshold or 10 }, 7, 30)
                 imgui.Indent(ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.geo) do
                     if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
