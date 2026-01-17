@@ -19,7 +19,7 @@ local roll_module = nil
 
 -- UI State Variables (for imgui)
 local focus_enabled = { false }
-local focus_target_index = { 0 }  -- 0 = None, 1-6 = P0-P5
+local focus_target_index = { 0 }  -- 0 = None, 1-6 = <ME>-P5
 
 -- Party buff tracking (session only, not saved to settings)
 -- Structure: party_buffs[ability_name][party_index] = true/false
@@ -28,7 +28,7 @@ local party_buffs = {}
 
 -- UI Constants
 local ABILITY_LIST_INDENT = 20  -- Indent for ability checkboxes within sections
-local PARTY_BUTTON_WIDTH = 35  -- Width of party toggle buttons
+local PARTY_BUTTON_WIDTH = 45  -- Width of party toggle buttons
 
 -- Dropdown options
 local focus_target_options = { 'None', 'P0', 'P1', 'P2', 'P3', 'P4', 'P5' }
@@ -186,6 +186,29 @@ local function toggle_party_buff(ability_name, party_index, enabled)
         party_buffs[ability_name] = {}
     end
     party_buffs[ability_name][party_index] = enabled
+    
+    -- Check if ANY button (ME or P1-P5) is enabled for this ability
+    local any_button_enabled = false
+    for i = 0, 5 do
+        if party_buffs[ability_name][i] == true then
+            any_button_enabled = true
+            break
+        end
+    end
+    
+    -- Update the ability's disabled setting based on button states
+    local key = 'disabled_' .. ability_name:gsub(' ', '_')
+    if any_button_enabled then
+        -- At least one button is enabled, so enable the ability
+        current_settings[key] = false
+    else
+        -- No buttons are enabled, so disable the ability
+        current_settings[key] = true
+    end
+    
+    if save_callback then
+        save_callback()
+    end
 end
 
 -- Check if a party member is a Trust (server_id >= 0x1000000)
@@ -284,7 +307,7 @@ local function render_buff_with_buttons(ability, job_def, extra_desc)
         imgui.PushStyleColor(ImGuiCol_Text, { 0.5, 0.5, 0.5, 1.0 })  -- Gray color for unknown spells
     end
     
-    -- Render [ME] button
+    -- Render [<ME>] button
     local me_enabled = is_party_buff_enabled(ability.name, 0)
     
     -- Set button color based on selection state
@@ -297,7 +320,7 @@ local function render_buff_with_buttons(ability, job_def, extra_desc)
         imgui.PushStyleColor(ImGuiCol_ButtonActive, { 0.5, 0.5, 0.5, 1.0 })
     end
     
-    local me_button_label = 'ME##' .. ability.name .. '_me'
+    local me_button_label = '<ME>##' .. ability.name .. '_me'
     if has_spell and imgui.Button(me_button_label, { PARTY_BUTTON_WIDTH, 0 }) then
         toggle_party_buff(ability.name, 0, not me_enabled)
     end
@@ -337,7 +360,7 @@ local function render_buff_with_buttons(ability, job_def, extra_desc)
                     imgui.PushStyleColor(ImGuiCol_ButtonActive, { 0.5, 0.5, 0.5, 1.0 })
                 end
                 
-                local button_label = 'P' .. party_index .. '##' .. ability.name .. '_p' .. party_index
+                local button_label = '<P' .. party_index .. '>##' .. ability.name .. '_p' .. party_index
                 if has_spell and imgui.Button(button_label, { PARTY_BUTTON_WIDTH, 0 }) then
                     -- Only toggle if not a Trust
                     if not is_trust_member then
@@ -448,7 +471,7 @@ local function render_buff_checkbox_with_party_toggles(ability, job_def, extra_d
                         imgui.PushStyleColor(ImGuiCol_ButtonActive, { 0.5, 0.5, 0.5, 1.0 })
                     end
                     
-                    local button_label = 'P' .. party_index .. '##' .. ability.name .. '_p' .. party_index
+                    local button_label = '<P' .. party_index .. '>##' .. ability.name .. '_p' .. party_index
                     if imgui.Button(button_label, { PARTY_BUTTON_WIDTH, 0 }) then
                         -- Only toggle if not a Trust
                         if not is_trust_member then
@@ -852,7 +875,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                         
                         -- Use button-based UI for single-target buffs, checkbox for self-only buffs
                         if can_cast_on_party(ability) then
-                            -- Single-target buff: show [ME] [P1] [P2] [P3] [P4] [P5] buttons + spell name
+                            -- Single-target buff: show [<ME>] [<P1>] [P2] [P3] [P4] [P5] buttons + spell name
                             render_buff_with_buttons(ability, job_def, extra_desc)
                         else
                             -- Self-only buff: show checkbox

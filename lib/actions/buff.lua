@@ -97,6 +97,15 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
             
             if is_single_target then
                 -- Single-target buff: Check button states for ME and party members (P1-P5)
+                -- First check if ability is enabled via settings
+                local key = 'disabled_' .. ability.name:gsub(' ', '_')
+                local is_ability_enabled = settings[key] == false or settings[key] == nil
+                
+                if not is_ability_enabled then
+                    common.debugf('[BUFF] %s is disabled in settings', ability.name)
+                    goto continue_ability
+                end
+                
                 -- Priority order: ME, P1, P2, P3, P4, P5
                 local targets_to_check = {0, 1, 2, 3, 4, 5}  -- 0 = ME, 1-5 = P1-P5
                 
