@@ -36,7 +36,90 @@ function recover.execute(settings, job_def, main_level, sub_level, player_resour
     
     common.debugf('[RECOVER] Current MP: %d (%.1f%%), TP: %d', current_mp, mp_percent, current_tp)
     
-    -- Check MP recovery first (higher priority)
+    -- Check Focus Recovery Target (Devotion) first - cast on party member
+    if settings.focus_recovery_target_index then
+        local target_index = settings.focus_recovery_target_index
+        
+        -- Validate target (must be 1-5, not 0/self)
+        if target_index >= 1 and target_index <= 5 then
+            local target_mpp = common.get_party_member_mp_percent(target_index)
+            local target_name = common.get_party_member_name(target_index) or 'Unknown'
+            local threshold = settings.focus_recovery_threshold or 30
+            
+            common.debugf('[RECOVER] Focus Recovery Target: P%d (%s), MP: %.1f%%, Threshold: %.1f%%',
+                         target_index, target_name, target_mpp, threshold)
+            
+            -- Check if target needs MP recovery
+            if target_mpp > 0 and target_mpp < threshold then
+                -- Find Devotion ability in recover_mp list
+                for _, ability in ipairs(recover_mp_abilities) do
+                    if ability.name == 'Devotion' then
+                        local can_use_devotion = true
+                        
+                        -- Check if ability is disabled
+                        local disabled_key = 'disabled_' .. ability.name:gsub(' ', '_')
+                        local is_disabled = settings[disabled_key]
+                        if is_disabled then
+                            common.debugf('[RECOVER] Devotion is disabled, skipping')
+                            can_use_devotion = false
+                        end
+                        
+                        -- Check level requirement
+                        if can_use_devotion then
+                            local required_level = ability.level or 0
+                            if required_level > main_level then
+                                common.debugf('[RECOVER] Devotion requires level %d (current: %d)', required_level, main_level)
+                                can_use_devotion = false
+                            end
+                        end
+                        
+                        -- Check if blocked by status ailments
+                        if can_use_devotion then
+                            local blocked_by = common.is_command_blocked(ability.command)
+                            if blocked_by then
+                                common.debugf('[RECOVER] Devotion is blocked by %s', blocked_by)
+                                can_use_devotion = false
+                            end
+                        end
+                        
+                        -- Check if target is in range (20 yalms)
+                        if can_use_devotion then
+                            local target_entity_index = party:GetMemberTargetIndex(target_index)
+                            if not target_entity_index or not common.is_in_range(target_entity_index, 20) then
+                                common.debugf('[RECOVER] Target P%d out of range', target_index)
+                                can_use_devotion = false
+                            end
+                        end
+                        
+                        -- Check cooldown
+                        if can_use_devotion then
+                            if ability.id and not resource.is_ability_ready(ability.id) then
+                                common.debugf('[RECOVER] Devotion on cooldown')
+                                can_use_devotion = false
+                            end
+                        end
+                        
+                        -- Cast Devotion on focus recovery target
+                        if can_use_devotion then
+                            local command = common.build_ability_command(ability, target_index)
+                            if command then
+                                common.debugf('[RECOVER] >>> Using Devotion on P%d (%s) - Target MP: %.1f%%',
+                                             target_index, target_name, target_mpp)
+                                return {
+                                    command = command,
+                                    description = string.format('Devotion on %s (MP: %.1f%%)', target_name, target_mpp)
+                                }
+                            end
+                        end
+                        
+                        break
+                    end
+                end
+            end
+        end
+    end
+    
+    -- Check MP recovery for self (after Devotion check)
     if #recover_mp_abilities > 0 and settings.recover_mp_threshold then
         common.debugf('[RECOVER] MP threshold: %.1f%%, current: %.1f%%', settings.recover_mp_threshold, mp_percent)
         

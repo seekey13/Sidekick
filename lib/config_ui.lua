@@ -20,6 +20,8 @@ local roll_module = nil
 -- UI State Variables (for imgui)
 local focus_enabled = { false }
 local focus_target_index = { 0 }  -- 0 = None, 1-6 = <ME>-P5
+local focus_recovery_enabled = { false }
+local focus_recovery_target_index = { 0 }  -- 0 = None, 1-5 = P1-P5 (no ME option)
 
 -- Party buff tracking (session only, not saved to settings)
 -- Structure: party_buffs[ability_name][party_index] = true/false
@@ -32,6 +34,7 @@ local PARTY_BUTTON_WIDTH = 45  -- Width of party toggle buttons
 
 -- Dropdown options
 local focus_target_options = { 'None', 'P0', 'P1', 'P2', 'P3', 'P4', 'P5' }
+local focus_recovery_target_options = { 'None', 'P1', 'P2', 'P3', 'P4', 'P5' }  -- No ME option for Devotion
 
 -- ============================================================================
 -- Helper Functions
@@ -224,6 +227,13 @@ local function sync_from_settings()
         focus_target_index[1] = 0
     else
         focus_target_index[1] = current_settings.focus_target_index + 1
+    end
+    
+    -- Convert focus_recovery_target_index (nil, 1-5) to combo index (0-5)
+    if current_settings.focus_recovery_target_index == nil then
+        focus_recovery_target_index[1] = 0
+    else
+        focus_recovery_target_index[1] = current_settings.focus_recovery_target_index
     end
 end
 
@@ -1357,13 +1367,30 @@ function config_ui.render(settings, job_def, callback, roll_mod)
         -- Recovery settings
         local has_mp_recovery = job_def and job_def.abilities.recover_mp and has_usable_abilities(job_def.abilities.recover_mp)
         local has_tp_recovery = job_def and job_def.abilities.recover_tp and has_usable_abilities(job_def.abilities.recover_tp)
+        local has_party_mp_recovery = job_def and job_def.abilities.recover_party_mp and has_usable_abilities(job_def.abilities.recover_party_mp)
         
-        if has_mp_recovery or has_tp_recovery then
+        if has_mp_recovery or has_tp_recovery or has_party_mp_recovery then
             local is_open, is_enabled = create_collapsing_checkbox_header('Enable Resource Recovery', 'recover_enabled', false)
             if is_open and is_enabled then
-                -- MP Recovery
+                -- Self Recover (TP%) section
+                if has_tp_recovery then
+                    create_slider_int('Self Recover (TP)', 'recover_tp_threshold', { settings.recover_tp_threshold or 500 }, 100, 3000)
+                    imgui.Indent(ABILITY_LIST_INDENT)
+                    for _, ability in ipairs(job_def.abilities.recover_tp) do
+                        if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
+                            render_ability_checkbox(ability, job_def, nil, 'recover_tp')
+                        end
+                    end
+                    imgui.Unindent(ABILITY_LIST_INDENT)
+                    
+                    if has_mp_recovery or has_party_mp_recovery then
+                        imgui.Spacing()
+                    end
+                end
+                
+                -- Self Recover (MP%) section
                 if has_mp_recovery then
-                    create_slider_int('Recover (MP%)', 'recover_mp_threshold', { settings.recover_mp_threshold or 30 }, 1, 100)
+                    create_slider_int('Self Recover (MP%)', 'recover_mp_threshold', { settings.recover_mp_threshold or 30 }, 1, 100)
                     imgui.Indent(ABILITY_LIST_INDENT)
                     for _, ability in ipairs(job_def.abilities.recover_mp) do
                         if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
@@ -1371,18 +1398,31 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                         end
                     end
                     imgui.Unindent(ABILITY_LIST_INDENT)
-                end
-                
-                -- TP Recovery
-                if has_tp_recovery then
-                    if has_mp_recovery then
+                    
+                    if has_party_mp_recovery then
                         imgui.Spacing()
                     end
-                    create_slider_int('Recover (TP)', 'recover_tp_threshold', { settings.recover_tp_threshold or 500 }, 100, 3000)
+                end
+                
+                -- Party MP recovery section (for Devotion)
+                if has_party_mp_recovery then
+                    create_combo('Recovery Target', 'focus_recovery_target_index', focus_recovery_target_index, focus_recovery_target_options, function(i)
+                        -- Convert combo index (0-5) to focus_recovery_target_index (nil, 1-5)
+                        if i == 0 then
+                            return nil
+                        else
+                            return i
+                        end
+                    end, 150)
+                    
+                    if focus_recovery_target_index[1] > 0 then
+                        create_slider_int('Target Recover (MP%)', 'focus_recovery_threshold', { settings.focus_recovery_threshold or 30 }, 1, 100)
+                    end
+                    
                     imgui.Indent(ABILITY_LIST_INDENT)
-                    for _, ability in ipairs(job_def.abilities.recover_tp) do
+                    for _, ability in ipairs(job_def.abilities.recover_party_mp) do
                         if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
-                            render_ability_checkbox(ability, job_def, nil, 'recover_tp')
+                            render_ability_checkbox(ability, job_def, nil, 'recover_party_mp')
                         end
                     end
                     imgui.Unindent(ABILITY_LIST_INDENT)

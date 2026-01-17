@@ -831,7 +831,7 @@ return {
         -- },
 
 
-        recover_mp = {
+        recover_party_mp = {
             {
                 name = 'Devotion',
                 level = 75,
@@ -840,8 +840,6 @@ return {
                 command = function(target)
                     return '/ja "Devotion" '..target -- Cannot target self
                 end,
-                -- mp_recovered = user_max_hp * 0.25, -- Target will recieve 25% of the users max HP as MP 
-                -- need a validator to check if the target MP threshold is met
             },
         },
     },
@@ -863,6 +861,8 @@ return {
         focus_enabled = false,
         focus_target_index = nil,
         focus_threshold = 85,
+        focus_recovery_target_index = nil,
+        focus_recovery_threshold = 30,
     },
     
     -- Action priority order
