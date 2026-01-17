@@ -593,11 +593,13 @@ ashita.events.register('packet_in', 'medic_packet_in', function(e)
                 if player_id and actor_id == player_id then
                     common.handle_action_packet(e.data)  -- Casting detection
                     
-                    -- Check if this is a casting completion (byte 0x0F == 0x01)
+                    -- Check if this is a casting completion (byte 0x0F != 0x00)
                     if e.data and #e.data >= 16 then
                         local completion_flag = struct.unpack('B', e.data, 0x0F + 1)
-                        if completion_flag == 0x01 then
+                        common.debugf('[PACKET] 0x028 completion_flag = 0x%02X', completion_flag)
+                        if completion_flag ~= 0x00 then
                             -- Casting completed, apply pending buff to Trust
+                            common.debugf('[PACKET] Calling handle_buff_application()')
                             common.handle_buff_application()
                         end
                     end

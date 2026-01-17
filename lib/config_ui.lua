@@ -534,17 +534,12 @@ local function render_party_single_ability(ability, job_def, extra_desc)
             if is_active then
                 imgui.SameLine()
                 
-                local is_trust_member = is_trust(party_index)
                 local is_enabled = is_party_buff_enabled(ability.name, party_index)
                 
-                if is_trust_member then
-                    imgui.PushStyleColor(ImGuiCol_Button, { 0.2, 0.2, 0.2, 1.0 })
-                    imgui.PushStyleColor(ImGuiCol_ButtonHovered, { 0.2, 0.2, 0.2, 1.0 })
-                    imgui.PushStyleColor(ImGuiCol_ButtonActive, { 0.2, 0.2, 0.2, 1.0 })
-                    imgui.PushStyleColor(ImGuiCol_Text, { 0.4, 0.4, 0.4, 1.0 })
-                elseif is_enabled then
+                if is_enabled then
                     -- Selected: Use default button colors
                 else
+                    -- Not selected: Gray
                     imgui.PushStyleColor(ImGuiCol_Button, { 0.3, 0.3, 0.3, 1.0 })
                     imgui.PushStyleColor(ImGuiCol_ButtonHovered, { 0.4, 0.4, 0.4, 1.0 })
                     imgui.PushStyleColor(ImGuiCol_ButtonActive, { 0.5, 0.5, 0.5, 1.0 })
@@ -552,18 +547,10 @@ local function render_party_single_ability(ability, job_def, extra_desc)
                 
                 local button_label = '<P' .. party_index .. '>##' .. ability.name .. '_p' .. party_index
                 if has_spell and imgui.Button(button_label, { PARTY_BUTTON_WIDTH, 0 }) then
-                    if not is_trust_member then
-                        toggle_party_buff(ability.name, party_index, not is_enabled)
-                    end
+                    toggle_party_buff(ability.name, party_index, not is_enabled)
                 end
                 
-                if is_trust_member and imgui.IsItemHovered() then
-                    imgui.SetTooltip('Trust buffs are not available')
-                end
-                
-                if is_trust_member then
-                    imgui.PopStyleColor(4)
-                elseif not is_enabled then
+                if not is_enabled then
                     imgui.PopStyleColor(3)
                 end
             end
@@ -644,17 +631,12 @@ local function render_party_grouped_ability(ability, job_def, extra_desc)
             if is_active then
                 imgui.SameLine()
                 
-                local is_trust_member = is_trust(party_index)
                 local is_enabled = is_party_buff_enabled(selected.name, party_index)
                 
-                if is_trust_member then
-                    imgui.PushStyleColor(ImGuiCol_Button, { 0.2, 0.2, 0.2, 1.0 })
-                    imgui.PushStyleColor(ImGuiCol_ButtonHovered, { 0.2, 0.2, 0.2, 1.0 })
-                    imgui.PushStyleColor(ImGuiCol_ButtonActive, { 0.2, 0.2, 0.2, 1.0 })
-                    imgui.PushStyleColor(ImGuiCol_Text, { 0.4, 0.4, 0.4, 1.0 })
-                elseif is_enabled then
+                if is_enabled then
                     -- Selected: Use default button colors
                 else
+                    -- Not selected: Gray
                     imgui.PushStyleColor(ImGuiCol_Button, { 0.3, 0.3, 0.3, 1.0 })
                     imgui.PushStyleColor(ImGuiCol_ButtonHovered, { 0.4, 0.4, 0.4, 1.0 })
                     imgui.PushStyleColor(ImGuiCol_ButtonActive, { 0.5, 0.5, 0.5, 1.0 })
@@ -662,18 +644,10 @@ local function render_party_grouped_ability(ability, job_def, extra_desc)
                 
                 local button_label = '<P' .. party_index .. '>##' .. selected.name .. '_p' .. party_index
                 if has_spell and imgui.Button(button_label, { PARTY_BUTTON_WIDTH, 0 }) then
-                    if not is_trust_member then
-                        toggle_party_buff(selected.name, party_index, not is_enabled)
-                    end
+                    toggle_party_buff(selected.name, party_index, not is_enabled)
                 end
                 
-                if is_trust_member and imgui.IsItemHovered() then
-                    imgui.SetTooltip('Trust buffs are not available')
-                end
-                
-                if is_trust_member then
-                    imgui.PopStyleColor(4)
-                elseif not is_enabled then
+                if not is_enabled then
                     imgui.PopStyleColor(3)
                 end
             end
@@ -861,20 +835,11 @@ local function render_buff_with_buttons(ability, job_def, extra_desc)
             if is_active then
                 imgui.SameLine()
                 
-                -- Check if this party member is a Trust
-                local is_trust_member = is_trust(party_index)
-                
                 -- Get current state
                 local is_enabled = is_party_buff_enabled(ability.name, party_index)
                 
-                -- Set button color and disable state based on Trust status
-                if is_trust_member then
-                    -- Trust: Dark gray and disabled
-                    imgui.PushStyleColor(ImGuiCol_Button, { 0.2, 0.2, 0.2, 1.0 })
-                    imgui.PushStyleColor(ImGuiCol_ButtonHovered, { 0.2, 0.2, 0.2, 1.0 })
-                    imgui.PushStyleColor(ImGuiCol_ButtonActive, { 0.2, 0.2, 0.2, 1.0 })
-                    imgui.PushStyleColor(ImGuiCol_Text, { 0.4, 0.4, 0.4, 1.0 })
-                elseif is_enabled then
+                -- Set button color based on selection state
+                if is_enabled then
                     -- Selected: Use default button colors (no custom styling)
                 else
                     -- Not selected: Gray
@@ -885,20 +850,10 @@ local function render_buff_with_buttons(ability, job_def, extra_desc)
                 
                 local button_label = '<P' .. party_index .. '>##' .. ability.name .. '_p' .. party_index
                 if has_spell and imgui.Button(button_label, { PARTY_BUTTON_WIDTH, 0 }) then
-                    -- Only toggle if not a Trust
-                    if not is_trust_member then
-                        toggle_party_buff(ability.name, party_index, not is_enabled)
-                    end
+                    toggle_party_buff(ability.name, party_index, not is_enabled)
                 end
                 
-                -- Show tooltip for Trusts explaining why they're disabled
-                if is_trust_member and imgui.IsItemHovered() then
-                    imgui.SetTooltip('Trust buffs are not available')
-                end
-                
-                if is_trust_member then
-                    imgui.PopStyleColor(4)
-                elseif not is_enabled then
+                if not is_enabled then
                     imgui.PopStyleColor(3)
                 end
             end

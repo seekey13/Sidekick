@@ -783,6 +783,8 @@ function common.has_buff(target_index, buff_id)
     if server_id and server_id >= 0x1000000 then
         -- Use Trust buff tracking
         local trust_buff_list = common.get_trust_buffs(server_id)
+        common.debugf('has_buff check for Trust: server_id=%d, buff_id=%d, buffs=%s', 
+            server_id, buff_id, table.concat(trust_buff_list, ', '))
         for _, trust_buff in ipairs(trust_buff_list) do
             if trust_buff == buff_id then
                 return true
@@ -971,11 +973,15 @@ end
 -- Handle casting completion (packet 0x028 with byte 0x0F == 0x01)
 -- Matches the most recent pending buff and adds it to trust_buffs
 function common.handle_buff_application()
+    common.debugf('handle_buff_application called, pending_buffs count: %d', #pending_buffs)
+    
     if #pending_buffs == 0 then return end
     
     -- Get the most recent pending buff
     local pending = pending_buffs[#pending_buffs]
     table.remove(pending_buffs, #pending_buffs)
+    
+    common.debugf('Processing pending buff: server_id=%d, buff_id=%d', pending.server_id, pending.buff_id)
     
     -- Initialize buff list for this Trust if needed
     if not trust_buffs[pending.server_id] then
@@ -995,6 +1001,8 @@ function common.handle_buff_application()
     if not already_has then
         table.insert(trust_buffs[pending.server_id], pending.buff_id)
         common.debugf('Applied buff to Trust: server_id=%d, buff_id=%d', pending.server_id, pending.buff_id)
+    else
+        common.debugf('Trust already has buff: server_id=%d, buff_id=%d', pending.server_id, pending.buff_id)
     end
 end
 

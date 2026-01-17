@@ -181,7 +181,6 @@ return {
                 end,
                 buff_id = 42,  -- Regen
                 range = 20,
-                group = 'regen',
             },
             {
                 name = 'Regen II',
@@ -193,7 +192,6 @@ return {
                 end,
                 buff_id = 42,
                 range = 20,
-                group = 'regen',
             },
             {
                 name = 'Regen',
@@ -205,7 +203,6 @@ return {
                 end,
                 buff_id = 42,
                 range = 20,
-                group = 'regen',
             },
             -- Storms
             {
