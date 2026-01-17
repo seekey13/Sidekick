@@ -157,12 +157,15 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                                 buff_ids_to_check = {ability.buff_id}
                             end
                             
-                            -- Use has_buff() which handles both regular party members and Trusts
-                            for _, check_buff in ipairs(buff_ids_to_check) do
-                                if common.has_buff(target_entity_index, check_buff) then
-                                    has_buff = true
-                                    break
+                            -- Check target_buffs array (works for both party members and Trusts)
+                            for _, target_buff in ipairs(target_buffs) do
+                                for _, check_buff in ipairs(buff_ids_to_check) do
+                                    if target_buff == check_buff then
+                                        has_buff = true
+                                        break
+                                    end
                                 end
+                                if has_buff then break end
                             end
                             
                             target_needs_buff = not has_buff

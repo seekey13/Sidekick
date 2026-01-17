@@ -873,7 +873,8 @@ function common.get_party_buffs(member_index)
     
     -- Trusts have server IDs > 0x1000000 (16777216)
     if server_id >= 0x1000000 then
-        return {}
+        -- Return Trust buffs from packet-based tracking
+        return trust_buffs[server_id] or {}
     end
     
     -- Get the status icons pointer (direct memory reading)
