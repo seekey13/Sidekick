@@ -592,9 +592,39 @@ ashita.events.register('packet_in', 'medic_packet_in', function(e)
                 local player_id = party:GetMemberServerId(0)
                 if player_id and actor_id == player_id then
                     common.handle_action_packet(e.data)  -- Casting detection
+                    
+                    -- Check if this is a casting completion (byte 0x0F == 0x01)
+                    if e.data and #e.data >= 16 then
+                        local completion_flag = struct.unpack('B', e.data, 0x0F + 1)
+                        if completion_flag == 0x01 then
+                            -- Casting completed, apply pending buff to Trust
+                            common.handle_buff_application()
+                        end
+                    end
                 end
             end
         end
+    end
+    
+    -- Handle status effect update packets for Trust buff removal (0x029)
+    if e.id == 0x029 then
+        if e.data and #e.data >= 16 then
+            -- Extract server_id (bytes 0x04-0x07, little-endian)
+            local server_id = struct.unpack('I', e.data, 0x04 + 1)
+            
+            -- Extract buff_id (byte 0x0C)
+            local buff_id = struct.unpack('B', e.data, 0x0C + 1)
+            
+            -- Only handle Trust buff removal (server_id >= 0x1000000)
+            if server_id >= 0x1000000 and buff_id > 0 and buff_id ~= 255 then
+                common.handle_buff_removal(server_id, buff_id)
+            end
+        end
+    end
+    
+    -- Clear Trust buffs on zone change
+    if e.id == 0x0A then  -- Zone change packet
+        common.clear_trust_buffs()
     end
 end)
 

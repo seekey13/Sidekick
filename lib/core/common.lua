@@ -31,6 +31,11 @@ local movement_state = {
     check_interval = 0.25  -- Check every 250ms
 }
 
+-- Trust buff tracking (packet-based since memory reads don't work for Trusts)
+local trust_buffs = {}  -- trust_buffs[server_id] = {buff_id1, buff_id2, ...}
+local pending_buffs = {}  -- pending_buffs[n] = {server_id=x, buff_id=y, timestamp=t}
+local PENDING_BUFF_TIMEOUT = 10.0  -- Seconds before pending buff expires
+
 -- Non-combat zone IDs (safe zones where combat is blocked)
 local non_combat_zone_ids = {
     230, 231, 232, 233, -- San d'Oria
@@ -754,12 +759,19 @@ function common.has_buff(target_index, buff_id)
     local party = common.get_party()
     if not party then return false end
     
-    -- Find party member index for this target
+    -- Find party member index and server ID for this target
     local party_index = -1
+    local server_id = nil
     for i = 0, 5 do
         if party:GetMemberIsActive(i) == 1 then
             if party:GetMemberTargetIndex(i) == target_index then
                 party_index = i
+                local ok_server, sid = pcall(function()
+                    return party:GetMemberServerId(i)
+                end)
+                if ok_server then
+                    server_id = sid
+                end
                 break
             end
         end
@@ -767,7 +779,19 @@ function common.has_buff(target_index, buff_id)
     
     if party_index == -1 then return false end
     
-    -- Check buffs via memory pointer (complex but accurate)
+    -- Check if this is a Trust (server_id >= 0x1000000)
+    if server_id and server_id >= 0x1000000 then
+        -- Use Trust buff tracking
+        local trust_buff_list = common.get_trust_buffs(server_id)
+        for _, trust_buff in ipairs(trust_buff_list) do
+            if trust_buff == buff_id then
+                return true
+            end
+        end
+        return false
+    end
+    
+    -- For regular party members, check buffs via memory pointer
     local ok_ptr, ptr = pcall(function() return party:GetMemberPointer(party_index) end)
     if not ok_ptr or not ptr or ptr == 0 then return false end
     
@@ -911,6 +935,104 @@ function common.get_party_buffs(member_index)
     end
     
     return {}
+end
+
+--[[
+    Trust Buff Tracking Functions
+    Since Trusts' buffs cannot be read from memory, we track them via packets
+]]--
+
+-- Register a pending buff when we initiate a cast on a Trust
+-- Args: server_id (number), buff_id (number)
+function common.register_pending_buff(server_id, buff_id)
+    if not server_id or not buff_id then return end
+    
+    -- Clean up expired pending buffs first
+    local current_time = os.clock()
+    local i = 1
+    while i <= #pending_buffs do
+        if (current_time - pending_buffs[i].timestamp) > PENDING_BUFF_TIMEOUT then
+            table.remove(pending_buffs, i)
+        else
+            i = i + 1
+        end
+    end
+    
+    -- Add new pending buff
+    table.insert(pending_buffs, {
+        server_id = server_id,
+        buff_id = buff_id,
+        timestamp = current_time
+    })
+    
+    common.debugf('Registered pending buff: server_id=%d, buff_id=%d', server_id, buff_id)
+end
+
+-- Handle casting completion (packet 0x028 with byte 0x0F == 0x01)
+-- Matches the most recent pending buff and adds it to trust_buffs
+function common.handle_buff_application()
+    if #pending_buffs == 0 then return end
+    
+    -- Get the most recent pending buff
+    local pending = pending_buffs[#pending_buffs]
+    table.remove(pending_buffs, #pending_buffs)
+    
+    -- Initialize buff list for this Trust if needed
+    if not trust_buffs[pending.server_id] then
+        trust_buffs[pending.server_id] = {}
+    end
+    
+    -- Check if buff already exists
+    local already_has = false
+    for _, buff_id in ipairs(trust_buffs[pending.server_id]) do
+        if buff_id == pending.buff_id then
+            already_has = true
+            break
+        end
+    end
+    
+    -- Add buff if not already present
+    if not already_has then
+        table.insert(trust_buffs[pending.server_id], pending.buff_id)
+        common.debugf('Applied buff to Trust: server_id=%d, buff_id=%d', pending.server_id, pending.buff_id)
+    end
+end
+
+-- Handle buff removal (packet 0x029)
+-- Args: server_id (number), buff_id (number)
+function common.handle_buff_removal(server_id, buff_id)
+    if not server_id or not buff_id then return end
+    if not trust_buffs[server_id] then return end
+    
+    -- Remove buff from Trust's buff list
+    for i = #trust_buffs[server_id], 1, -1 do
+        if trust_buffs[server_id][i] == buff_id then
+            table.remove(trust_buffs[server_id], i)
+            common.debugf('Removed buff from Trust: server_id=%d, buff_id=%d', server_id, buff_id)
+            break
+        end
+    end
+    
+    -- Clean up empty buff lists
+    if #trust_buffs[server_id] == 0 then
+        trust_buffs[server_id] = nil
+    end
+end
+
+-- Clear all Trust buffs (call on zone change)
+function common.clear_trust_buffs()
+    trust_buffs = {}
+    pending_buffs = {}
+    common.debugf('Cleared all Trust buffs')
+end
+
+-- Get Trust buffs by server_id
+-- Args: server_id (number)
+-- Returns: table of buff IDs, or empty table
+function common.get_trust_buffs(server_id)
+    if not server_id then return {} end
+    if server_id < 0x1000000 then return {} end  -- Not a Trust
+    return trust_buffs[server_id] or {}
 end
 
 function common.has_status(target_index, status_id)

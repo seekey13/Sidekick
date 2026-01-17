@@ -203,6 +203,21 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                                     if is_ready then
                                         local command = common.build_ability_command(ability, target_index)
                                         if command then
+                                            -- Register pending buff if target is a Trust
+                                            if ability.buff_id and target_index > 0 then
+                                                local party = common.get_party()
+                                                if party then
+                                                    local ok_server, server_id = pcall(function()
+                                                        return party:GetMemberServerId(target_index)
+                                                    end)
+                                                    if ok_server and server_id and server_id >= 0x1000000 then
+                                                        -- This is a Trust, register pending buff
+                                                        local buff_to_track = type(ability.buff_id) == 'table' and ability.buff_id[1] or ability.buff_id
+                                                        common.register_pending_buff(server_id, buff_to_track)
+                                                    end
+                                                end
+                                            end
+                                            
                                             local target_name = target_index == 0 and 'self' or (common.get_party_member_name(target_index) or ('P' .. target_index))
                                             return {
                                                 command = command,
@@ -213,6 +228,21 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                                 else
                                     local command = common.build_ability_command(ability, target_index)
                                     if command then
+                                        -- Register pending buff if target is a Trust
+                                        if ability.buff_id and target_index > 0 then
+                                            local party = common.get_party()
+                                            if party then
+                                                local ok_server, server_id = pcall(function()
+                                                    return party:GetMemberServerId(target_index)
+                                                end)
+                                                if ok_server and server_id and server_id >= 0x1000000 then
+                                                    -- This is a Trust, register pending buff
+                                                    local buff_to_track = type(ability.buff_id) == 'table' and ability.buff_id[1] or ability.buff_id
+                                                    common.register_pending_buff(server_id, buff_to_track)
+                                                end
+                                            end
+                                        end
+                                        
                                         local target_name = target_index == 0 and 'self' or (common.get_party_member_name(target_index) or ('P' .. target_index))
                                         return {
                                             command = command,
