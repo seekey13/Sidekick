@@ -5,22 +5,30 @@ All notable changes to Medic will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.1.0] - 2026-01-16
+## [1.1.0] - 2026-01-17
 
 ### Added
 - **Button-Based Party Buff Targeting**: Single-target buffs now display ME/P1-P5 buttons for precise control over who receives each buff (e.g., Haste, Refresh, Protect, Shell, Enspells, etc.)
-- **Trust Detection**: Party member buttons automatically disable for Trusts (server_id >= 0x1000000) since buffs cannot be cast on them
+- **Trust Buff Tracking**: Buffs can now be tracked and cast on Trusts using packet-based detection (packets 0x028 for application, 0x029 for removal)
+- **Group Dropdown Consolidation**: When multiple abilities exist in a group (e.g., Cure I-V), they are now consolidated into a dropdown selector for cleaner UI
+- **Enhanced Casting State Detection**: Improved packet-based casting detection using offset 0x0F state byte (0x00 = casting started, 0x01+ = casting complete)
+- **Subjob Duplicate Filtering**: Config UI now automatically hides duplicate abilities from subjob when they exist in main job (e.g., Cure spells)
 - **Single-Target Buff Support**: Jobs can now cast single-target buffs on party members with intelligent uptime tracking and range validation (20 yalms)
 - **Movement Blocking**: Casting is now prevented while the player is moving to avoid interrupted spells
 
 ### Changed
+- **Collapsible UI Sections**: All major feature sections (Healing, Buffs, Debuff Removal, etc.) are now collapsible headers with checkboxes for cleaner organization
 - **Buff UI**: Single-target buffs (function commands) now use button-based targeting instead of checkboxes
 - **Buff Logic**: Abilities are automatically enabled when any ME/P1-P5 button is selected, and disabled when all buttons are deselected
 - **Party Buff Validation**: Added zone matching and range checking before casting buffs on party members
+- **Casting State Logic**: Simplified casting detection to use action state byte only, not action ID, for more reliable state tracking
+- **Party Buff Buttons**: Trust members now show disabled (dark gray) buttons in party buff UI to indicate buffs cannot be cast
 
 ### Fixed
 - Button-based buffs now properly check if the ability is enabled before attempting to cast
 - Party buff state correctly syncs with settings on button toggle
+- Casting state now properly detects spell casting regardless of action ID changes between start and completion packets
+- UI no longer shows duplicate abilities when same spell exists in both main job and subjob
 
 ## [1.0.0] - 2026-01-11
 

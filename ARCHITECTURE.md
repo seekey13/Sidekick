@@ -140,13 +140,19 @@ Provides shared utilities used across all modules.
 - `check_party_hp(threshold, focus, focus_target)`: Returns members needing heal
 - `get_party_buffs(member_index)`: Returns buff array for party member
 - `has_buff/get_player_buffs`: Buff checking via memory pointers
+- `get_trust_buffs(server_id)`: Returns Trust buffs tracked via packets
+- `register_pending_buff(server_id, buff_id)`: Register buff pending application to Trust
+- `handle_buff_application()`: Apply pending buff when cast completes (packet 0x028)
+- `handle_buff_removal(server_id, buff_id)`: Remove buff from Trust (packet 0x029)
+- `clear_trust_buffs()`: Clear all Trust buffs on zone change
 - `has_status/get_removable_debuffs`: Status effect checking
 - `has_amnesia()`: Check if player has Amnesia (blocks job abilities)
 - `has_silence()`: Check if player has Silence (blocks magic)
 - `is_command_blocked(command)`: Check if command is blocked by status ailments
 - `is_in_range(target, range)`: Distance validation
 - `get_pet_distance()`: Pet distance from player (for geo)
-- `is_casting()`: Casting state detection
+- `is_casting()`: Casting state detection using packet offset 0x0F
+- `handle_action_packet(packet)`: Process action packet (0x028) for casting state
 - `filter_abilities_by_level()`: Shared ability filtering logic
 
 #### resource.lua
@@ -242,7 +248,9 @@ Buff maintenance logic with per-party-member configuration.
 
 **Party Buff System:**
 - Uses `party_buff_config` to control which buffs are enabled for each party member
-- UI provides checkboxes for each party member (P1-P5) to enable/disable specific buffs
+- UI provides buttons for each party member (ME/P1-P5) to enable/disable specific buffs
+- Trust members detected (server_id >= 0x1000000) and buffs tracked via packet-based system
+- Pending buffs registered on cast, applied on completion (packet 0x028), removed on loss (packet 0x029)
 - Only buffs with function commands can be cast on party members
 - Automatically checks party member buffs to avoid reapplying active buffs
 - Validates range (20 yalms) before casting on party members
@@ -377,7 +385,21 @@ Optimized to minimize frame impact:
 ### packet_in Event
 Fires on incoming packets. Used for:
 - Job change detection (packets 0x1B, 0x44, 0x1A)
-- Casting state tracking (packet 0x028)
+- Casting state tracking (packet 0x028, offset 0x0F for state byte)
+- Trust buff application (packet 0x028 with completion flag)
+- Trust buff removal (packet 0x029 for status effect loss)
+
+**Casting State Detection:**
+- Packet 0x028 offset 0x0F: `0x00` = casting started, `>0x00` = casting complete
+- Action ID may change between start (0x58E0) and completion (spell ID)
+- Uses state byte only for reliable detection
+
+**Trust Buff Tracking:**
+- Regular party members: Buffs read from memory
+- Trusts (server_id >= 0x1000000): Buffs tracked via packets
+- Pending buffs registered on cast initiation
+- Applied on completion packet (0x028 with non-zero state)
+- Removed on status loss packet (0x029)
 
 ### command Event
 Fires on chat commands. Handles /medic commands.
@@ -482,8 +504,33 @@ abilities = {
 - No hard-coded ability names in core logic
 - Easy to adjust per-job settings
 
+## UI Features
+
+### Collapsible Sections
+All major feature sections (Healing, Buffs, Debuff Removal, etc.) use collapsible headers with integrated checkboxes for enable/disable control.
+
+### Group Dropdown Consolidation
+When multiple abilities exist in a group (e.g., Cure I-V, Protect I-IV), they are consolidated into a dropdown selector:
+- Automatically selects highest level usable ability by default
+- Shows ability cost (MP) in dropdown
+- Grays out unlearned spells
+- ON/OFF button controls the selected ability
+
+### Subjob Duplicate Filtering
+The UI automatically hides abilities from subjob when they already exist in main job:
+- Prevents duplicate Cure spells, Protect, Shell, etc.
+- Uses `is_subjob_duplicate()` to detect and filter
+- Keeps UI clean and prevents confusion
+
+### Trust Detection
+- Party member buttons automatically detect Trusts (server_id >= 0x1000000)
+- Trust buttons display as dark gray and disabled in UI
+- Hover tooltip explains "Trust buffs are not available"
+- Buffs tracked via packet-based system for Trusts
+
 ## Known Limitations
 - Party only (no alliance support)
 - Some buff IDs may vary by private server
+- Trust buff tracking requires packet-based detection (may have slight delay)
 - Requires Ashita v4
 - Attack Range requires [Multisend](https://github.com/ThornyFFXI/Multisend)
