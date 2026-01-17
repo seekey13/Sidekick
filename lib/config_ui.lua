@@ -1250,7 +1250,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                 local is_open, is_enabled = create_collapsing_checkbox_header('Enable Focus Healing', 'focus_enabled', false)
                 if is_open and is_enabled then
                     -- Focus target dropdown
-                    create_combo('Focus Target', 'focus_target_index', focus_target_index, focus_target_options, function(i)
+                    create_combo('Focus Healing Target', 'focus_target_index', focus_target_index, focus_target_options, function(i)
                         -- Convert combo index (0-6) to focus_target_index (nil, 0-5)
                         if i == 0 then
                             return nil

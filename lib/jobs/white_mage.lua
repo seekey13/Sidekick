@@ -837,10 +837,10 @@ return {
                 level = 75,
                 cost = 0,
                 id = 28,  -- Job Ability ID
-                command = function(party_index)
+                command = function(target)
                     return '/ja "Devotion" '..target -- Cannot target self
                 end,
-                -- mp_recovered = 25% max_hp, -- Target will recieve 25% of the users max HP as MP 
+                -- mp_recovered = user_max_hp * 0.25, -- Target will recieve 25% of the users max HP as MP 
                 combat_only = false,
                 -- need a validator to check if the target MP threshold is met
             },
