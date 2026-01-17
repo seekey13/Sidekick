@@ -170,6 +170,31 @@ local function get_ability_group(job_def, ability_name)
     return nil
 end
 
+-- Check if an ability is a duplicate from subjob (same name exists in main job)
+local function is_subjob_duplicate(job_def, ability)
+    -- If ability is from main job or flag not set, it's not a duplicate
+    if ability.is_main_job ~= false then
+        return false
+    end
+    
+    -- Check if an ability with the same name exists from main job
+    if not job_def or not job_def.abilities then
+        return false
+    end
+    
+    -- Search through all ability categories
+    for category, abilities in pairs(job_def.abilities) do
+        for _, other_ability in ipairs(abilities) do
+            -- Found a main job ability with the same name
+            if other_ability.name == ability.name and other_ability.is_main_job ~= false then
+                return true
+            end
+        end
+    end
+    
+    return false
+end
+
 -- Check if a list of abilities has any usable abilities (level-appropriate)
 local function has_usable_abilities(abilities)
     if not abilities then
@@ -444,7 +469,12 @@ local function render_self_single_ability(ability, job_def, extra_desc, id_suffi
     
     -- Display ability name and info
     imgui.SameLine()
-    local desc = ability.name .. ' (Lv.' .. ability.level .. ')' .. (extra_desc or '') .. spell_suffix
+    local desc
+    if ability.cost and ability.cost > 0 then
+        desc = ability.name .. ' (' .. ability.cost .. ' MP)' .. (extra_desc or '') .. spell_suffix
+    else
+        desc = ability.name .. ' (Lv.' .. ability.level .. ')' .. (extra_desc or '') .. spell_suffix
+    end
     imgui.Text(desc)
     
     if not has_spell then
@@ -498,7 +528,12 @@ local function render_party_single_ability(ability, job_def, extra_desc)
         end
     end
     
-    local desc = ability.name .. ' (Lv.' .. ability.level .. ')' .. (extra_desc or '') .. spell_suffix
+    local desc
+    if ability.cost and ability.cost > 0 then
+        desc = ability.name .. ' (' .. ability.cost .. ' MP)' .. (extra_desc or '') .. spell_suffix
+    else
+        desc = ability.name .. ' (Lv.' .. ability.level .. ')' .. (extra_desc or '') .. spell_suffix
+    end
     
     if not has_spell then
         imgui.PushStyleColor(ImGuiCol_Text, { 0.5, 0.5, 0.5, 1.0 })
@@ -669,6 +704,11 @@ local function render_ability(ability, job_def, extra_desc, id_suffix)
         return false
     end
     
+    -- Skip subjob duplicates
+    if is_subjob_duplicate(job_def, ability) then
+        return false
+    end
+    
     local has_group = ability.group ~= nil
     local is_party_target = can_cast_on_party(ability)
     
@@ -798,7 +838,12 @@ local function render_buff_with_buttons(ability, job_def, extra_desc)
         end
     end
     
-    local desc = ability.name .. ' (Lv.' .. ability.level .. ')' .. (extra_desc or '') .. spell_suffix
+    local desc
+    if ability.cost and ability.cost > 0 then
+        desc = ability.name .. ' (' .. ability.cost .. ' MP)' .. (extra_desc or '') .. spell_suffix
+    else
+        desc = ability.name .. ' (Lv.' .. ability.level .. ')' .. (extra_desc or '') .. spell_suffix
+    end
     
     if not has_spell then
         imgui.PushStyleColor(ImGuiCol_Text, { 0.5, 0.5, 0.5, 1.0 })  -- Gray color for unknown spells
@@ -900,7 +945,12 @@ local function render_buff_checkbox_with_party_toggles(ability, job_def, extra_d
         end
     end
     
-    local desc = ability.name .. ' (Lv.' .. ability.level .. ')' .. (extra_desc or '') .. spell_suffix
+    local desc
+    if ability.cost and ability.cost > 0 then
+        desc = ability.name .. ' (' .. ability.cost .. ' MP)' .. (extra_desc or '') .. spell_suffix
+    else
+        desc = ability.name .. ' (Lv.' .. ability.level .. ')' .. (extra_desc or '') .. spell_suffix
+    end
     local checkbox_label = desc .. '##buff'
     
     if not has_spell then
@@ -1013,7 +1063,12 @@ local function render_ability_checkbox(ability, job_def, extra_desc, id_suffix)
         end
     end
     
-    local desc = ability.name .. ' (Lv.' .. ability.level .. ')' .. (extra_desc or '') .. spell_suffix
+    local desc
+    if ability.cost and ability.cost > 0 then
+        desc = ability.name .. ' (' .. ability.cost .. ' MP)' .. (extra_desc or '') .. spell_suffix
+    else
+        desc = ability.name .. ' (Lv.' .. ability.level .. ')' .. (extra_desc or '') .. spell_suffix
+    end
     
     -- Add unique ID suffix to prevent ImGui label collisions when same ability appears in multiple sections
     local checkbox_label = desc
@@ -1218,7 +1273,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                 create_slider_int('Threshold (HP%)', 'heal_threshold', { settings.heal_threshold or 75 }, 1, 100)
                 imgui.Indent(ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.heal) do
-                    if can_use_ability(ability) then
+                    if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                         render_ability_checkbox(ability, job_def, nil, 'heal')
                     end
                 end
@@ -1238,7 +1293,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                 
                 imgui.Indent(ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.heal_aoe) do
-                    if can_use_ability(ability) then
+                    if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                         render_ability_checkbox(ability, job_def, nil, 'heal_aoe')
                     end
                 end
@@ -1256,7 +1311,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                 
                 imgui.Indent(ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.heal_pet) do
-                    if can_use_ability(ability) then
+                    if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                         render_ability_checkbox(ability, job_def, nil, 'heal_pet')
                     end
                 end
@@ -1289,7 +1344,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
             if is_open and is_enabled then
                 imgui.Indent(ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.debuff_removal) do
-                    if can_use_ability(ability) then
+                    if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                         render_ability_checkbox(ability, job_def, nil, 'debuff_removal')
                     end
                 end
@@ -1311,7 +1366,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                     create_slider_int('Threshold (MP%)', 'recover_mp_threshold', { settings.recover_mp_threshold or 30 }, 1, 100)
                     imgui.Indent(ABILITY_LIST_INDENT)
                     for _, ability in ipairs(job_def.abilities.recover_mp) do
-                        if can_use_ability(ability) then
+                        if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                             render_ability_checkbox(ability, job_def, nil, 'recover_mp')
                         end
                     end
@@ -1326,7 +1381,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                     create_slider_int('Threshold (TP)', 'recover_tp_threshold', { settings.recover_tp_threshold or 500 }, 100, 3000)
                     imgui.Indent(ABILITY_LIST_INDENT)
                     for _, ability in ipairs(job_def.abilities.recover_tp) do
-                        if can_use_ability(ability) then
+                        if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                             render_ability_checkbox(ability, job_def, nil, 'recover_tp')
                         end
                     end
@@ -1374,7 +1429,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                 create_slider_int('Threshold (yalms)', 'geo_distance_threshold', { settings.geo_distance_threshold or 10 }, 7, 30)
                 imgui.Indent(ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.geo) do
-                    if can_use_ability(ability) then
+                    if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                         render_ability_checkbox(ability, job_def, nil, 'geo')
                     end
                 end
