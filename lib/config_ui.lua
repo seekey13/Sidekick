@@ -27,7 +27,7 @@ local focus_target_index = { 0 }  -- 0 = None, 1-6 = <ME>-P5
 local party_buffs = {}
 
 -- UI Constants
-local ABILITY_LIST_INDENT = 20  -- Indent for ability checkboxes within sections
+local ABILITY_LIST_INDENT = 10  -- Indent for ability checkboxes within sections
 local PARTY_BUTTON_WIDTH = 45  -- Width of party toggle buttons
 
 -- Dropdown options
@@ -143,6 +143,7 @@ local function get_selected_ability_for_group(job_def, target_group)
     local highest = get_highest_level_ability_in_group(job_def, target_group)
     if highest then
         current_settings[setting_key] = highest.name
+        -- Don't initialize disabled state - let it remain nil so automation treats it as enabled by default
         if save_callback then
             save_callback()
         end
@@ -209,12 +210,10 @@ local function is_ability_enabled(ability_name)
     -- Check flattened key: disabled_AbilityName
     local key = 'disabled_' .. ability_name:gsub(' ', '_')
     
-    -- If this key has never been set, it's a newly discovered ability
-    -- Default to disabled on first display
+    -- If this key has never been set (nil), default to enabled for backward compatibility
+    -- The automation system treats nil as enabled
     if current_settings[key] == nil then
-        -- Initialize as disabled
-        current_settings[key] = true
-        return false
+        return true  -- Default to enabled if never set
     end
     
     return not current_settings[key]
@@ -317,7 +316,8 @@ local function get_onoff_button_width()
     -- Calculate width based on number of active members (ME + party members)
     -- ME is always active, plus P1-P(party_size-1) if in party
     local num_buttons = math.min(party_size, 6)
-    return PARTY_BUTTON_WIDTH * num_buttons
+    -- Add 1 button width spacing + 2px per party member
+    return PARTY_BUTTON_WIDTH * num_buttons + (num_buttons * 6)
 end
 
 -- Render an ON/OFF button for ability state
@@ -372,7 +372,22 @@ local function render_group_dropdown(job_def, target_group, dropdown_width)
             local is_selected = (selected and selected.name == ability.name)
             
             if imgui.Selectable(display_text, is_selected) then
+                -- Save the newly selected ability
                 current_settings[setting_key] = ability.name
+                
+                -- If the old selected ability was enabled, disable it and enable the new one
+                if selected then
+                    local old_enabled = is_ability_enabled(selected.name)
+                    if old_enabled then
+                        -- Disable old selection
+                        local old_key = 'disabled_' .. selected.name:gsub(' ', '_')
+                        current_settings[old_key] = true
+                        -- Enable new selection
+                        local new_key = 'disabled_' .. ability.name:gsub(' ', '_')
+                        current_settings[new_key] = false
+                    end
+                end
+                
                 if save_callback then
                     save_callback()
                 end
@@ -390,15 +405,6 @@ end
 -- Render a self-target single ability (not in a group)
 -- Layout: [ON/OFF Button] Ability Name (Lv.XX) [Extra Tags]
 local function render_self_single_ability(ability, job_def, extra_desc, id_suffix)
-    -- Check if this ability is being displayed for the first time
-    local key = 'disabled_' .. ability.name:gsub(' ', '_')
-    if current_settings and current_settings[key] == nil then
-        current_settings[key] = true
-        if save_callback then
-            save_callback()
-        end
-    end
-    
     -- Check spell knowledge
     local cmd = type(ability.command) == 'function' and ability.command(0) or ability.command
     local is_spell = cmd and string.sub(cmd, 1, 3) == '/ma'
@@ -411,7 +417,6 @@ local function render_self_single_ability(ability, job_def, extra_desc, id_suffi
             has_spell = known
             if not has_spell then
                 spell_suffix = ' (Not Learned)'
-                current_settings[key] = true
             end
         end
     end
@@ -457,7 +462,7 @@ local function render_self_grouped_ability(ability, job_def, extra_desc)
     
     -- Render dropdown
     imgui.SameLine()
-    render_group_dropdown(job_def, ability.group, 200)
+    render_group_dropdown(job_def, ability.group, 300)
 end
 
 -- Render a party-target single ability (not in a group)
@@ -663,7 +668,7 @@ local function render_party_grouped_ability(ability, job_def, extra_desc)
     
     -- Display dropdown after buttons
     imgui.SameLine()
-    render_group_dropdown(job_def, ability.group, 200)
+    render_group_dropdown(job_def, ability.group, 300)
     
     if not has_spell then
         imgui.PopStyleColor()
@@ -1091,7 +1096,14 @@ function config_ui.render(settings, job_def, callback, roll_mod)
     -- Sync UI state from settings
     sync_from_settings()
     
-    imgui.SetNextWindowSize({400, 600}, ImGuiCond_FirstUseEver)
+    -- Calculate fixed window width based on party size
+    local party_size = common.get_party_size()
+    local num_buttons = math.min(party_size, 6)
+    local button_width = PARTY_BUTTON_WIDTH * num_buttons + (num_buttons * 6)
+    local dropdown_width = 300
+    local window_width = math.max((button_width + dropdown_width + ABILITY_LIST_INDENT * 2 + 15), (button_width + dropdown_width + ABILITY_LIST_INDENT * 2 + 15))
+    
+    imgui.SetNextWindowSize({window_width, 0}, ImGuiCond_Always)
     
     -- Build window title with job name if available
     local window_title = 'Medic Configuration'
@@ -1099,7 +1111,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
         window_title = window_title .. ' - ' .. job_def.job_name
     end
     
-    if imgui.Begin(window_title, is_open, ImGuiWindowFlags_NoCollapse) then
+    if imgui.Begin(window_title, is_open, ImGuiWindowFlags_NoCollapse + ImGuiWindowFlags_NoResize + ImGuiWindowFlags_AlwaysAutoResize) then
         
         -- Automation toggle button
         local can_attack = common.can_attack()

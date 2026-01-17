@@ -276,13 +276,51 @@ return {
                 group = 'afflatus',
             },
             {
-                name = 'Auspice',
-                level = 55,
+                name = 'Haste',
+                level = 40,
+                cost = 40,
+                id = 57,  -- Spell ID
+                command = function(target)
+                    return '/ma "Haste" '..target
+                end,
+                buff_id = 33,  -- Haste
+                duration = 180,
+            },
+            {
+                name = 'Regen III',
+                level = 66,
+                cost = 64,
+                id = 111,  -- Spell ID
+                command = function(target)
+                    return '/ma "Regen III" '..target
+                end,
+                buff_id = 42,  -- Regen
+                combat_only = false,
+                duration = 60,
+            },
+            {
+                name = 'Regen II',
+                level = 44,
+                cost = 36,
+                id = 110,  -- Spell ID
+                command = function(target)
+                    return '/ma "Regen II" '..target
+                end,
+                buff_id = 42,  -- Regen
+                combat_only = false,
+                duration = 60,
+            },
+            {
+                name = 'Regen',
+                level = 21,
                 cost = 15,
-                id = 96,  -- Spell ID
-                command = '/ma "Auspice" <me>',
-                buff_id = 275,  -- Auspice
-                combat_only = true,
+                id = 108,  -- Spell ID
+                command = function(target)
+                    return '/ma "Regen" '..target
+                end,
+                buff_id = 42,  -- Regen
+                combat_only = false,
+                duration = 75,
             },
             {
                 name = 'Protectra V',
@@ -335,6 +373,58 @@ return {
                 group = 'protectra',
             },
             {
+                name = 'Protect IV',
+                level = 63,
+                cost = 65,
+                id = 46,  -- Spell ID
+                command = function(target)
+                    return '/ma "Protect IV" '..target
+                end,
+                buff_id = 40,  -- Protect
+                combat_only = false,
+                group = 'protect',
+                duration = 1800,
+            },
+            {
+                name = 'Protect III',
+                level = 47,
+                cost = 46,
+                id = 45,  -- Spell ID
+                command = function(target)
+                    return '/ma "Protect III" '..target
+                end,
+                buff_id = 40,  -- Protect
+                combat_only = false,
+                group = 'protect',
+                duration = 1800,
+            },
+            {
+                name = 'Protect II',
+                level = 27,
+                cost = 28,
+                id = 44,  -- Spell ID
+                command = function(target)
+                    return '/ma "Protect II" '..target
+                end,
+                buff_id = 40,  -- Protect
+                combat_only = false,
+                group = 'protect',
+                duration = 1800,
+            },
+            {
+                name = 'Protect',
+                level = 7,
+                cost = 9,
+                id = 43,  -- Spell ID
+                command = function(target)
+                    return '/ma "Protect" '..target
+                end,
+                buff_id = 40,  -- Protect
+                combat_only = false,
+                group = 'protect',
+                duration = 1800,
+            },
+            {
                 name = 'Shellra V',
                 level = 75,
                 cost = 93,
@@ -385,71 +475,56 @@ return {
                 group = 'shellra',
             },
             {
-                name = 'Aquaveil',
-                level = 10,
-                cost = 12,
-                id = 55,  -- Spell ID
-                command = '/ma "Aquaveil" <me>',
-                buff_id = 39,  -- Aquaveil
+                name = 'Shell IV',
+                level = 68,
+                cost = 71,
+                id = 51,  -- Spell ID
+                command = function(target)
+                    return '/ma "Shell IV" '..target
+                end,
+                buff_id = 41,  -- Shell
                 combat_only = false,
+                group = 'shell',
+                duration = 1800,
             },
             {
-                name = 'Blink',
-                level = 19,
-                cost = 20,
-                id = 53,  -- Spell ID
-                command = '/ma "Blink" <me>',
-                buff_id = 36,  -- Blink
+                name = 'Shell III',
+                level = 57,
+                cost = 56,
+                id = 50,  -- Spell ID
+                command = function(target)
+                    return '/ma "Shell III" '..target
+                end,
+                buff_id = 41,  -- Shell
                 combat_only = false,
+                group = 'shell',
+                duration = 1800,
             },
             {
-                name = 'Stoneskin',
-                level = 28,
-                cost = 29,
-                id = 54,  -- Spell ID
-                command = '/ma "Stoneskin" <me>',
-                buff_id = 37,  -- Stoneskin
+                name = 'Shell II',
+                level = 37,
+                cost = 37,
+                id = 49,  -- Spell ID
+                command = function(target)
+                    return '/ma "Shell II" '..target
+                end,
+                buff_id = 41,  -- Shell
                 combat_only = false,
+                group = 'shell',
+                duration = 1800,
             },
             {
-                name = 'Reraise III',
-                level = 70,
-                cost = 150,
-                id = 142,  -- Spell ID
-                command = '/ma "Reraise III" <me>',
-                buff_id = 113,  -- Reraise
-                group = 'reraise',
+                name = 'Shell',
+                level = 17,
+                cost = 18,
+                id = 48,  -- Spell ID
+                command = function(target)
+                    return '/ma "Shell" '..target
+                end,
+                buff_id = 41,  -- Shell
                 combat_only = false,
-            },
-            {
-                name = 'Reraise II',
-                level = 56,
-                cost = 150,
-                id = 141,  -- Spell ID
-                command = '/ma "Reraise II" <me>',
-                buff_id = 113,  -- Reraise
-                group = 'reraise',
-                combat_only = false,
-            },
-            {
-                name = 'Reraise',
-                level = 25,
-                cost = 150,
-                id = 135,  -- Spell ID
-                command = '/ma "Reraise" <me>',
-                buff_id = 113,  -- Reraise
-                group = 'reraise',
-                combat_only = false,
-            },
-            {
-                name = 'Enlight',
-                level = 75,
-                cost = 45,
-                id = 310,  -- Spell ID
-                command = '/ma "Enlight" <me>',
-                buff_id = 274,  -- Enlight
-                combat_only = true,
-                self_only = true,
+                group = 'shell',
+                duration = 1800,
             },
             -- Bar Element spells
             {
@@ -608,158 +683,80 @@ return {
                 self_only = true,
             },
             {
-                name = 'Protect IV',
-                level = 63,
-                cost = 65,
-                id = 46,  -- Spell ID
-                command = function(target)
-                    return '/ma "Protect IV" '..target
-                end,
-                buff_id = 40,  -- Protect
+                name = 'Aquaveil',
+                level = 10,
+                cost = 12,
+                id = 55,  -- Spell ID
+                command = '/ma "Aquaveil" <me>',
+                buff_id = 39,  -- Aquaveil
                 combat_only = false,
-                group = 'protect',
-                duration = 1800,
             },
             {
-                name = 'Protect III',
-                level = 47,
-                cost = 46,
-                id = 45,  -- Spell ID
-                command = function(target)
-                    return '/ma "Protect III" '..target
-                end,
-                buff_id = 40,  -- Protect
+                name = 'Blink',
+                level = 19,
+                cost = 20,
+                id = 53,  -- Spell ID
+                command = '/ma "Blink" <me>',
+                buff_id = 36,  -- Blink
                 combat_only = false,
-                group = 'protect',
-                duration = 1800,
             },
             {
-                name = 'Protect II',
-                level = 27,
-                cost = 28,
-                id = 44,  -- Spell ID
-                command = function(target)
-                    return '/ma "Protect II" '..target
-                end,
-                buff_id = 40,  -- Protect
+                name = 'Stoneskin',
+                level = 28,
+                cost = 29,
+                id = 54,  -- Spell ID
+                command = '/ma "Stoneskin" <me>',
+                buff_id = 37,  -- Stoneskin
                 combat_only = false,
-                group = 'protect',
-                duration = 1800,
             },
             {
-                name = 'Protect',
-                level = 7,
-                cost = 9,
-                id = 43,  -- Spell ID
-                command = function(target)
-                    return '/ma "Protect" '..target
-                end,
-                buff_id = 40,  -- Protect
+                name = 'Reraise III',
+                level = 70,
+                cost = 150,
+                id = 142,  -- Spell ID
+                command = '/ma "Reraise III" <me>',
+                buff_id = 113,  -- Reraise
+                group = 'reraise',
                 combat_only = false,
-                group = 'protect',
-                duration = 1800,
             },
             {
-                name = 'Shell IV',
-                level = 68,
-                cost = 71,
-                id = 51,  -- Spell ID
-                command = function(target)
-                    return '/ma "Shell IV" '..target
-                end,
-                buff_id = 41,  -- Shell
+                name = 'Reraise II',
+                level = 56,
+                cost = 150,
+                id = 141,  -- Spell ID
+                command = '/ma "Reraise II" <me>',
+                buff_id = 113,  -- Reraise
+                group = 'reraise',
                 combat_only = false,
-                group = 'shell',
-                duration = 1800,
             },
             {
-                name = 'Shell III',
-                level = 57,
-                cost = 56,
-                id = 50,  -- Spell ID
-                command = function(target)
-                    return '/ma "Shell III" '..target
-                end,
-                buff_id = 41,  -- Shell
+                name = 'Reraise',
+                level = 25,
+                cost = 150,
+                id = 135,  -- Spell ID
+                command = '/ma "Reraise" <me>',
+                buff_id = 113,  -- Reraise
+                group = 'reraise',
                 combat_only = false,
-                group = 'shell',
-                duration = 1800,
             },
             {
-                name = 'Shell II',
-                level = 37,
-                cost = 37,
-                id = 49,  -- Spell ID
-                command = function(target)
-                    return '/ma "Shell II" '..target
-                end,
-                buff_id = 41,  -- Shell
-                combat_only = false,
-                group = 'shell',
-                duration = 1800,
+                name = 'Enlight',
+                level = 75,
+                cost = 45,
+                id = 310,  -- Spell ID
+                command = '/ma "Enlight" <me>',
+                buff_id = 274,  -- Enlight
+                combat_only = true,
+                self_only = true,
             },
             {
-                name = 'Shell',
-                level = 17,
-                cost = 18,
-                id = 48,  -- Spell ID
-                command = function(target)
-                    return '/ma "Shell" '..target
-                end,
-                buff_id = 41,  -- Shell
-                combat_only = false,
-                group = 'shell',
-                duration = 1800,
-            },
-            {
-                name = 'Haste',
-                level = 40,
-                cost = 40,
-                id = 57,  -- Spell ID
-                command = function(target)
-                    return '/ma "Haste" '..target
-                end,
-                buff_id = 33,  -- Haste
-                duration = 180,
-            },
-            {
-                name = 'Regen III',
-                level = 66,
-                cost = 64,
-                id = 111,  -- Spell ID
-                command = function(target)
-                    return '/ma "Regen III" '..target
-                end,
-                buff_id = 42,  -- Regen
-                combat_only = false,
-                group = 'regen',
-                duration = 60,
-            },
-            {
-                name = 'Regen II',
-                level = 44,
-                cost = 36,
-                id = 110,  -- Spell ID
-                command = function(target)
-                    return '/ma "Regen II" '..target
-                end,
-                buff_id = 42,  -- Regen
-                combat_only = false,
-                group = 'regen',
-                duration = 60,
-            },
-            {
-                name = 'Regen',
-                level = 21,
+                name = 'Auspice',
+                level = 55,
                 cost = 15,
-                id = 108,  -- Spell ID
-                command = function(target)
-                    return '/ma "Regen" '..target
-                end,
-                buff_id = 42,  -- Regen
-                combat_only = false,
-                group = 'regen',
-                duration = 75,
+                id = 96,  -- Spell ID
+                command = '/ma "Auspice" <me>',
+                buff_id = 275,  -- Auspice
+                combat_only = true,
             },
         },
 
