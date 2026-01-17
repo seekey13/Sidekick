@@ -228,7 +228,10 @@ function common.can_attack()
 end
 
 function common.is_casting()
-    -- Returns true when player is casting a spell (category 4 action packet received)
+    -- Returns true when player is casting a spell
+    -- State is tracked via packet 0x028 offset 0x0F:
+    --   0x00 = casting started
+    --   0x02 = casting complete
     -- Prevents automation from spamming actions during cast time
     
     -- Timeout check: if too much time has passed, clear the casting state
@@ -266,8 +269,13 @@ function common.handle_action_packet(packet)
     -- Parse category (offset 0x04, 1 byte)
     local category = struct.unpack('B', packet, 0x04 + 1)
     
-    -- Parse target count (offset 0x09, 1 byte)
-    local target_count = struct.unpack('B', packet, 0x09 + 1)
+    -- Parse action state byte (offset 0x0F, 1 byte)
+    -- 0x00 = Action/Casting started
+    -- 0x01-0x04 = Action/Casting complete (various completion states)
+    local action_state = 0
+    if #packet >= 16 then
+        action_state = struct.unpack('B', packet, 0x0F + 1)
+    end
     
     -- Parse action ID if available (offset 0x0A, 2 bytes)
     local action_id = 0
@@ -278,59 +286,41 @@ function common.handle_action_packet(packet)
     -- Track previous casting state to detect changes
     local was_casting = casting_state.is_casting
     
-    -- Check if this is a spell action (category 35 on this server)
-    -- Category 35 includes magic spells, ranged attacks, job abilities, AND autoattacks
-    -- We need to distinguish between them for proper casting state tracking
+    -- Debug: Log all packet details to understand the structure
+    common.debugf('[PACKET] Category: %d, ActionID: 0x%04X, State: 0x%02X', category, action_id, action_state)
     
-    if category == 35 then
-        -- Autoattack (action_id 0x1844/6212) clears casting state
-        -- If we can autoattack, we're free to act
-        if action_id == 0x1844 then
+    -- Simplified casting state logic based on action_state byte (offset 0x0F)
+    -- 0x00 = Action started (casting/channeling)
+    -- 0x01-0x04 = Action complete (various completion types)
+    -- Note: ActionID changes between start (0x58E0) and completion (spell ID), so we can't rely on it
+    
+    -- Autoattack check (should not affect casting state)
+    local is_autoattack = (action_id == 0x1844)
+    
+    common.debugf('[PACKET] is_autoattack: %s, was_casting: %s', tostring(is_autoattack), tostring(was_casting))
+    
+    if not is_autoattack then
+        -- Track casting state based on action_state byte
+        if action_state == 0x00 then
+            -- Action started (any action that's not autoattack)
+            common.debugf('[PACKET] Setting is_casting = true')
+            casting_state.is_casting = true
+            casting_state.last_action_time = os.clock()
+        elseif action_state > 0x00 then
+            -- Action complete
+            common.debugf('[PACKET] Setting is_casting = false')
             casting_state.is_casting = false
-        else
-            -- Spell IDs are typically in range 0-1535 (0x000-0x5FF)
-            local is_spell = (action_id >= 0 and action_id <= 0x5FF)
-            
-            -- Ranged attacks use specific action IDs (from packet analysis)
-            -- 0x58F0 (22768) = ranged attack start, 0x1CC8 (7368) = ranged attack complete
-            local is_ranged = (action_id == 0x58F0 or action_id == 0x1CC8)
-            
-            -- Weaponskills appear to be in range 0x1000-0x6000 but should NOT block actions
-            -- They execute instantly like job abilities
-            local is_weaponskill = (action_id >= 0x1000 and action_id <= 0x6000 and action_id ~= 0x1844)
-            
-            -- Job abilities are everything else in category 35 that isn't spell/ranged/weaponskill/autoattack
-            local is_job_ability = (not is_spell and not is_ranged and not is_weaponskill)
-            
-            if is_spell or is_ranged then
-                -- Spells and ranged attacks both have casting/animation time that blocks actions
-                -- Use toggle logic: first packet = start, second packet = complete
-                if not casting_state.is_casting then
-                    casting_state.is_casting = true
-                    casting_state.last_action_time = os.clock()
-                else
-                    casting_state.is_casting = false
-                end
-            else
-                -- Job abilities and weaponskills execute instantly - clear casting state
-                casting_state.is_casting = false
-            end
         end
-    elseif category == 6 or category == 7 or category == 8 or category == 9 then
-        -- Job abilities (6), weaponskills (7), items (8), ranged attacks (9) - always clear casting state
-        -- These should NOT set casting state, only clear it if it was somehow stuck
-        casting_state.is_casting = false
-    elseif category == 45 or category == 1 then
-        -- Autoattacks (category 45/0x2D and 1) - ignore completely, don't affect casting state
-        return
     end
     
-    -- Output simple state change messages
+    -- Output state change messages
     if casting_state.is_casting and not was_casting then
-        common.debugf('[CASTING STARTED]')
+        common.debugf('[CASTING STARTED] State: 0x%02X, Category: %d, ActionID: 0x%04X', action_state, category, action_id)
     elseif not casting_state.is_casting and was_casting then
-        common.debugf('[CASTING ENDED]')
+        common.debugf('[CASTING ENDED] State: 0x%02X, Category: %d, ActionID: 0x%04X', action_state, category, action_id)
     end
+    
+    common.debugf('[PACKET] Final is_casting: %s', tostring(casting_state.is_casting))
 end
 
 function common.is_player_moving()

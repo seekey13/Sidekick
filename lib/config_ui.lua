@@ -1259,7 +1259,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                         end
                     end)
                     
-                    create_slider_int('Threshold (HP%)', 'focus_threshold', { settings.focus_threshold or 85 }, 1, 100)
+                    create_slider_int('Focus Threshold (HP%)', 'focus_threshold', { settings.focus_threshold or 85 }, 1, 100)
                 end
                 
                 imgui.Separator()
@@ -1270,7 +1270,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
         if job_def and job_def.abilities.heal and has_usable_abilities(job_def.abilities.heal) then
             local is_open, is_enabled = create_collapsing_checkbox_header('Enable Party Healing', 'heal_enabled', false)
             if is_open and is_enabled then
-                create_slider_int('Threshold (HP%)', 'heal_threshold', { settings.heal_threshold or 75 }, 1, 100)
+                create_slider_int('Party Threshold (HP%)', 'heal_threshold', { settings.heal_threshold or 75 }, 1, 100)
                 imgui.Indent(ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.heal) do
                     if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
@@ -1287,7 +1287,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
         if job_def and job_def.abilities.heal_aoe and has_usable_abilities(job_def.abilities.heal_aoe) then
             local is_open, is_enabled = create_collapsing_checkbox_header('Enable AOE Healing', 'heal_aoe_enabled', false)
             if is_open and is_enabled then
-                create_slider_int('Threshold (HP%)', 'heal_aoe_threshold', { settings.heal_aoe_threshold or 70 }, 1, 100)
+                create_slider_int('AOE Threshold (HP%)', 'heal_aoe_threshold', { settings.heal_aoe_threshold or 70 }, 1, 100)
                 
                 create_slider_int('Min Members', 'heal_aoe_count_threshold', { settings.heal_aoe_count_threshold or 2 }, 1, 6)
                 
@@ -1307,7 +1307,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
         if job_def and job_def.abilities.heal_pet and has_usable_abilities(job_def.abilities.heal_pet) then
             local is_open, is_enabled = create_collapsing_checkbox_header('Enable Pet Healing', 'heal_pet_enabled', false)
             if is_open and is_enabled then
-                create_slider_int('Threshold (HP%)', 'heal_pet_threshold', { settings.heal_pet_threshold or 50 }, 1, 100)
+                create_slider_int('Pet Threshold (HP%)', 'heal_pet_threshold', { settings.heal_pet_threshold or 50 }, 1, 100)
                 
                 imgui.Indent(ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.heal_pet) do
@@ -1453,6 +1453,8 @@ function config_ui.render(settings, job_def, callback, roll_mod)
             imgui.Text(string.format('get_target_id = %s', tostring(target_id)))
             local is_moving = common.is_player_moving()
             imgui.Text(string.format('is_player_moving = %s', tostring(is_moving)))
+            local is_casting = common.is_casting()
+            imgui.Text(string.format('is_casting = %s', tostring(is_casting)))
             local party_server_ids = common.get_party_server_ids()
             if #party_server_ids > 0 then
                 local ids_str = table.concat(party_server_ids, ', ')
