@@ -245,10 +245,10 @@ local function is_ability_enabled(ability_name)
     -- Check flattened key: disabled_AbilityName
     local key = 'disabled_' .. ability_name:gsub(' ', '_')
     
-    -- If this key has never been set (nil), default to enabled for backward compatibility
-    -- The automation system treats nil as enabled
+    -- If this key has never been set (nil), default to disabled
+    -- New abilities should start OFF until player enables them
     if current_settings[key] == nil then
-        return true  -- Default to enabled if never set
+        return false  -- Default to disabled if never set
     end
     
     return not current_settings[key]
@@ -356,12 +356,18 @@ local function get_onoff_button_width()
 end
 
 -- Render an ON/OFF button for ability state
-local function render_onoff_button(ability_name, job_def)
+local function render_onoff_button(ability_name, job_def, has_spell)
+    has_spell = has_spell == nil and true or has_spell  -- Default to true if not specified
     local is_enabled = is_ability_enabled(ability_name)
     local button_width = get_onoff_button_width()
     
-    -- Set button color based on state
-    if is_enabled then
+    -- Set button color based on state and spell knowledge
+    if not has_spell then
+        -- Spell not known: Dark gray and disabled
+        imgui.PushStyleColor(ImGuiCol_Button, { 0.2, 0.2, 0.2, 1.0 })
+        imgui.PushStyleColor(ImGuiCol_ButtonHovered, { 0.2, 0.2, 0.2, 1.0 })
+        imgui.PushStyleColor(ImGuiCol_ButtonActive, { 0.2, 0.2, 0.2, 1.0 })
+    elseif is_enabled then
         -- ON state: Use default button colors
     else
         -- OFF state: Gray
@@ -373,11 +379,14 @@ local function render_onoff_button(ability_name, job_def)
     local button_text = is_enabled and 'ON' or 'OFF'
     local button_label = button_text .. '##onoff_' .. ability_name
     
-    if imgui.Button(button_label, { button_width, 0 }) then
+    if has_spell and imgui.Button(button_label, { button_width, 0 }) then
         toggle_ability(ability_name, not is_enabled, job_def)
+    elseif not has_spell then
+        -- Render disabled button (no interaction)
+        imgui.Button(button_label, { button_width, 0 })
     end
     
-    if not is_enabled then
+    if not has_spell or not is_enabled then
         imgui.PopStyleColor(3)
     end
 end
@@ -426,13 +435,19 @@ local function render_group_dropdown(job_def, target_group, dropdown_width)
                 -- Save the newly selected ability
                 current_settings[setting_key] = ability.name
                 
-                -- If the old selected ability was enabled, disable it and enable the new one
+                -- Disable ALL other abilities in this group (only the selected one can be enabled)
+                local group_abilities = get_abilities_in_group(job_def, target_group)
+                for _, group_ability in ipairs(group_abilities) do
+                    if group_ability.name ~= ability.name then
+                        local other_key = 'disabled_' .. group_ability.name:gsub(' ', '_')
+                        current_settings[other_key] = true
+                    end
+                end
+                
+                -- If the old selected ability was enabled, transfer that state to new selection
                 if selected then
                     local old_enabled = is_ability_enabled(selected.name)
                     if old_enabled then
-                        -- Disable old selection
-                        local old_key = 'disabled_' .. selected.name:gsub(' ', '_')
-                        current_settings[old_key] = true
                         -- Enable new selection
                         local new_key = 'disabled_' .. ability.name:gsub(' ', '_')
                         current_settings[new_key] = false
@@ -477,7 +492,7 @@ local function render_self_single_ability(ability, job_def, extra_desc, id_suffi
         imgui.PushStyleColor(ImGuiCol_Text, { 0.5, 0.5, 0.5, 1.0 })
     end
     
-    render_onoff_button(ability.name, job_def)
+    render_onoff_button(ability.name, job_def, has_spell)
     
     -- Display ability name and info
     imgui.SameLine()
@@ -514,8 +529,20 @@ local function render_self_grouped_ability(ability, job_def, extra_desc)
         return
     end
     
+    -- Check if selected spell is known
+    local cmd = type(selected.command) == 'function' and selected.command(0) or selected.command
+    local is_spell = cmd and string.sub(cmd, 1, 3) == '/ma'
+    local has_spell = true
+    
+    if is_spell and selected.id then
+        local ok, known = pcall(function() return AshitaCore:GetMemoryManager():GetPlayer():HasSpell(selected.id) end)
+        if ok then
+            has_spell = known
+        end
+    end
+    
     -- Render ON/OFF button using the selected ability's name
-    render_onoff_button(selected.name, job_def)
+    render_onoff_button(selected.name, job_def, has_spell)
     
     -- Render dropdown
     imgui.SameLine()
@@ -556,7 +583,12 @@ local function render_party_single_ability(ability, job_def, extra_desc)
     -- Render [<ME>] button
     local me_enabled = is_party_buff_enabled(ability.name, 0)
     
-    if me_enabled then
+    if not has_spell then
+        -- Spell not known: Dark gray and disabled
+        imgui.PushStyleColor(ImGuiCol_Button, { 0.2, 0.2, 0.2, 1.0 })
+        imgui.PushStyleColor(ImGuiCol_ButtonHovered, { 0.2, 0.2, 0.2, 1.0 })
+        imgui.PushStyleColor(ImGuiCol_ButtonActive, { 0.2, 0.2, 0.2, 1.0 })
+    elseif me_enabled then
         -- Selected: Use default button colors
     else
         -- Not selected: Gray
@@ -568,9 +600,11 @@ local function render_party_single_ability(ability, job_def, extra_desc)
     local me_button_label = '<ME>##' .. ability.name .. '_me'
     if has_spell and imgui.Button(me_button_label, { PARTY_BUTTON_WIDTH, 0 }) then
         toggle_party_buff(ability.name, 0, not me_enabled)
+    elseif not has_spell then
+        imgui.Button(me_button_label, { PARTY_BUTTON_WIDTH, 0 })
     end
     
-    if not me_enabled then
+    if not has_spell or not me_enabled then
         imgui.PopStyleColor(3)
     end
     
@@ -585,7 +619,12 @@ local function render_party_single_ability(ability, job_def, extra_desc)
                 
                 local is_enabled = is_party_buff_enabled(ability.name, party_index)
                 
-                if is_enabled then
+                if not has_spell then
+                    -- Spell not known: Dark gray and disabled
+                    imgui.PushStyleColor(ImGuiCol_Button, { 0.2, 0.2, 0.2, 1.0 })
+                    imgui.PushStyleColor(ImGuiCol_ButtonHovered, { 0.2, 0.2, 0.2, 1.0 })
+                    imgui.PushStyleColor(ImGuiCol_ButtonActive, { 0.2, 0.2, 0.2, 1.0 })
+                elseif is_enabled then
                     -- Selected: Use default button colors
                 else
                     -- Not selected: Gray
@@ -597,9 +636,11 @@ local function render_party_single_ability(ability, job_def, extra_desc)
                 local button_label = '<P' .. party_index .. '>##' .. ability.name .. '_p' .. party_index
                 if has_spell and imgui.Button(button_label, { PARTY_BUTTON_WIDTH, 0 }) then
                     toggle_party_buff(ability.name, party_index, not is_enabled)
+                elseif not has_spell then
+                    imgui.Button(button_label, { PARTY_BUTTON_WIDTH, 0 })
                 end
                 
-                if not is_enabled then
+                if not has_spell or not is_enabled then
                     imgui.PopStyleColor(3)
                 end
             end
@@ -653,7 +694,12 @@ local function render_party_grouped_ability(ability, job_def, extra_desc)
     -- Render [<ME>] button (using selected ability name)
     local me_enabled = is_party_buff_enabled(selected.name, 0)
     
-    if me_enabled then
+    if not has_spell then
+        -- Spell not known: Dark gray and disabled
+        imgui.PushStyleColor(ImGuiCol_Button, { 0.2, 0.2, 0.2, 1.0 })
+        imgui.PushStyleColor(ImGuiCol_ButtonHovered, { 0.2, 0.2, 0.2, 1.0 })
+        imgui.PushStyleColor(ImGuiCol_ButtonActive, { 0.2, 0.2, 0.2, 1.0 })
+    elseif me_enabled then
         -- Selected: Use default button colors
     else
         -- Not selected: Gray
@@ -665,9 +711,11 @@ local function render_party_grouped_ability(ability, job_def, extra_desc)
     local me_button_label = '<ME>##' .. selected.name .. '_me'
     if has_spell and imgui.Button(me_button_label, { PARTY_BUTTON_WIDTH, 0 }) then
         toggle_party_buff(selected.name, 0, not me_enabled)
+    elseif not has_spell then
+        imgui.Button(me_button_label, { PARTY_BUTTON_WIDTH, 0 })
     end
     
-    if not me_enabled then
+    if not has_spell or not me_enabled then
         imgui.PopStyleColor(3)
     end
     
@@ -682,7 +730,12 @@ local function render_party_grouped_ability(ability, job_def, extra_desc)
                 
                 local is_enabled = is_party_buff_enabled(selected.name, party_index)
                 
-                if is_enabled then
+                if not has_spell then
+                    -- Spell not known: Dark gray and disabled
+                    imgui.PushStyleColor(ImGuiCol_Button, { 0.2, 0.2, 0.2, 1.0 })
+                    imgui.PushStyleColor(ImGuiCol_ButtonHovered, { 0.2, 0.2, 0.2, 1.0 })
+                    imgui.PushStyleColor(ImGuiCol_ButtonActive, { 0.2, 0.2, 0.2, 1.0 })
+                elseif is_enabled then
                     -- Selected: Use default button colors
                 else
                     -- Not selected: Gray
@@ -694,9 +747,11 @@ local function render_party_grouped_ability(ability, job_def, extra_desc)
                 local button_label = '<P' .. party_index .. '>##' .. selected.name .. '_p' .. party_index
                 if has_spell and imgui.Button(button_label, { PARTY_BUTTON_WIDTH, 0 }) then
                     toggle_party_buff(selected.name, party_index, not is_enabled)
+                elseif not has_spell then
+                    imgui.Button(button_label, { PARTY_BUTTON_WIDTH, 0 })
                 end
                 
-                if not is_enabled then
+                if not has_spell or not is_enabled then
                     imgui.PopStyleColor(3)
                 end
             end
@@ -1050,16 +1105,6 @@ end
 
 -- Render an ability checkbox with spell knowledge checking
 local function render_ability_checkbox(ability, job_def, extra_desc, id_suffix)
-    -- Check if this ability is being displayed for the first time
-    local key = 'disabled_' .. ability.name:gsub(' ', '_')
-    if current_settings and current_settings[key] == nil then
-        -- First time seeing this ability, set to disabled
-        current_settings[key] = true
-        if save_callback then
-            save_callback()
-        end
-    end
-    
     -- Get the command string (handle both string and function commands)
     local cmd = type(ability.command) == 'function' and ability.command(0) or ability.command
     local is_spell = cmd and string.sub(cmd, 1, 3) == '/ma'
