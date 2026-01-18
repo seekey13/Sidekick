@@ -37,7 +37,7 @@ local party_buffs = {}
 
 -- UI Constants
 local ABILITY_LIST_INDENT = 10  -- Indent for ability checkboxes within sections
-local PARTY_BUTTON_WIDTH = 45  -- Width of party toggle buttons
+local PARTY_BUTTON_WIDTH = 44  -- Width of party toggle buttons
 local SPACE_BETWEEN_BUTTONS = 8  -- Space between party buttons
 
 -- Dropdown options
@@ -352,7 +352,7 @@ local function get_onoff_button_width()
     -- ME is always active, plus P1-P(party_size-1) if in party
     local num_buttons = math.min(party_size, 6)
     -- Add 1 button width spacing + 2px per party member
-    return PARTY_BUTTON_WIDTH * num_buttons + (num_buttons * 6)
+    return PARTY_BUTTON_WIDTH * num_buttons + (SPACE_BETWEEN_BUTTONS * (num_buttons - 1))
 end
 
 -- Render an ON/OFF button for ability state
@@ -1251,9 +1251,9 @@ function config_ui.render(settings, job_def, callback, roll_mod)
     -- Calculate fixed window width based on party size
     local party_size = common.get_party_size()
     local num_buttons = math.min(party_size, 6)
-    local button_width = PARTY_BUTTON_WIDTH * num_buttons + (num_buttons * 6)
+    local button_width = PARTY_BUTTON_WIDTH * num_buttons + (SPACE_BETWEEN_BUTTONS * (num_buttons - 1))
     local dropdown_width = 300
-    local window_width = math.max((button_width + dropdown_width + ABILITY_LIST_INDENT * 2 + 15), (button_width + dropdown_width + ABILITY_LIST_INDENT * 2 + 15))
+    local window_width = math.max((button_width + dropdown_width + ABILITY_LIST_INDENT + 50), 1)
     
     imgui.SetNextWindowSize({window_width, 0}, ImGuiCond_Always)
     
