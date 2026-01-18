@@ -81,6 +81,7 @@ return {
                 command = '/ja "Apogee" <me>',
                 combat_only = false,
                 pet_required = true,
+                requires_carbuncle = true,
             },
         },
     },

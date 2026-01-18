@@ -679,6 +679,42 @@ function common.get_party_member_zone(index)
     return party:GetMemberZone(index)
 end
 
+function common.get_party_index_by_name(name)
+    -- Returns party index (0-5) for given character name, or nil if not found
+    if not name then return nil end
+    
+    local party = common.get_party()
+    if not party then return nil end
+    
+    -- Check all party slots (0=player, 1-5=party members)
+    for i = 0, 5 do
+        if party:GetMemberIsActive(i) == 1 then
+            local member_name = party:GetMemberName(i)
+            if member_name == name then
+                return i
+            end
+        end
+    end
+    
+    return nil
+end
+
+function common.get_target_index_by_name(name)
+    -- Returns entity target index for given character name, or nil if not found
+    local party_index = common.get_party_index_by_name(name)
+    if not party_index then return nil end
+    
+    local party = common.get_party()
+    if not party then return nil end
+    
+    local target_index = party:GetMemberTargetIndex(party_index)
+    if target_index and target_index > 0 then
+        return target_index
+    end
+    
+    return nil
+end
+
 function common.is_in_range(target_index, range)
     -- Ensure range is a number
     local range_value = type(range) == 'number' and range or 21
@@ -1352,6 +1388,12 @@ function common.filter_abilities_by_level(abilities, settings, main_level, sub_l
         -- Determine which level to check based on ability source
         local player_level = ability.is_main_job == false and (sub_level or 0) or (main_level or 0)
         
+        -- Check if ability requires main job only (e.g., Geo spells)
+        if ability.main_job_only and ability.is_main_job == false then
+            -- Skip main-job-only abilities when from subjob
+            goto continue
+        end
+        
         -- Check if ability is disabled in settings
         local disabled_key = 'disabled_' .. ability.name:gsub(' ', '_')
         -- Default to disabled (true) if key doesn't exist (nil)
@@ -1389,16 +1431,16 @@ end
 -- Build command string from ability definition
 -- Args:
 --   ability (table) - Ability definition with command field
---   target_param (number|nil) - Target parameter (party index 0-5 for p0-p5)
+--   party_index (number|nil) - party index 0-5 for p0-p5
 -- Returns: string - Command string or nil
-function common.build_ability_command(ability, target_param)
+function common.build_ability_command(ability, party_index)
     if type(ability.command) == 'function' then
-        -- If target_param is provided, convert party index to server ID
-        if target_param ~= nil then
+        -- If party_index is provided, convert party index (0-5) to server ID
+        if party_index ~= nil then
             local party = common.get_party()
             if party then
-                -- Convert party index to server ID (like OnegaiGEO does)
-                local server_id = party:GetMemberServerId(target_param)
+                -- Convert party index to server ID
+                local server_id = party:GetMemberServerId(party_index)
                 if server_id and server_id > 0 then
                     return ability.command(server_id)
                 end

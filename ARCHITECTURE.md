@@ -29,9 +29,16 @@ Medic follows these core principles:
   ┌─────────────────┐     ┌─────────────────┐
   │  Job Definition │     │ Config UI       │
   │  (jobs/*.lua)   │     │ (config_ui.lua) │
-  └────────┬────────┘     └─────────────────┘
-           │
-           │ provides abilities
+  └────────┬────────┘     └────────┬────────┘
+           │                       │
+           │ provides abilities    │ uses
+           ▼                       ▼
+                          ┌─────────────────┐
+                          │ UI Components   │
+                          │(ui_components.lua)│
+                          │ - Constants     │
+                          │ - Render funcs  │
+                          └─────────────────┘
            ▼
     ┌─────────────────────────────────────┐
     │  Automation Engine                  │
@@ -126,6 +133,49 @@ Each action module follows this pattern:
 ## Module Details
 
 ### Core Modules
+
+#### ui_components.lua
+Reusable UI rendering components and constants for ImGui interface.
+
+**Constants:**
+- `COLOR_*`: Color definitions for combat_only, idle_only, button states, status indicators
+- `DROPDOWN_WIDTH`: 300 pixels for dropdown menus
+- `SLIDER_WIDTH`: 250 pixels for slider controls
+- `AUTOMATION_BUTTON_WIDTH`: 80 pixels for automation buttons
+- `PARTY_BUTTON_WIDTH`: 44 pixels for party member buttons
+- `ABILITY_LIST_INDENT`: Indentation for ability lists
+- `SPACE_BETWEEN_BUTTONS`: Spacing between UI elements
+
+**Render Functions:**
+- `onoff_button(ctx, ability, category)`: Renders ON/OFF toggle button
+- `group_dropdown(ctx, ability, job_def, category)`: Renders dropdown for grouped abilities
+- `self_single_ability(ctx, ability)`: Renders non-grouped self-only ability
+- `self_grouped_ability(ctx, ability, job_def, category)`: Renders grouped self-only ability
+- `party_single_ability(ctx, ability, job_def, category)`: Renders non-grouped party ability
+- `party_grouped_ability(ctx, ability, job_def, category)`: Renders grouped party ability
+- `render_ability(ctx, ability, job_def, category)`: Dispatcher for ability rendering
+- `render_party_buttons(ctx, category, ability_name)`: Renders ME/P1-P5 party target buttons
+
+**UI Creators:**
+- `checkbox(ctx, label, key, value)`: Creates checkbox with settings binding
+- `collapsing_checkbox_header(ctx, label, key, default_val)`: Creates collapsible header with integrated checkbox
+- `slider_int(ctx, label, key, value, min, max)`: Creates integer slider with settings binding
+- `combo(ctx, label, key, index, options, getter)`: Creates dropdown combo box
+- `ability_checkbox(ctx, ability, job_def, category)`: Creates simple checkbox for non-buff abilities
+
+**Context Object:**
+All functions accept context object as first parameter:
+```lua
+{
+    settings = current_settings,
+    save_callback = save_callback,
+    party_buffs = party_buffs,
+    job_def = job_def,
+    can_use_ability = can_use_ability,
+    get_abilities_in_group = get_abilities_in_group,
+    get_usable_abilities_in_group = get_usable_abilities_in_group
+}
+```
 
 #### common.lua
 Provides shared utilities used across all modules.
@@ -295,13 +345,27 @@ MP and TP recovery logic.
 - Supports `combat_only` and `idle_only` flags for conditional usage
 
 #### geo.lua
-Geomancer-specific Full Circle automation.
+Geomancer-specific Full Circle automation and Entrust management.
 
-**Functionality:**
+**Full Circle Automation:**
 - Monitors pet luopan distance in real-time
 - Configurable distance threshold (7-30 yalms, default 10)
 - Automatically executes Full Circle when pet exceeds distance
 - Requires active pet and geo abilities enabled
+
+**Entrust System:**
+- Name-based target selection from party members (P1-P5, excludes player)
+- Name-based spell selection from available Indi spells
+- Dynamic dropdowns in UI validate against current party composition
+- Settings persist across sessions as character names
+- Automatically resets if saved target/spell not available
+- Entrust ability executes selected Indi spell on selected party member
+- Requires both target and spell to be configured
+
+**Main Job Restriction:**
+- All Geo spells marked with `main_job_only=true` flag
+- Spells hidden from UI when Geomancer is subjob
+- `can_use_ability()` enforces restriction based on `is_main_job` flag
 
 ### Job Definitions
 
@@ -347,11 +411,36 @@ return {
     },
     
     -- Optional: Job-specific ability validator
+    -- Called by filter_abilities_by_level() for fine-grained validation
     validate_ability = function(ability, common)
-        -- Custom validation logic
+        -- Custom validation logic beyond level/spell learned checks
         -- Return true if ability can be used, false otherwise
-        -- Example: Check pet type, specific buffs, custom conditions
-        return true
+        -- Parameters:
+        --   ability: The ability definition being validated
+        --   common: The common module with utility functions
+        -- 
+        -- Example use cases:
+        --   - Check pet type (e.g., Carbuncle for Summoner)
+        --   - Verify specific buff requirements
+        --   - Custom conditional logic
+        --
+        -- Example implementation (Summoner):
+        if not ability.pet_required then
+            return true  -- No pet needed
+        end
+        
+        local pet = common.get_pet_entity()
+        if not pet then
+            return false  -- No pet summoned
+        end
+        
+        if not ability.requires_carbuncle then
+            return true  -- Any avatar OK
+        end
+        
+        -- Check for specific pet
+        local ok, pet_name = pcall(function() return pet.Name end)
+        return ok and pet_name == 'Carbuncle'
     end,
 }
 ```
@@ -376,6 +465,7 @@ return {
     requires_buff = 401,              -- Buff prerequisite (optional, single or array)
     group = 'regen',                  -- Mutually exclusive group (optional)
     self_only = false,                -- Self-only ability (optional)
+    main_job_only = false,            -- Main job only (hidden when subjob) (optional)
     wakes = true,                     -- Can wake from sleep (optional)
     range = 20,                       -- Ability range in yalms (optional)
     pet_required = false,             -- Requires active pet (optional)
@@ -515,6 +605,38 @@ abilities = {
 }
 ```
 
+### Adding New UI Components
+
+The UI system uses a modular component architecture:
+
+1. **All UI constants defined in ui_components.lua:**
+   - Colors: `COLOR_COMBAT_ONLY`, `COLOR_IDLE_ONLY`, button states, status colors
+   - Widths: `DROPDOWN_WIDTH`, `SLIDER_WIDTH`, `AUTOMATION_BUTTON_WIDTH`, `PARTY_BUTTON_WIDTH`
+   - Spacing: `ABILITY_LIST_INDENT`, `SPACE_BETWEEN_BUTTONS`
+
+2. **Context object pattern for state management:**
+   ```lua
+   local ctx = {
+       settings = current_settings,
+       save_callback = save_callback,
+       party_buffs = party_buffs,
+       job_def = job_def,
+       can_use_ability = can_use_ability,
+       get_abilities_in_group = get_abilities_in_group,
+       get_usable_abilities_in_group = get_usable_abilities_in_group
+   }
+   ```
+
+3. **Render functions handle all UI logic:**
+   - `ui.render_ability()`: For buff abilities (ON/OFF + party buttons)
+   - `ui.ability_checkbox()`: For simple checkbox abilities (heal, debuff, etc.)
+   - `ui.collapsing_checkbox_header()`: For collapsible sections with enable/disable
+
+4. **config_ui.lua focuses on orchestration only:**
+   - Builds context object
+   - Calls ui_components render functions
+   - No rendering logic, only structure and flow
+
 ### Adding Job-Specific Validation
 
 If your job needs custom validation logic (e.g., checking pet type, specific buff requirements, custom conditions):
@@ -593,6 +715,22 @@ The UI automatically hides abilities from subjob when they already exist in main
 - Prevents duplicate Cure spells, Protect, Shell, etc.
 - Uses `is_subjob_duplicate()` to detect and filter
 - Keeps UI clean and prevents confusion
+
+### Level-Based Ability Filtering
+All ability rendering now includes level-based filtering:
+- Each section calls `can_use_ability()` before displaying abilities
+- Main job abilities filtered by main job level
+- Subjob abilities filtered by subjob level
+- Abilities with `main_job_only=true` flag hidden when job is subjob (e.g., Geomancer Geo spells)
+- Only shows abilities currently available to the player
+- Optional `validate_ability()` hook for job-specific validation (e.g., pet type checks)
+
+**Main Job Only Restriction:**
+- Abilities can be marked with `main_job_only=true` flag in job definition
+- `can_use_ability()` checks both level requirements and main job restriction
+- Returns false if ability is main job only but `is_main_job=false`
+- Used for Geomancer Geo spells which cannot be cast when GEO is subjob
+- Prevents UI clutter and casting errors for subjob restrictions
 
 ### Trust Detection
 - Party member buttons automatically detect Trusts (server_id >= 0x1000000)

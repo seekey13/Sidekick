@@ -38,17 +38,17 @@ function recover.execute(settings, job_def, main_level, sub_level, player_resour
     common.debugf('[RECOVER] Current MP: %d (%.1f%%), TP: %d', current_mp, mp_percent, current_tp)
     
     -- Check Focus Recovery Target (Devotion) first - cast on party member
-    if settings.focus_recovery_target_index then
-        local target_index = settings.focus_recovery_target_index
+    if settings.focus_recovery_target then
+        local target_party_index = common.get_party_index_by_name(settings.focus_recovery_target)
         
-        -- Validate target (must be 1-5, not 0/self)
-        if target_index >= 1 and target_index <= 5 then
-            local target_mpp = common.get_party_member_mp_percent(target_index)
-            local target_name = common.get_party_member_name(target_index) or 'Unknown'
+        -- Validate target (must be party member P1-P5, not player P0)
+        if target_party_index and target_party_index >= 1 and target_party_index <= 5 then
+            local target_mpp = common.get_party_member_mp_percent(target_party_index)
+            local target_name = settings.focus_recovery_target
             local threshold = settings.focus_recovery_threshold or 30
             
-            common.debugf('[RECOVER] Focus Recovery Target: P%d (%s), MP: %.1f%%, Threshold: %.1f%%',
-                         target_index, target_name, target_mpp, threshold)
+            common.debugf('[RECOVER] Focus Recovery Target: %s, MP: %.1f%%, Threshold: %.1f%%',
+                         target_name, target_mpp, threshold)
             
             -- Check if target needs MP recovery
             if target_mpp > 0 and target_mpp < threshold then
@@ -85,9 +85,9 @@ function recover.execute(settings, job_def, main_level, sub_level, player_resour
                         
                         -- Check if target is in range (20 yalms)
                         if can_use_devotion then
-                            local target_entity_index = party:GetMemberTargetIndex(target_index)
+                            local target_entity_index = party:GetMemberTargetIndex(target_party_index)
                             if not target_entity_index or not common.is_in_range(target_entity_index, 20) then
-                                common.debugf('[RECOVER] Target P%d out of range', target_index)
+                                common.debugf('[RECOVER] Target %s out of range', target_name)
                                 can_use_devotion = false
                             end
                         end
@@ -102,10 +102,10 @@ function recover.execute(settings, job_def, main_level, sub_level, player_resour
                         
                         -- Cast Devotion on focus recovery target
                         if can_use_devotion then
-                            local command = common.build_ability_command(ability, target_index)
+                            local command = common.build_ability_command(ability, target_party_index)
                             if command then
-                                common.debugf('[RECOVER] >>> Using Devotion on P%d (%s) - Target MP: %.1f%%',
-                                             target_index, target_name, target_mpp)
+                                common.debugf('[RECOVER] >>> Using Devotion on %s - Target MP: %.1f%%',
+                                             target_name, target_mpp)
                                 return {
                                     command = command,
                                     description = string.format('Devotion on %s (MP: %.1f%%)', target_name, target_mpp)

@@ -57,7 +57,7 @@ local last_unsupported_warning = nil  -- Track last unsupported job warning to p
 local default_settings = T{
     automation_enabled = false,
     focus_enabled = false,
-    focus_target_index = nil,
+    focus_target = nil,
     attack_range = 'Off',
 }
 
@@ -695,7 +695,7 @@ ashita.events.register('command', 'medic_command', function(e)
         local subcmd = args[3] and args[3]:lower()
         
         if subcmd == 'clear' then
-            addon_settings.focus_target_index = nil
+            addon_settings.focus_target = nil
             if job_def then
                 local settings_file = 'settings_' .. (job_def.job_name or 'default'):lower() .. '.json'
                 settings.save(addon_settings, settings_file)
@@ -704,14 +704,14 @@ ashita.events.register('command', 'medic_command', function(e)
         elseif subcmd and tonumber(subcmd) then
             local index = tonumber(subcmd)
             if index >= 0 and index <= 5 then
-                local target_index = common.get_party_member_target_index(index)
-                if target_index then
-                    addon_settings.focus_target_index = target_index
+                local member_name = common.get_party_member_name(index)
+                if member_name then
+                    addon_settings.focus_target = member_name
                     if job_def then
                         local settings_file = 'settings_' .. (job_def.job_name or 'default'):lower() .. '.json'
                         settings.save(addon_settings, settings_file)
                     end
-                    common.printf('Focus target set to party member %d (%s)', index, common.get_party_member_name(index) or 'Unknown')
+                    common.printf('Focus target set to %s (P%d)', member_name, index)
                 else
                     common.errorf('Party member %d not found or not active.', index)
                 end
@@ -733,7 +733,7 @@ ashita.events.register('command', 'medic_command', function(e)
         common.printf('Medic Status:')
         common.printf('  Job: %s', job_def and job_def.job_name or 'Not loaded')
         common.printf('  Automation: %s', automation_enabled and 'Enabled' or 'Disabled')
-        common.printf('  Focus Target: %s', addon_settings.focus_target_index and 'Set' or 'None')
+        common.printf('  Focus Target: %s', addon_settings.focus_target or 'None')
         common.printf('  Debug Mode: %s', common.debug and 'Enabled' or 'Disabled')
         
     else
