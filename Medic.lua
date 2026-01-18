@@ -51,6 +51,7 @@ local automation_enabled = false
 local last_job_id = nil
 local last_sub_job_id = nil
 local last_level = nil
+local last_unsupported_warning = nil  -- Track last unsupported job warning to prevent spam
 
 -- Settings file path
 local default_settings = T{
@@ -144,12 +145,17 @@ local function load_job_definition(main_job_id, sub_job_id)
     
     -- Check if at least one job is supported
     if not main_def and not sub_def then
-        local main_name = common.get_job_name(main_job_id)
-        local error_msg = 'No automation available for ' .. main_name
-        if sub_job_id and sub_job_id > 0 then
-            error_msg = error_msg .. ' / ' .. common.get_job_name(sub_job_id)
+        -- Only display warning once per job combination
+        local warning_key = string.format('%d_%d', main_job_id, sub_job_id or 0)
+        if last_unsupported_warning ~= warning_key then
+            local main_name = common.get_job_name(main_job_id)
+            local error_msg = 'No automation available for ' .. main_name
+            if sub_job_id and sub_job_id > 0 then
+                error_msg = error_msg .. '/' .. common.get_job_name(sub_job_id)
+            end
+            common.warnf(error_msg)
+            last_unsupported_warning = warning_key
         end
-        common.warnf(error_msg)
         return nil
     end
     
