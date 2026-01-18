@@ -67,12 +67,26 @@ return {
                 pet_required = true,
             },
         },
+
+        -- Critical
+        critical = {
+            {
+                name = 'Apogee',
+                level = 70,
+                cost = 0,
+                id = 108,  -- Apogee recast ID
+                command = '/ja "Apogee" <me>',
+                combat_only = false,
+                pet_required = true,
+            },
+        },
     },
     
     -- Default settings for UI
     default_settings = {
         heal_enabled = true,
         heal_threshold = 75,
+        critical_threshold = 30,
         heal_aoe_enabled = true,
         heal_aoe_threshold = 70,
         heal_aoe_count_threshold = 2,
