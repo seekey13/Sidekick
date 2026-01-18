@@ -1288,6 +1288,18 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                     end
                 end
                 imgui.Unindent(ABILITY_LIST_INDENT)
+                
+                -- Critical HP section (inside Party Healing)
+                if job_def.abilities.critical and has_usable_abilities(job_def.abilities.critical) then
+                    create_slider_int('Critical (HP%)', 'critical_threshold', { settings.critical_threshold or 30 }, 1, 50)
+                    imgui.Indent(ABILITY_LIST_INDENT)
+                    for _, ability in ipairs(job_def.abilities.critical) do
+                        if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
+                            render_ability_checkbox(ability, job_def, nil, 'critical')
+                        end
+                    end
+                    imgui.Unindent(ABILITY_LIST_INDENT)
+                end
             end
             
             imgui.Separator()

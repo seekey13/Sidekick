@@ -629,6 +629,26 @@ return {
             },
         },
 
+        -- Critical
+        critical = {
+            {
+                name = 'Tranquility',
+                level = 75,
+                cost = 0,
+                id = 231,  -- Job ability ID
+                command = '/ja "Tranquility" <me>',
+                requires_buff = {358, 401},  -- Can be either 358 or 401
+            },
+            {
+                name = 'Rapture',
+                level = 55,
+                cost = 0,
+                id = 231,  -- Job ability ID
+                command = '/ja "Rapture" <me>',
+                requires_buff = {358, 401},  -- Can be either 358 or 401
+            },
+        },
+
         -- -- Revive
         -- revive = {
         --     {
@@ -665,6 +685,7 @@ return {
     default_settings = {
         heal_enabled = true,
         heal_threshold = 75,
+        critical_threshold = 30,
         heal_aoe_enabled = false,  -- Scholar has no AOE heal
         heal_aoe_threshold = 70,
         heal_aoe_count_threshold = 2,

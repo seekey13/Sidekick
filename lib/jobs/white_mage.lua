@@ -768,8 +768,9 @@ return {
                 cost = 0,
                 id = 27,  -- Job Ability ID
                 command = function(target)
-                    return 'ja "Martyr" '..target
+                    return '/ja "Martyr" '..target
                 end,
+                range = 18,
                 combat_only = false,
             },
             {
@@ -852,6 +853,7 @@ return {
     default_settings = {
         heal_enabled = true,
         heal_threshold = 75,
+        critical_threshold = 30,
         heal_aoe_enabled = true,
         heal_aoe_threshold = 70,
         heal_aoe_count_threshold = 2,
