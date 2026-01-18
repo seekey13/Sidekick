@@ -7,6 +7,7 @@ local config_ui = {}
 
 local imgui = require('imgui')
 local common = require('lib.core.common')
+local resource = require('lib.core.resource')
 
 -- UI state
 local is_open = { true }
@@ -23,6 +24,10 @@ local focus_target_index = { 0 }  -- 0 = None, 1-6 = <ME>-P5
 local focus_recovery_enabled = { false }
 local focus_recovery_target_index = { 0 }  -- 0 = None, 1-5 = P1-P5 (no ME option)
 
+-- Entrust state (session-only, not saved to settings)
+local entrust_target_index = { 0 }  -- 0 = None, 1-5 = P1-P5 (no ME option)
+local entrust_spell_index = { 0 }  -- Index into available Indi spells list
+
 -- Party buff tracking (session only, not saved to settings)
 -- Structure: party_buffs[ability_name][party_index] = true/false
 -- party_index: 1-5 for P1-P5 (player is always handled separately)
@@ -35,6 +40,7 @@ local PARTY_BUTTON_WIDTH = 45  -- Width of party toggle buttons
 -- Dropdown options
 local focus_target_options = { 'None', 'P0', 'P1', 'P2', 'P3', 'P4', 'P5' }
 local focus_recovery_target_options = { 'None', 'P1', 'P2', 'P3', 'P4', 'P5' }  -- No ME option for Devotion
+local entrust_target_options = { 'None', 'P1', 'P2', 'P3', 'P4', 'P5' }  -- No ME option for Entrust
 
 -- ============================================================================
 -- Helper Functions
@@ -1186,6 +1192,18 @@ function config_ui.get_party_buffs()
     return party_buffs
 end
 
+function config_ui.get_entrust_config()
+    -- Return nil if entrust target is None (0)
+    if entrust_target_index[1] == 0 or entrust_spell_index[1] == 0 then
+        return nil
+    end
+    
+    return {
+        target_index = entrust_target_index[1],  -- 1-5 for P1-P5
+        spell_index = entrust_spell_index[1],    -- Index into available Indi spells
+    }
+end
+
 function config_ui.render(settings, job_def, callback, roll_mod)
     if not ui_visible or not is_open[1] then
         return
@@ -1312,7 +1330,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                 local is_open, is_enabled = create_collapsing_checkbox_header('Enable Focus Healing', 'focus_enabled', false)
                 if is_open and is_enabled then
                     -- Focus target dropdown
-                    create_combo('Focus Healing Target', 'focus_target_index', focus_target_index, focus_target_options, function(i)
+                    create_combo('Focus Target', 'focus_target_index', focus_target_index, focus_target_options, function(i)
                         -- Convert combo index (0-6) to focus_target_index (nil, 0-5)
                         if i == 0 then
                             return nil
@@ -1528,16 +1546,97 @@ function config_ui.render(settings, job_def, callback, roll_mod)
         
         -- Geo settings (Geomancer)
         if job_def and job_def.abilities.geo and has_usable_abilities(job_def.abilities.geo) then
-            local is_open, is_enabled = create_collapsing_checkbox_header('Enable Geo (Full Circle)', 'geo_enabled', false)
+            local is_open, is_enabled = create_collapsing_checkbox_header('Enable Geo', 'geo_enabled', false)
             if is_open and is_enabled then
                 create_slider_int('Distance (yalms)', 'geo_distance_threshold', { settings.geo_distance_threshold or 10 }, 7, 30)
                 imgui.Indent(ABILITY_LIST_INDENT)
+                
+                -- Full Circle checkbox
                 for _, ability in ipairs(job_def.abilities.geo) do
-                    if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
+                    if ability.name ~= 'Entrust' and can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                         render_ability_checkbox(ability, job_def, nil, 'geo')
                     end
                 end
+                
                 imgui.Unindent(ABILITY_LIST_INDENT)
+                
+                -- Entrust settings (only for Geomancer)
+                if job_def.job_id == 21 then
+                    -- Build list of available Indi spells
+                    local available_indi_spells = {}
+                    if job_def.abilities.buff then
+                        for _, ability in ipairs(job_def.abilities.buff) do
+                            if ability.group == 'Indi' and can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
+                                -- Check if spell is learned
+                                local cmd = type(ability.command) == 'function' and ability.command(0) or ability.command
+                                local is_spell = cmd and string.sub(cmd, 1, 3) == '/ma'
+                                local has_spell = true
+                                
+                                if is_spell and ability.id then
+                                    local ok, known = pcall(function() return AshitaCore:GetMemoryManager():GetPlayer():HasSpell(ability.id) end)
+                                    if ok then
+                                        has_spell = known
+                                    end
+                                end
+                                
+                                if has_spell then
+                                    table.insert(available_indi_spells, ability)
+                                end
+                            end
+                        end
+                    end
+                    
+                    -- Sort by level descending (highest first)
+                    table.sort(available_indi_spells, function(a, b) return a.level > b.level end)
+                    
+                    if #available_indi_spells > 0 then
+                        -- Entrust Target dropdown
+                        create_combo('Entrust Target', 'entrust_target_session', entrust_target_index, entrust_target_options, nil, 250)
+                        
+                        -- Build spell options list
+                        local spell_options = {}
+                        for _, spell in ipairs(available_indi_spells) do
+                            local label = spell.name
+                            if spell.cost and spell.cost > 0 then
+                                label = label .. ' (' .. spell.cost .. ' MP)'
+                            end
+                            table.insert(spell_options, label)
+                        end
+                        
+                        -- Ensure valid spell index
+                        if entrust_spell_index[1] == 0 and #spell_options > 0 then
+                            entrust_spell_index[1] = 1  -- Auto-select first (highest level)
+                        elseif entrust_spell_index[1] > #spell_options then
+                            entrust_spell_index[1] = #spell_options
+                        end
+                        
+                        -- Entrust Spell dropdown
+                        imgui.PushItemWidth(250)
+                        local current_spell_display = entrust_spell_index[1] > 0 and spell_options[entrust_spell_index[1]] or 'None'
+                        if imgui.BeginCombo('Entrust Spell', current_spell_display) then
+                            for i, option in ipairs(spell_options) do
+                                local is_selected = (entrust_spell_index[1] == i)
+                                if imgui.Selectable(option, is_selected) then
+                                    entrust_spell_index[1] = i
+                                end
+                                if is_selected then
+                                    imgui.SetItemDefaultFocus()
+                                end
+                            end
+                            imgui.EndCombo()
+                        end
+                        imgui.PopItemWidth()
+                        
+                        -- Entrust ability checkbox (indented)
+                        imgui.Indent(ABILITY_LIST_INDENT)
+                        for _, ability in ipairs(job_def.abilities.geo) do
+                            if ability.name == 'Entrust' and can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
+                                render_ability_checkbox(ability, job_def, nil, 'geo')
+                            end
+                        end
+                        imgui.Unindent(ABILITY_LIST_INDENT)
+                    end
+                end
             end
             
             imgui.Separator()
