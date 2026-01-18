@@ -80,4 +80,30 @@ return {
         'wake',
         'buff',
     },
+    
+    -- Validate ability can be used (Summoner-specific: check for Carbuncle)
+    validate_ability = function(ability, common)
+        -- Only validate abilities that require a pet
+        if not ability.pet_required then
+            return true
+        end
+        
+        -- Get pet entity
+        local pet = common.get_pet_entity()
+        if not pet then
+            return false
+        end
+        
+        -- Check if pet name is available
+        local ok, pet_name = pcall(function()
+            return pet.Name
+        end)
+        
+        if not ok or not pet_name then
+            return false
+        end
+        
+        -- Only allow abilities if Carbuncle is summoned
+        return pet_name == 'Carbuncle'
+    end,
 }

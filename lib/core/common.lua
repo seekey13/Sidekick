@@ -415,14 +415,16 @@ function common.get_player_tp()
     return party:GetMemberTP(0)
 end
 
-function common.has_pet()
+-- Get pet entity
+-- Returns: pet entity object or nil if no pet
+function common.get_pet_entity()
     -- Get player entity
     local ok, player = pcall(function()
         return GetPlayerEntity()
     end)
     
     if not ok or not player then
-        return false
+        return nil
     end
     
     -- Check if player has a pet target index
@@ -431,40 +433,7 @@ function common.has_pet()
     end)
     
     if not ok_index or not pet_index or pet_index == 0 then
-        return false
-    end
-    
-    -- Verify the pet entity exists
-    local ok_pet, pet = pcall(function()
-        return GetEntity(pet_index)
-    end)
-    
-    if not ok_pet or not pet then
-        return false
-    end
-    
-    return true
-end
-
--- Get pet's HP percentage
--- Returns: number (HP percentage 0-100) or 0 if no pet
-function common.get_pet_hp_percent()
-    -- Get player entity
-    local ok, player = pcall(function()
-        return GetPlayerEntity()
-    end)
-    
-    if not ok or not player then
-        return 0
-    end
-    
-    -- Check if player has a pet target index
-    local ok_index, pet_index = pcall(function()
-        return player.PetTargetIndex
-    end)
-    
-    if not ok_index or not pet_index or pet_index == 0 then
-        return 0
+        return nil
     end
     
     -- Get the pet entity
@@ -473,6 +442,21 @@ function common.get_pet_hp_percent()
     end)
     
     if not ok_pet or not pet then
+        return nil
+    end
+    
+    return pet
+end
+
+function common.has_pet()
+    return common.get_pet_entity() ~= nil
+end
+
+-- Get pet's HP percentage
+-- Returns: number (HP percentage 0-100) or 0 if no pet
+function common.get_pet_hp_percent()
+    local pet = common.get_pet_entity()
+    if not pet then
         return 0
     end
     
@@ -718,23 +702,12 @@ end
 -- Get distance between player and pet
 -- Returns: number (distance in yalms) or nil if no pet or error
 function common.get_pet_distance()
-    -- Get player entity
     local player_entity = common.get_entity(0)
     if not player_entity then
         return nil
     end
     
-    -- Check if player has a pet target index
-    local ok_index, pet_index = pcall(function()
-        return player_entity.PetTargetIndex
-    end)
-    
-    if not ok_index or not pet_index or pet_index == 0 then
-        return nil
-    end
-    
-    -- Get the pet entity
-    local pet_entity = common.get_entity(pet_index)
+    local pet_entity = common.get_pet_entity()
     if not pet_entity then
         return nil
     end
@@ -1348,8 +1321,9 @@ end
 --   settings (table) - Settings table with disabled flags
 --   main_level (number) - Player's main job level
 --   sub_level (number) - Player's sub job level
+--   job_def (table|nil) - Job definition with optional validate_ability function
 -- Returns: table - Filtered and sorted abilities (by cost descending)
-function common.filter_abilities_by_level(abilities, settings, main_level, sub_level)
+function common.filter_abilities_by_level(abilities, settings, main_level, sub_level, job_def)
     local available_abilities = {}
     
     -- Safety check: return empty table if abilities is nil
@@ -1384,6 +1358,8 @@ function common.filter_abilities_by_level(abilities, settings, main_level, sub_l
             -- Skip if requires pet but no pet available
         elseif ability.combat_only and common.is_idle() then
             -- Skip if combat only and not engaged
+        elseif job_def and job_def.validate_ability and not job_def.validate_ability(ability, common) then
+            -- Skip if job-specific validator fails
         elseif required_level <= player_level then
             table.insert(available_abilities, ability)
         end
