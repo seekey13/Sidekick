@@ -134,7 +134,10 @@ Provides shared utilities used across all modules.
 - `printf/debugf/errorf/warnf`: Logging with consistent formatting
 - `get_player_level/job/mp/tp`: Player state access
 - `is_idle/engaged/in_event`: Status checking
-- `has_pet`: Pet validation
+- `get_pet_entity()`: Returns pet entity object or nil (single source of truth for pet access)
+- `has_pet()`: Pet validation using get_pet_entity
+- `get_pet_hp_percent()`: Pet HP percentage using get_pet_entity
+- `get_pet_distance()`: Pet distance from player using get_pet_entity
 - `get_party_size`: Party member counting
 - `get_party_member_*`: Party member data access
 - `check_party_hp(threshold, focus, focus_target)`: Returns members needing heal
@@ -150,10 +153,9 @@ Provides shared utilities used across all modules.
 - `has_silence()`: Check if player has Silence (blocks magic)
 - `is_command_blocked(command)`: Check if command is blocked by status ailments
 - `is_in_range(target, range)`: Distance validation
-- `get_pet_distance()`: Pet distance from player (for geo)
 - `is_casting()`: Casting state detection using packet offset 0x0F
 - `handle_action_packet(packet)`: Process action packet (0x028) for casting state
-- `filter_abilities_by_level()`: Shared ability filtering logic
+- `filter_abilities_by_level(abilities, settings, main_level, sub_level, job_def)`: Shared ability filtering logic with optional job-specific validation
 
 #### resource.lua
 Manages resource checking and cooldown tracking.
@@ -342,7 +344,15 @@ return {
         'recover',
         'geo',
         'buff',
-    }
+    },
+    
+    -- Optional: Job-specific ability validator
+    validate_ability = function(ability, common)
+        -- Custom validation logic
+        -- Return true if ability can be used, false otherwise
+        -- Example: Check pet type, specific buffs, custom conditions
+        return true
+    end,
 }
 ```
 
@@ -362,6 +372,7 @@ return {
     combat_only = false,              -- Combat requirement (optional)
     idle_only = false,                -- Idle requirement (optional)
     requires_pet = false,             -- Pet requirement (optional)
+    requires_carbuncle = false,       -- Carbuncle requirement for Summoner (optional)
     requires_buff = 401,              -- Buff prerequisite (optional, single or array)
     group = 'regen',                  -- Mutually exclusive group (optional)
     self_only = false,                -- Self-only ability (optional)
@@ -503,6 +514,46 @@ abilities = {
     }
 }
 ```
+
+### Adding Job-Specific Validation
+
+If your job needs custom validation logic (e.g., checking pet type, specific buff requirements, custom conditions):
+
+1. **Add validate_ability function to job definition:**
+```lua
+return {
+    job_id = 15,
+    job_name = 'Summoner',
+    -- ... other properties ...
+    
+    validate_ability = function(ability, common)
+        -- Example: Summoner checking for Carbuncle
+        if not ability.pet_required then
+            return true
+        end
+        
+        local pet = common.get_pet_entity()
+        if not pet then
+            return false
+        end
+        
+        if not ability.requires_carbuncle then
+            return true  -- Any avatar OK
+        end
+        
+        local ok, pet_name = pcall(function()
+            return pet.Name
+        end)
+        
+        return ok and pet_name == 'Carbuncle'
+    end,
+}
+```
+
+2. **The validator is automatically called** by `filter_abilities_by_level()` when `job_def` is passed
+3. **Return true** to allow the ability, **false** to block it
+4. **Use common utilities** passed as second parameter for checks
+
 ### Safety First
 - Multiple validation layers
 - Automatic resource checking
