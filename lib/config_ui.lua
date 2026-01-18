@@ -39,6 +39,8 @@ local party_buffs = {}
 local ABILITY_LIST_INDENT = 10  -- Indent for ability checkboxes within sections
 local PARTY_BUTTON_WIDTH = 44  -- Width of party toggle buttons
 local SPACE_BETWEEN_BUTTONS = 8  -- Space between party buttons
+local COLOR_COMBAT_ONLY = { 1.0, 0.7, 0.7, 1.0 }  -- Slight reddish white for Combat Only abilities
+local COLOR_IDLE_ONLY = { 0.7, 1.0, 0.7, 1.0 }  -- Slight greenish white for Idle Only abilities
 
 -- Dropdown options
 -- (focus target options are built dynamically from party)
@@ -469,8 +471,8 @@ local function render_group_dropdown(job_def, target_group, dropdown_width)
 end
 
 -- Render a self-target single ability (not in a group)
--- Layout: [ON/OFF Button] Ability Name (Lv.XX) [Extra Tags]
-local function render_self_single_ability(ability, job_def, extra_desc, id_suffix)
+-- Layout: [ON/OFF Button] Ability Name (Lv.XX)
+local function render_self_single_ability(ability, job_def, id_suffix)
     -- Check spell knowledge
     local cmd = type(ability.command) == 'function' and ability.command(0) or ability.command
     local is_spell = cmd and string.sub(cmd, 1, 3) == '/ma'
@@ -490,6 +492,10 @@ local function render_self_single_ability(ability, job_def, extra_desc, id_suffi
     -- Render ON/OFF button
     if not has_spell then
         imgui.PushStyleColor(ImGuiCol_Text, { 0.5, 0.5, 0.5, 1.0 })
+    elseif ability.combat_only then
+        imgui.PushStyleColor(ImGuiCol_Text, COLOR_COMBAT_ONLY)
+    elseif ability.idle_only then
+        imgui.PushStyleColor(ImGuiCol_Text, COLOR_IDLE_ONLY)
     end
     
     render_onoff_button(ability.name, job_def, has_spell)
@@ -499,20 +505,29 @@ local function render_self_single_ability(ability, job_def, extra_desc, id_suffi
     local desc
     if ability.cost and ability.cost > 0 then
         local resource_label = job_def.resource_type == 'tp' and 'TP' or 'MP'
-        desc = ability.name .. ' (' .. ability.cost .. ' ' .. resource_label .. ')' .. (extra_desc or '') .. spell_suffix
+        desc = ability.name .. ' (' .. ability.cost .. ' ' .. resource_label .. ')' .. spell_suffix
     else
-        desc = ability.name .. (extra_desc or '') .. spell_suffix
+        desc = ability.name .. spell_suffix
     end
     imgui.Text(desc)
     
-    if not has_spell then
+    -- Show tooltip for combat_only or idle_only
+    if imgui.IsItemHovered() then
+        if ability.combat_only then
+            imgui.SetTooltip('Combat Only')
+        elseif ability.idle_only then
+            imgui.SetTooltip('Idle Only')
+        end
+    end
+    
+    if not has_spell or ability.combat_only or ability.idle_only then
         imgui.PopStyleColor()
     end
 end
 
 -- Render a self-target grouped ability with dropdown
 -- Layout: [ON/OFF Button] [Dropdown]
-local function render_self_grouped_ability(ability, job_def, extra_desc)
+local function render_self_grouped_ability(ability, job_def)
     if not ability.group then
         return
     end
@@ -550,8 +565,8 @@ local function render_self_grouped_ability(ability, job_def, extra_desc)
 end
 
 -- Render a party-target single ability (not in a group)
--- Layout: [<ME>] [<P1>] [<P2>]... Ability Name (Lv.XX) [Extra Tags]
-local function render_party_single_ability(ability, job_def, extra_desc)
+-- Layout: [<ME>] [<P1>] [<P2>]... Ability Name (Lv.XX)
+local function render_party_single_ability(ability, job_def)
     -- Check spell knowledge
     local cmd = type(ability.command) == 'function' and ability.command(0) or ability.command
     local is_spell = cmd and string.sub(cmd, 1, 3) == '/ma'
@@ -571,13 +586,17 @@ local function render_party_single_ability(ability, job_def, extra_desc)
     local desc
     if ability.cost and ability.cost > 0 then
         local resource_label = job_def.resource_type == 'tp' and 'TP' or 'MP'
-        desc = ability.name .. ' (' .. ability.cost .. ' ' .. resource_label .. ')' .. (extra_desc or '') .. spell_suffix
+        desc = ability.name .. ' (' .. ability.cost .. ' ' .. resource_label .. ')' .. spell_suffix
     else
-        desc = ability.name .. (extra_desc or '') .. spell_suffix
+        desc = ability.name .. spell_suffix
     end
     
     if not has_spell then
         imgui.PushStyleColor(ImGuiCol_Text, { 0.5, 0.5, 0.5, 1.0 })
+    elseif ability.combat_only then
+        imgui.PushStyleColor(ImGuiCol_Text, COLOR_COMBAT_ONLY)
+    elseif ability.idle_only then
+        imgui.PushStyleColor(ImGuiCol_Text, COLOR_IDLE_ONLY)
     end
     
     -- Render [<ME>] button
@@ -651,14 +670,23 @@ local function render_party_single_ability(ability, job_def, extra_desc)
     imgui.SameLine()
     imgui.Text(desc)
     
-    if not has_spell then
+    -- Show tooltip for combat_only or idle_only
+    if imgui.IsItemHovered() then
+        if ability.combat_only then
+            imgui.SetTooltip('Combat Only')
+        elseif ability.idle_only then
+            imgui.SetTooltip('Idle Only')
+        end
+    end
+    
+    if not has_spell or ability.combat_only or ability.idle_only then
         imgui.PopStyleColor()
     end
 end
 
 -- Render a party-target grouped ability with dropdown
 -- Layout: [<ME>] [<P1>] [<P2>]... [Dropdown]
-local function render_party_grouped_ability(ability, job_def, extra_desc)
+local function render_party_grouped_ability(ability, job_def)
     if not ability.group then
         return
     end
@@ -768,7 +796,7 @@ local function render_party_grouped_ability(ability, job_def, extra_desc)
 end
 
 -- Main ability renderer - determines which rendering function to use
-local function render_ability(ability, job_def, extra_desc, id_suffix)
+local function render_ability(ability, job_def, id_suffix)
     if not ability or not can_use_ability(ability) then
         return false
     end
@@ -809,15 +837,15 @@ local function render_ability(ability, job_def, extra_desc, id_suffix)
     -- Choose appropriate render function
     if has_group then
         if is_party_target then
-            render_party_grouped_ability(ability, job_def, extra_desc)
+            render_party_grouped_ability(ability, job_def)
         else
-            render_self_grouped_ability(ability, job_def, extra_desc)
+            render_self_grouped_ability(ability, job_def)
         end
     else
         if is_party_target then
-            render_party_single_ability(ability, job_def, extra_desc)
+            render_party_single_ability(ability, job_def)
         else
-            render_self_single_ability(ability, job_def, extra_desc, id_suffix)
+            render_self_single_ability(ability, job_def, id_suffix)
         end
     end
     
@@ -1653,14 +1681,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                 
                 imgui.Indent(ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.buff) do
-                    local extra_desc = ''
-                    if ability.combat_only then
-                        extra_desc = ' [Combat Only]'
-                    elseif ability.idle_only then
-                        extra_desc = ' [Idle Only]'
-                    end
-                    
-                    render_ability(ability, job_def, extra_desc, 'buff')
+                    render_ability(ability, job_def, 'buff')
                 end
                 imgui.Unindent(ABILITY_LIST_INDENT)
             end
