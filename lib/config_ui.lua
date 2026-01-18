@@ -24,9 +24,9 @@ local focus_target_index = { 0 }  -- 0 = None, 1-6 = <ME>-P5
 local focus_recovery_enabled = { false }
 local focus_recovery_target_index = { 0 }  -- 0 = None, 1-5 = P1-P5 (no ME option)
 
--- Entrust state (session-only, not saved to settings)
-local entrust_target_index = { 0 }  -- 0 = None, 1-5 = P1-P5 (no ME option)
-local entrust_spell_index = { 0 }  -- Index into available Indi spells list
+-- Entrust state (now saved to settings)
+local entrust_target_name = nil  -- Character name or nil for None
+local entrust_spell_name = nil   -- Spell name like "Indi-Haste" or nil for None
 
 -- Party buff tracking (session only, not saved to settings)
 -- Structure: party_buffs[ability_name][party_index] = true/false
@@ -40,7 +40,6 @@ local PARTY_BUTTON_WIDTH = 45  -- Width of party toggle buttons
 -- Dropdown options
 local focus_target_options = { 'None', 'P0', 'P1', 'P2', 'P3', 'P4', 'P5' }
 local focus_recovery_target_options = { 'None', 'P1', 'P2', 'P3', 'P4', 'P5' }  -- No ME option for Devotion
-local entrust_target_options = { 'None', 'P1', 'P2', 'P3', 'P4', 'P5' }  -- No ME option for Entrust
 
 -- ============================================================================
 -- Helper Functions
@@ -1193,20 +1192,49 @@ function config_ui.get_party_buffs()
 end
 
 function config_ui.get_entrust_config()
-    -- Return nil if entrust target is None (0)
-    if entrust_target_index[1] == 0 or entrust_spell_index[1] == 0 then
+    -- Return nil if entrust target or spell is None
+    if not entrust_target_name or not entrust_spell_name then
+        return nil
+    end
+    
+    -- Find party member by name (check P1-P5 only, not P0)
+    local party = common.get_party()
+    if not party then
+        return nil
+    end
+    
+    local target_index = nil
+    for i = 1, 5 do
+        local member_name = common.get_party_member_name(i)
+        if member_name and member_name == entrust_target_name then
+            target_index = i
+            break
+        end
+    end
+    
+    if not target_index then
+        -- Target not in party
         return nil
     end
     
     return {
-        target_index = entrust_target_index[1],  -- 1-5 for P1-P5
-        spell_index = entrust_spell_index[1],    -- Index into available Indi spells
+        target_index = target_index,         -- 1-5 for P1-P5
+        target_name = entrust_target_name,   -- Character name
+        spell_name = entrust_spell_name,     -- Spell name like "Indi-Haste"
     }
 end
 
 function config_ui.render(settings, job_def, callback, roll_mod)
     if not ui_visible or not is_open[1] then
         return
+    end
+    
+    -- Load entrust settings from settings on first render
+    if settings.entrust_target ~= nil and entrust_target_name == nil then
+        entrust_target_name = settings.entrust_target
+    end
+    if settings.entrust_spell ~= nil and entrust_spell_name == nil then
+        entrust_spell_name = settings.entrust_spell
     end
     
     -- Store settings reference and callback
@@ -1590,34 +1618,109 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                     table.sort(available_indi_spells, function(a, b) return a.level > b.level end)
                     
                     if #available_indi_spells > 0 then
-                        -- Entrust Target dropdown
-                        create_combo('Entrust Target', 'entrust_target_session', entrust_target_index, entrust_target_options, nil, 250)
-                        
-                        -- Build spell options list
-                        local spell_options = {}
-                        for _, spell in ipairs(available_indi_spells) do
-                            local label = spell.name
-                            if spell.cost and spell.cost > 0 then
-                                label = label .. ' (' .. spell.cost .. ' MP)'
+                        -- Build dynamic party target options (None + party member names for P1-P5)
+                        local party_target_options = { 'None' }
+                        local party_target_names = {}
+                        local party = common.get_party()
+                        if party then
+                            for i = 1, 5 do
+                                local member_name = common.get_party_member_name(i)
+                                if member_name and member_name ~= '' then
+                                    table.insert(party_target_options, member_name)
+                                    party_target_names[member_name] = i
+                                end
                             end
-                            table.insert(spell_options, label)
                         end
                         
-                        -- Ensure valid spell index
-                        if entrust_spell_index[1] == 0 and #spell_options > 0 then
-                            entrust_spell_index[1] = 1  -- Auto-select first (highest level)
-                        elseif entrust_spell_index[1] > #spell_options then
-                            entrust_spell_index[1] = #spell_options
+                        -- Validate saved target name is in current party
+                        local current_target_display = 'None'
+                        if entrust_target_name then
+                            local found = false
+                            for _, name in ipairs(party_target_options) do
+                                if name == entrust_target_name then
+                                    current_target_display = entrust_target_name
+                                    found = true
+                                    break
+                                end
+                            end
+                            if not found then
+                                -- Saved target not in party, reset
+                                entrust_target_name = nil
+                                settings.entrust_target = nil
+                                if callback then callback() end
+                            end
+                        end
+                        
+                        -- Entrust Target dropdown
+                        imgui.PushItemWidth(250)
+                        if imgui.BeginCombo('Entrust Target', current_target_display) then
+                            for _, option in ipairs(party_target_options) do
+                                local is_selected = (option == current_target_display)
+                                if imgui.Selectable(option, is_selected) then
+                                    if option == 'None' then
+                                        entrust_target_name = nil
+                                        settings.entrust_target = nil
+                                    else
+                                        entrust_target_name = option
+                                        settings.entrust_target = option
+                                    end
+                                    if callback then callback() end
+                                end
+                                if is_selected then
+                                    imgui.SetItemDefaultFocus()
+                                end
+                            end
+                            imgui.EndCombo()
+                        end
+                        imgui.PopItemWidth()
+                        
+                        -- Validate saved spell name is in available spells
+                        local current_spell_display = 'None'
+                        if entrust_spell_name then
+                            local found = false
+                            for _, spell in ipairs(available_indi_spells) do
+                                if spell.name == entrust_spell_name then
+                                    current_spell_display = spell.name
+                                    if spell.cost and spell.cost > 0 then
+                                        current_spell_display = current_spell_display .. ' (' .. spell.cost .. ' MP)'
+                                    end
+                                    found = true
+                                    break
+                                end
+                            end
+                            if not found then
+                                -- Saved spell not available, reset
+                                entrust_spell_name = nil
+                                settings.entrust_spell = nil
+                                if callback then callback() end
+                            end
                         end
                         
                         -- Entrust Spell dropdown
                         imgui.PushItemWidth(250)
-                        local current_spell_display = entrust_spell_index[1] > 0 and spell_options[entrust_spell_index[1]] or 'None'
                         if imgui.BeginCombo('Entrust Spell', current_spell_display) then
-                            for i, option in ipairs(spell_options) do
-                                local is_selected = (entrust_spell_index[1] == i)
-                                if imgui.Selectable(option, is_selected) then
-                                    entrust_spell_index[1] = i
+                            -- Add None option
+                            local is_none_selected = (entrust_spell_name == nil)
+                            if imgui.Selectable('None', is_none_selected) then
+                                entrust_spell_name = nil
+                                settings.entrust_spell = nil
+                                if callback then callback() end
+                            end
+                            if is_none_selected then
+                                imgui.SetItemDefaultFocus()
+                            end
+                            
+                            -- Add spell options
+                            for _, spell in ipairs(available_indi_spells) do
+                                local label = spell.name
+                                if spell.cost and spell.cost > 0 then
+                                    label = label .. ' (' .. spell.cost .. ' MP)'
+                                end
+                                local is_selected = (spell.name == entrust_spell_name)
+                                if imgui.Selectable(label, is_selected) then
+                                    entrust_spell_name = spell.name
+                                    settings.entrust_spell = spell.name
+                                    if callback then callback() end
                                 end
                                 if is_selected then
                                     imgui.SetItemDefaultFocus()

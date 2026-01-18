@@ -85,14 +85,15 @@ function geo.execute(settings, job_def, main_level, sub_level, player_resource)
     -- Entrust Logic
     -- ========================================================================
     
-    -- Get entrust configuration from config UI (session-only)
+    -- Get entrust configuration from config UI
     local config_ui = require('lib.config_ui')
     local entrust_config = config_ui.get_entrust_config()
     
     common.debugf('[GEO] Entrust config: %s', entrust_config and 'configured' or 'nil')
     
     if entrust_config then
-        common.debugf('[GEO] Entrust target: P%d, spell index: %d', entrust_config.target_index, entrust_config.spell_index)
+        common.debugf('[GEO] Entrust target: %s (P%d), spell: %s', 
+            entrust_config.target_name, entrust_config.target_index, entrust_config.spell_name)
         
         -- Check if Entrust ability is enabled in settings
         local entrust_enabled_key = 'disabled_Entrust'
@@ -113,13 +114,13 @@ function geo.execute(settings, job_def, main_level, sub_level, player_resource)
         common.debugf('[GEO] Engaged in combat, checking Entrust conditions')
         
         local target_index = entrust_config.target_index  -- 1-5 for P1-P5
-        local spell_index = entrust_config.spell_index
+        local spell_name = entrust_config.spell_name
         
-        -- Build list of available Indi spells (same logic as UI)
-        local available_indi_spells = {}
+        -- Find the spell ability by name
+        local selected_spell = nil
         if job_def.abilities.buff then
             for _, ability in ipairs(job_def.abilities.buff) do
-                if ability.group == 'Indi' then
+                if ability.group == 'Indi' and ability.name == spell_name then
                     -- Check level requirements
                     if ability.level and ability.level <= main_level then
                         -- Check if spell is learned
@@ -131,27 +132,16 @@ function geo.execute(settings, job_def, main_level, sub_level, player_resource)
                             end
                         end
                         if has_spell then
-                            table.insert(available_indi_spells, ability)
+                            selected_spell = ability
+                            break
                         end
                     end
                 end
             end
         end
         
-        -- Sort by level descending (highest first)
-        table.sort(available_indi_spells, function(a, b) return a.level > b.level end)
-        
-        common.debugf('[GEO] Found %d available Indi spells', #available_indi_spells)
-        
-        -- Validate spell index
-        if spell_index < 1 or spell_index > #available_indi_spells then
-            common.debugf('[GEO] Invalid spell index %d (available: %d)', spell_index, #available_indi_spells)
-            return nil
-        end
-        
-        local selected_spell = available_indi_spells[spell_index]
         if not selected_spell then
-            common.debugf('[GEO] No spell found at index %d', spell_index)
+            common.debugf('[GEO] Spell %s not found or not available', spell_name)
             return nil
         end
         
