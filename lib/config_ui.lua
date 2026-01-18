@@ -427,7 +427,9 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                 ui.slider_int(ctx, 'Party (HP%)', 'heal_threshold', { settings.heal_threshold or 75 }, 1, 100)
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.heal) do
-                    ui.ability_checkbox(ctx, ability, job_def, 'heal')
+                    if can_use_ability(ability) then
+                        ui.ability_checkbox(ctx, ability, job_def, 'heal')
+                    end
                 end
                 imgui.Unindent(ui.ABILITY_LIST_INDENT)
                 
@@ -436,7 +438,9 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                     ui.slider_int(ctx, 'Critical (HP%)', 'critical_threshold', { settings.critical_threshold or 30 }, 1, 50)
                     imgui.Indent(ui.ABILITY_LIST_INDENT)
                     for _, ability in ipairs(job_def.abilities.critical) do
-                        ui.ability_checkbox(ctx, ability, job_def, 'critical')
+                        if can_use_ability(ability) then
+                            ui.ability_checkbox(ctx, ability, job_def, 'critical')
+                        end
                     end
                     imgui.Unindent(ui.ABILITY_LIST_INDENT)
                 end
@@ -455,7 +459,9 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                 
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.heal_aoe) do
-                    ui.ability_checkbox(ctx, ability, job_def, 'heal_aoe')
+                    if can_use_ability(ability) then
+                        ui.ability_checkbox(ctx, ability, job_def, 'heal_aoe')
+                    end
                 end
                 imgui.Unindent(ui.ABILITY_LIST_INDENT)
             end
@@ -471,7 +477,9 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                 
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.heal_pet) do
-                    ui.ability_checkbox(ctx, ability, job_def, 'heal_pet')
+                    if can_use_ability(ability) then
+                        ui.ability_checkbox(ctx, ability, job_def, 'heal_pet')
+                    end
                 end
                 imgui.Unindent(ui.ABILITY_LIST_INDENT)
             end
@@ -502,7 +510,9 @@ function config_ui.render(settings, job_def, callback, roll_mod)
             if is_open and is_enabled then
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.debuff_removal) do
-                    ui.ability_checkbox(ctx, ability, job_def, 'debuff_removal')
+                    if can_use_ability(ability) then
+                        ui.ability_checkbox(ctx, ability, job_def, 'debuff_removal')
+                    end
                 end
                 imgui.Unindent(ui.ABILITY_LIST_INDENT)
             end
@@ -523,7 +533,9 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                     ui.slider_int(ctx, 'Self Recover (TP)', 'recover_tp_threshold', { settings.recover_tp_threshold or 500 }, 100, 3000)
                     imgui.Indent(ui.ABILITY_LIST_INDENT)
                     for _, ability in ipairs(job_def.abilities.recover_tp) do
-                        ui.ability_checkbox(ctx, ability, job_def, 'recover_tp')
+                        if can_use_ability(ability) then
+                            ui.ability_checkbox(ctx, ability, job_def, 'recover_tp')
+                        end
                     end
                     imgui.Unindent(ui.ABILITY_LIST_INDENT)
                     
@@ -537,7 +549,9 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                     ui.slider_int(ctx, 'Self Recover (MP%)', 'recover_mp_threshold', { settings.recover_mp_threshold or 30 }, 1, 100)
                     imgui.Indent(ui.ABILITY_LIST_INDENT)
                     for _, ability in ipairs(job_def.abilities.recover_mp) do
-                        ui.ability_checkbox(ctx, ability, job_def, 'recover_mp')
+                        if can_use_ability(ability) then
+                            ui.ability_checkbox(ctx, ability, job_def, 'recover_mp')
+                        end
                     end
                     imgui.Unindent(ui.ABILITY_LIST_INDENT)
                     
@@ -610,7 +624,9 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                     
                     imgui.Indent(ui.ABILITY_LIST_INDENT)
                     for _, ability in ipairs(job_def.abilities.recover_party_mp) do
-                        ui.ability_checkbox(ctx, ability, job_def, 'recover_party_mp')
+                        if can_use_ability(ability) then
+                            ui.ability_checkbox(ctx, ability, job_def, 'recover_party_mp')
+                        end
                     end
                     imgui.Unindent(ui.ABILITY_LIST_INDENT)
                 end
@@ -634,7 +650,9 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                 
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.buff) do
-                    ui.render_ability(ctx, ability, job_def, 'buff')
+                    if can_use_ability(ability) then
+                        ui.render_ability(ctx, ability, job_def, 'buff')
+                    end
                 end
                 imgui.Unindent(ui.ABILITY_LIST_INDENT)
             end
@@ -651,7 +669,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                 
                 -- Full Circle checkbox
                 for _, ability in ipairs(job_def.abilities.geo) do
-                    if ability.name ~= 'Entrust' then
+                    if ability.name ~= 'Entrust' and can_use_ability(ability) then
                         ui.ability_checkbox(ctx, ability, job_def, 'geo')
                     end
                 end
@@ -803,7 +821,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                         -- Entrust ability checkbox (indented)
                         imgui.Indent(ui.ABILITY_LIST_INDENT)
                         for _, ability in ipairs(job_def.abilities.geo) do
-                            if ability.name == 'Entrust' then
+                            if ability.name == 'Entrust' and can_use_ability(ability) then
                                 ui.ability_checkbox(ctx, ability, job_def, 'geo')
                             end
                         end
