@@ -41,12 +41,7 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
     for _, ability in ipairs(available_abilities) do
         local should_skip = false
         
-        -- Check combat requirements
-        if not should_skip and ability.combat_only and is_idle then
-            -- Skip buffs that require combat
-            should_skip = true
-        end
-        
+        -- Check idle_only requirement (this blocks all combat situations)
         if not should_skip and ability.idle_only and is_engaged then
             -- Skip buffs that require being idle
             should_skip = true
@@ -117,8 +112,13 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                     end
                     
                     if is_target_enabled then
+                        -- Check combat_only requirement for this specific target
+                        if ability.combat_only and not is_engaged then
+                            common.debugf('[BUFF] %s skipped for target %d: requires combat', ability.name, target_index)
+                            goto continue_target
+                        end
+                        
                         local target_needs_buff = false
-                        local target_buffs = {}
                         local target_entity_index = nil
                         
                         -- Get target buffs and entity index
@@ -261,6 +261,12 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                 local is_enabled = settings[key] == false or settings[key] == nil
                 
                 if not is_enabled then
+                    goto continue_ability
+                end
+                
+                -- Check combat_only requirement
+                if ability.combat_only and not is_engaged then
+                    common.debugf('[BUFF] %s skipped: requires combat', ability.name)
                     goto continue_ability
                 end
                 
