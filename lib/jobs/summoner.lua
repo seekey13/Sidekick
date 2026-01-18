@@ -27,6 +27,7 @@ return {
                 wakes = true,  -- Can wake from sleep
                 combat_only = false,
                 pet_required = true,
+                requires_carbuncle = true,
             },
         },
         
@@ -41,6 +42,7 @@ return {
                 wakes = true,  -- Can wake from sleep
                 combat_only = false,
                 pet_required = true,
+                requires_carbuncle = true,
             },
         },
         
@@ -50,7 +52,7 @@ return {
                 name = 'Avatar\'s Favor',
                 level = 55,
                 cost = 0,
-                id = 176,  -- Blood Pact: Ward recast ID (shared with Healing Ruby)
+                id = 176,  -- Avatar's Favor recast ID
                 command = '/pet "Avatar\'s Favor" <me>',
                 buff_id = 431,  -- Avatar's Favor buff ID
                 combat_only = false,
@@ -65,6 +67,7 @@ return {
                 buff_id = 154,  -- Shining Ruby buff ID
                 combat_only = false,
                 pet_required = true,
+                requires_carbuncle = true,
             },
         },
 
@@ -105,7 +108,7 @@ return {
         'buff',
     },
     
-    -- Validate ability can be used (Summoner-specific: check for Carbuncle)
+    -- Validate ability can be used (Summoner-specific: check for Carbuncle when required)
     validate_ability = function(ability, common)
         -- Only validate abilities that require a pet
         if not ability.pet_required then
@@ -117,6 +120,12 @@ return {
         if not pet then
             common.debugf('[SMN Validator] %s blocked: No pet entity found', ability.name)
             return false
+        end
+        
+        -- If ability doesn't specifically require Carbuncle, any pet is fine
+        if not ability.requires_carbuncle then
+            common.debugf('[SMN Validator] %s: Any avatar OK', ability.name)
+            return true
         end
         
         -- Check if pet name is available
