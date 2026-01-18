@@ -1395,11 +1395,11 @@ function config_ui.render(settings, job_def, callback, roll_mod)
             imgui.Separator()
         end
         
-        -- Wake settings (only show if job has wake-capable heal abilities)
+        -- Wake settings (only show if job has wake-capable heal abilities that are usable)
         local has_wake_abilities = false
         if job_def and job_def.abilities.heal then
             for _, ability in ipairs(job_def.abilities.heal) do
-                if ability.wakes then
+                if ability.wakes and can_use_ability(ability) then
                     has_wake_abilities = true
                     break
                 end

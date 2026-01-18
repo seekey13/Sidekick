@@ -10,7 +10,7 @@ Main addon file: job detection, event loop, command handler
 
 addon.name      = 'Medic'
 addon.author    = 'Seekey'
-addon.version   = '1.1.0'
+addon.version   = '1.2.0'
 addon.desc      = 'Support Job Automation Framework'
 addon.link      = 'https://github.com/seekey13/Medic'
 
@@ -170,6 +170,7 @@ local function load_job_definition(main_job_id, sub_job_id)
     merged_def.job_id = primary_def.job_id
     merged_def.resource_type = primary_def.resource_type
     merged_def.validators = primary_def.validators
+    merged_def.validate_ability = primary_def.validate_ability
     
     -- Merge priority_order: use master list order, include actions from both jobs
     -- Master priority order (defines the execution sequence)

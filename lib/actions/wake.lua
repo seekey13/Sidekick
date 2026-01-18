@@ -90,8 +90,8 @@ function wake.execute(settings, job_def, main_level, sub_level, player_resource)
     end
     
     -- Filter abilities by level and settings (respects disabled abilities)
-    local available_single = common.filter_abilities_by_level(wake_abilities.single, settings, main_level, sub_level)
-    local available_aoe = common.filter_abilities_by_level(wake_abilities.aoe, settings, main_level, sub_level)
+    local available_single = common.filter_abilities_by_level(wake_abilities.single, settings, main_level, sub_level, job_def)
+    local available_aoe = common.filter_abilities_by_level(wake_abilities.aoe, settings, main_level, sub_level, job_def)
     
     -- Sort by cost ascending (use cheapest effective option)
     table.sort(available_single, function(a, b)

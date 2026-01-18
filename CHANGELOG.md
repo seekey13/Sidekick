@@ -5,6 +5,24 @@ All notable changes to Medic will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-01-17
+
+### Added
+- **Pet Entity Consolidation**: New `get_pet_entity()` function provides single source of truth for pet entity access across all pet-related operations
+- **Job-Specific Ability Validation**: Jobs can now define custom `validate_ability` functions for fine-grained control over when abilities can be used
+- **Summoner Pet Name Validation**: Carbuncle-specific abilities (Healing Ruby, Healing Ruby II, Shining Ruby) now automatically check if Carbuncle is summoned before attempting to use
+- **Avatar-Agnostic Abilities**: Summoner abilities like Avatar's Favor and Apogee work with any summoned avatar, not just Carbuncle
+- **Summoner Critical Ability**: Added Apogee to Summoner's critical abilities category
+
+### Changed
+- **Pet Functions Refactored**: `has_pet()`, `get_pet_hp_percent()`, and `get_pet_distance()` now use consolidated `get_pet_entity()` for improved code maintainability
+- **Filter Abilities Enhanced**: `filter_abilities_by_level()` now accepts optional `job_def` parameter to enable job-specific validation hooks
+
+### Technical
+- Introduced `requires_carbuncle` flag for Summoner abilities to distinguish Carbuncle-specific abilities from avatar-agnostic ones
+- Job definition merging now copies `validate_ability` function when present
+- All action modules updated to pass `job_def` to `filter_abilities_by_level()`
+
 ## [1.1.0] - 2026-01-17
 
 ### Added

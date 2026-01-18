@@ -130,7 +130,8 @@ function recover.execute(settings, job_def, main_level, sub_level, player_resour
                 recover_mp_abilities,
                 settings,
                 main_level,
-                sub_level
+                sub_level,
+                job_def
             )
             
             if #available_abilities > 0 then
@@ -198,7 +199,8 @@ function recover.execute(settings, job_def, main_level, sub_level, player_resour
                 recover_tp_abilities,
                 settings,
                 main_level,
-                sub_level
+                sub_level,
+                job_def
             )
             
             if #available_abilities > 0 then

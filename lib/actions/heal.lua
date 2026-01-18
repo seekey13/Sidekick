@@ -34,7 +34,8 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
         heal_abilities,
         settings,
         main_level,
-        sub_level
+        sub_level,
+        job_def
     )
     
     if #available_abilities == 0 then
@@ -103,7 +104,8 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
             critical_abilities,
             settings,
             main_level,
-            sub_level
+            sub_level,
+            job_def
         )
         
         if #available_critical > 0 then

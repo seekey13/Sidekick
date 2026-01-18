@@ -18,19 +18,12 @@ A focused, support-oriented addon for Ashita v4 that automates healing, buffing,
 
 ## Latest Updates
 
-### [1.1.0] - 2026-01-17
-- **Critical HP Abilities**: Emergency abilities (e.g., Divine Seal, Martyr) trigger when party members drop below critical threshold (default 30%, configurable 1-50%) before attempting regular heals
-- **Button-Based Party Buff Targeting**: Single-target buffs display ME/P1-P5 buttons for precise control
-- **Trust Buff Support**: Buffs can now be tracked and cast on Trusts using packet-based detection
-- **Group Dropdowns**: Multiple abilities in a group (e.g., Cure I-V) now use dropdown selectors for cleaner UI
-- **Grouped Ability Constraints**: Only the currently visible ability in a dropdown can be enabled; changing selection automatically disables all other group members
-- **Collapsible Sections**: All major feature sections are now collapsible for better organization
-- **Enhanced Casting Detection**: Improved packet-based casting state tracking for more reliable spell detection
-- **Subjob Filtering**: Duplicate abilities from subjob are now hidden when they exist in main job
-- **Single-Target Buff Support**: Cast buffs on specific party members with intelligent uptime tracking and range validation (20 yalms)
-- **Movement Blocking**: Casting prevented while moving to avoid interrupted spells
-- **New Ability Default State**: All newly discovered abilities now default to OFF until explicitly enabled
-- **Unknown Spell Protection**: Buttons for unlearned spells are fully disabled (grayed out and unclickable)
+### [1.2.0] - 2026-01-17
+- **Pet Entity Consolidation**: New `get_pet_entity()` function provides single source of truth for all pet-related operations
+- **Job-Specific Ability Validation**: Jobs can now implement custom validators for fine-grained ability control (e.g., Summoner checks if Carbuncle is summoned)
+- **Smart Summoner Pet Management**: Carbuncle-specific abilities (Healing Ruby, Healing Ruby II, Shining Ruby) automatically validate pet type; avatar-agnostic abilities (Avatar's Favor, Apogee) work with any summoned avatar
+- **Enhanced Code Maintainability**: Consolidated pet checking logic eliminates duplication across `has_pet()`, `get_pet_hp_percent()`, and `get_pet_distance()`
+
 
 ## Features
 
@@ -61,6 +54,8 @@ A focused, support-oriented addon for Ashita v4 that automates healing, buffing,
 ### Core System Features
 - **Smart Resource Management**: Automatic MP/TP checking and cooldown tracking
 - **Status Ailment Detection**: Automatically detects and prevents casting when Silenced (magic) or Amnesiac (job abilities)
+- **Job-Specific Ability Validation**: Jobs can implement custom validators for fine-grained ability control (e.g., checking pet type, buff requirements, etc.)
+- **Pet Entity Management**: Consolidated pet entity access with `get_pet_entity()` for consistent pet checking across all features
 - **Enhanced Casting State Detection**: Packet-based casting detection using offset 0x0F state byte for accurate spell tracking
 - **Movement Detection**: Prevents casting while moving to avoid interrupted spells
 - **Trust Buff Tracking**: Packet-based buff tracking for Trusts (0x028 for application, 0x029 for removal)
@@ -115,9 +110,11 @@ Currently implemented support jobs:
   - MP recovery with job abilities (Sublimation)
 
 - **Summoner** (SMN)
-  - Single-target healing with blood pacts (Healing Ruby)
-  - AOE healing with blood pacts (Healing Ruby II)
-  - Buff with blood pacts (Shining Ruby)
+  - Critical HP abilities (Apogee)
+  - Single-target healing with blood pacts (Healing Ruby - requires Carbuncle)
+  - AOE healing with blood pacts (Healing Ruby II - requires Carbuncle)
+  - Buff with blood pacts (Avatar's Favor, Shining Ruby)
+  - Smart pet validation: Carbuncle-specific abilities only execute when Carbuncle is summoned; avatar-agnostic abilities work with any avatar
 
 - **White Mage** (WHM)
   - Critical HP abilities (Divine Seal, Martyr)
