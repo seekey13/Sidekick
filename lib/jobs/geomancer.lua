@@ -25,6 +25,16 @@ return {
                 command = '/ja "Full Circle" <me>',
                 combat_only = false,
             },
+            {
+                name = 'Entrust',
+                level = 75,
+                cost = 0,
+                id = 93,
+                command = '/ja "Entrust" <me>',
+                buff_id = 584,
+                range = 20,
+                combat_only = true,
+            },
         },
         heal_pet = {
             {
@@ -100,14 +110,6 @@ return {
                 command = '/ja "Dematerialize" <me>',
                 combat_only = true,
             },
-            -- {
-            --     name = 'Entrust',
-            --     level = 75,
-            --     cost = 0,
-            --     id = 363,
-            --     command = '/ja "Entrust" <me>',
-            --     combat_only = true,
-            -- },
 
             -- Indi spells (highest level first)
             {
