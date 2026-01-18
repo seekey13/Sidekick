@@ -11,8 +11,8 @@ local resource = require('lib.core.resource')
 function heal.execute(settings, job_def, main_level, sub_level, player_resource)
     -- Debug focus configuration (show even when heal is disabled)
     if settings.focus_enabled then
-        common.debugf('[HEAL] Focus enabled: target_index=%s, threshold=%.1f%%',
-                     tostring(settings.focus_target_index),
+        common.debugf('[HEAL] Focus enabled: target=%s, threshold=%.1f%%',
+                     settings.focus_target or 'None',
                      settings.focus_threshold or 85)
     end
     
@@ -85,7 +85,7 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
     local party_status = common.check_party_hp(
         settings.heal_threshold or 75,
         settings.focus_enabled,
-        settings.focus_target_index,
+        common.get_party_index_by_name(settings.focus_target),
         settings.focus_threshold or 85
     )
     
@@ -203,61 +203,58 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
     end
     
     -- Priority 2: Focus target
-    if settings.focus_enabled and settings.focus_target_index and party_status.focus_needs_heal then
-        common.debugf('[HEAL] Attempting focus target heal (target_index: %d)', settings.focus_target_index)
-        local focus_hpp = nil
-        for _, member in ipairs(party_status.needs_heal) do
-            if member.target_index == settings.focus_target_index then
-                focus_hpp = member.hpp
-                common.debugf('[HEAL] Found focus target in needs_heal list: HP=%.1f%%', focus_hpp)
-                break
-            end
-        end
-        
-        if focus_hpp then
-            -- Get party index for focus target first (needed for HP deficit calculation)
-            local focus_party_index = nil
-            for i = 0, 5 do
-                if common.is_party_member_active(i) then
-                    local target_index = common.get_party_member_target_index(i)
-                    if target_index == settings.focus_target_index then
-                        focus_party_index = i
-                        common.debugf('[HEAL] Focus target is party[%d]', i)
-                        break
-                    end
+    if settings.focus_enabled and settings.focus_target and party_status.focus_needs_heal then
+        local focus_target_index = common.get_target_index_by_name(settings.focus_target)
+        if focus_target_index then
+            common.debugf('[HEAL] Attempting focus target heal: %s', settings.focus_target)
+            local focus_hpp = nil
+            for _, member in ipairs(party_status.needs_heal) do
+                if member.target_index == focus_target_index then
+                    focus_hpp = member.hpp
+                    common.debugf('[HEAL] Found focus target in needs_heal list: HP=%.1f%%', focus_hpp)
+                    break
                 end
             end
             
-            -- Select appropriate ability based on HP deficit
-            local selected_ability = heal.select_ability(available_abilities, focus_hpp, job_def.resource_type, player_resource, focus_party_index, job_def)
-            
-            if selected_ability and focus_party_index then
-                -- Check if in range using ability's range (default to 21 if not specified)
-                local ability_range = type(selected_ability.range) == 'number' and selected_ability.range or 21
-                if not common.is_in_range(settings.focus_target_index, ability_range) then
-                    common.debugf('[HEAL] Focus target out of range (range: %d)', ability_range)
+            if focus_hpp then
+                -- Get party index for focus target first (needed for HP deficit calculation)
+                local focus_party_index = common.get_party_index_by_name(settings.focus_target)
+                if not focus_party_index then
+                    common.debugf('[HEAL] Could not get party index for focus target')
                     return nil
                 end
-                common.debugf('[HEAL] Focus target in range (range: %d)', ability_range)
-                common.debugf('[HEAL] Selected %s for focus target', selected_ability.name)
                 
-                local command = common.build_ability_command(selected_ability, focus_party_index)
-                if command then
-                    common.debugf('[HEAL] >>> Healing focus target with %s', selected_ability.name)
-                    return {
-                        command = command,
-                        description = string.format('Healing focus target with %s (HP: %.1f%%)', selected_ability.name, focus_hpp)
-                    }
+                -- Select appropriate ability based on HP deficit
+                local selected_ability = heal.select_ability(available_abilities, focus_hpp, job_def.resource_type, player_resource, focus_party_index, job_def)
+                
+                if selected_ability and focus_party_index then
+                    -- Check if in range using ability's range (default to 21 if not specified)
+                    local ability_range = type(selected_ability.range) == 'number' and selected_ability.range or 21
+                    if not common.is_in_range(focus_target_index, ability_range) then
+                        common.debugf('[HEAL] Focus target out of range (range: %d)', ability_range)
+                        return nil
+                    end
+                    common.debugf('[HEAL] Focus target in range (range: %d)', ability_range)
+                    common.debugf('[HEAL] Selected %s for focus target', selected_ability.name)
+                    
+                    local command = common.build_ability_command(selected_ability, focus_party_index)
+                    if command then
+                        common.debugf('[HEAL] >>> Healing focus target with %s', selected_ability.name)
+                        return {
+                            command = command,
+                            description = string.format('Healing focus target with %s (HP: %.1f%%)', selected_ability.name, focus_hpp)
+                        }
+                    else
+                        common.debugf('[HEAL] Failed to build command for focus target')
+                    end
+                elseif not focus_party_index then
+                    common.debugf('[HEAL] Could not find focus party index')
                 else
-                    common.debugf('[HEAL] Failed to build command for focus target')
+                    common.debugf('[HEAL] No ability selected for focus target (resource/cooldown)')
                 end
-            elseif not focus_party_index then
-                common.debugf('[HEAL] Could not find focus party index')
             else
-                common.debugf('[HEAL] No ability selected for focus target (resource/cooldown)')
+                common.debugf('[HEAL] Focus target not found in needs_heal list')
             end
-        else
-            common.debugf('[HEAL] Focus target not found in needs_heal list')
         end
     end
     

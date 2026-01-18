@@ -20,9 +20,11 @@ local roll_module = nil
 
 -- UI State Variables (for imgui)
 local focus_enabled = { false }
-local focus_target_index = { 0 }  -- 0 = None, 1-6 = <ME>-P5
 local focus_recovery_enabled = { false }
-local focus_recovery_target_index = { 0 }  -- 0 = None, 1-5 = P1-P5 (no ME option)
+
+-- Focus state (now saved to settings as names)
+local focus_target_name = nil  -- Character name or nil for None
+local focus_recovery_target_name = nil  -- Character name or nil for None
 
 -- Entrust state (now saved to settings)
 local entrust_target_name = nil  -- Character name or nil for None
@@ -38,8 +40,7 @@ local ABILITY_LIST_INDENT = 10  -- Indent for ability checkboxes within sections
 local PARTY_BUTTON_WIDTH = 45  -- Width of party toggle buttons
 
 -- Dropdown options
-local focus_target_options = { 'None', 'P0', 'P1', 'P2', 'P3', 'P4', 'P5' }
-local focus_recovery_target_options = { 'None', 'P1', 'P2', 'P3', 'P4', 'P5' }  -- No ME option for Devotion
+-- (focus target options are built dynamically from party)
 
 -- ============================================================================
 -- Helper Functions
@@ -227,19 +228,7 @@ local function sync_from_settings()
     
     focus_enabled[1] = current_settings.focus_enabled or false
     
-    -- Convert focus_target_index (nil, 0-5) to combo index (0-6)
-    if current_settings.focus_target_index == nil then
-        focus_target_index[1] = 0
-    else
-        focus_target_index[1] = current_settings.focus_target_index + 1
-    end
-    
-    -- Convert focus_recovery_target_index (nil, 1-5) to combo index (0-5)
-    if current_settings.focus_recovery_target_index == nil then
-        focus_recovery_target_index[1] = 0
-    else
-        focus_recovery_target_index[1] = current_settings.focus_recovery_target_index
-    end
+    -- Focus target settings are now loaded on first render
 end
 
 -- Check if an ability is enabled
@@ -1237,6 +1226,14 @@ function config_ui.render(settings, job_def, callback, roll_mod)
         entrust_spell_name = settings.entrust_spell
     end
     
+    -- Load focus target settings from settings on first render
+    if settings.focus_target ~= nil and focus_target_name == nil then
+        focus_target_name = settings.focus_target
+    end
+    if settings.focus_recovery_target ~= nil and focus_recovery_target_name == nil then
+        focus_recovery_target_name = settings.focus_recovery_target
+    end
+    
     -- Store settings reference and callback
     current_settings = settings
     save_callback = callback
@@ -1357,15 +1354,61 @@ function config_ui.render(settings, job_def, callback, roll_mod)
             if has_non_self_heal then
                 local is_open, is_enabled = create_collapsing_checkbox_header('Enable Focus Healing', 'focus_enabled', false)
                 if is_open and is_enabled then
-                    -- Focus target dropdown
-                    create_combo('Focus Target', 'focus_target_index', focus_target_index, focus_target_options, function(i)
-                        -- Convert combo index (0-6) to focus_target_index (nil, 0-5)
-                        if i == 0 then
-                            return nil
-                        else
-                            return i - 1
+                    -- Build dynamic focus target options (None + all party including player)
+                    local focus_target_options = { 'None' }
+                    local party = common.get_party()
+                    if party then
+                        for i = 0, 5 do
+                            if party:GetMemberIsActive(i) == 1 then
+                                local member_name = common.get_party_member_name(i)
+                                if member_name and member_name ~= '' then
+                                    table.insert(focus_target_options, member_name)
+                                end
+                            end
                         end
-                    end)
+                    end
+                    
+                    -- Validate saved focus target name is in current party
+                    local current_focus_display = 'None'
+                    if focus_target_name then
+                        local found = false
+                        for _, name in ipairs(focus_target_options) do
+                            if name == focus_target_name then
+                                current_focus_display = focus_target_name
+                                found = true
+                                break
+                            end
+                        end
+                        if not found then
+                            -- Saved target not in party, reset
+                            focus_target_name = nil
+                            settings.focus_target = nil
+                            if callback then callback() end
+                        end
+                    end
+                    
+                    -- Focus Target dropdown
+                    imgui.PushItemWidth(250)
+                    if imgui.BeginCombo('Focus Target', current_focus_display) then
+                        for _, option in ipairs(focus_target_options) do
+                            local is_selected = (option == current_focus_display)
+                            if imgui.Selectable(option, is_selected) then
+                                if option == 'None' then
+                                    focus_target_name = nil
+                                    settings.focus_target = nil
+                                else
+                                    focus_target_name = option
+                                    settings.focus_target = option
+                                end
+                                if callback then callback() end
+                            end
+                            if is_selected then
+                                imgui.SetItemDefaultFocus()
+                            end
+                        end
+                        imgui.EndCombo()
+                    end
+                    imgui.PopItemWidth()
                     
                     create_slider_int('Focus Healing (HP%)', 'focus_threshold', { settings.focus_threshold or 85 }, 1, 100)
                 end
@@ -1516,16 +1559,63 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                 
                 -- Party MP recovery section (for Devotion)
                 if has_party_mp_recovery then
-                    create_combo('Recovery Target', 'focus_recovery_target_index', focus_recovery_target_index, focus_recovery_target_options, function(i)
-                        -- Convert combo index (0-5) to focus_recovery_target_index (nil, 1-5)
-                        if i == 0 then
-                            return nil
-                        else
-                            return i
+                    -- Build dynamic recovery target options (None + party members P1-P5, exclude player)
+                    local recovery_target_options = { 'None' }
+                    local party = common.get_party()
+                    if party then
+                        for i = 1, 5 do
+                            if party:GetMemberIsActive(i) == 1 then
+                                local member_name = common.get_party_member_name(i)
+                                if member_name and member_name ~= '' then
+                                    table.insert(recovery_target_options, member_name)
+                                end
+                            end
                         end
-                    end)
+                    end
                     
-                    if focus_recovery_target_index[1] > 0 then
+                    -- Validate saved recovery target name is in current party
+                    local current_recovery_display = 'None'
+                    if focus_recovery_target_name then
+                        local found = false
+                        for _, name in ipairs(recovery_target_options) do
+                            if name == focus_recovery_target_name then
+                                current_recovery_display = focus_recovery_target_name
+                                found = true
+                                break
+                            end
+                        end
+                        if not found then
+                            -- Saved target not in party, reset
+                            focus_recovery_target_name = nil
+                            settings.focus_recovery_target = nil
+                            if callback then callback() end
+                        end
+                    end
+                    
+                    -- Recovery Target dropdown
+                    imgui.PushItemWidth(250)
+                    if imgui.BeginCombo('Recovery Target', current_recovery_display) then
+                        for _, option in ipairs(recovery_target_options) do
+                            local is_selected = (option == current_recovery_display)
+                            if imgui.Selectable(option, is_selected) then
+                                if option == 'None' then
+                                    focus_recovery_target_name = nil
+                                    settings.focus_recovery_target = nil
+                                else
+                                    focus_recovery_target_name = option
+                                    settings.focus_recovery_target = option
+                                end
+                                if callback then callback() end
+                            end
+                            if is_selected then
+                                imgui.SetItemDefaultFocus()
+                            end
+                        end
+                        imgui.EndCombo()
+                    end
+                    imgui.PopItemWidth()
+                    
+                    if focus_recovery_target_name then
                         create_slider_int('Target Recover (MP%)', 'focus_recovery_threshold', { settings.focus_recovery_threshold or 30 }, 1, 100)
                     end
                     

@@ -141,12 +141,15 @@ function wake.execute(settings, job_def, main_level, sub_level, player_resource)
         local target_index = sleeping_members[1]
         
         -- Check if focus target is sleeping (if focus is enabled)
-        if settings.focus_enabled and settings.focus_target_index then
-            for _, idx in ipairs(sleeping_members) do
-                if idx == settings.focus_target_index then
-                    target_index = settings.focus_target_index
-                    common.debugf('[Wake] Focus target is sleeping, prioritizing them')
-                    break
+        if settings.focus_enabled and settings.focus_target then
+            local focus_target_index = common.get_target_index_by_name(settings.focus_target)
+            if focus_target_index then
+                for _, idx in ipairs(sleeping_members) do
+                    if idx == focus_target_index then
+                        target_index = focus_target_index
+                        common.debugf('[Wake] Focus target is sleeping, prioritizing them')
+                        break
+                    end
                 end
             end
         end
