@@ -1331,6 +1331,14 @@ function common.filter_abilities_by_level(abilities, settings, main_level, sub_l
         return available_abilities
     end
     
+    -- Debug: Check if job_def and validator exist
+    if job_def then
+        common.debugf('[filter_abilities] job_def exists, job_id=%s, has_validator=%s', 
+            tostring(job_def.job_id), tostring(job_def.validate_ability ~= nil))
+    else
+        common.debugf('[filter_abilities] job_def is nil')
+    end
+    
     for _, ability in ipairs(abilities) do
         -- Safely get level value
         local required_level = 0
@@ -1360,6 +1368,7 @@ function common.filter_abilities_by_level(abilities, settings, main_level, sub_l
             -- Skip if combat only and not engaged
         elseif job_def and job_def.validate_ability and not job_def.validate_ability(ability, common) then
             -- Skip if job-specific validator fails
+            common.debugf('[filter_abilities] %s blocked by job validator', ability.name)
         elseif required_level <= player_level then
             table.insert(available_abilities, ability)
         end

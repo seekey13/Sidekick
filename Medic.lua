@@ -170,6 +170,7 @@ local function load_job_definition(main_job_id, sub_job_id)
     merged_def.job_id = primary_def.job_id
     merged_def.resource_type = primary_def.resource_type
     merged_def.validators = primary_def.validators
+    merged_def.validate_ability = primary_def.validate_ability
     
     -- Merge priority_order: use master list order, include actions from both jobs
     -- Master priority order (defines the execution sequence)
