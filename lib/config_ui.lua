@@ -916,7 +916,7 @@ local function create_combo(label, setting_name, ui_var, options, converter, wid
 end
 
 -- Render a buff ability with button-based selection for single-target buffs
-local function render_buff_with_buttons(ability, job_def, extra_desc)
+local function render_buff_with_buttons(ability, job_def)
     -- Get the command string (handle both string and function commands)
     local cmd = type(ability.command) == 'function' and ability.command(0) or ability.command
     local is_spell = cmd and string.sub(cmd, 1, 3) == '/ma'
@@ -938,13 +938,17 @@ local function render_buff_with_buttons(ability, job_def, extra_desc)
     local desc
     if ability.cost and ability.cost > 0 then
         local resource_label = job_def.resource_type == 'tp' and 'TP' or 'MP'
-        desc = ability.name .. ' (' .. ability.cost .. ' ' .. resource_label .. ')' .. (extra_desc or '') .. spell_suffix
+        desc = ability.name .. ' (' .. ability.cost .. ' ' .. resource_label .. ')' .. spell_suffix
     else
-        desc = ability.name .. (extra_desc or '') .. spell_suffix
+        desc = ability.name .. spell_suffix
     end
     
     if not has_spell then
         imgui.PushStyleColor(ImGuiCol_Text, { 0.5, 0.5, 0.5, 1.0 })  -- Gray color for unknown spells
+    elseif ability.combat_only then
+        imgui.PushStyleColor(ImGuiCol_Text, COLOR_COMBAT_ONLY)
+    elseif ability.idle_only then
+        imgui.PushStyleColor(ImGuiCol_Text, COLOR_IDLE_ONLY)
     end
     
     -- Render [<ME>] button
@@ -1007,13 +1011,22 @@ local function render_buff_with_buttons(ability, job_def, extra_desc)
     imgui.SameLine()
     imgui.Text(desc)
     
-    if not has_spell then
+    -- Show tooltip for combat_only or idle_only
+    if imgui.IsItemHovered() then
+        if ability.combat_only then
+            imgui.SetTooltip('Combat Only')
+        elseif ability.idle_only then
+            imgui.SetTooltip('Idle Only')
+        end
+    end
+    
+    if not has_spell or ability.combat_only or ability.idle_only then
         imgui.PopStyleColor()
     end
 end
 
 -- Render a buff ability checkbox with party member toggle buttons
-local function render_buff_checkbox_with_party_toggles(ability, job_def, extra_desc)
+local function render_buff_checkbox_with_party_toggles(ability, job_def)
     -- Check if this ability is being displayed for the first time
     local key = 'disabled_' .. ability.name:gsub(' ', '_')
     if current_settings and current_settings[key] == nil then
@@ -1046,20 +1059,33 @@ local function render_buff_checkbox_with_party_toggles(ability, job_def, extra_d
     local desc
     if ability.cost and ability.cost > 0 then
         local resource_label = job_def.resource_type == 'tp' and 'TP' or 'MP'
-        desc = ability.name .. ' (' .. ability.cost .. ' ' .. resource_label .. ')' .. (extra_desc or '') .. spell_suffix
+        desc = ability.name .. ' (' .. ability.cost .. ' ' .. resource_label .. ')' .. spell_suffix
     else
-        desc = ability.name .. (extra_desc or '') .. spell_suffix
+        desc = ability.name .. spell_suffix
     end
     local checkbox_label = desc .. '##buff'
     
     if not has_spell then
         imgui.PushStyleColor(ImGuiCol_Text, { 0.5, 0.5, 0.5, 1.0 })  -- Gray color for unknown spells
+    elseif ability.combat_only then
+        imgui.PushStyleColor(ImGuiCol_Text, COLOR_COMBAT_ONLY)
+    elseif ability.idle_only then
+        imgui.PushStyleColor(ImGuiCol_Text, COLOR_IDLE_ONLY)
     end
     
     -- Render main checkbox for player
     local ability_enabled = { is_ability_enabled(ability.name) }
     if imgui.Checkbox(checkbox_label, ability_enabled) then
         toggle_ability(ability.name, ability_enabled[1], job_def)
+    end
+    
+    -- Show tooltip for combat_only or idle_only
+    if imgui.IsItemHovered() then
+        if ability.combat_only then
+            imgui.SetTooltip('Combat Only')
+        elseif ability.idle_only then
+            imgui.SetTooltip('Idle Only')
+        end
     end
     
     -- Only show party toggles if spell is known, can be cast on party, is enabled for self, and we're in a party
@@ -1126,13 +1152,13 @@ local function render_buff_checkbox_with_party_toggles(ability, job_def, extra_d
         end
     end
     
-    if not has_spell then
+    if not has_spell or ability.combat_only or ability.idle_only then
         imgui.PopStyleColor()
     end
 end
 
 -- Render an ability checkbox with spell knowledge checking
-local function render_ability_checkbox(ability, job_def, extra_desc, id_suffix)
+local function render_ability_checkbox(ability, job_def, id_suffix)
     -- Get the command string (handle both string and function commands)
     local cmd = type(ability.command) == 'function' and ability.command(0) or ability.command
     local is_spell = cmd and string.sub(cmd, 1, 3) == '/ma'
@@ -1155,9 +1181,9 @@ local function render_ability_checkbox(ability, job_def, extra_desc, id_suffix)
     local desc
     if ability.cost and ability.cost > 0 then
         local resource_label = job_def.resource_type == 'tp' and 'TP' or 'MP'
-        desc = ability.name .. ' (' .. ability.cost .. ' ' .. resource_label .. ')' .. (extra_desc or '') .. spell_suffix
+        desc = ability.name .. ' (' .. ability.cost .. ' ' .. resource_label .. ')' .. spell_suffix
     else
-        desc = ability.name .. (extra_desc or '') .. spell_suffix
+        desc = ability.name .. spell_suffix
     end
     
     -- Add unique ID suffix to prevent ImGui label collisions when same ability appears in multiple sections
@@ -1168,6 +1194,10 @@ local function render_ability_checkbox(ability, job_def, extra_desc, id_suffix)
     
     if not has_spell then
         imgui.PushStyleColor(ImGuiCol_Text, { 0.5, 0.5, 0.5, 1.0 })  -- Gray color for unknown spells
+    elseif ability.combat_only then
+        imgui.PushStyleColor(ImGuiCol_Text, COLOR_COMBAT_ONLY)
+    elseif ability.idle_only then
+        imgui.PushStyleColor(ImGuiCol_Text, COLOR_IDLE_ONLY)
     end
     
     local ability_enabled = { is_ability_enabled(ability.name) }
@@ -1175,7 +1205,16 @@ local function render_ability_checkbox(ability, job_def, extra_desc, id_suffix)
         toggle_ability(ability.name, ability_enabled[1], job_def)
     end
     
-    if not has_spell then
+    -- Show tooltip for combat_only or idle_only
+    if imgui.IsItemHovered() then
+        if ability.combat_only then
+            imgui.SetTooltip('Combat Only')
+        elseif ability.idle_only then
+            imgui.SetTooltip('Idle Only')
+        end
+    end
+    
+    if not has_spell or ability.combat_only or ability.idle_only then
         imgui.PopStyleColor()
     end
 end
@@ -1459,7 +1498,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                 imgui.Indent(ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.heal) do
                     if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
-                        render_ability_checkbox(ability, job_def, nil, 'heal')
+                        render_ability_checkbox(ability, job_def, 'heal')
                     end
                 end
                 imgui.Unindent(ABILITY_LIST_INDENT)
@@ -1470,7 +1509,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                     imgui.Indent(ABILITY_LIST_INDENT)
                     for _, ability in ipairs(job_def.abilities.critical) do
                         if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
-                            render_ability_checkbox(ability, job_def, nil, 'critical')
+                            render_ability_checkbox(ability, job_def, 'critical')
                         end
                     end
                     imgui.Unindent(ABILITY_LIST_INDENT)
@@ -1491,7 +1530,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                 imgui.Indent(ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.heal_aoe) do
                     if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
-                        render_ability_checkbox(ability, job_def, nil, 'heal_aoe')
+                        render_ability_checkbox(ability, job_def, 'heal_aoe')
                     end
                 end
                 imgui.Unindent(ABILITY_LIST_INDENT)
@@ -1509,7 +1548,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                 imgui.Indent(ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.heal_pet) do
                     if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
-                        render_ability_checkbox(ability, job_def, nil, 'heal_pet')
+                        render_ability_checkbox(ability, job_def, 'heal_pet')
                     end
                 end
                 imgui.Unindent(ABILITY_LIST_INDENT)
@@ -1542,7 +1581,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                 imgui.Indent(ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.debuff_removal) do
                     if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
-                        render_ability_checkbox(ability, job_def, nil, 'debuff_removal')
+                        render_ability_checkbox(ability, job_def, 'debuff_removal')
                     end
                 end
                 imgui.Unindent(ABILITY_LIST_INDENT)
@@ -1565,7 +1604,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                     imgui.Indent(ABILITY_LIST_INDENT)
                     for _, ability in ipairs(job_def.abilities.recover_tp) do
                         if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
-                            render_ability_checkbox(ability, job_def, nil, 'recover_tp')
+                            render_ability_checkbox(ability, job_def, 'recover_tp')
                         end
                     end
                     imgui.Unindent(ABILITY_LIST_INDENT)
@@ -1581,7 +1620,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                     imgui.Indent(ABILITY_LIST_INDENT)
                     for _, ability in ipairs(job_def.abilities.recover_mp) do
                         if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
-                            render_ability_checkbox(ability, job_def, nil, 'recover_mp')
+                            render_ability_checkbox(ability, job_def, 'recover_mp')
                         end
                     end
                     imgui.Unindent(ABILITY_LIST_INDENT)
@@ -1656,7 +1695,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                     imgui.Indent(ABILITY_LIST_INDENT)
                     for _, ability in ipairs(job_def.abilities.recover_party_mp) do
                         if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
-                            render_ability_checkbox(ability, job_def, nil, 'recover_party_mp')
+                            render_ability_checkbox(ability, job_def, 'recover_party_mp')
                         end
                     end
                     imgui.Unindent(ABILITY_LIST_INDENT)
@@ -1699,7 +1738,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                 -- Full Circle checkbox
                 for _, ability in ipairs(job_def.abilities.geo) do
                     if ability.name ~= 'Entrust' and can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
-                        render_ability_checkbox(ability, job_def, nil, 'geo')
+                        render_ability_checkbox(ability, job_def, 'geo')
                     end
                 end
                 
@@ -1851,7 +1890,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                         imgui.Indent(ABILITY_LIST_INDENT)
                         for _, ability in ipairs(job_def.abilities.geo) do
                             if ability.name == 'Entrust' and can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
-                                render_ability_checkbox(ability, job_def, nil, 'geo')
+                                render_ability_checkbox(ability, job_def, 'geo')
                             end
                         end
                         imgui.Unindent(ABILITY_LIST_INDENT)
