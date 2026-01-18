@@ -38,6 +38,7 @@ local party_buffs = {}
 -- UI Constants
 local ABILITY_LIST_INDENT = 10  -- Indent for ability checkboxes within sections
 local PARTY_BUTTON_WIDTH = 45  -- Width of party toggle buttons
+local SPACE_BETWEEN_BUTTONS = 8  -- Space between party buttons
 
 -- Dropdown options
 -- (focus target options are built dynamically from party)
@@ -50,6 +51,11 @@ local PARTY_BUTTON_WIDTH = 45  -- Width of party toggle buttons
 local function can_use_ability(ability)
     if not ability or not ability.level then
         return true
+    end
+    
+    -- Check if ability requires main job only (e.g., Geo spells)
+    if ability.main_job_only and ability.is_main_job == false then
+        return false
     end
     
     local main_level, sub_level = common.get_player_level()

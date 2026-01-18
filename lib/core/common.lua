@@ -1388,6 +1388,12 @@ function common.filter_abilities_by_level(abilities, settings, main_level, sub_l
         -- Determine which level to check based on ability source
         local player_level = ability.is_main_job == false and (sub_level or 0) or (main_level or 0)
         
+        -- Check if ability requires main job only (e.g., Geo spells)
+        if ability.main_job_only and ability.is_main_job == false then
+            -- Skip main-job-only abilities when from subjob
+            goto continue
+        end
+        
         -- Check if ability is disabled in settings
         local disabled_key = 'disabled_' .. ability.name:gsub(' ', '_')
         -- Default to disabled (true) if key doesn't exist (nil)
