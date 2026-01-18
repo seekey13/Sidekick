@@ -398,7 +398,8 @@ local function render_group_dropdown(job_def, target_group, dropdown_width)
     local current_display
     if selected then
         if selected.cost and selected.cost > 0 then
-            current_display = selected.name .. ' (' .. selected.cost .. ' MP)'
+            local resource_label = job_def.resource_type == 'tp' and 'TP' or 'MP'
+            current_display = selected.name .. ' (' .. selected.cost .. ' ' .. resource_label .. ')'
         else
             current_display = selected.name
         end
@@ -414,7 +415,8 @@ local function render_group_dropdown(job_def, target_group, dropdown_width)
         for _, ability in ipairs(usable) do
             local display_text
             if ability.cost and ability.cost > 0 then
-                display_text = ability.name .. ' (' .. ability.cost .. ' MP)'
+                local resource_label = job_def.resource_type == 'tp' and 'TP' or 'MP'
+                display_text = ability.name .. ' (' .. ability.cost .. ' ' .. resource_label .. ')'
             else
                 display_text = ability.name
             end
@@ -481,9 +483,10 @@ local function render_self_single_ability(ability, job_def, extra_desc, id_suffi
     imgui.SameLine()
     local desc
     if ability.cost and ability.cost > 0 then
-        desc = ability.name .. ' (' .. ability.cost .. ' MP)' .. (extra_desc or '') .. spell_suffix
+        local resource_label = job_def.resource_type == 'tp' and 'TP' or 'MP'
+        desc = ability.name .. ' (' .. ability.cost .. ' ' .. resource_label .. ')' .. (extra_desc or '') .. spell_suffix
     else
-        desc = ability.name .. ' (Lv.' .. ability.level .. ')' .. (extra_desc or '') .. spell_suffix
+        desc = ability.name .. (extra_desc or '') .. spell_suffix
     end
     imgui.Text(desc)
     
@@ -540,9 +543,10 @@ local function render_party_single_ability(ability, job_def, extra_desc)
     
     local desc
     if ability.cost and ability.cost > 0 then
-        desc = ability.name .. ' (' .. ability.cost .. ' MP)' .. (extra_desc or '') .. spell_suffix
+        local resource_label = job_def.resource_type == 'tp' and 'TP' or 'MP'
+        desc = ability.name .. ' (' .. ability.cost .. ' ' .. resource_label .. ')' .. (extra_desc or '') .. spell_suffix
     else
-        desc = ability.name .. ' (Lv.' .. ability.level .. ')' .. (extra_desc or '') .. spell_suffix
+        desc = ability.name .. (extra_desc or '') .. spell_suffix
     end
     
     if not has_spell then
@@ -850,9 +854,10 @@ local function render_buff_with_buttons(ability, job_def, extra_desc)
     
     local desc
     if ability.cost and ability.cost > 0 then
-        desc = ability.name .. ' (' .. ability.cost .. ' MP)' .. (extra_desc or '') .. spell_suffix
+        local resource_label = job_def.resource_type == 'tp' and 'TP' or 'MP'
+        desc = ability.name .. ' (' .. ability.cost .. ' ' .. resource_label .. ')' .. (extra_desc or '') .. spell_suffix
     else
-        desc = ability.name .. ' (Lv.' .. ability.level .. ')' .. (extra_desc or '') .. spell_suffix
+        desc = ability.name .. (extra_desc or '') .. spell_suffix
     end
     
     if not has_spell then
@@ -957,9 +962,10 @@ local function render_buff_checkbox_with_party_toggles(ability, job_def, extra_d
     
     local desc
     if ability.cost and ability.cost > 0 then
-        desc = ability.name .. ' (' .. ability.cost .. ' MP)' .. (extra_desc or '') .. spell_suffix
+        local resource_label = job_def.resource_type == 'tp' and 'TP' or 'MP'
+        desc = ability.name .. ' (' .. ability.cost .. ' ' .. resource_label .. ')' .. (extra_desc or '') .. spell_suffix
     else
-        desc = ability.name .. ' (Lv.' .. ability.level .. ')' .. (extra_desc or '') .. spell_suffix
+        desc = ability.name .. (extra_desc or '') .. spell_suffix
     end
     local checkbox_label = desc .. '##buff'
     
@@ -1075,9 +1081,10 @@ local function render_ability_checkbox(ability, job_def, extra_desc, id_suffix)
     
     local desc
     if ability.cost and ability.cost > 0 then
-        desc = ability.name .. ' (' .. ability.cost .. ' MP)' .. (extra_desc or '') .. spell_suffix
+        local resource_label = job_def.resource_type == 'tp' and 'TP' or 'MP'
+        desc = ability.name .. ' (' .. ability.cost .. ' ' .. resource_label .. ')' .. (extra_desc or '') .. spell_suffix
     else
-        desc = ability.name .. ' (Lv.' .. ability.level .. ')' .. (extra_desc or '') .. spell_suffix
+        desc = ability.name .. (extra_desc or '') .. spell_suffix
     end
     
     -- Add unique ID suffix to prevent ImGui label collisions when same ability appears in multiple sections
