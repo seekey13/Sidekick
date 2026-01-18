@@ -533,6 +533,9 @@ When multiple abilities exist in a group (e.g., Cure I-V, Protect I-IV), they ar
 - Shows ability cost (MP) in dropdown
 - Grays out unlearned spells
 - ON/OFF button controls the selected ability
+- Only the currently visible (selected) ability in the dropdown can be enabled
+- When dropdown selection changes, all other abilities in the group are automatically disabled
+- Dropdown does not auto-advance on level-up; player must manually select higher-tier spells
 
 ### Subjob Duplicate Filtering
 The UI automatically hides abilities from subjob when they already exist in main job:
@@ -545,6 +548,12 @@ The UI automatically hides abilities from subjob when they already exist in main
 - Trust buttons display as dark gray and disabled in UI
 - Hover tooltip explains "Trust buffs are not available"
 - Buffs tracked via packet-based system for Trusts
+
+### Ability State Management
+- **Default State**: All newly discovered abilities default to OFF (disabled) until explicitly enabled
+- **Grouped Abilities**: Only the currently visible ability in a dropdown can be enabled; selecting a different ability in the dropdown automatically disables all other group members
+- **Unknown Spells**: Buttons (ON/OFF and party target buttons) are fully disabled (dark gray, unclickable) when a spell is not yet learned
+- **Spell Learning**: When a spell is learned, buttons become enabled and functional
 
 ## Known Limitations
 - Party only (no alliance support)

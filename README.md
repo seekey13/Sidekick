@@ -23,11 +23,14 @@ A focused, support-oriented addon for Ashita v4 that automates healing, buffing,
 - **Button-Based Party Buff Targeting**: Single-target buffs display ME/P1-P5 buttons for precise control
 - **Trust Buff Support**: Buffs can now be tracked and cast on Trusts using packet-based detection
 - **Group Dropdowns**: Multiple abilities in a group (e.g., Cure I-V) now use dropdown selectors for cleaner UI
+- **Grouped Ability Constraints**: Only the currently visible ability in a dropdown can be enabled; changing selection automatically disables all other group members
 - **Collapsible Sections**: All major feature sections are now collapsible for better organization
 - **Enhanced Casting Detection**: Improved packet-based casting state tracking for more reliable spell detection
 - **Subjob Filtering**: Duplicate abilities from subjob are now hidden when they exist in main job
 - **Single-Target Buff Support**: Cast buffs on specific party members with intelligent uptime tracking and range validation (20 yalms)
 - **Movement Blocking**: Casting prevented while moving to avoid interrupted spells
+- **New Ability Default State**: All newly discovered abilities now default to OFF until explicitly enabled
+- **Unknown Spell Protection**: Buttons for unlearned spells are fully disabled (grayed out and unclickable)
 
 ## Features
 
