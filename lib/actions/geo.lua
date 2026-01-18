@@ -58,10 +58,6 @@ function geo.execute(settings, job_def, main_level, sub_level, player_resource)
                             common.warnf('[GEO] %s has no ability ID defined, skipping', ability.name)
                         else
                             local is_ready = resource.is_ability_ready(ability.id)
-                            local recast_time = resource.get_ability_recast(ability.id)
-                            
-                            common.debugf('[GEO] %s ability recast check - Ability ID: %d, Recast Time: %.1fs, Ready: %s', 
-                                ability.name, ability.id, (recast_time or 0) / 60.0, tostring(is_ready))
                             
                             if is_ready then
                                 local command = common.build_ability_command(ability, 0)
@@ -89,29 +85,17 @@ function geo.execute(settings, job_def, main_level, sub_level, player_resource)
     local config_ui = require('lib.config_ui')
     local entrust_config = config_ui.get_entrust_config()
     
-    common.debugf('[GEO] Entrust config: %s', entrust_config and 'configured' or 'nil')
-    
     if entrust_config then
-        common.debugf('[GEO] Entrust target: %s (P%d), spell: %s', 
-            entrust_config.target_name, entrust_config.target_index, entrust_config.spell_name)
-        
         -- Check if Entrust ability is enabled in settings
         local entrust_enabled_key = 'disabled_Entrust'
         if settings[entrust_enabled_key] == true then
-            -- Entrust is disabled, skip
-            common.debugf('[GEO] Entrust ability is disabled in settings')
             return nil
         end
-        
-        common.debugf('[GEO] Entrust ability is enabled')
         
         -- Only attempt entrust in combat
         if not common.is_engaged() then
-            common.debugf('[GEO] Not engaged, skipping Entrust')
             return nil
         end
-        
-        common.debugf('[GEO] Engaged in combat, checking Entrust conditions')
         
         local target_index = entrust_config.target_index  -- 1-5 for P1-P5
         local spell_name = entrust_config.spell_name
@@ -145,43 +129,30 @@ function geo.execute(settings, job_def, main_level, sub_level, player_resource)
             return nil
         end
         
-        common.debugf('[GEO] Selected spell: %s', selected_spell.name)
-        
         -- Convert party index (1-5) to entity target index
         local party = common.get_party()
         if not party then
-            common.debugf('[GEO] Cannot get party manager')
             return nil
         end
         
         local entity_target_index = party:GetMemberTargetIndex(target_index)
         if not entity_target_index or entity_target_index == 0 then
-            common.debugf('[GEO] Entrust target P%d has no valid target index', target_index)
             return nil
         end
-        
-        common.debugf('[GEO] Party index %d -> entity target index %d', target_index, entity_target_index)
         
         -- Check if target party member is valid and in range (20 yalms)
         local target_in_range = common.is_in_range(entity_target_index, 20)
-        common.debugf('[GEO] Target in_range result: %s', tostring(target_in_range))
         
         if not target_in_range then
-            common.debugf('[GEO] Entrust target P%d out of range or invalid', target_index)
+            common.debugf('[GEO] Entrust target out of range')
             return nil
         end
-        
-        common.debugf('[GEO] Target P%d is in range', target_index)
         
         -- Check if we have the Entrust buff (584)
         local has_entrust_buff = common.has_buff(0, 584)
         
-        common.debugf('[GEO] Has Entrust buff: %s', tostring(has_entrust_buff))
-        
         if has_entrust_buff then
             -- We have Entrust buff, cast the Indi spell on party member
-            common.debugf('[GEO] Entrust buff active, casting %s on P%d', selected_spell.name, target_index)
-            
             -- Check if spell is blocked by status ailments
             local blocked_by = common.is_command_blocked(selected_spell.command)
             if blocked_by then
@@ -244,10 +215,6 @@ function geo.execute(settings, job_def, main_level, sub_level, player_resource)
             -- Check cooldown
             if entrust_ability.id then
                 local is_ready = resource.is_ability_ready(entrust_ability.id)
-                local recast_time = resource.get_ability_recast(entrust_ability.id)
-                
-                common.debugf('[GEO] Entrust ability recast check - Ability ID: %d, Recast Time: %.1fs, Ready: %s', 
-                    entrust_ability.id, (recast_time or 0) / 60.0, tostring(is_ready))
                 
                 if is_ready then
                     local command = common.build_ability_command(entrust_ability, 0)
