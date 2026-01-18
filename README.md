@@ -17,6 +17,7 @@ A focused, support-oriented addon for Ashita v4 that automates healing, buffing,
 ## Latest Updates
 
 ### [1.1.0] - 2026-01-17
+- **Critical HP Abilities**: Emergency abilities (e.g., Divine Seal, Martyr) trigger when party members drop below critical threshold (default 30%, configurable 1-50%) before attempting regular heals
 - **Button-Based Party Buff Targeting**: Single-target buffs display ME/P1-P5 buttons for precise control
 - **Trust Buff Support**: Buffs can now be tracked and cast on Trusts using packet-based detection
 - **Group Dropdowns**: Multiple abilities in a group (e.g., Cure I-V) now use dropdown selectors for cleaner UI
@@ -29,7 +30,8 @@ A focused, support-oriented addon for Ashita v4 that automates healing, buffing,
 ## Features
 
 ### Core Support Actions
-- **Single-Target Healing**: Intelligent HP deficit-based heal selection
+- **Critical HP Response**: Emergency abilities (e.g., Divine Seal, Martyr) automatically trigger when party members drop below critical threshold (default 30%)
+- **Single-Target Healing**: Intelligent HP deficit-based heal selection with priority system (Critical HP → Focus target → Regular lowest HP)
 - **AOE Healing**: Party-wide healing when multiple members need HP
 - **Pet Healing**: Automated healing for luopan pets
 - **Sleep Removal (Wake)**: Automatically wake sleeping party members
@@ -113,6 +115,7 @@ Currently implemented support jobs:
   - Buff with blood pacts (Shining Ruby)
 
 - **White Mage** (WHM)
+  - Critical HP abilities (Divine Seal, Martyr)
   - Single-target healing with white magic (Cure I-V)
   - AOE healing with white magic (Curaga I-IV)
   - Debuff removal with white magic (Poisona, Paralyna, Blindna, Silena, Cursna, Erase, Viruna, Stona, Esuna)

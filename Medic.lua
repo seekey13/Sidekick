@@ -168,6 +168,7 @@ local function load_job_definition(main_job_id, sub_job_id)
     -- Merge priority_order: use master list order, include actions from both jobs
     -- Master priority order (defines the execution sequence)
     local master_priority = {
+        'critical',
         'heal_aoe',
         'heal',
         'heal_pet',
@@ -495,6 +496,7 @@ local function automation_tick()
     
     -- Get priority order
     local priority_order = job_def.priority_order or {
+        'critical',
         'heal_aoe',
         'heal',
         'heal_pet',

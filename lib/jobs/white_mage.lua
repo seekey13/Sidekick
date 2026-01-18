@@ -869,6 +869,7 @@ return {
     
     -- Action priority order
     priority_order = {
+        'critical',
         'heal_aoe',
         'heal',
         'debuff_removal',
