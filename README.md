@@ -2,7 +2,9 @@
 
 A focused, support-oriented addon for Ashita v4 that automates healing, buffing, and debuff removal for select support jobs in Final Fantasy XI.  Tuned specifically for [CatsEyeXI private server](https://www.catseyexi.com/).
 
-<img width="400" alt="image" src="https://github.com/user-attachments/assets/0c9beb07-960e-4db4-b6d3-b6ad1c2149c4" />
+## New Collapsable UI
+<img width="603" height="934" alt="Medic Screenshot" src="https://github.com/user-attachments/assets/c12130ab-94d0-46f2-b9d8-72f3b2d3d1de" />
+
 
 ## ⚠️ Important: This is NOT a Full Automation Tool
 
