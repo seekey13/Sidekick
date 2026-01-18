@@ -249,6 +249,11 @@ end
 local function setup_job()
     local main_job_id, sub_job_id = common.get_player_job()
     
+    -- Ignore invalid job IDs (happens during zoning)
+    if not main_job_id or main_job_id == 0 then
+        return
+    end
+    
     if main_job_id == current_main_job_id and sub_job_id == current_sub_job_id and job_def then
         return  -- Already loaded
     end
@@ -555,6 +560,9 @@ ashita.events.register('d3d_present', 'medic_render', function()
             automation_enabled = true
         end
     end
+    
+    -- Check for job changes (every frame)
+    setup_job()
     
     -- Render config UI
     if config_ui.is_visible() and job_def and addon_settings then
