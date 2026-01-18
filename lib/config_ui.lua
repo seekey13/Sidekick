@@ -421,6 +421,15 @@ local function render_group_dropdown(job_def, target_group, dropdown_width)
     local setting_key = 'selected_' .. target_group
     local combo_label = '##dropdown_' .. target_group
     
+    -- Apply color styling based on selected ability's flags
+    if selected then
+        if selected.combat_only then
+            imgui.PushStyleColor(ImGuiCol_Text, COLOR_COMBAT_ONLY)
+        elseif selected.idle_only then
+            imgui.PushStyleColor(ImGuiCol_Text, COLOR_IDLE_ONLY)
+        end
+    end
+    
     imgui.PushItemWidth(dropdown_width or 200)
     if imgui.BeginCombo(combo_label, current_display) then
         for _, ability in ipairs(usable) do
@@ -467,7 +476,22 @@ local function render_group_dropdown(job_def, target_group, dropdown_width)
         end
         imgui.EndCombo()
     end
+    
+    -- Show tooltip for combat_only or idle_only
+    if imgui.IsItemHovered() and selected then
+        if selected.combat_only then
+            imgui.SetTooltip('Combat Only')
+        elseif selected.idle_only then
+            imgui.SetTooltip('Idle Only')
+        end
+    end
+    
     imgui.PopItemWidth()
+    
+    -- Pop color style if we pushed one
+    if selected and (selected.combat_only or selected.idle_only) then
+        imgui.PopStyleColor()
+    end
 end
 
 -- Render a self-target single ability (not in a group)
@@ -556,12 +580,26 @@ local function render_self_grouped_ability(ability, job_def)
         end
     end
     
+    -- Apply color styling based on selected ability's flags
+    if not has_spell then
+        imgui.PushStyleColor(ImGuiCol_Text, { 0.5, 0.5, 0.5, 1.0 })
+    elseif selected.combat_only then
+        imgui.PushStyleColor(ImGuiCol_Text, COLOR_COMBAT_ONLY)
+    elseif selected.idle_only then
+        imgui.PushStyleColor(ImGuiCol_Text, COLOR_IDLE_ONLY)
+    end
+    
     -- Render ON/OFF button using the selected ability's name
     render_onoff_button(selected.name, job_def, has_spell)
     
     -- Render dropdown
     imgui.SameLine()
     render_group_dropdown(job_def, ability.group, 300)
+    
+    -- Pop color style if we pushed one
+    if not has_spell or selected.combat_only or selected.idle_only then
+        imgui.PopStyleColor()
+    end
 end
 
 -- Render a party-target single ability (not in a group)
