@@ -51,6 +51,7 @@ local automation_enabled = false
 local last_job_id = nil
 local last_sub_job_id = nil
 local last_level = nil
+local last_unsupported_warning = nil  -- Track last unsupported job warning to prevent spam
 
 -- Settings file path
 local default_settings = T{
@@ -144,12 +145,17 @@ local function load_job_definition(main_job_id, sub_job_id)
     
     -- Check if at least one job is supported
     if not main_def and not sub_def then
-        local main_name = common.get_job_name(main_job_id)
-        local error_msg = 'No automation available for ' .. main_name
-        if sub_job_id and sub_job_id > 0 then
-            error_msg = error_msg .. ' / ' .. common.get_job_name(sub_job_id)
+        -- Only display warning once per job combination
+        local warning_key = string.format('%d_%d', main_job_id, sub_job_id or 0)
+        if last_unsupported_warning ~= warning_key then
+            local main_name = common.get_job_name(main_job_id)
+            local error_msg = 'No automation available for ' .. main_name
+            if sub_job_id and sub_job_id > 0 then
+                error_msg = error_msg .. '/' .. common.get_job_name(sub_job_id)
+            end
+            common.warnf(error_msg)
+            last_unsupported_warning = warning_key
         end
-        common.warnf(error_msg)
         return nil
     end
     
@@ -168,6 +174,7 @@ local function load_job_definition(main_job_id, sub_job_id)
     -- Merge priority_order: use master list order, include actions from both jobs
     -- Master priority order (defines the execution sequence)
     local master_priority = {
+        'critical',
         'heal_aoe',
         'heal',
         'heal_pet',
@@ -247,6 +254,11 @@ end
 
 local function setup_job()
     local main_job_id, sub_job_id = common.get_player_job()
+    
+    -- Ignore invalid job IDs (happens during zoning)
+    if not main_job_id or main_job_id == 0 then
+        return
+    end
     
     if main_job_id == current_main_job_id and sub_job_id == current_sub_job_id and job_def then
         return  -- Already loaded
@@ -495,6 +507,7 @@ local function automation_tick()
     
     -- Get priority order
     local priority_order = job_def.priority_order or {
+        'critical',
         'heal_aoe',
         'heal',
         'heal_pet',
@@ -553,6 +566,9 @@ ashita.events.register('d3d_present', 'medic_render', function()
             automation_enabled = true
         end
     end
+    
+    -- Check for job changes (every frame)
+    setup_job()
     
     -- Render config UI
     if config_ui.is_visible() and job_def and addon_settings then

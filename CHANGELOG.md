@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.1.0] - 2026-01-17
 
 ### Added
+- **Critical HP Abilities**: New critical ability category triggers emergency abilities (e.g., Divine Seal, Martyr) when party members drop below critical threshold (default 30%, configurable 1-50%) before attempting regular heals
 - **Button-Based Party Buff Targeting**: Single-target buffs now display ME/P1-P5 buttons for precise control over who receives each buff (e.g., Haste, Refresh, Protect, Shell, Enspells, etc.)
 - **Trust Buff Tracking**: Buffs can now be tracked and cast on Trusts using packet-based detection (packets 0x028 for application, 0x029 for removal)
 - **Group Dropdown Consolidation**: When multiple abilities exist in a group (e.g., Cure I-V), they are now consolidated into a dropdown selector for cleaner UI
@@ -15,8 +16,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Subjob Duplicate Filtering**: Config UI now automatically hides duplicate abilities from subjob when they exist in main job (e.g., Cure spells)
 - **Single-Target Buff Support**: Jobs can now cast single-target buffs on party members with intelligent uptime tracking and range validation (20 yalms)
 - **Movement Blocking**: Casting is now prevented while the player is moving to avoid interrupted spells
+- **Grouped Ability Management**: Only the currently visible ability in a dropdown group can be enabled; all others in the group are automatically disabled when dropdown selection changes
+- **New Ability Default State**: All newly discovered abilities now default to OFF (disabled) until explicitly enabled by the player
+- **Unknown Spell Button Protection**: ON/OFF buttons and party target buttons (ME/P1-P5) are now fully disabled (grayed out and unclickable) when a spell is not yet learned
 
 ### Changed
+- **Healing Priority**: Updated healing priority to: Critical lowest HP (if below critical threshold) → Focus target → Regular lowest HP
 - **Collapsible UI Sections**: All major feature sections (Healing, Buffs, Debuff Removal, etc.) are now collapsible headers with checkboxes for cleaner organization
 - **Buff UI**: Single-target buffs (function commands) now use button-based targeting instead of checkboxes
 - **Buff Logic**: Abilities are automatically enabled when any ME/P1-P5 button is selected, and disabled when all buttons are deselected
@@ -24,12 +29,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Casting State Logic**: Simplified casting detection to use action state byte only, not action ID, for more reliable state tracking
 - **Party Buff Buttons**: Trust members now show disabled (dark gray) buttons in party buff UI to indicate buffs cannot be cast
 - **Job Detection**: Moved job change detection from packet handler to automation loop for simpler, more reliable code (no longer uses packets 0x1B, 0x44, 0x1A)
+- **Ability Default State**: Changed from enabled-by-default to disabled-by-default for all newly discovered abilities
+- **Grouped Abilities**: Dropdown selection change now enforces single-enabled-ability constraint by disabling all other group members
 
 ### Fixed
 - Button-based buffs now properly check if the ability is enabled before attempting to cast
 - Party buff state correctly syncs with settings on button toggle
 - Casting state now properly detects spell casting regardless of action ID changes between start and completion packets
 - UI no longer shows duplicate abilities when same spell exists in both main job and subjob
+- Grouped abilities now correctly maintain single-enabled constraint when dropdown selection changes
+- Unknown spell buttons are now properly disabled and unclickable until spell is learned
 
 ## [1.0.0] - 2026-01-11
 

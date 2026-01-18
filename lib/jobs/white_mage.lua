@@ -760,6 +760,29 @@ return {
             },
         },
 
+        -- Critical
+        critical = {
+            {
+                name = 'Martyr',
+                level = 75,
+                cost = 0,
+                id = 27,  -- Job Ability ID
+                command = function(target)
+                    return '/ja "Martyr" '..target
+                end,
+                range = 18,
+                combat_only = false,
+            },
+            {
+                name = 'Divine Seal',
+                level = 30,
+                cost = 0,
+                id = 26,  -- Job Ability ID
+                command = '/ja "Divine Seal" <me>',
+                combat_only = false,
+            },
+        },
+
         -- Revive
         -- revive = {
         --     {
@@ -768,7 +791,7 @@ return {
         --         cost = 150,
         --         id = 147,  -- Spell ID
         --         command = function(party_index)
-        --             return '/ma "Arise" <p'..party_index..'>'
+        --             return '/ma "Arise" '..target
         --         end,
         --         range = 18,
         --         combat_only = false,
@@ -779,7 +802,7 @@ return {
         --         cost = 150,
         --         id = 140,  -- Spell ID
         --         command = function(party_index)
-        --             return '/ma "Raise III" <p'..party_index..'>'
+        --             return '/ma "Raise III" '..target
         --         end,
         --         range = 18,
         --         combat_only = false,
@@ -790,7 +813,7 @@ return {
         --         cost = 150,
         --         id = 139,  -- Spell ID
         --         command = function(party_index)
-        --             return '/ma "Raise II" <p'..party_index..'>'
+        --             return '/ma "Raise II" '..target
         --         end,
         --         range = 18,
         --         combat_only = false,
@@ -801,18 +824,36 @@ return {
         --         cost = 150,
         --         id = 12,  -- Spell ID
         --         command = function(party_index)
-        --             return '/ma "Raise" <p'..party_index..'>'
+        --             return '/ma "Raise" '..target
         --         end,
         --         range = 18,
         --         combat_only = false,
         --     },
         -- },
+
+
+        recover_party_mp = {
+            {
+                name = 'Devotion',
+                level = 75,
+                cost = 0,
+                id = 28,  -- Job Ability ID
+                command = function(target)
+                    return '/ja "Devotion" '..target -- Cannot target self
+                end,
+            },
+        },
     },
-    
+    -- -- Job-specific validators
+    -- validators = {
+
+    -- },
+
     -- Default settings for UI
     default_settings = {
         heal_enabled = true,
         heal_threshold = 75,
+        critical_threshold = 30,
         heal_aoe_enabled = true,
         heal_aoe_threshold = 70,
         heal_aoe_count_threshold = 2,
@@ -822,10 +863,13 @@ return {
         focus_enabled = false,
         focus_target_index = nil,
         focus_threshold = 85,
+        focus_recovery_target_index = nil,
+        focus_recovery_threshold = 30,
     },
     
     -- Action priority order
     priority_order = {
+        'critical',
         'heal_aoe',
         'heal',
         'debuff_removal',

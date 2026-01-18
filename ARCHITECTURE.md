@@ -186,8 +186,17 @@ Uses pcall to catch errors in action modules, preventing one module's failure fr
 Single-target healing logic with HP deficit-based selection.
 
 **Priority Order:**
-1. Focus target (if enabled and needs healing)
-2. Lowest HP party member
+1. Critical lowest HP (if anyone below critical threshold, uses critical abilities)
+2. Focus target (if enabled and needs healing)
+3. Lowest HP party member
+
+**Critical HP System:**
+- Checks for party members below critical threshold (default 30%, configurable 1-50%)
+- Uses critical abilities (e.g., Divine Seal, Martyr) from job definition
+- Self-target abilities (Divine Seal) cast on player to boost healing
+- Party-target abilities (Martyr) cast on the critical HP member
+- Skips dead party members (HP = 0%)
+- Next cycle will heal the critical person after buff/sacrifice is applied
 
 **Ability Selection:**
 - Calculates exact HP deficit
@@ -307,6 +316,7 @@ return {
         heal = { ... },       -- Array of abilities
         heal_aoe = { ... },
         heal_pet = { ... },
+        critical = { ... },   -- Emergency abilities for critical HP
         buff = { ... },
         debuff_removal = { ... },
         wake = { ... },
@@ -319,6 +329,7 @@ return {
     default_settings = {
         heal_enabled = true,
         heal_threshold = 75,
+        critical_threshold = 30,
         -- etc.
     },
     
@@ -509,12 +520,22 @@ abilities = {
 ### Collapsible Sections
 All major feature sections (Healing, Buffs, Debuff Removal, etc.) use collapsible headers with integrated checkboxes for enable/disable control.
 
+### Critical HP Section
+Nested inside the "Enable Party Healing" section:
+- **Critical (HP%)** slider: Configurable threshold (1-50%, default 30%)
+- Individual checkboxes for critical abilities (e.g., Divine Seal, Martyr)
+- Triggers emergency abilities when party members drop below threshold
+- Applied before regular healing for rapid response to health emergencies
+
 ### Group Dropdown Consolidation
 When multiple abilities exist in a group (e.g., Cure I-V, Protect I-IV), they are consolidated into a dropdown selector:
 - Automatically selects highest level usable ability by default
 - Shows ability cost (MP) in dropdown
 - Grays out unlearned spells
 - ON/OFF button controls the selected ability
+- Only the currently visible (selected) ability in the dropdown can be enabled
+- When dropdown selection changes, all other abilities in the group are automatically disabled
+- Dropdown does not auto-advance on level-up; player must manually select higher-tier spells
 
 ### Subjob Duplicate Filtering
 The UI automatically hides abilities from subjob when they already exist in main job:
@@ -527,6 +548,12 @@ The UI automatically hides abilities from subjob when they already exist in main
 - Trust buttons display as dark gray and disabled in UI
 - Hover tooltip explains "Trust buffs are not available"
 - Buffs tracked via packet-based system for Trusts
+
+### Ability State Management
+- **Default State**: All newly discovered abilities default to OFF (disabled) until explicitly enabled
+- **Grouped Abilities**: Only the currently visible ability in a dropdown can be enabled; selecting a different ability in the dropdown automatically disables all other group members
+- **Unknown Spells**: Buttons (ON/OFF and party target buttons) are fully disabled (dark gray, unclickable) when a spell is not yet learned
+- **Spell Learning**: When a spell is learned, buttons become enabled and functional
 
 ## Known Limitations
 - Party only (no alliance support)

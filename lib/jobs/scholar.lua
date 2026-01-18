@@ -629,6 +629,26 @@ return {
             },
         },
 
+        -- Critical
+        critical = {
+            {
+                name = 'Tranquility',
+                level = 75,
+                cost = 0,
+                id = 231,  -- Job ability ID
+                command = '/ja "Tranquility" <me>',
+                requires_buff = {358, 401},  -- Can be either 358 or 401
+            },
+            {
+                name = 'Rapture',
+                level = 55,
+                cost = 0,
+                id = 231,  -- Job ability ID
+                command = '/ja "Rapture" <me>',
+                requires_buff = {358, 401},  -- Can be either 358 or 401
+            },
+        },
+
         -- -- Revive
         -- revive = {
         --     {
@@ -637,7 +657,7 @@ return {
         --         cost = 150,
         --         id = 141,  -- Spell ID
         --         command = function(party_index)
-        --             return '/ma "Raise II" <p' .. party_index .. '>'
+        --             return '/ma "Raise II" '..target
         --         end,
         --         range = 20,
         --         wakes = true,
@@ -649,7 +669,7 @@ return {
         --         cost = 150,
         --         id = 12,  -- Spell ID
         --         command = function(party_index)
-        --             return '/ma "Raise" <p' .. party_index .. '>'
+        --             return '/ma "Raise" '..target
         --         end,
         --         range = 20,
         --         wakes = true,
@@ -665,6 +685,7 @@ return {
     default_settings = {
         heal_enabled = true,
         heal_threshold = 75,
+        critical_threshold = 30,
         heal_aoe_enabled = false,  -- Scholar has no AOE heal
         heal_aoe_threshold = 70,
         heal_aoe_count_threshold = 2,
@@ -681,6 +702,7 @@ return {
     
     -- Action priority order
     priority_order = {
+        'critical',
         'heal',
         'debuff_removal',
         'wake',

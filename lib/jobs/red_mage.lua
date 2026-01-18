@@ -470,7 +470,7 @@ return {
         --         cost = 150,
         --         id = 12,  -- Spell ID
         --         command = function(party_index)
-        --             return '/ma "Raise" <p' .. party_index .. '>'
+        --             return '/ma "Raise" '..target
         --         end,
         --         range = 18,
         --         combat_only = false,

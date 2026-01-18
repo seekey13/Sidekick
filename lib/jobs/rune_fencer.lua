@@ -66,7 +66,7 @@ return {
                     return '/ma "Shell" '..target
                 end,
                 element = 'Light',
-                buff_id = 18,  -- Shell buff
+                buff_id = 41,  -- Shell buff
                 combat_only = false,
                 group = 'shell',
             },
@@ -79,7 +79,7 @@ return {
                     return '/ma "Shell II" '..target
                 end,
                 element = 'Light',
-                buff_id = 19,  -- Shell II buff
+                buff_id = 41,  -- Shell II buff
                 combat_only = false,
                 group = 'shell',
             },
@@ -92,7 +92,7 @@ return {
                     return '/ma "Shell III" '..target
                 end,
                 element = 'Light',
-                buff_id = 20,  -- Shell III buff
+                buff_id = 41,  -- Shell III buff
                 combat_only = false,
                 group = 'shell',
             },
@@ -105,7 +105,7 @@ return {
                     return '/ma "Shell IV" '..target
                 end,
                 element = 'Light',
-                buff_id = 21,  -- Shell IV buff
+                buff_id = 41,  -- Shell IV buff
                 combat_only = false,
                 group = 'shell',
             },
