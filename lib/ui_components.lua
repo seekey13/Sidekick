@@ -35,14 +35,14 @@ ui_components.COLOR_BUTTON_UNSELECTED_HOVER = { 0.4, 0.4, 0.4, 1.0 }
 ui_components.COLOR_BUTTON_UNSELECTED_ACTIVE = { 0.5, 0.5, 0.5, 1.0 }
 
 -- Color Constants - Headers
-ui_components.HEADER_COLOR_NORMAL = { 0.047, 0.110, 0.227, 0.31 }
-ui_components.HEADER_COLOR_HOVERED = { 0.047, 0.110, 0.227, 0.80 }
-ui_components.HEADER_COLOR_ACTIVE = { 0.047, 0.110, 0.227, 1.00 }
+ui_components.HEADER_COLOR_NORMAL = { 0.05, 0.1, 0.2, 0.31 }
+ui_components.HEADER_COLOR_HOVERED = { 0.05, 0.1, 0.2, 0.80 }
+ui_components.HEADER_COLOR_ACTIVE = { 0.05, 0.1, 0.2, 1.00 }
 
 -- Color Constants - Status
-ui_components.STATUS_COLOR_RUNNING = { 0.0, 1.0, 0.0, 1.0 }
-ui_components.STATUS_COLOR_PAUSED = { 0.0, 0.5, 1.0, 1.0 }
-ui_components.STATUS_COLOR_STOPPED = { 1.0, 0.0, 0.0, 1.0 }
+ui_components.STATUS_COLOR_RUNNING = { 0.7, 1.0, 0.7, 1.0 }
+ui_components.STATUS_COLOR_PAUSED = { 0.7, 0.7, 1.0, 1.0 }
+ui_components.STATUS_COLOR_STOPPED = { 1.0, 0.7, 0.7, 1.0 }
 
 -- ============================================================================
 -- Helper Functions
