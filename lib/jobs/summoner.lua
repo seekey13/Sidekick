@@ -47,6 +47,16 @@ return {
         -- Buffs
         buff = {
             {
+                name = 'Avatar\'s Favor',
+                level = 55,
+                cost = 0,
+                id = 176,  -- Blood Pact: Ward recast ID (shared with Healing Ruby)
+                command = '/pet "Avatar\'s Favor" <me>',
+                buff_id = 431,  -- Avatar's Favor buff ID
+                combat_only = false,
+                pet_required = true,
+            },
+            {
                 name = 'Shining Ruby',
                 level = 24,
                 cost = 44,
