@@ -24,9 +24,10 @@ local DROPDOWN_FALLBACK_WIDTH = 200
 local AUTOMATION_BUTTON_WIDTH = 80
 
 -- Color Constants - Text
-local COLOR_COMBAT_ONLY = { 1.0, 0.7, 0.7, 1.0 }
-local COLOR_IDLE_ONLY = { 0.7, 1.0, 0.7, 1.0 }
-local COLOR_TEXT_UNKNOWN_SPELL = { 0.5, 0.5, 0.5, 1.0 }
+local LIGHT_RED = { 1.0, 0.7, 0.7, 1.0 }
+local LIGHT_GREEN = { 0.7, 1.0, 0.7, 1.0 }
+local LIGHT_BLUE = { 0.7, 0.7, 1.0, 1.0 }
+local LIGHT_GRAY = { 0.5, 0.5, 0.5, 1.0 }
 
 -- Color Constants - Buttons
 local COLOR_BUTTON_DISABLED = { 0.2, 0.2, 0.2, 1.0 }
@@ -38,11 +39,6 @@ local COLOR_BUTTON_UNSELECTED_ACTIVE = { 0.5, 0.5, 0.5, 1.0 }
 local HEADER_COLOR_NORMAL = { 0.05, 0.1, 0.2, 0.31 }
 local HEADER_COLOR_HOVERED = { 0.05, 0.1, 0.2, 0.80 }
 local HEADER_COLOR_ACTIVE = { 0.05, 0.1, 0.2, 1.00 }
-
--- Color Constants - Status
-local STATUS_COLOR_RUNNING = { 0.7, 1.0, 0.7, 1.0 }
-local STATUS_COLOR_PAUSED = { 0.7, 0.7, 1.0, 1.0 }
-local STATUS_COLOR_STOPPED = { 1.0, 0.7, 0.7, 1.0 }
 
 -- ============================================================================
 -- Helper Functions
@@ -434,9 +430,9 @@ function ui_components.group_dropdown(ctx, job_def, target_group, dropdown_width
     -- Apply color styling
     if selected then
         if selected.combat_only then
-            imgui.PushStyleColor(ImGuiCol_Text, COLOR_COMBAT_ONLY)
+            imgui.PushStyleColor(ImGuiCol_Text, LIGHT_RED)
         elseif selected.idle_only then
-            imgui.PushStyleColor(ImGuiCol_Text, COLOR_IDLE_ONLY)
+            imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GREEN)
         end
     end
     
@@ -520,11 +516,11 @@ function ui_components.self_single_ability(ctx, ability, job_def, id_suffix)
     end
     
     if not has_spell then
-        imgui.PushStyleColor(ImGuiCol_Text, COLOR_TEXT_UNKNOWN_SPELL)
+        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
     elseif ability.combat_only then
-        imgui.PushStyleColor(ImGuiCol_Text, COLOR_COMBAT_ONLY)
+        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_RED)
     elseif ability.idle_only then
-        imgui.PushStyleColor(ImGuiCol_Text, COLOR_IDLE_ONLY)
+        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GREEN)
     end
     
     ui_components.onoff_button(ctx, ability.name, job_def, has_spell)
@@ -581,11 +577,11 @@ function ui_components.self_grouped_ability(ctx, ability, job_def)
     end
     
     if not has_spell then
-        imgui.PushStyleColor(ImGuiCol_Text, COLOR_TEXT_UNKNOWN_SPELL)
+        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
     elseif selected.combat_only then
-        imgui.PushStyleColor(ImGuiCol_Text, COLOR_COMBAT_ONLY)
+        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_RED)
     elseif selected.idle_only then
-        imgui.PushStyleColor(ImGuiCol_Text, COLOR_IDLE_ONLY)
+        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GREEN)
     end
     
     ui_components.onoff_button(ctx, selected.name, job_def, has_spell)
@@ -625,11 +621,11 @@ function ui_components.party_single_ability(ctx, ability, job_def)
     end
     
     if not has_spell then
-        imgui.PushStyleColor(ImGuiCol_Text, COLOR_TEXT_UNKNOWN_SPELL)
+        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
     elseif ability.combat_only then
-        imgui.PushStyleColor(ImGuiCol_Text, COLOR_COMBAT_ONLY)
+        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_RED)
     elseif ability.idle_only then
-        imgui.PushStyleColor(ImGuiCol_Text, COLOR_IDLE_ONLY)
+        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GREEN)
     end
     
     render_party_buttons(ctx, ability.name, has_spell)
@@ -679,7 +675,7 @@ function ui_components.party_grouped_ability(ctx, ability, job_def)
     end
     
     if not has_spell then
-        imgui.PushStyleColor(ImGuiCol_Text, COLOR_TEXT_UNKNOWN_SPELL)
+        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
     end
     
     render_party_buttons(ctx, selected.name, has_spell)
@@ -847,11 +843,11 @@ function ui_components.ability_checkbox(ctx, ability, job_def, id_suffix)
     end
     
     if not has_spell then
-        imgui.PushStyleColor(ImGuiCol_Text, COLOR_TEXT_UNKNOWN_SPELL)
+        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
     elseif ability.combat_only then
-        imgui.PushStyleColor(ImGuiCol_Text, COLOR_COMBAT_ONLY)
+        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_RED)
     elseif ability.idle_only then
-        imgui.PushStyleColor(ImGuiCol_Text, COLOR_IDLE_ONLY)
+        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GREEN)
     end
     
     local ability_enabled = { is_ability_enabled(ctx, ability.name) }
