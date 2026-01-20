@@ -7,6 +7,7 @@ local ui_components = {}
 
 local imgui = require('imgui')
 local common = require('lib.core.common')
+local item_module = require('lib.actions.item')
 
 -- ============================================================================
 -- UI Constants
@@ -867,5 +868,82 @@ function ui_components.ability_checkbox(ctx, ability, job_def, id_suffix)
         imgui.PopStyleColor()
     end
 end
+
+-- ============================================================================
+-- Item Checkbox Component
+-- ============================================================================
+
+-- Render checkbox for item-based silence removal (Echo Drops)
+-- Args: ctx (table) - Context with settings, save_callback
+function ui_components.item_silence_removal_checkbox(ctx)
+    if not ctx or not ctx.settings then
+        return
+    end
+    
+    -- Get Echo Drops count from inventory
+    local echo_drops_count = item_module.get_item_count('Echo Drops')
+    
+    -- Create checkbox label with count
+    local checkbox_label = string.format('Remove Silence with Echo Drops (%d)', echo_drops_count)
+    
+    -- Check if checkbox should be disabled (no items in inventory)
+    local is_disabled = (echo_drops_count == 0)
+    
+    -- If disabled and currently enabled, auto-disable the setting
+    if is_disabled and ctx.settings.item_silence_removal_enabled then
+        ctx.settings.item_silence_removal_enabled = false
+        if ctx.save_callback then
+            ctx.save_callback()
+        end
+    end
+    
+    -- Apply disabled styling if no items
+    if is_disabled then
+        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
+        imgui.PushStyleColor(ImGuiCol_FrameBg, COLOR_BUTTON_DISABLED)
+        imgui.PushStyleColor(ImGuiCol_FrameBgHovered, COLOR_BUTTON_DISABLED)
+        imgui.PushStyleColor(ImGuiCol_FrameBgActive, COLOR_BUTTON_DISABLED)
+        imgui.PushStyleColor(ImGuiCol_CheckMark, LIGHT_GRAY)
+    end
+    
+    local enabled = { ctx.settings.item_silence_removal_enabled or false }
+    
+    -- Only allow interaction if not disabled
+    if not is_disabled and imgui.Checkbox(checkbox_label, enabled) then
+        ctx.settings.item_silence_removal_enabled = enabled[1]
+        if ctx.save_callback then
+            ctx.save_callback()
+        end
+    elseif is_disabled then
+        -- Display disabled checkbox (non-interactive)
+        imgui.Checkbox(checkbox_label, enabled)
+    end
+    
+    if is_disabled then
+        imgui.PopStyleColor(5)
+    end
+    
+    -- Tooltip
+    if imgui.IsItemHovered() then
+        if is_disabled then
+            imgui.SetTooltip('No Echo Drops in inventory')
+        else
+            imgui.SetTooltip('Use Echo Drops to remove Silence (Item)')
+        end
+    end
+end
+
+-- ============================================================================
+-- Export Constants
+-- ============================================================================
+
+ui_components.ABILITY_LIST_INDENT = ABILITY_LIST_INDENT
+ui_components.PARTY_BUTTON_WIDTH = PARTY_BUTTON_WIDTH
+ui_components.SPACE_BETWEEN_BUTTONS = SPACE_BETWEEN_BUTTONS
+ui_components.DROPDOWN_WIDTH = DROPDOWN_WIDTH
+ui_components.AUTOMATION_BUTTON_WIDTH = AUTOMATION_BUTTON_WIDTH
+ui_components.LIGHT_GREEN = LIGHT_GREEN
+ui_components.LIGHT_BLUE = LIGHT_BLUE
+ui_components.LIGHT_RED = LIGHT_RED
 
 return ui_components

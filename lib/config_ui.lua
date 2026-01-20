@@ -273,18 +273,18 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                 -- Running state
                 button_text = 'Stop'
                 status_text = 'Automation running.'
-                status_color = ui.STATUS_COLOR_RUNNING
+                status_color = ui.LIGHT_GREEN
             else
                 -- Paused state (automation enabled but combat blocked)
                 button_text = 'Paused'
                 status_text = 'Automation paused.'
-                status_color = ui.STATUS_COLOR_PAUSED
+                status_color = ui.LIGHT_BLUE
             end
         else
             -- Stopped state
             button_text = 'Start'
             status_text = 'Automation stopped.'
-            status_color = ui.STATUS_COLOR_STOPPED
+            status_color = ui.LIGHT_RED
         end
         
         -- Use fixed width for button to keep consistent size
@@ -514,7 +514,19 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                         ui.ability_checkbox(ctx, ability, job_def, 'debuff_removal')
                     end
                 end
+                
                 imgui.Unindent(ui.ABILITY_LIST_INDENT)
+
+                -- Echo Drops item checkbox (for Silence removal)
+                -- Show if either main job or sub job has resource_type = 'mp'
+                local show_silence_removal = false
+                if job_def.resource_type == 'mp' then
+                    show_silence_removal = true
+                end
+                
+                if show_silence_removal then
+                    ui.item_silence_removal_checkbox(ctx)
+                end
             end
             
             imgui.Separator()
