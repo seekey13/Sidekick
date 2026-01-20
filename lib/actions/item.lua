@@ -20,36 +20,41 @@ local function get_item_count(item_name)
     end)
     
     if not ok_item or not target_item then
+        common.debugf('[Item] Failed to get item resource for: %s', item_name)
         return 0
     end
+    
+    common.debugf('[Item] Looking for item ID: %d (%s)', target_item.Id, item_name)
     
     local ok_inv, inventory = pcall(function()
         return AshitaCore:GetMemoryManager():GetInventory()
     end)
     
     if not ok_inv or not inventory then
+        common.debugf('[Item] Failed to get inventory manager')
         return 0
     end
     
     local total_count = 0
-    local ok_max, max_slots = pcall(function()
-        return inventory:GetContainerMax(0)
-    end)
+    -- Inventory container 0 has 80 slots in FFXI
+    local max_slots = 80
     
-    if not ok_max or not max_slots then
-        return 0
-    end
+    common.debugf('[Item] Scanning %d inventory slots', max_slots)
     
-    for i = 1, max_slots do
-        local ok_item_slot, item = pcall(function()
-            return inventory:GetItem(0, i)
+    for i = 0, max_slots - 1 do
+        local ok_item_slot, item_entry = pcall(function()
+            return inventory:GetContainerItem(0, i)
         end)
         
-        if ok_item_slot and item and item.Id == target_item.Id and item.Id ~= 0 and item.Id ~= -1 and item.Id ~= 65535 then
-            total_count = total_count + item.Count
+        if ok_item_slot and item_entry and item_entry.Id ~= 0 and item_entry.Id ~= -1 and item_entry.Id ~= 65535 then
+            if item_entry.Id == target_item.Id then
+                common.debugf('[Item] Found %s in slot %d, count: %d', item_name, i, item_entry.Count)
+                total_count = total_count + item_entry.Count
+            end
         end
     end
     
+    common.debugf('[Item] Total count for %s: %d', item_name, total_count)
     return total_count
 end
 
