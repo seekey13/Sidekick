@@ -405,34 +405,7 @@ end
 -- Get pet entity
 -- Returns: pet entity object or nil if no pet
 function common.get_pet_entity()
-    -- Get player entity
-    local ok, player = pcall(function()
-        return GetPlayerEntity()
-    end)
-    
-    if not ok or not player then
-        return nil
-    end
-    
-    -- Check if player has a pet target index
-    local ok_index, pet_index = pcall(function()
-        return player.PetTargetIndex
-    end)
-    
-    if not ok_index or not pet_index or pet_index == 0 then
-        return nil
-    end
-    
-    -- Get the pet entity
-    local ok_pet, pet = pcall(function()
-        return GetEntity(pet_index)
-    end)
-    
-    if not ok_pet or not pet then
-        return nil
-    end
-    
-    return pet
+    return targets.get_pet()
 end
 
 function common.has_pet()
