@@ -600,6 +600,7 @@ return {
     
     -- Action priority order
     priority_order = {
+        'item',
         'buff',
     }, 
 }

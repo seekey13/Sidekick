@@ -519,7 +519,7 @@ return {
                 level = 32,
                 cost = 30,
                 id = 20,  -- Spell ID
-                debuff_id = {9, 20, 30},  -- Curse & Bane
+                debuff_id = {9, 15, 20, 30},  -- Curse, Doom & Bane
                 command = function(target)
                     return '/ma "Cursna" '..target
                 end,
@@ -702,6 +702,7 @@ return {
     
     -- Action priority order
     priority_order = {
+        'item',
         'critical',
         'heal',
         'debuff_removal',
