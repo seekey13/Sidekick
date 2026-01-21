@@ -92,11 +92,6 @@ function geo.execute(settings, job_def, main_level, sub_level, player_resource)
             return nil
         end
         
-        -- Only attempt entrust in combat
-        if not common.is_engaged() then
-            return nil
-        end
-        
         local target_index = entrust_config.target_index  -- 1-5 for P1-P5
         local spell_name = entrust_config.spell_name
         
