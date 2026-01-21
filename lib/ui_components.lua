@@ -316,7 +316,7 @@ local function render_party_buttons(ctx, ability_name, has_spell)
     if has_spell and imgui.Button(me_button_label, { PARTY_BUTTON_WIDTH, 0 }) then
         toggle_party_buff(ctx, ability_name, 0, not me_enabled)
     elseif not has_spell then
-        imgui.Button(me_button_label, { ui_components.PARTY_BUTTON_WIDTH, 0 })
+        imgui.Button(me_button_label, { PARTY_BUTTON_WIDTH, 0 })
     end
     
     if not has_spell or not me_enabled then
@@ -352,7 +352,7 @@ local function render_party_buttons(ctx, ability_name, has_spell)
                 if has_spell and imgui.Button(button_label, { PARTY_BUTTON_WIDTH, 0 }) then
                     toggle_party_buff(ctx, ability_name, party_index, not is_enabled)
                 elseif not has_spell then
-                    imgui.Button(button_label, { ui_components.PARTY_BUTTON_WIDTH, 0 })
+                    imgui.Button(button_label, { PARTY_BUTTON_WIDTH, 0 })
                 end
                 
                 if not has_spell or not is_enabled then
@@ -1004,18 +1004,5 @@ function ui_components.item_doom_removal_checkbox(ctx)
         end
     end
 end
-
--- ============================================================================
--- Export Constants
--- ============================================================================
-
-ui_components.ABILITY_LIST_INDENT = ABILITY_LIST_INDENT
-ui_components.PARTY_BUTTON_WIDTH = PARTY_BUTTON_WIDTH
-ui_components.SPACE_BETWEEN_BUTTONS = SPACE_BETWEEN_BUTTONS
-ui_components.DROPDOWN_WIDTH = DROPDOWN_WIDTH
-ui_components.AUTOMATION_BUTTON_WIDTH = AUTOMATION_BUTTON_WIDTH
-ui_components.LIGHT_GREEN = LIGHT_GREEN
-ui_components.LIGHT_BLUE = LIGHT_BLUE
-ui_components.LIGHT_RED = LIGHT_RED
 
 return ui_components
