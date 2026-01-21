@@ -13,7 +13,7 @@ local ITEM_COOLDOWN = 4.0
 
 -- Get item count in player's inventory (container 0)
 -- Args: item_name (string) - Name of the item to count
--- Returns: number - Total count of the item in inventory
+-- Returns: number or nil - Total count of the item in inventory, or nil if inventory not loaded
 local function get_item_count(item_name)
     local ok_item, target_item = pcall(function()
         return AshitaCore:GetResourceManager():GetItemByName(item_name, 0)
@@ -21,7 +21,7 @@ local function get_item_count(item_name)
     
     if not ok_item or not target_item then
         common.debugf('[Item] Failed to get item resource for: %s', item_name)
-        return 0
+        return nil  -- Return nil when resource manager fails (during zoning)
     end
     
     common.debugf('[Item] Looking for item ID: %d (%s)', target_item.Id, item_name)
@@ -32,10 +32,11 @@ local function get_item_count(item_name)
     
     if not ok_inv or not inventory then
         common.debugf('[Item] Failed to get inventory manager')
-        return 0
+        return nil  -- Return nil when inventory isn't loaded (during zoning)
     end
     
     local total_count = 0
+    local valid_item_count = 0  -- Track how many valid items we find
     -- Inventory container 0 has 80 slots in FFXI
     local max_slots = 80
     
@@ -46,12 +47,23 @@ local function get_item_count(item_name)
             return inventory:GetContainerItem(0, i)
         end)
         
-        if ok_item_slot and item_entry and item_entry.Id ~= 0 and item_entry.Id ~= -1 and item_entry.Id ~= 65535 then
-            if item_entry.Id == target_item.Id then
-                common.debugf('[Item] Found %s in slot %d, count: %d', item_name, i, item_entry.Count)
-                total_count = total_count + item_entry.Count
+        if ok_item_slot and item_entry then
+            -- Count any non-empty slot as "valid" to detect if inventory is loaded
+            if item_entry.Id ~= 0 and item_entry.Id ~= -1 and item_entry.Id ~= 65535 then
+                valid_item_count = valid_item_count + 1
+                
+                if item_entry.Id == target_item.Id then
+                    common.debugf('[Item] Found %s in slot %d, count: %d', item_name, i, item_entry.Count)
+                    total_count = total_count + item_entry.Count
+                end
             end
         end
+    end
+    
+    -- If we found no valid items at all in the entire inventory, it's likely not loaded yet
+    if valid_item_count == 0 then
+        common.debugf('[Item] No valid items found in inventory - may not be loaded yet')
+        return nil
     end
     
     common.debugf('[Item] Total count for %s: %d', item_name, total_count)

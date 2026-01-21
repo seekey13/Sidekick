@@ -883,14 +883,19 @@ function ui_components.item_silence_removal_checkbox(ctx)
     -- Get Echo Drops count from inventory
     local echo_drops_count = item_module.get_item_count('Echo Drops')
     
-    -- Create checkbox label with count
-    local checkbox_label = string.format('Remove Silence with Echo Drops (%d)', echo_drops_count)
+    -- Create checkbox label with count (show ? if inventory not loaded)
+    local checkbox_label
+    if echo_drops_count == nil then
+        checkbox_label = 'Remove Silence with Echo Drops (?)'
+    else
+        checkbox_label = string.format('Remove Silence with Echo Drops (%d)', echo_drops_count)
+    end
     
-    -- Check if checkbox should be disabled (no items in inventory)
+    -- Check if checkbox should be disabled (no items in inventory, but not during loading)
     local is_disabled = (echo_drops_count == 0)
     
-    -- If disabled and currently enabled, auto-disable the setting
-    if is_disabled and ctx.settings.item_silence_removal_enabled then
+    -- Only auto-disable if inventory is loaded (not nil) and count is 0
+    if is_disabled and echo_drops_count ~= nil and ctx.settings.item_silence_removal_enabled then
         ctx.settings.item_silence_removal_enabled = false
         if ctx.save_callback then
             ctx.save_callback()
@@ -945,14 +950,19 @@ function ui_components.item_doom_removal_checkbox(ctx)
     -- Get Holy Water count from inventory
     local holy_water_count = item_module.get_item_count('Holy Water')
     
-    -- Create checkbox label with count
-    local checkbox_label = string.format('Remove Doom with Holy Water (%d)', holy_water_count)
+    -- Create checkbox label with count (show ? if inventory not loaded)
+    local checkbox_label
+    if holy_water_count == nil then
+        checkbox_label = 'Remove Doom with Holy Water (?)'
+    else
+        checkbox_label = string.format('Remove Doom with Holy Water (%d)', holy_water_count)
+    end
     
-    -- Check if checkbox should be disabled (no items in inventory)
+    -- Check if checkbox should be disabled (no items in inventory, but not during loading)
     local is_disabled = (holy_water_count == 0)
     
-    -- If disabled and currently enabled, auto-disable the setting
-    if is_disabled and ctx.settings.item_doom_removal_enabled then
+    -- Only auto-disable if inventory is loaded (not nil) and count is 0
+    if is_disabled and holy_water_count ~= nil and ctx.settings.item_doom_removal_enabled then
         ctx.settings.item_doom_removal_enabled = false
         if ctx.save_callback then
             ctx.save_callback()
