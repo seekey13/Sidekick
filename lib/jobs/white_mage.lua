@@ -249,6 +249,7 @@ return {
                     return '/ma "Haste" '..target
                 end,
                 buff_id = 33,  -- Haste
+                combat_only = true,
                 duration = 180,
             },
             {
@@ -260,6 +261,7 @@ return {
                     return '/ma "Regen III" '..target
                 end,
                 buff_id = 42,  -- Regen
+                combat_only = true,
                 duration = 60,
             },
             {
@@ -271,6 +273,7 @@ return {
                     return '/ma "Regen II" '..target
                 end,
                 buff_id = 42,  -- Regen
+                combat_only = true,
                 duration = 60,
             },
             {
@@ -282,6 +285,7 @@ return {
                     return '/ma "Regen" '..target
                 end,
                 buff_id = 42,  -- Regen
+                combat_only = true,
                 duration = 75,
             },
             {
@@ -656,7 +660,7 @@ return {
                 id = 310,  -- Spell ID
                 command = '/ma "Enlight" <me>',
                 buff_id = 274,  -- Enlight
-                combat_only = true,
+                engaged_only = true,
             },
             {
                 name = 'Auspice',
@@ -665,7 +669,7 @@ return {
                 id = 96,  -- Spell ID
                 command = '/ma "Auspice" <me>',
                 buff_id = 275,  -- Auspice
-                combat_only = true,
+                engaged_only = true,
             },
             {
                 name = 'Invisible',

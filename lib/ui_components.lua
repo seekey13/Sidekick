@@ -523,8 +523,10 @@ function ui_components.self_single_ability(ctx, ability, job_def, id_suffix)
     
     if not has_spell then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
-    elseif ability.combat_only then
+    elseif ability.engaged_only then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_RED)
+    elseif ability.combat_only then
+        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_YELLOW)
     elseif ability.idle_only then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GREEN)
     end
