@@ -103,6 +103,7 @@ return {
     
     -- Action priority order
     priority_order = {
+        'item',
         'heal_aoe',
         'heal',
         'wake',

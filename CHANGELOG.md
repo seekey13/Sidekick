@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.2.0] - 2026-01-18
 
 ### Added
+- **Item-Based Status Removal**: New item action module automatically uses consumables to remove debuffs:
+  - **Echo Drops** for Silence (buff_id 6)
+  - **Holy Water** for Doom (buff_id 15)
+  - UI displays inventory count with checkboxes to enable/disable each item
+  - Shows "(?)" during zone loading to preserve settings; only auto-disables on genuine 0 count
+  - 4-second cooldown between item uses to avoid recast issues
+  - Doom removal has higher priority than Silence
 - **Pet Entity Consolidation**: New `get_pet_entity()` function provides single source of truth for pet entity access across all pet-related operations
 - **Job-Specific Ability Validation**: Jobs can now define custom `validate_ability` functions for fine-grained control over when abilities can be used
 - **Summoner Pet Name Validation**: Carbuncle-specific abilities (Healing Ruby, Healing Ruby II, Shining Ruby) now automatically check if Carbuncle is summoned before attempting to use

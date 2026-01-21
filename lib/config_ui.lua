@@ -273,18 +273,18 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                 -- Running state
                 button_text = 'Stop'
                 status_text = 'Automation running.'
-                status_color = ui.STATUS_COLOR_RUNNING
+                status_color = ui.LIGHT_GREEN
             else
                 -- Paused state (automation enabled but combat blocked)
                 button_text = 'Paused'
                 status_text = 'Automation paused.'
-                status_color = ui.STATUS_COLOR_PAUSED
+                status_color = ui.LIGHT_BLUE
             end
         else
             -- Stopped state
             button_text = 'Start'
             status_text = 'Automation stopped.'
-            status_color = ui.STATUS_COLOR_STOPPED
+            status_color = ui.LIGHT_RED
         end
         
         -- Use fixed width for button to keep consistent size
@@ -514,11 +514,18 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                         ui.ability_checkbox(ctx, ability, job_def, 'debuff_removal')
                     end
                 end
+                
                 imgui.Unindent(ui.ABILITY_LIST_INDENT)
             end
             
             imgui.Separator()
         end
+
+        -- Item checkboxes for Silence and Doom removal (always shown)
+        ui.item_silence_removal_checkbox(ctx)
+        ui.item_doom_removal_checkbox(ctx)
+
+        imgui.Separator()
         
         -- Recovery settings
         local has_mp_recovery = job_def and job_def.abilities.recover_mp and has_usable_abilities(job_def.abilities.recover_mp)

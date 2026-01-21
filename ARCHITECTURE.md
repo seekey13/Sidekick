@@ -344,6 +344,29 @@ MP and TP recovery logic.
 - Checks `requires_buff` prerequisite for abilities that need specific buffs active
 - Supports `combat_only` and `idle_only` flags for conditional usage
 
+#### item.lua
+Item-based status removal using consumables.
+
+**Supported Items:**
+- **Echo Drops**: Removes Silence (buff_id 6)
+- **Holy Water**: Removes Doom (buff_id 15)
+
+**Priority:**
+- Doom checked first (higher priority)
+- Silence checked second
+- 4-second cooldown between any item uses
+
+**Inventory Detection:**
+- Returns `nil` when inventory not loaded (during zoning) - displays "(?)"
+- Returns `0` when inventory loaded but item missing - auto-disables checkbox
+- Prevents false "0 count" during zone transitions
+- Validates inventory has at least one valid item before returning 0
+
+**UI Integration:**
+- Checkboxes show real-time inventory count
+- Auto-disables only when genuinely out of items
+- Displays in config UI after debuff removal section
+
 #### geo.lua
 Geomancer-specific Full Circle automation and Entrust management.
 

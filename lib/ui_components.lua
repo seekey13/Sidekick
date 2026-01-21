@@ -7,42 +7,39 @@ local ui_components = {}
 
 local imgui = require('imgui')
 local common = require('lib.core.common')
+local item_module = require('lib.actions.item')
 
 -- ============================================================================
 -- UI Constants
 -- ============================================================================
 
 -- Layout Constants
-ui_components.ABILITY_LIST_INDENT = 10
-ui_components.PARTY_BUTTON_WIDTH = 44
-ui_components.SPACE_BETWEEN_BUTTONS = 8
+local ABILITY_LIST_INDENT = 10
+local PARTY_BUTTON_WIDTH = 44
+local SPACE_BETWEEN_BUTTONS = 8
 
 -- Width Constants
-ui_components.DROPDOWN_WIDTH = 300
-ui_components.SLIDER_WIDTH = 250
-ui_components.DROPDOWN_FALLBACK_WIDTH = 200
-ui_components.AUTOMATION_BUTTON_WIDTH = 80
+local DROPDOWN_WIDTH = 300
+local SLIDER_WIDTH = 250
+local DROPDOWN_FALLBACK_WIDTH = 200
+local AUTOMATION_BUTTON_WIDTH = 80
 
 -- Color Constants - Text
-ui_components.COLOR_COMBAT_ONLY = { 1.0, 0.7, 0.7, 1.0 }
-ui_components.COLOR_IDLE_ONLY = { 0.7, 1.0, 0.7, 1.0 }
-ui_components.COLOR_TEXT_UNKNOWN_SPELL = { 0.5, 0.5, 0.5, 1.0 }
+local LIGHT_RED = { 1.0, 0.7, 0.7, 1.0 }
+local LIGHT_GREEN = { 0.7, 1.0, 0.7, 1.0 }
+local LIGHT_BLUE = { 0.7, 0.7, 1.0, 1.0 }
+local LIGHT_GRAY = { 0.5, 0.5, 0.5, 1.0 }
 
 -- Color Constants - Buttons
-ui_components.COLOR_BUTTON_DISABLED = { 0.2, 0.2, 0.2, 1.0 }
-ui_components.COLOR_BUTTON_UNSELECTED = { 0.3, 0.3, 0.3, 1.0 }
-ui_components.COLOR_BUTTON_UNSELECTED_HOVER = { 0.4, 0.4, 0.4, 1.0 }
-ui_components.COLOR_BUTTON_UNSELECTED_ACTIVE = { 0.5, 0.5, 0.5, 1.0 }
+local COLOR_BUTTON_DISABLED = { 0.2, 0.2, 0.2, 1.0 }
+local COLOR_BUTTON_UNSELECTED = { 0.3, 0.3, 0.3, 1.0 }
+local COLOR_BUTTON_UNSELECTED_HOVER = { 0.4, 0.4, 0.4, 1.0 }
+local COLOR_BUTTON_UNSELECTED_ACTIVE = { 0.5, 0.5, 0.5, 1.0 }
 
 -- Color Constants - Headers
-ui_components.HEADER_COLOR_NORMAL = { 0.05, 0.1, 0.2, 0.31 }
-ui_components.HEADER_COLOR_HOVERED = { 0.05, 0.1, 0.2, 0.80 }
-ui_components.HEADER_COLOR_ACTIVE = { 0.05, 0.1, 0.2, 1.00 }
-
--- Color Constants - Status
-ui_components.STATUS_COLOR_RUNNING = { 0.7, 1.0, 0.7, 1.0 }
-ui_components.STATUS_COLOR_PAUSED = { 0.7, 0.7, 1.0, 1.0 }
-ui_components.STATUS_COLOR_STOPPED = { 1.0, 0.7, 0.7, 1.0 }
+local HEADER_COLOR_NORMAL = { 0.05, 0.1, 0.2, 0.31 }
+local HEADER_COLOR_HOVERED = { 0.05, 0.1, 0.2, 0.80 }
+local HEADER_COLOR_ACTIVE = { 0.05, 0.1, 0.2, 1.00 }
 
 -- ============================================================================
 -- Helper Functions
@@ -288,7 +285,7 @@ end
 local function get_onoff_button_width()
     local party_size = common.get_party_size()
     local num_buttons = math.min(party_size, 6)
-    return ui_components.PARTY_BUTTON_WIDTH * num_buttons + (ui_components.SPACE_BETWEEN_BUTTONS * (num_buttons - 1))
+    return PARTY_BUTTON_WIDTH * num_buttons + (SPACE_BETWEEN_BUTTONS * (num_buttons - 1))
 end
 
 -- ============================================================================
@@ -304,22 +301,22 @@ local function render_party_buttons(ctx, ability_name, has_spell)
     local me_enabled = is_party_buff_enabled(ctx, ability_name, 0)
     
     if not has_spell then
-        imgui.PushStyleColor(ImGuiCol_Button, ui_components.COLOR_BUTTON_DISABLED)
-        imgui.PushStyleColor(ImGuiCol_ButtonHovered, ui_components.COLOR_BUTTON_DISABLED)
-        imgui.PushStyleColor(ImGuiCol_ButtonActive, ui_components.COLOR_BUTTON_DISABLED)
+        imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_DISABLED)
+        imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_DISABLED)
+        imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_DISABLED)
     elseif me_enabled then
         -- Use default colors
     else
-        imgui.PushStyleColor(ImGuiCol_Button, ui_components.COLOR_BUTTON_UNSELECTED)
-        imgui.PushStyleColor(ImGuiCol_ButtonHovered, ui_components.COLOR_BUTTON_UNSELECTED_HOVER)
-        imgui.PushStyleColor(ImGuiCol_ButtonActive, ui_components.COLOR_BUTTON_UNSELECTED_ACTIVE)
+        imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_UNSELECTED)
+        imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_UNSELECTED_HOVER)
+        imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_UNSELECTED_ACTIVE)
     end
     
     local me_button_label = '<ME>##' .. ability_name .. '_me'
-    if has_spell and imgui.Button(me_button_label, { ui_components.PARTY_BUTTON_WIDTH, 0 }) then
+    if has_spell and imgui.Button(me_button_label, { PARTY_BUTTON_WIDTH, 0 }) then
         toggle_party_buff(ctx, ability_name, 0, not me_enabled)
     elseif not has_spell then
-        imgui.Button(me_button_label, { ui_components.PARTY_BUTTON_WIDTH, 0 })
+        imgui.Button(me_button_label, { PARTY_BUTTON_WIDTH, 0 })
     end
     
     if not has_spell or not me_enabled then
@@ -340,22 +337,22 @@ local function render_party_buttons(ctx, ability_name, has_spell)
                 local is_enabled = is_party_buff_enabled(ctx, ability_name, party_index)
                 
                 if not has_spell then
-                    imgui.PushStyleColor(ImGuiCol_Button, ui_components.COLOR_BUTTON_DISABLED)
-                    imgui.PushStyleColor(ImGuiCol_ButtonHovered, ui_components.COLOR_BUTTON_DISABLED)
-                    imgui.PushStyleColor(ImGuiCol_ButtonActive, ui_components.COLOR_BUTTON_DISABLED)
+                    imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_DISABLED)
+                    imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_DISABLED)
+                    imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_DISABLED)
                 elseif is_enabled then
                     -- Use default colors
                 else
-                    imgui.PushStyleColor(ImGuiCol_Button, ui_components.COLOR_BUTTON_UNSELECTED)
-                    imgui.PushStyleColor(ImGuiCol_ButtonHovered, ui_components.COLOR_BUTTON_UNSELECTED_HOVER)
-                    imgui.PushStyleColor(ImGuiCol_ButtonActive, ui_components.COLOR_BUTTON_UNSELECTED_ACTIVE)
+                    imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_UNSELECTED)
+                    imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_UNSELECTED_HOVER)
+                    imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_UNSELECTED_ACTIVE)
                 end
                 
                 local button_label = '<P' .. party_index .. '>##' .. ability_name .. '_p' .. party_index
-                if has_spell and imgui.Button(button_label, { ui_components.PARTY_BUTTON_WIDTH, 0 }) then
+                if has_spell and imgui.Button(button_label, { PARTY_BUTTON_WIDTH, 0 }) then
                     toggle_party_buff(ctx, ability_name, party_index, not is_enabled)
                 elseif not has_spell then
-                    imgui.Button(button_label, { ui_components.PARTY_BUTTON_WIDTH, 0 })
+                    imgui.Button(button_label, { PARTY_BUTTON_WIDTH, 0 })
                 end
                 
                 if not has_spell or not is_enabled then
@@ -379,15 +376,15 @@ function ui_components.onoff_button(ctx, ability_name, job_def, has_spell)
     local button_width = get_onoff_button_width()
     
     if not has_spell then
-        imgui.PushStyleColor(ImGuiCol_Button, ui_components.COLOR_BUTTON_DISABLED)
-        imgui.PushStyleColor(ImGuiCol_ButtonHovered, ui_components.COLOR_BUTTON_DISABLED)
-        imgui.PushStyleColor(ImGuiCol_ButtonActive, ui_components.COLOR_BUTTON_DISABLED)
+        imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_DISABLED)
+        imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_DISABLED)
+        imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_DISABLED)
     elseif is_enabled then
         -- Use default colors
     else
-        imgui.PushStyleColor(ImGuiCol_Button, ui_components.COLOR_BUTTON_UNSELECTED)
-        imgui.PushStyleColor(ImGuiCol_ButtonHovered, ui_components.COLOR_BUTTON_UNSELECTED_HOVER)
-        imgui.PushStyleColor(ImGuiCol_ButtonActive, ui_components.COLOR_BUTTON_UNSELECTED_ACTIVE)
+        imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_UNSELECTED)
+        imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_UNSELECTED_HOVER)
+        imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_UNSELECTED_ACTIVE)
     end
     
     local button_text = is_enabled and 'ON' or 'OFF'
@@ -434,13 +431,13 @@ function ui_components.group_dropdown(ctx, job_def, target_group, dropdown_width
     -- Apply color styling
     if selected then
         if selected.combat_only then
-            imgui.PushStyleColor(ImGuiCol_Text, ui_components.COLOR_COMBAT_ONLY)
+            imgui.PushStyleColor(ImGuiCol_Text, LIGHT_RED)
         elseif selected.idle_only then
-            imgui.PushStyleColor(ImGuiCol_Text, ui_components.COLOR_IDLE_ONLY)
+            imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GREEN)
         end
     end
     
-    imgui.PushItemWidth(dropdown_width or ui_components.DROPDOWN_FALLBACK_WIDTH)
+    imgui.PushItemWidth(dropdown_width or DROPDOWN_FALLBACK_WIDTH)
     if imgui.BeginCombo(combo_label, current_display) then
         for _, ability in ipairs(usable) do
             local display_text
@@ -520,11 +517,11 @@ function ui_components.self_single_ability(ctx, ability, job_def, id_suffix)
     end
     
     if not has_spell then
-        imgui.PushStyleColor(ImGuiCol_Text, ui_components.COLOR_TEXT_UNKNOWN_SPELL)
+        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
     elseif ability.combat_only then
-        imgui.PushStyleColor(ImGuiCol_Text, ui_components.COLOR_COMBAT_ONLY)
+        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_RED)
     elseif ability.idle_only then
-        imgui.PushStyleColor(ImGuiCol_Text, ui_components.COLOR_IDLE_ONLY)
+        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GREEN)
     end
     
     ui_components.onoff_button(ctx, ability.name, job_def, has_spell)
@@ -581,17 +578,17 @@ function ui_components.self_grouped_ability(ctx, ability, job_def)
     end
     
     if not has_spell then
-        imgui.PushStyleColor(ImGuiCol_Text, ui_components.COLOR_TEXT_UNKNOWN_SPELL)
+        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
     elseif selected.combat_only then
-        imgui.PushStyleColor(ImGuiCol_Text, ui_components.COLOR_COMBAT_ONLY)
+        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_RED)
     elseif selected.idle_only then
-        imgui.PushStyleColor(ImGuiCol_Text, ui_components.COLOR_IDLE_ONLY)
+        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GREEN)
     end
     
     ui_components.onoff_button(ctx, selected.name, job_def, has_spell)
     
     imgui.SameLine()
-    ui_components.group_dropdown(ctx, job_def, ability.group, ui_components.DROPDOWN_WIDTH)
+    ui_components.group_dropdown(ctx, job_def, ability.group, DROPDOWN_WIDTH)
     
     if not has_spell or selected.combat_only or selected.idle_only then
         imgui.PopStyleColor()
@@ -625,11 +622,11 @@ function ui_components.party_single_ability(ctx, ability, job_def)
     end
     
     if not has_spell then
-        imgui.PushStyleColor(ImGuiCol_Text, ui_components.COLOR_TEXT_UNKNOWN_SPELL)
+        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
     elseif ability.combat_only then
-        imgui.PushStyleColor(ImGuiCol_Text, ui_components.COLOR_COMBAT_ONLY)
+        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_RED)
     elseif ability.idle_only then
-        imgui.PushStyleColor(ImGuiCol_Text, ui_components.COLOR_IDLE_ONLY)
+        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GREEN)
     end
     
     render_party_buttons(ctx, ability.name, has_spell)
@@ -679,13 +676,13 @@ function ui_components.party_grouped_ability(ctx, ability, job_def)
     end
     
     if not has_spell then
-        imgui.PushStyleColor(ImGuiCol_Text, ui_components.COLOR_TEXT_UNKNOWN_SPELL)
+        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
     end
     
     render_party_buttons(ctx, selected.name, has_spell)
     
     imgui.SameLine()
-    ui_components.group_dropdown(ctx, job_def, ability.group, ui_components.DROPDOWN_WIDTH)
+    ui_components.group_dropdown(ctx, job_def, ability.group, DROPDOWN_WIDTH)
     
     if not has_spell then
         imgui.PopStyleColor()
@@ -764,9 +761,9 @@ function ui_components.collapsing_checkbox_header(ctx, label, setting_name, defa
         end
     end
     imgui.SameLine()
-    imgui.PushStyleColor(ImGuiCol_Header, ui_components.HEADER_COLOR_NORMAL)
-    imgui.PushStyleColor(ImGuiCol_HeaderHovered, ui_components.HEADER_COLOR_HOVERED)
-    imgui.PushStyleColor(ImGuiCol_HeaderActive, ui_components.HEADER_COLOR_ACTIVE)
+    imgui.PushStyleColor(ImGuiCol_Header, HEADER_COLOR_NORMAL)
+    imgui.PushStyleColor(ImGuiCol_HeaderHovered, HEADER_COLOR_HOVERED)
+    imgui.PushStyleColor(ImGuiCol_HeaderActive, HEADER_COLOR_ACTIVE)
     local is_open = imgui.CollapsingHeader(label, ImGuiTreeNodeFlags_DefaultOpen)
     imgui.PopStyleColor(3)
     return is_open, setting_var[1]
@@ -774,7 +771,7 @@ end
 
 -- Create an integer slider UI element linked to a setting
 function ui_components.slider_int(ctx, label, setting_name, ui_var, min, max, width)
-    width = width or ui_components.SLIDER_WIDTH
+    width = width or SLIDER_WIDTH
     imgui.PushItemWidth(width)
     if imgui.SliderInt(label, ui_var, min, max) then
         ctx.settings[setting_name] = ui_var[1]
@@ -787,7 +784,7 @@ end
 
 -- Create a combo dropdown UI element linked to a setting
 function ui_components.combo(ctx, label, setting_name, ui_var, options, converter, width)
-    width = width or ui_components.SLIDER_WIDTH
+    width = width or SLIDER_WIDTH
     imgui.PushItemWidth(width)
     local current_value = options[ui_var[1] + 1] or options[1] or ""
     if imgui.BeginCombo(label, current_value) then
@@ -847,11 +844,11 @@ function ui_components.ability_checkbox(ctx, ability, job_def, id_suffix)
     end
     
     if not has_spell then
-        imgui.PushStyleColor(ImGuiCol_Text, ui_components.COLOR_TEXT_UNKNOWN_SPELL)
+        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
     elseif ability.combat_only then
-        imgui.PushStyleColor(ImGuiCol_Text, ui_components.COLOR_COMBAT_ONLY)
+        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_RED)
     elseif ability.idle_only then
-        imgui.PushStyleColor(ImGuiCol_Text, ui_components.COLOR_IDLE_ONLY)
+        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GREEN)
     end
     
     local ability_enabled = { is_ability_enabled(ctx, ability.name) }
@@ -871,5 +868,150 @@ function ui_components.ability_checkbox(ctx, ability, job_def, id_suffix)
         imgui.PopStyleColor()
     end
 end
+
+-- ============================================================================
+-- Item Checkbox Component
+-- ============================================================================
+
+-- Render checkbox for item-based silence removal (Echo Drops)
+-- Args: ctx (table) - Context with settings, save_callback
+function ui_components.item_silence_removal_checkbox(ctx)
+    if not ctx or not ctx.settings then
+        return
+    end
+    
+    -- Get Echo Drops count from inventory
+    local echo_drops_count = item_module.get_item_count('Echo Drops')
+    
+    -- Create checkbox label with count (show ? if inventory not loaded)
+    local checkbox_label
+    if echo_drops_count == nil then
+        checkbox_label = 'Remove Silence with Echo Drops (?)'
+    else
+        checkbox_label = string.format('Remove Silence with Echo Drops (%d)', echo_drops_count)
+    end
+    
+    -- Check if checkbox should be disabled (no items in inventory, but not during loading)
+    local is_disabled = (echo_drops_count == 0)
+    
+    -- Only auto-disable if inventory is loaded (not nil) and count is 0
+    if is_disabled and echo_drops_count ~= nil and ctx.settings.item_silence_removal_enabled then
+        ctx.settings.item_silence_removal_enabled = false
+        if ctx.save_callback then
+            ctx.save_callback()
+        end
+    end
+    
+    -- Apply disabled styling if no items
+    if is_disabled then
+        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
+        imgui.PushStyleColor(ImGuiCol_FrameBg, COLOR_BUTTON_DISABLED)
+        imgui.PushStyleColor(ImGuiCol_FrameBgHovered, COLOR_BUTTON_DISABLED)
+        imgui.PushStyleColor(ImGuiCol_FrameBgActive, COLOR_BUTTON_DISABLED)
+        imgui.PushStyleColor(ImGuiCol_CheckMark, LIGHT_GRAY)
+    end
+    
+    local enabled = { ctx.settings.item_silence_removal_enabled or false }
+    
+    -- Only allow interaction if not disabled
+    if not is_disabled and imgui.Checkbox(checkbox_label, enabled) then
+        ctx.settings.item_silence_removal_enabled = enabled[1]
+        if ctx.save_callback then
+            ctx.save_callback()
+        end
+    elseif is_disabled then
+        -- Display disabled checkbox (non-interactive)
+        imgui.Checkbox(checkbox_label, enabled)
+    end
+    
+    if is_disabled then
+        imgui.PopStyleColor(5)
+    end
+    
+    -- Tooltip
+    if imgui.IsItemHovered() then
+        if is_disabled then
+            imgui.SetTooltip('No Echo Drops in inventory')
+        else
+            imgui.SetTooltip('Use Echo Drops to remove Silence (Item)')
+        end
+    end
+end
+
+-- Render checkbox for Doom removal with Holy Water
+function ui_components.item_doom_removal_checkbox(ctx)
+    if not ctx or not ctx.settings then
+        return
+    end
+    -- Get Holy Water count from inventory
+    local holy_water_count = item_module.get_item_count('Holy Water')
+    
+    -- Create checkbox label with count (show ? if inventory not loaded)
+    local checkbox_label
+    if holy_water_count == nil then
+        checkbox_label = 'Remove Doom with Holy Water (?)'
+    else
+        checkbox_label = string.format('Remove Doom with Holy Water (%d)', holy_water_count)
+    end
+    
+    -- Check if checkbox should be disabled (no items in inventory, but not during loading)
+    local is_disabled = (holy_water_count == 0)
+    
+    -- Only auto-disable if inventory is loaded (not nil) and count is 0
+    if is_disabled and holy_water_count ~= nil and ctx.settings.item_doom_removal_enabled then
+        ctx.settings.item_doom_removal_enabled = false
+        if ctx.save_callback then
+            ctx.save_callback()
+        end
+    end
+    
+    -- Apply disabled styling if no items
+    if is_disabled then
+        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
+        imgui.PushStyleColor(ImGuiCol_FrameBg, COLOR_BUTTON_DISABLED)
+        imgui.PushStyleColor(ImGuiCol_FrameBgHovered, COLOR_BUTTON_DISABLED)
+        imgui.PushStyleColor(ImGuiCol_FrameBgActive, COLOR_BUTTON_DISABLED)
+        imgui.PushStyleColor(ImGuiCol_CheckMark, LIGHT_GRAY)
+    end
+    
+    local enabled = { ctx.settings.item_doom_removal_enabled or false }
+    
+    -- Only allow interaction if not disabled
+    if not is_disabled and imgui.Checkbox(checkbox_label, enabled) then
+        ctx.settings.item_doom_removal_enabled = enabled[1]
+        if ctx.save_callback then
+            ctx.save_callback()
+        end
+    elseif is_disabled then
+        -- Display disabled checkbox (non-interactive)
+        imgui.Checkbox(checkbox_label, enabled)
+    end
+    
+    if is_disabled then
+        imgui.PopStyleColor(5)
+    end
+    
+    -- Tooltip
+    if imgui.IsItemHovered() then
+        if is_disabled then
+            imgui.SetTooltip('No Holy Water in inventory')
+        else
+            imgui.SetTooltip('Use Holy Water to remove Doom (Item)')
+        end
+    end
+end
+
+-- ============================================================================
+-- Export Constants
+-- ============================================================================
+
+ui_components.ABILITY_LIST_INDENT = ABILITY_LIST_INDENT
+ui_components.PARTY_BUTTON_WIDTH = PARTY_BUTTON_WIDTH
+ui_components.SPACE_BETWEEN_BUTTONS = SPACE_BETWEEN_BUTTONS
+ui_components.DROPDOWN_WIDTH = DROPDOWN_WIDTH
+ui_components.AUTOMATION_BUTTON_WIDTH = AUTOMATION_BUTTON_WIDTH
+ui_components.LIGHT_GREEN = LIGHT_GREEN
+ui_components.LIGHT_BLUE = LIGHT_BLUE
+ui_components.LIGHT_RED = LIGHT_RED
 
 return ui_components
