@@ -7,6 +7,8 @@ local config_ui = {}
 
 local imgui = require('imgui')
 local common = require('lib.core.common')
+local resource = require('lib.core.resource')
+local ui = require('lib.ui_components')
 
 -- UI state
 local is_open = { true }
@@ -19,28 +21,34 @@ local roll_module = nil
 
 -- UI State Variables (for imgui)
 local focus_enabled = { false }
-local focus_target_index = { 0 }  -- 0 = None, 1-6 = P0-P5
+local focus_recovery_enabled = { false }
+
+-- Focus state (now saved to settings as names)
+local focus_target_name = nil  -- Character name or nil for None
+local focus_recovery_target_name = nil  -- Character name or nil for None
+
+-- Entrust state (now saved to settings)
+local entrust_target_name = nil  -- Character name or nil for None
+local entrust_spell_name = nil   -- Spell name like "Indi-Haste" or nil for None
 
 -- Party buff tracking (session only, not saved to settings)
 -- Structure: party_buffs[ability_name][party_index] = true/false
 -- party_index: 1-5 for P1-P5 (player is always handled separately)
 local party_buffs = {}
 
--- UI Constants
-local ABILITY_LIST_INDENT = 20  -- Indent for ability checkboxes within sections
-local PARTY_BUTTON_WIDTH = 35  -- Width of party toggle buttons
-
--- Dropdown options
-local focus_target_options = { 'None', 'P0', 'P1', 'P2', 'P3', 'P4', 'P5' }
-
 -- ============================================================================
--- Helper Functions
+-- Helper Functions (Remaining in config_ui)
 -- ============================================================================
 
 -- Check if player can use an ability based on level
 local function can_use_ability(ability)
     if not ability or not ability.level then
         return true
+    end
+    
+    -- Check if ability requires main job only (e.g., Geo spells)
+    if ability.main_job_only and ability.is_main_job == false then
+        return false
     end
     
     local main_level, sub_level = common.get_player_level()
@@ -54,7 +62,7 @@ local function can_use_ability(ability)
     end
 end
 
--- Get all abilities in the same group as the given ability
+-- Get all abilities in the same group as the given ability (returns ability objects, not just names)
 local function get_abilities_in_group(job_def, target_group)
     local group_abilities = {}
     if not job_def or not target_group then
@@ -66,7 +74,7 @@ local function get_abilities_in_group(job_def, target_group)
         for category, abilities in pairs(job_def.abilities) do
             for _, ability in ipairs(abilities) do
                 if ability.group == target_group then
-                    table.insert(group_abilities, ability.name)
+                    table.insert(group_abilities, ability)
                 end
             end
         end
@@ -75,22 +83,32 @@ local function get_abilities_in_group(job_def, target_group)
     return group_abilities
 end
 
--- Get the group of an ability by name
-local function get_ability_group(job_def, ability_name)
-    if not job_def or not job_def.abilities then
-        return nil
-    end
+-- Get usable abilities in a group (level-appropriate and spell learned)
+local function get_usable_abilities_in_group(job_def, target_group)
+    local all_abilities = get_abilities_in_group(job_def, target_group)
+    local usable = {}
     
-    -- Search through all ability categories
-    for category, abilities in pairs(job_def.abilities) do
-        for _, ability in ipairs(abilities) do
-            if ability.name == ability_name and ability.group then
-                return ability.group
+    for _, ability in ipairs(all_abilities) do
+        if can_use_ability(ability) then
+            -- Check if spell is learned (for magic spells)
+            local cmd = type(ability.command) == 'function' and ability.command(0) or ability.command
+            local is_spell = cmd and string.sub(cmd, 1, 3) == '/ma'
+            local has_spell = true
+            
+            if is_spell and ability.id then
+                local ok, known = pcall(function() return AshitaCore:GetMemoryManager():GetPlayer():HasSpell(ability.id) end)
+                if ok then
+                    has_spell = known
+                end
+            end
+            
+            if has_spell then
+                table.insert(usable, ability)
             end
         end
     end
     
-    return nil
+    return usable
 end
 
 -- Check if a list of abilities has any usable abilities (level-appropriate)
@@ -117,311 +135,7 @@ local function sync_from_settings()
     
     focus_enabled[1] = current_settings.focus_enabled or false
     
-    -- Convert focus_target_index (nil, 0-5) to combo index (0-6)
-    if current_settings.focus_target_index == nil then
-        focus_target_index[1] = 0
-    else
-        focus_target_index[1] = current_settings.focus_target_index + 1
-    end
-end
-
--- Check if an ability is enabled
-local function is_ability_enabled(ability_name)
-    if not current_settings then
-        return false  -- Default to disabled if no settings
-    end
-    -- Check flattened key: disabled_AbilityName
-    local key = 'disabled_' .. ability_name:gsub(' ', '_')
-    
-    -- If this key has never been set, it's a newly discovered ability
-    -- Default to disabled on first display
-    if current_settings[key] == nil then
-        -- Initialize as disabled
-        current_settings[key] = true
-        return false
-    end
-    
-    return not current_settings[key]
-end
-
--- Toggle ability enabled state
-local function toggle_ability(ability_name, enabled, job_def)
-    -- Use flattened key: disabled_AbilityName
-    local key = 'disabled_' .. ability_name:gsub(' ', '_')
-    
-    if enabled then
-        current_settings[key] = false  -- Explicitly set to not disabled (enabled)
-        
-        -- If this ability has a group, disable all other abilities in the same group
-        local ability_group = get_ability_group(job_def, ability_name)
-        if ability_group and job_def then
-            local group_abilities = get_abilities_in_group(job_def, ability_group)
-            for _, other_ability in ipairs(group_abilities) do
-                if other_ability ~= ability_name then
-                    local other_key = 'disabled_' .. other_ability:gsub(' ', '_')
-                    current_settings[other_key] = true
-                end
-            end
-        end
-    else
-        current_settings[key] = true
-    end
-    
-    if save_callback then
-        save_callback()
-    end
-end
-
--- Check if a buff is enabled for a specific party member (session only)
-local function is_party_buff_enabled(ability_name, party_index)
-    if not party_buffs[ability_name] then
-        return false
-    end
-    return party_buffs[ability_name][party_index] == true
-end
-
--- Toggle buff enabled state for a specific party member (session only)
-local function toggle_party_buff(ability_name, party_index, enabled)
-    if not party_buffs[ability_name] then
-        party_buffs[ability_name] = {}
-    end
-    party_buffs[ability_name][party_index] = enabled
-end
-
--- Check if a party member is a Trust (server_id >= 0x1000000)
-local function is_trust(party_index)
-    local party = common.get_party()
-    if not party then
-        return false
-    end
-    
-    local ok_server, server_id = pcall(function()
-        return party:GetMemberServerId(party_index)
-    end)
-    
-    if not ok_server or not server_id or server_id == 0 then
-        return false
-    end
-    
-    -- Trusts have server IDs >= 0x1000000 (16777216)
-    return server_id >= 0x1000000
-end
-
--- Check if ability can be cast on party members (has function command)
-local function can_cast_on_party(ability)
-    return type(ability.command) == 'function'
-end
-
--- Create a checkbox UI element linked to a setting
-local function create_checkbox(label, setting_name, ui_var)
-    if imgui.Checkbox(label, ui_var) then
-        current_settings[setting_name] = ui_var[1]
-        if save_callback then save_callback() end
-    end
-end
-
--- Create an integer slider UI element linked to a setting
-local function create_slider_int(label, setting_name, ui_var, min, max, width)
-    width = width or 250  -- Default width of 250 pixels
-    imgui.PushItemWidth(width)
-    if imgui.SliderInt(label, ui_var, min, max) then
-        current_settings[setting_name] = ui_var[1]
-        if save_callback then save_callback() end
-    end
-    imgui.PopItemWidth()
-end
-
--- Create a combo dropdown UI element linked to a setting
-local function create_combo(label, setting_name, ui_var, options, converter, width)
-    width = width or 250  -- Default width of 250 pixels
-    imgui.PushItemWidth(width)
-    local current_value = options[ui_var[1] + 1] or options[1] or ""
-    if imgui.BeginCombo(label, current_value) then
-        for i = 0, #options - 1 do
-            local is_selected = (ui_var[1] == i)
-            if imgui.Selectable(options[i + 1], is_selected) then
-                ui_var[1] = i
-                -- Convert and store the setting value
-                if converter then
-                    current_settings[setting_name] = converter(i)
-                else
-                    current_settings[setting_name] = i
-                end
-                if save_callback then save_callback() end
-            end
-            if is_selected then
-                imgui.SetItemDefaultFocus()
-            end
-        end
-        imgui.EndCombo()
-    end
-    imgui.PopItemWidth()
-end
-
--- Render a buff ability checkbox with party member toggle buttons
-local function render_buff_checkbox_with_party_toggles(ability, job_def, extra_desc)
-    -- Check if this ability is being displayed for the first time
-    local key = 'disabled_' .. ability.name:gsub(' ', '_')
-    if current_settings and current_settings[key] == nil then
-        -- First time seeing this ability, set to disabled
-        current_settings[key] = true
-        if save_callback then
-            save_callback()
-        end
-    end
-    
-    -- Get the command string (handle both string and function commands)
-    local cmd = type(ability.command) == 'function' and ability.command(0) or ability.command
-    local is_spell = cmd and string.sub(cmd, 1, 3) == '/ma'
-    local has_spell = true
-    local spell_suffix = ''
-    
-    if is_spell and ability.id then
-        local ok, known = pcall(function() return AshitaCore:GetMemoryManager():GetPlayer():HasSpell(ability.id) end)
-        if ok then
-            has_spell = known
-            if not has_spell then
-                spell_suffix = ' (Not Learned)'
-                current_settings['disabled_' .. ability.name:gsub(' ', '_')] = true
-            end
-        else
-            common.errorf('Failed to check spell knowledge for %s (ID: %d)', ability.name, ability.id)
-        end
-    end
-    
-    local desc = ability.name .. ' (Lv.' .. ability.level .. ')' .. (extra_desc or '') .. spell_suffix
-    local checkbox_label = desc .. '##buff'
-    
-    if not has_spell then
-        imgui.PushStyleColor(ImGuiCol_Text, { 0.5, 0.5, 0.5, 1.0 })  -- Gray color for unknown spells
-    end
-    
-    -- Render main checkbox for player
-    local ability_enabled = { is_ability_enabled(ability.name) }
-    if imgui.Checkbox(checkbox_label, ability_enabled) then
-        toggle_ability(ability.name, ability_enabled[1], job_def)
-    end
-    
-    -- Only show party toggles if spell is known, can be cast on party, is enabled for self, and we're in a party
-    if has_spell and can_cast_on_party(ability) and ability_enabled[1] then
-        local party_size = common.get_party_size()
-        
-        -- Only show party toggles if we're actually in a party (size > 1)
-        if party_size > 1 then
-            imgui.SameLine()
-            
-            -- Render toggle buttons for each active party member (P1-P5)
-            for party_index = 1, 5 do
-                local is_active = party_index < party_size  -- P1-P(size-1) are active
-                
-                -- Only render buttons for active party members
-                if is_active then
-                    -- Check if this party member is a Trust
-                    local is_trust_member = is_trust(party_index)
-                    
-                    -- Get current state
-                    local is_enabled = is_party_buff_enabled(ability.name, party_index)
-                    
-                    -- Set button color and disable state based on Trust status
-                    if is_trust_member then
-                        -- Trust: Dark gray and disabled
-                        imgui.PushStyleColor(ImGuiCol_Button, { 0.2, 0.2, 0.2, 1.0 })
-                        imgui.PushStyleColor(ImGuiCol_ButtonHovered, { 0.2, 0.2, 0.2, 1.0 })
-                        imgui.PushStyleColor(ImGuiCol_ButtonActive, { 0.2, 0.2, 0.2, 1.0 })
-                        imgui.PushStyleColor(ImGuiCol_Text, { 0.4, 0.4, 0.4, 1.0 })
-                    elseif is_enabled then
-                        -- Selected: Use default button colors (no custom styling)
-                    else
-                        -- Not selected: Gray
-                        imgui.PushStyleColor(ImGuiCol_Button, { 0.3, 0.3, 0.3, 1.0 })
-                        imgui.PushStyleColor(ImGuiCol_ButtonHovered, { 0.4, 0.4, 0.4, 1.0 })
-                        imgui.PushStyleColor(ImGuiCol_ButtonActive, { 0.5, 0.5, 0.5, 1.0 })
-                    end
-                    
-                    local button_label = 'P' .. party_index .. '##' .. ability.name .. '_p' .. party_index
-                    if imgui.Button(button_label, { PARTY_BUTTON_WIDTH, 0 }) then
-                        -- Only toggle if not a Trust
-                        if not is_trust_member then
-                            toggle_party_buff(ability.name, party_index, not is_enabled)
-                        end
-                    end
-                    
-                    -- Show tooltip for Trusts explaining why they're disabled
-                    if is_trust_member and imgui.IsItemHovered() then
-                        imgui.SetTooltip('Trust buffs are not available')
-                    end
-                    
-                    if is_trust_member then
-                        imgui.PopStyleColor(4)
-                    elseif not is_enabled then
-                        imgui.PopStyleColor(3)
-                    end
-                    
-                    -- Add spacing between buttons for next active member
-                    if party_index < party_size - 1 then
-                        imgui.SameLine()
-                    end
-                end
-            end
-        end
-    end
-    
-    if not has_spell then
-        imgui.PopStyleColor()
-    end
-end
-
--- Render an ability checkbox with spell knowledge checking
-local function render_ability_checkbox(ability, job_def, extra_desc, id_suffix)
-    -- Check if this ability is being displayed for the first time
-    local key = 'disabled_' .. ability.name:gsub(' ', '_')
-    if current_settings and current_settings[key] == nil then
-        -- First time seeing this ability, set to disabled
-        current_settings[key] = true
-        if save_callback then
-            save_callback()
-        end
-    end
-    
-    -- Get the command string (handle both string and function commands)
-    local cmd = type(ability.command) == 'function' and ability.command(0) or ability.command
-    local is_spell = cmd and string.sub(cmd, 1, 3) == '/ma'
-    local has_spell = true
-    local spell_suffix = ''
-    
-    if is_spell and ability.id then
-        local ok, known = pcall(function() return AshitaCore:GetMemoryManager():GetPlayer():HasSpell(ability.id) end)
-        if ok then
-            has_spell = known
-            if not has_spell then
-                spell_suffix = ' (Not Learned)'
-                current_settings['disabled_' .. ability.name:gsub(' ', '_')] = true
-            end
-        else
-            common.errorf('Failed to check spell knowledge for %s (ID: %d)', ability.name, ability.id)
-        end
-    end
-    
-    local desc = ability.name .. ' (Lv.' .. ability.level .. ')' .. (extra_desc or '') .. spell_suffix
-    
-    -- Add unique ID suffix to prevent ImGui label collisions when same ability appears in multiple sections
-    local checkbox_label = desc
-    if id_suffix then
-        checkbox_label = desc .. '##' .. id_suffix
-    end
-    
-    if not has_spell then
-        imgui.PushStyleColor(ImGuiCol_Text, { 0.5, 0.5, 0.5, 1.0 })  -- Gray color for unknown spells
-    end
-    
-    local ability_enabled = { is_ability_enabled(ability.name) }
-    if imgui.Checkbox(checkbox_label, ability_enabled) then
-        toggle_ability(ability.name, ability_enabled[1], job_def)
-    end
-    
-    if not has_spell then
-        imgui.PopStyleColor()
-    end
+    -- Focus target settings are now loaded on first render
 end
 
 -- ============================================================================
@@ -458,9 +172,58 @@ function config_ui.get_party_buffs()
     return party_buffs
 end
 
+function config_ui.get_entrust_config()
+    -- Return nil if entrust target or spell is None
+    if not entrust_target_name or not entrust_spell_name then
+        return nil
+    end
+    
+    -- Find party member by name (check P1-P5 only, not P0)
+    local party = common.get_party()
+    if not party then
+        return nil
+    end
+    
+    local target_index = nil
+    for i = 1, 5 do
+        local member_name = common.get_party_member_name(i)
+        if member_name and member_name == entrust_target_name then
+            target_index = i
+            break
+        end
+    end
+    
+    if not target_index then
+        -- Target not in party
+        return nil
+    end
+    
+    return {
+        target_index = target_index,         -- 1-5 for P1-P5
+        target_name = entrust_target_name,   -- Character name
+        spell_name = entrust_spell_name,     -- Spell name like "Indi-Haste"
+    }
+end
+
 function config_ui.render(settings, job_def, callback, roll_mod)
     if not ui_visible or not is_open[1] then
         return
+    end
+    
+    -- Load entrust settings from settings on first render
+    if settings.entrust_target ~= nil and entrust_target_name == nil then
+        entrust_target_name = settings.entrust_target
+    end
+    if settings.entrust_spell ~= nil and entrust_spell_name == nil then
+        entrust_spell_name = settings.entrust_spell
+    end
+    
+    -- Load focus target settings from settings on first render
+    if settings.focus_target ~= nil and focus_target_name == nil then
+        focus_target_name = settings.focus_target
+    end
+    if settings.focus_recovery_target ~= nil and focus_recovery_target_name == nil then
+        focus_recovery_target_name = settings.focus_recovery_target
     end
     
     -- Store settings reference and callback
@@ -471,7 +234,25 @@ function config_ui.render(settings, job_def, callback, roll_mod)
     -- Sync UI state from settings
     sync_from_settings()
     
-    imgui.SetNextWindowSize({400, 600}, ImGuiCond_FirstUseEver)
+    -- Create context object for ui_components
+    local ctx = {
+        settings = current_settings,
+        save_callback = save_callback,
+        party_buffs = party_buffs,
+        job_def = job_def,
+        can_use_ability = can_use_ability,
+        get_abilities_in_group = get_abilities_in_group,
+        get_usable_abilities_in_group = get_usable_abilities_in_group
+    }
+    
+    -- Calculate fixed window width based on party size
+    local party_size = common.get_party_size()
+    local num_buttons = math.min(party_size, 6)
+    local button_width = ui.PARTY_BUTTON_WIDTH * num_buttons + (ui.SPACE_BETWEEN_BUTTONS * (num_buttons - 1))
+    local dropdown_width = ui.DROPDOWN_WIDTH
+    local window_width = math.max((button_width + dropdown_width + ui.ABILITY_LIST_INDENT + 50), 1)
+    
+    imgui.SetNextWindowSize({window_width, 0}, ImGuiCond_Always)
     
     -- Build window title with job name if available
     local window_title = 'Medic Configuration'
@@ -479,7 +260,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
         window_title = window_title .. ' - ' .. job_def.job_name
     end
     
-    if imgui.Begin(window_title, is_open, ImGuiWindowFlags_NoCollapse) then
+    if imgui.Begin(window_title, is_open, ImGuiWindowFlags_NoCollapse + ImGuiWindowFlags_NoResize + ImGuiWindowFlags_AlwaysAutoResize) then
         
         -- Automation toggle button
         local can_attack = common.can_attack()
@@ -492,22 +273,22 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                 -- Running state
                 button_text = 'Stop'
                 status_text = 'Automation running.'
-                status_color = { 0.0, 1.0, 0.0, 1.0 }  -- Green
+                status_color = ui.STATUS_COLOR_RUNNING
             else
                 -- Paused state (automation enabled but combat blocked)
                 button_text = 'Paused'
                 status_text = 'Automation paused.'
-                status_color = { 0.0, 0.5, 1.0, 1.0 }  -- Blue
+                status_color = ui.STATUS_COLOR_PAUSED
             end
         else
             -- Stopped state
             button_text = 'Start'
             status_text = 'Automation stopped.'
-            status_color = { 1.0, 0.0, 0.0, 1.0 }  -- Red
+            status_color = ui.STATUS_COLOR_STOPPED
         end
         
         -- Use fixed width for button to keep consistent size
-        if imgui.Button(button_text, { 80, 0 }) then
+        if imgui.Button(button_text, { ui.AUTOMATION_BUTTON_WIDTH, 0 }) then
             -- Toggle automation
             AshitaCore:GetChatManager():QueueCommand(1, '/medic toggle')
         end
@@ -533,7 +314,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
             end
         end
         
-        create_combo('Attack Range', 'attack_range', attack_range_index, attack_range_options, function(i)
+        ui.combo(ctx, 'Attack Range', 'attack_range', attack_range_index, attack_range_options, function(i)
             return attack_range_options[i + 1]
         end)
         
@@ -574,20 +355,65 @@ function config_ui.render(settings, job_def, callback, roll_mod)
             end
             
             if has_non_self_heal then
-                create_checkbox('Enable Focus Healing', 'focus_enabled', { settings.focus_enabled or false })
-                
-                if settings.focus_enabled then
-                    -- Focus target dropdown
-                    create_combo('Focus Target', 'focus_target_index', focus_target_index, focus_target_options, function(i)
-                        -- Convert combo index (0-6) to focus_target_index (nil, 0-5)
-                        if i == 0 then
-                            return nil
-                        else
-                            return i - 1
+                local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Enable Focus Healing', 'focus_enabled', false)
+                if is_open and is_enabled then
+                    -- Build dynamic focus target options (None + all party including player)
+                    local focus_target_options = { 'None' }
+                    local party = common.get_party()
+                    if party then
+                        for i = 0, 5 do
+                            if party:GetMemberIsActive(i) == 1 then
+                                local member_name = common.get_party_member_name(i)
+                                if member_name and member_name ~= '' then
+                                    table.insert(focus_target_options, member_name)
+                                end
+                            end
                         end
-                    end)
+                    end
                     
-                    create_slider_int('Focus Heal Threshold (HP%)', 'focus_threshold', { settings.focus_threshold or 85 }, 1, 100)
+                    -- Validate saved focus target name is in current party
+                    local current_focus_display = 'None'
+                    if focus_target_name then
+                        local found = false
+                        for _, name in ipairs(focus_target_options) do
+                            if name == focus_target_name then
+                                current_focus_display = focus_target_name
+                                found = true
+                                break
+                            end
+                        end
+                        if not found then
+                            -- Saved target not in party, reset
+                            focus_target_name = nil
+                            settings.focus_target = nil
+                            if callback then callback() end
+                        end
+                    end
+                    
+                    -- Focus Target dropdown
+                    imgui.PushItemWidth(250)
+                    if imgui.BeginCombo('Focus Target', current_focus_display) then
+                        for _, option in ipairs(focus_target_options) do
+                            local is_selected = (option == current_focus_display)
+                            if imgui.Selectable(option, is_selected) then
+                                if option == 'None' then
+                                    focus_target_name = nil
+                                    settings.focus_target = nil
+                                else
+                                    focus_target_name = option
+                                    settings.focus_target = option
+                                end
+                                if callback then callback() end
+                            end
+                            if is_selected then
+                                imgui.SetItemDefaultFocus()
+                            end
+                        end
+                        imgui.EndCombo()
+                    end
+                    imgui.PopItemWidth()
+                    
+                    ui.slider_int(ctx, 'Focus Healing (HP%)', 'focus_threshold', { settings.focus_threshold or 85 }, 1, 100)
                 end
                 
                 imgui.Separator()
@@ -596,17 +422,28 @@ function config_ui.render(settings, job_def, callback, roll_mod)
         
         -- Party Healing settings
         if job_def and job_def.abilities.heal and has_usable_abilities(job_def.abilities.heal) then
-            create_checkbox('Enable Party Healing', 'heal_enabled', { settings.heal_enabled or false })
-            
-            if settings.heal_enabled then
-                create_slider_int('Party Heal Threshold (HP%)', 'heal_threshold', { settings.heal_threshold or 75 }, 1, 100)
-                imgui.Indent(ABILITY_LIST_INDENT)
+            local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Enable Party Healing', 'heal_enabled', false)
+            if is_open and is_enabled then
+                ui.slider_int(ctx, 'Party (HP%)', 'heal_threshold', { settings.heal_threshold or 75 }, 1, 100)
+                imgui.Indent(ui.ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.heal) do
                     if can_use_ability(ability) then
-                        render_ability_checkbox(ability, job_def, nil, 'heal')
+                        ui.ability_checkbox(ctx, ability, job_def, 'heal')
                     end
                 end
-                imgui.Unindent(ABILITY_LIST_INDENT)
+                imgui.Unindent(ui.ABILITY_LIST_INDENT)
+                
+                -- Critical HP section (inside Party Healing)
+                if job_def.abilities.critical and has_usable_abilities(job_def.abilities.critical) then
+                    ui.slider_int(ctx, 'Critical (HP%)', 'critical_threshold', { settings.critical_threshold or 30 }, 1, 50)
+                    imgui.Indent(ui.ABILITY_LIST_INDENT)
+                    for _, ability in ipairs(job_def.abilities.critical) do
+                        if can_use_ability(ability) then
+                            ui.ability_checkbox(ctx, ability, job_def, 'critical')
+                        end
+                    end
+                    imgui.Unindent(ui.ABILITY_LIST_INDENT)
+                end
             end
             
             imgui.Separator()
@@ -614,20 +451,19 @@ function config_ui.render(settings, job_def, callback, roll_mod)
         
         -- AOE Healing settings
         if job_def and job_def.abilities.heal_aoe and has_usable_abilities(job_def.abilities.heal_aoe) then
-            create_checkbox('Enable AOE Healing', 'heal_aoe_enabled', { settings.heal_aoe_enabled or false })
-            
-            if settings.heal_aoe_enabled then
-                create_slider_int('AOE Heal Threshold (HP%)', 'heal_aoe_threshold', { settings.heal_aoe_threshold or 70 }, 1, 100)
+            local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Enable AOE Healing', 'heal_aoe_enabled', false)
+            if is_open and is_enabled then
+                ui.slider_int(ctx, 'AOE (HP%)', 'heal_aoe_threshold', { settings.heal_aoe_threshold or 70 }, 1, 100)
                 
-                create_slider_int('Min Members Needing Heal', 'heal_aoe_count_threshold', { settings.heal_aoe_count_threshold or 2 }, 1, 6)
+                ui.slider_int(ctx, 'Min Members', 'heal_aoe_count_threshold', { settings.heal_aoe_count_threshold or 2 }, 1, 6)
                 
-                imgui.Indent(ABILITY_LIST_INDENT)
+                imgui.Indent(ui.ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.heal_aoe) do
                     if can_use_ability(ability) then
-                        render_ability_checkbox(ability, job_def, nil, 'heal_aoe')
+                        ui.ability_checkbox(ctx, ability, job_def, 'heal_aoe')
                     end
                 end
-                imgui.Unindent(ABILITY_LIST_INDENT)
+                imgui.Unindent(ui.ABILITY_LIST_INDENT)
             end
             
             imgui.Separator()
@@ -635,28 +471,27 @@ function config_ui.render(settings, job_def, callback, roll_mod)
         
         -- Pet Healing settings
         if job_def and job_def.abilities.heal_pet and has_usable_abilities(job_def.abilities.heal_pet) then
-            create_checkbox('Enable Pet Healing', 'heal_pet_enabled', { settings.heal_pet_enabled or false })
-            
-            if settings.heal_pet_enabled then
-                create_slider_int('Pet Heal Threshold (HP%)', 'heal_pet_threshold', { settings.heal_pet_threshold or 50 }, 1, 100)
+            local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Enable Pet Healing', 'heal_pet_enabled', false)
+            if is_open and is_enabled then
+                ui.slider_int(ctx, 'Pet (HP%)', 'heal_pet_threshold', { settings.heal_pet_threshold or 50 }, 1, 100)
                 
-                imgui.Indent(ABILITY_LIST_INDENT)
+                imgui.Indent(ui.ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.heal_pet) do
                     if can_use_ability(ability) then
-                        render_ability_checkbox(ability, job_def, nil, 'heal_pet')
+                        ui.ability_checkbox(ctx, ability, job_def, 'heal_pet')
                     end
                 end
-                imgui.Unindent(ABILITY_LIST_INDENT)
+                imgui.Unindent(ui.ABILITY_LIST_INDENT)
             end
             
             imgui.Separator()
         end
         
-        -- Wake settings (only show if job has wake-capable heal abilities)
+        -- Wake settings (only show if job has wake-capable heal abilities that are usable)
         local has_wake_abilities = false
         if job_def and job_def.abilities.heal then
             for _, ability in ipairs(job_def.abilities.heal) do
-                if ability.wakes then
+                if ability.wakes and can_use_ability(ability) then
                     has_wake_abilities = true
                     break
                 end
@@ -664,23 +499,22 @@ function config_ui.render(settings, job_def, callback, roll_mod)
         end
         
         if has_wake_abilities then
-            create_checkbox('Enable Sleep Removal', 'wake_enabled', { settings.wake_enabled or false })
+            ui.checkbox(ctx, 'Enable Sleep Removal', 'wake_enabled', { settings.wake_enabled or false })
             
             imgui.Separator()
         end
         
         -- Debuff removal settings
         if job_def and job_def.abilities.debuff_removal and has_usable_abilities(job_def.abilities.debuff_removal) then
-            create_checkbox('Enable Debuff Removal', 'debuff_removal_enabled', { settings.debuff_removal_enabled or false })
-            
-            if settings.debuff_removal_enabled then
-                imgui.Indent(ABILITY_LIST_INDENT)
+            local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Enable Debuff Removal', 'debuff_removal_enabled', false)
+            if is_open and is_enabled then
+                imgui.Indent(ui.ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.debuff_removal) do
                     if can_use_ability(ability) then
-                        render_ability_checkbox(ability, job_def, nil, 'debuff_removal')
+                        ui.ability_checkbox(ctx, ability, job_def, 'debuff_removal')
                     end
                 end
-                imgui.Unindent(ABILITY_LIST_INDENT)
+                imgui.Unindent(ui.ABILITY_LIST_INDENT)
             end
             
             imgui.Separator()
@@ -689,36 +523,112 @@ function config_ui.render(settings, job_def, callback, roll_mod)
         -- Recovery settings
         local has_mp_recovery = job_def and job_def.abilities.recover_mp and has_usable_abilities(job_def.abilities.recover_mp)
         local has_tp_recovery = job_def and job_def.abilities.recover_tp and has_usable_abilities(job_def.abilities.recover_tp)
+        local has_party_mp_recovery = job_def and job_def.abilities.recover_party_mp and has_usable_abilities(job_def.abilities.recover_party_mp)
         
-        if has_mp_recovery or has_tp_recovery then
-            create_checkbox('Enable Resource Recovery', 'recover_enabled', { settings.recover_enabled or false })
-            
-            if settings.recover_enabled then
-                -- MP Recovery
-                if has_mp_recovery then
-                    create_slider_int('MP Recovery Threshold (%)', 'recover_mp_threshold', { settings.recover_mp_threshold or 30 }, 1, 100)
-                    imgui.Indent(ABILITY_LIST_INDENT)
-                    for _, ability in ipairs(job_def.abilities.recover_mp) do
-                        if can_use_ability(ability) then
-                            render_ability_checkbox(ability, job_def, nil, 'recover_mp')
-                        end
-                    end
-                    imgui.Unindent(ABILITY_LIST_INDENT)
-                end
-                
-                -- TP Recovery
+        if has_mp_recovery or has_tp_recovery or has_party_mp_recovery then
+            local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Enable Resource Recovery', 'recover_enabled', false)
+            if is_open and is_enabled then
+                -- Self Recover (TP%) section
                 if has_tp_recovery then
-                    if has_mp_recovery then
-                        imgui.Spacing()
-                    end
-                    create_slider_int('TP Recovery Threshold', 'recover_tp_threshold', { settings.recover_tp_threshold or 500 }, 100, 3000)
-                    imgui.Indent(ABILITY_LIST_INDENT)
+                    ui.slider_int(ctx, 'Self Recover (TP)', 'recover_tp_threshold', { settings.recover_tp_threshold or 500 }, 100, 3000)
+                    imgui.Indent(ui.ABILITY_LIST_INDENT)
                     for _, ability in ipairs(job_def.abilities.recover_tp) do
                         if can_use_ability(ability) then
-                            render_ability_checkbox(ability, job_def, nil, 'recover_tp')
+                            ui.ability_checkbox(ctx, ability, job_def, 'recover_tp')
                         end
                     end
-                    imgui.Unindent(ABILITY_LIST_INDENT)
+                    imgui.Unindent(ui.ABILITY_LIST_INDENT)
+                    
+                    if has_mp_recovery or has_party_mp_recovery then
+                        imgui.Spacing()
+                    end
+                end
+                
+                -- Self Recover (MP%) section
+                if has_mp_recovery then
+                    ui.slider_int(ctx, 'Self Recover (MP%)', 'recover_mp_threshold', { settings.recover_mp_threshold or 30 }, 1, 100)
+                    imgui.Indent(ui.ABILITY_LIST_INDENT)
+                    for _, ability in ipairs(job_def.abilities.recover_mp) do
+                        if can_use_ability(ability) then
+                            ui.ability_checkbox(ctx, ability, job_def, 'recover_mp')
+                        end
+                    end
+                    imgui.Unindent(ui.ABILITY_LIST_INDENT)
+                    
+                    if has_party_mp_recovery then
+                        imgui.Spacing()
+                    end
+                end
+                
+                -- Party MP recovery section (for Devotion)
+                if has_party_mp_recovery then
+                    -- Build dynamic recovery target options (None + party members P1-P5, exclude player)
+                    local recovery_target_options = { 'None' }
+                    local party = common.get_party()
+                    if party then
+                        for i = 1, 5 do
+                            if party:GetMemberIsActive(i) == 1 then
+                                local member_name = common.get_party_member_name(i)
+                                if member_name and member_name ~= '' then
+                                    table.insert(recovery_target_options, member_name)
+                                end
+                            end
+                        end
+                    end
+                    
+                    -- Validate saved recovery target name is in current party
+                    local current_recovery_display = 'None'
+                    if focus_recovery_target_name then
+                        local found = false
+                        for _, name in ipairs(recovery_target_options) do
+                            if name == focus_recovery_target_name then
+                                current_recovery_display = focus_recovery_target_name
+                                found = true
+                                break
+                            end
+                        end
+                        if not found then
+                            -- Saved target not in party, reset
+                            focus_recovery_target_name = nil
+                            settings.focus_recovery_target = nil
+                            if callback then callback() end
+                        end
+                    end
+                    
+                    -- Recovery Target dropdown
+                    imgui.PushItemWidth(250)
+                    if imgui.BeginCombo('Recovery Target', current_recovery_display) then
+                        for _, option in ipairs(recovery_target_options) do
+                            local is_selected = (option == current_recovery_display)
+                            if imgui.Selectable(option, is_selected) then
+                                if option == 'None' then
+                                    focus_recovery_target_name = nil
+                                    settings.focus_recovery_target = nil
+                                else
+                                    focus_recovery_target_name = option
+                                    settings.focus_recovery_target = option
+                                end
+                                if callback then callback() end
+                            end
+                            if is_selected then
+                                imgui.SetItemDefaultFocus()
+                            end
+                        end
+                        imgui.EndCombo()
+                    end
+                    imgui.PopItemWidth()
+                    
+                    if focus_recovery_target_name then
+                        ui.slider_int(ctx, 'Target Recover (MP%)', 'focus_recovery_threshold', { settings.focus_recovery_threshold or 30 }, 1, 100)
+                    end
+                    
+                    imgui.Indent(ui.ABILITY_LIST_INDENT)
+                    for _, ability in ipairs(job_def.abilities.recover_party_mp) do
+                        if can_use_ability(ability) then
+                            ui.ability_checkbox(ctx, ability, job_def, 'recover_party_mp')
+                        end
+                    end
+                    imgui.Unindent(ui.ABILITY_LIST_INDENT)
                 end
             end
             
@@ -727,22 +637,24 @@ function config_ui.render(settings, job_def, callback, roll_mod)
         
         -- Buff settings
         if job_def and job_def.abilities.buff and has_usable_abilities(job_def.abilities.buff) then
-            create_checkbox('Enable Buffs', 'buff_enabled', { settings.buff_enabled or false })
-            
-            if settings.buff_enabled then
-                imgui.Indent(ABILITY_LIST_INDENT)
-                for _, ability in ipairs(job_def.abilities.buff) do
-                    if can_use_ability(ability) then
-                        local extra_desc = ''
-                        if ability.combat_only then
-                            extra_desc = ' [Combat Only]'
-                        elseif ability.idle_only then
-                            extra_desc = ' [Idle Only]'
+            local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Enable Buffs', 'buff_enabled', false)
+            if is_open and is_enabled then
+                -- Clear temporary group rendering flags
+                if current_settings then
+                    for key in pairs(current_settings) do
+                        if key:match('^rendered_group_') then
+                            current_settings[key] = nil
                         end
-                        render_buff_checkbox_with_party_toggles(ability, job_def, extra_desc)
                     end
                 end
-                imgui.Unindent(ABILITY_LIST_INDENT)
+                
+                imgui.Indent(ui.ABILITY_LIST_INDENT)
+                for _, ability in ipairs(job_def.abilities.buff) do
+                    if can_use_ability(ability) then
+                        ui.render_ability(ctx, ability, job_def, 'buff')
+                    end
+                end
+                imgui.Unindent(ui.ABILITY_LIST_INDENT)
             end
             
             imgui.Separator()
@@ -750,17 +662,172 @@ function config_ui.render(settings, job_def, callback, roll_mod)
         
         -- Geo settings (Geomancer)
         if job_def and job_def.abilities.geo and has_usable_abilities(job_def.abilities.geo) then
-            create_checkbox('Enable Geo (Full Circle)', 'geo_enabled', { settings.geo_enabled or false })
-            
-            if settings.geo_enabled then
-                create_slider_int('Pet Distance Threshold (yalms)', 'geo_distance_threshold', { settings.geo_distance_threshold or 10 }, 7, 30)
-                imgui.Indent(ABILITY_LIST_INDENT)
+            local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Enable Geo', 'geo_enabled', false)
+            if is_open and is_enabled then
+                ui.slider_int(ctx, 'Distance (yalms)', 'geo_distance_threshold', { settings.geo_distance_threshold or 10 }, 7, 30)
+                imgui.Indent(ui.ABILITY_LIST_INDENT)
+                
+                -- Full Circle checkbox
                 for _, ability in ipairs(job_def.abilities.geo) do
-                    if can_use_ability(ability) then
-                        render_ability_checkbox(ability, job_def, nil, 'geo')
+                    if ability.name ~= 'Entrust' and can_use_ability(ability) then
+                        ui.ability_checkbox(ctx, ability, job_def, 'geo')
                     end
                 end
-                imgui.Unindent(ABILITY_LIST_INDENT)
+                
+                imgui.Unindent(ui.ABILITY_LIST_INDENT)
+                
+                -- Entrust settings (only for Geomancer)
+                if job_def.job_id == 21 then
+                    -- Build list of available Indi spells
+                    local available_indi_spells = {}
+                    if job_def.abilities.buff then
+                        for _, ability in ipairs(job_def.abilities.buff) do
+                            if ability.group == 'Indi' and can_use_ability(ability) then
+                                -- Check if spell is learned
+                                local cmd = type(ability.command) == 'function' and ability.command(0) or ability.command
+                                local is_spell = cmd and string.sub(cmd, 1, 3) == '/ma'
+                                local has_spell = true
+                                
+                                if is_spell and ability.id then
+                                    local ok, known = pcall(function() return AshitaCore:GetMemoryManager():GetPlayer():HasSpell(ability.id) end)
+                                    if ok then
+                                        has_spell = known
+                                    end
+                                end
+                                
+                                if has_spell then
+                                    table.insert(available_indi_spells, ability)
+                                end
+                            end
+                        end
+                    end
+                    
+                    -- Sort by level descending (highest first)
+                    table.sort(available_indi_spells, function(a, b) return a.level > b.level end)
+                    
+                    if #available_indi_spells > 0 then
+                        -- Build dynamic party target options (None + party member names for P1-P5)
+                        local party_target_options = { 'None' }
+                        local party_target_names = {}
+                        local party = common.get_party()
+                        if party then
+                            for i = 1, 5 do
+                                local member_name = common.get_party_member_name(i)
+                                if member_name and member_name ~= '' then
+                                    table.insert(party_target_options, member_name)
+                                    party_target_names[member_name] = i
+                                end
+                            end
+                        end
+                        
+                        -- Validate saved target name is in current party
+                        local current_target_display = 'None'
+                        if entrust_target_name then
+                            local found = false
+                            for _, name in ipairs(party_target_options) do
+                                if name == entrust_target_name then
+                                    current_target_display = entrust_target_name
+                                    found = true
+                                    break
+                                end
+                            end
+                            if not found then
+                                -- Saved target not in party, reset
+                                entrust_target_name = nil
+                                settings.entrust_target = nil
+                                if callback then callback() end
+                            end
+                        end
+                        
+                        -- Entrust Target dropdown
+                        imgui.PushItemWidth(250)
+                        if imgui.BeginCombo('Entrust Target', current_target_display) then
+                            for _, option in ipairs(party_target_options) do
+                                local is_selected = (option == current_target_display)
+                                if imgui.Selectable(option, is_selected) then
+                                    if option == 'None' then
+                                        entrust_target_name = nil
+                                        settings.entrust_target = nil
+                                    else
+                                        entrust_target_name = option
+                                        settings.entrust_target = option
+                                    end
+                                    if callback then callback() end
+                                end
+                                if is_selected then
+                                    imgui.SetItemDefaultFocus()
+                                end
+                            end
+                            imgui.EndCombo()
+                        end
+                        imgui.PopItemWidth()
+                        
+                        -- Validate saved spell name is in available spells
+                        local current_spell_display = 'None'
+                        if entrust_spell_name then
+                            local found = false
+                            for _, spell in ipairs(available_indi_spells) do
+                                if spell.name == entrust_spell_name then
+                                    current_spell_display = spell.name
+                                    if spell.cost and spell.cost > 0 then
+                                        current_spell_display = current_spell_display .. ' (' .. spell.cost .. ' MP)'
+                                    end
+                                    found = true
+                                    break
+                                end
+                            end
+                            if not found then
+                                -- Saved spell not available, reset
+                                entrust_spell_name = nil
+                                settings.entrust_spell = nil
+                                if callback then callback() end
+                            end
+                        end
+                        
+                        -- Entrust Spell dropdown
+                        imgui.PushItemWidth(250)
+                        if imgui.BeginCombo('Entrust Spell', current_spell_display) then
+                            -- Add None option
+                            local is_none_selected = (entrust_spell_name == nil)
+                            if imgui.Selectable('None', is_none_selected) then
+                                entrust_spell_name = nil
+                                settings.entrust_spell = nil
+                                if callback then callback() end
+                            end
+                            if is_none_selected then
+                                imgui.SetItemDefaultFocus()
+                            end
+                            
+                            -- Add spell options
+                            for _, spell in ipairs(available_indi_spells) do
+                                local label = spell.name
+                                if spell.cost and spell.cost > 0 then
+                                    label = label .. ' (' .. spell.cost .. ' MP)'
+                                end
+                                local is_selected = (spell.name == entrust_spell_name)
+                                if imgui.Selectable(label, is_selected) then
+                                    entrust_spell_name = spell.name
+                                    settings.entrust_spell = spell.name
+                                    if callback then callback() end
+                                end
+                                if is_selected then
+                                    imgui.SetItemDefaultFocus()
+                                end
+                            end
+                            imgui.EndCombo()
+                        end
+                        imgui.PopItemWidth()
+                        
+                        -- Entrust ability checkbox (indented)
+                        imgui.Indent(ui.ABILITY_LIST_INDENT)
+                        for _, ability in ipairs(job_def.abilities.geo) do
+                            if ability.name == 'Entrust' and can_use_ability(ability) then
+                                ui.ability_checkbox(ctx, ability, job_def, 'geo')
+                            end
+                        end
+                        imgui.Unindent(ui.ABILITY_LIST_INDENT)
+                    end
+                end
             end
             
             imgui.Separator()
@@ -773,13 +840,15 @@ function config_ui.render(settings, job_def, callback, roll_mod)
         end
         
         if common.debug then
-            imgui.Indent(ABILITY_LIST_INDENT)
+            imgui.Indent(ui.ABILITY_LIST_INDENT)
             local zone_id = common.get_zone_id()
             imgui.Text(string.format('get_zone_id = %d', zone_id))
             local target_id = common.get_target_id()
             imgui.Text(string.format('get_target_id = %s', tostring(target_id)))
             local is_moving = common.is_player_moving()
             imgui.Text(string.format('is_player_moving = %s', tostring(is_moving)))
+            local is_casting = common.is_casting()
+            imgui.Text(string.format('is_casting = %s', tostring(is_casting)))
             local party_server_ids = common.get_party_server_ids()
             if #party_server_ids > 0 then
                 local ids_str = table.concat(party_server_ids, ', ')
@@ -832,7 +901,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                 end
             end
             
-            imgui.Unindent(ABILITY_LIST_INDENT)
+            imgui.Unindent(ui.ABILITY_LIST_INDENT)
         end
 
         imgui.End()

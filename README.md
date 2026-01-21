@@ -2,7 +2,9 @@
 
 A focused, support-oriented addon for Ashita v4 that automates healing, buffing, and debuff removal for select support jobs in Final Fantasy XI.  Tuned specifically for [CatsEyeXI private server](https://www.catseyexi.com/).
 
-<img width="400" alt="image" src="https://github.com/user-attachments/assets/0c9beb07-960e-4db4-b6d3-b6ad1c2149c4" />
+## New Collapsable UI
+<img width="603" height="934" alt="Medic Screenshot" src="https://github.com/user-attachments/assets/c12130ab-94d0-46f2-b9d8-72f3b2d3d1de" />
+
 
 ## ⚠️ Important: This is NOT a Full Automation Tool
 
@@ -14,37 +16,55 @@ A focused, support-oriented addon for Ashita v4 that automates healing, buffing,
 - Movement/positioning
 - Full job automation
 
-## Version 1.0.0 - Initial Support Release
+## Latest Updates
 
-This is the first official release.
+### [1.2.0] - 2026-01-18
+- **Pet Entity Consolidation**: New `get_pet_entity()` function provides single source of truth for all pet-related operations
+- **Job-Specific Ability Validation**: Jobs can now implement custom validators for fine-grained ability control (e.g., Summoner checks if Carbuncle is summoned)
+- **Smart Summoner Pet Management**: Carbuncle-specific abilities (Healing Ruby, Healing Ruby II, Shining Ruby) automatically validate pet type; avatar-agnostic abilities (Avatar's Favor) work with any summoned avatar.  Added Apogee to `critical` Emergency abilities when Carbuncle is summoned.
+- **Enhanced Code Maintainability**: Consolidated pet checking logic eliminates duplication across `has_pet()`, `get_pet_hp_percent()`, and `get_pet_distance()`
+- **UI Component Refactor**: Extracted all UI rendering logic to dedicated `ui_components.lua` module (835 lines), reducing `config_ui.lua` by 52% for improved maintainability
+- **Subjob Level Filtering**: Config UI now properly filters abilities by subjob level, showing only abilities available at your current subjob level
+
 
 ## Features
 
 ### Core Support Actions
-- **Single-Target Healing**: Intelligent HP deficit-based heal selection
+- **Critical HP Response**: Emergency abilities (e.g., Divine Seal, Martyr) automatically trigger when party members drop below critical threshold (default 30%)
+- **Single-Target Healing**: Intelligent HP deficit-based heal selection with priority system (Critical HP → Focus target → Regular lowest HP)
 - **AOE Healing**: Party-wide healing when multiple members need HP
 - **Pet Healing**: Automated healing for luopan pets
 - **Sleep Removal (Wake)**: Automatically wake sleeping party members
 - **Debuff Removal**: Remove poison, paralysis, silence, and other negative status effects
-- **Buff Maintenance**: Auto-apply and maintain self-buffs and party buffs
+- **Buff Maintenance**: Auto-apply and maintain self-buffs with single-target party buff support
 - **Resource Recovery**: Automated MP and TP recovery abilities
 - **Geomancer Support**: Automatic Full Circle execution when luopan exceeds distance threshold
 
 ### User Interface
-- **ImGui Configuration UI**: User-friendly settings interface
+- **ImGui Configuration UI**: User-friendly settings interface with collapsible sections
+- **Group Dropdown Selectors**: Multiple abilities in a group (e.g., Cure I-V) consolidated into dropdown menus
 - **Per-Ability Toggles**: Enable/disable individual abilities
-- **Party Buff Configuration**: Per-party-member buttons to control which buffs to cast on each member (P1-P5)
+- **Button-Based Party Buff Targeting**: Single-target buffs display ME/P1-P5 buttons for precise control over who receives each buff
+- **Trust Buff Support**: Can track and cast buffs on Trusts using packet-based detection
+- **Subjob Duplicate Filtering**: Automatically hides duplicate abilities from subjob when they exist in main job
 - **Threshold Configuration**: Customize HP/TP/MP thresholds
 - **Focus Target Support**: Prioritize specific party members
 - **Level-Based Filtering**: Shows only abilities available at your current level
+- **Collapsible Sections**: All major features (Healing, Buffs, Debuff Removal, etc.) are collapsible for cleaner organization
 - **Auto-Refresh**: UI updates automatically when jobs or levels change
 
 ### Core System Features
 - **Smart Resource Management**: Automatic MP/TP checking and cooldown tracking
 - **Status Ailment Detection**: Automatically detects and prevents casting when Silenced (magic) or Amnesiac (job abilities)
-- **Party Buff Management**: Per-party-member buff configuration with intelligent uptime tracking
+- **Job-Specific Ability Validation**: Jobs can implement custom validators for fine-grained ability control (e.g., checking pet type, buff requirements, etc.)
+- **Pet Entity Management**: Consolidated pet entity access with `get_pet_entity()` for consistent pet checking across all features
+- **Enhanced Casting State Detection**: Packet-based casting detection using offset 0x0F state byte for accurate spell tracking
+- **Movement Detection**: Prevents casting while moving to avoid interrupted spells
+- **Trust Buff Tracking**: Packet-based buff tracking for Trusts (0x028 for application, 0x029 for removal)
+- **Single-Target Party Buffs**: Cast buffs on specific party members with button-based targeting (Haste, Refresh, Protect, Shell, etc.)
+- **Party Buff Management**: Per-party-member buff configuration with intelligent uptime tracking and range validation (20 yalms)
 - **Focus Target Support**: Prioritize specific party members for healing/support
-- **Main/Sub Job Support**: Automatically loads and merges abilities from both supported jobs
+- **Main/Sub Job Support**: Automatically loads and merges abilities from both supported jobs with duplicate filtering
 - **Priority-Based Actions**: Configurable action priority order per job
 - **Settings Persistence**: Settings saved per job in JSON format
 
@@ -65,7 +85,8 @@ Currently implemented support jobs:
 - **Geomancer** (GEO)
   - AOE healing with job abilities (Mending Halation)
   - Pet healing with job abilities (Life Cycle)
-  - Buff with geomancy spells (Indi-Haste, Indi-STR, Indi-DEX, Indi-VIT, Indi-AGI, Indi-INT, Indi-MND, Indi-CHR, Indi-Acumen, Indi-Fury, Indi-Barrier, etc.)
+  - Buff with geomancy spells (Geo & Indi)
+  - Entrust system: Select target party member and Indi spell to automatically cast via Entrust ability
   - Buff with job abilities (Lasting Emanation, Ecliptic Attrition, Collimated Fervor, Blaze of Glory, Dematerialize)
   - MP recovery with job abilities (Radial Arcana)
   - Geomancy management (automatic Full Circle execution)
@@ -92,11 +113,14 @@ Currently implemented support jobs:
   - MP recovery with job abilities (Sublimation)
 
 - **Summoner** (SMN)
-  - Single-target healing with blood pacts (Healing Ruby)
-  - AOE healing with blood pacts (Healing Ruby II)
-  - Buff with blood pacts (Shining Ruby)
+  - Critical HP abilities (Apogee)
+  - Single-target healing with blood pacts (Healing Ruby - requires Carbuncle)
+  - AOE healing with blood pacts (Healing Ruby II - requires Carbuncle)
+  - Buff with blood pacts (Avatar's Favor, Shining Ruby)
+  - Smart pet validation: Carbuncle-specific abilities only execute when Carbuncle is summoned; avatar-agnostic abilities work with any avatar
 
 - **White Mage** (WHM)
+  - Critical HP abilities (Divine Seal, Martyr)
   - Single-target healing with white magic (Cure I-V)
   - AOE healing with white magic (Curaga I-IV)
   - Debuff removal with white magic (Poisona, Paralyna, Blindna, Silena, Cursna, Erase, Viruna, Stona, Esuna)

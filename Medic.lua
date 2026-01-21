@@ -10,7 +10,7 @@ Main addon file: job detection, event loop, command handler
 
 addon.name      = 'Medic'
 addon.author    = 'Seekey'
-addon.version   = '1.0.0'
+addon.version   = '1.2.0'
 addon.desc      = 'Support Job Automation Framework'
 addon.link      = 'https://github.com/seekey13/Medic'
 
@@ -51,12 +51,13 @@ local automation_enabled = false
 local last_job_id = nil
 local last_sub_job_id = nil
 local last_level = nil
+local last_unsupported_warning = nil  -- Track last unsupported job warning to prevent spam
 
 -- Settings file path
 local default_settings = T{
     automation_enabled = false,
     focus_enabled = false,
-    focus_target_index = nil,
+    focus_target = nil,
     attack_range = 'Off',
 }
 
@@ -144,12 +145,17 @@ local function load_job_definition(main_job_id, sub_job_id)
     
     -- Check if at least one job is supported
     if not main_def and not sub_def then
-        local main_name = common.get_job_name(main_job_id)
-        local error_msg = 'No automation available for ' .. main_name
-        if sub_job_id and sub_job_id > 0 then
-            error_msg = error_msg .. ' / ' .. common.get_job_name(sub_job_id)
+        -- Only display warning once per job combination
+        local warning_key = string.format('%d_%d', main_job_id, sub_job_id or 0)
+        if last_unsupported_warning ~= warning_key then
+            local main_name = common.get_job_name(main_job_id)
+            local error_msg = 'No automation available for ' .. main_name
+            if sub_job_id and sub_job_id > 0 then
+                error_msg = error_msg .. '/' .. common.get_job_name(sub_job_id)
+            end
+            common.warnf(error_msg)
+            last_unsupported_warning = warning_key
         end
-        common.warnf(error_msg)
         return nil
     end
     
@@ -164,10 +170,12 @@ local function load_job_definition(main_job_id, sub_job_id)
     merged_def.job_id = primary_def.job_id
     merged_def.resource_type = primary_def.resource_type
     merged_def.validators = primary_def.validators
+    merged_def.validate_ability = primary_def.validate_ability
     
     -- Merge priority_order: use master list order, include actions from both jobs
     -- Master priority order (defines the execution sequence)
     local master_priority = {
+        'critical',
         'heal_aoe',
         'heal',
         'heal_pet',
@@ -247,6 +255,11 @@ end
 
 local function setup_job()
     local main_job_id, sub_job_id = common.get_player_job()
+    
+    -- Ignore invalid job IDs (happens during zoning)
+    if not main_job_id or main_job_id == 0 then
+        return
+    end
     
     if main_job_id == current_main_job_id and sub_job_id == current_sub_job_id and job_def then
         return  -- Already loaded
@@ -402,12 +415,100 @@ local function automation_tick()
         end
     end
     
-    -- Get player info
+    -- Check for job or level changes (direct reading, no packet dependency)
+    local job_id, sub_job_id = common.get_player_job()
     local main_level, sub_level = common.get_player_level()
+    
+    -- Skip if job_id or level is invalid
+    if job_id and job_id > 0 and main_level and main_level > 0 then
+        -- Initialize tracking on first valid job detection
+        if not last_job_id or last_job_id == 0 then
+            last_job_id = job_id
+            last_sub_job_id = sub_job_id or 0
+            last_level = main_level
+            common.debugf('Initialized job tracking: %s/%s (level %s)', tostring(job_id), tostring(sub_job_id), tostring(main_level))
+        else
+            -- Normalize sub job IDs (treat nil as 0)
+            local normalized_sub_job = sub_job_id or 0
+            local normalized_last_sub = last_sub_job_id or 0
+            
+            -- Detect job change
+            local job_changed = false
+            if job_id ~= last_job_id then
+                job_changed = true
+            elseif normalized_sub_job ~= normalized_last_sub and normalized_sub_job > 0 and normalized_last_sub > 0 then
+                job_changed = true
+            elseif normalized_sub_job > 0 and normalized_last_sub == 0 then
+                job_changed = true
+            elseif normalized_sub_job == 0 and normalized_last_sub > 0 then
+                job_changed = true
+            end
+            
+            -- Detect level change
+            local level_changed = false
+            if last_level and main_level ~= last_level and last_level > 0 then
+                level_changed = true
+            end
+            
+            -- Handle job change
+            if job_changed then
+                local old_job_str = common.get_job_name(last_job_id)
+                if last_sub_job_id and last_sub_job_id > 0 then
+                    old_job_str = old_job_str .. '/' .. common.get_job_name(last_sub_job_id)
+                end
+                local new_job_str = common.get_job_name(job_id)
+                if sub_job_id and sub_job_id > 0 then
+                    new_job_str = new_job_str .. '/' .. common.get_job_name(sub_job_id)
+                end
+                common.printf('Job change detected: %s -> %s, reloading job definition...', old_job_str, new_job_str)
+                
+                -- Update tracking
+                last_job_id = job_id
+                last_sub_job_id = sub_job_id
+                last_level = main_level
+                current_main_job_id = nil
+                current_sub_job_id = nil
+                main_job_def = nil
+                sub_job_def = nil
+                job_def = nil
+                addon_settings = nil
+                
+                -- Reload job
+                setup_job()
+                
+                -- Restore automation state after job change
+                if addon_settings and addon_settings.automation_enabled then
+                    automation_enabled = true
+                else
+                    automation_enabled = false
+                end
+                
+                -- Skip this frame after job reload
+                return
+            elseif level_changed then
+                common.printf('Level change detected: %d -> %d, reloading UI...', last_level, main_level)
+                
+                -- Update level tracking
+                last_level = main_level
+                
+                -- Force UI refresh by resetting job_def
+                current_main_job_id = nil
+                current_sub_job_id = nil
+                
+                -- Reload the job definition to pick up newly available abilities
+                setup_job()
+                
+                -- Skip this frame after reload
+                return
+            end
+        end
+    end
+    
     local player_resource = resource.get_resource(job_def.resource_type)
     
     -- Get priority order
     local priority_order = job_def.priority_order or {
+        'critical',
         'heal_aoe',
         'heal',
         'heal_pet',
@@ -467,6 +568,9 @@ ashita.events.register('d3d_present', 'medic_render', function()
         end
     end
     
+    -- Check for job changes (every frame)
+    setup_job()
+    
     -- Render config UI
     if config_ui.is_visible() and job_def and addon_settings then
         local save_settings_callback = function()
@@ -485,103 +589,6 @@ ashita.events.register('packet_in', 'medic_packet_in', function(e)
         return
     end
     
-    -- Job change detection (0x1B = job info, 0x44 = character update, 0x1A = party update)
-    if e.id == 0x1B or e.id == 0x44 or e.id == 0x1A then
-        common.debugf('Received packet 0x%02X, scheduling job change check', e.id)
-        ashita.tasks.once(0.5, function()
-            local job_id, sub_job_id = common.get_player_job()
-            local main_level, sub_level = common.get_player_level()
-            common.debugf('Job check: current=%s/%s, last=%s/%s, level=%s', tostring(job_id), tostring(sub_job_id), tostring(last_job_id), tostring(last_sub_job_id), tostring(main_level))
-            
-            -- Skip if job_id or level is invalid
-            if not job_id or job_id == 0 or not main_level or main_level == 0 then
-                common.debugf('Skipping job check, invalid job_id or level: %s, level: %s', tostring(job_id), tostring(main_level))
-                return
-            end
-            
-            -- Initialize tracking on first valid job detection
-            if not last_job_id or last_job_id == 0 then
-                last_job_id = job_id
-                last_sub_job_id = sub_job_id or 0
-                last_level = main_level
-                common.debugf('Initialized last_job_id to %s/%s (level %s)', tostring(job_id), tostring(sub_job_id), tostring(main_level))
-                return
-            end
-            
-            -- Normalize sub job IDs (treat nil as 0)
-            local normalized_sub_job = sub_job_id or 0
-            local normalized_last_sub = last_sub_job_id or 0
-            
-            -- Detect job or level change (ignore changes from/to 0)
-            local job_changed = false
-            if job_id ~= last_job_id then
-                job_changed = true
-            elseif normalized_sub_job ~= normalized_last_sub and normalized_sub_job > 0 and normalized_last_sub > 0 then
-                -- Only consider it a change if both old and new sub jobs are valid (not 0)
-                job_changed = true
-            elseif normalized_sub_job > 0 and normalized_last_sub == 0 then
-                -- Sub job was gained
-                job_changed = true
-            elseif normalized_sub_job == 0 and normalized_last_sub > 0 then
-                -- Sub job was lost
-                job_changed = true
-            end
-            
-            local level_changed = false
-            if last_level and main_level ~= last_level and last_level > 0 then
-                -- Only consider it a level change if the previous level was valid
-                level_changed = true
-            end
-            
-            if job_changed then
-                local old_job_str = common.get_job_name(last_job_id)
-                if last_sub_job_id and last_sub_job_id > 0 then
-                    old_job_str = old_job_str .. '/' .. common.get_job_name(last_sub_job_id)
-                end
-                local new_job_str = common.get_job_name(job_id)
-                if sub_job_id and sub_job_id > 0 then
-                    new_job_str = new_job_str .. '/' .. common.get_job_name(sub_job_id)
-                end
-                common.printf('Job change detected: %s -> %s, reloading job definition...', old_job_str, new_job_str)
-                
-                -- Update tracking
-                last_job_id = job_id
-                last_sub_job_id = sub_job_id
-                last_level = main_level
-                current_main_job_id = nil
-                current_sub_job_id = nil
-                main_job_def = nil
-                sub_job_def = nil
-                job_def = nil
-                addon_settings = nil
-                
-                -- Reload job
-                setup_job()
-                
-                -- Restore automation state after job change
-                if addon_settings and addon_settings.automation_enabled then
-                    automation_enabled = true
-                else
-                    automation_enabled = false
-                end
-            elseif level_changed then
-                common.printf('Level change detected: %d -> %d, reloading UI...', last_level, main_level)
-                
-                -- Update level tracking
-                last_level = main_level
-                
-                -- Force UI refresh by resetting job_def (will be reloaded on next render)
-                -- This ensures new abilities unlocked by level are shown
-                current_main_job_id = nil
-                current_sub_job_id = nil
-                
-                -- Don't reset addon_settings to preserve user configuration
-                -- Just reload the job definition to pick up newly available abilities
-                setup_job()
-            end
-        end)
-    end
-    
     -- Handle action packets for casting detection (always active)
     if e.id == 0x028 then
         -- Parse actor ID to check if it's the player
@@ -592,9 +599,41 @@ ashita.events.register('packet_in', 'medic_packet_in', function(e)
                 local player_id = party:GetMemberServerId(0)
                 if player_id and actor_id == player_id then
                     common.handle_action_packet(e.data)  -- Casting detection
+                    
+                    -- Check if this is a casting completion (byte 0x0F != 0x00)
+                    if e.data and #e.data >= 16 then
+                        local completion_flag = struct.unpack('B', e.data, 0x0F + 1)
+                        common.debugf('[PACKET] 0x028 completion_flag = 0x%02X', completion_flag)
+                        if completion_flag ~= 0x00 then
+                            -- Casting completed, apply pending buff to Trust
+                            common.debugf('[PACKET] Calling handle_buff_application()')
+                            common.handle_buff_application()
+                        end
+                    end
                 end
             end
         end
+    end
+    
+    -- Handle status effect update packets for Trust buff removal (0x029)
+    if e.id == 0x029 then
+        if e.data and #e.data >= 16 then
+            -- Extract server_id (bytes 0x04-0x07, little-endian)
+            local server_id = struct.unpack('I', e.data, 0x04 + 1)
+            
+            -- Extract buff_id (byte 0x0C)
+            local buff_id = struct.unpack('B', e.data, 0x0C + 1)
+            
+            -- Only handle Trust buff removal (server_id >= 0x1000000)
+            if server_id >= 0x1000000 and buff_id > 0 and buff_id ~= 255 then
+                common.handle_buff_removal(server_id, buff_id)
+            end
+        end
+    end
+    
+    -- Clear Trust buffs on zone change
+    if e.id == 0x0A then  -- Zone change packet
+        common.clear_trust_buffs()
     end
 end)
 
@@ -656,7 +695,7 @@ ashita.events.register('command', 'medic_command', function(e)
         local subcmd = args[3] and args[3]:lower()
         
         if subcmd == 'clear' then
-            addon_settings.focus_target_index = nil
+            addon_settings.focus_target = nil
             if job_def then
                 local settings_file = 'settings_' .. (job_def.job_name or 'default'):lower() .. '.json'
                 settings.save(addon_settings, settings_file)
@@ -665,14 +704,14 @@ ashita.events.register('command', 'medic_command', function(e)
         elseif subcmd and tonumber(subcmd) then
             local index = tonumber(subcmd)
             if index >= 0 and index <= 5 then
-                local target_index = common.get_party_member_target_index(index)
-                if target_index then
-                    addon_settings.focus_target_index = target_index
+                local member_name = common.get_party_member_name(index)
+                if member_name then
+                    addon_settings.focus_target = member_name
                     if job_def then
                         local settings_file = 'settings_' .. (job_def.job_name or 'default'):lower() .. '.json'
                         settings.save(addon_settings, settings_file)
                     end
-                    common.printf('Focus target set to party member %d (%s)', index, common.get_party_member_name(index) or 'Unknown')
+                    common.printf('Focus target set to %s (P%d)', member_name, index)
                 else
                     common.errorf('Party member %d not found or not active.', index)
                 end
@@ -694,7 +733,7 @@ ashita.events.register('command', 'medic_command', function(e)
         common.printf('Medic Status:')
         common.printf('  Job: %s', job_def and job_def.job_name or 'Not loaded')
         common.printf('  Automation: %s', automation_enabled and 'Enabled' or 'Disabled')
-        common.printf('  Focus Target: %s', addon_settings.focus_target_index and 'Set' or 'None')
+        common.printf('  Focus Target: %s', addon_settings.focus_target or 'None')
         common.printf('  Debug Mode: %s', common.debug and 'Enabled' or 'Disabled')
         
     else

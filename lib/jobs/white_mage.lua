@@ -218,39 +218,6 @@ return {
                 end,
                 range = 20,
             },
-            {
-                name = 'Invisible',
-                level = 25,
-                cost = 25,
-                id = 65,  -- Spell ID
-                command = function(target)
-                    return '/ma "Invisible" '..target
-                end,
-                buff_id = 69,  -- Invisible
-                idle_only = true,
-            },
-            {
-                name = 'Sneak',
-                level = 20,
-                cost = 25,
-                id = 64,  -- Spell ID
-                command = function(target)
-                    return '/ma "Sneak" '..target
-                end,
-                buff_id = 71,  -- Sneak
-                idle_only = true,
-            },
-            {
-                name = 'Deodorize',
-                level = 15,
-                cost = 6,
-                id = 61,  -- Spell ID
-                command = function(target)
-                    return '/ma "Deodorize" '..target
-                end,
-                idle_only = true,
-                buff_id = 70,  -- Deodorize
-            },
         },
 
         -- Buffs
@@ -276,15 +243,6 @@ return {
                 group = 'afflatus',
             },
             {
-                name = 'Auspice',
-                level = 55,
-                cost = 15,
-                id = 96,  -- Spell ID
-                command = '/ma "Auspice" <me>',
-                buff_id = 275,  -- Auspice
-                combat_only = true,
-            },
-            {
                 name = 'Haste',
                 level = 40,
                 cost = 40,
@@ -293,7 +251,7 @@ return {
                     return '/ma "Haste" '..target
                 end,
                 buff_id = 33,  -- Haste
-                
+                duration = 180,
             },
             {
                 name = 'Regen III',
@@ -305,7 +263,7 @@ return {
                 end,
                 buff_id = 42,  -- Regen
                 combat_only = false,
-                group = 'regen',
+                duration = 60,
             },
             {
                 name = 'Regen II',
@@ -317,7 +275,7 @@ return {
                 end,
                 buff_id = 42,  -- Regen
                 combat_only = false,
-                group = 'regen',
+                duration = 60,
             },
             {
                 name = 'Regen',
@@ -329,7 +287,7 @@ return {
                 end,
                 buff_id = 42,  -- Regen
                 combat_only = false,
-                group = 'regen',
+                duration = 75,
             },
             {
                 name = 'Protectra V',
@@ -339,7 +297,7 @@ return {
                 command = '/ma "Protectra V" <me>',
                 buff_id = 40,  -- Protect
                 combat_only = false,
-                group = 'protect',
+                group = 'protectra',
             },
             {
                 name = 'Protectra IV',
@@ -349,7 +307,7 @@ return {
                 command = '/ma "Protectra IV" <me>',
                 buff_id = 40,
                 combat_only = false,
-                group = 'protect',
+                group = 'protectra',
             },
             {
                 name = 'Protectra III',
@@ -359,7 +317,7 @@ return {
                 command = '/ma "Protectra III" <me>',
                 buff_id = 40,
                 combat_only = false,
-                group = 'protect',
+                group = 'protectra',
             },
             {
                 name = 'Protectra II',
@@ -369,7 +327,7 @@ return {
                 command = '/ma "Protectra II" <me>',
                 buff_id = 40,
                 combat_only = false,
-                group = 'protect',
+                group = 'protectra',
             },
             {
                 name = 'Protectra',
@@ -379,7 +337,7 @@ return {
                 command = '/ma "Protectra" <me>',
                 buff_id = 40,
                 combat_only = false,
-                group = 'protect',
+                group = 'protectra',
             },
             {
                 name = 'Protect IV',
@@ -392,6 +350,7 @@ return {
                 buff_id = 40,  -- Protect
                 combat_only = false,
                 group = 'protect',
+                duration = 1800,
             },
             {
                 name = 'Protect III',
@@ -404,6 +363,7 @@ return {
                 buff_id = 40,  -- Protect
                 combat_only = false,
                 group = 'protect',
+                duration = 1800,
             },
             {
                 name = 'Protect II',
@@ -416,6 +376,7 @@ return {
                 buff_id = 40,  -- Protect
                 combat_only = false,
                 group = 'protect',
+                duration = 1800,
             },
             {
                 name = 'Protect',
@@ -428,6 +389,7 @@ return {
                 buff_id = 40,  -- Protect
                 combat_only = false,
                 group = 'protect',
+                duration = 1800,
             },
             {
                 name = 'Shellra V',
@@ -437,7 +399,7 @@ return {
                 command = '/ma "Shellra V" <me>',
                 buff_id = 41,  -- Shell
                 combat_only = false,
-                group = 'shell',
+                group = 'shellra',
             },
             {
                 name = 'Shellra IV',
@@ -447,7 +409,7 @@ return {
                 command = '/ma "Shellra IV" <me>',
                 buff_id = 41,
                 combat_only = false,
-                group = 'shell',
+                group = 'shellra',
             },
             {
                 name = 'Shellra III',
@@ -457,7 +419,7 @@ return {
                 command = '/ma "Shellra III" <me>',
                 buff_id = 41,
                 combat_only = false,
-                group = 'shell',
+                group = 'shellra',
             },
             {
                 name = 'Shellra II',
@@ -467,7 +429,7 @@ return {
                 command = '/ma "Shellra II" <me>',
                 buff_id = 41,
                 combat_only = false,
-                group = 'shell',
+                group = 'shellra',
             },
             {
                 name = 'Shellra',
@@ -477,7 +439,7 @@ return {
                 command = '/ma "Shellra" <me>',
                 buff_id = 41,
                 combat_only = false,
-                group = 'shell',
+                group = 'shellra',
             },
             {
                 name = 'Shell IV',
@@ -490,6 +452,7 @@ return {
                 buff_id = 41,  -- Shell
                 combat_only = false,
                 group = 'shell',
+                duration = 1800,
             },
             {
                 name = 'Shell III',
@@ -502,6 +465,7 @@ return {
                 buff_id = 41,  -- Shell
                 combat_only = false,
                 group = 'shell',
+                duration = 1800,
             },
             {
                 name = 'Shell II',
@@ -514,6 +478,7 @@ return {
                 buff_id = 41,  -- Shell
                 combat_only = false,
                 group = 'shell',
+                duration = 1800,
             },
             {
                 name = 'Shell',
@@ -526,73 +491,7 @@ return {
                 buff_id = 41,  -- Shell
                 combat_only = false,
                 group = 'shell',
-            },
-            {
-                name = 'Aquaveil',
-                level = 10,
-                cost = 12,
-                id = 55,  -- Spell ID
-                command = '/ma "Aquaveil" <me>',
-                buff_id = 39,  -- Aquaveil
-                combat_only = false,
-            },
-            {
-                name = 'Blink',
-                level = 19,
-                cost = 20,
-                id = 53,  -- Spell ID
-                command = '/ma "Blink" <me>',
-                buff_id = 36,  -- Blink
-                combat_only = false,
-            },
-            {
-                name = 'Stoneskin',
-                level = 28,
-                cost = 29,
-                id = 54,  -- Spell ID
-                command = '/ma "Stoneskin" <me>',
-                buff_id = 37,  -- Stoneskin
-                combat_only = false,
-            },
-            {
-                name = 'Reraise III',
-                level = 70,
-                cost = 150,
-                id = 142,  -- Spell ID
-                command = '/ma "Reraise III" <me>',
-                buff_id = 113,  -- Reraise
-                group = 'reraise',
-                combat_only = false,
-            },
-            {
-                name = 'Reraise II',
-                level = 56,
-                cost = 150,
-                id = 141,  -- Spell ID
-                command = '/ma "Reraise II" <me>',
-                buff_id = 113,  -- Reraise
-                group = 'reraise',
-                combat_only = false,
-            },
-            {
-                name = 'Reraise',
-                level = 25,
-                cost = 150,
-                id = 135,  -- Spell ID
-                command = '/ma "Reraise" <me>',
-                buff_id = 113,  -- Reraise
-                group = 'reraise',
-                combat_only = false,
-            },
-            {
-                name = 'Enlight',
-                level = 75,
-                cost = 45,
-                id = 310,  -- Spell ID
-                command = '/ma "Enlight" <me>',
-                buff_id = 274,  -- Enlight
-                combat_only = true,
-                self_only = true,
+                duration = 1800,
             },
             -- Bar Element spells
             {
@@ -750,6 +649,138 @@ return {
                 combat_only = false,
                 self_only = true,
             },
+            {
+                name = 'Aquaveil',
+                level = 10,
+                cost = 12,
+                id = 55,  -- Spell ID
+                command = '/ma "Aquaveil" <me>',
+                buff_id = 39,  -- Aquaveil
+                combat_only = false,
+            },
+            {
+                name = 'Blink',
+                level = 19,
+                cost = 20,
+                id = 53,  -- Spell ID
+                command = '/ma "Blink" <me>',
+                buff_id = 36,  -- Blink
+                combat_only = false,
+            },
+            {
+                name = 'Stoneskin',
+                level = 28,
+                cost = 29,
+                id = 54,  -- Spell ID
+                command = '/ma "Stoneskin" <me>',
+                buff_id = 37,  -- Stoneskin
+                combat_only = false,
+            },
+            {
+                name = 'Reraise III',
+                level = 70,
+                cost = 150,
+                id = 142,  -- Spell ID
+                command = '/ma "Reraise III" <me>',
+                buff_id = 113,  -- Reraise
+                group = 'reraise',
+                combat_only = false,
+            },
+            {
+                name = 'Reraise II',
+                level = 56,
+                cost = 150,
+                id = 141,  -- Spell ID
+                command = '/ma "Reraise II" <me>',
+                buff_id = 113,  -- Reraise
+                group = 'reraise',
+                combat_only = false,
+            },
+            {
+                name = 'Reraise',
+                level = 25,
+                cost = 150,
+                id = 135,  -- Spell ID
+                command = '/ma "Reraise" <me>',
+                buff_id = 113,  -- Reraise
+                group = 'reraise',
+                combat_only = false,
+            },
+            {
+                name = 'Enlight',
+                level = 75,
+                cost = 45,
+                id = 310,  -- Spell ID
+                command = '/ma "Enlight" <me>',
+                buff_id = 274,  -- Enlight
+                combat_only = true,
+                self_only = true,
+            },
+            {
+                name = 'Auspice',
+                level = 55,
+                cost = 15,
+                id = 96,  -- Spell ID
+                command = '/ma "Auspice" <me>',
+                buff_id = 275,  -- Auspice
+                combat_only = true,
+            },
+            {
+                name = 'Invisible',
+                level = 25,
+                cost = 25,
+                id = 136,  -- Spell ID
+                command = function(target)
+                    return '/ma "Invisible" '..target
+                end,
+                buff_id = 69,  -- Invisible
+                idle_only = true,
+            },
+            {
+                name = 'Sneak',
+                level = 20,
+                cost = 25,
+                id = 137,  -- Spell ID
+                command = function(target)
+                    return '/ma "Sneak" '..target
+                end,
+                buff_id = 71,  -- Sneak
+                idle_only = true,
+            },
+            {
+                name = 'Deodorize',
+                level = 15,
+                cost = 6,
+                id = 138,  -- Spell ID
+                command = function(target)
+                    return '/ma "Deodorize" '..target
+                end,
+                idle_only = true,
+                buff_id = 70,  -- Deodorize
+            },
+        },
+
+        -- Critical
+        critical = {
+            {
+                name = 'Martyr',
+                level = 75,
+                cost = 0,
+                id = 27,  -- Job Ability ID
+                command = function(target)
+                    return '/ja "Martyr" '..target
+                end,
+                range = 18,
+                combat_only = false,
+            },
+            {
+                name = 'Divine Seal',
+                level = 30,
+                cost = 0,
+                id = 26,  -- Job Ability ID
+                command = '/ja "Divine Seal" <me>',
+                combat_only = false,
+            },
         },
 
         -- Revive
@@ -760,7 +791,7 @@ return {
         --         cost = 150,
         --         id = 147,  -- Spell ID
         --         command = function(party_index)
-        --             return '/ma "Arise" <p'..party_index..'>'
+        --             return '/ma "Arise" '..target
         --         end,
         --         range = 18,
         --         combat_only = false,
@@ -771,7 +802,7 @@ return {
         --         cost = 150,
         --         id = 140,  -- Spell ID
         --         command = function(party_index)
-        --             return '/ma "Raise III" <p'..party_index..'>'
+        --             return '/ma "Raise III" '..target
         --         end,
         --         range = 18,
         --         combat_only = false,
@@ -782,7 +813,7 @@ return {
         --         cost = 150,
         --         id = 139,  -- Spell ID
         --         command = function(party_index)
-        --             return '/ma "Raise II" <p'..party_index..'>'
+        --             return '/ma "Raise II" '..target
         --         end,
         --         range = 18,
         --         combat_only = false,
@@ -793,18 +824,36 @@ return {
         --         cost = 150,
         --         id = 12,  -- Spell ID
         --         command = function(party_index)
-        --             return '/ma "Raise" <p'..party_index..'>'
+        --             return '/ma "Raise" '..target
         --         end,
         --         range = 18,
         --         combat_only = false,
         --     },
         -- },
+
+
+        recover_party_mp = {
+            {
+                name = 'Devotion',
+                level = 75,
+                cost = 0,
+                id = 28,  -- Job Ability ID
+                command = function(target)
+                    return '/ja "Devotion" '..target -- Cannot target self
+                end,
+            },
+        },
     },
-    
+    -- -- Job-specific validators
+    -- validators = {
+
+    -- },
+
     -- Default settings for UI
     default_settings = {
         heal_enabled = true,
         heal_threshold = 75,
+        critical_threshold = 30,
         heal_aoe_enabled = true,
         heal_aoe_threshold = 70,
         heal_aoe_count_threshold = 2,
@@ -814,10 +863,13 @@ return {
         focus_enabled = false,
         focus_target_index = nil,
         focus_threshold = 85,
+        focus_recovery_target_index = nil,
+        focus_recovery_threshold = 30,
     },
     
     -- Action priority order
     priority_order = {
+        'critical',
         'heal_aoe',
         'heal',
         'debuff_removal',

@@ -5,6 +5,71 @@ All notable changes to Medic will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-01-18
+
+### Added
+- **Pet Entity Consolidation**: New `get_pet_entity()` function provides single source of truth for pet entity access across all pet-related operations
+- **Job-Specific Ability Validation**: Jobs can now define custom `validate_ability` functions for fine-grained control over when abilities can be used
+- **Summoner Pet Name Validation**: Carbuncle-specific abilities (Healing Ruby, Healing Ruby II, Shining Ruby) now automatically check if Carbuncle is summoned before attempting to use
+- **Avatar-Agnostic Abilities**: Summoner abilities like Avatar's Favor work with any summoned avatar, not just Carbuncle
+- **Summoner Critical Ability**: Added Apogee to Summoner's critical abilities category
+- **UI Component Extraction**: Created new `ui_components.lua` module (835 lines) consolidating all reusable UI rendering functions and constants for better code organization
+- **Subjob Level Filtering**: Config UI now properly filters subjob abilities by subjob level, ensuring only abilities available at current subjob level are displayed
+- **Geomancer Main Job Restriction**: Geo spells now restricted to main job only via `main_job_only=true` flag; hidden from UI when GEO is subjob
+- **Entrust System**: Name-based Entrust target and spell selection with dynamic party member dropdowns; settings persist across sessions
+
+### Changed
+- **Pet Functions Refactored**: `has_pet()`, `get_pet_hp_percent()`, and `get_pet_distance()` now use consolidated `get_pet_entity()` for improved code maintainability
+- **Filter Abilities Enhanced**: `filter_abilities_by_level()` now accepts optional `job_def` parameter to enable job-specific validation hooks
+- **Config UI Refactored**: Reduced `config_ui.lua` from 1,758 lines to 876 lines (52% reduction) by extracting all rendering logic to `ui_components.lua`
+- **Context Object Pattern**: UI components now use a context object `{settings, save_callback, party_buffs, job_def, ...}` for cleaner function signatures
+
+### Technical
+- Introduced `requires_carbuncle` flag for Summoner abilities to distinguish Carbuncle-specific abilities from avatar-agnostic ones
+- Job definition merging now copies `validate_ability` function when present
+- All action modules updated to pass `job_def` to `filter_abilities_by_level()`
+- All UI rendering sections now call `can_use_ability()` before displaying each ability to ensure proper level filtering
+- Added `main_job_only` flag to ability definitions; `can_use_ability()` checks this flag and returns false when ability is marked main job only but `is_main_job=false`
+- Geomancer Geo spells now have `main_job_only=true` flag to prevent casting when GEO is subjob
+- Entrust target and spell stored as character names in settings (`entrust_target`, `entrust_spell`); validated against current party on each render
+- Created centralized constants in `ui_components.lua`: colors (COMBAT_ONLY, IDLE_ONLY, button states), widths (DROPDOWN_WIDTH=300, SLIDER_WIDTH=250), and spacing values
+- Implemented reusable render functions: `onoff_button`, `group_dropdown`, `party_single_ability`, `party_grouped_ability`, `ability_checkbox`, `render_ability` (dispatcher)
+
+## [1.1.0] - 2026-01-17
+
+### Added
+- **Critical HP Abilities**: New critical ability category triggers emergency abilities (e.g., Divine Seal, Martyr) when party members drop below critical threshold (default 30%, configurable 1-50%) before attempting regular heals
+- **Button-Based Party Buff Targeting**: Single-target buffs now display ME/P1-P5 buttons for precise control over who receives each buff (e.g., Haste, Refresh, Protect, Shell, Enspells, etc.)
+- **Trust Buff Tracking**: Buffs can now be tracked and cast on Trusts using packet-based detection (packets 0x028 for application, 0x029 for removal)
+- **Group Dropdown Consolidation**: When multiple abilities exist in a group (e.g., Cure I-V), they are now consolidated into a dropdown selector for cleaner UI
+- **Enhanced Casting State Detection**: Improved packet-based casting detection using offset 0x0F state byte (0x00 = casting started, 0x01+ = casting complete)
+- **Subjob Duplicate Filtering**: Config UI now automatically hides duplicate abilities from subjob when they exist in main job (e.g., Cure spells)
+- **Single-Target Buff Support**: Jobs can now cast single-target buffs on party members with intelligent uptime tracking and range validation (20 yalms)
+- **Movement Blocking**: Casting is now prevented while the player is moving to avoid interrupted spells
+- **Grouped Ability Management**: Only the currently visible ability in a dropdown group can be enabled; all others in the group are automatically disabled when dropdown selection changes
+- **New Ability Default State**: All newly discovered abilities now default to OFF (disabled) until explicitly enabled by the player
+- **Unknown Spell Button Protection**: ON/OFF buttons and party target buttons (ME/P1-P5) are now fully disabled (grayed out and unclickable) when a spell is not yet learned
+
+### Changed
+- **Healing Priority**: Updated healing priority to: Critical lowest HP (if below critical threshold) → Focus target → Regular lowest HP
+- **Collapsible UI Sections**: All major feature sections (Healing, Buffs, Debuff Removal, etc.) are now collapsible headers with checkboxes for cleaner organization
+- **Buff UI**: Single-target buffs (function commands) now use button-based targeting instead of checkboxes
+- **Buff Logic**: Abilities are automatically enabled when any ME/P1-P5 button is selected, and disabled when all buttons are deselected
+- **Party Buff Validation**: Added zone matching and range checking before casting buffs on party members
+- **Casting State Logic**: Simplified casting detection to use action state byte only, not action ID, for more reliable state tracking
+- **Party Buff Buttons**: Trust members now show disabled (dark gray) buttons in party buff UI to indicate buffs cannot be cast
+- **Job Detection**: Moved job change detection from packet handler to automation loop for simpler, more reliable code (no longer uses packets 0x1B, 0x44, 0x1A)
+- **Ability Default State**: Changed from enabled-by-default to disabled-by-default for all newly discovered abilities
+- **Grouped Abilities**: Dropdown selection change now enforces single-enabled-ability constraint by disabling all other group members
+
+### Fixed
+- Button-based buffs now properly check if the ability is enabled before attempting to cast
+- Party buff state correctly syncs with settings on button toggle
+- Casting state now properly detects spell casting regardless of action ID changes between start and completion packets
+- UI no longer shows duplicate abilities when same spell exists in both main job and subjob
+- Grouped abilities now correctly maintain single-enabled constraint when dropdown selection changes
+- Unknown spell buttons are now properly disabled and unclickable until spell is learned
+
 ## [1.0.0] - 2026-01-11
 
 This is the first official release.

@@ -32,6 +32,11 @@ local movement_state = {
     check_interval = 0.25  -- Check every 250ms
 }
 
+-- Trust buff tracking (packet-based since memory reads don't work for Trusts)
+local trust_buffs = {}  -- trust_buffs[server_id] = {buff_id1, buff_id2, ...}
+local pending_buffs = {}  -- pending_buffs[n] = {server_id=x, buff_id=y, timestamp=t}
+local PENDING_BUFF_TIMEOUT = 10.0  -- Seconds before pending buff expires
+
 -- Non-combat zone IDs (safe zones where combat is blocked)
 local non_combat_zone_ids = {
     230, 231, 232, 233, -- San d'Oria
@@ -210,7 +215,10 @@ function common.can_attack()
 end
 
 function common.is_casting()
-    -- Returns true when player is casting a spell (category 4 action packet received)
+    -- Returns true when player is casting a spell
+    -- State is tracked via packet 0x028 offset 0x0F:
+    --   0x00 = casting started
+    --   0x02 = casting complete
     -- Prevents automation from spamming actions during cast time
     
     -- Timeout check: if too much time has passed, clear the casting state
@@ -248,8 +256,13 @@ function common.handle_action_packet(packet)
     -- Parse category (offset 0x04, 1 byte)
     local category = struct.unpack('B', packet, 0x04 + 1)
     
-    -- Parse target count (offset 0x09, 1 byte)
-    local target_count = struct.unpack('B', packet, 0x09 + 1)
+    -- Parse action state byte (offset 0x0F, 1 byte)
+    -- 0x00 = Action/Casting started
+    -- 0x01-0x04 = Action/Casting complete (various completion states)
+    local action_state = 0
+    if #packet >= 16 then
+        action_state = struct.unpack('B', packet, 0x0F + 1)
+    end
     
     -- Parse action ID if available (offset 0x0A, 2 bytes)
     local action_id = 0
@@ -260,59 +273,41 @@ function common.handle_action_packet(packet)
     -- Track previous casting state to detect changes
     local was_casting = casting_state.is_casting
     
-    -- Check if this is a spell action (category 35 on this server)
-    -- Category 35 includes magic spells, ranged attacks, job abilities, AND autoattacks
-    -- We need to distinguish between them for proper casting state tracking
+    -- Debug: Log all packet details to understand the structure
+    common.debugf('[PACKET] Category: %d, ActionID: 0x%04X, State: 0x%02X', category, action_id, action_state)
     
-    if category == 35 then
-        -- Autoattack (action_id 0x1844/6212) clears casting state
-        -- If we can autoattack, we're free to act
-        if action_id == 0x1844 then
+    -- Simplified casting state logic based on action_state byte (offset 0x0F)
+    -- 0x00 = Action started (casting/channeling)
+    -- 0x01-0x04 = Action complete (various completion types)
+    -- Note: ActionID changes between start (0x58E0) and completion (spell ID), so we can't rely on it
+    
+    -- Autoattack check (should not affect casting state)
+    local is_autoattack = (action_id == 0x1844)
+    
+    common.debugf('[PACKET] is_autoattack: %s, was_casting: %s', tostring(is_autoattack), tostring(was_casting))
+    
+    if not is_autoattack then
+        -- Track casting state based on action_state byte
+        if action_state == 0x00 then
+            -- Action started (any action that's not autoattack)
+            common.debugf('[PACKET] Setting is_casting = true')
+            casting_state.is_casting = true
+            casting_state.last_action_time = os.clock()
+        elseif action_state > 0x00 then
+            -- Action complete
+            common.debugf('[PACKET] Setting is_casting = false')
             casting_state.is_casting = false
-        else
-            -- Spell IDs are typically in range 0-1535 (0x000-0x5FF)
-            local is_spell = (action_id >= 0 and action_id <= 0x5FF)
-            
-            -- Ranged attacks use specific action IDs (from packet analysis)
-            -- 0x58F0 (22768) = ranged attack start, 0x1CC8 (7368) = ranged attack complete
-            local is_ranged = (action_id == 0x58F0 or action_id == 0x1CC8)
-            
-            -- Weaponskills appear to be in range 0x1000-0x6000 but should NOT block actions
-            -- They execute instantly like job abilities
-            local is_weaponskill = (action_id >= 0x1000 and action_id <= 0x6000 and action_id ~= 0x1844)
-            
-            -- Job abilities are everything else in category 35 that isn't spell/ranged/weaponskill/autoattack
-            local is_job_ability = (not is_spell and not is_ranged and not is_weaponskill)
-            
-            if is_spell or is_ranged then
-                -- Spells and ranged attacks both have casting/animation time that blocks actions
-                -- Use toggle logic: first packet = start, second packet = complete
-                if not casting_state.is_casting then
-                    casting_state.is_casting = true
-                    casting_state.last_action_time = os.clock()
-                else
-                    casting_state.is_casting = false
-                end
-            else
-                -- Job abilities and weaponskills execute instantly - clear casting state
-                casting_state.is_casting = false
-            end
         end
-    elseif category == 6 or category == 7 or category == 8 or category == 9 then
-        -- Job abilities (6), weaponskills (7), items (8), ranged attacks (9) - always clear casting state
-        -- These should NOT set casting state, only clear it if it was somehow stuck
-        casting_state.is_casting = false
-    elseif category == 45 or category == 1 then
-        -- Autoattacks (category 45/0x2D and 1) - ignore completely, don't affect casting state
-        return
     end
     
-    -- Output simple state change messages
+    -- Output state change messages
     if casting_state.is_casting and not was_casting then
-        common.debugf('[CASTING STARTED]')
+        common.debugf('[CASTING STARTED] State: 0x%02X, Category: %d, ActionID: 0x%04X', action_state, category, action_id)
     elseif not casting_state.is_casting and was_casting then
-        common.debugf('[CASTING ENDED]')
+        common.debugf('[CASTING ENDED] State: 0x%02X, Category: %d, ActionID: 0x%04X', action_state, category, action_id)
     end
+    
+    common.debugf('[PACKET] Final is_casting: %s', tostring(casting_state.is_casting))
 end
 
 function common.is_player_moving()
@@ -407,17 +402,47 @@ function common.get_player_tp()
     return party:GetMemberTP(0)
 end
 
+-- Get pet entity
+-- Returns: pet entity object or nil if no pet
+function common.get_pet_entity()
+    -- Get player entity
+    local ok, player = pcall(function()
+        return GetPlayerEntity()
+    end)
+    
+    if not ok or not player then
+        return nil
+    end
+    
+    -- Check if player has a pet target index
+    local ok_index, pet_index = pcall(function()
+        return player.PetTargetIndex
+    end)
+    
+    if not ok_index or not pet_index or pet_index == 0 then
+        return nil
+    end
+    
+    -- Get the pet entity
+    local ok_pet, pet = pcall(function()
+        return GetEntity(pet_index)
+    end)
+    
+    if not ok_pet or not pet then
+        return nil
+    end
+    
+    return pet
+end
+
 function common.has_pet()
-    -- Use targets module to get pet entity
-    local pet = targets.get_pet()
-    return pet ~= nil
+    return common.get_pet_entity() ~= nil
 end
 
 -- Get pet's HP percentage
 -- Returns: number (HP percentage 0-100) or 0 if no pet
 function common.get_pet_hp_percent()
-    -- Get pet entity
-    local pet = targets.get_pet()
+    local pet = common.get_pet_entity()
     if not pet then
         return 0
     end
@@ -577,6 +602,22 @@ function common.get_party_member_hp_percent(index)
     return 0
 end
 
+function common.get_party_member_mp_percent(index)
+    local party = common.get_party()
+    if not party then return 0 end
+    
+    if not common.is_party_member_active(index) then
+        return 0
+    end
+    
+    local mpp = party:GetMemberMPPercent(index)
+    if mpp then
+        return mpp
+    end
+    
+    return 0
+end
+
 function common.get_party_member_target_index(index)
     local party = common.get_party()
     if not party then return nil end
@@ -607,6 +648,42 @@ function common.get_party_member_zone(index)
     return party:GetMemberZone(index)
 end
 
+function common.get_party_index_by_name(name)
+    -- Returns party index (0-5) for given character name, or nil if not found
+    if not name then return nil end
+    
+    local party = common.get_party()
+    if not party then return nil end
+    
+    -- Check all party slots (0=player, 1-5=party members)
+    for i = 0, 5 do
+        if party:GetMemberIsActive(i) == 1 then
+            local member_name = party:GetMemberName(i)
+            if member_name == name then
+                return i
+            end
+        end
+    end
+    
+    return nil
+end
+
+function common.get_target_index_by_name(name)
+    -- Returns entity target index for given character name, or nil if not found
+    local party_index = common.get_party_index_by_name(name)
+    if not party_index then return nil end
+    
+    local party = common.get_party()
+    if not party then return nil end
+    
+    local target_index = party:GetMemberTargetIndex(party_index)
+    if target_index and target_index > 0 then
+        return target_index
+    end
+    
+    return nil
+end
+
 function common.is_in_range(target_index, range)
     -- Ensure range is a number
     local range_value = type(range) == 'number' and range or 21
@@ -630,14 +707,12 @@ end
 -- Get distance between player and pet
 -- Returns: number (distance in yalms) or nil if no pet or error
 function common.get_pet_distance()
-    -- Get player entity
-    local player_entity = targets.get_me()
+    local player_entity = common.get_entity(0)
     if not player_entity then
         return nil
     end
     
-    -- Get pet entity
-    local pet_entity = targets.get_pet()
+    local pet_entity = common.get_pet_entity()
     if not pet_entity then
         return nil
     end
@@ -668,12 +743,19 @@ function common.has_buff(target_index, buff_id)
     local party = common.get_party()
     if not party then return false end
     
-    -- Find party member index for this target
+    -- Find party member index and server ID for this target
     local party_index = -1
+    local server_id = nil
     for i = 0, 5 do
         if party:GetMemberIsActive(i) == 1 then
             if party:GetMemberTargetIndex(i) == target_index then
                 party_index = i
+                local ok_server, sid = pcall(function()
+                    return party:GetMemberServerId(i)
+                end)
+                if ok_server then
+                    server_id = sid
+                end
                 break
             end
         end
@@ -681,7 +763,21 @@ function common.has_buff(target_index, buff_id)
     
     if party_index == -1 then return false end
     
-    -- Check buffs via memory pointer (complex but accurate)
+    -- Check if this is a Trust (server_id >= 0x1000000)
+    if server_id and server_id >= 0x1000000 then
+        -- Use Trust buff tracking
+        local trust_buff_list = common.get_trust_buffs(server_id)
+        common.debugf('has_buff check for Trust: server_id=%d, buff_id=%d, buffs=%s', 
+            server_id, buff_id, table.concat(trust_buff_list, ', '))
+        for _, trust_buff in ipairs(trust_buff_list) do
+            if trust_buff == buff_id then
+                return true
+            end
+        end
+        return false
+    end
+    
+    -- For regular party members, check buffs via memory pointer
     local ok_ptr, ptr = pcall(function() return party:GetMemberPointer(party_index) end)
     if not ok_ptr or not ptr or ptr == 0 then return false end
     
@@ -761,7 +857,8 @@ function common.get_party_buffs(member_index)
     
     -- Trusts have server IDs > 0x1000000 (16777216)
     if server_id >= 0x1000000 then
-        return {}
+        -- Return Trust buffs from packet-based tracking
+        return trust_buffs[server_id] or {}
     end
     
     -- Get the status icons pointer (direct memory reading)
@@ -825,6 +922,110 @@ function common.get_party_buffs(member_index)
     end
     
     return {}
+end
+
+--[[
+    Trust Buff Tracking Functions
+    Since Trusts' buffs cannot be read from memory, we track them via packets
+]]--
+
+-- Register a pending buff when we initiate a cast on a Trust
+-- Args: server_id (number), buff_id (number)
+function common.register_pending_buff(server_id, buff_id)
+    if not server_id or not buff_id then return end
+    
+    -- Clean up expired pending buffs first
+    local current_time = os.clock()
+    local i = 1
+    while i <= #pending_buffs do
+        if (current_time - pending_buffs[i].timestamp) > PENDING_BUFF_TIMEOUT then
+            table.remove(pending_buffs, i)
+        else
+            i = i + 1
+        end
+    end
+    
+    -- Add new pending buff
+    table.insert(pending_buffs, {
+        server_id = server_id,
+        buff_id = buff_id,
+        timestamp = current_time
+    })
+    
+    common.debugf('Registered pending buff: server_id=%d, buff_id=%d', server_id, buff_id)
+end
+
+-- Handle casting completion (packet 0x028 with byte 0x0F == 0x01)
+-- Matches the most recent pending buff and adds it to trust_buffs
+function common.handle_buff_application()
+    common.debugf('handle_buff_application called, pending_buffs count: %d', #pending_buffs)
+    
+    if #pending_buffs == 0 then return end
+    
+    -- Get the most recent pending buff
+    local pending = pending_buffs[#pending_buffs]
+    table.remove(pending_buffs, #pending_buffs)
+    
+    common.debugf('Processing pending buff: server_id=%d, buff_id=%d', pending.server_id, pending.buff_id)
+    
+    -- Initialize buff list for this Trust if needed
+    if not trust_buffs[pending.server_id] then
+        trust_buffs[pending.server_id] = {}
+    end
+    
+    -- Check if buff already exists
+    local already_has = false
+    for _, buff_id in ipairs(trust_buffs[pending.server_id]) do
+        if buff_id == pending.buff_id then
+            already_has = true
+            break
+        end
+    end
+    
+    -- Add buff if not already present
+    if not already_has then
+        table.insert(trust_buffs[pending.server_id], pending.buff_id)
+        common.debugf('Applied buff to Trust: server_id=%d, buff_id=%d', pending.server_id, pending.buff_id)
+    else
+        common.debugf('Trust already has buff: server_id=%d, buff_id=%d', pending.server_id, pending.buff_id)
+    end
+end
+
+-- Handle buff removal (packet 0x029)
+-- Args: server_id (number), buff_id (number)
+function common.handle_buff_removal(server_id, buff_id)
+    if not server_id or not buff_id then return end
+    if not trust_buffs[server_id] then return end
+    
+    -- Remove buff from Trust's buff list
+    for i = #trust_buffs[server_id], 1, -1 do
+        if trust_buffs[server_id][i] == buff_id then
+            table.remove(trust_buffs[server_id], i)
+            common.debugf('Removed buff from Trust: server_id=%d, buff_id=%d', server_id, buff_id)
+            break
+        end
+    end
+    
+    -- Clean up empty buff lists
+    if #trust_buffs[server_id] == 0 then
+        trust_buffs[server_id] = nil
+    end
+end
+
+-- Clear all Trust buffs (call on zone change)
+function common.clear_trust_buffs()
+    trust_buffs = {}
+    pending_buffs = {}
+    common.debugf('Cleared all Trust buffs')
+end
+
+-- Get Trust buffs by server_id
+-- Args: server_id (number)
+-- Returns: table of buff IDs, or empty table
+function common.get_trust_buffs(server_id)
+    if not server_id then return {} end
+    if server_id < 0x1000000 then return {} end  -- Not a Trust
+    return trust_buffs[server_id] or {}
 end
 
 function common.has_status(target_index, status_id)
@@ -1125,13 +1326,22 @@ end
 --   settings (table) - Settings table with disabled flags
 --   main_level (number) - Player's main job level
 --   sub_level (number) - Player's sub job level
+--   job_def (table|nil) - Job definition with optional validate_ability function
 -- Returns: table - Filtered and sorted abilities (by cost descending)
-function common.filter_abilities_by_level(abilities, settings, main_level, sub_level)
+function common.filter_abilities_by_level(abilities, settings, main_level, sub_level, job_def)
     local available_abilities = {}
     
     -- Safety check: return empty table if abilities is nil
     if not abilities then
         return available_abilities
+    end
+    
+    -- Debug: Check if job_def and validator exist
+    if job_def then
+        common.debugf('[filter_abilities] job_def exists, job_id=%s, has_validator=%s', 
+            tostring(job_def.job_id), tostring(job_def.validate_ability ~= nil))
+    else
+        common.debugf('[filter_abilities] job_def is nil')
     end
     
     for _, ability in ipairs(abilities) do
@@ -1147,6 +1357,12 @@ function common.filter_abilities_by_level(abilities, settings, main_level, sub_l
         -- Determine which level to check based on ability source
         local player_level = ability.is_main_job == false and (sub_level or 0) or (main_level or 0)
         
+        -- Check if ability requires main job only (e.g., Geo spells)
+        if ability.main_job_only and ability.is_main_job == false then
+            -- Skip main-job-only abilities when from subjob
+            goto continue
+        end
+        
         -- Check if ability is disabled in settings
         local disabled_key = 'disabled_' .. ability.name:gsub(' ', '_')
         -- Default to disabled (true) if key doesn't exist (nil)
@@ -1161,6 +1377,9 @@ function common.filter_abilities_by_level(abilities, settings, main_level, sub_l
             -- Skip if requires pet but no pet available
         elseif ability.combat_only and common.is_idle() then
             -- Skip if combat only and not engaged
+        elseif job_def and job_def.validate_ability and not job_def.validate_ability(ability, common) then
+            -- Skip if job-specific validator fails
+            common.debugf('[filter_abilities] %s blocked by job validator', ability.name)
         elseif required_level <= player_level then
             table.insert(available_abilities, ability)
         end
@@ -1181,16 +1400,16 @@ end
 -- Build command string from ability definition
 -- Args:
 --   ability (table) - Ability definition with command field
---   target_param (number|nil) - Target parameter (party index 0-5 for p0-p5)
+--   party_index (number|nil) - party index 0-5 for p0-p5
 -- Returns: string - Command string or nil
-function common.build_ability_command(ability, target_param)
+function common.build_ability_command(ability, party_index)
     if type(ability.command) == 'function' then
-        -- If target_param is provided, convert party index to server ID
-        if target_param ~= nil then
+        -- If party_index is provided, convert party index (0-5) to server ID
+        if party_index ~= nil then
             local party = common.get_party()
             if party then
-                -- Convert party index to server ID (like OnegaiGEO does)
-                local server_id = party:GetMemberServerId(target_param)
+                -- Convert party index to server ID
+                local server_id = party:GetMemberServerId(party_index)
                 if server_id and server_id > 0 then
                     return ability.command(server_id)
                 end

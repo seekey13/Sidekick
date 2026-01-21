@@ -1,0 +1,875 @@
+--[[
+    UI Components for Medic Configuration
+    Reusable UI rendering components extracted for DRY principles
+]]--
+
+local ui_components = {}
+
+local imgui = require('imgui')
+local common = require('lib.core.common')
+
+-- ============================================================================
+-- UI Constants
+-- ============================================================================
+
+-- Layout Constants
+ui_components.ABILITY_LIST_INDENT = 10
+ui_components.PARTY_BUTTON_WIDTH = 44
+ui_components.SPACE_BETWEEN_BUTTONS = 8
+
+-- Width Constants
+ui_components.DROPDOWN_WIDTH = 300
+ui_components.SLIDER_WIDTH = 250
+ui_components.DROPDOWN_FALLBACK_WIDTH = 200
+ui_components.AUTOMATION_BUTTON_WIDTH = 80
+
+-- Color Constants - Text
+ui_components.COLOR_COMBAT_ONLY = { 1.0, 0.7, 0.7, 1.0 }
+ui_components.COLOR_IDLE_ONLY = { 0.7, 1.0, 0.7, 1.0 }
+ui_components.COLOR_TEXT_UNKNOWN_SPELL = { 0.5, 0.5, 0.5, 1.0 }
+
+-- Color Constants - Buttons
+ui_components.COLOR_BUTTON_DISABLED = { 0.2, 0.2, 0.2, 1.0 }
+ui_components.COLOR_BUTTON_UNSELECTED = { 0.3, 0.3, 0.3, 1.0 }
+ui_components.COLOR_BUTTON_UNSELECTED_HOVER = { 0.4, 0.4, 0.4, 1.0 }
+ui_components.COLOR_BUTTON_UNSELECTED_ACTIVE = { 0.5, 0.5, 0.5, 1.0 }
+
+-- Color Constants - Headers
+ui_components.HEADER_COLOR_NORMAL = { 0.05, 0.1, 0.2, 0.31 }
+ui_components.HEADER_COLOR_HOVERED = { 0.05, 0.1, 0.2, 0.80 }
+ui_components.HEADER_COLOR_ACTIVE = { 0.05, 0.1, 0.2, 1.00 }
+
+-- Color Constants - Status
+ui_components.STATUS_COLOR_RUNNING = { 0.7, 1.0, 0.7, 1.0 }
+ui_components.STATUS_COLOR_PAUSED = { 0.7, 0.7, 1.0, 1.0 }
+ui_components.STATUS_COLOR_STOPPED = { 1.0, 0.7, 0.7, 1.0 }
+
+-- ============================================================================
+-- Helper Functions
+-- ============================================================================
+
+-- Check if player can use an ability based on level
+local function can_use_ability(ability)
+    if not ability or not ability.level then
+        return true
+    end
+    
+    -- Check if ability requires main job only (e.g., Geo spells)
+    if ability.main_job_only and ability.is_main_job == false then
+        return false
+    end
+    
+    local main_level, sub_level = common.get_player_level()
+    
+    -- Check if this ability is for main job or subjob
+    if ability.is_main_job == false then
+        return sub_level >= ability.level
+    else
+        return main_level >= ability.level
+    end
+end
+
+-- Get all abilities in the same group
+local function get_abilities_in_group(job_def, target_group)
+    local group_abilities = {}
+    if not job_def or not target_group then
+        return group_abilities
+    end
+    
+    if job_def.abilities then
+        for category, abilities in pairs(job_def.abilities) do
+            for _, ability in ipairs(abilities) do
+                if ability.group == target_group then
+                    table.insert(group_abilities, ability)
+                end
+            end
+        end
+    end
+    
+    return group_abilities
+end
+
+-- Get usable abilities in a group (level-appropriate and spell learned)
+local function get_usable_abilities_in_group(job_def, target_group)
+    local all_abilities = get_abilities_in_group(job_def, target_group)
+    local usable = {}
+    
+    for _, ability in ipairs(all_abilities) do
+        if can_use_ability(ability) then
+            local cmd = type(ability.command) == 'function' and ability.command(0) or ability.command
+            local is_spell = cmd and string.sub(cmd, 1, 3) == '/ma'
+            local has_spell = true
+            
+            if is_spell and ability.id then
+                local ok, known = pcall(function() return AshitaCore:GetMemoryManager():GetPlayer():HasSpell(ability.id) end)
+                if ok then
+                    has_spell = known
+                end
+            end
+            
+            if has_spell then
+                table.insert(usable, ability)
+            end
+        end
+    end
+    
+    return usable
+end
+
+-- Get the highest level usable ability in a group
+local function get_highest_level_ability_in_group(job_def, target_group)
+    local usable = get_usable_abilities_in_group(job_def, target_group)
+    if #usable == 0 then
+        return nil
+    end
+    
+    table.sort(usable, function(a, b) return a.level > b.level end)
+    return usable[1]
+end
+
+-- Get selected ability for a group (from settings, or auto-select highest)
+local function get_selected_ability_for_group(ctx, job_def, target_group)
+    if not ctx.settings or not job_def or not target_group then
+        return nil
+    end
+    
+    local setting_key = 'selected_' .. target_group
+    local saved_name = ctx.settings[setting_key]
+    
+    local usable = get_usable_abilities_in_group(job_def, target_group)
+    if #usable == 0 then
+        return nil
+    end
+    
+    -- Check if saved ability is still usable
+    if saved_name then
+        for _, ability in ipairs(usable) do
+            if ability.name == saved_name then
+                return ability
+            end
+        end
+    end
+    
+    -- Auto-select highest level
+    local highest = get_highest_level_ability_in_group(job_def, target_group)
+    if highest then
+        ctx.settings[setting_key] = highest.name
+        if ctx.save_callback then
+            ctx.save_callback()
+        end
+    end
+    
+    return highest
+end
+
+-- Get the group of an ability by name
+local function get_ability_group(job_def, ability_name)
+    if not job_def or not job_def.abilities then
+        return nil
+    end
+    
+    for category, abilities in pairs(job_def.abilities) do
+        for _, ability in ipairs(abilities) do
+            if ability.name == ability_name and ability.group then
+                return ability.group
+            end
+        end
+    end
+    
+    return nil
+end
+
+-- Check if an ability is a duplicate from subjob
+local function is_subjob_duplicate(job_def, ability)
+    if ability.is_main_job ~= false then
+        return false
+    end
+    
+    if not job_def or not job_def.abilities then
+        return false
+    end
+    
+    for category, abilities in pairs(job_def.abilities) do
+        for _, other_ability in ipairs(abilities) do
+            if other_ability.name == ability.name and other_ability.is_main_job ~= false then
+                return true
+            end
+        end
+    end
+    
+    return false
+end
+
+-- Check if ability can be cast on party members
+local function can_cast_on_party(ability)
+    return type(ability.command) == 'function'
+end
+
+-- Check if an ability is enabled
+local function is_ability_enabled(ctx, ability_name)
+    if not ctx.settings then
+        return false
+    end
+    
+    local key = 'disabled_' .. ability_name:gsub(' ', '_')
+    
+    if ctx.settings[key] == nil then
+        return false
+    end
+    
+    return not ctx.settings[key]
+end
+
+-- Toggle ability enabled state
+local function toggle_ability(ctx, ability_name, enabled, job_def)
+    local key = 'disabled_' .. ability_name:gsub(' ', '_')
+    
+    if enabled then
+        ctx.settings[key] = false
+        
+        -- Disable all other abilities in the same group
+        local ability_group = get_ability_group(job_def, ability_name)
+        if ability_group and job_def then
+            local group_abilities = get_abilities_in_group(job_def, ability_group)
+            for _, other_ability in ipairs(group_abilities) do
+                if other_ability.name ~= ability_name then
+                    local other_key = 'disabled_' .. other_ability.name:gsub(' ', '_')
+                    ctx.settings[other_key] = true
+                end
+            end
+        end
+    else
+        ctx.settings[key] = true
+    end
+    
+    if ctx.save_callback then
+        ctx.save_callback()
+    end
+end
+
+-- Check if a buff is enabled for a specific party member
+local function is_party_buff_enabled(ctx, ability_name, party_index)
+    if not ctx.party_buffs[ability_name] then
+        return false
+    end
+    return ctx.party_buffs[ability_name][party_index] == true
+end
+
+-- Toggle buff enabled state for a specific party member
+local function toggle_party_buff(ctx, ability_name, party_index, enabled)
+    if not ctx.party_buffs[ability_name] then
+        ctx.party_buffs[ability_name] = {}
+    end
+    ctx.party_buffs[ability_name][party_index] = enabled
+    
+    -- Check if ANY button is enabled
+    local any_button_enabled = false
+    for i = 0, 5 do
+        if ctx.party_buffs[ability_name][i] == true then
+            any_button_enabled = true
+            break
+        end
+    end
+    
+    -- Update the ability's disabled setting
+    local key = 'disabled_' .. ability_name:gsub(' ', '_')
+    if any_button_enabled then
+        ctx.settings[key] = false
+    else
+        ctx.settings[key] = true
+    end
+    
+    if ctx.save_callback then
+        ctx.save_callback()
+    end
+end
+
+-- Calculate the width for the ON/OFF button based on party size
+local function get_onoff_button_width()
+    local party_size = common.get_party_size()
+    local num_buttons = math.min(party_size, 6)
+    return ui_components.PARTY_BUTTON_WIDTH * num_buttons + (ui_components.SPACE_BETWEEN_BUTTONS * (num_buttons - 1))
+end
+
+-- ============================================================================
+-- Party Button Helper
+-- ============================================================================
+
+-- Render party toggle buttons (<ME> <P1> <P2> etc.)
+-- Returns: true if any button was rendered
+local function render_party_buttons(ctx, ability_name, has_spell)
+    local any_rendered = false
+    
+    -- Render [<ME>] button
+    local me_enabled = is_party_buff_enabled(ctx, ability_name, 0)
+    
+    if not has_spell then
+        imgui.PushStyleColor(ImGuiCol_Button, ui_components.COLOR_BUTTON_DISABLED)
+        imgui.PushStyleColor(ImGuiCol_ButtonHovered, ui_components.COLOR_BUTTON_DISABLED)
+        imgui.PushStyleColor(ImGuiCol_ButtonActive, ui_components.COLOR_BUTTON_DISABLED)
+    elseif me_enabled then
+        -- Use default colors
+    else
+        imgui.PushStyleColor(ImGuiCol_Button, ui_components.COLOR_BUTTON_UNSELECTED)
+        imgui.PushStyleColor(ImGuiCol_ButtonHovered, ui_components.COLOR_BUTTON_UNSELECTED_HOVER)
+        imgui.PushStyleColor(ImGuiCol_ButtonActive, ui_components.COLOR_BUTTON_UNSELECTED_ACTIVE)
+    end
+    
+    local me_button_label = '<ME>##' .. ability_name .. '_me'
+    if has_spell and imgui.Button(me_button_label, { ui_components.PARTY_BUTTON_WIDTH, 0 }) then
+        toggle_party_buff(ctx, ability_name, 0, not me_enabled)
+    elseif not has_spell then
+        imgui.Button(me_button_label, { ui_components.PARTY_BUTTON_WIDTH, 0 })
+    end
+    
+    if not has_spell or not me_enabled then
+        imgui.PopStyleColor(3)
+    end
+    
+    any_rendered = true
+    
+    -- Render party member buttons (P1-P5)
+    local party_size = common.get_party_size()
+    if party_size > 1 then
+        for party_index = 1, 5 do
+            local is_active = party_index < party_size
+            
+            if is_active then
+                imgui.SameLine()
+                
+                local is_enabled = is_party_buff_enabled(ctx, ability_name, party_index)
+                
+                if not has_spell then
+                    imgui.PushStyleColor(ImGuiCol_Button, ui_components.COLOR_BUTTON_DISABLED)
+                    imgui.PushStyleColor(ImGuiCol_ButtonHovered, ui_components.COLOR_BUTTON_DISABLED)
+                    imgui.PushStyleColor(ImGuiCol_ButtonActive, ui_components.COLOR_BUTTON_DISABLED)
+                elseif is_enabled then
+                    -- Use default colors
+                else
+                    imgui.PushStyleColor(ImGuiCol_Button, ui_components.COLOR_BUTTON_UNSELECTED)
+                    imgui.PushStyleColor(ImGuiCol_ButtonHovered, ui_components.COLOR_BUTTON_UNSELECTED_HOVER)
+                    imgui.PushStyleColor(ImGuiCol_ButtonActive, ui_components.COLOR_BUTTON_UNSELECTED_ACTIVE)
+                end
+                
+                local button_label = '<P' .. party_index .. '>##' .. ability_name .. '_p' .. party_index
+                if has_spell and imgui.Button(button_label, { ui_components.PARTY_BUTTON_WIDTH, 0 }) then
+                    toggle_party_buff(ctx, ability_name, party_index, not is_enabled)
+                elseif not has_spell then
+                    imgui.Button(button_label, { ui_components.PARTY_BUTTON_WIDTH, 0 })
+                end
+                
+                if not has_spell or not is_enabled then
+                    imgui.PopStyleColor(3)
+                end
+            end
+        end
+    end
+    
+    return any_rendered
+end
+
+-- ============================================================================
+-- Render Functions
+-- ============================================================================
+
+-- Render an ON/OFF button for ability state
+function ui_components.onoff_button(ctx, ability_name, job_def, has_spell)
+    has_spell = has_spell == nil and true or has_spell
+    local is_enabled = is_ability_enabled(ctx, ability_name)
+    local button_width = get_onoff_button_width()
+    
+    if not has_spell then
+        imgui.PushStyleColor(ImGuiCol_Button, ui_components.COLOR_BUTTON_DISABLED)
+        imgui.PushStyleColor(ImGuiCol_ButtonHovered, ui_components.COLOR_BUTTON_DISABLED)
+        imgui.PushStyleColor(ImGuiCol_ButtonActive, ui_components.COLOR_BUTTON_DISABLED)
+    elseif is_enabled then
+        -- Use default colors
+    else
+        imgui.PushStyleColor(ImGuiCol_Button, ui_components.COLOR_BUTTON_UNSELECTED)
+        imgui.PushStyleColor(ImGuiCol_ButtonHovered, ui_components.COLOR_BUTTON_UNSELECTED_HOVER)
+        imgui.PushStyleColor(ImGuiCol_ButtonActive, ui_components.COLOR_BUTTON_UNSELECTED_ACTIVE)
+    end
+    
+    local button_text = is_enabled and 'ON' or 'OFF'
+    local button_label = button_text .. '##onoff_' .. ability_name
+    
+    if has_spell and imgui.Button(button_label, { button_width, 0 }) then
+        toggle_ability(ctx, ability_name, not is_enabled, job_def)
+    elseif not has_spell then
+        imgui.Button(button_label, { button_width, 0 })
+    end
+    
+    if not has_spell or not is_enabled then
+        imgui.PopStyleColor(3)
+    end
+end
+
+-- Render a dropdown for selecting ability from a group
+function ui_components.group_dropdown(ctx, job_def, target_group, dropdown_width)
+    if not job_def or not target_group then
+        return
+    end
+    
+    local usable = get_usable_abilities_in_group(job_def, target_group)
+    if #usable == 0 then
+        return
+    end
+    
+    local selected = get_selected_ability_for_group(ctx, job_def, target_group)
+    local current_display
+    if selected then
+        if selected.cost and selected.cost > 0 then
+            local resource_label = job_def.resource_type == 'tp' and 'TP' or 'MP'
+            current_display = selected.name .. ' (' .. selected.cost .. ' ' .. resource_label .. ')'
+        else
+            current_display = selected.name
+        end
+    else
+        current_display = 'None'
+    end
+    
+    local setting_key = 'selected_' .. target_group
+    local combo_label = '##dropdown_' .. target_group
+    
+    -- Apply color styling
+    if selected then
+        if selected.combat_only then
+            imgui.PushStyleColor(ImGuiCol_Text, ui_components.COLOR_COMBAT_ONLY)
+        elseif selected.idle_only then
+            imgui.PushStyleColor(ImGuiCol_Text, ui_components.COLOR_IDLE_ONLY)
+        end
+    end
+    
+    imgui.PushItemWidth(dropdown_width or ui_components.DROPDOWN_FALLBACK_WIDTH)
+    if imgui.BeginCombo(combo_label, current_display) then
+        for _, ability in ipairs(usable) do
+            local display_text
+            if ability.cost and ability.cost > 0 then
+                local resource_label = job_def.resource_type == 'tp' and 'TP' or 'MP'
+                display_text = ability.name .. ' (' .. ability.cost .. ' ' .. resource_label .. ')'
+            else
+                display_text = ability.name
+            end
+            local is_selected = (selected and selected.name == ability.name)
+            
+            if imgui.Selectable(display_text, is_selected) then
+                ctx.settings[setting_key] = ability.name
+                
+                -- Disable all other abilities in this group
+                local group_abilities = get_abilities_in_group(job_def, target_group)
+                for _, group_ability in ipairs(group_abilities) do
+                    if group_ability.name ~= ability.name then
+                        local other_key = 'disabled_' .. group_ability.name:gsub(' ', '_')
+                        ctx.settings[other_key] = true
+                    end
+                end
+                
+                -- Transfer enabled state from old selection to new
+                if selected then
+                    local old_enabled = is_ability_enabled(ctx, selected.name)
+                    if old_enabled then
+                        local new_key = 'disabled_' .. ability.name:gsub(' ', '_')
+                        ctx.settings[new_key] = false
+                    end
+                end
+                
+                if ctx.save_callback then
+                    ctx.save_callback()
+                end
+            end
+            
+            if is_selected then
+                imgui.SetItemDefaultFocus()
+            end
+        end
+        imgui.EndCombo()
+    end
+    
+    -- Show tooltip
+    if imgui.IsItemHovered() and selected then
+        if selected.combat_only then
+            imgui.SetTooltip('Combat Only')
+        elseif selected.idle_only then
+            imgui.SetTooltip('Idle Only')
+        end
+    end
+    
+    imgui.PopItemWidth()
+    
+    if selected and (selected.combat_only or selected.idle_only) then
+        imgui.PopStyleColor()
+    end
+end
+
+-- Render a self-target single ability
+-- Layout: [ON/OFF Button] Ability Name
+function ui_components.self_single_ability(ctx, ability, job_def, id_suffix)
+    local cmd = type(ability.command) == 'function' and ability.command(0) or ability.command
+    local is_spell = cmd and string.sub(cmd, 1, 3) == '/ma'
+    local has_spell = true
+    local spell_suffix = ''
+    
+    if is_spell and ability.id then
+        local ok, known = pcall(function() return AshitaCore:GetMemoryManager():GetPlayer():HasSpell(ability.id) end)
+        if ok then
+            has_spell = known
+            if not has_spell then
+                spell_suffix = ' (Not Learned)'
+            end
+        end
+    end
+    
+    if not has_spell then
+        imgui.PushStyleColor(ImGuiCol_Text, ui_components.COLOR_TEXT_UNKNOWN_SPELL)
+    elseif ability.combat_only then
+        imgui.PushStyleColor(ImGuiCol_Text, ui_components.COLOR_COMBAT_ONLY)
+    elseif ability.idle_only then
+        imgui.PushStyleColor(ImGuiCol_Text, ui_components.COLOR_IDLE_ONLY)
+    end
+    
+    ui_components.onoff_button(ctx, ability.name, job_def, has_spell)
+    
+    imgui.SameLine()
+    local desc
+    if ability.cost and ability.cost > 0 then
+        local resource_label = job_def.resource_type == 'tp' and 'TP' or 'MP'
+        desc = ability.name .. ' (' .. ability.cost .. ' ' .. resource_label .. ')' .. spell_suffix
+    else
+        desc = ability.name .. spell_suffix
+    end
+    imgui.Text(desc)
+    
+    if imgui.IsItemHovered() then
+        if ability.combat_only then
+            imgui.SetTooltip('Combat Only')
+        elseif ability.idle_only then
+            imgui.SetTooltip('Idle Only')
+        end
+    end
+    
+    if not has_spell or ability.combat_only or ability.idle_only then
+        imgui.PopStyleColor()
+    end
+end
+
+-- Render a self-target grouped ability with dropdown
+-- Layout: [ON/OFF Button] [Dropdown]
+function ui_components.self_grouped_ability(ctx, ability, job_def)
+    if not ability.group then
+        return
+    end
+    
+    local usable = get_usable_abilities_in_group(job_def, ability.group)
+    if #usable == 0 then
+        return
+    end
+    
+    local selected = get_selected_ability_for_group(ctx, job_def, ability.group)
+    if not selected then
+        return
+    end
+    
+    local cmd = type(selected.command) == 'function' and selected.command(0) or selected.command
+    local is_spell = cmd and string.sub(cmd, 1, 3) == '/ma'
+    local has_spell = true
+    
+    if is_spell and selected.id then
+        local ok, known = pcall(function() return AshitaCore:GetMemoryManager():GetPlayer():HasSpell(selected.id) end)
+        if ok then
+            has_spell = known
+        end
+    end
+    
+    if not has_spell then
+        imgui.PushStyleColor(ImGuiCol_Text, ui_components.COLOR_TEXT_UNKNOWN_SPELL)
+    elseif selected.combat_only then
+        imgui.PushStyleColor(ImGuiCol_Text, ui_components.COLOR_COMBAT_ONLY)
+    elseif selected.idle_only then
+        imgui.PushStyleColor(ImGuiCol_Text, ui_components.COLOR_IDLE_ONLY)
+    end
+    
+    ui_components.onoff_button(ctx, selected.name, job_def, has_spell)
+    
+    imgui.SameLine()
+    ui_components.group_dropdown(ctx, job_def, ability.group, ui_components.DROPDOWN_WIDTH)
+    
+    if not has_spell or selected.combat_only or selected.idle_only then
+        imgui.PopStyleColor()
+    end
+end
+
+-- Render a party-target single ability
+-- Layout: [<ME>] [<P1>] [<P2>]... Ability Name
+function ui_components.party_single_ability(ctx, ability, job_def)
+    local cmd = type(ability.command) == 'function' and ability.command(0) or ability.command
+    local is_spell = cmd and string.sub(cmd, 1, 3) == '/ma'
+    local has_spell = true
+    local spell_suffix = ''
+    
+    if is_spell and ability.id then
+        local ok, known = pcall(function() return AshitaCore:GetMemoryManager():GetPlayer():HasSpell(ability.id) end)
+        if ok then
+            has_spell = known
+            if not has_spell then
+                spell_suffix = ' (Not Learned)'
+            end
+        end
+    end
+    
+    local desc
+    if ability.cost and ability.cost > 0 then
+        local resource_label = job_def.resource_type == 'tp' and 'TP' or 'MP'
+        desc = ability.name .. ' (' .. ability.cost .. ' ' .. resource_label .. ')' .. spell_suffix
+    else
+        desc = ability.name .. spell_suffix
+    end
+    
+    if not has_spell then
+        imgui.PushStyleColor(ImGuiCol_Text, ui_components.COLOR_TEXT_UNKNOWN_SPELL)
+    elseif ability.combat_only then
+        imgui.PushStyleColor(ImGuiCol_Text, ui_components.COLOR_COMBAT_ONLY)
+    elseif ability.idle_only then
+        imgui.PushStyleColor(ImGuiCol_Text, ui_components.COLOR_IDLE_ONLY)
+    end
+    
+    render_party_buttons(ctx, ability.name, has_spell)
+    
+    imgui.SameLine()
+    imgui.Text(desc)
+    
+    if imgui.IsItemHovered() then
+        if ability.combat_only then
+            imgui.SetTooltip('Combat Only')
+        elseif ability.idle_only then
+            imgui.SetTooltip('Idle Only')
+        end
+    end
+    
+    if not has_spell or ability.combat_only or ability.idle_only then
+        imgui.PopStyleColor()
+    end
+end
+
+-- Render a party-target grouped ability with dropdown
+-- Layout: [<ME>] [<P1>] [<P2>]... [Dropdown]
+function ui_components.party_grouped_ability(ctx, ability, job_def)
+    if not ability.group then
+        return
+    end
+    
+    local usable = get_usable_abilities_in_group(job_def, ability.group)
+    if #usable == 0 then
+        return
+    end
+    
+    local selected = get_selected_ability_for_group(ctx, job_def, ability.group)
+    if not selected then
+        return
+    end
+    
+    local cmd = type(selected.command) == 'function' and selected.command(0) or selected.command
+    local is_spell = cmd and string.sub(cmd, 1, 3) == '/ma'
+    local has_spell = true
+    
+    if is_spell and selected.id then
+        local ok, known = pcall(function() return AshitaCore:GetMemoryManager():GetPlayer():HasSpell(selected.id) end)
+        if ok then
+            has_spell = known
+        end
+    end
+    
+    if not has_spell then
+        imgui.PushStyleColor(ImGuiCol_Text, ui_components.COLOR_TEXT_UNKNOWN_SPELL)
+    end
+    
+    render_party_buttons(ctx, selected.name, has_spell)
+    
+    imgui.SameLine()
+    ui_components.group_dropdown(ctx, job_def, ability.group, ui_components.DROPDOWN_WIDTH)
+    
+    if not has_spell then
+        imgui.PopStyleColor()
+    end
+end
+
+-- Main ability renderer - determines which rendering function to use
+function ui_components.render_ability(ctx, ability, job_def, id_suffix)
+    if not ability or not can_use_ability(ability) then
+        return false
+    end
+    
+    if is_subjob_duplicate(job_def, ability) then
+        return false
+    end
+    
+    local has_group = ability.group ~= nil
+    local is_party_target = can_cast_on_party(ability)
+    
+    if has_group then
+        local group_key = 'rendered_group_' .. ability.group
+        if ctx.settings and ctx.settings[group_key] then
+            return false
+        end
+        
+        local usable = get_usable_abilities_in_group(job_def, ability.group)
+        if #usable == 0 then
+            return false
+        end
+        
+        if #usable == 1 then
+            has_group = false
+        else
+            ctx.settings[group_key] = true
+        end
+    end
+    
+    if has_group then
+        if is_party_target then
+            ui_components.party_grouped_ability(ctx, ability, job_def)
+        else
+            ui_components.self_grouped_ability(ctx, ability, job_def)
+        end
+    else
+        if is_party_target then
+            ui_components.party_single_ability(ctx, ability, job_def)
+        else
+            ui_components.self_single_ability(ctx, ability, job_def, id_suffix)
+        end
+    end
+    
+    return true
+end
+
+-- ============================================================================
+-- UI Element Creators
+-- ============================================================================
+
+-- Create a checkbox UI element linked to a setting
+function ui_components.checkbox(ctx, label, setting_name, ui_var)
+    if imgui.Checkbox(label, ui_var) then
+        ctx.settings[setting_name] = ui_var[1]
+        if ctx.save_callback then
+            ctx.save_callback()
+        end
+    end
+end
+
+-- Create a collapsible header with checkbox
+function ui_components.collapsing_checkbox_header(ctx, label, setting_name, default_value)
+    local setting_var = { ctx.settings[setting_name] or default_value }
+    if imgui.Checkbox('##' .. setting_name, setting_var) then
+        ctx.settings[setting_name] = setting_var[1]
+        if ctx.save_callback then
+            ctx.save_callback()
+        end
+    end
+    imgui.SameLine()
+    imgui.PushStyleColor(ImGuiCol_Header, ui_components.HEADER_COLOR_NORMAL)
+    imgui.PushStyleColor(ImGuiCol_HeaderHovered, ui_components.HEADER_COLOR_HOVERED)
+    imgui.PushStyleColor(ImGuiCol_HeaderActive, ui_components.HEADER_COLOR_ACTIVE)
+    local is_open = imgui.CollapsingHeader(label, ImGuiTreeNodeFlags_DefaultOpen)
+    imgui.PopStyleColor(3)
+    return is_open, setting_var[1]
+end
+
+-- Create an integer slider UI element linked to a setting
+function ui_components.slider_int(ctx, label, setting_name, ui_var, min, max, width)
+    width = width or ui_components.SLIDER_WIDTH
+    imgui.PushItemWidth(width)
+    if imgui.SliderInt(label, ui_var, min, max) then
+        ctx.settings[setting_name] = ui_var[1]
+        if ctx.save_callback then
+            ctx.save_callback()
+        end
+    end
+    imgui.PopItemWidth()
+end
+
+-- Create a combo dropdown UI element linked to a setting
+function ui_components.combo(ctx, label, setting_name, ui_var, options, converter, width)
+    width = width or ui_components.SLIDER_WIDTH
+    imgui.PushItemWidth(width)
+    local current_value = options[ui_var[1] + 1] or options[1] or ""
+    if imgui.BeginCombo(label, current_value) then
+        for i = 0, #options - 1 do
+            local is_selected = (ui_var[1] == i)
+            if imgui.Selectable(options[i + 1], is_selected) then
+                ui_var[1] = i
+                if converter then
+                    ctx.settings[setting_name] = converter(i)
+                else
+                    ctx.settings[setting_name] = i
+                end
+                if ctx.save_callback then
+                    ctx.save_callback()
+                end
+            end
+            if is_selected then
+                imgui.SetItemDefaultFocus()
+            end
+        end
+        imgui.EndCombo()
+    end
+    imgui.PopItemWidth()
+end
+
+-- Render an ability checkbox with spell knowledge checking
+function ui_components.ability_checkbox(ctx, ability, job_def, id_suffix)
+    local cmd = type(ability.command) == 'function' and ability.command(0) or ability.command
+    local is_spell = cmd and string.sub(cmd, 1, 3) == '/ma'
+    local has_spell = true
+    local spell_suffix = ''
+    
+    if is_spell and ability.id then
+        local ok, known = pcall(function() return AshitaCore:GetMemoryManager():GetPlayer():HasSpell(ability.id) end)
+        if ok then
+            has_spell = known
+            if not has_spell then
+                spell_suffix = ' (Not Learned)'
+                ctx.settings['disabled_' .. ability.name:gsub(' ', '_')] = true
+            end
+        else
+            common.errorf('Failed to check spell knowledge for %s (ID: %d)', ability.name, ability.id)
+        end
+    end
+    
+    local desc
+    if ability.cost and ability.cost > 0 then
+        local resource_label = job_def.resource_type == 'tp' and 'TP' or 'MP'
+        desc = ability.name .. ' (' .. ability.cost .. ' ' .. resource_label .. ')' .. spell_suffix
+    else
+        desc = ability.name .. spell_suffix
+    end
+    
+    local checkbox_label = desc
+    if id_suffix then
+        checkbox_label = desc .. '##' .. id_suffix
+    end
+    
+    if not has_spell then
+        imgui.PushStyleColor(ImGuiCol_Text, ui_components.COLOR_TEXT_UNKNOWN_SPELL)
+    elseif ability.combat_only then
+        imgui.PushStyleColor(ImGuiCol_Text, ui_components.COLOR_COMBAT_ONLY)
+    elseif ability.idle_only then
+        imgui.PushStyleColor(ImGuiCol_Text, ui_components.COLOR_IDLE_ONLY)
+    end
+    
+    local ability_enabled = { is_ability_enabled(ctx, ability.name) }
+    if imgui.Checkbox(checkbox_label, ability_enabled) then
+        toggle_ability(ctx, ability.name, ability_enabled[1], job_def)
+    end
+    
+    if imgui.IsItemHovered() then
+        if ability.combat_only then
+            imgui.SetTooltip('Combat Only')
+        elseif ability.idle_only then
+            imgui.SetTooltip('Idle Only')
+        end
+    end
+    
+    if not has_spell or ability.combat_only or ability.idle_only then
+        imgui.PopStyleColor()
+    end
+end
+
+return ui_components

@@ -90,8 +90,8 @@ function wake.execute(settings, job_def, main_level, sub_level, player_resource)
     end
     
     -- Filter abilities by level and settings (respects disabled abilities)
-    local available_single = common.filter_abilities_by_level(wake_abilities.single, settings, main_level, sub_level)
-    local available_aoe = common.filter_abilities_by_level(wake_abilities.aoe, settings, main_level, sub_level)
+    local available_single = common.filter_abilities_by_level(wake_abilities.single, settings, main_level, sub_level, job_def)
+    local available_aoe = common.filter_abilities_by_level(wake_abilities.aoe, settings, main_level, sub_level, job_def)
     
     -- Sort by cost ascending (use cheapest effective option)
     table.sort(available_single, function(a, b)
@@ -111,7 +111,7 @@ function wake.execute(settings, job_def, main_level, sub_level, player_resource)
                 -- Check cooldown
                 if ability.id then
                     if resource.is_ability_ready(ability.id) then
-                        local command = wake.build_command(ability, nil)
+                        local command = common.build_ability_command(ability, 0)
                         if command then
                             common.debugf('[Wake] >>> Using %s to wake %d members', ability.name, #sleeping_members)
                             return {
@@ -121,7 +121,7 @@ function wake.execute(settings, job_def, main_level, sub_level, player_resource)
                         end
                     end
                 else
-                    local command = wake.build_command(ability, nil)
+                    local command = common.build_ability_command(ability, 0)
                     if command then
                         common.debugf('[Wake] >>> Using %s to wake %d members', ability.name, #sleeping_members)
                         return {
@@ -141,12 +141,15 @@ function wake.execute(settings, job_def, main_level, sub_level, player_resource)
         local target_index = sleeping_members[1]
         
         -- Check if focus target is sleeping (if focus is enabled)
-        if settings.focus_enabled and settings.focus_target_index then
-            for _, idx in ipairs(sleeping_members) do
-                if idx == settings.focus_target_index then
-                    target_index = settings.focus_target_index
-                    common.debugf('[Wake] Focus target is sleeping, prioritizing them')
-                    break
+        if settings.focus_enabled and settings.focus_target then
+            local focus_target_index = common.get_target_index_by_name(settings.focus_target)
+            if focus_target_index then
+                for _, idx in ipairs(sleeping_members) do
+                    if idx == focus_target_index then
+                        target_index = focus_target_index
+                        common.debugf('[Wake] Focus target is sleeping, prioritizing them')
+                        break
+                    end
                 end
             end
         end
@@ -167,7 +170,7 @@ function wake.execute(settings, job_def, main_level, sub_level, player_resource)
                 -- Check cooldown
                 if ability.id then
                     if resource.is_ability_ready(ability.id) then
-                        local command = wake.build_command(ability, target_index)
+                        local command = common.build_ability_command(ability, party_index)
                         if command then
                             common.debugf('[Wake] >>> Using %s on %s', ability.name, target_name)
                             return {
@@ -177,7 +180,7 @@ function wake.execute(settings, job_def, main_level, sub_level, player_resource)
                         end
                     end
                 else
-                    local command = wake.build_command(ability, target_index)
+                    local command = common.build_ability_command(ability, party_index)
                     if command then
                         common.debugf('[Wake] >>> Using %s on %s', ability.name, target_name)
                         return {

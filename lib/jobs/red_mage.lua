@@ -189,6 +189,28 @@ return {
                 combat_only = false,
             },
             {
+                name = 'Regen',
+                level = 21,
+                cost = 15,
+                id = 108,  -- Spell ID
+                command = function(target)
+                    return '/ma "Regen" '..target
+                end,
+                buff_id = 42,  -- Regen
+                combat_only = false,
+            },
+            {
+                name = 'Refresh',
+                level = 41,
+                cost = 40,
+                id = 109,  -- Spell ID
+                command = function(target)
+                    return '/ma "Refresh" '..target
+                end,
+                buff_id = 43,  -- Refresh
+                combat_only = false,
+            },
+            {
                 name = 'Haste',
                 level = 48,
                 cost = 40,
@@ -209,17 +231,6 @@ return {
                 end,
                 buff_id = 265,  -- Flurry
                 
-            },
-            {
-                name = 'Refresh',
-                level = 41,
-                cost = 40,
-                id = 109,  -- Spell ID
-                command = function(target)
-                    return '/ma "Refresh" '..target
-                end,
-                buff_id = 43,  -- Refresh
-                combat_only = false,
             },
             {
                 name = 'Stoneskin',
@@ -244,17 +255,6 @@ return {
                 id = 53,  -- Spell ID
                 command = '/ma "Blink" <me>',
                 buff_id = 36,  -- Blink
-            },
-            {
-                name = 'Regen',
-                level = 21,
-                cost = 15,
-                id = 108,  -- Spell ID
-                command = function(target)
-                    return '/ma "Regen" '..target
-                end,
-                buff_id = 42,  -- Regen
-                combat_only = false,
             },
             {
                 name = 'Aquaveil',
@@ -420,7 +420,7 @@ return {
                 name = 'Invisible',
                 level = 25,
                 cost = 25,
-                id = 65,  -- Spell ID
+                id = 136,  -- Spell ID
                 command = function(target)
                     return '/ma "Invisible" '..target
                 end,
@@ -431,7 +431,7 @@ return {
                 name = 'Sneak',
                 level = 20,
                 cost = 25,
-                id = 64,  -- Spell ID
+                id = 137,  -- Spell ID
                 command = function(target)
                     return '/ma "Sneak" '..target
                 end,
@@ -442,12 +442,12 @@ return {
                 name = 'Deodorize',
                 level = 15,
                 cost = 6,
-                id = 61,  -- Spell ID
+                id = 138,  -- Spell ID
                 command = function(target)
                     return '/ma "Deodorize" '..target
                 end,
-                buff_id = 70,  -- Deodorize
                 idle_only = true,
+                buff_id = 70,  -- Deodorize
             },
         },
 
@@ -470,7 +470,7 @@ return {
         --         cost = 150,
         --         id = 12,  -- Spell ID
         --         command = function(party_index)
-        --             return '/ma "Raise" <p' .. party_index .. '>'
+        --             return '/ma "Raise" '..target
         --         end,
         --         range = 18,
         --         combat_only = false,

@@ -66,7 +66,7 @@ return {
                     return '/ma "Shell" '..target
                 end,
                 element = 'Light',
-                buff_id = 18,  -- Shell buff
+                buff_id = 41,  -- Shell buff
                 combat_only = false,
                 group = 'shell',
             },
@@ -79,7 +79,7 @@ return {
                     return '/ma "Shell II" '..target
                 end,
                 element = 'Light',
-                buff_id = 19,  -- Shell II buff
+                buff_id = 41,  -- Shell II buff
                 combat_only = false,
                 group = 'shell',
             },
@@ -92,7 +92,7 @@ return {
                     return '/ma "Shell III" '..target
                 end,
                 element = 'Light',
-                buff_id = 20,  -- Shell III buff
+                buff_id = 41,  -- Shell III buff
                 combat_only = false,
                 group = 'shell',
             },
@@ -105,7 +105,7 @@ return {
                     return '/ma "Shell IV" '..target
                 end,
                 element = 'Light',
-                buff_id = 21,  -- Shell IV buff
+                buff_id = 41,  -- Shell IV buff
                 combat_only = false,
                 group = 'shell',
             },
@@ -342,6 +342,36 @@ return {
                 buff_id = 43,  -- Refresh buff
                 combat_only = false,
             },
+            {
+                name = 'Foil',
+                level = 58,
+                cost = 10,
+                id = 840,
+                command = '/ma "Foil" <me>',
+                element = 'Wind',
+                buff_id = 480,  -- Foil buff
+                combat_only = true,
+            },
+            {
+                name = 'Swordplay',
+                level = 20,
+                cost = 0,
+                id = 24,  -- Swordplay recast ID
+                command = '/ja "Swordplay" <me>',
+                buff_id = 475,  -- Swordplay buff
+                combat_only = true,
+            },
+            {
+                name = 'Phalanx',
+                level = 68,
+                cost = 21,
+                id = 106,
+                command = '/ma "Phalanx" <me>',
+                element = 'Light',
+                buff_id = 116,  -- Phalanx buff
+                combat_only = true,
+                self_only = true,
+            },
             -- Spikes
             {
                 name = 'Blaze Spikes',
@@ -395,36 +425,6 @@ return {
                 element = 'Earth',
                 buff_id = 37,  -- Stoneskin buff
                 combat_only = false,
-            },
-            {
-                name = 'Foil',
-                level = 58,
-                cost = 10,
-                id = 840,
-                command = '/ma "Foil" <me>',
-                element = 'Wind',
-                buff_id = 480,  -- Foil buff
-                combat_only = true,
-            },
-            {
-                name = 'Swordplay',
-                level = 20,
-                cost = 0,
-                id = 24,  -- Swordplay recast ID
-                command = '/ja "Swordplay" <me>',
-                buff_id = 475,  -- Swordplay buff
-                combat_only = true,
-            },
-            {
-                name = 'Phalanx',
-                level = 68,
-                cost = 21,
-                id = 106,
-                command = '/ma "Phalanx" <me>',
-                element = 'Light',
-                buff_id = 116,  -- Phalanx buff
-                combat_only = true,
-                self_only = true,
             },
         },
         
