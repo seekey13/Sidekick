@@ -521,8 +521,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
             imgui.Separator()
         end
 
-        -- Echo Drops item checkbox (for Silence removal)
-        -- Show if either main job or sub job has resource_type = 'mp'   
+        -- Item checkboxes for Silence and Doom removal (always shown)
         ui.item_silence_removal_checkbox(ctx)
         ui.item_doom_removal_checkbox(ctx)
 
