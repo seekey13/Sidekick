@@ -933,6 +933,68 @@ function ui_components.item_silence_removal_checkbox(ctx)
     end
 end
 
+-- Render checkbox for Doom removal with Holy Water
+function ui_components.item_doom_removal_checkbox(ctx)
+    local item_module = require('lib.actions.item')
+    
+    if not item_module or not item_module.get_item_count then
+        common.errorf('[UI] Item module not available')
+        return
+    end
+    
+    -- Get Holy Water count from inventory
+    local holy_water_count = item_module.get_item_count('Holy Water')
+    
+    -- Create checkbox label with count
+    local checkbox_label = string.format('Remove Doom with Holy Water (%d)', holy_water_count)
+    
+    -- Check if checkbox should be disabled (no items in inventory)
+    local is_disabled = (holy_water_count == 0)
+    
+    -- If disabled and currently enabled, auto-disable the setting
+    if is_disabled and ctx.settings.item_doom_removal_enabled then
+        ctx.settings.item_doom_removal_enabled = false
+        if ctx.save_callback then
+            ctx.save_callback()
+        end
+    end
+    
+    -- Apply disabled styling if no items
+    if is_disabled then
+        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
+        imgui.PushStyleColor(ImGuiCol_FrameBg, COLOR_BUTTON_DISABLED)
+        imgui.PushStyleColor(ImGuiCol_FrameBgHovered, COLOR_BUTTON_DISABLED)
+        imgui.PushStyleColor(ImGuiCol_FrameBgActive, COLOR_BUTTON_DISABLED)
+        imgui.PushStyleColor(ImGuiCol_CheckMark, LIGHT_GRAY)
+    end
+    
+    local enabled = { ctx.settings.item_doom_removal_enabled or false }
+    
+    -- Only allow interaction if not disabled
+    if not is_disabled and imgui.Checkbox(checkbox_label, enabled) then
+        ctx.settings.item_doom_removal_enabled = enabled[1]
+        if ctx.save_callback then
+            ctx.save_callback()
+        end
+    elseif is_disabled then
+        -- Display disabled checkbox (non-interactive)
+        imgui.Checkbox(checkbox_label, enabled)
+    end
+    
+    if is_disabled then
+        imgui.PopStyleColor(5)
+    end
+    
+    -- Tooltip
+    if imgui.IsItemHovered() then
+        if is_disabled then
+            imgui.SetTooltip('No Holy Water in inventory')
+        else
+            imgui.SetTooltip('Use Holy Water to remove Doom (Item)')
+        end
+    end
+end
+
 -- ============================================================================
 -- Export Constants
 -- ============================================================================

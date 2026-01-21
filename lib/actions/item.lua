@@ -67,40 +67,67 @@ end
 --   player_resource (number) - Player's current MP or TP
 -- Returns: string (command) or nil
 function item.execute(settings, job_def, main_level, sub_level, player_resource)
-    -- Check if item silence removal is enabled
-    if not settings or not settings.item_silence_removal_enabled then
-        common.debugf('[Item] Silence removal disabled or settings missing (enabled=%s)', tostring(settings and settings.item_silence_removal_enabled))
-        return nil
+    -- Check for Doom debuff (buff_id 15) first (higher priority)
+    if settings and settings.item_doom_removal_enabled then
+        common.debugf('[Item] Checking for Doom buff...')
+        
+        if common.has_buff(0, 15) then
+            common.debugf('[Item] Player has Doom! Proceeding with Holy Water check...')
+            
+            -- Check cooldown
+            local current_time = os.clock()
+            if current_time - last_item_use < ITEM_COOLDOWN then
+                common.debugf('[Item] On cooldown, %.1f seconds remaining', ITEM_COOLDOWN - (current_time - last_item_use))
+                return nil
+            end
+            
+            -- Check if player has Holy Water in inventory
+            local item_count = get_item_count('Holy Water')
+            if item_count == 0 then
+                common.debugf('[Item] No Holy Water in inventory')
+                return nil
+            end
+            
+            common.debugf('[Item] Using Holy Water to remove Doom')
+            last_item_use = current_time
+            
+            return '/item "Holy Water" <me>'
+        else
+            common.debugf('[Item] Player does not have Doom buff')
+        end
     end
     
-    common.debugf('[Item] Checking for Silence buff...')
-    
-    -- Check if player has Silence debuff (buff_id 6)
-    if not common.has_buff(0, 6) then
-        common.debugf('[Item] Player does not have Silence buff')
-        return nil
+    -- Check for Silence debuff (buff_id 6)
+    if settings and settings.item_silence_removal_enabled then
+        common.debugf('[Item] Checking for Silence buff...')
+        
+        if common.has_buff(0, 6) then
+            common.debugf('[Item] Player is silenced! Proceeding with Echo Drops check...')
+            
+            -- Check cooldown
+            local current_time = os.clock()
+            if current_time - last_item_use < ITEM_COOLDOWN then
+                common.debugf('[Item] On cooldown, %.1f seconds remaining', ITEM_COOLDOWN - (current_time - last_item_use))
+                return nil
+            end
+            
+            -- Check if player has Echo Drops in inventory
+            local item_count = get_item_count('Echo Drops')
+            if item_count == 0 then
+                common.debugf('[Item] No Echo Drops in inventory')
+                return nil
+            end
+            
+            common.debugf('[Item] Using Echo Drops to remove Silence')
+            last_item_use = current_time
+            
+            return '/item "Echo Drops" <me>'
+        else
+            common.debugf('[Item] Player does not have Silence buff')
+        end
     end
     
-    common.debugf('[Item] Player is silenced! Proceeding with Echo Drops check...')
-    
-    -- Check cooldown (4 seconds since last use to avoid item recast)
-    local current_time = os.clock()
-    if current_time - last_item_use < ITEM_COOLDOWN then
-        common.debugf('[Item] On cooldown, %.1f seconds remaining', ITEM_COOLDOWN - (current_time - last_item_use))
-        return nil
-    end
-    
-    -- Check if player has Echo Drops in inventory
-    local item_count = get_item_count('Echo Drops')
-    if item_count == 0 then
-        common.debugf('[Item] No Echo Drops in inventory')
-        return nil
-    end
-    
-    common.debugf('[Item] Using Echo Drops to remove Silence')
-    last_item_use = current_time
-    
-    return '/item "Echo Drops" <me>'
+    return nil
 end
 
 -- Export get_item_count for UI to use

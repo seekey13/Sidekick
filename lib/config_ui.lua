@@ -530,6 +530,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
         
         if show_silence_removal then
             ui.item_silence_removal_checkbox(ctx)
+            ui.item_doom_removal_checkbox(ctx)
 
             imgui.Separator()
         end
