@@ -30,6 +30,7 @@ A focused, support-oriented addon for Ashita v4 that automates healing, buffing,
 ## Features
 
 ### Core Support Actions
+- **Item-Based Status Removal**: Automatically use consumable items to remove critical debuffs (Echo Drops for Silence, Holy Water for Doom) with inventory tracking and smart zone-load handling
 - **Critical HP Response**: Emergency abilities (e.g., Divine Seal, Martyr) automatically trigger when party members drop below critical threshold (default 30%)
 - **Single-Target Healing**: Intelligent HP deficit-based heal selection with priority system (Critical HP → Focus target → Regular lowest HP)
 - **AOE Healing**: Party-wide healing when multiple members need HP

@@ -522,18 +522,11 @@ function config_ui.render(settings, job_def, callback, roll_mod)
         end
 
         -- Echo Drops item checkbox (for Silence removal)
-        -- Show if either main job or sub job has resource_type = 'mp'
-        local show_silence_removal = false
-        if job_def.resource_type == 'mp' then
-            show_silence_removal = true
-        end
-        
-        if show_silence_removal then
-            ui.item_silence_removal_checkbox(ctx)
-            ui.item_doom_removal_checkbox(ctx)
+        -- Show if either main job or sub job has resource_type = 'mp'   
+        ui.item_silence_removal_checkbox(ctx)
+        ui.item_doom_removal_checkbox(ctx)
 
-            imgui.Separator()
-        end
+        imgui.Separator()
         
         -- Recovery settings
         local has_mp_recovery = job_def and job_def.abilities.recover_mp and has_usable_abilities(job_def.abilities.recover_mp)
