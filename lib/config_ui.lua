@@ -516,19 +516,21 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                 end
                 
                 imgui.Unindent(ui.ABILITY_LIST_INDENT)
-
-                -- Echo Drops item checkbox (for Silence removal)
-                -- Show if either main job or sub job has resource_type = 'mp'
-                local show_silence_removal = false
-                if job_def.resource_type == 'mp' then
-                    show_silence_removal = true
-                end
-                
-                if show_silence_removal then
-                    ui.item_silence_removal_checkbox(ctx)
-                end
             end
             
+            imgui.Separator()
+        end
+
+        -- Echo Drops item checkbox (for Silence removal)
+        -- Show if either main job or sub job has resource_type = 'mp'
+        local show_silence_removal = false
+        if job_def.resource_type == 'mp' then
+            show_silence_removal = true
+        end
+        
+        if show_silence_removal then
+            ui.item_silence_removal_checkbox(ctx)
+
             imgui.Separator()
         end
         

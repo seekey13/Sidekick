@@ -7,9 +7,9 @@ local common = require('lib.core.common')
 
 local item = {}
 
--- Item usage cooldown tracking (7 seconds)
+-- Item usage cooldown tracking (4 seconds to avoid item recast issues)
 local last_item_use = 0
-local ITEM_COOLDOWN = 7.0
+local ITEM_COOLDOWN = 4.0
 
 -- Get item count in player's inventory (container 0)
 -- Args: item_name (string) - Name of the item to count
@@ -58,33 +58,35 @@ local function get_item_count(item_name)
     return total_count
 end
 
--- Check if item action should be executed
+-- Execute item action check
 -- Args:
 --   settings (table) - Addon settings
 --   job_def (table) - Job definition
+--   main_level (number) - Player's main job level
+--   sub_level (number) - Player's sub job level
+--   player_resource (number) - Player's current MP or TP
 -- Returns: string (command) or nil
-function item.check(settings, job_def)
+function item.execute(settings, job_def, main_level, sub_level, player_resource)
     -- Check if item silence removal is enabled
     if not settings or not settings.item_silence_removal_enabled then
+        common.debugf('[Item] Silence removal disabled or settings missing (enabled=%s)', tostring(settings and settings.item_silence_removal_enabled))
         return nil
     end
+    
+    common.debugf('[Item] Checking for Silence buff...')
     
     -- Check if player has Silence debuff (buff_id 6)
     if not common.has_buff(0, 6) then
+        common.debugf('[Item] Player does not have Silence buff')
         return nil
     end
     
-    -- Check cooldown (7 seconds since last use)
+    common.debugf('[Item] Player is silenced! Proceeding with Echo Drops check...')
+    
+    -- Check cooldown (4 seconds since last use to avoid item recast)
     local current_time = os.clock()
     if current_time - last_item_use < ITEM_COOLDOWN then
         common.debugf('[Item] On cooldown, %.1f seconds remaining', ITEM_COOLDOWN - (current_time - last_item_use))
-        return nil
-    end
-    
-    -- Get Echo Drops item
-    local echo_drops = AshitaCore:GetResourceManager():GetItemByName('Echo Drops', 0)
-    if not echo_drops then
-        common.debugf('[Item] Echo Drops not found in resource manager')
         return nil
     end
     
@@ -92,13 +94,6 @@ function item.check(settings, job_def)
     local item_count = get_item_count('Echo Drops')
     if item_count == 0 then
         common.debugf('[Item] No Echo Drops in inventory')
-        return nil
-    end
-    
-    -- Check item recast timer
-    local recast = AshitaCore:GetDataManager():GetRecast():GetRecast(0, echo_drops.Id)
-    if recast > 0 then
-        common.debugf('[Item] Echo Drops on recast: %d seconds remaining', recast)
         return nil
     end
     
