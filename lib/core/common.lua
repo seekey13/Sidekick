@@ -40,9 +40,6 @@ local trust_buffs = {}  -- trust_buffs[server_id] = {buff_id1, buff_id2, ...}
 local pending_buffs = {}  -- pending_buffs[n] = {server_id=x, buff_id=y, timestamp=t}
 local PENDING_BUFF_TIMEOUT = 10.0  -- Seconds before pending buff expires
 
--- Event system pointer (code from Thorny)
-local pEventSystem = ashita.memory.find('FFXiMain.dll', 0, "A0????????84C0741AA1????????85C0741166A1????????663B05????????0F94C0C3", 0, 0)
-
 -- Non-combat zone IDs (safe zones where combat is blocked)
 local non_combat_zone_ids = {
     230, 231, 232, 233, -- San d'Oria
@@ -188,21 +185,6 @@ function common.is_engaged()
     return is_mob
 end
 
-function common.is_in_event()
-    -- Check if event system is currently active (cutscene, dialog, etc.)
-    -- Uses direct memory reading for reliability (code from Thorny)
-    if pEventSystem == 0 then
-        return false
-    end
-    
-    local ptr = ashita.memory.read_uint32(pEventSystem + 1)
-    if ptr == 0 then
-        return false
-    end
-
-    return (ashita.memory.read_uint8(ptr) == 1)
-end
-
 function common.can_attack()
     -- Get current zone
     local zone_id = common.get_zone_id()
@@ -214,6 +196,17 @@ function common.can_attack()
     for _, safe_zone_id in ipairs(non_combat_zone_ids) do
         if zone_id == safe_zone_id then
             return false
+        end
+    end
+    
+    -- Event system pointer (code from Thorny)
+    local pEventSystem = ashita.memory.find('FFXiMain.dll', 0, "A0????????84C0741AA1????????85C0741166A1????????663B05????????0F94C0C3", 0, 0)
+
+    -- Check if event system is currently active (cutscene, dialog, etc.)
+    if pEventSystem ~= 0 then
+        local ptr = ashita.memory.read_uint32(pEventSystem + 1)
+        if ptr ~= 0 and ashita.memory.read_uint8(ptr) == 1 then
+            return false  -- Cannot attack during events
         end
     end
     

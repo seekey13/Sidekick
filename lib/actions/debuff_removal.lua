@@ -72,7 +72,7 @@ end
 
 function debuff_removal.execute(settings, job_def, main_level, sub_level, player_resource)
     -- Check if debuff removal is enabled and status is idle or engaged
-    if not settings.debuff_removal_enabled or common.is_in_event() then
+    if not settings.debuff_removal_enabled then
         return nil
     end
     
