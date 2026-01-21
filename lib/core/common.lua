@@ -40,6 +40,9 @@ local trust_buffs = {}  -- trust_buffs[server_id] = {buff_id1, buff_id2, ...}
 local pending_buffs = {}  -- pending_buffs[n] = {server_id=x, buff_id=y, timestamp=t}
 local PENDING_BUFF_TIMEOUT = 10.0  -- Seconds before pending buff expires
 
+-- Event system pointer (code from Thorny)
+local pEventSystem = ashita.memory.find('FFXiMain.dll', 0, "A0????????84C0741AA1????????85C0741166A1????????663B05????????0F94C0C3", 0, 0)
+
 -- Non-combat zone IDs (safe zones where combat is blocked)
 local non_combat_zone_ids = {
     230, 231, 232, 233, -- San d'Oria
@@ -186,18 +189,18 @@ function common.is_engaged()
 end
 
 function common.is_in_event()
-    local player_entity = targets.get_me()
-    if not player_entity then
+    -- Check if event system is currently active (cutscene, dialog, etc.)
+    -- Uses direct memory reading for reliability (code from Thorny)
+    if pEventSystem == 0 then
         return false
     end
     
-    local status = player_entity.Status
-    if not status then
+    local ptr = ashita.memory.read_uint32(pEventSystem + 1)
+    if ptr == 0 then
         return false
     end
-    
-    -- Event, cutscene, or other blocking status
-    return status >= 2
+
+    return (ashita.memory.read_uint8(ptr) == 1)
 end
 
 function common.can_attack()
@@ -448,20 +451,6 @@ function common.get_entity_manager()
     end
     
     return entity_mgr
-end
-
--- Get target manager
--- Returns: target manager object or nil on error
-function common.get_target()
-    local ok, target = pcall(function()
-        return AshitaCore:GetMemoryManager():GetTarget()
-    end)
-    
-    if not ok or not target then
-        return nil
-    end
-    
-    return target
 end
 
 -- Get player's current target index
