@@ -228,13 +228,8 @@ function recover.execute(settings, job_def, main_level, sub_level, player_resour
                         end
                     end
                     
-                    -- Check combat_only flag
                     if not has_required_buff then
                         common.debugf('[RECOVER] %s requires buff prerequisite, skipping', ability.name)
-                    elseif ability.combat_only and common.is_idle() then
-                        common.debugf('[RECOVER] %s requires combat, skipping', ability.name)
-                    elseif ability.idle_only and common.is_engaged() then
-                        common.debugf('[RECOVER] %s requires idle, skipping', ability.name)
                     -- Check resource and cooldown
                     elseif resource.has_resource(job_def.resource_type, ability.cost) and resource.is_ability_ready(ability.id) then
                         local command = common.build_ability_command(ability, nil)

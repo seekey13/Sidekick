@@ -186,19 +186,23 @@ function common.is_combat()
 end
 
 function common.is_engaged()
-    -- Returns true if in combat (valid mob battle target exists)
-    local ok, bt = pcall(function()
-        return targets.get_bt()
+    local ok, player_entity = pcall(function()
+        return GetPlayerEntity()
     end)
     
-    if not ok then
+    if not ok or not player_entity then
         return false
     end
     
-    -- Check if battle target is a mob (0x10 flag in SpawnFlags)
-    local is_mob = bt and bit.band(bt.SpawnFlags, 0x10) ~= 0 or false
+    local ok_status, status = pcall(function()
+        return player_entity.Status
+    end)
     
-    return is_mob
+    if not ok_status or not status then
+        return false
+    end
+    
+    return status == 1
 end
 
 function common.can_attack()
@@ -1314,8 +1318,12 @@ function common.filter_abilities_by_level(abilities, settings, main_level, sub_l
             -- Skip disabled ability
         elseif ability.requires_pet and not targets.get_pet() then
             -- Skip if requires pet but no pet available
-        elseif ability.combat_only and common.is_idle() then
-            -- Skip if combat only and not engaged
+        elseif ability.idle_only and not common.is_idle() then
+            -- Skip if idle only and not idle
+        elseif ability.combat_only and not common.is_combat() then
+            -- Skip if combat only and not in combat
+        elseif ability.engaged_only and not common.is_engaged() then
+            -- Skip if engaged only and not engaged
         elseif job_def and job_def.validate_ability and not job_def.validate_ability(ability, common) then
             -- Skip if job-specific validator fails
             common.debugf('[filter_abilities] %s blocked by job validator', ability.name)
