@@ -83,7 +83,6 @@ return {
                     return '/ma "Protect IV" '..target
                 end,
                 buff_id = 40,  -- Protect
-                combat_only = false,
                 group = 'protect',
             },
             {
@@ -95,7 +94,6 @@ return {
                     return '/ma "Protect III" '..target
                 end,
                 buff_id = 40,
-                combat_only = false,
                 group = 'protect',
             },
             {
@@ -107,7 +105,6 @@ return {
                     return '/ma "Protect II" '..target
                 end,
                 buff_id = 40,
-                combat_only = false,
                 group = 'protect',
             },
             {
@@ -119,7 +116,6 @@ return {
                     return '/ma "Protect" '..target
                 end,
                 buff_id = 40,
-                combat_only = false,
                 group = 'protect',
             },
             -- Shell line
@@ -132,7 +128,6 @@ return {
                     return '/ma "Shell IV" '..target
                 end,
                 buff_id = 41,  -- Shell
-                combat_only = false,
                 group = 'shell',
             },
             {
@@ -144,7 +139,6 @@ return {
                     return '/ma "Shell III" '..target
                 end,
                 buff_id = 41,
-                combat_only = false,
                 group = 'shell',
             },
             {
@@ -156,7 +150,6 @@ return {
                     return '/ma "Shell II" '..target
                 end,
                 buff_id = 41,
-                combat_only = false,
                 group = 'shell',
             },
             {
@@ -168,7 +161,6 @@ return {
                     return '/ma "Shell" '..target
                 end,
                 buff_id = 41,
-                combat_only = false,
                 group = 'shell',
             },
             {
@@ -180,6 +172,7 @@ return {
                     return '/ma "Regen III" '..target
                 end,
                 buff_id = 42,  -- Regen
+                combat_only = true,
                 range = 20,
             },
             {
@@ -191,6 +184,7 @@ return {
                     return '/ma "Regen II" '..target
                 end,
                 buff_id = 42,
+                combat_only = true,
                 range = 20,
             },
             {
@@ -202,6 +196,7 @@ return {
                     return '/ma "Regen" '..target
                 end,
                 buff_id = 42,
+                combat_only = true,
                 range = 20,
             },
             -- Storms
@@ -212,7 +207,6 @@ return {
                 id = 119,  -- Spell ID
                 command = '/ma "Aurorastorm" <me>',
                 buff_id = 184,  -- Aurorastorm
-                combat_only = false,
                 group = 'storm',
             },
             {
@@ -222,7 +216,6 @@ return {
                 id = 118,  -- Spell ID
                 command = '/ma "Voidstorm" <me>',
                 buff_id = 185,  -- Voidstorm
-                combat_only = false,
                 group = 'storm',
             },
             {
@@ -232,7 +225,6 @@ return {
                 id = 117,  -- Spell ID
                 command = '/ma "Thunderstorm" <me>',
                 buff_id = 182,  -- Thunderstorm
-                combat_only = false,
                 group = 'storm',
             },
             {
@@ -242,7 +234,6 @@ return {
                 id = 116,  -- Spell ID
                 command = '/ma "Hailstorm" <me>',
                 buff_id = 179,  -- Hailstorm
-                combat_only = false,
                 group = 'storm',
             },
             {
@@ -252,7 +243,6 @@ return {
                 id = 115,  -- Spell ID
                 command = '/ma "Firestorm" <me>',
                 buff_id = 178,  -- Firestorm
-                combat_only = false,
                 group = 'storm',
             },
             {
@@ -262,7 +252,6 @@ return {
                 id = 114,  -- Spell ID
                 command = '/ma "Windstorm" <me>',
                 buff_id = 180,  -- Windstorm
-                combat_only = false,
                 group = 'storm',
             },
             {
@@ -272,7 +261,6 @@ return {
                 id = 113,  -- Spell ID
                 command = '/ma "Rainstorm" <me>',
                 buff_id = 183,  -- Rainstorm
-                combat_only = false,
                 group = 'storm',
             },
             {
@@ -282,7 +270,6 @@ return {
                 id = 112,  -- Spell ID
                 command = '/ma "Sandstorm" <me>',
                 buff_id = 181,  -- Sandstorm
-                combat_only = false,
                 group = 'storm',
             },
             -- Other buffs
@@ -293,7 +280,6 @@ return {
                 id = 54,  -- Spell ID
                 command = '/ma "Stoneskin" <me>',
                 buff_id = 37,  -- Stoneskin
-                combat_only = false,
             },
             {
                 name = 'Blink',
@@ -302,7 +288,6 @@ return {
                 id = 53,  -- Spell ID
                 command = '/ma "Blink" <me>',
                 buff_id = 36,  -- Blink
-                combat_only = false,
             },
             {
                 name = 'Aquaveil',
@@ -311,7 +296,6 @@ return {
                 id = 55,  -- Spell ID
                 command = '/ma "Aquaveil" <me>',
                 buff_id = 39,  -- Aquaveil
-                combat_only = false,
             },
             -- Spikes
             {
@@ -624,7 +608,6 @@ return {
                 cost = 0,
                 id = 234,  -- Job ability ID
                 command = '/ja "Sublimation" <me>',
-                combat_only = false,
                 requires_buff = 188,  -- Requires Sublimation: Complete
             },
         },

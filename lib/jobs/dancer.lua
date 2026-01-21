@@ -95,7 +95,7 @@ return {
                 id = 216,  -- Samba recast ID
                 command = '/ja "Drain Samba III" <me>',
                 buff_id = 368,
-                combat_only = true,
+                engaged_only = true,
                 group = 'samba',
             },
             {
@@ -105,7 +105,7 @@ return {
                 id = 216,  -- Samba recast ID
                 command = '/ja "Drain Samba II" <me>',
                 buff_id = 368,
-                combat_only = true,
+                engaged_only = true,
                 group = 'samba',
             },
             {
@@ -115,7 +115,7 @@ return {
                 id = 216,  -- Samba recast ID
                 command = '/ja "Drain Samba" <me>',
                 buff_id = 368,
-                combat_only = true,
+                engaged_only = true,
                 group = 'samba',
             },
             {
@@ -125,7 +125,7 @@ return {
                 id = 216,
                 command = '/ja "Aspir Samba II" <me>',
                 buff_id = 369,
-                combat_only = true,
+                engaged_only = true,
                 group = 'samba',
             },
             {
@@ -135,7 +135,7 @@ return {
                 id = 216,
                 command = '/ja "Aspir Samba" <me>',
                 buff_id = 369,
-                combat_only = true,
+                engaged_only = true,
                 group = 'samba',
             },
             {
@@ -145,7 +145,7 @@ return {
                 id = 216,
                 command = '/ja "Haste Samba" <me>',
                 buff_id = 193,
-                combat_only = true,
+                engaged_only = true,
                 group = 'samba',
             },
             {
@@ -168,7 +168,7 @@ return {
                 id = 222,
                 command = '/ja "Reverse Flourish" <me>',
                 wakes = false,
-                combat_only = true,
+                engaged_only = true,
                 value = 600,
                 requires_buff = 385,  -- Requires (5) Finishing Moves
             },

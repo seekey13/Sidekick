@@ -169,6 +169,22 @@ function common.is_idle()
     return not is_mob
 end
 
+function common.is_combat()
+    -- Returns true if in combat (valid mob battle target exists)
+    local ok, bt = pcall(function()
+        return targets.get_bt()
+    end)
+    
+    if not ok then
+        return false  -- Assume not in combat if we can't get battle target
+    end
+    
+    -- Check if battle target is a mob (0x10 flag in SpawnFlags)
+    local is_mob = bt and bit.band(bt.SpawnFlags, 0x10) ~= 0 or false
+    
+    return is_mob
+end
+
 function common.is_engaged()
     -- Returns true if in combat (valid mob battle target exists)
     local ok, bt = pcall(function()
