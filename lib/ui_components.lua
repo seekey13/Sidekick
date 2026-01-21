@@ -940,13 +940,9 @@ end
 
 -- Render checkbox for Doom removal with Holy Water
 function ui_components.item_doom_removal_checkbox(ctx)
-    local item_module = require('lib.actions.item')
-    
-    if not item_module or not item_module.get_item_count then
-        common.errorf('[UI] Item module not available')
+    if not ctx or not ctx.settings then
         return
     end
-    
     -- Get Holy Water count from inventory
     local holy_water_count = item_module.get_item_count('Holy Water')
     
@@ -1004,5 +1000,18 @@ function ui_components.item_doom_removal_checkbox(ctx)
         end
     end
 end
+
+-- ============================================================================
+-- Export Constants
+-- ============================================================================
+
+ui_components.ABILITY_LIST_INDENT = ABILITY_LIST_INDENT
+ui_components.PARTY_BUTTON_WIDTH = PARTY_BUTTON_WIDTH
+ui_components.SPACE_BETWEEN_BUTTONS = SPACE_BETWEEN_BUTTONS
+ui_components.DROPDOWN_WIDTH = DROPDOWN_WIDTH
+ui_components.AUTOMATION_BUTTON_WIDTH = AUTOMATION_BUTTON_WIDTH
+ui_components.LIGHT_GREEN = LIGHT_GREEN
+ui_components.LIGHT_BLUE = LIGHT_BLUE
+ui_components.LIGHT_RED = LIGHT_RED
 
 return ui_components
