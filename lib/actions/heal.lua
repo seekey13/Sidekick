@@ -304,7 +304,7 @@ function heal.select_ability(abilities, target_hpp, resource_type, player_resour
         for _, ability in ipairs(abilities) do
             if ability.name == 'Healing Ruby' then
                 -- Check if usable: has pet, has resource, not on cooldown
-                if common.has_pet() then
+                if common.targets.get_pet() then
                     if resource.has_resource(resource_type, ability.cost) then
                         local is_ready = true
                         if ability.id then

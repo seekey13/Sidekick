@@ -20,7 +20,7 @@ function geo.execute(settings, job_def, main_level, sub_level, player_resource)
     -- ========================================================================
     
     -- Check if player has a pet (only needed for Full Circle)
-    if common.has_pet() then
+    if common.targets.get_pet() then
         -- Get distance between player and pet
         local pet_distance = common.get_pet_distance()
         if pet_distance then

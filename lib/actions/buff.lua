@@ -49,7 +49,7 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
         
         -- Check pet requirement
         if not should_skip and ability.pet_required then
-            if not common.has_pet() then
+            if not common.targets.get_pet() then
                 should_skip = true
             end
         end

@@ -7,6 +7,9 @@ local common = {}
 local chat = require('chat')
 local targets = require('lib.core.targets')
 
+-- Export targets module for direct access
+common.targets = targets
+
 -- Ashita API references
 local ashita = ashita or {}
 local AshitaCore = AshitaCore
@@ -402,20 +405,10 @@ function common.get_player_tp()
     return party:GetMemberTP(0)
 end
 
--- Get pet entity
--- Returns: pet entity object or nil if no pet
-function common.get_pet_entity()
-    return targets.get_pet()
-end
-
-function common.has_pet()
-    return common.get_pet_entity() ~= nil
-end
-
 -- Get pet's HP percentage
 -- Returns: number (HP percentage 0-100) or 0 if no pet
 function common.get_pet_hp_percent()
-    local pet = common.get_pet_entity()
+    local pet = targets.get_pet()
     if not pet then
         return 0
     end
@@ -427,19 +420,6 @@ function common.get_pet_hp_percent()
     end
     
     return hpp
-end
-
--- Get entity by index
--- Args: entity_index (number) - Entity index (0 = player)
--- Returns: entity object or nil on error
-function common.get_entity(entity_index)
-    -- Special case for player entity (index 0)
-    if entity_index == 0 then
-        return targets.get_me()
-    end
-    
-    -- Try standard GetEntity for all indices
-    return GetEntity(entity_index)
 end
 
 -- Get party manager
@@ -597,18 +577,6 @@ function common.get_party_member_target_index(index)
     return party:GetMemberTargetIndex(index)
 end
 
--- Get party member entity by party index (0-5)
--- Returns: entity object or nil if not found
-function common.get_party_member_entity(index)
-    return targets.get_party_member(index)
-end
-
--- Get battle target entity
--- Returns: entity object or nil if no battle target
-function common.get_battle_target()
-    return targets.get_bt()
-end
-
 function common.get_party_member_name(index)
     local party = common.get_party()
     if not party then return nil end
@@ -662,12 +630,12 @@ function common.is_in_range(target_index, range)
     local range_value = type(range) == 'number' and range or 21
     
     -- Get both entities
-    local player_entity = common.get_entity(0)
+    local player_entity = targets.get_me()
     if not player_entity then
         return false
     end
     
-    local target_entity = common.get_entity(target_index)
+    local target_entity = GetEntity(target_index)
     if not target_entity then
         return false
     end
@@ -680,12 +648,12 @@ end
 -- Get distance between player and pet
 -- Returns: number (distance in yalms) or nil if no pet or error
 function common.get_pet_distance()
-    local player_entity = common.get_entity(0)
+    local player_entity = targets.get_me()
     if not player_entity then
         return nil
     end
     
-    local pet_entity = common.get_pet_entity()
+    local pet_entity = targets.get_pet()
     if not pet_entity then
         return nil
     end
@@ -1346,7 +1314,7 @@ function common.filter_abilities_by_level(abilities, settings, main_level, sub_l
         
         if is_disabled then
             -- Skip disabled ability
-        elseif ability.requires_pet and not common.has_pet() then
+        elseif ability.requires_pet and not targets.get_pet() then
             -- Skip if requires pet but no pet available
         elseif ability.combat_only and common.is_idle() then
             -- Skip if combat only and not engaged
