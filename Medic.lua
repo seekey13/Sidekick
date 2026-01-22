@@ -562,6 +562,15 @@ ashita.events.register('d3d_present', 'medic_render', function()
         setup_attempted = true
         setup_job()
         
+        -- Initialize job tracking to prevent false job change detection
+        local job_id, sub_job_id = common.get_player_job()
+        local main_level, sub_level = common.get_player_level()
+        if job_id and job_id > 0 and main_level and main_level > 0 then
+            last_job_id = job_id
+            last_sub_job_id = sub_job_id or 0
+            last_level = main_level
+        end
+        
         -- Restore automation state
         if addon_settings and addon_settings.automation_enabled then
             automation_enabled = true

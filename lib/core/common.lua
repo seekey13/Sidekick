@@ -1377,13 +1377,12 @@ end
 
 -- Get resting state
 function common.is_resting()
-    return is_resting
+    return resting_state
 end
 
 -- Set resting state
 function common.set_resting(state)
-    is_resting = state
-end
+    resting_state = state
 end
 
 return common

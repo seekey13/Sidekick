@@ -46,14 +46,8 @@ local function should_start_resting(settings, job_def)
     end
     
     -- Check if MP is below 100%
-    local party = common.get_party()
-    if not party then
-        return false
-    end
-    
-    local mp = party:GetMemberMP(0)
-    local max_mp = party:GetMemberMPMax(0)
-    if not mp or not max_mp or mp >= max_mp then
+    local mp_percent = common.get_party_member_mp_percent(0)
+    if mp_percent >= 100 then
         return false
     end
     
@@ -69,14 +63,8 @@ local function should_stop_resting(settings, job_def)
     end
     
     -- Check if MP is full
-    local party = common.get_party()
-    if not party then
-        return false
-    end
-    
-    local mp = party:GetMemberMP(0)
-    local max_mp = party:GetMemberMPMax(0)
-    if mp and max_mp and mp >= max_mp then
+    local mp_percent = common.get_party_member_mp_percent(0)
+    if mp_percent >= 100 then
         common.debugf('[Rest] MP full, stopping rest')
         return true
     end
