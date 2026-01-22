@@ -33,6 +33,12 @@ local function should_start_resting(settings, job_def)
         return false
     end
     
+    -- Check if player is engaged in combat
+    if common.is_engaged() then
+        conditions_met_time = 0  -- Reset conditions timer
+        return false
+    end
+    
     -- Check if player is moving or casting
     if common.is_player_moving() then
         conditions_met_time = 0  -- Reset conditions timer
