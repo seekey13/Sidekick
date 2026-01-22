@@ -130,6 +130,27 @@ local function has_usable_abilities(abilities)
     return false
 end
 
+-- Check if an ability is a duplicate from subjob
+local function is_subjob_duplicate(job_def, ability)
+    if ability.is_main_job ~= false then
+        return false
+    end
+    
+    if not job_def or not job_def.abilities then
+        return false
+    end
+    
+    for category, abilities in pairs(job_def.abilities) do
+        for _, other_ability in ipairs(abilities) do
+            if other_ability.name == ability.name and other_ability.is_main_job ~= false then
+                return true
+            end
+        end
+    end
+    
+    return false
+end
+
 -- Sync UI state from settings
 local function sync_from_settings()
     if not current_settings then return end
@@ -449,7 +470,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                 ui.slider_int(ctx, 'Party (HP%)', 'heal_threshold', { settings.heal_threshold or 75 }, 1, 100)
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.heal) do
-                    if can_use_ability(ability) then
+                    if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                         ui.ability_checkbox(ctx, ability, job_def, 'heal')
                     end
                 end
@@ -460,7 +481,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                     ui.slider_int(ctx, 'Critical (HP%)', 'critical_threshold', { settings.critical_threshold or 30 }, 1, 50)
                     imgui.Indent(ui.ABILITY_LIST_INDENT)
                     for _, ability in ipairs(job_def.abilities.critical) do
-                        if can_use_ability(ability) then
+                        if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                             ui.ability_checkbox(ctx, ability, job_def, 'critical')
                         end
                     end
@@ -481,7 +502,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                 
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.heal_aoe) do
-                    if can_use_ability(ability) then
+                    if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                         ui.ability_checkbox(ctx, ability, job_def, 'heal_aoe')
                     end
                 end
@@ -499,7 +520,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                 
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.heal_pet) do
-                    if can_use_ability(ability) then
+                    if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                         ui.ability_checkbox(ctx, ability, job_def, 'heal_pet')
                     end
                 end
@@ -532,7 +553,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
             if is_open and is_enabled then
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.debuff_removal) do
-                    if can_use_ability(ability) then
+                    if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                         ui.ability_checkbox(ctx, ability, job_def, 'debuff_removal')
                     end
                 end
@@ -623,7 +644,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                     ui.slider_int(ctx, 'Self Recover (TP)', 'recover_tp_threshold', { settings.recover_tp_threshold or 500 }, 100, 3000)
                     imgui.Indent(ui.ABILITY_LIST_INDENT)
                     for _, ability in ipairs(job_def.abilities.recover_tp) do
-                        if can_use_ability(ability) then
+                        if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                             ui.ability_checkbox(ctx, ability, job_def, 'recover_tp')
                         end
                     end
@@ -639,7 +660,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                     ui.slider_int(ctx, 'Self Recover (MP%)', 'recover_mp_threshold', { settings.recover_mp_threshold or 30 }, 1, 100)
                     imgui.Indent(ui.ABILITY_LIST_INDENT)
                     for _, ability in ipairs(job_def.abilities.recover_mp) do
-                        if can_use_ability(ability) then
+                        if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                             ui.ability_checkbox(ctx, ability, job_def, 'recover_mp')
                         end
                     end
@@ -706,7 +727,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                     
                     imgui.Indent(ui.ABILITY_LIST_INDENT)
                     for _, ability in ipairs(job_def.abilities.recover_party_mp) do
-                        if can_use_ability(ability) then
+                        if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                             ui.ability_checkbox(ctx, ability, job_def, 'recover_party_mp')
                         end
                     end
@@ -732,7 +753,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                 
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.buff) do
-                    if can_use_ability(ability) then
+                    if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                         ui.render_ability(ctx, ability, job_def, 'buff')
                     end
                 end
@@ -751,7 +772,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                 
                 -- Full Circle checkbox
                 for _, ability in ipairs(job_def.abilities.geo) do
-                    if ability.name ~= 'Entrust' and can_use_ability(ability) then
+                    if ability.name ~= 'Entrust' and can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                         ui.ability_checkbox(ctx, ability, job_def, 'geo')
                     end
                 end
@@ -895,7 +916,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                         -- Entrust ability checkbox (indented)
                         imgui.Indent(ui.ABILITY_LIST_INDENT)
                         for _, ability in ipairs(job_def.abilities.geo) do
-                            if ability.name == 'Entrust' and can_use_ability(ability) then
+                            if ability.name == 'Entrust' and can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                                 ui.ability_checkbox(ctx, ability, job_def, 'geo')
                             end
                         end
