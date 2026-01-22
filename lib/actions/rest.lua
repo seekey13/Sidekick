@@ -10,7 +10,6 @@ local common = require('lib.core.common')
 local rest = {}
 
 -- State tracking
-local last_rest_time = 0  -- Timestamp of last rest attempt or stop
 local conditions_met_time = 0  -- Timestamp when rest conditions first became favorable
 
 -- Check if we should start resting
