@@ -191,6 +191,7 @@ return {
         rest_enabled = false,
         rest_timer = 5,
         rest_threshold = 70,
+        rest_distance = 7,
         -- recover_enabled = false,
         -- recover_threshold = 25,
     },

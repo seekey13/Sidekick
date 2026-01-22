@@ -667,6 +667,37 @@ function common.get_pet_distance()
     return calculate_distance(player_entity, pet_entity)
 end
 
+-- Get distance between player and party member
+-- Args: party_index (number) - Party member index (1-5)
+-- Returns: number (distance in yalms) or nil if error
+function common.get_party_member_distance(party_index)
+    if not party_index or party_index < 1 or party_index > 5 then
+        return nil
+    end
+    
+    local player_entity = targets.get_me()
+    if not player_entity then
+        return nil
+    end
+    
+    local party = common.get_party()
+    if not party or not common.is_party_member_active(party_index) then
+        return nil
+    end
+    
+    local target_index = party:GetMemberTargetIndex(party_index)
+    if not target_index or target_index == 0 then
+        return nil
+    end
+    
+    local member_entity = GetEntity(target_index)
+    if not member_entity then
+        return nil
+    end
+    
+    return calculate_distance(player_entity, member_entity)
+end
+
 --[[
     Buff/Debuff Checking
 ]]--

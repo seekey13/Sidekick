@@ -539,6 +539,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
             if is_open and is_enabled then
                 ui.slider_int(ctx, 'Resting Timer (seconds)', 'rest_timer', { settings.rest_timer or 5 }, 1, 20)
                 ui.slider_int(ctx, 'Resting Threshold (HP%)', 'rest_threshold', { settings.rest_threshold or 70 }, 1, 99)
+                ui.slider_int(ctx, 'Resting Distance (yalms)', 'rest_distance', { settings.rest_distance or 7 }, 1, 15)
             end
             
             imgui.Separator()
