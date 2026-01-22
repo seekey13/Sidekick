@@ -19,7 +19,11 @@ A focused, support-oriented addon for Ashita v4 that automates healing, buffing,
 ## Latest Updates
 
 ### [1.2.0] - 2026-01-18
-- **Pet Entity Consolidation**: New `get_pet_entity()` function provides single source of truth for all pet-related operations
+- **Conditional Ability Flags**: Three mutually exclusive flags control when abilities can be used with color-coded UI indicators:
+  - `idle_only` (green) - Only when not in combat
+  - `combat_only` (yellow) - Only when in combat with a battle target nearby
+  - `engaged_only` (red) - Only when actively engaged/locked on to a target
+- **Pet Entity Consolidation**: New `targets` module (`targets.get_pet()`) provides single source of truth for all pet-related operations
 - **Job-Specific Ability Validation**: Jobs can now implement custom validators for fine-grained ability control (e.g., Summoner checks if Carbuncle is summoned)
 - **Smart Summoner Pet Management**: Carbuncle-specific abilities (Healing Ruby, Healing Ruby II, Shining Ruby) automatically validate pet type; avatar-agnostic abilities (Avatar's Favor) work with any summoned avatar.  Added Apogee to `critical` Emergency abilities when Carbuncle is summoned.
 - **Enhanced Code Maintainability**: Consolidated pet checking logic eliminates duplication across `has_pet()`, `get_pet_hp_percent()`, and `get_pet_distance()`

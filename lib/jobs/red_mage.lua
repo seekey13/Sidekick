@@ -76,7 +76,7 @@ return {
                 id = 247,  -- Job Ability ID
                 command = '/ja "Composure" <me>',
                 buff_id = 419,  -- Composure
-                combat_only = true,
+                engaged_only = true,
             },
             -- Protect line
             {
@@ -88,7 +88,6 @@ return {
                     return '/ma "Protect IV" '..target
                 end,
                 buff_id = 40,  -- Protect
-                combat_only = false,
                 group = 'protect',
             },
             {
@@ -100,7 +99,6 @@ return {
                     return '/ma "Protect III" '..target
                 end,
                 buff_id = 40,
-                combat_only = false,
                 group = 'protect',
             },
             {
@@ -112,7 +110,6 @@ return {
                     return '/ma "Protect II" '..target
                 end,
                 buff_id = 40,
-                combat_only = false,
                 group = 'protect',
             },
             {
@@ -124,7 +121,6 @@ return {
                     return '/ma "Protect" '..target
                 end,
                 buff_id = 40,
-                combat_only = false,
                 group = 'protect',
             },
             -- Shell line
@@ -137,7 +133,6 @@ return {
                     return '/ma "Shell IV" '..target
                 end,
                 buff_id = 41,  -- Shell
-                combat_only = false,
                 group = 'shell',
             },
             {
@@ -149,7 +144,6 @@ return {
                     return '/ma "Shell III" '..target
                 end,
                 buff_id = 41,
-                combat_only = false,
                 group = 'shell',
             },
             {
@@ -161,7 +155,6 @@ return {
                     return '/ma "Shell II" '..target
                 end,
                 buff_id = 41,
-                combat_only = false,
                 group = 'shell',
             },
             {
@@ -173,7 +166,6 @@ return {
                     return '/ma "Shell" '..target
                 end,
                 buff_id = 41,
-                combat_only = false,
                 group = 'shell',
             },
             -- Other buffs
@@ -186,7 +178,6 @@ return {
                     return '/ma "Phalanx II" '..target
                 end,
                 buff_id = 116,  -- Phalanx
-                combat_only = false,
             },
             {
                 name = 'Regen',
@@ -197,7 +188,7 @@ return {
                     return '/ma "Regen" '..target
                 end,
                 buff_id = 42,  -- Regen
-                combat_only = false,
+                combat_only = true,
             },
             {
                 name = 'Refresh',
@@ -208,7 +199,6 @@ return {
                     return '/ma "Refresh" '..target
                 end,
                 buff_id = 43,  -- Refresh
-                combat_only = false,
             },
             {
                 name = 'Haste',
@@ -219,7 +209,7 @@ return {
                     return '/ma "Haste" '..target
                 end,
                 buff_id = 33,  -- Haste
-                
+                combat_only = true,
             },
             {
                 name = 'Flurry',
@@ -230,7 +220,7 @@ return {
                     return '/ma "Flurry" '..target
                 end,
                 buff_id = 265,  -- Flurry
-                
+                combat_only = true,
             },
             {
                 name = 'Stoneskin',
@@ -272,7 +262,7 @@ return {
                 id = 105,  -- Spell ID
                 command = '/ma "Enwater II" <me>',
                 buff_id = 282,  -- Enwater
-                combat_only = true,
+                engaged_only = true,
                 group = 'enspell',
             },
             {
@@ -282,7 +272,7 @@ return {
                 id = 94,  -- Spell ID
                 command = '/ma "Enwater" <me>',
                 buff_id = 99,  -- Enwater
-                combat_only = true,
+                engaged_only = true,
                 group = 'enspell',
             },
             {
@@ -292,7 +282,7 @@ return {
                 id = 104,  -- Spell ID
                 command = '/ma "Enfire II" <me>',
                 buff_id = 277,  -- Enfire
-                combat_only = true,
+                engaged_only = true,
                 group = 'enspell',
             },
             {
@@ -302,7 +292,7 @@ return {
                 id = 93,  -- Spell ID
                 command = '/ma "Enfire" <me>',
                 buff_id = 94,  -- Enfire
-                combat_only = true,
+                engaged_only = true,
                 group = 'enspell',
             },
             {
@@ -312,7 +302,7 @@ return {
                 id = 103,  -- Spell ID
                 command = '/ma "Enblizzard II" <me>',
                 buff_id = 278,  -- Enblizzard
-                combat_only = true,
+                engaged_only = true,
                 group = 'enspell',
             },
             {
@@ -322,7 +312,7 @@ return {
                 id = 92,  -- Spell ID
                 command = '/ma "Enblizzard" <me>',
                 buff_id = 95,  -- Enblizzard
-                combat_only = true,
+                engaged_only = true,
                 group = 'enspell',
             },
             {
@@ -332,7 +322,7 @@ return {
                 id = 102,  -- Spell ID
                 command = '/ma "Enaero II" <me>',
                 buff_id = 279,  -- Enaero
-                combat_only = true,
+                engaged_only = true,
                 group = 'enspell',
             },
             {
@@ -342,7 +332,7 @@ return {
                 id = 91,  -- Spell ID
                 command = '/ma "Enaero" <me>',
                 buff_id = 96,  -- Enaero
-                combat_only = true,
+                engaged_only = true,
                 group = 'enspell',
             },
             {
@@ -352,7 +342,7 @@ return {
                 id = 101,  -- Spell ID
                 command = '/ma "Enstone II" <me>',
                 buff_id = 280,  -- Enstone
-                combat_only = true,
+                engaged_only = true,
                 group = 'enspell',
             },
             {
@@ -362,7 +352,7 @@ return {
                 id = 90,  -- Spell ID
                 command = '/ma "Enstone" <me>',
                 buff_id = 97,  -- Enstone
-                combat_only = true,
+                engaged_only = true,
                 group = 'enspell',
             },
             {
@@ -372,7 +362,7 @@ return {
                 id = 100,  -- Spell ID
                 command = '/ma "Enthunder II" <me>',
                 buff_id = 281,  -- Enthunder
-                combat_only = true,
+                engaged_only = true,
                 group = 'enspell',
             },
             {
@@ -382,7 +372,7 @@ return {
                 id = 89,  -- Spell ID
                 command = '/ma "Enthunder" <me>',
                 buff_id = 98,  -- Enthunder
-                combat_only = true,
+                engaged_only = true,
                 group = 'enspell',
             },
             -- Spikes (sorted by level, highest first)
@@ -393,7 +383,7 @@ return {
                 id = 251,  -- Spell ID
                 command = '/ma "Shock Spikes" <me>',
                 buff_id = 38,  -- Shock Spikes
-                combat_only = true,
+                engaged_only = true,
                 group = 'spikes'
             },
             {
@@ -403,7 +393,7 @@ return {
                 id = 250,  -- Spell ID
                 command = '/ma "Ice Spikes" <me>',
                 buff_id = 35,  -- Ice Spikes
-                combat_only = true,
+                engaged_only = true,
                 group = 'spikes'
             },
             {
@@ -413,7 +403,7 @@ return {
                 id = 249,  -- Spell ID
                 command = '/ma "Blaze Spikes" <me>',
                 buff_id = 34,  -- Blaze Spikes
-                combat_only = true,
+                engaged_only = true,
                 group = 'spikes'
             },
             {

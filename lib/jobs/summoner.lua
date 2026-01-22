@@ -25,7 +25,6 @@ return {
                     return '/pet "Healing Ruby" '..target
                 end,
                 wakes = true,  -- Can wake from sleep
-                combat_only = false,
                 pet_required = true,
                 requires_carbuncle = true,
             },
@@ -40,7 +39,6 @@ return {
                 id = 174,  -- Blood Pact: Ward recast ID
                 command = '/pet "Healing Ruby II" <me>',
                 wakes = true,  -- Can wake from sleep
-                combat_only = false,
                 pet_required = true,
                 requires_carbuncle = true,
             },
@@ -55,7 +53,6 @@ return {
                 id = 176,  -- Avatar's Favor recast ID
                 command = '/pet "Avatar\'s Favor" <me>',
                 buff_id = 431,  -- Avatar's Favor buff ID
-                combat_only = false,
                 pet_required = true,
             },
             {
@@ -65,7 +62,6 @@ return {
                 id = 174,  -- Blood Pact: Ward recast ID (shared with Healing Ruby)
                 command = '/pet "Shining Ruby" <me>',
                 buff_id = 154,  -- Shining Ruby buff ID
-                combat_only = false,
                 pet_required = true,
                 requires_carbuncle = true,
             },
@@ -79,7 +75,6 @@ return {
                 cost = 0,
                 id = 108,  -- Apogee recast ID
                 command = '/ja "Apogee" <me>',
-                combat_only = false,
                 pet_required = true,
                 requires_carbuncle = true,
             },

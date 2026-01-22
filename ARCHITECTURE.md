@@ -317,8 +317,9 @@ Buff maintenance logic with per-party-member configuration.
 - Validates range (20 yalms) before casting on party members
 
 **Conditions:**
-- `combat_only`: Only use in combat
-- `idle_only`: Only use when idle
+- `idle_only`: Only use when idle (not in combat) - checks `common.is_idle()` - displayed in green
+- `combat_only`: Only use in combat (has battle target nearby) - checks `common.is_combat()` - displayed in yellow
+- `engaged_only`: Only use when engaged (actively fighting/locked on) - checks `common.is_engaged()` - displayed in red
 - `requires_pet`: Requires pet active
 - `requires_buff`: Requires specific buff prerequisite(s)
 - `group`: Groups mutually exclusive buffs (e.g., 'arts', 'storm', 'spikes')
@@ -481,8 +482,9 @@ return {
     end,
     buff_id = 43,                     -- Buff to check (optional, single or array)
     debuff_id = 3,                    -- Debuff to remove (optional, single or array)
-    combat_only = false,              -- Combat requirement (optional)
-    idle_only = false,                -- Idle requirement (optional)
+    idle_only = false,                -- Idle only (green, checks is_idle()) (optional)
+    combat_only = false,              -- Combat only (yellow, checks is_combat()) (optional)
+    engaged_only = false,             -- Engaged only (red, checks is_engaged()) (optional)
     requires_pet = false,             -- Pet requirement (optional)
     requires_carbuncle = false,       -- Carbuncle requirement for Summoner (optional)
     requires_buff = 401,              -- Buff prerequisite (optional, single or array)

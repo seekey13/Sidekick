@@ -23,7 +23,6 @@ return {
                 cost = 0,
                 id = 357,
                 command = '/ja "Full Circle" <me>',
-                combat_only = false,
                 main_job_only = true,
             },
             {

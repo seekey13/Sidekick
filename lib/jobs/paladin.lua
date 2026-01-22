@@ -75,7 +75,6 @@ return {
                 id = 150,  -- Majesty recast ID
                 command = '/ja "Majesty" <me>',
                 buff_id = 621,  -- Majesty buff
-                combat_only = false,
             },
             -- Protect spells
             {

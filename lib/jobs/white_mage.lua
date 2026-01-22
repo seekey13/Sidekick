@@ -229,7 +229,6 @@ return {
                 id = 245,  -- Job Ability ID
                 command = '/ja "Afflatus Solace" <me>',
                 buff_id = 417,  -- Afflatus Solace
-                combat_only = false,
                 group = 'afflatus',
             },
             {
@@ -239,7 +238,6 @@ return {
                 id = 246,  -- Job Ability ID
                 command = '/ja "Afflatus Misery" <me>',
                 buff_id = 418,  -- Afflatus Misery
-                combat_only = false,
                 group = 'afflatus',
             },
             {
@@ -251,6 +249,7 @@ return {
                     return '/ma "Haste" '..target
                 end,
                 buff_id = 33,  -- Haste
+                combat_only = true,
                 duration = 180,
             },
             {
@@ -262,7 +261,7 @@ return {
                     return '/ma "Regen III" '..target
                 end,
                 buff_id = 42,  -- Regen
-                combat_only = false,
+                combat_only = true,
                 duration = 60,
             },
             {
@@ -274,7 +273,7 @@ return {
                     return '/ma "Regen II" '..target
                 end,
                 buff_id = 42,  -- Regen
-                combat_only = false,
+                combat_only = true,
                 duration = 60,
             },
             {
@@ -286,7 +285,7 @@ return {
                     return '/ma "Regen" '..target
                 end,
                 buff_id = 42,  -- Regen
-                combat_only = false,
+                combat_only = true,
                 duration = 75,
             },
             {
@@ -296,7 +295,6 @@ return {
                 id = 129,  -- Spell ID
                 command = '/ma "Protectra V" <me>',
                 buff_id = 40,  -- Protect
-                combat_only = false,
                 group = 'protectra',
             },
             {
@@ -306,7 +304,6 @@ return {
                 id = 128,  -- Spell ID
                 command = '/ma "Protectra IV" <me>',
                 buff_id = 40,
-                combat_only = false,
                 group = 'protectra',
             },
             {
@@ -316,7 +313,6 @@ return {
                 id = 127,  -- Spell ID
                 command = '/ma "Protectra III" <me>',
                 buff_id = 40,
-                combat_only = false,
                 group = 'protectra',
             },
             {
@@ -326,7 +322,6 @@ return {
                 id = 126,  -- Spell ID
                 command = '/ma "Protectra II" <me>',
                 buff_id = 40,
-                combat_only = false,
                 group = 'protectra',
             },
             {
@@ -336,7 +331,6 @@ return {
                 id = 125,  -- Spell ID
                 command = '/ma "Protectra" <me>',
                 buff_id = 40,
-                combat_only = false,
                 group = 'protectra',
             },
             {
@@ -348,7 +342,6 @@ return {
                     return '/ma "Protect IV" '..target
                 end,
                 buff_id = 40,  -- Protect
-                combat_only = false,
                 group = 'protect',
                 duration = 1800,
             },
@@ -361,7 +354,6 @@ return {
                     return '/ma "Protect III" '..target
                 end,
                 buff_id = 40,  -- Protect
-                combat_only = false,
                 group = 'protect',
                 duration = 1800,
             },
@@ -374,7 +366,6 @@ return {
                     return '/ma "Protect II" '..target
                 end,
                 buff_id = 40,  -- Protect
-                combat_only = false,
                 group = 'protect',
                 duration = 1800,
             },
@@ -387,7 +378,6 @@ return {
                     return '/ma "Protect" '..target
                 end,
                 buff_id = 40,  -- Protect
-                combat_only = false,
                 group = 'protect',
                 duration = 1800,
             },
@@ -398,7 +388,6 @@ return {
                 id = 134,  -- Spell ID
                 command = '/ma "Shellra V" <me>',
                 buff_id = 41,  -- Shell
-                combat_only = false,
                 group = 'shellra',
             },
             {
@@ -408,7 +397,6 @@ return {
                 id = 133,  -- Spell ID
                 command = '/ma "Shellra IV" <me>',
                 buff_id = 41,
-                combat_only = false,
                 group = 'shellra',
             },
             {
@@ -418,7 +406,6 @@ return {
                 id = 132,  -- Spell ID
                 command = '/ma "Shellra III" <me>',
                 buff_id = 41,
-                combat_only = false,
                 group = 'shellra',
             },
             {
@@ -428,7 +415,6 @@ return {
                 id = 131,  -- Spell ID
                 command = '/ma "Shellra II" <me>',
                 buff_id = 41,
-                combat_only = false,
                 group = 'shellra',
             },
             {
@@ -438,7 +424,6 @@ return {
                 id = 130,  -- Spell ID
                 command = '/ma "Shellra" <me>',
                 buff_id = 41,
-                combat_only = false,
                 group = 'shellra',
             },
             {
@@ -450,7 +435,6 @@ return {
                     return '/ma "Shell IV" '..target
                 end,
                 buff_id = 41,  -- Shell
-                combat_only = false,
                 group = 'shell',
                 duration = 1800,
             },
@@ -463,7 +447,6 @@ return {
                     return '/ma "Shell III" '..target
                 end,
                 buff_id = 41,  -- Shell
-                combat_only = false,
                 group = 'shell',
                 duration = 1800,
             },
@@ -476,7 +459,6 @@ return {
                     return '/ma "Shell II" '..target
                 end,
                 buff_id = 41,  -- Shell
-                combat_only = false,
                 group = 'shell',
                 duration = 1800,
             },
@@ -489,7 +471,6 @@ return {
                     return '/ma "Shell" '..target
                 end,
                 buff_id = 41,  -- Shell
-                combat_only = false,
                 group = 'shell',
                 duration = 1800,
             },
@@ -502,8 +483,6 @@ return {
                 command = '/ma "Barthundra" <me>',
                 buff_id = 104,  -- Barthundra
                 group = 'barelement',
-                combat_only = false,
-                self_only = true,
             },
             {
                 name = 'Barblizzara',
@@ -513,8 +492,6 @@ return {
                 command = '/ma "Barblizzara" <me>',
                 buff_id = 101,  -- Barblizzara
                 group = 'barelement',
-                combat_only = false,
-                self_only = true,
             },
             {
                 name = 'Barfira',
@@ -524,8 +501,6 @@ return {
                 command = '/ma "Barfira" <me>',
                 buff_id = 100,  -- Barfira
                 group = 'barelement',
-                combat_only = false,
-                self_only = true,
             },
             {
                 name = 'Baraera',
@@ -535,8 +510,6 @@ return {
                 command = '/ma "Baraera" <me>',
                 buff_id = 102,  -- Baraera
                 group = 'barelement',
-                combat_only = false,
-                self_only = true,
             },
             {
                 name = 'Barwatera',
@@ -546,8 +519,6 @@ return {
                 command = '/ma "Barwatera" <me>',
                 buff_id = 105,  -- Barwatera
                 group = 'barelement',
-                combat_only = false,
-                self_only = true,
             },
             {
                 name = 'Barstonra',
@@ -557,8 +528,6 @@ return {
                 command = '/ma "Barstonra" <me>',
                 buff_id = 103,  -- Barstonra
                 group = 'barelement',
-                combat_only = false,
-                self_only = true,
             },
             -- Bar Status spells
             {
@@ -569,8 +538,6 @@ return {
                 command = '/ma "Baramnesra" <me>',
                 buff_id = 286,  -- Baramnesra
                 group = 'barstatus',
-                combat_only = false,
-                self_only = true,
             },
             {
                 name = 'Barpetra',
@@ -580,8 +547,6 @@ return {
                 command = '/ma "Barpetra" <me>',
                 buff_id = 111,  -- Barpetra
                 group = 'barstatus',
-                combat_only = false,
-                self_only = true,
             },
             {
                 name = 'Barvira',
@@ -591,8 +556,6 @@ return {
                 command = '/ma "Barvira" <me>',
                 buff_id = 112,  -- Barvira
                 group = 'barstatus',
-                combat_only = false,
-                self_only = true,
             },
             {
                 name = 'Barsilencera',
@@ -602,8 +565,6 @@ return {
                 command = '/ma "Barsilencera" <me>',
                 buff_id = 110,  -- Barsilencera
                 group = 'barstatus',
-                combat_only = false,
-                self_only = true,
             },
             {
                 name = 'Barblindra',
@@ -613,8 +574,6 @@ return {
                 command = '/ma "Barblindra" <me>',
                 buff_id = 109,  -- Barblindra
                 group = 'barstatus',
-                combat_only = false,
-                self_only = true,
             },
             {
                 name = 'Barparalyzra',
@@ -624,8 +583,6 @@ return {
                 command = '/ma "Barparalyzra" <me>',
                 buff_id = 108,  -- Barparalyzra
                 group = 'barstatus',
-                combat_only = false,
-                self_only = true,
             },
             {
                 name = 'Barpoisonra',
@@ -635,8 +592,6 @@ return {
                 command = '/ma "Barpoisonra" <me>',
                 buff_id = 107,  -- Barpoisonra
                 group = 'barstatus',
-                combat_only = false,
-                self_only = true,
             },
             {
                 name = 'Barsleepra',
@@ -646,8 +601,6 @@ return {
                 command = '/ma "Barsleepra" <me>',
                 buff_id = 106,  -- Barsleepra
                 group = 'barstatus',
-                combat_only = false,
-                self_only = true,
             },
             {
                 name = 'Aquaveil',
@@ -656,7 +609,6 @@ return {
                 id = 55,  -- Spell ID
                 command = '/ma "Aquaveil" <me>',
                 buff_id = 39,  -- Aquaveil
-                combat_only = false,
             },
             {
                 name = 'Blink',
@@ -665,7 +617,6 @@ return {
                 id = 53,  -- Spell ID
                 command = '/ma "Blink" <me>',
                 buff_id = 36,  -- Blink
-                combat_only = false,
             },
             {
                 name = 'Stoneskin',
@@ -674,7 +625,6 @@ return {
                 id = 54,  -- Spell ID
                 command = '/ma "Stoneskin" <me>',
                 buff_id = 37,  -- Stoneskin
-                combat_only = false,
             },
             {
                 name = 'Reraise III',
@@ -684,7 +634,6 @@ return {
                 command = '/ma "Reraise III" <me>',
                 buff_id = 113,  -- Reraise
                 group = 'reraise',
-                combat_only = false,
             },
             {
                 name = 'Reraise II',
@@ -694,7 +643,6 @@ return {
                 command = '/ma "Reraise II" <me>',
                 buff_id = 113,  -- Reraise
                 group = 'reraise',
-                combat_only = false,
             },
             {
                 name = 'Reraise',
@@ -704,7 +652,6 @@ return {
                 command = '/ma "Reraise" <me>',
                 buff_id = 113,  -- Reraise
                 group = 'reraise',
-                combat_only = false,
             },
             {
                 name = 'Enlight',
@@ -713,8 +660,7 @@ return {
                 id = 310,  -- Spell ID
                 command = '/ma "Enlight" <me>',
                 buff_id = 274,  -- Enlight
-                combat_only = true,
-                self_only = true,
+                engaged_only = true,
             },
             {
                 name = 'Auspice',
@@ -723,7 +669,7 @@ return {
                 id = 96,  -- Spell ID
                 command = '/ma "Auspice" <me>',
                 buff_id = 275,  -- Auspice
-                combat_only = true,
+                engaged_only = true,
             },
             {
                 name = 'Invisible',
@@ -771,7 +717,6 @@ return {
                     return '/ja "Martyr" '..target
                 end,
                 range = 18,
-                combat_only = false,
             },
             {
                 name = 'Divine Seal',
@@ -779,7 +724,6 @@ return {
                 cost = 0,
                 id = 26,  -- Job Ability ID
                 command = '/ja "Divine Seal" <me>',
-                combat_only = false,
             },
         },
 

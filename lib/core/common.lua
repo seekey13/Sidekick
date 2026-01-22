@@ -5,6 +5,10 @@
 
 local common = {}
 local chat = require('chat')
+local targets = require('lib.core.targets')
+
+-- Export targets module for direct access
+common.targets = targets
 
 -- Ashita API references
 local ashita = ashita or {}
@@ -150,23 +154,35 @@ end
 ]]--
 
 function common.is_idle()
-    local ok, player_entity = pcall(function()
-        return GetPlayerEntity()
+    -- Returns true if not in combat (no valid mob battle target)
+    local ok, bt = pcall(function()
+        return targets.get_bt()
     end)
     
-    if not ok or not player_entity then
-        return false
+    if not ok then
+        return true  -- Assume idle if we can't get battle target
     end
     
-    local ok_status, status = pcall(function()
-        return player_entity.Status
+    -- Check if battle target is a mob (0x10 flag in SpawnFlags)
+    local is_mob = bt and bit.band(bt.SpawnFlags, 0x10) ~= 0 or false
+    
+    return not is_mob
+end
+
+function common.is_combat()
+    -- Returns true if in combat (valid mob battle target exists)
+    local ok, bt = pcall(function()
+        return targets.get_bt()
     end)
     
-    if not ok_status or not status then
-        return false
+    if not ok then
+        return false  -- Assume not in combat if we can't get battle target
     end
     
-    return status == 0
+    -- Check if battle target is a mob (0x10 flag in SpawnFlags)
+    local is_mob = bt and bit.band(bt.SpawnFlags, 0x10) ~= 0 or false
+    
+    return is_mob
 end
 
 function common.is_engaged()
@@ -189,27 +205,6 @@ function common.is_engaged()
     return status == 1
 end
 
-function common.is_in_event()
-    local ok, player_entity = pcall(function()
-        return GetPlayerEntity()
-    end)
-    
-    if not ok or not player_entity then
-        return false
-    end
-    
-    local ok_status, status = pcall(function()
-        return player_entity.Status
-    end)
-    
-    if not ok_status or not status then
-        return false
-    end
-    
-    -- Event, cutscene, or other blocking status
-    return status >= 2
-end
-
 function common.can_attack()
     -- Get current zone
     local zone_id = common.get_zone_id()
@@ -221,6 +216,17 @@ function common.can_attack()
     for _, safe_zone_id in ipairs(non_combat_zone_ids) do
         if zone_id == safe_zone_id then
             return false
+        end
+    end
+    
+    -- Event system pointer (code from Thorny)
+    local pEventSystem = ashita.memory.find('FFXiMain.dll', 0, "A0????????84C0741AA1????????85C0741166A1????????663B05????????0F94C0C3", 0, 0)
+
+    -- Check if event system is currently active (cutscene, dialog, etc.)
+    if pEventSystem ~= 0 then
+        local ptr = ashita.memory.read_uint32(pEventSystem + 1)
+        if ptr ~= 0 and ashita.memory.read_uint8(ptr) == 1 then
+            return false  -- Cannot attack during events
         end
     end
     
@@ -415,88 +421,21 @@ function common.get_player_tp()
     return party:GetMemberTP(0)
 end
 
--- Get pet entity
--- Returns: pet entity object or nil if no pet
-function common.get_pet_entity()
-    -- Get player entity
-    local ok, player = pcall(function()
-        return GetPlayerEntity()
-    end)
-    
-    if not ok or not player then
-        return nil
-    end
-    
-    -- Check if player has a pet target index
-    local ok_index, pet_index = pcall(function()
-        return player.PetTargetIndex
-    end)
-    
-    if not ok_index or not pet_index or pet_index == 0 then
-        return nil
-    end
-    
-    -- Get the pet entity
-    local ok_pet, pet = pcall(function()
-        return GetEntity(pet_index)
-    end)
-    
-    if not ok_pet or not pet then
-        return nil
-    end
-    
-    return pet
-end
-
-function common.has_pet()
-    return common.get_pet_entity() ~= nil
-end
-
 -- Get pet's HP percentage
 -- Returns: number (HP percentage 0-100) or 0 if no pet
 function common.get_pet_hp_percent()
-    local pet = common.get_pet_entity()
+    local pet = targets.get_pet()
     if not pet then
         return 0
     end
     
     -- Get pet's HealthPercent
-    local ok_hpp, hpp = pcall(function()
-        return pet.HealthPercent
-    end)
-    
-    if not ok_hpp or not hpp then
+    local hpp = pet.HealthPercent
+    if not hpp then
         return 0
     end
     
     return hpp
-end
-
--- Get entity by index
--- Args: entity_index (number) - Entity index (0 = player)
--- Returns: entity object or nil on error
-function common.get_entity(entity_index)
-    -- Special case for player entity (index 0)
-    if entity_index == 0 then
-        local ok, player = pcall(function()
-            return GetPlayerEntity()
-        end)
-        
-        if ok and player then
-            return player
-        end
-    end
-    
-    -- Try standard GetEntity for all indices (including 0 as fallback)
-    local ok, entity = pcall(function()
-        return GetEntity(entity_index)
-    end)
-    
-    if ok and entity then
-        return entity
-    end
-    
-    return nil
 end
 
 -- Get party manager
@@ -527,33 +466,16 @@ function common.get_entity_manager()
     return entity_mgr
 end
 
--- Get target manager
--- Returns: target manager object or nil on error
-function common.get_target()
-    local ok, target = pcall(function()
-        return AshitaCore:GetMemoryManager():GetTarget()
-    end)
-    
-    if not ok or not target then
-        return nil
-    end
-    
-    return target
-end
-
 -- Get player's current target index
 -- Returns: number (target index) or 0 if no target
 function common.get_target_index()
-    local target = common.get_target()
-    if not target then
+    local target_entity = targets.get_t()
+    if not target_entity then
         return 0
     end
     
-    local ok_index, target_index = pcall(function()
-        return target:GetTargetIndex(0)
-    end)
-    
-    if not ok_index or not target_index then
+    local target_index = target_entity.TargetIndex
+    if not target_index then
         return 0
     end
     
@@ -563,22 +485,12 @@ end
 -- Get player's current target server ID
 -- Returns: number (target server ID) or 0 if no target
 function common.get_target_id()
-    local target = common.get_target()
-    if not target then
+    local target_entity = targets.get_t()
+    if not target_entity then
         return 0
     end
     
-    local target_index = target:GetTargetIndex(0)
-    if target_index == 0 then
-        return 0
-    end
-    
-    local entity_mgr = common.get_entity_manager()
-    if not entity_mgr then
-        return 0
-    end
-    
-    local server_id = entity_mgr:GetServerId(target_index)
+    local server_id = target_entity.ServerId
     if not server_id or server_id == 0 then
         return 0
     end
@@ -720,12 +632,12 @@ function common.is_in_range(target_index, range)
     local range_value = type(range) == 'number' and range or 21
     
     -- Get both entities
-    local player_entity = common.get_entity(0)
+    local player_entity = targets.get_me()
     if not player_entity then
         return false
     end
     
-    local target_entity = common.get_entity(target_index)
+    local target_entity = GetEntity(target_index)
     if not target_entity then
         return false
     end
@@ -738,12 +650,12 @@ end
 -- Get distance between player and pet
 -- Returns: number (distance in yalms) or nil if no pet or error
 function common.get_pet_distance()
-    local player_entity = common.get_entity(0)
+    local player_entity = targets.get_me()
     if not player_entity then
         return nil
     end
     
-    local pet_entity = common.get_pet_entity()
+    local pet_entity = targets.get_pet()
     if not pet_entity then
         return nil
     end
@@ -1404,10 +1316,14 @@ function common.filter_abilities_by_level(abilities, settings, main_level, sub_l
         
         if is_disabled then
             -- Skip disabled ability
-        elseif ability.requires_pet and not common.has_pet() then
+        elseif ability.requires_pet and not targets.get_pet() then
             -- Skip if requires pet but no pet available
-        elseif ability.combat_only and common.is_idle() then
-            -- Skip if combat only and not engaged
+        elseif ability.idle_only and not common.is_idle() then
+            -- Skip if idle only and not idle
+        elseif ability.combat_only and not common.is_combat() then
+            -- Skip if combat only and not in combat
+        elseif ability.engaged_only and not common.is_engaged() then
+            -- Skip if engaged only and not engaged
         elseif job_def and job_def.validate_ability and not job_def.validate_ability(ability, common) then
             -- Skip if job-specific validator fails
             common.debugf('[filter_abilities] %s blocked by job validator', ability.name)

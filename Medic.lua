@@ -366,11 +366,6 @@ local function automation_tick()
     if not common.can_attack() then
         return
     end
-    
-    -- Check if in event/cutscene
-    if common.is_in_event() then
-        return
-    end
 
     -- Check if casting
     if common.is_casting() then

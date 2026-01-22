@@ -15,7 +15,7 @@ function heal_pet.execute(settings, job_def, main_level, sub_level, player_resou
     end
     
     -- Check if player has a pet
-    if not common.has_pet() then
+    if not common.targets.get_pet() then
         return nil
     end
     

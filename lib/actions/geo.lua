@@ -20,7 +20,7 @@ function geo.execute(settings, job_def, main_level, sub_level, player_resource)
     -- ========================================================================
     
     -- Check if player has a pet (only needed for Full Circle)
-    if common.has_pet() then
+    if common.targets.get_pet() then
         -- Get distance between player and pet
         local pet_distance = common.get_pet_distance()
         if pet_distance then
@@ -89,11 +89,6 @@ function geo.execute(settings, job_def, main_level, sub_level, player_resource)
         -- Check if Entrust ability is enabled in settings
         local entrust_enabled_key = 'disabled_Entrust'
         if settings[entrust_enabled_key] == true then
-            return nil
-        end
-        
-        -- Only attempt entrust in combat
-        if not common.is_engaged() then
             return nil
         end
         

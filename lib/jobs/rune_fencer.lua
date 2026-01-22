@@ -27,7 +27,6 @@ return {
                 end,
                 element = 'Light',
                 buff_id = 17,  -- Protect buff
-                combat_only = false,
                 group = 'protect',
             },
             {
@@ -40,7 +39,6 @@ return {
                 end,
                 element = 'Light',
                 buff_id = 40,  -- Protect II buff
-                combat_only = false,
                 group = 'protect',
             },
             {
@@ -53,7 +51,6 @@ return {
                 end,
                 element = 'Light',
                 buff_id = 41,  -- Protect III buff
-                combat_only = false,
                 group = 'protect',
             },
             -- Shell spells
@@ -67,7 +64,6 @@ return {
                 end,
                 element = 'Light',
                 buff_id = 41,  -- Shell buff
-                combat_only = false,
                 group = 'shell',
             },
             {
@@ -80,7 +76,6 @@ return {
                 end,
                 element = 'Light',
                 buff_id = 41,  -- Shell II buff
-                combat_only = false,
                 group = 'shell',
             },
             {
@@ -93,7 +88,6 @@ return {
                 end,
                 element = 'Light',
                 buff_id = 41,  -- Shell III buff
-                combat_only = false,
                 group = 'shell',
             },
             {
@@ -106,7 +100,6 @@ return {
                 end,
                 element = 'Light',
                 buff_id = 41,  -- Shell IV buff
-                combat_only = false,
                 group = 'shell',
             },
             -- Barelement
@@ -121,7 +114,6 @@ return {
                 element = 'Wind',
                 buff_id = 102,  -- Barstone buff
                 group = 'barelement',
-                combat_only = false,
             },
             {
                 name = 'Barwater',
@@ -134,7 +126,6 @@ return {
                 element = 'Thunder',
                 buff_id = 104,  -- Barwater buff
                 group = 'barelement',
-                combat_only = false,
             },
             {
                 name = 'Baraero',
@@ -147,7 +138,6 @@ return {
                 element = 'Ice',
                 buff_id = 107,  -- Baraero buff
                 group = 'barelement',
-                combat_only = false,
             },
             {
                 name = 'Barfire',
@@ -160,7 +150,6 @@ return {
                 element = 'Water',
                 buff_id = 108,  -- Barfire buff
                 group = 'barelement',
-                combat_only = false,
             },
             {
                 name = 'Barblizzard',
@@ -173,7 +162,6 @@ return {
                 element = 'Fire',
                 buff_id = 110,  -- Barblizzard buff
                 group = 'barelement',
-                combat_only = false,
             },
             {
                 name = 'Barthunder',
@@ -186,7 +174,6 @@ return {
                 element = 'Earth',
                 buff_id = 112,  -- Barthunder buff
                 group = 'barelement',
-                combat_only = false,
             },
             -- Barstatus
             {
@@ -200,7 +187,6 @@ return {
                 element = 'Light',
                 buff_id = 103,  -- Barsleep buff
                 group = 'barstatus',
-                combat_only = false,
             },
             {
                 name = 'Barpoison',
@@ -213,7 +199,6 @@ return {
                 element = 'Thunder',
                 buff_id = 105,  -- Barpoison buff
                 group = 'barstatus',
-                combat_only = false,
             },
             {
                 name = 'Barparalyze',
@@ -226,7 +211,6 @@ return {
                 element = 'Fire',
                 buff_id = 106,  -- Barparalyze buff
                 group = 'barstatus',
-                combat_only = false,
             },
             {
                 name = 'Barblind',
@@ -239,7 +223,6 @@ return {
                 element = 'Light',
                 buff_id = 109,  -- Barblind buff
                 group = 'barstatus',
-                combat_only = false,
             },
             {
                 name = 'Barsilence',
@@ -252,7 +235,6 @@ return {
                 element = 'Ice',
                 buff_id = 111,  -- Barsilence buff
                 group = 'barstatus',
-                combat_only = false,
             },
             {
                 name = 'Barvirus',
@@ -265,7 +247,6 @@ return {
                 element = 'Water',
                 buff_id = 113,  -- Barvirus buff
                 group = 'barstatus',
-                combat_only = false,
             },
             {
                 name = 'Barpetrify',
@@ -278,7 +259,6 @@ return {
                 element = 'Wind',
                 buff_id = 114,  -- Barpetrify buff
                 group = 'barstatus',
-                combat_only = false,
             },
             {
                 name = 'Baramnesia',
@@ -291,7 +271,6 @@ return {
                 element = 'Water',
                 buff_id = 115,  -- Baramnesia buff
                 group = 'barstatus',
-                combat_only = false,
             },
             -- Regen
             {
@@ -303,7 +282,7 @@ return {
                     return '/ma "Regen" '..target
                 end,
                 buff_id = 42,  -- Regen
-                combat_only = false,
+                combat_only = true,
             },
             {
                 name = 'Regen II',
@@ -315,7 +294,7 @@ return {
                 end,
                 element = 'Light',
                 buff_id = 84,  -- Regen II buff
-                combat_only = false,
+                combat_only = true,
             },
             {
                 name = 'Regen III',
@@ -327,7 +306,7 @@ return {
                 end,
                 element = 'Light',
                 buff_id = 121,  -- Regen III buff
-                combat_only = false,
+                combat_only = true,
             },
             -- Refresh
             {
@@ -340,7 +319,6 @@ return {
                 end,
                 element = 'Light',
                 buff_id = 43,  -- Refresh buff
-                combat_only = false,
             },
             {
                 name = 'Foil',
@@ -350,7 +328,7 @@ return {
                 command = '/ma "Foil" <me>',
                 element = 'Wind',
                 buff_id = 480,  -- Foil buff
-                combat_only = true,
+                engaged_only = true,
             },
             {
                 name = 'Swordplay',
@@ -359,7 +337,7 @@ return {
                 id = 24,  -- Swordplay recast ID
                 command = '/ja "Swordplay" <me>',
                 buff_id = 475,  -- Swordplay buff
-                combat_only = true,
+                engaged_only = true,
             },
             {
                 name = 'Phalanx',
@@ -370,7 +348,6 @@ return {
                 element = 'Light',
                 buff_id = 116,  -- Phalanx buff
                 combat_only = true,
-                self_only = true,
             },
             -- Spikes
             {
@@ -382,7 +359,7 @@ return {
                 element = 'Fire',
                 buff_id = 35,  -- Blaze Spikes buff
                 group = 'spikes',
-                combat_only = true,
+                engaged_only = true,
             },
             {
                 name = 'Ice Spikes',
@@ -393,7 +370,7 @@ return {
                 element = 'Ice',
                 buff_id = 42,  -- Ice Spikes buff
                 group = 'spikes',
-                combat_only = true,
+                engaged_only = true,
             },
             -- Everything else
             {
@@ -404,7 +381,6 @@ return {
                 command = '/ma "Aquaveil" <me>',
                 element = 'Water',
                 buff_id = 39,  -- Aquaveil buff
-                combat_only = false,
             },
             {
                 name = 'Blink',
@@ -414,7 +390,6 @@ return {
                 command = '/ma "Blink" <me>',
                 element = 'Wind',
                 buff_id = 36,  -- Blink buff
-                combat_only = false,
             },
             {
                 name = 'Stoneskin',
@@ -424,7 +399,6 @@ return {
                 command = '/ma "Stoneskin" <me>',
                 element = 'Earth',
                 buff_id = 37,  -- Stoneskin buff
-                combat_only = false,
             },
         },
         
@@ -437,7 +411,6 @@ return {
                 id = 30,  -- Vivacious Pulse recast ID
                 command = '/ja "Vivacious Pulse" <me>',
                 self_only = true,
-                combat_only = false,
             },
         },
     },
