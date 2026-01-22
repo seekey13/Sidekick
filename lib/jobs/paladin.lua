@@ -188,6 +188,10 @@ return {
         debuff_removal_enabled = false,  -- Paladin has no debuff removal
         focus_enabled = false,
         focus_target_index = nil,
+        rest_enabled = false,
+        rest_timer = 5,
+        rest_threshold = 70,
+        rest_distance = 7,
         -- recover_enabled = false,
         -- recover_threshold = 25,
     },
@@ -197,6 +201,7 @@ return {
         'item',
         'heal',
         'buff',
+        'rest',
         -- recover,
     },
 }

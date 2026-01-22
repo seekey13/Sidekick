@@ -35,6 +35,9 @@ local movement_state = {
     check_interval = 0.25  -- Check every 250ms
 }
 
+-- Resting state tracking
+local is_resting = false
+
 -- Trust buff tracking (packet-based since memory reads don't work for Trusts)
 local trust_buffs = {}  -- trust_buffs[server_id] = {buff_id1, buff_id2, ...}
 local pending_buffs = {}  -- pending_buffs[n] = {server_id=x, buff_id=y, timestamp=t}
@@ -662,6 +665,37 @@ function common.get_pet_distance()
     
     -- Calculate distance between player and pet
     return calculate_distance(player_entity, pet_entity)
+end
+
+-- Get distance between player and party member
+-- Args: party_index (number) - Party member index (1-5)
+-- Returns: number (distance in yalms) or nil if error
+function common.get_party_member_distance(party_index)
+    if not party_index or party_index < 1 or party_index > 5 then
+        return nil
+    end
+    
+    local player_entity = targets.get_me()
+    if not player_entity then
+        return nil
+    end
+    
+    local party = common.get_party()
+    if not party or not common.is_party_member_active(party_index) then
+        return nil
+    end
+    
+    local target_index = party:GetMemberTargetIndex(party_index)
+    if not target_index or target_index == 0 then
+        return nil
+    end
+    
+    local member_entity = GetEntity(target_index)
+    if not member_entity then
+        return nil
+    end
+    
+    return calculate_distance(player_entity, member_entity)
 end
 
 --[[
@@ -1366,6 +1400,20 @@ function common.build_ability_command(ability, party_index)
         return ability.command
     end
     return nil
+end
+
+-- ============================================================================
+-- Resting State Management
+-- ============================================================================
+
+-- Get resting state
+function common.is_resting()
+    return is_resting
+end
+
+-- Set resting state
+function common.set_resting(state)
+    is_resting = state
 end
 
 return common

@@ -26,6 +26,7 @@ local focus_recovery_enabled = { false }
 -- Focus state (now saved to settings as names)
 local focus_target_name = nil  -- Character name or nil for None
 local focus_recovery_target_name = nil  -- Character name or nil for None
+local follow_target_name = nil  -- Character name or nil for None
 
 -- Entrust state (now saved to settings)
 local entrust_target_name = nil  -- Character name or nil for None
@@ -129,6 +130,27 @@ local function has_usable_abilities(abilities)
     return false
 end
 
+-- Check if an ability is a duplicate from subjob
+local function is_subjob_duplicate(job_def, ability)
+    if ability.is_main_job ~= false then
+        return false
+    end
+    
+    if not job_def or not job_def.abilities then
+        return false
+    end
+    
+    for category, abilities in pairs(job_def.abilities) do
+        for _, other_ability in ipairs(abilities) do
+            if other_ability.name == ability.name and other_ability.is_main_job ~= false then
+                return true
+            end
+        end
+    end
+    
+    return false
+end
+
 -- Sync UI state from settings
 local function sync_from_settings()
     if not current_settings then return end
@@ -225,6 +247,9 @@ function config_ui.render(settings, job_def, callback, roll_mod)
     if settings.focus_recovery_target ~= nil and focus_recovery_target_name == nil then
         focus_recovery_target_name = settings.focus_recovery_target
     end
+    if settings.follow_target ~= nil and follow_target_name == nil then
+        follow_target_name = settings.follow_target
+    end
     
     -- Store settings reference and callback
     current_settings = settings
@@ -245,6 +270,20 @@ function config_ui.render(settings, job_def, callback, roll_mod)
         get_usable_abilities_in_group = get_usable_abilities_in_group
     }
     
+    -- Build party member list once (used by multiple dropdowns)
+    local party_member_names = {}  -- Names only (P1-P5, excluding player)
+    local party = common.get_party()
+    if party then
+        for i = 1, 5 do
+            if party:GetMemberIsActive(i) == 1 then
+                local member_name = common.get_party_member_name(i)
+                if member_name and member_name ~= '' then
+                    table.insert(party_member_names, member_name)
+                end
+            end
+        end
+    end
+    
     -- Calculate fixed window width based on party size
     local party_size = common.get_party_size()
     local num_buttons = math.min(party_size, 6)
@@ -264,12 +303,18 @@ function config_ui.render(settings, job_def, callback, roll_mod)
         
         -- Automation toggle button
         local can_attack = common.can_attack()
+        local is_resting = common.is_resting()
         local button_text
         local status_text
         local status_color
         
         if settings.automation_enabled then
-            if can_attack then
+            if is_resting then
+                -- Resting state (automation enabled but resting for MP)
+                button_text = 'Resting'
+                status_text = 'Automation resting.'
+                status_color = ui.LIGHT_BLUE
+            elseif can_attack then
                 -- Running state
                 button_text = 'Stop'
                 status_text = 'Automation running.'
@@ -359,16 +404,14 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                 if is_open and is_enabled then
                     -- Build dynamic focus target options (None + all party including player)
                     local focus_target_options = { 'None' }
-                    local party = common.get_party()
-                    if party then
-                        for i = 0, 5 do
-                            if party:GetMemberIsActive(i) == 1 then
-                                local member_name = common.get_party_member_name(i)
-                                if member_name and member_name ~= '' then
-                                    table.insert(focus_target_options, member_name)
-                                end
-                            end
-                        end
+                    -- Add player (P0)
+                    local player_name = common.get_party_member_name(0)
+                    if player_name and player_name ~= '' then
+                        table.insert(focus_target_options, player_name)
+                    end
+                    -- Add party members (P1-P5)
+                    for _, name in ipairs(party_member_names) do
+                        table.insert(focus_target_options, name)
                     end
                     
                     -- Validate saved focus target name is in current party
@@ -427,7 +470,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                 ui.slider_int(ctx, 'Party (HP%)', 'heal_threshold', { settings.heal_threshold or 75 }, 1, 100)
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.heal) do
-                    if can_use_ability(ability) then
+                    if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                         ui.ability_checkbox(ctx, ability, job_def, 'heal')
                     end
                 end
@@ -438,7 +481,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                     ui.slider_int(ctx, 'Critical (HP%)', 'critical_threshold', { settings.critical_threshold or 30 }, 1, 50)
                     imgui.Indent(ui.ABILITY_LIST_INDENT)
                     for _, ability in ipairs(job_def.abilities.critical) do
-                        if can_use_ability(ability) then
+                        if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                             ui.ability_checkbox(ctx, ability, job_def, 'critical')
                         end
                     end
@@ -459,7 +502,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                 
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.heal_aoe) do
-                    if can_use_ability(ability) then
+                    if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                         ui.ability_checkbox(ctx, ability, job_def, 'heal_aoe')
                     end
                 end
@@ -477,7 +520,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                 
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.heal_pet) do
-                    if can_use_ability(ability) then
+                    if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                         ui.ability_checkbox(ctx, ability, job_def, 'heal_pet')
                     end
                 end
@@ -510,7 +553,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
             if is_open and is_enabled then
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.debuff_removal) do
-                    if can_use_ability(ability) then
+                    if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                         ui.ability_checkbox(ctx, ability, job_def, 'debuff_removal')
                     end
                 end
@@ -527,6 +570,67 @@ function config_ui.render(settings, job_def, callback, roll_mod)
 
         imgui.Separator()
         
+        -- Rest settings (only for MP-based jobs)
+        if job_def and job_def.resource_type == 'mp' then
+            local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Enable Resting', 'rest_enabled', false)
+            if is_open and is_enabled then
+                ui.slider_int(ctx, 'Timer (seconds)', 'rest_timer', { settings.rest_timer or 5 }, 1, 20)
+                ui.slider_int(ctx, 'Threshold (HP%)', 'rest_threshold', { settings.rest_threshold or 70 }, 1, 99)
+                
+                -- Build dynamic follow target options (None + party members P1-P5, exclude player)
+                local follow_target_options = { 'None' }
+                for _, name in ipairs(party_member_names) do
+                    table.insert(follow_target_options, name)
+                end
+                
+                -- Validate saved follow target name is in current party
+                local current_follow_display = 'None'
+                if follow_target_name then
+                    local found = false
+                    for _, name in ipairs(follow_target_options) do
+                        if name == follow_target_name then
+                            current_follow_display = follow_target_name
+                            found = true
+                            break
+                        end
+                    end
+                    if not found then
+                        -- Saved target not in party, reset
+                        follow_target_name = nil
+                        settings.follow_target = nil
+                        if callback then callback() end
+                    end
+                end
+                
+                -- Follow Target dropdown
+                imgui.PushItemWidth(250)
+                if imgui.BeginCombo('Follow Target', current_follow_display) then
+                    for _, option in ipairs(follow_target_options) do
+                        local is_selected = (option == current_follow_display)
+                        if imgui.Selectable(option, is_selected) then
+                            if option == 'None' then
+                                follow_target_name = nil
+                                settings.follow_target = nil
+                            else
+                                follow_target_name = option
+                                settings.follow_target = option
+                            end
+                            if callback then callback() end
+                        end
+                        if is_selected then
+                            imgui.SetItemDefaultFocus()
+                        end
+                    end
+                    imgui.EndCombo()
+                end
+                imgui.PopItemWidth()
+                
+                ui.slider_int(ctx, 'Distance (yalms)', 'rest_distance', { settings.rest_distance or 7 }, 1, 15)
+            end
+            
+            imgui.Separator()
+        end
+        
         -- Recovery settings
         local has_mp_recovery = job_def and job_def.abilities.recover_mp and has_usable_abilities(job_def.abilities.recover_mp)
         local has_tp_recovery = job_def and job_def.abilities.recover_tp and has_usable_abilities(job_def.abilities.recover_tp)
@@ -540,7 +644,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                     ui.slider_int(ctx, 'Self Recover (TP)', 'recover_tp_threshold', { settings.recover_tp_threshold or 500 }, 100, 3000)
                     imgui.Indent(ui.ABILITY_LIST_INDENT)
                     for _, ability in ipairs(job_def.abilities.recover_tp) do
-                        if can_use_ability(ability) then
+                        if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                             ui.ability_checkbox(ctx, ability, job_def, 'recover_tp')
                         end
                     end
@@ -556,7 +660,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                     ui.slider_int(ctx, 'Self Recover (MP%)', 'recover_mp_threshold', { settings.recover_mp_threshold or 30 }, 1, 100)
                     imgui.Indent(ui.ABILITY_LIST_INDENT)
                     for _, ability in ipairs(job_def.abilities.recover_mp) do
-                        if can_use_ability(ability) then
+                        if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                             ui.ability_checkbox(ctx, ability, job_def, 'recover_mp')
                         end
                     end
@@ -571,16 +675,8 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                 if has_party_mp_recovery then
                     -- Build dynamic recovery target options (None + party members P1-P5, exclude player)
                     local recovery_target_options = { 'None' }
-                    local party = common.get_party()
-                    if party then
-                        for i = 1, 5 do
-                            if party:GetMemberIsActive(i) == 1 then
-                                local member_name = common.get_party_member_name(i)
-                                if member_name and member_name ~= '' then
-                                    table.insert(recovery_target_options, member_name)
-                                end
-                            end
-                        end
+                    for _, name in ipairs(party_member_names) do
+                        table.insert(recovery_target_options, name)
                     end
                     
                     -- Validate saved recovery target name is in current party
@@ -631,7 +727,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                     
                     imgui.Indent(ui.ABILITY_LIST_INDENT)
                     for _, ability in ipairs(job_def.abilities.recover_party_mp) do
-                        if can_use_ability(ability) then
+                        if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                             ui.ability_checkbox(ctx, ability, job_def, 'recover_party_mp')
                         end
                     end
@@ -657,7 +753,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                 
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.buff) do
-                    if can_use_ability(ability) then
+                    if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                         ui.render_ability(ctx, ability, job_def, 'buff')
                     end
                 end
@@ -676,7 +772,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                 
                 -- Full Circle checkbox
                 for _, ability in ipairs(job_def.abilities.geo) do
-                    if ability.name ~= 'Entrust' and can_use_ability(ability) then
+                    if ability.name ~= 'Entrust' and can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                         ui.ability_checkbox(ctx, ability, job_def, 'geo')
                     end
                 end
@@ -715,16 +811,8 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                     if #available_indi_spells > 0 then
                         -- Build dynamic party target options (None + party member names for P1-P5)
                         local party_target_options = { 'None' }
-                        local party_target_names = {}
-                        local party = common.get_party()
-                        if party then
-                            for i = 1, 5 do
-                                local member_name = common.get_party_member_name(i)
-                                if member_name and member_name ~= '' then
-                                    table.insert(party_target_options, member_name)
-                                    party_target_names[member_name] = i
-                                end
-                            end
+                        for _, name in ipairs(party_member_names) do
+                            table.insert(party_target_options, name)
                         end
                         
                         -- Validate saved target name is in current party
@@ -828,7 +916,7 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                         -- Entrust ability checkbox (indented)
                         imgui.Indent(ui.ABILITY_LIST_INDENT)
                         for _, ability in ipairs(job_def.abilities.geo) do
-                            if ability.name == 'Entrust' and can_use_ability(ability) then
+                            if ability.name == 'Entrust' and can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                                 ui.ability_checkbox(ctx, ability, job_def, 'geo')
                             end
                         end

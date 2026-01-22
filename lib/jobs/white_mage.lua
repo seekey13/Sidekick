@@ -738,7 +738,7 @@ return {
         --             return '/ma "Arise" '..target
         --         end,
         --         range = 18,
-        --         combat_only = false,
+        --         idle_only = true,
         --     },
         --     {
         --         name = 'Raise III',
@@ -749,7 +749,7 @@ return {
         --             return '/ma "Raise III" '..target
         --         end,
         --         range = 18,
-        --         combat_only = false,
+        --         idle_only = true,
         --     },
         --     {
         --         name = 'Raise II',
@@ -760,7 +760,7 @@ return {
         --             return '/ma "Raise II" '..target
         --         end,
         --         range = 18,
-        --         combat_only = false,
+        --         idle_only = true,
         --     },
         --     {
         --         name = 'Raise',
@@ -771,7 +771,7 @@ return {
         --             return '/ma "Raise" '..target
         --         end,
         --         range = 18,
-        --         combat_only = false,
+        --         idle_only = true,
         --     },
         -- },
 
@@ -809,6 +809,10 @@ return {
         focus_threshold = 85,
         focus_recovery_target_index = nil,
         focus_recovery_threshold = 30,
+        rest_enabled = false,
+        rest_timer = 5,
+        rest_threshold = 70,
+        rest_distance = 7,
     },
     
     -- Action priority order
@@ -820,6 +824,7 @@ return {
         'debuff_removal',
         'wake',
         'buff',
+        'rest',
         -- revive,
     },
 }

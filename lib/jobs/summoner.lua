@@ -94,6 +94,10 @@ return {
         focus_enabled = false,
         focus_target_index = nil,
         focus_threshold = 85,
+        rest_enabled = false,
+        rest_timer = 5,
+        rest_threshold = 70,
+        rest_distance = 7,
     },
     
     -- Action priority order
@@ -103,6 +107,7 @@ return {
         'heal',
         'wake',
         'buff',
+        'rest',
     },
     
     -- Validate ability can be used (Summoner-specific: check for Carbuncle when required)

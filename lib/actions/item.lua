@@ -24,8 +24,6 @@ local function get_item_count(item_name)
         return nil  -- Return nil when resource manager fails (during zoning)
     end
     
-    common.debugf('[Item] Looking for item ID: %d (%s)', target_item.Id, item_name)
-    
     local ok_inv, inventory = pcall(function()
         return AshitaCore:GetMemoryManager():GetInventory()
     end)
@@ -40,8 +38,6 @@ local function get_item_count(item_name)
     -- Inventory container 0 has 80 slots in FFXI
     local max_slots = 80
     
-    common.debugf('[Item] Scanning %d inventory slots', max_slots)
-    
     for i = 0, max_slots - 1 do
         local ok_item_slot, item_entry = pcall(function()
             return inventory:GetContainerItem(0, i)
@@ -53,7 +49,6 @@ local function get_item_count(item_name)
                 valid_item_count = valid_item_count + 1
                 
                 if item_entry.Id == target_item.Id then
-                    common.debugf('[Item] Found %s in slot %d, count: %d', item_name, i, item_entry.Count)
                     total_count = total_count + item_entry.Count
                 end
             end
@@ -66,7 +61,6 @@ local function get_item_count(item_name)
         return nil
     end
     
-    common.debugf('[Item] Total count for %s: %d', item_name, total_count)
     return total_count
 end
 

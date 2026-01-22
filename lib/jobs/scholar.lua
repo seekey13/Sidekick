@@ -643,7 +643,7 @@ return {
         --             return '/ma "Raise II" '..target
         --         end,
         --         range = 20,
-        --         wakes = true,
+        --         idle_only = true,
         --         requires_buff = 401,  -- Requires Addendum: White
         --     },
         --     {
@@ -655,7 +655,7 @@ return {
         --             return '/ma "Raise" '..target
         --         end,
         --         range = 20,
-        --         wakes = true,
+        --         idle_only = true,
         --         requires_buff = 401,  -- Requires Addendum: White
         --     },
         -- },
@@ -681,6 +681,10 @@ return {
         focus_enabled = false,
         focus_target_index = nil,
         focus_threshold = 85,
+        rest_enabled = false,
+        rest_timer = 5,
+        rest_threshold = 70,
+        rest_distance = 7,
     },
     
     -- Action priority order
@@ -692,5 +696,6 @@ return {
         'wake',
         'recover',
         'buff',
+        'rest',
     },
 }

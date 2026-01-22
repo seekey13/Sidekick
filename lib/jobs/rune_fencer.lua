@@ -429,6 +429,10 @@ return {
         buff_enabled = true,
         focus_enabled = false,
         focus_target_index = nil,
+        rest_enabled = false,
+        rest_timer = 5,
+        rest_threshold = 70,
+        rest_distance = 7,
     },
     
     -- Action priority order
@@ -436,5 +440,6 @@ return {
         'item',
         'heal',
         'buff',
+        'rest',
     },
 }

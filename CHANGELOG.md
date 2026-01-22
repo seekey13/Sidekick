@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.2.0] - 2026-01-18
 
 ### Added
+- **Automatic Resting**: New rest action module for MP-based jobs automatically triggers `/heal on` when idle to recover MP:
+  - **Two-Phase Timer**: Conditions become favorable → wait configurable timer duration (1-20s, default 5s) → start resting
+  - **HP Threshold Safety**: Stops resting if any party member drops below threshold (1-99%, default 70%)
+  - **Follow Target System**: Optional follow target selection (P1-P5) with distance monitoring (1-15 yalms, default 7)
+  - **Smart Blocking**: Prevents resting when engaged, moving, casting, or when MP is full
+  - **Priority**: Executes last in action priority order to allow healing/buffing to take precedence
+  - Available for: White Mage, Scholar, Red Mage, Paladin, Geomancer, Bard, Rune Fencer, Summoner
 - **Conditional Ability Flags**: Three mutually exclusive flags for conditional ability usage with color-coded UI indicators:
   - `idle_only` (green) - Only usable when not in combat (checks `is_idle()`)
   - `combat_only` (yellow) - Only usable when in combat with a battle target nearby (checks `is_combat()`)

@@ -699,6 +699,10 @@ return {
         heal_pet_enabled = true,
         geo_enabled = true,
         geo_distance_threshold = 10,
+        rest_enabled = false,
+        rest_timer = 5,
+        rest_threshold = 70,
+        rest_distance = 7,
     },
     
     -- Action priority order
@@ -710,5 +714,6 @@ return {
         'recover',
         'buff',
         'geo',
+        'rest',
     },
 }

@@ -35,6 +35,7 @@ local action_modules = {
     buff = require('lib.actions.buff'),
     recover = require('lib.actions.recover'),
     geo = require('lib.actions.geo'),
+    rest = require('lib.actions.rest'),
 }
 
 -- Load config UI
@@ -186,6 +187,7 @@ local function load_job_definition(main_job_id, sub_job_id)
         'recover',
         'geo',
         'buff',
+        'rest',
     }
     
     -- Collect all actions from both jobs
@@ -559,6 +561,15 @@ ashita.events.register('d3d_present', 'medic_render', function()
     if not setup_attempted then
         setup_attempted = true
         setup_job()
+        
+        -- Initialize job tracking to prevent false job change detection
+        local job_id, sub_job_id = common.get_player_job()
+        local main_level, sub_level = common.get_player_level()
+        if job_id and job_id > 0 and main_level and main_level > 0 then
+            last_job_id = job_id
+            last_sub_job_id = sub_job_id or 0
+            last_level = main_level
+        end
         
         -- Restore automation state
         if addon_settings and addon_settings.automation_enabled then
