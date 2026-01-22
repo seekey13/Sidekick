@@ -43,6 +43,7 @@ A focused, support-oriented addon for Ashita v4 that automates healing, buffing,
 - **Debuff Removal**: Remove poison, paralysis, silence, and other negative status effects
 - **Buff Maintenance**: Auto-apply and maintain self-buffs with single-target party buff support
 - **Resource Recovery**: Automated MP and TP recovery abilities
+- **Automatic Resting**: MP-based jobs automatically rest when idle to recover MP with configurable timer, HP threshold safety, and optional follow target distance monitoring
 - **Geomancer Support**: Automatic Full Circle execution when luopan exceeds distance threshold
 
 ### User Interface
@@ -243,6 +244,11 @@ Settings are saved per job in JSON format in the Ashita config directory:
 - `buff_enabled` (boolean): Enable buff maintenance
 - `debuff_removal_enabled` (boolean): Enable debuff removal
 - `recover_enabled` (boolean): Enable MP/TP recovery
+- `rest_enabled` (boolean): Enable automatic resting (MP-based jobs only)
+- `rest_timer` (number): Timer duration in seconds before resting starts (1-20, default 5)
+- `rest_threshold` (number): HP% threshold - stops resting if any party member below this (1-99, default 70)
+- `rest_distance` (number): Distance in yalms to follow target - stops resting if exceeded (1-15, default 7)
+- `follow_target` (string): Character name of party member to follow for distance checking (P1-P5, optional)
 - `geo_enabled` (boolean): Enable geo management
 - `geo_distance_threshold` (number): Distance threshold for Full Circle
 

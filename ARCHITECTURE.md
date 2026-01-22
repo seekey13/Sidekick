@@ -55,8 +55,9 @@ Medic follows these core principles:
     │  (actions/*.lua)                    │
     │  - heal, heal_aoe, heal_pet         │
     │  - wake, debuff_removal             │
-    │  - buff, geo                        │
+    │  - buff, geo, item                  │
     │  - recover (recover_mp, recover_tp) │
+    │  - rest                             │
     └──────────────┬──────────────────────┘
                    │
                    │ uses
@@ -390,6 +391,32 @@ Geomancer-specific Full Circle automation and Entrust management.
 - All Geo spells marked with `main_job_only=true` flag
 - Spells hidden from UI when Geomancer is subjob
 - `can_use_ability()` enforces restriction based on `is_main_job` flag
+
+#### rest.lua
+Automatic MP recovery through resting (/heal on) for MP-based jobs.
+
+**Functionality:**
+- Monitors MP percentage and rests when below 100%
+- Two-phase timer system: conditions become favorable → wait timer duration → start resting
+- Configurable timer duration (1-20 seconds, default 5)
+- Stops resting when MP reaches 100%
+
+**Safety Conditions:**
+- Blocks resting when engaged in combat
+- Blocks resting when moving or casting
+- Stops resting if any party member drops below HP threshold (1-99%, default 70%)
+
+**Follow Target System:**
+- Name-based target selection from party members (P1-P5, excludes player)
+- Distance threshold (1-15 yalms, default 7)
+- Stops resting if distance to follow target exceeds threshold
+- No distance checking when no follow target selected
+- Settings persist across sessions as character names
+
+**Priority:**
+- Executes last in priority order (after all other actions)
+- Allows healing, buffing, and support actions to take precedence
+- Automatically resumes resting after other actions complete
 
 ### Job Definitions
 
