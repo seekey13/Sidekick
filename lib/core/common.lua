@@ -35,6 +35,9 @@ local movement_state = {
     check_interval = 0.25  -- Check every 250ms
 }
 
+-- Resting state tracking
+local is_resting = false
+
 -- Trust buff tracking (packet-based since memory reads don't work for Trusts)
 local trust_buffs = {}  -- trust_buffs[server_id] = {buff_id1, buff_id2, ...}
 local pending_buffs = {}  -- pending_buffs[n] = {server_id=x, buff_id=y, timestamp=t}
@@ -1366,6 +1369,21 @@ function common.build_ability_command(ability, party_index)
         return ability.command
     end
     return nil
+end
+
+-- ============================================================================
+-- Resting State Management
+-- ============================================================================
+
+-- Get resting state
+function common.is_resting()
+    return is_resting
+end
+
+-- Set resting state
+function common.set_resting(state)
+    is_resting = state
+end
 end
 
 return common

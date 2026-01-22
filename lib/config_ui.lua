@@ -264,12 +264,18 @@ function config_ui.render(settings, job_def, callback, roll_mod)
         
         -- Automation toggle button
         local can_attack = common.can_attack()
+        local is_resting = common.is_resting()
         local button_text
         local status_text
         local status_color
         
         if settings.automation_enabled then
-            if can_attack then
+            if is_resting then
+                -- Resting state (automation enabled but resting for MP)
+                button_text = 'Resting'
+                status_text = 'Automation resting.'
+                status_color = ui.LIGHT_BLUE
+            elseif can_attack then
                 -- Running state
                 button_text = 'Stop'
                 status_text = 'Automation running.'
@@ -526,6 +532,17 @@ function config_ui.render(settings, job_def, callback, roll_mod)
         ui.item_doom_removal_checkbox(ctx)
 
         imgui.Separator()
+        
+        -- Rest settings (only for MP-based jobs)
+        if job_def and job_def.resource_type == 'mp' then
+            local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Enable Resting', 'rest_enabled', false)
+            if is_open and is_enabled then
+                ui.slider_int(ctx, 'Resting Timer (seconds)', 'rest_timer', { settings.rest_timer or 5 }, 1, 20)
+                ui.slider_int(ctx, 'Resting Threshold (HP%)', 'rest_threshold', { settings.rest_threshold or 70 }, 1, 99)
+            end
+            
+            imgui.Separator()
+        end
         
         -- Recovery settings
         local has_mp_recovery = job_def and job_def.abilities.recover_mp and has_usable_abilities(job_def.abilities.recover_mp)

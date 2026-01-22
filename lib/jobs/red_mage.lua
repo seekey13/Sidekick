@@ -483,6 +483,9 @@ return {
         focus_enabled = false,
         focus_target_index = nil,
         focus_threshold = 85,
+        rest_enabled = false,
+        rest_timer = 5,
+        rest_threshold = 70,
     },
     
     -- Action priority order
@@ -492,6 +495,7 @@ return {
         'wake',
         'recover',
         'buff',
+        'rest',
         -- revive,
     },
 }

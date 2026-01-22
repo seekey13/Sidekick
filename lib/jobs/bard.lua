@@ -596,11 +596,15 @@ return {
     -- Default settings for UI
     default_settings = {
         buff_enabled = true,
+        rest_enabled = false,
+        rest_timer = 5,
+        rest_threshold = 70,
     },
     
     -- Action priority order
     priority_order = {
         'item',
         'buff',
+        'rest',
     }, 
 }

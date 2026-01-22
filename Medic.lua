@@ -35,6 +35,7 @@ local action_modules = {
     buff = require('lib.actions.buff'),
     recover = require('lib.actions.recover'),
     geo = require('lib.actions.geo'),
+    rest = require('lib.actions.rest'),
 }
 
 -- Load config UI
@@ -186,6 +187,7 @@ local function load_job_definition(main_job_id, sub_job_id)
         'recover',
         'geo',
         'buff',
+        'rest',
     }
     
     -- Collect all actions from both jobs
