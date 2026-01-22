@@ -26,6 +26,7 @@ local focus_recovery_enabled = { false }
 -- Focus state (now saved to settings as names)
 local focus_target_name = nil  -- Character name or nil for None
 local focus_recovery_target_name = nil  -- Character name or nil for None
+local follow_target_name = nil  -- Character name or nil for None
 
 -- Entrust state (now saved to settings)
 local entrust_target_name = nil  -- Character name or nil for None
@@ -225,6 +226,9 @@ function config_ui.render(settings, job_def, callback, roll_mod)
     if settings.focus_recovery_target ~= nil and focus_recovery_target_name == nil then
         focus_recovery_target_name = settings.focus_recovery_target
     end
+    if settings.follow_target ~= nil and follow_target_name == nil then
+        follow_target_name = settings.follow_target
+    end
     
     -- Store settings reference and callback
     current_settings = settings
@@ -244,6 +248,20 @@ function config_ui.render(settings, job_def, callback, roll_mod)
         get_abilities_in_group = get_abilities_in_group,
         get_usable_abilities_in_group = get_usable_abilities_in_group
     }
+    
+    -- Build party member list once (used by multiple dropdowns)
+    local party_member_names = {}  -- Names only (P1-P5, excluding player)
+    local party = common.get_party()
+    if party then
+        for i = 1, 5 do
+            if party:GetMemberIsActive(i) == 1 then
+                local member_name = common.get_party_member_name(i)
+                if member_name and member_name ~= '' then
+                    table.insert(party_member_names, member_name)
+                end
+            end
+        end
+    end
     
     -- Calculate fixed window width based on party size
     local party_size = common.get_party_size()
@@ -365,16 +383,14 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                 if is_open and is_enabled then
                     -- Build dynamic focus target options (None + all party including player)
                     local focus_target_options = { 'None' }
-                    local party = common.get_party()
-                    if party then
-                        for i = 0, 5 do
-                            if party:GetMemberIsActive(i) == 1 then
-                                local member_name = common.get_party_member_name(i)
-                                if member_name and member_name ~= '' then
-                                    table.insert(focus_target_options, member_name)
-                                end
-                            end
-                        end
+                    -- Add player (P0)
+                    local player_name = common.get_party_member_name(0)
+                    if player_name and player_name ~= '' then
+                        table.insert(focus_target_options, player_name)
+                    end
+                    -- Add party members (P1-P5)
+                    for _, name in ipairs(party_member_names) do
+                        table.insert(focus_target_options, name)
                     end
                     
                     -- Validate saved focus target name is in current party
@@ -537,9 +553,58 @@ function config_ui.render(settings, job_def, callback, roll_mod)
         if job_def and job_def.resource_type == 'mp' then
             local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Enable Resting', 'rest_enabled', false)
             if is_open and is_enabled then
-                ui.slider_int(ctx, 'Resting Timer (seconds)', 'rest_timer', { settings.rest_timer or 5 }, 1, 20)
-                ui.slider_int(ctx, 'Resting Threshold (HP%)', 'rest_threshold', { settings.rest_threshold or 70 }, 1, 99)
-                ui.slider_int(ctx, 'Resting Distance (yalms)', 'rest_distance', { settings.rest_distance or 7 }, 1, 15)
+                ui.slider_int(ctx, 'Timer (seconds)', 'rest_timer', { settings.rest_timer or 5 }, 1, 20)
+                ui.slider_int(ctx, 'Threshold (HP%)', 'rest_threshold', { settings.rest_threshold or 70 }, 1, 99)
+                
+                -- Build dynamic follow target options (None + party members P1-P5, exclude player)
+                local follow_target_options = { 'None' }
+                for _, name in ipairs(party_member_names) do
+                    table.insert(follow_target_options, name)
+                end
+                
+                -- Validate saved follow target name is in current party
+                local current_follow_display = 'None'
+                if follow_target_name then
+                    local found = false
+                    for _, name in ipairs(follow_target_options) do
+                        if name == follow_target_name then
+                            current_follow_display = follow_target_name
+                            found = true
+                            break
+                        end
+                    end
+                    if not found then
+                        -- Saved target not in party, reset
+                        follow_target_name = nil
+                        settings.follow_target = nil
+                        if callback then callback() end
+                    end
+                end
+                
+                -- Follow Target dropdown
+                imgui.PushItemWidth(250)
+                if imgui.BeginCombo('Follow Target', current_follow_display) then
+                    for _, option in ipairs(follow_target_options) do
+                        local is_selected = (option == current_follow_display)
+                        if imgui.Selectable(option, is_selected) then
+                            if option == 'None' then
+                                follow_target_name = nil
+                                settings.follow_target = nil
+                            else
+                                follow_target_name = option
+                                settings.follow_target = option
+                            end
+                            if callback then callback() end
+                        end
+                        if is_selected then
+                            imgui.SetItemDefaultFocus()
+                        end
+                    end
+                    imgui.EndCombo()
+                end
+                imgui.PopItemWidth()
+                
+                ui.slider_int(ctx, 'Distance (yalms)', 'rest_distance', { settings.rest_distance or 7 }, 1, 15)
             end
             
             imgui.Separator()
@@ -589,16 +654,8 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                 if has_party_mp_recovery then
                     -- Build dynamic recovery target options (None + party members P1-P5, exclude player)
                     local recovery_target_options = { 'None' }
-                    local party = common.get_party()
-                    if party then
-                        for i = 1, 5 do
-                            if party:GetMemberIsActive(i) == 1 then
-                                local member_name = common.get_party_member_name(i)
-                                if member_name and member_name ~= '' then
-                                    table.insert(recovery_target_options, member_name)
-                                end
-                            end
-                        end
+                    for _, name in ipairs(party_member_names) do
+                        table.insert(recovery_target_options, name)
                     end
                     
                     -- Validate saved recovery target name is in current party
@@ -733,16 +790,8 @@ function config_ui.render(settings, job_def, callback, roll_mod)
                     if #available_indi_spells > 0 then
                         -- Build dynamic party target options (None + party member names for P1-P5)
                         local party_target_options = { 'None' }
-                        local party_target_names = {}
-                        local party = common.get_party()
-                        if party then
-                            for i = 1, 5 do
-                                local member_name = common.get_party_member_name(i)
-                                if member_name and member_name ~= '' then
-                                    table.insert(party_target_options, member_name)
-                                    party_target_names[member_name] = i
-                                end
-                            end
+                        for _, name in ipairs(party_member_names) do
+                            table.insert(party_target_options, name)
                         end
                         
                         -- Validate saved target name is in current party

@@ -51,13 +51,27 @@ local function should_start_resting(settings, job_def)
         return false
     end
     
-    -- Check distance to P1 (first party member)
+    -- Check distance to follow target (if set)
     local rest_distance = settings.rest_distance or 7
-    if common.is_party_member_active(1) then
-        local distance = common.get_party_member_distance(1)
-        if distance and distance > rest_distance then
-            conditions_met_time = 0  -- Reset conditions timer
-            return false
+    local follow_target = settings.follow_target
+    
+    if follow_target then
+        -- Find the party member by name
+        local party = common.get_party()
+        if party then
+            for i = 1, 5 do
+                if common.is_party_member_active(i) then
+                    local member_name = common.get_party_member_name(i)
+                    if member_name == follow_target then
+                        local distance = common.get_party_member_distance(i)
+                        if distance and distance > rest_distance then
+                            conditions_met_time = 0  -- Reset conditions timer
+                            return false
+                        end
+                        break
+                    end
+                end
+            end
         end
     end
     
@@ -94,12 +108,26 @@ local function should_stop_resting(settings, job_def)
         return true
     end
     
-    -- Check distance to P1 (first party member)
+    -- Check distance to follow target (if set)
     local rest_distance = settings.rest_distance or 7
-    if common.is_party_member_active(1) then
-        local distance = common.get_party_member_distance(1)
-        if distance and distance > rest_distance then
-            return true
+    local follow_target = settings.follow_target
+    
+    if follow_target then
+        -- Find the party member by name
+        local party = common.get_party()
+        if party then
+            for i = 1, 5 do
+                if common.is_party_member_active(i) then
+                    local member_name = common.get_party_member_name(i)
+                    if member_name == follow_target then
+                        local distance = common.get_party_member_distance(i)
+                        if distance and distance > rest_distance then
+                            return true
+                        end
+                        break
+                    end
+                end
+            end
         end
     end
     
