@@ -163,11 +163,14 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                             if ability.target_modifier and target_index > 0 then
                                 local modifier_result = common.check_target_modifier(job_def, settings, main_level, sub_level)
                                 if modifier_result then
-                                    -- Need to use modifier ability first
+                                    -- Need to use modifier ability first (or modifier handler provided a command)
                                     return modifier_result
+                                else
+                                    -- When modifier_result is nil, we cannot safely assume the modifier requirement
+                                    -- is satisfied (it may be unavailable, on cooldown, or otherwise blocked).
+                                    -- To avoid incorrect casts, skip this ability attempt for now.
+                                    return nil
                                 end
-                                -- If modifier_result is nil, we either have the buff already or can't use it
-                                -- Continue to cast the buff/song
                             end
                             
                             -- Check resource
