@@ -373,8 +373,32 @@ end
 
 -- Render party toggle buttons (<ME> <P1> <P2> etc.)
 -- Returns: true if any button was rendered
-local function render_party_buttons(ctx, ability_name, has_spell)
+local function render_party_buttons(ctx, ability_name, has_spell, ability)
     local any_rendered = false
+    
+    -- Check if this ability requires a target modifier (like Pianissimo)
+    if not ability then
+        ability = find_ability_by_name(ctx.job_def, ability_name)
+    end
+    
+    local requires_target_modifier = ability and ability.target_modifier == true
+    local has_target_modifier = true  -- Default to true for non-modifier abilities
+    
+    if requires_target_modifier then
+        -- Check if the target_modifier ability is available (e.g., Pianissimo at level 20)
+        has_target_modifier = false
+        if ctx.job_def.abilities.target_modifier then
+            local main_level, sub_level = common.get_player_level()
+            for _, modifier_ability in ipairs(ctx.job_def.abilities.target_modifier) do
+                local is_main_job = ability.is_main_job ~= false
+                local level_to_check = is_main_job and main_level or sub_level
+                if modifier_ability.level and level_to_check >= modifier_ability.level then
+                    has_target_modifier = true
+                    break
+                end
+            end
+        end
+    end
     
     -- Render [<ME>] button
     local me_enabled = is_party_buff_enabled(ctx, ability_name, 0)
@@ -383,6 +407,7 @@ local function render_party_buttons(ctx, ability_name, has_spell)
         imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_DISABLED)
         imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_DISABLED)
         imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_DISABLED)
+        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
     elseif me_enabled then
         -- Use default colors
     else
@@ -398,7 +423,9 @@ local function render_party_buttons(ctx, ability_name, has_spell)
         imgui.Button(me_button_label, { PARTY_BUTTON_WIDTH, 0 })
     end
     
-    if not has_spell or not me_enabled then
+    if not has_spell then
+        imgui.PopStyleColor(4)
+    elseif not me_enabled then
         imgui.PopStyleColor(3)
     end
     
@@ -415,10 +442,14 @@ local function render_party_buttons(ctx, ability_name, has_spell)
                 
                 local is_enabled = is_party_buff_enabled(ctx, ability_name, party_index)
                 
-                if not has_spell then
+                -- Treat party button as "not has_spell" if target_modifier is required but not available
+                local party_has_spell = has_spell and has_target_modifier
+                
+                if not party_has_spell then
                     imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_DISABLED)
                     imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_DISABLED)
                     imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_DISABLED)
+                    imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
                 elseif is_enabled then
                     -- Use default colors
                 else
@@ -428,13 +459,15 @@ local function render_party_buttons(ctx, ability_name, has_spell)
                 end
                 
                 local button_label = '<P' .. party_index .. '>##' .. ability_name .. '_p' .. party_index
-                if has_spell and imgui.Button(button_label, { PARTY_BUTTON_WIDTH, 0 }) then
+                if party_has_spell and imgui.Button(button_label, { PARTY_BUTTON_WIDTH, 0 }) then
                     toggle_party_buff(ctx, ability_name, party_index, not is_enabled)
-                elseif not has_spell then
+                elseif not party_has_spell then
                     imgui.Button(button_label, { PARTY_BUTTON_WIDTH, 0 })
                 end
                 
-                if not has_spell or not is_enabled then
+                if not party_has_spell then
+                    imgui.PopStyleColor(4)
+                elseif not is_enabled then
                     imgui.PopStyleColor(3)
                 end
             end
@@ -702,6 +735,27 @@ function ui_components.party_single_ability(ctx, ability, job_def)
         end
     end
     
+    -- Check if Pianissimo/target modifier is required but not available
+    local requires_modifier = ability.target_modifier == true
+    local has_modifier = true
+    if requires_modifier and has_spell then
+        has_modifier = false
+        if job_def.abilities.target_modifier then
+            local main_level, sub_level = common.get_player_level()
+            for _, modifier_ability in ipairs(job_def.abilities.target_modifier) do
+                local is_main_job = ability.is_main_job ~= false
+                local level_to_check = is_main_job and main_level or sub_level
+                if modifier_ability.level and level_to_check >= modifier_ability.level then
+                    has_modifier = true
+                    break
+                end
+            end
+        end
+        if not has_modifier then
+            spell_suffix = spell_suffix .. ' (Pianissimo Lv20)'
+        end
+    end
+    
     local desc
     if ability.cost and ability.cost > 0 then
         local resource_label = job_def.resource_type == 'tp' and 'TP' or 'MP'
@@ -710,7 +764,11 @@ function ui_components.party_single_ability(ctx, ability, job_def)
         desc = ability.name .. spell_suffix
     end
     
-    if not has_spell then
+    render_party_buttons(ctx, ability.name, has_spell, ability)
+    
+    imgui.SameLine()
+    
+    if not has_spell or not has_modifier then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
     elseif ability.engaged_only then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_RED)
@@ -720,9 +778,6 @@ function ui_components.party_single_ability(ctx, ability, job_def)
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GREEN)
     end
     
-    render_party_buttons(ctx, ability.name, has_spell)
-    
-    imgui.SameLine()
     imgui.Text(desc)
     
     if imgui.IsItemHovered() then
@@ -735,7 +790,7 @@ function ui_components.party_single_ability(ctx, ability, job_def)
         end
     end
     
-    if not has_spell or ability.engaged_only or ability.combat_only or ability.idle_only then
+    if not has_spell or not has_modifier or ability.engaged_only or ability.combat_only or ability.idle_only then
         imgui.PopStyleColor()
     end
 end
@@ -768,7 +823,29 @@ function ui_components.party_grouped_ability(ctx, ability, job_def)
         end
     end
     
-    if not has_spell then
+    -- Check if Pianissimo/target modifier is required but not available
+    local requires_modifier = selected.target_modifier == true
+    local has_modifier = true
+    if requires_modifier and has_spell then
+        has_modifier = false
+        if job_def.abilities.target_modifier then
+            local main_level, sub_level = common.get_player_level()
+            for _, modifier_ability in ipairs(job_def.abilities.target_modifier) do
+                local is_main_job = selected.is_main_job ~= false
+                local level_to_check = is_main_job and main_level or sub_level
+                if modifier_ability.level and level_to_check >= modifier_ability.level then
+                    has_modifier = true
+                    break
+                end
+            end
+        end
+    end
+    
+    render_party_buttons(ctx, selected.name, has_spell, selected)
+    
+    imgui.SameLine()
+    
+    if not has_spell or not has_modifier then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
     elseif selected.engaged_only then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_RED)
@@ -778,12 +855,9 @@ function ui_components.party_grouped_ability(ctx, ability, job_def)
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GREEN)
     end
     
-    render_party_buttons(ctx, selected.name, has_spell)
-    
-    imgui.SameLine()
     ui_components.group_dropdown(ctx, job_def, ability.group, DROPDOWN_WIDTH)
     
-    if not has_spell or selected.engaged_only or selected.combat_only or selected.idle_only then
+    if not has_spell or not has_modifier or selected.engaged_only or selected.combat_only or selected.idle_only then
         imgui.PopStyleColor()
     end
 end
