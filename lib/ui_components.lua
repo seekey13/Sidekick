@@ -303,10 +303,10 @@ local function toggle_party_buff(ctx, ability_name, party_index, enabled)
                 local song_to_remove = active_songs[1]  -- Remove first found (random due to table iteration)
                 ctx.party_buffs[song_to_remove][party_index] = false
                 
-                -- Update settings for the removed song
-                if ctx.settings.party_buffs and ctx.settings.party_buffs[song_to_remove] then
-                    ctx.settings.party_buffs[song_to_remove][party_index] = false
-                end
+                -- Ensure persistence structure exists, then update settings for the removed song
+                ctx.settings.party_buffs = ctx.settings.party_buffs or {}
+                ctx.settings.party_buffs[song_to_remove] = ctx.settings.party_buffs[song_to_remove] or {}
+                ctx.settings.party_buffs[song_to_remove][party_index] = false
                 
                 -- Check if removed song is still enabled for any party member
                 local removed_still_enabled = false
