@@ -20,7 +20,9 @@ return {
                 level = 61,
                 cost = 0,
                 id = 392,
-                command = '/ma "Knight\'s Minne IV" <me>',
+                command = function(target)
+                    return '/ma "Knight\'s Minne IV" '..target
+                end,
                 element = 'Earth',
                 buff_id = 197,  -- Knight's Minne IV buff
                 group = 'minne',
@@ -31,7 +33,9 @@ return {
                 level = 41,
                 cost = 0,
                 id = 391,
-                command = '/ma "Knight\'s Minne III" <me>',
+                command = function(target)
+                    return '/ma "Knight\'s Minne III" '..target
+                end,
                 element = 'Earth',
                 buff_id = 197,  -- Knight's Minne III buff
                 group = 'minne',
@@ -42,7 +46,9 @@ return {
                 level = 21,
                 cost = 0,
                 id = 390,
-                command = '/ma "Knight\'s Minne II" <me>',
+                command = function(target)
+                    return '/ma "Knight\'s Minne II" '..target
+                end,
                 element = 'Earth',
                 buff_id = 197,  -- Knight's Minne II buff
                 group = 'minne',
@@ -53,7 +59,9 @@ return {
                 level = 1,
                 cost = 0,
                 id = 389,
-                command = '/ma "Knight\'s Minne" <me>',
+                command = function(target)
+                    return '/ma "Knight\'s Minne" '..target
+                end,
                 element = 'Earth',
                 buff_id = 197,  -- Knight's Minne buff
                 group = 'minne',
@@ -65,7 +73,9 @@ return {
                 level = 63,
                 cost = 0,
                 id = 397,
-                command = '/ma "Valor Minuet IV" <me>',
+                command = function(target)
+                    return '/ma "Valor Minuet IV" '..target
+                end,
                 element = 'Fire',
                 buff_id = 198,  -- Valor Minuet IV buff
                 group = 'minuet',
@@ -76,7 +86,9 @@ return {
                 level = 43,
                 cost = 0,
                 id = 396,
-                command = '/ma "Valor Minuet III" <me>',
+                command = function(target)
+                    return '/ma "Valor Minuet III" '..target
+                end,
                 element = 'Fire',
                 buff_id = 198,  -- Valor Minuet III buff
                 group = 'minuet',
@@ -87,7 +99,9 @@ return {
                 level = 23,
                 cost = 0,
                 id = 395,
-                command = '/ma "Valor Minuet II" <me>',
+                command = function(target)
+                    return '/ma "Valor Minuet II" '..target
+                end,
                 element = 'Fire',
                 buff_id = 198,  -- Valor Minuet II buff
                 group = 'minuet',
@@ -98,7 +112,9 @@ return {
                 level = 3,
                 cost = 0,
                 id = 394,
-                command = '/ma "Valor Minuet" <me>',
+                command = function(target)
+                    return '/ma "Valor Minuet" '..target
+                end,
                 element = 'Fire',
                 buff_id = 198,  -- Valor Minuet buff
                 group = 'minuet',
@@ -110,7 +126,9 @@ return {
                 level = 65,
                 cost = 0,
                 id = 382,
-                command = '/ma "Army\'s Paeon V" <me>',
+                command = function(target)
+                    return '/ma "Army\'s Paeon V" '..target
+                end,
                 element = 'Light',
                 buff_id = 195,  -- Army's Paeon V buff
                 group = 'paeon',
@@ -121,7 +139,9 @@ return {
                 level = 45,
                 cost = 0,
                 id = 381,
-                command = '/ma "Army\'s Paeon IV" <me>',
+                command = function(target)
+                    return '/ma "Army\'s Paeon IV" '..target
+                end,
                 element = 'Light',
                 buff_id = 195,  -- Army's Paeon IV buff
                 group = 'paeon',
@@ -132,7 +152,9 @@ return {
                 level = 35,
                 cost = 0,
                 id = 380,
-                command = '/ma "Army\'s Paeon III" <me>',
+                command = function(target)
+                    return '/ma "Army\'s Paeon III" '..target
+                end,
                 element = 'Light',
                 buff_id = 195,  -- Army's Paeon III buff
                 group = 'paeon',
@@ -143,7 +165,9 @@ return {
                 level = 15,
                 cost = 0,
                 id = 379,
-                command = '/ma "Army\'s Paeon II" <me>',
+                command = function(target)
+                    return '/ma "Army\'s Paeon II" '..target
+                end,
                 element = 'Light',
                 buff_id = 195,  -- Army's Paeon II buff
                 group = 'paeon',
@@ -154,7 +178,9 @@ return {
                 level = 5,
                 cost = 0,
                 id = 378,
-                command = '/ma "Army\'s Paeon" <me>',
+                command = function(target)
+                    return '/ma "Army\'s Paeon" '..target
+                end,
                 element = 'Light',
                 buff_id = 195,  -- Army's Paeon buff
                 group = 'paeon',
@@ -166,7 +192,9 @@ return {
                 level = 51,
                 cost = 0,
                 id = 400,
-                command = '/ma "Blade Madrigal" <me>',
+                command = function(target)
+                    return '/ma "Blade Madrigal" '..target
+                end,
                 element = 'Lightning',
                 buff_id = 199,  -- Blade Madrigal buff
                 group = 'madrigal',
@@ -177,7 +205,9 @@ return {
                 level = 11,
                 cost = 0,
                 id = 399,
-                command = '/ma "Sword Madrigal" <me>',
+                command = function(target)
+                    return '/ma "Sword Madrigal" '..target
+                end,
                 element = 'Lightning',
                 buff_id = 199,  -- Sword Madrigal buff
                 group = 'madrigal',
@@ -189,7 +219,9 @@ return {
                 level = 55,
                 cost = 0,
                 id = 387,
-                command = '/ma "Mage\'s Ballad II" <me>',
+                command = function(target)
+                    return '/ma "Mage\'s Ballad II" '..target
+                end,
                 element = 'Light',
                 buff_id = 196,  -- Mage's Ballad II buff
                 group = 'ballad',
@@ -200,7 +232,9 @@ return {
                 level = 25,
                 cost = 0,
                 id = 386,
-                command = '/ma "Mage\'s Ballad" <me>',
+                command = function(target)
+                    return '/ma "Mage\'s Ballad" '..target
+                end,
                 element = 'Light',
                 buff_id = 196,  -- Mage's Ballad buff
                 group = 'ballad',
@@ -212,7 +246,9 @@ return {
                 level = 60,
                 cost = 0,
                 id = 420, 
-                command = '/ma "Victory March" <me>',
+                command = function(target)
+                    return '/ma "Victory March" '..target
+                end,
                 element = 'Lightning',
                 buff_id = 214,  -- Victory March buff
                 group = 'march',
@@ -223,7 +259,9 @@ return {
                 level = 29,
                 cost = 0,
                 id = 419,
-                command = '/ma "Advancing March" <me>',
+                command = function(target)
+                    return '/ma "Advancing March" '..target
+                end,
                 element = 'Lightning',
                 buff_id = 214,  -- Advancing March buff
                 group = 'march',
@@ -235,7 +273,9 @@ return {
                 level = 74,
                 cost = 0,
                 id = 431,
-                command = '/ma "Herculean Etude" <me>',
+                command = function(target)
+                    return '/ma "Herculean Etude" '..target
+                end,
                 element = 'Fire',
                 buff_id = 215,  -- Herculean Etude buff
                 group = 'etude',
@@ -246,7 +286,9 @@ return {
                 level = 72,
                 cost = 0,
                 id = 432,
-                command = '/ma "Uncanny Etude" <me>',
+                command = function(target)
+                    return '/ma "Uncanny Etude" '..target
+                end,
                 element = 'Lightning',
                 buff_id = 215,  -- Uncanny Etude buff
                 group = 'etude',
@@ -257,7 +299,9 @@ return {
                 level = 70,
                 cost = 0,
                 id = 433,
-                command = '/ma "Vital Etude" <me>',
+                command = function(target)
+                    return '/ma "Vital Etude" '..target
+                end,
                 element = 'Earth',
                 buff_id = 215,  -- Vital Etude buff
                 group = 'etude',
@@ -268,7 +312,9 @@ return {
                 level = 68,
                 cost = 0,
                 id = 434,
-                command = '/ma "Swift Etude" <me>',
+                command = function(target)
+                    return '/ma "Swift Etude" '..target
+                end,
                 element = 'Wind',
                 buff_id = 215,  -- Swift Etude buff
                 group = 'etude',
@@ -279,7 +325,9 @@ return {
                 level = 66,
                 cost = 0,
                 id = 435,
-                command = '/ma "Sage Etude" <me>',
+                command = function(target)
+                    return '/ma "Sage Etude" '..target
+                end,
                 element = 'Ice',
                 buff_id = 215,  -- Sage Etude buff
                 group = 'etude',
@@ -290,7 +338,9 @@ return {
                 level = 64,
                 cost = 0,
                 id = 436,
-                command = '/ma "Logical Etude" <me>',
+                command = function(target)
+                    return '/ma "Logical Etude" '..target
+                end,
                 element = 'Water',
                 buff_id = 215,  -- Logical Etude buff
                 group = 'etude',
@@ -301,7 +351,9 @@ return {
                 level = 62,
                 cost = 0,
                 id = 437,
-                command = '/ma "Bewitching Etude" <me>',
+                command = function(target)
+                    return '/ma "Bewitching Etude" '..target
+                end,
                 element = 'Light',
                 buff_id = 215,  -- Bewitching Etude buff
                 group = 'etude',
@@ -312,7 +364,9 @@ return {
                 level = 34,
                 cost = 0,
                 id = 424,
-                command = '/ma "Sinewy Etude" <me>',
+                command = function(target)
+                    return '/ma "Sinewy Etude" '..target
+                end,
                 element = 'Fire',
                 buff_id = 215,  -- Sinewy Etude buff
                 group = 'etude',
@@ -323,7 +377,9 @@ return {
                 level = 32,
                 cost = 0,
                 id = 425,
-                command = '/ma "Dextrous Etude" <me>',
+                command = function(target)
+                    return '/ma "Dextrous Etude" '..target
+                end,
                 element = 'Lightning',
                 buff_id = 215,  -- Dextrous Etude buff
                 group = 'etude',
@@ -334,7 +390,9 @@ return {
                 level = 30,
                 cost = 0,
                 id = 426,
-                command = '/ma "Vivacious Etude" <me>',
+                command = function(target)
+                    return '/ma "Vivacious Etude" '..target
+                end,
                 element = 'Earth',
                 buff_id = 215,  -- Vivacious Etude buff
                 group = 'etude',
@@ -345,7 +403,9 @@ return {
                 level = 28,
                 cost = 0,
                 id = 427,
-                command = '/ma "Quick Etude" <me>',
+                command = function(target)
+                    return '/ma "Quick Etude" '..target
+                end,
                 element = 'Wind',
                 buff_id = 215,  -- Quick Etude buff
                 group = 'etude',
@@ -356,7 +416,9 @@ return {
                 level = 26,
                 cost = 0,
                 id = 428,
-                command = '/ma "Learned Etude" <me>',
+                command = function(target)
+                    return '/ma "Learned Etude" '..target
+                end,
                 element = 'Ice',
                 buff_id = 215,  -- Learned Etude buff
                 group = 'etude',
@@ -367,7 +429,9 @@ return {
                 level = 24,
                 cost = 0,
                 id = 429,
-                command = '/ma "Spirited Etude" <me>',
+                command = function(target)
+                    return '/ma "Spirited Etude" '..target
+                end,
                 element = 'Water',
                 buff_id = 215,  -- Spirited Etude buff
                 group = 'etude',
@@ -379,7 +443,9 @@ return {
                 level = 50,
                 cost = 0,
                 id = 445,
-                command = '/ma "Dark Carol" <me>',
+                command = function(target)
+                    return '/ma "Dark Carol" '..target
+                end,
                 element = 'Light',
                 buff_id = 216,  -- Dark Carol buff
                 group = 'carol',
@@ -390,7 +456,9 @@ return {
                 level = 48,
                 cost = 0,
                 id = 442,
-                command = '/ma "Lightning Carol" <me>',
+                command = function(target)
+                    return '/ma "Lightning Carol" '..target
+                end,
                 element = 'Earth',
                 buff_id = 216,  -- Lightning Carol buff
                 group = 'carol',
@@ -401,7 +469,9 @@ return {
                 level = 46,
                 cost = 0,
                 id = 439,
-                command = '/ma "Ice Carol" <me>',
+                command = function(target)
+                    return '/ma "Ice Carol" '..target
+                end,
                 element = 'Fire',
                 buff_id = 216,  -- Ice Carol buff
                 group = 'carol',
@@ -412,7 +482,9 @@ return {
                 level = 44,
                 cost = 0,
                 id = 438,
-                command = '/ma "Fire Carol" <me>',
+                command = function(target)
+                    return '/ma "Fire Carol" '..target
+                end,
                 element = 'Water',
                 buff_id = 216,  -- Fire Carol buff
                 group = 'carol',
@@ -423,7 +495,9 @@ return {
                 level = 42,
                 cost = 0,
                 id = 440,
-                command = '/ma "Wind Carol" <me>',
+                command = function(target)
+                    return '/ma "Wind Carol" '..target
+                end,
                 element = 'Ice',
                 buff_id = 216,  -- Wind Carol buff
                 group = 'carol',
@@ -434,7 +508,9 @@ return {
                 level = 40,
                 cost = 0,
                 id = 441,
-                command = '/ma "Water Carol" <me>',
+                command = function(target)
+                    return '/ma "Water Carol" '..target
+                end,
                 element = 'Lightning',
                 buff_id = 216,  -- Water Carol buff
                 group = 'carol',
@@ -445,7 +521,9 @@ return {
                 level = 38,
                 cost = 0,
                 id = 443,
-                command = '/ma "Earth Carol" <me>',
+                command = function(target)
+                    return '/ma "Earth Carol" '..target
+                end,
                 element = 'Wind',
                 buff_id = 216,  -- Earth Carol buff
                 group = 'carol',
@@ -456,7 +534,9 @@ return {
                 level = 36,
                 cost = 0,
                 id = 444,
-                command = '/ma "Light Carol" <me>',
+                command = function(target)
+                    return '/ma "Light Carol" '..target
+                end,
                 element = 'Dark',
                 buff_id = 216,  -- Light Carol buff
                 group = 'carol',
@@ -468,7 +548,9 @@ return {
                 level = 73,
                 cost = 0,
                 id = 465,
-                command = '/ma "Chocobo Mazurka" <me>',
+                command = function(target)
+                    return '/ma "Chocobo Mazurka" '..target
+                end,
                 element = 'Wind',
                 buff_id = 219,  -- Chocobo Mazurka buff
                 group = 'mazurka',
@@ -479,7 +561,9 @@ return {
                 level = 37,
                 cost = 0,
                 id = 467,
-                command = '/ma "Raptor Mazurka" <me>',
+                command = function(target)
+                    return '/ma "Raptor Mazurka" '..target
+                end,
                 element = 'Wind',
                 buff_id = 219,  -- Raptor Mazurka buff
                 group = 'mazurka',
@@ -491,7 +575,9 @@ return {
                 level = 75,
                 cost = 0,
                 id = 468,
-                command = '/ma "Foe Sirvente" <me>',
+                command = function(target)
+                    return '/ma "Foe Sirvente" '..target
+                end,
                 element = 'Light',
                 buff_id = 220,  -- Foe Sirvente buff
                 target_modifier = true,
@@ -501,7 +587,9 @@ return {
                 level = 75,
                 cost = 0,
                 id = 469,
-                command = '/ma "Adventurer\'s Dirge" <me>',
+                command = function(target)
+                    return '/ma "Adventurer\'s Dirge" '..target
+                end,
                 element = 'Light',
                 buff_id = 221,  -- Adventurer's Dirge buff
                 target_modifier = true,
@@ -511,7 +599,9 @@ return {
                 level = 73,
                 cost = 0,
                 id = 414,
-                command = '/ma "Warding Round" <me>',
+                command = function(target)
+                    return '/ma "Warding Round" '..target
+                end,
                 element = 'Light',
                 buff_id = 209,  -- Warding Round buff
                 target_modifier = true,
@@ -521,7 +611,9 @@ return {
                 level = 71,
                 cost = 0,
                 id = 464,
-                command = '/ma "Goddess\' Hymnus" <me>',
+                command = function(target)
+                    return '/ma "Goddess\' Hymnus" '..target
+                end,
                 element = 'Light',
                 buff_id = 218,  -- Goddess' Hymnus buff
                 target_modifier = true,
@@ -531,7 +623,9 @@ return {
                 level = 71,
                 cost = 0,
                 id = 402,
-                command = '/ma "Archer\'s Prelude" <me>',
+                command = function(target)
+                    return '/ma "Archer\'s Prelude" '..target
+                end,
                 element = 'Lightning',
                 buff_id = 200,  -- Archer's Prelude buff
                 target_modifier = true,
@@ -541,7 +635,9 @@ return {
                 level = 69,
                 cost = 0,
                 id = 410,
-                command = '/ma "Puppet\'s Operetta" <me>',
+                command = function(target)
+                    return '/ma "Puppet\'s Operetta" '..target
+                end,
                 element = 'Ice',
                 buff_id = 206,  -- Puppet's Operetta buff
                 target_modifier = true,
@@ -551,7 +647,9 @@ return {
                 level = 56,
                 cost = 0,
                 id = 408,
-                command = '/ma "Shining Fantasia" <me>',
+                command = function(target)
+                    return '/ma "Shining Fantasia" '..target
+                end,
                 element = 'Light',
                 buff_id = 205,  -- Shining Fantasia buff
                 target_modifier = true,
@@ -561,7 +659,9 @@ return {
                 level = 54,
                 cost = 0,
                 id = 412,
-                command = '/ma "Gold Capriccio" <me>',
+                command = function(target)
+                    return '/ma "Gold Capriccio" '..target
+                end,
                 element = 'Wind',
                 buff_id = 207,  -- Gold Capriccio buff
                 target_modifier = true,
@@ -571,7 +671,9 @@ return {
                 level = 53,
                 cost = 0,
                 id = 404,
-                command = '/ma "Dragonfoe Mambo" <me>',
+                command = function(target)
+                    return '/ma "Dragonfoe Mambo" '..target
+                end,
                 element = 'Wind',
                 buff_id = 201,  -- Dragonfoe Mambo buff
                 target_modifier = true,
@@ -581,7 +683,9 @@ return {
                 level = 49,
                 cost = 0,
                 id = 415,
-                command = '/ma "Goblin Gavotte" <me>',
+                command = function(target)
+                    return '/ma "Goblin Gavotte" '..target
+                end,
                 element = 'Fire',
                 buff_id = 210,  -- Goblin Gavotte buff
                 target_modifier = true,
@@ -591,7 +695,9 @@ return {
                 level = 39,
                 cost = 0,
                 id = 421,
-                command = '/ma "Battlefield Elegy" <me>',
+                command = function(target)
+                    return '/ma "Battlefield Elegy" '..target
+                end,
                 element = 'Earth',
                 buff_id = 194,  -- Battlefield Elegy buff
                 target_modifier = true,
@@ -601,7 +707,9 @@ return {
                 level = 33,
                 cost = 0,
                 id = 405,
-                command = '/ma "Fowl Aubade" <me>',
+                command = function(target)
+                    return '/ma "Fowl Aubade" '..target
+                end,
                 element = 'Light',
                 buff_id = 202,  -- Fowl Aubade buff
                 target_modifier = true,
@@ -611,7 +719,9 @@ return {
                 level = 31,
                 cost = 0,
                 id = 401,
-                command = '/ma "Hunter\'s Prelude" <me>',
+                command = function(target)
+                    return '/ma "Hunter\'s Prelude" '..target
+                end,
                 element = 'Lightning',
                 buff_id = 200,  -- Hunter's Prelude buff
                 target_modifier = true,
@@ -621,7 +731,9 @@ return {
                 level = 19,
                 cost = 0,
                 id = 409,
-                command = '/ma "Scop\'s Operetta" <me>',
+                command = function(target)
+                    return '/ma "Scop\'s Operetta" '..target
+                end,
                 element = 'Ice',
                 buff_id = 206,  -- Scop's Operetta buff
                 target_modifier = true,
@@ -631,7 +743,9 @@ return {
                 level = 13,
                 cost = 0,
                 id = 403,
-                command = '/ma "Sheepfoe Mambo" <me>',
+                command = function(target)
+                    return '/ma "Sheepfoe Mambo" '..target
+                end,
                 element = 'Wind',
                 buff_id = 201,  -- Sheepfoe Mambo buff
                 target_modifier = true,
@@ -641,7 +755,9 @@ return {
                 level = 9,
                 cost = 0,
                 id = 406,
-                command = '/ma "Herb Pastoral" <me>',
+                command = function(target)
+                    return '/ma "Herb Pastoral" '..target
+                end,
                 element = 'Lightning',
                 buff_id = 203,  -- Herb Pastoral buff
                 target_modifier = true,
@@ -677,3 +793,4 @@ return {
         'rest',
     }, 
 }
+
