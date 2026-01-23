@@ -245,6 +245,25 @@ local function toggle_ability(ctx, ability_name, enabled, job_def)
     end
 end
 
+-- Find an ability by name in job definition
+local function find_ability_by_name(job_def, ability_name)
+    if not job_def or not job_def.abilities then
+        return nil
+    end
+    
+    for category, abilities in pairs(job_def.abilities) do
+        if type(abilities) == 'table' then
+            for _, ability in ipairs(abilities) do
+                if ability.name == ability_name then
+                    return ability
+                end
+            end
+        end
+    end
+    
+    return nil
+end
+
 -- Check if a buff is enabled for a specific party member
 local function is_party_buff_enabled(ctx, ability_name, party_index)
     if not ctx.party_buffs[ability_name] then
@@ -258,6 +277,56 @@ local function toggle_party_buff(ctx, ability_name, party_index, enabled)
     if not ctx.party_buffs[ability_name] then
         ctx.party_buffs[ability_name] = {}
     end
+    
+    -- Check if this is a song that counts toward the limit
+    if enabled then
+        local ability = find_ability_by_name(ctx.job_def, ability_name)
+        
+        if ability and ability.target_modifier == true then
+            -- Determine the limit based on main/sub job
+            local is_main_job = ability.is_main_job ~= false
+            local song_limit = is_main_job and 2 or 1
+            
+            -- Count currently enabled songs with target_modifier for this party member
+            local active_songs = {}
+            for other_ability_name, targets in pairs(ctx.party_buffs) do
+                if other_ability_name ~= ability_name and targets[party_index] == true then
+                    local other_ability = find_ability_by_name(ctx.job_def, other_ability_name)
+                    if other_ability and other_ability.target_modifier == true then
+                        table.insert(active_songs, other_ability_name)
+                    end
+                end
+            end
+            
+            -- If at or over limit, deselect one existing song for this party member
+            if #active_songs >= song_limit then
+                local song_to_remove = active_songs[1]  -- Remove first found (random due to table iteration)
+                ctx.party_buffs[song_to_remove][party_index] = false
+                
+                -- Update settings for the removed song
+                if ctx.settings.party_buffs and ctx.settings.party_buffs[song_to_remove] then
+                    ctx.settings.party_buffs[song_to_remove][party_index] = false
+                end
+                
+                -- Check if removed song is still enabled for any party member
+                local removed_still_enabled = false
+                for i = 0, 5 do
+                    if ctx.party_buffs[song_to_remove][i] == true then
+                        removed_still_enabled = true
+                        break
+                    end
+                end
+                
+                -- Update disabled setting for removed song
+                local removed_key = 'disabled_' .. song_to_remove:gsub(' ', '_')
+                if not removed_still_enabled then
+                    ctx.settings[removed_key] = true
+                end
+            end
+        end
+    end
+    
+    -- Set the new buff state
     ctx.party_buffs[ability_name][party_index] = enabled
     
     -- Check if ANY button is enabled
