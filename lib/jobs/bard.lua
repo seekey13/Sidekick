@@ -224,7 +224,6 @@ return {
                 end,
                 element = 'Light',
                 buff_id = 196,  -- Mage's Ballad II buff
-                group = 'ballad',
                 target_modifier = true,
             },
             {
@@ -237,7 +236,6 @@ return {
                 end,
                 element = 'Light',
                 buff_id = 196,  -- Mage's Ballad buff
-                group = 'ballad',
                 target_modifier = true,
             },
             -- March
