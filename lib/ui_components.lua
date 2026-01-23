@@ -277,6 +277,15 @@ local function toggle_party_buff(ctx, ability_name, party_index, enabled)
         ctx.settings[key] = true
     end
     
+    -- Save party_buffs to settings for persistence
+    if not ctx.settings.party_buffs then
+        ctx.settings.party_buffs = {}
+    end
+    if not ctx.settings.party_buffs[ability_name] then
+        ctx.settings.party_buffs[ability_name] = {}
+    end
+    ctx.settings.party_buffs[ability_name][party_index] = enabled
+    
     if ctx.save_callback then
         ctx.save_callback()
     end
