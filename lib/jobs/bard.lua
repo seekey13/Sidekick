@@ -591,6 +591,18 @@ return {
                 buff_id = 203,  -- Herb Pastoral buff
             },
         },
+        
+        -- Target modifier abilities
+        target_modifier = {
+            {
+                name = 'Pianissimo',
+                level = 20,
+                cost = 0,
+                id = 112,
+                command = '/ja "Pianissimo" <me>',
+                buff_id = 409,
+            },
+        },
     },
 
     -- Default settings for UI
