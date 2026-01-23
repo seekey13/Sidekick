@@ -939,6 +939,27 @@ function config_ui.render(settings, job_def, callback, roll_mod)
             imgui.Separator()
         end
         
+        -- PL Mode section (at end)
+        local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Enable PL Mode', 'pl_mode_enabled', false)
+        if is_open and is_enabled then
+            -- Connection string text input
+            imgui.PushItemWidth(button_width+230)
+            local connection_string = { settings.pl_connection_string or '' }
+            if imgui.InputText('##pl_connection', connection_string, 256) then
+                settings.pl_connection_string = connection_string[1]
+                if callback then callback() end
+            end
+            imgui.PopItemWidth()
+            
+            -- Connect button on same line
+            imgui.SameLine()
+            if imgui.Button('Connect', { ui.AUTOMATION_BUTTON_WIDTH, 0 }) then
+                -- TODO: Connect functionality
+            end
+        end
+        
+        imgui.Separator()
+        
         -- Debug mode (at end)
         local debug_var = { common.debug }
         if imgui.Checkbox('Debug Mode', debug_var) then
