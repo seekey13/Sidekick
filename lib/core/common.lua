@@ -1430,8 +1430,14 @@ function common.check_target_modifier(job_def, settings, main_level, sub_level)
     end
     
     -- We don't have the buff, check if we can use the modifier ability
+    -- Determine the appropriate player level to use for gating
+    local player_level = main_level
+    if modifier_ability.is_main_job == false then
+        player_level = sub_level or main_level
+    end
+
     -- Check level requirement
-    if modifier_ability.level and modifier_ability.level > main_level then
+    if modifier_ability.level and modifier_ability.level > player_level then
         return nil
     end
     
