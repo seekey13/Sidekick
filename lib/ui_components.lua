@@ -528,7 +528,7 @@ function ui_components.group_dropdown(ctx, job_def, target_group, dropdown_width
     local current_display
     if selected then
         if selected.cost and selected.cost > 0 then
-            local resource_label = job_def.resource_type == 'tp' and 'TP' or 'MP'
+            local resource_label = (selected.resource_type or job_def.resource_type) == 'tp' and 'TP' or 'MP'
             current_display = selected.name .. ' (' .. selected.cost .. ' ' .. resource_label .. ')'
         else
             current_display = selected.name
@@ -556,7 +556,7 @@ function ui_components.group_dropdown(ctx, job_def, target_group, dropdown_width
         for _, ability in ipairs(usable) do
             local display_text
             if ability.cost and ability.cost > 0 then
-                local resource_label = job_def.resource_type == 'tp' and 'TP' or 'MP'
+                local resource_label = (ability.resource_type or job_def.resource_type) == 'tp' and 'TP' or 'MP'
                 display_text = ability.name .. ' (' .. ability.cost .. ' ' .. resource_label .. ')'
             else
                 display_text = ability.name
@@ -647,7 +647,7 @@ function ui_components.self_single_ability(ctx, ability, job_def, id_suffix)
     imgui.SameLine()
     local desc
     if ability.cost and ability.cost > 0 then
-        local resource_label = job_def.resource_type == 'tp' and 'TP' or 'MP'
+        local resource_label = (ability.resource_type or job_def.resource_type) == 'tp' and 'TP' or 'MP'
         desc = ability.name .. ' (' .. ability.cost .. ' ' .. resource_label .. ')' .. spell_suffix
     else
         desc = ability.name .. spell_suffix
@@ -758,7 +758,7 @@ function ui_components.party_single_ability(ctx, ability, job_def)
     
     local desc
     if ability.cost and ability.cost > 0 then
-        local resource_label = job_def.resource_type == 'tp' and 'TP' or 'MP'
+        local resource_label = (ability.resource_type or job_def.resource_type) == 'tp' and 'TP' or 'MP'
         desc = ability.name .. ' (' .. ability.cost .. ' ' .. resource_label .. ')' .. spell_suffix
     else
         desc = ability.name .. spell_suffix
@@ -1005,7 +1005,7 @@ function ui_components.ability_checkbox(ctx, ability, job_def, id_suffix)
     
     local desc
     if ability.cost and ability.cost > 0 then
-        local resource_label = job_def.resource_type == 'tp' and 'TP' or 'MP'
+        local resource_label = (ability.resource_type or job_def.resource_type) == 'tp' and 'TP' or 'MP'
         desc = ability.name .. ' (' .. ability.cost .. ' ' .. resource_label .. ')' .. spell_suffix
     else
         desc = ability.name .. spell_suffix

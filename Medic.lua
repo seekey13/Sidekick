@@ -101,7 +101,7 @@ local function load_single_job_definition(job_id)
     return job_module
 end
 
-local function merge_abilities(main_abilities, sub_abilities)
+local function merge_abilities(main_abilities, sub_abilities, main_def, sub_def)
     -- Start with main job abilities
     local merged = T{}
     
@@ -114,6 +114,10 @@ local function merge_abilities(main_abilities, sub_abilities)
                 ability_copy[k] = v
             end
             ability_copy.is_main_job = true
+            -- Add resource type from main job definition
+            if main_def then
+                ability_copy.resource_type = main_def.resource_type
+            end
             table.insert(merged[category], ability_copy)
         end
     end
@@ -130,6 +134,10 @@ local function merge_abilities(main_abilities, sub_abilities)
                     ability_copy[k] = v
                 end
                 ability_copy.is_main_job = false
+                -- Add resource type from sub job definition
+                if sub_def then
+                    ability_copy.resource_type = sub_def.resource_type
+                end
                 table.insert(merged[category], ability_copy)
             end
         end
@@ -229,7 +237,7 @@ local function load_job_definition(main_job_id, sub_job_id)
     -- Merge abilities from both jobs
     local main_abilities = main_def and main_def.abilities or {}
     local sub_abilities = sub_def and sub_def.abilities or {}
-    merged_def.abilities = merge_abilities(main_abilities, sub_abilities)
+    merged_def.abilities = merge_abilities(main_abilities, sub_abilities, main_def, sub_def)
     
     -- Merge default_settings (main job takes priority if both exist)
     merged_def.default_settings = T{}
