@@ -1403,6 +1403,89 @@ function common.build_ability_command(ability, party_index)
 end
 
 -- ============================================================================
+-- Target Modifier Management (Pianissimo, Entrust, etc.)
+-- ============================================================================
+
+-- Check if target modifier ability (like Pianissimo or Entrust) is needed
+-- and return command to use it if necessary
+-- Args:
+--   job_def (table) - Job definition containing abilities
+--   settings (table) - Addon settings
+--   main_level (number) - Main job level
+--   sub_level (number) - Sub job level
+-- Returns: table|nil - {command, description} if modifier needs to be used, nil otherwise
+function common.check_target_modifier(job_def, settings, main_level, sub_level)
+    -- Check if job has target_modifier abilities defined
+    if not job_def.abilities.target_modifier or #job_def.abilities.target_modifier == 0 then
+        return nil
+    end
+    
+    -- Get the first (and typically only) target modifier ability
+    local modifier_ability = job_def.abilities.target_modifier[1]
+    
+    -- Check if we already have the modifier buff active
+    if common.has_buff(0, modifier_ability.buff_id) then
+        -- We have the buff, ready to cast the modified spell/song
+        return nil
+    end
+    
+    -- We don't have the buff, check if we can use the modifier ability
+    -- Determine the appropriate player level to use for gating
+    local player_level = main_level
+    if modifier_ability.is_main_job == false then
+        player_level = sub_level or main_level
+    end
+
+    -- Check level requirement
+    if modifier_ability.level and modifier_ability.level > player_level then
+        return nil
+    end
+    
+    -- Check if ability is disabled in settings
+    local key = 'disabled_' .. modifier_ability.name:gsub(' ', '_')
+    if settings[key] == true then
+        return nil
+    end
+    
+    -- Check combat_only flag
+    if modifier_ability.combat_only and not common.is_combat() then
+        return nil
+    end
+    
+    -- Check if blocked by status ailments
+    local blocked_by = common.is_command_blocked(modifier_ability.command)
+    if blocked_by then
+        common.debugf('[TARGET_MODIFIER] %s is blocked by %s', modifier_ability.name, blocked_by)
+        return nil
+    end
+    
+    -- Check resource cost
+    local resource = require('lib.core.resource')
+    if not resource.has_resource(job_def.resource_type, modifier_ability.cost or 0) then
+        return nil
+    end
+    
+    -- Check cooldown if ability has an ID
+    if modifier_ability.id then
+        local is_ready = resource.is_ability_ready(modifier_ability.id)
+        if not is_ready then
+            return nil
+        end
+    end
+    
+    -- Build and return the command
+    local command = common.build_ability_command(modifier_ability, 0)
+    if command then
+        return {
+            command = command,
+            description = string.format('Using %s for party targeting', modifier_ability.name)
+        }
+    end
+    
+    return nil
+end
+
+-- ============================================================================
 -- Resting State Management
 -- ============================================================================
 

@@ -240,6 +240,17 @@ function config_ui.render(settings, job_def, callback, roll_mod)
         entrust_spell_name = settings.entrust_spell
     end
     
+    -- Load party buff selections from settings on first render
+    if settings.party_buffs and next(party_buffs) == nil then
+        -- Deep copy party_buffs from settings
+        for ability_name, targets in pairs(settings.party_buffs) do
+            party_buffs[ability_name] = {}
+            for party_index, enabled in pairs(targets) do
+                party_buffs[ability_name][party_index] = enabled
+            end
+        end
+    end
+    
     -- Load focus target settings from settings on first render
     if settings.focus_target ~= nil and focus_target_name == nil then
         focus_target_name = settings.focus_target

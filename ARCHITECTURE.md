@@ -207,6 +207,7 @@ Provides shared utilities used across all modules.
 - `is_casting()`: Casting state detection using packet offset 0x0F
 - `handle_action_packet(packet)`: Process action packet (0x028) for casting state
 - `filter_abilities_by_level(abilities, settings, main_level, sub_level, job_def)`: Shared ability filtering logic with optional job-specific validation
+- `check_target_modifier(job_def, settings, main_level, sub_level)`: Validates target modifier ability (e.g., Pianissimo, Entrust) availability and returns command to use it or nil
 
 #### resource.lua
 Manages resource checking and cooldown tracking.
@@ -316,6 +317,14 @@ Buff maintenance logic with per-party-member configuration.
 - Only buffs with function commands can be cast on party members
 - Automatically checks party member buffs to avoid reapplying active buffs
 - Validates range (20 yalms) before casting on party members
+- Party buff selections persist through reloads via `settings.party_buffs[ability_name][party_index]`
+
+**Target Modifier Integration (Pianissimo, etc.):**
+- Checks if buff has `ability.target_modifier = true` flag
+- Calls `common.check_target_modifier()` to validate modifier availability before casting on party
+- If modifier needed but not ready, returns modifier command first (e.g., "Pianissimo")
+- Next tick will cast the actual buff with modifier active
+- Modifier buff checked via buff_id, command only executed if buff not present
 
 **Conditions:**
 - `idle_only`: Only use when idle (not in combat) - checks `common.is_idle()` - displayed in green
@@ -681,13 +690,21 @@ The UI system uses a modular component architecture:
 
 3. **Render functions handle all UI logic:**
    - `ui.render_ability()`: For buff abilities (ON/OFF + party buttons)
+   - `ui.render_party_buttons()`: Renders ME/P1-P5 buttons with target modifier validation
    - `ui.ability_checkbox()`: For simple checkbox abilities (heal, debuff, etc.)
    - `ui.collapsing_checkbox_header()`: For collapsible sections with enable/disable
 
 4. **config_ui.lua focuses on orchestration only:**
    - Builds context object
    - Calls ui_components render functions
+   - Loads/saves party_buffs from/to settings for persistence
    - No rendering logic, only structure and flow
+
+5. **Party Buff Persistence:**
+   - `settings.party_buffs` structure stores party buff selections
+   - Loaded on first render: `if settings.party_buffs then ... deep copy to party_buffs ...`
+   - Saved on toggle: `settings.party_buffs[ability_name][party_index] = enabled`
+   - Song limit enforcement: counts active `target_modifier = true` abilities per party member
 
 ### Adding Job-Specific Validation
 

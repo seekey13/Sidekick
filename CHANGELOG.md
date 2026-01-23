@@ -5,6 +5,45 @@ All notable changes to Medic will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-01-22
+
+### Added
+- **Pianissimo Support for Bard**: Bard songs can now be cast on party members using the Pianissimo ability (level 20+):
+  - New `target_modifier` ability category for abilities that redirect self-targeted spells to party members
+  - All Bard songs (except Mazurkas) flagged with `target_modifier = true` to indicate Pianissimo compatibility
+  - Bard songs converted to function-based commands for dynamic targeting: `function(target) return '/ma "Song Name" '..target end`
+  - Party buttons (P1-P5) automatically disabled when Pianissimo unavailable (below level 20 main/sub)
+  - Grayed-out text and "(Pianissimo Lv20)" suffix displayed for songs requiring unavailable Pianissimo
+  - Common `check_target_modifier()` helper function validates modifier availability (level, settings, blocks, resources, cooldown)
+  - Integrated into buff.lua: checks `ability.target_modifier`, calls helper, uses modifier before casting party-targeted buff
+- **Song Limit Enforcement**: Bard songs per party member limited based on job type to match game mechanics:
+  - **Bard Main Job**: Maximum 2 songs per party member (including self)
+  - **Bard Sub Job**: Maximum 1 song per party member (including self)
+  - Auto-deselects existing song when limit reached before enabling new selection
+  - Only applies to abilities with `target_modifier = true` flag
+- **Party Buff Settings Persistence**: Party buff selections (song targets, etc.) now persist through addon reloads:
+  - Settings saved to `settings.party_buffs[ability_name][party_index]` structure
+  - Loaded on first UI render, similar to Entrust and Focus target persistence
+  - Prevents loss of song configurations when reloading addon or changing zones
+
+### Changed
+- **Entrust Logic Refactored**: Geomancer Entrust now uses common `check_target_modifier()` helper for DRY code:
+  - Removed ~40 lines of duplicated validation logic (level, settings, blocks, resources, cooldown)
+  - Creates temporary job_def structure to present Entrust in target_modifier format
+  - Calls centralized validation helper, maintains original dedicated UI for 10-minute cooldown
+  - Preserves spell selection dropdown + target dropdown UX for infrequent single-use ability
+
+### Technical
+- Created `check_target_modifier()` in common.lua: validates target modifier ability availability and returns command to use it
+- Function checks: buff already active, level requirement, disabled setting, status blocks, resource cost, ability cooldown
+- Added `combat_only` check to `check_target_modifier()` validation flow
+- Party buff toggle now saves selections to `settings.party_buffs` for persistence across sessions
+- Config UI loads `settings.party_buffs` on first render to restore saved party buff selections
+- Song limit logic in `toggle_party_buff()`: counts active songs with `target_modifier = true`, deselects when at limit
+- Helper function `find_ability_by_name()` added to ui_components.lua for ability lookups
+- Modified `render_party_buttons()` to accept ability object, check target_modifier availability, disable P1-P5 buttons when modifier unavailable
+- Party buff rendering pushes LIGHT_GRAY text color for disabled modifier buttons (4 colors total vs 3 for normal disabled)
+
 ## [1.2.0] - 2026-01-18
 
 ### Added

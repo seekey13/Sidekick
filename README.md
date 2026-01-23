@@ -18,6 +18,13 @@ A focused, support-oriented addon for Ashita v4 that automates healing, buffing,
 
 ## Latest Updates
 
+### [1.3.0] - 2026-01-22
+- **Pianissimo Support for Bard**: Bard songs can now be cast on party members using Pianissimo ability (level 20+), automatically integrated into party buff system
+- **Song Limit Enforcement**: Bard songs limited to 2 per party member (main job) or 1 per party member (sub job) to match game mechanics
+- **Party Buff Persistence**: Party buff selections (song assignments, etc.) now persist through addon reloads and zone changes
+- **Target Modifier System**: New `target_modifier` ability category for abilities that redirect self-targeted spells to party members (Pianissimo, Entrust)
+- **Smart UI Feedback**: Party buttons automatically disabled with grayed-out text when Pianissimo unavailable (below level 20), matching unlearned spell style
+
 ### [1.2.0] - 2026-01-18
 - **Conditional Ability Flags**: Three mutually exclusive flags control when abilities can be used with color-coded UI indicators:
   - `idle_only` (green) - Only when not in combat
@@ -79,7 +86,11 @@ A focused, support-oriented addon for Ashita v4 that automates healing, buffing,
 Currently implemented support jobs:
 
 - **Bard** (BRD)
-  - Buff with songs (Minuet, Minne, Paeon, Madrigal, Prelude, March, Ballad, Etude, Carol, Mambo, Mazurka, Scherzo, Threnody, etc.)
+  - Buff with songs on self or party members using Pianissimo (level 20+)
+  - Songs: Minuet, Minne, Paeon, Madrigal, Prelude, March, Ballad, Etude, Carol, Mambo, Mazurka, Scherzo, Threnody, etc.
+  - Song limits: 2 songs per party member (main job) or 1 song per party member (sub job)
+  - Party button targeting with automatic Pianissimo usage
+  - Settings persist through reloads
 
 - **Dancer** (DNC)
   - Single-target healing with waltzes (Curing Waltz I/II/III)
