@@ -25,18 +25,6 @@ A focused, support-oriented addon for Ashita v4 that automates healing, buffing,
 - **Target Modifier System**: New `target_modifier` ability category for abilities that redirect self-targeted spells to party members (Pianissimo, Entrust)
 - **Smart UI Feedback**: Party buttons automatically disabled with grayed-out text when Pianissimo unavailable (below level 20), matching unlearned spell style
 
-### [1.2.0] - 2026-01-18
-- **Conditional Ability Flags**: Three mutually exclusive flags control when abilities can be used with color-coded UI indicators:
-  - `idle_only` (green) - Only when not in combat
-  - `combat_only` (yellow) - Only when in combat with a battle target nearby
-  - `engaged_only` (red) - Only when actively engaged/locked on to a target
-- **Pet Entity Consolidation**: New `targets` module (`targets.get_pet()`) provides single source of truth for all pet-related operations
-- **Job-Specific Ability Validation**: Jobs can now implement custom validators for fine-grained ability control (e.g., Summoner checks if Carbuncle is summoned)
-- **Smart Summoner Pet Management**: Carbuncle-specific abilities (Healing Ruby, Healing Ruby II, Shining Ruby) automatically validate pet type; avatar-agnostic abilities (Avatar's Favor) work with any summoned avatar.  Added Apogee to `critical` Emergency abilities when Carbuncle is summoned.
-- **Enhanced Code Maintainability**: Consolidated pet checking logic eliminates duplication across `has_pet()`, `get_pet_hp_percent()`, and `get_pet_distance()`
-- **UI Component Refactor**: Extracted all UI rendering logic to dedicated `ui_components.lua` module (835 lines), reducing `config_ui.lua` by 52% for improved maintainability
-- **Subjob Level Filtering**: Config UI now properly filters abilities by subjob level, showing only abilities available at your current subjob level
-
 
 ## Features
 
