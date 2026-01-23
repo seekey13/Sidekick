@@ -1441,6 +1441,11 @@ function common.check_target_modifier(job_def, settings, main_level, sub_level)
         return nil
     end
     
+    -- Check combat_only flag
+    if modifier_ability.combat_only and not common.is_combat() then
+        return nil
+    end
+    
     -- Check if blocked by status ailments
     local blocked_by = common.is_command_blocked(modifier_ability.command)
     if blocked_by then

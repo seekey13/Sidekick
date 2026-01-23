@@ -178,48 +178,32 @@ function geo.execute(settings, job_def, main_level, sub_level, player_resource)
             end
         else
             -- We don't have Entrust buff, use Entrust ability
-            -- Get geo abilities from job definition
-            local geo_abilities = job_def.abilities.geo or {}
+            -- Use helper function to validate and build Entrust command
+            -- Note: We create a temporary job_def with Entrust in target_modifier format
+            local temp_job_def = {
+                abilities = {
+                    target_modifier = {}
+                },
+                resource_type = job_def.resource_type
+            }
             
-            -- Find Entrust ability in geo abilities
-            local entrust_ability = nil
-            for _, ability in ipairs(geo_abilities) do
-                if ability.name == 'Entrust' then
-                    entrust_ability = ability
-                    break
-                end
-            end
-            
-            if not entrust_ability then
-                return nil
-            end
-            
-            -- Check if entrust ability is available (level, cooldown, etc)
-            local filtered = common.filter_abilities_by_level({entrust_ability}, settings, main_level, sub_level, job_def)
-            if #filtered == 0 then
-                return nil
-            end
-            
-            -- Check if blocked
-            local blocked_by = common.is_command_blocked(entrust_ability.command)
-            if blocked_by then
-                common.debugf('[GEO] Entrust is blocked by %s', blocked_by)
-                return nil
-            end
-            
-            -- Check cooldown
-            if entrust_ability.id then
-                local is_ready = resource.is_ability_ready(entrust_ability.id)
-                
-                if is_ready then
-                    local command = common.build_ability_command(entrust_ability, 0)
-                    if command then
-                        return {
-                            command = command,
-                            description = string.format('Using Entrust (for %s on P%d)', selected_spell.name, target_index)
-                        }
+            -- Find Entrust in geo abilities and add to temp structure
+            if job_def.abilities.geo then
+                for _, ability in ipairs(job_def.abilities.geo) do
+                    if ability.name == 'Entrust' then
+                        table.insert(temp_job_def.abilities.target_modifier, ability)
+                        break
                     end
                 end
+            end
+            
+            -- Use common helper to validate Entrust ability
+            local entrust_result = common.check_target_modifier(temp_job_def, settings, main_level, sub_level)
+            
+            if entrust_result then
+                -- Override description to include spell context
+                entrust_result.description = string.format('Using Entrust (for %s on P%d)', selected_spell.name, target_index)
+                return entrust_result
             end
         end
     end
