@@ -161,16 +161,27 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                         if target_needs_buff then
                             -- Check if this ability requires a target modifier (Pianissimo, Entrust, etc.)
                             if ability.target_modifier and target_index > 0 then
-                                local modifier_result = common.check_target_modifier(job_def, settings, main_level, sub_level)
-                                if modifier_result then
-                                    -- Need to use modifier ability first (or modifier handler provided a command)
-                                    return modifier_result
-                                else
-                                    -- When modifier_result is nil, we cannot safely assume the modifier requirement
-                                    -- is satisfied (it may be unavailable, on cooldown, or otherwise blocked).
-                                    -- To avoid incorrect casts, skip this ability attempt for now.
-                                    return nil
+                                -- Check if we already have the modifier buff active
+                                local has_modifier_buff = false
+                                if job_def.abilities.target_modifier and #job_def.abilities.target_modifier > 0 then
+                                    local modifier_ability = job_def.abilities.target_modifier[1]
+                                    if modifier_ability.buff_id then
+                                        has_modifier_buff = common.has_buff(0, modifier_ability.buff_id)
+                                    end
                                 end
+                                
+                                if not has_modifier_buff then
+                                    -- Don't have modifier buff, try to use it
+                                    local modifier_result = common.check_target_modifier(job_def, settings, main_level, sub_level)
+                                    if modifier_result then
+                                        -- Need to use modifier ability first
+                                        return modifier_result
+                                    else
+                                        -- Modifier unavailable (on cooldown, disabled, etc.), skip this ability for now
+                                        return nil
+                                    end
+                                end
+                                -- If we reach here, we have the modifier buff, proceed to cast the song
                             end
                             
                             -- Check resource
