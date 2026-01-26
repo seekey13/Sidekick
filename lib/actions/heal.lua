@@ -63,7 +63,7 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
         
         if player_hpp < (settings.heal_threshold or 75) then
             -- Select appropriate ability
-            local selected_ability = heal.select_ability(available_abilities, player_hpp, job_def.resource_type, player_resource, 0, job_def)
+            local selected_ability = heal.select_ability(available_abilities, player_hpp, job_def, player_resource, 0)
             if selected_ability then
                 local command = common.build_ability_command(selected_ability, 0)
                 
@@ -144,8 +144,9 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
                     end
                     
                     -- Check resource availability
-                    if not resource.has_resource(job_def.resource_type, ability.cost) then
-                        common.debugf('[HEAL] Insufficient %s for critical ability %s', job_def.resource_type, ability.name)
+                    local ability_resource_type = ability.resource_type or job_def.resource_type
+                    if not resource.has_resource(ability_resource_type, ability.cost) then
+                        common.debugf('[HEAL] Insufficient %s for critical ability %s', ability_resource_type, ability.name)
                         goto continue_critical
                     end
                     
@@ -225,7 +226,7 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
                 end
                 
                 -- Select appropriate ability based on HP deficit
-                local selected_ability = heal.select_ability(available_abilities, focus_hpp, job_def.resource_type, player_resource, focus_party_index, job_def)
+                local selected_ability = heal.select_ability(available_abilities, focus_hpp, job_def, player_resource, focus_party_index)
                 
                 if selected_ability and focus_party_index then
                     -- Check if in range using ability's range (default to 21 if not specified)
@@ -265,7 +266,7 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
         local target_index = common.get_party_member_target_index(party_status.lowest_hp_index)
         if target_index then
             -- Select appropriate ability based on HP deficit
-            local selected_ability = heal.select_ability(available_abilities, party_status.lowest_hp_percent, job_def.resource_type, player_resource, party_status.lowest_hp_index, job_def)
+            local selected_ability = heal.select_ability(available_abilities, party_status.lowest_hp_percent, job_def, player_resource, party_status.lowest_hp_index)
             if selected_ability then
                 -- Check if in range using ability's range (default to 21 if not specified)
                 local ability_range = type(selected_ability.range) == 'number' and selected_ability.range or 21
@@ -297,7 +298,7 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
     return nil
 end
 
-function heal.select_ability(abilities, target_hpp, resource_type, player_resource, party_index, job_def)
+function heal.select_ability(abilities, target_hpp, job_def, player_resource, party_index)
     -- Special case: Summoner should always try Healing Ruby first
     if job_def and job_def.job_id == 15 then
         -- Look for Healing Ruby in abilities
@@ -373,8 +374,9 @@ function heal.select_ability(abilities, target_hpp, resource_type, player_resour
             goto continue
         end
         
-        -- Check resource
-        if resource.has_resource(resource_type, ability.cost) then
+        -- Check resource using ability-specific resource type
+        local ability_resource_type = ability.resource_type or job_def.resource_type
+        if resource.has_resource(ability_resource_type, ability.cost) then
             -- Check cooldown
             if ability.id then
                 local is_ready = false
@@ -415,7 +417,7 @@ function heal.select_ability(abilities, target_hpp, resource_type, player_resour
             end
         else
             common.debugf('[HEAL]   ✗ Insufficient %s for %s (need: %d, have: %d)', 
-                         resource_type, ability.name, ability.cost, player_resource)
+                         ability_resource_type, ability.name, ability.cost, player_resource)
         end
         
         ::continue::
