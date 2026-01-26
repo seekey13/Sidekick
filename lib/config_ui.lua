@@ -18,6 +18,9 @@ local ui_visible = false
 local current_settings = nil
 local save_callback = nil
 local roll_module = nil
+local clear_player_data_callback = nil
+local restore_normal_mode_callback = nil
+local previous_pl_mode_enabled = false
 
 -- UI State Variables (for imgui)
 local focus_enabled = { false }
@@ -227,7 +230,7 @@ function config_ui.get_entrust_config()
     }
 end
 
-function config_ui.render(settings, job_def, callback, roll_mod)
+function config_ui.render(settings, job_def, callback, clear_data_callback, restore_callback, roll_mod)
     if not ui_visible or not is_open[1] then
         return
     end
@@ -266,9 +269,14 @@ function config_ui.render(settings, job_def, callback, roll_mod)
     current_settings = settings
     save_callback = callback
     roll_module = roll_mod
+    clear_player_data_callback = clear_data_callback
+    restore_normal_mode_callback = restore_callback
     
     -- Sync UI state from settings
     sync_from_settings()
+    
+    -- Check if PL Mode is active (job_def will be nil)
+    local pl_mode_active = job_def == nil and (settings.pl_mode_enabled == true)
     
     -- Create context object for ui_components
     local ctx = {
@@ -376,6 +384,9 @@ function config_ui.render(settings, job_def, callback, roll_mod)
         
         imgui.Separator()
 
+        -- Skip job-specific sections if in PL Mode (no job_def loaded)
+        if not pl_mode_active and job_def then
+        
         -- Focus target settings (only show if job has party healing or debuff removal abilities)
         local has_party_healing = false
         local has_party_debuff_removal = false
@@ -938,9 +949,24 @@ function config_ui.render(settings, job_def, callback, roll_mod)
             
             imgui.Separator()
         end
+        end  -- End of pl_mode_active check
         
         -- PL Mode section (at end)
         local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Enable PL Mode', 'pl_mode_enabled', false)
+        
+        -- Clear player job and level data when PL Mode is enabled
+        if is_enabled and not previous_pl_mode_enabled then
+            if clear_player_data_callback then
+                clear_player_data_callback()
+            end
+            previous_pl_mode_enabled = true
+        elseif not is_enabled and previous_pl_mode_enabled then
+            if restore_normal_mode_callback then
+                restore_normal_mode_callback()
+            end
+            previous_pl_mode_enabled = false
+        end
+        
         if is_open and is_enabled then
             -- Connection string text input
             imgui.PushItemWidth(button_width+230)

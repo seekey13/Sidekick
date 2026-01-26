@@ -54,6 +54,7 @@ local last_job_id = nil
 local last_sub_job_id = nil
 local last_level = nil
 local last_unsupported_warning = nil  -- Track last unsupported job warning to prevent spam
+local pl_mode_active = false  -- Track if PL Mode is enabled (prevents auto job detection)
 
 -- Settings file path
 local default_settings = T{
@@ -72,6 +73,27 @@ local range_state = {
 --[[
     Job Loading
 ]]--
+
+-- Clear cached player job and level data (used when PL Mode is enabled)
+local function clear_player_data()
+    current_main_job_id = nil
+    current_sub_job_id = nil
+    last_job_id = nil
+    last_sub_job_id = nil
+    last_level = nil
+    main_job_def = nil
+    sub_job_def = nil
+    job_def = nil
+    pl_mode_active = true
+    common.printf('Cleared player job and level data (PL Mode enabled)')
+end
+
+-- Restore normal mode (used when PL Mode is disabled)
+local function restore_normal_mode()
+    pl_mode_active = false
+    common.printf('PL Mode disabled, restoring normal operation')
+    -- Job will be automatically reloaded on next frame by setup_job()
+end
 
 local function load_single_job_definition(job_id)
     -- Map job IDs to job definition files
@@ -266,6 +288,11 @@ local function load_job_definition(main_job_id, sub_job_id)
 end
 
 local function setup_job()
+    -- Skip automatic job detection when PL Mode is active
+    if pl_mode_active then
+        return
+    end
+    
     local main_job_id, sub_job_id = common.get_player_job()
     
     -- Ignore invalid job IDs (happens during zoning)
@@ -423,11 +450,13 @@ local function automation_tick()
     end
     
     -- Check for job or level changes (direct reading, no packet dependency)
-    local job_id, sub_job_id = common.get_player_job()
-    local main_level, sub_level = common.get_player_level()
-    
-    -- Skip if job_id or level is invalid
-    if job_id and job_id > 0 and main_level and main_level > 0 then
+    -- Skip when PL Mode is active
+    if not pl_mode_active then
+        local job_id, sub_job_id = common.get_player_job()
+        local main_level, sub_level = common.get_player_level()
+        
+        -- Skip if job_id or level is invalid
+        if job_id and job_id > 0 and main_level and main_level > 0 then
         -- Initialize tracking on first valid job detection
         if not last_job_id or last_job_id == 0 then
             last_job_id = job_id
@@ -509,6 +538,7 @@ local function automation_tick()
                 return
             end
         end
+        end
     end
     
     local player_resource = resource.get_resource(job_def.resource_type)
@@ -589,12 +619,18 @@ ashita.events.register('d3d_present', 'medic_render', function()
     setup_job()
     
     -- Render config UI
-    if config_ui.is_visible() and job_def and addon_settings then
-        local save_settings_callback = function()
-            settings.save()
-        end
+    -- Allow rendering in PL Mode even without job_def
+    if config_ui.is_visible() and addon_settings then
+        -- Check if we can render (either have job_def OR PL Mode is active)
+        local can_render = job_def ~= nil or pl_mode_active
         
-        config_ui.render(addon_settings, job_def, save_settings_callback)
+        if can_render then
+            local save_settings_callback = function()
+                settings.save()
+            end
+            
+            config_ui.render(addon_settings, job_def, save_settings_callback, clear_player_data, restore_normal_mode)
+        end
     end
     
     -- Run automation tick
