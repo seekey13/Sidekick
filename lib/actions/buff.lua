@@ -174,7 +174,8 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                             end
                             
                             -- Check resource
-                            if resource.has_resource(job_def.resource_type, ability.cost) then
+                            local ability_resource_type = ability.resource_type or job_def.resource_type
+                            if resource.has_resource(ability_resource_type, ability.cost) then
                                 -- Check cooldown
                                 if ability.id then
                                     local is_spell = false
@@ -299,7 +300,8 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                 
                 if needs_buff then
                     -- Check resource
-                    if resource.has_resource(job_def.resource_type, ability.cost) then
+                    local ability_resource_type = ability.resource_type or job_def.resource_type
+                    if resource.has_resource(ability_resource_type, ability.cost) then
                         -- Check cooldown
                         if ability.id then
                             -- Determine if this is a spell or ability based on the command

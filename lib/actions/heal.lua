@@ -306,7 +306,8 @@ function heal.select_ability(abilities, target_hpp, job_def, player_resource, pa
             if ability.name == 'Healing Ruby' then
                 -- Check if usable: has pet, has resource, not on cooldown
                 if common.targets.get_pet() then
-                    if resource.has_resource(resource_type, ability.cost) then
+                    local ability_resource_type = ability.resource_type or job_def.resource_type
+                    if resource.has_resource(ability_resource_type, ability.cost) then
                         local is_ready = true
                         if ability.id then
                             is_ready = resource.is_ability_ready(ability.id)

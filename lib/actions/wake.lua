@@ -107,7 +107,8 @@ function wake.execute(settings, job_def, main_level, sub_level, player_resource)
         common.debugf('[Wake] Multiple sleeping members (%d), trying AOE wake', #sleeping_members)
         for _, ability in ipairs(available_aoe) do
             -- Check resource
-            if resource.has_resource(job_def.resource_type, ability.cost) then
+            local ability_resource_type = ability.resource_type or job_def.resource_type
+            if resource.has_resource(ability_resource_type, ability.cost) then
                 -- Check cooldown
                 if ability.id then
                     if resource.is_ability_ready(ability.id) then
@@ -166,7 +167,8 @@ function wake.execute(settings, job_def, main_level, sub_level, player_resource)
             end
             
             -- Check resource
-            if resource.has_resource(job_def.resource_type, ability.cost) then
+            local ability_resource_type = ability.resource_type or job_def.resource_type
+            if resource.has_resource(ability_resource_type, ability.cost) then
                 -- Check cooldown
                 if ability.id then
                     if resource.is_ability_ready(ability.id) then

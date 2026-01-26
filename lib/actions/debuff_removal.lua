@@ -102,7 +102,8 @@ function debuff_removal.execute(settings, job_def, main_level, sub_level, player
             local player_buffs = common.get_player_buffs()
             if can_remove_debuffs(ability, player_buffs) then
                 -- Check resource
-                if resource.has_resource(job_def.resource_type, ability.cost) then
+                local ability_resource_type = ability.resource_type or job_def.resource_type
+                if resource.has_resource(ability_resource_type, ability.cost) then
                     -- Check cooldown (if ability has an ID)
                     local is_ready = true
                     if ability.id then
@@ -158,7 +159,8 @@ function debuff_removal.execute(settings, job_def, main_level, sub_level, player
                 for _, ability in ipairs(available_abilities) do
                     if can_remove_debuffs(ability, all_buffs[focus_party_index]) then
                     -- Check resource
-                    if resource.has_resource(job_def.resource_type, ability.cost) then
+                    local ability_resource_type = ability.resource_type or job_def.resource_type
+                    if resource.has_resource(ability_resource_type, ability.cost) then
                         -- Check cooldown (if ability has an ID)
                         local is_ready = true
                         if ability.id then
@@ -220,7 +222,8 @@ function debuff_removal.execute(settings, job_def, main_level, sub_level, player
         for _, ability in ipairs(available_abilities) do
             if can_remove_debuffs(ability, all_buffs[best_index]) then
                 -- Check resource
-                if resource.has_resource(job_def.resource_type, ability.cost) then
+                local ability_resource_type = ability.resource_type or job_def.resource_type
+                if resource.has_resource(ability_resource_type, ability.cost) then
                     -- Check cooldown (if ability has an ID)
                     local is_ready = true
                     if ability.id then

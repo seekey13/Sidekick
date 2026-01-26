@@ -169,7 +169,7 @@ function recover.execute(settings, job_def, main_level, sub_level, player_resour
                     if not has_required_buff then
                         common.debugf('[RECOVER] %s requires buff prerequisite, skipping', ability.name)
                     -- Check resource and cooldown
-                    elseif resource.has_resource(job_def.resource_type, ability.cost) and resource.is_ability_ready(ability.id) then
+                    elseif ability.resource_type and resource.has_resource(ability.resource_type, ability.cost) and resource.is_ability_ready(ability.id) then
                         local command = common.build_ability_command(ability, nil)
                         
                         if command then
@@ -231,7 +231,7 @@ function recover.execute(settings, job_def, main_level, sub_level, player_resour
                     if not has_required_buff then
                         common.debugf('[RECOVER] %s requires buff prerequisite, skipping', ability.name)
                     -- Check resource and cooldown
-                    elseif resource.has_resource(job_def.resource_type, ability.cost) and resource.is_ability_ready(ability.id) then
+                    elseif ability.resource_type and resource.has_resource(ability.resource_type, ability.cost) and resource.is_ability_ready(ability.id) then
                         local command = common.build_ability_command(ability, nil)
                         
                         if command then

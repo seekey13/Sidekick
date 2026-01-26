@@ -74,7 +74,8 @@ function heal_aoe.execute(settings, job_def, main_level, sub_level, player_resou
         end
         
         -- Check resource
-        if resource.has_resource(job_def.resource_type, ability.cost) then
+        local ability_resource_type = ability.resource_type or job_def.resource_type
+        if resource.has_resource(ability_resource_type, ability.cost) then
             -- Check cooldown
             if ability.id then
                 if resource.is_ability_ready(ability.id) then
