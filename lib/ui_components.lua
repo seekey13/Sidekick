@@ -46,8 +46,11 @@ local HEADER_COLOR_ACTIVE = { 0.05, 0.1, 0.2, 1.00 }
 -- Helper Functions
 -- ============================================================================
 
+-- Default filter functions (can be overridden via ctx.filter_func)
+local default_filters = {}
+
 -- Check if player can use an ability based on level
-local function can_use_ability(ability)
+function default_filters.can_use_ability(ability)
     if not ability or not ability.level then
         return true
     end
@@ -68,13 +71,21 @@ local function can_use_ability(ability)
 end
 
 -- Check if ability can target outside party (always returns true in ui_components - no PL Mode context)
-local function can_target_outside(ability)
+function default_filters.can_target_outside(ability)
     -- Simply check if the ability has the target_outside flag
     -- If no flag is present, assume true (for non-party abilities)
     if ability.target_outside == nil then
         return true
     end
     return ability.target_outside == true
+end
+
+-- Get filter functions from context or use defaults
+local function get_filters(ctx)
+    if ctx and ctx.filter_func then
+        return ctx.filter_func
+    end
+    return default_filters
 end
 
 -- Get all abilities in the same group
@@ -98,12 +109,13 @@ local function get_abilities_in_group(job_def, target_group)
 end
 
 -- Get usable abilities in a group (level-appropriate and spell learned)
-local function get_usable_abilities_in_group(job_def, target_group)
+local function get_usable_abilities_in_group(job_def, target_group, ctx)
     local all_abilities = get_abilities_in_group(job_def, target_group)
     local usable = {}
+    local filters = get_filters(ctx)
     
     for _, ability in ipairs(all_abilities) do
-        if can_use_ability(ability) and can_target_outside(ability) then
+        if filters.can_use_ability(ability) and filters.can_target_outside(ability) then
             local cmd = type(ability.command) == 'function' and ability.command(0) or ability.command
             local is_spell = cmd and string.sub(cmd, 1, 3) == '/ma'
             local has_spell = true
@@ -125,8 +137,8 @@ local function get_usable_abilities_in_group(job_def, target_group)
 end
 
 -- Get the highest level usable ability in a group
-local function get_highest_level_ability_in_group(job_def, target_group)
-    local usable = get_usable_abilities_in_group(job_def, target_group)
+local function get_highest_level_ability_in_group(job_def, target_group, ctx)
+    local usable = get_usable_abilities_in_group(job_def, target_group, ctx)
     if #usable == 0 then
         return nil
     end
@@ -144,7 +156,7 @@ local function get_selected_ability_for_group(ctx, job_def, target_group)
     local setting_key = 'selected_' .. target_group
     local saved_name = ctx.settings[setting_key]
     
-    local usable = get_usable_abilities_in_group(job_def, target_group)
+    local usable = get_usable_abilities_in_group(job_def, target_group, ctx)
     if #usable == 0 then
         return nil
     end
@@ -159,7 +171,7 @@ local function get_selected_ability_for_group(ctx, job_def, target_group)
     end
     
     -- Auto-select highest level
-    local highest = get_highest_level_ability_in_group(job_def, target_group)
+    local highest = get_highest_level_ability_in_group(job_def, target_group, ctx)
     if highest then
         ctx.settings[setting_key] = highest.name
         if ctx.save_callback then
@@ -188,7 +200,7 @@ local function get_ability_group(job_def, ability_name)
 end
 
 -- Check if an ability is a duplicate from subjob
-local function is_subjob_duplicate(job_def, ability)
+local function is_subjob_duplicate(job_def, ability, ctx)
     if ability.is_main_job ~= false then
         return false
     end
@@ -874,11 +886,13 @@ end
 
 -- Main ability renderer - determines which rendering function to use
 function ui_components.render_ability(ctx, ability, job_def, id_suffix)
-    if not ability or not can_use_ability(ability) then
+    local filters = get_filters(ctx)
+    
+    if not ability or not filters.can_use_ability(ability) then
         return false
     end
     
-    if is_subjob_duplicate(job_def, ability) then
+    if is_subjob_duplicate(job_def, ability, ctx) then
         return false
     end
     
@@ -891,7 +905,7 @@ function ui_components.render_ability(ctx, ability, job_def, id_suffix)
             return false
         end
         
-        local usable = get_usable_abilities_in_group(job_def, ability.group)
+        local usable = get_usable_abilities_in_group(job_def, ability.group, ctx)
         if #usable == 0 then
             return false
         end

@@ -386,7 +386,11 @@ function config_ui.render(settings, job_def, callback, clear_data_callback, rest
         job_def = job_def,
         can_use_ability = can_use_ability,
         get_abilities_in_group = get_abilities_in_group,
-        get_usable_abilities_in_group = get_usable_abilities_in_group
+        get_usable_abilities_in_group = get_usable_abilities_in_group,
+        filter_func = {
+            can_use_ability = can_use_ability,
+            can_target_outside = can_target_outside
+        }
     }
     
     -- Build party member list once (used by multiple dropdowns)
