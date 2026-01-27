@@ -89,7 +89,7 @@ function debuff_removal.execute(settings, job_def, main_level, sub_level, player
         return nil
     end
     
-    -- Check for self-only abilities first (like Monk's Chakra)
+    -- Check for self-only abilities first
     for _, ability in ipairs(available_abilities) do
         if ability.self_only then
             -- Check if this ability is blocked by status ailments
@@ -113,7 +113,7 @@ function debuff_removal.execute(settings, job_def, main_level, sub_level, player
                     end
                     
                     if is_ready then
-                        local command = common.build_ability_command(ability, 0)
+                        local command = common.build_ability_command(ability, 0, settings)
                         if command then
                             local debuff_count = count_removable_debuffs(player_buffs, {ability})
                             common.debugf('[DEBUFF_REMOVAL] Using %s on self (%d debuff%s)', 
@@ -170,7 +170,7 @@ function debuff_removal.execute(settings, job_def, main_level, sub_level, player
                         end
                         
                         if is_ready then
-                            local command = common.build_ability_command(ability, focus_party_index)
+                            local command = common.build_ability_command(ability, focus_party_index, settings)
                             if command then
                                 common.debugf('[DEBUFF_REMOVAL] Using %s on focus target (p%d, %d debuff%s)', 
                                     ability.name, focus_party_index, debuff_counts[focus_party_index],
@@ -233,7 +233,7 @@ function debuff_removal.execute(settings, job_def, main_level, sub_level, player
                     end
                     
                     if is_ready then
-                        local command = common.build_ability_command(ability, best_index)
+                        local command = common.build_ability_command(ability, best_index, settings)
                         if command then
                             common.debugf('[DEBUFF_REMOVAL] Using %s on p%d (%d debuff%s)', 
                                 ability.name, best_index, max_debuffs,

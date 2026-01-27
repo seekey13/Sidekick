@@ -431,7 +431,6 @@ return {
                 end,
                 buff_id = 69,  -- Invisible
                 idle_only = true,
-                target_outside = true,
             },
             {
                 name = 'Sneak',
@@ -443,7 +442,6 @@ return {
                 end,
                 buff_id = 71,  -- Sneak
                 idle_only = true,
-                target_outside = true,
             },
             {
                 name = 'Deodorize',
@@ -455,7 +453,6 @@ return {
                 end,
                 idle_only = true,
                 buff_id = 70,  -- Deodorize
-                target_outside = true,
             },
         },
         

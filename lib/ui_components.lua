@@ -135,9 +135,6 @@ local function get_usable_abilities_in_group(job_def, target_group, ctx)
             else
                 common.debugf('[ui_components] %s in group %s: spell not learned', ability.name, target_group)
             end
-        else
-            common.debugf('[ui_components] %s (lvl %d, is_main=%s) in group %s filtered: can_use=%s, can_target=%s', 
-                ability.name, ability.level or 0, tostring(ability.is_main_job), target_group, tostring(can_use), tostring(can_target))
         end
     end
     

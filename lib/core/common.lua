@@ -1388,6 +1388,9 @@ end
 function common.build_ability_command(ability, party_index, settings)
     local command = nil
     
+    -- Check if in PL Mode
+    local in_pl_mode = settings and settings.pl_mode_enabled and settings.pl_connected_player
+    
     if type(ability.command) == 'function' then
         -- If party_index is provided, convert party index (0-5) to server ID
         if party_index ~= nil then
@@ -1405,7 +1408,7 @@ function common.build_ability_command(ability, party_index, settings)
     end
     
     -- If in PL Mode, prepend /mst command
-    if command and settings and settings.pl_mode_enabled and settings.pl_connected_player then
+    if command and in_pl_mode then
         command = string.format('/mst %s %s', settings.pl_connected_player, command)
     end
     
