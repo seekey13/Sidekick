@@ -1049,29 +1049,61 @@ function config_ui.render(settings, job_def, callback, clear_data_callback, rest
         end
         
         if is_open and is_enabled then
-            -- Connection string text input
-            imgui.PushItemWidth(button_width+230)
+            -- Check if we're connected
+            local is_connected = settings.pl_connected_player ~= nil
+            
+            -- Connection string text input (read-only if connected)
+            imgui.PushItemWidth(button_width + 100)
             local connection_string = { settings.pl_connection_string or '' }
-            if imgui.InputText('##pl_connection', connection_string, 256) then
-                settings.pl_connection_string = connection_string[1]
-                if callback then callback() end
+            local input_flags = is_connected and ImGuiInputTextFlags_ReadOnly or 0
+            
+            -- Change text color to gray when connected (read-only)
+            if is_connected then
+                imgui.PushStyleColor(ImGuiCol_Text, ui.LIGHT_GRAY)
             end
+            
+            if imgui.InputText('##pl_connection', connection_string, 256, input_flags) then
+                if not is_connected then
+                    settings.pl_connection_string = connection_string[1]
+                    if callback then callback() end
+                end
+            end
+            
+            if is_connected then
+                imgui.PopStyleColor()
+            end
+            
             imgui.PopItemWidth()
             
-            -- Connect button on same line
             imgui.SameLine()
-            if imgui.Button('Connect', { ui.AUTOMATION_BUTTON_WIDTH, 0 }) then
-                -- Send connection attempt message to the specified player
-                local player_name = settings.pl_connection_string or ''
-                if player_name ~= '' then
-                    local my_name = AshitaCore:GetMemoryManager():GetParty():GetMemberName(0) or 'Unknown'
-                    local command = string.format('/mst %s /tell %s  [MEDIC] <job> Attempting Connection...', player_name, my_name)
-                    AshitaCore:GetChatManager():QueueCommand(1, command)
-                    
-                    -- Start listening for connection response
-                    awaiting_connection = true
-                    connection_target_name = player_name
-                    common.printf(string.format('Awaiting connection from %s...', player_name))
+            imgui.Text('Player Name')
+            
+            -- Connect/Disconnect button on same line
+            imgui.SameLine()
+            local button_text = is_connected and 'Disconnect' or 'Connect'
+            if imgui.Button(button_text, { 100, 0 }) then
+                if is_connected then
+                    -- Disconnect: clear connection data
+                    settings.pl_connected_player = nil
+                    settings.pl_main_job = nil
+                    settings.pl_main_level = nil
+                    settings.pl_sub_job = nil
+                    settings.pl_sub_level = nil
+                    if callback then callback() end
+                    common.printf('Disconnected from PL Mode')
+                else
+                    -- Connect: send connection attempt message
+                    local player_name = settings.pl_connection_string or ''
+                    if player_name ~= '' then
+                        local my_name = AshitaCore:GetMemoryManager():GetParty():GetMemberName(0) or 'Unknown'
+                        local command = string.format('/mst %s /tell %s  [MEDIC] <job> Attempting Connection...', player_name, my_name)
+                        AshitaCore:GetChatManager():QueueCommand(1, command)
+                        
+                        -- Start listening for connection response
+                        awaiting_connection = true
+                        connection_target_name = player_name
+                        common.printf('Awaiting connection from %s...', player_name)
+                    end
                 end
             end
         end
