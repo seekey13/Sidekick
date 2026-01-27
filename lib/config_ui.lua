@@ -375,8 +375,8 @@ function config_ui.render(settings, job_def, callback, clear_data_callback, rest
     -- Sync UI state from settings
     sync_from_settings()
     
-    -- Check if PL Mode is active (job_def will be nil)
-    local pl_mode_active = job_def == nil and (settings.pl_mode_enabled == true)
+    -- Check if PL Mode is active
+    local pl_mode_active = settings.pl_mode_enabled and settings.pl_connected_player
     
     -- Create context object for ui_components
     local ctx = {
@@ -488,8 +488,8 @@ function config_ui.render(settings, job_def, callback, clear_data_callback, rest
         
         imgui.Separator()
 
-        -- Skip job-specific sections if in PL Mode (no job_def loaded)
-        if not pl_mode_active and job_def then
+        -- Show job-specific sections if we have a job definition
+        if job_def then
         
         -- Focus target settings (only show if job has party healing or debuff removal abilities)
         local has_party_healing = false
@@ -690,11 +690,12 @@ function config_ui.render(settings, job_def, callback, clear_data_callback, rest
             imgui.Separator()
         end
 
-        -- Item checkboxes for Silence and Doom removal (always shown)
-        ui.item_silence_removal_checkbox(ctx)
-        ui.item_doom_removal_checkbox(ctx)
-
-        imgui.Separator()
+        -- Item checkboxes for Silence and Doom removal (not shown in PL Mode)
+        if not pl_mode_active then
+            ui.item_silence_removal_checkbox(ctx)
+            ui.item_doom_removal_checkbox(ctx)
+            imgui.Separator()
+        end
         
         -- Rest settings (only for MP-based jobs, not in PL Mode)
         local in_pl_mode = current_settings and current_settings.pl_mode_enabled and current_settings.pl_connected_player

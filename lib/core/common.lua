@@ -1313,10 +1313,13 @@ function common.filter_abilities_by_level(abilities, settings, main_level, sub_l
         return available_abilities
     end
     
+    -- Check if in PL Mode
+    local in_pl_mode = settings and settings.pl_mode_enabled and settings.pl_connected_player
+    
     -- Debug: Check if job_def and validator exist
     if job_def then
-        common.debugf('[filter_abilities] job_def exists, job_id=%s, has_validator=%s', 
-            tostring(job_def.job_id), tostring(job_def.validate_ability ~= nil))
+        common.debugf('[filter_abilities] job_def exists, job_id=%s, has_validator=%s, pl_mode=%s', 
+            tostring(job_def.job_id), tostring(job_def.validate_ability ~= nil), tostring(in_pl_mode))
     else
         common.debugf('[filter_abilities] job_def is nil')
     end
@@ -1337,6 +1340,12 @@ function common.filter_abilities_by_level(abilities, settings, main_level, sub_l
         -- Check if ability requires main job only (e.g., Geo spells)
         if ability.main_job_only and ability.is_main_job == false then
             -- Skip main-job-only abilities when from subjob
+            goto continue
+        end
+        
+        -- PL Mode: Only allow abilities with target_outside = true
+        if in_pl_mode and ability.target_outside ~= true then
+            common.debugf('[filter_abilities] %s blocked by PL Mode (no target_outside)', ability.name)
             goto continue
         end
         
