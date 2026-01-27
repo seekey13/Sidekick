@@ -84,6 +84,7 @@ return {
                 end,
                 buff_id = 40,  -- Protect
                 group = 'protect',
+                target_outside = true,
             },
             {
                 name = 'Protect III',
@@ -95,6 +96,7 @@ return {
                 end,
                 buff_id = 40,
                 group = 'protect',
+                target_outside = true,
             },
             {
                 name = 'Protect II',
@@ -106,6 +108,7 @@ return {
                 end,
                 buff_id = 40,
                 group = 'protect',
+                target_outside = true,
             },
             {
                 name = 'Protect',
@@ -117,6 +120,7 @@ return {
                 end,
                 buff_id = 40,
                 group = 'protect',
+                target_outside = true,
             },
             -- Shell line
             {
@@ -129,6 +133,7 @@ return {
                 end,
                 buff_id = 41,  -- Shell
                 group = 'shell',
+                target_outside = true,
             },
             {
                 name = 'Shell III',
@@ -140,6 +145,7 @@ return {
                 end,
                 buff_id = 41,
                 group = 'shell',
+                target_outside = true,
             },
             {
                 name = 'Shell II',
@@ -151,6 +157,7 @@ return {
                 end,
                 buff_id = 41,
                 group = 'shell',
+                target_outside = true,
             },
             {
                 name = 'Shell',
@@ -162,6 +169,7 @@ return {
                 end,
                 buff_id = 41,
                 group = 'shell',
+                target_outside = true,
             },
             {
                 name = 'Regen III',
@@ -423,6 +431,7 @@ return {
                 end,
                 buff_id = 69,  -- Invisible
                 idle_only = true,
+                target_outside = true,
             },
             {
                 name = 'Sneak',
@@ -434,6 +443,7 @@ return {
                 end,
                 buff_id = 71,  -- Sneak
                 idle_only = true,
+                target_outside = true,
             },
             {
                 name = 'Deodorize',
@@ -445,6 +455,7 @@ return {
                 end,
                 idle_only = true,
                 buff_id = 70,  -- Deodorize
+                target_outside = true,
             },
         },
         
@@ -461,6 +472,7 @@ return {
                 end,
                 range = 20,
                 requires_buff = 401,  -- Requires Addendum: White
+                target_outside = true,
             },
             {
                 name = 'Paralyna',
@@ -473,6 +485,7 @@ return {
                 end,
                 range = 20,
                 requires_buff = 401,  -- Requires Addendum: White
+                target_outside = true,
             },
             {
                 name = 'Blindna',
@@ -485,6 +498,7 @@ return {
                 end,
                 range = 20,
                 requires_buff = 401,  -- Requires Addendum: White
+                target_outside = true,
             },
             {
                 name = 'Silena',
@@ -497,6 +511,7 @@ return {
                 end,
                 range = 20,
                 requires_buff = 401,  -- Requires Addendum: White
+                target_outside = true,
             },
             {
                 name = 'Cursna',
@@ -509,6 +524,7 @@ return {
                 end,
                 range = 20,
                 requires_buff = 401,  -- Requires Addendum: White
+                target_outside = true,
             },
             {
                 name = 'Erase',
@@ -521,6 +537,7 @@ return {
                 end,
                 range = 20,
                 requires_buff = 401,  -- Requires Addendum: White
+                target_outside = true,
             },
             {
                 name = 'Viruna',
@@ -533,6 +550,7 @@ return {
                 end,
                 range = 20,
                 requires_buff = 401,  -- Requires Addendum: White
+                target_outside = true,
             },
             {
                 name = 'Stona',
@@ -545,6 +563,7 @@ return {
                 end,
                 range = 20,
                 requires_buff = 401,  -- Requires Addendum: White
+                target_outside = true,
             },
         },
         
@@ -561,6 +580,7 @@ return {
                 range = 20,
                 value = 400,
                 wakes = true,
+                target_outside = true,
             },
             {
                 name = 'Cure III',
@@ -573,6 +593,7 @@ return {
                 range = 20,
                 value = 200,
                 wakes = true,
+                target_outside = true,
             },
             {
                 name = 'Cure II',
@@ -585,6 +606,7 @@ return {
                 range = 20,
                 value = 90,
                 wakes = true,
+                target_outside = true,
             },
             {
                 name = 'Cure',
@@ -597,6 +619,7 @@ return {
                 range = 20,
                 value = 30,
                 wakes = true,
+                target_outside = true,
             },
         },
 
