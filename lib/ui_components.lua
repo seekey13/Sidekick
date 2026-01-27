@@ -552,7 +552,7 @@ function ui_components.group_dropdown(ctx, job_def, target_group, dropdown_width
         return
     end
     
-    local usable = get_usable_abilities_in_group(job_def, target_group)
+    local usable = get_usable_abilities_in_group(job_def, target_group, ctx)
     if #usable == 0 then
         return
     end
