@@ -137,8 +137,8 @@ local function can_use_ability(ability)
     
     local main_level, sub_level
     
-    -- Use PL Mode levels if active, otherwise use player levels
-    if current_settings and current_settings.pl_mode_enabled and current_settings.pl_connected_player then
+    -- Use PL Mode levels if enabled, otherwise use player levels
+    if current_settings and current_settings.pl_mode_enabled then
         main_level = current_settings.pl_main_level or 1
         sub_level = current_settings.pl_sub_level or 0
     else
@@ -424,6 +424,29 @@ function config_ui.render(settings, job_def, callback, clear_data_callback, rest
     
     if imgui.Begin(window_title, is_open, ImGuiWindowFlags_NoResize + ImGuiWindowFlags_AlwaysAutoResize) then
         
+        -- Display job name and levels
+        if settings.pl_mode_enabled then
+            -- Show PL Mode job info or connection prompt
+            if not settings.pl_main_job or not settings.pl_main_level or not settings.pl_sub_job or not settings.pl_sub_level then
+                imgui.TextColored({1.0, 1.0, 0.0, 1.0}, 'Press Connect to load Job information')
+            else
+                local main_job_name = common.get_job_name_from_abbr(settings.pl_main_job)
+                local sub_job_name = common.get_job_name_from_abbr(settings.pl_sub_job)
+                imgui.TextColored({1.0, 1.0, 1.0, 1.0}, string.format('%s %d / %s %d', main_job_name, settings.pl_main_level, sub_job_name, settings.pl_sub_level))
+            end
+        elseif job_def and job_def.job_name then
+            -- Show normal job info
+            local main_job_id, sub_job_id = common.get_player_job()
+            local main_level, sub_level = common.get_player_level()
+            local main_job_name = common.get_job_name_from_id(main_job_id)
+            local sub_job_name = 'None'
+            if sub_level and sub_level > 0 and sub_job_id and sub_job_id > 0 then
+                sub_job_name = common.get_job_name_from_id(sub_job_id)
+            end
+            imgui.TextColored({1.0, 1.0, 1.0, 1.0}, string.format('%s %d / %s %d', main_job_name, main_level, sub_job_name, sub_level or 0))
+        end
+        imgui.Separator()
+        
         -- Automation toggle button
         local can_attack = common.can_attack()
         local is_resting = common.is_resting()
@@ -470,8 +493,7 @@ function config_ui.render(settings, job_def, callback, clear_data_callback, rest
         imgui.Separator()
         
         -- Attack Range settings (global setting for all jobs, hidden in PL mode)
-        local in_pl_mode = settings.pl_mode_enabled and settings.pl_connected_player
-        if not in_pl_mode then
+        if not settings.pl_mode_enabled then
             local attack_range_options = { 'Off', 'Melee', 'Ranged' }
             local attack_range_current = settings.attack_range or 'Off'
             local attack_range_index = { 0 }
@@ -694,15 +716,14 @@ function config_ui.render(settings, job_def, callback, clear_data_callback, rest
         end
 
         -- Item checkboxes for Silence and Doom removal (not shown in PL Mode)
-        if not pl_mode_active then
+        if not settings.pl_mode_enabled then
             ui.item_silence_removal_checkbox(ctx)
             ui.item_doom_removal_checkbox(ctx)
             imgui.Separator()
         end
         
         -- Rest settings (only for MP-based jobs, not in PL Mode)
-        local in_pl_mode = current_settings and current_settings.pl_mode_enabled and current_settings.pl_connected_player
-        if job_def and job_def.resource_type == 'mp' and not in_pl_mode then
+        if job_def and job_def.resource_type == 'mp' and not settings.pl_mode_enabled then
             local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Enable Resting', 'rest_enabled', false)
             if is_open and is_enabled then
                 ui.slider_int(ctx, 'Timer (seconds)', 'rest_timer', { settings.rest_timer or 5 }, 1, 20)
@@ -1058,7 +1079,7 @@ function config_ui.render(settings, job_def, callback, clear_data_callback, rest
             
             imgui.Separator()
         end
-        end  -- End of pl_mode_active check
+        end  -- End of job_def check
         
         -- PL Mode section (at end)
         local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Enable PL Mode', 'pl_mode_enabled', false)
@@ -1114,9 +1135,9 @@ function config_ui.render(settings, job_def, callback, clear_data_callback, rest
                     -- Disconnect: clear connection data
                     settings.pl_connected_player = nil
                     settings.pl_main_job = nil
-                    settings.pl_main_level = nil
+                    settings.pl_main_level = 0
                     settings.pl_sub_job = nil
-                    settings.pl_sub_level = nil
+                    settings.pl_sub_level = 0
                     if callback then callback() end
                     common.printf('Disconnected from PL Mode')
                 else

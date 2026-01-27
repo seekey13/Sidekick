@@ -392,21 +392,88 @@ function common.get_player_job()
     return job, subjob
 end
 
+-- Job data mappings (single source of truth)
+local job_data = {
+    {id = 1,  abbr = 'WAR', name = 'Warrior'},
+    {id = 2,  abbr = 'MNK', name = 'Monk'},
+    {id = 3,  abbr = 'WHM', name = 'White Mage'},
+    {id = 4,  abbr = 'BLM', name = 'Black Mage'},
+    {id = 5,  abbr = 'RDM', name = 'Red Mage'},
+    {id = 6,  abbr = 'THF', name = 'Thief'},
+    {id = 7,  abbr = 'PLD', name = 'Paladin'},
+    {id = 8,  abbr = 'DRK', name = 'Dark Knight'},
+    {id = 9,  abbr = 'BST', name = 'Beastmaster'},
+    {id = 10, abbr = 'BRD', name = 'Bard'},
+    {id = 11, abbr = 'RNG', name = 'Ranger'},
+    {id = 12, abbr = 'SAM', name = 'Samurai'},
+    {id = 13, abbr = 'NIN', name = 'Ninja'},
+    {id = 14, abbr = 'DRG', name = 'Dragoon'},
+    {id = 15, abbr = 'SMN', name = 'Summoner'},
+    {id = 16, abbr = 'BLU', name = 'Blue Mage'},
+    {id = 17, abbr = 'COR', name = 'Corsair'},
+    {id = 18, abbr = 'PUP', name = 'Puppetmaster'},
+    {id = 19, abbr = 'DNC', name = 'Dancer'},
+    {id = 20, abbr = 'SCH', name = 'Scholar'},
+    {id = 21, abbr = 'GEO', name = 'Geomancer'},
+    {id = 22, abbr = 'RUN', name = 'Rune Fencer'}
+}
+
+-- Convert job abbreviation to job ID
+function common.get_job_id_from_abbr(job_abbr)
+    if not job_abbr then return nil end
+    local upper_abbr = job_abbr:upper()
+    for _, job in ipairs(job_data) do
+        if job.abbr == upper_abbr then
+            return job.id
+        end
+    end
+    return nil
+end
+
+-- Get full job name from abbreviation
+function common.get_job_name_from_abbr(job_abbr)
+    if not job_abbr then return nil end
+    local upper_abbr = job_abbr:upper()
+    for _, job in ipairs(job_data) do
+        if job.abbr == upper_abbr then
+            return job.name
+        end
+    end
+    return job_abbr
+end
+
+-- Get full job name from ID
+function common.get_job_name_from_id(job_id)
+    if not job_id then return 'Unknown' end
+    for _, job in ipairs(job_data) do
+        if job.id == job_id then
+            return job.name
+        end
+    end
+    return 'Unknown'
+end
+
 function common.get_job_name(job_id)
-    -- Try to get full job name first
-    local ok, name = pcall(function() 
-        return AshitaCore:GetResourceManager():GetString('jobs.names', job_id) 
-    end)
-    if ok and name then
+    -- Try to get full job name first from our data
+    local name = common.get_job_name_from_id(job_id)
+    if name ~= 'Unknown' then
         return name
     end
     
+    -- Fallback to resource manager
+    local ok, res_name = pcall(function() 
+        return AshitaCore:GetResourceManager():GetString('jobs.names', job_id) 
+    end)
+    if ok and res_name then
+        return res_name
+    end
+    
     -- Fallback to abbreviated name if full name not available
-    ok, name = pcall(function() 
+    ok, res_name = pcall(function() 
         return AshitaCore:GetResourceManager():GetString('jobs.names_abbr', job_id) 
     end)
-    if ok and name then
-        return name:upper()
+    if ok and res_name then
+        return res_name:upper()
     end
     
     return tostring(job_id)

@@ -127,17 +127,6 @@ local function restore_normal_mode()
     -- Job will be automatically reloaded on next frame by setup_job()
 end
 
--- Convert job abbreviation to job ID
-local function get_job_id_from_abbr(job_abbr)
-    local job_abbr_map = {
-        WAR = 1,  MNK = 2,  WHM = 3,  BLM = 4,  RDM = 5,  THF = 6,
-        PLD = 7,  DRK = 8,  BST = 9,  BRD = 10, RNG = 11, SAM = 12,
-        NIN = 13, DRG = 14, SMN = 15, BLU = 16, COR = 17, PUP = 18,
-        DNC = 19, SCH = 20, GEO = 21, RUN = 22
-    }
-    return job_abbr_map[job_abbr:upper()]
-end
-
 local function load_single_job_definition(job_id)
     -- Map job IDs to job definition files
     local job_map = {
@@ -342,8 +331,8 @@ local function setup_pl_mode_job()
     end
     
     -- Convert job abbreviations to IDs
-    local main_job_id = get_job_id_from_abbr(addon_settings.pl_main_job)
-    local sub_job_id = addon_settings.pl_sub_job and get_job_id_from_abbr(addon_settings.pl_sub_job) or nil
+    local main_job_id = common.get_job_id_from_abbr(addon_settings.pl_main_job)
+    local sub_job_id = addon_settings.pl_sub_job and common.get_job_id_from_abbr(addon_settings.pl_sub_job) or nil
     
     if not main_job_id then
         common.errorf('Invalid main job abbreviation: %s', addon_settings.pl_main_job)
