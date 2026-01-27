@@ -191,7 +191,7 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                                 -- Check cooldown
                                 if ability.id then
                                     local is_spell = false
-                                    local test_cmd = common.build_ability_command(ability, target_index)
+                                    local test_cmd = common.build_ability_command(ability, target_index, settings)
                                     is_spell = test_cmd and test_cmd:match('^/ma ') ~= nil
                                     
                                     local is_ready = false
@@ -210,7 +210,7 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                                     end
                                     
                                     if is_ready then
-                                        local command = common.build_ability_command(ability, target_index)
+                                        local command = common.build_ability_command(ability, target_index, settings)
                                         if command then
                                             -- Register pending buff if target is a Trust
                                             if ability.buff_id and target_index > 0 then
@@ -235,7 +235,7 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                                         end
                                     end
                                 else
-                                    local command = common.build_ability_command(ability, target_index)
+                                    local command = common.build_ability_command(ability, target_index, settings)
                                     if command then
                                         -- Register pending buff if target is a Trust
                                         if ability.buff_id and target_index > 0 then
@@ -349,7 +349,7 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                                 end
                             end
                         else
-                            local command = common.build_ability_command(ability, 0)
+                            local command = common.build_ability_command(ability, 0, settings)
                             if command then
                                 return {
                                     command = command,

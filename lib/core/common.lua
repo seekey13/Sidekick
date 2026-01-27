@@ -1383,8 +1383,11 @@ end
 -- Args:
 --   ability (table) - Ability definition with command field
 --   party_index (number|nil) - party index 0-5 for p0-p5
+--   settings (table|nil) - Settings table for PL Mode detection
 -- Returns: string - Command string or nil
-function common.build_ability_command(ability, party_index)
+function common.build_ability_command(ability, party_index, settings)
+    local command = nil
+    
     if type(ability.command) == 'function' then
         -- If party_index is provided, convert party index (0-5) to server ID
         if party_index ~= nil then
@@ -1393,14 +1396,20 @@ function common.build_ability_command(ability, party_index)
                 -- Convert party index to server ID
                 local server_id = party:GetMemberServerId(party_index)
                 if server_id and server_id > 0 then
-                    return ability.command(server_id)
+                    command = ability.command(server_id)
                 end
             end
         end
     elseif type(ability.command) == 'string' then
-        return ability.command
+        command = ability.command
     end
-    return nil
+    
+    -- If in PL Mode, prepend /mst command
+    if command and settings and settings.pl_mode_enabled and settings.pl_connected_player then
+        command = string.format('/mst %s %s', settings.pl_connected_player, command)
+    end
+    
+    return command
 end
 
 -- ============================================================================
@@ -1475,7 +1484,7 @@ function common.check_target_modifier(job_def, settings, main_level, sub_level)
     end
     
     -- Build and return the command
-    local command = common.build_ability_command(modifier_ability, 0)
+    local command = common.build_ability_command(modifier_ability, 0, settings)
     if command then
         return {
             command = command,

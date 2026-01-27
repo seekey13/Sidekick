@@ -65,7 +65,7 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
             -- Select appropriate ability
             local selected_ability = heal.select_ability(available_abilities, player_hpp, job_def, player_resource, 0)
             if selected_ability then
-                local command = common.build_ability_command(selected_ability, 0)
+                local command = common.build_ability_command(selected_ability, 0, settings)
                 
                 if command then
                     common.debugf('[HEAL] >>> Using self-only heal %s', selected_ability.name)
@@ -158,7 +158,7 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
                     
                     -- Determine target based on ability command
                     local target_party_index
-                    local command_test = common.build_ability_command(ability, 0)
+                    local command_test = common.build_ability_command(ability, 0, settings)
                     if command_test and command_test:find('<me>') then
                         -- Self-target ability (Divine Seal)
                         target_party_index = 0
@@ -183,7 +183,7 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
                         common.debugf('[HEAL] Using party-target critical ability %s on party[%d]', ability.name, critical_party_index)
                     end
                     
-                    local command = common.build_ability_command(ability, target_party_index)
+                    local command = common.build_ability_command(ability, target_party_index, settings)
                     if command then
                         common.debugf('[HEAL] >>> Using critical ability %s', ability.name)
                         return {
@@ -238,7 +238,7 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
                     common.debugf('[HEAL] Focus target in range (range: %d)', ability_range)
                     common.debugf('[HEAL] Selected %s for focus target', selected_ability.name)
                     
-                    local command = common.build_ability_command(selected_ability, focus_party_index)
+                    local command = common.build_ability_command(selected_ability, focus_party_index, settings)
                     if command then
                         common.debugf('[HEAL] >>> Healing focus target with %s', selected_ability.name)
                         return {
@@ -274,7 +274,7 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
                     common.debugf('[HEAL] Target out of range (range: %d)', ability_range)
                     return nil
                 end
-                local command = common.build_ability_command(selected_ability, party_status.lowest_hp_index)
+                local command = common.build_ability_command(selected_ability, party_status.lowest_hp_index, settings)
                 if command then
                     return {
                         command = command,
@@ -387,7 +387,7 @@ function heal.select_ability(abilities, target_hpp, job_def, player_resource, pa
                     is_spell = true
                 elseif type(ability.command) == 'function' then
                     -- Try to get the command string to check
-                    local test_cmd = common.build_ability_command(ability, 0)
+                    local test_cmd = common.build_ability_command(ability, 0, settings)
                     if test_cmd and test_cmd:match('^/ma%s') then
                         is_spell = true
                     end
