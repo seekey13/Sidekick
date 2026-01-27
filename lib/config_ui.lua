@@ -135,7 +135,15 @@ local function can_use_ability(ability)
         return false
     end
     
-    local main_level, sub_level = common.get_player_level()
+    local main_level, sub_level
+    
+    -- Use PL Mode levels if active, otherwise use player levels
+    if current_settings and current_settings.pl_mode_enabled and current_settings.pl_connected_player then
+        main_level = current_settings.pl_main_level or 1
+        sub_level = current_settings.pl_sub_level or 0
+    else
+        main_level, sub_level = common.get_player_level()
+    end
     
     -- Check if this ability is for main job or subjob
     -- Abilities marked with is_main_job = false are from subjob
@@ -144,6 +152,17 @@ local function can_use_ability(ability)
     else
         return main_level >= ability.level
     end
+end
+
+-- Check if ability can target outside party (PL Mode filter)
+local function can_target_outside(ability)
+    -- If not in PL Mode, all abilities are allowed
+    if not current_settings or not current_settings.pl_mode_enabled or not current_settings.pl_connected_player then
+        return true
+    end
+    
+    -- In PL Mode, only abilities with target_outside = true are allowed
+    return ability.target_outside == true
 end
 
 -- Get all abilities in the same group as the given ability (returns ability objects, not just names)
@@ -173,7 +192,7 @@ local function get_usable_abilities_in_group(job_def, target_group)
     local usable = {}
     
     for _, ability in ipairs(all_abilities) do
-        if can_use_ability(ability) then
+        if can_use_ability(ability) and can_target_outside(ability) then
             -- Check if spell is learned (for magic spells)
             local cmd = type(ability.command) == 'function' and ability.command(0) or ability.command
             local is_spell = cmd and string.sub(cmd, 1, 3) == '/ma'
@@ -195,7 +214,7 @@ local function get_usable_abilities_in_group(job_def, target_group)
     return usable
 end
 
--- Check if a list of abilities has any usable abilities (level-appropriate)
+-- Check if a list of abilities has any usable abilities (level-appropriate and can target outside if in PL Mode)
 local function has_usable_abilities(abilities)
     if not abilities then
         return false
@@ -205,7 +224,7 @@ local function has_usable_abilities(abilities)
     local has_any = false
     for _, ability in pairs(abilities) do
         has_any = true
-        if can_use_ability(ability) then
+        if can_use_ability(ability) and can_target_outside(ability) then
             return true
         end
     end
@@ -573,7 +592,7 @@ function config_ui.render(settings, job_def, callback, clear_data_callback, rest
                 ui.slider_int(ctx, 'Party (HP%)', 'heal_threshold', { settings.heal_threshold or 75 }, 1, 100)
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.heal) do
-                    if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
+                    if can_use_ability(ability) and can_target_outside(ability) and not is_subjob_duplicate(job_def, ability) then
                         ui.ability_checkbox(ctx, ability, job_def, 'heal')
                     end
                 end
@@ -584,7 +603,7 @@ function config_ui.render(settings, job_def, callback, clear_data_callback, rest
                     ui.slider_int(ctx, 'Critical (HP%)', 'critical_threshold', { settings.critical_threshold or 30 }, 1, 50)
                     imgui.Indent(ui.ABILITY_LIST_INDENT)
                     for _, ability in ipairs(job_def.abilities.critical) do
-                        if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
+                        if can_use_ability(ability) and can_target_outside(ability) and not is_subjob_duplicate(job_def, ability) then
                             ui.ability_checkbox(ctx, ability, job_def, 'critical')
                         end
                     end
@@ -605,7 +624,7 @@ function config_ui.render(settings, job_def, callback, clear_data_callback, rest
                 
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.heal_aoe) do
-                    if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
+                    if can_use_ability(ability) and can_target_outside(ability) and not is_subjob_duplicate(job_def, ability) then
                         ui.ability_checkbox(ctx, ability, job_def, 'heal_aoe')
                     end
                 end
@@ -623,7 +642,7 @@ function config_ui.render(settings, job_def, callback, clear_data_callback, rest
                 
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.heal_pet) do
-                    if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
+                    if can_use_ability(ability) and can_target_outside(ability) and not is_subjob_duplicate(job_def, ability) then
                         ui.ability_checkbox(ctx, ability, job_def, 'heal_pet')
                     end
                 end
@@ -656,7 +675,7 @@ function config_ui.render(settings, job_def, callback, clear_data_callback, rest
             if is_open and is_enabled then
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.debuff_removal) do
-                    if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
+                    if can_use_ability(ability) and can_target_outside(ability) and not is_subjob_duplicate(job_def, ability) then
                         ui.ability_checkbox(ctx, ability, job_def, 'debuff_removal')
                     end
                 end
@@ -673,8 +692,9 @@ function config_ui.render(settings, job_def, callback, clear_data_callback, rest
 
         imgui.Separator()
         
-        -- Rest settings (only for MP-based jobs)
-        if job_def and job_def.resource_type == 'mp' then
+        -- Rest settings (only for MP-based jobs, not in PL Mode)
+        local in_pl_mode = current_settings and current_settings.pl_mode_enabled and current_settings.pl_connected_player
+        if job_def and job_def.resource_type == 'mp' and not in_pl_mode then
             local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Enable Resting', 'rest_enabled', false)
             if is_open and is_enabled then
                 ui.slider_int(ctx, 'Timer (seconds)', 'rest_timer', { settings.rest_timer or 5 }, 1, 20)
@@ -747,7 +767,7 @@ function config_ui.render(settings, job_def, callback, clear_data_callback, rest
                     ui.slider_int(ctx, 'Self Recover (TP)', 'recover_tp_threshold', { settings.recover_tp_threshold or 500 }, 100, 3000)
                     imgui.Indent(ui.ABILITY_LIST_INDENT)
                     for _, ability in ipairs(job_def.abilities.recover_tp) do
-                        if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
+                        if can_use_ability(ability) and can_target_outside(ability) and not is_subjob_duplicate(job_def, ability) then
                             ui.ability_checkbox(ctx, ability, job_def, 'recover_tp')
                         end
                     end
@@ -763,7 +783,7 @@ function config_ui.render(settings, job_def, callback, clear_data_callback, rest
                     ui.slider_int(ctx, 'Self Recover (MP%)', 'recover_mp_threshold', { settings.recover_mp_threshold or 30 }, 1, 100)
                     imgui.Indent(ui.ABILITY_LIST_INDENT)
                     for _, ability in ipairs(job_def.abilities.recover_mp) do
-                        if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
+                        if can_use_ability(ability) and can_target_outside(ability) and not is_subjob_duplicate(job_def, ability) then
                             ui.ability_checkbox(ctx, ability, job_def, 'recover_mp')
                         end
                     end
@@ -830,7 +850,7 @@ function config_ui.render(settings, job_def, callback, clear_data_callback, rest
                     
                     imgui.Indent(ui.ABILITY_LIST_INDENT)
                     for _, ability in ipairs(job_def.abilities.recover_party_mp) do
-                        if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
+                        if can_use_ability(ability) and can_target_outside(ability) and not is_subjob_duplicate(job_def, ability) then
                             ui.ability_checkbox(ctx, ability, job_def, 'recover_party_mp')
                         end
                     end
@@ -856,7 +876,7 @@ function config_ui.render(settings, job_def, callback, clear_data_callback, rest
                 
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.buff) do
-                    if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
+                    if can_use_ability(ability) and can_target_outside(ability) and not is_subjob_duplicate(job_def, ability) then
                         ui.render_ability(ctx, ability, job_def, 'buff')
                     end
                 end
@@ -875,7 +895,7 @@ function config_ui.render(settings, job_def, callback, clear_data_callback, rest
                 
                 -- Full Circle checkbox
                 for _, ability in ipairs(job_def.abilities.geo) do
-                    if ability.name ~= 'Entrust' and can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
+                    if ability.name ~= 'Entrust' and can_use_ability(ability) and can_target_outside(ability) and not is_subjob_duplicate(job_def, ability) then
                         ui.ability_checkbox(ctx, ability, job_def, 'geo')
                     end
                 end
@@ -1019,7 +1039,7 @@ function config_ui.render(settings, job_def, callback, clear_data_callback, rest
                         -- Entrust ability checkbox (indented)
                         imgui.Indent(ui.ABILITY_LIST_INDENT)
                         for _, ability in ipairs(job_def.abilities.geo) do
-                            if ability.name == 'Entrust' and can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
+                            if ability.name == 'Entrust' and can_use_ability(ability) and can_target_outside(ability) and not is_subjob_duplicate(job_def, ability) then
                                 ui.ability_checkbox(ctx, ability, job_def, 'geo')
                             end
                         end
@@ -1076,7 +1096,7 @@ function config_ui.render(settings, job_def, callback, clear_data_callback, rest
             imgui.PopItemWidth()
             
             imgui.SameLine()
-            imgui.Text('Player Name')
+            imgui.Text('PL Player Name')
             
             -- Connect/Disconnect button on same line
             imgui.SameLine()

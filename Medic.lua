@@ -91,8 +91,30 @@ end
 -- Restore normal mode (used when PL Mode is disabled)
 local function restore_normal_mode()
     pl_mode_active = false
+    
+    -- Clear connection data to require manual reconnect
+    if addon_settings then
+        addon_settings.pl_connected_player = nil
+        addon_settings.pl_main_job = nil
+        addon_settings.pl_main_level = nil
+        addon_settings.pl_sub_job = nil
+        addon_settings.pl_sub_level = nil
+        settings.save()
+    end
+    
     common.printf('PL Mode disabled, restoring normal operation')
     -- Job will be automatically reloaded on next frame by setup_job()
+end
+
+-- Convert job abbreviation to job ID
+local function get_job_id_from_abbr(job_abbr)
+    local job_abbr_map = {
+        WAR = 1,  MNK = 2,  WHM = 3,  BLM = 4,  RDM = 5,  THF = 6,
+        PLD = 7,  DRK = 8,  BST = 9,  BRD = 10, RNG = 11, SAM = 12,
+        NIN = 13, DRG = 14, SMN = 15, BLU = 16, COR = 17, PUP = 18,
+        DNC = 19, SCH = 20, GEO = 21, RUN = 22
+    }
+    return job_abbr_map[job_abbr:upper()]
 end
 
 local function load_single_job_definition(job_id)
@@ -285,6 +307,44 @@ local function load_job_definition(main_job_id, sub_job_id)
     common.printf('Loaded job definition: %s', job_name)
     
     return merged_def
+end
+
+-- Setup job from PL Mode connection data
+local function setup_pl_mode_job()
+    if not addon_settings then
+        return
+    end
+    
+    -- Check if we have connection data
+    if not addon_settings.pl_connected_player or not addon_settings.pl_main_job then
+        return
+    end
+    
+    -- Convert job abbreviations to IDs
+    local main_job_id = get_job_id_from_abbr(addon_settings.pl_main_job)
+    local sub_job_id = addon_settings.pl_sub_job and get_job_id_from_abbr(addon_settings.pl_sub_job) or nil
+    
+    if not main_job_id then
+        common.errorf('Invalid main job abbreviation: %s', addon_settings.pl_main_job)
+        return
+    end
+    
+    -- Check if already loaded with same job
+    if main_job_id == current_main_job_id and sub_job_id == current_sub_job_id and job_def then
+        return
+    end
+    
+    current_main_job_id = main_job_id
+    current_sub_job_id = sub_job_id
+    
+    main_job_def = load_single_job_definition(main_job_id)
+    sub_job_def = sub_job_id and load_single_job_definition(sub_job_id) or nil
+    job_def = load_job_definition(main_job_id, sub_job_id)
+    
+    if job_def then
+        common.printf('Loaded PL Mode job: %s (Lv%d/%d)', job_def.job_name, 
+            addon_settings.pl_main_level, addon_settings.pl_sub_level or 0)
+    end
 end
 
 local function setup_job()
@@ -582,6 +642,20 @@ ashita.events.register('load', 'medic_load', function()
     common.printf('Loaded! Type /medic help for commands.')
 end)
 
+ashita.events.register('d3d_beginscene', 'medic_clear_pl_connection', function()
+    -- Clear PL Mode connection data on first frame (requires manual reconnect each session)
+    if is_loaded and addon_settings then
+        addon_settings.pl_connected_player = nil
+        addon_settings.pl_main_job = nil
+        addon_settings.pl_main_level = nil
+        addon_settings.pl_sub_job = nil
+        addon_settings.pl_sub_level = nil
+        
+        -- Unregister this event after first run
+        ashita.events.unregister('d3d_beginscene', 'medic_clear_pl_connection')
+    end
+end)
+
 ashita.events.register('unload', 'medic_unload', function()    
     if addon_settings and job_def then
         local settings_file = 'settings_' .. (job_def.job_name or 'default'):lower() .. '.json'
@@ -625,6 +699,11 @@ ashita.events.register('d3d_present', 'medic_render', function()
     -- Render config UI
     -- Allow rendering in PL Mode even without job_def
     if config_ui.is_visible() and addon_settings then
+        -- Load PL Mode job if active
+        if pl_mode_active and addon_settings.pl_mode_enabled and addon_settings.pl_connected_player then
+            setup_pl_mode_job()
+        end
+        
         -- Check if we can render (either have job_def OR PL Mode is active)
         local can_render = job_def ~= nil or pl_mode_active
         

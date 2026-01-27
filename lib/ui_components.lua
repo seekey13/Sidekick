@@ -67,6 +67,16 @@ local function can_use_ability(ability)
     end
 end
 
+-- Check if ability can target outside party (always returns true in ui_components - no PL Mode context)
+local function can_target_outside(ability)
+    -- Simply check if the ability has the target_outside flag
+    -- If no flag is present, assume true (for non-party abilities)
+    if ability.target_outside == nil then
+        return true
+    end
+    return ability.target_outside == true
+end
+
 -- Get all abilities in the same group
 local function get_abilities_in_group(job_def, target_group)
     local group_abilities = {}
@@ -93,7 +103,7 @@ local function get_usable_abilities_in_group(job_def, target_group)
     local usable = {}
     
     for _, ability in ipairs(all_abilities) do
-        if can_use_ability(ability) then
+        if can_use_ability(ability) and can_target_outside(ability) then
             local cmd = type(ability.command) == 'function' and ability.command(0) or ability.command
             local is_spell = cmd and string.sub(cmd, 1, 3) == '/ma'
             local has_spell = true
