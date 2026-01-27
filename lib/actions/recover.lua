@@ -14,6 +14,11 @@ function recover.execute(settings, job_def, main_level, sub_level, player_resour
         return nil
     end
     
+    -- Skip in PL Mode (recover abilities target self, not usable outside party)
+    if settings.pl_mode_enabled and settings.pl_connected_player then
+        return nil
+    end
+    
     -- Get recovery abilities from job definition
     local recover_mp_abilities = job_def.abilities.recover_mp or {}
     local recover_tp_abilities = job_def.abilities.recover_tp or {}

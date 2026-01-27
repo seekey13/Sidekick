@@ -85,7 +85,28 @@ local function clear_player_data()
     sub_job_def = nil
     job_def = nil
     pl_mode_active = true
-    common.printf('Cleared player job and level data (PL Mode enabled)')
+    
+    -- Disable all abilities when enabling PL Mode
+    if addon_settings then
+        for key, value in pairs(addon_settings) do
+            if key:match('^disabled_') then
+                addon_settings[key] = true  -- Disable all abilities
+            end
+        end
+        -- Also disable all section enable flags
+        addon_settings.heal_enabled = false
+        addon_settings.heal_aoe_enabled = false
+        addon_settings.heal_pet_enabled = false
+        addon_settings.buff_enabled = false
+        addon_settings.debuff_removal_enabled = false
+        addon_settings.recover_enabled = false
+        addon_settings.geo_enabled = false
+        addon_settings.wake_enabled = false
+        addon_settings.rest_enabled = false
+        settings.save()
+    end
+    
+    common.printf('Cleared player job and level data (PL Mode enabled, all abilities disabled)')
 end
 
 -- Restore normal mode (used when PL Mode is disabled)
@@ -511,9 +532,14 @@ local function automation_tick()
     
     -- Check for job or level changes (direct reading, no packet dependency)
     -- Skip when PL Mode is active
-    if not pl_mode_active then
+    local main_level, sub_level
+    if pl_mode_active then
+        -- Use PL Mode levels from settings
+        main_level = addon_settings.pl_main_level or 1
+        sub_level = addon_settings.pl_sub_level or 0
+    else
         local job_id, sub_job_id = common.get_player_job()
-        local main_level, sub_level = common.get_player_level()
+        main_level, sub_level = common.get_player_level()
         
         -- Skip if job_id or level is invalid
         if job_id and job_id > 0 and main_level and main_level > 0 then

@@ -30,6 +30,7 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
     local available_abilities = common.filter_abilities_by_level(buff_abilities, settings, main_level, sub_level, job_def)
     
     if #available_abilities == 0 then
+        common.debugf('[BUFF] No available abilities after filtering')
         return nil
     end
     

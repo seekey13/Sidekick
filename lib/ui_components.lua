@@ -115,7 +115,10 @@ local function get_usable_abilities_in_group(job_def, target_group, ctx)
     local filters = get_filters(ctx)
     
     for _, ability in ipairs(all_abilities) do
-        if filters.can_use_ability(ability) and filters.can_target_outside(ability) then
+        local can_use = filters.can_use_ability(ability)
+        local can_target = filters.can_target_outside(ability)
+        
+        if can_use and can_target then
             local cmd = type(ability.command) == 'function' and ability.command(0) or ability.command
             local is_spell = cmd and string.sub(cmd, 1, 3) == '/ma'
             local has_spell = true
@@ -129,6 +132,14 @@ local function get_usable_abilities_in_group(job_def, target_group, ctx)
             
             if has_spell then
                 table.insert(usable, ability)
+            else
+                common.debugf('[ui_components] %s in group %s: spell not learned', ability.name, target_group)
+            end
+        else
+            -- Only debug for Protect and Shell groups to avoid spam
+            if target_group == 'protect' or target_group == 'shell' then
+                common.debugf('[ui_components] %s (lvl %d, is_main=%s) in group %s filtered: can_use=%s, can_target=%s', 
+                    ability.name, ability.level or 0, tostring(ability.is_main_job), target_group, tostring(can_use), tostring(can_target))
             end
         end
     end
@@ -597,12 +608,32 @@ function ui_components.group_dropdown(ctx, job_def, target_group, dropdown_width
                     end
                 end
                 
-                -- Transfer enabled state from old selection to new
+                -- Transfer enabled state AND party_buffs state from old selection to new
                 if selected then
                     local old_enabled = is_ability_enabled(ctx, selected.name)
                     if old_enabled then
                         local new_key = 'disabled_' .. ability.name:gsub(' ', '_')
                         ctx.settings[new_key] = false
+                    end
+                    
+                    -- Transfer party_buffs state for party-targetable abilities
+                    if ctx.party_buffs and ctx.party_buffs[selected.name] then
+                        -- Copy old ability's party_buffs to new ability
+                        ctx.party_buffs[ability.name] = ctx.party_buffs[ability.name] or {}
+                        for party_index = 0, 5 do
+                            if ctx.party_buffs[selected.name][party_index] then
+                                ctx.party_buffs[ability.name][party_index] = true
+                                -- Also save to settings
+                                ctx.settings.party_buffs = ctx.settings.party_buffs or {}
+                                ctx.settings.party_buffs[ability.name] = ctx.settings.party_buffs[ability.name] or {}
+                                ctx.settings.party_buffs[ability.name][party_index] = true
+                            end
+                        end
+                        -- Clear old ability's party_buffs
+                        ctx.party_buffs[selected.name] = {}
+                        if ctx.settings.party_buffs and ctx.settings.party_buffs[selected.name] then
+                            ctx.settings.party_buffs[selected.name] = {}
+                        end
                     end
                 end
                 

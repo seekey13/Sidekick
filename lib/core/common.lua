@@ -1316,14 +1316,6 @@ function common.filter_abilities_by_level(abilities, settings, main_level, sub_l
     -- Check if in PL Mode
     local in_pl_mode = settings and settings.pl_mode_enabled and settings.pl_connected_player
     
-    -- Debug: Check if job_def and validator exist
-    if job_def then
-        common.debugf('[filter_abilities] job_def exists, job_id=%s, has_validator=%s, pl_mode=%s', 
-            tostring(job_def.job_id), tostring(job_def.validate_ability ~= nil), tostring(in_pl_mode))
-    else
-        common.debugf('[filter_abilities] job_def is nil')
-    end
-    
     for _, ability in ipairs(abilities) do
         -- Safely get level value
         local required_level = 0
@@ -1345,7 +1337,6 @@ function common.filter_abilities_by_level(abilities, settings, main_level, sub_l
         
         -- PL Mode: Only allow abilities with target_outside = true
         if in_pl_mode and ability.target_outside ~= true then
-            common.debugf('[filter_abilities] %s blocked by PL Mode (no target_outside)', ability.name)
             goto continue
         end
         
@@ -1358,20 +1349,21 @@ function common.filter_abilities_by_level(abilities, settings, main_level, sub_l
         end
         
         if is_disabled then
-            -- Skip disabled ability
+            -- Skip disabled ability (no debug spam)
         elseif ability.requires_pet and not targets.get_pet() then
-            -- Skip if requires pet but no pet available
+            common.debugf('[filter_abilities] %s blocked by requires_pet', ability.name)
         elseif ability.idle_only and not common.is_idle() then
-            -- Skip if idle only and not idle
+            common.debugf('[filter_abilities] %s blocked by idle_only', ability.name)
         elseif ability.combat_only and not common.is_combat() then
-            -- Skip if combat only and not in combat
+            common.debugf('[filter_abilities] %s blocked by combat_only', ability.name)
         elseif ability.engaged_only and not common.is_engaged() then
-            -- Skip if engaged only and not engaged
+            common.debugf('[filter_abilities] %s blocked by engaged_only', ability.name)
         elseif job_def and job_def.validate_ability and not job_def.validate_ability(ability, common) then
-            -- Skip if job-specific validator fails
             common.debugf('[filter_abilities] %s blocked by job validator', ability.name)
         elseif required_level <= player_level then
             table.insert(available_abilities, ability)
+        else
+            common.debugf('[filter_abilities] %s blocked by level (need %d, have %d)', ability.name, required_level, player_level)
         end
         
         ::continue::

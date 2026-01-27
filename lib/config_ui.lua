@@ -147,11 +147,14 @@ local function can_use_ability(ability)
     
     -- Check if this ability is for main job or subjob
     -- Abilities marked with is_main_job = false are from subjob
+    local result
     if ability.is_main_job == false then
-        return sub_level >= ability.level
+        result = sub_level >= ability.level
     else
-        return main_level >= ability.level
+        result = main_level >= ability.level
     end
+    
+    return result
 end
 
 -- Check if ability can target outside party (PL Mode filter)
