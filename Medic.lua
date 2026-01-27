@@ -574,7 +574,11 @@ end
 ]]--
 
 ashita.events.register('load', 'medic_load', function()
-    is_loaded = true    
+    is_loaded = true
+    
+    -- Initialize config_ui (registers event handlers)
+    config_ui.initialize()
+    
     common.printf('Loaded! Type /medic help for commands.')
 end)
 

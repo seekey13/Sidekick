@@ -9,6 +9,7 @@ local imgui = require('imgui')
 local common = require('lib.core.common')
 local resource = require('lib.core.resource')
 local ui = require('lib.ui_components')
+local targetslib = require('lib.core.targets')
 
 -- UI state
 local is_open = { true }
@@ -39,6 +40,85 @@ local entrust_spell_name = nil   -- Spell name like "Indi-Haste" or nil for None
 -- Structure: party_buffs[ability_name][party_index] = true/false
 -- party_index: 1-5 for P1-P5 (player is always handled separately)
 local party_buffs = {}
+
+-- PL Mode connection state
+local awaiting_connection = false
+local connection_target_name = nil
+
+-- ============================================================================
+-- Event Handlers
+-- ============================================================================
+
+-- PL Mode connection handler (will be registered later)
+local function handle_pl_connection(e)
+    local success, err = pcall(function()
+        if not awaiting_connection or not connection_target_name then
+            return
+        end
+        
+        -- Check for Chat packet (0x0017)
+        if e.id ~= 0x0017 then
+            return
+        end
+        
+        -- Check if it's a tell (mode 0x03)
+        local mode = struct.unpack('b', e.data_modified, 0x04 + 0x01)
+        if mode ~= 0x03 then
+            return
+        end
+        
+        -- Extract sender name
+        local sender_name = struct.unpack('c15', e.data_modified, 0x08 + 0x01)
+        sender_name = sender_name:trim('\0')
+        
+        -- Check if sender matches expected connection target
+        if sender_name ~= connection_target_name then
+            return
+        end
+        
+        -- Extract message text
+        local message = struct.unpack('s', e.data_modified, 0x18 + 0x01)
+        
+        -- Check if message contains [MEDIC] and parse job info
+        -- Pattern handles optional whitespace around elements: " [MEDIC] GEO75/WHM37 Attempting Connection..."
+        if string.find(message, '%[MEDIC%]') then
+            local pattern = '%s*%[MEDIC%]%s*([A-Z]+)(%d+)/([A-Z]+)(%d+)%s*Attempting Connection'
+            local main_job_abbr, main_level, sub_job_abbr, sub_level = string.match(message, pattern)
+            
+            if main_job_abbr and main_level and sub_job_abbr and sub_level then
+                common.printf('Connection established with %s (%s%s/%s%s)', 
+                    sender_name, main_job_abbr, main_level, sub_job_abbr, sub_level)
+                
+                -- Store connection info in settings
+                if current_settings then
+                    current_settings.pl_connected_player = sender_name
+                    current_settings.pl_main_job = main_job_abbr
+                    current_settings.pl_main_level = tonumber(main_level)
+                    current_settings.pl_sub_job = sub_job_abbr
+                    current_settings.pl_sub_level = tonumber(sub_level)
+                    
+                    -- Log saved information
+                    common.printf('Stored connection data:')
+                    common.printf('  Player: %s', current_settings.pl_connected_player)
+                    common.printf('  Main Job: %s (Level %d)', current_settings.pl_main_job, current_settings.pl_main_level)
+                    common.printf('  Sub Job: %s (Level %d)', current_settings.pl_sub_job, current_settings.pl_sub_level)
+                    
+                    if save_callback then
+                        save_callback()
+                    end
+                end
+                
+                -- Reset connection state
+                awaiting_connection = false
+                connection_target_name = nil
+            end
+        end
+    end)
+    
+    if not success and err then
+        common.printf('Error in PL Mode connection handler: %s', tostring(err))
+    end
+end
 
 -- ============================================================================
 -- Helper Functions (Remaining in config_ui)
@@ -168,7 +248,8 @@ end
 -- ============================================================================
 
 function config_ui.initialize()
-    -- Initialize ImGui if needed
+    -- Register packet_in event for PL Mode connection responses
+    ashita.events.register('packet_in', 'medic_pl_connection', handle_pl_connection)
 end
 
 function config_ui.show()
@@ -980,7 +1061,18 @@ function config_ui.render(settings, job_def, callback, clear_data_callback, rest
             -- Connect button on same line
             imgui.SameLine()
             if imgui.Button('Connect', { ui.AUTOMATION_BUTTON_WIDTH, 0 }) then
-                -- TODO: Connect functionality
+                -- Send connection attempt message to the specified player
+                local player_name = settings.pl_connection_string or ''
+                if player_name ~= '' then
+                    local my_name = AshitaCore:GetMemoryManager():GetParty():GetMemberName(0) or 'Unknown'
+                    local command = string.format('/mst %s /tell %s  [MEDIC] <job> Attempting Connection...', player_name, my_name)
+                    AshitaCore:GetChatManager():QueueCommand(1, command)
+                    
+                    -- Start listening for connection response
+                    awaiting_connection = true
+                    connection_target_name = player_name
+                    common.printf(string.format('Awaiting connection from %s...', player_name))
+                end
             end
         end
         
