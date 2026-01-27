@@ -70,10 +70,13 @@ function wake.execute(settings, job_def, main_level, sub_level, player_resource)
         end
     end
     
-    -- Count sleeping party members (indices 1-5 only, exclude player at 0)
+    -- Count sleeping party members (indices 1-5 only, or 0-5 in PL mode to include player)
+    local in_pl_mode = settings and settings.pl_mode_enabled and settings.pl_connected_player
+    local start_index = in_pl_mode and 0 or 1
+    
     local sleeping_members = {}
-    for i = 1, 5 do
-        local buffs = common.get_party_buffs(i)
+    for i = start_index, 5 do
+        local buffs = i == 0 and common.get_player_buffs() or common.get_party_buffs(i)
         common.debugf('[Wake] Party[%d] buffs: %s', i, table.concat(buffs, ', '))
         if wake.is_buff_sleep(buffs) then
             table.insert(sleeping_members, i)
@@ -172,7 +175,7 @@ function wake.execute(settings, job_def, main_level, sub_level, player_resource)
                 -- Check cooldown
                 if ability.id then
                     if resource.is_ability_ready(ability.id) then
-                        local command = common.build_ability_command(ability, party_index, settings)
+                        local command = common.build_ability_command(ability, target_index, settings)
                         if command then
                             common.debugf('[Wake] >>> Using %s on %s', ability.name, target_name)
                             return {
@@ -182,7 +185,7 @@ function wake.execute(settings, job_def, main_level, sub_level, player_resource)
                         end
                     end
                 else
-                    local command = common.build_ability_command(ability, party_index, settings)
+                    local command = common.build_ability_command(ability, target_index, settings)
                     if command then
                         common.debugf('[Wake] >>> Using %s on %s', ability.name, target_name)
                         return {
