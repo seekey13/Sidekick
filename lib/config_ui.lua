@@ -419,13 +419,10 @@ function config_ui.render(settings, job_def, callback, clear_data_callback, rest
     
     imgui.SetNextWindowSize({window_width, 0}, ImGuiCond_Always)
     
-    -- Build window title with job name if available
+    -- Use consistent window title to maintain position across job changes
     local window_title = 'Medic Configuration'
-    if job_def and job_def.job_name then
-        window_title = window_title .. ' - ' .. job_def.job_name
-    end
     
-    if imgui.Begin(window_title, is_open, ImGuiWindowFlags_NoCollapse + ImGuiWindowFlags_NoResize + ImGuiWindowFlags_AlwaysAutoResize) then
+    if imgui.Begin(window_title, is_open, ImGuiWindowFlags_NoResize + ImGuiWindowFlags_AlwaysAutoResize) then
         
         -- Automation toggle button
         local can_attack = common.can_attack()
@@ -472,24 +469,27 @@ function config_ui.render(settings, job_def, callback, clear_data_callback, rest
         
         imgui.Separator()
         
-        -- Attack Range settings (global setting for all jobs)
-        local attack_range_options = { 'Off', 'Melee', 'Ranged' }
-        local attack_range_current = settings.attack_range or 'Off'
-        local attack_range_index = { 0 }
-        
-        -- Find current index
-        for i, option in ipairs(attack_range_options) do
-            if option == attack_range_current then
-                attack_range_index[1] = i - 1
-                break
+        -- Attack Range settings (global setting for all jobs, hidden in PL mode)
+        local in_pl_mode = settings.pl_mode_enabled and settings.pl_connected_player
+        if not in_pl_mode then
+            local attack_range_options = { 'Off', 'Melee', 'Ranged' }
+            local attack_range_current = settings.attack_range or 'Off'
+            local attack_range_index = { 0 }
+            
+            -- Find current index
+            for i, option in ipairs(attack_range_options) do
+                if option == attack_range_current then
+                    attack_range_index[1] = i - 1
+                    break
+                end
             end
+            
+            ui.combo(ctx, 'Attack Range', 'attack_range', attack_range_index, attack_range_options, function(i)
+                return attack_range_options[i + 1]
+            end)
+            
+            imgui.Separator()
         end
-        
-        ui.combo(ctx, 'Attack Range', 'attack_range', attack_range_index, attack_range_options, function(i)
-            return attack_range_options[i + 1]
-        end)
-        
-        imgui.Separator()
 
         -- Show job-specific sections if we have a job definition
         if job_def then
