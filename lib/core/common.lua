@@ -1380,9 +1380,7 @@ function common.filter_abilities_by_level(abilities, settings, main_level, sub_l
         common.debugf('[filter_abilities] abilities is nil')
         return available_abilities
     end
-    
-    common.debugf('[filter_abilities] Filtering %d abilities (main_level=%d, sub_level=%d)', #abilities, main_level or 0, sub_level or 0)
-    
+
     -- Check if in PL Mode
     local in_pl_mode = settings and settings.pl_mode_enabled and settings.pl_connected_player
     
@@ -1400,27 +1398,34 @@ function common.filter_abilities_by_level(abilities, settings, main_level, sub_l
         local player_level = ability.is_main_job == false and (sub_level or 0) or (main_level or 0)
         local job_source = ability.is_main_job == false and 'subjob' or 'main job'
         
+        -- PL Mode: Only allow abilities with target_outside = true
+        if in_pl_mode and ability.target_outside ~= true then
+            goto continue
+        end
+
         -- Check if ability requires main job only (e.g., Geo spells)
         if ability.main_job_only and ability.is_main_job == false then
             -- Skip main-job-only abilities when from subjob
             goto continue
         end
         
-        -- PL Mode: Only allow abilities with target_outside = true
-        if in_pl_mode and ability.target_outside ~= true then
-            goto continue
-        end
-        
         -- Check if ability is disabled in settings
-        local disabled_key = 'disabled_' .. ability.name:gsub(' ', '_')
+        local disabled_key
+        if ability.group then
+            disabled_key = 'disabled_group_' .. ability.group
+        else
+            disabled_key = 'disabled_' .. ability.name:gsub(' ', '_')
+        end
         -- Default to enabled (false) if key doesn't exist (nil)
         local is_disabled = settings[disabled_key]
         if is_disabled == nil then
             is_disabled = false  -- Default new abilities to enabled
         end
         
+        common.debugf('[filter_abilities] %s: group=%s, disabled_key=%s, is_disabled=%s', 
+            ability.name, tostring(ability.group), disabled_key, tostring(is_disabled))
+        
         if is_disabled then
-            -- Skip disabled ability (no debug spam)
             common.debugf('[filter_abilities] %s is disabled in settings', ability.name)
         elseif ability.requires_pet and not targets.get_pet() then
         elseif ability.idle_only and not common.is_idle() then

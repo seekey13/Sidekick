@@ -63,7 +63,12 @@ function recover.execute(settings, job_def, main_level, sub_level, player_resour
                         local can_use_devotion = true
                         
                         -- Check if ability is disabled
-                        local disabled_key = 'disabled_' .. ability.name:gsub(' ', '_')
+                        local disabled_key
+                        if ability.group then
+                            disabled_key = 'disabled_group_' .. ability.group
+                        else
+                            disabled_key = 'disabled_' .. ability.name:gsub(' ', '_')
+                        end
                         local is_disabled = settings[disabled_key]
                         if is_disabled then
                             common.debugf('[RECOVER] Devotion is disabled, skipping')

@@ -132,6 +132,8 @@ local function get_usable_abilities_in_group(job_def, target_group, ctx)
             
             if has_spell then
                 table.insert(usable, ability)
+            else
+                common.debugf('[ui_components] %s in group %s: spell not learned', ability.name, target_group)
             end
         end
     end

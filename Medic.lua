@@ -86,27 +86,6 @@ local function clear_player_data()
     job_def = nil
     pl_mode_active = true
     
-    -- Disable all abilities when enabling PL Mode
-    if addon_settings then
-        for key, value in pairs(addon_settings) do
-            if key:match('^disabled_') then
-                addon_settings[key] = true  -- Disable all abilities
-            end
-        end
-        -- Also disable all section enable flags
-        addon_settings.heal_enabled = false
-        addon_settings.heal_aoe_enabled = false
-        addon_settings.heal_pet_enabled = false
-        addon_settings.buff_enabled = false
-        addon_settings.debuff_removal_enabled = false
-        addon_settings.recover_enabled = false
-        addon_settings.geo_enabled = false
-        addon_settings.wake_enabled = false
-        addon_settings.rest_enabled = false
-        settings.save()
-    end
-    
-    common.printf('Cleared player job and level data (PL Mode enabled, all abilities disabled)')
 end
 
 -- Restore normal mode (used when PL Mode is disabled)
