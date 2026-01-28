@@ -173,7 +173,14 @@ function common.is_idle()
 end
 
 function common.is_combat()
-    -- Returns true if in combat (valid mob battle target exists)
+    -- Returns true if in combat (engaged status or valid mob battle target exists)
+    
+    -- First check: if we're engaged, we're definitely in combat
+    if common.is_engaged() then
+        return true
+    end
+    
+    -- Second check: battle target validation (additional layer)
     local ok, bt = pcall(function()
         return targets.get_bt()
     end)
