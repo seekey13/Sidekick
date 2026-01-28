@@ -428,11 +428,11 @@ function config_ui.render(settings, job_def, callback, clear_data_callback, rest
         if settings.pl_mode_enabled then
             -- Show PL Mode job info or connection prompt
             if not settings.pl_main_job or not settings.pl_main_level or not settings.pl_sub_job or not settings.pl_sub_level then
-                imgui.TextColored({1.0, 1.0, 0.0, 1.0}, 'Press Connect to load Job information')
+                imgui.TextColored(ui.LIGHT_RED, 'Press Connect to load Job information')
             else
                 local main_job_name = common.get_job_name_from_abbr(settings.pl_main_job)
                 local sub_job_name = common.get_job_name_from_abbr(settings.pl_sub_job)
-                imgui.TextColored({1.0, 1.0, 1.0, 1.0}, string.format('%s %d / %s %d', main_job_name, settings.pl_main_level, sub_job_name, settings.pl_sub_level))
+                imgui.TextColored(ui.LIGHT_GREEN, string.format('Job: %s %d / %s %d', main_job_name, settings.pl_main_level, sub_job_name, settings.pl_sub_level))
             end
         elseif job_def and job_def.job_name then
             -- Show normal job info
@@ -443,7 +443,7 @@ function config_ui.render(settings, job_def, callback, clear_data_callback, rest
             if sub_level and sub_level > 0 and sub_job_id and sub_job_id > 0 then
                 sub_job_name = common.get_job_name_from_id(sub_job_id)
             end
-            imgui.TextColored({1.0, 1.0, 1.0, 1.0}, string.format('%s %d / %s %d', main_job_name, main_level, sub_job_name, sub_level or 0))
+            imgui.TextColored(ui.LIGHT_GREEN, string.format('Job: %s %d / %s %d', main_job_name, main_level, sub_job_name, sub_level or 0))
         end
         imgui.Separator()
         
