@@ -322,6 +322,8 @@ function common.handle_action_packet(packet)
             common.debugf('[PACKET] Setting is_casting = true')
             casting_state.is_casting = true
             casting_state.last_action_time = os.clock()
+            -- Clear resting state when we start casting
+            is_resting = false
         elseif action_state > 0x00 then
             -- Action complete
             common.debugf('[PACKET] Setting is_casting = false')
