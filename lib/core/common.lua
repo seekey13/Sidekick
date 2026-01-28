@@ -1377,8 +1377,11 @@ function common.filter_abilities_by_level(abilities, settings, main_level, sub_l
     
     -- Safety check: return empty table if abilities is nil
     if not abilities then
+        common.debugf('[filter_abilities] abilities is nil')
         return available_abilities
     end
+    
+    common.debugf('[filter_abilities] Filtering %d abilities (main_level=%d, sub_level=%d)', #abilities, main_level or 0, sub_level or 0)
     
     -- Check if in PL Mode
     local in_pl_mode = settings and settings.pl_mode_enabled and settings.pl_connected_player
@@ -1395,10 +1398,23 @@ function common.filter_abilities_by_level(abilities, settings, main_level, sub_l
         
         -- Determine which level to check based on ability source
         local player_level = ability.is_main_job == false and (sub_level or 0) or (main_level or 0)
+        local job_source = ability.is_main_job == false and 'subjob' or 'main job'
+        
+        -- Debug trace for specific spells
+        if ability.name == 'Protect IV' or ability.name == 'Shell IV' then
+            common.debugf('[TRACE %s] is_main_job=%s, player_level=%d (main=%d, sub=%d), required=%d', 
+                ability.name, 
+                tostring(ability.is_main_job), 
+                player_level, 
+                main_level or 0, 
+                sub_level or 0, 
+                ability.level or 0)
+        end
         
         -- Check if ability requires main job only (e.g., Geo spells)
         if ability.main_job_only and ability.is_main_job == false then
             -- Skip main-job-only abilities when from subjob
+            common.debugf('[filter_abilities] %s blocked by main_job_only (is from subjob)', ability.name)
             goto continue
         end
         
@@ -1409,14 +1425,21 @@ function common.filter_abilities_by_level(abilities, settings, main_level, sub_l
         
         -- Check if ability is disabled in settings
         local disabled_key = 'disabled_' .. ability.name:gsub(' ', '_')
-        -- Default to disabled (true) if key doesn't exist (nil)
+        -- Default to enabled (false) if key doesn't exist (nil)
         local is_disabled = settings[disabled_key]
         if is_disabled == nil then
-            is_disabled = true  -- Default new abilities to disabled
+            is_disabled = false  -- Default new abilities to enabled
+        end
+        
+        -- Debug trace for specific spells
+        if ability.name == 'Protect IV' or ability.name == 'Shell IV' then
+            common.debugf('[TRACE %s] disabled_key=%s, settings[key]=%s, is_disabled=%s', 
+                ability.name, disabled_key, tostring(settings[disabled_key]), tostring(is_disabled))
         end
         
         if is_disabled then
             -- Skip disabled ability (no debug spam)
+            common.debugf('[filter_abilities] %s is disabled in settings', ability.name)
         elseif ability.requires_pet and not targets.get_pet() then
             common.debugf('[filter_abilities] %s blocked by requires_pet', ability.name)
         elseif ability.idle_only and not common.is_idle() then
@@ -1430,7 +1453,8 @@ function common.filter_abilities_by_level(abilities, settings, main_level, sub_l
         elseif required_level <= player_level then
             table.insert(available_abilities, ability)
         else
-            common.debugf('[filter_abilities] %s blocked by level (need %d, have %d)', ability.name, required_level, player_level)
+            common.debugf('[filter_abilities] %s blocked by level (need %d, have %d %s level)', 
+                ability.name, required_level, player_level, job_source)
         end
         
         ::continue::

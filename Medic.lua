@@ -159,6 +159,9 @@ local function merge_abilities(main_abilities, sub_abilities, main_def, sub_def)
     -- Start with main job abilities
     local merged = T{}
     
+    common.debugf('[merge_abilities] Starting merge (main_def=%s, sub_def=%s)', 
+        main_def and main_def.job_name or 'nil', sub_def and sub_def.job_name or 'nil')
+    
     -- Deep copy main job abilities and mark them
     for category, abilities in pairs(main_abilities) do
         merged[category] = T{}
@@ -173,6 +176,8 @@ local function merge_abilities(main_abilities, sub_abilities, main_def, sub_def)
                 ability_copy.resource_type = main_def.resource_type
             end
             table.insert(merged[category], ability_copy)
+            common.debugf('[merge_abilities] Added main job ability: %s (level %d, is_main_job=true)', 
+                ability.name, ability.level or 0)
         end
     end
     
@@ -183,16 +188,33 @@ local function merge_abilities(main_abilities, sub_abilities, main_def, sub_def)
                 merged[category] = T{}
             end
             for _, ability in ipairs(abilities) do
-                local ability_copy = T{}
-                for k, v in pairs(ability) do
-                    ability_copy[k] = v
+                -- Check if this ability already exists in main job (skip duplicates)
+                local is_duplicate = false
+                if merged[category] then
+                    for _, main_ability in ipairs(merged[category]) do
+                        if main_ability.name == ability.name and main_ability.is_main_job == true then
+                            is_duplicate = true
+                            common.debugf('[merge_abilities] Skipping subjob duplicate: %s (already in main job)', ability.name)
+                            break
+                        end
+                    end
                 end
-                ability_copy.is_main_job = false
-                -- Add resource type from sub job definition
-                if sub_def then
-                    ability_copy.resource_type = sub_def.resource_type
+                
+                -- Only add if not a duplicate
+                if not is_duplicate then
+                    local ability_copy = T{}
+                    for k, v in pairs(ability) do
+                        ability_copy[k] = v
+                    end
+                    ability_copy.is_main_job = false
+                    -- Add resource type from sub job definition
+                    if sub_def then
+                        ability_copy.resource_type = sub_def.resource_type
+                    end
+                    table.insert(merged[category], ability_copy)
+                    common.debugf('[merge_abilities] Added subjob ability: %s (level %d, is_main_job=false)', 
+                        ability.name, ability.level or 0)
                 end
-                table.insert(merged[category], ability_copy)
             end
         end
     end

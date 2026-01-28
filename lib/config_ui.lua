@@ -357,6 +357,29 @@ function config_ui.render(settings, job_def, callback, clear_data_callback, rest
         end
     end
     
+    -- Always sync disabled_ keys from party_buffs to ensure consistency
+    -- This prevents old disabled_ values from overriding the party buff selections
+    if settings.party_buffs then
+        for ability_name, targets in pairs(settings.party_buffs) do
+            -- Check if ANY button is enabled for this ability
+            local any_button_enabled = false
+            for party_index, enabled in pairs(targets) do
+                if enabled == true then
+                    any_button_enabled = true
+                    break
+                end
+            end
+            
+            -- Sync the disabled_ key
+            local disabled_key = 'disabled_' .. ability_name:gsub(' ', '_')
+            if any_button_enabled then
+                settings[disabled_key] = false
+            else
+                settings[disabled_key] = true
+            end
+        end
+    end
+    
     -- Load focus target settings from settings on first render
     if settings.focus_target ~= nil and focus_target_name == nil then
         focus_target_name = settings.focus_target

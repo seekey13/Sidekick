@@ -239,7 +239,7 @@ local function is_ability_enabled(ctx, ability_name)
     local key = 'disabled_' .. ability_name:gsub(' ', '_')
     
     if ctx.settings[key] == nil then
-        return false
+        return true  -- Default to enabled when not in settings
     end
     
     return not ctx.settings[key]
