@@ -1400,21 +1400,9 @@ function common.filter_abilities_by_level(abilities, settings, main_level, sub_l
         local player_level = ability.is_main_job == false and (sub_level or 0) or (main_level or 0)
         local job_source = ability.is_main_job == false and 'subjob' or 'main job'
         
-        -- Debug trace for specific spells
-        if ability.name == 'Protect IV' or ability.name == 'Shell IV' then
-            common.debugf('[TRACE %s] is_main_job=%s, player_level=%d (main=%d, sub=%d), required=%d', 
-                ability.name, 
-                tostring(ability.is_main_job), 
-                player_level, 
-                main_level or 0, 
-                sub_level or 0, 
-                ability.level or 0)
-        end
-        
         -- Check if ability requires main job only (e.g., Geo spells)
         if ability.main_job_only and ability.is_main_job == false then
             -- Skip main-job-only abilities when from subjob
-            common.debugf('[filter_abilities] %s blocked by main_job_only (is from subjob)', ability.name)
             goto continue
         end
         
@@ -1431,25 +1419,14 @@ function common.filter_abilities_by_level(abilities, settings, main_level, sub_l
             is_disabled = false  -- Default new abilities to enabled
         end
         
-        -- Debug trace for specific spells
-        if ability.name == 'Protect IV' or ability.name == 'Shell IV' then
-            common.debugf('[TRACE %s] disabled_key=%s, settings[key]=%s, is_disabled=%s', 
-                ability.name, disabled_key, tostring(settings[disabled_key]), tostring(is_disabled))
-        end
-        
         if is_disabled then
             -- Skip disabled ability (no debug spam)
             common.debugf('[filter_abilities] %s is disabled in settings', ability.name)
         elseif ability.requires_pet and not targets.get_pet() then
-            common.debugf('[filter_abilities] %s blocked by requires_pet', ability.name)
         elseif ability.idle_only and not common.is_idle() then
-            common.debugf('[filter_abilities] %s blocked by idle_only', ability.name)
         elseif ability.combat_only and not common.is_combat() then
-            common.debugf('[filter_abilities] %s blocked by combat_only', ability.name)
         elseif ability.engaged_only and not common.is_engaged() then
-            common.debugf('[filter_abilities] %s blocked by engaged_only', ability.name)
         elseif job_def and job_def.validate_ability and not job_def.validate_ability(ability, common) then
-            common.debugf('[filter_abilities] %s blocked by job validator', ability.name)
         elseif required_level <= player_level then
             table.insert(available_abilities, ability)
         else
