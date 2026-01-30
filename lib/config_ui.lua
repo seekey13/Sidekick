@@ -261,6 +261,25 @@ local function is_subjob_duplicate(job_def, ability)
     return false
 end
 
+-- Check if a party member is a Trust (server_id >= 0x1000000)
+local function is_trust(party_index)
+    local party = common.get_party()
+    if not party then
+        return false
+    end
+    
+    local ok_server, server_id = pcall(function()
+        return party:GetMemberServerId(party_index)
+    end)
+    
+    if not ok_server or not server_id or server_id == 0 then
+        return false
+    end
+    
+    -- Trusts have server IDs >= 0x1000000 (16777216)
+    return server_id >= 0x1000000
+end
+
 -- Sync UI state from settings
 local function sync_from_settings()
     if not current_settings then return end
@@ -418,6 +437,7 @@ function config_ui.render(settings, job_def, callback, clear_data_callback, rest
         can_use_ability = can_use_ability,
         get_abilities_in_group = get_abilities_in_group,
         get_usable_abilities_in_group = get_usable_abilities_in_group,
+        is_trust = is_trust,
         filter_func = {
             can_use_ability = can_use_ability,
             can_target_outside = can_target_outside
