@@ -159,6 +159,18 @@ return {
             },
         },
 
+        -- Critical
+        critical = {
+            {
+                name = 'Contradance',
+                level = 50,
+                cost = 0,
+                id = 229,  -- Job Ability ID
+                buff_id = 582,
+                command = '/ja "Contradance" <me>',
+            },
+        },
+
         -- Recover
         recover_tp = {
             {
