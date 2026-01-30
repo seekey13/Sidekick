@@ -9,7 +9,6 @@ local imgui = require('imgui')
 local common = require('lib.core.common')
 local resource = require('lib.core.resource')
 local ui = require('lib.ui_components')
-local targetslib = require('lib.core.targets')
 
 -- UI state
 local is_open = { true }
