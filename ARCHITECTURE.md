@@ -7,7 +7,8 @@ This document provides a technical overview of the Medic support-only addon arch
 Medic follows these core principles:
 
 1. **Support-Only Focus**: No combat automation, only healing, buffing, and debuff removal
-2. **Configuration over Code**: Job-specific details are data-driven, not hard-coded
+2. **PL Mode Support**: Cross-party healing via `/mst` command relay for power leveling scenarios
+3. **Configuration over Code**: Job-specific details are data-driven, not hard-coded
 3. **Extensibility**: New support jobs can be added without modifying core logic
 4. **Reusability**: Common patterns are extracted into shared modules
 5. **Safety**: Multiple validation layers prevent errors and resource exhaustion
@@ -135,6 +136,17 @@ Each action module follows this pattern:
 
 ### Core Modules
 
+#### config_ui.lua
+Configuration UI rendering with ImGui and PL Mode connection handling.
+
+**PL Mode Features:**
+- Packet handler for connection detection (0x0017 tells): Parses "[MEDIC] JOB##/JOB## Attempting Connection"
+- Auto-sets follow_target to PL player name on connection
+- Stores PL job information for display
+- Adaptive UI: Hides Timer/Follow Target dropdowns, AOE Healing section in PL mode
+- Distance slider remains visible for rest wake threshold
+- Trust detection: Grays out and disables Trust party buttons with tooltip
+
 #### ui_components.lua
 Reusable UI rendering components and constants for ImGui interface.
 
@@ -185,13 +197,16 @@ Provides shared utilities used across all modules.
 - `printf/debugf/errorf/warnf`: Logging with consistent formatting
 - `get_player_level/job/mp/tp`: Player state access
 - `is_idle/engaged/in_event`: Status checking
+- `calculate_distance(entity1, entity2)`: 3D Euclidean distance calculation for entity tracking
+- `get_entity_by_name(name)`: Entity lookup by name (searches indices 0-2302)
+- `is_trust(party_index)`: Trust detection via server_id >= 0x1000000
 - `get_pet_entity()`: Returns pet entity object or nil (single source of truth for pet access)
 - `has_pet()`: Pet validation using get_pet_entity
 - `get_pet_hp_percent()`: Pet HP percentage using get_pet_entity
 - `get_pet_distance()`: Pet distance from player using get_pet_entity
 - `get_party_size`: Party member counting
 - `get_party_member_*`: Party member data access
-- `check_party_hp(threshold, focus, focus_target)`: Returns members needing heal
+- `check_party_hp(threshold, focus, focus_target, focus_threshold, settings)`: Returns members needing heal, skips Trusts in PL mode
 - `get_party_buffs(member_index)`: Returns buff array for party member
 - `has_buff/get_player_buffs`: Buff checking via memory pointers
 - `get_trust_buffs(server_id)`: Returns Trust buffs tracked via packets
@@ -410,10 +425,17 @@ Automatic MP recovery through resting (/heal on) for MP-based jobs.
 - Configurable timer duration (1-20 seconds, default 5)
 - Stops resting when MP reaches 100%
 
+**PL Mode:**
+- Separate logic path for cross-party power leveling
+- Monitors distance to PL player entity (not party members)
+- Sends `/mst [PL_player] /heal off` to wake PL when distance exceeded or casting detected
+- PL player handles their own `/heal on` based on MP needs
+- No HP threshold checks in PL mode (PL manages their own safety)
+- Follow target auto-set to PL player on connection
+
 **Safety Conditions:**
 - Blocks resting when engaged in combat
 - Blocks resting when moving or casting
-- Stops resting if any party member drops below HP threshold (1-99%, default 70%)
 
 **Follow Target System:**
 - Name-based target selection from party members (P1-P5, excludes player)
@@ -558,6 +580,7 @@ Optimized to minimize frame impact:
 
 ### packet_in Event
 Fires on incoming packets. Used for:
+- PL Mode connection detection (packet 0x0017 for tells): Parses handshake message and auto-configures follow target
 - Casting state tracking (packet 0x028, offset 0x0F for state byte)
 - Trust buff application (packet 0x028 with completion flag)
 - Trust buff removal (packet 0x029 for status effect loss)

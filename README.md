@@ -29,8 +29,9 @@ A focused, support-oriented addon for Ashita v4 that automates healing, buffing,
 ## Features
 
 ### Core Support Actions
+- **PL Mode (Power Leveling Mode)**: Heal players outside your party via `/mst` command relay with automatic connection detection, entity-based distance tracking, and Trust exclusion logic (Requires [Multisend](https://github.com/ThornyFFXI/Multisend))
 - **Item-Based Status Removal**: Automatically use consumable items to remove critical debuffs (Echo Drops for Silence, Holy Water for Doom) with inventory tracking and smart zone-load handling
-- **Critical HP Response**: Emergency abilities (e.g., Divine Seal, Martyr) automatically trigger when party members drop below critical threshold (default 30%)
+- **Critical HP Response**: Emergency abilities (e.g., Divine Seal, Martyr, Contradance) automatically trigger when party members drop below critical threshold (default 30%)
 - **Single-Target Healing**: Intelligent HP deficit-based heal selection with priority system (Critical HP → Focus target → Regular lowest HP)
 - **AOE Healing**: Party-wide healing when multiple members need HP
 - **Pet Healing**: Automated healing for luopan pets
@@ -42,7 +43,7 @@ A focused, support-oriented addon for Ashita v4 that automates healing, buffing,
 - **Geomancer Support**: Automatic Full Circle execution when luopan exceeds distance threshold
 
 ### User Interface
-- **ImGui Configuration UI**: User-friendly settings interface with collapsible sections
+- **ImGui Configuration UI**: User-friendly settings interface with collapsible sections and PL Mode toggle with adaptive UI
 - **Group Dropdown Selectors**: Multiple abilities in a group (e.g., Cure I-V) consolidated into dropdown menus
 - **Per-Ability Toggles**: Enable/disable individual abilities
 - **Button-Based Party Buff Targeting**: Single-target buffs display ME/P1-P5 buttons for precise control over who receives each buff
@@ -55,6 +56,7 @@ A focused, support-oriented addon for Ashita v4 that automates healing, buffing,
 - **Auto-Refresh**: UI updates automatically when jobs or levels change
 
 ### Core System Features
+- **PL Mode Support**: Cross-party healing via `/mst` commands with automatic connection handling, entity tracking, and Trust exclusion
 - **Smart Resource Management**: Automatic MP/TP checking and cooldown tracking
 - **Status Ailment Detection**: Automatically detects and prevents casting when Silenced (magic) or Amnesiac (job abilities)
 - **Job-Specific Ability Validation**: Jobs can implement custom validators for fine-grained ability control (e.g., checking pet type, buff requirements, etc.)
@@ -81,6 +83,7 @@ Currently implemented support jobs:
   - Settings persist through reloads
 
 - **Dancer** (DNC)
+  - Critical HP abilities (Contradance)
   - Single-target healing with waltzes (Curing Waltz I/II/III)
   - AOE healing with waltzes (Divine Waltz, Divine Waltz II)
   - Debuff removal with waltz (Healing Waltz)
@@ -230,6 +233,7 @@ Settings are saved per job in JSON format in the Ashita config directory:
 ### Common Settings
 
 - `automation_enabled` (boolean): Automation on/off
+- `pl_mode_enabled` (boolean): Enable PL Mode for cross-party healing
 - `focus_enabled` (boolean): Use focus target
 - `focus_target_index` (number): Focus target party index
 - `heal_enabled` (boolean): Enable healing
@@ -280,8 +284,7 @@ Settings are saved per job in JSON format in the Ashita config directory:
 
 - Party only (no alliance support)
 - Designed to work on [CatsEyeXI private server](https://www.catseyexi.com/)
-- To target Trusts requires [Shorthand](https://github.com/ThornyFFXI/Shorthand)
-- To use attack range requires [Multisend](https://github.com/ThornyFFXI/Multisend)
+- To use attack range and PL Mode requires [Multisend](https://github.com/ThornyFFXI/Multisend)
 - Requires Ashita v4
 
 ## License
