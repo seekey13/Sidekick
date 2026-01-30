@@ -425,9 +425,6 @@ function config_ui.render(settings, job_def, callback, clear_data_callback, rest
     -- Sync UI state from settings
     sync_from_settings()
     
-    -- Check if PL Mode is active
-    local pl_mode_active = settings.pl_mode_enabled and settings.pl_connected_player
-    
     -- Create context object for ui_components
     local ctx = {
         settings = current_settings,
