@@ -106,6 +106,18 @@ function common.get_entity_by_name(name)
     return nil
 end
 
+-- Check if a party member is a Trust (NPC)
+-- Args: party_index (number) - Party member index (0-5)
+-- Returns: boolean - true if Trust, false otherwise
+function common.is_trust(party_index)
+    local party = common.get_party()
+    if not party then return false end
+    
+    local server_id = party:GetMemberServerId(party_index)
+    -- Trusts have server_id >= 0x1000000 (16777216)
+    return server_id >= 0x1000000
+end
+
 --[[
     Logging Utilities
 ]]--

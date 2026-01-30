@@ -534,7 +534,6 @@ return {
                 end,
                 range = 20,
                 requires_buff = 401,  -- Requires Addendum: White
-                target_outside = true,
             },
             {
                 name = 'Viruna',

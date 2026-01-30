@@ -388,7 +388,7 @@ function heal.select_ability(abilities, target_hpp, job_def, player_resource, pa
                     is_spell = true
                 elseif type(ability.command) == 'function' then
                     -- Try to get the command string to check
-                    local test_cmd = common.build_ability_command(ability, 0, settings)
+                    local test_cmd = common.build_ability_command(ability, 0, nil)
                     if test_cmd and test_cmd:match('^/ma%s') then
                         is_spell = true
                     end

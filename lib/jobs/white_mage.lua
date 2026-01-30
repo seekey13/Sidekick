@@ -137,8 +137,6 @@ return {
                 debuff_id = {3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 20, 21, 30, 31},  -- Multiple debuffs
                 command = '/ma "Esuna" <me>',
                 self_only = true,
-                range = 20,
-                target_outside = true,
             },
             {
                 name = 'Stona',
@@ -174,7 +172,6 @@ return {
                     return '/ma "Erase" '..target
                 end,
                 range = 20,
-                target_outside = true,
             },
             {
                 name = 'Cursna',

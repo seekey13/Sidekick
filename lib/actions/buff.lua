@@ -14,12 +14,8 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
         return nil
     end
     
-    -- Clear temporary group processing flags from previous execution
-    for key in pairs(settings) do
-        if key:match('^buff_processed_group_') then
-            settings[key] = nil
-        end
-    end
+    -- Track which groups have been processed in this execution (local, never persisted)
+    local processed_groups = {}
     
     -- Get party buff configuration from config_ui if not provided
     if not party_buff_config then
@@ -129,13 +125,12 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                         -- For now, skip all but the first available ability in this group
                         -- (filter_abilities_by_level already sorted by cost descending = highest level first)
                         -- Check if we've already processed an ability from this group
-                        local group_key = 'buff_processed_group_' .. ability.group
-                        if settings[group_key] then
+                        if processed_groups[ability.group] then
                             -- Already processed another ability from this group, skip this one
                             goto continue_ability
                         else
                             -- Mark this group as processed for this execution cycle
-                            settings[group_key] = true
+                            processed_groups[ability.group] = true
                         end
                     end
                 else
@@ -374,13 +369,12 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                         -- For now, skip all but the first available ability in this group
                         -- (filter_abilities_by_level already sorted by cost descending = highest level first)
                         -- Check if we've already processed an ability from this group
-                        local group_key = 'buff_processed_group_' .. ability.group
-                        if settings[group_key] then
+                        if processed_groups[ability.group] then
                             -- Already processed another ability from this group, skip this one
                             goto continue_ability
                         else
                             -- Mark this group as processed for this execution cycle
-                            settings[group_key] = true
+                            processed_groups[ability.group] = true
                         end
                     end
                 else
