@@ -97,11 +97,16 @@ local function handle_pl_connection(e)
                     current_settings.pl_sub_job = sub_job_abbr
                     current_settings.pl_sub_level = tonumber(sub_level)
                     
+                    -- Auto-set follow target to PL player
+                    current_settings.follow_target = sender_name
+                    follow_target_name = sender_name
+                    
                     -- Log saved information
                     common.printf('Stored connection data:')
                     common.printf('  Player: %s', current_settings.pl_connected_player)
                     common.printf('  Main Job: %s (Level %d)', current_settings.pl_main_job, current_settings.pl_main_level)
                     common.printf('  Sub Job: %s (Level %d)', current_settings.pl_sub_job, current_settings.pl_sub_level)
+                    common.printf('  Follow Target: %s', current_settings.follow_target)
                     
                     if save_callback then
                         save_callback()
@@ -745,60 +750,65 @@ function config_ui.render(settings, job_def, callback, clear_data_callback, rest
             imgui.Separator()
         end
         
-        -- Rest settings (only for MP-based jobs, not in PL Mode)
-        if job_def and job_def.resource_type == 'mp' and not settings.pl_mode_enabled then
+        -- Rest settings (only for MP-based jobs)
+        if job_def and job_def.resource_type == 'mp' then
             local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Enable Resting', 'rest_enabled', false)
             if is_open and is_enabled then
-                ui.slider_int(ctx, 'Timer (seconds)', 'rest_timer', { settings.rest_timer or 5 }, 1, 20)
-                ui.slider_int(ctx, 'Threshold (HP%)', 'rest_threshold', { settings.rest_threshold or 70 }, 1, 99)
-                
-                -- Build dynamic follow target options (None + party members P1-P5, exclude player)
-                local follow_target_options = { 'None' }
-                for _, name in ipairs(party_member_names) do
-                    table.insert(follow_target_options, name)
+                -- Hide timer in PL mode (PL will manage their own rest timing)
+                if not settings.pl_mode_enabled then
+                    ui.slider_int(ctx, 'Timer (seconds)', 'rest_timer', { settings.rest_timer or 5 }, 1, 20)
                 end
                 
-                -- Validate saved follow target name is in current party
-                local current_follow_display = 'None'
-                if follow_target_name then
-                    local found = false
-                    for _, name in ipairs(follow_target_options) do
-                        if name == follow_target_name then
-                            current_follow_display = follow_target_name
-                            found = true
-                            break
-                        end
+                -- Hide follow target in PL mode (auto-set to PL player)
+                if not settings.pl_mode_enabled then
+                    -- Build dynamic follow target options (None + party members P1-P5, exclude player)
+                    local follow_target_options = { 'None' }
+                    for _, name in ipairs(party_member_names) do
+                        table.insert(follow_target_options, name)
                     end
-                    if not found then
-                        -- Saved target not in party, reset
-                        follow_target_name = nil
-                        settings.follow_target = nil
-                        if callback then callback() end
-                    end
-                end
-                
-                -- Follow Target dropdown
-                imgui.PushItemWidth(250)
-                if imgui.BeginCombo('Follow Target', current_follow_display) then
-                    for _, option in ipairs(follow_target_options) do
-                        local is_selected = (option == current_follow_display)
-                        if imgui.Selectable(option, is_selected) then
-                            if option == 'None' then
-                                follow_target_name = nil
-                                settings.follow_target = nil
-                            else
-                                follow_target_name = option
-                                settings.follow_target = option
+                    
+                    -- Validate saved follow target name is in current party
+                    local current_follow_display = 'None'
+                    if follow_target_name then
+                        local found = false
+                        for _, name in ipairs(follow_target_options) do
+                            if name == follow_target_name then
+                                current_follow_display = follow_target_name
+                                found = true
+                                break
                             end
+                        end
+                        if not found then
+                            -- Saved target not in party, reset
+                            follow_target_name = nil
+                            settings.follow_target = nil
                             if callback then callback() end
                         end
-                        if is_selected then
-                            imgui.SetItemDefaultFocus()
-                        end
                     end
-                    imgui.EndCombo()
+                    
+                    -- Follow Target dropdown
+                    imgui.PushItemWidth(250)
+                    if imgui.BeginCombo('Follow Target', current_follow_display) then
+                        for _, option in ipairs(follow_target_options) do
+                            local is_selected = (option == current_follow_display)
+                            if imgui.Selectable(option, is_selected) then
+                                if option == 'None' then
+                                    follow_target_name = nil
+                                    settings.follow_target = nil
+                                else
+                                    follow_target_name = option
+                                    settings.follow_target = option
+                                end
+                                if callback then callback() end
+                            end
+                            if is_selected then
+                                imgui.SetItemDefaultFocus()
+                            end
+                        end
+                        imgui.EndCombo()
+                    end
+                    imgui.PopItemWidth()
                 end
-                imgui.PopItemWidth()
                 
                 ui.slider_int(ctx, 'Distance (yalms)', 'rest_distance', { settings.rest_distance or 7 }, 1, 15)
             end

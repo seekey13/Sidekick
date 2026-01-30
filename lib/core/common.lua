@@ -74,8 +74,8 @@ function common.get_zone_id()
     return zone_id
 end
 
--- Helper function for distance calculation
-local function calculate_distance(entity1, entity2)
+-- Helper function for distance calculation (public for use in other modules)
+function common.calculate_distance(entity1, entity2)
     local ok_calc, distance = pcall(function()
         local dx = entity1.Movement.LocalPosition.X - entity2.Movement.LocalPosition.X
         local dy = entity1.Movement.LocalPosition.Y - entity2.Movement.LocalPosition.Y
@@ -88,6 +88,22 @@ local function calculate_distance(entity1, entity2)
     end
     
     return distance
+end
+
+-- Get entity by name (searches all entities 0-2302)
+-- Args: name (string) - Character name to search for
+-- Returns: entity or nil
+function common.get_entity_by_name(name)
+    if not name then return nil end
+    
+    for i = 0, 2302 do
+        local entity = GetEntity(i)
+        if entity and entity.Name == name then
+            return entity
+        end
+    end
+    
+    return nil
 end
 
 --[[
@@ -722,7 +738,7 @@ function common.is_in_range(target_index, range)
     end
     
     -- Calculate distance between player and target
-    local distance = calculate_distance(player_entity, target_entity)
+    local distance = common.calculate_distance(player_entity, target_entity)
     return distance and distance <= range_value
 end
 
@@ -740,7 +756,7 @@ function common.get_pet_distance()
     end
     
     -- Calculate distance between player and pet
-    return calculate_distance(player_entity, pet_entity)
+    return common.calculate_distance(player_entity, pet_entity)
 end
 
 -- Get distance between player and party member
@@ -771,7 +787,7 @@ function common.get_party_member_distance(party_index)
         return nil
     end
     
-    return calculate_distance(player_entity, member_entity)
+    return common.calculate_distance(player_entity, member_entity)
 end
 
 --[[

@@ -2,10 +2,12 @@
     Rest action
     Handles automatic MP recovery through resting (/heal on)
     - Starts resting when conditions are met (not moving, not casting, timer elapsed)
-    - Stops resting if any party member drops below threshold
+    - Stops resting if party member moves too far away
+    - In PL Mode: sends /mst commands to PL player
 ]]--
 
 local common = require('lib.core.common')
+local targets = require('lib.core.targets')
 
 local rest = {}
 
@@ -60,8 +62,20 @@ local function should_start_resting(settings, job_def)
     local rest_distance = settings.rest_distance or 7
     local follow_target = settings.follow_target
     
-    if follow_target then
-        -- Find the party member by name
+    -- In PL mode, use PL player entity for distance check
+    if settings.pl_mode_enabled and settings.pl_connected_player then
+        local player_entity = targets.get_me()
+        local pl_entity = common.get_entity_by_name(settings.pl_connected_player)
+        
+        if player_entity and pl_entity then
+            local distance = common.calculate_distance(player_entity, pl_entity)
+            if distance and distance > rest_distance then
+                conditions_met_time = 0  -- Reset conditions timer
+                return false
+            end
+        end
+    elseif follow_target then
+        -- Normal mode: Find the party member by name
         local party = common.get_party()
         if party then
             for i = 1, 5 do
@@ -115,42 +129,37 @@ local function should_stop_resting(settings, job_def)
     
     -- Check distance to follow target (if set)
     local rest_distance = settings.rest_distance or 7
-    local follow_target = settings.follow_target
     
-    if follow_target then
-        -- Find the party member by name
-        local party = common.get_party()
-        if party then
-            for i = 1, 5 do
-                if common.is_party_member_active(i) then
-                    local member_name = common.get_party_member_name(i)
-                    if member_name == follow_target then
-                        local distance = common.get_party_member_distance(i)
-                        if distance and distance > rest_distance then
-                            return true
-                        end
-                        break
-                    end
-                end
+    -- In PL mode, use PL player entity for distance check
+    if settings.pl_mode_enabled and settings.pl_connected_player then
+        local player_entity = targets.get_me()
+        local pl_entity = common.get_entity_by_name(settings.pl_connected_player)
+        
+        if player_entity and pl_entity then
+            local distance = common.calculate_distance(player_entity, pl_entity)
+            if distance and distance > rest_distance then
+                return true
             end
         end
-    end
-    
-    -- Check if any party member is below resting threshold
-    local rest_threshold = settings.rest_threshold or 70
-    
-    -- Check player (P0)
-    local player_hp_pct = common.get_party_member_hp_percent(0)
-    if player_hp_pct < rest_threshold then
-        return true
-    end
-    
-    -- Check party members (P1-P5)
-    for i = 1, 5 do
-        if common.is_party_member_active(i) then
-            local member_hp_pct = common.get_party_member_hp_percent(i)
-            if member_hp_pct and member_hp_pct < rest_threshold then
-                return true
+    else
+        -- Normal mode: Check distance to follow target party member
+        local follow_target = settings.follow_target
+        if follow_target then
+            -- Find the party member by name
+            local party = common.get_party()
+            if party then
+                for i = 1, 5 do
+                    if common.is_party_member_active(i) then
+                        local member_name = common.get_party_member_name(i)
+                        if member_name == follow_target then
+                            local distance = common.get_party_member_distance(i)
+                            if distance and distance > rest_distance then
+                                return true
+                            end
+                            break
+                        end
+                    end
+                end
             end
         end
     end
@@ -171,6 +180,40 @@ function rest.execute(settings, job_def, main_level, sub_level, player_resource)
         return nil
     end
     
+    -- Check if in PL mode
+    local in_pl_mode = settings.pl_mode_enabled and settings.pl_connected_player
+    
+    -- PL Mode: Always check distance and send /heal off if exceeded
+    if in_pl_mode then
+        local rest_distance = settings.rest_distance or 7
+        local player_entity = targets.get_me()
+        local pl_entity = common.get_entity_by_name(settings.pl_connected_player)
+        
+        if player_entity and pl_entity then
+            local distance = common.calculate_distance(player_entity, pl_entity)
+            if distance and distance > rest_distance then
+                local command = string.format('/mst %s /heal off', settings.pl_connected_player)
+                return {
+                    command = command,
+                    description = string.format('Stopping PL rest (distance: %.1f > %.1f)', distance, rest_distance)
+                }
+            end
+        end
+        
+        -- Check for casting (need healing)
+        if common.is_casting() then
+            local command = string.format('/mst %s /heal off', settings.pl_connected_player)
+            return {
+                command = command,
+                description = 'Stopping PL rest (casting detected)'
+            }
+        end
+        
+        -- PL mode doesn't start resting (PL handles that)
+        return nil
+    end
+    
+    -- Normal Mode: Track our own resting state
     -- If currently resting, check if movement or casting started
     if common.is_resting() then
         if common.is_player_moving() then
@@ -198,7 +241,7 @@ function rest.execute(settings, job_def, main_level, sub_level, player_resource)
         conditions_met_time = 0  -- Reset conditions timer
         return {
             command = '/heal off',
-            description = 'Stopping rest (party needs healing or MP full)'
+            description = 'Stopping rest (distance or MP full)'
         }
     end
     
