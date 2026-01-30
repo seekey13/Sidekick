@@ -671,8 +671,8 @@ function config_ui.render(settings, job_def, callback, clear_data_callback, rest
             imgui.Separator()
         end
         
-        -- AOE Healing settings
-        if job_def and job_def.abilities.heal_aoe and has_usable_abilities(job_def.abilities.heal_aoe) then
+        -- AOE Healing settings (not shown in PL Mode - cannot target outside party)
+        if not settings.pl_mode_enabled and job_def and job_def.abilities.heal_aoe and has_usable_abilities(job_def.abilities.heal_aoe) then
             local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Enable AOE Healing', 'heal_aoe_enabled', false)
             if is_open and is_enabled then
                 ui.slider_int(ctx, 'AOE (HP%)', 'heal_aoe_threshold', { settings.heal_aoe_threshold or 70 }, 1, 100)
