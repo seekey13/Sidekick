@@ -86,7 +86,8 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
         settings.heal_threshold or 75,
         settings.focus_enabled,
         common.get_party_index_by_name(settings.focus_target),
-        settings.focus_threshold or 85
+        settings.focus_threshold or 85,
+        settings
     )
     
     -- Debug focus status after party check

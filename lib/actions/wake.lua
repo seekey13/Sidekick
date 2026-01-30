@@ -76,6 +76,11 @@ function wake.execute(settings, job_def, main_level, sub_level, player_resource)
     
     local sleeping_members = {}
     for i = start_index, 5 do
+        -- Skip Trusts in PL mode (cannot wake Trusts outside party)
+        if in_pl_mode and common.is_trust(i) then
+            goto continue_wake
+        end
+        
         local buffs = i == 0 and common.get_player_buffs() or common.get_party_buffs(i)
         common.debugf('[Wake] Party[%d] buffs: %s', i, table.concat(buffs, ', '))
         if wake.is_buff_sleep(buffs) then
@@ -83,6 +88,8 @@ function wake.execute(settings, job_def, main_level, sub_level, player_resource)
             local name = common.get_party_member_name(i) or 'Unknown'
             common.debugf('[Wake]   -> Party[%d] %s is sleeping (has buff 2 or 19)', i, name)
         end
+        
+        ::continue_wake::
     end
     
     common.debugf('[Wake] Total sleeping members: %d', #sleeping_members)

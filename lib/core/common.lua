@@ -1175,7 +1175,7 @@ end
     Party HP Checking
 ]]--
 
-function common.check_party_hp(threshold, focus_enabled, focus_target, focus_threshold)
+function common.check_party_hp(threshold, focus_enabled, focus_target, focus_threshold, settings)
     threshold = threshold or 75
     focus_threshold = focus_threshold or threshold  -- Default to regular threshold if not specified
     
@@ -1196,11 +1196,19 @@ function common.check_party_hp(threshold, focus_enabled, focus_target, focus_thr
         return results
     end
     
+    -- Check if in PL mode
+    local in_pl_mode = settings and settings.pl_mode_enabled and settings.pl_connected_player
+    
     local total_hp = 0
     local active_count = 0
     
     for i = 0, 5 do
         if common.is_party_member_active(i) then
+            -- Skip Trusts in PL mode (cannot heal Trusts outside party)
+            if in_pl_mode and common.is_trust(i) then
+                goto continue_hp_check
+            end
+            
             local member_name = common.get_party_member_name(i) or 'Unknown'
             local hpp = common.get_party_member_hp_percent(i)
             local target_index = party:GetMemberTargetIndex(i)
@@ -1239,6 +1247,8 @@ function common.check_party_hp(threshold, focus_enabled, focus_target, focus_thr
                     end
                 end
             end
+            
+            ::continue_hp_check::
         end
     end
     

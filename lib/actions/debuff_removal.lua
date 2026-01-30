@@ -132,11 +132,19 @@ function debuff_removal.execute(settings, job_def, main_level, sub_level, player
         ::continue_self::
     end
     
+    -- Check if in PL mode
+    local in_pl_mode = settings and settings.pl_mode_enabled and settings.pl_connected_player
+    
     -- Combine player buffs (index 0) with party buffs (indices 1-5)
     local all_buffs = {}
     all_buffs[0] = common.get_player_buffs()
     for i = 1, 5 do
-        all_buffs[i] = common.get_party_buffs(i)
+        -- Skip Trusts in PL mode (cannot remove debuffs from Trusts outside party)
+        if in_pl_mode and common.is_trust(i) then
+            all_buffs[i] = {}  -- Empty buff list for Trusts in PL mode
+        else
+            all_buffs[i] = common.get_party_buffs(i)
+        end
     end
     
     -- Count removable debuffs for each party member
