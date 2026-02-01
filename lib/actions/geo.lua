@@ -52,7 +52,8 @@ function geo.execute(settings, job_def, main_level, sub_level, player_resource)
                     end
                     
                     -- Check resource (Full Circle has 0 cost)
-                    if resource.has_resource(job_def.resource_type, ability.cost) then
+                    local ability_resource_type = ability.resource_type or job_def.resource_type
+                    if resource.has_resource(ability_resource_type, ability.cost) then
                         -- Check cooldown
                         if not ability.id then
                             common.warnf('[GEO] %s has no ability ID defined, skipping', ability.name)

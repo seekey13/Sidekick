@@ -74,8 +74,8 @@ function common.get_zone_id()
     return zone_id
 end
 
--- Helper function for distance calculation
-local function calculate_distance(entity1, entity2)
+-- Helper function for distance calculation (public for use in other modules)
+function common.calculate_distance(entity1, entity2)
     local ok_calc, distance = pcall(function()
         local dx = entity1.Movement.LocalPosition.X - entity2.Movement.LocalPosition.X
         local dy = entity1.Movement.LocalPosition.Y - entity2.Movement.LocalPosition.Y
@@ -88,6 +88,34 @@ local function calculate_distance(entity1, entity2)
     end
     
     return distance
+end
+
+-- Get entity by name (searches all entities 0-2302)
+-- Args: name (string) - Character name to search for
+-- Returns: entity or nil
+function common.get_entity_by_name(name)
+    if not name then return nil end
+    
+    for i = 0, 2302 do
+        local entity = GetEntity(i)
+        if entity and entity.Name == name then
+            return entity
+        end
+    end
+    
+    return nil
+end
+
+-- Check if a party member is a Trust (NPC)
+-- Args: party_index (number) - Party member index (0-5)
+-- Returns: boolean - true if Trust, false otherwise
+function common.is_trust(party_index)
+    local party = common.get_party()
+    if not party then return false end
+    
+    local server_id = party:GetMemberServerId(party_index)
+    -- Trusts have server_id >= 0x1000000 (16777216)
+    return server_id >= 0x1000000
 end
 
 --[[
@@ -173,7 +201,14 @@ function common.is_idle()
 end
 
 function common.is_combat()
-    -- Returns true if in combat (valid mob battle target exists)
+    -- Returns true if in combat (engaged status or valid mob battle target exists)
+    
+    -- First check: if we're engaged, we're definitely in combat
+    if common.is_engaged() then
+        return true
+    end
+    
+    -- Second check: battle target validation (additional layer)
     local ok, bt = pcall(function()
         return targets.get_bt()
     end)
@@ -315,6 +350,8 @@ function common.handle_action_packet(packet)
             common.debugf('[PACKET] Setting is_casting = true')
             casting_state.is_casting = true
             casting_state.last_action_time = os.clock()
+            -- Clear resting state when we start casting
+            is_resting = false
         elseif action_state > 0x00 then
             -- Action complete
             common.debugf('[PACKET] Setting is_casting = false')
@@ -392,21 +429,88 @@ function common.get_player_job()
     return job, subjob
 end
 
+-- Job data mappings (single source of truth)
+local job_data = {
+    {id = 1,  abbr = 'WAR', name = 'Warrior'},
+    {id = 2,  abbr = 'MNK', name = 'Monk'},
+    {id = 3,  abbr = 'WHM', name = 'White Mage'},
+    {id = 4,  abbr = 'BLM', name = 'Black Mage'},
+    {id = 5,  abbr = 'RDM', name = 'Red Mage'},
+    {id = 6,  abbr = 'THF', name = 'Thief'},
+    {id = 7,  abbr = 'PLD', name = 'Paladin'},
+    {id = 8,  abbr = 'DRK', name = 'Dark Knight'},
+    {id = 9,  abbr = 'BST', name = 'Beastmaster'},
+    {id = 10, abbr = 'BRD', name = 'Bard'},
+    {id = 11, abbr = 'RNG', name = 'Ranger'},
+    {id = 12, abbr = 'SAM', name = 'Samurai'},
+    {id = 13, abbr = 'NIN', name = 'Ninja'},
+    {id = 14, abbr = 'DRG', name = 'Dragoon'},
+    {id = 15, abbr = 'SMN', name = 'Summoner'},
+    {id = 16, abbr = 'BLU', name = 'Blue Mage'},
+    {id = 17, abbr = 'COR', name = 'Corsair'},
+    {id = 18, abbr = 'PUP', name = 'Puppetmaster'},
+    {id = 19, abbr = 'DNC', name = 'Dancer'},
+    {id = 20, abbr = 'SCH', name = 'Scholar'},
+    {id = 21, abbr = 'GEO', name = 'Geomancer'},
+    {id = 22, abbr = 'RUN', name = 'Rune Fencer'}
+}
+
+-- Convert job abbreviation to job ID
+function common.get_job_id_from_abbr(job_abbr)
+    if not job_abbr then return nil end
+    local upper_abbr = job_abbr:upper()
+    for _, job in ipairs(job_data) do
+        if job.abbr == upper_abbr then
+            return job.id
+        end
+    end
+    return nil
+end
+
+-- Get full job name from abbreviation
+function common.get_job_name_from_abbr(job_abbr)
+    if not job_abbr then return nil end
+    local upper_abbr = job_abbr:upper()
+    for _, job in ipairs(job_data) do
+        if job.abbr == upper_abbr then
+            return job.name
+        end
+    end
+    return job_abbr
+end
+
+-- Get full job name from ID
+function common.get_job_name_from_id(job_id)
+    if not job_id then return 'Unknown' end
+    for _, job in ipairs(job_data) do
+        if job.id == job_id then
+            return job.name
+        end
+    end
+    return 'Unknown'
+end
+
 function common.get_job_name(job_id)
-    -- Try to get full job name first
-    local ok, name = pcall(function() 
-        return AshitaCore:GetResourceManager():GetString('jobs.names', job_id) 
-    end)
-    if ok and name then
+    -- Try to get full job name first from our data
+    local name = common.get_job_name_from_id(job_id)
+    if name ~= 'Unknown' then
         return name
     end
     
+    -- Fallback to resource manager
+    local ok, res_name = pcall(function() 
+        return AshitaCore:GetResourceManager():GetString('jobs.names', job_id) 
+    end)
+    if ok and res_name then
+        return res_name
+    end
+    
     -- Fallback to abbreviated name if full name not available
-    ok, name = pcall(function() 
+    ok, res_name = pcall(function() 
         return AshitaCore:GetResourceManager():GetString('jobs.names_abbr', job_id) 
     end)
-    if ok and name then
-        return name:upper()
+    if ok and res_name then
+        return res_name:upper()
     end
     
     return tostring(job_id)
@@ -646,7 +750,7 @@ function common.is_in_range(target_index, range)
     end
     
     -- Calculate distance between player and target
-    local distance = calculate_distance(player_entity, target_entity)
+    local distance = common.calculate_distance(player_entity, target_entity)
     return distance and distance <= range_value
 end
 
@@ -664,7 +768,7 @@ function common.get_pet_distance()
     end
     
     -- Calculate distance between player and pet
-    return calculate_distance(player_entity, pet_entity)
+    return common.calculate_distance(player_entity, pet_entity)
 end
 
 -- Get distance between player and party member
@@ -695,7 +799,7 @@ function common.get_party_member_distance(party_index)
         return nil
     end
     
-    return calculate_distance(player_entity, member_entity)
+    return common.calculate_distance(player_entity, member_entity)
 end
 
 --[[
@@ -1083,7 +1187,7 @@ end
     Party HP Checking
 ]]--
 
-function common.check_party_hp(threshold, focus_enabled, focus_target, focus_threshold)
+function common.check_party_hp(threshold, focus_enabled, focus_target, focus_threshold, settings)
     threshold = threshold or 75
     focus_threshold = focus_threshold or threshold  -- Default to regular threshold if not specified
     
@@ -1104,11 +1208,19 @@ function common.check_party_hp(threshold, focus_enabled, focus_target, focus_thr
         return results
     end
     
+    -- Check if in PL mode
+    local in_pl_mode = settings and settings.pl_mode_enabled and settings.pl_connected_player
+    
     local total_hp = 0
     local active_count = 0
     
     for i = 0, 5 do
         if common.is_party_member_active(i) then
+            -- Skip Trusts in PL mode (cannot heal Trusts outside party)
+            if in_pl_mode and common.is_trust(i) then
+                goto continue_hp_check
+            end
+            
             local member_name = common.get_party_member_name(i) or 'Unknown'
             local hpp = common.get_party_member_hp_percent(i)
             local target_index = party:GetMemberTargetIndex(i)
@@ -1147,6 +1259,8 @@ function common.check_party_hp(threshold, focus_enabled, focus_target, focus_thr
                     end
                 end
             end
+            
+            ::continue_hp_check::
         end
     end
     
@@ -1310,16 +1424,12 @@ function common.filter_abilities_by_level(abilities, settings, main_level, sub_l
     
     -- Safety check: return empty table if abilities is nil
     if not abilities then
+        common.debugf('[filter_abilities] abilities is nil')
         return available_abilities
     end
-    
-    -- Debug: Check if job_def and validator exist
-    if job_def then
-        common.debugf('[filter_abilities] job_def exists, job_id=%s, has_validator=%s', 
-            tostring(job_def.job_id), tostring(job_def.validate_ability ~= nil))
-    else
-        common.debugf('[filter_abilities] job_def is nil')
-    end
+
+    -- Check if in PL Mode
+    local in_pl_mode = settings and settings.pl_mode_enabled and settings.pl_connected_player
     
     for _, ability in ipairs(abilities) do
         -- Safely get level value
@@ -1333,7 +1443,13 @@ function common.filter_abilities_by_level(abilities, settings, main_level, sub_l
         
         -- Determine which level to check based on ability source
         local player_level = ability.is_main_job == false and (sub_level or 0) or (main_level or 0)
+        local job_source = ability.is_main_job == false and 'subjob' or 'main job'
         
+        -- PL Mode: Only allow abilities with target_outside = true
+        if in_pl_mode and ability.target_outside ~= true then
+            goto continue
+        end
+
         -- Check if ability requires main job only (e.g., Geo spells)
         if ability.main_job_only and ability.is_main_job == false then
             -- Skip main-job-only abilities when from subjob
@@ -1341,28 +1457,33 @@ function common.filter_abilities_by_level(abilities, settings, main_level, sub_l
         end
         
         -- Check if ability is disabled in settings
-        local disabled_key = 'disabled_' .. ability.name:gsub(' ', '_')
-        -- Default to disabled (true) if key doesn't exist (nil)
+        local disabled_key
+        if ability.group then
+            disabled_key = 'disabled_group_' .. ability.group
+        else
+            disabled_key = 'disabled_' .. ability.name:gsub(' ', '_')
+        end
+        -- Default to enabled (false) if key doesn't exist (nil)
         local is_disabled = settings[disabled_key]
         if is_disabled == nil then
-            is_disabled = true  -- Default new abilities to disabled
+            is_disabled = false  -- Default new abilities to enabled
         end
         
+        common.debugf('[filter_abilities] %s: group=%s, disabled_key=%s, is_disabled=%s', 
+            ability.name, tostring(ability.group), disabled_key, tostring(is_disabled))
+        
         if is_disabled then
-            -- Skip disabled ability
+            common.debugf('[filter_abilities] %s is disabled in settings', ability.name)
         elseif ability.requires_pet and not targets.get_pet() then
-            -- Skip if requires pet but no pet available
         elseif ability.idle_only and not common.is_idle() then
-            -- Skip if idle only and not idle
         elseif ability.combat_only and not common.is_combat() then
-            -- Skip if combat only and not in combat
         elseif ability.engaged_only and not common.is_engaged() then
-            -- Skip if engaged only and not engaged
         elseif job_def and job_def.validate_ability and not job_def.validate_ability(ability, common) then
-            -- Skip if job-specific validator fails
-            common.debugf('[filter_abilities] %s blocked by job validator', ability.name)
         elseif required_level <= player_level then
             table.insert(available_abilities, ability)
+        else
+            common.debugf('[filter_abilities] %s blocked by level (need %d, have %d %s level)', 
+                ability.name, required_level, player_level, job_source)
         end
         
         ::continue::
@@ -1382,8 +1503,14 @@ end
 -- Args:
 --   ability (table) - Ability definition with command field
 --   party_index (number|nil) - party index 0-5 for p0-p5
+--   settings (table|nil) - Settings table for PL Mode detection
 -- Returns: string - Command string or nil
-function common.build_ability_command(ability, party_index)
+function common.build_ability_command(ability, party_index, settings)
+    local command = nil
+    
+    -- Check if in PL Mode
+    local in_pl_mode = settings and settings.pl_mode_enabled and settings.pl_connected_player
+    
     if type(ability.command) == 'function' then
         -- If party_index is provided, convert party index (0-5) to server ID
         if party_index ~= nil then
@@ -1392,14 +1519,20 @@ function common.build_ability_command(ability, party_index)
                 -- Convert party index to server ID
                 local server_id = party:GetMemberServerId(party_index)
                 if server_id and server_id > 0 then
-                    return ability.command(server_id)
+                    command = ability.command(server_id)
                 end
             end
         end
     elseif type(ability.command) == 'string' then
-        return ability.command
+        command = ability.command
     end
-    return nil
+    
+    -- If in PL Mode, prepend /mst command
+    if command and in_pl_mode then
+        command = string.format('/mst %s %s', settings.pl_connected_player, command)
+    end
+    
+    return command
 end
 
 -- ============================================================================
@@ -1474,7 +1607,7 @@ function common.check_target_modifier(job_def, settings, main_level, sub_level)
     end
     
     -- Build and return the command
-    local command = common.build_ability_command(modifier_ability, 0)
+    local command = common.build_ability_command(modifier_ability, 0, settings)
     if command then
         return {
             command = command,

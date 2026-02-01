@@ -46,8 +46,11 @@ local HEADER_COLOR_ACTIVE = { 0.05, 0.1, 0.2, 1.00 }
 -- Helper Functions
 -- ============================================================================
 
+-- Default filter functions (can be overridden via ctx.filter_func)
+local default_filters = {}
+
 -- Check if player can use an ability based on level
-local function can_use_ability(ability)
+function default_filters.can_use_ability(ability)
     if not ability or not ability.level then
         return true
     end
@@ -65,6 +68,24 @@ local function can_use_ability(ability)
     else
         return main_level >= ability.level
     end
+end
+
+-- Check if ability can target outside party (always returns true in ui_components - no PL Mode context)
+function default_filters.can_target_outside(ability)
+    -- Simply check if the ability has the target_outside flag
+    -- If no flag is present, assume true (for non-party abilities)
+    if ability.target_outside == nil then
+        return true
+    end
+    return ability.target_outside == true
+end
+
+-- Get filter functions from context or use defaults
+local function get_filters(ctx)
+    if ctx and ctx.filter_func then
+        return ctx.filter_func
+    end
+    return default_filters
 end
 
 -- Get all abilities in the same group
@@ -88,12 +109,16 @@ local function get_abilities_in_group(job_def, target_group)
 end
 
 -- Get usable abilities in a group (level-appropriate and spell learned)
-local function get_usable_abilities_in_group(job_def, target_group)
+local function get_usable_abilities_in_group(job_def, target_group, ctx)
     local all_abilities = get_abilities_in_group(job_def, target_group)
     local usable = {}
+    local filters = get_filters(ctx)
     
     for _, ability in ipairs(all_abilities) do
-        if can_use_ability(ability) then
+        local can_use = filters.can_use_ability(ability)
+        local can_target = filters.can_target_outside(ability)
+        
+        if can_use and can_target then
             local cmd = type(ability.command) == 'function' and ability.command(0) or ability.command
             local is_spell = cmd and string.sub(cmd, 1, 3) == '/ma'
             local has_spell = true
@@ -107,6 +132,8 @@ local function get_usable_abilities_in_group(job_def, target_group)
             
             if has_spell then
                 table.insert(usable, ability)
+            else
+                common.debugf('[ui_components] %s in group %s: spell not learned', ability.name, target_group)
             end
         end
     end
@@ -115,8 +142,8 @@ local function get_usable_abilities_in_group(job_def, target_group)
 end
 
 -- Get the highest level usable ability in a group
-local function get_highest_level_ability_in_group(job_def, target_group)
-    local usable = get_usable_abilities_in_group(job_def, target_group)
+local function get_highest_level_ability_in_group(job_def, target_group, ctx)
+    local usable = get_usable_abilities_in_group(job_def, target_group, ctx)
     if #usable == 0 then
         return nil
     end
@@ -134,7 +161,7 @@ local function get_selected_ability_for_group(ctx, job_def, target_group)
     local setting_key = 'selected_' .. target_group
     local saved_name = ctx.settings[setting_key]
     
-    local usable = get_usable_abilities_in_group(job_def, target_group)
+    local usable = get_usable_abilities_in_group(job_def, target_group, ctx)
     if #usable == 0 then
         return nil
     end
@@ -149,7 +176,7 @@ local function get_selected_ability_for_group(ctx, job_def, target_group)
     end
     
     -- Auto-select highest level
-    local highest = get_highest_level_ability_in_group(job_def, target_group)
+    local highest = get_highest_level_ability_in_group(job_def, target_group, ctx)
     if highest then
         ctx.settings[setting_key] = highest.name
         if ctx.save_callback then
@@ -178,7 +205,7 @@ local function get_ability_group(job_def, ability_name)
 end
 
 -- Check if an ability is a duplicate from subjob
-local function is_subjob_duplicate(job_def, ability)
+local function is_subjob_duplicate(job_def, ability, ctx)
     if ability.is_main_job ~= false then
         return false
     end
@@ -203,7 +230,32 @@ local function can_cast_on_party(ability)
     return type(ability.command) == 'function'
 end
 
--- Check if an ability is enabled
+-- Check if a group is enabled
+local function is_group_enabled(ctx, group_name)
+    if not ctx.settings then
+        return false
+    end
+    
+    local key = 'disabled_group_' .. group_name
+    
+    if ctx.settings[key] == nil then
+        return true  -- Default to enabled when not in settings
+    end
+    
+    return not ctx.settings[key]
+end
+
+-- Toggle group enabled state
+local function toggle_group(ctx, group_name, enabled)
+    local key = 'disabled_group_' .. group_name
+    ctx.settings[key] = not enabled
+    
+    if ctx.save_callback then
+        ctx.save_callback()
+    end
+end
+
+-- Check if an ability is enabled (for non-grouped abilities)
 local function is_ability_enabled(ctx, ability_name)
     if not ctx.settings then
         return false
@@ -212,33 +264,16 @@ local function is_ability_enabled(ctx, ability_name)
     local key = 'disabled_' .. ability_name:gsub(' ', '_')
     
     if ctx.settings[key] == nil then
-        return false
+        return true  -- Default to enabled when not in settings
     end
     
     return not ctx.settings[key]
 end
 
--- Toggle ability enabled state
+-- Toggle ability enabled state (for non-grouped abilities)
 local function toggle_ability(ctx, ability_name, enabled, job_def)
     local key = 'disabled_' .. ability_name:gsub(' ', '_')
-    
-    if enabled then
-        ctx.settings[key] = false
-        
-        -- Disable all other abilities in the same group
-        local ability_group = get_ability_group(job_def, ability_name)
-        if ability_group and job_def then
-            local group_abilities = get_abilities_in_group(job_def, ability_group)
-            for _, other_ability in ipairs(group_abilities) do
-                if other_ability.name ~= ability_name then
-                    local other_key = 'disabled_' .. other_ability.name:gsub(' ', '_')
-                    ctx.settings[other_key] = true
-                end
-            end
-        end
-    else
-        ctx.settings[key] = true
-    end
+    ctx.settings[key] = not enabled
     
     if ctx.save_callback then
         ctx.save_callback()
@@ -264,7 +299,15 @@ local function find_ability_by_name(job_def, ability_name)
     return nil
 end
 
--- Check if a buff is enabled for a specific party member
+-- Check if a group buff is enabled for a specific party member
+local function is_group_party_buff_enabled(ctx, group_name, party_index)
+    if not ctx.party_buffs[group_name] then
+        return false
+    end
+    return ctx.party_buffs[group_name][party_index] == true
+end
+
+-- Check if a buff is enabled for a specific party member (non-grouped abilities)
 local function is_party_buff_enabled(ctx, ability_name, party_index)
     if not ctx.party_buffs[ability_name] then
         return false
@@ -272,7 +315,89 @@ local function is_party_buff_enabled(ctx, ability_name, party_index)
     return ctx.party_buffs[ability_name][party_index] == true
 end
 
--- Toggle buff enabled state for a specific party member
+-- Toggle group buff enabled state for a specific party member
+local function toggle_group_party_buff(ctx, group_name, party_index, enabled)
+    if not ctx.party_buffs[group_name] then
+        ctx.party_buffs[group_name] = {}
+    end
+    
+    -- Check if this is a song group that counts toward the limit
+    if enabled then
+        -- Get any ability from this group to check target_modifier
+        local group_abilities = get_abilities_in_group(ctx.job_def, group_name)
+        if #group_abilities > 0 then
+            local sample_ability = group_abilities[1]
+            
+            if sample_ability.target_modifier == true then
+                -- Determine the limit based on main/sub job
+                local is_main_job = sample_ability.is_main_job ~= false
+                local song_limit = is_main_job and 2 or 1
+                
+                -- Count currently enabled song groups with target_modifier for this party member
+                local active_song_groups = {}
+                for other_group_name, targets in pairs(ctx.party_buffs) do
+                    if other_group_name ~= group_name and targets[party_index] == true then
+                        local other_abilities = get_abilities_in_group(ctx.job_def, other_group_name)
+                        if #other_abilities > 0 and other_abilities[1].target_modifier == true then
+                            table.insert(active_song_groups, other_group_name)
+                        end
+                    end
+                end
+                
+                -- If at or over limit, deselect one existing song group for this party member
+                if #active_song_groups >= song_limit then
+                    local group_to_remove = active_song_groups[1]
+                    ctx.party_buffs[group_to_remove][party_index] = false
+                    
+                    -- Ensure persistence structure exists
+                    ctx.settings.party_buffs = ctx.settings.party_buffs or {}
+                    ctx.settings.party_buffs[group_to_remove] = ctx.settings.party_buffs[group_to_remove] or {}
+                    ctx.settings.party_buffs[group_to_remove][party_index] = false
+                    
+                    -- Check if removed group is still enabled for any party member
+                    local removed_still_enabled = false
+                    for i = 0, 5 do
+                        if ctx.party_buffs[group_to_remove][i] == true then
+                            removed_still_enabled = true
+                            break
+                        end
+                    end
+                    
+                    -- Update disabled setting for removed group
+                    if not removed_still_enabled then
+                        ctx.settings['disabled_group_' .. group_to_remove] = true
+                    end
+                end
+            end
+        end
+    end
+    
+    -- Set the new buff state
+    ctx.party_buffs[group_name][party_index] = enabled
+    
+    -- Check if ANY button is enabled for this group
+    local any_button_enabled = false
+    for i = 0, 5 do
+        if ctx.party_buffs[group_name][i] == true then
+            any_button_enabled = true
+            break
+        end
+    end
+    
+    -- Update the group's disabled setting
+    ctx.settings['disabled_group_' .. group_name] = not any_button_enabled
+    
+    -- Save party_buffs to settings for persistence
+    ctx.settings.party_buffs = ctx.settings.party_buffs or {}
+    ctx.settings.party_buffs[group_name] = ctx.settings.party_buffs[group_name] or {}
+    ctx.settings.party_buffs[group_name][party_index] = enabled
+    
+    if ctx.save_callback then
+        ctx.save_callback()
+    end
+end
+
+-- Toggle buff enabled state for a specific party member (non-grouped abilities)
 local function toggle_party_buff(ctx, ability_name, party_index, enabled)
     if not ctx.party_buffs[ability_name] then
         ctx.party_buffs[ability_name] = {}
@@ -373,12 +498,13 @@ end
 
 -- Render party toggle buttons (<ME> <P1> <P2> etc.)
 -- Returns: true if any button was rendered
-local function render_party_buttons(ctx, ability_name, has_spell, ability)
+-- For grouped abilities, pass group_name instead of ability_name
+local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
     local any_rendered = false
     
     -- Check if this ability requires a target modifier (like Pianissimo)
     if not ability then
-        ability = find_ability_by_name(ctx.job_def, ability_name)
+        ability = find_ability_by_name(ctx.job_def, key_name)
     end
     
     local requires_target_modifier = ability and ability.target_modifier == true
@@ -401,7 +527,7 @@ local function render_party_buttons(ctx, ability_name, has_spell, ability)
     end
     
     -- Render [<ME>] button
-    local me_enabled = is_party_buff_enabled(ctx, ability_name, 0)
+    local me_enabled = is_group and is_group_party_buff_enabled(ctx, key_name, 0) or is_party_buff_enabled(ctx, key_name, 0)
     
     if not has_spell then
         imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_DISABLED)
@@ -416,9 +542,13 @@ local function render_party_buttons(ctx, ability_name, has_spell, ability)
         imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_UNSELECTED_ACTIVE)
     end
     
-    local me_button_label = '<ME>##' .. ability_name .. '_me'
+    local me_button_label = '<ME>##' .. key_name .. '_me'
     if has_spell and imgui.Button(me_button_label, { PARTY_BUTTON_WIDTH, 0 }) then
-        toggle_party_buff(ctx, ability_name, 0, not me_enabled)
+        if is_group then
+            toggle_group_party_buff(ctx, key_name, 0, not me_enabled)
+        else
+            toggle_party_buff(ctx, key_name, 0, not me_enabled)
+        end
     elseif not has_spell then
         imgui.Button(me_button_label, { PARTY_BUTTON_WIDTH, 0 })
     end
@@ -440,10 +570,13 @@ local function render_party_buttons(ctx, ability_name, has_spell, ability)
             if is_active then
                 imgui.SameLine()
                 
-                local is_enabled = is_party_buff_enabled(ctx, ability_name, party_index)
+                -- Check if this party member is a Trust (cannot buff Trusts in PL mode)
+                local is_trust_member = ctx.is_trust and ctx.is_trust(party_index) or false
                 
-                -- Treat party button as "not has_spell" if target_modifier is required but not available
-                local party_has_spell = has_spell and has_target_modifier
+                local is_enabled = is_group and is_group_party_buff_enabled(ctx, key_name, party_index) or is_party_buff_enabled(ctx, key_name, party_index)
+                
+                -- Treat party button as "not has_spell" if target_modifier is required but not available, or if Trust
+                local party_has_spell = has_spell and has_target_modifier and not is_trust_member
                 
                 if not party_has_spell then
                     imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_DISABLED)
@@ -458,11 +591,20 @@ local function render_party_buttons(ctx, ability_name, has_spell, ability)
                     imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_UNSELECTED_ACTIVE)
                 end
                 
-                local button_label = '<P' .. party_index .. '>##' .. ability_name .. '_p' .. party_index
+                local button_label = '<P' .. party_index .. '>##' .. key_name .. '_p' .. party_index
                 if party_has_spell and imgui.Button(button_label, { PARTY_BUTTON_WIDTH, 0 }) then
-                    toggle_party_buff(ctx, ability_name, party_index, not is_enabled)
+                    if is_group then
+                        toggle_group_party_buff(ctx, key_name, party_index, not is_enabled)
+                    else
+                        toggle_party_buff(ctx, key_name, party_index, not is_enabled)
+                    end
                 elseif not party_has_spell then
                     imgui.Button(button_label, { PARTY_BUTTON_WIDTH, 0 })
+                end
+                
+                -- Show tooltip for Trusts
+                if is_trust_member and imgui.IsItemHovered() then
+                    imgui.SetTooltip('Trust can not be buffed')
                 end
                 
                 if not party_has_spell then
@@ -519,7 +661,7 @@ function ui_components.group_dropdown(ctx, job_def, target_group, dropdown_width
         return
     end
     
-    local usable = get_usable_abilities_in_group(job_def, target_group)
+    local usable = get_usable_abilities_in_group(job_def, target_group, ctx)
     if #usable == 0 then
         return
     end
@@ -528,7 +670,7 @@ function ui_components.group_dropdown(ctx, job_def, target_group, dropdown_width
     local current_display
     if selected then
         if selected.cost and selected.cost > 0 then
-            local resource_label = job_def.resource_type == 'tp' and 'TP' or 'MP'
+            local resource_label = (selected.resource_type or job_def.resource_type) == 'tp' and 'TP' or 'MP'
             current_display = selected.name .. ' (' .. selected.cost .. ' ' .. resource_label .. ')'
         else
             current_display = selected.name
@@ -556,7 +698,7 @@ function ui_components.group_dropdown(ctx, job_def, target_group, dropdown_width
         for _, ability in ipairs(usable) do
             local display_text
             if ability.cost and ability.cost > 0 then
-                local resource_label = job_def.resource_type == 'tp' and 'TP' or 'MP'
+                local resource_label = (ability.resource_type or job_def.resource_type) == 'tp' and 'TP' or 'MP'
                 display_text = ability.name .. ' (' .. ability.cost .. ' ' .. resource_label .. ')'
             else
                 display_text = ability.name
@@ -565,24 +707,6 @@ function ui_components.group_dropdown(ctx, job_def, target_group, dropdown_width
             
             if imgui.Selectable(display_text, is_selected) then
                 ctx.settings[setting_key] = ability.name
-                
-                -- Disable all other abilities in this group
-                local group_abilities = get_abilities_in_group(job_def, target_group)
-                for _, group_ability in ipairs(group_abilities) do
-                    if group_ability.name ~= ability.name then
-                        local other_key = 'disabled_' .. group_ability.name:gsub(' ', '_')
-                        ctx.settings[other_key] = true
-                    end
-                end
-                
-                -- Transfer enabled state from old selection to new
-                if selected then
-                    local old_enabled = is_ability_enabled(ctx, selected.name)
-                    if old_enabled then
-                        local new_key = 'disabled_' .. ability.name:gsub(' ', '_')
-                        ctx.settings[new_key] = false
-                    end
-                end
                 
                 if ctx.save_callback then
                     ctx.save_callback()
@@ -647,7 +771,7 @@ function ui_components.self_single_ability(ctx, ability, job_def, id_suffix)
     imgui.SameLine()
     local desc
     if ability.cost and ability.cost > 0 then
-        local resource_label = job_def.resource_type == 'tp' and 'TP' or 'MP'
+        local resource_label = (ability.resource_type or job_def.resource_type) == 'tp' and 'TP' or 'MP'
         desc = ability.name .. ' (' .. ability.cost .. ' ' .. resource_label .. ')' .. spell_suffix
     else
         desc = ability.name .. spell_suffix
@@ -676,7 +800,7 @@ function ui_components.self_grouped_ability(ctx, ability, job_def)
         return
     end
     
-    local usable = get_usable_abilities_in_group(job_def, ability.group)
+    local usable = get_usable_abilities_in_group(job_def, ability.group, ctx)
     if #usable == 0 then
         return
     end
@@ -707,7 +831,34 @@ function ui_components.self_grouped_ability(ctx, ability, job_def)
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GREEN)
     end
     
-    ui_components.onoff_button(ctx, selected.name, job_def, has_spell)
+    -- Use group-based ON/OFF button
+    local is_enabled = is_group_enabled(ctx, ability.group)
+    local button_width = get_onoff_button_width()
+    
+    if not has_spell then
+        imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_DISABLED)
+        imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_DISABLED)
+        imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_DISABLED)
+    elseif is_enabled then
+        -- Use default colors
+    else
+        imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_UNSELECTED)
+        imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_UNSELECTED_HOVER)
+        imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_UNSELECTED_ACTIVE)
+    end
+    
+    local button_text = is_enabled and 'ON' or 'OFF'
+    local button_label = button_text .. '##onoff_group_' .. ability.group
+    
+    if has_spell and imgui.Button(button_label, { button_width, 0 }) then
+        toggle_group(ctx, ability.group, not is_enabled)
+    elseif not has_spell then
+        imgui.Button(button_label, { button_width, 0 })
+    end
+    
+    if not has_spell or not is_enabled then
+        imgui.PopStyleColor(3)
+    end
     
     imgui.SameLine()
     ui_components.group_dropdown(ctx, job_def, ability.group, DROPDOWN_WIDTH)
@@ -758,13 +909,13 @@ function ui_components.party_single_ability(ctx, ability, job_def)
     
     local desc
     if ability.cost and ability.cost > 0 then
-        local resource_label = job_def.resource_type == 'tp' and 'TP' or 'MP'
+        local resource_label = (ability.resource_type or job_def.resource_type) == 'tp' and 'TP' or 'MP'
         desc = ability.name .. ' (' .. ability.cost .. ' ' .. resource_label .. ')' .. spell_suffix
     else
         desc = ability.name .. spell_suffix
     end
     
-    render_party_buttons(ctx, ability.name, has_spell, ability)
+    render_party_buttons(ctx, ability.name, has_spell, ability, false)
     
     imgui.SameLine()
     
@@ -802,7 +953,7 @@ function ui_components.party_grouped_ability(ctx, ability, job_def)
         return
     end
     
-    local usable = get_usable_abilities_in_group(job_def, ability.group)
+    local usable = get_usable_abilities_in_group(job_def, ability.group, ctx)
     if #usable == 0 then
         return
     end
@@ -841,7 +992,7 @@ function ui_components.party_grouped_ability(ctx, ability, job_def)
         end
     end
     
-    render_party_buttons(ctx, selected.name, has_spell, selected)
+    render_party_buttons(ctx, ability.group, has_spell, selected, true)
     
     imgui.SameLine()
     
@@ -864,11 +1015,13 @@ end
 
 -- Main ability renderer - determines which rendering function to use
 function ui_components.render_ability(ctx, ability, job_def, id_suffix)
-    if not ability or not can_use_ability(ability) then
+    local filters = get_filters(ctx)
+    
+    if not ability or not filters.can_use_ability(ability) then
         return false
     end
     
-    if is_subjob_duplicate(job_def, ability) then
+    if is_subjob_duplicate(job_def, ability, ctx) then
         return false
     end
     
@@ -881,16 +1034,12 @@ function ui_components.render_ability(ctx, ability, job_def, id_suffix)
             return false
         end
         
-        local usable = get_usable_abilities_in_group(job_def, ability.group)
+        local usable = get_usable_abilities_in_group(job_def, ability.group, ctx)
         if #usable == 0 then
             return false
         end
         
-        if #usable == 1 then
-            has_group = false
-        else
-            ctx.settings[group_key] = true
-        end
+        ctx.settings[group_key] = true
     end
     
     if has_group then
@@ -1005,7 +1154,7 @@ function ui_components.ability_checkbox(ctx, ability, job_def, id_suffix)
     
     local desc
     if ability.cost and ability.cost > 0 then
-        local resource_label = job_def.resource_type == 'tp' and 'TP' or 'MP'
+        local resource_label = (ability.resource_type or job_def.resource_type) == 'tp' and 'TP' or 'MP'
         desc = ability.name .. ' (' .. ability.cost .. ' ' .. resource_label .. ')' .. spell_suffix
     else
         desc = ability.name .. spell_suffix

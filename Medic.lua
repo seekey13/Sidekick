@@ -54,6 +54,7 @@ local last_job_id = nil
 local last_sub_job_id = nil
 local last_level = nil
 local last_unsupported_warning = nil  -- Track last unsupported job warning to prevent spam
+local pl_mode_active = false  -- Track if PL Mode is enabled (prevents auto job detection)
 
 -- Settings file path
 local default_settings = T{
@@ -72,6 +73,38 @@ local range_state = {
 --[[
     Job Loading
 ]]--
+
+-- Clear cached player job and level data (used when PL Mode is enabled)
+local function clear_player_data()
+    current_main_job_id = nil
+    current_sub_job_id = nil
+    last_job_id = nil
+    last_sub_job_id = nil
+    last_level = nil
+    main_job_def = nil
+    sub_job_def = nil
+    job_def = nil
+    pl_mode_active = true
+    
+end
+
+-- Restore normal mode (used when PL Mode is disabled)
+local function restore_normal_mode()
+    pl_mode_active = false
+    
+    -- Clear connection data to require manual reconnect
+    if addon_settings then
+        addon_settings.pl_connected_player = nil
+        addon_settings.pl_main_job = nil
+        addon_settings.pl_main_level = nil
+        addon_settings.pl_sub_job = nil
+        addon_settings.pl_sub_level = nil
+        settings.save()
+    end
+    
+    common.printf('PL Mode disabled, restoring normal operation')
+    -- Job will be automatically reloaded on next frame by setup_job()
+end
 
 local function load_single_job_definition(job_id)
     -- Map job IDs to job definition files
@@ -101,9 +134,12 @@ local function load_single_job_definition(job_id)
     return job_module
 end
 
-local function merge_abilities(main_abilities, sub_abilities)
+local function merge_abilities(main_abilities, sub_abilities, main_def, sub_def)
     -- Start with main job abilities
     local merged = T{}
+    
+    common.debugf('[merge_abilities] Starting merge (main_def=%s, sub_def=%s)', 
+        main_def and main_def.job_name or 'nil', sub_def and sub_def.job_name or 'nil')
     
     -- Deep copy main job abilities and mark them
     for category, abilities in pairs(main_abilities) do
@@ -114,7 +150,13 @@ local function merge_abilities(main_abilities, sub_abilities)
                 ability_copy[k] = v
             end
             ability_copy.is_main_job = true
+            -- Add resource type from main job definition
+            if main_def then
+                ability_copy.resource_type = main_def.resource_type
+            end
             table.insert(merged[category], ability_copy)
+            common.debugf('[merge_abilities] Added main job ability: %s (level %d, is_main_job=true)', 
+                ability.name, ability.level or 0)
         end
     end
     
@@ -125,12 +167,33 @@ local function merge_abilities(main_abilities, sub_abilities)
                 merged[category] = T{}
             end
             for _, ability in ipairs(abilities) do
-                local ability_copy = T{}
-                for k, v in pairs(ability) do
-                    ability_copy[k] = v
+                -- Check if this ability already exists in main job (skip duplicates)
+                local is_duplicate = false
+                if merged[category] then
+                    for _, main_ability in ipairs(merged[category]) do
+                        if main_ability.name == ability.name and main_ability.is_main_job == true then
+                            is_duplicate = true
+                            common.debugf('[merge_abilities] Skipping subjob duplicate: %s (already in main job)', ability.name)
+                            break
+                        end
+                    end
                 end
-                ability_copy.is_main_job = false
-                table.insert(merged[category], ability_copy)
+                
+                -- Only add if not a duplicate
+                if not is_duplicate then
+                    local ability_copy = T{}
+                    for k, v in pairs(ability) do
+                        ability_copy[k] = v
+                    end
+                    ability_copy.is_main_job = false
+                    -- Add resource type from sub job definition
+                    if sub_def then
+                        ability_copy.resource_type = sub_def.resource_type
+                    end
+                    table.insert(merged[category], ability_copy)
+                    common.debugf('[merge_abilities] Added subjob ability: %s (level %d, is_main_job=false)', 
+                        ability.name, ability.level or 0)
+                end
             end
         end
     end
@@ -229,7 +292,7 @@ local function load_job_definition(main_job_id, sub_job_id)
     -- Merge abilities from both jobs
     local main_abilities = main_def and main_def.abilities or {}
     local sub_abilities = sub_def and sub_def.abilities or {}
-    merged_def.abilities = merge_abilities(main_abilities, sub_abilities)
+    merged_def.abilities = merge_abilities(main_abilities, sub_abilities, main_def, sub_def)
     
     -- Merge default_settings (main job takes priority if both exist)
     merged_def.default_settings = T{}
@@ -257,7 +320,50 @@ local function load_job_definition(main_job_id, sub_job_id)
     return merged_def
 end
 
+-- Setup job from PL Mode connection data
+local function setup_pl_mode_job()
+    if not addon_settings then
+        return
+    end
+    
+    -- Check if we have connection data
+    if not addon_settings.pl_connected_player or not addon_settings.pl_main_job then
+        return
+    end
+    
+    -- Convert job abbreviations to IDs
+    local main_job_id = common.get_job_id_from_abbr(addon_settings.pl_main_job)
+    local sub_job_id = addon_settings.pl_sub_job and common.get_job_id_from_abbr(addon_settings.pl_sub_job) or nil
+    
+    if not main_job_id then
+        common.errorf('Invalid main job abbreviation: %s', addon_settings.pl_main_job)
+        return
+    end
+    
+    -- Check if already loaded with same job
+    if main_job_id == current_main_job_id and sub_job_id == current_sub_job_id and job_def then
+        return
+    end
+    
+    current_main_job_id = main_job_id
+    current_sub_job_id = sub_job_id
+    
+    main_job_def = load_single_job_definition(main_job_id)
+    sub_job_def = sub_job_id and load_single_job_definition(sub_job_id) or nil
+    job_def = load_job_definition(main_job_id, sub_job_id)
+    
+    if job_def then
+        common.printf('Loaded PL Mode job: %s (Lv%d/%d)', job_def.job_name, 
+            addon_settings.pl_main_level, addon_settings.pl_sub_level or 0)
+    end
+end
+
 local function setup_job()
+    -- Skip automatic job detection when PL Mode is active
+    if pl_mode_active then
+        return
+    end
+    
     local main_job_id, sub_job_id = common.get_player_job()
     
     -- Ignore invalid job IDs (happens during zoning)
@@ -415,11 +521,18 @@ local function automation_tick()
     end
     
     -- Check for job or level changes (direct reading, no packet dependency)
-    local job_id, sub_job_id = common.get_player_job()
-    local main_level, sub_level = common.get_player_level()
-    
-    -- Skip if job_id or level is invalid
-    if job_id and job_id > 0 and main_level and main_level > 0 then
+    -- Skip when PL Mode is active
+    local main_level, sub_level
+    if pl_mode_active then
+        -- Use PL Mode levels from settings
+        main_level = addon_settings.pl_main_level or 1
+        sub_level = addon_settings.pl_sub_level or 0
+    else
+        local job_id, sub_job_id = common.get_player_job()
+        main_level, sub_level = common.get_player_level()
+        
+        -- Skip if job_id or level is invalid
+        if job_id and job_id > 0 and main_level and main_level > 0 then
         -- Initialize tracking on first valid job detection
         if not last_job_id or last_job_id == 0 then
             last_job_id = job_id
@@ -501,6 +614,7 @@ local function automation_tick()
                 return
             end
         end
+        end
     end
     
     local player_resource = resource.get_resource(job_def.resource_type)
@@ -536,8 +650,26 @@ end
 ]]--
 
 ashita.events.register('load', 'medic_load', function()
-    is_loaded = true    
+    is_loaded = true
+    
+    -- Initialize config_ui (registers event handlers)
+    config_ui.initialize()
+    
     common.printf('Loaded! Type /medic help for commands.')
+end)
+
+ashita.events.register('d3d_beginscene', 'medic_clear_pl_connection', function()
+    -- Clear PL Mode connection data on first frame (requires manual reconnect each session)
+    if is_loaded and addon_settings then
+        addon_settings.pl_connected_player = nil
+        addon_settings.pl_main_job = nil
+        addon_settings.pl_main_level = nil
+        addon_settings.pl_sub_job = nil
+        addon_settings.pl_sub_level = nil
+        
+        -- Unregister this event after first run
+        ashita.events.unregister('d3d_beginscene', 'medic_clear_pl_connection')
+    end
 end)
 
 ashita.events.register('unload', 'medic_unload', function()    
@@ -581,12 +713,23 @@ ashita.events.register('d3d_present', 'medic_render', function()
     setup_job()
     
     -- Render config UI
-    if config_ui.is_visible() and job_def and addon_settings then
-        local save_settings_callback = function()
-            settings.save()
+    -- Allow rendering in PL Mode even without job_def
+    if config_ui.is_visible() and addon_settings then
+        -- Load PL Mode job if active
+        if pl_mode_active and addon_settings.pl_mode_enabled and addon_settings.pl_connected_player then
+            setup_pl_mode_job()
         end
         
-        config_ui.render(addon_settings, job_def, save_settings_callback)
+        -- Check if we can render (either have job_def OR PL Mode is active)
+        local can_render = job_def ~= nil or pl_mode_active
+        
+        if can_render then
+            local save_settings_callback = function()
+                settings.save()
+            end
+            
+            config_ui.render(addon_settings, job_def, save_settings_callback, clear_player_data, restore_normal_mode)
+        end
     end
     
     -- Run automation tick

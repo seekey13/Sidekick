@@ -63,9 +63,9 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
         
         if player_hpp < (settings.heal_threshold or 75) then
             -- Select appropriate ability
-            local selected_ability = heal.select_ability(available_abilities, player_hpp, job_def.resource_type, player_resource, 0, job_def)
+            local selected_ability = heal.select_ability(available_abilities, player_hpp, job_def, player_resource, 0)
             if selected_ability then
-                local command = common.build_ability_command(selected_ability, 0)
+                local command = common.build_ability_command(selected_ability, 0, settings)
                 
                 if command then
                     common.debugf('[HEAL] >>> Using self-only heal %s', selected_ability.name)
@@ -86,7 +86,8 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
         settings.heal_threshold or 75,
         settings.focus_enabled,
         common.get_party_index_by_name(settings.focus_target),
-        settings.focus_threshold or 85
+        settings.focus_threshold or 85,
+        settings
     )
     
     -- Debug focus status after party check
@@ -144,8 +145,9 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
                     end
                     
                     -- Check resource availability
-                    if not resource.has_resource(job_def.resource_type, ability.cost) then
-                        common.debugf('[HEAL] Insufficient %s for critical ability %s', job_def.resource_type, ability.name)
+                    local ability_resource_type = ability.resource_type or job_def.resource_type
+                    if not resource.has_resource(ability_resource_type, ability.cost) then
+                        common.debugf('[HEAL] Insufficient %s for critical ability %s', ability_resource_type, ability.name)
                         goto continue_critical
                     end
                     
@@ -157,7 +159,7 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
                     
                     -- Determine target based on ability command
                     local target_party_index
-                    local command_test = common.build_ability_command(ability, 0)
+                    local command_test = common.build_ability_command(ability, 0, settings)
                     if command_test and command_test:find('<me>') then
                         -- Self-target ability (Divine Seal)
                         target_party_index = 0
@@ -182,7 +184,7 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
                         common.debugf('[HEAL] Using party-target critical ability %s on party[%d]', ability.name, critical_party_index)
                     end
                     
-                    local command = common.build_ability_command(ability, target_party_index)
+                    local command = common.build_ability_command(ability, target_party_index, settings)
                     if command then
                         common.debugf('[HEAL] >>> Using critical ability %s', ability.name)
                         return {
@@ -225,7 +227,7 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
                 end
                 
                 -- Select appropriate ability based on HP deficit
-                local selected_ability = heal.select_ability(available_abilities, focus_hpp, job_def.resource_type, player_resource, focus_party_index, job_def)
+                local selected_ability = heal.select_ability(available_abilities, focus_hpp, job_def, player_resource, focus_party_index)
                 
                 if selected_ability and focus_party_index then
                     -- Check if in range using ability's range (default to 21 if not specified)
@@ -237,7 +239,7 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
                     common.debugf('[HEAL] Focus target in range (range: %d)', ability_range)
                     common.debugf('[HEAL] Selected %s for focus target', selected_ability.name)
                     
-                    local command = common.build_ability_command(selected_ability, focus_party_index)
+                    local command = common.build_ability_command(selected_ability, focus_party_index, settings)
                     if command then
                         common.debugf('[HEAL] >>> Healing focus target with %s', selected_ability.name)
                         return {
@@ -265,7 +267,7 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
         local target_index = common.get_party_member_target_index(party_status.lowest_hp_index)
         if target_index then
             -- Select appropriate ability based on HP deficit
-            local selected_ability = heal.select_ability(available_abilities, party_status.lowest_hp_percent, job_def.resource_type, player_resource, party_status.lowest_hp_index, job_def)
+            local selected_ability = heal.select_ability(available_abilities, party_status.lowest_hp_percent, job_def, player_resource, party_status.lowest_hp_index)
             if selected_ability then
                 -- Check if in range using ability's range (default to 21 if not specified)
                 local ability_range = type(selected_ability.range) == 'number' and selected_ability.range or 21
@@ -273,7 +275,7 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
                     common.debugf('[HEAL] Target out of range (range: %d)', ability_range)
                     return nil
                 end
-                local command = common.build_ability_command(selected_ability, party_status.lowest_hp_index)
+                local command = common.build_ability_command(selected_ability, party_status.lowest_hp_index, settings)
                 if command then
                     return {
                         command = command,
@@ -297,7 +299,7 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
     return nil
 end
 
-function heal.select_ability(abilities, target_hpp, resource_type, player_resource, party_index, job_def)
+function heal.select_ability(abilities, target_hpp, job_def, player_resource, party_index)
     -- Special case: Summoner should always try Healing Ruby first
     if job_def and job_def.job_id == 15 then
         -- Look for Healing Ruby in abilities
@@ -305,7 +307,8 @@ function heal.select_ability(abilities, target_hpp, resource_type, player_resour
             if ability.name == 'Healing Ruby' then
                 -- Check if usable: has pet, has resource, not on cooldown
                 if common.targets.get_pet() then
-                    if resource.has_resource(resource_type, ability.cost) then
+                    local ability_resource_type = ability.resource_type or job_def.resource_type
+                    if resource.has_resource(ability_resource_type, ability.cost) then
                         local is_ready = true
                         if ability.id then
                             is_ready = resource.is_ability_ready(ability.id)
@@ -373,8 +376,9 @@ function heal.select_ability(abilities, target_hpp, resource_type, player_resour
             goto continue
         end
         
-        -- Check resource
-        if resource.has_resource(resource_type, ability.cost) then
+        -- Check resource using ability-specific resource type
+        local ability_resource_type = ability.resource_type or job_def.resource_type
+        if resource.has_resource(ability_resource_type, ability.cost) then
             -- Check cooldown
             if ability.id then
                 local is_ready = false
@@ -384,7 +388,7 @@ function heal.select_ability(abilities, target_hpp, resource_type, player_resour
                     is_spell = true
                 elseif type(ability.command) == 'function' then
                     -- Try to get the command string to check
-                    local test_cmd = common.build_ability_command(ability, 0)
+                    local test_cmd = common.build_ability_command(ability, 0, nil)
                     if test_cmd and test_cmd:match('^/ma%s') then
                         is_spell = true
                     end
@@ -415,7 +419,7 @@ function heal.select_ability(abilities, target_hpp, resource_type, player_resour
             end
         else
             common.debugf('[HEAL]   ✗ Insufficient %s for %s (need: %d, have: %d)', 
-                         resource_type, ability.name, ability.cost, player_resource)
+                         ability_resource_type, ability.name, ability.cost, player_resource)
         end
         
         ::continue::

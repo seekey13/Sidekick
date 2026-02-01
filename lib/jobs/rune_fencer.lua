@@ -28,6 +28,7 @@ return {
                 element = 'Light',
                 buff_id = 17,  -- Protect buff
                 group = 'protect',
+                target_outside = true,
             },
             {
                 name = 'Protect II',
@@ -40,6 +41,7 @@ return {
                 element = 'Light',
                 buff_id = 40,  -- Protect II buff
                 group = 'protect',
+                target_outside = true,
             },
             {
                 name = 'Protect III',
@@ -52,6 +54,7 @@ return {
                 element = 'Light',
                 buff_id = 41,  -- Protect III buff
                 group = 'protect',
+                target_outside = true,
             },
             -- Shell spells
             {
@@ -65,6 +68,7 @@ return {
                 element = 'Light',
                 buff_id = 41,  -- Shell buff
                 group = 'shell',
+                target_outside = true,
             },
             {
                 name = 'Shell II',
@@ -77,6 +81,7 @@ return {
                 element = 'Light',
                 buff_id = 41,  -- Shell II buff
                 group = 'shell',
+                target_outside = true,
             },
             {
                 name = 'Shell III',
@@ -89,6 +94,7 @@ return {
                 element = 'Light',
                 buff_id = 41,  -- Shell III buff
                 group = 'shell',
+                target_outside = true,
             },
             {
                 name = 'Shell IV',
@@ -101,12 +107,13 @@ return {
                 element = 'Light',
                 buff_id = 41,  -- Shell IV buff
                 group = 'shell',
+                target_outside = true,
             },
             -- Barelement
             {
                 name = 'Barstone',
                 level = 4,
-                cost = 5,
+                cost = 6,
                 id = 60,
                 command = function(target)
                     return '/ma "Barstone" '..target
@@ -114,11 +121,12 @@ return {
                 element = 'Wind',
                 buff_id = 102,  -- Barstone buff
                 group = 'barelement',
+                target_outside = true,
             },
             {
                 name = 'Barwater',
                 level = 8,
-                cost = 7,
+                cost = 6,
                 id = 62,
                 command = function(target)
                     return '/ma "Barwater" '..target
@@ -126,11 +134,12 @@ return {
                 element = 'Thunder',
                 buff_id = 104,  -- Barwater buff
                 group = 'barelement',
+                target_outside = true,
             },
             {
                 name = 'Baraero',
                 level = 12,
-                cost = 10,
+                cost = 6,
                 id = 65,
                 command = function(target)
                     return '/ma "Baraero" '..target
@@ -138,11 +147,12 @@ return {
                 element = 'Ice',
                 buff_id = 107,  -- Baraero buff
                 group = 'barelement',
+                target_outside = true,
             },
             {
                 name = 'Barfire',
                 level = 16,
-                cost = 11,
+                cost = 6,
                 id = 66,
                 command = function(target)
                     return '/ma "Barfire" '..target
@@ -150,11 +160,12 @@ return {
                 element = 'Water',
                 buff_id = 108,  -- Barfire buff
                 group = 'barelement',
+                target_outside = true,
             },
             {
                 name = 'Barblizzard',
                 level = 20,
-                cost = 13,
+                cost = 6,
                 id = 68,
                 command = function(target)
                     return '/ma "Barblizzard" '..target
@@ -162,11 +173,12 @@ return {
                 element = 'Fire',
                 buff_id = 110,  -- Barblizzard buff
                 group = 'barelement',
+                target_outside = true,
             },
             {
                 name = 'Barthunder',
                 level = 24,
-                cost = 15,
+                cost = 6,
                 id = 70,
                 command = function(target)
                     return '/ma "Barthunder" '..target
@@ -174,12 +186,13 @@ return {
                 element = 'Earth',
                 buff_id = 112,  -- Barthunder buff
                 group = 'barelement',
+                target_outside = true,
             },
             -- Barstatus
             {
                 name = 'Barsleep',
                 level = 6,
-                cost = 6,
+                cost = 7,
                 id = 61,
                 command = function(target)
                     return '/ma "Barsleep" '..target
@@ -187,11 +200,12 @@ return {
                 element = 'Light',
                 buff_id = 103,  -- Barsleep buff
                 group = 'barstatus',
+                target_outside = true,
             },
             {
                 name = 'Barpoison',
                 level = 9,
-                cost = 8,
+                cost = 9,
                 id = 63,
                 command = function(target)
                     return '/ma "Barpoison" '..target
@@ -199,11 +213,12 @@ return {
                 element = 'Thunder',
                 buff_id = 105,  -- Barpoison buff
                 group = 'barstatus',
+                target_outside = true,
             },
             {
                 name = 'Barparalyze',
                 level = 11,
-                cost = 9,
+                cost = 11,
                 id = 64,
                 command = function(target)
                     return '/ma "Barparalyze" '..target
@@ -211,11 +226,12 @@ return {
                 element = 'Fire',
                 buff_id = 106,  -- Barparalyze buff
                 group = 'barstatus',
+                target_outside = true,
             },
             {
                 name = 'Barblind',
                 level = 17,
-                cost = 12,
+                cost = 13,
                 id = 67,
                 command = function(target)
                     return '/ma "Barblind" '..target
@@ -223,11 +239,12 @@ return {
                 element = 'Light',
                 buff_id = 109,  -- Barblind buff
                 group = 'barstatus',
+                target_outside = true,
             },
             {
                 name = 'Barsilence',
                 level = 22,
-                cost = 14,
+                cost = 15,
                 id = 69,
                 command = function(target)
                     return '/ma "Barsilence" '..target
@@ -235,11 +252,12 @@ return {
                 element = 'Ice',
                 buff_id = 111,  -- Barsilence buff
                 group = 'barstatus',
+                target_outside = true,
             },
             {
                 name = 'Barvirus',
                 level = 38,
-                cost = 16,
+                cost = 25,
                 id = 71,
                 command = function(target)
                     return '/ma "Barvirus" '..target
@@ -247,11 +265,12 @@ return {
                 element = 'Water',
                 buff_id = 113,  -- Barvirus buff
                 group = 'barstatus',
+                target_outside = true,
             },
             {
                 name = 'Barpetrify',
                 level = 42,
-                cost = 17,
+                cost = 20,
                 id = 72,
                 command = function(target)
                     return '/ma "Barpetrify" '..target
@@ -259,11 +278,12 @@ return {
                 element = 'Wind',
                 buff_id = 114,  -- Barpetrify buff
                 group = 'barstatus',
+                target_outside = true,
             },
             {
                 name = 'Baramnesia',
                 level = 63,
-                cost = 18,
+                cost = 30,
                 id = 73,
                 command = function(target)
                     return '/ma "Baramnesia" '..target
@@ -271,6 +291,7 @@ return {
                 element = 'Water',
                 buff_id = 115,  -- Baramnesia buff
                 group = 'barstatus',
+                target_outside = true,
             },
             -- Regen
             {

@@ -14,6 +14,11 @@ function recover.execute(settings, job_def, main_level, sub_level, player_resour
         return nil
     end
     
+    -- Skip in PL Mode (recover abilities target self, not usable outside party)
+    if settings.pl_mode_enabled and settings.pl_connected_player then
+        return nil
+    end
+    
     -- Get recovery abilities from job definition
     local recover_mp_abilities = job_def.abilities.recover_mp or {}
     local recover_tp_abilities = job_def.abilities.recover_tp or {}
@@ -58,7 +63,12 @@ function recover.execute(settings, job_def, main_level, sub_level, player_resour
                         local can_use_devotion = true
                         
                         -- Check if ability is disabled
-                        local disabled_key = 'disabled_' .. ability.name:gsub(' ', '_')
+                        local disabled_key
+                        if ability.group then
+                            disabled_key = 'disabled_group_' .. ability.group
+                        else
+                            disabled_key = 'disabled_' .. ability.name:gsub(' ', '_')
+                        end
                         local is_disabled = settings[disabled_key]
                         if is_disabled then
                             common.debugf('[RECOVER] Devotion is disabled, skipping')
@@ -169,7 +179,7 @@ function recover.execute(settings, job_def, main_level, sub_level, player_resour
                     if not has_required_buff then
                         common.debugf('[RECOVER] %s requires buff prerequisite, skipping', ability.name)
                     -- Check resource and cooldown
-                    elseif resource.has_resource(job_def.resource_type, ability.cost) and resource.is_ability_ready(ability.id) then
+                    elseif ability.resource_type and resource.has_resource(ability.resource_type, ability.cost) and resource.is_ability_ready(ability.id) then
                         local command = common.build_ability_command(ability, nil)
                         
                         if command then
@@ -231,7 +241,7 @@ function recover.execute(settings, job_def, main_level, sub_level, player_resour
                     if not has_required_buff then
                         common.debugf('[RECOVER] %s requires buff prerequisite, skipping', ability.name)
                     -- Check resource and cooldown
-                    elseif resource.has_resource(job_def.resource_type, ability.cost) and resource.is_ability_ready(ability.id) then
+                    elseif ability.resource_type and resource.has_resource(ability.resource_type, ability.cost) and resource.is_ability_ready(ability.id) then
                         local command = common.build_ability_command(ability, nil)
                         
                         if command then

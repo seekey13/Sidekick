@@ -89,7 +89,7 @@ function debuff_removal.execute(settings, job_def, main_level, sub_level, player
         return nil
     end
     
-    -- Check for self-only abilities first (like Monk's Chakra)
+    -- Check for self-only abilities first
     for _, ability in ipairs(available_abilities) do
         if ability.self_only then
             -- Check if this ability is blocked by status ailments
@@ -102,7 +102,8 @@ function debuff_removal.execute(settings, job_def, main_level, sub_level, player
             local player_buffs = common.get_player_buffs()
             if can_remove_debuffs(ability, player_buffs) then
                 -- Check resource
-                if resource.has_resource(job_def.resource_type, ability.cost) then
+                local ability_resource_type = ability.resource_type or job_def.resource_type
+                if resource.has_resource(ability_resource_type, ability.cost) then
                     -- Check cooldown (if ability has an ID)
                     local is_ready = true
                     if ability.id then
@@ -112,7 +113,7 @@ function debuff_removal.execute(settings, job_def, main_level, sub_level, player
                     end
                     
                     if is_ready then
-                        local command = common.build_ability_command(ability, 0)
+                        local command = common.build_ability_command(ability, 0, settings)
                         if command then
                             local debuff_count = count_removable_debuffs(player_buffs, {ability})
                             common.debugf('[DEBUFF_REMOVAL] Using %s on self (%d debuff%s)', 
@@ -131,11 +132,19 @@ function debuff_removal.execute(settings, job_def, main_level, sub_level, player
         ::continue_self::
     end
     
+    -- Check if in PL mode
+    local in_pl_mode = settings and settings.pl_mode_enabled and settings.pl_connected_player
+    
     -- Combine player buffs (index 0) with party buffs (indices 1-5)
     local all_buffs = {}
     all_buffs[0] = common.get_player_buffs()
     for i = 1, 5 do
-        all_buffs[i] = common.get_party_buffs(i)
+        -- Skip Trusts in PL mode (cannot remove debuffs from Trusts outside party)
+        if in_pl_mode and common.is_trust(i) then
+            all_buffs[i] = {}  -- Empty buff list for Trusts in PL mode
+        else
+            all_buffs[i] = common.get_party_buffs(i)
+        end
     end
     
     -- Count removable debuffs for each party member
@@ -158,7 +167,8 @@ function debuff_removal.execute(settings, job_def, main_level, sub_level, player
                 for _, ability in ipairs(available_abilities) do
                     if can_remove_debuffs(ability, all_buffs[focus_party_index]) then
                     -- Check resource
-                    if resource.has_resource(job_def.resource_type, ability.cost) then
+                    local ability_resource_type = ability.resource_type or job_def.resource_type
+                    if resource.has_resource(ability_resource_type, ability.cost) then
                         -- Check cooldown (if ability has an ID)
                         local is_ready = true
                         if ability.id then
@@ -168,7 +178,7 @@ function debuff_removal.execute(settings, job_def, main_level, sub_level, player
                         end
                         
                         if is_ready then
-                            local command = common.build_ability_command(ability, focus_party_index)
+                            local command = common.build_ability_command(ability, focus_party_index, settings)
                             if command then
                                 common.debugf('[DEBUFF_REMOVAL] Using %s on focus target (p%d, %d debuff%s)', 
                                     ability.name, focus_party_index, debuff_counts[focus_party_index],
@@ -220,7 +230,8 @@ function debuff_removal.execute(settings, job_def, main_level, sub_level, player
         for _, ability in ipairs(available_abilities) do
             if can_remove_debuffs(ability, all_buffs[best_index]) then
                 -- Check resource
-                if resource.has_resource(job_def.resource_type, ability.cost) then
+                local ability_resource_type = ability.resource_type or job_def.resource_type
+                if resource.has_resource(ability_resource_type, ability.cost) then
                     -- Check cooldown (if ability has an ID)
                     local is_ready = true
                     if ability.id then
@@ -230,7 +241,7 @@ function debuff_removal.execute(settings, job_def, main_level, sub_level, player
                     end
                     
                     if is_ready then
-                        local command = common.build_ability_command(ability, best_index)
+                        local command = common.build_ability_command(ability, best_index, settings)
                         if command then
                             common.debugf('[DEBUFF_REMOVAL] Using %s on p%d (%d debuff%s)', 
                                 ability.name, best_index, max_debuffs,

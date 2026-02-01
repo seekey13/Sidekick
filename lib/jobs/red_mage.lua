@@ -27,6 +27,7 @@ return {
                 range = 20,
                 value = 400,
                 wakes = true,
+                target_outside = true,
             },
             {
                 name = 'Cure III',
@@ -39,6 +40,7 @@ return {
                 range = 20,
                 value = 200,
                 wakes = true,
+                target_outside = true,
             },
             {
                 name = 'Cure II',
@@ -51,6 +53,7 @@ return {
                 range = 20,
                 value = 90,
                 wakes = true,
+                target_outside = true,
             },
             {
                 name = 'Cure',
@@ -63,6 +66,7 @@ return {
                 range = 20,
                 value = 30,
                 wakes = true,
+                target_outside = true,
             },
         },
         
@@ -89,6 +93,7 @@ return {
                 end,
                 buff_id = 40,  -- Protect
                 group = 'protect',
+                target_outside = true,
             },
             {
                 name = 'Protect III',
@@ -100,6 +105,7 @@ return {
                 end,
                 buff_id = 40,
                 group = 'protect',
+                target_outside = true,
             },
             {
                 name = 'Protect II',
@@ -111,6 +117,7 @@ return {
                 end,
                 buff_id = 40,
                 group = 'protect',
+                target_outside = true,
             },
             {
                 name = 'Protect',
@@ -122,6 +129,7 @@ return {
                 end,
                 buff_id = 40,
                 group = 'protect',
+                target_outside = true,
             },
             -- Shell line
             {
@@ -134,6 +142,7 @@ return {
                 end,
                 buff_id = 41,  -- Shell
                 group = 'shell',
+                target_outside = true,
             },
             {
                 name = 'Shell III',
@@ -145,6 +154,7 @@ return {
                 end,
                 buff_id = 41,
                 group = 'shell',
+                target_outside = true,
             },
             {
                 name = 'Shell II',
@@ -156,6 +166,7 @@ return {
                 end,
                 buff_id = 41,
                 group = 'shell',
+                target_outside = true,
             },
             {
                 name = 'Shell',
@@ -167,6 +178,191 @@ return {
                 end,
                 buff_id = 41,
                 group = 'shell',
+                target_outside = true,
+            },
+            -- Barelement
+            {
+                name = 'Barstone',
+                level = 5,
+                cost = 6,
+                id = 60,
+                command = function(target)
+                    return '/ma "Barstone" '..target
+                end,
+                element = 'Wind',
+                buff_id = 102,  -- Barstone buff
+                group = 'barelement',
+                target_outside = true,
+            },
+            {
+                name = 'Barwater',
+                level = 9,
+                cost = 6,
+                id = 62,
+                command = function(target)
+                    return '/ma "Barwater" '..target
+                end,
+                element = 'Thunder',
+                buff_id = 104,  -- Barwater buff
+                group = 'barelement',
+                target_outside = true,
+            },
+            {
+                name = 'Baraero',
+                level = 13,
+                cost = 6,
+                id = 65,
+                command = function(target)
+                    return '/ma "Baraero" '..target
+                end,
+                element = 'Ice',
+                buff_id = 107,  -- Baraero buff
+                group = 'barelement',
+                target_outside = true,
+            },
+            {
+                name = 'Barfire',
+                level = 17,
+                cost = 6,
+                id = 66,
+                command = function(target)
+                    return '/ma "Barfire" '..target
+                end,
+                element = 'Water',
+                buff_id = 108,  -- Barfire buff
+                group = 'barelement',
+                target_outside = true,
+            },
+            {
+                name = 'Barblizzard',
+                level = 21,
+                cost = 6,
+                id = 68,
+                command = function(target)
+                    return '/ma "Barblizzard" '..target
+                end,
+                element = 'Fire',
+                buff_id = 110,  -- Barblizzard buff
+                group = 'barelement',
+                target_outside = true,
+            },
+            {
+                name = 'Barthunder',
+                level = 25,
+                cost = 6,
+                id = 70,
+                command = function(target)
+                    return '/ma "Barthunder" '..target
+                end,
+                element = 'Earth',
+                buff_id = 112,  -- Barthunder buff
+                group = 'barelement',
+                target_outside = true,
+            },
+            -- Barstatus
+            {
+                name = 'Barsleep',
+                level = 7,
+                cost = 7,
+                id = 61,
+                command = function(target)
+                    return '/ma "Barsleep" '..target
+                end,
+                element = 'Light',
+                buff_id = 103,  -- Barsleep buff
+                group = 'barstatus',
+                target_outside = true,
+            },
+            {
+                name = 'Barpoison',
+                level = 10,
+                cost = 9,
+                id = 63,
+                command = function(target)
+                    return '/ma "Barpoison" '..target
+                end,
+                element = 'Thunder',
+                buff_id = 105,  -- Barpoison buff
+                group = 'barstatus',
+                target_outside = true,
+            },
+            {
+                name = 'Barparalyze',
+                level = 12,
+                cost = 11,
+                id = 64,
+                command = function(target)
+                    return '/ma "Barparalyze" '..target
+                end,
+                element = 'Fire',
+                buff_id = 106,  -- Barparalyze buff
+                group = 'barstatus',
+                target_outside = true,
+            },
+            {
+                name = 'Barblind',
+                level = 18,
+                cost = 13,
+                id = 67,
+                command = function(target)
+                    return '/ma "Barblind" '..target
+                end,
+                element = 'Light',
+                buff_id = 109,  -- Barblind buff
+                group = 'barstatus',
+                target_outside = true,
+            },
+            {
+                name = 'Barsilence',
+                level = 23,
+                cost = 15,
+                id = 69,
+                command = function(target)
+                    return '/ma "Barsilence" '..target
+                end,
+                element = 'Ice',
+                buff_id = 111,  -- Barsilence buff
+                group = 'barstatus',
+                target_outside = true,
+            },
+            {
+                name = 'Barvirus',
+                level = 39,
+                cost = 25,
+                id = 71,
+                command = function(target)
+                    return '/ma "Barvirus" '..target
+                end,
+                element = 'Water',
+                buff_id = 113,  -- Barvirus buff
+                group = 'barstatus',
+                target_outside = true,
+            },
+            {
+                name = 'Barpetrify',
+                level = 43,
+                cost = 20,
+                id = 72,
+                command = function(target)
+                    return '/ma "Barpetrify" '..target
+                end,
+                element = 'Wind',
+                buff_id = 114,  -- Barpetrify buff
+                group = 'barstatus',
+                target_outside = true,
+            },
+            {
+                name = 'Baramnesia',
+                level = 65,
+                cost = 30,
+                id = 73,
+                command = function(target)
+                    return '/ma "Baramnesia" '..target
+                end,
+                element = 'Water',
+                buff_id = 115,  -- Baramnesia buff
+                group = 'barstatus',
+                target_outside = true,
             },
             -- Other buffs
             {
@@ -210,6 +406,7 @@ return {
                 end,
                 buff_id = 33,  -- Haste
                 combat_only = true,
+                target_outside = true,
             },
             {
                 name = 'Flurry',
@@ -221,6 +418,7 @@ return {
                 end,
                 buff_id = 265,  -- Flurry
                 combat_only = true,
+                target_outside = true,
             },
             {
                 name = 'Stoneskin',

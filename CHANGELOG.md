@@ -8,6 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.3.0] - 2026-01-22
 
 ### Added
+- **PL Mode (Power Leveling Mode)**: New mode for healing players outside your party via `/mst` command relay:
+  - Automatic connection detection via tell-based handshake ("[MEDIC] JOB##/JOB## Attempting Connection")
+  - Auto-set follow target to PL player entity on connection
+  - Entity-based distance tracking for rest wake commands
+  - Sends `/mst [PL_player] /heal off` when distance threshold exceeded or casting detected
+  - PL player handles their own `/heal on` based on MP needs
+  - Trust detection: Automatically skips Trusts for healing, waking, and debuff removal in PL mode (cannot target outside party)
+  - UI adaptations: Auto-hides AOE Healing section, Timer slider, and Follow Target dropdown (uses PL automatically)
+  - Distance slider remains visible for rest wake threshold configuration
+  - Party buff UI detects and disables Trust buttons with tooltip
+- **Contradance for Dancer**: Added Contradance to Dancer's critical abilities category for emergency situations
 - **Pianissimo Support for Bard**: Bard songs can now be cast on party members using the Pianissimo ability (level 20+):
   - New `target_modifier` ability category for abilities that redirect self-targeted spells to party members
   - All Bard songs (except Mazurkas) flagged with `target_modifier = true` to indicate Pianissimo compatibility

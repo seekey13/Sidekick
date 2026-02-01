@@ -14,6 +14,9 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
         return nil
     end
     
+    -- Track which groups have been processed in this execution (local, never persisted)
+    local processed_groups = {}
+    
     -- Get party buff configuration from config_ui if not provided
     if not party_buff_config then
         local config_ui = require('lib.config_ui')
@@ -26,20 +29,37 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
         return nil
     end
     
+    common.debugf('[BUFF] Before filter: %d buff abilities, main_level=%d, sub_level=%d', #buff_abilities, main_level or 0, sub_level or 0)
+    
     -- Filter abilities by level and settings
     local available_abilities = common.filter_abilities_by_level(buff_abilities, settings, main_level, sub_level, job_def)
     
+    common.debugf('[BUFF] After filter: %d/%d abilities available', #available_abilities, #buff_abilities)
+    
+    if #available_abilities > 0 then
+        common.debugf('[BUFF] Available abilities: %s', table.concat((function()
+            local names = {}
+            for _, a in ipairs(available_abilities) do
+                table.insert(names, a.name)
+            end
+            return names
+        end)(), ', '))
+    end
+    
     if #available_abilities == 0 then
+        common.debugf('[BUFF] No available abilities after filtering')
         return nil
     end
     
     -- Check each buff to see if it needs to be applied/refreshed
     for _, ability in ipairs(available_abilities) do
+        common.debugf('[BUFF] Checking ability: %s', ability.name)
         local should_skip = false
         
         -- Check pet requirement
         if not should_skip and ability.pet_required then
             if not common.targets.get_pet() then
+                common.debugf('[BUFF]   %s blocked: no pet', ability.name)
                 should_skip = true
             end
         end
@@ -65,15 +85,18 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
             end
             
             if not has_required_buff then
+                common.debugf('[BUFF]   %s blocked: missing required buff', ability.name)
                 should_skip = true
             end
         end
         
         -- Check if this ability is blocked by status ailments
-        if not should_skip and common.is_command_blocked(ability.command) then
+        if not should_skip then
             local blocked_by = common.is_command_blocked(ability.command)
-            common.debugf('[BUFF] %s is blocked by %s', ability.name, blocked_by)
-            should_skip = true
+            if blocked_by then
+                common.debugf('[BUFF] %s is blocked by %s', ability.name, blocked_by)
+                should_skip = true
+            end
         end
         
         if not should_skip then
@@ -82,12 +105,61 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
             
             if is_single_target then
                 -- Single-target buff: Check button states for ME and party members (P1-P5)
-                -- First check if ability is enabled via settings
-                local key = 'disabled_' .. ability.name:gsub(' ', '_')
+                -- First check if ability/group is enabled via settings
+                local key
+                local config_key
+                if ability.group then
+                    key = 'disabled_group_' .. ability.group
+                    config_key = ability.group
+                    
+                    -- Check if this ability is the selected one for this group
+                    local selected_key = 'selected_' .. ability.group
+                    local selected_ability = settings[selected_key]
+                    if selected_ability then
+                        -- A specific ability is selected, only use that one
+                        if selected_ability ~= ability.name then
+                            goto continue_ability
+                        end
+                    else
+                        -- No selection made yet - UI will handle this on next open
+                        -- For now, skip all but the first available ability in this group
+                        -- (filter_abilities_by_level already sorted by cost descending = highest level first)
+                        -- Check if we've already processed an ability from this group
+                        if processed_groups[ability.group] then
+                            -- Already processed another ability from this group, skip this one
+                            goto continue_ability
+                        else
+                            -- Mark this group as processed for this execution cycle
+                            processed_groups[ability.group] = true
+                        end
+                    end
+                else
+                    key = 'disabled_' .. ability.name:gsub(' ', '_')
+                    config_key = ability.name
+                end
                 local is_ability_enabled = settings[key] == false or settings[key] == nil
+                common.debugf('[BUFF]   %s: key=%s, is_enabled=%s, config_key=%s', ability.name, key, tostring(is_ability_enabled), config_key)
                 
                 if not is_ability_enabled then
-                    common.debugf('[BUFF] %s is disabled in settings', ability.name)
+                    common.debugf('[BUFF]   %s blocked: disabled in settings', ability.name)
+                    goto continue_ability
+                end
+                
+                -- Check if any party buttons are enabled
+                local has_any_target = false
+                if party_buff_config and party_buff_config[config_key] then
+                    for i = 0, 5 do
+                        if party_buff_config[config_key][i] == true then
+                            has_any_target = true
+                            break
+                        end
+                    end
+                end
+                
+                common.debugf('[BUFF]   %s: has_any_target=%s', ability.name, tostring(has_any_target))
+                
+                if not has_any_target then
+                    common.debugf('[BUFF]   %s blocked: no party buttons enabled', ability.name)
                     goto continue_ability
                 end
                 
@@ -97,11 +169,12 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                 for _, target_index in ipairs(targets_to_check) do
                     -- Check if this target is enabled in party_buff_config
                     local is_target_enabled = false
-                    if party_buff_config and party_buff_config[ability.name] then
-                        is_target_enabled = party_buff_config[ability.name][target_index] == true
+                    if party_buff_config and party_buff_config[config_key] then
+                        is_target_enabled = party_buff_config[config_key][target_index] == true
                     end
                     
                     if is_target_enabled then
+                        common.debugf('[BUFF]     Target %d is enabled, checking...', target_index)
                         local target_needs_buff = false
                         local target_entity_index = nil
                         
@@ -158,27 +231,51 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                             target_needs_buff = true
                         end
                         
+                        common.debugf('[BUFF]     Target %d needs_buff=%s', target_index, tostring(target_needs_buff))
+                        
                         if target_needs_buff then
                             -- Check if this ability requires a target modifier (Pianissimo, Entrust, etc.)
                             if ability.target_modifier and target_index > 0 then
-                                local modifier_result = common.check_target_modifier(job_def, settings, main_level, sub_level)
-                                if modifier_result then
-                                    -- Need to use modifier ability first (or modifier handler provided a command)
-                                    return modifier_result
-                                else
-                                    -- When modifier_result is nil, we cannot safely assume the modifier requirement
-                                    -- is satisfied (it may be unavailable, on cooldown, or otherwise blocked).
-                                    -- To avoid incorrect casts, skip this ability attempt for now.
-                                    return nil
+                                -- Check if we already have the modifier buff active
+                                local has_modifier_buff = false
+                                if job_def.abilities.target_modifier and #job_def.abilities.target_modifier > 0 then
+                                    local modifier_ability = job_def.abilities.target_modifier[1]
+                                    if modifier_ability.buff_id then
+                                        has_modifier_buff = common.has_buff(0, modifier_ability.buff_id)
+                                    end
                                 end
+                                
+                                if not has_modifier_buff then
+                                    -- Don't have modifier buff, try to use it
+                                    local modifier_result = common.check_target_modifier(job_def, settings, main_level, sub_level)
+                                    if modifier_result then
+                                        -- Need to use modifier ability first
+                                        return modifier_result
+                                    else
+                                        -- Modifier unavailable (on cooldown, disabled, etc.), skip this ability for now
+                                        return nil
+                                    end
+                                end
+                                -- If we reach here, we have the modifier buff, proceed to cast the song
                             end
                             
-                            -- Check resource
-                            if resource.has_resource(job_def.resource_type, ability.cost) then
+                            -- Check resource (skip in PL Mode since we can't check connected player's MP/TP)
+                            local in_pl_mode = settings and settings.pl_mode_enabled and settings.pl_connected_player
+                            local has_resource = true
+                            if not in_pl_mode then
+                                local ability_resource_type = ability.resource_type or job_def.resource_type
+                                has_resource = resource.has_resource(ability_resource_type, ability.cost)
+                                common.debugf('[BUFF]     Resource check: type=%s, cost=%d, has_resource=%s', 
+                                    tostring(ability_resource_type), ability.cost or 0, tostring(has_resource))
+                            else
+                                common.debugf('[BUFF]     PL Mode: skipping resource check')
+                            end
+                            
+                            if has_resource then
                                 -- Check cooldown
                                 if ability.id then
                                     local is_spell = false
-                                    local test_cmd = common.build_ability_command(ability, target_index)
+                                    local test_cmd = common.build_ability_command(ability, target_index, settings)
                                     is_spell = test_cmd and test_cmd:match('^/ma ') ~= nil
                                     
                                     local is_ready = false
@@ -197,7 +294,7 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                                     end
                                     
                                     if is_ready then
-                                        local command = common.build_ability_command(ability, target_index)
+                                        local command = common.build_ability_command(ability, target_index, settings)
                                         if command then
                                             -- Register pending buff if target is a Trust
                                             if ability.buff_id and target_index > 0 then
@@ -222,7 +319,7 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                                         end
                                     end
                                 else
-                                    local command = common.build_ability_command(ability, target_index)
+                                    local command = common.build_ability_command(ability, target_index, settings)
                                     if command then
                                         -- Register pending buff if target is a Trust
                                         if ability.buff_id and target_index > 0 then
@@ -254,8 +351,35 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                 end
             else
                 -- Self-only buff: Use checkbox-based logic (original behavior)
-                -- Check if ability is enabled via settings
-                local key = 'disabled_' .. ability.name:gsub(' ', '_')
+                -- Check if ability/group is enabled via settings
+                local key
+                if ability.group then
+                    key = 'disabled_group_' .. ability.group
+                    
+                    -- Check if this ability is the selected one for this group
+                    local selected_key = 'selected_' .. ability.group
+                    local selected_ability = settings[selected_key]
+                    if selected_ability then
+                        -- A specific ability is selected, only use that one
+                        if selected_ability ~= ability.name then
+                            goto continue_ability
+                        end
+                    else
+                        -- No selection made yet - UI will handle this on next open
+                        -- For now, skip all but the first available ability in this group
+                        -- (filter_abilities_by_level already sorted by cost descending = highest level first)
+                        -- Check if we've already processed an ability from this group
+                        if processed_groups[ability.group] then
+                            -- Already processed another ability from this group, skip this one
+                            goto continue_ability
+                        else
+                            -- Mark this group as processed for this execution cycle
+                            processed_groups[ability.group] = true
+                        end
+                    end
+                else
+                    key = 'disabled_' .. ability.name:gsub(' ', '_')
+                end
                 local is_enabled = settings[key] == false or settings[key] == nil
                 
                 if not is_enabled then
@@ -299,7 +423,8 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                 
                 if needs_buff then
                     -- Check resource
-                    if resource.has_resource(job_def.resource_type, ability.cost) then
+                    local ability_resource_type = ability.resource_type or job_def.resource_type
+                    if resource.has_resource(ability_resource_type, ability.cost) then
                         -- Check cooldown
                         if ability.id then
                             -- Determine if this is a spell or ability based on the command
@@ -335,7 +460,7 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                                 end
                             end
                         else
-                            local command = common.build_ability_command(ability, 0)
+                            local command = common.build_ability_command(ability, 0, settings)
                             if command then
                                 return {
                                     command = command,
