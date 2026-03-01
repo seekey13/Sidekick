@@ -127,11 +127,12 @@ function panel.render()
             ImGuiTableFlags_SizingFixedFit
         )
 
-        if imgui.BeginTable('##ps_table', 10, TABLE_FLAGS, { 0, 0 }) then
+        if imgui.BeginTable('##ps_table', 11, TABLE_FLAGS, { 0, 0 }) then
             imgui.TableSetupColumn('Slot',    ImGuiTableColumnFlags_WidthFixed,  38)
             imgui.TableSetupColumn('Name',    ImGuiTableColumnFlags_WidthFixed,  90)
+            imgui.TableSetupColumn('SrvID',   ImGuiTableColumnFlags_WidthFixed,  80)
             imgui.TableSetupColumn('Job',     ImGuiTableColumnFlags_WidthFixed, 110)
-            imgui.TableSetupColumn('HP',      ImGuiTableColumnFlags_WidthFixed, 110)
+            imgui.TableSetupColumn('HP',      ImGuiTableColumnFlags_WidthFixed,  46)
             imgui.TableSetupColumn('MP%',     ImGuiTableColumnFlags_WidthFixed,  46)
             imgui.TableSetupColumn('TP',      ImGuiTableColumnFlags_WidthFixed,  46)
             imgui.TableSetupColumn('Position',ImGuiTableColumnFlags_WidthFixed, 168)
@@ -166,6 +167,14 @@ function panel.render()
                 -- ── Name ──────────────────────────────────────────────────
                 imgui.TableNextColumn()
                 imgui.Text(m.name or '')
+
+                -- ── Server ID ────────────────────────────────────────────
+                imgui.TableNextColumn()
+                if m.server_id and m.server_id > 0 then
+                    imgui.Text(string.format('0x%X', m.server_id))
+                else
+                    imgui.TextDisabled('--')
+                end
 
                 -- ── Job  WHM75/SCH37 ──────────────────────────────────────
                 imgui.TableNextColumn()
