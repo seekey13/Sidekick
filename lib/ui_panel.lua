@@ -73,20 +73,25 @@ local function fmt_pos(pos)
     return string.format('%.1f, %.1f, %.1f', pos.x or 0, pos.y or 0, pos.z or 0)
 end
 
--- Render tooltip with buff IDs in rows of 8
-local function buff_tooltip(buffs)
-    if not buffs or #buffs == 0 then return end
-    imgui.BeginTooltip()
-    local rows = {}
-    for i = 1, #buffs, 8 do
-        local row = {}
-        for j = i, math.min(i + 7, #buffs) do
-            table.insert(row, tostring(buffs[j]))
-        end
-        table.insert(rows, table.concat(row, '  '))
+-- Resolve a buff ID to a display string (name if available, else "#ID")
+local function buff_name(buff_id)
+    local ok, name = pcall(function()
+        return AshitaCore:GetResourceManager():GetString('buffs.names', buff_id)
+    end)
+    if ok and name and name ~= '' then
+        return name
     end
-    imgui.Text(table.concat(rows, '\n'))
-    imgui.EndTooltip()
+    return '#' .. tostring(buff_id)
+end
+
+-- Build a comma-separated buff list string for display
+local function fmt_buffs(buffs)
+    if not buffs or #buffs == 0 then return '' end
+    local parts = {}
+    for _, id in ipairs(buffs) do
+        table.insert(parts, buff_name(id))
+    end
+    return table.concat(parts, ', ')
 end
 
 -- ============================================================================
@@ -130,7 +135,7 @@ function panel.render()
             imgui.TableSetupColumn('MP%',     ImGuiTableColumnFlags_WidthFixed,  46)
             imgui.TableSetupColumn('TP',      ImGuiTableColumnFlags_WidthFixed,  46)
             imgui.TableSetupColumn('Position',ImGuiTableColumnFlags_WidthFixed, 168)
-            imgui.TableSetupColumn('Buffs',   ImGuiTableColumnFlags_WidthFixed,  42)
+            imgui.TableSetupColumn('Buffs',   ImGuiTableColumnFlags_WidthStretch)
             imgui.TableSetupColumn('Pet HP%', ImGuiTableColumnFlags_WidthFixed,  58)
             imgui.TableSetupColumn('Pet Pos', ImGuiTableColumnFlags_WidthFixed, 168)
             imgui.TableHeadersRow()
@@ -195,12 +200,13 @@ function panel.render()
                 imgui.TableNextColumn()
                 imgui.Text(fmt_pos(m.position))
 
-                -- ── Buffs (count; hover for IDs) ─────────────────────────
+                -- ── Buffs (inline list) ──────────────────────────────────
                 imgui.TableNextColumn()
                 local buff_count = m.buffs and #m.buffs or 0
-                imgui.Text(tostring(buff_count))
-                if buff_count > 0 and imgui.IsItemHovered() then
-                    buff_tooltip(m.buffs)
+                if buff_count > 0 then
+                    imgui.Text(fmt_buffs(m.buffs))
+                else
+                    imgui.TextDisabled('--')
                 end
 
                 -- ── Pet HP% (player only) ─────────────────────────────────
@@ -227,7 +233,7 @@ function panel.render()
         end
 
         imgui.Spacing()
-        imgui.TextColored({ 0.5, 0.5, 0.5, 1.0 }, '* Trust NPC    Hover Buffs column for buff ID list')
+        imgui.TextColored({ 0.5, 0.5, 0.5, 1.0 }, '* Trust NPC')
     end
     imgui.End()
 
