@@ -40,6 +40,7 @@ local action_modules = {
 
 -- Load config UI
 local config_ui = require('lib.config_ui')
+local ui_panel  = require('lib.ui_panel')
 
 -- State
 local current_main_job_id = nil
@@ -737,6 +738,9 @@ ashita.events.register('d3d_present', 'medic_render', function()
         end
     end
     
+    -- Render game-state panel (independent of automation / job_def)
+    ui_panel.render()
+
     -- Run automation tick
     automation_tick()
 end)
@@ -814,6 +818,7 @@ ashita.events.register('command', 'medic_command', function(e)
         common.printf('  /medic config - Show configuration UI')
         common.printf('  /medic focus <index> - Set focus target (0-5, party member index)')
         common.printf('  /medic focus clear - Clear focus target')
+        common.printf('  /medic panel - Toggle party state info panel')
         common.printf('  /medic debug - Toggle debug mode')
         common.printf('  /medic recast - Show all active ability recast timers')
         common.printf('  /medic status - Show current status')
@@ -879,6 +884,10 @@ ashita.events.register('command', 'medic_command', function(e)
             common.printf('Usage: /medic focus <index> or /medic focus clear')
         end
         
+    elseif cmd == 'panel' then
+        ui_panel.toggle()
+        common.printf('Party state panel %s.', ui_panel.is_visible() and 'shown' or 'hidden')
+
     elseif cmd == 'debug' then
         common.debug = not common.debug
         common.printf('Debug mode %s.', common.debug and 'enabled' or 'disabled')
