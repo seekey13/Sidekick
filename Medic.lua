@@ -479,7 +479,12 @@ local function automation_tick()
     if common.is_casting() then
         return
     end
-    
+
+    -- Gather player + party snapshot once for this tick.
+    -- All action modules can read common.game_state.player / common.game_state.party[1..5]
+    -- instead of making individual API calls each cycle.
+    common.refresh_game_state()
+
     -- Range management logic
     if addon_settings and addon_settings.attack_range and addon_settings.attack_range ~= 'Off' then
         local is_engaged = common.is_engaged()
