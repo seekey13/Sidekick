@@ -571,12 +571,14 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
                 imgui.SameLine()
                 
                 -- Check if this party member is a Trust (cannot buff Trusts in PL mode)
-                local is_trust_member = ctx.is_trust and ctx.is_trust(party_index) or false
+                -- NOTE: Kept for future feature use - Trusts can now be buffed
+                -- local is_trust_member = ctx.is_trust and ctx.is_trust(party_index) or false
                 
                 local is_enabled = is_group and is_group_party_buff_enabled(ctx, key_name, party_index) or is_party_buff_enabled(ctx, key_name, party_index)
                 
-                -- Treat party button as "not has_spell" if target_modifier is required but not available, or if Trust
-                local party_has_spell = has_spell and has_target_modifier and not is_trust_member
+                -- Treat party button as "not has_spell" if target_modifier is required but not available
+                -- NOTE: `and not is_trust_member` removed -- Trusts can now be buffed
+                local party_has_spell = has_spell and has_target_modifier
                 
                 if not party_has_spell then
                     imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_DISABLED)
@@ -602,10 +604,10 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
                     imgui.Button(button_label, { PARTY_BUTTON_WIDTH, 0 })
                 end
                 
-                -- Show tooltip for Trusts
-                if is_trust_member and imgui.IsItemHovered() then
-                    imgui.SetTooltip('Trust can not be buffed')
-                end
+                -- NOTE: Trust tooltip removed -- Trusts can now be buffed
+                -- if is_trust_member and imgui.IsItemHovered() then
+                --     imgui.SetTooltip('Trust can not be buffed')
+                -- end
                 
                 if not party_has_spell then
                     imgui.PopStyleColor(4)
