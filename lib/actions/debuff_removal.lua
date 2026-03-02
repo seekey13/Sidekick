@@ -7,27 +7,19 @@ local debuff_removal = {}
 
 local common = require('lib.core.common')
 local resource = require('lib.core.resource')
+local buff_utils = require('lib.core.buff_utils')
 
 -- ============================================================================
 -- Helper Functions
 -- ============================================================================
 
--- Check if a buff ID is removable by any ability
--- Args: buff_id (number) - The buff ID to check
---       abilities (table) - Array of debuff removal abilities
--- Returns: boolean (true if removable, false otherwise)
-local function is_buff_removable(buff_id, abilities)
-    for _, ability in ipairs(abilities) do
-        if ability.debuff_id then
-            local debuff_ids = type(ability.debuff_id) == 'table' and ability.debuff_id or {ability.debuff_id}
-            for _, removable_id in ipairs(debuff_ids) do
-                if buff_id == removable_id then
-                    return true
-                end
-            end
-        end
-    end
-    return false
+-- Check if an ability can remove any of the detected debuffs
+-- Args: ability (table) - The ability to check
+--       debuffs (table) - Array of detected buff IDs
+-- Returns: boolean (true if ability can remove at least one debuff)
+local function can_remove_debuffs(ability, debuffs)
+    if not ability.debuff_id then return #debuffs > 0 end
+    return buff_utils.has_any_buff(debuffs, ability.debuff_id)
 end
 
 -- Count removable debuffs in a list of buffs
@@ -37,33 +29,14 @@ end
 local function count_removable_debuffs(buffs, abilities)
     local count = 0
     for _, buff_id in ipairs(buffs) do
-        if is_buff_removable(buff_id, abilities) then
-            count = count + 1
-        end
-    end
-    return count
-end
-
--- Check if an ability can remove any of the detected debuffs
--- Args: ability (table) - The ability to check
---       debuffs (table) - Array of detected buff IDs
--- Returns: boolean (true if ability can remove at least one debuff)
-local function can_remove_debuffs(ability, debuffs)
-    if not ability.debuff_id then
-        -- No debuff_id specified, assume it can remove any debuff
-        return #debuffs > 0
-    end
-    
-    local debuff_ids = type(ability.debuff_id) == 'table' and ability.debuff_id or {ability.debuff_id}
-    for _, detected_debuff in ipairs(debuffs) do
-        for _, removable_id in ipairs(debuff_ids) do
-            if detected_debuff == removable_id then
-                return true
+        for _, ability in ipairs(abilities) do
+            if not ability.debuff_id or buff_utils.has_any_buff({buff_id}, ability.debuff_id) then
+                count = count + 1
+                break
             end
         end
     end
-    
-    return false
+    return count
 end
 
 -- ============================================================================

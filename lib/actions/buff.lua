@@ -7,6 +7,7 @@ local buff = {}
 
 local common = require('lib.core.common')
 local resource = require('lib.core.resource')
+local buff_utils = require('lib.core.buff_utils')
 
 function buff.execute(settings, job_def, main_level, sub_level, player_resource, party_buff_config)
     -- Check if buff is enabled
@@ -76,29 +77,7 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
         
         -- Check required buff prerequisite for player
         if not should_skip and ability.requires_buff then
-            local has_required_buff = false
-            local required_buff_ids = {}
-            
-            -- Handle both single buff_id and array of buff_ids
-            if type(ability.requires_buff) == 'table' then
-                required_buff_ids = ability.requires_buff
-            else
-                required_buff_ids = {ability.requires_buff}
-            end
-            
-            -- Check if player has any of the required buffs
-            local player_buffs_for_prereq = state.player.buffs or {}
-            for _, required_buff in ipairs(required_buff_ids) do
-                for _, active_buff in ipairs(player_buffs_for_prereq) do
-                    if active_buff == required_buff then
-                        has_required_buff = true
-                        break
-                    end
-                end
-                if has_required_buff then break end
-            end
-            
-            if not has_required_buff then
+            if not buff_utils.has_any_buff(state.player.buffs, ability.requires_buff) then
                 common.debugf('[BUFF]   %s blocked: missing required buff', ability.name)
                 should_skip = true
             end
@@ -219,31 +198,7 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                         end
                         
                         -- Check if target needs buff
-                        if ability.buff_id then
-                            local has_buff = false
-                            local buff_ids_to_check = {}
-                            if type(ability.buff_id) == 'table' then
-                                buff_ids_to_check = ability.buff_id
-                            else
-                                buff_ids_to_check = {ability.buff_id}
-                            end
-                            
-                            -- Check target_buffs array (works for both party members and Trusts)
-                            for _, target_buff in ipairs(target_buffs) do
-                                for _, check_buff in ipairs(buff_ids_to_check) do
-                                    if target_buff == check_buff then
-                                        has_buff = true
-                                        break
-                                    end
-                                end
-                                if has_buff then break end
-                            end
-                            
-                            target_needs_buff = not has_buff
-                        else
-                            -- No buff tracking, always use if available
-                            target_needs_buff = true
-                        end
+                        target_needs_buff = buff_utils.needs_buff(target_buffs, ability.buff_id)
                         
                         common.debugf('[BUFF]     Target %d needs_buff=%s', target_index, tostring(target_needs_buff))
                         
@@ -254,15 +209,7 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                                 local has_modifier_buff = false
                                 if job_def.abilities.target_modifier and #job_def.abilities.target_modifier > 0 then
                                     local modifier_ability = job_def.abilities.target_modifier[1]
-                                    if modifier_ability.buff_id then
-                                        local player_buffs_mod = state.player.buffs or {}
-                                        for _, active_buff in ipairs(player_buffs_mod) do
-                                            if active_buff == modifier_ability.buff_id then
-                                                has_modifier_buff = true
-                                                break
-                                            end
-                                        end
-                                    end
+                                    has_modifier_buff = buff_utils.has_any_buff(state.player.buffs, modifier_ability.buff_id)
                                 end
                                 
                                 if not has_modifier_buff then
@@ -397,39 +344,7 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                 end
                 
                 -- Check if buff is already active
-                local needs_buff = false
-                
-                if ability.buff_id then
-                    -- Check player for this buff from game_state
-                    local has_buff = false
-                    local player_buffs = state.player.buffs or {}
-                    
-                    -- Handle both single buff_id and array of buff_ids
-                    local buff_ids_to_check = {}
-                    if type(ability.buff_id) == 'table' then
-                        buff_ids_to_check = ability.buff_id
-                    else
-                        buff_ids_to_check = {ability.buff_id}
-                    end
-                    
-                    -- Check if player has any of the specified buffs
-                    for _, player_buff in ipairs(player_buffs) do
-                        for _, check_buff in ipairs(buff_ids_to_check) do
-                            if player_buff == check_buff then
-                                has_buff = true
-                                break
-                            end
-                        end
-                        if has_buff then
-                            break
-                        end
-                    end
-                    
-                    needs_buff = not has_buff
-                else
-                    -- No buff tracking, always use if available
-                    needs_buff = true
-                end
+                local needs_buff = buff_utils.needs_buff(state.player.buffs, ability.buff_id)
                 
                 if needs_buff then
                     -- Check resource

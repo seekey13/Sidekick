@@ -7,6 +7,7 @@ local wake = {}
 
 local common = require('lib.core.common')
 local resource = require('lib.core.resource')
+local buff_utils = require('lib.core.buff_utils')
 
 -- ============================================================================
 -- Constants
@@ -20,19 +21,11 @@ wake.SLEEP_II_BUFF_ID = 19  -- Sleep II buff ID
 -- ============================================================================
 
 -- Check if buff table contains sleep
--- Args: buffs (table) - Array of buff IDs to check
+-- Args: buffs (table|number) - Array of buff IDs, or a single buff ID
 -- Returns: boolean (true if any buff is sleep, false otherwise)
 function wake.is_buff_sleep(buffs)
-    if type(buffs) ~= 'table' then
-        return buffs == wake.SLEEP_BUFF_ID or buffs == wake.SLEEP_II_BUFF_ID
-    end
-    
-    for _, buff_id in ipairs(buffs) do
-        if buff_id == wake.SLEEP_BUFF_ID or buff_id == wake.SLEEP_II_BUFF_ID then
-            return true
-        end
-    end
-    return false
+    local list = type(buffs) == 'table' and buffs or {buffs}
+    return buff_utils.has_any_buff(list, {wake.SLEEP_BUFF_ID, wake.SLEEP_II_BUFF_ID})
 end
 
 -- ============================================================================
