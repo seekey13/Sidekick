@@ -23,6 +23,7 @@ local imgui = require('imgui')
 local common = require('lib.core.common')
 local resource = require('lib.core.resource')
 local automation = require('lib.core.automation')
+local parse_packets = require('lib.core.parse_packets')
 
 -- Load action modules
 local action_modules = {
@@ -776,6 +777,37 @@ ashita.events.register('packet_in', 'medic_packet_in', function(e)
         end
     end
     
+    -- Detect buff applications on any party member (0x028)
+    -- Message 230 = caster/player gains the effect, 266 = other party members/Trusts gain the effect
+    if e.id == 0x028 then
+        local actionPacket = parse_packets.parse_action_packet(e)
+        if actionPacket and actionPacket.Type == 4 then
+            local entMgr = AshitaCore:GetMemoryManager():GetEntity()
+            for _, target in ipairs(actionPacket.Targets) do
+                for _, action in ipairs(target.Actions) do
+                    if action.Message == 230 or action.Message == 266 then
+                        -- Resolve target name from server ID
+                        local target_name = 'Unknown'
+                        for idx = 0, 0x8FF do
+                            if entMgr:GetServerId(idx) == target.Id then
+                                target_name = entMgr:GetName(idx)
+                                break
+                            end
+                        end
+
+                        -- Resolve buff name from resource strings (action.Param is the status effect ID)
+                        local buff_name = AshitaCore:GetResourceManager():GetString('buffs.names', action.Param)
+                        if not buff_name or buff_name == '' then
+                            buff_name = 'Buff#' .. action.Param
+                        end
+
+                        common.printf('%s gained the effect of %s.', target_name, buff_name)
+                    end
+                end
+            end
+        end
+    end
+
     -- Handle status effect update packets for Trust buff removal (0x029)
     if e.id == 0x029 then
         if e.data and #e.data >= 16 then
