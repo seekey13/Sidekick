@@ -14,6 +14,12 @@ function geo.execute(settings, job_def, main_level, sub_level, player_resource)
     if not settings.geo_enabled then
         return nil
     end
+
+    local state  = common.game_state
+    local player = state and state.player
+    if not player then return nil end
+    local derived_main_level = player.main_level
+    local derived_sub_level  = player.sub_level
     
     -- ========================================================================
     -- Full Circle Logic
@@ -35,7 +41,7 @@ function geo.execute(settings, job_def, main_level, sub_level, player_resource)
                 local geo_abilities = job_def.abilities.geo or {}
                 
                 -- Filter abilities by level and settings
-                local available_abilities = common.filter_abilities_by_level(geo_abilities, settings, main_level, sub_level, job_def)
+                local available_abilities = common.filter_abilities_by_level(geo_abilities, settings, derived_main_level, derived_sub_level, job_def)
                 
                 -- Try to use Full Circle
                 for _, ability in ipairs(available_abilities) do
@@ -102,7 +108,7 @@ function geo.execute(settings, job_def, main_level, sub_level, player_resource)
             for _, ability in ipairs(job_def.abilities.buff) do
                 if ability.group == 'Indi' and ability.name == spell_name then
                     -- Check level requirements
-                    if ability.level and ability.level <= main_level then
+                    if ability.level and ability.level <= derived_main_level then
                         -- Check if spell is learned
                         local has_spell = true
                         if ability.id then
@@ -125,13 +131,13 @@ function geo.execute(settings, job_def, main_level, sub_level, player_resource)
             return nil
         end
         
-        -- Convert party index (1-5) to entity target index
-        local party = common.get_party()
-        if not party then
+-- Convert party index (1-5) to entity target index via game state
+        local party_member = state.party[target_index]
+        if not party_member then
             return nil
         end
-        
-        local entity_target_index = party:GetMemberTargetIndex(target_index)
+
+        local entity_target_index = party_member.target_index
         if not entity_target_index or entity_target_index == 0 then
             return nil
         end
@@ -145,7 +151,13 @@ function geo.execute(settings, job_def, main_level, sub_level, player_resource)
         end
         
         -- Check if we have the Entrust buff (584)
-        local has_entrust_buff = common.has_buff(0, 584)
+        local has_entrust_buff = false
+        for _, active_buff in ipairs(player.buffs) do
+            if active_buff == 584 then
+                has_entrust_buff = true
+                break
+            end
+        end
         
         if has_entrust_buff then
             -- We have Entrust buff, cast the Indi spell on party member
@@ -199,7 +211,7 @@ function geo.execute(settings, job_def, main_level, sub_level, player_resource)
             end
             
             -- Use common helper to validate Entrust ability
-            local entrust_result = common.check_target_modifier(temp_job_def, settings, main_level, sub_level)
+            local entrust_result = common.check_target_modifier(temp_job_def, settings, derived_main_level, derived_sub_level)
             
             if entrust_result then
                 -- Override description to include spell context
