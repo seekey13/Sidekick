@@ -6,6 +6,7 @@
 local automation = {}
 local common = require('lib.core.common')
 
+
 -- Last command execution time
 local last_command_time = 0
 local command_throttle = 1.0 -- 1 second between commands
@@ -64,14 +65,25 @@ function automation.execute_priority_actions(priority_order, action_modules, set
             local success, result = pcall(action_module.execute, settings, job_def, main_level, sub_level, player_resource)
             
             if success and result then
+                -- If resting and this isn't the rest module, break rest first.
+                -- The actual action fires next tick once /heal off has landed.
+                if action_type ~= 'rest' and common.is_resting() then
+                    common.set_resting(false)
+                    common.reset_rest_timer()
+                    automation.execute_command('/heal off', 'Breaking rest for: ' .. action_type)
+                    return true
+                end
+
                 if type(result) == 'table' then
                     -- Result is {command, description}
                     if automation.execute_command(result.command, result.description) then
+                        common.reset_rest_timer()  -- Any action resets the rest conditions timer
                         return true
                     end
                 elseif type(result) == 'string' then
                     -- Result is just the command
                     if automation.execute_command(result, action_type) then
+                        common.reset_rest_timer()  -- Any action resets the rest conditions timer
                         return true
                     end
                 end

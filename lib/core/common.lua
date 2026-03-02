@@ -24,7 +24,7 @@ local addon_name = 'Medic'
 local casting_state = {
     is_casting = false,
     last_action_time = 0,
-    cast_timeout = 5.0,  -- Maximum time for a cast (seconds)
+    cast_timeout = 10.0,  -- Maximum time for a cast (seconds); many WS/spells exceed 5s
 }
 
 -- Movement tracking state
@@ -37,6 +37,10 @@ local movement_state = {
 
 -- Resting state tracking
 local is_resting = false
+
+-- Rest conditions timer (shared so other modules can reset it)
+-- Holds the os.clock() timestamp when rest conditions first became favorable (0 = not started)
+local rest_conditions_met_time = 0
 
 -- Cached max HP/MP per member (server_id -> {max_hp, max_mp})
 -- Updated only when the member is observed at 100% HP or MP, since GetMemberMaxHP/GetMemberMaxMP do not exist.
@@ -1451,6 +1455,25 @@ end
 -- Set resting state
 function common.set_resting(state)
     is_resting = state
+end
+
+-- ============================================================================
+-- Rest Conditions Timer (shared across modules)
+-- ============================================================================
+
+-- Reset the rest conditions timer to zero (call whenever an action fires)
+function common.reset_rest_timer()
+    rest_conditions_met_time = 0
+end
+
+-- Get the rest conditions timer value
+function common.get_rest_timer()
+    return rest_conditions_met_time
+end
+
+-- Set the rest conditions timer to a specific time
+function common.set_rest_timer(t)
+    rest_conditions_met_time = t
 end
 
 -- ============================================================================

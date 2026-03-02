@@ -9,43 +9,40 @@ local common = require('lib.core.common')
 
 local rest = {}
 
--- State tracking
-local conditions_met_time = 0  -- Timestamp when rest conditions first became favorable
-
 -- Check if we should start resting
 local function should_start_resting(settings, job_def)
     -- Only for MP-based jobs
     if not job_def or job_def.resource_type ~= 'mp' then
-        conditions_met_time = 0  -- Reset conditions timer
+        common.reset_rest_timer()
         return false
     end
     
     -- Check if resting is enabled
     if not settings.rest_enabled then
-        conditions_met_time = 0  -- Reset conditions timer
+        common.reset_rest_timer()
         return false
     end
     
     -- Already resting
     if common.is_resting() then
-        conditions_met_time = 0  -- Reset conditions timer
+        common.reset_rest_timer()
         return false
     end
     
     -- Check if player is engaged in combat
     if common.is_engaged() then
-        conditions_met_time = 0  -- Reset conditions timer
+        common.reset_rest_timer()
         return false
     end
     
     -- Check if player is moving or casting
     if common.is_player_moving() then
-        conditions_met_time = 0  -- Reset conditions timer
+        common.reset_rest_timer()
         return false
     end
     
     if common.is_casting() then
-        conditions_met_time = 0  -- Reset conditions timer
+        common.reset_rest_timer()
         return false
     end
     
@@ -54,7 +51,7 @@ local function should_start_resting(settings, job_def)
     local player     = game_state and game_state.player
     local mp_percent = player and player.mpp or 0
     if mp_percent >= 100 then
-        conditions_met_time = 0  -- Reset conditions timer
+        common.reset_rest_timer()
         return false
     end
 
@@ -69,7 +66,7 @@ local function should_start_resting(settings, job_def)
             if member and member.name == follow_target then
                 local distance = common.get_party_member_distance(i)
                 if distance and distance > rest_distance then
-                    conditions_met_time = 0  -- Reset conditions timer
+                    common.reset_rest_timer()
                     return false
                 end
                 break
@@ -82,13 +79,13 @@ local function should_start_resting(settings, job_def)
     local rest_timer = settings.rest_timer or 5
     
     -- Start the conditions timer if not already started
-    if conditions_met_time == 0 then
-        conditions_met_time = current_time
+    if common.get_rest_timer() == 0 then
+        common.set_rest_timer(current_time)
         return false
     end
     
     -- Check if enough time has passed since conditions became favorable
-    local time_since_conditions = current_time - conditions_met_time
+    local time_since_conditions = current_time - common.get_rest_timer()
     if time_since_conditions < rest_timer then
         return false
     end
@@ -150,7 +147,7 @@ function rest.execute(settings, job_def, main_level, sub_level, player_resource)
     if common.is_resting() then
         if common.is_player_moving() then
             common.set_resting(false)
-            conditions_met_time = 0  -- Reset conditions timer
+            common.reset_rest_timer()
             return {
                 command = '/heal off',
                 description = 'Stopping rest (movement detected)'
@@ -159,7 +156,7 @@ function rest.execute(settings, job_def, main_level, sub_level, player_resource)
         
         if common.is_casting() then
             common.set_resting(false)
-            conditions_met_time = 0  -- Reset conditions timer
+            common.reset_rest_timer()
             return {
                 command = '/heal off',
                 description = 'Stopping rest (casting detected)'
@@ -170,7 +167,7 @@ function rest.execute(settings, job_def, main_level, sub_level, player_resource)
     -- Check if we should stop resting (priority check)
     if should_stop_resting(settings, job_def) then
         common.set_resting(false)
-        conditions_met_time = 0  -- Reset conditions timer
+        common.reset_rest_timer()
         return {
             command = '/heal off',
             description = 'Stopping rest (distance or MP full)'
@@ -182,7 +179,7 @@ function rest.execute(settings, job_def, main_level, sub_level, player_resource)
         local state_snap = common.game_state
         local mp_percent = state_snap and state_snap.player and state_snap.player.mpp or 0
         common.set_resting(true)
-        conditions_met_time = 0  -- Reset after starting
+        common.reset_rest_timer()  -- Reset after starting
         return {
             command = '/heal on',
             description = string.format('Starting rest to recover MP (%.1f%%)', mp_percent)
