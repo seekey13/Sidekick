@@ -341,10 +341,10 @@ function ui_config.render(settings, job_def, callback, roll_mod)
                     break
                 end
             end
-            -- Also check session-only tracked target entries
+            -- Also check session-only tracked target entries (keyed as 'tt_<sid>')
             if not any_button_enabled and party_buffs[ability_name] then
                 for k, v in pairs(party_buffs[ability_name]) do
-                    if v == true and type(k) == 'number' and k > 5 then
+                    if v == true and type(k) == 'string' then
                         any_button_enabled = true
                         break
                     end
@@ -547,9 +547,10 @@ function ui_config.render(settings, job_def, callback, roll_mod)
             if remove_sid then
                 common.remove_tracked_target(remove_sid)
                 -- Clean up party_buffs entries for this tracked target
+                local tt_key = 'tt_' .. remove_sid
                 for key, targets in pairs(party_buffs) do
-                    if targets[remove_sid] then
-                        targets[remove_sid] = nil
+                    if targets[tt_key] then
+                        targets[tt_key] = nil
                     end
                 end
             end

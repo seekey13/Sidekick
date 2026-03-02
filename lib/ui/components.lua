@@ -613,7 +613,8 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
         for t_idx, tt in ipairs(sorted_tracked) do
             imgui.SameLine()
 
-            local is_tt_enabled = is_group and is_group_party_buff_enabled(ctx, key_name, tt.sid) or is_party_buff_enabled(ctx, key_name, tt.sid)
+            local tt_key = 'tt_' .. tt.sid
+            local is_tt_enabled = is_group and is_group_party_buff_enabled(ctx, key_name, tt_key) or is_party_buff_enabled(ctx, key_name, tt_key)
 
             if not has_spell then
                 imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_DISABLED)
@@ -631,9 +632,9 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
             local tt_button_label = '<T' .. t_idx .. '>##' .. key_name .. '_t' .. tt.sid
             if has_spell and imgui.Button(tt_button_label, { PARTY_BUTTON_WIDTH, 0 }) then
                 if is_group then
-                    toggle_group_party_buff(ctx, key_name, tt.sid, not is_tt_enabled)
+                    toggle_group_party_buff(ctx, key_name, tt_key, not is_tt_enabled)
                 else
-                    toggle_party_buff(ctx, key_name, tt.sid, not is_tt_enabled)
+                    toggle_party_buff(ctx, key_name, tt_key, not is_tt_enabled)
                 end
             elseif not has_spell then
                 imgui.Button(tt_button_label, { PARTY_BUTTON_WIDTH, 0 })
