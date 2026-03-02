@@ -18,7 +18,17 @@ function heal_pet.execute(settings, job_def, main_level, sub_level, player_resou
     if not common.targets.get_pet() then
         return nil
     end
-    
+
+    -- Read player data from game_state
+    local state  = common.game_state
+    local player = state and state.player
+    if not player then
+        return nil
+    end
+
+    local derived_main_level = player.main_level
+    local derived_sub_level  = player.sub_level
+
     -- Get pet heal abilities from job definition
     local heal_pet_abilities = job_def.abilities.heal_pet or {}
     if #heal_pet_abilities == 0 then
@@ -29,8 +39,8 @@ function heal_pet.execute(settings, job_def, main_level, sub_level, player_resou
     local available_abilities = common.filter_abilities_by_level(
         heal_pet_abilities,
         settings,
-        main_level,
-        sub_level,
+        derived_main_level,
+        derived_sub_level,
         job_def
     )
     
@@ -41,8 +51,8 @@ function heal_pet.execute(settings, job_def, main_level, sub_level, player_resou
     
     common.debugf('[HEAL_PET] %d pet heal abilities available', #available_abilities)
     
-    -- Check pet HP
-    local pet_hpp = common.get_pet_hp_percent()
+    -- Check pet HP (sourced from game_state snapshot)
+    local pet_hpp = player.pet_hpp
     common.debugf('[HEAL_PET] Pet HP: %.1f%%', pet_hpp)
     
     -- Check if pet needs healing

@@ -802,7 +802,7 @@ ashita.events.register('packet_in', 'medic_packet_in', function(e)
                         end
 
                         common.printf('%s gained the effect of %s.', target_name, buff_name)
-/
+
                         -- Update Trust buff tracking so game_state reflects the change
                         if target.Id >= 0x1000000 then
                             common.apply_trust_buff(target.Id, action.Param)
