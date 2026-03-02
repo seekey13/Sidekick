@@ -13,7 +13,17 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
     if not settings.buff_enabled then
         return nil
     end
-    
+
+    -- Read player data from game_state
+    local state  = common.game_state
+    local player = state and state.player
+    if not player then
+        return nil
+    end
+
+    local derived_main_level = player.main_level
+    local derived_sub_level  = player.sub_level
+
     -- Track which groups have been processed in this execution (local, never persisted)
     local processed_groups = {}
     
@@ -29,10 +39,10 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
         return nil
     end
     
-    common.debugf('[BUFF] Before filter: %d buff abilities, main_level=%d, sub_level=%d', #buff_abilities, main_level or 0, sub_level or 0)
+    common.debugf('[BUFF] Before filter: %d buff abilities, main_level=%d, sub_level=%d', #buff_abilities, derived_main_level, derived_sub_level)
     
     -- Filter abilities by level and settings
-    local available_abilities = common.filter_abilities_by_level(buff_abilities, settings, main_level, sub_level, job_def)
+    local available_abilities = common.filter_abilities_by_level(buff_abilities, settings, derived_main_level, derived_sub_level, job_def)
     
     common.debugf('[BUFF] After filter: %d/%d abilities available', #available_abilities, #buff_abilities)
     
@@ -77,11 +87,15 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
             end
             
             -- Check if player has any of the required buffs
+            local player_buffs_for_prereq = state.player.buffs or {}
             for _, required_buff in ipairs(required_buff_ids) do
-                if common.has_buff(0, required_buff) then
-                    has_required_buff = true
-                    break
+                for _, active_buff in ipairs(player_buffs_for_prereq) do
+                    if active_buff == required_buff then
+                        has_required_buff = true
+                        break
+                    end
                 end
+                if has_required_buff then break end
             end
             
             if not has_required_buff then
@@ -180,26 +194,26 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                         
                         -- Get target buffs and entity index
                         if target_index == 0 then
-                            -- ME: Check player buffs
-                            target_buffs = common.get_player_buffs()
+                            -- ME: Check player buffs from game_state
+                            target_buffs = state.player.buffs or {}
                             target_entity_index = 0
                         else
-                            -- P1-P5: Check party member buffs
-                            -- First check if party member is active and in range
-                            local party_size = common.get_party_size()
-                            if target_index < party_size then
+                            -- P1-P5: Check party member buffs from game_state
+                            -- Zone check stays as live call (zone not stored in game_state)
+                            local party_member = state.party[target_index]
+                            if party_member then
                                 local player_zone = common.get_party_member_zone(0)
                                 local member_zone = common.get_party_member_zone(target_index)
-                                target_entity_index = common.get_party_member_target_index(target_index)
+                                target_entity_index = party_member.target_index
                                 
-                                if target_entity_index and player_zone == member_zone and common.is_in_range(target_entity_index, 20) then
-                                    target_buffs = common.get_party_buffs(target_index)
+                                if target_entity_index and target_entity_index > 0 and player_zone == member_zone and common.is_in_range(target_entity_index, 20) then
+                                    target_buffs = party_member.buffs or {}
                                 else
                                     -- Party member not available or out of range, skip
                                     goto continue_target
                                 end
                             else
-                                -- Party member not active, skip
+                                -- Party member not active in game_state, skip
                                 goto continue_target
                             end
                         end
@@ -241,13 +255,19 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                                 if job_def.abilities.target_modifier and #job_def.abilities.target_modifier > 0 then
                                     local modifier_ability = job_def.abilities.target_modifier[1]
                                     if modifier_ability.buff_id then
-                                        has_modifier_buff = common.has_buff(0, modifier_ability.buff_id)
+                                        local player_buffs_mod = state.player.buffs or {}
+                                        for _, active_buff in ipairs(player_buffs_mod) do
+                                            if active_buff == modifier_ability.buff_id then
+                                                has_modifier_buff = true
+                                                break
+                                            end
+                                        end
                                     end
                                 end
                                 
                                 if not has_modifier_buff then
                                     -- Don't have modifier buff, try to use it
-                                    local modifier_result = common.check_target_modifier(job_def, settings, main_level, sub_level)
+                                    local modifier_result = common.check_target_modifier(job_def, settings, derived_main_level, derived_sub_level)
                                     if modifier_result then
                                         -- Need to use modifier ability first
                                         return modifier_result
@@ -296,22 +316,17 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                                     if is_ready then
                                         local command = common.build_ability_command(ability, target_index, settings)
                                         if command then
-                                            -- Register pending buff if target is a Trust
+                                            -- Register pending buff if target is a Trust (server_id from game_state)
                                             if ability.buff_id and target_index > 0 then
-                                                local party = common.get_party()
-                                                if party then
-                                                    local ok_server, server_id = pcall(function()
-                                                        return party:GetMemberServerId(target_index)
-                                                    end)
-                                                    if ok_server and server_id and server_id >= 0x1000000 then
-                                                        -- This is a Trust, register pending buff
-                                                        local buff_to_track = type(ability.buff_id) == 'table' and ability.buff_id[1] or ability.buff_id
-                                                        common.register_pending_buff(server_id, buff_to_track)
-                                                    end
+                                                local trust_member = state.party[target_index]
+                                                local trust_server_id = trust_member and trust_member.server_id
+                                                if trust_server_id and trust_server_id >= 0x1000000 then
+                                                    local buff_to_track = type(ability.buff_id) == 'table' and ability.buff_id[1] or ability.buff_id
+                                                    common.register_pending_buff(trust_server_id, buff_to_track)
                                                 end
                                             end
                                             
-                                            local target_name = target_index == 0 and 'self' or (common.get_party_member_name(target_index) or ('P' .. target_index))
+                                            local target_name = target_index == 0 and 'self' or (state.party[target_index] and state.party[target_index].name or ('P' .. target_index))
                                             return {
                                                 command = command,
                                                 description = string.format('Applying buff: %s to %s', ability.name, target_name)
@@ -321,22 +336,17 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                                 else
                                     local command = common.build_ability_command(ability, target_index, settings)
                                     if command then
-                                        -- Register pending buff if target is a Trust
+                                        -- Register pending buff if target is a Trust (server_id from game_state)
                                         if ability.buff_id and target_index > 0 then
-                                            local party = common.get_party()
-                                            if party then
-                                                local ok_server, server_id = pcall(function()
-                                                    return party:GetMemberServerId(target_index)
-                                                end)
-                                                if ok_server and server_id and server_id >= 0x1000000 then
-                                                    -- This is a Trust, register pending buff
-                                                    local buff_to_track = type(ability.buff_id) == 'table' and ability.buff_id[1] or ability.buff_id
-                                                    common.register_pending_buff(server_id, buff_to_track)
-                                                end
+                                            local trust_member = state.party[target_index]
+                                            local trust_server_id = trust_member and trust_member.server_id
+                                            if trust_server_id and trust_server_id >= 0x1000000 then
+                                                local buff_to_track = type(ability.buff_id) == 'table' and ability.buff_id[1] or ability.buff_id
+                                                common.register_pending_buff(trust_server_id, buff_to_track)
                                             end
                                         end
                                         
-                                        local target_name = target_index == 0 and 'self' or (common.get_party_member_name(target_index) or ('P' .. target_index))
+                                        local target_name = target_index == 0 and 'self' or (state.party[target_index] and state.party[target_index].name or ('P' .. target_index))
                                         return {
                                             command = command,
                                             description = string.format('Applying buff: %s to %s', ability.name, target_name)
@@ -390,9 +400,9 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                 local needs_buff = false
                 
                 if ability.buff_id then
-                    -- Check player for this buff
+                    -- Check player for this buff from game_state
                     local has_buff = false
-                    local player_buffs = common.get_player_buffs()
+                    local player_buffs = state.player.buffs or {}
                     
                     -- Handle both single buff_id and array of buff_ids
                     local buff_ids_to_check = {}
