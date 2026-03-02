@@ -459,6 +459,14 @@ function ui_config.render(settings, job_def, callback, roll_mod)
         imgui.PushStyleColor(ImGuiCol_Text, status_color)
         imgui.Text(status_text)
         imgui.PopStyleColor()
+
+        -- Add Tracked Target button (right-justified on same line)
+        local add_target_btn_width = 170
+        local content_max_x, _ = imgui.GetContentRegionMax()
+        imgui.SameLine(content_max_x - add_target_btn_width)
+        if imgui.Button('Add Tracked Target', { add_target_btn_width, 0 }) then
+            AshitaCore:GetChatManager():QueueCommand(1, '/medic addtarget')
+        end
         
         imgui.Separator()
         
