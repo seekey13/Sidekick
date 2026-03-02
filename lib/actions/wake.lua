@@ -44,7 +44,17 @@ function wake.execute(settings, job_def, main_level, sub_level, player_resource)
     if not settings.wake_enabled then
         return nil
     end
-    
+
+    -- Read player data from game_state
+    local state  = common.game_state
+    local player = state and state.player
+    if not player then
+        return nil
+    end
+
+    local derived_main_level = player.main_level
+    local derived_sub_level  = player.sub_level
+
     common.debugf('[Wake] Wake check starting...')
     
     -- Get wake abilities from job definition (can be single-target or AOE)
@@ -81,11 +91,13 @@ function wake.execute(settings, job_def, main_level, sub_level, player_resource)
             goto continue_wake
         end
         
-        local buffs = i == 0 and common.get_player_buffs() or common.get_party_buffs(i)
+        local member_state = i == 0 and state.player or state.party[i]
+        if not member_state then goto continue_wake end
+        local buffs = member_state.buffs or {}
         common.debugf('[Wake] Party[%d] buffs: %s', i, table.concat(buffs, ', '))
         if wake.is_buff_sleep(buffs) then
             table.insert(sleeping_members, i)
-            local name = common.get_party_member_name(i) or 'Unknown'
+            local name = member_state.name or 'Unknown'
             common.debugf('[Wake]   -> Party[%d] %s is sleeping (has buff 2 or 19)', i, name)
         end
         
@@ -100,8 +112,8 @@ function wake.execute(settings, job_def, main_level, sub_level, player_resource)
     end
     
     -- Filter abilities by level and settings (respects disabled abilities)
-    local available_single = common.filter_abilities_by_level(wake_abilities.single, settings, main_level, sub_level, job_def)
-    local available_aoe = common.filter_abilities_by_level(wake_abilities.aoe, settings, main_level, sub_level, job_def)
+    local available_single = common.filter_abilities_by_level(wake_abilities.single, settings, derived_main_level, derived_sub_level, job_def)
+    local available_aoe = common.filter_abilities_by_level(wake_abilities.aoe, settings, derived_main_level, derived_sub_level, job_def)
     
     -- Sort by cost ascending (use cheapest effective option)
     table.sort(available_single, function(a, b)
@@ -165,7 +177,8 @@ function wake.execute(settings, job_def, main_level, sub_level, player_resource)
             end
         end
         
-        local target_name = common.get_party_member_name(target_index) or 'party member'
+        local target_member = target_index == 0 and state.player or state.party[target_index]
+        local target_name = (target_member and target_member.name) or 'party member'
         common.debugf('[Wake] Using single-target wake on party[%d] %s', target_index, target_name)
         
         for _, ability in ipairs(available_single) do
