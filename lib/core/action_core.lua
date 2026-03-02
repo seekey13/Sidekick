@@ -1,13 +1,157 @@
 --[[
-    Action core: shared ability candidacy and execution helpers.
-    Consolidates the repeated blocked → resource → cooldown → build-command
-    pattern used by heal_aoe, heal_pet, heal, and recover.
+    Action core: shared ability infrastructure.
+    Combines resource management (MP/TP checking, cooldown tracking),
+    buff-ID utilities, and ability candidacy/execution helpers into a
+    single module used by every action module.
 ]]--
 
 local action_core = {}
 
-local common   = require('lib.core.common')
-local resource = require('lib.core.resource')
+local common     = require('lib.core.common')
+local AshitaCore = AshitaCore
+
+-- ============================================================================
+-- Resource Management  (formerly lib.core.resource)
+-- ============================================================================
+
+-- Cooldown tracking
+local recast_timers = {}
+
+-- Post-recast delay tracking (when recast hits 0, track when it became ready)
+local recast_ready_time = {}
+local POST_RECAST_DELAY = 0.5  -- 0.5 second delay after recast hits 0
+
+-- Helper: check if recast timer is ready with post-delay
+local function is_recast_ready_with_delay(key, timer)
+    if timer == 0 then
+        if not recast_ready_time[key] then
+            recast_ready_time[key] = os.clock()
+            return false
+        end
+        local elapsed = os.clock() - recast_ready_time[key]
+        if elapsed >= POST_RECAST_DELAY then
+            recast_ready_time[key] = nil
+            return true
+        end
+        return false
+    else
+        recast_ready_time[key] = nil
+        return false
+    end
+end
+
+-- Check if player has enough MP or TP.
+function action_core.has_resource(resource_type, amount)
+    local party = AshitaCore:GetMemoryManager():GetParty()
+    if not party then return false end
+    if resource_type == 'mp' then
+        return party:GetMemberMP(0) >= amount
+    elseif resource_type == 'tp' then
+        return party:GetMemberTP(0) >= amount
+    end
+    return false
+end
+
+-- Get current MP or TP value.
+function action_core.get_resource(resource_type)
+    local party = AshitaCore:GetMemoryManager():GetParty()
+    if not party then return 0 end
+    if resource_type == 'mp' then return party:GetMemberMP(0) end
+    if resource_type == 'tp' then return party:GetMemberTP(0) end
+    return 0
+end
+
+-- Check if a job ability (by timer ID) is off cooldown.
+function action_core.is_ability_ready(ability_id)
+    if not ability_id then return true end
+    local recast_mgr = AshitaCore:GetMemoryManager():GetRecast()
+    if not recast_mgr then return false end
+    for i = 0, 31 do
+        local ok_id, timer_id = pcall(function() return recast_mgr:GetAbilityTimerId(i) end)
+        if ok_id and timer_id == ability_id then
+            local ok_timer, timer = pcall(function() return recast_mgr:GetAbilityTimer(i) end)
+            if not ok_timer then return false end
+            return is_recast_ready_with_delay('ability_' .. ability_id, timer)
+        end
+    end
+    return true
+end
+
+-- Get raw ability recast timer value.
+function action_core.get_ability_recast(ability_id)
+    if not ability_id then return 0 end
+    local recast_mgr = AshitaCore:GetMemoryManager():GetRecast()
+    if not recast_mgr then return 0 end
+    return recast_mgr:GetAbilityTimer(ability_id)
+end
+
+-- Check if a spell (by recast ID) is off cooldown.
+function action_core.is_spell_ready(spell_recast_id)
+    if not spell_recast_id then return true end
+    local recast_mgr = AshitaCore:GetMemoryManager():GetRecast()
+    if not recast_mgr then return false end
+    local recast_time = recast_mgr:GetSpellTimer(spell_recast_id)
+    return is_recast_ready_with_delay('spell_' .. spell_recast_id, recast_time)
+end
+
+-- Get raw spell recast timer value.
+function action_core.get_spell_recast(spell_recast_id)
+    if not spell_recast_id then return 0 end
+    local recast_mgr = AshitaCore:GetMemoryManager():GetRecast()
+    if not recast_mgr then return 0 end
+    return recast_mgr:GetSpellTimer(spell_recast_id)
+end
+
+-- Custom recast tracking (for abilities that share cooldowns).
+function action_core.set_custom_recast(key, duration)
+    recast_timers[key] = os.clock() + duration
+end
+
+function action_core.is_custom_recast_ready(key)
+    if not recast_timers[key] then return true end
+    return os.clock() >= recast_timers[key]
+end
+
+function action_core.get_custom_recast(key)
+    if not recast_timers[key] then return 0 end
+    return math.max(0, recast_timers[key] - os.clock())
+end
+
+function action_core.clear_custom_recast(key)
+    recast_timers[key] = nil
+end
+
+-- ============================================================================
+-- Buff-ID Utilities  (formerly lib.core.buff_utils)
+-- ============================================================================
+
+-- Normalize a buff_id value (single number or table) to a flat table of IDs.
+function action_core.normalize_ids(ids)
+    if ids == nil then return {} end
+    return type(ids) == 'table' and ids or {ids}
+end
+
+-- Check if any ID in `active_buffs` matches any ID in `check_ids`.
+function action_core.has_any_buff(active_buffs, check_ids)
+    local ids = action_core.normalize_ids(check_ids)
+    for _, active in ipairs(active_buffs or {}) do
+        for _, check in ipairs(ids) do
+            if active == check then return true end
+        end
+    end
+    return false
+end
+
+-- Inverse of has_any_buff: true when the target is MISSING the buff.
+-- When check_ids is nil (no tracking), always returns true (treat as always needed).
+function action_core.needs_buff(active_buffs, check_ids)
+    if check_ids == nil then return true end
+    return not action_core.has_any_buff(active_buffs, check_ids)
+end
+
+-- ============================================================================
+-- Ability Candidacy Helpers
+-- ============================================================================
 
 -- Determine if an ability's command is a spell (/ma ...) or a job ability.
 -- Accepts both string and function commands; probes function commands with a
@@ -36,19 +180,19 @@ function action_core.is_usable(ability, job_def)
 
     -- 2. Enough resource?
     local res_type = ability.resource_type or job_def.resource_type
-    if not resource.has_resource(res_type, ability.cost) then
+    if not action_core.has_resource(res_type, ability.cost) then
         return false, 'insufficient ' .. res_type
     end
 
     -- 3. Off cooldown?
     if ability.id then
         if is_spell_command(ability) then
-            if not resource.is_spell_ready(ability.id) then
-                local secs = resource.get_spell_recast(ability.id) / 60.0
+            if not action_core.is_spell_ready(ability.id) then
+                local secs = action_core.get_spell_recast(ability.id) / 60.0
                 return false, string.format('spell cooldown (%.1fs)', secs)
             end
         else
-            if not resource.is_ability_ready(ability.id) then
+            if not action_core.is_ability_ready(ability.id) then
                 return false, 'ability cooldown'
             end
         end
@@ -103,6 +247,31 @@ function action_core.first_command(abilities, job_def, settings, tag, party_inde
         end
     end
     return nil
+end
+
+--[[
+    Try to use a single ability on a specific target.
+    Combines is_usable + build_ability_command + optional Trust buff registration.
+    Returns: {command, description} or nil, reason
+]]--
+function action_core.try_use(ability, job_def, settings, party_index, description, game_state)
+    local ok, reason = action_core.is_usable(ability, job_def)
+    if not ok then return nil, reason end
+
+    local command = common.build_ability_command(ability, party_index, settings)
+    if not command then return nil, 'failed to build command' end
+
+    -- Register pending Trust buff if applicable
+    if ability.buff_id and party_index and party_index > 0 and game_state then
+        local member = game_state.party[party_index]
+        local sid = member and member.server_id
+        if sid and sid >= 0x1000000 then
+            local bid = type(ability.buff_id) == 'table' and ability.buff_id[1] or ability.buff_id
+            common.register_pending_buff(sid, bid)
+        end
+    end
+
+    return { command = command, description = description or ability.name }
 end
 
 return action_core

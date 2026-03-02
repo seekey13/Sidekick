@@ -119,18 +119,7 @@ local function get_usable_abilities_in_group(job_def, target_group, ctx)
         local can_target = filters.can_target_outside(ability)
         
         if can_use and can_target then
-            local cmd = type(ability.command) == 'function' and ability.command(0) or ability.command
-            local is_spell = cmd and string.sub(cmd, 1, 3) == '/ma'
-            local has_spell = true
-            
-            if is_spell and ability.id then
-                local ok, known = pcall(function() return AshitaCore:GetMemoryManager():GetPlayer():HasSpell(ability.id) end)
-                if ok then
-                    has_spell = known
-                end
-            end
-            
-            if has_spell then
+            if common.has_spell_learned(ability) then
                 table.insert(usable, ability)
             else
                 common.debugf('[ui_components] %s in group %s: spell not learned', ability.name, target_group)
@@ -743,20 +732,8 @@ end
 -- Render a self-target single ability
 -- Layout: [ON/OFF Button] Ability Name
 function ui_components.self_single_ability(ctx, ability, job_def, id_suffix)
-    local cmd = type(ability.command) == 'function' and ability.command(0) or ability.command
-    local is_spell = cmd and string.sub(cmd, 1, 3) == '/ma'
-    local has_spell = true
-    local spell_suffix = ''
-    
-    if is_spell and ability.id then
-        local ok, known = pcall(function() return AshitaCore:GetMemoryManager():GetPlayer():HasSpell(ability.id) end)
-        if ok then
-            has_spell = known
-            if not has_spell then
-                spell_suffix = ' (Not Learned)'
-            end
-        end
-    end
+    local has_spell = common.has_spell_learned(ability)
+    local spell_suffix = has_spell and '' or ' (Not Learned)'
     
     if not has_spell then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
@@ -812,16 +789,7 @@ function ui_components.self_grouped_ability(ctx, ability, job_def)
         return
     end
     
-    local cmd = type(selected.command) == 'function' and selected.command(0) or selected.command
-    local is_spell = cmd and string.sub(cmd, 1, 3) == '/ma'
-    local has_spell = true
-    
-    if is_spell and selected.id then
-        local ok, known = pcall(function() return AshitaCore:GetMemoryManager():GetPlayer():HasSpell(selected.id) end)
-        if ok then
-            has_spell = known
-        end
-    end
+    local has_spell = common.has_spell_learned(selected)
     
     if not has_spell then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
@@ -873,20 +841,8 @@ end
 -- Render a party-target single ability
 -- Layout: [<ME>] [<P1>] [<P2>]... Ability Name
 function ui_components.party_single_ability(ctx, ability, job_def)
-    local cmd = type(ability.command) == 'function' and ability.command(0) or ability.command
-    local is_spell = cmd and string.sub(cmd, 1, 3) == '/ma'
-    local has_spell = true
-    local spell_suffix = ''
-    
-    if is_spell and ability.id then
-        local ok, known = pcall(function() return AshitaCore:GetMemoryManager():GetPlayer():HasSpell(ability.id) end)
-        if ok then
-            has_spell = known
-            if not has_spell then
-                spell_suffix = ' (Not Learned)'
-            end
-        end
-    end
+    local has_spell = common.has_spell_learned(ability)
+    local spell_suffix = has_spell and '' or ' (Not Learned)'
     
     -- Check if Pianissimo/target modifier is required but not available
     local requires_modifier = ability.target_modifier == true
@@ -965,16 +921,7 @@ function ui_components.party_grouped_ability(ctx, ability, job_def)
         return
     end
     
-    local cmd = type(selected.command) == 'function' and selected.command(0) or selected.command
-    local is_spell = cmd and string.sub(cmd, 1, 3) == '/ma'
-    local has_spell = true
-    
-    if is_spell and selected.id then
-        local ok, known = pcall(function() return AshitaCore:GetMemoryManager():GetPlayer():HasSpell(selected.id) end)
-        if ok then
-            has_spell = known
-        end
-    end
+    local has_spell = common.has_spell_learned(selected)
     
     -- Check if Pianissimo/target modifier is required but not available
     local requires_modifier = selected.target_modifier == true
@@ -1136,22 +1083,11 @@ end
 
 -- Render an ability checkbox with spell knowledge checking
 function ui_components.ability_checkbox(ctx, ability, job_def, id_suffix)
-    local cmd = type(ability.command) == 'function' and ability.command(0) or ability.command
-    local is_spell = cmd and string.sub(cmd, 1, 3) == '/ma'
-    local has_spell = true
+    local has_spell = common.has_spell_learned(ability)
     local spell_suffix = ''
-    
-    if is_spell and ability.id then
-        local ok, known = pcall(function() return AshitaCore:GetMemoryManager():GetPlayer():HasSpell(ability.id) end)
-        if ok then
-            has_spell = known
-            if not has_spell then
-                spell_suffix = ' (Not Learned)'
-                ctx.settings['disabled_' .. ability.name:gsub(' ', '_')] = true
-            end
-        else
-            common.errorf('Failed to check spell knowledge for %s (ID: %d)', ability.name, ability.id)
-        end
+    if not has_spell then
+        spell_suffix = ' (Not Learned)'
+        ctx.settings['disabled_' .. ability.name:gsub(' ', '_')] = true
     end
     
     local desc
@@ -1201,36 +1137,30 @@ end
 -- Item Checkbox Component
 -- ============================================================================
 
--- Render checkbox for item-based silence removal (Echo Drops)
--- Args: ctx (table) - Context with settings, save_callback
-function ui_components.item_silence_removal_checkbox(ctx)
-    if not ctx or not ctx.settings then
-        return
-    end
-    
-    -- Get Echo Drops count from inventory
-    local echo_drops_count = item_module.get_item_count('Echo Drops')
-    
-    -- Create checkbox label with count (show ? if inventory not loaded)
+-- Render a checkbox for item-based debuff removal (DRY helper)
+-- Args: ctx, item_name, setting_key, debuff_name
+local function render_item_removal_checkbox(ctx, item_name, setting_key, debuff_name)
+    if not ctx or not ctx.settings then return end
+
+    local count = item_module.get_item_count(item_name)
+
+    -- Build label with count (show ? while inventory loads)
     local checkbox_label
-    if echo_drops_count == nil then
-        checkbox_label = 'Remove Silence with Echo Drops (?)'
+    if count == nil then
+        checkbox_label = string.format('Remove %s with %s (?)', debuff_name, item_name)
     else
-        checkbox_label = string.format('Remove Silence with Echo Drops (%d)', echo_drops_count)
+        checkbox_label = string.format('Remove %s with %s (%d)', debuff_name, item_name, count)
     end
-    
-    -- Check if checkbox should be disabled (no items in inventory, but not during loading)
-    local is_disabled = (echo_drops_count == 0)
-    
-    -- Only auto-disable if inventory is loaded (not nil) and count is 0
-    if is_disabled and echo_drops_count ~= nil and ctx.settings.item_silence_removal_enabled then
-        ctx.settings.item_silence_removal_enabled = false
-        if ctx.save_callback then
-            ctx.save_callback()
-        end
+
+    local is_disabled = (count == 0)
+
+    -- Auto-disable when inventory is loaded but item count is zero
+    if is_disabled and count ~= nil and ctx.settings[setting_key] then
+        ctx.settings[setting_key] = false
+        if ctx.save_callback then ctx.save_callback() end
     end
-    
-    -- Apply disabled styling if no items
+
+    -- Disabled styling
     if is_disabled then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
         imgui.PushStyleColor(ImGuiCol_FrameBg, COLOR_BUTTON_DISABLED)
@@ -1238,95 +1168,33 @@ function ui_components.item_silence_removal_checkbox(ctx)
         imgui.PushStyleColor(ImGuiCol_FrameBgActive, COLOR_BUTTON_DISABLED)
         imgui.PushStyleColor(ImGuiCol_CheckMark, LIGHT_GRAY)
     end
-    
-    local enabled = { ctx.settings.item_silence_removal_enabled or false }
-    
-    -- Only allow interaction if not disabled
+
+    local enabled = { ctx.settings[setting_key] or false }
+
     if not is_disabled and imgui.Checkbox(checkbox_label, enabled) then
-        ctx.settings.item_silence_removal_enabled = enabled[1]
-        if ctx.save_callback then
-            ctx.save_callback()
-        end
+        ctx.settings[setting_key] = enabled[1]
+        if ctx.save_callback then ctx.save_callback() end
     elseif is_disabled then
-        -- Display disabled checkbox (non-interactive)
         imgui.Checkbox(checkbox_label, enabled)
     end
-    
-    if is_disabled then
-        imgui.PopStyleColor(5)
-    end
-    
-    -- Tooltip
+
+    if is_disabled then imgui.PopStyleColor(5) end
+
     if imgui.IsItemHovered() then
         if is_disabled then
-            imgui.SetTooltip('No Echo Drops in inventory')
+            imgui.SetTooltip(string.format('No %s in inventory', item_name))
         else
-            imgui.SetTooltip('Use Echo Drops to remove Silence (Item)')
+            imgui.SetTooltip(string.format('Use %s to remove %s (Item)', item_name, debuff_name))
         end
     end
 end
 
--- Render checkbox for Doom removal with Holy Water
+function ui_components.item_silence_removal_checkbox(ctx)
+    render_item_removal_checkbox(ctx, 'Echo Drops', 'item_silence_removal_enabled', 'Silence')
+end
+
 function ui_components.item_doom_removal_checkbox(ctx)
-    if not ctx or not ctx.settings then
-        return
-    end
-    -- Get Holy Water count from inventory
-    local holy_water_count = item_module.get_item_count('Holy Water')
-    
-    -- Create checkbox label with count (show ? if inventory not loaded)
-    local checkbox_label
-    if holy_water_count == nil then
-        checkbox_label = 'Remove Doom with Holy Water (?)'
-    else
-        checkbox_label = string.format('Remove Doom with Holy Water (%d)', holy_water_count)
-    end
-    
-    -- Check if checkbox should be disabled (no items in inventory, but not during loading)
-    local is_disabled = (holy_water_count == 0)
-    
-    -- Only auto-disable if inventory is loaded (not nil) and count is 0
-    if is_disabled and holy_water_count ~= nil and ctx.settings.item_doom_removal_enabled then
-        ctx.settings.item_doom_removal_enabled = false
-        if ctx.save_callback then
-            ctx.save_callback()
-        end
-    end
-    
-    -- Apply disabled styling if no items
-    if is_disabled then
-        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
-        imgui.PushStyleColor(ImGuiCol_FrameBg, COLOR_BUTTON_DISABLED)
-        imgui.PushStyleColor(ImGuiCol_FrameBgHovered, COLOR_BUTTON_DISABLED)
-        imgui.PushStyleColor(ImGuiCol_FrameBgActive, COLOR_BUTTON_DISABLED)
-        imgui.PushStyleColor(ImGuiCol_CheckMark, LIGHT_GRAY)
-    end
-    
-    local enabled = { ctx.settings.item_doom_removal_enabled or false }
-    
-    -- Only allow interaction if not disabled
-    if not is_disabled and imgui.Checkbox(checkbox_label, enabled) then
-        ctx.settings.item_doom_removal_enabled = enabled[1]
-        if ctx.save_callback then
-            ctx.save_callback()
-        end
-    elseif is_disabled then
-        -- Display disabled checkbox (non-interactive)
-        imgui.Checkbox(checkbox_label, enabled)
-    end
-    
-    if is_disabled then
-        imgui.PopStyleColor(5)
-    end
-    
-    -- Tooltip
-    if imgui.IsItemHovered() then
-        if is_disabled then
-            imgui.SetTooltip('No Holy Water in inventory')
-        else
-            imgui.SetTooltip('Use Holy Water to remove Doom (Item)')
-        end
-    end
+    render_item_removal_checkbox(ctx, 'Holy Water', 'item_doom_removal_enabled', 'Doom')
 end
 
 -- ============================================================================

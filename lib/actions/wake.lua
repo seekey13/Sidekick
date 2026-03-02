@@ -5,9 +5,8 @@
 
 local wake = {}
 
-local common = require('lib.core.common')
-local resource = require('lib.core.resource')
-local buff_utils = require('lib.core.buff_utils')
+local common      = require('lib.core.common')
+local action_core = require('lib.core.action_core')
 
 -- ============================================================================
 -- Constants
@@ -25,7 +24,7 @@ wake.SLEEP_II_BUFF_ID = 19  -- Sleep II buff ID
 -- Returns: boolean (true if any buff is sleep, false otherwise)
 function wake.is_buff_sleep(buffs)
     local list = type(buffs) == 'table' and buffs or {buffs}
-    return buff_utils.has_any_buff(list, {wake.SLEEP_BUFF_ID, wake.SLEEP_II_BUFF_ID})
+    return action_core.has_any_buff(list, {wake.SLEEP_BUFF_ID, wake.SLEEP_II_BUFF_ID})
 end
 
 -- ============================================================================
@@ -121,34 +120,14 @@ function wake.execute(settings, job_def, main_level, sub_level, player_resource)
     if #sleeping_members >= 2 and #available_aoe > 0 then
         common.debugf('[Wake] Multiple sleeping members (%d), trying AOE wake', #sleeping_members)
         for _, ability in ipairs(available_aoe) do
-            -- Check resource
-            local ability_resource_type = ability.resource_type or job_def.resource_type
-            if resource.has_resource(ability_resource_type, ability.cost) then
-                -- Check cooldown
-                if ability.id then
-                    if resource.is_ability_ready(ability.id) then
-                        local command = common.build_ability_command(ability, 0, settings)
-                        if command then
-                            common.debugf('[Wake] >>> Using %s to wake %d members', ability.name, #sleeping_members)
-                            return {
-                                command = command,
-                                description = string.format('Waking %d sleeping members with %s', #sleeping_members, ability.name)
-                            }
-                        end
-                    end
-                else
-                    local command = common.build_ability_command(ability, 0, settings)
-                    if command then
-                        common.debugf('[Wake] >>> Using %s to wake %d members', ability.name, #sleeping_members)
-                        return {
-                            command = command,
-                            description = string.format('Waking %d sleeping members with %s', #sleeping_members, ability.name)
-                        }
-                    end
-                end
+            local desc = string.format('Waking %d sleeping members with %s', #sleeping_members, ability.name)
+            local result, reason = action_core.try_use(ability, job_def, settings, 0, desc)
+            if result then
+                common.debugf('[Wake] >>> Using %s to wake %d members', ability.name, #sleeping_members)
+                return result
+            elseif reason then
+                common.debugf('[Wake] %s: %s', ability.name, reason)
             end
-            
-            ::continue_aoe::
         end
     end
     
@@ -179,33 +158,14 @@ function wake.execute(settings, job_def, main_level, sub_level, player_resource)
             local blocked_by = common.is_command_blocked(ability.command)
             if blocked_by then
                 common.debugf('[Wake] %s is blocked by %s', ability.name, blocked_by)
-                goto continue_single
-            end
-            
-            -- Check resource
-            local ability_resource_type = ability.resource_type or job_def.resource_type
-            if resource.has_resource(ability_resource_type, ability.cost) then
-                -- Check cooldown
-                if ability.id then
-                    if resource.is_ability_ready(ability.id) then
-                        local command = common.build_ability_command(ability, target_index, settings)
-                        if command then
-                            common.debugf('[Wake] >>> Using %s on %s', ability.name, target_name)
-                            return {
-                                command = command,
-                                description = string.format('Waking %s with %s', target_name, ability.name)
-                            }
-                        end
-                    end
-                else
-                    local command = common.build_ability_command(ability, target_index, settings)
-                    if command then
-                        common.debugf('[Wake] >>> Using %s on %s', ability.name, target_name)
-                        return {
-                            command = command,
-                            description = string.format('Waking %s with %s', target_name, ability.name)
-                        }
-                    end
+            else
+                local desc = string.format('Waking %s with %s', target_name, ability.name)
+                local result, reason = action_core.try_use(ability, job_def, settings, target_index, desc)
+                if result then
+                    common.debugf('[Wake] >>> Using %s on %s', ability.name, target_name)
+                    return result
+                elseif reason then
+                    common.debugf('[Wake] %s: %s', ability.name, reason)
                 end
             end
         end

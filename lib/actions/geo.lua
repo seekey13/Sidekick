@@ -6,8 +6,8 @@
 
 local geo = {}
 
-local common = require('lib.core.common')
-local resource = require('lib.core.resource')
+local common      = require('lib.core.common')
+local action_core = require('lib.core.action_core')
 
 function geo.execute(settings, job_def, main_level, sub_level, player_resource)
     -- Check if geo action is enabled
@@ -59,12 +59,12 @@ function geo.execute(settings, job_def, main_level, sub_level, player_resource)
                     
                     -- Check resource (Full Circle has 0 cost)
                     local ability_resource_type = ability.resource_type or job_def.resource_type
-                    if resource.has_resource(ability_resource_type, ability.cost) then
+                    if action_core.has_resource(ability_resource_type, ability.cost) then
                         -- Check cooldown
                         if not ability.id then
                             common.warnf('[GEO] %s has no ability ID defined, skipping', ability.name)
                         else
-                            local is_ready = resource.is_ability_ready(ability.id)
+                            local is_ready = action_core.is_ability_ready(ability.id)
                             
                             if is_ready then
                                 local command = common.build_ability_command(ability, 0)
@@ -109,15 +109,7 @@ function geo.execute(settings, job_def, main_level, sub_level, player_resource)
                 if ability.group == 'Indi' and ability.name == spell_name then
                     -- Check level requirements
                     if ability.level and ability.level <= derived_main_level then
-                        -- Check if spell is learned
-                        local has_spell = true
-                        if ability.id then
-                            local ok, known = pcall(function() return AshitaCore:GetMemoryManager():GetPlayer():HasSpell(ability.id) end)
-                            if ok then
-                                has_spell = known
-                            end
-                        end
-                        if has_spell then
+                        if common.has_spell_learned(ability) then
                             selected_spell = ability
                             break
                         end
@@ -169,7 +161,7 @@ function geo.execute(settings, job_def, main_level, sub_level, player_resource)
             end
             
             -- Check MP cost
-            if not resource.has_resource('mp', selected_spell.cost or 0) then
+            if not action_core.has_resource('mp', selected_spell.cost or 0) then
                 common.debugf('[GEO] Not enough MP for %s (cost: %d)', selected_spell.name, selected_spell.cost or 0)
                 return nil
             end

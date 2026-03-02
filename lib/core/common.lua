@@ -126,62 +126,27 @@ end
     Logging Utilities
 ]]--
 
-function common.printf(fmt, ...)
+-- Shared log helper: formats message, applies chat style, and prints.
+-- @param style_fn  chat.message | chat.error | chat.warning
+-- @param prefix    optional string prepended to message (e.g. '[DEBUG] ')
+-- @param fmt       format string
+-- @param ...       format arguments
+local function log(style_fn, prefix, fmt, ...)
     local args = {...}
-    if #args == 0 then
-        print(chat.header(addon_name) .. chat.message(fmt))
-    else
-        local success, result = pcall(string.format, fmt, ...)
-        if success then
-            print(chat.header(addon_name) .. chat.message(result))
-        else
-            print(chat.header(addon_name) .. chat.message(fmt))
-        end
+    local msg = fmt
+    if #args > 0 then
+        local ok, result = pcall(string.format, fmt, ...)
+        if ok then msg = result end
     end
+    print(chat.header(addon_name) .. style_fn((prefix or '') .. msg))
 end
+
+function common.printf(fmt, ...)  log(chat.message, nil, fmt, ...) end
+function common.errorf(fmt, ...)  log(chat.error,   nil, fmt, ...) end
+function common.warnf(fmt, ...)   log(chat.warning, nil, fmt, ...) end
 
 function common.debugf(fmt, ...)
-    if common.debug then
-        local args = {...}
-        if #args == 0 then
-            print(chat.header(addon_name) .. chat.message('[DEBUG] ' .. fmt))
-        else
-            local success, result = pcall(string.format, fmt, ...)
-            if success then
-                print(chat.header(addon_name) .. chat.message('[DEBUG] ' .. result))
-            else
-                print(chat.header(addon_name) .. chat.message('[DEBUG] ' .. fmt))
-            end
-        end
-    end
-end
-
-function common.errorf(fmt, ...)
-    local args = {...}
-    if #args == 0 then
-        print(chat.header(addon_name) .. chat.error(fmt))
-    else
-        local success, result = pcall(string.format, fmt, ...)
-        if success then
-            print(chat.header(addon_name) .. chat.error(result))
-        else
-            print(chat.header(addon_name) .. chat.error(fmt))
-        end
-    end
-end
-
-function common.warnf(fmt, ...)
-    local args = {...}
-    if #args == 0 then
-        print(chat.header(addon_name) .. chat.warning(fmt))
-    else
-        local success, result = pcall(string.format, fmt, ...)
-        if success then
-            print(chat.header(addon_name) .. chat.warning(result))
-        else
-            print(chat.header(addon_name) .. chat.warning(fmt))
-        end
-    end
+    if common.debug then log(chat.message, '[DEBUG] ', fmt, ...) end
 end
 
 --[[
@@ -1300,6 +1265,21 @@ end
     DRY Helper Functions for Action Modules
 ]]--
 
+-- Check if a spell ability has been learned by the player.
+-- For non-spell abilities (job abilities, items), always returns true.
+-- Args:   ability (table) - Ability definition with command and optional id fields
+-- Returns: boolean (true if the ability can be used / spell is known)
+function common.has_spell_learned(ability)
+    if not ability then return false end
+    local cmd = type(ability.command) == 'function' and ability.command(0) or ability.command
+    if not cmd or cmd:sub(1, 3) ~= '/ma' then return true end   -- not a spell
+    if not ability.id then return true end                        -- no id to check
+    local ok, known = pcall(function()
+        return AshitaCore:GetMemoryManager():GetPlayer():HasSpell(ability.id)
+    end)
+    return ok and known or true  -- assume known on error
+end
+
 -- Filter abilities by level, disabled status, and pet requirements
 -- Args:
 --   abilities (table) - List of abilities to filter
@@ -1482,14 +1462,14 @@ function common.check_target_modifier(job_def, settings, main_level, sub_level)
     end
     
     -- Check resource cost
-    local resource = require('lib.core.resource')
-    if not resource.has_resource(job_def.resource_type, modifier_ability.cost or 0) then
+    local action_core = require('lib.core.action_core')
+    if not action_core.has_resource(job_def.resource_type, modifier_ability.cost or 0) then
         return nil
     end
     
     -- Check cooldown if ability has an ID
     if modifier_ability.id then
-        local is_ready = resource.is_ability_ready(modifier_ability.id)
+        local is_ready = action_core.is_ability_ready(modifier_ability.id)
         if not is_ready then
             return nil
         end

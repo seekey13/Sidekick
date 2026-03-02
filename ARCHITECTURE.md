@@ -1,844 +1,458 @@
 # Medic Architecture
 
-This document provides a technical overview of the Medic support-only addon architecture.
+Technical overview of the Medic support-automation addon for Ashita v4 (CatsEyeXI).
 
 ## Design Philosophy
 
-Medic follows these core principles:
+1. **Support-Only Focus** – Healing, buffing, debuff removal, and resource recovery. No offensive automation.
+2. **PL Mode Support** – Cross-party healing via `/mst` command relay for power-leveling scenarios.
+3. **Configuration over Code** – Job-specific details are data-driven tables, not hard-coded logic.
+4. **Extensibility** – New jobs/actions can be added without touching core modules.
+5. **DRY Utilities** – Shared helpers (`action_core`, `common`) eliminate boilerplate.
+6. **Safety** – Multiple validation layers (resource, cooldown, status ailment, range) prevent errors.
 
-1. **Support-Only Focus**: No combat automation, only healing, buffing, and debuff removal
-2. **PL Mode Support**: Cross-party healing via `/mst` command relay for power leveling scenarios
-3. **Configuration over Code**: Job-specific details are data-driven, not hard-coded
-3. **Extensibility**: New support jobs can be added without modifying core logic
-4. **Reusability**: Common patterns are extracted into shared modules
-5. **Safety**: Multiple validation layers prevent errors and resource exhaustion
+---
+
+## Directory Layout
+
+```
+Medic.lua                   Main addon entry point
+lib/
+  core/
+    action_core.lua         Shared ability infrastructure (resource, cooldowns, buff-ID utils, candidacy helpers)
+    automation.lua          Priority-based action selection engine
+    common.lua              Shared utilities (logging, party, buffs, commands)
+    parse_packets.lua       Raw-packet parsing (action packet 0x028)
+    targets.lua             FFI target-resolution helpers (from Ashita)
+  actions/
+    buff.lua                Buff maintenance (self + party, groups, Pianissimo)
+    geo.lua                 Full Circle automation & Entrust management
+    heal.lua                All healing (single-target, AOE, pet)
+    item.lua                Consumable-based status removal (Echo Drops, Holy Water)
+    recover.lua             MP/TP recovery abilities
+    rest.lua                Automatic resting (/heal) with follow-target awareness
+    status_removal.lua      Debuff removal & sleep wake (single + AOE)
+  jobs/
+    bard.lua                BRD job definition
+    dancer.lua              DNC job definition
+    geomancer.lua           GEO job definition
+    paladin.lua             PLD job definition
+    red_mage.lua            RDM job definition
+    rune_fencer.lua         RUN job definition
+    scholar.lua             SCH job definition
+    summoner.lua            SMN job definition
+    white_mage.lua          WHM job definition
+  ui/
+    components.lua          Reusable imgui components & constants
+    config.lua              Configuration window orchestration & PL Mode UI
+    panel.lua               Debug info panel
+```
+
+---
 
 ## Component Architecture
 
 ```
-┌─────────────────────────────────────────────┐
-│  Medic.lua                                  │
-│  (Main Addon File)                          │
-│  - Job Detection                            │
-│  - Event Loop (d3d_present)                 │
-│  - Command Handler                          │
-│  - Settings Management                      │
-└──────────┬───────────────────────┬──────────┘
-           │                       │
-           │ loads                 │ loads
-           ▼                       ▼
-  ┌─────────────────┐     ┌─────────────────┐
-  │  Job Definition │     │ Config UI       │
-  │  (jobs/*.lua)   │     │ (ui_config.lua) │
-  └────────┬────────┘     └────────┬────────┘
-           │                       │
-           │ provides abilities    │ uses
-           ▼                       ▼
-                          ┌─────────────────┐
-                          │ UI Components   │
-                          │(ui_components.lua)│
-                          │ - Constants     │
-                          │ - Render funcs  │
-                          └─────────────────┘
+┌───────────────────────────────────────────────┐
+│  Medic.lua                                    │
+│  • Job/level detection & change handling       │
+│  • Event loop (d3d_present)                   │
+│  • /medic command handler                     │
+│  • Settings load/save/merge                   │
+└──────┬─────────────────────────┬──────────────┘
+       │ loads                   │ loads
+       ▼                         ▼
+┌──────────────┐         ┌──────────────────┐
+│ Job Def      │         │ config.lua       │
+│ (jobs/*.lua) │         │  orchestration   │
+└──────┬───────┘         └──────┬───────────┘
+       │ provides                │ delegates to
+       │ abilities               ▼
+       │                 ┌──────────────────┐
+       │                 │ components.lua   │
+       │                 │  render helpers  │
+       │                 │  constants       │
+       │                 └─────────────────┘
+       ▼
+┌───────────────────────────────────────────────┐
+│  automation.lua                               │
+│  • Priority-ordered action evaluation          │
+│  • Command throttling (1 s default)           │
+│  • pcall error isolation per module           │
+└──────────┬────────────────────────────────────┘
+           │ calls .execute() on each module
            ▼
-    ┌─────────────────────────────────────┐
-    │  Automation Engine                  │
-    │  (core/automation.lua)              │
-    │  - Priority-based action selection  │
-    │  - Command throttling               │
-    │  - Error handling (pcall)           │
-    └──────────────┬──────────────────────┘
-                   │
-                   │ executes in order
-                   ▼
-    ┌─────────────────────────────────────┐
-    │  Action Modules                     │
-    │  (actions/*.lua)                    │
-    │  - heal, heal_aoe, heal_pet         │
-    │  - wake, debuff_removal             │
-    │  - buff, geo, item                  │
-    │  - recover (recover_mp, recover_tp) │
-    │  - rest                             │
-    └──────────────┬──────────────────────┘
-                   │
-                   │ uses
-                   ▼
-    ┌─────────────────────────────────────┐
-    │  Core Utilities                     │
-    │  (core/common.lua)                  │
-    │  - Party management                 │
-    │  - Buff/status checking             │
-    │  - Target validation                │
-    │  - Logging                          │
-    └─────────────────────────────────────┘
-    
-    ┌─────────────────────────────────────┐
-    │  Resource Management                │
-    │  (core/resource.lua)                │
-    │  - MP/TP checking                   │
-    │  - Cooldown tracking                │
-    └─────────────────────────────────────┘
+┌───────────────────────────────────────────────┐
+│  Action Modules  (actions/*.lua)              │
+│  heal → status_removal → item → recover      │
+│  → geo → buff → rest                         │
+└──────────┬────────────────────────────────────┘
+           │ uses
+           ▼
+┌─────────────────────┐  ┌────────────────┐
+│ action_core.lua     │  │ common.lua     │
+│ Resource management │  │ party, buffs,  │
+│ Cooldown tracking   │  │ logging, cmds  │
+│ Buff-ID utilities   │  └────────────────┘
+│ is_usable()         │
+│ filter_usable()     │
+│ first_command()     │
+│ try_use()           │
+└─────────────────────┘
 ```
+
+---
 
 ## Data Flow
 
-### Automation Tick Flow
+### Automation Tick (every frame via `d3d_present`)
 
 ```
-1. d3d_present event fires (every frame)
-   ↓
-2. Check: is_loaded? automation_enabled? in_event?
-   ↓
-3. Get player info (level, job, resources)
-   ↓
-4. Iterate priority_order (defined by job)
-   ↓
-5. For each action type:
-   a. Load action module
-   b. Execute module.execute(settings, job_def, level, resources)
-   c. Module returns command string or nil
-   ↓
-6. If command returned:
-   a. Check throttle (1 second minimum)
-   b. Execute command via QueueCommand
-   c. Update last_command_time
-   d. Break (one action per tick)
-   ↓
-7. Wait for next frame
+1. Guard checks: addon loaded? automation enabled? in event/cutscene?
+2. Refresh game_state (party HP, buffs, server IDs, pet info)
+3. Check job/level change → reload job definition if needed
+4. Iterate priority_order (defined per job)
+5. For each action type → pcall action_module.execute(settings, job_def, ...)
+6. First module to return {command, description} wins
+7. Throttle check → QueueCommand → wait for next tick
 ```
 
-### Action Module Flow
+### Action Module Pattern
 
-Each action module follows this pattern:
+Every action module follows the same contract:
 
-```
-1. Check if enabled in settings
-   ↓
-2. Get relevant abilities from job_def
-   ↓
-3. Filter by level requirement
-   ↓
-4. Sort by priority (cost, level, etc.)
-   ↓
-5. Check conditions (party HP, buffs, etc.)
-   ↓
-6. Select best ability
-   a. Check resources (MP/TP)
-   b. Check cooldown
-   c. Check range/validity
-   ↓
-7. Build command (function or string)
-   ↓
-8. Return {command, description} or nil
-```
-
-## Module Details
-
-### Core Modules
-
-#### ui_config.lua
-Configuration UI rendering with ImGui and PL Mode connection handling.
-
-**PL Mode Features:**
-- Packet handler for connection detection (0x0017 tells): Parses "[MEDIC] JOB##/JOB## Attempting Connection"
-- Auto-sets follow_target to PL player name on connection
-- Stores PL job information for display
-- Adaptive UI: Hides Timer/Follow Target dropdowns, AOE Healing section in PL mode
-- Distance slider remains visible for rest wake threshold
-- Trust detection: Grays out and disables Trust party buttons with tooltip
-
-#### ui_components.lua
-Reusable UI rendering components and constants for ImGui interface.
-
-**Constants:**
-- `COLOR_*`: Color definitions for combat_only, idle_only, button states, status indicators
-- `DROPDOWN_WIDTH`: 300 pixels for dropdown menus
-- `SLIDER_WIDTH`: 250 pixels for slider controls
-- `AUTOMATION_BUTTON_WIDTH`: 80 pixels for automation buttons
-- `PARTY_BUTTON_WIDTH`: 44 pixels for party member buttons
-- `ABILITY_LIST_INDENT`: Indentation for ability lists
-- `SPACE_BETWEEN_BUTTONS`: Spacing between UI elements
-
-**Render Functions:**
-- `onoff_button(ctx, ability, category)`: Renders ON/OFF toggle button
-- `group_dropdown(ctx, ability, job_def, category)`: Renders dropdown for grouped abilities
-- `self_single_ability(ctx, ability)`: Renders non-grouped self-only ability
-- `self_grouped_ability(ctx, ability, job_def, category)`: Renders grouped self-only ability
-- `party_single_ability(ctx, ability, job_def, category)`: Renders non-grouped party ability
-- `party_grouped_ability(ctx, ability, job_def, category)`: Renders grouped party ability
-- `render_ability(ctx, ability, job_def, category)`: Dispatcher for ability rendering
-- `render_party_buttons(ctx, category, ability_name)`: Renders ME/P1-P5 party target buttons
-
-**UI Creators:**
-- `checkbox(ctx, label, key, value)`: Creates checkbox with settings binding
-- `collapsing_checkbox_header(ctx, label, key, default_val)`: Creates collapsible header with integrated checkbox
-- `slider_int(ctx, label, key, value, min, max)`: Creates integer slider with settings binding
-- `combo(ctx, label, key, index, options, getter)`: Creates dropdown combo box
-- `ability_checkbox(ctx, ability, job_def, category)`: Creates simple checkbox for non-buff abilities
-
-**Context Object:**
-All functions accept context object as first parameter:
 ```lua
-{
-    settings = current_settings,
-    save_callback = save_callback,
-    party_buffs = party_buffs,
-    job_def = job_def,
-    can_use_ability = can_use_ability,
-    get_abilities_in_group = get_abilities_in_group,
-    get_usable_abilities_in_group = get_usable_abilities_in_group
-}
-```
-
-#### common.lua
-Provides shared utilities used across all modules.
-
-**Key Functions:**
-- `printf/debugf/errorf/warnf`: Logging with consistent formatting
-- `get_player_level/job/mp/tp`: Player state access
-- `is_idle/engaged/in_event`: Status checking
-- `calculate_distance(entity1, entity2)`: 3D Euclidean distance calculation for entity tracking
-- `get_entity_by_name(name)`: Entity lookup by name (searches indices 0-2302)
-- `is_trust(party_index)`: Trust detection via server_id >= 0x1000000
-- `get_pet_entity()`: Returns pet entity object or nil (single source of truth for pet access)
-- `has_pet()`: Pet validation using get_pet_entity
-- `get_pet_hp_percent()`: Pet HP percentage using get_pet_entity
-- `get_pet_distance()`: Pet distance from player using get_pet_entity
-- `get_party_size`: Party member counting
-- `get_party_member_name/zone`: Party member name and zone access
-- `get_party_member_distance(index)`: Physical distance to party member (live entity call)
-- `get_party_buffs(member_index)`: Returns buff array for party member (used by refresh_game_state)
-- `has_buff/get_player_buffs`: Buff checking via memory pointers (used by refresh_game_state and internal helpers)
-- `get_trust_buffs(server_id)`: Returns Trust buffs tracked via packets
-- `register_pending_buff(server_id, buff_id)`: Register buff pending application to Trust
-- `handle_buff_application()`: Apply pending buff when cast completes (packet 0x028)
-- `handle_buff_removal(server_id, buff_id)`: Remove buff from Trust (packet 0x029)
-- `clear_trust_buffs()`: Clear all Trust buffs on zone change
-- `has_status/get_removable_debuffs`: Status effect checking
-- `has_amnesia()`: Check if player has Amnesia (blocks job abilities)
-- `has_silence()`: Check if player has Silence (blocks magic)
-- `is_command_blocked(command)`: Check if command is blocked by status ailments
-- `is_in_range(target, range)`: Distance validation
-- `is_casting()`: Casting state detection using packet offset 0x0F
-- `handle_action_packet(packet)`: Process action packet (0x028) for casting state
-- `filter_abilities_by_level(abilities, settings, main_level, sub_level, job_def)`: Shared ability filtering logic with optional job-specific validation
-- `check_target_modifier(job_def, settings, main_level, sub_level)`: Validates target modifier ability (e.g., Pianissimo, Entrust) availability and returns command to use it or nil
-
-#### resource.lua
-Manages resource checking and cooldown tracking.
-
-**Key Functions:**
-- `has_resource(type, amount)`: Check MP or TP availability
-- `get_resource(type)`: Get current MP or TP
-- `is_ability_ready(id)`: Check ability recast timer
-- `get_ability_recast(id)`: Get remaining recast time
-- `is_spell_ready(id)`: Check spell recast timer
-
-#### automation.lua
-Priority-based action selection engine.
-
-**Key Functions:**
-- `can_execute_command()`: Check if throttle allows execution
-- `execute_command(cmd, desc)`: Execute command and log
-- `execute_priority_actions(...)`: Main loop for action selection
-- `set_throttle(seconds)`: Configure throttle time
-
-**Throttling:**
-Enforces 1-second minimum between commands to prevent spam.
-
-**Error Handling:**
-Uses pcall to catch errors in action modules, preventing one module's failure from breaking automation.
-
-### Action Modules
-
-#### heal.lua
-Single-target healing logic with HP deficit-based selection.
-
-**Priority Order:**
-1. Critical lowest HP (if anyone below critical threshold, uses critical abilities)
-2. Focus target (if enabled and needs healing)
-3. Lowest HP party member
-
-**Critical HP System:**
-- Checks for party members below critical threshold (default 30%, configurable 1-50%)
-- Uses critical abilities (e.g., Divine Seal, Martyr) from job definition
-- Self-target abilities (Divine Seal) cast on player to boost healing
-- Party-target abilities (Martyr) cast on the critical HP member
-- Skips dead party members (HP = 0%)
-- Next cycle will heal the critical person after buff/sacrifice is applied
-
-**Ability Selection:**
-- Calculates exact HP deficit
-- Selects heal that best matches deficit to minimize overheal
-- Falls back to smallest heal if all would overheal
-- Uses strongest heal for emergency situations (low HP with unreliable data)
-
-#### heal_aoe.lua
-AOE/party-wide healing logic.
-
-**Trigger Conditions:**
-- X or more members below threshold (default: 2)
-- Prefers AOE when multiple members need healing
-
-#### heal_pet.lua
-Pet healing logic.
-
-**Functionality:**
-- Monitors pet HP percentage
-- Configurable heal threshold (default 50%)
-- Always targets `<me>` for pet healing commands
-- Priority after player healing
-
-#### wake.lua
-Sleep removal logic.
-
-**Detection Method:**
-- Scans party members 1-5 (excludes player at 0)
-- Uses `get_party_buffs(i)` to read buff arrays directly
-- Checks for sleep (buff ID 2 or 19)
-
-**Strategy:**
-- 1 sleeping member: Use cheapest single-target ability
-- 2+ sleeping members: Use cheapest AOE ability
-
-**Focus Target Support:**
-- Prioritizes focus target for single-target wake if they are sleeping
-
-#### debuff_removal.lua
-Debuff removal (erase/cleanse) logic.
-
-**Priority Order:**
-1. Focus target with debuffs
-2. Party member with most debuffs
-
-**Removable Debuffs:**
-Checks for various debuff IDs (Poison, Paralysis, Blindness, Silence, Slow, Disease, Curse, etc.)
-
-**Ability Matching:**
-Matches debuff removal abilities with specific debuff IDs they can cure.
-
-#### buff.lua
-Buff maintenance logic with per-party-member configuration.
-
-**Buff Types:**
-- Self buffs (apply to player)
-- Party buffs (apply to party members with per-member targeting)
-
-**Party Buff System:**
-- Uses `party_buff_config` to control which buffs are enabled for each party member
-- UI provides buttons for each party member (ME/P1-P5) to enable/disable specific buffs
-- Trust members detected (server_id >= 0x1000000) and buffs tracked via packet-based system
-- Pending buffs registered on cast, applied on completion (packet 0x028), removed on loss (packet 0x029)
-- Only buffs with function commands can be cast on party members
-- Automatically checks party member buffs to avoid reapplying active buffs
-- Validates range (20 yalms) before casting on party members
-- Party buff selections persist through reloads via `settings.party_buffs[ability_name][party_index]`
-
-**Target Modifier Integration (Pianissimo, etc.):**
-- Checks if buff has `ability.target_modifier = true` flag
-- Calls `common.check_target_modifier()` to validate modifier availability before casting on party
-- If modifier needed but not ready, returns modifier command first (e.g., "Pianissimo")
-- Next tick will cast the actual buff with modifier active
-- Modifier buff checked via buff_id, command only executed if buff not present
-
-**Conditions:**
-- `idle_only`: Only use when idle (not in combat) - checks `common.is_idle()` - displayed in green
-- `combat_only`: Only use in combat (has battle target nearby) - checks `common.is_combat()` - displayed in yellow
-- `engaged_only`: Only use when engaged (actively fighting/locked on) - checks `common.is_engaged()` - displayed in red
-- `requires_pet`: Requires pet active
-- `requires_buff`: Requires specific buff prerequisite(s)
-- `group`: Groups mutually exclusive buffs (e.g., 'arts', 'storm', 'spikes')
-- `self_only`: Only applies to self
-
-**Uptime Checking:**
-Checks player/party buffs to avoid reapplying active buffs using buff_id.
-
-**Status Ailment Blocking:**
-Checks for Silence (blocks magic) and Amnesia (blocks job abilities) before attempting to cast.
-
-#### recover.lua
-MP and TP recovery logic.
-
-**Functionality:**
-- MP recovery: Monitors MP percentage, triggers when below threshold
-- TP recovery: Monitors TP, triggers when below threshold
-- Prioritizes MP recovery over TP recovery
-
-**Abilities:**
-- Uses `recover_mp` abilities from job definition for MP recovery
-- Uses `recover_tp` abilities from job definition for TP recovery
-- Checks `requires_buff` prerequisite for abilities that need specific buffs active
-- Supports `combat_only` and `idle_only` flags for conditional usage
-
-#### item.lua
-Item-based status removal using consumables.
-
-**Supported Items:**
-- **Echo Drops**: Removes Silence (buff_id 6)
-- **Holy Water**: Removes Doom (buff_id 15)
-
-**Priority:**
-- Doom checked first (higher priority)
-- Silence checked second
-- 4-second cooldown between any item uses
-
-**Inventory Detection:**
-- Returns `nil` when inventory not loaded (during zoning) - displays "(?)"
-- Returns `0` when inventory loaded but item missing - auto-disables checkbox
-- Prevents false "0 count" during zone transitions
-- Validates inventory has at least one valid item before returning 0
-
-**UI Integration:**
-- Checkboxes show real-time inventory count
-- Auto-disables only when genuinely out of items
-- Displays in config UI after debuff removal section
-
-#### geo.lua
-Geomancer-specific Full Circle automation and Entrust management.
-
-**Full Circle Automation:**
-- Monitors pet luopan distance in real-time
-- Configurable distance threshold (7-30 yalms, default 10)
-- Automatically executes Full Circle when pet exceeds distance
-- Requires active pet and geo abilities enabled
-
-**Entrust System:**
-- Name-based target selection from party members (P1-P5, excludes player)
-- Name-based spell selection from available Indi spells
-- Dynamic dropdowns in UI validate against current party composition
-- Settings persist across sessions as character names
-- Automatically resets if saved target/spell not available
-- Entrust ability executes selected Indi spell on selected party member
-- Requires both target and spell to be configured
-
-**Main Job Restriction:**
-- All Geo spells marked with `main_job_only=true` flag
-- Spells hidden from UI when Geomancer is subjob
-- `can_use_ability()` enforces restriction based on `is_main_job` flag
-
-#### rest.lua
-Automatic MP recovery through resting (/heal on) for MP-based jobs.
-
-**Functionality:**
-- Monitors MP percentage and rests when below 100%
-- Two-phase timer system: conditions become favorable → wait timer duration → start resting
-- Configurable timer duration (1-20 seconds, default 5)
-- Stops resting when MP reaches 100%
-
-**PL Mode:**
-- Separate logic path for cross-party power leveling
-- Monitors distance to PL player entity (not party members)
-- Sends `/mst [PL_player] /heal off` to wake PL when distance exceeded or casting detected
-- PL player handles their own `/heal on` based on MP needs
-- No HP threshold checks in PL mode (PL manages their own safety)
-- Follow target auto-set to PL player on connection
-
-**Safety Conditions:**
-- Blocks resting when engaged in combat
-- Blocks resting when moving or casting
-
-**Follow Target System:**
-- Name-based target selection from party members (P1-P5, excludes player)
-- Distance threshold (1-15 yalms, default 7)
-- Stops resting if distance to follow target exceeds threshold
-- No distance checking when no follow target selected
-- Settings persist across sessions as character names
-
-**Priority:**
-- Executes last in priority order (after all other actions)
-- Allows healing, buffing, and support actions to take precedence
-- Automatically resumes resting after other actions complete
-
-### Job Definitions
-
-Job definitions are Lua modules that return a configuration table.
-
-**Structure:**
-```lua
-return {
-    job_id = 3,               -- FFXI job ID
-    job_name = 'White Mage',  -- Display name
-    resource_type = 'mp',     -- 'mp' or 'tp'
-    
-    abilities = {
-        heal = { ... },       -- Array of abilities
-        heal_aoe = { ... },
-        heal_pet = { ... },
-        critical = { ... },   -- Emergency abilities for critical HP
-        buff = { ... },
-        debuff_removal = { ... },
-        wake = { ... },
-        recover_mp = { ... },
-        recover_tp = { ... },
-        geo = { ... },
-        -- etc.
-    },
-    
-    default_settings = {
-        heal_enabled = true,
-        heal_threshold = 75,
-        critical_threshold = 30,
-        -- etc.
-    },
-    
-    priority_order = {
-        'heal_aoe',
-        'heal',
-        'heal_pet',
-        'debuff_removal',
-        'wake',
-        'recover',
-        'geo',
-        'buff',
-    },
-    
-    -- Optional: Job-specific ability validator
-    -- Called by filter_abilities_by_level() for fine-grained validation
-    validate_ability = function(ability, common)
-        -- Custom validation logic beyond level/spell learned checks
-        -- Return true if ability can be used, false otherwise
-        -- Parameters:
-        --   ability: The ability definition being validated
-        --   common: The common module with utility functions
-        -- 
-        -- Example use cases:
-        --   - Check pet type (e.g., Carbuncle for Summoner)
-        --   - Verify specific buff requirements
-        --   - Custom conditional logic
-        --
-        -- Example implementation (Summoner):
-        if not ability.pet_required then
-            return true  -- No pet needed
-        end
-        
-        local pet = common.get_pet_entity()
-        if not pet then
-            return false  -- No pet summoned
-        end
-        
-        if not ability.requires_carbuncle then
-            return true  -- Any avatar OK
-        end
-        
-        -- Check for specific pet
-        local ok, pet_name = pcall(function() return pet.Name end)
-        return ok and pet_name == 'Carbuncle'
-    end,
-}
-```
-
-**Ability Definition:**
-```lua
-{
-    name = 'Cure IV',                 -- Display name
-    level = 48,                       -- Required level
-    cost = 88,                        -- MP/TP cost
-    value = 400,                      -- HP restored (for deficit selection)
-    id = 0,                           -- Recast ID (optional)
-    command = function(idx)           -- Command to execute (function or string)
-        return '/ma "Cure IV" <p' .. idx .. '>'
-    end,
-    buff_id = 43,                     -- Buff to check (optional, single or array)
-    debuff_id = 3,                    -- Debuff to remove (optional, single or array)
-    idle_only = false,                -- Idle only (green, checks is_idle()) (optional)
-    combat_only = false,              -- Combat only (yellow, checks is_combat()) (optional)
-    engaged_only = false,             -- Engaged only (red, checks is_engaged()) (optional)
-    requires_pet = false,             -- Pet requirement (optional)
-    requires_carbuncle = false,       -- Carbuncle requirement for Summoner (optional)
-    requires_buff = 401,              -- Buff prerequisite (optional, single or array)
-    group = 'regen',                  -- Mutually exclusive group (optional)
-    self_only = false,                -- Self-only ability (optional)
-    main_job_only = false,            -- Main job only (hidden when subjob) (optional)
-    wakes = true,                     -- Can wake from sleep (optional)
-    range = 20,                       -- Ability range in yalms (optional)
-    pet_required = false,             -- Requires active pet (optional)
-}
-```
-
-## Event System
-
-### Load Event
-Fires when addon loads. Sets initialization flag.
-
-### Unload Event
-Fires when addon unloads. Saves settings.
-
-### d3d_present Event
-Fires every frame. Main automation loop runs here.
-
-**Tasks:**
-1. One-time initialization (setup_job)
-2. Job change detection (checks job/level directly from memory)
-3. Render config UI (if visible)
-4. Run automation tick (if enabled)
-
-**Performance:**
-Optimized to minimize frame impact:
-- Early returns for disabled/invalid states
-- Throttling prevents excessive command execution
-- Efficient party/buff checking
-
-### packet_in Event
-Fires on incoming packets. Used for:
-- PL Mode connection detection (packet 0x0017 for tells): Parses handshake message and auto-configures follow target
-- Casting state tracking (packet 0x028, offset 0x0F for state byte)
-- Trust buff application (packet 0x028 with completion flag)
-- Trust buff removal (packet 0x029 for status effect loss)
-
-**Casting State Detection:**
-- Packet 0x028 offset 0x0F: `0x00` = casting started, `>0x00` = casting complete
-- Action ID may change between start (0x58E0) and completion (spell ID)
-- Uses state byte only for reliable detection
-
-**Trust Buff Tracking:**
-- Regular party members: Buffs read from memory
-- Trusts (server_id >= 0x1000000): Buffs tracked via packets
-- Pending buffs registered on cast initiation
-- Applied on completion packet (0x028 with non-zero state)
-- Removed on status loss packet (0x029)
-
-### command Event
-Fires on chat commands. Handles /medic commands.
-
-## Settings System
-
-Uses Ashita's settings module for JSON persistence.
-
-**File Naming:**
-- `settings_white_mage.json`
-- `settings_summoner.json`
-- `settings_dancer.json`
-- etc.
-
-**Loading:**
-1. Detect player job
-2. Load job definition
-3. Load settings file for that job
-4. Merge with default settings
-5. Save merged settings
-
-**Saving:**
-Automatic save on:
-- Setting changes (via UI or commands)
-- Addon unload
-
-## Error Handling
-
-### Module Level
-Each action module is called with pcall:
-```lua
-local success, result = pcall(action_module.execute, ...)
-if not success then
-    errorf('[ERROR] Module failed: ' .. tostring(result))
+function module.execute(settings, job_def, main_level, sub_level, player_resource)
+    -- 1. Check enabled in settings
+    -- 2. Filter abilities by level
+    -- 3. Evaluate conditions (HP thresholds, buffs, debuffs, pet status)
+    -- 4. Select best ability via action_core helpers
+    -- 5. Return {command = "...", description = "..."} or nil
 end
 ```
 
-### Resource Validation
-Before executing any ability:
-1. Check MP/TP availability
-2. Check cooldown status
-3. Check range
-4. Check target validity
+---
 
-### Nil Safety
-All functions check for nil values:
+## Core Modules
+
+### action_core.lua
+
+Consolidated ability infrastructure module. Combines resource management (MP/TP checking, cooldown tracking with post-recast delay), buff-ID utilities, and the **blocked → resource → cooldown → build-command** pipeline that every action module needs.
+
+**Resource Management** (formerly `resource.lua`):
+
+| Function | Purpose |
+|---|---|
+| `has_resource(type, amount)` | Check MP or TP ≥ amount |
+| `get_resource(type)` | Current MP or TP |
+| `is_ability_ready(id)` | Ability recast timer = 0 (with 0.5s post-delay) |
+| `is_spell_ready(id)` | Spell recast timer = 0 (with 0.5s post-delay) |
+| `get_ability_recast(id)` | Remaining ability recast |
+| `get_spell_recast(id)` | Remaining spell recast |
+| `set/is/get/clear_custom_recast(key)` | Manual recast tracking for shared cooldowns |
+
+**Buff-ID Utilities** (formerly `buff_utils.lua`):
+
+| Function | Purpose |
+|---|---|
+| `normalize_ids(ids)` | Coerce `number \| table \| nil` → flat table |
+| `has_any_buff(active, check_ids)` | True if any active buff matches any check ID |
+| `needs_buff(active, check_ids)` | True if none of the check IDs are active (nil = always needed) |
+
+**Ability Candidacy**:
+
+| Function | Purpose |
+|---|---|
+| `is_usable(ability, job_def)` | Returns `ok, reason` after checking status ailments, resource, and cooldown |
+| `filter_usable(abilities, job_def, tag)` | Filters a list down to usable abilities, debug-logs skipped ones |
+| `first_command(abilities, job_def, settings, tag, party_index, desc_fn)` | Returns the first usable ability as `{command, description}` or nil |
+| `try_use(ability, job_def, settings, party_index, desc, game_state)` | Single-ability execution with optional Trust buff registration |
+
+### common.lua
+
+Shared utility module (~1,700 lines). Key areas:
+
+- **Logging**: `printf`, `debugf`, `errorf`, `warnf` – unified via internal `log()` helper
+- **Player state**: `get_player_level/job/mp/tp`, `is_idle/engaged/in_event`, `is_casting`, `is_player_moving`
+- **Party**: `get_party_size`, `get_party_member_name/zone/distance`, `get_party_server_ids`
+- **Buffs**: `has_buff`, `get_player_buffs`, `get_party_buffs`, `get_trust_buffs`
+- **Trust buff tracking**: `register_pending_buff`, `handle_buff_application`, `handle_buff_removal`, `clear_trust_buffs`
+- **Status ailments**: `has_silence`, `has_amnesia`, `is_command_blocked`
+- **Ability helpers**: `has_spell_learned(ability)`, `filter_abilities_by_level`, `build_ability_command`, `check_target_modifier`
+- **Game state**: `refresh_game_state` – populates a shared table with party HP%, buffs, server IDs, pet info every tick
+
+### automation.lua
+
+Priority-based action engine with 1-second command throttle. Calls each action module's `.execute()` via `pcall`, accepts both `{command, description}` tables and raw command strings.
+
+### parse_packets.lua
+
+Parses raw packet bytes for action packet 0x028 into structured Lua tables (actor, type, targets, actions). Used by Medic.lua's packet_in handler for casting-state detection and Trust buff tracking.
+
+### targets.lua
+
+FFI bindings for FFXI target resolution (battle target, scan target, last teller). Ashita utility module.
+
+---
+
+## Action Modules
+
+### heal.lua – Healing (Single, AOE, Pet)
+
+**Single-target priority**: Critical HP → Focus target → Lowest-HP party member
+
+- **Deficit-based selection**: Calculates exact HP deficit, picks ability whose `value` best matches to minimise overheal.
+- **Critical HP system**: Separate ability list (`abilities.critical`) with lower threshold (default 30%).
+- Uses `action_core.filter_usable()` for resource/cooldown gating.
+
+**AOE healing** (`execute_aoe`): Triggers when average party HP falls below threshold. Uses `action_core.first_command()`.
+
+**Pet healing** (`execute_pet`): Monitors pet HP via game state. Uses `action_core.first_command()`.
+
+### status_removal.lua – Debuff Removal & Sleep Wake
+
+**Debuff removal** (`execute_debuff_removal`):
+- Priority: self → focus target → party member with most debuffs.
+- Matches abilities to specific debuff IDs they can cure.
+- Uses `action_core.try_use()`.
+
+**Wake from sleep** (`execute_wake`):
+- Scans party buffs for sleep IDs (2, 19).
+- 1 sleeping → cheapest single-target ability; 2+ → cheapest AOE ability.
+- Uses `action_core.try_use()` for resource/cooldown/command pipeline.
+
+### buff.lua – Buff Maintenance
+
+- **Self buffs**: ON/OFF toggle, grouped or single.
+- **Party buffs**: Per-member `<ME> <P1>–<P5>` selection stored in `settings.party_buffs`.
+- **Groups**: Mutually exclusive (e.g., "Arts", "Storm", "Spikes"); dropdown selects active member.
+- **Target modifier** (Pianissimo, etc.): If `ability.target_modifier = true`, sends modifier command first; next tick casts the buff.
+- **Trust buff registration**: Calls `common.register_pending_buff()` for Trusts after cast.
+- **Condition flags**: `idle_only`, `combat_only`, `engaged_only`, `requires_pet`, `requires_buff`.
+- PL Mode branch skips resource checks when relaying commands.
+- Uses `action_core.try_use()`.
+
+### item.lua – Consumable Status Removal
+
+Data-driven via `ITEM_REMOVALS` table (priority-ordered):
+
+| Priority | Item | Removes | Buff ID |
+|---|---|---|---|
+| 1 | Holy Water | Doom | 15 |
+| 2 | Echo Drops | Silence | 6 |
+
+4-second cooldown between uses. Inventory count validated per-tick. Returns `{command, description}`.
+
+### recover.lua – Resource Recovery
+
+MP and TP recovery. Monitors percentage thresholds. Uses `action_core.first_command()` and `filter_usable()`. Supports `requires_buff` prerequisites.
+
+### geo.lua – Geomancer Automation
+
+- **Full Circle**: Monitors luopan distance; fires Full Circle when pet exceeds configurable yalm threshold.
+- **Entrust**: Name-based target + spell selection from UI dropdowns; fires Entrust → Indi spell on configured party member.
+- All Geo spells have `main_job_only = true`.
+
+### rest.lua – Automatic Resting
+
+- Two-phase timer: conditions become favourable → wait N seconds → `/heal on`.
+- Stops at 100% MP or when follow-target distance exceeds threshold.
+- PL Mode: Sends `/mst [PL] /heal off` to wake PL player.
+
+---
+
+## Job Definitions
+
+Each job file returns a configuration table:
+
 ```lua
-if not player then return false end
-if not party then return {} end
+return {
+    job_id          = 3,
+    job_name        = 'White Mage',
+    resource_type   = 'mp',           -- 'mp' or 'tp'
+
+    abilities = {
+        heal            = { ... },
+        heal_aoe        = { ... },
+        heal_pet        = { ... },
+        critical        = { ... },
+        buff            = { ... },
+        debuff_removal  = { ... },
+        wake            = { ... },
+        recover_mp      = { ... },
+        recover_tp      = { ... },
+        recover_party_mp= { ... },
+        geo             = { ... },
+        target_modifier = { ... },
+    },
+
+    default_settings = { heal_enabled = true, heal_threshold = 75, ... },
+
+    priority_order = { 'heal_aoe', 'heal', 'debuff_removal', 'wake', ... },
+
+    -- Optional: custom validator called by filter_abilities_by_level()
+    validate_ability = function(ability, common) return true end,
+}
 ```
 
-## Performance Considerations
+### Ability Definition
 
-### Frame Budget
-Automation runs every frame but:
-- Early returns for disabled states
-- Throttling limits actual command execution
-- Efficient algorithms for party checking
+```lua
+{
+    name            = 'Cure IV',
+    level           = 48,
+    cost            = 88,
+    value           = 400,          -- HP restored (deficit selection)
+    id              = 0,            -- Recast ID
+    command         = function(idx) return '/ma "Cure IV" <p' .. idx .. '>' end,
+    -- or: command = '/ja "Divine Seal" <me>',
+    buff_id         = 43,           -- number or table of buff IDs to track
+    debuff_id       = 3,            -- debuff ID(s) this ability removes
+    idle_only       = false,        -- green  – is_idle()
+    combat_only     = false,        -- yellow – is_combat()
+    engaged_only    = false,        -- red    – is_engaged()
+    requires_pet    = false,
+    requires_buff   = 401,          -- prerequisite buff ID(s)
+    group           = 'regen',      -- mutually exclusive group
+    self_only       = false,
+    main_job_only   = false,        -- hidden when job is subjob
+    target_modifier = false,        -- needs Pianissimo / similar before party cast
+    target_outside  = false,        -- allowed in PL Mode (crosses party boundary)
+    wakes           = true,         -- can remove sleep
+    range           = 20,
+    is_main_job     = true,         -- false for subjob-sourced abilities
+    resource_type   = nil,          -- override job resource_type ('mp'/'tp')
+}
+```
 
-### Memory Management
-- Buff checking reuses arrays
-- No memory leaks in event handlers
-- Efficient data structures
+---
+
+## UI System
+
+### config.lua – Orchestration
+
+- Builds a **context object** (`ctx`) containing settings, callbacks, job_def, filter functions, and party_buffs.
+- Delegates all rendering to `components.lua`.
+- **PL Mode connection**: Packet handler (0x0017 tells) parses `[MEDIC] JOB##/JOB## Attempting Connection` handshake.
+- **DRY helpers**:
+  - `render_party_dropdown(label, key, include_player, names, settings, cb)` – reusable for Focus/Follow/Recovery/Entrust Target dropdowns.
+  - `has_usable_abilities(abilities)` – quick check for any level-appropriate abilities.
+
+### components.lua – Render Components
+
+**Constants** exported for config.lua:
+`ABILITY_LIST_INDENT`, `PARTY_BUTTON_WIDTH`, `SPACE_BETWEEN_BUTTONS`, `DROPDOWN_WIDTH`, `AUTOMATION_BUTTON_WIDTH`, colour tables (`LIGHT_RED/GREEN/BLUE/YELLOW/GRAY`).
+
+**Render functions**:
+
+| Function | Layout |
+|---|---|
+| `render_ability(ctx, ability, job_def, suffix)` | Dispatcher – picks correct renderer below |
+| `self_single_ability(ctx, ability, job_def, suffix)` | `[ON/OFF] Ability Name` |
+| `self_grouped_ability(ctx, ability, job_def)` | `[ON/OFF] [Dropdown]` |
+| `party_single_ability(ctx, ability, job_def)` | `[<ME>] [<P1>]… Ability Name` |
+| `party_grouped_ability(ctx, ability, job_def)` | `[<ME>] [<P1>]… [Dropdown]` |
+| `ability_checkbox(ctx, ability, job_def, suffix)` | Simple checkbox with spell-learned check |
+| `item_silence_removal_checkbox(ctx)` | Echo Drops checkbox (via `render_item_removal_checkbox`) |
+| `item_doom_removal_checkbox(ctx)` | Holy Water checkbox (via `render_item_removal_checkbox`) |
+
+**UI creators** (settings-bound):
+`checkbox`, `collapsing_checkbox_header`, `slider_int`, `combo`.
+
+**Context object**:
+```lua
+{
+    settings            = current_settings,
+    save_callback       = save_callback,
+    party_buffs         = party_buffs,
+    job_def             = job_def,
+    filter_func = {
+        can_use_ability    = ...,  -- PL-mode-aware level check
+        can_target_outside = ...,  -- PL-mode target filter
+    },
+}
+```
+
+**Spell-learned checks** use `common.has_spell_learned(ability)` throughout.
+
+### panel.lua – Debug Panel
+
+Read-only display of game state, party buffs, server IDs, target indices. Shown when Debug Mode is enabled.
+
+---
+
+## Event System
+
+| Event | Handler | Purpose |
+|---|---|---|
+| `load` | Medic.lua | Set initialisation flag |
+| `unload` | Medic.lua | Save settings |
+| `d3d_present` | Medic.lua | Automation tick + UI render |
+| `packet_in` | Medic.lua | Casting state (0x028), Trust buffs (0x028 completion, 0x029 removal) |
+| `packet_in` | config.lua | PL Mode connection detection (0x0017 tells) |
+| `command` | Medic.lua | `/medic` command handler |
+
+### Trust Buff Tracking
+
+Regular party members: buffs read directly from game memory.
+Trusts (server_id ≥ 0x1000000): tracked via packets.
+
+1. `register_pending_buff(server_id, buff_id)` – on cast initiation
+2. `handle_buff_application()` – packet 0x028 with completion flag
+3. `handle_buff_removal(server_id, buff_id)` – packet 0x029
+4. `clear_trust_buffs()` – on zone change
+
+---
+
+## Settings System
+
+JSON persistence via Ashita's settings module.
+
+- **File naming**: `settings_white_mage.json`, `settings_geomancer.json`, etc.
+- **Load flow**: Detect job → load job definition → load settings file → merge with `default_settings` → save merged result.
+- **Auto-save**: On every UI change and addon unload.
+- **Party buffs**: `settings.party_buffs[ability_name][party_index] = true/false`.
+
+---
+
+## Error Handling
+
+- **Module isolation**: `pcall` wraps every action module call in `automation.lua`.
+- **Resource validation**: `action_core.is_usable()` gates every ability before execution.
+- **Nil safety**: Guard checks (`if not player then return end`) throughout.
+- **Inventory safety**: `item.lua` returns `nil` during zone transitions when inventory is unloaded.
+
+---
 
 ## Extensibility
 
-### Adding a New Support Job
+### Adding a New Job
 
-1. **Create job definition** (`lib/jobs/newjob.lua`)
-2. **Register in job_map** (Medic.lua line ~75)
-3. **Test thoroughly**
+1. Create `lib/jobs/newjob.lua` with the job definition table.
+2. Register in `job_map` (Medic.lua).
+3. No core changes needed.
 
-No core code changes needed!
+### Adding a New Action Module
 
-### Adding a New Support Action
-
-1. **Create action module** (`lib/actions/newaction.lua`)
-2. **Add to action_modules table** (Medic.lua line ~29)
-3. **Add to master_priority** (Medic.lua line ~170)
-4. **Update ui_config** (optional, for UI)
+1. Create `lib/actions/newaction.lua` implementing `.execute()`.
+2. Add to `action_modules` table (Medic.lua).
+3. Add to `master_priority` (Medic.lua).
+4. Optionally add UI section in `config.lua`.
 
 ### Adding a New Ability
 
-Just add to job definition:
-```lua
-abilities = {
-    heal = {
-        -- Add new ability here
-        { name = '...', level = X, cost = Y, ... }
-    }
-}
-```
+Add to the job definition's `abilities` table. The UI auto-renders based on ability properties.
 
-### Adding New UI Components
+### Job-Specific Validation
 
-The UI system uses a modular component architecture:
+Add `validate_ability(ability, common)` to the job definition. Called automatically by `filter_abilities_by_level()`.
 
-1. **All UI constants defined in ui_components.lua:**
-   - Colors: `COLOR_COMBAT_ONLY`, `COLOR_IDLE_ONLY`, button states, status colors
-   - Widths: `DROPDOWN_WIDTH`, `SLIDER_WIDTH`, `AUTOMATION_BUTTON_WIDTH`, `PARTY_BUTTON_WIDTH`
-   - Spacing: `ABILITY_LIST_INDENT`, `SPACE_BETWEEN_BUTTONS`
-
-2. **Context object pattern for state management:**
-   ```lua
-   local ctx = {
-       settings = current_settings,
-       save_callback = save_callback,
-       party_buffs = party_buffs,
-       job_def = job_def,
-       can_use_ability = can_use_ability,
-       get_abilities_in_group = get_abilities_in_group,
-       get_usable_abilities_in_group = get_usable_abilities_in_group
-   }
-   ```
-
-3. **Render functions handle all UI logic:**
-   - `ui.render_ability()`: For buff abilities (ON/OFF + party buttons)
-   - `ui.render_party_buttons()`: Renders ME/P1-P5 buttons with target modifier validation
-   - `ui.ability_checkbox()`: For simple checkbox abilities (heal, debuff, etc.)
-   - `ui.collapsing_checkbox_header()`: For collapsible sections with enable/disable
-
-4. **ui_config.lua focuses on orchestration only:**
-   - Builds context object
-   - Calls ui_components render functions
-   - Loads/saves party_buffs from/to settings for persistence
-   - No rendering logic, only structure and flow
-
-5. **Party Buff Persistence:**
-   - `settings.party_buffs` structure stores party buff selections
-   - Loaded on first render: `if settings.party_buffs then ... deep copy to party_buffs ...`
-   - Saved on toggle: `settings.party_buffs[ability_name][party_index] = enabled`
-   - Song limit enforcement: counts active `target_modifier = true` abilities per party member
-
-### Adding Job-Specific Validation
-
-If your job needs custom validation logic (e.g., checking pet type, specific buff requirements, custom conditions):
-
-1. **Add validate_ability function to job definition:**
-```lua
-return {
-    job_id = 15,
-    job_name = 'Summoner',
-    -- ... other properties ...
-    
-    validate_ability = function(ability, common)
-        -- Example: Summoner checking for Carbuncle
-        if not ability.pet_required then
-            return true
-        end
-        
-        local pet = common.get_pet_entity()
-        if not pet then
-            return false
-        end
-        
-        if not ability.requires_carbuncle then
-            return true  -- Any avatar OK
-        end
-        
-        local ok, pet_name = pcall(function()
-            return pet.Name
-        end)
-        
-        return ok and pet_name == 'Carbuncle'
-    end,
-}
-```
-
-2. **The validator is automatically called** by `filter_abilities_by_level()` when `job_def` is passed
-3. **Return true** to allow the ability, **false** to block it
-4. **Use common utilities** passed as second parameter for checks
-
-### Safety First
-- Multiple validation layers
-- Automatic resource checking
-- Status ailment detection (Silence/Amnesia)
-- Cooldown tracking
-- Event/cutscene blocking
-
-### Configuration Over Code
-- Jobs defined via configuration files
-- No hard-coded ability names in core logic
-- Easy to adjust per-job settings
-
-## UI Features
-
-### Collapsible Sections
-All major feature sections (Healing, Buffs, Debuff Removal, etc.) use collapsible headers with integrated checkboxes for enable/disable control.
-
-### Critical HP Section
-Nested inside the "Enable Party Healing" section:
-- **Critical (HP%)** slider: Configurable threshold (1-50%, default 30%)
-- Individual checkboxes for critical abilities (e.g., Divine Seal, Martyr)
-- Triggers emergency abilities when party members drop below threshold
-- Applied before regular healing for rapid response to health emergencies
-
-### Group Dropdown Consolidation
-When multiple abilities exist in a group (e.g., Cure I-V, Protect I-IV), they are consolidated into a dropdown selector:
-- Automatically selects highest level usable ability by default
-- Shows ability cost (MP) in dropdown
-- Grays out unlearned spells
-- ON/OFF button controls the selected ability
-- Only the currently visible (selected) ability in the dropdown can be enabled
-- When dropdown selection changes, all other abilities in the group are automatically disabled
-- Dropdown does not auto-advance on level-up; player must manually select higher-tier spells
-
-### Subjob Duplicate Filtering
-The UI automatically hides abilities from subjob when they already exist in main job:
-- Prevents duplicate Cure spells, Protect, Shell, etc.
-- Uses `is_subjob_duplicate()` to detect and filter
-- Keeps UI clean and prevents confusion
-
-### Level-Based Ability Filtering
-All ability rendering now includes level-based filtering:
-- Each section calls `can_use_ability()` before displaying abilities
-- Main job abilities filtered by main job level
-- Subjob abilities filtered by subjob level
-- Abilities with `main_job_only=true` flag hidden when job is subjob (e.g., Geomancer Geo spells)
-- Only shows abilities currently available to the player
-- Optional `validate_ability()` hook for job-specific validation (e.g., pet type checks)
-
-**Main Job Only Restriction:**
-- Abilities can be marked with `main_job_only=true` flag in job definition
-- `can_use_ability()` checks both level requirements and main job restriction
-- Returns false if ability is main job only but `is_main_job=false`
-- Used for Geomancer Geo spells which cannot be cast when GEO is subjob
-- Prevents UI clutter and casting errors for subjob restrictions
-
-### Trust Detection
-- Party member buttons automatically detect Trusts (server_id >= 0x1000000)
-- Trust buttons display as dark gray and disabled in UI
-- Hover tooltip explains "Trust buffs are not available"
-- Buffs tracked via packet-based system for Trusts
-
-### Ability State Management
-- **Default State**: All newly discovered abilities default to OFF (disabled) until explicitly enabled
-- **Grouped Abilities**: Only the currently visible ability in a dropdown can be enabled; selecting a different ability in the dropdown automatically disables all other group members
-- **Unknown Spells**: Buttons (ON/OFF and party target buttons) are fully disabled (dark gray, unclickable) when a spell is not yet learned
-- **Spell Learning**: When a spell is learned, buttons become enabled and functional
+---
 
 ## Known Limitations
-- Party only (no alliance support)
-- Some buff IDs may vary by private server
-- Trust buff tracking requires packet-based detection (may have slight delay)
-- Requires Ashita v4
-- Attack Range requires [Multisend](https://github.com/ThornyFFXI/Multisend)
+
+- Party only (no alliance support).
+- Some buff IDs may vary by private server.
+- Trust buff tracking has slight packet-based delay.
+- Requires Ashita v4.
+- Attack Range feature requires [Multisend](https://github.com/ThornyFFXI/Multisend).

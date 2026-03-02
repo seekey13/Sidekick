@@ -21,22 +21,25 @@ local imgui = require('imgui')
 
 -- Load core modules
 local common = require('lib.core.common')
-local resource = require('lib.core.resource')
+local action_core = require('lib.core.action_core')
 local automation = require('lib.core.automation')
 local parse_packets = require('lib.core.parse_packets')
 
 -- Load action modules
+local heal_mod   = require('lib.actions.heal')
+local status_mod = require('lib.actions.status_removal')
+
 local action_modules = {
-    item = require('lib.actions.item'),
-    heal = require('lib.actions.heal'),
-    heal_aoe = require('lib.actions.heal_aoe'),
-    heal_pet = require('lib.actions.heal_pet'),
-    wake = require('lib.actions.wake'),
-    debuff_removal = require('lib.actions.debuff_removal'),
-    buff = require('lib.actions.buff'),
-    recover = require('lib.actions.recover'),
-    geo = require('lib.actions.geo'),
-    rest = require('lib.actions.rest'),
+    item           = require('lib.actions.item'),
+    heal           = heal_mod,
+    heal_aoe       = { execute = heal_mod.execute_aoe },
+    heal_pet       = { execute = heal_mod.execute_pet },
+    wake           = { execute = status_mod.execute_wake },
+    debuff_removal = { execute = status_mod.execute_debuff_removal },
+    buff           = require('lib.actions.buff'),
+    recover        = require('lib.actions.recover'),
+    geo            = require('lib.actions.geo'),
+    rest           = require('lib.actions.rest'),
 }
 
 -- Load config UI
@@ -624,7 +627,7 @@ local function automation_tick()
         end
     end
     
-    local player_resource = resource.get_resource(job_def.resource_type)
+    local player_resource = action_core.get_resource(job_def.resource_type)
     
     -- Get priority order
     local priority_order = job_def.priority_order or {

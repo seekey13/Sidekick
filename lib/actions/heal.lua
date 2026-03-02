@@ -6,7 +6,6 @@
 local heal = {}
 
 local common      = require('lib.core.common')
-local resource    = require('lib.core.resource')
 local action_core = require('lib.core.action_core')
 
 function heal.execute(settings, job_def, main_level, sub_level, player_resource)
@@ -346,10 +345,10 @@ function heal.select_ability(abilities, target_hpp, job_def, player_resource, pa
                 -- Check if usable: has pet, has resource, not on cooldown
                 if common.targets.get_pet() then
                     local ability_resource_type = ability.resource_type or job_def.resource_type
-                    if resource.has_resource(ability_resource_type, ability.cost) then
+                    if action_core.has_resource(ability_resource_type, ability.cost) then
                         local is_ready = true
                         if ability.id then
-                            is_ready = resource.is_ability_ready(ability.id)
+                            is_ready = action_core.is_ability_ready(ability.id)
                         end
                         if is_ready then
                             common.debugf('[HEAL] Using Healing Ruby (has pet, resources available)')
@@ -440,6 +439,70 @@ function heal.select_ability(abilities, target_hpp, job_def, player_resource, pa
             usable_abilities[1].name, usable_abilities[1].cost or 0)
         return usable_abilities[1]
     end
+end
+
+-- ============================================================================
+-- AOE Healing  (formerly lib.actions.heal_aoe)
+-- ============================================================================
+
+function heal.execute_aoe(settings, job_def)
+    if not settings.heal_aoe_enabled then return nil end
+
+    local state  = common.game_state
+    local player = state and state.player
+    if not player then return nil end
+
+    local abilities = common.filter_abilities_by_level(
+        job_def.abilities.heal_aoe or {}, settings,
+        player.main_level, player.sub_level, job_def)
+    if #abilities == 0 then return nil end
+
+    -- Average HP of alive, non-full party members
+    local in_pl_mode   = settings.pl_mode_enabled and settings.pl_connected_player
+    local total, count = 0, 0
+    for i = 0, 5 do
+        local m = i == 0 and state.player or state.party[i]
+        if m and not (in_pl_mode and common.is_trust(i)) then
+            local hpp = m.hpp or 0
+            if common.is_active_member(hpp) then
+                total = total + hpp
+                count = count + 1
+            end
+        end
+    end
+    local avg_hp    = count > 0 and (total / count) or 100
+    local threshold = settings.heal_aoe_threshold or 70
+    common.debugf('[HEAL_AOE] Avg HP: %.1f%% (threshold: %.1f%%)', avg_hp, threshold)
+    if not common.below_threshold(avg_hp, threshold) then return nil end
+
+    return action_core.first_command(abilities, job_def, settings, '[HEAL_AOE]', nil,
+        function(a) return string.format('AOE healing with %s (avg HP: %.1f%%)', a.name, avg_hp) end)
+end
+
+-- ============================================================================
+-- Pet Healing  (formerly lib.actions.heal_pet)
+-- ============================================================================
+
+function heal.execute_pet(settings, job_def)
+    if not settings.heal_pet_enabled      then return nil end
+    if not common.targets.get_pet()       then return nil end
+
+    local state  = common.game_state
+    local player = state and state.player
+    if not player then return nil end
+
+    local abilities = common.filter_abilities_by_level(
+        job_def.abilities.heal_pet or {}, settings,
+        player.main_level, player.sub_level, job_def)
+    if #abilities == 0 then return nil end
+
+    local pet_hpp   = player.pet_hpp
+    local threshold = settings.heal_pet_threshold or 50
+    common.debugf('[HEAL_PET] Pet HP: %.1f%% (threshold: %.1f%%)', pet_hpp, threshold)
+    if not common.below_threshold(pet_hpp, threshold) then return nil end
+
+    return action_core.first_command(abilities, job_def, settings, '[HEAL_PET]', nil,
+        function(a) return string.format('Healing pet with %s (Pet HP: %.1f%%)', a.name, pet_hpp) end)
 end
 
 return heal

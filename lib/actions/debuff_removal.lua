@@ -5,9 +5,8 @@
 
 local debuff_removal = {}
 
-local common = require('lib.core.common')
-local resource = require('lib.core.resource')
-local buff_utils = require('lib.core.buff_utils')
+local common      = require('lib.core.common')
+local action_core = require('lib.core.action_core')
 
 -- ============================================================================
 -- Helper Functions
@@ -19,7 +18,7 @@ local buff_utils = require('lib.core.buff_utils')
 -- Returns: boolean (true if ability can remove at least one debuff)
 local function can_remove_debuffs(ability, debuffs)
     if not ability.debuff_id then return #debuffs > 0 end
-    return buff_utils.has_any_buff(debuffs, ability.debuff_id)
+    return action_core.has_any_buff(debuffs, ability.debuff_id)
 end
 
 -- Count removable debuffs in a list of buffs
@@ -30,7 +29,7 @@ local function count_removable_debuffs(buffs, abilities)
     local count = 0
     for _, buff_id in ipairs(buffs) do
         for _, ability in ipairs(abilities) do
-            if not ability.debuff_id or buff_utils.has_any_buff({buff_id}, ability.debuff_id) then
+            if not ability.debuff_id or action_core.has_any_buff({buff_id}, ability.debuff_id) then
                 count = count + 1
                 break
             end
@@ -84,30 +83,14 @@ function debuff_removal.execute(settings, job_def, main_level, sub_level, player
             
             local player_buffs = state.player.buffs or {}
             if can_remove_debuffs(ability, player_buffs) then
-                -- Check resource
-                local ability_resource_type = ability.resource_type or job_def.resource_type
-                if resource.has_resource(ability_resource_type, ability.cost) then
-                    -- Check cooldown (if ability has an ID)
-                    local is_ready = true
-                    if ability.id then
-                        is_ready = resource.is_spell_ready(ability.id)
-                        common.debugf('[DEBUFF_REMOVAL] %s recast check - ID: %d, Ready: %s', 
-                            ability.name, ability.id, tostring(is_ready))
-                    end
-                    
-                    if is_ready then
-                        local command = common.build_ability_command(ability, 0, settings)
-                        if command then
-                            local debuff_count = count_removable_debuffs(player_buffs, {ability})
-                            common.debugf('[DEBUFF_REMOVAL] Using %s on self (%d debuff%s)', 
-                                ability.name, debuff_count, debuff_count == 1 and '' or 's')
-                            return {
-                                command = command,
-                                description = string.format('Removing %d debuff(s) from self with %s',
-                                    debuff_count, ability.name)
-                            }
-                        end
-                    end
+                local debuff_count = count_removable_debuffs(player_buffs, {ability})
+                local desc = string.format('Removing %d debuff(s) from self with %s', debuff_count, ability.name)
+                local result, reason = action_core.try_use(ability, job_def, settings, 0, desc)
+                if result then
+                    common.debugf('[DEBUFF_REMOVAL] Using %s on self (%d debuff%s)', ability.name, debuff_count, debuff_count == 1 and '' or 's')
+                    return result
+                elseif reason then
+                    common.debugf('[DEBUFF_REMOVAL] %s: %s', ability.name, reason)
                 end
             end
         end
@@ -159,33 +142,17 @@ function debuff_removal.execute(settings, job_def, main_level, sub_level, player
                 -- Try to use an ability on focus target
                 for _, ability in ipairs(available_abilities) do
                     if can_remove_debuffs(ability, all_buffs[focus_party_idx]) then
-                    -- Check resource
-                    local ability_resource_type = ability.resource_type or job_def.resource_type
-                    if resource.has_resource(ability_resource_type, ability.cost) then
-                        -- Check cooldown (if ability has an ID)
-                        local is_ready = true
-                        if ability.id then
-                            is_ready = resource.is_spell_ready(ability.id)
-                            common.debugf('[DEBUFF_REMOVAL] %s recast check - ID: %d, Ready: %s', 
-                                ability.name, ability.id, tostring(is_ready))
-                        end
-                        
-                        if is_ready then
-                            local command = common.build_ability_command(ability, focus_party_idx, settings)
-                            if command then
-                                common.debugf('[DEBUFF_REMOVAL] Using %s on focus target (p%d, %d debuff%s)', 
-                                    ability.name, focus_party_idx, debuff_counts[focus_party_idx],
-                                    debuff_counts[focus_party_idx] == 1 and '' or 's')
-                                return {
-                                    command = command,
-                                    description = string.format('Removing %d debuff(s) from focus with %s',
-                                        debuff_counts[focus_party_idx], ability.name)
-                                }
-                            end
+                        local dc = debuff_counts[focus_party_idx]
+                        local desc = string.format('Removing %d debuff(s) from focus with %s', dc, ability.name)
+                        local result, reason = action_core.try_use(ability, job_def, settings, focus_party_idx, desc)
+                        if result then
+                            common.debugf('[DEBUFF_REMOVAL] Using %s on focus target (p%d, %d debuff%s)', ability.name, focus_party_idx, dc, dc == 1 and '' or 's')
+                            return result
+                        elseif reason then
+                            common.debugf('[DEBUFF_REMOVAL] %s: %s', ability.name, reason)
                         end
                     end
                 end
-            end
         else
             common.debugf('[DEBUFF_REMOVAL] Focus target (p%d) out of range, skipping', focus_party_idx)
         end
@@ -217,33 +184,15 @@ function debuff_removal.execute(settings, job_def, main_level, sub_level, player
     if best_index then
         for _, ability in ipairs(available_abilities) do
             if can_remove_debuffs(ability, all_buffs[best_index]) then
-                -- Check resource
-                local ability_resource_type = ability.resource_type or job_def.resource_type
-                if resource.has_resource(ability_resource_type, ability.cost) then
-                    -- Check cooldown (if ability has an ID)
-                    local is_ready = true
-                    if ability.id then
-                        is_ready = resource.is_spell_ready(ability.id)
-                        common.debugf('[DEBUFF_REMOVAL] %s recast check - ID: %d, Ready: %s', 
-                            ability.name, ability.id, tostring(is_ready))
-                    end
-                    
-                    if is_ready then
-                        local command = common.build_ability_command(ability, best_index, settings)
-                        if command then
-                            common.debugf('[DEBUFF_REMOVAL] Using %s on p%d (%d debuff%s)', 
-                                ability.name, best_index, max_debuffs,
-                                max_debuffs == 1 and '' or 's')
-                            local best_member = best_index == 0 and state.player or state.party[best_index]
-                            return {
-                                command = command,
-                                description = string.format('Removing %d debuff(s) from %s with %s',
-                                    max_debuffs,
-                                    best_member and best_member.name or 'party member',
-                                    ability.name)
-                            }
-                        end
-                    end
+                local best_member = best_index == 0 and state.player or state.party[best_index]
+                local desc = string.format('Removing %d debuff(s) from %s with %s',
+                    max_debuffs, best_member and best_member.name or 'party member', ability.name)
+                local result, reason = action_core.try_use(ability, job_def, settings, best_index, desc)
+                if result then
+                    common.debugf('[DEBUFF_REMOVAL] Using %s on p%d (%d debuff%s)', ability.name, best_index, max_debuffs, max_debuffs == 1 and '' or 's')
+                    return result
+                elseif reason then
+                    common.debugf('[DEBUFF_REMOVAL] %s: %s', ability.name, reason)
                 end
             end
         end

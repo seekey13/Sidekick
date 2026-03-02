@@ -7,7 +7,6 @@ local ui_config = {}
 
 local imgui = require('imgui')
 local common = require('lib.core.common')
-local resource = require('lib.core.resource')
 local ui = require('lib.ui.components')
 
 -- UI state
@@ -199,22 +198,8 @@ local function get_usable_abilities_in_group(job_def, target_group)
     local usable = {}
     
     for _, ability in ipairs(all_abilities) do
-        if can_use_ability(ability) and can_target_outside(ability) then
-            -- Check if spell is learned (for magic spells)
-            local cmd = type(ability.command) == 'function' and ability.command(0) or ability.command
-            local is_spell = cmd and string.sub(cmd, 1, 3) == '/ma'
-            local has_spell = true
-            
-            if is_spell and ability.id then
-                local ok, known = pcall(function() return AshitaCore:GetMemoryManager():GetPlayer():HasSpell(ability.id) end)
-                if ok then
-                    has_spell = known
-                end
-            end
-            
-            if has_spell then
-                table.insert(usable, ability)
-            end
+        if can_use_ability(ability) and can_target_outside(ability) and common.has_spell_learned(ability) then
+            table.insert(usable, ability)
         end
     end
     
@@ -277,6 +262,65 @@ local function is_trust(party_index)
     
     -- Trusts have server IDs >= 0x1000000 (16777216)
     return server_id >= 0x1000000
+end
+
+-- Render a party-member dropdown (reusable for Focus/Follow/Recovery/Entrust Target)
+-- Args:
+--   label (string) - Combo display label
+--   setting_key (string) - Key in settings to read/write the selected name
+--   include_player (bool) - Whether to include P0 (the player) in the list
+--   party_member_names (table) - Pre-built list of P1-P5 names
+--   settings (table) - Current settings table
+--   on_change (function|nil) - Callback after selection changes
+-- Returns: string|nil - The currently selected name (or nil for 'None')
+local function render_party_dropdown(label, setting_key, include_player, party_member_names, settings, on_change)
+    local options = { 'None' }
+    if include_player then
+        local player_name = common.get_party_member_name(0)
+        if player_name and player_name ~= '' then
+            table.insert(options, player_name)
+        end
+    end
+    for _, name in ipairs(party_member_names) do
+        table.insert(options, name)
+    end
+
+    -- Validate saved name is in current party
+    local current_name = settings[setting_key]
+    local current_display = 'None'
+    if current_name then
+        local found = false
+        for _, name in ipairs(options) do
+            if name == current_name then
+                current_display = current_name
+                found = true
+                break
+            end
+        end
+        if not found then
+            settings[setting_key] = nil
+            if on_change then on_change() end
+        end
+    end
+
+    -- Render dropdown
+    imgui.PushItemWidth(250)
+    if imgui.BeginCombo(label, current_display) then
+        for _, option in ipairs(options) do
+            local is_selected = (option == current_display)
+            if imgui.Selectable(option, is_selected) then
+                settings[setting_key] = (option ~= 'None') and option or nil
+                if on_change then on_change() end
+            end
+            if is_selected then
+                imgui.SetItemDefaultFocus()
+            end
+        end
+        imgui.EndCombo()
+    end
+    imgui.PopItemWidth()
+
+    return settings[setting_key]
 end
 
 -- Sync UI state from settings
@@ -597,59 +641,8 @@ function ui_config.render(settings, job_def, callback, clear_data_callback, rest
             if has_non_self_heal then
                 local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Enable Focus Healing', 'focus_enabled', false)
                 if is_open and is_enabled then
-                    -- Build dynamic focus target options (None + all party including player)
-                    local focus_target_options = { 'None' }
-                    -- Add player (P0)
-                    local player_name = common.get_party_member_name(0)
-                    if player_name and player_name ~= '' then
-                        table.insert(focus_target_options, player_name)
-                    end
-                    -- Add party members (P1-P5)
-                    for _, name in ipairs(party_member_names) do
-                        table.insert(focus_target_options, name)
-                    end
-                    
-                    -- Validate saved focus target name is in current party
-                    local current_focus_display = 'None'
-                    if focus_target_name then
-                        local found = false
-                        for _, name in ipairs(focus_target_options) do
-                            if name == focus_target_name then
-                                current_focus_display = focus_target_name
-                                found = true
-                                break
-                            end
-                        end
-                        if not found then
-                            -- Saved target not in party, reset
-                            focus_target_name = nil
-                            settings.focus_target = nil
-                            if callback then callback() end
-                        end
-                    end
-                    
                     -- Focus Target dropdown
-                    imgui.PushItemWidth(250)
-                    if imgui.BeginCombo('Focus Target', current_focus_display) then
-                        for _, option in ipairs(focus_target_options) do
-                            local is_selected = (option == current_focus_display)
-                            if imgui.Selectable(option, is_selected) then
-                                if option == 'None' then
-                                    focus_target_name = nil
-                                    settings.focus_target = nil
-                                else
-                                    focus_target_name = option
-                                    settings.focus_target = option
-                                end
-                                if callback then callback() end
-                            end
-                            if is_selected then
-                                imgui.SetItemDefaultFocus()
-                            end
-                        end
-                        imgui.EndCombo()
-                    end
-                    imgui.PopItemWidth()
+                    focus_target_name = render_party_dropdown('Focus Target', 'focus_target', true, party_member_names, settings, callback)
                     
                     ui.slider_int(ctx, 'Focus Healing (HP%)', 'focus_threshold', { settings.focus_threshold or 85 }, 1, 100)
                 end
@@ -775,53 +768,8 @@ function ui_config.render(settings, job_def, callback, clear_data_callback, rest
                 
                 -- Hide follow target in PL mode (auto-set to PL player)
                 if not settings.pl_mode_enabled then
-                    -- Build dynamic follow target options (None + party members P1-P5, exclude player)
-                    local follow_target_options = { 'None' }
-                    for _, name in ipairs(party_member_names) do
-                        table.insert(follow_target_options, name)
-                    end
-                    
-                    -- Validate saved follow target name is in current party
-                    local current_follow_display = 'None'
-                    if follow_target_name then
-                        local found = false
-                        for _, name in ipairs(follow_target_options) do
-                            if name == follow_target_name then
-                                current_follow_display = follow_target_name
-                                found = true
-                                break
-                            end
-                        end
-                        if not found then
-                            -- Saved target not in party, reset
-                            follow_target_name = nil
-                            settings.follow_target = nil
-                            if callback then callback() end
-                        end
-                    end
-                    
                     -- Follow Target dropdown
-                    imgui.PushItemWidth(250)
-                    if imgui.BeginCombo('Follow Target', current_follow_display) then
-                        for _, option in ipairs(follow_target_options) do
-                            local is_selected = (option == current_follow_display)
-                            if imgui.Selectable(option, is_selected) then
-                                if option == 'None' then
-                                    follow_target_name = nil
-                                    settings.follow_target = nil
-                                else
-                                    follow_target_name = option
-                                    settings.follow_target = option
-                                end
-                                if callback then callback() end
-                            end
-                            if is_selected then
-                                imgui.SetItemDefaultFocus()
-                            end
-                        end
-                        imgui.EndCombo()
-                    end
-                    imgui.PopItemWidth()
+                    follow_target_name = render_party_dropdown('Follow Target', 'follow_target', false, party_member_names, settings, callback)
                 end
                 
                 ui.slider_int(ctx, 'Distance (yalms)', 'rest_distance', { settings.rest_distance or 7 }, 1, 15)
@@ -872,53 +820,8 @@ function ui_config.render(settings, job_def, callback, clear_data_callback, rest
                 
                 -- Party MP recovery section (for Devotion)
                 if has_party_mp_recovery then
-                    -- Build dynamic recovery target options (None + party members P1-P5, exclude player)
-                    local recovery_target_options = { 'None' }
-                    for _, name in ipairs(party_member_names) do
-                        table.insert(recovery_target_options, name)
-                    end
-                    
-                    -- Validate saved recovery target name is in current party
-                    local current_recovery_display = 'None'
-                    if focus_recovery_target_name then
-                        local found = false
-                        for _, name in ipairs(recovery_target_options) do
-                            if name == focus_recovery_target_name then
-                                current_recovery_display = focus_recovery_target_name
-                                found = true
-                                break
-                            end
-                        end
-                        if not found then
-                            -- Saved target not in party, reset
-                            focus_recovery_target_name = nil
-                            settings.focus_recovery_target = nil
-                            if callback then callback() end
-                        end
-                    end
-                    
                     -- Recovery Target dropdown
-                    imgui.PushItemWidth(250)
-                    if imgui.BeginCombo('Recovery Target', current_recovery_display) then
-                        for _, option in ipairs(recovery_target_options) do
-                            local is_selected = (option == current_recovery_display)
-                            if imgui.Selectable(option, is_selected) then
-                                if option == 'None' then
-                                    focus_recovery_target_name = nil
-                                    settings.focus_recovery_target = nil
-                                else
-                                    focus_recovery_target_name = option
-                                    settings.focus_recovery_target = option
-                                end
-                                if callback then callback() end
-                            end
-                            if is_selected then
-                                imgui.SetItemDefaultFocus()
-                            end
-                        end
-                        imgui.EndCombo()
-                    end
-                    imgui.PopItemWidth()
+                    focus_recovery_target_name = render_party_dropdown('Recovery Target', 'focus_recovery_target', false, party_member_names, settings, callback)
                     
                     if focus_recovery_target_name then
                         ui.slider_int(ctx, 'Target Recover (MP%)', 'focus_recovery_threshold', { settings.focus_recovery_threshold or 30 }, 1, 100)
@@ -984,22 +887,8 @@ function ui_config.render(settings, job_def, callback, clear_data_callback, rest
                     local available_indi_spells = {}
                     if job_def.abilities.buff then
                         for _, ability in ipairs(job_def.abilities.buff) do
-                            if ability.group == 'Indi' and can_use_ability(ability) then
-                                -- Check if spell is learned
-                                local cmd = type(ability.command) == 'function' and ability.command(0) or ability.command
-                                local is_spell = cmd and string.sub(cmd, 1, 3) == '/ma'
-                                local has_spell = true
-                                
-                                if is_spell and ability.id then
-                                    local ok, known = pcall(function() return AshitaCore:GetMemoryManager():GetPlayer():HasSpell(ability.id) end)
-                                    if ok then
-                                        has_spell = known
-                                    end
-                                end
-                                
-                                if has_spell then
-                                    table.insert(available_indi_spells, ability)
-                                end
+                            if ability.group == 'Indi' and can_use_ability(ability) and common.has_spell_learned(ability) then
+                                table.insert(available_indi_spells, ability)
                             end
                         end
                     end
@@ -1008,53 +897,8 @@ function ui_config.render(settings, job_def, callback, clear_data_callback, rest
                     table.sort(available_indi_spells, function(a, b) return a.level > b.level end)
                     
                     if #available_indi_spells > 0 then
-                        -- Build dynamic party target options (None + party member names for P1-P5)
-                        local party_target_options = { 'None' }
-                        for _, name in ipairs(party_member_names) do
-                            table.insert(party_target_options, name)
-                        end
-                        
-                        -- Validate saved target name is in current party
-                        local current_target_display = 'None'
-                        if entrust_target_name then
-                            local found = false
-                            for _, name in ipairs(party_target_options) do
-                                if name == entrust_target_name then
-                                    current_target_display = entrust_target_name
-                                    found = true
-                                    break
-                                end
-                            end
-                            if not found then
-                                -- Saved target not in party, reset
-                                entrust_target_name = nil
-                                settings.entrust_target = nil
-                                if callback then callback() end
-                            end
-                        end
-                        
                         -- Entrust Target dropdown
-                        imgui.PushItemWidth(250)
-                        if imgui.BeginCombo('Entrust Target', current_target_display) then
-                            for _, option in ipairs(party_target_options) do
-                                local is_selected = (option == current_target_display)
-                                if imgui.Selectable(option, is_selected) then
-                                    if option == 'None' then
-                                        entrust_target_name = nil
-                                        settings.entrust_target = nil
-                                    else
-                                        entrust_target_name = option
-                                        settings.entrust_target = option
-                                    end
-                                    if callback then callback() end
-                                end
-                                if is_selected then
-                                    imgui.SetItemDefaultFocus()
-                                end
-                            end
-                            imgui.EndCombo()
-                        end
-                        imgui.PopItemWidth()
+                        entrust_target_name = render_party_dropdown('Entrust Target', 'entrust_target', false, party_member_names, settings, callback)
                         
                         -- Validate saved spell name is in available spells
                         local current_spell_display = 'None'
