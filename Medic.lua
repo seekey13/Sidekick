@@ -842,7 +842,7 @@ ashita.events.register('packet_in', 'medic_packet_in', function(e)
                     buff_name = 'Buff#' .. buff_id
                 end
 
-                common.printf('%s lost the effect of %s.', target_name, buff_name)
+                common.debug('%s lost the effect of %s.', target_name, buff_name)
 
                 -- Update Trust buff tracking
                 if server_id >= 0x1000000 then
