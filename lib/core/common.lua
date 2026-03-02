@@ -1559,7 +1559,7 @@ function common.refresh_game_state()
             state.party_size = state.party_size + 1
 
             -- Identity
-            local server_id   = safe_get(function() return party_mgr:GetMemberServerId(i)    end, 0)
+            local server_id   = safe_get(function() return party_mgr:GetMemberServerId(i)     end, 0)
             local name        = safe_get(function() return party_mgr:GetMemberName(i)         end, '')
             local target_idx  = safe_get(function() return party_mgr:GetMemberTargetIndex(i)  end, 0)
 
@@ -1615,6 +1615,17 @@ function common.refresh_game_state()
                 buffs = common.get_party_buffs(i)
             end
 
+            -- Finishing Moves (player only)
+            local fm = 0
+            if i == 0 then
+                if     common.has_buff(0, 381) then fm = 1
+                elseif common.has_buff(0, 382) then fm = 2
+                elseif common.has_buff(0, 383) then fm = 3
+                elseif common.has_buff(0, 384) then fm = 4
+                elseif common.has_buff(0, 385) then fm = 5
+                end
+            end
+
             -- Pet data (player only)
             local pet_hpp      = 0
             local pet_position = {x = 0, y = 0, z = 0}
@@ -1658,7 +1669,8 @@ function common.refresh_game_state()
                 sub_level    = sub_level,
                 is_trust     = (server_id >= 0x1000000),
                 is_active    = true,
-                -- Player-only pet fields (zero/empty for party members)
+                -- Player-only fields (zero/empty for party members)
+                fm           = fm,
                 pet_hpp      = pet_hpp,
                 pet_position = pet_position,
             }

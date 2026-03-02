@@ -31,10 +31,6 @@ function automation.execute_command(command, description)
     AshitaCore:GetChatManager():QueueCommand(0, command)
     last_command_time = current_time
     
-    -- if description then
-    --     common.printf(string.format('Executing: %s', description))
-    -- end
-    
     return true
 end
 
