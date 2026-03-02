@@ -1274,9 +1274,6 @@ function common.filter_abilities_by_level(abilities, settings, main_level, sub_l
         return available_abilities
     end
 
-    -- Check if in PL Mode
-    local in_pl_mode = settings and settings.pl_mode_enabled and settings.pl_connected_player
-    
     for _, ability in ipairs(abilities) do
         -- Safely get level value
         local required_level = 0
@@ -1290,11 +1287,6 @@ function common.filter_abilities_by_level(abilities, settings, main_level, sub_l
         -- Determine which level to check based on ability source
         local player_level = ability.is_main_job == false and (sub_level or 0) or (main_level or 0)
         local job_source = ability.is_main_job == false and 'subjob' or 'main job'
-        
-        -- PL Mode: Only allow abilities with target_outside = true
-        if in_pl_mode and ability.target_outside ~= true then
-            goto continue
-        end
 
         -- Check if ability requires main job only (e.g., Geo spells)
         if ability.main_job_only and ability.is_main_job == false then
@@ -1342,13 +1334,9 @@ end
 -- Args:
 --   ability (table) - Ability definition with command field
 --   party_index (number|nil) - party index 0-5 for p0-p5
---   settings (table|nil) - Settings table for PL Mode detection
 -- Returns: string - Command string or nil
-function common.build_ability_command(ability, party_index, settings)
+function common.build_ability_command(ability, party_index)
     local command = nil
-    
-    -- Check if in PL Mode
-    local in_pl_mode = settings and settings.pl_mode_enabled and settings.pl_connected_player
     
     if type(ability.command) == 'function' then
         -- If party_index is provided, convert party index (0-5) to server ID
@@ -1364,11 +1352,6 @@ function common.build_ability_command(ability, party_index, settings)
         end
     elseif type(ability.command) == 'string' then
         command = ability.command
-    end
-    
-    -- If in PL Mode, prepend /mst command
-    if command and in_pl_mode then
-        command = string.format('/mst %s %s', settings.pl_connected_player, command)
     end
     
     return command
@@ -1445,7 +1428,7 @@ function common.check_target_modifier(job_def, settings, main_level, sub_level)
     end
     
     -- Build and return the command
-    local command = common.build_ability_command(modifier_ability, 0, settings)
+    local command = common.build_ability_command(modifier_ability, 0)
     if command then
         return {
             command = command,

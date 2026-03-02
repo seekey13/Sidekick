@@ -95,17 +95,11 @@ function debuff_removal.execute(settings, job_def, main_level, sub_level, player
     end
     
     -- Build buff table from game_state snapshot
-    local in_pl_mode = settings and settings.pl_mode_enabled and settings.pl_connected_player
-
     local all_buffs = {}
     for i = 0, 5 do
         local member = i == 0 and state.player or state.party[i]
         if member then
-            if in_pl_mode and member.is_trust then
-                all_buffs[i] = {}
-            else
-                all_buffs[i] = member.buffs or {}
-            end
+            all_buffs[i] = member.buffs or {}
         else
             all_buffs[i] = {}
         end

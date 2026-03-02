@@ -61,7 +61,7 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
             -- Select appropriate ability
             local selected_ability = heal.select_ability(available_abilities, player_hpp, job_def, player_resource, 0)
             if selected_ability then
-                local command = common.build_ability_command(selected_ability, 0, settings)
+                local command = common.build_ability_command(selected_ability, 0)
                 
                 if command then
                     common.debugf('[HEAL] >>> Using self-only heal %s', selected_ability.name)
@@ -79,7 +79,6 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
     local threshold       = settings.heal_threshold or 75
     local focus_enabled   = settings.focus_enabled
     local focus_threshold = settings.focus_threshold or 85
-    local in_pl_mode      = settings.pl_mode_enabled and settings.pl_connected_player
 
     -- Resolve focus target party index from game_state
     local focus_party_idx = nil
@@ -105,7 +104,6 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
     for i = 0, 5 do
         local m = i == 0 and state.player or state.party[i]
         if not m then goto continue_hp_check end
-        if in_pl_mode and common.is_trust(i) then goto continue_hp_check end
         local hpp        = m.hpp or 0
         local target_idx = m.target_index or 0
         if not common.is_active_member(hpp) then goto continue_hp_check end
@@ -171,7 +169,7 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
                         if not ok then
                         else
                             -- Determine target: self-target (Divine Seal) vs party-target (Martyr)
-                            local cmd_test         = common.build_ability_command(ability, 0, settings)
+                            local cmd_test         = common.build_ability_command(ability, 0)
                             local target_party_index
                             local in_range         = true
                             if cmd_test and cmd_test:find('<me>') then
@@ -188,7 +186,7 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
                                 end
                             end
                             if in_range then
-                                local command = common.build_ability_command(ability, target_party_index, settings)
+                                local command = common.build_ability_command(ability, target_party_index)
                                 if command then
                                     common.debugf('[HEAL] >>> Using critical ability %s', ability.name)
                                     local cm = critical_party_index == 0 and state.player or state.party[critical_party_index]
@@ -236,7 +234,7 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
                     if not common.is_in_range(focus_target_index, ability_range) then
                         return nil
                     end
-                    local command = common.build_ability_command(selected_ability, focus_party_index, settings)
+                    local command = common.build_ability_command(selected_ability, focus_party_index)
                     if command then
                         common.debugf('[HEAL] >>> Healing focus target with %s', selected_ability.name)
                         return {
@@ -266,7 +264,7 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
                 if not common.is_in_range(target_index, ability_range) then
                     return nil
                 end
-                local command = common.build_ability_command(selected_ability, party_status.lowest_hp_index, settings)
+                local command = common.build_ability_command(selected_ability, party_status.lowest_hp_index)
                 if command then
                     return {
                         command = command,
@@ -377,11 +375,10 @@ function heal.execute_aoe(settings, job_def)
     if #abilities == 0 then return nil end
 
     -- Average HP of alive, non-full party members
-    local in_pl_mode   = settings.pl_mode_enabled and settings.pl_connected_player
     local total, count = 0, 0
     for i = 0, 5 do
         local m = i == 0 and state.player or state.party[i]
-        if m and not (in_pl_mode and common.is_trust(i)) then
+        if m then
             local hpp = m.hpp or 0
             if common.is_active_member(hpp) then
                 total = total + hpp

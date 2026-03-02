@@ -59,7 +59,6 @@ local last_job_id = nil
 local last_sub_job_id = nil
 local last_level = nil
 local last_unsupported_warning = nil  -- Track last unsupported job warning to prevent spam
-local pl_mode_active = false  -- Track if PL Mode is enabled (prevents auto job detection)
 
 -- Settings file path
 local default_settings = T{
@@ -78,38 +77,6 @@ local range_state = {
 --[[
     Job Loading
 ]]--
-
--- Clear cached player job and level data (used when PL Mode is enabled)
-local function clear_player_data()
-    current_main_job_id = nil
-    current_sub_job_id = nil
-    last_job_id = nil
-    last_sub_job_id = nil
-    last_level = nil
-    main_job_def = nil
-    sub_job_def = nil
-    job_def = nil
-    pl_mode_active = true
-    
-end
-
--- Restore normal mode (used when PL Mode is disabled)
-local function restore_normal_mode()
-    pl_mode_active = false
-    
-    -- Clear connection data to require manual reconnect
-    if addon_settings then
-        addon_settings.pl_connected_player = nil
-        addon_settings.pl_main_job = nil
-        addon_settings.pl_main_level = nil
-        addon_settings.pl_sub_job = nil
-        addon_settings.pl_sub_level = nil
-        settings.save()
-    end
-    
-    common.printf('PL Mode disabled, restoring normal operation')
-    -- Job will be automatically reloaded on next frame by setup_job()
-end
 
 local function load_single_job_definition(job_id)
     -- Map job IDs to job definition files
@@ -320,50 +287,7 @@ local function load_job_definition(main_job_id, sub_job_id)
     return merged_def
 end
 
--- Setup job from PL Mode connection data
-local function setup_pl_mode_job()
-    if not addon_settings then
-        return
-    end
-    
-    -- Check if we have connection data
-    if not addon_settings.pl_connected_player or not addon_settings.pl_main_job then
-        return
-    end
-    
-    -- Convert job abbreviations to IDs
-    local main_job_id = common.get_job_id_from_abbr(addon_settings.pl_main_job)
-    local sub_job_id = addon_settings.pl_sub_job and common.get_job_id_from_abbr(addon_settings.pl_sub_job) or nil
-    
-    if not main_job_id then
-        common.errorf('Invalid main job abbreviation: %s', addon_settings.pl_main_job)
-        return
-    end
-    
-    -- Check if already loaded with same job
-    if main_job_id == current_main_job_id and sub_job_id == current_sub_job_id and job_def then
-        return
-    end
-    
-    current_main_job_id = main_job_id
-    current_sub_job_id = sub_job_id
-    
-    main_job_def = load_single_job_definition(main_job_id)
-    sub_job_def = sub_job_id and load_single_job_definition(sub_job_id) or nil
-    job_def = load_job_definition(main_job_id, sub_job_id)
-    
-    if job_def then
-        common.printf('Loaded PL Mode job: %s (Lv%d/%d)', job_def.job_name, 
-            addon_settings.pl_main_level, addon_settings.pl_sub_level or 0)
-    end
-end
-
 local function setup_job()
-    -- Skip automatic job detection when PL Mode is active
-    if pl_mode_active then
-        return
-    end
-    
     local main_job_id, sub_job_id = common.get_player_job()
     
     -- Ignore invalid job IDs (happens during zoning)
@@ -526,13 +450,8 @@ local function automation_tick()
     end
     
     -- Check for job or level changes (direct reading, no packet dependency)
-    -- Skip when PL Mode is active
     local main_level, sub_level
-    if pl_mode_active then
-        -- Use PL Mode levels from settings
-        main_level = addon_settings.pl_main_level or 1
-        sub_level = addon_settings.pl_sub_level or 0
-    else
+    do
         local job_id, sub_job_id = common.get_player_job()
         main_level, sub_level = common.get_player_level()
         
@@ -663,20 +582,6 @@ ashita.events.register('load', 'medic_load', function()
     common.printf('Loaded! Type /medic help for commands.')
 end)
 
-ashita.events.register('d3d_beginscene', 'medic_clear_pl_connection', function()
-    -- Clear PL Mode connection data on first frame (requires manual reconnect each session)
-    if is_loaded and addon_settings then
-        addon_settings.pl_connected_player = nil
-        addon_settings.pl_main_job = nil
-        addon_settings.pl_main_level = nil
-        addon_settings.pl_sub_job = nil
-        addon_settings.pl_sub_level = nil
-        
-        -- Unregister this event after first run
-        ashita.events.unregister('d3d_beginscene', 'medic_clear_pl_connection')
-    end
-end)
-
 ashita.events.register('unload', 'medic_unload', function()    
     if addon_settings and job_def then
         local settings_file = 'settings_' .. (job_def.job_name or 'default'):lower() .. '.json'
@@ -718,23 +623,12 @@ ashita.events.register('d3d_present', 'medic_render', function()
     setup_job()
     
     -- Render config UI
-    -- Allow rendering in PL Mode even without job_def
-    if ui_config.is_visible() and addon_settings then
-        -- Load PL Mode job if active
-        if pl_mode_active and addon_settings.pl_mode_enabled and addon_settings.pl_connected_player then
-            setup_pl_mode_job()
+    if ui_config.is_visible() and addon_settings and job_def then
+        local save_settings_callback = function()
+            settings.save()
         end
         
-        -- Check if we can render (either have job_def OR PL Mode is active)
-        local can_render = job_def ~= nil or pl_mode_active
-        
-        if can_render then
-            local save_settings_callback = function()
-                settings.save()
-            end
-            
-            ui_config.render(addon_settings, job_def, save_settings_callback, clear_player_data, restore_normal_mode)
-        end
+        ui_config.render(addon_settings, job_def, save_settings_callback)
     end
     
     -- Render game-state panel (independent of automation / job_def)
@@ -835,7 +729,7 @@ ashita.events.register('packet_in', 'medic_packet_in', function(e)
                     buff_name = 'Buff#' .. buff_id
                 end
 
-                common.debug('%s lost the effect of %s.', target_name, buff_name)
+                common.debugf('%s lost the effect of %s.', target_name, buff_name)
 
                 -- Update Trust buff tracking
                 if server_id >= 0x1000000 then

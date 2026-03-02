@@ -28,7 +28,6 @@ return {
                 element = 'Light',
                 buff_id = 17,  -- Protect buff
                 group = 'protect',
-                target_outside = true,
             },
             {
                 name = 'Protect II',
@@ -41,7 +40,6 @@ return {
                 element = 'Light',
                 buff_id = 40,  -- Protect II buff
                 group = 'protect',
-                target_outside = true,
             },
             {
                 name = 'Protect III',
@@ -54,7 +52,6 @@ return {
                 element = 'Light',
                 buff_id = 41,  -- Protect III buff
                 group = 'protect',
-                target_outside = true,
             },
             -- Shell spells
             {
@@ -68,7 +65,6 @@ return {
                 element = 'Light',
                 buff_id = 41,  -- Shell buff
                 group = 'shell',
-                target_outside = true,
             },
             {
                 name = 'Shell II',
@@ -81,7 +77,6 @@ return {
                 element = 'Light',
                 buff_id = 41,  -- Shell II buff
                 group = 'shell',
-                target_outside = true,
             },
             {
                 name = 'Shell III',
@@ -94,7 +89,6 @@ return {
                 element = 'Light',
                 buff_id = 41,  -- Shell III buff
                 group = 'shell',
-                target_outside = true,
             },
             {
                 name = 'Shell IV',
@@ -107,7 +101,6 @@ return {
                 element = 'Light',
                 buff_id = 41,  -- Shell IV buff
                 group = 'shell',
-                target_outside = true,
             },
             -- Barelement
             {

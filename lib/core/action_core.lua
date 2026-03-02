@@ -160,7 +160,7 @@ local function is_spell_command(ability)
     if type(ability.command) == 'string' then
         return ability.command:match('^/ma%s') ~= nil
     elseif type(ability.command) == 'function' then
-        local test = common.build_ability_command(ability, 0, nil)
+        local test = common.build_ability_command(ability, 0)
         return test ~= nil and test:match('^/ma%s') ~= nil
     end
     return false
@@ -223,7 +223,7 @@ end
 
     abilities      – already level/settings-filtered ability list
     job_def        – job definition table (for resource_type fallback)
-    settings       – settings table (forwarded to build_ability_command)
+    settings       – settings table
     tag            – debug prefix string, e.g. '[HEAL_AOE]'
     party_index    – nil for AOE/self-targeted abilities, number for party member
     description_fn – function(ability) → string  (optional; falls back to ability.name)
@@ -232,7 +232,7 @@ function action_core.first_command(abilities, job_def, settings, tag, party_inde
     for _, ability in ipairs(abilities) do
         local ok, reason = action_core.is_usable(ability, job_def)
         if ok then
-            local command = common.build_ability_command(ability, party_index, settings)
+            local command = common.build_ability_command(ability, party_index)
             if command then
                 return {
                     command     = command,
@@ -253,7 +253,7 @@ function action_core.try_use(ability, job_def, settings, party_index, descriptio
     local ok, reason = action_core.is_usable(ability, job_def)
     if not ok then return nil, reason end
 
-    local command = common.build_ability_command(ability, party_index, settings)
+    local command = common.build_ability_command(ability, party_index)
     if not command then return nil, 'failed to build command' end
 
     -- Register pending Trust buff if applicable

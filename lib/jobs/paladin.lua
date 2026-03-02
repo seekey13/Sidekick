@@ -26,7 +26,6 @@ return {
                 range = 20,
                 value = 400,
                 wakes = true,
-                target_outside = true,
             },
             {
                 name = 'Cure III',
@@ -39,7 +38,6 @@ return {
                 range = 20,
                 value = 200,
                 wakes = true,
-                target_outside = true,
             },
             {
                 name = 'Cure II',
@@ -52,7 +50,6 @@ return {
                 range = 20,
                 value = 90,
                 wakes = true,
-                target_outside = true,
             },
             {
                 name = 'Cure',
@@ -65,7 +62,6 @@ return {
                 range = 20,
                 value = 30,
                 wakes = true,
-                target_outside = true,
             },
         },
         
@@ -92,7 +88,6 @@ return {
                 buff_id = 40,  -- Protect buff
                 range = 20,
                 group = 'protect',
-                target_outside = true,
             },
             {
                 name = 'Protect III',
@@ -105,7 +100,6 @@ return {
                 buff_id = 40,  -- Protect buff
                 range = 20,
                 group = 'protect',
-                target_outside = true,
             },
             {
                 name = 'Protect II',
@@ -118,7 +112,6 @@ return {
                 buff_id = 40,  -- Protect buff
                 range = 20,
                 group = 'protect',
-                target_outside = true,
             },
             {
                 name = 'Protect',
@@ -131,7 +124,6 @@ return {
                 buff_id = 40,  -- Protect buff
                 range = 20,
                 group = 'protect',
-                target_outside = true,
             },
             {
                 name = 'Shell III',
@@ -144,7 +136,6 @@ return {
                 buff_id = 41,  -- Shell buff
                 range = 20,
                 group = 'shell',
-                target_outside = true,
             },
             {
                 name = 'Shell II',
@@ -157,7 +148,6 @@ return {
                 buff_id = 41,  -- Shell buff
                 range = 20,
                 group = 'shell',
-                target_outside = true,
             },
             {
                 name = 'Shell',
@@ -170,7 +160,6 @@ return {
                 buff_id = 41,  -- Shell buff
                 range = 20,
                 group = 'shell',
-                target_outside = true,
             },
         },
         

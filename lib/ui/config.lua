@@ -1,4 +1,4 @@
---[[
+﻿--[[
     Generic configuration UI for Medic
     Dynamically generates UI based on loaded job definition
 ]]--
@@ -17,9 +17,6 @@ local ui_visible = false
 local current_settings = nil
 local save_callback = nil
 local roll_module = nil
-local clear_player_data_callback = nil
-local restore_normal_mode_callback = nil
-local previous_pl_mode_enabled = false
 
 -- UI State Variables (for imgui)
 local focus_enabled = { false }
@@ -39,90 +36,6 @@ local entrust_spell_name = nil   -- Spell name like "Indi-Haste" or nil for None
 -- party_index: 1-5 for P1-P5 (player is always handled separately)
 local party_buffs = {}
 
--- PL Mode connection state
-local awaiting_connection = false
-local connection_target_name = nil
-
--- ============================================================================
--- Event Handlers
--- ============================================================================
-
--- PL Mode connection handler (will be registered later)
-local function handle_pl_connection(e)
-    local success, err = pcall(function()
-        if not awaiting_connection or not connection_target_name then
-            return
-        end
-        
-        -- Check for Chat packet (0x0017)
-        if e.id ~= 0x0017 then
-            return
-        end
-        
-        -- Check if it's a tell (mode 0x03)
-        local mode = struct.unpack('b', e.data_modified, 0x04 + 0x01)
-        if mode ~= 0x03 then
-            return
-        end
-        
-        -- Extract sender name
-        local sender_name = struct.unpack('c15', e.data_modified, 0x08 + 0x01)
-        sender_name = sender_name:trim('\0')
-        
-        -- Check if sender matches expected connection target
-        if sender_name ~= connection_target_name then
-            return
-        end
-        
-        -- Extract message text
-        local message = struct.unpack('s', e.data_modified, 0x18 + 0x01)
-        
-        -- Check if message contains [MEDIC] and parse job info
-        -- Pattern handles optional whitespace around elements: " [MEDIC] GEO75/WHM37 Attempting Connection..."
-        if string.find(message, '%[MEDIC%]') then
-            local pattern = '%s*%[MEDIC%]%s*([A-Z]+)(%d+)/([A-Z]+)(%d+)%s*Attempting Connection'
-            local main_job_abbr, main_level, sub_job_abbr, sub_level = string.match(message, pattern)
-            
-            if main_job_abbr and main_level and sub_job_abbr and sub_level then
-                common.printf('Connection established with %s (%s%s/%s%s)', 
-                    sender_name, main_job_abbr, main_level, sub_job_abbr, sub_level)
-                
-                -- Store connection info in settings
-                if current_settings then
-                    current_settings.pl_connected_player = sender_name
-                    current_settings.pl_main_job = main_job_abbr
-                    current_settings.pl_main_level = tonumber(main_level)
-                    current_settings.pl_sub_job = sub_job_abbr
-                    current_settings.pl_sub_level = tonumber(sub_level)
-                    
-                    -- Auto-set follow target to PL player
-                    current_settings.follow_target = sender_name
-                    follow_target_name = sender_name
-                    
-                    -- Log saved information
-                    common.printf('Stored connection data:')
-                    common.printf('  Player: %s', current_settings.pl_connected_player)
-                    common.printf('  Main Job: %s (Level %d)', current_settings.pl_main_job, current_settings.pl_main_level)
-                    common.printf('  Sub Job: %s (Level %d)', current_settings.pl_sub_job, current_settings.pl_sub_level)
-                    common.printf('  Follow Target: %s', current_settings.follow_target)
-                    
-                    if save_callback then
-                        save_callback()
-                    end
-                end
-                
-                -- Reset connection state
-                awaiting_connection = false
-                connection_target_name = nil
-            end
-        end
-    end)
-    
-    if not success and err then
-        common.printf('Error in PL Mode connection handler: %s', tostring(err))
-    end
-end
-
 -- ============================================================================
 -- Helper Functions (Remaining in ui_config)
 -- ============================================================================
@@ -139,14 +52,7 @@ local function can_use_ability(ability)
     end
     
     local main_level, sub_level
-    
-    -- Use PL Mode levels if enabled, otherwise use player levels
-    if current_settings and current_settings.pl_mode_enabled then
-        main_level = current_settings.pl_main_level or 1
-        sub_level = current_settings.pl_sub_level or 0
-    else
-        main_level, sub_level = common.get_player_level()
-    end
+    main_level, sub_level = common.get_player_level()
     
     -- Check if this ability is for main job or subjob
     -- Abilities marked with is_main_job = false are from subjob
@@ -158,17 +64,6 @@ local function can_use_ability(ability)
     end
     
     return result
-end
-
--- Check if ability can target outside party (PL Mode filter)
-local function can_target_outside(ability)
-    -- If not in PL Mode, all abilities are allowed
-    if not current_settings or not current_settings.pl_mode_enabled or not current_settings.pl_connected_player then
-        return true
-    end
-    
-    -- In PL Mode, only abilities with target_outside = true are allowed
-    return ability.target_outside == true
 end
 
 -- Get all abilities in the same group as the given ability (returns ability objects, not just names)
@@ -198,7 +93,7 @@ local function get_usable_abilities_in_group(job_def, target_group)
     local usable = {}
     
     for _, ability in ipairs(all_abilities) do
-        if can_use_ability(ability) and can_target_outside(ability) and common.has_spell_learned(ability) then
+        if can_use_ability(ability) and common.has_spell_learned(ability) then
             table.insert(usable, ability)
         end
     end
@@ -206,7 +101,7 @@ local function get_usable_abilities_in_group(job_def, target_group)
     return usable
 end
 
--- Check if a list of abilities has any usable abilities (level-appropriate and can target outside if in PL Mode)
+-- Check if a list of abilities has any usable abilities (level-appropriate)
 local function has_usable_abilities(abilities)
     if not abilities then
         return false
@@ -216,7 +111,7 @@ local function has_usable_abilities(abilities)
     local has_any = false
     for _, ability in pairs(abilities) do
         has_any = true
-        if can_use_ability(ability) and can_target_outside(ability) then
+        if can_use_ability(ability) then
             return true
         end
     end
@@ -337,8 +232,7 @@ end
 -- ============================================================================
 
 function ui_config.initialize()
-    -- Register packet_in event for PL Mode connection responses
-    ashita.events.register('packet_in', 'medic_pl_connection', handle_pl_connection)
+    -- No-op, reserved for future use
 end
 
 function ui_config.show()
@@ -400,7 +294,7 @@ function ui_config.get_entrust_config()
     }
 end
 
-function ui_config.render(settings, job_def, callback, clear_data_callback, restore_callback, roll_mod)
+function ui_config.render(settings, job_def, callback, roll_mod)
     if not ui_visible or not is_open[1] then
         return
     end
@@ -462,8 +356,6 @@ function ui_config.render(settings, job_def, callback, clear_data_callback, rest
     current_settings = settings
     save_callback = callback
     roll_module = roll_mod
-    clear_player_data_callback = clear_data_callback
-    restore_normal_mode_callback = restore_callback
     
     -- Sync UI state from settings
     sync_from_settings()
@@ -479,8 +371,7 @@ function ui_config.render(settings, job_def, callback, clear_data_callback, rest
         get_usable_abilities_in_group = get_usable_abilities_in_group,
         is_trust = is_trust,
         filter_func = {
-            can_use_ability = can_use_ability,
-            can_target_outside = can_target_outside
+            can_use_ability = can_use_ability
         }
     }
     
@@ -513,16 +404,7 @@ function ui_config.render(settings, job_def, callback, clear_data_callback, rest
     if imgui.Begin(window_title, is_open, ImGuiWindowFlags_NoResize + ImGuiWindowFlags_AlwaysAutoResize) then
         
         -- Display job name and levels
-        if settings.pl_mode_enabled then
-            -- Show PL Mode job info or connection prompt
-            if not settings.pl_main_job or not settings.pl_main_level or not settings.pl_sub_job or not settings.pl_sub_level then
-                imgui.TextColored(ui.LIGHT_RED, 'Press Connect to load Job information')
-            else
-                local main_job_name = common.get_job_name_from_abbr(settings.pl_main_job)
-                local sub_job_name = common.get_job_name_from_abbr(settings.pl_sub_job)
-                imgui.TextColored(ui.LIGHT_GREEN, string.format('Job: %s %d / %s %d', main_job_name, settings.pl_main_level, sub_job_name, settings.pl_sub_level))
-            end
-        elseif job_def and job_def.job_name then
+        if job_def and job_def.job_name then
             -- Show normal job info
             local main_job_id, sub_job_id = common.get_player_job()
             local main_level, sub_level = common.get_player_level()
@@ -580,8 +462,8 @@ function ui_config.render(settings, job_def, callback, clear_data_callback, rest
         
         imgui.Separator()
         
-        -- Attack Range settings (global setting for all jobs, hidden in PL mode)
-        if not settings.pl_mode_enabled then
+        -- Attack Range settings (global setting for all jobs)
+        do
             local attack_range_options = { 'Off', 'Melee', 'Ranged' }
             local attack_range_current = settings.attack_range or 'Off'
             local attack_range_index = { 0 }
@@ -658,7 +540,7 @@ function ui_config.render(settings, job_def, callback, clear_data_callback, rest
                 ui.slider_int(ctx, 'Party (HP%)', 'heal_threshold', { settings.heal_threshold or 75 }, 1, 100)
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.heal) do
-                    if can_use_ability(ability) and can_target_outside(ability) and not is_subjob_duplicate(job_def, ability) then
+                    if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                         ui.ability_checkbox(ctx, ability, job_def, 'heal')
                     end
                 end
@@ -669,7 +551,7 @@ function ui_config.render(settings, job_def, callback, clear_data_callback, rest
                     ui.slider_int(ctx, 'Critical (HP%)', 'critical_threshold', { settings.critical_threshold or 30 }, 1, 50)
                     imgui.Indent(ui.ABILITY_LIST_INDENT)
                     for _, ability in ipairs(job_def.abilities.critical) do
-                        if can_use_ability(ability) and can_target_outside(ability) and not is_subjob_duplicate(job_def, ability) then
+                        if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                             ui.ability_checkbox(ctx, ability, job_def, 'critical')
                         end
                     end
@@ -680,15 +562,15 @@ function ui_config.render(settings, job_def, callback, clear_data_callback, rest
             imgui.Separator()
         end
         
-        -- AOE Healing settings (not shown in PL Mode - cannot target outside party)
-        if not settings.pl_mode_enabled and job_def and job_def.abilities.heal_aoe and has_usable_abilities(job_def.abilities.heal_aoe) then
+        -- AOE Healing settings
+        if job_def and job_def.abilities.heal_aoe and has_usable_abilities(job_def.abilities.heal_aoe) then
             local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Enable AOE Healing', 'heal_aoe_enabled', false)
             if is_open and is_enabled then
                 ui.slider_int(ctx, 'AOE (HP%)', 'heal_aoe_threshold', { settings.heal_aoe_threshold or 70 }, 1, 100)
                 
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.heal_aoe) do
-                    if can_use_ability(ability) and can_target_outside(ability) and not is_subjob_duplicate(job_def, ability) then
+                    if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                         ui.ability_checkbox(ctx, ability, job_def, 'heal_aoe')
                     end
                 end
@@ -706,7 +588,7 @@ function ui_config.render(settings, job_def, callback, clear_data_callback, rest
                 
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.heal_pet) do
-                    if can_use_ability(ability) and can_target_outside(ability) and not is_subjob_duplicate(job_def, ability) then
+                    if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                         ui.ability_checkbox(ctx, ability, job_def, 'heal_pet')
                     end
                 end
@@ -739,7 +621,7 @@ function ui_config.render(settings, job_def, callback, clear_data_callback, rest
             if is_open and is_enabled then
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.debuff_removal) do
-                    if can_use_ability(ability) and can_target_outside(ability) and not is_subjob_duplicate(job_def, ability) then
+                    if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                         ui.ability_checkbox(ctx, ability, job_def, 'debuff_removal')
                     end
                 end
@@ -750,27 +632,19 @@ function ui_config.render(settings, job_def, callback, clear_data_callback, rest
             imgui.Separator()
         end
 
-        -- Item checkboxes for Silence and Doom removal (not shown in PL Mode)
-        if not settings.pl_mode_enabled then
-            ui.item_silence_removal_checkbox(ctx)
-            ui.item_doom_removal_checkbox(ctx)
-            imgui.Separator()
-        end
+        -- Item checkboxes for Silence and Doom removal
+        ui.item_silence_removal_checkbox(ctx)
+        ui.item_doom_removal_checkbox(ctx)
+        imgui.Separator()
         
         -- Rest settings (only for MP-based jobs)
         if job_def and job_def.resource_type == 'mp' then
             local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Enable Resting', 'rest_enabled', false)
             if is_open and is_enabled then
-                -- Hide timer in PL mode (PL will manage their own rest timing)
-                if not settings.pl_mode_enabled then
-                    ui.slider_int(ctx, 'Timer (seconds)', 'rest_timer', { settings.rest_timer or 5 }, 1, 20)
-                end
+                ui.slider_int(ctx, 'Timer (seconds)', 'rest_timer', { settings.rest_timer or 5 }, 1, 20)
                 
-                -- Hide follow target in PL mode (auto-set to PL player)
-                if not settings.pl_mode_enabled then
-                    -- Follow Target dropdown
-                    follow_target_name = render_party_dropdown('Follow Target', 'follow_target', false, party_member_names, settings, callback)
-                end
+                -- Follow Target dropdown
+                follow_target_name = render_party_dropdown('Follow Target', 'follow_target', false, party_member_names, settings, callback)
                 
                 ui.slider_int(ctx, 'Distance (yalms)', 'rest_distance', { settings.rest_distance or 7 }, 1, 15)
             end
@@ -791,7 +665,7 @@ function ui_config.render(settings, job_def, callback, clear_data_callback, rest
                     ui.slider_int(ctx, 'Self Recover (TP)', 'recover_tp_threshold', { settings.recover_tp_threshold or 500 }, 100, 3000)
                     imgui.Indent(ui.ABILITY_LIST_INDENT)
                     for _, ability in ipairs(job_def.abilities.recover_tp) do
-                        if can_use_ability(ability) and can_target_outside(ability) and not is_subjob_duplicate(job_def, ability) then
+                        if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                             ui.ability_checkbox(ctx, ability, job_def, 'recover_tp')
                         end
                     end
@@ -807,7 +681,7 @@ function ui_config.render(settings, job_def, callback, clear_data_callback, rest
                     ui.slider_int(ctx, 'Self Recover (MP%)', 'recover_mp_threshold', { settings.recover_mp_threshold or 30 }, 1, 100)
                     imgui.Indent(ui.ABILITY_LIST_INDENT)
                     for _, ability in ipairs(job_def.abilities.recover_mp) do
-                        if can_use_ability(ability) and can_target_outside(ability) and not is_subjob_duplicate(job_def, ability) then
+                        if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                             ui.ability_checkbox(ctx, ability, job_def, 'recover_mp')
                         end
                     end
@@ -829,7 +703,7 @@ function ui_config.render(settings, job_def, callback, clear_data_callback, rest
                     
                     imgui.Indent(ui.ABILITY_LIST_INDENT)
                     for _, ability in ipairs(job_def.abilities.recover_party_mp) do
-                        if can_use_ability(ability) and can_target_outside(ability) and not is_subjob_duplicate(job_def, ability) then
+                        if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                             ui.ability_checkbox(ctx, ability, job_def, 'recover_party_mp')
                         end
                     end
@@ -855,7 +729,7 @@ function ui_config.render(settings, job_def, callback, clear_data_callback, rest
                 
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.buff) do
-                    if can_use_ability(ability) and can_target_outside(ability) and not is_subjob_duplicate(job_def, ability) then
+                    if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                         ui.render_ability(ctx, ability, job_def, 'buff')
                     end
                 end
@@ -874,7 +748,7 @@ function ui_config.render(settings, job_def, callback, clear_data_callback, rest
                 
                 -- Full Circle checkbox
                 for _, ability in ipairs(job_def.abilities.geo) do
-                    if ability.name ~= 'Entrust' and can_use_ability(ability) and can_target_outside(ability) and not is_subjob_duplicate(job_def, ability) then
+                    if ability.name ~= 'Entrust' and can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                         ui.ability_checkbox(ctx, ability, job_def, 'geo')
                     end
                 end
@@ -959,7 +833,7 @@ function ui_config.render(settings, job_def, callback, clear_data_callback, rest
                         -- Entrust ability checkbox (indented)
                         imgui.Indent(ui.ABILITY_LIST_INDENT)
                         for _, ability in ipairs(job_def.abilities.geo) do
-                            if ability.name == 'Entrust' and can_use_ability(ability) and can_target_outside(ability) and not is_subjob_duplicate(job_def, ability) then
+                            if ability.name == 'Entrust' and can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                                 ui.ability_checkbox(ctx, ability, job_def, 'geo')
                             end
                         end
@@ -971,82 +845,6 @@ function ui_config.render(settings, job_def, callback, clear_data_callback, rest
             imgui.Separator()
         end
         end  -- End of job_def check
-        
-        -- PL Mode section (at end)
-        local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Enable PL Mode', 'pl_mode_enabled', false)
-        
-        -- Clear player job and level data when PL Mode is enabled
-        if is_enabled and not previous_pl_mode_enabled then
-            if clear_player_data_callback then
-                clear_player_data_callback()
-            end
-            previous_pl_mode_enabled = true
-        elseif not is_enabled and previous_pl_mode_enabled then
-            if restore_normal_mode_callback then
-                restore_normal_mode_callback()
-            end
-            previous_pl_mode_enabled = false
-        end
-        
-        if is_open and is_enabled then
-            -- Check if we're connected
-            local is_connected = settings.pl_connected_player ~= nil
-            
-            -- Connection string text input (read-only if connected)
-            imgui.PushItemWidth(button_width + 100)
-            local connection_string = { settings.pl_connection_string or '' }
-            local input_flags = is_connected and ImGuiInputTextFlags_ReadOnly or 0
-            
-            -- Change text color to gray when connected (read-only)
-            if is_connected then
-                imgui.PushStyleColor(ImGuiCol_Text, ui.LIGHT_GRAY)
-            end
-            
-            if imgui.InputText('##pl_connection', connection_string, 256, input_flags) then
-                if not is_connected then
-                    settings.pl_connection_string = connection_string[1]
-                    if callback then callback() end
-                end
-            end
-            
-            if is_connected then
-                imgui.PopStyleColor()
-            end
-            
-            imgui.PopItemWidth()
-            
-            imgui.SameLine()
-            imgui.Text('PL Player Name')
-            
-            -- Connect/Disconnect button on same line
-            imgui.SameLine()
-            local button_text = is_connected and 'Disconnect' or 'Connect'
-            if imgui.Button(button_text, { 100, 0 }) then
-                if is_connected then
-                    -- Disconnect: clear connection data
-                    settings.pl_connected_player = nil
-                    settings.pl_main_job = nil
-                    settings.pl_main_level = 0
-                    settings.pl_sub_job = nil
-                    settings.pl_sub_level = 0
-                    if callback then callback() end
-                    common.printf('Disconnected from PL Mode')
-                else
-                    -- Connect: send connection attempt message
-                    local player_name = settings.pl_connection_string or ''
-                    if player_name ~= '' then
-                        local my_name = AshitaCore:GetMemoryManager():GetParty():GetMemberName(0) or 'Unknown'
-                        local command = string.format('/mst %s /tell %s  [MEDIC] <job> Attempting Connection...', player_name, my_name)
-                        AshitaCore:GetChatManager():QueueCommand(1, command)
-                        
-                        -- Start listening for connection response
-                        awaiting_connection = true
-                        connection_target_name = player_name
-                        common.printf('Awaiting connection from %s...', player_name)
-                    end
-                end
-            end
-        end
         
         imgui.Separator()
         

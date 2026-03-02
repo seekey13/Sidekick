@@ -70,16 +70,6 @@ function default_filters.can_use_ability(ability)
     end
 end
 
--- Check if ability can target outside party (always returns true in ui_components - no PL Mode context)
-function default_filters.can_target_outside(ability)
-    -- Simply check if the ability has the target_outside flag
-    -- If no flag is present, assume true (for non-party abilities)
-    if ability.target_outside == nil then
-        return true
-    end
-    return ability.target_outside == true
-end
-
 -- Get filter functions from context or use defaults
 local function get_filters(ctx)
     if ctx and ctx.filter_func then
@@ -116,9 +106,8 @@ local function get_usable_abilities_in_group(job_def, target_group, ctx)
     
     for _, ability in ipairs(all_abilities) do
         local can_use = filters.can_use_ability(ability)
-        local can_target = filters.can_target_outside(ability)
         
-        if can_use and can_target then
+        if can_use then
             if common.has_spell_learned(ability) then
                 table.insert(usable, ability)
             end
@@ -556,10 +545,6 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
             
             if is_active then
                 imgui.SameLine()
-                
-                -- Check if this party member is a Trust (cannot buff Trusts in PL mode)
-                -- NOTE: Kept for future feature use - Trusts can now be buffed
-                -- local is_trust_member = ctx.is_trust and ctx.is_trust(party_index) or false
                 
                 local is_enabled = is_group and is_group_party_buff_enabled(ctx, key_name, party_index) or is_party_buff_enabled(ctx, key_name, party_index)
                 

@@ -85,17 +85,11 @@ function status_removal.execute_debuff_removal(settings, job_def, main_level, su
     end
 
     -- Build buff table from game_state snapshot
-    local in_pl_mode = settings and settings.pl_mode_enabled and settings.pl_connected_player
-
     local all_buffs = {}
     for i = 0, 5 do
         local member = i == 0 and state.player or state.party[i]
         if member then
-            if in_pl_mode and member.is_trust then
-                all_buffs[i] = {}
-            else
-                all_buffs[i] = member.buffs or {}
-            end
+            all_buffs[i] = member.buffs or {}
         else
             all_buffs[i] = {}
         end
@@ -225,16 +219,11 @@ function status_removal.execute_wake(settings, job_def, main_level, sub_level, p
         end
     end
 
-    -- Count sleeping party members (indices 1-5 only, or 0-5 in PL mode to include player)
-    local in_pl_mode = settings and settings.pl_mode_enabled and settings.pl_connected_player
-    local start_index = in_pl_mode and 0 or 1
+    -- Count sleeping party members (indices 1-5 only)
+    local start_index = 1
 
     local sleeping_members = {}
     for i = start_index, 5 do
-        if in_pl_mode and common.is_trust(i) then
-            goto continue_wake
-        end
-
         local member_state = i == 0 and state.player or state.party[i]
         if not member_state then goto continue_wake end
         local buffs = member_state.buffs or {}

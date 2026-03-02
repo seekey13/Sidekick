@@ -5,11 +5,10 @@ Technical overview of the Medic support-automation addon for Ashita v4 (CatsEyeX
 ## Design Philosophy
 
 1. **Support-Only Focus** – Healing, buffing, debuff removal, and resource recovery. No offensive automation.
-2. **PL Mode Support** – Cross-party healing via `/mst` command relay for power-leveling scenarios.
-3. **Configuration over Code** – Job-specific details are data-driven tables, not hard-coded logic.
-4. **Extensibility** – New jobs/actions can be added without touching core modules.
-5. **DRY Utilities** – Shared helpers (`action_core`, `common`) eliminate boilerplate.
-6. **Safety** – Multiple validation layers (resource, cooldown, status ailment, range) prevent errors.
+2. **Configuration over Code** – Job-specific details are data-driven tables, not hard-coded logic.
+3. **Extensibility** – New jobs/actions can be added without touching core modules.
+4. **DRY Utilities** – Shared helpers (`action_core`, `common`) eliminate boilerplate.
+5. **Safety** – Multiple validation layers (resource, cooldown, status ailment, range) prevent errors.
 
 ---
 
@@ -44,7 +43,7 @@ lib/
     white_mage.lua          WHM job definition
   ui/
     components.lua          Reusable imgui components & constants
-    config.lua              Configuration window orchestration & PL Mode UI
+    config.lua              Configuration window orchestration
     panel.lua               Debug info panel
 ```
 
@@ -229,7 +228,6 @@ FFI bindings for FFXI target resolution (battle target, scan target, last teller
 - **Target modifier** (Pianissimo, etc.): If `ability.target_modifier = true`, sends modifier command first; next tick casts the buff.
 - **Trust buff registration**: Calls `common.register_pending_buff()` for Trusts after cast.
 - **Condition flags**: `idle_only`, `combat_only`, `engaged_only`, `requires_pet`, `requires_buff`.
-- PL Mode branch skips resource checks when relaying commands.
 - Uses `action_core.try_use()`.
 
 ### item.lua – Consumable Status Removal
@@ -257,7 +255,6 @@ MP and TP recovery. Monitors percentage thresholds. Uses `action_core.first_comm
 
 - Two-phase timer: conditions become favourable → wait N seconds → `/heal on`.
 - Stops at 100% MP or when follow-target distance exceeds threshold.
-- PL Mode: Sends `/mst [PL] /heal off` to wake PL player.
 
 ---
 
@@ -317,7 +314,6 @@ return {
     self_only       = false,
     main_job_only   = false,        -- hidden when job is subjob
     target_modifier = false,        -- needs Pianissimo / similar before party cast
-    target_outside  = false,        -- allowed in PL Mode (crosses party boundary)
     wakes           = true,         -- can remove sleep
     range           = 20,
     is_main_job     = true,         -- false for subjob-sourced abilities
@@ -333,7 +329,6 @@ return {
 
 - Builds a **context object** (`ctx`) containing settings, callbacks, job_def, filter functions, and party_buffs.
 - Delegates all rendering to `components.lua`.
-- **PL Mode connection**: Packet handler (0x0017 tells) parses `[MEDIC] JOB##/JOB## Attempting Connection` handshake.
 - **DRY helpers**:
   - `render_party_dropdown(label, key, include_player, names, settings, cb)` – reusable for Focus/Follow/Recovery/Entrust Target dropdowns.
   - `has_usable_abilities(abilities)` – quick check for any level-appropriate abilities.
@@ -367,8 +362,7 @@ return {
     party_buffs         = party_buffs,
     job_def             = job_def,
     filter_func = {
-        can_use_ability    = ...,  -- PL-mode-aware level check
-        can_target_outside = ...,  -- PL-mode target filter
+        can_use_ability    = ...,  -- level check
     },
 }
 ```
@@ -389,7 +383,6 @@ Read-only display of game state, party buffs, server IDs, target indices. Shown 
 | `unload` | Medic.lua | Save settings |
 | `d3d_present` | Medic.lua | Automation tick + UI render |
 | `packet_in` | Medic.lua | Casting state (0x028), Trust buffs (0x028 completion, 0x029 removal) |
-| `packet_in` | config.lua | PL Mode connection detection (0x0017 tells) |
 | `command` | Medic.lua | `/medic` command handler |
 
 ### Trust Buff Tracking

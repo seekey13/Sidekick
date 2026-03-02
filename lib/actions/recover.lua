@@ -32,7 +32,6 @@ end
 
 function recover.execute(settings, job_def)
     if not settings.recover_enabled then return nil end
-    if settings.pl_mode_enabled and settings.pl_connected_player then return nil end
 
     local state  = common.game_state
     local player = state and state.player

@@ -201,24 +201,13 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                                 -- If we reach here, we have the modifier buff, proceed to cast the song
                             end
                             
-                            -- In PL Mode, skip resource check (can't check connected player's resources)
-                            local in_pl_mode = settings and settings.pl_mode_enabled and settings.pl_connected_player
-                            
                             -- Use action_core for resource + cooldown + command building
                             local target_name = target_index == 0 and 'self' or (state.party[target_index] and state.party[target_index].name or ('P' .. target_index))
                             local desc = string.format('Applying buff: %s to %s', ability.name, target_name)
 
-                            if in_pl_mode then
-                                -- PL Mode: only build command, skip resource/cooldown checks
-                                local command = common.build_ability_command(ability, target_index, settings)
-                                if command then
-                                    return { command = command, description = desc }
-                                end
-                            else
-                                local result, reason = action_core.try_use(ability, job_def, settings, target_index, desc, state)
-                                if result then
-                                    return result
-                                end
+                            local result, reason = action_core.try_use(ability, job_def, settings, target_index, desc, state)
+                            if result then
+                                return result
                             end
                         end
                         

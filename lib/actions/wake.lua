@@ -70,18 +70,10 @@ function wake.execute(settings, job_def, main_level, sub_level, player_resource)
         end
     end
     
-    -- Count sleeping party members (indices 1-5 only, or 0-5 in PL mode to include player)
-    local in_pl_mode = settings and settings.pl_mode_enabled and settings.pl_connected_player
-    local start_index = in_pl_mode and 0 or 1
-    
+    -- Count sleeping party members (indices 1-5 only)
     local sleeping_members = {}
-    for i = start_index, 5 do
-        -- Skip Trusts in PL mode (cannot wake Trusts outside party)
-        if in_pl_mode and common.is_trust(i) then
-            goto continue_wake
-        end
-        
-        local member_state = i == 0 and state.player or state.party[i]
+    for i = 1, 5 do
+        local member_state = state.party[i]
         if not member_state then goto continue_wake end
         local buffs = member_state.buffs or {}
         if wake.is_buff_sleep(buffs) then
