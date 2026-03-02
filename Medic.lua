@@ -802,7 +802,7 @@ ashita.events.register('packet_in', 'medic_packet_in', function(e)
                         end
 
                         common.printf('%s gained the effect of %s.', target_name, buff_name)
-
+/
                         -- Update Trust buff tracking so game_state reflects the change
                         if target.Id >= 0x1000000 then
                             common.apply_trust_buff(target.Id, action.Param)
@@ -813,18 +813,38 @@ ashita.events.register('packet_in', 'medic_packet_in', function(e)
         end
     end
 
-    -- Handle status effect update packets for Trust buff removal (0x029)
+    -- Handle status effect update packets for buff removal (0x029)
     if e.id == 0x029 then
         if e.data and #e.data >= 16 then
             -- Extract server_id (bytes 0x04-0x07, little-endian)
             local server_id = struct.unpack('I', e.data, 0x04 + 1)
-            
+
             -- Extract buff_id (byte 0x0C)
             local buff_id = struct.unpack('B', e.data, 0x0C + 1)
-            
-            -- Only handle Trust buff removal (server_id >= 0x1000000)
-            if server_id >= 0x1000000 and buff_id > 0 and buff_id ~= 255 then
-                common.handle_buff_removal(server_id, buff_id)
+
+            if server_id > 0 and buff_id > 0 and buff_id ~= 255 then
+                -- Resolve target name from server ID
+                local target_name = 'Unknown'
+                local entMgr = AshitaCore:GetMemoryManager():GetEntity()
+                for idx = 0, 0x8FF do
+                    if entMgr:GetServerId(idx) == server_id then
+                        target_name = entMgr:GetName(idx)
+                        break
+                    end
+                end
+
+                -- Resolve buff name
+                local buff_name = AshitaCore:GetResourceManager():GetString('buffs.names', buff_id)
+                if not buff_name or buff_name == '' then
+                    buff_name = 'Buff#' .. buff_id
+                end
+
+                common.printf('%s lost the effect of %s.', target_name, buff_name)
+
+                -- Update Trust buff tracking
+                if server_id >= 0x1000000 then
+                    common.handle_buff_removal(server_id, buff_id)
+                end
             end
         end
     end
