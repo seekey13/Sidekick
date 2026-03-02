@@ -27,6 +27,7 @@ return {
                 range = 20,
                 value = 700,
                 wakes = true,
+                target_outside = true,
             },
             {
                 name = 'Cure IV',
@@ -39,6 +40,7 @@ return {
                 range = 20,
                 value = 400,
                 wakes = true,
+                target_outside = true,
             },
             {
                 name = 'Cure III',
@@ -51,6 +53,7 @@ return {
                 range = 20,
                 value = 200,
                 wakes = true,
+                target_outside = true,
             },
             {
                 name = 'Cure II',
@@ -63,6 +66,7 @@ return {
                 range = 20,
                 value = 90,
                 wakes = true,
+                target_outside = true,
             },
             {
                 name = 'Cure',
@@ -75,6 +79,7 @@ return {
                 range = 20,
                 value = 30,
                 wakes = true,
+                target_outside = true,
             },
         },
         
@@ -88,6 +93,7 @@ return {
                 command = '/ma "Curaga IV" <me>',
                 range = 20,
                 wakes = true,
+                target_outside = true,
             },
             {
                 name = 'Curaga III',
@@ -97,6 +103,7 @@ return {
                 command = '/ma "Curaga III" <me>',
                 range = 20,
                 wakes = true,
+                target_outside = true,
             },
             {
                 name = 'Curaga II',
@@ -106,6 +113,7 @@ return {
                 command = '/ma "Curaga II" <me>',
                 range = 20,
                 wakes = true,
+                target_outside = true,
             },
             {
                 name = 'Curaga',
@@ -115,6 +123,7 @@ return {
                 command = '/ma "Curaga" <me>',
                 range = 20,
                 wakes = true,
+                target_outside = true,
             },
         },
         
@@ -139,6 +148,7 @@ return {
                     return '/ma "Stona" '..target
                 end,
                 range = 20,
+                target_outside = true,
             },
             {
                 name = 'Viruna',
@@ -150,6 +160,7 @@ return {
                     return '/ma "Viruna" '..target
                 end,
                 range = 20,
+                target_outside = true,
             },
             {
                 name = 'Erase',
@@ -172,6 +183,7 @@ return {
                     return '/ma "Cursna" '..target
                 end,
                 range = 20,
+                target_outside = true,
             },
             {
                 name = 'Silena',
@@ -183,6 +195,7 @@ return {
                     return '/ma "Silena" '..target
                 end,
                 range = 20,
+                target_outside = true,
             },
             {
                 name = 'Blindna',
@@ -194,6 +207,7 @@ return {
                     return '/ma "Blindna" '..target
                 end,
                 range = 20,
+                target_outside = true,
             },
             {
                 name = 'Paralyna',
@@ -205,6 +219,7 @@ return {
                     return '/ma "Paralyna" '..target
                 end,
                 range = 20,
+                target_outside = true,
             },
             {
                 name = 'Poisona',
@@ -216,6 +231,7 @@ return {
                     return '/ma "Poisona" '..target
                 end,
                 range = 20,
+                target_outside = true,
             },
         },
 
@@ -250,6 +266,7 @@ return {
                 buff_id = 33,  -- Haste
                 combat_only = true,
                 duration = 180,
+                target_outside = true,
             },
             {
                 name = 'Regen III',
@@ -342,6 +359,7 @@ return {
                 end,
                 buff_id = 40,  -- Protect
                 group = 'protect',
+                target_outside = true,
             },
             {
                 name = 'Protect III',
@@ -353,6 +371,7 @@ return {
                 end,
                 buff_id = 40,  -- Protect
                 group = 'protect',
+                target_outside = true,
             },
             {
                 name = 'Protect II',
@@ -364,6 +383,7 @@ return {
                 end,
                 buff_id = 40,  -- Protect
                 group = 'protect',
+                target_outside = true,
             },
             {
                 name = 'Protect',
@@ -375,6 +395,7 @@ return {
                 end,
                 buff_id = 40,  -- Protect
                 group = 'protect',
+                target_outside = true,
             },
             {
                 name = 'Shellra V',
@@ -431,6 +452,7 @@ return {
                 end,
                 buff_id = 41,  -- Shell
                 group = 'shell',
+                target_outside = true,
             },
             {
                 name = 'Shell III',
@@ -442,6 +464,7 @@ return {
                 end,
                 buff_id = 41,  -- Shell
                 group = 'shell',
+                target_outside = true,
             },
             {
                 name = 'Shell II',
@@ -453,6 +476,7 @@ return {
                 end,
                 buff_id = 41,  -- Shell
                 group = 'shell',
+                target_outside = true,
             },
             {
                 name = 'Shell',
@@ -464,6 +488,7 @@ return {
                 end,
                 buff_id = 41,  -- Shell
                 group = 'shell',
+                target_outside = true,
             },
             -- Bar Element spells
             {
