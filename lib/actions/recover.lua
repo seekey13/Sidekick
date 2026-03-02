@@ -5,272 +5,106 @@
 
 local recover = {}
 
-local common = require('lib.core.common')
-local resource = require('lib.core.resource')
+local common      = require('lib.core.common')
+local action_core = require('lib.core.action_core')
 
-function recover.execute(settings, job_def, main_level, sub_level, player_resource)
-    -- Check if recovery is enabled
-    if not settings.recover_enabled then
-        return nil
+-- Returns true if the player holds any of the ability's required buffs (or none are required).
+local function has_required_buff(ability, buffs)
+    if not ability.requires_buff then return true end
+    local ids = type(ability.requires_buff) == 'table'
+                and ability.requires_buff or {ability.requires_buff}
+    for _, req in ipairs(ids) do
+        for _, active in ipairs(buffs) do
+            if active == req then return true end
+        end
     end
-    
-    -- Skip in PL Mode (recover abilities target self, not usable outside party)
-    if settings.pl_mode_enabled and settings.pl_connected_player then
-        return nil
+    return false
+end
+
+-- Filter an ability list by requires_buff prerequisite.
+local function filter_buff_prereqs(abilities, buffs)
+    local out = {}
+    for _, a in ipairs(abilities) do
+        if has_required_buff(a, buffs) then table.insert(out, a) end
     end
-    
-    -- Get recovery abilities from job definition
-    local recover_mp_abilities = job_def.abilities.recover_mp or {}
-    local recover_tp_abilities = job_def.abilities.recover_tp or {}
-    local recover_party_mp_abilities = job_def.abilities.recover_party_mp or {}
-    
-    if #recover_mp_abilities == 0 and #recover_tp_abilities == 0 and #recover_party_mp_abilities == 0 then
-        return nil
-    end
-    
+    return out
+end
+
+function recover.execute(settings, job_def)
+    if not settings.recover_enabled then return nil end
+    if settings.pl_mode_enabled and settings.pl_connected_player then return nil end
+
     local state  = common.game_state
     local player = state and state.player
     if not player then return nil end
-    local derived_main_level = player.main_level
-    local derived_sub_level  = player.sub_level
 
-    -- Get player's current MP, TP and MP% from game state
-    local current_mp = player.mp
-    local current_tp = player.tp
-    local mp_percent = player.mpp or 0
+    local function filter(key)
+        return common.filter_abilities_by_level(
+            job_def.abilities[key] or {}, settings,
+            player.main_level, player.sub_level, job_def)
+    end
 
-    common.debugf('[RECOVER] Current MP: %d (%.1f%%), TP: %d', current_mp, mp_percent, current_tp)
-    
-    -- Check Focus Recovery Target (Devotion) first - cast on party member
+    common.debugf('[RECOVER] MP: %d (%.1f%%), TP: %d', player.mp, player.mpp or 0, player.tp)
+
+    -- Priority 1: Devotion on focus recovery target
     if settings.focus_recovery_target then
-        local target_party_index = nil
+        local tidx = nil
         for i = 1, 5 do
-            local member = state.party[i]
-            if member and member.name == settings.focus_recovery_target then
-                target_party_index = i
-                break
-            end
+            local m = state.party[i]
+            if m and m.name == settings.focus_recovery_target then tidx = i; break end
         end
-
-        -- Validate target (must be party member P1-P5, not player P0)
-        if target_party_index and target_party_index >= 1 and target_party_index <= 5 then
-            local target_mpp = state.party[target_party_index].mpp or 0
-            local target_name = settings.focus_recovery_target
+        if tidx then
+            local tm        = state.party[tidx]
             local threshold = settings.focus_recovery_threshold or 30
-            
-            common.debugf('[RECOVER] Focus Recovery Target: %s, MP: %.1f%%, Threshold: %.1f%%',
-                         target_name, target_mpp, threshold)
-            
-            -- Check if target needs MP recovery
-            if target_mpp > 0 and target_mpp < threshold then
-                -- Find Devotion ability in recover_party_mp list
-                for _, ability in ipairs(recover_party_mp_abilities) do
+            common.debugf('[RECOVER] Devotion target %s MP: %.1f%% (threshold: %.1f%%)',
+                settings.focus_recovery_target, tm.mpp or 0, threshold)
+            if common.below_threshold(tm.mpp or 0, threshold) then
+                for _, ability in ipairs(filter('recover_party_mp')) do
                     if ability.name == 'Devotion' then
-                        local can_use_devotion = true
-                        
-                        -- Check if ability is disabled
-                        local disabled_key
-                        if ability.group then
-                            disabled_key = 'disabled_group_' .. ability.group
+                        local ok, reason    = action_core.is_usable(ability, job_def)
+                        local entity_index  = tm.target_index
+                        local in_range      = entity_index and common.is_in_range(entity_index, 20)
+                        if ok and in_range then
+                            local cmd = common.build_ability_command(ability, tidx)
+                            if cmd then
+                                common.debugf('[RECOVER] >>> Devotion on %s (MP: %.1f%%)',
+                                    settings.focus_recovery_target, tm.mpp)
+                                return { command = cmd,
+                                    description = string.format('Devotion on %s (MP: %.1f%%)',
+                                        settings.focus_recovery_target, tm.mpp) }
+                            end
                         else
-                            disabled_key = 'disabled_' .. ability.name:gsub(' ', '_')
+                            common.debugf('[RECOVER] Devotion skipped: %s',
+                                reason or 'target out of range')
                         end
-                        local is_disabled = settings[disabled_key]
-                        if is_disabled then
-                            common.debugf('[RECOVER] Devotion is disabled, skipping')
-                            can_use_devotion = false
-                        end
-                        
-                        -- Check level requirement
-                        if can_use_devotion then
-                            local required_level = ability.level or 0
-                            if required_level > derived_main_level then
-                                common.debugf('[RECOVER] Devotion requires level %d (current: %d)', required_level, derived_main_level)
-                                can_use_devotion = false
-                            end
-                        end
-                        
-                        -- Check if blocked by status ailments
-                        if can_use_devotion then
-                            local blocked_by = common.is_command_blocked(ability.command)
-                            if blocked_by then
-                                common.debugf('[RECOVER] Devotion is blocked by %s', blocked_by)
-                                can_use_devotion = false
-                            end
-                        end
-                        
-                        -- Check if target is in range (20 yalms)
-                        if can_use_devotion then
-                            local target_entity_index = state.party[target_party_index].target_index
-                            if not target_entity_index or not common.is_in_range(target_entity_index, 20) then
-                                common.debugf('[RECOVER] Target %s out of range', target_name)
-                                can_use_devotion = false
-                            end
-                        end
-                        
-                        -- Check cooldown
-                        if can_use_devotion then
-                            if ability.id and not resource.is_ability_ready(ability.id) then
-                                common.debugf('[RECOVER] Devotion on cooldown')
-                                can_use_devotion = false
-                            end
-                        end
-                        
-                        -- Cast Devotion on focus recovery target
-                        if can_use_devotion then
-                            local command = common.build_ability_command(ability, target_party_index)
-                            if command then
-                                common.debugf('[RECOVER] >>> Using Devotion on %s - Target MP: %.1f%%',
-                                             target_name, target_mpp)
-                                return {
-                                    command = command,
-                                    description = string.format('Devotion on %s (MP: %.1f%%)', target_name, target_mpp)
-                                }
-                            end
-                        end
-                        
                         break
                     end
                 end
             end
         end
     end
-    
-    -- Check MP recovery for self (after Devotion check)
-    if #recover_mp_abilities > 0 and settings.recover_mp_threshold then
-        common.debugf('[RECOVER] MP threshold: %.1f%%, current: %.1f%%', settings.recover_mp_threshold, mp_percent)
-        
-        if mp_percent < settings.recover_mp_threshold then
-            -- Filter abilities by level
-            local available_abilities = common.filter_abilities_by_level(
-                recover_mp_abilities,
-                settings,
-                derived_main_level,
-                derived_sub_level,
-                job_def
-            )
-            
-            if #available_abilities > 0 then
-                -- Select first available ability (highest cost = most effective)
-                for _, ability in ipairs(available_abilities) do
-                    -- Check if this ability is blocked by status ailments
-                    local blocked_by = common.is_command_blocked(ability.command)
-                    if blocked_by then
-                        common.debugf('[RECOVER] %s is blocked by %s', ability.name, blocked_by)
-                        goto continue_mp
-                    end
-                    
-                    -- Check required buff prerequisite
-                    local has_required_buff = true
-                    if ability.requires_buff then
-                        has_required_buff = false
-                        local required_buff_ids = {}
-                        
-                        -- Handle both single buff_id and array of buff_ids
-                        if type(ability.requires_buff) == 'table' then
-                            required_buff_ids = ability.requires_buff
-                        else
-                            required_buff_ids = {ability.requires_buff}
-                        end
-                        
-                        -- Check if player has any of the required buffs
-                        for _, required_buff in ipairs(required_buff_ids) do
-                            for _, active_buff in ipairs(state.player.buffs) do
-                                if active_buff == required_buff then
-                                    has_required_buff = true
-                                    break
-                                end
-                            end
-                            if has_required_buff then break end
-                        end
-                    end
 
-                    if not has_required_buff then
-                        common.debugf('[RECOVER] %s requires buff prerequisite, skipping', ability.name)
-                    -- Check resource and cooldown
-                    elseif ability.resource_type and resource.has_resource(ability.resource_type, ability.cost) and resource.is_ability_ready(ability.id) then
-                        local command = common.build_ability_command(ability, nil)
-
-                        if command then
-                            common.debugf('[RECOVER] >>> Using MP recovery: %s (MP: %.1f%%)', ability.name, mp_percent)
-                            return {
-                                command = command,
-                                description = string.format('MP recovery with %s (MP: %.1f%%)', ability.name, mp_percent)
-                            }
-                        end
-                    else
-                        common.debugf('[RECOVER] %s not available (cooldown or insufficient resources)', ability.name)
-                    end
-                    
-                    ::continue_mp::
-                end
-            end
-        end
+    -- Priority 2: Self MP recovery
+    local mp_threshold = settings.recover_mp_threshold
+    if mp_threshold and common.below_threshold(player.mpp or 0, mp_threshold) then
+        common.debugf('[RECOVER] MP %.1f%% below threshold %.1f%%', player.mpp, mp_threshold)
+        local result = action_core.first_command(
+            filter_buff_prereqs(filter('recover_mp'), player.buffs),
+            job_def, settings, '[RECOVER]', nil,
+            function(a) return string.format('MP recovery with %s (MP: %.1f%%)', a.name, player.mpp) end)
+        if result then return result end
     end
-    
-    -- Check TP recovery
-    if #recover_tp_abilities > 0 and settings.recover_tp_threshold then
-        common.debugf('[RECOVER] TP threshold: %d, current: %d', settings.recover_tp_threshold, current_tp)
-        
-        if current_tp < settings.recover_tp_threshold then
-            -- Filter abilities by level
-            local available_abilities = common.filter_abilities_by_level(
-                recover_tp_abilities,
-                settings,
-                derived_main_level,
-                derived_sub_level,
-                job_def
-            )
-            
-            if #available_abilities > 0 then
-                -- Select first available ability
-                for _, ability in ipairs(available_abilities) do
-                    -- Check required buff prerequisite
-                    local has_required_buff = true
-                    if ability.requires_buff then
-                        has_required_buff = false
-                        local required_buff_ids = {}
-                        
-                        -- Handle both single buff_id and array of buff_ids
-                        if type(ability.requires_buff) == 'table' then
-                            required_buff_ids = ability.requires_buff
-                        else
-                            required_buff_ids = {ability.requires_buff}
-                        end
-                        
-                        -- Check if player has any of the required buffs
-                        for _, required_buff in ipairs(required_buff_ids) do
-                            for _, active_buff in ipairs(state.player.buffs) do
-                                if active_buff == required_buff then
-                                    has_required_buff = true
-                                    break
-                                end
-                            end
-                            if has_required_buff then break end
-                        end
-                    end
 
-                    if not has_required_buff then
-                        common.debugf('[RECOVER] %s requires buff prerequisite, skipping', ability.name)
-                    -- Check resource and cooldown
-                    elseif ability.resource_type and resource.has_resource(ability.resource_type, ability.cost) and resource.is_ability_ready(ability.id) then
-                        local command = common.build_ability_command(ability, nil)
-
-                        if command then
-                            common.debugf('[RECOVER] >>> Using TP recovery: %s (TP: %d)', ability.name, current_tp)
-                            return {
-                                command = command,
-                                description = string.format('TP recovery with %s (TP: %d)', ability.name, current_tp)
-                            }
-                        end
-                    else
-                        common.debugf('[RECOVER] %s not available (cooldown or insufficient resources)', ability.name)
-                    end
-                end
-            end
-        end
+    -- Priority 3: Self TP recovery
+    local tp_threshold = settings.recover_tp_threshold
+    if tp_threshold and common.below_threshold(player.tp or 0, tp_threshold) then
+        common.debugf('[RECOVER] TP %d below threshold %d', player.tp, tp_threshold)
+        return action_core.first_command(
+            filter_buff_prereqs(filter('recover_tp'), player.buffs),
+            job_def, settings, '[RECOVER]', nil,
+            function(a) return string.format('TP recovery with %s (TP: %d)', a.name, player.tp) end)
     end
-    
+
     return nil
 end
 

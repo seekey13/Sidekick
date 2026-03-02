@@ -685,6 +685,18 @@ function common.get_target_index_by_name(name)
     return nil
 end
 
+-- Returns true if value is above zero and below threshold (i.e. alive/present but needs attention).
+-- Consolidates the repeated pattern: value > 0 and value < threshold
+function common.below_threshold(value, threshold)
+    return value > 0 and value < threshold
+end
+
+-- Returns true if a member's HP% indicates they are alive and not at full health.
+-- Used to skip dead (0%) and full-health (100%) members in party loops.
+function common.is_active_member(hpp)
+    return hpp > 0 and hpp < 100
+end
+
 function common.is_in_range(target_index, range)
     -- Ensure range is a number
     local range_value = type(range) == 'number' and range or 21
