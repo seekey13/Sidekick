@@ -52,21 +52,23 @@ local function should_start_resting(settings, job_def)
     end
     
     -- Check if MP is below 100%
-    local mp_percent = common.get_party_member_mp_percent(0)
+    local game_state = common.game_state
+    local player     = game_state and game_state.player
+    local mp_percent = player and player.mpp or 0
     if mp_percent >= 100 then
         conditions_met_time = 0  -- Reset conditions timer
         return false
     end
-    
+
     -- Check distance to follow target (if set)
     local rest_distance = settings.rest_distance or 7
     local follow_target = settings.follow_target
-    
+
     -- In PL mode, use PL player entity for distance check
     if settings.pl_mode_enabled and settings.pl_connected_player then
         local player_entity = targets.get_me()
         local pl_entity = common.get_entity_by_name(settings.pl_connected_player)
-        
+
         if player_entity and pl_entity then
             local distance = common.calculate_distance(player_entity, pl_entity)
             if distance and distance > rest_distance then
@@ -74,22 +76,17 @@ local function should_start_resting(settings, job_def)
                 return false
             end
         end
-    elseif follow_target then
+    elseif follow_target and game_state then
         -- Normal mode: Find the party member by name
-        local party = common.get_party()
-        if party then
-            for i = 1, 5 do
-                if common.is_party_member_active(i) then
-                    local member_name = common.get_party_member_name(i)
-                    if member_name == follow_target then
-                        local distance = common.get_party_member_distance(i)
-                        if distance and distance > rest_distance then
-                            conditions_met_time = 0  -- Reset conditions timer
-                            return false
-                        end
-                        break
-                    end
+        for i = 1, 5 do
+            local member = game_state.party[i]
+            if member and member.name == follow_target then
+                local distance = common.get_party_member_distance(i)
+                if distance and distance > rest_distance then
+                    conditions_met_time = 0  -- Reset conditions timer
+                    return false
                 end
+                break
             end
         end
     end
@@ -122,19 +119,21 @@ local function should_stop_resting(settings, job_def)
     end
     
     -- Check if MP is full
-    local mp_percent = common.get_party_member_mp_percent(0)
+    local game_state = common.game_state
+    local player     = game_state and game_state.player
+    local mp_percent = player and player.mpp or 0
     if mp_percent >= 100 then
         return true
     end
-    
+
     -- Check distance to follow target (if set)
     local rest_distance = settings.rest_distance or 7
-    
+
     -- In PL mode, use PL player entity for distance check
     if settings.pl_mode_enabled and settings.pl_connected_player then
         local player_entity = targets.get_me()
         local pl_entity = common.get_entity_by_name(settings.pl_connected_player)
-        
+
         if player_entity and pl_entity then
             local distance = common.calculate_distance(player_entity, pl_entity)
             if distance and distance > rest_distance then
@@ -144,21 +143,15 @@ local function should_stop_resting(settings, job_def)
     else
         -- Normal mode: Check distance to follow target party member
         local follow_target = settings.follow_target
-        if follow_target then
-            -- Find the party member by name
-            local party = common.get_party()
-            if party then
-                for i = 1, 5 do
-                    if common.is_party_member_active(i) then
-                        local member_name = common.get_party_member_name(i)
-                        if member_name == follow_target then
-                            local distance = common.get_party_member_distance(i)
-                            if distance and distance > rest_distance then
-                                return true
-                            end
-                            break
-                        end
+        if follow_target and game_state then
+            for i = 1, 5 do
+                local member = game_state.party[i]
+                if member and member.name == follow_target then
+                    local distance = common.get_party_member_distance(i)
+                    if distance and distance > rest_distance then
+                        return true
                     end
+                    break
                 end
             end
         end
@@ -247,7 +240,8 @@ function rest.execute(settings, job_def, main_level, sub_level, player_resource)
     
     -- Check if we should start resting
     if should_start_resting(settings, job_def) then
-        local mp_percent = common.get_party_member_mp_percent(0)
+        local state_snap = common.game_state
+        local mp_percent = state_snap and state_snap.player and state_snap.player.mpp or 0
         common.set_resting(true)
         conditions_met_time = 0  -- Reset after starting
         return {
