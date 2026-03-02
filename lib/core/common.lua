@@ -38,6 +38,10 @@ local movement_state = {
 -- Resting state tracking
 local is_resting = false
 
+-- Cached max HP/MP per member (server_id -> {max_hp, max_mp})
+-- Updated only when the member is observed at 100% HP or MP, since GetMemberMaxHP/GetMemberMaxMP do not exist.
+local member_max_stats = {}
+
 -- Trust buff tracking (packet-based since memory reads don't work for Trusts)
 local trust_buffs = {}  -- trust_buffs[server_id] = {buff_id1, buff_id2, ...}
 local pending_buffs = {}  -- pending_buffs[n] = {server_id=x, buff_id=y, timestamp=t}
@@ -648,19 +652,12 @@ end
 function common.get_party_member_hp_percent(index)
     local party = common.get_party()
     if not party then return 0 end
-    
-    local hp = party:GetMemberHP(index)
+
     local hpp = party:GetMemberHPPercent(index)
-    
     if hpp then
         return hpp
-    elseif hp then
-        local max_hp = party:GetMemberMaxHP(index)
-        if max_hp and max_hp > 0 then
-            return (hp / max_hp) * 100
-        end
     end
-    
+
     return 0
 end
 
@@ -1641,7 +1638,9 @@ end
 --
 -- common.game_state.player  (index 0) fields:
 --   index, name, server_id, target_index
---   hp, hpp, mp, mpp, tp
+--   hp, hpp, max_hp (cached; 0 until member seen at 100% HP)
+--   mp, mpp, max_mp (cached; 0 until member seen at 100% MP)
+--   tp
 --   buffs            (table of buff IDs)
 --   position         ({x, y, z} in local coords)
 --   job, job_name, sub_job, sub_job_name
@@ -1695,10 +1694,22 @@ function common.refresh_game_state()
             -- Vitals
             local hp          = safe_get(function() return party_mgr:GetMemberHP(i)           end, 0)
             local hpp         = safe_get(function() return party_mgr:GetMemberHPPercent(i)    end, 0)
-            local max_hp      = safe_get(function() return party_mgr:GetMemberMaxHP(i)        end, 0)
             local mp          = safe_get(function() return party_mgr:GetMemberMP(i)           end, 0)
             local mpp         = safe_get(function() return party_mgr:GetMemberMPPercent(i)    end, 0)
             local tp          = safe_get(function() return party_mgr:GetMemberTP(i)           end, 0)
+
+            -- Max HP/MP cache: only reliable when the member is at 100%
+            if not member_max_stats[server_id] then
+                member_max_stats[server_id] = {}
+            end
+            if hpp == 100 and hp > 0 then
+                member_max_stats[server_id].max_hp = hp
+            end
+            if mpp == 100 and mp > 0 then
+                member_max_stats[server_id].max_mp = mp
+            end
+            local max_hp = member_max_stats[server_id].max_hp or 0
+            local max_mp = member_max_stats[server_id].max_mp or 0
 
             -- Job & level
             local job         = safe_get(function() return party_mgr:GetMemberMainJob(i)      end, 0)
@@ -1763,6 +1774,7 @@ function common.refresh_game_state()
                 max_hp       = max_hp,
                 mp           = mp,
                 mpp          = mpp,
+                max_mp       = max_mp,
                 tp           = tp,
                 buffs        = buffs,
                 position     = position,

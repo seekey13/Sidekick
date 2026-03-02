@@ -128,12 +128,12 @@ function panel.render()
         )
 
         if imgui.BeginTable('##ps_table', 11, TABLE_FLAGS, { 0, 0 }) then
-            imgui.TableSetupColumn('Slot',    ImGuiTableColumnFlags_WidthFixed,  38)
-            imgui.TableSetupColumn('Name',    ImGuiTableColumnFlags_WidthFixed,  90)
-            imgui.TableSetupColumn('SrvID',   ImGuiTableColumnFlags_WidthFixed,  80)
+            imgui.TableSetupColumn('Slot',    ImGuiTableColumnFlags_WidthFixed,  30)
+            imgui.TableSetupColumn('Name',    ImGuiTableColumnFlags_WidthFixed,  100)
+            imgui.TableSetupColumn('SrvID',   ImGuiTableColumnFlags_WidthFixed,  85)
             imgui.TableSetupColumn('Job',     ImGuiTableColumnFlags_WidthFixed, 110)
-            imgui.TableSetupColumn('HP',      ImGuiTableColumnFlags_WidthFixed,  46)
-            imgui.TableSetupColumn('MP%',     ImGuiTableColumnFlags_WidthFixed,  46)
+            imgui.TableSetupColumn('HP',       ImGuiTableColumnFlags_WidthFixed, 120)
+            imgui.TableSetupColumn('MP',       ImGuiTableColumnFlags_WidthFixed, 120)
             imgui.TableSetupColumn('TP',      ImGuiTableColumnFlags_WidthFixed,  46)
             imgui.TableSetupColumn('Position',ImGuiTableColumnFlags_WidthFixed, 168)
             imgui.TableSetupColumn('Buffs',   ImGuiTableColumnFlags_WidthStretch)
@@ -183,22 +183,28 @@ function panel.render()
                     m.sub_job_name or '??', m.sub_level  or 0)
                 imgui.Text(job_str)
 
-                -- ── HP  1250/2000 (63%) ───────────────────────────────────
+                -- ── HP  1250/9999 63% ─────────────────────────────────────
                 imgui.TableNextColumn()
                 local hp_str
                 if m.max_hp and m.max_hp > 0 then
-                    hp_str = string.format('%d/%d (%d%%)', m.hp or 0, m.max_hp, m.hpp or 0)
+                    hp_str = string.format('%d/%d (%d%%%%)', m.hp or 0, m.max_hp, m.hpp or 0)
                 else
-                    hp_str = string.format('%d%%', m.hpp or 0)
+                    hp_str = string.format('%d  %d%%%%', m.hp or 0, m.hpp or 0)
                 end
                 local hp_colored = push_hp_color(m.hpp or 0)
                 imgui.Text(hp_str)
                 if hp_colored then imgui.PopStyleColor() end
 
-                -- ── MP% ───────────────────────────────────────────────────
+                -- ── MP  800/1200 66% ──────────────────────────────────────
                 imgui.TableNextColumn()
+                local mp_str
+                if m.max_mp and m.max_mp > 0 then
+                    mp_str = string.format('%d/%d (%d%%%%)', m.mp or 0, m.max_mp, m.mpp or 0)
+                else
+                    mp_str = string.format('%d  %d%%%%', m.mp or 0, m.mpp or 0)
+                end
                 local mp_colored = push_mp_color(m.mpp or 0)
-                imgui.Text(string.format('%d%%', m.mpp or 0))
+                imgui.Text(mp_str)
                 if mp_colored then imgui.PopStyleColor() end
 
                 -- ── TP ────────────────────────────────────────────────────
