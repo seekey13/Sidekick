@@ -40,8 +40,8 @@ local action_modules = {
 }
 
 -- Load config UI
-local config_ui = require('lib.config_ui')
-local ui_panel  = require('lib.ui_panel')
+local ui_config = require('lib.ui.config')
+local ui_panel  = require('lib.ui.panel')
 
 -- State
 local current_main_job_id = nil
@@ -659,8 +659,8 @@ end
 ashita.events.register('load', 'medic_load', function()
     is_loaded = true
     
-    -- Initialize config_ui (registers event handlers)
-    config_ui.initialize()
+    -- Initialize ui_config (registers event handlers)
+    ui_config.initialize()
     
     common.printf('Loaded! Type /medic help for commands.')
 end)
@@ -721,7 +721,7 @@ ashita.events.register('d3d_present', 'medic_render', function()
     
     -- Render config UI
     -- Allow rendering in PL Mode even without job_def
-    if config_ui.is_visible() and addon_settings then
+    if ui_config.is_visible() and addon_settings then
         -- Load PL Mode job if active
         if pl_mode_active and addon_settings.pl_mode_enabled and addon_settings.pl_connected_player then
             setup_pl_mode_job()
@@ -735,7 +735,7 @@ ashita.events.register('d3d_present', 'medic_render', function()
                 settings.save()
             end
             
-            config_ui.render(addon_settings, job_def, save_settings_callback, clear_player_data, restore_normal_mode)
+            ui_config.render(addon_settings, job_def, save_settings_callback, clear_player_data, restore_normal_mode)
         end
     end
     
@@ -908,7 +908,7 @@ ashita.events.register('command', 'medic_command', function(e)
         common.printf('Automation %s.', automation_enabled and 'enabled' or 'disabled')
         
     elseif cmd == 'config' then
-        config_ui.toggle()
+        ui_config.toggle()
         
     elseif cmd == 'focus' then
         local subcmd = args[3] and args[3]:lower()

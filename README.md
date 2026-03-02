@@ -219,7 +219,7 @@ Medic/
 │   │   ├── scholar.lua       # Scholar abilities
 │   │   ├── summoner.lua      # Summoner abilities
 │   │   └── white_mage.lua    # White Mage abilities
-│   └── config_ui.lua         # ImGui configuration interface
+│   └── ui_config.lua         # ImGui configuration interface
 ```
 
 ## Configuration

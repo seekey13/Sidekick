@@ -3,12 +3,12 @@
     Dynamically generates UI based on loaded job definition
 ]]--
 
-local config_ui = {}
+local ui_config = {}
 
 local imgui = require('imgui')
 local common = require('lib.core.common')
 local resource = require('lib.core.resource')
-local ui = require('lib.ui_components')
+local ui = require('lib.ui.components')
 
 -- UI state
 local is_open = { true }
@@ -125,7 +125,7 @@ local function handle_pl_connection(e)
 end
 
 -- ============================================================================
--- Helper Functions (Remaining in config_ui)
+-- Helper Functions (Remaining in ui_config)
 -- ============================================================================
 
 -- Check if player can use an ability based on level
@@ -292,38 +292,38 @@ end
 -- Module Functions
 -- ============================================================================
 
-function config_ui.initialize()
+function ui_config.initialize()
     -- Register packet_in event for PL Mode connection responses
     ashita.events.register('packet_in', 'medic_pl_connection', handle_pl_connection)
 end
 
-function config_ui.show()
+function ui_config.show()
     ui_visible = true
     is_open[1] = true
 end
 
-function config_ui.hide()
+function ui_config.hide()
     ui_visible = false
     is_open[1] = false
 end
 
-function config_ui.toggle()
+function ui_config.toggle()
     if ui_visible then
-        config_ui.hide()
+        ui_config.hide()
     else
-        config_ui.show()
+        ui_config.show()
     end
 end
 
-function config_ui.is_visible()
+function ui_config.is_visible()
     return ui_visible
 end
 
-function config_ui.get_party_buffs()
+function ui_config.get_party_buffs()
     return party_buffs
 end
 
-function config_ui.get_entrust_config()
+function ui_config.get_entrust_config()
     -- Return nil if entrust target or spell is None
     if not entrust_target_name or not entrust_spell_name then
         return nil
@@ -356,7 +356,7 @@ function config_ui.get_entrust_config()
     }
 end
 
-function config_ui.render(settings, job_def, callback, clear_data_callback, restore_callback, roll_mod)
+function ui_config.render(settings, job_def, callback, clear_data_callback, restore_callback, roll_mod)
     if not ui_visible or not is_open[1] then
         return
     end
@@ -1290,4 +1290,4 @@ function config_ui.render(settings, job_def, callback, clear_data_callback, rest
     end
 end
 
-return config_ui
+return ui_config

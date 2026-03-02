@@ -29,7 +29,7 @@ Medic follows these core principles:
            ▼                       ▼
   ┌─────────────────┐     ┌─────────────────┐
   │  Job Definition │     │ Config UI       │
-  │  (jobs/*.lua)   │     │ (config_ui.lua) │
+  │  (jobs/*.lua)   │     │ (ui_config.lua) │
   └────────┬────────┘     └────────┬────────┘
            │                       │
            │ provides abilities    │ uses
@@ -136,7 +136,7 @@ Each action module follows this pattern:
 
 ### Core Modules
 
-#### config_ui.lua
+#### ui_config.lua
 Configuration UI rendering with ImGui and PL Mode connection handling.
 
 **PL Mode Features:**
@@ -675,7 +675,7 @@ No core code changes needed!
 1. **Create action module** (`lib/actions/newaction.lua`)
 2. **Add to action_modules table** (Medic.lua line ~29)
 3. **Add to master_priority** (Medic.lua line ~170)
-4. **Update config_ui** (optional, for UI)
+4. **Update ui_config** (optional, for UI)
 
 ### Adding a New Ability
 
@@ -717,7 +717,7 @@ The UI system uses a modular component architecture:
    - `ui.ability_checkbox()`: For simple checkbox abilities (heal, debuff, etc.)
    - `ui.collapsing_checkbox_header()`: For collapsible sections with enable/disable
 
-4. **config_ui.lua focuses on orchestration only:**
+4. **ui_config.lua focuses on orchestration only:**
    - Builds context object
    - Calls ui_components render functions
    - Loads/saves party_buffs from/to settings for persistence

@@ -28,10 +28,10 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
     -- Track which groups have been processed in this execution (local, never persisted)
     local processed_groups = {}
     
-    -- Get party buff configuration from config_ui if not provided
+    -- Get party buff configuration from ui_config if not provided
     if not party_buff_config then
-        local config_ui = require('lib.config_ui')
-        party_buff_config = config_ui.get_party_buffs()
+        local ui_config = require('lib.ui.config')
+        party_buff_config = ui_config.get_party_buffs()
     end
     
     -- Get buff abilities from job definition

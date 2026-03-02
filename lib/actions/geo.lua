@@ -89,8 +89,8 @@ function geo.execute(settings, job_def, main_level, sub_level, player_resource)
     -- ========================================================================
     
     -- Get entrust configuration from config UI
-    local config_ui = require('lib.config_ui')
-    local entrust_config = config_ui.get_entrust_config()
+    local ui_config = require('lib.ui.config')
+    local entrust_config = ui_config.get_entrust_config()
     
     if entrust_config then
         -- Check if Entrust ability is enabled in settings
