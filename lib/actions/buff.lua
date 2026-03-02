@@ -122,8 +122,8 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                 -- Check if any party buttons are enabled
                 local has_any_target = false
                 if party_buff_config and party_buff_config[config_key] then
-                    for i = 0, 5 do
-                        if party_buff_config[config_key][i] == true then
+                    for k, v in pairs(party_buff_config[config_key]) do
+                        if v == true then
                             has_any_target = true
                             break
                         end
@@ -212,6 +212,33 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                         end
                         
                         ::continue_target::
+                    end
+                end
+
+                -- After checking party members, also check tracked targets (only if ability has target_outside)
+                if ability.target_outside and state.tracked then
+                    for sid, tt in pairs(state.tracked) do
+                        -- Check if this tracked target has its button enabled in the config
+                        local is_tt_enabled = party_buff_config and party_buff_config[config_key] and party_buff_config[config_key][sid] == true
+                        if is_tt_enabled and tt.is_active and tt.target_index and tt.target_index > 0 and common.is_in_range(tt.target_index, 20) then
+                            local tt_buffs = tt.buffs or {}
+                            local tt_needs_buff = action_core.needs_buff(tt_buffs, ability.buff_id)
+                            if tt_needs_buff then
+                                local ok, reason = action_core.is_usable(ability, job_def)
+                                if ok then
+                                    local command = common.build_ability_command_for_target(ability, sid)
+                                    if command then
+                                        -- Register pending buff for packet tracking
+                                        if ability.buff_id then
+                                            local bid = type(ability.buff_id) == 'table' and ability.buff_id[1] or ability.buff_id
+                                            common.register_pending_buff(sid, bid)
+                                        end
+                                        local desc = string.format('Applying buff: %s to tracked %s', ability.name, tt.name)
+                                        return { command = command, description = desc }
+                                    end
+                                end
+                            end
+                        end
                     end
                 end
             else

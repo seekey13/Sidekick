@@ -101,8 +101,26 @@ function status_removal.execute_debuff_removal(settings, job_def, main_level, su
         debuff_counts[i] = count_removable_debuffs(all_buffs[i], available_abilities)
     end
 
-    -- Priority 1: Check focus target first
+    -- Also collect tracked target debuffs
+    local tracked_buffs = {}   -- tracked_buffs[server_id] = {buff_ids}
+    local tracked_debuff_counts = {}  -- tracked_debuff_counts[server_id] = count
+    -- Filter to target_outside abilities for tracked targets
+    local outside_abilities = {}
+    for _, a in ipairs(available_abilities) do
+        if a.target_outside then table.insert(outside_abilities, a) end
+    end
+    if state.tracked and #outside_abilities > 0 then
+        for sid, tt in pairs(state.tracked) do
+            if tt.is_active and tt.target_index and tt.target_index > 0 then
+                tracked_buffs[sid] = tt.buffs or {}
+                tracked_debuff_counts[sid] = count_removable_debuffs(tracked_buffs[sid], outside_abilities)
+            end
+        end
+    end
+
+    -- Priority 1: Check focus target first (party or tracked)
     local focus_party_idx = nil
+    local focus_tracked_sid = nil
     if settings.focus_enabled and settings.focus_target then
         for i = 0, 5 do
             local m = i == 0 and state.player or state.party[i]
@@ -111,8 +129,17 @@ function status_removal.execute_debuff_removal(settings, job_def, main_level, su
                 break
             end
         end
+        if not focus_party_idx and state.tracked then
+            for sid, tt in pairs(state.tracked) do
+                if tt.name == settings.focus_target and tt.is_active then
+                    focus_tracked_sid = sid
+                    break
+                end
+            end
+        end
     end
 
+    -- Focus: party member
     if focus_party_idx ~= nil and debuff_counts[focus_party_idx] > 0 then
         local focus_member = focus_party_idx == 0 and state.player or state.party[focus_party_idx]
         local focus_target_index = focus_member and focus_member.target_index
@@ -129,7 +156,32 @@ function status_removal.execute_debuff_removal(settings, job_def, main_level, su
                     end
                 end
             end
-        else
+        end
+    end
+
+    -- Focus: tracked target
+    if focus_tracked_sid and tracked_debuff_counts[focus_tracked_sid] and tracked_debuff_counts[focus_tracked_sid] > 0 then
+        local tt = state.tracked[focus_tracked_sid]
+        if tt and tt.target_index and tt.target_index > 0 and common.is_in_range(tt.target_index, 20) then
+            for _, ability in ipairs(outside_abilities) do
+                if can_remove_debuffs(ability, tracked_buffs[focus_tracked_sid]) then
+                    local ok, reason = action_core.is_usable(ability, job_def)
+                    if ok then
+                        local command = common.build_ability_command_for_target(ability, focus_tracked_sid)
+                        if command then
+                            if ability.buff_id then
+                                local bid = type(ability.buff_id) == 'table' and ability.buff_id[1] or ability.buff_id
+                                common.register_pending_buff(focus_tracked_sid, bid)
+                            end
+                            local dc = tracked_debuff_counts[focus_tracked_sid]
+                            return {
+                                command = command,
+                                description = string.format('Removing %d debuff(s) from tracked %s with %s', dc, tt.name, ability.name)
+                            }
+                        end
+                    end
+                end
+            end
         end
     end
 
@@ -161,6 +213,47 @@ function status_removal.execute_debuff_removal(settings, job_def, main_level, su
                 local result, reason = action_core.try_use(ability, job_def, settings, best_index, desc)
                 if result then
                     return result
+                end
+            end
+        end
+    end
+
+    -- Priority 3: Find tracked target with most removable debuffs
+    if #outside_abilities > 0 then
+        local best_tracked_sid = nil
+        local max_tracked_debuffs = 0
+
+        for sid, dc in pairs(tracked_debuff_counts) do
+            if sid ~= focus_tracked_sid and dc > 0 then
+                local tt = state.tracked[sid]
+                if tt and tt.target_index and tt.target_index > 0 and common.is_in_range(tt.target_index, 20) then
+                    if dc > max_tracked_debuffs then
+                        best_tracked_sid = sid
+                        max_tracked_debuffs = dc
+                    end
+                end
+            end
+        end
+
+        if best_tracked_sid then
+            local tt = state.tracked[best_tracked_sid]
+            for _, ability in ipairs(outside_abilities) do
+                if can_remove_debuffs(ability, tracked_buffs[best_tracked_sid]) then
+                    local ok, reason = action_core.is_usable(ability, job_def)
+                    if ok then
+                        local command = common.build_ability_command_for_target(ability, best_tracked_sid)
+                        if command then
+                            if ability.buff_id then
+                                local bid = type(ability.buff_id) == 'table' and ability.buff_id[1] or ability.buff_id
+                                common.register_pending_buff(best_tracked_sid, bid)
+                            end
+                            return {
+                                command = command,
+                                description = string.format('Removing %d debuff(s) from tracked %s with %s',
+                                    max_tracked_debuffs, tt.name, ability.name)
+                            }
+                        end
+                    end
                 end
             end
         end
@@ -234,7 +327,20 @@ function status_removal.execute_wake(settings, job_def, main_level, sub_level, p
         ::continue_wake::
     end
 
-    if #sleeping_members == 0 then
+    -- Also check tracked targets for sleep
+    local sleeping_tracked = {}  -- {server_id, ...}
+    if state.tracked then
+        for sid, tt in pairs(state.tracked) do
+            if tt.is_active and tt.target_index and tt.target_index > 0 then
+                local buffs = tt.buffs or {}
+                if status_removal.is_buff_sleep(buffs) then
+                    table.insert(sleeping_tracked, sid)
+                end
+            end
+        end
+    end
+
+    if #sleeping_members == 0 and #sleeping_tracked == 0 then
         return nil
     end
 
@@ -284,6 +390,32 @@ function status_removal.execute_wake(settings, job_def, main_level, sub_level, p
                 local result, reason = action_core.try_use(ability, job_def, settings, target_index, desc)
                 if result then
                     return result
+                end
+            end
+        end
+    end
+
+    -- Wake sleeping tracked targets (only target_outside abilities)
+    if #sleeping_tracked > 0 and #available_single > 0 then
+        for _, sid in ipairs(sleeping_tracked) do
+            local tt = state.tracked[sid]
+            if tt and tt.target_index and tt.target_index > 0 and common.is_in_range(tt.target_index, 20) then
+                for _, ability in ipairs(available_single) do
+                    if ability.target_outside and ability.wakes then
+                        local blocked_by = common.is_command_blocked(ability.command)
+                        if not blocked_by then
+                            local ok, reason = action_core.is_usable(ability, job_def)
+                            if ok then
+                                local command = common.build_ability_command_for_target(ability, sid)
+                                if command then
+                                    return {
+                                        command = command,
+                                        description = string.format('Waking tracked %s with %s', tt.name, ability.name)
+                                    }
+                                end
+                            end
+                        end
+                    end
                 end
             end
         end

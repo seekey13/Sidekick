@@ -51,6 +51,13 @@ local trust_buffs = {}  -- trust_buffs[server_id] = {buff_id1, buff_id2, ...}
 local pending_buffs = {}  -- pending_buffs[n] = {server_id=x, buff_id=y, timestamp=t}
 local PENDING_BUFF_TIMEOUT = 10.0  -- Seconds before pending buff expires
 
+-- Tracked targets (session-only, not saved to settings)
+-- Players outside the party that we monitor for heal/buff/status_removal automation.
+-- tracked_targets[server_id] = { server_id, name, target_index }
+-- Buffs are tracked via trust_buffs (same packet-based system as Trusts).
+-- Max HP is tracked via member_max_stats (same system as party members).
+local tracked_targets = {}
+
 -- Non-combat zone IDs (safe zones where combat is blocked)
 local non_combat_zone_ids = {
     230, 231, 232, 233, -- San d'Oria
@@ -1036,6 +1043,114 @@ function common.get_trust_buffs(server_id)
     return trust_buffs[server_id] or {}
 end
 
+-- ============================================================================
+-- Tracked Target Functions (session-only, outside-party players)
+-- ============================================================================
+
+-- Add a tracked target by entity.
+-- Args: entity (userdata) - The entity to track (must be a PC with SpawnFlags & 0x0001)
+-- Returns: boolean - true if added, false if already tracked or invalid
+function common.add_tracked_target(entity)
+    if not entity then return false end
+
+    local server_id = entity.ServerId
+    local name      = entity.Name
+    if not server_id or server_id == 0 or not name or name == '' then
+        return false
+    end
+
+    -- Reject if already tracked
+    if tracked_targets[server_id] then
+        return false
+    end
+
+    -- Reject if the target is already in our party
+    local party = common.get_party()
+    if party then
+        for i = 0, 5 do
+            if party:GetMemberIsActive(i) == 1 then
+                local pid = party:GetMemberServerId(i)
+                if pid == server_id then
+                    return false
+                end
+            end
+        end
+    end
+
+    tracked_targets[server_id] = {
+        server_id    = server_id,
+        name         = name,
+        target_index = entity.TargetIndex or 0,
+    }
+    common.printf('Now tracking: %s', name)
+    return true
+end
+
+-- Remove a tracked target by server_id.
+function common.remove_tracked_target(server_id)
+    if not server_id then return end
+    if tracked_targets[server_id] then
+        local name = tracked_targets[server_id].name
+        tracked_targets[server_id] = nil
+        -- Also clean buff tracking for this target
+        trust_buffs[server_id] = nil
+        member_max_stats[server_id] = nil
+        common.printf('Stopped tracking: %s', name or tostring(server_id))
+    end
+end
+
+-- Remove a tracked target by name.
+function common.remove_tracked_target_by_name(name)
+    if not name then return end
+    for sid, tt in pairs(tracked_targets) do
+        if tt.name == name then
+            common.remove_tracked_target(sid)
+            return
+        end
+    end
+end
+
+-- Clear all tracked targets (e.g., on zone change).
+function common.clear_tracked_targets()
+    for sid, _ in pairs(tracked_targets) do
+        trust_buffs[sid] = nil
+    end
+    tracked_targets = {}
+end
+
+-- Get the tracked targets table (read-only reference).
+function common.get_tracked_targets()
+    return tracked_targets
+end
+
+-- Get tracked target buffs (uses trust_buffs since we track via packets).
+function common.get_tracked_target_buffs(server_id)
+    if not server_id then return {} end
+    return trust_buffs[server_id] or {}
+end
+
+-- Apply a buff to a tracked target (packet-based, reuses trust_buffs table).
+function common.apply_tracked_target_buff(server_id, buff_id)
+    if not server_id or not buff_id then return end
+    if not tracked_targets[server_id] then return end
+
+    if not trust_buffs[server_id] then
+        trust_buffs[server_id] = {}
+    end
+
+    for _, existing in ipairs(trust_buffs[server_id]) do
+        if existing == buff_id then return end  -- Already tracked
+    end
+
+    table.insert(trust_buffs[server_id], buff_id)
+end
+
+-- Check if a server_id belongs to a tracked target.
+function common.is_tracked_target(server_id)
+    if not server_id then return false end
+    return tracked_targets[server_id] ~= nil
+end
+
 function common.has_status(target_index, status_id)
     if not target_index then return false end
     
@@ -1361,6 +1476,23 @@ function common.build_ability_command(ability, party_index)
     return command
 end
 
+-- Build command for tracked targets (outside-party) using server_id directly.
+-- Args:
+--   ability (table) - Ability definition with command field
+--   server_id (number) - Server ID of the tracked target
+-- Returns: string - Command string or nil
+function common.build_ability_command_for_target(ability, server_id)
+    if not ability or not server_id or server_id == 0 then return nil end
+
+    if type(ability.command) == 'function' then
+        return ability.command(server_id)
+    elseif type(ability.command) == 'string' then
+        return ability.command
+    end
+
+    return nil
+end
+
 -- ============================================================================
 -- Target Modifier Management (Pianissimo, Entrust, etc.)
 -- ============================================================================
@@ -1496,12 +1628,20 @@ end
 --
 -- common.game_state.party[1..5] fields: identical to player + is_trust, is_active
 -- common.game_state.party_size  : total active member count (player + active party)
+-- common.game_state.tracked[server_id] fields:
+--   server_id, name, target_index
+--   hp, hpp, max_hp (cached; 0 until seen at 100% HPP)
+--   buffs            (table of buff IDs, packet-tracked)
+--   position         ({x, y, z} in local coords)
+--   is_tracked       (always true)
+--   is_active        (true if entity still visible in zone)
 
 common.game_state = {
     refreshed_at = 0,
     player       = nil,  -- index 0
     party        = {},   -- indices 1-5 (nil when slot is inactive)
     party_size   = 0,
+    tracked      = {},   -- keyed by server_id
 }
 
 function common.refresh_game_state()
@@ -1510,6 +1650,7 @@ function common.refresh_game_state()
     state.player       = nil
     state.party        = {}
     state.party_size   = 0
+    state.tracked      = {}
 
     local party_mgr = common.get_party()
     if not party_mgr then
@@ -1607,7 +1748,7 @@ function common.refresh_game_state()
             if i == 0 then
                 local pet_entity = targets.get_pet()
                 if pet_entity then
-                    pet_hpp = pet_entity.HealthPercent or 0
+                pet_hpp = pet_entity.HPPercent or 0
                     if entity_mgr then
                         local pet_idx = pet_entity.TargetIndex
                         if pet_idx and pet_idx > 0 then
@@ -1655,6 +1796,74 @@ function common.refresh_game_state()
             else
                 state.party[i] = member
             end
+        end
+    end
+
+    -- Refresh tracked targets (outside-party players)
+    for sid, tt in pairs(tracked_targets) do
+        local entity = nil
+        -- Re-resolve entity by server_id (target_index may change across zones)
+        for idx = 0, 2302 do
+            local e = GetEntity(idx)
+            if e and e.ServerId == sid then
+                entity = e
+                tt.target_index = e.TargetIndex or 0
+                break
+            end
+        end
+
+        if entity and entity.TargetIndex and entity.TargetIndex > 0 then
+            local hpp = entity.HPPercent or 0
+
+            -- Position
+            local position = {x = 0, y = 0, z = 0}
+            if entity_mgr then
+                local tidx = entity.TargetIndex
+                local ok_x, px = pcall(function() return entity_mgr:GetLocalPositionX(tidx) end)
+                local ok_y, py = pcall(function() return entity_mgr:GetLocalPositionY(tidx) end)
+                local ok_z, pz = pcall(function() return entity_mgr:GetLocalPositionZ(tidx) end)
+                if ok_x and ok_y and ok_z then
+                    position = {x = px, y = py, z = pz}
+                end
+            end
+
+            -- Only HPPercent is available for non-party entities from GetEntity();
+            -- raw HP is not exposed in the FFXI entity array for non-party PCs.
+            local hp = 0
+            if not member_max_stats[sid] then
+                member_max_stats[sid] = {}
+            end
+            local max_hp = member_max_stats[sid].max_hp or 0
+
+            -- Buffs via packet tracking (same table as Trusts)
+            local buffs = trust_buffs[sid] or {}
+
+            state.tracked[sid] = {
+                server_id    = sid,
+                name         = tt.name,
+                target_index = entity.TargetIndex,
+                hp           = hp,
+                hpp          = hpp,
+                max_hp       = max_hp,
+                buffs        = buffs,
+                position     = position,
+                is_tracked   = true,
+                is_active    = true,
+            }
+        else
+            -- Entity not visible; keep entry but mark inactive
+            state.tracked[sid] = {
+                server_id    = sid,
+                name         = tt.name,
+                target_index = 0,
+                hp           = 0,
+                hpp          = 0,
+                max_hp       = (member_max_stats[sid] or {}).max_hp or 0,
+                buffs        = trust_buffs[sid] or {},
+                position     = {x = 0, y = 0, z = 0},
+                is_tracked   = true,
+                is_active    = false,
+            }
         end
     end
 end

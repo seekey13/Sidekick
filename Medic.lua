@@ -697,6 +697,11 @@ ashita.events.register('packet_in', 'medic_packet_in', function(e)
                         if target.Id >= 0x1000000 then
                             common.apply_trust_buff(target.Id, action.Param)
                         end
+
+                        -- Update tracked target buff tracking
+                        if common.is_tracked_target(target.Id) then
+                            common.apply_tracked_target_buff(target.Id, action.Param)
+                        end
                     end
                 end
             end
@@ -735,13 +740,19 @@ ashita.events.register('packet_in', 'medic_packet_in', function(e)
                 if server_id >= 0x1000000 then
                     common.handle_buff_removal(server_id, buff_id)
                 end
+
+                -- Update tracked target buff tracking
+                if common.is_tracked_target(server_id) then
+                    common.handle_buff_removal(server_id, buff_id)
+                end
             end
         end
     end
     
-    -- Clear Trust buffs on zone change
+    -- Clear Trust buffs and tracked targets on zone change
     if e.id == 0x0A then  -- Zone change packet
         common.clear_trust_buffs()
+        common.clear_tracked_targets()
     end
 end)
 
@@ -765,6 +776,8 @@ ashita.events.register('command', 'medic_command', function(e)
         common.printf('  /medic config - Show configuration UI')
         common.printf('  /medic focus <index> - Set focus target (0-5, party member index)')
         common.printf('  /medic focus clear - Clear focus target')
+        common.printf('  /medic addtarget - Track current target for automation')
+        common.printf('  /medic removetarget <name> - Stop tracking a target')
         common.printf('  /medic panel - Toggle party state info panel')
         common.printf('  /medic debug - Toggle debug mode')
         common.printf('  /medic recast - Show all active ability recast timers')
@@ -848,6 +861,43 @@ ashita.events.register('command', 'medic_command', function(e)
         common.printf('  Automation: %s', automation_enabled and 'Enabled' or 'Disabled')
         common.printf('  Focus Target: %s', addon_settings.focus_target or 'None')
         common.printf('  Debug Mode: %s', common.debug and 'Enabled' or 'Disabled')
+        local tracked = common.get_tracked_targets()
+        local tracked_names = {}
+        for _, tt in pairs(tracked) do table.insert(tracked_names, tt.name) end
+        if #tracked_names > 0 then
+            common.printf('  Tracked Targets: %s', table.concat(tracked_names, ', '))
+        end
+        
+    elseif cmd == 'addtarget' then
+        -- Add current target as a tracked target
+        local targets_lib = common.targets
+        local target_entity = targets_lib.get_t()
+        if not target_entity then
+            common.errorf('No target selected.')
+        else
+            local spawn_flags = target_entity.SpawnFlags or 0
+            local is_pc = bit.band(spawn_flags, 0x0001) ~= 0
+            local target_sid = target_entity.ServerId or 0
+            if not is_pc or target_sid == 0 then
+                common.errorf('Target is not a player character.')
+            elseif target_sid >= 0x1000000 then
+                common.errorf('Target is a Trust or NPC.')
+            else
+                local added = common.add_tracked_target(target_entity)
+                if not added then
+                    common.errorf('%s is already in party or being tracked.', target_entity.Name or 'Target')
+                end
+            end
+        end
+        
+    elseif cmd == 'removetarget' then
+        -- Remove a tracked target by name
+        local target_name = args[3]
+        if not target_name then
+            common.errorf('Usage: /medic removetarget <name>')
+        else
+            common.remove_tracked_target_by_name(target_name)
+        end
         
     else
         common.printf('Unknown command: %s. Type /medic help for commands.', cmd)

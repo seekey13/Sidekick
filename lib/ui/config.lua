@@ -167,8 +167,9 @@ end
 --   party_member_names (table) - Pre-built list of P1-P5 names
 --   settings (table) - Current settings table
 --   on_change (function|nil) - Callback after selection changes
+--   include_tracked (bool|nil) - Whether to include tracked targets (default false)
 -- Returns: string|nil - The currently selected name (or nil for 'None')
-local function render_party_dropdown(label, setting_key, include_player, party_member_names, settings, on_change)
+local function render_party_dropdown(label, setting_key, include_player, party_member_names, settings, on_change, include_tracked)
     local options = { 'None' }
     if include_player then
         local player_name = common.get_party_member_name(0)
@@ -178,6 +179,16 @@ local function render_party_dropdown(label, setting_key, include_player, party_m
     end
     for _, name in ipairs(party_member_names) do
         table.insert(options, name)
+    end
+
+    -- Include tracked target names if requested
+    if include_tracked then
+        local tracked_list = common.get_tracked_targets()
+        for _, tt in pairs(tracked_list) do
+            if tt.name and tt.name ~= '' then
+                table.insert(options, tt.name)
+            end
+        end
     end
 
     -- Validate saved name is in current party
@@ -330,6 +341,15 @@ function ui_config.render(settings, job_def, callback, roll_mod)
                     break
                 end
             end
+            -- Also check session-only tracked target entries
+            if not any_button_enabled and party_buffs[ability_name] then
+                for k, v in pairs(party_buffs[ability_name]) do
+                    if v == true and type(k) == 'number' and k > 5 then
+                        any_button_enabled = true
+                        break
+                    end
+                end
+            end
             
             -- Sync the disabled_ key
             local disabled_key = 'disabled_' .. ability_name:gsub(' ', '_')
@@ -389,9 +409,12 @@ function ui_config.render(settings, job_def, callback, roll_mod)
         end
     end
     
-    -- Calculate fixed window width based on party size
+    -- Calculate fixed window width based on party size + tracked targets
     local party_size = common.get_party_size()
-    local num_buttons = math.min(party_size, 6)
+    local tracked_count_for_width = 0
+    local tt_list_for_width = common.get_tracked_targets()
+    for _ in pairs(tt_list_for_width) do tracked_count_for_width = tracked_count_for_width + 1 end
+    local num_buttons = math.min(party_size, 6) + tracked_count_for_width
     local button_width = ui.PARTY_BUTTON_WIDTH * num_buttons + (ui.SPACE_BETWEEN_BUTTONS * (num_buttons - 1))
     local dropdown_width = ui.DROPDOWN_WIDTH
     local window_width = math.max((button_width + dropdown_width + ui.ABILITY_LIST_INDENT + 50), 1)
@@ -460,14 +483,78 @@ function ui_config.render(settings, job_def, callback, roll_mod)
         imgui.Text(status_text)
         imgui.PopStyleColor()
 
-        -- Add Tracked Target button (right-justified on same line)
-        local add_target_btn_width = 170
-        local content_max_x, _ = imgui.GetContentRegionMax()
-        imgui.SameLine(content_max_x - add_target_btn_width)
-        if imgui.Button('Add Tracked Target', { add_target_btn_width, 0 }) then
-            AshitaCore:GetChatManager():QueueCommand(1, '/medic addtarget')
+        -- Add Tracked Target button: only visible when current target is a valid PC
+        -- (not NPC, not Trust, not already in party, not already tracked)
+        local targets_lib = common.targets
+        local target_entity = targets_lib.get_t()
+        local show_add_btn = false
+        if target_entity then
+            local spawn_flags = target_entity.SpawnFlags or 0
+            local is_pc = bit.band(spawn_flags, 0x0001) ~= 0
+            local target_sid = target_entity.ServerId or 0
+            if is_pc and target_sid > 0 and target_sid < 0x1000000 then
+                -- Not a Trust; check it's not in our party
+                local in_party = false
+                local party_obj = common.get_party()
+                if party_obj then
+                    for pi = 0, 5 do
+                        if party_obj:GetMemberIsActive(pi) == 1 then
+                            if party_obj:GetMemberServerId(pi) == target_sid then
+                                in_party = true
+                                break
+                            end
+                        end
+                    end
+                end
+                if not in_party and not common.is_tracked_target(target_sid) then
+                    show_add_btn = true
+                end
+            end
+        end
+
+        if show_add_btn then
+            local add_target_btn_width = 170
+            local content_max_x, _ = imgui.GetContentRegionMax()
+            imgui.SameLine(content_max_x - add_target_btn_width)
+            if imgui.Button('Add Tracked Target', { add_target_btn_width, 0 }) then
+                AshitaCore:GetChatManager():QueueCommand(1, '/medic addtarget')
+            end
         end
         
+        -- Tracked Targets list (show if any are being tracked)
+        local tracked_list = common.get_tracked_targets()
+        local has_tracked = false
+        for _ in pairs(tracked_list) do has_tracked = true; break end
+
+        if has_tracked then
+            imgui.Separator()
+            imgui.TextColored(ui.LIGHT_BLUE, 'Tracked Targets:')
+            local sorted_tt = {}
+            for sid, tt in pairs(tracked_list) do
+                table.insert(sorted_tt, { sid = sid, name = tt.name })
+            end
+            table.sort(sorted_tt, function(a, b) return a.name < b.name end)
+            local remove_sid = nil
+            for t_idx, tt in ipairs(sorted_tt) do
+                imgui.Text('  T' .. t_idx .. ': ' .. tt.name)
+                imgui.SameLine()
+                imgui.PushID('rm_' .. tostring(tt.sid))
+                if imgui.SmallButton('X') then
+                    remove_sid = tt.sid
+                end
+                imgui.PopID()
+            end
+            if remove_sid then
+                common.remove_tracked_target(remove_sid)
+                -- Clean up party_buffs entries for this tracked target
+                for key, targets in pairs(party_buffs) do
+                    if targets[remove_sid] then
+                        targets[remove_sid] = nil
+                    end
+                end
+            end
+        end
+
         imgui.Separator()
         
         -- Attack Range settings (global setting for all jobs)
@@ -532,7 +619,7 @@ function ui_config.render(settings, job_def, callback, roll_mod)
                 local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Enable Focus Healing', 'focus_enabled', false)
                 if is_open and is_enabled then
                     -- Focus Target dropdown
-                    focus_target_name = render_party_dropdown('Focus Target', 'focus_target', true, party_member_names, settings, callback)
+                    focus_target_name = render_party_dropdown('Focus Target', 'focus_target', true, party_member_names, settings, callback, true)
                     
                     ui.slider_int(ctx, 'Focus Healing (HP%)', 'focus_threshold', { settings.focus_threshold or 85 }, 1, 100)
                 end
@@ -652,7 +739,7 @@ function ui_config.render(settings, job_def, callback, roll_mod)
                 ui.slider_int(ctx, 'Timer (seconds)', 'rest_timer', { settings.rest_timer or 5 }, 1, 20)
                 
                 -- Follow Target dropdown
-                follow_target_name = render_party_dropdown('Follow Target', 'follow_target', false, party_member_names, settings, callback)
+                follow_target_name = render_party_dropdown('Follow Target', 'follow_target', false, party_member_names, settings, callback, true)
                 
                 ui.slider_int(ctx, 'Distance (yalms)', 'rest_distance', { settings.rest_distance or 7 }, 1, 15)
             end
@@ -703,7 +790,7 @@ function ui_config.render(settings, job_def, callback, roll_mod)
                 -- Party MP recovery section (for Devotion)
                 if has_party_mp_recovery then
                     -- Recovery Target dropdown
-                    focus_recovery_target_name = render_party_dropdown('Recovery Target', 'focus_recovery_target', false, party_member_names, settings, callback)
+                    focus_recovery_target_name = render_party_dropdown('Recovery Target', 'focus_recovery_target', false, party_member_names, settings, callback, true)
                     
                     if focus_recovery_target_name then
                         ui.slider_int(ctx, 'Target Recover (MP%)', 'focus_recovery_threshold', { settings.focus_recovery_threshold or 30 }, 1, 100)

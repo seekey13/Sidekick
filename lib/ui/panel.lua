@@ -115,8 +115,16 @@ function panel.render()
         -- Header line
         local staleness = os.clock() - gs.refreshed_at
         local stale_color = staleness > 2.0 and { 1.0, 0.4, 0.4, 1.0 } or { 0.5, 0.5, 0.5, 1.0 }
-        imgui.TextColored(stale_color,
-            string.format('Party: %d member(s)   Last refresh: %.2fs ago', gs.party_size, staleness))
+        local tracked_count = 0
+        if gs.tracked then
+            for _ in pairs(gs.tracked) do tracked_count = tracked_count + 1 end
+        end
+        local header_str = string.format('Party: %d member(s)', gs.party_size)
+        if tracked_count > 0 then
+            header_str = header_str .. string.format('   Tracked: %d', tracked_count)
+        end
+        header_str = header_str .. string.format('   Last refresh: %.2fs ago', staleness)
+        imgui.TextColored(stale_color, header_str)
         imgui.Separator()
 
         -- Column definitions
@@ -244,11 +252,115 @@ function panel.render()
                 end
             end
 
+            -- Pet row (only when player has an active pet)
+            if gs.player and (gs.player.pet_hpp or 0) > 0 then
+                imgui.TableNextRow()
+
+                -- Slot
+                imgui.TableNextColumn()
+                imgui.TextColored({ 1.0, 0.85, 0.4, 1.0 }, 'Pet')
+
+                -- Name / SrvID / Job  (not available)
+                imgui.TableNextColumn() imgui.TextDisabled('--')
+                imgui.TableNextColumn() imgui.TextDisabled('--')
+                imgui.TableNextColumn() imgui.TextDisabled('--')
+
+                -- HP%
+                imgui.TableNextColumn()
+                local pet_hp_colored = push_hp_color(gs.player.pet_hpp)
+                imgui.Text(string.format('%d%%%%', gs.player.pet_hpp))
+                if pet_hp_colored then imgui.PopStyleColor() end
+
+                -- MP / TP  (not available)
+                imgui.TableNextColumn() imgui.TextDisabled('--')
+                imgui.TableNextColumn() imgui.TextDisabled('--')
+
+                -- Position
+                imgui.TableNextColumn()
+                imgui.Text(fmt_pos(gs.player.pet_position))
+
+                -- Buffs / Pet HP% / Pet Pos  (redundant / not available)
+                imgui.TableNextColumn() imgui.TextDisabled('--')
+                imgui.TableNextColumn() imgui.TextDisabled('--')
+                imgui.TableNextColumn() imgui.TextDisabled('--')
+            end
+
+            -- Tracked targets
+            if gs.tracked then
+                local sorted_tracked = {}
+                for sid, tt in pairs(gs.tracked) do
+                    table.insert(sorted_tracked, tt)
+                end
+                table.sort(sorted_tracked, function(a, b) return (a.name or '') < (b.name or '') end)
+
+                for t_idx, m in ipairs(sorted_tracked) do
+                    imgui.TableNextRow()
+
+                    -- Slot
+                    imgui.TableNextColumn()
+                    imgui.TextColored({ 0.4, 1.0, 0.7, 1.0 }, 'T' .. t_idx)
+
+                    -- Name
+                    imgui.TableNextColumn()
+                    imgui.Text(m.name or '')
+
+                    -- Server ID
+                    imgui.TableNextColumn()
+                    if m.server_id and m.server_id > 0 then
+                        imgui.Text(string.format('0x%X', m.server_id))
+                    else
+                        imgui.TextDisabled('--')
+                    end
+
+                    -- Job (not available for tracked targets)
+                    imgui.TableNextColumn()
+                    imgui.TextDisabled('--')
+
+                    -- HP (HP% only — raw HP unavailable for non-party entities)
+                    imgui.TableNextColumn()
+                    local hp_colored = push_hp_color(m.hpp or 0)
+                    imgui.Text(string.format('%d%%%%', m.hpp or 0))
+                    if hp_colored then imgui.PopStyleColor() end
+
+                    -- MP (not available)
+                    imgui.TableNextColumn()
+                    imgui.TextDisabled('--')
+
+                    -- TP (not available)
+                    imgui.TableNextColumn()
+                    imgui.TextDisabled('--')
+
+                    -- Position
+                    imgui.TableNextColumn()
+                    imgui.Text(fmt_pos(m.position))
+
+                    -- Buffs
+                    imgui.TableNextColumn()
+                    local buff_count = m.buffs and #m.buffs or 0
+                    if buff_count > 0 then
+                        imgui.Text(fmt_buffs(m.buffs))
+                    else
+                        imgui.TextDisabled('--')
+                    end
+
+                    -- Pet HP% (not applicable)
+                    imgui.TableNextColumn()
+                    imgui.TextDisabled('--')
+
+                    -- Pet Pos (not applicable)
+                    imgui.TableNextColumn()
+                    imgui.TextDisabled('--')
+                end
+            end
+
             imgui.EndTable()
         end
 
         imgui.Spacing()
         imgui.TextColored({ 0.5, 0.5, 0.5, 1.0 }, '* Trust NPC')
+        if tracked_count > 0 then
+            imgui.TextColored({ 0.4, 1.0, 0.7, 1.0 }, 'T = Tracked Target')
+        end
     end
     imgui.End()
 

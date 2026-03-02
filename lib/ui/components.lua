@@ -325,15 +325,17 @@ local function toggle_group_party_buff(ctx, group_name, party_index, enabled)
                     local group_to_remove = active_song_groups[1]
                     ctx.party_buffs[group_to_remove][party_index] = false
                     
-                    -- Ensure persistence structure exists
-                    ctx.settings.party_buffs = ctx.settings.party_buffs or {}
-                    ctx.settings.party_buffs[group_to_remove] = ctx.settings.party_buffs[group_to_remove] or {}
-                    ctx.settings.party_buffs[group_to_remove][party_index] = false
+                    -- Ensure persistence structure exists (skip tracked targets)
+                    if type(party_index) == 'number' and party_index <= 5 then
+                        ctx.settings.party_buffs = ctx.settings.party_buffs or {}
+                        ctx.settings.party_buffs[group_to_remove] = ctx.settings.party_buffs[group_to_remove] or {}
+                        ctx.settings.party_buffs[group_to_remove][party_index] = false
+                    end
                     
-                    -- Check if removed group is still enabled for any party member
+                    -- Check if removed group is still enabled for any member
                     local removed_still_enabled = false
-                    for i = 0, 5 do
-                        if ctx.party_buffs[group_to_remove][i] == true then
+                    for k, v in pairs(ctx.party_buffs[group_to_remove]) do
+                        if v == true then
                             removed_still_enabled = true
                             break
                         end
@@ -353,8 +355,8 @@ local function toggle_group_party_buff(ctx, group_name, party_index, enabled)
     
     -- Check if ANY button is enabled for this group
     local any_button_enabled = false
-    for i = 0, 5 do
-        if ctx.party_buffs[group_name][i] == true then
+    for k, v in pairs(ctx.party_buffs[group_name]) do
+        if v == true then
             any_button_enabled = true
             break
         end
@@ -363,10 +365,12 @@ local function toggle_group_party_buff(ctx, group_name, party_index, enabled)
     -- Update the group's disabled setting
     ctx.settings['disabled_group_' .. group_name] = not any_button_enabled
     
-    -- Save party_buffs to settings for persistence
-    ctx.settings.party_buffs = ctx.settings.party_buffs or {}
-    ctx.settings.party_buffs[group_name] = ctx.settings.party_buffs[group_name] or {}
-    ctx.settings.party_buffs[group_name][party_index] = enabled
+    -- Save party_buffs to settings for persistence (skip tracked targets)
+    if type(party_index) == 'number' and party_index <= 5 then
+        ctx.settings.party_buffs = ctx.settings.party_buffs or {}
+        ctx.settings.party_buffs[group_name] = ctx.settings.party_buffs[group_name] or {}
+        ctx.settings.party_buffs[group_name][party_index] = enabled
+    end
     
     if ctx.save_callback then
         ctx.save_callback()
@@ -404,15 +408,17 @@ local function toggle_party_buff(ctx, ability_name, party_index, enabled)
                 local song_to_remove = active_songs[1]  -- Remove first found (random due to table iteration)
                 ctx.party_buffs[song_to_remove][party_index] = false
                 
-                -- Ensure persistence structure exists, then update settings for the removed song
-                ctx.settings.party_buffs = ctx.settings.party_buffs or {}
-                ctx.settings.party_buffs[song_to_remove] = ctx.settings.party_buffs[song_to_remove] or {}
-                ctx.settings.party_buffs[song_to_remove][party_index] = false
+                -- Ensure persistence structure exists (skip tracked targets)
+                if type(party_index) == 'number' and party_index <= 5 then
+                    ctx.settings.party_buffs = ctx.settings.party_buffs or {}
+                    ctx.settings.party_buffs[song_to_remove] = ctx.settings.party_buffs[song_to_remove] or {}
+                    ctx.settings.party_buffs[song_to_remove][party_index] = false
+                end
                 
-                -- Check if removed song is still enabled for any party member
+                -- Check if removed song is still enabled for any member
                 local removed_still_enabled = false
-                for i = 0, 5 do
-                    if ctx.party_buffs[song_to_remove][i] == true then
+                for k, v in pairs(ctx.party_buffs[song_to_remove]) do
+                    if v == true then
                         removed_still_enabled = true
                         break
                     end
@@ -432,8 +438,8 @@ local function toggle_party_buff(ctx, ability_name, party_index, enabled)
     
     -- Check if ANY button is enabled
     local any_button_enabled = false
-    for i = 0, 5 do
-        if ctx.party_buffs[ability_name][i] == true then
+    for k, v in pairs(ctx.party_buffs[ability_name]) do
+        if v == true then
             any_button_enabled = true
             break
         end
@@ -447,24 +453,29 @@ local function toggle_party_buff(ctx, ability_name, party_index, enabled)
         ctx.settings[key] = true
     end
     
-    -- Save party_buffs to settings for persistence
-    if not ctx.settings.party_buffs then
-        ctx.settings.party_buffs = {}
+    -- Save party_buffs to settings for persistence (skip tracked targets)
+    if type(party_index) == 'number' and party_index <= 5 then
+        if not ctx.settings.party_buffs then
+            ctx.settings.party_buffs = {}
+        end
+        if not ctx.settings.party_buffs[ability_name] then
+            ctx.settings.party_buffs[ability_name] = {}
+        end
+        ctx.settings.party_buffs[ability_name][party_index] = enabled
     end
-    if not ctx.settings.party_buffs[ability_name] then
-        ctx.settings.party_buffs[ability_name] = {}
-    end
-    ctx.settings.party_buffs[ability_name][party_index] = enabled
     
     if ctx.save_callback then
         ctx.save_callback()
     end
 end
 
--- Calculate the width for the ON/OFF button based on party size
+-- Calculate the width for the ON/OFF button based on party size + tracked targets
 local function get_onoff_button_width()
     local party_size = common.get_party_size()
-    local num_buttons = math.min(party_size, 6)
+    local tracked_count = 0
+    local tt_list = common.get_tracked_targets()
+    for _ in pairs(tt_list) do tracked_count = tracked_count + 1 end
+    local num_buttons = math.min(party_size, 6) + tracked_count
     return PARTY_BUTTON_WIDTH * num_buttons + (SPACE_BETWEEN_BUTTONS * (num_buttons - 1))
 end
 
@@ -590,6 +601,57 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
         end
     end
     
+    -- Render tracked target buttons (only for target_outside abilities)
+    if ability and ability.target_outside then
+        local tracked_list = common.get_tracked_targets()
+        local sorted_tracked = {}
+        for sid, tt in pairs(tracked_list) do
+            table.insert(sorted_tracked, { sid = sid, name = tt.name })
+        end
+        table.sort(sorted_tracked, function(a, b) return a.name < b.name end)
+
+        for t_idx, tt in ipairs(sorted_tracked) do
+            imgui.SameLine()
+
+            local is_tt_enabled = is_group and is_group_party_buff_enabled(ctx, key_name, tt.sid) or is_party_buff_enabled(ctx, key_name, tt.sid)
+
+            if not has_spell then
+                imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_DISABLED)
+                imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_DISABLED)
+                imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_DISABLED)
+                imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
+            elseif is_tt_enabled then
+                -- Use default colors
+            else
+                imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_UNSELECTED)
+                imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_UNSELECTED_HOVER)
+                imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_UNSELECTED_ACTIVE)
+            end
+
+            local tt_button_label = '<T' .. t_idx .. '>##' .. key_name .. '_t' .. tt.sid
+            if has_spell and imgui.Button(tt_button_label, { PARTY_BUTTON_WIDTH, 0 }) then
+                if is_group then
+                    toggle_group_party_buff(ctx, key_name, tt.sid, not is_tt_enabled)
+                else
+                    toggle_party_buff(ctx, key_name, tt.sid, not is_tt_enabled)
+                end
+            elseif not has_spell then
+                imgui.Button(tt_button_label, { PARTY_BUTTON_WIDTH, 0 })
+            end
+
+            -- Show tracked target name on hover
+            if imgui.IsItemHovered() then
+                imgui.SetTooltip(tt.name)
+            end
+
+            if not has_spell then
+                imgui.PopStyleColor(4)
+            elseif not is_tt_enabled then
+                imgui.PopStyleColor(3)
+            end
+        end
+    end
+
     return any_rendered
 end
 
