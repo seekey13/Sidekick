@@ -1069,6 +1069,23 @@ function common.handle_buff_application()
     end
 end
 
+-- Directly apply a buff to a Trust's tracked buff list (called from packet detection)
+-- Args: server_id (number), buff_id (number)
+function common.apply_trust_buff(server_id, buff_id)
+    if not server_id or not buff_id or server_id < 0x1000000 then return end
+
+    if not trust_buffs[server_id] then
+        trust_buffs[server_id] = {}
+    end
+
+    for _, existing in ipairs(trust_buffs[server_id]) do
+        if existing == buff_id then return end  -- Already tracked
+    end
+
+    table.insert(trust_buffs[server_id], buff_id)
+    common.debugf('apply_trust_buff: server_id=0x%08X, buff_id=%d', server_id, buff_id)
+end
+
 -- Handle buff removal (packet 0x029)
 -- Args: server_id (number), buff_id (number)
 function common.handle_buff_removal(server_id, buff_id)
