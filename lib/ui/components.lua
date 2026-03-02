@@ -121,8 +121,6 @@ local function get_usable_abilities_in_group(job_def, target_group, ctx)
         if can_use and can_target then
             if common.has_spell_learned(ability) then
                 table.insert(usable, ability)
-            else
-                common.debugf('[ui_components] %s in group %s: spell not learned', ability.name, target_group)
             end
         end
     end

@@ -299,9 +299,6 @@ function common.handle_action_packet(packet)
     -- Track previous casting state to detect changes
     local was_casting = casting_state.is_casting
     
-    -- Debug: Log all packet details to understand the structure
-    common.debugf('[PACKET] Category: %d, ActionID: 0x%04X, State: 0x%02X', category, action_id, action_state)
-    
     -- Simplified casting state logic based on action_state byte (offset 0x0F)
     -- 0x00 = Action started (casting/channeling)
     -- 0x01-0x04 = Action complete (various completion types)
@@ -310,20 +307,16 @@ function common.handle_action_packet(packet)
     -- Autoattack check (should not affect casting state)
     local is_autoattack = (action_id == 0x1844)
     
-    common.debugf('[PACKET] is_autoattack: %s, was_casting: %s', tostring(is_autoattack), tostring(was_casting))
-    
     if not is_autoattack then
         -- Track casting state based on action_state byte
         if action_state == 0x00 then
             -- Action started (any action that's not autoattack)
-            common.debugf('[PACKET] Setting is_casting = true')
             casting_state.is_casting = true
             casting_state.last_action_time = os.clock()
             -- Clear resting state when we start casting
             is_resting = false
         elseif action_state > 0x00 then
             -- Action complete
-            common.debugf('[PACKET] Setting is_casting = false')
             casting_state.is_casting = false
         end
     end
@@ -334,8 +327,6 @@ function common.handle_action_packet(packet)
     elseif not casting_state.is_casting and was_casting then
         common.debugf('[CASTING ENDED] State: 0x%02X, Category: %d, ActionID: 0x%04X', action_state, category, action_id)
     end
-    
-    common.debugf('[PACKET] Final is_casting: %s', tostring(casting_state.is_casting))
 end
 
 function common.is_player_moving()
@@ -776,8 +767,6 @@ function common.has_buff(target_index, buff_id)
     if server_id and server_id >= 0x1000000 then
         -- Use Trust buff tracking
         local trust_buff_list = common.get_trust_buffs(server_id)
-        common.debugf('has_buff check for Trust: server_id=%d, buff_id=%d, buffs=%s', 
-            server_id, buff_id, table.concat(trust_buff_list, ', '))
         for _, trust_buff in ipairs(trust_buff_list) do
             if trust_buff == buff_id then
                 return true
@@ -961,21 +950,16 @@ function common.register_pending_buff(server_id, buff_id)
         timestamp = current_time
     })
     
-    common.debugf('Registered pending buff: server_id=%d, buff_id=%d', server_id, buff_id)
 end
 
 -- Handle casting completion (packet 0x028 with byte 0x0F == 0x01)
 -- Matches the most recent pending buff and adds it to trust_buffs
 function common.handle_buff_application()
-    common.debugf('handle_buff_application called, pending_buffs count: %d', #pending_buffs)
-    
     if #pending_buffs == 0 then return end
     
     -- Get the most recent pending buff
     local pending = pending_buffs[#pending_buffs]
     table.remove(pending_buffs, #pending_buffs)
-    
-    common.debugf('Processing pending buff: server_id=%d, buff_id=%d', pending.server_id, pending.buff_id)
     
     -- Initialize buff list for this Trust if needed
     if not trust_buffs[pending.server_id] then
@@ -994,9 +978,6 @@ function common.handle_buff_application()
     -- Add buff if not already present
     if not already_has then
         table.insert(trust_buffs[pending.server_id], pending.buff_id)
-        common.debugf('Applied buff to Trust: server_id=%d, buff_id=%d', pending.server_id, pending.buff_id)
-    else
-        common.debugf('Trust already has buff: server_id=%d, buff_id=%d', pending.server_id, pending.buff_id)
     end
 end
 
@@ -1014,7 +995,6 @@ function common.apply_trust_buff(server_id, buff_id)
     end
 
     table.insert(trust_buffs[server_id], buff_id)
-    common.debugf('apply_trust_buff: server_id=0x%08X, buff_id=%d', server_id, buff_id)
 end
 
 -- Handle buff removal (packet 0x029)
@@ -1027,7 +1007,6 @@ function common.handle_buff_removal(server_id, buff_id)
     for i = #trust_buffs[server_id], 1, -1 do
         if trust_buffs[server_id][i] == buff_id then
             table.remove(trust_buffs[server_id], i)
-            common.debugf('Removed buff from Trust: server_id=%d, buff_id=%d', server_id, buff_id)
             break
         end
     end
@@ -1042,7 +1021,6 @@ end
 function common.clear_trust_buffs()
     trust_buffs = {}
     pending_buffs = {}
-    common.debugf('Cleared all Trust buffs')
 end
 
 -- Get Trust buffs by server_id
@@ -1293,7 +1271,6 @@ function common.filter_abilities_by_level(abilities, settings, main_level, sub_l
     
     -- Safety check: return empty table if abilities is nil
     if not abilities then
-        common.debugf('[filter_abilities] abilities is nil')
         return available_abilities
     end
 
@@ -1338,11 +1315,7 @@ function common.filter_abilities_by_level(abilities, settings, main_level, sub_l
             is_disabled = false  -- Default new abilities to enabled
         end
         
-        common.debugf('[filter_abilities] %s: group=%s, disabled_key=%s, is_disabled=%s', 
-            ability.name, tostring(ability.group), disabled_key, tostring(is_disabled))
-        
         if is_disabled then
-            common.debugf('[filter_abilities] %s is disabled in settings', ability.name)
         elseif ability.requires_pet and not targets.get_pet() then
         elseif ability.idle_only and not common.is_idle() then
         elseif ability.combat_only and not common.is_combat() then
@@ -1350,9 +1323,6 @@ function common.filter_abilities_by_level(abilities, settings, main_level, sub_l
         elseif job_def and job_def.validate_ability and not job_def.validate_ability(ability, common) then
         elseif required_level <= player_level then
             table.insert(available_abilities, ability)
-        else
-            common.debugf('[filter_abilities] %s blocked by level (need %d, have %d %s level)', 
-                ability.name, required_level, player_level, job_source)
         end
         
         ::continue::
@@ -1457,7 +1427,6 @@ function common.check_target_modifier(job_def, settings, main_level, sub_level)
     -- Check if blocked by status ailments
     local blocked_by = common.is_command_blocked(modifier_ability.command)
     if blocked_by then
-        common.debugf('[TARGET_MODIFIER] %s is blocked by %s', modifier_ability.name, blocked_by)
         return nil
     end
     
@@ -1682,9 +1651,6 @@ function common.refresh_game_state()
             end
         end
     end
-
-    common.debugf('[GameState] Refreshed: party_size=%d, player=%s',
-        state.party_size, state.player and state.player.name or 'nil')
 end
 
 return common

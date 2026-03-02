@@ -23,7 +23,7 @@ lib/
     automation.lua          Priority-based action selection engine
     common.lua              Shared utilities (logging, party, buffs, commands)
     parse_packets.lua       Raw-packet parsing (action packet 0x028)
-    targets.lua             FFI target-resolution helpers (from Ashita)
+    targets.lua             FFXI target-resolution helpers (from Ashita)
   actions/
     buff.lua                Buff maintenance (self + party, groups, Pianissimo)
     geo.lua                 Full Circle automation & Entrust management
@@ -421,31 +421,6 @@ JSON persistence via Ashita's settings module.
 - **Resource validation**: `action_core.is_usable()` gates every ability before execution.
 - **Nil safety**: Guard checks (`if not player then return end`) throughout.
 - **Inventory safety**: `item.lua` returns `nil` during zone transitions when inventory is unloaded.
-
----
-
-## Extensibility
-
-### Adding a New Job
-
-1. Create `lib/jobs/newjob.lua` with the job definition table.
-2. Register in `job_map` (Medic.lua).
-3. No core changes needed.
-
-### Adding a New Action Module
-
-1. Create `lib/actions/newaction.lua` implementing `.execute()`.
-2. Add to `action_modules` table (Medic.lua).
-3. Add to `master_priority` (Medic.lua).
-4. Optionally add UI section in `config.lua`.
-
-### Adding a New Ability
-
-Add to the job definition's `abilities` table. The UI auto-renders based on ability properties.
-
-### Job-Specific Validation
-
-Add `validate_ability(ability, common)` to the job definition. Called automatically by `filter_abilities_by_level()`.
 
 ---
 

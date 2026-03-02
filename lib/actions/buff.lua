@@ -39,37 +39,23 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
         return nil
     end
     
-    common.debugf('[BUFF] Before filter: %d buff abilities, main_level=%d, sub_level=%d', #buff_abilities, derived_main_level, derived_sub_level)
-    
     -- Filter abilities by level and settings
     local available_abilities = common.filter_abilities_by_level(buff_abilities, settings, derived_main_level, derived_sub_level, job_def)
     
-    common.debugf('[BUFF] After filter: %d/%d abilities available', #available_abilities, #buff_abilities)
-    
     if #available_abilities > 0 then
-        common.debugf('[BUFF] Available abilities: %s', table.concat((function()
-            local names = {}
-            for _, a in ipairs(available_abilities) do
-                table.insert(names, a.name)
-            end
-            return names
-        end)(), ', '))
     end
     
     if #available_abilities == 0 then
-        common.debugf('[BUFF] No available abilities after filtering')
         return nil
     end
     
     -- Check each buff to see if it needs to be applied/refreshed
     for _, ability in ipairs(available_abilities) do
-        common.debugf('[BUFF] Checking ability: %s', ability.name)
         local should_skip = false
         
         -- Check pet requirement
         if not should_skip and ability.pet_required then
             if not common.targets.get_pet() then
-                common.debugf('[BUFF]   %s blocked: no pet', ability.name)
                 should_skip = true
             end
         end
@@ -77,7 +63,6 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
         -- Check required buff prerequisite for player
         if not should_skip and ability.requires_buff then
             if not action_core.has_any_buff(state.player.buffs, ability.requires_buff) then
-                common.debugf('[BUFF]   %s blocked: missing required buff', ability.name)
                 should_skip = true
             end
         end
@@ -86,7 +71,6 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
         if not should_skip then
             local blocked_by = common.is_command_blocked(ability.command)
             if blocked_by then
-                common.debugf('[BUFF] %s is blocked by %s', ability.name, blocked_by)
                 should_skip = true
             end
         end
@@ -130,10 +114,8 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                     config_key = ability.name
                 end
                 local is_ability_enabled = settings[key] == false or settings[key] == nil
-                common.debugf('[BUFF]   %s: key=%s, is_enabled=%s, config_key=%s', ability.name, key, tostring(is_ability_enabled), config_key)
                 
                 if not is_ability_enabled then
-                    common.debugf('[BUFF]   %s blocked: disabled in settings', ability.name)
                     goto continue_ability
                 end
                 
@@ -148,10 +130,7 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                     end
                 end
                 
-                common.debugf('[BUFF]   %s: has_any_target=%s', ability.name, tostring(has_any_target))
-                
                 if not has_any_target then
-                    common.debugf('[BUFF]   %s blocked: no party buttons enabled', ability.name)
                     goto continue_ability
                 end
                 
@@ -166,7 +145,6 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                     end
                     
                     if is_target_enabled then
-                        common.debugf('[BUFF]     Target %d is enabled, checking...', target_index)
                         local target_needs_buff = false
                         local target_entity_index = nil
                         
@@ -199,8 +177,6 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                         -- Check if target needs buff
                         target_needs_buff = action_core.needs_buff(target_buffs, ability.buff_id)
                         
-                        common.debugf('[BUFF]     Target %d needs_buff=%s', target_index, tostring(target_needs_buff))
-                        
                         if target_needs_buff then
                             -- Check if this ability requires a target modifier (Pianissimo, Entrust, etc.)
                             if ability.target_modifier and target_index > 0 then
@@ -227,9 +203,6 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                             
                             -- In PL Mode, skip resource check (can't check connected player's resources)
                             local in_pl_mode = settings and settings.pl_mode_enabled and settings.pl_connected_player
-                            if in_pl_mode then
-                                common.debugf('[BUFF]     PL Mode: skipping resource check')
-                            end
                             
                             -- Use action_core for resource + cooldown + command building
                             local target_name = target_index == 0 and 'self' or (state.party[target_index] and state.party[target_index].name or ('P' .. target_index))
@@ -245,8 +218,6 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                                 local result, reason = action_core.try_use(ability, job_def, settings, target_index, desc, state)
                                 if result then
                                     return result
-                                else
-                                    common.debugf('[BUFF]     %s: %s', ability.name, reason or 'unavailable')
                                 end
                             end
                         end
@@ -300,8 +271,6 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                     local result, reason = action_core.try_use(ability, job_def, settings, 0, desc, state)
                     if result then
                         return result
-                    else
-                        common.debugf('[BUFF] %s: %s', ability.name, reason or 'unavailable')
                     end
                 end
             end

@@ -67,7 +67,6 @@ function status_removal.execute_debuff_removal(settings, job_def, main_level, su
         if ability.self_only then
             local blocked_by = common.is_command_blocked(ability.command)
             if blocked_by then
-                common.debugf('[DEBUFF_REMOVAL] %s is blocked by %s', ability.name, blocked_by)
                 goto continue_self
             end
 
@@ -77,10 +76,7 @@ function status_removal.execute_debuff_removal(settings, job_def, main_level, su
                 local desc = string.format('Removing %d debuff(s) from self with %s', debuff_count, ability.name)
                 local result, reason = action_core.try_use(ability, job_def, settings, 0, desc)
                 if result then
-                    common.debugf('[DEBUFF_REMOVAL] Using %s on self (%d debuff%s)', ability.name, debuff_count, debuff_count == 1 and '' or 's')
                     return result
-                elseif reason then
-                    common.debugf('[DEBUFF_REMOVAL] %s: %s', ability.name, reason)
                 end
             end
         end
@@ -135,15 +131,11 @@ function status_removal.execute_debuff_removal(settings, job_def, main_level, su
                     local desc = string.format('Removing %d debuff(s) from focus with %s', dc, ability.name)
                     local result, reason = action_core.try_use(ability, job_def, settings, focus_party_idx, desc)
                     if result then
-                        common.debugf('[DEBUFF_REMOVAL] Using %s on focus target (p%d, %d debuff%s)', ability.name, focus_party_idx, dc, dc == 1 and '' or 's')
                         return result
-                    elseif reason then
-                        common.debugf('[DEBUFF_REMOVAL] %s: %s', ability.name, reason)
                     end
                 end
             end
         else
-            common.debugf('[DEBUFF_REMOVAL] Focus target (p%d) out of range, skipping', focus_party_idx)
         end
     end
 
@@ -174,10 +166,7 @@ function status_removal.execute_debuff_removal(settings, job_def, main_level, su
                     max_debuffs, best_member and best_member.name or 'party member', ability.name)
                 local result, reason = action_core.try_use(ability, job_def, settings, best_index, desc)
                 if result then
-                    common.debugf('[DEBUFF_REMOVAL] Using %s on p%d (%d debuff%s)', ability.name, best_index, max_debuffs, max_debuffs == 1 and '' or 's')
                     return result
-                elseif reason then
-                    common.debugf('[DEBUFF_REMOVAL] %s: %s', ability.name, reason)
                 end
             end
         end
@@ -212,8 +201,6 @@ function status_removal.execute_wake(settings, job_def, main_level, sub_level, p
 
     local derived_main_level = player.main_level
     local derived_sub_level  = player.sub_level
-
-    common.debugf('[Wake] Wake check starting...')
 
     -- Get wake abilities from job definition (can be single-target or AOE)
     local wake_abilities = {
@@ -251,17 +238,12 @@ function status_removal.execute_wake(settings, job_def, main_level, sub_level, p
         local member_state = i == 0 and state.player or state.party[i]
         if not member_state then goto continue_wake end
         local buffs = member_state.buffs or {}
-        common.debugf('[Wake] Party[%d] buffs: %s', i, table.concat(buffs, ', '))
         if status_removal.is_buff_sleep(buffs) then
             table.insert(sleeping_members, i)
-            local name = member_state.name or 'Unknown'
-            common.debugf('[Wake]   -> Party[%d] %s is sleeping (has buff 2 or 19)', i, name)
         end
 
         ::continue_wake::
     end
-
-    common.debugf('[Wake] Total sleeping members: %d', #sleeping_members)
 
     if #sleeping_members == 0 then
         return nil
@@ -276,15 +258,11 @@ function status_removal.execute_wake(settings, job_def, main_level, sub_level, p
 
     -- If 2+ members are sleeping, use AOE
     if #sleeping_members >= 2 and #available_aoe > 0 then
-        common.debugf('[Wake] Multiple sleeping members (%d), trying AOE wake', #sleeping_members)
         for _, ability in ipairs(available_aoe) do
             local desc = string.format('Waking %d sleeping members with %s', #sleeping_members, ability.name)
             local result, reason = action_core.try_use(ability, job_def, settings, 0, desc)
             if result then
-                common.debugf('[Wake] >>> Using %s to wake %d members', ability.name, #sleeping_members)
                 return result
-            elseif reason then
-                common.debugf('[Wake] %s: %s', ability.name, reason)
             end
         end
     end
@@ -300,7 +278,6 @@ function status_removal.execute_wake(settings, job_def, main_level, sub_level, p
                 for _, idx in ipairs(sleeping_members) do
                     if idx == focus_target_index then
                         target_index = focus_target_index
-                        common.debugf('[Wake] Focus target is sleeping, prioritizing them')
                         break
                     end
                 end
@@ -309,26 +286,20 @@ function status_removal.execute_wake(settings, job_def, main_level, sub_level, p
 
         local target_member = target_index == 0 and state.player or state.party[target_index]
         local target_name = (target_member and target_member.name) or 'party member'
-        common.debugf('[Wake] Using single-target wake on party[%d] %s', target_index, target_name)
 
         for _, ability in ipairs(available_single) do
             local blocked_by = common.is_command_blocked(ability.command)
             if blocked_by then
-                common.debugf('[Wake] %s is blocked by %s', ability.name, blocked_by)
             else
                 local desc = string.format('Waking %s with %s', target_name, ability.name)
                 local result, reason = action_core.try_use(ability, job_def, settings, target_index, desc)
                 if result then
-                    common.debugf('[Wake] >>> Using %s on %s', ability.name, target_name)
                     return result
-                elseif reason then
-                    common.debugf('[Wake] %s: %s', ability.name, reason)
                 end
             end
         end
     end
 
-    common.debugf('[Wake] No wake action taken')
     return nil
 end
 

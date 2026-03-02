@@ -160,8 +160,6 @@ local function merge_abilities(main_abilities, sub_abilities, main_def, sub_def)
                 ability_copy.resource_type = main_def.resource_type
             end
             table.insert(merged[category], ability_copy)
-            common.debugf('[merge_abilities] Added main job ability: %s (level %d, is_main_job=true)', 
-                ability.name, ability.level or 0)
         end
     end
     
@@ -178,7 +176,6 @@ local function merge_abilities(main_abilities, sub_abilities, main_def, sub_def)
                     for _, main_ability in ipairs(merged[category]) do
                         if main_ability.name == ability.name and main_ability.is_main_job == true then
                             is_duplicate = true
-                            common.debugf('[merge_abilities] Skipping subjob duplicate: %s (already in main job)', ability.name)
                             break
                         end
                     end
@@ -196,8 +193,6 @@ local function merge_abilities(main_abilities, sub_abilities, main_def, sub_def)
                         ability_copy.resource_type = sub_def.resource_type
                     end
                     table.insert(merged[category], ability_copy)
-                    common.debugf('[merge_abilities] Added subjob ability: %s (level %d, is_main_job=false)', 
-                        ability.name, ability.level or 0)
                 end
             end
         end
@@ -768,10 +763,8 @@ ashita.events.register('packet_in', 'medic_packet_in', function(e)
                     -- Check if this is a casting completion (byte 0x0F != 0x00)
                     if e.data and #e.data >= 16 then
                         local completion_flag = struct.unpack('B', e.data, 0x0F + 1)
-                        common.debugf('[PACKET] 0x028 completion_flag = 0x%02X', completion_flag)
                         if completion_flag ~= 0x00 then
                             -- Casting completed, apply pending buff to Trust
-                            common.debugf('[PACKET] Calling handle_buff_application()')
                             common.handle_buff_application()
                         end
                     end

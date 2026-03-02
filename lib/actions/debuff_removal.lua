@@ -77,7 +77,6 @@ function debuff_removal.execute(settings, job_def, main_level, sub_level, player
             -- Check if this ability is blocked by status ailments
             local blocked_by = common.is_command_blocked(ability.command)
             if blocked_by then
-                common.debugf('[DEBUFF_REMOVAL] %s is blocked by %s', ability.name, blocked_by)
                 goto continue_self
             end
             
@@ -87,10 +86,7 @@ function debuff_removal.execute(settings, job_def, main_level, sub_level, player
                 local desc = string.format('Removing %d debuff(s) from self with %s', debuff_count, ability.name)
                 local result, reason = action_core.try_use(ability, job_def, settings, 0, desc)
                 if result then
-                    common.debugf('[DEBUFF_REMOVAL] Using %s on self (%d debuff%s)', ability.name, debuff_count, debuff_count == 1 and '' or 's')
                     return result
-                elseif reason then
-                    common.debugf('[DEBUFF_REMOVAL] %s: %s', ability.name, reason)
                 end
             end
         end
@@ -146,15 +142,11 @@ function debuff_removal.execute(settings, job_def, main_level, sub_level, player
                         local desc = string.format('Removing %d debuff(s) from focus with %s', dc, ability.name)
                         local result, reason = action_core.try_use(ability, job_def, settings, focus_party_idx, desc)
                         if result then
-                            common.debugf('[DEBUFF_REMOVAL] Using %s on focus target (p%d, %d debuff%s)', ability.name, focus_party_idx, dc, dc == 1 and '' or 's')
                             return result
-                        elseif reason then
-                            common.debugf('[DEBUFF_REMOVAL] %s: %s', ability.name, reason)
                         end
                     end
                 end
         else
-            common.debugf('[DEBUFF_REMOVAL] Focus target (p%d) out of range, skipping', focus_party_idx)
         end
     end
     
@@ -189,10 +181,7 @@ function debuff_removal.execute(settings, job_def, main_level, sub_level, player
                     max_debuffs, best_member and best_member.name or 'party member', ability.name)
                 local result, reason = action_core.try_use(ability, job_def, settings, best_index, desc)
                 if result then
-                    common.debugf('[DEBUFF_REMOVAL] Using %s on p%d (%d debuff%s)', ability.name, best_index, max_debuffs, max_debuffs == 1 and '' or 's')
                     return result
-                elseif reason then
-                    common.debugf('[DEBUFF_REMOVAL] %s: %s', ability.name, reason)
                 end
             end
         end

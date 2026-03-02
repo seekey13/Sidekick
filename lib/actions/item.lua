@@ -20,7 +20,6 @@ local function get_item_count(item_name)
     end)
     
     if not ok_item or not target_item then
-        common.debugf('[Item] Failed to get item resource for: %s', item_name)
         return nil  -- Return nil when resource manager fails (during zoning)
     end
     
@@ -29,7 +28,6 @@ local function get_item_count(item_name)
     end)
     
     if not ok_inv or not inventory then
-        common.debugf('[Item] Failed to get inventory manager')
         return nil  -- Return nil when inventory isn't loaded (during zoning)
     end
     
@@ -57,7 +55,6 @@ local function get_item_count(item_name)
     
     -- If we found no valid items at all in the entire inventory, it's likely not loaded yet
     if valid_item_count == 0 then
-        common.debugf('[Item] No valid items found in inventory - may not be loaded yet')
         return nil
     end
     
@@ -74,30 +71,21 @@ local ITEM_REMOVALS = {
 local function try_item_removal(entry, settings)
     if not (settings and settings[entry.setting_key]) then return nil end
 
-    common.debugf('[Item] Checking for %s buff...', entry.debuff_name)
-
     if not common.has_buff(0, entry.buff_id) then
-        common.debugf('[Item] Player does not have %s buff', entry.debuff_name)
         return nil
     end
-
-    common.debugf('[Item] Player has %s! Proceeding with %s check...', entry.debuff_name, entry.item_name)
 
     -- Check cooldown
     local current_time = os.clock()
     if current_time - last_item_use < ITEM_COOLDOWN then
-        common.debugf('[Item] On cooldown, %.1f seconds remaining', ITEM_COOLDOWN - (current_time - last_item_use))
         return nil
     end
 
     -- Check inventory
     local count = get_item_count(entry.item_name)
     if not count or count == 0 then
-        common.debugf('[Item] No %s in inventory', entry.item_name)
         return nil
     end
-
-    common.debugf('[Item] Using %s to remove %s', entry.item_name, entry.debuff_name)
     last_item_use = current_time
 
     return {

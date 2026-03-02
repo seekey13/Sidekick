@@ -44,8 +44,6 @@ function recover.execute(settings, job_def)
             player.main_level, player.sub_level, job_def)
     end
 
-    common.debugf('[RECOVER] MP: %d (%.1f%%), TP: %d', player.mp, player.mpp or 0, player.tp)
-
     -- Priority 1: Devotion on focus recovery target
     if settings.focus_recovery_target then
         local tidx = nil
@@ -56,8 +54,6 @@ function recover.execute(settings, job_def)
         if tidx then
             local tm        = state.party[tidx]
             local threshold = settings.focus_recovery_threshold or 30
-            common.debugf('[RECOVER] Devotion target %s MP: %.1f%% (threshold: %.1f%%)',
-                settings.focus_recovery_target, tm.mpp or 0, threshold)
             if common.below_threshold(tm.mpp or 0, threshold) then
                 for _, ability in ipairs(filter('recover_party_mp')) do
                     if ability.name == 'Devotion' then
@@ -67,15 +63,10 @@ function recover.execute(settings, job_def)
                         if ok and in_range then
                             local cmd = common.build_ability_command(ability, tidx)
                             if cmd then
-                                common.debugf('[RECOVER] >>> Devotion on %s (MP: %.1f%%)',
-                                    settings.focus_recovery_target, tm.mpp)
                                 return { command = cmd,
                                     description = string.format('Devotion on %s (MP: %.1f%%)',
                                         settings.focus_recovery_target, tm.mpp) }
                             end
-                        else
-                            common.debugf('[RECOVER] Devotion skipped: %s',
-                                reason or 'target out of range')
                         end
                         break
                     end
@@ -87,7 +78,6 @@ function recover.execute(settings, job_def)
     -- Priority 2: Self MP recovery
     local mp_threshold = settings.recover_mp_threshold
     if mp_threshold and common.below_threshold(player.mpp or 0, mp_threshold) then
-        common.debugf('[RECOVER] MP %.1f%% below threshold %.1f%%', player.mpp, mp_threshold)
         local result = action_core.first_command(
             filter_buff_prereqs(filter('recover_mp'), player.buffs),
             job_def, settings, '[RECOVER]', nil,
@@ -98,7 +88,6 @@ function recover.execute(settings, job_def)
     -- Priority 3: Self TP recovery
     local tp_threshold = settings.recover_tp_threshold
     if tp_threshold and common.below_threshold(player.tp or 0, tp_threshold) then
-        common.debugf('[RECOVER] TP %d below threshold %d', player.tp, tp_threshold)
         return action_core.first_command(
             filter_buff_prereqs(filter('recover_tp'), player.buffs),
             job_def, settings, '[RECOVER]', nil,

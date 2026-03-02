@@ -212,8 +212,6 @@ function action_core.filter_usable(abilities, job_def, tag)
         local ok, reason = action_core.is_usable(ability, job_def)
         if ok then
             table.insert(usable, ability)
-        elseif tag then
-            common.debugf('%s %s: %s', tag, ability.name, reason)
         end
     end
     return usable
@@ -233,12 +231,9 @@ end
 function action_core.first_command(abilities, job_def, settings, tag, party_index, description_fn)
     for _, ability in ipairs(abilities) do
         local ok, reason = action_core.is_usable(ability, job_def)
-        if not ok then
-            if tag then common.debugf('%s %s: %s', tag, ability.name, reason) end
-        else
+        if ok then
             local command = common.build_ability_command(ability, party_index, settings)
             if command then
-                if tag then common.debugf('%s >>> Using %s', tag, ability.name) end
                 return {
                     command     = command,
                     description = description_fn and description_fn(ability) or ability.name,

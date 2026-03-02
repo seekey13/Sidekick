@@ -35,8 +35,6 @@ function geo.execute(settings, job_def, main_level, sub_level, player_resource)
             
             -- Check if pet is too far
             if pet_distance > distance_threshold then
-                common.debugf('[GEO] Pet is %.1f yalms away (threshold: %.1f), attempting Full Circle', pet_distance, distance_threshold)
-                
                 -- Get geo abilities from job definition
                 local geo_abilities = job_def.abilities.geo or {}
                 
@@ -53,7 +51,6 @@ function geo.execute(settings, job_def, main_level, sub_level, player_resource)
                     -- Check if this ability is blocked by status ailments
                     local blocked_by = common.is_command_blocked(ability.command)
                     if blocked_by then
-                        common.debugf('[GEO] %s is blocked by %s', ability.name, blocked_by)
                         goto continue
                     end
                     
@@ -119,7 +116,6 @@ function geo.execute(settings, job_def, main_level, sub_level, player_resource)
         end
         
         if not selected_spell then
-            common.debugf('[GEO] Spell %s not found or not available', spell_name)
             return nil
         end
         
@@ -138,7 +134,6 @@ function geo.execute(settings, job_def, main_level, sub_level, player_resource)
         local target_in_range = common.is_in_range(entity_target_index, 20)
         
         if not target_in_range then
-            common.debugf('[GEO] Entrust target out of range')
             return nil
         end
         
@@ -156,13 +151,11 @@ function geo.execute(settings, job_def, main_level, sub_level, player_resource)
             -- Check if spell is blocked by status ailments
             local blocked_by = common.is_command_blocked(selected_spell.command)
             if blocked_by then
-                common.debugf('[GEO] %s is blocked by %s', selected_spell.name, blocked_by)
                 return nil
             end
             
             -- Check MP cost
             if not action_core.has_resource('mp', selected_spell.cost or 0) then
-                common.debugf('[GEO] Not enough MP for %s (cost: %d)', selected_spell.name, selected_spell.cost or 0)
                 return nil
             end
             
