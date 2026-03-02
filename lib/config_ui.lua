@@ -693,8 +693,6 @@ function config_ui.render(settings, job_def, callback, clear_data_callback, rest
             if is_open and is_enabled then
                 ui.slider_int(ctx, 'AOE (HP%)', 'heal_aoe_threshold', { settings.heal_aoe_threshold or 70 }, 1, 100)
                 
-                ui.slider_int(ctx, 'Min Members', 'heal_aoe_count_threshold', { settings.heal_aoe_count_threshold or 2 }, 1, 6)
-                
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.heal_aoe) do
                     if can_use_ability(ability) and can_target_outside(ability) and not is_subjob_duplicate(job_def, ability) then

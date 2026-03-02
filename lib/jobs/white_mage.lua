@@ -108,7 +108,7 @@ return {
             {
                 name = 'Curaga II',
                 level = 31,
-                cost = 60,
+                cost = 120,
                 id = 8,  -- Spell ID
                 command = '/ma "Curaga II" <me>',
                 range = 20,

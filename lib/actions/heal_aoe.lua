@@ -13,7 +13,17 @@ function heal_aoe.execute(settings, job_def, main_level, sub_level, player_resou
     if not settings.heal_aoe_enabled then
         return nil
     end
-    
+
+    -- Read player data from game_state
+    local state  = common.game_state
+    local player = state and state.player
+    if not player then
+        return nil
+    end
+
+    local derived_main_level = player.main_level
+    local derived_sub_level  = player.sub_level
+
     -- Get AOE heal abilities from job definition
     local aoe_abilities = job_def.abilities.heal_aoe or {}
     if #aoe_abilities == 0 then
@@ -24,8 +34,8 @@ function heal_aoe.execute(settings, job_def, main_level, sub_level, player_resou
     local available_abilities = common.filter_abilities_by_level(
         aoe_abilities,
         settings,
-        main_level,
-        sub_level,
+        derived_main_level,
+        derived_sub_level,
         job_def
     )
     
@@ -33,34 +43,31 @@ function heal_aoe.execute(settings, job_def, main_level, sub_level, player_resou
         return nil
     end
     
-    -- Check party HP status
-    local party_status = common.check_party_hp(
-        settings.heal_aoe_threshold or 70,
-        false,
-        nil,
-        settings.focus_threshold or 85
-    )
-    
-    -- Determine if AOE heal is needed
-    local members_needing_heal = #party_status.needs_heal
-    local average_hp = party_status.average_hp
-    
-    -- Trigger AOE heal if:
-    -- 1. Multiple members need healing (2+)
-    -- 2. Average party HP is below threshold
-    local should_heal_aoe = false
-    
-    if settings.heal_aoe_count_threshold then
-        should_heal_aoe = members_needing_heal >= settings.heal_aoe_count_threshold
-    else
-        should_heal_aoe = members_needing_heal >= 2
+    -- Build party_status from game_state snapshot (no focus logic needed for AOE)
+    local aoe_threshold = settings.heal_aoe_threshold or 70
+    local in_pl_mode    = settings.pl_mode_enabled and settings.pl_connected_player
+
+    local average_hp   = 100
+    local total_hp     = 0
+    local active_count = 0
+    for i = 0, 5 do
+        local member = i == 0 and state.player or state.party[i]
+        if not member then goto continue_aoe_check end
+        if in_pl_mode and common.is_trust(i) then goto continue_aoe_check end
+        local hpp = member.hpp or 0
+        if hpp == 0 or hpp == 100 then goto continue_aoe_check end
+        total_hp     = total_hp     + hpp
+        active_count = active_count + 1
+        ::continue_aoe_check::
     end
-    
-    if not should_heal_aoe and settings.heal_aoe_avg_threshold then
-        should_heal_aoe = average_hp < settings.heal_aoe_avg_threshold
+    if active_count > 0 then
+        average_hp = total_hp / active_count
     end
-    
-    if not should_heal_aoe then
+
+    -- Trigger AOE heal if average HP of active members (>0%, <100%) is below threshold
+    common.debugf('[HEAL_AOE] Average HP of active members: %.1f%% (threshold: %.1f%%)', average_hp, aoe_threshold)
+
+    if average_hp >= aoe_threshold then
         return nil
     end
     
@@ -72,38 +79,47 @@ function heal_aoe.execute(settings, job_def, main_level, sub_level, player_resou
             common.debugf('[HEAL_AOE] %s is blocked by %s', ability.name, blocked_by)
             goto continue
         end
-        
+
         -- Check resource
         local ability_resource_type = ability.resource_type or job_def.resource_type
         if resource.has_resource(ability_resource_type, ability.cost) then
-            -- Check cooldown
+            -- Check cooldown: distinguish spells (/ma) from job abilities
+            local is_ready = true
             if ability.id then
-                if resource.is_ability_ready(ability.id) then
-                    local command = common.build_ability_command(ability)
-                    if command then
-                        return {
-                            command = command,
-                            description = string.format('AOE healing with %s (%d members need healing, avg HP: %.1f%%)',
-                                ability.name,
-                                members_needing_heal,
-                                average_hp)
-                        }
+                local is_spell = (type(ability.command) == 'string' and ability.command:match('^/ma%s'))
+                if not is_spell and type(ability.command) == 'function' then
+                    local test_cmd = common.build_ability_command(ability, 0, nil)
+                    is_spell = test_cmd and test_cmd:match('^/ma%s')
+                end
+                if is_spell then
+                    is_ready = resource.is_spell_ready(ability.id)
+                    if not is_ready then
+                        local recast_seconds = resource.get_spell_recast(ability.id) / 60.0
+                        common.debugf('[HEAL_AOE] %s on cooldown (%.1fs remaining)', ability.name, recast_seconds)
+                    end
+                else
+                    is_ready = resource.is_ability_ready(ability.id)
+                    if not is_ready then
+                        common.debugf('[HEAL_AOE] %s on cooldown', ability.name)
                     end
                 end
-            else
+            end
+
+            if is_ready then
                 local command = common.build_ability_command(ability)
                 if command then
+                    common.debugf('[HEAL_AOE] >>> Using %s (avg HP: %.1f%%)', ability.name, average_hp)
                     return {
                         command = command,
-                        description = string.format('AOE healing with %s (%d members need healing, avg HP: %.1f%%)',
-                            ability.name,
-                            members_needing_heal,
-                            average_hp)
+                        description = string.format('AOE healing with %s (avg HP: %.1f%%)',
+                            ability.name, average_hp)
                     }
                 end
             end
+        else
+            common.debugf('[HEAL_AOE] Insufficient %s for %s', ability_resource_type, ability.name)
         end
-        
+
         ::continue::
     end
     
