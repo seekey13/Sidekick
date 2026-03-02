@@ -75,7 +75,17 @@ function debuff_removal.execute(settings, job_def, main_level, sub_level, player
     if not settings.debuff_removal_enabled then
         return nil
     end
-    
+
+    -- Read player data from game_state
+    local state  = common.game_state
+    local player = state and state.player
+    if not player then
+        return nil
+    end
+
+    local derived_main_level = player.main_level
+    local derived_sub_level  = player.sub_level
+
     -- Get debuff removal abilities from job definition
     local removal_abilities = job_def.abilities.debuff_removal or {}
     if #removal_abilities == 0 then
@@ -83,7 +93,7 @@ function debuff_removal.execute(settings, job_def, main_level, sub_level, player
     end
     
     -- Filter abilities by level and settings
-    local available_abilities = common.filter_abilities_by_level(removal_abilities, settings, main_level, sub_level, job_def)
+    local available_abilities = common.filter_abilities_by_level(removal_abilities, settings, derived_main_level, derived_sub_level, job_def)
     
     if #available_abilities == 0 then
         return nil
@@ -99,7 +109,7 @@ function debuff_removal.execute(settings, job_def, main_level, sub_level, player
                 goto continue_self
             end
             
-            local player_buffs = common.get_player_buffs()
+            local player_buffs = state.player.buffs or {}
             if can_remove_debuffs(ability, player_buffs) then
                 -- Check resource
                 local ability_resource_type = ability.resource_type or job_def.resource_type
@@ -132,18 +142,20 @@ function debuff_removal.execute(settings, job_def, main_level, sub_level, player
         ::continue_self::
     end
     
-    -- Check if in PL mode
+    -- Build buff table from game_state snapshot
     local in_pl_mode = settings and settings.pl_mode_enabled and settings.pl_connected_player
-    
-    -- Combine player buffs (index 0) with party buffs (indices 1-5)
+
     local all_buffs = {}
-    all_buffs[0] = common.get_player_buffs()
-    for i = 1, 5 do
-        -- Skip Trusts in PL mode (cannot remove debuffs from Trusts outside party)
-        if in_pl_mode and common.is_trust(i) then
-            all_buffs[i] = {}  -- Empty buff list for Trusts in PL mode
+    for i = 0, 5 do
+        local member = i == 0 and state.player or state.party[i]
+        if member then
+            if in_pl_mode and member.is_trust then
+                all_buffs[i] = {}
+            else
+                all_buffs[i] = member.buffs or {}
+            end
         else
-            all_buffs[i] = common.get_party_buffs(i)
+            all_buffs[i] = {}
         end
     end
     
@@ -154,18 +166,26 @@ function debuff_removal.execute(settings, job_def, main_level, sub_level, player
     end
     
     -- Priority 1: Check focus target first
+    local focus_party_idx = nil
     if settings.focus_enabled and settings.focus_target then
-        local focus_party_index = common.get_party_index_by_name(settings.focus_target)
-        
-        if focus_party_index and debuff_counts[focus_party_index] > 0 then
-            -- Check range to focus target (20 yalms for debuff removal spells)
-            local focus_target_index = common.get_target_index_by_name(settings.focus_target)
-            local in_range = focus_party_index == 0 or (focus_target_index and common.is_in_range(focus_target_index, 20))
+        for i = 0, 5 do
+            local m = i == 0 and state.player or state.party[i]
+            if m and m.name == settings.focus_target then
+                focus_party_idx = i
+                break
+            end
+        end
+    end
+
+    if focus_party_idx ~= nil and debuff_counts[focus_party_idx] > 0 then
+        local focus_member = focus_party_idx == 0 and state.player or state.party[focus_party_idx]
+        local focus_target_index = focus_member and focus_member.target_index
+        local in_range = focus_party_idx == 0 or (focus_target_index and focus_target_index > 0 and common.is_in_range(focus_target_index, 20))
             
-            if in_range then
+        if in_range then
                 -- Try to use an ability on focus target
                 for _, ability in ipairs(available_abilities) do
-                    if can_remove_debuffs(ability, all_buffs[focus_party_index]) then
+                    if can_remove_debuffs(ability, all_buffs[focus_party_idx]) then
                     -- Check resource
                     local ability_resource_type = ability.resource_type or job_def.resource_type
                     if resource.has_resource(ability_resource_type, ability.cost) then
@@ -178,24 +198,23 @@ function debuff_removal.execute(settings, job_def, main_level, sub_level, player
                         end
                         
                         if is_ready then
-                            local command = common.build_ability_command(ability, focus_party_index, settings)
+                            local command = common.build_ability_command(ability, focus_party_idx, settings)
                             if command then
                                 common.debugf('[DEBUFF_REMOVAL] Using %s on focus target (p%d, %d debuff%s)', 
-                                    ability.name, focus_party_index, debuff_counts[focus_party_index],
-                                    debuff_counts[focus_party_index] == 1 and '' or 's')
+                                    ability.name, focus_party_idx, debuff_counts[focus_party_idx],
+                                    debuff_counts[focus_party_idx] == 1 and '' or 's')
                                 return {
                                     command = command,
                                     description = string.format('Removing %d debuff(s) from focus with %s',
-                                        debuff_counts[focus_party_index], ability.name)
+                                        debuff_counts[focus_party_idx], ability.name)
                                 }
                             end
                         end
                     end
                 end
             end
-            else
-                common.debugf('[DEBUFF_REMOVAL] Focus target (p%d) out of range, skipping', focus_party_index)
-            end
+        else
+            common.debugf('[DEBUFF_REMOVAL] Focus target (p%d) out of range, skipping', focus_party_idx)
         end
     end
     
@@ -205,15 +224,11 @@ function debuff_removal.execute(settings, job_def, main_level, sub_level, player
     
     for i = 0, 5 do
         -- Skip focus (already checked) and members with no debuffs
-        local focus_party_index = nil
-        if settings.focus_enabled and settings.focus_target then
-            focus_party_index = common.get_party_index_by_name(settings.focus_target)
-        end
-        
-        if i ~= focus_party_index and debuff_counts[i] > 0 then
+        if i ~= focus_party_idx and debuff_counts[i] > 0 then
             -- Check range (20 yalms for debuff removal spells)
-            local target_index = common.get_party_member_target_index(i)
-            local in_range = i == 0 or (target_index and common.is_in_range(target_index, 20))
+            local party_member = i == 0 and state.player or state.party[i]
+            local member_target_index = party_member and party_member.target_index
+            local in_range = i == 0 or (member_target_index and member_target_index > 0 and common.is_in_range(member_target_index, 20))
             
             if in_range then
                 -- Update if this member has more debuffs, or same amount but lower index
@@ -246,11 +261,12 @@ function debuff_removal.execute(settings, job_def, main_level, sub_level, player
                             common.debugf('[DEBUFF_REMOVAL] Using %s on p%d (%d debuff%s)', 
                                 ability.name, best_index, max_debuffs,
                                 max_debuffs == 1 and '' or 's')
+                            local best_member = best_index == 0 and state.player or state.party[best_index]
                             return {
                                 command = command,
                                 description = string.format('Removing %d debuff(s) from %s with %s',
                                     max_debuffs,
-                                    common.get_party_member_name(best_index) or 'party member',
+                                    best_member and best_member.name or 'party member',
                                     ability.name)
                             }
                         end
