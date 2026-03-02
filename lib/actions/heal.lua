@@ -374,8 +374,9 @@ function heal.execute_aoe(settings, job_def)
         player.main_level, player.sub_level, job_def)
     if #abilities == 0 then return nil end
 
-    -- Average HP of alive, non-full party members
-    local total, count = 0, 0
+    -- Average HP of alive, non-full party members; also count how many are below threshold
+    local threshold = settings.heal_aoe_threshold or 70
+    local total, count, below_count = 0, 0, 0
     for i = 0, 5 do
         local m = i == 0 and state.player or state.party[i]
         if m then
@@ -383,11 +384,15 @@ function heal.execute_aoe(settings, job_def)
             if common.is_active_member(hpp) then
                 total = total + hpp
                 count = count + 1
+                if common.below_threshold(hpp, threshold) then
+                    below_count = below_count + 1
+                end
             end
         end
     end
-    local avg_hp    = count > 0 and (total / count) or 100
-    local threshold = settings.heal_aoe_threshold or 70
+    -- Require at least 2 members below threshold before using AOE
+    if below_count < 2 then return nil end
+    local avg_hp = count > 0 and (total / count) or 100
     if not common.below_threshold(avg_hp, threshold) then return nil end
 
     return action_core.first_command(abilities, job_def, settings, '[HEAL_AOE]', nil,
