@@ -91,7 +91,7 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
         return nil
     end
     
-    -- Build party_status from game_state snapshot (replaces common.check_party_hp)
+    -- Build party_status from game_state snapshot
     local threshold       = settings.heal_threshold or 75
     local focus_enabled   = settings.focus_enabled
     local focus_threshold = settings.focus_threshold or 85
@@ -129,17 +129,17 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
         active_count = active_count + 1
         local is_focus      = focus_enabled and focus_party_idx ~= nil and i == focus_party_idx
         local eff_threshold = is_focus and focus_threshold or threshold
-        common.debugf('[check_party_hp] Party[%d] %s: HP=%.1f%%, target_index=%s, is_focus=%s, effective_threshold=%.1f%%',
+        common.debugf('[HEAL] Party[%d] %s: HP=%.1f%%, target_index=%s, is_focus=%s, effective_threshold=%.1f%%',
                      i, m.name or 'Unknown', hpp, tostring(target_idx), tostring(is_focus), eff_threshold)
         if hpp < eff_threshold and target_idx > 0 then
-            common.debugf('[check_party_hp]   -> Needs heal (%.1f%% < %.1f%%)', hpp, eff_threshold)
+            common.debugf('[HEAL]   -> Needs heal (%.1f%% < %.1f%%)', hpp, eff_threshold)
             table.insert(party_status.needs_heal, { index = i, target_index = target_idx, hpp = hpp })
             if hpp < party_status.lowest_hp_percent then
                 party_status.lowest_hp_percent = hpp
                 party_status.lowest_hp_index   = i
             end
             if is_focus then
-                common.debugf('[check_party_hp]   -> Focus target needs heal!')
+                common.debugf('[HEAL]   -> Focus target needs heal!')
                 party_status.focus_needs_heal = true
             end
         end

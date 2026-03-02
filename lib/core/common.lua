@@ -520,18 +520,6 @@ function common.get_job_name(job_id)
     return tostring(job_id)
 end
 
-function common.get_player_mp()
-    local party = common.get_party()
-    if not party then return 0 end
-    return party:GetMemberMP(0)
-end
-
-function common.get_player_tp()
-    local party = common.get_party()
-    if not party then return 0 end
-    return party:GetMemberTP(0)
-end
-
 -- Get pet's HP percentage
 -- Returns: number (HP percentage 0-100) or 0 if no pet
 function common.get_pet_hp_percent()
@@ -647,40 +635,6 @@ function common.is_party_member_active(index)
     local party = common.get_party()
     if not party then return false end
     return party:GetMemberIsActive(index) == 1
-end
-
-function common.get_party_member_hp_percent(index)
-    local party = common.get_party()
-    if not party then return 0 end
-
-    local hpp = party:GetMemberHPPercent(index)
-    if hpp then
-        return hpp
-    end
-
-    return 0
-end
-
-function common.get_party_member_mp_percent(index)
-    local party = common.get_party()
-    if not party then return 0 end
-    
-    if not common.is_party_member_active(index) then
-        return 0
-    end
-    
-    local mpp = party:GetMemberMPPercent(index)
-    if mpp then
-        return mpp
-    end
-    
-    return 0
-end
-
-function common.get_party_member_target_index(index)
-    local party = common.get_party()
-    if not party then return nil end
-    return party:GetMemberTargetIndex(index)
 end
 
 function common.get_party_member_name(index)
@@ -1195,97 +1149,6 @@ function common.get_removable_debuffs(target_index, removable_list)
     end
     
     return debuffs
-end
-
---[[
-    Party HP Checking
-]]--
-
-function common.check_party_hp(threshold, focus_enabled, focus_target, focus_threshold, settings)
-    threshold = threshold or 75
-    focus_threshold = focus_threshold or threshold  -- Default to regular threshold if not specified
-    
-    common.debugf('[check_party_hp] threshold=%.1f%%, focus_enabled=%s, focus_target=%s, focus_threshold=%.1f%%',
-                 threshold, tostring(focus_enabled), tostring(focus_target), focus_threshold)
-    
-    local results = {
-        needs_heal = {},
-        focus_needs_heal = false,
-        lowest_hp_index = nil,
-        lowest_hp_percent = 100,
-        average_hp = 100,
-    }
-    
-    local party = common.get_party()
-    if not party then
-        common.debugf('[check_party_hp] No party manager available')
-        return results
-    end
-    
-    -- Check if in PL mode
-    local in_pl_mode = settings and settings.pl_mode_enabled and settings.pl_connected_player
-    
-    local total_hp = 0
-    local active_count = 0
-    
-    for i = 0, 5 do
-        if common.is_party_member_active(i) then
-            -- Skip Trusts in PL mode (cannot heal Trusts outside party)
-            if in_pl_mode and common.is_trust(i) then
-                goto continue_hp_check
-            end
-            
-            local member_name = common.get_party_member_name(i) or 'Unknown'
-            local hpp = common.get_party_member_hp_percent(i)
-            local target_index = party:GetMemberTargetIndex(i)
-            
-            -- Skip members with 0% HP (dead/different zone) or 100% HP (full health)
-            if hpp == 0 or hpp == 100 then
-                -- Skip silently
-            else
-                total_hp = total_hp + hpp
-                active_count = active_count + 1
-                
-                -- Check if this is the focus target (compare party indices, not target indices)
-                local is_focus = focus_enabled and focus_target ~= nil and i == focus_target
-                local effective_threshold = is_focus and focus_threshold or threshold
-                
-                common.debugf('[check_party_hp] Party[%d] %s: HP=%.1f%%, target_index=%s, is_focus=%s, effective_threshold=%.1f%%',
-                             i, member_name, hpp, tostring(target_index), tostring(is_focus), effective_threshold)
-                
-                if hpp < effective_threshold and target_index then
-                    common.debugf('[check_party_hp]   -> Needs heal (%.1f%% < %.1f%%)', hpp, effective_threshold)
-                    table.insert(results.needs_heal, {
-                        index = i,
-                        target_index = target_index,
-                        hpp = hpp,
-                    })
-                    
-                    if hpp < results.lowest_hp_percent then
-                        results.lowest_hp_percent = hpp
-                        results.lowest_hp_index = i
-                    end
-                    
-                    -- Check focus target
-                    if is_focus then
-                        common.debugf('[check_party_hp]   -> Focus target needs heal!')
-                        results.focus_needs_heal = true
-                    end
-                end
-            end
-            
-            ::continue_hp_check::
-        end
-    end
-    
-    if active_count > 0 then
-        results.average_hp = total_hp / active_count
-    end
-    
-    common.debugf('[check_party_hp] Results: %d members need heal, focus_needs_heal=%s',
-                 #results.needs_heal, tostring(results.focus_needs_heal))
-    
-    return results
 end
 
 --[[

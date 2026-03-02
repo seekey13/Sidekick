@@ -205,10 +205,10 @@ Provides shared utilities used across all modules.
 - `get_pet_hp_percent()`: Pet HP percentage using get_pet_entity
 - `get_pet_distance()`: Pet distance from player using get_pet_entity
 - `get_party_size`: Party member counting
-- `get_party_member_*`: Party member data access
-- `check_party_hp(threshold, focus, focus_target, focus_threshold, settings)`: Returns members needing heal, skips Trusts in PL mode
-- `get_party_buffs(member_index)`: Returns buff array for party member
-- `has_buff/get_player_buffs`: Buff checking via memory pointers
+- `get_party_member_name/zone`: Party member name and zone access
+- `get_party_member_distance(index)`: Physical distance to party member (live entity call)
+- `get_party_buffs(member_index)`: Returns buff array for party member (used by refresh_game_state)
+- `has_buff/get_player_buffs`: Buff checking via memory pointers (used by refresh_game_state and internal helpers)
 - `get_trust_buffs(server_id)`: Returns Trust buffs tracked via packets
 - `register_pending_buff(server_id, buff_id)`: Register buff pending application to Trust
 - `handle_buff_application()`: Apply pending buff when cast completes (packet 0x028)
