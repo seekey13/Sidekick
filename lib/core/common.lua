@@ -374,7 +374,12 @@ function common.is_player_moving()
     -- Compare with last known position
     local last_pos = movement_state.last_position
     movement_state.is_moving = (x ~= last_pos[1] or y ~= last_pos[2] or z ~= last_pos[3])
-    
+
+    -- Cancel resting when the player moves
+    if movement_state.is_moving then
+        is_resting = false
+    end
+
     -- Update last known position
     movement_state.last_position = {x, y, z}
     

@@ -176,7 +176,7 @@ return {
             {
                 name = 'Reverse Flourish',
                 level = 40,
-                cost = 5,
+                cost = 0,
                 id = 222,
                 command = '/ja "Reverse Flourish" <me>',
                 wakes = false,
