@@ -211,6 +211,9 @@ local function render_party_dropdown(label, setting_key, include_player, party_m
 
     -- Render dropdown
     imgui.PushItemWidth(250)
+    imgui.PushStyleColor(ImGuiCol_FrameBg, { 0.2, 0.2, 0.2, 1.0 })
+    imgui.PushStyleColor(ImGuiCol_FrameBgHovered, { 0.3, 0.3, 0.3, 1.0 })
+    imgui.PushStyleColor(ImGuiCol_FrameBgActive, { 0.4, 0.4, 0.4, 1.0 })
     if imgui.BeginCombo(label, current_display) then
         for _, option in ipairs(options) do
             local is_selected = (option == current_display)
@@ -224,6 +227,7 @@ local function render_party_dropdown(label, setting_key, include_player, party_m
         end
         imgui.EndCombo()
     end
+    imgui.PopStyleColor(3)
     imgui.PopItemWidth()
 
     return settings[setting_key]
@@ -534,11 +538,22 @@ function ui_config.render(settings, job_def, callback, roll_mod)
             end
             table.sort(sorted_tt, function(a, b) return a.name < b.name end)
             local remove_sid = nil
+            local container_color = { 0.2, 0.2, 0.2, 1.0 }
             for t_idx, tt in ipairs(sorted_tt) do
-                imgui.Text('  <T' .. t_idx .. '> ' .. tt.name)
-                imgui.SameLine()
+                if t_idx > 1 then imgui.SameLine() end
+
+                -- Non-interactive visual button container showing T-index + name
+                imgui.PushStyleColor(ImGuiCol_Button, container_color)
+                imgui.PushStyleColor(ImGuiCol_ButtonHovered, container_color)
+                imgui.PushStyleColor(ImGuiCol_ButtonActive, container_color)
+                imgui.PushID('lbl_' .. tostring(tt.sid))
+                imgui.Button('<T' .. t_idx .. '> ' .. tt.name)
+                imgui.PopID()
+                imgui.PopStyleColor(3)
+
+                imgui.SameLine(0, 2)
                 imgui.PushID('rm_' .. tostring(tt.sid))
-                if imgui.SmallButton('X') then
+                if imgui.Button('X') then
                     remove_sid = tt.sid
                 end
                 imgui.PopID()

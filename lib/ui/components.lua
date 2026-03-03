@@ -38,9 +38,9 @@ local COLOR_BUTTON_UNSELECTED_HOVER = { 0.4, 0.4, 0.4, 1.0 }
 local COLOR_BUTTON_UNSELECTED_ACTIVE = { 0.5, 0.5, 0.5, 1.0 }
 
 -- Color Constants - Headers
-local HEADER_COLOR_NORMAL = { 0.05, 0.1, 0.2, 0.31 }
-local HEADER_COLOR_HOVERED = { 0.05, 0.1, 0.2, 0.80 }
-local HEADER_COLOR_ACTIVE = { 0.05, 0.1, 0.2, 1.00 }
+local HEADER_COLOR_NORMAL = { 0.2, 0.2, 0.2, 0.31 }
+local HEADER_COLOR_HOVERED = { 0.2, 0.2, 0.2, 0.45 }
+local HEADER_COLOR_ACTIVE = { 0.2, 0.2, 0.2, 0.65 }
 
 -- ============================================================================
 -- Helper Functions
