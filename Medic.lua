@@ -667,30 +667,30 @@ ashita.events.register('packet_in', 'medic_packet_in', function(e)
         end
     end
     
-    -- Detect buff applications on any party member (0x028)
+    -- Detect buff gains and removals on any party member (0x028)
     -- Message 230 = caster/player gains the effect, 266 = other party members/Trusts gain the effect
+    -- Message 83  = buff/debuff removed from target (e.g. Paralyna removes Paralysis)
     if e.id == 0x028 then
         local actionPacket = parse_packets.parse_action_packet(e)
         if actionPacket and actionPacket.Type == 4 then
             local entMgr = AshitaCore:GetMemoryManager():GetEntity()
             for _, target in ipairs(actionPacket.Targets) do
                 for _, action in ipairs(target.Actions) do
+                    -- Resolve target name and buff name once for all message handling below
+                    local target_name = 'Unknown'
+                    for idx = 0, 0x8FF do
+                        if entMgr:GetServerId(idx) == target.Id then
+                            target_name = entMgr:GetName(idx)
+                            break
+                        end
+                    end
+
+                    local buff_name = AshitaCore:GetResourceManager():GetString('buffs.names', action.Param)
+                    if not buff_name or buff_name == '' then
+                        buff_name = 'Buff#' .. action.Param
+                    end
+
                     if action.Message == 230 or action.Message == 266 then
-                        -- Resolve target name from server ID
-                        local target_name = 'Unknown'
-                        for idx = 0, 0x8FF do
-                            if entMgr:GetServerId(idx) == target.Id then
-                                target_name = entMgr:GetName(idx)
-                                break
-                            end
-                        end
-
-                        -- Resolve buff name from resource strings (action.Param is the status effect ID)
-                        local buff_name = AshitaCore:GetResourceManager():GetString('buffs.names', action.Param)
-                        if not buff_name or buff_name == '' then
-                            buff_name = 'Buff#' .. action.Param
-                        end
-
                         common.printf('%s gained the effect of %s.', target_name, buff_name)
 
                         -- Update Trust buff tracking so game_state reflects the change
@@ -702,20 +702,32 @@ ashita.events.register('packet_in', 'medic_packet_in', function(e)
                         if common.is_tracked_target(target.Id) then
                             common.apply_tracked_target_buff(target.Id, action.Param)
                         end
+
+                    elseif action.Message == 83 then
+                        common.debugf('%s lost the effect of %s (via 0x028).', target_name, buff_name)
+
+                        -- Remove from Trust and tracked target buff tracking (both stored in trust_buffs)
+                        if target.Id >= 0x1000000 or common.is_tracked_target(target.Id) then
+                            common.handle_buff_removal(target.Id, action.Param)
+                        end
                     end
                 end
             end
         end
     end
 
-    -- Handle status effect update packets for buff removal (0x029)
+    -- Detect buff applications via 0x029 (message_basic).
+    -- Fires whenever any nearby entity gains a buff, including cases not covered by 0x028
+    -- (e.g. buffs not cast by the local player, out-of-party targets receiving sleep, etc.)
+    -- param  (0x0C) = buff ID
+    -- target (0x08) = server ID of the entity that received the buff
     if e.id == 0x029 then
-        if e.data and #e.data >= 16 then
-            -- Extract server_id (bytes 0x04-0x07, little-endian)
-            local server_id = struct.unpack('I', e.data, 0x04 + 1)
+        if e.data and #e.data >= 20 then
+            local msg = parse_packets.parse_message_packet(e)
 
-            -- Extract buff_id (byte 0x0C)
-            local buff_id = struct.unpack('B', e.data, 0x0C + 1)
+            -- target is who received the buff; param is the buff ID
+            local server_id = msg.target
+            local buff_id   = msg.param
 
             if server_id > 0 and buff_id > 0 and buff_id ~= 255 then
                 -- Resolve target name from server ID
@@ -734,16 +746,16 @@ ashita.events.register('packet_in', 'medic_packet_in', function(e)
                     buff_name = 'Buff#' .. buff_id
                 end
 
-                common.debugf('%s lost the effect of %s.', target_name, buff_name)
+                common.debugf('%s gained the effect of %s (via 0x029).', target_name, buff_name)
 
                 -- Update Trust buff tracking
                 if server_id >= 0x1000000 then
-                    common.handle_buff_removal(server_id, buff_id)
+                    common.apply_trust_buff(server_id, buff_id)
                 end
 
                 -- Update tracked target buff tracking
                 if common.is_tracked_target(server_id) then
-                    common.handle_buff_removal(server_id, buff_id)
+                    common.apply_tracked_target_buff(server_id, buff_id)
                 end
             end
         end
