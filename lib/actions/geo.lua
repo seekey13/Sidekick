@@ -15,6 +15,11 @@ function geo.execute(settings, job_def, main_level, sub_level, player_resource)
         return nil
     end
 
+    -- Do not perform geo actions while resting
+    if common.is_resting() then
+        return nil
+    end
+
     local state  = common.game_state
     local player = state and state.player
     if not player then return nil end

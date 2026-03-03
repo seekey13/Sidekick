@@ -14,6 +14,11 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
         return nil
     end
 
+    -- Do not apply buffs while resting
+    if common.is_resting() then
+        return nil
+    end
+
     -- Read player data from game_state
     local state  = common.game_state
     local player = state and state.player

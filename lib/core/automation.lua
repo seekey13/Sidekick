@@ -65,9 +65,11 @@ function automation.execute_priority_actions(priority_order, action_modules, set
             local success, result = pcall(action_module.execute, settings, job_def, main_level, sub_level, player_resource)
             
             if success and result then
-                -- If resting and this isn't the rest module, break rest first.
+                -- If resting and this is an urgent action type, break rest first.
+                -- buff and geo are low-priority and do not interrupt rest.
                 -- The actual action fires next tick once /heal off has landed.
-                if action_type ~= 'rest' and common.is_resting() then
+                local rest_breaking_actions = { heal = true, recover = true, item = true, status_removal = true }
+                if rest_breaking_actions[action_type] and common.is_resting() then
                     common.set_resting(false)
                     common.reset_rest_timer()
                     automation.execute_command('/heal off', 'Breaking rest for: ' .. action_type)
