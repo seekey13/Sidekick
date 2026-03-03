@@ -16,7 +16,7 @@ return {
         buff = {
             -- Minne
             {
-                name = "Knight's Minne IV",
+                name = "Knight's Minne IV (++++DEF)",
                 level = 61,
                 cost = 0,
                 id = 392,
@@ -29,7 +29,7 @@ return {
                 target_modifier = true,
             },
             {
-                name = "Knight's Minne III",
+                name = "Knight's Minne III (+++DEF)",
                 level = 41,
                 cost = 0,
                 id = 391,
@@ -42,7 +42,7 @@ return {
                 target_modifier = true,
             },
             {
-                name = "Knight's Minne II",
+                name = "Knight's Minne II (++DEF)",
                 level = 21,
                 cost = 0,
                 id = 390,
@@ -55,7 +55,7 @@ return {
                 target_modifier = true,
             },
             {
-                name = "Knight's Minne",
+                name = "Knight's Minne (+DEF)",
                 level = 1,
                 cost = 0,
                 id = 389,
@@ -69,7 +69,7 @@ return {
             },
             -- Minuet
             {
-                name = 'Valor Minuet IV',
+                name = 'Valor Minuet IV (+++ATK)',
                 level = 63,
                 cost = 0,
                 id = 397,
@@ -82,7 +82,7 @@ return {
                 target_modifier = true,
             },
             {
-                name = 'Valor Minuet III',
+                name = 'Valor Minuet III (++ATK)',
                 level = 43,
                 cost = 0,
                 id = 396,
@@ -95,7 +95,7 @@ return {
                 target_modifier = true,
             },
             {
-                name = 'Valor Minuet II',
+                name = 'Valor Minuet II (+ATK)',
                 level = 23,
                 cost = 0,
                 id = 395,
@@ -108,7 +108,7 @@ return {
                 target_modifier = true,
             },
             {
-                name = 'Valor Minuet',
+                name = 'Valor Minuet (+ATK)',
                 level = 3,
                 cost = 0,
                 id = 394,
@@ -122,7 +122,7 @@ return {
             },
             -- Paeon
             {
-                name = "Army's Paeon V",
+                name = "Army's Paeon V (+++++Regen)",
                 level = 65,
                 cost = 0,
                 id = 382,
@@ -135,7 +135,7 @@ return {
                 target_modifier = true,
             },
             {
-                name = "Army's Paeon IV",
+                name = "Army's Paeon IV (++++Regen)",
                 level = 45,
                 cost = 0,
                 id = 381,
@@ -148,7 +148,7 @@ return {
                 target_modifier = true,
             },
             {
-                name = "Army's Paeon III",
+                name = "Army's Paeon III (+++Regen)",
                 level = 35,
                 cost = 0,
                 id = 380,
@@ -161,7 +161,7 @@ return {
                 target_modifier = true,
             },
             {
-                name = "Army's Paeon II",
+                name = "Army's Paeon II (++Regen)",
                 level = 15,
                 cost = 0,
                 id = 379,
@@ -174,7 +174,7 @@ return {
                 target_modifier = true,
             },
             {
-                name = "Army's Paeon",
+                name = "Army's Paeon (+Regen)",
                 level = 5,
                 cost = 0,
                 id = 378,
@@ -188,7 +188,7 @@ return {
             },
             -- Madrigal
             {
-                name = 'Blade Madrigal',
+                name = 'Blade Madrigal (++ACC)',
                 level = 51,
                 cost = 0,
                 id = 400,
@@ -201,7 +201,7 @@ return {
                 target_modifier = true,
             },
             {
-                name = 'Sword Madrigal',
+                name = 'Sword Madrigal (+ACC)',
                 level = 11,
                 cost = 0,
                 id = 399,
@@ -213,9 +213,63 @@ return {
                 group = 'madrigal',
                 target_modifier = true,
             },
+            -- Prelude
+            {
+                name = "Archer's Prelude (++Rng Acc.)",
+                level = 71,
+                cost = 0,
+                id = 402,
+                command = function(target)
+                    return '/ma "Archer\'s Prelude" '..target
+                end,
+                element = 'Lightning',
+                buff_id = 200,  -- Archer's Prelude buff
+                target_modifier = true,
+                group = 'prelude',
+            },
+            {
+                name = "Hunter's Prelude (+Rng Acc.)",
+                level = 31,
+                cost = 0,
+                id = 401,
+                command = function(target)
+                    return '/ma "Hunter\'s Prelude" '..target
+                end,
+                element = 'Lightning',
+                buff_id = 200,  -- Hunter's Prelude buff
+                target_modifier = true,
+                group = 'prelude',
+            },
+            -- Mambo
+            {
+                name = 'Dragonfoe Mambo (++EVA)',
+                level = 53,
+                cost = 0,
+                id = 404,
+                command = function(target)
+                    return '/ma "Dragonfoe Mambo" '..target
+                end,
+                element = 'Wind',
+                buff_id = 201,  -- Dragonfoe Mambo buff
+                target_modifier = true,
+                group = 'mambo',
+            },
+            {
+                name = 'Sheepfoe Mambo (+EVA)',
+                level = 13,
+                cost = 0,
+                id = 403,
+                command = function(target)
+                    return '/ma "Sheepfoe Mambo" '..target
+                end,
+                element = 'Wind',
+                buff_id = 201,  -- Sheepfoe Mambo buff
+                target_modifier = true,
+                group = 'mambo',
+            },
             -- Ballad
             {
-                name = "Mage's Ballad II",
+                name = "Mage's Ballad II (++Refresh)",
                 level = 55,
                 cost = 0,
                 id = 387,
@@ -228,7 +282,7 @@ return {
                 target_modifier = true,
             },
             {
-                name = "Mage's Ballad",
+                name = "Mage's Ballad (+Refresh)",
                 level = 25,
                 cost = 0,
                 id = 386,
@@ -242,7 +296,7 @@ return {
             },
             -- March
             {
-                name = 'Victory March',
+                name = 'Victory March (++Haste)',
                 level = 60,
                 cost = 0,
                 id = 420, 
@@ -255,7 +309,7 @@ return {
                 target_modifier = true,
             },
             {
-                name = 'Advancing March',
+                name = 'Advancing March (+Haste)',
                 level = 29,
                 cost = 0,
                 id = 419,
@@ -269,7 +323,7 @@ return {
             },
             -- Etude
             {
-                name = 'Herculean Etude',
+                name = 'Herculean Etude (++STR)',
                 level = 74,
                 cost = 0,
                 id = 431,
@@ -282,7 +336,7 @@ return {
                 target_modifier = true,
             },
             {
-                name = 'Uncanny Etude',
+                name = 'Uncanny Etude (++DEX)',
                 level = 72,
                 cost = 0,
                 id = 432,
@@ -295,7 +349,7 @@ return {
                 target_modifier = true,
             },
             {
-                name = 'Vital Etude',
+                name = 'Vital Etude (++VIT)',
                 level = 70,
                 cost = 0,
                 id = 433,
@@ -308,7 +362,7 @@ return {
                 target_modifier = true,
             },
             {
-                name = 'Swift Etude',
+                name = 'Swift Etude (++AGI)',
                 level = 68,
                 cost = 0,
                 id = 434,
@@ -321,7 +375,7 @@ return {
                 target_modifier = true,
             },
             {
-                name = 'Sage Etude',
+                name = 'Sage Etude (++INT)',
                 level = 66,
                 cost = 0,
                 id = 435,
@@ -334,7 +388,7 @@ return {
                 target_modifier = true,
             },
             {
-                name = 'Logical Etude',
+                name = 'Logical Etude (++MND)',
                 level = 64,
                 cost = 0,
                 id = 436,
@@ -347,7 +401,7 @@ return {
                 target_modifier = true,
             },
             {
-                name = 'Bewitching Etude',
+                name = 'Bewitching Etude (++CHR)',
                 level = 62,
                 cost = 0,
                 id = 437,
@@ -360,7 +414,7 @@ return {
                 target_modifier = true,
             },
             {
-                name = 'Sinewy Etude',
+                name = 'Sinewy Etude (+STR)',
                 level = 34,
                 cost = 0,
                 id = 424,
@@ -373,7 +427,7 @@ return {
                 target_modifier = true,
             },
             {
-                name = 'Dextrous Etude',
+                name = 'Dextrous Etude (+DEX)',
                 level = 32,
                 cost = 0,
                 id = 425,
@@ -386,7 +440,7 @@ return {
                 target_modifier = true,
             },
             {
-                name = 'Vivacious Etude',
+                name = 'Vivacious Etude (+VIT)',
                 level = 30,
                 cost = 0,
                 id = 426,
@@ -399,7 +453,7 @@ return {
                 target_modifier = true,
             },
             {
-                name = 'Quick Etude',
+                name = 'Quick Etude (+AGI)',
                 level = 28,
                 cost = 0,
                 id = 427,
@@ -412,7 +466,7 @@ return {
                 target_modifier = true,
             },
             {
-                name = 'Learned Etude',
+                name = 'Learned Etude (+INT)',
                 level = 26,
                 cost = 0,
                 id = 428,
@@ -425,7 +479,7 @@ return {
                 target_modifier = true,
             },
             {
-                name = 'Spirited Etude',
+                name = 'Spirited Etude (+MND)',
                 level = 24,
                 cost = 0,
                 id = 429,
@@ -439,7 +493,7 @@ return {
             },
             -- Carols
             {
-                name = 'Dark Carol',
+                name = 'Dark Carol (+Dark Res.)',
                 level = 50,
                 cost = 0,
                 id = 445,
@@ -452,7 +506,7 @@ return {
                 target_modifier = true,
             },
             {
-                name = 'Lightning Carol',
+                name = 'Lightning Carol (+Lightning Res.)',
                 level = 48,
                 cost = 0,
                 id = 442,
@@ -465,7 +519,7 @@ return {
                 target_modifier = true,
             },
             {
-                name = 'Ice Carol',
+                name = 'Ice Carol (+Ice Res.)',
                 level = 46,
                 cost = 0,
                 id = 439,
@@ -478,7 +532,7 @@ return {
                 target_modifier = true,
             },
             {
-                name = 'Fire Carol',
+                name = 'Fire Carol (+Fire Res.)',
                 level = 44,
                 cost = 0,
                 id = 438,
@@ -491,7 +545,7 @@ return {
                 target_modifier = true,
             },
             {
-                name = 'Wind Carol',
+                name = 'Wind Carol (+Wind Res.)',
                 level = 42,
                 cost = 0,
                 id = 440,
@@ -504,7 +558,7 @@ return {
                 target_modifier = true,
             },
             {
-                name = 'Water Carol',
+                name = 'Water Carol (+Water Res.)',
                 level = 40,
                 cost = 0,
                 id = 441,
@@ -517,7 +571,7 @@ return {
                 target_modifier = true,
             },
             {
-                name = 'Earth Carol',
+                name = 'Earth Carol (+Earth Res.)',
                 level = 38,
                 cost = 0,
                 id = 443,
@@ -530,7 +584,7 @@ return {
                 target_modifier = true,
             },
             {
-                name = 'Light Carol',
+                name = 'Light Carol (+Light Res.)',
                 level = 36,
                 cost = 0,
                 id = 444,
@@ -544,7 +598,7 @@ return {
             },
             -- Mazurkas
             {
-                name = 'Chocobo Mazurka',
+                name = 'Chocobo Mazurka (+Move Spd.)',
                 level = 73,
                 cost = 0,
                 id = 465,
@@ -557,7 +611,7 @@ return {
                 idle_only = true,
             },
             {
-                name = 'Raptor Mazurka',
+                name = 'Raptor Mazurka (+Move Spd.)',
                 level = 37,
                 cost = 0,
                 id = 467,
@@ -569,9 +623,127 @@ return {
                 group = 'mazurka',
                 idle_only = true,
             },
+            -- Resistance
+            {
+                name = 'Warding Round(+Curse Res.)',
+                level = 73,
+                cost = 0,
+                id = 414,
+                command = function(target)
+                    return '/ma "Warding Round" '..target
+                end,
+                element = 'Light',
+                buff_id = 209,  -- Warding Round buff
+                target_modifier = true,
+                group = 'resistance',
+            },
+            {
+                name = "Puppet's Operetta (+Silence Res.)",
+                level = 69,
+                cost = 0,
+                id = 410,
+                command = function(target)
+                    return '/ma "Puppet\'s Operetta" '..target
+                end,
+                element = 'Ice',
+                buff_id = 206,  -- Puppet's Operetta buff
+                target_modifier = true,
+                group = 'resistance',
+            },
+            {
+                name = 'Shining Fantasia (+Blind Res.)',
+                level = 56,
+                cost = 0,
+                id = 408,
+                command = function(target)
+                    return '/ma "Shining Fantasia" '..target
+                end,
+                element = 'Light',
+                buff_id = 205,  -- Shining Fantasia buff
+                target_modifier = true,
+                group = 'resistance',
+            },
+            {
+                name = 'Gold Capriccio (+Pet. Res.)',
+                level = 54,
+                cost = 0,
+                id = 412,
+                command = function(target)
+                    return '/ma "Gold Capriccio" '..target
+                end,
+                element = 'Wind',
+                buff_id = 207,  -- Gold Capriccio buff
+                target_modifier = true,
+                group = 'resistance',
+            },
+            {
+                name = 'Goblin Gavotte (+Bind Res.)',
+                level = 49,
+                cost = 0,
+                id = 415,
+                command = function(target)
+                    return '/ma "Goblin Gavotte" '..target
+                end,
+                element = 'Fire',
+                buff_id = 210,  -- Goblin Gavotte buff
+                target_modifier = true,
+                group = 'resistance',
+            },
+            {
+                name = 'Fowl Aubade (+Slow Res.)',
+                level = 33,
+                cost = 0,
+                id = 405,
+                command = function(target)
+                    return '/ma "Fowl Aubade" '..target
+                end,
+                element = 'Light',
+                buff_id = 202,  -- Fowl Aubade buff
+                target_modifier = true,
+                group = 'resistance',
+            },
+            {
+                name = "Scop's Operetta (+Silence Res.)",
+                level = 19,
+                cost = 0,
+                id = 409,
+                command = function(target)
+                    return '/ma "Scop\'s Operetta" '..target
+                end,
+                element = 'Ice',
+                buff_id = 206,  -- Scop's Operetta buff
+                target_modifier = true,
+                group = 'resistance',
+            },
+
+            {
+                name = 'Herb Pastoral (+Poison Res.)',
+                level = 9,
+                cost = 0,
+                id = 406,
+                command = function(target)
+                    return '/ma "Herb Pastoral" '..target
+                end,
+                element = 'Lightning',
+                buff_id = 203,  -- Herb Pastoral buff
+                target_modifier = true,
+                group = 'resistance',
+            },
             -- Others
             {
-                name = 'Foe Sirvente',
+                name = "Goddess's Hymnus (Reraise)",
+                level = 71,
+                cost = 0,
+                id = 464,
+                command = function(target)
+                    return '/ma "Goddess\'s Hymnus" '..target
+                end,
+                element = 'Light',
+                buff_id = 218,  -- Goddess's Hymnus buff
+                target_modifier = true,
+            },
+            {
+                name = 'Foe Sirvente (+Emnity)',
                 level = 75,
                 cost = 0,
                 id = 468,
@@ -583,7 +755,7 @@ return {
                 target_modifier = true,
             },
             {
-                name = "Adventurer's Dirge",
+                name = "Adventurer's Dirge (-Emnity)",
                 level = 75,
                 cost = 0,
                 id = 469,
@@ -592,174 +764,6 @@ return {
                 end,
                 element = 'Light',
                 buff_id = 221,  -- Adventurer's Dirge buff
-                target_modifier = true,
-            },
-            {
-                name = 'Warding Round',
-                level = 73,
-                cost = 0,
-                id = 414,
-                command = function(target)
-                    return '/ma "Warding Round" '..target
-                end,
-                element = 'Light',
-                buff_id = 209,  -- Warding Round buff
-                target_modifier = true,
-            },
-            {
-                name = "Goddess' Hymnus",
-                level = 71,
-                cost = 0,
-                id = 464,
-                command = function(target)
-                    return '/ma "Goddess\' Hymnus" '..target
-                end,
-                element = 'Light',
-                buff_id = 218,  -- Goddess' Hymnus buff
-                target_modifier = true,
-            },
-            {
-                name = "Archer's Prelude",
-                level = 71,
-                cost = 0,
-                id = 402,
-                command = function(target)
-                    return '/ma "Archer\'s Prelude" '..target
-                end,
-                element = 'Lightning',
-                buff_id = 200,  -- Archer's Prelude buff
-                target_modifier = true,
-            },
-            {
-                name = "Puppet's Operetta",
-                level = 69,
-                cost = 0,
-                id = 410,
-                command = function(target)
-                    return '/ma "Puppet\'s Operetta" '..target
-                end,
-                element = 'Ice',
-                buff_id = 206,  -- Puppet's Operetta buff
-                target_modifier = true,
-            },
-            {
-                name = 'Shining Fantasia',
-                level = 56,
-                cost = 0,
-                id = 408,
-                command = function(target)
-                    return '/ma "Shining Fantasia" '..target
-                end,
-                element = 'Light',
-                buff_id = 205,  -- Shining Fantasia buff
-                target_modifier = true,
-            },
-            {
-                name = 'Gold Capriccio',
-                level = 54,
-                cost = 0,
-                id = 412,
-                command = function(target)
-                    return '/ma "Gold Capriccio" '..target
-                end,
-                element = 'Wind',
-                buff_id = 207,  -- Gold Capriccio buff
-                target_modifier = true,
-            },
-            {
-                name = 'Dragonfoe Mambo',
-                level = 53,
-                cost = 0,
-                id = 404,
-                command = function(target)
-                    return '/ma "Dragonfoe Mambo" '..target
-                end,
-                element = 'Wind',
-                buff_id = 201,  -- Dragonfoe Mambo buff
-                target_modifier = true,
-            },
-            {
-                name = 'Goblin Gavotte',
-                level = 49,
-                cost = 0,
-                id = 415,
-                command = function(target)
-                    return '/ma "Goblin Gavotte" '..target
-                end,
-                element = 'Fire',
-                buff_id = 210,  -- Goblin Gavotte buff
-                target_modifier = true,
-            },
-            {
-                name = 'Battlefield Elegy',
-                level = 39,
-                cost = 0,
-                id = 421,
-                command = function(target)
-                    return '/ma "Battlefield Elegy" '..target
-                end,
-                element = 'Earth',
-                buff_id = 194,  -- Battlefield Elegy buff
-                target_modifier = true,
-            },
-            {
-                name = 'Fowl Aubade',
-                level = 33,
-                cost = 0,
-                id = 405,
-                command = function(target)
-                    return '/ma "Fowl Aubade" '..target
-                end,
-                element = 'Light',
-                buff_id = 202,  -- Fowl Aubade buff
-                target_modifier = true,
-            },
-            {
-                name = "Hunter's Prelude",
-                level = 31,
-                cost = 0,
-                id = 401,
-                command = function(target)
-                    return '/ma "Hunter\'s Prelude" '..target
-                end,
-                element = 'Lightning',
-                buff_id = 200,  -- Hunter's Prelude buff
-                target_modifier = true,
-            },
-            {
-                name = "Scop's Operetta",
-                level = 19,
-                cost = 0,
-                id = 409,
-                command = function(target)
-                    return '/ma "Scop\'s Operetta" '..target
-                end,
-                element = 'Ice',
-                buff_id = 206,  -- Scop's Operetta buff
-                target_modifier = true,
-            },
-            {
-                name = 'Sheepfoe Mambo',
-                level = 13,
-                cost = 0,
-                id = 403,
-                command = function(target)
-                    return '/ma "Sheepfoe Mambo" '..target
-                end,
-                element = 'Wind',
-                buff_id = 201,  -- Sheepfoe Mambo buff
-                target_modifier = true,
-            },
-            {
-                name = 'Herb Pastoral',
-                level = 9,
-                cost = 0,
-                id = 406,
-                command = function(target)
-                    return '/ma "Herb Pastoral" '..target
-                end,
-                element = 'Lightning',
-                buff_id = 203,  -- Herb Pastoral buff
                 target_modifier = true,
             },
         },
