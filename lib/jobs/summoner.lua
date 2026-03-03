@@ -79,6 +79,19 @@ return {
                 requires_carbuncle = true,
             },
         },
+
+        -- Recover
+        -- recover = {
+        --     {
+        --         name = 'Elemental Siphon',
+        --         level = 70,
+        --         cost = 0,
+        --         id = 175,  -- Elemental Siphon recast ID
+        --         command = '/ja "Elemental Siphon" <me>',
+        --         pet_required = true,
+        --         requires_element = true,
+        --     },
+        -- },
     },
     
     -- Default settings for UI
@@ -103,6 +116,7 @@ return {
     -- Action priority order
     priority_order = {
         'item',
+        -- 'recover',
         'heal_aoe',
         'heal',
         'wake',

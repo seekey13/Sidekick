@@ -834,6 +834,7 @@ return {
     -- Action priority order
     priority_order = {
         'item',
+        'recover',
         'critical',
         'heal_aoe',
         'heal',

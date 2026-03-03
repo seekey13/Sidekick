@@ -208,13 +208,13 @@ local function load_job_definition(main_job_id, sub_job_id)
     -- Master priority order (defines the execution sequence)
     local master_priority = {
         'item',
+        'recover',
         'critical',
         'heal_aoe',
         'heal',
-        'heal_pet',
         'debuff_removal',
+        'heal_pet',
         'wake',
-        'recover',
         'geo',
         'buff',
         'rest',
@@ -546,15 +546,16 @@ local function automation_tick()
     -- Get priority order
     local priority_order = job_def.priority_order or {
         'item',
+        'recover',
         'critical',
         'heal_aoe',
         'heal',
-        'heal_pet',
         'debuff_removal',
+        'heal_pet',
         'wake',
-        'recover',
         'geo',
         'buff',
+        'rest',
     }
     
     -- Execute priority actions

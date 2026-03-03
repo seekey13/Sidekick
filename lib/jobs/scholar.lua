@@ -709,11 +709,11 @@ return {
     -- Action priority order
     priority_order = {
         'item',
+        'recover',
         'critical',
         'heal',
         'debuff_removal',
         'wake',
-        'recover',
         'buff',
         'rest',
     },

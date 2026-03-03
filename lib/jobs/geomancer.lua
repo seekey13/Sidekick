@@ -110,14 +110,6 @@ return {
                 group = 'geo_buff',
                 pet_required = true,
             },
-            -- {
-            --     name = 'Collimated Fervor',
-            --     level = 40,
-            --     cost = 0,
-            --     id = 245,
-            --     command = '/ja "Collimated Fervor" <me>',
-            --     combat_only = true,
-            -- },
             {
                 name = 'Blaze of Glory',
                 level = 60,
@@ -717,10 +709,10 @@ return {
     -- Action priority order
     priority_order = {
         'item',
+        'recover',
         'heal_aoe',
         'heal_pet',
         'heal',
-        'recover',
         'buff',
         'geo',
         'rest',
