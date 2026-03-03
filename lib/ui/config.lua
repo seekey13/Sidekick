@@ -528,7 +528,6 @@ function ui_config.render(settings, job_def, callback, roll_mod)
 
         if has_tracked then
             imgui.Separator()
-            imgui.TextColored(ui.LIGHT_BLUE, 'Tracked Targets:')
             local sorted_tt = {}
             for sid, tt in pairs(tracked_list) do
                 table.insert(sorted_tt, { sid = sid, name = tt.name })
@@ -536,7 +535,7 @@ function ui_config.render(settings, job_def, callback, roll_mod)
             table.sort(sorted_tt, function(a, b) return a.name < b.name end)
             local remove_sid = nil
             for t_idx, tt in ipairs(sorted_tt) do
-                imgui.Text('  T' .. t_idx .. ': ' .. tt.name)
+                imgui.Text('  <T' .. t_idx .. '> ' .. tt.name)
                 imgui.SameLine()
                 imgui.PushID('rm_' .. tostring(tt.sid))
                 if imgui.SmallButton('X') then

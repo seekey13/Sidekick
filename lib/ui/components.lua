@@ -601,22 +601,27 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
         end
     end
     
-    -- Render tracked target buttons (only for target_outside abilities)
-    if ability and ability.target_outside then
-        local tracked_list = common.get_tracked_targets()
-        local sorted_tracked = {}
-        for sid, tt in pairs(tracked_list) do
-            table.insert(sorted_tracked, { sid = sid, name = tt.name })
-        end
-        table.sort(sorted_tracked, function(a, b) return a.name < b.name end)
+    -- Render tracked target buttons for every buff row.
+    -- Buttons are grayed out and non-clickable when the ability is not compatible
+    -- with out-of-party targets (i.e. ability.target_outside is not set).
+    local tracked_list = common.get_tracked_targets()
+    local sorted_tracked = {}
+    for sid, tt in pairs(tracked_list) do
+        table.insert(sorted_tracked, { sid = sid, name = tt.name })
+    end
+    table.sort(sorted_tracked, function(a, b) return a.name < b.name end)
+
+    if #sorted_tracked > 0 then
+        local is_compatible = ability and ability.target_outside
 
         for t_idx, tt in ipairs(sorted_tracked) do
             imgui.SameLine()
 
             local tt_key = 'tt_' .. tt.sid
             local is_tt_enabled = is_group and is_group_party_buff_enabled(ctx, key_name, tt_key) or is_party_buff_enabled(ctx, key_name, tt_key)
+            local is_disabled = not has_spell or not is_compatible
 
-            if not has_spell then
+            if is_disabled then
                 imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_DISABLED)
                 imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_DISABLED)
                 imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_DISABLED)
@@ -630,22 +635,25 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
             end
 
             local tt_button_label = '<T' .. t_idx .. '>##' .. key_name .. '_t' .. tt.sid
-            if has_spell and imgui.Button(tt_button_label, { PARTY_BUTTON_WIDTH, 0 }) then
+            local clicked = imgui.Button(tt_button_label, { PARTY_BUTTON_WIDTH, 0 })
+            if clicked and not is_disabled then
                 if is_group then
                     toggle_group_party_buff(ctx, key_name, tt_key, not is_tt_enabled)
                 else
                     toggle_party_buff(ctx, key_name, tt_key, not is_tt_enabled)
                 end
-            elseif not has_spell then
-                imgui.Button(tt_button_label, { PARTY_BUTTON_WIDTH, 0 })
             end
 
-            -- Show tracked target name on hover
+            -- Tooltip: show target name, or reason why button is disabled
             if imgui.IsItemHovered() then
-                imgui.SetTooltip(tt.name)
+                if not is_compatible then
+                    imgui.SetTooltip('Not compatible with out-of-party targets')
+                else
+                    imgui.SetTooltip(tt.name)
+                end
             end
 
-            if not has_spell then
+            if is_disabled then
                 imgui.PopStyleColor(4)
             elseif not is_tt_enabled then
                 imgui.PopStyleColor(3)
