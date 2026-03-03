@@ -670,10 +670,17 @@ ashita.events.register('packet_in', 'medic_packet_in', function(e)
     -- Detect buff gains and removals on any party member (0x028)
     -- Message 230 = caster/player gains the effect, 266 = other party members/Trusts gain the effect
     -- Message 83  = buff/debuff removed from target (e.g. Paralyna removes Paralysis)
+    -- Sleep removal: Cure can't miss, so any spell landing on a tracked sleeping target removes sleep
     if e.id == 0x028 then
         local actionPacket = parse_packets.parse_action_packet(e)
         if actionPacket and actionPacket.Type == 4 then
             local entMgr = AshitaCore:GetMemoryManager():GetEntity()
+
+            -- Determine if we (the player) are the actor
+            local party = common.get_party()
+            local player_id = party and party:GetMemberServerId(0)
+            local actor_is_player = (player_id and actionPacket.UserId == player_id)
+
             for _, target in ipairs(actionPacket.Targets) do
                 for _, action in ipairs(target.Actions) do
                     -- Resolve target name and buff name once for all message handling below
@@ -710,6 +717,14 @@ ashita.events.register('packet_in', 'medic_packet_in', function(e)
                         if target.Id >= 0x1000000 or common.is_tracked_target(target.Id) then
                             common.handle_buff_removal(target.Id, action.Param)
                         end
+                    end
+
+                    -- Sleep removal: Cure can't miss, so any spell we cast that lands on a tracked
+                    -- sleeping target can be assumed to have woken them. No 0x029 removal message
+                    -- is sent for out-of-party targets, so we infer it from cast completion.
+                    if actor_is_player and action.Message > 0 and common.is_tracked_target(target.Id) then
+                        common.handle_buff_removal(target.Id, 2)   -- Sleep
+                        common.handle_buff_removal(target.Id, 19)  -- Sleep II
                     end
                 end
             end

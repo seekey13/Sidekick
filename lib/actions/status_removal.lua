@@ -363,7 +363,7 @@ function status_removal.execute_wake(settings, job_def, main_level, sub_level, p
     end
 
     -- Otherwise use single-target on first sleeping member
-    if #available_single > 0 then
+    if #sleeping_members > 0 and #available_single > 0 then
         local target_index = sleeping_members[1]
 
         -- Check if focus target is sleeping (if focus is enabled)
