@@ -89,7 +89,7 @@ return {
         buff = {
             -- Job Abilities
             {
-                name = 'Lasting Emanation',
+                name = 'Lasting Emanation (Duration)',
                 level = 25,
                 cost = 0,
                 id = 244,
@@ -100,7 +100,7 @@ return {
                 pet_required = true,
             },
             {
-                name = 'Ecliptic Attrition',
+                name = 'Ecliptic Attrition (Effect)',
                 level = 25,
                 cost = 0,
                 id = 244,

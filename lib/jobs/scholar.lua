@@ -386,7 +386,7 @@ return {
             --     buff_id = 366,
             -- },
             -- {
-            --     name = 'Celerity', -- Reduces the casting time and the recast time of your next white magic spell by 50%
+            --     name = 'Celerity', -- Reduces the casting time by 50%
             --     level = 25,
             --     cost = 0,
             --     id = 216,  -- Job ability ID
@@ -395,7 +395,7 @@ return {
             --     buff_id = 362,
             -- },
             -- {
-            --     name = 'Penury', -- Reduces the MP cost of the next spell by 1/2
+            --     name = 'Penury', -- Reduces the MP cost by 50%
             --     level = 10,
             --     cost = 0,
             --     id = 215,  -- Job ability ID

@@ -576,7 +576,7 @@ return {
             {
                 name = 'Barsilencera',
                 level = 23,
-                cost = 12,
+                cost = 30,
                 id = 88,  -- Spell ID
                 command = '/ma "Barsilencera" <me>',
                 buff_id = 110,  -- Barsilencera

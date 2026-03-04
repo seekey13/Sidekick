@@ -719,12 +719,6 @@ function ui_config.render(settings, job_def, callback, roll_mod)
             end
         end
         
-        if has_wake_abilities then
-            ui.checkbox(ctx, 'Enable Sleep Removal', 'wake_enabled', { settings.wake_enabled or false })
-            
-            imgui.Separator()
-        end
-        
         -- Debuff removal settings
         if job_def and job_def.abilities.debuff_removal and has_usable_abilities(job_def.abilities.debuff_removal) then
             local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Enable Debuff Removal', 'debuff_removal_enabled', false)
@@ -738,6 +732,12 @@ function ui_config.render(settings, job_def, callback, roll_mod)
                 
                 imgui.Unindent(ui.ABILITY_LIST_INDENT)
             end
+            
+            imgui.Separator()
+        end
+        
+        if has_wake_abilities then
+            ui.checkbox(ctx, 'Enable Sleep Removal', 'wake_enabled', { settings.wake_enabled or false })
             
             imgui.Separator()
         end
