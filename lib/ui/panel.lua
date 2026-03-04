@@ -122,14 +122,7 @@ function panel.render()
         local main_count = 0
         if gs.player then main_count = main_count + 1 end
         for i = 1, 5 do if gs.party[i] then main_count = main_count + 1 end end
-        local alliance_count = 0
-        if gs.alliance then
-            for pi = 2, 3 do
-                if gs.alliance[pi] then
-                    for _ in pairs(gs.alliance[pi]) do alliance_count = alliance_count + 1 end
-                end
-            end
-        end
+        local alliance_count = common.get_alliance_count()
         local header_str = string.format('Party: %d member(s)', main_count)
         if alliance_count > 0 then
             header_str = header_str .. string.format('   Alliance: %d', alliance_count)
@@ -403,11 +396,7 @@ function panel.render()
                         local leader_sid = (gs.alliance_leaders and gs.alliance_leaders[pi]) or 0
 
                         -- Sort by local slot index (0-5)
-                        local sorted = {}
-                        for local_idx, m in pairs(sub_party) do
-                            table.insert(sorted, { local_idx = local_idx, m = m })
-                        end
-                        table.sort(sorted, function(a, b) return a.local_idx < b.local_idx end)
+                        local sorted = common.sorted_alliance_members(sub_party)
 
                         for _, entry in ipairs(sorted) do
                             local local_idx = entry.local_idx

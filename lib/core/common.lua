@@ -1134,10 +1134,10 @@ function common.is_alliance_member(server_id)
     return alliance_member_sids[server_id] == true
 end
 
--- Apply a buff to an alliance member (packet-based, reuses trust_buffs table).
-function common.apply_alliance_member_buff(server_id, buff_id)
+-- Shared helper: insert a buff into trust_buffs with dedup.
+-- Used by both apply_alliance_member_buff and apply_tracked_target_buff.
+function common.apply_external_buff(server_id, buff_id)
     if not server_id or not buff_id then return end
-    if not alliance_member_sids[server_id] then return end
 
     if not trust_buffs[server_id] then
         trust_buffs[server_id] = {}
@@ -1148,6 +1148,13 @@ function common.apply_alliance_member_buff(server_id, buff_id)
     end
 
     table.insert(trust_buffs[server_id], buff_id)
+end
+
+-- Apply a buff to an alliance member (packet-based, reuses trust_buffs table).
+function common.apply_alliance_member_buff(server_id, buff_id)
+    if not server_id or not buff_id then return end
+    if not alliance_member_sids[server_id] then return end
+    common.apply_external_buff(server_id, buff_id)
 end
 
 -- Get Trust buffs by server_id
@@ -1294,16 +1301,7 @@ end
 function common.apply_tracked_target_buff(server_id, buff_id)
     if not server_id or not buff_id then return end
     if not tracked_targets[server_id] then return end
-
-    if not trust_buffs[server_id] then
-        trust_buffs[server_id] = {}
-    end
-
-    for _, existing in ipairs(trust_buffs[server_id]) do
-        if existing == buff_id then return end  -- Already tracked
-    end
-
-    table.insert(trust_buffs[server_id], buff_id)
+    common.apply_external_buff(server_id, buff_id)
 end
 
 -- Check if a server_id belongs to a tracked target.
@@ -1790,7 +1788,8 @@ end
 --   fm, pet_hpp, pet_position  (player-only)
 --
 -- common.game_state.party[1..5] fields: identical to player + is_trust, is_active
--- common.game_state.party_size  : total active member count across all parties
+-- common.game_state.party_size  : active member count for main party only (indices 0-5)
+-- common.game_state.alliance_size : active member count across alliance sub-parties B and C
 --
 -- common.game_state.alliance[2|3][0..5] fields: identical to party member fields
 --   party index 2 = flat indices 6-11, party index 3 = flat indices 12-17
@@ -1810,8 +1809,9 @@ common.game_state = {
     refreshed_at     = 0,
     player           = nil,              -- index 0
     party            = {},               -- indices 1-5 (nil when slot is inactive)
-    party_size       = 0,
+    party_size       = 0,                -- main party only (0-5)
     alliance         = { [2] = {}, [3] = {} },  -- sub-party B (6-11) and C (12-17)
+    alliance_size    = 0,                -- alliance sub-parties only (6-17)
     alliance_leaders = { [1] = 0, [2] = 0, [3] = 0 },
     tracked          = {},               -- keyed by server_id
 }
@@ -1871,7 +1871,7 @@ local function build_member_snapshot(party_mgr, entity_mgr, flat_index)
         end
     end
 
-    -- Buffs: player and main-party members via normal API; alliance members via memory scan
+    -- Buffs: player and main-party members via normal API; alliance members via read_alliance_buffs() (packet-tracked from trust_buffs)
     local buffs
     if flat_index == 0 then
         buffs = common.get_player_buffs()
@@ -1917,6 +1917,7 @@ function common.refresh_game_state()
     state.party            = {}
     state.party_size       = 0
     state.alliance         = { [2] = {}, [3] = {} }
+    state.alliance_size    = 0
     state.alliance_leaders = { [1] = 0, [2] = 0, [3] = 0 }
     state.tracked          = {}
 
@@ -1982,6 +1983,7 @@ function common.refresh_game_state()
     -- Alliance sub-parties B and C: flat indices 6-17
     -- Rebuild alliance_member_sids so packet handlers know who to track.
     -- -----------------------------------------------------------------------
+    local old_alliance_sids = alliance_member_sids
     alliance_member_sids = {}
     for party_index = 2, 3 do
         local first = (party_index - 1) * 6   -- 6 or 12
@@ -1989,7 +1991,7 @@ function common.refresh_game_state()
         for flat_i = first, last do
             local is_active = safe_get(function() return party_mgr:GetMemberIsActive(flat_i) == 1 end, false)
             if is_active then
-                state.party_size = state.party_size + 1
+                state.alliance_size = state.alliance_size + 1
                 local local_index = flat_i - first   -- 0-5 within sub-party
                 local snapshot = build_member_snapshot(party_mgr, entity_mgr, flat_i)
                 state.alliance[party_index][local_index] = snapshot
@@ -1998,6 +2000,15 @@ function common.refresh_game_state()
                     alliance_member_sids[snapshot.server_id] = true
                 end
             end
+        end
+    end
+
+    -- Purge stale trust_buffs for server_ids that dropped out of the alliance.
+    -- Trusts are not allowed in alliances, so former alliance member entries
+    -- should not linger in trust_buffs.
+    for sid in pairs(old_alliance_sids) do
+        if not alliance_member_sids[sid] and not tracked_targets[sid] then
+            trust_buffs[sid] = nil
         end
     end
 
@@ -2155,6 +2166,32 @@ function common.outside_abilities(abilities)
         end
     end
     return result
+end
+
+--- Return the total number of active alliance members across sub-parties B and C.
+function common.get_alliance_count()
+    local count = 0
+    local gs = common.game_state
+    if gs and gs.alliance then
+        for pi = 2, 3 do
+            if gs.alliance[pi] then
+                for _ in pairs(gs.alliance[pi]) do count = count + 1 end
+            end
+        end
+    end
+    return count
+end
+
+--- Return a sorted array of { local_idx, m } entries for a given alliance sub-party table.
+--- Sorted by local_idx ascending (0-5 within the sub-party).
+function common.sorted_alliance_members(sub_party)
+    local sorted = {}
+    if not sub_party then return sorted end
+    for local_idx, m in pairs(sub_party) do
+        table.insert(sorted, { local_idx = local_idx, m = m })
+    end
+    table.sort(sorted, function(a, b) return a.local_idx < b.local_idx end)
+    return sorted
 end
 
 return common

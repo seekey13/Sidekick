@@ -174,11 +174,14 @@ Shared utility module (~1,700 lines). Key areas:
 - **Logging**: `printf`, `debugf`, `errorf`, `warnf` – unified via internal `log()` helper
 - **Player state**: `get_player_level/job/mp/tp`, `is_idle/engaged/in_event`, `is_casting`, `is_player_moving`
 - **Party**: `get_party_size`, `get_party_member_name/zone/distance`, `get_party_server_ids`
+- **Alliance**: `is_alliance_member`, `find_alliance_member`, `get_alliance_count`, `sorted_alliance_members`, `apply_alliance_member_buff`, `apply_external_buff`
 - **Buffs**: `has_buff`, `get_player_buffs`, `get_party_buffs`, `get_trust_buffs`
 - **Trust buff tracking**: `register_pending_buff`, `handle_buff_application`, `handle_buff_removal`, `clear_trust_buffs`
 - **Status ailments**: `has_silence`, `has_amnesia`, `is_command_blocked`
 - **Ability helpers**: `has_spell_learned(ability)`, `filter_abilities_by_level`, `build_ability_command`, `check_target_modifier`
-- **Game state**: `refresh_game_state` – populates a shared table with party HP%, buffs, server IDs, pet info every tick
+- **Game state**: `refresh_game_state` – populates a shared table with party HP%, buffs, server IDs, pet info, and alliance sub-party snapshots every tick
+- **Tracked target level resolution**: `handle_check_packet` – parses 0x0C9 check-response packet to store level and seed estimated max HP via `AVERAGE_HP_BY_LEVEL`
+- **Outside-target helpers**: `resolve_focus_target`, `find_alliance_member`, `outside_abilities`, `build_ability_command_for_target`
 
 ### automation.lua
 
@@ -419,7 +422,7 @@ JSON persistence via Ashita's settings module.
 
 ## Known Limitations
 
-- Party only (no alliance support).
+- Alliance automation is limited to abilities with `target_outside = true` (spells and abilities that can target non-party members)
 - Some buff IDs may vary by private server.
 - Trust buff tracking has slight packet-based delay.
 - Requires Ashita v4.

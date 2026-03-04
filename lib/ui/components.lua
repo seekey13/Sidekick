@@ -472,15 +472,7 @@ end
 -- Calculate the width for the ON/OFF button based on party size + alliance + tracked targets
 local function get_onoff_button_width()
     local party_size = common.get_party_size()
-    local alliance_count = 0
-    local gs = common.game_state
-    if gs and gs.alliance then
-        for pi = 2, 3 do
-            if gs.alliance[pi] then
-                for _ in pairs(gs.alliance[pi]) do alliance_count = alliance_count + 1 end
-            end
-        end
-    end
+    local alliance_count = common.get_alliance_count()
     local tracked_count = 0
     local tt_list = common.get_tracked_targets()
     for _ in pairs(tt_list) do tracked_count = tracked_count + 1 end
@@ -620,11 +612,7 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
             local sub_party = al_gs.alliance[pi]
             if sub_party and next(sub_party) ~= nil then
                 local prefix = alliance_prefixes[pi]
-                local sorted_al = {}
-                for local_idx, m in pairs(sub_party) do
-                    table.insert(sorted_al, { local_idx = local_idx, m = m })
-                end
-                table.sort(sorted_al, function(a, b) return a.local_idx < b.local_idx end)
+                local sorted_al = common.sorted_alliance_members(sub_party)
 
                 for _, entry in ipairs(sorted_al) do
                     local local_idx = entry.local_idx

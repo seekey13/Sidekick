@@ -13,6 +13,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Config UI Renamed**: `config_ui.lua` renamed to `ui_config.lua`. Any external references must be updated.
 
 ### Added
+- **Alliance Support**: Healing, debuff removal, wake, and buff automation extended to alliance sub-parties B and C (flat indices 6–17). Requires abilities with `target_outside = true`. `game_state.alliance[2|3]` snapshots are built each tick alongside `alliance_leaders` and `alliance_member_sids` for packet-based buff tracking. Alliance members dropped from the roster have their stale `trust_buffs` entries purged automatically.
+- **Alliance UI**: Per-member buff-toggle buttons (`<B0>`–`<B5>`, `<C0>`–`<C5>`) rendered in the configuration window; alliance sub-parties displayed in the debug panel with HP, MP, TP, job, buffs, party leader (`^`), and Trust NPC (`*`) indicators. Alliance members are excluded from the tracked-target add list.
+- **HP Estimation for Tracked Targets**: On add, a `/check <name>` command is issued; the 0x0C9 check-response packet resolves the target's level. A built-in `AVERAGE_HP_BY_LEVEL` table (levels 1–75) is used to seed `max_hp` before the target is ever seen at 100%, enabling accurate deficit-based healing from the first heal.
+- **`requires_no_buff` Ability Flag**: Buff abilities can specify `requires_no_buff = <id or table>`. The ability is skipped while any of the listed buffs are active on the player. Used for mutually exclusive stances (e.g., Saber Dance vs. Fan Dance).
+- **Dancer Level-75 Abilities**: Added Saber Dance, Fan Dance, No Foot Rise, and Presto to the Dancer job definition. Saber Dance and Fan Dance share a `dance` group and use `requires_no_buff` to prevent both being active simultaneously.
+- **`common.get_alliance_count()`**: Centralized helper returning the total number of active alliance members across sub-parties B and C.
+- **`common.sorted_alliance_members(sub_party)`**: Returns sub-party members sorted by local slot index (0–5). Replaces inline sort logic previously duplicated across `panel.lua`, `config.lua`, and `components.lua`.
+- **`common.apply_external_buff(server_id, buff_id)`**: Shared dedup-insert helper used by both `apply_alliance_member_buff` and `apply_tracked_target_buff`, replacing duplicated implementations.
+- **`game_state.alliance_size`**: Separate counter for active alliance members only; `party_size` now counts main-party members (indices 0–5) only.
 - **Centralized Game State**: New `common.game_state` snapshot refreshed once per automation tick provides a consistent view of player/party HP, MP, buffs, and positions.
 - **Action Core Module**: New `lib/core/action_core.lua` consolidates resource management, cooldown tracking, buff-ID utilities, and ability candidacy helpers (replacing deleted `lib/core/resource.lua`).
 - **Packet-Based Buff Tracking**: Buff gain/loss tracking via 0x028 and 0x029 packets for Trusts and tracked (out-of-party) targets.
