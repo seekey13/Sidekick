@@ -27,12 +27,16 @@ A focused, support-oriented addon for Ashita v4 that automates healing, buffing,
 - **Config UI Renamed**: `config_ui.lua` renamed to `ui_config.lua`. Any external references must be updated.
 
 ### Added
+- **Alliance Support**: Healing, debuff removal, wake, and buff automation now extend to alliance sub-parties B and C. Alliance members require abilities with `target_outside = true`. Focus target, lowest-HP priority, and HP deficit selection all work across alliance members.
+- **Alliance UI**: Per-member buff-toggle buttons (`<B0>`–`<B5>`, `<C0>`–`<C5>`) in the configuration window; alliance members displayed in the debug panel with HP, MP, job, and buff data; party leader marked with `^`.
+- **HP Estimation for Tracked Targets**: When a tracked target is first added, a `/check` command is issued to resolve their level via the 0x0C9 packet. The resulting level is used to estimate max HP from a built-in level-average table, enabling accurate deficit-based healing before the target is seen at full HP.
 - **Centralized Game State**: New `common.game_state` snapshot refreshed once per automation tick provides a consistent view of player/party HP, MP, buffs, and positions.
 - **Action Core Module**: New `lib/core/action_core.lua` consolidates resource management, cooldown tracking, buff-ID utilities, and ability candidacy helpers (replacing deleted `lib/core/resource.lua`).
 - **Packet-Based Buff Tracking**: Buff gain/loss tracking via 0x028 and 0x029 packets for Trusts and tracked (out-of-party) targets.
 - **Tracked Targets**: Session-scoped tracking of out-of-party players for heal, buff, and status removal automation. (Power Leveling)
 - **Debug Panel**: New `lib/ui/panel.lua` debug info panel showing party game_state snapshot (toggle with `/medic panel`).
 - **Status Removal Module**: New combined `lib/actions/status_removal.lua` with `execute_debuff_removal` and `execute_wake` entry points.
+- **Dancer Level-75 Abilities**: Added Saber Dance, Fan Dance, No Foot Rise, and Presto to the Dancer job definition.
 
 ### Changed
 - **Heal AOE**: Merged into `heal.lua` as `execute_aoe`; requires at least 2 members below threshold before firing (hardcoded, previously configurable via slider).
@@ -53,6 +57,7 @@ A focused, support-oriented addon for Ashita v4 that automates healing, buffing,
 ## Features
 
 ### Core Support Actions
+- **Alliance Support**: Automatically heals, removes debuffs, wakes, and applies buffs to alliance sub-party members (parties B and C) using abilities flagged with `target_outside = true`.
 - **Tracked Targets**: Session-scoped tracking of out-of-party players for heal, buff, and status removal automation. (Power Leveling)
 - **Item-Based Status Removal**: Automatically use consumable items to remove critical debuffs (Echo Drops for Silence, Holy Water for Doom) with inventory tracking and smart zone-load handling
 - **Critical HP Response**: Emergency abilities (e.g., Divine Seal, Martyr, Contradance) automatically trigger when party members drop below critical threshold (default 30%)
@@ -68,6 +73,7 @@ A focused, support-oriented addon for Ashita v4 that automates healing, buffing,
 
 ### User Interface
 - **ImGui Configuration UI**: User-friendly settings interface with collapsible sections
+- **Alliance Member Buttons**: Per-member buff-toggle buttons (`<B0>`–`<B5>`, `<C0>`–`<C5>`) for alliance sub-parties B and C, shown only when an alliance is detected
 - **Group Dropdown Selectors**: Multiple abilities in a group (e.g., Cure I-V) consolidated into dropdown menus
 - **Per-Ability Toggles**: Enable/disable individual abilities
 - **Button-Based Party Buff Targeting**: Single-target buffs display ME/P1-P5 buttons for precise control over who receives each buff
@@ -112,6 +118,7 @@ Currently implemented support jobs:
   - Debuff removal with waltz (Healing Waltz)
   - Buff with sambas (Drain Samba I/II/III, Aspir Samba, Haste Samba)
   - Buff with jigs (Spectral Jig)
+  - Buff with level-75 job abilities (Saber Dance, Fan Dance, No Foot Rise, Presto)
 
 - **Geomancer** (GEO)
   - AOE healing with job abilities (Mending Halation)
@@ -304,7 +311,7 @@ Settings are saved per job in JSON format in the Ashita config directory:
 
 ## Known Limitations
 
-- Party only (no alliance support)
+- Alliance automation is limited to abilities with `target_outside = true` (spells/abilities that can be cast on non-party targets)
 - Designed to work on [CatsEyeXI private server](https://www.catseyexi.com/)
 - To use attack range requires [Multisend](https://github.com/ThornyFFXI/Multisend)
 - Requires Ashita v4

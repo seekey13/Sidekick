@@ -119,7 +119,14 @@ function panel.render()
         if gs.tracked then
             for _ in pairs(gs.tracked) do tracked_count = tracked_count + 1 end
         end
-        local header_str = string.format('Party: %d member(s)', gs.party_size)
+        local main_count = 0
+        if gs.player then main_count = main_count + 1 end
+        for i = 1, 5 do if gs.party[i] then main_count = main_count + 1 end end
+        local alliance_count = common.get_alliance_count()
+        local header_str = string.format('Party: %d member(s)', main_count)
+        if alliance_count > 0 then
+            header_str = header_str .. string.format('   Alliance: %d', alliance_count)
+        end
         if tracked_count > 0 then
             header_str = header_str .. string.format('   Tracked: %d', tracked_count)
         end
@@ -377,11 +384,117 @@ function panel.render()
                 end
             end
 
+            -- Alliance sub-parties B and C
+            if gs.alliance then
+                local party_prefixes = { [2] = 'B', [3] = 'C' }
+                local party_colors   = { [2] = { 1.0, 0.85, 0.4, 1.0 }, [3] = { 0.6, 0.9, 1.0, 1.0 } }
+                for pi = 2, 3 do
+                    local sub_party = gs.alliance[pi]
+                    if sub_party and next(sub_party) ~= nil then
+                        local prefix     = party_prefixes[pi]
+                        local col        = party_colors[pi]
+                        local leader_sid = (gs.alliance_leaders and gs.alliance_leaders[pi]) or 0
+
+                        -- Sort by local slot index (0-5)
+                        local sorted = common.sorted_alliance_members(sub_party)
+
+                        for _, entry in ipairs(sorted) do
+                            local local_idx = entry.local_idx
+                            local m         = entry.m
+                            imgui.TableNextRow()
+
+                            -- ── Slot ──────────────────────────────────────
+                            imgui.TableNextColumn()
+                            local slot_lbl = prefix .. local_idx
+                            if leader_sid ~= 0 and m.server_id == leader_sid then
+                                slot_lbl = slot_lbl .. '^'
+                            end
+                            if m.is_trust then
+                                imgui.TextColored({ 0.7, 0.7, 1.0, 1.0 }, slot_lbl .. '*')
+                            else
+                                imgui.TextColored(col, slot_lbl)
+                            end
+
+                            -- ── Name ──────────────────────────────────────
+                            imgui.TableNextColumn()
+                            imgui.Text(m.name or '')
+
+                            -- ── Server ID ─────────────────────────────────
+                            imgui.TableNextColumn()
+                            if m.server_id and m.server_id > 0 then
+                                imgui.Text(string.format('0x%X', m.server_id))
+                            else
+                                imgui.TextDisabled('--')
+                            end
+
+                            -- ── Job ───────────────────────────────────────
+                            imgui.TableNextColumn()
+                            local job_str = string.format('%s%d/%s%d',
+                                m.job_name     or '??', m.main_level or 0,
+                                m.sub_job_name or '??', m.sub_level  or 0)
+                            imgui.Text(job_str)
+
+                            -- ── HP ────────────────────────────────────────
+                            imgui.TableNextColumn()
+                            local hp_str
+                            if m.max_hp and m.max_hp > 0 then
+                                hp_str = string.format('%d/%d (%d%%%%)', m.hp or 0, m.max_hp, m.hpp or 0)
+                            else
+                                hp_str = string.format('%d  %d%%%%', m.hp or 0, m.hpp or 0)
+                            end
+                            local hp_colored = push_hp_color(m.hpp or 0)
+                            imgui.Text(hp_str)
+                            if hp_colored then imgui.PopStyleColor() end
+
+                            -- ── MP ────────────────────────────────────────
+                            imgui.TableNextColumn()
+                            local mp_str
+                            if m.max_mp and m.max_mp > 0 then
+                                mp_str = string.format('%d/%d (%d%%%%)', m.mp or 0, m.max_mp, m.mpp or 0)
+                            else
+                                mp_str = string.format('%d  %d%%%%', m.mp or 0, m.mpp or 0)
+                            end
+                            local mp_colored = push_mp_color(m.mpp or 0)
+                            imgui.Text(mp_str)
+                            if mp_colored then imgui.PopStyleColor() end
+
+                            -- ── TP ────────────────────────────────────────
+                            imgui.TableNextColumn()
+                            imgui.Text(tostring(m.tp or 0))
+
+                            -- ── Position ──────────────────────────────────
+                            imgui.TableNextColumn()
+                            imgui.Text(fmt_pos(m.position))
+
+                            -- ── Buffs ─────────────────────────────────────
+                            imgui.TableNextColumn()
+                            local buff_count = m.buffs and #m.buffs or 0
+                            if buff_count > 0 then
+                                imgui.Text(fmt_buffs(m.buffs))
+                            else
+                                imgui.TextDisabled('--')
+                            end
+
+                            -- ── Pet HP% / Pet Pos (n/a for alliance) ──────
+                            imgui.TableNextColumn() imgui.TextDisabled('--')
+                            imgui.TableNextColumn() imgui.TextDisabled('--')
+                        end
+                    end
+                end
+            end
+
             imgui.EndTable()
         end
 
         imgui.Spacing()
         imgui.TextColored({ 0.5, 0.5, 0.5, 1.0 }, '* Trust NPC')
+        if alliance_count > 0 then
+            imgui.TextColored({ 1.0, 0.85, 0.4, 1.0 }, 'B = Alliance Party B   ')
+            imgui.SameLine(0, 0)
+            imgui.TextColored({ 0.6, 0.9, 1.0, 1.0 }, 'C = Alliance Party C   ')
+            imgui.SameLine(0, 0)
+            imgui.TextColored({ 0.8, 0.8, 0.8, 1.0 }, '^ = Party Leader')
+        end
         if tracked_count > 0 then
             imgui.TextColored({ 0.4, 1.0, 0.7, 1.0 }, 'T = Tracked Target')
             imgui.TextColored({ 0.5, 0.5, 0.5, 1.0 }, '~ HP values estimated from level average for Tracked Targets')

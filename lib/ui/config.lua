@@ -413,12 +413,13 @@ function ui_config.render(settings, job_def, callback, roll_mod)
         end
     end
     
-    -- Calculate fixed window width based on party size + tracked targets
+    -- Calculate fixed window width based on party size + alliance + tracked targets
     local party_size = common.get_party_size()
+    local alliance_count_for_width = common.get_alliance_count()
     local tracked_count_for_width = 0
     local tt_list_for_width = common.get_tracked_targets()
     for _ in pairs(tt_list_for_width) do tracked_count_for_width = tracked_count_for_width + 1 end
-    local num_buttons = math.min(party_size, 6) + tracked_count_for_width
+    local num_buttons = math.min(party_size, 6) + alliance_count_for_width + tracked_count_for_width
     local button_width = ui.PARTY_BUTTON_WIDTH * num_buttons + (ui.SPACE_BETWEEN_BUTTONS * (num_buttons - 1))
     local dropdown_width = ui.DROPDOWN_WIDTH
     local window_width = math.max((button_width + dropdown_width + ui.ABILITY_LIST_INDENT + 50), 1)
@@ -488,7 +489,7 @@ function ui_config.render(settings, job_def, callback, roll_mod)
         imgui.PopStyleColor()
 
         -- Add Tracked Target button: only visible when current target is a valid PC
-        -- (not NPC, not Trust, not already in party, not already tracked)
+        -- (not NPC, not Trust, not already in party, not already tracked, not already in alliance)
         local targets_lib = common.targets
         local target_entity = targets_lib.get_t()
         local show_add_btn = false
@@ -510,7 +511,7 @@ function ui_config.render(settings, job_def, callback, roll_mod)
                         end
                     end
                 end
-                if not in_party and not common.is_tracked_target(target_sid) then
+                if not in_party and not common.is_tracked_target(target_sid) and not common.is_alliance_member(target_sid) then
                     show_add_btn = true
                 end
             end
@@ -1023,7 +1024,45 @@ function ui_config.render(settings, job_def, callback, roll_mod)
                     end
                 end
             end
-            
+
+            -- Alliance sub-parties
+            local gs = common.game_state
+            if gs and gs.alliance and common.get_alliance_count() > 0 then
+                imgui.Spacing()
+                imgui.Separator()
+                imgui.Text('Alliance Members:')
+                local party_prefixes = { [2] = 'B', [3] = 'C' }
+                local party_colors   = { [2] = { 1.0, 0.85, 0.4, 1.0 }, [3] = { 0.6, 0.9, 1.0, 1.0 } }
+                for pi = 2, 3 do
+                    local sub_party = gs.alliance[pi]
+                    if sub_party and next(sub_party) ~= nil then
+                        local prefix     = party_prefixes[pi]
+                        local col        = party_colors[pi]
+                        local leader_sid = (gs.alliance_leaders and gs.alliance_leaders[pi]) or 0
+                        imgui.Spacing()
+                        imgui.TextColored(col, string.format('Party %s:', prefix))
+                        -- Sort by local slot
+                        local sorted = common.sorted_alliance_members(sub_party)
+                        for _, entry in ipairs(sorted) do
+                            local local_idx = entry.local_idx
+                            local m         = entry.m
+                            local leader_str = (leader_sid ~= 0 and m.server_id == leader_sid) and '^' or ' '
+                            imgui.Text(string.format('  %s%s%d: %-16s  %s%d/%s%d  HP:%3d%%  MP:%3d%%  TP:%d',
+                                leader_str, prefix, local_idx,
+                                m.name or '?',
+                                m.job_name     or '??', m.main_level or 0,
+                                m.sub_job_name or '??', m.sub_level  or 0,
+                                m.hpp or 0, m.mpp or 0, m.tp or 0))
+                            local buff_count = m.buffs and #m.buffs or 0
+                            if buff_count > 0 then
+                                local buff_str = table.concat(m.buffs, ', ')
+                                imgui.Text(string.format('     Buffs[%d]: %s', buff_count, buff_str))
+                            end
+                        end
+                    end
+                end
+            end
+
             imgui.Unindent(ui.ABILITY_LIST_INDENT)
         end
 

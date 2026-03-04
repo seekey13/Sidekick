@@ -48,6 +48,10 @@ local member_max_stats = {}
 
 -- Trust buff tracking (packet-based since memory reads don't work for Trusts)
 local trust_buffs = {}  -- trust_buffs[server_id] = {buff_id1, buff_id2, ...}
+
+-- Alliance member server_id set — rebuilt each refresh_game_state tick.
+-- Used by packet handlers to decide whether to track buffs for a given server_id.
+local alliance_member_sids = {}  -- alliance_member_sids[server_id] = true
 local pending_buffs = {}  -- pending_buffs[n] = {server_id=x, buff_id=y, timestamp=t}
 local PENDING_BUFF_TIMEOUT = 10.0  -- Seconds before pending buff expires
 
@@ -1115,11 +1119,42 @@ function common.handle_buff_removal(server_id, buff_id)
     end
 end
 
--- Clear all Trust buffs (call on zone change)
+-- Clear all Trust buffs and alliance tracking (call on zone change)
 function common.clear_trust_buffs()
     trust_buffs = {}
     pending_buffs = {}
     member_max_stats = {}
+    alliance_member_sids = {}
+end
+
+-- Check if a server_id belongs to an active alliance member.
+-- The set is rebuilt every refresh_game_state() tick.
+function common.is_alliance_member(server_id)
+    if not server_id or server_id == 0 then return false end
+    return alliance_member_sids[server_id] == true
+end
+
+-- Shared helper: insert a buff into trust_buffs with dedup.
+-- Used by both apply_alliance_member_buff and apply_tracked_target_buff.
+function common.apply_external_buff(server_id, buff_id)
+    if not server_id or not buff_id then return end
+
+    if not trust_buffs[server_id] then
+        trust_buffs[server_id] = {}
+    end
+
+    for _, existing in ipairs(trust_buffs[server_id]) do
+        if existing == buff_id then return end
+    end
+
+    table.insert(trust_buffs[server_id], buff_id)
+end
+
+-- Apply a buff to an alliance member (packet-based, reuses trust_buffs table).
+function common.apply_alliance_member_buff(server_id, buff_id)
+    if not server_id or not buff_id then return end
+    if not alliance_member_sids[server_id] then return end
+    common.apply_external_buff(server_id, buff_id)
 end
 
 -- Get Trust buffs by server_id
@@ -1266,16 +1301,7 @@ end
 function common.apply_tracked_target_buff(server_id, buff_id)
     if not server_id or not buff_id then return end
     if not tracked_targets[server_id] then return end
-
-    if not trust_buffs[server_id] then
-        trust_buffs[server_id] = {}
-    end
-
-    for _, existing in ipairs(trust_buffs[server_id]) do
-        if existing == buff_id then return end  -- Already tracked
-    end
-
-    table.insert(trust_buffs[server_id], buff_id)
+    common.apply_external_buff(server_id, buff_id)
 end
 
 -- Check if a server_id belongs to a tracked target.
@@ -1744,7 +1770,8 @@ end
 -- ============================================================================
 -- Centralized Game State (refreshed once per automation tick)
 -- ============================================================================
--- Snapshot of player (index 0) and party members (indices 1-5).
+-- Snapshot of player (index 0), party members (indices 1-5), alliance sub-parties
+-- (flat indices 6-17), and out-of-party tracked targets.
 -- Call common.refresh_game_state() once at the start of each automation cycle
 -- so all action modules share the same consistent data without redundant API calls.
 --
@@ -1758,9 +1785,18 @@ end
 --   job, job_name, sub_job, sub_job_name
 --   main_level, sub_level
 --   is_trust (always false for player), is_active (always true for player)
+--   fm, pet_hpp, pet_position  (player-only)
 --
 -- common.game_state.party[1..5] fields: identical to player + is_trust, is_active
--- common.game_state.party_size  : total active member count (player + active party)
+-- common.game_state.party_size  : active member count for main party only (indices 0-5)
+-- common.game_state.alliance_size : active member count across alliance sub-parties B and C
+--
+-- common.game_state.alliance[2|3][0..5] fields: identical to party member fields
+--   party index 2 = flat indices 6-11, party index 3 = flat indices 12-17
+--   buffs: populated via 0x028/0x029 party buff packets (see read_alliance_buffs); empty if unavailable
+--
+-- common.game_state.alliance_leaders[1|2|3] : server IDs of each sub-party leader
+--
 -- common.game_state.tracked[server_id] fields:
 --   server_id, name, target_index
 --   hp, hpp, max_hp (cached; 0 until seen at 100% HPP)
@@ -1770,118 +1806,159 @@ end
 --   is_active        (true if entity still visible in zone)
 
 common.game_state = {
-    refreshed_at = 0,
-    player       = nil,  -- index 0
-    party        = {},   -- indices 1-5 (nil when slot is inactive)
-    party_size   = 0,
-    tracked      = {},   -- keyed by server_id
+    refreshed_at     = 0,
+    player           = nil,              -- index 0
+    party            = {},               -- indices 1-5 (nil when slot is inactive)
+    party_size       = 0,                -- main party only (0-5)
+    alliance         = { [2] = {}, [3] = {} },  -- sub-party B (6-11) and C (12-17)
+    alliance_size    = 0,                -- alliance sub-parties only (6-17)
+    alliance_leaders = { [1] = 0, [2] = 0, [3] = 0 },
+    tracked          = {},               -- keyed by server_id
 }
 
-function common.refresh_game_state()
-    local state = common.game_state
-    state.refreshed_at = os.clock()
-    state.player       = nil
-    state.party        = {}
-    state.party_size   = 0
-    state.tracked      = {}
+-- Internal helper: return packet-tracked buffs for an alliance member.
+-- All alliance member buffs are populated via 0x028/0x029 packet handlers
+-- into the shared trust_buffs table (keyed by server_id).
+local function read_alliance_buffs(server_id)
+    if not server_id or server_id == 0 then return {} end
+    return trust_buffs[server_id] or {}
+end
 
-    local party_mgr = common.get_party()
-    if not party_mgr then
-        return
-    end
-
-    local entity_mgr = common.get_entity_manager()
-
-    -- Local helper: pcall a getter and return its value, or the fallback on error
+-- Internal helper: build a member snapshot from a party manager flat index (0-17).
+local function build_member_snapshot(party_mgr, entity_mgr, flat_index)
     local function safe_get(fn, fallback)
         local ok, val = pcall(fn)
         if ok and val ~= nil then return val end
         return fallback
     end
 
+    local server_id  = safe_get(function() return party_mgr:GetMemberServerId(flat_index)     end, 0)
+    local name       = safe_get(function() return party_mgr:GetMemberName(flat_index)         end, '')
+    local target_idx = safe_get(function() return party_mgr:GetMemberTargetIndex(flat_index)  end, 0)
+
+    local hp  = safe_get(function() return party_mgr:GetMemberHP(flat_index)           end, 0)
+    local hpp = safe_get(function() return party_mgr:GetMemberHPPercent(flat_index)    end, 0)
+    local mp  = safe_get(function() return party_mgr:GetMemberMP(flat_index)           end, 0)
+    local mpp = safe_get(function() return party_mgr:GetMemberMPPercent(flat_index)    end, 0)
+    local tp  = safe_get(function() return party_mgr:GetMemberTP(flat_index)           end, 0)
+
+    if not member_max_stats[server_id] then
+        member_max_stats[server_id] = {}
+    end
+    if hpp == 100 and hp > 0 then member_max_stats[server_id].max_hp = hp end
+    if mpp == 100 and mp > 0 then member_max_stats[server_id].max_mp = mp end
+    local max_hp = member_max_stats[server_id].max_hp or 0
+    local max_mp = member_max_stats[server_id].max_mp or 0
+
+    local job        = safe_get(function() return party_mgr:GetMemberMainJob(flat_index)      end, 0)
+    local sub_job    = safe_get(function() return party_mgr:GetMemberSubJob(flat_index)       end, 0)
+    local main_level = safe_get(function() return party_mgr:GetMemberMainJobLevel(flat_index) end, 0)
+    local sub_level  = safe_get(function() return party_mgr:GetMemberSubJobLevel(flat_index)  end, 0)
+    local job_name     = safe_get(function()
+        return AshitaCore:GetResourceManager():GetString('jobs.names_abbr', job)
+    end, '')
+    local sub_job_name = safe_get(function()
+        return AshitaCore:GetResourceManager():GetString('jobs.names_abbr', sub_job)
+    end, '')
+
+    local position = {x = 0, y = 0, z = 0}
+    if entity_mgr and target_idx and target_idx > 0 then
+        local ok_x, px = pcall(function() return entity_mgr:GetLocalPositionX(target_idx) end)
+        local ok_y, py = pcall(function() return entity_mgr:GetLocalPositionY(target_idx) end)
+        local ok_z, pz = pcall(function() return entity_mgr:GetLocalPositionZ(target_idx) end)
+        if ok_x and ok_y and ok_z then
+            position = {x = px, y = py, z = pz}
+        end
+    end
+
+    -- Buffs: player and main-party members via normal API; alliance members via read_alliance_buffs() (packet-tracked from trust_buffs)
+    local buffs
+    if flat_index == 0 then
+        buffs = common.get_player_buffs()
+    elseif flat_index <= 5 then
+        buffs = common.get_party_buffs(flat_index)
+    else
+        buffs = read_alliance_buffs(server_id)
+    end
+
+    return {
+        index        = flat_index,
+        name         = name,
+        server_id    = server_id,
+        target_index = target_idx,
+        hp           = hp,
+        hpp          = hpp,
+        max_hp       = max_hp,
+        mp           = mp,
+        mpp          = mpp,
+        max_mp       = max_mp,
+        tp           = tp,
+        buffs        = buffs,
+        position     = position,
+        job          = job,
+        job_name     = job_name,
+        sub_job      = sub_job,
+        sub_job_name = sub_job_name,
+        main_level   = main_level,
+        sub_level    = sub_level,
+        is_trust     = (server_id >= 0x1000000),
+        is_active    = true,
+        -- Player-only extras (zeroed for all non-player members)
+        fm           = 0,
+        pet_hpp      = 0,
+        pet_position = {x = 0, y = 0, z = 0},
+    }
+end
+
+function common.refresh_game_state()
+    local state = common.game_state
+    state.refreshed_at     = os.clock()
+    state.player           = nil
+    state.party            = {}
+    state.party_size       = 0
+    state.alliance         = { [2] = {}, [3] = {} }
+    state.alliance_size    = 0
+    state.alliance_leaders = { [1] = 0, [2] = 0, [3] = 0 }
+    state.tracked          = {}
+
+    local party_mgr = common.get_party()
+    if not party_mgr then return end
+
+    local entity_mgr = common.get_entity_manager()
+
+    local function safe_get(fn, fallback)
+        local ok, val = pcall(fn)
+        if ok and val ~= nil then return val end
+        return fallback
+    end
+
+    -- Cache alliance leader server IDs
+    state.alliance_leaders[1] = safe_get(function() return party_mgr:GetAlliancePartyLeaderServerId1() end, 0)
+    state.alliance_leaders[2] = safe_get(function() return party_mgr:GetAlliancePartyLeaderServerId2() end, 0)
+    state.alliance_leaders[3] = safe_get(function() return party_mgr:GetAlliancePartyLeaderServerId3() end, 0)
+
+    -- -----------------------------------------------------------------------
+    -- Main party: flat indices 0-5
+    -- -----------------------------------------------------------------------
     for i = 0, 5 do
         local is_active = safe_get(function() return party_mgr:GetMemberIsActive(i) == 1 end, false)
         if not is_active then
-            -- Ensure inactive slots are explicitly nil
             if i > 0 then state.party[i] = nil end
         else
             state.party_size = state.party_size + 1
+            local member = build_member_snapshot(party_mgr, entity_mgr, i)
 
-            -- Identity
-            local server_id   = safe_get(function() return party_mgr:GetMemberServerId(i)     end, 0)
-            local name        = safe_get(function() return party_mgr:GetMemberName(i)         end, '')
-            local target_idx  = safe_get(function() return party_mgr:GetMemberTargetIndex(i)  end, 0)
-
-            -- Vitals
-            local hp          = safe_get(function() return party_mgr:GetMemberHP(i)           end, 0)
-            local hpp         = safe_get(function() return party_mgr:GetMemberHPPercent(i)    end, 0)
-            local mp          = safe_get(function() return party_mgr:GetMemberMP(i)           end, 0)
-            local mpp         = safe_get(function() return party_mgr:GetMemberMPPercent(i)    end, 0)
-            local tp          = safe_get(function() return party_mgr:GetMemberTP(i)           end, 0)
-
-            -- Max HP/MP cache: only reliable when the member is at 100%
-            if not member_max_stats[server_id] then
-                member_max_stats[server_id] = {}
-            end
-            if hpp == 100 and hp > 0 then
-                member_max_stats[server_id].max_hp = hp
-            end
-            if mpp == 100 and mp > 0 then
-                member_max_stats[server_id].max_mp = mp
-            end
-            local max_hp = member_max_stats[server_id].max_hp or 0
-            local max_mp = member_max_stats[server_id].max_mp or 0
-
-            -- Job & level
-            local job         = safe_get(function() return party_mgr:GetMemberMainJob(i)      end, 0)
-            local sub_job     = safe_get(function() return party_mgr:GetMemberSubJob(i)       end, 0)
-            local main_level  = safe_get(function() return party_mgr:GetMemberMainJobLevel(i) end, 0)
-            local sub_level   = safe_get(function() return party_mgr:GetMemberSubJobLevel(i)  end, 0)
-
-            local job_name     = safe_get(function()
-                return AshitaCore:GetResourceManager():GetString('jobs.names_abbr', job)
-            end, '')
-            local sub_job_name = safe_get(function()
-                return AshitaCore:GetResourceManager():GetString('jobs.names_abbr', sub_job)
-            end, '')
-
-            -- World position (via entity manager)
-            local position = {x = 0, y = 0, z = 0}
-            if entity_mgr and target_idx and target_idx > 0 then
-                local ok_x, px = pcall(function() return entity_mgr:GetLocalPositionX(target_idx) end)
-                local ok_y, py = pcall(function() return entity_mgr:GetLocalPositionY(target_idx) end)
-                local ok_z, pz = pcall(function() return entity_mgr:GetLocalPositionZ(target_idx) end)
-                if ok_x and ok_y and ok_z then
-                    position = {x = px, y = py, z = pz}
+            if i == 0 then
+                -- Player-only extras
+                local fm = 0
+                for fm_val, fm_num in ipairs({381, 382, 383, 384, 385}) do
+                    if common.has_buff(0, fm_num) then fm = fm_val break end
                 end
-            end
+                member.fm = fm
 
-            -- Buffs (player uses Player memory; party members use status-icon memory / Trust packet tracking)
-            local buffs
-            if i == 0 then
-                buffs = common.get_player_buffs()
-            else
-                buffs = common.get_party_buffs(i)
-            end
-
-            -- Finishing Moves (player only)
-            local fm = 0
-            if i == 0 then
-                if     common.has_buff(0, 381) then fm = 1
-                elseif common.has_buff(0, 382) then fm = 2
-                elseif common.has_buff(0, 383) then fm = 3
-                elseif common.has_buff(0, 384) then fm = 4
-                elseif common.has_buff(0, 385) then fm = 5
-                end
-            end
-
-            -- Pet data (player only)
-            local pet_hpp      = 0
-            local pet_position = {x = 0, y = 0, z = 0}
-            if i == 0 then
                 local pet_entity = targets.get_pet()
                 if pet_entity then
-                pet_hpp = pet_entity.HPPercent or 0
+                    member.pet_hpp = pet_entity.HPPercent or 0
                     if entity_mgr then
                         local pet_idx = pet_entity.TargetIndex
                         if pet_idx and pet_idx > 0 then
@@ -1889,42 +1966,12 @@ function common.refresh_game_state()
                             local ok_py, py = pcall(function() return entity_mgr:GetLocalPositionY(pet_idx) end)
                             local ok_pz, pz = pcall(function() return entity_mgr:GetLocalPositionZ(pet_idx) end)
                             if ok_px and ok_py and ok_pz then
-                                pet_position = {x = px, y = py, z = pz}
+                                member.pet_position = {x = px, y = py, z = pz}
                             end
                         end
                     end
                 end
-            end
 
-            local member = {
-                index        = i,
-                name         = name,
-                server_id    = server_id,
-                target_index = target_idx,
-                hp           = hp,
-                hpp          = hpp,
-                max_hp       = max_hp,
-                mp           = mp,
-                mpp          = mpp,
-                max_mp       = max_mp,
-                tp           = tp,
-                buffs        = buffs,
-                position     = position,
-                job          = job,
-                job_name     = job_name,
-                sub_job      = sub_job,
-                sub_job_name = sub_job_name,
-                main_level   = main_level,
-                sub_level    = sub_level,
-                is_trust     = (server_id >= 0x1000000),
-                is_active    = true,
-                -- Player-only fields (zero/empty for party members)
-                fm           = fm,
-                pet_hpp      = pet_hpp,
-                pet_position = pet_position,
-            }
-
-            if i == 0 then
                 state.player = member
             else
                 state.party[i] = member
@@ -1932,7 +1979,42 @@ function common.refresh_game_state()
         end
     end
 
+    -- -----------------------------------------------------------------------
+    -- Alliance sub-parties B and C: flat indices 6-17
+    -- Rebuild alliance_member_sids so packet handlers know who to track.
+    -- -----------------------------------------------------------------------
+    local old_alliance_sids = alliance_member_sids
+    alliance_member_sids = {}
+    for party_index = 2, 3 do
+        local first = (party_index - 1) * 6   -- 6 or 12
+        local last  = first + 5                -- 11 or 17
+        for flat_i = first, last do
+            local is_active = safe_get(function() return party_mgr:GetMemberIsActive(flat_i) == 1 end, false)
+            if is_active then
+                state.alliance_size = state.alliance_size + 1
+                local local_index = flat_i - first   -- 0-5 within sub-party
+                local snapshot = build_member_snapshot(party_mgr, entity_mgr, flat_i)
+                state.alliance[party_index][local_index] = snapshot
+                -- Register server_id for packet-based buff tracking
+                if snapshot.server_id and snapshot.server_id > 0 then
+                    alliance_member_sids[snapshot.server_id] = true
+                end
+            end
+        end
+    end
+
+    -- Purge stale trust_buffs for server_ids that dropped out of the alliance.
+    -- Trusts are not allowed in alliances, so former alliance member entries
+    -- should not linger in trust_buffs.
+    for sid in pairs(old_alliance_sids) do
+        if not alliance_member_sids[sid] and not tracked_targets[sid] then
+            trust_buffs[sid] = nil
+        end
+    end
+
+    -- -----------------------------------------------------------------------
     -- Refresh tracked targets (outside-party players)
+    -- -----------------------------------------------------------------------
     for sid, tt in pairs(tracked_targets) do
         local entity = nil
         -- Re-resolve entity by server_id (target_index may change across zones)
@@ -2015,6 +2097,101 @@ function common.refresh_game_state()
             }
         end
     end
+end
+
+-- ============================================================================
+-- Shared target-resolution helpers (used by heal, buff, status_removal)
+-- ============================================================================
+
+--- Resolve the focus target name across party → tracked → alliance.
+--- Returns: kind ('party'|'tracked'|'alliance'|nil), ref (party_index or server_id)
+function common.resolve_focus_target(settings, state)
+    if not settings.focus_enabled or not settings.focus_target then
+        return nil, nil
+    end
+    local name = settings.focus_target
+
+    for i = 0, 5 do
+        local m = i == 0 and state.player or state.party[i]
+        if m and m.name == name then
+            return 'party', i
+        end
+    end
+
+    if state.tracked then
+        for sid, tt in pairs(state.tracked) do
+            if tt.name == name and tt.is_active then
+                return 'tracked', sid
+            end
+        end
+    end
+
+    if state.alliance then
+        for al_pi = 2, 3 do
+            if state.alliance[al_pi] then
+                for _, m in pairs(state.alliance[al_pi]) do
+                    if m and m.name == name and m.is_active then
+                        return 'alliance', m.server_id
+                    end
+                end
+            end
+        end
+    end
+
+    return nil, nil
+end
+
+--- Find an alliance member snapshot by server_id across both sub-parties.
+--- Returns the member table or nil.
+function common.find_alliance_member(state, server_id)
+    if not state or not state.alliance or not server_id then return nil end
+    for al_pi = 2, 3 do
+        if state.alliance[al_pi] then
+            for _, m in pairs(state.alliance[al_pi]) do
+                if m and m.server_id == server_id then
+                    return m
+                end
+            end
+        end
+    end
+    return nil
+end
+
+--- Return a new list containing only abilities with target_outside == true.
+function common.outside_abilities(abilities)
+    local result = {}
+    for _, a in ipairs(abilities) do
+        if a.target_outside then
+            table.insert(result, a)
+        end
+    end
+    return result
+end
+
+--- Return the total number of active alliance members across sub-parties B and C.
+function common.get_alliance_count()
+    local count = 0
+    local gs = common.game_state
+    if gs and gs.alliance then
+        for pi = 2, 3 do
+            if gs.alliance[pi] then
+                for _ in pairs(gs.alliance[pi]) do count = count + 1 end
+            end
+        end
+    end
+    return count
+end
+
+--- Return a sorted array of { local_idx, m } entries for a given alliance sub-party table.
+--- Sorted by local_idx ascending (0-5 within the sub-party).
+function common.sorted_alliance_members(sub_party)
+    local sorted = {}
+    if not sub_party then return sorted end
+    for local_idx, m in pairs(sub_party) do
+        table.insert(sorted, { local_idx = local_idx, m = m })
+    end
+    table.sort(sorted, function(a, b) return a.local_idx < b.local_idx end)
+    return sorted
 end
 
 return common
