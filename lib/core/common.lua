@@ -2088,4 +2088,73 @@ function common.refresh_game_state()
     end
 end
 
+-- ============================================================================
+-- Shared target-resolution helpers (used by heal, buff, status_removal)
+-- ============================================================================
+
+--- Resolve the focus target name across party → tracked → alliance.
+--- Returns: kind ('party'|'tracked'|'alliance'|nil), ref (party_index or server_id)
+function common.resolve_focus_target(settings, state)
+    if not settings.focus_enabled or not settings.focus_target then
+        return nil, nil
+    end
+    local name = settings.focus_target
+
+    for i = 0, 5 do
+        local m = i == 0 and state.player or state.party[i]
+        if m and m.name == name then
+            return 'party', i
+        end
+    end
+
+    if state.tracked then
+        for sid, tt in pairs(state.tracked) do
+            if tt.name == name and tt.is_active then
+                return 'tracked', sid
+            end
+        end
+    end
+
+    if state.alliance then
+        for al_pi = 2, 3 do
+            if state.alliance[al_pi] then
+                for _, m in pairs(state.alliance[al_pi]) do
+                    if m and m.name == name and m.is_active then
+                        return 'alliance', m.server_id
+                    end
+                end
+            end
+        end
+    end
+
+    return nil, nil
+end
+
+--- Find an alliance member snapshot by server_id across both sub-parties.
+--- Returns the member table or nil.
+function common.find_alliance_member(state, server_id)
+    if not state or not state.alliance or not server_id then return nil end
+    for al_pi = 2, 3 do
+        if state.alliance[al_pi] then
+            for _, m in pairs(state.alliance[al_pi]) do
+                if m and m.server_id == server_id then
+                    return m
+                end
+            end
+        end
+    end
+    return nil
+end
+
+--- Return a new list containing only abilities with target_outside == true.
+function common.outside_abilities(abilities)
+    local result = {}
+    for _, a in ipairs(abilities) do
+        if a.target_outside then
+            table.insert(result, a)
+        end
+    end
+    return result
+end
+
 return common

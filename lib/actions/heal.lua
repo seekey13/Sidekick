@@ -81,41 +81,10 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
     local focus_threshold = settings.focus_threshold or 85
 
     -- Resolve focus target: check party first, then tracked targets, then alliance
-    local focus_party_idx = nil
-    local focus_tracked_sid = nil  -- server_id if focus is a tracked target
-    local focus_alliance_sid = nil -- server_id if focus is an alliance member
-    if focus_enabled and settings.focus_target then
-        for i = 0, 5 do
-            local m = i == 0 and state.player or state.party[i]
-            if m and m.name == settings.focus_target then
-                focus_party_idx = i
-                break
-            end
-        end
-        -- Check tracked targets if not found in party
-        if not focus_party_idx and state.tracked then
-            for sid, tt in pairs(state.tracked) do
-                if tt.name == settings.focus_target and tt.is_active then
-                    focus_tracked_sid = sid
-                    break
-                end
-            end
-        end
-        -- Check alliance members if not found in party or tracked
-        if not focus_party_idx and not focus_tracked_sid and state.alliance then
-            for al_pi = 2, 3 do
-                if state.alliance[al_pi] then
-                    for _, m in pairs(state.alliance[al_pi]) do
-                        if m and m.name == settings.focus_target and m.is_active then
-                            focus_alliance_sid = m.server_id
-                            break
-                        end
-                    end
-                end
-                if focus_alliance_sid then break end
-            end
-        end
-    end
+    local focus_kind, focus_ref = common.resolve_focus_target(settings, state)
+    local focus_party_idx    = focus_kind == 'party'    and focus_ref or nil
+    local focus_tracked_sid  = focus_kind == 'tracked'  and focus_ref or nil
+    local focus_alliance_sid = focus_kind == 'alliance' and focus_ref or nil
 
     local party_status = {
         needs_heal        = {},
@@ -310,11 +279,7 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
             local focus_hpp = tt.hpp or 0
             local focus_target_index = tt.target_index or 0
             if focus_target_index > 0 and common.is_active_member(focus_hpp) then
-                -- Filter to target_outside abilities only
-                local outside_abilities = {}
-                for _, a in ipairs(available_abilities) do
-                    if a.target_outside then table.insert(outside_abilities, a) end
-                end
+                local outside_abilities = common.outside_abilities(available_abilities)
                 local selected_ability = heal.select_ability(outside_abilities, focus_hpp, job_def, player_resource, nil)
                 if selected_ability then
                     local ability_range = type(selected_ability.range) == 'number' and selected_ability.range or 21
@@ -337,24 +302,11 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
             end
         -- Case A2: Focus is an alliance member
         elseif focus_alliance_sid then
-            local al_member = nil
-            if state.alliance then
-                for al_pi = 2, 3 do
-                    if state.alliance[al_pi] then
-                        for _, m in pairs(state.alliance[al_pi]) do
-                            if m and m.server_id == focus_alliance_sid then al_member = m; break end
-                        end
-                    end
-                    if al_member then break end
-                end
-            end
+            local al_member = common.find_alliance_member(state, focus_alliance_sid)
             if al_member and al_member.is_active and al_member.target_index and al_member.target_index > 0 then
                 local focus_hpp = al_member.hpp or 0
                 if common.is_active_member(focus_hpp) then
-                    local outside_abilities = {}
-                    for _, a in ipairs(available_abilities) do
-                        if a.target_outside then table.insert(outside_abilities, a) end
-                    end
+                    local outside_abilities = common.outside_abilities(available_abilities)
                     local selected_ability = heal.select_ability(outside_abilities, focus_hpp, job_def, player_resource, nil)
                     if selected_ability then
                         local ability_range = type(selected_ability.range) == 'number' and selected_ability.range or 21
@@ -445,11 +397,7 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
     if party_status.lowest_tracked_sid and state.tracked then
         local tt = state.tracked[party_status.lowest_tracked_sid]
         if tt and tt.is_active and tt.target_index and tt.target_index > 0 then
-            -- Filter to target_outside abilities only
-            local outside_abilities = {}
-            for _, a in ipairs(available_abilities) do
-                if a.target_outside then table.insert(outside_abilities, a) end
-            end
+            local outside_abilities = common.outside_abilities(available_abilities)
             if #outside_abilities > 0 then
                 local selected_ability = heal.select_ability(outside_abilities, party_status.lowest_tracked_hpp, job_def, player_resource, nil)
                 if selected_ability then
@@ -475,20 +423,9 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
 
     -- Priority 5: Lowest HP alliance member (target_outside abilities only)
     if party_status.lowest_alliance_sid and state.alliance then
-        local al_member = nil
-        for al_pi = 2, 3 do
-            if state.alliance[al_pi] then
-                for _, m in pairs(state.alliance[al_pi]) do
-                    if m and m.server_id == party_status.lowest_alliance_sid then al_member = m; break end
-                end
-            end
-            if al_member then break end
-        end
+        local al_member = common.find_alliance_member(state, party_status.lowest_alliance_sid)
         if al_member and al_member.is_active and al_member.target_index and al_member.target_index > 0 then
-            local outside_abilities = {}
-            for _, a in ipairs(available_abilities) do
-                if a.target_outside then table.insert(outside_abilities, a) end
-            end
+            local outside_abilities = common.outside_abilities(available_abilities)
             if #outside_abilities > 0 then
                 local selected_ability = heal.select_ability(outside_abilities, party_status.lowest_alliance_hpp, job_def, player_resource, nil)
                 if selected_ability then
