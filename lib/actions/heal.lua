@@ -8,6 +8,25 @@ local heal = {}
 local common      = require('lib.core.common')
 local action_core = require('lib.core.action_core')
 
+-- Average HP by level, averaged across all races/jobs in FFXI (used to estimate HP for non-party targets)
+local AVERAGE_HP_BY_LEVEL = {
+    [1] = 70,   [2] = 86,   [3] = 101,  [4] = 117,  [5] = 133,
+    [6] = 148,  [7] = 164,  [8] = 180,  [9] = 195,  [10] = 204,
+    [11] = 227, [12] = 242, [13] = 258, [14] = 274, [15] = 289,
+    [16] = 305, [17] = 321, [18] = 336, [19] = 352, [20] = 367,
+    [21] = 382, [22] = 398, [23] = 414, [24] = 430, [25] = 445,
+    [26] = 461, [27] = 477, [28] = 493, [29] = 508, [30] = 525,
+    [31] = 540, [32] = 556, [33] = 572, [34] = 588, [35] = 603,
+    [36] = 619, [37] = 635, [38] = 651, [39] = 665, [40] = 682,
+    [41] = 697, [42] = 713, [43] = 729, [44] = 745, [45] = 760,
+    [46] = 776, [47] = 792, [48] = 808, [49] = 823, [50] = 840,
+    [51] = 855, [52] = 871, [53] = 887, [54] = 903, [55] = 918,
+    [56] = 934, [57] = 950, [58] = 962, [59] = 979, [60] = 997,
+    [61] = 1012, [62] = 1028, [63] = 1044, [64] = 1060, [65] = 1075,
+    [66] = 1091, [67] = 1107, [68] = 1123, [69] = 1138, [70] = 1155,
+    [71] = 1170, [72] = 1186, [73] = 1202, [74] = 1218, [75] = 1233,
+}
+
 function heal.execute(settings, job_def, main_level, sub_level, player_resource)
     -- Check if healing is enabled
     if not settings.heal_enabled then
@@ -262,7 +281,7 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
                 for _, a in ipairs(available_abilities) do
                     if a.target_outside then table.insert(outside_abilities, a) end
                 end
-                local selected_ability = heal.select_ability(outside_abilities, focus_hpp, job_def, player_resource, nil)
+                local selected_ability = heal.select_ability(outside_abilities, focus_hpp, job_def, player_resource, nil, tt.main_level)
                 if selected_ability then
                     local ability_range = type(selected_ability.range) == 'number' and selected_ability.range or 21
                     if common.is_in_range(focus_target_index, ability_range) then
@@ -358,7 +377,7 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
                 if a.target_outside then table.insert(outside_abilities, a) end
             end
             if #outside_abilities > 0 then
-                local selected_ability = heal.select_ability(outside_abilities, party_status.lowest_tracked_hpp, job_def, player_resource, nil)
+                local selected_ability = heal.select_ability(outside_abilities, party_status.lowest_tracked_hpp, job_def, player_resource, nil, tt.main_level)
                 if selected_ability then
                     local ability_range = type(selected_ability.range) == 'number' and selected_ability.range or 21
                     if common.is_in_range(tt.target_index, ability_range) then
@@ -383,7 +402,20 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
     return nil
 end
 
-function heal.select_ability(abilities, target_hpp, job_def, player_resource, party_index)
+-- Estimate HP deficit for a non-party target using the average HP table.
+-- Args:
+--   level (number) - Character level (1-75)
+--   hpp   (number) - Current HP percentage (0-100)
+-- Returns: estimated HP deficit (number), or 0 if level is unknown/out of range
+function heal.estimate_hp_deficit(level, hpp)
+    if not level or not hpp then return 0 end
+    local max_hp = AVERAGE_HP_BY_LEVEL[level]
+    if not max_hp then return 0 end
+    local current_hp = math.floor(max_hp * (hpp / 100))  -- floor gives conservative (slightly higher) deficit estimate
+    return max_hp - current_hp
+end
+
+function heal.select_ability(abilities, target_hpp, job_def, player_resource, party_index, level)
     -- Special case: Summoner should always try Healing Ruby first
     if job_def and job_def.job_id == 15 then
         -- Look for Healing Ruby in abilities
@@ -421,6 +453,9 @@ function heal.select_ability(abilities, target_hpp, job_def, player_resource, pa
                 hp_deficit = max_hp - current_hp
             end
         end
+    elseif level then
+        -- Tracked target: estimate HP deficit using average HP table
+        hp_deficit = heal.estimate_hp_deficit(level, target_hpp)
     end
     
     -- Filter abilities by resource availability and cooldowns

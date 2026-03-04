@@ -1694,6 +1694,7 @@ end
 -- common.game_state.tracked[server_id] fields:
 --   server_id, name, target_index
 --   hp, hpp, max_hp (cached; 0 until seen at 100% HPP)
+--   main_level       (entity MainJobLevel if available; nil otherwise)
 --   buffs            (table of buff IDs, packet-tracked)
 --   position         ({x, y, z} in local coords)
 --   is_tracked       (always true)
@@ -1898,6 +1899,10 @@ function common.refresh_game_state()
             end
             local max_hp = member_max_stats[sid].max_hp or 0
 
+            -- Level from entity (available for visible PCs; pcall guards against API differences across Ashita versions)
+            local ok_lvl, main_level = pcall(function() return entity.MainJobLevel end)
+            main_level = (ok_lvl and type(main_level) == 'number' and main_level > 0) and main_level or nil
+
             -- Buffs via packet tracking (same table as Trusts)
             local buffs = trust_buffs[sid] or {}
 
@@ -1908,6 +1913,7 @@ function common.refresh_game_state()
                 hp           = hp,
                 hpp          = hpp,
                 max_hp       = max_hp,
+                main_level   = main_level,
                 buffs        = buffs,
                 position     = position,
                 is_tracked   = true,
