@@ -5,19 +5,39 @@ All notable changes to Medic will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2026-03-03
+
+### BREAKING CHANGES
+- **PL Mode Removed**: All PL Mode functionality (`pl_mode_active`, `setup_pl_mode_job`, `clear_player_data`, `restore_normal_mode`, and related settings) has been removed. Users should clear any legacy `pl_*` settings keys from their configuration files.
+- **Module Consolidation**: `heal_aoe.lua`, `heal_pet.lua`, `debuff_removal.lua`, and `wake.lua` have been merged into `heal.lua` and `status_removal.lua` respectively. Direct imports of the old modules will fail.
+- **Config UI Renamed**: `config_ui.lua` renamed to `ui_config.lua`. Any external references must be updated.
+
+### Added
+- **Centralized Game State**: New `common.game_state` snapshot refreshed once per automation tick provides a consistent view of player/party HP, MP, buffs, and positions.
+- **Action Core Module**: New `lib/core/action_core.lua` consolidates resource management, cooldown tracking, buff-ID utilities, and ability candidacy helpers (replacing deleted `lib/core/resource.lua`).
+- **Packet-Based Buff Tracking**: Buff gain/loss tracking via 0x028 and 0x029 packets for Trusts and tracked (out-of-party) targets.
+- **Tracked Targets**: Session-scoped tracking of out-of-party players for heal, buff, and status removal automation.
+- **Debug Panel**: New `lib/ui/panel.lua` debug info panel showing party game_state snapshot (toggle with `/medic panel`).
+- **Status Removal Module**: New combined `lib/actions/status_removal.lua` with `execute_debuff_removal` and `execute_wake` entry points.
+
+### Changed
+- **Heal AOE**: Merged into `heal.lua` as `execute_aoe`; requires at least 2 members below threshold before firing (hardcoded, previously configurable via slider).
+- **Heal Pet**: Merged into `heal.lua` as `execute_pet`.
+- **Recovery Priority**: Recovery actions (Convert, Manafont, etc.) execute before critical heals to ensure MP is available for subsequent healing.
+- **Curaga II**: Fixed MP cost from 60 to 120 (White Mage).
+- **Bar Spells**: Converted from dynamic-target functions to static self-target `<me>` commands (White Mage).
+
+### Removed
+- **PL Mode**: All PL Mode functionality and UI elements.
+- **lib/core/resource.lua**: Replaced by `action_core.lua`.
+- **lib/actions/heal_aoe.lua**: Merged into `heal.lua`.
+- **lib/actions/heal_pet.lua**: Merged into `heal.lua`.
+- **lib/actions/debuff_removal.lua**: Merged into `status_removal.lua`.
+- **lib/actions/wake.lua**: Merged into `status_removal.lua`.
+
 ## [1.3.0] - 2026-01-22
 
 ### Added
-- **PL Mode (Power Leveling Mode)**: New mode for healing players outside your party via `/mst` command relay:
-  - Automatic connection detection via tell-based handshake ("[MEDIC] JOB##/JOB## Attempting Connection")
-  - Auto-set follow target to PL player entity on connection
-  - Entity-based distance tracking for rest wake commands
-  - Sends `/mst [PL_player] /heal off` when distance threshold exceeded or casting detected
-  - PL player handles their own `/heal on` based on MP needs
-  - Trust detection: Automatically skips Trusts for healing, waking, and debuff removal in PL mode (cannot target outside party)
-  - UI adaptations: Auto-hides AOE Healing section, Timer slider, and Follow Target dropdown (uses PL automatically)
-  - Distance slider remains visible for rest wake threshold configuration
-  - Party buff UI detects and disables Trust buttons with tooltip
 - **Contradance for Dancer**: Added Contradance to Dancer's critical abilities category for emergency situations
 - **Pianissimo Support for Bard**: Bard songs can now be cast on party members using the Pianissimo ability (level 20+):
   - New `target_modifier` ability category for abilities that redirect self-targeted spells to party members
@@ -89,7 +109,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - **Pet Functions Refactored**: `has_pet()`, `get_pet_hp_percent()`, and `get_pet_distance()` now use consolidated `get_pet_entity()` for improved code maintainability
 - **Filter Abilities Enhanced**: `filter_abilities_by_level()` now accepts optional `job_def` parameter to enable job-specific validation hooks
-- **Config UI Refactored**: Reduced `config_ui.lua` from 1,758 lines to 876 lines (52% reduction) by extracting all rendering logic to `ui_components.lua`
+- **Config UI Refactored**: Reduced `ui_config.lua` from 1,758 lines to 876 lines (52% reduction) by extracting all rendering logic to `ui_components.lua`
 - **Context Object Pattern**: UI components now use a context object `{settings, save_callback, party_buffs, job_def, ...}` for cleaner function signatures
 
 ### Technical

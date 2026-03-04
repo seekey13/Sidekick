@@ -5,22 +5,25 @@
 
 local heal = {}
 
-local common = require('lib.core.common')
-local resource = require('lib.core.resource')
+local common      = require('lib.core.common')
+local action_core = require('lib.core.action_core')
 
 function heal.execute(settings, job_def, main_level, sub_level, player_resource)
-    -- Debug focus configuration (show even when heal is disabled)
-    if settings.focus_enabled then
-        common.debugf('[HEAL] Focus enabled: target=%s, threshold=%.1f%%',
-                     settings.focus_target or 'None',
-                     settings.focus_threshold or 85)
-    end
-    
     -- Check if healing is enabled
     if not settings.heal_enabled then
         return nil
     end
-    
+
+    -- Read player data from game_state
+    local state  = common.game_state
+    local player = state and state.player
+    if not player then
+        return nil
+    end
+
+    local derived_main_level = player.main_level
+    local derived_sub_level  = player.sub_level
+
     -- Get heal abilities from job definition
     local heal_abilities = job_def.abilities.heal or {}
     
@@ -29,21 +32,17 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
     end
     
     -- Filter abilities by level using DRY helper
-    common.debugf('[HEAL] Evaluating %d heal abilities', #heal_abilities)
     local available_abilities = common.filter_abilities_by_level(
         heal_abilities,
         settings,
-        main_level,
-        sub_level,
+        derived_main_level,
+        derived_sub_level,
         job_def
     )
     
     if #available_abilities == 0 then
-        common.debugf('[HEAL] No heal abilities available for this level/configuration')
         return nil
     end
-    
-    common.debugf('[HEAL] %d abilities available after filtering, sorted by cost', #available_abilities)
     
     -- Check if all abilities are self-only
     local all_self_only = true
@@ -56,16 +55,13 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
     
     -- If all abilities are self-only, only check player HP
     if all_self_only then
-        common.debugf('[HEAL] All abilities are self-only, checking player HP only')
+        local player_hpp = state.player.hpp
         
-        local player_hpp = common.get_party_member_hp_percent(0)
-        common.debugf('[HEAL] Player HP: %.1f%%', player_hpp)
-        
-        if player_hpp < (settings.heal_threshold or 75) then
+        if common.below_threshold(player_hpp, settings.heal_threshold or 75) then
             -- Select appropriate ability
             local selected_ability = heal.select_ability(available_abilities, player_hpp, job_def, player_resource, 0)
             if selected_ability then
-                local command = common.build_ability_command(selected_ability, 0, settings)
+                local command = common.build_ability_command(selected_ability, 0)
                 
                 if command then
                     common.debugf('[HEAL] >>> Using self-only heal %s', selected_ability.name)
@@ -74,25 +70,105 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
                         description = string.format('Self-healing with %s (HP: %.1f%%)', selected_ability.name, player_hpp)
                     }
                 end
-            else
-                common.debugf('[HEAL] No self-only ability available (resource/cooldown)')
             end
         end
         return nil
     end
     
-    -- Check party HP status (only if we have non-self-only abilities)
-    local party_status = common.check_party_hp(
-        settings.heal_threshold or 75,
-        settings.focus_enabled,
-        common.get_party_index_by_name(settings.focus_target),
-        settings.focus_threshold or 85,
-        settings
-    )
-    
-    -- Debug focus status after party check
-    if settings.focus_enabled then
-        common.debugf('[HEAL] Focus needs_heal=%s', tostring(party_status.focus_needs_heal))
+    -- Build party_status from game_state snapshot
+    local threshold       = settings.heal_threshold or 75
+    local focus_enabled   = settings.focus_enabled
+    local focus_threshold = settings.focus_threshold or 85
+
+    -- Resolve focus target: check party first, then tracked targets
+    local focus_party_idx = nil
+    local focus_tracked_sid = nil  -- server_id if focus is a tracked target
+    if focus_enabled and settings.focus_target then
+        for i = 0, 5 do
+            local m = i == 0 and state.player or state.party[i]
+            if m and m.name == settings.focus_target then
+                focus_party_idx = i
+                break
+            end
+        end
+        -- Check tracked targets if not found in party
+        if not focus_party_idx and state.tracked then
+            for sid, tt in pairs(state.tracked) do
+                if tt.name == settings.focus_target and tt.is_active then
+                    focus_tracked_sid = sid
+                    break
+                end
+            end
+        end
+    end
+
+    local party_status = {
+        needs_heal        = {},
+        focus_needs_heal  = false,
+        lowest_hp_index   = nil,
+        lowest_hp_percent = 100,
+        average_hp        = 100,
+        -- Tracked target with lowest HP (separate from party lowest)
+        lowest_tracked_sid   = nil,
+        lowest_tracked_hpp   = 100,
+    }
+    local total_hp     = 0
+    local active_count = 0
+    for i = 0, 5 do
+        local m = i == 0 and state.player or state.party[i]
+        if not m then goto continue_hp_check end
+        local hpp        = m.hpp or 0
+        local target_idx = m.target_index or 0
+        if not common.is_active_member(hpp) then goto continue_hp_check end
+        total_hp     = total_hp     + hpp
+        active_count = active_count + 1
+        local is_focus      = focus_enabled and focus_party_idx ~= nil and i == focus_party_idx
+        local eff_threshold = is_focus and focus_threshold or threshold
+        if hpp < eff_threshold and target_idx > 0 then
+            table.insert(party_status.needs_heal, { index = i, target_index = target_idx, hpp = hpp })
+            if hpp < party_status.lowest_hp_percent then
+                party_status.lowest_hp_percent = hpp
+                party_status.lowest_hp_index   = i
+            end
+            if is_focus then
+                party_status.focus_needs_heal = true
+            end
+        end
+        ::continue_hp_check::
+    end
+
+    -- Also scan tracked targets for healing needs
+    if state.tracked then
+        for sid, tt in pairs(state.tracked) do
+            if tt.is_active and tt.target_index and tt.target_index > 0 then
+                local hpp = tt.hpp or 0
+                if common.is_active_member(hpp) then
+                    local is_focus = focus_tracked_sid and sid == focus_tracked_sid
+                    local eff_threshold = is_focus and focus_threshold or threshold
+                    if hpp < eff_threshold then
+                        table.insert(party_status.needs_heal, {
+                            index = nil,
+                            target_index = tt.target_index,
+                            hpp = hpp,
+                            is_tracked = true,
+                            server_id = sid,
+                            name = tt.name,
+                        })
+                        if hpp < party_status.lowest_tracked_hpp then
+                            party_status.lowest_tracked_hpp = hpp
+                            party_status.lowest_tracked_sid = sid
+                        end
+                        if is_focus then
+                            party_status.focus_needs_heal = true
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    if active_count > 0 then
+        party_status.average_hp = total_hp / active_count
     end
     
     -- Priority 1: Critical HP (if anyone is below critical threshold)
@@ -104,8 +180,8 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
         local available_critical = common.filter_abilities_by_level(
             critical_abilities,
             settings,
-            main_level,
-            sub_level,
+            derived_main_level,
+            derived_sub_level,
             job_def
         )
         
@@ -115,9 +191,10 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
             local critical_hpp = 100
             
             for i = 0, 5 do
-                if common.is_party_member_active(i) then
-                    local hpp = common.get_party_member_hp_percent(i)
-                    if hpp > 0 and hpp < critical_threshold and hpp < critical_hpp then
+                local m = i == 0 and state.player or state.party[i]
+                if m then
+                    local hpp = m.hpp or 0
+                    if common.below_threshold(hpp, critical_threshold) and hpp < critical_hpp then
                         critical_hpp = hpp
                         critical_party_index = i
                     end
@@ -130,172 +207,179 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
                 
                 -- Try to use a critical ability
                 for _, ability in ipairs(available_critical) do
-                    -- Check if ability is enabled
-                    local ability_key = 'disabled_' .. ability.name:gsub(' ', '_')
-                    if settings[ability_key] == true then
-                        common.debugf('[HEAL] Critical ability %s is disabled', ability.name)
-                        goto continue_critical
-                    end
-                    
-                    -- Check if blocked by status ailments
-                    local blocked_by = common.is_command_blocked(ability.command)
-                    if blocked_by then
-                        common.debugf('[HEAL] Critical ability %s is blocked by %s', ability.name, blocked_by)
-                        goto continue_critical
-                    end
-                    
-                    -- Check resource availability
-                    local ability_resource_type = ability.resource_type or job_def.resource_type
-                    if not resource.has_resource(ability_resource_type, ability.cost) then
-                        common.debugf('[HEAL] Insufficient %s for critical ability %s', ability_resource_type, ability.name)
-                        goto continue_critical
-                    end
-                    
-                    -- Check cooldown
-                    if ability.id and not resource.is_ability_ready(ability.id) then
-                        common.debugf('[HEAL] Critical ability %s on cooldown', ability.name)
-                        goto continue_critical
-                    end
-                    
-                    -- Determine target based on ability command
-                    local target_party_index
-                    local command_test = common.build_ability_command(ability, 0, settings)
-                    if command_test and command_test:find('<me>') then
-                        -- Self-target ability (Divine Seal)
-                        target_party_index = 0
-                        common.debugf('[HEAL] Using self-target critical ability %s', ability.name)
+                    if settings['disabled_' .. ability.name:gsub(' ', '_')] == true then
                     else
-                        -- Party-target ability (Martyr)
-                        target_party_index = critical_party_index
-                        
-                        -- Check range for party-target abilities
-                        local target_index = common.get_party_member_target_index(critical_party_index)
-                        if target_index then
-                            local ability_range = type(ability.range) == 'number' and ability.range or 21
-                            if not common.is_in_range(target_index, ability_range) then
-                                common.debugf('[HEAL] Critical target out of range (range: %d)', ability_range)
-                                goto continue_critical
-                            end
+                        local ok, reason = action_core.is_usable(ability, job_def)
+                        if not ok then
                         else
-                            common.debugf('[HEAL] Could not get target index for critical party member')
-                            goto continue_critical
+                            -- Determine target: self-target (Divine Seal) vs party-target (Martyr)
+                            local cmd_test         = common.build_ability_command(ability, 0)
+                            local target_party_index
+                            local in_range         = true
+                            if cmd_test and cmd_test:find('<me>') then
+                                target_party_index = 0
+                            else
+                                target_party_index   = critical_party_index
+                                local cm             = critical_party_index == 0 and state.player or state.party[critical_party_index]
+                                local target_index   = cm and cm.target_index
+                                if not target_index or target_index == 0 then
+                                    in_range = false
+                                else
+                                    local rng = type(ability.range) == 'number' and ability.range or 21
+                                    in_range  = common.is_in_range(target_index, rng)
+                                end
+                            end
+                            if in_range then
+                                local command = common.build_ability_command(ability, target_party_index)
+                                if command then
+                                    common.debugf('[HEAL] >>> Using critical ability %s', ability.name)
+                                    local cm = critical_party_index == 0 and state.player or state.party[critical_party_index]
+                                    return { command = command,
+                                        description = string.format('Critical: %s for %s (HP: %.1f%%)',
+                                            ability.name,
+                                            target_party_index == 0 and 'self' or (cm and cm.name or 'party member'),
+                                            critical_hpp) }
+                                end
+                            end
                         end
-                        
-                        common.debugf('[HEAL] Using party-target critical ability %s on party[%d]', ability.name, critical_party_index)
                     end
-                    
-                    local command = common.build_ability_command(ability, target_party_index, settings)
-                    if command then
-                        common.debugf('[HEAL] >>> Using critical ability %s', ability.name)
-                        return {
-                            command = command,
-                            description = string.format('Critical: %s for %s (HP: %.1f%%)', 
-                                ability.name,
-                                target_party_index == 0 and 'self' or (common.get_party_member_name(critical_party_index) or 'party member'),
-                                critical_hpp)
-                        }
-                    end
-                    
-                    ::continue_critical::
                 end
                 
-                common.debugf('[HEAL] No critical abilities available (all disabled/on cooldown/out of range)')
             end
         end
     end
     
-    -- Priority 2: Focus target
+    -- Priority 2: Focus target (party or tracked)
     if settings.focus_enabled and settings.focus_target and party_status.focus_needs_heal then
-        local focus_target_index = common.get_target_index_by_name(settings.focus_target)
-        if focus_target_index then
-            common.debugf('[HEAL] Attempting focus target heal: %s', settings.focus_target)
-            local focus_hpp = nil
-            for _, member in ipairs(party_status.needs_heal) do
-                if member.target_index == focus_target_index then
-                    focus_hpp = member.hpp
-                    common.debugf('[HEAL] Found focus target in needs_heal list: HP=%.1f%%', focus_hpp)
-                    break
+        -- Case A: Focus is a tracked target
+        if focus_tracked_sid and state.tracked[focus_tracked_sid] then
+            local tt = state.tracked[focus_tracked_sid]
+            local focus_hpp = tt.hpp or 0
+            local focus_target_index = tt.target_index or 0
+            if focus_target_index > 0 and common.is_active_member(focus_hpp) then
+                -- Filter to target_outside abilities only
+                local outside_abilities = {}
+                for _, a in ipairs(available_abilities) do
+                    if a.target_outside then table.insert(outside_abilities, a) end
+                end
+                local selected_ability = heal.select_ability(outside_abilities, focus_hpp, job_def, player_resource, nil)
+                if selected_ability then
+                    local ability_range = type(selected_ability.range) == 'number' and selected_ability.range or 21
+                    if common.is_in_range(focus_target_index, ability_range) then
+                        local command = common.build_ability_command_for_target(selected_ability, focus_tracked_sid)
+                        if command then
+                            -- Register pending buff for packet tracking
+                            if selected_ability.buff_id then
+                                local bid = type(selected_ability.buff_id) == 'table' and selected_ability.buff_id[1] or selected_ability.buff_id
+                                common.register_pending_buff(focus_tracked_sid, bid)
+                            end
+                            common.debugf('[HEAL] >>> Healing tracked focus target %s with %s', tt.name, selected_ability.name)
+                            return {
+                                command = command,
+                                description = string.format('Healing focus target %s with %s (HP: %.1f%%)', tt.name, selected_ability.name, focus_hpp)
+                            }
+                        end
+                    end
                 end
             end
-            
-            if focus_hpp then
-                -- Get party index for focus target first (needed for HP deficit calculation)
-                local focus_party_index = common.get_party_index_by_name(settings.focus_target)
-                if not focus_party_index then
-                    common.debugf('[HEAL] Could not get party index for focus target')
-                    return nil
+        -- Case B: Focus is a party member
+        elseif focus_party_idx then
+            local focus_member = focus_party_idx == 0 and state.player or state.party[focus_party_idx]
+            local focus_target_index = focus_member and focus_member.target_index
+            if focus_target_index and focus_target_index > 0 then
+                local focus_hpp = nil
+                for _, member in ipairs(party_status.needs_heal) do
+                    if member.target_index == focus_target_index then
+                        focus_hpp = member.hpp
+                        break
+                    end
                 end
                 
-                -- Select appropriate ability based on HP deficit
-                local selected_ability = heal.select_ability(available_abilities, focus_hpp, job_def, player_resource, focus_party_index)
-                
-                if selected_ability and focus_party_index then
-                    -- Check if in range using ability's range (default to 21 if not specified)
-                    local ability_range = type(selected_ability.range) == 'number' and selected_ability.range or 21
-                    if not common.is_in_range(focus_target_index, ability_range) then
-                        common.debugf('[HEAL] Focus target out of range (range: %d)', ability_range)
+                if focus_hpp then
+                    local focus_party_index = focus_party_idx
+                    if not focus_party_index then
                         return nil
                     end
-                    common.debugf('[HEAL] Focus target in range (range: %d)', ability_range)
-                    common.debugf('[HEAL] Selected %s for focus target', selected_ability.name)
                     
-                    local command = common.build_ability_command(selected_ability, focus_party_index, settings)
-                    if command then
-                        common.debugf('[HEAL] >>> Healing focus target with %s', selected_ability.name)
-                        return {
-                            command = command,
-                            description = string.format('Healing focus target with %s (HP: %.1f%%)', selected_ability.name, focus_hpp)
-                        }
-                    else
-                        common.debugf('[HEAL] Failed to build command for focus target')
+                    local selected_ability = heal.select_ability(available_abilities, focus_hpp, job_def, player_resource, focus_party_index)
+                    
+                    if selected_ability and focus_party_index then
+                        local ability_range = type(selected_ability.range) == 'number' and selected_ability.range or 21
+                        if not common.is_in_range(focus_target_index, ability_range) then
+                            return nil
+                        end
+                        local command = common.build_ability_command(selected_ability, focus_party_index)
+                        if command then
+                            common.debugf('[HEAL] >>> Healing focus target with %s', selected_ability.name)
+                            return {
+                                command = command,
+                                description = string.format('Healing focus target with %s (HP: %.1f%%)', selected_ability.name, focus_hpp)
+                            }
+                        end
                     end
-                elseif not focus_party_index then
-                    common.debugf('[HEAL] Could not find focus party index')
-                else
-                    common.debugf('[HEAL] No ability selected for focus target (resource/cooldown)')
                 end
-            else
-                common.debugf('[HEAL] Focus target not found in needs_heal list')
             end
         end
     end
     
     -- Priority 3: Lowest HP party member
     if party_status.lowest_hp_index then
-        common.debugf('[HEAL] Lowest HP healing path triggered (party index: %d, HP: %.1f%%)',
-                     party_status.lowest_hp_index, party_status.lowest_hp_percent)
-        local target_index = common.get_party_member_target_index(party_status.lowest_hp_index)
-        if target_index then
-            -- Select appropriate ability based on HP deficit
+        local lowest_hp_member = party_status.lowest_hp_index == 0 and state.player or state.party[party_status.lowest_hp_index]
+        local target_index = lowest_hp_member and lowest_hp_member.target_index
+        if target_index and target_index > 0 then
             local selected_ability = heal.select_ability(available_abilities, party_status.lowest_hp_percent, job_def, player_resource, party_status.lowest_hp_index)
             if selected_ability then
-                -- Check if in range using ability's range (default to 21 if not specified)
                 local ability_range = type(selected_ability.range) == 'number' and selected_ability.range or 21
                 if not common.is_in_range(target_index, ability_range) then
-                    common.debugf('[HEAL] Target out of range (range: %d)', ability_range)
-                    return nil
-                end
-                local command = common.build_ability_command(selected_ability, party_status.lowest_hp_index, settings)
-                if command then
-                    return {
-                        command = command,
-                        description = string.format('Healing %s with %s (HP: %.1f%%)', 
-                            common.get_party_member_name(party_status.lowest_hp_index) or 'party member',
-                            selected_ability.name,
-                            party_status.lowest_hp_percent)
-                    }
+                    -- Don't return nil yet, check tracked targets below
                 else
-                    common.debugf('[HEAL] Failed to build command')
+                    local command = common.build_ability_command(selected_ability, party_status.lowest_hp_index)
+                    if command then
+                        return {
+                            command = command,
+                            description = string.format('Healing %s with %s (HP: %.1f%%)', 
+                                (lowest_hp_member and lowest_hp_member.name or 'party member'),
+                                selected_ability.name,
+                                party_status.lowest_hp_percent)
+                        }
+                    end
                 end
-            else
-                common.debugf('[HEAL] No ability selected for lowest HP member')
             end
-        else
-            common.debugf('[HEAL] Could not get target index for lowest HP member')
         end
-    else
-        common.debugf('[HEAL] No party members need healing')
     end
+
+    -- Priority 4: Lowest HP tracked target (outside party)
+    if party_status.lowest_tracked_sid and state.tracked then
+        local tt = state.tracked[party_status.lowest_tracked_sid]
+        if tt and tt.is_active and tt.target_index and tt.target_index > 0 then
+            -- Filter to target_outside abilities only
+            local outside_abilities = {}
+            for _, a in ipairs(available_abilities) do
+                if a.target_outside then table.insert(outside_abilities, a) end
+            end
+            if #outside_abilities > 0 then
+                local selected_ability = heal.select_ability(outside_abilities, party_status.lowest_tracked_hpp, job_def, player_resource, nil)
+                if selected_ability then
+                    local ability_range = type(selected_ability.range) == 'number' and selected_ability.range or 21
+                    if common.is_in_range(tt.target_index, ability_range) then
+                        local command = common.build_ability_command_for_target(selected_ability, party_status.lowest_tracked_sid)
+                        if command then
+                            if selected_ability.buff_id then
+                                local bid = type(selected_ability.buff_id) == 'table' and selected_ability.buff_id[1] or selected_ability.buff_id
+                                common.register_pending_buff(party_status.lowest_tracked_sid, bid)
+                            end
+                            return {
+                                command = command,
+                                description = string.format('Healing tracked %s with %s (HP: %.1f%%)',
+                                    tt.name, selected_ability.name, party_status.lowest_tracked_hpp)
+                            }
+                        end
+                    end
+                end
+            end
+        end
+    end
+
     return nil
 end
 
@@ -308,22 +392,17 @@ function heal.select_ability(abilities, target_hpp, job_def, player_resource, pa
                 -- Check if usable: has pet, has resource, not on cooldown
                 if common.targets.get_pet() then
                     local ability_resource_type = ability.resource_type or job_def.resource_type
-                    if resource.has_resource(ability_resource_type, ability.cost) then
+                    if action_core.has_resource(ability_resource_type, ability.cost) then
                         local is_ready = true
                         if ability.id then
-                            is_ready = resource.is_ability_ready(ability.id)
+                            is_ready = action_core.is_ability_ready(ability.id)
                         end
                         if is_ready then
-                            common.debugf('[HEAL] Using Healing Ruby (has pet, resources available)')
                             return ability
-                        else
-                            common.debugf('[HEAL] ⚠ Summoner: Healing Ruby on cooldown, using fallback')
                         end
                     else
-                        common.debugf('[HEAL] ⚠ Summoner: Insufficient MP for Healing Ruby, using fallback')
                     end
                 else
-                    common.debugf('[HEAL] ⚠ Summoner: No pet available for Healing Ruby, using fallback')
                 end
                 break
             end
@@ -333,100 +412,21 @@ function heal.select_ability(abilities, target_hpp, job_def, player_resource, pa
     -- Calculate HP deficit for target
     local hp_deficit = 0
     if party_index then
-        local party = common.get_party()
-        if party then
-            local current_hp = party:GetMemberHP(party_index)
-            local hp_percent_value = party:GetMemberHPPercent(party_index)
-            
-            common.debugf('[HEAL] Raw values: Current HP=%s, HP Percent=%s', tostring(current_hp), tostring(hp_percent_value))
-            
-            -- Calculate max HP from percentage (this can be inaccurate at very low HP due to rounding)
-            local max_hp = nil
-            local is_percent_unreliable = false
-            if current_hp and hp_percent_value and hp_percent_value > 0 then
-                max_hp = math.floor(current_hp / (hp_percent_value / 100))
-                
-                -- Check if the percentage is unreliable (very low HP with 1% reported)
-                if hp_percent_value == 1 and current_hp < 100 then
-                    is_percent_unreliable = true
-                    common.debugf('[HEAL] ⚠ Warning: HP percent at minimum (1%%), cannot trust deficit calculation')
-                    common.debugf('[HEAL]    Will use strongest heal available due to unreliable data')
-                    -- Set deficit to a large value to force selection of strongest heal
-                    hp_deficit = 999999
-                else
-                    hp_deficit = max_hp - current_hp
-                    local calculated_percent = (current_hp / max_hp) * 100
-                    common.debugf('[HEAL] Target HP deficit: %d (Max: %d, Current: %d, Calculated %%: %.2f%%, Reported %%: %d%%)', 
-                                 hp_deficit, max_hp, current_hp, calculated_percent, hp_percent_value)
-                end
-            else
-                common.debugf('[HEAL] Could not calculate HP deficit - missing values')
+        local snapshot     = common.game_state
+        local target_member = snapshot and (party_index == 0 and snapshot.player or snapshot.party[party_index])
+        if target_member then
+            local current_hp = target_member.hp
+            local max_hp     = target_member.max_hp
+            if current_hp and max_hp and max_hp > 0 then
+                hp_deficit = max_hp - current_hp
             end
         end
     end
     
     -- Filter abilities by resource availability and cooldowns
-    local usable_abilities = {}
-    common.debugf('[HEAL] Checking resource/cooldown availability for %d abilities', #abilities)
-    for _, ability in ipairs(abilities) do
-        -- Check if this ability is blocked by status ailments
-        local blocked_by = common.is_command_blocked(ability.command)
-        if blocked_by then
-            common.debugf('[HEAL] %s is blocked by %s', ability.name, blocked_by)
-            goto continue
-        end
-        
-        -- Check resource using ability-specific resource type
-        local ability_resource_type = ability.resource_type or job_def.resource_type
-        if resource.has_resource(ability_resource_type, ability.cost) then
-            -- Check cooldown
-            if ability.id then
-                local is_ready = false
-                -- Determine if this is a spell or ability based on command
-                local is_spell = false
-                if type(ability.command) == 'string' and ability.command:match('^/ma%s') then
-                    is_spell = true
-                elseif type(ability.command) == 'function' then
-                    -- Try to get the command string to check
-                    local test_cmd = common.build_ability_command(ability, 0, nil)
-                    if test_cmd and test_cmd:match('^/ma%s') then
-                        is_spell = true
-                    end
-                end
-                
-                if is_spell then
-                    is_ready = resource.is_spell_ready(ability.id)
-                    if not is_ready then
-                        local recast_time = resource.get_spell_recast(ability.id)
-                        local recast_seconds = recast_time / 60.0
-                        common.debugf('[HEAL]   ✗ %s on cooldown (spell recast: %.1fs)', ability.name, recast_seconds)
-                    end
-                else
-                    is_ready = resource.is_ability_ready(ability.id)
-                    if not is_ready then
-                        common.debugf('[HEAL]   ✗ %s on cooldown', ability.name)
-                    end
-                end
-                
-                if is_ready then
-                    common.debugf('[HEAL]   ✓ %s is usable (cost: %d, value: %d)', ability.name, ability.cost, ability.value or 0)
-                    table.insert(usable_abilities, ability)
-                end
-            else
-                -- No cooldown tracking needed
-                common.debugf('[HEAL]   ✓ %s is usable (cost: %d, value: %d)', ability.name, ability.cost, ability.value or 0)
-                table.insert(usable_abilities, ability)
-            end
-        else
-            common.debugf('[HEAL]   ✗ Insufficient %s for %s (need: %d, have: %d)', 
-                         ability_resource_type, ability.name, ability.cost, player_resource)
-        end
-        
-        ::continue::
-    end
+    local usable_abilities = action_core.filter_usable(abilities, job_def)
     
     if #usable_abilities == 0 then
-        common.debugf('[HEAL] No abilities available (resource or cooldown constraints)')
         return nil
     end
     
@@ -439,40 +439,89 @@ function heal.select_ability(abilities, target_hpp, job_def, player_resource, pa
             return a_value > b_value
         end)
         
-        common.debugf('[HEAL] Selecting most efficient heal for deficit: %d HP', hp_deficit)
-        common.debugf('[HEAL] Available heals (sorted by value): %s', 
-            table.concat((function()
-                local names = {}
-                for _, a in ipairs(usable_abilities) do
-                    local a_value = type(a.value) == 'number' and a.value or 0
-                    table.insert(names, string.format('%s(%d)', a.name, a_value))
-                end
-                return names
-            end)(), ', '))
-        
         -- Find the largest heal that fits within the deficit (round down approach)
         local best_ability = nil
         for _, ability in ipairs(usable_abilities) do
             local ability_value = type(ability.value) == 'number' and ability.value or 0
             if ability_value > 0 and ability_value <= hp_deficit then
                 best_ability = ability
-                common.debugf('[HEAL] ✓ Selected %s (value: %d) - largest heal that fits within deficit %d', ability.name, ability_value, hp_deficit)
                 return best_ability
             end
         end
         
         -- If no heal fits within the deficit, use the smallest available (least overheal)
         best_ability = usable_abilities[#usable_abilities]
-        local best_value = type(best_ability.value) == 'number' and best_ability.value or 0
-        common.debugf('[HEAL] ⚠ No heal fits within deficit %d, using smallest available: %s (value: %d)', 
-                     hp_deficit, best_ability.name, best_value)
         return best_ability
     else
         -- Fallback: no HP deficit info, use first available (already sorted by cost descending)
-        common.debugf('[HEAL] ⚠ No HP deficit info available, using first available heal: %s (cost: %d)', 
-            usable_abilities[1].name, usable_abilities[1].cost or 0)
         return usable_abilities[1]
     end
+end
+
+-- ============================================================================
+-- AOE Healing  (formerly lib.actions.heal_aoe)
+-- ============================================================================
+
+function heal.execute_aoe(settings, job_def)
+    if not settings.heal_aoe_enabled then return nil end
+
+    local state  = common.game_state
+    local player = state and state.player
+    if not player then return nil end
+
+    local abilities = common.filter_abilities_by_level(
+        job_def.abilities.heal_aoe or {}, settings,
+        player.main_level, player.sub_level, job_def)
+    if #abilities == 0 then return nil end
+
+    -- Average HP of alive, non-full party members; also count how many are below threshold
+    local threshold = settings.heal_aoe_threshold or 70
+    local total, count, below_count = 0, 0, 0
+    for i = 0, 5 do
+        local m = i == 0 and state.player or state.party[i]
+        if m then
+            local hpp = m.hpp or 0
+            if common.is_active_member(hpp) then
+                total = total + hpp
+                count = count + 1
+                if common.below_threshold(hpp, threshold) then
+                    below_count = below_count + 1
+                end
+            end
+        end
+    end
+    -- Require at least 2 members below threshold before using AOE
+    if below_count < 2 then return nil end
+    local avg_hp = count > 0 and (total / count) or 100
+    if not common.below_threshold(avg_hp, threshold) then return nil end
+
+    return action_core.first_command(abilities, job_def, settings, '[HEAL_AOE]', nil,
+        function(a) return string.format('AOE healing with %s (avg HP: %.1f%%)', a.name, avg_hp) end)
+end
+
+-- ============================================================================
+-- Pet Healing  (formerly lib.actions.heal_pet)
+-- ============================================================================
+
+function heal.execute_pet(settings, job_def)
+    if not settings.heal_pet_enabled      then return nil end
+    if not common.targets.get_pet()       then return nil end
+
+    local state  = common.game_state
+    local player = state and state.player
+    if not player then return nil end
+
+    local abilities = common.filter_abilities_by_level(
+        job_def.abilities.heal_pet or {}, settings,
+        player.main_level, player.sub_level, job_def)
+    if #abilities == 0 then return nil end
+
+    local pet_hpp   = player.pet_hpp
+    local threshold = settings.heal_pet_threshold or 50
+    if not common.below_threshold(pet_hpp, threshold) then return nil end
+
+    return action_core.first_command(abilities, job_def, settings, '[HEAL_PET]', nil,
+        function(a) return string.format('Healing pet with %s (Pet HP: %.1f%%)', a.name, pet_hpp) end)
 end
 
 return heal

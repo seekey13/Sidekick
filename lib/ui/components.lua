@@ -38,9 +38,9 @@ local COLOR_BUTTON_UNSELECTED_HOVER = { 0.4, 0.4, 0.4, 1.0 }
 local COLOR_BUTTON_UNSELECTED_ACTIVE = { 0.5, 0.5, 0.5, 1.0 }
 
 -- Color Constants - Headers
-local HEADER_COLOR_NORMAL = { 0.05, 0.1, 0.2, 0.31 }
-local HEADER_COLOR_HOVERED = { 0.05, 0.1, 0.2, 0.80 }
-local HEADER_COLOR_ACTIVE = { 0.05, 0.1, 0.2, 1.00 }
+local HEADER_COLOR_NORMAL = { 0.2, 0.2, 0.2, 0.31 }
+local HEADER_COLOR_HOVERED = { 0.2, 0.2, 0.2, 0.45 }
+local HEADER_COLOR_ACTIVE = { 0.2, 0.2, 0.2, 0.65 }
 
 -- ============================================================================
 -- Helper Functions
@@ -68,16 +68,6 @@ function default_filters.can_use_ability(ability)
     else
         return main_level >= ability.level
     end
-end
-
--- Check if ability can target outside party (always returns true in ui_components - no PL Mode context)
-function default_filters.can_target_outside(ability)
-    -- Simply check if the ability has the target_outside flag
-    -- If no flag is present, assume true (for non-party abilities)
-    if ability.target_outside == nil then
-        return true
-    end
-    return ability.target_outside == true
 end
 
 -- Get filter functions from context or use defaults
@@ -116,24 +106,10 @@ local function get_usable_abilities_in_group(job_def, target_group, ctx)
     
     for _, ability in ipairs(all_abilities) do
         local can_use = filters.can_use_ability(ability)
-        local can_target = filters.can_target_outside(ability)
         
-        if can_use and can_target then
-            local cmd = type(ability.command) == 'function' and ability.command(0) or ability.command
-            local is_spell = cmd and string.sub(cmd, 1, 3) == '/ma'
-            local has_spell = true
-            
-            if is_spell and ability.id then
-                local ok, known = pcall(function() return AshitaCore:GetMemoryManager():GetPlayer():HasSpell(ability.id) end)
-                if ok then
-                    has_spell = known
-                end
-            end
-            
-            if has_spell then
+        if can_use then
+            if common.has_spell_learned(ability) then
                 table.insert(usable, ability)
-            else
-                common.debugf('[ui_components] %s in group %s: spell not learned', ability.name, target_group)
             end
         end
     end
@@ -349,15 +325,17 @@ local function toggle_group_party_buff(ctx, group_name, party_index, enabled)
                     local group_to_remove = active_song_groups[1]
                     ctx.party_buffs[group_to_remove][party_index] = false
                     
-                    -- Ensure persistence structure exists
-                    ctx.settings.party_buffs = ctx.settings.party_buffs or {}
-                    ctx.settings.party_buffs[group_to_remove] = ctx.settings.party_buffs[group_to_remove] or {}
-                    ctx.settings.party_buffs[group_to_remove][party_index] = false
+                    -- Ensure persistence structure exists (skip tracked targets)
+                    if type(party_index) == 'number' and party_index <= 5 then
+                        ctx.settings.party_buffs = ctx.settings.party_buffs or {}
+                        ctx.settings.party_buffs[group_to_remove] = ctx.settings.party_buffs[group_to_remove] or {}
+                        ctx.settings.party_buffs[group_to_remove][party_index] = false
+                    end
                     
-                    -- Check if removed group is still enabled for any party member
+                    -- Check if removed group is still enabled for any member
                     local removed_still_enabled = false
-                    for i = 0, 5 do
-                        if ctx.party_buffs[group_to_remove][i] == true then
+                    for k, v in pairs(ctx.party_buffs[group_to_remove]) do
+                        if v == true then
                             removed_still_enabled = true
                             break
                         end
@@ -377,8 +355,8 @@ local function toggle_group_party_buff(ctx, group_name, party_index, enabled)
     
     -- Check if ANY button is enabled for this group
     local any_button_enabled = false
-    for i = 0, 5 do
-        if ctx.party_buffs[group_name][i] == true then
+    for k, v in pairs(ctx.party_buffs[group_name]) do
+        if v == true then
             any_button_enabled = true
             break
         end
@@ -387,10 +365,12 @@ local function toggle_group_party_buff(ctx, group_name, party_index, enabled)
     -- Update the group's disabled setting
     ctx.settings['disabled_group_' .. group_name] = not any_button_enabled
     
-    -- Save party_buffs to settings for persistence
-    ctx.settings.party_buffs = ctx.settings.party_buffs or {}
-    ctx.settings.party_buffs[group_name] = ctx.settings.party_buffs[group_name] or {}
-    ctx.settings.party_buffs[group_name][party_index] = enabled
+    -- Save party_buffs to settings for persistence (skip tracked targets)
+    if type(party_index) == 'number' and party_index <= 5 then
+        ctx.settings.party_buffs = ctx.settings.party_buffs or {}
+        ctx.settings.party_buffs[group_name] = ctx.settings.party_buffs[group_name] or {}
+        ctx.settings.party_buffs[group_name][party_index] = enabled
+    end
     
     if ctx.save_callback then
         ctx.save_callback()
@@ -428,15 +408,17 @@ local function toggle_party_buff(ctx, ability_name, party_index, enabled)
                 local song_to_remove = active_songs[1]  -- Remove first found (random due to table iteration)
                 ctx.party_buffs[song_to_remove][party_index] = false
                 
-                -- Ensure persistence structure exists, then update settings for the removed song
-                ctx.settings.party_buffs = ctx.settings.party_buffs or {}
-                ctx.settings.party_buffs[song_to_remove] = ctx.settings.party_buffs[song_to_remove] or {}
-                ctx.settings.party_buffs[song_to_remove][party_index] = false
+                -- Ensure persistence structure exists (skip tracked targets)
+                if type(party_index) == 'number' and party_index <= 5 then
+                    ctx.settings.party_buffs = ctx.settings.party_buffs or {}
+                    ctx.settings.party_buffs[song_to_remove] = ctx.settings.party_buffs[song_to_remove] or {}
+                    ctx.settings.party_buffs[song_to_remove][party_index] = false
+                end
                 
-                -- Check if removed song is still enabled for any party member
+                -- Check if removed song is still enabled for any member
                 local removed_still_enabled = false
-                for i = 0, 5 do
-                    if ctx.party_buffs[song_to_remove][i] == true then
+                for k, v in pairs(ctx.party_buffs[song_to_remove]) do
+                    if v == true then
                         removed_still_enabled = true
                         break
                     end
@@ -456,8 +438,8 @@ local function toggle_party_buff(ctx, ability_name, party_index, enabled)
     
     -- Check if ANY button is enabled
     local any_button_enabled = false
-    for i = 0, 5 do
-        if ctx.party_buffs[ability_name][i] == true then
+    for k, v in pairs(ctx.party_buffs[ability_name]) do
+        if v == true then
             any_button_enabled = true
             break
         end
@@ -471,24 +453,29 @@ local function toggle_party_buff(ctx, ability_name, party_index, enabled)
         ctx.settings[key] = true
     end
     
-    -- Save party_buffs to settings for persistence
-    if not ctx.settings.party_buffs then
-        ctx.settings.party_buffs = {}
+    -- Save party_buffs to settings for persistence (skip tracked targets)
+    if type(party_index) == 'number' and party_index <= 5 then
+        if not ctx.settings.party_buffs then
+            ctx.settings.party_buffs = {}
+        end
+        if not ctx.settings.party_buffs[ability_name] then
+            ctx.settings.party_buffs[ability_name] = {}
+        end
+        ctx.settings.party_buffs[ability_name][party_index] = enabled
     end
-    if not ctx.settings.party_buffs[ability_name] then
-        ctx.settings.party_buffs[ability_name] = {}
-    end
-    ctx.settings.party_buffs[ability_name][party_index] = enabled
     
     if ctx.save_callback then
         ctx.save_callback()
     end
 end
 
--- Calculate the width for the ON/OFF button based on party size
+-- Calculate the width for the ON/OFF button based on party size + tracked targets
 local function get_onoff_button_width()
     local party_size = common.get_party_size()
-    local num_buttons = math.min(party_size, 6)
+    local tracked_count = 0
+    local tt_list = common.get_tracked_targets()
+    for _ in pairs(tt_list) do tracked_count = tracked_count + 1 end
+    local num_buttons = math.min(party_size, 6) + tracked_count
     return PARTY_BUTTON_WIDTH * num_buttons + (SPACE_BETWEEN_BUTTONS * (num_buttons - 1))
 end
 
@@ -570,13 +557,11 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
             if is_active then
                 imgui.SameLine()
                 
-                -- Check if this party member is a Trust (cannot buff Trusts in PL mode)
-                local is_trust_member = ctx.is_trust and ctx.is_trust(party_index) or false
-                
                 local is_enabled = is_group and is_group_party_buff_enabled(ctx, key_name, party_index) or is_party_buff_enabled(ctx, key_name, party_index)
                 
-                -- Treat party button as "not has_spell" if target_modifier is required but not available, or if Trust
-                local party_has_spell = has_spell and has_target_modifier and not is_trust_member
+                -- Treat party button as "not has_spell" if target_modifier is required but not available
+                -- NOTE: `and not is_trust_member` removed -- Trusts can now be buffed
+                local party_has_spell = has_spell and has_target_modifier
                 
                 if not party_has_spell then
                     imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_DISABLED)
@@ -602,10 +587,10 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
                     imgui.Button(button_label, { PARTY_BUTTON_WIDTH, 0 })
                 end
                 
-                -- Show tooltip for Trusts
-                if is_trust_member and imgui.IsItemHovered() then
-                    imgui.SetTooltip('Trust can not be buffed')
-                end
+                -- NOTE: Trust tooltip removed -- Trusts can now be buffed
+                -- if is_trust_member and imgui.IsItemHovered() then
+                --     imgui.SetTooltip('Trust can not be buffed')
+                -- end
                 
                 if not party_has_spell then
                     imgui.PopStyleColor(4)
@@ -616,6 +601,66 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
         end
     end
     
+    -- Render tracked target buttons for every buff row.
+    -- Buttons are grayed out and non-clickable when the ability is not compatible
+    -- with out-of-party targets (i.e. ability.target_outside is not set).
+    local tracked_list = common.get_tracked_targets()
+    local sorted_tracked = {}
+    for sid, tt in pairs(tracked_list) do
+        table.insert(sorted_tracked, { sid = sid, name = tt.name })
+    end
+    table.sort(sorted_tracked, function(a, b) return a.name < b.name end)
+
+    if #sorted_tracked > 0 then
+        local is_compatible = ability and ability.target_outside
+
+        for t_idx, tt in ipairs(sorted_tracked) do
+            imgui.SameLine()
+
+            local tt_key = 'tt_' .. tt.sid
+            local is_tt_enabled = is_group and is_group_party_buff_enabled(ctx, key_name, tt_key) or is_party_buff_enabled(ctx, key_name, tt_key)
+            local is_disabled = not has_spell or not is_compatible
+
+            if is_disabled then
+                imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_DISABLED)
+                imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_DISABLED)
+                imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_DISABLED)
+                imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
+            elseif is_tt_enabled then
+                -- Use default colors
+            else
+                imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_UNSELECTED)
+                imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_UNSELECTED_HOVER)
+                imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_UNSELECTED_ACTIVE)
+            end
+
+            local tt_button_label = '<T' .. t_idx .. '>##' .. key_name .. '_t' .. tt.sid
+            local clicked = imgui.Button(tt_button_label, { PARTY_BUTTON_WIDTH, 0 })
+            if clicked and not is_disabled then
+                if is_group then
+                    toggle_group_party_buff(ctx, key_name, tt_key, not is_tt_enabled)
+                else
+                    toggle_party_buff(ctx, key_name, tt_key, not is_tt_enabled)
+                end
+            end
+
+            -- Tooltip: show target name, or reason why button is disabled
+            if imgui.IsItemHovered() then
+                if not is_compatible then
+                    imgui.SetTooltip('Not compatible with out-of-party targets')
+                else
+                    imgui.SetTooltip(tt.name)
+                end
+            end
+
+            if is_disabled then
+                imgui.PopStyleColor(4)
+            elseif not is_tt_enabled then
+                imgui.PopStyleColor(3)
+            end
+        end
+    end
+
     return any_rendered
 end
 
@@ -741,20 +786,8 @@ end
 -- Render a self-target single ability
 -- Layout: [ON/OFF Button] Ability Name
 function ui_components.self_single_ability(ctx, ability, job_def, id_suffix)
-    local cmd = type(ability.command) == 'function' and ability.command(0) or ability.command
-    local is_spell = cmd and string.sub(cmd, 1, 3) == '/ma'
-    local has_spell = true
-    local spell_suffix = ''
-    
-    if is_spell and ability.id then
-        local ok, known = pcall(function() return AshitaCore:GetMemoryManager():GetPlayer():HasSpell(ability.id) end)
-        if ok then
-            has_spell = known
-            if not has_spell then
-                spell_suffix = ' (Not Learned)'
-            end
-        end
-    end
+    local has_spell = common.has_spell_learned(ability)
+    local spell_suffix = has_spell and '' or ' (Not Learned)'
     
     if not has_spell then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
@@ -810,16 +843,7 @@ function ui_components.self_grouped_ability(ctx, ability, job_def)
         return
     end
     
-    local cmd = type(selected.command) == 'function' and selected.command(0) or selected.command
-    local is_spell = cmd and string.sub(cmd, 1, 3) == '/ma'
-    local has_spell = true
-    
-    if is_spell and selected.id then
-        local ok, known = pcall(function() return AshitaCore:GetMemoryManager():GetPlayer():HasSpell(selected.id) end)
-        if ok then
-            has_spell = known
-        end
-    end
+    local has_spell = common.has_spell_learned(selected)
     
     if not has_spell then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
@@ -871,20 +895,8 @@ end
 -- Render a party-target single ability
 -- Layout: [<ME>] [<P1>] [<P2>]... Ability Name
 function ui_components.party_single_ability(ctx, ability, job_def)
-    local cmd = type(ability.command) == 'function' and ability.command(0) or ability.command
-    local is_spell = cmd and string.sub(cmd, 1, 3) == '/ma'
-    local has_spell = true
-    local spell_suffix = ''
-    
-    if is_spell and ability.id then
-        local ok, known = pcall(function() return AshitaCore:GetMemoryManager():GetPlayer():HasSpell(ability.id) end)
-        if ok then
-            has_spell = known
-            if not has_spell then
-                spell_suffix = ' (Not Learned)'
-            end
-        end
-    end
+    local has_spell = common.has_spell_learned(ability)
+    local spell_suffix = has_spell and '' or ' (Not Learned)'
     
     -- Check if Pianissimo/target modifier is required but not available
     local requires_modifier = ability.target_modifier == true
@@ -963,16 +975,7 @@ function ui_components.party_grouped_ability(ctx, ability, job_def)
         return
     end
     
-    local cmd = type(selected.command) == 'function' and selected.command(0) or selected.command
-    local is_spell = cmd and string.sub(cmd, 1, 3) == '/ma'
-    local has_spell = true
-    
-    if is_spell and selected.id then
-        local ok, known = pcall(function() return AshitaCore:GetMemoryManager():GetPlayer():HasSpell(selected.id) end)
-        if ok then
-            has_spell = known
-        end
-    end
+    local has_spell = common.has_spell_learned(selected)
     
     -- Check if Pianissimo/target modifier is required but not available
     local requires_modifier = selected.target_modifier == true
@@ -1134,22 +1137,11 @@ end
 
 -- Render an ability checkbox with spell knowledge checking
 function ui_components.ability_checkbox(ctx, ability, job_def, id_suffix)
-    local cmd = type(ability.command) == 'function' and ability.command(0) or ability.command
-    local is_spell = cmd and string.sub(cmd, 1, 3) == '/ma'
-    local has_spell = true
+    local has_spell = common.has_spell_learned(ability)
     local spell_suffix = ''
-    
-    if is_spell and ability.id then
-        local ok, known = pcall(function() return AshitaCore:GetMemoryManager():GetPlayer():HasSpell(ability.id) end)
-        if ok then
-            has_spell = known
-            if not has_spell then
-                spell_suffix = ' (Not Learned)'
-                ctx.settings['disabled_' .. ability.name:gsub(' ', '_')] = true
-            end
-        else
-            common.errorf('Failed to check spell knowledge for %s (ID: %d)', ability.name, ability.id)
-        end
+    if not has_spell then
+        spell_suffix = ' (Not Learned)'
+        ctx.settings['disabled_' .. ability.name:gsub(' ', '_')] = true
     end
     
     local desc
@@ -1199,36 +1191,30 @@ end
 -- Item Checkbox Component
 -- ============================================================================
 
--- Render checkbox for item-based silence removal (Echo Drops)
--- Args: ctx (table) - Context with settings, save_callback
-function ui_components.item_silence_removal_checkbox(ctx)
-    if not ctx or not ctx.settings then
-        return
-    end
-    
-    -- Get Echo Drops count from inventory
-    local echo_drops_count = item_module.get_item_count('Echo Drops')
-    
-    -- Create checkbox label with count (show ? if inventory not loaded)
+-- Render a checkbox for item-based debuff removal (DRY helper)
+-- Args: ctx, item_name, setting_key, debuff_name
+local function render_item_removal_checkbox(ctx, item_name, setting_key, debuff_name)
+    if not ctx or not ctx.settings then return end
+
+    local count = item_module.get_item_count(item_name)
+
+    -- Build label with count (show ? while inventory loads)
     local checkbox_label
-    if echo_drops_count == nil then
-        checkbox_label = 'Remove Silence with Echo Drops (?)'
+    if count == nil then
+        checkbox_label = string.format('Remove %s with %s (?)', debuff_name, item_name)
     else
-        checkbox_label = string.format('Remove Silence with Echo Drops (%d)', echo_drops_count)
+        checkbox_label = string.format('Remove %s with %s (%d)', debuff_name, item_name, count)
     end
-    
-    -- Check if checkbox should be disabled (no items in inventory, but not during loading)
-    local is_disabled = (echo_drops_count == 0)
-    
-    -- Only auto-disable if inventory is loaded (not nil) and count is 0
-    if is_disabled and echo_drops_count ~= nil and ctx.settings.item_silence_removal_enabled then
-        ctx.settings.item_silence_removal_enabled = false
-        if ctx.save_callback then
-            ctx.save_callback()
-        end
+
+    local is_disabled = (count == 0)
+
+    -- Auto-disable when inventory is loaded but item count is zero
+    if is_disabled and count ~= nil and ctx.settings[setting_key] then
+        ctx.settings[setting_key] = false
+        if ctx.save_callback then ctx.save_callback() end
     end
-    
-    -- Apply disabled styling if no items
+
+    -- Disabled styling
     if is_disabled then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
         imgui.PushStyleColor(ImGuiCol_FrameBg, COLOR_BUTTON_DISABLED)
@@ -1236,95 +1222,33 @@ function ui_components.item_silence_removal_checkbox(ctx)
         imgui.PushStyleColor(ImGuiCol_FrameBgActive, COLOR_BUTTON_DISABLED)
         imgui.PushStyleColor(ImGuiCol_CheckMark, LIGHT_GRAY)
     end
-    
-    local enabled = { ctx.settings.item_silence_removal_enabled or false }
-    
-    -- Only allow interaction if not disabled
+
+    local enabled = { ctx.settings[setting_key] or false }
+
     if not is_disabled and imgui.Checkbox(checkbox_label, enabled) then
-        ctx.settings.item_silence_removal_enabled = enabled[1]
-        if ctx.save_callback then
-            ctx.save_callback()
-        end
+        ctx.settings[setting_key] = enabled[1]
+        if ctx.save_callback then ctx.save_callback() end
     elseif is_disabled then
-        -- Display disabled checkbox (non-interactive)
         imgui.Checkbox(checkbox_label, enabled)
     end
-    
-    if is_disabled then
-        imgui.PopStyleColor(5)
-    end
-    
-    -- Tooltip
+
+    if is_disabled then imgui.PopStyleColor(5) end
+
     if imgui.IsItemHovered() then
         if is_disabled then
-            imgui.SetTooltip('No Echo Drops in inventory')
+            imgui.SetTooltip(string.format('No %s in inventory', item_name))
         else
-            imgui.SetTooltip('Use Echo Drops to remove Silence (Item)')
+            imgui.SetTooltip(string.format('Use %s to remove %s (Item)', item_name, debuff_name))
         end
     end
 end
 
--- Render checkbox for Doom removal with Holy Water
+function ui_components.item_silence_removal_checkbox(ctx)
+    render_item_removal_checkbox(ctx, 'Echo Drops', 'item_silence_removal_enabled', 'Silence')
+end
+
 function ui_components.item_doom_removal_checkbox(ctx)
-    if not ctx or not ctx.settings then
-        return
-    end
-    -- Get Holy Water count from inventory
-    local holy_water_count = item_module.get_item_count('Holy Water')
-    
-    -- Create checkbox label with count (show ? if inventory not loaded)
-    local checkbox_label
-    if holy_water_count == nil then
-        checkbox_label = 'Remove Doom with Holy Water (?)'
-    else
-        checkbox_label = string.format('Remove Doom with Holy Water (%d)', holy_water_count)
-    end
-    
-    -- Check if checkbox should be disabled (no items in inventory, but not during loading)
-    local is_disabled = (holy_water_count == 0)
-    
-    -- Only auto-disable if inventory is loaded (not nil) and count is 0
-    if is_disabled and holy_water_count ~= nil and ctx.settings.item_doom_removal_enabled then
-        ctx.settings.item_doom_removal_enabled = false
-        if ctx.save_callback then
-            ctx.save_callback()
-        end
-    end
-    
-    -- Apply disabled styling if no items
-    if is_disabled then
-        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
-        imgui.PushStyleColor(ImGuiCol_FrameBg, COLOR_BUTTON_DISABLED)
-        imgui.PushStyleColor(ImGuiCol_FrameBgHovered, COLOR_BUTTON_DISABLED)
-        imgui.PushStyleColor(ImGuiCol_FrameBgActive, COLOR_BUTTON_DISABLED)
-        imgui.PushStyleColor(ImGuiCol_CheckMark, LIGHT_GRAY)
-    end
-    
-    local enabled = { ctx.settings.item_doom_removal_enabled or false }
-    
-    -- Only allow interaction if not disabled
-    if not is_disabled and imgui.Checkbox(checkbox_label, enabled) then
-        ctx.settings.item_doom_removal_enabled = enabled[1]
-        if ctx.save_callback then
-            ctx.save_callback()
-        end
-    elseif is_disabled then
-        -- Display disabled checkbox (non-interactive)
-        imgui.Checkbox(checkbox_label, enabled)
-    end
-    
-    if is_disabled then
-        imgui.PopStyleColor(5)
-    end
-    
-    -- Tooltip
-    if imgui.IsItemHovered() then
-        if is_disabled then
-            imgui.SetTooltip('No Holy Water in inventory')
-        else
-            imgui.SetTooltip('Use Holy Water to remove Doom (Item)')
-        end
-    end
+    render_item_removal_checkbox(ctx, 'Holy Water', 'item_doom_removal_enabled', 'Doom')
 end
 
 -- ============================================================================

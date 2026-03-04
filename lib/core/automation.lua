@@ -6,6 +6,7 @@
 local automation = {}
 local common = require('lib.core.common')
 
+
 -- Last command execution time
 local last_command_time = 0
 local command_throttle = 1.0 -- 1 second between commands
@@ -30,10 +31,6 @@ function automation.execute_command(command, description)
     -- Execute the command
     AshitaCore:GetChatManager():QueueCommand(0, command)
     last_command_time = current_time
-    
-    -- if description then
-    --     common.printf(string.format('Executing: %s', description))
-    -- end
     
     return true
 end
@@ -68,14 +65,27 @@ function automation.execute_priority_actions(priority_order, action_modules, set
             local success, result = pcall(action_module.execute, settings, job_def, main_level, sub_level, player_resource)
             
             if success and result then
+                -- If resting and this is an urgent action type, break rest first.
+                -- buff and geo are low-priority and do not interrupt rest.
+                -- The actual action fires next tick once /heal off has landed.
+                local rest_breaking_actions = { heal = true, recover = true, item = true, status_removal = true, debuff_removal = true, wake = true }
+                if rest_breaking_actions[action_type] and common.is_resting() then
+                    common.set_resting(false)
+                    common.reset_rest_timer()
+                    automation.execute_command('/heal off', 'Breaking rest for: ' .. action_type)
+                    return true
+                end
+
                 if type(result) == 'table' then
                     -- Result is {command, description}
                     if automation.execute_command(result.command, result.description) then
+                        common.reset_rest_timer()  -- Any action resets the rest conditions timer
                         return true
                     end
                 elseif type(result) == 'string' then
                     -- Result is just the command
                     if automation.execute_command(result, action_type) then
+                        common.reset_rest_timer()  -- Any action resets the rest conditions timer
                         return true
                     end
                 end

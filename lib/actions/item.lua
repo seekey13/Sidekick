@@ -20,7 +20,6 @@ local function get_item_count(item_name)
     end)
     
     if not ok_item or not target_item then
-        common.debugf('[Item] Failed to get item resource for: %s', item_name)
         return nil  -- Return nil when resource manager fails (during zoning)
     end
     
@@ -29,7 +28,6 @@ local function get_item_count(item_name)
     end)
     
     if not ok_inv or not inventory then
-        common.debugf('[Item] Failed to get inventory manager')
         return nil  -- Return nil when inventory isn't loaded (during zoning)
     end
     
@@ -57,11 +55,43 @@ local function get_item_count(item_name)
     
     -- If we found no valid items at all in the entire inventory, it's likely not loaded yet
     if valid_item_count == 0 then
-        common.debugf('[Item] No valid items found in inventory - may not be loaded yet')
         return nil
     end
     
     return total_count
+end
+
+-- Item removal definitions, ordered by priority (Doom > Silence)
+local ITEM_REMOVALS = {
+    { setting_key = 'item_doom_removal_enabled',    buff_id = 15, item_name = 'Holy Water',  debuff_name = 'Doom' },
+    { setting_key = 'item_silence_removal_enabled', buff_id = 6,  item_name = 'Echo Drops',  debuff_name = 'Silence' },
+}
+
+-- Try a single item-removal entry; returns {command, description} or nil
+local function try_item_removal(entry, settings)
+    if not (settings and settings[entry.setting_key]) then return nil end
+
+    if not common.has_buff(0, entry.buff_id) then
+        return nil
+    end
+
+    -- Check cooldown
+    local current_time = os.clock()
+    if current_time - last_item_use < ITEM_COOLDOWN then
+        return nil
+    end
+
+    -- Check inventory
+    local count = get_item_count(entry.item_name)
+    if not count or count == 0 then
+        return nil
+    end
+    last_item_use = current_time
+
+    return {
+        command     = string.format('/item "%s" <me>', entry.item_name),
+        description = string.format('Using %s to remove %s', entry.item_name, entry.debuff_name),
+    }
 end
 
 -- Execute item action check
@@ -71,68 +101,12 @@ end
 --   main_level (number) - Player's main job level
 --   sub_level (number) - Player's sub job level
 --   player_resource (number) - Player's current MP or TP
--- Returns: string (command) or nil
+-- Returns: table {command, description} or nil
 function item.execute(settings, job_def, main_level, sub_level, player_resource)
-    -- Check for Doom debuff (buff_id 15) first (higher priority)
-    if settings and settings.item_doom_removal_enabled then
-        common.debugf('[Item] Checking for Doom buff...')
-        
-        if common.has_buff(0, 15) then
-            common.debugf('[Item] Player has Doom! Proceeding with Holy Water check...')
-            
-            -- Check cooldown
-            local current_time = os.clock()
-            if current_time - last_item_use < ITEM_COOLDOWN then
-                common.debugf('[Item] On cooldown, %.1f seconds remaining', ITEM_COOLDOWN - (current_time - last_item_use))
-                return nil
-            end
-            
-            -- Check if player has Holy Water in inventory
-            local item_count = get_item_count('Holy Water')
-            if item_count == 0 then
-                common.debugf('[Item] No Holy Water in inventory')
-                return nil
-            end
-            
-            common.debugf('[Item] Using Holy Water to remove Doom')
-            last_item_use = current_time
-            
-            return '/item "Holy Water" <me>'
-        else
-            common.debugf('[Item] Player does not have Doom buff')
-        end
+    for _, entry in ipairs(ITEM_REMOVALS) do
+        local result = try_item_removal(entry, settings)
+        if result then return result end
     end
-    
-    -- Check for Silence debuff (buff_id 6)
-    if settings and settings.item_silence_removal_enabled then
-        common.debugf('[Item] Checking for Silence buff...')
-        
-        if common.has_buff(0, 6) then
-            common.debugf('[Item] Player is silenced! Proceeding with Echo Drops check...')
-            
-            -- Check cooldown
-            local current_time = os.clock()
-            if current_time - last_item_use < ITEM_COOLDOWN then
-                common.debugf('[Item] On cooldown, %.1f seconds remaining', ITEM_COOLDOWN - (current_time - last_item_use))
-                return nil
-            end
-            
-            -- Check if player has Echo Drops in inventory
-            local item_count = get_item_count('Echo Drops')
-            if item_count == 0 then
-                common.debugf('[Item] No Echo Drops in inventory')
-                return nil
-            end
-            
-            common.debugf('[Item] Using Echo Drops to remove Silence')
-            last_item_use = current_time
-            
-            return '/item "Echo Drops" <me>'
-        else
-            common.debugf('[Item] Player does not have Silence buff')
-        end
-    end
-    
     return nil
 end
 

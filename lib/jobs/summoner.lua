@@ -79,6 +79,19 @@ return {
                 requires_carbuncle = true,
             },
         },
+
+        -- Recover
+        -- recover = {
+        --     {
+        --         name = 'Elemental Siphon',
+        --         level = 70,
+        --         cost = 0,
+        --         id = 175,  -- Elemental Siphon recast ID
+        --         command = '/ja "Elemental Siphon" <me>',
+        --         pet_required = true,
+        --         requires_element = true,
+        --     },
+        -- },
     },
     
     -- Default settings for UI
@@ -103,6 +116,7 @@ return {
     -- Action priority order
     priority_order = {
         'item',
+        -- 'recover',
         'heal_aoe',
         'heal',
         'wake',
@@ -120,13 +134,11 @@ return {
         -- Get pet entity
         local pet = common.get_pet_entity()
         if not pet then
-            common.debugf('[SMN Validator] %s blocked: No pet entity found', ability.name)
             return false
         end
         
         -- If ability doesn't specifically require Carbuncle, any pet is fine
         if not ability.requires_carbuncle then
-            common.debugf('[SMN Validator] %s: Any avatar OK', ability.name)
             return true
         end
         
@@ -136,13 +148,11 @@ return {
         end)
         
         if not ok or not pet_name then
-            common.debugf('[SMN Validator] %s blocked: Could not read pet name', ability.name)
             return false
         end
         
         -- Only allow abilities if Carbuncle is summoned
         local is_carbuncle = pet_name == 'Carbuncle'
-        common.debugf('[SMN Validator] %s: pet_name="%s", is_carbuncle=%s', ability.name, pet_name, tostring(is_carbuncle))
         return is_carbuncle
     end,
 }

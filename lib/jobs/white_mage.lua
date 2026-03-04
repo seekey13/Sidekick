@@ -108,7 +108,7 @@ return {
             {
                 name = 'Curaga II',
                 level = 31,
-                cost = 60,
+                cost = 120,
                 id = 8,  -- Spell ID
                 command = '/ma "Curaga II" <me>',
                 range = 20,
@@ -576,7 +576,7 @@ return {
             {
                 name = 'Barsilencera',
                 level = 23,
-                cost = 12,
+                cost = 30,
                 id = 88,  -- Spell ID
                 command = '/ma "Barsilencera" <me>',
                 buff_id = 110,  -- Barsilencera
@@ -834,6 +834,7 @@ return {
     -- Action priority order
     priority_order = {
         'item',
+        'recover',
         'critical',
         'heal_aoe',
         'heal',

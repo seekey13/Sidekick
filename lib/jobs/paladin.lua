@@ -210,9 +210,9 @@ return {
     -- Action priority order
     priority_order = {
         'item',
+        -- recover,
         'heal',
         'buff',
         'rest',
-        -- recover,
     },
 }

@@ -5,22 +5,37 @@
 
 local buff = {}
 
-local common = require('lib.core.common')
-local resource = require('lib.core.resource')
+local common      = require('lib.core.common')
+local action_core = require('lib.core.action_core')
 
 function buff.execute(settings, job_def, main_level, sub_level, player_resource, party_buff_config)
     -- Check if buff is enabled
     if not settings.buff_enabled then
         return nil
     end
-    
+
+    -- Do not apply buffs while resting
+    if common.is_resting() then
+        return nil
+    end
+
+    -- Read player data from game_state
+    local state  = common.game_state
+    local player = state and state.player
+    if not player then
+        return nil
+    end
+
+    local derived_main_level = player.main_level
+    local derived_sub_level  = player.sub_level
+
     -- Track which groups have been processed in this execution (local, never persisted)
     local processed_groups = {}
     
-    -- Get party buff configuration from config_ui if not provided
+    -- Get party buff configuration from ui_config if not provided
     if not party_buff_config then
-        local config_ui = require('lib.config_ui')
-        party_buff_config = config_ui.get_party_buffs()
+        local ui_config = require('lib.ui.config')
+        party_buff_config = ui_config.get_party_buffs()
     end
     
     -- Get buff abilities from job definition
@@ -29,63 +44,30 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
         return nil
     end
     
-    common.debugf('[BUFF] Before filter: %d buff abilities, main_level=%d, sub_level=%d', #buff_abilities, main_level or 0, sub_level or 0)
-    
     -- Filter abilities by level and settings
-    local available_abilities = common.filter_abilities_by_level(buff_abilities, settings, main_level, sub_level, job_def)
-    
-    common.debugf('[BUFF] After filter: %d/%d abilities available', #available_abilities, #buff_abilities)
+    local available_abilities = common.filter_abilities_by_level(buff_abilities, settings, derived_main_level, derived_sub_level, job_def)
     
     if #available_abilities > 0 then
-        common.debugf('[BUFF] Available abilities: %s', table.concat((function()
-            local names = {}
-            for _, a in ipairs(available_abilities) do
-                table.insert(names, a.name)
-            end
-            return names
-        end)(), ', '))
     end
     
     if #available_abilities == 0 then
-        common.debugf('[BUFF] No available abilities after filtering')
         return nil
     end
     
     -- Check each buff to see if it needs to be applied/refreshed
     for _, ability in ipairs(available_abilities) do
-        common.debugf('[BUFF] Checking ability: %s', ability.name)
         local should_skip = false
         
         -- Check pet requirement
         if not should_skip and ability.pet_required then
             if not common.targets.get_pet() then
-                common.debugf('[BUFF]   %s blocked: no pet', ability.name)
                 should_skip = true
             end
         end
         
         -- Check required buff prerequisite for player
         if not should_skip and ability.requires_buff then
-            local has_required_buff = false
-            local required_buff_ids = {}
-            
-            -- Handle both single buff_id and array of buff_ids
-            if type(ability.requires_buff) == 'table' then
-                required_buff_ids = ability.requires_buff
-            else
-                required_buff_ids = {ability.requires_buff}
-            end
-            
-            -- Check if player has any of the required buffs
-            for _, required_buff in ipairs(required_buff_ids) do
-                if common.has_buff(0, required_buff) then
-                    has_required_buff = true
-                    break
-                end
-            end
-            
-            if not has_required_buff then
-                common.debugf('[BUFF]   %s blocked: missing required buff', ability.name)
+            if not action_core.has_any_buff(state.player.buffs, ability.requires_buff) then
                 should_skip = true
             end
         end
@@ -94,7 +76,6 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
         if not should_skip then
             local blocked_by = common.is_command_blocked(ability.command)
             if blocked_by then
-                common.debugf('[BUFF] %s is blocked by %s', ability.name, blocked_by)
                 should_skip = true
             end
         end
@@ -138,28 +119,23 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                     config_key = ability.name
                 end
                 local is_ability_enabled = settings[key] == false or settings[key] == nil
-                common.debugf('[BUFF]   %s: key=%s, is_enabled=%s, config_key=%s', ability.name, key, tostring(is_ability_enabled), config_key)
                 
                 if not is_ability_enabled then
-                    common.debugf('[BUFF]   %s blocked: disabled in settings', ability.name)
                     goto continue_ability
                 end
                 
                 -- Check if any party buttons are enabled
                 local has_any_target = false
                 if party_buff_config and party_buff_config[config_key] then
-                    for i = 0, 5 do
-                        if party_buff_config[config_key][i] == true then
+                    for k, v in pairs(party_buff_config[config_key]) do
+                        if v == true then
                             has_any_target = true
                             break
                         end
                     end
                 end
                 
-                common.debugf('[BUFF]   %s: has_any_target=%s', ability.name, tostring(has_any_target))
-                
                 if not has_any_target then
-                    common.debugf('[BUFF]   %s blocked: no party buttons enabled', ability.name)
                     goto continue_ability
                 end
                 
@@ -174,64 +150,37 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                     end
                     
                     if is_target_enabled then
-                        common.debugf('[BUFF]     Target %d is enabled, checking...', target_index)
                         local target_needs_buff = false
                         local target_entity_index = nil
                         
                         -- Get target buffs and entity index
                         if target_index == 0 then
-                            -- ME: Check player buffs
-                            target_buffs = common.get_player_buffs()
+                            -- ME: Check player buffs from game_state
+                            target_buffs = state.player.buffs or {}
                             target_entity_index = 0
                         else
-                            -- P1-P5: Check party member buffs
-                            -- First check if party member is active and in range
-                            local party_size = common.get_party_size()
-                            if target_index < party_size then
+                            -- P1-P5: Check party member buffs from game_state
+                            -- Zone check stays as live call (zone not stored in game_state)
+                            local party_member = state.party[target_index]
+                            if party_member then
                                 local player_zone = common.get_party_member_zone(0)
                                 local member_zone = common.get_party_member_zone(target_index)
-                                target_entity_index = common.get_party_member_target_index(target_index)
+                                target_entity_index = party_member.target_index
                                 
-                                if target_entity_index and player_zone == member_zone and common.is_in_range(target_entity_index, 20) then
-                                    target_buffs = common.get_party_buffs(target_index)
+                                if target_entity_index and target_entity_index > 0 and player_zone == member_zone and common.is_in_range(target_entity_index, 20) then
+                                    target_buffs = party_member.buffs or {}
                                 else
                                     -- Party member not available or out of range, skip
                                     goto continue_target
                                 end
                             else
-                                -- Party member not active, skip
+                                -- Party member not active in game_state, skip
                                 goto continue_target
                             end
                         end
                         
                         -- Check if target needs buff
-                        if ability.buff_id then
-                            local has_buff = false
-                            local buff_ids_to_check = {}
-                            if type(ability.buff_id) == 'table' then
-                                buff_ids_to_check = ability.buff_id
-                            else
-                                buff_ids_to_check = {ability.buff_id}
-                            end
-                            
-                            -- Check target_buffs array (works for both party members and Trusts)
-                            for _, target_buff in ipairs(target_buffs) do
-                                for _, check_buff in ipairs(buff_ids_to_check) do
-                                    if target_buff == check_buff then
-                                        has_buff = true
-                                        break
-                                    end
-                                end
-                                if has_buff then break end
-                            end
-                            
-                            target_needs_buff = not has_buff
-                        else
-                            -- No buff tracking, always use if available
-                            target_needs_buff = true
-                        end
-                        
-                        common.debugf('[BUFF]     Target %d needs_buff=%s', target_index, tostring(target_needs_buff))
+                        target_needs_buff = action_core.needs_buff(target_buffs, ability.buff_id)
                         
                         if target_needs_buff then
                             -- Check if this ability requires a target modifier (Pianissimo, Entrust, etc.)
@@ -240,14 +189,12 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                                 local has_modifier_buff = false
                                 if job_def.abilities.target_modifier and #job_def.abilities.target_modifier > 0 then
                                     local modifier_ability = job_def.abilities.target_modifier[1]
-                                    if modifier_ability.buff_id then
-                                        has_modifier_buff = common.has_buff(0, modifier_ability.buff_id)
-                                    end
+                                    has_modifier_buff = action_core.has_any_buff(state.player.buffs, modifier_ability.buff_id)
                                 end
                                 
                                 if not has_modifier_buff then
                                     -- Don't have modifier buff, try to use it
-                                    local modifier_result = common.check_target_modifier(job_def, settings, main_level, sub_level)
+                                    local modifier_result = common.check_target_modifier(job_def, settings, derived_main_level, derived_sub_level)
                                     if modifier_result then
                                         -- Need to use modifier ability first
                                         return modifier_result
@@ -259,94 +206,45 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                                 -- If we reach here, we have the modifier buff, proceed to cast the song
                             end
                             
-                            -- Check resource (skip in PL Mode since we can't check connected player's MP/TP)
-                            local in_pl_mode = settings and settings.pl_mode_enabled and settings.pl_connected_player
-                            local has_resource = true
-                            if not in_pl_mode then
-                                local ability_resource_type = ability.resource_type or job_def.resource_type
-                                has_resource = resource.has_resource(ability_resource_type, ability.cost)
-                                common.debugf('[BUFF]     Resource check: type=%s, cost=%d, has_resource=%s', 
-                                    tostring(ability_resource_type), ability.cost or 0, tostring(has_resource))
-                            else
-                                common.debugf('[BUFF]     PL Mode: skipping resource check')
-                            end
-                            
-                            if has_resource then
-                                -- Check cooldown
-                                if ability.id then
-                                    local is_spell = false
-                                    local test_cmd = common.build_ability_command(ability, target_index, settings)
-                                    is_spell = test_cmd and test_cmd:match('^/ma ') ~= nil
-                                    
-                                    local is_ready = false
-                                    local recast_time = 0
-                                    
-                                    if is_spell then
-                                        is_ready = resource.is_spell_ready(ability.id)
-                                        recast_time = resource.get_spell_recast(ability.id)
-                                        common.debugf('[BUFF] %s spell recast check - Spell ID: %d, Recast Time: %d, Ready: %s', 
-                                            ability.name, ability.id, recast_time or 0, tostring(is_ready))
-                                    else
-                                        is_ready = resource.is_ability_ready(ability.id)
-                                        recast_time = resource.get_ability_recast(ability.id)
-                                        common.debugf('[BUFF] %s ability recast check - Ability ID: %d, Recast Time: %.1fs, Ready: %s', 
-                                            ability.name, ability.id, (recast_time or 0) / 60.0, tostring(is_ready))
-                                    end
-                                    
-                                    if is_ready then
-                                        local command = common.build_ability_command(ability, target_index, settings)
-                                        if command then
-                                            -- Register pending buff if target is a Trust
-                                            if ability.buff_id and target_index > 0 then
-                                                local party = common.get_party()
-                                                if party then
-                                                    local ok_server, server_id = pcall(function()
-                                                        return party:GetMemberServerId(target_index)
-                                                    end)
-                                                    if ok_server and server_id and server_id >= 0x1000000 then
-                                                        -- This is a Trust, register pending buff
-                                                        local buff_to_track = type(ability.buff_id) == 'table' and ability.buff_id[1] or ability.buff_id
-                                                        common.register_pending_buff(server_id, buff_to_track)
-                                                    end
-                                                end
-                                            end
-                                            
-                                            local target_name = target_index == 0 and 'self' or (common.get_party_member_name(target_index) or ('P' .. target_index))
-                                            return {
-                                                command = command,
-                                                description = string.format('Applying buff: %s to %s', ability.name, target_name)
-                                            }
-                                        end
-                                    end
-                                else
-                                    local command = common.build_ability_command(ability, target_index, settings)
-                                    if command then
-                                        -- Register pending buff if target is a Trust
-                                        if ability.buff_id and target_index > 0 then
-                                            local party = common.get_party()
-                                            if party then
-                                                local ok_server, server_id = pcall(function()
-                                                    return party:GetMemberServerId(target_index)
-                                                end)
-                                                if ok_server and server_id and server_id >= 0x1000000 then
-                                                    -- This is a Trust, register pending buff
-                                                    local buff_to_track = type(ability.buff_id) == 'table' and ability.buff_id[1] or ability.buff_id
-                                                    common.register_pending_buff(server_id, buff_to_track)
-                                                end
-                                            end
-                                        end
-                                        
-                                        local target_name = target_index == 0 and 'self' or (common.get_party_member_name(target_index) or ('P' .. target_index))
-                                        return {
-                                            command = command,
-                                            description = string.format('Applying buff: %s to %s', ability.name, target_name)
-                                        }
-                                    end
-                                end
+                            -- Use action_core for resource + cooldown + command building
+                            local target_name = target_index == 0 and 'self' or (state.party[target_index] and state.party[target_index].name or ('P' .. target_index))
+                            local desc = string.format('Applying buff: %s to %s', ability.name, target_name)
+
+                            local result, reason = action_core.try_use(ability, job_def, settings, target_index, desc, state)
+                            if result then
+                                return result
                             end
                         end
                         
                         ::continue_target::
+                    end
+                end
+
+                -- After checking party members, also check tracked targets (only if ability has target_outside)
+                if ability.target_outside and state.tracked then
+                    for sid, tt in pairs(state.tracked) do
+                        -- Check if this tracked target has its button enabled in the config
+                        local tt_key = 'tt_' .. sid
+                        local is_tt_enabled = party_buff_config and party_buff_config[config_key] and party_buff_config[config_key][tt_key] == true
+                        if is_tt_enabled and tt.is_active and tt.target_index and tt.target_index > 0 and common.is_in_range(tt.target_index, 20) then
+                            local tt_buffs = tt.buffs or {}
+                            local tt_needs_buff = action_core.needs_buff(tt_buffs, ability.buff_id)
+                            if tt_needs_buff then
+                                local ok, reason = action_core.is_usable(ability, job_def)
+                                if ok then
+                                    local command = common.build_ability_command_for_target(ability, sid)
+                                    if command then
+                                        -- Register pending buff for packet tracking
+                                        if ability.buff_id then
+                                            local bid = type(ability.buff_id) == 'table' and ability.buff_id[1] or ability.buff_id
+                                            common.register_pending_buff(sid, bid)
+                                        end
+                                        local desc = string.format('Applying buff: %s to tracked %s', ability.name, tt.name)
+                                        return { command = command, description = desc }
+                                    end
+                                end
+                            end
+                        end
                     end
                 end
             else
@@ -387,87 +285,14 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                 end
                 
                 -- Check if buff is already active
-                local needs_buff = false
-                
-                if ability.buff_id then
-                    -- Check player for this buff
-                    local has_buff = false
-                    local player_buffs = common.get_player_buffs()
-                    
-                    -- Handle both single buff_id and array of buff_ids
-                    local buff_ids_to_check = {}
-                    if type(ability.buff_id) == 'table' then
-                        buff_ids_to_check = ability.buff_id
-                    else
-                        buff_ids_to_check = {ability.buff_id}
-                    end
-                    
-                    -- Check if player has any of the specified buffs
-                    for _, player_buff in ipairs(player_buffs) do
-                        for _, check_buff in ipairs(buff_ids_to_check) do
-                            if player_buff == check_buff then
-                                has_buff = true
-                                break
-                            end
-                        end
-                        if has_buff then
-                            break
-                        end
-                    end
-                    
-                    needs_buff = not has_buff
-                else
-                    -- No buff tracking, always use if available
-                    needs_buff = true
-                end
+                local needs_buff = action_core.needs_buff(state.player.buffs, ability.buff_id)
                 
                 if needs_buff then
-                    -- Check resource
-                    local ability_resource_type = ability.resource_type or job_def.resource_type
-                    if resource.has_resource(ability_resource_type, ability.cost) then
-                        -- Check cooldown
-                        if ability.id then
-                            -- Determine if this is a spell or ability based on the command
-                            local is_spell = false
-                            if type(ability.command) == 'string' then
-                                is_spell = ability.command:match('^/ma ') ~= nil
-                            end
-                            
-                            local is_ready = false
-                            local recast_time = 0
-                            
-                            if is_spell then
-                                -- For spells, use spell recast check
-                                is_ready = resource.is_spell_ready(ability.id)
-                                recast_time = resource.get_spell_recast(ability.id)
-                                common.debugf('[BUFF] %s spell recast check - Spell ID: %d, Recast Time: %d, Ready: %s', 
-                                    ability.name, ability.id, recast_time or 0, tostring(is_ready))
-                            else
-                                -- For job abilities, use ability recast check
-                                is_ready = resource.is_ability_ready(ability.id)
-                                recast_time = resource.get_ability_recast(ability.id)
-                                common.debugf('[BUFF] %s ability recast check - Ability ID: %d, Recast Time: %.1fs, Ready: %s', 
-                                    ability.name, ability.id, (recast_time or 0) / 60.0, tostring(is_ready))
-                            end
-                            
-                            if is_ready then
-                                local command = common.build_ability_command(ability, 0)
-                                if command then
-                                    return {
-                                        command = command,
-                                        description = string.format('Applying buff: %s', ability.name)
-                                    }
-                                end
-                            end
-                        else
-                            local command = common.build_ability_command(ability, 0, settings)
-                            if command then
-                                return {
-                                    command = command,
-                                    description = string.format('Applying buff: %s', ability.name)
-                                }
-                            end
-                        end
+                    -- Use action_core for resource + cooldown + command building
+                    local desc = string.format('Applying buff: %s', ability.name)
+                    local result, reason = action_core.try_use(ability, job_def, settings, 0, desc, state)
+                    if result then
+                        return result
                     end
                 end
             end

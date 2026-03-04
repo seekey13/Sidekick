@@ -10,7 +10,7 @@ Main addon file: job detection, event loop, command handler
 
 addon.name      = 'Medic'
 addon.author    = 'Seekey'
-addon.version   = '1.3.0'
+addon.version   = '2.0.0'
 addon.desc      = 'Support Job Automation Framework'
 addon.link      = 'https://github.com/seekey13/Medic'
 
@@ -21,25 +21,30 @@ local imgui = require('imgui')
 
 -- Load core modules
 local common = require('lib.core.common')
-local resource = require('lib.core.resource')
+local action_core = require('lib.core.action_core')
 local automation = require('lib.core.automation')
+local parse_packets = require('lib.core.parse_packets')
 
 -- Load action modules
+local heal_mod   = require('lib.actions.heal')
+local status_mod = require('lib.actions.status_removal')
+
 local action_modules = {
-    item = require('lib.actions.item'),
-    heal = require('lib.actions.heal'),
-    heal_aoe = require('lib.actions.heal_aoe'),
-    heal_pet = require('lib.actions.heal_pet'),
-    wake = require('lib.actions.wake'),
-    debuff_removal = require('lib.actions.debuff_removal'),
-    buff = require('lib.actions.buff'),
-    recover = require('lib.actions.recover'),
-    geo = require('lib.actions.geo'),
-    rest = require('lib.actions.rest'),
+    item           = require('lib.actions.item'),
+    heal           = heal_mod,
+    heal_aoe       = { execute = heal_mod.execute_aoe },
+    heal_pet       = { execute = heal_mod.execute_pet },
+    wake           = { execute = status_mod.execute_wake },
+    debuff_removal = { execute = status_mod.execute_debuff_removal },
+    buff           = require('lib.actions.buff'),
+    recover        = require('lib.actions.recover'),
+    geo            = require('lib.actions.geo'),
+    rest           = require('lib.actions.rest'),
 }
 
 -- Load config UI
-local config_ui = require('lib.config_ui')
+local ui_config = require('lib.ui.config')
+local ui_panel  = require('lib.ui.panel')
 
 -- State
 local current_main_job_id = nil
@@ -54,7 +59,6 @@ local last_job_id = nil
 local last_sub_job_id = nil
 local last_level = nil
 local last_unsupported_warning = nil  -- Track last unsupported job warning to prevent spam
-local pl_mode_active = false  -- Track if PL Mode is enabled (prevents auto job detection)
 
 -- Settings file path
 local default_settings = T{
@@ -73,38 +77,6 @@ local range_state = {
 --[[
     Job Loading
 ]]--
-
--- Clear cached player job and level data (used when PL Mode is enabled)
-local function clear_player_data()
-    current_main_job_id = nil
-    current_sub_job_id = nil
-    last_job_id = nil
-    last_sub_job_id = nil
-    last_level = nil
-    main_job_def = nil
-    sub_job_def = nil
-    job_def = nil
-    pl_mode_active = true
-    
-end
-
--- Restore normal mode (used when PL Mode is disabled)
-local function restore_normal_mode()
-    pl_mode_active = false
-    
-    -- Clear connection data to require manual reconnect
-    if addon_settings then
-        addon_settings.pl_connected_player = nil
-        addon_settings.pl_main_job = nil
-        addon_settings.pl_main_level = nil
-        addon_settings.pl_sub_job = nil
-        addon_settings.pl_sub_level = nil
-        settings.save()
-    end
-    
-    common.printf('PL Mode disabled, restoring normal operation')
-    -- Job will be automatically reloaded on next frame by setup_job()
-end
 
 local function load_single_job_definition(job_id)
     -- Map job IDs to job definition files
@@ -155,8 +127,6 @@ local function merge_abilities(main_abilities, sub_abilities, main_def, sub_def)
                 ability_copy.resource_type = main_def.resource_type
             end
             table.insert(merged[category], ability_copy)
-            common.debugf('[merge_abilities] Added main job ability: %s (level %d, is_main_job=true)', 
-                ability.name, ability.level or 0)
         end
     end
     
@@ -173,7 +143,6 @@ local function merge_abilities(main_abilities, sub_abilities, main_def, sub_def)
                     for _, main_ability in ipairs(merged[category]) do
                         if main_ability.name == ability.name and main_ability.is_main_job == true then
                             is_duplicate = true
-                            common.debugf('[merge_abilities] Skipping subjob duplicate: %s (already in main job)', ability.name)
                             break
                         end
                     end
@@ -191,8 +160,6 @@ local function merge_abilities(main_abilities, sub_abilities, main_def, sub_def)
                         ability_copy.resource_type = sub_def.resource_type
                     end
                     table.insert(merged[category], ability_copy)
-                    common.debugf('[merge_abilities] Added subjob ability: %s (level %d, is_main_job=false)', 
-                        ability.name, ability.level or 0)
                 end
             end
         end
@@ -241,13 +208,13 @@ local function load_job_definition(main_job_id, sub_job_id)
     -- Master priority order (defines the execution sequence)
     local master_priority = {
         'item',
+        'recover',
         'critical',
         'heal_aoe',
         'heal',
-        'heal_pet',
         'debuff_removal',
+        'heal_pet',
         'wake',
-        'recover',
         'geo',
         'buff',
         'rest',
@@ -320,50 +287,7 @@ local function load_job_definition(main_job_id, sub_job_id)
     return merged_def
 end
 
--- Setup job from PL Mode connection data
-local function setup_pl_mode_job()
-    if not addon_settings then
-        return
-    end
-    
-    -- Check if we have connection data
-    if not addon_settings.pl_connected_player or not addon_settings.pl_main_job then
-        return
-    end
-    
-    -- Convert job abbreviations to IDs
-    local main_job_id = common.get_job_id_from_abbr(addon_settings.pl_main_job)
-    local sub_job_id = addon_settings.pl_sub_job and common.get_job_id_from_abbr(addon_settings.pl_sub_job) or nil
-    
-    if not main_job_id then
-        common.errorf('Invalid main job abbreviation: %s', addon_settings.pl_main_job)
-        return
-    end
-    
-    -- Check if already loaded with same job
-    if main_job_id == current_main_job_id and sub_job_id == current_sub_job_id and job_def then
-        return
-    end
-    
-    current_main_job_id = main_job_id
-    current_sub_job_id = sub_job_id
-    
-    main_job_def = load_single_job_definition(main_job_id)
-    sub_job_def = sub_job_id and load_single_job_definition(sub_job_id) or nil
-    job_def = load_job_definition(main_job_id, sub_job_id)
-    
-    if job_def then
-        common.printf('Loaded PL Mode job: %s (Lv%d/%d)', job_def.job_name, 
-            addon_settings.pl_main_level, addon_settings.pl_sub_level or 0)
-    end
-end
-
 local function setup_job()
-    -- Skip automatic job detection when PL Mode is active
-    if pl_mode_active then
-        return
-    end
-    
     local main_job_id, sub_job_id = common.get_player_job()
     
     -- Ignore invalid job IDs (happens during zoning)
@@ -479,7 +403,12 @@ local function automation_tick()
     if common.is_casting() then
         return
     end
-    
+
+    -- Gather player + party snapshot once for this tick.
+    -- All action modules can read common.game_state.player / common.game_state.party[1..5]
+    -- instead of making individual API calls each cycle.
+    common.refresh_game_state()
+
     -- Range management logic
     if addon_settings and addon_settings.attack_range and addon_settings.attack_range ~= 'Off' then
         local is_engaged = common.is_engaged()
@@ -521,13 +450,8 @@ local function automation_tick()
     end
     
     -- Check for job or level changes (direct reading, no packet dependency)
-    -- Skip when PL Mode is active
     local main_level, sub_level
-    if pl_mode_active then
-        -- Use PL Mode levels from settings
-        main_level = addon_settings.pl_main_level or 1
-        sub_level = addon_settings.pl_sub_level or 0
-    else
+    do
         local job_id, sub_job_id = common.get_player_job()
         main_level, sub_level = common.get_player_level()
         
@@ -617,20 +541,21 @@ local function automation_tick()
         end
     end
     
-    local player_resource = resource.get_resource(job_def.resource_type)
+    local player_resource = action_core.get_resource(job_def.resource_type)
     
     -- Get priority order
     local priority_order = job_def.priority_order or {
         'item',
+        'recover',
         'critical',
         'heal_aoe',
         'heal',
-        'heal_pet',
         'debuff_removal',
+        'heal_pet',
         'wake',
-        'recover',
         'geo',
         'buff',
+        'rest',
     }
     
     -- Execute priority actions
@@ -652,24 +577,10 @@ end
 ashita.events.register('load', 'medic_load', function()
     is_loaded = true
     
-    -- Initialize config_ui (registers event handlers)
-    config_ui.initialize()
+    -- Initialize ui_config (registers event handlers)
+    ui_config.initialize()
     
     common.printf('Loaded! Type /medic help for commands.')
-end)
-
-ashita.events.register('d3d_beginscene', 'medic_clear_pl_connection', function()
-    -- Clear PL Mode connection data on first frame (requires manual reconnect each session)
-    if is_loaded and addon_settings then
-        addon_settings.pl_connected_player = nil
-        addon_settings.pl_main_job = nil
-        addon_settings.pl_main_level = nil
-        addon_settings.pl_sub_job = nil
-        addon_settings.pl_sub_level = nil
-        
-        -- Unregister this event after first run
-        ashita.events.unregister('d3d_beginscene', 'medic_clear_pl_connection')
-    end
 end)
 
 ashita.events.register('unload', 'medic_unload', function()    
@@ -713,25 +624,17 @@ ashita.events.register('d3d_present', 'medic_render', function()
     setup_job()
     
     -- Render config UI
-    -- Allow rendering in PL Mode even without job_def
-    if config_ui.is_visible() and addon_settings then
-        -- Load PL Mode job if active
-        if pl_mode_active and addon_settings.pl_mode_enabled and addon_settings.pl_connected_player then
-            setup_pl_mode_job()
+    if ui_config.is_visible() and addon_settings and job_def then
+        local save_settings_callback = function()
+            settings.save()
         end
         
-        -- Check if we can render (either have job_def OR PL Mode is active)
-        local can_render = job_def ~= nil or pl_mode_active
-        
-        if can_render then
-            local save_settings_callback = function()
-                settings.save()
-            end
-            
-            config_ui.render(addon_settings, job_def, save_settings_callback, clear_player_data, restore_normal_mode)
-        end
+        ui_config.render(addon_settings, job_def, save_settings_callback)
     end
     
+    -- Render game-state panel (independent of automation / job_def)
+    ui_panel.render()
+
     -- Run automation tick
     automation_tick()
 end)
@@ -741,9 +644,12 @@ ashita.events.register('packet_in', 'medic_packet_in', function(e)
         return
     end
     
-    -- Handle action packets for casting detection (always active)
+    -- Handle action packets (0x028): casting detection, buff tracking, sleep inference
+    -- Message 230 = caster/player gains the effect, 266 = other party members/Trusts gain the effect
+    -- Message 83  = buff/debuff removed from target (e.g. Paralyna removes Paralysis)
+    -- Cure healing messages (2, 7, 24) on tracked sleeping targets infer wake
     if e.id == 0x028 then
-        -- Parse actor ID to check if it's the player
+        -- Casting detection (always active) — uses raw bytes, not parsed packet
         if e.data and #e.data >= 16 then
             local actor_id = struct.unpack('I', e.data, 0x05 + 1)
             local party = common.get_party()
@@ -751,41 +657,115 @@ ashita.events.register('packet_in', 'medic_packet_in', function(e)
                 local player_id = party:GetMemberServerId(0)
                 if player_id and actor_id == player_id then
                     common.handle_action_packet(e.data)  -- Casting detection
-                    
+
                     -- Check if this is a casting completion (byte 0x0F != 0x00)
-                    if e.data and #e.data >= 16 then
-                        local completion_flag = struct.unpack('B', e.data, 0x0F + 1)
-                        common.debugf('[PACKET] 0x028 completion_flag = 0x%02X', completion_flag)
-                        if completion_flag ~= 0x00 then
-                            -- Casting completed, apply pending buff to Trust
-                            common.debugf('[PACKET] Calling handle_buff_application()')
-                            common.handle_buff_application()
+                    local completion_flag = struct.unpack('B', e.data, 0x0F + 1)
+                    if completion_flag ~= 0x00 then
+                        -- Casting completed, apply pending buff to Trust
+                        common.handle_buff_application()
+                    end
+                end
+            end
+        end
+
+        -- Buff gain/loss tracking — uses parsed action packet
+        local actionPacket = parse_packets.parse_action_packet(e)
+        if actionPacket and actionPacket.Type == 4 then
+            -- Determine if we (the player) are the actor
+            local party = common.get_party()
+            local player_id = party and party:GetMemberServerId(0)
+            local actor_is_player = (player_id and actionPacket.UserId == player_id)
+
+            for _, target in ipairs(actionPacket.Targets) do
+                for _, action in ipairs(target.Actions) do
+                    -- Resolve target name via fast index lookup (avoid O(2304) scan)
+                    local target_name = common.resolve_entity_name(target.Id)
+
+                    local buff_name = AshitaCore:GetResourceManager():GetString('buffs.names', action.Param)
+                    if not buff_name or buff_name == '' then
+                        buff_name = 'Buff#' .. action.Param
+                    end
+
+                    if action.Message == 230 or action.Message == 266 then
+                        common.debugf('%s gained the effect of %s.', target_name, buff_name)
+
+                        -- Update Trust buff tracking so game_state reflects the change
+                        if target.Id >= 0x1000000 then
+                            common.apply_trust_buff(target.Id, action.Param)
+                        end
+
+                        -- Update tracked target buff tracking
+                        if common.is_tracked_target(target.Id) then
+                            common.apply_tracked_target_buff(target.Id, action.Param)
+                        end
+
+                    elseif action.Message == 83 then
+                        common.debugf('%s lost the effect of %s (via 0x028).', target_name, buff_name)
+
+                        -- Remove from Trust and tracked target buff tracking (both stored in trust_buffs)
+                        if target.Id >= 0x1000000 or common.is_tracked_target(target.Id) then
+                            common.handle_buff_removal(target.Id, action.Param)
+                        end
+                    end
+
+                    -- Sleep removal inference: only for cure-type spells cast by the player.
+                    -- Cure spells can't miss, so landing on a tracked sleeping target means wake.
+                    -- No 0x029 removal message is sent for out-of-party targets, so we infer it.
+                    -- Message 2 = "recovers X HP" (single cure), 7 = "recovers X HP" (AoE cure),
+                    -- 24 = Curaga-style HP recovery
+                    if actor_is_player and common.is_tracked_target(target.Id) then
+                        if action.Message == 2 or action.Message == 7 or action.Message == 24 then
+                            common.handle_buff_removal(target.Id, 2)   -- Sleep
+                            common.handle_buff_removal(target.Id, 19)  -- Sleep II
                         end
                     end
                 end
             end
         end
     end
-    
-    -- Handle status effect update packets for Trust buff removal (0x029)
+
+    -- Detect buff applications via 0x029 (message_basic).
+    -- Fires whenever any nearby entity gains a buff, including cases not covered by 0x028
+    -- (e.g. buffs not cast by the local player, out-of-party targets receiving sleep, etc.)
+    -- param  (0x0C) = buff ID
+    -- target (0x08) = server ID of the entity that received the buff
     if e.id == 0x029 then
-        if e.data and #e.data >= 16 then
-            -- Extract server_id (bytes 0x04-0x07, little-endian)
-            local server_id = struct.unpack('I', e.data, 0x04 + 1)
-            
-            -- Extract buff_id (byte 0x0C)
-            local buff_id = struct.unpack('B', e.data, 0x0C + 1)
-            
-            -- Only handle Trust buff removal (server_id >= 0x1000000)
-            if server_id >= 0x1000000 and buff_id > 0 and buff_id ~= 255 then
-                common.handle_buff_removal(server_id, buff_id)
+        if e.data and #e.data >= 20 then
+            local msg = parse_packets.parse_message_packet(e)
+
+            -- target is who received the buff; param is the buff ID
+            local server_id = msg.target
+            local buff_id   = msg.param
+
+            if server_id > 0 and buff_id > 0 and buff_id ~= 255 then
+                -- Resolve target name via fast index lookup (avoid O(2304) scan)
+                local target_name = common.resolve_entity_name(server_id)
+
+                -- Resolve buff name
+                local buff_name = AshitaCore:GetResourceManager():GetString('buffs.names', buff_id)
+                if not buff_name or buff_name == '' then
+                    buff_name = 'Buff#' .. buff_id
+                end
+
+                common.debugf('%s gained the effect of %s (via 0x029).', target_name, buff_name)
+
+                -- Update Trust buff tracking
+                if server_id >= 0x1000000 then
+                    common.apply_trust_buff(server_id, buff_id)
+                end
+
+                -- Update tracked target buff tracking
+                if common.is_tracked_target(server_id) then
+                    common.apply_tracked_target_buff(server_id, buff_id)
+                end
             end
         end
     end
     
-    -- Clear Trust buffs on zone change
+    -- Clear Trust buffs and tracked targets on zone change
     if e.id == 0x0A then  -- Zone change packet
         common.clear_trust_buffs()
+        common.clear_tracked_targets()
     end
 end)
 
@@ -809,6 +789,9 @@ ashita.events.register('command', 'medic_command', function(e)
         common.printf('  /medic config - Show configuration UI')
         common.printf('  /medic focus <index> - Set focus target (0-5, party member index)')
         common.printf('  /medic focus clear - Clear focus target')
+        common.printf('  /medic addtarget - Track current target for automation')
+        common.printf('  /medic removetarget <name> - Stop tracking a target')
+        common.printf('  /medic panel - Toggle party state info panel')
         common.printf('  /medic debug - Toggle debug mode')
         common.printf('  /medic recast - Show all active ability recast timers')
         common.printf('  /medic status - Show current status')
@@ -841,7 +824,7 @@ ashita.events.register('command', 'medic_command', function(e)
         common.printf('Automation %s.', automation_enabled and 'enabled' or 'disabled')
         
     elseif cmd == 'config' then
-        config_ui.toggle()
+        ui_config.toggle()
         
     elseif cmd == 'focus' then
         local subcmd = args[3] and args[3]:lower()
@@ -874,6 +857,10 @@ ashita.events.register('command', 'medic_command', function(e)
             common.printf('Usage: /medic focus <index> or /medic focus clear')
         end
         
+    elseif cmd == 'panel' then
+        ui_panel.toggle()
+        common.printf('Party state panel %s.', ui_panel.is_visible() and 'shown' or 'hidden')
+
     elseif cmd == 'debug' then
         common.debug = not common.debug
         common.printf('Debug mode %s.', common.debug and 'enabled' or 'disabled')
@@ -887,6 +874,43 @@ ashita.events.register('command', 'medic_command', function(e)
         common.printf('  Automation: %s', automation_enabled and 'Enabled' or 'Disabled')
         common.printf('  Focus Target: %s', addon_settings.focus_target or 'None')
         common.printf('  Debug Mode: %s', common.debug and 'Enabled' or 'Disabled')
+        local tracked = common.get_tracked_targets()
+        local tracked_names = {}
+        for _, tt in pairs(tracked) do table.insert(tracked_names, tt.name) end
+        if #tracked_names > 0 then
+            common.printf('  Tracked Targets: %s', table.concat(tracked_names, ', '))
+        end
+        
+    elseif cmd == 'addtarget' then
+        -- Add current target as a tracked target
+        local targets_lib = common.targets
+        local target_entity = targets_lib.get_t()
+        if not target_entity then
+            common.errorf('No target selected.')
+        else
+            local spawn_flags = target_entity.SpawnFlags or 0
+            local is_pc = bit.band(spawn_flags, 0x0001) ~= 0
+            local target_sid = target_entity.ServerId or 0
+            if not is_pc or target_sid == 0 then
+                common.errorf('Target is not a player character.')
+            elseif target_sid >= 0x1000000 then
+                common.errorf('Target is a Trust or NPC.')
+            else
+                local added = common.add_tracked_target(target_entity)
+                if not added then
+                    common.errorf('%s is already in party or being tracked.', target_entity.Name or 'Target')
+                end
+            end
+        end
+        
+    elseif cmd == 'removetarget' then
+        -- Remove a tracked target by name
+        local target_name = args[3]
+        if not target_name then
+            common.errorf('Usage: /medic removetarget <name>')
+        else
+            common.remove_tracked_target_by_name(target_name)
+        end
         
     else
         common.printf('Unknown command: %s. Type /medic help for commands.', cmd)

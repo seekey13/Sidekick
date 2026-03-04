@@ -38,10 +38,25 @@ local movement_state = {
 -- Resting state tracking
 local is_resting = false
 
+-- Rest conditions timer (shared so other modules can reset it)
+-- Holds the os.clock() timestamp when rest conditions first became favorable (0 = not started)
+local rest_conditions_met_time = 0
+
+-- Cached max HP/MP per member (server_id -> {max_hp, max_mp})
+-- Updated only when the member is observed at 100% HP or MP, since GetMemberMaxHP/GetMemberMaxMP do not exist.
+local member_max_stats = {}
+
 -- Trust buff tracking (packet-based since memory reads don't work for Trusts)
 local trust_buffs = {}  -- trust_buffs[server_id] = {buff_id1, buff_id2, ...}
 local pending_buffs = {}  -- pending_buffs[n] = {server_id=x, buff_id=y, timestamp=t}
 local PENDING_BUFF_TIMEOUT = 10.0  -- Seconds before pending buff expires
+
+-- Tracked targets (session-only, not saved to settings)
+-- Players outside the party that we monitor for heal/buff/status_removal automation.
+-- tracked_targets[server_id] = { server_id, name, target_index }
+-- Buffs are tracked via trust_buffs (same packet-based system as Trusts).
+-- Max HP is tracked via member_max_stats (same system as party members).
+local tracked_targets = {}
 
 -- Non-combat zone IDs (safe zones where combat is blocked)
 local non_combat_zone_ids = {
@@ -122,62 +137,27 @@ end
     Logging Utilities
 ]]--
 
-function common.printf(fmt, ...)
+-- Shared log helper: formats message, applies chat style, and prints.
+-- @param style_fn  chat.message | chat.error | chat.warning
+-- @param prefix    optional string prepended to message (e.g. '[DEBUG] ')
+-- @param fmt       format string
+-- @param ...       format arguments
+local function log(style_fn, prefix, fmt, ...)
     local args = {...}
-    if #args == 0 then
-        print(chat.header(addon_name) .. chat.message(fmt))
-    else
-        local success, result = pcall(string.format, fmt, ...)
-        if success then
-            print(chat.header(addon_name) .. chat.message(result))
-        else
-            print(chat.header(addon_name) .. chat.message(fmt))
-        end
+    local msg = fmt
+    if #args > 0 then
+        local ok, result = pcall(string.format, fmt, ...)
+        if ok then msg = result end
     end
+    print(chat.header(addon_name) .. style_fn((prefix or '') .. msg))
 end
+
+function common.printf(fmt, ...)  log(chat.message, nil, fmt, ...) end
+function common.errorf(fmt, ...)  log(chat.error,   nil, fmt, ...) end
+function common.warnf(fmt, ...)   log(chat.warning, nil, fmt, ...) end
 
 function common.debugf(fmt, ...)
-    if common.debug then
-        local args = {...}
-        if #args == 0 then
-            print(chat.header(addon_name) .. chat.message('[DEBUG] ' .. fmt))
-        else
-            local success, result = pcall(string.format, fmt, ...)
-            if success then
-                print(chat.header(addon_name) .. chat.message('[DEBUG] ' .. result))
-            else
-                print(chat.header(addon_name) .. chat.message('[DEBUG] ' .. fmt))
-            end
-        end
-    end
-end
-
-function common.errorf(fmt, ...)
-    local args = {...}
-    if #args == 0 then
-        print(chat.header(addon_name) .. chat.error(fmt))
-    else
-        local success, result = pcall(string.format, fmt, ...)
-        if success then
-            print(chat.header(addon_name) .. chat.error(result))
-        else
-            print(chat.header(addon_name) .. chat.error(fmt))
-        end
-    end
-end
-
-function common.warnf(fmt, ...)
-    local args = {...}
-    if #args == 0 then
-        print(chat.header(addon_name) .. chat.warning(fmt))
-    else
-        local success, result = pcall(string.format, fmt, ...)
-        if success then
-            print(chat.header(addon_name) .. chat.warning(result))
-        else
-            print(chat.header(addon_name) .. chat.warning(fmt))
-        end
-    end
+    if common.debug then log(chat.message, '[DEBUG] ', fmt, ...) end
 end
 
 --[[
@@ -330,9 +310,6 @@ function common.handle_action_packet(packet)
     -- Track previous casting state to detect changes
     local was_casting = casting_state.is_casting
     
-    -- Debug: Log all packet details to understand the structure
-    common.debugf('[PACKET] Category: %d, ActionID: 0x%04X, State: 0x%02X', category, action_id, action_state)
-    
     -- Simplified casting state logic based on action_state byte (offset 0x0F)
     -- 0x00 = Action started (casting/channeling)
     -- 0x01-0x04 = Action complete (various completion types)
@@ -341,20 +318,16 @@ function common.handle_action_packet(packet)
     -- Autoattack check (should not affect casting state)
     local is_autoattack = (action_id == 0x1844)
     
-    common.debugf('[PACKET] is_autoattack: %s, was_casting: %s', tostring(is_autoattack), tostring(was_casting))
-    
     if not is_autoattack then
         -- Track casting state based on action_state byte
         if action_state == 0x00 then
             -- Action started (any action that's not autoattack)
-            common.debugf('[PACKET] Setting is_casting = true')
             casting_state.is_casting = true
             casting_state.last_action_time = os.clock()
             -- Clear resting state when we start casting
             is_resting = false
         elseif action_state > 0x00 then
             -- Action complete
-            common.debugf('[PACKET] Setting is_casting = false')
             casting_state.is_casting = false
         end
     end
@@ -365,8 +338,6 @@ function common.handle_action_packet(packet)
     elseif not casting_state.is_casting and was_casting then
         common.debugf('[CASTING ENDED] State: 0x%02X, Category: %d, ActionID: 0x%04X', action_state, category, action_id)
     end
-    
-    common.debugf('[PACKET] Final is_casting: %s', tostring(casting_state.is_casting))
 end
 
 function common.is_player_moving()
@@ -403,7 +374,12 @@ function common.is_player_moving()
     -- Compare with last known position
     local last_pos = movement_state.last_position
     movement_state.is_moving = (x ~= last_pos[1] or y ~= last_pos[2] or z ~= last_pos[3])
-    
+
+    -- Cancel resting when the player moves
+    if movement_state.is_moving then
+        is_resting = false
+    end
+
     -- Update last known position
     movement_state.last_position = {x, y, z}
     
@@ -516,18 +492,6 @@ function common.get_job_name(job_id)
     return tostring(job_id)
 end
 
-function common.get_player_mp()
-    local party = common.get_party()
-    if not party then return 0 end
-    return party:GetMemberMP(0)
-end
-
-function common.get_player_tp()
-    local party = common.get_party()
-    if not party then return 0 end
-    return party:GetMemberTP(0)
-end
-
 -- Get pet's HP percentage
 -- Returns: number (HP percentage 0-100) or 0 if no pet
 function common.get_pet_hp_percent()
@@ -571,6 +535,63 @@ function common.get_entity_manager()
     end
     
     return entity_mgr
+end
+
+-- Resolve a server ID to an entity name using fast index derivation.
+-- Uses the same shortcut that parse_packets.GetIndexFromId does for NPCs/Trusts
+-- (bit-mask on the lower 12 bits) and falls back to a party/tracked lookup,
+-- avoiding a full O(2304) entity scan in the common case.
+-- Args:   server_id (number) - Entity server ID
+-- Returns: string - Entity name or 'Unknown'
+function common.resolve_entity_name(server_id)
+    if not server_id or server_id == 0 then return 'Unknown' end
+    local entMgr = AshitaCore:GetMemoryManager():GetEntity()
+    if not entMgr then return 'Unknown' end
+
+    -- Fast path for NPCs/Trusts (server_id has 0x1000000 bit set)
+    if bit.band(server_id, 0x1000000) ~= 0 then
+        local index = bit.band(server_id, 0xFFF)
+        if index >= 0x900 then index = index - 0x100 end
+        if index < 0x900 and entMgr:GetServerId(index) == server_id then
+            local name = entMgr:GetName(index)
+            if name and name ~= '' then return name end
+        end
+    end
+
+    -- Try party members (indices are low, fast check)
+    local party = common.get_party()
+    if party then
+        for i = 0, 5 do
+            if party:GetMemberIsActive(i) == 1 and party:GetMemberServerId(i) == server_id then
+                local ti = party:GetMemberTargetIndex(i)
+                if ti and ti > 0 then
+                    local name = entMgr:GetName(ti)
+                    if name and name ~= '' then return name end
+                end
+            end
+        end
+    end
+
+    -- Try tracked targets
+    local tt = tracked_targets[server_id]
+    if tt then
+        if tt.name and tt.name ~= '' then return tt.name end
+        if tt.target_index and tt.target_index > 0 then
+            local name = entMgr:GetName(tt.target_index)
+            if name and name ~= '' then return name end
+        end
+    end
+
+    -- Fallback: full entity scan (rare, only for unknown entities)
+    for idx = 1, 0x8FF do
+        if entMgr:GetServerId(idx) == server_id then
+            local name = entMgr:GetName(idx)
+            if name and name ~= '' then return name end
+            break
+        end
+    end
+
+    return 'Unknown'
 end
 
 -- Get player's current target index
@@ -645,47 +666,6 @@ function common.is_party_member_active(index)
     return party:GetMemberIsActive(index) == 1
 end
 
-function common.get_party_member_hp_percent(index)
-    local party = common.get_party()
-    if not party then return 0 end
-    
-    local hp = party:GetMemberHP(index)
-    local hpp = party:GetMemberHPPercent(index)
-    
-    if hpp then
-        return hpp
-    elseif hp then
-        local max_hp = party:GetMemberMaxHP(index)
-        if max_hp and max_hp > 0 then
-            return (hp / max_hp) * 100
-        end
-    end
-    
-    return 0
-end
-
-function common.get_party_member_mp_percent(index)
-    local party = common.get_party()
-    if not party then return 0 end
-    
-    if not common.is_party_member_active(index) then
-        return 0
-    end
-    
-    local mpp = party:GetMemberMPPercent(index)
-    if mpp then
-        return mpp
-    end
-    
-    return 0
-end
-
-function common.get_party_member_target_index(index)
-    local party = common.get_party()
-    if not party then return nil end
-    return party:GetMemberTargetIndex(index)
-end
-
 function common.get_party_member_name(index)
     local party = common.get_party()
     if not party then return nil end
@@ -732,6 +712,18 @@ function common.get_target_index_by_name(name)
     end
     
     return nil
+end
+
+-- Returns true if value is above zero and below threshold (i.e. alive/present but needs attention).
+-- Consolidates the repeated pattern: value > 0 and value < threshold
+function common.below_threshold(value, threshold)
+    return value > 0 and value < threshold
+end
+
+-- Returns true if a member's HP% indicates they are alive and not at full health.
+-- Used to skip dead (0%) and full-health (100%) members in party loops.
+function common.is_active_member(hpp)
+    return hpp > 0 and hpp < 100
 end
 
 function common.is_in_range(target_index, range)
@@ -848,8 +840,6 @@ function common.has_buff(target_index, buff_id)
     if server_id and server_id >= 0x1000000 then
         -- Use Trust buff tracking
         local trust_buff_list = common.get_trust_buffs(server_id)
-        common.debugf('has_buff check for Trust: server_id=%d, buff_id=%d, buffs=%s', 
-            server_id, buff_id, table.concat(trust_buff_list, ', '))
         for _, trust_buff in ipairs(trust_buff_list) do
             if trust_buff == buff_id then
                 return true
@@ -1033,21 +1023,16 @@ function common.register_pending_buff(server_id, buff_id)
         timestamp = current_time
     })
     
-    common.debugf('Registered pending buff: server_id=%d, buff_id=%d', server_id, buff_id)
 end
 
 -- Handle casting completion (packet 0x028 with byte 0x0F == 0x01)
 -- Matches the most recent pending buff and adds it to trust_buffs
 function common.handle_buff_application()
-    common.debugf('handle_buff_application called, pending_buffs count: %d', #pending_buffs)
-    
     if #pending_buffs == 0 then return end
     
     -- Get the most recent pending buff
     local pending = pending_buffs[#pending_buffs]
     table.remove(pending_buffs, #pending_buffs)
-    
-    common.debugf('Processing pending buff: server_id=%d, buff_id=%d', pending.server_id, pending.buff_id)
     
     -- Initialize buff list for this Trust if needed
     if not trust_buffs[pending.server_id] then
@@ -1066,10 +1051,23 @@ function common.handle_buff_application()
     -- Add buff if not already present
     if not already_has then
         table.insert(trust_buffs[pending.server_id], pending.buff_id)
-        common.debugf('Applied buff to Trust: server_id=%d, buff_id=%d', pending.server_id, pending.buff_id)
-    else
-        common.debugf('Trust already has buff: server_id=%d, buff_id=%d', pending.server_id, pending.buff_id)
     end
+end
+
+-- Directly apply a buff to a Trust's tracked buff list (called from packet detection)
+-- Args: server_id (number), buff_id (number)
+function common.apply_trust_buff(server_id, buff_id)
+    if not server_id or not buff_id or server_id < 0x1000000 then return end
+
+    if not trust_buffs[server_id] then
+        trust_buffs[server_id] = {}
+    end
+
+    for _, existing in ipairs(trust_buffs[server_id]) do
+        if existing == buff_id then return end  -- Already tracked
+    end
+
+    table.insert(trust_buffs[server_id], buff_id)
 end
 
 -- Handle buff removal (packet 0x029)
@@ -1082,7 +1080,6 @@ function common.handle_buff_removal(server_id, buff_id)
     for i = #trust_buffs[server_id], 1, -1 do
         if trust_buffs[server_id][i] == buff_id then
             table.remove(trust_buffs[server_id], i)
-            common.debugf('Removed buff from Trust: server_id=%d, buff_id=%d', server_id, buff_id)
             break
         end
     end
@@ -1097,7 +1094,7 @@ end
 function common.clear_trust_buffs()
     trust_buffs = {}
     pending_buffs = {}
-    common.debugf('Cleared all Trust buffs')
+    member_max_stats = {}
 end
 
 -- Get Trust buffs by server_id
@@ -1107,6 +1104,114 @@ function common.get_trust_buffs(server_id)
     if not server_id then return {} end
     if server_id < 0x1000000 then return {} end  -- Not a Trust
     return trust_buffs[server_id] or {}
+end
+
+-- ============================================================================
+-- Tracked Target Functions (session-only, outside-party players)
+-- ============================================================================
+
+-- Add a tracked target by entity.
+-- Args: entity (userdata) - The entity to track (must be a PC with SpawnFlags & 0x0001)
+-- Returns: boolean - true if added, false if already tracked or invalid
+function common.add_tracked_target(entity)
+    if not entity then return false end
+
+    local server_id = entity.ServerId
+    local name      = entity.Name
+    if not server_id or server_id == 0 or not name or name == '' then
+        return false
+    end
+
+    -- Reject if already tracked
+    if tracked_targets[server_id] then
+        return false
+    end
+
+    -- Reject if the target is already in our party
+    local party = common.get_party()
+    if party then
+        for i = 0, 5 do
+            if party:GetMemberIsActive(i) == 1 then
+                local pid = party:GetMemberServerId(i)
+                if pid == server_id then
+                    return false
+                end
+            end
+        end
+    end
+
+    tracked_targets[server_id] = {
+        server_id    = server_id,
+        name         = name,
+        target_index = entity.TargetIndex or 0,
+    }
+    common.printf('Now tracking: %s', name)
+    return true
+end
+
+-- Remove a tracked target by server_id.
+function common.remove_tracked_target(server_id)
+    if not server_id then return end
+    if tracked_targets[server_id] then
+        local name = tracked_targets[server_id].name
+        tracked_targets[server_id] = nil
+        -- Also clean buff tracking for this target
+        trust_buffs[server_id] = nil
+        member_max_stats[server_id] = nil
+        common.printf('Stopped tracking: %s', name or tostring(server_id))
+    end
+end
+
+-- Remove a tracked target by name.
+function common.remove_tracked_target_by_name(name)
+    if not name then return end
+    for sid, tt in pairs(tracked_targets) do
+        if tt.name == name then
+            common.remove_tracked_target(sid)
+            return
+        end
+    end
+end
+
+-- Clear all tracked targets (e.g., on zone change).
+function common.clear_tracked_targets()
+    for sid, _ in pairs(tracked_targets) do
+        trust_buffs[sid] = nil
+    end
+    tracked_targets = {}
+end
+
+-- Get the tracked targets table (read-only reference).
+function common.get_tracked_targets()
+    return tracked_targets
+end
+
+-- Get tracked target buffs (uses trust_buffs since we track via packets).
+function common.get_tracked_target_buffs(server_id)
+    if not server_id then return {} end
+    return trust_buffs[server_id] or {}
+end
+
+-- Apply a buff to a tracked target (packet-based, reuses trust_buffs table).
+function common.apply_tracked_target_buff(server_id, buff_id)
+    if not server_id or not buff_id then return end
+    if not tracked_targets[server_id] then return end
+
+    if not trust_buffs[server_id] then
+        trust_buffs[server_id] = {}
+    end
+
+    for _, existing in ipairs(trust_buffs[server_id]) do
+        if existing == buff_id then return end  -- Already tracked
+    end
+
+    table.insert(trust_buffs[server_id], buff_id)
+end
+
+-- Check if a server_id belongs to a tracked target.
+function common.is_tracked_target(server_id)
+    if not server_id then return false end
+    return tracked_targets[server_id] ~= nil
 end
 
 function common.has_status(target_index, status_id)
@@ -1181,97 +1286,6 @@ function common.get_removable_debuffs(target_index, removable_list)
     end
     
     return debuffs
-end
-
---[[
-    Party HP Checking
-]]--
-
-function common.check_party_hp(threshold, focus_enabled, focus_target, focus_threshold, settings)
-    threshold = threshold or 75
-    focus_threshold = focus_threshold or threshold  -- Default to regular threshold if not specified
-    
-    common.debugf('[check_party_hp] threshold=%.1f%%, focus_enabled=%s, focus_target=%s, focus_threshold=%.1f%%',
-                 threshold, tostring(focus_enabled), tostring(focus_target), focus_threshold)
-    
-    local results = {
-        needs_heal = {},
-        focus_needs_heal = false,
-        lowest_hp_index = nil,
-        lowest_hp_percent = 100,
-        average_hp = 100,
-    }
-    
-    local party = common.get_party()
-    if not party then
-        common.debugf('[check_party_hp] No party manager available')
-        return results
-    end
-    
-    -- Check if in PL mode
-    local in_pl_mode = settings and settings.pl_mode_enabled and settings.pl_connected_player
-    
-    local total_hp = 0
-    local active_count = 0
-    
-    for i = 0, 5 do
-        if common.is_party_member_active(i) then
-            -- Skip Trusts in PL mode (cannot heal Trusts outside party)
-            if in_pl_mode and common.is_trust(i) then
-                goto continue_hp_check
-            end
-            
-            local member_name = common.get_party_member_name(i) or 'Unknown'
-            local hpp = common.get_party_member_hp_percent(i)
-            local target_index = party:GetMemberTargetIndex(i)
-            
-            -- Skip members with 0% HP (dead/different zone) or 100% HP (full health)
-            if hpp == 0 or hpp == 100 then
-                -- Skip silently
-            else
-                total_hp = total_hp + hpp
-                active_count = active_count + 1
-                
-                -- Check if this is the focus target (compare party indices, not target indices)
-                local is_focus = focus_enabled and focus_target ~= nil and i == focus_target
-                local effective_threshold = is_focus and focus_threshold or threshold
-                
-                common.debugf('[check_party_hp] Party[%d] %s: HP=%.1f%%, target_index=%s, is_focus=%s, effective_threshold=%.1f%%',
-                             i, member_name, hpp, tostring(target_index), tostring(is_focus), effective_threshold)
-                
-                if hpp < effective_threshold and target_index then
-                    common.debugf('[check_party_hp]   -> Needs heal (%.1f%% < %.1f%%)', hpp, effective_threshold)
-                    table.insert(results.needs_heal, {
-                        index = i,
-                        target_index = target_index,
-                        hpp = hpp,
-                    })
-                    
-                    if hpp < results.lowest_hp_percent then
-                        results.lowest_hp_percent = hpp
-                        results.lowest_hp_index = i
-                    end
-                    
-                    -- Check focus target
-                    if is_focus then
-                        common.debugf('[check_party_hp]   -> Focus target needs heal!')
-                        results.focus_needs_heal = true
-                    end
-                end
-            end
-            
-            ::continue_hp_check::
-        end
-    end
-    
-    if active_count > 0 then
-        results.average_hp = total_hp / active_count
-    end
-    
-    common.debugf('[check_party_hp] Results: %d members need heal, focus_needs_heal=%s',
-                 #results.needs_heal, tostring(results.focus_needs_heal))
-    
-    return results
 end
 
 --[[
@@ -1411,6 +1425,21 @@ end
     DRY Helper Functions for Action Modules
 ]]--
 
+-- Check if a spell ability has been learned by the player.
+-- For non-spell abilities (job abilities, items), always returns true.
+-- Args:   ability (table) - Ability definition with command and optional id fields
+-- Returns: boolean (true if the ability can be used / spell is known)
+function common.has_spell_learned(ability)
+    if not ability then return false end
+    local cmd = type(ability.command) == 'function' and ability.command(0) or ability.command
+    if not cmd or not cmd:match('^/ma%s') then return true end    -- not a spell
+    if not ability.id then return true end                        -- no id to check
+    local ok, known = pcall(function()
+        return AshitaCore:GetMemoryManager():GetPlayer():HasSpell(ability.id)
+    end)
+    return ok and known or true  -- assume known on error
+end
+
 -- Filter abilities by level, disabled status, and pet requirements
 -- Args:
 --   abilities (table) - List of abilities to filter
@@ -1424,13 +1453,9 @@ function common.filter_abilities_by_level(abilities, settings, main_level, sub_l
     
     -- Safety check: return empty table if abilities is nil
     if not abilities then
-        common.debugf('[filter_abilities] abilities is nil')
         return available_abilities
     end
 
-    -- Check if in PL Mode
-    local in_pl_mode = settings and settings.pl_mode_enabled and settings.pl_connected_player
-    
     for _, ability in ipairs(abilities) do
         -- Safely get level value
         local required_level = 0
@@ -1444,11 +1469,6 @@ function common.filter_abilities_by_level(abilities, settings, main_level, sub_l
         -- Determine which level to check based on ability source
         local player_level = ability.is_main_job == false and (sub_level or 0) or (main_level or 0)
         local job_source = ability.is_main_job == false and 'subjob' or 'main job'
-        
-        -- PL Mode: Only allow abilities with target_outside = true
-        if in_pl_mode and ability.target_outside ~= true then
-            goto continue
-        end
 
         -- Check if ability requires main job only (e.g., Geo spells)
         if ability.main_job_only and ability.is_main_job == false then
@@ -1469,11 +1489,7 @@ function common.filter_abilities_by_level(abilities, settings, main_level, sub_l
             is_disabled = false  -- Default new abilities to enabled
         end
         
-        common.debugf('[filter_abilities] %s: group=%s, disabled_key=%s, is_disabled=%s', 
-            ability.name, tostring(ability.group), disabled_key, tostring(is_disabled))
-        
         if is_disabled then
-            common.debugf('[filter_abilities] %s is disabled in settings', ability.name)
         elseif ability.requires_pet and not targets.get_pet() then
         elseif ability.idle_only and not common.is_idle() then
         elseif ability.combat_only and not common.is_combat() then
@@ -1481,9 +1497,6 @@ function common.filter_abilities_by_level(abilities, settings, main_level, sub_l
         elseif job_def and job_def.validate_ability and not job_def.validate_ability(ability, common) then
         elseif required_level <= player_level then
             table.insert(available_abilities, ability)
-        else
-            common.debugf('[filter_abilities] %s blocked by level (need %d, have %d %s level)', 
-                ability.name, required_level, player_level, job_source)
         end
         
         ::continue::
@@ -1503,13 +1516,9 @@ end
 -- Args:
 --   ability (table) - Ability definition with command field
 --   party_index (number|nil) - party index 0-5 for p0-p5
---   settings (table|nil) - Settings table for PL Mode detection
 -- Returns: string - Command string or nil
-function common.build_ability_command(ability, party_index, settings)
+function common.build_ability_command(ability, party_index)
     local command = nil
-    
-    -- Check if in PL Mode
-    local in_pl_mode = settings and settings.pl_mode_enabled and settings.pl_connected_player
     
     if type(ability.command) == 'function' then
         -- If party_index is provided, convert party index (0-5) to server ID
@@ -1527,12 +1536,24 @@ function common.build_ability_command(ability, party_index, settings)
         command = ability.command
     end
     
-    -- If in PL Mode, prepend /mst command
-    if command and in_pl_mode then
-        command = string.format('/mst %s %s', settings.pl_connected_player, command)
-    end
-    
     return command
+end
+
+-- Build command for tracked targets (outside-party) using server_id directly.
+-- Args:
+--   ability (table) - Ability definition with command field
+--   server_id (number) - Server ID of the tracked target
+-- Returns: string - Command string or nil
+function common.build_ability_command_for_target(ability, server_id)
+    if not ability or not server_id or server_id == 0 then return nil end
+
+    if type(ability.command) == 'function' then
+        return ability.command(server_id)
+    elseif type(ability.command) == 'string' then
+        return ability.command
+    end
+
+    return nil
 end
 
 -- ============================================================================
@@ -1588,26 +1609,25 @@ function common.check_target_modifier(job_def, settings, main_level, sub_level)
     -- Check if blocked by status ailments
     local blocked_by = common.is_command_blocked(modifier_ability.command)
     if blocked_by then
-        common.debugf('[TARGET_MODIFIER] %s is blocked by %s', modifier_ability.name, blocked_by)
         return nil
     end
     
     -- Check resource cost
-    local resource = require('lib.core.resource')
-    if not resource.has_resource(job_def.resource_type, modifier_ability.cost or 0) then
+    local action_core = require('lib.core.action_core')
+    if not action_core.has_resource(job_def.resource_type, modifier_ability.cost or 0) then
         return nil
     end
     
     -- Check cooldown if ability has an ID
     if modifier_ability.id then
-        local is_ready = resource.is_ability_ready(modifier_ability.id)
+        local is_ready = action_core.is_ability_ready(modifier_ability.id)
         if not is_ready then
             return nil
         end
     end
     
     -- Build and return the command
-    local command = common.build_ability_command(modifier_ability, 0, settings)
+    local command = common.build_ability_command(modifier_ability, 0)
     if command then
         return {
             command = command,
@@ -1630,6 +1650,285 @@ end
 -- Set resting state
 function common.set_resting(state)
     is_resting = state
+end
+
+-- ============================================================================
+-- Rest Conditions Timer (shared across modules)
+-- ============================================================================
+
+-- Reset the rest conditions timer to zero (call whenever an action fires)
+function common.reset_rest_timer()
+    rest_conditions_met_time = 0
+end
+
+-- Get the rest conditions timer value
+function common.get_rest_timer()
+    return rest_conditions_met_time
+end
+
+-- Set the rest conditions timer to a specific time
+function common.set_rest_timer(t)
+    rest_conditions_met_time = t
+end
+
+-- ============================================================================
+-- Centralized Game State (refreshed once per automation tick)
+-- ============================================================================
+-- Snapshot of player (index 0) and party members (indices 1-5).
+-- Call common.refresh_game_state() once at the start of each automation cycle
+-- so all action modules share the same consistent data without redundant API calls.
+--
+-- common.game_state.player  (index 0) fields:
+--   index, name, server_id, target_index
+--   hp, hpp, max_hp (cached; 0 until member seen at 100% HP)
+--   mp, mpp, max_mp (cached; 0 until member seen at 100% MP)
+--   tp
+--   buffs            (table of buff IDs)
+--   position         ({x, y, z} in local coords)
+--   job, job_name, sub_job, sub_job_name
+--   main_level, sub_level
+--   is_trust (always false for player), is_active (always true for player)
+--
+-- common.game_state.party[1..5] fields: identical to player + is_trust, is_active
+-- common.game_state.party_size  : total active member count (player + active party)
+-- common.game_state.tracked[server_id] fields:
+--   server_id, name, target_index
+--   hp, hpp, max_hp (cached; 0 until seen at 100% HPP)
+--   buffs            (table of buff IDs, packet-tracked)
+--   position         ({x, y, z} in local coords)
+--   is_tracked       (always true)
+--   is_active        (true if entity still visible in zone)
+
+common.game_state = {
+    refreshed_at = 0,
+    player       = nil,  -- index 0
+    party        = {},   -- indices 1-5 (nil when slot is inactive)
+    party_size   = 0,
+    tracked      = {},   -- keyed by server_id
+}
+
+function common.refresh_game_state()
+    local state = common.game_state
+    state.refreshed_at = os.clock()
+    state.player       = nil
+    state.party        = {}
+    state.party_size   = 0
+    state.tracked      = {}
+
+    local party_mgr = common.get_party()
+    if not party_mgr then
+        return
+    end
+
+    local entity_mgr = common.get_entity_manager()
+
+    -- Local helper: pcall a getter and return its value, or the fallback on error
+    local function safe_get(fn, fallback)
+        local ok, val = pcall(fn)
+        if ok and val ~= nil then return val end
+        return fallback
+    end
+
+    for i = 0, 5 do
+        local is_active = safe_get(function() return party_mgr:GetMemberIsActive(i) == 1 end, false)
+        if not is_active then
+            -- Ensure inactive slots are explicitly nil
+            if i > 0 then state.party[i] = nil end
+        else
+            state.party_size = state.party_size + 1
+
+            -- Identity
+            local server_id   = safe_get(function() return party_mgr:GetMemberServerId(i)     end, 0)
+            local name        = safe_get(function() return party_mgr:GetMemberName(i)         end, '')
+            local target_idx  = safe_get(function() return party_mgr:GetMemberTargetIndex(i)  end, 0)
+
+            -- Vitals
+            local hp          = safe_get(function() return party_mgr:GetMemberHP(i)           end, 0)
+            local hpp         = safe_get(function() return party_mgr:GetMemberHPPercent(i)    end, 0)
+            local mp          = safe_get(function() return party_mgr:GetMemberMP(i)           end, 0)
+            local mpp         = safe_get(function() return party_mgr:GetMemberMPPercent(i)    end, 0)
+            local tp          = safe_get(function() return party_mgr:GetMemberTP(i)           end, 0)
+
+            -- Max HP/MP cache: only reliable when the member is at 100%
+            if not member_max_stats[server_id] then
+                member_max_stats[server_id] = {}
+            end
+            if hpp == 100 and hp > 0 then
+                member_max_stats[server_id].max_hp = hp
+            end
+            if mpp == 100 and mp > 0 then
+                member_max_stats[server_id].max_mp = mp
+            end
+            local max_hp = member_max_stats[server_id].max_hp or 0
+            local max_mp = member_max_stats[server_id].max_mp or 0
+
+            -- Job & level
+            local job         = safe_get(function() return party_mgr:GetMemberMainJob(i)      end, 0)
+            local sub_job     = safe_get(function() return party_mgr:GetMemberSubJob(i)       end, 0)
+            local main_level  = safe_get(function() return party_mgr:GetMemberMainJobLevel(i) end, 0)
+            local sub_level   = safe_get(function() return party_mgr:GetMemberSubJobLevel(i)  end, 0)
+
+            local job_name     = safe_get(function()
+                return AshitaCore:GetResourceManager():GetString('jobs.names_abbr', job)
+            end, '')
+            local sub_job_name = safe_get(function()
+                return AshitaCore:GetResourceManager():GetString('jobs.names_abbr', sub_job)
+            end, '')
+
+            -- World position (via entity manager)
+            local position = {x = 0, y = 0, z = 0}
+            if entity_mgr and target_idx and target_idx > 0 then
+                local ok_x, px = pcall(function() return entity_mgr:GetLocalPositionX(target_idx) end)
+                local ok_y, py = pcall(function() return entity_mgr:GetLocalPositionY(target_idx) end)
+                local ok_z, pz = pcall(function() return entity_mgr:GetLocalPositionZ(target_idx) end)
+                if ok_x and ok_y and ok_z then
+                    position = {x = px, y = py, z = pz}
+                end
+            end
+
+            -- Buffs (player uses Player memory; party members use status-icon memory / Trust packet tracking)
+            local buffs
+            if i == 0 then
+                buffs = common.get_player_buffs()
+            else
+                buffs = common.get_party_buffs(i)
+            end
+
+            -- Finishing Moves (player only)
+            local fm = 0
+            if i == 0 then
+                if     common.has_buff(0, 381) then fm = 1
+                elseif common.has_buff(0, 382) then fm = 2
+                elseif common.has_buff(0, 383) then fm = 3
+                elseif common.has_buff(0, 384) then fm = 4
+                elseif common.has_buff(0, 385) then fm = 5
+                end
+            end
+
+            -- Pet data (player only)
+            local pet_hpp      = 0
+            local pet_position = {x = 0, y = 0, z = 0}
+            if i == 0 then
+                local pet_entity = targets.get_pet()
+                if pet_entity then
+                pet_hpp = pet_entity.HPPercent or 0
+                    if entity_mgr then
+                        local pet_idx = pet_entity.TargetIndex
+                        if pet_idx and pet_idx > 0 then
+                            local ok_px, px = pcall(function() return entity_mgr:GetLocalPositionX(pet_idx) end)
+                            local ok_py, py = pcall(function() return entity_mgr:GetLocalPositionY(pet_idx) end)
+                            local ok_pz, pz = pcall(function() return entity_mgr:GetLocalPositionZ(pet_idx) end)
+                            if ok_px and ok_py and ok_pz then
+                                pet_position = {x = px, y = py, z = pz}
+                            end
+                        end
+                    end
+                end
+            end
+
+            local member = {
+                index        = i,
+                name         = name,
+                server_id    = server_id,
+                target_index = target_idx,
+                hp           = hp,
+                hpp          = hpp,
+                max_hp       = max_hp,
+                mp           = mp,
+                mpp          = mpp,
+                max_mp       = max_mp,
+                tp           = tp,
+                buffs        = buffs,
+                position     = position,
+                job          = job,
+                job_name     = job_name,
+                sub_job      = sub_job,
+                sub_job_name = sub_job_name,
+                main_level   = main_level,
+                sub_level    = sub_level,
+                is_trust     = (server_id >= 0x1000000),
+                is_active    = true,
+                -- Player-only fields (zero/empty for party members)
+                fm           = fm,
+                pet_hpp      = pet_hpp,
+                pet_position = pet_position,
+            }
+
+            if i == 0 then
+                state.player = member
+            else
+                state.party[i] = member
+            end
+        end
+    end
+
+    -- Refresh tracked targets (outside-party players)
+    for sid, tt in pairs(tracked_targets) do
+        local entity = nil
+        -- Re-resolve entity by server_id (target_index may change across zones)
+        for idx = 0, 2302 do
+            local e = GetEntity(idx)
+            if e and e.ServerId == sid then
+                entity = e
+                tt.target_index = e.TargetIndex or 0
+                break
+            end
+        end
+
+        if entity and entity.TargetIndex and entity.TargetIndex > 0 then
+            local hpp = entity.HPPercent or 0
+
+            -- Position
+            local position = {x = 0, y = 0, z = 0}
+            if entity_mgr then
+                local tidx = entity.TargetIndex
+                local ok_x, px = pcall(function() return entity_mgr:GetLocalPositionX(tidx) end)
+                local ok_y, py = pcall(function() return entity_mgr:GetLocalPositionY(tidx) end)
+                local ok_z, pz = pcall(function() return entity_mgr:GetLocalPositionZ(tidx) end)
+                if ok_x and ok_y and ok_z then
+                    position = {x = px, y = py, z = pz}
+                end
+            end
+
+            -- Only HPPercent is available for non-party entities from GetEntity();
+            -- raw HP is not exposed in the FFXI entity array for non-party PCs.
+            local hp = 0
+            if not member_max_stats[sid] then
+                member_max_stats[sid] = {}
+            end
+            local max_hp = member_max_stats[sid].max_hp or 0
+
+            -- Buffs via packet tracking (same table as Trusts)
+            local buffs = trust_buffs[sid] or {}
+
+            state.tracked[sid] = {
+                server_id    = sid,
+                name         = tt.name,
+                target_index = entity.TargetIndex,
+                hp           = hp,
+                hpp          = hpp,
+                max_hp       = max_hp,
+                buffs        = buffs,
+                position     = position,
+                is_tracked   = true,
+                is_active    = true,
+            }
+        else
+            -- Entity not visible; keep entry but mark inactive
+            state.tracked[sid] = {
+                server_id    = sid,
+                name         = tt.name,
+                target_index = 0,
+                hp           = 0,
+                hpp          = 0,
+                max_hp       = (member_max_stats[sid] or {}).max_hp or 0,
+                buffs        = trust_buffs[sid] or {},
+                position     = {x = 0, y = 0, z = 0},
+                is_tracked   = true,
+                is_active    = false,
+            }
+        end
+    end
 end
 
 return common
