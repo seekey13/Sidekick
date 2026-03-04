@@ -89,6 +89,39 @@ return {
         -- Buffs
         buff = {
             {
+                name = 'Saber Dance',
+                level = 75,
+                cost = 0,
+                id = 219,  -- Saber Dance recast ID
+                command = '/ja "Saber Dance" <me>',
+                buff_id = 410,  -- Saber Dance
+                group = 'dance',
+            },
+            {
+                name = 'Fan Dance',
+                level = 75,
+                cost = 0,
+                id = 224,  -- Fan Dance recast ID
+                command = '/ja "Fan Dance" <me>',
+                buff_id = 411,  -- Fan Dance
+                group = 'dance',
+            },
+            {
+                name = 'No Foot Rise',
+                level = 75,
+                cost = 0,
+                id = 223,  -- No Foot Rise recast ID
+                command = '/ja "No Foot Rise" <me>',
+            },
+            {
+                name = 'Presto',
+                level = 75,
+                cost = 0,
+                id = 236,  -- Presto recast ID
+                command = '/ja "Presto" <me>',
+                buff_id = 442,  -- Presto
+            },
+            {
                 name = 'Drain Samba III',
                 level = 65,
                 cost = 400,
@@ -156,43 +189,6 @@ return {
                 command = '/ja "Spectral Jig" <me>',
                 buff_id = {71, 69},  -- Sneak (71) and Invisible (69)
                 idle_only = true,
-            },
-            -- Lv. 75 Dances (Merit)
-            {
-                name = 'Saber Dance',
-                level = 75,
-                cost = 0,
-                id = 230,  -- Saber Dance recast ID
-                command = '/ja "Saber Dance" <me>',
-                buff_id = 413,  -- Saber Dance
-                group = 'dance',
-            },
-            {
-                name = 'Fan Dance',
-                level = 75,
-                cost = 0,
-                id = 231,  -- Fan Dance recast ID
-                command = '/ja "Fan Dance" <me>',
-                buff_id = 414,  -- Fan Dance
-                group = 'dance',
-            },
-            -- Lv. 75 Abilities
-            {
-                name = 'No Foot Rise',
-                level = 75,
-                cost = 0,
-                id = 232,  -- No Foot Rise recast ID
-                command = '/ja "No Foot Rise" <me>',
-                buff_id = 419,  -- No Foot Rise
-                requires_no_buff = 385,  -- Cannot use with 5 Finishing Moves
-            },
-            {
-                name = 'Presto',
-                level = 75,
-                cost = 0,
-                id = 236,  -- Presto recast ID
-                command = '/ja "Presto" <me>',
-                buff_id = 580,  -- Presto
             },
         },
 

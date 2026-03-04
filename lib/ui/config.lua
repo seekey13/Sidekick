@@ -951,8 +951,6 @@ function ui_config.render(settings, job_def, callback, roll_mod)
                     end
                 end
             end
-            
-            imgui.Separator()
         end
         end  -- End of job_def check
         
