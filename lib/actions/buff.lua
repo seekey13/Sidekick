@@ -220,6 +220,43 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                     end
                 end
 
+                -- After checking party members, check enabled alliance members.
+                -- Alliance members are targeted by server_id (same as tracked targets).
+                if state.alliance then
+                    for al_pi = 2, 3 do
+                        local sub_party = state.alliance[al_pi]
+                        if sub_party then
+                            local base_flat = (al_pi - 1) * 6
+                            for local_idx = 0, 5 do
+                                local flat_index = base_flat + local_idx
+                                local al_key = 'al_' .. flat_index
+                                local is_al_enabled = party_buff_config and party_buff_config[config_key] and party_buff_config[config_key][al_key] == true
+                                if is_al_enabled then
+                                    local m = sub_party[local_idx]
+                                    if m and m.is_active and m.target_index and m.target_index > 0 and common.is_in_range(m.target_index, 20) then
+                                        local al_buffs = m.buffs or {}
+                                        local al_needs_buff = action_core.needs_buff(al_buffs, ability.buff_id)
+                                        if al_needs_buff then
+                                            local ok_use, _ = action_core.is_usable(ability, job_def)
+                                            if ok_use then
+                                                local command = common.build_ability_command_for_target(ability, m.server_id)
+                                                if command then
+                                                    if ability.buff_id then
+                                                        local bid = type(ability.buff_id) == 'table' and ability.buff_id[1] or ability.buff_id
+                                                        common.register_pending_buff(m.server_id, bid)
+                                                    end
+                                                    local desc = string.format('Applying buff: %s to alliance %s', ability.name, m.name)
+                                                    return { command = command, description = desc }
+                                                end
+                                            end
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+
                 -- After checking party members, also check tracked targets (only if ability has target_outside)
                 if ability.target_outside and state.tracked then
                     for sid, tt in pairs(state.tracked) do

@@ -413,12 +413,21 @@ function ui_config.render(settings, job_def, callback, roll_mod)
         end
     end
     
-    -- Calculate fixed window width based on party size + tracked targets
+    -- Calculate fixed window width based on party size + alliance + tracked targets
     local party_size = common.get_party_size()
+    local alliance_count_for_width = 0
+    local alliance_gs = common.game_state
+    if alliance_gs and alliance_gs.alliance then
+        for pi = 2, 3 do
+            if alliance_gs.alliance[pi] then
+                for _ in pairs(alliance_gs.alliance[pi]) do alliance_count_for_width = alliance_count_for_width + 1 end
+            end
+        end
+    end
     local tracked_count_for_width = 0
     local tt_list_for_width = common.get_tracked_targets()
     for _ in pairs(tt_list_for_width) do tracked_count_for_width = tracked_count_for_width + 1 end
-    local num_buttons = math.min(party_size, 6) + tracked_count_for_width
+    local num_buttons = math.min(party_size, 6) + alliance_count_for_width + tracked_count_for_width
     local button_width = ui.PARTY_BUTTON_WIDTH * num_buttons + (ui.SPACE_BETWEEN_BUTTONS * (num_buttons - 1))
     local dropdown_width = ui.DROPDOWN_WIDTH
     local window_width = math.max((button_width + dropdown_width + ui.ABILITY_LIST_INDENT + 50), 1)

@@ -469,13 +469,22 @@ local function toggle_party_buff(ctx, ability_name, party_index, enabled)
     end
 end
 
--- Calculate the width for the ON/OFF button based on party size + tracked targets
+-- Calculate the width for the ON/OFF button based on party size + alliance + tracked targets
 local function get_onoff_button_width()
     local party_size = common.get_party_size()
+    local alliance_count = 0
+    local gs = common.game_state
+    if gs and gs.alliance then
+        for pi = 2, 3 do
+            if gs.alliance[pi] then
+                for _ in pairs(gs.alliance[pi]) do alliance_count = alliance_count + 1 end
+            end
+        end
+    end
     local tracked_count = 0
     local tt_list = common.get_tracked_targets()
     for _ in pairs(tt_list) do tracked_count = tracked_count + 1 end
-    local num_buttons = math.min(party_size, 6) + tracked_count
+    local num_buttons = math.min(party_size, 6) + alliance_count + tracked_count
     return PARTY_BUTTON_WIDTH * num_buttons + (SPACE_BETWEEN_BUTTONS * (num_buttons - 1))
 end
 
@@ -601,6 +610,71 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
         end
     end
     
+    -- Render alliance member buttons (<B0>-<B5>, <C0>-<C5>)
+    -- Uses key format 'al_<flat_index>' (flat_index 6-17) in party_buffs.
+    -- Alliance members are targeted by server_id (same mechanism as tracked targets).
+    local al_gs = common.game_state
+    if al_gs and al_gs.alliance then
+        local alliance_prefixes = { [2] = 'B', [3] = 'C' }
+        for pi = 2, 3 do
+            local sub_party = al_gs.alliance[pi]
+            if sub_party and next(sub_party) ~= nil then
+                local prefix = alliance_prefixes[pi]
+                local sorted_al = {}
+                for local_idx, m in pairs(sub_party) do
+                    table.insert(sorted_al, { local_idx = local_idx, m = m })
+                end
+                table.sort(sorted_al, function(a, b) return a.local_idx < b.local_idx end)
+
+                for _, entry in ipairs(sorted_al) do
+                    local local_idx = entry.local_idx
+                    local m         = entry.m
+                    local flat_index = (pi - 1) * 6 + local_idx  -- 6-17
+                    local al_key     = 'al_' .. flat_index
+
+                    imgui.SameLine()
+
+                    local is_enabled = is_group and is_group_party_buff_enabled(ctx, key_name, al_key) or is_party_buff_enabled(ctx, key_name, al_key)
+                    local al_has_spell = has_spell and has_target_modifier
+
+                    if not al_has_spell then
+                        imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_DISABLED)
+                        imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_DISABLED)
+                        imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_DISABLED)
+                        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
+                    elseif is_enabled then
+                        -- Use default colors
+                    else
+                        imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_UNSELECTED)
+                        imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_UNSELECTED_HOVER)
+                        imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_UNSELECTED_ACTIVE)
+                    end
+
+                    local button_label = '<' .. prefix .. local_idx .. '>##' .. key_name .. '_' .. al_key
+                    if al_has_spell and imgui.Button(button_label, { PARTY_BUTTON_WIDTH, 0 }) then
+                        if is_group then
+                            toggle_group_party_buff(ctx, key_name, al_key, not is_enabled)
+                        else
+                            toggle_party_buff(ctx, key_name, al_key, not is_enabled)
+                        end
+                    elseif not al_has_spell then
+                        imgui.Button(button_label, { PARTY_BUTTON_WIDTH, 0 })
+                    end
+
+                    if imgui.IsItemHovered() then
+                        imgui.SetTooltip(m.name or (prefix .. local_idx))
+                    end
+
+                    if not al_has_spell then
+                        imgui.PopStyleColor(4)
+                    elseif not is_enabled then
+                        imgui.PopStyleColor(3)
+                    end
+                end
+            end
+        end
+    end
+
     -- Render tracked target buttons for every buff row.
     -- Buttons are grayed out and non-clickable when the ability is not compatible
     -- with out-of-party targets (i.e. ability.target_outside is not set).
