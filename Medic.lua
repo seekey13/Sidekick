@@ -644,9 +644,12 @@ ashita.events.register('packet_in', 'medic_packet_in', function(e)
         return
     end
     
-    -- Handle action packets for casting detection (always active)
+    -- Handle action packets (0x028): casting detection, buff tracking, sleep inference
+    -- Message 230 = caster/player gains the effect, 266 = other party members/Trusts gain the effect
+    -- Message 83  = buff/debuff removed from target (e.g. Paralyna removes Paralysis)
+    -- Cure healing messages (2, 7, 24) on tracked sleeping targets infer wake
     if e.id == 0x028 then
-        -- Parse actor ID to check if it's the player
+        -- Casting detection (always active) — uses raw bytes, not parsed packet
         if e.data and #e.data >= 16 then
             local actor_id = struct.unpack('I', e.data, 0x05 + 1)
             local party = common.get_party()
@@ -654,29 +657,20 @@ ashita.events.register('packet_in', 'medic_packet_in', function(e)
                 local player_id = party:GetMemberServerId(0)
                 if player_id and actor_id == player_id then
                     common.handle_action_packet(e.data)  -- Casting detection
-                    
+
                     -- Check if this is a casting completion (byte 0x0F != 0x00)
-                    if e.data and #e.data >= 16 then
-                        local completion_flag = struct.unpack('B', e.data, 0x0F + 1)
-                        if completion_flag ~= 0x00 then
-                            -- Casting completed, apply pending buff to Trust
-                            common.handle_buff_application()
-                        end
+                    local completion_flag = struct.unpack('B', e.data, 0x0F + 1)
+                    if completion_flag ~= 0x00 then
+                        -- Casting completed, apply pending buff to Trust
+                        common.handle_buff_application()
                     end
                 end
             end
         end
-    end
-    
-    -- Detect buff gains and removals on any party member (0x028)
-    -- Message 230 = caster/player gains the effect, 266 = other party members/Trusts gain the effect
-    -- Message 83  = buff/debuff removed from target (e.g. Paralyna removes Paralysis)
-    -- Sleep removal: Cure can't miss, so any spell landing on a tracked sleeping target removes sleep
-    if e.id == 0x028 then
+
+        -- Buff gain/loss tracking — uses parsed action packet
         local actionPacket = parse_packets.parse_action_packet(e)
         if actionPacket and actionPacket.Type == 4 then
-            local entMgr = AshitaCore:GetMemoryManager():GetEntity()
-
             -- Determine if we (the player) are the actor
             local party = common.get_party()
             local player_id = party and party:GetMemberServerId(0)
@@ -684,14 +678,8 @@ ashita.events.register('packet_in', 'medic_packet_in', function(e)
 
             for _, target in ipairs(actionPacket.Targets) do
                 for _, action in ipairs(target.Actions) do
-                    -- Resolve target name and buff name once for all message handling below
-                    local target_name = 'Unknown'
-                    for idx = 0, 0x8FF do
-                        if entMgr:GetServerId(idx) == target.Id then
-                            target_name = entMgr:GetName(idx)
-                            break
-                        end
-                    end
+                    -- Resolve target name via fast index lookup (avoid O(2304) scan)
+                    local target_name = common.resolve_entity_name(target.Id)
 
                     local buff_name = AshitaCore:GetResourceManager():GetString('buffs.names', action.Param)
                     if not buff_name or buff_name == '' then
@@ -699,7 +687,7 @@ ashita.events.register('packet_in', 'medic_packet_in', function(e)
                     end
 
                     if action.Message == 230 or action.Message == 266 then
-                        common.printf('%s gained the effect of %s.', target_name, buff_name)
+                        common.debugf('%s gained the effect of %s.', target_name, buff_name)
 
                         -- Update Trust buff tracking so game_state reflects the change
                         if target.Id >= 0x1000000 then
@@ -720,12 +708,16 @@ ashita.events.register('packet_in', 'medic_packet_in', function(e)
                         end
                     end
 
-                    -- Sleep removal: Cure can't miss, so any spell we cast that lands on a tracked
-                    -- sleeping target can be assumed to have woken them. No 0x029 removal message
-                    -- is sent for out-of-party targets, so we infer it from cast completion.
-                    if actor_is_player and action.Message > 0 and common.is_tracked_target(target.Id) then
-                        common.handle_buff_removal(target.Id, 2)   -- Sleep
-                        common.handle_buff_removal(target.Id, 19)  -- Sleep II
+                    -- Sleep removal inference: only for cure-type spells cast by the player.
+                    -- Cure spells can't miss, so landing on a tracked sleeping target means wake.
+                    -- No 0x029 removal message is sent for out-of-party targets, so we infer it.
+                    -- Message 2 = "recovers X HP" (single cure), 7 = "recovers X HP" (AoE cure),
+                    -- 24 = Curaga-style HP recovery
+                    if actor_is_player and common.is_tracked_target(target.Id) then
+                        if action.Message == 2 or action.Message == 7 or action.Message == 24 then
+                            common.handle_buff_removal(target.Id, 2)   -- Sleep
+                            common.handle_buff_removal(target.Id, 19)  -- Sleep II
+                        end
                     end
                 end
             end
@@ -746,15 +738,8 @@ ashita.events.register('packet_in', 'medic_packet_in', function(e)
             local buff_id   = msg.param
 
             if server_id > 0 and buff_id > 0 and buff_id ~= 255 then
-                -- Resolve target name from server ID
-                local target_name = 'Unknown'
-                local entMgr = AshitaCore:GetMemoryManager():GetEntity()
-                for idx = 0, 0x8FF do
-                    if entMgr:GetServerId(idx) == server_id then
-                        target_name = entMgr:GetName(idx)
-                        break
-                    end
-                end
+                -- Resolve target name via fast index lookup (avoid O(2304) scan)
+                local target_name = common.resolve_entity_name(server_id)
 
                 -- Resolve buff name
                 local buff_name = AshitaCore:GetResourceManager():GetString('buffs.names', buff_id)

@@ -124,7 +124,7 @@ function geo.execute(settings, job_def, main_level, sub_level, player_resource)
             return nil
         end
         
--- Convert party index (1-5) to entity target index via game state
+        -- Convert party index (1-5) to entity target index via game state
         local party_member = state.party[target_index]
         if not party_member then
             return nil

@@ -5,6 +5,36 @@ All notable changes to Medic will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2026-03-03
+
+### BREAKING CHANGES
+- **PL Mode Removed**: All PL Mode functionality (`pl_mode_active`, `setup_pl_mode_job`, `clear_player_data`, `restore_normal_mode`, and related settings) has been removed. Users should clear any legacy `pl_*` settings keys from their configuration files.
+- **Module Consolidation**: `heal_aoe.lua`, `heal_pet.lua`, `debuff_removal.lua`, and `wake.lua` have been merged into `heal.lua` and `status_removal.lua` respectively. Direct imports of the old modules will fail.
+- **Config UI Renamed**: `config_ui.lua` renamed to `ui_config.lua`. Any external references must be updated.
+
+### Added
+- **Centralized Game State**: New `common.game_state` snapshot refreshed once per automation tick provides a consistent view of player/party HP, MP, buffs, and positions.
+- **Action Core Module**: New `lib/core/action_core.lua` consolidates resource management, cooldown tracking, buff-ID utilities, and ability candidacy helpers (replacing deleted `lib/core/resource.lua`).
+- **Packet-Based Buff Tracking**: Buff gain/loss tracking via 0x028 and 0x029 packets for Trusts and tracked (out-of-party) targets.
+- **Tracked Targets**: Session-scoped tracking of out-of-party players for heal, buff, and status removal automation.
+- **Debug Panel**: New `lib/ui/panel.lua` debug info panel showing party game_state snapshot (toggle with `/medic panel`).
+- **Status Removal Module**: New combined `lib/actions/status_removal.lua` with `execute_debuff_removal` and `execute_wake` entry points.
+
+### Changed
+- **Heal AOE**: Merged into `heal.lua` as `execute_aoe`; requires at least 2 members below threshold before firing (hardcoded, previously configurable via slider).
+- **Heal Pet**: Merged into `heal.lua` as `execute_pet`.
+- **Recovery Priority**: Recovery actions (Convert, Manafont, etc.) execute before critical heals to ensure MP is available for subsequent healing.
+- **Curaga II**: Fixed MP cost from 60 to 120 (White Mage).
+- **Bar Spells**: Converted from dynamic-target functions to static self-target `<me>` commands (White Mage).
+
+### Removed
+- **PL Mode**: All PL Mode functionality and UI elements.
+- **lib/core/resource.lua**: Replaced by `action_core.lua`.
+- **lib/actions/heal_aoe.lua**: Merged into `heal.lua`.
+- **lib/actions/heal_pet.lua**: Merged into `heal.lua`.
+- **lib/actions/debuff_removal.lua**: Merged into `status_removal.lua`.
+- **lib/actions/wake.lua**: Merged into `status_removal.lua`.
+
 ## [1.3.0] - 2026-01-22
 
 ### Added

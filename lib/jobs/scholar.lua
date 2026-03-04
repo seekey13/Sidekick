@@ -359,16 +359,7 @@ return {
                 requires_buff = 401,  -- Requires Addendum: White
             },
             -- {
-            --     name = 'Tranquility',
-            --     level = 75,
-            --     cost = 0,
-            --     id = 242,  -- Job ability ID
-            --     command = '/ja "Tranquility" <me>',
-            --     requires_buff = 401,  -- Addendum: White
-            --     buff_id = 414,
-            -- },
-            -- {
-            --     name = 'Altruism',
+            --     name = 'Altruism', -- Increases the accuracy
             --     level = 75,
             --     cost = 0,
             --     id = 240,  -- Job ability ID
@@ -377,7 +368,7 @@ return {
             --     buff_id = 412,
             -- },
             -- {
-            --     name = 'Perpetuance',
+            --     name = 'Perpetuance', -- Increases the enhancement effect duration
             --     level = 75,
             --     cost = 0,
             --     id = 316,  -- Job ability ID
@@ -386,16 +377,7 @@ return {
             --     buff_id = 469,
             -- },
             -- {
-            --     name = 'Rapture',
-            --     level = 55,
-            --     cost = 0,
-            --     id = 217,  -- Job ability ID
-            --     command = '/ja "Rapture" <me>',
-            --     requires_buff = 401,  -- Addendum: White
-            --     buff_id = 364,
-            -- },
-            -- {
-            --     name = 'Accession',
+            --     name = 'Accession',  -- AOE
             --     level = 40,
             --     cost = 0,
             --     id = 218,  -- Job ability ID
@@ -404,7 +386,7 @@ return {
             --     buff_id = 366,
             -- },
             -- {
-            --     name = 'Celerity',
+            --     name = 'Celerity', -- Reduces the casting time and the recast time of your next white magic spell by 50%
             --     level = 25,
             --     cost = 0,
             --     id = 216,  -- Job ability ID
@@ -413,7 +395,7 @@ return {
             --     buff_id = 362,
             -- },
             -- {
-            --     name = 'Penury',
+            --     name = 'Penury', -- Reduces the MP cost of the next spell by 1/2
             --     level = 10,
             --     cost = 0,
             --     id = 215,  -- Job ability ID

@@ -368,11 +368,11 @@ function status_removal.execute_wake(settings, job_def, main_level, sub_level, p
 
         -- Check if focus target is sleeping (if focus is enabled)
         if settings.focus_enabled and settings.focus_target then
-            local focus_target_index = common.get_target_index_by_name(settings.focus_target)
-            if focus_target_index then
+            local focus_party_index = common.get_party_index_by_name(settings.focus_target)
+            if focus_party_index then
                 for _, idx in ipairs(sleeping_members) do
-                    if idx == focus_target_index then
-                        target_index = focus_target_index
+                    if idx == focus_party_index then
+                        target_index = focus_party_index
                         break
                     end
                 end

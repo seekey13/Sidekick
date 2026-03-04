@@ -24,7 +24,7 @@ local addon_name = 'Medic'
 local casting_state = {
     is_casting = false,
     last_action_time = 0,
-    cast_timeout = 10.0,  -- Maximum time for a cast (seconds); many WS/spells exceed 5s
+    cast_timeout = 5.0,  -- Maximum time for a cast (seconds)
 }
 
 -- Movement tracking state
@@ -537,6 +537,63 @@ function common.get_entity_manager()
     return entity_mgr
 end
 
+-- Resolve a server ID to an entity name using fast index derivation.
+-- Uses the same shortcut that parse_packets.GetIndexFromId does for NPCs/Trusts
+-- (bit-mask on the lower 12 bits) and falls back to a party/tracked lookup,
+-- avoiding a full O(2304) entity scan in the common case.
+-- Args:   server_id (number) - Entity server ID
+-- Returns: string - Entity name or 'Unknown'
+function common.resolve_entity_name(server_id)
+    if not server_id or server_id == 0 then return 'Unknown' end
+    local entMgr = AshitaCore:GetMemoryManager():GetEntity()
+    if not entMgr then return 'Unknown' end
+
+    -- Fast path for NPCs/Trusts (server_id has 0x1000000 bit set)
+    if bit.band(server_id, 0x1000000) ~= 0 then
+        local index = bit.band(server_id, 0xFFF)
+        if index >= 0x900 then index = index - 0x100 end
+        if index < 0x900 and entMgr:GetServerId(index) == server_id then
+            local name = entMgr:GetName(index)
+            if name and name ~= '' then return name end
+        end
+    end
+
+    -- Try party members (indices are low, fast check)
+    local party = common.get_party()
+    if party then
+        for i = 0, 5 do
+            if party:GetMemberIsActive(i) == 1 and party:GetMemberServerId(i) == server_id then
+                local ti = party:GetMemberTargetIndex(i)
+                if ti and ti > 0 then
+                    local name = entMgr:GetName(ti)
+                    if name and name ~= '' then return name end
+                end
+            end
+        end
+    end
+
+    -- Try tracked targets
+    local tt = tracked_targets[server_id]
+    if tt then
+        if tt.name and tt.name ~= '' then return tt.name end
+        if tt.target_index and tt.target_index > 0 then
+            local name = entMgr:GetName(tt.target_index)
+            if name and name ~= '' then return name end
+        end
+    end
+
+    -- Fallback: full entity scan (rare, only for unknown entities)
+    for idx = 1, 0x8FF do
+        if entMgr:GetServerId(idx) == server_id then
+            local name = entMgr:GetName(idx)
+            if name and name ~= '' then return name end
+            break
+        end
+    end
+
+    return 'Unknown'
+end
+
 -- Get player's current target index
 -- Returns: number (target index) or 0 if no target
 function common.get_target_index()
@@ -1037,6 +1094,7 @@ end
 function common.clear_trust_buffs()
     trust_buffs = {}
     pending_buffs = {}
+    member_max_stats = {}
 end
 
 -- Get Trust buffs by server_id
@@ -1374,7 +1432,7 @@ end
 function common.has_spell_learned(ability)
     if not ability then return false end
     local cmd = type(ability.command) == 'function' and ability.command(0) or ability.command
-    if not cmd or cmd:sub(1, 3) ~= '/ma' then return true end   -- not a spell
+    if not cmd or not cmd:match('^/ma%s') then return true end    -- not a spell
     if not ability.id then return true end                        -- no id to check
     local ok, known = pcall(function()
         return AshitaCore:GetMemoryManager():GetPlayer():HasSpell(ability.id)
