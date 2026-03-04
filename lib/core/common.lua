@@ -1794,7 +1794,7 @@ end
 --
 -- common.game_state.alliance[2|3][0..5] fields: identical to party member fields
 --   party index 2 = flat indices 6-11, party index 3 = flat indices 12-17
---   buffs: read via statusicons memory scan (matched by server_id); empty if unsupported
+--   buffs: populated via 0x028/0x029 party buff packets (see read_alliance_buffs); empty if unavailable
 --
 -- common.game_state.alliance_leaders[1|2|3] : server IDs of each sub-party leader
 --
