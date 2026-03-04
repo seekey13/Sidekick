@@ -48,6 +48,10 @@ local member_max_stats = {}
 
 -- Trust buff tracking (packet-based since memory reads don't work for Trusts)
 local trust_buffs = {}  -- trust_buffs[server_id] = {buff_id1, buff_id2, ...}
+
+-- Alliance member server_id set — rebuilt each refresh_game_state tick.
+-- Used by packet handlers to decide whether to track buffs for a given server_id.
+local alliance_member_sids = {}  -- alliance_member_sids[server_id] = true
 local pending_buffs = {}  -- pending_buffs[n] = {server_id=x, buff_id=y, timestamp=t}
 local PENDING_BUFF_TIMEOUT = 10.0  -- Seconds before pending buff expires
 
@@ -1115,11 +1119,35 @@ function common.handle_buff_removal(server_id, buff_id)
     end
 end
 
--- Clear all Trust buffs (call on zone change)
+-- Clear all Trust buffs and alliance tracking (call on zone change)
 function common.clear_trust_buffs()
     trust_buffs = {}
     pending_buffs = {}
     member_max_stats = {}
+    alliance_member_sids = {}
+end
+
+-- Check if a server_id belongs to an active alliance member.
+-- The set is rebuilt every refresh_game_state() tick.
+function common.is_alliance_member(server_id)
+    if not server_id or server_id == 0 then return false end
+    return alliance_member_sids[server_id] == true
+end
+
+-- Apply a buff to an alliance member (packet-based, reuses trust_buffs table).
+function common.apply_alliance_member_buff(server_id, buff_id)
+    if not server_id or not buff_id then return end
+    if not alliance_member_sids[server_id] then return end
+
+    if not trust_buffs[server_id] then
+        trust_buffs[server_id] = {}
+    end
+
+    for _, existing in ipairs(trust_buffs[server_id]) do
+        if existing == buff_id then return end
+    end
+
+    table.insert(trust_buffs[server_id], buff_id)
 end
 
 -- Get Trust buffs by server_id
@@ -1788,56 +1816,12 @@ common.game_state = {
     tracked          = {},               -- keyed by server_id
 }
 
--- Internal helper: attempt to read alliance member buffs from the party.statusicons
--- memory block by scanning all 15 slots and matching on server_id.
--- Returns a table of buff IDs, or an empty table if unsupported / not found.
+-- Internal helper: return packet-tracked buffs for an alliance member.
+-- All alliance member buffs are populated via 0x028/0x029 packet handlers
+-- into the shared trust_buffs table (keyed by server_id).
 local function read_alliance_buffs(server_id)
     if not server_id or server_id == 0 then return {} end
-    -- Trusts: use packet-tracked buffs
-    if server_id >= 0x1000000 then
-        return trust_buffs[server_id] or {}
-    end
-
-    local ok_ptr, base_ptr = pcall(function()
-        return AshitaCore:GetPointerManager():Get('party.statusicons')
-    end)
-    if not ok_ptr or not base_ptr or base_ptr == 0 then return {} end
-
-    local ok_deref, deref_ptr = pcall(function()
-        return ashita.memory.read_uint32(base_ptr)
-    end)
-    if not ok_deref or deref_ptr == 0 then return {} end
-
-    -- Each slot is 0x30 bytes. Slots 0-14 cover p1-p15 (flat indices 1-15).
-    -- Scan by server_id rather than assuming slot == flat_index.
-    for slot = 0, 14 do
-        local member_ptr = deref_ptr + (0x30 * slot)
-        local ok_id, player_id = pcall(function()
-            return ashita.memory.read_uint32(member_ptr)
-        end)
-        if ok_id and player_id == server_id then
-            local buffs = {}
-            for j = 0, 31 do
-                local ok_hi, hi = pcall(function()
-                    return ashita.memory.read_uint8(member_ptr + 8 + math.floor(j / 4))
-                end)
-                if ok_hi then
-                    local high_bits = bit.lshift(bit.band(bit.rshift(hi, math.fmod(j, 4) * 2), 0x03), 8)
-                    local ok_lo, lo = pcall(function()
-                        return ashita.memory.read_uint8(member_ptr + 16 + j)
-                    end)
-                    if ok_lo then
-                        local buff_id = high_bits + lo
-                        if buff_id ~= 255 and buff_id > 0 then
-                            table.insert(buffs, buff_id)
-                        end
-                    end
-                end
-            end
-            return buffs
-        end
-    end
-    return {}
+    return trust_buffs[server_id] or {}
 end
 
 -- Internal helper: build a member snapshot from a party manager flat index (0-17).
@@ -1996,7 +1980,9 @@ function common.refresh_game_state()
 
     -- -----------------------------------------------------------------------
     -- Alliance sub-parties B and C: flat indices 6-17
+    -- Rebuild alliance_member_sids so packet handlers know who to track.
     -- -----------------------------------------------------------------------
+    alliance_member_sids = {}
     for party_index = 2, 3 do
         local first = (party_index - 1) * 6   -- 6 or 12
         local last  = first + 5                -- 11 or 17
@@ -2005,7 +1991,12 @@ function common.refresh_game_state()
             if is_active then
                 state.party_size = state.party_size + 1
                 local local_index = flat_i - first   -- 0-5 within sub-party
-                state.alliance[party_index][local_index] = build_member_snapshot(party_mgr, entity_mgr, flat_i)
+                local snapshot = build_member_snapshot(party_mgr, entity_mgr, flat_i)
+                state.alliance[party_index][local_index] = snapshot
+                -- Register server_id for packet-based buff tracking
+                if snapshot.server_id and snapshot.server_id > 0 then
+                    alliance_member_sids[snapshot.server_id] = true
+                end
             end
         end
     end

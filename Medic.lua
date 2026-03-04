@@ -699,11 +699,16 @@ ashita.events.register('packet_in', 'medic_packet_in', function(e)
                             common.apply_tracked_target_buff(target.Id, action.Param)
                         end
 
+                        -- Update alliance member buff tracking
+                        if common.is_alliance_member(target.Id) then
+                            common.apply_alliance_member_buff(target.Id, action.Param)
+                        end
+
                     elseif action.Message == 83 then
                         common.debugf('%s lost the effect of %s (via 0x028).', target_name, buff_name)
 
-                        -- Remove from Trust and tracked target buff tracking (both stored in trust_buffs)
-                        if target.Id >= 0x1000000 or common.is_tracked_target(target.Id) then
+                        -- Remove from Trust, tracked target, and alliance member buff tracking (all in trust_buffs)
+                        if target.Id >= 0x1000000 or common.is_tracked_target(target.Id) or common.is_alliance_member(target.Id) then
                             common.handle_buff_removal(target.Id, action.Param)
                         end
                     end
@@ -764,6 +769,11 @@ ashita.events.register('packet_in', 'medic_packet_in', function(e)
                 -- Update tracked target buff tracking
                 if common.is_tracked_target(server_id) then
                     common.apply_tracked_target_buff(server_id, buff_id)
+                end
+
+                -- Update alliance member buff tracking
+                if common.is_alliance_member(server_id) then
+                    common.apply_alliance_member_buff(server_id, buff_id)
                 end
             end
         end
