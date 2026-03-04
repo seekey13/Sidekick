@@ -497,7 +497,7 @@ function ui_config.render(settings, job_def, callback, roll_mod)
         imgui.PopStyleColor()
 
         -- Add Tracked Target button: only visible when current target is a valid PC
-        -- (not NPC, not Trust, not already in party, not already tracked)
+        -- (not NPC, not Trust, not already in party, not already tracked, not already in alliance)
         local targets_lib = common.targets
         local target_entity = targets_lib.get_t()
         local show_add_btn = false
@@ -519,7 +519,7 @@ function ui_config.render(settings, job_def, callback, roll_mod)
                         end
                     end
                 end
-                if not in_party and not common.is_tracked_target(target_sid) then
+                if not in_party and not common.is_tracked_target(target_sid) and not common.is_alliance_member(target_sid) then
                     show_add_btn = true
                 end
             end
