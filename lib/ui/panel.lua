@@ -312,14 +312,38 @@ function panel.render()
                         imgui.TextDisabled('--')
                     end
 
-                    -- Job (not available for tracked targets)
+                    -- Job column: show job/sub+level when resolved, else '--'
                     imgui.TableNextColumn()
-                    imgui.TextDisabled('--')
+                    if m.main_level and m.main_level > 0 then
+                        local function job_abbr(id)
+                            if not id or id == 0 then return '??' end
+                            local ok, s = pcall(function()
+                                return AshitaCore:GetResourceManager():GetString('jobs.names_abbr', id)
+                            end)
+                            return (ok and s and s ~= '') and s or ('J' .. id)
+                        end
+                        local job_str
+                        if m.main_job and m.main_job > 0 then
+                            job_str = string.format('%s%d/%s%d',
+                                job_abbr(m.main_job), m.main_level,
+                                job_abbr(m.sub_job),  m.sub_level or 0)
+                        else
+                            job_str = string.format('Lv.%d', m.main_level)
+                        end
+                        imgui.Text(job_str)
+                    else
+                        imgui.TextDisabled('--')
+                    end
 
-                    -- HP (HP% only — raw HP unavailable for non-party entities)
+                    -- HP: show estimated hp/max_hp when available, otherwise just hp%
+                    -- Values are derived: max_hp from level table or 100%-cache; hp = hpp*max_hp/100
                     imgui.TableNextColumn()
                     local hp_colored = push_hp_color(m.hpp or 0)
-                    imgui.Text(string.format('%d%%%%', m.hpp or 0))
+                    if m.max_hp and m.max_hp > 0 then
+                        imgui.Text(string.format('~%d/%d (%d%%%%)', m.hp or 0, m.max_hp, m.hpp or 0))
+                    else
+                        imgui.Text(string.format('%d%%%%', m.hpp or 0))
+                    end
                     if hp_colored then imgui.PopStyleColor() end
 
                     -- MP (not available)
@@ -360,6 +384,7 @@ function panel.render()
         imgui.TextColored({ 0.5, 0.5, 0.5, 1.0 }, '* Trust NPC')
         if tracked_count > 0 then
             imgui.TextColored({ 0.4, 1.0, 0.7, 1.0 }, 'T = Tracked Target')
+            imgui.TextColored({ 0.5, 0.5, 0.5, 1.0 }, '~ HP values estimated from level average for Tracked Targets')
         end
     end
     imgui.End()
