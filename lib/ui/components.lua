@@ -634,10 +634,11 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
 
                     imgui.SameLine()
 
-                    local is_enabled = is_group and is_group_party_buff_enabled(ctx, key_name, al_key) or is_party_buff_enabled(ctx, key_name, al_key)
-                    local al_has_spell = has_spell and has_target_modifier
+                    local is_enabled    = is_group and is_group_party_buff_enabled(ctx, key_name, al_key) or is_party_buff_enabled(ctx, key_name, al_key)
+                    local is_compatible = ability and ability.target_outside
+                    local is_disabled   = not has_spell or not is_compatible
 
-                    if not al_has_spell then
+                    if is_disabled then
                         imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_DISABLED)
                         imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_DISABLED)
                         imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_DISABLED)
@@ -651,21 +652,24 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
                     end
 
                     local button_label = '<' .. prefix .. local_idx .. '>##' .. key_name .. '_' .. al_key
-                    if al_has_spell and imgui.Button(button_label, { PARTY_BUTTON_WIDTH, 0 }) then
+                    local clicked = imgui.Button(button_label, { PARTY_BUTTON_WIDTH, 0 })
+                    if clicked and not is_disabled then
                         if is_group then
                             toggle_group_party_buff(ctx, key_name, al_key, not is_enabled)
                         else
                             toggle_party_buff(ctx, key_name, al_key, not is_enabled)
                         end
-                    elseif not al_has_spell then
-                        imgui.Button(button_label, { PARTY_BUTTON_WIDTH, 0 })
                     end
 
                     if imgui.IsItemHovered() then
-                        imgui.SetTooltip(m.name or (prefix .. local_idx))
+                        if not is_compatible then
+                            imgui.SetTooltip('Not compatible with out-of-party targets')
+                        else
+                            imgui.SetTooltip(m.name or (prefix .. local_idx))
+                        end
                     end
 
-                    if not al_has_spell then
+                    if is_disabled then
                         imgui.PopStyleColor(4)
                     elseif not is_enabled then
                         imgui.PopStyleColor(3)
