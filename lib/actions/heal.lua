@@ -280,7 +280,7 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
             local focus_target_index = tt.target_index or 0
             if focus_target_index > 0 and common.is_active_member(focus_hpp) then
                 local outside_abilities = common.outside_abilities(available_abilities)
-                local selected_ability = heal.select_ability(outside_abilities, focus_hpp, job_def, player_resource, nil)
+                local selected_ability = heal.select_ability(outside_abilities, focus_hpp, job_def, player_resource, nil, tt)
                 if selected_ability then
                     local ability_range = type(selected_ability.range) == 'number' and selected_ability.range or 21
                     if common.is_in_range(focus_target_index, ability_range) then
@@ -307,7 +307,7 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
                 local focus_hpp = al_member.hpp or 0
                 if common.is_active_member(focus_hpp) then
                     local outside_abilities = common.outside_abilities(available_abilities)
-                    local selected_ability = heal.select_ability(outside_abilities, focus_hpp, job_def, player_resource, nil)
+                    local selected_ability = heal.select_ability(outside_abilities, focus_hpp, job_def, player_resource, nil, al_member)
                     if selected_ability then
                         local ability_range = type(selected_ability.range) == 'number' and selected_ability.range or 21
                         if common.is_in_range(al_member.target_index, ability_range) then
@@ -399,7 +399,7 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
         if tt and tt.is_active and tt.target_index and tt.target_index > 0 then
             local outside_abilities = common.outside_abilities(available_abilities)
             if #outside_abilities > 0 then
-                local selected_ability = heal.select_ability(outside_abilities, party_status.lowest_tracked_hpp, job_def, player_resource, nil)
+                local selected_ability = heal.select_ability(outside_abilities, party_status.lowest_tracked_hpp, job_def, player_resource, nil, tt)
                 if selected_ability then
                     local ability_range = type(selected_ability.range) == 'number' and selected_ability.range or 21
                     if common.is_in_range(tt.target_index, ability_range) then
@@ -427,7 +427,7 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
         if al_member and al_member.is_active and al_member.target_index and al_member.target_index > 0 then
             local outside_abilities = common.outside_abilities(available_abilities)
             if #outside_abilities > 0 then
-                local selected_ability = heal.select_ability(outside_abilities, party_status.lowest_alliance_hpp, job_def, player_resource, nil)
+                local selected_ability = heal.select_ability(outside_abilities, party_status.lowest_alliance_hpp, job_def, player_resource, nil, al_member)
                 if selected_ability then
                     local ability_range = type(selected_ability.range) == 'number' and selected_ability.range or 21
                     if common.is_in_range(al_member.target_index, ability_range) then
@@ -452,7 +452,7 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
     return nil
 end
 
-function heal.select_ability(abilities, target_hpp, job_def, player_resource, party_index)
+function heal.select_ability(abilities, target_hpp, job_def, player_resource, party_index, target_snapshot)
     -- Special case: Summoner should always try Healing Ruby first
     if job_def and job_def.job_id == 15 then
         -- Look for Healing Ruby in abilities
@@ -489,6 +489,12 @@ function heal.select_ability(abilities, target_hpp, job_def, player_resource, pa
             if current_hp and max_hp and max_hp > 0 then
                 hp_deficit = max_hp - current_hp
             end
+        end
+    elseif target_snapshot then
+        local current_hp = target_snapshot.hp
+        local max_hp     = target_snapshot.max_hp
+        if current_hp and max_hp and max_hp > 0 then
+            hp_deficit = max_hp - current_hp
         end
     end
     
