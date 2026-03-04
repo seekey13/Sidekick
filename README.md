@@ -2,9 +2,10 @@
 
 A focused, support-oriented addon for Ashita v4 that automates healing, buffing, and debuff removal for select support jobs in Final Fantasy XI.  Tuned specifically for [CatsEyeXI private server](https://www.catseyexi.com/).
 
-## New Collapsable and Party Scaling UI
-<img width="1044" height="1011" alt="Screenshot" src="https://github.com/user-attachments/assets/562dc45e-2f86-41ff-934e-26c13c81004c" />
-
+<img width="3840" height="2160" alt="Screenshot 2026-03-03 191208" src="https://github.com/user-attachments/assets/4b9165e3-8ced-4af2-b765-105d846c2ee1" />
+<img width="3840" height="2160" alt="Screenshot 2026-03-03 191222" src="https://github.com/user-attachments/assets/da087926-c7f6-48f5-8e02-0db4c6bfb5c5" />
+<img width="3840" height="2160" alt="Screenshot 2026-03-03 191254" src="https://github.com/user-attachments/assets/5bae06cf-5268-4b69-8480-0c53a7b0e7e3" />
+<img width="3840" height="2160" alt="Screenshot 2026-03-03 191314" src="https://github.com/user-attachments/assets/f0857b76-c773-4ea9-b8ee-6629de331609" />
 
 ## ⚠️ Important: This is NOT a Full Automation Tool
 
@@ -18,17 +19,41 @@ A focused, support-oriented addon for Ashita v4 that automates healing, buffing,
 
 ## Latest Updates
 
-### [1.3.0] - 2026-01-22
-- **Pianissimo Support for Bard**: Bard songs can now be cast on party members using Pianissimo ability (level 20+), automatically integrated into party buff system
-- **Song Limit Enforcement**: Bard songs limited to 2 per party member (main job) or 1 per party member (sub job) to match game mechanics
-- **Party Buff Persistence**: Party buff selections (song assignments, etc.) now persist through addon reloads and zone changes
-- **Target Modifier System**: New `target_modifier` ability category for abilities that redirect self-targeted spells to party members (Pianissimo, Entrust)
-- **Smart UI Feedback**: Party buttons automatically disabled with grayed-out text when Pianissimo unavailable (below level 20), matching unlearned spell style
+### [2.0.0] - 2026-03-03
+
+### BREAKING CHANGES
+- **PL Mode Removed**: All PL Mode functionality (`pl_mode_active`, `setup_pl_mode_job`, `clear_player_data`, `restore_normal_mode`, and related settings) has been removed. Users should clear any legacy `pl_*` settings keys from their configuration files.
+- **Module Consolidation**: `heal_aoe.lua`, `heal_pet.lua`, `debuff_removal.lua`, and `wake.lua` have been merged into `heal.lua` and `status_removal.lua` respectively. Direct imports of the old modules will fail.
+- **Config UI Renamed**: `config_ui.lua` renamed to `ui_config.lua`. Any external references must be updated.
+
+### Added
+- **Centralized Game State**: New `common.game_state` snapshot refreshed once per automation tick provides a consistent view of player/party HP, MP, buffs, and positions.
+- **Action Core Module**: New `lib/core/action_core.lua` consolidates resource management, cooldown tracking, buff-ID utilities, and ability candidacy helpers (replacing deleted `lib/core/resource.lua`).
+- **Packet-Based Buff Tracking**: Buff gain/loss tracking via 0x028 and 0x029 packets for Trusts and tracked (out-of-party) targets.
+- **Tracked Targets**: Session-scoped tracking of out-of-party players for heal, buff, and status removal automation. (Power Leveling)
+- **Debug Panel**: New `lib/ui/panel.lua` debug info panel showing party game_state snapshot (toggle with `/medic panel`).
+- **Status Removal Module**: New combined `lib/actions/status_removal.lua` with `execute_debuff_removal` and `execute_wake` entry points.
+
+### Changed
+- **Heal AOE**: Merged into `heal.lua` as `execute_aoe`; requires at least 2 members below threshold before firing (hardcoded, previously configurable via slider).
+- **Heal Pet**: Merged into `heal.lua` as `execute_pet`.
+- **Recovery Priority**: Recovery actions (Convert, Manafont, etc.) execute before critical heals to ensure MP is available for subsequent healing.
+- **Curaga II**: Fixed MP cost from 60 to 120 (White Mage).
+- **Bar Spells**: Converted from dynamic-target functions to static self-target `<me>` commands (White Mage).
+
+### Removed
+- **PL Mode**: All PL Mode functionality and UI elements.
+- **lib/core/resource.lua**: Replaced by `action_core.lua`.
+- **lib/actions/heal_aoe.lua**: Merged into `heal.lua`.
+- **lib/actions/heal_pet.lua**: Merged into `heal.lua`.
+- **lib/actions/debuff_removal.lua**: Merged into `status_removal.lua`.
+- **lib/actions/wake.lua**: Merged into `status_removal.lua`.
 
 
 ## Features
 
 ### Core Support Actions
+- **Tracked Targets**: Session-scoped tracking of out-of-party players for heal, buff, and status removal automation. (Power Leveling)
 - **Item-Based Status Removal**: Automatically use consumable items to remove critical debuffs (Echo Drops for Silence, Holy Water for Doom) with inventory tracking and smart zone-load handling
 - **Critical HP Response**: Emergency abilities (e.g., Divine Seal, Martyr, Contradance) automatically trigger when party members drop below critical threshold (default 30%)
 - **Single-Target Healing**: Intelligent HP deficit-based heal selection with priority system (Critical HP → Focus target → Regular lowest HP)
