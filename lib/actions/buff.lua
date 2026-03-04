@@ -220,9 +220,9 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                     end
                 end
 
-                -- After checking party members, check enabled alliance members.
-                -- Alliance members are targeted by server_id (same as tracked targets).
-                if state.alliance then
+                -- After checking party members, check enabled alliance members
+                -- (only if ability has target_outside, same restriction as tracked targets).
+                if ability.target_outside and state.alliance then
                     for al_pi = 2, 3 do
                         local sub_party = state.alliance[al_pi]
                         if sub_party then
