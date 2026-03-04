@@ -3,7 +3,7 @@
     Defines abilities, validators, and configuration for Dancer automation
     - Healing (Curing Waltz, Divine Waltz)
     - Debuff removal (Healing Waltz)
-    - Buffs (Drain, Aspir, Haste Samba, and Spectral Jig)
+    - Buffs (Drain, Aspir, Haste Samba, Spectral Jig, Saber Dance, Fan Dance, No Foot Rise, Presto)
     - TP recovery (Reverse Flourish)
 ]]--
 
@@ -156,6 +156,43 @@ return {
                 command = '/ja "Spectral Jig" <me>',
                 buff_id = {71, 69},  -- Sneak (71) and Invisible (69)
                 idle_only = true,
+            },
+            -- Lv. 75 Dances (Merit)
+            {
+                name = 'Saber Dance',
+                level = 75,
+                cost = 0,
+                id = 230,  -- Saber Dance recast ID
+                command = '/ja "Saber Dance" <me>',
+                buff_id = 413,  -- Saber Dance
+                group = 'dance',
+            },
+            {
+                name = 'Fan Dance',
+                level = 75,
+                cost = 0,
+                id = 231,  -- Fan Dance recast ID
+                command = '/ja "Fan Dance" <me>',
+                buff_id = 414,  -- Fan Dance
+                group = 'dance',
+            },
+            -- Lv. 75 Abilities
+            {
+                name = 'No Foot Rise',
+                level = 75,
+                cost = 0,
+                id = 232,  -- No Foot Rise recast ID
+                command = '/ja "No Foot Rise" <me>',
+                buff_id = 419,  -- No Foot Rise
+                requires_no_buff = 385,  -- Cannot use with 5 Finishing Moves
+            },
+            {
+                name = 'Presto',
+                level = 75,
+                cost = 0,
+                id = 236,  -- Presto recast ID
+                command = '/ja "Presto" <me>',
+                buff_id = 580,  -- Presto
             },
         },
 

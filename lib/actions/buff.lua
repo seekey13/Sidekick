@@ -72,6 +72,13 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
             end
         end
         
+        -- Check that a buff is NOT active (blocking buff)
+        if not should_skip and ability.requires_no_buff then
+            if action_core.has_any_buff(state.player.buffs, ability.requires_no_buff) then
+                should_skip = true
+            end
+        end
+        
         -- Check if this ability is blocked by status ailments
         if not should_skip then
             local blocked_by = common.is_command_blocked(ability.command)
