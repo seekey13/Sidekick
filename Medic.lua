@@ -724,6 +724,13 @@ ashita.events.register('packet_in', 'medic_packet_in', function(e)
         end
     end
 
+    -- Handle character check response (0x0C9): resolves tracked target level.
+    if e.id == 0x0C9 then
+        if e.data then
+            common.handle_check_packet(e.data)
+        end
+    end
+
     -- Detect buff applications via 0x029 (message_basic).
     -- Fires whenever any nearby entity gains a buff, including cases not covered by 0x028
     -- (e.g. buffs not cast by the local player, out-of-party targets receiving sleep, etc.)

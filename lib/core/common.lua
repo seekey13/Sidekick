@@ -53,10 +53,35 @@ local PENDING_BUFF_TIMEOUT = 10.0  -- Seconds before pending buff expires
 
 -- Tracked targets (session-only, not saved to settings)
 -- Players outside the party that we monitor for heal/buff/status_removal automation.
--- tracked_targets[server_id] = { server_id, name, target_index }
+-- tracked_targets[server_id] = { server_id, name, target_index, main_level }
 -- Buffs are tracked via trust_buffs (same packet-based system as Trusts).
 -- Max HP is tracked via member_max_stats (same system as party members).
+-- main_level is populated once the 0x0C9 check-response packet is received.
 local tracked_targets = {}
+
+-- Pending check requests: server_id -> timestamp (waiting for 0x0C9 response)
+local pending_checks = {}
+local PENDING_CHECK_TIMEOUT = 10.0
+
+-- Average HP by level, averaged across all races/jobs in FFXI.
+-- Used to estimate max HP for non-party tracked targets before they are seen at 100%.
+local AVERAGE_HP_BY_LEVEL = {
+    [1] = 70,   [2] = 86,   [3] = 101,  [4] = 117,  [5] = 133,
+    [6] = 148,  [7] = 164,  [8] = 180,  [9] = 195,  [10] = 204,
+    [11] = 227, [12] = 242, [13] = 258, [14] = 274, [15] = 289,
+    [16] = 305, [17] = 321, [18] = 336, [19] = 352, [20] = 367,
+    [21] = 382, [22] = 398, [23] = 414, [24] = 430, [25] = 445,
+    [26] = 461, [27] = 477, [28] = 493, [29] = 508, [30] = 525,
+    [31] = 540, [32] = 556, [33] = 572, [34] = 588, [35] = 603,
+    [36] = 619, [37] = 635, [38] = 651, [39] = 665, [40] = 682,
+    [41] = 697, [42] = 713, [43] = 729, [44] = 745, [45] = 760,
+    [46] = 776, [47] = 792, [48] = 808, [49] = 823, [50] = 840,
+    [51] = 855, [52] = 871, [53] = 887, [54] = 903, [55] = 918,
+    [56] = 934, [57] = 950, [58] = 962, [59] = 979, [60] = 997,
+    [61] = 1012, [62] = 1028, [63] = 1044, [64] = 1060, [65] = 1075,
+    [66] = 1091, [67] = 1107, [68] = 1123, [69] = 1138, [70] = 1155,
+    [71] = 1170, [72] = 1186, [73] = 1202, [74] = 1218, [75] = 1233,
+}
 
 -- Non-combat zone IDs (safe zones where combat is blocked)
 local non_combat_zone_ids = {
@@ -1144,9 +1169,54 @@ function common.add_tracked_target(entity)
         server_id    = server_id,
         name         = name,
         target_index = entity.TargetIndex or 0,
+        main_job     = nil,
+        sub_job      = nil,
+        main_level   = nil,
+        sub_level    = nil,
     }
-    common.printf('Now tracking: %s', name)
+
+    pending_checks[server_id] = os.clock()
+    AshitaCore:GetChatManager():QueueCommand(1, string.format('/check %s', name))
+
+    common.printf('Now tracking: %s (checking level...)', name)
     return true
+end
+
+-- Handle incoming packet 0x0C9 (character check response).
+-- Sub-type byte at 0x00A: 0x03 = first packet (no data), 0x01 = second packet (has data).
+-- Layout of the data packet:
+--   0x022  main_job  (uint8)
+--   0x023  sub_job   (uint8)
+--   0x024  main_level (uint8)
+--   0x025  sub_level  (uint8)
+function common.handle_check_packet(packet)
+    if not packet or #packet < 0x26 then return end
+
+    local sub_type = struct.unpack('B', packet, 0x0A + 1)
+    if sub_type ~= 0x01 then return end
+
+    local main_job  = struct.unpack('B', packet, 0x022 + 1)
+    local sub_job   = struct.unpack('B', packet, 0x023 + 1)
+    local main_level = struct.unpack('B', packet, 0x024 + 1)
+    local sub_level  = struct.unpack('B', packet, 0x025 + 1)
+    if not main_level or main_level == 0 then return end
+
+    local now = os.clock()
+    for sid, timestamp in pairs(pending_checks) do
+        if (now - timestamp) > PENDING_CHECK_TIMEOUT then
+            pending_checks[sid] = nil
+        elseif tracked_targets[sid] then
+            tracked_targets[sid].main_job   = (main_job  and main_job  > 0) and main_job  or nil
+            tracked_targets[sid].sub_job    = (sub_job   and sub_job   > 0) and sub_job   or nil
+            tracked_targets[sid].main_level = main_level
+            tracked_targets[sid].sub_level  = (sub_level and sub_level > 0) and sub_level or nil
+            pending_checks[sid] = nil
+            common.debugf('[Check] %s resolved: job=%d/%d lv=%d/%d',
+                tracked_targets[sid].name,
+                main_job or 0, sub_job or 0, main_level, sub_level or 0)
+            return
+        end
+    end
 end
 
 -- Remove a tracked target by server_id.
@@ -1892,11 +1962,15 @@ function common.refresh_game_state()
 
             -- Only HPPercent is available for non-party entities from GetEntity();
             -- raw HP is not exposed in the FFXI entity array for non-party PCs.
-            local hp = 0
+            -- Priority: (1) observed-at-100% cache, (2) level-based estimate from AVERAGE_HP_BY_LEVEL.
             if not member_max_stats[sid] then
                 member_max_stats[sid] = {}
             end
             local max_hp = member_max_stats[sid].max_hp or 0
+            if max_hp == 0 and tt.main_level then
+                max_hp = AVERAGE_HP_BY_LEVEL[tt.main_level] or 0
+            end
+            local hp = (max_hp > 0) and math.floor(hpp * max_hp / 100) or 0
 
             -- Buffs via packet tracking (same table as Trusts)
             local buffs = trust_buffs[sid] or {}
@@ -1908,6 +1982,10 @@ function common.refresh_game_state()
                 hp           = hp,
                 hpp          = hpp,
                 max_hp       = max_hp,
+                main_job     = tt.main_job,
+                sub_job      = tt.sub_job,
+                main_level   = tt.main_level,
+                sub_level    = tt.sub_level,
                 buffs        = buffs,
                 position     = position,
                 is_tracked   = true,
@@ -1915,13 +1993,21 @@ function common.refresh_game_state()
             }
         else
             -- Entity not visible; keep entry but mark inactive
+            local cached_max_hp = (member_max_stats[sid] or {}).max_hp or 0
+            if cached_max_hp == 0 and tt.main_level then
+                cached_max_hp = AVERAGE_HP_BY_LEVEL[tt.main_level] or 0
+            end
             state.tracked[sid] = {
                 server_id    = sid,
                 name         = tt.name,
                 target_index = 0,
                 hp           = 0,
                 hpp          = 0,
-                max_hp       = (member_max_stats[sid] or {}).max_hp or 0,
+                max_hp       = cached_max_hp,
+                main_job     = tt.main_job,
+                sub_job      = tt.sub_job,
+                main_level   = tt.main_level,
+                sub_level    = tt.sub_level,
                 buffs        = trust_buffs[sid] or {},
                 position     = {x = 0, y = 0, z = 0},
                 is_tracked   = true,
