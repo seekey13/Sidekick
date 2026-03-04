@@ -139,8 +139,22 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                     goto continue_ability
                 end
                 
-                -- Priority order: ME, P1, P2, P3, P4, P5
+                -- Priority order: ME, P1-P5, A10-A15, A20-A25
                 local targets_to_check = {0, 1, 2, 3, 4, 5}  -- 0 = ME, 1-5 = P1-P5
+                -- Add active alliance members
+                local party_obj = common.get_party()
+                if party_obj then
+                    for i = 6, 11 do
+                        if party_obj:GetMemberIsActive(i) == 1 then
+                            table.insert(targets_to_check, 'a1' .. (i - 6))
+                        end
+                    end
+                    for i = 12, 17 do
+                        if party_obj:GetMemberIsActive(i) == 1 then
+                            table.insert(targets_to_check, 'a2' .. (i - 12))
+                        end
+                    end
+                end
                 
                 for _, target_index in ipairs(targets_to_check) do
                     -- Check if this target is enabled in party_buff_config
@@ -152,13 +166,14 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                     if is_target_enabled then
                         local target_needs_buff = false
                         local target_entity_index = nil
+                        local target_buffs = nil
                         
                         -- Get target buffs and entity index
                         if target_index == 0 then
                             -- ME: Check player buffs from game_state
                             target_buffs = state.player.buffs or {}
                             target_entity_index = 0
-                        else
+                        elseif type(target_index) == 'number' then
                             -- P1-P5: Check party member buffs from game_state
                             -- Zone check stays as live call (zone not stored in game_state)
                             local party_member = state.party[target_index]
@@ -177,14 +192,34 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                                 -- Party member not active in game_state, skip
                                 goto continue_target
                             end
+                        elseif type(target_index) == 'string' and target_index:match('^a[12]%d$') then
+                            -- Alliance members: a10-a15, a20-a25
+                            local alliance_num = tonumber(target_index:sub(2, 2))
+                            local member_num = tonumber(target_index:sub(3, 3))
+                            local actual_index = (alliance_num == 1) and (6 + member_num) or (12 + member_num)
+                            local alliance_party = common.get_party()
+                            if alliance_party and alliance_party:GetMemberIsActive(actual_index) == 1 then
+                                target_entity_index = alliance_party:GetMemberTargetIndex(actual_index)
+                                local player_zone = common.get_party_member_zone(0)
+                                local member_zone = common.get_party_member_zone(actual_index)
+                                if target_entity_index and target_entity_index > 0 and player_zone == member_zone and common.is_in_range(target_entity_index, 20) then
+                                    target_buffs = common.get_party_buffs(actual_index)
+                                else
+                                    goto continue_target
+                                end
+                            else
+                                goto continue_target
+                            end
                         end
                         
                         -- Check if target needs buff
-                        target_needs_buff = action_core.needs_buff(target_buffs, ability.buff_id)
+                        if target_buffs then
+                            target_needs_buff = action_core.needs_buff(target_buffs, ability.buff_id)
+                        end
                         
                         if target_needs_buff then
                             -- Check if this ability requires a target modifier (Pianissimo, Entrust, etc.)
-                            if ability.target_modifier and target_index > 0 then
+                            if ability.target_modifier and target_index ~= 0 then
                                 -- Check if we already have the modifier buff active
                                 local has_modifier_buff = false
                                 if job_def.abilities.target_modifier and #job_def.abilities.target_modifier > 0 then
@@ -206,8 +241,19 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                                 -- If we reach here, we have the modifier buff, proceed to cast the song
                             end
                             
-                            -- Use action_core for resource + cooldown + command building
-                            local target_name = target_index == 0 and 'self' or (state.party[target_index] and state.party[target_index].name or ('P' .. target_index))
+                            -- Build target name for description
+                            local target_name
+                            if target_index == 0 then
+                                target_name = 'self'
+                            elseif type(target_index) == 'number' then
+                                target_name = state.party[target_index] and state.party[target_index].name or ('P' .. target_index)
+                            else
+                                -- Alliance member string key (e.g. 'a10')
+                                local alliance_num = tonumber(target_index:sub(2, 2))
+                                local member_num = tonumber(target_index:sub(3, 3))
+                                local actual_index = (alliance_num == 1) and (6 + member_num) or (12 + member_num)
+                                target_name = common.get_party_member_name(actual_index) or target_index:upper()
+                            end
                             local desc = string.format('Applying buff: %s to %s', ability.name, target_name)
 
                             local result, reason = action_core.try_use(ability, job_def, settings, target_index, desc, state)

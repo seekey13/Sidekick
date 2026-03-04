@@ -306,7 +306,7 @@ end
 --]]
 targetslib.get_party_member = function (index)
     if (index >= 18) then
-        error('invalid party member index; expected 0 to 5');
+        error('invalid party member index; expected 0 to 17');
     end
     return GetEntity(AshitaCore:GetMemoryManager():GetParty():GetMemberTargetIndex(index));
 end

@@ -601,6 +601,95 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
         end
     end
     
+    -- Render alliance member buttons (A10-A15, A20-A25)
+    -- These are session-only (not saved to settings)
+    local party = common.get_party()
+    if party then
+        -- Alliance 1 (indices 6-11 → A10-A15)
+        for alliance_index = 6, 11 do
+            if party:GetMemberIsActive(alliance_index) == 1 then
+                imgui.SameLine()
+
+                local button_index = 'a1' .. (alliance_index - 6)
+                local is_enabled = is_group and is_group_party_buff_enabled(ctx, key_name, button_index) or is_party_buff_enabled(ctx, key_name, button_index)
+
+                local alliance_has_spell = has_spell and has_target_modifier
+
+                if not alliance_has_spell then
+                    imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_DISABLED)
+                    imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_DISABLED)
+                    imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_DISABLED)
+                    imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
+                elseif is_enabled then
+                    -- Use default colors
+                else
+                    imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_UNSELECTED)
+                    imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_UNSELECTED_HOVER)
+                    imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_UNSELECTED_ACTIVE)
+                end
+
+                local button_label = '<A' .. (alliance_index - 6 + 10) .. '>##' .. key_name .. '_a1' .. (alliance_index - 6)
+                if alliance_has_spell and imgui.Button(button_label, { PARTY_BUTTON_WIDTH, 0 }) then
+                    if is_group then
+                        toggle_group_party_buff(ctx, key_name, button_index, not is_enabled)
+                    else
+                        toggle_party_buff(ctx, key_name, button_index, not is_enabled)
+                    end
+                elseif not alliance_has_spell then
+                    imgui.Button(button_label, { PARTY_BUTTON_WIDTH, 0 })
+                end
+
+                if not alliance_has_spell then
+                    imgui.PopStyleColor(4)
+                elseif not is_enabled then
+                    imgui.PopStyleColor(3)
+                end
+            end
+        end
+
+        -- Alliance 2 (indices 12-17 → A20-A25)
+        for alliance_index = 12, 17 do
+            if party:GetMemberIsActive(alliance_index) == 1 then
+                imgui.SameLine()
+
+                local button_index = 'a2' .. (alliance_index - 12)
+                local is_enabled = is_group and is_group_party_buff_enabled(ctx, key_name, button_index) or is_party_buff_enabled(ctx, key_name, button_index)
+
+                local alliance_has_spell = has_spell and has_target_modifier
+
+                if not alliance_has_spell then
+                    imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_DISABLED)
+                    imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_DISABLED)
+                    imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_DISABLED)
+                    imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
+                elseif is_enabled then
+                    -- Use default colors
+                else
+                    imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_UNSELECTED)
+                    imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_UNSELECTED_HOVER)
+                    imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_UNSELECTED_ACTIVE)
+                end
+
+                local button_label = '<A' .. (alliance_index - 12 + 20) .. '>##' .. key_name .. '_a2' .. (alliance_index - 12)
+                if alliance_has_spell and imgui.Button(button_label, { PARTY_BUTTON_WIDTH, 0 }) then
+                    if is_group then
+                        toggle_group_party_buff(ctx, key_name, button_index, not is_enabled)
+                    else
+                        toggle_party_buff(ctx, key_name, button_index, not is_enabled)
+                    end
+                elseif not alliance_has_spell then
+                    imgui.Button(button_label, { PARTY_BUTTON_WIDTH, 0 })
+                end
+
+                if not alliance_has_spell then
+                    imgui.PopStyleColor(4)
+                elseif not is_enabled then
+                    imgui.PopStyleColor(3)
+                end
+            end
+        end
+    end
+
     -- Render tracked target buttons for every buff row.
     -- Buttons are grayed out and non-clickable when the ability is not compatible
     -- with out-of-party targets (i.e. ability.target_outside is not set).
