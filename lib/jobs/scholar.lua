@@ -43,7 +43,7 @@ return {
                 id = 232,  -- Job ability ID
                 command = '/ja "Dark Arts" <me>',
                 group = 'arts',
-                buff_id = {359, 402},
+                buff_id = {359, 402},  -- Can be either 359 or 402
             },
             {
                 name = 'Addendum: Black',
@@ -403,6 +403,15 @@ return {
             --     requires_buff = 401,  -- Addendum: White
             --     buff_id = 360,
             -- },
+            -- {
+            --     name = 'Enlightenment',
+            --     level = 75,
+            --     cost = 0,
+            --     id = 235,  -- Job ability ID
+            --     command = '/ja "Enlightenment" <me>',
+            --     requires_buff = {359, 402},  -- Can be either 359 or 402
+            --     buff_id = 416,
+            -- },
             {
                 name = 'Invisible',
                 level = 25,
@@ -609,7 +618,7 @@ return {
                 cost = 0,
                 id = 234,  -- Job ability ID
                 command = '/ja "Sublimation" <me>',
-                requires_buff = 188,  -- Requires Sublimation: Complete
+                requires_buff = {187, 188},  -- Requires Sublimation: Activated or Complete
             },
         },
 

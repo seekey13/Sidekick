@@ -42,6 +42,18 @@ local HEADER_COLOR_NORMAL = { 0.2, 0.2, 0.2, 0.31 }
 local HEADER_COLOR_HOVERED = { 0.2, 0.2, 0.2, 0.45 }
 local HEADER_COLOR_ACTIVE = { 0.2, 0.2, 0.2, 0.65 }
 
+-- Scholar stratagem definitions (ordered highest → lowest for display)
+local SCHOLAR_STRATAGEMS = {
+    { name = 'Perpetuance', desc = '+Duration',   min_level = 75 },
+    { name = 'Accession',   desc = '+AOE',        min_level = 40 },
+    { name = 'Celerity',    desc = '-Cast Time',  min_level = 25 },
+    { name = 'Penury',      desc = '-MP Cost',    min_level = 10 },
+}
+
+-- Scholar stratagem selections (session only, not persisted)
+-- scholar_stratagems[ability_key] = stratagem name string, or nil for none
+local scholar_stratagems = {}
+
 -- ============================================================================
 -- Helper Functions
 -- ============================================================================
@@ -481,6 +493,83 @@ local function get_onoff_button_width()
 end
 
 -- ============================================================================
+-- Scholar Stratagem Button
+-- ============================================================================
+
+-- Render the ⋮ Scholar stratagem selector button for a single ability row.
+-- ability_key: unique string key for the ability (e.g. ability name or group name)
+-- Returns true if the button was rendered (so callers know to SameLine after it).
+local function render_scholar_stratagem_button(ability_key)
+    -- Resolve Scholar level from main or sub job (SCH = job ID 20)
+    local main_job_id, sub_job_id = common.get_player_job()
+    local main_level, sub_level   = common.get_player_level()
+
+    local sch_level = 0
+    if main_job_id == 20 then
+        sch_level = main_level
+    elseif sub_job_id == 20 then
+        sch_level = sub_level
+    end
+
+    if sch_level < 10 then
+        return false
+    end
+
+    -- Collect stratagems available at this level
+    local available = {}
+    for _, s in ipairs(SCHOLAR_STRATAGEMS) do
+        if sch_level >= s.min_level then
+            table.insert(available, s)
+        end
+    end
+
+    if #available == 0 then
+        return false
+    end
+
+    local selected  = scholar_stratagems[ability_key]
+    local popup_id  = '##sch_strat_popup_' .. ability_key
+
+    -- Color: default (active) when a stratagem is chosen, gray when idle
+    if not selected then
+        imgui.PushStyleColor(ImGuiCol_Button,        COLOR_BUTTON_UNSELECTED)
+        imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_UNSELECTED_HOVER)
+        imgui.PushStyleColor(ImGuiCol_ButtonActive,  COLOR_BUTTON_UNSELECTED_ACTIVE)
+    end
+
+    if imgui.Button('S##sch_' .. ability_key, { 20, 0 }) then
+        imgui.OpenPopup(popup_id)
+    end
+
+    if not selected then
+        imgui.PopStyleColor(3)
+    end
+
+    if imgui.BeginPopup(popup_id) then
+        imgui.TextColored({ 0.8, 0.8, 0.8, 1.0 }, 'Scholar Stratagem')
+        imgui.Separator()
+
+        -- None option
+        if imgui.Selectable('None##sch_none_' .. ability_key, selected == nil) then
+            scholar_stratagems[ability_key] = nil
+        end
+
+        for _, s in ipairs(available) do
+            local label   = s.name .. '  (' .. s.desc .. ')##sch_opt_' .. s.name .. '_' .. ability_key
+            local is_sel  = (selected == s.name)
+            if imgui.Selectable(label, is_sel) then
+                scholar_stratagems[ability_key] = s.name
+            end
+        end
+
+        imgui.EndPopup()
+    end
+
+    imgui.SameLine(0, SPACE_BETWEEN_BUTTONS)
+    return true
+end
+
+-- ============================================================================
 -- Party Button Helper
 -- ============================================================================
 
@@ -489,7 +578,10 @@ end
 -- For grouped abilities, pass group_name instead of ability_name
 local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
     local any_rendered = false
-    
+
+    -- Scholar stratagem button (prepended to every row when SCH >= 10)
+    render_scholar_stratagem_button(key_name)
+
     -- Check if this ability requires a target modifier (like Pianissimo)
     if not ability then
         ability = find_ability_by_name(ctx.job_def, key_name)
@@ -737,6 +829,10 @@ end
 -- Render an ON/OFF button for ability state
 function ui_components.onoff_button(ctx, ability_name, job_def, has_spell)
     has_spell = has_spell == nil and true or has_spell
+
+    -- Scholar stratagem button (prepended to every row when SCH >= 10)
+    render_scholar_stratagem_button(ability_name)
+
     local is_enabled = is_ability_enabled(ctx, ability_name)
     local button_width = get_onoff_button_width()
     
@@ -921,6 +1017,9 @@ function ui_components.self_grouped_ability(ctx, ability, job_def)
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GREEN)
     end
     
+    -- Scholar stratagem button (prepended to every row when SCH >= 10)
+    render_scholar_stratagem_button(ability.group)
+
     -- Use group-based ON/OFF button
     local is_enabled = is_group_enabled(ctx, ability.group)
     local button_width = get_onoff_button_width()
