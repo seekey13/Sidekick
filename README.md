@@ -57,6 +57,8 @@ A focused, support-oriented addon for Ashita v4 that automates healing, buffing,
 ## Features
 
 ### Core Support Actions
+- **Revive / Raise**: Automatically raises dead party members, tracked targets, and alliance members using Raise, Raise II, or Arise. Respects prerequisite buffs (Scholar requires Addendum: White), validates range, and falls back to the next available raise spell. Out-of-combat only (`idle_only`).
+- **Mount Detection**: Automation is fully suppressed while riding a mount (detected via entity status 5 or buff 252). Configuration panel shows "Automation paused (mounted)" in this state.
 - **Alliance Support**: Automatically heals, removes debuffs, wakes, and applies buffs to alliance sub-party members (parties B and C) using abilities flagged with `target_outside = true`.
 - **Tracked Targets**: Session-scoped tracking of out-of-party players for heal, buff, and status removal automation. (Power Leveling)
 - **Item-Based Status Removal**: Automatically use consumable items to remove critical debuffs (Echo Drops for Silence, Holy Water for Doom) with inventory tracking and smart zone-load handling
@@ -136,6 +138,7 @@ Currently implemented support jobs:
 - **Red Mage** (RDM)
   - Single-target healing with white magic (Cure I-IV)
   - Buff with enhancing magic (Protect I-IV, Shell I-IV, Haste, Refresh, Phalanx, Phalanx II, Enfire, Enblizzard, Enaero, Enstone, Enthunder, Enwater, Stoneskin, Blink, Aquaveil, Sneak, Invisible, Deodorize)
+  - Revive with white magic (Raise)
 
 - **Rune Fencer** (RUN)
   - AOE healing with job abilities (Vivacious Pulse)
@@ -144,6 +147,7 @@ Currently implemented support jobs:
 - **Scholar** (SCH)
   - Single-target healing with white magic (Cure I-IV)
   - Debuff removal with white magic (Poisona, Paralyna, Blindna, Silena, Cursna, Erase, Viruna, Stona)
+  - Revive with white magic (Raise, Raise II — requires Addendum: White)
   - Buff with enhancing magic (Protect I-IV, Shell I-IV, Regen I-III, Reraise, Reraise II, Stoneskin, Blink, Aquaveil, Sneak, Invisible, Deodorize)
   - Buff with geomancy spells (Sandstorm, Rainstorm, Windstorm, Firestorm, Hailstorm, Thunderstorm, Voidstorm, Aurorastorm, Klimaform)
   - Buff with elemental magic (Blaze Spikes, Ice Spikes, Shock Spikes)
@@ -160,6 +164,7 @@ Currently implemented support jobs:
 - **White Mage** (WHM)
   - Critical HP abilities (Divine Seal, Martyr)
   - Single-target healing with white magic (Cure I-V)
+  - Revive with white magic (Raise, Raise II, Arise)
   - AOE healing with white magic (Curaga I-IV)
   - Debuff removal with white magic (Poisona, Paralyna, Blindna, Silena, Cursna, Erase, Viruna, Stona, Esuna)
   - Buff with white magic (Protectra I-V, Shellra I-V, Protect I-IV, Shell I-IV, Haste, Regen I-III, Reraise, Reraise II, Reraise III, Auspice, Aquaveil, Blink, Stoneskin, Enlight, Barfira, Barblizzara, Baraera, Barstonra, Barthundra, Barwatera, Barsleepra, Barpoisonra, Barparalyzra, Barblindra, Barsilencera, Barvira, Barpetra, Baramnesra)

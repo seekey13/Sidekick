@@ -74,7 +74,7 @@ local function fmt_pos(pos)
 end
 
 -- Short label for entity status values
-local STATUS_LABELS = { [0]='Idle', [1]='Engaged', [2]='Dead', [3]='Dead', [5]='Mounted', [33]='Resting', [47]='Sitting' }
+local STATUS_LABELS = { [0]='Idle', [1]='Engaged', [2]='Dead 2', [3]='Dead', [5]='Mounted', [33]='Resting', [47]='Sitting' }
 local function fmt_status(s)
     if s == nil or s == -1 then return '--' end
     -- tonumber() ensures cdata/boxed integers from Ashita's Lua bindings
