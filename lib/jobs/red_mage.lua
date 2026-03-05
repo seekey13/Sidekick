@@ -606,22 +606,23 @@ return {
                 id = 49,  -- Job ability
                 command = '/ja "Convert" <me>',
             },
-        }
+        },
 
         -- Revive
-        -- revive = {
-        --     {
-        --         name = 'Raise',
-        --         level = 38,
-        --         cost = 150,
-        --         id = 12,  -- Spell ID
-        --         command = function(party_index)
-        --             return '/ma "Raise" '..target
-        --         end,
-        --         range = 18,
-        --         combat_only = false,
-        --     },
-        -- },
+        revive = {
+            {
+                name = 'Raise',
+                level = 38,
+                cost = 150,
+                id = 12,  -- Spell ID
+                command = function(target)
+                    return '/ma "Raise" '..target
+                end,
+                range = 18,
+                idle_only = true,
+                target_outside = true,
+            },
+        },
     },
     
     -- Default settings for UI
@@ -643,6 +644,7 @@ return {
         rest_timer = 5,
         rest_threshold = 70,
         rest_distance = 7,
+        revive_enabled = true,
     },
     
     -- Action priority order
@@ -651,8 +653,8 @@ return {
         'recover',
         'heal',
         'wake',
+        'revive',
         'buff',
         'rest',
-        -- revive,
     },
 }

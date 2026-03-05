@@ -40,6 +40,7 @@ local action_modules = {
     recover        = require('lib.actions.recover'),
     geo            = require('lib.actions.geo'),
     rest           = require('lib.actions.rest'),
+    revive         = require('lib.actions.revive'),
 }
 
 -- Load config UI
@@ -217,6 +218,7 @@ local function load_job_definition(main_job_id, sub_job_id)
         'wake',
         'geo',
         'buff',
+        'revive',
         'rest',
     }
     
@@ -285,6 +287,31 @@ local function load_job_definition(main_job_id, sub_job_id)
     common.printf('Loaded job definition: %s', job_name)
     
     return merged_def
+end
+
+-- Returns the entity_status of a member by server_id from the current game_state snapshot.
+-- Checks player, party, tracked targets, and alliance. Returns -1 if not found.
+local function get_entity_status_in_gs(server_id)
+    if not server_id or server_id == 0 then return -1 end
+    local gs = common.game_state
+    if not gs then return -1 end
+    for i = 0, 5 do
+        local m = i == 0 and gs.player or gs.party[i]
+        if m and m.server_id == server_id then return m.entity_status or -1 end
+    end
+    if gs.tracked and gs.tracked[server_id] then
+        return gs.tracked[server_id].entity_status or -1
+    end
+    if gs.alliance then
+        for al_pi = 2, 3 do
+            if gs.alliance[al_pi] then
+                for _, m in pairs(gs.alliance[al_pi]) do
+                    if m and m.server_id == server_id then return m.entity_status or -1 end
+                end
+            end
+        end
+    end
+    return -1
 end
 
 local function setup_job()
@@ -389,7 +416,11 @@ local function automation_tick()
     if not automation_enabled then
         return
     end
-    
+
+    if common.is_mounted() then
+        return
+    end
+
     if not job_def then
         return
     end
@@ -556,6 +587,7 @@ local function automation_tick()
         'wake',
         'geo',
         'buff',
+        'revive',
         'rest',
     }
     
@@ -754,27 +786,38 @@ ashita.events.register('packet_in', 'medic_packet_in', function(e)
                 -- Resolve target name via fast index lookup (avoid O(2304) scan)
                 local target_name = common.resolve_entity_name(server_id)
 
-                -- Resolve buff name
-                local buff_name = AshitaCore:GetResourceManager():GetString('buffs.names', buff_id)
-                if not buff_name or buff_name == '' then
-                    buff_name = 'Buff#' .. buff_id
-                end
+                -- When the target is dead (entity_status == 3), the server sends a 0x029
+                -- packet whose param is the SPELL ID of the rejected raise — not a buff ID.
+                -- Treat this as a signal that the target already has a pending raise.
+                if get_entity_status_in_gs(server_id) == 3 then
+                    common.debugf('[REVIVE] %s is dead — 0x029 param %d is a rejected raise spell ID; setting pending_raise flag',
+                        target_name, buff_id)
+                    common.set_pending_raise(server_id)
+                else
+                    -- Target is alive: param is a real buff ID, run normal tracking.
 
-                common.debugf('%s gained the effect of %s (via 0x029).', target_name, buff_name)
+                    -- Resolve buff name
+                    local buff_name = AshitaCore:GetResourceManager():GetString('buffs.names', buff_id)
+                    if not buff_name or buff_name == '' then
+                        buff_name = 'Buff#' .. buff_id
+                    end
 
-                -- Update Trust buff tracking
-                if server_id >= 0x1000000 then
-                    common.apply_trust_buff(server_id, buff_id)
-                end
+                    common.debugf('%s gained the effect of %s (via 0x029).', target_name, buff_name)
 
-                -- Update tracked target buff tracking
-                if common.is_tracked_target(server_id) then
-                    common.apply_tracked_target_buff(server_id, buff_id)
-                end
+                    -- Update Trust buff tracking
+                    if server_id >= 0x1000000 then
+                        common.apply_trust_buff(server_id, buff_id)
+                    end
 
-                -- Update alliance member buff tracking
-                if common.is_alliance_member(server_id) then
-                    common.apply_alliance_member_buff(server_id, buff_id)
+                    -- Update tracked target buff tracking
+                    if common.is_tracked_target(server_id) then
+                        common.apply_tracked_target_buff(server_id, buff_id)
+                    end
+
+                    -- Update alliance member buff tracking
+                    if common.is_alliance_member(server_id) then
+                        common.apply_alliance_member_buff(server_id, buff_id)
+                    end
                 end
             end
         end

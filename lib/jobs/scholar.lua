@@ -633,33 +633,35 @@ return {
             },
         },
 
-        -- -- Revive
-        -- revive = {
-        --     {
-        --         name = 'Raise II',
-        --         level = 70,
-        --         cost = 150,
-        --         id = 141,  -- Spell ID
-        --         command = function(party_index)
-        --             return '/ma "Raise II" '..target
-        --         end,
-        --         range = 20,
-        --         idle_only = true,
-        --         requires_buff = 401,  -- Requires Addendum: White
-        --     },
-        --     {
-        --         name = 'Raise',
-        --         level = 35,
-        --         cost = 150,
-        --         id = 12,  -- Spell ID
-        --         command = function(party_index)
-        --             return '/ma "Raise" '..target
-        --         end,
-        --         range = 20,
-        --         idle_only = true,
-        --         requires_buff = 401,  -- Requires Addendum: White
-        --     },
-        -- },
+        -- Revive
+        revive = {
+            {
+                name = 'Raise II',
+                level = 70,
+                cost = 150,
+                id = 141,  -- Spell ID
+                command = function(target)
+                    return '/ma "Raise II" '..target
+                end,
+                range = 20,
+                idle_only = true,
+                requires_buff = 401,  -- Requires Addendum: White
+                target_outside = true,
+            },
+            {
+                name = 'Raise',
+                level = 35,
+                cost = 150,
+                id = 12,  -- Spell ID
+                command = function(target)
+                    return '/ma "Raise" '..target
+                end,
+                range = 20,
+                idle_only = true,
+                requires_buff = 401,  -- Requires Addendum: White
+                target_outside = true,
+            },
+        },
     },
     
     -- Job-specific validators
@@ -686,6 +688,7 @@ return {
         rest_timer = 5,
         rest_threshold = 70,
         rest_distance = 7,
+        revive_enabled = true,
     },
     
     -- Action priority order
@@ -696,6 +699,7 @@ return {
         'heal',
         'debuff_removal',
         'wake',
+        'revive',
         'buff',
         'rest',
     },

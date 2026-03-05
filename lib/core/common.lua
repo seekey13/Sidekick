@@ -38,6 +38,9 @@ local movement_state = {
 -- Resting state tracking
 local is_resting = false
 
+-- Mount state tracking
+local is_mounted = false
+
 -- Rest conditions timer (shared so other modules can reset it)
 -- Holds the os.clock() timestamp when rest conditions first became favorable (0 = not started)
 local rest_conditions_met_time = 0
@@ -66,6 +69,11 @@ local tracked_targets = {}
 -- Pending check requests: server_id -> timestamp (waiting for 0x0C9 response)
 local pending_checks = {}
 local PENDING_CHECK_TIMEOUT = 10.0
+
+-- Pending raise flags: set when a 0x029 packet arrives for a dead target,
+-- indicating the server rejected a raise spell because one is already pending.
+-- Cleared in refresh_game_state when entity_status returns to non-dead.
+local pending_raise_flags = {}  -- pending_raise_flags[server_id] = true
 
 -- Average HP by level, averaged across all races/jobs in FFXI.
 -- Used to estimate max HP for non-party tracked targets before they are seen at 100%.
@@ -403,11 +411,6 @@ function common.is_player_moving()
     -- Compare with last known position
     local last_pos = movement_state.last_position
     movement_state.is_moving = (x ~= last_pos[1] or y ~= last_pos[2] or z ~= last_pos[3])
-
-    -- Cancel resting when the player moves
-    if movement_state.is_moving then
-        is_resting = false
-    end
 
     -- Update last known position
     movement_state.last_position = {x, y, z}
@@ -1125,6 +1128,25 @@ function common.clear_trust_buffs()
     pending_buffs = {}
     member_max_stats = {}
     alliance_member_sids = {}
+    pending_raise_flags = {}
+end
+
+-- Set pending raise flag for a server_id (called from 0x029 handler when target is dead).
+function common.set_pending_raise(server_id)
+    if not server_id or server_id == 0 then return end
+    pending_raise_flags[server_id] = true
+end
+
+-- Returns true if the given server_id has a pending raise flag set.
+function common.has_pending_raise(server_id)
+    if not server_id or server_id == 0 then return false end
+    return pending_raise_flags[server_id] == true
+end
+
+-- Explicitly clear the pending raise flag for a server_id.
+function common.clear_pending_raise(server_id)
+    if not server_id or server_id == 0 then return end
+    pending_raise_flags[server_id] = nil
 end
 
 -- Check if a server_id belongs to an active alliance member.
@@ -1738,7 +1760,9 @@ end
 -- Resting State Management
 -- ============================================================================
 
--- Get resting state
+-- Get resting state.
+-- The value is refreshed once per automation tick inside refresh_game_state()
+-- from the player's cached entity_status, avoiding per-call GetPlayerEntity() overhead.
 function common.is_resting()
     return is_resting
 end
@@ -1746,6 +1770,17 @@ end
 -- Set resting state
 function common.set_resting(state)
     is_resting = state
+end
+
+-- ============================================================================
+-- Mount State Management
+-- ============================================================================
+
+-- Get mount state.
+-- Synced once per tick inside refresh_game_state() via the player's entity_status (5 = mounted)
+-- and buff array (buff 252 = Mounted), checked with OR as a safeguard.
+function common.is_mounted()
+    return is_mounted
 end
 
 -- ============================================================================
@@ -1862,12 +1897,18 @@ local function build_member_snapshot(party_mgr, entity_mgr, flat_index)
     end, '')
 
     local position = {x = 0, y = 0, z = 0}
+    local entity_status = -1
     if entity_mgr and target_idx and target_idx > 0 then
         local ok_x, px = pcall(function() return entity_mgr:GetLocalPositionX(target_idx) end)
         local ok_y, py = pcall(function() return entity_mgr:GetLocalPositionY(target_idx) end)
         local ok_z, pz = pcall(function() return entity_mgr:GetLocalPositionZ(target_idx) end)
         if ok_x and ok_y and ok_z then
             position = {x = px, y = py, z = pz}
+        end
+        local ent = GetEntity(target_idx)
+        if ent then
+            local ok_s, s = pcall(function() return ent.Status end)
+            if ok_s and s ~= nil then entity_status = s end
         end
     end
 
@@ -1901,8 +1942,9 @@ local function build_member_snapshot(party_mgr, entity_mgr, flat_index)
         sub_job_name = sub_job_name,
         main_level   = main_level,
         sub_level    = sub_level,
-        is_trust     = (server_id >= 0x1000000),
-        is_active    = true,
+        is_trust      = (server_id >= 0x1000000),
+        is_active     = true,
+        entity_status = entity_status,
         -- Player-only extras (zeroed for all non-player members)
         fm           = 0,
         pet_hpp      = 0,
@@ -1973,6 +2015,22 @@ function common.refresh_game_state()
                 end
 
                 state.player = member
+
+                -- Sync is_resting from the player's entity Status (33 = resting).
+                -- Only update when the status was successfully read (>= 0) to avoid
+                -- clobbering the cached value on a transient entity read failure.
+                if member.entity_status >= 0 then
+                    is_resting = (member.entity_status == 33)
+                end
+
+                -- Sync is_mounted: entity Status 5 OR buff 252 (Mounted), whichever fires first.
+                local has_mount_buff = false
+                if member.buffs then
+                    for _, bid in ipairs(member.buffs) do
+                        if bid == 252 then has_mount_buff = true break end
+                    end
+                end
+                is_mounted = (member.entity_status == 5) or has_mount_buff
             else
                 state.party[i] = member
             end
@@ -2057,21 +2115,26 @@ function common.refresh_game_state()
             -- Buffs via packet tracking (same table as Trusts)
             local buffs = trust_buffs[sid] or {}
 
+            local t_entity_status = -1
+            local ok_es, es = pcall(function() return entity.Status end)
+            if ok_es and es ~= nil then t_entity_status = es end
+
             state.tracked[sid] = {
-                server_id    = sid,
-                name         = tt.name,
-                target_index = entity.TargetIndex,
-                hp           = hp,
-                hpp          = hpp,
-                max_hp       = max_hp,
-                main_job     = tt.main_job,
-                sub_job      = tt.sub_job,
-                main_level   = tt.main_level,
-                sub_level    = tt.sub_level,
-                buffs        = buffs,
-                position     = position,
-                is_tracked   = true,
-                is_active    = true,
+                server_id     = sid,
+                name          = tt.name,
+                target_index  = entity.TargetIndex,
+                hp            = hp,
+                hpp           = hpp,
+                max_hp        = max_hp,
+                main_job      = tt.main_job,
+                sub_job       = tt.sub_job,
+                main_level    = tt.main_level,
+                sub_level     = tt.sub_level,
+                buffs         = buffs,
+                position      = position,
+                is_tracked    = true,
+                is_active     = true,
+                entity_status = t_entity_status,
             }
         else
             -- Entity not visible; keep entry but mark inactive
@@ -2080,21 +2143,55 @@ function common.refresh_game_state()
                 cached_max_hp = AVERAGE_HP_BY_LEVEL[tt.main_level] or 0
             end
             state.tracked[sid] = {
-                server_id    = sid,
-                name         = tt.name,
-                target_index = 0,
-                hp           = 0,
-                hpp          = 0,
-                max_hp       = cached_max_hp,
-                main_job     = tt.main_job,
-                sub_job      = tt.sub_job,
-                main_level   = tt.main_level,
-                sub_level    = tt.sub_level,
-                buffs        = trust_buffs[sid] or {},
-                position     = {x = 0, y = 0, z = 0},
-                is_tracked   = true,
-                is_active    = false,
+                server_id     = sid,
+                name          = tt.name,
+                target_index  = 0,
+                hp            = 0,
+                hpp           = 0,
+                max_hp        = cached_max_hp,
+                main_job      = tt.main_job,
+                sub_job       = tt.sub_job,
+                main_level    = tt.main_level,
+                sub_level     = tt.sub_level,
+                buffs         = trust_buffs[sid] or {},
+                position      = {x = 0, y = 0, z = 0},
+                is_tracked    = true,
+                is_active     = false,
+                entity_status = -1,
             }
+        end
+    end
+
+    -- Clear pending_raise flags for any server_id whose entity is no longer dead.
+    -- Iterating a sparse table while modifying it is safe in Lua (next-based iteration).
+    for sid in pairs(pending_raise_flags) do
+        local still_dead = false
+        -- Check player and main party
+        for i = 0, 5 do
+            local m = i == 0 and state.player or state.party[i]
+            if m and m.server_id == sid and m.entity_status == 3 then
+                still_dead = true; break
+            end
+        end
+        -- Check tracked targets
+        if not still_dead and state.tracked and state.tracked[sid] then
+            if state.tracked[sid].entity_status == 3 then still_dead = true end
+        end
+        -- Check alliance sub-parties
+        if not still_dead and state.alliance then
+            for al_pi = 2, 3 do
+                if state.alliance[al_pi] then
+                    for _, m in pairs(state.alliance[al_pi]) do
+                        if m and m.server_id == sid and m.entity_status == 3 then
+                            still_dead = true; break
+                        end
+                    end
+                end
+            end
+        end
+        if not still_dead then
+            common.debugf('[REVIVE] server_id %d is no longer dead — clearing pending raise flag', sid)
+            pending_raise_flags[sid] = nil
         end
     end
 end

@@ -73,6 +73,15 @@ local function fmt_pos(pos)
     return string.format('%.1f, %.1f, %.1f', pos.x or 0, pos.y or 0, pos.z or 0)
 end
 
+-- Short label for entity status values
+local STATUS_LABELS = { [0]='Idle', [1]='Engaged', [2]='Dead 2', [3]='Dead', [5]='Mounted', [33]='Resting', [47]='Sitting' }
+local function fmt_status(s)
+    if s == nil or s == -1 then return '--' end
+    -- tonumber() ensures cdata/boxed integers from Ashita's Lua bindings
+    -- compare correctly against the integer keys in STATUS_LABELS.
+    return STATUS_LABELS[tonumber(s)] or tostring(s)
+end
+
 -- Resolve a buff ID to a display string (name if available, else "#ID")
 local function buff_name(buff_id)
     local ok, name = pcall(function()
@@ -142,7 +151,7 @@ function panel.render()
             ImGuiTableFlags_SizingFixedFit
         )
 
-        if imgui.BeginTable('##ps_table', 11, TABLE_FLAGS, { 0, 0 }) then
+        if imgui.BeginTable('##ps_table', 12, TABLE_FLAGS, { 0, 0 }) then
             imgui.TableSetupColumn('Slot',    ImGuiTableColumnFlags_WidthFixed,  30)
             imgui.TableSetupColumn('Name',    ImGuiTableColumnFlags_WidthFixed,  100)
             imgui.TableSetupColumn('SrvID',   ImGuiTableColumnFlags_WidthFixed,  85)
@@ -150,6 +159,7 @@ function panel.render()
             imgui.TableSetupColumn('HP',       ImGuiTableColumnFlags_WidthFixed, 140)
             imgui.TableSetupColumn('MP',       ImGuiTableColumnFlags_WidthFixed, 140)
             imgui.TableSetupColumn('TP',      ImGuiTableColumnFlags_WidthFixed,  46)
+            imgui.TableSetupColumn('Status',  ImGuiTableColumnFlags_WidthFixed,  80)
             imgui.TableSetupColumn('Position',ImGuiTableColumnFlags_WidthFixed, 168)
             imgui.TableSetupColumn('Buffs',   ImGuiTableColumnFlags_WidthStretch)
             imgui.TableSetupColumn('Pet HP%', ImGuiTableColumnFlags_WidthFixed,  58)
@@ -226,6 +236,10 @@ function panel.render()
                 imgui.TableNextColumn()
                 imgui.Text(tostring(m.tp or 0))
 
+                -- ── Status ────────────────────────────────────────────────
+                imgui.TableNextColumn()
+                imgui.Text(fmt_status(m.entity_status))
+
                 -- ── Position ──────────────────────────────────────────────
                 imgui.TableNextColumn()
                 imgui.Text(fmt_pos(m.position))
@@ -280,6 +294,9 @@ function panel.render()
 
                 -- MP / TP  (not available)
                 imgui.TableNextColumn() imgui.TextDisabled('--')
+                imgui.TableNextColumn() imgui.TextDisabled('--')
+
+                -- Status (not available for pet)
                 imgui.TableNextColumn() imgui.TextDisabled('--')
 
                 -- Position
@@ -360,6 +377,10 @@ function panel.render()
                     -- TP (not available)
                     imgui.TableNextColumn()
                     imgui.TextDisabled('--')
+
+                    -- Status
+                    imgui.TableNextColumn()
+                    imgui.Text(fmt_status(m.entity_status))
 
                     -- Position
                     imgui.TableNextColumn()
@@ -461,6 +482,10 @@ function panel.render()
                             -- ── TP ────────────────────────────────────────
                             imgui.TableNextColumn()
                             imgui.Text(tostring(m.tp or 0))
+
+                            -- ── Status ────────────────────────────────────
+                            imgui.TableNextColumn()
+                            imgui.Text(fmt_status(m.entity_status))
 
                             -- ── Position ──────────────────────────────────
                             imgui.TableNextColumn()

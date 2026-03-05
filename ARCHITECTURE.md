@@ -30,6 +30,7 @@ lib/
     item.lua                Consumable-based status removal (Echo Drops, Holy Water)
     recover.lua             MP/TP recovery abilities
     rest.lua                Automatic resting (/heal) with follow-target awareness
+    revive.lua              Raise dead party/tracked/alliance members
     status_removal.lua      Debuff removal & sleep wake (single + AOE)
   jobs/
     bard.lua                BRD job definition
@@ -54,7 +55,7 @@ lib/
 ```
 ┌───────────────────────────────────────────────┐
 │  Medic.lua                                    │
-│  • Job/level detection & change handling       │
+│  • Job/level detection & change handling      │
 │  • Event loop (d3d_present)                   │
 │  • /medic command handler                     │
 │  • Settings load/save/merge                   │
@@ -71,11 +72,11 @@ lib/
        │                 │ components.lua   │
        │                 │  render helpers  │
        │                 │  constants       │
-       │                 └─────────────────┘
+       │                 └──────────────────┘
        ▼
 ┌───────────────────────────────────────────────┐
 │  automation.lua                               │
-│  • Priority-ordered action evaluation          │
+│  • Priority-ordered action evaluation         │
 │  • Command throttling (1 s default)           │
 │  • pcall error isolation per module           │
 └──────────┬────────────────────────────────────┘
@@ -83,8 +84,8 @@ lib/
            ▼
 ┌───────────────────────────────────────────────┐
 │  Action Modules  (actions/*.lua)              │
-│  heal → status_removal → item → recover      │
-│  → geo → buff → rest                         │
+│  heal → status_removal → item → recover       │
+│  → revive → geo → buff → rest                 │
 └──────────┬────────────────────────────────────┘
            │ uses
            ▼
@@ -107,7 +108,7 @@ lib/
 ### Automation Tick (every frame via `d3d_present`)
 
 ```
-1. Guard checks: addon loaded? automation enabled? in event/cutscene?
+1. Guard checks: addon loaded? automation enabled? mounted? in event/cutscene?
 2. Refresh game_state (party HP, buffs, server IDs, pet info)
 3. Check job/level change → reload job definition if needed
 4. Iterate priority_order (defined per job)
@@ -172,7 +173,7 @@ Consolidated ability infrastructure module. Combines resource management (MP/TP 
 Shared utility module (~1,700 lines). Key areas:
 
 - **Logging**: `printf`, `debugf`, `errorf`, `warnf` – unified via internal `log()` helper
-- **Player state**: `get_player_level/job/mp/tp`, `is_idle/engaged/in_event`, `is_casting`, `is_player_moving`
+- **Player state**: `get_player_level/job/mp/tp`, `is_idle/engaged/in_event`, `is_casting`, `is_player_moving`, `is_resting` (cached from entity status 33), `is_mounted` (entity status 5 or buff 252)
 - **Party**: `get_party_size`, `get_party_member_name/zone/distance`, `get_party_server_ids`
 - **Alliance**: `is_alliance_member`, `find_alliance_member`, `get_alliance_count`, `sorted_alliance_members`, `apply_alliance_member_buff`, `apply_external_buff`
 - **Buffs**: `has_buff`, `get_player_buffs`, `get_party_buffs`, `get_trust_buffs`
@@ -259,6 +260,15 @@ MP and TP recovery. Monitors percentage thresholds. Uses `action_core.first_comm
 - Two-phase timer: conditions become favourable → wait N seconds → `/heal on`.
 - Stops at 100% MP or when follow-target distance exceeds threshold.
 
+### revive.lua – Raise Dead Members
+
+- Scans party (indices 1–5), tracked targets, and alliance sub-parties 2 & 3 for members with `entity_status == 3`.
+- Filters abilities by level, recast readiness, **and** `requires_buff` prerequisites (e.g., Scholar needs Addendum: White buff 401).
+- Validates range (`common.is_in_range`) before building each command.
+- Falls back through all usable abilities if the first spell's command build fails.
+- All raise spells use `idle_only = true` and `target_outside = true`.
+- Controlled by `settings.revive_enabled`.
+
 ---
 
 ## Job Definitions
@@ -284,6 +294,7 @@ return {
         recover_party_mp= { ... },
         geo             = { ... },
         target_modifier = { ... },
+        revive          = { ... },  -- raise spells (WHM/SCH/RDM)
     },
 
     default_settings = { heal_enabled = true, heal_threshold = 75, ... },
@@ -321,6 +332,7 @@ return {
     range           = 20,
     is_main_job     = true,         -- false for subjob-sourced abilities
     resource_type   = nil,          -- override job resource_type ('mp'/'tp')
+    target_outside  = false,        -- true for abilities that can target non-party members
 }
 ```
 
@@ -374,7 +386,7 @@ return {
 
 ### panel.lua – Debug Panel
 
-Read-only display of game state, party buffs, server IDs, target indices. Shown when Debug Mode is enabled.
+Read-only display of game state, party buffs, server IDs, target indices. Shown when Debug Mode is enabled. Entity status values are rendered as human-readable labels (`Idle`, `Engaged`, `Dead`, `Resting`, `Mounted`, etc.) via a `STATUS_LABELS` lookup table.
 
 ---
 

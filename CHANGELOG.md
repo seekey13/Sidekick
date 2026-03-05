@@ -5,7 +5,7 @@ All notable changes to Medic will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.0.0] - 2026-03-03
+## [2.0.0] - 2026-03-04
 
 ### BREAKING CHANGES
 - **PL Mode Removed**: All PL Mode functionality (`pl_mode_active`, `setup_pl_mode_job`, `clear_player_data`, `restore_normal_mode`, and related settings) has been removed. Users should clear any legacy `pl_*` settings keys from their configuration files.
@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Config UI Renamed**: `config_ui.lua` renamed to `ui_config.lua`. Any external references must be updated.
 
 ### Added
+- **Revive / Raise System**: New `lib/actions/revive.lua` action module automatically raises dead party members, tracked targets, and alliance sub-party members. Filters abilities by level, recast readiness, `requires_buff` prerequisites (e.g., Scholar's Raise spells require Addendum: White), and range before casting. Falls back through all usable abilities if the preferred spell cannot be built. Controlled by `settings.revive_enabled`. Job definitions for White Mage (Raise/Raise II/Arise), Scholar (Raise/Raise II), and Red Mage (Raise) include `revive` ability blocks.
+- **Mount Detection**: `common.is_mounted()` returns `true` when the player is riding a mount, detected via entity status 5 OR buff 252 (Mounted) as a dual safeguard. Synced once per tick inside `refresh_game_state()` from the player snapshot. `automation_tick()` returns early when mounted, suppressing all automation while riding.
 - **Alliance Support**: Healing, debuff removal, wake, and buff automation extended to alliance sub-parties B and C (flat indices 6–17). Requires abilities with `target_outside = true`. `game_state.alliance[2|3]` snapshots are built each tick alongside `alliance_leaders` and `alliance_member_sids` for packet-based buff tracking. Alliance members dropped from the roster have their stale `trust_buffs` entries purged automatically.
 - **Alliance UI**: Per-member buff-toggle buttons (`<B0>`–`<B5>`, `<C0>`–`<C5>`) rendered in the configuration window; alliance sub-parties displayed in the debug panel with HP, MP, TP, job, buffs, party leader (`^`), and Trust NPC (`*`) indicators. Alliance members are excluded from the tracked-target add list.
 - **HP Estimation for Tracked Targets**: On add, a `/check <name>` command is issued; the 0x0C9 check-response packet resolves the target's level. A built-in `AVERAGE_HP_BY_LEVEL` table (levels 1–75) is used to seed `max_hp` before the target is ever seen at 100%, enabling accurate deficit-based healing from the first heal.
@@ -30,6 +32,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Status Removal Module**: New combined `lib/actions/status_removal.lua` with `execute_debuff_removal` and `execute_wake` entry points.
 
 ### Changed
+- **`is_resting()` now cached**: `common.is_resting()` no longer calls `GetPlayerEntity()` on every invocation. The value is synced once per tick inside `refresh_game_state()` from the player's entity status (33 = resting), eliminating per-call overhead in the hot automation loop. Transient entity read failures do not clobber the cached value.
+- **Revive priority above Buff**: In the `priority_order` for White Mage, Scholar, and Red Mage, `revive` is now listed before `buff`. Dead members are raised before living members receive buffs out-of-combat. No in-combat effect since all raise spells are `idle_only = true`.
+- **Status labels in debug panel**: `fmt_status()` in `panel.lua` now maps common entity status integers to human-readable strings (`Idle`, `Engaged`, `Dead`, `Resting`, `Mounted`, `Sitting`) via a `STATUS_LABELS` table. Unknown codes still fall back to `tostring()`.
+- **Config UI mounted state**: When `common.is_mounted()` is true the configuration window shows `Paused` button text and `Automation paused (mounted).` status text, distinct from the normal paused/resting states.
 - **Heal AOE**: Merged into `heal.lua` as `execute_aoe`; requires at least 2 members below threshold before firing (hardcoded, previously configurable via slider).
 - **Heal Pet**: Merged into `heal.lua` as `execute_pet`.
 - **Recovery Priority**: Recovery actions (Convert, Manafont, etc.) execute before critical heals to ensure MP is available for subsequent healing.

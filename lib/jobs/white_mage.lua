@@ -744,52 +744,56 @@ return {
         },
 
         -- Revive
-        -- revive = {
-        --     {
-        --         name = 'Arise',
-        --         level = 75,
-        --         cost = 150,
-        --         id = 147,  -- Spell ID
-        --         command = function(party_index)
-        --             return '/ma "Arise" '..target
-        --         end,
-        --         range = 18,
-        --         idle_only = true,
-        --     },
-        --     {
-        --         name = 'Raise III',
-        --         level = 70,
-        --         cost = 150,
-        --         id = 140,  -- Spell ID
-        --         command = function(party_index)
-        --             return '/ma "Raise III" '..target
-        --         end,
-        --         range = 18,
-        --         idle_only = true,
-        --     },
-        --     {
-        --         name = 'Raise II',
-        --         level = 56,
-        --         cost = 150,
-        --         id = 139,  -- Spell ID
-        --         command = function(party_index)
-        --             return '/ma "Raise II" '..target
-        --         end,
-        --         range = 18,
-        --         idle_only = true,
-        --     },
-        --     {
-        --         name = 'Raise',
-        --         level = 25,
-        --         cost = 150,
-        --         id = 12,  -- Spell ID
-        --         command = function(party_index)
-        --             return '/ma "Raise" '..target
-        --         end,
-        --         range = 18,
-        --         idle_only = true,
-        --     },
-        -- },
+        revive = {
+            {
+                name = 'Arise',
+                level = 75,
+                cost = 300,
+                id = 494,  -- Spell ID
+                command = function(target)
+                    return '/ma "Arise" '..target
+                end,
+                range = 18,
+                idle_only = true,
+                target_outside = true,
+            },
+            {
+                name = 'Raise III',
+                level = 70,
+                cost = 150,
+                id = 140,  -- Spell ID
+                command = function(target)
+                    return '/ma "Raise III" '..target
+                end,
+                range = 18,
+                idle_only = true,
+                target_outside = true,
+            },
+            {
+                name = 'Raise II',
+                level = 56,
+                cost = 150,
+                id = 139,  -- Spell ID
+                command = function(target)
+                    return '/ma "Raise II" '..target
+                end,
+                range = 18,
+                idle_only = true,
+                target_outside = true,
+            },
+            {
+                name = 'Raise',
+                level = 25,
+                cost = 150,
+                id = 12,  -- Spell ID
+                command = function(target)
+                    return '/ma "Raise" '..target
+                end,
+                range = 18,
+                idle_only = true,
+                target_outside = true,
+            },
+        },
 
 
         recover_party_mp = {
@@ -829,6 +833,7 @@ return {
         rest_timer = 5,
         rest_threshold = 70,
         rest_distance = 7,
+        revive_enabled = true,
     },
     
     -- Action priority order
@@ -840,8 +845,8 @@ return {
         'heal',
         'debuff_removal',
         'wake',
+        'revive',
         'buff',
         'rest',
-        -- revive,
     },
 }
