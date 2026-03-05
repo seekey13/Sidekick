@@ -70,6 +70,11 @@ local tracked_targets = {}
 local pending_checks = {}
 local PENDING_CHECK_TIMEOUT = 10.0
 
+-- Pending raise flags: set when a 0x029 packet arrives for a dead target,
+-- indicating the server rejected a raise spell because one is already pending.
+-- Cleared in refresh_game_state when entity_status returns to non-dead.
+local pending_raise_flags = {}  -- pending_raise_flags[server_id] = true
+
 -- Average HP by level, averaged across all races/jobs in FFXI.
 -- Used to estimate max HP for non-party tracked targets before they are seen at 100%.
 local AVERAGE_HP_BY_LEVEL = {
@@ -1123,6 +1128,25 @@ function common.clear_trust_buffs()
     pending_buffs = {}
     member_max_stats = {}
     alliance_member_sids = {}
+    pending_raise_flags = {}
+end
+
+-- Set pending raise flag for a server_id (called from 0x029 handler when target is dead).
+function common.set_pending_raise(server_id)
+    if not server_id or server_id == 0 then return end
+    pending_raise_flags[server_id] = true
+end
+
+-- Returns true if the given server_id has a pending raise flag set.
+function common.has_pending_raise(server_id)
+    if not server_id or server_id == 0 then return false end
+    return pending_raise_flags[server_id] == true
+end
+
+-- Explicitly clear the pending raise flag for a server_id.
+function common.clear_pending_raise(server_id)
+    if not server_id or server_id == 0 then return end
+    pending_raise_flags[server_id] = nil
 end
 
 -- Check if a server_id belongs to an active alliance member.
@@ -2135,6 +2159,39 @@ function common.refresh_game_state()
                 is_active     = false,
                 entity_status = -1,
             }
+        end
+    end
+
+    -- Clear pending_raise flags for any server_id whose entity is no longer dead.
+    -- Iterating a sparse table while modifying it is safe in Lua (next-based iteration).
+    for sid in pairs(pending_raise_flags) do
+        local still_dead = false
+        -- Check player and main party
+        for i = 0, 5 do
+            local m = i == 0 and state.player or state.party[i]
+            if m and m.server_id == sid and m.entity_status == 3 then
+                still_dead = true; break
+            end
+        end
+        -- Check tracked targets
+        if not still_dead and state.tracked and state.tracked[sid] then
+            if state.tracked[sid].entity_status == 3 then still_dead = true end
+        end
+        -- Check alliance sub-parties
+        if not still_dead and state.alliance then
+            for al_pi = 2, 3 do
+                if state.alliance[al_pi] then
+                    for _, m in pairs(state.alliance[al_pi]) do
+                        if m and m.server_id == sid and m.entity_status == 3 then
+                            still_dead = true; break
+                        end
+                    end
+                end
+            end
+        end
+        if not still_dead then
+            common.debugf('[REVIVE] server_id %d is no longer dead — clearing pending raise flag', sid)
+            pending_raise_flags[sid] = nil
         end
     end
 end

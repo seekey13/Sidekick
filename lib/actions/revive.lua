@@ -10,6 +10,14 @@ local revive = {}
 local common      = require('lib.core.common')
 local action_core = require('lib.core.action_core')
 
+-- Returns true if the target already has a pending raise.
+-- A pending raise is detected via the 0x029 packet handler in Medic.lua:
+-- when the server rejects a raise cast on a dead target, the packet param
+-- is the rejected spell ID — which we record as a pending raise flag.
+local function is_raise_pending(server_id)
+    return common.has_pending_raise(server_id)
+end
+
 -- Returns true if the player has every buff required by this ability.
 -- Mirrors the same helper used in recover.lua (e.g. Scholar needs Addendum: White).
 local function has_required_buff(ability, buffs)
@@ -63,6 +71,10 @@ function revive.execute(settings, job_def, main_level, sub_level, player_resourc
     local function try_party_index(m, i)
         if not (m and m.is_active and m.entity_status == 3
             and m.target_index and m.target_index > 0) then return nil end
+        if is_raise_pending(m.server_id) then
+            common.debugf('[REVIVE] Party[%d] %s already has a pending raise, skipping', i, m.name or '?')
+            return nil
+        end
         for _, ability in ipairs(buff_usable) do
             if common.is_in_range(m.target_index, ability.range or 20) then
                 local command = common.build_ability_command(ability, i)
@@ -87,6 +99,10 @@ function revive.execute(settings, job_def, main_level, sub_level, player_resourc
     local function try_server_id(m, sid, tag)
         if not (m and m.is_active and m.entity_status == 3
             and m.target_index and m.target_index > 0) then return nil end
+        if is_raise_pending(sid) then
+            common.debugf('[REVIVE] %s %s already has a pending raise, skipping', tag, m.name or '?')
+            return nil
+        end
         for _, ability in ipairs(buff_usable) do
             if common.is_in_range(m.target_index, ability.range or 20) then
                 local command = common.build_ability_command_for_target(ability, sid)
