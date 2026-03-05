@@ -890,8 +890,6 @@ ashita.events.register('command', 'medic_command', function(e)
         common.show_recast_timers()
         
     elseif cmd == 'status' then
-        local player_entity = GetPlayerEntity()
-        common.printf('Player Entity Status: %d', player_entity and player_entity.Status or -1)
         common.printf('Medic Status:')
         common.printf('  Job: %s', job_def and job_def.job_name or 'Not loaded')
         common.printf('  Automation: %s', automation_enabled and 'Enabled' or 'Disabled')

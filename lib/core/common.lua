@@ -1733,16 +1733,10 @@ end
 -- Resting State Management
 -- ============================================================================
 
--- Get resting state
--- Syncs with GetPlayerEntity().Status: 33 = resting, anything else = not resting.
+-- Get resting state.
+-- The value is refreshed once per automation tick inside refresh_game_state()
+-- from the player's cached entity_status, avoiding per-call GetPlayerEntity() overhead.
 function common.is_resting()
-    local ok, entity = pcall(GetPlayerEntity)
-    if ok and entity then
-        local ok_status, status = pcall(function() return entity.Status end)
-        if ok_status and status ~= nil then
-            is_resting = (status == 33)
-        end
-    end
     return is_resting
 end
 
@@ -1983,6 +1977,13 @@ function common.refresh_game_state()
                 end
 
                 state.player = member
+
+                -- Sync is_resting from the player's entity Status (33 = resting).
+                -- Only update when the status was successfully read (>= 0) to avoid
+                -- clobbering the cached value on a transient entity read failure.
+                if member.entity_status >= 0 then
+                    is_resting = (member.entity_status == 33)
+                end
             else
                 state.party[i] = member
             end

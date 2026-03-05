@@ -653,8 +653,8 @@ return {
         'recover',
         'heal',
         'wake',
-        'buff',
         'revive',
+        'buff',
         'rest',
     },
 }

@@ -966,11 +966,10 @@ function ui_config.render(settings, job_def, callback, roll_mod)
                 end
                 imgui.Unindent(ui.ABILITY_LIST_INDENT)
             end
-
-            imgui.Separator()
         end
-        end  -- End of job_def checkF
-        
+        end  -- End of job_def check
+
+        imgui.Separator()
         -- Debug mode (at end)
         local debug_var = { common.debug }
         if imgui.Checkbox('Debug Mode', debug_var) then

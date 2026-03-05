@@ -699,8 +699,8 @@ return {
         'heal',
         'debuff_removal',
         'wake',
-        'buff',
         'revive',
+        'buff',
         'rest',
     },
 }
