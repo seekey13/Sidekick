@@ -748,8 +748,8 @@ return {
             {
                 name = 'Arise',
                 level = 75,
-                cost = 270,
-                id = 147,  -- Spell ID
+                cost = 300,
+                id = 494,  -- Spell ID
                 command = function(target)
                     return '/ma "Arise" '..target
                 end,
@@ -760,7 +760,7 @@ return {
             {
                 name = 'Raise III',
                 level = 70,
-                cost = 135,
+                cost = 150,
                 id = 140,  -- Spell ID
                 command = function(target)
                     return '/ma "Raise III" '..target
@@ -772,7 +772,7 @@ return {
             {
                 name = 'Raise II',
                 level = 56,
-                cost = 135,
+                cost = 150,
                 id = 139,  -- Spell ID
                 command = function(target)
                     return '/ma "Raise II" '..target
@@ -784,7 +784,7 @@ return {
             {
                 name = 'Raise',
                 level = 25,
-                cost = 135,
+                cost = 150,
                 id = 12,  -- Spell ID
                 command = function(target)
                     return '/ma "Raise" '..target
