@@ -30,6 +30,24 @@ local function filter_buff_prereqs(abilities, buffs)
     return out
 end
 
+-- Filter out any ability that has a min_tp field if the player's current TP is below the threshold.
+-- The threshold is taken from the matching setting key (chivalry_min_tp) when available,
+-- falling back to the ability's own min_tp default.
+local function filter_tp_prereqs(abilities, player_tp, settings)
+    local out = {}
+    for _, a in ipairs(abilities) do
+        if a.min_tp then
+            local min_tp = settings.chivalry_min_tp or a.min_tp
+            if (player_tp or 0) >= min_tp then
+                table.insert(out, a)
+            end
+        else
+            table.insert(out, a)
+        end
+    end
+    return out
+end
+
 function recover.execute(settings, job_def)
     if not settings.recover_enabled then return nil end
 
@@ -78,7 +96,9 @@ function recover.execute(settings, job_def)
     local mp_threshold = settings.recover_mp_threshold
     if mp_threshold and common.below_threshold(player.mpp or 0, mp_threshold) then
         local result = action_core.first_command(
-            filter_buff_prereqs(filter('recover_mp'), player.buffs),
+            filter_tp_prereqs(
+                filter_buff_prereqs(filter('recover_mp'), player.buffs),
+                player.tp, settings),
             job_def, settings, '[RECOVER]', nil,
             function(a) return string.format('MP recovery with %s (MP: %.1f%%)', a.name, player.mpp) end)
         if result then return result end

@@ -174,17 +174,18 @@ return {
             },
         },
         
-        -- -- Recover (MP recovery) need to add a 3000 TP check somehow
-        -- recover_mp = {
-        --     {
-        --         name = 'Chivalry',
-        --         level = 75,
-        --         cost = 0,
-        --         id = 79,  -- Chivalry recast ID
-        --         command = '/ja "Chivalry" <me>',
-        --         combat_only = false,
-        --     },
-        -- },
+        -- Recover (MP recovery via Chivalry; TP usage is controlled by chivalry_min_tp settings)
+        recover_mp = {
+            {
+                name = 'Chivalry',
+                level = 75,
+                cost = 0,
+                id = 79,  -- Chivalry recast ID
+                command = '/ja "Chivalry" <me>',
+                combat_only = false,
+                min_tp = 3000,  -- default TP threshold; overridden by chivalry_min_tp setting
+            },
+        },
     },
     
     -- Default settings for UI
@@ -203,14 +204,16 @@ return {
         rest_timer = 5,
         rest_threshold = 70,
         rest_distance = 7,
-        -- recover_enabled = false,
-        -- recover_threshold = 25,
+        recover_enabled = false,
+        recover_mp_threshold = 25,
+        recover_tp_threshold = 25,
+        chivalry_min_tp = 3000,
     },
     
     -- Action priority order
     priority_order = {
         'item',
-        -- recover,
+        'recover',
         'heal',
         'buff',
         'rest',
