@@ -644,11 +644,11 @@ function ui_config.render(settings, job_def, callback, roll_mod)
             end
         end
         
-        -- Party Healing settings
+        -- Group Healing settings
         if job_def and job_def.abilities.heal and has_usable_abilities(job_def.abilities.heal) then
-            local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Enable Party Healing', 'heal_enabled', false)
+            local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Enable Group Healing', 'heal_enabled', false)
             if is_open and is_enabled then
-                ui.slider_int(ctx, 'Party (HP%)', 'heal_threshold', { settings.heal_threshold or 75 }, 1, 100)
+                ui.slider_int(ctx, 'Group (HP%)', 'heal_threshold', { settings.heal_threshold or 75 }, 1, 100)
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.heal) do
                     if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
@@ -657,7 +657,7 @@ function ui_config.render(settings, job_def, callback, roll_mod)
                 end
                 imgui.Unindent(ui.ABILITY_LIST_INDENT)
                 
-                -- Critical HP section (inside Party Healing)
+                -- Critical HP section (inside Group Healing)
                 if job_def.abilities.critical and has_usable_abilities(job_def.abilities.critical) then
                     ui.slider_int(ctx, 'Critical (HP%)', 'critical_threshold', { settings.critical_threshold or 30 }, 1, 50)
                     imgui.Indent(ui.ABILITY_LIST_INDENT)
@@ -953,9 +953,23 @@ function ui_config.render(settings, job_def, callback, roll_mod)
                 end
             end
         end
-        end  -- End of job_def check
-        
-        imgui.Separator()
+
+        -- Revive settings
+        if job_def and job_def.abilities.revive and has_usable_abilities(job_def.abilities.revive) then
+            local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Enable Revive', 'revive_enabled', false)
+            if is_open and is_enabled then
+                imgui.Indent(ui.ABILITY_LIST_INDENT)
+                for _, ability in ipairs(job_def.abilities.revive) do
+                    if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
+                        ui.ability_checkbox(ctx, ability, job_def, 'revive')
+                    end
+                end
+                imgui.Unindent(ui.ABILITY_LIST_INDENT)
+            end
+
+            imgui.Separator()
+        end
+        end  -- End of job_def checkF
         
         -- Debug mode (at end)
         local debug_var = { common.debug }

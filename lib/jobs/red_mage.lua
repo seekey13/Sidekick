@@ -621,7 +621,6 @@ return {
                 range = 18,
                 idle_only = true,
                 target_outside = true,
-                group = 'raise',
             },
         },
     },

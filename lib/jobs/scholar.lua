@@ -647,7 +647,6 @@ return {
                 idle_only = true,
                 requires_buff = 401,  -- Requires Addendum: White
                 target_outside = true,
-                group = 'raise',
             },
             {
                 name = 'Raise',
@@ -661,7 +660,6 @@ return {
                 idle_only = true,
                 requires_buff = 401,  -- Requires Addendum: White
                 target_outside = true,
-                group = 'raise',
             },
         },
     },

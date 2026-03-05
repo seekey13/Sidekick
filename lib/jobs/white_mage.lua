@@ -748,7 +748,7 @@ return {
             {
                 name = 'Arise',
                 level = 75,
-                cost = 150,
+                cost = 270,
                 id = 147,  -- Spell ID
                 command = function(target)
                     return '/ma "Arise" '..target
@@ -756,12 +756,11 @@ return {
                 range = 18,
                 idle_only = true,
                 target_outside = true,
-                group = 'raise',
             },
             {
                 name = 'Raise III',
                 level = 70,
-                cost = 150,
+                cost = 135,
                 id = 140,  -- Spell ID
                 command = function(target)
                     return '/ma "Raise III" '..target
@@ -769,12 +768,11 @@ return {
                 range = 18,
                 idle_only = true,
                 target_outside = true,
-                group = 'raise',
             },
             {
                 name = 'Raise II',
                 level = 56,
-                cost = 150,
+                cost = 135,
                 id = 139,  -- Spell ID
                 command = function(target)
                     return '/ma "Raise II" '..target
@@ -782,12 +780,11 @@ return {
                 range = 18,
                 idle_only = true,
                 target_outside = true,
-                group = 'raise',
             },
             {
                 name = 'Raise',
                 level = 25,
-                cost = 150,
+                cost = 135,
                 id = 12,  -- Spell ID
                 command = function(target)
                     return '/ma "Raise" '..target
@@ -795,7 +792,6 @@ return {
                 range = 18,
                 idle_only = true,
                 target_outside = true,
-                group = 'raise',
             },
         },
 

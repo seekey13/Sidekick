@@ -11,26 +11,18 @@ local common      = require('lib.core.common')
 local action_core = require('lib.core.action_core')
 
 function revive.execute(settings, job_def, main_level, sub_level, player_resource)
-    -- Check if revive is enabled
-    if not settings.revive_enabled then
-        return nil
-    end
+    if not settings.revive_enabled then return nil end
 
-    -- Read game state
     local state  = common.game_state
     local player = state and state.player
     if not player then return nil end
 
-    -- Get revive abilities from job definition
     local revive_abilities = job_def.abilities and job_def.abilities.revive
-    if not revive_abilities or #revive_abilities == 0 then
-        return nil
-    end
+    if not revive_abilities or #revive_abilities == 0 then return nil end
 
     local derived_main_level = player.main_level or main_level
     local derived_sub_level  = player.sub_level  or sub_level
 
-    -- Filter by level, disabled flags, and idle_only (handles not-in-combat requirement)
     local available = common.filter_abilities_by_level(
         revive_abilities,
         settings,
@@ -38,17 +30,14 @@ function revive.execute(settings, job_def, main_level, sub_level, player_resourc
         derived_sub_level,
         job_def
     )
-
     if #available == 0 then return nil end
 
-    -- Filter to only usable (resource + cooldown)
     local usable = action_core.filter_usable(available, job_def, '[REVIVE]')
     if #usable == 0 then return nil end
 
-    -- Best ability: filter_abilities_by_level sorts by cost descending (strongest first)
     local ability = usable[1]
 
-    -- Scan party members (indices 1-5; the player themselves cannot cast while dead)
+    -- Scan party members (indices 1-5)
     for i = 1, 5 do
         local m = state.party[i]
         if m and m.is_active and m.entity_status == 3
@@ -63,6 +52,7 @@ function revive.execute(settings, job_def, main_level, sub_level, player_resourc
                         m.name or 'party member', ability.name),
                 }
             end
+            common.debugf('[REVIVE] build_ability_command returned nil for party[%d]', i)
         end
     end
 
@@ -81,6 +71,7 @@ function revive.execute(settings, job_def, main_level, sub_level, player_resourc
                             tt.name or '?', ability.name),
                     }
                 end
+                common.debugf('[REVIVE] build_ability_command_for_target returned nil for tracked %s', tt.name or '?')
             end
         end
     end
@@ -103,6 +94,7 @@ function revive.execute(settings, job_def, main_level, sub_level, player_resourc
                                     m.name or '?', ability.name),
                             }
                         end
+                        common.debugf('[REVIVE] build_ability_command_for_target returned nil for alliance %s', m.name or '?')
                     end
                 end
             end
