@@ -1865,12 +1865,18 @@ local function build_member_snapshot(party_mgr, entity_mgr, flat_index)
     end, '')
 
     local position = {x = 0, y = 0, z = 0}
+    local entity_status = -1
     if entity_mgr and target_idx and target_idx > 0 then
         local ok_x, px = pcall(function() return entity_mgr:GetLocalPositionX(target_idx) end)
         local ok_y, py = pcall(function() return entity_mgr:GetLocalPositionY(target_idx) end)
         local ok_z, pz = pcall(function() return entity_mgr:GetLocalPositionZ(target_idx) end)
         if ok_x and ok_y and ok_z then
             position = {x = px, y = py, z = pz}
+        end
+        local ent = GetEntity(target_idx)
+        if ent then
+            local ok_s, s = pcall(function() return ent.Status end)
+            if ok_s and s ~= nil then entity_status = s end
         end
     end
 
@@ -1904,8 +1910,9 @@ local function build_member_snapshot(party_mgr, entity_mgr, flat_index)
         sub_job_name = sub_job_name,
         main_level   = main_level,
         sub_level    = sub_level,
-        is_trust     = (server_id >= 0x1000000),
-        is_active    = true,
+        is_trust      = (server_id >= 0x1000000),
+        is_active     = true,
+        entity_status = entity_status,
         -- Player-only extras (zeroed for all non-player members)
         fm           = 0,
         pet_hpp      = 0,
@@ -2060,21 +2067,26 @@ function common.refresh_game_state()
             -- Buffs via packet tracking (same table as Trusts)
             local buffs = trust_buffs[sid] or {}
 
+            local t_entity_status = -1
+            local ok_es, es = pcall(function() return entity.Status end)
+            if ok_es and es ~= nil then t_entity_status = es end
+
             state.tracked[sid] = {
-                server_id    = sid,
-                name         = tt.name,
-                target_index = entity.TargetIndex,
-                hp           = hp,
-                hpp          = hpp,
-                max_hp       = max_hp,
-                main_job     = tt.main_job,
-                sub_job      = tt.sub_job,
-                main_level   = tt.main_level,
-                sub_level    = tt.sub_level,
-                buffs        = buffs,
-                position     = position,
-                is_tracked   = true,
-                is_active    = true,
+                server_id     = sid,
+                name          = tt.name,
+                target_index  = entity.TargetIndex,
+                hp            = hp,
+                hpp           = hpp,
+                max_hp        = max_hp,
+                main_job      = tt.main_job,
+                sub_job       = tt.sub_job,
+                main_level    = tt.main_level,
+                sub_level     = tt.sub_level,
+                buffs         = buffs,
+                position      = position,
+                is_tracked    = true,
+                is_active     = true,
+                entity_status = t_entity_status,
             }
         else
             -- Entity not visible; keep entry but mark inactive
@@ -2083,20 +2095,21 @@ function common.refresh_game_state()
                 cached_max_hp = AVERAGE_HP_BY_LEVEL[tt.main_level] or 0
             end
             state.tracked[sid] = {
-                server_id    = sid,
-                name         = tt.name,
-                target_index = 0,
-                hp           = 0,
-                hpp          = 0,
-                max_hp       = cached_max_hp,
-                main_job     = tt.main_job,
-                sub_job      = tt.sub_job,
-                main_level   = tt.main_level,
-                sub_level    = tt.sub_level,
-                buffs        = trust_buffs[sid] or {},
-                position     = {x = 0, y = 0, z = 0},
-                is_tracked   = true,
-                is_active    = false,
+                server_id     = sid,
+                name          = tt.name,
+                target_index  = 0,
+                hp            = 0,
+                hpp           = 0,
+                max_hp        = cached_max_hp,
+                main_job      = tt.main_job,
+                sub_job       = tt.sub_job,
+                main_level    = tt.main_level,
+                sub_level     = tt.sub_level,
+                buffs         = trust_buffs[sid] or {},
+                position      = {x = 0, y = 0, z = 0},
+                is_tracked    = true,
+                is_active     = false,
+                entity_status = -1,
             }
         end
     end
