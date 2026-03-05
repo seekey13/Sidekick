@@ -801,7 +801,7 @@ function ui_config.render(settings, job_def, callback, roll_mod)
                     for _, ability in ipairs(job_def.abilities.recover_mp) do
                         if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                             ui.ability_checkbox(ctx, ability, job_def, 'recover_mp')
-                            if ability.name == 'Chivalry' then
+                            if ability.min_tp ~= nil then
                                 chivalry_visible = true
                             end
                         end

@@ -30,12 +30,14 @@ local function filter_buff_prereqs(abilities, buffs)
     return out
 end
 
--- Filter out Chivalry if the player's current TP is below the configured minimum.
+-- Filter out any ability that has a min_tp field if the player's current TP is below the threshold.
+-- The threshold is taken from the matching setting key (chivalry_min_tp) when available,
+-- falling back to the ability's own min_tp default.
 local function filter_tp_prereqs(abilities, player_tp, settings)
     local out = {}
     for _, a in ipairs(abilities) do
-        if a.name == 'Chivalry' then
-            local min_tp = settings.chivalry_min_tp or 3000
+        if a.min_tp then
+            local min_tp = settings.chivalry_min_tp or a.min_tp
             if (player_tp or 0) >= min_tp then
                 table.insert(out, a)
             end
