@@ -606,7 +606,7 @@ return {
                 id = 49,  -- Job ability
                 command = '/ja "Convert" <me>',
             },
-        }
+        },
 
         -- Revive
         revive = {
@@ -615,11 +615,13 @@ return {
                 level = 38,
                 cost = 150,
                 id = 12,  -- Spell ID
-                command = function(party_index)
+                command = function(target)
                     return '/ma "Raise" '..target
                 end,
                 range = 18,
-                combat_only = false,
+                idle_only = true,
+                target_outside = true,
+                group = 'raise',
             },
         },
     },
@@ -643,6 +645,7 @@ return {
         rest_timer = 5,
         rest_threshold = 70,
         rest_distance = 7,
+        revive_enabled = true,
     },
     
     -- Action priority order

@@ -640,24 +640,28 @@ return {
                 level = 70,
                 cost = 150,
                 id = 141,  -- Spell ID
-                command = function(party_index)
+                command = function(target)
                     return '/ma "Raise II" '..target
                 end,
                 range = 20,
                 idle_only = true,
                 requires_buff = 401,  -- Requires Addendum: White
+                target_outside = true,
+                group = 'raise',
             },
             {
                 name = 'Raise',
                 level = 35,
                 cost = 150,
                 id = 12,  -- Spell ID
-                command = function(party_index)
+                command = function(target)
                     return '/ma "Raise" '..target
                 end,
                 range = 20,
                 idle_only = true,
                 requires_buff = 401,  -- Requires Addendum: White
+                target_outside = true,
+                group = 'raise',
             },
         },
     },
@@ -686,6 +690,7 @@ return {
         rest_timer = 5,
         rest_threshold = 70,
         rest_distance = 7,
+        revive_enabled = true,
     },
     
     -- Action priority order

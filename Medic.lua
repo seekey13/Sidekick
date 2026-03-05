@@ -40,6 +40,7 @@ local action_modules = {
     recover        = require('lib.actions.recover'),
     geo            = require('lib.actions.geo'),
     rest           = require('lib.actions.rest'),
+    revive         = require('lib.actions.revive'),
 }
 
 -- Load config UI
@@ -217,6 +218,7 @@ local function load_job_definition(main_job_id, sub_job_id)
         'wake',
         'geo',
         'buff',
+        'revive',
         'rest',
     }
     
@@ -556,6 +558,7 @@ local function automation_tick()
         'wake',
         'geo',
         'buff',
+        'revive',
         'rest',
     }
     

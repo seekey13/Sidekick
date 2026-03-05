@@ -750,44 +750,52 @@ return {
                 level = 75,
                 cost = 150,
                 id = 147,  -- Spell ID
-                command = function(party_index)
+                command = function(target)
                     return '/ma "Arise" '..target
                 end,
                 range = 18,
                 idle_only = true,
+                target_outside = true,
+                group = 'raise',
             },
             {
                 name = 'Raise III',
                 level = 70,
                 cost = 150,
                 id = 140,  -- Spell ID
-                command = function(party_index)
+                command = function(target)
                     return '/ma "Raise III" '..target
                 end,
                 range = 18,
                 idle_only = true,
+                target_outside = true,
+                group = 'raise',
             },
             {
                 name = 'Raise II',
                 level = 56,
                 cost = 150,
                 id = 139,  -- Spell ID
-                command = function(party_index)
+                command = function(target)
                     return '/ma "Raise II" '..target
                 end,
                 range = 18,
                 idle_only = true,
+                target_outside = true,
+                group = 'raise',
             },
             {
                 name = 'Raise',
                 level = 25,
                 cost = 150,
                 id = 12,  -- Spell ID
-                command = function(party_index)
+                command = function(target)
                     return '/ma "Raise" '..target
                 end,
                 range = 18,
                 idle_only = true,
+                target_outside = true,
+                group = 'raise',
             },
         },
 
@@ -829,6 +837,7 @@ return {
         rest_timer = 5,
         rest_threshold = 70,
         rest_distance = 7,
+        revive_enabled = true,
     },
     
     -- Action priority order
