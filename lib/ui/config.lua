@@ -448,12 +448,18 @@ function ui_config.render(settings, job_def, callback, roll_mod)
         -- Automation toggle button
         local can_attack = common.can_attack()
         local is_resting = common.is_resting()
+        local is_mounted = common.is_mounted()
         local button_text
         local status_text
         local status_color
         
         if settings.automation_enabled then
-            if is_resting then
+            if is_mounted then
+                -- Mounted state (automation fully suppressed while on a mount)
+                button_text = 'Mounted'
+                status_text = 'Automation mounted.'
+                status_color = ui.LIGHT_BLUE
+            elseif is_resting then
                 -- Resting state (automation enabled but resting for MP)
                 button_text = 'Resting'
                 status_text = 'Automation resting.'

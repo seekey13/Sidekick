@@ -391,7 +391,11 @@ local function automation_tick()
     if not automation_enabled then
         return
     end
-    
+
+    if common.is_mounted() then
+        return
+    end
+
     if not job_def then
         return
     end

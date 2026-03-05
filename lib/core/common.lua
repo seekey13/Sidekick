@@ -38,6 +38,9 @@ local movement_state = {
 -- Resting state tracking
 local is_resting = false
 
+-- Mount state tracking
+local is_mounted = false
+
 -- Rest conditions timer (shared so other modules can reset it)
 -- Holds the os.clock() timestamp when rest conditions first became favorable (0 = not started)
 local rest_conditions_met_time = 0
@@ -1746,6 +1749,17 @@ function common.set_resting(state)
 end
 
 -- ============================================================================
+-- Mount State Management
+-- ============================================================================
+
+-- Get mount state.
+-- Synced once per tick inside refresh_game_state() via the player's entity_status (5 = mounted)
+-- and buff array (buff 252 = Mounted), checked with OR as a safeguard.
+function common.is_mounted()
+    return is_mounted
+end
+
+-- ============================================================================
 -- Rest Conditions Timer (shared across modules)
 -- ============================================================================
 
@@ -1984,6 +1998,15 @@ function common.refresh_game_state()
                 if member.entity_status >= 0 then
                     is_resting = (member.entity_status == 33)
                 end
+
+                -- Sync is_mounted: entity Status 5 OR buff 252 (Mounted), whichever fires first.
+                local has_mount_buff = false
+                if member.buffs then
+                    for _, bid in ipairs(member.buffs) do
+                        if bid == 252 then has_mount_buff = true break end
+                    end
+                end
+                is_mounted = (member.entity_status == 5) or has_mount_buff
             else
                 state.party[i] = member
             end
