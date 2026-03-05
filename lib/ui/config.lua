@@ -797,13 +797,21 @@ function ui_config.render(settings, job_def, callback, roll_mod)
                 if has_mp_recovery then
                     ui.slider_int(ctx, 'Self Recover (MP%)', 'recover_mp_threshold', { settings.recover_mp_threshold or 30 }, 1, 100)
                     imgui.Indent(ui.ABILITY_LIST_INDENT)
+                    local chivalry_visible = false
                     for _, ability in ipairs(job_def.abilities.recover_mp) do
                         if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                             ui.ability_checkbox(ctx, ability, job_def, 'recover_mp')
+                            if ability.name == 'Chivalry' then
+                                chivalry_visible = true
+                            end
                         end
                     end
                     imgui.Unindent(ui.ABILITY_LIST_INDENT)
-                    
+
+                    if chivalry_visible then
+                        ui.slider_int(ctx, 'Chivalry Min TP', 'chivalry_min_tp', { settings.chivalry_min_tp or 3000 }, 0, 3000)
+                    end
+
                     if has_party_mp_recovery then
                         imgui.Spacing()
                     end
