@@ -411,19 +411,20 @@ local function automation_tick()
 
     -- Range management logic
     if addon_settings and addon_settings.attack_range and addon_settings.attack_range ~= 'Off' then
-        local is_engaged = common.is_engaged()
-        
-        -- If not engaged, ensure follow is enabled
-        if not is_engaged and range_state.follow_enabled == false then
+        local in_combat = common.is_combat()
+
+        -- If not in combat, ensure follow is enabled
+        if not in_combat and range_state.follow_enabled == false then
             AshitaCore:GetChatManager():QueueCommand(1, '/ms follow on')
             range_state.follow_enabled = true
-            common.debugf('[Range] Not engaged, enabling follow')
+            common.debugf('[Range] Not in combat, enabling follow')
         end
-        
-        -- If engaged, manage range to target
-        if is_engaged then
-            local target_index = common.get_target_index()
-            if target_index and target_index > 0 then
+
+        -- If in combat, manage range relative to the battle target
+        if in_combat then
+            local bt = common.targets.get_bt()
+            local bt_index = bt and bt.TargetIndex or nil
+            if bt_index and bt_index > 0 then
                 -- Convert setting to yalms
                 local desired_range = 0
                 if addon_settings.attack_range == 'Melee' then
@@ -431,19 +432,19 @@ local function automation_tick()
                 elseif addon_settings.attack_range == 'Ranged' then
                     desired_range = 15
                 end
-                
-                local in_range = common.is_in_range(target_index, desired_range)
-                
+
+                local in_range = common.is_in_range(bt_index, desired_range)
+
                 if in_range and range_state.follow_enabled == true then
                     -- Within range, disable follow
                     AshitaCore:GetChatManager():QueueCommand(1, '/ms follow off')
                     range_state.follow_enabled = false
-                    common.debugf('[Range] Within %d yalms, disabling follow', desired_range)
+                    common.debugf('[Range] Within %d yalms of BT, disabling follow', desired_range)
                 elseif not in_range and range_state.follow_enabled == false then
                     -- Out of range, enable follow
                     AshitaCore:GetChatManager():QueueCommand(1, '/ms follow on')
                     range_state.follow_enabled = true
-                    common.debugf('[Range] Beyond %d yalms, enabling follow', desired_range)
+                    common.debugf('[Range] Beyond %d yalms of BT, enabling follow', desired_range)
                 end
             end
         end
