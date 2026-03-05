@@ -404,11 +404,6 @@ function common.is_player_moving()
     local last_pos = movement_state.last_position
     movement_state.is_moving = (x ~= last_pos[1] or y ~= last_pos[2] or z ~= last_pos[3])
 
-    -- Cancel resting when the player moves
-    if movement_state.is_moving then
-        is_resting = false
-    end
-
     -- Update last known position
     movement_state.last_position = {x, y, z}
     
@@ -1739,7 +1734,15 @@ end
 -- ============================================================================
 
 -- Get resting state
+-- Syncs with GetPlayerEntity().Status: 33 = resting, anything else = not resting.
 function common.is_resting()
+    local ok, entity = pcall(GetPlayerEntity)
+    if ok and entity then
+        local ok_status, status = pcall(function() return entity.Status end)
+        if ok_status and status ~= nil then
+            is_resting = (status == 33)
+        end
+    end
     return is_resting
 end
 
