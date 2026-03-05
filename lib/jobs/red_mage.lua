@@ -609,19 +609,19 @@ return {
         }
 
         -- Revive
-        -- revive = {
-        --     {
-        --         name = 'Raise',
-        --         level = 38,
-        --         cost = 150,
-        --         id = 12,  -- Spell ID
-        --         command = function(party_index)
-        --             return '/ma "Raise" '..target
-        --         end,
-        --         range = 18,
-        --         combat_only = false,
-        --     },
-        -- },
+        revive = {
+            {
+                name = 'Raise',
+                level = 38,
+                cost = 150,
+                id = 12,  -- Spell ID
+                command = function(party_index)
+                    return '/ma "Raise" '..target
+                end,
+                range = 18,
+                combat_only = false,
+            },
+        },
     },
     
     -- Default settings for UI
@@ -652,7 +652,7 @@ return {
         'heal',
         'wake',
         'buff',
+        'revive',
         'rest',
-        -- revive,
     },
 }
