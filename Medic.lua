@@ -323,8 +323,6 @@ local function setup_job()
     end
     
     -- Guard against transient sub_job=0 during zone transitions.
-    -- The Party manager can momentarily return sub_job 0 while zoning;
-    -- treat this as stale data rather than a real job change.
     if sub_job_id == 0 and current_sub_job_id and current_sub_job_id > 0 and job_def then
         return
     end
@@ -385,7 +383,6 @@ local function setup_job()
             if s ~= nil then
                 addon_settings = s
                 -- Preserve the in-memory automation state; the local variable
-                -- is the single source of truth, not the settings file.
                 addon_settings.automation_enabled = automation_enabled
             end
         end)
@@ -512,7 +509,6 @@ local function automation_tick()
             
             -- Detect job change
             -- Guard: sub_job momentarily reading as 0 during zone transitions
-            -- is NOT a real job change — skip the detection entirely.
             local job_changed = false
             if job_id ~= last_job_id then
                 job_changed = true
@@ -520,9 +516,6 @@ local function automation_tick()
                 job_changed = true
             elseif normalized_sub_job > 0 and normalized_last_sub == 0 then
                 job_changed = true
-            -- Removed: normalized_sub_job == 0 and normalized_last_sub > 0
-            -- This condition fires spuriously during zone transitions when the
-            -- Party manager temporarily returns sub_job 0.
             end
             
             -- Detect level change
@@ -558,8 +551,6 @@ local function automation_tick()
                 setup_job()
                 
                 -- Preserve the in-memory automation state through job changes.
-                -- The local automation_enabled variable is the single source of truth;
-                -- sync it INTO the new settings rather than reading FROM them.
                 if addon_settings then
                     addon_settings.automation_enabled = automation_enabled
                 end
