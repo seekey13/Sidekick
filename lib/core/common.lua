@@ -1849,7 +1849,89 @@ common.game_state = {
     alliance_size    = 0,                -- alliance sub-parties only (6-17)
     alliance_leaders = { [1] = 0, [2] = 0, [3] = 0 },
     tracked          = {},               -- keyed by server_id
+    stratagems       = 0,                -- Scholar stratagem charges (0 when not SCH)
 }
+
+-- ============================================================================
+-- Scholar Stratagem Charge Calculation
+-- ============================================================================
+-- Stratagems are a charge-based system for Scholar (job_id = 20).
+-- Recast ID 231 governs the shared stratagem recast timer.
+-- Max charges and recharge rate depend on SCH level.
+
+local STRATAGEM_RECAST_ID = 231
+local SCH_JOB_ID = 20
+
+-- Level thresholds for stratagem charges (descending order for first-match)
+local STRATAGEM_TIERS = {
+    { level = 75, max_charges = 5, recharge_rate = 48  },
+    { level = 65, max_charges = 4, recharge_rate = 60  },
+    { level = 50, max_charges = 3, recharge_rate = 80  },
+    { level = 30, max_charges = 2, recharge_rate = 120 },
+    { level = 10, max_charges = 1, recharge_rate = 240 },
+}
+
+--- Calculate the number of stratagem charges currently available.
+--- Returns 0 if the player is not Scholar main or sub.
+local function calculate_stratagems()
+    local player = AshitaCore:GetMemoryManager():GetPlayer()
+    if not player then return 0 end
+
+    local main_job = player:GetMainJob()
+    local sub_job  = player:GetSubJob()
+    local level    = 0
+
+    if main_job == SCH_JOB_ID then
+        level = player:GetMainJobLevel()
+    elseif sub_job == SCH_JOB_ID then
+        level = player:GetSubJobLevel()
+    else
+        return 0
+    end
+
+    -- Determine max charges and recharge rate from level
+    local max_charges   = 0
+    local recharge_rate = 0
+    for _, tier in ipairs(STRATAGEM_TIERS) do
+        if level >= tier.level then
+            max_charges   = tier.max_charges
+            recharge_rate = tier.recharge_rate
+            break
+        end
+    end
+
+    if max_charges == 0 then return 0 end
+
+    -- Find the recast slot whose TimerID matches the stratagem recast ID
+    local recast_mgr = AshitaCore:GetMemoryManager():GetRecast()
+    if not recast_mgr then return max_charges end
+
+    local timer_value = nil
+    for slot = 0, 31 do
+        local ok_id, tid = pcall(function() return recast_mgr:GetAbilityTimerId(slot) end)
+        if ok_id and tid == STRATAGEM_RECAST_ID then
+            local ok_t, t = pcall(function() return recast_mgr:GetAbilityTimer(slot) end)
+            if ok_t then timer_value = t end
+            break
+        end
+    end
+
+    -- If no matching recast slot found or timer is 0, all charges are available
+    if not timer_value or timer_value == 0 then
+        return max_charges
+    end
+
+    -- Timer is in ticks (60 ticks = 1 second)
+    local seconds_remaining = timer_value / 60
+    local missing_charges   = math.ceil(seconds_remaining / recharge_rate)
+    local current_charges   = max_charges - missing_charges
+
+    -- Clamp to valid range
+    if current_charges < 0 then current_charges = 0 end
+    if current_charges > max_charges then current_charges = max_charges end
+
+    return current_charges
+end
 
 -- Internal helper: return packet-tracked buffs for an alliance member.
 -- All alliance member buffs are populated via 0x028/0x029 packet handlers
@@ -1962,6 +2044,7 @@ function common.refresh_game_state()
     state.alliance_size    = 0
     state.alliance_leaders = { [1] = 0, [2] = 0, [3] = 0 }
     state.tracked          = {}
+    state.stratagems       = calculate_stratagems()
 
     local party_mgr = common.get_party()
     if not party_mgr then return end
