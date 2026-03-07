@@ -725,29 +725,31 @@ return {
                     buff_id = 469,
                 },
                 {
-                    name = 'Tranquility',
+                    name = 'Tranquility', -- Reduces the Enmity Generated
                     level = 75,
                     cost = 0,
                     id = 231,  -- Job ability ID
                     command = '/ja "Tranquility" <me>',
                     requires_buff = {358, 401},  -- Can be either 358 or 401
+                    buff_id = 414,
                 },
                 {
-                    name = 'Rapture',
+                    name = 'Rapture', -- +Potency
                     level = 55,
                     cost = 0,
                     id = 231,  -- Job ability ID
                     command = '/ja "Rapture" <me>',
                     requires_buff = {358, 401},  -- Can be either 358 or 401
+                    buff_id = 364,
                 },
                 {
-                    name = 'Accession',  -- AOE
+                    name = 'Accession',  -- AOE and 3x Cost of spell and 2x casting time
                     level = 40,
                     cost = 0,
                     id = 218,  -- Job ability ID
                     command = '/ja "Accession" <me>',
                     requires_buff = {358, 401},  -- Can be either 358 or 401
-                    buff_id = 366,
+                    buff_id = 363,
                 },
                 {
                     name = 'Celerity', -- Reduces the casting time by 50%
@@ -768,23 +770,23 @@ return {
                     buff_id = 360,
                 },
                 {
-                    name = 'Alacrity', -- Reduces the TP cost by 50%
+                    name = 'Alacrity', -- Reduces the casting time by 50%
                     level = 25,
                     cost = 0,
                     id = 217,  -- Job ability ID
                     command = '/ja "Alacrity" <me>',
                     requires_buff = {359, 402},  -- Can be either 359 or 402
-                    buff_id = 361,
-                }
+                    buff_id = 363,
+                },
                 {
-                    name = 'Parsimony', -- Reduces the TP cost by 50%
+                    name = 'Parsimony', -- Reduces the MP cost by 50%
                     level = 10,
                     cost = 0,
                     id = 217,  -- Job ability ID
                     command = '/ja "Parsimony" <me>',
                     requires_buff = {359, 402},  -- Can be either 359 or 402
                     buff_id = 361,
-                }
+                },
             },
     },
     
