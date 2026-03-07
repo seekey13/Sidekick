@@ -1080,6 +1080,11 @@ function ui_components.self_single_ability(ctx, ability, job_def, id_suffix)
     local has_spell = common.has_spell_learned(ability)
     local spell_suffix = has_spell and '' or ' (Not Learned)'
     
+    ui_components.onoff_button(ctx, ability.name, job_def, has_spell)
+    
+    imgui.SameLine()
+    
+    -- Push text color after buttons so S button / ON/OFF button are not tinted
     if not has_spell then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
     elseif ability.engaged_only then
@@ -1090,9 +1095,6 @@ function ui_components.self_single_ability(ctx, ability, job_def, id_suffix)
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GREEN)
     end
     
-    ui_components.onoff_button(ctx, ability.name, job_def, has_spell)
-    
-    imgui.SameLine()
     local desc
     if ability.cost and ability.cost > 0 then
         local resource_label = (ability.resource_type or job_def.resource_type) == 'tp' and 'TP' or 'MP'
@@ -1137,22 +1139,12 @@ function ui_components.self_grouped_ability(ctx, ability, job_def)
     
     local has_spell = common.has_spell_learned(selected)
     
-    if not has_spell then
-        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
-    elseif selected.engaged_only then
-        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_RED)
-    elseif selected.combat_only then
-        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_YELLOW)
-    elseif selected.idle_only then
-        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GREEN)
-    end
-    
     -- Scholar stratagem button (prepended to every row when SCH >= 10)
-    local _, strat_padding = render_scholar_stratagem_button(ability.group, selected, ctx)
+    render_scholar_stratagem_button(ability.group, selected, ctx)
 
     -- Use group-based ON/OFF button
     local is_enabled = is_group_enabled(ctx, ability.group)
-    local button_width = get_onoff_button_width() + strat_padding
+    local button_width = get_onoff_button_width()
     
     if not has_spell then
         imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_DISABLED)
@@ -1177,6 +1169,17 @@ function ui_components.self_grouped_ability(ctx, ability, job_def)
     
     if not has_spell or not is_enabled then
         imgui.PopStyleColor(3)
+    end
+    
+    -- Push text color after buttons so S button / ON/OFF button are not tinted
+    if not has_spell then
+        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
+    elseif selected.engaged_only then
+        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_RED)
+    elseif selected.combat_only then
+        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_YELLOW)
+    elseif selected.idle_only then
+        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GREEN)
     end
     
     imgui.SameLine()
