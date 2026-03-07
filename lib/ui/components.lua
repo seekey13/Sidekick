@@ -44,15 +44,31 @@ local HEADER_COLOR_ACTIVE = { 0.2, 0.2, 0.2, 0.65 }
 
 -- Scholar stratagem definitions (ordered highest → lowest for display)
 local SCHOLAR_STRATAGEMS = {
-    { name = 'Perpetuance', desc = '+Duration',   min_level = 75 },
-    { name = 'Accession',   desc = '+AOE',        min_level = 40 },
-    { name = 'Celerity',    desc = '-Cast Time',  min_level = 25 },
-    { name = 'Penury',      desc = '-MP Cost',    min_level = 10 },
+    -- White magic stratagems (Light Arts)
+    { name = 'Penury',       desc = '-MP Cost',    min_level = 10, magic = 'white' },
+    { name = 'Celerity',     desc = '-Cast Time',  min_level = 25, magic = 'white' },
+    { name = 'Accession',    desc = '+AOE',        min_level = 40, magic = 'white', magic_types = { healing = true, enhancing = true } },
+    { name = 'Rapture',      desc = '+Potency',    min_level = 55, magic = 'white' },
+    { name = 'Tranquility',  desc = '-Enmity',     min_level = 75, magic = 'white' },
+    { name = 'Perpetuance',  desc = '+Duration',   min_level = 75, magic = 'white', magic_types = { enhancing = true } },
+    -- Black magic stratagems (Dark Arts)
+    { name = 'Parsimony',    desc = '-MP Cost',    min_level = 10, magic = 'black' },
+    { name = 'Alacrity',     desc = '-Cast Time',  min_level = 25, magic = 'black' },
 }
 
 -- Scholar stratagem selections (session only, not persisted)
--- scholar_stratagems[ability_key] = stratagem name string, or nil for none
+-- scholar_stratagems[ability_key] = { [stratagem_name] = true, ... } or nil for none
 local scholar_stratagems = {}
+
+-- Helper: check if any stratagem is selected for an ability
+local function has_any_stratagem(ability_key)
+    local sel = scholar_stratagems[ability_key]
+    if not sel then return false end
+    for _, v in pairs(sel) do
+        if v then return true end
+    end
+    return false
+end
 
 -- ============================================================================
 -- Helper Functions
@@ -557,11 +573,22 @@ local function render_scholar_stratagem_button(ability_key, ability)
         end
     end
 
-    -- Collect stratagems available at this level
+    -- Collect stratagems available at this level, filtered by ability magic/magic_type
+    local ability_magic      = ability and ability.magic
+    local ability_magic_type = ability and ability.magic_type
     local available = {}
     for _, s in ipairs(SCHOLAR_STRATAGEMS) do
         if sch_level >= s.min_level then
-            table.insert(available, s)
+            -- Match stratagem magic colour to the ability
+            local magic_ok = (not s.magic) or (s.magic == ability_magic)
+            -- If stratagem restricts to specific magic_types, ability must match one
+            local type_ok = true
+            if magic_ok and s.magic_types then
+                type_ok = ability_magic_type and s.magic_types[ability_magic_type] or false
+            end
+            if magic_ok and type_ok then
+                table.insert(available, s)
+            end
         end
     end
 
@@ -570,10 +597,11 @@ local function render_scholar_stratagem_button(ability_key, ability)
     end
 
     local selected  = scholar_stratagems[ability_key]
+    local has_sel   = has_any_stratagem(ability_key)
     local popup_id  = '##sch_strat_popup_' .. ability_key
 
     -- Color: default (active) when a stratagem is chosen, gray when idle
-    if not selected then
+    if not has_sel then
         imgui.PushStyleColor(ImGuiCol_Button,        COLOR_BUTTON_UNSELECTED)
         imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_UNSELECTED_HOVER)
         imgui.PushStyleColor(ImGuiCol_ButtonActive,  COLOR_BUTTON_UNSELECTED_ACTIVE)
@@ -583,7 +611,7 @@ local function render_scholar_stratagem_button(ability_key, ability)
         imgui.OpenPopup(popup_id)
     end
 
-    if not selected then
+    if not has_sel then
         imgui.PopStyleColor(3)
     end
 
@@ -591,16 +619,15 @@ local function render_scholar_stratagem_button(ability_key, ability)
         imgui.TextColored({ 0.8, 0.8, 0.8, 1.0 }, 'Scholar Stratagem')
         imgui.Separator()
 
-        -- None option
-        if imgui.Selectable('None##sch_none_' .. ability_key, selected == nil) then
-            scholar_stratagems[ability_key] = nil
+        -- Ensure selection table exists
+        if not scholar_stratagems[ability_key] then
+            scholar_stratagems[ability_key] = {}
         end
 
         for _, s in ipairs(available) do
-            local label   = s.name .. '  (' .. s.desc .. ')##sch_opt_' .. s.name .. '_' .. ability_key
-            local is_sel  = (selected == s.name)
-            if imgui.Selectable(label, is_sel) then
-                scholar_stratagems[ability_key] = s.name
+            local cb_val = { scholar_stratagems[ability_key][s.name] or false }
+            if imgui.Checkbox(s.name .. '  (' .. s.desc .. ')##sch_opt_' .. s.name .. '_' .. ability_key, cb_val) then
+                scholar_stratagems[ability_key][s.name] = cb_val[1]
             end
         end
 
