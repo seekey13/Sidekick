@@ -523,10 +523,38 @@ local function render_scholar_stratagem_button(ability_key, ability)
         return false, 0
     end
 
+    -- Check if player is in any arts stance (required for stratagems)
+    local in_light = common.has_buff(0, 358) or common.has_buff(0, 401)
+    local in_dark  = common.has_buff(0, 359) or common.has_buff(0, 402)
+    local in_arts  = in_light or in_dark
+
+    -- No arts active → no S button or spacer on any row
+    if not in_arts then
+        return false, 0
+    end
+
     -- Only magic (/ma) commands can use stratagems; skip job abilities (/ja)
-    -- Return extra padding so the caller can widen its button to stay aligned
     if ability and type(ability.command) == 'string' and ability.command:sub(1, 3) == '/ja' then
-        return false, STRATAGEM_BUTTON_TOTAL_WIDTH
+        imgui.Dummy({ 20, 0 })
+        imgui.SameLine(0, SPACE_BETWEEN_BUTTONS)
+        return false, 0
+    end
+
+    -- Stratagems only apply to white/black magic; skip singing, geomancy, etc.
+    if ability and ability.magic then
+        if ability.magic ~= 'white' and ability.magic ~= 'black' then
+            return false, 0
+        end
+    end
+
+    -- Check arts stance: Light Arts → white only, Dark Arts → black only
+    -- Wrong-stance spells get an invisible spacer to stay aligned with S-button rows
+    if ability and ability.magic then
+        if (ability.magic == 'white' and not in_light) or (ability.magic == 'black' and not in_dark) then
+            imgui.Dummy({ 20, 0 })
+            imgui.SameLine(0, SPACE_BETWEEN_BUTTONS)
+            return false, 0
+        end
     end
 
     -- Collect stratagems available at this level
@@ -637,15 +665,14 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
     end
     
     local me_button_label = 'ME##' .. key_name .. '_me'
-    local me_button_width = PARTY_BUTTON_WIDTH + strat_padding
-    if has_spell and imgui.Button(me_button_label, { me_button_width, 0 }) then
+    if has_spell and imgui.Button(me_button_label, { PARTY_BUTTON_WIDTH, 0 }) then
         if is_group then
             toggle_group_party_buff(ctx, key_name, 0, not me_enabled)
         else
             toggle_party_buff(ctx, key_name, 0, not me_enabled)
         end
     elseif not has_spell then
-        imgui.Button(me_button_label, { me_button_width, 0 })
+        imgui.Button(me_button_label, { PARTY_BUTTON_WIDTH, 0 })
     end
     
     if not has_spell then
