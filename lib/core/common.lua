@@ -1757,6 +1757,138 @@ function common.check_target_modifier(job_def, settings, main_level, sub_level)
 end
 
 -- ============================================================================
+-- Scholar Stratagem Pre-Cast Management
+-- ============================================================================
+
+-- Calculate the effective MP cost of an ability considering assigned stratagems.
+-- When stratagems with mp_modifier are assigned (e.g. Penury 0.5x, Accession 3.0x),
+-- the base cost is multiplied by all assigned modifiers.
+-- Checks both ability.name and ability.group as lookup keys (the UI stores stratagem
+-- assignments under the group name for grouped abilities like Protect/Shell).
+-- Args:
+--   ability  (table)  – ability definition with .name, .cost, and optionally .group
+--   settings (table)  – addon settings (contains stratagem_settings)
+--   job_def  (table)  – job definition (contains abilities.stratagem list)
+-- Returns: number (modified cost, or base ability.cost if no stratagems apply)
+function common.effective_ability_cost(ability, settings, job_def)
+    if not ability or not ability.cost then return 0 end
+    if not settings or not settings.stratagem_settings then return ability.cost end
+
+    -- Try ability.name first, then ability.group as fallback
+    local ss = settings.stratagem_settings[ability.name]
+    if not ss and ability.group then
+        ss = settings.stratagem_settings[ability.group]
+    end
+    if not ss then return ability.cost end
+
+    local strat_defs = job_def and job_def.abilities and job_def.abilities.stratagem
+    if not strat_defs then return ability.cost end
+
+    local modifier = 1.0
+    for strat_name, _ in pairs(ss) do
+        for _, strat in ipairs(strat_defs) do
+            if strat.name == strat_name and strat.mp_modifier then
+                modifier = modifier * strat.mp_modifier
+            end
+        end
+    end
+    return math.floor(ability.cost * modifier)
+end
+
+-- Check if scholar stratagems need to fire before casting a spell.
+-- Each automation tick, this returns the NEXT action to take:
+--   nil                    → no stratagems assigned OR all strat buffs active → cast the spell
+--   {command, description} → fire this stratagem JA this tick; caller returns it, re-checks next tick
+--   false                  → stratagems assigned but cannot fire (not enough charges,
+--                            wrong arts stance, status-blocked) → skip this ability
+-- Checks both ability_key (ability.name) and the optional group key (ability.group)
+-- since the UI stores assignments under the group name for grouped buffs.
+-- Args:
+--   job_def     (table)  – job definition (contains abilities.stratagem list)
+--   settings    (table)  – addon settings (contains stratagem_settings)
+--   ability_key (string) – primary lookup key (typically ability.name)
+--   ability     (table)  – optional ability table; when provided, ability.group is used as fallback key
+function common.check_stratagem(job_def, settings, ability_key, ability)
+    if not settings or not settings.stratagem_settings then return nil end
+
+    -- Try primary key first, then group as fallback
+    local ss = settings.stratagem_settings[ability_key]
+    if not ss and ability and ability.group then
+        ss = settings.stratagem_settings[ability.group]
+    end
+    if not ss then return nil end
+
+    local strat_defs = job_def and job_def.abilities and job_def.abilities.stratagem
+    if not strat_defs then return nil end
+
+    -- Get player buffs once for all checks
+    local player_buffs = common.get_player_buffs()
+
+    -- Find assigned stratagems whose buff is NOT yet active
+    local missing = {}
+    for strat_name, _ in pairs(ss) do
+        for _, strat in ipairs(strat_defs) do
+            if strat.name == strat_name then
+                local buff_active = false
+                for _, pb in ipairs(player_buffs) do
+                    if pb == strat.buff_id then
+                        buff_active = true
+                        break
+                    end
+                end
+                if not buff_active then
+                    table.insert(missing, strat)
+                end
+                break
+            end
+        end
+    end
+
+    -- All strat buffs active → ready to cast the spell
+    if #missing == 0 then return nil end
+
+    -- Need one charge per missing stratagem buff
+    local state = common.game_state
+    local charges = state and state.stratagems or 0
+    if charges < #missing then
+        return false
+    end
+
+    -- Fire the first missing stratagem
+    local strat = missing[1]
+
+    -- Verify arts-stance prerequisite (requires_buff may be a number or table)
+    if strat.requires_buff then
+        local req_ids = type(strat.requires_buff) == 'table' and strat.requires_buff or { strat.requires_buff }
+        local has_required = false
+        for _, req_id in ipairs(req_ids) do
+            for _, pb in ipairs(player_buffs) do
+                if pb == req_id then
+                    has_required = true
+                    break
+                end
+            end
+            if has_required then break end
+        end
+        if not has_required then
+            return false
+        end
+    end
+
+    -- Check if blocked by status ailment (silence, stun, etc.)
+    local blocked_by = common.is_command_blocked(strat.command)
+    if blocked_by then
+        return false
+    end
+
+    -- Return the stratagem JA command
+    return {
+        command = strat.command,
+        description = string.format('Using stratagem: %s', strat.name)
+    }
+end
+
+-- ============================================================================
 -- Resting State Management
 -- ============================================================================
 

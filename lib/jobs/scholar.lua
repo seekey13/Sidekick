@@ -723,6 +723,8 @@ return {
                     command = '/ja "Perpetuance" <me>',
                     requires_buff = 401,  -- Addendum: White
                     buff_id = 469,
+                    magic = 'white',
+                    magic_types = { 'enhancing' },
                 },
                 {
                     name = 'Tranquility', -- Reduces the Enmity Generated
@@ -732,6 +734,7 @@ return {
                     command = '/ja "Tranquility" <me>',
                     requires_buff = {358, 401},  -- Can be either 358 or 401
                     buff_id = 414,
+                    magic = 'white',
                 },
                 {
                     name = 'Rapture', -- +Potency
@@ -741,6 +744,7 @@ return {
                     command = '/ja "Rapture" <me>',
                     requires_buff = {358, 401},  -- Can be either 358 or 401
                     buff_id = 364,
+                    magic = 'white',
                 },
                 {
                     name = 'Accession',  -- AOE and 3x Cost of spell and 2x casting time
@@ -749,7 +753,10 @@ return {
                     id = 218,  -- Job ability ID
                     command = '/ja "Accession" <me>',
                     requires_buff = {358, 401},  -- Can be either 358 or 401
-                    buff_id = 363,
+                    buff_id = 366,
+                    magic = 'white',
+                    magic_types = { 'healing', 'enhancing' },
+                    mp_modifier = 3.0,
                 },
                 {
                     name = 'Celerity', -- Reduces the casting time by 50%
@@ -759,6 +766,7 @@ return {
                     command = '/ja "Celerity" <me>',
                     requires_buff = {358, 401},  -- Can be either 358 or 401
                     buff_id = 362,
+                    magic = 'white',
                 },
                 {
                     name = 'Penury', -- Reduces the MP cost by 50%
@@ -768,6 +776,8 @@ return {
                     command = '/ja "Penury" <me>',
                     requires_buff = {358, 401},  -- Can be either 358 or 401
                     buff_id = 360,
+                    magic = 'white',
+                    mp_modifier = 0.5,
                 },
                 {
                     name = 'Alacrity', -- Reduces the casting time by 50%
@@ -777,6 +787,7 @@ return {
                     command = '/ja "Alacrity" <me>',
                     requires_buff = {359, 402},  -- Can be either 359 or 402
                     buff_id = 363,
+                    magic = 'black',
                 },
                 {
                     name = 'Parsimony', -- Reduces the MP cost by 50%
@@ -786,6 +797,8 @@ return {
                     command = '/ja "Parsimony" <me>',
                     requires_buff = {359, 402},  -- Can be either 359 or 402
                     buff_id = 361,
+                    magic = 'black',
+                    mp_modifier = 0.5,
                 },
             },
     },

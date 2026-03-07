@@ -59,8 +59,13 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
         
         if common.below_threshold(player_hpp, settings.heal_threshold or 75) then
             -- Select appropriate ability
-            local selected_ability = heal.select_ability(available_abilities, player_hpp, job_def, player_resource, 0)
+            local selected_ability = heal.select_ability(available_abilities, player_hpp, job_def, player_resource, 0, nil, settings)
             if selected_ability then
+                -- Check stratagems before casting
+                local strat_result = common.check_stratagem(job_def, settings, selected_ability.name, selected_ability)
+                if strat_result == false then return nil
+                elseif strat_result then return strat_result end
+
                 local command = common.build_ability_command(selected_ability, 0)
                 
                 if command then
@@ -280,8 +285,13 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
             local focus_target_index = tt.target_index or 0
             if focus_target_index > 0 and common.is_active_member(focus_hpp) then
                 local outside_abilities = common.outside_abilities(available_abilities)
-                local selected_ability = heal.select_ability(outside_abilities, focus_hpp, job_def, player_resource, nil, tt)
+                local selected_ability = heal.select_ability(outside_abilities, focus_hpp, job_def, player_resource, nil, tt, settings)
                 if selected_ability then
+                    -- Check stratagems before casting
+                    local strat_result = common.check_stratagem(job_def, settings, selected_ability.name, selected_ability)
+                    if strat_result == false then return nil
+                    elseif strat_result then return strat_result end
+
                     local ability_range = type(selected_ability.range) == 'number' and selected_ability.range or 21
                     if common.is_in_range(focus_target_index, ability_range) then
                         local command = common.build_ability_command_for_target(selected_ability, focus_tracked_sid)
@@ -307,8 +317,13 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
                 local focus_hpp = al_member.hpp or 0
                 if common.is_active_member(focus_hpp) then
                     local outside_abilities = common.outside_abilities(available_abilities)
-                    local selected_ability = heal.select_ability(outside_abilities, focus_hpp, job_def, player_resource, nil, al_member)
+                    local selected_ability = heal.select_ability(outside_abilities, focus_hpp, job_def, player_resource, nil, al_member, settings)
                     if selected_ability then
+                        -- Check stratagems before casting
+                        local strat_result = common.check_stratagem(job_def, settings, selected_ability.name, selected_ability)
+                        if strat_result == false then return nil
+                        elseif strat_result then return strat_result end
+
                         local ability_range = type(selected_ability.range) == 'number' and selected_ability.range or 21
                         if common.is_in_range(al_member.target_index, ability_range) then
                             local command = common.build_ability_command_for_target(selected_ability, focus_alliance_sid)
@@ -346,9 +361,14 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
                         return nil
                     end
                     
-                    local selected_ability = heal.select_ability(available_abilities, focus_hpp, job_def, player_resource, focus_party_index)
+                    local selected_ability = heal.select_ability(available_abilities, focus_hpp, job_def, player_resource, focus_party_index, nil, settings)
                     
                     if selected_ability and focus_party_index then
+                        -- Check stratagems before casting
+                        local strat_result = common.check_stratagem(job_def, settings, selected_ability.name, selected_ability)
+                        if strat_result == false then return nil
+                        elseif strat_result then return strat_result end
+
                         local ability_range = type(selected_ability.range) == 'number' and selected_ability.range or 21
                         if not common.is_in_range(focus_target_index, ability_range) then
                             return nil
@@ -372,8 +392,13 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
         local lowest_hp_member = party_status.lowest_hp_index == 0 and state.player or state.party[party_status.lowest_hp_index]
         local target_index = lowest_hp_member and lowest_hp_member.target_index
         if target_index and target_index > 0 then
-            local selected_ability = heal.select_ability(available_abilities, party_status.lowest_hp_percent, job_def, player_resource, party_status.lowest_hp_index)
+            local selected_ability = heal.select_ability(available_abilities, party_status.lowest_hp_percent, job_def, player_resource, party_status.lowest_hp_index, nil, settings)
             if selected_ability then
+                -- Check stratagems before casting
+                local strat_result = common.check_stratagem(job_def, settings, selected_ability.name, selected_ability)
+                if strat_result == false then return nil
+                elseif strat_result then return strat_result end
+
                 local ability_range = type(selected_ability.range) == 'number' and selected_ability.range or 21
                 if not common.is_in_range(target_index, ability_range) then
                     -- Don't return nil yet, check tracked targets below
@@ -399,8 +424,13 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
         if tt and tt.is_active and tt.target_index and tt.target_index > 0 then
             local outside_abilities = common.outside_abilities(available_abilities)
             if #outside_abilities > 0 then
-                local selected_ability = heal.select_ability(outside_abilities, party_status.lowest_tracked_hpp, job_def, player_resource, nil, tt)
+                local selected_ability = heal.select_ability(outside_abilities, party_status.lowest_tracked_hpp, job_def, player_resource, nil, tt, settings)
                 if selected_ability then
+                    -- Check stratagems before casting
+                    local strat_result = common.check_stratagem(job_def, settings, selected_ability.name, selected_ability)
+                    if strat_result == false then return nil
+                    elseif strat_result then return strat_result end
+
                     local ability_range = type(selected_ability.range) == 'number' and selected_ability.range or 21
                     if common.is_in_range(tt.target_index, ability_range) then
                         local command = common.build_ability_command_for_target(selected_ability, party_status.lowest_tracked_sid)
@@ -427,8 +457,13 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
         if al_member and al_member.is_active and al_member.target_index and al_member.target_index > 0 then
             local outside_abilities = common.outside_abilities(available_abilities)
             if #outside_abilities > 0 then
-                local selected_ability = heal.select_ability(outside_abilities, party_status.lowest_alliance_hpp, job_def, player_resource, nil, al_member)
+                local selected_ability = heal.select_ability(outside_abilities, party_status.lowest_alliance_hpp, job_def, player_resource, nil, al_member, settings)
                 if selected_ability then
+                    -- Check stratagems before casting
+                    local strat_result = common.check_stratagem(job_def, settings, selected_ability.name, selected_ability)
+                    if strat_result == false then return nil
+                    elseif strat_result then return strat_result end
+
                     local ability_range = type(selected_ability.range) == 'number' and selected_ability.range or 21
                     if common.is_in_range(al_member.target_index, ability_range) then
                         local command = common.build_ability_command_for_target(selected_ability, party_status.lowest_alliance_sid)
@@ -452,7 +487,7 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
     return nil
 end
 
-function heal.select_ability(abilities, target_hpp, job_def, player_resource, party_index, target_snapshot)
+function heal.select_ability(abilities, target_hpp, job_def, player_resource, party_index, target_snapshot, settings)
     -- Special case: Summoner should always try Healing Ruby first
     if job_def and job_def.job_id == 15 then
         -- Look for Healing Ruby in abilities
@@ -499,7 +534,7 @@ function heal.select_ability(abilities, target_hpp, job_def, player_resource, pa
     end
     
     -- Filter abilities by resource availability and cooldowns
-    local usable_abilities = action_core.filter_usable(abilities, job_def)
+    local usable_abilities = action_core.filter_usable(abilities, job_def, nil, settings)
     
     if #usable_abilities == 0 then
         return nil

@@ -42,34 +42,6 @@ local HEADER_COLOR_NORMAL = { 0.2, 0.2, 0.2, 0.31 }
 local HEADER_COLOR_HOVERED = { 0.2, 0.2, 0.2, 0.45 }
 local HEADER_COLOR_ACTIVE = { 0.2, 0.2, 0.2, 0.65 }
 
--- Scholar stratagem definitions (ordered highest → lowest for display)
-local SCHOLAR_STRATAGEMS = {
-    -- White magic stratagems (Light Arts)
-    { name = 'Penury',       desc = '-MP Cost',    min_level = 10, magic = 'white' },
-    { name = 'Celerity',     desc = '-Cast Time',  min_level = 25, magic = 'white' },
-    { name = 'Accession',    desc = '+AOE',        min_level = 40, magic = 'white', magic_types = { healing = true, enhancing = true } },
-    { name = 'Rapture',      desc = '+Potency',    min_level = 55, magic = 'white' },
-    { name = 'Tranquility',  desc = '-Enmity',     min_level = 75, magic = 'white' },
-    { name = 'Perpetuance',  desc = '+Duration',   min_level = 75, magic = 'white', magic_types = { enhancing = true } },
-    -- Black magic stratagems (Dark Arts)
-    { name = 'Parsimony',    desc = '-MP Cost',    min_level = 10, magic = 'black' },
-    { name = 'Alacrity',     desc = '-Cast Time',  min_level = 25, magic = 'black' },
-}
-
--- Scholar stratagem selections (session only, not persisted)
--- scholar_stratagems[ability_key] = { [stratagem_name] = true, ... } or nil for none
-local scholar_stratagems = {}
-
--- Helper: check if any stratagem is selected for an ability
-local function has_any_stratagem(ability_key)
-    local sel = scholar_stratagems[ability_key]
-    if not sel then return false end
-    for _, v in pairs(sel) do
-        if v then return true end
-    end
-    return false
-end
-
 -- ============================================================================
 -- Helper Functions
 -- ============================================================================
@@ -516,14 +488,86 @@ end
 -- for non-stratagem rows so they align with stratagem rows.
 local STRATAGEM_BUTTON_TOTAL_WIDTH = 20 + SPACE_BETWEEN_BUTTONS
 
--- Render the ⋮ Scholar stratagem selector button for a single ability row.
+-- Helper: get the stratagem_settings table from ctx, creating it if needed
+local function get_stratagem_settings(ctx)
+    if not ctx or not ctx.settings then return nil end
+    if not ctx.settings.stratagem_settings then
+        ctx.settings.stratagem_settings = {}
+    end
+    return ctx.settings.stratagem_settings
+end
+
+-- Helper: check if any stratagem is assigned to an ability key in settings
+local function has_any_stratagem(ctx, ability_key)
+    local ss = ctx and ctx.settings and ctx.settings.stratagem_settings
+    if not ss or not ss[ability_key] then return false end
+    for _, _ in pairs(ss[ability_key]) do
+        return true  -- table has at least one entry
+    end
+    return false
+end
+
+-- Helper: compute the MP modifier multiplier for an ability based on its assigned stratagems
+-- Returns: multiplier (number, 1.0 = no change)
+local function get_stratagem_mp_modifier(ctx, ability_key)
+    local ss = ctx and ctx.settings and ctx.settings.stratagem_settings
+    if not ss or not ss[ability_key] then return 1.0 end
+    local job_def = ctx.job_def
+    if not job_def or not job_def.abilities or not job_def.abilities.stratagem then return 1.0 end
+
+    local modifier = 1.0
+    for strat_name, _ in pairs(ss[ability_key]) do
+        for _, strat in ipairs(job_def.abilities.stratagem) do
+            if strat.name == strat_name and strat.mp_modifier then
+                modifier = modifier * strat.mp_modifier
+            end
+        end
+    end
+    return modifier
+end
+
+-- Filter stratagems from job_def that apply to a given ability at the given level
+local function get_available_stratagems(job_def, sch_level, ability)
+    if not job_def or not job_def.abilities or not job_def.abilities.stratagem then
+        return {}
+    end
+    local ability_magic      = ability and ability.magic
+    local ability_magic_type = ability and ability.magic_type
+    local available = {}
+    for _, strat in ipairs(job_def.abilities.stratagem) do
+        if strat.level and sch_level >= strat.level then
+            -- Match stratagem magic colour to the ability
+            local magic_ok = (not strat.magic) or (strat.magic == ability_magic)
+            -- If stratagem restricts to specific magic_types, ability must match one
+            local type_ok = true
+            if magic_ok and strat.magic_types then
+                type_ok = false
+                if ability_magic_type then
+                    for _, mt in ipairs(strat.magic_types) do
+                        if mt == ability_magic_type then
+                            type_ok = true
+                            break
+                        end
+                    end
+                end
+            end
+            if magic_ok and type_ok then
+                table.insert(available, strat)
+            end
+        end
+    end
+    return available
+end
+
+-- Render the Scholar stratagem selector button for a single ability row.
 -- ability_key: unique string key for the ability (e.g. ability name or group name)
 -- ability: (optional) the ability table; when provided, only /ma commands get the button
+-- ctx: (optional) UI context with settings and save_callback for persistence
 -- Returns: rendered (bool), padding (number)
 --   rendered=true, padding=0  when the S button was drawn
 --   rendered=false, padding=N when the S button was skipped but the caller should
 --                              widen its first button by N pixels to keep alignment
-local function render_scholar_stratagem_button(ability_key, ability)
+local function render_scholar_stratagem_button(ability_key, ability, ctx)
     -- Resolve Scholar level from main or sub job (SCH = job ID 20)
     local main_job_id, sub_job_id = common.get_player_job()
     local main_level, sub_level   = common.get_player_level()
@@ -573,32 +617,16 @@ local function render_scholar_stratagem_button(ability_key, ability)
         end
     end
 
-    -- Collect stratagems available at this level, filtered by ability magic/magic_type
-    local ability_magic      = ability and ability.magic
-    local ability_magic_type = ability and ability.magic_type
-    local available = {}
-    for _, s in ipairs(SCHOLAR_STRATAGEMS) do
-        if sch_level >= s.min_level then
-            -- Match stratagem magic colour to the ability
-            local magic_ok = (not s.magic) or (s.magic == ability_magic)
-            -- If stratagem restricts to specific magic_types, ability must match one
-            local type_ok = true
-            if magic_ok and s.magic_types then
-                type_ok = ability_magic_type and s.magic_types[ability_magic_type] or false
-            end
-            if magic_ok and type_ok then
-                table.insert(available, s)
-            end
-        end
-    end
+    -- Get job_def from ctx for stratagem definitions
+    local job_def = ctx and ctx.job_def
+    local available = get_available_stratagems(job_def, sch_level, ability)
 
     if #available == 0 then
         return false, 0
     end
 
-    local selected  = scholar_stratagems[ability_key]
-    local has_sel   = has_any_stratagem(ability_key)
-    local popup_id  = '##sch_strat_popup_' .. ability_key
+    local has_sel  = has_any_stratagem(ctx, ability_key)
+    local popup_id = '##sch_strat_popup_' .. ability_key
 
     -- Color: default (active) when a stratagem is chosen, gray when idle
     if not has_sel then
@@ -619,15 +647,47 @@ local function render_scholar_stratagem_button(ability_key, ability)
         imgui.TextColored({ 0.8, 0.8, 0.8, 1.0 }, 'Scholar Stratagem')
         imgui.Separator()
 
-        -- Ensure selection table exists
-        if not scholar_stratagems[ability_key] then
-            scholar_stratagems[ability_key] = {}
-        end
+        -- Ensure settings table exists
+        local ss = get_stratagem_settings(ctx)
+        if ss then
+            if not ss[ability_key] then
+                ss[ability_key] = {}
+            end
 
-        for _, s in ipairs(available) do
-            local cb_val = { scholar_stratagems[ability_key][s.name] or false }
-            if imgui.Checkbox(s.name .. '  (' .. s.desc .. ')##sch_opt_' .. s.name .. '_' .. ability_key, cb_val) then
-                scholar_stratagems[ability_key][s.name] = cb_val[1]
+            for _, strat in ipairs(available) do
+                local is_checked = ss[ability_key] and ss[ability_key][strat.name] == true
+                local label = strat.name
+                -- Show MP modifier info in label
+                if strat.mp_modifier then
+                    if strat.mp_modifier < 1.0 then
+                        label = label .. '  (-' .. math.floor((1.0 - strat.mp_modifier) * 100) .. '% MP)'
+                    else
+                        label = label .. '  (+' .. math.floor((strat.mp_modifier - 1.0) * 100) .. '% MP)'
+                    end
+                end
+
+                local cb_val = { is_checked }
+                if imgui.Checkbox(label .. '##sch_opt_' .. strat.name .. '_' .. ability_key, cb_val) then
+                    if not ss[ability_key] then
+                        ss[ability_key] = {}
+                    end
+                    if cb_val[1] then
+                        ss[ability_key][strat.name] = true
+                    else
+                        ss[ability_key][strat.name] = nil
+                    end
+                    if ctx.save_callback then
+                        ctx.save_callback()
+                    end
+                end
+            end
+
+            -- Clean up empty tables after the loop
+            if ss[ability_key] and not next(ss[ability_key]) then
+                ss[ability_key] = nil
+                if ctx.save_callback then
+                    ctx.save_callback()
+                end
             end
         end
 
@@ -649,7 +709,7 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
     local any_rendered = false
 
     -- Scholar stratagem button (prepended to every row when SCH >= 10)
-    local _, strat_padding = render_scholar_stratagem_button(key_name, ability)
+    local _, strat_padding = render_scholar_stratagem_button(key_name, ability, ctx)
 
     -- Check if this ability requires a target modifier (like Pianissimo)
     if not ability then
@@ -902,7 +962,7 @@ function ui_components.onoff_button(ctx, ability_name, job_def, has_spell)
     -- Scholar stratagem button (prepended to every row when SCH >= 10)
     -- Look up the ability to check if it's a /ja (not eligible for stratagems)
     local ability_obj = find_ability_by_name(job_def, ability_name)
-    local _, strat_padding = render_scholar_stratagem_button(ability_name, ability_obj)
+    local _, strat_padding = render_scholar_stratagem_button(ability_name, ability_obj, ctx)
 
     local is_enabled = is_ability_enabled(ctx, ability_name)
     local button_width = get_onoff_button_width() + strat_padding
@@ -949,7 +1009,8 @@ function ui_components.group_dropdown(ctx, job_def, target_group, dropdown_width
     if selected then
         if selected.cost and selected.cost > 0 then
             local resource_label = (selected.resource_type or job_def.resource_type) == 'tp' and 'TP' or 'MP'
-            current_display = selected.name .. ' (' .. selected.cost .. ' ' .. resource_label .. ')'
+            local display_cost = math.floor(selected.cost * get_stratagem_mp_modifier(ctx, target_group))
+            current_display = selected.name .. ' (' .. display_cost .. ' ' .. resource_label .. ')'
         else
             current_display = selected.name
         end
@@ -977,7 +1038,8 @@ function ui_components.group_dropdown(ctx, job_def, target_group, dropdown_width
             local display_text
             if ability.cost and ability.cost > 0 then
                 local resource_label = (ability.resource_type or job_def.resource_type) == 'tp' and 'TP' or 'MP'
-                display_text = ability.name .. ' (' .. ability.cost .. ' ' .. resource_label .. ')'
+                local display_cost = math.floor(ability.cost * get_stratagem_mp_modifier(ctx, target_group))
+                display_text = ability.name .. ' (' .. display_cost .. ' ' .. resource_label .. ')'
             else
                 display_text = ability.name
             end
@@ -1038,7 +1100,8 @@ function ui_components.self_single_ability(ctx, ability, job_def, id_suffix)
     local desc
     if ability.cost and ability.cost > 0 then
         local resource_label = (ability.resource_type or job_def.resource_type) == 'tp' and 'TP' or 'MP'
-        desc = ability.name .. ' (' .. ability.cost .. ' ' .. resource_label .. ')' .. spell_suffix
+        local display_cost = math.floor(ability.cost * get_stratagem_mp_modifier(ctx, ability.name))
+        desc = ability.name .. ' (' .. display_cost .. ' ' .. resource_label .. ')' .. spell_suffix
     else
         desc = ability.name .. spell_suffix
     end
@@ -1089,7 +1152,7 @@ function ui_components.self_grouped_ability(ctx, ability, job_def)
     end
     
     -- Scholar stratagem button (prepended to every row when SCH >= 10)
-    local _, strat_padding = render_scholar_stratagem_button(ability.group, selected)
+    local _, strat_padding = render_scholar_stratagem_button(ability.group, selected, ctx)
 
     -- Use group-based ON/OFF button
     local is_enabled = is_group_enabled(ctx, ability.group)
@@ -1158,7 +1221,8 @@ function ui_components.party_single_ability(ctx, ability, job_def)
     local desc
     if ability.cost and ability.cost > 0 then
         local resource_label = (ability.resource_type or job_def.resource_type) == 'tp' and 'TP' or 'MP'
-        desc = ability.name .. ' (' .. ability.cost .. ' ' .. resource_label .. ')' .. spell_suffix
+        local display_cost = math.floor(ability.cost * get_stratagem_mp_modifier(ctx, ability.name))
+        desc = ability.name .. ' (' .. display_cost .. ' ' .. resource_label .. ')' .. spell_suffix
     else
         desc = ability.name .. spell_suffix
     end
@@ -1384,7 +1448,7 @@ function ui_components.ability_checkbox(ctx, ability, job_def, id_suffix, show_s
             dominated = common.has_buff(0, 359) or common.has_buff(0, 402) -- Dark Arts / Addendum: Black
         end
         if dominated then
-            render_scholar_stratagem_button(ability.name, ability)
+            render_scholar_stratagem_button(ability.name, ability, ctx)
         end
     end
 
@@ -1398,7 +1462,8 @@ function ui_components.ability_checkbox(ctx, ability, job_def, id_suffix, show_s
     local desc
     if ability.cost and ability.cost > 0 then
         local resource_label = (ability.resource_type or job_def.resource_type) == 'tp' and 'TP' or 'MP'
-        desc = ability.name .. ' (' .. ability.cost .. ' ' .. resource_label .. ')' .. spell_suffix
+        local display_cost = math.floor(ability.cost * get_stratagem_mp_modifier(ctx, ability.name))
+        desc = ability.name .. ' (' .. display_cost .. ' ' .. resource_label .. ')' .. spell_suffix
     else
         desc = ability.name .. spell_suffix
     end

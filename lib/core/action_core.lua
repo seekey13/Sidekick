@@ -169,9 +169,14 @@ end
 --[[
     Check whether a single ability is currently usable.
     Evaluates in order: status-blocked → resource → cooldown.
+    Args:
+      ability       – ability definition table
+      job_def       – job definition table
+      cost_override – optional number to replace ability.cost for the resource check
+                      (used for stratagem-adjusted MP costs)
     Returns: is_ready (bool), reason (string or nil)
 ]]--
-function action_core.is_usable(ability, job_def)
+function action_core.is_usable(ability, job_def, cost_override)
     -- 1. Blocked by a status ailment?
     local blocked_by = common.is_command_blocked(ability.command)
     if blocked_by then
@@ -180,7 +185,8 @@ function action_core.is_usable(ability, job_def)
 
     -- 2. Enough resource?
     local res_type = ability.resource_type or job_def.resource_type
-    if not action_core.has_resource(res_type, ability.cost) then
+    local effective_cost = cost_override or ability.cost
+    if not action_core.has_resource(res_type, effective_cost) then
         return false, 'insufficient ' .. res_type
     end
 
@@ -204,12 +210,16 @@ end
 --[[
     Filter a list of abilities down to those that pass is_usable.
     Logs skipped abilities at debug level when tag is provided.
+    When settings is provided, stratagem MP modifiers are applied to the
+    resource check so that Penury/Parsimony-discounted spells pass through
+    and Accession-inflated spells are correctly gated.
     Returns a new table of usable abilities (preserves original order).
 ]]--
-function action_core.filter_usable(abilities, job_def, tag)
+function action_core.filter_usable(abilities, job_def, tag, settings)
     local usable = {}
     for _, ability in ipairs(abilities) do
-        local ok, reason = action_core.is_usable(ability, job_def)
+        local eff_cost = settings and common.effective_ability_cost(ability, settings, job_def) or nil
+        local ok, reason = action_core.is_usable(ability, job_def, eff_cost)
         if ok then
             table.insert(usable, ability)
         end
@@ -230,8 +240,18 @@ end
 ]]--
 function action_core.first_command(abilities, job_def, settings, tag, party_index, description_fn)
     for _, ability in ipairs(abilities) do
-        local ok, reason = action_core.is_usable(ability, job_def)
+        local eff_cost = settings and common.effective_ability_cost(ability, settings, job_def) or nil
+        local ok, reason = action_core.is_usable(ability, job_def, eff_cost)
         if ok then
+            -- Check stratagems before casting
+            if settings then
+                local strat_result = common.check_stratagem(job_def, settings, ability.name, ability)
+                if strat_result == false then
+                    goto continue_first_cmd
+                elseif strat_result then
+                    return strat_result
+                end
+            end
             local command = common.build_ability_command(ability, party_index)
             if command then
                 return {
@@ -240,6 +260,7 @@ function action_core.first_command(abilities, job_def, settings, tag, party_inde
                 }
             end
         end
+        ::continue_first_cmd::
     end
     return nil
 end
@@ -250,7 +271,18 @@ end
     Returns: {command, description} or nil, reason
 ]]--
 function action_core.try_use(ability, job_def, settings, party_index, description, game_state)
-    local ok, reason = action_core.is_usable(ability, job_def)
+    -- Check stratagems before casting
+    if settings then
+        local strat_result = common.check_stratagem(job_def, settings, ability.name, ability)
+        if strat_result == false then
+            return nil, 'stratagem unavailable'
+        elseif strat_result then
+            return strat_result
+        end
+    end
+
+    local eff_cost = settings and common.effective_ability_cost(ability, settings, job_def) or nil
+    local ok, reason = action_core.is_usable(ability, job_def, eff_cost)
     if not ok then return nil, reason end
 
     local command = common.build_ability_command(ability, party_index)

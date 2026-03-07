@@ -162,7 +162,13 @@ function status_removal.execute_debuff_removal(settings, job_def, main_level, su
         if tt and tt.target_index and tt.target_index > 0 and common.is_in_range(tt.target_index, 20) then
             for _, ability in ipairs(outside_abilities) do
                 if can_remove_debuffs(ability, tracked_buffs[focus_tracked_sid]) then
-                    local ok, reason = action_core.is_usable(ability, job_def)
+                    local eff_cost = common.effective_ability_cost(ability, settings, job_def)
+                    local ok, reason = action_core.is_usable(ability, job_def, eff_cost)
+                    if ok then
+                        local strat_result = common.check_stratagem(job_def, settings, ability.name, ability)
+                        if strat_result == false then ok = false
+                        elseif strat_result then return strat_result end
+                    end
                     if ok then
                         local command = common.build_ability_command_for_target(ability, focus_tracked_sid)
                         if command then
@@ -188,7 +194,13 @@ function status_removal.execute_debuff_removal(settings, job_def, main_level, su
         if al_member and al_member.target_index and al_member.target_index > 0 and common.is_in_range(al_member.target_index, 20) then
             for _, ability in ipairs(outside_abilities) do
                 if can_remove_debuffs(ability, alliance_buffs[focus_alliance_sid]) then
-                    local ok, reason = action_core.is_usable(ability, job_def)
+                    local eff_cost = common.effective_ability_cost(ability, settings, job_def)
+                    local ok, reason = action_core.is_usable(ability, job_def, eff_cost)
+                    if ok then
+                        local strat_result = common.check_stratagem(job_def, settings, ability.name, ability)
+                        if strat_result == false then ok = false
+                        elseif strat_result then return strat_result end
+                    end
                     if ok then
                         local command = common.build_ability_command_for_target(ability, focus_alliance_sid)
                         if command then
@@ -262,7 +274,13 @@ function status_removal.execute_debuff_removal(settings, job_def, main_level, su
             local tt = state.tracked[best_tracked_sid]
             for _, ability in ipairs(outside_abilities) do
                 if can_remove_debuffs(ability, tracked_buffs[best_tracked_sid]) then
-                    local ok, reason = action_core.is_usable(ability, job_def)
+                    local eff_cost = common.effective_ability_cost(ability, settings, job_def)
+                    local ok, reason = action_core.is_usable(ability, job_def, eff_cost)
+                    if ok then
+                        local strat_result = common.check_stratagem(job_def, settings, ability.name, ability)
+                        if strat_result == false then ok = false
+                        elseif strat_result then return strat_result end
+                    end
                     if ok then
                         local command = common.build_ability_command_for_target(ability, best_tracked_sid)
                         if command then
@@ -302,7 +320,13 @@ function status_removal.execute_debuff_removal(settings, job_def, main_level, su
             if al_member then
                 for _, ability in ipairs(outside_abilities) do
                     if can_remove_debuffs(ability, alliance_buffs[best_alliance_sid]) then
-                        local ok, reason = action_core.is_usable(ability, job_def)
+                        local eff_cost = common.effective_ability_cost(ability, settings, job_def)
+                        local ok, reason = action_core.is_usable(ability, job_def, eff_cost)
+                        if ok then
+                            local strat_result = common.check_stratagem(job_def, settings, ability.name, ability)
+                            if strat_result == false then ok = false
+                            elseif strat_result then return strat_result end
+                        end
                         if ok then
                             local command = common.build_ability_command_for_target(ability, best_alliance_sid)
                             if command then
@@ -485,7 +509,13 @@ function status_removal.execute_wake(settings, job_def, main_level, sub_level, p
                     if ability.target_outside and ability.wakes then
                         local blocked_by = common.is_command_blocked(ability.command)
                         if not blocked_by then
-                            local ok, reason = action_core.is_usable(ability, job_def)
+                            local eff_cost = common.effective_ability_cost(ability, settings, job_def)
+                            local ok, reason = action_core.is_usable(ability, job_def, eff_cost)
+                            if ok then
+                                local strat_result = common.check_stratagem(job_def, settings, ability.name, ability)
+                                if strat_result == false then ok = false
+                                elseif strat_result then return strat_result end
+                            end
                             if ok then
                                 local command = common.build_ability_command_for_target(ability, sid)
                                 if command then
@@ -511,7 +541,13 @@ function status_removal.execute_wake(settings, job_def, main_level, sub_level, p
                     if ability.target_outside and ability.wakes then
                         local blocked_by = common.is_command_blocked(ability.command)
                         if not blocked_by then
-                            local ok, reason = action_core.is_usable(ability, job_def)
+                            local eff_cost = common.effective_ability_cost(ability, settings, job_def)
+                            local ok, reason = action_core.is_usable(ability, job_def, eff_cost)
+                            if ok then
+                                local strat_result = common.check_stratagem(job_def, settings, ability.name, ability)
+                                if strat_result == false then ok = false
+                                elseif strat_result then return strat_result end
+                            end
                             if ok then
                                 local command = common.build_ability_command_for_target(ability, sid)
                                 if command then
