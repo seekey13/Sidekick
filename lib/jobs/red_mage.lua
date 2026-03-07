@@ -721,8 +721,6 @@ return {
                 level = 38,
                 cost = 150,
                 id = 12,  -- Spell ID
-                magic = 'white',
-                magic_type = 'healing',
                 command = function(target)
                     return '/ma "Raise" '..target
                 end,

@@ -880,8 +880,6 @@ return {
                 level = 75,
                 cost = 300,
                 id = 494,  -- Spell ID
-                magic = 'white',
-                magic_type = 'healing',
                 command = function(target)
                     return '/ma "Arise" '..target
                 end,
@@ -894,8 +892,6 @@ return {
                 level = 70,
                 cost = 150,
                 id = 140,  -- Spell ID
-                magic = 'white',
-                magic_type = 'healing',
                 command = function(target)
                     return '/ma "Raise III" '..target
                 end,
@@ -908,8 +904,6 @@ return {
                 level = 56,
                 cost = 150,
                 id = 139,  -- Spell ID
-                magic = 'white',
-                magic_type = 'healing',
                 command = function(target)
                     return '/ma "Raise II" '..target
                 end,
@@ -922,8 +916,6 @@ return {
                 level = 25,
                 cost = 150,
                 id = 12,  -- Spell ID
-                magic = 'white',
-                magic_type = 'healing',
                 command = function(target)
                     return '/ma "Raise" '..target
                 end,
