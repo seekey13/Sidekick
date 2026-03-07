@@ -496,10 +496,18 @@ end
 -- Scholar Stratagem Button
 -- ============================================================================
 
+-- Width of the S button (20) + spacing (SPACE_BETWEEN_BUTTONS) used as an indent
+-- for non-stratagem rows so they align with stratagem rows.
+local STRATAGEM_BUTTON_TOTAL_WIDTH = 20 + SPACE_BETWEEN_BUTTONS
+
 -- Render the ⋮ Scholar stratagem selector button for a single ability row.
 -- ability_key: unique string key for the ability (e.g. ability name or group name)
--- Returns true if the button was rendered (so callers know to SameLine after it).
-local function render_scholar_stratagem_button(ability_key)
+-- ability: (optional) the ability table; when provided, only /ma commands get the button
+-- Returns: rendered (bool), padding (number)
+--   rendered=true, padding=0  when the S button was drawn
+--   rendered=false, padding=N when the S button was skipped but the caller should
+--                              widen its first button by N pixels to keep alignment
+local function render_scholar_stratagem_button(ability_key, ability)
     -- Resolve Scholar level from main or sub job (SCH = job ID 20)
     local main_job_id, sub_job_id = common.get_player_job()
     local main_level, sub_level   = common.get_player_level()
@@ -512,7 +520,13 @@ local function render_scholar_stratagem_button(ability_key)
     end
 
     if sch_level < 10 then
-        return false
+        return false, 0
+    end
+
+    -- Only magic (/ma) commands can use stratagems; skip job abilities (/ja)
+    -- Return extra padding so the caller can widen its button to stay aligned
+    if ability and type(ability.command) == 'string' and ability.command:sub(1, 3) == '/ja' then
+        return false, STRATAGEM_BUTTON_TOTAL_WIDTH
     end
 
     -- Collect stratagems available at this level
@@ -524,7 +538,7 @@ local function render_scholar_stratagem_button(ability_key)
     end
 
     if #available == 0 then
-        return false
+        return false, 0
     end
 
     local selected  = scholar_stratagems[ability_key]
@@ -566,7 +580,7 @@ local function render_scholar_stratagem_button(ability_key)
     end
 
     imgui.SameLine(0, SPACE_BETWEEN_BUTTONS)
-    return true
+    return true, 0
 end
 
 -- ============================================================================
@@ -580,7 +594,7 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
     local any_rendered = false
 
     -- Scholar stratagem button (prepended to every row when SCH >= 10)
-    render_scholar_stratagem_button(key_name)
+    local _, strat_padding = render_scholar_stratagem_button(key_name, ability)
 
     -- Check if this ability requires a target modifier (like Pianissimo)
     if not ability then
@@ -623,14 +637,15 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
     end
     
     local me_button_label = '<ME>##' .. key_name .. '_me'
-    if has_spell and imgui.Button(me_button_label, { PARTY_BUTTON_WIDTH, 0 }) then
+    local me_button_width = PARTY_BUTTON_WIDTH + strat_padding
+    if has_spell and imgui.Button(me_button_label, { me_button_width, 0 }) then
         if is_group then
             toggle_group_party_buff(ctx, key_name, 0, not me_enabled)
         else
             toggle_party_buff(ctx, key_name, 0, not me_enabled)
         end
     elseif not has_spell then
-        imgui.Button(me_button_label, { PARTY_BUTTON_WIDTH, 0 })
+        imgui.Button(me_button_label, { me_button_width, 0 })
     end
     
     if not has_spell then
@@ -831,10 +846,12 @@ function ui_components.onoff_button(ctx, ability_name, job_def, has_spell)
     has_spell = has_spell == nil and true or has_spell
 
     -- Scholar stratagem button (prepended to every row when SCH >= 10)
-    render_scholar_stratagem_button(ability_name)
+    -- Look up the ability to check if it's a /ja (not eligible for stratagems)
+    local ability_obj = find_ability_by_name(job_def, ability_name)
+    local _, strat_padding = render_scholar_stratagem_button(ability_name, ability_obj)
 
     local is_enabled = is_ability_enabled(ctx, ability_name)
-    local button_width = get_onoff_button_width()
+    local button_width = get_onoff_button_width() + strat_padding
     
     if not has_spell then
         imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_DISABLED)
@@ -1018,11 +1035,11 @@ function ui_components.self_grouped_ability(ctx, ability, job_def)
     end
     
     -- Scholar stratagem button (prepended to every row when SCH >= 10)
-    render_scholar_stratagem_button(ability.group)
+    local _, strat_padding = render_scholar_stratagem_button(ability.group, selected)
 
     -- Use group-based ON/OFF button
     local is_enabled = is_group_enabled(ctx, ability.group)
-    local button_width = get_onoff_button_width()
+    local button_width = get_onoff_button_width() + strat_padding
     
     if not has_spell then
         imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_DISABLED)
