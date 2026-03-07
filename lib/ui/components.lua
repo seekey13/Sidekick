@@ -484,10 +484,6 @@ end
 -- Scholar Stratagem Button
 -- ============================================================================
 
--- Width of the S button (20) + spacing (SPACE_BETWEEN_BUTTONS) used as an indent
--- for non-stratagem rows so they align with stratagem rows.
-local STRATAGEM_BUTTON_TOTAL_WIDTH = 20 + SPACE_BETWEEN_BUTTONS
-
 -- Helper: get the stratagem_settings table from ctx, creating it if needed
 local function get_stratagem_settings(ctx)
     if not ctx or not ctx.settings then return nil end
@@ -709,7 +705,7 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
     local any_rendered = false
 
     -- Scholar stratagem button (prepended to every row when SCH >= 10)
-    local _, strat_padding = render_scholar_stratagem_button(key_name, ability, ctx)
+    render_scholar_stratagem_button(key_name, ability, ctx)
 
     -- Check if this ability requires a target modifier (like Pianissimo)
     if not ability then
@@ -962,10 +958,10 @@ function ui_components.onoff_button(ctx, ability_name, job_def, has_spell)
     -- Scholar stratagem button (prepended to every row when SCH >= 10)
     -- Look up the ability to check if it's a /ja (not eligible for stratagems)
     local ability_obj = find_ability_by_name(job_def, ability_name)
-    local _, strat_padding = render_scholar_stratagem_button(ability_name, ability_obj, ctx)
+    render_scholar_stratagem_button(ability_name, ability_obj, ctx)
 
     local is_enabled = is_ability_enabled(ctx, ability_name)
-    local button_width = get_onoff_button_width() + strat_padding
+    local button_width = get_onoff_button_width()
     
     if not has_spell then
         imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_DISABLED)

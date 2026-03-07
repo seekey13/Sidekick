@@ -271,7 +271,12 @@ end
     Returns: {command, description} or nil, reason
 ]]--
 function action_core.try_use(ability, job_def, settings, party_index, description, game_state)
-    -- Check stratagems before casting
+    -- Check usability first (with stratagem-adjusted cost) to avoid wasting charges
+    local eff_cost = settings and common.effective_ability_cost(ability, settings, job_def) or nil
+    local ok, reason = action_core.is_usable(ability, job_def, eff_cost)
+    if not ok then return nil, reason end
+
+    -- Only fire stratagems after confirming the spell is castable
     if settings then
         local strat_result = common.check_stratagem(job_def, settings, ability.name, ability)
         if strat_result == false then
@@ -280,10 +285,6 @@ function action_core.try_use(ability, job_def, settings, party_index, descriptio
             return strat_result
         end
     end
-
-    local eff_cost = settings and common.effective_ability_cost(ability, settings, job_def) or nil
-    local ok, reason = action_core.is_usable(ability, job_def, eff_cost)
-    if not ok then return nil, reason end
 
     local command = common.build_ability_command(ability, party_index)
     if not command then return nil, 'failed to build command' end

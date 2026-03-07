@@ -1784,6 +1784,8 @@ function common.effective_ability_cost(ability, settings, job_def)
     local strat_defs = job_def and job_def.abilities and job_def.abilities.stratagem
     if not strat_defs then return ability.cost end
 
+    -- Modifiers are multiplicative (e.g. Accession 3.0x * Penury 0.5x = 1.5x).
+    -- This is commutative so iteration order of pairs(ss) does not matter.
     local modifier = 1.0
     for strat_name, _ in pairs(ss) do
         for _, strat in ipairs(strat_defs) do
@@ -1824,22 +1826,21 @@ function common.check_stratagem(job_def, settings, ability_key, ability)
     -- Get player buffs once for all checks
     local player_buffs = common.get_player_buffs()
 
-    -- Find assigned stratagems whose buff is NOT yet active
+    -- Find assigned stratagems whose buff is NOT yet active.
+    -- Iterate strat_defs in definition order (not pairs(ss)) so that
+    -- the chosen stratagem is deterministic when multiple are assigned.
     local missing = {}
-    for strat_name, _ in pairs(ss) do
-        for _, strat in ipairs(strat_defs) do
-            if strat.name == strat_name then
-                local buff_active = false
-                for _, pb in ipairs(player_buffs) do
-                    if pb == strat.buff_id then
-                        buff_active = true
-                        break
-                    end
+    for _, strat in ipairs(strat_defs) do
+        if ss[strat.name] then
+            local buff_active = false
+            for _, pb in ipairs(player_buffs) do
+                if pb == strat.buff_id then
+                    buff_active = true
+                    break
                 end
-                if not buff_active then
-                    table.insert(missing, strat)
-                end
-                break
+            end
+            if not buff_active then
+                table.insert(missing, strat)
             end
         end
     end
@@ -2053,9 +2054,12 @@ local function calculate_stratagems()
         return max_charges
     end
 
-    -- Timer is in ticks (60 ticks = 1 second)
+    -- Timer is in ticks (60 ticks = 1 second).
+    -- Subtract a small epsilon before ceil to avoid over-counting by 1
+    -- near the boundary when a charge is about to tick in (e.g. 48.01s
+    -- with a 48s recharge_rate would yield 2 missing instead of 1).
     local seconds_remaining = timer_value / 60
-    local missing_charges   = math.ceil(seconds_remaining / recharge_rate)
+    local missing_charges   = math.ceil((seconds_remaining - 0.5) / recharge_rate)
     local current_charges   = max_charges - missing_charges
 
     -- Clamp to valid range
