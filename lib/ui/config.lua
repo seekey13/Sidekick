@@ -658,7 +658,7 @@ function ui_config.render(settings, job_def, callback, roll_mod)
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.heal) do
                     if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
-                        ui.ability_checkbox(ctx, ability, job_def, 'heal')
+                        ui.ability_checkbox(ctx, ability, job_def, 'heal', true)
                     end
                 end
                 imgui.Unindent(ui.ABILITY_LIST_INDENT)
@@ -688,7 +688,7 @@ function ui_config.render(settings, job_def, callback, roll_mod)
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.heal_aoe) do
                     if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
-                        ui.ability_checkbox(ctx, ability, job_def, 'heal_aoe')
+                        ui.ability_checkbox(ctx, ability, job_def, 'heal_aoe', true)
                     end
                 end
                 imgui.Unindent(ui.ABILITY_LIST_INDENT)
@@ -733,7 +733,7 @@ function ui_config.render(settings, job_def, callback, roll_mod)
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.debuff_removal) do
                     if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
-                        ui.ability_checkbox(ctx, ability, job_def, 'debuff_removal')
+                        ui.ability_checkbox(ctx, ability, job_def, 'debuff_removal', true)
                     end
                 end
                 

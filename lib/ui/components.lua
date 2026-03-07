@@ -1345,7 +1345,22 @@ function ui_components.combo(ctx, label, setting_name, ui_var, options, converte
 end
 
 -- Render an ability checkbox with spell knowledge checking
-function ui_components.ability_checkbox(ctx, ability, job_def, id_suffix)
+function ui_components.ability_checkbox(ctx, ability, job_def, id_suffix, show_stratagem)
+    -- Optionally render the Scholar stratagem S button before the checkbox.
+    -- Only call when the ability's magic matches the current arts stance so that
+    -- sections where NO spell qualifies don't get pointless spacers.
+    if show_stratagem and ability.magic then
+        local dominated = false
+        if ability.magic == 'white' then
+            dominated = common.has_buff(0, 358) or common.has_buff(0, 401) -- Light Arts / Addendum: White
+        elseif ability.magic == 'black' then
+            dominated = common.has_buff(0, 359) or common.has_buff(0, 402) -- Dark Arts / Addendum: Black
+        end
+        if dominated then
+            render_scholar_stratagem_button(ability.name, ability)
+        end
+    end
+
     local has_spell = common.has_spell_learned(ability)
     local spell_suffix = ''
     if not has_spell then
