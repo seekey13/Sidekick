@@ -15,7 +15,7 @@ local item_module = require('lib.actions.item')
 
 -- Layout Constants
 local ABILITY_LIST_INDENT = 10
-local PARTY_BUTTON_WIDTH = 44
+local PARTY_BUTTON_WIDTH = 30
 local SPACE_BETWEEN_BUTTONS = 8
 
 -- Width Constants
@@ -636,7 +636,7 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
         imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_UNSELECTED_ACTIVE)
     end
     
-    local me_button_label = '<ME>##' .. key_name .. '_me'
+    local me_button_label = 'ME##' .. key_name .. '_me'
     local me_button_width = PARTY_BUTTON_WIDTH + strat_padding
     if has_spell and imgui.Button(me_button_label, { me_button_width, 0 }) then
         if is_group then
@@ -684,7 +684,7 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
                     imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_UNSELECTED_ACTIVE)
                 end
                 
-                local button_label = '<P' .. party_index .. '>##' .. key_name .. '_p' .. party_index
+                local button_label = 'P' .. party_index .. '##' .. key_name .. '_p' .. party_index
                 if party_has_spell and imgui.Button(button_label, { PARTY_BUTTON_WIDTH, 0 }) then
                     if is_group then
                         toggle_group_party_buff(ctx, key_name, party_index, not is_enabled)
