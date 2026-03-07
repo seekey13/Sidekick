@@ -415,51 +415,6 @@ return {
                 requires_buff = 401,  -- Requires Addendum: White
             },
             -- {
-            --     name = 'Altruism', -- Increases the accuracy
-            --     level = 75,
-            --     cost = 0,
-            --     id = 240,  -- Job ability ID
-            --     command = '/ja "Altruism" <me>',
-            --     requires_buff = 401,  -- Addendum: White
-            --     buff_id = 412,
-            -- },
-            -- {
-            --     name = 'Perpetuance', -- Increases the enhancement effect duration
-            --     level = 75,
-            --     cost = 0,
-            --     id = 316,  -- Job ability ID
-            --     command = '/ja "Perpetuance" <me>',
-            --     requires_buff = 401,  -- Addendum: White
-            --     buff_id = 469,
-            -- },
-            -- {
-            --     name = 'Accession',  -- AOE
-            --     level = 40,
-            --     cost = 0,
-            --     id = 218,  -- Job ability ID
-            --     command = '/ja "Accession" <me>',
-            --     requires_buff = 401,  -- Addendum: White
-            --     buff_id = 366,
-            -- },
-            -- {
-            --     name = 'Celerity', -- Reduces the casting time by 50%
-            --     level = 25,
-            --     cost = 0,
-            --     id = 216,  -- Job ability ID
-            --     command = '/ja "Celerity" <me>',
-            --     requires_buff = 401,  -- Addendum: White
-            --     buff_id = 362,
-            -- },
-            -- {
-            --     name = 'Penury', -- Reduces the MP cost by 50%
-            --     level = 10,
-            --     cost = 0,
-            --     id = 215,  -- Job ability ID
-            --     command = '/ja "Penury" <me>',
-            --     requires_buff = 401,  -- Addendum: White
-            --     buff_id = 360,
-            -- },
-            -- {
             --     name = 'Enlightenment',
             --     level = 75,
             --     cost = 0,
@@ -757,6 +712,80 @@ return {
                 target_outside = true,
             },
         },
+
+        -- Stratagem
+            stratagem = {
+                {
+                    name = 'Perpetuance', -- Increases the enhancement effect duration
+                    level = 75,
+                    cost = 0,
+                    id = 316,  -- Job ability ID
+                    command = '/ja "Perpetuance" <me>',
+                    requires_buff = 401,  -- Addendum: White
+                    buff_id = 469,
+                },
+                {
+                    name = 'Tranquility',
+                    level = 75,
+                    cost = 0,
+                    id = 231,  -- Job ability ID
+                    command = '/ja "Tranquility" <me>',
+                    requires_buff = {358, 401},  -- Can be either 358 or 401
+                },
+                {
+                    name = 'Rapture',
+                    level = 55,
+                    cost = 0,
+                    id = 231,  -- Job ability ID
+                    command = '/ja "Rapture" <me>',
+                    requires_buff = {358, 401},  -- Can be either 358 or 401
+                },
+                {
+                    name = 'Accession',  -- AOE
+                    level = 40,
+                    cost = 0,
+                    id = 218,  -- Job ability ID
+                    command = '/ja "Accession" <me>',
+                    requires_buff = {358, 401},  -- Can be either 358 or 401
+                    buff_id = 366,
+                },
+                {
+                    name = 'Celerity', -- Reduces the casting time by 50%
+                    level = 25,
+                    cost = 0,
+                    id = 216,  -- Job ability ID
+                    command = '/ja "Celerity" <me>',
+                    requires_buff = {358, 401},  -- Can be either 358 or 401
+                    buff_id = 362,
+                },
+                {
+                    name = 'Penury', -- Reduces the MP cost by 50%
+                    level = 10,
+                    cost = 0,
+                    id = 215,  -- Job ability ID
+                    command = '/ja "Penury" <me>',
+                    requires_buff = {358, 401},  -- Can be either 358 or 401
+                    buff_id = 360,
+                },
+                {
+                    name = 'Alacrity', -- Reduces the TP cost by 50%
+                    level = 25,
+                    cost = 0,
+                    id = 217,  -- Job ability ID
+                    command = '/ja "Alacrity" <me>',
+                    requires_buff = {359, 402},  -- Can be either 359 or 402
+                    buff_id = 361,
+                }
+                {
+                    name = 'Parsimony', -- Reduces the TP cost by 50%
+                    level = 10,
+                    cost = 0,
+                    id = 217,  -- Job ability ID
+                    command = '/ja "Parsimony" <me>',
+                    requires_buff = {359, 402},  -- Can be either 359 or 402
+                    buff_id = 361,
+                }
+            },
     },
     
     -- Job-specific validators
