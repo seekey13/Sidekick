@@ -20,6 +20,7 @@ return {
                 level = 61,
                 cost = 0,
                 id = 392,
+                magic = 'song',
                 command = function(target)
                     return '/ma "Knight\'s Minne IV" '..target
                 end,
@@ -33,6 +34,7 @@ return {
                 level = 41,
                 cost = 0,
                 id = 391,
+                magic = 'song',
                 command = function(target)
                     return '/ma "Knight\'s Minne III" '..target
                 end,
@@ -46,6 +48,7 @@ return {
                 level = 21,
                 cost = 0,
                 id = 390,
+                magic = 'song',
                 command = function(target)
                     return '/ma "Knight\'s Minne II" '..target
                 end,
@@ -59,6 +62,7 @@ return {
                 level = 1,
                 cost = 0,
                 id = 389,
+                magic = 'song',
                 command = function(target)
                     return '/ma "Knight\'s Minne" '..target
                 end,
@@ -73,6 +77,7 @@ return {
                 level = 63,
                 cost = 0,
                 id = 397,
+                magic = 'song',
                 command = function(target)
                     return '/ma "Valor Minuet IV" '..target
                 end,
@@ -86,6 +91,7 @@ return {
                 level = 43,
                 cost = 0,
                 id = 396,
+                magic = 'song',
                 command = function(target)
                     return '/ma "Valor Minuet III" '..target
                 end,
@@ -99,6 +105,7 @@ return {
                 level = 23,
                 cost = 0,
                 id = 395,
+                magic = 'song',
                 command = function(target)
                     return '/ma "Valor Minuet II" '..target
                 end,
@@ -112,6 +119,7 @@ return {
                 level = 3,
                 cost = 0,
                 id = 394,
+                magic = 'song',
                 command = function(target)
                     return '/ma "Valor Minuet" '..target
                 end,
@@ -126,6 +134,7 @@ return {
                 level = 65,
                 cost = 0,
                 id = 382,
+                magic = 'song',
                 command = function(target)
                     return '/ma "Army\'s Paeon V" '..target
                 end,
@@ -139,6 +148,7 @@ return {
                 level = 45,
                 cost = 0,
                 id = 381,
+                magic = 'song',
                 command = function(target)
                     return '/ma "Army\'s Paeon IV" '..target
                 end,
@@ -152,6 +162,7 @@ return {
                 level = 35,
                 cost = 0,
                 id = 380,
+                magic = 'song',
                 command = function(target)
                     return '/ma "Army\'s Paeon III" '..target
                 end,
@@ -165,6 +176,7 @@ return {
                 level = 15,
                 cost = 0,
                 id = 379,
+                magic = 'song',
                 command = function(target)
                     return '/ma "Army\'s Paeon II" '..target
                 end,
@@ -178,6 +190,7 @@ return {
                 level = 5,
                 cost = 0,
                 id = 378,
+                magic = 'song',
                 command = function(target)
                     return '/ma "Army\'s Paeon" '..target
                 end,
@@ -192,6 +205,7 @@ return {
                 level = 51,
                 cost = 0,
                 id = 400,
+                magic = 'song',
                 command = function(target)
                     return '/ma "Blade Madrigal" '..target
                 end,
@@ -205,6 +219,7 @@ return {
                 level = 11,
                 cost = 0,
                 id = 399,
+                magic = 'song',
                 command = function(target)
                     return '/ma "Sword Madrigal" '..target
                 end,
@@ -219,6 +234,7 @@ return {
                 level = 71,
                 cost = 0,
                 id = 402,
+                magic = 'song',
                 command = function(target)
                     return '/ma "Archer\'s Prelude" '..target
                 end,
@@ -232,6 +248,7 @@ return {
                 level = 31,
                 cost = 0,
                 id = 401,
+                magic = 'song',
                 command = function(target)
                     return '/ma "Hunter\'s Prelude" '..target
                 end,
@@ -246,6 +263,7 @@ return {
                 level = 53,
                 cost = 0,
                 id = 404,
+                magic = 'song',
                 command = function(target)
                     return '/ma "Dragonfoe Mambo" '..target
                 end,
@@ -259,6 +277,7 @@ return {
                 level = 13,
                 cost = 0,
                 id = 403,
+                magic = 'song',
                 command = function(target)
                     return '/ma "Sheepfoe Mambo" '..target
                 end,
@@ -273,6 +292,7 @@ return {
                 level = 55,
                 cost = 0,
                 id = 387,
+                magic = 'song',
                 command = function(target)
                     return '/ma "Mage\'s Ballad II" '..target
                 end,
@@ -286,6 +306,7 @@ return {
                 level = 25,
                 cost = 0,
                 id = 386,
+                magic = 'song',
                 command = function(target)
                     return '/ma "Mage\'s Ballad" '..target
                 end,
@@ -300,6 +321,7 @@ return {
                 level = 60,
                 cost = 0,
                 id = 420, 
+                magic = 'song',
                 command = function(target)
                     return '/ma "Victory March" '..target
                 end,
@@ -313,6 +335,7 @@ return {
                 level = 29,
                 cost = 0,
                 id = 419,
+                magic = 'song',
                 command = function(target)
                     return '/ma "Advancing March" '..target
                 end,
@@ -327,6 +350,7 @@ return {
                 level = 74,
                 cost = 0,
                 id = 431,
+                magic = 'song',
                 command = function(target)
                     return '/ma "Herculean Etude" '..target
                 end,
@@ -340,6 +364,7 @@ return {
                 level = 72,
                 cost = 0,
                 id = 432,
+                magic = 'song',
                 command = function(target)
                     return '/ma "Uncanny Etude" '..target
                 end,
@@ -353,6 +378,7 @@ return {
                 level = 70,
                 cost = 0,
                 id = 433,
+                magic = 'song',
                 command = function(target)
                     return '/ma "Vital Etude" '..target
                 end,
@@ -366,6 +392,7 @@ return {
                 level = 68,
                 cost = 0,
                 id = 434,
+                magic = 'song',
                 command = function(target)
                     return '/ma "Swift Etude" '..target
                 end,
@@ -379,6 +406,7 @@ return {
                 level = 66,
                 cost = 0,
                 id = 435,
+                magic = 'song',
                 command = function(target)
                     return '/ma "Sage Etude" '..target
                 end,
@@ -392,6 +420,7 @@ return {
                 level = 64,
                 cost = 0,
                 id = 436,
+                magic = 'song',
                 command = function(target)
                     return '/ma "Logical Etude" '..target
                 end,
@@ -405,6 +434,7 @@ return {
                 level = 62,
                 cost = 0,
                 id = 437,
+                magic = 'song',
                 command = function(target)
                     return '/ma "Bewitching Etude" '..target
                 end,
@@ -418,6 +448,7 @@ return {
                 level = 34,
                 cost = 0,
                 id = 424,
+                magic = 'song',
                 command = function(target)
                     return '/ma "Sinewy Etude" '..target
                 end,
@@ -431,6 +462,7 @@ return {
                 level = 32,
                 cost = 0,
                 id = 425,
+                magic = 'song',
                 command = function(target)
                     return '/ma "Dextrous Etude" '..target
                 end,
@@ -444,6 +476,7 @@ return {
                 level = 30,
                 cost = 0,
                 id = 426,
+                magic = 'song',
                 command = function(target)
                     return '/ma "Vivacious Etude" '..target
                 end,
@@ -457,6 +490,7 @@ return {
                 level = 28,
                 cost = 0,
                 id = 427,
+                magic = 'song',
                 command = function(target)
                     return '/ma "Quick Etude" '..target
                 end,
@@ -470,6 +504,7 @@ return {
                 level = 26,
                 cost = 0,
                 id = 428,
+                magic = 'song',
                 command = function(target)
                     return '/ma "Learned Etude" '..target
                 end,
@@ -483,6 +518,7 @@ return {
                 level = 24,
                 cost = 0,
                 id = 429,
+                magic = 'song',
                 command = function(target)
                     return '/ma "Spirited Etude" '..target
                 end,
@@ -497,6 +533,7 @@ return {
                 level = 50,
                 cost = 0,
                 id = 445,
+                magic = 'song',
                 command = function(target)
                     return '/ma "Dark Carol" '..target
                 end,
@@ -510,6 +547,7 @@ return {
                 level = 48,
                 cost = 0,
                 id = 442,
+                magic = 'song',
                 command = function(target)
                     return '/ma "Lightning Carol" '..target
                 end,
@@ -523,6 +561,7 @@ return {
                 level = 46,
                 cost = 0,
                 id = 439,
+                magic = 'song',
                 command = function(target)
                     return '/ma "Ice Carol" '..target
                 end,
@@ -536,6 +575,7 @@ return {
                 level = 44,
                 cost = 0,
                 id = 438,
+                magic = 'song',
                 command = function(target)
                     return '/ma "Fire Carol" '..target
                 end,
@@ -549,6 +589,7 @@ return {
                 level = 42,
                 cost = 0,
                 id = 440,
+                magic = 'song',
                 command = function(target)
                     return '/ma "Wind Carol" '..target
                 end,
@@ -562,6 +603,7 @@ return {
                 level = 40,
                 cost = 0,
                 id = 441,
+                magic = 'song',
                 command = function(target)
                     return '/ma "Water Carol" '..target
                 end,
@@ -575,6 +617,7 @@ return {
                 level = 38,
                 cost = 0,
                 id = 443,
+                magic = 'song',
                 command = function(target)
                     return '/ma "Earth Carol" '..target
                 end,
@@ -588,6 +631,7 @@ return {
                 level = 36,
                 cost = 0,
                 id = 444,
+                magic = 'song',
                 command = function(target)
                     return '/ma "Light Carol" '..target
                 end,
@@ -602,6 +646,7 @@ return {
                 level = 73,
                 cost = 0,
                 id = 465,
+                magic = 'song',
                 command = function(target)
                     return '/ma "Chocobo Mazurka" '..target
                 end,
@@ -615,6 +660,7 @@ return {
                 level = 37,
                 cost = 0,
                 id = 467,
+                magic = 'song',
                 command = function(target)
                     return '/ma "Raptor Mazurka" '..target
                 end,
@@ -629,6 +675,7 @@ return {
                 level = 73,
                 cost = 0,
                 id = 414,
+                magic = 'song',
                 command = function(target)
                     return '/ma "Warding Round" '..target
                 end,
@@ -642,6 +689,7 @@ return {
                 level = 69,
                 cost = 0,
                 id = 410,
+                magic = 'song',
                 command = function(target)
                     return '/ma "Puppet\'s Operetta" '..target
                 end,
@@ -655,6 +703,7 @@ return {
                 level = 56,
                 cost = 0,
                 id = 408,
+                magic = 'song',
                 command = function(target)
                     return '/ma "Shining Fantasia" '..target
                 end,
@@ -668,6 +717,7 @@ return {
                 level = 54,
                 cost = 0,
                 id = 412,
+                magic = 'song',
                 command = function(target)
                     return '/ma "Gold Capriccio" '..target
                 end,
@@ -681,6 +731,7 @@ return {
                 level = 49,
                 cost = 0,
                 id = 415,
+                magic = 'song',
                 command = function(target)
                     return '/ma "Goblin Gavotte" '..target
                 end,
@@ -694,6 +745,7 @@ return {
                 level = 33,
                 cost = 0,
                 id = 405,
+                magic = 'song',
                 command = function(target)
                     return '/ma "Fowl Aubade" '..target
                 end,
@@ -707,6 +759,7 @@ return {
                 level = 19,
                 cost = 0,
                 id = 409,
+                magic = 'song',
                 command = function(target)
                     return '/ma "Scop\'s Operetta" '..target
                 end,
@@ -721,6 +774,7 @@ return {
                 level = 9,
                 cost = 0,
                 id = 406,
+                magic = 'song',
                 command = function(target)
                     return '/ma "Herb Pastoral" '..target
                 end,
@@ -735,6 +789,7 @@ return {
                 level = 71,
                 cost = 0,
                 id = 464,
+                magic = 'song',
                 command = function(target)
                     return '/ma "Goddess\'s Hymnus" '..target
                 end,
@@ -747,6 +802,7 @@ return {
                 level = 75,
                 cost = 0,
                 id = 468,
+                magic = 'song',
                 command = function(target)
                     return '/ma "Foe Sirvente" '..target
                 end,
@@ -759,6 +815,7 @@ return {
                 level = 75,
                 cost = 0,
                 id = 469,
+                magic = 'song',
                 command = function(target)
                     return '/ma "Adventurer\'s Dirge" '..target
                 end,

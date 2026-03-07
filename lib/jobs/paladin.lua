@@ -20,6 +20,8 @@ return {
                 level = 55,
                 cost = 88,
                 id = 4,  -- Spell ID
+                magic = 'white',
+                magic_type = 'healing',
                 command = function(target)
                     return '/ma "Cure IV" '..target
                 end,
@@ -33,6 +35,8 @@ return {
                 level = 30,
                 cost = 46,
                 id = 3,  -- Spell ID
+                magic = 'white',
+                magic_type = 'healing',
                 command = function(target)
                     return '/ma "Cure III" '..target
                 end,
@@ -46,6 +50,8 @@ return {
                 level = 17,
                 cost = 24,
                 id = 2,  -- Spell ID
+                magic = 'white',
+                magic_type = 'healing',
                 command = function(target)
                     return '/ma "Cure II" '..target
                 end,
@@ -59,6 +65,8 @@ return {
                 level = 5,
                 cost = 8,
                 id = 1,  -- Spell ID
+                magic = 'white',
+                magic_type = 'healing',
                 command = function(target)
                     return '/ma "Cure" '..target
                 end,
@@ -86,6 +94,8 @@ return {
                 level = 70,
                 cost = 65,
                 id = 46,  -- Protect IV spell ID
+                magic = 'white',
+                magic_type = 'enhancing',
                 command = function(target)
                     return '/ma "Protect IV" '..target
                 end,
@@ -99,6 +109,8 @@ return {
                 level = 50,
                 cost = 46,
                 id = 45,  -- Protect III spell ID
+                magic = 'white',
+                magic_type = 'enhancing',
                 command = function(target)
                     return '/ma "Protect III" '..target
                 end,
@@ -112,6 +124,8 @@ return {
                 level = 30,
                 cost = 28,
                 id = 44,  -- Protect II spell ID
+                magic = 'white',
+                magic_type = 'enhancing',
                 command = function(target)
                     return '/ma "Protect II" '..target
                 end,
@@ -125,6 +139,8 @@ return {
                 level = 10,
                 cost = 9,
                 id = 43,  -- Protect spell ID
+                magic = 'white',
+                magic_type = 'enhancing',
                 command = function(target)
                     return '/ma "Protect" '..target
                 end,
@@ -138,6 +154,8 @@ return {
                 level = 60,
                 cost = 56,
                 id = 50,  -- Shell III spell ID
+                magic = 'white',
+                magic_type = 'enhancing',
                 command = function(target)
                     return '/ma "Shell III" '..target
                 end,
@@ -151,6 +169,8 @@ return {
                 level = 40,
                 cost = 37,
                 id = 49,  -- Shell II spell ID
+                magic = 'white',
+                magic_type = 'enhancing',
                 command = function(target)
                     return '/ma "Shell II" '..target
                 end,
@@ -164,6 +184,8 @@ return {
                 level = 20,
                 cost = 18,
                 id = 48,  -- Shell spell ID
+                magic = 'white',
+                magic_type = 'enhancing',
                 command = function(target)
                     return '/ma "Shell" '..target
                 end,
