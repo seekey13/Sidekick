@@ -1916,6 +1916,14 @@ function common.is_mounted()
     return is_mounted
 end
 
+-- Check if the player is still loading in (job reads as NON/NON, i.e. job_id == 0).
+-- This happens during zone transitions or initial login before the server has sent
+-- the player's job data.  Automation should be paused while this is true.
+function common.is_loading()
+    local job_id, _ = common.get_player_job()
+    return not job_id or job_id == 0
+end
+
 -- ============================================================================
 -- Rest Conditions Timer (shared across modules)
 -- ============================================================================

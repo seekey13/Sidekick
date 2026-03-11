@@ -436,6 +436,12 @@ local function automation_tick()
     -- refresh_game_state from executing).
     common.refresh_game_state()
 
+    -- Player has not fully loaded in yet (job reads as NON/NON).
+    -- Skip all automation until the server sends valid job data.
+    if common.is_loading() then
+        return
+    end
+
     if common.is_mounted() then
         return
     end
