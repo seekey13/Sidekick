@@ -446,6 +446,7 @@ function ui_config.render(settings, job_def, callback, roll_mod)
         imgui.Separator()
         
         -- Automation toggle button
+        local is_loading = common.is_loading()
         local can_attack = common.can_attack()
         local is_resting = common.is_resting()
         local is_mounted = common.is_mounted()
@@ -454,14 +455,19 @@ function ui_config.render(settings, job_def, callback, roll_mod)
         local status_color
         
         if settings.automation_enabled then
-            if is_mounted then
+            if is_loading then
+                -- Loading state (automation fully suppressed while loading)
+                button_text = 'Stop'
+                status_text = 'Automation loading.'
+                status_color = ui.LIGHT_BLUE
+            elseif is_mounted then
                 -- Mounted state (automation fully suppressed while on a mount)
-                button_text = 'Mounted'
+                button_text = 'Stop'
                 status_text = 'Automation mounted.'
                 status_color = ui.LIGHT_BLUE
             elseif is_resting then
                 -- Resting state (automation enabled but resting for MP)
-                button_text = 'Resting'
+                button_text = 'Stop'
                 status_text = 'Automation resting.'
                 status_color = ui.LIGHT_BLUE
             elseif can_attack then
@@ -471,7 +477,7 @@ function ui_config.render(settings, job_def, callback, roll_mod)
                 status_color = ui.LIGHT_GREEN
             else
                 -- Paused state (automation enabled but combat blocked)
-                button_text = 'Paused'
+                button_text = 'Stop'
                 status_text = 'Automation paused.'
                 status_color = ui.LIGHT_BLUE
             end
