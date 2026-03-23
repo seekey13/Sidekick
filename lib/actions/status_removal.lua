@@ -49,6 +49,19 @@ function status_removal.execute_debuff_removal(settings, job_def, main_level, su
         return nil
     end
 
+    -- Get party buff config for per-ability target filtering (same pattern as buffs)
+    local ui_config = require('lib.ui.config')
+    local party_buff_config = ui_config.get_party_buffs()
+
+    -- Helper: check if an ability is allowed for a specific target
+    -- When no config exists (UI never opened), all targets are allowed
+    local function is_ability_target_allowed(ability, key)
+        if not party_buff_config then return true end
+        local ability_targets = party_buff_config[ability.name]
+        if not ability_targets then return true end
+        return ability_targets[key] == true
+    end
+
     local derived_main_level = player.main_level
     local derived_sub_level  = player.sub_level
 
@@ -64,7 +77,7 @@ function status_removal.execute_debuff_removal(settings, job_def, main_level, su
 
     -- Check for self-only abilities first
     for _, ability in ipairs(available_abilities) do
-        if ability.self_only then
+        if ability.self_only and is_ability_target_allowed(ability, 0) then
             local blocked_by = common.is_command_blocked(ability.command)
             if blocked_by then
                 goto continue_self
@@ -117,11 +130,14 @@ function status_removal.execute_debuff_removal(settings, job_def, main_level, su
     -- Also collect alliance member debuffs (same target_outside restriction)
     local alliance_buffs = {}         -- alliance_buffs[server_id] = {buff_ids}
     local alliance_debuff_counts = {} -- alliance_debuff_counts[server_id] = count
+    local alliance_sid_to_key = {}    -- server_id -> al_key for target filtering
     if state.alliance and #outside_abilities > 0 then
         for al_pi = 2, 3 do
             if state.alliance[al_pi] then
-                for _, m in pairs(state.alliance[al_pi]) do
+                for local_idx, m in pairs(state.alliance[al_pi]) do
                     if m and m.is_active and m.target_index and m.target_index > 0 then
+                        local flat_index = (al_pi - 1) * 6 + local_idx
+                        alliance_sid_to_key[m.server_id] = 'al_' .. flat_index
                         alliance_buffs[m.server_id] = m.buffs or {}
                         alliance_debuff_counts[m.server_id] = count_removable_debuffs(alliance_buffs[m.server_id], outside_abilities)
                     end
@@ -144,7 +160,7 @@ function status_removal.execute_debuff_removal(settings, job_def, main_level, su
 
         if in_range then
             for _, ability in ipairs(available_abilities) do
-                if can_remove_debuffs(ability, all_buffs[focus_party_idx]) then
+                if is_ability_target_allowed(ability, focus_party_idx) and can_remove_debuffs(ability, all_buffs[focus_party_idx]) then
                     local dc = debuff_counts[focus_party_idx]
                     local desc = string.format('Removing %d debuff(s) from focus with %s', dc, ability.name)
                     local result, reason = action_core.try_use(ability, job_def, settings, focus_party_idx, desc)
@@ -161,7 +177,7 @@ function status_removal.execute_debuff_removal(settings, job_def, main_level, su
         local tt = state.tracked[focus_tracked_sid]
         if tt and tt.target_index and tt.target_index > 0 and common.is_in_range(tt.target_index, 20) then
             for _, ability in ipairs(outside_abilities) do
-                if can_remove_debuffs(ability, tracked_buffs[focus_tracked_sid]) then
+                if is_ability_target_allowed(ability, 'tt_' .. focus_tracked_sid) and can_remove_debuffs(ability, tracked_buffs[focus_tracked_sid]) then
                     local eff_cost = common.effective_ability_cost(ability, settings, job_def)
                     local ok, reason = action_core.is_usable(ability, job_def, eff_cost)
                     if ok then
@@ -193,7 +209,7 @@ function status_removal.execute_debuff_removal(settings, job_def, main_level, su
         local al_member = common.find_alliance_member(state, focus_alliance_sid)
         if al_member and al_member.target_index and al_member.target_index > 0 and common.is_in_range(al_member.target_index, 20) then
             for _, ability in ipairs(outside_abilities) do
-                if can_remove_debuffs(ability, alliance_buffs[focus_alliance_sid]) then
+                if is_ability_target_allowed(ability, alliance_sid_to_key[focus_alliance_sid] or '') and can_remove_debuffs(ability, alliance_buffs[focus_alliance_sid]) then
                     local eff_cost = common.effective_ability_cost(ability, settings, job_def)
                     local ok, reason = action_core.is_usable(ability, job_def, eff_cost)
                     if ok then
@@ -241,7 +257,7 @@ function status_removal.execute_debuff_removal(settings, job_def, main_level, su
 
     if best_index then
         for _, ability in ipairs(available_abilities) do
-            if can_remove_debuffs(ability, all_buffs[best_index]) then
+            if is_ability_target_allowed(ability, best_index) and can_remove_debuffs(ability, all_buffs[best_index]) then
                 local best_member = best_index == 0 and state.player or state.party[best_index]
                 local desc = string.format('Removing %d debuff(s) from %s with %s',
                     max_debuffs, best_member and best_member.name or 'party member', ability.name)
@@ -273,7 +289,7 @@ function status_removal.execute_debuff_removal(settings, job_def, main_level, su
         if best_tracked_sid then
             local tt = state.tracked[best_tracked_sid]
             for _, ability in ipairs(outside_abilities) do
-                if can_remove_debuffs(ability, tracked_buffs[best_tracked_sid]) then
+                if is_ability_target_allowed(ability, 'tt_' .. best_tracked_sid) and can_remove_debuffs(ability, tracked_buffs[best_tracked_sid]) then
                     local eff_cost = common.effective_ability_cost(ability, settings, job_def)
                     local ok, reason = action_core.is_usable(ability, job_def, eff_cost)
                     if ok then
@@ -319,7 +335,7 @@ function status_removal.execute_debuff_removal(settings, job_def, main_level, su
             local al_member = common.find_alliance_member(state, best_alliance_sid)
             if al_member then
                 for _, ability in ipairs(outside_abilities) do
-                    if can_remove_debuffs(ability, alliance_buffs[best_alliance_sid]) then
+                    if is_ability_target_allowed(ability, alliance_sid_to_key[best_alliance_sid] or '') and can_remove_debuffs(ability, alliance_buffs[best_alliance_sid]) then
                         local eff_cost = common.effective_ability_cost(ability, settings, job_def)
                         local ok, reason = action_core.is_usable(ability, job_def, eff_cost)
                         if ok then
@@ -374,6 +390,18 @@ function status_removal.execute_wake(settings, job_def, main_level, sub_level, p
         return nil
     end
 
+    -- Get party buff config for target filtering
+    local ui_config = require('lib.ui.config')
+    local party_buff_config = ui_config.get_party_buffs()
+    local wake_targets = party_buff_config and party_buff_config['wake']
+
+    -- Helper: check if a target is enabled for sleep removal
+    -- When no config exists (UI never opened), all targets are allowed
+    local function is_wake_allowed(key)
+        if not wake_targets then return true end
+        return wake_targets[key] == true
+    end
+
     local derived_main_level = player.main_level
     local derived_sub_level  = player.sub_level
 
@@ -400,11 +428,12 @@ function status_removal.execute_wake(settings, job_def, main_level, sub_level, p
         end
     end
 
-    -- Count sleeping party members (indices 1-5 only)
+    -- Count sleeping party members (indices 1-5 only, filtered by wake targets)
     local start_index = 1
 
     local sleeping_members = {}
     for i = start_index, 5 do
+        if not is_wake_allowed(i) then goto continue_wake end
         local member_state = i == 0 and state.player or state.party[i]
         if not member_state then goto continue_wake end
         local buffs = member_state.buffs or {}
@@ -419,7 +448,7 @@ function status_removal.execute_wake(settings, job_def, main_level, sub_level, p
     local sleeping_tracked = {}  -- {server_id, ...}
     if state.tracked then
         for sid, tt in pairs(state.tracked) do
-            if tt.is_active and tt.target_index and tt.target_index > 0 then
+            if tt.is_active and tt.target_index and tt.target_index > 0 and is_wake_allowed('tt_' .. sid) then
                 local buffs = tt.buffs or {}
                 if status_removal.is_buff_sleep(buffs) then
                     table.insert(sleeping_tracked, sid)
@@ -433,11 +462,15 @@ function status_removal.execute_wake(settings, job_def, main_level, sub_level, p
     if state.alliance then
         for al_pi = 2, 3 do
             if state.alliance[al_pi] then
-                for _, m in pairs(state.alliance[al_pi]) do
+                for local_idx, m in pairs(state.alliance[al_pi]) do
                     if m and m.is_active and m.target_index and m.target_index > 0 then
-                        local buffs = m.buffs or {}
-                        if status_removal.is_buff_sleep(buffs) then
-                            table.insert(sleeping_alliance, m.server_id)
+                        local flat_index = (al_pi - 1) * 6 + local_idx
+                        local al_key = 'al_' .. flat_index
+                        if is_wake_allowed(al_key) then
+                            local buffs = m.buffs or {}
+                            if status_removal.is_buff_sleep(buffs) then
+                                table.insert(sleeping_alliance, m.server_id)
+                            end
                         end
                     end
                 end

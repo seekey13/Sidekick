@@ -1567,6 +1567,177 @@ function ui_components.item_doom_removal_checkbox(ctx)
 end
 
 -- ============================================================================
+-- Party Selection Buttons (for status removal targeting)
+-- ============================================================================
+
+-- Render party selection buttons for a feature (debuff removal, wake, etc.)
+-- Provides a row of [ME] [P1] [P2]... [B0] [C0]... [T1]... toggle buttons.
+-- Reuses ctx.party_buffs[key_name][party_index] for state storage.
+-- Auto-initialises all current party members as enabled on first render.
+-- Args:
+--   ctx          - UI context (settings, save_callback, party_buffs, is_trust)
+--   key_name     - Key in party_buffs (e.g. "debuff_removal", "wake")
+--   show_outside - Whether to show alliance/tracked target buttons
+--   include_self - Whether to show the [ME] button (default true)
+-- Returns: true if any button was rendered
+function ui_components.render_party_selection(ctx, key_name, show_outside, include_self)
+    if include_self == nil then include_self = true end
+
+    -- Auto-initialise on first render: enable all current party members
+    if not ctx.party_buffs[key_name] then
+        ctx.party_buffs[key_name] = {}
+        if include_self then
+            ctx.party_buffs[key_name][0] = true
+        end
+        local ps = common.get_party_size()
+        for i = 1, math.min(ps - 1, 5) do
+            ctx.party_buffs[key_name][i] = true
+        end
+        -- Persist
+        ctx.settings.party_buffs = ctx.settings.party_buffs or {}
+        ctx.settings.party_buffs[key_name] = {}
+        for k, v in pairs(ctx.party_buffs[key_name]) do
+            if type(k) == 'number' and k <= 5 then
+                ctx.settings.party_buffs[key_name][k] = v
+            end
+        end
+        if ctx.save_callback then ctx.save_callback() end
+    end
+
+    local function is_sel(index)
+        return ctx.party_buffs[key_name][index] == true
+    end
+
+    local function toggle_sel(index, enabled)
+        ctx.party_buffs[key_name][index] = enabled
+        if type(index) == 'number' and index <= 5 then
+            ctx.settings.party_buffs = ctx.settings.party_buffs or {}
+            ctx.settings.party_buffs[key_name] = ctx.settings.party_buffs[key_name] or {}
+            ctx.settings.party_buffs[key_name][index] = enabled
+        end
+        if ctx.save_callback then ctx.save_callback() end
+    end
+
+    local any_rendered = false
+
+    -- [ME] button
+    if include_self then
+        local me_on = is_sel(0)
+        if not me_on then
+            imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_UNSELECTED)
+            imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_UNSELECTED_HOVER)
+            imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_UNSELECTED_ACTIVE)
+        end
+        if imgui.Button('ME##' .. key_name .. '_sel_me', { PARTY_BUTTON_WIDTH, 0 }) then
+            toggle_sel(0, not me_on)
+        end
+        if not me_on then
+            imgui.PopStyleColor(3)
+        end
+        any_rendered = true
+    end
+
+    -- P1-P5 buttons
+    local party_size = common.get_party_size()
+    if party_size > 1 then
+        for pi = 1, 5 do
+            if pi < party_size then
+                if any_rendered then imgui.SameLine() end
+                local p_on = is_sel(pi)
+                local is_trust_member = ctx.is_trust and ctx.is_trust(pi)
+
+                if not p_on then
+                    imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_UNSELECTED)
+                    imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_UNSELECTED_HOVER)
+                    imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_UNSELECTED_ACTIVE)
+                end
+                if imgui.Button('P' .. pi .. '##' .. key_name .. '_sel_p' .. pi, { PARTY_BUTTON_WIDTH, 0 }) then
+                    toggle_sel(pi, not p_on)
+                end
+                -- Trust warning tooltip
+                if is_trust_member and imgui.IsItemHovered() then
+                    imgui.SetTooltip('Trust/Tracked Removal is not 100% reliable')
+                end
+                if not p_on then
+                    imgui.PopStyleColor(3)
+                end
+                any_rendered = true
+            end
+        end
+    end
+
+    -- Alliance buttons
+    if show_outside then
+        local al_gs = common.game_state
+        if al_gs and al_gs.alliance then
+            local alliance_prefixes = { [2] = 'B', [3] = 'C' }
+            for api = 2, 3 do
+                local sub_party = al_gs.alliance[api]
+                if sub_party and next(sub_party) ~= nil then
+                    local prefix = alliance_prefixes[api]
+                    local sorted_al = common.sorted_alliance_members(sub_party)
+                    for _, entry in ipairs(sorted_al) do
+                        local local_idx = entry.local_idx
+                        local m = entry.m
+                        local flat_index = (api - 1) * 6 + local_idx
+                        local al_key = 'al_' .. flat_index
+
+                        if any_rendered then imgui.SameLine() end
+                        local al_on = is_sel(al_key)
+                        if not al_on then
+                            imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_UNSELECTED)
+                            imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_UNSELECTED_HOVER)
+                            imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_UNSELECTED_ACTIVE)
+                        end
+                        if imgui.Button('<' .. prefix .. local_idx .. '>##' .. key_name .. '_sel_' .. al_key, { PARTY_BUTTON_WIDTH, 0 }) then
+                            toggle_sel(al_key, not al_on)
+                        end
+                        if imgui.IsItemHovered() then
+                            imgui.SetTooltip(m.name or (prefix .. local_idx))
+                        end
+                        if not al_on then
+                            imgui.PopStyleColor(3)
+                        end
+                        any_rendered = true
+                    end
+                end
+            end
+        end
+
+        -- Tracked target buttons
+        local tracked_list = common.get_tracked_targets()
+        local sorted_tracked = {}
+        for sid, tt in pairs(tracked_list) do
+            table.insert(sorted_tracked, { sid = sid, name = tt.name })
+        end
+        table.sort(sorted_tracked, function(a, b) return a.name < b.name end)
+        for t_idx, tt in ipairs(sorted_tracked) do
+            if any_rendered then imgui.SameLine() end
+            local tt_key = 'tt_' .. tt.sid
+            local tt_on = is_sel(tt_key)
+            if not tt_on then
+                imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_UNSELECTED)
+                imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_UNSELECTED_HOVER)
+                imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_UNSELECTED_ACTIVE)
+            end
+            if imgui.Button('<T' .. t_idx .. '>##' .. key_name .. '_sel_t' .. tt.sid, { PARTY_BUTTON_WIDTH, 0 }) then
+                toggle_sel(tt_key, not tt_on)
+            end
+            -- Always show warning tooltip for tracked targets
+            if imgui.IsItemHovered() then
+                imgui.SetTooltip(tt.name .. '\nTrust/Tracked Removal is not 100% reliable')
+            end
+            if not tt_on then
+                imgui.PopStyleColor(3)
+            end
+            any_rendered = true
+        end
+    end
+
+    return any_rendered
+end
+
+-- ============================================================================
 -- Export Constants
 -- ============================================================================
 

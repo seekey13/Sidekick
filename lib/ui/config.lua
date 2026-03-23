@@ -736,13 +736,21 @@ function ui_config.render(settings, job_def, callback, roll_mod)
         if job_def and job_def.abilities.debuff_removal and has_usable_abilities(job_def.abilities.debuff_removal) then
             local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Enable Debuff Removal', 'debuff_removal_enabled', false)
             if is_open and is_enabled then
-                imgui.Indent(ui.ABILITY_LIST_INDENT)
-                for _, ability in ipairs(job_def.abilities.debuff_removal) do
-                    if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
-                        ui.ability_checkbox(ctx, ability, job_def, 'debuff_removal', true)
+                -- Clear temporary group rendering flags
+                if current_settings then
+                    for key in pairs(current_settings) do
+                        if key:match('^rendered_group_') then
+                            current_settings[key] = nil
+                        end
                     end
                 end
                 
+                imgui.Indent(ui.ABILITY_LIST_INDENT)
+                for _, ability in ipairs(job_def.abilities.debuff_removal) do
+                    if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
+                        ui.render_ability(ctx, ability, job_def, 'debuff_removal')
+                    end
+                end
                 imgui.Unindent(ui.ABILITY_LIST_INDENT)
             end
             
@@ -750,7 +758,25 @@ function ui_config.render(settings, job_def, callback, roll_mod)
         end
         
         if has_wake_abilities then
-            ui.checkbox(ctx, 'Enable Sleep Removal', 'wake_enabled', { settings.wake_enabled or false })
+            local is_open_wake, is_enabled_wake = ui.collapsing_checkbox_header(ctx, 'Enable Sleep Removal', 'wake_enabled', false)
+            if is_open_wake and is_enabled_wake then
+                -- Check if any wake-capable abilities support target_outside
+                local has_outside_wake = false
+                if job_def.abilities.heal then
+                    for _, ability in ipairs(job_def.abilities.heal) do
+                        if ability.wakes and ability.target_outside then
+                            has_outside_wake = true
+                            break
+                        end
+                    end
+                end
+                
+                -- Party selection buttons (who gets sleep removal)
+                -- exclude ME since player cannot wake themselves from sleep
+                imgui.Indent(ui.ABILITY_LIST_INDENT)
+                ui.render_party_selection(ctx, 'wake', has_outside_wake, false)
+                imgui.Unindent(ui.ABILITY_LIST_INDENT)
+            end
             
             imgui.Separator()
         end
