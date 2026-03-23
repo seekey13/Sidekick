@@ -1882,10 +1882,13 @@ function common.check_stratagem(job_def, settings, ability_key, ability)
         return false
     end
 
-    -- Return the stratagem JA command
+    -- Return the stratagem JA command (is_stratagem flag tells the automation
+    -- engine to lock the next tick to the same action type so the paired
+    -- ability fires immediately without being pre-empted by higher-priority actions)
     return {
         command = strat.command,
-        description = string.format('Using stratagem: %s', strat.name)
+        description = string.format('Using stratagem: %s', strat.name),
+        is_stratagem = true,
     }
 end
 
