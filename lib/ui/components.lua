@@ -805,10 +805,10 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
                     imgui.Button(button_label, { PARTY_BUTTON_WIDTH, 0 })
                 end
                 
-                -- NOTE: Trust tooltip removed -- Trusts can now be buffed
-                -- if is_trust_member and imgui.IsItemHovered() then
-                --     imgui.SetTooltip('Trust can not be buffed')
-                -- end
+                -- Trust warning tooltip for status removal
+                if ctx.show_trust_warning and ctx.is_trust and ctx.is_trust(party_index) and imgui.IsItemHovered() then
+                    imgui.SetTooltip('Trust/Tracked Removal is not totally reliable')
+                end
                 
                 if not party_has_spell then
                     imgui.PopStyleColor(4)
@@ -931,6 +931,8 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
             if imgui.IsItemHovered() then
                 if not is_compatible then
                     imgui.SetTooltip('Not compatible with out-of-party targets')
+                elseif ctx.show_trust_warning then
+                    imgui.SetTooltip(tt.name .. '\nTrust/Tracked Removal is not totally reliable')
                 else
                     imgui.SetTooltip(tt.name)
                 end
@@ -1656,7 +1658,7 @@ function ui_components.render_party_selection(ctx, key_name, show_outside, inclu
                 end
                 -- Trust warning tooltip
                 if is_trust_member and imgui.IsItemHovered() then
-                    imgui.SetTooltip('Trust/Tracked Removal is not 100% reliable')
+                    imgui.SetTooltip('Trust/Tracked Removal is not totally reliable')
                 end
                 if not p_on then
                     imgui.PopStyleColor(3)
@@ -1725,7 +1727,7 @@ function ui_components.render_party_selection(ctx, key_name, show_outside, inclu
             end
             -- Always show warning tooltip for tracked targets
             if imgui.IsItemHovered() then
-                imgui.SetTooltip(tt.name .. '\nTrust/Tracked Removal is not 100% reliable')
+                imgui.SetTooltip(tt.name .. '\nTrust/Tracked Removal is not totally reliable')
             end
             if not tt_on then
                 imgui.PopStyleColor(3)
