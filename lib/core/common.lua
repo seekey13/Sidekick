@@ -356,16 +356,34 @@ function common.handle_action_packet(packet)
     local is_autoattack = (action_id == 0x1844)
     
     if not is_autoattack then
-        -- Track casting state based on action_state byte
-        if action_state == 0x00 then
-            -- Action started (any action that's not autoattack)
-            casting_state.is_casting = true
-            casting_state.last_action_time = os.clock()
-            -- Clear resting state when we start casting
-            is_resting = false
-        elseif action_state > 0x00 then
-            -- Action complete
+        -- Only track casting state for actual spell casts (category 4 = magic).
+        -- Job abilities (6), weapon skills (7/11), item usage (9), etc. are
+        -- instant and should NOT engage the casting lock — they may never send
+        -- a completion packet, causing the lock to stick until the 5s timeout.
+        local is_spell_cast = (category == 4)
+
+        if is_spell_cast then
+            if action_state == 0x00 then
+                -- Spell casting started
+                casting_state.is_casting = true
+                casting_state.last_action_time = os.clock()
+                -- Clear resting state when we start casting
+                is_resting = false
+            elseif action_state > 0x00 then
+                -- Spell casting complete
+                casting_state.is_casting = false
+            end
+        else
+            -- Non-spell action (JA, WS, etc.) — always clear the casting lock
+            -- in case a previous spell's completion packet was missed.
+            if casting_state.is_casting then
+                common.debugf('[CASTING] Cleared by non-spell action (category %d)', category)
+            end
             casting_state.is_casting = false
+            -- Clear resting state for JA usage as well
+            if action_state == 0x00 then
+                is_resting = false
+            end
         end
     end
     
