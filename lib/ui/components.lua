@@ -15,7 +15,7 @@ local item_module = require('lib.actions.item')
 
 -- Layout Constants
 local ABILITY_LIST_INDENT = 10
-local PARTY_BUTTON_WIDTH = 30
+local PARTY_BUTTON_WIDTH = 35
 local SPACE_BETWEEN_BUTTONS = 8
 
 -- Width Constants
