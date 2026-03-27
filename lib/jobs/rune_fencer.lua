@@ -22,6 +22,8 @@ return {
                 level = 20,
                 cost = 15,
                 id = 46,
+                magic = 'white',
+                magic_type = 'enhancing',
                 command = function(target)
                     return '/ma "Protect" '..target
                 end,
@@ -35,6 +37,8 @@ return {
                 level = 40,
                 cost = 21,
                 id = 47,
+                magic = 'white',
+                magic_type = 'enhancing',
                 command = function(target)
                     return '/ma "Protect II" '..target
                 end,
@@ -48,6 +52,8 @@ return {
                 level = 60,
                 cost = 27,
                 id = 129,
+                magic = 'white',
+                magic_type = 'enhancing',
                 command = function(target)
                     return '/ma "Protect III" '..target
                 end,
@@ -62,6 +68,8 @@ return {
                 level = 10,
                 cost = 18,
                 id = 48,
+                magic = 'white',
+                magic_type = 'enhancing',
                 command = function(target)
                     return '/ma "Shell" '..target
                 end,
@@ -75,6 +83,8 @@ return {
                 level = 30,
                 cost = 24,
                 id = 49,
+                magic = 'white',
+                magic_type = 'enhancing',
                 command = function(target)
                     return '/ma "Shell II" '..target
                 end,
@@ -88,6 +98,8 @@ return {
                 level = 50,
                 cost = 30,
                 id = 50,
+                magic = 'white',
+                magic_type = 'enhancing',
                 command = function(target)
                     return '/ma "Shell III" '..target
                 end,
@@ -101,6 +113,8 @@ return {
                 level = 70,
                 cost = 36,
                 id = 52,
+                magic = 'white',
+                magic_type = 'enhancing',
                 command = function(target)
                     return '/ma "Shell IV" '..target
                 end,
@@ -115,6 +129,8 @@ return {
                 level = 4,
                 cost = 6,
                 id = 60,
+                magic = 'white',
+                magic_type = 'enhancing',
                 command = '/ma "Barstone" <me>',
                 element = 'Wind',
                 buff_id = 102,  -- Barstone buff
@@ -125,6 +141,8 @@ return {
                 level = 8,
                 cost = 6,
                 id = 62,
+                magic = 'white',
+                magic_type = 'enhancing',
                 command = '/ma "Barwater" <me>',
                 element = 'Thunder',
                 buff_id = 104,  -- Barwater buff
@@ -135,6 +153,8 @@ return {
                 level = 12,
                 cost = 6,
                 id = 65,
+                magic = 'white',
+                magic_type = 'enhancing',
                 command = '/ma "Baraero" <me>',
                 element = 'Ice',
                 buff_id = 107,  -- Baraero buff
@@ -145,6 +165,8 @@ return {
                 level = 16,
                 cost = 6,
                 id = 66,
+                magic = 'white',
+                magic_type = 'enhancing',
                 command = '/ma "Barfire" <me>',
                 element = 'Water',
                 buff_id = 108,  -- Barfire buff
@@ -155,6 +177,8 @@ return {
                 level = 20,
                 cost = 6,
                 id = 68,
+                magic = 'white',
+                magic_type = 'enhancing',
                 command = '/ma "Barblizzard" <me>',
                 element = 'Fire',
                 buff_id = 110,  -- Barblizzard buff
@@ -165,6 +189,8 @@ return {
                 level = 24,
                 cost = 6,
                 id = 70,
+                magic = 'white',
+                magic_type = 'enhancing',
                 command = '/ma "Barthunder" <me>',
                 element = 'Earth',
                 buff_id = 112,  -- Barthunder buff
@@ -176,6 +202,8 @@ return {
                 level = 6,
                 cost = 7,
                 id = 61,
+                magic = 'white',
+                magic_type = 'enhancing',
                 command = '/ma "Barsleep" <me>',
                 element = 'Light',
                 buff_id = 103,  -- Barsleep buff
@@ -186,6 +214,8 @@ return {
                 level = 9,
                 cost = 9,
                 id = 63,
+                magic = 'white',
+                magic_type = 'enhancing',
                 command = '/ma "Barpoison" <me>',
                 element = 'Thunder',
                 buff_id = 105,  -- Barpoison buff
@@ -196,6 +226,8 @@ return {
                 level = 11,
                 cost = 11,
                 id = 64,
+                magic = 'white',
+                magic_type = 'enhancing',
                 command = '/ma "Barparalyze" <me>',
                 element = 'Fire',
                 buff_id = 106,  -- Barparalyze buff
@@ -206,6 +238,8 @@ return {
                 level = 17,
                 cost = 13,
                 id = 67,
+                magic = 'white',
+                magic_type = 'enhancing',
                 command = '/ma "Barblind" <me>',
                 element = 'Light',
                 buff_id = 109,  -- Barblind buff
@@ -216,6 +250,8 @@ return {
                 level = 22,
                 cost = 15,
                 id = 69,
+                magic = 'white',
+                magic_type = 'enhancing',
                 command = '/ma "Barsilence" <me>',
                 element = 'Ice',
                 buff_id = 111,  -- Barsilence buff
@@ -226,6 +262,8 @@ return {
                 level = 38,
                 cost = 25,
                 id = 71,
+                magic = 'white',
+                magic_type = 'enhancing',
                 command = '/ma "Barvirus" <me>',
                 element = 'Water',
                 buff_id = 113,  -- Barvirus buff
@@ -236,6 +274,8 @@ return {
                 level = 42,
                 cost = 20,
                 id = 72,
+                magic = 'white',
+                magic_type = 'enhancing',
                 command = '/ma "Barpetrify" <me>',
                 element = 'Wind',
                 buff_id = 114,  -- Barpetrify buff
@@ -246,6 +286,8 @@ return {
                 level = 63,
                 cost = 30,
                 id = 73,
+                magic = 'white',
+                magic_type = 'enhancing',
                 command = '/ma "Baramnesia" <me>',
                 element = 'Water',
                 buff_id = 115,  -- Baramnesia buff
@@ -257,6 +299,8 @@ return {
                 level = 23,
                 cost = 15,
                 id = 108,  -- Spell ID
+                magic = 'white',
+                magic_type = 'enhancing',
                 command = function(target)
                     return '/ma "Regen" '..target
                 end,
@@ -268,6 +312,8 @@ return {
                 level = 48,
                 cost = 24,
                 id = 110,
+                magic = 'white',
+                magic_type = 'enhancing',
                 command = function(target)
                     return '/ma "Regen II" '..target
                 end,
@@ -280,6 +326,8 @@ return {
                 level = 70,
                 cost = 36,
                 id = 111,
+                magic = 'white',
+                magic_type = 'enhancing',
                 command = function(target)
                     return '/ma "Regen III" '..target
                 end,
@@ -293,6 +341,8 @@ return {
                 level = 62,
                 cost = 40,
                 id = 109,
+                magic = 'white',
+                magic_type = 'enhancing',
                 command = function(target)
                     return '/ma "Refresh" '..target
                 end,
@@ -304,6 +354,8 @@ return {
                 level = 58,
                 cost = 10,
                 id = 840,
+                magic = 'white',
+                magic_type = 'enhancing',
                 command = '/ma "Foil" <me>',
                 element = 'Wind',
                 buff_id = 480,  -- Foil buff
@@ -323,6 +375,8 @@ return {
                 level = 68,
                 cost = 21,
                 id = 106,
+                magic = 'white',
+                magic_type = 'enhancing',
                 command = '/ma "Phalanx" <me>',
                 element = 'Light',
                 buff_id = 116,  -- Phalanx buff
@@ -334,6 +388,8 @@ return {
                 level = 45,
                 cost = 16,
                 id = 34,
+                magic = 'black',
+                magic_type = 'enhancing',
                 command = '/ma "Blaze Spikes" <me>',
                 element = 'Fire',
                 buff_id = 35,  -- Blaze Spikes buff
@@ -345,6 +401,8 @@ return {
                 level = 65,
                 cost = 16,
                 id = 250,
+                magic = 'black',
+                magic_type = 'enhancing',
                 command = '/ma "Ice Spikes" <me>',
                 element = 'Ice',
                 buff_id = 42,  -- Ice Spikes buff
@@ -357,6 +415,8 @@ return {
                 level = 15,
                 cost = 14,
                 id = 55,
+                magic = 'white',
+                magic_type = 'enhancing',
                 command = '/ma "Aquaveil" <me>',
                 element = 'Water',
                 buff_id = 39,  -- Aquaveil buff
@@ -366,6 +426,8 @@ return {
                 level = 35,
                 cost = 20,
                 id = 53,
+                magic = 'white',
+                magic_type = 'enhancing',
                 command = '/ma "Blink" <me>',
                 element = 'Wind',
                 buff_id = 36,  -- Blink buff
@@ -375,6 +437,8 @@ return {
                 level = 55,
                 cost = 29,
                 id = 54,
+                magic = 'white',
+                magic_type = 'enhancing',
                 command = '/ma "Stoneskin" <me>',
                 element = 'Earth',
                 buff_id = 37,  -- Stoneskin buff

@@ -424,14 +424,28 @@ local function automation_tick()
         return
     end
 
+    if not job_def then
+        return
+    end
+
+    -- Gather player + party snapshot once for this tick.
+    -- All action modules can read common.game_state.player / common.game_state.party[1..5]
+    -- instead of making individual API calls each cycle.
+    -- Must run BEFORE the mount guard so that is_mounted is refreshed every tick;
+    -- otherwise once set to true it would never be cleared (the early return prevented
+    -- refresh_game_state from executing).
+    common.refresh_game_state()
+
+    -- Player has not fully loaded in yet (job reads as NON/NON).
+    -- Skip all automation until the server sends valid job data.
+    if common.is_loading() then
+        return
+    end
+
     if common.is_mounted() then
         return
     end
 
-    if not job_def then
-        return
-    end
-    
     -- Check if combat is allowed
     if not common.can_attack() then
         return
@@ -441,11 +455,6 @@ local function automation_tick()
     if common.is_casting() then
         return
     end
-
-    -- Gather player + party snapshot once for this tick.
-    -- All action modules can read common.game_state.player / common.game_state.party[1..5]
-    -- instead of making individual API calls each cycle.
-    common.refresh_game_state()
 
     -- Range management logic
     if addon_settings and addon_settings.attack_range and addon_settings.attack_range ~= 'Off' then

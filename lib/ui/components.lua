@@ -15,7 +15,7 @@ local item_module = require('lib.actions.item')
 
 -- Layout Constants
 local ABILITY_LIST_INDENT = 10
-local PARTY_BUTTON_WIDTH = 44
+local PARTY_BUTTON_WIDTH = 35
 local SPACE_BETWEEN_BUTTONS = 8
 
 -- Width Constants
@@ -481,6 +481,220 @@ local function get_onoff_button_width()
 end
 
 -- ============================================================================
+-- Scholar Stratagem Button
+-- ============================================================================
+
+-- Helper: get the stratagem_settings table from ctx, creating it if needed
+local function get_stratagem_settings(ctx)
+    if not ctx or not ctx.settings then return nil end
+    if not ctx.settings.stratagem_settings then
+        ctx.settings.stratagem_settings = {}
+    end
+    return ctx.settings.stratagem_settings
+end
+
+-- Helper: check if any stratagem is assigned to an ability key in settings
+local function has_any_stratagem(ctx, ability_key)
+    local ss = ctx and ctx.settings and ctx.settings.stratagem_settings
+    if not ss or not ss[ability_key] then return false end
+    for _, _ in pairs(ss[ability_key]) do
+        return true  -- table has at least one entry
+    end
+    return false
+end
+
+-- Helper: compute the MP modifier multiplier for an ability based on its assigned stratagems
+-- Returns: multiplier (number, 1.0 = no change)
+local function get_stratagem_mp_modifier(ctx, ability_key)
+    local ss = ctx and ctx.settings and ctx.settings.stratagem_settings
+    if not ss or not ss[ability_key] then return 1.0 end
+    local job_def = ctx.job_def
+    if not job_def or not job_def.abilities or not job_def.abilities.stratagem then return 1.0 end
+
+    local modifier = 1.0
+    for strat_name, _ in pairs(ss[ability_key]) do
+        for _, strat in ipairs(job_def.abilities.stratagem) do
+            if strat.name == strat_name and strat.mp_modifier then
+                modifier = modifier * strat.mp_modifier
+            end
+        end
+    end
+    return modifier
+end
+
+-- Filter stratagems from job_def that apply to a given ability at the given level
+local function get_available_stratagems(job_def, sch_level, ability)
+    if not job_def or not job_def.abilities or not job_def.abilities.stratagem then
+        return {}
+    end
+    local ability_magic      = ability and ability.magic
+    local ability_magic_type = ability and ability.magic_type
+    local available = {}
+    for _, strat in ipairs(job_def.abilities.stratagem) do
+        if strat.level and sch_level >= strat.level then
+            -- Match stratagem magic colour to the ability
+            local magic_ok = (not strat.magic) or (strat.magic == ability_magic)
+            -- If stratagem restricts to specific magic_types, ability must match one
+            local type_ok = true
+            if magic_ok and strat.magic_types then
+                type_ok = false
+                if ability_magic_type then
+                    for _, mt in ipairs(strat.magic_types) do
+                        if mt == ability_magic_type then
+                            type_ok = true
+                            break
+                        end
+                    end
+                end
+            end
+            if magic_ok and type_ok then
+                table.insert(available, strat)
+            end
+        end
+    end
+    return available
+end
+
+-- Render the Scholar stratagem selector button for a single ability row.
+-- ability_key: unique string key for the ability (e.g. ability name or group name)
+-- ability: (optional) the ability table; when provided, only /ma commands get the button
+-- ctx: (optional) UI context with settings and save_callback for persistence
+-- Returns: rendered (bool), padding (number)
+--   rendered=true, padding=0  when the S button was drawn
+--   rendered=false, padding=N when the S button was skipped but the caller should
+--                              widen its first button by N pixels to keep alignment
+local function render_scholar_stratagem_button(ability_key, ability, ctx)
+    -- Resolve Scholar level from main or sub job (SCH = job ID 20)
+    local main_job_id, sub_job_id = common.get_player_job()
+    local main_level, sub_level   = common.get_player_level()
+
+    local sch_level = 0
+    if main_job_id == 20 then
+        sch_level = main_level
+    elseif sub_job_id == 20 then
+        sch_level = sub_level
+    end
+
+    if sch_level < 10 then
+        return false, 0
+    end
+
+    -- Check if player is in any arts stance (required for stratagems)
+    local in_light = common.has_buff(0, 358) or common.has_buff(0, 401)
+    local in_dark  = common.has_buff(0, 359) or common.has_buff(0, 402)
+    local in_arts  = in_light or in_dark
+
+    -- No arts active → no S button or spacer on any row
+    if not in_arts then
+        return false, 0
+    end
+
+    -- Only magic (/ma) commands can use stratagems; skip job abilities (/ja)
+    if ability and type(ability.command) == 'string' and ability.command:sub(1, 3) == '/ja' then
+        imgui.Dummy({ 20, 0 })
+        imgui.SameLine(0, SPACE_BETWEEN_BUTTONS)
+        return false, 0
+    end
+
+    -- Stratagems only apply to white/black magic; skip singing, geomancy, etc.
+    if ability and ability.magic then
+        if ability.magic ~= 'white' and ability.magic ~= 'black' then
+            return false, 0
+        end
+    end
+
+    -- Check arts stance: Light Arts → white only, Dark Arts → black only
+    -- Wrong-stance spells get an invisible spacer to stay aligned with S-button rows
+    if ability and ability.magic then
+        if (ability.magic == 'white' and not in_light) or (ability.magic == 'black' and not in_dark) then
+            imgui.Dummy({ 20, 0 })
+            imgui.SameLine(0, SPACE_BETWEEN_BUTTONS)
+            return false, 0
+        end
+    end
+
+    -- Get job_def from ctx for stratagem definitions
+    local job_def = ctx and ctx.job_def
+    local available = get_available_stratagems(job_def, sch_level, ability)
+
+    if #available == 0 then
+        return false, 0
+    end
+
+    local has_sel  = has_any_stratagem(ctx, ability_key)
+    local popup_id = '##sch_strat_popup_' .. ability_key
+
+    -- Color: default (active) when a stratagem is chosen, gray when idle
+    if not has_sel then
+        imgui.PushStyleColor(ImGuiCol_Button,        COLOR_BUTTON_UNSELECTED)
+        imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_UNSELECTED_HOVER)
+        imgui.PushStyleColor(ImGuiCol_ButtonActive,  COLOR_BUTTON_UNSELECTED_ACTIVE)
+    end
+
+    if imgui.Button('S##sch_' .. ability_key, { 20, 0 }) then
+        imgui.OpenPopup(popup_id)
+    end
+
+    if not has_sel then
+        imgui.PopStyleColor(3)
+    end
+
+    if imgui.BeginPopup(popup_id) then
+        imgui.TextColored({ 0.8, 0.8, 0.8, 1.0 }, 'Scholar Stratagem')
+        imgui.Separator()
+
+        -- Ensure settings table exists
+        local ss = get_stratagem_settings(ctx)
+        if ss then
+            if not ss[ability_key] then
+                ss[ability_key] = {}
+            end
+
+            for _, strat in ipairs(available) do
+                local is_checked = ss[ability_key] and ss[ability_key][strat.name] == true
+                local label = strat.name
+                -- Show MP modifier info in label
+                if strat.mp_modifier then
+                    if strat.mp_modifier < 1.0 then
+                        label = label .. '  (-' .. math.floor((1.0 - strat.mp_modifier) * 100) .. '% MP)'
+                    else
+                        label = label .. '  (+' .. math.floor((strat.mp_modifier - 1.0) * 100) .. '% MP)'
+                    end
+                end
+
+                local cb_val = { is_checked }
+                if imgui.Checkbox(label .. '##sch_opt_' .. strat.name .. '_' .. ability_key, cb_val) then
+                    if not ss[ability_key] then
+                        ss[ability_key] = {}
+                    end
+                    if cb_val[1] then
+                        ss[ability_key][strat.name] = true
+                    else
+                        ss[ability_key][strat.name] = nil
+                    end
+                    if ctx.save_callback then
+                        ctx.save_callback()
+                    end
+                end
+            end
+
+            -- Clean up empty tables after the loop
+            if ss[ability_key] and not next(ss[ability_key]) then
+                ss[ability_key] = nil
+                if ctx.save_callback then
+                    ctx.save_callback()
+                end
+            end
+        end
+
+        imgui.EndPopup()
+    end
+
+    imgui.SameLine(0, SPACE_BETWEEN_BUTTONS)
+    return true, 0
+end
+
+-- ============================================================================
 -- Party Button Helper
 -- ============================================================================
 
@@ -489,7 +703,10 @@ end
 -- For grouped abilities, pass group_name instead of ability_name
 local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
     local any_rendered = false
-    
+
+    -- Scholar stratagem button (prepended to every row when SCH >= 10)
+    render_scholar_stratagem_button(key_name, ability, ctx)
+
     -- Check if this ability requires a target modifier (like Pianissimo)
     if not ability then
         ability = find_ability_by_name(ctx.job_def, key_name)
@@ -530,7 +747,7 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
         imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_UNSELECTED_ACTIVE)
     end
     
-    local me_button_label = '<ME>##' .. key_name .. '_me'
+    local me_button_label = 'ME##' .. key_name .. '_me'
     if has_spell and imgui.Button(me_button_label, { PARTY_BUTTON_WIDTH, 0 }) then
         if is_group then
             toggle_group_party_buff(ctx, key_name, 0, not me_enabled)
@@ -577,7 +794,7 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
                     imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_UNSELECTED_ACTIVE)
                 end
                 
-                local button_label = '<P' .. party_index .. '>##' .. key_name .. '_p' .. party_index
+                local button_label = 'P' .. party_index .. '##' .. key_name .. '_p' .. party_index
                 if party_has_spell and imgui.Button(button_label, { PARTY_BUTTON_WIDTH, 0 }) then
                     if is_group then
                         toggle_group_party_buff(ctx, key_name, party_index, not is_enabled)
@@ -588,10 +805,10 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
                     imgui.Button(button_label, { PARTY_BUTTON_WIDTH, 0 })
                 end
                 
-                -- NOTE: Trust tooltip removed -- Trusts can now be buffed
-                -- if is_trust_member and imgui.IsItemHovered() then
-                --     imgui.SetTooltip('Trust can not be buffed')
-                -- end
+                -- Trust warning tooltip for status removal
+                if ctx.show_trust_warning and ctx.is_trust and ctx.is_trust(party_index) and imgui.IsItemHovered() then
+                    imgui.SetTooltip('Trust/Tracked Removal is not totally reliable')
+                end
                 
                 if not party_has_spell then
                     imgui.PopStyleColor(4)
@@ -714,6 +931,8 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
             if imgui.IsItemHovered() then
                 if not is_compatible then
                     imgui.SetTooltip('Not compatible with out-of-party targets')
+                elseif ctx.show_trust_warning then
+                    imgui.SetTooltip(tt.name .. '\nTrust/Tracked Removal is not totally reliable')
                 else
                     imgui.SetTooltip(tt.name)
                 end
@@ -737,6 +956,12 @@ end
 -- Render an ON/OFF button for ability state
 function ui_components.onoff_button(ctx, ability_name, job_def, has_spell)
     has_spell = has_spell == nil and true or has_spell
+
+    -- Scholar stratagem button (prepended to every row when SCH >= 10)
+    -- Look up the ability to check if it's a /ja (not eligible for stratagems)
+    local ability_obj = find_ability_by_name(job_def, ability_name)
+    render_scholar_stratagem_button(ability_name, ability_obj, ctx)
+
     local is_enabled = is_ability_enabled(ctx, ability_name)
     local button_width = get_onoff_button_width()
     
@@ -782,7 +1007,8 @@ function ui_components.group_dropdown(ctx, job_def, target_group, dropdown_width
     if selected then
         if selected.cost and selected.cost > 0 then
             local resource_label = (selected.resource_type or job_def.resource_type) == 'tp' and 'TP' or 'MP'
-            current_display = selected.name .. ' (' .. selected.cost .. ' ' .. resource_label .. ')'
+            local display_cost = math.floor(selected.cost * get_stratagem_mp_modifier(ctx, target_group))
+            current_display = selected.name .. ' (' .. display_cost .. ' ' .. resource_label .. ')'
         else
             current_display = selected.name
         end
@@ -810,7 +1036,8 @@ function ui_components.group_dropdown(ctx, job_def, target_group, dropdown_width
             local display_text
             if ability.cost and ability.cost > 0 then
                 local resource_label = (ability.resource_type or job_def.resource_type) == 'tp' and 'TP' or 'MP'
-                display_text = ability.name .. ' (' .. ability.cost .. ' ' .. resource_label .. ')'
+                local display_cost = math.floor(ability.cost * get_stratagem_mp_modifier(ctx, target_group))
+                display_text = ability.name .. ' (' .. display_cost .. ' ' .. resource_label .. ')'
             else
                 display_text = ability.name
             end
@@ -855,6 +1082,11 @@ function ui_components.self_single_ability(ctx, ability, job_def, id_suffix)
     local has_spell = common.has_spell_learned(ability)
     local spell_suffix = has_spell and '' or ' (Not Learned)'
     
+    ui_components.onoff_button(ctx, ability.name, job_def, has_spell)
+    
+    imgui.SameLine()
+    
+    -- Push text color after buttons so S button / ON/OFF button are not tinted
     if not has_spell then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
     elseif ability.engaged_only then
@@ -865,13 +1097,11 @@ function ui_components.self_single_ability(ctx, ability, job_def, id_suffix)
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GREEN)
     end
     
-    ui_components.onoff_button(ctx, ability.name, job_def, has_spell)
-    
-    imgui.SameLine()
     local desc
     if ability.cost and ability.cost > 0 then
         local resource_label = (ability.resource_type or job_def.resource_type) == 'tp' and 'TP' or 'MP'
-        desc = ability.name .. ' (' .. ability.cost .. ' ' .. resource_label .. ')' .. spell_suffix
+        local display_cost = math.floor(ability.cost * get_stratagem_mp_modifier(ctx, ability.name))
+        desc = ability.name .. ' (' .. display_cost .. ' ' .. resource_label .. ')' .. spell_suffix
     else
         desc = ability.name .. spell_suffix
     end
@@ -911,16 +1141,9 @@ function ui_components.self_grouped_ability(ctx, ability, job_def)
     
     local has_spell = common.has_spell_learned(selected)
     
-    if not has_spell then
-        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
-    elseif selected.engaged_only then
-        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_RED)
-    elseif selected.combat_only then
-        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_YELLOW)
-    elseif selected.idle_only then
-        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GREEN)
-    end
-    
+    -- Scholar stratagem button (prepended to every row when SCH >= 10)
+    render_scholar_stratagem_button(ability.group, selected, ctx)
+
     -- Use group-based ON/OFF button
     local is_enabled = is_group_enabled(ctx, ability.group)
     local button_width = get_onoff_button_width()
@@ -948,6 +1171,17 @@ function ui_components.self_grouped_ability(ctx, ability, job_def)
     
     if not has_spell or not is_enabled then
         imgui.PopStyleColor(3)
+    end
+    
+    -- Push text color after buttons so S button / ON/OFF button are not tinted
+    if not has_spell then
+        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
+    elseif selected.engaged_only then
+        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_RED)
+    elseif selected.combat_only then
+        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_YELLOW)
+    elseif selected.idle_only then
+        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GREEN)
     end
     
     imgui.SameLine()
@@ -988,7 +1222,8 @@ function ui_components.party_single_ability(ctx, ability, job_def)
     local desc
     if ability.cost and ability.cost > 0 then
         local resource_label = (ability.resource_type or job_def.resource_type) == 'tp' and 'TP' or 'MP'
-        desc = ability.name .. ' (' .. ability.cost .. ' ' .. resource_label .. ')' .. spell_suffix
+        local display_cost = math.floor(ability.cost * get_stratagem_mp_modifier(ctx, ability.name))
+        desc = ability.name .. ' (' .. display_cost .. ' ' .. resource_label .. ')' .. spell_suffix
     else
         desc = ability.name .. spell_suffix
     end
@@ -1202,7 +1437,22 @@ function ui_components.combo(ctx, label, setting_name, ui_var, options, converte
 end
 
 -- Render an ability checkbox with spell knowledge checking
-function ui_components.ability_checkbox(ctx, ability, job_def, id_suffix)
+function ui_components.ability_checkbox(ctx, ability, job_def, id_suffix, show_stratagem)
+    -- Optionally render the Scholar stratagem S button before the checkbox.
+    -- Only call when the ability's magic matches the current arts stance so that
+    -- sections where NO spell qualifies don't get pointless spacers.
+    if show_stratagem and ability.magic then
+        local dominated = false
+        if ability.magic == 'white' then
+            dominated = common.has_buff(0, 358) or common.has_buff(0, 401) -- Light Arts / Addendum: White
+        elseif ability.magic == 'black' then
+            dominated = common.has_buff(0, 359) or common.has_buff(0, 402) -- Dark Arts / Addendum: Black
+        end
+        if dominated then
+            render_scholar_stratagem_button(ability.name, ability, ctx)
+        end
+    end
+
     local has_spell = common.has_spell_learned(ability)
     local spell_suffix = ''
     if not has_spell then
@@ -1213,7 +1463,8 @@ function ui_components.ability_checkbox(ctx, ability, job_def, id_suffix)
     local desc
     if ability.cost and ability.cost > 0 then
         local resource_label = (ability.resource_type or job_def.resource_type) == 'tp' and 'TP' or 'MP'
-        desc = ability.name .. ' (' .. ability.cost .. ' ' .. resource_label .. ')' .. spell_suffix
+        local display_cost = math.floor(ability.cost * get_stratagem_mp_modifier(ctx, ability.name))
+        desc = ability.name .. ' (' .. display_cost .. ' ' .. resource_label .. ')' .. spell_suffix
     else
         desc = ability.name .. spell_suffix
     end
@@ -1315,6 +1566,177 @@ end
 
 function ui_components.item_doom_removal_checkbox(ctx)
     render_item_removal_checkbox(ctx, 'Holy Water', 'item_doom_removal_enabled', 'Doom')
+end
+
+-- ============================================================================
+-- Party Selection Buttons (for status removal targeting)
+-- ============================================================================
+
+-- Render party selection buttons for a feature (debuff removal, wake, etc.)
+-- Provides a row of [ME] [P1] [P2]... [B0] [C0]... [T1]... toggle buttons.
+-- Reuses ctx.party_buffs[key_name][party_index] for state storage.
+-- Auto-initialises all current party members as enabled on first render.
+-- Args:
+--   ctx          - UI context (settings, save_callback, party_buffs, is_trust)
+--   key_name     - Key in party_buffs (e.g. "debuff_removal", "wake")
+--   show_outside - Whether to show alliance/tracked target buttons
+--   include_self - Whether to show the [ME] button (default true)
+-- Returns: true if any button was rendered
+function ui_components.render_party_selection(ctx, key_name, show_outside, include_self)
+    if include_self == nil then include_self = true end
+
+    -- Auto-initialise on first render: enable all current party members
+    if not ctx.party_buffs[key_name] then
+        ctx.party_buffs[key_name] = {}
+        if include_self then
+            ctx.party_buffs[key_name][0] = true
+        end
+        local ps = common.get_party_size()
+        for i = 1, math.min(ps - 1, 5) do
+            ctx.party_buffs[key_name][i] = true
+        end
+        -- Persist
+        ctx.settings.party_buffs = ctx.settings.party_buffs or {}
+        ctx.settings.party_buffs[key_name] = {}
+        for k, v in pairs(ctx.party_buffs[key_name]) do
+            if type(k) == 'number' and k <= 5 then
+                ctx.settings.party_buffs[key_name][k] = v
+            end
+        end
+        if ctx.save_callback then ctx.save_callback() end
+    end
+
+    local function is_sel(index)
+        return ctx.party_buffs[key_name][index] == true
+    end
+
+    local function toggle_sel(index, enabled)
+        ctx.party_buffs[key_name][index] = enabled
+        if type(index) == 'number' and index <= 5 then
+            ctx.settings.party_buffs = ctx.settings.party_buffs or {}
+            ctx.settings.party_buffs[key_name] = ctx.settings.party_buffs[key_name] or {}
+            ctx.settings.party_buffs[key_name][index] = enabled
+        end
+        if ctx.save_callback then ctx.save_callback() end
+    end
+
+    local any_rendered = false
+
+    -- [ME] button
+    if include_self then
+        local me_on = is_sel(0)
+        if not me_on then
+            imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_UNSELECTED)
+            imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_UNSELECTED_HOVER)
+            imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_UNSELECTED_ACTIVE)
+        end
+        if imgui.Button('ME##' .. key_name .. '_sel_me', { PARTY_BUTTON_WIDTH, 0 }) then
+            toggle_sel(0, not me_on)
+        end
+        if not me_on then
+            imgui.PopStyleColor(3)
+        end
+        any_rendered = true
+    end
+
+    -- P1-P5 buttons
+    local party_size = common.get_party_size()
+    if party_size > 1 then
+        for pi = 1, 5 do
+            if pi < party_size then
+                if any_rendered then imgui.SameLine() end
+                local p_on = is_sel(pi)
+                local is_trust_member = ctx.is_trust and ctx.is_trust(pi)
+
+                if not p_on then
+                    imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_UNSELECTED)
+                    imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_UNSELECTED_HOVER)
+                    imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_UNSELECTED_ACTIVE)
+                end
+                if imgui.Button('P' .. pi .. '##' .. key_name .. '_sel_p' .. pi, { PARTY_BUTTON_WIDTH, 0 }) then
+                    toggle_sel(pi, not p_on)
+                end
+                -- Trust warning tooltip
+                if is_trust_member and imgui.IsItemHovered() then
+                    imgui.SetTooltip('Trust/Tracked Removal is not totally reliable')
+                end
+                if not p_on then
+                    imgui.PopStyleColor(3)
+                end
+                any_rendered = true
+            end
+        end
+    end
+
+    -- Alliance buttons
+    if show_outside then
+        local al_gs = common.game_state
+        if al_gs and al_gs.alliance then
+            local alliance_prefixes = { [2] = 'B', [3] = 'C' }
+            for api = 2, 3 do
+                local sub_party = al_gs.alliance[api]
+                if sub_party and next(sub_party) ~= nil then
+                    local prefix = alliance_prefixes[api]
+                    local sorted_al = common.sorted_alliance_members(sub_party)
+                    for _, entry in ipairs(sorted_al) do
+                        local local_idx = entry.local_idx
+                        local m = entry.m
+                        local flat_index = (api - 1) * 6 + local_idx
+                        local al_key = 'al_' .. flat_index
+
+                        if any_rendered then imgui.SameLine() end
+                        local al_on = is_sel(al_key)
+                        if not al_on then
+                            imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_UNSELECTED)
+                            imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_UNSELECTED_HOVER)
+                            imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_UNSELECTED_ACTIVE)
+                        end
+                        if imgui.Button('<' .. prefix .. local_idx .. '>##' .. key_name .. '_sel_' .. al_key, { PARTY_BUTTON_WIDTH, 0 }) then
+                            toggle_sel(al_key, not al_on)
+                        end
+                        if imgui.IsItemHovered() then
+                            imgui.SetTooltip(m.name or (prefix .. local_idx))
+                        end
+                        if not al_on then
+                            imgui.PopStyleColor(3)
+                        end
+                        any_rendered = true
+                    end
+                end
+            end
+        end
+
+        -- Tracked target buttons
+        local tracked_list = common.get_tracked_targets()
+        local sorted_tracked = {}
+        for sid, tt in pairs(tracked_list) do
+            table.insert(sorted_tracked, { sid = sid, name = tt.name })
+        end
+        table.sort(sorted_tracked, function(a, b) return a.name < b.name end)
+        for t_idx, tt in ipairs(sorted_tracked) do
+            if any_rendered then imgui.SameLine() end
+            local tt_key = 'tt_' .. tt.sid
+            local tt_on = is_sel(tt_key)
+            if not tt_on then
+                imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_UNSELECTED)
+                imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_UNSELECTED_HOVER)
+                imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_UNSELECTED_ACTIVE)
+            end
+            if imgui.Button('<T' .. t_idx .. '>##' .. key_name .. '_sel_t' .. tt.sid, { PARTY_BUTTON_WIDTH, 0 }) then
+                toggle_sel(tt_key, not tt_on)
+            end
+            -- Always show warning tooltip for tracked targets
+            if imgui.IsItemHovered() then
+                imgui.SetTooltip(tt.name .. '\nTrust/Tracked Removal is not totally reliable')
+            end
+            if not tt_on then
+                imgui.PopStyleColor(3)
+            end
+            any_rendered = true
+        end
+    end
+
+    return any_rendered
 end
 
 -- ============================================================================

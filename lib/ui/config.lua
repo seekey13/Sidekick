@@ -446,6 +446,7 @@ function ui_config.render(settings, job_def, callback, roll_mod)
         imgui.Separator()
         
         -- Automation toggle button
+        local is_loading = common.is_loading()
         local can_attack = common.can_attack()
         local is_resting = common.is_resting()
         local is_mounted = common.is_mounted()
@@ -454,14 +455,19 @@ function ui_config.render(settings, job_def, callback, roll_mod)
         local status_color
         
         if settings.automation_enabled then
-            if is_mounted then
+            if is_loading then
+                -- Loading state (automation fully suppressed while loading)
+                button_text = 'Stop'
+                status_text = 'Automation loading.'
+                status_color = ui.LIGHT_BLUE
+            elseif is_mounted then
                 -- Mounted state (automation fully suppressed while on a mount)
-                button_text = 'Mounted'
+                button_text = 'Stop'
                 status_text = 'Automation mounted.'
                 status_color = ui.LIGHT_BLUE
             elseif is_resting then
                 -- Resting state (automation enabled but resting for MP)
-                button_text = 'Resting'
+                button_text = 'Stop'
                 status_text = 'Automation resting.'
                 status_color = ui.LIGHT_BLUE
             elseif can_attack then
@@ -471,7 +477,7 @@ function ui_config.render(settings, job_def, callback, roll_mod)
                 status_color = ui.LIGHT_GREEN
             else
                 -- Paused state (automation enabled but combat blocked)
-                button_text = 'Paused'
+                button_text = 'Stop'
                 status_text = 'Automation paused.'
                 status_color = ui.LIGHT_BLUE
             end
@@ -658,7 +664,7 @@ function ui_config.render(settings, job_def, callback, roll_mod)
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.heal) do
                     if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
-                        ui.ability_checkbox(ctx, ability, job_def, 'heal')
+                        ui.ability_checkbox(ctx, ability, job_def, 'heal', true)
                     end
                 end
                 imgui.Unindent(ui.ABILITY_LIST_INDENT)
@@ -688,7 +694,7 @@ function ui_config.render(settings, job_def, callback, roll_mod)
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.heal_aoe) do
                     if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
-                        ui.ability_checkbox(ctx, ability, job_def, 'heal_aoe')
+                        ui.ability_checkbox(ctx, ability, job_def, 'heal_aoe', true)
                     end
                 end
                 imgui.Unindent(ui.ABILITY_LIST_INDENT)
@@ -730,13 +736,23 @@ function ui_config.render(settings, job_def, callback, roll_mod)
         if job_def and job_def.abilities.debuff_removal and has_usable_abilities(job_def.abilities.debuff_removal) then
             local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Enable Debuff Removal', 'debuff_removal_enabled', false)
             if is_open and is_enabled then
-                imgui.Indent(ui.ABILITY_LIST_INDENT)
-                for _, ability in ipairs(job_def.abilities.debuff_removal) do
-                    if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
-                        ui.ability_checkbox(ctx, ability, job_def, 'debuff_removal')
+                -- Clear temporary group rendering flags
+                if current_settings then
+                    for key in pairs(current_settings) do
+                        if key:match('^rendered_group_') then
+                            current_settings[key] = nil
+                        end
                     end
                 end
                 
+                imgui.Indent(ui.ABILITY_LIST_INDENT)
+                ctx.show_trust_warning = true
+                for _, ability in ipairs(job_def.abilities.debuff_removal) do
+                    if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
+                        ui.render_ability(ctx, ability, job_def, 'debuff_removal')
+                    end
+                end
+                ctx.show_trust_warning = false
                 imgui.Unindent(ui.ABILITY_LIST_INDENT)
             end
             
@@ -744,7 +760,25 @@ function ui_config.render(settings, job_def, callback, roll_mod)
         end
         
         if has_wake_abilities then
-            ui.checkbox(ctx, 'Enable Sleep Removal', 'wake_enabled', { settings.wake_enabled or false })
+            local is_open_wake, is_enabled_wake = ui.collapsing_checkbox_header(ctx, 'Enable Sleep Removal', 'wake_enabled', false)
+            if is_open_wake and is_enabled_wake then
+                -- Check if any wake-capable abilities support target_outside
+                local has_outside_wake = false
+                if job_def.abilities.heal then
+                    for _, ability in ipairs(job_def.abilities.heal) do
+                        if ability.wakes and ability.target_outside then
+                            has_outside_wake = true
+                            break
+                        end
+                    end
+                end
+                
+                -- Party selection buttons (who gets sleep removal)
+                -- exclude ME since player cannot wake themselves from sleep
+                imgui.Indent(ui.ABILITY_LIST_INDENT)
+                ui.render_party_selection(ctx, 'wake', has_outside_wake, false)
+                imgui.Unindent(ui.ABILITY_LIST_INDENT)
+            end
             
             imgui.Separator()
         end

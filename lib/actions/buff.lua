@@ -237,7 +237,14 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                                         local al_buffs = m.buffs or {}
                                         local al_needs_buff = action_core.needs_buff(al_buffs, ability.buff_id)
                                         if al_needs_buff then
-                                            local ok_use, _ = action_core.is_usable(ability, job_def)
+                                            local eff_cost = common.effective_ability_cost(ability, settings, job_def)
+                                            local ok_use, _ = action_core.is_usable(ability, job_def, eff_cost)
+                                            if ok_use then
+                                                -- Check stratagems before casting
+                                                local strat_result = common.check_stratagem(job_def, settings, ability.name, ability)
+                                                if strat_result == false then ok_use = false
+                                                elseif strat_result then return strat_result end
+                                            end
                                             if ok_use then
                                                 local command = common.build_ability_command_for_target(ability, m.server_id)
                                                 if command then
@@ -267,7 +274,14 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                             local tt_buffs = tt.buffs or {}
                             local tt_needs_buff = action_core.needs_buff(tt_buffs, ability.buff_id)
                             if tt_needs_buff then
-                                local ok, reason = action_core.is_usable(ability, job_def)
+                                local eff_cost = common.effective_ability_cost(ability, settings, job_def)
+                                local ok, reason = action_core.is_usable(ability, job_def, eff_cost)
+                                if ok then
+                                    -- Check stratagems before casting
+                                    local strat_result = common.check_stratagem(job_def, settings, ability.name, ability)
+                                    if strat_result == false then ok = false
+                                    elseif strat_result then return strat_result end
+                                end
                                 if ok then
                                     local command = common.build_ability_command_for_target(ability, sid)
                                     if command then
