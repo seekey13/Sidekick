@@ -450,6 +450,7 @@ function ui_config.render(settings, job_def, callback, roll_mod)
         local can_attack = common.can_attack()
         local is_resting = common.is_resting()
         local is_mounted = common.is_mounted()
+        local is_dead = common.is_dead()
         local button_text
         local status_text
         local status_color
@@ -464,6 +465,11 @@ function ui_config.render(settings, job_def, callback, roll_mod)
                 -- Mounted state (automation fully suppressed while on a mount)
                 button_text = 'Stop'
                 status_text = 'Automation mounted.'
+                status_color = ui.LIGHT_BLUE
+            elseif is_dead then
+                -- Dead state (automation fully suppressed while dead)
+                button_text = 'Stop'
+                status_text = 'Automation dead.'
                 status_color = ui.LIGHT_BLUE
             elseif is_resting then
                 -- Resting state (automation enabled but resting for MP)

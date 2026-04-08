@@ -446,6 +446,10 @@ local function automation_tick()
         return
     end
 
+    if common.is_dead() then
+        return
+    end
+
     -- Check if combat is allowed
     if not common.can_attack() then
         return

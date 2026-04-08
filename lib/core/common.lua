@@ -41,6 +41,9 @@ local is_resting = false
 -- Mount state tracking
 local is_mounted = false
 
+-- Dead state tracking
+local is_dead = false
+
 -- Rest conditions timer (shared so other modules can reset it)
 -- Holds the os.clock() timestamp when rest conditions first became favorable (0 = not started)
 local rest_conditions_met_time = 0
@@ -1937,6 +1940,13 @@ function common.is_mounted()
     return is_mounted
 end
 
+-- Get dead state.
+-- Synced once per tick inside refresh_game_state() via the player's entity_status (3 = dead)
+-- and HPP (0 = no health remaining), checked with OR as a safeguard.
+function common.is_dead()
+    return is_dead
+end
+
 -- Check if the player is still loading in (job reads as NON/NON and level == 0).
 -- This happens during zone transitions or initial login before the server has sent
 -- the player's job data.  Automation should be paused while this is true.
@@ -2279,6 +2289,9 @@ function common.refresh_game_state()
                     end
                 end
                 is_mounted = (member.entity_status == 5) or has_mount_buff
+
+                -- Sync is_dead: entity Status 3 (dead) OR HPP 0, whichever fires first.
+                is_dead = (member.entity_status == 3) or (member.hpp == 0)
             else
                 state.party[i] = member
             end
