@@ -698,7 +698,7 @@ end
 -- Party Button Helper
 -- ============================================================================
 
--- Render party toggle buttons (<ME> <P1> <P2> etc.)
+-- Render party toggle buttons ([ME] [P1] [P2] etc.)
 -- Returns: true if any button was rendered
 -- For grouped abilities, pass group_name instead of ability_name
 local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
@@ -731,7 +731,7 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
         end
     end
     
-    -- Render [<ME>] button
+    -- Render [ME] button
     local me_enabled = is_group and is_group_party_buff_enabled(ctx, key_name, 0) or is_party_buff_enabled(ctx, key_name, 0)
     
     if not has_spell then
@@ -819,7 +819,7 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
         end
     end
     
-    -- Render alliance member buttons (<B0>-<B5>, <C0>-<C5>)
+    -- Render alliance member buttons ([B0]-[B5], [C0]-[C5])
     -- Uses key format 'al_<flat_index>' (flat_index 6-17) in party_buffs.
     -- Alliance members are targeted by server_id (same mechanism as tracked targets).
     local al_gs = common.game_state
@@ -856,7 +856,7 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
                         imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_UNSELECTED_ACTIVE)
                     end
 
-                    local button_label = '<' .. prefix .. local_idx .. '>##' .. key_name .. '_' .. al_key
+                    local button_label = prefix .. local_idx .. '##' .. key_name .. '_' .. al_key
                     local clicked = imgui.Button(button_label, { PARTY_BUTTON_WIDTH, 0 })
                     if clicked and not is_disabled then
                         if is_group then
@@ -917,7 +917,7 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
                 imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_UNSELECTED_ACTIVE)
             end
 
-            local tt_button_label = '<T' .. t_idx .. '>##' .. key_name .. '_t' .. tt.sid
+            local tt_button_label = 'T' .. t_idx .. '##' .. key_name .. '_t' .. tt.sid
             local clicked = imgui.Button(tt_button_label, { PARTY_BUTTON_WIDTH, 0 })
             if clicked and not is_disabled then
                 if is_group then
@@ -1193,7 +1193,7 @@ function ui_components.self_grouped_ability(ctx, ability, job_def)
 end
 
 -- Render a party-target single ability
--- Layout: [<ME>] [<P1>] [<P2>]... Ability Name
+-- Layout: [ME] [P1] [P2]... Ability Name
 function ui_components.party_single_ability(ctx, ability, job_def)
     local has_spell = common.has_spell_learned(ability)
     local spell_suffix = has_spell and '' or ' (Not Learned)'
@@ -1260,7 +1260,7 @@ function ui_components.party_single_ability(ctx, ability, job_def)
 end
 
 -- Render a party-target grouped ability with dropdown
--- Layout: [<ME>] [<P1>] [<P2>]... [Dropdown]
+-- Layout: [ME] [P1] [P2]... [Dropdown]
 function ui_components.party_grouped_ability(ctx, ability, job_def)
     if not ability.group then
         return
@@ -1691,7 +1691,7 @@ function ui_components.render_party_selection(ctx, key_name, show_outside, inclu
                             imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_UNSELECTED_HOVER)
                             imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_UNSELECTED_ACTIVE)
                         end
-                        if imgui.Button('<' .. prefix .. local_idx .. '>##' .. key_name .. '_sel_' .. al_key, { PARTY_BUTTON_WIDTH, 0 }) then
+                        if imgui.Button(prefix .. local_idx .. '##' .. key_name .. '_sel_' .. al_key, { PARTY_BUTTON_WIDTH, 0 }) then
                             toggle_sel(al_key, not al_on)
                         end
                         if imgui.IsItemHovered() then
@@ -1722,7 +1722,7 @@ function ui_components.render_party_selection(ctx, key_name, show_outside, inclu
                 imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_UNSELECTED_HOVER)
                 imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_UNSELECTED_ACTIVE)
             end
-            if imgui.Button('<T' .. t_idx .. '>##' .. key_name .. '_sel_t' .. tt.sid, { PARTY_BUTTON_WIDTH, 0 }) then
+            if imgui.Button('T' .. t_idx .. '##' .. key_name .. '_sel_t' .. tt.sid, { PARTY_BUTTON_WIDTH, 0 }) then
                 toggle_sel(tt_key, not tt_on)
             end
             -- Always show warning tooltip for tracked targets

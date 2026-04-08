@@ -560,7 +560,7 @@ function ui_config.render(settings, job_def, callback, roll_mod)
                 imgui.PushStyleColor(ImGuiCol_ButtonHovered, container_color)
                 imgui.PushStyleColor(ImGuiCol_ButtonActive, container_color)
                 imgui.PushID('lbl_' .. tostring(tt.sid))
-                imgui.Button('<T' .. t_idx .. '> ' .. tt.name)
+                imgui.Button('T' .. t_idx .. ' ' .. tt.name)
                 imgui.PopID()
                 imgui.PopStyleColor(3)
 
