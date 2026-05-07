@@ -443,7 +443,6 @@ function ui_config.render(settings, job_def, callback, roll_mod)
             end
             imgui.TextColored(ui.LIGHT_GREEN, string.format('Job: %s %d / %s %d', main_job_name, main_level, sub_job_name, sub_level or 0))
         end
-        imgui.Separator()
         
         -- Automation toggle button
         local is_loading = common.is_loading()
@@ -550,7 +549,6 @@ function ui_config.render(settings, job_def, callback, roll_mod)
         for _ in pairs(tracked_list) do has_tracked = true; break end
 
         if has_tracked then
-            imgui.Separator()
             local sorted_tt = {}
             for sid, tt in pairs(tracked_list) do
                 table.insert(sorted_tt, { sid = sid, name = tt.name })
@@ -588,8 +586,6 @@ function ui_config.render(settings, job_def, callback, roll_mod)
                 end
             end
         end
-
-        imgui.Separator()
         
         -- Attack Range settings (global setting for all jobs)
         do
@@ -608,8 +604,6 @@ function ui_config.render(settings, job_def, callback, roll_mod)
             ui.combo(ctx, 'Attack Range', 'attack_range', attack_range_index, attack_range_options, function(i)
                 return attack_range_options[i + 1]
             end)
-            
-            imgui.Separator()
         end
 
         -- Show job-specific sections if we have a job definition
@@ -657,8 +651,6 @@ function ui_config.render(settings, job_def, callback, roll_mod)
                     
                     ui.slider_int(ctx, 'Focus Healing (HP%)', 'focus_threshold', { settings.focus_threshold or 85 }, 1, 100)
                 end
-                
-                imgui.Separator()
             end
         end
         
@@ -687,8 +679,6 @@ function ui_config.render(settings, job_def, callback, roll_mod)
                     imgui.Unindent(ui.ABILITY_LIST_INDENT)
                 end
             end
-            
-            imgui.Separator()
         end
         
         -- AOE Healing settings
@@ -705,8 +695,6 @@ function ui_config.render(settings, job_def, callback, roll_mod)
                 end
                 imgui.Unindent(ui.ABILITY_LIST_INDENT)
             end
-            
-            imgui.Separator()
         end
         
         -- Pet Healing settings
@@ -723,8 +711,6 @@ function ui_config.render(settings, job_def, callback, roll_mod)
                 end
                 imgui.Unindent(ui.ABILITY_LIST_INDENT)
             end
-            
-            imgui.Separator()
         end
         
         -- Wake settings (only show if job has wake-capable heal abilities that are usable)
@@ -761,8 +747,6 @@ function ui_config.render(settings, job_def, callback, roll_mod)
                 ctx.show_trust_warning = false
                 imgui.Unindent(ui.ABILITY_LIST_INDENT)
             end
-            
-            imgui.Separator()
         end
         
         if has_wake_abilities then
@@ -785,14 +769,11 @@ function ui_config.render(settings, job_def, callback, roll_mod)
                 ui.render_party_selection(ctx, 'wake', has_outside_wake, false)
                 imgui.Unindent(ui.ABILITY_LIST_INDENT)
             end
-            
-            imgui.Separator()
         end
 
         -- Item checkboxes for Silence and Doom removal
         ui.item_silence_removal_checkbox(ctx)
         ui.item_doom_removal_checkbox(ctx)
-        imgui.Separator()
         
         -- Rest settings (only for MP-based jobs)
         if job_def and job_def.resource_type == 'mp' then
@@ -805,8 +786,6 @@ function ui_config.render(settings, job_def, callback, roll_mod)
                 
                 ui.slider_int(ctx, 'Distance (yalms)', 'rest_distance', { settings.rest_distance or 7 }, 1, 15)
             end
-            
-            imgui.Separator()
         end
         
         -- Recovery settings
@@ -875,8 +854,6 @@ function ui_config.render(settings, job_def, callback, roll_mod)
                     imgui.Unindent(ui.ABILITY_LIST_INDENT)
                 end
             end
-            
-            imgui.Separator()
         end
         
         -- Buff settings
@@ -900,8 +877,6 @@ function ui_config.render(settings, job_def, callback, roll_mod)
                 end
                 imgui.Unindent(ui.ABILITY_LIST_INDENT)
             end
-            
-            imgui.Separator()
         end
         
         -- Geo settings (Geomancer)
@@ -1023,7 +998,6 @@ function ui_config.render(settings, job_def, callback, roll_mod)
         end
         end  -- End of job_def check
 
-        imgui.Separator()
         -- Debug mode (at end)
         local debug_var = { common.debug }
         if imgui.Checkbox('Debug Mode', debug_var) then
@@ -1096,7 +1070,6 @@ function ui_config.render(settings, job_def, callback, roll_mod)
             local gs = common.game_state
             if gs and gs.alliance and common.get_alliance_count() > 0 then
                 imgui.Spacing()
-                imgui.Separator()
                 imgui.Text('Alliance Members:')
                 local party_prefixes = { [2] = 'B', [3] = 'C' }
                 local party_colors   = { [2] = { 1.0, 0.85, 0.4, 1.0 }, [3] = { 0.6, 0.9, 1.0, 1.0 } }

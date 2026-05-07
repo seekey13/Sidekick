@@ -1379,11 +1379,20 @@ end
 
 -- Create a collapsible header with checkbox
 function ui_components.collapsing_checkbox_header(ctx, label, setting_name, default_value)
-    local setting_var = { ctx.settings[setting_name] or default_value }
+    local setting_value = ctx.settings[setting_name]
+    if setting_value == nil then
+        setting_value = default_value
+    end
+    local setting_var = { setting_value }
+    local previous_value = setting_var[1]
     if imgui.Checkbox('##' .. setting_name, setting_var) then
         ctx.settings[setting_name] = setting_var[1]
         if ctx.save_callback then
             ctx.save_callback()
+        end
+        -- Auto-expand when enabling the section (only on the transition from disabled to enabled)
+        if setting_var[1] and not previous_value then
+            imgui.SetNextItemOpen(true)
         end
     end
     imgui.SameLine()

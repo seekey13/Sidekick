@@ -545,6 +545,12 @@ function common.get_job_name(job_id)
     return tostring(job_id)
 end
 
+-- Get pet entity
+-- Returns: pet entity object or nil if no pet
+function common.get_pet_entity()
+    return targets.get_pet()
+end
+
 -- Get pet's HP percentage
 -- Returns: number (HP percentage 0-100) or 0 if no pet
 function common.get_pet_hp_percent()
