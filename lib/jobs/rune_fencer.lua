@@ -28,7 +28,7 @@ return {
                     return '/ma "Protect" '..target
                 end,
                 element = 'Light',
-                buff_id = 17,  -- Protect buff
+                buff_id = 40,  -- Protect buff
                 group = 'protect',
                 target_outside = true,
             },
@@ -58,7 +58,7 @@ return {
                     return '/ma "Protect III" '..target
                 end,
                 element = 'Light',
-                buff_id = 41,  -- Protect III buff
+                buff_id = 40,  -- Protect III buff
                 group = 'protect',
                 target_outside = true,
             },
@@ -193,7 +193,7 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Barthunder" <me>',
                 element = 'Earth',
-                buff_id = 112,  -- Barthunder buff
+                buff_id = 104,  -- Barthunder buff
                 group = 'barelement',
             },
             -- Barstatus
@@ -218,7 +218,7 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Barpoison" <me>',
                 element = 'Thunder',
-                buff_id = 105,  -- Barpoison buff
+                buff_id = 107,  -- Barpoison buff
                 group = 'barstatus',
             },
             {
