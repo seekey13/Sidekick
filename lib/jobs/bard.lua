@@ -73,7 +73,7 @@ return {
             },
             -- Minuet
             {
-                name = 'Valor Minuet IV (+++ATK)',
+                name = 'Valor Minuet IV (++++ATK)',
                 level = 63,
                 cost = 0,
                 id = 397,
@@ -87,7 +87,7 @@ return {
                 target_modifier = true,
             },
             {
-                name = 'Valor Minuet III (++ATK)',
+                name = 'Valor Minuet III (+++ATK)',
                 level = 43,
                 cost = 0,
                 id = 396,
@@ -101,7 +101,7 @@ return {
                 target_modifier = true,
             },
             {
-                name = 'Valor Minuet II (+ATK)',
+                name = 'Valor Minuet II (++ATK)',
                 level = 23,
                 cost = 0,
                 id = 395,
