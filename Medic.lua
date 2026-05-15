@@ -857,10 +857,12 @@ ashita.events.register('command', 'medic_command', function(e)
     e.blocked = true
     
     -- Handle commands
-    local cmd = args[2] and args[2]:lower() or 'help'
+    local cmd = args[2] and args[2]:lower() or 'config'
     
     if cmd == 'help' then
         common.printf('Medic Commands:')
+        common.printf('  /medic - Show configuration UI')
+        common.printf('  /medic help - Show this help')
         common.printf('  /medic start - Start automation')
         common.printf('  /medic stop - Stop automation')
         common.printf('  /medic toggle - Toggle automation on/off')

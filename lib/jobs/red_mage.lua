@@ -274,7 +274,7 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Barthunder" <me>',
                 element = 'Earth',
-                buff_id = 112,  -- Barthunder buff
+                buff_id = 104,  -- Barthunder buff
                 group = 'barelement',
             },
             -- Barstatus
@@ -299,7 +299,7 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Barpoison" <me>',
                 element = 'Thunder',
-                buff_id = 105,  -- Barpoison buff
+                buff_id = 107,  -- Barpoison buff
                 group = 'barstatus',
             },
             {
