@@ -173,11 +173,13 @@ Currently implemented support jobs:
 
 1. Place the entire `Medic` folder in your Ashita `addons` directory
 2. Load the addon in-game: `/addon load medic`
-3. Configure settings: `/medic config`
+3. Configure settings: `/medic` (opens the configuration UI)
 4. Start automation: `/medic start`
 
 ## Commands
 
+- `/medic` or `/med` - Show/hide configuration UI (default action)
+- `/medic help` or `/med help` - Show command help
 - `/medic start` or `/med start` - Start automation
 - `/medic stop` or `/med stop` - Stop automation
 - `/medic toggle` or `/med toggle` - Toggle automation on/off
@@ -187,9 +189,8 @@ Currently implemented support jobs:
 - `/medic debug` or `/med debug` - Toggle debug mode
 - `/medic recast` or `/med recast` - Show all active ability recast timers
 - `/medic status` or `/med status` - Show current status and settings
-- `/medic help` or `/med help` - Show command help
 
-**Note**: `/med` is a shorthand alias for `/medic`
+**Note**: `/med` is a shorthand alias for `/medic`. Running `/medic` with no arguments opens the configuration UI; use `/medic help` to list commands.
 
 ## Usage
 
