@@ -229,7 +229,7 @@ return {
                 command = '/ma "Indi-Acumen" <me>',
                 element = 'Ice',
                 group = 'Indi',
-                buff_id = 555,
+                buff_id = 551,
             },
             {
                 name = 'Indi-DEX',
@@ -525,7 +525,7 @@ return {
                 group = 'Geo',
                 main_job_only = true,
                 combat_only = true,
-                buff_id = 555,
+                buff_id = 551,
             },
             {
                 name = 'Geo-DEX',
