@@ -141,7 +141,7 @@ return {
                 command = '/ma "Indi-Frailty" <me>',
                 element = 'Wind',
                 group = 'Indi',
-                buff_id = 564,
+                buff_id = 558,
             },
             {
                 name = 'Indi-Vex',
@@ -174,7 +174,7 @@ return {
                 command = '/ma "Indi-Languor" <me>',
                 element = 'Dark',
                 group = 'Indi',
-                buff_id = 559,
+                buff_id = 564,
             },
             {
                 name = 'Indi-Slip',
@@ -262,7 +262,7 @@ return {
                 command = '/ma "Indi-Fend" <me>',
                 element = 'Water',
                 group = 'Indi',
-                buff_id = 550,
+                buff_id = 552,
             },
             {
                 name = 'Indi-AGI',
@@ -309,6 +309,17 @@ return {
                 buff_id = 547,
             },
             {
+                name = 'Indi-CHR',
+                level = 30,
+                cost = 63,
+                id = 778,
+                magic = 'geomancy',
+                command = '/ma "Indi-CHR" <me>',
+                element = 'Light',
+                group = 'Indi',
+                buff_id = 548,
+            },
+            {
                 name = 'Indi-Refresh',
                 level = 30,
                 cost = 63,
@@ -328,7 +339,7 @@ return {
                 command = '/ma "Indi-Barrier" <me>',
                 element = 'Earth',
                 group = 'Indi',
-                buff_id = 552,
+                buff_id = 550,
             },
             {
                 name = 'Indi-Focus',
@@ -339,7 +350,7 @@ return {
                 command = '/ma "Indi-Focus" <me>',
                 element = 'Dark',
                 group = 'Indi',
-                buff_id = 553,
+                buff_id = 555,
             },
             {
                 name = 'Indi-Attunement',
@@ -434,7 +445,7 @@ return {
                 group = 'Geo',
                 main_job_only = true,
                 combat_only = true,
-                buff_id = 564,
+                buff_id = 558,
             },
             {
                 name = 'Geo-Paralysis',
@@ -460,7 +471,7 @@ return {
                 group = 'Geo',
                 main_job_only = true,
                 combat_only = true,
-                buff_id = 559,
+                buff_id = 564,
             },
             {
                 name = 'Geo-Slip',
@@ -564,7 +575,7 @@ return {
                 group = 'Geo',
                 main_job_only = true,
                 combat_only = true,
-                buff_id = 550,
+                buff_id = 552,
             },
             {
                 name = 'Geo-AGI',
@@ -655,7 +666,7 @@ return {
                 group = 'Geo',
                 main_job_only = true,
                 combat_only = true,
-                buff_id = 552,
+                buff_id = 550,
             },
             {
                 name = 'Geo-Focus',
@@ -668,7 +679,7 @@ return {
                 group = 'Geo',
                 main_job_only = true,
                 combat_only = true,
-                buff_id = 553,
+                buff_id = 555,
             },
             {
                 name = 'Geo-Attunement',
