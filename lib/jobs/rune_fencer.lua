@@ -133,7 +133,7 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Barstone" <me>',
                 element = 'Wind',
-                buff_id = 102,  -- Barstone buff
+                buff_id = 103,  -- Barstone buff
                 group = 'barelement',
             },
             {
@@ -145,7 +145,7 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Barwater" <me>',
                 element = 'Thunder',
-                buff_id = 104,  -- Barwater buff
+                buff_id = 105,  -- Barwater buff
                 group = 'barelement',
             },
             {
@@ -157,7 +157,7 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Baraero" <me>',
                 element = 'Ice',
-                buff_id = 107,  -- Baraero buff
+                buff_id = 102,  -- Baraero buff
                 group = 'barelement',
             },
             {
@@ -169,7 +169,7 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Barfire" <me>',
                 element = 'Water',
-                buff_id = 108,  -- Barfire buff
+                buff_id = 100,  -- Barfire buff
                 group = 'barelement',
             },
             {
@@ -181,7 +181,7 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Barblizzard" <me>',
                 element = 'Fire',
-                buff_id = 110,  -- Barblizzard buff
+                buff_id = 101,  -- Barblizzard buff
                 group = 'barelement',
             },
             {
@@ -206,7 +206,7 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Barsleep" <me>',
                 element = 'Light',
-                buff_id = 103,  -- Barsleep buff
+                buff_id = 106,  -- Barsleep buff
                 group = 'barstatus',
             },
             {
@@ -230,7 +230,7 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Barparalyze" <me>',
                 element = 'Fire',
-                buff_id = 106,  -- Barparalyze buff
+                buff_id = 108,  -- Barparalyze buff
                 group = 'barstatus',
             },
             {
@@ -254,7 +254,7 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Barsilence" <me>',
                 element = 'Ice',
-                buff_id = 111,  -- Barsilence buff
+                buff_id = 110,  -- Barsilence buff
                 group = 'barstatus',
             },
             {
@@ -266,7 +266,7 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Barvirus" <me>',
                 element = 'Water',
-                buff_id = 113,  -- Barvirus buff
+                buff_id = 112,  -- Barvirus buff
                 group = 'barstatus',
             },
             {
@@ -278,7 +278,7 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Barpetrify" <me>',
                 element = 'Wind',
-                buff_id = 114,  -- Barpetrify buff
+                buff_id = 111,  -- Barpetrify buff
                 group = 'barstatus',
             },
             {
@@ -290,7 +290,7 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Baramnesia" <me>',
                 element = 'Water',
-                buff_id = 115,  -- Baramnesia buff
+                buff_id = 286,  -- Baramnesia buff
                 group = 'barstatus',
             },
             -- Regen
@@ -318,7 +318,7 @@ return {
                     return '/ma "Regen II" '..target
                 end,
                 element = 'Light',
-                buff_id = 84,  -- Regen II buff
+                buff_id = 42,  -- Regen II buff
                 combat_only = true,
             },
             {
@@ -332,7 +332,7 @@ return {
                     return '/ma "Regen III" '..target
                 end,
                 element = 'Light',
-                buff_id = 121,  -- Regen III buff
+                buff_id = 42,  -- Regen III buff
                 combat_only = true,
             },
             -- Refresh
@@ -358,7 +358,7 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Foil" <me>',
                 element = 'Wind',
-                buff_id = 480,  -- Foil buff
+                buff_id = 568,  -- Foil buff
                 engaged_only = true,
             },
             {
@@ -367,7 +367,7 @@ return {
                 cost = 0,
                 id = 24,  -- Swordplay recast ID
                 command = '/ja "Swordplay" <me>',
-                buff_id = 475,  -- Swordplay buff
+                buff_id = 532,  -- Swordplay buff
                 engaged_only = true,
             },
             {
@@ -392,7 +392,7 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Blaze Spikes" <me>',
                 element = 'Fire',
-                buff_id = 35,  -- Blaze Spikes buff
+                buff_id = 34,  -- Blaze Spikes buff
                 group = 'spikes',
                 engaged_only = true,
             },
@@ -405,7 +405,7 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Ice Spikes" <me>',
                 element = 'Ice',
-                buff_id = 42,  -- Ice Spikes buff
+                buff_id = 35,  -- Ice Spikes buff
                 group = 'spikes',
                 engaged_only = true,
             },

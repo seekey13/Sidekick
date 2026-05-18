@@ -177,7 +177,7 @@ return {
                 cost = 350,
                 id = 216,
                 command = '/ja "Haste Samba" <me>',
-                buff_id = 193,
+                buff_id = 370,
                 engaged_only = true,
                 group = 'samba',
             },
@@ -199,7 +199,6 @@ return {
                 level = 50,
                 cost = 0,
                 id = 229,  -- Job Ability ID
-                buff_id = 582,
                 command = '/ja "Contradance" <me>',
             },
         },
