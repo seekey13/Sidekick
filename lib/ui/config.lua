@@ -990,7 +990,7 @@ function ui_config.render(settings, job_def, callback, roll_mod)
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.revive) do
                     if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
-                        ui.ability_checkbox(ctx, ability, job_def, 'revive')
+                        ui.ability_checkbox(ctx, ability, job_def, 'revive', true)
                     end
                 end
                 imgui.Unindent(ui.ABILITY_LIST_INDENT)
