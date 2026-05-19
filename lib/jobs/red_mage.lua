@@ -725,6 +725,7 @@ return {
                     return '/ma "Raise" '..target
                 end,
                 range = 18,
+                magic_type = 'healing',
                 idle_only = true,
                 target_outside = true,
             },

@@ -762,7 +762,7 @@ return {
                 cost = 150,
                 id = 142,  -- Spell ID
                 magic = 'white',
-                magic_type = 'enhancing',
+                magic_type = 'healing',
                 command = '/ma "Reraise III" <me>',
                 buff_id = 113,  -- Reraise
                 group = 'reraise',
@@ -773,7 +773,7 @@ return {
                 cost = 150,
                 id = 141,  -- Spell ID
                 magic = 'white',
-                magic_type = 'enhancing',
+                magic_type = 'healing',
                 command = '/ma "Reraise II" <me>',
                 buff_id = 113,  -- Reraise
                 group = 'reraise',
@@ -784,7 +784,7 @@ return {
                 cost = 150,
                 id = 135,  -- Spell ID
                 magic = 'white',
-                magic_type = 'enhancing',
+                magic_type = 'healing',
                 command = '/ma "Reraise" <me>',
                 buff_id = 113,  -- Reraise
                 group = 'reraise',
@@ -884,6 +884,7 @@ return {
                     return '/ma "Arise" '..target
                 end,
                 range = 18,
+                magic_type = 'healing',
                 idle_only = true,
                 target_outside = true,
             },
@@ -896,6 +897,7 @@ return {
                     return '/ma "Raise III" '..target
                 end,
                 range = 18,
+                magic_type = 'healing',
                 idle_only = true,
                 target_outside = true,
             },
@@ -908,6 +910,7 @@ return {
                     return '/ma "Raise II" '..target
                 end,
                 range = 18,
+                magic_type = 'healing',
                 idle_only = true,
                 target_outside = true,
             },
@@ -920,6 +923,7 @@ return {
                     return '/ma "Raise" '..target
                 end,
                 range = 18,
+                magic_type = 'healing',
                 idle_only = true,
                 target_outside = true,
             },

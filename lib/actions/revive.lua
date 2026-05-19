@@ -54,7 +54,7 @@ function revive.execute(settings, job_def, main_level, sub_level, player_resourc
     )
     if #available == 0 then return nil end
 
-    local usable = action_core.filter_usable(available, job_def, '[REVIVE]')
+    local usable = action_core.filter_usable(available, job_def, '[REVIVE]', settings)
     if #usable == 0 then return nil end
 
     -- Remove any abilities whose required buff (e.g. Addendum: White for Scholar) is not active.
@@ -77,6 +77,17 @@ function revive.execute(settings, job_def, main_level, sub_level, player_resourc
         end
         for _, ability in ipairs(buff_usable) do
             if common.is_in_range(m.target_index, ability.range or 20) then
+                -- Check stratagems before casting (e.g. Scholar Penury to halve Raise MP)
+                local strat_result = common.check_stratagem(job_def, settings, ability.name, ability)
+                if strat_result == false then
+                    common.debugf('[REVIVE] Stratagem unavailable for %s on party[%d], trying next ability', ability.name, i)
+                    goto continue_party_ability
+                elseif strat_result then
+                    common.debugf('[REVIVE] Firing stratagem before raising party[%d] %s with %s',
+                        i, m.name or '?', ability.name)
+                    return strat_result
+                end
+
                 local command = common.build_ability_command(ability, i)
                 if command then
                     common.debugf('[REVIVE] Party[%d] %s is dead, raising with %s',
@@ -91,6 +102,7 @@ function revive.execute(settings, job_def, main_level, sub_level, player_resourc
             else
                 common.debugf('[REVIVE] Party[%d] %s out of range for %s', i, m.name or '?', ability.name)
             end
+            ::continue_party_ability::
         end
         return nil
     end
@@ -105,6 +117,18 @@ function revive.execute(settings, job_def, main_level, sub_level, player_resourc
         end
         for _, ability in ipairs(buff_usable) do
             if common.is_in_range(m.target_index, ability.range or 20) then
+                -- Check stratagems before casting (e.g. Scholar Penury to halve Raise MP)
+                local strat_result = common.check_stratagem(job_def, settings, ability.name, ability)
+                if strat_result == false then
+                    common.debugf('[REVIVE] Stratagem unavailable for %s on %s %s, trying next ability',
+                        ability.name, tag, m.name or '?')
+                    goto continue_sid_ability
+                elseif strat_result then
+                    common.debugf('[REVIVE] Firing stratagem before raising %s %s with %s',
+                        tag, m.name or '?', ability.name)
+                    return strat_result
+                end
+
                 local command = common.build_ability_command_for_target(ability, sid)
                 if command then
                     common.debugf('[REVIVE] %s %s is dead, raising with %s',
@@ -120,6 +144,7 @@ function revive.execute(settings, job_def, main_level, sub_level, player_resourc
             else
                 common.debugf('[REVIVE] %s %s out of range for %s', tag, m.name or '?', ability.name)
             end
+            ::continue_sid_ability::
         end
         return nil
     end

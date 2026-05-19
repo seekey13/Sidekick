@@ -694,6 +694,8 @@ return {
                     return '/ma "Raise II" '..target
                 end,
                 range = 20,
+                magic = 'white',
+                magic_type = 'raise',  -- distinct from 'healing' so Accession/Rapture don't apply
                 idle_only = true,
                 requires_buff = 401,  -- Requires Addendum: White
                 target_outside = true,
@@ -707,6 +709,8 @@ return {
                     return '/ma "Raise" '..target
                 end,
                 range = 20,
+                magic = 'white',
+                magic_type = 'raise',  -- distinct from 'healing' so Accession/Rapture don't apply
                 idle_only = true,
                 requires_buff = 401,  -- Requires Addendum: White
                 target_outside = true,
