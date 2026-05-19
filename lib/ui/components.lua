@@ -597,8 +597,11 @@ local function render_scholar_stratagem_button(ability_key, ability, ctx)
     end
 
     -- Stratagems only apply to white/black magic; skip singing, geomancy, etc.
+    -- Render an invisible spacer so these rows stay aligned with S-button rows.
     if ability and ability.magic then
         if ability.magic ~= 'white' and ability.magic ~= 'black' then
+            imgui.Dummy({ 20, 0 })
+            imgui.SameLine(0, SPACE_BETWEEN_BUTTONS)
             return false, 0
         end
     end
