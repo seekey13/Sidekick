@@ -100,7 +100,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Smart Blocking**: Prevents resting when engaged, moving, casting, or when MP is full
   - **Priority**: Executes last in action priority order to allow healing/buffing to take precedence
   - Available for: White Mage, Scholar, Red Mage, Paladin, Geomancer, Bard, Rune Fencer, Summoner
-- **Conditional Ability Flags**: Two mutually exclusive flags for conditional ability usage with color-coded UI indicators:
+- **Conditional Ability Conditions**: Two mutually exclusive conditions for conditional ability usage with color-coded UI indicators:
   - `idle_only` (green) - Only usable when not in combat (checks `is_idle()`)
   - `combat_only` (yellow) - Only usable when in combat with a battle target nearby (checks `is_combat()`); user-toggleable per ability/group via right-click
 - **Item-Based Status Removal**: New item action module automatically uses consumables to remove debuffs:
