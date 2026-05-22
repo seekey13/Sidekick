@@ -46,6 +46,38 @@ local HEADER_COLOR_ACTIVE = { 0.2, 0.2, 0.2, 0.65 }
 -- Helper Functions
 -- ============================================================================
 
+-- Returns true if the ability's effective (user-driven) combat_only setting is enabled.
+local function effective_combat_only(ability, ctx)
+    if not ability or not ctx or not ctx.settings then return false end
+    return common.is_ability_combat_only(ability, ctx.settings)
+end
+
+-- Render a right-click 'Combat Only' toggle popup for an ability/group.
+-- Call immediately after the imgui item the popup should attach to.
+-- Suppressed for idle_only abilities since combat_only is meaningless there.
+local function render_combat_only_context_menu(ctx, ability)
+    if not ability or not ctx or not ctx.settings then return end
+    if ability.idle_only then return end
+    local key, popup_id
+    if ability.group then
+        key = 'combat_only_group_' .. ability.group
+        popup_id = '##cmenu_combat_only_group_' .. ability.group
+    else
+        if not ability.name then return end
+        local safe_name = ability.name:gsub(' ', '_')
+        key = 'combat_only_' .. safe_name
+        popup_id = '##cmenu_combat_only_' .. safe_name
+    end
+    if imgui.BeginPopupContextItem(popup_id) then
+        local current = { ctx.settings[key] == true }
+        if imgui.Checkbox('Combat Only', current) then
+            ctx.settings[key] = current[1]
+            if ctx.save_callback then ctx.save_callback() end
+        end
+        imgui.EndPopup()
+    end
+end
+
 -- Default filter functions (can be overridden via ctx.filter_func)
 local default_filters = {}
 
@@ -1021,12 +1053,11 @@ function ui_components.group_dropdown(ctx, job_def, target_group, dropdown_width
     
     local setting_key = 'selected_' .. target_group
     local combo_label = '##dropdown_' .. target_group
+    local selected_combat_only = selected and effective_combat_only(selected, ctx) or false
     
     -- Apply color styling
     if selected then
-        if selected.engaged_only then
-            imgui.PushStyleColor(ImGuiCol_Text, LIGHT_RED)
-        elseif selected.combat_only then
+        if selected_combat_only then
             imgui.PushStyleColor(ImGuiCol_Text, LIGHT_YELLOW)
         elseif selected.idle_only then
             imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GREEN)
@@ -1061,11 +1092,14 @@ function ui_components.group_dropdown(ctx, job_def, target_group, dropdown_width
         imgui.EndCombo()
     end
     
+    -- Right-click context menu for combat_only toggle (attaches to the combo)
+    if selected then
+        render_combat_only_context_menu(ctx, selected)
+    end
+    
     -- Show tooltip
     if imgui.IsItemHovered() and selected then
-        if selected.engaged_only then
-            imgui.SetTooltip('Engaged Only')
-        elseif selected.combat_only then
+        if selected_combat_only then
             imgui.SetTooltip('Combat Only')
         elseif selected.idle_only then
             imgui.SetTooltip('Idle Only')
@@ -1074,7 +1108,7 @@ function ui_components.group_dropdown(ctx, job_def, target_group, dropdown_width
     
     imgui.PopItemWidth()
     
-    if selected and (selected.engaged_only or selected.combat_only or selected.idle_only) then
+    if selected and (selected_combat_only or selected.idle_only) then
         imgui.PopStyleColor()
     end
 end
@@ -1084,6 +1118,7 @@ end
 function ui_components.self_single_ability(ctx, ability, job_def, id_suffix)
     local has_spell = common.has_spell_learned(ability)
     local spell_suffix = has_spell and '' or ' (Not Learned)'
+    local ability_combat_only = effective_combat_only(ability, ctx)
     
     ui_components.onoff_button(ctx, ability.name, job_def, has_spell)
     
@@ -1092,9 +1127,7 @@ function ui_components.self_single_ability(ctx, ability, job_def, id_suffix)
     -- Push text color after buttons so S button / ON/OFF button are not tinted
     if not has_spell then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
-    elseif ability.engaged_only then
-        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_RED)
-    elseif ability.combat_only then
+    elseif ability_combat_only then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_YELLOW)
     elseif ability.idle_only then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GREEN)
@@ -1110,17 +1143,17 @@ function ui_components.self_single_ability(ctx, ability, job_def, id_suffix)
     end
     imgui.Text(desc)
     
+    render_combat_only_context_menu(ctx, ability)
+    
     if imgui.IsItemHovered() then
-        if ability.engaged_only then
-            imgui.SetTooltip('Engaged Only')
-        elseif ability.combat_only then
+        if ability_combat_only then
             imgui.SetTooltip('Combat Only')
         elseif ability.idle_only then
             imgui.SetTooltip('Idle Only')
         end
     end
     
-    if not has_spell or ability.engaged_only or ability.combat_only or ability.idle_only then
+    if not has_spell or ability_combat_only or ability.idle_only then
         imgui.PopStyleColor()
     end
 end
@@ -1177,11 +1210,10 @@ function ui_components.self_grouped_ability(ctx, ability, job_def)
     end
     
     -- Push text color after buttons so S button / ON/OFF button are not tinted
+    local selected_combat_only = effective_combat_only(selected, ctx)
     if not has_spell then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
-    elseif selected.engaged_only then
-        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_RED)
-    elseif selected.combat_only then
+    elseif selected_combat_only then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_YELLOW)
     elseif selected.idle_only then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GREEN)
@@ -1190,7 +1222,7 @@ function ui_components.self_grouped_ability(ctx, ability, job_def)
     imgui.SameLine()
     ui_components.group_dropdown(ctx, job_def, ability.group, DROPDOWN_WIDTH)
     
-    if not has_spell or selected.engaged_only or selected.combat_only or selected.idle_only then
+    if not has_spell or selected_combat_only or selected.idle_only then
         imgui.PopStyleColor()
     end
 end
@@ -1235,11 +1267,10 @@ function ui_components.party_single_ability(ctx, ability, job_def)
     
     imgui.SameLine()
     
+    local ability_combat_only = effective_combat_only(ability, ctx)
     if not has_spell or not has_modifier then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
-    elseif ability.engaged_only then
-        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_RED)
-    elseif ability.combat_only then
+    elseif ability_combat_only then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_YELLOW)
     elseif ability.idle_only then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GREEN)
@@ -1247,17 +1278,17 @@ function ui_components.party_single_ability(ctx, ability, job_def)
     
     imgui.Text(desc)
     
+    render_combat_only_context_menu(ctx, ability)
+    
     if imgui.IsItemHovered() then
-        if ability.engaged_only then
-            imgui.SetTooltip('Engaged Only')
-        elseif ability.combat_only then
+        if ability_combat_only then
             imgui.SetTooltip('Combat Only')
         elseif ability.idle_only then
             imgui.SetTooltip('Idle Only')
         end
     end
     
-    if not has_spell or not has_modifier or ability.engaged_only or ability.combat_only or ability.idle_only then
+    if not has_spell or not has_modifier or ability_combat_only or ability.idle_only then
         imgui.PopStyleColor()
     end
 end
@@ -1303,11 +1334,10 @@ function ui_components.party_grouped_ability(ctx, ability, job_def)
     
     imgui.SameLine()
     
+    local selected_combat_only = effective_combat_only(selected, ctx)
     if not has_spell or not has_modifier then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
-    elseif selected.engaged_only then
-        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_RED)
-    elseif selected.combat_only then
+    elseif selected_combat_only then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_YELLOW)
     elseif selected.idle_only then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GREEN)
@@ -1315,7 +1345,7 @@ function ui_components.party_grouped_ability(ctx, ability, job_def)
     
     ui_components.group_dropdown(ctx, job_def, ability.group, DROPDOWN_WIDTH)
     
-    if not has_spell or not has_modifier or selected.engaged_only or selected.combat_only or selected.idle_only then
+    if not has_spell or not has_modifier or selected_combat_only or selected.idle_only then
         imgui.PopStyleColor()
     end
 end
@@ -1486,11 +1516,10 @@ function ui_components.ability_checkbox(ctx, ability, job_def, id_suffix, show_s
         checkbox_label = desc .. '##' .. id_suffix
     end
     
+    local ability_combat_only = effective_combat_only(ability, ctx)
     if not has_spell then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
-    elseif ability.engaged_only then
-        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_RED)
-    elseif ability.combat_only then
+    elseif ability_combat_only then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_YELLOW)
     elseif ability.idle_only then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GREEN)
@@ -1501,17 +1530,17 @@ function ui_components.ability_checkbox(ctx, ability, job_def, id_suffix, show_s
         toggle_ability(ctx, ability.name, ability_enabled[1], job_def)
     end
     
+    render_combat_only_context_menu(ctx, ability)
+    
     if imgui.IsItemHovered() then
-        if ability.engaged_only then
-            imgui.SetTooltip('Engaged Only')
-        elseif ability.combat_only then
+        if ability_combat_only then
             imgui.SetTooltip('Combat Only')
         elseif ability.idle_only then
             imgui.SetTooltip('Idle Only')
         end
     end
     
-    if not has_spell or ability.engaged_only or ability.combat_only or ability.idle_only then
+    if not has_spell or ability_combat_only or ability.idle_only then
         imgui.PopStyleColor()
     end
 end

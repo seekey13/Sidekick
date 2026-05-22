@@ -231,7 +231,7 @@ FFI bindings for FFXI target resolution (battle target, scan target, last teller
 - **Groups**: Mutually exclusive (e.g., "Arts", "Storm", "Spikes"); dropdown selects active member.
 - **Target modifier** (Pianissimo, etc.): If `ability.target_modifier = true`, sends modifier command first; next tick casts the buff.
 - **Trust buff registration**: Calls `common.register_pending_buff()` for Trusts after cast.
-- **Condition flags**: `idle_only`, `combat_only`, `engaged_only`, `requires_pet`, `requires_buff`.
+- **Condition flags**: `idle_only`, `requires_pet`, `requires_buff`; combat-only gating is controlled by settings (`combat_only_<name>` / `combat_only_group_<group>`).
 - Uses `action_core.try_use()`.
 
 ### item.lua – Consumable Status Removal
@@ -320,8 +320,7 @@ return {
     buff_id         = 43,           -- number or table of buff IDs to track
     debuff_id       = 3,            -- debuff ID(s) this ability removes
     idle_only       = false,        -- green  – is_idle()
-    combat_only     = false,        -- yellow – is_combat()
-    engaged_only    = false,        -- red    – is_engaged()
+    combat_only     = false,        -- yellow – is_combat() (user-toggleable via right-click)
     requires_pet    = false,
     requires_buff   = 401,          -- prerequisite buff ID(s)
     group           = 'regen',      -- mutually exclusive group

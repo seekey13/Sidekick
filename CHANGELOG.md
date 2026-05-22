@@ -100,10 +100,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Smart Blocking**: Prevents resting when engaged, moving, casting, or when MP is full
   - **Priority**: Executes last in action priority order to allow healing/buffing to take precedence
   - Available for: White Mage, Scholar, Red Mage, Paladin, Geomancer, Bard, Rune Fencer, Summoner
-- **Conditional Ability Flags**: Three mutually exclusive flags for conditional ability usage with color-coded UI indicators:
+- **Conditional Ability Conditions**: Two mutually exclusive conditions for conditional ability usage with color-coded UI indicators:
   - `idle_only` (green) - Only usable when not in combat (checks `is_idle()`)
-  - `combat_only` (yellow) - Only usable when in combat with a battle target nearby (checks `is_combat()`)
-  - `engaged_only` (red) - Only usable when actively engaged/locked on to a target (checks `is_engaged()`)
+  - `combat_only` (yellow) - Only usable when in combat with a battle target nearby (checks `is_combat()`); user-toggleable per ability/group via right-click
 - **Item-Based Status Removal**: New item action module automatically uses consumables to remove debuffs:
   - **Echo Drops** for Silence (buff_id 6)
   - **Holy Water** for Doom (buff_id 15)
@@ -130,8 +129,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Technical
 - Added `is_combat()` function to check for combat state (has battle target nearby)
 - Updated `is_engaged()` function to check player status for active engagement (status == 1)
-- `filter_abilities_by_level()` now checks `idle_only`, `combat_only`, and `engaged_only` flags to conditionally filter abilities
-- All UI components updated to display three conditional flags with color coding: idle_only (green), combat_only (yellow), engaged_only (red)
+- `filter_abilities_by_level()` now checks `idle_only` and user-configured combat-only settings (`combat_only_*`) to conditionally filter abilities
+- All UI components updated to display conditional flags with color coding: idle_only (green), combat_only (yellow)
 - Introduced `requires_carbuncle` flag for Summoner abilities to distinguish Carbuncle-specific abilities from avatar-agnostic ones
 - Job definition merging now copies `validate_ability` function when present
 - All action modules updated to pass `job_def` to `filter_abilities_by_level()`

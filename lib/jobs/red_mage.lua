@@ -88,7 +88,6 @@ return {
                 id = 247,  -- Job Ability ID
                 command = '/ja "Composure" <me>',
                 buff_id = 419,  -- Composure
-                engaged_only = true,
             },
             -- Protect line
             {
@@ -398,7 +397,6 @@ return {
                     return '/ma "Regen" '..target
                 end,
                 buff_id = 42,  -- Regen
-                combat_only = true,
             },
             {
                 name = 'Refresh',
@@ -423,7 +421,6 @@ return {
                     return '/ma "Haste" '..target
                 end,
                 buff_id = 33,  -- Haste
-                combat_only = true,
                 target_outside = true,
             },
             {
@@ -437,7 +434,6 @@ return {
                     return '/ma "Flurry" '..target
                 end,
                 buff_id = 265,  -- Flurry
-                combat_only = true,
                 target_outside = true,
             },
             {
@@ -490,7 +486,6 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Enwater II" <me>',
                 buff_id = 282,  -- Enwater
-                engaged_only = true,
                 group = 'enspell',
             },
             {
@@ -502,7 +497,6 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Enwater" <me>',
                 buff_id = 99,  -- Enwater
-                engaged_only = true,
                 group = 'enspell',
             },
             {
@@ -514,7 +508,6 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Enfire II" <me>',
                 buff_id = 277,  -- Enfire
-                engaged_only = true,
                 group = 'enspell',
             },
             {
@@ -526,7 +519,6 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Enfire" <me>',
                 buff_id = 94,  -- Enfire
-                engaged_only = true,
                 group = 'enspell',
             },
             {
@@ -538,7 +530,6 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Enblizzard II" <me>',
                 buff_id = 278,  -- Enblizzard
-                engaged_only = true,
                 group = 'enspell',
             },
             {
@@ -550,7 +541,6 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Enblizzard" <me>',
                 buff_id = 95,  -- Enblizzard
-                engaged_only = true,
                 group = 'enspell',
             },
             {
@@ -562,7 +552,6 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Enaero II" <me>',
                 buff_id = 279,  -- Enaero
-                engaged_only = true,
                 group = 'enspell',
             },
             {
@@ -574,7 +563,6 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Enaero" <me>',
                 buff_id = 96,  -- Enaero
-                engaged_only = true,
                 group = 'enspell',
             },
             {
@@ -586,7 +574,6 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Enstone II" <me>',
                 buff_id = 280,  -- Enstone
-                engaged_only = true,
                 group = 'enspell',
             },
             {
@@ -598,7 +585,6 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Enstone" <me>',
                 buff_id = 97,  -- Enstone
-                engaged_only = true,
                 group = 'enspell',
             },
             {
@@ -610,7 +596,6 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Enthunder II" <me>',
                 buff_id = 281,  -- Enthunder
-                engaged_only = true,
                 group = 'enspell',
             },
             {
@@ -622,7 +607,6 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Enthunder" <me>',
                 buff_id = 98,  -- Enthunder
-                engaged_only = true,
                 group = 'enspell',
             },
             -- Spikes (sorted by level, highest first)
@@ -635,7 +619,6 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Shock Spikes" <me>',
                 buff_id = 38,  -- Shock Spikes
-                engaged_only = true,
                 group = 'spikes'
             },
             {
@@ -647,7 +630,6 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Ice Spikes" <me>',
                 buff_id = 35,  -- Ice Spikes
-                engaged_only = true,
                 group = 'spikes'
             },
             {
@@ -659,7 +641,6 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Blaze Spikes" <me>',
                 buff_id = 34,  -- Blaze Spikes
-                engaged_only = true,
                 group = 'spikes'
             },
             {

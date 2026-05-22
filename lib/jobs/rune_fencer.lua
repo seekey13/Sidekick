@@ -305,7 +305,6 @@ return {
                     return '/ma "Regen" '..target
                 end,
                 buff_id = 42,  -- Regen
-                combat_only = true,
             },
             {
                 name = 'Regen II',
@@ -319,7 +318,6 @@ return {
                 end,
                 element = 'Light',
                 buff_id = 42,  -- Regen II buff
-                combat_only = true,
             },
             {
                 name = 'Regen III',
@@ -333,7 +331,6 @@ return {
                 end,
                 element = 'Light',
                 buff_id = 42,  -- Regen III buff
-                combat_only = true,
             },
             -- Refresh
             {
@@ -359,7 +356,6 @@ return {
                 command = '/ma "Foil" <me>',
                 element = 'Wind',
                 buff_id = 568,  -- Foil buff
-                engaged_only = true,
             },
             {
                 name = 'Swordplay',
@@ -368,7 +364,6 @@ return {
                 id = 24,  -- Swordplay recast ID
                 command = '/ja "Swordplay" <me>',
                 buff_id = 532,  -- Swordplay buff
-                engaged_only = true,
             },
             {
                 name = 'Phalanx',
@@ -380,7 +375,6 @@ return {
                 command = '/ma "Phalanx" <me>',
                 element = 'Light',
                 buff_id = 116,  -- Phalanx buff
-                combat_only = true,
             },
             -- Spikes
             {
@@ -394,7 +388,6 @@ return {
                 element = 'Fire',
                 buff_id = 34,  -- Blaze Spikes buff
                 group = 'spikes',
-                engaged_only = true,
             },
             {
                 name = 'Ice Spikes',
@@ -407,7 +400,6 @@ return {
                 element = 'Ice',
                 buff_id = 35,  -- Ice Spikes buff
                 group = 'spikes',
-                engaged_only = true,
             },
             -- Everything else
             {

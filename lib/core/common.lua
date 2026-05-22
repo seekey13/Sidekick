@@ -221,14 +221,6 @@ function common.is_idle()
 end
 
 function common.is_combat()
-    -- Returns true if in combat (engaged status or valid mob battle target exists)
-    
-    -- First check: if we're engaged, we're definitely in combat
-    if common.is_engaged() then
-        return true
-    end
-    
-    -- Second check: battle target validation (additional layer)
     local ok, bt = pcall(function()
         return targets.get_bt()
     end)
@@ -241,6 +233,31 @@ function common.is_combat()
     local is_mob = bt and bit.band(bt.SpawnFlags, 0x10) ~= 0 or false
     
     return is_mob
+end
+
+-- Returns true if the given ability should be gated to combat-only based on user settings.
+-- Grouped abilities use a per-group setting (combat_only_group_<group>);
+-- ungrouped abilities use a per-name setting (combat_only_<ability_name_with_spaces_replaced_by_underscores>).
+-- Defaults to false (allowed outside of combat).
+-- Abilities marked idle_only never participate in the combat_only gate.
+function common.is_ability_combat_only(ability, settings)
+    if not ability or not settings then return false end
+    if ability.idle_only then return false end
+    local key
+    if ability.group then
+        key = 'combat_only_group_' .. ability.group
+    else
+        if not ability.name then return false end
+        key = 'combat_only_' .. ability.name:gsub(' ', '_')
+    end
+    return settings[key] == true
+end
+
+-- Returns true if the ability's command targets the battle target (<bt>).
+-- These abilities cannot be cast without a valid mob battle target.
+function common.ability_targets_bt(ability)
+    if not ability or type(ability.command) ~= 'string' then return false end
+    return ability.command:find('<bt>', 1, true) ~= nil
 end
 
 function common.is_engaged()
@@ -1637,8 +1654,8 @@ function common.filter_abilities_by_level(abilities, settings, main_level, sub_l
         if is_disabled then
         elseif ability.requires_pet and not targets.get_pet() then
         elseif ability.idle_only and not common.is_idle() then
-        elseif ability.combat_only and not common.is_combat() then
-        elseif ability.engaged_only and not common.is_engaged() then
+        elseif common.is_ability_combat_only(ability, settings) and not common.is_combat() then
+        elseif common.ability_targets_bt(ability) and not common.is_combat() then
         elseif job_def and job_def.validate_ability and not job_def.validate_ability(ability, common) then
         elseif required_level <= player_level then
             table.insert(available_abilities, ability)
@@ -1746,8 +1763,8 @@ function common.check_target_modifier(job_def, settings, main_level, sub_level)
         return nil
     end
     
-    -- Check combat_only flag
-    if modifier_ability.combat_only and not common.is_combat() then
+    -- Check combat_only flag (user-driven via settings)
+    if common.is_ability_combat_only(modifier_ability, settings) and not common.is_combat() then
         return nil
     end
     

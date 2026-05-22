@@ -73,7 +73,6 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Klimaform" <me>',
                 buff_id = 407,  -- Klimaform
-                combat_only = true,
             },
             -- Protect line
             {
@@ -200,7 +199,6 @@ return {
                     return '/ma "Regen III" '..target
                 end,
                 buff_id = 42,  -- Regen
-                combat_only = true,
                 range = 20,
             },
             {
@@ -214,7 +212,6 @@ return {
                     return '/ma "Regen II" '..target
                 end,
                 buff_id = 42,
-                combat_only = true,
                 range = 20,
             },
             {
@@ -228,7 +225,6 @@ return {
                     return '/ma "Regen" '..target
                 end,
                 buff_id = 42,
-                combat_only = true,
                 range = 20,
             },
             -- Storms
@@ -361,7 +357,6 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Shock Spikes" <me>',
                 buff_id = 38,  -- Shock Spikes
-                combat_only = true,
                 group = 'spikes',
             },
             {
@@ -373,7 +368,6 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Ice Spikes" <me>',
                 buff_id = 35,  -- Ice Spikes
-                combat_only = true,
                 group = 'spikes',
             },
             {
@@ -385,7 +379,6 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Blaze Spikes" <me>',
                 buff_id = 34,  -- Blaze Spikes
-                combat_only = true,
                 group = 'spikes',
             },
             {
