@@ -237,7 +237,7 @@ end
 
 -- Returns true if the given ability should be gated to combat-only based on user settings.
 -- Grouped abilities use a per-group setting (combat_only_group_<group>);
--- ungrouped abilities use a per-name setting (combat_only_<ability_name>).
+-- ungrouped abilities use a per-name setting (combat_only_<ability_name_with_spaces_replaced_by_underscores>).
 -- Defaults to false (allowed outside of combat).
 -- Abilities marked idle_only never participate in the combat_only gate.
 function common.is_ability_combat_only(ability, settings)
