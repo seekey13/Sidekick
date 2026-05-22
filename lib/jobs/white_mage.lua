@@ -794,7 +794,6 @@ return {
                 magic_type = 'divine',
                 command = '/ma "Enlight" <me>',
                 buff_id = 274,  -- Enlight
-                engaged_only = true,
             },
             {
                 name = 'Auspice',
@@ -805,7 +804,6 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Auspice" <me>',
                 buff_id = 275,  -- Auspice
-                engaged_only = true,
             },
             {
                 name = 'Invisible',

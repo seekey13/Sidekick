@@ -128,7 +128,6 @@ return {
                 id = 216,  -- Samba recast ID
                 command = '/ja "Drain Samba III" <me>',
                 buff_id = 368,
-                engaged_only = true,
                 group = 'samba',
             },
             {
@@ -138,7 +137,6 @@ return {
                 id = 216,  -- Samba recast ID
                 command = '/ja "Drain Samba II" <me>',
                 buff_id = 368,
-                engaged_only = true,
                 group = 'samba',
             },
             {
@@ -148,7 +146,6 @@ return {
                 id = 216,  -- Samba recast ID
                 command = '/ja "Drain Samba" <me>',
                 buff_id = 368,
-                engaged_only = true,
                 group = 'samba',
             },
             {
@@ -158,7 +155,6 @@ return {
                 id = 216,
                 command = '/ja "Aspir Samba II" <me>',
                 buff_id = 369,
-                engaged_only = true,
                 group = 'samba',
             },
             {
@@ -168,7 +164,6 @@ return {
                 id = 216,
                 command = '/ja "Aspir Samba" <me>',
                 buff_id = 369,
-                engaged_only = true,
                 group = 'samba',
             },
             {
@@ -178,7 +173,6 @@ return {
                 id = 216,
                 command = '/ja "Haste Samba" <me>',
                 buff_id = 370,
-                engaged_only = true,
                 group = 'samba',
             },
             {

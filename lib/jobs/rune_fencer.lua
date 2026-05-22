@@ -356,7 +356,6 @@ return {
                 command = '/ma "Foil" <me>',
                 element = 'Wind',
                 buff_id = 568,  -- Foil buff
-                engaged_only = true,
             },
             {
                 name = 'Swordplay',
@@ -365,7 +364,6 @@ return {
                 id = 24,  -- Swordplay recast ID
                 command = '/ja "Swordplay" <me>',
                 buff_id = 532,  -- Swordplay buff
-                engaged_only = true,
             },
             {
                 name = 'Phalanx',
@@ -390,7 +388,6 @@ return {
                 element = 'Fire',
                 buff_id = 34,  -- Blaze Spikes buff
                 group = 'spikes',
-                engaged_only = true,
             },
             {
                 name = 'Ice Spikes',
@@ -403,7 +400,6 @@ return {
                 element = 'Ice',
                 buff_id = 35,  -- Ice Spikes buff
                 group = 'spikes',
-                engaged_only = true,
             },
             -- Everything else
             {
