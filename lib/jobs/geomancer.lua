@@ -34,7 +34,6 @@ return {
                 command = '/ja "Entrust" <me>',
                 buff_id = 584,
                 range = 20,
-                combat_only = true,
                 main_job_only = true,
             },
         },
@@ -45,7 +44,6 @@ return {
                 cost = 0,
                 id = 246,
                 command = '/ja "Life Cycle" <me>',
-                combat_only = true,
                 main_job_only = true,
                 pet_required = true,
             },
@@ -55,7 +53,6 @@ return {
                 cost = 0,
                 id = 248,
                 command = '/ja "Dematerialize" <me>',
-                combat_only = true,
                 main_job_only = true,
                 pet_required = true,
             },
@@ -67,7 +64,6 @@ return {
                 cost = 0,
                 id = 251,
                 command = '/ja "Mending Halation" <me>',
-                combat_only = true,
                 main_job_only = true,
                 pet_required = true,
             },
@@ -79,7 +75,6 @@ return {
                 cost = 0,
                 id = 252,
                 command = '/ja "Radial Arcana" <me>',
-                combat_only = true,
                 main_job_only = true,
                 pet_required = true,
             },
@@ -94,7 +89,6 @@ return {
                 cost = 0,
                 id = 244,
                 command = '/ja "Lasting Emanation" <me>',
-                combat_only = true,
                 main_job_only = true,
                 group = 'geo_buff',
                 pet_required = true,
@@ -105,7 +99,6 @@ return {
                 cost = 0,
                 id = 244,
                 command = '/ja "Ecliptic Attrition" <me>',
-                combat_only = true,
                 main_job_only = true,
                 group = 'geo_buff',
                 pet_required = true,
@@ -116,7 +109,6 @@ return {
                 cost = 0,
                 id = 247,
                 command = '/ja "Blaze of Glory" <me>',
-                combat_only = true,
                 main_job_only = true,
             },
 
@@ -418,7 +410,6 @@ return {
                 element = 'Light',
                 group = 'Geo',
                 main_job_only = true,
-                combat_only = true,
                 buff_id = 563,
             },
             {
@@ -431,7 +422,6 @@ return {
                 element = 'Wind',
                 group = 'Geo',
                 main_job_only = true,
-                combat_only = true,
                 buff_id = 580,
             },
             {
@@ -444,7 +434,6 @@ return {
                 element = 'Wind',
                 group = 'Geo',
                 main_job_only = true,
-                combat_only = true,
                 buff_id = 558,
             },
             {
@@ -457,7 +446,6 @@ return {
                 element = 'Ice',
                 group = 'Geo',
                 main_job_only = true,
-                combat_only = true,
                 buff_id = 566,
             },
             {
@@ -470,7 +458,6 @@ return {
                 element = 'Dark',
                 group = 'Geo',
                 main_job_only = true,
-                combat_only = true,
                 buff_id = 564,
             },
             {
@@ -483,7 +470,6 @@ return {
                 element = 'Earth',
                 group = 'Geo',
                 main_job_only = true,
-                combat_only = true,
                 buff_id = 561,
             },
             {
@@ -496,7 +482,6 @@ return {
                 element = 'Ice',
                 group = 'Geo',
                 main_job_only = true,
-                combat_only = true,
                 buff_id = 562,
             },
             {
@@ -509,7 +494,6 @@ return {
                 element = 'Fire',
                 group = 'Geo',
                 main_job_only = true,
-                combat_only = true,
                 buff_id = 542,
             },
             {
@@ -522,7 +506,6 @@ return {
                 element = 'Earth',
                 group = 'Geo',
                 main_job_only = true,
-                combat_only = true,
                 buff_id = 565,
             },
             {
@@ -535,7 +518,6 @@ return {
                 element = 'Ice',
                 group = 'Geo',
                 main_job_only = true,
-                combat_only = true,
                 buff_id = 551,
             },
             {
@@ -548,7 +530,6 @@ return {
                 element = 'Thunder',
                 group = 'Geo',
                 main_job_only = true,
-                combat_only = true,
                 buff_id = 543,
             },
             {
@@ -561,7 +542,6 @@ return {
                 element = 'Earth',
                 group = 'Geo',
                 main_job_only = true,
-                combat_only = true,
                 buff_id = 544,
             },
             {
@@ -574,7 +554,6 @@ return {
                 element = 'Water',
                 group = 'Geo',
                 main_job_only = true,
-                combat_only = true,
                 buff_id = 552,
             },
             {
@@ -587,7 +566,6 @@ return {
                 element = 'Wind',
                 group = 'Geo',
                 main_job_only = true,
-                combat_only = true,
                 buff_id = 545,
             },
             {
@@ -600,7 +578,6 @@ return {
                 element = 'Ice',
                 group = 'Geo',
                 main_job_only = true,
-                combat_only = true,
                 buff_id = 546,
             },
             {
@@ -613,7 +590,6 @@ return {
                 element = 'Fire',
                 group = 'Geo',
                 main_job_only = true,
-                combat_only = true,
                 buff_id = 549,
             },
             {
@@ -626,7 +602,6 @@ return {
                 element = 'Water',
                 group = 'Geo',
                 main_job_only = true,
-                combat_only = true,
                 buff_id = 547,
             },
             {
@@ -639,7 +614,6 @@ return {
                 element = 'Light',
                 group = 'Geo',
                 main_job_only = true,
-                combat_only = true,
                 buff_id = 541,
             },
             {
@@ -652,7 +626,6 @@ return {
                 element = 'Light',
                 group = 'Geo',
                 main_job_only = true,
-                combat_only = true,
                 buff_id = 548,
             },
             {
@@ -665,7 +638,6 @@ return {
                 element = 'Earth',
                 group = 'Geo',
                 main_job_only = true,
-                combat_only = true,
                 buff_id = 550,
             },
             {
@@ -678,7 +650,6 @@ return {
                 element = 'Dark',
                 group = 'Geo',
                 main_job_only = true,
-                combat_only = true,
                 buff_id = 555,
             },
             {
@@ -691,7 +662,6 @@ return {
                 element = 'Light',
                 group = 'Geo',
                 main_job_only = true,
-                combat_only = true,
                 buff_id = 556,
             },
             {
@@ -704,7 +674,6 @@ return {
                 element = 'Light',
                 group = 'Geo',
                 main_job_only = true,
-                combat_only = true,
                 buff_id = 539,
             },
             {
@@ -717,7 +686,6 @@ return {
                 element = 'Thunder',
                 group = 'Geo',
                 main_job_only = true,
-                combat_only = true,
                 buff_id = 553,
             },
             {
@@ -730,7 +698,6 @@ return {
                 element = 'Wind',
                 group = 'Geo',
                 main_job_only = true,
-                combat_only = true,
                 buff_id = 554,
             },
             {
@@ -743,7 +710,6 @@ return {
                 element = 'Water',
                 group = 'Geo',
                 main_job_only = true,
-                combat_only = true,
                 buff_id = 540,
             },
         },

@@ -305,7 +305,6 @@ return {
                     return '/ma "Regen" '..target
                 end,
                 buff_id = 42,  -- Regen
-                combat_only = true,
             },
             {
                 name = 'Regen II',
@@ -319,7 +318,6 @@ return {
                 end,
                 element = 'Light',
                 buff_id = 42,  -- Regen II buff
-                combat_only = true,
             },
             {
                 name = 'Regen III',
@@ -333,7 +331,6 @@ return {
                 end,
                 element = 'Light',
                 buff_id = 42,  -- Regen III buff
-                combat_only = true,
             },
             -- Refresh
             {
@@ -380,7 +377,6 @@ return {
                 command = '/ma "Phalanx" <me>',
                 element = 'Light',
                 buff_id = 116,  -- Phalanx buff
-                combat_only = true,
             },
             -- Spikes
             {

@@ -302,7 +302,6 @@ return {
                     return '/ma "Haste" '..target
                 end,
                 buff_id = 33,  -- Haste
-                combat_only = true,
                 duration = 180,
                 target_outside = true,
             },
@@ -317,7 +316,6 @@ return {
                     return '/ma "Regen III" '..target
                 end,
                 buff_id = 42,  -- Regen
-                combat_only = true,
                 duration = 60,
             },
             {
@@ -331,7 +329,6 @@ return {
                     return '/ma "Regen II" '..target
                 end,
                 buff_id = 42,  -- Regen
-                combat_only = true,
                 duration = 60,
             },
             {
@@ -345,7 +342,6 @@ return {
                     return '/ma "Regen" '..target
                 end,
                 buff_id = 42,  -- Regen
-                combat_only = true,
                 duration = 75,
             },
             {

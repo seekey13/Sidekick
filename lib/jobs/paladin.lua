@@ -204,7 +204,6 @@ return {
                 cost = 0,
                 id = 79,  -- Chivalry recast ID
                 command = '/ja "Chivalry" <me>',
-                combat_only = false,
                 min_tp = 3000,  -- default TP threshold; overridden by chivalry_min_tp setting
             },
         },

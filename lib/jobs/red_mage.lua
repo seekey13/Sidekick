@@ -398,7 +398,6 @@ return {
                     return '/ma "Regen" '..target
                 end,
                 buff_id = 42,  -- Regen
-                combat_only = true,
             },
             {
                 name = 'Refresh',
@@ -423,7 +422,6 @@ return {
                     return '/ma "Haste" '..target
                 end,
                 buff_id = 33,  -- Haste
-                combat_only = true,
                 target_outside = true,
             },
             {
@@ -437,7 +435,6 @@ return {
                     return '/ma "Flurry" '..target
                 end,
                 buff_id = 265,  -- Flurry
-                combat_only = true,
                 target_outside = true,
             },
             {
