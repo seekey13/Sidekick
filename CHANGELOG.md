@@ -129,7 +129,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Technical
 - Added `is_combat()` function to check for combat state (has battle target nearby)
 - Updated `is_engaged()` function to check player status for active engagement (status == 1)
-- `filter_abilities_by_level()` now checks `idle_only` and `combat_only` flags to conditionally filter abilities
+- `filter_abilities_by_level()` now checks `idle_only` and user-configured combat-only settings (`combat_only_*`) to conditionally filter abilities
 - All UI components updated to display conditional flags with color coding: idle_only (green), combat_only (yellow)
 - Introduced `requires_carbuncle` flag for Summoner abilities to distinguish Carbuncle-specific abilities from avatar-agnostic ones
 - Job definition merging now copies `validate_ability` function when present
