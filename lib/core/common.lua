@@ -1656,7 +1656,6 @@ function common.filter_abilities_by_level(abilities, settings, main_level, sub_l
         elseif ability.requires_pet and not targets.get_pet() then
         elseif ability.idle_only and not common.is_idle() then
         elseif common.is_ability_combat_only(ability, settings) and not common.is_combat() then
-        elseif ability.engaged_only and not common.is_engaged() then
         elseif job_def and job_def.validate_ability and not job_def.validate_ability(ability, common) then
         elseif required_level <= player_level then
             table.insert(available_abilities, ability)
