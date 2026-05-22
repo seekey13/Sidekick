@@ -247,8 +247,10 @@ end
 -- Grouped abilities use a per-group setting (combat_only_group_<group>);
 -- ungrouped abilities use a per-name setting (combat_only_<ability_name>).
 -- Defaults to false (allowed outside of combat).
+-- Abilities marked idle_only never participate in the combat_only gate.
 function common.is_ability_combat_only(ability, settings)
     if not ability or not settings then return false end
+    if ability.idle_only then return false end
     local key
     if ability.group then
         key = 'combat_only_group_' .. ability.group

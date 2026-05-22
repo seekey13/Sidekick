@@ -54,8 +54,10 @@ end
 
 -- Render a right-click 'Combat Only' toggle popup for an ability/group.
 -- Call immediately after the imgui item the popup should attach to.
+-- Suppressed for idle_only abilities since combat_only is meaningless there.
 local function render_combat_only_context_menu(ctx, ability)
     if not ability or not ctx or not ctx.settings then return end
+    if ability.idle_only then return end
     local key, popup_id
     if ability.group then
         key = 'combat_only_group_' .. ability.group
