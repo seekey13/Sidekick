@@ -253,6 +253,13 @@ function common.is_ability_combat_only(ability, settings)
     return settings[key] == true
 end
 
+-- Returns true if the ability's command targets the battle target (<bt>).
+-- These abilities cannot be cast without a valid mob battle target.
+function common.ability_targets_bt(ability)
+    if not ability or type(ability.command) ~= 'string' then return false end
+    return ability.command:find('<bt>', 1, true) ~= nil
+end
+
 function common.is_engaged()
     local ok, player_entity = pcall(function()
         return GetPlayerEntity()
@@ -1648,6 +1655,7 @@ function common.filter_abilities_by_level(abilities, settings, main_level, sub_l
         elseif ability.requires_pet and not targets.get_pet() then
         elseif ability.idle_only and not common.is_idle() then
         elseif common.is_ability_combat_only(ability, settings) and not common.is_combat() then
+        elseif common.ability_targets_bt(ability) and not common.is_combat() then
         elseif job_def and job_def.validate_ability and not job_def.validate_ability(ability, common) then
         elseif required_level <= player_level then
             table.insert(available_abilities, ability)
