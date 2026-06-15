@@ -8,6 +8,7 @@ local ui_config = {}
 local imgui = require('imgui')
 local common = require('lib.core.common')
 local ui = require('lib.ui.components')
+local tooltips = require('lib.ui.tooltips')
 
 -- UI state
 local is_open = { true }
@@ -504,6 +505,7 @@ function ui_config.render(settings, job_def, callback, roll_mod)
         imgui.PushStyleColor(ImGuiCol_Text, status_color)
         imgui.Text(status_text)
         imgui.PopStyleColor()
+        ui.item_tooltip(tooltips.automation_status)
 
         -- Add Tracked Target button: only visible when current target is a valid PC
         -- (not NPC, not Trust, not already in party, not already tracked, not already in alliance)
@@ -541,6 +543,7 @@ function ui_config.render(settings, job_def, callback, roll_mod)
             if imgui.Button('Add Tracked Target', { add_target_btn_width, 0 }) then
                 AshitaCore:GetChatManager():QueueCommand(1, '/medic addtarget')
             end
+            ui.item_tooltip(tooltips.tracked_targets)
         end
         
         -- Tracked Targets list (show if any are being tracked)
@@ -604,6 +607,7 @@ function ui_config.render(settings, job_def, callback, roll_mod)
             ui.combo(ctx, 'Attack Range', 'attack_range', attack_range_index, attack_range_options, function(i)
                 return attack_range_options[i + 1]
             end)
+            ui.item_tooltip(tooltips.attack_range)
         end
 
         -- Show job-specific sections if we have a job definition
@@ -645,6 +649,7 @@ function ui_config.render(settings, job_def, callback, roll_mod)
             
             if has_non_self_heal then
                 local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Enable Focus Healing', 'focus_enabled', false)
+                ui.item_tooltip(tooltips.focus_healing)
                 if is_open and is_enabled then
                     -- Focus Target dropdown
                     focus_target_name = render_party_dropdown('Focus Target', 'focus_target', true, party_member_names, settings, callback, true)
@@ -657,6 +662,7 @@ function ui_config.render(settings, job_def, callback, roll_mod)
         -- Group Healing settings
         if job_def and job_def.abilities.heal and has_usable_abilities(job_def.abilities.heal) then
             local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Enable Group Healing', 'heal_enabled', false)
+            ui.item_tooltip(tooltips.group_healing)
             if is_open and is_enabled then
                 ui.slider_int(ctx, 'Group (HP%)', 'heal_threshold', { settings.heal_threshold or 75 }, 1, 100)
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
@@ -670,6 +676,7 @@ function ui_config.render(settings, job_def, callback, roll_mod)
                 -- Critical HP section (inside Group Healing)
                 if job_def.abilities.critical and has_usable_abilities(job_def.abilities.critical) then
                     ui.slider_int(ctx, 'Critical (HP%)', 'critical_threshold', { settings.critical_threshold or 30 }, 1, 50)
+                    ui.item_tooltip(tooltips.critical_hp)
                     imgui.Indent(ui.ABILITY_LIST_INDENT)
                     for _, ability in ipairs(job_def.abilities.critical) do
                         if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
@@ -684,6 +691,7 @@ function ui_config.render(settings, job_def, callback, roll_mod)
         -- AOE Healing settings
         if job_def and job_def.abilities.heal_aoe and has_usable_abilities(job_def.abilities.heal_aoe) then
             local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Enable AOE Healing', 'heal_aoe_enabled', false)
+            ui.item_tooltip(tooltips.aoe_healing)
             if is_open and is_enabled then
                 ui.slider_int(ctx, 'AOE (HP%)', 'heal_aoe_threshold', { settings.heal_aoe_threshold or 70 }, 1, 100)
                 
@@ -700,6 +708,7 @@ function ui_config.render(settings, job_def, callback, roll_mod)
         -- Pet Healing settings
         if job_def and job_def.abilities.heal_pet and has_usable_abilities(job_def.abilities.heal_pet) then
             local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Enable Pet Healing', 'heal_pet_enabled', false)
+            ui.item_tooltip(tooltips.pet_healing)
             if is_open and is_enabled then
                 ui.slider_int(ctx, 'Pet (HP%)', 'heal_pet_threshold', { settings.heal_pet_threshold or 50 }, 1, 100)
                 
@@ -727,6 +736,7 @@ function ui_config.render(settings, job_def, callback, roll_mod)
         -- Debuff removal settings
         if job_def and job_def.abilities.debuff_removal and has_usable_abilities(job_def.abilities.debuff_removal) then
             local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Enable Debuff Removal', 'debuff_removal_enabled', false)
+            ui.item_tooltip(tooltips.debuff_removal)
             if is_open and is_enabled then
                 -- Clear temporary group rendering flags
                 if current_settings then
@@ -751,6 +761,7 @@ function ui_config.render(settings, job_def, callback, roll_mod)
         
         if has_wake_abilities then
             local is_open_wake, is_enabled_wake = ui.collapsing_checkbox_header(ctx, 'Enable Sleep Removal', 'wake_enabled', false)
+            ui.item_tooltip(tooltips.sleep_removal)
             if is_open_wake and is_enabled_wake then
                 -- Check if any wake-capable abilities support target_outside
                 local has_outside_wake = false
@@ -772,19 +783,23 @@ function ui_config.render(settings, job_def, callback, roll_mod)
         end
 
         -- Item checkboxes for Silence and Doom removal
-        ui.item_silence_removal_checkbox(ctx)
-        ui.item_doom_removal_checkbox(ctx)
-        
+        ui.item_silence_removal_checkbox(ctx, tooltips.item_silence_removal)
+        ui.item_doom_removal_checkbox(ctx, tooltips.item_doom_removal)
+
         -- Rest settings (only for MP-based jobs)
         if job_def and job_def.resource_type == 'mp' then
             local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Enable Resting', 'rest_enabled', false)
+            ui.item_tooltip(tooltips.resting)
             if is_open and is_enabled then
                 ui.slider_int(ctx, 'Timer (seconds)', 'rest_timer', { settings.rest_timer or 5 }, 1, 20)
-                
+                ui.item_tooltip(tooltips.rest_timer)
+
                 -- Follow Target dropdown
                 follow_target_name = render_party_dropdown('Follow Target', 'follow_target', false, party_member_names, settings, callback, true)
-                
+                ui.item_tooltip(tooltips.rest_follow_target)
+
                 ui.slider_int(ctx, 'Distance (yalms)', 'rest_distance', { settings.rest_distance or 7 }, 1, 15)
+                ui.item_tooltip(tooltips.rest_distance)
             end
         end
         
@@ -795,6 +810,7 @@ function ui_config.render(settings, job_def, callback, roll_mod)
         
         if has_mp_recovery or has_tp_recovery or has_party_mp_recovery then
             local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Enable Resource Recovery', 'recover_enabled', false)
+            ui.item_tooltip(tooltips.resource_recovery)
             if is_open and is_enabled then
                 -- Self Recover (TP%) section
                 if has_tp_recovery then
@@ -859,6 +875,7 @@ function ui_config.render(settings, job_def, callback, roll_mod)
         -- Buff settings
         if job_def and job_def.abilities.buff and has_usable_abilities(job_def.abilities.buff) then
             local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Enable Buffs', 'buff_enabled', false)
+            ui.item_tooltip(tooltips.buffs)
             if is_open and is_enabled then
                 -- Clear temporary group rendering flags
                 if current_settings then
@@ -882,14 +899,17 @@ function ui_config.render(settings, job_def, callback, roll_mod)
         -- Geo settings (Geomancer)
         if job_def and job_def.abilities.geo and has_usable_abilities(job_def.abilities.geo) then
             local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Enable Geo', 'geo_enabled', false)
+            ui.item_tooltip(tooltips.geo)
             if is_open and is_enabled then
                 ui.slider_int(ctx, 'Distance (yalms)', 'geo_distance_threshold', { settings.geo_distance_threshold or 10 }, 7, 30)
+                ui.item_tooltip(tooltips.geo_distance)
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
-                
+
                 -- Full Circle checkbox
                 for _, ability in ipairs(job_def.abilities.geo) do
                     if ability.name ~= 'Entrust' and can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                         ui.ability_checkbox(ctx, ability, job_def, 'geo')
+                        ui.item_tooltip(tooltips.geo_full_circle)
                     end
                 end
                 
@@ -913,7 +933,8 @@ function ui_config.render(settings, job_def, callback, roll_mod)
                     if #available_indi_spells > 0 then
                         -- Entrust Target dropdown
                         entrust_target_name = render_party_dropdown('Entrust Target', 'entrust_target', false, party_member_names, settings, callback)
-                        
+                        ui.item_tooltip(tooltips.geo_entrust_target)
+
                         -- Validate saved spell name is in available spells
                         local current_spell_display = 'None'
                         if entrust_spell_name then
@@ -969,12 +990,14 @@ function ui_config.render(settings, job_def, callback, roll_mod)
                             imgui.EndCombo()
                         end
                         imgui.PopItemWidth()
-                        
+                        ui.item_tooltip(tooltips.geo_entrust_spell)
+
                         -- Entrust ability checkbox (indented)
                         imgui.Indent(ui.ABILITY_LIST_INDENT)
                         for _, ability in ipairs(job_def.abilities.geo) do
                             if ability.name == 'Entrust' and can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                                 ui.ability_checkbox(ctx, ability, job_def, 'geo')
+                                ui.item_tooltip(tooltips.geo_entrust_enable)
                             end
                         end
                         imgui.Unindent(ui.ABILITY_LIST_INDENT)
@@ -986,6 +1009,7 @@ function ui_config.render(settings, job_def, callback, roll_mod)
         -- Revive settings
         if job_def and job_def.abilities.revive and has_usable_abilities(job_def.abilities.revive) then
             local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Enable Revive', 'revive_enabled', false)
+            ui.item_tooltip(tooltips.revive)
             if is_open and is_enabled then
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
                 for _, ability in ipairs(job_def.abilities.revive) do
