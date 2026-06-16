@@ -34,13 +34,13 @@ return {
 
     focus_healing =
         'Gives one party/tracked/alliance member their\n' ..
-        'own HP% healing threshold (usually higher),\n' ..
+        'own HP%% healing threshold (usually higher),\n' ..
         'checked before the Group threshold.\n' ..
         'The Focus Target also gets priority for\n' ..
         'Debuff Removal over other members.',
 
     group_healing =
-        'When a group member\'s HP drops below this %,\n' ..
+        'When a group member\'s HP drops below this %%,\n' ..
         'Medic casts a heal sized to their missing HP\n' ..
         '(largest spell that won\'t overheal, or the\n' ..
         'smallest available if none fit).',
@@ -48,17 +48,17 @@ return {
     critical_hp =
         'Critical abilities use their own (normally\n' ..
         'lower) threshold. If ANY group member drops\n' ..
-        'below this %, Medic uses one of these abilities\n' ..
+        'below this %%, Medic uses one of these abilities\n' ..
         'first - before Focus or Group healing.',
 
     aoe_healing =
-        'When the group\'s average HP falls below this %\n' ..
+        'When the group\'s average HP falls below this %%\n' ..
         'AND at least 2 members are below it, Medic\n' ..
         'casts the checked AOE healing spell(s) instead\n' ..
         'of single-target heals.',
 
     pet_healing =
-        'When your pet\'s HP falls below this %,\n' ..
+        'When your pet\'s HP falls below this %%,\n' ..
         'Medic casts the checked pet-healing ability.',
 
     sleep_removal =
@@ -86,14 +86,14 @@ return {
 
     resting =
         'While idle (not moving/casting/engaged) and\n' ..
-        'MP < 100%, Medic waits Timer seconds after\n' ..
+        'MP < 100%%, Medic waits Timer seconds after\n' ..
         'conditions become favorable, then sends\n' ..
         '/heal on. Stops at full MP, on movement/\n' ..
         'casting, or if Follow Target exceeds Distance.',
 
     rest_timer =
         'Seconds to wait after conditions first become\n' ..
-        'favorable (idle, not casting, MP < 100%)\n' ..
+        'favorable (idle, not casting, MP < 100%%)\n' ..
         'before Medic starts resting.',
 
     rest_follow_target =
@@ -108,13 +108,13 @@ return {
         'starting.',
 
     resource_recovery =
-        'Self Recover (TP/MP%) casts the checked\n' ..
+        'Self Recover (TP/MP%%) casts the checked\n' ..
         'abilities when your TP/MP drops below the\n' ..
         'set value. Chivalry Min TP holds back TP-cost\n' ..
         'MP recovery until your TP reaches that amount.\n' ..
         'If a Recovery Target is set, Devotion is cast\n' ..
         'on them when THEIR MP drops below Target\n' ..
-        'Recover %, sharing your MP with them.',
+        'Recover %%, sharing your MP with them.',
 
     buffs =
         'For each checked buff, Medic checks the\n' ..
