@@ -1604,7 +1604,7 @@ local function render_item_removal_checkbox(ctx, item_name, setting_key, debuff_
         if is_disabled then
             tooltip_text = string.format('No %s in inventory', item_name)
         else
-            tooltip_text = string.format('Use %s to remove %s (Item)', item_name, debuff_name)
+            tooltip_text = string.format('Use %s to remove %s', item_name, debuff_name)
         end
         if extra_tooltip then
             tooltip_text = tooltip_text .. '\n\n' .. extra_tooltip
