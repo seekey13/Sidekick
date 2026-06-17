@@ -537,10 +537,10 @@ function ui_config.render(settings, job_def, callback, roll_mod)
         end
 
         if show_add_btn then
-            local add_target_btn_width = 170
+            local add_target_btn_width = 120
             local content_max_x, _ = imgui.GetContentRegionMax()
             imgui.SameLine(content_max_x - add_target_btn_width)
-            if imgui.Button('Add Tracked Target', { add_target_btn_width, 0 }) then
+            if imgui.Button('Track Target', { add_target_btn_width, 0 }) then
                 AshitaCore:GetChatManager():QueueCommand(1, '/medic addtarget')
             end
             ui.item_tooltip(tooltips.tracked_targets)

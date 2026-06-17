@@ -18,7 +18,7 @@ return {
 
     tracked_targets =
         'Tracks a player outside your party/alliance.\n' ..
-        'Only abilities marked to target outside\n' ..
+        'Some abilities are disabled on target outside\n' ..
         'the party (heal, buff, wake, debuff removal)\n' ..
         'can affect tracked targets, and removal/wake\n' ..
         'on them is less reliable than on party members.\n' ..
@@ -27,10 +27,10 @@ return {
     attack_range =
         'Requires the Multisend addon (/ms).\n' ..
         'While in combat, Medic disables Multisend\n' ..
-        'follow once you\'re within this distance\n' ..
+        'follow once you\'re within the set distance\n' ..
         'of your battle target (<bt>), and re-enables\n' ..
         'follow if you fall outside it or leave combat.\n' ..
-        '\'Off\' leaves follow control to you/Multisend.',
+        '\'Off\' stops this behavior.',
 
     focus_healing =
         'Gives one party/tracked/alliance member their\n' ..
@@ -112,18 +112,18 @@ return {
         'abilities when your TP/MP drops below the\n' ..
         'set value. Chivalry Min TP holds back TP-cost\n' ..
         'MP recovery until your TP reaches that amount.\n' ..
-        'If a Recovery Target is set, Devotion is cast\n' ..
+        'If a Recovery Target is set, Devotion is used\n' ..
         'on them when THEIR MP drops below Target\n' ..
-        'Recover %%, sharing your MP with them.',
+        'Recover %%.',
 
     buffs =
         'For each checked buff, Medic checks the\n' ..
-        'target\'s active buff IDs. If none of this\n' ..
-        'ability\'s buff IDs are active, it casts the\n' ..
-        'configured spell on that target (self, party,\n' ..
+        'target\'s active buff IDs. If the configured\n' ..
+        'ability\'s buff IDs is missing, it casts the\n' ..
+        'spell/ability on that target (self, party,\n' ..
         'or Trust). Grouped buffs let you pick one\n' ..
-        'option; some require a target-modifier spell\n' ..
-        '(e.g. Pianissimo) cast first.',
+        'option; Bard will automatically use a target-\n' ..
+        'modifier ability (e.g. Pianissimo) first.',
 
     geo =
         'Geomancer automation: keeps your luopan in\n' ..
@@ -133,7 +133,7 @@ return {
     geo_distance =
         'If your luopan drifts beyond this many yalms\n' ..
         'from you, Medic uses Full Circle to recall it\n' ..
-        'and recast your active Geo spell.',
+        'and recast your active Geo spell once stationary.',
 
     geo_full_circle =
         'When checked, Medic uses Full Circle to\n' ..

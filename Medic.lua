@@ -478,9 +478,9 @@ local function automation_tick()
             if bt_index and bt_index > 0 then
                 -- Convert setting to yalms
                 local desired_range = 0
-                if addon_settings.attack_range == 'Melee' then
+                if addon_settings.attack_range == 'Melee (3 yalms)' then
                     desired_range = 3
-                elseif addon_settings.attack_range == 'Ranged' then
+                elseif addon_settings.attack_range == 'Ranged (15 yalms)' then
                     desired_range = 15
                 end
 
