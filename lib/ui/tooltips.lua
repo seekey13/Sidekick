@@ -23,7 +23,7 @@ return {
         'can affect tracked targets, and removal/wake\n' ..
         'on them is less reliable than on party members.\n' ..
         'Medic will /check the player to get their level\n' ..
-        'for spell sizing, as exact HP is not available.\n' ..
+        'for spell sizing, as exact HP is not available.\n',
 
     attack_range =
         'Requires the Multisend addon (/ms).\n' ..
