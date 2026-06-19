@@ -1400,6 +1400,13 @@ end
 -- UI Element Creators
 -- ============================================================================
 
+-- Show a static help tooltip for the most recently rendered item.
+function ui_components.item_tooltip(text)
+    if text and imgui.IsItemHovered() then
+        imgui.SetTooltip(text)
+    end
+end
+
 -- Create a checkbox UI element linked to a setting
 function ui_components.checkbox(ctx, label, setting_name, ui_var)
     if imgui.Checkbox(label, ui_var) then
@@ -1550,8 +1557,8 @@ end
 -- ============================================================================
 
 -- Render a checkbox for item-based debuff removal (DRY helper)
--- Args: ctx, item_name, setting_key, debuff_name
-local function render_item_removal_checkbox(ctx, item_name, setting_key, debuff_name)
+-- Args: ctx, item_name, setting_key, debuff_name, extra_tooltip
+local function render_item_removal_checkbox(ctx, item_name, setting_key, debuff_name, extra_tooltip)
     if not ctx or not ctx.settings then return end
 
     local count = item_module.get_item_count(item_name)
@@ -1593,20 +1600,25 @@ local function render_item_removal_checkbox(ctx, item_name, setting_key, debuff_
     if is_disabled then imgui.PopStyleColor(5) end
 
     if imgui.IsItemHovered() then
+        local tooltip_text
         if is_disabled then
-            imgui.SetTooltip(string.format('No %s in inventory', item_name))
+            tooltip_text = string.format('No %s in inventory', item_name)
         else
-            imgui.SetTooltip(string.format('Use %s to remove %s (Item)', item_name, debuff_name))
+            tooltip_text = string.format('Use %s to remove %s', item_name, debuff_name)
         end
+        if extra_tooltip then
+            tooltip_text = tooltip_text .. '\n\n' .. extra_tooltip
+        end
+        imgui.SetTooltip(tooltip_text)
     end
 end
 
-function ui_components.item_silence_removal_checkbox(ctx)
-    render_item_removal_checkbox(ctx, 'Echo Drops', 'item_silence_removal_enabled', 'Silence')
+function ui_components.item_silence_removal_checkbox(ctx, extra_tooltip)
+    render_item_removal_checkbox(ctx, 'Echo Drops', 'item_silence_removal_enabled', 'Silence', extra_tooltip)
 end
 
-function ui_components.item_doom_removal_checkbox(ctx)
-    render_item_removal_checkbox(ctx, 'Holy Water', 'item_doom_removal_enabled', 'Doom')
+function ui_components.item_doom_removal_checkbox(ctx, extra_tooltip)
+    render_item_removal_checkbox(ctx, 'Holy Water', 'item_doom_removal_enabled', 'Doom', extra_tooltip)
 end
 
 -- ============================================================================
