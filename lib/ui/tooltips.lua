@@ -18,11 +18,12 @@ return {
 
     tracked_targets =
         'Tracks a player outside your party/alliance.\n' ..
-        'Some abilities are disabled on target outside\n' ..
+        'Some abilities are disabled on targets outside\n' ..
         'the party (heal, buff, wake, debuff removal)\n' ..
         'can affect tracked targets, and removal/wake\n' ..
         'on them is less reliable than on party members.\n' ..
-        'They must still be in range.',
+        'Medic will /check the player to get their level\n' ..
+        'for spell sizing, as exact HP is not available.\n' ..
 
     attack_range =
         'Requires the Multisend addon (/ms).\n' ..
@@ -64,7 +65,7 @@ return {
     sleep_removal =
         'Scans party, tracked, and alliance members\n' ..
         '(never yourself) for Sleep/Sleep II.\n' ..
-        '2+ asleep -> uses a checked AOE wake spell.\n' ..
+        '2+ asleep -> uses an AOE wake spell.\n' ..
         'Otherwise wakes the first sleeper (your Focus\n' ..
         'Target preferred) with the cheapest option.',
 
@@ -75,12 +76,12 @@ return {
         'member has the most removable debuffs.',
 
     item_silence_removal =
-        'Also auto-uses this item on yourself when\n' ..
+        'Auto-uses this item on yourself when\n' ..
         'you have Silence, independent of the spell-\n' ..
         'based removal above. Limited to once per 4s.',
 
     item_doom_removal =
-        'Also auto-uses this item on yourself when\n' ..
+        'Auto-uses this item on yourself when\n' ..
         'you have Doom, independent of the spell-\n' ..
         'based removal above. Limited to once per 4s.',
 
@@ -88,8 +89,8 @@ return {
         'While idle (not moving/casting/engaged) and\n' ..
         'MP < 100%%, Medic waits Timer seconds after\n' ..
         'conditions become favorable, then sends\n' ..
-        '/heal on. Stops at full MP, on movement/\n' ..
-        'casting, or if Follow Target exceeds Distance.',
+        '/heal on. Stops (/heal off) at full MP, casting,\n' ..
+        'or if Follow Target exceeds Distance.',
 
     rest_timer =
         'Seconds to wait after conditions first become\n' ..
@@ -120,15 +121,15 @@ return {
         'For each checked buff, Medic checks the\n' ..
         'target\'s active buff IDs. If the configured\n' ..
         'ability\'s buff IDs is missing, it casts the\n' ..
-        'spell/ability on that target (self, party,\n' ..
-        'or Trust). Grouped buffs let you pick one\n' ..
+        'spell/ability on that target (self, party/alliance,\n' ..
+        'or Tracked). Grouped buffs let you pick one\n' ..
         'option; Bard will automatically use a target-\n' ..
         'modifier ability (e.g. Pianissimo) first.',
 
     geo =
-        'Geomancer automation: keeps your luopan in\n' ..
-        'range via Full Circle, and optionally casts\n' ..
-        'an Indi spell on a party member via Entrust.',
+        'Geomancer automation: automatically triggers\n' ..
+        'Full Circle if your luopan is out of range, and\n' ..
+        'casts an Indi spell on a party member via Entrust.',
 
     geo_distance =
         'If your luopan drifts beyond this many yalms\n' ..
