@@ -592,8 +592,7 @@ function ui_config.render(settings, job_def, callback, roll_mod)
         
         -- Attack Range settings (global setting for all jobs)
         do
-            local attack_range_options = { 'Off', 'Melee (3 yalms)', 'Ranged (15 yalms)
-            ' }
+            local attack_range_options = { 'Off', 'Melee (3 yalms)', 'Ranged (15 yalms)' }
             local attack_range_current = settings.attack_range or 'Off'
             local attack_range_index = { 0 }
             
@@ -900,16 +899,6 @@ function ui_config.render(settings, job_def, callback, roll_mod)
             ui.item_tooltip(tooltips.geo)
             if is_open and is_enabled then
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
-                ui.slider_int(ctx, 'Distance (yalms)', 'geo_distance_threshold', { settings.geo_distance_threshold or 10 }, 7, 30)
-                ui.item_tooltip(tooltips.geo_distance)
-
-                -- Full Circle checkbox (ungrouped geo ability, excluding Entrust)
-                for _, ability in ipairs(job_def.abilities.geo) do
-                    if ability.group == nil and ability.name ~= 'Entrust' and can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
-                        ui.ability_checkbox(ctx, ability, job_def, 'geo')
-                        ui.item_tooltip(tooltips.geo_full_circle)
-                    end
-                end
 
                 -- Geo-bt debuff selector (<bt> enemy debuffs): self-grouped
                 -- ON/OFF + dropdown. Cast/luopan lifecycle lives in geo.lua.
@@ -921,6 +910,18 @@ function ui_config.render(settings, job_def, callback, roll_mod)
                         ui.render_ability(ctx, ability, job_def, 'geo')
                     end
                 end
+
+                -- Full Circle checkbox (ungrouped geo ability, excluding Entrust)
+                for _, ability in ipairs(job_def.abilities.geo) do
+                    if ability.group == nil and ability.name ~= 'Entrust' and can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
+                        ui.ability_checkbox(ctx, ability, job_def, 'geo')
+                        ui.item_tooltip(tooltips.geo_full_circle)
+                    end
+                end
+
+                -- Distance threshold (Full Circle recast trigger)
+                ui.slider_int(ctx, 'Distance (yalms)', 'geo_distance_threshold', { settings.geo_distance_threshold or 10 }, 7, 30)
+                ui.item_tooltip(tooltips.geo_distance)
                 
                 -- Entrust settings (only for Geomancer)
                 if job_def.job_id == 21 then
@@ -938,6 +939,14 @@ function ui_config.render(settings, job_def, callback, roll_mod)
                     table.sort(available_indi_spells, function(a, b) return a.level > b.level end)
                     
                     if #available_indi_spells > 0 then
+                        -- Entrust ability checkbox
+                        for _, ability in ipairs(job_def.abilities.geo) do
+                            if ability.name == 'Entrust' and can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
+                                ui.ability_checkbox(ctx, ability, job_def, 'geo')
+                                ui.item_tooltip(tooltips.geo_entrust_enable)
+                            end
+                        end
+
                         -- Entrust Target dropdown
                         entrust_target_name = render_party_dropdown('Entrust Target', 'entrust_target', false, party_member_names, settings, callback)
                         ui.item_tooltip(tooltips.geo_entrust_target)
@@ -998,14 +1007,6 @@ function ui_config.render(settings, job_def, callback, roll_mod)
                         end
                         imgui.PopItemWidth()
                         ui.item_tooltip(tooltips.geo_entrust_spell)
-
-                        -- Entrust ability checkbox
-                        for _, ability in ipairs(job_def.abilities.geo) do
-                            if ability.name == 'Entrust' and can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
-                                ui.ability_checkbox(ctx, ability, job_def, 'geo')
-                                ui.item_tooltip(tooltips.geo_entrust_enable)
-                            end
-                        end
                     end
                 end
                 imgui.Unindent(ui.ABILITY_LIST_INDENT)
