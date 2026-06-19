@@ -32,8 +32,27 @@ function geo.execute(settings, job_def, main_level, sub_level, player_resource)
     
     -- Check if player has a pet (only needed for Full Circle)
     if common.targets.get_pet() then
-        -- Get distance between player and pet
-        local pet_distance = common.get_pet_distance()
+        -- Determine which target currently holds the Geo bubble. The Geo group
+        -- is single-select (one luopan), so at most one target is enabled.
+        -- Distance is measured from that target; if none is selected we skip
+        -- the distance-based Full Circle entirely.
+        local ui_config = require('lib.ui.config')
+        local party_buffs = ui_config.get_party_buffs()
+        local geo_targets = party_buffs and party_buffs['Geo']
+        local selected_target_index = nil  -- 0 = ME, 1-5 = party member
+        if geo_targets then
+            for idx, is_on in pairs(geo_targets) do
+                if is_on == true and type(idx) == 'number' and idx >= 0 and idx <= 5 then
+                    selected_target_index = idx
+                    break
+                end
+            end
+        end
+
+        -- Measure luopan distance from the selected Geo target (skip if none).
+        local pet_distance = selected_target_index ~= nil
+            and common.get_pet_distance_from_member(selected_target_index)
+            or nil
         if pet_distance then
             -- Get the distance threshold from settings (default 10 yalms)
             local distance_threshold = settings.geo_distance_threshold or 10

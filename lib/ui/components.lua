@@ -382,9 +382,27 @@ local function toggle_group_party_buff(ctx, group_name, party_index, enabled)
         end
     end
     
+    -- Exclusive single-target groups (e.g. Geo): only one target at a time.
+    -- Geo creates a single luopan, so selecting a target deselects the others.
+    if enabled then
+        local group_abilities = get_abilities_in_group(ctx.job_def, group_name)
+        if #group_abilities > 0 and group_abilities[1].exclusive_target then
+            for other_index, val in pairs(ctx.party_buffs[group_name]) do
+                if other_index ~= party_index and val == true then
+                    ctx.party_buffs[group_name][other_index] = false
+                    if type(other_index) == 'number' and other_index <= 5 then
+                        ctx.settings.party_buffs = ctx.settings.party_buffs or {}
+                        ctx.settings.party_buffs[group_name] = ctx.settings.party_buffs[group_name] or {}
+                        ctx.settings.party_buffs[group_name][other_index] = false
+                    end
+                end
+            end
+        end
+    end
+
     -- Set the new buff state
     ctx.party_buffs[group_name][party_index] = enabled
-    
+
     -- Check if ANY button is enabled for this group
     local any_button_enabled = false
     for k, v in pairs(ctx.party_buffs[group_name]) do
