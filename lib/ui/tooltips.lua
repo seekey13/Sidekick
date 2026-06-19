@@ -133,8 +133,7 @@ return {
 
     geo_distance =
         'If your luopan drifts beyond this many yalms\n' ..
-        'from the selected Geo target (the party member\n' ..
-        'holding your Geo bubble), Medic uses Full Circle\n' ..
+        'from the selected Geo target, Medic uses Full Circle\n' ..
         'to recall it and recast once stationary. Skipped\n' ..
         'when no Geo target is selected in Buffs.',
 
