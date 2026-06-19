@@ -801,8 +801,8 @@ return {
         'heal_aoe',
         'heal_pet',
         'heal',
-        'buff',
         'geo',
+        'buff',
         'rest',
     },
 }
