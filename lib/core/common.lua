@@ -240,9 +240,14 @@ end
 -- ungrouped abilities use a per-name setting (combat_only_<ability_name_with_spaces_replaced_by_underscores>).
 -- Defaults to false (allowed outside of combat).
 -- Abilities marked idle_only never participate in the combat_only gate.
+-- <bt> abilities (e.g. Geo-bt debuffs) target the battle target and are
+-- INHERENTLY combat-only -- there is no valid target outside combat -- so they
+-- always return true regardless of (and independent of) the user setting.
 function common.is_ability_combat_only(ability, settings)
-    if not ability or not settings then return false end
+    if not ability then return false end
     if ability.idle_only then return false end
+    if common.ability_targets_bt(ability) then return true end
+    if not settings then return false end
     local key
     if ability.group then
         key = 'combat_only_group_' .. ability.group

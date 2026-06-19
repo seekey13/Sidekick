@@ -58,6 +58,9 @@ end
 local function render_combat_only_context_menu(ctx, ability)
     if not ability or not ctx or not ctx.settings then return end
     if ability.idle_only then return end
+    -- <bt> abilities are inherently combat-only; the toggle would be a no-op, so
+    -- don't offer it.
+    if common.ability_targets_bt(ability) then return end
     local key, popup_id
     if ability.group then
         key = 'combat_only_group_' .. ability.group

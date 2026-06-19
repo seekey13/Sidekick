@@ -592,7 +592,8 @@ function ui_config.render(settings, job_def, callback, roll_mod)
         
         -- Attack Range settings (global setting for all jobs)
         do
-            local attack_range_options = { 'Off', 'Melee (3 yalms)', 'Ranged (15 yalms)' }
+            local attack_range_options = { 'Off', 'Melee (3 yalms)', 'Ranged (15 yalms)
+            ' }
             local attack_range_current = settings.attack_range or 'Off'
             local attack_range_index = { 0 }
             
