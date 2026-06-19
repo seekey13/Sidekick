@@ -9,6 +9,55 @@ local geo = {}
 local common      = require('lib.core.common')
 local action_core = require('lib.core.action_core')
 
+-- Tracks whether the current luopan was placed by a Geo-bt (enemy debuff) cast.
+-- Geo-bt owns the single luopan during combat; this flag lets us (a) keep the
+-- distance-based Full Circle from dismissing our debuff luopan, and (b) Full
+-- Circle it once combat ends. Module-scoped so it persists across execute() calls.
+local geo_bt_pending = false
+
+-- Returns the Geo-bt ability the user wants maintained in combat, or nil.
+-- Honors the selected_Geo-bt dropdown (falls back to the highest-cost available
+-- debuff). filter_abilities_by_level applies the level + <bt> combat gate, so
+-- this returns nil when out of combat or under-leveled.
+local function get_selected_geo_bt(job_def, settings, main_level, sub_level)
+    local candidates = {}
+    for _, ability in ipairs(job_def.abilities.buff or {}) do
+        if ability.group == 'Geo-bt' then
+            table.insert(candidates, ability)
+        end
+    end
+    local available = common.filter_abilities_by_level(candidates, settings, main_level, sub_level, job_def)
+    if #available == 0 then return nil end
+    local selected_name = settings['selected_Geo-bt']
+    if selected_name then
+        for _, ability in ipairs(available) do
+            if ability.name == selected_name then return ability end
+        end
+        return nil
+    end
+    return available[1]
+end
+
+-- Build a Full Circle action result if it is usable right now. Callers ensure a
+-- pet/luopan is present. Returns { command, description } or nil.
+local function try_full_circle(job_def, settings, main_level, sub_level, description)
+    local geo_abilities = common.filter_abilities_by_level(job_def.abilities.geo or {}, settings, main_level, sub_level, job_def)
+    for _, ability in ipairs(geo_abilities) do
+        if ability.name == 'Full Circle' then
+            if common.is_command_blocked(ability.command) then return nil end
+            local resource_type = ability.resource_type or job_def.resource_type
+            if ability.id and action_core.has_resource(resource_type, ability.cost) and action_core.is_ability_ready(ability.id) then
+                local command = common.build_ability_command(ability, 0)
+                if command then
+                    return { command = command, description = description }
+                end
+            end
+            return nil
+        end
+    end
+    return nil
+end
+
 function geo.execute(settings, job_def, main_level, sub_level, player_resource)
     -- Check if geo action is enabled
     if not settings.geo_enabled then
@@ -25,13 +74,56 @@ function geo.execute(settings, job_def, main_level, sub_level, player_resource)
     if not player then return nil end
     local derived_main_level = player.main_level
     local derived_sub_level  = player.sub_level
-    
+
+    -- ========================================================================
+    -- Geo-bt Logic (enemy <bt> debuffs)
+    -- The single luopan is claimed by Geo-bt during combat and dismissed with
+    -- Full Circle when combat ends. The enemy debuff itself is unreadable, so
+    -- an active luopan of our own is the "already applied" signal.
+    -- ========================================================================
+    local geo_bt     = get_selected_geo_bt(job_def, settings, derived_main_level, derived_sub_level)
+    local in_combat  = common.is_combat()
+    local has_luopan = common.targets.get_pet() ~= nil
+
+    -- Our debuff luopan is gone (expired / battle target died): clear tracking.
+    if geo_bt_pending and not has_luopan then
+        geo_bt_pending = false
+    end
+
+    -- Combat is over but our Geo-bt luopan is still out: dismiss it so the
+    -- luopan is freed for Geo <me> buffs again.
+    if geo_bt_pending and not in_combat and has_luopan then
+        local fc = try_full_circle(job_def, settings, derived_main_level, derived_sub_level,
+            'Full Circle (dismissing Geo-bt luopan, combat ended)')
+        if fc then return fc end
+    end
+
+    -- In combat with a Geo-bt debuff selected: make sure the luopan is ours.
+    if geo_bt and in_combat then
+        if has_luopan and not geo_bt_pending then
+            -- A non-debuff luopan (e.g. a Geo <me> buff) holds the slot; take it
+            -- over so Geo-bt can claim the luopan for this fight.
+            local fc = try_full_circle(job_def, settings, derived_main_level, derived_sub_level,
+                'Full Circle (Geo-bt taking the luopan)')
+            if fc then return fc end
+        elseif not has_luopan then
+            local result = action_core.first_command({ geo_bt }, job_def, settings, '[GEO-BT]', 0,
+                function(ability) return string.format('Geo-bt: %s on battle target', ability.name) end)
+            if result then
+                geo_bt_pending = true
+                return result
+            end
+        end
+        -- else: our debuff luopan is already up — nothing to do.
+    end
+
     -- ========================================================================
     -- Full Circle Logic
     -- ========================================================================
-    
-    -- Check if player has a pet (only needed for Full Circle)
-    if common.targets.get_pet() then
+
+    -- Check if player has a pet (only needed for Full Circle). Skip while our
+    -- own Geo-bt luopan is out so the distance check can't dismiss the debuff.
+    if common.targets.get_pet() and not geo_bt_pending then
         -- Determine which target currently holds the Geo bubble. The Geo group
         -- is single-select (one luopan), so at most one target is enabled.
         -- Distance is measured from that target; if none is selected we skip
