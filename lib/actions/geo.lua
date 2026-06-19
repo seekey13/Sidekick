@@ -21,7 +21,7 @@ local geo_bt_pending = false
 -- this returns nil when out of combat or under-leveled.
 local function get_selected_geo_bt(job_def, settings, main_level, sub_level)
     local candidates = {}
-    for _, ability in ipairs(job_def.abilities.buff or {}) do
+    for _, ability in ipairs(job_def.abilities.geo or {}) do
         if ability.group == 'Geo-bt' then
             table.insert(candidates, ability)
         end
@@ -149,50 +149,13 @@ function geo.execute(settings, job_def, main_level, sub_level, player_resource)
             -- Get the distance threshold from settings (default 10 yalms)
             local distance_threshold = settings.geo_distance_threshold or 10
             
-            -- Check if pet is too far
+            -- Check if pet is too far. Use try_full_circle so only Full Circle is
+            -- considered -- the geo ability list now also holds high-cost Geo-bt
+            -- debuffs, which would otherwise sort ahead of Full Circle here.
             if pet_distance > distance_threshold then
-                -- Get geo abilities from job definition
-                local geo_abilities = job_def.abilities.geo or {}
-                
-                -- Filter abilities by level and settings
-                local available_abilities = common.filter_abilities_by_level(geo_abilities, settings, derived_main_level, derived_sub_level, job_def)
-                
-                -- Try to use Full Circle
-                for _, ability in ipairs(available_abilities) do
-                    -- Skip Entrust, only look for Full Circle
-                    if ability.name == 'Entrust' then
-                        goto continue
-                    end
-                    
-                    -- Check if this ability is blocked by status ailments
-                    local blocked_by = common.is_command_blocked(ability.command)
-                    if blocked_by then
-                        goto continue
-                    end
-                    
-                    -- Check resource (Full Circle has 0 cost)
-                    local ability_resource_type = ability.resource_type or job_def.resource_type
-                    if action_core.has_resource(ability_resource_type, ability.cost) then
-                        -- Check cooldown
-                        if not ability.id then
-                            common.warnf('[GEO] %s has no ability ID defined, skipping', ability.name)
-                        else
-                            local is_ready = action_core.is_ability_ready(ability.id)
-                            
-                            if is_ready then
-                                local command = common.build_ability_command(ability, 0)
-                                if command then
-                                    return {
-                                        command = command,
-                                        description = string.format('Using %s (Pet distance: %.1f yalms)', ability.name, pet_distance)
-                                    }
-                                end
-                            end
-                        end
-                    end
-                    
-                    ::continue::
-                end
+                local fc = try_full_circle(job_def, settings, derived_main_level, derived_sub_level,
+                    string.format('Using Full Circle (Pet distance: %.1f yalms)', pet_distance))
+                if fc then return fc end
             end
         end
     end

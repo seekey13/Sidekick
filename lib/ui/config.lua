@@ -905,14 +905,25 @@ function ui_config.render(settings, job_def, callback, roll_mod)
                 ui.item_tooltip(tooltips.geo_distance)
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
 
-                -- Full Circle checkbox
+                -- Full Circle checkbox (ungrouped geo ability, excluding Entrust)
                 for _, ability in ipairs(job_def.abilities.geo) do
-                    if ability.name ~= 'Entrust' and can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
+                    if ability.group == nil and ability.name ~= 'Entrust' and can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                         ui.ability_checkbox(ctx, ability, job_def, 'geo')
                         ui.item_tooltip(tooltips.geo_full_circle)
                     end
                 end
-                
+
+                -- Geo-bt debuff selector (<bt> enemy debuffs): self-grouped
+                -- ON/OFF + dropdown. Cast/luopan lifecycle lives in geo.lua.
+                if current_settings then
+                    current_settings['rendered_group_Geo-bt'] = nil
+                end
+                for _, ability in ipairs(job_def.abilities.geo) do
+                    if ability.group == 'Geo-bt' then
+                        ui.render_ability(ctx, ability, job_def, 'geo')
+                    end
+                end
+
                 imgui.Unindent(ui.ABILITY_LIST_INDENT)
                 
                 -- Entrust settings (only for Geomancer)

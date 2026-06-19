@@ -58,16 +58,9 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
     for _, ability in ipairs(available_abilities) do
         local should_skip = false
 
-        -- Geo-bt (enemy <bt> debuffs) is owned by the geo action module, which
-        -- manages the luopan lifecycle. Skip it here: the self-only path's
-        -- needs_buff check is always true for an unreadable enemy debuff and
-        -- would otherwise recast every cooldown.
-        if ability.group == 'Geo-bt' then
-            goto continue_ability
-        end
-
         -- While in combat with Geo-bt enabled, reserve the single luopan for the
-        -- enemy debuff -- don't try to place a Geo buff luopan.
+        -- enemy debuff -- don't try to place a Geo buff luopan. (Geo-bt itself
+        -- lives in abilities.geo now, so it never reaches this buff loop.)
         if ability.group == 'Geo' and common.is_combat() and settings['disabled_group_Geo-bt'] ~= true then
             goto continue_ability
         end
