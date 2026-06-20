@@ -148,9 +148,7 @@ Consolidated ability infrastructure module. Combines resource management (MP/TP 
 | `get_resource(type)` | Current MP or TP |
 | `is_ability_ready(id)` | Ability recast timer = 0 (with 0.5s post-delay) |
 | `is_spell_ready(id)` | Spell recast timer = 0 (with 0.5s post-delay) |
-| `get_ability_recast(id)` | Remaining ability recast |
 | `get_spell_recast(id)` | Remaining spell recast |
-| `set/is/get/clear_custom_recast(key)` | Manual recast tracking for shared cooldowns |
 
 **Buff-ID Utilities** (formerly `buff_utils.lua`):
 
