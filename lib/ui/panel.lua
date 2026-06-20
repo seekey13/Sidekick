@@ -103,6 +103,68 @@ local function fmt_buffs(buffs)
     return table.concat(parts, ', ')
 end
 
+-- ── Per-column cell renderers (each renders the current column's content and
+--    keeps its own push/pop balanced; the caller owns the TableNextColumn). ──
+
+local function srvid_cell(m)
+    if m.server_id and m.server_id > 0 then
+        imgui.Text(string.format('0x%X', m.server_id))
+    else
+        imgui.TextDisabled('--')
+    end
+end
+
+local function job_cell(m)
+    imgui.Text(string.format('%s%d/%s%d',
+        m.job_name or '??', m.main_level or 0,
+        m.sub_job_name or '??', m.sub_level or 0))
+end
+
+-- estimated=true renders the '~'-prefixed / percent-only form used for tracked targets.
+local function hp_cell(m, estimated)
+    local colored = push_hp_color(m.hpp or 0)
+    if m.max_hp and m.max_hp > 0 then
+        imgui.Text(string.format((estimated and '~' or '') .. '%d/%d (%d%%%%)', m.hp or 0, m.max_hp, m.hpp or 0))
+    elseif estimated then
+        imgui.Text(string.format('%d%%%%', m.hpp or 0))
+    else
+        imgui.Text(string.format('%d  %d%%%%', m.hp or 0, m.hpp or 0))
+    end
+    if colored then imgui.PopStyleColor() end
+end
+
+local function mp_cell(m)
+    local colored = push_mp_color(m.mpp or 0)
+    if m.max_mp and m.max_mp > 0 then
+        imgui.Text(string.format('%d/%d (%d%%%%)', m.mp or 0, m.max_mp, m.mpp or 0))
+    else
+        imgui.Text(string.format('%d  %d%%%%', m.mp or 0, m.mpp or 0))
+    end
+    if colored then imgui.PopStyleColor() end
+end
+
+local function buffs_cell(m)
+    if m.buffs and #m.buffs > 0 then
+        imgui.Text(fmt_buffs(m.buffs))
+    else
+        imgui.TextDisabled('--')
+    end
+end
+
+-- Render the 8-column run shared by main-party and alliance rows: SrvID, Job,
+-- HP, MP, TP, Status, Position, Buffs. Caller has already rendered Slot + Name
+-- and renders the trailing Pet HP%/Pet Pos columns afterward.
+local function render_common_columns(m)
+    imgui.TableNextColumn() srvid_cell(m)
+    imgui.TableNextColumn() job_cell(m)
+    imgui.TableNextColumn() hp_cell(m, false)
+    imgui.TableNextColumn() mp_cell(m)
+    imgui.TableNextColumn() imgui.Text(tostring(m.tp or 0))
+    imgui.TableNextColumn() imgui.Text(fmt_status(m.entity_status))
+    imgui.TableNextColumn() imgui.Text(fmt_pos(m.position))
+    imgui.TableNextColumn() buffs_cell(m)
+end
+
 -- ============================================================================
 -- Render
 -- ============================================================================
@@ -203,65 +265,8 @@ function panel.render()
                 imgui.TableNextColumn()
                 imgui.Text(m.name or '')
 
-                -- ── Server ID ────────────────────────────────────────────
-                imgui.TableNextColumn()
-                if m.server_id and m.server_id > 0 then
-                    imgui.Text(string.format('0x%X', m.server_id))
-                else
-                    imgui.TextDisabled('--')
-                end
-
-                -- ── Job  WHM75/SCH37 ──────────────────────────────────────
-                imgui.TableNextColumn()
-                local job_str = string.format('%s%d/%s%d',
-                    m.job_name    or '??', m.main_level or 0,
-                    m.sub_job_name or '??', m.sub_level  or 0)
-                imgui.Text(job_str)
-
-                -- ── HP  1250/9999 63% ─────────────────────────────────────
-                imgui.TableNextColumn()
-                local hp_str
-                if m.max_hp and m.max_hp > 0 then
-                    hp_str = string.format('%d/%d (%d%%%%)', m.hp or 0, m.max_hp, m.hpp or 0)
-                else
-                    hp_str = string.format('%d  %d%%%%', m.hp or 0, m.hpp or 0)
-                end
-                local hp_colored = push_hp_color(m.hpp or 0)
-                imgui.Text(hp_str)
-                if hp_colored then imgui.PopStyleColor() end
-
-                -- ── MP  800/1200 66% ──────────────────────────────────────
-                imgui.TableNextColumn()
-                local mp_str
-                if m.max_mp and m.max_mp > 0 then
-                    mp_str = string.format('%d/%d (%d%%%%)', m.mp or 0, m.max_mp, m.mpp or 0)
-                else
-                    mp_str = string.format('%d  %d%%%%', m.mp or 0, m.mpp or 0)
-                end
-                local mp_colored = push_mp_color(m.mpp or 0)
-                imgui.Text(mp_str)
-                if mp_colored then imgui.PopStyleColor() end
-
-                -- ── TP ────────────────────────────────────────────────────
-                imgui.TableNextColumn()
-                imgui.Text(tostring(m.tp or 0))
-
-                -- ── Status ────────────────────────────────────────────────
-                imgui.TableNextColumn()
-                imgui.Text(fmt_status(m.entity_status))
-
-                -- ── Position ──────────────────────────────────────────────
-                imgui.TableNextColumn()
-                imgui.Text(fmt_pos(m.position))
-
-                -- ── Buffs (inline list) ──────────────────────────────────
-                imgui.TableNextColumn()
-                local buff_count = m.buffs and #m.buffs or 0
-                if buff_count > 0 then
-                    imgui.Text(fmt_buffs(m.buffs))
-                else
-                    imgui.TextDisabled('--')
-                end
+                -- ── SrvID, Job, HP, MP, TP, Status, Position, Buffs ───────
+                render_common_columns(m)
 
                 -- ── Pet HP% (player only) ─────────────────────────────────
                 imgui.TableNextColumn()
@@ -339,12 +344,7 @@ function panel.render()
                     imgui.Text(m.name or '')
 
                     -- Server ID
-                    imgui.TableNextColumn()
-                    if m.server_id and m.server_id > 0 then
-                        imgui.Text(string.format('0x%X', m.server_id))
-                    else
-                        imgui.TextDisabled('--')
-                    end
+                    imgui.TableNextColumn() srvid_cell(m)
 
                     -- Job column: show job/sub+level when resolved, else '--'
                     imgui.TableNextColumn()
@@ -369,16 +369,8 @@ function panel.render()
                         imgui.TextDisabled('--')
                     end
 
-                    -- HP: show estimated hp/max_hp when available, otherwise just hp%
-                    -- Values are derived: max_hp from level table or 100%-cache; hp = hpp*max_hp/100
-                    imgui.TableNextColumn()
-                    local hp_colored = push_hp_color(m.hpp or 0)
-                    if m.max_hp and m.max_hp > 0 then
-                        imgui.Text(string.format('~%d/%d (%d%%%%)', m.hp or 0, m.max_hp, m.hpp or 0))
-                    else
-                        imgui.Text(string.format('%d%%%%', m.hpp or 0))
-                    end
-                    if hp_colored then imgui.PopStyleColor() end
+                    -- HP: estimated (~) hp/max_hp from level table or 100%-cache, else hp%
+                    imgui.TableNextColumn() hp_cell(m, true)
 
                     -- MP (not available)
                     imgui.TableNextColumn()
@@ -397,13 +389,7 @@ function panel.render()
                     imgui.Text(fmt_pos(m.position))
 
                     -- Buffs
-                    imgui.TableNextColumn()
-                    local buff_count = m.buffs and #m.buffs or 0
-                    if buff_count > 0 then
-                        imgui.Text(fmt_buffs(m.buffs))
-                    else
-                        imgui.TextDisabled('--')
-                    end
+                    imgui.TableNextColumn() buffs_cell(m)
 
                     -- Pet HP% (not applicable)
                     imgui.TableNextColumn()
@@ -450,65 +436,8 @@ function panel.render()
                             imgui.TableNextColumn()
                             imgui.Text(m.name or '')
 
-                            -- ── Server ID ─────────────────────────────────
-                            imgui.TableNextColumn()
-                            if m.server_id and m.server_id > 0 then
-                                imgui.Text(string.format('0x%X', m.server_id))
-                            else
-                                imgui.TextDisabled('--')
-                            end
-
-                            -- ── Job ───────────────────────────────────────
-                            imgui.TableNextColumn()
-                            local job_str = string.format('%s%d/%s%d',
-                                m.job_name     or '??', m.main_level or 0,
-                                m.sub_job_name or '??', m.sub_level  or 0)
-                            imgui.Text(job_str)
-
-                            -- ── HP ────────────────────────────────────────
-                            imgui.TableNextColumn()
-                            local hp_str
-                            if m.max_hp and m.max_hp > 0 then
-                                hp_str = string.format('%d/%d (%d%%%%)', m.hp or 0, m.max_hp, m.hpp or 0)
-                            else
-                                hp_str = string.format('%d  %d%%%%', m.hp or 0, m.hpp or 0)
-                            end
-                            local hp_colored = push_hp_color(m.hpp or 0)
-                            imgui.Text(hp_str)
-                            if hp_colored then imgui.PopStyleColor() end
-
-                            -- ── MP ────────────────────────────────────────
-                            imgui.TableNextColumn()
-                            local mp_str
-                            if m.max_mp and m.max_mp > 0 then
-                                mp_str = string.format('%d/%d (%d%%%%)', m.mp or 0, m.max_mp, m.mpp or 0)
-                            else
-                                mp_str = string.format('%d  %d%%%%', m.mp or 0, m.mpp or 0)
-                            end
-                            local mp_colored = push_mp_color(m.mpp or 0)
-                            imgui.Text(mp_str)
-                            if mp_colored then imgui.PopStyleColor() end
-
-                            -- ── TP ────────────────────────────────────────
-                            imgui.TableNextColumn()
-                            imgui.Text(tostring(m.tp or 0))
-
-                            -- ── Status ────────────────────────────────────
-                            imgui.TableNextColumn()
-                            imgui.Text(fmt_status(m.entity_status))
-
-                            -- ── Position ──────────────────────────────────
-                            imgui.TableNextColumn()
-                            imgui.Text(fmt_pos(m.position))
-
-                            -- ── Buffs ─────────────────────────────────────
-                            imgui.TableNextColumn()
-                            local buff_count = m.buffs and #m.buffs or 0
-                            if buff_count > 0 then
-                                imgui.Text(fmt_buffs(m.buffs))
-                            else
-                                imgui.TextDisabled('--')
-                            end
+                            -- ── SrvID, Job, HP, MP, TP, Status, Position, Buffs ──
+                            render_common_columns(m)
 
                             -- ── Pet HP% / Pet Pos (n/a for alliance) ──────
                             imgui.TableNextColumn() imgui.TextDisabled('--')
