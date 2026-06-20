@@ -799,7 +799,7 @@ function ui_config.render(settings, job_def, callback, roll_mod)
                 follow_target_name = render_party_dropdown('Follow Target', 'follow_target', false, party_member_names, settings, callback, true)
                 ui.item_tooltip(tooltips.rest_follow_target)
 
-                ui.slider_int(ctx, 'Distance (yalms)', 'rest_distance', { settings.rest_distance or 7 }, 1, 15)
+                ui.slider_int(ctx, 'Distance (yalms)##rest_distance', 'rest_distance', { settings.rest_distance or 7 }, 1, 15)
                 ui.item_tooltip(tooltips.rest_distance)
                 imgui.Unindent(ui.ABILITY_LIST_INDENT)
             end
@@ -920,7 +920,7 @@ function ui_config.render(settings, job_def, callback, roll_mod)
                 end
 
                 -- Distance threshold (Full Circle recast trigger)
-                ui.slider_int(ctx, 'Distance (yalms)', 'geo_distance_threshold', { settings.geo_distance_threshold or 10 }, 7, 30)
+                ui.slider_int(ctx, 'Distance (yalms)##geo_distance_threshold', 'geo_distance_threshold', { settings.geo_distance_threshold or 10 }, 7, 30)
                 ui.item_tooltip(tooltips.geo_distance)
                 
                 -- Entrust settings (only for Geomancer)
