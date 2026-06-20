@@ -46,6 +46,15 @@ local can_use_ability             = common.ability_usable_at_level
 local get_abilities_in_group      = common.get_abilities_in_group
 local get_usable_abilities_in_group = common.get_usable_abilities_in_group
 
+-- Render the ability-checkbox list for an ability category, skipping subjob duplicates.
+local function render_ability_checkboxes(ctx, job_def, category, show_stratagem)
+    for _, ability in ipairs(job_def.abilities[category] or {}) do
+        if can_use_ability(ability) and not common.is_subjob_duplicate(job_def, ability) then
+            ui.ability_checkbox(ctx, ability, job_def, category, show_stratagem)
+        end
+    end
+end
+
 -- Check if a list of abilities has any usable abilities (level-appropriate)
 local function has_usable_abilities(abilities)
     if not abilities then
@@ -594,21 +603,13 @@ function ui_config.render(settings, job_def, callback, roll_mod)
             if is_open and is_enabled then
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
                 ui.slider_int(ctx, 'Group (HP%)', 'heal_threshold', { settings.heal_threshold or 75 }, 1, 100)
-                for _, ability in ipairs(job_def.abilities.heal) do
-                    if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
-                        ui.ability_checkbox(ctx, ability, job_def, 'heal', true)
-                    end
-                end
+                render_ability_checkboxes(ctx, job_def, 'heal', true)
                 
                 -- Critical HP section (inside Group Healing)
                 if job_def.abilities.critical and has_usable_abilities(job_def.abilities.critical) then
                     ui.slider_int(ctx, 'Critical (HP%)', 'critical_threshold', { settings.critical_threshold or 30 }, 1, 50)
                     ui.item_tooltip(tooltips.critical_hp)
-                    for _, ability in ipairs(job_def.abilities.critical) do
-                        if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
-                            ui.ability_checkbox(ctx, ability, job_def, 'critical')
-                        end
-                    end
+                    render_ability_checkboxes(ctx, job_def, 'critical')
                 end
                 imgui.Unindent(ui.ABILITY_LIST_INDENT)
             end
@@ -622,11 +623,7 @@ function ui_config.render(settings, job_def, callback, roll_mod)
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
                 ui.slider_int(ctx, 'AOE (HP%)', 'heal_aoe_threshold', { settings.heal_aoe_threshold or 70 }, 1, 100)
                 
-                for _, ability in ipairs(job_def.abilities.heal_aoe) do
-                    if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
-                        ui.ability_checkbox(ctx, ability, job_def, 'heal_aoe', true)
-                    end
-                end
+                render_ability_checkboxes(ctx, job_def, 'heal_aoe', true)
                 imgui.Unindent(ui.ABILITY_LIST_INDENT)
             end
         end
@@ -639,11 +636,7 @@ function ui_config.render(settings, job_def, callback, roll_mod)
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
                 ui.slider_int(ctx, 'Pet (HP%)', 'heal_pet_threshold', { settings.heal_pet_threshold or 50 }, 1, 100)
                 
-                for _, ability in ipairs(job_def.abilities.heal_pet) do
-                    if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
-                        ui.ability_checkbox(ctx, ability, job_def, 'heal_pet')
-                    end
-                end
+                render_ability_checkboxes(ctx, job_def, 'heal_pet')
                 imgui.Unindent(ui.ABILITY_LIST_INDENT)
             end
         end
@@ -744,11 +737,7 @@ function ui_config.render(settings, job_def, callback, roll_mod)
                 -- Self Recover (TP%) section
                 if has_tp_recovery then
                     ui.slider_int(ctx, 'Self Recover (TP)', 'recover_tp_threshold', { settings.recover_tp_threshold or 500 }, 100, 3000)
-                    for _, ability in ipairs(job_def.abilities.recover_tp) do
-                        if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
-                            ui.ability_checkbox(ctx, ability, job_def, 'recover_tp')
-                        end
-                    end
+                    render_ability_checkboxes(ctx, job_def, 'recover_tp')
                     
                     if has_mp_recovery or has_party_mp_recovery then
                         imgui.Spacing()
@@ -785,11 +774,7 @@ function ui_config.render(settings, job_def, callback, roll_mod)
                         ui.slider_int(ctx, 'Target Recover (MP%)', 'focus_recovery_threshold', { settings.focus_recovery_threshold or 30 }, 1, 100)
                     end
                     
-                    for _, ability in ipairs(job_def.abilities.recover_party_mp) do
-                        if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
-                            ui.ability_checkbox(ctx, ability, job_def, 'recover_party_mp')
-                        end
-                    end
+                    render_ability_checkboxes(ctx, job_def, 'recover_party_mp')
                 end
                 imgui.Unindent(ui.ABILITY_LIST_INDENT)
             end
@@ -945,11 +930,7 @@ function ui_config.render(settings, job_def, callback, roll_mod)
             ui.item_tooltip(tooltips.revive)
             if is_open and is_enabled then
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
-                for _, ability in ipairs(job_def.abilities.revive) do
-                    if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
-                        ui.ability_checkbox(ctx, ability, job_def, 'revive', true)
-                    end
-                end
+                render_ability_checkboxes(ctx, job_def, 'revive', true)
                 imgui.Unindent(ui.ABILITY_LIST_INDENT)
             end
         end
