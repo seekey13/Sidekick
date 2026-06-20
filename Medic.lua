@@ -722,20 +722,8 @@ ashita.events.register('packet_in', 'medic_packet_in', function(e)
                     if action.Message == 230 or action.Message == 266 then
                         common.debugf('%s gained the effect of %s.', target_name, buff_name)
 
-                        -- Update Trust buff tracking so game_state reflects the change
-                        if target.Id >= 0x1000000 then
-                            common.apply_trust_buff(target.Id, action.Param)
-                        end
-
-                        -- Update tracked target buff tracking
-                        if common.is_tracked_target(target.Id) then
-                            common.apply_tracked_target_buff(target.Id, action.Param)
-                        end
-
-                        -- Update alliance member buff tracking
-                        if common.is_alliance_member(target.Id) then
-                            common.apply_alliance_member_buff(target.Id, action.Param)
-                        end
+                        -- Track for Trusts, tracked targets, and alliance members (gated inside)
+                        common.track_buff(target.Id, action.Param)
 
                     elseif action.Message == 83 then
                         common.debugf('%s lost the effect of %s (via 0x028).', target_name, buff_name)
@@ -804,20 +792,8 @@ ashita.events.register('packet_in', 'medic_packet_in', function(e)
 
                     common.debugf('%s gained the effect of %s (via 0x029).', target_name, buff_name)
 
-                    -- Update Trust buff tracking
-                    if server_id >= 0x1000000 then
-                        common.apply_trust_buff(server_id, buff_id)
-                    end
-
-                    -- Update tracked target buff tracking
-                    if common.is_tracked_target(server_id) then
-                        common.apply_tracked_target_buff(server_id, buff_id)
-                    end
-
-                    -- Update alliance member buff tracking
-                    if common.is_alliance_member(server_id) then
-                        common.apply_alliance_member_buff(server_id, buff_id)
-                    end
+                    -- Track for Trusts, tracked targets, and alliance members (gated inside)
+                    common.track_buff(server_id, buff_id)
                 end
             end
         end

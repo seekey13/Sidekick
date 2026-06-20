@@ -178,27 +178,10 @@ function status_removal.execute_debuff_removal(settings, job_def, main_level, su
         if tt and tt.target_index and tt.target_index > 0 and common.is_in_range(tt.target_index, 20) then
             for _, ability in ipairs(outside_abilities) do
                 if is_ability_target_allowed(ability, 'tt_' .. focus_tracked_sid) and can_remove_debuffs(ability, tracked_buffs[focus_tracked_sid]) then
-                    local eff_cost = common.effective_ability_cost(ability, settings, job_def)
-                    local ok, reason = action_core.is_usable(ability, job_def, eff_cost)
-                    if ok then
-                        local strat_result = common.check_stratagem(job_def, settings, ability.name, ability)
-                        if strat_result == false then ok = false
-                        elseif strat_result then return strat_result end
-                    end
-                    if ok then
-                        local command = common.build_ability_command_for_target(ability, focus_tracked_sid)
-                        if command then
-                            if ability.buff_id then
-                                local bid = type(ability.buff_id) == 'table' and ability.buff_id[1] or ability.buff_id
-                                common.register_pending_buff(focus_tracked_sid, bid)
-                            end
-                            local dc = tracked_debuff_counts[focus_tracked_sid]
-                            return {
-                                command = command,
-                                description = string.format('Removing %d debuff(s) from tracked %s with %s', dc, tt.name, ability.name)
-                            }
-                        end
-                    end
+                    local dc = tracked_debuff_counts[focus_tracked_sid]
+                    local desc = string.format('Removing %d debuff(s) from tracked %s with %s', dc, tt.name, ability.name)
+                    local result = action_core.try_use_on_target(ability, job_def, settings, focus_tracked_sid, desc)
+                    if result then return result end
                 end
             end
         end
@@ -210,27 +193,10 @@ function status_removal.execute_debuff_removal(settings, job_def, main_level, su
         if al_member and al_member.target_index and al_member.target_index > 0 and common.is_in_range(al_member.target_index, 20) then
             for _, ability in ipairs(outside_abilities) do
                 if is_ability_target_allowed(ability, alliance_sid_to_key[focus_alliance_sid] or '') and can_remove_debuffs(ability, alliance_buffs[focus_alliance_sid]) then
-                    local eff_cost = common.effective_ability_cost(ability, settings, job_def)
-                    local ok, reason = action_core.is_usable(ability, job_def, eff_cost)
-                    if ok then
-                        local strat_result = common.check_stratagem(job_def, settings, ability.name, ability)
-                        if strat_result == false then ok = false
-                        elseif strat_result then return strat_result end
-                    end
-                    if ok then
-                        local command = common.build_ability_command_for_target(ability, focus_alliance_sid)
-                        if command then
-                            if ability.buff_id then
-                                local bid = type(ability.buff_id) == 'table' and ability.buff_id[1] or ability.buff_id
-                                common.register_pending_buff(focus_alliance_sid, bid)
-                            end
-                            local dc = alliance_debuff_counts[focus_alliance_sid]
-                            return {
-                                command = command,
-                                description = string.format('Removing %d debuff(s) from alliance %s with %s', dc, al_member.name, ability.name)
-                            }
-                        end
-                    end
+                    local dc = alliance_debuff_counts[focus_alliance_sid]
+                    local desc = string.format('Removing %d debuff(s) from alliance %s with %s', dc, al_member.name, ability.name)
+                    local result = action_core.try_use_on_target(ability, job_def, settings, focus_alliance_sid, desc)
+                    if result then return result end
                 end
             end
         end
@@ -290,27 +256,10 @@ function status_removal.execute_debuff_removal(settings, job_def, main_level, su
             local tt = state.tracked[best_tracked_sid]
             for _, ability in ipairs(outside_abilities) do
                 if is_ability_target_allowed(ability, 'tt_' .. best_tracked_sid) and can_remove_debuffs(ability, tracked_buffs[best_tracked_sid]) then
-                    local eff_cost = common.effective_ability_cost(ability, settings, job_def)
-                    local ok, reason = action_core.is_usable(ability, job_def, eff_cost)
-                    if ok then
-                        local strat_result = common.check_stratagem(job_def, settings, ability.name, ability)
-                        if strat_result == false then ok = false
-                        elseif strat_result then return strat_result end
-                    end
-                    if ok then
-                        local command = common.build_ability_command_for_target(ability, best_tracked_sid)
-                        if command then
-                            if ability.buff_id then
-                                local bid = type(ability.buff_id) == 'table' and ability.buff_id[1] or ability.buff_id
-                                common.register_pending_buff(best_tracked_sid, bid)
-                            end
-                            return {
-                                command = command,
-                                description = string.format('Removing %d debuff(s) from tracked %s with %s',
-                                    max_tracked_debuffs, tt.name, ability.name)
-                            }
-                        end
-                    end
+                    local desc = string.format('Removing %d debuff(s) from tracked %s with %s',
+                        max_tracked_debuffs, tt.name, ability.name)
+                    local result = action_core.try_use_on_target(ability, job_def, settings, best_tracked_sid, desc)
+                    if result then return result end
                 end
             end
         end
@@ -336,27 +285,10 @@ function status_removal.execute_debuff_removal(settings, job_def, main_level, su
             if al_member then
                 for _, ability in ipairs(outside_abilities) do
                     if is_ability_target_allowed(ability, alliance_sid_to_key[best_alliance_sid] or '') and can_remove_debuffs(ability, alliance_buffs[best_alliance_sid]) then
-                        local eff_cost = common.effective_ability_cost(ability, settings, job_def)
-                        local ok, reason = action_core.is_usable(ability, job_def, eff_cost)
-                        if ok then
-                            local strat_result = common.check_stratagem(job_def, settings, ability.name, ability)
-                            if strat_result == false then ok = false
-                            elseif strat_result then return strat_result end
-                        end
-                        if ok then
-                            local command = common.build_ability_command_for_target(ability, best_alliance_sid)
-                            if command then
-                                if ability.buff_id then
-                                    local bid = type(ability.buff_id) == 'table' and ability.buff_id[1] or ability.buff_id
-                                    common.register_pending_buff(best_alliance_sid, bid)
-                                end
-                                return {
-                                    command = command,
-                                    description = string.format('Removing %d debuff(s) from alliance %s with %s',
-                                        max_alliance_debuffs, al_member.name, ability.name)
-                                }
-                            end
-                        end
+                        local desc = string.format('Removing %d debuff(s) from alliance %s with %s',
+                            max_alliance_debuffs, al_member.name, ability.name)
+                        local result = action_core.try_use_on_target(ability, job_def, settings, best_alliance_sid, desc)
+                        if result then return result end
                     end
                 end
             end
@@ -540,25 +472,9 @@ function status_removal.execute_wake(settings, job_def, main_level, sub_level, p
             if tt and tt.target_index and tt.target_index > 0 and common.is_in_range(tt.target_index, 20) then
                 for _, ability in ipairs(available_single) do
                     if ability.target_outside and ability.wakes then
-                        local blocked_by = common.is_command_blocked(ability.command)
-                        if not blocked_by then
-                            local eff_cost = common.effective_ability_cost(ability, settings, job_def)
-                            local ok, reason = action_core.is_usable(ability, job_def, eff_cost)
-                            if ok then
-                                local strat_result = common.check_stratagem(job_def, settings, ability.name, ability)
-                                if strat_result == false then ok = false
-                                elseif strat_result then return strat_result end
-                            end
-                            if ok then
-                                local command = common.build_ability_command_for_target(ability, sid)
-                                if command then
-                                    return {
-                                        command = command,
-                                        description = string.format('Waking tracked %s with %s', tt.name, ability.name)
-                                    }
-                                end
-                            end
-                        end
+                        local result = action_core.try_use_on_target(ability, job_def, settings, sid,
+                            string.format('Waking tracked %s with %s', tt.name, ability.name))
+                        if result then return result end
                     end
                 end
             end
@@ -572,25 +488,9 @@ function status_removal.execute_wake(settings, job_def, main_level, sub_level, p
             if al_member and al_member.target_index and al_member.target_index > 0 and common.is_in_range(al_member.target_index, 20) then
                 for _, ability in ipairs(available_single) do
                     if ability.target_outside and ability.wakes then
-                        local blocked_by = common.is_command_blocked(ability.command)
-                        if not blocked_by then
-                            local eff_cost = common.effective_ability_cost(ability, settings, job_def)
-                            local ok, reason = action_core.is_usable(ability, job_def, eff_cost)
-                            if ok then
-                                local strat_result = common.check_stratagem(job_def, settings, ability.name, ability)
-                                if strat_result == false then ok = false
-                                elseif strat_result then return strat_result end
-                            end
-                            if ok then
-                                local command = common.build_ability_command_for_target(ability, sid)
-                                if command then
-                                    return {
-                                        command = command,
-                                        description = string.format('Waking alliance %s with %s', al_member.name, ability.name)
-                                    }
-                                end
-                            end
-                        end
+                        local result = action_core.try_use_on_target(ability, job_def, settings, sid,
+                            string.format('Waking alliance %s with %s', al_member.name, ability.name))
+                        if result then return result end
                     end
                 end
             end

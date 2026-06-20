@@ -117,34 +117,13 @@ function revive.execute(settings, job_def, main_level, sub_level, player_resourc
         end
         for _, ability in ipairs(buff_usable) do
             if common.is_in_range(m.target_index, ability.range or 20) then
-                -- Check stratagems before casting (e.g. Scholar Penury to halve Raise MP)
-                local strat_result = common.check_stratagem(job_def, settings, ability.name, ability)
-                if strat_result == false then
-                    common.debugf('[REVIVE] Stratagem unavailable for %s on %s %s, trying next ability',
-                        ability.name, tag, m.name or '?')
-                    goto continue_sid_ability
-                elseif strat_result then
-                    common.debugf('[REVIVE] Firing stratagem before raising %s %s with %s',
-                        tag, m.name or '?', ability.name)
-                    return strat_result
-                end
-
-                local command = common.build_ability_command_for_target(ability, sid)
-                if command then
-                    common.debugf('[REVIVE] %s %s is dead, raising with %s',
-                        tag, m.name or '?', ability.name)
-                    return {
-                        command     = command,
-                        description = string.format('Raising %s %s with %s',
-                            tag, m.name or '?', ability.name),
-                    }
-                end
-                common.debugf('[REVIVE] build_ability_command_for_target returned nil for %s %s with %s',
-                    tag, m.name or '?', ability.name)
+                -- try_use_on_target handles the stratagem pre-cast (e.g. Scholar Penury) internally
+                local result = action_core.try_use_on_target(ability, job_def, settings, sid,
+                    string.format('Raising %s %s with %s', tag, m.name or '?', ability.name))
+                if result then return result end
             else
                 common.debugf('[REVIVE] %s %s out of range for %s', tag, m.name or '?', ability.name)
             end
-            ::continue_sid_ability::
         end
         return nil
     end

@@ -241,25 +241,9 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                                         local al_buffs = m.buffs or {}
                                         local al_needs_buff = action_core.needs_buff(al_buffs, ability.buff_id)
                                         if al_needs_buff then
-                                            local eff_cost = common.effective_ability_cost(ability, settings, job_def)
-                                            local ok_use, _ = action_core.is_usable(ability, job_def, eff_cost)
-                                            if ok_use then
-                                                -- Check stratagems before casting
-                                                local strat_result = common.check_stratagem(job_def, settings, ability.name, ability)
-                                                if strat_result == false then ok_use = false
-                                                elseif strat_result then return strat_result end
-                                            end
-                                            if ok_use then
-                                                local command = common.build_ability_command_for_target(ability, m.server_id)
-                                                if command then
-                                                    if ability.buff_id then
-                                                        local bid = type(ability.buff_id) == 'table' and ability.buff_id[1] or ability.buff_id
-                                                        common.register_pending_buff(m.server_id, bid)
-                                                    end
-                                                    local desc = string.format('Applying buff: %s to alliance %s', ability.name, m.name)
-                                                    return { command = command, description = desc }
-                                                end
-                                            end
+                                            local desc = string.format('Applying buff: %s to alliance %s', ability.name, m.name)
+                                            local result = action_core.try_use_on_target(ability, job_def, settings, m.server_id, desc)
+                                            if result then return result end
                                         end
                                     end
                                 end
@@ -278,26 +262,9 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                             local tt_buffs = tt.buffs or {}
                             local tt_needs_buff = action_core.needs_buff(tt_buffs, ability.buff_id)
                             if tt_needs_buff then
-                                local eff_cost = common.effective_ability_cost(ability, settings, job_def)
-                                local ok, reason = action_core.is_usable(ability, job_def, eff_cost)
-                                if ok then
-                                    -- Check stratagems before casting
-                                    local strat_result = common.check_stratagem(job_def, settings, ability.name, ability)
-                                    if strat_result == false then ok = false
-                                    elseif strat_result then return strat_result end
-                                end
-                                if ok then
-                                    local command = common.build_ability_command_for_target(ability, sid)
-                                    if command then
-                                        -- Register pending buff for packet tracking
-                                        if ability.buff_id then
-                                            local bid = type(ability.buff_id) == 'table' and ability.buff_id[1] or ability.buff_id
-                                            common.register_pending_buff(sid, bid)
-                                        end
-                                        local desc = string.format('Applying buff: %s to tracked %s', ability.name, tt.name)
-                                        return { command = command, description = desc }
-                                    end
-                                end
+                                local desc = string.format('Applying buff: %s to tracked %s', ability.name, tt.name)
+                                local result = action_core.try_use_on_target(ability, job_def, settings, sid, desc)
+                                if result then return result end
                             end
                         end
                     end

@@ -1041,22 +1041,6 @@ function common.handle_buff_application()
     end
 end
 
--- Directly apply a buff to a Trust's tracked buff list (called from packet detection)
--- Args: server_id (number), buff_id (number)
-function common.apply_trust_buff(server_id, buff_id)
-    if not server_id or not buff_id or server_id < 0x1000000 then return end
-
-    if not trust_buffs[server_id] then
-        trust_buffs[server_id] = {}
-    end
-
-    for _, existing in ipairs(trust_buffs[server_id]) do
-        if existing == buff_id then return end  -- Already tracked
-    end
-
-    table.insert(trust_buffs[server_id], buff_id)
-end
-
 -- Handle buff removal (packet 0x029)
 -- Args: server_id (number), buff_id (number)
 function common.handle_buff_removal(server_id, buff_id)
@@ -1111,8 +1095,7 @@ function common.is_alliance_member(server_id)
     return alliance_member_sids[server_id] == true
 end
 
--- Shared helper: insert a buff into trust_buffs with dedup.
--- Used by both apply_alliance_member_buff and apply_tracked_target_buff.
+-- Insert a buff into trust_buffs with dedup. Internal primitive for track_buff.
 function common.apply_external_buff(server_id, buff_id)
     if not server_id or not buff_id then return end
 
@@ -1127,11 +1110,14 @@ function common.apply_external_buff(server_id, buff_id)
     table.insert(trust_buffs[server_id], buff_id)
 end
 
--- Apply a buff to an alliance member (packet-based, reuses trust_buffs table).
-function common.apply_alliance_member_buff(server_id, buff_id)
+-- Record a buff for an entity we actively track: Trust (server_id >= 0x1000000),
+-- tracked target, or alliance member. No-op for any other server_id so trust_buffs
+-- stays scoped to entities we query (never accumulates random nearby PCs).
+function common.track_buff(server_id, buff_id)
     if not server_id or not buff_id then return end
-    if not alliance_member_sids[server_id] then return end
-    common.apply_external_buff(server_id, buff_id)
+    if server_id >= 0x1000000 or tracked_targets[server_id] or alliance_member_sids[server_id] then
+        common.apply_external_buff(server_id, buff_id)
+    end
 end
 
 -- Get Trust buffs by server_id
@@ -1272,13 +1258,6 @@ end
 function common.get_tracked_target_buffs(server_id)
     if not server_id then return {} end
     return trust_buffs[server_id] or {}
-end
-
--- Apply a buff to a tracked target (packet-based, reuses trust_buffs table).
-function common.apply_tracked_target_buff(server_id, buff_id)
-    if not server_id or not buff_id then return end
-    if not tracked_targets[server_id] then return end
-    common.apply_external_buff(server_id, buff_id)
 end
 
 -- Check if a server_id belongs to a tracked target.

@@ -271,4 +271,39 @@ function action_core.try_use(ability, job_def, settings, party_index, descriptio
     return { command = command, description = description or ability.name }
 end
 
+--[[
+    Like try_use, but for an outside entity (tracked target or alliance member)
+    addressed by server_id instead of a party index. Builds the command with
+    build_ability_command_for_target and registers the pending buff so the
+    packet-based tracker records it. Mirrors try_use's usability → stratagem →
+    build → register order exactly.
+    Returns: {command, description} or nil, reason
+]]--
+function action_core.try_use_on_target(ability, job_def, settings, server_id, description)
+    if not server_id or server_id == 0 then return nil, 'no target' end
+
+    local eff_cost = settings and common.effective_ability_cost(ability, settings, job_def) or nil
+    local ok, reason = action_core.is_usable(ability, job_def, eff_cost)
+    if not ok then return nil, reason end
+
+    if settings then
+        local strat_result = common.check_stratagem(job_def, settings, ability.name, ability)
+        if strat_result == false then
+            return nil, 'stratagem unavailable'
+        elseif strat_result then
+            return strat_result
+        end
+    end
+
+    local command = common.build_ability_command_for_target(ability, server_id)
+    if not command then return nil, 'failed to build command' end
+
+    if ability.buff_id then
+        local bid = type(ability.buff_id) == 'table' and ability.buff_id[1] or ability.buff_id
+        common.register_pending_buff(server_id, bid)
+    end
+
+    return { command = command, description = description or ability.name }
+end
+
 return action_core
