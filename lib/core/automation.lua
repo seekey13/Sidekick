@@ -41,18 +41,6 @@ function automation.execute_command(command, description)
     return true
 end
 
-function automation.set_throttle(seconds)
-    command_throttle = seconds
-end
-
-function automation.get_throttle()
-    return command_throttle
-end
-
-function automation.reset_throttle()
-    last_command_time = 0
-end
-
 --[[
     Action Priority System
 ]]--

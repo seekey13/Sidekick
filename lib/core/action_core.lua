@@ -14,9 +14,6 @@ local AshitaCore = AshitaCore
 -- Resource Management  (formerly lib.core.resource)
 -- ============================================================================
 
--- Cooldown tracking
-local recast_timers = {}
-
 -- Post-recast delay tracking (when recast hits 0, track when it became ready)
 local recast_ready_time = {}
 local POST_RECAST_DELAY = 0.5  -- 0.5 second delay after recast hits 0
@@ -77,14 +74,6 @@ function action_core.is_ability_ready(ability_id)
     return true
 end
 
--- Get raw ability recast timer value.
-function action_core.get_ability_recast(ability_id)
-    if not ability_id then return 0 end
-    local recast_mgr = AshitaCore:GetMemoryManager():GetRecast()
-    if not recast_mgr then return 0 end
-    return recast_mgr:GetAbilityTimer(ability_id)
-end
-
 -- Check if a spell (by recast ID) is off cooldown.
 function action_core.is_spell_ready(spell_recast_id)
     if not spell_recast_id then return true end
@@ -100,25 +89,6 @@ function action_core.get_spell_recast(spell_recast_id)
     local recast_mgr = AshitaCore:GetMemoryManager():GetRecast()
     if not recast_mgr then return 0 end
     return recast_mgr:GetSpellTimer(spell_recast_id)
-end
-
--- Custom recast tracking (for abilities that share cooldowns).
-function action_core.set_custom_recast(key, duration)
-    recast_timers[key] = os.clock() + duration
-end
-
-function action_core.is_custom_recast_ready(key)
-    if not recast_timers[key] then return true end
-    return os.clock() >= recast_timers[key]
-end
-
-function action_core.get_custom_recast(key)
-    if not recast_timers[key] then return 0 end
-    return math.max(0, recast_timers[key] - os.clock())
-end
-
-function action_core.clear_custom_recast(key)
-    recast_timers[key] = nil
 end
 
 -- ============================================================================

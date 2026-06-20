@@ -145,34 +145,6 @@ function common.calculate_distance(entity1, entity2)
     return distance
 end
 
--- Get entity by name (searches all entities 0-2302)
--- Args: name (string) - Character name to search for
--- Returns: entity or nil
-function common.get_entity_by_name(name)
-    if not name then return nil end
-    
-    for i = 0, 2302 do
-        local entity = GetEntity(i)
-        if entity and entity.Name == name then
-            return entity
-        end
-    end
-    
-    return nil
-end
-
--- Check if a party member is a Trust (NPC)
--- Args: party_index (number) - Party member index (0-5)
--- Returns: boolean - true if Trust, false otherwise
-function common.is_trust(party_index)
-    local party = common.get_party()
-    if not party then return false end
-    
-    local server_id = party:GetMemberServerId(party_index)
-    -- Trusts have server_id >= 0x1000000 (16777216)
-    return server_id >= 0x1000000
-end
-
 --[[
     Logging Utilities
 ]]--
@@ -506,30 +478,6 @@ local job_data = {
     {id = 22, abbr = 'RUN', name = 'Rune Fencer'}
 }
 
--- Convert job abbreviation to job ID
-function common.get_job_id_from_abbr(job_abbr)
-    if not job_abbr then return nil end
-    local upper_abbr = job_abbr:upper()
-    for _, job in ipairs(job_data) do
-        if job.abbr == upper_abbr then
-            return job.id
-        end
-    end
-    return nil
-end
-
--- Get full job name from abbreviation
-function common.get_job_name_from_abbr(job_abbr)
-    if not job_abbr then return nil end
-    local upper_abbr = job_abbr:upper()
-    for _, job in ipairs(job_data) do
-        if job.abbr == upper_abbr then
-            return job.name
-        end
-    end
-    return job_abbr
-end
-
 -- Get full job name from ID
 function common.get_job_name_from_id(job_id)
     if not job_id then return 'Unknown' end
@@ -571,23 +519,6 @@ end
 -- Returns: pet entity object or nil if no pet
 function common.get_pet_entity()
     return targets.get_pet()
-end
-
--- Get pet's HP percentage
--- Returns: number (HP percentage 0-100) or 0 if no pet
-function common.get_pet_hp_percent()
-    local pet = targets.get_pet()
-    if not pet then
-        return 0
-    end
-    
-    -- Get pet's HealthPercent
-    local hpp = pet.HealthPercent
-    if not hpp then
-        return 0
-    end
-    
-    return hpp
 end
 
 -- Get party manager
@@ -673,22 +604,6 @@ function common.resolve_entity_name(server_id)
     end
 
     return 'Unknown'
-end
-
--- Get player's current target index
--- Returns: number (target index) or 0 if no target
-function common.get_target_index()
-    local target_entity = targets.get_t()
-    if not target_entity then
-        return 0
-    end
-    
-    local target_index = target_entity.TargetIndex
-    if not target_index then
-        return 0
-    end
-    
-    return target_index
 end
 
 -- Get player's current target server ID
@@ -779,22 +694,6 @@ function common.get_party_index_by_name(name)
     return nil
 end
 
-function common.get_target_index_by_name(name)
-    -- Returns entity target index for given character name, or nil if not found
-    local party_index = common.get_party_index_by_name(name)
-    if not party_index then return nil end
-    
-    local party = common.get_party()
-    if not party then return nil end
-    
-    local target_index = party:GetMemberTargetIndex(party_index)
-    if target_index and target_index > 0 then
-        return target_index
-    end
-    
-    return nil
-end
-
 -- Returns true if value is above zero and below threshold (i.e. alive/present but needs attention).
 -- Consolidates the repeated pattern: value > 0 and value < threshold
 function common.below_threshold(value, threshold)
@@ -825,23 +724,6 @@ function common.is_in_range(target_index, range)
     -- Calculate distance between player and target
     local distance = common.calculate_distance(player_entity, target_entity)
     return distance and distance <= range_value
-end
-
--- Get distance between player and pet
--- Returns: number (distance in yalms) or nil if no pet or error
-function common.get_pet_distance()
-    local player_entity = targets.get_me()
-    if not player_entity then
-        return nil
-    end
-    
-    local pet_entity = targets.get_pet()
-    if not pet_entity then
-        return nil
-    end
-    
-    -- Calculate distance between player and pet
-    return common.calculate_distance(player_entity, pet_entity)
 end
 
 -- Get distance between player and party member
@@ -1419,100 +1301,6 @@ end
 function common.is_tracked_target(server_id)
     if not server_id then return false end
     return tracked_targets[server_id] ~= nil
-end
-
-function common.has_status(target_index, status_id)
-    if not target_index then return false end
-    
-    local party = common.get_party()
-    if not party then return false end
-    
-    -- Find party member index for this target
-    local party_index = -1
-    for i = 0, 5 do
-        if party:GetMemberIsActive(i) == 1 then
-            if party:GetMemberTargetIndex(i) == target_index then
-                party_index = i
-                break
-            end
-        end
-    end
-    
-    if party_index == -1 then return false end
-    
-    -- Check status effects via memory pointer
-    local ok_ptr, ptr = pcall(function() return party:GetMemberPointer(party_index) end)
-    if not ok_ptr or not ptr or ptr == 0 then return false end
-    
-    local buffs_ptr = ashita.memory.read_uint32(ptr + 0x0C)
-    if buffs_ptr == 0 then return false end
-    
-    for i = 0, 31 do
-        local status = ashita.memory.read_uint16(buffs_ptr + (i * 2))
-        if status == status_id then
-            return true
-        end
-    end
-    
-    return false
-end
-
-function common.get_removable_debuffs(target_index, removable_list)
-    if not target_index or not removable_list then return {} end
-    
-    local party = common.get_party()
-    if not party then return {} end
-    
-    -- Find party member index
-    local party_index = -1
-    for i = 0, 5 do
-        if party:GetMemberIsActive(i) == 1 then
-            if party:GetMemberTargetIndex(i) == target_index then
-                party_index = i
-                break
-            end
-        end
-    end
-    
-    if party_index == -1 then return {} end
-    
-    local debuffs = {}
-    local ok_ptr, ptr = pcall(function() return party:GetMemberPointer(party_index) end)
-    if not ok_ptr or not ptr or ptr == 0 then return debuffs end
-    
-    local buffs_ptr = ashita.memory.read_uint32(ptr + 0x0C)
-    if buffs_ptr == 0 then return debuffs end
-    
-    for i = 0, 31 do
-        local status = ashita.memory.read_uint16(buffs_ptr + (i * 2))
-        for _, removable_id in ipairs(removable_list) do
-            if status == removable_id then
-                table.insert(debuffs, status)
-            end
-        end
-    end
-    
-    return debuffs
-end
-
---[[
-    Target Validation
-]]--
-
-function common.is_valid_target(target_index)
-    if not target_index then return false end
-    
-    local entity = common.get_entity(target_index)
-    if not entity then return false end
-    
-    -- Check if entity is valid and alive
-    local spawn_flags = entity.SpawnFlags
-    if spawn_flags == 0 then return false end
-    
-    local hpp = entity.HPPercent
-    if hpp == 0 then return false end
-    
-    return true
 end
 
 --[[
