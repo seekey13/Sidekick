@@ -18,6 +18,14 @@ local action_core = require('lib.core.action_core')
 -- ownership is re-established.
 local geo_bt_pending = false
 
+-- Timestamp of the last Geo-bt cast. The luopan takes a moment to register as a
+-- pet after the cast completes; until it does, has_luopan reads false. Without a
+-- grace window that transient false would clear geo_bt_pending, and the moment the
+-- luopan appears the "take over the luopan" branch would Full Circle our own fresh
+-- debuff. Hold the pending flag for this long before trusting has_luopan == false.
+local geo_bt_cast_time = 0
+local GEO_BT_LUOPAN_GRACE = 4.0  -- seconds
+
 -- Returns the Geo-bt ability the user wants maintained in combat, or nil.
 -- Honors the selected_Geo-bt dropdown (falls back to the highest-cost available
 -- debuff). filter_abilities_by_level applies the level + <bt> combat gate, so
@@ -93,7 +101,9 @@ function geo.execute(settings, job_def, main_level, sub_level, player_resource)
     local has_luopan = common.targets.get_pet() ~= nil
 
     -- Our debuff luopan is gone (expired / battle target died): clear tracking.
-    if geo_bt_pending and not has_luopan then
+    -- Ignore the transient window right after a cast, before the luopan registers
+    -- as a pet, so we don't drop the flag and then Full Circle our own debuff.
+    if geo_bt_pending and not has_luopan and (os.clock() - geo_bt_cast_time) > GEO_BT_LUOPAN_GRACE then
         geo_bt_pending = false
     end
 
@@ -113,11 +123,14 @@ function geo.execute(settings, job_def, main_level, sub_level, player_resource)
             local fc = try_full_circle(job_def, settings, derived_main_level, derived_sub_level,
                 'Full Circle (Geo-bt taking the luopan)')
             if fc then return fc end
-        elseif not has_luopan then
+        elseif not has_luopan and not geo_bt_pending then
+            -- No luopan and none pending: cast the debuff. The pending guard keeps
+            -- us from re-casting during the grace window while the luopan summons.
             local result = action_core.first_command({ geo_bt }, job_def, settings, 0,
                 function(ability) return string.format('Geo-bt: %s on battle target', ability.name) end)
             if result then
                 geo_bt_pending = true
+                geo_bt_cast_time = os.clock()
                 return result
             end
         end
