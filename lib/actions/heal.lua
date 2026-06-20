@@ -8,6 +8,37 @@ local heal = {}
 local common      = require('lib.core.common')
 local action_core = require('lib.core.action_core')
 
+-- Attempt to heal an outside target (tracked target or alliance member) addressed
+-- by server_id. Mirrors the inline focus/lowest outside-heal blocks exactly,
+-- including the stratagem-unavailable ABORT (the original blocks `return nil`,
+-- ending the whole tick, when a required stratagem can't fire).
+-- Returns: result, abort
+--   result ~= nil               -> caller should `return result`
+--   result == nil, abort == true  -> stratagem unavailable: caller aborts (`return nil`)
+--   result == nil, abort == false -> nothing to do here: caller falls through
+-- desc_fmt takes (target_name, ability_name, hpp).
+local function try_heal_outside(outside_abilities, hpp, sid, target_index, name,
+                                job_def, player_resource, settings, target_snapshot, desc_fmt)
+    local selected = heal.select_ability(outside_abilities, hpp, job_def, player_resource, nil, target_snapshot, settings)
+    if not selected then return nil, false end
+
+    local strat = common.check_stratagem(job_def, settings, selected.name, selected)
+    if strat == false then return nil, true end
+    if strat then return strat, false end
+
+    local range = type(selected.range) == 'number' and selected.range or 21
+    if not common.is_in_range(target_index, range) then return nil, false end
+
+    local command = common.build_ability_command_for_target(selected, sid)
+    if not command then return nil, false end
+
+    if selected.buff_id then
+        local bid = type(selected.buff_id) == 'table' and selected.buff_id[1] or selected.buff_id
+        common.register_pending_buff(sid, bid)
+    end
+    return { command = command, description = string.format(desc_fmt, name, selected.name, hpp) }, false
+end
+
 function heal.execute(settings, job_def, main_level, sub_level, player_resource)
     -- Check if healing is enabled
     if not settings.heal_enabled then
@@ -284,31 +315,11 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
             local focus_hpp = tt.hpp or 0
             local focus_target_index = tt.target_index or 0
             if focus_target_index > 0 and common.is_active_member(focus_hpp) then
-                local outside_abilities = common.outside_abilities(available_abilities)
-                local selected_ability = heal.select_ability(outside_abilities, focus_hpp, job_def, player_resource, nil, tt, settings)
-                if selected_ability then
-                    -- Check stratagems before casting
-                    local strat_result = common.check_stratagem(job_def, settings, selected_ability.name, selected_ability)
-                    if strat_result == false then return nil
-                    elseif strat_result then return strat_result end
-
-                    local ability_range = type(selected_ability.range) == 'number' and selected_ability.range or 21
-                    if common.is_in_range(focus_target_index, ability_range) then
-                        local command = common.build_ability_command_for_target(selected_ability, focus_tracked_sid)
-                        if command then
-                            -- Register pending buff for packet tracking
-                            if selected_ability.buff_id then
-                                local bid = type(selected_ability.buff_id) == 'table' and selected_ability.buff_id[1] or selected_ability.buff_id
-                                common.register_pending_buff(focus_tracked_sid, bid)
-                            end
-                            common.debugf('[HEAL] >>> Healing tracked focus target %s with %s', tt.name, selected_ability.name)
-                            return {
-                                command = command,
-                                description = string.format('Healing focus target %s with %s (HP: %.1f%%)', tt.name, selected_ability.name, focus_hpp)
-                            }
-                        end
-                    end
-                end
+                local outside = common.outside_abilities(available_abilities)
+                local result, abort = try_heal_outside(outside, focus_hpp, focus_tracked_sid, focus_target_index, tt.name,
+                    job_def, player_resource, settings, tt, 'Healing focus target %s with %s (HP: %.1f%%)')
+                if result then return result end
+                if abort then return nil end
             end
         -- Case A2: Focus is an alliance member
         elseif focus_alliance_sid then
@@ -316,30 +327,11 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
             if al_member and al_member.is_active and al_member.target_index and al_member.target_index > 0 then
                 local focus_hpp = al_member.hpp or 0
                 if common.is_active_member(focus_hpp) then
-                    local outside_abilities = common.outside_abilities(available_abilities)
-                    local selected_ability = heal.select_ability(outside_abilities, focus_hpp, job_def, player_resource, nil, al_member, settings)
-                    if selected_ability then
-                        -- Check stratagems before casting
-                        local strat_result = common.check_stratagem(job_def, settings, selected_ability.name, selected_ability)
-                        if strat_result == false then return nil
-                        elseif strat_result then return strat_result end
-
-                        local ability_range = type(selected_ability.range) == 'number' and selected_ability.range or 21
-                        if common.is_in_range(al_member.target_index, ability_range) then
-                            local command = common.build_ability_command_for_target(selected_ability, focus_alliance_sid)
-                            if command then
-                                if selected_ability.buff_id then
-                                    local bid = type(selected_ability.buff_id) == 'table' and selected_ability.buff_id[1] or selected_ability.buff_id
-                                    common.register_pending_buff(focus_alliance_sid, bid)
-                                end
-                                common.debugf('[HEAL] >>> Healing alliance focus %s with %s', al_member.name, selected_ability.name)
-                                return {
-                                    command = command,
-                                    description = string.format('Healing alliance focus %s with %s (HP: %.1f%%)', al_member.name, selected_ability.name, focus_hpp)
-                                }
-                            end
-                        end
-                    end
+                    local outside = common.outside_abilities(available_abilities)
+                    local result, abort = try_heal_outside(outside, focus_hpp, focus_alliance_sid, al_member.target_index, al_member.name,
+                        job_def, player_resource, settings, al_member, 'Healing alliance focus %s with %s (HP: %.1f%%)')
+                    if result then return result end
+                    if abort then return nil end
                 end
             end
         -- Case B: Focus is a party member
@@ -422,31 +414,12 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
     if party_status.lowest_tracked_sid and state.tracked then
         local tt = state.tracked[party_status.lowest_tracked_sid]
         if tt and tt.is_active and tt.target_index and tt.target_index > 0 then
-            local outside_abilities = common.outside_abilities(available_abilities)
-            if #outside_abilities > 0 then
-                local selected_ability = heal.select_ability(outside_abilities, party_status.lowest_tracked_hpp, job_def, player_resource, nil, tt, settings)
-                if selected_ability then
-                    -- Check stratagems before casting
-                    local strat_result = common.check_stratagem(job_def, settings, selected_ability.name, selected_ability)
-                    if strat_result == false then return nil
-                    elseif strat_result then return strat_result end
-
-                    local ability_range = type(selected_ability.range) == 'number' and selected_ability.range or 21
-                    if common.is_in_range(tt.target_index, ability_range) then
-                        local command = common.build_ability_command_for_target(selected_ability, party_status.lowest_tracked_sid)
-                        if command then
-                            if selected_ability.buff_id then
-                                local bid = type(selected_ability.buff_id) == 'table' and selected_ability.buff_id[1] or selected_ability.buff_id
-                                common.register_pending_buff(party_status.lowest_tracked_sid, bid)
-                            end
-                            return {
-                                command = command,
-                                description = string.format('Healing tracked %s with %s (HP: %.1f%%)',
-                                    tt.name, selected_ability.name, party_status.lowest_tracked_hpp)
-                            }
-                        end
-                    end
-                end
+            local outside = common.outside_abilities(available_abilities)
+            if #outside > 0 then
+                local result, abort = try_heal_outside(outside, party_status.lowest_tracked_hpp, party_status.lowest_tracked_sid,
+                    tt.target_index, tt.name, job_def, player_resource, settings, tt, 'Healing tracked %s with %s (HP: %.1f%%)')
+                if result then return result end
+                if abort then return nil end
             end
         end
     end
@@ -455,31 +428,12 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
     if party_status.lowest_alliance_sid and state.alliance then
         local al_member = common.find_alliance_member(state, party_status.lowest_alliance_sid)
         if al_member and al_member.is_active and al_member.target_index and al_member.target_index > 0 then
-            local outside_abilities = common.outside_abilities(available_abilities)
-            if #outside_abilities > 0 then
-                local selected_ability = heal.select_ability(outside_abilities, party_status.lowest_alliance_hpp, job_def, player_resource, nil, al_member, settings)
-                if selected_ability then
-                    -- Check stratagems before casting
-                    local strat_result = common.check_stratagem(job_def, settings, selected_ability.name, selected_ability)
-                    if strat_result == false then return nil
-                    elseif strat_result then return strat_result end
-
-                    local ability_range = type(selected_ability.range) == 'number' and selected_ability.range or 21
-                    if common.is_in_range(al_member.target_index, ability_range) then
-                        local command = common.build_ability_command_for_target(selected_ability, party_status.lowest_alliance_sid)
-                        if command then
-                            if selected_ability.buff_id then
-                                local bid = type(selected_ability.buff_id) == 'table' and selected_ability.buff_id[1] or selected_ability.buff_id
-                                common.register_pending_buff(party_status.lowest_alliance_sid, bid)
-                            end
-                            return {
-                                command = command,
-                                description = string.format('Healing alliance %s with %s (HP: %.1f%%)',
-                                    al_member.name, selected_ability.name, party_status.lowest_alliance_hpp)
-                            }
-                        end
-                    end
-                end
+            local outside = common.outside_abilities(available_abilities)
+            if #outside > 0 then
+                local result, abort = try_heal_outside(outside, party_status.lowest_alliance_hpp, party_status.lowest_alliance_sid,
+                    al_member.target_index, al_member.name, job_def, player_resource, settings, al_member, 'Healing alliance %s with %s (HP: %.1f%%)')
+                if result then return result end
+                if abort then return nil end
             end
         end
     end
