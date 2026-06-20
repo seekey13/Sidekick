@@ -22,9 +22,6 @@ return {
                 id = 4,  -- Spell ID
                 magic = 'white',
                 magic_type = 'healing',
-                command = function(target)
-                    return '/ma "Cure IV" '..target
-                end,
                 range = 20,
                 value = 400,
                 wakes = true,
@@ -37,9 +34,6 @@ return {
                 id = 3,  -- Spell ID
                 magic = 'white',
                 magic_type = 'healing',
-                command = function(target)
-                    return '/ma "Cure III" '..target
-                end,
                 range = 20,
                 value = 200,
                 wakes = true,
@@ -52,9 +46,6 @@ return {
                 id = 2,  -- Spell ID
                 magic = 'white',
                 magic_type = 'healing',
-                command = function(target)
-                    return '/ma "Cure II" '..target
-                end,
                 range = 20,
                 value = 90,
                 wakes = true,
@@ -67,9 +58,6 @@ return {
                 id = 1,  -- Spell ID
                 magic = 'white',
                 magic_type = 'healing',
-                command = function(target)
-                    return '/ma "Cure" '..target
-                end,
                 range = 20,
                 value = 30,
                 wakes = true,
@@ -96,9 +84,6 @@ return {
                 id = 46,  -- Protect IV spell ID
                 magic = 'white',
                 magic_type = 'enhancing',
-                command = function(target)
-                    return '/ma "Protect IV" '..target
-                end,
                 buff_id = 40,  -- Protect buff
                 range = 20,
                 group = 'protect',
@@ -111,9 +96,6 @@ return {
                 id = 45,  -- Protect III spell ID
                 magic = 'white',
                 magic_type = 'enhancing',
-                command = function(target)
-                    return '/ma "Protect III" '..target
-                end,
                 buff_id = 40,  -- Protect buff
                 range = 20,
                 group = 'protect',
@@ -126,9 +108,6 @@ return {
                 id = 44,  -- Protect II spell ID
                 magic = 'white',
                 magic_type = 'enhancing',
-                command = function(target)
-                    return '/ma "Protect II" '..target
-                end,
                 buff_id = 40,  -- Protect buff
                 range = 20,
                 group = 'protect',
@@ -141,9 +120,6 @@ return {
                 id = 43,  -- Protect spell ID
                 magic = 'white',
                 magic_type = 'enhancing',
-                command = function(target)
-                    return '/ma "Protect" '..target
-                end,
                 buff_id = 40,  -- Protect buff
                 range = 20,
                 group = 'protect',
@@ -156,9 +132,6 @@ return {
                 id = 50,  -- Shell III spell ID
                 magic = 'white',
                 magic_type = 'enhancing',
-                command = function(target)
-                    return '/ma "Shell III" '..target
-                end,
                 buff_id = 41,  -- Shell buff
                 range = 20,
                 group = 'shell',
@@ -171,9 +144,6 @@ return {
                 id = 49,  -- Shell II spell ID
                 magic = 'white',
                 magic_type = 'enhancing',
-                command = function(target)
-                    return '/ma "Shell II" '..target
-                end,
                 buff_id = 41,  -- Shell buff
                 range = 20,
                 group = 'shell',
@@ -186,9 +156,6 @@ return {
                 id = 48,  -- Shell spell ID
                 magic = 'white',
                 magic_type = 'enhancing',
-                command = function(target)
-                    return '/ma "Shell" '..target
-                end,
                 buff_id = 41,  -- Shell buff
                 range = 20,
                 group = 'shell',

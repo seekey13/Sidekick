@@ -82,9 +82,6 @@ return {
                 id = 46,  -- Spell ID
                 magic = 'white',
                 magic_type = 'enhancing',
-                command = function(target)
-                    return '/ma "Protect IV" '..target
-                end,
                 buff_id = 40,  -- Protect
                 group = 'protect',
                 target_outside = true,
@@ -96,9 +93,6 @@ return {
                 id = 45,  -- Spell ID
                 magic = 'white',
                 magic_type = 'enhancing',
-                command = function(target)
-                    return '/ma "Protect III" '..target
-                end,
                 buff_id = 40,
                 group = 'protect',
                 target_outside = true,
@@ -110,9 +104,6 @@ return {
                 id = 44,  -- Spell ID
                 magic = 'white',
                 magic_type = 'enhancing',
-                command = function(target)
-                    return '/ma "Protect II" '..target
-                end,
                 buff_id = 40,
                 group = 'protect',
                 target_outside = true,
@@ -124,9 +115,6 @@ return {
                 id = 43,  -- Spell ID
                 magic = 'white',
                 magic_type = 'enhancing',
-                command = function(target)
-                    return '/ma "Protect" '..target
-                end,
                 buff_id = 40,
                 group = 'protect',
                 target_outside = true,
@@ -139,9 +127,6 @@ return {
                 id = 51,  -- Spell ID
                 magic = 'white',
                 magic_type = 'enhancing',
-                command = function(target)
-                    return '/ma "Shell IV" '..target
-                end,
                 buff_id = 41,  -- Shell
                 group = 'shell',
                 target_outside = true,
@@ -153,9 +138,6 @@ return {
                 id = 50,  -- Spell ID
                 magic = 'white',
                 magic_type = 'enhancing',
-                command = function(target)
-                    return '/ma "Shell III" '..target
-                end,
                 buff_id = 41,
                 group = 'shell',
                 target_outside = true,
@@ -167,9 +149,6 @@ return {
                 id = 49,  -- Spell ID
                 magic = 'white',
                 magic_type = 'enhancing',
-                command = function(target)
-                    return '/ma "Shell II" '..target
-                end,
                 buff_id = 41,
                 group = 'shell',
                 target_outside = true,
@@ -181,9 +160,6 @@ return {
                 id = 48,  -- Spell ID
                 magic = 'white',
                 magic_type = 'enhancing',
-                command = function(target)
-                    return '/ma "Shell" '..target
-                end,
                 buff_id = 41,
                 group = 'shell',
                 target_outside = true,
@@ -195,9 +171,6 @@ return {
                 id = 111,  -- Spell ID
                 magic = 'white',
                 magic_type = 'enhancing',
-                command = function(target)
-                    return '/ma "Regen III" '..target
-                end,
                 buff_id = 42,  -- Regen
                 range = 20,
             },
@@ -208,9 +181,6 @@ return {
                 id = 110,  -- Spell ID
                 magic = 'white',
                 magic_type = 'enhancing',
-                command = function(target)
-                    return '/ma "Regen II" '..target
-                end,
                 buff_id = 42,
                 range = 20,
             },
@@ -221,9 +191,6 @@ return {
                 id = 108,  -- Spell ID
                 magic = 'white',
                 magic_type = 'enhancing',
-                command = function(target)
-                    return '/ma "Regen" '..target
-                end,
                 buff_id = 42,
                 range = 20,
             },
@@ -423,9 +390,6 @@ return {
                 id = 136,  -- Spell ID
                 magic = 'white',
                 magic_type = 'enhancing',
-                command = function(target)
-                    return '/ma "Invisible" '..target
-                end,
                 buff_id = 69,  -- Invisible
                 idle_only = true,
             },
@@ -436,9 +400,6 @@ return {
                 id = 137,  -- Spell ID
                 magic = 'white',
                 magic_type = 'enhancing',
-                command = function(target)
-                    return '/ma "Sneak" '..target
-                end,
                 buff_id = 71,  -- Sneak
                 idle_only = true,
             },
@@ -449,9 +410,6 @@ return {
                 id = 138,  -- Spell ID
                 magic = 'white',
                 magic_type = 'enhancing',
-                command = function(target)
-                    return '/ma "Deodorize" '..target
-                end,
                 idle_only = true,
                 buff_id = 70,  -- Deodorize
             },
@@ -467,9 +425,6 @@ return {
                 magic = 'white',
                 magic_type = 'healing',
                 debuff_id = 3,  -- Poison
-                command = function(target)
-                    return '/ma "Poisona" '..target
-                end,
                 range = 20,
                 requires_buff = 401,  -- Requires Addendum: White
                 target_outside = true,
@@ -482,9 +437,6 @@ return {
                 magic = 'white',
                 magic_type = 'healing',
                 debuff_id = 4,  -- Paralysis
-                command = function(target)
-                    return '/ma "Paralyna" '..target
-                end,
                 range = 20,
                 requires_buff = 401,  -- Requires Addendum: White
                 target_outside = true,
@@ -497,9 +449,6 @@ return {
                 magic = 'white',
                 magic_type = 'healing',
                 debuff_id = 5,  -- Blindness
-                command = function(target)
-                    return '/ma "Blindna" '..target
-                end,
                 range = 20,
                 requires_buff = 401,  -- Requires Addendum: White
                 target_outside = true,
@@ -512,9 +461,6 @@ return {
                 magic = 'white',
                 magic_type = 'healing',
                 debuff_id = 6,  -- Silence
-                command = function(target)
-                    return '/ma "Silena" '..target
-                end,
                 range = 20,
                 requires_buff = 401,  -- Requires Addendum: White
                 target_outside = true,
@@ -527,9 +473,6 @@ return {
                 magic = 'white',
                 magic_type = 'healing',
                 debuff_id = {9, 15, 20, 30},  -- Curse, Doom & Bane
-                command = function(target)
-                    return '/ma "Cursna" '..target
-                end,
                 range = 20,
                 requires_buff = 401,  -- Requires Addendum: White
                 target_outside = true,
@@ -542,9 +485,6 @@ return {
                 magic = 'white',
                 magic_type = 'healing',
                 debuff_id = {11, 12, 13, 31, 128, 129, 130, 131, 134, 135, 136, 137, 138, 139, 140, 141, 142, 144, 145, 146, 147, 148, 149, 156, 167, 174, 175, 189, 404},  -- Bind, Weight, Slow, Plague, Burn, Frost, Choke, Rasp, Dia, Bio, STR Down, DEX Down, VIT Down, AGI Down, INT Down, MND Down, CHR Down, Max HP Down, Max MP Down, Accuracy Down, Attack Down, Evasion Down, Defense Down, Flash, Magic Def Down, Magic Acc Down, Magic Atk Down, Max TP Down, Magic Eva Down
-                command = function(target)
-                    return '/ma "Erase" '..target
-                end,
                 range = 20,
                 requires_buff = 401,  -- Requires Addendum: White
                 target_outside = true,
@@ -557,9 +497,6 @@ return {
                 magic = 'white',
                 magic_type = 'healing',
                 debuff_id = {8, 31},  -- Disease & Plague
-                command = function(target)
-                    return '/ma "Viruna" '..target
-                end,
                 range = 20,
                 requires_buff = 401,  -- Requires Addendum: White
             },
@@ -571,9 +508,6 @@ return {
                 magic = 'white',
                 magic_type = 'healing',
                 debuff_id = 7,  -- Petrification
-                command = function(target)
-                    return '/ma "Stona" '..target
-                end,
                 range = 20,
                 requires_buff = 401,  -- Requires Addendum: White
                 target_outside = true,
@@ -589,9 +523,6 @@ return {
                 id = 4,  -- Spell ID
                 magic = 'white',
                 magic_type = 'healing',
-                command = function(target)
-                    return '/ma "Cure IV" '..target
-                end,
                 range = 20,
                 value = 400,
                 wakes = true,
@@ -604,9 +535,6 @@ return {
                 id = 3,  -- Spell ID
                 magic = 'white',
                 magic_type = 'healing',
-                command = function(target)
-                    return '/ma "Cure III" '..target
-                end,
                 range = 20,
                 value = 200,
                 wakes = true,
@@ -619,9 +547,6 @@ return {
                 id = 2,  -- Spell ID
                 magic = 'white',
                 magic_type = 'healing',
-                command = function(target)
-                    return '/ma "Cure II" '..target
-                end,
                 range = 20,
                 value = 90,
                 wakes = true,
@@ -634,9 +559,6 @@ return {
                 id = 1,  -- Spell ID
                 magic = 'white',
                 magic_type = 'healing',
-                command = function(target)
-                    return '/ma "Cure" '..target
-                end,
                 range = 20,
                 value = 30,
                 wakes = true,
@@ -683,9 +605,6 @@ return {
                 level = 70,
                 cost = 150,
                 id = 141,  -- Spell ID
-                command = function(target)
-                    return '/ma "Raise II" '..target
-                end,
                 range = 20,
                 magic = 'white',
                 magic_type = 'raise',  -- distinct from 'healing' so Accession/Rapture don't apply
@@ -698,9 +617,6 @@ return {
                 level = 35,
                 cost = 150,
                 id = 12,  -- Spell ID
-                command = function(target)
-                    return '/ma "Raise" '..target
-                end,
                 range = 20,
                 magic = 'white',
                 magic_type = 'raise',  -- distinct from 'healing' so Accession/Rapture don't apply

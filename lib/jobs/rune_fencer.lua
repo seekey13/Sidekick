@@ -24,9 +24,6 @@ return {
                 id = 46,
                 magic = 'white',
                 magic_type = 'enhancing',
-                command = function(target)
-                    return '/ma "Protect" '..target
-                end,
                 element = 'Light',
                 buff_id = 40,  -- Protect buff
                 group = 'protect',
@@ -39,9 +36,6 @@ return {
                 id = 47,
                 magic = 'white',
                 magic_type = 'enhancing',
-                command = function(target)
-                    return '/ma "Protect II" '..target
-                end,
                 element = 'Light',
                 buff_id = 40,  -- Protect II buff
                 group = 'protect',
@@ -54,9 +48,6 @@ return {
                 id = 129,
                 magic = 'white',
                 magic_type = 'enhancing',
-                command = function(target)
-                    return '/ma "Protect III" '..target
-                end,
                 element = 'Light',
                 buff_id = 40,  -- Protect III buff
                 group = 'protect',
@@ -70,9 +61,6 @@ return {
                 id = 48,
                 magic = 'white',
                 magic_type = 'enhancing',
-                command = function(target)
-                    return '/ma "Shell" '..target
-                end,
                 element = 'Light',
                 buff_id = 41,  -- Shell buff
                 group = 'shell',
@@ -85,9 +73,6 @@ return {
                 id = 49,
                 magic = 'white',
                 magic_type = 'enhancing',
-                command = function(target)
-                    return '/ma "Shell II" '..target
-                end,
                 element = 'Light',
                 buff_id = 41,  -- Shell II buff
                 group = 'shell',
@@ -100,9 +85,6 @@ return {
                 id = 50,
                 magic = 'white',
                 magic_type = 'enhancing',
-                command = function(target)
-                    return '/ma "Shell III" '..target
-                end,
                 element = 'Light',
                 buff_id = 41,  -- Shell III buff
                 group = 'shell',
@@ -115,9 +97,6 @@ return {
                 id = 52,
                 magic = 'white',
                 magic_type = 'enhancing',
-                command = function(target)
-                    return '/ma "Shell IV" '..target
-                end,
                 element = 'Light',
                 buff_id = 41,  -- Shell IV buff
                 group = 'shell',
@@ -301,9 +280,6 @@ return {
                 id = 108,  -- Spell ID
                 magic = 'white',
                 magic_type = 'enhancing',
-                command = function(target)
-                    return '/ma "Regen" '..target
-                end,
                 buff_id = 42,  -- Regen
             },
             {
@@ -313,9 +289,6 @@ return {
                 id = 110,
                 magic = 'white',
                 magic_type = 'enhancing',
-                command = function(target)
-                    return '/ma "Regen II" '..target
-                end,
                 element = 'Light',
                 buff_id = 42,  -- Regen II buff
             },
@@ -326,9 +299,6 @@ return {
                 id = 111,
                 magic = 'white',
                 magic_type = 'enhancing',
-                command = function(target)
-                    return '/ma "Regen III" '..target
-                end,
                 element = 'Light',
                 buff_id = 42,  -- Regen III buff
             },
@@ -340,9 +310,6 @@ return {
                 id = 109,
                 magic = 'white',
                 magic_type = 'enhancing',
-                command = function(target)
-                    return '/ma "Refresh" '..target
-                end,
                 element = 'Light',
                 buff_id = 43,  -- Refresh buff
             },
