@@ -889,6 +889,27 @@ end
 -- ============================================================================
 
 -- Render an ON/OFF button for ability state
+-- Render a fixed-width ON/OFF-style toggle with the 3-state color scheme
+-- (disabled / selected-default / unselected). on_click fires only when clicked
+-- while the spell is available. Pop count derived from the same branch that pushed.
+local function onoff_state_button(label, has_spell, is_enabled, on_click)
+    local pops = 0
+    if not has_spell then
+        imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_DISABLED)
+        imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_DISABLED)
+        imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_DISABLED)
+        pops = 3
+    elseif not is_enabled then
+        imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_UNSELECTED)
+        imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_UNSELECTED_HOVER)
+        imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_UNSELECTED_ACTIVE)
+        pops = 3
+    end
+    local clicked = imgui.Button(label, { get_onoff_button_width(), 0 })
+    if pops > 0 then imgui.PopStyleColor(pops) end
+    if has_spell and clicked then on_click() end
+end
+
 function ui_components.onoff_button(ctx, ability_name, job_def, has_spell)
     has_spell = has_spell == nil and true or has_spell
 
@@ -898,32 +919,10 @@ function ui_components.onoff_button(ctx, ability_name, job_def, has_spell)
     render_scholar_stratagem_button(ability_name, ability_obj, ctx)
 
     local is_enabled = is_ability_enabled(ctx, ability_name)
-    local button_width = get_onoff_button_width()
-    
-    if not has_spell then
-        imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_DISABLED)
-        imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_DISABLED)
-        imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_DISABLED)
-    elseif is_enabled then
-        -- Use default colors
-    else
-        imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_UNSELECTED)
-        imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_UNSELECTED_HOVER)
-        imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_UNSELECTED_ACTIVE)
-    end
-    
     local button_text = is_enabled and 'ON' or 'OFF'
-    local button_label = button_text .. '##onoff_' .. ability_name
-    
-    if has_spell and imgui.Button(button_label, { button_width, 0 }) then
+    onoff_state_button(button_text .. '##onoff_' .. ability_name, has_spell, is_enabled, function()
         toggle_ability(ctx, ability_name, not is_enabled, job_def)
-    elseif not has_spell then
-        imgui.Button(button_label, { button_width, 0 })
-    end
-    
-    if not has_spell or not is_enabled then
-        imgui.PopStyleColor(3)
-    end
+    end)
 end
 
 -- Render a dropdown for selecting ability from a group
@@ -1013,26 +1012,35 @@ function ui_components.group_dropdown(ctx, job_def, target_group, dropdown_width
     end
 end
 
+-- Push the ability-name label color (gray = unavailable, yellow = combat-only,
+-- green = idle-only), run body(), then pop if a color was pushed. Centralizes the
+-- push/pop pairing shared by every self/party single/grouped ability row.
+local function with_ability_label_color(grayed, combat_only, idle_only, body)
+    local pushed = true
+    if grayed then
+        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
+    elseif combat_only then
+        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_YELLOW)
+    elseif idle_only then
+        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GREEN)
+    else
+        pushed = false
+    end
+    body()
+    if pushed then imgui.PopStyleColor() end
+end
+
 -- Render a self-target single ability
 -- Layout: [ON/OFF Button] Ability Name
 function ui_components.self_single_ability(ctx, ability, job_def, id_suffix)
     local has_spell = common.has_spell_learned(ability)
     local spell_suffix = has_spell and '' or ' (Not Learned)'
     local ability_combat_only = effective_combat_only(ability, ctx)
-    
+
     ui_components.onoff_button(ctx, ability.name, job_def, has_spell)
-    
+
     imgui.SameLine()
-    
-    -- Push text color after buttons so S button / ON/OFF button are not tinted
-    if not has_spell then
-        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
-    elseif ability_combat_only then
-        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_YELLOW)
-    elseif ability.idle_only then
-        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GREEN)
-    end
-    
+
     local desc
     if ability.cost and ability.cost > 0 then
         local resource_label = (ability.resource_type or job_def.resource_type) == 'tp' and 'TP' or 'MP'
@@ -1041,21 +1049,19 @@ function ui_components.self_single_ability(ctx, ability, job_def, id_suffix)
     else
         desc = ability.name .. spell_suffix
     end
-    imgui.Text(desc)
-    
-    render_combat_only_context_menu(ctx, ability)
-    
-    if imgui.IsItemHovered() then
-        if ability_combat_only then
-            imgui.SetTooltip('Combat Only')
-        elseif ability.idle_only then
-            imgui.SetTooltip('Idle Only')
+
+    -- Ability name, tinted by availability / combat-only / idle-only state
+    with_ability_label_color(not has_spell, ability_combat_only, ability.idle_only, function()
+        imgui.Text(desc)
+        render_combat_only_context_menu(ctx, ability)
+        if imgui.IsItemHovered() then
+            if ability_combat_only then
+                imgui.SetTooltip('Combat Only')
+            elseif ability.idle_only then
+                imgui.SetTooltip('Idle Only')
+            end
         end
-    end
-    
-    if not has_spell or ability_combat_only or ability.idle_only then
-        imgui.PopStyleColor()
-    end
+    end)
 end
 
 -- Render a self-target grouped ability with dropdown
@@ -1082,49 +1088,17 @@ function ui_components.self_grouped_ability(ctx, ability, job_def)
 
     -- Use group-based ON/OFF button
     local is_enabled = is_group_enabled(ctx, ability.group)
-    local button_width = get_onoff_button_width()
-    
-    if not has_spell then
-        imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_DISABLED)
-        imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_DISABLED)
-        imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_DISABLED)
-    elseif is_enabled then
-        -- Use default colors
-    else
-        imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_UNSELECTED)
-        imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_UNSELECTED_HOVER)
-        imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_UNSELECTED_ACTIVE)
-    end
-    
     local button_text = is_enabled and 'ON' or 'OFF'
-    local button_label = button_text .. '##onoff_group_' .. ability.group
-    
-    if has_spell and imgui.Button(button_label, { button_width, 0 }) then
+    onoff_state_button(button_text .. '##onoff_group_' .. ability.group, has_spell, is_enabled, function()
         toggle_group(ctx, ability.group, not is_enabled)
-    elseif not has_spell then
-        imgui.Button(button_label, { button_width, 0 })
-    end
-    
-    if not has_spell or not is_enabled then
-        imgui.PopStyleColor(3)
-    end
-    
-    -- Push text color after buttons so S button / ON/OFF button are not tinted
+    end)
+
+    -- Dropdown, tinted by availability / combat-only / idle-only state
     local selected_combat_only = effective_combat_only(selected, ctx)
-    if not has_spell then
-        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
-    elseif selected_combat_only then
-        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_YELLOW)
-    elseif selected.idle_only then
-        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GREEN)
-    end
-    
     imgui.SameLine()
-    ui_components.group_dropdown(ctx, job_def, ability.group, DROPDOWN_WIDTH)
-    
-    if not has_spell or selected_combat_only or selected.idle_only then
-        imgui.PopStyleColor()
-    end
+    with_ability_label_color(not has_spell, selected_combat_only, selected.idle_only, function()
+        ui_components.group_dropdown(ctx, job_def, ability.group, DROPDOWN_WIDTH)
+    end)
 end
 
 -- Render a party-target single ability
@@ -1164,33 +1138,22 @@ function ui_components.party_single_ability(ctx, ability, job_def)
     end
     
     render_party_buttons(ctx, ability.name, has_spell, ability, false)
-    
+
     imgui.SameLine()
-    
+
+    -- Ability name, tinted by availability / combat-only / idle-only state
     local ability_combat_only = effective_combat_only(ability, ctx)
-    if not has_spell or not has_modifier then
-        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
-    elseif ability_combat_only then
-        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_YELLOW)
-    elseif ability.idle_only then
-        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GREEN)
-    end
-    
-    imgui.Text(desc)
-    
-    render_combat_only_context_menu(ctx, ability)
-    
-    if imgui.IsItemHovered() then
-        if ability_combat_only then
-            imgui.SetTooltip('Combat Only')
-        elseif ability.idle_only then
-            imgui.SetTooltip('Idle Only')
+    with_ability_label_color(not has_spell or not has_modifier, ability_combat_only, ability.idle_only, function()
+        imgui.Text(desc)
+        render_combat_only_context_menu(ctx, ability)
+        if imgui.IsItemHovered() then
+            if ability_combat_only then
+                imgui.SetTooltip('Combat Only')
+            elseif ability.idle_only then
+                imgui.SetTooltip('Idle Only')
+            end
         end
-    end
-    
-    if not has_spell or not has_modifier or ability_combat_only or ability.idle_only then
-        imgui.PopStyleColor()
-    end
+    end)
 end
 
 -- Render a party-target grouped ability with dropdown
@@ -1231,23 +1194,14 @@ function ui_components.party_grouped_ability(ctx, ability, job_def)
     end
     
     render_party_buttons(ctx, ability.group, has_spell, selected, true)
-    
+
     imgui.SameLine()
-    
+
+    -- Dropdown, tinted by availability / combat-only / idle-only state
     local selected_combat_only = effective_combat_only(selected, ctx)
-    if not has_spell or not has_modifier then
-        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
-    elseif selected_combat_only then
-        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_YELLOW)
-    elseif selected.idle_only then
-        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GREEN)
-    end
-    
-    ui_components.group_dropdown(ctx, job_def, ability.group, DROPDOWN_WIDTH)
-    
-    if not has_spell or not has_modifier or selected_combat_only or selected.idle_only then
-        imgui.PopStyleColor()
-    end
+    with_ability_label_color(not has_spell or not has_modifier, selected_combat_only, selected.idle_only, function()
+        ui_components.group_dropdown(ctx, job_def, ability.group, DROPDOWN_WIDTH)
+    end)
 end
 
 -- Main ability renderer - determines which rendering function to use
@@ -1423,33 +1377,22 @@ function ui_components.ability_checkbox(ctx, ability, job_def, id_suffix, show_s
         checkbox_label = desc .. '##' .. id_suffix
     end
     
+    -- Checkbox, tinted by availability / combat-only / idle-only state
     local ability_combat_only = effective_combat_only(ability, ctx)
-    if not has_spell then
-        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
-    elseif ability_combat_only then
-        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_YELLOW)
-    elseif ability.idle_only then
-        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GREEN)
-    end
-    
-    local ability_enabled = { is_ability_enabled(ctx, ability.name) }
-    if imgui.Checkbox(checkbox_label, ability_enabled) then
-        toggle_ability(ctx, ability.name, ability_enabled[1], job_def)
-    end
-    
-    render_combat_only_context_menu(ctx, ability)
-    
-    if imgui.IsItemHovered() then
-        if ability_combat_only then
-            imgui.SetTooltip('Combat Only')
-        elseif ability.idle_only then
-            imgui.SetTooltip('Idle Only')
+    with_ability_label_color(not has_spell, ability_combat_only, ability.idle_only, function()
+        local ability_enabled = { is_ability_enabled(ctx, ability.name) }
+        if imgui.Checkbox(checkbox_label, ability_enabled) then
+            toggle_ability(ctx, ability.name, ability_enabled[1], job_def)
         end
-    end
-    
-    if not has_spell or ability_combat_only or ability.idle_only then
-        imgui.PopStyleColor()
-    end
+        render_combat_only_context_menu(ctx, ability)
+        if imgui.IsItemHovered() then
+            if ability_combat_only then
+                imgui.SetTooltip('Combat Only')
+            elseif ability.idle_only then
+                imgui.SetTooltip('Idle Only')
+            end
+        end
+    end)
 end
 
 -- ============================================================================
