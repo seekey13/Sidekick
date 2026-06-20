@@ -176,35 +176,19 @@ end
     Player Status Checking
 ]]--
 
-function common.is_idle()
-    -- Returns true if not in combat (no valid mob battle target)
-    local ok, bt = pcall(function()
-        return targets.get_bt()
-    end)
-    
-    if not ok then
-        return true  -- Assume idle if we can't get battle target
-    end
-    
-    -- Check if battle target is a mob (0x10 flag in SpawnFlags)
-    local is_mob = bt and bit.band(bt.SpawnFlags, 0x10) ~= 0 or false
-    
-    return not is_mob
-end
-
 function common.is_combat()
+    -- True when the battle target is a mob (0x10 flag in SpawnFlags).
     local ok, bt = pcall(function()
         return targets.get_bt()
     end)
-    
     if not ok then
         return false  -- Assume not in combat if we can't get battle target
     end
-    
-    -- Check if battle target is a mob (0x10 flag in SpawnFlags)
-    local is_mob = bt and bit.band(bt.SpawnFlags, 0x10) ~= 0 or false
-    
-    return is_mob
+    return bt and bit.band(bt.SpawnFlags, 0x10) ~= 0 or false
+end
+
+function common.is_idle()
+    return not common.is_combat()
 end
 
 -- Returns true if the given ability should be gated to combat-only based on user settings.

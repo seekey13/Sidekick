@@ -17,6 +17,9 @@ local command_throttle = 1.0 -- 1 second between commands
 local pending_stratagem = nil   -- { action_type = string, timestamp = number }
 local STRATAGEM_FOLLOWUP_TIMEOUT = 5.0  -- seconds before we give up waiting
 
+-- Action types urgent enough to interrupt resting before they fire.
+local REST_BREAKING_ACTIONS = { heal = true, recover = true, item = true, status_removal = true, debuff_removal = true, wake = true, revive = true }
+
 --[[
     Command Execution
 ]]--
@@ -96,8 +99,7 @@ function automation.execute_priority_actions(priority_order, action_modules, set
                 local success, result = pcall(action_module.execute, settings, job_def, main_level, sub_level, player_resource)
                 if success and result then
                     -- Break rest if needed (same logic as normal path)
-                    local rest_breaking_actions = { heal = true, recover = true, item = true, status_removal = true, debuff_removal = true, wake = true, revive = true }
-                    if rest_breaking_actions[locked_type] and common.is_resting() then
+                    if REST_BREAKING_ACTIONS[locked_type] and common.is_resting() then
                         common.set_resting(false)
                         common.reset_rest_timer()
                         automation.execute_command('/heal off', 'Breaking rest for: ' .. locked_type)
@@ -137,8 +139,7 @@ function automation.execute_priority_actions(priority_order, action_modules, set
                 -- If resting and this is an urgent action type, break rest first.
                 -- buff and geo are low-priority and do not interrupt rest.
                 -- The actual action fires next tick once /heal off has landed.
-                local rest_breaking_actions = { heal = true, recover = true, item = true, status_removal = true, debuff_removal = true, wake = true, revive = true }
-                if rest_breaking_actions[action_type] and common.is_resting() then
+                if REST_BREAKING_ACTIONS[action_type] and common.is_resting() then
                     common.set_resting(false)
                     common.reset_rest_timer()
                     automation.execute_command('/heal off', 'Breaking rest for: ' .. action_type)

@@ -75,6 +75,17 @@ local range_state = {
     last_check = 0,          -- Timestamp of last range check
 }
 
+-- Copy a settings value, deep-wrapping tables as T{} so they stay Ashita-managed.
+local function copy_setting(value)
+    return type(value) == 'table' and T(value) or value
+end
+
+-- Persist current settings to the job-specific file. No-op until a job is loaded.
+local function save_job_settings()
+    if not (addon_settings and job_def) then return end
+    settings.save(addon_settings, 'settings_' .. (job_def.job_name or 'default'):lower() .. '.json')
+end
+
 --[[
     Job Loading
 ]]--
@@ -267,20 +278,12 @@ local function load_job_definition(main_job_id, sub_job_id)
     merged_def.default_settings = T{}
     if sub_def and sub_def.default_settings then
         for key, value in pairs(sub_def.default_settings) do
-            if type(value) == 'table' then
-                merged_def.default_settings[key] = T(value)
-            else
-                merged_def.default_settings[key] = value
-            end
+            merged_def.default_settings[key] = copy_setting(value)
         end
     end
     if main_def and main_def.default_settings then
         for key, value in pairs(main_def.default_settings) do
-            if type(value) == 'table' then
-                merged_def.default_settings[key] = T(value)
-            else
-                merged_def.default_settings[key] = value
-            end
+            merged_def.default_settings[key] = copy_setting(value)
         end
     end
     
@@ -356,21 +359,13 @@ local function setup_job()
         -- Build defaults table including job-specific defaults
         local load_defaults = T{}
         for key, value in pairs(default_settings) do
-            if type(value) == 'table' then
-                load_defaults[key] = T(value)
-            else
-                load_defaults[key] = value
-            end
+            load_defaults[key] = copy_setting(value)
         end
-        
+
         -- Merge job-specific defaults
         if job_def.default_settings then
             for key, value in pairs(job_def.default_settings) do
-                if type(value) == 'table' then
-                    load_defaults[key] = T(value)
-                else
-                    load_defaults[key] = value
-                end
+                load_defaults[key] = copy_setting(value)
             end
         end
         
@@ -390,23 +385,15 @@ local function setup_job()
         -- Merge with default settings (only if key doesn't exist)
         for key, value in pairs(default_settings) do
             if addon_settings[key] == nil then
-                if type(value) == 'table' then
-                    addon_settings[key] = T(value)
-                else
-                    addon_settings[key] = value
-                end
+                addon_settings[key] = copy_setting(value)
             end
         end
-        
+
         -- Merge with job-specific default settings (only if key doesn't exist)
         if job_def.default_settings then
             for key, value in pairs(job_def.default_settings) do
                 if addon_settings[key] == nil then
-                    if type(value) == 'table' then
-                        addon_settings[key] = T(value)
-                    else
-                        addon_settings[key] = value
-                    end
+                    addon_settings[key] = copy_setting(value)
                 end
             end
         end
@@ -633,12 +620,8 @@ ashita.events.register('load', 'medic_load', function()
     common.printf('Loaded! Type /medic help for commands.')
 end)
 
-ashita.events.register('unload', 'medic_unload', function()    
-    if addon_settings and job_def then
-        local settings_file = 'settings_' .. (job_def.job_name or 'default'):lower() .. '.json'
-        settings.save(addon_settings, settings_file)
-    end
-    
+ashita.events.register('unload', 'medic_unload', function()
+    save_job_settings()
     common.printf('Unloaded.')
 end)
 
@@ -879,28 +862,19 @@ ashita.events.register('command', 'medic_command', function(e)
     elseif cmd == 'start' then
         automation_enabled = true
         addon_settings.automation_enabled = true
-        if job_def then
-            local settings_file = 'settings_' .. (job_def.job_name or 'default'):lower() .. '.json'
-            settings.save(addon_settings, settings_file)
-        end
+        save_job_settings()
         common.printf('Automation started.')
         
     elseif cmd == 'stop' then
         automation_enabled = false
         addon_settings.automation_enabled = false
-        if job_def then
-            local settings_file = 'settings_' .. (job_def.job_name or 'default'):lower() .. '.json'
-            settings.save(addon_settings, settings_file)
-        end
+        save_job_settings()
         common.printf('Automation stopped.')
         
     elseif cmd == 'toggle' then
         automation_enabled = not automation_enabled
         addon_settings.automation_enabled = automation_enabled
-        if job_def then
-            local settings_file = 'settings_' .. (job_def.job_name or 'default'):lower() .. '.json'
-            settings.save(addon_settings, settings_file)
-        end
+        save_job_settings()
         common.printf('Automation %s.', automation_enabled and 'enabled' or 'disabled')
         
     elseif cmd == 'config' then
@@ -911,10 +885,7 @@ ashita.events.register('command', 'medic_command', function(e)
         
         if subcmd == 'clear' then
             addon_settings.focus_target = nil
-            if job_def then
-                local settings_file = 'settings_' .. (job_def.job_name or 'default'):lower() .. '.json'
-                settings.save(addon_settings, settings_file)
-            end
+            save_job_settings()
             common.printf('Focus target cleared.')
         elseif subcmd and tonumber(subcmd) then
             local index = tonumber(subcmd)
@@ -922,10 +893,7 @@ ashita.events.register('command', 'medic_command', function(e)
                 local member_name = common.get_party_member_name(index)
                 if member_name then
                     addon_settings.focus_target = member_name
-                    if job_def then
-                        local settings_file = 'settings_' .. (job_def.job_name or 'default'):lower() .. '.json'
-                        settings.save(addon_settings, settings_file)
-                    end
+                    save_job_settings()
                     common.printf('Focus target set to %s (P%d)', member_name, index)
                 else
                     common.errorf('Party member %d not found or not active.', index)
