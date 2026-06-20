@@ -534,7 +534,7 @@ function heal.select_ability(abilities, target_hpp, job_def, player_resource, pa
     end
     
     -- Filter abilities by resource availability and cooldowns
-    local usable_abilities = action_core.filter_usable(abilities, job_def, nil, settings)
+    local usable_abilities = action_core.filter_usable(abilities, job_def, settings)
     
     if #usable_abilities == 0 then
         return nil
@@ -605,7 +605,7 @@ function heal.execute_aoe(settings, job_def)
     local avg_hp = count > 0 and (total / count) or 100
     if not common.below_threshold(avg_hp, threshold) then return nil end
 
-    return action_core.first_command(abilities, job_def, settings, '[HEAL_AOE]', nil,
+    return action_core.first_command(abilities, job_def, settings, nil,
         function(a) return string.format('AOE healing with %s (avg HP: %.1f%%)', a.name, avg_hp) end)
 end
 
@@ -630,7 +630,7 @@ function heal.execute_pet(settings, job_def)
     local threshold = settings.heal_pet_threshold or 50
     if not common.below_threshold(pet_hpp, threshold) then return nil end
 
-    return action_core.first_command(abilities, job_def, settings, '[HEAL_PET]', nil,
+    return action_core.first_command(abilities, job_def, settings, nil,
         function(a) return string.format('Healing pet with %s (Pet HP: %.1f%%)', a.name, pet_hpp) end)
 end
 

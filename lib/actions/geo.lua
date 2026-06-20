@@ -114,7 +114,7 @@ function geo.execute(settings, job_def, main_level, sub_level, player_resource)
                 'Full Circle (Geo-bt taking the luopan)')
             if fc then return fc end
         elseif not has_luopan then
-            local result = action_core.first_command({ geo_bt }, job_def, settings, '[GEO-BT]', 0,
+            local result = action_core.first_command({ geo_bt }, job_def, settings, 0,
                 function(ability) return string.format('Geo-bt: %s on battle target', ability.name) end)
             if result then
                 geo_bt_pending = true

@@ -185,7 +185,7 @@ end
     and Accession-inflated spells are correctly gated.
     Returns a new table of usable abilities (preserves original order).
 ]]--
-function action_core.filter_usable(abilities, job_def, tag, settings)
+function action_core.filter_usable(abilities, job_def, settings)
     local usable = {}
     for _, ability in ipairs(abilities) do
         local eff_cost = settings and common.effective_ability_cost(ability, settings, job_def) or nil
@@ -204,11 +204,10 @@ end
     abilities      – already level/settings-filtered ability list
     job_def        – job definition table (for resource_type fallback)
     settings       – settings table
-    tag            – debug prefix string, e.g. '[HEAL_AOE]'
     party_index    – nil for AOE/self-targeted abilities, number for party member
     description_fn – function(ability) → string  (optional; falls back to ability.name)
 ]]--
-function action_core.first_command(abilities, job_def, settings, tag, party_index, description_fn)
+function action_core.first_command(abilities, job_def, settings, party_index, description_fn)
     for _, ability in ipairs(abilities) do
         local eff_cost = settings and common.effective_ability_cost(ability, settings, job_def) or nil
         local ok, reason = action_core.is_usable(ability, job_def, eff_cost)

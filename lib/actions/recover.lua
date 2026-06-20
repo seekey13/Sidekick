@@ -99,7 +99,7 @@ function recover.execute(settings, job_def)
             filter_tp_prereqs(
                 filter_buff_prereqs(filter('recover_mp'), player.buffs),
                 player.tp, settings),
-            job_def, settings, '[RECOVER]', nil,
+            job_def, settings, nil,
             function(a) return string.format('MP recovery with %s (MP: %.1f%%)', a.name, player.mpp) end)
         if result then return result end
     end
@@ -109,7 +109,7 @@ function recover.execute(settings, job_def)
     if tp_threshold and common.below_threshold(player.tp or 0, tp_threshold) then
         return action_core.first_command(
             filter_buff_prereqs(filter('recover_tp'), player.buffs),
-            job_def, settings, '[RECOVER]', nil,
+            job_def, settings, nil,
             function(a) return string.format('TP recovery with %s (TP: %d)', a.name, player.tp) end)
     end
 

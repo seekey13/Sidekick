@@ -54,7 +54,7 @@ function revive.execute(settings, job_def, main_level, sub_level, player_resourc
     )
     if #available == 0 then return nil end
 
-    local usable = action_core.filter_usable(available, job_def, '[REVIVE]', settings)
+    local usable = action_core.filter_usable(available, job_def, settings)
     if #usable == 0 then return nil end
 
     -- Remove any abilities whose required buff (e.g. Addendum: White for Scholar) is not active.
