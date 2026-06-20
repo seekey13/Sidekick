@@ -133,8 +133,9 @@ return {
 
     geo_distance =
         'If your luopan drifts beyond this many yalms\n' ..
-        'from you, Medic uses Full Circle to recall it\n' ..
-        'and recast your active Geo spell once stationary.',
+        'from the selected Geo target, Medic uses Full Circle\n' ..
+        'to recall it and recast once stationary. Skipped\n' ..
+        'when no Geo target is selected in Buffs.',
 
     geo_full_circle =
         'When checked, Medic uses Full Circle to\n' ..
@@ -151,7 +152,7 @@ return {
         'this spell on the target while Entrust is active.',
 
     geo_entrust_enable =
-        'Enables the Entrust automation above, using\n' ..
+        'Enables the Entrust automation below, using\n' ..
         'the Target and Spell selected.',
 
     revive =

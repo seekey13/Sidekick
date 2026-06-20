@@ -240,9 +240,14 @@ end
 -- ungrouped abilities use a per-name setting (combat_only_<ability_name_with_spaces_replaced_by_underscores>).
 -- Defaults to false (allowed outside of combat).
 -- Abilities marked idle_only never participate in the combat_only gate.
+-- <bt> abilities (e.g. Geo-bt debuffs) target the battle target and are
+-- INHERENTLY combat-only -- there is no valid target outside combat -- so they
+-- always return true regardless of (and independent of) the user setting.
 function common.is_ability_combat_only(ability, settings)
-    if not ability or not settings then return false end
+    if not ability then return false end
     if ability.idle_only then return false end
+    if common.ability_targets_bt(ability) then return true end
+    if not settings then return false end
     local key
     if ability.group then
         key = 'combat_only_group_' .. ability.group
@@ -866,8 +871,48 @@ function common.get_party_member_distance(party_index)
     if not member_entity then
         return nil
     end
-    
+
     return common.calculate_distance(player_entity, member_entity)
+end
+
+-- Get distance between a party member (0 = player) and the pet/luopan.
+-- Used by Geo automation to measure luopan drift from the party member who
+-- is holding the Geo bubble, rather than always from the caster.
+-- Args: party_index (number) - Party member index (0-5)
+-- Returns: number (distance in yalms) or nil if member or pet unavailable
+function common.get_pet_distance_from_member(party_index)
+    local pet_entity = targets.get_pet()
+    if not pet_entity then
+        return nil
+    end
+
+    -- Index 0 is the player: measure from the player's own entity.
+    if party_index == 0 then
+        local player_entity = targets.get_me()
+        if not player_entity then return nil end
+        return common.calculate_distance(player_entity, pet_entity)
+    end
+
+    if party_index < 1 or party_index > 5 then
+        return nil
+    end
+
+    local party = common.get_party()
+    if not party or not common.is_party_member_active(party_index) then
+        return nil
+    end
+
+    local target_index = party:GetMemberTargetIndex(party_index)
+    if not target_index or target_index == 0 then
+        return nil
+    end
+
+    local member_entity = GetEntity(target_index)
+    if not member_entity then
+        return nil
+    end
+
+    return common.calculate_distance(member_entity, pet_entity)
 end
 
 --[[

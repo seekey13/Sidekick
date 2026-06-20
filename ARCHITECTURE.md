@@ -46,6 +46,7 @@ lib/
     components.lua          Reusable imgui components & constants
     config.lua              Configuration window orchestration
     panel.lua               Debug info panel
+    tooltips.lua            Contextual hover-help text for config UI
 ```
 
 ---
@@ -251,8 +252,11 @@ MP and TP recovery. Monitors percentage thresholds. Uses `action_core.first_comm
 
 ### geo.lua – Geomancer Automation
 
-- **Full Circle**: Monitors luopan distance; fires Full Circle when pet exceeds configurable yalm threshold.
-- **Entrust**: Name-based target + spell selection from UI dropdowns; fires Entrust → Indi spell on configured party member.
+- **Geo buffs**: `<me>` Geo spells (`group = 'Geo'`, `exclusive_target = true`) cast on a single selected party member via the same ME/P1-P5 button targeting as other buffs. Single-select: choosing a target deselects the others.
+- **Geo debuffs (Geo-bt)**: `<bt>` enemy debuffs (`group = 'Geo-bt'`) cast on the player's battle target. Combat-only (inherently, via `is_ability_combat_only`); the single selected debuff is chosen from a dropdown and cast through `geo.lua` (not `buff.lua`). A module-local `geo_bt_pending` flag tracks whether the current luopan belongs to the debuff.
+- **Full Circle**: Monitors luopan distance from the selected Geo target (`get_pet_distance_from_member`); fires Full Circle when the pet exceeds the configurable yalm threshold, then recasts. Skipped when no Geo target is selected.
+- **Luopan lifecycle**: Only one luopan exists at a time. In combat the selected Geo debuff takes over the luopan (Full Circle a non-debuff luopan, then cast); the distance-based Full Circle is suppressed while a debuff luopan is active so it isn't dismissed mid-fight. When combat ends, Full Circle frees the luopan for Geo buffs.
+- **Entrust**: Name-based target + spell selection from UI dropdowns; fires Entrust → Indi spell on configured party member. Indi does not use a luopan, so it never conflicts with the Geo luopan.
 - All Geo spells have `main_job_only = true`.
 
 ### rest.lua – Automatic Resting

@@ -36,6 +36,106 @@ return {
                 range = 20,
                 main_job_only = true,
             },
+
+            -- Geo debuffs (<bt>/enemy-target, 'Geo-bt' group). The cast and the
+            -- single-luopan lifecycle are handled in lib/actions/geo.lua (not
+            -- buff.lua); selection renders under "Enable Geo". (highest level first)
+            {
+                name = 'Geo-Vex',
+                level = 74,
+                cost = 150,
+                id = 823,
+                magic = 'geomancy',
+                command = '/ma "Geo-Vex" <bt>',
+                element = 'Light',
+                group = 'Geo-bt',
+                main_job_only = true,
+                buff_id = 563,
+            },
+            {
+                name = 'Geo-Frailty',
+                level = 74,
+                cost = 162,
+                id = 818,
+                magic = 'geomancy',
+                command = '/ma "Geo-Frailty" <bt>',
+                element = 'Wind',
+                group = 'Geo-bt',
+                main_job_only = true,
+                buff_id = 558,
+            },
+            {
+                name = 'Geo-Paralysis',
+                level = 72,
+                cost = 147,
+                id = 826,
+                magic = 'geomancy',
+                command = '/ma "Geo-Paralysis" <bt>',
+                element = 'Ice',
+                group = 'Geo-bt',
+                main_job_only = true,
+                buff_id = 566,
+            },
+            {
+                name = 'Geo-Languor',
+                level = 68,
+                cost = 141,
+                id = 824,
+                magic = 'geomancy',
+                command = '/ma "Geo-Languor" <bt>',
+                element = 'Dark',
+                group = 'Geo-bt',
+                main_job_only = true,
+                buff_id = 564,
+            },
+            {
+                name = 'Geo-Slip',
+                level = 62,
+                cost = 132,
+                id = 821,
+                magic = 'geomancy',
+                command = '/ma "Geo-Slip" <bt>',
+                element = 'Earth',
+                group = 'Geo-bt',
+                main_job_only = true,
+                buff_id = 561,
+            },
+            {
+                name = 'Geo-Torpor',
+                level = 56,
+                cost = 126,
+                id = 822,
+                magic = 'geomancy',
+                command = '/ma "Geo-Torpor" <bt>',
+                element = 'Ice',
+                group = 'Geo-bt',
+                main_job_only = true,
+                buff_id = 562,
+            },
+            {
+                name = 'Geo-Slow',
+                level = 52,
+                cost = 120,
+                id = 825,
+                magic = 'geomancy',
+                command = '/ma "Geo-Slow" <bt>',
+                element = 'Earth',
+                group = 'Geo-bt',
+                main_job_only = true,
+                buff_id = 565,
+            },
+            {
+                name = 'Geo-Poison',
+                level = 5,
+                cost = 18,
+                id = 799,
+                magic = 'geomancy',
+                command = '/ma "Geo-Poison" <bt>',
+                element = 'Water',
+                group = 'Geo-bt',
+                main_job_only = true,
+                buff_id = 540,
+            },
         },
         heal_pet = {
             {
@@ -399,90 +499,24 @@ return {
                 group = 'Indi',
                 buff_id = 540,
             },
-            -- Geo spells (highest level first)
-            {
-                name = 'Geo-Vex',
-                level = 74,
-                cost = 150,
-                id = 823,
-                magic = 'geomancy',
-                command = '/ma "Geo-Vex" <bt>',
-                element = 'Light',
-                group = 'Geo',
-                main_job_only = true,
-                buff_id = 563,
-            },
+            -- Geo spells (<me>/party-target, single luopan = single target).
+            -- Converted to function commands so they render with party-target
+            -- buttons like other buffs; exclusive_target enforces one target.
+            -- (highest level first)
             {
                 name = 'Geo-Haste',
                 level = 74,
                 cost = 156,
                 id = 801,
                 magic = 'geomancy',
-                command = '/ma "Geo-Haste" <me>',
+                command = function(target)
+                    return '/ma "Geo-Haste" '..target
+                end,
                 element = 'Wind',
                 group = 'Geo',
                 main_job_only = true,
+                exclusive_target = true,
                 buff_id = 580,
-            },
-            {
-                name = 'Geo-Frailty',
-                level = 74,
-                cost = 162,
-                id = 818,
-                magic = 'geomancy',
-                command = '/ma "Geo-Frailty" <bt>',
-                element = 'Wind',
-                group = 'Geo',
-                main_job_only = true,
-                buff_id = 558,
-            },
-            {
-                name = 'Geo-Paralysis',
-                level = 72,
-                cost = 147,
-                id = 826,
-                magic = 'geomancy',
-                command = '/ma "Geo-Paralysis" <bt>',
-                element = 'Ice',
-                group = 'Geo',
-                main_job_only = true,
-                buff_id = 566,
-            },
-            {
-                name = 'Geo-Languor',
-                level = 68,
-                cost = 141,
-                id = 824,
-                magic = 'geomancy',
-                command = '/ma "Geo-Languor" <bt>',
-                element = 'Dark',
-                group = 'Geo',
-                main_job_only = true,
-                buff_id = 564,
-            },
-            {
-                name = 'Geo-Slip',
-                level = 62,
-                cost = 132,
-                id = 821,
-                magic = 'geomancy',
-                command = '/ma "Geo-Slip" <bt>',
-                element = 'Earth',
-                group = 'Geo',
-                main_job_only = true,
-                buff_id = 561,
-            },
-            {
-                name = 'Geo-Torpor',
-                level = 56,
-                cost = 126,
-                id = 822,
-                magic = 'geomancy',
-                command = '/ma "Geo-Torpor" <bt>',
-                element = 'Ice',
-                group = 'Geo',
-                main_job_only = true,
-                buff_id = 562,
             },
             {
                 name = 'Geo-STR',
@@ -490,23 +524,14 @@ return {
                 cost = 117,
                 id = 802,
                 magic = 'geomancy',
-                command = '/ma "Geo-STR" <me>',
+                command = function(target)
+                    return '/ma "Geo-STR" '..target
+                end,
                 element = 'Fire',
                 group = 'Geo',
                 main_job_only = true,
+                exclusive_target = true,
                 buff_id = 542,
-            },
-            {
-                name = 'Geo-Slow',
-                level = 52,
-                cost = 120,
-                id = 825,
-                magic = 'geomancy',
-                command = '/ma "Geo-Slow" <bt>',
-                element = 'Earth',
-                group = 'Geo',
-                main_job_only = true,
-                buff_id = 565,
             },
             {
                 name = 'Geo-Acumen',
@@ -514,10 +539,13 @@ return {
                 cost = 111,
                 id = 811,
                 magic = 'geomancy',
-                command = '/ma "Geo-Acumen" <me>',
+                command = function(target)
+                    return '/ma "Geo-Acumen" '..target
+                end,
                 element = 'Ice',
                 group = 'Geo',
                 main_job_only = true,
+                exclusive_target = true,
                 buff_id = 551,
             },
             {
@@ -526,10 +554,13 @@ return {
                 cost = 108,
                 id = 803,
                 magic = 'geomancy',
-                command = '/ma "Geo-DEX" <me>',
+                command = function(target)
+                    return '/ma "Geo-DEX" '..target
+                end,
                 element = 'Thunder',
                 group = 'Geo',
                 main_job_only = true,
+                exclusive_target = true,
                 buff_id = 543,
             },
             {
@@ -538,10 +569,13 @@ return {
                 cost = 99,
                 id = 804,
                 magic = 'geomancy',
-                command = '/ma "Geo-VIT" <me>',
+                command = function(target)
+                    return '/ma "Geo-VIT" '..target
+                end,
                 element = 'Earth',
                 group = 'Geo',
                 main_job_only = true,
+                exclusive_target = true,
                 buff_id = 544,
             },
             {
@@ -550,10 +584,13 @@ return {
                 cost = 90,
                 id = 812,
                 magic = 'geomancy',
-                command = '/ma "Geo-Fend" <me>',
+                command = function(target)
+                    return '/ma "Geo-Fend" '..target
+                end,
                 element = 'Water',
                 group = 'Geo',
                 main_job_only = true,
+                exclusive_target = true,
                 buff_id = 552,
             },
             {
@@ -562,10 +599,13 @@ return {
                 cost = 87,
                 id = 805,
                 magic = 'geomancy',
-                command = '/ma "Geo-AGI" <me>',
+                command = function(target)
+                    return '/ma "Geo-AGI" '..target
+                end,
                 element = 'Wind',
                 group = 'Geo',
                 main_job_only = true,
+                exclusive_target = true,
                 buff_id = 545,
             },
             {
@@ -574,10 +614,13 @@ return {
                 cost = 81,
                 id = 806,
                 magic = 'geomancy',
-                command = '/ma "Geo-INT" <me>',
+                command = function(target)
+                    return '/ma "Geo-INT" '..target
+                end,
                 element = 'Ice',
                 group = 'Geo',
                 main_job_only = true,
+                exclusive_target = true,
                 buff_id = 546,
             },
             {
@@ -586,10 +629,13 @@ return {
                 cost = 72,
                 id = 809,
                 magic = 'geomancy',
-                command = '/ma "Geo-Fury" <me>',
+                command = function(target)
+                    return '/ma "Geo-Fury" '..target
+                end,
                 element = 'Fire',
                 group = 'Geo',
                 main_job_only = true,
+                exclusive_target = true,
                 buff_id = 549,
             },
             {
@@ -598,10 +644,13 @@ return {
                 cost = 69,
                 id = 807,
                 magic = 'geomancy',
-                command = '/ma "Geo-MND" <me>',
+                command = function(target)
+                    return '/ma "Geo-MND" '..target
+                end,
                 element = 'Water',
                 group = 'Geo',
                 main_job_only = true,
+                exclusive_target = true,
                 buff_id = 547,
             },
             {
@@ -610,10 +659,13 @@ return {
                 cost = 60,
                 id = 800,
                 magic = 'geomancy',
-                command = '/ma "Geo-Refresh" <me>',
+                command = function(target)
+                    return '/ma "Geo-Refresh" '..target
+                end,
                 element = 'Light',
                 group = 'Geo',
                 main_job_only = true,
+                exclusive_target = true,
                 buff_id = 541,
             },
             {
@@ -622,10 +674,13 @@ return {
                 cost = 63,
                 id = 808,
                 magic = 'geomancy',
-                command = '/ma "Geo-CHR" <me>',
+                command = function(target)
+                    return '/ma "Geo-CHR" '..target
+                end,
                 element = 'Light',
                 group = 'Geo',
                 main_job_only = true,
+                exclusive_target = true,
                 buff_id = 548,
             },
             {
@@ -634,10 +689,13 @@ return {
                 cost = 51,
                 id = 810,
                 magic = 'geomancy',
-                command = '/ma "Geo-Barrier" <me>',
+                command = function(target)
+                    return '/ma "Geo-Barrier" '..target
+                end,
                 element = 'Earth',
                 group = 'Geo',
                 main_job_only = true,
+                exclusive_target = true,
                 buff_id = 550,
             },
             {
@@ -646,10 +704,13 @@ return {
                 cost = 45,
                 id = 815,
                 magic = 'geomancy',
-                command = '/ma "Geo-Focus" <me>',
+                command = function(target)
+                    return '/ma "Geo-Focus" '..target
+                end,
                 element = 'Dark',
                 group = 'Geo',
                 main_job_only = true,
+                exclusive_target = true,
                 buff_id = 555,
             },
             {
@@ -658,10 +719,13 @@ return {
                 cost = 39,
                 id = 816,
                 magic = 'geomancy',
-                command = '/ma "Geo-Attunement" <me>',
+                command = function(target)
+                    return '/ma "Geo-Attunement" '..target
+                end,
                 element = 'Light',
                 group = 'Geo',
                 main_job_only = true,
+                exclusive_target = true,
                 buff_id = 556,
             },
             {
@@ -670,10 +734,13 @@ return {
                 cost = 36,
                 id = 798,
                 magic = 'geomancy',
-                command = '/ma "Geo-Regen" <me>',
+                command = function(target)
+                    return '/ma "Geo-Regen" '..target
+                end,
                 element = 'Light',
                 group = 'Geo',
                 main_job_only = true,
+                exclusive_target = true,
                 buff_id = 539,
             },
             {
@@ -682,10 +749,13 @@ return {
                 cost = 27,
                 id = 813,
                 magic = 'geomancy',
-                command = '/ma "Geo-Precision" <me>',
+                command = function(target)
+                    return '/ma "Geo-Precision" '..target
+                end,
                 element = 'Thunder',
                 group = 'Geo',
                 main_job_only = true,
+                exclusive_target = true,
                 buff_id = 553,
             },
             {
@@ -694,23 +764,14 @@ return {
                 cost = 21,
                 id = 814,
                 magic = 'geomancy',
-                command = '/ma "Geo-Voidance" <me>',
+                command = function(target)
+                    return '/ma "Geo-Voidance" '..target
+                end,
                 element = 'Wind',
                 group = 'Geo',
                 main_job_only = true,
+                exclusive_target = true,
                 buff_id = 554,
-            },
-            {
-                name = 'Geo-Poison',
-                level = 5,
-                cost = 18,
-                id = 799,
-                magic = 'geomancy',
-                command = '/ma "Geo-Poison" <bt>',
-                element = 'Water',
-                group = 'Geo',
-                main_job_only = true,
-                buff_id = 540,
             },
         },
     },
@@ -741,8 +802,8 @@ return {
         'heal_aoe',
         'heal_pet',
         'heal',
-        'buff',
         'geo',
+        'buff',
         'rest',
     },
 }

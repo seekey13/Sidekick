@@ -46,10 +46,7 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
     
     -- Filter abilities by level and settings
     local available_abilities = common.filter_abilities_by_level(buff_abilities, settings, derived_main_level, derived_sub_level, job_def)
-    
-    if #available_abilities > 0 then
-    end
-    
+
     if #available_abilities == 0 then
         return nil
     end
@@ -57,7 +54,14 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
     -- Check each buff to see if it needs to be applied/refreshed
     for _, ability in ipairs(available_abilities) do
         local should_skip = false
-        
+
+        -- While in combat with Geo-bt enabled, reserve the single luopan for the
+        -- enemy debuff -- don't try to place a Geo buff luopan. (Geo-bt itself
+        -- lives in abilities.geo now, so it never reaches this buff loop.)
+        if ability.group == 'Geo' and common.is_combat() and settings['disabled_group_Geo-bt'] ~= true then
+            goto continue_ability
+        end
+
         -- Check pet requirement
         if not should_skip and ability.pet_required then
             if not common.targets.get_pet() then
