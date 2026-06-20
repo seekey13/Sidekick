@@ -222,13 +222,7 @@ function geo.execute(settings, job_def, main_level, sub_level, player_resource)
         end
         
         -- Check if we have the Entrust buff (584)
-        local has_entrust_buff = false
-        for _, active_buff in ipairs(player.buffs) do
-            if active_buff == 584 then
-                has_entrust_buff = true
-                break
-            end
-        end
+        local has_entrust_buff = action_core.has_any_buff(player.buffs, 584)
         
         if has_entrust_buff then
             -- We have Entrust buff, cast the Indi spell on party member

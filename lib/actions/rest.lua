@@ -9,6 +9,22 @@ local common = require('lib.core.common')
 
 local rest = {}
 
+-- True when a follow target is set and the matching party member is farther than
+-- rest_distance. Shared by both the start and stop checks.
+local function follow_target_too_far(settings, game_state)
+    local follow_target = settings.follow_target
+    if not (follow_target and game_state) then return false end
+    local rest_distance = settings.rest_distance or 7
+    for i = 1, 5 do
+        local member = game_state.party[i]
+        if member and member.name == follow_target then
+            local distance = common.get_party_member_distance(i)
+            return distance ~= nil and distance > rest_distance
+        end
+    end
+    return false
+end
+
 -- Check if we should start resting
 local function should_start_resting(settings, job_def)
     -- Only for MP-based jobs
@@ -56,24 +72,11 @@ local function should_start_resting(settings, job_def)
     end
 
     -- Check distance to follow target (if set)
-    local rest_distance = settings.rest_distance or 7
-    local follow_target = settings.follow_target
-
-    if follow_target and game_state then
-        -- Find the party member by name
-        for i = 1, 5 do
-            local member = game_state.party[i]
-            if member and member.name == follow_target then
-                local distance = common.get_party_member_distance(i)
-                if distance and distance > rest_distance then
-                    common.reset_rest_timer()
-                    return false
-                end
-                break
-            end
-        end
+    if follow_target_too_far(settings, game_state) then
+        common.reset_rest_timer()
+        return false
     end
-    
+
     -- All base conditions are met (not moving, not casting, MP not full, distance ok)
     local current_time = os.clock()
     local rest_timer = settings.rest_timer or 5
@@ -110,22 +113,10 @@ local function should_stop_resting(settings, job_def)
     end
 
     -- Check distance to follow target (if set)
-    local rest_distance = settings.rest_distance or 7
-
-    local follow_target = settings.follow_target
-    if follow_target and game_state then
-        for i = 1, 5 do
-            local member = game_state.party[i]
-            if member and member.name == follow_target then
-                local distance = common.get_party_member_distance(i)
-                if distance and distance > rest_distance then
-                    return true
-                end
-                break
-            end
-        end
+    if follow_target_too_far(settings, game_state) then
+        return true
     end
-    
+
     -- No reason to stop resting
     return false
 end
