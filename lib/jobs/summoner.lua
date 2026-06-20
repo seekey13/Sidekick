@@ -21,9 +21,7 @@ return {
                 level = 1,
                 cost = 6,
                 id = 174,  -- Blood Pact: Ward recast ID
-                command = function(target)
-                    return '/pet "Healing Ruby" '..target
-                end,
+                cast = 'pet',
                 wakes = true,  -- Can wake from sleep
                 pet_required = true,
                 requires_carbuncle = true,

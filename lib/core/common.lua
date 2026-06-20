@@ -1548,8 +1548,8 @@ function common.build_ability_command(ability, party_index)
     if type(ability.command) == 'function' then
         return ability.command(server_id)
     end
-    -- No explicit command: derive a party-targeted magic cast.
-    return string.format('/ma "%s" %s', ability.spell or ability.name, server_id)
+    -- No explicit command: derive '/<cast> "<spell|name>" <server_id>' (cast defaults to ma).
+    return string.format('/%s "%s" %s', ability.cast or 'ma', ability.spell or ability.name, server_id)
 end
 
 -- Build command for tracked targets (outside-party) using server_id directly.
@@ -1566,8 +1566,8 @@ function common.build_ability_command_for_target(ability, server_id)
         return ability.command
     end
 
-    -- No explicit command: derive a magic cast targeting this server_id.
-    return string.format('/ma "%s" %s', ability.spell or ability.name, server_id)
+    -- No explicit command: derive '/<cast> "<spell|name>" <server_id>' (cast defaults to ma).
+    return string.format('/%s "%s" %s', ability.cast or 'ma', ability.spell or ability.name, server_id)
 end
 
 -- ============================================================================

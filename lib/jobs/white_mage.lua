@@ -769,9 +769,7 @@ return {
                 level = 75,
                 cost = 0,
                 id = 27,  -- Job Ability ID
-                command = function(target)
-                    return '/ja "Martyr" '..target
-                end,
+                cast = 'ja',
                 range = 18,
             },
             {
@@ -834,9 +832,7 @@ return {
                 level = 75,
                 cost = 0,
                 id = 28,  -- Job Ability ID
-                command = function(target)
-                    return '/ja "Devotion" '..target -- Cannot target self
-                end,
+                cast = 'ja',
             },
         },
     },

@@ -46,6 +46,15 @@ local HEADER_COLOR_ACTIVE = { 0.2, 0.2, 0.2, 0.65 }
 -- Helper Functions
 -- ============================================================================
 
+-- Display label for an ability: its name plus an optional effect note in parens.
+-- name stays the spell identity (settings keys, group lookups); note is display-only.
+local function display_name(ability)
+    if ability.note and ability.note ~= '' then
+        return ability.name .. ' (' .. ability.note .. ')'
+    end
+    return ability.name
+end
+
 -- Returns true if the ability's effective (user-driven) combat_only setting is enabled.
 local function effective_combat_only(ability, ctx)
     if not ability or not ctx or not ctx.settings then return false end
@@ -942,9 +951,9 @@ function ui_components.group_dropdown(ctx, job_def, target_group, dropdown_width
         if selected.cost and selected.cost > 0 then
             local resource_label = (selected.resource_type or job_def.resource_type) == 'tp' and 'TP' or 'MP'
             local display_cost = math.floor(selected.cost * get_stratagem_mp_modifier(ctx, target_group))
-            current_display = selected.name .. ' (' .. display_cost .. ' ' .. resource_label .. ')'
+            current_display = display_name(selected) .. ' (' .. display_cost .. ' ' .. resource_label .. ')'
         else
-            current_display = selected.name
+            current_display = display_name(selected)
         end
     else
         current_display = 'None'
@@ -970,9 +979,9 @@ function ui_components.group_dropdown(ctx, job_def, target_group, dropdown_width
             if ability.cost and ability.cost > 0 then
                 local resource_label = (ability.resource_type or job_def.resource_type) == 'tp' and 'TP' or 'MP'
                 local display_cost = math.floor(ability.cost * get_stratagem_mp_modifier(ctx, target_group))
-                display_text = ability.name .. ' (' .. display_cost .. ' ' .. resource_label .. ')'
+                display_text = display_name(ability) .. ' (' .. display_cost .. ' ' .. resource_label .. ')'
             else
-                display_text = ability.name
+                display_text = display_name(ability)
             end
             local is_selected = (selected and selected.name == ability.name)
             
@@ -1045,9 +1054,9 @@ function ui_components.self_single_ability(ctx, ability, job_def, id_suffix)
     if ability.cost and ability.cost > 0 then
         local resource_label = (ability.resource_type or job_def.resource_type) == 'tp' and 'TP' or 'MP'
         local display_cost = math.floor(ability.cost * get_stratagem_mp_modifier(ctx, ability.name))
-        desc = ability.name .. ' (' .. display_cost .. ' ' .. resource_label .. ')' .. spell_suffix
+        desc = display_name(ability) .. ' (' .. display_cost .. ' ' .. resource_label .. ')' .. spell_suffix
     else
-        desc = ability.name .. spell_suffix
+        desc = display_name(ability) .. spell_suffix
     end
 
     -- Ability name, tinted by availability / combat-only / idle-only state
@@ -1132,9 +1141,9 @@ function ui_components.party_single_ability(ctx, ability, job_def)
     if ability.cost and ability.cost > 0 then
         local resource_label = (ability.resource_type or job_def.resource_type) == 'tp' and 'TP' or 'MP'
         local display_cost = math.floor(ability.cost * get_stratagem_mp_modifier(ctx, ability.name))
-        desc = ability.name .. ' (' .. display_cost .. ' ' .. resource_label .. ')' .. spell_suffix
+        desc = display_name(ability) .. ' (' .. display_cost .. ' ' .. resource_label .. ')' .. spell_suffix
     else
-        desc = ability.name .. spell_suffix
+        desc = display_name(ability) .. spell_suffix
     end
     
     render_party_buttons(ctx, ability.name, has_spell, ability, false)
@@ -1367,9 +1376,9 @@ function ui_components.ability_checkbox(ctx, ability, job_def, id_suffix, show_s
     if ability.cost and ability.cost > 0 then
         local resource_label = (ability.resource_type or job_def.resource_type) == 'tp' and 'TP' or 'MP'
         local display_cost = math.floor(ability.cost * get_stratagem_mp_modifier(ctx, ability.name))
-        desc = ability.name .. ' (' .. display_cost .. ' ' .. resource_label .. ')' .. spell_suffix
+        desc = display_name(ability) .. ' (' .. display_cost .. ' ' .. resource_label .. ')' .. spell_suffix
     else
-        desc = ability.name .. spell_suffix
+        desc = display_name(ability) .. spell_suffix
     end
     
     local checkbox_label = desc

@@ -22,9 +22,7 @@ return {
                 level = 45,
                 cost = 500,
                 id = 187,
-                command = function(target)
-                    return '/ja "Curing Waltz III" '..target
-                end,
+                cast = 'ja',
                 wakes = true,
                 value = 300,
             },
@@ -33,9 +31,7 @@ return {
                 level = 30,
                 cost = 350,
                 id = 186,
-                command = function(target)
-                    return '/ja "Curing Waltz II" '..target
-                end,
+                cast = 'ja',
                 wakes = true,
                 value = 140,
             },
@@ -44,9 +40,7 @@ return {
                 level = 15,
                 cost = 200,
                 id = 217,
-                command = function(target)
-                    return '/ja "Curing Waltz" '..target
-                end,
+                cast = 'ja',
                 wakes = true,
                 value = 70,
             },
@@ -80,9 +74,7 @@ return {
                 cost = 200,
                 id = 215,  -- Healing Waltz recast ID
                 debuff_id = {3, 4, 5, 6, 8, 9, 11, 12, 13, 31, 128, 129, 130, 131, 134, 135, 136, 137, 138, 139, 140, 141, 142, 144, 145, 146, 147, 148, 149, 156, 167, 174, 175, 189, 404},  -- Poison, Paralyze, Blind, Silence, Disease, Curse, Bind, Weight, Slow, Plague, Burn, Frost, Choke, Rasp, Dia, Bio, STR Down, DEX Down, VIT Down, AGI Down, INT Down, MND Down, CHR Down, Max HP Down, Max MP Down, Accuracy Down, Attack Down, Evasion Down, Defense Down, Flash, Magic Def Down, Magic Acc Down, Magic Atk Down, Max TP Down, Magic Eva Down
-                command = function(target)
-                    return '/ja "Healing Waltz" '..target
-                end,
+                cast = 'ja',
             },
         },
         
