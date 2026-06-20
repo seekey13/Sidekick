@@ -152,7 +152,7 @@ return {
         'this spell on the target while Entrust is active.',
 
     geo_entrust_enable =
-        'Enables the Entrust automation above, using\n' ..
+        'Enables the Entrust automation below, using\n' ..
         'the Target and Spell selected.',
 
     revive =
