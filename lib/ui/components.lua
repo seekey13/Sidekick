@@ -704,6 +704,38 @@ end
 -- Render party toggle buttons ([ME] [P1] [P2] etc.)
 -- Returns: true if any button was rendered
 -- For grouped abilities, pass group_name instead of ability_name
+-- Render a fixed-width target toggle button with the standard 3-state color
+-- scheme: disabled (grayed, 4 pushed colors), selected (default, none), or
+-- unselected (3 pushed colors). Pop count is derived from the same branch that
+-- pushed, so the style stack can't desync. Returns true only when clicked while active.
+local function target_button(label, disabled, enabled)
+    local pops = 0
+    if disabled then
+        imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_DISABLED)
+        imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_DISABLED)
+        imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_DISABLED)
+        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
+        pops = 4
+    elseif not enabled then
+        imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_UNSELECTED)
+        imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_UNSELECTED_HOVER)
+        imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_UNSELECTED_ACTIVE)
+        pops = 3
+    end
+    local clicked = imgui.Button(label, { PARTY_BUTTON_WIDTH, 0 })
+    if pops > 0 then imgui.PopStyleColor(pops) end
+    return clicked and not disabled
+end
+
+-- Flip a party-buff target's enabled state (group vs single ability).
+local function toggle_target(ctx, key_name, ref, enabled, is_group)
+    if is_group then
+        toggle_group_party_buff(ctx, key_name, ref, not enabled)
+    else
+        toggle_party_buff(ctx, key_name, ref, not enabled)
+    end
+end
+
 local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
     local any_rendered = false
 
@@ -736,37 +768,10 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
     
     -- Render [ME] button
     local me_enabled = is_group and is_group_party_buff_enabled(ctx, key_name, 0) or is_party_buff_enabled(ctx, key_name, 0)
-    
-    if not has_spell then
-        imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_DISABLED)
-        imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_DISABLED)
-        imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_DISABLED)
-        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
-    elseif me_enabled then
-        -- Use default colors
-    else
-        imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_UNSELECTED)
-        imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_UNSELECTED_HOVER)
-        imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_UNSELECTED_ACTIVE)
+    if target_button('ME##' .. key_name .. '_me', not has_spell, me_enabled) then
+        toggle_target(ctx, key_name, 0, me_enabled, is_group)
     end
-    
-    local me_button_label = 'ME##' .. key_name .. '_me'
-    if has_spell and imgui.Button(me_button_label, { PARTY_BUTTON_WIDTH, 0 }) then
-        if is_group then
-            toggle_group_party_buff(ctx, key_name, 0, not me_enabled)
-        else
-            toggle_party_buff(ctx, key_name, 0, not me_enabled)
-        end
-    elseif not has_spell then
-        imgui.Button(me_button_label, { PARTY_BUTTON_WIDTH, 0 })
-    end
-    
-    if not has_spell then
-        imgui.PopStyleColor(4)
-    elseif not me_enabled then
-        imgui.PopStyleColor(3)
-    end
-    
+
     any_rendered = true
     
     -- Render party member buttons (P1-P5)
@@ -780,43 +785,18 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
                 
                 local is_enabled = is_group and is_group_party_buff_enabled(ctx, key_name, party_index) or is_party_buff_enabled(ctx, key_name, party_index)
                 
-                -- Treat party button as "not has_spell" if target_modifier is required but not available
+                -- Treat party button as disabled if target_modifier is required but unavailable.
                 -- NOTE: `and not is_trust_member` removed -- Trusts can now be buffed
                 local party_has_spell = has_spell and has_target_modifier
-                
-                if not party_has_spell then
-                    imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_DISABLED)
-                    imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_DISABLED)
-                    imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_DISABLED)
-                    imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
-                elseif is_enabled then
-                    -- Use default colors
-                else
-                    imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_UNSELECTED)
-                    imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_UNSELECTED_HOVER)
-                    imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_UNSELECTED_ACTIVE)
-                end
-                
+
                 local button_label = 'P' .. party_index .. '##' .. key_name .. '_p' .. party_index
-                if party_has_spell and imgui.Button(button_label, { PARTY_BUTTON_WIDTH, 0 }) then
-                    if is_group then
-                        toggle_group_party_buff(ctx, key_name, party_index, not is_enabled)
-                    else
-                        toggle_party_buff(ctx, key_name, party_index, not is_enabled)
-                    end
-                elseif not party_has_spell then
-                    imgui.Button(button_label, { PARTY_BUTTON_WIDTH, 0 })
+                if target_button(button_label, not party_has_spell, is_enabled) then
+                    toggle_target(ctx, key_name, party_index, is_enabled, is_group)
                 end
-                
+
                 -- Trust warning tooltip for status removal
                 if ctx.show_trust_warning and ctx.is_trust and ctx.is_trust(party_index) and imgui.IsItemHovered() then
                     imgui.SetTooltip('Trust/Tracked Removal is not totally reliable')
-                end
-                
-                if not party_has_spell then
-                    imgui.PopStyleColor(4)
-                elseif not is_enabled then
-                    imgui.PopStyleColor(3)
                 end
             end
         end
@@ -846,27 +826,9 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
                     local is_compatible = ability and ability.target_outside
                     local is_disabled   = not has_spell or not is_compatible
 
-                    if is_disabled then
-                        imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_DISABLED)
-                        imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_DISABLED)
-                        imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_DISABLED)
-                        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
-                    elseif is_enabled then
-                        -- Use default colors
-                    else
-                        imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_UNSELECTED)
-                        imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_UNSELECTED_HOVER)
-                        imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_UNSELECTED_ACTIVE)
-                    end
-
                     local button_label = prefix .. local_idx .. '##' .. key_name .. '_' .. al_key
-                    local clicked = imgui.Button(button_label, { PARTY_BUTTON_WIDTH, 0 })
-                    if clicked and not is_disabled then
-                        if is_group then
-                            toggle_group_party_buff(ctx, key_name, al_key, not is_enabled)
-                        else
-                            toggle_party_buff(ctx, key_name, al_key, not is_enabled)
-                        end
+                    if target_button(button_label, is_disabled, is_enabled) then
+                        toggle_target(ctx, key_name, al_key, is_enabled, is_group)
                     end
 
                     if imgui.IsItemHovered() then
@@ -875,12 +837,6 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
                         else
                             imgui.SetTooltip(m.name or (prefix .. local_idx))
                         end
-                    end
-
-                    if is_disabled then
-                        imgui.PopStyleColor(4)
-                    elseif not is_enabled then
-                        imgui.PopStyleColor(3)
                     end
                 end
             end
@@ -907,27 +863,9 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
             local is_tt_enabled = is_group and is_group_party_buff_enabled(ctx, key_name, tt_key) or is_party_buff_enabled(ctx, key_name, tt_key)
             local is_disabled = not has_spell or not is_compatible
 
-            if is_disabled then
-                imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_DISABLED)
-                imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_DISABLED)
-                imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_DISABLED)
-                imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
-            elseif is_tt_enabled then
-                -- Use default colors
-            else
-                imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_UNSELECTED)
-                imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_UNSELECTED_HOVER)
-                imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_UNSELECTED_ACTIVE)
-            end
-
             local tt_button_label = 'T' .. t_idx .. '##' .. key_name .. '_t' .. tt.sid
-            local clicked = imgui.Button(tt_button_label, { PARTY_BUTTON_WIDTH, 0 })
-            if clicked and not is_disabled then
-                if is_group then
-                    toggle_group_party_buff(ctx, key_name, tt_key, not is_tt_enabled)
-                else
-                    toggle_party_buff(ctx, key_name, tt_key, not is_tt_enabled)
-                end
+            if target_button(tt_button_label, is_disabled, is_tt_enabled) then
+                toggle_target(ctx, key_name, tt_key, is_tt_enabled, is_group)
             end
 
             -- Tooltip: show target name, or reason why button is disabled
@@ -939,12 +877,6 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
                 else
                     imgui.SetTooltip(tt.name)
                 end
-            end
-
-            if is_disabled then
-                imgui.PopStyleColor(4)
-            elseif not is_tt_enabled then
-                imgui.PopStyleColor(3)
             end
         end
     end
