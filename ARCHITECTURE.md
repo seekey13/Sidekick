@@ -46,6 +46,7 @@ lib/
     components.lua          Reusable imgui components & constants
     config.lua              Configuration window orchestration
     panel.lua               Debug info panel
+    tooltips.lua            Contextual hover-help text for config UI
 ```
 
 ---
