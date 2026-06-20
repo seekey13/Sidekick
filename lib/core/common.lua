@@ -1524,31 +1524,32 @@ function common.filter_abilities_by_level(abilities, settings, main_level, sub_l
     return available_abilities
 end
 
--- Build command string from ability definition
+-- Build command string from ability definition.
 -- Args:
---   ability (table) - Ability definition with command field
+--   ability (table) - Ability definition. command may be:
+--     string   - used verbatim (e.g. '/ja "X" <me>', '/ma "X" <bt>')
+--     function - called with the target's server_id
+--     absent   - derived as a party-targeted magic cast: /ma "<spell|name>" <server_id>
 --   party_index (number|nil) - party index 0-5 for p0-p5
 -- Returns: string - Command string or nil
 function common.build_ability_command(ability, party_index)
-    local command = nil
-    
-    if type(ability.command) == 'function' then
-        -- If party_index is provided, convert party index (0-5) to server ID
-        if party_index ~= nil then
-            local party = common.get_party()
-            if party then
-                -- Convert party index to server ID
-                local server_id = party:GetMemberServerId(party_index)
-                if server_id and server_id > 0 then
-                    command = ability.command(server_id)
-                end
-            end
-        end
-    elseif type(ability.command) == 'string' then
-        command = ability.command
+    -- Literal string commands need no target resolution.
+    if type(ability.command) == 'string' then
+        return ability.command
     end
-    
-    return command
+
+    -- Function and derived commands both target a party member's server_id.
+    if party_index == nil then return nil end
+    local party = common.get_party()
+    if not party then return nil end
+    local server_id = party:GetMemberServerId(party_index)
+    if not server_id or server_id == 0 then return nil end
+
+    if type(ability.command) == 'function' then
+        return ability.command(server_id)
+    end
+    -- No explicit command: derive a party-targeted magic cast.
+    return string.format('/ma "%s" %s', ability.spell or ability.name, server_id)
 end
 
 -- Build command for tracked targets (outside-party) using server_id directly.
@@ -1565,7 +1566,8 @@ function common.build_ability_command_for_target(ability, server_id)
         return ability.command
     end
 
-    return nil
+    -- No explicit command: derive a magic cast targeting this server_id.
+    return string.format('/ma "%s" %s', ability.spell or ability.name, server_id)
 end
 
 -- ============================================================================

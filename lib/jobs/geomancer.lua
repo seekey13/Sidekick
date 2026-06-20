@@ -499,9 +499,10 @@ return {
                 group = 'Indi',
                 buff_id = 540,
             },
-            -- Geo spells (<me>/party-target, single luopan = single target).
-            -- Converted to function commands so they render with party-target
-            -- buttons like other buffs; exclusive_target enforces one target.
+            -- Geo spells (party-target, single luopan = single target).
+            -- No explicit command: build_ability_command derives the party-targeted
+            -- '/ma "<name>" <server_id>' cast, so they render with ME/P1-5 buttons
+            -- like other buffs; exclusive_target enforces one target.
             -- (highest level first)
             {
                 name = 'Geo-Haste',
@@ -509,9 +510,6 @@ return {
                 cost = 156,
                 id = 801,
                 magic = 'geomancy',
-                command = function(target)
-                    return '/ma "Geo-Haste" '..target
-                end,
                 element = 'Wind',
                 group = 'Geo',
                 main_job_only = true,
@@ -524,9 +522,6 @@ return {
                 cost = 117,
                 id = 802,
                 magic = 'geomancy',
-                command = function(target)
-                    return '/ma "Geo-STR" '..target
-                end,
                 element = 'Fire',
                 group = 'Geo',
                 main_job_only = true,
@@ -539,9 +534,6 @@ return {
                 cost = 111,
                 id = 811,
                 magic = 'geomancy',
-                command = function(target)
-                    return '/ma "Geo-Acumen" '..target
-                end,
                 element = 'Ice',
                 group = 'Geo',
                 main_job_only = true,
@@ -554,9 +546,6 @@ return {
                 cost = 108,
                 id = 803,
                 magic = 'geomancy',
-                command = function(target)
-                    return '/ma "Geo-DEX" '..target
-                end,
                 element = 'Thunder',
                 group = 'Geo',
                 main_job_only = true,
@@ -569,9 +558,6 @@ return {
                 cost = 99,
                 id = 804,
                 magic = 'geomancy',
-                command = function(target)
-                    return '/ma "Geo-VIT" '..target
-                end,
                 element = 'Earth',
                 group = 'Geo',
                 main_job_only = true,
@@ -584,9 +570,6 @@ return {
                 cost = 90,
                 id = 812,
                 magic = 'geomancy',
-                command = function(target)
-                    return '/ma "Geo-Fend" '..target
-                end,
                 element = 'Water',
                 group = 'Geo',
                 main_job_only = true,
@@ -599,9 +582,6 @@ return {
                 cost = 87,
                 id = 805,
                 magic = 'geomancy',
-                command = function(target)
-                    return '/ma "Geo-AGI" '..target
-                end,
                 element = 'Wind',
                 group = 'Geo',
                 main_job_only = true,
@@ -614,9 +594,6 @@ return {
                 cost = 81,
                 id = 806,
                 magic = 'geomancy',
-                command = function(target)
-                    return '/ma "Geo-INT" '..target
-                end,
                 element = 'Ice',
                 group = 'Geo',
                 main_job_only = true,
@@ -629,9 +606,6 @@ return {
                 cost = 72,
                 id = 809,
                 magic = 'geomancy',
-                command = function(target)
-                    return '/ma "Geo-Fury" '..target
-                end,
                 element = 'Fire',
                 group = 'Geo',
                 main_job_only = true,
@@ -644,9 +618,6 @@ return {
                 cost = 69,
                 id = 807,
                 magic = 'geomancy',
-                command = function(target)
-                    return '/ma "Geo-MND" '..target
-                end,
                 element = 'Water',
                 group = 'Geo',
                 main_job_only = true,
@@ -659,9 +630,6 @@ return {
                 cost = 60,
                 id = 800,
                 magic = 'geomancy',
-                command = function(target)
-                    return '/ma "Geo-Refresh" '..target
-                end,
                 element = 'Light',
                 group = 'Geo',
                 main_job_only = true,
@@ -674,9 +642,6 @@ return {
                 cost = 63,
                 id = 808,
                 magic = 'geomancy',
-                command = function(target)
-                    return '/ma "Geo-CHR" '..target
-                end,
                 element = 'Light',
                 group = 'Geo',
                 main_job_only = true,
@@ -689,9 +654,6 @@ return {
                 cost = 51,
                 id = 810,
                 magic = 'geomancy',
-                command = function(target)
-                    return '/ma "Geo-Barrier" '..target
-                end,
                 element = 'Earth',
                 group = 'Geo',
                 main_job_only = true,
@@ -704,9 +666,6 @@ return {
                 cost = 45,
                 id = 815,
                 magic = 'geomancy',
-                command = function(target)
-                    return '/ma "Geo-Focus" '..target
-                end,
                 element = 'Dark',
                 group = 'Geo',
                 main_job_only = true,
@@ -719,9 +678,6 @@ return {
                 cost = 39,
                 id = 816,
                 magic = 'geomancy',
-                command = function(target)
-                    return '/ma "Geo-Attunement" '..target
-                end,
                 element = 'Light',
                 group = 'Geo',
                 main_job_only = true,
@@ -734,9 +690,6 @@ return {
                 cost = 36,
                 id = 798,
                 magic = 'geomancy',
-                command = function(target)
-                    return '/ma "Geo-Regen" '..target
-                end,
                 element = 'Light',
                 group = 'Geo',
                 main_job_only = true,
@@ -749,9 +702,6 @@ return {
                 cost = 27,
                 id = 813,
                 magic = 'geomancy',
-                command = function(target)
-                    return '/ma "Geo-Precision" '..target
-                end,
                 element = 'Thunder',
                 group = 'Geo',
                 main_job_only = true,
@@ -764,9 +714,6 @@ return {
                 cost = 21,
                 id = 814,
                 magic = 'geomancy',
-                command = function(target)
-                    return '/ma "Geo-Voidance" '..target
-                end,
                 element = 'Wind',
                 group = 'Geo',
                 main_job_only = true,
