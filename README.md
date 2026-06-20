@@ -19,6 +19,21 @@ A focused, support-oriented addon for Ashita v4 that automates healing, buffing,
 
 ## Latest Updates
 
+### [2.1.0] - 2026-06-19
+
+Internal refactor release (~1,180 lines removed, behavior unchanged) plus a job-data
+simplification and one Geomancer fix.
+
+#### Added
+- **Derived ability commands**: A job ability's `command` is now optional — when omitted it is derived as `'/<cast> "<spell|name>" <server_id>'`. New optional fields: `cast` (verb, default `ma`; `ja`/`pet` for abilities/blood pacts), `spell` (cast name when it differs from the display name), and `note` (display-only effect hint shown in parens).
+
+#### Changed
+- **Job files are now pure data** — all command closures removed from the nine job definitions; commands derive from the ability's name. Adding a spell is a flat data row.
+- **Bard song labels** now come from `name` + `note` (e.g. `Knight's Minne IV` + `++++DEF`) and display identically. ⚠️ Saved Bard song selections reset once on upgrade (the song identity changed); re-toggle your songs.
+
+#### Fixed
+- **Geomancer Geo-bt**: fixed a luopan-timing race where a Geo debuff could trigger Full Circle on its own freshly-cast luopan mid-combat. Added a short grace window after casting.
+
 ### [2.0.0] - 2026-03-03
 
 ### BREAKING CHANGES
@@ -235,33 +250,30 @@ This will show detailed information about ability selection, cooldowns, and acti
 
 ```
 Medic/
-├── Medic.lua              # Main addon file
+├── Medic.lua                  # Main addon file
 ├── lib/
 │   ├── core/
-│   │   ├── common.lua        # Shared utilities
-│   │   ├── automation.lua    # Action selection engine
-│   │   ├── resource.lua      # Resource/cooldown tracking
-│   │   └── parse_packets.lua # Packet parsing for casting state
+│   │   ├── common.lua         # Shared utilities (party, buffs, commands, game_state)
+│   │   ├── action_core.lua    # Resource/cooldown tracking, ability candidacy helpers
+│   │   ├── automation.lua     # Priority-based action selection engine
+│   │   ├── parse_packets.lua  # Packet parsing for casting state / buff tracking
+│   │   └── targets.lua        # FFXI target-resolution helpers (from Ashita)
 │   ├── actions/
-│   │   ├── heal.lua          # Single-target healing
-│   │   ├── heal_aoe.lua      # AOE healing
-│   │   ├── heal_pet.lua      # Pet healing
-│   │   ├── wake.lua          # Sleep removal
-│   │   ├── debuff_removal.lua # Debuff removal
-│   │   ├── recover.lua       # MP/TP recovery
-│   │   ├── buff.lua          # Buff maintenance
-│   │   └── geo.lua           # Geo buff/debuff targeting & Full Circle / luopan management
-│   ├── jobs/
-│   │   ├── bard.lua          # Bard abilities
-│   │   ├── dancer.lua        # Dancer abilities
-│   │   ├── geomancer.lua     # Geomancer abilities
-│   │   ├── paladin.lua       # Paladin abilities
-│   │   ├── red_mage.lua      # Red Mage abilities
-│   │   ├── rune_fencer.lua   # Rune Fencer abilities
-│   │   ├── scholar.lua       # Scholar abilities
-│   │   ├── summoner.lua      # Summoner abilities
-│   │   └── white_mage.lua    # White Mage abilities
-│   └── ui_config.lua         # ImGui configuration interface
+│   │   ├── heal.lua           # Healing (single-target, AOE, pet)
+│   │   ├── status_removal.lua # Debuff removal & sleep wake
+│   │   ├── recover.lua        # MP/TP recovery
+│   │   ├── buff.lua           # Buff maintenance
+│   │   ├── geo.lua            # Geo buff/debuff targeting & Full Circle / luopan management
+│   │   ├── item.lua           # Consumable-based status removal
+│   │   ├── rest.lua           # Automatic resting (/heal)
+│   │   └── revive.lua         # Raise dead party/tracked/alliance members
+│   ├── jobs/                  # Per-job ability data tables (BRD, DNC, GEO, PLD, RDM, RUN, SCH, SMN, WHM)
+│   │   └── *.lua
+│   └── ui/
+│       ├── config.lua         # ImGui configuration orchestration
+│       ├── components.lua     # Reusable imgui render components & constants
+│       ├── panel.lua          # Debug game-state panel (/medic panel)
+│       └── tooltips.lua       # Contextual hover-help text
 ```
 
 ## Configuration

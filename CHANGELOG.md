@@ -5,6 +5,54 @@ All notable changes to Medic will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 2026-06-19
+
+This release is primarily an internal refactor: ~1,180 lines removed across the
+codebase with no change to behavior, plus a data-model simplification for job
+definitions and one Geomancer bug fix. Most changes are not user-visible.
+
+### Added
+- **Derived ability commands**: An ability's `command` field is now **optional**. When
+  absent, `common.build_ability_command` / `build_ability_command_for_target` derive a
+  party-targeted cast as `'/<cast> "<spell|name>" <server_id>'`. New optional fields:
+  - `cast` — command verb (defaults to `'ma'`; `'ja'` for job abilities, `'pet'` for blood pacts).
+  - `spell` — cast name when it differs from the display `name`.
+  - `note` — display-only effect hint, rendered after the name in parens.
+  Explicit `command` strings (e.g. `<me>`/`<bt>` casts) and irregular commands are still supported.
+- **`action_core.try_use_on_target(ability, job_def, settings, server_id, desc)`**: Mirrors
+  `try_use` for outside targets (tracked targets / alliance members) addressed by server_id —
+  usability → stratagem → derived/explicit command → pending-buff registration. Replaces the
+  near-identical inline cast blocks previously duplicated across `status_removal.lua`,
+  `buff.lua`, and `revive.lua`.
+- **`common.track_buff(server_id, buff_id)`**: Single packet-buff entry point that gates
+  internally (Trust / tracked / alliance), replacing the three `apply_*_buff` wrappers and the
+  parallel guard blocks in `Medic.lua`'s 0x028/0x029 handlers.
+
+### Changed
+- **Job definitions are now pure data** — every `command = function(target) … end` closure has
+  been removed from all nine job files; commands derive from `name`/`cast`/`spell`. Adding a
+  spell is now a flat, typo-resistant data row.
+- **Bard song names cleaned**: display suffixes (e.g. `Knight's Minne IV (++++DEF)`) moved out of
+  `name` into the new `note` field; `name` is now the clean spell identity (`Knight's Minne IV`).
+  The UI rebuilds the same label via `display_name(ability)` = `name (note)`. ⚠️ Because `name` is
+  the settings-key identity, **saved Bard song selections reset once** — re-toggle your songs.
+- **Removed unused `tag` parameter** from `action_core.filter_usable` and `first_command`.
+
+### Fixed
+- **Geomancer Geo-bt luopan race**: after casting a Geo-bt debuff the luopan takes a tick to
+  register as a pet, briefly reading as "no luopan". That transient state could clear the
+  `geo_bt_pending` flag, and the instant the luopan appeared the take-over branch would fire
+  **Full Circle on the freshly-cast debuff mid-combat**. Added a grace window
+  (`GEO_BT_LUOPAN_GRACE`, 4s): the flag only clears past the window, and the cast branch no
+  longer re-casts while a luopan is summoning.
+
+### Removed
+- Dead/unused functions across `common.lua`, `action_core.lua`, and `automation.lua`
+  (e.g. `get_entity_by_name`, `get_target_index`, `has_status`, `get_removable_debuffs`,
+  `is_valid_target`, the custom-recast subsystem, throttle setters) — all had zero callers.
+- The three `apply_trust_buff` / `apply_alliance_member_buff` / `apply_tracked_target_buff`
+  wrappers (folded into `track_buff`).
+
 ## [2.0.0] - 2026-03-04
 
 ### BREAKING CHANGES

@@ -163,9 +163,10 @@ Consolidated ability infrastructure module. Combines resource management (MP/TP 
 | Function | Purpose |
 |---|---|
 | `is_usable(ability, job_def)` | Returns `ok, reason` after checking status ailments, resource, and cooldown |
-| `filter_usable(abilities, job_def, tag)` | Filters a list down to usable abilities, debug-logs skipped ones |
-| `first_command(abilities, job_def, settings, tag, party_index, desc_fn)` | Returns the first usable ability as `{command, description}` or nil |
-| `try_use(ability, job_def, settings, party_index, desc, game_state)` | Single-ability execution with optional Trust buff registration |
+| `filter_usable(abilities, job_def, settings)` | Filters a list down to usable abilities |
+| `first_command(abilities, job_def, settings, party_index, desc_fn)` | Returns the first usable ability as `{command, description}` or nil |
+| `try_use(ability, job_def, settings, party_index, desc, game_state)` | Single-ability execution on a party member, with optional Trust buff registration |
+| `try_use_on_target(ability, job_def, settings, server_id, desc)` | Same as `try_use` but for an **outside** target (tracked / alliance) addressed by server_id |
 
 ### common.lua
 
@@ -174,11 +175,12 @@ Shared utility module (~1,700 lines). Key areas:
 - **Logging**: `printf`, `debugf`, `errorf`, `warnf` – unified via internal `log()` helper
 - **Player state**: `get_player_level/job/mp/tp`, `is_idle/engaged/in_event`, `is_casting`, `is_player_moving`, `is_resting` (cached from entity status 33), `is_mounted` (entity status 5 or buff 252)
 - **Party**: `get_party_size`, `get_party_member_name/zone/distance`, `get_party_server_ids`
-- **Alliance**: `is_alliance_member`, `find_alliance_member`, `get_alliance_count`, `sorted_alliance_members`, `apply_alliance_member_buff`, `apply_external_buff`
+- **Alliance**: `is_alliance_member`, `find_alliance_member`, `get_alliance_count`, `sorted_alliance_members`
 - **Buffs**: `has_buff`, `get_player_buffs`, `get_party_buffs`, `get_trust_buffs`
-- **Trust buff tracking**: `register_pending_buff`, `handle_buff_application`, `handle_buff_removal`, `clear_trust_buffs`
+- **Packet buff tracking**: `register_pending_buff`, `handle_buff_application`, `handle_buff_removal`, `clear_trust_buffs`, and `track_buff(server_id, buff_id)` — the single gated entry point (Trust / tracked / alliance) used by the 0x028/0x029 packet handlers (`apply_external_buff` is its internal dedup-insert)
 - **Status ailments**: `has_silence`, `has_amnesia`, `is_command_blocked`
-- **Ability helpers**: `has_spell_learned(ability)`, `filter_abilities_by_level`, `build_ability_command`, `check_target_modifier`
+- **Ability helpers**: `has_spell_learned(ability)`, `ability_usable_at_level`, `get_abilities_in_group`, `get_usable_abilities_in_group`, `is_subjob_duplicate`, `filter_abilities_by_level`, `check_target_modifier`
+- **Command building**: `build_ability_command(ability, party_index)` and `build_ability_command_for_target(ability, server_id)` — return the ability's explicit `command` (string/function) or **derive** `'/<cast> "<spell|name>" <server_id>'` when no `command` is set
 - **Game state**: `refresh_game_state` – populates a shared table with party HP%, buffs, server IDs, pet info, and alliance sub-party snapshots every tick
 - **Tracked target level resolution**: `handle_check_packet` – parses 0x0C9 check-response packet to store level and seed estimated max HP via `AVERAGE_HP_BY_LEVEL`
 - **Outside-target helpers**: `resolve_focus_target`, `find_alliance_member`, `outside_abilities`, `build_ability_command_for_target`
@@ -206,6 +208,7 @@ FFI bindings for FFXI target resolution (battle target, scan target, last teller
 - **Deficit-based selection**: Calculates exact HP deficit, picks ability whose `value` best matches to minimise overheal.
 - **Critical HP system**: Separate ability list (`abilities.critical`) with lower threshold (default 30%).
 - Uses `action_core.filter_usable()` for resource/cooldown gating.
+- **Outside targets**: tracked-target and alliance-member heals (focus and lowest-HP) route through a local `try_heal_outside` helper that preserves the heal flow's stratagem-unavailable **abort** semantics (returns `result, abort`).
 
 **AOE healing** (`execute_aoe`): Triggers when average party HP falls below threshold. Uses `action_core.first_command()`.
 
@@ -214,9 +217,9 @@ FFI bindings for FFXI target resolution (battle target, scan target, last teller
 ### status_removal.lua – Debuff Removal & Sleep Wake
 
 **Debuff removal** (`execute_debuff_removal`):
-- Priority: self → focus target → party member with most debuffs.
+- Priority: self → focus target → party member with most debuffs → tracked → alliance.
 - Matches abilities to specific debuff IDs they can cure.
-- Uses `action_core.try_use()`.
+- Uses `action_core.try_use()` for party members; `action_core.try_use_on_target()` for tracked targets and alliance members.
 
 **Wake from sleep** (`execute_wake`):
 - Scans party buffs for sleep IDs (2, 19).
@@ -231,7 +234,7 @@ FFI bindings for FFXI target resolution (battle target, scan target, last teller
 - **Target modifier** (Pianissimo, etc.): If `ability.target_modifier = true`, sends modifier command first; next tick casts the buff.
 - **Trust buff registration**: Calls `common.register_pending_buff()` for Trusts after cast.
 - **Condition flags**: `idle_only`, `requires_pet`, `requires_buff`; combat-only gating is controlled by settings (`combat_only_<name>` / `combat_only_group_<group>`).
-- Uses `action_core.try_use()`.
+- Uses `action_core.try_use()` for party members; `action_core.try_use_on_target()` for tracked targets and alliance members.
 
 ### item.lua – Consumable Status Removal
 
@@ -253,7 +256,7 @@ MP and TP recovery. Monitors percentage thresholds. Uses `action_core.first_comm
 - **Geo buffs**: `<me>` Geo spells (`group = 'Geo'`, `exclusive_target = true`) cast on a single selected party member via the same ME/P1-P5 button targeting as other buffs. Single-select: choosing a target deselects the others.
 - **Geo debuffs (Geo-bt)**: `<bt>` enemy debuffs (`group = 'Geo-bt'`) cast on the player's battle target. Combat-only (inherently, via `is_ability_combat_only`); the single selected debuff is chosen from a dropdown and cast through `geo.lua` (not `buff.lua`). A module-local `geo_bt_pending` flag tracks whether the current luopan belongs to the debuff.
 - **Full Circle**: Monitors luopan distance from the selected Geo target (`get_pet_distance_from_member`); fires Full Circle when the pet exceeds the configurable yalm threshold, then recasts. Skipped when no Geo target is selected.
-- **Luopan lifecycle**: Only one luopan exists at a time. In combat the selected Geo debuff takes over the luopan (Full Circle a non-debuff luopan, then cast); the distance-based Full Circle is suppressed while a debuff luopan is active so it isn't dismissed mid-fight. When combat ends, Full Circle frees the luopan for Geo buffs.
+- **Luopan lifecycle**: Only one luopan exists at a time. In combat the selected Geo debuff takes over the luopan (Full Circle a non-debuff luopan, then cast); the distance-based Full Circle is suppressed while a debuff luopan is active so it isn't dismissed mid-fight. When combat ends, Full Circle frees the luopan for Geo buffs. A grace window (`GEO_BT_LUOPAN_GRACE`, 4s, tracked via `geo_bt_cast_time`) prevents the post-cast tick — before the luopan registers as a pet — from clearing `geo_bt_pending` and Full-Circling the freshly-cast debuff.
 - **Entrust**: Name-based target + spell selection from UI dropdowns; fires Entrust → Indi spell on configured party member. Indi does not use a luopan, so it never conflicts with the Geo luopan.
 - All Geo spells have `main_job_only = true`.
 
@@ -310,6 +313,10 @@ return {
 
 ### Ability Definition
 
+Ability entries are **pure data** — there are no command closures in the job files.
+The cast command is *derived* from `name`/`cast`/`spell` unless an explicit `command`
+is given (used only for irregular casts like `<me>`/`<bt>` targeting).
+
 ```lua
 {
     name            = 'Cure IV',
@@ -317,8 +324,17 @@ return {
     cost            = 88,
     value           = 400,          -- HP restored (deficit selection)
     id              = 0,            -- Recast ID
-    command         = function(idx) return '/ma "Cure IV" <p' .. idx .. '>' end,
-    -- or: command = '/ja "Divine Seal" <me>',
+
+    -- COMMAND (all optional):
+    -- When command is absent, build_ability_command derives:
+    --   '/<cast> "<spell|name>" <server_id>'
+    cast            = 'ma',         -- verb: 'ma' (default) | 'ja' | 'pet'
+    spell           = nil,          -- cast name when it differs from display `name`
+    note            = nil,          -- display-only effect hint, shown as "name (note)"
+    -- Explicit override still supported for irregular casts:
+    --   command = '/ja "Divine Seal" <me>'   (string, verbatim)
+    --   command = '/ma "Geo-Vex" <bt>'        (enemy target)
+
     buff_id         = 43,           -- number or table of buff IDs to track
     debuff_id       = 3,            -- debuff ID(s) this ability removes
     idle_only       = false,        -- green  – is_idle()
@@ -337,6 +353,11 @@ return {
 }
 ```
 
+> **`name` is identity, not just a label.** It is the settings key (`disabled_<name>`),
+> the group lookup, and the selection value. The UI renders the displayed label via
+> `display_name(ability)` = `name .. ' (' .. note .. ')'`. Put effect hints in `note`,
+> never in `name`.
+
 ---
 
 ## UI System
@@ -346,8 +367,10 @@ return {
 - Builds a **context object** (`ctx`) containing settings, callbacks, job_def, filter functions, and party_buffs.
 - Delegates all rendering to `components.lua`.
 - **DRY helpers**:
-  - `render_party_dropdown(label, key, include_player, names, settings, cb)` – reusable for Focus/Follow/Recovery/Entrust Target dropdowns.
+  - `render_party_dropdown(label, key, include_player, names, settings, cb, include_tracked)` – reusable for Focus/Follow/Recovery/Entrust Target dropdowns.
   - `has_usable_abilities(abilities)` – quick check for any level-appropriate abilities.
+  - `render_ability_checkboxes(ctx, job_def, category, show_stratagem)` – renders an ability-checkbox list for a category, skipping subjob duplicates.
+  - The ability-introspection helpers (`can_use_ability`, `get_abilities_in_group`, `get_usable_abilities_in_group`, `is_subjob_duplicate`) are single-sourced in `common.lua`; `config.lua` and `components.lua` alias them.
 
 ### components.lua – Render Components
 
@@ -358,6 +381,7 @@ return {
 
 | Function | Layout |
 |---|---|
+| `display_name(ability)` | Returns the label `name` + optional `(note)` (display only; `name` stays the identity) |
 | `render_ability(ctx, ability, job_def, suffix)` | Dispatcher – picks correct renderer below |
 | `self_single_ability(ctx, ability, job_def, suffix)` | `[ON/OFF] Ability Name` |
 | `self_grouped_ability(ctx, ability, job_def)` | `[ON/OFF] [Dropdown]` |
@@ -404,12 +428,13 @@ Read-only display of game state, party buffs, server IDs, target indices. Shown 
 ### Trust Buff Tracking
 
 Regular party members: buffs read directly from game memory.
-Trusts (server_id ≥ 0x1000000): tracked via packets.
+Trusts (server_id ≥ 0x1000000), tracked targets, and alliance members: tracked via packets.
 
 1. `register_pending_buff(server_id, buff_id)` – on cast initiation
 2. `handle_buff_application()` – packet 0x028 with completion flag
-3. `handle_buff_removal(server_id, buff_id)` – packet 0x029
-4. `clear_trust_buffs()` – on zone change
+3. `track_buff(server_id, buff_id)` – called from the 0x028/0x029 handlers; gates internally (Trust / tracked / alliance) so the buff store stays scoped
+4. `handle_buff_removal(server_id, buff_id)` – packet 0x029 / message 83
+5. `clear_trust_buffs()` – on zone change
 
 ---
 
