@@ -1398,6 +1398,60 @@ function common.has_spell_learned(ability)
     return ok and known or true  -- assume known on error
 end
 
+-- Returns true if the player's current main/sub level meets the ability's level
+-- requirement. main_job_only abilities coming from the subjob never qualify.
+-- (Single source for the UI's level-gating; used by both config and components.)
+function common.ability_usable_at_level(ability)
+    if not ability or not ability.level then return true end
+    if ability.main_job_only and ability.is_main_job == false then return false end
+    local main_level, sub_level = common.get_player_level()
+    if ability.is_main_job == false then
+        return sub_level >= ability.level
+    end
+    return main_level >= ability.level
+end
+
+-- Collect every ability sharing target_group across all of job_def's categories.
+function common.get_abilities_in_group(job_def, target_group)
+    local group_abilities = {}
+    if not job_def or not target_group or not job_def.abilities then
+        return group_abilities
+    end
+    for _, abilities in pairs(job_def.abilities) do
+        for _, ability in ipairs(abilities) do
+            if ability.group == target_group then
+                table.insert(group_abilities, ability)
+            end
+        end
+    end
+    return group_abilities
+end
+
+-- Abilities in a group that are both level-appropriate and (for spells) learned.
+function common.get_usable_abilities_in_group(job_def, target_group)
+    local usable = {}
+    for _, ability in ipairs(common.get_abilities_in_group(job_def, target_group)) do
+        if common.ability_usable_at_level(ability) and common.has_spell_learned(ability) then
+            table.insert(usable, ability)
+        end
+    end
+    return usable
+end
+
+-- True when a subjob ability duplicates a same-named main-job ability.
+function common.is_subjob_duplicate(job_def, ability)
+    if ability.is_main_job ~= false then return false end
+    if not job_def or not job_def.abilities then return false end
+    for _, abilities in pairs(job_def.abilities) do
+        for _, other in ipairs(abilities) do
+            if other.name == ability.name and other.is_main_job ~= false then
+                return true
+            end
+        end
+    end
+    return false
+end
+
 -- Filter abilities by level, disabled status, and pet requirements
 -- Args:
 --   abilities (table) - List of abilities to filter

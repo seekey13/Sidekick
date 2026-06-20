@@ -84,26 +84,8 @@ end
 -- Default filter functions (can be overridden via ctx.filter_func)
 local default_filters = {}
 
--- Check if player can use an ability based on level
-function default_filters.can_use_ability(ability)
-    if not ability or not ability.level then
-        return true
-    end
-    
-    -- Check if ability requires main job only (e.g., Geo spells)
-    if ability.main_job_only and ability.is_main_job == false then
-        return false
-    end
-    
-    local main_level, sub_level = common.get_player_level()
-    
-    -- Check if this ability is for main job or subjob
-    if ability.is_main_job == false then
-        return sub_level >= ability.level
-    else
-        return main_level >= ability.level
-    end
-end
+-- Level-gating for abilities (single source in common.lua).
+default_filters.can_use_ability = common.ability_usable_at_level
 
 -- Get filter functions from context or use defaults
 local function get_filters(ctx)
@@ -113,25 +95,8 @@ local function get_filters(ctx)
     return default_filters
 end
 
--- Get all abilities in the same group
-local function get_abilities_in_group(job_def, target_group)
-    local group_abilities = {}
-    if not job_def or not target_group then
-        return group_abilities
-    end
-    
-    if job_def.abilities then
-        for category, abilities in pairs(job_def.abilities) do
-            for _, ability in ipairs(abilities) do
-                if ability.group == target_group then
-                    table.insert(group_abilities, ability)
-                end
-            end
-        end
-    end
-    
-    return group_abilities
-end
+-- Get all abilities in the same group (shared impl in common.lua)
+local get_abilities_in_group = common.get_abilities_in_group
 
 -- Get usable abilities in a group (level-appropriate and spell learned)
 local function get_usable_abilities_in_group(job_def, target_group, ctx)
@@ -215,26 +180,8 @@ local function get_ability_group(job_def, ability_name)
     return nil
 end
 
--- Check if an ability is a duplicate from subjob
-local function is_subjob_duplicate(job_def, ability, ctx)
-    if ability.is_main_job ~= false then
-        return false
-    end
-    
-    if not job_def or not job_def.abilities then
-        return false
-    end
-    
-    for category, abilities in pairs(job_def.abilities) do
-        for _, other_ability in ipairs(abilities) do
-            if other_ability.name == ability.name and other_ability.is_main_job ~= false then
-                return true
-            end
-        end
-    end
-    
-    return false
-end
+-- Check if an ability is a duplicate from subjob (shared impl in common.lua)
+local is_subjob_duplicate = common.is_subjob_duplicate
 
 -- Check if ability can be cast on party members
 local function can_cast_on_party(ability)

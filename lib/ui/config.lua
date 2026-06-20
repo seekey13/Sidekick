@@ -41,66 +41,10 @@ local party_buffs = {}
 -- Helper Functions (Remaining in ui_config)
 -- ============================================================================
 
--- Check if player can use an ability based on level
-local function can_use_ability(ability)
-    if not ability or not ability.level then
-        return true
-    end
-    
-    -- Check if ability requires main job only (e.g., Geo spells)
-    if ability.main_job_only and ability.is_main_job == false then
-        return false
-    end
-    
-    local main_level, sub_level
-    main_level, sub_level = common.get_player_level()
-    
-    -- Check if this ability is for main job or subjob
-    -- Abilities marked with is_main_job = false are from subjob
-    local result
-    if ability.is_main_job == false then
-        result = sub_level >= ability.level
-    else
-        result = main_level >= ability.level
-    end
-    
-    return result
-end
-
--- Get all abilities in the same group as the given ability (returns ability objects, not just names)
-local function get_abilities_in_group(job_def, target_group)
-    local group_abilities = {}
-    if not job_def or not target_group then
-        return group_abilities
-    end
-    
-    -- Search through all ability categories
-    if job_def.abilities then
-        for category, abilities in pairs(job_def.abilities) do
-            for _, ability in ipairs(abilities) do
-                if ability.group == target_group then
-                    table.insert(group_abilities, ability)
-                end
-            end
-        end
-    end
-    
-    return group_abilities
-end
-
--- Get usable abilities in a group (level-appropriate and spell learned)
-local function get_usable_abilities_in_group(job_def, target_group)
-    local all_abilities = get_abilities_in_group(job_def, target_group)
-    local usable = {}
-    
-    for _, ability in ipairs(all_abilities) do
-        if can_use_ability(ability) and common.has_spell_learned(ability) then
-            table.insert(usable, ability)
-        end
-    end
-    
-    return usable
-end
+-- Shared ability-introspection helpers (single source in common.lua).
+local can_use_ability             = common.ability_usable_at_level
+local get_abilities_in_group      = common.get_abilities_in_group
+local get_usable_abilities_in_group = common.get_usable_abilities_in_group
 
 -- Check if a list of abilities has any usable abilities (level-appropriate)
 local function has_usable_abilities(abilities)
@@ -120,26 +64,8 @@ local function has_usable_abilities(abilities)
     return false
 end
 
--- Check if an ability is a duplicate from subjob
-local function is_subjob_duplicate(job_def, ability)
-    if ability.is_main_job ~= false then
-        return false
-    end
-    
-    if not job_def or not job_def.abilities then
-        return false
-    end
-    
-    for category, abilities in pairs(job_def.abilities) do
-        for _, other_ability in ipairs(abilities) do
-            if other_ability.name == ability.name and other_ability.is_main_job ~= false then
-                return true
-            end
-        end
-    end
-    
-    return false
-end
+-- Check if an ability is a duplicate from subjob (shared impl in common.lua)
+local is_subjob_duplicate = common.is_subjob_duplicate
 
 -- Check if a party member is a Trust (server_id >= 0x1000000)
 local function is_trust(party_index)
