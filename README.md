@@ -37,6 +37,8 @@ A focused, support-oriented addon for Ashita v4 that automates healing, buffing,
 - **Debug Panel**: New `lib/ui/panel.lua` debug info panel showing party game_state snapshot (toggle with `/medic panel`).
 - **Status Removal Module**: New combined `lib/actions/status_removal.lua` with `execute_debuff_removal` and `execute_wake` entry points.
 - **Dancer Level-75 Abilities**: Added Saber Dance, Fan Dance, No Foot Rise, and Presto to the Dancer job definition.
+- **Geomancer Geo Targeting**: `<me>` Geo buff spells now target party members via single-select ME/P1-P5 buttons (like other party buffs), with Full Circle distance measured from the selected Geo target.
+- **Geomancer Geo Debuffs**: New `<bt>` Geo debuff spells (Geo-Vex, Geo-Frailty, Geo-Paralysis, Geo-Languor, Geo-Slip, Geo-Torpor, Geo-Slow, Geo-Poison) cast on your battle target. These are combat-only and selected via a dropdown under Enable Geo. In combat the selected debuff takes over the single luopan; Full Circle frees it for Geo buffs once combat ends.
 
 ### Changed
 - **Heal AOE**: Merged into `heal.lua` as `execute_aoe`; requires at least 2 members below threshold before firing (hardcoded, previously configurable via slider).
@@ -71,7 +73,7 @@ A focused, support-oriented addon for Ashita v4 that automates healing, buffing,
 - **Buff Maintenance**: Auto-apply and maintain self-buffs with single-target party buff support
 - **Resource Recovery**: Automated MP and TP recovery abilities
 - **Automatic Resting**: MP-based jobs automatically rest when idle to recover MP with configurable timer, HP threshold safety, and optional follow target distance monitoring
-- **Geomancer Support**: Automatic Full Circle execution when luopan exceeds distance threshold
+- **Geomancer Support**: Single-target Geo buffs on party members, target-cast Geo debuffs in combat, and automatic Full Circle / luopan management (recalls and recasts when the luopan drifts beyond the distance threshold from the selected Geo target)
 
 ### User Interface
 - **ImGui Configuration UI**: User-friendly settings interface with collapsible sections
@@ -125,11 +127,13 @@ Currently implemented support jobs:
 - **Geomancer** (GEO)
   - AOE healing with job abilities (Mending Halation)
   - Pet healing with job abilities (Life Cycle)
-  - Buff with geomancy spells (Geo & Indi)
+  - Buff with Geo geomancy spells, single-target party member selection (ME/P1-P5 buttons, single-select)
+  - Buff with Indi geomancy spells (self)
+  - Debuff with Geo geomancy spells on your battle target (Geo-Vex, Geo-Frailty, Geo-Paralysis, Geo-Languor, Geo-Slip, Geo-Torpor, Geo-Slow, Geo-Poison) — combat-only, single debuff selectable via dropdown
   - Entrust system: Select target party member and Indi spell to automatically cast via Entrust ability
   - Buff with job abilities (Lasting Emanation, Ecliptic Attrition, Collimated Fervor, Blaze of Glory, Dematerialize)
   - MP recovery with job abilities (Radial Arcana)
-  - Geomancy management (automatic Full Circle execution)
+  - Geomancy/luopan management (automatic Full Circle execution)
 
 - **Paladin** (PLD)
   - Single-target healing with white magic (Cure I-IV)
@@ -244,7 +248,7 @@ Medic/
 │   │   ├── debuff_removal.lua # Debuff removal
 │   │   ├── recover.lua       # MP/TP recovery
 │   │   ├── buff.lua          # Buff maintenance
-│   │   └── geo.lua           # Geo Full Circle management
+│   │   └── geo.lua           # Geo buff/debuff targeting & Full Circle / luopan management
 │   ├── jobs/
 │   │   ├── bard.lua          # Bard abilities
 │   │   ├── dancer.lua        # Dancer abilities
@@ -287,8 +291,10 @@ Settings are saved per job in JSON format in the Ashita config directory:
 - `rest_threshold` (number): HP% threshold - stops resting if any party member below this (1-99, default 70)
 - `rest_distance` (number): Distance in yalms to follow target - stops resting if exceeded (1-15, default 7)
 - `follow_target` (string): Character name of party member to follow for distance checking (P1-P5, optional)
-- `geo_enabled` (boolean): Enable geo management
-- `geo_distance_threshold` (number): Distance threshold for Full Circle
+- `geo_enabled` (boolean): Enable geo management (Geo buffs, Geo debuffs, and Full Circle / luopan handling)
+- `geo_distance_threshold` (number): Distance (yalms) the luopan may drift from the selected Geo target before Full Circle recalls and recasts it (7-30)
+- `selected_Geo-bt` (string): Selected Geo debuff spell to cast on your battle target (combat-only)
+- `disabled_group_Geo-bt` (boolean): Disables casting the selected Geo debuff
 
 ## Design Principles
 
