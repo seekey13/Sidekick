@@ -277,7 +277,7 @@ return {
                 name = 'Regen',
                 level = 23,
                 cost = 15,
-                id = 108,  -- Spell ID
+                id = 108,
                 magic = 'white',
                 magic_type = 'enhancing',
                 buff_id = 42,  -- Regen

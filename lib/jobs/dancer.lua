@@ -184,7 +184,7 @@ return {
                 name = 'Contradance',
                 level = 50,
                 cost = 0,
-                id = 229,  -- Job Ability ID
+                id = 229,
                 command = '/ja "Contradance" <me>',
             },
         },
