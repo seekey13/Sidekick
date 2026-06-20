@@ -46,10 +46,7 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
     
     -- Filter abilities by level and settings
     local available_abilities = common.filter_abilities_by_level(buff_abilities, settings, derived_main_level, derived_sub_level, job_def)
-    
-    if #available_abilities > 0 then
-    end
-    
+
     if #available_abilities == 0 then
         return nil
     end

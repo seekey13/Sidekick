@@ -13,6 +13,9 @@ local action_core = require('lib.core.action_core')
 -- Geo-bt owns the single luopan during combat; this flag lets us (a) keep the
 -- distance-based Full Circle from dismissing our debuff luopan, and (b) Full
 -- Circle it once combat ends. Module-scoped so it persists across execute() calls.
+-- Caveat: an addon reload mid-combat resets this to false while a
+-- debuff luopan is still out, costing one redundant Full Circle + recast as the
+-- ownership is re-established.
 local geo_bt_pending = false
 
 -- Returns the Geo-bt ability the user wants maintained in combat, or nil.
@@ -75,6 +78,10 @@ function geo.execute(settings, job_def, main_level, sub_level, player_resource)
     local derived_main_level = player.main_level
     local derived_sub_level  = player.sub_level
 
+    -- Required lazily (not at module load) to avoid a circular require; shared by
+    -- the Full Circle target lookup and the Entrust logic below.
+    local ui_config = require('lib.ui.config')
+
     -- ========================================================================
     -- Geo-bt Logic (enemy <bt> debuffs)
     -- The single luopan is claimed by Geo-bt during combat and dismissed with
@@ -128,7 +135,6 @@ function geo.execute(settings, job_def, main_level, sub_level, player_resource)
         -- is single-select (one luopan), so at most one target is enabled.
         -- Distance is measured from that target; if none is selected we skip
         -- the distance-based Full Circle entirely.
-        local ui_config = require('lib.ui.config')
         local party_buffs = ui_config.get_party_buffs()
         local geo_targets = party_buffs and party_buffs['Geo']
         local selected_target_index = nil  -- 0 = ME, 1-5 = party member
@@ -165,7 +171,6 @@ function geo.execute(settings, job_def, main_level, sub_level, player_resource)
     -- ========================================================================
     
     -- Get entrust configuration from config UI
-    local ui_config = require('lib.ui.config')
     local entrust_config = ui_config.get_entrust_config()
     
     if entrust_config then
