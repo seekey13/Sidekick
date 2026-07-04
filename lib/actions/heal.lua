@@ -8,6 +8,24 @@ local heal = {}
 local common      = require('lib.core.common')
 local action_core = require('lib.core.action_core')
 
+-- Session-only per-target selection for Group/AOE healing (set via config UI).
+-- Asymmetric defaults so behaviour is correct even when the config window was
+-- never opened this session (the common case each login): party/tracked members
+-- are included unless explicitly disabled; alliance members are excluded unless
+-- explicitly enabled. Keys match the UI: numeric 0-5 (party), 'tt_<sid>'
+-- (tracked), 'al_<flat>' (alliance).
+local function make_group_filter(key_name)
+    local ui_config = require('lib.ui.config')
+    local cfg = ui_config.get_party_buffs()
+    local targets = cfg and cfg[key_name]
+    return function(key, is_alliance)
+        if is_alliance then
+            return targets ~= nil and targets[key] == true
+        end
+        return not (targets ~= nil and targets[key] == false)
+    end
+end
+
 function heal.execute(settings, job_def, main_level, sub_level, player_resource)
     -- Check if healing is enabled
     if not settings.heal_enabled then
@@ -104,6 +122,8 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
         lowest_alliance_sid  = nil,
         lowest_alliance_hpp  = 100,
     }
+    local group_allowed = make_group_filter('heal_group')
+
     local total_hp     = 0
     local active_count = 0
     for i = 0, 5 do
@@ -112,6 +132,7 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
         local hpp        = m.hpp or 0
         local target_idx = m.target_index or 0
         if not common.is_active_member(hpp) then goto continue_hp_check end
+        if not group_allowed(i) then goto continue_hp_check end
         total_hp     = total_hp     + hpp
         active_count = active_count + 1
         local is_focus      = focus_enabled and focus_party_idx ~= nil and i == focus_party_idx
@@ -132,7 +153,7 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
     -- Also scan tracked targets for healing needs
     if state.tracked then
         for sid, tt in pairs(state.tracked) do
-            if tt.is_active and tt.target_index and tt.target_index > 0 then
+            if tt.is_active and tt.target_index and tt.target_index > 0 and group_allowed('tt_' .. sid) then
                 local hpp = tt.hpp or 0
                 if common.is_active_member(hpp) then
                     local is_focus = focus_tracked_sid and sid == focus_tracked_sid
@@ -164,8 +185,9 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
         for al_pi = 2, 3 do
             local sub_party = state.alliance[al_pi]
             if sub_party then
-                for _, m in pairs(sub_party) do
-                    if m and m.is_active and m.target_index and m.target_index > 0 then
+                for local_idx, m in pairs(sub_party) do
+                    local al_key = 'al_' .. ((al_pi - 1) * 6 + local_idx)
+                    if m and m.is_active and m.target_index and m.target_index > 0 and group_allowed(al_key, true) then
                         local hpp = m.hpp or 0
                         if common.is_active_member(hpp) then
                             local is_focus = focus_alliance_sid and m.server_id == focus_alliance_sid
@@ -219,7 +241,7 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
             
             for i = 0, 5 do
                 local m = i == 0 and state.player or state.party[i]
-                if m then
+                if m and group_allowed(i) then
                     local hpp = m.hpp or 0
                     if common.below_threshold(hpp, critical_threshold) and hpp < critical_hpp then
                         critical_hpp = hpp
@@ -584,12 +606,14 @@ function heal.execute_aoe(settings, job_def)
         player.main_level, player.sub_level, job_def)
     if #abilities == 0 then return nil end
 
+    local group_allowed = make_group_filter('heal_aoe_group')
+
     -- Average HP of alive, non-full party members; also count how many are below threshold
     local threshold = settings.heal_aoe_threshold or 70
     local total, count, below_count = 0, 0, 0
     for i = 0, 5 do
         local m = i == 0 and state.player or state.party[i]
-        if m then
+        if m and group_allowed(i) then
             local hpp = m.hpp or 0
             if common.is_active_member(hpp) then
                 total = total + hpp

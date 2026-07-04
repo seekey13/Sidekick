@@ -1820,6 +1820,90 @@ function ui_components.render_party_selection(ctx, key_name, show_outside, inclu
     return any_rendered
 end
 
+-- Render group-target selection buttons for Group / AOE healing.
+-- Unlike render_party_selection (wake/debuff) this is SESSION-ONLY (never
+-- persisted) and uses asymmetric defaults so the behaviour is correct even
+-- when the config window was never opened this session:
+--   ME / party / tracked -> ON  by default (included unless explicitly disabled)
+--   alliance (B/C)        -> OFF by default (excluded unless explicitly enabled)
+-- State lives in ctx.party_buffs[key_name]; heal.lua reads it via the same keys.
+-- show_outside: whether to draw alliance + tracked buttons (Group=true, AOE=false;
+-- AOE healing is party-scoped so out-of-party buttons would do nothing).
+function ui_components.render_heal_group_selection(ctx, key_name, show_outside)
+    ctx.party_buffs[key_name] = ctx.party_buffs[key_name] or {}
+    local state = ctx.party_buffs[key_name]
+
+    -- party/tracked default ON (~= false); alliance default OFF (== true)
+    local function is_sel(key, is_alliance)
+        if is_alliance then return state[key] == true end
+        return state[key] ~= false
+    end
+
+    local function draw(label, id, on, on_click, tooltip)
+        if not on then
+            imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_UNSELECTED)
+            imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_UNSELECTED_HOVER)
+            imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_UNSELECTED_ACTIVE)
+        end
+        if imgui.Button(label .. '##' .. key_name .. '_gsel_' .. id, { PARTY_BUTTON_WIDTH, 0 }) then
+            on_click()
+        end
+        if tooltip and imgui.IsItemHovered() then imgui.SetTooltip(tooltip) end
+        if not on then imgui.PopStyleColor(3) end
+    end
+
+    -- [ME]
+    do
+        local on = is_sel(0)
+        draw('ME', 'me', on, function() state[0] = not on end)
+    end
+
+    -- P1-P5
+    local party_size = common.get_party_size()
+    for pi = 1, 5 do
+        if pi < party_size then
+            imgui.SameLine()
+            local on = is_sel(pi)
+            draw('P' .. pi, 'p' .. pi, on, function() state[pi] = not on end)
+        end
+    end
+
+    if not show_outside then return true end
+
+    -- Alliance B/C
+    local gs = common.game_state
+    if gs and gs.alliance then
+        local prefixes = { [2] = 'B', [3] = 'C' }
+        for api = 2, 3 do
+            local sub = gs.alliance[api]
+            if sub and next(sub) ~= nil then
+                for _, entry in ipairs(common.sorted_alliance_members(sub)) do
+                    local al_key = 'al_' .. ((api - 1) * 6 + entry.local_idx)
+                    imgui.SameLine()
+                    local on = is_sel(al_key, true)
+                    draw(prefixes[api] .. entry.local_idx, al_key, on,
+                        function() state[al_key] = not on end, entry.m.name)
+                end
+            end
+        end
+    end
+
+    -- Tracked targets
+    local sorted = {}
+    for sid, tt in pairs(common.get_tracked_targets()) do
+        table.insert(sorted, { sid = sid, name = tt.name })
+    end
+    table.sort(sorted, function(a, b) return a.name < b.name end)
+    for t_idx, tt in ipairs(sorted) do
+        imgui.SameLine()
+        local tt_key = 'tt_' .. tt.sid
+        local on = is_sel(tt_key)
+        draw('T' .. t_idx, 't' .. tt.sid, on, function() state[tt_key] = not on end, tt.name)
+    end
+
+    return true
+end
+
 -- ============================================================================
 -- Export Constants
 -- ============================================================================
