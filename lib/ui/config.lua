@@ -642,7 +642,7 @@ function ui_config.render(settings, job_def, callback, roll_mod)
                     -- Focus Target dropdown
                     focus_target_name = render_party_dropdown('Focus Target', 'focus_target', true, party_member_names, settings, callback, true)
                     
-                    ui.slider_int(ctx, 'Focus Healing (HP%)', 'focus_threshold', { settings.focus_threshold or 85 }, 1, 100)
+                    ui.slider_int(ctx, 'Focus (HP%)', 'focus_threshold', { settings.focus_threshold or 85 }, 1, 100)
                     imgui.Unindent(ui.ABILITY_LIST_INDENT)
                 end
             end
