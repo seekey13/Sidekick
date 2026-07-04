@@ -8,6 +8,83 @@ local buff = {}
 local common      = require('lib.core.common')
 local action_core = require('lib.core.action_core')
 
+-- Song AoE radius (yalms). Party members beyond this can't be covered by an area
+-- song, so they don't count as "missing" and never force an endless recast.
+local SONG_AOE_RANGE = 10
+
+-- Party indices (0-5) that have been given a specific ME/P1-P5 (Pianissimo) song
+-- on ANY group. These are globally excluded from area-coverage checks: they get
+-- their own single-target songs, so the area song shouldn't loop trying to cover
+-- them (and would only overwrite what you singled out).
+local function dedicated_targets(party_buff_config)
+    local dedicated = {}
+    if not party_buff_config then return dedicated end
+    for _, targets in pairs(party_buff_config) do
+        for idx, v in pairs(targets) do
+            if v == true and type(idx) == 'number' and idx >= 0 and idx <= 5 then
+                dedicated[idx] = true
+            end
+        end
+    end
+    return dedicated
+end
+
+-- True when any in-range, non-dedicated party member lacks the song, so the area
+-- song should be (re)cast.
+local function area_needs_recast(ability, party_buff_config, state)
+    local dedicated   = dedicated_targets(party_buff_config)
+    local player_zone = common.get_party_member_zone(0)
+    for ti = 0, 5 do
+        if not dedicated[ti] then
+            if ti == 0 then
+                -- Self is always in range/zone and covered by a self-cast song.
+                if action_core.needs_buff(state.player.buffs or {}, ability.buff_id) then
+                    return true
+                end
+            else
+                local member = state.party[ti]
+                if member then
+                    local ei = member.target_index
+                    local mz = common.get_party_member_zone(ti)
+                    if ei and ei > 0 and player_zone == mz and common.is_in_range(ei, SONG_AOE_RANGE) then
+                        if action_core.needs_buff(member.buffs or {}, ability.buff_id) then
+                            return true
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return false
+end
+
+-- If `ability` is the active [A] area song to consider this cycle, return its
+-- config key (group name, or ability name when ungrouped); else nil. Mirrors the
+-- group-selection rules the single-target pass uses.
+local function area_song_config_key(ability, settings, party_buff_config, area_processed)
+    -- Only Pianissimo songs get an area toggle (Mazurka has none; its ME already
+    -- casts area and is handled by the single-target pass).
+    if ability.target_modifier ~= true then return nil end
+    local grouped = ability.group and settings['ungrouped_' .. ability.group] ~= true
+    local config_key
+    if grouped then
+        config_key = ability.group
+        local selected = settings['selected_' .. ability.group]
+        if selected then
+            if selected ~= ability.name then return nil end
+        else
+            if area_processed[ability.group] then return nil end
+            area_processed[ability.group] = true
+        end
+    else
+        config_key = ability.name
+    end
+    if not (party_buff_config[config_key] and party_buff_config[config_key]['A'] == true) then
+        return nil
+    end
+    return config_key
+end
+
 function buff.execute(settings, job_def, main_level, sub_level, player_resource, party_buff_config)
     -- Check if buff is enabled
     if not settings.buff_enabled then
@@ -50,7 +127,33 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
     if #available_abilities == 0 then
         return nil
     end
-    
+
+    -- Phase 1: area songs ([A]). Checked before the single-target ME/P1-P5 pass
+    -- because an AoE song overwrites single-target songs on everyone it hits, so
+    -- the area baseline must be established first. Covers every in-range party
+    -- member that isn't given a specific ME/P button (see dedicated_targets).
+    --
+    -- Skip while Pianissimo is active: it makes the NEXT song single-target, so an
+    -- area cast now would fire single-target by mistake. Let the single-target
+    -- pass consume the Pianissimo first, then area-cast on a later cycle.
+    local tmods = job_def.abilities.target_modifier
+    local has_pianissimo = tmods and tmods[1]
+        and action_core.has_any_buff(state.player.buffs, tmods[1].buff_id)
+    if not has_pianissimo then
+        local area_processed = {}
+        for _, ability in ipairs(available_abilities) do
+            local config_key = area_song_config_key(ability, settings, party_buff_config, area_processed)
+            if config_key and area_needs_recast(ability, party_buff_config, state) then
+                local desc = string.format('Applying area buff: %s', ability.name)
+                local result = action_core.try_use(ability, job_def, settings, 0, desc, state)
+                if result then
+                    return result
+                end
+            end
+        end
+    end
+
+    -- Phase 2: single-target buffs (ME/P1-P5, alliance, tracked).
     -- Check each buff to see if it needs to be applied/refreshed
     for _, ability in ipairs(available_abilities) do
         local should_skip = false
@@ -193,7 +296,9 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                         
                         if target_needs_buff then
                             -- Check if this ability requires a target modifier (Pianissimo, Entrust, etc.)
-                            if ability.target_modifier and target_index > 0 then
+                            -- Includes ME (target_index 0): songs are now single-target on self via
+                            -- Pianissimo, matching P1-P5. The area ([A]) pass above handles no-Pianissimo AoE.
+                            if ability.target_modifier and target_index >= 0 then
                                 -- Check if we already have the modifier buff active
                                 local has_modifier_buff = false
                                 if job_def.abilities.target_modifier and #job_def.abilities.target_modifier > 0 then

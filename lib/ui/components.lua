@@ -342,6 +342,13 @@ local function is_party_buff_enabled(ctx, ability_name, party_index)
     return ctx.party_buffs[ability_name][party_index] == true
 end
 
+-- Party-buff target keys that must persist to disk. Numeric ME/P1-P5 (0-5) and
+-- the bard area key 'A' are stable config; alliance ('al_')/tracked ('tt_') keys
+-- are session-only because those members come and go.
+local function is_persisted_target_key(k)
+    return (type(k) == 'number' and k <= 5) or k == 'A'
+end
+
 -- Toggle group buff enabled state for a specific party member
 local function toggle_group_party_buff(ctx, group_name, party_index, enabled)
     if not ctx.party_buffs[group_name] then
@@ -377,7 +384,7 @@ local function toggle_group_party_buff(ctx, group_name, party_index, enabled)
                     ctx.party_buffs[group_to_remove][party_index] = false
                     
                     -- Ensure persistence structure exists (skip tracked targets)
-                    if type(party_index) == 'number' and party_index <= 5 then
+                    if is_persisted_target_key(party_index) then
                         ctx.settings.party_buffs = ctx.settings.party_buffs or {}
                         ctx.settings.party_buffs[group_to_remove] = ctx.settings.party_buffs[group_to_remove] or {}
                         ctx.settings.party_buffs[group_to_remove][party_index] = false
@@ -409,7 +416,7 @@ local function toggle_group_party_buff(ctx, group_name, party_index, enabled)
             for other_index, val in pairs(ctx.party_buffs[group_name]) do
                 if other_index ~= party_index and val == true then
                     ctx.party_buffs[group_name][other_index] = false
-                    if type(other_index) == 'number' and other_index <= 5 then
+                    if is_persisted_target_key(other_index) then
                         ctx.settings.party_buffs = ctx.settings.party_buffs or {}
                         ctx.settings.party_buffs[group_name] = ctx.settings.party_buffs[group_name] or {}
                         ctx.settings.party_buffs[group_name][other_index] = false
@@ -435,7 +442,7 @@ local function toggle_group_party_buff(ctx, group_name, party_index, enabled)
     ctx.settings['disabled_group_' .. group_name] = not any_button_enabled
     
     -- Save party_buffs to settings for persistence (skip tracked targets)
-    if type(party_index) == 'number' and party_index <= 5 then
+    if is_persisted_target_key(party_index) then
         ctx.settings.party_buffs = ctx.settings.party_buffs or {}
         ctx.settings.party_buffs[group_name] = ctx.settings.party_buffs[group_name] or {}
         ctx.settings.party_buffs[group_name][party_index] = enabled
@@ -478,7 +485,7 @@ local function toggle_party_buff(ctx, ability_name, party_index, enabled)
                 ctx.party_buffs[song_to_remove][party_index] = false
                 
                 -- Ensure persistence structure exists (skip tracked targets)
-                if type(party_index) == 'number' and party_index <= 5 then
+                if is_persisted_target_key(party_index) then
                     ctx.settings.party_buffs = ctx.settings.party_buffs or {}
                     ctx.settings.party_buffs[song_to_remove] = ctx.settings.party_buffs[song_to_remove] or {}
                     ctx.settings.party_buffs[song_to_remove][party_index] = false
@@ -523,7 +530,7 @@ local function toggle_party_buff(ctx, ability_name, party_index, enabled)
     end
     
     -- Save party_buffs to settings for persistence (skip tracked targets)
-    if type(party_index) == 'number' and party_index <= 5 then
+    if is_persisted_target_key(party_index) then
         if not ctx.settings.party_buffs then
             ctx.settings.party_buffs = {}
         end
@@ -837,10 +844,60 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
         end
     end
     
+    -- ME now behaves like P1-P5: for songs it uses Pianissimo, so it needs the
+    -- target modifier to be available (same gate the party buttons use).
+    local party_has_spell = has_spell and has_target_modifier
+
+    -- Bard area-song [A] button: sing WITHOUT Pianissimo so everyone in range
+    -- gets the song. Sits in the leading slot (like the Scholar S button on other
+    -- jobs). Needs no Pianissimo, so it stays usable below Pianissimo's level.
+    -- Gated on target_modifier (the Pianissimo songs); Mazurka has no Pianissimo
+    -- and its ME already casts area, so it keeps the plain ME row unchanged.
+    if requires_target_modifier then
+        local a_enabled = is_group and is_group_party_buff_enabled(ctx, key_name, 'A')
+            or is_party_buff_enabled(ctx, key_name, 'A')
+
+        if not has_spell then
+            imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_DISABLED)
+            imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_DISABLED)
+            imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_DISABLED)
+            imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
+        elseif a_enabled then
+            -- Use default colors
+        else
+            imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_UNSELECTED)
+            imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_UNSELECTED_HOVER)
+            imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_UNSELECTED_ACTIVE)
+        end
+
+        local a_label = 'A##' .. key_name .. '_area'
+        if has_spell and imgui.Button(a_label, { 20, 0 }) then
+            if is_group then
+                toggle_group_party_buff(ctx, key_name, 'A', not a_enabled)
+            else
+                toggle_party_buff(ctx, key_name, 'A', not a_enabled)
+            end
+        elseif not has_spell then
+            imgui.Button(a_label, { 20, 0 })
+        end
+
+        if imgui.IsItemHovered() then
+            imgui.SetTooltip('Area: sing without Pianissimo so everyone in range gets it.\nRecast tracks party members not given a specific ME/P button.')
+        end
+
+        if not has_spell then
+            imgui.PopStyleColor(4)
+        elseif not a_enabled then
+            imgui.PopStyleColor(3)
+        end
+
+        imgui.SameLine(0, SPACE_BETWEEN_BUTTONS)
+    end
+
     -- Render [ME] button
     local me_enabled = is_group and is_group_party_buff_enabled(ctx, key_name, 0) or is_party_buff_enabled(ctx, key_name, 0)
-    
-    if not has_spell then
+
+    if not party_has_spell then
         imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_DISABLED)
         imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_DISABLED)
         imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_DISABLED)
@@ -852,24 +909,24 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
         imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_UNSELECTED_HOVER)
         imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_UNSELECTED_ACTIVE)
     end
-    
+
     local me_button_label = 'ME##' .. key_name .. '_me'
-    if has_spell and imgui.Button(me_button_label, { PARTY_BUTTON_WIDTH, 0 }) then
+    if party_has_spell and imgui.Button(me_button_label, { PARTY_BUTTON_WIDTH, 0 }) then
         if is_group then
             toggle_group_party_buff(ctx, key_name, 0, not me_enabled)
         else
             toggle_party_buff(ctx, key_name, 0, not me_enabled)
         end
-    elseif not has_spell then
+    elseif not party_has_spell then
         imgui.Button(me_button_label, { PARTY_BUTTON_WIDTH, 0 })
     end
-    
-    if not has_spell then
+
+    if not party_has_spell then
         imgui.PopStyleColor(4)
     elseif not me_enabled then
         imgui.PopStyleColor(3)
     end
-    
+
     any_rendered = true
     
     -- Render party member buttons (P1-P5)

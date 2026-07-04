@@ -13,6 +13,7 @@ local tooltips = require('lib.ui.tooltips')
 -- UI state
 local is_open = { true }
 local ui_visible = false
+local force_expand = false  -- when true, next render un-collapses the window once
 
 -- Settings reference and callback
 local current_settings = nil
@@ -254,6 +255,10 @@ end
 function ui_config.show()
     ui_visible = true
     is_open[1] = true
+    -- Force the window uncollapsed on open. imgui persists a collapsed state in
+    -- imgui.ini; without this, opening a previously-collapsed window shows only
+    -- the title bar (and used to be force-closed by the render below).
+    force_expand = true
 end
 
 function ui_config.hide()
@@ -416,9 +421,22 @@ function ui_config.render(settings, job_def, callback, roll_mod)
 
     -- Use consistent window title to maintain position across job changes
     local window_title = 'Medic Configuration'
-    
+
+    -- Un-collapse once when the window is (re)opened, so a collapsed imgui.ini
+    -- state doesn't leave the user staring at an empty title bar.
+    if force_expand then
+        if imgui.SetNextWindowCollapsed then
+            imgui.SetNextWindowCollapsed(false)
+        end
+        force_expand = false
+    end
+
+    -- NOTE: imgui.Begin returns false when the window is COLLAPSED, not only when
+    -- the [X] was clicked. Treat collapse as "still open, just skip content" and
+    -- only close on the [X] (is_open flips to false). Always call End() to match
+    -- Begin() per imgui rules.
     if imgui.Begin(window_title, is_open, ImGuiWindowFlags_NoResize + ImGuiWindowFlags_AlwaysAutoResize) then
-        
+
         -- Display job name and levels
         if job_def and job_def.job_name then
             -- Show normal job info
@@ -1124,14 +1142,11 @@ function ui_config.render(settings, job_def, callback, roll_mod)
             imgui.Unindent(ui.ABILITY_LIST_INDENT)
         end
 
-        imgui.End()
-    else
-        -- Window was closed via X button, sync state
-        ui_visible = false
-        is_open[1] = false
     end
-    
-    -- Also check if is_open was changed by imgui (user clicked X)
+    imgui.End()
+
+    -- Close only when the [X] was clicked (imgui sets is_open to false). A mere
+    -- collapse leaves is_open true, so the window stays open.
     if not is_open[1] then
         ui_visible = false
     end
