@@ -1644,7 +1644,8 @@ function common.has_spell_learned(ability)
     local ok, known = pcall(function()
         return AshitaCore:GetMemoryManager():GetPlayer():HasSpell(ability.id)
     end)
-    return ok and known or true  -- assume known on error
+    if not ok then return true end  -- assume known on error
+    return known
 end
 
 -- Filter abilities by level, disabled status, and pet requirements
