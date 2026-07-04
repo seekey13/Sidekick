@@ -55,6 +55,11 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
     for _, ability in ipairs(available_abilities) do
         local should_skip = false
 
+        -- A group the user has "ungrouped" casts every tier independently
+        -- (keyed by ability name, like a non-grouped ability) instead of only
+        -- the single selected tier. Off (grouped) by default.
+        local grouped = ability.group and settings['ungrouped_' .. ability.group] ~= true
+
         -- While in combat with Geo-bt enabled, reserve the single luopan for the
         -- enemy debuff -- don't try to place a Geo buff luopan. (Geo-bt itself
         -- lives in abilities.geo now, so it never reaches this buff loop.)
@@ -93,7 +98,7 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                 -- First check if ability/group is enabled via settings
                 local key
                 local config_key
-                if ability.group then
+                if grouped then
                     key = 'disabled_group_' .. ability.group
                     config_key = ability.group
                     
@@ -306,7 +311,7 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                 -- Self-only buff: Use checkbox-based logic (original behavior)
                 -- Check if ability/group is enabled via settings
                 local key
-                if ability.group then
+                if grouped then
                     key = 'disabled_group_' .. ability.group
                     
                     -- Check if this ability is the selected one for this group

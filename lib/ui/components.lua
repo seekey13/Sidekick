@@ -77,6 +77,19 @@ local function render_combat_only_context_menu(ctx, ability)
             ctx.settings[key] = current[1]
             if ctx.save_callback then ctx.save_callback() end
         end
+        -- Ungroup: cast every tier in the group independently instead of only
+        -- the selected tier. Off (grouped) by default; persisted per group.
+        if ability.group then
+            local ung_key = 'ungrouped_' .. ability.group
+            local ung = { ctx.settings[ung_key] == true }
+            if imgui.Checkbox('Ungroup', ung) then
+                ctx.settings[ung_key] = ung[1] or nil
+                if ctx.save_callback then ctx.save_callback() end
+            end
+            if imgui.IsItemHovered() then
+                imgui.SetTooltip('Cast each tier in this group independently\n(e.g. both Mage\'s Ballad and Mage\'s Ballad II).')
+            end
+        end
         imgui.EndPopup()
     end
 end
@@ -1417,7 +1430,10 @@ function ui_components.render_ability(ctx, ability, job_def, id_suffix)
         return false
     end
     
+    -- Ungrouped groups render every tier as its own row (per-name), like a
+    -- non-grouped ability, instead of a single-select dropdown.
     local has_group = ability.group ~= nil
+        and not (ctx.settings and ctx.settings['ungrouped_' .. ability.group])
     local is_party_target = can_cast_on_party(ability)
     
     if has_group then
