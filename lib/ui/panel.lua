@@ -151,6 +151,13 @@ function panel.render()
             imgui.TextColored(strat_color, string.format('Stratagems: %d', gs.stratagems))
         end
 
+        -- Debug Mode toggle (next to Stratagems in header row)
+        local debug_var = { common.debug }
+        imgui.SameLine(0, 20)
+        if imgui.Checkbox('Debug Mode', debug_var) then
+            common.debug = debug_var[1]
+        end
+
         imgui.Separator()
 
         -- Column definitions

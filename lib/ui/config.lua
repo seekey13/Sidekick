@@ -1022,12 +1022,6 @@ function ui_config.render(settings, job_def, callback, roll_mod)
         end
         end  -- End of job_def check
 
-        -- Debug mode (at end)
-        local debug_var = { common.debug }
-        if imgui.Checkbox('Debug Mode', debug_var) then
-            common.debug = debug_var[1]
-        end
-        
         if common.debug then
             imgui.Indent(ui.ABILITY_LIST_INDENT)
             local zone_id = common.get_zone_id()
