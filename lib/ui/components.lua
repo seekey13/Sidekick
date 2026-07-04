@@ -546,6 +546,16 @@ local function get_stratagem_settings(ctx)
     return ctx.settings.stratagem_settings
 end
 
+-- Helper: get the stratagem_hold table from ctx, creating it if needed
+-- stratagem_hold[ability_key] = true means "skip the spell until the stratagem is ready"
+local function get_stratagem_hold(ctx)
+    if not ctx or not ctx.settings then return nil end
+    if not ctx.settings.stratagem_hold then
+        ctx.settings.stratagem_hold = {}
+    end
+    return ctx.settings.stratagem_hold
+end
+
 -- Helper: check if any stratagem is assigned to an ability key in settings
 local function has_any_stratagem(ctx, ability_key)
     local ss = ctx and ctx.settings and ctx.settings.stratagem_settings
@@ -747,6 +757,23 @@ local function render_scholar_stratagem_button(ability_key, ability, ctx)
                 if ctx.save_callback then
                     ctx.save_callback()
                 end
+            end
+        end
+
+        -- "Hold for Stratagem": gate casting on the stratagem being ready.
+        imgui.Separator()
+        local hold_tbl = get_stratagem_hold(ctx)
+        if hold_tbl then
+            local hold_val = { hold_tbl[ability_key] == true }
+            if imgui.Checkbox('Hold for Stratagem##sch_hold_' .. ability_key, hold_val) then
+                hold_tbl[ability_key] = hold_val[1] or nil
+                if ctx.save_callback then
+                    ctx.save_callback()
+                end
+            end
+            if imgui.IsItemHovered() then
+                imgui.SetTooltip('On: skip this spell until the stratagem is ready.\n' ..
+                    'Off (default): cast the spell without the stratagem when it is on cooldown.')
             end
         end
 

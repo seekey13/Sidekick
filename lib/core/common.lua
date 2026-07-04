@@ -1891,8 +1891,9 @@ end
 -- Each automation tick, this returns the NEXT action to take:
 --   nil                    → no stratagems assigned OR all strat buffs active → cast the spell
 --   {command, description} → fire this stratagem JA this tick; caller returns it, re-checks next tick
---   false                  → stratagems assigned but cannot fire (not enough charges,
---                            wrong arts stance, status-blocked) → skip this ability
+--   false                  → stratagems assigned, "Hold for Stratagem" ON, but the strat
+--                            cannot fire (not enough charges, wrong arts, blocked) → skip ability
+--                            (when hold is OFF this path returns nil instead → cast without the strat)
 -- Checks both ability_key (ability.name) and the optional group key (ability.group)
 -- since the UI stores assignments under the group name for grouped buffs.
 -- Args:
@@ -1904,14 +1905,23 @@ function common.check_stratagem(job_def, settings, ability_key, ability)
     if not settings or not settings.stratagem_settings then return nil end
 
     -- Try primary key first, then group as fallback
+    local resolved_key = ability_key
     local ss = settings.stratagem_settings[ability_key]
     if not ss and ability and ability.group then
         ss = settings.stratagem_settings[ability.group]
+        resolved_key = ability.group
     end
     if not ss then return nil end
 
     local strat_defs = job_def and job_def.abilities and job_def.abilities.stratagem
     if not strat_defs then return nil end
+
+    -- "Hold for Stratagem": when enabled, skip the spell until the stratagem
+    -- can fire. When disabled (default), a stratagem that can't fire falls
+    -- through and the spell is cast without it.
+    local hold = settings.stratagem_hold and settings.stratagem_hold[resolved_key] == true
+    local unavailable = nil          -- value returned when a stratagem can't fire
+    if hold then unavailable = false end
 
     -- Get player buffs once for all checks
     local player_buffs = common.get_player_buffs()
@@ -1942,7 +1952,7 @@ function common.check_stratagem(job_def, settings, ability_key, ability)
     local state = common.game_state
     local charges = state and state.stratagems or 0
     if charges < #missing then
-        return false
+        return unavailable
     end
 
     -- Fire the first missing stratagem
@@ -1962,14 +1972,14 @@ function common.check_stratagem(job_def, settings, ability_key, ability)
             if has_required then break end
         end
         if not has_required then
-            return false
+            return unavailable
         end
     end
 
     -- Check if blocked by status ailment (silence, stun, etc.)
     local blocked_by = common.is_command_blocked(strat.command)
     if blocked_by then
-        return false
+        return unavailable
     end
 
     -- Return the stratagem JA command (is_stratagem flag tells the automation
