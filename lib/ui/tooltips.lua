@@ -44,7 +44,12 @@ return {
         'When a group member\'s HP drops below this %%,\n' ..
         'Medic casts a heal sized to their missing HP\n' ..
         '(largest spell that won\'t overheal, or the\n' ..
-        'smallest available if none fit).',
+        'smallest available if none fit).\n\n' ..
+        'Check Targets picks who is scanned. Party and\n' ..
+        'tracked members are ON by default; alliance\n' ..
+        '(B/C) members are OFF by default. Toggle any\n' ..
+        'button to include/exclude that person. These\n' ..
+        'choices are per-session and reset each load.',
 
     critical_hp =
         'Critical abilities use their own (normally\n' ..
@@ -56,7 +61,12 @@ return {
         'When the group\'s average HP falls below this %%\n' ..
         'AND at least 2 members are below it, Medic\n' ..
         'casts the checked AOE healing spell(s) instead\n' ..
-        'of single-target heals.',
+        'of single-target heals.\n\n' ..
+        'AOE healing is party-scoped (Curaga-style), so\n' ..
+        'Check Targets only lists ME and party members.\n' ..
+        'All are ON by default; toggle a button to\n' ..
+        'exclude that person from the average. These\n' ..
+        'choices are per-session and reset each load.',
 
     pet_healing =
         'When your pet\'s HP falls below this %%,\n' ..
