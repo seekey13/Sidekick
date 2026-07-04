@@ -413,20 +413,7 @@ function ui_config.render(settings, job_def, callback, roll_mod)
             end
         end
     end
-    
-    -- Calculate fixed window width based on party size + alliance + tracked targets
-    local party_size = common.get_party_size()
-    local alliance_count_for_width = common.get_alliance_count()
-    local tracked_count_for_width = 0
-    local tt_list_for_width = common.get_tracked_targets()
-    for _ in pairs(tt_list_for_width) do tracked_count_for_width = tracked_count_for_width + 1 end
-    local num_buttons = math.min(party_size, 6) + alliance_count_for_width + tracked_count_for_width
-    local button_width = ui.PARTY_BUTTON_WIDTH * num_buttons + (ui.SPACE_BETWEEN_BUTTONS * (num_buttons - 1))
-    local dropdown_width = ui.DROPDOWN_WIDTH
-    local window_width = math.max((button_width + dropdown_width + ui.ABILITY_LIST_INDENT + 50), 1)
-    
-    imgui.SetNextWindowSize({window_width, 0}, ImGuiCond_Always)
-    
+
     -- Use consistent window title to maintain position across job changes
     local window_title = 'Medic Configuration'
     
@@ -670,7 +657,7 @@ function ui_config.render(settings, job_def, callback, roll_mod)
                 ui.slider_int(ctx, 'Group (HP%)', 'heal_threshold', { settings.heal_threshold or 75 }, 1, 100)
                 ui.render_heal_group_selection(ctx, 'heal_group', true)
                 imgui.SameLine()
-                imgui.Text('Group Check Targets')
+                imgui.Text('Group Targets')
                 for _, ability in ipairs(job_def.abilities.heal) do
                     if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                         ui.ability_checkbox(ctx, ability, job_def, 'heal', true)
@@ -700,7 +687,7 @@ function ui_config.render(settings, job_def, callback, roll_mod)
                 ui.slider_int(ctx, 'AOE (HP%)', 'heal_aoe_threshold', { settings.heal_aoe_threshold or 70 }, 1, 100)
                 ui.render_heal_group_selection(ctx, 'heal_aoe_group', false)
                 imgui.SameLine()
-                imgui.Text('AOE Check Targets')
+                imgui.Text('AOE Targets')
 
                 for _, ability in ipairs(job_def.abilities.heal_aoe) do
                     if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
