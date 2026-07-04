@@ -64,7 +64,10 @@ local function render_combat_only_context_menu(ctx, ability)
     local key, popup_id
     if ability.group then
         key = 'combat_only_group_' .. ability.group
-        popup_id = '##cmenu_combat_only_group_' .. ability.group
+        -- Per-ability popup id (not per-group): when a group is ungrouped, each
+        -- tier renders its own row, so a shared group id would stack duplicate
+        -- menus into one popup. The setting key stays group-level.
+        popup_id = '##cmenu_combat_only_group_' .. ability.group .. '_' .. (ability.name and ability.name:gsub(' ', '_') or '')
     else
         if not ability.name then return end
         local safe_name = ability.name:gsub(' ', '_')
