@@ -649,6 +649,13 @@ local function render_scholar_stratagem_button(ability_key, ability, ctx)
         return false, 0
     end
 
+    -- Geo-bt debuffs render in the Geo section, which has no S-button rows to
+    -- align with, so skip the spacer to avoid an unwanted indent. Indi/Geo buffs
+    -- still fall through to the spacer below to align with buff-section rows.
+    if ability and ability.group == 'Geo-bt' then
+        return false, 0
+    end
+
     -- Stratagems only apply to white/black magic; skip singing, geomancy, etc.
     -- Render an invisible spacer so these rows stay aligned with S-button rows.
     if ability and ability.magic then
