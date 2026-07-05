@@ -19,6 +19,25 @@ A focused, support-oriented addon for Ashita v4 that automates healing, buffing,
 
 ## Latest Updates
 
+### [2.1.0] - 2026-07-05
+
+### Added
+- **Group / AOE Heal Target Selection**: Group and AOE healing now have per-target selection buttons (**Group Targets** / **AOE Targets**) so you choose who is managed. Deselecting a member excludes them from single-target Group scanning or the AOE below-threshold average. Party and tracked members are ON by default; alliance (B/C) members are OFF by default. AOE selection lists ME + party only. Selections are per-session and reset each load.
+- **Bard Area Songs (`[A]` button)**: An **A** button to the left of the target buttons sings a song without Pianissimo so everyone within range (10 yalms) gets it. The area recast only tracks in-range party members who aren't assigned a specific ME/P button, so single-target songs coexist with area songs.
+- **Bard Self Songs via Pianissimo**: The **ME** button now uses Pianissimo, letting a Bard single-target buff themselves the same as any other party member.
+- **Stacking Same-Buff Songs (Ungroup)**: Right-click a grouped buff and choose **Ungroup** to cast every tier independently instead of only the selected one — e.g. Mage's Ballad + Mage's Ballad II on the same target.
+- **Hold for Stratagem**: A checkbox in the Scholar stratagem popup. ON = skip the spell until the stratagem can fire; OFF (default) = cast the spell without the stratagem when no charge is available.
+
+### Changed
+- **Automatic Window Sizing**: The configuration window auto-resizes to fit its content and force-expands when reopened (no more empty title bar from a collapsed state). Collapsing no longer closes it — only the `[X]` does.
+- **Debug Mode Moved**: The Debug Mode checkbox moved from the configuration window to the `/med panel` header.
+
+### Fixed
+- **`HasSpell` Check**: Unlearned spells are no longer treated as learned.
+- **Stratagem Stuck from High-Level SCH**: Stratagems assigned on a high-level Scholar are pruned when switching to a lower level or `???/SCH`, so the configuration is no longer stuck.
+- **Geo-bt UI Alignment**: Geo-bt debuff rows no longer show an unwanted stratagem indent.
+- **Song 2-Limit**: The per-member song limit (2 main / 1 sub) is enforced correctly across grouped and ungrouped songs.
+
 ### [2.0.0] - 2026-03-03
 
 ### BREAKING CHANGES
@@ -66,6 +85,7 @@ A focused, support-oriented addon for Ashita v4 that automates healing, buffing,
 - **Item-Based Status Removal**: Automatically use consumable items to remove critical debuffs (Echo Drops for Silence, Holy Water for Doom) with inventory tracking and smart zone-load handling
 - **Critical HP Response**: Emergency abilities (e.g., Divine Seal, Martyr, Contradance) automatically trigger when party members drop below critical threshold (default 30%)
 - **Single-Target Healing**: Intelligent HP deficit-based heal selection with priority system (Critical HP → Focus target → Regular lowest HP)
+- **Group / AOE Heal Target Selection**: Per-target ME/P1-P5 (plus alliance and tracked for Group) buttons choose who Group and AOE healing manage; party/tracked default ON, alliance default OFF, selections per-session
 - **AOE Healing**: Party-wide healing when multiple members need HP
 - **Pet Healing**: Automated healing for luopan pets
 - **Sleep Removal (Wake)**: Automatically wake sleeping party members
@@ -111,9 +131,11 @@ A focused, support-oriented addon for Ashita v4 that automates healing, buffing,
 Currently implemented support jobs:
 
 - **Bard** (BRD)
-  - Buff with songs on self or party members using Pianissimo (level 20+)
+  - Buff with songs on self or party members using Pianissimo (level 20+) — the ME button self-buffs via Pianissimo too
+  - Area songs: an `[A]` button (left of the target buttons) sings without Pianissimo so everyone in range (10 yalms) gets it
   - Songs: Minuet, Minne, Paeon, Madrigal, Prelude, March, Ballad, Etude, Carol, Mambo, Mazurka, Scherzo, Threnody, etc.
   - Song limits: 2 songs per party member (main job) or 1 song per party member (sub job)
+  - Stack same-buff tiers: right-click → Ungroup to cast each tier independently (e.g. Mage's Ballad + Mage's Ballad II)
   - Party button targeting with automatic Pianissimo usage
   - Settings persist through reloads
 
@@ -297,6 +319,10 @@ Settings are saved per job in JSON format in the Ashita config directory:
 - `geo_distance_threshold` (number): Distance (yalms) the luopan may drift from the selected Geo target before Full Circle recalls and recasts it (7-30)
 - `selected_Geo-bt` (string): Selected Geo debuff spell to cast on your battle target (combat-only)
 - `disabled_group_Geo-bt` (boolean): Disables casting the selected Geo debuff
+- `ungrouped_<group>` (boolean): When true, casts every tier in the group independently instead of only the selected tier (right-click → Ungroup)
+- `stratagem_hold[<key>]` (boolean): When true, hold the spell until its assigned stratagem can fire; when false (default), cast without the stratagem if no charge is available
+
+**Note**: Group/AOE heal target selection is per-session (not persisted). Debug Mode toggles from the `/med panel` header.
 
 ## Design Principles
 
