@@ -12,28 +12,54 @@ local action_core = require('lib.core.action_core')
 -- song, so they don't count as "missing" and never force an endless recast.
 local SONG_AOE_RANGE = 10
 
--- Party indices (0-5) singled out with ANY single-target ME/P1-P5 button, in any
--- group. A member handled by a single-target (Pianissimo) song is excluded from
--- every area song's recast check: the AoE still physically lands on them, but
--- their missing-buff status must not TRIGGER an area recast -- you singled them
--- out on purpose, so the area song shouldn't loop trying to also cover them.
-local function dedicated_targets(party_buff_config)
-    local dedicated = {}
-    if not party_buff_config then return dedicated end
-    for _, targets in pairs(party_buff_config) do
-        for idx, v in pairs(targets) do
-            if v == true and type(idx) == 'number' and idx >= 0 and idx <= 5 then
-                dedicated[idx] = true
+-- Config keys (group name, or ability name when ungrouped) for THIS job's songs.
+-- Only these count toward a member's song slots. party_buff_config is shared
+-- across every job and buff type (WHM cures/-na, Geo, etc.), so scanning all of
+-- it would mistake unrelated self-buffs for songs and wrongly mark everyone's
+-- slots full -- which silently kills every area song.
+local function song_config_keys(job_def, settings)
+    local keys = {}
+    for _, ability in ipairs(job_def.abilities.buff or {}) do
+        if ability.magic == 'song' then
+            local grouped = ability.group and settings['ungrouped_' .. ability.group] ~= true
+            keys[grouped and ability.group or ability.name] = true
+        end
+    end
+    return keys
+end
+
+-- Party indices (0-5) whose song slots are already FULL of single-target
+-- (Pianissimo) songs. A bard holds `song_limit` songs per member (2 main / 1
+-- sub); once that many single-target SONGS are assigned to a member there's no
+-- free slot for an area song, so it must not TRIGGER an area recast for them. A
+-- member with a free slot still gets covered.
+-- ponytail: counts only single-target songs, not other active [A] songs, so
+-- 1 single-target + 2 area songs can still overflow -- fix by counting area
+-- coverage too if that combo comes up in practice.
+local function dedicated_targets(party_buff_config, song_keys, song_limit)
+    local counts = {}
+    for key in pairs(song_keys) do
+        local targets = party_buff_config[key]
+        if type(targets) == 'table' then
+            for idx, v in pairs(targets) do
+                if v == true and type(idx) == 'number' and idx >= 0 and idx <= 5 then
+                    counts[idx] = (counts[idx] or 0) + 1
+                end
             end
         end
+    end
+    local dedicated = {}
+    for idx, c in pairs(counts) do
+        if c >= song_limit then dedicated[idx] = true end
     end
     return dedicated
 end
 
--- True when any in-range, non-dedicated party member lacks the song, so the area
--- song should be (re)cast.
-local function area_needs_recast(ability, party_buff_config, state)
-    local dedicated   = dedicated_targets(party_buff_config)
+-- True when any in-range party member with a free song slot lacks the song, so
+-- the area song should be (re)cast.
+local function area_needs_recast(ability, party_buff_config, song_keys, state)
+    local song_limit = (ability.is_main_job ~= false) and 2 or 1
+    local dedicated   = dedicated_targets(party_buff_config, song_keys, song_limit)
     local player_zone = common.get_party_member_zone(0)
     for ti = 0, 5 do
         if not dedicated[ti] then
@@ -141,10 +167,11 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
     local has_pianissimo = tmods and tmods[1]
         and action_core.has_any_buff(state.player.buffs, tmods[1].buff_id)
     if not has_pianissimo then
+        local song_keys = song_config_keys(job_def, settings)
         local area_processed = {}
         for _, ability in ipairs(available_abilities) do
             local config_key = area_song_config_key(ability, settings, party_buff_config, area_processed)
-            if config_key and area_needs_recast(ability, party_buff_config, state) then
+            if config_key and area_needs_recast(ability, party_buff_config, song_keys, state) then
                 local desc = string.format('Applying area buff: %s', ability.name)
                 local result = action_core.try_use(ability, job_def, settings, 0, desc, state)
                 if result then
