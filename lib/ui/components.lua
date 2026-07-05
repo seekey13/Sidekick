@@ -689,6 +689,14 @@ local function render_scholar_stratagem_button(ability_key, ability, ctx)
         return false, 0
     end
 
+    -- Bard songs get the area [A] button in the leading slot (drawn by
+    -- render_party_buttons), so it already provides the indent. Adding a
+    -- stratagem spacer here too would double-indent the row. Either the [A]
+    -- button or the S button triggers the indent, never both.
+    if ability and ability.magic == 'song' then
+        return false, 0
+    end
+
     -- Stratagems only apply to white/black magic; skip singing, geomancy, etc.
     -- Render an invisible spacer so these rows stay aligned with S-button rows.
     if ability and ability.magic then
