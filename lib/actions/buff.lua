@@ -12,18 +12,17 @@ local action_core = require('lib.core.action_core')
 -- song, so they don't count as "missing" and never force an endless recast.
 local SONG_AOE_RANGE = 10
 
--- Party indices (0-5) that have been given a specific ME/P1-P5 (Pianissimo) song
--- on ANY group. These are globally excluded from area-coverage checks: they get
--- their own single-target songs, so the area song shouldn't loop trying to cover
--- them (and would only overwrite what you singled out).
-local function dedicated_targets(party_buff_config)
+-- Party indices (0-5) singled out for THIS song's group via a specific ME/P1-P5
+-- button. They're handled by the single-target (Pianissimo) pass, so the area
+-- song shouldn't also loop trying to cover them. Scoped to the group: a
+-- single-target song in a DIFFERENT group must not suppress this area song
+-- (otherwise covering the party with any single-target song kills every [A]).
+local function dedicated_targets(group_targets)
     local dedicated = {}
-    if not party_buff_config then return dedicated end
-    for _, targets in pairs(party_buff_config) do
-        for idx, v in pairs(targets) do
-            if v == true and type(idx) == 'number' and idx >= 0 and idx <= 5 then
-                dedicated[idx] = true
-            end
+    if not group_targets then return dedicated end
+    for idx, v in pairs(group_targets) do
+        if v == true and type(idx) == 'number' and idx >= 0 and idx <= 5 then
+            dedicated[idx] = true
         end
     end
     return dedicated
@@ -31,8 +30,8 @@ end
 
 -- True when any in-range, non-dedicated party member lacks the song, so the area
 -- song should be (re)cast.
-local function area_needs_recast(ability, party_buff_config, state)
-    local dedicated   = dedicated_targets(party_buff_config)
+local function area_needs_recast(ability, config_key, party_buff_config, state)
+    local dedicated   = dedicated_targets(party_buff_config[config_key])
     local player_zone = common.get_party_member_zone(0)
     for ti = 0, 5 do
         if not dedicated[ti] then
@@ -62,9 +61,9 @@ end
 -- config key (group name, or ability name when ungrouped); else nil. Mirrors the
 -- group-selection rules the single-target pass uses.
 local function area_song_config_key(ability, settings, party_buff_config, area_processed)
-    -- Only Pianissimo songs get an area toggle (Mazurka has none; its ME already
-    -- casts area and is handled by the single-target pass).
-    if ability.target_modifier ~= true then return nil end
+    -- Every bard song gets an area toggle. Pianissimo songs cast area by omitting
+    -- Pianissimo; Mazurka has no Pianissimo and is always area.
+    if ability.magic ~= 'song' then return nil end
     local grouped = ability.group and settings['ungrouped_' .. ability.group] ~= true
     local config_key
     if grouped then
@@ -143,7 +142,7 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
         local area_processed = {}
         for _, ability in ipairs(available_abilities) do
             local config_key = area_song_config_key(ability, settings, party_buff_config, area_processed)
-            if config_key and area_needs_recast(ability, party_buff_config, state) then
+            if config_key and area_needs_recast(ability, config_key, party_buff_config, state) then
                 local desc = string.format('Applying area buff: %s', ability.name)
                 local result = action_core.try_use(ability, job_def, settings, 0, desc, state)
                 if result then

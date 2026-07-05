@@ -851,9 +851,8 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
     -- Bard area-song [A] button: sing WITHOUT Pianissimo so everyone in range
     -- gets the song. Sits in the leading slot (like the Scholar S button on other
     -- jobs). Needs no Pianissimo, so it stays usable below Pianissimo's level.
-    -- Gated on target_modifier (the Pianissimo songs); Mazurka has no Pianissimo
-    -- and its ME already casts area, so it keeps the plain ME row unchanged.
-    if requires_target_modifier then
+    -- Every bard song gets it (Mazurka has no Pianissimo but is always area).
+    if ability and ability.magic == 'song' then
         local a_enabled = is_group and is_group_party_buff_enabled(ctx, key_name, 'A')
             or is_party_buff_enabled(ctx, key_name, 'A')
 
