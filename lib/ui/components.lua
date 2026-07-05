@@ -322,8 +322,20 @@ local function find_ability_by_name(job_def, ability_name)
             end
         end
     end
-    
+
     return nil
+end
+
+-- Is this party_buffs key a song? The key is a group name (grouped songs) OR an
+-- ability name (ungrouped songs), so the song-limit count must recognize both --
+-- otherwise grouped and ungrouped songs keep separate tallies.
+local function is_song_config_key(job_def, key)
+    local group_abilities = get_abilities_in_group(job_def, key)
+    if #group_abilities > 0 then
+        return group_abilities[1].magic == 'song'
+    end
+    local ability = find_ability_by_name(job_def, key)
+    return ability ~= nil and ability.magic == 'song'
 end
 
 -- Check if a group buff is enabled for a specific party member
@@ -362,17 +374,18 @@ local function toggle_group_party_buff(ctx, group_name, party_index, enabled)
         if #group_abilities > 0 then
             local sample_ability = group_abilities[1]
             
-            if sample_ability.target_modifier == true then
+            if sample_ability.magic == 'song' then
                 -- Determine the limit based on main/sub job
                 local is_main_job = sample_ability.is_main_job ~= false
                 local song_limit = is_main_job and 2 or 1
-                
-                -- Count currently enabled song groups with target_modifier for this party member
+
+                -- Count currently enabled song groups for this party member. Every
+                -- song occupies a slot (incl. Mazurka, which has no Pianissimo), so
+                -- the predicate is magic=='song', not target_modifier.
                 local active_song_groups = {}
                 for other_group_name, targets in pairs(ctx.party_buffs) do
                     if other_group_name ~= group_name and targets[party_index] == true then
-                        local other_abilities = get_abilities_in_group(ctx.job_def, other_group_name)
-                        if #other_abilities > 0 and other_abilities[1].target_modifier == true then
+                        if is_song_config_key(ctx.job_def, other_group_name) then
                             table.insert(active_song_groups, other_group_name)
                         end
                     end
@@ -463,17 +476,17 @@ local function toggle_party_buff(ctx, ability_name, party_index, enabled)
     if enabled then
         local ability = find_ability_by_name(ctx.job_def, ability_name)
         
-        if ability and ability.target_modifier == true then
+        if ability and ability.magic == 'song' then
             -- Determine the limit based on main/sub job
             local is_main_job = ability.is_main_job ~= false
             local song_limit = is_main_job and 2 or 1
-            
-            -- Count currently enabled songs with target_modifier for this party member
+
+            -- Count currently enabled songs for this party member. Every song
+            -- occupies a slot (incl. Mazurka, no Pianissimo), so match magic=='song'.
             local active_songs = {}
             for other_ability_name, targets in pairs(ctx.party_buffs) do
                 if other_ability_name ~= ability_name and targets[party_index] == true then
-                    local other_ability = find_ability_by_name(ctx.job_def, other_ability_name)
-                    if other_ability and other_ability.target_modifier == true then
+                    if is_song_config_key(ctx.job_def, other_ability_name) then
                         table.insert(active_songs, other_ability_name)
                     end
                 end
