@@ -115,7 +115,12 @@ local function area_needs_recast(ability, party_buff_config, song_keys, availabl
                 end
             else
                 local member = state.party[ti]
-                if member then
+                -- Trusts have unreliable buff tracking: drops aren't detected and
+                -- only one copy of a buff_id is visible (stacked songs like Ballad
+                -- I+II always look short), which would force an endless area recast.
+                -- Skip them -- self/real players drive recast timing and the AoE
+                -- covers in-range trusts on that same cast.
+                if member and not member.is_trust then
                     local ei = member.target_index
                     local mz = common.get_party_member_zone(ti)
                     if ei and ei > 0 and player_zone == mz and common.is_in_range(ei, SONG_AOE_RANGE) then
