@@ -10,7 +10,7 @@ Main addon file: job detection, event loop, command handler
 
 addon.name      = 'Medic'
 addon.author    = 'Seekey'
-addon.version   = '2.0.0'
+addon.version   = '2.1.0'
 addon.desc      = 'Support Job Automation Framework'
 addon.link      = 'https://github.com/seekey13/Medic'
 
@@ -411,6 +411,11 @@ local function setup_job()
             end
         end
         
+        -- Drop stratagems assigned on a higher-level SCH that this job/level can't use
+        if common.prune_unavailable_stratagems(job_def, addon_settings) then
+            settings.save()
+        end
+
         common.printf('Loaded settings for %s', job_def.job_name)
     end
 end

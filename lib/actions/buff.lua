@@ -8,6 +8,160 @@ local buff = {}
 local common      = require('lib.core.common')
 local action_core = require('lib.core.action_core')
 
+-- Song AoE radius (yalms). Party members beyond this can't be covered by an area
+-- song, so they don't count as "missing" and never force an endless recast.
+local SONG_AOE_RANGE = 10
+
+-- Count active instances of a buff id. Songs that share a buff_id stack as
+-- separate instances (e.g. Mage's Ballad + Mage's Ballad II = two of buff 196),
+-- so a plain "has it" check is not enough.
+local function count_instances(active_buffs, buff_id)
+    local ids = action_core.normalize_ids(buff_id)
+    local n = 0
+    for _, active in ipairs(active_buffs or {}) do
+        for _, check in ipairs(ids) do
+            if active == check then n = n + 1; break end
+        end
+    end
+    return n
+end
+
+-- How many distinct selected songs share this ability's buff_id for target_key
+-- (0-5, or 'A'). A grouped group contributes one (only one tier is ever active);
+-- an ungrouped group contributes one per selected tier, so stacking tiers each
+-- demand their own instance.
+local function wanted_instances(ability, target_key, available_abilities, settings, party_buff_config)
+    local keys = {}
+    for _, b in ipairs(available_abilities) do
+        if b.buff_id == ability.buff_id then
+            local grouped_b = b.group and settings['ungrouped_' .. b.group] ~= true
+            keys[grouped_b and b.group or b.name] = true
+        end
+    end
+    local n = 0
+    for key in pairs(keys) do
+        local cfg = party_buff_config[key]
+        if cfg and cfg[target_key] == true then n = n + 1 end
+    end
+    return n
+end
+
+-- True when target lacks enough instances of this song's buff to satisfy every
+-- selected tier sharing that buff_id. Falls back to the plain presence check
+-- (handles buff_id == nil) unless two or more tiers are stacked.
+local function song_needed(target_buffs, ability, target_key, available_abilities, settings, party_buff_config)
+    local wanted = wanted_instances(ability, target_key, available_abilities, settings, party_buff_config)
+    if wanted <= 1 then
+        return action_core.needs_buff(target_buffs, ability.buff_id)
+    end
+    return count_instances(target_buffs, ability.buff_id) < wanted
+end
+
+-- Config keys (group name, or ability name when ungrouped) for THIS job's songs.
+-- Only these count toward a member's song slots. party_buff_config is shared
+-- across every job and buff type (WHM cures/-na, Geo, etc.), so scanning all of
+-- it would mistake unrelated self-buffs for songs and wrongly mark everyone's
+-- slots full -- which silently kills every area song.
+local function song_config_keys(job_def, settings)
+    local keys = {}
+    for _, ability in ipairs(job_def.abilities.buff or {}) do
+        if ability.magic == 'song' then
+            local grouped = ability.group and settings['ungrouped_' .. ability.group] ~= true
+            keys[grouped and ability.group or ability.name] = true
+        end
+    end
+    return keys
+end
+
+-- Party indices (0-5) whose song slots are already FULL of single-target
+-- (Pianissimo) songs. A bard holds `song_limit` songs per member (2 main / 1
+-- sub); once that many single-target SONGS are assigned to a member there's no
+-- free slot for an area song, so it must not TRIGGER an area recast for them. A
+-- member with a free slot still gets covered.
+-- ponytail: counts only single-target songs, not other active [A] songs, so
+-- 1 single-target + 2 area songs can still overflow -- fix by counting area
+-- coverage too if that combo comes up in practice.
+local function dedicated_targets(party_buff_config, song_keys, song_limit)
+    local counts = {}
+    for key in pairs(song_keys) do
+        local targets = party_buff_config[key]
+        if type(targets) == 'table' then
+            for idx, v in pairs(targets) do
+                if v == true and type(idx) == 'number' and idx >= 0 and idx <= 5 then
+                    counts[idx] = (counts[idx] or 0) + 1
+                end
+            end
+        end
+    end
+    local dedicated = {}
+    for idx, c in pairs(counts) do
+        if c >= song_limit then dedicated[idx] = true end
+    end
+    return dedicated
+end
+
+-- True when any in-range party member with a free song slot lacks the song, so
+-- the area song should be (re)cast.
+local function area_needs_recast(ability, party_buff_config, song_keys, available_abilities, settings, state)
+    local song_limit = (ability.is_main_job ~= false) and 2 or 1
+    local dedicated   = dedicated_targets(party_buff_config, song_keys, song_limit)
+    local player_zone = common.get_party_member_zone(0)
+    for ti = 0, 5 do
+        if not dedicated[ti] then
+            if ti == 0 then
+                -- Self is always in range/zone and covered by a self-cast song.
+                if song_needed(state.player.buffs or {}, ability, 'A', available_abilities, settings, party_buff_config) then
+                    return true
+                end
+            else
+                local member = state.party[ti]
+                -- Trusts have unreliable buff tracking: drops aren't detected and
+                -- only one copy of a buff_id is visible (stacked songs like Ballad
+                -- I+II always look short), which would force an endless area recast.
+                -- Skip them -- self/real players drive recast timing and the AoE
+                -- covers in-range trusts on that same cast.
+                if member and not member.is_trust then
+                    local ei = member.target_index
+                    local mz = common.get_party_member_zone(ti)
+                    if ei and ei > 0 and player_zone == mz and common.is_in_range(ei, SONG_AOE_RANGE) then
+                        if song_needed(member.buffs or {}, ability, 'A', available_abilities, settings, party_buff_config) then
+                            return true
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return false
+end
+
+-- If `ability` is the active [A] area song to consider this cycle, return its
+-- config key (group name, or ability name when ungrouped); else nil. Mirrors the
+-- group-selection rules the single-target pass uses.
+local function area_song_config_key(ability, settings, party_buff_config, area_processed)
+    -- Every bard song gets an area toggle. Pianissimo songs cast area by omitting
+    -- Pianissimo; Mazurka has no Pianissimo and is always area.
+    if ability.magic ~= 'song' then return nil end
+    local grouped = ability.group and settings['ungrouped_' .. ability.group] ~= true
+    local config_key
+    if grouped then
+        config_key = ability.group
+        local selected = settings['selected_' .. ability.group]
+        if selected then
+            if selected ~= ability.name then return nil end
+        else
+            if area_processed[ability.group] then return nil end
+            area_processed[ability.group] = true
+        end
+    else
+        config_key = ability.name
+    end
+    if not (party_buff_config[config_key] and party_buff_config[config_key]['A'] == true) then
+        return nil
+    end
+    return config_key
+end
+
 function buff.execute(settings, job_def, main_level, sub_level, player_resource, party_buff_config)
     -- Check if buff is enabled
     if not settings.buff_enabled then
@@ -50,10 +204,42 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
     if #available_abilities == 0 then
         return nil
     end
-    
+
+    -- Phase 1: area songs ([A]). Checked before the single-target ME/P1-P5 pass
+    -- because an AoE song overwrites single-target songs on everyone it hits, so
+    -- the area baseline must be established first. Covers every in-range party
+    -- member that isn't given a specific ME/P button (see dedicated_targets).
+    --
+    -- Skip while Pianissimo is active: it makes the NEXT song single-target, so an
+    -- area cast now would fire single-target by mistake. Let the single-target
+    -- pass consume the Pianissimo first, then area-cast on a later cycle.
+    local tmods = job_def.abilities.target_modifier
+    local has_pianissimo = tmods and tmods[1]
+        and action_core.has_any_buff(state.player.buffs, tmods[1].buff_id)
+    if not has_pianissimo then
+        local song_keys = song_config_keys(job_def, settings)
+        local area_processed = {}
+        for _, ability in ipairs(available_abilities) do
+            local config_key = area_song_config_key(ability, settings, party_buff_config, area_processed)
+            if config_key and area_needs_recast(ability, party_buff_config, song_keys, available_abilities, settings, state) then
+                local desc = string.format('Applying area buff: %s', ability.name)
+                local result = action_core.try_use(ability, job_def, settings, 0, desc, state)
+                if result then
+                    return result
+                end
+            end
+        end
+    end
+
+    -- Phase 2: single-target buffs (ME/P1-P5, alliance, tracked).
     -- Check each buff to see if it needs to be applied/refreshed
     for _, ability in ipairs(available_abilities) do
         local should_skip = false
+
+        -- A group the user has "ungrouped" casts every tier independently
+        -- (keyed by ability name, like a non-grouped ability) instead of only
+        -- the single selected tier. Off (grouped) by default.
+        local grouped = ability.group and settings['ungrouped_' .. ability.group] ~= true
 
         -- While in combat with Geo-bt enabled, reserve the single luopan for the
         -- enemy debuff -- don't try to place a Geo buff luopan. (Geo-bt itself
@@ -93,7 +279,7 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                 -- First check if ability/group is enabled via settings
                 local key
                 local config_key
-                if ability.group then
+                if grouped then
                     key = 'disabled_group_' .. ability.group
                     config_key = ability.group
                     
@@ -184,11 +370,13 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                         end
                         
                         -- Check if target needs buff
-                        target_needs_buff = action_core.needs_buff(target_buffs, ability.buff_id)
+                        target_needs_buff = song_needed(target_buffs, ability, target_index, available_abilities, settings, party_buff_config)
                         
                         if target_needs_buff then
                             -- Check if this ability requires a target modifier (Pianissimo, Entrust, etc.)
-                            if ability.target_modifier and target_index > 0 then
+                            -- Includes ME (target_index 0): songs are now single-target on self via
+                            -- Pianissimo, matching P1-P5. The area ([A]) pass above handles no-Pianissimo AoE.
+                            if ability.target_modifier and target_index >= 0 then
                                 -- Check if we already have the modifier buff active
                                 local has_modifier_buff = false
                                 if job_def.abilities.target_modifier and #job_def.abilities.target_modifier > 0 then
@@ -306,7 +494,7 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                 -- Self-only buff: Use checkbox-based logic (original behavior)
                 -- Check if ability/group is enabled via settings
                 local key
-                if ability.group then
+                if grouped then
                     key = 'disabled_group_' .. ability.group
                     
                     -- Check if this ability is the selected one for this group

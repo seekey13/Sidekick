@@ -13,6 +13,7 @@ local tooltips = require('lib.ui.tooltips')
 -- UI state
 local is_open = { true }
 local ui_visible = false
+local force_expand = false  -- when true, next render un-collapses the window once
 
 -- Settings reference and callback
 local current_settings = nil
@@ -254,6 +255,10 @@ end
 function ui_config.show()
     ui_visible = true
     is_open[1] = true
+    -- Force the window uncollapsed on open. imgui persists a collapsed state in
+    -- imgui.ini; without this, opening a previously-collapsed window shows only
+    -- the title bar (and used to be force-closed by the render below).
+    force_expand = true
 end
 
 function ui_config.hide()
@@ -413,25 +418,25 @@ function ui_config.render(settings, job_def, callback, roll_mod)
             end
         end
     end
-    
-    -- Calculate fixed window width based on party size + alliance + tracked targets
-    local party_size = common.get_party_size()
-    local alliance_count_for_width = common.get_alliance_count()
-    local tracked_count_for_width = 0
-    local tt_list_for_width = common.get_tracked_targets()
-    for _ in pairs(tt_list_for_width) do tracked_count_for_width = tracked_count_for_width + 1 end
-    local num_buttons = math.min(party_size, 6) + alliance_count_for_width + tracked_count_for_width
-    local button_width = ui.PARTY_BUTTON_WIDTH * num_buttons + (ui.SPACE_BETWEEN_BUTTONS * (num_buttons - 1))
-    local dropdown_width = ui.DROPDOWN_WIDTH
-    local window_width = math.max((button_width + dropdown_width + ui.ABILITY_LIST_INDENT + 50), 1)
-    
-    imgui.SetNextWindowSize({window_width, 0}, ImGuiCond_Always)
-    
+
     -- Use consistent window title to maintain position across job changes
     local window_title = 'Medic Configuration'
-    
+
+    -- Un-collapse once when the window is (re)opened, so a collapsed imgui.ini
+    -- state doesn't leave the user staring at an empty title bar.
+    if force_expand then
+        if imgui.SetNextWindowCollapsed then
+            imgui.SetNextWindowCollapsed(false)
+        end
+        force_expand = false
+    end
+
+    -- NOTE: imgui.Begin returns false when the window is COLLAPSED, not only when
+    -- the [X] was clicked. Treat collapse as "still open, just skip content" and
+    -- only close on the [X] (is_open flips to false). Always call End() to match
+    -- Begin() per imgui rules.
     if imgui.Begin(window_title, is_open, ImGuiWindowFlags_NoResize + ImGuiWindowFlags_AlwaysAutoResize) then
-        
+
         -- Display job name and levels
         if job_def and job_def.job_name then
             -- Show normal job info
@@ -655,7 +660,7 @@ function ui_config.render(settings, job_def, callback, roll_mod)
                     -- Focus Target dropdown
                     focus_target_name = render_party_dropdown('Focus Target', 'focus_target', true, party_member_names, settings, callback, true)
                     
-                    ui.slider_int(ctx, 'Focus Healing (HP%)', 'focus_threshold', { settings.focus_threshold or 85 }, 1, 100)
+                    ui.slider_int(ctx, 'Focus (HP%)', 'focus_threshold', { settings.focus_threshold or 85 }, 1, 100)
                     imgui.Unindent(ui.ABILITY_LIST_INDENT)
                 end
             end
@@ -668,6 +673,9 @@ function ui_config.render(settings, job_def, callback, roll_mod)
             if is_open and is_enabled then
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
                 ui.slider_int(ctx, 'Group (HP%)', 'heal_threshold', { settings.heal_threshold or 75 }, 1, 100)
+                ui.render_heal_group_selection(ctx, 'heal_group', true)
+                imgui.SameLine()
+                imgui.Text('Group Targets')
                 for _, ability in ipairs(job_def.abilities.heal) do
                     if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                         ui.ability_checkbox(ctx, ability, job_def, 'heal', true)
@@ -695,7 +703,10 @@ function ui_config.render(settings, job_def, callback, roll_mod)
             if is_open and is_enabled then
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
                 ui.slider_int(ctx, 'AOE (HP%)', 'heal_aoe_threshold', { settings.heal_aoe_threshold or 70 }, 1, 100)
-                
+                ui.render_heal_group_selection(ctx, 'heal_aoe_group', false)
+                imgui.SameLine()
+                imgui.Text('AOE Targets')
+
                 for _, ability in ipairs(job_def.abilities.heal_aoe) do
                     if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                         ui.ability_checkbox(ctx, ability, job_def, 'heal_aoe', true)
@@ -884,11 +895,13 @@ function ui_config.render(settings, job_def, callback, roll_mod)
                 end
                 
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
+                ctx.show_buff_warning = true
                 for _, ability in ipairs(job_def.abilities.buff) do
                     if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                         ui.render_ability(ctx, ability, job_def, 'buff')
                     end
                 end
+                ctx.show_buff_warning = false
                 imgui.Unindent(ui.ABILITY_LIST_INDENT)
             end
         end
@@ -1029,12 +1042,6 @@ function ui_config.render(settings, job_def, callback, roll_mod)
         end
         end  -- End of job_def check
 
-        -- Debug mode (at end)
-        local debug_var = { common.debug }
-        if imgui.Checkbox('Debug Mode', debug_var) then
-            common.debug = debug_var[1]
-        end
-        
         if common.debug then
             imgui.Indent(ui.ABILITY_LIST_INDENT)
             local zone_id = common.get_zone_id()
@@ -1137,14 +1144,11 @@ function ui_config.render(settings, job_def, callback, roll_mod)
             imgui.Unindent(ui.ABILITY_LIST_INDENT)
         end
 
-        imgui.End()
-    else
-        -- Window was closed via X button, sync state
-        ui_visible = false
-        is_open[1] = false
     end
-    
-    -- Also check if is_open was changed by imgui (user clicked X)
+    imgui.End()
+
+    -- Close only when the [X] was clicked (imgui sets is_open to false). A mere
+    -- collapse leaves is_open true, so the window stays open.
     if not is_open[1] then
         ui_visible = false
     end

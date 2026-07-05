@@ -64,7 +64,10 @@ local function render_combat_only_context_menu(ctx, ability)
     local key, popup_id
     if ability.group then
         key = 'combat_only_group_' .. ability.group
-        popup_id = '##cmenu_combat_only_group_' .. ability.group
+        -- Per-ability popup id (not per-group): when a group is ungrouped, each
+        -- tier renders its own row, so a shared group id would stack duplicate
+        -- menus into one popup. The setting key stays group-level.
+        popup_id = '##cmenu_combat_only_group_' .. ability.group .. '_' .. (ability.name and ability.name:gsub(' ', '_') or '')
     else
         if not ability.name then return end
         local safe_name = ability.name:gsub(' ', '_')
@@ -76,6 +79,19 @@ local function render_combat_only_context_menu(ctx, ability)
         if imgui.Checkbox('Combat Only', current) then
             ctx.settings[key] = current[1]
             if ctx.save_callback then ctx.save_callback() end
+        end
+        -- Ungroup: cast every tier in the group independently instead of only
+        -- the selected tier. Off (grouped) by default; persisted per group.
+        if ability.group then
+            local ung_key = 'ungrouped_' .. ability.group
+            local ung = { ctx.settings[ung_key] == true }
+            if imgui.Checkbox('Ungroup', ung) then
+                ctx.settings[ung_key] = ung[1] or nil
+                if ctx.save_callback then ctx.save_callback() end
+            end
+            if imgui.IsItemHovered() then
+                imgui.SetTooltip('Cast each tier in this group independently\n(e.g. both Mage\'s Ballad and Mage\'s Ballad II).')
+            end
         end
         imgui.EndPopup()
     end
@@ -306,8 +322,20 @@ local function find_ability_by_name(job_def, ability_name)
             end
         end
     end
-    
+
     return nil
+end
+
+-- Is this party_buffs key a song? The key is a group name (grouped songs) OR an
+-- ability name (ungrouped songs), so the song-limit count must recognize both --
+-- otherwise grouped and ungrouped songs keep separate tallies.
+local function is_song_config_key(job_def, key)
+    local group_abilities = get_abilities_in_group(job_def, key)
+    if #group_abilities > 0 then
+        return group_abilities[1].magic == 'song'
+    end
+    local ability = find_ability_by_name(job_def, key)
+    return ability ~= nil and ability.magic == 'song'
 end
 
 -- Check if a group buff is enabled for a specific party member
@@ -326,6 +354,13 @@ local function is_party_buff_enabled(ctx, ability_name, party_index)
     return ctx.party_buffs[ability_name][party_index] == true
 end
 
+-- Party-buff target keys that must persist to disk. Numeric ME/P1-P5 (0-5) and
+-- the bard area key 'A' are stable config; alliance ('al_')/tracked ('tt_') keys
+-- are session-only because those members come and go.
+local function is_persisted_target_key(k)
+    return (type(k) == 'number' and k <= 5) or k == 'A'
+end
+
 -- Toggle group buff enabled state for a specific party member
 local function toggle_group_party_buff(ctx, group_name, party_index, enabled)
     if not ctx.party_buffs[group_name] then
@@ -339,17 +374,18 @@ local function toggle_group_party_buff(ctx, group_name, party_index, enabled)
         if #group_abilities > 0 then
             local sample_ability = group_abilities[1]
             
-            if sample_ability.target_modifier == true then
+            if sample_ability.magic == 'song' then
                 -- Determine the limit based on main/sub job
                 local is_main_job = sample_ability.is_main_job ~= false
                 local song_limit = is_main_job and 2 or 1
-                
-                -- Count currently enabled song groups with target_modifier for this party member
+
+                -- Count currently enabled song groups for this party member. Every
+                -- song occupies a slot (incl. Mazurka, which has no Pianissimo), so
+                -- the predicate is magic=='song', not target_modifier.
                 local active_song_groups = {}
                 for other_group_name, targets in pairs(ctx.party_buffs) do
                     if other_group_name ~= group_name and targets[party_index] == true then
-                        local other_abilities = get_abilities_in_group(ctx.job_def, other_group_name)
-                        if #other_abilities > 0 and other_abilities[1].target_modifier == true then
+                        if is_song_config_key(ctx.job_def, other_group_name) then
                             table.insert(active_song_groups, other_group_name)
                         end
                     end
@@ -361,7 +397,7 @@ local function toggle_group_party_buff(ctx, group_name, party_index, enabled)
                     ctx.party_buffs[group_to_remove][party_index] = false
                     
                     -- Ensure persistence structure exists (skip tracked targets)
-                    if type(party_index) == 'number' and party_index <= 5 then
+                    if is_persisted_target_key(party_index) then
                         ctx.settings.party_buffs = ctx.settings.party_buffs or {}
                         ctx.settings.party_buffs[group_to_remove] = ctx.settings.party_buffs[group_to_remove] or {}
                         ctx.settings.party_buffs[group_to_remove][party_index] = false
@@ -393,7 +429,7 @@ local function toggle_group_party_buff(ctx, group_name, party_index, enabled)
             for other_index, val in pairs(ctx.party_buffs[group_name]) do
                 if other_index ~= party_index and val == true then
                     ctx.party_buffs[group_name][other_index] = false
-                    if type(other_index) == 'number' and other_index <= 5 then
+                    if is_persisted_target_key(other_index) then
                         ctx.settings.party_buffs = ctx.settings.party_buffs or {}
                         ctx.settings.party_buffs[group_name] = ctx.settings.party_buffs[group_name] or {}
                         ctx.settings.party_buffs[group_name][other_index] = false
@@ -419,7 +455,7 @@ local function toggle_group_party_buff(ctx, group_name, party_index, enabled)
     ctx.settings['disabled_group_' .. group_name] = not any_button_enabled
     
     -- Save party_buffs to settings for persistence (skip tracked targets)
-    if type(party_index) == 'number' and party_index <= 5 then
+    if is_persisted_target_key(party_index) then
         ctx.settings.party_buffs = ctx.settings.party_buffs or {}
         ctx.settings.party_buffs[group_name] = ctx.settings.party_buffs[group_name] or {}
         ctx.settings.party_buffs[group_name][party_index] = enabled
@@ -440,17 +476,17 @@ local function toggle_party_buff(ctx, ability_name, party_index, enabled)
     if enabled then
         local ability = find_ability_by_name(ctx.job_def, ability_name)
         
-        if ability and ability.target_modifier == true then
+        if ability and ability.magic == 'song' then
             -- Determine the limit based on main/sub job
             local is_main_job = ability.is_main_job ~= false
             local song_limit = is_main_job and 2 or 1
-            
-            -- Count currently enabled songs with target_modifier for this party member
+
+            -- Count currently enabled songs for this party member. Every song
+            -- occupies a slot (incl. Mazurka, no Pianissimo), so match magic=='song'.
             local active_songs = {}
             for other_ability_name, targets in pairs(ctx.party_buffs) do
                 if other_ability_name ~= ability_name and targets[party_index] == true then
-                    local other_ability = find_ability_by_name(ctx.job_def, other_ability_name)
-                    if other_ability and other_ability.target_modifier == true then
+                    if is_song_config_key(ctx.job_def, other_ability_name) then
                         table.insert(active_songs, other_ability_name)
                     end
                 end
@@ -462,7 +498,7 @@ local function toggle_party_buff(ctx, ability_name, party_index, enabled)
                 ctx.party_buffs[song_to_remove][party_index] = false
                 
                 -- Ensure persistence structure exists (skip tracked targets)
-                if type(party_index) == 'number' and party_index <= 5 then
+                if is_persisted_target_key(party_index) then
                     ctx.settings.party_buffs = ctx.settings.party_buffs or {}
                     ctx.settings.party_buffs[song_to_remove] = ctx.settings.party_buffs[song_to_remove] or {}
                     ctx.settings.party_buffs[song_to_remove][party_index] = false
@@ -507,7 +543,7 @@ local function toggle_party_buff(ctx, ability_name, party_index, enabled)
     end
     
     -- Save party_buffs to settings for persistence (skip tracked targets)
-    if type(party_index) == 'number' and party_index <= 5 then
+    if is_persisted_target_key(party_index) then
         if not ctx.settings.party_buffs then
             ctx.settings.party_buffs = {}
         end
@@ -544,6 +580,16 @@ local function get_stratagem_settings(ctx)
         ctx.settings.stratagem_settings = {}
     end
     return ctx.settings.stratagem_settings
+end
+
+-- Helper: get the stratagem_hold table from ctx, creating it if needed
+-- stratagem_hold[ability_key] = true means "skip the spell until the stratagem is ready"
+local function get_stratagem_hold(ctx)
+    if not ctx or not ctx.settings then return nil end
+    if not ctx.settings.stratagem_hold then
+        ctx.settings.stratagem_hold = {}
+    end
+    return ctx.settings.stratagem_hold
 end
 
 -- Helper: check if any stratagem is assigned to an ability key in settings
@@ -649,6 +695,21 @@ local function render_scholar_stratagem_button(ability_key, ability, ctx)
         return false, 0
     end
 
+    -- Geo-bt debuffs render in the Geo section, which has no S-button rows to
+    -- align with, so skip the spacer to avoid an unwanted indent. Indi/Geo buffs
+    -- still fall through to the spacer below to align with buff-section rows.
+    if ability and ability.group == 'Geo-bt' then
+        return false, 0
+    end
+
+    -- Bard songs get the area [A] button in the leading slot (drawn by
+    -- render_party_buttons), so it already provides the indent. Adding a
+    -- stratagem spacer here too would double-indent the row. Either the [A]
+    -- button or the S button triggers the indent, never both.
+    if ability and ability.magic == 'song' then
+        return false, 0
+    end
+
     -- Stratagems only apply to white/black magic; skip singing, geomancy, etc.
     -- Render an invisible spacer so these rows stay aligned with S-button rows.
     if ability and ability.magic then
@@ -689,6 +750,12 @@ local function render_scholar_stratagem_button(ability_key, ability, ctx)
 
     if imgui.Button('S##sch_' .. ability_key, { 20, 0 }) then
         imgui.OpenPopup(popup_id)
+    end
+
+    if imgui.IsItemHovered() then
+        imgui.SetTooltip('Scholar Stratagem: apply a stratagem to this spell to\n' ..
+            'reduce MP cost or boost its effect. Click to choose which\n' ..
+            'stratagems to spend. Lit when one is assigned.')
     end
 
     if not has_sel then
@@ -743,6 +810,23 @@ local function render_scholar_stratagem_button(ability_key, ability, ctx)
             end
         end
 
+        -- "Hold for Stratagem": gate casting on the stratagem being ready.
+        imgui.Separator()
+        local hold_tbl = get_stratagem_hold(ctx)
+        if hold_tbl then
+            local hold_val = { hold_tbl[ability_key] == true }
+            if imgui.Checkbox('Hold for Stratagem##sch_hold_' .. ability_key, hold_val) then
+                hold_tbl[ability_key] = hold_val[1] or nil
+                if ctx.save_callback then
+                    ctx.save_callback()
+                end
+            end
+            if imgui.IsItemHovered() then
+                imgui.SetTooltip('On: skip this spell until the stratagem is ready.\n' ..
+                    'Off (default): cast the spell without the stratagem when it is on cooldown.')
+            end
+        end
+
         imgui.EndPopup()
     end
 
@@ -787,10 +871,59 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
         end
     end
     
+    -- ME now behaves like P1-P5: for songs it uses Pianissimo, so it needs the
+    -- target modifier to be available (same gate the party buttons use).
+    local party_has_spell = has_spell and has_target_modifier
+
+    -- Bard area-song [A] button: sing WITHOUT Pianissimo so everyone in range
+    -- gets the song. Sits in the leading slot (like the Scholar S button on other
+    -- jobs). Needs no Pianissimo, so it stays usable below Pianissimo's level.
+    -- Every bard song gets it (Mazurka has no Pianissimo but is always area).
+    if ability and ability.magic == 'song' then
+        local a_enabled = is_group and is_group_party_buff_enabled(ctx, key_name, 'A')
+            or is_party_buff_enabled(ctx, key_name, 'A')
+
+        if not has_spell then
+            imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_DISABLED)
+            imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_DISABLED)
+            imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_DISABLED)
+            imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
+        elseif a_enabled then
+            -- Use default colors
+        else
+            imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_UNSELECTED)
+            imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_UNSELECTED_HOVER)
+            imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_UNSELECTED_ACTIVE)
+        end
+
+        local a_label = 'A##' .. key_name .. '_area'
+        if has_spell and imgui.Button(a_label, { 20, 0 }) then
+            if is_group then
+                toggle_group_party_buff(ctx, key_name, 'A', not a_enabled)
+            else
+                toggle_party_buff(ctx, key_name, 'A', not a_enabled)
+            end
+        elseif not has_spell then
+            imgui.Button(a_label, { 20, 0 })
+        end
+
+        if imgui.IsItemHovered() then
+            imgui.SetTooltip('Area: sing without Pianissimo so everyone in range gets it.\nRecast tracks party members not given a specific ME/P button.')
+        end
+
+        if not has_spell then
+            imgui.PopStyleColor(4)
+        elseif not a_enabled then
+            imgui.PopStyleColor(3)
+        end
+
+        imgui.SameLine(0, SPACE_BETWEEN_BUTTONS)
+    end
+
     -- Render [ME] button
     local me_enabled = is_group and is_group_party_buff_enabled(ctx, key_name, 0) or is_party_buff_enabled(ctx, key_name, 0)
-    
-    if not has_spell then
+
+    if not party_has_spell then
         imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_DISABLED)
         imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_DISABLED)
         imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_DISABLED)
@@ -802,24 +935,24 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
         imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_UNSELECTED_HOVER)
         imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_UNSELECTED_ACTIVE)
     end
-    
+
     local me_button_label = 'ME##' .. key_name .. '_me'
-    if has_spell and imgui.Button(me_button_label, { PARTY_BUTTON_WIDTH, 0 }) then
+    if party_has_spell and imgui.Button(me_button_label, { PARTY_BUTTON_WIDTH, 0 }) then
         if is_group then
             toggle_group_party_buff(ctx, key_name, 0, not me_enabled)
         else
             toggle_party_buff(ctx, key_name, 0, not me_enabled)
         end
-    elseif not has_spell then
+    elseif not party_has_spell then
         imgui.Button(me_button_label, { PARTY_BUTTON_WIDTH, 0 })
     end
-    
-    if not has_spell then
+
+    if not party_has_spell then
         imgui.PopStyleColor(4)
     elseif not me_enabled then
         imgui.PopStyleColor(3)
     end
-    
+
     any_rendered = true
     
     -- Render party member buttons (P1-P5)
@@ -861,9 +994,14 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
                     imgui.Button(button_label, { PARTY_BUTTON_WIDTH, 0 })
                 end
                 
-                -- Trust warning tooltip for status removal
-                if ctx.show_trust_warning and ctx.is_trust and ctx.is_trust(party_index) and imgui.IsItemHovered() then
-                    imgui.SetTooltip('Trust/Tracked Removal is not totally reliable')
+                -- Trust warning tooltip: reliability caveat differs by context
+                -- (removal vs. buff tracking); only shown on actual Trust buttons.
+                if ctx.is_trust and ctx.is_trust(party_index) and imgui.IsItemHovered() then
+                    if ctx.show_trust_warning then
+                        imgui.SetTooltip('Trust/Tracked Removal is not totally reliable')
+                    elseif ctx.show_buff_warning then
+                        imgui.SetTooltip('Trust/Tracked Buff tracking is not totally reliable')
+                    end
                 end
                 
                 if not party_has_spell then
@@ -989,6 +1127,8 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
                     imgui.SetTooltip('Not compatible with out-of-party targets')
                 elseif ctx.show_trust_warning then
                     imgui.SetTooltip(tt.name .. '\nTrust/Tracked Removal is not totally reliable')
+                elseif ctx.show_buff_warning then
+                    imgui.SetTooltip(tt.name .. '\nTrust/Tracked Buff tracking is not totally reliable')
                 else
                     imgui.SetTooltip(tt.name)
                 end
@@ -1383,7 +1523,10 @@ function ui_components.render_ability(ctx, ability, job_def, id_suffix)
         return false
     end
     
+    -- Ungrouped groups render every tier as its own row (per-name), like a
+    -- non-grouped ability, instead of a single-select dropdown.
     local has_group = ability.group ~= nil
+        and not (ctx.settings and ctx.settings['ungrouped_' .. ability.group])
     local is_party_target = can_cast_on_party(ability)
     
     if has_group then
@@ -1811,6 +1954,90 @@ function ui_components.render_party_selection(ctx, key_name, show_outside, inclu
     end
 
     return any_rendered
+end
+
+-- Render group-target selection buttons for Group / AOE healing.
+-- Unlike render_party_selection (wake/debuff) this is SESSION-ONLY (never
+-- persisted) and uses asymmetric defaults so the behaviour is correct even
+-- when the config window was never opened this session:
+--   ME / party / tracked -> ON  by default (included unless explicitly disabled)
+--   alliance (B/C)        -> OFF by default (excluded unless explicitly enabled)
+-- State lives in ctx.party_buffs[key_name]; heal.lua reads it via the same keys.
+-- show_outside: whether to draw alliance + tracked buttons (Group=true, AOE=false;
+-- AOE healing is party-scoped so out-of-party buttons would do nothing).
+function ui_components.render_heal_group_selection(ctx, key_name, show_outside)
+    ctx.party_buffs[key_name] = ctx.party_buffs[key_name] or {}
+    local state = ctx.party_buffs[key_name]
+
+    -- party/tracked default ON (~= false); alliance default OFF (== true)
+    local function is_sel(key, is_alliance)
+        if is_alliance then return state[key] == true end
+        return state[key] ~= false
+    end
+
+    local function draw(label, id, on, on_click, tooltip)
+        if not on then
+            imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_UNSELECTED)
+            imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_UNSELECTED_HOVER)
+            imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_UNSELECTED_ACTIVE)
+        end
+        if imgui.Button(label .. '##' .. key_name .. '_gsel_' .. id, { PARTY_BUTTON_WIDTH, 0 }) then
+            on_click()
+        end
+        if tooltip and imgui.IsItemHovered() then imgui.SetTooltip(tooltip) end
+        if not on then imgui.PopStyleColor(3) end
+    end
+
+    -- [ME]
+    do
+        local on = is_sel(0)
+        draw('ME', 'me', on, function() state[0] = not on end)
+    end
+
+    -- P1-P5
+    local party_size = common.get_party_size()
+    for pi = 1, 5 do
+        if pi < party_size then
+            imgui.SameLine()
+            local on = is_sel(pi)
+            draw('P' .. pi, 'p' .. pi, on, function() state[pi] = not on end)
+        end
+    end
+
+    if not show_outside then return true end
+
+    -- Alliance B/C
+    local gs = common.game_state
+    if gs and gs.alliance then
+        local prefixes = { [2] = 'B', [3] = 'C' }
+        for api = 2, 3 do
+            local sub = gs.alliance[api]
+            if sub and next(sub) ~= nil then
+                for _, entry in ipairs(common.sorted_alliance_members(sub)) do
+                    local al_key = 'al_' .. ((api - 1) * 6 + entry.local_idx)
+                    imgui.SameLine()
+                    local on = is_sel(al_key, true)
+                    draw(prefixes[api] .. entry.local_idx, al_key, on,
+                        function() state[al_key] = not on end, entry.m.name)
+                end
+            end
+        end
+    end
+
+    -- Tracked targets
+    local sorted = {}
+    for sid, tt in pairs(common.get_tracked_targets()) do
+        table.insert(sorted, { sid = sid, name = tt.name })
+    end
+    table.sort(sorted, function(a, b) return a.name < b.name end)
+    for t_idx, tt in ipairs(sorted) do
+        imgui.SameLine()
+        local tt_key = 'tt_' .. tt.sid
+        local on = is_sel(tt_key)
+        draw('T' .. t_idx, 't' .. tt.sid, on, function() state[tt_key] = not on end, tt.name)
+    end
+
+    return true
 end
 
 -- ============================================================================

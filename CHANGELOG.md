@@ -5,6 +5,29 @@ All notable changes to Medic will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 2026-07-05
+
+### Added
+- **Group / AOE Heal Target Selection**: Group healing and AOE healing now have per-target selection buttons (ME / P1-P5, plus alliance B/C and tracked targets for Group healing) rendered under the threshold slider as **Group Targets** / **AOE Targets**. Deselecting a member excludes them from the scan (single-target Group healing) or from the below-threshold average (AOE). Defaults are asymmetric so behavior is correct even when the config window is never opened: party and tracked members are **ON** by default; alliance (B/C) members are **OFF** by default. AOE selection lists ME and party members only (Curaga-style AOE is party-scoped). Selections are **per-session** and reset on each load. Backed by session-only state in `ctx.party_buffs['heal_group' / 'heal_aoe_group']`, read by `heal.lua` via `make_group_filter()`.
+- **Bard Area Songs (`[A]` button)**: Every Bard song now has an **A** button in the leading slot, left of the ME/P1-P5 target buttons. It sings the song **without Pianissimo** so everyone within the song's AoE (10 yalms) receives it. The area recast tracks only in-range, same-zone party members who are **not** given a specific ME/P button, so dedicated single-target songs don't trigger an endless area recast. Trusts are skipped for recast timing (their buff tracking is unreliable) but are still covered by the AoE cast. Mazurka (no Pianissimo) is always area.
+- **Single-Target Self Songs via Pianissimo**: The **ME** button for Bard songs now uses Pianissimo, so a Bard can single-target buff themselves the same way as P1-P5. The ME button requires Pianissimo to be available (below its level the `[A]` area button still works).
+- **Stacking Same-`buff_id` Songs (Ungroup)**: A grouped buff can be **ungrouped** via right-click, casting every tier in the group independently instead of only the single selected tier. Enables e.g. Mage's Ballad + Mage's Ballad II (both `buff_id` 196) on the same target simultaneously. Song-needed logic counts active buff instances (`count_instances` / `wanted_instances`) so stacked tiers each demand their own instance. Persisted per group as `ungrouped_<group>` (off / grouped by default).
+- **Hold for Stratagem**: New checkbox in the Scholar stratagem assignment popup. When **ON**, the spell is skipped until an assigned stratagem can fire (enough charges, correct Arts, not status-blocked). When **OFF** (default), a stratagem that can't fire falls through and the spell casts **without** it, rather than blocking the cast. Persisted per ability/group key as `stratagem_hold[<key>]`.
+- **Debug Mode in Panel Header**: The **Debug Mode** checkbox now lives in the debug panel header row (next to the Stratagems counter), moved out of the configuration window.
+
+### Changed
+- **Automatic Config Window Sizing**: The configuration window now uses imgui `AlwaysAutoResize` instead of a manually computed fixed width, so it grows/shrinks to fit its content (party size, alliance, tracked targets, new buttons). Opening the window force-expands it once, so a collapsed `imgui.ini` state no longer leaves the user staring at an empty title bar. A mere collapse now keeps the window open; only the `[X]` closes it.
+- **Debug Mode Location**: The Debug Mode toggle moved from the bottom of the configuration window to the `/med panel` header.
+- **Stratagem Tooltips**: Added hover help for the Scholar stratagem button and the Hold for Stratagem checkbox.
+- **Trust Buff-Tracking Warning**: Trust/tracked buttons in the Buff section now show a *"Trust/Tracked Buff tracking is not totally reliable"* tooltip (distinct from the removal-section warning), driven by a new `ctx.show_buff_warning` flag.
+- **Focus / Group threshold labels**: Slider labels shortened (`Focus Healing (HP%)` → `Focus (HP%)`).
+
+### Fixed
+- **`HasSpell` Check**: `common.has_spell_learned()` no longer treats an unlearned spell as learned. Previously `ok and known or true` returned `true` whenever `known` was `false` (unlearned), so unavailable spells were wrongly considered known. Now only a `pcall` **error** assumes known.
+- **Stratagem Stuck from High-Level SCH**: A stratagem assigned on a high-level Scholar main job carried over into `stratagem_settings` when the player switched to a lower level or `???/SCH`, leaving automation trying to fire a JA the player couldn't use and the config un-removable. `common.prune_unavailable_stratagems()` (called on job/level change from `Medic.lua`) now drops any assigned stratagem above the current SCH level, bailing on a transient level-0 read so config is never wiped during zoning.
+- **Geo-bt UI Alignment**: Geo-bt debuff rows no longer receive the Scholar stratagem spacer indent (the Geo section has no S-button rows to align with). Bard song rows likewise skip the stratagem spacer because the `[A]` button already supplies the leading indent, preventing a double indent.
+- **Song 2-Limit**: Song-slot counting now keys on `magic == 'song'` (recognizing both grouped and ungrouped song config keys via `is_song_config_key`) instead of `target_modifier`, so the per-member song limit (2 main / 1 sub) is enforced correctly, including Mazurka (which has no Pianissimo).
+
 ## [2.0.0] - 2026-03-04
 
 ### BREAKING CHANGES

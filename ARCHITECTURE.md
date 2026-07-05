@@ -180,7 +180,8 @@ Shared utility module (~1,700 lines). Key areas:
 - **Buffs**: `has_buff`, `get_player_buffs`, `get_party_buffs`, `get_trust_buffs`
 - **Trust buff tracking**: `register_pending_buff`, `handle_buff_application`, `handle_buff_removal`, `clear_trust_buffs`
 - **Status ailments**: `has_silence`, `has_amnesia`, `is_command_blocked`
-- **Ability helpers**: `has_spell_learned(ability)`, `filter_abilities_by_level`, `build_ability_command`, `check_target_modifier`
+- **Ability helpers**: `has_spell_learned(ability)` (returns `HasSpell` result; only a `pcall` error assumes known — an unlearned spell is *not* treated as learned), `filter_abilities_by_level`, `build_ability_command`, `check_target_modifier`
+- **Scholar stratagems**: `check_stratagem(job_def, settings, ability_key, ability)` returns the next stratagem JA to fire, `nil` (cast the spell), or `false` (skip). "Hold for Stratagem" (`settings.stratagem_hold[<key>]`) controls the can't-fire case: when held it returns `false` (skip until ready); otherwise `nil` (cast without the stratagem). `prune_unavailable_stratagems(job_def, settings)` drops assigned stratagems above the current SCH level on job/level change (bails on a transient level-0 read), fixing a high-level SCH assignment sticking after a downgrade to a lower level or `???/SCH`.
 - **Game state**: `refresh_game_state` – populates a shared table with party HP%, buffs, server IDs, pet info, and alliance sub-party snapshots every tick
 - **Tracked target level resolution**: `handle_check_packet` – parses 0x0C9 check-response packet to store level and seed estimated max HP via `AVERAGE_HP_BY_LEVEL`
 - **Outside-target helpers**: `resolve_focus_target`, `find_alliance_member`, `outside_abilities`, `build_ability_command_for_target`
@@ -213,6 +214,8 @@ FFI bindings for FFXI target resolution (battle target, scan target, last teller
 
 **Pet healing** (`execute_pet`): Monitors pet HP via game state. Uses `action_core.first_command()`.
 
+**Group / AOE target selection**: `make_group_filter(key_name)` reads session-only per-target state from `ui_config.get_party_buffs()[key_name]` (`heal_group` for single-target Group scanning, `heal_aoe_group` for the AOE average). Keys mirror the UI: numeric `0-5` (party), `tt_<sid>` (tracked), `al_<flat>` (alliance). Defaults are asymmetric — party/tracked are included unless explicitly set `false`; alliance members are excluded unless explicitly set `true` — so behavior is correct even when the config window was never opened.
+
 ### status_removal.lua – Debuff Removal & Sleep Wake
 
 **Debuff removal** (`execute_debuff_removal`):
@@ -227,9 +230,12 @@ FFI bindings for FFXI target resolution (battle target, scan target, last teller
 
 ### buff.lua – Buff Maintenance
 
-- **Self buffs**: ON/OFF toggle, grouped or single.
-- **Party buffs**: Per-member `<ME> <P1>–<P5>` selection stored in `settings.party_buffs`.
-- **Groups**: Mutually exclusive (e.g., "Arts", "Storm", "Spikes"); dropdown selects active member.
+Runs in two phases per tick:
+
+- **Phase 1 – Area songs (`[A]`)**: Bard songs flagged for area (`party_buff_config[key]['A'] == true`) are cast **without** Pianissimo so everyone in range gets the song, checked *before* the single-target pass because an AoE song overwrites single-target songs on everyone it hits. `area_needs_recast()` scans in-range (`SONG_AOE_RANGE` = 10 yalms), same-zone party members who aren't already covered by a dedicated single-target song (`dedicated_targets()` counts per-member song slots against the `song_limit`). Trusts are skipped for recast timing (unreliable buff tracking) but covered by the cast. Phase 1 is skipped while Pianissimo is active (it would make the area cast single-target by mistake).
+- **Phase 2 – Single-target buffs**: Per-member `<ME> <P1>–<P5>` (plus alliance/tracked) selection stored in `settings.party_buffs`. ME (`target_index 0`) now also routes through the target modifier so Bard self-songs use Pianissimo like P1-P5.
+- **Groups**: Mutually exclusive by default (dropdown selects the active tier). A group the user **ungroups** (`settings['ungrouped_<group>'] == true`) casts every tier independently, keyed by ability name like a non-grouped ability.
+- **Stacking same `buff_id`**: `count_instances()` / `wanted_instances()` / `song_needed()` count how many distinct selected tiers share a `buff_id` (e.g. Mage's Ballad + Mage's Ballad II both = buff 196) and treat a target as needing the song until it holds that many instances, instead of a plain presence check.
 - **Target modifier** (Pianissimo, etc.): If `ability.target_modifier = true`, sends modifier command first; next tick casts the buff.
 - **Trust buff registration**: Calls `common.register_pending_buff()` for Trusts after cast.
 - **Condition flags**: `idle_only`, `requires_pet`, `requires_buff`; combat-only gating is controlled by settings (`combat_only_<name>` / `combat_only_group_<group>`).
@@ -347,6 +353,8 @@ return {
 
 - Builds a **context object** (`ctx`) containing settings, callbacks, job_def, filter functions, and party_buffs.
 - Delegates all rendering to `components.lua`.
+- **Window sizing**: Uses imgui `AlwaysAutoResize` (no manually computed fixed width). A `force_expand` flag un-collapses the window once when reopened so a collapsed `imgui.ini` state doesn't leave an empty title bar. `imgui.Begin` returning `false` on collapse is treated as "still open, skip content"; only the `[X]` (is_open → false) closes it, and `End()` is always called.
+- **Group/AOE heal targets**: Calls `render_heal_group_selection(ctx, 'heal_group', true)` and `(ctx, 'heal_aoe_group', false)` under the respective threshold sliders.
 - **DRY helpers**:
   - `render_party_dropdown(label, key, include_player, names, settings, cb)` – reusable for Focus/Follow/Recovery/Entrust Target dropdowns.
   - `has_usable_abilities(abilities)` – quick check for any level-appropriate abilities.
@@ -366,8 +374,16 @@ return {
 | `party_single_ability(ctx, ability, job_def)` | `[<ME>] [<P1>]… Ability Name` |
 | `party_grouped_ability(ctx, ability, job_def)` | `[<ME>] [<P1>]… [Dropdown]` |
 | `ability_checkbox(ctx, ability, job_def, suffix)` | Simple checkbox with spell-learned check |
+| `render_party_buttons(ctx, key, has_spell, ability, is_group)` | ME/P1-P5 (+ alliance/tracked) buttons; for songs also draws the leading `[A]` area button and gates ME on Pianissimo |
+| `render_heal_group_selection(ctx, key, show_outside)` | Group/AOE heal target buttons — **session-only**, asymmetric defaults (party/tracked ON, alliance OFF); `show_outside` draws alliance+tracked (Group=true, AOE=false) |
 | `item_silence_removal_checkbox(ctx)` | Echo Drops checkbox (via `render_item_removal_checkbox`) |
 | `item_doom_removal_checkbox(ctx)` | Holy Water checkbox (via `render_item_removal_checkbox`) |
+
+**Right-click context menu** (`render_combat_only_context_menu`): Combat Only toggle plus, for grouped buffs, an **Ungroup** checkbox (`ungrouped_<group>`). Popup ids are per-ability (not per-group) so an ungrouped group's per-tier rows don't collide.
+
+**Scholar stratagem button** (`render_scholar_stratagem_button`): Assign stratagems per spell, plus a **Hold for Stratagem** checkbox (`stratagem_hold[<key>]`). The alignment spacer is skipped for Geo-bt rows (no S-button column) and Bard song rows (the `[A]` button already indents them), preventing a double indent.
+
+`is_song_config_key()` recognizes both grouped (group name) and ungrouped (ability name) song config keys so the per-member song limit counts them together. `is_persisted_target_key()` gates which party-buff keys persist to disk — numeric ME/P1-P5 (0-5) and the area key `'A'` persist; `al_`/`tt_` keys are session-only.
 
 **UI creators** (settings-bound):
 `checkbox`, `collapsing_checkbox_header`, `slider_int`, `combo`.
@@ -389,7 +405,7 @@ return {
 
 ### panel.lua – Debug Panel
 
-Read-only display of game state, party buffs, server IDs, target indices. Shown when Debug Mode is enabled. Entity status values are rendered as human-readable labels (`Idle`, `Engaged`, `Dead`, `Resting`, `Mounted`, etc.) via a `STATUS_LABELS` lookup table.
+Read-only display of game state, party buffs, server IDs, target indices. Shown when Debug Mode is enabled. The **Debug Mode** checkbox now lives in the panel header row (next to the Stratagems counter), moved out of the configuration window. Entity status values are rendered as human-readable labels (`Idle`, `Engaged`, `Dead`, `Resting`, `Mounted`, etc.) via a `STATUS_LABELS` lookup table.
 
 ---
 
@@ -422,7 +438,10 @@ JSON persistence via Ashita's settings module.
 - **File naming**: `settings_white_mage.json`, `settings_geomancer.json`, etc.
 - **Load flow**: Detect job → load job definition → load settings file → merge with `default_settings` → save merged result.
 - **Auto-save**: On every UI change and addon unload.
-- **Party buffs**: `settings.party_buffs[ability_name][party_index] = true/false`.
+- **Party buffs**: `settings.party_buffs[ability_name][party_index] = true/false`. Persisted keys are numeric ME/P1-P5 (0-5) and the Bard area key `'A'`; alliance (`al_`) and tracked (`tt_`) keys are session-only.
+- **Ungroup**: `settings.ungrouped_<group> = true` casts every tier in a group independently.
+- **Stratagem hold**: `settings.stratagem_hold[<key>] = true` holds a spell until its assigned stratagem can fire.
+- **Session-only**: Group/AOE heal target selection (`ctx.party_buffs['heal_group' / 'heal_aoe_group']`) is never written to disk — it resets each load.
 
 ---
 
