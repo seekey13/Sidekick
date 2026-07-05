@@ -994,9 +994,14 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
                     imgui.Button(button_label, { PARTY_BUTTON_WIDTH, 0 })
                 end
                 
-                -- Trust warning tooltip for status removal
-                if ctx.show_trust_warning and ctx.is_trust and ctx.is_trust(party_index) and imgui.IsItemHovered() then
-                    imgui.SetTooltip('Trust/Tracked Removal is not totally reliable')
+                -- Trust warning tooltip: reliability caveat differs by context
+                -- (removal vs. buff tracking); only shown on actual Trust buttons.
+                if ctx.is_trust and ctx.is_trust(party_index) and imgui.IsItemHovered() then
+                    if ctx.show_trust_warning then
+                        imgui.SetTooltip('Trust/Tracked Removal is not totally reliable')
+                    elseif ctx.show_buff_warning then
+                        imgui.SetTooltip('Trust/Tracked Buff tracking is not totally reliable')
+                    end
                 end
                 
                 if not party_has_spell then
@@ -1122,6 +1127,8 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
                     imgui.SetTooltip('Not compatible with out-of-party targets')
                 elseif ctx.show_trust_warning then
                     imgui.SetTooltip(tt.name .. '\nTrust/Tracked Removal is not totally reliable')
+                elseif ctx.show_buff_warning then
+                    imgui.SetTooltip(tt.name .. '\nTrust/Tracked Buff tracking is not totally reliable')
                 else
                     imgui.SetTooltip(tt.name)
                 end

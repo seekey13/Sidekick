@@ -895,11 +895,13 @@ function ui_config.render(settings, job_def, callback, roll_mod)
                 end
                 
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
+                ctx.show_buff_warning = true
                 for _, ability in ipairs(job_def.abilities.buff) do
                     if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                         ui.render_ability(ctx, ability, job_def, 'buff')
                     end
                 end
+                ctx.show_buff_warning = false
                 imgui.Unindent(ui.ABILITY_LIST_INDENT)
             end
         end
