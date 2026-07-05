@@ -49,9 +49,7 @@ local ui_panel  = require('lib.ui.panel')
 
 -- State
 local current_main_job_id = nil
-local main_job_def = nil
 local current_sub_job_id = nil
-local sub_job_def = nil
 local job_def = nil  -- Merged job definition
 local addon_settings = nil
 local is_loaded = false
@@ -348,8 +346,6 @@ local function setup_job()
     current_sub_job_id = sub_job_id
     last_job_id = main_job_id
     
-    main_job_def = load_single_job_definition(main_job_id)
-    sub_job_def = sub_job_id and sub_job_id > 0 and load_single_job_definition(sub_job_id) or nil
     job_def = load_job_definition(main_job_id, sub_job_id)
     
     if job_def then
@@ -560,8 +556,6 @@ local function automation_tick()
                 last_level = main_level
                 current_main_job_id = nil
                 current_sub_job_id = nil
-                main_job_def = nil
-                sub_job_def = nil
                 job_def = nil
                 addon_settings = nil
                 
@@ -598,20 +592,9 @@ local function automation_tick()
     local player_resource = action_core.get_resource(job_def.resource_type)
     
     -- Get priority order
-    local priority_order = job_def.priority_order or {
-        'item',
-        'recover',
-        'critical',
-        'heal_aoe',
-        'heal',
-        'debuff_removal',
-        'heal_pet',
-        'wake',
-        'geo',
-        'buff',
-        'revive',
-        'rest',
-    }
+    -- job_def.priority_order is always populated by load_job_definition's merge;
+    -- `or {}` is a cheap nil-safety net (empty = no actions this tick, never a crash).
+    local priority_order = job_def.priority_order or {}
     
     -- Execute priority actions
     automation.execute_priority_actions(
