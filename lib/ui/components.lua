@@ -739,6 +739,12 @@ local function render_scholar_stratagem_button(ability_key, ability, ctx)
         imgui.OpenPopup(popup_id)
     end
 
+    if imgui.IsItemHovered() then
+        imgui.SetTooltip('Scholar Stratagem: apply a stratagem to this spell to\n' ..
+            'reduce MP cost or boost its effect. Click to choose which\n' ..
+            'stratagems to spend. Lit when one is assigned.')
+    end
+
     if not has_sel then
         imgui.PopStyleColor(3)
     end
