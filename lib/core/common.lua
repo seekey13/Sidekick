@@ -1992,6 +1992,49 @@ function common.check_stratagem(job_def, settings, ability_key, ability)
     }
 end
 
+-- Remove assigned stratagems the player can no longer use. A stratagem configured
+-- on a high-level SCH stays in stratagem_settings after switching to a lower level
+-- or SCH subjob; without this, automation would keep trying to fire a JA the player
+-- doesn't know. Called on job/level change. Returns true if anything was pruned.
+function common.prune_unavailable_stratagems(job_def, settings)
+    if not settings or not settings.stratagem_settings then return false end
+    local strat_defs = job_def and job_def.abilities and job_def.abilities.stratagem
+    if not strat_defs then return false end
+
+    -- Resolve SCH level from main or sub job (SCH = job ID 20)
+    local main_job_id, sub_job_id = common.get_player_job()
+    local main_level, sub_level   = common.get_player_level()
+    local sch_level = 0
+    if main_job_id == 20 then
+        sch_level = main_level
+    elseif sub_job_id == 20 then
+        sch_level = sub_level
+    end
+
+    -- Bail on a transient 0 read (e.g. zoning) so we never wipe config wrongly
+    if sch_level <= 0 then return false end
+
+    -- name -> required level lookup
+    local strat_level = {}
+    for _, strat in ipairs(strat_defs) do
+        strat_level[strat.name] = strat.level or 0
+    end
+
+    local changed = false
+    for ability_key, assigned in pairs(settings.stratagem_settings) do
+        for strat_name in pairs(assigned) do
+            if (strat_level[strat_name] or 0) > sch_level then
+                assigned[strat_name] = nil
+                changed = true
+            end
+        end
+        if not next(assigned) then
+            settings.stratagem_settings[ability_key] = nil
+        end
+    end
+    return changed
+end
+
 -- ============================================================================
 -- Resting State Management
 -- ============================================================================

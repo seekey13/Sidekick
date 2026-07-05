@@ -411,6 +411,11 @@ local function setup_job()
             end
         end
         
+        -- Drop stratagems assigned on a higher-level SCH that this job/level can't use
+        if common.prune_unavailable_stratagems(job_def, addon_settings) then
+            settings.save()
+        end
+
         common.printf('Loaded settings for %s', job_def.job_name)
     end
 end
