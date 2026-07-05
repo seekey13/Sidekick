@@ -18,11 +18,6 @@ local force_expand = false  -- when true, next render un-collapses the window on
 -- Settings reference and callback
 local current_settings = nil
 local save_callback = nil
-local roll_module = nil
-
--- UI State Variables (for imgui)
-local focus_enabled = { false }
-local focus_recovery_enabled = { false }
 
 -- Focus state (now saved to settings as names)
 local focus_target_name = nil  -- Character name or nil for None
@@ -53,54 +48,13 @@ local function can_use_ability(ability)
         return false
     end
     
-    local main_level, sub_level
-    main_level, sub_level = common.get_player_level()
-    
-    -- Check if this ability is for main job or subjob
-    -- Abilities marked with is_main_job = false are from subjob
-    local result
+    local main_level, sub_level = common.get_player_level()
+
+    -- Abilities marked is_main_job = false are from subjob; check against sub level.
     if ability.is_main_job == false then
-        result = sub_level >= ability.level
-    else
-        result = main_level >= ability.level
+        return sub_level >= ability.level
     end
-    
-    return result
-end
-
--- Get all abilities in the same group as the given ability (returns ability objects, not just names)
-local function get_abilities_in_group(job_def, target_group)
-    local group_abilities = {}
-    if not job_def or not target_group then
-        return group_abilities
-    end
-    
-    -- Search through all ability categories
-    if job_def.abilities then
-        for category, abilities in pairs(job_def.abilities) do
-            for _, ability in ipairs(abilities) do
-                if ability.group == target_group then
-                    table.insert(group_abilities, ability)
-                end
-            end
-        end
-    end
-    
-    return group_abilities
-end
-
--- Get usable abilities in a group (level-appropriate and spell learned)
-local function get_usable_abilities_in_group(job_def, target_group)
-    local all_abilities = get_abilities_in_group(job_def, target_group)
-    local usable = {}
-    
-    for _, ability in ipairs(all_abilities) do
-        if can_use_ability(ability) and common.has_spell_learned(ability) then
-            table.insert(usable, ability)
-        end
-    end
-    
-    return usable
+    return main_level >= ability.level
 end
 
 -- Check if a list of abilities has any usable abilities (level-appropriate)
@@ -108,16 +62,13 @@ local function has_usable_abilities(abilities)
     if not abilities then
         return false
     end
-    
-    -- Check if table has any entries at all
-    local has_any = false
+
     for _, ability in pairs(abilities) do
-        has_any = true
         if can_use_ability(ability) then
             return true
         end
     end
-    
+
     return false
 end
 
@@ -235,15 +186,6 @@ local function render_party_dropdown(label, setting_key, include_player, party_m
     return settings[setting_key]
 end
 
--- Sync UI state from settings
-local function sync_from_settings()
-    if not current_settings then return end
-    
-    focus_enabled[1] = current_settings.focus_enabled or false
-    
-    -- Focus target settings are now loaded on first render
-end
-
 -- ============================================================================
 -- Module Functions
 -- ============================================================================
@@ -315,7 +257,7 @@ function ui_config.get_entrust_config()
     }
 end
 
-function ui_config.render(settings, job_def, callback, roll_mod)
+function ui_config.render(settings, job_def, callback)
     if not ui_visible or not is_open[1] then
         return
     end
@@ -385,20 +327,13 @@ function ui_config.render(settings, job_def, callback, roll_mod)
     -- Store settings reference and callback
     current_settings = settings
     save_callback = callback
-    roll_module = roll_mod
-    
-    -- Sync UI state from settings
-    sync_from_settings()
-    
+
     -- Create context object for ui_components
     local ctx = {
         settings = current_settings,
         save_callback = save_callback,
         party_buffs = party_buffs,
         job_def = job_def,
-        can_use_ability = can_use_ability,
-        get_abilities_in_group = get_abilities_in_group,
-        get_usable_abilities_in_group = get_usable_abilities_in_group,
         is_trust = is_trust,
         filter_func = {
             can_use_ability = can_use_ability
@@ -553,8 +488,7 @@ function ui_config.render(settings, job_def, callback, roll_mod)
         
         -- Tracked Targets list (show if any are being tracked)
         local tracked_list = common.get_tracked_targets()
-        local has_tracked = false
-        for _ in pairs(tracked_list) do has_tracked = true; break end
+        local has_tracked = next(tracked_list) ~= nil
 
         if has_tracked then
             local sorted_tt = {}
@@ -617,30 +551,6 @@ function ui_config.render(settings, job_def, callback, roll_mod)
 
         -- Show job-specific sections if we have a job definition
         if job_def then
-        
-        -- Focus target settings (only show if job has party healing or debuff removal abilities)
-        local has_party_healing = false
-        local has_party_debuff_removal = false
-        
-        -- Check for non-self-only healing abilities
-        if job_def and job_def.abilities.heal then
-            for _, ability in ipairs(job_def.abilities.heal) do
-                if not ability.self_only then
-                    has_party_healing = true
-                    break
-                end
-            end
-        end
-        
-        -- Check for non-self-only debuff removal abilities
-        if job_def and job_def.abilities.debuff_removal then
-            for _, ability in ipairs(job_def.abilities.debuff_removal) do
-                if not ability.self_only then
-                    has_party_debuff_removal = true
-                    break
-                end
-            end
-        end
         
         -- Focus Healing settings
         if job_def and job_def.abilities.heal and has_usable_abilities(job_def.abilities.heal) then
