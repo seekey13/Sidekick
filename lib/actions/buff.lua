@@ -12,6 +12,51 @@ local action_core = require('lib.core.action_core')
 -- song, so they don't count as "missing" and never force an endless recast.
 local SONG_AOE_RANGE = 10
 
+-- Count active instances of a buff id. Songs that share a buff_id stack as
+-- separate instances (e.g. Mage's Ballad + Mage's Ballad II = two of buff 196),
+-- so a plain "has it" check is not enough.
+local function count_instances(active_buffs, buff_id)
+    local ids = action_core.normalize_ids(buff_id)
+    local n = 0
+    for _, active in ipairs(active_buffs or {}) do
+        for _, check in ipairs(ids) do
+            if active == check then n = n + 1; break end
+        end
+    end
+    return n
+end
+
+-- How many distinct selected songs share this ability's buff_id for target_key
+-- (0-5, or 'A'). A grouped group contributes one (only one tier is ever active);
+-- an ungrouped group contributes one per selected tier, so stacking tiers each
+-- demand their own instance.
+local function wanted_instances(ability, target_key, available_abilities, settings, party_buff_config)
+    local keys = {}
+    for _, b in ipairs(available_abilities) do
+        if b.buff_id == ability.buff_id then
+            local grouped_b = b.group and settings['ungrouped_' .. b.group] ~= true
+            keys[grouped_b and b.group or b.name] = true
+        end
+    end
+    local n = 0
+    for key in pairs(keys) do
+        local cfg = party_buff_config[key]
+        if cfg and cfg[target_key] == true then n = n + 1 end
+    end
+    return n
+end
+
+-- True when target lacks enough instances of this song's buff to satisfy every
+-- selected tier sharing that buff_id. Falls back to the plain presence check
+-- (handles buff_id == nil) unless two or more tiers are stacked.
+local function song_needed(target_buffs, ability, target_key, available_abilities, settings, party_buff_config)
+    local wanted = wanted_instances(ability, target_key, available_abilities, settings, party_buff_config)
+    if wanted <= 1 then
+        return action_core.needs_buff(target_buffs, ability.buff_id)
+    end
+    return count_instances(target_buffs, ability.buff_id) < wanted
+end
+
 -- Config keys (group name, or ability name when ungrouped) for THIS job's songs.
 -- Only these count toward a member's song slots. party_buff_config is shared
 -- across every job and buff type (WHM cures/-na, Geo, etc.), so scanning all of
@@ -57,7 +102,7 @@ end
 
 -- True when any in-range party member with a free song slot lacks the song, so
 -- the area song should be (re)cast.
-local function area_needs_recast(ability, party_buff_config, song_keys, state)
+local function area_needs_recast(ability, party_buff_config, song_keys, available_abilities, settings, state)
     local song_limit = (ability.is_main_job ~= false) and 2 or 1
     local dedicated   = dedicated_targets(party_buff_config, song_keys, song_limit)
     local player_zone = common.get_party_member_zone(0)
@@ -65,7 +110,7 @@ local function area_needs_recast(ability, party_buff_config, song_keys, state)
         if not dedicated[ti] then
             if ti == 0 then
                 -- Self is always in range/zone and covered by a self-cast song.
-                if action_core.needs_buff(state.player.buffs or {}, ability.buff_id) then
+                if song_needed(state.player.buffs or {}, ability, 'A', available_abilities, settings, party_buff_config) then
                     return true
                 end
             else
@@ -74,7 +119,7 @@ local function area_needs_recast(ability, party_buff_config, song_keys, state)
                     local ei = member.target_index
                     local mz = common.get_party_member_zone(ti)
                     if ei and ei > 0 and player_zone == mz and common.is_in_range(ei, SONG_AOE_RANGE) then
-                        if action_core.needs_buff(member.buffs or {}, ability.buff_id) then
+                        if song_needed(member.buffs or {}, ability, 'A', available_abilities, settings, party_buff_config) then
                             return true
                         end
                     end
@@ -171,7 +216,7 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
         local area_processed = {}
         for _, ability in ipairs(available_abilities) do
             local config_key = area_song_config_key(ability, settings, party_buff_config, area_processed)
-            if config_key and area_needs_recast(ability, party_buff_config, song_keys, state) then
+            if config_key and area_needs_recast(ability, party_buff_config, song_keys, available_abilities, settings, state) then
                 local desc = string.format('Applying area buff: %s', ability.name)
                 local result = action_core.try_use(ability, job_def, settings, 0, desc, state)
                 if result then
@@ -320,7 +365,7 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                         end
                         
                         -- Check if target needs buff
-                        target_needs_buff = action_core.needs_buff(target_buffs, ability.buff_id)
+                        target_needs_buff = song_needed(target_buffs, ability, target_index, available_abilities, settings, party_buff_config)
                         
                         if target_needs_buff then
                             -- Check if this ability requires a target modifier (Pianissimo, Entrust, etc.)
