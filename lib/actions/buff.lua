@@ -12,17 +12,19 @@ local action_core = require('lib.core.action_core')
 -- song, so they don't count as "missing" and never force an endless recast.
 local SONG_AOE_RANGE = 10
 
--- Party indices (0-5) singled out for THIS song's group via a specific ME/P1-P5
--- button. They're handled by the single-target (Pianissimo) pass, so the area
--- song shouldn't also loop trying to cover them. Scoped to the group: a
--- single-target song in a DIFFERENT group must not suppress this area song
--- (otherwise covering the party with any single-target song kills every [A]).
-local function dedicated_targets(group_targets)
+-- Party indices (0-5) singled out with ANY single-target ME/P1-P5 button, in any
+-- group. A member handled by a single-target (Pianissimo) song is excluded from
+-- every area song's recast check: the AoE still physically lands on them, but
+-- their missing-buff status must not TRIGGER an area recast -- you singled them
+-- out on purpose, so the area song shouldn't loop trying to also cover them.
+local function dedicated_targets(party_buff_config)
     local dedicated = {}
-    if not group_targets then return dedicated end
-    for idx, v in pairs(group_targets) do
-        if v == true and type(idx) == 'number' and idx >= 0 and idx <= 5 then
-            dedicated[idx] = true
+    if not party_buff_config then return dedicated end
+    for _, targets in pairs(party_buff_config) do
+        for idx, v in pairs(targets) do
+            if v == true and type(idx) == 'number' and idx >= 0 and idx <= 5 then
+                dedicated[idx] = true
+            end
         end
     end
     return dedicated
@@ -30,8 +32,8 @@ end
 
 -- True when any in-range, non-dedicated party member lacks the song, so the area
 -- song should be (re)cast.
-local function area_needs_recast(ability, config_key, party_buff_config, state)
-    local dedicated   = dedicated_targets(party_buff_config[config_key])
+local function area_needs_recast(ability, party_buff_config, state)
+    local dedicated   = dedicated_targets(party_buff_config)
     local player_zone = common.get_party_member_zone(0)
     for ti = 0, 5 do
         if not dedicated[ti] then
@@ -142,7 +144,7 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
         local area_processed = {}
         for _, ability in ipairs(available_abilities) do
             local config_key = area_song_config_key(ability, settings, party_buff_config, area_processed)
-            if config_key and area_needs_recast(ability, config_key, party_buff_config, state) then
+            if config_key and area_needs_recast(ability, party_buff_config, state) then
                 local desc = string.format('Applying area buff: %s', ability.name)
                 local result = action_core.try_use(ability, job_def, settings, 0, desc, state)
                 if result then
