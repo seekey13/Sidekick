@@ -17,14 +17,12 @@ local command_throttle = 1.0 -- 1 second between commands
 local pending_stratagem = nil   -- { action_type = string, timestamp = number }
 local STRATAGEM_FOLLOWUP_TIMEOUT = 5.0  -- seconds before we give up waiting
 
+-- Action types that should interrupt resting (/heal) before firing.
+local REST_BREAKING = { heal = true, recover = true, item = true, status_removal = true, debuff_removal = true, wake = true, revive = true }
+
 --[[
     Command Execution
 ]]--
-
-function automation.can_execute_command()
-    local current_time = os.clock()
-    return (current_time - last_command_time) >= command_throttle
-end
 
 function automation.execute_command(command, description)
     if not command then return false end
@@ -41,25 +39,13 @@ function automation.execute_command(command, description)
     return true
 end
 
-function automation.set_throttle(seconds)
-    command_throttle = seconds
-end
-
-function automation.get_throttle()
-    return command_throttle
-end
-
-function automation.reset_throttle()
-    last_command_time = 0
-end
-
 --[[
     Action Priority System
 ]]--
 
 -- Helper: execute a single action result (table or string) and handle
 -- stratagem follow-up bookkeeping.  Returns true when a command was sent.
-local function dispatch_result(result, action_type, common)
+local function dispatch_result(result, action_type)
     if type(result) == 'table' then
         if automation.execute_command(result.command, result.description) then
             common.reset_rest_timer()
@@ -83,9 +69,7 @@ local function dispatch_result(result, action_type, common)
 end
 
 function automation.execute_priority_actions(priority_order, action_modules, settings, job_def, main_level, sub_level, player_resource)
-    local common = require('lib.core.common')
-    
-    if not automation.can_execute_command() then
+    if (os.clock() - last_command_time) < command_throttle then
         return false
     end
 
@@ -108,14 +92,13 @@ function automation.execute_priority_actions(priority_order, action_modules, set
                 local success, result = pcall(action_module.execute, settings, job_def, main_level, sub_level, player_resource)
                 if success and result then
                     -- Break rest if needed (same logic as normal path)
-                    local rest_breaking_actions = { heal = true, recover = true, item = true, status_removal = true, debuff_removal = true, wake = true, revive = true }
-                    if rest_breaking_actions[locked_type] and common.is_resting() then
+                    if REST_BREAKING[locked_type] and common.is_resting() then
                         common.set_resting(false)
                         common.reset_rest_timer()
                         automation.execute_command('/heal off', 'Breaking rest for: ' .. locked_type)
                         return true
                     end
-                    if dispatch_result(result, locked_type, common) then
+                    if dispatch_result(result, locked_type) then
                         return true
                     end
                 elseif not success then
@@ -149,15 +132,14 @@ function automation.execute_priority_actions(priority_order, action_modules, set
                 -- If resting and this is an urgent action type, break rest first.
                 -- buff and geo are low-priority and do not interrupt rest.
                 -- The actual action fires next tick once /heal off has landed.
-                local rest_breaking_actions = { heal = true, recover = true, item = true, status_removal = true, debuff_removal = true, wake = true, revive = true }
-                if rest_breaking_actions[action_type] and common.is_resting() then
+                if REST_BREAKING[action_type] and common.is_resting() then
                     common.set_resting(false)
                     common.reset_rest_timer()
                     automation.execute_command('/heal off', 'Breaking rest for: ' .. action_type)
                     return true
                 end
 
-                if dispatch_result(result, action_type, common) then
+                if dispatch_result(result, action_type) then
                     return true
                 end
             elseif not success then
