@@ -277,7 +277,7 @@ return {
                 name = 'Afflatus Solace',
                 level = 40,
                 cost = 0,
-                id = 245,  -- Job Ability ID
+                id = 29,  -- Job Ability ID
                 command = '/ja "Afflatus Solace" <me>',
                 buff_id = 417,  -- Afflatus Solace
                 group = 'afflatus',
