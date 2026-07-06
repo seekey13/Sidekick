@@ -949,6 +949,10 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
         imgui.Button(me_button_label, { PARTY_BUTTON_WIDTH, 0 })
     end
 
+    if imgui.IsItemHovered() then
+        imgui.SetTooltip(common.get_party_member_name(0) or 'ME')
+    end
+
     if not party_has_spell then
         imgui.PopStyleColor(4)
     elseif not me_enabled then
@@ -996,13 +1000,16 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
                     imgui.Button(button_label, { PARTY_BUTTON_WIDTH, 0 })
                 end
                 
-                -- Trust warning tooltip: reliability caveat differs by context
-                -- (removal vs. buff tracking); only shown on actual Trust buttons.
-                if ctx.is_trust and ctx.is_trust(party_index) and imgui.IsItemHovered() then
-                    if ctx.show_trust_warning then
-                        imgui.SetTooltip('Trust/Tracked Removal is not totally reliable')
-                    elseif ctx.show_buff_warning then
-                        imgui.SetTooltip('Trust/Tracked Buff tracking is not totally reliable')
+                -- Tooltip: party member name, plus a Trust reliability caveat
+                -- (removal vs. buff tracking) appended only on actual Trust buttons.
+                if imgui.IsItemHovered() then
+                    local pname = common.get_party_member_name(party_index) or ('P' .. party_index)
+                    if ctx.is_trust and ctx.is_trust(party_index) and ctx.show_trust_warning then
+                        imgui.SetTooltip(pname .. '\nTrust/Tracked Removal is not totally reliable')
+                    elseif ctx.is_trust and ctx.is_trust(party_index) and ctx.show_buff_warning then
+                        imgui.SetTooltip(pname .. '\nTrust/Tracked Buff tracking is not totally reliable')
+                    else
+                        imgui.SetTooltip(pname)
                     end
                 end
                 
