@@ -429,12 +429,10 @@ function status_removal.execute_wake(settings, job_def, main_level, sub_level, p
     end
 
     -- Count sleeping party members (indices 1-5 only, filtered by wake targets)
-    local start_index = 1
-
     local sleeping_members = {}
-    for i = start_index, 5 do
+    for i = 1, 5 do
         if not is_wake_allowed(i) then goto continue_wake end
-        local member_state = i == 0 and state.player or state.party[i]
+        local member_state = state.party[i]
         if not member_state then goto continue_wake end
         local buffs = member_state.buffs or {}
         if status_removal.is_buff_sleep(buffs) then
@@ -522,8 +520,7 @@ function status_removal.execute_wake(settings, job_def, main_level, sub_level, p
 
         for _, ability in ipairs(available_single) do
             local blocked_by = common.is_command_blocked(ability.command)
-            if blocked_by then
-            else
+            if not blocked_by then
                 local desc = string.format('Waking %s with %s', target_name, ability.name)
                 local result, reason = action_core.try_use(ability, job_def, settings, target_index, desc)
                 if result then

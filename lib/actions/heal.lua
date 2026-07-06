@@ -256,11 +256,9 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
                 
                 -- Try to use a critical ability
                 for _, ability in ipairs(available_critical) do
-                    if settings['disabled_' .. ability.name:gsub(' ', '_')] == true then
-                    else
+                    if settings['disabled_' .. ability.name:gsub(' ', '_')] ~= true then
                         local ok, reason = action_core.is_usable(ability, job_def)
-                        if not ok then
-                        else
+                        if ok then
                             -- Determine target: self-target (Divine Seal) vs party-target (Martyr)
                             local cmd_test         = common.build_ability_command(ability, 0)
                             local target_party_index
