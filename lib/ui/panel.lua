@@ -158,6 +158,29 @@ function panel.render()
             common.debug = debug_var[1]
         end
 
+        -- Debug scalars (moved from config window) — same header line.
+        -- Only the values NOT already shown as table columns above.
+        if common.debug then
+            local target_id = common.get_target_id()
+            local dbg = string.format('Zone: %d   Target: %s   Moving: %s   Casting: %s',
+                common.get_zone_id(), tostring(target_id),
+                tostring(common.is_player_moving()), tostring(common.is_casting()))
+
+            -- Append the target's party slot + target index when the target is a party member
+            local party = common.get_party()
+            if party and target_id and target_id > 0 then
+                for i = 0, 5 do
+                    if party:GetMemberIsActive(i) == 1 and party:GetMemberServerId(i) == target_id then
+                        dbg = dbg .. string.format('   TargetIdx P%d: %s', i, tostring(party:GetMemberTargetIndex(i)))
+                        break
+                    end
+                end
+            end
+
+            imgui.SameLine(0, 20)
+            imgui.TextColored({ 0.5, 0.5, 0.5, 1.0 }, dbg)
+        end
+
         imgui.Separator()
 
         -- Column definitions

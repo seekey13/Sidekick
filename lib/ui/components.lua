@@ -638,10 +638,9 @@ end
 -- ability_key: unique string key for the ability (e.g. ability name or group name)
 -- ability: (optional) the ability table; when provided, only /ma commands get the button
 -- ctx: (optional) UI context with settings and save_callback for persistence
--- Returns: rendered (bool), padding (number)
---   rendered=true, padding=0  when the S button was drawn
---   rendered=false, padding=N when the S button was skipped but the caller should
---                              widen its first button by N pixels to keep alignment
+-- Returns: consumed (bool) -- true when this drew a leading element (the S button
+--   OR an alignment spacer), false when it drew nothing. The caller uses this to
+--   avoid stacking a second indent (e.g. the bard [A] column) on the same row.
 local function render_scholar_stratagem_button(ability_key, ability, ctx)
     -- Resolve Scholar level from main or sub job (SCH = job ID 20)
     local main_job_id, sub_job_id = common.get_player_job()
@@ -672,7 +671,7 @@ local function render_scholar_stratagem_button(ability_key, ability, ctx)
     if ability and type(ability.command) == 'string' and ability.command:sub(1, 3) == '/ja' then
         imgui.Dummy({ 20, 0 })
         imgui.SameLine(0, SPACE_BETWEEN_BUTTONS)
-        return false, 0
+        return true, 0
     end
 
     -- Geo-bt debuffs render in the Geo section, which has no S-button rows to
@@ -696,7 +695,7 @@ local function render_scholar_stratagem_button(ability_key, ability, ctx)
         if ability.magic ~= 'white' and ability.magic ~= 'black' then
             imgui.Dummy({ 20, 0 })
             imgui.SameLine(0, SPACE_BETWEEN_BUTTONS)
-            return false, 0
+            return true, 0
         end
     end
 
@@ -706,7 +705,7 @@ local function render_scholar_stratagem_button(ability_key, ability, ctx)
         if (ability.magic == 'white' and not in_light) or (ability.magic == 'black' and not in_dark) then
             imgui.Dummy({ 20, 0 })
             imgui.SameLine(0, SPACE_BETWEEN_BUTTONS)
-            return false, 0
+            return true, 0
         end
     end
 
@@ -814,6 +813,29 @@ local function render_scholar_stratagem_button(ability_key, ability, ctx)
     return true, 0
 end
 
+-- Draw a row's leading slot: the [A] button (bard, drawn later by
+-- render_party_buttons), the S button (scholar), or a spacer so the row aligns
+-- under whichever column is on-screen. Exactly ONE indent per row -- if scholar
+-- already drew its S button/spacer we don't add a bard spacer, so BRD/SCH gets a
+-- single indent, not two.
+local function render_leading_slot(ability_key, ability, ctx)
+    -- Song rows: render_party_buttons draws the [A] button in this slot.
+    if ability and ability.magic == 'song' then return end
+
+    -- Scholar's S button (or its own alignment spacer) fills the slot when active
+    -- (i.e. in Light/Dark Arts). Returns true when it drew something.
+    if render_scholar_stratagem_button(ability_key, ability, ctx) then return end
+
+    -- Nothing drawn. If this job carries song magic the buff UI shows the bard [A]
+    -- area column, so non-song rows still need the indent. Geo-bt debuffs sit in
+    -- their own section with no [A] column -- skip those.
+    local has_songs = ctx and ctx.job_def and ctx.job_def.has_songs
+    if has_songs and not (ability and ability.group == 'Geo-bt') then
+        imgui.Dummy({ 20, 0 })
+        imgui.SameLine(0, SPACE_BETWEEN_BUTTONS)
+    end
+end
+
 -- ============================================================================
 -- Party Button Helper
 -- ============================================================================
@@ -824,8 +846,8 @@ end
 local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
     local any_rendered = false
 
-    -- Scholar stratagem button (prepended to every row when SCH >= 10)
-    render_scholar_stratagem_button(key_name, ability, ctx)
+    -- Leading slot: scholar S button / bard [A] indent / spacer (aligns the row)
+    render_leading_slot(key_name, ability, ctx)
 
     -- Check if this ability requires a target modifier (like Pianissimo)
     if not ability then
@@ -927,6 +949,10 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
         imgui.Button(me_button_label, { PARTY_BUTTON_WIDTH, 0 })
     end
 
+    if imgui.IsItemHovered() then
+        imgui.SetTooltip(common.get_party_member_name(0) or 'ME')
+    end
+
     if not party_has_spell then
         imgui.PopStyleColor(4)
     elseif not me_enabled then
@@ -974,13 +1000,16 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
                     imgui.Button(button_label, { PARTY_BUTTON_WIDTH, 0 })
                 end
                 
-                -- Trust warning tooltip: reliability caveat differs by context
-                -- (removal vs. buff tracking); only shown on actual Trust buttons.
-                if ctx.is_trust and ctx.is_trust(party_index) and imgui.IsItemHovered() then
-                    if ctx.show_trust_warning then
-                        imgui.SetTooltip('Trust/Tracked Removal is not totally reliable')
-                    elseif ctx.show_buff_warning then
-                        imgui.SetTooltip('Trust/Tracked Buff tracking is not totally reliable')
+                -- Tooltip: party member name, plus a Trust reliability caveat
+                -- (removal vs. buff tracking) appended only on actual Trust buttons.
+                if imgui.IsItemHovered() then
+                    local pname = common.get_party_member_name(party_index) or ('P' .. party_index)
+                    if ctx.is_trust and ctx.is_trust(party_index) and ctx.show_trust_warning then
+                        imgui.SetTooltip(pname .. '\nTrust/Tracked Removal is not totally reliable')
+                    elseif ctx.is_trust and ctx.is_trust(party_index) and ctx.show_buff_warning then
+                        imgui.SetTooltip(pname .. '\nTrust/Tracked Buff tracking is not totally reliable')
+                    else
+                        imgui.SetTooltip(pname)
                     end
                 end
                 
@@ -1133,10 +1162,10 @@ end
 function ui_components.onoff_button(ctx, ability_name, job_def, has_spell)
     has_spell = has_spell == nil and true or has_spell
 
-    -- Scholar stratagem button (prepended to every row when SCH >= 10)
+    -- Leading slot: scholar S button / bard [A] indent / spacer (aligns the row)
     -- Look up the ability to check if it's a /ja (not eligible for stratagems)
     local ability_obj = find_ability_by_name(job_def, ability_name)
-    render_scholar_stratagem_button(ability_name, ability_obj, ctx)
+    render_leading_slot(ability_name, ability_obj, ctx)
 
     local is_enabled = is_ability_enabled(ctx, ability_name)
     local button_width = get_onoff_button_width()
@@ -1258,7 +1287,7 @@ end
 -- Layout: [ON/OFF Button] Ability Name
 function ui_components.self_single_ability(ctx, ability, job_def, id_suffix)
     local has_spell = common.has_spell_learned(ability)
-    local spell_suffix = has_spell and '' or ' (Not Learned)'
+    local spell_suffix = ''
     local ability_combat_only = effective_combat_only(ability, ctx)
     
     ui_components.onoff_button(ctx, ability.name, job_def, has_spell)
@@ -1285,15 +1314,17 @@ function ui_components.self_single_ability(ctx, ability, job_def, id_suffix)
     imgui.Text(desc)
     
     render_combat_only_context_menu(ctx, ability)
-    
+
     if imgui.IsItemHovered() then
-        if ability_combat_only then
+        if not has_spell then
+            imgui.SetTooltip('Not Learned')
+        elseif ability_combat_only then
             imgui.SetTooltip('Combat Only')
         elseif ability.idle_only then
             imgui.SetTooltip('Idle Only')
         end
     end
-    
+
     if not has_spell or ability_combat_only or ability.idle_only then
         imgui.PopStyleColor()
     end
@@ -1318,8 +1349,8 @@ function ui_components.self_grouped_ability(ctx, ability, job_def)
     
     local has_spell = common.has_spell_learned(selected)
     
-    -- Scholar stratagem button (prepended to every row when SCH >= 10)
-    render_scholar_stratagem_button(ability.group, selected, ctx)
+    -- Leading slot: scholar S button / bard [A] indent / spacer (aligns the row)
+    render_leading_slot(ability.group, selected, ctx)
 
     -- Use group-based ON/OFF button
     local is_enabled = is_group_enabled(ctx, ability.group)
@@ -1372,8 +1403,8 @@ end
 -- Layout: [ME] [P1] [P2]... Ability Name
 function ui_components.party_single_ability(ctx, ability, job_def)
     local has_spell = common.has_spell_learned(ability)
-    local spell_suffix = has_spell and '' or ' (Not Learned)'
-    
+    local spell_suffix = ''
+
     -- Check if Pianissimo/target modifier is required but not available
     local requires_modifier = ability.target_modifier == true
     local has_modifier = true
@@ -1420,15 +1451,17 @@ function ui_components.party_single_ability(ctx, ability, job_def)
     imgui.Text(desc)
     
     render_combat_only_context_menu(ctx, ability)
-    
+
     if imgui.IsItemHovered() then
-        if ability_combat_only then
+        if not has_spell then
+            imgui.SetTooltip('Not Learned')
+        elseif ability_combat_only then
             imgui.SetTooltip('Combat Only')
         elseif ability.idle_only then
             imgui.SetTooltip('Idle Only')
         end
     end
-    
+
     if not has_spell or not has_modifier or ability_combat_only or ability.idle_only then
         imgui.PopStyleColor()
     end
@@ -1649,7 +1682,6 @@ function ui_components.ability_checkbox(ctx, ability, job_def, id_suffix, show_s
     local has_spell = common.has_spell_learned(ability)
     local spell_suffix = ''
     if not has_spell then
-        spell_suffix = ' (Not Learned)'
         ctx.settings['disabled_' .. ability.name:gsub(' ', '_')] = true
     end
     
@@ -1682,15 +1714,17 @@ function ui_components.ability_checkbox(ctx, ability, job_def, id_suffix, show_s
     end
     
     render_combat_only_context_menu(ctx, ability)
-    
+
     if imgui.IsItemHovered() then
-        if ability_combat_only then
+        if not has_spell then
+            imgui.SetTooltip('Not Learned')
+        elseif ability_combat_only then
             imgui.SetTooltip('Combat Only')
         elseif ability.idle_only then
             imgui.SetTooltip('Idle Only')
         end
     end
-    
+
     if not has_spell or ability_combat_only or ability.idle_only then
         imgui.PopStyleColor()
     end
