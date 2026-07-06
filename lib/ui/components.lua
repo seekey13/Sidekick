@@ -1280,7 +1280,7 @@ end
 -- Layout: [ON/OFF Button] Ability Name
 function ui_components.self_single_ability(ctx, ability, job_def, id_suffix)
     local has_spell = common.has_spell_learned(ability)
-    local spell_suffix = has_spell and '' or ' (Not Learned)'
+    local spell_suffix = ''
     local ability_combat_only = effective_combat_only(ability, ctx)
     
     ui_components.onoff_button(ctx, ability.name, job_def, has_spell)
@@ -1307,15 +1307,17 @@ function ui_components.self_single_ability(ctx, ability, job_def, id_suffix)
     imgui.Text(desc)
     
     render_combat_only_context_menu(ctx, ability)
-    
+
     if imgui.IsItemHovered() then
-        if ability_combat_only then
+        if not has_spell then
+            imgui.SetTooltip('Not Learned')
+        elseif ability_combat_only then
             imgui.SetTooltip('Combat Only')
         elseif ability.idle_only then
             imgui.SetTooltip('Idle Only')
         end
     end
-    
+
     if not has_spell or ability_combat_only or ability.idle_only then
         imgui.PopStyleColor()
     end
@@ -1394,8 +1396,8 @@ end
 -- Layout: [ME] [P1] [P2]... Ability Name
 function ui_components.party_single_ability(ctx, ability, job_def)
     local has_spell = common.has_spell_learned(ability)
-    local spell_suffix = has_spell and '' or ' (Not Learned)'
-    
+    local spell_suffix = ''
+
     -- Check if Pianissimo/target modifier is required but not available
     local requires_modifier = ability.target_modifier == true
     local has_modifier = true
@@ -1442,15 +1444,17 @@ function ui_components.party_single_ability(ctx, ability, job_def)
     imgui.Text(desc)
     
     render_combat_only_context_menu(ctx, ability)
-    
+
     if imgui.IsItemHovered() then
-        if ability_combat_only then
+        if not has_spell then
+            imgui.SetTooltip('Not Learned')
+        elseif ability_combat_only then
             imgui.SetTooltip('Combat Only')
         elseif ability.idle_only then
             imgui.SetTooltip('Idle Only')
         end
     end
-    
+
     if not has_spell or not has_modifier or ability_combat_only or ability.idle_only then
         imgui.PopStyleColor()
     end
@@ -1671,7 +1675,6 @@ function ui_components.ability_checkbox(ctx, ability, job_def, id_suffix, show_s
     local has_spell = common.has_spell_learned(ability)
     local spell_suffix = ''
     if not has_spell then
-        spell_suffix = ' (Not Learned)'
         ctx.settings['disabled_' .. ability.name:gsub(' ', '_')] = true
     end
     
@@ -1704,15 +1707,17 @@ function ui_components.ability_checkbox(ctx, ability, job_def, id_suffix, show_s
     end
     
     render_combat_only_context_menu(ctx, ability)
-    
+
     if imgui.IsItemHovered() then
-        if ability_combat_only then
+        if not has_spell then
+            imgui.SetTooltip('Not Learned')
+        elseif ability_combat_only then
             imgui.SetTooltip('Combat Only')
         elseif ability.idle_only then
             imgui.SetTooltip('Idle Only')
         end
     end
-    
+
     if not has_spell or ability_combat_only or ability.idle_only then
         imgui.PopStyleColor()
     end
