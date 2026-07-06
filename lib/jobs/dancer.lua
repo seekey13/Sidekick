@@ -7,7 +7,6 @@
     - TP recovery (Reverse Flourish)
 ]]--
 
-local common = require('lib.core.common')
 
 return {
     job_id = 19,  -- Dancer

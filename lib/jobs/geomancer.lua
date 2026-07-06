@@ -8,7 +8,6 @@
     - Buffs (Indi and Geo spells)
 ]]--
 
-local common = require('lib.core.common')
 
 return {
     job_id = 21,  -- Geomancer

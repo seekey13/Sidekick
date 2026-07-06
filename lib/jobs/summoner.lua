@@ -6,7 +6,6 @@
     - Buffs (Shining Ruby via Carbuncle)
 ]]--
 
-local common = require('lib.core.common')
 
 return {
     job_id = 15,  -- Summoner
@@ -79,19 +78,6 @@ return {
                 requires_carbuncle = true,
             },
         },
-
-        -- Recover
-        -- recover = {
-        --     {
-        --         name = 'Elemental Siphon',
-        --         level = 70,
-        --         cost = 0,
-        --         id = 175,  -- Elemental Siphon recast ID
-        --         command = '/ja "Elemental Siphon" <me>',
-        --         pet_required = true,
-        --         requires_element = true,
-        --     },
-        -- },
     },
     
     -- Default settings for UI
@@ -116,7 +102,6 @@ return {
     -- Action priority order
     priority_order = {
         'item',
-        -- 'recover',
         'heal_aoe',
         'heal',
         'wake',
@@ -147,12 +132,7 @@ return {
             return pet.Name
         end)
         
-        if not ok or not pet_name then
-            return false
-        end
-        
         -- Only allow abilities if Carbuncle is summoned
-        local is_carbuncle = pet_name == 'Carbuncle'
-        return is_carbuncle
+        return ok and pet_name == 'Carbuncle'
     end,
 }

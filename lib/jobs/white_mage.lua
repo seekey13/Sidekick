@@ -6,7 +6,6 @@
     - Buffs (Auspice, Haste, Regen, Protect, Shell, bar spells, Aquaveil, Blink, Stoneskin, Reraise)
 ]]--
 
-local common = require('lib.core.common')
 
 return {
     job_id = 3,  -- White Mage
@@ -936,10 +935,6 @@ return {
             },
         },
     },
-    -- -- Job-specific validators
-    -- validators = {
-
-    -- },
 
     -- Default settings for UI
     default_settings = {

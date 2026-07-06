@@ -5,7 +5,6 @@
     - Party buffs (Protect, Shell)
 ]]--
 
-local common = require('lib.core.common')
 
 return {
     job_id = 7,  -- Paladin

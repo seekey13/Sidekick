@@ -6,7 +6,6 @@
     - MP recovery (Convert)
 ]]--
 
-local common = require('lib.core.common')
 
 return {
     job_id = 5,  -- Red Mage
