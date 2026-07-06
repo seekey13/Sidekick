@@ -5,7 +5,6 @@
     - Healing (Vivacious Pulse)
 ]]--
 
-local common = require('lib.core.common')
 
 return {
     job_id = 22,  -- Rune Fencer

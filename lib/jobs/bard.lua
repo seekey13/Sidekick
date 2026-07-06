@@ -4,7 +4,6 @@
     - Buff songs (Minuets, Paeons, Madrigals, etc.)
 ]]--
 
-local common = require('lib.core.common')
 
 return {
     job_id = 10,  -- Bard

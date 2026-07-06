@@ -7,7 +7,6 @@
     - MP recovery (Sublimation)
 ]]--
 
-local common = require('lib.core.common')
 
 return {
     job_id = 20,  -- Scholar
@@ -407,15 +406,6 @@ return {
                 group = 'reraise',
                 requires_buff = 401,  -- Requires Addendum: White
             },
-            -- {
-            --     name = 'Enlightenment',
-            --     level = 75,
-            --     cost = 0,
-            --     id = 235,  -- Job ability ID
-            --     command = '/ja "Enlightenment" <me>',
-            --     requires_buff = {359, 402},  -- Can be either 359 or 402
-            --     buff_id = 416,
-            -- },
             {
                 name = 'Invisible',
                 level = 25,
