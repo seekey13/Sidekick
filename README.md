@@ -19,6 +19,18 @@ A focused, support-oriented addon for Ashita v4 that automates healing, buffing,
 
 ## Latest Updates
 
+### [2.2.0] - 2026-07-06
+
+Maintenance release — internal dead-code cleanup plus small UI polish. No changes to automation behavior.
+
+### Changed
+- **Party Button Tooltips**: Hovering a target button (**ME** / **P1–P5**) now shows that member's character name; on Trust/tracked buttons the reliability caveat is appended below the name.
+- **"Not Learned" Tooltip**: Unlearned abilities show a *Not Learned* hover tooltip instead of a `(Not Learned)` label suffix.
+- **Debug Scalars Moved**: The Zone / Target / Moving / Casting readout moved from the configuration window to the `/med panel` header (shown while Debug Mode is on).
+
+### Fixed
+- **Afflatus Solace**: Corrected recast id (245 → 29) so its cooldown is tracked correctly (White Mage).
+
 ### [2.1.0] - 2026-07-05
 
 ### Added
