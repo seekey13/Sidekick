@@ -214,23 +214,6 @@ local function get_selected_ability_for_group(ctx, job_def, target_group)
     return highest
 end
 
--- Get the group of an ability by name
-local function get_ability_group(job_def, ability_name)
-    if not job_def or not job_def.abilities then
-        return nil
-    end
-    
-    for category, abilities in pairs(job_def.abilities) do
-        for _, ability in ipairs(abilities) do
-            if ability.name == ability_name and ability.group then
-                return ability.group
-            end
-        end
-    end
-    
-    return nil
-end
-
 -- Check if an ability is a duplicate from subjob
 local function is_subjob_duplicate(job_def, ability, ctx)
     if ability.is_main_job ~= false then
@@ -596,10 +579,7 @@ end
 local function has_any_stratagem(ctx, ability_key)
     local ss = ctx and ctx.settings and ctx.settings.stratagem_settings
     if not ss or not ss[ability_key] then return false end
-    for _, _ in pairs(ss[ability_key]) do
-        return true  -- table has at least one entry
-    end
-    return false
+    return next(ss[ability_key]) ~= nil
 end
 
 -- Helper: compute the MP modifier multiplier for an ability based on its assigned stratagems
@@ -2045,14 +2025,9 @@ end
 -- ============================================================================
 
 ui_components.ABILITY_LIST_INDENT = ABILITY_LIST_INDENT
-ui_components.PARTY_BUTTON_WIDTH = PARTY_BUTTON_WIDTH
-ui_components.SPACE_BETWEEN_BUTTONS = SPACE_BETWEEN_BUTTONS
-ui_components.DROPDOWN_WIDTH = DROPDOWN_WIDTH
 ui_components.AUTOMATION_BUTTON_WIDTH = AUTOMATION_BUTTON_WIDTH
 ui_components.LIGHT_GREEN = LIGHT_GREEN
 ui_components.LIGHT_BLUE = LIGHT_BLUE
 ui_components.LIGHT_RED = LIGHT_RED
-ui_components.LIGHT_GRAY = LIGHT_GRAY
-ui_components.LIGHT_YELLOW = LIGHT_YELLOW
 
 return ui_components
