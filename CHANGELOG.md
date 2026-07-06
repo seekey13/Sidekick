@@ -5,6 +5,33 @@ All notable changes to Medic will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0] - 2026-07-06
+
+Maintenance release: a repo-wide dead-code sweep plus small UI polish. No changes to automation behavior.
+
+### Added
+- **CLAUDE.md**: Contributor / AI-assistant guidance doc (architecture map, in-game verification notes, conventions).
+
+### Changed
+- **Party Button Tooltips**: Hovering a party target button (**ME** / **P1–P5**) now shows that member's character name. On Trust/tracked buttons the reliability caveat (*"...Removal / Buff tracking is not totally reliable"*) is appended **below** the name instead of replacing it. Driven by `common.get_party_member_name()`.
+- **"Not Learned" as Tooltip**: The inline ` (Not Learned)` label suffix on unlearned abilities was removed. Unlearned abilities now surface a **Not Learned** hover tooltip instead, alongside the existing Combat Only / Idle Only tooltips, for cleaner ability rows. Applies to `self_single_ability`, `party_single_ability`, and `ability_checkbox`.
+- **Debug Scalars Moved to Panel**: The debug scalar readout (Zone / Target / Moving / Casting, plus the target's party slot + target index when the target is a party member) moved out of the configuration window into the `/med panel` debug header row. Shown only while Debug Mode is on.
+- **Bard Area-Column Alignment**: Row leading-slot rendering unified behind a new `job_def.has_songs` flag (set during job load when either job carries song magic) and a single `render_leading_slot` helper. A BRD/SCH combo now draws exactly **one** indent instead of stacking the Scholar S-button spacer and the Bard `[A]` area-column indent.
+
+### Fixed
+- **Afflatus Solace Recast ID**: Corrected recast id from `245` to `29` (White Mage) so its cooldown gate reads the right timer.
+
+### Removed
+- **`medic_heartbeat.log`**: Stray committed log file removed from the repo.
+
+### Internal / Maintenance
+- Repo-wide dead-code sweep across `common.lua`, `action_core.lua`, `automation.lua`, `parse_packets.lua`, `config.lua`, `components.lua`, and every `lib/jobs/*.lua`: removed unused functions, write-only state, dead fallbacks, commented-out blocks, and unused exports/fields (~480 lines net removed). No functional change intended.
+  - Deleted the unused custom-recast subsystem (`get_ability_recast`, `set/is/get/clear_custom_recast`) from `action_core`.
+  - Dropped the dead throttle API and a duplicate require/table from `automation`.
+  - Replaced hand-rolled buff scans with `action_core.has_any_buff` in the action modules.
+  - Dropped unused `UserIndex` / `SpellGroup` / message fields from `parse_packets`.
+- `ARCHITECTURE.md` updated to drop the removed `action_core` recast helpers.
+
 ## [2.1.0] - 2026-07-05
 
 ### Added
