@@ -10,7 +10,7 @@ Main addon file: job detection, event loop, command handler
 
 addon.name      = 'Medic'
 addon.author    = 'Seekey'
-addon.version   = '2.1.0'
+addon.version   = '2.2.0'
 addon.desc      = 'Support Job Automation Framework'
 addon.link      = 'https://github.com/seekey13/Medic'
 
@@ -260,7 +260,17 @@ local function load_job_definition(main_job_id, sub_job_id)
     local main_abilities = main_def and main_def.abilities or {}
     local sub_abilities = sub_def and sub_def.abilities or {}
     merged_def.abilities = merge_abilities(main_abilities, sub_abilities, main_def, sub_def)
-    
+
+    -- Flag whether this job (main or sub) has song magic. The buff UI shows the
+    -- bard [A] area column when it does, and every non-song row indents under it.
+    for _, list in pairs(merged_def.abilities) do
+        if type(list) == 'table' then
+            for _, ab in ipairs(list) do
+                if ab.magic == 'song' then merged_def.has_songs = true end
+            end
+        end
+    end
+
     -- Merge default_settings (main job takes priority if both exist)
     merged_def.default_settings = T{}
     if sub_def and sub_def.default_settings then
