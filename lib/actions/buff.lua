@@ -376,7 +376,7 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                             -- Check if this ability requires a target modifier (Pianissimo, Entrust, etc.)
                             -- Includes ME (target_index 0): songs are now single-target on self via
                             -- Pianissimo, matching P1-P5. The area ([A]) pass above handles no-Pianissimo AoE.
-                            if ability.target_modifier and target_index >= 0 then
+                            if ability.target_modifier then
                                 -- Check if we already have the modifier buff active
                                 local has_modifier_buff = false
                                 if job_def.abilities.target_modifier and #job_def.abilities.target_modifier > 0 then
