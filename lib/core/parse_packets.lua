@@ -7,31 +7,6 @@
 
 local parse_packets = {}
 
--- Helper function to get entity index from server ID
-local function GetIndexFromId(id)
-    local entMgr = AshitaCore:GetMemoryManager():GetEntity()
-    
-    --Shortcut for monsters/static npcs..
-    if (bit.band(id, 0x1000000) ~= 0) then
-        local index = bit.band(id, 0xFFF)
-        if (index >= 0x900) then
-            index = index - 0x100
-        end
-
-        if (index < 0x900) and (entMgr:GetServerId(index) == id) then
-            return index
-        end
-    end
-
-    for i = 1,0x8FF do
-        if entMgr:GetServerId(i) == id then
-            return i
-        end
-    end
-
-    return 0
-end
-
 --[[
     Parse action packet (0x028) from raw bytes into structured object
     
@@ -41,7 +16,6 @@ end
     Returns:
         actionPacket - structured table with:
             .UserId - actor server ID
-            .UserIndex - actor entity index  
             .Type - action type (4 = magic)
             .Param - spell/ability ID
             .Recast - recast time
@@ -67,8 +41,7 @@ function parse_packets.parse_action_packet(e)
     bitOffset = 40
     
     actionPacket.UserId = UnpackBits(32)
-    actionPacket.UserIndex = GetIndexFromId(actionPacket.UserId)
-    
+
     local targetCount = UnpackBits(6)
     -- Unknown 4 bits
     bitOffset = bitOffset + 4
@@ -78,7 +51,7 @@ function parse_packets.parse_action_packet(e)
     -- Bandaid fix until we have more flexible packet parsing
     if actionPacket.Type == 8 or actionPacket.Type == 9 then
         actionPacket.Param = UnpackBits(16)
-        actionPacket.SpellGroup = UnpackBits(16)
+        UnpackBits(16)  -- consume SpellGroup bits (field unused; read kept to preserve bit offset)
     else
         -- Not every action packet has the same data at the same offsets so we just skip this for now
         actionPacket.Param = UnpackBits(32)
@@ -149,14 +122,12 @@ end
         basic - structured table with message fields
 ]]--
 function parse_packets.parse_message_packet(e)
+    -- Only .target (buff recipient) and .param (buff ID) are consumed by the
+    -- sole caller; struct.unpack offsets are independent, so dropping the rest
+    -- is safe.
     local basic = {
-        sender     = struct.unpack('i4', e.data, 0x04 + 1),
-        target     = struct.unpack('i4', e.data, 0x08 + 1),
-        param      = struct.unpack('i4', e.data, 0x0C + 1),
-        value      = struct.unpack('i4', e.data, 0x10 + 1),
-        sender_tgt = struct.unpack('i2', e.data, 0x14 + 1),
-        target_tgt = struct.unpack('i2', e.data, 0x16 + 1),
-        message    = struct.unpack('i2', e.data, 0x18 + 1),
+        target = struct.unpack('i4', e.data, 0x08 + 1),
+        param  = struct.unpack('i4', e.data, 0x0C + 1),
     }
     return basic
 end
