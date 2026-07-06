@@ -10,28 +10,6 @@ local revive = {}
 local common      = require('lib.core.common')
 local action_core = require('lib.core.action_core')
 
--- Returns true if the target already has a pending raise.
--- A pending raise is detected via the 0x029 packet handler in Medic.lua:
--- when the server rejects a raise cast on a dead target, the packet param
--- is the rejected spell ID — which we record as a pending raise flag.
-local function is_raise_pending(server_id)
-    return common.has_pending_raise(server_id)
-end
-
--- Returns true if the player has every buff required by this ability.
--- Mirrors the same helper used in recover.lua (e.g. Scholar needs Addendum: White).
-local function has_required_buff(ability, buffs)
-    if not ability.requires_buff then return true end
-    local ids = type(ability.requires_buff) == 'table'
-                and ability.requires_buff or {ability.requires_buff}
-    for _, req in ipairs(ids) do
-        for _, active in ipairs(buffs) do
-            if active == req then return true end
-        end
-    end
-    return false
-end
-
 function revive.execute(settings, job_def, main_level, sub_level, player_resource)
     if not settings.revive_enabled then return nil end
 
@@ -60,7 +38,7 @@ function revive.execute(settings, job_def, main_level, sub_level, player_resourc
     -- Remove any abilities whose required buff (e.g. Addendum: White for Scholar) is not active.
     local buff_usable = {}
     for _, a in ipairs(usable) do
-        if has_required_buff(a, player.buffs or {}) then
+        if not a.requires_buff or action_core.has_any_buff(player.buffs or {}, a.requires_buff) then
             table.insert(buff_usable, a)
         end
     end
@@ -71,7 +49,7 @@ function revive.execute(settings, job_def, main_level, sub_level, player_resourc
     local function try_party_index(m, i)
         if not (m and m.is_active and m.entity_status == 3
             and m.target_index and m.target_index > 0) then return nil end
-        if is_raise_pending(m.server_id) then
+        if common.has_pending_raise(m.server_id) then
             common.debugf('[REVIVE] Party[%d] %s already has a pending raise, skipping', i, m.name or '?')
             return nil
         end
@@ -111,7 +89,7 @@ function revive.execute(settings, job_def, main_level, sub_level, player_resourc
     local function try_server_id(m, sid, tag)
         if not (m and m.is_active and m.entity_status == 3
             and m.target_index and m.target_index > 0) then return nil end
-        if is_raise_pending(sid) then
+        if common.has_pending_raise(sid) then
             common.debugf('[REVIVE] %s %s already has a pending raise, skipping', tag, m.name or '?')
             return nil
         end

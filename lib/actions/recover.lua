@@ -8,24 +8,13 @@ local recover = {}
 local common      = require('lib.core.common')
 local action_core = require('lib.core.action_core')
 
--- Returns true if the player holds any of the ability's required buffs (or none are required).
-local function has_required_buff(ability, buffs)
-    if not ability.requires_buff then return true end
-    local ids = type(ability.requires_buff) == 'table'
-                and ability.requires_buff or {ability.requires_buff}
-    for _, req in ipairs(ids) do
-        for _, active in ipairs(buffs) do
-            if active == req then return true end
-        end
-    end
-    return false
-end
-
 -- Filter an ability list by requires_buff prerequisite.
 local function filter_buff_prereqs(abilities, buffs)
     local out = {}
     for _, a in ipairs(abilities) do
-        if has_required_buff(a, buffs) then table.insert(out, a) end
+        if not a.requires_buff or action_core.has_any_buff(buffs, a.requires_buff) then
+            table.insert(out, a)
+        end
     end
     return out
 end
