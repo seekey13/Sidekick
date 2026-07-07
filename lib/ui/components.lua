@@ -1680,6 +1680,10 @@ function ui_components.ability_checkbox(ctx, ability, job_def, id_suffix, show_s
     end
 
     local has_spell = common.has_spell_learned(ability)
+    -- Ammo-gated abilities (BST Reward, PUP Repair) can't fire with none of the
+    -- consumable in inventory/storage. Show them grayed like an unlearned spell.
+    local no_ammo = ability.requires_equipped_ammo
+        and common.count_equippable_items(ability.requires_equipped_ammo) == 0
     local spell_suffix = ''
     if not has_spell then
         ctx.settings['disabled_' .. ability.name:gsub(' ', '_')] = true
@@ -1700,7 +1704,7 @@ function ui_components.ability_checkbox(ctx, ability, job_def, id_suffix, show_s
     end
     
     local ability_combat_only = effective_combat_only(ability, ctx)
-    if not has_spell then
+    if not has_spell or no_ammo then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
     elseif ability_combat_only then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_YELLOW)
@@ -1712,12 +1716,14 @@ function ui_components.ability_checkbox(ctx, ability, job_def, id_suffix, show_s
     if imgui.Checkbox(checkbox_label, ability_enabled) then
         toggle_ability(ctx, ability.name, ability_enabled[1], job_def)
     end
-    
+
     render_combat_only_context_menu(ctx, ability)
 
     if imgui.IsItemHovered() then
         if not has_spell then
             imgui.SetTooltip('Not Learned')
+        elseif no_ammo then
+            imgui.SetTooltip('No ' .. (ability.ammo_label or 'item') .. ' found in storage.')
         elseif ability_combat_only then
             imgui.SetTooltip('Combat Only')
         elseif ability.idle_only then
@@ -1725,7 +1731,7 @@ function ui_components.ability_checkbox(ctx, ability, job_def, id_suffix, show_s
         end
     end
 
-    if not has_spell or ability_combat_only or ability.idle_only then
+    if not has_spell or no_ammo or ability_combat_only or ability.idle_only then
         imgui.PopStyleColor()
     end
 end
