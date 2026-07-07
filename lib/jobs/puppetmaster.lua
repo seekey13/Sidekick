@@ -25,6 +25,7 @@ return {
                 cost = 0,
                 id = 206,
                 command = '/ja "Repair" <me>',
+                pet_required = true,
             },
         },
     },

@@ -21,6 +21,7 @@ return {
                 cost = 0,
                 id = 162,
                 command = '/ja "Spirit Link" <me>',
+                pet_required = true,
             },
         },
 
@@ -30,8 +31,9 @@ return {
                 name = 'Spirit Bond',
                 level = 65,
                 cost = 0,
-                id = 149,  -- Spirit Bond recast timer id (verify in-game via /medic recast)
+                id = 149,
                 command = '/ja "Spirit Bond" <me>',
+                pet_required = true,
             },
         },
     },

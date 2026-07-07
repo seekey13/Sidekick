@@ -25,6 +25,7 @@ return {
                 cost = 0,
                 id = 103,
                 command = '/ja "Reward" <me>',
+                pet_required = true,
             },
         },
     },
