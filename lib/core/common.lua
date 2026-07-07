@@ -624,9 +624,11 @@ function common.find_equippable_item(spec)
 end
 
 -- Build a native "/equip ammo" command for the best ammo tier the player can
--- use and actually owns. spec must be a list of { id=, name=, level= } entries.
--- Picks the highest-level entry with level <= player_level that is owned, and
--- names its container so the game equips it straight from a wardrobe if needed.
+-- use and actually owns. spec must be a list of { id=, name=, level= } entries,
+-- ordered worst -> best. Picks the highest-level entry with level <= player_level
+-- (the main job level) that is owned, and names its container so the game equips
+-- it straight from a wardrobe if needed. When several tiers share a level
+-- (e.g. oils are all level 1), the later/better list entry wins.
 -- Returns { command, description } or nil (own none / none level-eligible).
 function common.select_ammo_equip_command(spec, player_level)
     if type(spec) ~= 'table' then return nil end
@@ -634,7 +636,7 @@ function common.select_ammo_equip_command(spec, player_level)
     for _, e in ipairs(spec) do
         if type(e) == 'table' and e.name and (e.level or 0) <= (player_level or 0) then
             local container = common.find_equippable_item(e.id)  -- nil if not owned
-            if container and ((not best) or (e.level or 0) > (best.level or 0)) then
+            if container and ((not best) or (e.level or 0) >= (best.level or 0)) then
                 best, best_container = e, container
             end
         end

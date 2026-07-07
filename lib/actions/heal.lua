@@ -637,15 +637,21 @@ end
 
 -- If a level-appropriate, enabled pet-heal needs a consumable equipped in the
 -- ammo slot (BST food, PUP oil) and one isn't worn, return the /equip command
--- for the best owned tier. nil when already equipped, disabled, or none owned.
+-- for the best owned tier we can equip at our MAIN job level. nil when already
+-- equipped, disabled, none owned, or the item can't be equipped on this job.
 function heal.pet_ammo_equip(settings, job_def, player)
     for _, ability in ipairs(job_def.abilities.heal_pet or {}) do
         local spec = ability.requires_equipped_ammo
         if spec and not common.is_ammo_equipped(spec) then
-            local disabled = settings['disabled_' .. ability.name:gsub(' ', '_')] == true
-            local level    = ability.is_main_job == false and (player.sub_level or 0) or (player.main_level or 0)
-            if not disabled and (ability.level or 0) <= level then
-                local equip = common.select_ammo_equip_command(spec, level)
+            local disabled     = settings['disabled_' .. ability.name:gsub(' ', '_')] == true
+            local usable_level = ability.is_main_job == false and (player.sub_level or 0) or (player.main_level or 0)
+            -- Some consumables only equip as a specific main job (oils = PUP main
+            -- only). Biscuits equip on any job, so this flag is absent for them.
+            local wrong_main   = ability.ammo_main_job_only and ability.is_main_job == false
+            if not disabled and not wrong_main and (ability.level or 0) <= usable_level then
+                -- Tier is chosen by MAIN job level (biscuits are all-jobs and
+                -- equip at character level; oils are PUP main).
+                local equip = common.select_ammo_equip_command(spec, player.main_level or 0)
                 if equip then return equip end
             end
         end

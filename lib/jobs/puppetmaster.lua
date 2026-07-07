@@ -7,7 +7,9 @@
     ability is gated on that (requires_equipped_ammo). If an oil is owned
     (inventory or any wardrobe) but not worn, Medic auto-equips the best tier
     before healing; higher tiers heal more. Oils have no equip level requirement
-    (level 1). The UI shows the total count detected.
+    (level 1) but can only be equipped with PUP as MAIN job (ammo_main_job_only),
+    so auto-equip is skipped when PUP is only the subjob. The UI shows the total
+    count detected.
 ]]--
 
 -- Automaton Oil ammo tiers: id, item name (for /equip), equip level.
@@ -35,6 +37,7 @@ return {
                 command = '/ja "Repair" <me>',
                 pet_required = true,
                 requires_equipped_ammo = OILS,  -- gate + auto-equip tiers
+                ammo_main_job_only = true,      -- only PUP main can equip oils
                 ammo_label = 'Oils',            -- UI count label
             },
         },
