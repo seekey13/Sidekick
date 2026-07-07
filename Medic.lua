@@ -992,7 +992,7 @@ ashita.events.register('command', 'medic_command', function(e)
         else
             common.remove_tracked_target_by_name(target_name)
         end
-        
+
     else
         common.printf('Unknown command: %s. Type /medic help for commands.', cmd)
     end

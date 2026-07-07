@@ -4,17 +4,21 @@
     - Pet healing via Reward
 
     Reward only works when a Pet Food (biscuit) is equipped in the ammo slot, so
-    the ability is gated on that (requires_equipped_ammo). Biscuit tier scales
-    with level (any tier satisfies the check):
-      17016 Alpha (12), 17017 Beta (24), 17018 Gamma (36),
-      17019 Delta (48), 17020 Epsilon (60), 17021 Zeta (72).
-    Auto-equipping the biscuit when it's only in inventory/wardrobe is a later
-    feature; for now the player must equip it themselves (the UI shows the count
-    of biscuits detected across inventory + wardrobes).
+    the ability is gated on that (requires_equipped_ammo). If a biscuit is owned
+    (inventory or any wardrobe) but not worn, Medic auto-equips the best tier the
+    player's level allows before healing. Levels below are the biscuit's equip
+    requirement. The UI shows the total count detected.
 ]]--
 
--- Pet Food (biscuit) item ids (ammo slot), all tiers.
-local BISCUIT_ITEM_IDS = { 17016, 17017, 17018, 17019, 17020, 17021 }
+-- Pet Food (biscuit) ammo tiers: id, item name (for /equip), equip level.
+local PET_FOOD = {
+    { id = 17016, name = 'Pet Food Alpha Biscuit',   level = 12 },
+    { id = 17017, name = 'Pet Food Beta Biscuit',    level = 24 },
+    { id = 17018, name = 'Pet Food Gamma Biscuit',   level = 36 },
+    { id = 17019, name = 'Pet Food Delta Biscuit',   level = 48 },
+    { id = 17020, name = 'Pet Food Epsilon Biscuit', level = 60 },
+    { id = 17021, name = 'Pet Food Zeta Biscuit',    level = 72 },
+}
 
 
 return {
@@ -32,8 +36,8 @@ return {
                 id = 103,
                 command = '/ja "Reward" <me>',
                 pet_required = true,
-                requires_equipped_ammo = BISCUIT_ITEM_IDS,  -- needs a biscuit equipped
-                ammo_label = 'Biscuits',                     -- UI count label
+                requires_equipped_ammo = PET_FOOD,  -- gate + auto-equip tiers
+                ammo_label = 'Biscuits',            -- UI count label
             },
         },
     },

@@ -529,18 +529,35 @@ end
 -- container set, so a "count" here reflects everything the player could equip.
 local EQUIP_CONTAINERS = { 0, 8, 10, 11, 12, 13, 14, 15, 16 }
 
--- Count how many of the given item ids the player holds across every
--- equip-eligible container. item_ids may be a single id or a list.
--- Returns a total count (0 if none, or if inventory isn't loaded).
-function common.count_equippable_items(item_ids)
-    local ids = type(item_ids) == 'table' and item_ids or { item_ids }
+-- Ashita's internal container id -> the container number the /equip command
+-- expects (0 = Inventory, 1-8 = Mog Wardrobe 1-8).
+local EQUIP_COMMAND_CONTAINER = { [0] = 0, [8] = 1, [10] = 2, [11] = 3, [12] = 4, [13] = 5, [14] = 6, [15] = 7, [16] = 8 }
+
+-- Normalize an "ammo spec" to a set of item ids. A spec may be a single id, a
+-- flat list of ids, or a list of { id=, name=, level= } tier entries.
+local function ammo_id_set(spec)
+    local set = {}
+    if type(spec) ~= 'table' then
+        if spec then set[spec] = true end
+        return set
+    end
+    for _, e in ipairs(spec) do
+        local id = type(e) == 'table' and e.id or e
+        if id then set[id] = true end
+    end
+    return set
+end
+
+-- Count how many of the given items the player holds across every
+-- equip-eligible container. spec may be a single id, a list of ids, or a list
+-- of tier entries. Returns a total count (0 if none / inventory not loaded).
+function common.count_equippable_items(spec)
     local ok_inv, inventory = pcall(function()
         return AshitaCore:GetMemoryManager():GetInventory()
     end)
     if not ok_inv or not inventory then return 0 end
 
-    local id_set = {}
-    for _, id in ipairs(ids) do id_set[id] = true end
+    local id_set = ammo_id_set(spec)
 
     local total = 0
     for _, container in ipairs(EQUIP_CONTAINERS) do
@@ -576,15 +593,58 @@ function common.get_equipped_item_id(slot)
     return id
 end
 
--- True when one of the given item ids is equipped in the ammo slot (slot 3).
-function common.is_ammo_equipped(item_ids)
+-- True when one of the spec's item ids is equipped in the ammo slot (slot 3).
+function common.is_ammo_equipped(spec)
     local equipped = common.get_equipped_item_id(3)
     if not equipped then return false end
-    local ids = type(item_ids) == 'table' and item_ids or { item_ids }
-    for _, id in ipairs(ids) do
-        if id == equipped then return true end
+    return ammo_id_set(spec)[equipped] == true
+end
+
+-- Find the first owned item (matching the spec) across equip-eligible
+-- containers. Returns container, item_id -- or nil if none owned.
+function common.find_equippable_item(spec)
+    local ok_inv, inventory = pcall(function()
+        return AshitaCore:GetMemoryManager():GetInventory()
+    end)
+    if not ok_inv or not inventory then return nil end
+
+    local id_set = ammo_id_set(spec)
+    for _, container in ipairs(EQUIP_CONTAINERS) do
+        local ok_max, max = pcall(function() return inventory:GetContainerCountMax(container) end)
+        if ok_max and max then
+            for i = 0, max do
+                local entry = inventory:GetContainerItem(container, i)
+                if entry and entry.Count and entry.Count > 0 and id_set[entry.Id] then
+                    return container, entry.Id
+                end
+            end
+        end
     end
-    return false
+    return nil
+end
+
+-- Build a native "/equip ammo" command for the best ammo tier the player can
+-- use and actually owns. spec must be a list of { id=, name=, level= } entries.
+-- Picks the highest-level entry with level <= player_level that is owned, and
+-- names its container so the game equips it straight from a wardrobe if needed.
+-- Returns { command, description } or nil (own none / none level-eligible).
+function common.select_ammo_equip_command(spec, player_level)
+    if type(spec) ~= 'table' then return nil end
+    local best, best_container
+    for _, e in ipairs(spec) do
+        if type(e) == 'table' and e.name and (e.level or 0) <= (player_level or 0) then
+            local container = common.find_equippable_item(e.id)  -- nil if not owned
+            if container and ((not best) or (e.level or 0) > (best.level or 0)) then
+                best, best_container = e, container
+            end
+        end
+    end
+    if not best then return nil end
+    local equip_num = EQUIP_COMMAND_CONTAINER[best_container] or 0
+    return {
+        command     = string.format('/equip ammo "%s" %d', best.name, equip_num),
+        description = string.format('Equipping %s', best.name),
+    }
 end
 
 -- Get entity manager
