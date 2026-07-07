@@ -639,10 +639,27 @@ function ui_config.render(settings, job_def, callback)
                         ui.ability_checkbox(ctx, ability, job_def, 'heal_pet')
                     end
                 end
+
+                -- Consumable-ammo status for abilities that need one equipped
+                -- (e.g. PUP Repair needs an Automaton Oil in the ammo slot).
+                for _, ability in ipairs(job_def.abilities.heal_pet) do
+                    if ability.requires_equipped_ammo then
+                        local label = ability.ammo_label or 'Ammo'
+                        local count = common.count_equippable_items(ability.requires_equipped_ammo)
+                        imgui.Text(string.format('%s detected: %d', label, count))
+                        imgui.SameLine()
+                        if common.is_ammo_equipped(ability.requires_equipped_ammo) then
+                            imgui.TextColored({ 0.4, 1.0, 0.4, 1.0 }, '(equipped)')
+                        else
+                            imgui.TextColored({ 1.0, 0.4, 0.4, 1.0 }, '(not equipped)')
+                        end
+                    end
+                end
+
                 imgui.Unindent(ui.ABILITY_LIST_INDENT)
             end
         end
-        
+
         -- Wake settings (only show if job has wake-capable heal abilities that are usable)
         local has_wake_abilities = false
         if job_def and job_def.abilities.heal then

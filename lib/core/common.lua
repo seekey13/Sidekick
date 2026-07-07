@@ -524,6 +524,69 @@ function common.get_party()
     return party
 end
 
+-- Containers an equippable (armor) item can be worn from: main inventory (0)
+-- plus all eight Mog Wardrobes (8, 10-16). Matches the client's equip-eligible
+-- container set, so a "count" here reflects everything the player could equip.
+local EQUIP_CONTAINERS = { 0, 8, 10, 11, 12, 13, 14, 15, 16 }
+
+-- Count how many of the given item ids the player holds across every
+-- equip-eligible container. item_ids may be a single id or a list.
+-- Returns a total count (0 if none, or if inventory isn't loaded).
+function common.count_equippable_items(item_ids)
+    local ids = type(item_ids) == 'table' and item_ids or { item_ids }
+    local ok_inv, inventory = pcall(function()
+        return AshitaCore:GetMemoryManager():GetInventory()
+    end)
+    if not ok_inv or not inventory then return 0 end
+
+    local id_set = {}
+    for _, id in ipairs(ids) do id_set[id] = true end
+
+    local total = 0
+    for _, container in ipairs(EQUIP_CONTAINERS) do
+        local ok_max, max = pcall(function() return inventory:GetContainerCountMax(container) end)
+        if ok_max and max then
+            for i = 0, max do
+                local entry = inventory:GetContainerItem(container, i)
+                if entry and id_set[entry.Id] then
+                    total = total + entry.Count
+                end
+            end
+        end
+    end
+    return total
+end
+
+-- Return the item id equipped in the given equipment slot (0-indexed:
+-- 0=main, 1=sub, 2=range, 3=ammo, ...), or nil if the slot is empty.
+function common.get_equipped_item_id(slot)
+    local ok_inv, inventory = pcall(function()
+        return AshitaCore:GetMemoryManager():GetInventory()
+    end)
+    if not ok_inv or not inventory then return nil end
+
+    local eq = inventory:GetEquippedItem(slot)
+    if not eq or not eq.Index or eq.Index == 0 then return nil end
+
+    -- Index packs the source slot: high byte = container, low byte = slot index.
+    local entry = inventory:GetContainerItem(math.floor(eq.Index / 256), eq.Index % 256)
+    if not entry then return nil end
+    local id = entry.Id
+    if id == 0 or id == -1 or id == 65535 then return nil end
+    return id
+end
+
+-- True when one of the given item ids is equipped in the ammo slot (slot 3).
+function common.is_ammo_equipped(item_ids)
+    local equipped = common.get_equipped_item_id(3)
+    if not equipped then return false end
+    local ids = type(item_ids) == 'table' and item_ids or { item_ids }
+    for _, id in ipairs(ids) do
+        if id == equipped then return true end
+    end
+    return false
+end
+
 -- Get entity manager
 -- Returns: entity manager object or nil on error
 function common.get_entity_manager()
@@ -1465,6 +1528,7 @@ function common.filter_abilities_by_level(abilities, settings, main_level, sub_l
         
         if is_disabled then
         elseif ability.requires_pet and not targets.get_pet() then
+        elseif ability.requires_equipped_ammo and not common.is_ammo_equipped(ability.requires_equipped_ammo) then
         elseif ability.idle_only and not common.is_idle() then
         elseif common.is_ability_combat_only(ability, settings) and not common.is_combat() then
         elseif common.ability_targets_bt(ability) and not common.is_combat() then

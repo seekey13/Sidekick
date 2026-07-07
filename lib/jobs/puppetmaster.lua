@@ -3,12 +3,16 @@
     Support automation for Puppetmaster is pet-only:
     - Pet (automaton) healing via Repair
 
-    NOTE: Repair only works when an Automaton Oil item is equipped (ammo slot).
-    Higher tiers exist (Automaton Oil +1 / +2) that heal more. The
-    equip-and-verify step is intentionally NOT handled here yet -- it will be
-    added later. For now the JA fires whenever the pet is hurt; if no oil is
-    equipped the game simply rejects it.
+    Repair only works when an Automaton Oil is equipped in the ammo slot, so the
+    ability is gated on that (requires_equipped_ammo). Higher tiers heal more:
+      18731 Automaton Oil, 18732 Automaton Oil +1, 18733 Automaton Oil +2.
+    Auto-equipping the oil when it's only in inventory/wardrobe is a later
+    feature; for now the player must equip it themselves (the UI shows the count
+    of oils detected across inventory + wardrobes).
 ]]--
+
+-- Automaton Oil item ids (ammo slot), all tiers.
+local OIL_ITEM_IDS = { 18731, 18732, 18733 }
 
 
 return {
@@ -26,6 +30,8 @@ return {
                 id = 206,
                 command = '/ja "Repair" <me>',
                 pet_required = true,
+                requires_equipped_ammo = OIL_ITEM_IDS,  -- needs an oil equipped
+                ammo_label = 'Oils',                    -- UI count label
             },
         },
     },
