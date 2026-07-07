@@ -28,10 +28,19 @@ return {
         -- Self buffs
         buff = {
             {
+                name = 'Ancient Circle',
+                level = 5,
+                cost = 0,
+                id = 157,
+                buff_id = 118,
+                command = '/ja "Ancient Circle" <me>',
+            },
+            {
                 name = 'Spirit Bond',
                 level = 65,
                 cost = 0,
                 id = 149,
+                buff_id = 619,
                 command = '/ja "Spirit Bond" <me>',
                 pet_required = true,
             },
