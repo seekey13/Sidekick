@@ -23,16 +23,29 @@ return {
                 command = '/ja "Spirit Link" <me>',
             },
         },
+
+        -- Self buffs
+        buff = {
+            {
+                name = 'Spirit Bond',
+                level = 65,
+                cost = 0,
+                id = 149,  -- Spirit Bond recast timer id (verify in-game via /medic recast)
+                command = '/ja "Spirit Bond" <me>',
+            },
+        },
     },
 
     -- Default settings for UI
     default_settings = {
         heal_pet_enabled = true,
         heal_pet_threshold = 50,
+        buff_enabled = true,
     },
 
     -- Action priority order
     priority_order = {
         'heal_pet',
+        'buff',
     },
 }

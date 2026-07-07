@@ -83,11 +83,11 @@ local function load_single_job_definition(job_id)
         [3] = 'white_mage',   -- White Mage
         [5] = 'red_mage',     -- Red Mage
         [7] = 'paladin',      -- Paladin
-        [9] = 'beastmaster',  -- Beastmaster (pet heal: Reward)
+        [9] = 'beastmaster',  -- Beastmaster
         [10] = 'bard',        -- Bard
-        [14] = 'dragoon',     -- Dragoon (pet heal: Spirit Link)
+        [14] = 'dragoon',     -- Dragoon
         [15] = 'summoner',    -- Summoner
-        [18] = 'puppetmaster',-- Puppetmaster (pet heal: Repair)
+        [18] = 'puppetmaster',-- Puppetmaster
         [19] = 'dancer',      -- Dancer
         [20] = 'scholar',     -- Scholar
         [21] = 'geomancer',   -- Geomancer
