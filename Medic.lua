@@ -10,7 +10,7 @@ Main addon file: job detection, event loop, command handler
 
 addon.name      = 'Medic'
 addon.author    = 'Seekey'
-addon.version   = '2.2.0'
+addon.version   = '2.3.0'
 addon.desc      = 'Support Job Automation Framework'
 addon.link      = 'https://github.com/seekey13/Medic'
 
@@ -729,6 +729,10 @@ ashita.events.register('packet_in', 'medic_packet_in', function(e)
             local player_id = party and party:GetMemberServerId(0)
             local actor_is_player = (player_id and actionPacket.UserId == player_id)
 
+            -- Resolve the spell name once for base-duration lookup (timed expiry)
+            local spell = AshitaCore:GetResourceManager():GetSpellById(actionPacket.Param)
+            local spell_name = spell and spell.Name and spell.Name[1] or nil
+
             for _, target in ipairs(actionPacket.Targets) do
                 for _, action in ipairs(target.Actions) do
                     -- Resolve target name via fast index lookup (avoid O(2304) scan)
@@ -742,24 +746,27 @@ ashita.events.register('packet_in', 'medic_packet_in', function(e)
                     if action.Message == 230 or action.Message == 266 then
                         common.debugf('%s gained the effect of %s.', target_name, buff_name)
 
+                        -- Base duration for timed expiry (nil = no timer)
+                        local duration = common.base_buff_duration(action.Param, spell_name)
+
                         -- Update Trust buff tracking so game_state reflects the change
                         if target.Id >= 0x1000000 then
-                            common.apply_trust_buff(target.Id, action.Param)
+                            common.apply_trust_buff(target.Id, action.Param, duration)
                         end
 
                         -- Update tracked target buff tracking
                         if common.is_tracked_target(target.Id) then
-                            common.apply_tracked_target_buff(target.Id, action.Param)
+                            common.apply_tracked_target_buff(target.Id, action.Param, duration)
                         end
 
                         -- Update alliance member buff tracking
                         if common.is_alliance_member(target.Id) then
-                            common.apply_alliance_member_buff(target.Id, action.Param)
+                            common.apply_alliance_member_buff(target.Id, action.Param, duration)
                         end
 
                         -- Update pet buff/debuff tracking
                         if common.is_pet(target.Id) then
-                            common.apply_pet_buff(target.Id, action.Param)
+                            common.apply_pet_buff(target.Id, action.Param, duration)
                         end
 
                     elseif action.Message == 83 then
@@ -829,25 +836,29 @@ ashita.events.register('packet_in', 'medic_packet_in', function(e)
 
                     common.debugf('%s gained the effect of %s (via 0x029).', target_name, buff_name)
 
+                    -- Base duration for timed expiry; 0x029 has no spell id, so
+                    -- this resolves via song range / buff name only
+                    local duration = common.base_buff_duration(buff_id, nil)
+
                     -- Update Trust buff tracking
                     if server_id >= 0x1000000 then
-                        common.apply_trust_buff(server_id, buff_id)
+                        common.apply_trust_buff(server_id, buff_id, duration)
                     end
 
                     -- Update tracked target buff tracking
                     if common.is_tracked_target(server_id) then
-                        common.apply_tracked_target_buff(server_id, buff_id)
+                        common.apply_tracked_target_buff(server_id, buff_id, duration)
                     end
 
                     -- Update alliance member buff tracking
                     if common.is_alliance_member(server_id) then
-                        common.apply_alliance_member_buff(server_id, buff_id)
+                        common.apply_alliance_member_buff(server_id, buff_id, duration)
                     end
 
                     -- Update pet buff/debuff tracking (mob debuffs on the pet
                     -- arrive here as an out-of-party target gaining an effect)
                     if common.is_pet(server_id) then
-                        common.apply_pet_buff(server_id, buff_id)
+                        common.apply_pet_buff(server_id, buff_id, duration)
                     end
                 end
             end

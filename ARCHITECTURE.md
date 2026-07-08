@@ -179,7 +179,7 @@ Shared utility module (~1,700 lines). Key areas:
 - **Party**: `get_party_size`, `get_party_member_name/zone/distance`, `get_party_server_ids`
 - **Alliance**: `is_alliance_member`, `find_alliance_member`, `get_alliance_count`, `sorted_alliance_members`, `apply_alliance_member_buff`, `apply_external_buff`
 - **Buffs**: `has_buff`, `get_player_buffs`, `get_party_buffs`, `get_trust_buffs`
-- **Trust buff tracking**: `register_pending_buff`, `handle_buff_application`, `handle_buff_removal`, `clear_trust_buffs`
+- **Trust buff tracking**: `register_pending_buff`, `handle_buff_application`, `handle_buff_removal`, `clear_trust_buffs`, `base_buff_duration`, `expire_timed_buffs` (timed expiry + Trust song slot eviction — see Trust Buff Tracking below)
 - **Status ailments**: `has_silence`, `has_amnesia`, `is_command_blocked`
 - **Ability helpers**: `has_spell_learned(ability)` (returns `HasSpell` result; only a `pcall` error assumes known — an unlearned spell is *not* treated as learned), `filter_abilities_by_level` (also filters out an ability whose `requires_equipped_ammo` isn't currently worn), `build_ability_command`, `check_target_modifier`
 - **Pet status tracking**: `is_pet(server_id)` (true for the current pet's server id, refreshed each tick), `apply_pet_buff` — pets have normal entity ids (< 0x1000000) so they miss the Trust guard; these route the pet's packet-detected buffs/debuffs into `trust_buffs` keyed by the pet's server id. `pet_type_ok(ability)` gates a `requires_pet_name` ability on the summoned pet's name (shared by job validators and the config UI so the name list lives only in the ability data).
@@ -452,10 +452,14 @@ Read-only display of game state, party buffs, server IDs, target indices. Shown 
 Regular party members: buffs read directly from game memory.
 Trusts (server_id ≥ 0x1000000): tracked via packets.
 
-1. `register_pending_buff(server_id, buff_id)` – on cast initiation
+1. `register_pending_buff(server_id, buff_id, spell_name)` – on cast initiation
 2. `handle_buff_application()` – packet 0x028 with completion flag
 3. `handle_buff_removal(server_id, buff_id)` – packet 0x029
 4. `clear_trust_buffs()` – on zone change
+
+**Timed expiry.** Trusts and tracked targets get no reliable wear-off packets, so every buff application also records a start time and, when known, a base duration (`buff_timestamps` in `common.lua`, resolved by `common.base_buff_duration(buff_id, spell_name)`). The duration table covers Haste/Flurry/Refresh/Regen tiers/Phalanx II/Protect/Shell tiers, and every bard song buff (ids 195–222) uses a flat 120 s. `expire_timed_buffs()` runs each `refresh_game_state` tick and drops elapsed entries from `trust_buffs` — for Trusts and tracked targets only — so action modules see the buff as missing and recast. Buffs with no known duration keep today's behavior (wear-off packets only). Re-application refreshes the start time.
+
+**Trust song slots.** A Trust holds 2 songs (`TRUST_SONG_SLOTS`). When a new song buff lands on a Trust with slots full, the tracked song with the oldest start time is evicted, mirroring the game's overwrite behavior. No range check is needed: songs are only applied to targets the action packet reports as hit.
 
 ### Pet Status Tracking
 

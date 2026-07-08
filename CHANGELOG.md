@@ -5,6 +5,12 @@ All notable changes to Medic will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.0]
+
+### Added
+- **Timed buff expiry for Trusts & tracked targets**: Trusts and tracked targets get no reliable wear-off packets, so tracked buffs now record a start time and base duration on application and are dropped by timer once elapsed (generalizing the BST Reward `reapply_interval` idea). Base durations: Haste/Flurry 180s, Refresh 150s, Regen 75s / II–III 60s, Phalanx II 120s, Protect/Shell all tiers 1800s, all bard songs 120s. Buffs without a known duration keep the old packet-only behavior; re-application refreshes the timer.
+- **Trust song slot eviction**: A Trust holds 2 songs. When a new bard song lands on a Trust (per the action packet's actual AoE hit list) with both slots full, the tracked song with the oldest start time is discarded, mirroring the game's overwrite behavior.
+
 ## [2.2.0] - 2026-07-06
 
 Adds three pet-support jobs (Beastmaster, Dragoon, Puppetmaster) with consumable-ammo auto-equip and packet-based pet status tracking, alongside a repo-wide dead-code sweep and UI polish.
