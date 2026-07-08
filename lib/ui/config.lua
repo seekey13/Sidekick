@@ -654,6 +654,31 @@ function ui_config.render(settings, job_def, callback)
             end
         end
 
+        -- Pet Debuff Removal settings (BST Reward+Roborant, PUP Maintenance+Oil).
+        -- Pet statuses are inferred from packets (the client has no pet buff
+        -- memory), so warn it's not fully reliable -- same caveat as Trust/tracked.
+        if job_def and job_def.abilities.pet_debuff_removal and has_usable_abilities(job_def.abilities.pet_debuff_removal) then
+            local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Enable Pet Debuff Removal', 'pet_debuff_removal_enabled', false)
+            if is_open and is_enabled then
+                imgui.Indent(ui.ABILITY_LIST_INDENT)
+                imgui.TextColored({ 1.0, 0.8, 0.2, 1.0 }, 'Pet debuff tracking is inferred from packets and not fully reliable.')
+                for _, ability in ipairs(job_def.abilities.pet_debuff_removal) do
+                    if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
+                        ui.ability_checkbox(ctx, ability, job_def, 'pet_debuff_removal')
+                        -- Inline consumable-ammo count (Pet Roborant / Oil).
+                        if ability.requires_equipped_ammo then
+                            local count = common.count_equippable_items(ability.requires_equipped_ammo)
+                            local color = common.is_ammo_equipped(ability.requires_equipped_ammo)
+                                and { 0.4, 1.0, 0.4, 1.0 } or { 1.0, 0.4, 0.4, 1.0 }
+                            imgui.SameLine()
+                            imgui.TextColored(color, string.format('(%d)', count))
+                        end
+                    end
+                end
+                imgui.Unindent(ui.ABILITY_LIST_INDENT)
+            end
+        end
+
         -- Wake settings (only show if job has wake-capable heal abilities that are usable)
         local has_wake_abilities = false
         if job_def and job_def.abilities.heal then
