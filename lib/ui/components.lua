@@ -1283,6 +1283,17 @@ function ui_components.group_dropdown(ctx, job_def, target_group, dropdown_width
     end
 end
 
+-- True when an ability needs a specific pet summoned (requires_pet_name) that
+-- isn't out right now -- used to gray the row and tooltip why.
+local function pet_type_unmet(ability)
+    return ability.requires_pet_name ~= nil and not common.pet_type_ok(ability)
+end
+
+-- Tooltip text naming the pet(s) a requires_pet_name ability needs.
+local function pet_type_tooltip(ability)
+    return 'Requires pet: ' .. table.concat(ability.requires_pet_name, ' / ')
+end
+
 -- Render a self-target single ability
 -- Layout: [ON/OFF Button] Ability Name
 function ui_components.self_single_ability(ctx, ability, job_def, id_suffix)
@@ -1291,6 +1302,7 @@ function ui_components.self_single_ability(ctx, ability, job_def, id_suffix)
     -- gray it like an unlearned spell and say what's missing.
     local no_ammo = ability.requires_equipped_ammo
         and common.count_equippable_items(ability.requires_equipped_ammo) == 0
+    local wrong_pet = pet_type_unmet(ability)
     local spell_suffix = ''
     local ability_combat_only = effective_combat_only(ability, ctx)
 
@@ -1299,7 +1311,7 @@ function ui_components.self_single_ability(ctx, ability, job_def, id_suffix)
     imgui.SameLine()
 
     -- Push text color after buttons so S button / ON/OFF button are not tinted
-    if not has_spell or no_ammo then
+    if not has_spell or no_ammo or wrong_pet then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
     elseif ability_combat_only then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_YELLOW)
@@ -1324,6 +1336,8 @@ function ui_components.self_single_ability(ctx, ability, job_def, id_suffix)
             imgui.SetTooltip('Not Learned')
         elseif no_ammo then
             imgui.SetTooltip('No ' .. (ability.ammo_label or 'item') .. ' found in storage.')
+        elseif wrong_pet then
+            imgui.SetTooltip(pet_type_tooltip(ability))
         elseif ability_combat_only then
             imgui.SetTooltip('Combat Only')
         elseif ability.idle_only then
@@ -1331,7 +1345,7 @@ function ui_components.self_single_ability(ctx, ability, job_def, id_suffix)
         end
     end
 
-    if not has_spell or no_ammo or ability_combat_only or ability.idle_only then
+    if not has_spell or no_ammo or wrong_pet or ability_combat_only or ability.idle_only then
         imgui.PopStyleColor()
     end
 end
@@ -1441,26 +1455,30 @@ function ui_components.party_single_ability(ctx, ability, job_def)
         desc = ability.name .. spell_suffix
     end
     
+    local wrong_pet = pet_type_unmet(ability)
+
     render_party_buttons(ctx, ability.name, has_spell, ability, false)
-    
+
     imgui.SameLine()
-    
+
     local ability_combat_only = effective_combat_only(ability, ctx)
-    if not has_spell or not has_modifier then
+    if not has_spell or not has_modifier or wrong_pet then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
     elseif ability_combat_only then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_YELLOW)
     elseif ability.idle_only then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GREEN)
     end
-    
+
     imgui.Text(desc)
-    
+
     render_combat_only_context_menu(ctx, ability)
 
     if imgui.IsItemHovered() then
         if not has_spell then
             imgui.SetTooltip('Not Learned')
+        elseif wrong_pet then
+            imgui.SetTooltip(pet_type_tooltip(ability))
         elseif ability_combat_only then
             imgui.SetTooltip('Combat Only')
         elseif ability.idle_only then
@@ -1468,7 +1486,7 @@ function ui_components.party_single_ability(ctx, ability, job_def)
         end
     end
 
-    if not has_spell or not has_modifier or ability_combat_only or ability.idle_only then
+    if not has_spell or not has_modifier or wrong_pet or ability_combat_only or ability.idle_only then
         imgui.PopStyleColor()
     end
 end
@@ -1690,6 +1708,7 @@ function ui_components.ability_checkbox(ctx, ability, job_def, id_suffix, show_s
     -- consumable in inventory/storage. Show them grayed like an unlearned spell.
     local no_ammo = ability.requires_equipped_ammo
         and common.count_equippable_items(ability.requires_equipped_ammo) == 0
+    local wrong_pet = pet_type_unmet(ability)
     local spell_suffix = ''
     if not has_spell then
         ctx.settings['disabled_' .. ability.name:gsub(' ', '_')] = true
@@ -1710,14 +1729,14 @@ function ui_components.ability_checkbox(ctx, ability, job_def, id_suffix, show_s
     end
     
     local ability_combat_only = effective_combat_only(ability, ctx)
-    if not has_spell or no_ammo then
+    if not has_spell or no_ammo or wrong_pet then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
     elseif ability_combat_only then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_YELLOW)
     elseif ability.idle_only then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GREEN)
     end
-    
+
     local ability_enabled = { is_ability_enabled(ctx, ability.name) }
     if imgui.Checkbox(checkbox_label, ability_enabled) then
         toggle_ability(ctx, ability.name, ability_enabled[1], job_def)
@@ -1730,6 +1749,8 @@ function ui_components.ability_checkbox(ctx, ability, job_def, id_suffix, show_s
             imgui.SetTooltip('Not Learned')
         elseif no_ammo then
             imgui.SetTooltip('No ' .. (ability.ammo_label or 'item') .. ' found in storage.')
+        elseif wrong_pet then
+            imgui.SetTooltip(pet_type_tooltip(ability))
         elseif ability_combat_only then
             imgui.SetTooltip('Combat Only')
         elseif ability.idle_only then
@@ -1739,7 +1760,7 @@ function ui_components.ability_checkbox(ctx, ability, job_def, id_suffix, show_s
         end
     end
 
-    if not has_spell or no_ammo or ability_combat_only or ability.idle_only then
+    if not has_spell or no_ammo or wrong_pet or ability_combat_only or ability.idle_only then
         imgui.PopStyleColor()
     end
 end

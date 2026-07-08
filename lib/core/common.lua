@@ -515,6 +515,23 @@ function common.get_pet_entity()
     return targets.get_pet()
 end
 
+-- True when an ability's pet-type requirement is met (or it has none).
+-- `ability.requires_pet_name` is a list of acceptable pet names (e.g. Carbuncle,
+-- or the rabbit jug pets). Shared by job validators and the config UI so the
+-- name list lives in one place (the ability data).
+function common.pet_type_ok(ability)
+    local names = ability.requires_pet_name
+    if not names then return true end
+    local pet = common.get_pet_entity()
+    if not pet then return false end
+    local ok, pet_name = pcall(function() return pet.Name end)
+    if not ok then return false end
+    for _, n in ipairs(names) do
+        if pet_name == n then return true end
+    end
+    return false
+end
+
 -- Get party manager
 -- Returns: party object or nil on error
 function common.get_party()

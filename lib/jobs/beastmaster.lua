@@ -104,7 +104,7 @@ return {
                 cost = 0,
                 command = '/pet "Wild Carrot" <me>',
                 pet_required = true,
-                requires_rabbit = true,        -- only the rabbit jug pet has it
+                requires_pet_name = { 'Lucky Lulush', 'Rabbit' },  -- rabbit jug pets only
                 requires_ready_charge = true,  -- needs a Ready charge (id 102)
             },
         },
@@ -134,13 +134,9 @@ return {
             return false
         end
 
-        -- Wild Carrot only exists on the rabbit jug pets.
-        if ability.requires_rabbit then
-            local pet = common.get_pet_entity()
-            local ok, pet_name = pcall(function() return pet and pet.Name end)
-            if not (ok and (pet_name == 'Lucky Lulush' or pet_name == 'Rabbit')) then
-                return false
-            end
+        -- Wild Carrot only exists on the rabbit jug pets (requires_pet_name).
+        if not common.pet_type_ok(ability) then
+            return false
         end
 
         -- Ready is charge-based; block when no charge is banked.
