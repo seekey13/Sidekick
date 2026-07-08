@@ -363,6 +363,7 @@ return {
     ammo_label             = 'Oils',            -- UI label for the inline (count) display
     ammo_main_job_only     = true,              -- only equip the ammo when this job is MAIN (e.g. PUP oils)
     requires_ready_charge  = true,              -- gated on a spare BST Ready charge (game_state.ready_charges)
+    ready_charge_cost      = 2,                 -- Ready charges the move burns (default 1; Wild Carrot = 2)
     reapply_interval       = 300,               -- buff: reapply after N seconds instead of every recast
                                                 --   (for buffs whose target we can't read, e.g. pet Regen)
 }

@@ -77,7 +77,7 @@ and `ARCHITECTURE.md` for every ability field (`level`, `cost`, `value`, `id` = 
 `buff_id`, `debuff_id`, `group`, `idle_only`, `combat_only`, `requires_buff`,
 `target_outside`, `main_job_only`, `target_modifier`, and the pet/ammo fields
 `pet_required`, `requires_pet_name`, `requires_equipped_ammo`, `ammo_label`,
-`ammo_main_job_only`, `requires_ready_charge`, `reapply_interval`, …).
+`ammo_main_job_only`, `requires_ready_charge`, `ready_charge_cost`, `reapply_interval`, …).
 
 **UI** (`lib/ui/`). `config.lua` orchestrates the ImGui config window and delegates rendering
 to `components.lua`; `panel.lua` is the debug panel; `tooltips.lua` is hover help. Settings
