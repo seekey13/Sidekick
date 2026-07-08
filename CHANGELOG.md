@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Per-caster song slot eviction**: Song slots are tracked per caster (2 per bard per target, mirroring FFXI). Each tracked buff records its caster (from the 0x028 action packet). When a new song lands from a caster who already has 2 songs on that target, that caster's oldest-start-time song is evicted; songs from a different bard sit in their own slot bucket and are never affected. Applies to any tracked ally (Trusts, tracked players, alliance members); skipped when the caster is unknown (0x029 packets carry no caster).
 
 ### Fixed
+- **Cure-wake now clears Sleep on Trusts & alliance too**: The "cure landed → drop Sleep from tracking" inference previously ran for tracked targets only, so waking a Trust or alliance member with a Cure left Sleep in tracking and re-cured every tick until the timer cleared it. Widened to every packet-tracked ally (Trust/tracked/alliance/pet).
 - **Removal spells no longer loop on Trusts/tracked/alliance targets**: These targets give no reliable wear-off packet, so after Medic cast e.g. Poisona the tracked Poison lingered and the cure re-fired every tick. On casting a na-/Erase spell, Medic now optimistically drops one matching status from the target's tracked list (`common.drop_removed_debuff`); each removal spell clears one status per cast, and the debuff base-duration timer catches anything guessed wrong.
 
 ## [2.2.0] - 2026-07-06

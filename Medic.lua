@@ -782,11 +782,18 @@ ashita.events.register('packet_in', 'medic_packet_in', function(e)
                     end
 
                     -- Sleep removal inference: only for cure-type spells cast by the player.
-                    -- Cure spells can't miss, so landing on a tracked sleeping target means wake.
-                    -- No 0x029 removal message is sent for out-of-party targets, so we infer it.
+                    -- Cure spells can't miss, so landing on a sleeping target means wake.
+                    -- Applies to every packet-tracked ally (Trust/tracked/alliance/pet) --
+                    -- none get a reliable wear-off packet, so without this Sleep lingers in
+                    -- tracking and wake re-cures every tick until the base-duration timer
+                    -- clears it. handle_buff_removal no-ops when Sleep isn't tracked.
                     -- Message 2 = "recovers X HP" (single cure), 7 = "recovers X HP" (AoE cure),
                     -- 24 = Curaga-style HP recovery
-                    if actor_is_player and common.is_tracked_target(target.Id) then
+                    local packet_tracked = target.Id >= 0x1000000
+                        or common.is_tracked_target(target.Id)
+                        or common.is_alliance_member(target.Id)
+                        or common.is_pet(target.Id)
+                    if actor_is_player and packet_tracked then
                         if action.Message == 2 or action.Message == 7 or action.Message == 24 then
                             common.handle_buff_removal(target.Id, 2)   -- Sleep
                             common.handle_buff_removal(target.Id, 19)  -- Sleep II
