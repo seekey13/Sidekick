@@ -25,7 +25,7 @@ return {
                 end,
                 wakes = true,  -- Can wake from sleep
                 pet_required = true,
-                requires_carbuncle = true,
+                requires_pet_name = { 'Carbuncle' },
             },
         },
         
@@ -39,7 +39,7 @@ return {
                 command = '/pet "Healing Ruby II" <me>',
                 wakes = true,  -- Can wake from sleep
                 pet_required = true,
-                requires_carbuncle = true,
+                requires_pet_name = { 'Carbuncle' },
             },
         },
         
@@ -62,7 +62,7 @@ return {
                 command = '/pet "Shining Ruby" <me>',
                 buff_id = 154,  -- Shining Ruby buff ID
                 pet_required = true,
-                requires_carbuncle = true,
+                requires_pet_name = { 'Carbuncle' },
             },
         },
 
@@ -75,7 +75,7 @@ return {
                 id = 108,  -- Apogee recast ID
                 command = '/ja "Apogee" <me>',
                 pet_required = true,
-                requires_carbuncle = true,
+                requires_pet_name = { 'Carbuncle' },
             },
         },
     },
@@ -109,30 +109,16 @@ return {
         'rest',
     },
     
-    -- Validate ability can be used (Summoner-specific: check for Carbuncle when required)
+    -- Validate ability can be used: pet-gated abilities need a pet, and a
+    -- requires_pet_name ability (Carbuncle-specific) needs that pet. Avatar-
+    -- agnostic abilities (no requires_pet_name) work with any avatar.
     validate_ability = function(ability, common)
-        -- Only validate abilities that require a pet
         if not ability.pet_required then
             return true
         end
-        
-        -- Get pet entity
-        local pet = common.get_pet_entity()
-        if not pet then
+        if not common.get_pet_entity() then
             return false
         end
-        
-        -- If ability doesn't specifically require Carbuncle, any pet is fine
-        if not ability.requires_carbuncle then
-            return true
-        end
-        
-        -- Check if pet name is available
-        local ok, pet_name = pcall(function()
-            return pet.Name
-        end)
-        
-        -- Only allow abilities if Carbuncle is summoned
-        return ok and pet_name == 'Carbuncle'
+        return common.pet_type_ok(ability)
     end,
 }

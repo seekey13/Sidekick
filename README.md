@@ -21,7 +21,13 @@ A focused, support-oriented addon for Ashita v4 that automates healing, buffing,
 
 ### [2.2.0] - 2026-07-06
 
-Maintenance release — internal dead-code cleanup plus small UI polish. No changes to automation behavior.
+Adds three pet-support jobs (Beastmaster, Dragoon, Puppetmaster) with consumable-ammo auto-equip and packet-based pet status tracking, alongside internal dead-code cleanup and UI polish.
+
+### Added
+- **Beastmaster / Dragoon / Puppetmaster**: Three new pet-support jobs (see [Supported Jobs](#supported-jobs)).
+- **Consumable-Ammo Auto-Equip**: Abilities that need a consumable worn in the ammo slot (BST Pet Food, PUP Automaton Oil) auto-equip the best owned tier for your level — from inventory or any Mog Wardrobe — before firing. The config UI shows a live count, green when equipped and red when not.
+- **Pet Status Tracking**: A pet's buffs/debuffs are inferred from packets (the client keeps no pet buff memory) so BST/PUP can strip the pet's status ailments. As with Trusts, this tracking is not perfectly reliable.
+- **Beastmaster Ready Charges**: Ready-move charges are tracked like Scholar stratagems and shown in the `/med panel` header.
 
 ### Changed
 - **Party Button Tooltips**: Hovering a target button (**ME** / **P1–P5**) now shows that member's character name; on Trust/tracked buttons the reliability caveat is appended below the name.
@@ -99,7 +105,7 @@ Maintenance release — internal dead-code cleanup plus small UI polish. No chan
 - **Single-Target Healing**: Intelligent HP deficit-based heal selection with priority system (Critical HP → Focus target → Regular lowest HP)
 - **Group / AOE Heal Target Selection**: Per-target ME/P1-P5 (plus alliance and tracked for Group) buttons choose who Group and AOE healing manage; party/tracked default ON, alliance default OFF, selections per-session
 - **AOE Healing**: Party-wide healing when multiple members need HP
-- **Pet Healing**: Automated healing for luopan pets
+- **Pet Healing & Support**: Automated healing for pets — GEO luopan, DRG wyvern, BST jug pets, PUP automaton — plus pet buff/debuff removal for jobs whose pet-heal ability needs a consumable equipped in the ammo slot (auto-equipped from inventory or a Mog Wardrobe)
 - **Sleep Removal (Wake)**: Automatically wake sleeping party members
 - **Debuff Removal**: Remove poison, paralysis, silence, and other negative status effects
 - **Buff Maintenance**: Auto-apply and maintain self-buffs with single-target party buff support
@@ -141,6 +147,21 @@ Maintenance release — internal dead-code cleanup plus small UI polish. No chan
 ## Supported Jobs
 
 Currently implemented support jobs:
+
+- **Beastmaster** (BST) — *pet-only support*
+  - Pet healing with **Reward** (requires a **Pet Food** biscuit in the ammo slot; auto-equips the best tier for your level)
+  - Pet Regen with **Reward (Regen)** using a **Pet Poultice** (reapplied on a timer since pet buffs can't be read)
+  - Pet debuff removal with **Reward (Erase)** using a **Pet Roborant**
+  - Party AOE healing with **Wild Carrot** from a rabbit jug pet (Lucky Lulush / Rabbit), gated on a Ready charge
+  - Only one ammo can be worn at a time, so the three Reward variants never contend for the ammo slot
+
+- **Dragoon** (DRG) — *pet-only support*
+  - Pet (wyvern) healing with **Spirit Link** (no item — transfers the master's HP)
+  - Self-buffs: **Ancient Circle**, **Spirit Bond**
+
+- **Puppetmaster** (PUP) — *pet-only support*
+  - Automaton healing with **Repair** (requires an **Automaton Oil** in the ammo slot; higher tiers heal more; PUP-main only)
+  - Automaton debuff removal with **Maintenance** (same Oil ammo)
 
 - **Bard** (BRD)
   - Buff with songs on self or party members using Pianissimo (level 20+) — the ME button self-buffs via Pianissimo too
@@ -287,9 +308,12 @@ Medic/
 │   │   └── geo.lua           # Geo buff/debuff targeting & Full Circle / luopan management
 │   ├── jobs/
 │   │   ├── bard.lua          # Bard abilities
+│   │   ├── beastmaster.lua   # Beastmaster abilities (pet-only)
 │   │   ├── dancer.lua        # Dancer abilities
+│   │   ├── dragoon.lua       # Dragoon abilities (pet-only)
 │   │   ├── geomancer.lua     # Geomancer abilities
 │   │   ├── paladin.lua       # Paladin abilities
+│   │   ├── puppetmaster.lua  # Puppetmaster abilities (pet-only)
 │   │   ├── red_mage.lua      # Red Mage abilities
 │   │   ├── rune_fencer.lua   # Rune Fencer abilities
 │   │   ├── scholar.lua       # Scholar abilities
@@ -321,6 +345,7 @@ Settings are saved per job in JSON format in the Ashita config directory:
 - `wake_enabled` (boolean): Enable sleep removal
 - `buff_enabled` (boolean): Enable buff maintenance
 - `debuff_removal_enabled` (boolean): Enable debuff removal
+- `pet_debuff_removal_enabled` (boolean): Enable pet debuff removal (BST/PUP)
 - `recover_enabled` (boolean): Enable MP/TP recovery
 - `rest_enabled` (boolean): Enable automatic resting (MP-based jobs only)
 - `rest_timer` (number): Timer duration in seconds before resting starts (1-20, default 5)

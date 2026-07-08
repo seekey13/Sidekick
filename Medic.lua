@@ -36,6 +36,7 @@ local action_modules = {
     heal_pet       = { execute = heal_mod.execute_pet },
     wake           = { execute = status_mod.execute_wake },
     debuff_removal = { execute = status_mod.execute_debuff_removal },
+    pet_debuff_removal = { execute = status_mod.execute_pet_debuff_removal },
     buff           = require('lib.actions.buff'),
     recover        = require('lib.actions.recover'),
     geo            = require('lib.actions.geo'),
@@ -83,8 +84,11 @@ local function load_single_job_definition(job_id)
         [3] = 'white_mage',   -- White Mage
         [5] = 'red_mage',     -- Red Mage
         [7] = 'paladin',      -- Paladin
+        [9] = 'beastmaster',  -- Beastmaster
         [10] = 'bard',        -- Bard
+        [14] = 'dragoon',     -- Dragoon
         [15] = 'summoner',    -- Summoner
+        [18] = 'puppetmaster',-- Puppetmaster
         [19] = 'dancer',      -- Dancer
         [20] = 'scholar',     -- Scholar
         [21] = 'geomancer',   -- Geomancer
@@ -213,6 +217,7 @@ local function load_job_definition(main_job_id, sub_job_id)
         'heal',
         'debuff_removal',
         'heal_pet',
+        'pet_debuff_removal',
         'wake',
         'geo',
         'buff',
@@ -752,11 +757,16 @@ ashita.events.register('packet_in', 'medic_packet_in', function(e)
                             common.apply_alliance_member_buff(target.Id, action.Param)
                         end
 
+                        -- Update pet buff/debuff tracking
+                        if common.is_pet(target.Id) then
+                            common.apply_pet_buff(target.Id, action.Param)
+                        end
+
                     elseif action.Message == 83 then
                         common.debugf('%s lost the effect of %s (via 0x028).', target_name, buff_name)
 
-                        -- Remove from Trust, tracked target, and alliance member buff tracking (all in trust_buffs)
-                        if target.Id >= 0x1000000 or common.is_tracked_target(target.Id) or common.is_alliance_member(target.Id) then
+                        -- Remove from Trust, tracked target, alliance, and pet buff tracking (all in trust_buffs)
+                        if target.Id >= 0x1000000 or common.is_tracked_target(target.Id) or common.is_alliance_member(target.Id) or common.is_pet(target.Id) then
                             common.handle_buff_removal(target.Id, action.Param)
                         end
                     end
@@ -832,6 +842,12 @@ ashita.events.register('packet_in', 'medic_packet_in', function(e)
                     -- Update alliance member buff tracking
                     if common.is_alliance_member(server_id) then
                         common.apply_alliance_member_buff(server_id, buff_id)
+                    end
+
+                    -- Update pet buff/debuff tracking (mob debuffs on the pet
+                    -- arrive here as an out-of-party target gaining an effect)
+                    if common.is_pet(server_id) then
+                        common.apply_pet_buff(server_id, buff_id)
                     end
                 end
             end
@@ -989,7 +1005,7 @@ ashita.events.register('command', 'medic_command', function(e)
         else
             common.remove_tracked_target_by_name(target_name)
         end
-        
+
     else
         common.printf('Unknown command: %s. Type /medic help for commands.', cmd)
     end

@@ -93,6 +93,26 @@ local function is_subjob_duplicate(job_def, ability)
     return false
 end
 
+-- Draw a "(<count>)" after an ammo-gated ability's row: green when a matching
+-- item is worn, red when not. When show_name is set and an item is worn, also
+-- name the equipped tier in green -- only useful for heal_pet (Reward/Repair),
+-- where the tier changes how much the pet heals.
+local GREEN = { 0.4, 1.0, 0.4, 1.0 }
+local function render_ammo_count(ability, show_name)
+    if not ability.requires_equipped_ammo then return end
+    local count = common.count_equippable_items(ability.requires_equipped_ammo)
+    local equipped = common.is_ammo_equipped(ability.requires_equipped_ammo)
+    imgui.SameLine()
+    imgui.TextColored(equipped and GREEN or { 1.0, 0.4, 0.4, 1.0 }, string.format('(%d)', count))
+    if show_name and equipped then
+        local name = common.equipped_ammo_name(ability.requires_equipped_ammo)
+        if name then
+            imgui.SameLine()
+            imgui.TextColored(GREEN, name)
+        end
+    end
+end
+
 -- Check if a party member is a Trust (server_id >= 0x1000000)
 local function is_trust(party_index)
     local party = common.get_party()
@@ -637,12 +657,33 @@ function ui_config.render(settings, job_def, callback)
                 for _, ability in ipairs(job_def.abilities.heal_pet) do
                     if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                         ui.ability_checkbox(ctx, ability, job_def, 'heal_pet')
+                        render_ammo_count(ability, true)
                     end
                 end
+
                 imgui.Unindent(ui.ABILITY_LIST_INDENT)
             end
         end
-        
+
+        -- Pet Debuff Removal settings (BST Reward+Roborant, PUP Maintenance+Oil).
+        -- Pet statuses are inferred from packets (the client has no pet buff
+        -- memory), so warn it's not fully reliable -- same caveat as Trust/tracked.
+        if job_def and job_def.abilities.pet_debuff_removal and has_usable_abilities(job_def.abilities.pet_debuff_removal) then
+            local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Enable Pet Debuff Removal', 'pet_debuff_removal_enabled', false)
+            if is_open and is_enabled then
+                imgui.Indent(ui.ABILITY_LIST_INDENT)
+                ctx.show_pet_debuff_warning = true
+                for _, ability in ipairs(job_def.abilities.pet_debuff_removal) do
+                    if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
+                        ui.ability_checkbox(ctx, ability, job_def, 'pet_debuff_removal')
+                        render_ammo_count(ability)
+                    end
+                end
+                ctx.show_pet_debuff_warning = false
+                imgui.Unindent(ui.ABILITY_LIST_INDENT)
+            end
+        end
+
         -- Wake settings (only show if job has wake-capable heal abilities that are usable)
         local has_wake_abilities = false
         if job_def and job_def.abilities.heal then
@@ -809,6 +850,7 @@ function ui_config.render(settings, job_def, callback)
                 for _, ability in ipairs(job_def.abilities.buff) do
                     if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                         ui.render_ability(ctx, ability, job_def, 'buff')
+                        render_ammo_count(ability)
                     end
                 end
                 ctx.show_buff_warning = false

@@ -367,6 +367,55 @@ function status_removal.execute_debuff_removal(settings, job_def, main_level, su
 end
 
 -- ============================================================================
+-- Pet Debuff Removal
+-- ============================================================================
+-- BST/PUP can strip status effects off their pet (Reward + Pet Roborant,
+-- Maintenance + Oil). Pet buffs/debuffs aren't tracked yet, so `pet_debuffs` is
+-- empty and nothing ever fires -- this only wires the abilities in so they work
+-- the moment that list is populated (e.g. when the pet is tracked like a party
+-- member with a buff list). ponytail: single source `state.pet_debuffs`; swap it
+-- in when pet tracking lands.
+function status_removal.execute_pet_debuff_removal(settings, job_def, main_level, sub_level, player_resource)
+    if not settings.pet_debuff_removal_enabled then return nil end
+
+    local state  = common.game_state
+    local player = state and state.player
+    if not player then return nil end
+    if not common.targets.get_pet() then return nil end
+
+    local abilities = job_def.abilities.pet_debuff_removal or {}
+    if #abilities == 0 then return nil end
+
+    -- Pet debuff list (empty until pet buffs are tracked).
+    local pet_debuffs = state.pet_debuffs or {}
+
+    -- Auto-equip the consumable only when the pet has a debuff this ability could
+    -- strip, so the roborant/oil never fights the heal/Regen ammo for the slot
+    -- while there's nothing to cure. No-op today (pet_debuffs is empty).
+    for _, ability in ipairs(abilities) do
+        if ability.requires_equipped_ammo
+           and not common.is_ammo_equipped(ability.requires_equipped_ammo)
+           and can_remove_debuffs(ability, pet_debuffs) then
+            local equip = common.ammo_equip_command({ ability }, settings, player)
+            if equip then return equip end
+        end
+    end
+
+    local available = common.filter_abilities_by_level(abilities, settings, player.main_level, player.sub_level, job_def)
+    for _, ability in ipairs(available) do
+        if not common.is_command_blocked(ability.command)
+           and can_remove_debuffs(ability, pet_debuffs) then
+            local count = count_removable_debuffs(pet_debuffs, { ability })
+            local desc  = string.format('Removing %d debuff(s) from pet with %s', count, ability.name)
+            local result = action_core.try_use(ability, job_def, settings, 0, desc)
+            if result then return result end
+        end
+    end
+
+    return nil
+end
+
+-- ============================================================================
 -- Wake from Sleep  (formerly lib.actions.wake)
 -- ============================================================================
 

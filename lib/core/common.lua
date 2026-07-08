@@ -55,6 +55,11 @@ local member_max_stats = {}
 -- Trust buff tracking (packet-based since memory reads don't work for Trusts)
 local trust_buffs = {}  -- trust_buffs[server_id] = {buff_id1, buff_id2, ...}
 
+-- Current pet's server id, refreshed each tick. Pets have normal entity ids
+-- (< 0x1000000) so they miss the Trust guard; their buffs/debuffs ride the same
+-- trust_buffs table via the packet handlers, keyed by this id.
+local pet_server_id = 0
+
 -- Alliance member server_id set — rebuilt each refresh_game_state tick.
 -- Used by packet handlers to decide whether to track buffs for a given server_id.
 local alliance_member_sids = {}  -- alliance_member_sids[server_id] = true
@@ -510,6 +515,23 @@ function common.get_pet_entity()
     return targets.get_pet()
 end
 
+-- True when an ability's pet-type requirement is met (or it has none).
+-- `ability.requires_pet_name` is a list of acceptable pet names (e.g. Carbuncle,
+-- or the rabbit jug pets). Shared by job validators and the config UI so the
+-- name list lives in one place (the ability data).
+function common.pet_type_ok(ability)
+    local names = ability.requires_pet_name
+    if not names then return true end
+    local pet = common.get_pet_entity()
+    if not pet then return false end
+    local ok, pet_name = pcall(function() return pet.Name end)
+    if not ok then return false end
+    for _, n in ipairs(names) do
+        if pet_name == n then return true end
+    end
+    return false
+end
+
 -- Get party manager
 -- Returns: party object or nil on error
 function common.get_party()
@@ -522,6 +544,167 @@ function common.get_party()
     end
     
     return party
+end
+
+-- Status ailments Erase-type cleanses remove: WHM/SCH Erase, and BST Reward /
+-- PUP Maintenance's pet-cleanse mode. Shared so all four abilities point at
+-- one list instead of four copies.
+common.ERASABLE_DEBUFFS = {3, 4, 5, 6, 8, 9, 11, 12, 13, 31, 128, 129, 130, 131, 134,
+    135, 136, 137, 138, 139, 140, 141, 142, 144, 145, 146, 147, 148, 149, 156,
+    167, 174, 175, 189, 404}
+
+-- Containers an equippable (armor) item can be worn from: main inventory (0)
+-- plus all eight Mog Wardrobes (8, 10-16). Matches the client's equip-eligible
+-- container set, so a "count" here reflects everything the player could equip.
+local EQUIP_CONTAINERS = { 0, 8, 10, 11, 12, 13, 14, 15, 16 }
+
+-- Ashita's internal container id -> the container number the /equip command
+-- expects (0 = Inventory, 1-8 = Mog Wardrobe 1-8).
+local EQUIP_COMMAND_CONTAINER = { [0] = 0, [8] = 1, [10] = 2, [11] = 3, [12] = 4, [13] = 5, [14] = 6, [15] = 7, [16] = 8 }
+
+-- Normalize an ammo spec (a list of { id=, name=, level= } tier entries) to a
+-- set of item ids.
+local function ammo_id_set(spec)
+    local set = {}
+    for _, e in ipairs(spec) do
+        if e.id then set[e.id] = true end
+    end
+    return set
+end
+
+-- pcall wrapper around the inventory manager, shared by every ammo helper below.
+local function get_inventory()
+    local ok, inventory = pcall(function()
+        return AshitaCore:GetMemoryManager():GetInventory()
+    end)
+    if ok then return inventory end
+    return nil
+end
+
+-- Count how many of the given items the player holds across every
+-- equip-eligible container. spec is a list of tier entries. Returns a total
+-- count (0 if none / inventory not loaded).
+function common.count_equippable_items(spec)
+    local inventory = get_inventory()
+    if not inventory then return 0 end
+
+    local id_set = ammo_id_set(spec)
+
+    local total = 0
+    for _, container in ipairs(EQUIP_CONTAINERS) do
+        local ok_max, max = pcall(function() return inventory:GetContainerCountMax(container) end)
+        if ok_max and max then
+            for i = 0, max do
+                local entry = inventory:GetContainerItem(container, i)
+                if entry and id_set[entry.Id] then
+                    total = total + entry.Count
+                end
+            end
+        end
+    end
+    return total
+end
+
+-- Return the item id equipped in the given equipment slot (0-indexed:
+-- 0=main, 1=sub, 2=range, 3=ammo, ...), or nil if the slot is empty.
+function common.get_equipped_item_id(slot)
+    local inventory = get_inventory()
+    if not inventory then return nil end
+
+    local eq = inventory:GetEquippedItem(slot)
+    if not eq or not eq.Index or eq.Index == 0 then return nil end
+
+    -- Index packs the source slot: high byte = container, low byte = slot index.
+    local entry = inventory:GetContainerItem(math.floor(eq.Index / 256), eq.Index % 256)
+    if not entry then return nil end
+    local id = entry.Id
+    if id == 0 or id == -1 or id == 65535 then return nil end
+    return id
+end
+
+-- True when one of the spec's item ids is equipped in the ammo slot (slot 3).
+function common.is_ammo_equipped(spec)
+    local equipped = common.get_equipped_item_id(3)
+    if not equipped then return false end
+    return ammo_id_set(spec)[equipped] == true
+end
+
+-- Name of the spec's tier currently worn in the ammo slot, or nil if none.
+function common.equipped_ammo_name(spec)
+    local equipped = common.get_equipped_item_id(3)
+    if not equipped or type(spec) ~= 'table' then return nil end
+    for _, e in ipairs(spec) do
+        if type(e) == 'table' and e.id == equipped then return e.name end
+    end
+    return nil
+end
+
+-- Find the first owned item (matching the spec) across equip-eligible
+-- containers. Returns container, item_id -- or nil if none owned.
+function common.find_equippable_item(spec)
+    local inventory = get_inventory()
+    if not inventory then return nil end
+
+    local id_set = ammo_id_set(spec)
+    for _, container in ipairs(EQUIP_CONTAINERS) do
+        local ok_max, max = pcall(function() return inventory:GetContainerCountMax(container) end)
+        if ok_max and max then
+            for i = 0, max do
+                local entry = inventory:GetContainerItem(container, i)
+                if entry and entry.Count and entry.Count > 0 and id_set[entry.Id] then
+                    return container, entry.Id
+                end
+            end
+        end
+    end
+    return nil
+end
+
+-- Build a native "/equip ammo" command for the best ammo tier the player can
+-- use and actually owns. spec must be a list of { id=, name=, level= } entries,
+-- ordered worst -> best. Picks the highest-level entry with level <= player_level
+-- (the main job level) that is owned, and names its container so the game equips
+-- it straight from a wardrobe if needed. When several tiers share a level
+-- (e.g. oils are all level 1), the later/better list entry wins.
+-- Returns { command, description } or nil (own none / none level-eligible).
+function common.select_ammo_equip_command(spec, player_level)
+    if type(spec) ~= 'table' then return nil end
+    local best, best_container
+    for _, e in ipairs(spec) do
+        if type(e) == 'table' and e.name and (e.level or 0) <= (player_level or 0) then
+            local container = common.find_equippable_item(e.id)  -- nil if not owned
+            if container and ((not best) or (e.level or 0) >= (best.level or 0)) then
+                best, best_container = e, container
+            end
+        end
+    end
+    if not best then return nil end
+    local equip_num = EQUIP_COMMAND_CONTAINER[best_container] or 0
+    return {
+        command     = string.format('/equip ammo "%s" %d', best.name, equip_num),
+        description = string.format('Equipping %s', best.name),
+    }
+end
+
+-- For the first enabled, level-eligible ability in `abilities` that needs a
+-- consumable in the ammo slot (BST biscuit/poultice, PUP oil) and isn't wearing
+-- one, return the /equip command for the best owned tier. nil when all are
+-- already equipped, disabled, none owned, or not equippable on this job.
+function common.ammo_equip_command(abilities, settings, player)
+    for _, ability in ipairs(abilities or {}) do
+        local spec = ability.requires_equipped_ammo
+        if spec and not common.is_ammo_equipped(spec) then
+            local disabled     = settings['disabled_' .. ability.name:gsub(' ', '_')] == true
+            local usable_level = ability.is_main_job == false and (player.sub_level or 0) or (player.main_level or 0)
+            -- Oils equip PUP-main only; biscuits/poultice equip on any job.
+            local wrong_main   = ability.ammo_main_job_only and ability.is_main_job == false
+            if not disabled and not wrong_main and (ability.level or 0) <= usable_level then
+                local equip = common.select_ammo_equip_command(spec, player.main_level or 0)
+                if equip then return equip end
+            end
+        end
+    end
+    return nil
 end
 
 -- Get entity manager
@@ -1051,6 +1234,18 @@ function common.apply_trust_buff(server_id, buff_id)
     common.apply_external_buff(server_id, buff_id)
 end
 
+-- True when server_id is the current pet (refreshed each tick). Packet handlers
+-- use this to route the pet's buffs/debuffs into trust_buffs.
+function common.is_pet(server_id)
+    return server_id ~= nil and server_id ~= 0 and server_id == pet_server_id
+end
+
+-- Apply a buff/debuff to the pet's tracked list (called from packet detection).
+function common.apply_pet_buff(server_id, buff_id)
+    if not common.is_pet(server_id) then return end
+    common.apply_external_buff(server_id, buff_id)
+end
+
 -- Handle buff removal (packet 0x029)
 -- Args: server_id (number), buff_id (number)
 function common.handle_buff_removal(server_id, buff_id)
@@ -1465,6 +1660,7 @@ function common.filter_abilities_by_level(abilities, settings, main_level, sub_l
         
         if is_disabled then
         elseif ability.requires_pet and not targets.get_pet() then
+        elseif ability.requires_equipped_ammo and not common.is_ammo_equipped(ability.requires_equipped_ammo) then
         elseif ability.idle_only and not common.is_idle() then
         elseif common.is_ability_combat_only(ability, settings) and not common.is_combat() then
         elseif common.ability_targets_bt(ability) and not common.is_combat() then
@@ -1910,14 +2106,15 @@ common.game_state = {
     alliance_leaders = { [1] = 0, [2] = 0, [3] = 0 },
     tracked          = {},               -- keyed by server_id
     stratagems       = 0,                -- Scholar stratagem charges (0 when not SCH)
+    ready_charges    = 0,                -- Beastmaster Ready charges (0 when not BST)
+    pet_debuffs      = {},               -- pet's tracked statuses (buffs+debuffs); consumer filters by debuff_id
 }
 
 -- ============================================================================
--- Scholar Stratagem Charge Calculation
+-- Charge-Based Recast Calculation (Scholar Stratagems, Beastmaster Ready)
 -- ============================================================================
--- Stratagems are a charge-based system for Scholar (job_id = 20).
--- Recast ID 231 governs the shared stratagem recast timer.
--- Max charges and recharge rate depend on SCH level.
+-- Both are charge systems on a single shared recast timer: the timer counts the
+-- time left until FULL, so available charges = max - ceil(remaining / rate).
 
 local STRATAGEM_RECAST_ID = 231
 local SCH_JOB_ID = 20
@@ -1930,6 +2127,46 @@ local STRATAGEM_TIERS = {
     { level = 30, max_charges = 2, recharge_rate = 120 },
     { level = 10, max_charges = 1, recharge_rate = 240 },
 }
+
+local READY_RECAST_ID     = 102
+local BST_JOB_ID          = 9
+local READY_MAX_CHARGES   = 3   -- 3 charges max
+local READY_RECHARGE_RATE = 30  -- 30s per charge (90s from empty to full)
+
+-- Convert the recast slot matching recast_id into how many of max_charges are
+-- available right now. Shared by stratagems and Ready.
+local function charges_from_recast(recast_id, max_charges, recharge_rate)
+    if max_charges == 0 then return 0 end
+
+    local recast_mgr = AshitaCore:GetMemoryManager():GetRecast()
+    if not recast_mgr then return max_charges end
+
+    local timer_value = nil
+    for slot = 0, 31 do
+        local ok_id, tid = pcall(function() return recast_mgr:GetAbilityTimerId(slot) end)
+        if ok_id and tid == recast_id then
+            local ok_t, t = pcall(function() return recast_mgr:GetAbilityTimer(slot) end)
+            if ok_t then timer_value = t end
+            break
+        end
+    end
+
+    -- No matching slot or timer 0 -> all charges available
+    if not timer_value or timer_value == 0 then
+        return max_charges
+    end
+
+    -- Timer is in ticks (60 ticks = 1 second). Subtract a small epsilon before
+    -- ceil to avoid over-counting by 1 near a charge boundary.
+    local seconds_remaining = timer_value / 60
+    local missing_charges   = math.ceil((seconds_remaining - 0.5) / recharge_rate)
+    local current_charges   = max_charges - missing_charges
+
+    if current_charges < 0 then current_charges = 0 end
+    if current_charges > max_charges then current_charges = max_charges end
+
+    return current_charges
+end
 
 --- Calculate the number of stratagem charges currently available.
 --- Returns 0 if the player is not Scholar main or sub.
@@ -1949,7 +2186,6 @@ local function calculate_stratagems()
         return 0
     end
 
-    -- Determine max charges and recharge rate from level
     local max_charges   = 0
     local recharge_rate = 0
     for _, tier in ipairs(STRATAGEM_TIERS) do
@@ -1960,40 +2196,23 @@ local function calculate_stratagems()
         end
     end
 
-    if max_charges == 0 then return 0 end
+    return charges_from_recast(STRATAGEM_RECAST_ID, max_charges, recharge_rate)
+end
 
-    -- Find the recast slot whose TimerID matches the stratagem recast ID
-    local recast_mgr = AshitaCore:GetMemoryManager():GetRecast()
-    if not recast_mgr then return max_charges end
+--- Ready charges currently available. 0 when not Beastmaster main or sub.
+-- ponytail: fixed 3-charge max; if the server scales it by level/merits, make
+-- this level-tiered like STRATAGEM_TIERS.
+local function calculate_ready()
+    local player = AshitaCore:GetMemoryManager():GetPlayer()
+    if not player then return 0 end
 
-    local timer_value = nil
-    for slot = 0, 31 do
-        local ok_id, tid = pcall(function() return recast_mgr:GetAbilityTimerId(slot) end)
-        if ok_id and tid == STRATAGEM_RECAST_ID then
-            local ok_t, t = pcall(function() return recast_mgr:GetAbilityTimer(slot) end)
-            if ok_t then timer_value = t end
-            break
-        end
+    local main_job = player:GetMainJob()
+    local sub_job  = player:GetSubJob()
+    if main_job ~= BST_JOB_ID and sub_job ~= BST_JOB_ID then
+        return 0
     end
 
-    -- If no matching recast slot found or timer is 0, all charges are available
-    if not timer_value or timer_value == 0 then
-        return max_charges
-    end
-
-    -- Timer is in ticks (60 ticks = 1 second).
-    -- Subtract a small epsilon before ceil to avoid over-counting by 1
-    -- near the boundary when a charge is about to tick in (e.g. 48.01s
-    -- with a 48s recharge_rate would yield 2 missing instead of 1).
-    local seconds_remaining = timer_value / 60
-    local missing_charges   = math.ceil((seconds_remaining - 0.5) / recharge_rate)
-    local current_charges   = max_charges - missing_charges
-
-    -- Clamp to valid range
-    if current_charges < 0 then current_charges = 0 end
-    if current_charges > max_charges then current_charges = max_charges end
-
-    return current_charges
+    return charges_from_recast(READY_RECAST_ID, READY_MAX_CHARGES, READY_RECHARGE_RATE)
 end
 
 -- Internal helper: return packet-tracked buffs for an alliance member.
@@ -2108,6 +2327,7 @@ function common.refresh_game_state()
     state.alliance_leaders = { [1] = 0, [2] = 0, [3] = 0 }
     state.tracked          = {}
     state.stratagems       = calculate_stratagems()
+    state.ready_charges    = calculate_ready()
 
     local party_mgr = common.get_party()
     if not party_mgr then return end
@@ -2159,6 +2379,17 @@ function common.refresh_game_state()
                         end
                     end
                 end
+
+                -- Track the pet's server id so the packet handlers can route the
+                -- pet's buffs/debuffs into trust_buffs. Drop the previous pet's
+                -- list when the pet changes or leaves (swap/release) so no stale
+                -- debuff lingers.
+                local new_pet_sid = pet_entity and (pet_entity.ServerId or 0) or 0
+                if new_pet_sid ~= pet_server_id then
+                    if pet_server_id ~= 0 then trust_buffs[pet_server_id] = nil end
+                    pet_server_id = new_pet_sid
+                end
+                state.pet_debuffs = (pet_server_id ~= 0 and trust_buffs[pet_server_id]) or {}
 
                 state.player = member
 
