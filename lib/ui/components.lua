@@ -1291,7 +1291,7 @@ end
 
 -- Tooltip text naming the pet(s) a requires_pet_name ability needs.
 local function pet_type_tooltip(ability)
-    return 'Requires pet: ' .. table.concat(ability.requires_pet_name, ' / ')
+    return 'Requires pet ' .. table.concat(ability.requires_pet_name, ' / ')
 end
 
 -- Render a self-target single ability

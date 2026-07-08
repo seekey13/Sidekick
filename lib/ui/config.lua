@@ -846,6 +846,15 @@ function ui_config.render(settings, job_def, callback)
                 for _, ability in ipairs(job_def.abilities.buff) do
                     if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                         ui.render_ability(ctx, ability, job_def, 'buff')
+                        -- Inline consumable-ammo count for a buff that needs one
+                        -- equipped (BST Reward Regen -> Pet Poultice).
+                        if ability.requires_equipped_ammo then
+                            local count = common.count_equippable_items(ability.requires_equipped_ammo)
+                            local color = common.is_ammo_equipped(ability.requires_equipped_ammo)
+                                and { 0.4, 1.0, 0.4, 1.0 } or { 1.0, 0.4, 0.4, 1.0 }
+                            imgui.SameLine()
+                            imgui.TextColored(color, string.format('(%d)', count))
+                        end
                     end
                 end
                 ctx.show_buff_warning = false
