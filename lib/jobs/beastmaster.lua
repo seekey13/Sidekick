@@ -10,6 +10,8 @@
     requirement. The UI shows the total count detected.
 ]]--
 
+local common = require('lib.core.common')
+
 -- Pet Food (biscuit) ammo tiers: id, item name (for /equip), equip level.
 local PET_FOOD = {
     { id = 17016, name = 'Pet Food Alpha Biscuit',   level = 12 },
@@ -31,12 +33,6 @@ local PET_POULTICE = {
 local PET_ROBORANT = {
     { id = 19251, name = 'Pet Roborant', level = 1 },
 }
-
--- Status ailments a pet-cleanse (Reward + Roborant) removes.
-local PET_ERASABLE = {3, 4, 5, 6, 8, 9, 11, 12, 13, 31, 128, 129, 130, 131, 134,
-    135, 136, 137, 138, 139, 140, 141, 142, 144, 145, 146, 147, 148, 149, 156,
-    167, 174, 175, 189, 404}
-
 
 return {
     job_id = 9,  -- Beastmaster
@@ -87,7 +83,7 @@ return {
                 cost = 0,
                 id = 103,
                 command = '/ja "Reward" <me>',
-                debuff_id = PET_ERASABLE,
+                debuff_id = common.ERASABLE_DEBUFFS,
                 pet_required = true,
                 requires_equipped_ammo = PET_ROBORANT,  -- gate + auto-equip
                 ammo_label = 'Pet Roborant',            -- UI count label

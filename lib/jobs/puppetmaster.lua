@@ -12,6 +12,8 @@
     count detected.
 ]]--
 
+local common = require('lib.core.common')
+
 -- Automaton Oil ammo tiers: id, item name (for /equip), equip level.
 local OILS = {
     { id = 18731, name = 'Automaton Oil',    level = 15 },
@@ -19,12 +21,6 @@ local OILS = {
     { id = 18733, name = 'Automaton Oil +2', level = 50 },
     { id = 19185, name = 'Automaton Oil +3', level = 80 },
 }
-
--- Status ailments Maintenance removes from the automaton (same list BST uses).
-local PET_ERASABLE = {3, 4, 5, 6, 8, 9, 11, 12, 13, 31, 128, 129, 130, 131, 134,
-    135, 136, 137, 138, 139, 140, 141, 142, 144, 145, 146, 147, 148, 149, 156,
-    167, 174, 175, 189, 404}
-
 
 return {
     job_id = 18,  -- Puppetmaster
@@ -56,7 +52,7 @@ return {
                 cost = 0,
                 id = 214,
                 command = '/ja "Maintenance " <me>',
-                debuff_id = PET_ERASABLE,
+                debuff_id = common.ERASABLE_DEBUFFS,
                 pet_required = true,
                 requires_equipped_ammo = OILS,  -- gate + auto-equip tiers
                 ammo_main_job_only = true,      -- only PUP main can equip oils

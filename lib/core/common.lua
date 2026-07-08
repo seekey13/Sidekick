@@ -546,6 +546,13 @@ function common.get_party()
     return party
 end
 
+-- Status ailments Erase-type cleanses remove: WHM/SCH Erase, and BST Reward /
+-- PUP Maintenance's pet-cleanse mode. Shared so all four abilities point at
+-- one list instead of four copies.
+common.ERASABLE_DEBUFFS = {3, 4, 5, 6, 8, 9, 11, 12, 13, 31, 128, 129, 130, 131, 134,
+    135, 136, 137, 138, 139, 140, 141, 142, 144, 145, 146, 147, 148, 149, 156,
+    167, 174, 175, 189, 404}
+
 -- Containers an equippable (armor) item can be worn from: main inventory (0)
 -- plus all eight Mog Wardrobes (8, 10-16). Matches the client's equip-eligible
 -- container set, so a "count" here reflects everything the player could equip.
@@ -555,29 +562,31 @@ local EQUIP_CONTAINERS = { 0, 8, 10, 11, 12, 13, 14, 15, 16 }
 -- expects (0 = Inventory, 1-8 = Mog Wardrobe 1-8).
 local EQUIP_COMMAND_CONTAINER = { [0] = 0, [8] = 1, [10] = 2, [11] = 3, [12] = 4, [13] = 5, [14] = 6, [15] = 7, [16] = 8 }
 
--- Normalize an "ammo spec" to a set of item ids. A spec may be a single id, a
--- flat list of ids, or a list of { id=, name=, level= } tier entries.
+-- Normalize an ammo spec (a list of { id=, name=, level= } tier entries) to a
+-- set of item ids.
 local function ammo_id_set(spec)
     local set = {}
-    if type(spec) ~= 'table' then
-        if spec then set[spec] = true end
-        return set
-    end
     for _, e in ipairs(spec) do
-        local id = type(e) == 'table' and e.id or e
-        if id then set[id] = true end
+        if e.id then set[e.id] = true end
     end
     return set
 end
 
--- Count how many of the given items the player holds across every
--- equip-eligible container. spec may be a single id, a list of ids, or a list
--- of tier entries. Returns a total count (0 if none / inventory not loaded).
-function common.count_equippable_items(spec)
-    local ok_inv, inventory = pcall(function()
+-- pcall wrapper around the inventory manager, shared by every ammo helper below.
+local function get_inventory()
+    local ok, inventory = pcall(function()
         return AshitaCore:GetMemoryManager():GetInventory()
     end)
-    if not ok_inv or not inventory then return 0 end
+    if ok then return inventory end
+    return nil
+end
+
+-- Count how many of the given items the player holds across every
+-- equip-eligible container. spec is a list of tier entries. Returns a total
+-- count (0 if none / inventory not loaded).
+function common.count_equippable_items(spec)
+    local inventory = get_inventory()
+    if not inventory then return 0 end
 
     local id_set = ammo_id_set(spec)
 
@@ -599,10 +608,8 @@ end
 -- Return the item id equipped in the given equipment slot (0-indexed:
 -- 0=main, 1=sub, 2=range, 3=ammo, ...), or nil if the slot is empty.
 function common.get_equipped_item_id(slot)
-    local ok_inv, inventory = pcall(function()
-        return AshitaCore:GetMemoryManager():GetInventory()
-    end)
-    if not ok_inv or not inventory then return nil end
+    local inventory = get_inventory()
+    if not inventory then return nil end
 
     local eq = inventory:GetEquippedItem(slot)
     if not eq or not eq.Index or eq.Index == 0 then return nil end
@@ -625,10 +632,8 @@ end
 -- Find the first owned item (matching the spec) across equip-eligible
 -- containers. Returns container, item_id -- or nil if none owned.
 function common.find_equippable_item(spec)
-    local ok_inv, inventory = pcall(function()
-        return AshitaCore:GetMemoryManager():GetInventory()
-    end)
-    if not ok_inv or not inventory then return nil end
+    local inventory = get_inventory()
+    if not inventory then return nil end
 
     local id_set = ammo_id_set(spec)
     for _, container in ipairs(EQUIP_CONTAINERS) do

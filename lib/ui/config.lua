@@ -93,6 +93,17 @@ local function is_subjob_duplicate(job_def, ability)
     return false
 end
 
+-- Draw a "(<count>)" after an ammo-gated ability's row: green when a matching
+-- item is worn, red when not.
+local function render_ammo_count(ability)
+    if not ability.requires_equipped_ammo then return end
+    local count = common.count_equippable_items(ability.requires_equipped_ammo)
+    local color = common.is_ammo_equipped(ability.requires_equipped_ammo)
+        and { 0.4, 1.0, 0.4, 1.0 } or { 1.0, 0.4, 0.4, 1.0 }
+    imgui.SameLine()
+    imgui.TextColored(color, string.format('(%d)', count))
+end
+
 -- Check if a party member is a Trust (server_id >= 0x1000000)
 local function is_trust(party_index)
     local party = common.get_party()
@@ -637,16 +648,7 @@ function ui_config.render(settings, job_def, callback)
                 for _, ability in ipairs(job_def.abilities.heal_pet) do
                     if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                         ui.ability_checkbox(ctx, ability, job_def, 'heal_pet')
-                        -- Inline consumable-ammo count for abilities that need one
-                        -- equipped (e.g. PUP Repair needs an Automaton Oil in the
-                        -- ammo slot). Green when equipped, red when not.
-                        if ability.requires_equipped_ammo then
-                            local count = common.count_equippable_items(ability.requires_equipped_ammo)
-                            local color = common.is_ammo_equipped(ability.requires_equipped_ammo)
-                                and { 0.4, 1.0, 0.4, 1.0 } or { 1.0, 0.4, 0.4, 1.0 }
-                            imgui.SameLine()
-                            imgui.TextColored(color, string.format('(%d)', count))
-                        end
+                        render_ammo_count(ability)
                     end
                 end
 
@@ -665,14 +667,7 @@ function ui_config.render(settings, job_def, callback)
                 for _, ability in ipairs(job_def.abilities.pet_debuff_removal) do
                     if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                         ui.ability_checkbox(ctx, ability, job_def, 'pet_debuff_removal')
-                        -- Inline consumable-ammo count (Pet Roborant / Oil).
-                        if ability.requires_equipped_ammo then
-                            local count = common.count_equippable_items(ability.requires_equipped_ammo)
-                            local color = common.is_ammo_equipped(ability.requires_equipped_ammo)
-                                and { 0.4, 1.0, 0.4, 1.0 } or { 1.0, 0.4, 0.4, 1.0 }
-                            imgui.SameLine()
-                            imgui.TextColored(color, string.format('(%d)', count))
-                        end
+                        render_ammo_count(ability)
                     end
                 end
                 ctx.show_pet_debuff_warning = false
@@ -846,15 +841,7 @@ function ui_config.render(settings, job_def, callback)
                 for _, ability in ipairs(job_def.abilities.buff) do
                     if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                         ui.render_ability(ctx, ability, job_def, 'buff')
-                        -- Inline consumable-ammo count for a buff that needs one
-                        -- equipped (BST Reward Regen -> Pet Poultice).
-                        if ability.requires_equipped_ammo then
-                            local count = common.count_equippable_items(ability.requires_equipped_ammo)
-                            local color = common.is_ammo_equipped(ability.requires_equipped_ammo)
-                                and { 0.4, 1.0, 0.4, 1.0 } or { 1.0, 0.4, 0.4, 1.0 }
-                            imgui.SameLine()
-                            imgui.TextColored(color, string.format('(%d)', count))
-                        end
+                        render_ammo_count(ability)
                     end
                 end
                 ctx.show_buff_warning = false

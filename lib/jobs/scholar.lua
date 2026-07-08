@@ -7,6 +7,7 @@
     - MP recovery (Sublimation)
 ]]--
 
+local common = require('lib.core.common')
 
 return {
     job_id = 20,  -- Scholar
@@ -531,7 +532,7 @@ return {
                 id = 143,  -- Spell ID
                 magic = 'white',
                 magic_type = 'healing',
-                debuff_id = {11, 12, 13, 31, 128, 129, 130, 131, 134, 135, 136, 137, 138, 139, 140, 141, 142, 144, 145, 146, 147, 148, 149, 156, 167, 174, 175, 189, 404},  -- Bind, Weight, Slow, Plague, Burn, Frost, Choke, Rasp, Dia, Bio, STR Down, DEX Down, VIT Down, AGI Down, INT Down, MND Down, CHR Down, Max HP Down, Max MP Down, Accuracy Down, Attack Down, Evasion Down, Defense Down, Flash, Magic Def Down, Magic Acc Down, Magic Atk Down, Max TP Down, Magic Eva Down
+                debuff_id = common.ERASABLE_DEBUFFS,
                 command = function(target)
                     return '/ma "Erase" '..target
                 end,
