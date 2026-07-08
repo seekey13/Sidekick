@@ -2058,6 +2058,7 @@ common.game_state = {
     tracked          = {},               -- keyed by server_id
     stratagems       = 0,                -- Scholar stratagem charges (0 when not SCH)
     ready_charges    = 0,                -- Beastmaster Ready charges (0 when not BST)
+    pet_debuffs      = {},               -- pet's status ailments (unpopulated: pet buffs aren't tracked yet)
 }
 
 -- ============================================================================

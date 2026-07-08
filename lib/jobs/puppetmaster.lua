@@ -20,6 +20,11 @@ local OILS = {
     { id = 19185, name = 'Automaton Oil +3', level = 80 },
 }
 
+-- Status ailments Maintenance removes from the automaton (same list BST uses).
+local PET_ERASABLE = {3, 4, 5, 6, 8, 9, 11, 12, 13, 31, 128, 129, 130, 131, 134,
+    135, 136, 137, 138, 139, 140, 141, 142, 144, 145, 146, 147, 148, 149, 156,
+    167, 174, 175, 189, 404}
+
 
 return {
     job_id = 18,  -- Puppetmaster
@@ -41,16 +46,35 @@ return {
                 ammo_label = 'Oils',            -- UI count label
             },
         },
+
+        -- Strip the automaton's status ailments. Same Oil ammo as Repair, so no
+        -- ammo contention. Dormant until pet debuffs are tracked.
+        pet_debuff_removal = {
+            {
+                name = 'Maintenance ',
+                level = 30,
+                cost = 0,
+                id = 214,
+                command = '/ja "Maintenance " <me>',
+                debuff_id = PET_ERASABLE,
+                pet_required = true,
+                requires_equipped_ammo = OILS,  -- gate + auto-equip tiers
+                ammo_main_job_only = true,      -- only PUP main can equip oils
+                ammo_label = 'Oils',            -- UI count label
+            },
+        },
     },
 
     -- Default settings for UI
     default_settings = {
         heal_pet_enabled = true,
         heal_pet_threshold = 50,
+        pet_debuff_removal_enabled = true,
     },
 
     -- Action priority order
     priority_order = {
         'heal_pet',
+        'pet_debuff_removal',
     },
 }

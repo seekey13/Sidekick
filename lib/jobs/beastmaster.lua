@@ -26,6 +26,17 @@ local PET_POULTICE = {
     { id = 19252, name = 'Pet Poultice', level = 1 },
 }
 
+-- Pet Roborant: with this equipped Reward erases the pet's status ailments
+-- instead of healing. Single item, so a one-entry tier list.
+local PET_ROBORANT = {
+    { id = 19251, name = 'Pet Roborant', level = 1 },
+}
+
+-- Status ailments a pet-cleanse (Reward + Roborant) removes.
+local PET_ERASABLE = {3, 4, 5, 6, 8, 9, 11, 12, 13, 31, 128, 129, 130, 131, 134,
+    135, 136, 137, 138, 139, 140, 141, 142, 144, 145, 146, 147, 148, 149, 156,
+    167, 174, 175, 189, 404}
+
 
 return {
     job_id = 9,  -- Beastmaster
@@ -67,6 +78,22 @@ return {
             },
         },
 
+        -- Same Reward JA again, but with a Pet Roborant equipped it erases the
+        -- pet's status ailments. Dormant until pet debuffs are tracked.
+        pet_debuff_removal = {
+            {
+                name = 'Reward (Erase)',
+                level = 12,
+                cost = 0,
+                id = 103,
+                command = '/ja "Reward" <me>',
+                debuff_id = PET_ERASABLE,
+                pet_required = true,
+                requires_equipped_ammo = PET_ROBORANT,  -- gate + auto-equip
+                ammo_label = 'Pet Roborant',            -- UI count label
+            },
+        },
+
         -- AoE party heal from a rabbit jug pet's Ready move. Ready is charge-based
         -- (like SCH stratagems): gated on a spare charge via validate_ability, not
         -- a plain recast, so it stays usable while the shared timer recharges.
@@ -90,12 +117,14 @@ return {
         buff_enabled = true,
         heal_aoe_enabled = true,
         heal_aoe_threshold = 70,
+        pet_debuff_removal_enabled = true,
     },
 
     -- Action priority order
     priority_order = {
         'heal_aoe',
         'heal_pet',
+        'pet_debuff_removal',
         'buff',
     },
 
