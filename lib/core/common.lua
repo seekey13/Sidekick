@@ -617,6 +617,8 @@ local BASE_DEBUFF_DURATION = {
     [16] = 180,       -- Amnesia
     [21] = 180,       -- Addle
     [28] = 30,        -- Terror
+    [134] = 120,      -- Dia
+    [135] = 120,      -- Bio
     [8]  = INFINITE,  -- Disease
     [9]  = INFINITE,  -- Curse
     [20] = INFINITE,  -- Bane
@@ -1507,13 +1509,17 @@ function common.apply_external_buff(server_id, buff_id, duration, source_id)
     table.insert(trust_buffs[server_id], buff_id)
 end
 
--- Drop tracked buffs whose base duration has elapsed. Trusts and tracked
--- targets only: their wear-off packets are unreliable/absent, so the timer is
--- the only drop signal. Called once per refresh_game_state tick.
+-- Drop tracked buffs whose base duration has elapsed. Applies to every
+-- packet-tracked target -- Trusts, tracked targets, alliance members and the pet
+-- (all read from trust_buffs, never from memory) -- since their wear-off packets
+-- are unreliable/absent and the timer is the only guaranteed drop signal. Regular
+-- party members read buffs from memory each tick, so they're skipped here.
+-- Called once per refresh_game_state tick.
 function common.expire_timed_buffs()
     local now = os.clock()
     for sid, times in pairs(buff_timestamps) do
-        if sid >= 0x1000000 or tracked_targets[sid] then
+        if sid >= 0x1000000 or tracked_targets[sid] or alliance_member_sids[sid]
+           or (pet_server_id ~= 0 and sid == pet_server_id) then
             for buff_id, t in pairs(times) do
                 if t.dur and (now - t.at) >= t.dur then
                     common.debugf('Timed buff %d expired on %d after %ds', buff_id, sid, t.dur)
