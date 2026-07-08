@@ -101,7 +101,8 @@ return {
                 command = '/pet "Wild Carrot" <me>',
                 pet_required = true,
                 requires_pet_name = { 'Lucky Lulush', 'Rabbit' },  -- rabbit jug pets only
-                requires_ready_charge = true,  -- needs a Ready charge (id 102)
+                requires_ready_charge = true,  -- needs Ready charges (id 102)
+                ready_charge_cost = 2,         -- Wild Carrot burns 2 charges, not 1
             },
         },
     },
@@ -135,10 +136,10 @@ return {
             return false
         end
 
-        -- Ready is charge-based; block when no charge is banked.
+        -- Ready is charge-based; block when fewer charges banked than the move costs.
         if ability.requires_ready_charge then
             local gs = common.game_state
-            if not gs or (gs.ready_charges or 0) < 1 then
+            if not gs or (gs.ready_charges or 0) < (ability.ready_charge_cost or 1) then
                 return false
             end
         end
