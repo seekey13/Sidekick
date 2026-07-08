@@ -55,6 +55,11 @@ local member_max_stats = {}
 -- Trust buff tracking (packet-based since memory reads don't work for Trusts)
 local trust_buffs = {}  -- trust_buffs[server_id] = {buff_id1, buff_id2, ...}
 
+-- Current pet's server id, refreshed each tick. Pets have normal entity ids
+-- (< 0x1000000) so they miss the Trust guard; their buffs/debuffs ride the same
+-- trust_buffs table via the packet handlers, keyed by this id.
+local pet_server_id = 0
+
 -- Alliance member server_id set — rebuilt each refresh_game_state tick.
 -- Used by packet handlers to decide whether to track buffs for a given server_id.
 local alliance_member_sids = {}  -- alliance_member_sids[server_id] = true
@@ -1197,6 +1202,18 @@ function common.apply_trust_buff(server_id, buff_id)
     common.apply_external_buff(server_id, buff_id)
 end
 
+-- True when server_id is the current pet (refreshed each tick). Packet handlers
+-- use this to route the pet's buffs/debuffs into trust_buffs.
+function common.is_pet(server_id)
+    return server_id ~= nil and server_id ~= 0 and server_id == pet_server_id
+end
+
+-- Apply a buff/debuff to the pet's tracked list (called from packet detection).
+function common.apply_pet_buff(server_id, buff_id)
+    if not common.is_pet(server_id) then return end
+    common.apply_external_buff(server_id, buff_id)
+end
+
 -- Handle buff removal (packet 0x029)
 -- Args: server_id (number), buff_id (number)
 function common.handle_buff_removal(server_id, buff_id)
@@ -2058,7 +2075,7 @@ common.game_state = {
     tracked          = {},               -- keyed by server_id
     stratagems       = 0,                -- Scholar stratagem charges (0 when not SCH)
     ready_charges    = 0,                -- Beastmaster Ready charges (0 when not BST)
-    pet_debuffs      = {},               -- pet's status ailments (unpopulated: pet buffs aren't tracked yet)
+    pet_debuffs      = {},               -- pet's tracked statuses (buffs+debuffs); consumer filters by debuff_id
 }
 
 -- ============================================================================
@@ -2330,6 +2347,17 @@ function common.refresh_game_state()
                         end
                     end
                 end
+
+                -- Track the pet's server id so the packet handlers can route the
+                -- pet's buffs/debuffs into trust_buffs. Drop the previous pet's
+                -- list when the pet changes or leaves (swap/release) so no stale
+                -- debuff lingers.
+                local new_pet_sid = pet_entity and (pet_entity.ServerId or 0) or 0
+                if new_pet_sid ~= pet_server_id then
+                    if pet_server_id ~= 0 then trust_buffs[pet_server_id] = nil end
+                    pet_server_id = new_pet_sid
+                end
+                state.pet_debuffs = (pet_server_id ~= 0 and trust_buffs[pet_server_id]) or {}
 
                 state.player = member
 
