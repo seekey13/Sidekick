@@ -47,11 +47,11 @@ return {
         -- ammo contention. Dormant until pet debuffs are tracked.
         pet_debuff_removal = {
             {
-                name = 'Maintenance ',
+                name = 'Maintenance',
                 level = 30,
                 cost = 0,
                 id = 214,
-                command = '/ja "Maintenance " <me>',
+                command = '/ja "Maintenance" <me>',
                 debuff_id = common.ERASABLE_DEBUFFS,
                 pet_required = true,
                 requires_equipped_ammo = OILS,  -- gate + auto-equip tiers
