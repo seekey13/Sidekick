@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **Timed buff expiry for Trusts & tracked targets**: Trusts and tracked targets get no reliable wear-off packets, so tracked buffs now record a start time and base duration on application and are dropped by timer once elapsed (generalizing the BST Reward `reapply_interval` idea). Base durations: Haste/Flurry 180s, Refresh 150s, Regen 75s / II–III 60s, Phalanx II 120s, Protect/Shell all tiers 1800s, all bard songs 120s. Buffs without a known duration keep the old packet-only behavior; re-application refreshes the timer.
-- **Trust song slot eviction**: A Trust holds 2 songs. When a new bard song lands on a Trust (per the action packet's actual AoE hit list) with both slots full, the tracked song with the oldest start time is discarded, mirroring the game's overwrite behavior.
+- **Per-caster song slot eviction**: Song slots are tracked per caster (2 per bard per target, mirroring FFXI). Each tracked buff records its caster (from the 0x028 action packet). When a new song lands from a caster who already has 2 songs on that target, that caster's oldest-start-time song is evicted; songs from a different bard sit in their own slot bucket and are never affected. Applies to any tracked ally (Trusts, tracked players, alliance members); skipped when the caster is unknown (0x029 packets carry no caster).
 
 ## [2.2.0] - 2026-07-06
 

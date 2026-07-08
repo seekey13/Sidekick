@@ -746,27 +746,30 @@ ashita.events.register('packet_in', 'medic_packet_in', function(e)
                     if action.Message == 230 or action.Message == 266 then
                         common.debugf('%s gained the effect of %s.', target_name, buff_name)
 
-                        -- Base duration for timed expiry (nil = no timer)
+                        -- Base duration for timed expiry (nil = no timer). The
+                        -- actor (UserId) is the caster -- used for per-caster song
+                        -- slot accounting on the target.
                         local duration = common.base_buff_duration(action.Param, spell_name)
+                        local source_id = actionPacket.UserId
 
                         -- Update Trust buff tracking so game_state reflects the change
                         if target.Id >= 0x1000000 then
-                            common.apply_trust_buff(target.Id, action.Param, duration)
+                            common.apply_trust_buff(target.Id, action.Param, duration, source_id)
                         end
 
                         -- Update tracked target buff tracking
                         if common.is_tracked_target(target.Id) then
-                            common.apply_tracked_target_buff(target.Id, action.Param, duration)
+                            common.apply_tracked_target_buff(target.Id, action.Param, duration, source_id)
                         end
 
                         -- Update alliance member buff tracking
                         if common.is_alliance_member(target.Id) then
-                            common.apply_alliance_member_buff(target.Id, action.Param, duration)
+                            common.apply_alliance_member_buff(target.Id, action.Param, duration, source_id)
                         end
 
                         -- Update pet buff/debuff tracking
                         if common.is_pet(target.Id) then
-                            common.apply_pet_buff(target.Id, action.Param, duration)
+                            common.apply_pet_buff(target.Id, action.Param, duration, source_id)
                         end
 
                     elseif action.Message == 83 then
@@ -837,7 +840,9 @@ ashita.events.register('packet_in', 'medic_packet_in', function(e)
                     common.debugf('%s gained the effect of %s (via 0x029).', target_name, buff_name)
 
                     -- Base duration for timed expiry; 0x029 has no spell id, so
-                    -- this resolves via song range / buff name only
+                    -- this resolves via song range / buff name only. It also
+                    -- carries no caster, so source stays nil (no song eviction --
+                    -- 0x028 is the reliable song-detection path anyway).
                     local duration = common.base_buff_duration(buff_id, nil)
 
                     -- Update Trust buff tracking
