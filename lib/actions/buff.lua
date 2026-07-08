@@ -12,6 +12,10 @@ local action_core = require('lib.core.action_core')
 -- song, so they don't count as "missing" and never force an endless recast.
 local SONG_AOE_RANGE = 10
 
+-- os.clock() of our last cast per ability name, for buffs whose target we can't
+-- read (pet buffs aren't tracked). Cleared on reload -> re-applies immediately.
+local last_self_cast = {}
+
 -- Count active instances of a buff id. Songs that share a buff_id stack as
 -- separate instances (e.g. Mage's Ballad + Mage's Ballad II = two of buff 196),
 -- so a plain "has it" check is not enough.
@@ -197,7 +201,15 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
     if #buff_abilities == 0 then
         return nil
     end
-    
+
+    -- Auto-equip a consumable a buff needs in the ammo slot (BST Reward Regen ->
+    -- Pet Poultice). Only reached when the higher-priority pet-heal passed this
+    -- tick, so its biscuit and this poultice never contend for the slot at once.
+    if common.targets.get_pet() then
+        local equip = common.ammo_equip_command(buff_abilities, settings, player)
+        if equip then return equip end
+    end
+
     -- Filter abilities by level and settings
     local available_abilities = common.filter_abilities_by_level(buff_abilities, settings, derived_main_level, derived_sub_level, job_def)
 
@@ -527,14 +539,26 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                     goto continue_ability
                 end
                 
+                -- For buffs we can't detect on the target (e.g. pet Regen from
+                -- Reward), reapply_interval is the effect's duration in seconds;
+                -- skip until that has elapsed since our last cast so we don't
+                -- reapply every recast and waste the consumable.
+                if ability.reapply_interval then
+                    local last = last_self_cast[ability.name]
+                    if last and (os.clock() - last) < ability.reapply_interval then
+                        goto continue_ability
+                    end
+                end
+
                 -- Check if buff is already active
                 local needs_buff = action_core.needs_buff(state.player.buffs, ability.buff_id)
-                
+
                 if needs_buff then
                     -- Use action_core for resource + cooldown + command building
                     local desc = string.format('Applying buff: %s', ability.name)
                     local result, reason = action_core.try_use(ability, job_def, settings, 0, desc, state)
                     if result then
+                        last_self_cast[ability.name] = os.clock()
                         return result
                     end
                 end

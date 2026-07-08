@@ -20,6 +20,12 @@ local PET_FOOD = {
     { id = 17021, name = 'Pet Food Zeta Biscuit',    level = 72 },
 }
 
+-- Pet Poultice: with this in the ammo slot Reward grants the pet Regen instead
+-- of the flat heal biscuits give. Single item, so a one-entry tier list.
+local PET_POULTICE = {
+    { id = 19252, name = 'Pet Poultice', level = 1 },
+}
+
 
 return {
     job_id = 9,  -- Beastmaster
@@ -40,16 +46,38 @@ return {
                 ammo_label = 'Biscuits',            -- UI count label
             },
         },
+
+        -- Same Reward JA, but with a Pet Poultice equipped it grants the pet
+        -- Regen instead of a heal. Shares Reward's recast (id 103) and, since only
+        -- one ammo can be worn, never fires the same tick as the heal_pet Reward.
+        buff = {
+            {
+                name = 'Reward (Regen)',
+                level = 12,
+                cost = 0,
+                id = 103,
+                command = '/ja "Reward" <me>',
+                pet_required = true,
+                requires_equipped_ammo = PET_POULTICE,  -- gate + auto-equip
+                ammo_label = 'Pet Poultice',            -- UI count label
+                -- Pet buffs aren't tracked, so we can't see the pet's Regen. It
+                -- lasts 5 min, so reapply on that interval instead of every
+                -- recast (avoids wasting poultices).
+                reapply_interval = 300,
+            },
+        },
     },
 
     -- Default settings for UI
     default_settings = {
         heal_pet_enabled = true,
         heal_pet_threshold = 50,
+        buff_enabled = true,
     },
 
     -- Action priority order
     priority_order = {
         'heal_pet',
+        'buff',
     },
 }

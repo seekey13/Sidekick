@@ -649,6 +649,27 @@ function common.select_ammo_equip_command(spec, player_level)
     }
 end
 
+-- For the first enabled, level-eligible ability in `abilities` that needs a
+-- consumable in the ammo slot (BST biscuit/poultice, PUP oil) and isn't wearing
+-- one, return the /equip command for the best owned tier. nil when all are
+-- already equipped, disabled, none owned, or not equippable on this job.
+function common.ammo_equip_command(abilities, settings, player)
+    for _, ability in ipairs(abilities or {}) do
+        local spec = ability.requires_equipped_ammo
+        if spec and not common.is_ammo_equipped(spec) then
+            local disabled     = settings['disabled_' .. ability.name:gsub(' ', '_')] == true
+            local usable_level = ability.is_main_job == false and (player.sub_level or 0) or (player.main_level or 0)
+            -- Oils equip PUP-main only; biscuits/poultice equip on any job.
+            local wrong_main   = ability.ammo_main_job_only and ability.is_main_job == false
+            if not disabled and not wrong_main and (ability.level or 0) <= usable_level then
+                local equip = common.select_ammo_equip_command(spec, player.main_level or 0)
+                if equip then return equip end
+            end
+        end
+    end
+    return nil
+end
+
 -- Get entity manager
 -- Returns: entity manager object or nil on error
 function common.get_entity_manager()
