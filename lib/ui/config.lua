@@ -94,14 +94,23 @@ local function is_subjob_duplicate(job_def, ability)
 end
 
 -- Draw a "(<count>)" after an ammo-gated ability's row: green when a matching
--- item is worn, red when not.
-local function render_ammo_count(ability)
+-- item is worn, red when not. When show_name is set and an item is worn, also
+-- name the equipped tier in green -- only useful for heal_pet (Reward/Repair),
+-- where the tier changes how much the pet heals.
+local GREEN = { 0.4, 1.0, 0.4, 1.0 }
+local function render_ammo_count(ability, show_name)
     if not ability.requires_equipped_ammo then return end
     local count = common.count_equippable_items(ability.requires_equipped_ammo)
-    local color = common.is_ammo_equipped(ability.requires_equipped_ammo)
-        and { 0.4, 1.0, 0.4, 1.0 } or { 1.0, 0.4, 0.4, 1.0 }
+    local equipped = common.is_ammo_equipped(ability.requires_equipped_ammo)
     imgui.SameLine()
-    imgui.TextColored(color, string.format('(%d)', count))
+    imgui.TextColored(equipped and GREEN or { 1.0, 0.4, 0.4, 1.0 }, string.format('(%d)', count))
+    if show_name and equipped then
+        local name = common.equipped_ammo_name(ability.requires_equipped_ammo)
+        if name then
+            imgui.SameLine()
+            imgui.TextColored(GREEN, name)
+        end
+    end
 end
 
 -- Check if a party member is a Trust (server_id >= 0x1000000)
@@ -648,7 +657,7 @@ function ui_config.render(settings, job_def, callback)
                 for _, ability in ipairs(job_def.abilities.heal_pet) do
                     if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                         ui.ability_checkbox(ctx, ability, job_def, 'heal_pet')
-                        render_ammo_count(ability)
+                        render_ammo_count(ability, true)
                     end
                 end
 

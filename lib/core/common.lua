@@ -629,6 +629,16 @@ function common.is_ammo_equipped(spec)
     return ammo_id_set(spec)[equipped] == true
 end
 
+-- Name of the spec's tier currently worn in the ammo slot, or nil if none.
+function common.equipped_ammo_name(spec)
+    local equipped = common.get_equipped_item_id(3)
+    if not equipped or type(spec) ~= 'table' then return nil end
+    for _, e in ipairs(spec) do
+        if type(e) == 'table' and e.id == equipped then return e.name end
+    end
+    return nil
+end
+
 -- Find the first owned item (matching the spec) across equip-eligible
 -- containers. Returns container, item_id -- or nil if none owned.
 function common.find_equippable_item(spec)
