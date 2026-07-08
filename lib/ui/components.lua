@@ -1756,7 +1756,7 @@ function ui_components.ability_checkbox(ctx, ability, job_def, id_suffix, show_s
         elseif ability.idle_only then
             imgui.SetTooltip('Idle Only')
         elseif ctx.show_pet_debuff_warning then
-            imgui.SetTooltip('Pet Tracked Removal is not totally reliable')
+            imgui.SetTooltip('Pet Debuff Removal is not totally reliable')
         end
     end
 
