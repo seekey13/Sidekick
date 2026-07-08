@@ -34,6 +34,15 @@ local function count_removable_debuffs(buffs, abilities)
     return count
 end
 
+-- Sort key for the priority loops: targeted na-spell (0) < generic Erase (1) <
+-- self-centered AOE / Esuna (2). Erase is identified by table identity -- every
+-- Erase/Maintenance/Reward shares the one common.ERASABLE_DEBUFFS table.
+local function removal_rank(ability)
+    if ability.self_only then return 2 end
+    if not ability.debuff_id or ability.debuff_id == common.ERASABLE_DEBUFFS then return 1 end
+    return 0
+end
+
 -- ============================================================================
 -- Debuff Removal  (formerly lib.actions.debuff_removal)
 -- ============================================================================
@@ -75,27 +84,12 @@ function status_removal.execute_debuff_removal(settings, job_def, main_level, su
         return nil
     end
 
-    -- Check for self-only abilities first
-    for _, ability in ipairs(available_abilities) do
-        if ability.self_only and is_ability_target_allowed(ability, 0) then
-            local blocked_by = common.is_command_blocked(ability.command)
-            if blocked_by then
-                goto continue_self
-            end
-
-            local player_buffs = state.player.buffs or {}
-            if can_remove_debuffs(ability, player_buffs) then
-                local debuff_count = count_removable_debuffs(player_buffs, {ability})
-                local desc = string.format('Removing %d debuff(s) from self with %s', debuff_count, ability.name)
-                local result, reason = action_core.try_use(ability, job_def, settings, 0, desc)
-                if result then
-                    return result
-                end
-            end
-        end
-
-        ::continue_self::
-    end
+    -- Reach for the most specific remover first: a targeted na-spell strips the
+    -- exact ailment, generic Erase strips a random erasable one, and the AOE
+    -- (Esuna) sorts last -- it's fired deliberately by the AOE block below and
+    -- only reached in the per-target loops as a last resort for an Esuna-only
+    -- ailment nothing else covers.
+    table.sort(available_abilities, function(x, y) return removal_rank(x) < removal_rank(y) end)
 
     -- Build buff table from game_state snapshot
     local all_buffs = {}
@@ -141,6 +135,54 @@ function status_removal.execute_debuff_removal(settings, job_def, main_level, su
                         alliance_buffs[m.server_id] = m.buffs or {}
                         alliance_debuff_counts[m.server_id] = count_removable_debuffs(alliance_buffs[m.server_id], outside_abilities)
                     end
+                end
+            end
+        end
+    end
+
+    -- Priority 0: self-centered AOE ailment removal (Esuna). One cast strips the
+    -- shared ailment off every self/party/alliance member inside its radius, so it
+    -- beats a chain of single-target na-casts once 2+ members are affected. Pets
+    -- and tracked (Trust) targets are NOT inside the AOE, so they neither count
+    -- toward the threshold nor get their tracking dropped here.
+    -- ponytail: threshold hardcoded 2; add a setting if someone wants to tune it.
+    for _, ability in ipairs(available_abilities) do
+        if ability.self_only and ability.debuff_id then
+            local radius = ability.range or 10
+            local affected_alliance = {}   -- packet-tracked sids -> drop one debuff on cast
+            local count = 0
+
+            if is_ability_target_allowed(ability, 0) and can_remove_debuffs(ability, all_buffs[0]) then
+                count = count + 1
+            end
+            for i = 1, 5 do
+                local pm = state.party[i]
+                if pm and pm.target_index and pm.target_index > 0
+                   and is_ability_target_allowed(ability, i)
+                   and can_remove_debuffs(ability, all_buffs[i])
+                   and common.is_in_range(pm.target_index, radius) then
+                    count = count + 1
+                end
+            end
+            for sid, buffs in pairs(alliance_buffs) do
+                local al = common.find_alliance_member(state, sid)
+                if al and al.target_index and al.target_index > 0
+                   and is_ability_target_allowed(ability, alliance_sid_to_key[sid] or '')
+                   and can_remove_debuffs(ability, buffs)
+                   and common.is_in_range(al.target_index, radius) then
+                    count = count + 1
+                    table.insert(affected_alliance, sid)
+                end
+            end
+
+            if count >= 2 then
+                local desc = string.format('Removing debuffs from %d members with %s', count, ability.name)
+                local result = action_core.try_use(ability, job_def, settings, 0, desc)
+                if result then
+                    for _, sid in ipairs(affected_alliance) do
+                        common.drop_removed_debuff(sid, ability)
+                    end
+                    return result
                 end
             end
         end
@@ -414,7 +456,14 @@ function status_removal.execute_pet_debuff_removal(settings, job_def, main_level
             local count = count_removable_debuffs(pet_debuffs, { ability })
             local desc  = string.format('Removing %d debuff(s) from pet with %s', count, ability.name)
             local result = action_core.try_use(ability, job_def, settings, 0, desc)
-            if result then return result end
+            if result then
+                -- Drop one erasable status from tracking so a multi-debuff pet
+                -- doesn't re-fire on the same one; more casts strip the rest.
+                local pet = common.get_pet_entity()
+                local sid = pet and (pet.ServerId or 0) or 0
+                if sid ~= 0 then common.drop_removed_debuff(sid, ability) end
+                return result
+            end
         end
     end
 
