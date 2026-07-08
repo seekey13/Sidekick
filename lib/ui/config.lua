@@ -661,7 +661,7 @@ function ui_config.render(settings, job_def, callback)
             local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Enable Pet Debuff Removal', 'pet_debuff_removal_enabled', false)
             if is_open and is_enabled then
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
-                imgui.TextColored({ 1.0, 0.8, 0.2, 1.0 }, 'Pet debuff tracking is inferred from packets and not fully reliable.')
+                ctx.show_pet_debuff_warning = true
                 for _, ability in ipairs(job_def.abilities.pet_debuff_removal) do
                     if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                         ui.ability_checkbox(ctx, ability, job_def, 'pet_debuff_removal')
@@ -675,6 +675,7 @@ function ui_config.render(settings, job_def, callback)
                         end
                     end
                 end
+                ctx.show_pet_debuff_warning = false
                 imgui.Unindent(ui.ABILITY_LIST_INDENT)
             end
         end
