@@ -2057,14 +2057,14 @@ common.game_state = {
     alliance_leaders = { [1] = 0, [2] = 0, [3] = 0 },
     tracked          = {},               -- keyed by server_id
     stratagems       = 0,                -- Scholar stratagem charges (0 when not SCH)
+    ready_charges    = 0,                -- Beastmaster Ready charges (0 when not BST)
 }
 
 -- ============================================================================
--- Scholar Stratagem Charge Calculation
+-- Charge-Based Recast Calculation (Scholar Stratagems, Beastmaster Ready)
 -- ============================================================================
--- Stratagems are a charge-based system for Scholar (job_id = 20).
--- Recast ID 231 governs the shared stratagem recast timer.
--- Max charges and recharge rate depend on SCH level.
+-- Both are charge systems on a single shared recast timer: the timer counts the
+-- time left until FULL, so available charges = max - ceil(remaining / rate).
 
 local STRATAGEM_RECAST_ID = 231
 local SCH_JOB_ID = 20
@@ -2077,6 +2077,46 @@ local STRATAGEM_TIERS = {
     { level = 30, max_charges = 2, recharge_rate = 120 },
     { level = 10, max_charges = 1, recharge_rate = 240 },
 }
+
+local READY_RECAST_ID     = 102
+local BST_JOB_ID          = 9
+local READY_MAX_CHARGES   = 3   -- 3 charges max
+local READY_RECHARGE_RATE = 30  -- 30s per charge (90s from empty to full)
+
+-- Convert the recast slot matching recast_id into how many of max_charges are
+-- available right now. Shared by stratagems and Ready.
+local function charges_from_recast(recast_id, max_charges, recharge_rate)
+    if max_charges == 0 then return 0 end
+
+    local recast_mgr = AshitaCore:GetMemoryManager():GetRecast()
+    if not recast_mgr then return max_charges end
+
+    local timer_value = nil
+    for slot = 0, 31 do
+        local ok_id, tid = pcall(function() return recast_mgr:GetAbilityTimerId(slot) end)
+        if ok_id and tid == recast_id then
+            local ok_t, t = pcall(function() return recast_mgr:GetAbilityTimer(slot) end)
+            if ok_t then timer_value = t end
+            break
+        end
+    end
+
+    -- No matching slot or timer 0 -> all charges available
+    if not timer_value or timer_value == 0 then
+        return max_charges
+    end
+
+    -- Timer is in ticks (60 ticks = 1 second). Subtract a small epsilon before
+    -- ceil to avoid over-counting by 1 near a charge boundary.
+    local seconds_remaining = timer_value / 60
+    local missing_charges   = math.ceil((seconds_remaining - 0.5) / recharge_rate)
+    local current_charges   = max_charges - missing_charges
+
+    if current_charges < 0 then current_charges = 0 end
+    if current_charges > max_charges then current_charges = max_charges end
+
+    return current_charges
+end
 
 --- Calculate the number of stratagem charges currently available.
 --- Returns 0 if the player is not Scholar main or sub.
@@ -2096,7 +2136,6 @@ local function calculate_stratagems()
         return 0
     end
 
-    -- Determine max charges and recharge rate from level
     local max_charges   = 0
     local recharge_rate = 0
     for _, tier in ipairs(STRATAGEM_TIERS) do
@@ -2107,40 +2146,23 @@ local function calculate_stratagems()
         end
     end
 
-    if max_charges == 0 then return 0 end
+    return charges_from_recast(STRATAGEM_RECAST_ID, max_charges, recharge_rate)
+end
 
-    -- Find the recast slot whose TimerID matches the stratagem recast ID
-    local recast_mgr = AshitaCore:GetMemoryManager():GetRecast()
-    if not recast_mgr then return max_charges end
+--- Ready charges currently available. 0 when not Beastmaster main or sub.
+-- ponytail: fixed 3-charge max; if the server scales it by level/merits, make
+-- this level-tiered like STRATAGEM_TIERS.
+local function calculate_ready()
+    local player = AshitaCore:GetMemoryManager():GetPlayer()
+    if not player then return 0 end
 
-    local timer_value = nil
-    for slot = 0, 31 do
-        local ok_id, tid = pcall(function() return recast_mgr:GetAbilityTimerId(slot) end)
-        if ok_id and tid == STRATAGEM_RECAST_ID then
-            local ok_t, t = pcall(function() return recast_mgr:GetAbilityTimer(slot) end)
-            if ok_t then timer_value = t end
-            break
-        end
+    local main_job = player:GetMainJob()
+    local sub_job  = player:GetSubJob()
+    if main_job ~= BST_JOB_ID and sub_job ~= BST_JOB_ID then
+        return 0
     end
 
-    -- If no matching recast slot found or timer is 0, all charges are available
-    if not timer_value or timer_value == 0 then
-        return max_charges
-    end
-
-    -- Timer is in ticks (60 ticks = 1 second).
-    -- Subtract a small epsilon before ceil to avoid over-counting by 1
-    -- near the boundary when a charge is about to tick in (e.g. 48.01s
-    -- with a 48s recharge_rate would yield 2 missing instead of 1).
-    local seconds_remaining = timer_value / 60
-    local missing_charges   = math.ceil((seconds_remaining - 0.5) / recharge_rate)
-    local current_charges   = max_charges - missing_charges
-
-    -- Clamp to valid range
-    if current_charges < 0 then current_charges = 0 end
-    if current_charges > max_charges then current_charges = max_charges end
-
-    return current_charges
+    return charges_from_recast(READY_RECAST_ID, READY_MAX_CHARGES, READY_RECHARGE_RATE)
 end
 
 -- Internal helper: return packet-tracked buffs for an alliance member.
@@ -2255,6 +2277,7 @@ function common.refresh_game_state()
     state.alliance_leaders = { [1] = 0, [2] = 0, [3] = 0 }
     state.tracked          = {}
     state.stratagems       = calculate_stratagems()
+    state.ready_charges    = calculate_ready()
 
     local party_mgr = common.get_party()
     if not party_mgr then return end

@@ -151,6 +151,15 @@ function panel.render()
             imgui.TextColored(strat_color, string.format('Stratagems: %d', gs.stratagems))
         end
 
+        -- Beastmaster Ready charges (same treatment as Scholar stratagems)
+        if gs.ready_charges and gs.ready_charges > 0 then
+            imgui.SameLine(0, 20)
+            local ready_color = gs.ready_charges <= 1
+                and { 1.0, 0.4, 0.4, 1.0 }   -- red when low
+                or  { 0.4, 0.8, 1.0, 1.0 }   -- cyan
+            imgui.TextColored(ready_color, string.format('Ready: %d', gs.ready_charges))
+        end
+
         -- Debug Mode toggle (next to Stratagems in header row)
         local debug_var = { common.debug }
         imgui.SameLine(0, 20)
