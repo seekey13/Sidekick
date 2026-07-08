@@ -595,6 +595,38 @@ common.ERASABLE_DEBUFFS = {3, 4, 5, 6, 8, 9, 11, 12, 13, 31, 128, 129, 130, 131,
     135, 136, 137, 138, 139, 140, 141, 142, 144, 145, 146, 147, 148, 149, 156,
     167, 174, 175, 189, 404}
 
+-- Base durations (seconds) for DEBUFFS packet-detected on Trusts/tracked targets,
+-- keyed by status id. Backstop so a missed removal packet can't loop a na-/Erase
+-- spell forever: expire_timed_buffs drops the status once the timer elapses.
+-- Curse/Bane/Disease/Plague last until removed -> INFINITE (no timer). Any other
+-- erasable debuff not listed here falls back to 120s (see base_buff_duration).
+local INFINITE = false  -- tracked but never timer-expired
+local BASE_DEBUFF_DURATION = {
+    [2]  = 90,        -- Sleep
+    [19] = 90,        -- Sleep II
+    [3]  = 120,       -- Poison
+    [4]  = 120,       -- Paralysis
+    [5]  = 120,       -- Blindness
+    [6]  = 120,       -- Silence
+    [7]  = 60,        -- Petrification
+    [10] = 10,        -- Stun
+    [11] = 60,        -- Bind
+    [12] = 90,        -- Weight (Gravity)
+    [13] = 180,       -- Slow
+    [15] = 30,        -- Doom
+    [16] = 180,       -- Amnesia
+    [21] = 180,       -- Addle
+    [28] = 30,        -- Terror
+    [8]  = INFINITE,  -- Disease
+    [9]  = INFINITE,  -- Curse
+    [20] = INFINITE,  -- Bane
+    [31] = INFINITE,  -- Plague
+}
+
+-- Set form of ERASABLE_DEBUFFS for O(1) "is this a removable debuff" lookups.
+local ERASABLE_SET = {}
+for _, id in ipairs(common.ERASABLE_DEBUFFS) do ERASABLE_SET[id] = true end
+
 -- Containers an equippable (armor) item can be worn from: main inventory (0)
 -- plus all eight Mog Wardrobes (8, 10-16). Matches the client's equip-eligible
 -- container set, so a "count" here reflects everything the player could equip.
@@ -1248,6 +1280,15 @@ function common.base_buff_duration(buff_id, spell_name)
         if buff_name and BASE_BUFF_DURATION[buff_name] then
             return BASE_BUFF_DURATION[buff_name]
         end
+        -- Debuff backstop: explicit duration, INFINITE (no timer), else 120s for
+        -- any other removable debuff.
+        local d = BASE_DEBUFF_DURATION[buff_id]
+        if d ~= nil then
+            return d or nil  -- INFINITE (false) -> no timer
+        end
+        if ERASABLE_SET[buff_id] then
+            return 120
+        end
     end
     return nil
 end
@@ -1337,6 +1378,28 @@ function common.handle_buff_removal(server_id, buff_id)
     -- Clean up empty buff lists
     if #trust_buffs[server_id] == 0 then
         trust_buffs[server_id] = nil
+    end
+end
+
+-- Optimistically drop one status a na-/Erase spell just cured from a Trust /
+-- tracked / alliance target's packet-tracked list. These targets give no reliable
+-- wear-off packet, so without this the removal spell re-fires every tick. Each
+-- removal spell clears exactly one status per cast, so we drop a single match;
+-- the base-duration timer covers any we guess wrong. No-op for memory-read party
+-- members (their sid isn't in trust_buffs) and for abilities with no debuff_id.
+function common.drop_removed_debuff(server_id, ability)
+    local ids = ability and ability.debuff_id
+    if not server_id or not ids then return end
+    local list = trust_buffs[server_id]
+    if not list then return end
+    if type(ids) ~= 'table' then ids = { ids } end
+    local match = {}
+    for _, id in ipairs(ids) do match[id] = true end
+    for _, tracked_id in ipairs(list) do
+        if match[tracked_id] then
+            common.handle_buff_removal(server_id, tracked_id)
+            return
+        end
     end
 end
 

@@ -165,6 +165,7 @@ function status_removal.execute_debuff_removal(settings, job_def, main_level, su
                     local desc = string.format('Removing %d debuff(s) from focus with %s', dc, ability.name)
                     local result, reason = action_core.try_use(ability, job_def, settings, focus_party_idx, desc)
                     if result then
+                        common.drop_removed_debuff(focus_member.server_id, ability)
                         return result
                     end
                 end
@@ -192,6 +193,7 @@ function status_removal.execute_debuff_removal(settings, job_def, main_level, su
                                 local bid = type(ability.buff_id) == 'table' and ability.buff_id[1] or ability.buff_id
                                 common.register_pending_buff(focus_tracked_sid, bid)
                             end
+                            common.drop_removed_debuff(focus_tracked_sid, ability)
                             local dc = tracked_debuff_counts[focus_tracked_sid]
                             return {
                                 command = command,
@@ -224,6 +226,7 @@ function status_removal.execute_debuff_removal(settings, job_def, main_level, su
                                 local bid = type(ability.buff_id) == 'table' and ability.buff_id[1] or ability.buff_id
                                 common.register_pending_buff(focus_alliance_sid, bid)
                             end
+                            common.drop_removed_debuff(focus_alliance_sid, ability)
                             local dc = alliance_debuff_counts[focus_alliance_sid]
                             return {
                                 command = command,
@@ -263,6 +266,7 @@ function status_removal.execute_debuff_removal(settings, job_def, main_level, su
                     max_debuffs, best_member and best_member.name or 'party member', ability.name)
                 local result, reason = action_core.try_use(ability, job_def, settings, best_index, desc)
                 if result then
+                    common.drop_removed_debuff(best_member.server_id, ability)
                     return result
                 end
             end
@@ -304,6 +308,7 @@ function status_removal.execute_debuff_removal(settings, job_def, main_level, su
                                 local bid = type(ability.buff_id) == 'table' and ability.buff_id[1] or ability.buff_id
                                 common.register_pending_buff(best_tracked_sid, bid)
                             end
+                            common.drop_removed_debuff(best_tracked_sid, ability)
                             return {
                                 command = command,
                                 description = string.format('Removing %d debuff(s) from tracked %s with %s',
@@ -350,6 +355,7 @@ function status_removal.execute_debuff_removal(settings, job_def, main_level, su
                                     local bid = type(ability.buff_id) == 'table' and ability.buff_id[1] or ability.buff_id
                                     common.register_pending_buff(best_alliance_sid, bid)
                                 end
+                                common.drop_removed_debuff(best_alliance_sid, ability)
                                 return {
                                     command = command,
                                     description = string.format('Removing %d debuff(s) from alliance %s with %s',

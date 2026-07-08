@@ -8,8 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [2.3.0]
 
 ### Added
+- **Debuff base durations (timed backstop)**: Packet-detected debuffs on Trusts/tracked targets now record a base duration so a missed removal packet can't keep the tracked status alive forever. Durations: Sleep 90s, Poison/Paralyze/Blind/Silence 120s, Petrify 60s, Stun 10s, Bind 60s, Gravity 90s, Slow 180s, Doom 30s, Amnesia/Addle 180s, Terror 30s; Curse/Bane/Disease/Plague never time out; any other erasable debuff defaults to 120s.
 - **Timed buff expiry for Trusts & tracked targets**: Trusts and tracked targets get no reliable wear-off packets, so tracked buffs now record a start time and base duration on application and are dropped by timer once elapsed (generalizing the BST Reward `reapply_interval` idea). Base durations: Haste/Flurry 180s, Refresh 150s, Regen 75s / II–III 60s, Phalanx II 120s, Protect/Shell all tiers 1800s, all bard songs 120s. Buffs without a known duration keep the old packet-only behavior; re-application refreshes the timer.
 - **Per-caster song slot eviction**: Song slots are tracked per caster (2 per bard per target, mirroring FFXI). Each tracked buff records its caster (from the 0x028 action packet). When a new song lands from a caster who already has 2 songs on that target, that caster's oldest-start-time song is evicted; songs from a different bard sit in their own slot bucket and are never affected. Applies to any tracked ally (Trusts, tracked players, alliance members); skipped when the caster is unknown (0x029 packets carry no caster).
+
+### Fixed
+- **Removal spells no longer loop on Trusts/tracked/alliance targets**: These targets give no reliable wear-off packet, so after Medic cast e.g. Poisona the tracked Poison lingered and the cure re-fired every tick. On casting a na-/Erase spell, Medic now optimistically drops one matching status from the target's tracked list (`common.drop_removed_debuff`); each removal spell clears one status per cast, and the debuff base-duration timer catches anything guessed wrong.
 
 ## [2.2.0] - 2026-07-06
 
