@@ -19,6 +19,19 @@ A focused, support-oriented addon for Ashita v4 that automates healing, buffing,
 
 ## Latest Updates
 
+### [2.3.0]
+
+Buffs and debuffs tracked from packets (Trusts, tracked players, alliance, pets — anyone whose statuses can't be read from game memory) now expire on a timer, so a missed wear-off packet no longer leaves a stale status stuck forever.
+
+### Added
+- **Timed Status Expiry**: Every packet-tracked buff/debuff records a base duration and falls off on its own once elapsed, instead of waiting for a wear-off packet that may never arrive. Covers Trusts, tracked players, alliance members, and the pet.
+- **Debuff Backstop Durations**: Removable debuffs (Poison, Paralysis, Silence, Sleep, Petrify, Doom, Bind, Gravity, Slow, etc.) get a fall-off timer so a missed cure-detection can't spam the na-/Erase spell forever. Curse, Bane, Disease, and Plague are treated as "until removed."
+- **Per-Caster Bard Song Slots**: Song tracking now mirrors FFXI's 2-songs-per-bard limit per target, so a second bard's songs no longer evict yours.
+
+### Fixed
+- **Removal Spells Looping on Trusts/Alliance**: After curing a status (e.g. Poisona on a Trust), Medic now drops that status from tracking immediately instead of re-casting every tick until it detects the removal.
+- **Cure-Wake on Trusts/Alliance**: Waking a Trust or alliance member with a Cure now clears Sleep from tracking right away, so it stops re-curing them.
+
 ### [2.2.0] - 2026-07-06
 
 Adds three pet-support jobs (Beastmaster, Dragoon, Puppetmaster) with consumable-ammo auto-equip and packet-based pet status tracking, alongside internal dead-code cleanup and UI polish.

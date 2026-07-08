@@ -222,14 +222,16 @@ FFI bindings for FFXI target resolution (battle target, scan target, last teller
 ### status_removal.lua – Debuff Removal & Sleep Wake
 
 **Debuff removal** (`execute_debuff_removal`):
-- Priority: self → focus target → party member with most debuffs.
+- Priority: self → focus target → party member with most debuffs (then tracked / alliance).
 - Matches abilities to specific debuff IDs they can cure.
 - Uses `action_core.try_use()`.
+- On firing a removal at a **packet-tracked** target (Trust / tracked / alliance), calls `common.drop_removed_debuff(server_id, ability)` to drop one matching status from tracking immediately — those targets get no reliable wear-off packet, so otherwise the spell re-fires every tick. No-op for memory-read party members; the debuff base-duration timer is the fallback.
 
 **Wake from sleep** (`execute_wake`):
 - Scans party buffs for sleep IDs (2, 19).
 - 1 sleeping → cheapest single-target ability; 2+ → cheapest AOE ability.
 - Uses `action_core.try_use()` for resource/cooldown/command pipeline.
+- Wake spells carry no `debuff_id`, so the Sleep drop is inferred in Medic.lua's 0x028 handler instead: a player Cure landing (HP messages 2/7/24) on any packet-tracked ally (Trust/tracked/alliance/pet) clears Sleep + Sleep II from tracking, so the wake doesn't re-cure until the timer would.
 
 **Pet debuff removal** (`execute_pet_debuff_removal`):
 - BST (Reward + Pet Roborant) and PUP (Maintenance + Oil) strip status ailments from the pet.
