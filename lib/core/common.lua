@@ -598,31 +598,28 @@ common.ERASABLE_DEBUFFS = {3, 4, 5, 6, 8, 9, 11, 12, 13, 31, 128, 129, 130, 131,
 -- Base durations (seconds) for DEBUFFS packet-detected on Trusts/tracked targets,
 -- keyed by status id. Backstop so a missed removal packet can't loop a na-/Erase
 -- spell forever: expire_timed_buffs drops the status once the timer elapses.
--- Curse/Bane/Disease/Plague last until removed -> INFINITE (no timer). Any other
--- erasable debuff not listed here falls back to 120s (see base_buff_duration).
+-- Only debuffs a Medic ability can actually remove are listed (no remover = no
+-- loop to guard against). These are the ones NOT already covered by the flat 120s
+-- erasable-debuff default in base_buff_duration: non-erasable statuses that still
+-- have a remover (Sleep/Petrify/Doom), non-120 accurate durations (Bind/Gravity/
+-- Slow), and the until-removed group (Disease/Curse/Bane/Plague -> INFINITE, which
+-- also overrides the 120s default back to no-timer). Erasable 120s debuffs
+-- (Poison/Paralyze/Blind/Silence/Dia/Bio) fall through to that default. Debuffs
+-- nothing strips (Stun/Amnesia/Addle/Terror) are intentionally absent -- timing
+-- them out buys nothing.
 local INFINITE = false  -- tracked but never timer-expired
 local BASE_DEBUFF_DURATION = {
-    [2]  = 90,        -- Sleep
-    [19] = 90,        -- Sleep II
-    [3]  = 120,       -- Poison
-    [4]  = 120,       -- Paralysis
-    [5]  = 120,       -- Blindness
-    [6]  = 120,       -- Silence
-    [7]  = 60,        -- Petrification
-    [10] = 10,        -- Stun
-    [11] = 60,        -- Bind
-    [12] = 90,        -- Weight (Gravity)
-    [13] = 180,       -- Slow
-    [15] = 30,        -- Doom
-    [16] = 180,       -- Amnesia
-    [21] = 180,       -- Addle
-    [28] = 30,        -- Terror
-    [134] = 120,      -- Dia
-    [135] = 120,      -- Bio
-    [8]  = INFINITE,  -- Disease
-    [9]  = INFINITE,  -- Curse
-    [20] = INFINITE,  -- Bane
-    [31] = INFINITE,  -- Plague
+    [2]  = 90,        -- Sleep       (Cure/wake; not erasable)
+    [19] = 90,        -- Sleep II    (Cure/wake; not erasable)
+    [7]  = 60,        -- Petrification (Stona; not erasable)
+    [11] = 60,        -- Bind        (Erase)
+    [12] = 90,        -- Weight/Gravity (Erase)
+    [13] = 180,       -- Slow        (Erase)
+    [15] = 30,        -- Doom        (Cursna / Holy Water; not erasable)
+    [8]  = INFINITE,  -- Disease     (Viruna; until removed)
+    [9]  = INFINITE,  -- Curse       (Cursna; until removed)
+    [20] = INFINITE,  -- Bane        (Cursna; until removed)
+    [31] = INFINITE,  -- Plague      (Viruna; until removed)
 }
 
 -- Set form of ERASABLE_DEBUFFS for O(1) "is this a removable debuff" lookups.
