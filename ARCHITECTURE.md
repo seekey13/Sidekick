@@ -34,9 +34,12 @@ lib/
     status_removal.lua      Debuff removal & sleep wake (single + AOE)
   jobs/
     bard.lua                BRD job definition
+    beastmaster.lua         BST job definition (pet-only)
     dancer.lua              DNC job definition
+    dragoon.lua             DRG job definition
     geomancer.lua           GEO job definition
     paladin.lua             PLD job definition
+    puppetmaster.lua        PUP job definition (pet-only)
     red_mage.lua            RDM job definition
     rune_fencer.lua         RUN job definition
     scholar.lua             SCH job definition
@@ -178,9 +181,11 @@ Shared utility module (~1,700 lines). Key areas:
 - **Buffs**: `has_buff`, `get_player_buffs`, `get_party_buffs`, `get_trust_buffs`
 - **Trust buff tracking**: `register_pending_buff`, `handle_buff_application`, `handle_buff_removal`, `clear_trust_buffs`
 - **Status ailments**: `has_silence`, `has_amnesia`, `is_command_blocked`
-- **Ability helpers**: `has_spell_learned(ability)` (returns `HasSpell` result; only a `pcall` error assumes known — an unlearned spell is *not* treated as learned), `filter_abilities_by_level`, `build_ability_command`, `check_target_modifier`
-- **Scholar stratagems**: `check_stratagem(job_def, settings, ability_key, ability)` returns the next stratagem JA to fire, `nil` (cast the spell), or `false` (skip). "Hold for Stratagem" (`settings.stratagem_hold[<key>]`) controls the can't-fire case: when held it returns `false` (skip until ready); otherwise `nil` (cast without the stratagem). `prune_unavailable_stratagems(job_def, settings)` drops assigned stratagems above the current SCH level on job/level change (bails on a transient level-0 read), fixing a high-level SCH assignment sticking after a downgrade to a lower level or `???/SCH`.
-- **Game state**: `refresh_game_state` – populates a shared table with party HP%, buffs, server IDs, pet info, and alliance sub-party snapshots every tick
+- **Ability helpers**: `has_spell_learned(ability)` (returns `HasSpell` result; only a `pcall` error assumes known — an unlearned spell is *not* treated as learned), `filter_abilities_by_level` (also filters out an ability whose `requires_equipped_ammo` isn't currently worn), `build_ability_command`, `check_target_modifier`
+- **Pet status tracking**: `is_pet(server_id)` (true for the current pet's server id, refreshed each tick), `apply_pet_buff` — pets have normal entity ids (< 0x1000000) so they miss the Trust guard; these route the pet's packet-detected buffs/debuffs into `trust_buffs` keyed by the pet's server id. `pet_type_ok(ability)` gates a `requires_pet_name` ability on the summoned pet's name (shared by job validators and the config UI so the name list lives only in the ability data).
+- **Consumable-ammo equip**: `count_equippable_items(spec)` / `find_equippable_item(spec)` scan the equip-eligible containers (main inventory + all eight Mog Wardrobes); `get_equipped_item_id(slot)` and `is_ammo_equipped(spec)` read the worn ammo; `select_ammo_equip_command(spec, level)` builds a `/equip ammo "<name>" <container>` for the best owned tier at/below `level`; `ammo_equip_command(abilities, settings, player)` picks the first enabled, level-eligible, not-yet-worn ability needing ammo and returns that equip (respecting `ammo_main_job_only`). A "spec" is a single item id, a flat id list, or a list of `{ id, name, level }` tier entries.
+- **Scholar stratagems & BST Ready**: `check_stratagem(job_def, settings, ability_key, ability)` returns the next stratagem JA to fire, `nil` (cast the spell), or `false` (skip). "Hold for Stratagem" (`settings.stratagem_hold[<key>]`) controls the can't-fire case: when held it returns `false` (skip until ready); otherwise `nil` (cast without the stratagem). `prune_unavailable_stratagems(job_def, settings)` drops assigned stratagems above the current SCH level on job/level change (bails on a transient level-0 read), fixing a high-level SCH assignment sticking after a downgrade to a lower level or `???/SCH`. Both stratagems and BST **Ready** are charge systems on one shared recast timer, so a single `charges_from_recast(recast_id, max, rate)` helper converts the remaining-until-full timer into available charges for both (`state.stratagems`, `state.ready_charges`).
+- **Game state**: `refresh_game_state` – populates a shared table with party HP%, buffs, server IDs, pet info (including `pet_debuffs` and `ready_charges`), and alliance sub-party snapshots every tick
 - **Tracked target level resolution**: `handle_check_packet` – parses 0x0C9 check-response packet to store level and seed estimated max HP via `AVERAGE_HP_BY_LEVEL`
 - **Outside-target helpers**: `resolve_focus_target`, `find_alliance_member`, `outside_abilities`, `build_ability_command_for_target`
 
@@ -210,7 +215,7 @@ FFI bindings for FFXI target resolution (battle target, scan target, last teller
 
 **AOE healing** (`execute_aoe`): Triggers when average party HP falls below threshold. Uses `action_core.first_command()`.
 
-**Pet healing** (`execute_pet`): Monitors pet HP via game state. Uses `action_core.first_command()`.
+**Pet healing** (`execute_pet`): Monitors pet HP via game state. Uses `action_core.first_command()`. For jobs whose pet-heal needs a consumable in the ammo slot (BST **Reward** → Pet Food, PUP **Repair** → Automaton Oil), `heal.pet_ammo_equip()` returns an `/equip` for the best owned tier when one isn't worn (via `common.ammo_equip_command`); the heal itself fires the following tick. If none are owned the ability stays gated out.
 
 **Group / AOE target selection**: `make_group_filter(key_name)` reads session-only per-target state from `ui_config.get_party_buffs()[key_name]` (`heal_group` for single-target Group scanning, `heal_aoe_group` for the AOE average). Keys mirror the UI: numeric `0-5` (party), `tt_<sid>` (tracked), `al_<flat>` (alliance). Defaults are asymmetric — party/tracked are included unless explicitly set `false`; alliance members are excluded unless explicitly set `true` — so behavior is correct even when the config window was never opened.
 
@@ -226,6 +231,12 @@ FFI bindings for FFXI target resolution (battle target, scan target, last teller
 - 1 sleeping → cheapest single-target ability; 2+ → cheapest AOE ability.
 - Uses `action_core.try_use()` for resource/cooldown/command pipeline.
 
+**Pet debuff removal** (`execute_pet_debuff_removal`):
+- BST (Reward + Pet Roborant) and PUP (Maintenance + Oil) strip status ailments from the pet.
+- Reads the packet-tracked `game_state.pet_debuffs` list (see [Pet Status Tracking](#pet-status-tracking)); only fires when the pet actually carries a debuff the ability can remove, matched against the ability's `debuff_id` list.
+- Auto-equips the required consumable (`requires_equipped_ammo`) **only** when there is a matching debuff to cure, so the roborant/oil never fights the heal or Regen for the ammo slot while there's nothing to do.
+- Because pet status is inferred from packets, this is best-effort (same caveat as Trust tracking) — surfaced in the UI as a warning tooltip.
+
 ### buff.lua – Buff Maintenance
 
 Runs in two phases per tick:
@@ -236,6 +247,8 @@ Runs in two phases per tick:
 - **Stacking same `buff_id`**: `count_instances()` / `wanted_instances()` / `song_needed()` count how many distinct selected tiers share a `buff_id` (e.g. Mage's Ballad + Mage's Ballad II both = buff 196) and treat a target as needing the song until it holds that many instances, instead of a plain presence check.
 - **Target modifier** (Pianissimo, etc.): If `ability.target_modifier = true`, sends modifier command first; next tick casts the buff.
 - **Trust buff registration**: Calls `common.register_pending_buff()` for Trusts after cast.
+- **Ammo auto-equip**: When a pet is out and a buff needs a consumable in the ammo slot (BST **Reward (Regen)** → Pet Poultice), `common.ammo_equip_command` equips the best owned tier first (only reachable after the higher-priority pet-heal passed, so its biscuit and this poultice never contend for the slot).
+- **`reapply_interval`**: For buffs whose presence can't be read on the target (pet Regen — pet buffs aren't in memory), the buff is reapplied only after `reapply_interval` seconds have elapsed since the module's last cast (tracked in a module-local `last_self_cast` table, cleared on reload), instead of every recast, so the consumable isn't wasted.
 - **Condition flags**: `idle_only`, `requires_pet`, `requires_buff`; combat-only gating is controlled by settings (`combat_only_<name>` / `combat_only_group_<group>`).
 - Uses `action_core.try_use()`.
 
@@ -290,19 +303,20 @@ return {
     resource_type   = 'mp',           -- 'mp' or 'tp'
 
     abilities = {
-        heal            = { ... },
-        heal_aoe        = { ... },
-        heal_pet        = { ... },
-        critical        = { ... },
-        buff            = { ... },
-        debuff_removal  = { ... },
-        wake            = { ... },
-        recover_mp      = { ... },
-        recover_tp      = { ... },
-        recover_party_mp= { ... },
-        geo             = { ... },
-        target_modifier = { ... },
-        revive          = { ... },  -- raise spells (WHM/SCH/RDM)
+        heal               = { ... },
+        heal_aoe           = { ... },
+        heal_pet           = { ... },
+        critical           = { ... },
+        buff               = { ... },
+        debuff_removal     = { ... },
+        pet_debuff_removal = { ... },  -- strip pet status ailments (BST/PUP)
+        wake               = { ... },
+        recover_mp         = { ... },
+        recover_tp         = { ... },
+        recover_party_mp   = { ... },
+        geo                = { ... },
+        target_modifier    = { ... },
+        revive             = { ... },  -- raise spells (WHM/SCH/RDM)
     },
 
     default_settings = { heal_enabled = true, heal_threshold = 75, ... },
@@ -340,6 +354,17 @@ return {
     is_main_job     = true,         -- false for subjob-sourced abilities
     resource_type   = nil,          -- override job resource_type ('mp'/'tp')
     target_outside  = false,        -- true for abilities that can target non-party members
+
+    -- Pet / consumable-ammo fields (BST, DRG, PUP)
+    pet_required           = true,              -- gated on a pet being out
+    requires_pet_name      = { 'Carbuncle' },   -- list of acceptable pet names (pet_type_ok)
+    requires_equipped_ammo = OILS,              -- consumable spec that must be worn in the ammo slot;
+                                                --   auto-equipped from the best owned tier, else gated out
+    ammo_label             = 'Oils',            -- UI label for the inline (count) display
+    ammo_main_job_only     = true,              -- only equip the ammo when this job is MAIN (e.g. PUP oils)
+    requires_ready_charge  = true,              -- gated on a spare BST Ready charge (game_state.ready_charges)
+    reapply_interval       = 300,               -- buff: reapply after N seconds instead of every recast
+                                                --   (for buffs whose target we can't read, e.g. pet Regen)
 }
 ```
 
@@ -356,6 +381,8 @@ return {
 - **DRY helpers**:
   - `render_party_dropdown(label, key, include_player, names, settings, cb)` – reusable for Focus/Follow/Recovery/Entrust Target dropdowns.
   - `has_usable_abilities(abilities)` – quick check for any level-appropriate abilities.
+- **Pet Debuff Removal section**: A collapsing checkbox header (`pet_debuff_removal_enabled`) shown only when the job has usable `pet_debuff_removal` abilities. Sets `ctx.show_pet_debuff_warning` while rendering its rows so `ability_checkbox` surfaces the *"Pet Tracked Removal is not totally reliable"* tooltip.
+- **Inline ammo count**: In the pet-heal, pet-debuff-removal, and buff sections, an ability with `requires_equipped_ammo` draws a `(<count>)` after its row via `common.count_equippable_items` — **green** when a matching item is worn (`is_ammo_equipped`), **red** when not.
 
 ### components.lua – Render Components
 
@@ -376,6 +403,8 @@ return {
 | `render_heal_group_selection(ctx, key, show_outside)` | Group/AOE heal target buttons — **session-only**, asymmetric defaults (party/tracked ON, alliance OFF); `show_outside` draws alliance+tracked (Group=true, AOE=false) |
 | `item_silence_removal_checkbox(ctx)` | Echo Drops checkbox (via `render_item_removal_checkbox`) |
 | `item_doom_removal_checkbox(ctx)` | Holy Water checkbox (via `render_item_removal_checkbox`) |
+
+**Ability graying** (`self_single_ability`, `party_single_ability`, `ability_checkbox`): in addition to unlearned spells, a row is grayed (and given a matching tooltip) when it's ammo-gated with none of the consumable owned — `no_ammo`, tooltip *"No `<ammo_label>` found in storage."* — or when it needs a specific pet that isn't out — `wrong_pet` via `pet_type_unmet`/`common.pet_type_ok`, tooltip *"Requires pet `<name / name>`"*.
 
 **Right-click context menu** (`render_combat_only_context_menu`): Combat Only toggle plus, for grouped buffs, an **Ungroup** checkbox (`ungrouped_<group>`). Popup ids are per-ability (not per-group) so an ungrouped group's per-tier rows don't collide.
 
@@ -403,7 +432,7 @@ return {
 
 ### panel.lua – Debug Panel
 
-Read-only display of game state, party buffs, server IDs, target indices. Shown when Debug Mode is enabled. The **Debug Mode** checkbox now lives in the panel header row (next to the Stratagems counter), moved out of the configuration window. Entity status values are rendered as human-readable labels (`Idle`, `Engaged`, `Dead`, `Resting`, `Mounted`, etc.) via a `STATUS_LABELS` lookup table.
+Read-only display of game state, party buffs, server IDs, target indices. Shown when Debug Mode is enabled. The **Debug Mode** checkbox now lives in the panel header row (next to the Stratagems counter), moved out of the configuration window. The header also shows **BST Ready charges** (`gs.ready_charges`, cyan / red-when-low) next to the stratagem counter. Entity status values are rendered as human-readable labels (`Idle`, `Engaged`, `Dead`, `Resting`, `Mounted`, etc.) via a `STATUS_LABELS` lookup table.
 
 ---
 
@@ -414,7 +443,7 @@ Read-only display of game state, party buffs, server IDs, target indices. Shown 
 | `load` | Medic.lua | Set initialisation flag |
 | `unload` | Medic.lua | Save settings |
 | `d3d_present` | Medic.lua | Automation tick + UI render |
-| `packet_in` | Medic.lua | Casting state (0x028), Trust buffs (0x028 completion, 0x029 removal) |
+| `packet_in` | Medic.lua | Casting state (0x028), Trust/pet buffs (0x028, 0x029), check response (0x0C9), zone change (0x0A) |
 | `command` | Medic.lua | `/medic` command handler |
 
 ### Trust Buff Tracking
@@ -426,6 +455,15 @@ Trusts (server_id ≥ 0x1000000): tracked via packets.
 2. `handle_buff_application()` – packet 0x028 with completion flag
 3. `handle_buff_removal(server_id, buff_id)` – packet 0x029
 4. `clear_trust_buffs()` – on zone change
+
+### Pet Status Tracking
+
+The client keeps no pet buff memory, so a pet's buffs and debuffs are inferred from the same packets and stored in `trust_buffs`, keyed by the pet's server id (`pet_server_id`, refreshed each tick in `refresh_game_state`). Pets have normal entity ids (< 0x1000000), so the packet handlers also route through the `common.is_pet()` guard (alongside the Trust / tracked / alliance guards):
+
+- **0x028** effect gain/loss (message 82 gain → `apply_pet_buff`; 83 loss → `handle_buff_removal`).
+- **0x029** effect gain → `apply_pet_buff` (a mob debuff landing on the pet arrives here as an out-of-party target gaining an effect).
+
+The current pet's list is surfaced as `game_state.pet_debuffs` and consumed by `status_removal.execute_pet_debuff_removal`. When the pet changes or leaves (swap / release), the previous pet's entry is dropped so no stale status lingers. Because this is inferred rather than read from memory, it is best-effort — the same reliability caveat as Trust tracking, surfaced to the user via a warning tooltip.
 
 ---
 

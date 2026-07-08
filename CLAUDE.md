@@ -5,9 +5,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## What this is
 
 Medic is an **Ashita v4 addon** (Lua) for the CatsEyeXI FFXI private server. It automates
-support only — healing, buffing, debuff removal, resource recovery, revive, and basic Geo
-pet management. It deliberately does **not** automate combat, tanking, nuking, weaponskills,
-or movement. Entry point is `Medic.lua`; everything else lives under `lib/`.
+support only — healing, buffing, debuff removal, resource recovery, revive, and pet support
+(healing, buffs, and debuff removal for GEO / BST / DRG / PUP pets, including auto-equipping
+the consumable a pet ability needs). It deliberately does **not** automate combat, tanking,
+nuking, weaponskills, or movement. Entry point is `Medic.lua`; everything else lives under
+`lib/`.
 
 ## Build / lint / test
 
@@ -52,24 +54,30 @@ function module.execute(settings, job_def, main_level, sub_level, player_resourc
 end
 ```
 `heal.lua` also exports `execute_aoe` and `execute_pet`; `status_removal.lua` exports
-`execute_wake` and `execute_debuff_removal`. These are wired to action-type names in the
-`action_modules` table in `Medic.lua`.
+`execute_wake`, `execute_debuff_removal`, and `execute_pet_debuff_removal`. These are wired
+to action-type names in the `action_modules` table in `Medic.lua`.
 
 **Core helpers.** `lib/core/action_core.lua` is the shared ability pipeline (resource/MP-TP
 check → cooldown/recast → status-ailment gate → build command): use `is_usable`,
 `filter_usable`, `first_command`, `try_use` instead of re-implementing gating.
-`lib/core/common.lua` (~1700 lines) holds everything else: logging (`printf`/`debugf`/
-`errorf`/`warnf`), player/party/alliance state, buff tracking, `refresh_game_state`,
-stratagem logic, packet handlers.
+`lib/core/common.lua` (~1900 lines) holds everything else: logging (`printf`/`debugf`/
+`errorf`/`warnf`), player/party/alliance state, buff tracking (incl. packet-based pet
+status via `is_pet`/`apply_pet_buff` into `game_state.pet_debuffs`), consumable-ammo
+equip helpers (`is_ammo_equipped`/`ammo_equip_command`/`count_equippable_items`),
+`pet_type_ok`, `refresh_game_state`, charge math (Scholar stratagems + BST Ready share
+`charges_from_recast`), packet handlers.
 
 **Jobs are data** (`lib/jobs/*.lua`). Each returns a table: `job_id`, `job_name`,
 `resource_type` (`'mp'`/`'tp'`), an `abilities` table keyed by action type
-(`heal`, `buff`, `heal_aoe`, `recover_mp`, `geo`, `revive`, …), `default_settings`,
-`priority_order`, and optional `validate_ability`. No control flow belongs here beyond a
-`command` closure and an optional validator. See `paladin.lua` for the minimal shape and
-`ARCHITECTURE.md` for every ability field (`level`, `cost`, `value`, `id` = recast id,
+(`heal`, `buff`, `heal_aoe`, `heal_pet`, `pet_debuff_removal`, `recover_mp`, `geo`,
+`revive`, …), `default_settings`, `priority_order`, and optional `validate_ability`. No
+control flow belongs here beyond a `command` closure and an optional validator. See
+`paladin.lua` for the minimal shape, `beastmaster.lua` for the pet/consumable-ammo shape,
+and `ARCHITECTURE.md` for every ability field (`level`, `cost`, `value`, `id` = recast id,
 `buff_id`, `debuff_id`, `group`, `idle_only`, `combat_only`, `requires_buff`,
-`target_outside`, `main_job_only`, `target_modifier`, …).
+`target_outside`, `main_job_only`, `target_modifier`, and the pet/ammo fields
+`pet_required`, `requires_pet_name`, `requires_equipped_ammo`, `ammo_label`,
+`ammo_main_job_only`, `requires_ready_charge`, `reapply_interval`, …).
 
 **UI** (`lib/ui/`). `config.lua` orchestrates the ImGui config window and delegates rendering
 to `components.lua`; `panel.lua` is the debug panel; `tooltips.lua` is hover help. Settings
