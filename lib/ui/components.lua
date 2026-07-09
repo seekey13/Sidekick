@@ -52,33 +52,51 @@ local function effective_combat_only(ability, ctx)
     return common.is_ability_combat_only(ability, ctx.settings)
 end
 
--- Render a right-click 'Combat Only' toggle popup for an ability/group.
+-- Returns true if the ability's effective (static or user-driven) idle_only setting is enabled.
+local function effective_idle_only(ability, ctx)
+    if not ability or not ctx or not ctx.settings then return false end
+    return common.is_ability_idle_only(ability, ctx.settings)
+end
+
+-- Render a right-click 'Combat Only' / 'Idle Only' toggle popup for an ability/group.
 -- Call immediately after the imgui item the popup should attach to.
--- Suppressed for idle_only abilities since combat_only is meaningless there.
+-- The two are mutually exclusive (checking one clears the other). Suppressed for
+-- statically idle_only abilities (data-defined), where the gate isn't user-editable,
+-- and for <bt> abilities, which are inherently combat-only.
 local function render_combat_only_context_menu(ctx, ability)
     if not ability or not ctx or not ctx.settings then return end
     if ability.idle_only then return end
-    -- <bt> abilities are inherently combat-only; the toggle would be a no-op, so
-    -- don't offer it.
     if common.ability_targets_bt(ability) then return end
-    local key, popup_id
+    local combat_key, idle_key, popup_id
     if ability.group then
-        key = 'combat_only_group_' .. ability.group
+        combat_key = 'combat_only_group_' .. ability.group
+        idle_key = 'idle_only_group_' .. ability.group
         -- Per-ability popup id (not per-group): when a group is ungrouped, each
         -- tier renders its own row, so a shared group id would stack duplicate
-        -- menus into one popup. The setting key stays group-level.
+        -- menus into one popup. The setting keys stay group-level.
         popup_id = '##cmenu_combat_only_group_' .. ability.group .. '_' .. (ability.name and ability.name:gsub(' ', '_') or '')
     else
         if not ability.name then return end
         local safe_name = ability.name:gsub(' ', '_')
-        key = 'combat_only_' .. safe_name
+        combat_key = 'combat_only_' .. safe_name
+        idle_key = 'idle_only_' .. safe_name
         popup_id = '##cmenu_combat_only_' .. safe_name
     end
     if imgui.BeginPopupContextItem(popup_id) then
-        local current = { ctx.settings[key] == true }
-        if imgui.Checkbox('Combat Only', current) then
-            ctx.settings[key] = current[1]
+        local combat_cur = { ctx.settings[combat_key] == true }
+        if imgui.Checkbox('Combat Only', combat_cur) then
+            ctx.settings[combat_key] = combat_cur[1] or nil
+            if combat_cur[1] then ctx.settings[idle_key] = nil end  -- mutually exclusive
             if ctx.save_callback then ctx.save_callback() end
+        end
+        local idle_cur = { ctx.settings[idle_key] == true }
+        if imgui.Checkbox('Idle Only', idle_cur) then
+            ctx.settings[idle_key] = idle_cur[1] or nil
+            if idle_cur[1] then ctx.settings[combat_key] = nil end  -- mutually exclusive
+            if ctx.save_callback then ctx.save_callback() end
+        end
+        if imgui.IsItemHovered() then
+            imgui.SetTooltip('Only fire when out of combat (e.g. Boost on cooldown).')
         end
         -- Ungroup: cast every tier in the group independently instead of only
         -- the selected tier. Off (grouped) by default; persisted per group.
@@ -1229,7 +1247,7 @@ function ui_components.group_dropdown(ctx, job_def, target_group, dropdown_width
     if selected then
         if selected_combat_only then
             imgui.PushStyleColor(ImGuiCol_Text, LIGHT_YELLOW)
-        elseif selected.idle_only then
+        elseif effective_idle_only(selected, ctx) then
             imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GREEN)
         end
     end
@@ -1271,14 +1289,14 @@ function ui_components.group_dropdown(ctx, job_def, target_group, dropdown_width
     if imgui.IsItemHovered() and selected then
         if selected_combat_only then
             imgui.SetTooltip('Combat Only')
-        elseif selected.idle_only then
+        elseif effective_idle_only(selected, ctx) then
             imgui.SetTooltip('Idle Only')
         end
     end
     
     imgui.PopItemWidth()
     
-    if selected and (selected_combat_only or selected.idle_only) then
+    if selected and (selected_combat_only or effective_idle_only(selected, ctx)) then
         imgui.PopStyleColor()
     end
 end
@@ -1315,7 +1333,7 @@ function ui_components.self_single_ability(ctx, ability, job_def, id_suffix)
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
     elseif ability_combat_only then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_YELLOW)
-    elseif ability.idle_only then
+    elseif effective_idle_only(ability, ctx) then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GREEN)
     end
     
@@ -1340,12 +1358,12 @@ function ui_components.self_single_ability(ctx, ability, job_def, id_suffix)
             imgui.SetTooltip(pet_type_tooltip(ability))
         elseif ability_combat_only then
             imgui.SetTooltip('Combat Only')
-        elseif ability.idle_only then
+        elseif effective_idle_only(ability, ctx) then
             imgui.SetTooltip('Idle Only')
         end
     end
 
-    if not has_spell or no_ammo or wrong_pet or ability_combat_only or ability.idle_only then
+    if not has_spell or no_ammo or wrong_pet or ability_combat_only or effective_idle_only(ability, ctx) then
         imgui.PopStyleColor()
     end
 end
@@ -1407,14 +1425,14 @@ function ui_components.self_grouped_ability(ctx, ability, job_def)
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
     elseif selected_combat_only then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_YELLOW)
-    elseif selected.idle_only then
+    elseif effective_idle_only(selected, ctx) then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GREEN)
     end
     
     imgui.SameLine()
     ui_components.group_dropdown(ctx, job_def, ability.group, DROPDOWN_WIDTH)
     
-    if not has_spell or selected_combat_only or selected.idle_only then
+    if not has_spell or selected_combat_only or effective_idle_only(selected, ctx) then
         imgui.PopStyleColor()
     end
 end
@@ -1466,7 +1484,7 @@ function ui_components.party_single_ability(ctx, ability, job_def)
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
     elseif ability_combat_only then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_YELLOW)
-    elseif ability.idle_only then
+    elseif effective_idle_only(ability, ctx) then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GREEN)
     end
 
@@ -1481,12 +1499,12 @@ function ui_components.party_single_ability(ctx, ability, job_def)
             imgui.SetTooltip(pet_type_tooltip(ability))
         elseif ability_combat_only then
             imgui.SetTooltip('Combat Only')
-        elseif ability.idle_only then
+        elseif effective_idle_only(ability, ctx) then
             imgui.SetTooltip('Idle Only')
         end
     end
 
-    if not has_spell or not has_modifier or wrong_pet or ability_combat_only or ability.idle_only then
+    if not has_spell or not has_modifier or wrong_pet or ability_combat_only or effective_idle_only(ability, ctx) then
         imgui.PopStyleColor()
     end
 end
@@ -1537,13 +1555,13 @@ function ui_components.party_grouped_ability(ctx, ability, job_def)
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
     elseif selected_combat_only then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_YELLOW)
-    elseif selected.idle_only then
+    elseif effective_idle_only(selected, ctx) then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GREEN)
     end
     
     ui_components.group_dropdown(ctx, job_def, ability.group, DROPDOWN_WIDTH)
     
-    if not has_spell or not has_modifier or selected_combat_only or selected.idle_only then
+    if not has_spell or not has_modifier or selected_combat_only or effective_idle_only(selected, ctx) then
         imgui.PopStyleColor()
     end
 end
@@ -1733,7 +1751,7 @@ function ui_components.ability_checkbox(ctx, ability, job_def, id_suffix, show_s
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
     elseif ability_combat_only then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_YELLOW)
-    elseif ability.idle_only then
+    elseif effective_idle_only(ability, ctx) then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GREEN)
     end
 
@@ -1753,14 +1771,14 @@ function ui_components.ability_checkbox(ctx, ability, job_def, id_suffix, show_s
             imgui.SetTooltip(pet_type_tooltip(ability))
         elseif ability_combat_only then
             imgui.SetTooltip('Combat Only')
-        elseif ability.idle_only then
+        elseif effective_idle_only(ability, ctx) then
             imgui.SetTooltip('Idle Only')
         elseif ctx.show_pet_debuff_warning then
             imgui.SetTooltip('Pet Debuff Removal is not totally reliable')
         end
     end
 
-    if not has_spell or no_ammo or wrong_pet or ability_combat_only or ability.idle_only then
+    if not has_spell or no_ammo or wrong_pet or ability_combat_only or effective_idle_only(ability, ctx) then
         imgui.PopStyleColor()
     end
 end

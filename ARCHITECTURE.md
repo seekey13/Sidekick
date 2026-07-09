@@ -252,7 +252,7 @@ Runs in two phases per tick:
 - **Trust buff registration**: Calls `common.register_pending_buff()` for Trusts after cast.
 - **Ammo auto-equip**: When a pet is out and a buff needs a consumable in the ammo slot (BST **Reward (Regen)** → Pet Poultice), `common.ammo_equip_command` equips the best owned tier first (only reachable after the higher-priority pet-heal passed, so its biscuit and this poultice never contend for the slot).
 - **`reapply_interval`**: For buffs whose presence can't be read on the target (pet Regen — pet buffs aren't in memory), the buff is reapplied only after `reapply_interval` seconds have elapsed since the module's last cast (tracked in a module-local `last_self_cast` table, cleared on reload), instead of every recast, so the consumable isn't wasted.
-- **Condition flags**: `idle_only`, `requires_pet`, `requires_buff`; combat-only gating is controlled by settings (`combat_only_<name>` / `combat_only_group_<group>`).
+- **Condition flags**: `idle_only`, `requires_pet`, `requires_buff`; combat-only and idle-only gating are also controlled by settings (`combat_only_<name>`/`combat_only_group_<group>`, `idle_only_<name>`/`idle_only_group_<group>`) via `is_ability_combat_only`/`is_ability_idle_only`. The two are mutually exclusive.
 - Uses `action_core.try_use()`.
 
 ### item.lua – Consumable Status Removal
@@ -363,7 +363,7 @@ return {
     -- or: command = '/ja "Divine Seal" <me>',
     buff_id         = 43,           -- number or table of buff IDs to track
     debuff_id       = 3,            -- debuff ID(s) this ability removes
-    idle_only       = false,        -- green  – is_idle()
+    idle_only       = false,        -- green  – is_idle()  (static field or user-toggleable via right-click)
     combat_only     = false,        -- yellow – is_combat() (user-toggleable via right-click)
     requires_pet    = false,
     requires_buff   = 401,          -- prerequisite buff ID(s)
@@ -429,7 +429,7 @@ return {
 
 **Ability graying** (`self_single_ability`, `party_single_ability`, `ability_checkbox`): in addition to unlearned spells, a row is grayed (and given a matching tooltip) when it's ammo-gated with none of the consumable owned — `no_ammo`, tooltip *"No `<ammo_label>` found in storage."* — or when it needs a specific pet that isn't out — `wrong_pet` via `pet_type_unmet`/`common.pet_type_ok`, tooltip *"Requires pet `<name / name>`"*.
 
-**Right-click context menu** (`render_combat_only_context_menu`): Combat Only toggle plus, for grouped buffs, an **Ungroup** checkbox (`ungrouped_<group>`). Popup ids are per-ability (not per-group) so an ungrouped group's per-tier rows don't collide.
+**Right-click context menu** (`render_combat_only_context_menu`): mutually-exclusive **Combat Only** / **Idle Only** toggles (checking one clears the other) plus, for grouped buffs, an **Ungroup** checkbox (`ungrouped_<group>`). Suppressed for statically `idle_only` and `<bt>` abilities. Popup ids are per-ability (not per-group) so an ungrouped group's per-tier rows don't collide.
 
 **Scholar stratagem button** (`render_scholar_stratagem_button`): Assign stratagems per spell, plus a **Hold for Stratagem** checkbox (`stratagem_hold[<key>]`). The alignment spacer is skipped for Geo-bt rows (no S-button column) and Bard song rows (the `[A]` button already indents them), preventing a double indent.
 
