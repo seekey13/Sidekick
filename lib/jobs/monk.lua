@@ -14,6 +14,17 @@ return {
     resource_type = 'tp',
 
     abilities = {
+        -- Debuff removal
+        heal = {
+            {
+                name = 'Chakra',
+                level = 35,
+                cost = 0,
+                id = 15,  -- Spell ID
+                command = '/ja "Chakra" <me>',
+                self_only = true,
+            },
+        },
         -- Self buffs (Job Abilities)
         buff = {
             {
@@ -60,12 +71,13 @@ return {
         debuff_removal = {
             {
                 name = 'Chakra',
-                level = 135,
+                level = 35,
                 cost = 0,
                 id = 15,  -- Spell ID
                 debuff_id = {3, 5}  -- Poison & Blindness
                 command = '/ja "Chakra" <me>',
                 range = 10,
+                self_only = true,
             },
         },
     },
