@@ -100,7 +100,7 @@ return {
                 cost = 0,
                 command = '/pet "Wild Carrot" <me>',
                 pet_required = true,
-                requires_pet_name = { 'Lucky Lulush', 'Rabbit' },  -- rabbit jug pets only
+                requires_pet_name = { 'Keeneared Steffi', 'Rabbit' },  -- rabbit jug pets only
                 requires_ready_charge = true,  -- needs Ready charges (id 102)
                 ready_charge_cost = 2,         -- Wild Carrot burns 2 charges, not 1
             },

@@ -165,7 +165,7 @@ Currently implemented support jobs:
   - Pet healing with **Reward** (requires a **Pet Food** biscuit in the ammo slot; auto-equips the best tier for your level)
   - Pet Regen with **Reward (Regen)** using a **Pet Poultice** (reapplied on a timer since pet buffs can't be read)
   - Pet debuff removal with **Reward (Erase)** using a **Pet Roborant**
-  - Party AOE healing with **Wild Carrot** from a rabbit jug pet (Lucky Lulush / Rabbit), gated on a Ready charge
+  - Party AOE healing with **Wild Carrot** from a rabbit jug pet (Keeneared Steffi / Rabbit), gated on a Ready charge
   - Only one ammo can be worn at a time, so the three Reward variants never contend for the ammo slot
 
 - **Dragoon** (DRG) — *pet-only support*
