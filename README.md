@@ -203,6 +203,9 @@ Currently implemented support jobs:
   - MP recovery with job abilities (Radial Arcana)
   - Geomancy/luopan management (automatic Full Circle execution)
 
+- **Monk** (MNK) — *self-only support*
+  - Self-buffs with job abilities (Boost, Dodge, Focus, Counterstance, Footwork)
+
 - **Paladin** (PLD)
   - Single-target healing with white magic (Cure I-IV)
   - Buff with white magic (Protect I-IV, Shell I-IV)
@@ -327,6 +330,7 @@ Medic/
 │   │   ├── dancer.lua        # Dancer abilities
 │   │   ├── dragoon.lua       # Dragoon abilities (pet-only)
 │   │   ├── geomancer.lua     # Geomancer abilities
+│   │   ├── monk.lua          # Monk abilities (self-only)
 │   │   ├── paladin.lua       # Paladin abilities
 │   │   ├── puppetmaster.lua  # Puppetmaster abilities (pet-only)
 │   │   ├── red_mage.lua      # Red Mage abilities

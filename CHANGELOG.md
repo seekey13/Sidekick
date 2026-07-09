@@ -5,11 +5,6 @@ All notable changes to Medic will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
-
-### Added
-- **Samurai (SAM) support**: Self-only automation. Self-buffs **Warding Circle**, **Third Eye**, and the **Hasso**/**Seigan** stance (grouped as `sam_stance`, so only the selected stance is maintained — they're mutually exclusive in FFXI), plus TP recovery via **Meditate** (`recover_tp`, fires below the TP threshold; default 1000).
-
 ## [2.2.0] - 2026-07-06
 
 Adds three pet-support jobs (Beastmaster, Dragoon, Puppetmaster) with consumable-ammo auto-equip and packet-based pet status tracking; generalizes Trust/tracked buff tracking into a timed-expiry system with base durations (extended to debuffs and to alliance members / the pet), adds per-caster song slots, and stops removal spells and cure-wake from looping on targets whose buffs can't be read from memory, and reworks debuff-removal priority (targeted na-spells before Erase, group-AOE Esuna) — alongside a repo-wide dead-code sweep and UI polish.
@@ -21,6 +16,7 @@ Adds three pet-support jobs (Beastmaster, Dragoon, Puppetmaster) with consumable
 - **Per-caster song slot eviction**: Song slots are tracked per caster (2 per bard per target, mirroring FFXI). Each tracked buff records its caster (from the 0x028 action packet). When a new song lands from a caster who already has 2 songs on that target, that caster's oldest-start-time song is evicted; songs from a different bard sit in their own slot bucket and are never affected. Applies to any tracked ally (Trusts, tracked players, alliance members); skipped when the caster is unknown (0x029 packets carry no caster).
 - **Beastmaster (BST) support**: Pet-only automation. Pet healing via **Reward** (gated on a **Pet Food** biscuit worn in the ammo slot), a **Reward (Regen)** buff variant using a **Pet Poultice**, **Reward (Erase)** pet debuff removal using a **Pet Roborant**, and party AOE heal **Wild Carrot** from a rabbit jug pet (Lucky Lulush / Rabbit), gated on 2 spare Ready charges (its cost). Only one ammo can be worn at a time, so the biscuit / poultice / roborant Rewards never contend for the slot on the same tick.
 - **Dragoon (DRG) support**: Pet-only automation. Pet (wyvern) healing via **Spirit Link** (transfers the master's HP), plus self-buffs **Ancient Circle** and **Spirit Bond**.
+- **Monk (MNK) support**: Self-only automation. Self-buffs **Boost**, **Dodge**, **Focus**, **Counterstance**, and **Footwork** — all independent job abilities (no mutually exclusive stances, so nothing is grouped).
 - **Samurai (SAM) support**: Self-only automation. Self-buffs **Warding Circle**, **Third Eye**, and the **Hasso**/**Seigan** stance (grouped as `sam_stance`, so only the selected stance is maintained — they're mutually exclusive in FFXI), plus TP recovery via **Meditate** (`recover_tp`, fires below the TP threshold; default 1000).
 - **Puppetmaster (PUP) support**: Pet-only automation. Automaton healing via **Repair** and automaton debuff removal via **Maintenance**, both gated on an **Automaton Oil** worn in the ammo slot (higher tiers heal more). Oils can only be equipped with PUP as **main** job (`ammo_main_job_only`), so auto-equip is skipped when PUP is the subjob.
 - **Consumable-Ammo Gating & Auto-Equip**: Abilities can require a consumable equipped in the ammo slot (`requires_equipped_ammo`). When a usable tier is owned but not worn, Medic issues a `/equip ammo` for the best tier the player's **main** level allows — searching main inventory and all eight Mog Wardrobes — the tick before the ability fires. If none are owned the ability is gated out (effectively disabled). New `common` helpers: `count_equippable_items`, `get_equipped_item_id`, `is_ammo_equipped`, `find_equippable_item`, `select_ammo_equip_command`, `ammo_equip_command`.
