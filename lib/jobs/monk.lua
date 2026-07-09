@@ -56,6 +56,18 @@ return {
                 buff_id = 406,  -- Footwork
             },
         },
+        -- Debuff removal
+        debuff_removal = {
+            {
+                name = 'Chakra',
+                level = 135,
+                cost = 0,
+                id = 15,  -- Spell ID
+                debuff_id = {3, 5}  -- Poison & Blindness
+                command = '/ja "Chakra" <me>',
+                range = 10,
+            },
+        },
     },
 
     -- Default settings for UI
@@ -66,5 +78,6 @@ return {
     -- Action priority order
     priority_order = {
         'buff',
+        'debuff_removal',
     },
 }
