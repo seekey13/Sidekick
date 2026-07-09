@@ -1782,9 +1782,9 @@ local function render_item_removal_checkbox(ctx, entry)
     -- Build label with count (show ? while inventory loads)
     local checkbox_label
     if count == nil then
-        checkbox_label = string.format('Remove %s with %s (?)', debuff_name, item_name)
+        checkbox_label = string.format('%s with %s (?)', debuff_name, item_name)
     else
-        checkbox_label = string.format('Remove %s with %s (%d)', debuff_name, item_name, count)
+        checkbox_label = string.format('%s with %s (%d)', debuff_name, item_name, count)
     end
 
     local is_disabled = (count == 0)
