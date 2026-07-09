@@ -153,6 +153,14 @@ end
 -- Export get_item_count for UI to use
 item.get_item_count = get_item_count
 
+-- True once the inventory has loaded. get_item_count returns nil only when the
+-- inventory isn't readable yet (zoning / not loaded); a loaded inventory yields
+-- 0+ for any id. Lets the UI hide the whole section on "?" but show it on 0.
+function item.inventory_loaded()
+    local first = ITEM_REMOVALS[1]
+    return first ~= nil and get_item_count(first.item_id) ~= nil
+end
+
 -- Export removal definitions so the config UI can render one checkbox per item.
 item.REMOVALS = ITEM_REMOVALS
 

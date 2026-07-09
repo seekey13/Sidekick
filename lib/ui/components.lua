@@ -1826,6 +1826,12 @@ local function render_item_removal_checkbox(ctx, entry)
     end
 end
 
+-- True once inventory is readable (used to hide the Item Removal section while
+-- counts are still unknown "?" rather than a real 0).
+function ui_components.item_inventory_loaded()
+    return item_module.inventory_loaded()
+end
+
 -- Render one checkbox per item-removal definition (driven by item.REMOVALS).
 function ui_components.item_removal_checkboxes(ctx)
     for _, entry in ipairs(item_module.REMOVALS) do
