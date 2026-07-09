@@ -5,6 +5,11 @@ All notable changes to Medic will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Samurai (SAM) support**: Self-only automation. Self-buffs **Warding Circle**, **Third Eye**, and the **Hasso**/**Seigan** stance (grouped as `sam_stance`, so only the selected stance is maintained — they're mutually exclusive in FFXI), plus TP recovery via **Meditate** (`recover_tp`, fires below the TP threshold; default 1000).
+
 ## [2.2.0] - 2026-07-06
 
 Adds three pet-support jobs (Beastmaster, Dragoon, Puppetmaster) with consumable-ammo auto-equip and packet-based pet status tracking; generalizes Trust/tracked buff tracking into a timed-expiry system with base durations (extended to debuffs and to alliance members / the pet), adds per-caster song slots, and stops removal spells and cure-wake from looping on targets whose buffs can't be read from memory, and reworks debuff-removal priority (targeted na-spells before Erase, group-AOE Esuna) — alongside a repo-wide dead-code sweep and UI polish.
@@ -318,6 +323,10 @@ Currently implemented support jobs:
 - **Red Mage** (RDM)
   - Single-target healing with white magic (Cure I-IV)
   - Buff with enhancing magic (Protect I-IV, Shell I-IV, Haste, Refresh, Phalanx, Phalanx II, Enfire, Enblizzard, Enaero, Enstone, Enthunder, Enwater, Stoneskin, Blink, Aquaveil, Sneak, Invisible, Deodorize)
+
+- **Samurai** (SAM)
+  - Self-buffs with job abilities (Warding Circle, Third Eye, Hasso/Seigan stance)
+  - TP recovery with Meditate
 
 - **Rune Fencer** (RUN)
   - AOE healing with job abilities (Vivacious Pulse)
