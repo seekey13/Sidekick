@@ -1785,8 +1785,11 @@ function ui_components.ability_checkbox(ctx, ability, job_def, id_suffix, show_s
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GREEN)
     end
 
-    local ability_enabled = { is_ability_enabled(ctx, ability.name) }
-    if imgui.Checkbox(checkbox_label, ability_enabled) then
+    -- No consumable owned (no_ammo): show the box unchecked AND ignore clicks so
+    -- it reads as disabled and can't be enabled. Non-destructive: the saved
+    -- setting is untouched and restores once the consumable is back.
+    local ability_enabled = { is_ability_enabled(ctx, ability.name) and not no_ammo }
+    if imgui.Checkbox(checkbox_label, ability_enabled) and not no_ammo then
         toggle_ability(ctx, ability.name, ability_enabled[1], job_def)
     end
 
