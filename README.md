@@ -21,14 +21,15 @@ A focused, support-oriented addon for Ashita v4 that automates healing, buffing,
 
 ### [2.2.0] - 2026-07-06
 
-Adds three pet-support jobs (Beastmaster, Dragoon, Puppetmaster) with consumable-ammo auto-equip and packet-based pet status tracking, plus two self-support jobs (Monk, Samurai) and a right-click **Idle Only** ability toggle; also makes packet-tracked buffs/debuffs (Trusts, tracked players, alliance, pets) expire on a timer so a missed wear-off packet no longer leaves a stale status stuck forever; also reworks debuff-removal priority (targeted cures before Erase, group Esuna) — alongside internal dead-code cleanup and UI polish.
+Adds three pet-support jobs (Beastmaster, Dragoon, Puppetmaster) with consumable-ammo auto-equip and packet-based pet status tracking, plus three self-support jobs (Monk, Samurai, Ninja) and a right-click **Idle Only** ability toggle; also makes packet-tracked buffs/debuffs (Trusts, tracked players, alliance, pets) expire on a timer so a missed wear-off packet no longer leaves a stale status stuck forever; also reworks debuff-removal priority (targeted cures before Erase, group Esuna) — alongside internal dead-code cleanup and UI polish.
 
 ### Added
 - **Timed Status Expiry**: Every packet-tracked buff/debuff records a base duration and falls off on its own once elapsed, instead of waiting for a wear-off packet that may never arrive. Covers Trusts, tracked players, alliance members, and the pet.
 - **Debuff Backstop Durations**: Removable debuffs (Poison, Paralysis, Silence, Sleep, Petrify, Doom, Bind, Gravity, Slow, etc.) get a fall-off timer so a missed cure-detection can't spam the na-/Erase spell forever. Curse, Bane, Disease, and Plague are treated as "until removed."
 - **Per-Caster Bard Song Slots**: Song tracking now mirrors FFXI's 2-songs-per-bard limit per target, so a second bard's songs no longer evict yours.
 - **Beastmaster / Dragoon / Puppetmaster**: Three new pet-support jobs (see [Supported Jobs](#supported-jobs)).
-- **Monk / Samurai**: Two new self-support jobs — Monk self-buffs Boost, Dodge, Focus, Counterstance, Footwork; Samurai self-buffs Warding Circle, Third Eye, and the Hasso/Seigan stance plus TP recovery via Meditate (see [Supported Jobs](#supported-jobs)).
+- **Monk / Samurai / Ninja**: Three new self-support jobs — Monk self-buffs Boost, Dodge, Focus, Counterstance, Footwork; Samurai self-buffs Warding Circle, Third Eye, and the Hasso/Seigan stance plus TP recovery via Meditate; Ninja maintains its Ninjutsu stances and Utsusemi/Tonko/Monomi utility spells plus Sange (see [Supported Jobs](#supported-jobs)).
+- **Inventory-Tool Gating**: Ninjutsu spells need a **tool held in the bag** (not worn), so a new `requires_item` gate counts the spell's own tool plus Shikanofuda (the universal substitute) and grays/locks the spell at zero — separate from the ammo-slot auto-equip used by Sange and pet consumables.
 - **Idle Only Toggle**: Right-click any ability and pick **Idle Only** (next to Combat Only) to fire it only out of combat — e.g. Monk Boost on cooldown while idle. The two are mutually exclusive.
 - **Consumable-Ammo Auto-Equip**: Abilities that need a consumable worn in the ammo slot (BST Pet Food, PUP Automaton Oil) auto-equip the best owned tier for your level — from inventory or any Mog Wardrobe — before firing. The config UI shows a live count, green when equipped and red when not.
 - **Pet Status Tracking**: A pet's buffs/debuffs are inferred from packets (the client keeps no pet buff memory) so BST/PUP can strip the pet's status ailments. As with Trusts, this tracking is not perfectly reliable.
@@ -165,7 +166,7 @@ Currently implemented support jobs:
   - Pet healing with **Reward** (requires a **Pet Food** biscuit in the ammo slot; auto-equips the best tier for your level)
   - Pet Regen with **Reward (Regen)** using a **Pet Poultice** (reapplied on a timer since pet buffs can't be read)
   - Pet debuff removal with **Reward (Erase)** using a **Pet Roborant**
-  - Party AOE healing with **Wild Carrot** from a rabbit jug pet (Lucky Lulush / Rabbit), gated on a Ready charge
+  - Party AOE healing with **Wild Carrot** from a rabbit jug pet (KeenearedSteffi / Rabbit), gated on a Ready charge
   - Only one ammo can be worn at a time, so the three Reward variants never contend for the ammo slot
 
 - **Dragoon** (DRG) — *pet-only support*
@@ -207,6 +208,12 @@ Currently implemented support jobs:
 
 - **Monk** (MNK) — *self-only support*
   - Self-buffs with job abilities (Boost, Dodge, Focus, Counterstance, Footwork)
+
+- **Ninja** (NIN) — *self-only support*
+  - Ninjutsu stances (Yonin / Innin — mutually exclusive)
+  - Utsusemi (shadows, Ichi/Ni), and the idle-only Tonko (movement) / Monomi (Sneak) utility spells
+  - Sange (throws a shuriken — auto-equips the best owned tier in the ammo slot)
+  - Ninjutsu spells need their **tool in inventory** (family tool or Shikanofuda); a spell with zero tools is grayed and never cast
 
 - **Paladin** (PLD)
   - Single-target healing with white magic (Cure I-IV)
@@ -333,6 +340,7 @@ Medic/
 │   │   ├── dragoon.lua       # Dragoon abilities (pet-only)
 │   │   ├── geomancer.lua     # Geomancer abilities
 │   │   ├── monk.lua          # Monk abilities (self-only)
+│   │   ├── ninja.lua         # Ninja abilities (self-only)
 │   │   ├── paladin.lua       # Paladin abilities
 │   │   ├── puppetmaster.lua  # Puppetmaster abilities (pet-only)
 │   │   ├── red_mage.lua      # Red Mage abilities

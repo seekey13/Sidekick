@@ -1237,10 +1237,16 @@ function ui_components.group_dropdown(ctx, job_def, target_group, dropdown_width
     local combo_label = '##dropdown_' .. target_group
     local selected_combat_only = selected and effective_combat_only(selected, ctx) or false
     local selected_idle_only = selected and common.is_ability_idle_only(selected, ctx.settings) or false
-    
+    -- Ninjutsu tool (requires_item) not in inventory: gray the combo, overriding
+    -- the idle/combat tint, so a 0-tool spell reads as unusable.
+    local selected_no_item = selected and selected.requires_item
+        and common.count_equippable_items(selected.requires_item) == 0 or false
+
     -- Apply color styling
     if selected then
-        if selected_combat_only then
+        if selected_no_item then
+            imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
+        elseif selected_combat_only then
             imgui.PushStyleColor(ImGuiCol_Text, LIGHT_YELLOW)
         elseif selected_idle_only then
             imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GREEN)
@@ -1291,7 +1297,7 @@ function ui_components.group_dropdown(ctx, job_def, target_group, dropdown_width
     
     imgui.PopItemWidth()
     
-    if selected and (selected_combat_only or selected_idle_only) then
+    if selected and (selected_no_item or selected_combat_only or selected_idle_only) then
         imgui.PopStyleColor()
     end
 end
@@ -1307,6 +1313,16 @@ local function pet_type_tooltip(ability)
     return 'Requires pet ' .. table.concat(ability.requires_pet_name, ' / ')
 end
 
+-- Ninjutsu tool count (requires_item): green "(N)" after the row, red at 0. N is
+-- the summed inventory count of the spell's own tool plus Shikanofuda (both in
+-- requires_item). count==0 also grays the row (see no_item in the callers).
+local function render_item_count(ability)
+    if not ability or not ability.requires_item then return end
+    local count = common.count_equippable_items(ability.requires_item)
+    imgui.SameLine()
+    imgui.TextColored(count > 0 and LIGHT_GREEN or LIGHT_RED, string.format('(%d)', count))
+end
+
 -- Render a self-target single ability
 -- Layout: [ON/OFF Button] Ability Name
 function ui_components.self_single_ability(ctx, ability, job_def, id_suffix)
@@ -1315,17 +1331,20 @@ function ui_components.self_single_ability(ctx, ability, job_def, id_suffix)
     -- gray it like an unlearned spell and say what's missing.
     local no_ammo = ability.requires_equipped_ammo
         and common.count_equippable_items(ability.requires_equipped_ammo) == 0
+    -- Ninjutsu tool (requires_item) not in inventory: gray like no_ammo.
+    local no_item = ability.requires_item
+        and common.count_equippable_items(ability.requires_item) == 0
     local wrong_pet = pet_type_unmet(ability)
     local spell_suffix = ''
     local ability_combat_only = effective_combat_only(ability, ctx)
     local ability_idle_only = common.is_ability_idle_only(ability, ctx.settings)
 
-    ui_components.onoff_button(ctx, ability.name, job_def, has_spell)
+    ui_components.onoff_button(ctx, ability.name, job_def, has_spell and not no_item)
 
     imgui.SameLine()
 
     -- Push text color after buttons so S button / ON/OFF button are not tinted
-    if not has_spell or no_ammo or wrong_pet then
+    if not has_spell or no_ammo or no_item or wrong_pet then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
     elseif ability_combat_only then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_YELLOW)
@@ -1350,6 +1369,8 @@ function ui_components.self_single_ability(ctx, ability, job_def, id_suffix)
             imgui.SetTooltip('Not Learned')
         elseif no_ammo then
             imgui.SetTooltip('No ' .. (ability.ammo_label or 'item') .. ' found in storage.')
+        elseif no_item then
+            imgui.SetTooltip('No ' .. (ability.item_label or 'tool') .. ' or Shikanofuda in inventory.')
         elseif wrong_pet then
             imgui.SetTooltip(pet_type_tooltip(ability))
         elseif ability_combat_only then
@@ -1359,9 +1380,11 @@ function ui_components.self_single_ability(ctx, ability, job_def, id_suffix)
         end
     end
 
-    if not has_spell or no_ammo or wrong_pet or ability_combat_only or ability_idle_only then
+    if not has_spell or no_ammo or no_item or wrong_pet or ability_combat_only or ability_idle_only then
         imgui.PopStyleColor()
     end
+
+    render_item_count(ability)
 end
 
 -- Render a self-target grouped ability with dropdown
@@ -1382,15 +1405,20 @@ function ui_components.self_grouped_ability(ctx, ability, job_def)
     end
     
     local has_spell = common.has_spell_learned(selected)
-    
+    -- Ninjutsu tool (requires_item) not in inventory: can't cast, so lock the
+    -- ON/OFF toggle off and gray it, same as an unlearned spell.
+    local no_item = selected.requires_item
+        and common.count_equippable_items(selected.requires_item) == 0
+    local can_toggle = has_spell and not no_item
+
     -- Leading slot: scholar S button / bard [A] indent / spacer (aligns the row)
     render_leading_slot(ability.group, selected, ctx)
 
     -- Use group-based ON/OFF button
     local is_enabled = is_group_enabled(ctx, ability.group)
     local button_width = get_onoff_button_width()
-    
-    if not has_spell then
+
+    if not can_toggle then
         imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_DISABLED)
         imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_DISABLED)
         imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_DISABLED)
@@ -1401,37 +1429,39 @@ function ui_components.self_grouped_ability(ctx, ability, job_def)
         imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_UNSELECTED_HOVER)
         imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_UNSELECTED_ACTIVE)
     end
-    
+
     local button_text = is_enabled and 'ON' or 'OFF'
     local button_label = button_text .. '##onoff_group_' .. ability.group
-    
-    if has_spell and imgui.Button(button_label, { button_width, 0 }) then
+
+    if can_toggle and imgui.Button(button_label, { button_width, 0 }) then
         toggle_group(ctx, ability.group, not is_enabled)
-    elseif not has_spell then
+    elseif not can_toggle then
         imgui.Button(button_label, { button_width, 0 })
     end
-    
-    if not has_spell or not is_enabled then
+
+    if not can_toggle or not is_enabled then
         imgui.PopStyleColor(3)
     end
-    
+
     -- Push text color after buttons so S button / ON/OFF button are not tinted
     local selected_combat_only = effective_combat_only(selected, ctx)
     local selected_idle_only = common.is_ability_idle_only(selected, ctx.settings)
-    if not has_spell then
+    if not has_spell or no_item then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
     elseif selected_combat_only then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_YELLOW)
     elseif selected_idle_only then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GREEN)
     end
-    
+
     imgui.SameLine()
     ui_components.group_dropdown(ctx, job_def, ability.group, DROPDOWN_WIDTH)
-    
-    if not has_spell or selected_combat_only or selected_idle_only then
+
+    if not has_spell or no_item or selected_combat_only or selected_idle_only then
         imgui.PopStyleColor()
     end
+
+    render_item_count(selected)
 end
 
 -- Render a party-target single ability
@@ -1755,8 +1785,11 @@ function ui_components.ability_checkbox(ctx, ability, job_def, id_suffix, show_s
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GREEN)
     end
 
-    local ability_enabled = { is_ability_enabled(ctx, ability.name) }
-    if imgui.Checkbox(checkbox_label, ability_enabled) then
+    -- No consumable owned (no_ammo): show the box unchecked AND ignore clicks so
+    -- it reads as disabled and can't be enabled. Non-destructive: the saved
+    -- setting is untouched and restores once the consumable is back.
+    local ability_enabled = { is_ability_enabled(ctx, ability.name) and not no_ammo }
+    if imgui.Checkbox(checkbox_label, ability_enabled) and not no_ammo then
         toggle_ability(ctx, ability.name, ability_enabled[1], job_def)
     end
 
