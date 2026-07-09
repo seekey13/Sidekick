@@ -768,7 +768,7 @@ function common.select_ammo_equip_command(spec, player_level)
     local best, best_container
     for _, e in ipairs(spec) do
         if type(e) == 'table' and e.name and (e.level or 0) <= (player_level or 0) then
-            local container = common.find_equippable_item(e.id)  -- nil if not owned
+            local container = common.find_equippable_item({ e })  -- nil if not owned
             if container and ((not best) or (e.level or 0) >= (best.level or 0)) then
                 best, best_container = e, container
             end
