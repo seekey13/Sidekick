@@ -94,21 +94,21 @@ local function is_subjob_duplicate(job_def, ability)
 end
 
 -- Draw a "(<count>)" after an ammo-gated ability's row: green when a matching
--- item is worn, red when not. When show_name is set and an item is worn, also
--- name the equipped tier in green -- only useful for heal_pet (Reward/Repair),
--- where the tier changes how much the pet heals.
-local GREEN = { 0.4, 1.0, 0.4, 1.0 }
+-- item is worn, red when not -- reusing the current-job green and automation-
+-- stopped red so the palette stays consistent. When show_name is set and an item
+-- is worn, also name the equipped tier in green -- only useful for heal_pet
+-- (Reward/Repair), where the tier changes how much the pet heals.
 local function render_ammo_count(ability, show_name)
     if not ability.requires_equipped_ammo then return end
     local count = common.count_equippable_items(ability.requires_equipped_ammo)
     local equipped = common.is_ammo_equipped(ability.requires_equipped_ammo)
     imgui.SameLine()
-    imgui.TextColored(equipped and GREEN or { 1.0, 0.4, 0.4, 1.0 }, string.format('(%d)', count))
+    imgui.TextColored(equipped and ui.LIGHT_GREEN or ui.LIGHT_RED, string.format('(%d)', count))
     if show_name and equipped then
         local name = common.equipped_ammo_name(ability.requires_equipped_ammo)
         if name then
             imgui.SameLine()
-            imgui.TextColored(GREEN, name)
+            imgui.TextColored(ui.LIGHT_GREEN, name)
         end
     end
 end
