@@ -1237,10 +1237,16 @@ function ui_components.group_dropdown(ctx, job_def, target_group, dropdown_width
     local combo_label = '##dropdown_' .. target_group
     local selected_combat_only = selected and effective_combat_only(selected, ctx) or false
     local selected_idle_only = selected and common.is_ability_idle_only(selected, ctx.settings) or false
-    
+    -- Ninjutsu tool (requires_item) not in inventory: gray the combo, overriding
+    -- the idle/combat tint, so a 0-tool spell reads as unusable.
+    local selected_no_item = selected and selected.requires_item
+        and common.count_equippable_items(selected.requires_item) == 0 or false
+
     -- Apply color styling
     if selected then
-        if selected_combat_only then
+        if selected_no_item then
+            imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
+        elseif selected_combat_only then
             imgui.PushStyleColor(ImGuiCol_Text, LIGHT_YELLOW)
         elseif selected_idle_only then
             imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GREEN)
@@ -1291,7 +1297,7 @@ function ui_components.group_dropdown(ctx, job_def, target_group, dropdown_width
     
     imgui.PopItemWidth()
     
-    if selected and (selected_combat_only or selected_idle_only) then
+    if selected and (selected_no_item or selected_combat_only or selected_idle_only) then
         imgui.PopStyleColor()
     end
 end
@@ -1333,7 +1339,7 @@ function ui_components.self_single_ability(ctx, ability, job_def, id_suffix)
     local ability_combat_only = effective_combat_only(ability, ctx)
     local ability_idle_only = common.is_ability_idle_only(ability, ctx.settings)
 
-    ui_components.onoff_button(ctx, ability.name, job_def, has_spell)
+    ui_components.onoff_button(ctx, ability.name, job_def, has_spell and not no_item)
 
     imgui.SameLine()
 
@@ -1399,15 +1405,20 @@ function ui_components.self_grouped_ability(ctx, ability, job_def)
     end
     
     local has_spell = common.has_spell_learned(selected)
-    
+    -- Ninjutsu tool (requires_item) not in inventory: can't cast, so lock the
+    -- ON/OFF toggle off and gray it, same as an unlearned spell.
+    local no_item = selected.requires_item
+        and common.count_equippable_items(selected.requires_item) == 0
+    local can_toggle = has_spell and not no_item
+
     -- Leading slot: scholar S button / bard [A] indent / spacer (aligns the row)
     render_leading_slot(ability.group, selected, ctx)
 
     -- Use group-based ON/OFF button
     local is_enabled = is_group_enabled(ctx, ability.group)
     local button_width = get_onoff_button_width()
-    
-    if not has_spell then
+
+    if not can_toggle then
         imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_DISABLED)
         imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_DISABLED)
         imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_DISABLED)
@@ -1418,26 +1429,23 @@ function ui_components.self_grouped_ability(ctx, ability, job_def)
         imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_UNSELECTED_HOVER)
         imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_UNSELECTED_ACTIVE)
     end
-    
+
     local button_text = is_enabled and 'ON' or 'OFF'
     local button_label = button_text .. '##onoff_group_' .. ability.group
-    
-    if has_spell and imgui.Button(button_label, { button_width, 0 }) then
+
+    if can_toggle and imgui.Button(button_label, { button_width, 0 }) then
         toggle_group(ctx, ability.group, not is_enabled)
-    elseif not has_spell then
+    elseif not can_toggle then
         imgui.Button(button_label, { button_width, 0 })
     end
-    
-    if not has_spell or not is_enabled then
+
+    if not can_toggle or not is_enabled then
         imgui.PopStyleColor(3)
     end
-    
+
     -- Push text color after buttons so S button / ON/OFF button are not tinted
     local selected_combat_only = effective_combat_only(selected, ctx)
     local selected_idle_only = common.is_ability_idle_only(selected, ctx.settings)
-    -- Ninjutsu tool (requires_item) not in inventory: gray the selected tier.
-    local no_item = selected.requires_item
-        and common.count_equippable_items(selected.requires_item) == 0
     if not has_spell or no_item then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
     elseif selected_combat_only then
