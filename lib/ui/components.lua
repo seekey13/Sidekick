@@ -1770,11 +1770,14 @@ end
 -- ============================================================================
 
 -- Render a checkbox for item-based debuff removal (DRY helper)
--- Args: ctx, item_name, setting_key, debuff_name, extra_tooltip
-local function render_item_removal_checkbox(ctx, item_name, setting_key, debuff_name, extra_tooltip)
+-- Args: ctx, entry (an item_module.REMOVALS row: item_id/item_name/setting_key/debuff_name)
+local function render_item_removal_checkbox(ctx, entry)
     if not ctx or not ctx.settings then return end
 
-    local count = item_module.get_item_count(item_name)
+    local item_name   = entry.item_name
+    local setting_key = entry.setting_key
+    local debuff_name = entry.debuff_name
+    local count = item_module.get_item_count(entry.item_id)
 
     -- Build label with count (show ? while inventory loads)
     local checkbox_label
@@ -1819,9 +1822,6 @@ local function render_item_removal_checkbox(ctx, item_name, setting_key, debuff_
         else
             tooltip_text = string.format('Use %s to remove %s', item_name, debuff_name)
         end
-        if extra_tooltip then
-            tooltip_text = tooltip_text .. '\n\n' .. extra_tooltip
-        end
         imgui.SetTooltip(tooltip_text)
     end
 end
@@ -1829,7 +1829,7 @@ end
 -- Render one checkbox per item-removal definition (driven by item.REMOVALS).
 function ui_components.item_removal_checkboxes(ctx)
     for _, entry in ipairs(item_module.REMOVALS) do
-        render_item_removal_checkbox(ctx, entry.item_name, entry.setting_key, entry.debuff_name)
+        render_item_removal_checkbox(ctx, entry)
     end
 end
 

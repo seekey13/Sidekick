@@ -12,53 +12,63 @@ local last_item_use = 0
 local ITEM_COOLDOWN = 4.0
 
 -- Get item count in player's inventory (container 0)
--- Args: item_name (string) - Name of the item to count
--- Returns: number or nil - Total count of the item in inventory, or nil if inventory not loaded
-local function get_item_count(item_name)
-    local ok_item, target_item = pcall(function()
-        return AshitaCore:GetResourceManager():GetItemByName(item_name, 0)
-    end)
-    
-    if not ok_item or not target_item then
-        return nil  -- Return nil when resource manager fails (during zoning)
-    end
-    
+-- Matched by item ID, not name: custom-server items (Remedy Ointment, etc.) have
+-- resource names that don't match the English string GetItemByName expects, so a
+-- name lookup returns nil and the UI shows "?".
+-- Args: item_id (number) - FFXI item id to count
+-- Returns: number or nil - Total count in inventory, or nil if inventory not loaded
+local function get_item_count(item_id)
+    if not item_id then return nil end
+
     local ok_inv, inventory = pcall(function()
         return AshitaCore:GetMemoryManager():GetInventory()
     end)
-    
+
     if not ok_inv or not inventory then
         return nil  -- Return nil when inventory isn't loaded (during zoning)
     end
-    
+
     local total_count = 0
     local valid_item_count = 0  -- Track how many valid items we find
     -- Inventory container 0 has 80 slots in FFXI
     local max_slots = 80
-    
+
     for i = 0, max_slots - 1 do
         local ok_item_slot, item_entry = pcall(function()
             return inventory:GetContainerItem(0, i)
         end)
-        
+
         if ok_item_slot and item_entry then
             -- Count any non-empty slot as "valid" to detect if inventory is loaded
             if item_entry.Id ~= 0 and item_entry.Id ~= -1 and item_entry.Id ~= 65535 then
                 valid_item_count = valid_item_count + 1
-                
-                if item_entry.Id == target_item.Id then
+
+                if item_entry.Id == item_id then
                     total_count = total_count + item_entry.Count
                 end
             end
         end
     end
-    
+
     -- If we found no valid items at all in the entire inventory, it's likely not loaded yet
     if valid_item_count == 0 then
         return nil
     end
-    
+
     return total_count
+end
+
+-- Canonical /item name for an entry: resolve from the item resource by ID so the
+-- command matches the client's spelling even when our label string differs.
+-- Falls back to the entry's display name if the resource lookup fails.
+local function item_command_name(entry)
+    local ok, res = pcall(function()
+        return AshitaCore:GetResourceManager():GetItemById(entry.item_id)
+    end)
+    if ok and res and res.Name and res.Name[1] and res.Name[1] ~= '' then
+        return res.Name[1]
+    end
+    return entry.item_name
 end
 
 -- Stat-down family Panacea clears (the >=128 tail of ERASABLE_DEBUFFS: Defense
@@ -73,15 +83,15 @@ local PANACEA_DEBUFFS = {128, 129, 130, 131, 134, 135, 136, 137, 138, 139, 140,
 -- unreliable ("potentially") cures are omitted to avoid burning the stack on a
 -- debuff the item won't clear.
 local ITEM_REMOVALS = {
-    { setting_key = 'item_antidote_enabled',        item_name = 'Antidote',        debuff_name = 'Poison',         buff_ids = {3} },
-    { setting_key = 'item_eye_drops_enabled',       item_name = 'Eye Drops',       debuff_name = 'Blindness',      buff_ids = {5} },
-    { setting_key = 'item_echo_drops_enabled',      item_name = 'Echo Drops',      debuff_name = 'Silence',        buff_ids = {6} },
-    { setting_key = 'item_holy_water_enabled',      item_name = 'Holy Water',      debuff_name = 'Curse',          buff_ids = common.CURSE_DEBUFFS },
-    { setting_key = 'item_hallowed_water_enabled',  item_name = 'Hallowed Water',  debuff_name = 'Curse',          buff_ids = common.CURSE_DEBUFFS },
-    { setting_key = 'item_tincture_enabled',        item_name = 'Tincture',        debuff_name = 'Plague/Disease', buff_ids = {31, 8} },
-    { setting_key = 'item_remedy_ointment_enabled', item_name = 'Remedy Ointment', debuff_name = 'status ailments',buff_ids = {3, 4, 5, 6} },
-    { setting_key = 'item_remedy_enabled',          item_name = 'Remedy',          debuff_name = 'status ailments',buff_ids = {3, 4, 5, 6} },
-    { setting_key = 'item_panacea_enabled',         item_name = 'Panacea',         debuff_name = 'stat downs',     buff_ids = PANACEA_DEBUFFS },
+    { setting_key = 'item_antidote_enabled',        item_id = 4148, item_name = 'Antidote',        debuff_name = 'Poison',         buff_ids = {3} },
+    { setting_key = 'item_eye_drops_enabled',       item_id = 4150, item_name = 'Eye Drops',       debuff_name = 'Blindness',      buff_ids = {5} },
+    { setting_key = 'item_echo_drops_enabled',      item_id = 4151, item_name = 'Echo Drops',      debuff_name = 'Silence',        buff_ids = {6} },
+    { setting_key = 'item_holy_water_enabled',      item_id = 4154, item_name = 'Holy Water',      debuff_name = 'Curse',          buff_ids = common.CURSE_DEBUFFS },
+    { setting_key = 'item_hallowed_water_enabled',  item_id = 5306, item_name = 'Hallowed Water',  debuff_name = 'Curse',          buff_ids = common.CURSE_DEBUFFS },
+    { setting_key = 'item_tincture_enabled',        item_id = 5418, item_name = 'Tincture',        debuff_name = 'Plague/Disease', buff_ids = {31, 8} },
+    { setting_key = 'item_remedy_ointment_enabled', item_id = 5356, item_name = 'Remedy Ointment', debuff_name = 'status ailments',buff_ids = {3, 4, 5, 6} },
+    { setting_key = 'item_remedy_enabled',          item_id = 4155, item_name = 'Remedy',          debuff_name = 'status ailments',buff_ids = {3, 4, 5, 6} },
+    { setting_key = 'item_panacea_enabled',         item_id = 4149, item_name = 'Panacea',         debuff_name = 'stat downs',     buff_ids = PANACEA_DEBUFFS },
 }
 
 -- True if the player has any of the listed status ids.
@@ -107,14 +117,14 @@ local function try_item_removal(entry, settings)
     end
 
     -- Check inventory
-    local count = get_item_count(entry.item_name)
+    local count = get_item_count(entry.item_id)
     if not count or count == 0 then
         return nil
     end
     last_item_use = current_time
 
     return {
-        command     = string.format('/item "%s" <me>', entry.item_name),
+        command     = string.format('/item "%s" <me>', item_command_name(entry)),
         description = string.format('Using %s to remove %s', entry.item_name, entry.debuff_name),
     }
 end
