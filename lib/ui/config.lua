@@ -859,7 +859,7 @@ function ui_config.render(settings, job_def, callback)
                 for _, ability in ipairs(job_def.abilities.buff) do
                     if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                         ui.render_ability(ctx, ability, job_def, 'buff')
-                        render_ammo_count(ability)
+                        render_ammo_count(ability, true)  -- name equipped tier (NIN Sange shuriken)
                     end
                 end
                 ctx.show_buff_warning = false
