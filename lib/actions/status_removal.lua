@@ -417,12 +417,10 @@ end
 -- ============================================================================
 -- Pet Debuff Removal
 -- ============================================================================
--- BST/PUP can strip status effects off their pet (Reward + Pet Roborant,
--- Maintenance + Oil). Pet buffs/debuffs aren't tracked yet, so `pet_debuffs` is
--- empty and nothing ever fires -- this only wires the abilities in so they work
--- the moment that list is populated (e.g. when the pet is tracked like a party
--- member with a buff list). ponytail: single source `state.pet_debuffs`; swap it
--- in when pet tracking lands.
+-- BST/PUP strip status effects off their pet (Reward + Pet Roborant, Maintenance
+-- + Oil). The pet has no buff memory, so its statuses come from packet tracking
+-- in `state.pet_debuffs` (populated by refresh_game_state) -- inferred and, like
+-- Trust tracking, not perfectly reliable.
 function status_removal.execute_pet_debuff_removal(settings, job_def, main_level, sub_level, player_resource)
     if not settings.pet_debuff_removal_enabled then return nil end
 
@@ -434,12 +432,12 @@ function status_removal.execute_pet_debuff_removal(settings, job_def, main_level
     local abilities = job_def.abilities.pet_debuff_removal or {}
     if #abilities == 0 then return nil end
 
-    -- Pet debuff list (empty until pet buffs are tracked).
+    -- Pet's packet-tracked statuses (buffs + debuffs; the loop filters by debuff_id).
     local pet_debuffs = state.pet_debuffs or {}
 
     -- Auto-equip the consumable only when the pet has a debuff this ability could
     -- strip, so the roborant/oil never fights the heal/Regen ammo for the slot
-    -- while there's nothing to cure. No-op today (pet_debuffs is empty).
+    -- while there's nothing to cure.
     for _, ability in ipairs(abilities) do
         if ability.requires_equipped_ammo
            and not common.is_ammo_equipped(ability.requires_equipped_ammo)
