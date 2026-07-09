@@ -212,6 +212,10 @@ Currently implemented support jobs:
   - Buff with enhancing magic (Protect I-IV, Shell I-IV, Haste, Refresh, Phalanx, Phalanx II, Enfire, Enblizzard, Enaero, Enstone, Enthunder, Enwater, Stoneskin, Blink, Aquaveil, Sneak, Invisible, Deodorize)
   - Revive with white magic (Raise)
 
+- **Samurai** (SAM) — *self-only support*
+  - Self-buffs with job abilities (Warding Circle, Third Eye, Hasso/Seigan stance — Hasso and Seigan grouped as mutually exclusive)
+  - TP recovery with **Meditate**
+
 - **Rune Fencer** (RUN)
   - AOE healing with job abilities (Vivacious Pulse)
   - Buff with enhancing magic (Protect I-III, Shell I-IV, Regen I-III, Refresh, Barfire, Barblizzard, Baraero, Barstone, Barthunder, Barwater, etc.)
@@ -327,6 +331,7 @@ Medic/
 │   │   ├── puppetmaster.lua  # Puppetmaster abilities (pet-only)
 │   │   ├── red_mage.lua      # Red Mage abilities
 │   │   ├── rune_fencer.lua   # Rune Fencer abilities
+│   │   ├── samurai.lua       # Samurai abilities (self-only)
 │   │   ├── scholar.lua       # Scholar abilities
 │   │   ├── summoner.lua      # Summoner abilities
 │   │   └── white_mage.lua    # White Mage abilities
