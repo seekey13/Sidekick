@@ -31,8 +31,12 @@ Adds three pet-support jobs (Beastmaster, Dragoon, Puppetmaster) with consumable
 - **Consumable-Ammo Auto-Equip**: Abilities that need a consumable worn in the ammo slot (BST Pet Food, PUP Automaton Oil) auto-equip the best owned tier for your level — from inventory or any Mog Wardrobe — before firing. The config UI shows a live count, green when equipped and red when not.
 - **Pet Status Tracking**: A pet's buffs/debuffs are inferred from packets (the client keeps no pet buff memory) so BST/PUP can strip the pet's status ailments. As with Trusts, this tracking is not perfectly reliable.
 - **Beastmaster Ready Charges**: Ready-move charges are tracked like Scholar stratagems and shown in the `/med panel` header.
+- **Expanded Item-Based Removal**: The item-cure feature grows from 2 items to 9 (Antidote, Eye/Echo Drops, Holy/Hallowed Water, Tincture, Remedy Ointment, Remedy, Panacea), grouped under one collapsing **Item Debuff Removal** header with a master toggle. Only reliably-cured ailments are listed per item (Remedy skips Disease, Panacea skips Amnesia) so it can't loop the stack on something it won't clear.
 
 ### Changed
+- **Item Removal Matched by ID**: Inventory counts and the `/item` command now key off item ID rather than the English name, so custom-server items (Remedy Ointment, Hallowed Water, Tincture) resolve correctly instead of showing `?`. Items are never used while moving, and the whole section stays hidden until inventory is readable.
+- **Cursna Curse List**: Cursna and Holy/Hallowed Water share `common.CURSE_DEBUFFS` (Curse, Doom, Bane) so the curable set is defined once.
+- **UI Section Order & Colors**: Status-removal sections now read Sleep → Debuff → Pet Debuff → Item; the ammo-count `(n)` reuses the current-job green when equipped and the automation-stopped red when not.
 - **Targeted Cure Before Erase**: Debuff removal now uses a targeted na-spell (Poisona, Paralyna, etc.) before generic Erase, so the exact ailment is stripped first and Erase mops up the rest.
 - **Group Esuna (AOE)**: Esuna now fires when 2+ members within 10 yalms (you + party + alliance) share an Esuna-removable ailment, clearing them in one cast; a single affected target uses the cheaper na-spell instead. Pets and Trusts aren't in the AOE.
 - **Party Button Tooltips**: Hovering a target button (**ME** / **P1–P5**) now shows that member's character name; on Trust/tracked buttons the reliability caveat is appended below the name.
@@ -107,7 +111,7 @@ Adds three pet-support jobs (Beastmaster, Dragoon, Puppetmaster) with consumable
 - **Mount Detection**: Automation is fully suppressed while riding a mount (detected via entity status 5 or buff 252). Configuration panel shows "Automation paused (mounted)" in this state.
 - **Alliance Support**: Automatically heals, removes debuffs, wakes, and applies buffs to alliance sub-party members (parties B and C) using abilities flagged with `target_outside = true`.
 - **Tracked Targets**: Session-scoped tracking of out-of-party players for heal, buff, and status removal automation. (Power Leveling)
-- **Item-Based Status Removal**: Automatically use consumable items to remove critical debuffs (Echo Drops for Silence, Holy Water for Doom) with inventory tracking and smart zone-load handling
+- **Item-Based Status Removal**: Automatically use consumable items to cure status ailments — Antidote (Poison), Eye Drops (Blind), Echo Drops (Silence), Holy Water / Hallowed Water (Curse/Doom/Bane), Tincture (Plague/Disease), Remedy Ointment & Remedy (Poison/Paralyze/Blind/Silence), Panacea (stat-downs). Grouped under one collapsing header with a live per-item count; matched by item ID (not name, so custom-server items work), never fired while moving, and the section hides until inventory loads
 - **Critical HP Response**: Emergency abilities (e.g., Divine Seal, Martyr, Contradance) automatically trigger when party members drop below critical threshold (default 30%)
 - **Single-Target Healing**: Intelligent HP deficit-based heal selection with priority system (Critical HP → Focus target → Regular lowest HP)
 - **Group / AOE Heal Target Selection**: Per-target ME/P1-P5 (plus alliance and tracked for Group) buttons choose who Group and AOE healing manage; party/tracked default ON, alliance default OFF, selections per-session
