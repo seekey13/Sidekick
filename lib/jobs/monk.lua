@@ -22,7 +22,6 @@ return {
                 cost = 0,
                 id = 16,  -- Boost recast ID
                 command = '/ja "Boost" <me>',
-                buff_id = 45,  -- Boost
             },
             {
                 name = 'Dodge',
