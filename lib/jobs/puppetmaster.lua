@@ -17,9 +17,8 @@ local common = require('lib.core.common')
 -- Automaton Oil ammo tiers: id, item name (for /equip), equip level.
 local OILS = {
     { id = 18731, name = 'Automaton Oil',    level = 15 },
-    { id = 18732, name = 'Automaton Oil +1', level = 30 },
-    { id = 18733, name = 'Automaton Oil +2', level = 50 },
-    { id = 19185, name = 'Automaton Oil +3', level = 80 },
+    { id = 18732, name = 'Automat. Oil +1', level = 30 },
+    { id = 18733, name = 'Automat. Oil +2', level = 50 },
 }
 
 return {
