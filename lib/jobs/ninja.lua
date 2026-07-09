@@ -94,7 +94,8 @@ return {
                 item_label = 'Shihei',
             },
 
-            -- Tonko (movement/Sneak). Ichi/Ni share buff 69 + group.
+            -- Tonko (movement/Sneak). Ichi/Ni share buff 69 + group. Idle only --
+            -- sneaking is a between-fights thing, not a combat recast.
             {
                 name = 'Tonko: Ni',
                 level = 34,
@@ -105,6 +106,7 @@ return {
                 group = 'tonko',
                 requires_item = TONKO_TOOLS,
                 item_label = 'Shinobi-tabi',
+                idle_only = true,
             },
             {
                 name = 'Tonko: Ichi',
@@ -116,9 +118,10 @@ return {
                 group = 'tonko',
                 requires_item = TONKO_TOOLS,
                 item_label = 'Shinobi-tabi',
+                idle_only = true,
             },
 
-            -- Monomi (Sneak/Hide). Ungrouped single tier.
+            -- Monomi (Sneak/Hide). Ungrouped single tier. Idle only.
             {
                 name = 'Monomi: Ichi',
                 level = 25,
@@ -128,6 +131,7 @@ return {
                 buff_id = 71,
                 requires_item = MONOMI_TOOLS,
                 item_label = 'Sanjaku-Tenugui',
+                idle_only = true,
             },
 
             -- Sange: JA that throws a shuriken, so it needs one EQUIPPED in the
