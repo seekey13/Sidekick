@@ -85,15 +85,11 @@ return {
         'your Focus Target, then whichever selected\n' ..
         'member has the most removable debuffs.',
 
-    item_silence_removal =
-        'Auto-uses this item on yourself when\n' ..
-        'you have Silence, independent of the spell-\n' ..
-        'based removal above. Limited to once per 4s.',
-
-    item_doom_removal =
-        'Auto-uses this item on yourself when\n' ..
-        'you have Doom, independent of the spell-\n' ..
-        'based removal above. Limited to once per 4s.',
+    item_removal =
+        'Auto-uses consumables on yourself to cure\n' ..
+        'status ailments, independent of spell-based\n' ..
+        'removal. Only shows items you are carrying.\n' ..
+        'Limited to once per 4s; never fires while moving.',
 
     resting =
         'While idle (not moving/casting/engaged) and\n' ..

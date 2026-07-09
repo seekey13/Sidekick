@@ -1770,18 +1770,21 @@ end
 -- ============================================================================
 
 -- Render a checkbox for item-based debuff removal (DRY helper)
--- Args: ctx, item_name, setting_key, debuff_name, extra_tooltip
-local function render_item_removal_checkbox(ctx, item_name, setting_key, debuff_name, extra_tooltip)
+-- Args: ctx, entry (an item_module.REMOVALS row: item_id/item_name/setting_key/debuff_name)
+local function render_item_removal_checkbox(ctx, entry)
     if not ctx or not ctx.settings then return end
 
-    local count = item_module.get_item_count(item_name)
+    local item_name   = entry.item_name
+    local setting_key = entry.setting_key
+    local debuff_name = entry.debuff_name
+    local count = item_module.get_item_count(entry.item_id)
 
     -- Build label with count (show ? while inventory loads)
     local checkbox_label
     if count == nil then
-        checkbox_label = string.format('Remove %s with %s (?)', debuff_name, item_name)
+        checkbox_label = string.format('%s with %s (?)', debuff_name, item_name)
     else
-        checkbox_label = string.format('Remove %s with %s (%d)', debuff_name, item_name, count)
+        checkbox_label = string.format('%s with %s (%d)', debuff_name, item_name, count)
     end
 
     local is_disabled = (count == 0)
@@ -1819,19 +1822,21 @@ local function render_item_removal_checkbox(ctx, item_name, setting_key, debuff_
         else
             tooltip_text = string.format('Use %s to remove %s', item_name, debuff_name)
         end
-        if extra_tooltip then
-            tooltip_text = tooltip_text .. '\n\n' .. extra_tooltip
-        end
         imgui.SetTooltip(tooltip_text)
     end
 end
 
-function ui_components.item_silence_removal_checkbox(ctx, extra_tooltip)
-    render_item_removal_checkbox(ctx, 'Echo Drops', 'item_silence_removal_enabled', 'Silence', extra_tooltip)
+-- True once inventory is readable (used to hide the Item Removal section while
+-- counts are still unknown "?" rather than a real 0).
+function ui_components.item_inventory_loaded()
+    return item_module.inventory_loaded()
 end
 
-function ui_components.item_doom_removal_checkbox(ctx, extra_tooltip)
-    render_item_removal_checkbox(ctx, 'Holy Water', 'item_doom_removal_enabled', 'Doom', extra_tooltip)
+-- Render one checkbox per item-removal definition (driven by item.REMOVALS).
+function ui_components.item_removal_checkboxes(ctx)
+    for _, entry in ipairs(item_module.REMOVALS) do
+        render_item_removal_checkbox(ctx, entry)
+    end
 end
 
 -- ============================================================================

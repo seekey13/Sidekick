@@ -38,7 +38,7 @@ return {
 
             -- Geo debuffs (<bt>/enemy-target, 'Geo-bt' group). The cast and the
             -- single-luopan lifecycle are handled in lib/actions/geo.lua (not
-            -- buff.lua); selection renders under "Enable Geo". (highest level first)
+            -- buff.lua); selection renders under "Geo". (highest level first)
             {
                 name = 'Geo-Vex',
                 level = 74,

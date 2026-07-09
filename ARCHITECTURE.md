@@ -27,7 +27,7 @@ lib/
     buff.lua                Buff maintenance (self + party, groups, Pianissimo)
     geo.lua                 Full Circle automation & Entrust management
     heal.lua                All healing (single-target, AOE, pet)
-    item.lua                Consumable-based status removal (Echo Drops, Holy Water)
+    item.lua                Consumable-based status removal (Antidote, Eye/Echo Drops, Holy/Hallowed Water, Remedy, Panacea, Remedy Ointment, Tincture)
     recover.lua             MP/TP recovery abilities
     rest.lua                Automatic resting (/heal) with follow-target awareness
     revive.lua              Raise dead party/tracked/alliance members
@@ -257,14 +257,33 @@ Runs in two phases per tick:
 
 ### item.lua – Consumable Status Removal
 
-Data-driven via `ITEM_REMOVALS` table (priority-ordered):
+Data-driven via `ITEM_REMOVALS` (priority-ordered; each row is `setting_key`,
+`item_id`, `item_name`, `debuff_name`, `buff_ids`). Dedicated single-cures come
+first so a cheap item wins over a premium multi-cure (Antidote before Remedy for
+Poison). `buff_ids` lists every status the item **reliably** removes; hedged
+("potentially") cures are omitted so the item can't loop the stack on a debuff it
+won't clear — Remedy skips Disease, Panacea skips Amnesia.
 
-| Priority | Item | Removes | Buff ID |
+| # | Item | ID | Removes (`buff_ids`) |
 |---|---|---|---|
-| 1 | Holy Water | Doom | 15 |
-| 2 | Echo Drops | Silence | 6 |
+| 1 | Antidote | 4148 | Poison (3) |
+| 2 | Eye Drops | 4150 | Blindness (5) |
+| 3 | Echo Drops | 4151 | Silence (6) |
+| 4 | Holy Water | 4154 | `common.CURSE_DEBUFFS` = Curse/Doom/Bane (9,15,20,30) |
+| 5 | Hallowed Water | 5306 | `common.CURSE_DEBUFFS` |
+| 6 | Tincture | 5418 | Plague/Disease (31, 8) |
+| 7 | Remedy Ointment | 5356 | Poison/Paralyze/Blind/Silence (3,4,5,6) |
+| 8 | Remedy | 4155 | Poison/Paralyze/Blind/Silence (3,4,5,6) |
+| 9 | Panacea | 4149 | stat-down family (the ≥128 tail of `ERASABLE_DEBUFFS`) |
 
-4-second cooldown between uses. Inventory count validated per-tick. Returns `{command, description}`.
+Gated by a master `item_removal_enabled` toggle plus a per-item `setting_key`;
+skipped while the player is moving (`common.is_player_moving()`, same rule as
+casting). 4-second cooldown between uses. Inventory is matched by **item ID**
+(`get_item_count(item_id)` scans container 0), not name — custom-server items
+(Remedy Ointment, etc.) have resource names that don't match the English string
+`GetItemByName` expects, so a name lookup returns `nil`. The `/item` command name
+is resolved from the resource by ID (`GetItemById(id).Name[1]`, falling back to
+the label). Returns `{command, description}`.
 
 ### recover.lua – Resource Recovery
 
@@ -405,8 +424,8 @@ return {
 | `ability_checkbox(ctx, ability, job_def, suffix)` | Simple checkbox with spell-learned check |
 | `render_party_buttons(ctx, key, has_spell, ability, is_group)` | ME/P1-P5 (+ alliance/tracked) buttons; for songs also draws the leading `[A]` area button and gates ME on Pianissimo |
 | `render_heal_group_selection(ctx, key, show_outside)` | Group/AOE heal target buttons — **session-only**, asymmetric defaults (party/tracked ON, alliance OFF); `show_outside` draws alliance+tracked (Group=true, AOE=false) |
-| `item_silence_removal_checkbox(ctx)` | Echo Drops checkbox (via `render_item_removal_checkbox`) |
-| `item_doom_removal_checkbox(ctx)` | Holy Water checkbox (via `render_item_removal_checkbox`) |
+| `item_removal_checkboxes(ctx)` | One checkbox per `item.REMOVALS` row (via `render_item_removal_checkbox`); label shows live count, or `(?)` while inventory loads |
+| `item_inventory_loaded()` | True once inventory is readable; config hides the whole Item Removal section while counts are still `?` (nil), shows it once loaded even if every count is 0 |
 
 **Ability graying** (`self_single_ability`, `party_single_ability`, `ability_checkbox`): in addition to unlearned spells, a row is grayed (and given a matching tooltip) when it's ammo-gated with none of the consumable owned — `no_ammo`, tooltip *"No `<ammo_label>` found in storage."* — or when it needs a specific pet that isn't out — `wrong_pet` via `pet_type_unmet`/`common.pet_type_ok`, tooltip *"Requires pet `<name / name>`"*.
 

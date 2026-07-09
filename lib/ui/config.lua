@@ -94,21 +94,21 @@ local function is_subjob_duplicate(job_def, ability)
 end
 
 -- Draw a "(<count>)" after an ammo-gated ability's row: green when a matching
--- item is worn, red when not. When show_name is set and an item is worn, also
--- name the equipped tier in green -- only useful for heal_pet (Reward/Repair),
--- where the tier changes how much the pet heals.
-local GREEN = { 0.4, 1.0, 0.4, 1.0 }
+-- item is worn, red when not -- reusing the current-job green and automation-
+-- stopped red so the palette stays consistent. When show_name is set and an item
+-- is worn, also name the equipped tier in green -- only useful for heal_pet
+-- (Reward/Repair), where the tier changes how much the pet heals.
 local function render_ammo_count(ability, show_name)
     if not ability.requires_equipped_ammo then return end
     local count = common.count_equippable_items(ability.requires_equipped_ammo)
     local equipped = common.is_ammo_equipped(ability.requires_equipped_ammo)
     imgui.SameLine()
-    imgui.TextColored(equipped and GREEN or { 1.0, 0.4, 0.4, 1.0 }, string.format('(%d)', count))
+    imgui.TextColored(equipped and ui.LIGHT_GREEN or ui.LIGHT_RED, string.format('(%d)', count))
     if show_name and equipped then
         local name = common.equipped_ammo_name(ability.requires_equipped_ammo)
         if name then
             imgui.SameLine()
-            imgui.TextColored(GREEN, name)
+            imgui.TextColored(ui.LIGHT_GREEN, name)
         end
     end
 end
@@ -402,7 +402,7 @@ function ui_config.render(settings, job_def, callback)
             if sub_level and sub_level > 0 and sub_job_id and sub_job_id > 0 then
                 sub_job_name = common.get_job_name_from_id(sub_job_id)
             end
-            imgui.TextColored(ui.LIGHT_GREEN, string.format('Job: %s %d / %s %d', main_job_name, main_level, sub_job_name, sub_level or 0))
+            imgui.TextColored(ui.LIGHT_GREEN, string.format('%s %d / %s %d', main_job_name, main_level, sub_job_name, sub_level or 0))
         end
         
         -- Automation toggle button
@@ -583,7 +583,7 @@ function ui_config.render(settings, job_def, callback)
             end
             
             if has_non_self_heal then
-                local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Enable Focus Healing', 'focus_enabled', false)
+                local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Focus Healing', 'focus_enabled', false)
                 ui.item_tooltip(tooltips.focus_healing)
                 if is_open and is_enabled then
                     imgui.Indent(ui.ABILITY_LIST_INDENT)
@@ -598,7 +598,7 @@ function ui_config.render(settings, job_def, callback)
         
         -- Group Healing settings
         if job_def and job_def.abilities.heal and has_usable_abilities(job_def.abilities.heal) then
-            local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Enable Group Healing', 'heal_enabled', false)
+            local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Group Healing', 'heal_enabled', false)
             ui.item_tooltip(tooltips.group_healing)
             if is_open and is_enabled then
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
@@ -628,7 +628,7 @@ function ui_config.render(settings, job_def, callback)
         
         -- AOE Healing settings
         if job_def and job_def.abilities.heal_aoe and has_usable_abilities(job_def.abilities.heal_aoe) then
-            local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Enable AOE Healing', 'heal_aoe_enabled', false)
+            local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'AOE Healing', 'heal_aoe_enabled', false)
             ui.item_tooltip(tooltips.aoe_healing)
             if is_open and is_enabled then
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
@@ -648,7 +648,7 @@ function ui_config.render(settings, job_def, callback)
         
         -- Pet Healing settings
         if job_def and job_def.abilities.heal_pet and has_usable_abilities(job_def.abilities.heal_pet) then
-            local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Enable Pet Healing', 'heal_pet_enabled', false)
+            local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Pet Healing', 'heal_pet_enabled', false)
             ui.item_tooltip(tooltips.pet_healing)
             if is_open and is_enabled then
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
@@ -665,11 +665,72 @@ function ui_config.render(settings, job_def, callback)
             end
         end
 
+        -- Wake detection (used by the Sleep Removal section below)
+        local has_wake_abilities = false
+        if job_def and job_def.abilities.heal then
+            for _, ability in ipairs(job_def.abilities.heal) do
+                if ability.wakes and can_use_ability(ability) then
+                    has_wake_abilities = true
+                    break
+                end
+            end
+        end
+
+        -- Sleep removal settings
+        if has_wake_abilities then
+            local is_open_wake, is_enabled_wake = ui.collapsing_checkbox_header(ctx, 'Sleep Removal', 'wake_enabled', false)
+            ui.item_tooltip(tooltips.sleep_removal)
+            if is_open_wake and is_enabled_wake then
+                -- Check if any wake-capable abilities support target_outside
+                local has_outside_wake = false
+                if job_def.abilities.heal then
+                    for _, ability in ipairs(job_def.abilities.heal) do
+                        if ability.wakes and ability.target_outside then
+                            has_outside_wake = true
+                            break
+                        end
+                    end
+                end
+
+                -- Party selection buttons (who gets sleep removal)
+                -- exclude ME since player cannot wake themselves from sleep
+                imgui.Indent(ui.ABILITY_LIST_INDENT)
+                ui.render_party_selection(ctx, 'wake', has_outside_wake, false)
+                imgui.Unindent(ui.ABILITY_LIST_INDENT)
+            end
+        end
+
+        -- Debuff removal settings
+        if job_def and job_def.abilities.debuff_removal and has_usable_abilities(job_def.abilities.debuff_removal) then
+            local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Debuff Removal', 'debuff_removal_enabled', false)
+            ui.item_tooltip(tooltips.debuff_removal)
+            if is_open and is_enabled then
+                -- Clear temporary group rendering flags
+                if current_settings then
+                    for key in pairs(current_settings) do
+                        if key:match('^rendered_group_') then
+                            current_settings[key] = nil
+                        end
+                    end
+                end
+
+                imgui.Indent(ui.ABILITY_LIST_INDENT)
+                ctx.show_trust_warning = true
+                for _, ability in ipairs(job_def.abilities.debuff_removal) do
+                    if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
+                        ui.render_ability(ctx, ability, job_def, 'debuff_removal')
+                    end
+                end
+                ctx.show_trust_warning = false
+                imgui.Unindent(ui.ABILITY_LIST_INDENT)
+            end
+        end
+
         -- Pet Debuff Removal settings (BST Reward+Roborant, PUP Maintenance+Oil).
         -- Pet statuses are inferred from packets (the client has no pet buff
         -- memory), so warn it's not fully reliable -- same caveat as Trust/tracked.
         if job_def and job_def.abilities.pet_debuff_removal and has_usable_abilities(job_def.abilities.pet_debuff_removal) then
-            local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Enable Pet Debuff Removal', 'pet_debuff_removal_enabled', false)
+            local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Pet Debuff Removal', 'pet_debuff_removal_enabled', false)
             if is_open and is_enabled then
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
                 ctx.show_pet_debuff_warning = true
@@ -684,73 +745,21 @@ function ui_config.render(settings, job_def, callback)
             end
         end
 
-        -- Wake settings (only show if job has wake-capable heal abilities that are usable)
-        local has_wake_abilities = false
-        if job_def and job_def.abilities.heal then
-            for _, ability in ipairs(job_def.abilities.heal) do
-                if ability.wakes and can_use_ability(ability) then
-                    has_wake_abilities = true
-                    break
-                end
-            end
-        end
-        
-        -- Debuff removal settings
-        if job_def and job_def.abilities.debuff_removal and has_usable_abilities(job_def.abilities.debuff_removal) then
-            local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Enable Debuff Removal', 'debuff_removal_enabled', false)
-            ui.item_tooltip(tooltips.debuff_removal)
-            if is_open and is_enabled then
-                -- Clear temporary group rendering flags
-                if current_settings then
-                    for key in pairs(current_settings) do
-                        if key:match('^rendered_group_') then
-                            current_settings[key] = nil
-                        end
-                    end
-                end
-                
+        -- Item-based status removal (consumables) -- hidden until inventory loads
+        -- (counts read as "?"); shown once readable, even if every count is 0.
+        if ui.item_inventory_loaded() then
+            local is_open_item, is_enabled_item = ui.collapsing_checkbox_header(ctx, 'Item Debuff Removal', 'item_removal_enabled', false)
+            ui.item_tooltip(tooltips.item_removal)
+            if is_open_item and is_enabled_item then
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
-                ctx.show_trust_warning = true
-                for _, ability in ipairs(job_def.abilities.debuff_removal) do
-                    if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
-                        ui.render_ability(ctx, ability, job_def, 'debuff_removal')
-                    end
-                end
-                ctx.show_trust_warning = false
+                ui.item_removal_checkboxes(ctx)
                 imgui.Unindent(ui.ABILITY_LIST_INDENT)
             end
         end
-        
-        if has_wake_abilities then
-            local is_open_wake, is_enabled_wake = ui.collapsing_checkbox_header(ctx, 'Enable Sleep Removal', 'wake_enabled', false)
-            ui.item_tooltip(tooltips.sleep_removal)
-            if is_open_wake and is_enabled_wake then
-                -- Check if any wake-capable abilities support target_outside
-                local has_outside_wake = false
-                if job_def.abilities.heal then
-                    for _, ability in ipairs(job_def.abilities.heal) do
-                        if ability.wakes and ability.target_outside then
-                            has_outside_wake = true
-                            break
-                        end
-                    end
-                end
-                
-                -- Party selection buttons (who gets sleep removal)
-                -- exclude ME since player cannot wake themselves from sleep
-                imgui.Indent(ui.ABILITY_LIST_INDENT)
-                ui.render_party_selection(ctx, 'wake', has_outside_wake, false)
-                imgui.Unindent(ui.ABILITY_LIST_INDENT)
-            end
-        end
-
-        -- Item checkboxes for Silence and Doom removal
-        ui.item_silence_removal_checkbox(ctx, tooltips.item_silence_removal)
-        ui.item_doom_removal_checkbox(ctx, tooltips.item_doom_removal)
 
         -- Rest settings (only for MP-based jobs)
         if job_def and job_def.resource_type == 'mp' then
-            local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Enable Resting', 'rest_enabled', false)
+            local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Resting', 'rest_enabled', false)
             ui.item_tooltip(tooltips.resting)
             if is_open and is_enabled then
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
@@ -773,7 +782,7 @@ function ui_config.render(settings, job_def, callback)
         local has_party_mp_recovery = job_def and job_def.abilities.recover_party_mp and has_usable_abilities(job_def.abilities.recover_party_mp)
         
         if has_mp_recovery or has_tp_recovery or has_party_mp_recovery then
-            local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Enable Resource Recovery', 'recover_enabled', false)
+            local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Resource Recovery', 'recover_enabled', false)
             ui.item_tooltip(tooltips.resource_recovery)
             if is_open and is_enabled then
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
@@ -833,7 +842,7 @@ function ui_config.render(settings, job_def, callback)
         
         -- Buff settings
         if job_def and job_def.abilities.buff and has_usable_abilities(job_def.abilities.buff) then
-            local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Enable Buffs', 'buff_enabled', false)
+            local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Buffs', 'buff_enabled', false)
             ui.item_tooltip(tooltips.buffs)
             if is_open and is_enabled then
                 -- Clear temporary group rendering flags
@@ -860,7 +869,7 @@ function ui_config.render(settings, job_def, callback)
         
         -- Geo settings (Geomancer)
         if job_def and job_def.abilities.geo and has_usable_abilities(job_def.abilities.geo) then
-            local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Enable Geo', 'geo_enabled', false)
+            local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Geo', 'geo_enabled', false)
             ui.item_tooltip(tooltips.geo)
             if is_open and is_enabled then
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
@@ -980,7 +989,7 @@ function ui_config.render(settings, job_def, callback)
 
         -- Revive settings
         if job_def and job_def.abilities.revive and has_usable_abilities(job_def.abilities.revive) then
-            local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Enable Revive', 'revive_enabled', false)
+            local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Revive', 'revive_enabled', false)
             ui.item_tooltip(tooltips.revive)
             if is_open and is_enabled then
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
