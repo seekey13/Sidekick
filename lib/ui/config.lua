@@ -744,9 +744,14 @@ function ui_config.render(settings, job_def, callback)
             end
         end
 
-        -- Item checkboxes for Silence and Doom removal
-        ui.item_silence_removal_checkbox(ctx, tooltips.item_silence_removal)
-        ui.item_doom_removal_checkbox(ctx, tooltips.item_doom_removal)
+        -- Item-based status removal (consumables)
+        local is_open_item, is_enabled_item = ui.collapsing_checkbox_header(ctx, 'Enable Item Removal', 'item_removal_enabled', false)
+        ui.item_tooltip(tooltips.item_removal)
+        if is_open_item and is_enabled_item then
+            imgui.Indent(ui.ABILITY_LIST_INDENT)
+            ui.item_removal_checkboxes(ctx)
+            imgui.Unindent(ui.ABILITY_LIST_INDENT)
+        end
 
         -- Rest settings (only for MP-based jobs)
         if job_def and job_def.resource_type == 'mp' then

@@ -1826,12 +1826,11 @@ local function render_item_removal_checkbox(ctx, item_name, setting_key, debuff_
     end
 end
 
-function ui_components.item_silence_removal_checkbox(ctx, extra_tooltip)
-    render_item_removal_checkbox(ctx, 'Echo Drops', 'item_silence_removal_enabled', 'Silence', extra_tooltip)
-end
-
-function ui_components.item_doom_removal_checkbox(ctx, extra_tooltip)
-    render_item_removal_checkbox(ctx, 'Holy Water', 'item_doom_removal_enabled', 'Doom', extra_tooltip)
+-- Render one checkbox per item-removal definition (driven by item.REMOVALS).
+function ui_components.item_removal_checkboxes(ctx)
+    for _, entry in ipairs(item_module.REMOVALS) do
+        render_item_removal_checkbox(ctx, entry.item_name, entry.setting_key, entry.debuff_name)
+    end
 end
 
 -- ============================================================================

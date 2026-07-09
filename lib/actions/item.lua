@@ -61,17 +61,42 @@ local function get_item_count(item_name)
     return total_count
 end
 
--- Item removal definitions, ordered by priority (Doom > Silence)
+-- Stat-down family Panacea clears (the >=128 tail of ERASABLE_DEBUFFS: Defense
+-- Down, Magic Def Down, base-stat downs, etc). Excludes Amnesia -- Panacea only
+-- "potentially" removes it, so firing on it risks looping the item stack.
+local PANACEA_DEBUFFS = {128, 129, 130, 131, 134, 135, 136, 137, 138, 139, 140,
+    141, 142, 144, 145, 146, 147, 148, 149, 156, 167, 174, 175, 189, 404}
+
+-- Item removal definitions, ordered by priority. Dedicated single-cures come
+-- first so a cheap item wins over a premium multi-cure (e.g. Antidote before
+-- Remedy for Poison). buff_ids lists every status the item reliably removes;
+-- unreliable ("potentially") cures are omitted to avoid burning the stack on a
+-- debuff the item won't clear.
 local ITEM_REMOVALS = {
-    { setting_key = 'item_doom_removal_enabled',    buff_id = 15, item_name = 'Holy Water',  debuff_name = 'Doom' },
-    { setting_key = 'item_silence_removal_enabled', buff_id = 6,  item_name = 'Echo Drops',  debuff_name = 'Silence' },
+    { setting_key = 'item_antidote_enabled',        item_name = 'Antidote',        debuff_name = 'Poison',         buff_ids = {3} },
+    { setting_key = 'item_eye_drops_enabled',       item_name = 'Eye Drops',       debuff_name = 'Blindness',      buff_ids = {5} },
+    { setting_key = 'item_echo_drops_enabled',      item_name = 'Echo Drops',      debuff_name = 'Silence',        buff_ids = {6} },
+    { setting_key = 'item_holy_water_enabled',      item_name = 'Holy Water',      debuff_name = 'Curse',          buff_ids = common.CURSE_DEBUFFS },
+    { setting_key = 'item_hallowed_water_enabled',  item_name = 'Hallowed Water',  debuff_name = 'Curse',          buff_ids = common.CURSE_DEBUFFS },
+    { setting_key = 'item_tincture_enabled',        item_name = 'Tincture',        debuff_name = 'Plague/Disease', buff_ids = {31, 8} },
+    { setting_key = 'item_remedy_ointment_enabled', item_name = 'Remedy Ointment', debuff_name = 'status ailments',buff_ids = {3, 4, 5, 6} },
+    { setting_key = 'item_remedy_enabled',          item_name = 'Remedy',          debuff_name = 'status ailments',buff_ids = {3, 4, 5, 6} },
+    { setting_key = 'item_panacea_enabled',         item_name = 'Panacea',         debuff_name = 'stat downs',     buff_ids = PANACEA_DEBUFFS },
 }
+
+-- True if the player has any of the listed status ids.
+local function has_any_buff(buff_ids)
+    for _, id in ipairs(buff_ids) do
+        if common.has_buff(0, id) then return true end
+    end
+    return false
+end
 
 -- Try a single item-removal entry; returns {command, description} or nil
 local function try_item_removal(entry, settings)
     if not (settings and settings[entry.setting_key]) then return nil end
 
-    if not common.has_buff(0, entry.buff_id) then
+    if not has_any_buff(entry.buff_ids) then
         return nil
     end
 
@@ -103,6 +128,11 @@ end
 --   player_resource (number) - Player's current MP or TP
 -- Returns: table {command, description} or nil
 function item.execute(settings, job_def, main_level, sub_level, player_resource)
+    if not (settings and settings.item_removal_enabled) then return nil end
+
+    -- Items, like spells, can't be used while moving.
+    if common.is_player_moving() then return nil end
+
     for _, entry in ipairs(ITEM_REMOVALS) do
         local result = try_item_removal(entry, settings)
         if result then return result end
@@ -112,5 +142,8 @@ end
 
 -- Export get_item_count for UI to use
 item.get_item_count = get_item_count
+
+-- Export removal definitions so the config UI can render one checkbox per item.
+item.REMOVALS = ITEM_REMOVALS
 
 return item

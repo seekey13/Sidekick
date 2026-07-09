@@ -595,6 +595,10 @@ common.ERASABLE_DEBUFFS = {3, 4, 5, 6, 8, 9, 11, 12, 13, 31, 128, 129, 130, 131,
     135, 136, 137, 138, 139, 140, 141, 142, 144, 145, 146, 147, 148, 149, 156,
     167, 174, 175, 189, 404}
 
+-- Curse-family statuses removed by Cursna and by Holy Water / Hallowed Water.
+-- 9 = Curse, 15 = Doom, 20 = Bane, 30 = Curse (Bane II).
+common.CURSE_DEBUFFS = {9, 15, 20, 30}
+
 -- Base durations (seconds) for DEBUFFS packet-detected on Trusts/tracked targets,
 -- keyed by status id. Backstop so a missed removal packet can't loop a na-/Erase
 -- spell forever: expire_timed_buffs drops the status once the timer elapses.

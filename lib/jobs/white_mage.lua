@@ -207,7 +207,7 @@ return {
                 id = 20,  -- Spell ID
                 magic = 'white',
                 magic_type = 'healing',
-                debuff_id = {9, 15, 20, 30},  -- Curse, Doom & Bane
+                debuff_id = common.CURSE_DEBUFFS,  -- Curse, Doom & Bane
                 command = function(target)
                     return '/ma "Cursna" '..target
                 end,
