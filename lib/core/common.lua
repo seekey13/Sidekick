@@ -266,6 +266,25 @@ function common.is_ability_combat_only(ability, settings)
     return settings[key] == true
 end
 
+-- Returns true if the given ability should be gated to idle-only (out of combat).
+-- Mirror of is_ability_combat_only: a static ability.idle_only always wins;
+-- otherwise a per-group (idle_only_group_<group>) or per-name
+-- (idle_only_<ability_name>) user setting is consulted. Combat Only and Idle
+-- Only are mutually exclusive; the UI clears one when the other is set.
+function common.is_ability_idle_only(ability, settings)
+    if not ability then return false end
+    if ability.idle_only then return true end
+    if not settings then return false end
+    local key
+    if ability.group then
+        key = 'idle_only_group_' .. ability.group
+    else
+        if not ability.name then return false end
+        key = 'idle_only_' .. ability.name:gsub(' ', '_')
+    end
+    return settings[key] == true
+end
+
 -- Returns true if the ability's command targets the battle target (<bt>).
 -- These abilities cannot be cast without a valid mob battle target.
 function common.ability_targets_bt(ability)
@@ -1878,7 +1897,7 @@ function common.filter_abilities_by_level(abilities, settings, main_level, sub_l
         if is_disabled then
         elseif ability.requires_pet and not targets.get_pet() then
         elseif ability.requires_equipped_ammo and not common.is_ammo_equipped(ability.requires_equipped_ammo) then
-        elseif ability.idle_only and not common.is_idle() then
+        elseif common.is_ability_idle_only(ability, settings) and not common.is_idle() then
         elseif common.is_ability_combat_only(ability, settings) and not common.is_combat() then
         elseif common.ability_targets_bt(ability) and not common.is_combat() then
         elseif job_def and job_def.validate_ability and not job_def.validate_ability(ability, common) then
@@ -1988,8 +2007,11 @@ function common.check_target_modifier(job_def, settings, main_level, sub_level)
         return nil
     end
     
-    -- Check combat_only flag (user-driven via settings)
+    -- Check combat_only / idle_only flags (user-driven via settings)
     if common.is_ability_combat_only(modifier_ability, settings) and not common.is_combat() then
+        return nil
+    end
+    if common.is_ability_idle_only(modifier_ability, settings) and not common.is_idle() then
         return nil
     end
     
