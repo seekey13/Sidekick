@@ -454,7 +454,7 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                                                 if command then
                                                     if ability.buff_id then
                                                         local bid = type(ability.buff_id) == 'table' and ability.buff_id[1] or ability.buff_id
-                                                        common.register_pending_buff(m.server_id, bid)
+                                                        common.register_pending_buff(m.server_id, bid, ability.name)
                                                     end
                                                     local desc = string.format('Applying buff: %s to alliance %s', ability.name, m.name)
                                                     return { command = command, description = desc }
@@ -492,7 +492,7 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                                         -- Register pending buff for packet tracking
                                         if ability.buff_id then
                                             local bid = type(ability.buff_id) == 'table' and ability.buff_id[1] or ability.buff_id
-                                            common.register_pending_buff(sid, bid)
+                                            common.register_pending_buff(sid, bid, ability.name)
                                         end
                                         local desc = string.format('Applying buff: %s to tracked %s', ability.name, tt.name)
                                         return { command = command, description = desc }

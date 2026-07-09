@@ -21,20 +21,27 @@ A focused, support-oriented addon for Ashita v4 that automates healing, buffing,
 
 ### [2.2.0] - 2026-07-06
 
-Adds three pet-support jobs (Beastmaster, Dragoon, Puppetmaster) with consumable-ammo auto-equip and packet-based pet status tracking, alongside internal dead-code cleanup and UI polish.
+Adds three pet-support jobs (Beastmaster, Dragoon, Puppetmaster) with consumable-ammo auto-equip and packet-based pet status tracking; also makes packet-tracked buffs/debuffs (Trusts, tracked players, alliance, pets) expire on a timer so a missed wear-off packet no longer leaves a stale status stuck forever; also reworks debuff-removal priority (targeted cures before Erase, group Esuna) — alongside internal dead-code cleanup and UI polish.
 
 ### Added
+- **Timed Status Expiry**: Every packet-tracked buff/debuff records a base duration and falls off on its own once elapsed, instead of waiting for a wear-off packet that may never arrive. Covers Trusts, tracked players, alliance members, and the pet.
+- **Debuff Backstop Durations**: Removable debuffs (Poison, Paralysis, Silence, Sleep, Petrify, Doom, Bind, Gravity, Slow, etc.) get a fall-off timer so a missed cure-detection can't spam the na-/Erase spell forever. Curse, Bane, Disease, and Plague are treated as "until removed."
+- **Per-Caster Bard Song Slots**: Song tracking now mirrors FFXI's 2-songs-per-bard limit per target, so a second bard's songs no longer evict yours.
 - **Beastmaster / Dragoon / Puppetmaster**: Three new pet-support jobs (see [Supported Jobs](#supported-jobs)).
 - **Consumable-Ammo Auto-Equip**: Abilities that need a consumable worn in the ammo slot (BST Pet Food, PUP Automaton Oil) auto-equip the best owned tier for your level — from inventory or any Mog Wardrobe — before firing. The config UI shows a live count, green when equipped and red when not.
 - **Pet Status Tracking**: A pet's buffs/debuffs are inferred from packets (the client keeps no pet buff memory) so BST/PUP can strip the pet's status ailments. As with Trusts, this tracking is not perfectly reliable.
 - **Beastmaster Ready Charges**: Ready-move charges are tracked like Scholar stratagems and shown in the `/med panel` header.
 
 ### Changed
+- **Targeted Cure Before Erase**: Debuff removal now uses a targeted na-spell (Poisona, Paralyna, etc.) before generic Erase, so the exact ailment is stripped first and Erase mops up the rest.
+- **Group Esuna (AOE)**: Esuna now fires when 2+ members within 10 yalms (you + party + alliance) share an Esuna-removable ailment, clearing them in one cast; a single affected target uses the cheaper na-spell instead. Pets and Trusts aren't in the AOE.
 - **Party Button Tooltips**: Hovering a target button (**ME** / **P1–P5**) now shows that member's character name; on Trust/tracked buttons the reliability caveat is appended below the name.
 - **"Not Learned" Tooltip**: Unlearned abilities show a *Not Learned* hover tooltip instead of a `(Not Learned)` label suffix.
 - **Debug Scalars Moved**: The Zone / Target / Moving / Casting readout moved from the configuration window to the `/med panel` header (shown while Debug Mode is on).
 
 ### Fixed
+- **Removal Spells Looping on Trusts/Alliance/Pet**: After curing a status (e.g. Poisona on a Trust, or a Reward/Maintenance strip on a pet), Medic now drops that status from tracking immediately instead of re-casting every tick until it detects the removal.
+- **Cure-Wake on Trusts/Alliance**: Waking a Trust or alliance member with a Cure now clears Sleep from tracking right away, so it stops re-curing them.
 - **Afflatus Solace**: Corrected recast id (245 → 29) so its cooldown is tracked correctly (White Mage).
 
 ### [2.1.0] - 2026-07-05

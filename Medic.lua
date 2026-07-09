@@ -729,6 +729,10 @@ ashita.events.register('packet_in', 'medic_packet_in', function(e)
             local player_id = party and party:GetMemberServerId(0)
             local actor_is_player = (player_id and actionPacket.UserId == player_id)
 
+            -- Resolve the spell name once for base-duration lookup (timed expiry)
+            local spell = AshitaCore:GetResourceManager():GetSpellById(actionPacket.Param)
+            local spell_name = spell and spell.Name and spell.Name[1] or nil
+
             for _, target in ipairs(actionPacket.Targets) do
                 for _, action in ipairs(target.Actions) do
                     -- Resolve target name via fast index lookup (avoid O(2304) scan)
@@ -742,24 +746,30 @@ ashita.events.register('packet_in', 'medic_packet_in', function(e)
                     if action.Message == 230 or action.Message == 266 then
                         common.debugf('%s gained the effect of %s.', target_name, buff_name)
 
+                        -- Base duration for timed expiry (nil = no timer). The
+                        -- actor (UserId) is the caster -- used for per-caster song
+                        -- slot accounting on the target.
+                        local duration = common.base_buff_duration(action.Param, spell_name)
+                        local source_id = actionPacket.UserId
+
                         -- Update Trust buff tracking so game_state reflects the change
                         if target.Id >= 0x1000000 then
-                            common.apply_trust_buff(target.Id, action.Param)
+                            common.apply_trust_buff(target.Id, action.Param, duration, source_id)
                         end
 
                         -- Update tracked target buff tracking
                         if common.is_tracked_target(target.Id) then
-                            common.apply_tracked_target_buff(target.Id, action.Param)
+                            common.apply_tracked_target_buff(target.Id, action.Param, duration, source_id)
                         end
 
                         -- Update alliance member buff tracking
                         if common.is_alliance_member(target.Id) then
-                            common.apply_alliance_member_buff(target.Id, action.Param)
+                            common.apply_alliance_member_buff(target.Id, action.Param, duration, source_id)
                         end
 
                         -- Update pet buff/debuff tracking
                         if common.is_pet(target.Id) then
-                            common.apply_pet_buff(target.Id, action.Param)
+                            common.apply_pet_buff(target.Id, action.Param, duration, source_id)
                         end
 
                     elseif action.Message == 83 then
@@ -772,11 +782,18 @@ ashita.events.register('packet_in', 'medic_packet_in', function(e)
                     end
 
                     -- Sleep removal inference: only for cure-type spells cast by the player.
-                    -- Cure spells can't miss, so landing on a tracked sleeping target means wake.
-                    -- No 0x029 removal message is sent for out-of-party targets, so we infer it.
+                    -- Cure spells can't miss, so landing on a sleeping target means wake.
+                    -- Applies to every packet-tracked ally (Trust/tracked/alliance/pet) --
+                    -- none get a reliable wear-off packet, so without this Sleep lingers in
+                    -- tracking and wake re-cures every tick until the base-duration timer
+                    -- clears it. handle_buff_removal no-ops when Sleep isn't tracked.
                     -- Message 2 = "recovers X HP" (single cure), 7 = "recovers X HP" (AoE cure),
                     -- 24 = Curaga-style HP recovery
-                    if actor_is_player and common.is_tracked_target(target.Id) then
+                    local packet_tracked = target.Id >= 0x1000000
+                        or common.is_tracked_target(target.Id)
+                        or common.is_alliance_member(target.Id)
+                        or common.is_pet(target.Id)
+                    if actor_is_player and packet_tracked then
                         if action.Message == 2 or action.Message == 7 or action.Message == 24 then
                             common.handle_buff_removal(target.Id, 2)   -- Sleep
                             common.handle_buff_removal(target.Id, 19)  -- Sleep II
@@ -829,25 +846,31 @@ ashita.events.register('packet_in', 'medic_packet_in', function(e)
 
                     common.debugf('%s gained the effect of %s (via 0x029).', target_name, buff_name)
 
+                    -- Base duration for timed expiry; 0x029 has no spell id, so
+                    -- this resolves via song range / buff name only. It also
+                    -- carries no caster, so source stays nil (no song eviction --
+                    -- 0x028 is the reliable song-detection path anyway).
+                    local duration = common.base_buff_duration(buff_id, nil)
+
                     -- Update Trust buff tracking
                     if server_id >= 0x1000000 then
-                        common.apply_trust_buff(server_id, buff_id)
+                        common.apply_trust_buff(server_id, buff_id, duration)
                     end
 
                     -- Update tracked target buff tracking
                     if common.is_tracked_target(server_id) then
-                        common.apply_tracked_target_buff(server_id, buff_id)
+                        common.apply_tracked_target_buff(server_id, buff_id, duration)
                     end
 
                     -- Update alliance member buff tracking
                     if common.is_alliance_member(server_id) then
-                        common.apply_alliance_member_buff(server_id, buff_id)
+                        common.apply_alliance_member_buff(server_id, buff_id, duration)
                     end
 
                     -- Update pet buff/debuff tracking (mob debuffs on the pet
                     -- arrive here as an out-of-party target gaining an effect)
                     if common.is_pet(server_id) then
-                        common.apply_pet_buff(server_id, buff_id)
+                        common.apply_pet_buff(server_id, buff_id, duration)
                     end
                 end
             end

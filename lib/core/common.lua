@@ -55,6 +55,48 @@ local member_max_stats = {}
 -- Trust buff tracking (packet-based since memory reads don't work for Trusts)
 local trust_buffs = {}  -- trust_buffs[server_id] = {buff_id1, buff_id2, ...}
 
+-- Cast time + base duration per tracked buff, parallel to trust_buffs.
+-- Trusts and tracked targets get no reliable wear-off packets, so entries with a
+-- known base duration are dropped by timer (expire_timed_buffs) instead —
+-- same idea as the BST Reward reapply_interval, generalized per target/buff.
+-- buff_timestamps[server_id][buff_id] = { at = os.clock(), dur = seconds|nil }
+local buff_timestamps = {}
+
+-- Base durations (seconds) for buffs cast on Trusts/tracked targets, keyed by
+-- spell name. Our own casts pass the ability name; other casters' spells resolve
+-- via GetSpellById. Detections with no spell id (0x029) fall back to the buff
+-- name, so tierless buff names resolve to the base tier (buff "Regen" -> 75).
+local BASE_BUFF_DURATION = {
+    ['Haste']       = 180,
+    ['Flurry']      = 180,
+    ['Refresh']     = 150,
+    ['Regen']       = 75,
+    ['Regen II']    = 60,
+    ['Regen III']   = 60,
+    ['Phalanx II']  = 120,
+    ['Protect']     = 1800,
+    ['Protect II']  = 1800,
+    ['Protect III'] = 1800,
+    ['Protect IV']  = 1800,
+    ['Shell']       = 1800,
+    ['Shell II']    = 1800,
+    ['Shell III']   = 1800,
+    ['Shell IV']    = 1800,
+}
+
+-- All bard songs share one base duration.
+local SONG_DURATION = 120
+
+-- Song slots a Trust holds (main-job bard). A new song beyond this evicts the
+-- oldest-start-time song, mirroring the game's overwrite behavior.
+local TRUST_SONG_SLOTS = 2
+
+-- Ally-targetable song buff ids all live in 195-222 (Paeon..Scherzo);
+-- 192-194 / 217 target enemies and never land on allies via these handlers.
+local function is_song_buff(buff_id)
+    return buff_id ~= nil and buff_id >= 195 and buff_id <= 222
+end
+
 -- Current pet's server id, refreshed each tick. Pets have normal entity ids
 -- (< 0x1000000) so they miss the Trust guard; their buffs/debuffs ride the same
 -- trust_buffs table via the packet handlers, keyed by this id.
@@ -552,6 +594,37 @@ end
 common.ERASABLE_DEBUFFS = {3, 4, 5, 6, 8, 9, 11, 12, 13, 31, 128, 129, 130, 131, 134,
     135, 136, 137, 138, 139, 140, 141, 142, 144, 145, 146, 147, 148, 149, 156,
     167, 174, 175, 189, 404}
+
+-- Base durations (seconds) for DEBUFFS packet-detected on Trusts/tracked targets,
+-- keyed by status id. Backstop so a missed removal packet can't loop a na-/Erase
+-- spell forever: expire_timed_buffs drops the status once the timer elapses.
+-- Only debuffs a Medic ability can actually remove are listed (no remover = no
+-- loop to guard against). These are the ones NOT already covered by the flat 120s
+-- erasable-debuff default in base_buff_duration: non-erasable statuses that still
+-- have a remover (Sleep/Petrify/Doom), non-120 accurate durations (Bind/Gravity/
+-- Slow), and the until-removed group (Disease/Curse/Bane/Plague -> INFINITE, which
+-- also overrides the 120s default back to no-timer). Erasable 120s debuffs
+-- (Poison/Paralyze/Blind/Silence/Dia/Bio) fall through to that default. Debuffs
+-- nothing strips (Stun/Amnesia/Addle/Terror) are intentionally absent -- timing
+-- them out buys nothing.
+local INFINITE = false  -- tracked but never timer-expired
+local BASE_DEBUFF_DURATION = {
+    [2]  = 90,        -- Sleep       (Cure/wake; not erasable)
+    [19] = 90,        -- Sleep II    (Cure/wake; not erasable)
+    [7]  = 60,        -- Petrification (Stona; not erasable)
+    [11] = 60,        -- Bind        (Erase)
+    [12] = 90,        -- Weight/Gravity (Erase)
+    [13] = 180,       -- Slow        (Erase)
+    [15] = 30,        -- Doom        (Cursna / Holy Water; not erasable)
+    [8]  = INFINITE,  -- Disease     (Viruna; until removed)
+    [9]  = INFINITE,  -- Curse       (Cursna; until removed)
+    [20] = INFINITE,  -- Bane        (Cursna; until removed)
+    [31] = INFINITE,  -- Plague      (Viruna; until removed)
+}
+
+-- Set form of ERASABLE_DEBUFFS for O(1) "is this a removable debuff" lookups.
+local ERASABLE_SET = {}
+for _, id in ipairs(common.ERASABLE_DEBUFFS) do ERASABLE_SET[id] = true end
 
 -- Containers an equippable (armor) item can be worn from: main inventory (0)
 -- plus all eight Mog Wardrobes (8, 10-16). Matches the client's equip-eligible
@@ -1191,9 +1264,37 @@ end
     Since Trusts' buffs cannot be read from memory, we track them via packets
 ]]--
 
+-- Resolve the base duration (seconds) for a buff application, or nil if unknown
+-- (unknown = never expires by timer, wear-off packets only — today's behavior).
+-- Args: buff_id (number), spell_name (string|nil - ability/spell name when known)
+function common.base_buff_duration(buff_id, spell_name)
+    if spell_name and BASE_BUFF_DURATION[spell_name] then
+        return BASE_BUFF_DURATION[spell_name]
+    end
+    if is_song_buff(buff_id) then
+        return SONG_DURATION
+    end
+    if buff_id then
+        local buff_name = AshitaCore:GetResourceManager():GetString('buffs.names', buff_id)
+        if buff_name and BASE_BUFF_DURATION[buff_name] then
+            return BASE_BUFF_DURATION[buff_name]
+        end
+        -- Debuff backstop: explicit duration, INFINITE (no timer), else 120s for
+        -- any other removable debuff.
+        local d = BASE_DEBUFF_DURATION[buff_id]
+        if d ~= nil then
+            return d or nil  -- INFINITE (false) -> no timer
+        end
+        if ERASABLE_SET[buff_id] then
+            return 120
+        end
+    end
+    return nil
+end
+
 -- Register a pending buff when we initiate a cast on a Trust
--- Args: server_id (number), buff_id (number)
-function common.register_pending_buff(server_id, buff_id)
+-- Args: server_id (number), buff_id (number), spell_name (string|nil - for base duration lookup)
+function common.register_pending_buff(server_id, buff_id, spell_name)
     if not server_id or not buff_id then return end
     
     -- Clean up expired pending buffs first
@@ -1211,9 +1312,10 @@ function common.register_pending_buff(server_id, buff_id)
     table.insert(pending_buffs, {
         server_id = server_id,
         buff_id = buff_id,
+        duration = common.base_buff_duration(buff_id, spell_name),
         timestamp = current_time
     })
-    
+
 end
 
 -- Handle casting completion (packet 0x028 with byte 0x0F == 0x01)
@@ -1222,16 +1324,19 @@ function common.handle_buff_application()
     if #pending_buffs == 0 then return end
 
     -- Pop the most recent pending buff; apply_external_buff handles init + dedup.
+    -- We are the caster, so the source is our own player server id (per-caster
+    -- song slots). game_state.player is refreshed each tick before packets fire.
     local pending = pending_buffs[#pending_buffs]
     table.remove(pending_buffs, #pending_buffs)
-    common.apply_external_buff(pending.server_id, pending.buff_id)
+    local source_id = common.game_state and common.game_state.player and common.game_state.player.server_id
+    common.apply_external_buff(pending.server_id, pending.buff_id, pending.duration, source_id)
 end
 
 -- Directly apply a buff to a Trust's tracked buff list (called from packet detection)
--- Args: server_id (number), buff_id (number)
-function common.apply_trust_buff(server_id, buff_id)
+-- Args: server_id (number), buff_id (number), duration (number|nil), source_id (number|nil - caster)
+function common.apply_trust_buff(server_id, buff_id, duration, source_id)
     if not server_id or server_id < 0x1000000 then return end
-    common.apply_external_buff(server_id, buff_id)
+    common.apply_external_buff(server_id, buff_id, duration, source_id)
 end
 
 -- True when server_id is the current pet (refreshed each tick). Packet handlers
@@ -1241,17 +1346,26 @@ function common.is_pet(server_id)
 end
 
 -- Apply a buff/debuff to the pet's tracked list (called from packet detection).
-function common.apply_pet_buff(server_id, buff_id)
+-- Pets never receive songs, so source_id is unused here but kept for a uniform signature.
+function common.apply_pet_buff(server_id, buff_id, duration, source_id)
     if not common.is_pet(server_id) then return end
-    common.apply_external_buff(server_id, buff_id)
+    common.apply_external_buff(server_id, buff_id, duration, source_id)
 end
 
 -- Handle buff removal (packet 0x029)
 -- Args: server_id (number), buff_id (number)
 function common.handle_buff_removal(server_id, buff_id)
     if not server_id or not buff_id then return end
+
+    -- Drop the timing entry alongside the buff itself
+    local times = buff_timestamps[server_id]
+    if times then
+        times[buff_id] = nil
+        if not next(times) then buff_timestamps[server_id] = nil end
+    end
+
     if not trust_buffs[server_id] then return end
-    
+
     -- Remove buff from Trust's buff list
     for i = #trust_buffs[server_id], 1, -1 do
         if trust_buffs[server_id][i] == buff_id then
@@ -1266,9 +1380,32 @@ function common.handle_buff_removal(server_id, buff_id)
     end
 end
 
+-- Optimistically drop one status a na-/Erase spell just cured from a Trust /
+-- tracked / alliance target's packet-tracked list. These targets give no reliable
+-- wear-off packet, so without this the removal spell re-fires every tick. Each
+-- removal spell clears exactly one status per cast, so we drop a single match;
+-- the base-duration timer covers any we guess wrong. No-op for memory-read party
+-- members (their sid isn't in trust_buffs) and for abilities with no debuff_id.
+function common.drop_removed_debuff(server_id, ability)
+    local ids = ability and ability.debuff_id
+    if not server_id or not ids then return end
+    local list = trust_buffs[server_id]
+    if not list then return end
+    if type(ids) ~= 'table' then ids = { ids } end
+    local match = {}
+    for _, id in ipairs(ids) do match[id] = true end
+    for _, tracked_id in ipairs(list) do
+        if match[tracked_id] then
+            common.handle_buff_removal(server_id, tracked_id)
+            return
+        end
+    end
+end
+
 -- Clear all Trust buffs and alliance tracking (call on zone change)
 function common.clear_trust_buffs()
     trust_buffs = {}
+    buff_timestamps = {}
     pending_buffs = {}
     member_max_stats = {}
     alliance_member_sids = {}
@@ -1300,27 +1437,101 @@ function common.is_alliance_member(server_id)
     return alliance_member_sids[server_id] == true
 end
 
+-- Evict oldest-start-time songs FROM one caster off a target's buff list until at
+-- most keep_n of that caster's songs remain. Song slots are per-caster in FFXI:
+-- each bard maintains their own set on a target, so we only ever evict songs whose
+-- tracked source matches source_id -- another bard's songs never count here.
+local function evict_oldest_songs(server_id, source_id, keep_n)
+    local list  = trust_buffs[server_id]
+    local times = buff_timestamps[server_id] or {}
+    local songs = {}
+    for _, id in ipairs(list) do
+        local t = times[id]
+        if is_song_buff(id) and t and t.src == source_id then
+            table.insert(songs, id)
+        end
+    end
+    while #songs > keep_n do
+        local oldest_i, oldest_at = 1, math.huge
+        for i, id in ipairs(songs) do
+            local at = times[id] and times[id].at or 0
+            if at < oldest_at then oldest_at, oldest_i = at, i end
+        end
+        local drop = table.remove(songs, oldest_i)
+        for i = #list, 1, -1 do
+            if list[i] == drop then table.remove(list, i); break end
+        end
+        times[drop] = nil
+        common.debugf('Song buff %d evicted from %d (caster %d slots full, oldest start time)', drop, server_id, source_id)
+    end
+end
+
 -- Shared helper: insert a buff into trust_buffs with dedup.
 -- Used by both apply_alliance_member_buff and apply_tracked_target_buff.
-function common.apply_external_buff(server_id, buff_id)
+-- duration  (seconds, optional): base duration for timed expiry; nil = no timer.
+-- source_id (server_id, optional): the caster, for per-caster song slot accounting.
+function common.apply_external_buff(server_id, buff_id, duration, source_id)
     if not server_id or not buff_id then return end
 
     if not trust_buffs[server_id] then
         trust_buffs[server_id] = {}
     end
 
+    -- Stamp/refresh the start time on every application; keep a previously
+    -- known duration/source when this detection path couldn't resolve one
+    -- (0x029 carries no spell id or caster).
+    if not buff_timestamps[server_id] then
+        buff_timestamps[server_id] = {}
+    end
+    local prev = buff_timestamps[server_id][buff_id]
+    buff_timestamps[server_id][buff_id] = {
+        at  = os.clock(),
+        dur = duration  or (prev and prev.dur) or nil,
+        src = source_id or (prev and prev.src) or nil,
+    }
+
     for _, existing in ipairs(trust_buffs[server_id]) do
         if existing == buff_id then return end
+    end
+
+    -- A new song consumes one of the caster's TRUST_SONG_SLOTS song slots on this
+    -- target; the game overwrites that caster's oldest song when their slots are
+    -- full, so mirror it -- but only when we know the caster (0x029 gives none).
+    -- No range math needed: packet handlers only apply songs to targets the action
+    -- packet says were actually hit (i.e. in AoE range of the cast).
+    if is_song_buff(buff_id) and source_id then
+        evict_oldest_songs(server_id, source_id, TRUST_SONG_SLOTS - 1)
     end
 
     table.insert(trust_buffs[server_id], buff_id)
 end
 
+-- Drop tracked buffs whose base duration has elapsed. Applies to every
+-- packet-tracked target -- Trusts, tracked targets, alliance members and the pet
+-- (all read from trust_buffs, never from memory) -- since their wear-off packets
+-- are unreliable/absent and the timer is the only guaranteed drop signal. Regular
+-- party members read buffs from memory each tick, so they're skipped here.
+-- Called once per refresh_game_state tick.
+function common.expire_timed_buffs()
+    local now = os.clock()
+    for sid, times in pairs(buff_timestamps) do
+        if sid >= 0x1000000 or tracked_targets[sid] or alliance_member_sids[sid]
+           or (pet_server_id ~= 0 and sid == pet_server_id) then
+            for buff_id, t in pairs(times) do
+                if t.dur and (now - t.at) >= t.dur then
+                    common.debugf('Timed buff %d expired on %d after %ds', buff_id, sid, t.dur)
+                    common.handle_buff_removal(sid, buff_id)
+                end
+            end
+        end
+    end
+end
+
 -- Apply a buff to an alliance member (packet-based, reuses trust_buffs table).
-function common.apply_alliance_member_buff(server_id, buff_id)
+function common.apply_alliance_member_buff(server_id, buff_id, duration, source_id)
     if not server_id or not buff_id then return end
     if not alliance_member_sids[server_id] then return end
-    common.apply_external_buff(server_id, buff_id)
+    common.apply_external_buff(server_id, buff_id, duration, source_id)
 end
 
 -- Get Trust buffs by server_id
@@ -1428,6 +1639,7 @@ function common.remove_tracked_target(server_id)
         tracked_targets[server_id] = nil
         -- Also clean buff tracking for this target
         trust_buffs[server_id] = nil
+        buff_timestamps[server_id] = nil
         member_max_stats[server_id] = nil
         common.printf('Stopped tracking: %s', name or tostring(server_id))
     end
@@ -1448,6 +1660,7 @@ end
 function common.clear_tracked_targets()
     for sid, _ in pairs(tracked_targets) do
         trust_buffs[sid] = nil
+        buff_timestamps[sid] = nil
     end
     tracked_targets = {}
 end
@@ -1464,10 +1677,10 @@ function common.get_tracked_target_buffs(server_id)
 end
 
 -- Apply a buff to a tracked target (packet-based, reuses trust_buffs table).
-function common.apply_tracked_target_buff(server_id, buff_id)
+function common.apply_tracked_target_buff(server_id, buff_id, duration, source_id)
     if not server_id or not buff_id then return end
     if not tracked_targets[server_id] then return end
-    common.apply_external_buff(server_id, buff_id)
+    common.apply_external_buff(server_id, buff_id, duration, source_id)
 end
 
 -- Check if a server_id belongs to a tracked target.
@@ -2328,6 +2541,10 @@ function common.refresh_game_state()
     state.tracked          = {}
     state.stratagems       = calculate_stratagems()
     state.ready_charges    = calculate_ready()
+
+    -- Drop expired timed buffs (Trusts/tracked targets) before buffs are read
+    -- into the snapshot, so action modules see them as missing and recast.
+    common.expire_timed_buffs()
 
     local party_mgr = common.get_party()
     if not party_mgr then return end

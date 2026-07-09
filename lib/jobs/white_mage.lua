@@ -152,6 +152,7 @@ return {
                 level = 61,
                 cost = 24,
                 id = 95,  -- Spell ID
+                range = 10,
                 magic = 'white',
                 magic_type = 'healing',
                 debuff_id = {3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 20, 21, 30, 31},  -- Multiple debuffs

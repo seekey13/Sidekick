@@ -265,7 +265,7 @@ function action_core.try_use(ability, job_def, settings, party_index, descriptio
         local sid = member and member.server_id
         if sid and sid >= 0x1000000 then
             local bid = type(ability.buff_id) == 'table' and ability.buff_id[1] or ability.buff_id
-            common.register_pending_buff(sid, bid)
+            common.register_pending_buff(sid, bid, ability.name)
         end
     end
 

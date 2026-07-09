@@ -179,7 +179,7 @@ Shared utility module (~1,700 lines). Key areas:
 - **Party**: `get_party_size`, `get_party_member_name/zone/distance`, `get_party_server_ids`
 - **Alliance**: `is_alliance_member`, `find_alliance_member`, `get_alliance_count`, `sorted_alliance_members`, `apply_alliance_member_buff`, `apply_external_buff`
 - **Buffs**: `has_buff`, `get_player_buffs`, `get_party_buffs`, `get_trust_buffs`
-- **Trust buff tracking**: `register_pending_buff`, `handle_buff_application`, `handle_buff_removal`, `clear_trust_buffs`
+- **Trust buff tracking**: `register_pending_buff`, `handle_buff_application`, `handle_buff_removal`, `drop_removed_debuff(server_id, ability)` (optimistically drops one status a na-/Erase spell just cured from a Trust/tracked/alliance target — those give no reliable wear-off packet, so without it the removal spell re-fires every tick; no-op for memory-read party members), `clear_trust_buffs`, `base_buff_duration` (buff durations + a debuff backstop: `BASE_DEBUFF_DURATION` gives packet-detected debuffs a timed fall-off, Curse/Bane/Disease/Plague never time out, other erasable debuffs default to 120s), `expire_timed_buffs` (timed expiry + Trust song slot eviction — see Trust Buff Tracking below)
 - **Status ailments**: `has_silence`, `has_amnesia`, `is_command_blocked`
 - **Ability helpers**: `has_spell_learned(ability)` (returns `HasSpell` result; only a `pcall` error assumes known — an unlearned spell is *not* treated as learned), `filter_abilities_by_level` (also filters out an ability whose `requires_equipped_ammo` isn't currently worn), `build_ability_command`, `check_target_modifier`
 - **Pet status tracking**: `is_pet(server_id)` (true for the current pet's server id, refreshed each tick), `apply_pet_buff` — pets have normal entity ids (< 0x1000000) so they miss the Trust guard; these route the pet's packet-detected buffs/debuffs into `trust_buffs` keyed by the pet's server id. `pet_type_ok(ability)` gates a `requires_pet_name` ability on the summoned pet's name (shared by job validators and the config UI so the name list lives only in the ability data).
@@ -222,19 +222,22 @@ FFI bindings for FFXI target resolution (battle target, scan target, last teller
 ### status_removal.lua – Debuff Removal & Sleep Wake
 
 **Debuff removal** (`execute_debuff_removal`):
-- Priority: self → focus target → party member with most debuffs.
-- Matches abilities to specific debuff IDs they can cure.
-- Uses `action_core.try_use()`.
+- The level-filtered removal list is ranked by `removal_rank` so the per-target loops reach for the most specific remover first: targeted na-spell (`0`, strips the *exact* ailment) < generic Erase / any wildcard remover (`1`, strips a *random* erasable status) < the self-centered AOE / Esuna (`2`). Erase is identified by table identity (all Erase/Maintenance/Reward share the one `common.ERASABLE_DEBUFFS` table).
+- Priority: **AOE Esuna** → focus target → party member with most debuffs (then tracked / alliance). The AOE pass fires a self-centered removal (Esuna) when **2+ members inside its radius** (self + party + alliance, via `is_in_range`) share an ability-removable ailment — one cast beats a chain of na-casts. **Pets and tracked (Trust) targets are not in the AOE**, so they don't count toward the threshold and aren't dropped by it. Below the threshold, a single affected target falls through to its targeted na-spell; Esuna still trails the per-target loops as a last resort for an Esuna-only ailment nothing else covers.
+- Matches abilities to specific debuff IDs they can cure. Uses `action_core.try_use()`.
+- On firing a removal at a **packet-tracked** target (Trust / tracked / alliance / pet — including one Esuna-removable status per affected alliance member on the AOE cast), calls `common.drop_removed_debuff(server_id, ability)` to drop one matching status from tracking immediately — those targets get no reliable wear-off packet, so otherwise the spell re-fires every tick. No-op for memory-read party members; the debuff base-duration timer is the fallback.
 
 **Wake from sleep** (`execute_wake`):
 - Scans party buffs for sleep IDs (2, 19).
 - 1 sleeping → cheapest single-target ability; 2+ → cheapest AOE ability.
 - Uses `action_core.try_use()` for resource/cooldown/command pipeline.
+- Wake spells carry no `debuff_id`, so the Sleep drop is inferred in Medic.lua's 0x028 handler instead: a player Cure landing (HP messages 2/7/24) on any packet-tracked ally (Trust/tracked/alliance/pet) clears Sleep + Sleep II from tracking, so the wake doesn't re-cure until the timer would.
 
 **Pet debuff removal** (`execute_pet_debuff_removal`):
 - BST (Reward + Pet Roborant) and PUP (Maintenance + Oil) strip status ailments from the pet.
 - Reads the packet-tracked `game_state.pet_debuffs` list (see [Pet Status Tracking](#pet-status-tracking)); only fires when the pet actually carries a debuff the ability can remove, matched against the ability's `debuff_id` list.
 - Auto-equips the required consumable (`requires_equipped_ammo`) **only** when there is a matching debuff to cure, so the roborant/oil never fights the heal or Regen for the ammo slot while there's nothing to do.
+- On firing, drops one matching status from the pet's tracked list (`common.drop_removed_debuff(pet.ServerId, ability)`), same as Trust/alliance removal — a pet carrying several erasable statuses gets one dropped per cast, more casts strip the rest.
 - Because pet status is inferred from packets, this is best-effort (same caveat as Trust tracking) — surfaced in the UI as a warning tooltip.
 
 ### buff.lua – Buff Maintenance
@@ -452,10 +455,14 @@ Read-only display of game state, party buffs, server IDs, target indices. Shown 
 Regular party members: buffs read directly from game memory.
 Trusts (server_id ≥ 0x1000000): tracked via packets.
 
-1. `register_pending_buff(server_id, buff_id)` – on cast initiation
+1. `register_pending_buff(server_id, buff_id, spell_name)` – on cast initiation
 2. `handle_buff_application()` – packet 0x028 with completion flag
 3. `handle_buff_removal(server_id, buff_id)` – packet 0x029
 4. `clear_trust_buffs()` – on zone change
+
+**Timed expiry.** Every packet-tracked target (Trusts, tracked targets, alliance members, the pet — all read from `trust_buffs`, never from memory) gets no reliable wear-off packet, so every buff application also records a start time and, when known, a base duration (`buff_timestamps` in `common.lua`, resolved by `common.base_buff_duration(buff_id, spell_name)`). The duration table covers Haste/Flurry/Refresh/Regen tiers/Phalanx II/Protect/Shell tiers, every bard song buff (ids 195–222) at a flat 120 s, and a **debuff backstop** (`BASE_DEBUFF_DURATION`): removable debuffs get a timed fall-off so a missed removal packet can't loop a cure spell forever. Any erasable debuff defaults to a flat 120 s (covers Poison/Paralyze/Blind/Silence/Dia/Bio); the explicit table only lists what that default misses — non-erasable statuses that still have a remover (Sleep 90 s, Petrify 60 s, Doom 30 s), more-accurate non-120 durations (Bind 60 s, Gravity 90 s, Slow 180 s), and the until-removed group (Curse/Bane/Disease/Plague, which never time out). Debuffs nothing can strip (Stun/Amnesia/Addle/Terror) are intentionally left out — no remover means no loop to guard against. `expire_timed_buffs()` runs each `refresh_game_state` tick and drops elapsed entries from `trust_buffs` for those packet-tracked targets so action modules see the effect as missing and recast; regular party members read from memory and are skipped. Buffs/debuffs with no known duration keep wear-off-packet-only behavior. Re-application refreshes the start time.
+
+**Song slots are per-caster.** Each bard holds 2 song slots (`TRUST_SONG_SLOTS`) on a given target — song accounting is scoped by caster, not by target. Every tracked buff records its `src` (caster server id, from the 0x028 action packet's `UserId`, or our own player id for Medic's casts). When a new song lands from caster S on a target that already holds 2 of *S's* songs, S's oldest-start-time song is evicted; songs from other bards sit in their own bucket and never count. Applies to any ally target tracked in `trust_buffs` (Trusts, tracked players, alliance members). Skipped when the caster is unknown (0x029 carries no `UserId`; 0x028 is the reliable song path). No range check is needed: songs are only applied to targets the action packet reports as hit.
 
 ### Pet Status Tracking
 
