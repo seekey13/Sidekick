@@ -85,14 +85,14 @@ return {
     -- Default settings for UI
     default_settings = {
         heal_enabled = true,
-        buff_enabled = true,
         debuff_removal_enabled = true,
+        buff_enabled = true,
     },
 
     -- Action priority order
     priority_order = {
         'heal',
-        'buff',
         'debuff_removal',
+        'buff',
     },
 }
