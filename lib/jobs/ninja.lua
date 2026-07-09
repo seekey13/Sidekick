@@ -74,7 +74,7 @@ return {
             {
                 name = 'Utsusemi: Ni',
                 level = 37,
-                cost = 19,  -- approx MP
+                cost = 0,
                 id = 339,   -- spell id
                 command = '/ma "Utsusemi: Ni" <me>',
                 buff_id = SHADOWS,
@@ -85,7 +85,7 @@ return {
             {
                 name = 'Utsusemi: Ichi',
                 level = 12,
-                cost = 12,  -- approx MP
+                cost = 0,
                 id = 338,   -- spell id
                 command = '/ma "Utsusemi: Ichi" <me>',
                 buff_id = SHADOWS,
@@ -99,7 +99,7 @@ return {
             {
                 name = 'Tonko: Ni',
                 level = 34,
-                cost = 12,  -- approx MP
+                cost = 0,  -- approx MP
                 id = 354,   -- spell id
                 command = '/ma "Tonko: Ni" <me>',
                 buff_id = 69,
@@ -111,7 +111,7 @@ return {
             {
                 name = 'Tonko: Ichi',
                 level = 9,
-                cost = 7,   -- approx MP
+                cost = 0,  -- approx MP
                 id = 353,   -- spell id
                 command = '/ma "Tonko: Ichi" <me>',
                 buff_id = 69,
@@ -121,11 +121,11 @@ return {
                 idle_only = true,
             },
 
-            -- Monomi (Sneak/Hide). Ungrouped single tier. Idle only.
+            -- Monomi (Sneak). Ungrouped single tier. Idle only.
             {
                 name = 'Monomi: Ichi',
                 level = 25,
-                cost = 14,  -- approx MP
+                cost = 0,  -- approx MP
                 id = 318,   -- spell id
                 command = '/ma "Monomi: Ichi" <me>',
                 buff_id = 71,
