@@ -1307,6 +1307,16 @@ local function pet_type_tooltip(ability)
     return 'Requires pet ' .. table.concat(ability.requires_pet_name, ' / ')
 end
 
+-- Ninjutsu tool count (requires_item): green "(N)" after the row, red at 0. N is
+-- the summed inventory count of the spell's own tool plus Shikanofuda (both in
+-- requires_item). count==0 also grays the row (see no_item in the callers).
+local function render_item_count(ability)
+    if not ability or not ability.requires_item then return end
+    local count = common.count_equippable_items(ability.requires_item)
+    imgui.SameLine()
+    imgui.TextColored(count > 0 and LIGHT_GREEN or LIGHT_RED, string.format('(%d)', count))
+end
+
 -- Render a self-target single ability
 -- Layout: [ON/OFF Button] Ability Name
 function ui_components.self_single_ability(ctx, ability, job_def, id_suffix)
@@ -1315,6 +1325,9 @@ function ui_components.self_single_ability(ctx, ability, job_def, id_suffix)
     -- gray it like an unlearned spell and say what's missing.
     local no_ammo = ability.requires_equipped_ammo
         and common.count_equippable_items(ability.requires_equipped_ammo) == 0
+    -- Ninjutsu tool (requires_item) not in inventory: gray like no_ammo.
+    local no_item = ability.requires_item
+        and common.count_equippable_items(ability.requires_item) == 0
     local wrong_pet = pet_type_unmet(ability)
     local spell_suffix = ''
     local ability_combat_only = effective_combat_only(ability, ctx)
@@ -1325,7 +1338,7 @@ function ui_components.self_single_ability(ctx, ability, job_def, id_suffix)
     imgui.SameLine()
 
     -- Push text color after buttons so S button / ON/OFF button are not tinted
-    if not has_spell or no_ammo or wrong_pet then
+    if not has_spell or no_ammo or no_item or wrong_pet then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
     elseif ability_combat_only then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_YELLOW)
@@ -1350,6 +1363,8 @@ function ui_components.self_single_ability(ctx, ability, job_def, id_suffix)
             imgui.SetTooltip('Not Learned')
         elseif no_ammo then
             imgui.SetTooltip('No ' .. (ability.ammo_label or 'item') .. ' found in storage.')
+        elseif no_item then
+            imgui.SetTooltip('No ' .. (ability.item_label or 'tool') .. ' or Shikanofuda in inventory.')
         elseif wrong_pet then
             imgui.SetTooltip(pet_type_tooltip(ability))
         elseif ability_combat_only then
@@ -1359,9 +1374,11 @@ function ui_components.self_single_ability(ctx, ability, job_def, id_suffix)
         end
     end
 
-    if not has_spell or no_ammo or wrong_pet or ability_combat_only or ability_idle_only then
+    if not has_spell or no_ammo or no_item or wrong_pet or ability_combat_only or ability_idle_only then
         imgui.PopStyleColor()
     end
+
+    render_item_count(ability)
 end
 
 -- Render a self-target grouped ability with dropdown
@@ -1418,20 +1435,25 @@ function ui_components.self_grouped_ability(ctx, ability, job_def)
     -- Push text color after buttons so S button / ON/OFF button are not tinted
     local selected_combat_only = effective_combat_only(selected, ctx)
     local selected_idle_only = common.is_ability_idle_only(selected, ctx.settings)
-    if not has_spell then
+    -- Ninjutsu tool (requires_item) not in inventory: gray the selected tier.
+    local no_item = selected.requires_item
+        and common.count_equippable_items(selected.requires_item) == 0
+    if not has_spell or no_item then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
     elseif selected_combat_only then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_YELLOW)
     elseif selected_idle_only then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GREEN)
     end
-    
+
     imgui.SameLine()
     ui_components.group_dropdown(ctx, job_def, ability.group, DROPDOWN_WIDTH)
-    
-    if not has_spell or selected_combat_only or selected_idle_only then
+
+    if not has_spell or no_item or selected_combat_only or selected_idle_only then
         imgui.PopStyleColor()
     end
+
+    render_item_count(selected)
 end
 
 -- Render a party-target single ability

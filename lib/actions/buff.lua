@@ -203,12 +203,11 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
     end
 
     -- Auto-equip a consumable a buff needs in the ammo slot (BST Reward Regen ->
-    -- Pet Poultice). Only reached when the higher-priority pet-heal passed this
-    -- tick, so its biscuit and this poultice never contend for the slot at once.
-    if common.targets.get_pet() then
-        local equip = common.ammo_equip_command(buff_abilities, settings, player)
-        if equip then return equip end
-    end
+    -- Pet Poultice; NIN Sange -> Shuriken). For pet buffs this is only reached
+    -- after the higher-priority pet-heal passed this tick, so biscuit and poultice
+    -- never contend; ammo_equip_command itself skips pet-only ammo when no pet.
+    local equip = common.ammo_equip_command(buff_abilities, settings, player)
+    if equip then return equip end
 
     -- Filter abilities by level and settings
     local available_abilities = common.filter_abilities_by_level(buff_abilities, settings, derived_main_level, derived_sub_level, job_def)

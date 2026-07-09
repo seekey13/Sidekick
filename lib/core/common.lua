@@ -789,7 +789,10 @@ end
 function common.ammo_equip_command(abilities, settings, player)
     for _, ability in ipairs(abilities or {}) do
         local spec = ability.requires_equipped_ammo
-        if spec and not common.is_ammo_equipped(spec) then
+        -- Skip a pet-only ammo (BST poultice) when no pet is out, so pet-less
+        -- jobs (NIN Sange -> Shuriken) can share this without equipping it early.
+        if spec and not common.is_ammo_equipped(spec)
+           and not (ability.pet_required and not targets.get_pet()) then
             local disabled     = settings['disabled_' .. ability.name:gsub(' ', '_')] == true
             local usable_level = ability.is_main_job == false and (player.sub_level or 0) or (player.main_level or 0)
             -- Oils equip PUP-main only; biscuits/poultice equip on any job.
@@ -1897,6 +1900,7 @@ function common.filter_abilities_by_level(abilities, settings, main_level, sub_l
         if is_disabled then
         elseif ability.requires_pet and not targets.get_pet() then
         elseif ability.requires_equipped_ammo and not common.is_ammo_equipped(ability.requires_equipped_ammo) then
+        elseif ability.requires_item and not common.find_equippable_item(ability.requires_item) then
         elseif common.is_ability_idle_only(ability, settings) and not common.is_idle() then
         elseif common.is_ability_combat_only(ability, settings) and not common.is_combat() then
         elseif common.ability_targets_bt(ability) and not common.is_combat() then
