@@ -86,6 +86,7 @@ local function load_single_job_definition(job_id)
         [7] = 'paladin',      -- Paladin
         [9] = 'beastmaster',  -- Beastmaster
         [10] = 'bard',        -- Bard
+        [12] = 'samurai',     -- Samurai
         [14] = 'dragoon',     -- Dragoon
         [15] = 'summoner',    -- Summoner
         [18] = 'puppetmaster',-- Puppetmaster
