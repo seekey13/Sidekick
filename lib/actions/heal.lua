@@ -635,14 +635,6 @@ end
 -- Pet Healing  (formerly lib.actions.heal_pet)
 -- ============================================================================
 
--- If a level-appropriate, enabled pet-heal needs a consumable equipped in the
--- ammo slot (BST food, PUP oil) and one isn't worn, return the /equip command
--- for the best owned tier we can equip at our MAIN job level. nil when already
--- equipped, disabled, none owned, or the item can't be equipped on this job.
-function heal.pet_ammo_equip(settings, job_def, player)
-    return common.ammo_equip_command(job_def.abilities.heal_pet, settings, player)
-end
-
 function heal.execute_pet(settings, job_def)
     if not settings.heal_pet_enabled      then return nil end
     if not common.targets.get_pet()       then return nil end
@@ -655,11 +647,11 @@ function heal.execute_pet(settings, job_def)
     local threshold = settings.heal_pet_threshold or 50
     if not common.below_threshold(pet_hpp, threshold) then return nil end
 
-    -- Auto-equip: a pet-heal that needs a consumable in the ammo slot can't fire
-    -- until one is worn. If a usable tier is owned but not equipped, equip it now
-    -- (the heal fires a later tick). If none are owned, nothing happens and the
-    -- ability stays gated out -- effectively disabled.
-    local equip = heal.pet_ammo_equip(settings, job_def, player)
+    -- Auto-equip: a pet-heal that needs a consumable in the ammo slot (BST food,
+    -- PUP oil) can't fire until one is worn. If a usable tier is owned but not
+    -- equipped, equip the best one now (the heal fires a later tick). If none are
+    -- owned, nothing happens and the ability stays gated out -- effectively disabled.
+    local equip = common.ammo_equip_command(job_def.abilities.heal_pet, settings, player)
     if equip then return equip end
 
     local abilities = common.filter_abilities_by_level(
