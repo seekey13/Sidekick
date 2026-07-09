@@ -21,13 +21,15 @@ A focused, support-oriented addon for Ashita v4 that automates healing, buffing,
 
 ### [2.2.0] - 2026-07-06
 
-Adds three pet-support jobs (Beastmaster, Dragoon, Puppetmaster) with consumable-ammo auto-equip and packet-based pet status tracking; also makes packet-tracked buffs/debuffs (Trusts, tracked players, alliance, pets) expire on a timer so a missed wear-off packet no longer leaves a stale status stuck forever; also reworks debuff-removal priority (targeted cures before Erase, group Esuna) — alongside internal dead-code cleanup and UI polish.
+Adds three pet-support jobs (Beastmaster, Dragoon, Puppetmaster) with consumable-ammo auto-equip and packet-based pet status tracking, plus two self-support jobs (Monk, Samurai) and a right-click **Idle Only** ability toggle; also makes packet-tracked buffs/debuffs (Trusts, tracked players, alliance, pets) expire on a timer so a missed wear-off packet no longer leaves a stale status stuck forever; also reworks debuff-removal priority (targeted cures before Erase, group Esuna) — alongside internal dead-code cleanup and UI polish.
 
 ### Added
 - **Timed Status Expiry**: Every packet-tracked buff/debuff records a base duration and falls off on its own once elapsed, instead of waiting for a wear-off packet that may never arrive. Covers Trusts, tracked players, alliance members, and the pet.
 - **Debuff Backstop Durations**: Removable debuffs (Poison, Paralysis, Silence, Sleep, Petrify, Doom, Bind, Gravity, Slow, etc.) get a fall-off timer so a missed cure-detection can't spam the na-/Erase spell forever. Curse, Bane, Disease, and Plague are treated as "until removed."
 - **Per-Caster Bard Song Slots**: Song tracking now mirrors FFXI's 2-songs-per-bard limit per target, so a second bard's songs no longer evict yours.
 - **Beastmaster / Dragoon / Puppetmaster**: Three new pet-support jobs (see [Supported Jobs](#supported-jobs)).
+- **Monk / Samurai**: Two new self-support jobs — Monk self-buffs Boost, Dodge, Focus, Counterstance, Footwork; Samurai self-buffs Warding Circle, Third Eye, and the Hasso/Seigan stance plus TP recovery via Meditate (see [Supported Jobs](#supported-jobs)).
+- **Idle Only Toggle**: Right-click any ability and pick **Idle Only** (next to Combat Only) to fire it only out of combat — e.g. Monk Boost on cooldown while idle. The two are mutually exclusive.
 - **Consumable-Ammo Auto-Equip**: Abilities that need a consumable worn in the ammo slot (BST Pet Food, PUP Automaton Oil) auto-equip the best owned tier for your level — from inventory or any Mog Wardrobe — before firing. The config UI shows a live count, green when equipped and red when not.
 - **Pet Status Tracking**: A pet's buffs/debuffs are inferred from packets (the client keeps no pet buff memory) so BST/PUP can strip the pet's status ailments. As with Trusts, this tracking is not perfectly reliable.
 - **Beastmaster Ready Charges**: Ready-move charges are tracked like Scholar stratagems and shown in the `/med panel` header.
