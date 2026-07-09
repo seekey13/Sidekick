@@ -222,10 +222,10 @@ FFI bindings for FFXI target resolution (battle target, scan target, last teller
 ### status_removal.lua – Debuff Removal & Sleep Wake
 
 **Debuff removal** (`execute_debuff_removal`):
-- Priority: self → focus target → party member with most debuffs (then tracked / alliance).
-- Matches abilities to specific debuff IDs they can cure.
-- Uses `action_core.try_use()`.
-- On firing a removal at a **packet-tracked** target (Trust / tracked / alliance), calls `common.drop_removed_debuff(server_id, ability)` to drop one matching status from tracking immediately — those targets get no reliable wear-off packet, so otherwise the spell re-fires every tick. No-op for memory-read party members; the debuff base-duration timer is the fallback.
+- The level-filtered removal list is ranked by `removal_rank` so the per-target loops reach for the most specific remover first: targeted na-spell (`0`, strips the *exact* ailment) < generic Erase / any wildcard remover (`1`, strips a *random* erasable status) < the self-centered AOE / Esuna (`2`). Erase is identified by table identity (all Erase/Maintenance/Reward share the one `common.ERASABLE_DEBUFFS` table).
+- Priority: **AOE Esuna** → focus target → party member with most debuffs (then tracked / alliance). The AOE pass fires a self-centered removal (Esuna) when **2+ members inside its radius** (self + party + alliance, via `is_in_range`) share an ability-removable ailment — one cast beats a chain of na-casts. **Pets and tracked (Trust) targets are not in the AOE**, so they don't count toward the threshold and aren't dropped by it. Below the threshold, a single affected target falls through to its targeted na-spell; Esuna still trails the per-target loops as a last resort for an Esuna-only ailment nothing else covers.
+- Matches abilities to specific debuff IDs they can cure. Uses `action_core.try_use()`.
+- On firing a removal at a **packet-tracked** target (Trust / tracked / alliance / pet — including one Esuna-removable status per affected alliance member on the AOE cast), calls `common.drop_removed_debuff(server_id, ability)` to drop one matching status from tracking immediately — those targets get no reliable wear-off packet, so otherwise the spell re-fires every tick. No-op for memory-read party members; the debuff base-duration timer is the fallback.
 
 **Wake from sleep** (`execute_wake`):
 - Scans party buffs for sleep IDs (2, 19).
@@ -237,6 +237,7 @@ FFI bindings for FFXI target resolution (battle target, scan target, last teller
 - BST (Reward + Pet Roborant) and PUP (Maintenance + Oil) strip status ailments from the pet.
 - Reads the packet-tracked `game_state.pet_debuffs` list (see [Pet Status Tracking](#pet-status-tracking)); only fires when the pet actually carries a debuff the ability can remove, matched against the ability's `debuff_id` list.
 - Auto-equips the required consumable (`requires_equipped_ammo`) **only** when there is a matching debuff to cure, so the roborant/oil never fights the heal or Regen for the ammo slot while there's nothing to do.
+- On firing, drops one matching status from the pet's tracked list (`common.drop_removed_debuff(pet.ServerId, ability)`), same as Trust/alliance removal — a pet carrying several erasable statuses gets one dropped per cast, more casts strip the rest.
 - Because pet status is inferred from packets, this is best-effort (same caveat as Trust tracking) — surfaced in the UI as a warning tooltip.
 
 ### buff.lua – Buff Maintenance
