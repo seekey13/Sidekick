@@ -858,6 +858,22 @@ local function render_nether_void_button(ability_key, ability, ctx)
     end
     if not strat then return false end
 
+    -- Merit JA not unlocked yet: draw the button disabled (like an unlearned
+    -- spell row) -- grayed, click-locked, "Not Learned" tooltip. Automation is
+    -- separately gated in check_stratagem.
+    if not common.has_spell_learned(strat) then
+        imgui.PushStyleColor(ImGuiCol_Button,        COLOR_BUTTON_DISABLED)
+        imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_DISABLED)
+        imgui.PushStyleColor(ImGuiCol_ButtonActive,  COLOR_BUTTON_DISABLED)
+        imgui.Button('N##nv_' .. ability_key, { 20, 0 })
+        imgui.PopStyleColor(3)
+        if imgui.IsItemHovered() then
+            imgui.SetTooltip('Nether Void (Not Learned)')
+        end
+        imgui.SameLine(0, SPACE_BETWEEN_BUTTONS)
+        return true
+    end
+
     local ss = get_stratagem_settings(ctx)
     if not ss then return false end
     local assigned = ss[ability_key] and ss[ability_key][strat.name] == true

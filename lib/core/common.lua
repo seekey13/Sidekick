@@ -1832,14 +1832,25 @@ end
     DRY Helper Functions for Action Modules
 ]]--
 
--- Check if a spell ability has been learned by the player.
--- For non-spell abilities (job abilities, items), always returns true.
--- Args:   ability (table) - Ability definition with command and optional id fields
+-- Check if a spell or job ability has been learned by the player.
+-- Spells (/ma) check HasSpell(id). Job abilities check HasAbility only when the
+-- definition carries an ability_id (the raw abilities.sql id; +512 converts to
+-- the client's JA resource id) -- set it on merit-unlocked JAs like Diabolic
+-- Eye so automation skips them until merited. JAs without ability_id (and
+-- items) are always treated as known.
+-- Args:   ability (table) - Ability definition with command and optional id/ability_id fields
 -- Returns: boolean (true if the ability can be used / spell is known)
 function common.has_spell_learned(ability)
     if not ability then return false end
     local cmd = type(ability.command) == 'function' and ability.command(0) or ability.command
-    if not cmd or not cmd:match('^/ma%s') then return true end    -- not a spell
+    if not cmd or not cmd:match('^/ma%s') then
+        if not ability.ability_id then return true end            -- JA/item, no id to check
+        local ok, known = pcall(function()
+            return AshitaCore:GetMemoryManager():GetPlayer():HasAbility(ability.ability_id + 512)
+        end)
+        if not ok then return true end  -- assume known on error
+        return known
+    end
     if not ability.id then return true end                        -- no id to check
     local ok, known = pcall(function()
         return AshitaCore:GetMemoryManager():GetPlayer():HasSpell(ability.id)
@@ -1898,6 +1909,7 @@ function common.filter_abilities_by_level(abilities, settings, main_level, sub_l
         end
         
         if is_disabled then
+        elseif not common.has_spell_learned(ability) then
         elseif ability.requires_pet and not targets.get_pet() then
         elseif ability.requires_equipped_ammo and not common.is_ammo_equipped(ability.requires_equipped_ammo) then
         elseif ability.requires_item and not common.find_equippable_item(ability.requires_item) then
@@ -2187,11 +2199,13 @@ function common.check_stratagem(job_def, settings, ability_key, ability)
     local strat = missing[1]
 
     -- Recast-gated strat: main-job JA with no charge pool. Gate on the player
-    -- still having it (a de-level below its level would otherwise spam a JA
-    -- that always fails) and on its own recast being ready.
+    -- actually knowing it (merit-unlocked; a de-level below its level would
+    -- likewise spam a JA that always fails) and on its own recast being ready.
     if strat.recast_gate then
         local main_level = common.get_player_level()
-        if (strat.level and main_level < strat.level) or not ability_recast_ready(strat.id) then
+        if (strat.level and main_level < strat.level)
+            or not common.has_spell_learned(strat)
+            or not ability_recast_ready(strat.id) then
             return unavailable
         end
     end

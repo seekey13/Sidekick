@@ -92,6 +92,7 @@ return {
                 level = 75,
                 cost = 0,
                 id = 219,
+                ability_id = 237,  -- merit-unlocked: gated on HasAbility
                 command = '/ja "Saber Dance" <me>',
                 buff_id = 410,  -- Saber Dance
                 group = 'dance',
@@ -101,6 +102,7 @@ return {
                 level = 75,
                 cost = 0,
                 id = 224,
+                ability_id = 238,  -- merit-unlocked: gated on HasAbility
                 command = '/ja "Fan Dance" <me>',
                 buff_id = 411,  -- Fan Dance
                 group = 'dance',
@@ -110,6 +112,7 @@ return {
                 level = 75,
                 cost = 0,
                 id = 223,
+                ability_id = 239,  -- merit-unlocked: gated on HasAbility
                 command = '/ja "No Foot Rise" <me>',
             },
             {
@@ -117,6 +120,7 @@ return {
                 level = 75,
                 cost = 0,
                 id = 236,
+                ability_id = 261,  -- merit-unlocked: gated on HasAbility
                 command = '/ja "Presto" <me>',
                 buff_id = 442,
             },

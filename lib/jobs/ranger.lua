@@ -63,6 +63,7 @@ return {
                 level = 75,
                 cost = 0,
                 id = 128,
+                ability_id = 166,  -- merit-unlocked: gated on HasAbility
                 command = '/ja "Flashy Shot" <me>',
                 buff_id = 351,
             },
@@ -71,6 +72,7 @@ return {
                 level = 75,
                 cost = 0,
                 id = 127,
+                ability_id = 165,  -- merit-unlocked: gated on HasAbility
                 command = '/ja "Stealth Shot" <me>',
                 buff_id = 350,
             },

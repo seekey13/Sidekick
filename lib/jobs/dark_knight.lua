@@ -64,6 +64,7 @@ return {
                 level = 75,
                 cost = 0,
                 id = 90,
+                ability_id = 160,  -- merit-unlocked: gated on HasAbility
                 command = '/ja "Diabolic Eye" <me>',
                 buff_id = 346,
             },
@@ -72,6 +73,7 @@ return {
                 level = 75,
                 cost = 0,
                 id = 44,
+                ability_id = 280,  -- merit-unlocked: gated on HasAbility
                 command = '/ja "Scarlet Delirium" <me>',
                 buff_id = {479, 480},  -- charging + empowered states
             },
@@ -189,6 +191,7 @@ return {
                 level = 75,  -- 78 retail, 75 on CatsEyeXI
                 cost = 0,
                 id = 91,
+                ability_id = 256,  -- merit-unlocked: gated on HasAbility
                 command = '/ja "Nether Void" <me>',
                 buff_id = 439,
                 recast_gate = true,

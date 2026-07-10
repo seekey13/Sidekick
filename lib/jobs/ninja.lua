@@ -141,6 +141,7 @@ return {
                 level = 75,
                 cost = 0,
                 id = 145,
+                ability_id = 171,  -- merit-unlocked: gated on HasAbility
                 command = '/ja "Sange" <me>',
                 buff_id = 352,
                 requires_equipped_ammo = SHURIKENS,  -- gate + auto-equip tiers

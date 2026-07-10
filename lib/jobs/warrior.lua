@@ -39,6 +39,7 @@ return {
                 level = 75,
                 cost = 0,
                 id = 11,
+                ability_id = 267,  -- merit-unlocked: gated on HasAbility
                 command = '/ja "Blood Rage" <me>',
                 buff_id = 460,
             },
@@ -72,6 +73,7 @@ return {
                 level = 75,
                 cost = 0,
                 id = 6,
+                ability_id = 149,  -- merit-unlocked: gated on HasAbility
                 command = '/ja "Warrior\'s Charge" <me>',
                 buff_id = 340,
             },
