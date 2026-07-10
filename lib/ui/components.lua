@@ -55,12 +55,15 @@ end
 -- Render a right-click 'Combat Only' / 'Idle Only' toggle popup for an ability/group.
 -- Call immediately after the imgui item the popup should attach to.
 -- The two are mutually exclusive (checking one clears the other). Suppressed for
--- statically idle_only abilities (data-defined), where the gate isn't user-editable,
--- and for <bt> abilities, which are inherently combat-only.
+-- statically idle_only abilities (data-defined), where the gate isn't user-editable.
+-- <bt> abilities are inherently combat-only, so they hide the Combat/Idle Only
+-- toggles; grouped ones (DRK Absorbs) still get the Ungroup entry. Geo-bt is
+-- fully suppressed: geo.lua's luopan lifecycle only supports one selected spell.
 local function render_combat_only_context_menu(ctx, ability, scope)
     if not ability or not ctx or not ctx.settings then return end
     if ability.idle_only then return end
-    if common.ability_targets_bt(ability) then return end
+    local bt = common.ability_targets_bt(ability)
+    if bt and (not ability.group or ability.group == 'Geo-bt') then return end
     -- scope disambiguates the popup id when the same ability renders in two
     -- sections (e.g. Chakra in both Group Healing and Debuff Removal); without it
     -- both BeginPopupContextItem calls share an id and stack duplicate menus.
@@ -82,20 +85,22 @@ local function render_combat_only_context_menu(ctx, ability, scope)
         popup_id = '##cmenu_combat_only_' .. safe_name .. scope_suffix
     end
     if imgui.BeginPopupContextItem(popup_id) then
-        local combat_cur = { ctx.settings[combat_key] == true }
-        if imgui.Checkbox('Combat Only', combat_cur) then
-            ctx.settings[combat_key] = combat_cur[1] or nil
-            if combat_cur[1] then ctx.settings[idle_key] = nil end  -- mutually exclusive
-            if ctx.save_callback then ctx.save_callback() end
-        end
-        local idle_cur = { ctx.settings[idle_key] == true }
-        if imgui.Checkbox('Idle Only', idle_cur) then
-            ctx.settings[idle_key] = idle_cur[1] or nil
-            if idle_cur[1] then ctx.settings[combat_key] = nil end  -- mutually exclusive
-            if ctx.save_callback then ctx.save_callback() end
-        end
-        if imgui.IsItemHovered() then
-            imgui.SetTooltip('Only fire when out of combat (e.g. Boost on cooldown).')
+        if not bt then
+            local combat_cur = { ctx.settings[combat_key] == true }
+            if imgui.Checkbox('Combat Only', combat_cur) then
+                ctx.settings[combat_key] = combat_cur[1] or nil
+                if combat_cur[1] then ctx.settings[idle_key] = nil end  -- mutually exclusive
+                if ctx.save_callback then ctx.save_callback() end
+            end
+            local idle_cur = { ctx.settings[idle_key] == true }
+            if imgui.Checkbox('Idle Only', idle_cur) then
+                ctx.settings[idle_key] = idle_cur[1] or nil
+                if idle_cur[1] then ctx.settings[combat_key] = nil end  -- mutually exclusive
+                if ctx.save_callback then ctx.save_callback() end
+            end
+            if imgui.IsItemHovered() then
+                imgui.SetTooltip('Only fire when out of combat (e.g. Boost on cooldown).')
+            end
         end
         -- Ungroup: cast every tier in the group independently instead of only
         -- the selected tier. Off (grouped) by default; persisted per group.
