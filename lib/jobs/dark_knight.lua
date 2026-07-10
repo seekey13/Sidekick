@@ -7,9 +7,10 @@
     - Absorb spells on the battle target (<bt>, grouped as 'absorb' -- only the
       selected one is cast). <bt> commands are automatically combat-only.
     - Nether Void (75, DRK main): stratagem-style JA that augments the next
-      Absorb. Toggled via the N button on the Absorb row; fired through
-      check_stratagem the tick before the Absorb, skipped (Absorb still casts)
-      while on cooldown.
+      Absorb. Configured via the N button popup on the Absorb row (Enable +
+      Hold for Nether Void); fired through check_stratagem the tick before
+      the Absorb. On cooldown: Absorb still casts (hold off, default) or is
+      held until Nether Void is ready (hold on).
 
     Absorb buff_ids are the attribute-boost effects the CASTER gains, so the
     spell isn't recast while its boost is still active. Absorb-Attri (steals a

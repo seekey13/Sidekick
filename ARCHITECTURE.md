@@ -443,7 +443,7 @@ return {
 
 **Scholar stratagem button** (`render_scholar_stratagem_button`): Assign stratagems per spell, plus a **Hold for Stratagem** checkbox (`stratagem_hold[<key>]`). The alignment spacer is skipped for Geo-bt rows (no S-button column) and Bard song rows (the `[A]` button already indents them), preventing a double indent.
 
-**DRK Nether Void button** (`render_nether_void_button`): An **N** toggle in the Absorb group row's leading slot, drawn only when the player has Nether Void (DRK main at its level). Lit = assigned (`stratagem_settings['absorb']['Nether Void']`); the automation then fires Nether Void before the selected Absorb, or casts the Absorb without it when the JA is on cooldown.
+**DRK Nether Void button** (`render_nether_void_button`): An **N** button in the Absorb group row's leading slot, drawn only when the player has Nether Void (DRK main at its level). Clicking opens a popup with **Enable** (`stratagem_settings['absorb']['Nether Void']` — the automation fires Nether Void before the selected Absorb) and **Hold for Nether Void** (`stratagem_hold['absorb']`, the same hold key Scholar uses — ON skips the Absorb until Nether Void is ready; OFF, the default, casts the Absorb without it when the JA is on cooldown). Lit when enabled.
 
 `is_song_config_key()` recognizes both grouped (group name) and ungrouped (ability name) song config keys so the per-member song limit counts them together. `is_persisted_target_key()` gates which party-buff keys persist to disk — numeric ME/P1-P5 (0-5) and the area key `'A'` persist; `al_`/`tt_` keys are session-only.
 

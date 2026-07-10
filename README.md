@@ -240,7 +240,7 @@ Currently implemented support jobs:
   - Self-buffs with job abilities (Arcane Circle, Last Resort, Souleater, Consume Mana, Diabolic Eye, Scarlet Delirium)
   - Self-buff with dark magic (Dread Spikes)
   - Absorb spells on your battle target (Absorb-Attri, Absorb-ACC, Absorb-TP, Absorb-STR/DEX/INT/AGI/VIT/CHR/MND) — combat-only, single spell selectable via dropdown
-  - **Nether Void** (level 75, DRK main): an **N** button on the Absorb row — when lit, Nether Void fires before the selected Absorb to boost it; if Nether Void is on cooldown the Absorb still casts without it
+  - **Nether Void** (level 75, DRK main): an **N** button on the Absorb row opens a popup — **Enable** fires Nether Void before the selected Absorb to boost it; **Hold for Nether Void** skips the Absorb until Nether Void is ready (off by default: the Absorb still casts without it when Nether Void is on cooldown)
 
 - **Geomancer** (GEO)
   - AOE healing with job abilities (Mending Halation)

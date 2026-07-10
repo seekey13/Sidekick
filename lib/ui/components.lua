@@ -830,10 +830,11 @@ local function render_scholar_stratagem_button(ability_key, ability, ctx)
     return true, 0
 end
 
--- Render the DRK Nether Void toggle for the Absorb row: an N button that,
--- when lit, fires Nether Void before the selected Absorb spell (via the
--- stratagem machinery; when Nether Void is on cooldown the Absorb still
--- casts without it). Only drawn when the player actually has Nether Void.
+-- Render the DRK Nether Void button for the Absorb row: an [N] button opening
+-- a popup with Enable (fire Nether Void before the selected Absorb, via the
+-- stratagem machinery) and Hold for Nether Void (skip the Absorb until Nether
+-- Void is ready; off = cast the Absorb without it when it's on cooldown).
+-- Only drawn when the player actually has Nether Void. Lit when enabled.
 -- Returns true when it drew the button (fills the row's leading slot).
 local function render_nether_void_button(ability_key, ability, ctx)
     if not (ability and ability.group == 'absorb') then return false end
@@ -860,6 +861,7 @@ local function render_nether_void_button(ability_key, ability, ctx)
     local ss = get_stratagem_settings(ctx)
     if not ss then return false end
     local assigned = ss[ability_key] and ss[ability_key][strat.name] == true
+    local popup_id = '##nv_popup_' .. ability_key
 
     -- Color: default (active) when enabled, gray when idle -- same as S button
     if not assigned then
@@ -869,24 +871,54 @@ local function render_nether_void_button(ability_key, ability, ctx)
     end
 
     if imgui.Button('N##nv_' .. ability_key, { 20, 0 }) then
-        if assigned then
-            ss[ability_key][strat.name] = nil
-            if not next(ss[ability_key]) then ss[ability_key] = nil end
-        else
-            ss[ability_key] = ss[ability_key] or {}
-            ss[ability_key][strat.name] = true
-        end
-        if ctx.save_callback then ctx.save_callback() end
+        imgui.OpenPopup(popup_id)
     end
 
     if imgui.IsItemHovered() then
         imgui.SetTooltip('Nether Void: fire Nether Void before this Absorb spell\n' ..
-            'to boost its effect. Lit when enabled. When Nether Void is\n' ..
-            'on cooldown the Absorb is cast without it.')
+            'to boost its effect. Click to configure. Lit when enabled.')
     end
 
     if not assigned then
         imgui.PopStyleColor(3)
+    end
+
+    if imgui.BeginPopup(popup_id) then
+        imgui.TextColored({ 0.8, 0.8, 0.8, 1.0 }, 'Nether Void')
+        imgui.Separator()
+
+        local enable_val = { assigned }
+        if imgui.Checkbox('Enable##nv_enable_' .. ability_key, enable_val) then
+            if enable_val[1] then
+                ss[ability_key] = ss[ability_key] or {}
+                ss[ability_key][strat.name] = true
+            elseif ss[ability_key] then
+                ss[ability_key][strat.name] = nil
+                if not next(ss[ability_key]) then ss[ability_key] = nil end
+            end
+            if ctx.save_callback then ctx.save_callback() end
+        end
+        if imgui.IsItemHovered() then
+            imgui.SetTooltip('Fire Nether Void before the selected Absorb spell.')
+        end
+
+        -- "Hold for Nether Void": stored under the same stratagem_hold key
+        -- check_stratagem reads, so the automation side needs no new wiring.
+        imgui.Separator()
+        local hold_tbl = get_stratagem_hold(ctx)
+        if hold_tbl then
+            local hold_val = { hold_tbl[ability_key] == true }
+            if imgui.Checkbox('Hold for Nether Void##nv_hold_' .. ability_key, hold_val) then
+                hold_tbl[ability_key] = hold_val[1] or nil
+                if ctx.save_callback then ctx.save_callback() end
+            end
+            if imgui.IsItemHovered() then
+                imgui.SetTooltip('On: skip the Absorb until Nether Void is ready.\n' ..
+                    'Off (default): cast the Absorb without Nether Void when it is on cooldown.')
+            end
+        end
+
+        imgui.EndPopup()
     end
 
     imgui.SameLine(0, SPACE_BETWEEN_BUTTONS)
