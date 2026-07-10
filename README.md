@@ -1,11 +1,45 @@
 # **Medic** - Support Job Automation Framework
 
-A focused, support-oriented addon for Ashita v4 that automates healing, buffing, and debuff removal for select support jobs in Final Fantasy XI.  Tuned specifically for [CatsEyeXI private server](https://www.catseyexi.com/).
+A focused, support-oriented addon for Ashita v4 that automates healing, buffing, debuff removal, resource recovery, and reviving for select support jobs in Final Fantasy XI.  Tuned specifically for [CatsEyeXI private server](https://www.catseyexi.com/).
 
-<img width="3840" height="2160" alt="Screenshot 2026-03-03 191208" src="https://github.com/user-attachments/assets/4b9165e3-8ced-4af2-b765-105d846c2ee1" />
-<img width="3840" height="2160" alt="Screenshot 2026-03-03 191222" src="https://github.com/user-attachments/assets/da087926-c7f6-48f5-8e02-0db4c6bfb5c5" />
-<img width="3840" height="2160" alt="Screenshot 2026-03-03 191254" src="https://github.com/user-attachments/assets/5bae06cf-5268-4b69-8480-0c53a7b0e7e3" />
-<img width="3840" height="2160" alt="Screenshot 2026-03-03 191314" src="https://github.com/user-attachments/assets/f0857b76-c773-4ea9-b8ee-6629de331609" />
+# Quick Start Guide
+<img width="1450" height="910" alt="image" src="https://github.com/user-attachments/assets/e6b15b0a-35ad-4182-98f1-c1488c3f08f2" />
+
+### Header
+<img width="1453" height="555" alt="image" src="https://github.com/user-attachments/assets/c5dd8d6b-a8b8-4ae1-968a-4f7af5978de1" />
+
+### Focus Healing
+<img width="1449" height="386" alt="image" src="https://github.com/user-attachments/assets/41492d8c-0dd8-4715-94de-cd5abb89c04f" />
+
+### Group Healing
+<img width="1454" height="643" alt="image" src="https://github.com/user-attachments/assets/4759be51-5d4d-42d5-849f-e86b96c63b75" />
+
+### AOE Healing
+<img width="1453" height="465" alt="image" src="https://github.com/user-attachments/assets/2de2b4ff-9aff-4012-b2bf-53f6746fd451" />
+
+### Pet Healing
+<img width="1454" height="353" alt="image" src="https://github.com/user-attachments/assets/560b3be2-055c-47f2-a1f4-711cfc6d4f7b" />
+
+### Sleep Removal
+<img width="1360" height="294" alt="image" src="https://github.com/user-attachments/assets/8496c23a-9ec3-4408-a339-84cdf99cc7fe" />
+
+### Debuff Removal
+<img width="1449" height="549" alt="image" src="https://github.com/user-attachments/assets/8676c0cd-561b-41bb-911e-7c48e72f4073" />
+
+### Item Debuff Removal
+<img width="1453" height="496" alt="image" src="https://github.com/user-attachments/assets/8c3e08b4-7827-44ae-bd0a-8872d8ffb8c8" />
+
+### Resting
+<img width="1453" height="581" alt="image" src="https://github.com/user-attachments/assets/9d3b6642-9ed8-49cb-9749-f10a259ffbba" />
+
+### Recource Recovery
+<img width="1450" height="469" alt="image" src="https://github.com/user-attachments/assets/7ca740b2-3ed2-4bbf-83d5-18bcc7d80837" />
+
+### Buffs
+<img width="1449" height="1075" alt="image" src="https://github.com/user-attachments/assets/27ebedaf-ffa7-4432-80c6-de90cb8c4a37" />
+
+### Revive
+<img width="1453" height="378" alt="image" src="https://github.com/user-attachments/assets/2afff4a6-9538-4f07-b7db-5c47cbeda4e1" />
 
 ## ⚠️ Important: This is NOT a Full Automation Tool
 
