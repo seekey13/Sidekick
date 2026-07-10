@@ -8,7 +8,7 @@
 
 
 return {
-    job_id = 15,  -- Summoner
+    job_id = 15,
     job_name = 'Summoner',
     resource_type = 'mp',
     
@@ -19,11 +19,11 @@ return {
                 name = 'Healing Ruby',
                 level = 1,
                 cost = 6,
-                id = 174,  -- Blood Pact: Ward recast ID
+                id = 174,
                 command = function(target)
                     return '/pet "Healing Ruby" '..target
                 end,
-                wakes = true,  -- Can wake from sleep
+                wakes = true,
                 pet_required = true,
                 requires_pet_name = { 'Carbuncle' },
             },
@@ -35,9 +35,9 @@ return {
                 name = 'Healing Ruby II',
                 level = 65,
                 cost = 124,
-                id = 174,  -- Blood Pact: Ward recast ID
+                id = 174,
                 command = '/pet "Healing Ruby II" <me>',
-                wakes = true,  -- Can wake from sleep
+                wakes = true,
                 pet_required = true,
                 requires_pet_name = { 'Carbuncle' },
             },
@@ -49,18 +49,18 @@ return {
                 name = 'Avatar\'s Favor',
                 level = 55,
                 cost = 0,
-                id = 176,  -- Avatar's Favor recast ID
+                id = 176,
                 command = '/pet "Avatar\'s Favor" <me>',
-                buff_id = 431,  -- Avatar's Favor buff ID
+                buff_id = 431,
                 pet_required = true,
             },
             {
                 name = 'Shining Ruby',
                 level = 24,
                 cost = 44,
-                id = 174,  -- Blood Pact: Ward recast ID (shared with Healing Ruby)
+                id = 174, (shared with Healing Ruby)
                 command = '/pet "Shining Ruby" <me>',
-                buff_id = 154,  -- Shining Ruby buff ID
+                buff_id = 154,
                 pet_required = true,
                 requires_pet_name = { 'Carbuncle' },
             },
@@ -72,7 +72,7 @@ return {
                 name = 'Apogee',
                 level = 70,
                 cost = 0,
-                id = 108,  -- Apogee recast ID
+                id = 108,
                 command = '/ja "Apogee" <me>',
                 pet_required = true,
                 requires_pet_name = { 'Carbuncle' },

@@ -9,7 +9,7 @@
 local common = require('lib.core.common')
 
 return {
-    job_id = 3,  -- White Mage
+    job_id = 3,
     job_name = 'White Mage',
     resource_type = 'mp',
     
@@ -20,7 +20,7 @@ return {
                 name = 'Cure V',
                 level = 61,
                 cost = 135,
-                id = 5,  -- Spell ID
+                id = 5,
                 magic = 'white',
                 magic_type = 'healing',
                 command = function(target)
@@ -35,7 +35,7 @@ return {
                 name = 'Cure IV',
                 level = 41,
                 cost = 88,
-                id = 4,  -- Spell ID
+                id = 4,
                 magic = 'white',
                 magic_type = 'healing',
                 command = function(target)
@@ -50,7 +50,7 @@ return {
                 name = 'Cure III',
                 level = 21,
                 cost = 46,
-                id = 3,  -- Spell ID
+                id = 3,
                 magic = 'white',
                 magic_type = 'healing',
                 command = function(target)
@@ -65,7 +65,7 @@ return {
                 name = 'Cure II',
                 level = 11,
                 cost = 24,
-                id = 2,  -- Spell ID
+                id = 2,
                 magic = 'white',
                 magic_type = 'healing',
                 command = function(target)
@@ -80,7 +80,7 @@ return {
                 name = 'Cure',
                 level = 1,
                 cost = 8,
-                id = 1,  -- Spell ID
+                id = 1,
                 magic = 'white',
                 magic_type = 'healing',
                 command = function(target)
@@ -99,7 +99,7 @@ return {
                 name = 'Curaga IV',
                 level = 71,
                 cost = 260,
-                id = 10,  -- Spell ID
+                id = 10,
                 magic = 'white',
                 magic_type = 'healing',
                 command = '/ma "Curaga IV" <me>',
@@ -111,7 +111,7 @@ return {
                 name = 'Curaga III',
                 level = 51,
                 cost = 180,
-                id = 9,  -- Spell ID
+                id = 9,
                 magic = 'white',
                 magic_type = 'healing',
                 command = '/ma "Curaga III" <me>',
@@ -123,7 +123,7 @@ return {
                 name = 'Curaga II',
                 level = 31,
                 cost = 120,
-                id = 8,  -- Spell ID
+                id = 8,
                 magic = 'white',
                 magic_type = 'healing',
                 command = '/ma "Curaga II" <me>',
@@ -135,7 +135,7 @@ return {
                 name = 'Curaga',
                 level = 16,
                 cost = 60,
-                id = 7,  -- Spell ID
+                id = 7,
                 magic = 'white',
                 magic_type = 'healing',
                 command = '/ma "Curaga" <me>',
@@ -151,7 +151,7 @@ return {
                 name = 'Esuna', -- AOE debuff removal
                 level = 61,
                 cost = 24,
-                id = 95,  -- Spell ID
+                id = 95,
                 range = 10,
                 magic = 'white',
                 magic_type = 'healing',
@@ -163,7 +163,7 @@ return {
                 name = 'Stona',
                 level = 39,
                 cost = 40,
-                id = 18,  -- Spell ID
+                id = 18,
                 magic = 'white',
                 magic_type = 'healing',
                 debuff_id = 7,  -- Petrification
@@ -177,7 +177,7 @@ return {
                 name = 'Viruna',
                 level = 34,
                 cost = 48,
-                id = 19,  -- Spell ID
+                id = 19,
                 magic = 'white',
                 magic_type = 'healing',
                 debuff_id = {8, 31},  -- Disease & Plague
@@ -191,7 +191,7 @@ return {
                 name = 'Erase',
                 level = 32,
                 cost = 18,
-                id = 143,  -- Spell ID
+                id = 143,
                 magic = 'white',
                 magic_type = 'healing',
                 debuff_id = common.ERASABLE_DEBUFFS,
@@ -204,7 +204,7 @@ return {
                 name = 'Cursna',
                 level = 29,
                 cost = 30,
-                id = 20,  -- Spell ID
+                id = 20,
                 magic = 'white',
                 magic_type = 'healing',
                 debuff_id = common.CURSE_DEBUFFS,  -- Curse, Doom & Bane
@@ -218,7 +218,7 @@ return {
                 name = 'Silena',
                 level = 19,
                 cost = 24,
-                id = 17,  -- Spell ID 
+                id = 17, 
                 magic = 'white',
                 magic_type = 'healing',
                 debuff_id = 6,  -- Silence
@@ -232,7 +232,7 @@ return {
                 name = 'Blindna',
                 level = 14,
                 cost = 16,
-                id = 16,  -- Spell ID
+                id = 16,
                 magic = 'white',
                 magic_type = 'healing',
                 debuff_id = 5,  -- Blindness
@@ -246,7 +246,7 @@ return {
                 name = 'Paralyna',
                 level = 9,
                 cost = 12,
-                id = 15,  -- Spell ID
+                id = 15,
                 magic = 'white',
                 magic_type = 'healing',
                 debuff_id = 4,  -- Paralysis
@@ -260,7 +260,7 @@ return {
                 name = 'Poisona',
                 level = 6,
                 cost = 8,
-                id = 14,  -- Spell ID 
+                id = 14, 
                 magic = 'white',
                 magic_type = 'healing',
                 debuff_id = 3,  -- Poison
@@ -278,7 +278,7 @@ return {
                 name = 'Afflatus Solace',
                 level = 40,
                 cost = 0,
-                id = 29,  -- Job Ability ID
+                id = 29,
                 command = '/ja "Afflatus Solace" <me>',
                 buff_id = 417,  -- Afflatus Solace
                 group = 'afflatus',
@@ -287,7 +287,7 @@ return {
                 name = 'Afflatus Misery',
                 level = 40,
                 cost = 0,
-                id = 246,  -- Job Ability ID
+                id = 246,
                 command = '/ja "Afflatus Misery" <me>',
                 buff_id = 418,  -- Afflatus Misery
                 group = 'afflatus',
@@ -296,7 +296,7 @@ return {
                 name = 'Haste',
                 level = 40,
                 cost = 40,
-                id = 57,  -- Spell ID
+                id = 57,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = function(target)
@@ -310,7 +310,7 @@ return {
                 name = 'Regen III',
                 level = 66,
                 cost = 64,
-                id = 111,  -- Spell ID
+                id = 111,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = function(target)
@@ -323,7 +323,7 @@ return {
                 name = 'Regen II',
                 level = 44,
                 cost = 36,
-                id = 110,  -- Spell ID
+                id = 110,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = function(target)
@@ -336,7 +336,7 @@ return {
                 name = 'Regen',
                 level = 21,
                 cost = 15,
-                id = 108,  -- Spell ID
+                id = 108,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = function(target)
@@ -349,7 +349,7 @@ return {
                 name = 'Protectra V',
                 level = 75,
                 cost = 84,
-                id = 129,  -- Spell ID
+                id = 129,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Protectra V" <me>',
@@ -360,7 +360,7 @@ return {
                 name = 'Protectra IV',
                 level = 63,
                 cost = 65,
-                id = 128,  -- Spell ID
+                id = 128,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Protectra IV" <me>',
@@ -371,7 +371,7 @@ return {
                 name = 'Protectra III',
                 level = 47,
                 cost = 46,
-                id = 127,  -- Spell ID
+                id = 127,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Protectra III" <me>',
@@ -382,7 +382,7 @@ return {
                 name = 'Protectra II',
                 level = 27,
                 cost = 28,
-                id = 126,  -- Spell ID
+                id = 126,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Protectra II" <me>',
@@ -393,7 +393,7 @@ return {
                 name = 'Protectra',
                 level = 7,
                 cost = 9,
-                id = 125,  -- Spell ID
+                id = 125,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Protectra" <me>',
@@ -404,7 +404,7 @@ return {
                 name = 'Protect IV',
                 level = 63,
                 cost = 65,
-                id = 46,  -- Spell ID
+                id = 46,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = function(target)
@@ -418,7 +418,7 @@ return {
                 name = 'Protect III',
                 level = 47,
                 cost = 46,
-                id = 45,  -- Spell ID
+                id = 45,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = function(target)
@@ -432,7 +432,7 @@ return {
                 name = 'Protect II',
                 level = 27,
                 cost = 28,
-                id = 44,  -- Spell ID
+                id = 44,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = function(target)
@@ -446,7 +446,7 @@ return {
                 name = 'Protect',
                 level = 7,
                 cost = 9,
-                id = 43,  -- Spell ID
+                id = 43,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = function(target)
@@ -460,7 +460,7 @@ return {
                 name = 'Shellra V',
                 level = 75,
                 cost = 93,
-                id = 134,  -- Spell ID
+                id = 134,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Shellra V" <me>',
@@ -471,7 +471,7 @@ return {
                 name = 'Shellra IV',
                 level = 68,
                 cost = 71,
-                id = 133,  -- Spell ID
+                id = 133,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Shellra IV" <me>',
@@ -482,7 +482,7 @@ return {
                 name = 'Shellra III',
                 level = 57,
                 cost = 56,
-                id = 132,  -- Spell ID
+                id = 132,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Shellra III" <me>',
@@ -493,7 +493,7 @@ return {
                 name = 'Shellra II',
                 level = 37,
                 cost = 37,
-                id = 131,  -- Spell ID
+                id = 131,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Shellra II" <me>',
@@ -504,7 +504,7 @@ return {
                 name = 'Shellra',
                 level = 17,
                 cost = 18,
-                id = 130,  -- Spell ID
+                id = 130,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Shellra" <me>',
@@ -515,7 +515,7 @@ return {
                 name = 'Shell IV',
                 level = 68,
                 cost = 71,
-                id = 51,  -- Spell ID
+                id = 51,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = function(target)
@@ -529,7 +529,7 @@ return {
                 name = 'Shell III',
                 level = 57,
                 cost = 56,
-                id = 50,  -- Spell ID
+                id = 50,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = function(target)
@@ -543,7 +543,7 @@ return {
                 name = 'Shell II',
                 level = 37,
                 cost = 37,
-                id = 49,  -- Spell ID
+                id = 49,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = function(target)
@@ -557,7 +557,7 @@ return {
                 name = 'Shell',
                 level = 17,
                 cost = 18,
-                id = 48,  -- Spell ID
+                id = 48,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = function(target)
@@ -572,7 +572,7 @@ return {
                 name = 'Barthundra',
                 level = 25,
                 cost = 12,
-                id = 70,  -- Spell ID
+                id = 70,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Barthundra" <me>',
@@ -583,7 +583,7 @@ return {
                 name = 'Barblizzara',
                 level = 21,
                 cost = 12,
-                id = 67,  -- Spell ID
+                id = 67,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Barblizzara" <me>',
@@ -594,7 +594,7 @@ return {
                 name = 'Barfira',
                 level = 17,
                 cost = 12,
-                id = 66,  -- Spell ID
+                id = 66,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Barfira" <me>',
@@ -605,7 +605,7 @@ return {
                 name = 'Baraera',
                 level = 13,
                 cost = 12,
-                id = 68,  -- Spell ID
+                id = 68,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Baraera" <me>',
@@ -616,7 +616,7 @@ return {
                 name = 'Barwatera',
                 level = 9,
                 cost = 12,
-                id = 79,  -- Spell ID
+                id = 79,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Barwatera" <me>',
@@ -627,7 +627,7 @@ return {
                 name = 'Barstonra',
                 level = 5,
                 cost = 12,
-                id = 78,  -- Spell ID
+                id = 78,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Barstonra" <me>',
@@ -639,7 +639,7 @@ return {
                 name = 'Baramnesra',
                 level = 65,
                 cost = 12,
-                id = 91,  -- Spell ID
+                id = 91,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Baramnesra" <me>',
@@ -650,7 +650,7 @@ return {
                 name = 'Barpetra',
                 level = 43,
                 cost = 12,
-                id = 90,  -- Spell ID
+                id = 90,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Barpetra" <me>',
@@ -661,7 +661,7 @@ return {
                 name = 'Barvira',
                 level = 39,
                 cost = 12,
-                id = 89,  -- Spell ID
+                id = 89,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Barvira" <me>',
@@ -672,7 +672,7 @@ return {
                 name = 'Barsilencera',
                 level = 23,
                 cost = 30,
-                id = 88,  -- Spell ID
+                id = 88,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Barsilencera" <me>',
@@ -683,7 +683,7 @@ return {
                 name = 'Barblindra',
                 level = 18,
                 cost = 12,
-                id = 87,  -- Spell ID
+                id = 87,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Barblindra" <me>',
@@ -694,7 +694,7 @@ return {
                 name = 'Barparalyzra',
                 level = 12,
                 cost = 12,
-                id = 86,  -- Spell ID
+                id = 86,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Barparalyzra" <me>',
@@ -705,7 +705,7 @@ return {
                 name = 'Barpoisonra',
                 level = 10,
                 cost = 12,
-                id = 85,  -- Spell ID
+                id = 85,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Barpoisonra" <me>',
@@ -716,7 +716,7 @@ return {
                 name = 'Barsleepra',
                 level = 7,
                 cost = 12,
-                id = 84,  -- Spell ID
+                id = 84,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Barsleepra" <me>',
@@ -727,7 +727,7 @@ return {
                 name = 'Aquaveil',
                 level = 10,
                 cost = 12,
-                id = 55,  -- Spell ID
+                id = 55,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Aquaveil" <me>',
@@ -737,7 +737,7 @@ return {
                 name = 'Blink',
                 level = 19,
                 cost = 20,
-                id = 53,  -- Spell ID
+                id = 53,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Blink" <me>',
@@ -747,7 +747,7 @@ return {
                 name = 'Stoneskin',
                 level = 28,
                 cost = 29,
-                id = 54,  -- Spell ID
+                id = 54,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Stoneskin" <me>',
@@ -757,7 +757,7 @@ return {
                 name = 'Reraise III',
                 level = 70,
                 cost = 150,
-                id = 142,  -- Spell ID
+                id = 142,
                 magic = 'white',
                 magic_type = 'healing',
                 command = '/ma "Reraise III" <me>',
@@ -768,7 +768,7 @@ return {
                 name = 'Reraise II',
                 level = 56,
                 cost = 150,
-                id = 141,  -- Spell ID
+                id = 141,
                 magic = 'white',
                 magic_type = 'healing',
                 command = '/ma "Reraise II" <me>',
@@ -779,7 +779,7 @@ return {
                 name = 'Reraise',
                 level = 25,
                 cost = 150,
-                id = 135,  -- Spell ID
+                id = 135,
                 magic = 'white',
                 magic_type = 'healing',
                 command = '/ma "Reraise" <me>',
@@ -790,7 +790,7 @@ return {
                 name = 'Enlight',
                 level = 75,
                 cost = 45,
-                id = 310,  -- Spell ID
+                id = 310,
                 magic = 'white',
                 magic_type = 'divine',
                 command = '/ma "Enlight" <me>',
@@ -800,7 +800,7 @@ return {
                 name = 'Auspice',
                 level = 55,
                 cost = 15,
-                id = 96,  -- Spell ID
+                id = 96,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Auspice" <me>',
@@ -810,7 +810,7 @@ return {
                 name = 'Invisible',
                 level = 25,
                 cost = 25,
-                id = 136,  -- Spell ID
+                id = 136,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = function(target)
@@ -823,7 +823,7 @@ return {
                 name = 'Sneak',
                 level = 20,
                 cost = 25,
-                id = 137,  -- Spell ID
+                id = 137,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = function(target)
@@ -836,7 +836,7 @@ return {
                 name = 'Deodorize',
                 level = 15,
                 cost = 6,
-                id = 138,  -- Spell ID
+                id = 138,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = function(target)
@@ -853,7 +853,7 @@ return {
                 name = 'Martyr',
                 level = 75,
                 cost = 0,
-                id = 27,  -- Job Ability ID
+                id = 27,
                 command = function(target)
                     return '/ja "Martyr" '..target
                 end,
@@ -863,7 +863,7 @@ return {
                 name = 'Divine Seal',
                 level = 30,
                 cost = 0,
-                id = 26,  -- Job Ability ID
+                id = 26,
                 command = '/ja "Divine Seal" <me>',
             },
         },
@@ -874,7 +874,7 @@ return {
                 name = 'Arise',
                 level = 75,
                 cost = 300,
-                id = 494,  -- Spell ID
+                id = 494,
                 command = function(target)
                     return '/ma "Arise" '..target
                 end,
@@ -887,7 +887,7 @@ return {
                 name = 'Raise III',
                 level = 70,
                 cost = 150,
-                id = 140,  -- Spell ID
+                id = 140,
                 command = function(target)
                     return '/ma "Raise III" '..target
                 end,
@@ -900,7 +900,7 @@ return {
                 name = 'Raise II',
                 level = 56,
                 cost = 150,
-                id = 139,  -- Spell ID
+                id = 139,
                 command = function(target)
                     return '/ma "Raise II" '..target
                 end,
@@ -913,7 +913,7 @@ return {
                 name = 'Raise',
                 level = 25,
                 cost = 150,
-                id = 12,  -- Spell ID
+                id = 12,
                 command = function(target)
                     return '/ma "Raise" '..target
                 end,
@@ -930,7 +930,7 @@ return {
                 name = 'Devotion',
                 level = 75,
                 cost = 0,
-                id = 28,  -- Job Ability ID
+                id = 28,
                 command = function(target)
                     return '/ja "Devotion" '..target -- Cannot target self
                 end,

@@ -9,7 +9,7 @@
 
 
 return {
-    job_id = 19,  -- Dancer
+    job_id = 19,
     job_name = 'Dancer',
     resource_type = 'tp',
     
@@ -77,7 +77,7 @@ return {
                 name = 'Healing Waltz',
                 level = 35,
                 cost = 200,
-                id = 215,  -- Healing Waltz recast ID
+                id = 215,
                 debuff_id = {3, 4, 5, 6, 8, 9, 11, 12, 13, 31, 128, 129, 130, 131, 134, 135, 136, 137, 138, 139, 140, 141, 142, 144, 145, 146, 147, 148, 149, 156, 167, 174, 175, 189, 404},  -- Poison, Paralyze, Blind, Silence, Disease, Curse, Bind, Weight, Slow, Plague, Burn, Frost, Choke, Rasp, Dia, Bio, STR Down, DEX Down, VIT Down, AGI Down, INT Down, MND Down, CHR Down, Max HP Down, Max MP Down, Accuracy Down, Attack Down, Evasion Down, Defense Down, Flash, Magic Def Down, Magic Acc Down, Magic Atk Down, Max TP Down, Magic Eva Down
                 command = function(target)
                     return '/ja "Healing Waltz" '..target
@@ -91,7 +91,7 @@ return {
                 name = 'Saber Dance',
                 level = 75,
                 cost = 0,
-                id = 219,  -- Saber Dance recast ID
+                id = 219,
                 command = '/ja "Saber Dance" <me>',
                 buff_id = 410,  -- Saber Dance
                 group = 'dance',
@@ -100,7 +100,7 @@ return {
                 name = 'Fan Dance',
                 level = 75,
                 cost = 0,
-                id = 224,  -- Fan Dance recast ID
+                id = 224,
                 command = '/ja "Fan Dance" <me>',
                 buff_id = 411,  -- Fan Dance
                 group = 'dance',
@@ -109,22 +109,22 @@ return {
                 name = 'No Foot Rise',
                 level = 75,
                 cost = 0,
-                id = 223,  -- No Foot Rise recast ID
+                id = 223,
                 command = '/ja "No Foot Rise" <me>',
             },
             {
                 name = 'Presto',
                 level = 75,
                 cost = 0,
-                id = 236,  -- Presto recast ID
+                id = 236,
                 command = '/ja "Presto" <me>',
-                buff_id = 442,  -- Presto
+                buff_id = 442,
             },
             {
                 name = 'Drain Samba III',
                 level = 65,
                 cost = 400,
-                id = 216,  -- Samba recast ID
+                id = 216,
                 command = '/ja "Drain Samba III" <me>',
                 buff_id = 368,
                 group = 'samba',
@@ -133,7 +133,7 @@ return {
                 name = 'Drain Samba II',
                 level = 35,
                 cost = 250,
-                id = 216,  -- Samba recast ID
+                id = 216,
                 command = '/ja "Drain Samba II" <me>',
                 buff_id = 368,
                 group = 'samba',
@@ -142,7 +142,7 @@ return {
                 name = 'Drain Samba',
                 level = 5,
                 cost = 100,
-                id = 216,  -- Samba recast ID
+                id = 216,
                 command = '/ja "Drain Samba" <me>',
                 buff_id = 368,
                 group = 'samba',
@@ -178,7 +178,7 @@ return {
                 name = 'Spectral Jig',
                 level = 25,
                 cost = 0,
-                id = 195,  -- Jig recast ID
+                id = 195,
                 command = '/ja "Spectral Jig" <me>',
                 buff_id = {71, 69},  -- Sneak (71) and Invisible (69)
                 idle_only = true,
@@ -191,7 +191,7 @@ return {
                 name = 'Contradance',
                 level = 50,
                 cost = 0,
-                id = 229,  -- Job Ability ID
+                id = 229,
                 command = '/ja "Contradance" <me>',
             },
         },

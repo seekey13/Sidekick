@@ -6,7 +6,7 @@
 
 
 return {
-    job_id = 10,  -- Bard
+    job_id = 10,
     job_name = 'Bard',
     resource_type = 'mp',
     

@@ -8,7 +8,7 @@
 
 
 return {
-    job_id = 14,  -- Dragoon
+    job_id = 14,
     job_name = 'Dragoon',
     resource_type = 'tp',  -- melee/pet job; Spirit Link itself costs nothing
 

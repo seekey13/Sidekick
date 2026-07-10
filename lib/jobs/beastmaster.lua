@@ -35,9 +35,9 @@ local PET_ROBORANT = {
 }
 
 return {
-    job_id = 9,  -- Beastmaster
+    job_id = 9,
     job_name = 'Beastmaster',
-    resource_type = 'tp',  -- melee/pet job; Reward itself costs nothing
+    resource_type = 'tp',
 
     abilities = {
         -- Pet healing

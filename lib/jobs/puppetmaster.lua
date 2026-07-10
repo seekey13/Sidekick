@@ -22,7 +22,7 @@ local OILS = {
 }
 
 return {
-    job_id = 18,  -- Puppetmaster
+    job_id = 18,
     job_name = 'Puppetmaster',
     resource_type = 'tp',  -- melee/pet job; Repair itself costs nothing
 

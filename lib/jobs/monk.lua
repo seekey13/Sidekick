@@ -1,6 +1,7 @@
 --[[
     Monk job definition
     Support automation for Monk is self-only:
+    - Self cure via Chakra (HP recovery + removes own Poison/Blindness)
     - Self buffs (Boost, Dodge, Focus, Counterstance, Footwork)
 
     All are independent self Job Abilities -- no mutually exclusive stances,
@@ -9,18 +10,18 @@
 
 
 return {
-    job_id = 2,  -- Monk
+    job_id = 2,
     job_name = 'Monk',
     resource_type = 'tp',
 
     abilities = {
-        -- Debuff removal
+        -- Self cure (HP recovery)
         heal = {
             {
                 name = 'Chakra',
                 level = 35,
                 cost = 0,
-                id = 15,  -- Spell ID
+                id = 15,
                 command = '/ja "Chakra" <me>',
                 self_only = true,
             },
@@ -31,40 +32,40 @@ return {
                 name = 'Boost',
                 level = 5,
                 cost = 0,
-                id = 16,  -- Boost recast ID
+                id = 16,
                 command = '/ja "Boost" <me>',
             },
             {
                 name = 'Dodge',
                 level = 15,
                 cost = 0,
-                id = 14,  -- Dodge recast ID
+                id = 14,
                 command = '/ja "Dodge" <me>',
-                buff_id = 60,  -- Dodge
+                buff_id = 60,
             },
             {
                 name = 'Focus',
                 level = 25,
                 cost = 0,
-                id = 13,  -- Focus recast ID
+                id = 13,
                 command = '/ja "Focus" <me>',
-                buff_id = 59,  -- Focus
+                buff_id = 59,
             },
             {
                 name = 'Counterstance',
                 level = 45,
                 cost = 0,
-                id = 17,  -- Counterstance recast ID
+                id = 17,
                 command = '/ja "Counterstance" <me>',
-                buff_id = 61,  -- Counterstance
+                buff_id = 61,
             },
             {
                 name = 'Footwork',
                 level = 65,
                 cost = 0,
-                id = 21,  -- Footwork recast ID
+                id = 21,
                 command = '/ja "Footwork" <me>',
-                buff_id = 406,  -- Footwork
+                buff_id = 406,
             },
         },
         -- Debuff removal
@@ -73,8 +74,8 @@ return {
                 name = 'Chakra',
                 level = 35,
                 cost = 0,
-                id = 15,  -- Spell ID
-                debuff_id = {3, 5}  -- Poison & Blindness
+                id = 15,
+                debuff_id = {3, 5},  -- Poison & Blindness
                 command = '/ja "Chakra" <me>',
                 range = 10,
                 self_only = true,
