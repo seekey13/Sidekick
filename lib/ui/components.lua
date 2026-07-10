@@ -868,7 +868,7 @@ local function render_nether_void_button(ability_key, ability, ctx)
         imgui.Button('N##nv_' .. ability_key, { 20, 0 })
         imgui.PopStyleColor(3)
         if imgui.IsItemHovered() then
-            imgui.SetTooltip('Nether Void (Not Learned)')
+            imgui.SetTooltip(strat.name .. ' Not Learned')
         end
         imgui.SameLine(0, SPACE_BETWEEN_BUTTONS)
         return true
@@ -891,7 +891,7 @@ local function render_nether_void_button(ability_key, ability, ctx)
     end
 
     if imgui.IsItemHovered() then
-        imgui.SetTooltip('Nether Void: fire Nether Void before this Absorb spell\n' ..
+        imgui.SetTooltip(strat.name .. ': fire ' .. strat.name .. ' before this Absorb spell\n' ..
             'to boost its effect. Click to configure. Lit when enabled.')
     end
 
@@ -900,7 +900,7 @@ local function render_nether_void_button(ability_key, ability, ctx)
     end
 
     if imgui.BeginPopup(popup_id) then
-        imgui.TextColored({ 0.8, 0.8, 0.8, 1.0 }, 'Nether Void')
+        imgui.TextColored({ 0.8, 0.8, 0.8, 1.0 }, strat.name)
         imgui.Separator()
 
         local enable_val = { assigned }
@@ -915,22 +915,22 @@ local function render_nether_void_button(ability_key, ability, ctx)
             if ctx.save_callback then ctx.save_callback() end
         end
         if imgui.IsItemHovered() then
-            imgui.SetTooltip('Fire Nether Void before the selected Absorb spell.')
+            imgui.SetTooltip('Fire ' .. strat.name .. ' before the selected Absorb spell.')
         end
 
-        -- "Hold for Nether Void": stored under the same stratagem_hold key
+        -- "Hold for ...": stored under the same stratagem_hold key
         -- check_stratagem reads, so the automation side needs no new wiring.
         imgui.Separator()
         local hold_tbl = get_stratagem_hold(ctx)
         if hold_tbl then
             local hold_val = { hold_tbl[ability_key] == true }
-            if imgui.Checkbox('Hold for Nether Void##nv_hold_' .. ability_key, hold_val) then
+            if imgui.Checkbox('Hold for ' .. strat.name .. '##nv_hold_' .. ability_key, hold_val) then
                 hold_tbl[ability_key] = hold_val[1] or nil
                 if ctx.save_callback then ctx.save_callback() end
             end
             if imgui.IsItemHovered() then
-                imgui.SetTooltip('On: skip the Absorb until Nether Void is ready.\n' ..
-                    'Off (default): cast the Absorb without Nether Void when it is on cooldown.')
+                imgui.SetTooltip('On: skip the Absorb until ' .. strat.name .. ' is ready.\n' ..
+                    'Off (default): cast the Absorb without ' .. strat.name .. ' when it is on cooldown.')
             end
         end
 
