@@ -1455,16 +1455,6 @@ end
 -- Render a self-target single ability
 -- Layout: [ON/OFF Button] Ability Name
 function ui_components.self_single_ability(ctx, ability, job_def, id_suffix)
-    -- DRK Nether Void column: the absorb group row carries the N button, so
-    -- every other buff row gets one alignment spacer (same rule as the S/[A]
-    -- columns). Single self rows don't go through render_leading_slot, so the
-    -- spacer is drawn here; nothing else draws a leading element on these rows,
-    -- keeping it to exactly one indent (e.g. DRK/SCH in Light Arts).
-    if nether_void_column_strat(ctx) then
-        imgui.Dummy({ 20, 0 })
-        imgui.SameLine(0, SPACE_BETWEEN_BUTTONS)
-    end
-
     local has_spell = common.has_spell_learned(ability)
     -- Ammo-gated ability (BST Reward Regen) with none of the consumable owned:
     -- gray it like an unlearned spell and say what's missing.
