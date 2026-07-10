@@ -25,7 +25,6 @@ return {
                 id = 1,
                 command = '/ja "Berserk" <me>',
                 buff_id = 56,
-                group = 'war_stance',
             },
             {
                 name = 'Defender',
@@ -34,7 +33,6 @@ return {
                 id = 3,
                 command = '/ja "Defender" <me>',
                 buff_id = 57,
-                group = 'war_stance',
             },
 
             -- Warcry/Blood Rage remove each other's effect -> single-select
@@ -46,7 +44,6 @@ return {
                 id = 11,
                 command = '/ja "Blood Rage" <me>',
                 buff_id = 460,
-                group = 'war_cry',
             },
             {
                 name = 'Warcry',
@@ -55,7 +52,6 @@ return {
                 id = 2,
                 command = '/ja "Warcry" <me>',
                 buff_id = 68,
-                group = 'war_cry',
             },
 
             {
