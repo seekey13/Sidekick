@@ -302,9 +302,8 @@ Currently implemented support jobs:
   - Smart pet validation: Carbuncle-specific abilities only execute when Carbuncle is summoned; avatar-agnostic abilities work with any avatar
 
 - **Warrior** (WAR) — *self-only support*
-  - Self-buffs with job abilities (Aggressor, Retaliation, Warrior's Charge)
-  - Berserk/Defender stance (mutually exclusive — grouped, only the selected one is maintained)
-  - Warcry/Blood Rage (each removes the other's effect — grouped the same way)
+  - Self-buffs with job abilities (Berserk, Defender, Warcry, Blood Rage, Aggressor, Retaliation, Warrior's Charge)
+  - Note: Berserk cancels Defender and Warcry removes Blood Rage (and vice versa) — enable only one of each pair
 
 - **White Mage** (WHM)
   - Critical HP abilities (Divine Seal, Martyr)

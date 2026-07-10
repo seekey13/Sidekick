@@ -1,11 +1,12 @@
 --[[
     Warrior job definition
     Support automation for Warrior is self buffs only (Job Abilities):
-    - Berserk / Defender stance (mutually exclusive -- one cancels the other,
-      so grouped as 'war_stance' and only the selected one is maintained)
-    - Warcry / Blood Rage (each removes the other's effect, so grouped as
-      'war_cry' the same way)
-    - Aggressor, Retaliation, Warrior's Charge
+    - Berserk, Defender, Warcry, Blood Rage, Aggressor, Retaliation,
+      Warrior's Charge
+
+    All are independent checkboxes. Note: Berserk/Defender cancel each other,
+    and Warcry/Blood Rage remove each other's effect -- enable only one of
+    each pair or they will alternate.
 ]]--
 
 
@@ -17,7 +18,6 @@ return {
     abilities = {
         -- Self buffs (Job Abilities)
         buff = {
-            -- Stances: Berserk/Defender cancel each other -> single-select group.
             {
                 name = 'Berserk',
                 level = 15,
@@ -34,9 +34,6 @@ return {
                 command = '/ja "Defender" <me>',
                 buff_id = 57,
             },
-
-            -- Warcry/Blood Rage remove each other's effect -> single-select
-            -- group. (highest level first)
             {
                 name = 'Blood Rage',
                 level = 75,
