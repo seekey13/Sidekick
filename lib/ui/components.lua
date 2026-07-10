@@ -830,14 +830,81 @@ local function render_scholar_stratagem_button(ability_key, ability, ctx)
     return true, 0
 end
 
+-- Render the DRK Nether Void toggle for the Absorb row: an N button that,
+-- when lit, fires Nether Void before the selected Absorb spell (via the
+-- stratagem machinery; when Nether Void is on cooldown the Absorb still
+-- casts without it). Only drawn when the player actually has Nether Void.
+-- Returns true when it drew the button (fills the row's leading slot).
+local function render_nether_void_button(ability_key, ability, ctx)
+    if not (ability and ability.group == 'absorb') then return false end
+    local job_def    = ctx and ctx.job_def
+    local strat_defs = job_def and job_def.abilities and job_def.abilities.stratagem
+    if not strat_defs then return false end
+
+    -- Find the recast-gated strat (Nether Void) and level-gate it the same way
+    -- filter_abilities_by_level would: main_job_only never offers from a subjob.
+    local main_level, sub_level = common.get_player_level()
+    local strat = nil
+    for _, s in ipairs(strat_defs) do
+        if s.recast_gate then
+            local from_sub = s.is_main_job == false
+            local level = from_sub and (sub_level or 0) or (main_level or 0)
+            if not (s.main_job_only and from_sub) and level >= (s.level or 0) then
+                strat = s
+            end
+            break
+        end
+    end
+    if not strat then return false end
+
+    local ss = get_stratagem_settings(ctx)
+    if not ss then return false end
+    local assigned = ss[ability_key] and ss[ability_key][strat.name] == true
+
+    -- Color: default (active) when enabled, gray when idle -- same as S button
+    if not assigned then
+        imgui.PushStyleColor(ImGuiCol_Button,        COLOR_BUTTON_UNSELECTED)
+        imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_UNSELECTED_HOVER)
+        imgui.PushStyleColor(ImGuiCol_ButtonActive,  COLOR_BUTTON_UNSELECTED_ACTIVE)
+    end
+
+    if imgui.Button('N##nv_' .. ability_key, { 20, 0 }) then
+        if assigned then
+            ss[ability_key][strat.name] = nil
+            if not next(ss[ability_key]) then ss[ability_key] = nil end
+        else
+            ss[ability_key] = ss[ability_key] or {}
+            ss[ability_key][strat.name] = true
+        end
+        if ctx.save_callback then ctx.save_callback() end
+    end
+
+    if imgui.IsItemHovered() then
+        imgui.SetTooltip('Nether Void: fire Nether Void before this Absorb spell\n' ..
+            'to boost its effect. Lit when enabled. When Nether Void is\n' ..
+            'on cooldown the Absorb is cast without it.')
+    end
+
+    if not assigned then
+        imgui.PopStyleColor(3)
+    end
+
+    imgui.SameLine(0, SPACE_BETWEEN_BUTTONS)
+    return true
+end
+
 -- Draw a row's leading slot: the [A] button (bard, drawn later by
--- render_party_buttons), the S button (scholar), or a spacer so the row aligns
--- under whichever column is on-screen. Exactly ONE indent per row -- if scholar
--- already drew its S button/spacer we don't add a bard spacer, so BRD/SCH gets a
--- single indent, not two.
+-- render_party_buttons), the S button (scholar), the N button (DRK Nether
+-- Void on Absorb rows), or a spacer so the row aligns under whichever column
+-- is on-screen. Exactly ONE indent per row -- if scholar already drew its S
+-- button/spacer we don't add a bard spacer, so BRD/SCH gets a single indent,
+-- not two.
 local function render_leading_slot(ability_key, ability, ctx)
     -- Song rows: render_party_buttons draws the [A] button in this slot.
     if ability and ability.magic == 'song' then return end
+
+    -- DRK Nether Void N button on the Absorb group row.
+    if render_nether_void_button(ability_key, ability, ctx) then return end
 
     -- Scholar's S button (or its own alignment spacer) fills the slot when active
     -- (i.e. in Light/Dark Arts). Returns true when it drew something.

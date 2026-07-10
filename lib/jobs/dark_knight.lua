@@ -6,6 +6,10 @@
     - Self buff (dark magic): Dread Spikes
     - Absorb spells on the battle target (<bt>, grouped as 'absorb' -- only the
       selected one is cast). <bt> commands are automatically combat-only.
+    - Nether Void (75, DRK main): stratagem-style JA that augments the next
+      Absorb. Toggled via the N button on the Absorb row; fired through
+      check_stratagem the tick before the Absorb, skipped (Absorb still casts)
+      while on cooldown.
 
     Absorb buff_ids are the attribute-boost effects the CASTER gains, so the
     spell isn't recast while its boost is still active. Absorb-Attri (steals a
@@ -170,6 +174,24 @@ return {
                 command = '/ma "Absorb-MND" <bt>',
                 buff_id = 85,
                 group = 'absorb',
+            },
+        },
+
+        -- Nether Void (JA): augments the next Absorb spell, stratagem-style.
+        -- Assigned to the 'absorb' group via the N button on the Absorb row and
+        -- fired through check_stratagem. It has no charge pool like Scholar
+        -- stratagems, so recast_gate checks its own JA recast instead; when on
+        -- cooldown the Absorb still casts without it.
+        stratagem = {
+            {
+                name = 'Nether Void',
+                level = 75,  -- 78 retail, 75 on CatsEyeXI
+                cost = 0,
+                id = 91,
+                command = '/ja "Nether Void" <me>',
+                buff_id = 439,
+                recast_gate = true,
+                main_job_only = true,
             },
         },
     },

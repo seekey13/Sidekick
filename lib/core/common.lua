@@ -2092,8 +2092,25 @@ function common.effective_ability_cost(ability, settings, job_def)
     return math.floor(ability.cost * modifier)
 end
 
--- Check if scholar stratagems need to fire before casting a spell.
--- Each automation tick, this returns the NEXT action to take:
+-- True when the ability recast slot matching recast_id is ready (timer 0 or no
+-- slot). Used by recast-gated stratagems (DRK Nether Void), which have no
+-- charge pool -- their own JA timer is the availability check.
+local function ability_recast_ready(recast_id)
+    local recast_mgr = AshitaCore:GetMemoryManager():GetRecast()
+    if not recast_mgr then return false end
+    for slot = 0, 31 do
+        local ok_id, tid = pcall(function() return recast_mgr:GetAbilityTimerId(slot) end)
+        if ok_id and tid == recast_id then
+            local ok_t, t = pcall(function() return recast_mgr:GetAbilityTimer(slot) end)
+            return ok_t and t == 0
+        end
+    end
+    return true
+end
+
+-- Check if stratagem-style JAs need to fire before casting a spell (Scholar
+-- stratagems, DRK Nether Void). Each automation tick, this returns the NEXT
+-- action to take:
 --   nil                    → no stratagems assigned OR all strat buffs active → cast the spell
 --   {command, description} → fire this stratagem JA this tick; caller returns it, re-checks next tick
 --   false                  → stratagems assigned, "Hold for Stratagem" ON, but the strat
@@ -2153,15 +2170,31 @@ function common.check_stratagem(job_def, settings, ability_key, ability)
     -- All strat buffs active → ready to cast the spell
     if #missing == 0 then return nil end
 
-    -- Need one charge per missing stratagem buff
+    -- Need one charge per missing charge-based stratagem buff. Recast-gated
+    -- strats (recast_gate) have no charge pool and are checked on their own
+    -- JA timer below.
+    local charge_missing = 0
+    for _, m in ipairs(missing) do
+        if not m.recast_gate then charge_missing = charge_missing + 1 end
+    end
     local state = common.game_state
     local charges = state and state.stratagems or 0
-    if charges < #missing then
+    if charges < charge_missing then
         return unavailable
     end
 
     -- Fire the first missing stratagem
     local strat = missing[1]
+
+    -- Recast-gated strat: main-job JA with no charge pool. Gate on the player
+    -- still having it (a de-level below its level would otherwise spam a JA
+    -- that always fails) and on its own recast being ready.
+    if strat.recast_gate then
+        local main_level = common.get_player_level()
+        if (strat.level and main_level < strat.level) or not ability_recast_ready(strat.id) then
+            return unavailable
+        end
+    end
 
     -- Verify arts-stance prerequisite (requires_buff may be a number or table)
     if strat.requires_buff then
