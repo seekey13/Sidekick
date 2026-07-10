@@ -627,7 +627,9 @@ local function get_available_stratagems(job_def, sch_level, ability)
     local ability_magic_type = ability and ability.magic_type
     local available = {}
     for _, strat in ipairs(job_def.abilities.stratagem) do
-        if strat.level and sch_level >= strat.level then
+        -- Recast-gated strats (DRK Nether Void) have their own N button; never
+        -- offer them in the Scholar S popup (e.g. on SCH main / DRK sub).
+        if not strat.recast_gate and strat.level and sch_level >= strat.level then
             -- Match stratagem magic colour to the ability
             local magic_ok = (not strat.magic) or (strat.magic == ability_magic)
             -- If stratagem restricts to specific magic_types, ability must match one
@@ -830,32 +832,39 @@ local function render_scholar_stratagem_button(ability_key, ability, ctx)
     return true, 0
 end
 
--- Render the DRK Nether Void button for the Absorb row: an [N] button opening
--- a popup with Enable (fire Nether Void before the selected Absorb, via the
--- stratagem machinery) and Hold for Nether Void (skip the Absorb until Nether
--- Void is ready; off = cast the Absorb without it when it's on cooldown).
--- Only drawn when the player actually has Nether Void. Lit when enabled.
--- Returns true when it drew the button (fills the row's leading slot).
-local function render_nether_void_button(ability_key, ability, ctx)
-    if not (ability and ability.group == 'absorb') then return false end
+-- Resolve the job's recast-gated stratagem (DRK Nether Void) if the player can
+-- use it: right level, never offered from a subjob when main_job_only. Level-
+-- gated the same way filter_abilities_by_level would be. Non-nil means the
+-- N-button column is on-screen, so every buff row needs its leading indent
+-- (the button itself renders disabled while unlearned, so learned state
+-- doesn't matter for alignment).
+local function nether_void_column_strat(ctx)
     local job_def    = ctx and ctx.job_def
     local strat_defs = job_def and job_def.abilities and job_def.abilities.stratagem
-    if not strat_defs then return false end
-
-    -- Find the recast-gated strat (Nether Void) and level-gate it the same way
-    -- filter_abilities_by_level would: main_job_only never offers from a subjob.
+    if not strat_defs then return nil end
     local main_level, sub_level = common.get_player_level()
-    local strat = nil
     for _, s in ipairs(strat_defs) do
         if s.recast_gate then
             local from_sub = s.is_main_job == false
             local level = from_sub and (sub_level or 0) or (main_level or 0)
             if not (s.main_job_only and from_sub) and level >= (s.level or 0) then
-                strat = s
+                return s
             end
-            break
+            return nil
         end
     end
+    return nil
+end
+
+-- Render the DRK Nether Void button for the Absorb row: an [N] button opening
+-- a popup with Enable (fire Nether Void before the selected Absorb, via the
+-- stratagem machinery) and Hold for Nether Void (skip the Absorb until Nether
+-- Void is ready; off = cast the Absorb without it when it's on cooldown).
+-- Renders disabled (Not Learned) until the merit is unlocked. Lit when enabled.
+-- Returns true when it drew the button (fills the row's leading slot).
+local function render_nether_void_button(ability_key, ability, ctx)
+    if not (ability and ability.group == 'absorb') then return false end
+    local strat = nether_void_column_strat(ctx)
     if not strat then return false end
 
     -- Merit JA not unlocked yet: draw the button disabled (like an unlearned
@@ -958,11 +967,11 @@ local function render_leading_slot(ability_key, ability, ctx)
     -- (i.e. in Light/Dark Arts). Returns true when it drew something.
     if render_scholar_stratagem_button(ability_key, ability, ctx) then return end
 
-    -- Nothing drawn. If this job carries song magic the buff UI shows the bard [A]
-    -- area column, so non-song rows still need the indent. Geo-bt debuffs sit in
-    -- their own section with no [A] column -- skip those.
+    -- Nothing drawn. If this job carries song magic (bard [A] column) or the
+    -- Nether Void N column, other rows still need the indent to stay aligned.
+    -- Geo-bt debuffs sit in their own section with no such column -- skip those.
     local has_songs = ctx and ctx.job_def and ctx.job_def.has_songs
-    if has_songs and not (ability and ability.group == 'Geo-bt') then
+    if (has_songs or nether_void_column_strat(ctx)) and not (ability and ability.group == 'Geo-bt') then
         imgui.Dummy({ 20, 0 })
         imgui.SameLine(0, SPACE_BETWEEN_BUTTONS)
     end
@@ -1446,6 +1455,16 @@ end
 -- Render a self-target single ability
 -- Layout: [ON/OFF Button] Ability Name
 function ui_components.self_single_ability(ctx, ability, job_def, id_suffix)
+    -- DRK Nether Void column: the absorb group row carries the N button, so
+    -- every other buff row gets one alignment spacer (same rule as the S/[A]
+    -- columns). Single self rows don't go through render_leading_slot, so the
+    -- spacer is drawn here; nothing else draws a leading element on these rows,
+    -- keeping it to exactly one indent (e.g. DRK/SCH in Light Arts).
+    if nether_void_column_strat(ctx) then
+        imgui.Dummy({ 20, 0 })
+        imgui.SameLine(0, SPACE_BETWEEN_BUTTONS)
+    end
+
     local has_spell = common.has_spell_learned(ability)
     -- Ammo-gated ability (BST Reward Regen) with none of the consumable owned:
     -- gray it like an unlearned spell and say what's missing.
