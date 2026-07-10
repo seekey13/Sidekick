@@ -7,7 +7,7 @@
 
 
 return {
-    job_id = 7,  -- Paladin
+    job_id = 7,
     job_name = 'Paladin',
     resource_type = 'mp',
     
@@ -18,7 +18,7 @@ return {
                 name = 'Cure IV',
                 level = 55,
                 cost = 88,
-                id = 4,  -- Spell ID
+                id = 4,
                 magic = 'white',
                 magic_type = 'healing',
                 command = function(target)
@@ -33,7 +33,7 @@ return {
                 name = 'Cure III',
                 level = 30,
                 cost = 46,
-                id = 3,  -- Spell ID
+                id = 3,
                 magic = 'white',
                 magic_type = 'healing',
                 command = function(target)
@@ -48,7 +48,7 @@ return {
                 name = 'Cure II',
                 level = 17,
                 cost = 24,
-                id = 2,  -- Spell ID
+                id = 2,
                 magic = 'white',
                 magic_type = 'healing',
                 command = function(target)
@@ -63,7 +63,7 @@ return {
                 name = 'Cure',
                 level = 5,
                 cost = 8,
-                id = 1,  -- Spell ID
+                id = 1,
                 magic = 'white',
                 magic_type = 'healing',
                 command = function(target)

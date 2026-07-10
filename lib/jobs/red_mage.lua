@@ -8,7 +8,7 @@
 
 
 return {
-    job_id = 5,  -- Red Mage
+    job_id = 5,
     job_name = 'Red Mage',
     resource_type = 'mp',
     
@@ -19,7 +19,7 @@ return {
                 name = 'Cure IV',
                 level = 48,
                 cost = 88,
-                id = 4,  -- Spell ID
+                id = 4,
                 magic = 'white',
                 magic_type = 'healing',
                 command = function(target)
@@ -34,7 +34,7 @@ return {
                 name = 'Cure III',
                 level = 26,
                 cost = 46,
-                id = 3,  -- Spell ID
+                id = 3,
                 magic = 'white',
                 magic_type = 'healing',
                 command = function(target)
@@ -49,7 +49,7 @@ return {
                 name = 'Cure II',
                 level = 14,
                 cost = 24,
-                id = 2,  -- Spell ID
+                id = 2,
                 magic = 'white',
                 magic_type = 'healing',
                 command = function(target)
@@ -64,7 +64,7 @@ return {
                 name = 'Cure',
                 level = 3,
                 cost = 8,
-                id = 1,  -- Spell ID
+                id = 1,
                 magic = 'white',
                 magic_type = 'healing',
                 command = function(target)
@@ -84,7 +84,7 @@ return {
                 name = 'Composure',
                 level = 50,
                 cost = 0,
-                id = 247,  -- Job Ability ID
+                id = 247,
                 command = '/ja "Composure" <me>',
                 buff_id = 419,  -- Composure
             },
@@ -93,7 +93,7 @@ return {
                 name = 'Protect IV',
                 level = 63,
                 cost = 65,
-                id = 46,  -- Spell ID
+                id = 46,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = function(target)
@@ -107,7 +107,7 @@ return {
                 name = 'Protect III',
                 level = 47,
                 cost = 46,
-                id = 45,  -- Spell ID
+                id = 45,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = function(target)
@@ -121,7 +121,7 @@ return {
                 name = 'Protect II',
                 level = 27,
                 cost = 28,
-                id = 44,  -- Spell ID
+                id = 44,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = function(target)
@@ -135,7 +135,7 @@ return {
                 name = 'Protect',
                 level = 7,
                 cost = 9,
-                id = 43,  -- Spell ID
+                id = 43,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = function(target)
@@ -150,7 +150,7 @@ return {
                 name = 'Shell IV',
                 level = 68,
                 cost = 71,
-                id = 51,  -- Spell ID
+                id = 51,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = function(target)
@@ -164,7 +164,7 @@ return {
                 name = 'Shell III',
                 level = 57,
                 cost = 56,
-                id = 50,  -- Spell ID
+                id = 50,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = function(target)
@@ -178,7 +178,7 @@ return {
                 name = 'Shell II',
                 level = 37,
                 cost = 37,
-                id = 49,  -- Spell ID
+                id = 49,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = function(target)
@@ -192,7 +192,7 @@ return {
                 name = 'Shell',
                 level = 17,
                 cost = 18,
-                id = 48,  -- Spell ID
+                id = 48,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = function(target)
@@ -377,7 +377,7 @@ return {
                 name = 'Phalanx II',
                 level = 75,
                 cost = 21,
-                id = 107,  -- Spell ID
+                id = 107,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = function(target)
@@ -389,7 +389,7 @@ return {
                 name = 'Regen',
                 level = 21,
                 cost = 15,
-                id = 108,  -- Spell ID
+                id = 108,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = function(target)
@@ -401,7 +401,7 @@ return {
                 name = 'Refresh',
                 level = 41,
                 cost = 40,
-                id = 109,  -- Spell ID
+                id = 109,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = function(target)
@@ -413,7 +413,7 @@ return {
                 name = 'Haste',
                 level = 48,
                 cost = 40,
-                id = 57,  -- Spell ID
+                id = 57,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = function(target)
@@ -426,7 +426,7 @@ return {
                 name = 'Flurry',
                 level = 48,
                 cost = 40,
-                id = 58,  -- Spell ID
+                id = 58,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = function(target)
@@ -439,7 +439,7 @@ return {
                 name = 'Stoneskin',
                 level = 34,
                 cost = 29,
-                id = 54,  -- Spell ID
+                id = 54,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Stoneskin" <me>',
@@ -449,7 +449,7 @@ return {
                 name = 'Phalanx',
                 level = 33,
                 cost = 21,
-                id = 106,  -- Spell ID
+                id = 106,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Phalanx" <me>',
@@ -459,7 +459,7 @@ return {
                 name = 'Blink',
                 level = 23,
                 cost = 20,
-                id = 53,  -- Spell ID
+                id = 53,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Blink" <me>',
@@ -469,7 +469,7 @@ return {
                 name = 'Aquaveil',
                 level = 12,
                 cost = 12,
-                id = 55,  -- Spell ID
+                id = 55,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Aquaveil" <me>',
@@ -480,7 +480,7 @@ return {
                 name = 'Enwater II',
                 level = 60,
                 cost = 12,
-                id = 105,  -- Spell ID
+                id = 105,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Enwater II" <me>',
@@ -491,7 +491,7 @@ return {
                 name = 'Enwater',
                 level = 27,
                 cost = 12,
-                id = 94,  -- Spell ID
+                id = 94,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Enwater" <me>',
@@ -502,7 +502,7 @@ return {
                 name = 'Enfire II',
                 level = 58,
                 cost = 12,
-                id = 104,  -- Spell ID
+                id = 104,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Enfire II" <me>',
@@ -513,7 +513,7 @@ return {
                 name = 'Enfire',
                 level = 24,
                 cost = 12,
-                id = 93,  -- Spell ID
+                id = 93,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Enfire" <me>',
@@ -524,7 +524,7 @@ return {
                 name = 'Enblizzard II',
                 level = 56,
                 cost = 12,
-                id = 103,  -- Spell ID
+                id = 103,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Enblizzard II" <me>',
@@ -535,7 +535,7 @@ return {
                 name = 'Enblizzard',
                 level = 22,
                 cost = 12,
-                id = 92,  -- Spell ID
+                id = 92,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Enblizzard" <me>',
@@ -546,7 +546,7 @@ return {
                 name = 'Enaero II',
                 level = 54,
                 cost = 12,
-                id = 102,  -- Spell ID
+                id = 102,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Enaero II" <me>',
@@ -557,7 +557,7 @@ return {
                 name = 'Enaero',
                 level = 20,
                 cost = 12,
-                id = 91,  -- Spell ID
+                id = 91,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Enaero" <me>',
@@ -568,7 +568,7 @@ return {
                 name = 'Enstone II',
                 level = 52,
                 cost = 12,
-                id = 101,  -- Spell ID
+                id = 101,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Enstone II" <me>',
@@ -579,7 +579,7 @@ return {
                 name = 'Enstone',
                 level = 18,
                 cost = 12,
-                id = 90,  -- Spell ID
+                id = 90,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Enstone" <me>',
@@ -590,7 +590,7 @@ return {
                 name = 'Enthunder II',
                 level = 50,
                 cost = 12,
-                id = 100,  -- Spell ID
+                id = 100,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Enthunder II" <me>',
@@ -601,7 +601,7 @@ return {
                 name = 'Enthunder',
                 level = 16,
                 cost = 12,
-                id = 89,  -- Spell ID
+                id = 89,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Enthunder" <me>',
@@ -613,7 +613,7 @@ return {
                 name = 'Shock Spikes',
                 level = 60,
                 cost = 16,
-                id = 251,  -- Spell ID
+                id = 251,
                 magic = 'black',
                 magic_type = 'enhancing',
                 command = '/ma "Shock Spikes" <me>',
@@ -624,7 +624,7 @@ return {
                 name = 'Ice Spikes',
                 level = 40,
                 cost = 16,
-                id = 250,  -- Spell ID
+                id = 250,
                 magic = 'black',
                 magic_type = 'enhancing',
                 command = '/ma "Ice Spikes" <me>',
@@ -635,7 +635,7 @@ return {
                 name = 'Blaze Spikes',
                 level = 20,
                 cost = 16,
-                id = 249,  -- Spell ID
+                id = 249,
                 magic = 'black',
                 magic_type = 'enhancing',
                 command = '/ma "Blaze Spikes" <me>',
@@ -646,7 +646,7 @@ return {
                 name = 'Invisible',
                 level = 25,
                 cost = 25,
-                id = 136,  -- Spell ID
+                id = 136,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = function(target)
@@ -659,7 +659,7 @@ return {
                 name = 'Sneak',
                 level = 20,
                 cost = 25,
-                id = 137,  -- Spell ID
+                id = 137,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = function(target)
@@ -672,7 +672,7 @@ return {
                 name = 'Deodorize',
                 level = 15,
                 cost = 6,
-                id = 138,  -- Spell ID
+                id = 138,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = function(target)
@@ -700,7 +700,7 @@ return {
                 name = 'Raise',
                 level = 38,
                 cost = 150,
-                id = 12,  -- Spell ID
+                id = 12,
                 command = function(target)
                     return '/ma "Raise" '..target
                 end,

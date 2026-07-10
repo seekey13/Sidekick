@@ -57,10 +57,15 @@ end
 -- The two are mutually exclusive (checking one clears the other). Suppressed for
 -- statically idle_only abilities (data-defined), where the gate isn't user-editable,
 -- and for <bt> abilities, which are inherently combat-only.
-local function render_combat_only_context_menu(ctx, ability)
+local function render_combat_only_context_menu(ctx, ability, scope)
     if not ability or not ctx or not ctx.settings then return end
     if ability.idle_only then return end
     if common.ability_targets_bt(ability) then return end
+    -- scope disambiguates the popup id when the same ability renders in two
+    -- sections (e.g. Chakra in both Group Healing and Debuff Removal); without it
+    -- both BeginPopupContextItem calls share an id and stack duplicate menus.
+    -- Setting keys stay unscoped: it's one recast, so its gate is shared.
+    local scope_suffix = scope and ('_' .. scope) or ''
     local combat_key, idle_key, popup_id
     if ability.group then
         combat_key = 'combat_only_group_' .. ability.group
@@ -68,13 +73,13 @@ local function render_combat_only_context_menu(ctx, ability)
         -- Per-ability popup id (not per-group): when a group is ungrouped, each
         -- tier renders its own row, so a shared group id would stack duplicate
         -- menus into one popup. The setting keys stay group-level.
-        popup_id = '##cmenu_combat_only_group_' .. ability.group .. '_' .. (ability.name and ability.name:gsub(' ', '_') or '')
+        popup_id = '##cmenu_combat_only_group_' .. ability.group .. '_' .. (ability.name and ability.name:gsub(' ', '_') or '') .. scope_suffix
     else
         if not ability.name then return end
         local safe_name = ability.name:gsub(' ', '_')
         combat_key = 'combat_only_' .. safe_name
         idle_key = 'idle_only_' .. safe_name
-        popup_id = '##cmenu_combat_only_' .. safe_name
+        popup_id = '##cmenu_combat_only_' .. safe_name .. scope_suffix
     end
     if imgui.BeginPopupContextItem(popup_id) then
         local combat_cur = { ctx.settings[combat_key] == true }
@@ -1361,8 +1366,8 @@ function ui_components.self_single_ability(ctx, ability, job_def, id_suffix)
         desc = ability.name .. spell_suffix
     end
     imgui.Text(desc)
-    
-    render_combat_only_context_menu(ctx, ability)
+
+    render_combat_only_context_menu(ctx, ability, id_suffix)
 
     if imgui.IsItemHovered() then
         if not has_spell then
@@ -1793,7 +1798,7 @@ function ui_components.ability_checkbox(ctx, ability, job_def, id_suffix, show_s
         toggle_ability(ctx, ability.name, ability_enabled[1], job_def)
     end
 
-    render_combat_only_context_menu(ctx, ability)
+    render_combat_only_context_menu(ctx, ability, id_suffix)
 
     if imgui.IsItemHovered() then
         if not has_spell then

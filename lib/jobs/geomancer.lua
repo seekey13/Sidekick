@@ -10,7 +10,7 @@
 
 
 return {
-    job_id = 21,  -- Geomancer
+    job_id = 21,
     job_name = 'Geomancer',
     resource_type = 'mp',
     

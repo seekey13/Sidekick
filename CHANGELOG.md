@@ -5,6 +5,13 @@ All notable changes to Medic will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.0] - 2026-07-09
+
+Adds **Chakra** to Monk: a self-cure that recovers HP and clears its own Poison / Blindness.
+
+### Added
+- **Monk Chakra**: New self-only Chakra automation (recast id 15, level 35). Wired as both a `heal` action (self HP recovery, priority above buffs) and a `debuff_removal` action that strips **Poison** (3) and **Blindness** (5) from the Monk. Enabled by default (`heal_enabled` / `debuff_removal_enabled`).
+
 ## [2.2.0] - 2026-07-06
 
 Adds three pet-support jobs (Beastmaster, Dragoon, Puppetmaster) with consumable-ammo auto-equip and packet-based pet status tracking, three self-support jobs (Monk, Samurai, Ninja — Ninja adds an inventory-based Ninjutsu-tool gate), and a right-click Idle Only ability toggle; generalizes Trust/tracked buff tracking into a timed-expiry system with base durations (extended to debuffs and to alliance members / the pet), adds per-caster song slots, and stops removal spells and cure-wake from looping on targets whose buffs can't be read from memory, and reworks debuff-removal priority (targeted na-spells before Erase, group-AOE Esuna) — alongside a repo-wide dead-code sweep and UI polish.

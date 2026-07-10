@@ -42,9 +42,9 @@ local SHURIKENS = {
 local SHADOWS = { 66, 444, 445, 446 }
 
 return {
-    job_id = 13,  -- Ninja
+    job_id = 13,
     job_name = 'Ninja',
-    resource_type = 'mp',  -- ninjutsu cost MP (costs below are approximate)
+    resource_type = 'mp',
 
     abilities = {
         buff = {
@@ -54,7 +54,7 @@ return {
                 name = 'Yonin',
                 level = 40,
                 cost = 0,
-                id = 146,  -- recast id
+                id = 146,
                 command = '/ja "Yonin" <me>',
                 buff_id = 420,
                 group = 'nin_stance',
@@ -63,7 +63,7 @@ return {
                 name = 'Innin',
                 level = 40,
                 cost = 0,
-                id = 147,  -- recast id
+                id = 147,
                 command = '/ja "Innin" <me>',
                 buff_id = 421,
                 group = 'nin_stance',
@@ -75,7 +75,7 @@ return {
                 name = 'Utsusemi: Ni',
                 level = 37,
                 cost = 0,
-                id = 339,   -- spell id
+                id = 339,
                 command = '/ma "Utsusemi: Ni" <me>',
                 buff_id = SHADOWS,
                 group = 'utsusemi',
@@ -86,7 +86,7 @@ return {
                 name = 'Utsusemi: Ichi',
                 level = 12,
                 cost = 0,
-                id = 338,   -- spell id
+                id = 338,
                 command = '/ma "Utsusemi: Ichi" <me>',
                 buff_id = SHADOWS,
                 group = 'utsusemi',
@@ -99,8 +99,8 @@ return {
             {
                 name = 'Tonko: Ni',
                 level = 34,
-                cost = 0,  -- approx MP
-                id = 354,   -- spell id
+                cost = 0,
+                id = 354,
                 command = '/ma "Tonko: Ni" <me>',
                 buff_id = 69,
                 group = 'tonko',
@@ -111,8 +111,8 @@ return {
             {
                 name = 'Tonko: Ichi',
                 level = 9,
-                cost = 0,  -- approx MP
-                id = 353,   -- spell id
+                cost = 0,
+                id = 353,
                 command = '/ma "Tonko: Ichi" <me>',
                 buff_id = 69,
                 group = 'tonko',
@@ -125,8 +125,8 @@ return {
             {
                 name = 'Monomi: Ichi',
                 level = 25,
-                cost = 0,  -- approx MP
-                id = 318,   -- spell id
+                cost = 0,
+                id = 318,
                 command = '/ma "Monomi: Ichi" <me>',
                 buff_id = 71,
                 requires_item = MONOMI_TOOLS,
@@ -140,7 +140,7 @@ return {
                 name = 'Sange',
                 level = 75,
                 cost = 0,
-                id = 145,  -- recast id
+                id = 145,
                 command = '/ja "Sange" <me>',
                 buff_id = 352,
                 requires_equipped_ammo = SHURIKENS,  -- gate + auto-equip tiers

@@ -19,6 +19,13 @@ A focused, support-oriented addon for Ashita v4 that automates healing, buffing,
 
 ## Latest Updates
 
+### [2.3.0] - 2026-07-09
+
+Adds **Chakra** to Monk — a self-cure that recovers HP and clears its own Poison / Blindness.
+
+### Added
+- **Monk Chakra**: Monk now self-casts **Chakra** to recover HP and to remove its own **Poison** and **Blindness**. Wired as both a self-heal and a self debuff removal (see [Supported Jobs](#supported-jobs)).
+
 ### [2.2.0] - 2026-07-06
 
 Adds three pet-support jobs (Beastmaster, Dragoon, Puppetmaster) with consumable-ammo auto-equip and packet-based pet status tracking, plus three self-support jobs (Monk, Samurai, Ninja) and a right-click **Idle Only** ability toggle; also makes packet-tracked buffs/debuffs (Trusts, tracked players, alliance, pets) expire on a timer so a missed wear-off packet no longer leaves a stale status stuck forever; also reworks debuff-removal priority (targeted cures before Erase, group Esuna) — alongside internal dead-code cleanup and UI polish.
@@ -207,6 +214,8 @@ Currently implemented support jobs:
   - Geomancy/luopan management (automatic Full Circle execution)
 
 - **Monk** (MNK) — *self-only support*
+  - Self-heal with Chakra (HP recovery)
+  - Self debuff removal with Chakra (Poison, Blindness)
   - Self-buffs with job abilities (Boost, Dodge, Focus, Counterstance, Footwork)
 
 - **Ninja** (NIN) — *self-only support*

@@ -10,7 +10,7 @@
 
 
 return {
-    job_id = 12,  -- Samurai
+    job_id = 12,
     job_name = 'Samurai',
     resource_type = 'tp',
 
@@ -21,34 +21,34 @@ return {
                 name = 'Warding Circle',
                 level = 5,
                 cost = 0,
-                id = 135,  -- Warding Circle recast ID
+                id = 135,
                 command = '/ja "Warding Circle" <me>',
-                buff_id = 117,  -- Warding Circle
+                buff_id = 117,
             },
             {
                 name = 'Third Eye',
                 level = 15,
                 cost = 0,
-                id = 133,  -- Third Eye recast ID
+                id = 133,
                 command = '/ja "Third Eye" <me>',
-                buff_id = 67,  -- Third Eye
+                buff_id = 67,
             },
             {
                 name = 'Hasso',
                 level = 25,
                 cost = 0,
-                id = 138,  -- Hasso recast ID
+                id = 138,
                 command = '/ja "Hasso" <me>',
-                buff_id = 353,  -- Hasso
+                buff_id = 353,
                 group = 'sam_stance',
             },
             {
                 name = 'Seigan',
                 level = 35,
                 cost = 0,
-                id = 139,  -- Seigan recast ID
+                id = 139,
                 command = '/ja "Seigan" <me>',
-                buff_id = 354,  -- Seigan
+                buff_id = 354,
                 group = 'sam_stance',
             },
         },
@@ -59,9 +59,9 @@ return {
                 name = 'Meditate',
                 level = 30,
                 cost = 0,
-                id = 134,  -- Meditate recast ID
+                id = 134,
                 command = '/ja "Meditate" <me>',
-                buff_id = 801,  -- Meditate
+                buff_id = 801,
             },
         },
     },
@@ -70,7 +70,7 @@ return {
     default_settings = {
         buff_enabled = true,
         recover_enabled = true,
-        recover_tp_threshold = 1000,  -- Meditate when TP is below this
+        recover_tp_threshold = 1000,
     },
 
     -- Action priority order

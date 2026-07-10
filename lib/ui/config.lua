@@ -603,9 +603,20 @@ function ui_config.render(settings, job_def, callback)
             if is_open and is_enabled then
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
                 ui.slider_int(ctx, 'Group (HP%)', 'heal_threshold', { settings.heal_threshold or 75 }, 1, 100)
-                ui.render_heal_group_selection(ctx, 'heal_group', true)
-                imgui.SameLine()
-                imgui.Text('Group Targets')
+                -- Group Targets buttons only make sense when a heal can target others;
+                -- hide them for self-only heal sets (mirrors Focus Healing gate above).
+                local has_non_self_heal = false
+                for _, ability in ipairs(job_def.abilities.heal) do
+                    if not ability.self_only then
+                        has_non_self_heal = true
+                        break
+                    end
+                end
+                if has_non_self_heal then
+                    ui.render_heal_group_selection(ctx, 'heal_group', true)
+                    imgui.SameLine()
+                    imgui.Text('Group Targets')
+                end
                 for _, ability in ipairs(job_def.abilities.heal) do
                     if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                         ui.ability_checkbox(ctx, ability, job_def, 'heal', true)

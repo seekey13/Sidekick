@@ -7,7 +7,7 @@
 
 
 return {
-    job_id = 22,  -- Rune Fencer
+    job_id = 22,
     job_name = 'Rune Fencer',
     resource_type = 'mp',
     
@@ -297,7 +297,7 @@ return {
                 name = 'Regen',
                 level = 23,
                 cost = 15,
-                id = 108,  -- Spell ID
+                id = 108,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = function(target)
