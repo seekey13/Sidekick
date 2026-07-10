@@ -236,6 +236,11 @@ Currently implemented support jobs:
   - Buff with jigs (Spectral Jig)
   - Buff with level-75 job abilities (Saber Dance, Fan Dance, No Foot Rise, Presto)
 
+- **Dark Knight** (DRK) — *self-only support*
+  - Self-buffs with job abilities (Arcane Circle, Last Resort, Souleater, Consume Mana, Diabolic Eye, Scarlet Delirium)
+  - Self-buff with dark magic (Dread Spikes)
+  - Absorb spells on your battle target (Absorb-Attri, Absorb-ACC, Absorb-TP, Absorb-STR/DEX/INT/AGI/VIT/CHR/MND) — combat-only, single spell selectable via dropdown
+
 - **Geomancer** (GEO)
   - AOE healing with job abilities (Mending Halation)
   - Pet healing with job abilities (Life Cycle)
@@ -261,6 +266,10 @@ Currently implemented support jobs:
 - **Paladin** (PLD)
   - Single-target healing with white magic (Cure I-IV)
   - Buff with white magic (Protect I-IV, Shell I-IV)
+
+- **Ranger** (RNG) — *self-only support*
+  - Self-buffs with job abilities (Sharpshot, Scavenge, Velocity Shot (RNG-main only), Unlimited Shot, Flashy Shot, Stealth Shot)
+  - Bounty Shot on your battle target — combat-only
 
 - **Red Mage** (RDM)
   - Single-target healing with white magic (Cure I-IV)
@@ -291,6 +300,11 @@ Currently implemented support jobs:
   - AOE healing with blood pacts (Healing Ruby II - requires Carbuncle)
   - Buff with blood pacts (Avatar's Favor, Shining Ruby)
   - Smart pet validation: Carbuncle-specific abilities only execute when Carbuncle is summoned; avatar-agnostic abilities work with any avatar
+
+- **Warrior** (WAR) — *self-only support*
+  - Self-buffs with job abilities (Aggressor, Retaliation, Warrior's Charge)
+  - Berserk/Defender stance (mutually exclusive — grouped, only the selected one is maintained)
+  - Warcry/Blood Rage (each removes the other's effect — grouped the same way)
 
 - **White Mage** (WHM)
   - Critical HP abilities (Divine Seal, Martyr)
@@ -380,17 +394,20 @@ Medic/
 │   │   ├── bard.lua          # Bard abilities
 │   │   ├── beastmaster.lua   # Beastmaster abilities (pet-only)
 │   │   ├── dancer.lua        # Dancer abilities
+│   │   ├── dark_knight.lua   # Dark Knight abilities (self-only)
 │   │   ├── dragoon.lua       # Dragoon abilities (pet-only)
 │   │   ├── geomancer.lua     # Geomancer abilities
 │   │   ├── monk.lua          # Monk abilities (self-only)
 │   │   ├── ninja.lua         # Ninja abilities (self-only)
 │   │   ├── paladin.lua       # Paladin abilities
 │   │   ├── puppetmaster.lua  # Puppetmaster abilities (pet-only)
+│   │   ├── ranger.lua        # Ranger abilities (self-only)
 │   │   ├── red_mage.lua      # Red Mage abilities
 │   │   ├── rune_fencer.lua   # Rune Fencer abilities
 │   │   ├── samurai.lua       # Samurai abilities (self-only)
 │   │   ├── scholar.lua       # Scholar abilities
 │   │   ├── summoner.lua      # Summoner abilities
+│   │   ├── warrior.lua       # Warrior abilities (self-only)
 │   │   └── white_mage.lua    # White Mage abilities
 │   └── ui_config.lua         # ImGui configuration interface
 ```

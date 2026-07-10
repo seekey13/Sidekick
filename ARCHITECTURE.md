@@ -36,14 +36,20 @@ lib/
     bard.lua                BRD job definition
     beastmaster.lua         BST job definition (pet-only)
     dancer.lua              DNC job definition
+    dark_knight.lua         DRK job definition (self-only)
     dragoon.lua             DRG job definition
     geomancer.lua           GEO job definition
+    monk.lua                MNK job definition (self-only)
+    ninja.lua               NIN job definition (self-only)
     paladin.lua             PLD job definition
     puppetmaster.lua        PUP job definition (pet-only)
+    ranger.lua              RNG job definition (self-only)
     red_mage.lua            RDM job definition
     rune_fencer.lua         RUN job definition
+    samurai.lua             SAM job definition (self-only)
     scholar.lua             SCH job definition
     summoner.lua            SMN job definition
+    warrior.lua             WAR job definition (self-only)
     white_mage.lua          WHM job definition
   ui/
     components.lua          Reusable imgui components & constants

@@ -81,12 +81,15 @@ local range_state = {
 local function load_single_job_definition(job_id)
     -- Map job IDs to job definition files
     local job_map = {
+        [1] = 'warrior',      -- Warrior
         [2] = 'monk',         -- Monk
         [3] = 'white_mage',   -- White Mage
         [5] = 'red_mage',     -- Red Mage
         [7] = 'paladin',      -- Paladin
+        [8] = 'dark_knight',  -- Dark Knight
         [9] = 'beastmaster',  -- Beastmaster
         [10] = 'bard',        -- Bard
+        [11] = 'ranger',      -- Ranger
         [12] = 'samurai',     -- Samurai
         [13] = 'ninja',       -- Ninja
         [14] = 'dragoon',     -- Dragoon
