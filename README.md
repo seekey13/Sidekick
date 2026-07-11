@@ -53,12 +53,18 @@ A focused, support-oriented addon for Ashita v4 that automates healing, buffing,
 
 ## Latest Updates
 
-### [2.3.0] - 2026-07-09
+### [2.3.0] - 2026-07-10
 
-Adds **Chakra** to Monk — a self-cure that recovers HP and clears its own Poison / Blindness.
+Adds **Chakra** to Monk (a self-cure that recovers HP and clears its own Poison / Blindness) and three new self-support jobs: **Warrior**, **Dark Knight**, and **Ranger**.
 
 ### Added
 - **Monk Chakra**: Monk now self-casts **Chakra** to recover HP and to remove its own **Poison** and **Blindness**. Wired as both a self-heal and a self debuff removal (see [Supported Jobs](#supported-jobs)).
+- **Warrior / Dark Knight / Ranger**: Three new self-support jobs (see [Supported Jobs](#supported-jobs)). Warrior self-buffs Berserk, Defender, Warcry, Blood Rage, Aggressor, Retaliation, and Warrior's Charge; Dark Knight self-buffs via job abilities and Dread Spikes plus the ten Absorb spells on the battle target; Ranger self-buffs Sharpshot, Scavenge, Velocity Shot, Unlimited Shot, Flashy/Stealth Shot plus Bounty Shot on the battle target.
+- **Dark Knight Nether Void (N button)**: An **N** button on the Absorb row fires Nether Void the tick before the selected Absorb to boost it; **Hold for Nether Void** skips the Absorb until Nether Void is ready (off by default — the Absorb still casts without it when Nether Void is on cooldown).
+
+### Fixed
+- **Merit Job Abilities Fired Before Unlock**: Automation no longer attempts merit-unlocked JAs (e.g. DRK Diabolic Eye) the player hasn't bought yet; unlearned merit abilities are gated out and grayed with a *Not Learned* tooltip.
+- **Unlearned Spells Attempted by Automation**: Automation now drops any spell whose scroll was never learned, matching the UI's existing check (previously it could loop a command error on an unlearned spell).
 
 ### [2.2.0] - 2026-07-06
 
