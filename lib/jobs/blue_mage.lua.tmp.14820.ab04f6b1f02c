@@ -155,6 +155,7 @@ return {
                 magic = 'blue',
                 command = '/ma "Diamondhide" <me>',
                 buff_id = 37,  -- Stoneskin (AOE, hits party within 10)
+                no_diffusion = true,  -- already AOE, D button hidden
             },
             {
                 name = 'Warm-Up',
