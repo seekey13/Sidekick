@@ -1,6 +1,6 @@
 # **Medic** - Support Job Automation Framework
 
-A focused, support-oriented addon for Ashita v4 that automates healing, buffing, debuff removal, resource recovery, and reviving for select support jobs in Final Fantasy XI.  Tuned specifically for [CatsEyeXI private server](https://www.catseyexi.com/).
+A focused, support-oriented addon for Ashita v4 that automates healing, buffing, debuff removal, resource recovery, and reviving for most jobs in Final Fantasy XI.  Tuned specifically for [CatsEyeXI private server](https://www.catseyexi.com/).
 
 # Quick Start Guide
 <img width="1450" height="910" alt="image" src="https://github.com/user-attachments/assets/e6b15b0a-35ad-4182-98f1-c1488c3f08f2" />
@@ -233,6 +233,14 @@ Currently implemented support jobs:
   - Party button targeting with automatic Pianissimo usage
   - Settings persist through reloads
 
+- **Blue Mage** (BLU)
+  - Self-heal with **Pollen**; party healing with **Wild Carrot** and **Magic Fruit** (blue magic cures can't target outside the party)
+  - AOE healing with **Healing Breeze**
+  - Self-buffs with blue magic (Cocoon, Metallic Body, Refueling, Feather Barrier, Memento Mori, Zephyr Mantle, Warm-Up, Amplification, Saline Coat, Reactor Cool, Plasma Charge)
+  - **Unbridled Learning** spells (level 75: Battery Charge, Animating Wail, Magic Barrier, Occultation, Orcish Counterstance, Barrier Tusk, Harden Shell, Pyric Bulwark, Carcharian Verve) — the Unbridled Learning JA is popped automatically right before the spell, and the spell is held while the JA is on cooldown
+  - **Diffusion** (level 75 merit, BLU main): a **D** button on every blue buff row opens a popup — **Enable** fires Diffusion before the buff to spread it to the whole party; **Hold for Diffusion** skips the buff until Diffusion is ready (off by default: the buff still casts self-only when Diffusion is on cooldown)
+  - **Set-spell awareness**: blue magic that isn't currently equipped in your set-spell list is grayed out (*"Blue Magic not currently equipped"*) and skipped by automation — it stays selectable, and Medic never equips spells for you (use the blusets addon or the in-game menu)
+
 - **Dancer** (DNC)
   - Critical HP abilities (Contradance)
   - Single-target healing with waltzes (Curing Waltz I/II/III)
@@ -399,6 +407,7 @@ Medic/
 │   ├── jobs/
 │   │   ├── bard.lua          # Bard abilities
 │   │   ├── beastmaster.lua   # Beastmaster abilities (pet-only)
+│   │   ├── blue_mage.lua     # Blue Mage abilities
 │   │   ├── dancer.lua        # Dancer abilities
 │   │   ├── dark_knight.lua   # Dark Knight abilities (self-only)
 │   │   ├── dragoon.lua       # Dragoon abilities (pet-only)

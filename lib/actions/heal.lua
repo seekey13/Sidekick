@@ -508,6 +508,16 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
 end
 
 function heal.select_ability(abilities, target_hpp, job_def, player_resource, party_index, target_snapshot, settings)
+    -- Drop self-only heals (BLU Pollen) when the target isn't the player;
+    -- their <me> command would silently heal the caster instead.
+    if party_index ~= 0 then
+        local others = {}
+        for _, a in ipairs(abilities) do
+            if not a.self_only then table.insert(others, a) end
+        end
+        abilities = others
+    end
+
     -- Special case: Summoner should always try Healing Ruby first
     if job_def and job_def.job_id == 15 then
         -- Look for Healing Ruby in abilities

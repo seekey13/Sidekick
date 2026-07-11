@@ -95,6 +95,7 @@ local function load_single_job_definition(job_id)
         [13] = 'ninja',       -- Ninja
         [14] = 'dragoon',     -- Dragoon
         [15] = 'summoner',    -- Summoner
+        [16] = 'blue_mage',   -- Blue Mage
         [18] = 'puppetmaster',-- Puppetmaster
         [19] = 'dancer',      -- Dancer
         [20] = 'scholar',     -- Scholar
