@@ -2226,6 +2226,40 @@ function common.check_stratagem(job_def, settings, ability_key, ability)
     }
 end
 
+-- Check the always-required precast JA for a spell that cannot function
+-- without its buff (BLU Unbridled Learning: ability.requires_precast names
+-- the abilities.precast entry). Unlike stratagems this is never user-assigned;
+-- the spell is simply locked behind the JA. Returns:
+--   nil                    → no precast needed OR its buff is already active → cast the spell
+--   {command, description} → fire the precast JA this tick (is_stratagem locks
+--                            the follow-up so the spell fires the next tick)
+--   false                  → precast can't fire right now (unlearned, wrong
+--                            job, cooldown, blocked) → skip the spell
+function common.check_required_precast(job_def, ability)
+    if not ability or not ability.requires_precast then return nil end
+    local strat_defs = job_def and job_def.abilities and job_def.abilities.precast
+    if not strat_defs then return false end
+    for _, strat in ipairs(strat_defs) do
+        if strat.name == ability.requires_precast then
+            if common.has_buff(0, strat.buff_id) then return nil end
+            local main_level = common.get_player_level()
+            if (strat.main_job_only and strat.is_main_job == false)
+                or (strat.level and main_level < strat.level)
+                or not common.has_spell_learned(strat)
+                or not require('lib.core.action_core').is_ability_ready(strat.id)
+                or common.is_command_blocked(strat.command) then
+                return false
+            end
+            return {
+                command = strat.command,
+                description = string.format('Using %s', strat.name),
+                is_stratagem = true,
+            }
+        end
+    end
+    return false
+end
+
 -- Remove assigned stratagems the player can no longer use. A stratagem configured
 -- on a high-level SCH (or a level-75 DRK's Nether Void) stays in stratagem_settings
 -- after dropping to a lower level or to a subjob; without this, automation would

@@ -837,19 +837,20 @@ local function render_scholar_stratagem_button(ability_key, ability, ctx)
     return true, 0
 end
 
--- Resolve the job's recast-gated stratagem (DRK Nether Void) if the player can
--- use it: right level, never offered from a subjob when main_job_only. Level-
--- gated the same way filter_abilities_by_level would be. Non-nil means the
--- N-button column is on-screen, so every buff row needs its leading indent
--- (the button itself renders disabled while unlearned, so learned state
--- doesn't matter for alignment).
-local function nether_void_column_strat(ctx)
+-- Resolve a job's recast-gated stratagem (DRK Nether Void when magic is nil,
+-- BLU Diffusion when magic is 'blue') if the player can use it: right level,
+-- never offered from a subjob when main_job_only. Level-gated the same way
+-- filter_abilities_by_level would be. Non-nil means that button column is
+-- on-screen, so every buff row needs its leading indent (the button itself
+-- renders disabled while unlearned, so learned state doesn't matter for
+-- alignment).
+local function recast_gate_column_strat(ctx, magic)
     local job_def    = ctx and ctx.job_def
     local strat_defs = job_def and job_def.abilities and job_def.abilities.precast
     if not strat_defs then return nil end
     local main_level, sub_level = common.get_player_level()
     for _, s in ipairs(strat_defs) do
-        if s.recast_gate then
+        if s.recast_gate and s.magic == magic then
             local from_sub = s.is_main_job == false
             local level = from_sub and (sub_level or 0) or (main_level or 0)
             if not (s.main_job_only and from_sub) and level >= (s.level or 0) then
@@ -861,22 +862,29 @@ local function nether_void_column_strat(ctx)
     return nil
 end
 
--- Render the DRK Nether Void button for the Absorb row: an [N] button opening
--- a popup with Enable (fire Nether Void before the selected Absorb, via the
--- stratagem machinery) and Hold for Nether Void (skip the Absorb until Nether
--- Void is ready; off = cast the Absorb without it when it's on cooldown).
--- Renders disabled (Not Learned) until the merit is unlocked. Lit when enabled.
--- Returns true when it drew the button (fills the row's leading slot).
-local function render_nether_void_button(ability_key, ability, ctx)
-    if not (ability and ability.group == 'absorb') then return false end
-    local strat = nether_void_column_strat(ctx)
-    if not strat then return false end
+local function nether_void_column_strat(ctx)
+    return recast_gate_column_strat(ctx, nil)
+end
+
+local function diffusion_column_strat(ctx)
+    return recast_gate_column_strat(ctx, 'blue')
+end
+
+-- Shared body for the recast-gated strat buttons (DRK [N], BLU [D]): a
+-- one-letter button opening a popup with Enable (fire the JA before the
+-- paired ability, via the stratagem machinery) and Hold (skip the ability
+-- until the JA is ready; off = fire the ability without it when it's on
+-- cooldown). Renders disabled (Not Learned) until the merit is unlocked.
+-- Lit when enabled. Returns true when it drew the button (fills the row's
+-- leading slot).
+local function render_recast_gate_button(ability_key, ctx, strat, letter, button_tip, enable_tip, hold_tip)
+    local btn_id = letter .. '##rg_' .. letter .. '_' .. ability_key
 
     -- Merit JA not unlocked yet: draw the button disabled (like an unlearned
     -- spell row) -- grayed, click-locked, "Not Learned" tooltip. Any config
     -- left from when the merit was owned is cleared here, since the disabled
     -- button offers no popup to turn it off -- a stale Hold would otherwise
-    -- make check_stratagem skip Absorbs forever.
+    -- make check_stratagem skip the paired ability forever.
     if not common.has_spell_learned(strat) then
         local ss = get_stratagem_settings(ctx)
         if ss and ss[ability_key] and ss[ability_key][strat.name] then
@@ -891,7 +899,7 @@ local function render_nether_void_button(ability_key, ability, ctx)
         imgui.PushStyleColor(ImGuiCol_Button,        COLOR_BUTTON_DISABLED)
         imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_DISABLED)
         imgui.PushStyleColor(ImGuiCol_ButtonActive,  COLOR_BUTTON_DISABLED)
-        imgui.Button('N##nv_' .. ability_key, { 20, 0 })
+        imgui.Button(btn_id, { 20, 0 })
         imgui.PopStyleColor(3)
         if imgui.IsItemHovered() then
             imgui.SetTooltip(strat.name .. ' Not Learned')
@@ -903,7 +911,7 @@ local function render_nether_void_button(ability_key, ability, ctx)
     local ss = get_stratagem_settings(ctx)
     if not ss then return false end
     local assigned = ss[ability_key] and ss[ability_key][strat.name] == true
-    local popup_id = '##nv_popup_' .. ability_key
+    local popup_id = '##rg_popup_' .. letter .. '_' .. ability_key
 
     -- Color: default (active) when enabled, gray when idle -- same as S button
     if not assigned then
@@ -912,13 +920,12 @@ local function render_nether_void_button(ability_key, ability, ctx)
         imgui.PushStyleColor(ImGuiCol_ButtonActive,  COLOR_BUTTON_UNSELECTED_ACTIVE)
     end
 
-    if imgui.Button('N##nv_' .. ability_key, { 20, 0 }) then
+    if imgui.Button(btn_id, { 20, 0 }) then
         imgui.OpenPopup(popup_id)
     end
 
     if imgui.IsItemHovered() then
-        imgui.SetTooltip(strat.name .. ': fire ' .. strat.name .. ' before this Absorb spell\n' ..
-            'to boost its effect. Click to configure. Lit when enabled.')
+        imgui.SetTooltip(button_tip)
     end
 
     if not assigned then
@@ -930,7 +937,7 @@ local function render_nether_void_button(ability_key, ability, ctx)
         imgui.Separator()
 
         local enable_val = { assigned }
-        if imgui.Checkbox('Enable##nv_enable_' .. ability_key, enable_val) then
+        if imgui.Checkbox('Enable##rg_enable_' .. letter .. '_' .. ability_key, enable_val) then
             if enable_val[1] then
                 ss[ability_key] = ss[ability_key] or {}
                 ss[ability_key][strat.name] = true
@@ -941,7 +948,7 @@ local function render_nether_void_button(ability_key, ability, ctx)
             if ctx.save_callback then ctx.save_callback() end
         end
         if imgui.IsItemHovered() then
-            imgui.SetTooltip('Fire ' .. strat.name .. ' before the selected Absorb spell.')
+            imgui.SetTooltip(enable_tip)
         end
 
         -- "Hold for ...": stored under the same stratagem_hold key
@@ -950,13 +957,12 @@ local function render_nether_void_button(ability_key, ability, ctx)
         local hold_tbl = get_stratagem_hold(ctx)
         if hold_tbl then
             local hold_val = { hold_tbl[ability_key] == true }
-            if imgui.Checkbox('Hold for ' .. strat.name .. '##nv_hold_' .. ability_key, hold_val) then
+            if imgui.Checkbox('Hold for ' .. strat.name .. '##rg_hold_' .. letter .. '_' .. ability_key, hold_val) then
                 hold_tbl[ability_key] = hold_val[1] or nil
                 if ctx.save_callback then ctx.save_callback() end
             end
             if imgui.IsItemHovered() then
-                imgui.SetTooltip('On: skip the Absorb until ' .. strat.name .. ' is ready.\n' ..
-                    'Off (default): cast the Absorb without ' .. strat.name .. ' when it is on cooldown.')
+                imgui.SetTooltip(hold_tip)
             end
         end
 
@@ -967,12 +973,39 @@ local function render_nether_void_button(ability_key, ability, ctx)
     return true
 end
 
+-- DRK Nether Void [N] button on the Absorb group row.
+local function render_nether_void_button(ability_key, ability, ctx)
+    if not (ability and ability.group == 'absorb') then return false end
+    local strat = nether_void_column_strat(ctx)
+    if not strat then return false end
+    return render_recast_gate_button(ability_key, ctx, strat, 'N',
+        strat.name .. ': fire ' .. strat.name .. ' before this Absorb spell\n' ..
+            'to boost its effect. Click to configure. Lit when enabled.',
+        'Fire ' .. strat.name .. ' before the selected Absorb spell.',
+        'On: skip the Absorb until ' .. strat.name .. ' is ready.\n' ..
+            'Off (default): cast the Absorb without ' .. strat.name .. ' when it is on cooldown.')
+end
+
+-- BLU Diffusion [D] button on every blue magic buff row: fire Diffusion
+-- before the buff so it spreads to the whole party instead of self only.
+local function render_diffusion_button(ability_key, ability, ctx)
+    if not (ability and ability.magic == 'blue') then return false end
+    local strat = diffusion_column_strat(ctx)
+    if not strat then return false end
+    return render_recast_gate_button(ability_key, ctx, strat, 'D',
+        'Diffusion: fire Diffusion before this buff to spread it\n' ..
+            'to the whole party. Click to configure. Lit when enabled.',
+        'Fire Diffusion before this buff so it applies to the party.',
+        'On: skip this buff until Diffusion is ready.\n' ..
+            'Off (default): cast the buff self-only when Diffusion is on cooldown.')
+end
+
 -- Draw a row's leading slot: the [A] button (bard, drawn later by
 -- render_party_buttons), the S button (scholar), the N button (DRK Nether
--- Void on Absorb rows), or a spacer so the row aligns under whichever column
--- is on-screen. Exactly ONE indent per row -- if scholar already drew its S
--- button/spacer we don't add a bard spacer, so BRD/SCH gets a single indent,
--- not two.
+-- Void on Absorb rows), the D button (BLU Diffusion on blue buff rows), or a
+-- spacer so the row aligns under whichever column is on-screen. Exactly ONE
+-- indent per row -- if scholar already drew its S button/spacer we don't add
+-- a bard spacer, so BRD/SCH gets a single indent, not two.
 local function render_leading_slot(ability_key, ability, ctx)
     -- Song rows: render_party_buttons draws the [A] button in this slot.
     if ability and ability.magic == 'song' then return end
@@ -980,15 +1013,19 @@ local function render_leading_slot(ability_key, ability, ctx)
     -- DRK Nether Void N button on the Absorb group row.
     if render_nether_void_button(ability_key, ability, ctx) then return end
 
+    -- BLU Diffusion D button on blue magic buff rows.
+    if render_diffusion_button(ability_key, ability, ctx) then return end
+
     -- Scholar's S button (or its own alignment spacer) fills the slot when active
     -- (i.e. in Light/Dark Arts). Returns true when it drew something.
     if render_scholar_stratagem_button(ability_key, ability, ctx) then return end
 
-    -- Nothing drawn. If this job carries song magic (bard [A] column) or the
-    -- Nether Void N column, other rows still need the indent to stay aligned.
-    -- Geo-bt debuffs sit in their own section with no such column -- skip those.
+    -- Nothing drawn. If this job carries song magic (bard [A] column), the
+    -- Nether Void N column, or the Diffusion D column, other rows still need
+    -- the indent to stay aligned. Geo-bt debuffs sit in their own section
+    -- with no such column -- skip those.
     local has_songs = ctx and ctx.job_def and ctx.job_def.has_songs
-    if (has_songs or nether_void_column_strat(ctx)) and not (ability and ability.group == 'Geo-bt') then
+    if (has_songs or nether_void_column_strat(ctx) or diffusion_column_strat(ctx)) and not (ability and ability.group == 'Geo-bt') then
         imgui.Dummy({ 20, 0 })
         imgui.SameLine(0, SPACE_BETWEEN_BUTTONS)
     end
