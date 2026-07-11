@@ -26,6 +26,7 @@ return {
                 id = 124,
                 command = '/ja "Sharpshot" <me>',
                 buff_id = 72,
+                combat_only = true,
             },
             {
                 name = 'Scavenge',
@@ -42,6 +43,7 @@ return {
                 command = '/ja "Velocity Shot" <me>',
                 buff_id = 371,
                 main_job_only = true,
+                combat_only = true,
             },
             {
                 name = 'Unlimited Shot',
@@ -50,6 +52,7 @@ return {
                 id = 126,
                 command = '/ja "Unlimited Shot" <me>',
                 buff_id = 115,
+                combat_only = true,
             },
             {
                 name = 'Bounty Shot',
@@ -57,6 +60,7 @@ return {
                 cost = 0,
                 id = 51,
                 command = '/ja "Bounty Shot" <bt>',
+                combat_only = true,
             },
             {
                 name = 'Flashy Shot',
@@ -66,6 +70,7 @@ return {
                 ability_id = 166,  -- merit-unlocked: gated on HasAbility
                 command = '/ja "Flashy Shot" <me>',
                 buff_id = 351,
+                combat_only = true,
             },
             {
                 name = 'Stealth Shot',
@@ -75,6 +80,7 @@ return {
                 ability_id = 165,  -- merit-unlocked: gated on HasAbility
                 command = '/ja "Stealth Shot" <me>',
                 buff_id = 350,
+                combat_only = true,
             },
         },
     },

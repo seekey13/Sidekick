@@ -316,6 +316,9 @@ Currently implemented support jobs:
   - Buff with blood pacts (Avatar's Favor, Shining Ruby)
   - Smart pet validation: Carbuncle-specific abilities only execute when Carbuncle is summoned; avatar-agnostic abilities work with any avatar
 
+- **Thief** (THF) — *self-only support*
+  - Self-buffs with job abilities (Conspirator, Assassin's Charge, Feint) — combat-only.
+
 - **Warrior** (WAR) — *self-only support*
   - Self-buffs with job abilities (Berserk, Defender, Warcry, Blood Rage, Aggressor, Retaliation, Warrior's Charge)
   - Note: Berserk cancels Defender and Warcry removes Blood Rage (and vice versa) — enable only one of each pair
@@ -422,6 +425,7 @@ Medic/
 │   │   ├── samurai.lua       # Samurai abilities (self-only)
 │   │   ├── scholar.lua       # Scholar abilities
 │   │   ├── summoner.lua      # Summoner abilities
+│   │   ├── thief.lua         # Thief abilities (self-only)
 │   │   ├── warrior.lua       # Warrior abilities (self-only)
 │   │   └── white_mage.lua    # White Mage abilities
 │   └── ui_config.lua         # ImGui configuration interface

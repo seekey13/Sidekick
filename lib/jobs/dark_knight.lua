@@ -34,6 +34,7 @@ return {
                 id = 86,
                 command = '/ja "Arcane Circle" <me>',
                 buff_id = 75,
+                combat_only = true,
             },
             {
                 name = 'Last Resort',
@@ -42,6 +43,7 @@ return {
                 id = 87,
                 command = '/ja "Last Resort" <me>',
                 buff_id = 64,
+                combat_only = true,
             },
             {
                 name = 'Souleater',
@@ -50,6 +52,7 @@ return {
                 id = 85,
                 command = '/ja "Souleater" <me>',
                 buff_id = 63,
+                combat_only = true,
             },
             {
                 name = 'Consume Mana',
@@ -58,6 +61,7 @@ return {
                 id = 95,
                 command = '/ja "Consume Mana" <me>',
                 buff_id = 599,
+                combat_only = true,
             },
             {
                 name = 'Diabolic Eye',
@@ -67,6 +71,7 @@ return {
                 ability_id = 160,  -- merit-unlocked: gated on HasAbility
                 command = '/ja "Diabolic Eye" <me>',
                 buff_id = 346,
+                combat_only = true,
             },
             {
                 name = 'Scarlet Delirium',
@@ -76,6 +81,7 @@ return {
                 ability_id = 280,  -- merit-unlocked: gated on HasAbility
                 command = '/ja "Scarlet Delirium" <me>',
                 buff_id = {479, 480},  -- charging + empowered states
+                combat_only = true,
             },
 
             -- Self buff (dark magic)
@@ -97,6 +103,7 @@ return {
                 id = 243,
                 command = '/ma "Absorb-Attri" <bt>',
                 group = 'absorb',
+                combat_only = true,
             },
             {
                 name = 'Absorb-ACC',
@@ -106,6 +113,7 @@ return {
                 command = '/ma "Absorb-ACC" <bt>',
                 buff_id = 90,
                 group = 'absorb',
+                combat_only = true,
             },
             {
                 name = 'Absorb-TP',
@@ -114,6 +122,7 @@ return {
                 id = 275,
                 command = '/ma "Absorb-TP" <bt>',
                 group = 'absorb',
+                combat_only = true,
             },
             {
                 name = 'Absorb-STR',
@@ -123,6 +132,7 @@ return {
                 command = '/ma "Absorb-STR" <bt>',
                 buff_id = 80,
                 group = 'absorb',
+                combat_only = true,
             },
             {
                 name = 'Absorb-DEX',
@@ -132,6 +142,7 @@ return {
                 command = '/ma "Absorb-DEX" <bt>',
                 buff_id = 81,
                 group = 'absorb',
+                combat_only = true,
             },
             {
                 name = 'Absorb-INT',
@@ -141,6 +152,7 @@ return {
                 command = '/ma "Absorb-INT" <bt>',
                 buff_id = 84,
                 group = 'absorb',
+                combat_only = true,
             },
             {
                 name = 'Absorb-AGI',
@@ -150,6 +162,7 @@ return {
                 command = '/ma "Absorb-AGI" <bt>',
                 buff_id = 83,
                 group = 'absorb',
+                combat_only = true,
             },
             {
                 name = 'Absorb-VIT',
@@ -159,6 +172,7 @@ return {
                 command = '/ma "Absorb-VIT" <bt>',
                 buff_id = 82,
                 group = 'absorb',
+                combat_only = true,
             },
             {
                 name = 'Absorb-CHR',
@@ -168,6 +182,7 @@ return {
                 command = '/ma "Absorb-CHR" <bt>',
                 buff_id = 86,
                 group = 'absorb',
+                combat_only = true,
             },
             {
                 name = 'Absorb-MND',
@@ -177,6 +192,7 @@ return {
                 command = '/ma "Absorb-MND" <bt>',
                 buff_id = 85,
                 group = 'absorb',
+                combat_only = true,
             },
         },
 
