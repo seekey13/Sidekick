@@ -26,6 +26,7 @@ return {
                 end,
                 wakes = true,
                 value = 300,
+                blocked_by = 410,  -- Saber Dance
             },
             {
                 name = 'Curing Waltz II',
@@ -37,6 +38,7 @@ return {
                 end,
                 wakes = true,
                 value = 140,
+                blocked_by = 410,  -- Saber Dance
             },
             {
                 name = 'Curing Waltz',
@@ -48,6 +50,7 @@ return {
                 end,
                 wakes = true,
                 value = 70,
+                blocked_by = 410,  -- Saber Dance
             },
         },
         
@@ -60,6 +63,7 @@ return {
                 id = 102,
                 command = '/ja "Divine Waltz II" <me>',
                 wakes = true,
+                blocked_by = 410,  -- Saber Dance
             },
             {
                 name = 'Divine Waltz',
@@ -68,6 +72,7 @@ return {
                 id = 225,
                 command = '/ja "Divine Waltz" <me>',
                 wakes = true,
+                blocked_by = 410,  -- Saber Dance
             },
         },
         
@@ -94,8 +99,7 @@ return {
                 id = 219,
                 ability_id = 237,  -- merit-unlocked: gated on HasAbility
                 command = '/ja "Saber Dance" <me>',
-                buff_id = 410,  -- Saber Dance
-                group = 'dance',
+                buff_id = {410,411},  --  410 Saber Dance overrides Fan Dance
             },
             {
                 name = 'Fan Dance',
@@ -104,8 +108,7 @@ return {
                 id = 224,
                 ability_id = 238,  -- merit-unlocked: gated on HasAbility
                 command = '/ja "Fan Dance" <me>',
-                buff_id = 411,  -- Fan Dance
-                group = 'dance',
+                buff_id = {410,411},  -- 411 Fan Dance overrides Saber Dance 
             },
             {
                 name = 'No Foot Rise',
@@ -132,6 +135,7 @@ return {
                 command = '/ja "Drain Samba III" <me>',
                 buff_id = 368,
                 group = 'samba',
+                blocked_by = 411,  -- Fan Dance
             },
             {
                 name = 'Drain Samba II',
@@ -141,6 +145,7 @@ return {
                 command = '/ja "Drain Samba II" <me>',
                 buff_id = 368,
                 group = 'samba',
+                blocked_by = 411,  -- Fan Dance
             },
             {
                 name = 'Drain Samba',
@@ -150,6 +155,7 @@ return {
                 command = '/ja "Drain Samba" <me>',
                 buff_id = 368,
                 group = 'samba',
+                blocked_by = 411,  -- Fan Dance
             },
             {
                 name = 'Aspir Samba II',
@@ -159,6 +165,7 @@ return {
                 command = '/ja "Aspir Samba II" <me>',
                 buff_id = 369,
                 group = 'samba',
+                blocked_by = 411,  -- Fan Dance
             },
             {
                 name = 'Aspir Samba',
@@ -168,6 +175,7 @@ return {
                 command = '/ja "Aspir Samba" <me>',
                 buff_id = 369,
                 group = 'samba',
+                blocked_by = 411,  -- Fan Dance
             },
             {
                 name = 'Haste Samba',
@@ -177,6 +185,7 @@ return {
                 command = '/ja "Haste Samba" <me>',
                 buff_id = 370,
                 group = 'samba',
+                blocked_by = 411,  -- Fan Dance
             },
             {
                 name = 'Spectral Jig',
