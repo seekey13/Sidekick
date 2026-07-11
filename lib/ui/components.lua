@@ -988,8 +988,10 @@ end
 
 -- BLU Diffusion [D] button on every blue magic buff row: fire Diffusion
 -- before the buff so it spreads to the whole party instead of self only.
+-- Rows flagged no_diffusion (Diamondhide -- already AOE) skip the button
+-- and fall through to the alignment spacer.
 local function render_diffusion_button(ability_key, ability, ctx)
-    if not (ability and ability.magic == 'blue') then return false end
+    if not (ability and ability.magic == 'blue') or ability.no_diffusion then return false end
     local strat = diffusion_column_strat(ctx)
     if not strat then return false end
     return render_recast_gate_button(ability_key, ctx, strat, 'D',

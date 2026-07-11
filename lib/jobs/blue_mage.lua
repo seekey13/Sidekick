@@ -12,7 +12,8 @@
       spell while the JA is on cooldown.
     - Diffusion (75 merit, BLU main): stratagem-style JA that spreads the next
       blue magic buff to the whole party. Configured via the D button on every
-      blue buff row (Enable + Hold for Diffusion); fired through
+      blue buff row except Diamondhide, which is already AOE (no_diffusion
+      hides its button); fired through
       check_stratagem the tick before the buff. On cooldown: the buff still
       casts self-only (hold off, default) or is held until Diffusion is ready
       (hold on).
@@ -155,6 +156,7 @@ return {
                 magic = 'blue',
                 command = '/ma "Diamondhide" <me>',
                 buff_id = 37,  -- Stoneskin (AOE, hits party within 10)
+                no_diffusion = true,  -- already AOE, D button hidden
             },
             {
                 name = 'Warm-Up',
