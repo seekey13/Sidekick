@@ -553,6 +553,24 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                 local needs_buff = action_core.needs_buff(state.player.buffs, ability.buff_id)
 
                 if needs_buff then
+                    -- Always-required precast (BLU Unbridled Learning): the
+                    -- spell cannot function without the JA's buff. Fire the JA
+                    -- first -- but only when the spell itself could follow it
+                    -- (usable, and not held back waiting on Diffusion) so the
+                    -- JA isn't popped for nothing.
+                    local pre = common.check_required_precast(job_def, ability)
+                    if pre == false then goto continue_ability end
+                    if pre then
+                        local eff_cost = common.effective_ability_cost(ability, settings, job_def)
+                        if not action_core.is_usable(ability, job_def, eff_cost) then
+                            goto continue_ability
+                        end
+                        if common.check_stratagem(job_def, settings, ability.name, ability) == false then
+                            goto continue_ability
+                        end
+                        return pre
+                    end
+
                     -- Use action_core for resource + cooldown + command building
                     local desc = string.format('Applying buff: %s', ability.name)
                     local result, reason = action_core.try_use(ability, job_def, settings, 0, desc, state)
