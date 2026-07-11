@@ -147,6 +147,7 @@ return {
                 requires_equipped_ammo = SHURIKENS,  -- gate + auto-equip tiers
                 ammo_main_job_only = true,           -- Sange is a NIN-main merit
                 ammo_label = 'Shuriken',             -- UI count label
+                combat_only = true,
             },
         },
     },

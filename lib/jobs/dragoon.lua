@@ -34,6 +34,7 @@ return {
                 id = 157,
                 buff_id = 118,
                 command = '/ja "Ancient Circle" <me>',
+                combat_only = true,
             },
             {
                 name = 'Spirit Bond',
@@ -43,6 +44,7 @@ return {
                 buff_id = 619,
                 command = '/ja "Spirit Bond" <me>',
                 pet_required = true,
+                combat_only = true,
             },
         },
     },

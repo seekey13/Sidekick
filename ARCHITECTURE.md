@@ -49,6 +49,7 @@ lib/
     samurai.lua             SAM job definition (self-only)
     scholar.lua             SCH job definition
     summoner.lua            SMN job definition
+    thief.lua               THF job definition (self-only)
     warrior.lua             WAR job definition (self-only)
     white_mage.lua          WHM job definition
   ui/

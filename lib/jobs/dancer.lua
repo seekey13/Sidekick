@@ -99,7 +99,8 @@ return {
                 id = 219,
                 ability_id = 237,  -- merit-unlocked: gated on HasAbility
                 command = '/ja "Saber Dance" <me>',
-                buff_id = {410,411},  --  410 Saber Dance overrides Fan Dance
+                buff_id = {410, 411},  --  410 Saber Dance overrides Fan Dance
+                combat_only = true,
             },
             {
                 name = 'Fan Dance',
@@ -108,7 +109,8 @@ return {
                 id = 224,
                 ability_id = 238,  -- merit-unlocked: gated on HasAbility
                 command = '/ja "Fan Dance" <me>',
-                buff_id = {410,411},  -- 411 Fan Dance overrides Saber Dance 
+                buff_id = {410, 411},  -- 411 Fan Dance overrides Saber Dance 
+                combat_only = true,
             },
             {
                 name = 'No Foot Rise',
@@ -117,6 +119,7 @@ return {
                 id = 223,
                 ability_id = 239,  -- merit-unlocked: gated on HasAbility
                 command = '/ja "No Foot Rise" <me>',
+                buff_id = 385,  -- 5 Finishing Moves
             },
             {
                 name = 'Presto',

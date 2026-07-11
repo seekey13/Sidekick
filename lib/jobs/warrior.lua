@@ -24,6 +24,7 @@ return {
                 cost = 0,
                 id = 1,
                 command = '/ja "Berserk" <me>',
+                combat_only = true,
                 buff_id = 56,
             },
             {
@@ -32,6 +33,7 @@ return {
                 cost = 0,
                 id = 3,
                 command = '/ja "Defender" <me>',
+                combat_only = true,
                 buff_id = 57,
             },
             {
@@ -41,6 +43,7 @@ return {
                 id = 11,
                 ability_id = 267,  -- merit-unlocked: gated on HasAbility
                 command = '/ja "Blood Rage" <me>',
+                combat_only = true,
                 buff_id = 460,
             },
             {
@@ -49,6 +52,7 @@ return {
                 cost = 0,
                 id = 2,
                 command = '/ja "Warcry" <me>',
+                combat_only = true,
                 buff_id = 68,
             },
 
@@ -58,6 +62,7 @@ return {
                 cost = 0,
                 id = 4,
                 command = '/ja "Aggressor" <me>',
+                combat_only = true,
                 buff_id = 58,
             },
             {
@@ -66,6 +71,7 @@ return {
                 cost = 0,
                 id = 8,
                 command = '/ja "Retaliation" <me>',
+                combat_only = true,
                 buff_id = 405,
             },
             {
@@ -75,6 +81,7 @@ return {
                 id = 6,
                 ability_id = 149,  -- merit-unlocked: gated on HasAbility
                 command = '/ja "Warrior\'s Charge" <me>',
+                combat_only = true,
                 buff_id = 340,
             },
         },

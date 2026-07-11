@@ -363,6 +363,7 @@ return {
                 id = 24,  -- Swordplay recast ID
                 command = '/ja "Swordplay" <me>',
                 buff_id = 532,  -- Swordplay buff
+                combat_only = true,
             },
             {
                 name = 'Phalanx',

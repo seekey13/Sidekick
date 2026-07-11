@@ -2311,11 +2311,12 @@ function common.check_required_precast(job_def, ability)
         if strat.name == ability.requires_precast then
             if common.has_buff(0, strat.buff_id) then return nil end
             local main_level = common.get_player_level()
+            -- is_usable covers cooldown + status-block (cost 0 = free); the rest
+            -- (main job / level / learned) it doesn't check, so gate those here.
             if (strat.main_job_only and strat.is_main_job == false)
                 or (strat.level and main_level < strat.level)
                 or not common.has_spell_learned(strat)
-                or not require('lib.core.action_core').is_ability_ready(strat.id)
-                or common.is_command_blocked(strat.command) then
+                or not require('lib.core.action_core').is_usable(strat, job_def, 0) then
                 return false
             end
             return {
