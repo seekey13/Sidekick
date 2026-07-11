@@ -2245,43 +2245,48 @@ function common.check_stratagem(job_def, settings, ability_key, ability)
 end
 
 -- Remove assigned stratagems the player can no longer use. A stratagem configured
--- on a high-level SCH stays in stratagem_settings after switching to a lower level
--- or SCH subjob; without this, automation would keep trying to fire a JA the player
--- doesn't know. Called on job/level change. Returns true if anything was pruned.
+-- on a high-level SCH (or a level-75 DRK's Nether Void) stays in stratagem_settings
+-- after dropping to a lower level or to a subjob; without this, automation would
+-- keep trying to fire a JA the player doesn't know -- or, with Hold on, keep
+-- skipping the paired spell for it. Called on job/level change. Returns true if
+-- anything was pruned.
 function common.prune_unavailable_stratagems(job_def, settings)
     if not settings or not settings.stratagem_settings then return false end
     local strat_defs = job_def and job_def.abilities and job_def.abilities.stratagem
     if not strat_defs then return false end
 
-    -- Resolve SCH level from main or sub job (SCH = job ID 20)
-    local main_job_id, sub_job_id = common.get_player_job()
-    local main_level, sub_level   = common.get_player_level()
-    local sch_level = 0
-    if main_job_id == 20 then
-        sch_level = main_level
-    elseif sub_job_id == 20 then
-        sch_level = sub_level
-    end
+    local main_level, sub_level = common.get_player_level()
 
-    -- Bail on a transient 0 read (e.g. zoning) so we never wipe config wrongly
-    if sch_level <= 0 then return false end
-
-    -- name -> required level lookup
-    local strat_level = {}
+    -- name -> true for strats unusable at this job/level. Level source follows
+    -- the merge's is_main_job flag (SCH-sub strats check sub level, etc.).
+    -- A transient 0 level read (e.g. zoning) marks nothing unusable, so config
+    -- is never wiped wrongly.
+    local unusable = {}
     for _, strat in ipairs(strat_defs) do
-        strat_level[strat.name] = strat.level or 0
+        local from_sub = strat.is_main_job == false
+        local level = from_sub and (sub_level or 0) or (main_level or 0)
+        if level > 0 then
+            if (strat.main_job_only and from_sub) or level < (strat.level or 0) then
+                unusable[strat.name] = true
+            end
+        end
     end
 
     local changed = false
     for ability_key, assigned in pairs(settings.stratagem_settings) do
         for strat_name in pairs(assigned) do
-            if (strat_level[strat_name] or 0) > sch_level then
+            if unusable[strat_name] then
                 assigned[strat_name] = nil
                 changed = true
             end
         end
         if not next(assigned) then
             settings.stratagem_settings[ability_key] = nil
+            -- Hold is only meaningful with an assignment; drop it too so it
+            -- can't silently re-apply if the strat is reassigned later.
+            if settings.stratagem_hold then
+                settings.stratagem_hold[ability_key] = nil
+            end
         end
     end
     return changed

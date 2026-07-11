@@ -873,9 +873,21 @@ local function render_nether_void_button(ability_key, ability, ctx)
     if not strat then return false end
 
     -- Merit JA not unlocked yet: draw the button disabled (like an unlearned
-    -- spell row) -- grayed, click-locked, "Not Learned" tooltip. Automation is
-    -- separately gated in check_stratagem.
+    -- spell row) -- grayed, click-locked, "Not Learned" tooltip. Any config
+    -- left from when the merit was owned is cleared here, since the disabled
+    -- button offers no popup to turn it off -- a stale Hold would otherwise
+    -- make check_stratagem skip Absorbs forever.
     if not common.has_spell_learned(strat) then
+        local ss = get_stratagem_settings(ctx)
+        if ss and ss[ability_key] and ss[ability_key][strat.name] then
+            ss[ability_key][strat.name] = nil
+            if not next(ss[ability_key]) then
+                ss[ability_key] = nil
+                local hold_tbl = ctx.settings and ctx.settings.stratagem_hold
+                if hold_tbl then hold_tbl[ability_key] = nil end
+            end
+            if ctx.save_callback then ctx.save_callback() end
+        end
         imgui.PushStyleColor(ImGuiCol_Button,        COLOR_BUTTON_DISABLED)
         imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_DISABLED)
         imgui.PushStyleColor(ImGuiCol_ButtonActive,  COLOR_BUTTON_DISABLED)
