@@ -1,6 +1,6 @@
 # **Medic** - Support Job Automation Framework
 
-A focused, support-oriented addon for Ashita v4 that automates healing, buffing, debuff removal, resource recovery, and reviving for select support jobs in Final Fantasy XI.  Tuned specifically for [CatsEyeXI private server](https://www.catseyexi.com/).
+A focused, support-oriented addon for Ashita v4 that automates healing, buffing, debuff removal, resource recovery, and reviving for most jobs in Final Fantasy XI.  Tuned specifically for [CatsEyeXI private server](https://www.catseyexi.com/).
 
 # Quick Start Guide
 <img width="1450" height="910" alt="image" src="https://github.com/user-attachments/assets/e6b15b0a-35ad-4182-98f1-c1488c3f08f2" />
