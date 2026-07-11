@@ -24,6 +24,7 @@ return {
                 id = 135,
                 command = '/ja "Warding Circle" <me>',
                 buff_id = 117,
+                combat_only = true,
             },
             {
                 name = 'Third Eye',
@@ -32,6 +33,7 @@ return {
                 id = 133,
                 command = '/ja "Third Eye" <me>',
                 buff_id = 67,
+                combat_only = true,
             },
             {
                 name = 'Hasso',

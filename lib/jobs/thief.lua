@@ -26,7 +26,7 @@ return {
                 level = 75,
                 cost = 0,
                 id = 67,
-                abilitiy_id = 155,
+                ability_id = 155,  -- merit-unlocked: gated on HasAbility
                 command = '/ja "Assassin\'s Charge" <me>',
                 buff_id = 342,
                 combat_only = true,
@@ -36,7 +36,7 @@ return {
                 level = 75,
                 cost = 0,
                 id = 68,
-                abilitiy_id = 156,
+                ability_id = 156,  -- merit-unlocked: gated on HasAbility
                 command = '/ja "Feint" <me>',
                 buff_id = 343,
                 combat_only = true,

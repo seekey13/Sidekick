@@ -42,6 +42,7 @@ return {
                 id = 14,
                 command = '/ja "Dodge" <me>',
                 buff_id = 60,
+                combat_only = true,
             },
             {
                 name = 'Focus',
@@ -50,6 +51,7 @@ return {
                 id = 13,
                 command = '/ja "Focus" <me>',
                 buff_id = 59,
+                combat_only = true,
             },
             {
                 name = 'Counterstance',
@@ -58,6 +60,7 @@ return {
                 id = 17,
                 command = '/ja "Counterstance" <me>',
                 buff_id = 61,
+                combat_only = true,
             },
             {
                 name = 'Footwork',
@@ -66,6 +69,7 @@ return {
                 id = 21,
                 command = '/ja "Footwork" <me>',
                 buff_id = 406,
+                combat_only = true,
             },
         },
         -- Debuff removal

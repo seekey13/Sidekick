@@ -7,9 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [2.3.0] - 2026-07-10
 
-Adds **Chakra** to Monk (a self-cure that recovers HP and clears its own Poison / Blindness) and three new self-support jobs: **Warrior**, **Dark Knight**, and **Ranger**.
+Adds **Chakra** to Monk (a self-cure that recovers HP and clears its own Poison / Blindness) and four new self-support jobs: **Warrior**, **Dark Knight**, **Ranger**, and **Thief**.
 
 ### Added
+- **Thief (THF) support**: Self-only automation. Self-buffs **Conspirator**, **Assassin's Charge**, and **Feint** via job abilities — all combat-only.
 - **Monk Chakra**: New self-only Chakra automation (recast id 15, level 35). Wired as both a `heal` action (self HP recovery, priority above buffs) and a `debuff_removal` action that strips **Poison** (3) and **Blindness** (5) from the Monk. Enabled by default (`heal_enabled` / `debuff_removal_enabled`).
 - **Warrior (WAR) support**: Self-only automation. Self-buffs **Berserk**, **Defender**, **Warcry**, **Blood Rage**, **Aggressor**, **Retaliation**, and **Warrior's Charge** — all independent checkboxes. Note that Berserk/Defender cancel each other and Warcry/Blood Rage remove each other's effect, so only one of each pair should be enabled at a time.
 - **Dark Knight (DRK) support**: Self-only automation. Self-buffs via job abilities (**Arcane Circle**, **Last Resort**, **Souleater**, **Consume Mana**, **Diabolic Eye**, **Scarlet Delirium**) and dark magic (**Dread Spikes**), plus the ten **Absorb** spells (Absorb-Attri/ACC/TP/STR/DEX/INT/AGI/VIT/CHR/MND) cast on the battle target — grouped as `absorb` (single spell selectable via dropdown) and automatically combat-only (`<bt>`). Attribute absorbs track the caster's boost effect so they aren't recast while the boost holds; Absorb-Attri (steals a random buff) and Absorb-TP (instant drain) leave no fixed effect and fire whenever their recast is up.
