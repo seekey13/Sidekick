@@ -854,6 +854,7 @@ return {
                 level = 75,
                 cost = 0,
                 id = 27,
+                ability_id = 153,  -- merit-unlocked: gated on HasAbility
                 command = function(target)
                     return '/ja "Martyr" '..target
                 end,
@@ -931,6 +932,7 @@ return {
                 level = 75,
                 cost = 0,
                 id = 28,
+                ability_id = 154,  -- merit-unlocked: gated on HasAbility
                 command = function(target)
                     return '/ja "Devotion" '..target -- Cannot target self
                 end,

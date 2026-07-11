@@ -36,14 +36,20 @@ lib/
     bard.lua                BRD job definition
     beastmaster.lua         BST job definition (pet-only)
     dancer.lua              DNC job definition
+    dark_knight.lua         DRK job definition (self-only)
     dragoon.lua             DRG job definition
     geomancer.lua           GEO job definition
+    monk.lua                MNK job definition (self-only)
+    ninja.lua               NIN job definition (self-only)
     paladin.lua             PLD job definition
     puppetmaster.lua        PUP job definition (pet-only)
+    ranger.lua              RNG job definition (self-only)
     red_mage.lua            RDM job definition
     rune_fencer.lua         RUN job definition
+    samurai.lua             SAM job definition (self-only)
     scholar.lua             SCH job definition
     summoner.lua            SMN job definition
+    warrior.lua             WAR job definition (self-only)
     white_mage.lua          WHM job definition
   ui/
     components.lua          Reusable imgui components & constants
@@ -181,10 +187,10 @@ Shared utility module (~1,700 lines). Key areas:
 - **Buffs**: `has_buff`, `get_player_buffs`, `get_party_buffs`, `get_trust_buffs`
 - **Trust buff tracking**: `register_pending_buff`, `handle_buff_application`, `handle_buff_removal`, `drop_removed_debuff(server_id, ability)` (optimistically drops one status a na-/Erase spell just cured from a Trust/tracked/alliance target — those give no reliable wear-off packet, so without it the removal spell re-fires every tick; no-op for memory-read party members), `clear_trust_buffs`, `base_buff_duration` (buff durations + a debuff backstop: `BASE_DEBUFF_DURATION` gives packet-detected debuffs a timed fall-off, Curse/Bane/Disease/Plague never time out, other erasable debuffs default to 120s), `expire_timed_buffs` (timed expiry + Trust song slot eviction — see Trust Buff Tracking below)
 - **Status ailments**: `has_silence`, `has_amnesia`, `is_command_blocked`
-- **Ability helpers**: `has_spell_learned(ability)` (returns `HasSpell` result; only a `pcall` error assumes known — an unlearned spell is *not* treated as learned), `filter_abilities_by_level` (also filters out an ability whose `requires_equipped_ammo` isn't currently worn, or whose `requires_item` tool isn't owned), `build_ability_command`, `check_target_modifier`
+- **Ability helpers**: `has_spell_learned(ability)` (spells: `HasSpell(id)`; job abilities carrying `ability_id` — merit-unlocked JAs like Diabolic Eye — `HasAbility(ability_id + 512)`, the +512 converting the raw abilities.sql id to the client JA resource id; only a `pcall` error assumes known — an unlearned spell/JA is *not* treated as learned), `filter_abilities_by_level` (also filters out unlearned spells/merit JAs via `has_spell_learned`, an ability whose `requires_equipped_ammo` isn't currently worn, or whose `requires_item` tool isn't owned), `build_ability_command`, `check_target_modifier`
 - **Pet status tracking**: `is_pet(server_id)` (true for the current pet's server id, refreshed each tick), `apply_pet_buff` — pets have normal entity ids (< 0x1000000) so they miss the Trust guard; these route the pet's packet-detected buffs/debuffs into `trust_buffs` keyed by the pet's server id. `pet_type_ok(ability)` gates a `requires_pet_name` ability on the summoned pet's name (shared by job validators and the config UI so the name list lives only in the ability data).
 - **Consumable-ammo equip**: `count_equippable_items(spec)` / `find_equippable_item(spec)` scan the equip-eligible containers (main inventory + all eight Mog Wardrobes); `get_equipped_item_id(slot)` and `is_ammo_equipped(spec)` read the worn ammo; `select_ammo_equip_command(spec, level)` builds a `/equip ammo "<name>" <container>` for the best owned tier at/below `level`; `ammo_equip_command(abilities, settings, player)` picks the first enabled, level-eligible, not-yet-worn ability needing ammo and returns that equip (respecting `ammo_main_job_only`). A "spec" is a single item id, a flat id list, or a list of `{ id, name, level }` tier entries.
-- **Scholar stratagems & BST Ready**: `check_stratagem(job_def, settings, ability_key, ability)` returns the next stratagem JA to fire, `nil` (cast the spell), or `false` (skip). "Hold for Stratagem" (`settings.stratagem_hold[<key>]`) controls the can't-fire case: when held it returns `false` (skip until ready); otherwise `nil` (cast without the stratagem). `prune_unavailable_stratagems(job_def, settings)` drops assigned stratagems above the current SCH level on job/level change (bails on a transient level-0 read), fixing a high-level SCH assignment sticking after a downgrade to a lower level or `???/SCH`. Both stratagems and BST **Ready** are charge systems on one shared recast timer, so a single `charges_from_recast(recast_id, max, rate)` helper converts the remaining-until-full timer into available charges for both (`state.stratagems`, `state.ready_charges`).
+- **Scholar stratagems & BST Ready**: `check_stratagem(job_def, settings, ability_key, ability)` returns the next stratagem JA to fire, `nil` (cast the spell), or `false` (skip). "Hold for Stratagem" (`settings.stratagem_hold[<key>]`) controls the can't-fire case: when held it returns `false` (skip until ready); otherwise `nil` (cast without the stratagem). `prune_unavailable_stratagems(job_def, settings)` drops assigned stratagems above the current SCH level on job/level change (bails on a transient level-0 read), fixing a high-level SCH assignment sticking after a downgrade to a lower level or `???/SCH`. Both stratagems and BST **Ready** are charge systems on one shared recast timer, so a single `charges_from_recast(recast_id, max, rate)` helper converts the remaining-until-full timer into available charges for both (`state.stratagems`, `state.ready_charges`). A stratagem entry with `recast_gate = true` (DRK **Nether Void**, assigned to the `absorb` group via the UI's N button) has no charge pool: it's gated on its own JA recast being ready (and on the player still meeting its `level`, so a de-level can't spam an unusable JA); when unavailable the spell casts without it (same hold-off rule).
 - **Game state**: `refresh_game_state` – populates a shared table with party HP%, buffs, server IDs, pet info (including `pet_debuffs` and `ready_charges`), and alliance sub-party snapshots every tick
 - **Tracked target level resolution**: `handle_check_packet` – parses 0x0C9 check-response packet to store level and seed estimated max HP via `AVERAGE_HP_BY_LEVEL`
 - **Outside-target helpers**: `resolve_focus_target`, `find_alliance_member`, `outside_abilities`, `build_ability_command_for_target`
@@ -339,6 +345,7 @@ return {
         geo                = { ... },
         target_modifier    = { ... },
         revive             = { ... },  -- raise spells (WHM/SCH/RDM)
+        precast            = { ... },  -- JAs fired just before a paired spell (SCH stratagems, DRK Nether Void)
     },
 
     default_settings = { heal_enabled = true, heal_threshold = 75, ... },
@@ -359,6 +366,8 @@ return {
     cost            = 88,
     value           = 400,          -- HP restored (deficit selection)
     id              = 0,            -- Recast ID
+    ability_id      = 160,          -- JA only: raw abilities.sql id for merit-unlocked JAs
+                                    --   (has_spell_learned checks HasAbility(ability_id + 512))
     command         = function(idx) return '/ma "Cure IV" <p' .. idx .. '>' end,
     -- or: command = '/ja "Divine Seal" <me>',
     buff_id         = 43,           -- number or table of buff IDs to track
@@ -436,6 +445,8 @@ return {
 **Right-click context menu** (`render_combat_only_context_menu`): mutually-exclusive **Combat Only** / **Idle Only** toggles (checking one clears the other) plus, for grouped buffs, an **Ungroup** checkbox (`ungrouped_<group>`). Suppressed for statically `idle_only` and `<bt>` abilities. Popup ids are per-ability (not per-group) so an ungrouped group's per-tier rows don't collide.
 
 **Scholar stratagem button** (`render_scholar_stratagem_button`): Assign stratagems per spell, plus a **Hold for Stratagem** checkbox (`stratagem_hold[<key>]`). The alignment spacer is skipped for Geo-bt rows (no S-button column) and Bard song rows (the `[A]` button already indents them), preventing a double indent.
+
+**DRK Nether Void button** (`render_nether_void_button`): An **N** button in the Absorb group row's leading slot, drawn for DRK main at Nether Void's level; while the merit is not unlocked it renders disabled (grayed, click-locked, *"Not Learned"* tooltip), like an unlearned spell row. While the N column is on-screen (`nether_void_column_strat`), every other buff row draws one alignment spacer via `render_leading_slot` (single self rows reach it through `onoff_button`), following the same exactly-one-indent rule as the S/[A] columns (on e.g. DRK/SCH in Light Arts the N button or the scholar spacer fills the slot, never both). Nether Void is excluded from the Scholar S popup (`get_available_stratagems` skips `recast_gate` strats). Clicking opens a popup with **Enable** (`stratagem_settings['absorb']['Nether Void']` — the automation fires Nether Void before the selected Absorb) and **Hold for Nether Void** (`stratagem_hold['absorb']`, the same hold key Scholar uses — ON skips the Absorb until Nether Void is ready; OFF, the default, casts the Absorb without it when the JA is on cooldown). Lit when enabled.
 
 `is_song_config_key()` recognizes both grouped (group name) and ungrouped (ability name) song config keys so the per-member song limit counts them together. `is_persisted_target_key()` gates which party-buff keys persist to disk — numeric ME/P1-P5 (0-5) and the area key `'A'` persist; `al_`/`tt_` keys are session-only.
 

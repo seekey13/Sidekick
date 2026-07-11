@@ -55,12 +55,15 @@ end
 -- Render a right-click 'Combat Only' / 'Idle Only' toggle popup for an ability/group.
 -- Call immediately after the imgui item the popup should attach to.
 -- The two are mutually exclusive (checking one clears the other). Suppressed for
--- statically idle_only abilities (data-defined), where the gate isn't user-editable,
--- and for <bt> abilities, which are inherently combat-only.
+-- statically idle_only abilities (data-defined), where the gate isn't user-editable.
+-- <bt> abilities are inherently combat-only, so they hide the Combat/Idle Only
+-- toggles; grouped ones (DRK Absorbs) still get the Ungroup entry. Geo-bt is
+-- fully suppressed: geo.lua's luopan lifecycle only supports one selected spell.
 local function render_combat_only_context_menu(ctx, ability, scope)
     if not ability or not ctx or not ctx.settings then return end
     if ability.idle_only then return end
-    if common.ability_targets_bt(ability) then return end
+    local bt = common.ability_targets_bt(ability)
+    if bt and (not ability.group or ability.group == 'Geo-bt') then return end
     -- scope disambiguates the popup id when the same ability renders in two
     -- sections (e.g. Chakra in both Group Healing and Debuff Removal); without it
     -- both BeginPopupContextItem calls share an id and stack duplicate menus.
@@ -82,20 +85,22 @@ local function render_combat_only_context_menu(ctx, ability, scope)
         popup_id = '##cmenu_combat_only_' .. safe_name .. scope_suffix
     end
     if imgui.BeginPopupContextItem(popup_id) then
-        local combat_cur = { ctx.settings[combat_key] == true }
-        if imgui.Checkbox('Combat Only', combat_cur) then
-            ctx.settings[combat_key] = combat_cur[1] or nil
-            if combat_cur[1] then ctx.settings[idle_key] = nil end  -- mutually exclusive
-            if ctx.save_callback then ctx.save_callback() end
-        end
-        local idle_cur = { ctx.settings[idle_key] == true }
-        if imgui.Checkbox('Idle Only', idle_cur) then
-            ctx.settings[idle_key] = idle_cur[1] or nil
-            if idle_cur[1] then ctx.settings[combat_key] = nil end  -- mutually exclusive
-            if ctx.save_callback then ctx.save_callback() end
-        end
-        if imgui.IsItemHovered() then
-            imgui.SetTooltip('Only fire when out of combat (e.g. Boost on cooldown).')
+        if not bt then
+            local combat_cur = { ctx.settings[combat_key] == true }
+            if imgui.Checkbox('Combat Only', combat_cur) then
+                ctx.settings[combat_key] = combat_cur[1] or nil
+                if combat_cur[1] then ctx.settings[idle_key] = nil end  -- mutually exclusive
+                if ctx.save_callback then ctx.save_callback() end
+            end
+            local idle_cur = { ctx.settings[idle_key] == true }
+            if imgui.Checkbox('Idle Only', idle_cur) then
+                ctx.settings[idle_key] = idle_cur[1] or nil
+                if idle_cur[1] then ctx.settings[combat_key] = nil end  -- mutually exclusive
+                if ctx.save_callback then ctx.save_callback() end
+            end
+            if imgui.IsItemHovered() then
+                imgui.SetTooltip('Only fire when out of combat (e.g. Boost on cooldown).')
+            end
         end
         -- Ungroup: cast every tier in the group independently instead of only
         -- the selected tier. Off (grouped) by default; persisted per group.
@@ -605,11 +610,11 @@ local function get_stratagem_mp_modifier(ctx, ability_key)
     local ss = ctx and ctx.settings and ctx.settings.stratagem_settings
     if not ss or not ss[ability_key] then return 1.0 end
     local job_def = ctx.job_def
-    if not job_def or not job_def.abilities or not job_def.abilities.stratagem then return 1.0 end
+    if not job_def or not job_def.abilities or not job_def.abilities.precast then return 1.0 end
 
     local modifier = 1.0
     for strat_name, _ in pairs(ss[ability_key]) do
-        for _, strat in ipairs(job_def.abilities.stratagem) do
+        for _, strat in ipairs(job_def.abilities.precast) do
             if strat.name == strat_name and strat.mp_modifier then
                 modifier = modifier * strat.mp_modifier
             end
@@ -620,14 +625,16 @@ end
 
 -- Filter stratagems from job_def that apply to a given ability at the given level
 local function get_available_stratagems(job_def, sch_level, ability)
-    if not job_def or not job_def.abilities or not job_def.abilities.stratagem then
+    if not job_def or not job_def.abilities or not job_def.abilities.precast then
         return {}
     end
     local ability_magic      = ability and ability.magic
     local ability_magic_type = ability and ability.magic_type
     local available = {}
-    for _, strat in ipairs(job_def.abilities.stratagem) do
-        if strat.level and sch_level >= strat.level then
+    for _, strat in ipairs(job_def.abilities.precast) do
+        -- Recast-gated strats (DRK Nether Void) have their own N button; never
+        -- offer them in the Scholar S popup (e.g. on SCH main / DRK sub).
+        if not strat.recast_gate and strat.level and sch_level >= strat.level then
             -- Match stratagem magic colour to the ability
             local magic_ok = (not strat.magic) or (strat.magic == ability_magic)
             -- If stratagem restricts to specific magic_types, ability must match one
@@ -830,24 +837,158 @@ local function render_scholar_stratagem_button(ability_key, ability, ctx)
     return true, 0
 end
 
+-- Resolve the job's recast-gated stratagem (DRK Nether Void) if the player can
+-- use it: right level, never offered from a subjob when main_job_only. Level-
+-- gated the same way filter_abilities_by_level would be. Non-nil means the
+-- N-button column is on-screen, so every buff row needs its leading indent
+-- (the button itself renders disabled while unlearned, so learned state
+-- doesn't matter for alignment).
+local function nether_void_column_strat(ctx)
+    local job_def    = ctx and ctx.job_def
+    local strat_defs = job_def and job_def.abilities and job_def.abilities.precast
+    if not strat_defs then return nil end
+    local main_level, sub_level = common.get_player_level()
+    for _, s in ipairs(strat_defs) do
+        if s.recast_gate then
+            local from_sub = s.is_main_job == false
+            local level = from_sub and (sub_level or 0) or (main_level or 0)
+            if not (s.main_job_only and from_sub) and level >= (s.level or 0) then
+                return s
+            end
+            return nil
+        end
+    end
+    return nil
+end
+
+-- Render the DRK Nether Void button for the Absorb row: an [N] button opening
+-- a popup with Enable (fire Nether Void before the selected Absorb, via the
+-- stratagem machinery) and Hold for Nether Void (skip the Absorb until Nether
+-- Void is ready; off = cast the Absorb without it when it's on cooldown).
+-- Renders disabled (Not Learned) until the merit is unlocked. Lit when enabled.
+-- Returns true when it drew the button (fills the row's leading slot).
+local function render_nether_void_button(ability_key, ability, ctx)
+    if not (ability and ability.group == 'absorb') then return false end
+    local strat = nether_void_column_strat(ctx)
+    if not strat then return false end
+
+    -- Merit JA not unlocked yet: draw the button disabled (like an unlearned
+    -- spell row) -- grayed, click-locked, "Not Learned" tooltip. Any config
+    -- left from when the merit was owned is cleared here, since the disabled
+    -- button offers no popup to turn it off -- a stale Hold would otherwise
+    -- make check_stratagem skip Absorbs forever.
+    if not common.has_spell_learned(strat) then
+        local ss = get_stratagem_settings(ctx)
+        if ss and ss[ability_key] and ss[ability_key][strat.name] then
+            ss[ability_key][strat.name] = nil
+            if not next(ss[ability_key]) then
+                ss[ability_key] = nil
+                local hold_tbl = ctx.settings and ctx.settings.stratagem_hold
+                if hold_tbl then hold_tbl[ability_key] = nil end
+            end
+            if ctx.save_callback then ctx.save_callback() end
+        end
+        imgui.PushStyleColor(ImGuiCol_Button,        COLOR_BUTTON_DISABLED)
+        imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_DISABLED)
+        imgui.PushStyleColor(ImGuiCol_ButtonActive,  COLOR_BUTTON_DISABLED)
+        imgui.Button('N##nv_' .. ability_key, { 20, 0 })
+        imgui.PopStyleColor(3)
+        if imgui.IsItemHovered() then
+            imgui.SetTooltip(strat.name .. ' Not Learned')
+        end
+        imgui.SameLine(0, SPACE_BETWEEN_BUTTONS)
+        return true
+    end
+
+    local ss = get_stratagem_settings(ctx)
+    if not ss then return false end
+    local assigned = ss[ability_key] and ss[ability_key][strat.name] == true
+    local popup_id = '##nv_popup_' .. ability_key
+
+    -- Color: default (active) when enabled, gray when idle -- same as S button
+    if not assigned then
+        imgui.PushStyleColor(ImGuiCol_Button,        COLOR_BUTTON_UNSELECTED)
+        imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_UNSELECTED_HOVER)
+        imgui.PushStyleColor(ImGuiCol_ButtonActive,  COLOR_BUTTON_UNSELECTED_ACTIVE)
+    end
+
+    if imgui.Button('N##nv_' .. ability_key, { 20, 0 }) then
+        imgui.OpenPopup(popup_id)
+    end
+
+    if imgui.IsItemHovered() then
+        imgui.SetTooltip(strat.name .. ': fire ' .. strat.name .. ' before this Absorb spell\n' ..
+            'to boost its effect. Click to configure. Lit when enabled.')
+    end
+
+    if not assigned then
+        imgui.PopStyleColor(3)
+    end
+
+    if imgui.BeginPopup(popup_id) then
+        imgui.TextColored({ 0.8, 0.8, 0.8, 1.0 }, strat.name)
+        imgui.Separator()
+
+        local enable_val = { assigned }
+        if imgui.Checkbox('Enable##nv_enable_' .. ability_key, enable_val) then
+            if enable_val[1] then
+                ss[ability_key] = ss[ability_key] or {}
+                ss[ability_key][strat.name] = true
+            elseif ss[ability_key] then
+                ss[ability_key][strat.name] = nil
+                if not next(ss[ability_key]) then ss[ability_key] = nil end
+            end
+            if ctx.save_callback then ctx.save_callback() end
+        end
+        if imgui.IsItemHovered() then
+            imgui.SetTooltip('Fire ' .. strat.name .. ' before the selected Absorb spell.')
+        end
+
+        -- "Hold for ...": stored under the same stratagem_hold key
+        -- check_stratagem reads, so the automation side needs no new wiring.
+        imgui.Separator()
+        local hold_tbl = get_stratagem_hold(ctx)
+        if hold_tbl then
+            local hold_val = { hold_tbl[ability_key] == true }
+            if imgui.Checkbox('Hold for ' .. strat.name .. '##nv_hold_' .. ability_key, hold_val) then
+                hold_tbl[ability_key] = hold_val[1] or nil
+                if ctx.save_callback then ctx.save_callback() end
+            end
+            if imgui.IsItemHovered() then
+                imgui.SetTooltip('On: skip the Absorb until ' .. strat.name .. ' is ready.\n' ..
+                    'Off (default): cast the Absorb without ' .. strat.name .. ' when it is on cooldown.')
+            end
+        end
+
+        imgui.EndPopup()
+    end
+
+    imgui.SameLine(0, SPACE_BETWEEN_BUTTONS)
+    return true
+end
+
 -- Draw a row's leading slot: the [A] button (bard, drawn later by
--- render_party_buttons), the S button (scholar), or a spacer so the row aligns
--- under whichever column is on-screen. Exactly ONE indent per row -- if scholar
--- already drew its S button/spacer we don't add a bard spacer, so BRD/SCH gets a
--- single indent, not two.
+-- render_party_buttons), the S button (scholar), the N button (DRK Nether
+-- Void on Absorb rows), or a spacer so the row aligns under whichever column
+-- is on-screen. Exactly ONE indent per row -- if scholar already drew its S
+-- button/spacer we don't add a bard spacer, so BRD/SCH gets a single indent,
+-- not two.
 local function render_leading_slot(ability_key, ability, ctx)
     -- Song rows: render_party_buttons draws the [A] button in this slot.
     if ability and ability.magic == 'song' then return end
+
+    -- DRK Nether Void N button on the Absorb group row.
+    if render_nether_void_button(ability_key, ability, ctx) then return end
 
     -- Scholar's S button (or its own alignment spacer) fills the slot when active
     -- (i.e. in Light/Dark Arts). Returns true when it drew something.
     if render_scholar_stratagem_button(ability_key, ability, ctx) then return end
 
-    -- Nothing drawn. If this job carries song magic the buff UI shows the bard [A]
-    -- area column, so non-song rows still need the indent. Geo-bt debuffs sit in
-    -- their own section with no [A] column -- skip those.
+    -- Nothing drawn. If this job carries song magic (bard [A] column) or the
+    -- Nether Void N column, other rows still need the indent to stay aligned.
+    -- Geo-bt debuffs sit in their own section with no such column -- skip those.
     local has_songs = ctx and ctx.job_def and ctx.job_def.has_songs
-    if has_songs and not (ability and ability.group == 'Geo-bt') then
+    if (has_songs or nether_void_column_strat(ctx)) and not (ability and ability.group == 'Geo-bt') then
         imgui.Dummy({ 20, 0 })
         imgui.SameLine(0, SPACE_BETWEEN_BUTTONS)
     end

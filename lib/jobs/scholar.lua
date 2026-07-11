@@ -700,8 +700,8 @@ return {
             },
         },
 
-        -- Stratagem
-        stratagem = {
+        -- Stratagems: JAs fired just before their paired spell (precast slot)
+        precast = {
             {
                 name = 'Perpetuance (+Duration)', -- Increases the enhancement effect duration
                 level = 75,

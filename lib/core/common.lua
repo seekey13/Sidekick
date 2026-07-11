@@ -1832,14 +1832,25 @@ end
     DRY Helper Functions for Action Modules
 ]]--
 
--- Check if a spell ability has been learned by the player.
--- For non-spell abilities (job abilities, items), always returns true.
--- Args:   ability (table) - Ability definition with command and optional id fields
+-- Check if a spell or job ability has been learned by the player.
+-- Spells (/ma) check HasSpell(id). Job abilities check HasAbility only when the
+-- definition carries an ability_id (the raw abilities.sql id; +512 converts to
+-- the client's JA resource id) -- set it on merit-unlocked JAs like Diabolic
+-- Eye so automation skips them until merited. JAs without ability_id (and
+-- items) are always treated as known.
+-- Args:   ability (table) - Ability definition with command and optional id/ability_id fields
 -- Returns: boolean (true if the ability can be used / spell is known)
 function common.has_spell_learned(ability)
     if not ability then return false end
     local cmd = type(ability.command) == 'function' and ability.command(0) or ability.command
-    if not cmd or not cmd:match('^/ma%s') then return true end    -- not a spell
+    if not cmd or not cmd:match('^/ma%s') then
+        if not ability.ability_id then return true end            -- JA/item, no id to check
+        local ok, known = pcall(function()
+            return AshitaCore:GetMemoryManager():GetPlayer():HasAbility(ability.ability_id + 512)
+        end)
+        if not ok then return true end  -- assume known on error
+        return known
+    end
     if not ability.id then return true end                        -- no id to check
     local ok, known = pcall(function()
         return AshitaCore:GetMemoryManager():GetPlayer():HasSpell(ability.id)
@@ -1898,6 +1909,7 @@ function common.filter_abilities_by_level(abilities, settings, main_level, sub_l
         end
         
         if is_disabled then
+        elseif not common.has_spell_learned(ability) then
         elseif ability.requires_pet and not targets.get_pet() then
         elseif ability.requires_equipped_ammo and not common.is_ammo_equipped(ability.requires_equipped_ammo) then
         elseif ability.requires_item and not common.find_equippable_item(ability.requires_item) then
@@ -2063,7 +2075,7 @@ end
 -- Args:
 --   ability  (table)  – ability definition with .name, .cost, and optionally .group
 --   settings (table)  – addon settings (contains stratagem_settings)
---   job_def  (table)  – job definition (contains abilities.stratagem list)
+--   job_def  (table)  – job definition (contains abilities.precast list)
 -- Returns: number (modified cost, or base ability.cost if no stratagems apply)
 function common.effective_ability_cost(ability, settings, job_def)
     if not ability or not ability.cost then return 0 end
@@ -2076,7 +2088,7 @@ function common.effective_ability_cost(ability, settings, job_def)
     end
     if not ss then return ability.cost end
 
-    local strat_defs = job_def and job_def.abilities and job_def.abilities.stratagem
+    local strat_defs = job_def and job_def.abilities and job_def.abilities.precast
     if not strat_defs then return ability.cost end
 
     -- Modifiers are multiplicative (e.g. Accession 3.0x * Penury 0.5x = 1.5x).
@@ -2092,8 +2104,9 @@ function common.effective_ability_cost(ability, settings, job_def)
     return math.floor(ability.cost * modifier)
 end
 
--- Check if scholar stratagems need to fire before casting a spell.
--- Each automation tick, this returns the NEXT action to take:
+-- Check if stratagem-style JAs need to fire before casting a spell (Scholar
+-- stratagems, DRK Nether Void). Each automation tick, this returns the NEXT
+-- action to take:
 --   nil                    → no stratagems assigned OR all strat buffs active → cast the spell
 --   {command, description} → fire this stratagem JA this tick; caller returns it, re-checks next tick
 --   false                  → stratagems assigned, "Hold for Stratagem" ON, but the strat
@@ -2102,7 +2115,7 @@ end
 -- Checks both ability_key (ability.name) and the optional group key (ability.group)
 -- since the UI stores assignments under the group name for grouped buffs.
 -- Args:
---   job_def     (table)  – job definition (contains abilities.stratagem list)
+--   job_def     (table)  – job definition (contains abilities.precast list)
 --   settings    (table)  – addon settings (contains stratagem_settings)
 --   ability_key (string) – primary lookup key (typically ability.name)
 --   ability     (table)  – optional ability table; when provided, ability.group is used as fallback key
@@ -2118,7 +2131,7 @@ function common.check_stratagem(job_def, settings, ability_key, ability)
     end
     if not ss then return nil end
 
-    local strat_defs = job_def and job_def.abilities and job_def.abilities.stratagem
+    local strat_defs = job_def and job_def.abilities and job_def.abilities.precast
     if not strat_defs then return nil end
 
     -- "Hold for Stratagem": when enabled, skip the spell until the stratagem
@@ -2153,15 +2166,31 @@ function common.check_stratagem(job_def, settings, ability_key, ability)
     -- All strat buffs active → ready to cast the spell
     if #missing == 0 then return nil end
 
-    -- Need one charge per missing stratagem buff
+    -- Need one charge per missing stratagem buff. Recast-gated strats have no
+    -- charge pool (their own JA timer is checked below) and never mix with
+    -- charge strats in one assignment: the SCH popup excludes them and the N
+    -- button assigns only them, so checking missing[1] covers the whole list.
     local state = common.game_state
     local charges = state and state.stratagems or 0
-    if charges < #missing then
+    if not missing[1].recast_gate and charges < #missing then
         return unavailable
     end
 
     -- Fire the first missing stratagem
     local strat = missing[1]
+
+    -- Recast-gated strat: main-job JA with no charge pool. Gate on the player
+    -- actually knowing it (merit-unlocked; a de-level below its level would
+    -- likewise spam a JA that always fails) and on its own recast being ready
+    -- (action_core's shared JA gate; lazy require -- action_core requires common).
+    if strat.recast_gate then
+        local main_level = common.get_player_level()
+        if (strat.level and main_level < strat.level)
+            or not common.has_spell_learned(strat)
+            or not require('lib.core.action_core').is_ability_ready(strat.id) then
+            return unavailable
+        end
+    end
 
     -- Verify arts-stance prerequisite (requires_buff may be a number or table)
     if strat.requires_buff then
@@ -2192,49 +2221,54 @@ function common.check_stratagem(job_def, settings, ability_key, ability)
     -- ability fires immediately without being pre-empted by higher-priority actions)
     return {
         command = strat.command,
-        description = string.format('Using stratagem: %s', strat.name),
+        description = string.format('Using %s', strat.name),
         is_stratagem = true,
     }
 end
 
 -- Remove assigned stratagems the player can no longer use. A stratagem configured
--- on a high-level SCH stays in stratagem_settings after switching to a lower level
--- or SCH subjob; without this, automation would keep trying to fire a JA the player
--- doesn't know. Called on job/level change. Returns true if anything was pruned.
+-- on a high-level SCH (or a level-75 DRK's Nether Void) stays in stratagem_settings
+-- after dropping to a lower level or to a subjob; without this, automation would
+-- keep trying to fire a JA the player doesn't know -- or, with Hold on, keep
+-- skipping the paired spell for it. Called on job/level change. Returns true if
+-- anything was pruned.
 function common.prune_unavailable_stratagems(job_def, settings)
     if not settings or not settings.stratagem_settings then return false end
-    local strat_defs = job_def and job_def.abilities and job_def.abilities.stratagem
+    local strat_defs = job_def and job_def.abilities and job_def.abilities.precast
     if not strat_defs then return false end
 
-    -- Resolve SCH level from main or sub job (SCH = job ID 20)
-    local main_job_id, sub_job_id = common.get_player_job()
-    local main_level, sub_level   = common.get_player_level()
-    local sch_level = 0
-    if main_job_id == 20 then
-        sch_level = main_level
-    elseif sub_job_id == 20 then
-        sch_level = sub_level
-    end
+    local main_level, sub_level = common.get_player_level()
 
-    -- Bail on a transient 0 read (e.g. zoning) so we never wipe config wrongly
-    if sch_level <= 0 then return false end
-
-    -- name -> required level lookup
-    local strat_level = {}
+    -- name -> true for strats unusable at this job/level. Level source follows
+    -- the merge's is_main_job flag (SCH-sub strats check sub level, etc.).
+    -- A transient 0 level read (e.g. zoning) marks nothing unusable, so config
+    -- is never wiped wrongly.
+    local unusable = {}
     for _, strat in ipairs(strat_defs) do
-        strat_level[strat.name] = strat.level or 0
+        local from_sub = strat.is_main_job == false
+        local level = from_sub and (sub_level or 0) or (main_level or 0)
+        if level > 0 then
+            if (strat.main_job_only and from_sub) or level < (strat.level or 0) then
+                unusable[strat.name] = true
+            end
+        end
     end
 
     local changed = false
     for ability_key, assigned in pairs(settings.stratagem_settings) do
         for strat_name in pairs(assigned) do
-            if (strat_level[strat_name] or 0) > sch_level then
+            if unusable[strat_name] then
                 assigned[strat_name] = nil
                 changed = true
             end
         end
         if not next(assigned) then
             settings.stratagem_settings[ability_key] = nil
+            -- Hold is only meaningful with an assignment; drop it too so it
+            -- can't silently re-apply if the strat is reassigned later.
+            if settings.stratagem_hold then
+                settings.stratagem_hold[ability_key] = nil
+            end
         end
     end
     return changed

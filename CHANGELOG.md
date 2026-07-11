@@ -5,12 +5,20 @@ All notable changes to Medic will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.3.0] - 2026-07-09
+## [2.3.0] - 2026-07-10
 
-Adds **Chakra** to Monk: a self-cure that recovers HP and clears its own Poison / Blindness.
+Adds **Chakra** to Monk (a self-cure that recovers HP and clears its own Poison / Blindness) and three new self-support jobs: **Warrior**, **Dark Knight**, and **Ranger**.
 
 ### Added
 - **Monk Chakra**: New self-only Chakra automation (recast id 15, level 35). Wired as both a `heal` action (self HP recovery, priority above buffs) and a `debuff_removal` action that strips **Poison** (3) and **Blindness** (5) from the Monk. Enabled by default (`heal_enabled` / `debuff_removal_enabled`).
+- **Warrior (WAR) support**: Self-only automation. Self-buffs **Berserk**, **Defender**, **Warcry**, **Blood Rage**, **Aggressor**, **Retaliation**, and **Warrior's Charge** — all independent checkboxes. Note that Berserk/Defender cancel each other and Warcry/Blood Rage remove each other's effect, so only one of each pair should be enabled at a time.
+- **Dark Knight (DRK) support**: Self-only automation. Self-buffs via job abilities (**Arcane Circle**, **Last Resort**, **Souleater**, **Consume Mana**, **Diabolic Eye**, **Scarlet Delirium**) and dark magic (**Dread Spikes**), plus the ten **Absorb** spells (Absorb-Attri/ACC/TP/STR/DEX/INT/AGI/VIT/CHR/MND) cast on the battle target — grouped as `absorb` (single spell selectable via dropdown) and automatically combat-only (`<bt>`). Attribute absorbs track the caster's boost effect so they aren't recast while the boost holds; Absorb-Attri (steals a random buff) and Absorb-TP (instant drain) leave no fixed effect and fire whenever their recast is up.
+- **DRK Nether Void (N button)**: Nether Void (level 75 on CatsEyeXI, recast id 91, DRK main only) augments the next Absorb spell, stratagem-style. An **N** button in the Absorb row's leading slot (next to the ON/OFF button) opens a popup with **Enable** — automation fires Nether Void the tick before the selected Absorb (same follow-up lock as Scholar stratagems) — and **Hold for Nether Void** — ON skips the Absorb until Nether Void is ready; OFF (default) casts the Absorb without it when Nether Void is on cooldown. Backed by a new `recast_gate` stratagem field in `check_stratagem`: unlike Scholar's charge pool, a recast-gated stratagem is checked against its own JA recast timer (plus a level guard so a de-level can't loop an unusable JA); the hold checkbox reuses the existing `stratagem_hold` machinery. While the N column is on-screen, every other buff row draws one alignment spacer (same exactly-one-indent rule as the Scholar S / Bard `[A]` columns — on DRK/SCH in Light Arts a row gets the N button or the scholar element, never both), and Nether Void never appears in the Scholar S popup.
+- **Ranger (RNG) support**: Self-only automation. Self-buffs **Sharpshot**, **Scavenge**, **Velocity Shot** (RNG-main only), **Unlimited Shot**, **Flashy Shot**, and **Stealth Shot**, plus **Bounty Shot** on the battle target (automatically combat-only). Scavenge and Bounty Shot leave no effect on the player, so they fire whenever their recast is up.
+
+### Fixed
+- **Merit job abilities no longer fire before they're unlocked**: Automation used to attempt merit-unlocked JAs (e.g. DRK **Diabolic Eye**) the player hadn't bought yet, producing a command error every recast. Merit JAs now carry an `ability_id` (the raw abilities.sql id); `has_spell_learned` checks it via Ashita's `HasAbility(ability_id + 512)` the same way spells use `HasSpell`, the UI grays the row with the *Not Learned* tooltip (the Nether Void **N** button renders disabled the same way), and `check_stratagem` gates Nether Void itself. Tagged: Diabolic Eye, Scarlet Delirium, Nether Void (DRK); Warrior's Charge, Blood Rage (WAR); Flashy Shot, Stealth Shot (RNG); Sange (NIN); Saber Dance, Fan Dance, No Foot Rise, Presto (DNC); Martyr, Devotion (WHM).
+- **Unlearned spells no longer attempted by automation**: `filter_abilities_by_level` now drops any ability `has_spell_learned` rejects. Previously only the UI and the Geo module checked it, so automation could try casting a spell whose scroll was never learned (same command-error loop as the merit JAs).
 
 ## [2.2.0] - 2026-07-06
 
