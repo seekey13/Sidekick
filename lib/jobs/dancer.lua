@@ -26,7 +26,7 @@ return {
                 end,
                 wakes = true,
                 value = 300,
-                blocked_by = 410,  -- Saber Dance
+                buff_id = 410,  -- Saber Dance
             },
             {
                 name = 'Curing Waltz II',
@@ -38,7 +38,7 @@ return {
                 end,
                 wakes = true,
                 value = 140,
-                blocked_by = 410,  -- Saber Dance
+                buff_id = 410,  -- Saber Dance
             },
             {
                 name = 'Curing Waltz',
@@ -50,7 +50,7 @@ return {
                 end,
                 wakes = true,
                 value = 70,
-                blocked_by = 410,  -- Saber Dance
+                buff_id = 410,  -- Saber Dance
             },
         },
         
@@ -63,7 +63,7 @@ return {
                 id = 102,
                 command = '/ja "Divine Waltz II" <me>',
                 wakes = true,
-                blocked_by = 410,  -- Saber Dance
+                buff_id = 410,  -- Saber Dance
             },
             {
                 name = 'Divine Waltz',
@@ -72,7 +72,7 @@ return {
                 id = 225,
                 command = '/ja "Divine Waltz" <me>',
                 wakes = true,
-                blocked_by = 410,  -- Saber Dance
+                buff_id = 410,  -- Saber Dance
             },
         },
         
@@ -87,6 +87,7 @@ return {
                 command = function(target)
                     return '/ja "Healing Waltz" '..target
                 end,
+                buff_id = 410,  -- Saber Dance
             },
         },
         
@@ -136,7 +137,7 @@ return {
                 cost = 400,
                 id = 216,
                 command = '/ja "Drain Samba III" <me>',
-                buff_id = 368,
+                buff_id = {368, 411},  -- 368 Drain Samba, 411 Fan Dance
                 group = 'samba',
                 blocked_by = 411,  -- Fan Dance
             },
@@ -146,9 +147,8 @@ return {
                 cost = 250,
                 id = 216,
                 command = '/ja "Drain Samba II" <me>',
-                buff_id = 368,
+                buff_id = {368,411},  -- 368 Drain Samba, 411 Fan Dance
                 group = 'samba',
-                blocked_by = 411,  -- Fan Dance
             },
             {
                 name = 'Drain Samba',
@@ -156,9 +156,8 @@ return {
                 cost = 100,
                 id = 216,
                 command = '/ja "Drain Samba" <me>',
-                buff_id = 368,
+                buff_id = {368, 411},  -- 368 Drain Samba, 411 Fan Dance
                 group = 'samba',
-                blocked_by = 411,  -- Fan Dance
             },
             {
                 name = 'Aspir Samba II',
@@ -166,9 +165,8 @@ return {
                 cost = 250,
                 id = 216,
                 command = '/ja "Aspir Samba II" <me>',
-                buff_id = 369,
+                buff_id = {369, 411},  -- 369 Aspir Samba, 411 Fan Dance
                 group = 'samba',
-                blocked_by = 411,  -- Fan Dance
             },
             {
                 name = 'Aspir Samba',
@@ -176,9 +174,8 @@ return {
                 cost = 100,
                 id = 216,
                 command = '/ja "Aspir Samba" <me>',
-                buff_id = 369,
+                buff_id = {369, 411},  -- 369 Aspir Samba, 411 Fan Dance
                 group = 'samba',
-                blocked_by = 411,  -- Fan Dance
             },
             {
                 name = 'Haste Samba',
@@ -186,9 +183,8 @@ return {
                 cost = 350,
                 id = 216,
                 command = '/ja "Haste Samba" <me>',
-                buff_id = 370,
+                buff_id = {370, 411},  -- 370 Haste Samba, 411 Fan Dance
                 group = 'samba',
-                blocked_by = 411,  -- Fan Dance
             },
             {
                 name = 'Spectral Jig',
