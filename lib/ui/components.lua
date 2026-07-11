@@ -1518,6 +1518,10 @@ function ui_components.self_single_ability(ctx, ability, job_def, id_suffix)
     local no_item = ability.requires_item
         and common.count_equippable_items(ability.requires_item) == 0
     local wrong_pet = pet_type_unmet(ability)
+    -- Blue magic not in the set-spell list: gray the row but keep it
+    -- selectable -- equipping the spell is up to the user, automation just
+    -- skips it (filter_abilities_by_level) until it's set.
+    local blue_unequipped = common.is_blue_magic_unequipped(ability)
     local spell_suffix = ''
     local ability_combat_only = effective_combat_only(ability, ctx)
     local ability_idle_only = common.is_ability_idle_only(ability, ctx.settings)
@@ -1527,7 +1531,7 @@ function ui_components.self_single_ability(ctx, ability, job_def, id_suffix)
     imgui.SameLine()
 
     -- Push text color after buttons so S button / ON/OFF button are not tinted
-    if not has_spell or no_ammo or no_item or wrong_pet then
+    if not has_spell or no_ammo or no_item or wrong_pet or blue_unequipped then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
     elseif ability_combat_only then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_YELLOW)
@@ -1550,6 +1554,8 @@ function ui_components.self_single_ability(ctx, ability, job_def, id_suffix)
     if imgui.IsItemHovered() then
         if not has_spell then
             imgui.SetTooltip('Not Learned')
+        elseif blue_unequipped then
+            imgui.SetTooltip('Blue Magic not currently equipped')
         elseif no_ammo then
             imgui.SetTooltip('No ' .. (ability.ammo_label or 'item') .. ' found in storage.')
         elseif no_item then
@@ -1563,7 +1569,7 @@ function ui_components.self_single_ability(ctx, ability, job_def, id_suffix)
         end
     end
 
-    if not has_spell or no_ammo or no_item or wrong_pet or ability_combat_only or ability_idle_only then
+    if not has_spell or no_ammo or no_item or wrong_pet or blue_unequipped or ability_combat_only or ability_idle_only then
         imgui.PopStyleColor()
     end
 
@@ -1939,6 +1945,10 @@ function ui_components.ability_checkbox(ctx, ability, job_def, id_suffix, show_s
     local no_ammo = ability.requires_equipped_ammo
         and common.count_equippable_items(ability.requires_equipped_ammo) == 0
     local wrong_pet = pet_type_unmet(ability)
+    -- Blue magic not in the set-spell list: gray the row but keep it
+    -- selectable -- equipping the spell is up to the user, automation just
+    -- skips it (filter_abilities_by_level) until it's set.
+    local blue_unequipped = common.is_blue_magic_unequipped(ability)
     local spell_suffix = ''
     if not has_spell then
         ctx.settings['disabled_' .. ability.name:gsub(' ', '_')] = true
@@ -1960,7 +1970,7 @@ function ui_components.ability_checkbox(ctx, ability, job_def, id_suffix, show_s
     
     local ability_combat_only = effective_combat_only(ability, ctx)
     local ability_idle_only = common.is_ability_idle_only(ability, ctx.settings)
-    if not has_spell or no_ammo or wrong_pet then
+    if not has_spell or no_ammo or wrong_pet or blue_unequipped then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
     elseif ability_combat_only then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_YELLOW)
@@ -1981,6 +1991,8 @@ function ui_components.ability_checkbox(ctx, ability, job_def, id_suffix, show_s
     if imgui.IsItemHovered() then
         if not has_spell then
             imgui.SetTooltip('Not Learned')
+        elseif blue_unequipped then
+            imgui.SetTooltip('Blue Magic not currently equipped')
         elseif no_ammo then
             imgui.SetTooltip('No ' .. (ability.ammo_label or 'item') .. ' found in storage.')
         elseif wrong_pet then
@@ -1994,7 +2006,7 @@ function ui_components.ability_checkbox(ctx, ability, job_def, id_suffix, show_s
         end
     end
 
-    if not has_spell or no_ammo or wrong_pet or ability_combat_only or ability_idle_only then
+    if not has_spell or no_ammo or wrong_pet or blue_unequipped or ability_combat_only or ability_idle_only then
         imgui.PopStyleColor()
     end
 end

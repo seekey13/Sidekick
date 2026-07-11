@@ -1859,6 +1859,73 @@ function common.has_spell_learned(ability)
     return known
 end
 
+-- ============================================================================
+-- Blue Magic Set-Spell Tracking
+-- ============================================================================
+
+-- BLU spells only work while equipped in the set-spell list. The client keeps
+-- that list in memory (the same signature-scanned buffer the blusets addon
+-- reads); slot values are (spell_id - 512), 0 = empty. Medic only READS the
+-- list -- equipping spells is left to the user / blusets.
+local BLU_SET_SIG    = 'C1E1032BC8B0018D????????????B9????????F3A55F5E5B'
+local blu_set_offset = false  -- false = not scanned yet, nil = scan failed
+local blu_set_cache  = { at = nil, ids = nil }
+
+-- Set of equipped blue magic spell ids ({ [549] = true, ... }), or nil when
+-- the buffer can't be read (signature scan failed, zoning). Reads are cached
+-- for 0.5s since both the UI and every automation tick call this.
+function common.get_equipped_blue_spells()
+    local now = os.clock()
+    if blu_set_cache.at and (now - blu_set_cache.at) < 0.5 then
+        return blu_set_cache.ids
+    end
+    blu_set_cache.at  = now
+    blu_set_cache.ids = nil
+
+    if blu_set_offset == false then
+        local addr = ashita.memory.find('FFXiMain.dll', 0, BLU_SET_SIG, 10, 0)
+        if addr and addr ~= 0 then
+            -- The scanned dword is a static offset; keep the value, not the pointer.
+            blu_set_offset = require('ffi').cast('uint32_t*', addr)[0]
+        else
+            blu_set_offset = nil
+            common.warnf('Blue magic set-spell signature not found; equipped-spell gating disabled.')
+        end
+    end
+    if not blu_set_offset then return nil end
+
+    local ok, ids = pcall(function()
+        local ptr = ashita.memory.read_uint32(AshitaCore:GetPointerManager():Get('inventory'))
+        if ptr == 0 then return nil end
+        ptr = ashita.memory.read_uint32(ptr)
+        if ptr == 0 then return nil end
+        local main_blu = AshitaCore:GetMemoryManager():GetPlayer():GetMainJob() == 16
+        local slots = ashita.memory.read_array(ptr + blu_set_offset + (main_blu and 0x04 or 0xA0), 0x14)
+        local set = {}
+        for _, v in ipairs(slots) do
+            if v and v > 0 then set[v + 512] = true end
+        end
+        return set
+    end)
+    if ok then blu_set_cache.ids = ids end
+    return blu_set_cache.ids
+end
+
+-- True when `ability` is a blue magic SPELL that is not in the equipped
+-- set-spell list, so automation must skip it (the UI still shows the row,
+-- grayed, and leaves it selectable). JAs carrying magic = 'blue' (Diffusion,
+-- Unbridled Learning) aren't set spells, so only /ma commands are checked.
+-- Fails open: when the list can't be read this returns false, so a failed
+-- signature scan can't silently disable all BLU automation.
+function common.is_blue_magic_unequipped(ability)
+    if not ability or ability.magic ~= 'blue' or not ability.id then return false end
+    local cmd = type(ability.command) == 'function' and ability.command(0) or ability.command
+    if not cmd or not cmd:match('^/ma%s') then return false end
+    local set = common.get_equipped_blue_spells()
+    if not set then return false end
+    return not set[ability.id]
+end
+
 -- Filter abilities by level, disabled status, and pet requirements
 -- Args:
 --   abilities (table) - List of abilities to filter
@@ -1910,6 +1977,7 @@ function common.filter_abilities_by_level(abilities, settings, main_level, sub_l
         
         if is_disabled then
         elseif not common.has_spell_learned(ability) then
+        elseif common.is_blue_magic_unequipped(ability) then
         elseif ability.requires_pet and not targets.get_pet() then
         elseif ability.requires_equipped_ammo and not common.is_ammo_equipped(ability.requires_equipped_ammo) then
         elseif ability.requires_item and not common.find_equippable_item(ability.requires_item) then

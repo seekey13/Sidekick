@@ -233,6 +233,7 @@ Currently implemented support jobs:
   - Self-buffs with blue magic (Cocoon, Metallic Body, Refueling, Feather Barrier, Memento Mori, Zephyr Mantle, Warm-Up, Amplification, Saline Coat, Reactor Cool, Plasma Charge)
   - **Unbridled Learning** spells (level 75: Battery Charge, Animating Wail, Magic Barrier, Occultation, Orcish Counterstance, Barrier Tusk, Harden Shell, Pyric Bulwark, Carcharian Verve) — the Unbridled Learning JA is popped automatically right before the spell, and the spell is held while the JA is on cooldown
   - **Diffusion** (level 75 merit, BLU main): a **D** button on every blue buff row opens a popup — **Enable** fires Diffusion before the buff to spread it to the whole party; **Hold for Diffusion** skips the buff until Diffusion is ready (off by default: the buff still casts self-only when Diffusion is on cooldown)
+  - **Set-spell awareness**: blue magic that isn't currently equipped in your set-spell list is grayed out (*"Blue Magic not currently equipped"*) and skipped by automation — it stays selectable, and Medic never equips spells for you (use the blusets addon or the in-game menu)
 
 - **Dancer** (DNC)
   - Critical HP abilities (Contradance)
