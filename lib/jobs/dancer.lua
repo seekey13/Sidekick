@@ -26,7 +26,7 @@ return {
                 end,
                 wakes = true,
                 value = 300,
-                buff_id = 410,  -- Saber Dance
+                blocked_by = 410,  -- Saber Dance blocks Waltzes
             },
             {
                 name = 'Curing Waltz II',
@@ -38,7 +38,7 @@ return {
                 end,
                 wakes = true,
                 value = 140,
-                buff_id = 410,  -- Saber Dance
+                blocked_by = 410,  -- Saber Dance blocks Waltzes
             },
             {
                 name = 'Curing Waltz',
@@ -50,7 +50,7 @@ return {
                 end,
                 wakes = true,
                 value = 70,
-                buff_id = 410,  -- Saber Dance
+                blocked_by = 410,  -- Saber Dance blocks Waltzes
             },
         },
         
@@ -63,7 +63,7 @@ return {
                 id = 102,
                 command = '/ja "Divine Waltz II" <me>',
                 wakes = true,
-                buff_id = 410,  -- Saber Dance
+                blocked_by = 410,  -- Saber Dance blocks Waltzes
             },
             {
                 name = 'Divine Waltz',
@@ -72,7 +72,7 @@ return {
                 id = 225,
                 command = '/ja "Divine Waltz" <me>',
                 wakes = true,
-                buff_id = 410,  -- Saber Dance
+                blocked_by = 410,  -- Saber Dance blocks Waltzes
             },
         },
         
@@ -87,7 +87,7 @@ return {
                 command = function(target)
                     return '/ja "Healing Waltz" '..target
                 end,
-                buff_id = 410,  -- Saber Dance
+                blocked_by = 410,  -- Saber Dance blocks Waltzes
             },
         },
         
@@ -137,9 +137,9 @@ return {
                 cost = 400,
                 id = 216,
                 command = '/ja "Drain Samba III" <me>',
-                buff_id = {368, 411},  -- 368 Drain Samba, 411 Fan Dance
+                buff_id = 368,  -- Drain Samba
+                blocked_by = 411,  -- Fan Dance blocks Sambas
                 group = 'samba',
-                blocked_by = 411,  -- Fan Dance
             },
             {
                 name = 'Drain Samba II',
@@ -147,7 +147,8 @@ return {
                 cost = 250,
                 id = 216,
                 command = '/ja "Drain Samba II" <me>',
-                buff_id = {368,411},  -- 368 Drain Samba, 411 Fan Dance
+                buff_id = 368,  -- Drain Samba
+                blocked_by = 411,  -- Fan Dance blocks Sambas
                 group = 'samba',
             },
             {
@@ -156,7 +157,8 @@ return {
                 cost = 100,
                 id = 216,
                 command = '/ja "Drain Samba" <me>',
-                buff_id = {368, 411},  -- 368 Drain Samba, 411 Fan Dance
+                buff_id = 368,  -- Drain Samba
+                blocked_by = 411,  -- Fan Dance blocks Sambas
                 group = 'samba',
             },
             {
@@ -165,7 +167,8 @@ return {
                 cost = 250,
                 id = 216,
                 command = '/ja "Aspir Samba II" <me>',
-                buff_id = {369, 411},  -- 369 Aspir Samba, 411 Fan Dance
+                buff_id = 369,  -- Aspir Samba
+                blocked_by = 411,  -- Fan Dance blocks Sambas
                 group = 'samba',
             },
             {
@@ -174,7 +177,8 @@ return {
                 cost = 100,
                 id = 216,
                 command = '/ja "Aspir Samba" <me>',
-                buff_id = {369, 411},  -- 369 Aspir Samba, 411 Fan Dance
+                buff_id = 369,  -- Aspir Samba
+                blocked_by = 411,  -- Fan Dance blocks Sambas
                 group = 'samba',
             },
             {
@@ -183,7 +187,8 @@ return {
                 cost = 350,
                 id = 216,
                 command = '/ja "Haste Samba" <me>',
-                buff_id = {370, 411},  -- 370 Haste Samba, 411 Fan Dance
+                buff_id = 370,  -- Haste Samba
+                blocked_by = 411,  -- Fan Dance blocks Sambas
                 group = 'samba',
             },
             {

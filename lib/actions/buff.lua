@@ -280,6 +280,11 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                 should_skip = true
             end
         end
+
+        -- Check if a self-buff blocks this ability (DNC Fan Dance blocks Sambas)
+        if not should_skip and action_core.is_self_blocked(ability, state.player.buffs) then
+            should_skip = true
+        end
         
         if not should_skip then
             -- Determine if this is a single-target buff (function command) or self-only buff (string command)

@@ -80,6 +80,8 @@ function status_removal.execute_debuff_removal(settings, job_def, main_level, su
     end
 
     local available_abilities = common.filter_abilities_by_level(removal_abilities, settings, derived_main_level, derived_sub_level, job_def)
+    -- Drop removers blocked by an active self-buff (DNC Saber Dance blocks Healing Waltz)
+    available_abilities = action_core.filter_self_buff_blocked(available_abilities, player.buffs)
     if #available_abilities == 0 then
         return nil
     end

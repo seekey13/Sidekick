@@ -119,6 +119,26 @@ function action_core.needs_buff(active_buffs, check_ids)
     return not action_core.has_any_buff(active_buffs, check_ids)
 end
 
+-- True when the player holds a buff that blocks this ability. `blocked_by` names
+-- the blocking buff id(s); distinct from buff_id (the buff the ability grants).
+-- DNC: Saber Dance (410) blocks Waltzes; Fan Dance (411) blocks Sambas.
+function action_core.is_self_blocked(ability, player_buffs)
+    return ability.blocked_by ~= nil and action_core.has_any_buff(player_buffs, ability.blocked_by)
+end
+
+-- Drop abilities the player currently can't use because a self-buff blocks them
+-- (see is_self_blocked). Abilities with no blocked_by pass through unchanged.
+function action_core.filter_self_buff_blocked(abilities, player_buffs)
+    if not player_buffs then return abilities end
+    local out = {}
+    for _, a in ipairs(abilities) do
+        if not action_core.is_self_blocked(a, player_buffs) then
+            table.insert(out, a)
+        end
+    end
+    return out
+end
+
 -- ============================================================================
 -- Ability Candidacy Helpers
 -- ============================================================================
