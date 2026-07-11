@@ -610,11 +610,11 @@ local function get_stratagem_mp_modifier(ctx, ability_key)
     local ss = ctx and ctx.settings and ctx.settings.stratagem_settings
     if not ss or not ss[ability_key] then return 1.0 end
     local job_def = ctx.job_def
-    if not job_def or not job_def.abilities or not job_def.abilities.stratagem then return 1.0 end
+    if not job_def or not job_def.abilities or not job_def.abilities.precast then return 1.0 end
 
     local modifier = 1.0
     for strat_name, _ in pairs(ss[ability_key]) do
-        for _, strat in ipairs(job_def.abilities.stratagem) do
+        for _, strat in ipairs(job_def.abilities.precast) do
             if strat.name == strat_name and strat.mp_modifier then
                 modifier = modifier * strat.mp_modifier
             end
@@ -625,13 +625,13 @@ end
 
 -- Filter stratagems from job_def that apply to a given ability at the given level
 local function get_available_stratagems(job_def, sch_level, ability)
-    if not job_def or not job_def.abilities or not job_def.abilities.stratagem then
+    if not job_def or not job_def.abilities or not job_def.abilities.precast then
         return {}
     end
     local ability_magic      = ability and ability.magic
     local ability_magic_type = ability and ability.magic_type
     local available = {}
-    for _, strat in ipairs(job_def.abilities.stratagem) do
+    for _, strat in ipairs(job_def.abilities.precast) do
         -- Recast-gated strats (DRK Nether Void) have their own N button; never
         -- offer them in the Scholar S popup (e.g. on SCH main / DRK sub).
         if not strat.recast_gate and strat.level and sch_level >= strat.level then
@@ -845,7 +845,7 @@ end
 -- doesn't matter for alignment).
 local function nether_void_column_strat(ctx)
     local job_def    = ctx and ctx.job_def
-    local strat_defs = job_def and job_def.abilities and job_def.abilities.stratagem
+    local strat_defs = job_def and job_def.abilities and job_def.abilities.precast
     if not strat_defs then return nil end
     local main_level, sub_level = common.get_player_level()
     for _, s in ipairs(strat_defs) do

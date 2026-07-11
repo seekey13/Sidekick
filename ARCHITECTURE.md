@@ -345,6 +345,7 @@ return {
         geo                = { ... },
         target_modifier    = { ... },
         revive             = { ... },  -- raise spells (WHM/SCH/RDM)
+        precast            = { ... },  -- JAs fired just before a paired spell (SCH stratagems, DRK Nether Void)
     },
 
     default_settings = { heal_enabled = true, heal_threshold = 75, ... },

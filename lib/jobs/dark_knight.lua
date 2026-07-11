@@ -180,12 +180,12 @@ return {
             },
         },
 
-        -- Nether Void (JA): augments the next Absorb spell, stratagem-style.
-        -- Assigned to the 'absorb' group via the N button on the Absorb row and
-        -- fired through check_stratagem. It has no charge pool like Scholar
-        -- stratagems, so recast_gate checks its own JA recast instead; when on
-        -- cooldown the Absorb still casts without it.
-        stratagem = {
+        -- Nether Void (JA): augments the next Absorb spell, fired just before
+        -- it like a Scholar stratagem. Assigned to the 'absorb' group via the
+        -- N button on the Absorb row and fired through check_stratagem. It has
+        -- no charge pool like Scholar stratagems, so recast_gate checks its own
+        -- JA recast instead; when on cooldown the Absorb still casts without it.
+        precast = {
             {
                 name = 'Nether Void',
                 level = 75,  -- 78 retail, 75 on CatsEyeXI

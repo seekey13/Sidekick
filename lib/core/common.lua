@@ -2075,7 +2075,7 @@ end
 -- Args:
 --   ability  (table)  – ability definition with .name, .cost, and optionally .group
 --   settings (table)  – addon settings (contains stratagem_settings)
---   job_def  (table)  – job definition (contains abilities.stratagem list)
+--   job_def  (table)  – job definition (contains abilities.precast list)
 -- Returns: number (modified cost, or base ability.cost if no stratagems apply)
 function common.effective_ability_cost(ability, settings, job_def)
     if not ability or not ability.cost then return 0 end
@@ -2088,7 +2088,7 @@ function common.effective_ability_cost(ability, settings, job_def)
     end
     if not ss then return ability.cost end
 
-    local strat_defs = job_def and job_def.abilities and job_def.abilities.stratagem
+    local strat_defs = job_def and job_def.abilities and job_def.abilities.precast
     if not strat_defs then return ability.cost end
 
     -- Modifiers are multiplicative (e.g. Accession 3.0x * Penury 0.5x = 1.5x).
@@ -2131,7 +2131,7 @@ end
 -- Checks both ability_key (ability.name) and the optional group key (ability.group)
 -- since the UI stores assignments under the group name for grouped buffs.
 -- Args:
---   job_def     (table)  – job definition (contains abilities.stratagem list)
+--   job_def     (table)  – job definition (contains abilities.precast list)
 --   settings    (table)  – addon settings (contains stratagem_settings)
 --   ability_key (string) – primary lookup key (typically ability.name)
 --   ability     (table)  – optional ability table; when provided, ability.group is used as fallback key
@@ -2147,7 +2147,7 @@ function common.check_stratagem(job_def, settings, ability_key, ability)
     end
     if not ss then return nil end
 
-    local strat_defs = job_def and job_def.abilities and job_def.abilities.stratagem
+    local strat_defs = job_def and job_def.abilities and job_def.abilities.precast
     if not strat_defs then return nil end
 
     -- "Hold for Stratagem": when enabled, skip the spell until the stratagem
@@ -2239,7 +2239,7 @@ function common.check_stratagem(job_def, settings, ability_key, ability)
     -- ability fires immediately without being pre-empted by higher-priority actions)
     return {
         command = strat.command,
-        description = string.format('Using stratagem: %s', strat.name),
+        description = string.format('Using %s', strat.name),
         is_stratagem = true,
     }
 end
@@ -2252,7 +2252,7 @@ end
 -- anything was pruned.
 function common.prune_unavailable_stratagems(job_def, settings)
     if not settings or not settings.stratagem_settings then return false end
-    local strat_defs = job_def and job_def.abilities and job_def.abilities.stratagem
+    local strat_defs = job_def and job_def.abilities and job_def.abilities.precast
     if not strat_defs then return false end
 
     local main_level, sub_level = common.get_player_level()
