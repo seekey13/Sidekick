@@ -2104,22 +2104,6 @@ function common.effective_ability_cost(ability, settings, job_def)
     return math.floor(ability.cost * modifier)
 end
 
--- True when the ability recast slot matching recast_id is ready (timer 0 or no
--- slot). Used by recast-gated stratagems (DRK Nether Void), which have no
--- charge pool -- their own JA timer is the availability check.
-local function ability_recast_ready(recast_id)
-    local recast_mgr = AshitaCore:GetMemoryManager():GetRecast()
-    if not recast_mgr then return false end
-    for slot = 0, 31 do
-        local ok_id, tid = pcall(function() return recast_mgr:GetAbilityTimerId(slot) end)
-        if ok_id and tid == recast_id then
-            local ok_t, t = pcall(function() return recast_mgr:GetAbilityTimer(slot) end)
-            return ok_t and t == 0
-        end
-    end
-    return true
-end
-
 -- Check if stratagem-style JAs need to fire before casting a spell (Scholar
 -- stratagems, DRK Nether Void). Each automation tick, this returns the NEXT
 -- action to take:
@@ -2182,16 +2166,13 @@ function common.check_stratagem(job_def, settings, ability_key, ability)
     -- All strat buffs active → ready to cast the spell
     if #missing == 0 then return nil end
 
-    -- Need one charge per missing charge-based stratagem buff. Recast-gated
-    -- strats (recast_gate) have no charge pool and are checked on their own
-    -- JA timer below.
-    local charge_missing = 0
-    for _, m in ipairs(missing) do
-        if not m.recast_gate then charge_missing = charge_missing + 1 end
-    end
+    -- Need one charge per missing stratagem buff. Recast-gated strats have no
+    -- charge pool (their own JA timer is checked below) and never mix with
+    -- charge strats in one assignment: the SCH popup excludes them and the N
+    -- button assigns only them, so checking missing[1] covers the whole list.
     local state = common.game_state
     local charges = state and state.stratagems or 0
-    if charges < charge_missing then
+    if not missing[1].recast_gate and charges < #missing then
         return unavailable
     end
 
@@ -2200,12 +2181,13 @@ function common.check_stratagem(job_def, settings, ability_key, ability)
 
     -- Recast-gated strat: main-job JA with no charge pool. Gate on the player
     -- actually knowing it (merit-unlocked; a de-level below its level would
-    -- likewise spam a JA that always fails) and on its own recast being ready.
+    -- likewise spam a JA that always fails) and on its own recast being ready
+    -- (action_core's shared JA gate; lazy require -- action_core requires common).
     if strat.recast_gate then
         local main_level = common.get_player_level()
         if (strat.level and main_level < strat.level)
             or not common.has_spell_learned(strat)
-            or not ability_recast_ready(strat.id) then
+            or not require('lib.core.action_core').is_ability_ready(strat.id) then
             return unavailable
         end
     end
