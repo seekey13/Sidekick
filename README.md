@@ -55,11 +55,12 @@ A focused, support-oriented addon for Ashita v4 that automates healing, buffing,
 
 ### [2.3.0] - 2026-07-10
 
-Adds **Chakra** to Monk (a self-cure that recovers HP and clears its own Poison / Blindness) and three new self-support jobs: **Warrior**, **Dark Knight**, and **Ranger**.
+Adds **Chakra** to Monk (a self-cure that recovers HP and clears its own Poison / Blindness), four new self-support jobs (**Warrior**, **Dark Knight**, **Ranger**, **Thief**), and full support for **Blue Mage**.
 
 ### Added
 - **Monk Chakra**: Monk now self-casts **Chakra** to recover HP and to remove its own **Poison** and **Blindness**. Wired as both a self-heal and a self debuff removal (see [Supported Jobs](#supported-jobs)).
-- **Warrior / Dark Knight / Ranger**: Three new self-support jobs (see [Supported Jobs](#supported-jobs)). Warrior self-buffs Berserk, Defender, Warcry, Blood Rage, Aggressor, Retaliation, and Warrior's Charge; Dark Knight self-buffs via job abilities and Dread Spikes plus the ten Absorb spells on the battle target; Ranger self-buffs Sharpshot, Scavenge, Velocity Shot, Unlimited Shot, Flashy/Stealth Shot plus Bounty Shot on the battle target.
+- **Warrior / Dark Knight / Ranger / Thief**: Four new self-support jobs (see [Supported Jobs](#supported-jobs)). Warrior self-buffs Berserk, Defender, Warcry, Blood Rage, Aggressor, Retaliation, and Warrior's Charge; Dark Knight self-buffs via job abilities and Dread Spikes plus the ten Absorb spells on the battle target; Ranger self-buffs Sharpshot, Scavenge, Velocity Shot, Unlimited Shot, Flashy/Stealth Shot plus Bounty Shot on the battle target; Thief self-buffs Conspirator, Assassin's Charge, and Feint (combat-only).
+- **Blue Mage**: Full mage support (see [Supported Jobs](#supported-jobs)). Blue-magic healing (Pollen self, Wild Carrot / Magic Fruit party), AOE healing (Healing Breeze), and self-buffs; the **Unbridled Learning** JA is popped automatically right before its level-75 spells, and a **Diffusion** (D) button spreads the next blue buff to the party. Blue magic that isn't in your equipped set-spell list is grayed and skipped — Medic never equips spells for you.
 - **Dark Knight Nether Void (N button)**: An **N** button on the Absorb row fires Nether Void the tick before the selected Absorb to boost it; **Hold for Nether Void** skips the Absorb until Nether Void is ready (off by default — the Absorb still casts without it when Nether Void is on cooldown).
 
 ### Fixed

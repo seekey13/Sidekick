@@ -254,6 +254,7 @@ end
 function common.is_ability_combat_only(ability, settings)
     if not ability then return false end
     if ability.idle_only then return false end
+    if ability.combat_only then return true end
     if common.ability_targets_bt(ability) then return true end
     if not settings then return false end
     local key
