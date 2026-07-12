@@ -63,7 +63,10 @@ local function render_combat_only_context_menu(ctx, ability, scope)
     if not ability or not ctx or not ctx.settings then return end
     if ability.idle_only then return end
     local bt = common.ability_targets_bt(ability)
-    if bt and (not ability.group or ability.group == 'Geo-bt') then return end
+    -- Statically combat_only abilities (data-defined) gate isn't user-editable,
+    -- same as bt: hide the Combat/Idle toggles, but grouped ones still get Ungroup.
+    local hide_toggles = bt or ability.combat_only
+    if hide_toggles and (not ability.group or ability.group == 'Geo-bt') then return end
     -- scope disambiguates the popup id when the same ability renders in two
     -- sections (e.g. Chakra in both Group Healing and Debuff Removal); without it
     -- both BeginPopupContextItem calls share an id and stack duplicate menus.
@@ -85,7 +88,7 @@ local function render_combat_only_context_menu(ctx, ability, scope)
         popup_id = '##cmenu_combat_only_' .. safe_name .. scope_suffix
     end
     if imgui.BeginPopupContextItem(popup_id) then
-        if not bt then
+        if not hide_toggles then
             local combat_cur = { ctx.settings[combat_key] == true }
             if imgui.Checkbox('Combat Only', combat_cur) then
                 ctx.settings[combat_key] = combat_cur[1] or nil

@@ -4,9 +4,11 @@
     - Berserk, Defender, Warcry, Blood Rage, Aggressor, Retaliation,
       Warrior's Charge
 
-    All are independent checkboxes. Note: Berserk/Defender cancel each other,
-    and Warcry/Blood Rage remove each other's effect -- enable only one of
-    each pair or they will alternate.
+    All are independent checkboxes. Berserk/Defender cancel each other, and
+    Warcry/Blood Rage remove each other's effect, so each pair uses blocked_by
+    (mutually) to stop the second from overwriting the first: both can be
+    enabled, and whichever lands first locks out its partner until it wears
+    (same mechanism as Dancer Saber/Fan Dance).
 ]]--
 
 
@@ -26,6 +28,7 @@ return {
                 command = '/ja "Berserk" <me>',
                 combat_only = true,
                 buff_id = 56,
+                blocked_by = 57,  -- Defender cancels Berserk
             },
             {
                 name = 'Defender',
@@ -35,6 +38,7 @@ return {
                 command = '/ja "Defender" <me>',
                 combat_only = true,
                 buff_id = 57,
+                blocked_by = 56,  -- Berserk cancels Defender
             },
             {
                 name = 'Blood Rage',
@@ -45,6 +49,7 @@ return {
                 command = '/ja "Blood Rage" <me>',
                 combat_only = true,
                 buff_id = 460,
+                blocked_by = 68,  -- Warcry removes Blood Rage
             },
             {
                 name = 'Warcry',
@@ -54,6 +59,7 @@ return {
                 command = '/ja "Warcry" <me>',
                 combat_only = true,
                 buff_id = 68,
+                blocked_by = 460,  -- Blood Rage removes Warcry
             },
 
             {
