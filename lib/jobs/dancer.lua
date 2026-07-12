@@ -26,6 +26,7 @@ return {
                 end,
                 wakes = true,
                 value = 300,
+                blocked_by = 410,  -- Saber Dance blocks Waltzes
             },
             {
                 name = 'Curing Waltz II',
@@ -37,6 +38,7 @@ return {
                 end,
                 wakes = true,
                 value = 140,
+                blocked_by = 410,  -- Saber Dance blocks Waltzes
             },
             {
                 name = 'Curing Waltz',
@@ -48,6 +50,7 @@ return {
                 end,
                 wakes = true,
                 value = 70,
+                blocked_by = 410,  -- Saber Dance blocks Waltzes
             },
         },
         
@@ -60,6 +63,7 @@ return {
                 id = 102,
                 command = '/ja "Divine Waltz II" <me>',
                 wakes = true,
+                blocked_by = 410,  -- Saber Dance blocks Waltzes
             },
             {
                 name = 'Divine Waltz',
@@ -68,6 +72,7 @@ return {
                 id = 225,
                 command = '/ja "Divine Waltz" <me>',
                 wakes = true,
+                blocked_by = 410,  -- Saber Dance blocks Waltzes
             },
         },
         
@@ -82,6 +87,7 @@ return {
                 command = function(target)
                     return '/ja "Healing Waltz" '..target
                 end,
+                blocked_by = 410,  -- Saber Dance blocks Waltzes
             },
         },
         
@@ -94,7 +100,7 @@ return {
                 id = 219,
                 ability_id = 237,  -- merit-unlocked: gated on HasAbility
                 command = '/ja "Saber Dance" <me>',
-                buff_id = 410,  -- Saber Dance
+                buff_id = {410, 411},  --  410 Saber Dance overrides Fan Dance
                 combat_only = true,
             },
             {
@@ -104,7 +110,7 @@ return {
                 id = 224,
                 ability_id = 238,  -- merit-unlocked: gated on HasAbility
                 command = '/ja "Fan Dance" <me>',
-                buff_id = 411,  -- Fan Dance
+                buff_id = {410, 411},  -- 411 Fan Dance overrides Saber Dance 
                 combat_only = true,
             },
             {
@@ -131,7 +137,8 @@ return {
                 cost = 400,
                 id = 216,
                 command = '/ja "Drain Samba III" <me>',
-                buff_id = 368,
+                buff_id = 368,  -- Drain Samba
+                blocked_by = 411,  -- Fan Dance blocks Sambas
                 group = 'samba',
             },
             {
@@ -140,7 +147,8 @@ return {
                 cost = 250,
                 id = 216,
                 command = '/ja "Drain Samba II" <me>',
-                buff_id = 368,
+                buff_id = 368,  -- Drain Samba
+                blocked_by = 411,  -- Fan Dance blocks Sambas
                 group = 'samba',
             },
             {
@@ -149,7 +157,8 @@ return {
                 cost = 100,
                 id = 216,
                 command = '/ja "Drain Samba" <me>',
-                buff_id = 368,
+                buff_id = 368,  -- Drain Samba
+                blocked_by = 411,  -- Fan Dance blocks Sambas
                 group = 'samba',
             },
             {
@@ -158,7 +167,8 @@ return {
                 cost = 250,
                 id = 216,
                 command = '/ja "Aspir Samba II" <me>',
-                buff_id = 369,
+                buff_id = 369,  -- Aspir Samba
+                blocked_by = 411,  -- Fan Dance blocks Sambas
                 group = 'samba',
             },
             {
@@ -167,7 +177,8 @@ return {
                 cost = 100,
                 id = 216,
                 command = '/ja "Aspir Samba" <me>',
-                buff_id = 369,
+                buff_id = 369,  -- Aspir Samba
+                blocked_by = 411,  -- Fan Dance blocks Sambas
                 group = 'samba',
             },
             {
@@ -176,7 +187,8 @@ return {
                 cost = 350,
                 id = 216,
                 command = '/ja "Haste Samba" <me>',
-                buff_id = 370,
+                buff_id = 370,  -- Haste Samba
+                blocked_by = 411,  -- Fan Dance blocks Sambas
                 group = 'samba',
             },
             {

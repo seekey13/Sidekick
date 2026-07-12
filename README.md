@@ -249,6 +249,7 @@ Currently implemented support jobs:
   - Buff with sambas (Drain Samba I/II/III, Aspir Samba, Haste Samba)
   - Buff with jigs (Spectral Jig)
   - Buff with level-75 job abilities (Saber Dance, Fan Dance, No Foot Rise, Presto)
+  - Self-buff blocking: Saber Dance suppresses Waltzes and Fan Dance suppresses Sambas while active, so those stances aren't interrupted by an automatic Waltz/Samba
 
 - **Dark Knight** (DRK) — *self-only support*
   - Self-buffs with job abilities (Arcane Circle, Last Resort, Souleater, Consume Mana, Diabolic Eye, Scarlet Delirium)

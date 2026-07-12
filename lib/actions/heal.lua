@@ -57,7 +57,10 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
         derived_sub_level,
         job_def
     )
-    
+
+    -- Drop Waltzes etc. blocked by an active self-buff (DNC Saber Dance blocks Waltzes)
+    available_abilities = action_core.filter_self_buff_blocked(available_abilities, state.player.buffs)
+
     if #available_abilities == 0 then
         return nil
     end
@@ -612,6 +615,7 @@ function heal.execute_aoe(settings, job_def)
     local abilities = common.filter_abilities_by_level(
         job_def.abilities.heal_aoe or {}, settings,
         player.main_level, player.sub_level, job_def)
+    abilities = action_core.filter_self_buff_blocked(abilities, player.buffs)
     if #abilities == 0 then return nil end
 
     local group_allowed = make_group_filter('heal_aoe_group')
