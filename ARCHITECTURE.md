@@ -260,7 +260,8 @@ Runs in two phases per tick:
 - **Trust buff registration**: Calls `common.register_pending_buff()` for Trusts after cast.
 - **Ammo auto-equip**: When a pet is out and a buff needs a consumable in the ammo slot (BST **Reward (Regen)** → Pet Poultice), `common.ammo_equip_command` equips the best owned tier first (only reachable after the higher-priority pet-heal passed, so its biscuit and this poultice never contend for the slot).
 - **`reapply_interval`**: For buffs whose presence can't be read on the target (pet Regen — pet buffs aren't in memory), the buff is reapplied only after `reapply_interval` seconds have elapsed since the module's last cast (tracked in a module-local `last_self_cast` table, cleared on reload), instead of every recast, so the consumable isn't wasted.
-- **Condition flags**: `idle_only`, `requires_pet`, `requires_buff`; combat-only and idle-only gating are also controlled by settings (`combat_only_<name>`/`combat_only_group_<group>`, `idle_only_<name>`/`idle_only_group_<group>`) via `is_ability_combat_only`/`is_ability_idle_only`. The two are mutually exclusive.
+- **Condition flags**: `idle_only`, `requires_pet`, `requires_buff`, `blocked_by`; combat-only and idle-only gating are also controlled by settings (`combat_only_<name>`/`combat_only_group_<group>`, `idle_only_<name>`/`idle_only_group_<group>`) via `is_ability_combat_only`/`is_ability_idle_only`. The two are mutually exclusive.
+- **Self-buff blocking (`blocked_by`)**: An ability is dropped while the player holds a buff listed in `blocked_by` — distinct from `buff_id` (the buff the ability *grants*). `action_core.is_self_blocked` tests one ability; `action_core.filter_self_buff_blocked` drops blocked ones from a candidate list, wired into `buff.lua`, `heal.lua` (`execute` + `execute_aoe`), and `status_removal.lua` (debuff removal). DNC: **Saber Dance** (410) blocks Waltzes, **Fan Dance** (411) blocks Sambas.
 - Uses `action_core.try_use()`.
 
 ### item.lua – Consumable Status Removal
@@ -378,6 +379,8 @@ return {
     combat_only     = false,        -- yellow – is_combat() (user-toggleable via right-click)
     requires_pet    = false,
     requires_buff   = 401,          -- prerequisite buff ID(s)
+    blocked_by      = 410,          -- buff ID(s) that block this ability while active
+                                    --   (DNC Saber Dance 410 blocks Waltzes, Fan Dance 411 blocks Sambas)
     group           = 'regen',      -- mutually exclusive group
     self_only       = false,
     main_job_only   = false,        -- hidden when job is subjob
