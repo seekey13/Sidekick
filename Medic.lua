@@ -1,18 +1,18 @@
 --[[
-Medic - Support Job Automation Framework
+Sidekick - Support Job Automation Framework
 Copyright (c) 2025 Seekey
-https://github.com/seekey13/Medic
+https://github.com/seekey13/Sidekick
 
 This addon is designed for Ashita v4 and the CatsEyeXI private server.
 
 Main addon file: job detection, event loop, command handler
 ]]--
 
-addon.name      = 'Medic'
+addon.name      = 'Sidekick'
 addon.author    = 'Seekey'
 addon.version   = '2.3.0'
 addon.desc      = 'Support Job Automation Framework'
-addon.link      = 'https://github.com/seekey13/Medic'
+addon.link      = 'https://github.com/seekey13/Sidekick'
 
 require('common')
 local chat = require('chat')
@@ -635,16 +635,16 @@ end
     Event Handlers
 ]]--
 
-ashita.events.register('load', 'medic_load', function()
+ashita.events.register('load', 'sidekick_load', function()
     is_loaded = true
     
     -- Initialize ui_config (registers event handlers)
     ui_config.initialize()
     
-    common.printf('Loaded! Type /medic help for commands.')
+    common.printf('Loaded! Type /sidekick help for commands.')
 end)
 
-ashita.events.register('unload', 'medic_unload', function()    
+ashita.events.register('unload', 'sidekick_unload', function()    
     if addon_settings and job_def then
         local settings_file = 'settings_' .. (job_def.job_name or 'default'):lower() .. '.json'
         settings.save(addon_settings, settings_file)
@@ -656,7 +656,7 @@ end)
 -- Delay job setup until first render to ensure game is initialized
 local setup_attempted = false
 
-ashita.events.register('d3d_present', 'medic_render', function()
+ashita.events.register('d3d_present', 'sidekick_render', function()
     if not is_loaded then
         return
     end
@@ -700,7 +700,7 @@ ashita.events.register('d3d_present', 'medic_render', function()
     automation_tick()
 end)
 
-ashita.events.register('packet_in', 'medic_packet_in', function(e)
+ashita.events.register('packet_in', 'sidekick_packet_in', function(e)
     if not is_loaded then
         return
     end
@@ -892,10 +892,10 @@ ashita.events.register('packet_in', 'medic_packet_in', function(e)
     end
 end)
 
-ashita.events.register('command', 'medic_command', function(e)
+ashita.events.register('command', 'sidekick_command', function(e)
     local args = e.command:args()
     
-    if args[1] ~= '/medic' and args[1] ~= '/med' then
+    if args[1] ~= '/sidekick' and args[1] ~= '/sk' then
         return
     end
     
@@ -905,21 +905,21 @@ ashita.events.register('command', 'medic_command', function(e)
     local cmd = args[2] and args[2]:lower() or 'config'
     
     if cmd == 'help' then
-        common.printf('Medic Commands:')
-        common.printf('  /medic - Show configuration UI')
-        common.printf('  /medic help - Show this help')
-        common.printf('  /medic start - Start automation')
-        common.printf('  /medic stop - Stop automation')
-        common.printf('  /medic toggle - Toggle automation on/off')
-        common.printf('  /medic config - Show configuration UI')
-        common.printf('  /medic focus <index> - Set focus target (0-5, party member index)')
-        common.printf('  /medic focus clear - Clear focus target')
-        common.printf('  /medic addtarget - Track current target for automation')
-        common.printf('  /medic removetarget <name> - Stop tracking a target')
-        common.printf('  /medic panel - Toggle party state info panel')
-        common.printf('  /medic debug - Toggle debug mode')
-        common.printf('  /medic recast - Show all active ability recast timers')
-        common.printf('  /medic status - Show current status')
+        common.printf('Sidekick Commands:')
+        common.printf('  /sidekick - Show configuration UI')
+        common.printf('  /sidekick help - Show this help')
+        common.printf('  /sidekick start - Start automation')
+        common.printf('  /sidekick stop - Stop automation')
+        common.printf('  /sidekick toggle - Toggle automation on/off')
+        common.printf('  /sidekick config - Show configuration UI')
+        common.printf('  /sidekick focus <index> - Set focus target (0-5, party member index)')
+        common.printf('  /sidekick focus clear - Clear focus target')
+        common.printf('  /sidekick addtarget - Track current target for automation')
+        common.printf('  /sidekick removetarget <name> - Stop tracking a target')
+        common.printf('  /sidekick panel - Toggle party state info panel')
+        common.printf('  /sidekick debug - Toggle debug mode')
+        common.printf('  /sidekick recast - Show all active ability recast timers')
+        common.printf('  /sidekick status - Show current status')
         
     elseif cmd == 'start' then
         automation_enabled = true
@@ -979,7 +979,7 @@ ashita.events.register('command', 'medic_command', function(e)
                 common.errorf('Invalid party index. Use 0-5.')
             end
         else
-            common.printf('Usage: /medic focus <index> or /medic focus clear')
+            common.printf('Usage: /sidekick focus <index> or /sidekick focus clear')
         end
         
     elseif cmd == 'panel' then
@@ -994,7 +994,7 @@ ashita.events.register('command', 'medic_command', function(e)
         common.show_recast_timers()
         
     elseif cmd == 'status' then
-        common.printf('Medic Status:')
+        common.printf('Sidekick Status:')
         common.printf('  Job: %s', job_def and job_def.job_name or 'Not loaded')
         common.printf('  Automation: %s', automation_enabled and 'Enabled' or 'Disabled')
         common.printf('  Focus Target: %s', addon_settings.focus_target or 'None')
@@ -1032,12 +1032,12 @@ ashita.events.register('command', 'medic_command', function(e)
         -- Remove a tracked target by name
         local target_name = args[3]
         if not target_name then
-            common.errorf('Usage: /medic removetarget <name>')
+            common.errorf('Usage: /sidekick removetarget <name>')
         else
             common.remove_tracked_target_by_name(target_name)
         end
 
     else
-        common.printf('Unknown command: %s. Type /medic help for commands.', cmd)
+        common.printf('Unknown command: %s. Type /sidekick help for commands.', cmd)
     end
 end)

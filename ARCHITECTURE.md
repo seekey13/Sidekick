@@ -1,6 +1,6 @@
-# Medic Architecture
+# Sidekick Architecture
 
-Technical overview of the Medic support-automation addon for Ashita v4 (CatsEyeXI).
+Technical overview of the Sidekick support-automation addon for Ashita v4 (CatsEyeXI).
 
 ## Design Philosophy
 
@@ -15,7 +15,7 @@ Technical overview of the Medic support-automation addon for Ashita v4 (CatsEyeX
 ## Directory Layout
 
 ```
-Medic.lua                   Main addon entry point
+Sidekick.lua                   Main addon entry point
 lib/
   core/
     action_core.lua         Shared ability infrastructure (resource, cooldowns, buff-ID utils, candidacy helpers)
@@ -65,10 +65,10 @@ lib/
 
 ```
 ┌───────────────────────────────────────────────┐
-│  Medic.lua                                    │
+│  Sidekick.lua                                    │
 │  • Job/level detection & change handling      │
 │  • Event loop (d3d_present)                   │
-│  • /medic command handler                     │
+│  • /sidekick command handler                     │
 │  • Settings load/save/merge                   │
 └──────┬─────────────────────────┬──────────────┘
        │ loads                   │ loads
@@ -189,7 +189,7 @@ Shared utility module (~1,700 lines). Key areas:
 - **Trust buff tracking**: `register_pending_buff`, `handle_buff_application`, `handle_buff_removal`, `drop_removed_debuff(server_id, ability)` (optimistically drops one status a na-/Erase spell just cured from a Trust/tracked/alliance target — those give no reliable wear-off packet, so without it the removal spell re-fires every tick; no-op for memory-read party members), `clear_trust_buffs`, `base_buff_duration` (buff durations + a debuff backstop: `BASE_DEBUFF_DURATION` gives packet-detected debuffs a timed fall-off, Curse/Bane/Disease/Plague never time out, other erasable debuffs default to 120s), `expire_timed_buffs` (timed expiry + Trust song slot eviction — see Trust Buff Tracking below)
 - **Status ailments**: `has_silence`, `has_amnesia`, `is_command_blocked`
 - **Ability helpers**: `has_spell_learned(ability)` (spells: `HasSpell(id)`; job abilities carrying `ability_id` — merit-unlocked JAs like Diabolic Eye — `HasAbility(ability_id + 512)`, the +512 converting the raw abilities.sql id to the client JA resource id; only a `pcall` error assumes known — an unlearned spell/JA is *not* treated as learned), `filter_abilities_by_level` (also filters out unlearned spells/merit JAs via `has_spell_learned`, blue magic not in the BLU set-spell list via `is_blue_magic_unequipped`, an ability whose `requires_equipped_ammo` isn't currently worn, or whose `requires_item` tool isn't owned), `build_ability_command`, `check_target_modifier`
-- **Blue magic set-spell gate**: `get_equipped_blue_spells()` reads the client's BLU set-spell buffer (the signature-scanned memory the blusets addon uses; slot bytes are `spell_id - 512`, main-job list at `+0x04`, sub-job at `+0xA0`) into a `{ [spell_id] = true }` set, cached 0.5s; returns `nil` when unreadable. `is_blue_magic_unequipped(ability)` is true for a `magic = 'blue'` **/ma** ability missing from that set — automation skips it (`filter_abilities_by_level`), while the UI shows the row grayed with a *"Blue Magic not currently equipped"* tooltip but still selectable. Fails open (an unreadable buffer gates nothing), and Medic never equips spells itself — that's the user's job (e.g. via blusets).
+- **Blue magic set-spell gate**: `get_equipped_blue_spells()` reads the client's BLU set-spell buffer (the signature-scanned memory the blusets addon uses; slot bytes are `spell_id - 512`, main-job list at `+0x04`, sub-job at `+0xA0`) into a `{ [spell_id] = true }` set, cached 0.5s; returns `nil` when unreadable. `is_blue_magic_unequipped(ability)` is true for a `magic = 'blue'` **/ma** ability missing from that set — automation skips it (`filter_abilities_by_level`), while the UI shows the row grayed with a *"Blue Magic not currently equipped"* tooltip but still selectable. Fails open (an unreadable buffer gates nothing), and Sidekick never equips spells itself — that's the user's job (e.g. via blusets).
 - **Pet status tracking**: `is_pet(server_id)` (true for the current pet's server id, refreshed each tick), `apply_pet_buff` — pets have normal entity ids (< 0x1000000) so they miss the Trust guard; these route the pet's packet-detected buffs/debuffs into `trust_buffs` keyed by the pet's server id. `pet_type_ok(ability)` gates a `requires_pet_name` ability on the summoned pet's name (shared by job validators and the config UI so the name list lives only in the ability data).
 - **Consumable-ammo equip**: `count_equippable_items(spec)` / `find_equippable_item(spec)` scan the equip-eligible containers (main inventory + all eight Mog Wardrobes); `get_equipped_item_id(slot)` and `is_ammo_equipped(spec)` read the worn ammo; `select_ammo_equip_command(spec, level)` builds a `/equip ammo "<name>" <container>` for the best owned tier at/below `level`; `ammo_equip_command(abilities, settings, player)` picks the first enabled, level-eligible, not-yet-worn ability needing ammo and returns that equip (respecting `ammo_main_job_only`). A "spec" is a single item id, a flat id list, or a list of `{ id, name, level }` tier entries.
 - **Scholar stratagems & BST Ready**: `check_stratagem(job_def, settings, ability_key, ability)` returns the next stratagem JA to fire, `nil` (cast the spell), or `false` (skip). "Hold for Stratagem" (`settings.stratagem_hold[<key>]`) controls the can't-fire case: when held it returns `false` (skip until ready); otherwise `nil` (cast without the stratagem). `prune_unavailable_stratagems(job_def, settings)` drops assigned stratagems above the current SCH level on job/level change (bails on a transient level-0 read), fixing a high-level SCH assignment sticking after a downgrade to a lower level or `???/SCH`. Both stratagems and BST **Ready** are charge systems on one shared recast timer, so a single `charges_from_recast(recast_id, max, rate)` helper converts the remaining-until-full timer into available charges for both (`state.stratagems`, `state.ready_charges`). A stratagem entry with `recast_gate = true` (DRK **Nether Void**, assigned to the `absorb` group via the UI's N button; BLU **Diffusion**, marked `magic = 'blue'` and assigned per blue buff row via the D button) has no charge pool: it's gated on its own JA recast being ready (and on the player still meeting its `level`, so a de-level can't spam an unusable JA); when unavailable the spell casts without it (same hold-off rule). `check_required_precast(job_def, ability)` handles the always-mandatory variant (BLU **Unbridled Learning**, named by `ability.requires_precast`): never user-assigned — it returns `nil` when the JA's buff is already up (cast the spell), the JA command when it can fire now, or `false` (skip the spell) while the JA is unlearned/on cooldown/blocked, since the spell cannot function without it.
@@ -203,7 +203,7 @@ Priority-based action engine with 1-second command throttle. Calls each action m
 
 ### parse_packets.lua
 
-Parses raw packet bytes for action packet 0x028 into structured Lua tables (actor, type, targets, actions). Used by Medic.lua's packet_in handler for casting-state detection and Trust buff tracking.
+Parses raw packet bytes for action packet 0x028 into structured Lua tables (actor, type, targets, actions). Used by Sidekick.lua's packet_in handler for casting-state detection and Trust buff tracking.
 
 ### targets.lua
 
@@ -239,7 +239,7 @@ FFI bindings for FFXI target resolution (battle target, scan target, last teller
 - Scans party buffs for sleep IDs (2, 19).
 - 1 sleeping → cheapest single-target ability; 2+ → cheapest AOE ability.
 - Uses `action_core.try_use()` for resource/cooldown/command pipeline.
-- Wake spells carry no `debuff_id`, so the Sleep drop is inferred in Medic.lua's 0x028 handler instead: a player Cure landing (HP messages 2/7/24) on any packet-tracked ally (Trust/tracked/alliance/pet) clears Sleep + Sleep II from tracking, so the wake doesn't re-cure until the timer would.
+- Wake spells carry no `debuff_id`, so the Sleep drop is inferred in Sidekick.lua's 0x028 handler instead: a player Cure landing (HP messages 2/7/24) on any packet-tracked ally (Trust/tracked/alliance/pet) clears Sleep + Sleep II from tracking, so the wake doesn't re-cure until the timer would.
 
 **Pet debuff removal** (`execute_pet_debuff_removal`):
 - BST (Reward + Pet Roborant) and PUP (Maintenance + Oil) strip status ailments from the pet.
@@ -486,11 +486,11 @@ Read-only display of game state, party buffs, server IDs, target indices. Shown 
 
 | Event | Handler | Purpose |
 |---|---|---|
-| `load` | Medic.lua | Set initialisation flag |
-| `unload` | Medic.lua | Save settings |
-| `d3d_present` | Medic.lua | Automation tick + UI render |
-| `packet_in` | Medic.lua | Casting state (0x028), Trust/pet buffs (0x028, 0x029), check response (0x0C9), zone change (0x0A) |
-| `command` | Medic.lua | `/medic` command handler |
+| `load` | Sidekick.lua | Set initialisation flag |
+| `unload` | Sidekick.lua | Save settings |
+| `d3d_present` | Sidekick.lua | Automation tick + UI render |
+| `packet_in` | Sidekick.lua | Casting state (0x028), Trust/pet buffs (0x028, 0x029), check response (0x0C9), zone change (0x0A) |
+| `command` | Sidekick.lua | `/sidekick` command handler |
 
 ### Trust Buff Tracking
 
@@ -504,7 +504,7 @@ Trusts (server_id ≥ 0x1000000): tracked via packets.
 
 **Timed expiry.** Every packet-tracked target (Trusts, tracked targets, alliance members, the pet — all read from `trust_buffs`, never from memory) gets no reliable wear-off packet, so every buff application also records a start time and, when known, a base duration (`buff_timestamps` in `common.lua`, resolved by `common.base_buff_duration(buff_id, spell_name)`). The duration table covers Haste/Flurry/Refresh/Regen tiers/Phalanx II/Protect/Shell tiers, every bard song buff (ids 195–222) at a flat 120 s, and a **debuff backstop** (`BASE_DEBUFF_DURATION`): removable debuffs get a timed fall-off so a missed removal packet can't loop a cure spell forever. Any erasable debuff defaults to a flat 120 s (covers Poison/Paralyze/Blind/Silence/Dia/Bio); the explicit table only lists what that default misses — non-erasable statuses that still have a remover (Sleep 90 s, Petrify 60 s, Doom 30 s), more-accurate non-120 durations (Bind 60 s, Gravity 90 s, Slow 180 s), and the until-removed group (Curse/Bane/Disease/Plague, which never time out). Debuffs nothing can strip (Stun/Amnesia/Addle/Terror) are intentionally left out — no remover means no loop to guard against. `expire_timed_buffs()` runs each `refresh_game_state` tick and drops elapsed entries from `trust_buffs` for those packet-tracked targets so action modules see the effect as missing and recast; regular party members read from memory and are skipped. Buffs/debuffs with no known duration keep wear-off-packet-only behavior. Re-application refreshes the start time.
 
-**Song slots are per-caster.** Each bard holds 2 song slots (`TRUST_SONG_SLOTS`) on a given target — song accounting is scoped by caster, not by target. Every tracked buff records its `src` (caster server id, from the 0x028 action packet's `UserId`, or our own player id for Medic's casts). When a new song lands from caster S on a target that already holds 2 of *S's* songs, S's oldest-start-time song is evicted; songs from other bards sit in their own bucket and never count. Applies to any ally target tracked in `trust_buffs` (Trusts, tracked players, alliance members). Skipped when the caster is unknown (0x029 carries no `UserId`; 0x028 is the reliable song path). No range check is needed: songs are only applied to targets the action packet reports as hit.
+**Song slots are per-caster.** Each bard holds 2 song slots (`TRUST_SONG_SLOTS`) on a given target — song accounting is scoped by caster, not by target. Every tracked buff records its `src` (caster server id, from the 0x028 action packet's `UserId`, or our own player id for Sidekick's casts). When a new song lands from caster S on a target that already holds 2 of *S's* songs, S's oldest-start-time song is evicted; songs from other bards sit in their own bucket and never count. Applies to any ally target tracked in `trust_buffs` (Trusts, tracked players, alliance members). Skipped when the caster is unknown (0x029 carries no `UserId`; 0x028 is the reliable song path). No range check is needed: songs are only applied to targets the action packet reports as hit.
 
 ### Pet Status Tracking
 

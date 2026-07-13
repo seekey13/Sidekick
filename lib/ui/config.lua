@@ -1,5 +1,5 @@
 ﻿--[[
-    Generic configuration UI for Medic
+    Generic configuration UI for Sidekick
     Dynamically generates UI based on loaded job definition
 ]]--
 
@@ -375,7 +375,7 @@ function ui_config.render(settings, job_def, callback)
     end
 
     -- Use consistent window title to maintain position across job changes
-    local window_title = 'Medic Configuration'
+    local window_title = 'Sidekick Configuration'
 
     -- Un-collapse once when the window is (re)opened, so a collapsed imgui.ini
     -- state doesn't leave the user staring at an empty title bar.
@@ -457,7 +457,7 @@ function ui_config.render(settings, job_def, callback)
         -- Use fixed width for button to keep consistent size
         if imgui.Button(button_text, { ui.AUTOMATION_BUTTON_WIDTH, 0 }) then
             -- Toggle automation
-            AshitaCore:GetChatManager():QueueCommand(1, '/medic toggle')
+            AshitaCore:GetChatManager():QueueCommand(1, '/sidekick toggle')
         end
         
         -- Display status on same line
@@ -501,7 +501,7 @@ function ui_config.render(settings, job_def, callback)
             local content_max_x, _ = imgui.GetContentRegionMax()
             imgui.SameLine(content_max_x - add_target_btn_width)
             if imgui.Button('Track Target', { add_target_btn_width, 0 }) then
-                AshitaCore:GetChatManager():QueueCommand(1, '/medic addtarget')
+                AshitaCore:GetChatManager():QueueCommand(1, '/sidekick addtarget')
             end
             ui.item_tooltip(tooltips.tracked_targets)
         end

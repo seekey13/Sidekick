@@ -1,5 +1,5 @@
 --[[
-    Common utilities for Medic automation framework
+    Common utilities for Sidekick automation framework
     Shared across all jobs: party management, buffs, targeting, logging
 ]]--
 
@@ -18,7 +18,7 @@ local AshitaCore = AshitaCore
 common.debug = false
 
 -- Addon name for header
-local addon_name = 'Medic'
+local addon_name = 'Sidekick'
 
 -- Casting state tracking (packet-based)
 local casting_state = {
@@ -622,7 +622,7 @@ common.CURSE_DEBUFFS = {9, 15, 20, 30}
 -- Base durations (seconds) for DEBUFFS packet-detected on Trusts/tracked targets,
 -- keyed by status id. Backstop so a missed removal packet can't loop a na-/Erase
 -- spell forever: expire_timed_buffs drops the status once the timer elapses.
--- Only debuffs a Medic ability can actually remove are listed (no remover = no
+-- Only debuffs a Sidekick ability can actually remove are listed (no remover = no
 -- loop to guard against). These are the ones NOT already covered by the flat 120s
 -- erasable-debuff default in base_buff_duration: non-erasable statuses that still
 -- have a remover (Sleep/Petrify/Doom), non-120 accurate durations (Bind/Gravity/
@@ -1866,7 +1866,7 @@ end
 
 -- BLU spells only work while equipped in the set-spell list. The client keeps
 -- that list in memory (the same signature-scanned buffer the blusets addon
--- reads); slot values are (spell_id - 512), 0 = empty. Medic only READS the
+-- reads); slot values are (spell_id - 512), 0 = empty. Sidekick only READS the
 -- list -- equipping spells is left to the user / blusets.
 local BLU_SET_SIG    = 'C1E1032BC8B0018D????????????B9????????F3A55F5E5B'
 local blu_set_offset = false  -- false = not scanned yet, nil = scan failed

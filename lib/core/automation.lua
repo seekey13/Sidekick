@@ -1,5 +1,5 @@
 --[[
-    Automation engine for Medic
+    Automation engine for Sidekick
     Priority-based action selection and command execution
 ]]--
 

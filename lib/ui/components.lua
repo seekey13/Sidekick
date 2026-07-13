@@ -1,5 +1,5 @@
 --[[
-    UI Components for Medic Configuration
+    UI Components for Sidekick Configuration
     Reusable UI rendering components extracted for DRY principles
 ]]--
 

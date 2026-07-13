@@ -1,7 +1,7 @@
 --[[
-    Game State Info Panel for Medic
+    Game State Info Panel for Sidekick
     Displays a per-frame snapshot of common.game_state for all party members.
-    Toggle visibility with: /med panel
+    Toggle visibility with: /sk panel
 ]]--
 
 local panel = {}
@@ -119,7 +119,7 @@ function panel.render()
 
     local window_flags = ImGuiWindowFlags_AlwaysAutoResize
 
-    if imgui.Begin('Medic: Party State', is_open, window_flags) then
+    if imgui.Begin('Sidekick: Party State', is_open, window_flags) then
 
         -- Header line
         local staleness = os.clock() - gs.refreshed_at

@@ -4,11 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Medic is an **Ashita v4 addon** (Lua) for the CatsEyeXI FFXI private server. It automates
+Sidekick is an **Ashita v4 addon** (Lua) for the CatsEyeXI FFXI private server. It automates
 support only — healing, buffing, debuff removal, resource recovery, revive, and pet support
 (healing, buffs, and debuff removal for GEO / BST / DRG / PUP pets, including auto-equipping
 the consumable a pet ability needs). It deliberately does **not** automate combat, tanking,
-nuking, weaponskills, or movement. Entry point is `Medic.lua`; everything else lives under
+nuking, weaponskills, or movement. Entry point is `Sidekick.lua`; everything else lives under
 `lib/`.
 
 ## Build / lint / test
@@ -20,10 +20,10 @@ this dev environment, so **you cannot run or import the code here**. `require('c
 `imgui`, `AshitaCore:...`, `T{}` etc. only resolve in-game.
 
 Verification is **in-game only**:
-- Reload after edits: `/addon reload medic` (or `/addon load medic` first time).
-- Open UI: `/medic` (alias `/med`). Toggle automation: `/medic start` | `stop` | `toggle`.
-- Inspect live state: `/medic panel` (debug game-state panel), `/medic debug` (verbose log),
-  `/medic recast` (recast timers), `/medic status`.
+- Reload after edits: `/addon reload sidekick` (or `/addon load sidekick` first time).
+- Open UI: `/sidekick` (alias `/sk`). Toggle automation: `/sidekick start` | `stop` | `toggle`.
+- Inspect live state: `/sidekick panel` (debug game-state panel), `/sidekick debug` (verbose log),
+  `/sidekick recast` (recast timers), `/sidekick status`.
 
 Because the code can't execute outside the client, treat changes as unverified until the
 user confirms in-game. Prefer edits that are obviously correct by inspection; call out
@@ -34,7 +34,7 @@ anything that needs a live check.
 Read `ARCHITECTURE.md` and `README.md` for the full map — they are kept current. The parts
 that matter for editing:
 
-**Tick loop.** `Medic.lua`'s `d3d_present` handler runs every frame: refreshes
+**Tick loop.** `Sidekick.lua`'s `d3d_present` handler runs every frame: refreshes
 `common.game_state` (one snapshot of player/party/alliance/pet HP, MP, buffs, server IDs —
 read this instead of re-querying `AshitaCore` per module), guards (loading / mounted / dead /
 casting / can't-attack), detects job/level change and reloads the job def, then calls
@@ -55,7 +55,7 @@ end
 ```
 `heal.lua` also exports `execute_aoe` and `execute_pet`; `status_removal.lua` exports
 `execute_wake`, `execute_debuff_removal`, and `execute_pet_debuff_removal`. These are wired
-to action-type names in the `action_modules` table in `Medic.lua`.
+to action-type names in the `action_modules` table in `Sidekick.lua`.
 
 **Core helpers.** `lib/core/action_core.lua` is the shared ability pipeline (resource/MP-TP
 check → cooldown/recast → status-ailment gate → build command): use `is_usable`,
@@ -88,11 +88,11 @@ persist per job as `settings_<job_name>.json` via Ashita's `settings` module; so
 ## Adding or changing things
 
 - **New supported job:** add `lib/jobs/<job>.lua` (data only) and register its FFXI job id in
-  the `job_map` in `load_single_job_definition` (`Medic.lua`). Main/sub abilities are merged
+  the `job_map` in `load_single_job_definition` (`Sidekick.lua`). Main/sub abilities are merged
   automatically with subjob-duplicate filtering; the master `priority_order` in
   `load_job_definition` defines execution order across both jobs.
 - **New action type:** add `lib/actions/<x>.lua` following the `execute` contract, wire it
-  into the `action_modules` table in `Medic.lua`, and add its name to the master
+  into the `action_modules` table in `Sidekick.lua`, and add its name to the master
   `priority_order` and to each job's `priority_order`.
 - Keep job files pure data and lean; put shared logic in `action_core`/`common`, not in job
   or UI files. Some buff IDs are server-specific to CatsEyeXI.
