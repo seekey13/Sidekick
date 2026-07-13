@@ -6,7 +6,7 @@ A focused, support-oriented addon for Ashita v4 that automates healing, buffing,
 <img width="1453" height="917" alt="image" src="https://github.com/user-attachments/assets/d109ad58-1d66-4a5b-9cbd-bc8566df0464" />
 
 ### Header
-<img width="1451" height="526" alt="image" src="https://github.com/user-attachments/assets/be7d85c5-82f3-4dcd-810a-7f85f5302720" />
+<img width="1447" height="546" alt="image" src="https://github.com/user-attachments/assets/3b34103b-819a-4e46-a07a-bccedfb23e09" />
 
 ### Focus Healing
 <img width="1449" height="386" alt="image" src="https://github.com/user-attachments/assets/41492d8c-0dd8-4715-94de-cd5abb89c04f" />
