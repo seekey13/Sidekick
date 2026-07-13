@@ -53,6 +53,11 @@ A focused, support-oriented addon for Ashita v4 that automates healing, buffing,
 
 ## Latest Updates
 
+### [2.3.1] - 2026-07-13
+
+### Added
+- **Dancer Curing Waltz IV**: Dancer's single-target Waltz tier now includes **Curing Waltz IV**, slotting above Curing Waltz III for higher-HP cures.
+
 ### [2.3.0] - 2026-07-10
 
 Rename to Sidekick, addon outgrew the old name Medic.  As it now supports a lot more than the healer/support type roles.
