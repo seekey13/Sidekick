@@ -3,10 +3,10 @@
 A focused, support-oriented addon for Ashita v4 that automates healing, buffing, debuff removal, resource recovery, and reviving for most jobs in Final Fantasy XI.  Tuned specifically for [CatsEyeXI private server](https://www.catseyexi.com/).
 
 # Quick Start Guide
-<img width="1450" height="910" alt="image" src="https://github.com/user-attachments/assets/e6b15b0a-35ad-4182-98f1-c1488c3f08f2" />
+<img width="1453" height="917" alt="image" src="https://github.com/user-attachments/assets/d109ad58-1d66-4a5b-9cbd-bc8566df0464" />
 
 ### Header
-<img width="1453" height="555" alt="image" src="https://github.com/user-attachments/assets/c5dd8d6b-a8b8-4ae1-968a-4f7af5978de1" />
+<img width="1451" height="526" alt="image" src="https://github.com/user-attachments/assets/be7d85c5-82f3-4dcd-810a-7f85f5302720" />
 
 ### Focus Healing
 <img width="1449" height="386" alt="image" src="https://github.com/user-attachments/assets/41492d8c-0dd8-4715-94de-cd5abb89c04f" />
