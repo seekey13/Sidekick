@@ -65,10 +65,10 @@ lib/
 
 ```
 ┌───────────────────────────────────────────────┐
-│  Sidekick.lua                                    │
+│  Sidekick.lua                                 │
 │  • Job/level detection & change handling      │
 │  • Event loop (d3d_present)                   │
-│  • /sidekick command handler                     │
+│  • /sidekick command handler                  │
 │  • Settings load/save/merge                   │
 └──────┬─────────────────────────┬──────────────┘
        │ loads                   │ loads
@@ -76,7 +76,7 @@ lib/
 ┌──────────────┐         ┌──────────────────┐
 │ Job Def      │         │ config.lua       │
 │ (jobs/*.lua) │         │  orchestration   │
-└──────┬───────┘         └──────┬───────────┘
+└──────┬───────┘         └───────┬──────────┘
        │ provides                │ delegates to
        │ abilities               ▼
        │                 ┌──────────────────┐

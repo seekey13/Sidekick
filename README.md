@@ -55,6 +55,8 @@ A focused, support-oriented addon for Ashita v4 that automates healing, buffing,
 
 ### [2.3.0] - 2026-07-10
 
+Rename to Sidekick, addon outgrew the old name Medic.  As it now supports a lot more than the healer/support type roles.
+
 Adds **Chakra** to Monk (a self-cure that recovers HP and clears its own Poison / Blindness), four new self-support jobs (**Warrior**, **Dark Knight**, **Ranger**, **Thief**), and full support for **Blue Mage**.
 
 ### Added

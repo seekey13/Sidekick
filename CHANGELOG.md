@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [2.3.0] - 2026-07-10
 
+Rename to Sidekick, addon outgrew the old name Medic.  As it now supports a lot more than the healer/support type roles.
+
 Adds **Chakra** to Monk (a self-cure that recovers HP and clears its own Poison / Blindness), four new self-support jobs (**Warrior**, **Dark Knight**, **Ranger**, **Thief**), and full support for **Blue Mage**.
 
 ### Added
