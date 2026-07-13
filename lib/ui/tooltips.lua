@@ -1,5 +1,5 @@
 --[[
-    Static help tooltip strings for the Medic Configuration UI.
+    Static help tooltip strings for the Sidekick Configuration UI.
     Shown via ui_components.item_tooltip() when hovering the
     associated control. Lines are pre-wrapped (~40-50 chars)
     since imgui.SetTooltip does not word-wrap.
@@ -7,7 +7,7 @@
 
 return {
     automation_status =
-        'Start/Stop toggles all Medic automation.\n' ..
+        'Start/Stop toggles all Sidekick automation.\n' ..
         'Status shows why it may be paused:\n' ..
         '- Loading: waiting for job data\n' ..
         '- Mounted: automation suspended\n' ..
@@ -22,12 +22,12 @@ return {
         'the party (heal, buff, wake, debuff removal)\n' ..
         'can affect tracked targets, and removal/wake\n' ..
         'on them is less reliable than on party members.\n' ..
-        'Medic will /check the player to get their level\n' ..
+        'Sidekick will /check the player to get their level\n' ..
         'for spell sizing, as exact HP is not available.\n',
 
     attack_range =
         'Requires the Multisend addon (/ms).\n' ..
-        'While in combat, Medic disables Multisend\n' ..
+        'While in combat, Sidekick disables Multisend\n' ..
         'follow once you\'re within the set distance\n' ..
         'of your battle target (<bt>), and re-enables\n' ..
         'follow if you fall outside it or leave combat.\n' ..
@@ -42,7 +42,7 @@ return {
 
     group_healing =
         'When a group member\'s HP drops below this %%,\n' ..
-        'Medic casts a heal sized to their missing HP\n' ..
+        'Sidekick casts a heal sized to their missing HP\n' ..
         '(largest spell that won\'t overheal, or the\n' ..
         'smallest available if none fit).\n\n' ..
         'Check Targets picks who is scanned. Party and\n' ..
@@ -54,12 +54,12 @@ return {
     critical_hp =
         'Critical abilities use their own (normally\n' ..
         'lower) threshold. If ANY group member drops\n' ..
-        'below this %%, Medic uses one of these abilities\n' ..
+        'below this %%, Sidekick uses one of these abilities\n' ..
         'first - before Focus or Group healing.',
 
     aoe_healing =
         'When the group\'s average HP falls below this %%\n' ..
-        'AND at least 2 members are below it, Medic\n' ..
+        'AND at least 2 members are below it, Sidekick\n' ..
         'casts the checked AOE healing spell(s) instead\n' ..
         'of single-target heals.\n\n' ..
         'AOE healing is party-scoped (Curaga-style), so\n' ..
@@ -70,7 +70,7 @@ return {
 
     pet_healing =
         'When your pet\'s HP falls below this %%,\n' ..
-        'Medic casts the checked pet-healing ability.',
+        'Sidekick casts the checked pet-healing ability.',
 
     sleep_removal =
         'Scans party, tracked, and alliance members\n' ..
@@ -93,7 +93,7 @@ return {
 
     resting =
         'While idle (not moving/casting/engaged) and\n' ..
-        'MP < 100%%, Medic waits Timer seconds after\n' ..
+        'MP < 100%%, Sidekick waits Timer seconds after\n' ..
         'conditions become favorable, then sends\n' ..
         '/heal on. Stops (/heal off) at full MP, casting,\n' ..
         'or if Follow Target exceeds Distance.',
@@ -101,7 +101,7 @@ return {
     rest_timer =
         'Seconds to wait after conditions first become\n' ..
         'favorable (idle, not casting, MP < 100%%)\n' ..
-        'before Medic starts resting.',
+        'before Sidekick starts resting.',
 
     rest_follow_target =
         'Party member whose distance from you is\n' ..
@@ -124,7 +124,7 @@ return {
         'Recover %%.',
 
     buffs =
-        'For each checked buff, Medic checks the\n' ..
+        'For each checked buff, Sidekick checks the\n' ..
         'target\'s active buff IDs. If the configured\n' ..
         'ability\'s buff IDs is missing, it casts the\n' ..
         'spell/ability on that target (self, party/alliance,\n' ..
@@ -139,12 +139,12 @@ return {
 
     geo_distance =
         'If your luopan drifts beyond this many yalms\n' ..
-        'from the selected Geo target, Medic uses Full Circle\n' ..
+        'from the selected Geo target, Sidekick uses Full Circle\n' ..
         'to recall it and recast once stationary. Skipped\n' ..
         'when no Geo target is selected in Buffs.',
 
     geo_full_circle =
-        'When checked, Medic uses Full Circle to\n' ..
+        'When checked, Sidekick uses Full Circle to\n' ..
         'recast your current Geo spell once the\n' ..
         'luopan exceeds the Distance threshold above.',
 
@@ -153,8 +153,8 @@ return {
         'assisted Indi spell selected below.',
 
     geo_entrust_spell =
-        'Indi spell Medic casts on the Entrust Target.\n' ..
-        'Medic uses Entrust on itself first, then casts\n' ..
+        'Indi spell Sidekick casts on the Entrust Target.\n' ..
+        'Sidekick uses Entrust on itself first, then casts\n' ..
         'this spell on the target while Entrust is active.',
 
     geo_entrust_enable =

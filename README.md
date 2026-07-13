@@ -1,12 +1,12 @@
-# **Medic** - Support Job Automation Framework
+# **Sidekick** - Support Job Automation Framework
 
 A focused, support-oriented addon for Ashita v4 that automates healing, buffing, debuff removal, resource recovery, and reviving for most jobs in Final Fantasy XI.  Tuned specifically for [CatsEyeXI private server](https://www.catseyexi.com/).
 
 # Quick Start Guide
-<img width="1450" height="910" alt="image" src="https://github.com/user-attachments/assets/e6b15b0a-35ad-4182-98f1-c1488c3f08f2" />
+<img width="1453" height="917" alt="image" src="https://github.com/user-attachments/assets/d109ad58-1d66-4a5b-9cbd-bc8566df0464" />
 
 ### Header
-<img width="1453" height="555" alt="image" src="https://github.com/user-attachments/assets/c5dd8d6b-a8b8-4ae1-968a-4f7af5978de1" />
+<img width="1451" height="526" alt="image" src="https://github.com/user-attachments/assets/be7d85c5-82f3-4dcd-810a-7f85f5302720" />
 
 ### Focus Healing
 <img width="1449" height="386" alt="image" src="https://github.com/user-attachments/assets/41492d8c-0dd8-4715-94de-cd5abb89c04f" />
@@ -43,7 +43,7 @@ A focused, support-oriented addon for Ashita v4 that automates healing, buffing,
 
 ## ⚠️ Important: This is NOT a Full Automation Tool
 
-**Medic is a support-only addon.** It provides healing, buffing, debuff removal, and basic pet management. It does **NOT** automate:
+**Sidekick is a support-only addon.** It provides healing, buffing, debuff removal, and basic pet management. It does **NOT** automate:
 - Combat/attacking
 - Tanking/enmity management
 - Magic bursting/nuking
@@ -60,7 +60,7 @@ Adds **Chakra** to Monk (a self-cure that recovers HP and clears its own Poison 
 ### Added
 - **Monk Chakra**: Monk now self-casts **Chakra** to recover HP and to remove its own **Poison** and **Blindness**. Wired as both a self-heal and a self debuff removal (see [Supported Jobs](#supported-jobs)).
 - **Warrior / Dark Knight / Ranger / Thief**: Four new self-support jobs (see [Supported Jobs](#supported-jobs)). Warrior self-buffs Berserk, Defender, Warcry, Blood Rage, Aggressor, Retaliation, and Warrior's Charge; Dark Knight self-buffs via job abilities and Dread Spikes plus the ten Absorb spells on the battle target; Ranger self-buffs Sharpshot, Scavenge, Velocity Shot, Unlimited Shot, Flashy/Stealth Shot plus Bounty Shot on the battle target; Thief self-buffs Conspirator, Assassin's Charge, and Feint (combat-only).
-- **Blue Mage**: Full mage support (see [Supported Jobs](#supported-jobs)). Blue-magic healing (Pollen self, Wild Carrot / Magic Fruit party), AOE healing (Healing Breeze), and self-buffs; the **Unbridled Learning** JA is popped automatically right before its level-75 spells, and a **Diffusion** (D) button spreads the next blue buff to the party. Blue magic that isn't in your equipped set-spell list is grayed and skipped — Medic never equips spells for you.
+- **Blue Mage**: Full mage support (see [Supported Jobs](#supported-jobs)). Blue-magic healing (Pollen self, Wild Carrot / Magic Fruit party), AOE healing (Healing Breeze), and self-buffs; the **Unbridled Learning** JA is popped automatically right before its level-75 spells, and a **Diffusion** (D) button spreads the next blue buff to the party. Blue magic that isn't in your equipped set-spell list is grayed and skipped — Sidekick never equips spells for you.
 - **Dark Knight Nether Void (N button)**: An **N** button on the Absorb row fires Nether Void the tick before the selected Absorb to boost it; **Hold for Nether Void** skips the Absorb until Nether Void is ready (off by default — the Absorb still casts without it when Nether Void is on cooldown).
 
 ### Fixed
@@ -81,7 +81,7 @@ Adds three pet-support jobs (Beastmaster, Dragoon, Puppetmaster) with consumable
 - **Idle Only Toggle**: Right-click any ability and pick **Idle Only** (next to Combat Only) to fire it only out of combat — e.g. Monk Boost on cooldown while idle. The two are mutually exclusive.
 - **Consumable-Ammo Auto-Equip**: Abilities that need a consumable worn in the ammo slot (BST Pet Food, PUP Automaton Oil) auto-equip the best owned tier for your level — from inventory or any Mog Wardrobe — before firing. The config UI shows a live count, green when equipped and red when not.
 - **Pet Status Tracking**: A pet's buffs/debuffs are inferred from packets (the client keeps no pet buff memory) so BST/PUP can strip the pet's status ailments. As with Trusts, this tracking is not perfectly reliable.
-- **Beastmaster Ready Charges**: Ready-move charges are tracked like Scholar stratagems and shown in the `/med panel` header.
+- **Beastmaster Ready Charges**: Ready-move charges are tracked like Scholar stratagems and shown in the `/sk panel` header.
 - **Expanded Item-Based Removal**: The item-cure feature grows from 2 items to 9 (Antidote, Eye/Echo Drops, Holy/Hallowed Water, Tincture, Remedy Ointment, Remedy, Panacea), grouped under one collapsing **Item Debuff Removal** header with a master toggle. Only reliably-cured ailments are listed per item (Remedy skips Disease, Panacea skips Amnesia) so it can't loop the stack on something it won't clear.
 
 ### Changed
@@ -92,10 +92,10 @@ Adds three pet-support jobs (Beastmaster, Dragoon, Puppetmaster) with consumable
 - **Group Esuna (AOE)**: Esuna now fires when 2+ members within 10 yalms (you + party + alliance) share an Esuna-removable ailment, clearing them in one cast; a single affected target uses the cheaper na-spell instead. Pets and Trusts aren't in the AOE.
 - **Party Button Tooltips**: Hovering a target button (**ME** / **P1–P5**) now shows that member's character name; on Trust/tracked buttons the reliability caveat is appended below the name.
 - **"Not Learned" Tooltip**: Unlearned abilities show a *Not Learned* hover tooltip instead of a `(Not Learned)` label suffix.
-- **Debug Scalars Moved**: The Zone / Target / Moving / Casting readout moved from the configuration window to the `/med panel` header (shown while Debug Mode is on).
+- **Debug Scalars Moved**: The Zone / Target / Moving / Casting readout moved from the configuration window to the `/sk panel` header (shown while Debug Mode is on).
 
 ### Fixed
-- **Removal Spells Looping on Trusts/Alliance/Pet**: After curing a status (e.g. Poisona on a Trust, or a Reward/Maintenance strip on a pet), Medic now drops that status from tracking immediately instead of re-casting every tick until it detects the removal.
+- **Removal Spells Looping on Trusts/Alliance/Pet**: After curing a status (e.g. Poisona on a Trust, or a Reward/Maintenance strip on a pet), Sidekick now drops that status from tracking immediately instead of re-casting every tick until it detects the removal.
 - **Cure-Wake on Trusts/Alliance**: Waking a Trust or alliance member with a Cure now clears Sleep from tracking right away, so it stops re-curing them.
 - **Afflatus Solace**: Corrected recast id (245 → 29) so its cooldown is tracked correctly (White Mage).
 
@@ -110,7 +110,7 @@ Adds three pet-support jobs (Beastmaster, Dragoon, Puppetmaster) with consumable
 
 ### Changed
 - **Automatic Window Sizing**: The configuration window auto-resizes to fit its content and force-expands when reopened (no more empty title bar from a collapsed state). Collapsing no longer closes it — only the `[X]` does.
-- **Debug Mode Moved**: The Debug Mode checkbox moved from the configuration window to the `/med panel` header.
+- **Debug Mode Moved**: The Debug Mode checkbox moved from the configuration window to the `/sk panel` header.
 
 ### Fixed
 - **`HasSpell` Check**: Unlearned spells are no longer treated as learned.
@@ -133,7 +133,7 @@ Adds three pet-support jobs (Beastmaster, Dragoon, Puppetmaster) with consumable
 - **Action Core Module**: New `lib/core/action_core.lua` consolidates resource management, cooldown tracking, buff-ID utilities, and ability candidacy helpers (replacing deleted `lib/core/resource.lua`).
 - **Packet-Based Buff Tracking**: Buff gain/loss tracking via 0x028 and 0x029 packets for Trusts and tracked (out-of-party) targets.
 - **Tracked Targets**: Session-scoped tracking of out-of-party players for heal, buff, and status removal automation. (Power Leveling)
-- **Debug Panel**: New `lib/ui/panel.lua` debug info panel showing party game_state snapshot (toggle with `/medic panel`).
+- **Debug Panel**: New `lib/ui/panel.lua` debug info panel showing party game_state snapshot (toggle with `/sidekick panel`).
 - **Status Removal Module**: New combined `lib/actions/status_removal.lua` with `execute_debuff_removal` and `execute_wake` entry points.
 - **Dancer Level-75 Abilities**: Added Saber Dance, Fan Dance, No Foot Rise, and Presto to the Dancer job definition.
 - **Geomancer Geo Targeting**: `<me>` Geo buff spells now target party members via single-select ME/P1-P5 buttons (like other party buffs), with Full Circle distance measured from the selected Geo target.
@@ -240,7 +240,7 @@ Currently implemented support jobs:
   - Self-buffs with blue magic (Cocoon, Metallic Body, Refueling, Feather Barrier, Memento Mori, Zephyr Mantle, Warm-Up, Amplification, Saline Coat, Reactor Cool, Plasma Charge)
   - **Unbridled Learning** spells (level 75: Battery Charge, Animating Wail, Magic Barrier, Occultation, Orcish Counterstance, Barrier Tusk, Harden Shell, Pyric Bulwark, Carcharian Verve) — the Unbridled Learning JA is popped automatically right before the spell, and the spell is held while the JA is on cooldown
   - **Diffusion** (level 75 merit, BLU main): a **D** button on every blue buff row opens a popup — **Enable** fires Diffusion before the buff to spread it to the whole party; **Hold for Diffusion** skips the buff until Diffusion is ready (off by default: the buff still casts self-only when Diffusion is on cooldown)
-  - **Set-spell awareness**: blue magic that isn't currently equipped in your set-spell list is grayed out (*"Blue Magic not currently equipped"*) and skipped by automation — it stays selectable, and Medic never equips spells for you (use the blusets addon or the in-game menu)
+  - **Set-spell awareness**: blue magic that isn't currently equipped in your set-spell list is grayed out (*"Blue Magic not currently equipped"*) and skipped by automation — it stays selectable, and Sidekick never equips spells for you (use the blusets addon or the in-game menu)
 
 - **Dancer** (DNC)
   - Critical HP abilities (Contradance)
@@ -335,44 +335,44 @@ Currently implemented support jobs:
 
 ## Installation
 
-1. Place the entire `Medic` folder in your Ashita `addons` directory
-2. Load the addon in-game: `/addon load medic`
-3. Configure settings: `/medic` (opens the configuration UI)
-4. Start automation: `/medic start`
+1. Place the entire `Sidekick` folder in your Ashita `addons` directory
+2. Load the addon in-game: `/addon load sidekick`
+3. Configure settings: `/sidekick` (opens the configuration UI)
+4. Start automation: `/sidekick start`
 
 ## Commands
 
-- `/medic` or `/med` - Show/hide configuration UI (default action)
-- `/medic help` or `/med help` - Show command help
-- `/medic start` or `/med start` - Start automation
-- `/medic stop` or `/med stop` - Stop automation
-- `/medic toggle` or `/med toggle` - Toggle automation on/off
-- `/medic config` or `/med config` - Show/hide configuration UI
-- `/medic focus <index>` - Set focus target (0-5, party member index)
-- `/medic focus clear` - Clear focus target
-- `/medic debug` or `/med debug` - Toggle debug mode
-- `/medic recast` or `/med recast` - Show all active ability recast timers
-- `/medic status` or `/med status` - Show current status and settings
+- `/sidekick` or `/sk` - Show/hide configuration UI (default action)
+- `/sidekick help` or `/sk help` - Show command help
+- `/sidekick start` or `/sk start` - Start automation
+- `/sidekick stop` or `/sk stop` - Stop automation
+- `/sidekick toggle` or `/sk toggle` - Toggle automation on/off
+- `/sidekick config` or `/sk config` - Show/hide configuration UI
+- `/sidekick focus <index>` - Set focus target (0-5, party member index)
+- `/sidekick focus clear` - Clear focus target
+- `/sidekick debug` or `/sk debug` - Toggle debug mode
+- `/sidekick recast` or `/sk recast` - Show all active ability recast timers
+- `/sidekick status` or `/sk status` - Show current status and settings
 
-**Note**: `/med` is a shorthand alias for `/medic`. Running `/medic` with no arguments opens the configuration UI; use `/medic help` to list commands.
+**Note**: `/sk` is a shorthand alias for `/sidekick`. Running `/sidekick` with no arguments opens the configuration UI; use `/sidekick help` to list commands.
 
 ## Usage
 
 ### Basic Setup
 
-1. Load the addon: `/addon load medic`
-2. Open config: `/med config`
+1. Load the addon: `/addon load sidekick`
+2. Open config: `/sk config`
 3. Enable desired features (healing, buffs, etc.)
 4. Adjust thresholds as needed
-5. Start automation: `/med start`
+5. Start automation: `/sk start`
 
 ### Focus Target
 
 Focus targets are prioritized for healing and debuff removal:
 
 ```
-/medic focus 1  # Set party member 1 as focus
-/medic focus clear  # Clear focus
+/sidekick focus 1  # Set party member 1 as focus
+/sidekick focus clear  # Clear focus
 ```
 
 Party indices:
@@ -384,7 +384,7 @@ Party indices:
 Enable debug logging to troubleshoot issues:
 
 ```
-/medic debug
+/sidekick debug
 ```
 
 This will show detailed information about ability selection, cooldowns, and action execution.
@@ -392,8 +392,8 @@ This will show detailed information about ability selection, cooldowns, and acti
 ## Architecture
 
 ```
-Medic/
-├── Medic.lua              # Main addon file
+Sidekick/
+├── Sidekick.lua              # Main addon file
 ├── lib/
 │   ├── core/
 │   │   ├── common.lua        # Shared utilities
@@ -470,7 +470,7 @@ Settings are saved per job in JSON format in the Ashita config directory:
 - `ungrouped_<group>` (boolean): When true, casts every tier in the group independently instead of only the selected tier (right-click → Ungroup)
 - `stratagem_hold[<key>]` (boolean): When true, hold the spell until its assigned stratagem can fire; when false (default), cast without the stratagem if no charge is available
 
-**Note**: Group/AOE heal target selection is per-session (not persisted). Debug Mode toggles from the `/med panel` header.
+**Note**: Group/AOE heal target selection is per-session (not persisted). Debug Mode toggles from the `/sk panel` header.
 
 ## Design Principles
 
@@ -506,4 +506,4 @@ Settings are saved per job in JSON format in the Ashita config directory:
 
 ## License
 
-See [LICENSE file for details.](https://github.com/seekey13/Medic/blob/main/LICENSE)
+See [LICENSE file for details.](https://github.com/seekey13/Sidekick/blob/main/LICENSE)

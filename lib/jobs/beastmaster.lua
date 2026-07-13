@@ -5,7 +5,7 @@
 
     Reward only works when a Pet Food (biscuit) is equipped in the ammo slot, so
     the ability is gated on that (requires_equipped_ammo). If a biscuit is owned
-    (inventory or any wardrobe) but not worn, Medic auto-equips the best tier the
+    (inventory or any wardrobe) but not worn, Sidekick auto-equips the best tier the
     player's level allows before healing. Levels below are the biscuit's equip
     requirement. The UI shows the total count detected.
 ]]--

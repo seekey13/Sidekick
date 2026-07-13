@@ -1,5 +1,5 @@
 --[[
-    Packet parsing utilities for Medic
+    Packet parsing utilities for Sidekick
     
     Contains functions to parse raw packet data into structured objects
     Based on HXUI helpers.lua ParseActionPacket implementation
