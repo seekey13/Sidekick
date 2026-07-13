@@ -17,6 +17,18 @@ return {
         -- Single-target healing (Waltzes)
         heal = {
             {
+                name = 'Curing Waltz IV',
+                level = 70,
+                cost = 650,
+                id = 188,
+                command = function(target)
+                    return '/ja "Curing Waltz IV" '..target
+                end,
+                wakes = true,
+                value = 600,
+                blocked_by = 410,  -- Saber Dance blocks Waltzes
+            },
+            {
                 name = 'Curing Waltz III',
                 level = 45,
                 cost = 500,
