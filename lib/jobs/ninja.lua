@@ -160,6 +160,7 @@ return {
     },
 
     priority_order = {
+        'item',
         'buff',
     },
 }
