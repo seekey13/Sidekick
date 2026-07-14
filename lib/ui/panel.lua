@@ -169,8 +169,9 @@ function panel.render(addon_settings, save_settings)
         end
 
         -- Bard: Pianissimo Fast Casting toggle (next to Debug Mode). Persisted
-        -- per-job in addon_settings.
-        if common.get_player_job() == 10 and addon_settings then
+        -- per-job in addon_settings. BRD as main or sub.
+        local main_job, sub_job = common.get_player_job()
+        if (main_job == 10 or sub_job == 10) and addon_settings then
             local fast_var = { addon_settings.pianissimo_fast_casting == true }
             imgui.SameLine(0, 20)
             if imgui.Checkbox('Pianissimo Fast Casting', fast_var) then
@@ -183,8 +184,8 @@ function panel.render(addon_settings, save_settings)
         end
 
         -- Ninja: Cast with 1 Shadow toggle (next to Debug Mode). Persisted
-        -- per-job in addon_settings.
-        if common.get_player_job() == 13 and addon_settings then
+        -- per-job in addon_settings. NIN as main or sub.
+        if (main_job == 13 or sub_job == 13) and addon_settings then
             local one_shadow_var = { addon_settings.cast_with_1_shadow == true }
             imgui.SameLine(0, 20)
             if imgui.Checkbox('Cast with 1 Shadow', one_shadow_var) then
