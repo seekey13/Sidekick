@@ -84,6 +84,7 @@ local function load_single_job_definition(job_id)
         [1] = 'warrior',      -- Warrior
         [2] = 'monk',         -- Monk
         [3] = 'white_mage',   -- White Mage
+        [4] = 'black_mage',   -- Black Mage
         [5] = 'red_mage',     -- Red Mage
         [6] = 'thief',        -- Thief
         [7] = 'paladin',      -- Paladin

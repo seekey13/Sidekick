@@ -1028,17 +1028,19 @@ local function render_recast_gate_button(ability_key, ctx, strat, letter, button
     return true
 end
 
--- DRK Nether Void [N] button on the Absorb group row.
+-- DRK Nether Void [N] button. Shows on the Absorb group row (buff section) and
+-- on Drain/Drain II/Aspir rows (heal/recover sections, flagged nether_void).
 local function render_nether_void_button(ability_key, ability, ctx)
-    if not (ability and ability.group == 'absorb') then return false end
+    if not (ability and (ability.group == 'absorb' or ability.nether_void)) then return false end
     local strat = nether_void_column_strat(ctx)
     if not strat then return false end
+    local noun = ability.group == 'absorb' and 'Absorb spell' or 'spell'
     return render_recast_gate_button(ability_key, ctx, strat, 'N',
-        strat.name .. ': fire ' .. strat.name .. ' before this Absorb spell\n' ..
+        strat.name .. ': fire ' .. strat.name .. ' before this ' .. noun .. '\n' ..
             'to boost its effect. Click to configure. Lit when enabled.',
-        'Fire ' .. strat.name .. ' before the selected Absorb spell.',
-        'On: skip the Absorb until ' .. strat.name .. ' is ready.\n' ..
-            'Off (default): cast the Absorb without ' .. strat.name .. ' when it is on cooldown.')
+        'Fire ' .. strat.name .. ' before the selected ' .. noun .. '.',
+        'On: skip the ' .. noun .. ' until ' .. strat.name .. ' is ready.\n' ..
+            'Off (default): cast the ' .. noun .. ' without ' .. strat.name .. ' when it is on cooldown.')
 end
 
 -- BLU Diffusion [D] button on every blue magic buff row: fire Diffusion
@@ -1995,6 +1997,10 @@ function ui_components.ability_checkbox(ctx, ability, job_def, id_suffix, show_s
             render_scholar_stratagem_button(ability.name, ability, ctx)
         end
     end
+
+    -- DRK Nether Void [N] button on Drain/Drain II/Aspir rows (self-gates via the
+    -- nether_void flag; draws nothing for every other ability).
+    render_nether_void_button(ability.name, ability, ctx)
 
     local has_spell = common.has_spell_learned(ability)
     -- Ammo-gated abilities (BST Reward, PUP Repair) can't fire with none of the

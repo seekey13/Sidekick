@@ -632,6 +632,20 @@ return {
                 wakes = true,
                 target_outside = true,
             },
+            -- Self heal (dark magic): Drain drains the battle target's HP to the
+            -- caster. <bt>/combat-only; self_only so it only fires on the caster.
+            {
+                name = 'Drain',
+                level = 21,
+                cost = 21,
+                id = 245,
+                magic = 'black',
+                magic_type = 'dark',
+                command = '/ma "Drain" <bt>',
+                value = 90,          -- approx HP drained; relative heal ordering only
+                self_only = true,
+                combat_only = true,
+            },
         },
 
         -- Recover
@@ -643,6 +657,17 @@ return {
                 id = 234,  -- Job ability ID
                 command = '/ja "Sublimation" <me>',
                 requires_buff = {187, 188},  -- Requires Sublimation: Activated or Complete
+            },
+            -- MP recovery (dark magic): Aspir drains the battle target's MP.
+            {
+                name = 'Aspir',
+                level = 36,
+                cost = 15,
+                id = 246,
+                magic = 'black',
+                magic_type = 'dark',
+                command = '/ma "Aspir" <bt>',
+                combat_only = true,
             },
         },
 
@@ -802,7 +827,7 @@ return {
         heal_aoe_threshold = 70,
         heal_aoe_count_threshold = 2,
         recover_enabled = true,
-        recover_threshold = 50,
+        recover_mp_threshold = 50,
         wake_enabled = true,
         buff_enabled = true,
         debuff_removal_enabled = true,
