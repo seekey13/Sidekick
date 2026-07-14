@@ -24,6 +24,12 @@ local geo_bt_pending = false
 -- reappears or the luopan is gone.
 local geo_bt_end_time = nil
 
+-- os.clock() when we issued a Geo-bt cast, cleared once its luopan spawns. The
+-- luopan entity registers a moment after the cast completes; without this the
+-- brief has_luopan==false gap would clear geo_bt_pending and the "take the
+-- luopan" branch would Full Circle the debuff luopan the instant it lands.
+local geo_bt_cast_time = nil
+
 -- Returns the Geo-bt ability the user wants maintained in combat, or nil.
 -- Honors the selected_Geo-bt dropdown (falls back to the highest-cost available
 -- debuff). filter_abilities_by_level applies the level + <bt> combat gate, so
@@ -98,10 +104,21 @@ function geo.execute(settings, job_def, main_level, sub_level, player_resource)
     local in_combat  = common.is_combat()
     local has_luopan = common.targets.get_pet() ~= nil
 
+    -- Our Geo-bt luopan has spawned: stop treating the cast as in-flight.
+    if has_luopan then
+        geo_bt_cast_time = nil
+    end
+
     -- Our debuff luopan is gone (expired / battle target died): clear tracking.
+    -- Ignore the short window right after a cast where the luopan entity has not
+    -- registered yet, so we don't drop geo_bt_pending and then Full Circle the
+    -- luopan the instant it appears.
     if geo_bt_pending and not has_luopan then
-        geo_bt_pending = false
-        geo_bt_end_time = nil
+        if not geo_bt_cast_time or (os.clock() - geo_bt_cast_time) > 8 then
+            geo_bt_pending = false
+            geo_bt_end_time = nil
+            geo_bt_cast_time = nil
+        end
     end
 
     -- A battle target is present: cancel any pending combat-ended countdown so a
@@ -136,6 +153,7 @@ function geo.execute(settings, job_def, main_level, sub_level, player_resource)
                 function(ability) return string.format('Geo-bt: %s on battle target', ability.name) end)
             if result then
                 geo_bt_pending = true
+                geo_bt_cast_time = os.clock()
                 return result
             end
         end
