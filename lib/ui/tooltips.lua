@@ -172,4 +172,9 @@ return {
         'Requires the Debuff addon (/debuff). Will precast with Pianissimo,\n' ..
         'but once casting starts issues /debuff 409 to remove Pianissimo.\n' ..
         'Result: faster cast and still an area song.',
+
+    cast_with_1_shadow =
+        'Requires the Debuff addon (/debuff). Recasts Utsusemi when you are\n' ..
+        'down to 1 shadow (still blocks at 2+ shadows). Once casting starts\n' ..
+        'issues /debuff 66 to clear the last shadow so the new set applies.',
 }

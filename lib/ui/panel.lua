@@ -182,6 +182,20 @@ function panel.render(addon_settings, save_settings)
             end
         end
 
+        -- Ninja: Cast with 1 Shadow toggle (next to Debug Mode). Persisted
+        -- per-job in addon_settings.
+        if common.get_player_job() == 13 and addon_settings then
+            local one_shadow_var = { addon_settings.cast_with_1_shadow == true }
+            imgui.SameLine(0, 20)
+            if imgui.Checkbox('Cast with 1 Shadow', one_shadow_var) then
+                addon_settings.cast_with_1_shadow = one_shadow_var[1]
+                if save_settings then save_settings() end
+            end
+            if imgui.IsItemHovered() then
+                imgui.SetTooltip(tooltips.cast_with_1_shadow)
+            end
+        end
+
         -- Debug scalars (moved from config window) — same header line.
         -- Only the values NOT already shown as table columns above.
         if common.debug then
