@@ -662,8 +662,8 @@ return {
             {
                 name = 'Aspir',
                 level = 36,
-                cost = 15,
-                id = 246,
+                cost = 10,
+                id = 247,
                 magic = 'black',
                 magic_type = 'dark',
                 command = '/ma "Aspir" <bt>',
