@@ -814,6 +814,7 @@ return {
         buff_enabled = true,
         debuff_removal_enabled = false,
         heal_pet_enabled = true,
+        recover_enabled = true,
         recover_mp_threshold = 30,
         geo_enabled = true,
         geo_distance_threshold = 10,
