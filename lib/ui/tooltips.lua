@@ -143,6 +143,12 @@ return {
         'to recall it and recast once stationary. Skipped\n' ..
         'when no Geo target is selected in Buffs.',
 
+    geo_bt_timer =
+        'After your Geo-bt battle target dies, Sidekick waits\n' ..
+        'this many seconds before Full Circle dismisses the\n' ..
+        'luopan. If a new battle target appears in that window,\n' ..
+        'the luopan is kept and reused instead.',
+
     geo_full_circle =
         'When checked, Sidekick uses Full Circle to\n' ..
         'recast your current Geo spell once the\n' ..

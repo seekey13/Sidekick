@@ -18,6 +18,12 @@ local action_core = require('lib.core.action_core')
 -- ownership is re-established.
 local geo_bt_pending = false
 
+-- os.clock() when combat ended with a Geo-bt luopan still out, or nil. Starts
+-- the grace period (geo_bt_timer setting) before Full Circle dismisses the
+-- luopan, so a fresh battle target can reuse it. Reset when a battle target
+-- reappears or the luopan is gone.
+local geo_bt_end_time = nil
+
 -- Returns the Geo-bt ability the user wants maintained in combat, or nil.
 -- Honors the selected_Geo-bt dropdown (falls back to the highest-cost available
 -- debuff). filter_abilities_by_level applies the level + <bt> combat gate, so
@@ -95,14 +101,26 @@ function geo.execute(settings, job_def, main_level, sub_level, player_resource)
     -- Our debuff luopan is gone (expired / battle target died): clear tracking.
     if geo_bt_pending and not has_luopan then
         geo_bt_pending = false
+        geo_bt_end_time = nil
     end
 
-    -- Combat is over but our Geo-bt luopan is still out: dismiss it so the
-    -- luopan is freed for Geo <me> buffs again.
+    -- A battle target is present: cancel any pending combat-ended countdown so a
+    -- fresh <bt> reuses the existing luopan instead of Full Circle recasting.
+    if in_combat then
+        geo_bt_end_time = nil
+    end
+
+    -- Combat is over but our Geo-bt luopan is still out: after the grace period
+    -- (geo_bt_timer) elapses with no new battle target, dismiss it so the luopan
+    -- is freed for Geo <me> buffs again.
     if geo_bt_pending and not in_combat and has_luopan then
-        local fc = try_full_circle(job_def, settings, derived_main_level, derived_sub_level,
-            'Full Circle (dismissing Geo-bt luopan, combat ended)')
-        if fc then return fc end
+        if not geo_bt_end_time then
+            geo_bt_end_time = os.clock()
+        elseif os.clock() - geo_bt_end_time >= (settings.geo_bt_timer or 5) then
+            local fc = try_full_circle(job_def, settings, derived_main_level, derived_sub_level,
+                'Full Circle (dismissing Geo-bt luopan, combat ended)')
+            if fc then return fc end
+        end
     end
 
     -- In combat with a Geo-bt debuff selected: make sure the luopan is ours.

@@ -911,7 +911,12 @@ function ui_config.render(settings, job_def, callback)
                 -- Distance threshold (Full Circle recast trigger)
                 ui.slider_int(ctx, 'Distance (yalms)##geo_distance_threshold', 'geo_distance_threshold', { settings.geo_distance_threshold or 10 }, 7, 30)
                 ui.item_tooltip(tooltips.geo_distance)
-                
+
+                -- Grace period after the battle target dies before Full Circle
+                -- dismisses the Geo-bt luopan (lets a fresh <bt> reuse it).
+                ui.slider_int(ctx, 'Timer (seconds)##geo_bt_timer', 'geo_bt_timer', { settings.geo_bt_timer or 5 }, 1, 20)
+                ui.item_tooltip(tooltips.geo_bt_timer)
+
                 -- Entrust settings (only for Geomancer)
                 if job_def.job_id == 21 then
                     -- Build list of available Indi spells

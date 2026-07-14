@@ -486,6 +486,7 @@ Settings are saved per job in JSON format in the Ashita config directory:
 - `follow_target` (string): Character name of party member to follow for distance checking (P1-P5, optional)
 - `geo_enabled` (boolean): Enable geo management (Geo buffs, Geo debuffs, and Full Circle / luopan handling)
 - `geo_distance_threshold` (number): Distance (yalms) the luopan may drift from the selected Geo target before Full Circle recalls and recasts it (7-30)
+- `geo_bt_timer` (number): Seconds to wait after the Geo-bt battle target dies before Full Circle dismisses the luopan; a new battle target within the window reuses it instead (1-20, default 5)
 - `selected_Geo-bt` (string): Selected Geo debuff spell to cast on your battle target (combat-only)
 - `disabled_group_Geo-bt` (boolean): Disables casting the selected Geo debuff
 - `ungrouped_<group>` (boolean): When true, casts every tier in the group independently instead of only the selected tier (right-click → Ungroup)
