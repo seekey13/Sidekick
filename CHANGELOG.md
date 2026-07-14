@@ -7,8 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [2.4.0] - 2026-07-13
 
-### Changed
-- **Job read moved to the Player struct**: `common.get_player_job` now reads main/sub job straight from `AshitaCore:GetMemoryManager():GetPlayer()` (`GetMainJob`/`GetSubJob`) instead of the party manager (`GetMemberMainJob(0)`). The party manager reports the player's main job as 0 while `/anon` is active, which required a dedicated `/anon` detection warning; the Player struct reports the real job regardless of `/anon`, so that detection is no longer needed and has been removed. The party route was originally chosen for packet sync during zoning, but Sidekick's tick loop is guarded off while loading, so that lag window never applied.
+### Fixed
+- **`/anon` no longer stops automation**: `common.get_player_job` now reads main/sub job straight from `AshitaCore:GetMemoryManager():GetPlayer()` (`GetMainJob`/`GetSubJob`) instead of the party manager (`GetMemberMainJob(0)`), which reports the player's main job as 0 while `/anon` is active — leaving no job definition loaded and automation silently doing nothing. The Player struct reports the real job regardless of `/anon`. The party route was originally used for packet sync during zoning, but Sidekick's tick loop is guarded off while loading, so that lag window never applied.
 
 ### [2.3.1] - 2026-07-13
 
