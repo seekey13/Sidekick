@@ -49,6 +49,10 @@ local function dispatch_result(result, action_type)
     if type(result) == 'table' then
         if automation.execute_command(result.command, result.description) then
             common.reset_rest_timer()
+            -- Bard fast-casting: queue the mid-cast Pianissimo strip (/debuff 409)
+            if result.pianissimo_removal then
+                common.schedule_pianissimo_removal(result.pianissimo_removal)
+            end
             -- If this was a stratagem JA, lock the next tick to the same action_type
             if result.is_stratagem then
                 pending_stratagem = { action_type = action_type, timestamp = os.clock() }

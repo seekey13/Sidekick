@@ -466,6 +466,11 @@ local function automation_tick()
         return
     end
 
+    -- Bard fast-casting: fire the queued Pianissimo removal (/debuff 409) mid-cast.
+    -- Must run ahead of the is_casting() guard below, which otherwise returns before
+    -- any command could be sent while a song is casting.
+    common.process_pianissimo_removal()
+
     if common.is_mounted() then
         return
     end

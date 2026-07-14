@@ -167,6 +167,20 @@ function panel.render()
             common.debug = debug_var[1]
         end
 
+        -- Bard: Pianissimo Fast Casting toggle (next to Debug Mode). Session-only.
+        if common.get_player_job() == 10 then
+            local fast_var = { common.pianissimo_fast }
+            imgui.SameLine(0, 20)
+            if imgui.Checkbox('Pianissimo Fast Casting', fast_var) then
+                common.pianissimo_fast = fast_var[1]
+            end
+            if imgui.IsItemHovered() then
+                imgui.SetTooltip('Requires Debuff addon (/debuff). Will precast with Pianissimo,\n' ..
+                    'but once casting starts issues /debuff 409 to remove Pianissimo.\n' ..
+                    'Result: faster cast and still an area song.')
+            end
+        end
+
         -- Debug scalars (moved from config window) — same header line.
         -- Only the values NOT already shown as table columns above.
         if common.debug then
