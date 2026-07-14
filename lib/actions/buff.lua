@@ -239,10 +239,10 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
             local config_key = area_song_config_key(ability, settings, party_buff_config, area_processed)
             if config_key and area_needs_recast(ability, party_buff_config, song_keys, available_abilities, settings, state) then
                 if fast_casting and not has_pianissimo then
-                    -- Raise Pianissimo first for the fast cast. If it can't fire
-                    -- (recast/disabled), fall through to a plain area cast below.
-                    local mod = common.check_target_modifier(job_def, settings, derived_main_level, derived_sub_level)
-                    if mod then return mod end
+                    -- Always hold for Pianissimo in fast mode: only cast the area
+                    -- song once Pianissimo is up. If it can't fire yet
+                    -- (recast/disabled), wait rather than casting without it.
+                    return common.check_target_modifier(job_def, settings, derived_main_level, derived_sub_level)
                 end
                 local desc = string.format('Applying area buff: %s', ability.name)
                 local result = action_core.try_use(ability, job_def, settings, 0, desc, state)
