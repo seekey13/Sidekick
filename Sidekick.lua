@@ -346,7 +346,7 @@ local function setup_job()
         -- the two apart. Warn once until a valid job is seen again.
         if not common.is_loading() and not anon_warned then
             anon_warned = true
-            common.errorf("Sidekick can't read your job — /anon is on. Type /anon to disable.")
+            common.errorf("ERROR: Cannot read job - Anon is active. Disable it with /anon.")
         end
         return
     end
