@@ -56,6 +56,8 @@ A focused, support-oriented addon for Ashita v4 that automates healing, buffing,
 ### [2.4.0] - 2026-07-13
 
 ### Fixed
+- **Level-synced Bard songs no longer lock the song slots**: After a level-sync down, higher-level songs you selected stay selected but drop off the config window (you can't sing them), so they couldn't be turned off — and they kept using up your 2 song slots, blocking you from picking songs you *can* sing. Uncastable songs are now auto-deselected (on every target: `A` / `ME` / `P1`-`P5`) so the slots free up. Re-select them once you level back up. Only songs are affected; stratagem / Nether Void / Diffusion picks have no slot limit, so they stay put and switch back on when you level up.
+
 - **`/anon` no longer stops automation**: Sidekick now reads your job directly from the game client instead of the party list, which hides your job while `/anon` is on. Automation now works normally with `/anon` active.
 
 ### [2.3.1] - 2026-07-13
