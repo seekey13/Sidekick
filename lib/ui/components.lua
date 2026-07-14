@@ -346,6 +346,26 @@ local function is_song_config_key(job_def, key)
     return ability ~= nil and ability.magic == 'song'
 end
 
+-- Does this song key occupy one of the (2 main / 1 sub) song slots RIGHT NOW?
+-- Only songs the player can currently sing count. After a level-sync down, a
+-- higher-level song stays enabled in settings but drops off the UI (not
+-- castable) -- it must not consume a slot, or the player can't select the songs
+-- they CAN sing and can't deselect the phantom one either. (Same bug class as
+-- high-level stratagems holding slots.)
+local function is_active_song_slot(ctx, key)
+    if not is_song_config_key(ctx.job_def, key) then
+        return false
+    end
+    local group_abilities = get_abilities_in_group(ctx.job_def, key)
+    if #group_abilities > 0 then
+        return #get_usable_abilities_in_group(ctx.job_def, key, ctx) > 0
+    end
+    local ability = find_ability_by_name(ctx.job_def, key)
+    local filters = get_filters(ctx)
+    return ability ~= nil and filters.can_use_ability(ability)
+        and common.has_spell_learned(ability)
+end
+
 -- Check if a group buff is enabled for a specific party member
 local function is_group_party_buff_enabled(ctx, group_name, party_index)
     if not ctx.party_buffs[group_name] then
@@ -393,7 +413,7 @@ local function toggle_group_party_buff(ctx, group_name, party_index, enabled)
                 local active_song_groups = {}
                 for other_group_name, targets in pairs(ctx.party_buffs) do
                     if other_group_name ~= group_name and targets[party_index] == true then
-                        if is_song_config_key(ctx.job_def, other_group_name) then
+                        if is_active_song_slot(ctx, other_group_name) then
                             table.insert(active_song_groups, other_group_name)
                         end
                     end
@@ -494,7 +514,7 @@ local function toggle_party_buff(ctx, ability_name, party_index, enabled)
             local active_songs = {}
             for other_ability_name, targets in pairs(ctx.party_buffs) do
                 if other_ability_name ~= ability_name and targets[party_index] == true then
-                    if is_song_config_key(ctx.job_def, other_ability_name) then
+                    if is_active_song_slot(ctx, other_ability_name) then
                         table.insert(active_songs, other_ability_name)
                     end
                 end
