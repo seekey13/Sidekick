@@ -8,12 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [2.4.0] - 2026-07-13
 
 ### Fixed
-- **`/anon` no longer stops automation**: `common.get_player_job` now reads main/sub job straight from `AshitaCore:GetMemoryManager():GetPlayer()` (`GetMainJob`/`GetSubJob`) instead of the party manager (`GetMemberMainJob(0)`), which reports the player's main job as 0 while `/anon` is active — leaving no job definition loaded and automation silently doing nothing. The Player struct reports the real job regardless of `/anon`. The party route was originally used for packet sync during zoning, but Sidekick's tick loop is guarded off while loading, so that lag window never applied.
+- **Level-synced Bard songs no longer lock the song slots**: A song selected at a higher level stays selected after a level-sync down, but its row drops off the config UI (not castable), so it couldn't be turned off — and it kept holding one of the 2 main / 1 sub song slots, blocking the player from picking songs they *can* sing. The config window now deselects any song the player can't currently sing (across every target slot — `A` / `ME` / `P1`-`P5` / tracked) on render, freeing the slots. Songs must be re-selected after leveling back up. This applies only to songs, which have a slot limit; stratagem / Nether Void / Diffusion assignments have no limit, so an out-of-range pick is left dormant and re-activates on level-up (matching general buffs). Implemented as `ui_components.disable_uncastable_songs`, called from `ui_config.render`.  Thanks to Muziko for reporting the bug.
+
+- **`/anon` no longer stops automation**: `common.get_player_job` now reads main/sub job straight from `AshitaCore:GetMemoryManager():GetPlayer()` (`GetMainJob`/`GetSubJob`) instead of the party manager (`GetMemberMainJob(0)`), which reports the player's main job as 0 while `/anon` is active — leaving no job definition loaded and automation silently doing nothing. The Player struct reports the real job regardless of `/anon`. The party route was originally used for packet sync during zoning, but Sidekick's tick loop is guarded off while loading, so that lag window never applied.  Thanks Karth for reporting the bug.
 
 ### [2.3.1] - 2026-07-13
 
 ### Added
-- **Dancer Curing Waltz IV**: Dancer's single-target Waltz tier now includes **Curing Waltz IV**, slotting above Curing Waltz III for higher-HP cures.
+- **Dancer Curing Waltz IV**: Dancer's single-target Waltz tier now includes **Curing Waltz IV**, slotting above Curing Waltz III for higher-HP cures. Thanks to Crobat for reporting the bug.
 
 ## [2.3.0] - 2026-07-10
 

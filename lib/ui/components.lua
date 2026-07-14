@@ -566,6 +566,58 @@ local function toggle_party_buff(ctx, ability_name, party_index, enabled)
     end
 end
 
+-- Deselect songs the player can't currently sing, across ALL target slots
+-- (A / ME / P1-P5 / tracked). Call on render: after a level-sync down a bard
+-- keeps higher-level songs selected but can't cast them, which fills the 2-song
+-- limit and blocks picking castable songs. Dropping them frees the slots (they
+-- must be re-selected on level-up). Songs are the only selection that needs
+-- this -- everything else (general buffs, stratagem/Diffusion/Nether Void
+-- assignments) has no slot limit, so an out-of-range pick simply lies dormant
+-- and switches back on when the player levels up. Saves once if anything changed.
+function ui_components.disable_uncastable_songs(ctx)
+    if not ctx or not ctx.job_def or not ctx.party_buffs then return end
+    local filters = get_filters(ctx)
+    local changed = false
+    for key, targets in pairs(ctx.party_buffs) do
+        if is_song_config_key(ctx.job_def, key) then
+            local grouped = #get_abilities_in_group(ctx.job_def, key) > 0
+            local usable
+            if grouped then
+                usable = #get_usable_abilities_in_group(ctx.job_def, key, ctx) > 0
+            else
+                local ability = find_ability_by_name(ctx.job_def, key)
+                usable = ability ~= nil and filters.can_use_ability(ability)
+                    and common.has_spell_learned(ability)
+            end
+            if not usable then
+                local was_on = false
+                for party_index, enabled in pairs(targets) do
+                    if enabled == true then
+                        was_on = true
+                        targets[party_index] = false
+                        if is_persisted_target_key(party_index) then
+                            ctx.settings.party_buffs = ctx.settings.party_buffs or {}
+                            ctx.settings.party_buffs[key] = ctx.settings.party_buffs[key] or {}
+                            ctx.settings.party_buffs[key][party_index] = false
+                        end
+                    end
+                end
+                if was_on then
+                    if grouped then
+                        ctx.settings['disabled_group_' .. key] = true
+                    else
+                        ctx.settings['disabled_' .. tostring(key):gsub(' ', '_')] = true
+                    end
+                    changed = true
+                end
+            end
+        end
+    end
+    if changed and ctx.save_callback then
+        ctx.save_callback()
+    end
+end
+
 -- Calculate the width for the ON/OFF button based on party size + alliance + tracked targets
 local function get_onoff_button_width()
     local party_size = common.get_party_size()

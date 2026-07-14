@@ -359,7 +359,11 @@ function ui_config.render(settings, job_def, callback)
             can_use_ability = can_use_ability
         }
     }
-    
+
+    -- Drop any song the player can't currently sing (e.g. after a level-sync
+    -- down) so uncastable high-level songs stop holding the 2-song limit.
+    ui.disable_uncastable_songs(ctx)
+
     -- Build party member list once (used by multiple dropdowns)
     local party_member_names = {}  -- Names only (P1-P5, excluding player)
     local party = common.get_party()
