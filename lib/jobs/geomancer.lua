@@ -34,7 +34,6 @@ return {
                 buff_id = 584,
                 range = 20,
                 main_job_only = true,
-                combat_only = true,
             },
 
             -- Geo debuffs (<bt>/enemy-target, 'Geo-bt' group). The cast and the
