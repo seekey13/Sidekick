@@ -652,7 +652,7 @@ return {
                 element = 'Wind',
                 buff_id = 219,  -- Chocobo Mazurka buff
                 group = 'mazurka',
-                idle_only = true,
+                target_modifier = true,
             },
             {
                 name = 'Raptor Mazurka (+Move Spd.)',
@@ -666,7 +666,7 @@ return {
                 element = 'Wind',
                 buff_id = 219,  -- Raptor Mazurka buff
                 group = 'mazurka',
-                idle_only = true,
+                target_modifier = true,
             },
             -- Resistance
             {

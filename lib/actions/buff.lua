@@ -143,8 +143,8 @@ end
 -- config key (group name, or ability name when ungrouped); else nil. Mirrors the
 -- group-selection rules the single-target pass uses.
 local function area_song_config_key(ability, settings, party_buff_config, area_processed)
-    -- Every bard song gets an area toggle. Pianissimo songs cast area by omitting
-    -- Pianissimo; Mazurka has no Pianissimo and is always area.
+    -- Every bard song gets an area toggle. Songs cast area by omitting Pianissimo;
+    -- the single-target pass adds Pianissimo for ME/P1-P5.
     if ability.magic ~= 'song' then return nil end
     local grouped = ability.group and settings['ungrouped_' .. ability.group] ~= true
     local config_key
