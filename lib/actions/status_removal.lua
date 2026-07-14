@@ -104,10 +104,15 @@ function status_removal.execute_debuff_removal(settings, job_def, main_level, su
         end
     end
 
-    -- Count removable debuffs for each party member
+    -- Count removable debuffs for each party member (damage-immune trusts skipped)
     local debuff_counts = {}
     for i = 0, 5 do
-        debuff_counts[i] = count_removable_debuffs(all_buffs[i], available_abilities)
+        local member = i == 0 and state.player or state.party[i]
+        if member and common.is_support_excluded(member.name) then
+            debuff_counts[i] = 0
+        else
+            debuff_counts[i] = count_removable_debuffs(all_buffs[i], available_abilities)
+        end
     end
 
     -- Also collect tracked target debuffs
@@ -116,7 +121,7 @@ function status_removal.execute_debuff_removal(settings, job_def, main_level, su
     local outside_abilities = common.outside_abilities(available_abilities)
     if state.tracked and #outside_abilities > 0 then
         for sid, tt in pairs(state.tracked) do
-            if tt.is_active and tt.target_index and tt.target_index > 0 then
+            if tt.is_active and tt.target_index and tt.target_index > 0 and not common.is_support_excluded(tt.name) then
                 tracked_buffs[sid] = tt.buffs or {}
                 tracked_debuff_counts[sid] = count_removable_debuffs(tracked_buffs[sid], outside_abilities)
             end
@@ -131,7 +136,7 @@ function status_removal.execute_debuff_removal(settings, job_def, main_level, su
         for al_pi = 2, 3 do
             if state.alliance[al_pi] then
                 for local_idx, m in pairs(state.alliance[al_pi]) do
-                    if m and m.is_active and m.target_index and m.target_index > 0 then
+                    if m and m.is_active and m.target_index and m.target_index > 0 and not common.is_support_excluded(m.name) then
                         local flat_index = (al_pi - 1) * 6 + local_idx
                         alliance_sid_to_key[m.server_id] = 'al_' .. flat_index
                         alliance_buffs[m.server_id] = m.buffs or {}

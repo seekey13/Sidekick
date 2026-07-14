@@ -385,6 +385,9 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                             -- P1-P5: Check party member buffs from game_state
                             -- Zone check stays as live call (zone not stored in game_state)
                             local party_member = state.party[target_index]
+                            if party_member and common.is_support_excluded(party_member.name) then
+                                goto continue_target
+                            end
                             if party_member then
                                 local player_zone = common.get_party_member_zone(0)
                                 local member_zone = common.get_party_member_zone(target_index)
@@ -458,7 +461,8 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                                 local is_al_enabled = party_buff_config and party_buff_config[config_key] and party_buff_config[config_key][al_key] == true
                                 if is_al_enabled then
                                     local m = sub_party[local_idx]
-                                    if m and m.is_active and m.target_index and m.target_index > 0 and common.is_in_range(m.target_index, 20) then
+                                    if m and m.is_active and m.target_index and m.target_index > 0 and common.is_in_range(m.target_index, 20)
+                                       and not common.is_support_excluded(m.name) then
                                         local al_buffs = m.buffs or {}
                                         local al_needs_buff = action_core.needs_buff(al_buffs, ability.buff_id)
                                         if al_needs_buff then
@@ -495,7 +499,8 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                         -- Check if this tracked target has its button enabled in the config
                         local tt_key = 'tt_' .. sid
                         local is_tt_enabled = party_buff_config and party_buff_config[config_key] and party_buff_config[config_key][tt_key] == true
-                        if is_tt_enabled and tt.is_active and tt.target_index and tt.target_index > 0 and common.is_in_range(tt.target_index, 20) then
+                        if is_tt_enabled and tt.is_active and tt.target_index and tt.target_index > 0 and common.is_in_range(tt.target_index, 20)
+                           and not common.is_support_excluded(tt.name) then
                             local tt_buffs = tt.buffs or {}
                             local tt_needs_buff = action_core.needs_buff(tt_buffs, ability.buff_id)
                             if tt_needs_buff then
