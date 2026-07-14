@@ -5,6 +5,11 @@ All notable changes to Sidekick will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.0] - 2026-07-13
+
+### Added
+- **`/anon` detection**: With `/anon` active the party manager reports the player's main job as 0, so no job definition loads and automation silently does nothing. `setup_job` now tells this apart from zoning (where the level also reads 0) via `common.is_loading()` and, when logged in with a hidden job, prints an error — *"ERROR: Cannot read job - /anon is active. Disable it with /anon."* — once (`anon_warned` guard) until a valid job is seen again.
+
 ### [2.3.1] - 2026-07-13
 
 ### Added

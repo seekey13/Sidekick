@@ -53,6 +53,11 @@ A focused, support-oriented addon for Ashita v4 that automates healing, buffing,
 
 ## Latest Updates
 
+### [2.4.0] - 2026-07-13
+
+### Added
+- **`/anon` detection**: If Sidekick loads while `/anon` is on, your job is hidden from the addon and automation can't start. Sidekick now prints a clear error telling you to disable `/anon`.
+
 ### [2.3.1] - 2026-07-13
 
 ### Added
