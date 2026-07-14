@@ -346,13 +346,10 @@ local function is_song_config_key(job_def, key)
     return ability ~= nil and ability.magic == 'song'
 end
 
--- Does this song key occupy one of the (2 main / 1 sub) song slots RIGHT NOW?
--- Only songs the player can currently sing count. After a level-sync down, a
--- higher-level song stays enabled in settings but drops off the UI (not
--- castable) -- it must not consume a slot, or the player can't select the songs
--- they CAN sing and can't deselect the phantom one either. (Same bug class as
--- high-level stratagems holding slots.)
-local function is_active_song_slot(ctx, key)
+-- Can the player sing this song key (grouped or ungrouped) at their CURRENT
+-- level? A level-sync down makes higher-level songs uncastable; those must be
+-- deselected so they stop holding slots (see disable_uncastable_songs).
+local function is_castable_song(ctx, key)
     if not is_song_config_key(ctx.job_def, key) then
         return false
     end
@@ -413,7 +410,7 @@ local function toggle_group_party_buff(ctx, group_name, party_index, enabled)
                 local active_song_groups = {}
                 for other_group_name, targets in pairs(ctx.party_buffs) do
                     if other_group_name ~= group_name and targets[party_index] == true then
-                        if is_active_song_slot(ctx, other_group_name) then
+                        if is_song_config_key(ctx.job_def, other_group_name) then
                             table.insert(active_song_groups, other_group_name)
                         end
                     end
@@ -514,7 +511,7 @@ local function toggle_party_buff(ctx, ability_name, party_index, enabled)
             local active_songs = {}
             for other_ability_name, targets in pairs(ctx.party_buffs) do
                 if other_ability_name ~= ability_name and targets[party_index] == true then
-                    if is_active_song_slot(ctx, other_ability_name) then
+                    if is_song_config_key(ctx.job_def, other_ability_name) then
                         table.insert(active_songs, other_ability_name)
                     end
                 end
@@ -582,6 +579,47 @@ local function toggle_party_buff(ctx, ability_name, party_index, enabled)
     end
     
     if ctx.save_callback then
+        ctx.save_callback()
+    end
+end
+
+-- Deselect every song the player can't currently sing, across ALL target slots
+-- (A / ME / P1-P5 / tracked). Call this on render: after a level-sync down a
+-- bard keeps higher-level songs selected but can't cast them, which fills the
+-- 2-song limit and blocks picking castable songs. Dropping them frees the slots
+-- (they must be re-selected when the player levels back up). Saves once if
+-- anything changed.
+function ui_components.disable_uncastable_songs(ctx)
+    if not ctx or not ctx.job_def or not ctx.party_buffs then return end
+
+    local changed = false
+    for key, targets in pairs(ctx.party_buffs) do
+        if is_song_config_key(ctx.job_def, key) and not is_castable_song(ctx, key) then
+            local grouped = #get_abilities_in_group(ctx.job_def, key) > 0
+            local was_on = false
+            for party_index, enabled in pairs(targets) do
+                if enabled == true then
+                    was_on = true
+                    targets[party_index] = false
+                    if is_persisted_target_key(party_index) then
+                        ctx.settings.party_buffs = ctx.settings.party_buffs or {}
+                        ctx.settings.party_buffs[key] = ctx.settings.party_buffs[key] or {}
+                        ctx.settings.party_buffs[key][party_index] = false
+                    end
+                end
+            end
+            if was_on then
+                if grouped then
+                    ctx.settings['disabled_group_' .. key] = true
+                else
+                    ctx.settings['disabled_' .. tostring(key):gsub(' ', '_')] = true
+                end
+                changed = true
+            end
+        end
+    end
+
+    if changed and ctx.save_callback then
         ctx.save_callback()
     end
 end
