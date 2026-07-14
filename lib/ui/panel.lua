@@ -177,7 +177,7 @@ function panel.render(addon_settings, save_settings)
                 if save_settings then save_settings() end
             end
             if imgui.IsItemHovered() then
-                imgui.SetTooltip('Requires Debuff addon (/debuff). Will precast with Pianissimo,\n' ..
+                imgui.SetTooltip('Requires Debuff addon by atom0s (/debuff). Will precast with Pianissimo,\n' ..
                     'but once casting starts issues /debuff 409 to remove Pianissimo.\n' ..
                     'Result: faster cast and still an area song.')
             end
