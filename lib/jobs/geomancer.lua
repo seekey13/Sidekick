@@ -177,6 +177,34 @@ return {
                 main_job_only = true,
                 pet_required = true,
             },
+            -- MP recovery (dark magic): Aspir drains the battle target's MP.
+            {
+                name = 'Aspir',
+                level = 30,
+                cost = 10,
+                id = 247,
+                magic = 'black',
+                magic_type = 'dark',
+                command = '/ma "Aspir" <bt>',
+                combat_only = true,
+            },
+        },
+
+        -- Self heal (dark magic): Drain drains the battle target's HP to the
+        -- caster. <bt>/combat-only; self_only so it only fires on the caster.
+        heal = {
+            {
+                name = 'Drain',
+                level = 15,
+                cost = 21,
+                id = 245,
+                magic = 'black',
+                magic_type = 'dark',
+                command = '/ma "Drain" <bt>',
+                value = 90,          -- approx HP drained; relative heal ordering only
+                self_only = true,
+                combat_only = true,
+            },
         },
 
         -- Buffs
@@ -786,6 +814,8 @@ return {
         buff_enabled = true,
         debuff_removal_enabled = false,
         heal_pet_enabled = true,
+        recover_enabled = true,
+        recover_mp_threshold = 30,
         geo_enabled = true,
         geo_distance_threshold = 10,
         geo_bt_timer = 5,
@@ -801,7 +831,7 @@ return {
         'recover',
         'heal_aoe',
         'heal_pet',
-        'heal',
+        'heal',  -- self-only Drain (combat)
         'geo',
         'buff',
         'rest',

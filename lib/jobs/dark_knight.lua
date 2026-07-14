@@ -1,6 +1,10 @@
 --[[
     Dark Knight job definition
-    Support automation for Dark Knight is self buffs only:
+    Support automation for Dark Knight is self-only (buffs, self heal, MP recovery):
+    - Self heal (dark magic): Drain / Drain II on <bt> (self_only, combat-only)
+    - MP recovery (dark magic): Aspir on <bt> (combat-only)
+    - Nether Void (75) can be assigned to boost the next Drain/Drain II/Aspir
+      (as well as the Absorb spells) via the [N] button on those rows.
     - Self buffs (Job Abilities): Arcane Circle, Last Resort, Souleater,
       Consume Mana, Diabolic Eye, Scarlet Delirium
     - Self buff (dark magic): Dread Spikes
@@ -214,15 +218,71 @@ return {
                 main_job_only = true,
             },
         },
+
+        -- Self heal: Drain / Drain II drain the battle target's HP to the caster.
+        -- <bt>/combat-only; self_only so the heal engine only fires them on the
+        -- caster's own HP. Nether Void (75) can be assigned to boost the next one
+        -- (nether_void flag surfaces its [N] button on these rows).
+        -- (highest level first)
+        heal = {
+            {
+                name = 'Drain II',
+                level = 62,
+                cost = 37,
+                id = 246,
+                magic = 'black',
+                magic_type = 'dark',
+                command = '/ma "Drain II" <bt>',
+                value = 180,         -- approx HP drained; relative heal ordering only
+                self_only = true,
+                combat_only = true,
+                nether_void = true,
+            },
+            {
+                name = 'Drain',
+                level = 10,
+                cost = 21,
+                id = 245,
+                magic = 'black',
+                magic_type = 'dark',
+                command = '/ma "Drain" <bt>',
+                value = 90,          -- approx HP drained; relative heal ordering only
+                self_only = true,
+                combat_only = true,
+                nether_void = true,
+            },
+        },
+
+        -- MP recovery: Aspir drains the battle target's MP. Nether Void can boost it.
+        recover_mp = {
+            {
+                name = 'Aspir',
+                level = 20,
+                cost = 10,
+                id = 247,
+                magic = 'black',
+                magic_type = 'dark',
+                command = '/ma "Aspir" <bt>',
+                combat_only = true,
+                nether_void = true,
+            },
+        },
     },
 
     -- Default settings for UI
     default_settings = {
         buff_enabled = true,
+        heal_enabled = true,
+        heal_threshold = 75,
+        recover_enabled = true,
+        recover_mp_threshold = 50,
     },
 
     -- Action priority order
     priority_order = {
+        'item',
+        'recover',
+        'heal',
         'buff',
     },
 }

@@ -77,6 +77,7 @@ return {
 
     -- Action priority order
     priority_order = {
+        'item',
         'recover',
         'buff',
     },

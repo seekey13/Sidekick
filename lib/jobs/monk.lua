@@ -96,6 +96,7 @@ return {
 
     -- Action priority order
     priority_order = {
+        'item',
         'heal',
         'debuff_removal',
         'buff',

@@ -255,6 +255,11 @@ Currently implemented support jobs:
   - Party button targeting with automatic Pianissimo usage
   - Settings persist through reloads
 
+- **Black Mage** (BLM) — *self-only support*
+  - Self-buff with elemental Spikes (Blaze Spikes, Ice Spikes, Shock Spikes — grouped, single tier selectable via dropdown)
+  - Self-heal with **Drain** on your battle target (drains its HP to you — combat-only)
+  - MP recovery with **Aspir** on your battle target (drains its MP — combat-only)
+
 - **Blue Mage** (BLU)
   - Self-heal with **Pollen**; party healing with **Wild Carrot** and **Magic Fruit** (blue magic cures can't target outside the party)
   - AOE healing with **Healing Breeze**
@@ -277,7 +282,9 @@ Currently implemented support jobs:
   - Self-buffs with job abilities (Arcane Circle, Last Resort, Souleater, Consume Mana, Diabolic Eye, Scarlet Delirium)
   - Self-buff with dark magic (Dread Spikes)
   - Absorb spells on your battle target (Absorb-Attri, Absorb-ACC, Absorb-TP, Absorb-STR/DEX/INT/AGI/VIT/CHR/MND) — combat-only, single spell selectable via dropdown
-  - **Nether Void** (level 75, DRK main): an **N** button on the Absorb row opens a popup — **Enable** fires Nether Void before the selected Absorb to boost it; **Hold for Nether Void** skips the Absorb until Nether Void is ready (off by default: the Absorb still casts without it when Nether Void is on cooldown)
+  - Self-heal with dark magic (**Drain**, **Drain II**) on your battle target — combat-only, drains its HP to you
+  - MP recovery with dark magic (**Aspir**) on your battle target — combat-only, drains its MP
+  - **Nether Void** (level 75, DRK main): an **N** button on the Absorb, Drain/Drain II, and Aspir rows opens a popup — **Enable** fires Nether Void before the selected spell to boost it; **Hold for Nether Void** skips the spell until Nether Void is ready (off by default: the spell still casts without it when Nether Void is on cooldown)
 
 - **Geomancer** (GEO)
   - AOE healing with job abilities (Mending Halation)
@@ -287,7 +294,8 @@ Currently implemented support jobs:
   - Debuff with Geo geomancy spells on your battle target (Geo-Vex, Geo-Frailty, Geo-Paralysis, Geo-Languor, Geo-Slip, Geo-Torpor, Geo-Slow, Geo-Poison) — combat-only, single debuff selectable via dropdown
   - Entrust system: Select target party member and Indi spell to automatically cast via Entrust ability
   - Buff with job abilities (Lasting Emanation, Ecliptic Attrition, Collimated Fervor, Blaze of Glory, Dematerialize)
-  - MP recovery with job abilities (Radial Arcana)
+  - Self-heal with dark magic (**Drain**) on your battle target — combat-only, drains its HP to you
+  - MP recovery with job abilities (Radial Arcana) and dark magic (**Aspir**, on your battle target — combat-only)
   - Geomancy/luopan management (automatic Full Circle execution)
 
 - **Monk** (MNK) — *self-only support*
@@ -323,14 +331,14 @@ Currently implemented support jobs:
   - Buff with enhancing magic (Protect I-III, Shell I-IV, Regen I-III, Refresh, Barfire, Barblizzard, Baraero, Barstone, Barthunder, Barwater, etc.)
 
 - **Scholar** (SCH)
-  - Single-target healing with white magic (Cure I-IV)
+  - Single-target healing with white magic (Cure I-IV) and self-heal with dark magic (**Drain**, on your battle target — combat-only)
   - Debuff removal with white magic (Poisona, Paralyna, Blindna, Silena, Cursna, Erase, Viruna, Stona)
   - Revive with white magic (Raise, Raise II — requires Addendum: White)
   - Buff with enhancing magic (Protect I-IV, Shell I-IV, Regen I-III, Reraise, Reraise II, Stoneskin, Blink, Aquaveil, Sneak, Invisible, Deodorize)
   - Buff with geomancy spells (Sandstorm, Rainstorm, Windstorm, Firestorm, Hailstorm, Thunderstorm, Voidstorm, Aurorastorm, Klimaform)
   - Buff with elemental magic (Blaze Spikes, Ice Spikes, Shock Spikes)
   - Buff with job abilities (Light Arts, Dark Arts, Addendum: White, Addendum: Black, Sublimation)
-  - MP recovery with job abilities (Sublimation)
+  - MP recovery with job abilities (Sublimation) and dark magic (**Aspir**, on your battle target — combat-only)
 
 - **Summoner** (SMN)
   - Critical HP abilities (Apogee)
@@ -433,6 +441,7 @@ Sidekick/
 │   ├── jobs/
 │   │   ├── bard.lua          # Bard abilities
 │   │   ├── beastmaster.lua   # Beastmaster abilities (pet-only)
+│   │   ├── black_mage.lua    # Black Mage abilities (self-only)
 │   │   ├── blue_mage.lua     # Blue Mage abilities
 │   │   ├── dancer.lua        # Dancer abilities
 │   │   ├── dark_knight.lua   # Dark Knight abilities (self-only)
