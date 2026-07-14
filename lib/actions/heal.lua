@@ -157,8 +157,7 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
     -- Also scan tracked targets for healing needs
     if state.tracked then
         for sid, tt in pairs(state.tracked) do
-            if tt.is_active and tt.target_index and tt.target_index > 0 and group_allowed('tt_' .. sid)
-               and not common.is_trust_excluded(tt.name) then
+            if tt.is_active and tt.target_index and tt.target_index > 0 and group_allowed('tt_' .. sid) then
                 local hpp = tt.hpp or 0
                 if common.is_active_member(hpp) then
                     local is_focus = focus_tracked_sid and sid == focus_tracked_sid
@@ -192,8 +191,7 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
             if sub_party then
                 for local_idx, m in pairs(sub_party) do
                     local al_key = 'al_' .. ((al_pi - 1) * 6 + local_idx)
-                    if m and m.is_active and m.target_index and m.target_index > 0 and group_allowed(al_key, true)
-                       and not common.is_trust_excluded(m.name) then
+                    if m and m.is_active and m.target_index and m.target_index > 0 and group_allowed(al_key, true) then
                         local hpp = m.hpp or 0
                         if common.is_active_member(hpp) then
                             local is_focus = focus_alliance_sid and m.server_id == focus_alliance_sid

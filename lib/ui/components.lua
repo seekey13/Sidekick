@@ -1302,7 +1302,7 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
 
                     local is_enabled    = is_group and is_group_party_buff_enabled(ctx, key_name, al_key) or is_party_buff_enabled(ctx, key_name, al_key)
                     local is_compatible = ability and ability.target_outside
-                    local is_disabled   = not has_spell or not is_compatible or common.is_trust_excluded(m.name)
+                    local is_disabled   = not has_spell or not is_compatible
 
                     if is_disabled then
                         imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_DISABLED)
@@ -1328,9 +1328,7 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
                     end
 
                     if imgui.IsItemHovered() then
-                        if common.is_trust_excluded(m.name) then
-                            imgui.SetTooltip((m.name or (prefix .. local_idx)) .. '\nTrust cannot take any damage')
-                        elseif not is_compatible then
+                        if not is_compatible then
                             imgui.SetTooltip('Not compatible with out-of-party targets')
                         else
                             imgui.SetTooltip(m.name or (prefix .. local_idx))
@@ -1365,7 +1363,7 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
 
             local tt_key = 'tt_' .. tt.sid
             local is_tt_enabled = is_group and is_group_party_buff_enabled(ctx, key_name, tt_key) or is_party_buff_enabled(ctx, key_name, tt_key)
-            local is_disabled = not has_spell or not is_compatible or common.is_trust_excluded(tt.name)
+            local is_disabled = not has_spell or not is_compatible
 
             if is_disabled then
                 imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_DISABLED)
@@ -1392,9 +1390,7 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
 
             -- Tooltip: show target name, or reason why button is disabled
             if imgui.IsItemHovered() then
-                if common.is_trust_excluded(tt.name) then
-                    imgui.SetTooltip(tt.name .. '\nTrust cannot take any damage')
-                elseif not is_compatible then
+                if not is_compatible then
                     imgui.SetTooltip('Not compatible with out-of-party targets')
                 elseif ctx.show_trust_warning then
                     imgui.SetTooltip(tt.name .. '\nTrust/Tracked Removal is not totally reliable')
@@ -2403,8 +2399,7 @@ function ui_components.render_heal_group_selection(ctx, key_name, show_outside)
                     imgui.SameLine()
                     local on = is_sel(al_key, true)
                     draw(prefixes[api] .. entry.local_idx, al_key, on,
-                        function() state[al_key] = not on end, entry.m.name,
-                        common.is_trust_excluded(entry.m.name))
+                        function() state[al_key] = not on end, entry.m.name)
                 end
             end
         end
@@ -2420,8 +2415,7 @@ function ui_components.render_heal_group_selection(ctx, key_name, show_outside)
         imgui.SameLine()
         local tt_key = 'tt_' .. tt.sid
         local on = is_sel(tt_key)
-        draw('T' .. t_idx, 't' .. tt.sid, on, function() state[tt_key] = not on end,
-            tt.name, common.is_trust_excluded(tt.name))
+        draw('T' .. t_idx, 't' .. tt.sid, on, function() state[tt_key] = not on end, tt.name)
     end
 
     return true
