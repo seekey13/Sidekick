@@ -5,6 +5,11 @@ All notable changes to Sidekick will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.0] - 2026-07-13
+
+### Fixed
+- **`/anon` no longer stops automation**: `common.get_player_job` now reads main/sub job straight from `AshitaCore:GetMemoryManager():GetPlayer()` (`GetMainJob`/`GetSubJob`) instead of the party manager (`GetMemberMainJob(0)`), which reports the player's main job as 0 while `/anon` is active — leaving no job definition loaded and automation silently doing nothing. The Player struct reports the real job regardless of `/anon`. The party route was originally used for packet sync during zoning, but Sidekick's tick loop is guarded off while loading, so that lag window never applied.
+
 ### [2.3.1] - 2026-07-13
 
 ### Added

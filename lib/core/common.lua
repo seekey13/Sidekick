@@ -498,12 +498,14 @@ function common.get_player_level()
 end
 
 function common.get_player_job()
-    -- Use Party manager like JobBinds does for better packet sync
-    local party = common.get_party()
-    if not party then return 0, 0 end
-    local ok, job = pcall(function() return party:GetMemberMainJob(0) end)
+    -- Read job straight off the Player struct. Party-based reads were used
+    -- previously for packet sync during zoning, but Sidekick's tick loop is
+    -- guarded off while loading, so that lag window never applies here.
+    local player = AshitaCore:GetMemoryManager():GetPlayer()
+    if not player then return 0, 0 end
+    local ok, job = pcall(function() return player:GetMainJob() end)
     if not ok or not job then return 0, 0 end
-    local ok_sub, subjob = pcall(function() return party:GetMemberSubJob(0) end)
+    local ok_sub, subjob = pcall(function() return player:GetSubJob() end)
     if not ok_sub or not subjob then subjob = 0 end
     return job, subjob
 end

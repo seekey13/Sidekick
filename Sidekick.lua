@@ -10,7 +10,7 @@ Main addon file: job detection, event loop, command handler
 
 addon.name      = 'Sidekick'
 addon.author    = 'Seekey'
-addon.version   = '2.3.1'
+addon.version   = '2.4.0'
 addon.desc      = 'Support Job Automation Framework'
 addon.link      = 'https://github.com/seekey13/Sidekick'
 
@@ -342,7 +342,7 @@ local function setup_job()
     if not main_job_id or main_job_id == 0 then
         return
     end
-    
+
     -- Guard against transient sub_job=0 during zone transitions.
     if sub_job_id == 0 and current_sub_job_id and current_sub_job_id > 0 and job_def then
         return
