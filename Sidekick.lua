@@ -466,10 +466,10 @@ local function automation_tick()
         return
     end
 
-    -- Bard fast-casting: fire the queued Pianissimo removal (/debuff 409) mid-cast.
+    -- Fire any queued mid-cast /debuff strip (Bard Pianissimo, Ninja 1-shadow).
     -- Must run ahead of the is_casting() guard below, which otherwise returns before
-    -- any command could be sent while a song is casting.
-    common.process_pianissimo_removal()
+    -- any command could be sent while a spell is casting.
+    common.process_scheduled_removal()
 
     if common.is_mounted() then
         return

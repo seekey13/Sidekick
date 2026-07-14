@@ -44,7 +44,7 @@ local SHADOWS = { 66, 444, 445, 446 }
 return {
     job_id = 13,
     job_name = 'Ninja',
-    resource_type = 'mp',
+    resource_type = 'tp',
 
     abilities = {
         buff = {
@@ -81,6 +81,7 @@ return {
                 group = 'utsusemi',
                 requires_item = UTSUSEMI_TOOLS,
                 item_label = 'Shihei',
+                one_shadow_buff = 66,  -- Copy Image (1) -- see "Cast with 1 Shadow"
             },
             {
                 name = 'Utsusemi: Ichi',
@@ -92,6 +93,7 @@ return {
                 group = 'utsusemi',
                 requires_item = UTSUSEMI_TOOLS,
                 item_label = 'Shihei',
+                one_shadow_buff = 66,  -- Copy Image (1) -- see "Cast with 1 Shadow"
             },
 
             -- Tonko (movement/Sneak). Ichi/Ni share buff 69 + group. Idle only --
@@ -154,6 +156,7 @@ return {
 
     default_settings = {
         buff_enabled = true,
+        cast_with_1_shadow = false,  -- see lib/actions/buff.lua self-buff branch
     },
 
     priority_order = {

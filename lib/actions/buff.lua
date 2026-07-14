@@ -251,7 +251,7 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                     -- reverts single-target -> area once casting is underway.
                     if fast_casting and has_pianissimo then
                         if type(result) ~= 'table' then result = { command = result, description = desc } end
-                        result.pianissimo_removal = 1.0
+                        result.scheduled_removal = { command = '/debuff 409', delay = 1.0 }
                     end
                     return result
                 end
@@ -571,8 +571,23 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                     end
                 end
 
-                -- Check if buff is already active
-                local needs_buff = action_core.needs_buff(state.player.buffs, ability.buff_id)
+                -- Ninja "Cast with 1 Shadow": Utsusemi normally blocks while ANY
+                -- Copy Image buff is up (66/444/445/446). This mode ignores the
+                -- 1-shadow buff (one_shadow_buff = 66) so it recasts at 1 shadow,
+                -- then strips 66 mid-cast (/debuff 66) so the new shadows apply.
+                local needs_buff
+                local strip_one_shadow = false
+                if ability.one_shadow_buff and settings.cast_with_1_shadow == true then
+                    local blocking = {}
+                    for _, id in ipairs(action_core.normalize_ids(ability.buff_id)) do
+                        if id ~= ability.one_shadow_buff then blocking[#blocking + 1] = id end
+                    end
+                    needs_buff = action_core.needs_buff(state.player.buffs, blocking)
+                    strip_one_shadow = needs_buff
+                        and action_core.has_any_buff(state.player.buffs, ability.one_shadow_buff)
+                else
+                    needs_buff = action_core.needs_buff(state.player.buffs, ability.buff_id)
+                end
 
                 if needs_buff then
                     -- Always-required precast (BLU Unbridled Learning): the
@@ -598,6 +613,12 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                     local result, reason = action_core.try_use(ability, job_def, settings, 0, desc, state)
                     if result then
                         last_self_cast[ability.name] = os.clock()
+                        -- Strip the lingering 1-shadow buff mid-cast so the new
+                        -- shadows apply cleanly (Ninja "Cast with 1 Shadow").
+                        if strip_one_shadow then
+                            if type(result) ~= 'table' then result = { command = result, description = desc } end
+                            result.scheduled_removal = { command = '/debuff ' .. ability.one_shadow_buff, delay = 1.0 }
+                        end
                         return result
                     end
                 end

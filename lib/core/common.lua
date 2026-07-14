@@ -2062,23 +2062,26 @@ end
 --   sub_level (number) - Sub job level
 -- Returns: table|nil - {command, description} if modifier needs to be used, nil otherwise
 -- ============================================================================
--- Bard Pianissimo fast-casting removal
--- After an area song is cast with Pianissimo up, strip Pianissimo ~1s into the
--- cast (/debuff 409) so the song reverts from single-target to area while keeping
--- Pianissimo's shorter cast time. The removal must fire DURING the cast, so it is
--- driven from the tick loop ahead of the is_casting() guard rather than through
--- the throttled action pipeline. Requires the Debuff addon (/debuff).
+-- Scheduled mid-cast buff removal
+-- Used by Bard Pianissimo fast-casting (strip Pianissimo 409 so an area song
+-- keeps its shorter cast but still lands as area) and Ninja "Cast with 1 Shadow"
+-- (strip Copy Image 66 so Utsusemi recast at 1 shadow applies cleanly). After the
+-- spell is cast, a /debuff command is queued to fire ~1s into the cast. It must
+-- fire DURING the cast, so it runs from the tick loop ahead of the is_casting()
+-- guard rather than through the throttled action pipeline. Only one is pending at
+-- a time (only one spell casts at once). Requires the Debuff addon (/debuff).
 -- ============================================================================
-local pending_pianissimo_removal = nil  -- os.clock() deadline, or nil
+local pending_removal = nil  -- { command = string, deadline = number } or nil
 
-function common.schedule_pianissimo_removal(delay)
-    pending_pianissimo_removal = os.clock() + (delay or 1.0)
+function common.schedule_command_removal(command, delay)
+    pending_removal = { command = command, deadline = os.clock() + (delay or 1.0) }
 end
 
-function common.process_pianissimo_removal()
-    if pending_pianissimo_removal and os.clock() >= pending_pianissimo_removal then
-        pending_pianissimo_removal = nil
-        AshitaCore:GetChatManager():QueueCommand(0, '/debuff 409')
+function common.process_scheduled_removal()
+    if pending_removal and os.clock() >= pending_removal.deadline then
+        local command = pending_removal.command
+        pending_removal = nil
+        AshitaCore:GetChatManager():QueueCommand(0, command)
         return true
     end
     return false
