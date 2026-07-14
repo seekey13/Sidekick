@@ -7,8 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [2.4.0] - 2026-07-13
 
-### Added
-- **`/anon` detection**: With `/anon` active the party manager reports the player's main job as 0, so no job definition loads and automation silently does nothing. `setup_job` now tells this apart from zoning (where the level also reads 0) via `common.is_loading()` and, when logged in with a hidden job, prints an error — *"ERROR: Cannot read job - Anon is active. Disable it with /anon."* — once (`anon_warned` guard) until a valid job is seen again.
+### Changed
+- **Job read moved to the Player struct**: `common.get_player_job` now reads main/sub job straight from `AshitaCore:GetMemoryManager():GetPlayer()` (`GetMainJob`/`GetSubJob`) instead of the party manager (`GetMemberMainJob(0)`). The party manager reports the player's main job as 0 while `/anon` is active, which required a dedicated `/anon` detection warning; the Player struct reports the real job regardless of `/anon`, so that detection is no longer needed and has been removed. The party route was originally chosen for packet sync during zoning, but Sidekick's tick loop is guarded off while loading, so that lag window never applied.
 
 ### [2.3.1] - 2026-07-13
 

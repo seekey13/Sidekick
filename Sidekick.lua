@@ -59,7 +59,6 @@ local last_job_id = nil
 local last_sub_job_id = nil
 local last_level = nil
 local last_unsupported_warning = nil  -- Track last unsupported job warning to prevent spam
-local anon_warned = false  -- Track /anon warning to prevent spam (job reads 0 while logged in)
 
 -- Settings file path
 local default_settings = T{
@@ -341,17 +340,9 @@ local function setup_job()
     
     -- Ignore invalid job IDs (happens during zoning)
     if not main_job_id or main_job_id == 0 then
-        -- Logged in but job reads 0 => /anon is hiding the job from the party
-        -- manager. During zoning the level also reads 0, so is_loading() tells
-        -- the two apart. Warn once until a valid job is seen again.
-        if not common.is_loading() and not anon_warned then
-            anon_warned = true
-            common.errorf("ERROR: Cannot read job - Anon is active. Disable it with /anon.")
-        end
         return
     end
-    anon_warned = false
-    
+
     -- Guard against transient sub_job=0 during zone transitions.
     if sub_job_id == 0 and current_sub_job_id and current_sub_job_id > 0 and job_def then
         return
