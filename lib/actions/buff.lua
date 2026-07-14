@@ -143,8 +143,8 @@ end
 -- config key (group name, or ability name when ungrouped); else nil. Mirrors the
 -- group-selection rules the single-target pass uses.
 local function area_song_config_key(ability, settings, party_buff_config, area_processed)
-    -- Every bard song gets an area toggle. Pianissimo songs cast area by omitting
-    -- Pianissimo; Mazurka has no Pianissimo and is always area.
+    -- Every bard song gets an area toggle. Songs cast area by omitting Pianissimo;
+    -- the single-target pass adds Pianissimo for ME/P1-P5.
     if ability.magic ~= 'song' then return nil end
     local grouped = ability.group and settings['ungrouped_' .. ability.group] ~= true
     local config_key
@@ -224,18 +224,35 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
     -- Skip while Pianissimo is active: it makes the NEXT song single-target, so an
     -- area cast now would fire single-target by mistake. Let the single-target
     -- pass consume the Pianissimo first, then area-cast on a later cycle.
+    -- (Fast-casting mode is the deliberate exception -- see below.)
     local tmods = job_def.abilities.target_modifier
     local has_pianissimo = tmods and tmods[1]
         and action_core.has_any_buff(state.player.buffs, tmods[1].buff_id)
-    if not has_pianissimo then
+    -- Fast-casting mode raises Pianissimo on purpose for the area cast (shorter
+    -- cast time), then strips it mid-cast so the song still lands as area. In that
+    -- mode we run the area phase even while Pianissimo is up, since it's ours.
+    local fast_casting = settings.pianissimo_fast_casting == true
+    if fast_casting or not has_pianissimo then
         local song_keys = song_config_keys(job_def, settings)
         local area_processed = {}
         for _, ability in ipairs(available_abilities) do
             local config_key = area_song_config_key(ability, settings, party_buff_config, area_processed)
             if config_key and area_needs_recast(ability, party_buff_config, song_keys, available_abilities, settings, state) then
+                if fast_casting and not has_pianissimo then
+                    -- Always hold for Pianissimo in fast mode: only cast the area
+                    -- song once Pianissimo is up. If it can't fire yet
+                    -- (recast/disabled), wait rather than casting without it.
+                    return common.check_target_modifier(job_def, settings, derived_main_level, derived_sub_level)
+                end
                 local desc = string.format('Applying area buff: %s', ability.name)
                 local result = action_core.try_use(ability, job_def, settings, 0, desc, state)
                 if result then
+                    -- Pianissimo up (fast cast): schedule its removal so the song
+                    -- reverts single-target -> area once casting is underway.
+                    if fast_casting and has_pianissimo then
+                        if type(result) ~= 'table' then result = { command = result, description = desc } end
+                        result.pianissimo_removal = 1.0
+                    end
                     return result
                 end
             end

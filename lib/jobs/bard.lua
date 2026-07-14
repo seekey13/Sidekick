@@ -652,7 +652,7 @@ return {
                 element = 'Wind',
                 buff_id = 219,  -- Chocobo Mazurka buff
                 group = 'mazurka',
-                idle_only = true,
+                target_modifier = true,
             },
             {
                 name = 'Raptor Mazurka (+Move Spd.)',
@@ -666,7 +666,7 @@ return {
                 element = 'Wind',
                 buff_id = 219,  -- Raptor Mazurka buff
                 group = 'mazurka',
-                idle_only = true,
+                target_modifier = true,
             },
             -- Resistance
             {
@@ -844,6 +844,7 @@ return {
         rest_timer = 5,
         rest_threshold = 70,
         rest_distance = 7,
+        pianissimo_fast_casting = false,  -- see lib/actions/buff.lua area phase
     },
     
     -- Action priority order

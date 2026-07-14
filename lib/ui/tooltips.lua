@@ -26,7 +26,7 @@ return {
         'for spell sizing, as exact HP is not available.\n',
 
     attack_range =
-        'Requires the Multisend addon (/ms).\n' ..
+        'Requires the Multisend plugin (/ms).\n' ..
         'While in combat, Sidekick disables Multisend\n' ..
         'follow once you\'re within the set distance\n' ..
         'of your battle target (<bt>), and re-enables\n' ..
@@ -167,4 +167,9 @@ return {
         '(checks range and buff prerequisites, e.g.\n' ..
         'Addendum: White). Raise spells are idle-only,\n' ..
         'so this won\'t trigger while you\'re in combat.',
+
+    pianissimo_fast_casting =
+        'Requires the Debuff addon (/debuff). Will precast with Pianissimo,\n' ..
+        'but once casting starts issues /debuff 409 to remove Pianissimo.\n' ..
+        'Result: faster cast and still an area song.',
 }

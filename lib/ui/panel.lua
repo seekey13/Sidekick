@@ -8,6 +8,7 @@ local panel = {}
 
 local imgui = require('imgui')
 local common = require('lib.core.common')
+local tooltips = require('lib.ui.tooltips')
 
 -- Window state
 local is_open = { true }
@@ -107,7 +108,7 @@ end
 -- Render
 -- ============================================================================
 
-function panel.render()
+function panel.render(addon_settings, save_settings)
     if not panel_visible then return end
 
     -- Refresh if stale (automation tick may have already done it this frame)
@@ -165,6 +166,20 @@ function panel.render()
         imgui.SameLine(0, 20)
         if imgui.Checkbox('Debug Mode', debug_var) then
             common.debug = debug_var[1]
+        end
+
+        -- Bard: Pianissimo Fast Casting toggle (next to Debug Mode). Persisted
+        -- per-job in addon_settings.
+        if common.get_player_job() == 10 and addon_settings then
+            local fast_var = { addon_settings.pianissimo_fast_casting == true }
+            imgui.SameLine(0, 20)
+            if imgui.Checkbox('Pianissimo Fast Casting', fast_var) then
+                addon_settings.pianissimo_fast_casting = fast_var[1]
+                if save_settings then save_settings() end
+            end
+            if imgui.IsItemHovered() then
+                imgui.SetTooltip(tooltips.pianissimo_fast_casting)
+            end
         end
 
         -- Debug scalars (moved from config window) — same header line.
