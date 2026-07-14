@@ -158,7 +158,7 @@ Adds three pet-support jobs (Beastmaster, Dragoon, Puppetmaster) with consumable
 - **Status Removal Module**: New combined `lib/actions/status_removal.lua` with `execute_debuff_removal` and `execute_wake` entry points.
 - **Dancer Level-75 Abilities**: Added Saber Dance, Fan Dance, No Foot Rise, and Presto to the Dancer job definition.
 - **Geomancer Geo Targeting**: `<me>` Geo buff spells now target party members via single-select ME/P1-P5 buttons (like other party buffs), with Full Circle distance measured from the selected Geo target.
-- **Geomancer Geo Debuffs**: New `<bt>` Geo debuff spells (Geo-Vex, Geo-Frailty, Geo-Paralysis, Geo-Languor, Geo-Slip, Geo-Torpor, Geo-Slow, Geo-Poison) cast on your battle target. These are combat-only and selected via a dropdown under Enable Geo. In combat the selected debuff takes over the single luopan; Full Circle frees it for Geo buffs once combat ends.
+- **Geomancer Geo Debuffs**: New `<bt>` Geo debuff spells (Geo-Vex, Geo-Frailty, Geo-Paralysis, Geo-Languor, Geo-Slip, Geo-Torpor, Geo-Slow, Geo-Poison) cast on your battle target. These are combat-only and selected via a dropdown under Enable Geo. In combat the selected debuff takes over the single luopan; Full Circle frees it for Geo buffs once combat ends. A **Timer (seconds)** slider (`geo_bt_timer`, 1-20, default 5) delays that end-of-combat Full Circle so a fresh battle target within the window reuses the luopan instead of recasting on every pull.
 
 ### Changed
 - **Heal AOE**: Merged into `heal.lua` as `execute_aoe`; requires at least 2 members below threshold before firing (hardcoded, previously configurable via slider).
@@ -486,6 +486,7 @@ Settings are saved per job in JSON format in the Ashita config directory:
 - `follow_target` (string): Character name of party member to follow for distance checking (P1-P5, optional)
 - `geo_enabled` (boolean): Enable geo management (Geo buffs, Geo debuffs, and Full Circle / luopan handling)
 - `geo_distance_threshold` (number): Distance (yalms) the luopan may drift from the selected Geo target before Full Circle recalls and recasts it (7-30)
+- `geo_bt_timer` (number): Seconds to wait after the Geo-bt battle target dies before Full Circle dismisses the luopan; a new battle target within the window reuses it instead (1-20, default 5)
 - `selected_Geo-bt` (string): Selected Geo debuff spell to cast on your battle target (combat-only)
 - `disabled_group_Geo-bt` (boolean): Disables casting the selected Geo debuff
 - `ungrouped_<group>` (boolean): When true, casts every tier in the group independently instead of only the selected tier (right-click → Ungroup)

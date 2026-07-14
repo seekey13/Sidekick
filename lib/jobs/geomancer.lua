@@ -788,6 +788,7 @@ return {
         heal_pet_enabled = true,
         geo_enabled = true,
         geo_distance_threshold = 10,
+        geo_bt_timer = 5,
         rest_enabled = false,
         rest_timer = 5,
         rest_threshold = 70,
