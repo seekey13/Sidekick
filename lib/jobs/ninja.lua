@@ -44,7 +44,7 @@ local SHADOWS = { 66, 444, 445, 446 }
 return {
     job_id = 13,
     job_name = 'Ninja',
-    resource_type = 'mp',
+    resource_type = 'tp',
 
     abilities = {
         buff = {
