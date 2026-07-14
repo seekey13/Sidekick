@@ -689,17 +689,17 @@ ashita.events.register('d3d_present', 'sidekick_render', function()
     -- Check for job changes (every frame)
     setup_job()
     
+    local save_settings_callback = function()
+        settings.save()
+    end
+
     -- Render config UI
     if ui_config.is_visible() and addon_settings and job_def then
-        local save_settings_callback = function()
-            settings.save()
-        end
-        
         ui_config.render(addon_settings, job_def, save_settings_callback)
     end
-    
+
     -- Render game-state panel (independent of automation / job_def)
-    ui_panel.render()
+    ui_panel.render(addon_settings, save_settings_callback)
 
     -- Run automation tick
     automation_tick()

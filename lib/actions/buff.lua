@@ -231,7 +231,7 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
     -- Fast-casting mode raises Pianissimo on purpose for the area cast (shorter
     -- cast time), then strips it mid-cast so the song still lands as area. In that
     -- mode we run the area phase even while Pianissimo is up, since it's ours.
-    local fast_casting = common.pianissimo_fast == true
+    local fast_casting = settings.pianissimo_fast_casting == true
     if fast_casting or not has_pianissimo then
         local song_keys = song_config_keys(job_def, settings)
         local area_processed = {}

@@ -17,11 +17,6 @@ local AshitaCore = AshitaCore
 -- Debug flag
 common.debug = false
 
--- Bard: Pianissimo fast-casting mode (session-only, like debug). When on, area
--- songs are cast with Pianissimo up for its shorter cast time, then Pianissimo is
--- stripped ~1s into the cast (/debuff 409) so the song still lands as an area song.
-common.pianissimo_fast = false
-
 -- Addon name for header
 local addon_name = 'Sidekick'
 

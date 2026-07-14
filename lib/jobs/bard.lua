@@ -844,6 +844,7 @@ return {
         rest_timer = 5,
         rest_threshold = 70,
         rest_distance = 7,
+        pianissimo_fast_casting = false,  -- see lib/actions/buff.lua area phase
     },
     
     -- Action priority order

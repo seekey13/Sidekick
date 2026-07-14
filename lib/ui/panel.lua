@@ -107,7 +107,7 @@ end
 -- Render
 -- ============================================================================
 
-function panel.render()
+function panel.render(addon_settings, save_settings)
     if not panel_visible then return end
 
     -- Refresh if stale (automation tick may have already done it this frame)
@@ -167,12 +167,14 @@ function panel.render()
             common.debug = debug_var[1]
         end
 
-        -- Bard: Pianissimo Fast Casting toggle (next to Debug Mode). Session-only.
-        if common.get_player_job() == 10 then
-            local fast_var = { common.pianissimo_fast }
+        -- Bard: Pianissimo Fast Casting toggle (next to Debug Mode). Persisted
+        -- per-job in addon_settings.
+        if common.get_player_job() == 10 and addon_settings then
+            local fast_var = { addon_settings.pianissimo_fast_casting == true }
             imgui.SameLine(0, 20)
             if imgui.Checkbox('Pianissimo Fast Casting', fast_var) then
-                common.pianissimo_fast = fast_var[1]
+                addon_settings.pianissimo_fast_casting = fast_var[1]
+                if save_settings then save_settings() end
             end
             if imgui.IsItemHovered() then
                 imgui.SetTooltip('Requires Debuff addon (/debuff). Will precast with Pianissimo,\n' ..
