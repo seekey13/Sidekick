@@ -1228,7 +1228,9 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
                 
                 -- Treat party button as "not has_spell" if target_modifier is required but not available
                 -- NOTE: `and not is_trust_member` removed -- Trusts can now be buffed
-                local party_has_spell = has_spell and has_target_modifier
+                -- Damage-immune trusts (Moogle etc.) can't be supported, so lock the button.
+                local is_excluded = common.is_trust_excluded(common.get_party_member_name(party_index))
+                local party_has_spell = has_spell and has_target_modifier and not is_excluded
                 
                 if not party_has_spell then
                     imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_DISABLED)
@@ -1258,7 +1260,9 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
                 -- (removal vs. buff tracking) appended only on actual Trust buttons.
                 if imgui.IsItemHovered() then
                     local pname = common.get_party_member_name(party_index) or ('P' .. party_index)
-                    if ctx.is_trust and ctx.is_trust(party_index) and ctx.show_trust_warning then
+                    if is_excluded then
+                        imgui.SetTooltip(pname .. '\nTrust cannot take any damage')
+                    elseif ctx.is_trust and ctx.is_trust(party_index) and ctx.show_trust_warning then
                         imgui.SetTooltip(pname .. '\nTrust/Tracked Removal is not totally reliable')
                     elseif ctx.is_trust and ctx.is_trust(party_index) and ctx.show_buff_warning then
                         imgui.SetTooltip(pname .. '\nTrust/Tracked Buff tracking is not totally reliable')
@@ -1298,7 +1302,7 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
 
                     local is_enabled    = is_group and is_group_party_buff_enabled(ctx, key_name, al_key) or is_party_buff_enabled(ctx, key_name, al_key)
                     local is_compatible = ability and ability.target_outside
-                    local is_disabled   = not has_spell or not is_compatible
+                    local is_disabled   = not has_spell or not is_compatible or common.is_trust_excluded(m.name)
 
                     if is_disabled then
                         imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_DISABLED)
@@ -1324,7 +1328,9 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
                     end
 
                     if imgui.IsItemHovered() then
-                        if not is_compatible then
+                        if common.is_trust_excluded(m.name) then
+                            imgui.SetTooltip((m.name or (prefix .. local_idx)) .. '\nTrust cannot take any damage')
+                        elseif not is_compatible then
                             imgui.SetTooltip('Not compatible with out-of-party targets')
                         else
                             imgui.SetTooltip(m.name or (prefix .. local_idx))
@@ -1359,7 +1365,7 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
 
             local tt_key = 'tt_' .. tt.sid
             local is_tt_enabled = is_group and is_group_party_buff_enabled(ctx, key_name, tt_key) or is_party_buff_enabled(ctx, key_name, tt_key)
-            local is_disabled = not has_spell or not is_compatible
+            local is_disabled = not has_spell or not is_compatible or common.is_trust_excluded(tt.name)
 
             if is_disabled then
                 imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_DISABLED)
@@ -1386,7 +1392,9 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
 
             -- Tooltip: show target name, or reason why button is disabled
             if imgui.IsItemHovered() then
-                if not is_compatible then
+                if common.is_trust_excluded(tt.name) then
+                    imgui.SetTooltip(tt.name .. '\nTrust cannot take any damage')
+                elseif not is_compatible then
                     imgui.SetTooltip('Not compatible with out-of-party targets')
                 elseif ctx.show_trust_warning then
                     imgui.SetTooltip(tt.name .. '\nTrust/Tracked Removal is not totally reliable')
@@ -2338,17 +2346,29 @@ function ui_components.render_heal_group_selection(ctx, key_name, show_outside)
         return state[key] ~= false
     end
 
-    local function draw(label, id, on, on_click, tooltip)
-        if not on then
+    local function draw(label, id, on, on_click, tooltip, disabled)
+        if disabled then
+            imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_DISABLED)
+            imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_DISABLED)
+            imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_DISABLED)
+            imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
+        elseif not on then
             imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_UNSELECTED)
             imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_UNSELECTED_HOVER)
             imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_UNSELECTED_ACTIVE)
         end
-        if imgui.Button(label .. '##' .. key_name .. '_gsel_' .. id, { PARTY_BUTTON_WIDTH, 0 }) then
+        if imgui.Button(label .. '##' .. key_name .. '_gsel_' .. id, { PARTY_BUTTON_WIDTH, 0 }) and not disabled then
             on_click()
         end
-        if tooltip and imgui.IsItemHovered() then imgui.SetTooltip(tooltip) end
-        if not on then imgui.PopStyleColor(3) end
+        if imgui.IsItemHovered() then
+            if disabled then
+                imgui.SetTooltip((tooltip or label) .. '\nTrust cannot take any damage')
+            elseif tooltip then
+                imgui.SetTooltip(tooltip)
+            end
+        end
+        if disabled then imgui.PopStyleColor(4)
+        elseif not on then imgui.PopStyleColor(3) end
     end
 
     -- [ME]
@@ -2363,7 +2383,9 @@ function ui_components.render_heal_group_selection(ctx, key_name, show_outside)
         if pi < party_size then
             imgui.SameLine()
             local on = is_sel(pi)
-            draw('P' .. pi, 'p' .. pi, on, function() state[pi] = not on end)
+            local pname = common.get_party_member_name(pi)
+            draw('P' .. pi, 'p' .. pi, on, function() state[pi] = not on end,
+                pname, common.is_trust_excluded(pname))
         end
     end
 
@@ -2381,7 +2403,8 @@ function ui_components.render_heal_group_selection(ctx, key_name, show_outside)
                     imgui.SameLine()
                     local on = is_sel(al_key, true)
                     draw(prefixes[api] .. entry.local_idx, al_key, on,
-                        function() state[al_key] = not on end, entry.m.name)
+                        function() state[al_key] = not on end, entry.m.name,
+                        common.is_trust_excluded(entry.m.name))
                 end
             end
         end
@@ -2397,7 +2420,8 @@ function ui_components.render_heal_group_selection(ctx, key_name, show_outside)
         imgui.SameLine()
         local tt_key = 'tt_' .. tt.sid
         local on = is_sel(tt_key)
-        draw('T' .. t_idx, 't' .. tt.sid, on, function() state[tt_key] = not on end, tt.name)
+        draw('T' .. t_idx, 't' .. tt.sid, on, function() state[tt_key] = not on end,
+            tt.name, common.is_trust_excluded(tt.name))
     end
 
     return true

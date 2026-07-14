@@ -999,12 +999,12 @@ end
 -- CatsEyeXI trusts that can't take damage (and stay at full HP), so healing,
 -- AOE healing, debuff removal and buffing them is wasted. Support modules skip
 -- any party/tracked/alliance member matching one of these names.
-local SUPPORT_EXCLUDED_TRUSTS = {
+local EXCLUDED_TRUSTS = {
     ['Moogle'] = true, ['Sakura'] = true, ['Kupofried'] = true,
     ['Star Sibyl'] = true, ['Brygid'] = true, ['Cornelia'] = true,
 }
-function common.is_support_excluded(name)
-    return name ~= nil and SUPPORT_EXCLUDED_TRUSTS[name] == true
+function common.is_trust_excluded(name)
+    return name ~= nil and EXCLUDED_TRUSTS[name] == true
 end
 
 function common.is_in_range(target_index, range)
