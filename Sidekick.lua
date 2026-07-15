@@ -738,9 +738,10 @@ ashita.events.register('d3d_present', 'sidekick_render', function()
             last_level = main_level
         end
         
-        -- Restore automation state
-        if addon_settings and addon_settings.automation_enabled then
-            automation_enabled = true
+        -- ponytail: always start stopped, no matter what was persisted.
+        automation_enabled = false
+        if addon_settings then
+            addon_settings.automation_enabled = false
         end
     end
     
