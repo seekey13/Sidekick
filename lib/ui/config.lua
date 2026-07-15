@@ -574,6 +574,29 @@ function ui_config.render(settings, job_def, callback)
             ui.item_tooltip(tooltips.attack_range)
         end
 
+        -- Follow settings (job-independent leader following; off by default).
+        -- Rendered at the top, above the job-specific sections. The Follow Target
+        -- set here is shared: the Resting section also watches its distance.
+        -- Changing it resets the client's autofollow so the character stops
+        -- running at the old leader before retargeting. Hidden in Multisend Follow
+        -- mode (Attack Range replaces it; toggle in /sk panel).
+        if not settings.multisend_follow then
+            local follow_on_change = function()
+                common.reset_autofollow()
+                if callback then callback() end
+            end
+            local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Auto Follow', 'follow_enabled', false)
+            ui.item_tooltip(tooltips.follow)
+            if is_open and is_enabled then
+                imgui.Indent(ui.ABILITY_LIST_INDENT)
+                follow_target_name = render_party_dropdown('Follow Target', 'follow_target', false, party_member_names, settings, follow_on_change, true)
+                ui.item_tooltip(tooltips.follow_target)
+                ui.slider_int(ctx, 'Distance (yalms)##follow_distance', 'follow_distance', { settings.follow_distance or 5 }, 1, 15)
+                ui.item_tooltip(tooltips.follow_distance)
+                imgui.Unindent(ui.ABILITY_LIST_INDENT)
+            end
+        end
+
         -- Show job-specific sections if we have a job definition
         if job_def then
         
@@ -773,30 +796,8 @@ function ui_config.render(settings, job_def, callback)
             end
         end
 
-        -- Follow settings (job-independent leader following; off by default).
-        -- The Follow Target set here is shared: the Resting section below also
-        -- watches its distance. Changing it resets the client's autofollow so the
-        -- character stops running at the old leader before retargeting. Hidden in
-        -- Multisend Follow mode (Attack Range replaces it; toggle in /sk panel).
-        if not settings.multisend_follow then
-            local follow_on_change = function()
-                common.reset_autofollow()
-                if callback then callback() end
-            end
-            local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Auto Follow', 'follow_enabled', false)
-            ui.item_tooltip(tooltips.follow)
-            if is_open and is_enabled then
-                imgui.Indent(ui.ABILITY_LIST_INDENT)
-                follow_target_name = render_party_dropdown('Follow Target', 'follow_target', false, party_member_names, settings, follow_on_change, true)
-                ui.item_tooltip(tooltips.follow_target)
-                ui.slider_int(ctx, 'Distance (yalms)##follow_distance', 'follow_distance', { settings.follow_distance or 5 }, 1, 15)
-                ui.item_tooltip(tooltips.follow_distance)
-                imgui.Unindent(ui.ABILITY_LIST_INDENT)
-            end
-        end
-
         -- Rest settings (only for MP-based jobs). Uses the Follow Target set in the
-        -- Follow section above as its distance watch target.
+        -- Auto Follow section (top of the window) as its distance watch target.
         if job_def and job_def.resource_type == 'mp' then
             local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Resting', 'rest_enabled', false)
             ui.item_tooltip(tooltips.resting)
