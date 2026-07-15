@@ -14,18 +14,27 @@ local action_core = require('lib.core.action_core')
 -- Debuff Removal Helpers
 -- ============================================================================
 
--- Check if an ability can remove any of the detected debuffs.
-local function can_remove_debuffs(ability, debuffs)
-    if not ability.debuff_id then return #debuffs > 0 end
-    return action_core.has_any_buff(debuffs, ability.debuff_id)
+-- Check if an ability can remove any of the detected debuffs. <settings> lets
+-- user-disabled statuses drop out of the ability's effective removal list.
+local function can_remove_debuffs(ability, debuffs, settings)
+    local ids = common.effective_debuff_ids(ability, settings)
+    if not ids then return #debuffs > 0 end
+    return action_core.has_any_buff(debuffs, ids)
 end
 
--- Count removable debuffs in a list of buffs.
-local function count_removable_debuffs(buffs, abilities)
+-- Count removable debuffs in a list of buffs (honours per-status opt-out).
+local function count_removable_debuffs(buffs, abilities, settings)
     local count = 0
+    -- Resolve each ability's effective removal list once, not per buff -- the
+    -- opt-out filter does a gsub + table build for multi-status removers.
+    local eff = {}
+    for i, ability in ipairs(abilities) do
+        eff[i] = common.effective_debuff_ids(ability, settings)
+    end
     for _, buff_id in ipairs(buffs) do
-        for _, ability in ipairs(abilities) do
-            if not ability.debuff_id or action_core.has_any_buff({buff_id}, ability.debuff_id) then
+        for i = 1, #abilities do
+            local ids = eff[i]
+            if not ids or action_core.has_any_buff({buff_id}, ids) then
                 count = count + 1
                 break
             end
@@ -111,7 +120,7 @@ function status_removal.execute_debuff_removal(settings, job_def, main_level, su
         if member and common.is_trust_excluded(member.name, member.server_id) then
             debuff_counts[i] = 0
         else
-            debuff_counts[i] = count_removable_debuffs(all_buffs[i], available_abilities)
+            debuff_counts[i] = count_removable_debuffs(all_buffs[i], available_abilities, settings)
         end
     end
 
@@ -123,7 +132,7 @@ function status_removal.execute_debuff_removal(settings, job_def, main_level, su
         for sid, tt in pairs(state.tracked) do
             if tt.is_active and tt.target_index and tt.target_index > 0 then
                 tracked_buffs[sid] = tt.buffs or {}
-                tracked_debuff_counts[sid] = count_removable_debuffs(tracked_buffs[sid], outside_abilities)
+                tracked_debuff_counts[sid] = count_removable_debuffs(tracked_buffs[sid], outside_abilities, settings)
             end
         end
     end
@@ -140,7 +149,7 @@ function status_removal.execute_debuff_removal(settings, job_def, main_level, su
                         local flat_index = (al_pi - 1) * 6 + local_idx
                         alliance_sid_to_key[m.server_id] = 'al_' .. flat_index
                         alliance_buffs[m.server_id] = m.buffs or {}
-                        alliance_debuff_counts[m.server_id] = count_removable_debuffs(alliance_buffs[m.server_id], outside_abilities)
+                        alliance_debuff_counts[m.server_id] = count_removable_debuffs(alliance_buffs[m.server_id], outside_abilities, settings)
                     end
                 end
             end
@@ -159,14 +168,14 @@ function status_removal.execute_debuff_removal(settings, job_def, main_level, su
             local affected_alliance = {}   -- packet-tracked sids -> drop one debuff on cast
             local count = 0
 
-            if is_ability_target_allowed(ability, 0) and can_remove_debuffs(ability, all_buffs[0]) then
+            if is_ability_target_allowed(ability, 0) and can_remove_debuffs(ability, all_buffs[0], settings) then
                 count = count + 1
             end
             for i = 1, 5 do
                 local pm = state.party[i]
                 if pm and pm.target_index and pm.target_index > 0
                    and is_ability_target_allowed(ability, i)
-                   and can_remove_debuffs(ability, all_buffs[i])
+                   and can_remove_debuffs(ability, all_buffs[i], settings)
                    and common.is_in_range(pm.target_index, radius) then
                     count = count + 1
                 end
@@ -175,7 +184,7 @@ function status_removal.execute_debuff_removal(settings, job_def, main_level, su
                 local al = common.find_alliance_member(state, sid)
                 if al and al.target_index and al.target_index > 0
                    and is_ability_target_allowed(ability, alliance_sid_to_key[sid] or '')
-                   and can_remove_debuffs(ability, buffs)
+                   and can_remove_debuffs(ability, buffs, settings)
                    and common.is_in_range(al.target_index, radius) then
                     count = count + 1
                     table.insert(affected_alliance, sid)
@@ -209,7 +218,7 @@ function status_removal.execute_debuff_removal(settings, job_def, main_level, su
 
         if in_range then
             for _, ability in ipairs(available_abilities) do
-                if is_ability_target_allowed(ability, focus_party_idx) and can_remove_debuffs(ability, all_buffs[focus_party_idx]) then
+                if is_ability_target_allowed(ability, focus_party_idx) and can_remove_debuffs(ability, all_buffs[focus_party_idx], settings) then
                     local dc = debuff_counts[focus_party_idx]
                     local desc = string.format('Removing %d debuff(s) from focus with %s', dc, ability.name)
                     local result, reason = action_core.try_use(ability, job_def, settings, focus_party_idx, desc)
@@ -227,7 +236,7 @@ function status_removal.execute_debuff_removal(settings, job_def, main_level, su
         local tt = state.tracked[focus_tracked_sid]
         if tt and tt.target_index and tt.target_index > 0 and common.is_in_range(tt.target_index, 20) then
             for _, ability in ipairs(outside_abilities) do
-                if is_ability_target_allowed(ability, 'tt_' .. focus_tracked_sid) and can_remove_debuffs(ability, tracked_buffs[focus_tracked_sid]) then
+                if is_ability_target_allowed(ability, 'tt_' .. focus_tracked_sid) and can_remove_debuffs(ability, tracked_buffs[focus_tracked_sid], settings) then
                     local eff_cost = common.effective_ability_cost(ability, settings, job_def)
                     local ok, reason = action_core.is_usable(ability, job_def, eff_cost)
                     if ok then
@@ -260,7 +269,7 @@ function status_removal.execute_debuff_removal(settings, job_def, main_level, su
         local al_member = common.find_alliance_member(state, focus_alliance_sid)
         if al_member and al_member.target_index and al_member.target_index > 0 and common.is_in_range(al_member.target_index, 20) then
             for _, ability in ipairs(outside_abilities) do
-                if is_ability_target_allowed(ability, alliance_sid_to_key[focus_alliance_sid] or '') and can_remove_debuffs(ability, alliance_buffs[focus_alliance_sid]) then
+                if is_ability_target_allowed(ability, alliance_sid_to_key[focus_alliance_sid] or '') and can_remove_debuffs(ability, alliance_buffs[focus_alliance_sid], settings) then
                     local eff_cost = common.effective_ability_cost(ability, settings, job_def)
                     local ok, reason = action_core.is_usable(ability, job_def, eff_cost)
                     if ok then
@@ -309,7 +318,7 @@ function status_removal.execute_debuff_removal(settings, job_def, main_level, su
 
     if best_index then
         for _, ability in ipairs(available_abilities) do
-            if is_ability_target_allowed(ability, best_index) and can_remove_debuffs(ability, all_buffs[best_index]) then
+            if is_ability_target_allowed(ability, best_index) and can_remove_debuffs(ability, all_buffs[best_index], settings) then
                 local best_member = best_index == 0 and state.player or state.party[best_index]
                 local desc = string.format('Removing %d debuff(s) from %s with %s',
                     max_debuffs, best_member and best_member.name or 'party member', ability.name)
@@ -342,7 +351,7 @@ function status_removal.execute_debuff_removal(settings, job_def, main_level, su
         if best_tracked_sid then
             local tt = state.tracked[best_tracked_sid]
             for _, ability in ipairs(outside_abilities) do
-                if is_ability_target_allowed(ability, 'tt_' .. best_tracked_sid) and can_remove_debuffs(ability, tracked_buffs[best_tracked_sid]) then
+                if is_ability_target_allowed(ability, 'tt_' .. best_tracked_sid) and can_remove_debuffs(ability, tracked_buffs[best_tracked_sid], settings) then
                     local eff_cost = common.effective_ability_cost(ability, settings, job_def)
                     local ok, reason = action_core.is_usable(ability, job_def, eff_cost)
                     if ok then
@@ -389,7 +398,7 @@ function status_removal.execute_debuff_removal(settings, job_def, main_level, su
             local al_member = common.find_alliance_member(state, best_alliance_sid)
             if al_member then
                 for _, ability in ipairs(outside_abilities) do
-                    if is_ability_target_allowed(ability, alliance_sid_to_key[best_alliance_sid] or '') and can_remove_debuffs(ability, alliance_buffs[best_alliance_sid]) then
+                    if is_ability_target_allowed(ability, alliance_sid_to_key[best_alliance_sid] or '') and can_remove_debuffs(ability, alliance_buffs[best_alliance_sid], settings) then
                         local eff_cost = common.effective_ability_cost(ability, settings, job_def)
                         local ok, reason = action_core.is_usable(ability, job_def, eff_cost)
                         if ok then
@@ -448,7 +457,7 @@ function status_removal.execute_pet_debuff_removal(settings, job_def, main_level
     for _, ability in ipairs(abilities) do
         if ability.requires_equipped_ammo
            and not common.is_ammo_equipped(ability.requires_equipped_ammo)
-           and can_remove_debuffs(ability, pet_debuffs) then
+           and can_remove_debuffs(ability, pet_debuffs, settings) then
             local equip = common.ammo_equip_command({ ability }, settings, player)
             if equip then return equip end
         end
@@ -457,8 +466,8 @@ function status_removal.execute_pet_debuff_removal(settings, job_def, main_level
     local available = common.filter_abilities_by_level(abilities, settings, player.main_level, player.sub_level, job_def)
     for _, ability in ipairs(available) do
         if not common.is_command_blocked(ability.command)
-           and can_remove_debuffs(ability, pet_debuffs) then
-            local count = count_removable_debuffs(pet_debuffs, { ability })
+           and can_remove_debuffs(ability, pet_debuffs, settings) then
+            local count = count_removable_debuffs(pet_debuffs, { ability }, settings)
             local desc  = string.format('Removing %d debuff(s) from pet with %s', count, ability.name)
             local result = action_core.try_use(ability, job_def, settings, 0, desc)
             if result then

@@ -58,6 +58,8 @@ The one exception is **opt-in leader following** (off by default): with **Follow
 ### [2.4.0] - 2026-07-13
 
 ### Added
+- **Start button right-click menu**: **Right-click the Start/Stop button** for two new options, **both off by default**. **Load stopped** makes Sidekick come up stopped every time instead of restoring the state you left it in — handy if a reload has ever come back already running. **Stop after zone** stops automation whenever you change zones.
+
 - **Damage-Immune Trusts Skipped**: Trusts that can't take damage — **Moogle**, **Sakura**, **Kupofried**, **Star Sibyl**, **Brygid**, **Cornelia** — are no longer targeted by **Heal**, **AOE Heal**, **Debuff Removal**, or **Buff** (they sit at permanent full HP, so there's nothing to cure or buff). Their **P1–P5** buttons in those config sections are grayed and locked, with a *"Trust cannot take any damage"* tooltip.
 
 - **Bard Pianissimo Fast Casting**: New toggle in `/sk panel` (saved per Bard). Area songs are cast with **Pianissimo** up for its faster cast time, then Pianissimo is removed about a second into the cast so the song still goes out as an area song. In this mode Sidekick always waits for Pianissimo before casting an area song. **Requires the Debuff addon by atom0s (`/debuff`).** 
@@ -68,8 +70,10 @@ The one exception is **opt-in leader following** (off by default): with **Follow
 
 - **Auto Follow (opt-in leader following)**: New **Auto Follow** section at the top of `/sk` — pick a **Follow Target** and a **Distance**, and Sidekick `/follow`s them when they walk beyond it. Off by default; it's the only non-combat movement the addon does. Healing always takes priority, it keeps working while automation is stopped/paused and in towns, and a packet guard keeps `/follow` from breaking mid-route. A **Multisend Follow** checkbox in `/sk panel` switches to the old Multisend attack-range follow instead (shows **Attack Range**, disables native Follow) so the two never fight. Massive thank you to **[BUN] Shirahime**, whose follow code this is built on.
 
+- **Pick which statuses a remover strips**: Right-click any multi-status debuff remover (Erase, Esuna, Cursna, Viruna, Healing Waltz, Chakra…) and you'll get a **Remove:** list — one checkbox per status it can cure, all on by default. Uncheck a status (say, Poison on Erase) and Sidekick stops treating that status as a reason to cast — it won't fire the remover, or pick that target, just because of a disabled status. Note that when a remover fires on someone with several debuffs, the game still chooses which one it removes, so this controls *when* Sidekick casts, not exactly *what* comes off.
+
 ### Fixed
-- **Red Mage Composure now casts**: Composure's recast id was wrong (it pointed at a different ability's timer), so Sidekick read the wrong cooldown and never fired it. Corrected to Composure's own recast id. Thanks to **Dasaikuru [DS]** for the report.
+- **Red Mage Composure now casts**: Composure's recast id was wrong (it pointed at a different ability's timer), so Sidekick read the wrong cooldown and never fired it. Corrected to Composure's own recast id. 
 
 - **Geomancer Indi/Geo MP costs corrected**: Many Indi, Geo, and Geo-bt spells had `cost` values from retail rather than CatsEyeXI's `spell_list`, so Sidekick could skip a spell it could actually afford (thought MP was too low) or attempt one it couldn't. All geomancy MP costs now match the server. Thanks to **Tai** for the report.
 
@@ -78,6 +82,8 @@ The one exception is **opt-in leader following** (off by default): with **Follow
 - **Level-synced Bard songs no longer lock the song slots**: After a level-sync down, higher-level songs you selected stay selected but drop off the config window (you can't sing them), so they couldn't be turned off — and they kept using up your 2 song slots, blocking you from picking songs you *can* sing. Uncastable songs are now auto-deselected (on every target: `A` / `ME` / `P1`-`P5`) so the slots free up. Re-select them once you level back up. Only songs are affected; stratagem / Nether Void / Diffusion picks have no slot limit, so they stay put and switch back on when you level up.
 
 - **`/anon` no longer stops automation**: Sidekick now reads your job directly from the game client instead of the party list, which hides your job while `/anon` is on. Automation now works normally with `/anon` active.
+
+- **Haste duration on low-level tracked targets**: Sidekick assumed Haste always lasts 180s, but it wears off sooner on players under level 40. It now scales the tracked Haste timer to the target's level (from the `/check` done when you Track Target); level 40+ is unchanged at 180s.
 
 ### [2.3.1] - 2026-07-13
 
