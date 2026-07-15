@@ -48,8 +48,10 @@ A focused, support-oriented addon for Ashita v4 that automates healing, buffing,
 - Tanking/enmity management
 - Magic bursting/nuking
 - Weaponskills
-- Movement/positioning
+- Combat movement/positioning
 - Full job automation
+
+The one exception is **opt-in leader following** (off by default): with **Follow** enabled, Sidekick will `/follow` a chosen party member when they walk beyond a set distance. It never moves your character unless you turn this on.
 
 ## Latest Updates
 
@@ -196,6 +198,7 @@ Adds three pet-support jobs (Beastmaster, Dragoon, Puppetmaster) with consumable
 - **Buff Maintenance**: Auto-apply and maintain self-buffs with single-target party buff support
 - **Resource Recovery**: Automated MP and TP recovery abilities
 - **Automatic Resting**: MP-based jobs automatically rest when idle to recover MP with configurable timer, HP threshold safety, and optional follow target distance monitoring
+- **Leader Following** (opt-in, off by default): `/follow` a chosen party member when they move beyond a set distance. Healing and every other support action always take priority, and an autorun-cancel packet guard keeps `/follow` alive across the server's position syncs so it doesn't break mid-route. The only non-combat movement Sidekick performs.
 - **Geomancer Support**: Single-target Geo buffs on party members, target-cast Geo debuffs in combat, and automatic Full Circle / luopan management (recalls and recasts when the luopan drifts beyond the distance threshold from the selected Geo target)
 
 ### User Interface
@@ -494,7 +497,9 @@ Settings are saved per job in JSON format in the Ashita config directory:
 - `rest_timer` (number): Timer duration in seconds before resting starts (1-20, default 5)
 - `rest_threshold` (number): HP% threshold - stops resting if any party member below this (1-99, default 70)
 - `rest_distance` (number): Distance in yalms to follow target - stops resting if exceeded (1-15, default 7)
-- `follow_target` (string): Character name of party member to follow for distance checking (P1-P5, optional)
+- `follow_enabled` (boolean): Enable opt-in leader following (`/follow` the follow target when far); off by default
+- `follow_distance` (number): Distance in yalms the follow target must exceed before `/follow` is sent (1-15, default 5)
+- `follow_target` (string): Character name of party member to follow, shared by leader following and the resting distance check (P1-P5, optional)
 - `geo_enabled` (boolean): Enable geo management (Geo buffs, Geo debuffs, and Full Circle / luopan handling)
 - `geo_distance_threshold` (number): Distance (yalms) the luopan may drift from the selected Geo target before Full Circle recalls and recasts it (7-30)
 - `geo_bt_timer` (number): Seconds to wait after the Geo-bt battle target dies before Full Circle dismisses the luopan; a new battle target within the window reuses it instead (1-20, default 5)

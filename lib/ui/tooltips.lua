@@ -114,6 +114,25 @@ return {
         'before resting is stopped or blocked from\n' ..
         'starting.',
 
+    follow =
+        'Auto-follows a party member when they move\n' ..
+        'away. Sends /follow once they pass the\n' ..
+        'Distance below; healing and every other\n' ..
+        'support action always take priority. Off by\n' ..
+        'default -- Sidekick never moves you unless\n' ..
+        'this is enabled.',
+
+    follow_target =
+        'Party member to follow. Switching targets\n' ..
+        'stops running at the old one and follows the\n' ..
+        'new one. Also used as the Resting distance\n' ..
+        'watch target below.',
+
+    follow_distance =
+        'Distance (yalms) the Follow Target must pass\n' ..
+        'before Sidekick sends /follow. The client\n' ..
+        'holds position once you catch up.',
+
     resource_recovery =
         'Self Recover (TP/MP%%) casts the checked\n' ..
         'abilities when your TP/MP drops below the\n' ..

@@ -42,6 +42,7 @@ local action_modules = {
     geo            = require('lib.actions.geo'),
     rest           = require('lib.actions.rest'),
     revive         = require('lib.actions.revive'),
+    follow         = require('lib.actions.follow'),
 }
 
 -- Load config UI
@@ -66,6 +67,10 @@ local default_settings = T{
     focus_enabled = false,
     focus_target = nil,
     attack_range = 'Off',
+    -- Leader following (job-independent). Off by default: this addon has never
+    -- moved the character before, so opt-in only -- no surprise on upgrade.
+    follow_enabled = false,
+    follow_distance = 5,
 }
 
 -- Range management state
@@ -231,6 +236,7 @@ local function load_job_definition(main_job_id, sub_job_id)
         'geo',
         'buff',
         'revive',
+        'follow',
         'rest',
     }
     
@@ -246,7 +252,12 @@ local function load_job_definition(main_job_id, sub_job_id)
             available_actions[action] = true
         end
     end
-    
+
+    -- Follow is job-independent leader-following, so inject it here once rather
+    -- than adding 'follow' to every job's priority_order. Gated at runtime by
+    -- settings.follow_enabled (default off).
+    available_actions['follow'] = true
+
     -- Build merged priority_order using master list order
     merged_def.priority_order = T{}
     for _, action in ipairs(master_priority) do
@@ -710,7 +721,29 @@ ashita.events.register('packet_in', 'sidekick_packet_in', function(e)
     if not is_loaded then
         return
     end
-    
+
+    -- Autorun-cancel guard: the server sets an autorun-cancel flag on position-sync
+    -- packets (0x0D byte 0x42 for other entities, 0x37 byte 0x58 for the player).
+    -- Zeroing it keeps /follow alive across every sync -- without this the whole
+    -- follow feature is useless. Gated on follow_enabled so behavior is identical
+    -- to before when following is off (a manual autorun won't be kept alive either).
+    if addon_settings and addon_settings.follow_enabled then
+        if e.id == 0x0D then
+            local packet = e.data:totable()
+            if packet[0x42 + 1] ~= 0 then
+                packet[0x42 + 1] = 0
+                e.data_modified = packet
+            end
+        elseif e.id == 0x37 then
+            local packet = e.data:totable()
+            if packet[0x58 + 1] ~= 0 then
+                packet[0x58 + 1] = 0
+                e.data_modified = packet
+            end
+        end
+    end
+
+
     -- Handle action packets (0x028): casting detection, buff tracking, sleep inference
     -- Message 230 = caster/player gains the effect, 266 = other party members/Trusts gain the effect
     -- Message 83  = buff/debuff removed from target (e.g. Paralyna removes Paralysis)
