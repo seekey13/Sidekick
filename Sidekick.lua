@@ -653,6 +653,33 @@ local function automation_tick()
     )
 end
 
+-- Auto Follow runs even while automation is PAUSED (opt-in). When automation is
+-- enabled the follow action runs through the normal priority engine (automation_tick)
+-- instead, so this only acts while paused -- avoiding a double /follow. Mirrors the
+-- automation tick's guards (zoning / mounted / dead / cutscene-or-safe-zone / casting)
+-- and reuses the shared 1s command throttle via automation.execute_command.
+local function follow_tick()
+    if automation_enabled then return end
+    if not job_def or not addon_settings then return end
+    if not addon_settings.follow_enabled or addon_settings.multisend_follow then return end
+
+    -- Fresh snapshot for position/party reads (the panel may already have refreshed).
+    if os.clock() - common.game_state.refreshed_at > 0.1 then
+        common.refresh_game_state()
+    end
+
+    if common.is_loading() then return end
+    if common.is_mounted() then return end
+    if common.is_dead() then return end
+    if not common.can_attack() then return end
+    if common.is_casting() then return end
+
+    local result = action_modules.follow.execute(addon_settings, job_def)
+    if result then
+        automation.execute_command(result.command, result.description)
+    end
+end
+
 --[[
     Event Handlers
 ]]--
@@ -720,6 +747,9 @@ ashita.events.register('d3d_present', 'sidekick_render', function()
 
     -- Run automation tick
     automation_tick()
+
+    -- Auto Follow keeps working while automation is paused (no-op when enabled).
+    follow_tick()
 end)
 
 ashita.events.register('packet_in', 'sidekick_packet_in', function(e)

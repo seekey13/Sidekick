@@ -320,6 +320,12 @@ MP and TP recovery. Monitors percentage thresholds. Uses `action_core.first_comm
 - Wired **low** in `master_priority` (just above `rest`) so healing and every other support
   action preempt following. Injected into the merged `available_actions` **once** in
   `load_job_definition` rather than added to all 21 job files.
+- **Runs even while automation is paused.** When enabled, follow goes through the normal
+  priority engine (`automation_tick`). When automation is stopped, a standalone `follow_tick()`
+  in `d3d_present` runs the follow module directly (same zoning/mounted/dead/cutscene/casting
+  guards, same shared 1s throttle via `automation.execute_command`), so Auto Follow keeps
+  working when the rest of the addon is off. `follow_tick` no-ops while automation is enabled to
+  avoid a double `/follow`.
 - Follow survives the server's position syncs via the **autorun-cancel packet guard** in
   `Sidekick.lua`'s `packet_in` handler (see Event System); without it `/follow` breaks on every
   sync. The guard is gated on `follow_enabled and not multisend_follow`, so behavior is unchanged
