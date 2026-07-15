@@ -849,7 +849,9 @@ function ui_config.render(settings, job_def, callback)
                 -- Party MP recovery section (for Devotion)
                 if has_party_mp_recovery then
                     -- Recovery Target dropdown
-                    focus_recovery_target_name = render_party_dropdown('Recovery Target', 'focus_recovery_target', false, party_member_names, settings, callback, true)
+                    -- Party-only: Devotion resolves by P1-P5 index in recover.lua, so
+                    -- tracked/alliance targets would never match. Don't offer them.
+                    focus_recovery_target_name = render_party_dropdown('Recovery Target', 'focus_recovery_target', false, party_member_names, settings, callback, false)
                     
                     if focus_recovery_target_name then
                         ui.slider_int(ctx, 'Target Recover (MP%)', 'focus_recovery_threshold', { settings.focus_recovery_threshold or 30 }, 1, 100)
