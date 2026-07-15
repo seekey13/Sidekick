@@ -67,13 +67,10 @@ local default_settings = T{
     focus_enabled = false,
     focus_target = nil,
     attack_range = 'Off',
-    -- Leader following (job-independent). Off by default: this addon has never
-    -- moved the character before, so opt-in only -- no surprise on upgrade.
+    -- Leader following (job-independent), opt-in so it never moves you on upgrade.
     follow_enabled = false,
     follow_distance = 5,
-    -- Movement mode switch (toggle in /sk panel). false = native Auto Follow;
-    -- true = Multisend attack-range follow (shows Attack Range, disables native
-    -- Follow). Mutually exclusive so the two never fight for movement control.
+    -- false = native Auto Follow; true = Multisend attack-range follow (see /sk panel).
     multisend_follow = false,
 }
 
@@ -257,9 +254,7 @@ local function load_job_definition(main_job_id, sub_job_id)
         end
     end
 
-    -- Follow is job-independent leader-following, so inject it here once rather
-    -- than adding 'follow' to every job's priority_order. Gated at runtime by
-    -- settings.follow_enabled (default off).
+    -- Follow is job-independent: inject once instead of into every job's priority_order.
     available_actions['follow'] = true
 
     -- Build merged priority_order using master list order
@@ -505,8 +500,7 @@ local function automation_tick()
         return
     end
 
-    -- Range management logic (Multisend Follow mode only; native Auto Follow is a
-    -- separate priority action, and the two must not both drive movement).
+    -- Multisend range/follow -- only in Multisend Follow mode (else native follow runs).
     if addon_settings and addon_settings.multisend_follow and addon_settings.attack_range and addon_settings.attack_range ~= 'Off' then
         local in_combat = common.is_combat()
 
@@ -653,17 +647,16 @@ local function automation_tick()
     )
 end
 
--- Auto Follow runs even while automation is PAUSED (opt-in). When automation is
--- enabled the follow action runs through the normal priority engine (automation_tick)
--- instead, so this only acts while paused -- avoiding a double /follow. Mirrors the
--- automation tick's guards (zoning / mounted / dead / cutscene-or-safe-zone / casting)
--- and reuses the shared 1s command throttle via automation.execute_command.
+-- Auto Follow, run when the priority engine won't reach it: automation stopped, or
+-- "paused" (on but can_attack blocked -- safe zone / cutscene / just-zoned). Follow
+-- isn't combat, so unlike the engine it's not gated on can_attack (works in towns).
 local function follow_tick()
-    if automation_enabled then return end
     if not job_def or not addon_settings then return end
     if not addon_settings.follow_enabled or addon_settings.multisend_follow then return end
 
-    -- Fresh snapshot for position/party reads (the panel may already have refreshed).
+    -- Engine owns follow when it can (keeps healing above follow); only take over otherwise.
+    if automation_enabled and common.can_attack() then return end
+
     if os.clock() - common.game_state.refreshed_at > 0.1 then
         common.refresh_game_state()
     end
@@ -671,12 +664,13 @@ local function follow_tick()
     if common.is_loading() then return end
     if common.is_mounted() then return end
     if common.is_dead() then return end
-    if not common.can_attack() then return end
     if common.is_casting() then return end
 
-    local result = action_modules.follow.execute(addon_settings, job_def)
-    if result then
+    local ok, result = pcall(action_modules.follow.execute, addon_settings, job_def)
+    if ok and result then
         automation.execute_command(result.command, result.description)
+    elseif not ok then
+        common.errorf('follow_tick failed: %s', tostring(result))
     end
 end
 
@@ -748,7 +742,7 @@ ashita.events.register('d3d_present', 'sidekick_render', function()
     -- Run automation tick
     automation_tick()
 
-    -- Auto Follow keeps working while automation is paused (no-op when enabled).
+    -- Auto Follow while stopped/paused; no-op when the engine handled follow this tick.
     follow_tick()
 end)
 
@@ -757,11 +751,8 @@ ashita.events.register('packet_in', 'sidekick_packet_in', function(e)
         return
     end
 
-    -- Autorun-cancel guard: the server sets an autorun-cancel flag on position-sync
-    -- packets (0x0D byte 0x42 for other entities, 0x37 byte 0x58 for the player).
-    -- Zeroing it keeps /follow alive across every sync -- without this the whole
-    -- follow feature is useless. Gated on follow_enabled so behavior is identical
-    -- to before when following is off (a manual autorun won't be kept alive either).
+    -- Zero the server's autorun-cancel flag on position syncs (0x0D byte 0x42, 0x37
+    -- byte 0x58) so /follow survives them. Only while native follow is enabled.
     if addon_settings and addon_settings.follow_enabled and not addon_settings.multisend_follow then
         if e.id == 0x0D then
             local packet = e.data:totable()

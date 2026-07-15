@@ -1061,9 +1061,7 @@ function common.get_party_member_distance(party_index)
     return common.calculate_distance(player_entity, member_entity)
 end
 
--- Clear the client's autofollow state. Required when the follow target changes:
--- without it the client keeps autorunning at the OLD target. The follow action
--- module re-issues /follow at the new target on the next tick.
+-- Clear autofollow so a follow-target change stops running at the old target.
 function common.reset_autofollow()
     local af = AshitaCore:GetMemoryManager():GetAutoFollow()
     if af then

@@ -1,11 +1,8 @@
 --[[
     Follow action
-    Issues /follow at the configured leader when they walk beyond follow_distance.
-    Movement/mount/dead/casting guards all live in automation + common; the
-    0x0D/0x37 packet guard in Sidekick.lua keeps /follow alive across the server's
-    position syncs (without it autofollow breaks on every sync). Wired LOW in the
-    priority order (just above rest) so healing and every other support action
-    always preempt following.
+    /follow the configured leader when they walk beyond follow_distance. The
+    0x0D/0x37 packet guard in Sidekick.lua keeps /follow alive across position syncs.
+    Wired low in priority (above rest) so support actions preempt following.
 ]]--
 
 local common = require('lib.core.common')
@@ -13,8 +10,7 @@ local common = require('lib.core.common')
 local follow = {}
 
 function follow.execute(settings, job_def, main_level, sub_level, player_resource)
-    -- Multisend Follow mode owns movement instead; native follow stands down.
-    if settings.multisend_follow then
+    if settings.multisend_follow then  -- Multisend mode owns movement
         return nil
     end
 
@@ -32,11 +28,9 @@ function follow.execute(settings, job_def, main_level, sub_level, player_resourc
         return nil
     end
 
-    -- Locate the leader's party index. FFXI's <pN> is zero-based with <p0> = the
-    -- player, and Sidekick's party indices are already 0-based, so index i maps
-    -- directly to <pi>. follow_target excludes the player, so this only ever
-    -- matches P1-P5 (indices 1-5). (get_party_member_distance uses a different
-    -- 1..5 convention -- do not conflate; we pass the same index to both here.)
+    -- Party index i maps directly to <pi> (both 0-based, <p0> = player). Excludes
+    -- the player, so only matches P1-P5. Same index feeds get_party_member_distance
+    -- below (which happens to use a 1..5 convention that lines up here).
     local idx = nil
     for i = 1, 5 do
         local m = gs.party[i]
@@ -46,13 +40,11 @@ function follow.execute(settings, job_def, main_level, sub_level, player_resourc
         end
     end
     if not idx then
-        return nil  -- follow target absent / not in party -> silent
+        return nil  -- not in party -> silent
     end
 
-    -- Gate on the leader actually being rendered in this zone. A zoned-out member
-    -- keeps their party slot with a garbage position, and get_party_member_distance
-    -- can hand back that bogus distance instead of nil, so SpawnFlags > 0 is the
-    -- reliable in-zone test.
+    -- In-zone gate: a zoned-out member keeps their slot with a garbage position (and
+    -- get_party_member_distance may return it rather than nil), so test SpawnFlags.
     local ti = gs.party[idx].target_index
     if not ti or ti == 0 then return nil end
     local ent = GetEntity(ti)
@@ -62,7 +54,7 @@ function follow.execute(settings, job_def, main_level, sub_level, player_resourc
 
     local distance = common.get_party_member_distance(idx)
     if not distance or distance <= (settings.follow_distance or 5) then
-        return nil  -- close enough (or unreadable) -> let the client hold position
+        return nil  -- close enough -> client holds position
     end
 
     return {

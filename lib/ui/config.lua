@@ -164,12 +164,8 @@ local function render_party_dropdown(label, setting_key, include_player, party_m
         end
     end
 
-    -- Resolve the display label. Show 'None' when the saved name isn't currently
-    -- in the list (member zoning / temporarily out of party) but do NOT clear the
-    -- persisted setting -- a transient absence during a zone would otherwise wipe
-    -- the saved target (this used to nil it here). Modules no-op safely when the
-    -- target is absent, and it re-matches once the member is back. The user can
-    -- still pick 'None' explicitly to clear it.
+    -- Display 'None' when the saved name isn't in the list, but keep the setting --
+    -- clearing it here wiped the target on a transient zone-out. Re-matches on return.
     local current_name = settings[setting_key]
     local current_display = 'None'
     if current_name then
@@ -552,8 +548,7 @@ function ui_config.render(settings, job_def, callback)
             end
         end
         
-        -- Attack Range settings (global setting for all jobs). Only shown in
-        -- Multisend Follow mode (toggle in /sk panel); native Follow is hidden then.
+        -- Attack Range (global). Shown only in Multisend Follow mode (native Follow hidden).
         if settings.multisend_follow then
             local attack_range_options = { 'Off', 'Melee (3 yalms)', 'Ranged (15 yalms)' }
             local attack_range_current = settings.attack_range or 'Off'
@@ -573,12 +568,8 @@ function ui_config.render(settings, job_def, callback)
             ui.item_tooltip(tooltips.attack_range)
         end
 
-        -- Follow settings (job-independent leader following; off by default).
-        -- Rendered at the top, above the job-specific sections. The Follow Target
-        -- set here is shared: the Resting section also watches its distance.
-        -- Changing it resets the client's autofollow so the character stops
-        -- running at the old leader before retargeting. Hidden in Multisend Follow
-        -- mode (Attack Range replaces it; toggle in /sk panel).
+        -- Auto Follow (job-independent, top of window). Follow Target is shared with
+        -- Resting's distance check. Changing it resets autofollow. Hidden in Multisend mode.
         if not settings.multisend_follow then
             local follow_on_change = function()
                 common.reset_autofollow()
@@ -795,8 +786,7 @@ function ui_config.render(settings, job_def, callback)
             end
         end
 
-        -- Rest settings (only for MP-based jobs). Uses the Follow Target set in the
-        -- Auto Follow section (top of the window) as its distance watch target.
+        -- Resting (MP jobs). Distance watches the Auto Follow section's Follow Target.
         if job_def and job_def.resource_type == 'mp' then
             local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Resting', 'rest_enabled', false)
             ui.item_tooltip(tooltips.resting)

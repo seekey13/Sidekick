@@ -168,10 +168,7 @@ function panel.render(addon_settings, save_settings)
             common.debug = debug_var[1]
         end
 
-        -- Multisend Follow mode toggle (global, persisted). ON = show the Attack
-        -- Range combo in /sk config and disable native leader Follow; OFF = show
-        -- Follow and hide Attack Range. Mutually exclusive so the two movement
-        -- systems never fight for control of the character.
+        -- Multisend Follow mode (global). ON = Attack Range shown, native Follow off.
         if addon_settings then
             local ms_var = { addon_settings.multisend_follow == true }
             imgui.SameLine(0, 20)

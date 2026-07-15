@@ -320,12 +320,16 @@ MP and TP recovery. Monitors percentage thresholds. Uses `action_core.first_comm
 - Wired **low** in `master_priority` (just above `rest`) so healing and every other support
   action preempt following. Injected into the merged `available_actions` **once** in
   `load_job_definition` rather than added to all 21 job files.
-- **Runs even while automation is paused.** When enabled, follow goes through the normal
-  priority engine (`automation_tick`). When automation is stopped, a standalone `follow_tick()`
-  in `d3d_present` runs the follow module directly (same zoning/mounted/dead/cutscene/casting
-  guards, same shared 1s throttle via `automation.execute_command`), so Auto Follow keeps
-  working when the rest of the addon is off. `follow_tick` no-ops while automation is enabled to
-  avoid a double `/follow`.
+- **Runs even when the priority engine won't.** The engine (`automation_tick`) only reaches the
+  follow action when automation is **enabled *and* `can_attack`** is true, so on its own follow
+  would die whenever automation is stopped *or* the tick is "paused" (automation on but
+  `can_attack` blocked — safe zone, cutscene, just-zoned). A standalone `follow_tick()` in
+  `d3d_present` covers exactly those cases: it bails when `automation_enabled and can_attack`
+  (engine handles follow there, preserving healing-over-follow priority) and otherwise runs the
+  follow module directly. Unlike combat actions, follow is deliberately **not** gated on
+  `can_attack`, so it works in towns/safe zones. Guards it keeps: zoning / mounted / dead /
+  casting. Reuses the shared 1s throttle via `automation.execute_command`; in the states it runs,
+  the engine issues nothing, so the shared throttle never delays a heal.
 - Follow survives the server's position syncs via the **autorun-cancel packet guard** in
   `Sidekick.lua`'s `packet_in` handler (see Event System); without it `/follow` breaks on every
   sync. The guard is gated on `follow_enabled and not multisend_follow`, so behavior is unchanged
