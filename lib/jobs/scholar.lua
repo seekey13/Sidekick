@@ -705,7 +705,7 @@ return {
                 magic = 'white',
                 magic_type = 'raise',  -- distinct from 'healing' so Accession/Rapture don't apply
                 idle_only = true,
-                requires_buff = 401,  -- Requires Addendum: White
+                requires_buff = {401, 416},  -- Requires Addendum: White / Enlightenment
                 target_outside = true,
             },
             {
@@ -720,7 +720,6 @@ return {
                 magic = 'white',
                 magic_type = 'raise',  -- distinct from 'healing' so Accession/Rapture don't apply
                 idle_only = true,
-                requires_buff = 401,  -- Requires Addendum: White
                 target_outside = true,
             },
         },
