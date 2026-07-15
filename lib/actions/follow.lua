@@ -13,6 +13,11 @@ local common = require('lib.core.common')
 local follow = {}
 
 function follow.execute(settings, job_def, main_level, sub_level, player_resource)
+    -- Multisend Follow mode owns movement instead; native follow stands down.
+    if settings.multisend_follow then
+        return nil
+    end
+
     if not settings.follow_enabled then
         return nil
     end

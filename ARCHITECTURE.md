@@ -322,7 +322,14 @@ MP and TP recovery. Monitors percentage thresholds. Uses `action_core.first_comm
   `load_job_definition` rather than added to all 21 job files.
 - Follow survives the server's position syncs via the **autorun-cancel packet guard** in
   `Sidekick.lua`'s `packet_in` handler (see Event System); without it `/follow` breaks on every
-  sync. The guard is gated on `follow_enabled`, so behavior is unchanged when following is off.
+  sync. The guard is gated on `follow_enabled and not multisend_follow`, so behavior is unchanged
+  when following is off.
+- **Movement mode switch** (`multisend_follow`, checkbox in `/sk panel`, default off): when on,
+  Sidekick uses the legacy Multisend attack-range follow instead — the config window shows the
+  **Attack Range** combo and hides the Follow section, `follow.execute` returns `nil`, the packet
+  guard is suppressed, and the Multisend range logic in `automation_tick` runs. When off, native
+  Follow is used and the Multisend range logic is suppressed. The two are mutually exclusive so
+  they never both drive movement.
 - Changing `follow_target` in the UI calls `common.reset_autofollow()` (`GetAutoFollow()` →
   `SetIsAutoRunning(0)` / `SetFollowTargetIndex(0)` / `SetFollowTargetServerId(0)`) so the client
   stops running at the old leader before the module retargets the new one.

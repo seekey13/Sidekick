@@ -214,7 +214,7 @@ Adds three pet-support jobs (Beastmaster, Dragoon, Puppetmaster) with consumable
 - **Level-Based Filtering**: Shows only abilities available at your current level
 - **Collapsible Sections**: All major features (Healing, Buffs, Debuff Removal, etc.) are collapsible for cleaner organization
 - **Contextual Tooltips**: Hover help across the configuration UI explaining what each section, slider, dropdown, button, and checkbox does
-- **Attack Range Selector**: Choose `Off`, `Melee (3 yalms)`, or `Ranged (15 yalms)` to set how close a follow target must be (requires [Multisend](https://github.com/ThornyFFXI/Multisend))
+- **Attack Range Selector**: Choose `Off`, `Melee (3 yalms)`, or `Ranged (15 yalms)` to set how close a follow target must be (requires [Multisend](https://github.com/ThornyFFXI/Multisend)). Shown only when **Multisend Follow** is enabled in `/sk panel`, which also disables the native Follow feature so the two movement systems don't fight
 - **Auto-Refresh**: UI updates automatically when jobs or levels change
 
 ### Core System Features
@@ -497,7 +497,8 @@ Settings are saved per job in JSON format in the Ashita config directory:
 - `rest_timer` (number): Timer duration in seconds before resting starts (1-20, default 5)
 - `rest_threshold` (number): HP% threshold - stops resting if any party member below this (1-99, default 70)
 - `rest_distance` (number): Distance in yalms to follow target - stops resting if exceeded (1-15, default 7)
-- `follow_enabled` (boolean): Enable opt-in leader following (`/follow` the follow target when far); off by default
+- `multisend_follow` (boolean): Movement mode switch (checkbox in `/sk panel`). `true` = Multisend attack-range follow (shows Attack Range, disables native Follow); `false` = native leader Follow (hides Attack Range). Mutually exclusive; off by default
+- `follow_enabled` (boolean): Enable opt-in leader following (`/follow` the follow target when far); off by default. Ignored while `multisend_follow` is on
 - `follow_distance` (number): Distance in yalms the follow target must exceed before `/follow` is sent (1-15, default 5)
 - `follow_target` (string): Character name of party member to follow, shared by leader following and the resting distance check (P1-P5, optional)
 - `geo_enabled` (boolean): Enable geo management (Geo buffs, Geo debuffs, and Full Circle / luopan handling)

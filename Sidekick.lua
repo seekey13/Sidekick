@@ -71,6 +71,10 @@ local default_settings = T{
     -- moved the character before, so opt-in only -- no surprise on upgrade.
     follow_enabled = false,
     follow_distance = 5,
+    -- Movement mode switch (toggle in /sk panel). false = native Auto Follow;
+    -- true = Multisend attack-range follow (shows Attack Range, disables native
+    -- Follow). Mutually exclusive so the two never fight for movement control.
+    multisend_follow = false,
 }
 
 -- Range management state
@@ -501,8 +505,9 @@ local function automation_tick()
         return
     end
 
-    -- Range management logic
-    if addon_settings and addon_settings.attack_range and addon_settings.attack_range ~= 'Off' then
+    -- Range management logic (Multisend Follow mode only; native Auto Follow is a
+    -- separate priority action, and the two must not both drive movement).
+    if addon_settings and addon_settings.multisend_follow and addon_settings.attack_range and addon_settings.attack_range ~= 'Off' then
         local in_combat = common.is_combat()
 
         -- If not in combat, ensure follow is enabled
@@ -727,7 +732,7 @@ ashita.events.register('packet_in', 'sidekick_packet_in', function(e)
     -- Zeroing it keeps /follow alive across every sync -- without this the whole
     -- follow feature is useless. Gated on follow_enabled so behavior is identical
     -- to before when following is off (a manual autorun won't be kept alive either).
-    if addon_settings and addon_settings.follow_enabled then
+    if addon_settings and addon_settings.follow_enabled and not addon_settings.multisend_follow then
         if e.id == 0x0D then
             local packet = e.data:totable()
             if packet[0x42 + 1] ~= 0 then

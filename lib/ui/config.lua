@@ -553,8 +553,9 @@ function ui_config.render(settings, job_def, callback)
             end
         end
         
-        -- Attack Range settings (global setting for all jobs)
-        do
+        -- Attack Range settings (global setting for all jobs). Only shown in
+        -- Multisend Follow mode (toggle in /sk panel); native Follow is hidden then.
+        if settings.multisend_follow then
             local attack_range_options = { 'Off', 'Melee (3 yalms)', 'Ranged (15 yalms)' }
             local attack_range_current = settings.attack_range or 'Off'
             local attack_range_index = { 0 }
@@ -775,13 +776,14 @@ function ui_config.render(settings, job_def, callback)
         -- Follow settings (job-independent leader following; off by default).
         -- The Follow Target set here is shared: the Resting section below also
         -- watches its distance. Changing it resets the client's autofollow so the
-        -- character stops running at the old leader before retargeting.
-        do
+        -- character stops running at the old leader before retargeting. Hidden in
+        -- Multisend Follow mode (Attack Range replaces it; toggle in /sk panel).
+        if not settings.multisend_follow then
             local follow_on_change = function()
                 common.reset_autofollow()
                 if callback then callback() end
             end
-            local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Follow', 'follow_enabled', false)
+            local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Auto Follow', 'follow_enabled', false)
             ui.item_tooltip(tooltips.follow)
             if is_open and is_enabled then
                 imgui.Indent(ui.ABILITY_LIST_INDENT)

@@ -168,6 +168,22 @@ function panel.render(addon_settings, save_settings)
             common.debug = debug_var[1]
         end
 
+        -- Multisend Follow mode toggle (global, persisted). ON = show the Attack
+        -- Range combo in /sk config and disable native leader Follow; OFF = show
+        -- Follow and hide Attack Range. Mutually exclusive so the two movement
+        -- systems never fight for control of the character.
+        if addon_settings then
+            local ms_var = { addon_settings.multisend_follow == true }
+            imgui.SameLine(0, 20)
+            if imgui.Checkbox('Multisend Follow', ms_var) then
+                addon_settings.multisend_follow = ms_var[1]
+                if save_settings then save_settings() end
+            end
+            if imgui.IsItemHovered() then
+                imgui.SetTooltip(tooltips.multisend_follow)
+            end
+        end
+
         -- Bard: Pianissimo Fast Casting toggle (next to Debug Mode). Persisted
         -- per-job in addon_settings. BRD as main or sub.
         local main_job, sub_job = common.get_player_job()

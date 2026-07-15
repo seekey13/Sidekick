@@ -25,6 +25,13 @@ return {
         'Sidekick will /check the player to get their level\n' ..
         'for spell sizing, as exact HP is not available.\n',
 
+    multisend_follow =
+        'Movement mode switch. ON: use the Multisend\n' ..
+        'plugin\'s follow (shows Attack Range in /sk)\n' ..
+        'and disables the native Follow feature.\n' ..
+        'OFF: use native Follow and hide Attack Range.\n' ..
+        'The two never run at once.',
+
     attack_range =
         'Requires the Multisend plugin (/ms).\n' ..
         'While in combat, Sidekick disables Multisend\n' ..
