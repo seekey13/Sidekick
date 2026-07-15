@@ -108,7 +108,7 @@ function status_removal.execute_debuff_removal(settings, job_def, main_level, su
     local debuff_counts = {}
     for i = 0, 5 do
         local member = i == 0 and state.player or state.party[i]
-        if member and common.is_trust_excluded(member.name) then
+        if member and common.is_trust_excluded(member.name, member.server_id) then
             debuff_counts[i] = 0
         else
             debuff_counts[i] = count_removable_debuffs(all_buffs[i], available_abilities)

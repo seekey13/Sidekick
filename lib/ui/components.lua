@@ -1229,7 +1229,8 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
                 -- Treat party button as "not has_spell" if target_modifier is required but not available
                 -- NOTE: `and not is_trust_member` removed -- Trusts can now be buffed
                 -- Damage-immune trusts (Moogle etc.) can't be supported, so lock the button.
-                local is_excluded = common.is_trust_excluded(common.get_party_member_name(party_index))
+                local pm = common.game_state and common.game_state.party[party_index]
+                local is_excluded = pm and common.is_trust_excluded(pm.name, pm.server_id)
                 local party_has_spell = has_spell and has_target_modifier and not is_excluded
                 
                 if not party_has_spell then
@@ -2380,8 +2381,9 @@ function ui_components.render_heal_group_selection(ctx, key_name, show_outside)
             imgui.SameLine()
             local on = is_sel(pi)
             local pname = common.get_party_member_name(pi)
+            local pm = common.game_state and common.game_state.party[pi]
             draw('P' .. pi, 'p' .. pi, on, function() state[pi] = not on end,
-                pname, common.is_trust_excluded(pname))
+                pname, pm and common.is_trust_excluded(pm.name, pm.server_id))
         end
     end
 

@@ -998,13 +998,16 @@ end
 
 -- CatsEyeXI trusts that can't take damage (and stay at full HP), so healing,
 -- AOE healing, debuff removal and buffing them is wasted. Support modules skip
--- any party/tracked/alliance member matching one of these names.
+-- any party/tracked/alliance member matching one of these names AND confirmed to
+-- be a Trust/NPC (server_id >= 0x1000000, same test as build_member's is_trust)
+-- so a real player who happens to share one of these names is never blocked.
 local EXCLUDED_TRUSTS = {
     ['Moogle'] = true, ['Sakura'] = true, ['Kupofried'] = true,
     ['Star Sibyl'] = true, ['Brygid'] = true, ['Cornelia'] = true,
 }
-function common.is_trust_excluded(name)
-    return name ~= nil and EXCLUDED_TRUSTS[name] == true
+function common.is_trust_excluded(name, server_id)
+    if name == nil or EXCLUDED_TRUSTS[name] ~= true then return false end
+    return server_id ~= nil and server_id >= 0x1000000
 end
 
 function common.is_in_range(target_index, range)
