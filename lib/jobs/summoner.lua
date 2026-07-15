@@ -58,7 +58,7 @@ return {
                 name = 'Shining Ruby',
                 level = 24,
                 cost = 44,
-                id = 174, (shared with Healing Ruby)
+                id = 174, -- shared with Healing Ruby
                 command = '/pet "Shining Ruby" <me>',
                 buff_id = 154,
                 pet_required = true,

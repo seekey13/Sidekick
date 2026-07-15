@@ -25,6 +25,7 @@ lib/
     targets.lua             FFXI target-resolution helpers (from Ashita)
   actions/
     buff.lua                Buff maintenance (self + party, groups, Pianissimo)
+    follow.lua              Opt-in leader following (/follow past follow_distance)
     geo.lua                 Full Circle automation & Entrust management
     heal.lua                All healing (single-target, AOE, pet)
     item.lua                Consumable-based status removal (Antidote, Eye/Echo Drops, Holy/Hallowed Water, Remedy, Panacea, Remedy Ointment, Tincture)
@@ -96,7 +97,7 @@ lib/
 ┌───────────────────────────────────────────────┐
 │  Action Modules  (actions/*.lua)              │
 │  heal → status_removal → item → recover       │
-│  → revive → geo → buff → rest                 │
+│  → revive → geo → buff → follow → rest        │
 └──────────┬────────────────────────────────────┘
            │ uses
            ▼
@@ -307,6 +308,42 @@ MP and TP recovery. Monitors percentage thresholds. Uses `action_core.first_comm
 - **Entrust**: Name-based target + spell selection from UI dropdowns; fires Entrust → Indi spell on configured party member. Indi does not use a luopan, so it never conflicts with the Geo luopan.
 - All Geo spells have `main_job_only = true`.
 
+### follow.lua – Leader Following
+
+- **Opt-in** (`settings.follow_enabled`, default off) job-independent leader following — the
+  only non-combat movement Sidekick performs. Returns `{command = '/follow <pN>'}` when the
+  configured `follow_target` is beyond `follow_distance` (default 5), else `nil`.
+- Reuses existing primitives: finds the target in `game_state.party` (0-based indices map
+  directly to FFXI's zero-based `<pN>`, `<p0>` = player), gates in-zone on `GetSpawnFlags > 0`
+  (a zoned-out member keeps a slot with a garbage position), and measures range via
+  `common.get_party_member_distance`.
+- Wired **low** in `master_priority` (just above `rest`) so healing and every other support
+  action preempt following. Injected into the merged `available_actions` **once** in
+  `load_job_definition` rather than added to all 21 job files.
+- **Runs even when the priority engine won't.** The engine (`automation_tick`) only reaches the
+  follow action when automation is **enabled *and* `can_attack`** is true, so on its own follow
+  would die whenever automation is stopped *or* the tick is "paused" (automation on but
+  `can_attack` blocked — safe zone, cutscene, just-zoned). A standalone `follow_tick()` in
+  `d3d_present` covers exactly those cases: it bails when `automation_enabled and can_attack`
+  (engine handles follow there, preserving healing-over-follow priority) and otherwise runs the
+  follow module directly. Unlike combat actions, follow is deliberately **not** gated on
+  `can_attack`, so it works in towns/safe zones. Guards it keeps: zoning / mounted / dead /
+  casting. Reuses the shared 1s throttle via `automation.execute_command`; in the states it runs,
+  the engine issues nothing, so the shared throttle never delays a heal.
+- Follow survives the server's position syncs via the **autorun-cancel packet guard** in
+  `Sidekick.lua`'s `packet_in` handler (see Event System); without it `/follow` breaks on every
+  sync. The guard is gated on `follow_enabled and not multisend_follow`, so behavior is unchanged
+  when following is off.
+- **Movement mode switch** (`multisend_follow`, checkbox in `/sk panel`, default off): when on,
+  Sidekick uses the legacy Multisend attack-range follow instead — the config window shows the
+  **Attack Range** combo and hides the Follow section, `follow.execute` returns `nil`, the packet
+  guard is suppressed, and the Multisend range logic in `automation_tick` runs. When off, native
+  Follow is used and the Multisend range logic is suppressed. The two are mutually exclusive so
+  they never both drive movement.
+- Changing `follow_target` in the UI calls `common.reset_autofollow()` (`GetAutoFollow()` →
+  `SetIsAutoRunning(0)` / `SetFollowTargetIndex(0)` / `SetFollowTargetServerId(0)`) so the client
+  stops running at the old leader before the module retargets the new one.
+
 ### rest.lua – Automatic Resting
 
 - Two-phase timer: conditions become favourable → wait N seconds → `/heal on`.
@@ -489,7 +526,7 @@ Read-only display of game state, party buffs, server IDs, target indices. Shown 
 | `load` | Sidekick.lua | Set initialisation flag |
 | `unload` | Sidekick.lua | Save settings |
 | `d3d_present` | Sidekick.lua | Automation tick + UI render |
-| `packet_in` | Sidekick.lua | Casting state (0x028), Trust/pet buffs (0x028, 0x029), check response (0x0C9), zone change (0x0A) |
+| `packet_in` | Sidekick.lua | Casting state (0x028), Trust/pet buffs (0x028, 0x029), check response (0x0C9), zone change (0x0A), autorun-cancel guard (0x0D byte 0x42 / 0x37 byte 0x58, only while `follow_enabled`) |
 | `command` | Sidekick.lua | `/sidekick` command handler |
 
 ### Trust Buff Tracking

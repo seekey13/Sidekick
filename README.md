@@ -48,8 +48,10 @@ A focused, support-oriented addon for Ashita v4 that automates healing, buffing,
 - Tanking/enmity management
 - Magic bursting/nuking
 - Weaponskills
-- Movement/positioning
+- Combat movement/positioning
 - Full job automation
+
+The one exception is **opt-in leader following** (off by default): with **Follow** enabled, Sidekick will `/follow` a chosen party member when they walk beyond a set distance. It never moves your character unless you turn this on.
 
 ## Latest Updates
 
@@ -58,11 +60,19 @@ A focused, support-oriented addon for Ashita v4 that automates healing, buffing,
 ### Added
 - **Damage-Immune Trusts Skipped**: Trusts that can't take damage — **Moogle**, **Sakura**, **Kupofried**, **Star Sibyl**, **Brygid**, **Cornelia** — are no longer targeted by **Heal**, **AOE Heal**, **Debuff Removal**, or **Buff** (they sit at permanent full HP, so there's nothing to cure or buff). Their **P1–P5** buttons in those config sections are grayed and locked, with a *"Trust cannot take any damage"* tooltip.
 
-- **Bard Pianissimo Fast Casting**: New toggle beside **Debug Mode** in `/sk panel` (saved per Bard). Area songs are cast with **Pianissimo** up for its faster cast time, then Pianissimo is removed about a second into the cast so the song still goes out as an area song. In this mode Sidekick always waits for Pianissimo before casting an area song. **Requires the Debuff addon by atom0s (`/debuff`).** 
+- **Bard Pianissimo Fast Casting**: New toggle in `/sk panel` (saved per Bard). Area songs are cast with **Pianissimo** up for its faster cast time, then Pianissimo is removed about a second into the cast so the song still goes out as an area song. In this mode Sidekick always waits for Pianissimo before casting an area song. **Requires the Debuff addon by atom0s (`/debuff`).** 
 
-- **Ninja Cast with 1 Shadow**: New toggle beside **Debug Mode** in `/sk panel` (saved per Ninja). Normally Utsusemi won't recast while any shadows remain. With this on, Utsusemi recasts once you're down to your last shadow (still waits at 2+), and clears that last shadow a second into the cast so the fresh set applies. **Requires the Debuff addon by atom0s (`/debuff`).**
+- **Ninja Cast with 1 Shadow**: New toggle in `/sk panel` (saved per Ninja). Normally Utsusemi won't recast while any shadows remain. With this on, Utsusemi recasts once you're down to your last shadow (still waits at 2+), and clears that last shadow a second into the cast so the fresh set applies. **Requires the Debuff addon by atom0s (`/debuff`).**
+
+- **Prerequisite-buff spells shown grayed**: Spells that need a buff to cast are now grayed in the config UI with a *"Prerequisite buff not active"* tooltip when that buff isn't up, instead of looking freely available. You can still check them ahead of time; automation waits for the buff. When a subjob gives you the same spell without the requirement, it shows normally — but only if your subjob is high enough to cast it.
+
+- **Auto Follow (opt-in leader following)**: New **Auto Follow** section at the top of `/sk` — pick a **Follow Target** and a **Distance**, and Sidekick `/follow`s them when they walk beyond it. Off by default; it's the only non-combat movement the addon does. Healing always takes priority, it keeps working while automation is stopped/paused and in towns, and a packet guard keeps `/follow` from breaking mid-route. A **Multisend Follow** checkbox in `/sk panel` switches to the old Multisend attack-range follow instead (shows **Attack Range**, disables native Follow) so the two never fight. Massive thank you to **[BUN] Shirahime**, whose follow code this is built on.
 
 ### Fixed
+- **Red Mage Composure now casts**: Composure's recast id was wrong (it pointed at a different ability's timer), so Sidekick read the wrong cooldown and never fired it. Corrected to Composure's own recast id. Thanks to **Dasaikuru [DS]** for the report.
+
+- **Geomancer Indi/Geo MP costs corrected**: Many Indi, Geo, and Geo-bt spells had `cost` values from retail rather than CatsEyeXI's `spell_list`, so Sidekick could skip a spell it could actually afford (thought MP was too low) or attempt one it couldn't. All geomancy MP costs now match the server. Thanks to **Tai** for the report.
+
 - **Bard Mazurka songs now work with Pianissimo**: Chocobo Mazurka and Raptor Mazurka were missing their single-target flag, so casting them on `ME` skipped Pianissimo (fired area-only) and the `P1`-`P5` buttons did nothing. Both now behave like every other song.
 
 - **Level-synced Bard songs no longer lock the song slots**: After a level-sync down, higher-level songs you selected stay selected but drop off the config window (you can't sing them), so they couldn't be turned off — and they kept using up your 2 song slots, blocking you from picking songs you *can* sing. Uncastable songs are now auto-deselected (on every target: `A` / `ME` / `P1`-`P5`) so the slots free up. Re-select them once you level back up. Only songs are affected; stratagem / Nether Void / Diffusion picks have no slot limit, so they stay put and switch back on when you level up.
@@ -196,6 +206,7 @@ Adds three pet-support jobs (Beastmaster, Dragoon, Puppetmaster) with consumable
 - **Buff Maintenance**: Auto-apply and maintain self-buffs with single-target party buff support
 - **Resource Recovery**: Automated MP and TP recovery abilities
 - **Automatic Resting**: MP-based jobs automatically rest when idle to recover MP with configurable timer, HP threshold safety, and optional follow target distance monitoring
+- **Leader Following** (opt-in, off by default): `/follow` a chosen party member when they move beyond a set distance. Healing and every other support action always take priority, and an autorun-cancel packet guard keeps `/follow` alive across the server's position syncs so it doesn't break mid-route. The only non-combat movement Sidekick performs.
 - **Geomancer Support**: Single-target Geo buffs on party members, target-cast Geo debuffs in combat, and automatic Full Circle / luopan management (recalls and recasts when the luopan drifts beyond the distance threshold from the selected Geo target)
 
 ### User Interface
@@ -211,7 +222,7 @@ Adds three pet-support jobs (Beastmaster, Dragoon, Puppetmaster) with consumable
 - **Level-Based Filtering**: Shows only abilities available at your current level
 - **Collapsible Sections**: All major features (Healing, Buffs, Debuff Removal, etc.) are collapsible for cleaner organization
 - **Contextual Tooltips**: Hover help across the configuration UI explaining what each section, slider, dropdown, button, and checkbox does
-- **Attack Range Selector**: Choose `Off`, `Melee (3 yalms)`, or `Ranged (15 yalms)` to set how close a follow target must be (requires [Multisend](https://github.com/ThornyFFXI/Multisend))
+- **Attack Range Selector**: Choose `Off`, `Melee (3 yalms)`, or `Ranged (15 yalms)` to set how close a follow target must be (requires [Multisend](https://github.com/ThornyFFXI/Multisend)). Shown only when **Multisend Follow** is enabled in `/sk panel`, which also disables the native Follow feature so the two movement systems don't fight
 - **Auto-Refresh**: UI updates automatically when jobs or levels change
 
 ### Core System Features
@@ -494,7 +505,10 @@ Settings are saved per job in JSON format in the Ashita config directory:
 - `rest_timer` (number): Timer duration in seconds before resting starts (1-20, default 5)
 - `rest_threshold` (number): HP% threshold - stops resting if any party member below this (1-99, default 70)
 - `rest_distance` (number): Distance in yalms to follow target - stops resting if exceeded (1-15, default 7)
-- `follow_target` (string): Character name of party member to follow for distance checking (P1-P5, optional)
+- `multisend_follow` (boolean): Movement mode switch (checkbox in `/sk panel`). `true` = Multisend attack-range follow (shows Attack Range, disables native Follow); `false` = native leader Follow (hides Attack Range). Mutually exclusive; off by default
+- `follow_enabled` (boolean): Enable opt-in leader following (`/follow` the follow target when far); off by default. Ignored while `multisend_follow` is on
+- `follow_distance` (number): Distance in yalms the follow target must exceed before `/follow` is sent (1-15, default 5)
+- `follow_target` (string): Character name of party member to follow, shared by leader following and the resting distance check (P1-P5, optional)
 - `geo_enabled` (boolean): Enable geo management (Geo buffs, Geo debuffs, and Full Circle / luopan handling)
 - `geo_distance_threshold` (number): Distance (yalms) the luopan may drift from the selected Geo target before Full Circle recalls and recasts it (7-30)
 - `geo_bt_timer` (number): Seconds to wait after the Geo-bt battle target dies before Full Circle dismisses the luopan; a new battle target within the window reuses it instead (1-20, default 5)

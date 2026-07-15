@@ -42,6 +42,7 @@ local action_modules = {
     geo            = require('lib.actions.geo'),
     rest           = require('lib.actions.rest'),
     revive         = require('lib.actions.revive'),
+    follow         = require('lib.actions.follow'),
 }
 
 -- Load config UI
@@ -66,6 +67,11 @@ local default_settings = T{
     focus_enabled = false,
     focus_target = nil,
     attack_range = 'Off',
+    -- Leader following (job-independent), opt-in so it never moves you on upgrade.
+    follow_enabled = false,
+    follow_distance = 5,
+    -- false = native Auto Follow; true = Multisend attack-range follow (see /sk panel).
+    multisend_follow = false,
 }
 
 -- Range management state
@@ -121,6 +127,10 @@ end
 local function merge_abilities(main_abilities, sub_abilities, main_def, sub_def)
     -- Start with main job abilities
     local merged = T{}
+
+    -- Effective (capped) subjob level; gates the requires_buff clearing below.
+    local _, sub_level = common.get_player_level()
+    sub_level = sub_level or 0
     
     common.debugf('[merge_abilities] Starting merge (main_def=%s, sub_def=%s)', 
         main_def and main_def.job_name or 'nil', sub_def and sub_def.job_name or 'nil')
@@ -155,6 +165,13 @@ local function merge_abilities(main_abilities, sub_abilities, main_def, sub_def)
                     for _, main_ability in ipairs(merged[category]) do
                         if main_ability.name == ability.name and main_ability.is_main_job == true then
                             is_duplicate = true
+                            -- Subjob supplies this spell without the main job's buff
+                            -- prerequisite (SCH/WHM Poisona/Raise, no Addendum: White),
+                            -- but only if the sub can actually cast it at its level.
+                            if main_ability.requires_buff and not ability.requires_buff
+                                and sub_level >= (ability.level or 0) then
+                                main_ability.requires_buff = nil
+                            end
                             break
                         end
                     end
@@ -231,6 +248,7 @@ local function load_job_definition(main_job_id, sub_job_id)
         'geo',
         'buff',
         'revive',
+        'follow',
         'rest',
     }
     
@@ -246,7 +264,10 @@ local function load_job_definition(main_job_id, sub_job_id)
             available_actions[action] = true
         end
     end
-    
+
+    -- Follow is job-independent: inject once instead of into every job's priority_order.
+    available_actions['follow'] = true
+
     -- Build merged priority_order using master list order
     merged_def.priority_order = T{}
     for _, action in ipairs(master_priority) do
@@ -477,6 +498,14 @@ local function automation_tick()
     end
 
     if common.is_dead() then
+        -- Dying in combat leaves Multisend follow off (no mob death re-enabled it).
+        -- Re-enable now so movement resumes on revive instead of staying stuck off.
+        if addon_settings and addon_settings.multisend_follow and addon_settings.attack_range
+            and addon_settings.attack_range ~= 'Off' and range_state.follow_enabled == false then
+            AshitaCore:GetChatManager():QueueCommand(1, '/ms follow on')
+            range_state.follow_enabled = true
+            common.debugf('[Range] Dead, re-enabling follow')
+        end
         return
     end
 
@@ -490,8 +519,8 @@ local function automation_tick()
         return
     end
 
-    -- Range management logic
-    if addon_settings and addon_settings.attack_range and addon_settings.attack_range ~= 'Off' then
+    -- Multisend range/follow -- only in Multisend Follow mode (else native follow runs).
+    if addon_settings and addon_settings.multisend_follow and addon_settings.attack_range and addon_settings.attack_range ~= 'Off' then
         local in_combat = common.is_combat()
 
         -- If not in combat, ensure follow is enabled
@@ -637,6 +666,34 @@ local function automation_tick()
     )
 end
 
+-- Auto Follow, run when the priority engine won't reach it: automation stopped, or
+-- "paused" (on but can_attack blocked -- safe zone / cutscene / just-zoned). Follow
+-- isn't combat, so unlike the engine it's not gated on can_attack (works in towns).
+local function follow_tick()
+    if not job_def or not addon_settings then return end
+    if not addon_settings.follow_enabled or addon_settings.multisend_follow then return end
+
+    -- Engine owns follow when it can (keeps healing above follow); only take over otherwise.
+    if automation_enabled and common.can_attack() then return end
+
+    if not common.game_state or not common.game_state.refreshed_at
+        or os.clock() - common.game_state.refreshed_at > 0.1 then
+        common.refresh_game_state()
+    end
+
+    if common.is_loading() then return end
+    if common.is_mounted() then return end
+    if common.is_dead() then return end
+    if common.is_casting() then return end
+
+    local ok, result = pcall(action_modules.follow.execute, addon_settings, job_def)
+    if ok and result then
+        automation.execute_command(result.command, result.description)
+    elseif not ok then
+        common.errorf('follow_tick failed: %s', tostring(result))
+    end
+end
+
 --[[
     Event Handlers
 ]]--
@@ -704,13 +761,34 @@ ashita.events.register('d3d_present', 'sidekick_render', function()
 
     -- Run automation tick
     automation_tick()
+
+    -- Auto Follow while stopped/paused; no-op when the engine handled follow this tick.
+    follow_tick()
 end)
 
 ashita.events.register('packet_in', 'sidekick_packet_in', function(e)
     if not is_loaded then
         return
     end
-    
+
+    -- Zero the server's autorun-cancel flag on position syncs (0x0D byte 0x42, 0x37
+    -- byte 0x58) so /follow survives them. Only while native follow is enabled.
+    if addon_settings and addon_settings.follow_enabled and not addon_settings.multisend_follow then
+        if e.id == 0x0D then
+            local packet = e.data:totable()
+            if packet[0x42 + 1] ~= 0 then
+                packet[0x42 + 1] = 0
+                e.data_modified = packet
+            end
+        elseif e.id == 0x37 then
+            local packet = e.data:totable()
+            if packet[0x58 + 1] ~= 0 then
+                packet[0x58 + 1] = 0
+                e.data_modified = packet
+            end
+        end
+    end
+
     -- Handle action packets (0x028): casting detection, buff tracking, sleep inference
     -- Message 230 = caster/player gains the effect, 266 = other party members/Trusts gain the effect
     -- Message 83  = buff/debuff removed from target (e.g. Paralyna removes Paralysis)

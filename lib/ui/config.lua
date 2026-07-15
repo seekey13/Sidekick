@@ -164,21 +164,16 @@ local function render_party_dropdown(label, setting_key, include_player, party_m
         end
     end
 
-    -- Validate saved name is in current party
+    -- Display 'None' when the saved name isn't in the list, but keep the setting --
+    -- clearing it here wiped the target on a transient zone-out. Re-matches on return.
     local current_name = settings[setting_key]
     local current_display = 'None'
     if current_name then
-        local found = false
         for _, name in ipairs(options) do
             if name == current_name then
                 current_display = current_name
-                found = true
                 break
             end
-        end
-        if not found then
-            settings[setting_key] = nil
-            if on_change then on_change() end
         end
     end
 
@@ -553,8 +548,8 @@ function ui_config.render(settings, job_def, callback)
             end
         end
         
-        -- Attack Range settings (global setting for all jobs)
-        do
+        -- Attack Range (global). Shown only in Multisend Follow mode (native Follow hidden).
+        if settings.multisend_follow then
             local attack_range_options = { 'Off', 'Melee (3 yalms)', 'Ranged (15 yalms)' }
             local attack_range_current = settings.attack_range or 'Off'
             local attack_range_index = { 0 }
@@ -571,6 +566,25 @@ function ui_config.render(settings, job_def, callback)
                 return attack_range_options[i + 1]
             end)
             ui.item_tooltip(tooltips.attack_range)
+        end
+
+        -- Auto Follow (job-independent, top of window). Follow Target is shared with
+        -- Resting's distance check. Changing it resets autofollow. Hidden in Multisend mode.
+        if not settings.multisend_follow then
+            local follow_on_change = function()
+                common.reset_autofollow()
+                if callback then callback() end
+            end
+            local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Auto Follow', 'follow_enabled', false)
+            ui.item_tooltip(tooltips.follow)
+            if is_open and is_enabled then
+                imgui.Indent(ui.ABILITY_LIST_INDENT)
+                follow_target_name = render_party_dropdown('Follow Target', 'follow_target', false, party_member_names, settings, follow_on_change, false)
+                ui.item_tooltip(tooltips.follow_target)
+                ui.slider_int(ctx, 'Distance (yalms)##follow_distance', 'follow_distance', { settings.follow_distance or 5 }, 1, 15)
+                ui.item_tooltip(tooltips.follow_distance)
+                imgui.Unindent(ui.ABILITY_LIST_INDENT)
+            end
         end
 
         -- Show job-specific sections if we have a job definition
@@ -772,7 +786,7 @@ function ui_config.render(settings, job_def, callback)
             end
         end
 
-        -- Rest settings (only for MP-based jobs)
+        -- Resting (MP jobs). Distance watches the Auto Follow section's Follow Target.
         if job_def and job_def.resource_type == 'mp' then
             local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Resting', 'rest_enabled', false)
             ui.item_tooltip(tooltips.resting)
@@ -780,10 +794,6 @@ function ui_config.render(settings, job_def, callback)
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
                 ui.slider_int(ctx, 'Timer (seconds)', 'rest_timer', { settings.rest_timer or 5 }, 1, 20)
                 ui.item_tooltip(tooltips.rest_timer)
-
-                -- Follow Target dropdown
-                follow_target_name = render_party_dropdown('Follow Target', 'follow_target', false, party_member_names, settings, callback, true)
-                ui.item_tooltip(tooltips.rest_follow_target)
 
                 ui.slider_int(ctx, 'Distance (yalms)##rest_distance', 'rest_distance', { settings.rest_distance or 7 }, 1, 15)
                 ui.item_tooltip(tooltips.rest_distance)

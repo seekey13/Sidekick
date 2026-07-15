@@ -1061,6 +1061,16 @@ function common.get_party_member_distance(party_index)
     return common.calculate_distance(player_entity, member_entity)
 end
 
+-- Clear autofollow so a follow-target change stops running at the old target.
+function common.reset_autofollow()
+    local af = AshitaCore:GetMemoryManager():GetAutoFollow()
+    if af then
+        af:SetIsAutoRunning(0)
+        af:SetFollowTargetIndex(0)
+        af:SetFollowTargetServerId(0)
+    end
+end
+
 -- Get distance between a party member (0 = player) and the pet/luopan.
 -- Used by Geo automation to measure luopan drift from the party member who
 -- is holding the Geo bubble, rather than always from the caster.

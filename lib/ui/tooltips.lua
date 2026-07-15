@@ -25,6 +25,13 @@ return {
         'Sidekick will /check the player to get their level\n' ..
         'for spell sizing, as exact HP is not available.\n',
 
+    multisend_follow =
+        'Movement mode switch. ON: use the Multisend\n' ..
+        'plugin\'s follow (shows Attack Range in /sk)\n' ..
+        'and disables the native Follow feature.\n' ..
+        'OFF: use native Follow and hide Attack Range.\n' ..
+        'The two never run at once.',
+
     attack_range =
         'Requires the Multisend plugin (/ms).\n' ..
         'While in combat, Sidekick disables Multisend\n' ..
@@ -113,6 +120,25 @@ return {
         'Max distance (yalms) from the Follow Target\n' ..
         'before resting is stopped or blocked from\n' ..
         'starting.',
+
+    follow =
+        'Auto-follows a party member when they move\n' ..
+        'away. Sends /follow once they pass the\n' ..
+        'Distance below; healing and every other\n' ..
+        'support action always take priority. Off by\n' ..
+        'default -- Sidekick never moves you unless\n' ..
+        'this is enabled.',
+
+    follow_target =
+        'Party member to follow. Switching targets\n' ..
+        'stops running at the old one and follows the\n' ..
+        'new one. Also used as the Resting distance\n' ..
+        'watch target below.',
+
+    follow_distance =
+        'Distance (yalms) the Follow Target must pass\n' ..
+        'before Sidekick sends /follow. The client\n' ..
+        'holds position once you catch up.',
 
     resource_recovery =
         'Self Recover (TP/MP%%) casts the checked\n' ..

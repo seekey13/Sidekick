@@ -8,8 +8,9 @@ Sidekick is an **Ashita v4 addon** (Lua) for the CatsEyeXI FFXI private server. 
 support only — healing, buffing, debuff removal, resource recovery, revive, and pet support
 (healing, buffs, and debuff removal for GEO / BST / DRG / PUP pets, including auto-equipping
 the consumable a pet ability needs). It deliberately does **not** automate combat, tanking,
-nuking, weaponskills, or movement. Entry point is `Sidekick.lua`; everything else lives under
-`lib/`.
+nuking, weaponskills, or combat movement/positioning. The one movement it will do is **opt-in
+leader following** (`follow_enabled`, off by default): `/follow` a chosen party member when they
+walk beyond `follow_distance`. Entry point is `Sidekick.lua`; everything else lives under `lib/`.
 
 ## Build / lint / test
 
