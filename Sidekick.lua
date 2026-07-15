@@ -777,7 +777,6 @@ ashita.events.register('packet_in', 'sidekick_packet_in', function(e)
         end
     end
 
-
     -- Handle action packets (0x028): casting detection, buff tracking, sleep inference
     -- Message 230 = caster/player gains the effect, 266 = other party members/Trusts gain the effect
     -- Message 83  = buff/debuff removed from target (e.g. Paralyna removes Paralysis)
