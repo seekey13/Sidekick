@@ -64,6 +64,8 @@ The one exception is **opt-in leader following** (off by default): with **Follow
 
 - **Ninja Cast with 1 Shadow**: New toggle in `/sk panel` (saved per Ninja). Normally Utsusemi won't recast while any shadows remain. With this on, Utsusemi recasts once you're down to your last shadow (still waits at 2+), and clears that last shadow a second into the cast so the fresh set applies. **Requires the Debuff addon by atom0s (`/debuff`).**
 
+- **Prerequisite-buff spells shown grayed**: Spells that need a buff to cast are now grayed in the config UI with a *"Prerequisite buff not active"* tooltip when that buff isn't up, instead of looking freely available. You can still check them ahead of time; automation waits for the buff. When a subjob gives you the same spell without the requirement, it shows normally — but only if your subjob is high enough to cast it.
+
 - **Auto Follow (opt-in leader following)**: New **Auto Follow** section at the top of `/sk` — pick a **Follow Target** and a **Distance**, and Sidekick `/follow`s them when they walk beyond it. Off by default; it's the only non-combat movement the addon does. Healing always takes priority, it keeps working while automation is stopped/paused and in towns, and a packet guard keeps `/follow` from breaking mid-route. A **Multisend Follow** checkbox in `/sk panel` switches to the old Multisend attack-range follow instead (shows **Attack Range**, disables native Follow) so the two never fight. Massive thank you to **[BUN] Shirahime**, whose follow code this is built on.
 
 ### Fixed
