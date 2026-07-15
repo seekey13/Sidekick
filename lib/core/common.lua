@@ -2045,9 +2045,12 @@ function common.filter_abilities_by_level(abilities, settings, main_level, sub_l
             goto continue
         end
         
-        -- Check if ability is disabled in settings
+        -- Check if ability is disabled in settings. An ungrouped group is keyed
+        -- per ability name (same rule buff.lua uses) -- the UI writes only that
+        -- key once ungrouped, and a stale disabled_group_<group> would otherwise
+        -- filter out every tier with no way left to clear it.
         local disabled_key
-        if ability.group then
+        if ability.group and settings['ungrouped_' .. ability.group] ~= true then
             disabled_key = 'disabled_group_' .. ability.group
         else
             disabled_key = 'disabled_' .. ability.name:gsub(' ', '_')
