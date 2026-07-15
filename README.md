@@ -58,6 +58,8 @@ The one exception is **opt-in leader following** (off by default): with **Follow
 ### [2.4.0] - 2026-07-13
 
 ### Added
+- **Start button right-click menu**: **Right-click the Start/Stop button** for two new options, **both off by default**. **Load stopped** makes Sidekick come up stopped every time instead of restoring the state you left it in — handy if a reload has ever come back already running. **Stop after zone** stops automation whenever you change zones.
+
 - **Damage-Immune Trusts Skipped**: Trusts that can't take damage — **Moogle**, **Sakura**, **Kupofried**, **Star Sibyl**, **Brygid**, **Cornelia** — are no longer targeted by **Heal**, **AOE Heal**, **Debuff Removal**, or **Buff** (they sit at permanent full HP, so there's nothing to cure or buff). Their **P1–P5** buttons in those config sections are grayed and locked, with a *"Trust cannot take any damage"* tooltip.
 
 - **Bard Pianissimo Fast Casting**: New toggle in `/sk panel` (saved per Bard). Area songs are cast with **Pianissimo** up for its faster cast time, then Pianissimo is removed about a second into the cast so the song still goes out as an area song. In this mode Sidekick always waits for Pianissimo before casting an area song. **Requires the Debuff addon by atom0s (`/debuff`).** 

@@ -64,6 +64,9 @@ local last_unsupported_warning = nil  -- Track last unsupported job warning to p
 -- Settings file path
 local default_settings = T{
     automation_enabled = false,
+    -- Start-button right-click menu. Both opt-in.
+    load_stopped = false,     -- Ignore the saved automation state and load stopped.
+    stop_after_zone = false,  -- Stop automation on zone change.
     focus_enabled = false,
     focus_target = nil,
     attack_range = 'Off',
@@ -738,10 +741,15 @@ ashita.events.register('d3d_present', 'sidekick_render', function()
             last_level = main_level
         end
         
-        -- ponytail: always start stopped, no matter what was persisted.
-        automation_enabled = false
+        -- Restore the saved automation state, unless Load stopped is on
+        -- (opt-in, right-click the Start button).
         if addon_settings then
-            addon_settings.automation_enabled = false
+            if addon_settings.load_stopped == true then
+                automation_enabled = false
+                addon_settings.automation_enabled = false
+            else
+                automation_enabled = addon_settings.automation_enabled == true
+            end
         end
     end
     
@@ -974,6 +982,13 @@ ashita.events.register('packet_in', 'sidekick_packet_in', function(e)
     if e.id == 0x0A then  -- Zone change packet
         common.clear_trust_buffs()
         common.clear_tracked_targets()
+
+        -- Stop after zone (opt-in via the Start button right-click menu).
+        if automation_enabled and addon_settings and addon_settings.stop_after_zone == true then
+            automation_enabled = false
+            addon_settings.automation_enabled = false
+            common.printf('Automation stopped (zoned).')
+        end
     end
 end)
 

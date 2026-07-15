@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [2.4.0] - 2026-07-13
 
 ### Added
+- **Start button right-click menu (`Load stopped` / `Stop after zone`)**: The **Start/Stop** button now takes a right-click, opening a menu with two persisted toggles, **both off by default** so nothing changes on upgrade. **Load stopped** ignores the saved `automation_enabled` value and comes up stopped every load, instead of restoring the state you left. **Stop after zone** stops automation on the zone-change packet (`0x0A`, alongside the existing Trust-buff / tracked-target clears) and prints *"Automation stopped (zoned)."*. Backed by the `load_stopped` / `stop_after_zone` settings keys; an absent key reads as off.
+
 - **Black Mage (BLM) support**: Self-only automation. Self-buffs the elemental **Spikes** (Blaze Spikes 10, Ice Spikes 20, Shock Spikes 30 — grouped as `spikes`, single tier selectable via dropdown); self-heals with **Drain** (12) on the battle target; recovers MP with **Aspir** (25) on the battle target. Drain and Aspir are dark magic cast on `<bt>` and so are inherently combat-only; Drain is flagged `self_only` so the heal engine only ever fires it on the caster's own HP (never as a party heal), and prefers the highest-value Drain that fits the HP deficit. Thanks to **Mythicangel**, who reminded me BLM has buffs.
 - **Drain / Drain II / Aspir on Dark Knight, Scholar, Geomancer**: The dark-magic HP/MP drains are now shared across the caster jobs that learn them.
   - **Dark Knight**: **Drain** (10) / **Drain II** (62) as self-heals and **Aspir** (20) for MP recovery, on the battle target (combat-only). DRK gains the `heal` and `recover` actions in its priority order.

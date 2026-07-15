@@ -458,7 +458,29 @@ function ui_config.render(settings, job_def, callback)
             -- Toggle automation
             AshitaCore:GetChatManager():QueueCommand(1, '/sidekick toggle')
         end
-        
+
+        -- Right-click: when automation stops by itself. Both opt-in, so an absent
+        -- key reads as off.
+        if imgui.BeginPopupContextItem('##cmenu_automation') then
+            local load_stopped = { settings.load_stopped == true }
+            if imgui.Checkbox('Load stopped', load_stopped) then
+                settings.load_stopped = load_stopped[1] or nil
+                if save_callback then save_callback() end
+            end
+            if imgui.IsItemHovered() then
+                imgui.SetTooltip('Always load with automation stopped.\nOff: load in whatever state you left it.')
+            end
+            local stop_after_zone = { settings.stop_after_zone == true }
+            if imgui.Checkbox('Stop after zone', stop_after_zone) then
+                settings.stop_after_zone = stop_after_zone[1] or nil
+                if save_callback then save_callback() end
+            end
+            if imgui.IsItemHovered() then
+                imgui.SetTooltip('Stop automation whenever you change zones.')
+            end
+            imgui.EndPopup()
+        end
+
         -- Display status on same line
         imgui.SameLine()
         imgui.PushStyleColor(ImGuiCol_Text, status_color)
