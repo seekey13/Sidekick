@@ -392,7 +392,7 @@ return {
                 range = 20,
                 buff_id = 113,
                 group = 'reraise',
-                requires_buff = 401,  -- Requires Addendum: White
+                requires_buff = {401, 416},  -- Requires Addendum: White / Enlightenment
             },
             {
                 name = 'Reraise',
@@ -405,7 +405,7 @@ return {
                 range = 20,
                 buff_id = 113,
                 group = 'reraise',
-                requires_buff = 401,  -- Requires Addendum: White
+                requires_buff = {401, 416},  -- Requires Addendum: White / Enlightenment
             },
             {
                 name = 'Invisible',
@@ -462,7 +462,7 @@ return {
                     return '/ma "Poisona" '..target
                 end,
                 range = 20,
-                requires_buff = 401,  -- Requires Addendum: White
+                requires_buff = {401, 416},  -- Requires Addendum: White / Enlightenment
                 target_outside = true,
             },
             {
@@ -477,7 +477,7 @@ return {
                     return '/ma "Paralyna" '..target
                 end,
                 range = 20,
-                requires_buff = 401,  -- Requires Addendum: White
+                requires_buff = {401, 416},  -- Requires Addendum: White / Enlightenment
                 target_outside = true,
             },
             {
@@ -492,7 +492,7 @@ return {
                     return '/ma "Blindna" '..target
                 end,
                 range = 20,
-                requires_buff = 401,  -- Requires Addendum: White
+                requires_buff = {401, 416},  -- Requires Addendum: White / Enlightenment
                 target_outside = true,
             },
             {
@@ -507,7 +507,7 @@ return {
                     return '/ma "Silena" '..target
                 end,
                 range = 20,
-                requires_buff = 401,  -- Requires Addendum: White
+                requires_buff = {401, 416},  -- Requires Addendum: White / Enlightenment
                 target_outside = true,
             },
             {
@@ -522,7 +522,7 @@ return {
                     return '/ma "Cursna" '..target
                 end,
                 range = 20,
-                requires_buff = 401,  -- Requires Addendum: White
+                requires_buff = {401, 416},  -- Requires Addendum: White / Enlightenment
                 target_outside = true,
             },
             {
@@ -537,7 +537,7 @@ return {
                     return '/ma "Erase" '..target
                 end,
                 range = 20,
-                requires_buff = 401,  -- Requires Addendum: White
+                requires_buff = {401, 416},  -- Requires Addendum: White / Enlightenment
             },
             {
                 name = 'Viruna',
@@ -551,7 +551,7 @@ return {
                     return '/ma "Viruna" '..target
                 end,
                 range = 20,
-                requires_buff = 401,  -- Requires Addendum: White
+                requires_buff = {401, 416},  -- Requires Addendum: White / Enlightenment
             },
             {
                 name = 'Stona',
@@ -565,7 +565,7 @@ return {
                     return '/ma "Stona" '..target
                 end,
                 range = 20,
-                requires_buff = 401,  -- Requires Addendum: White
+                requires_buff = {401, 416},  -- Requires Addendum: White / Enlightenment
                 target_outside = true,
             },
         },
