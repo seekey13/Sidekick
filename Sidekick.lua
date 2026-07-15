@@ -487,6 +487,14 @@ local function automation_tick()
     end
 
     if common.is_dead() then
+        -- Dying in combat leaves Multisend follow off (no mob death re-enabled it).
+        -- Re-enable now so movement resumes on revive instead of staying stuck off.
+        if addon_settings and addon_settings.multisend_follow and addon_settings.attack_range
+            and addon_settings.attack_range ~= 'Off' and range_state.follow_enabled == false then
+            AshitaCore:GetChatManager():QueueCommand(1, '/ms follow on')
+            range_state.follow_enabled = true
+            common.debugf('[Range] Dead, re-enabling follow')
+        end
         return
     end
 
