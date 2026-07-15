@@ -1228,7 +1228,10 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
                 
                 -- Treat party button as "not has_spell" if target_modifier is required but not available
                 -- NOTE: `and not is_trust_member` removed -- Trusts can now be buffed
-                local party_has_spell = has_spell and has_target_modifier
+                -- Damage-immune trusts (Moogle etc.) can't be supported, so lock the button.
+                local pm = common.game_state and common.game_state.party[party_index]
+                local is_excluded = pm and common.is_trust_excluded(pm.name, pm.server_id)
+                local party_has_spell = has_spell and has_target_modifier and not is_excluded
                 
                 if not party_has_spell then
                     imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_DISABLED)
@@ -1258,7 +1261,9 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
                 -- (removal vs. buff tracking) appended only on actual Trust buttons.
                 if imgui.IsItemHovered() then
                     local pname = common.get_party_member_name(party_index) or ('P' .. party_index)
-                    if ctx.is_trust and ctx.is_trust(party_index) and ctx.show_trust_warning then
+                    if is_excluded then
+                        imgui.SetTooltip(pname .. '\nTrust cannot take any damage')
+                    elseif ctx.is_trust and ctx.is_trust(party_index) and ctx.show_trust_warning then
                         imgui.SetTooltip(pname .. '\nTrust/Tracked Removal is not totally reliable')
                     elseif ctx.is_trust and ctx.is_trust(party_index) and ctx.show_buff_warning then
                         imgui.SetTooltip(pname .. '\nTrust/Tracked Buff tracking is not totally reliable')
@@ -2338,17 +2343,29 @@ function ui_components.render_heal_group_selection(ctx, key_name, show_outside)
         return state[key] ~= false
     end
 
-    local function draw(label, id, on, on_click, tooltip)
-        if not on then
+    local function draw(label, id, on, on_click, tooltip, disabled)
+        if disabled then
+            imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_DISABLED)
+            imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_DISABLED)
+            imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_DISABLED)
+            imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
+        elseif not on then
             imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_UNSELECTED)
             imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_UNSELECTED_HOVER)
             imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_UNSELECTED_ACTIVE)
         end
-        if imgui.Button(label .. '##' .. key_name .. '_gsel_' .. id, { PARTY_BUTTON_WIDTH, 0 }) then
+        if imgui.Button(label .. '##' .. key_name .. '_gsel_' .. id, { PARTY_BUTTON_WIDTH, 0 }) and not disabled then
             on_click()
         end
-        if tooltip and imgui.IsItemHovered() then imgui.SetTooltip(tooltip) end
-        if not on then imgui.PopStyleColor(3) end
+        if imgui.IsItemHovered() then
+            if disabled then
+                imgui.SetTooltip((tooltip or label) .. '\nTrust cannot take any damage')
+            elseif tooltip then
+                imgui.SetTooltip(tooltip)
+            end
+        end
+        if disabled then imgui.PopStyleColor(4)
+        elseif not on then imgui.PopStyleColor(3) end
     end
 
     -- [ME]
@@ -2363,7 +2380,10 @@ function ui_components.render_heal_group_selection(ctx, key_name, show_outside)
         if pi < party_size then
             imgui.SameLine()
             local on = is_sel(pi)
-            draw('P' .. pi, 'p' .. pi, on, function() state[pi] = not on end)
+            local pname = common.get_party_member_name(pi)
+            local pm = common.game_state and common.game_state.party[pi]
+            draw('P' .. pi, 'p' .. pi, on, function() state[pi] = not on end,
+                pname, pm and common.is_trust_excluded(pm.name, pm.server_id))
         end
     end
 

@@ -385,6 +385,9 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                             -- P1-P5: Check party member buffs from game_state
                             -- Zone check stays as live call (zone not stored in game_state)
                             local party_member = state.party[target_index]
+                            if party_member and common.is_trust_excluded(party_member.name, party_member.server_id) then
+                                goto continue_target
+                            end
                             if party_member then
                                 local player_zone = common.get_party_member_zone(0)
                                 local member_zone = common.get_party_member_zone(target_index)
