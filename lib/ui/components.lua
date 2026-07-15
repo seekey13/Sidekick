@@ -1560,6 +1560,21 @@ local function pet_type_tooltip(ability)
     return 'Requires pet ' .. table.concat(ability.requires_pet_name, ' / ')
 end
 
+-- True when a requires_buff (number or list) prerequisite is missing -- grays the
+-- row but keeps it selectable. Merge clears requires_buff for subjob-supplied
+-- spells (SCH/WHM), so those never reach here.
+local function requires_buff_unmet(ability)
+    local req = ability and ability.requires_buff
+    if not req then return false end
+    if type(req) == 'table' then
+        for _, id in ipairs(req) do
+            if common.has_buff(0, id) then return false end
+        end
+        return true
+    end
+    return not common.has_buff(0, req)
+end
+
 -- Ninjutsu tool count (requires_item): green "(N)" after the row, red at 0. N is
 -- the summed inventory count of the spell's own tool plus Shikanofuda (both in
 -- requires_item). count==0 also grays the row (see no_item in the callers).
@@ -1586,6 +1601,7 @@ function ui_components.self_single_ability(ctx, ability, job_def, id_suffix)
     -- selectable -- equipping the spell is up to the user, automation just
     -- skips it (filter_abilities_by_level) until it's set.
     local blue_unequipped = common.is_blue_magic_unequipped(ability)
+    local buff_unmet = requires_buff_unmet(ability)
     local spell_suffix = ''
     local ability_combat_only = effective_combat_only(ability, ctx)
     local ability_idle_only = common.is_ability_idle_only(ability, ctx.settings)
@@ -1595,7 +1611,7 @@ function ui_components.self_single_ability(ctx, ability, job_def, id_suffix)
     imgui.SameLine()
 
     -- Push text color after buttons so S button / ON/OFF button are not tinted
-    if not has_spell or no_ammo or no_item or wrong_pet or blue_unequipped then
+    if not has_spell or no_ammo or no_item or wrong_pet or blue_unequipped or buff_unmet then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
     elseif ability_combat_only then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_YELLOW)
@@ -1626,6 +1642,8 @@ function ui_components.self_single_ability(ctx, ability, job_def, id_suffix)
             imgui.SetTooltip('No ' .. (ability.item_label or 'tool') .. ' or Shikanofuda in inventory.')
         elseif wrong_pet then
             imgui.SetTooltip(pet_type_tooltip(ability))
+        elseif buff_unmet then
+            imgui.SetTooltip('Prerequisite buff not active')
         elseif ability_combat_only then
             imgui.SetTooltip('Combat Only')
         elseif ability_idle_only then
@@ -1633,7 +1651,7 @@ function ui_components.self_single_ability(ctx, ability, job_def, id_suffix)
         end
     end
 
-    if not has_spell or no_ammo or no_item or wrong_pet or blue_unequipped or ability_combat_only or ability_idle_only then
+    if not has_spell or no_ammo or no_item or wrong_pet or blue_unequipped or buff_unmet or ability_combat_only or ability_idle_only then
         imgui.PopStyleColor()
     end
 
@@ -1699,7 +1717,8 @@ function ui_components.self_grouped_ability(ctx, ability, job_def)
     -- Push text color after buttons so S button / ON/OFF button are not tinted
     local selected_combat_only = effective_combat_only(selected, ctx)
     local selected_idle_only = common.is_ability_idle_only(selected, ctx.settings)
-    if not has_spell or no_item then
+    local buff_unmet = requires_buff_unmet(selected)
+    if not has_spell or no_item or buff_unmet then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
     elseif selected_combat_only then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_YELLOW)
@@ -1710,7 +1729,7 @@ function ui_components.self_grouped_ability(ctx, ability, job_def)
     imgui.SameLine()
     ui_components.group_dropdown(ctx, job_def, ability.group, DROPDOWN_WIDTH)
 
-    if not has_spell or no_item or selected_combat_only or selected_idle_only then
+    if not has_spell or no_item or buff_unmet or selected_combat_only or selected_idle_only then
         imgui.PopStyleColor()
     end
 
@@ -1754,6 +1773,7 @@ function ui_components.party_single_ability(ctx, ability, job_def)
     end
     
     local wrong_pet = pet_type_unmet(ability)
+    local buff_unmet = requires_buff_unmet(ability)
 
     render_party_buttons(ctx, ability.name, has_spell, ability, false)
 
@@ -1761,7 +1781,7 @@ function ui_components.party_single_ability(ctx, ability, job_def)
 
     local ability_combat_only = effective_combat_only(ability, ctx)
     local ability_idle_only = common.is_ability_idle_only(ability, ctx.settings)
-    if not has_spell or not has_modifier or wrong_pet then
+    if not has_spell or not has_modifier or wrong_pet or buff_unmet then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
     elseif ability_combat_only then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_YELLOW)
@@ -1778,6 +1798,8 @@ function ui_components.party_single_ability(ctx, ability, job_def)
             imgui.SetTooltip('Not Learned')
         elseif wrong_pet then
             imgui.SetTooltip(pet_type_tooltip(ability))
+        elseif buff_unmet then
+            imgui.SetTooltip('Prerequisite buff not active')
         elseif ability_combat_only then
             imgui.SetTooltip('Combat Only')
         elseif ability_idle_only then
@@ -1785,7 +1807,7 @@ function ui_components.party_single_ability(ctx, ability, job_def)
         end
     end
 
-    if not has_spell or not has_modifier or wrong_pet or ability_combat_only or ability_idle_only then
+    if not has_spell or not has_modifier or wrong_pet or buff_unmet or ability_combat_only or ability_idle_only then
         imgui.PopStyleColor()
     end
 end
@@ -1833,17 +1855,18 @@ function ui_components.party_grouped_ability(ctx, ability, job_def)
     
     local selected_combat_only = effective_combat_only(selected, ctx)
     local selected_idle_only = common.is_ability_idle_only(selected, ctx.settings)
-    if not has_spell or not has_modifier then
+    local buff_unmet = requires_buff_unmet(selected)
+    if not has_spell or not has_modifier or buff_unmet then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
     elseif selected_combat_only then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_YELLOW)
     elseif selected_idle_only then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GREEN)
     end
-    
+
     ui_components.group_dropdown(ctx, job_def, ability.group, DROPDOWN_WIDTH)
-    
-    if not has_spell or not has_modifier or selected_combat_only or selected_idle_only then
+
+    if not has_spell or not has_modifier or buff_unmet or selected_combat_only or selected_idle_only then
         imgui.PopStyleColor()
     end
 end
@@ -2017,6 +2040,7 @@ function ui_components.ability_checkbox(ctx, ability, job_def, id_suffix, show_s
     -- selectable -- equipping the spell is up to the user, automation just
     -- skips it (filter_abilities_by_level) until it's set.
     local blue_unequipped = common.is_blue_magic_unequipped(ability)
+    local buff_unmet = requires_buff_unmet(ability)
     local spell_suffix = ''
     if not has_spell then
         ctx.settings['disabled_' .. ability.name:gsub(' ', '_')] = true
@@ -2038,7 +2062,7 @@ function ui_components.ability_checkbox(ctx, ability, job_def, id_suffix, show_s
     
     local ability_combat_only = effective_combat_only(ability, ctx)
     local ability_idle_only = common.is_ability_idle_only(ability, ctx.settings)
-    if not has_spell or no_ammo or wrong_pet or blue_unequipped then
+    if not has_spell or no_ammo or wrong_pet or blue_unequipped or buff_unmet then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
     elseif ability_combat_only then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_YELLOW)
@@ -2065,6 +2089,8 @@ function ui_components.ability_checkbox(ctx, ability, job_def, id_suffix, show_s
             imgui.SetTooltip('No ' .. (ability.ammo_label or 'item') .. ' found in storage.')
         elseif wrong_pet then
             imgui.SetTooltip(pet_type_tooltip(ability))
+        elseif buff_unmet then
+            imgui.SetTooltip('Prerequisite buff not active')
         elseif ability_combat_only then
             imgui.SetTooltip('Combat Only')
         elseif ability_idle_only then
@@ -2074,7 +2100,7 @@ function ui_components.ability_checkbox(ctx, ability, job_def, id_suffix, show_s
         end
     end
 
-    if not has_spell or no_ammo or wrong_pet or blue_unequipped or ability_combat_only or ability_idle_only then
+    if not has_spell or no_ammo or wrong_pet or blue_unequipped or buff_unmet or ability_combat_only or ability_idle_only then
         imgui.PopStyleColor()
     end
 end

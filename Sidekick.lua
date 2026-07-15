@@ -127,6 +127,10 @@ end
 local function merge_abilities(main_abilities, sub_abilities, main_def, sub_def)
     -- Start with main job abilities
     local merged = T{}
+
+    -- Effective (capped) subjob level; gates the requires_buff clearing below.
+    local _, sub_level = common.get_player_level()
+    sub_level = sub_level or 0
     
     common.debugf('[merge_abilities] Starting merge (main_def=%s, sub_def=%s)', 
         main_def and main_def.job_name or 'nil', sub_def and sub_def.job_name or 'nil')
@@ -161,6 +165,13 @@ local function merge_abilities(main_abilities, sub_abilities, main_def, sub_def)
                     for _, main_ability in ipairs(merged[category]) do
                         if main_ability.name == ability.name and main_ability.is_main_job == true then
                             is_duplicate = true
+                            -- Subjob supplies this spell without the main job's buff
+                            -- prerequisite (SCH/WHM Poisona/Raise, no Addendum: White),
+                            -- but only if the sub can actually cast it at its level.
+                            if main_ability.requires_buff and not ability.requires_buff
+                                and sub_level >= (ability.level or 0) then
+                                main_ability.requires_buff = nil
+                            end
                             break
                         end
                     end
