@@ -42,7 +42,7 @@ return {
             {
                 name = 'Geo-Vex',
                 level = 74,
-                cost = 150,
+                cost = 273,
                 id = 823,
                 magic = 'geomancy',
                 command = '/ma "Geo-Vex" <bt>',
@@ -54,7 +54,7 @@ return {
             {
                 name = 'Geo-Frailty',
                 level = 74,
-                cost = 162,
+                cost = 294,
                 id = 818,
                 magic = 'geomancy',
                 command = '/ma "Geo-Frailty" <bt>',
@@ -66,7 +66,7 @@ return {
             {
                 name = 'Geo-Paralysis',
                 level = 72,
-                cost = 147,
+                cost = 215,
                 id = 826,
                 magic = 'geomancy',
                 command = '/ma "Geo-Paralysis" <bt>',
@@ -78,7 +78,7 @@ return {
             {
                 name = 'Geo-Languor',
                 level = 68,
-                cost = 141,
+                cost = 249,
                 id = 824,
                 magic = 'geomancy',
                 command = '/ma "Geo-Languor" <bt>',
@@ -90,7 +90,7 @@ return {
             {
                 name = 'Geo-Slip',
                 level = 62,
-                cost = 132,
+                cost = 225,
                 id = 821,
                 magic = 'geomancy',
                 command = '/ma "Geo-Slip" <bt>',
@@ -102,7 +102,7 @@ return {
             {
                 name = 'Geo-Torpor',
                 level = 56,
-                cost = 126,
+                cost = 203,
                 id = 822,
                 magic = 'geomancy',
                 command = '/ma "Geo-Torpor" <bt>',
@@ -114,7 +114,7 @@ return {
             {
                 name = 'Geo-Slow',
                 level = 52,
-                cost = 120,
+                cost = 189,
                 id = 825,
                 magic = 'geomancy',
                 command = '/ma "Geo-Slow" <bt>',
@@ -126,7 +126,7 @@ return {
             {
                 name = 'Geo-Poison',
                 level = 5,
-                cost = 18,
+                cost = 25,
                 id = 799,
                 magic = 'geomancy',
                 command = '/ma "Geo-Poison" <bt>',
@@ -243,7 +243,7 @@ return {
             {
                 name = 'Indi-Haste',
                 level = 74,
-                cost = 153,
+                cost = 100,
                 id = 771,
                 magic = 'geomancy',
                 command = '/ma "Indi-Haste" <me>',
@@ -254,7 +254,7 @@ return {
             {
                 name = 'Indi-Frailty',
                 level = 74,
-                cost = 159,
+                cost = 147,
                 id = 788,
                 magic = 'geomancy',
                 command = '/ma "Indi-Frailty" <me>',
@@ -265,7 +265,7 @@ return {
             {
                 name = 'Indi-Vex',
                 level = 70,
-                cost = 144,
+                cost = 136,
                 id = 793,
                 magic = 'geomancy',
                 command = '/ma "Indi-Vex" <me>',
@@ -276,7 +276,7 @@ return {
             {
                 name = 'Indi-Paralysis',
                 level = 68,
-                cost = 138,
+                cost = 107,
                 id = 796,
                 magic = 'geomancy',
                 command = '/ma "Indi-Paralysis" <me>',
@@ -287,7 +287,7 @@ return {
             {
                 name = 'Indi-Languor',
                 level = 64,
-                cost = 135,
+                cost = 124,
                 id = 794,
                 magic = 'geomancy',
                 command = '/ma "Indi-Languor" <me>',
@@ -298,7 +298,7 @@ return {
             {
                 name = 'Indi-Slip',
                 level = 58,
-                cost = 129,
+                cost = 112,
                 id = 791,
                 magic = 'geomancy',
                 command = '/ma "Indi-Slip" <me>',
@@ -309,7 +309,7 @@ return {
             {
                 name = 'Indi-Torpor',
                 level = 52,
-                cost = 114,
+                cost = 101,
                 id = 792,
                 magic = 'geomancy',
                 command = '/ma "Indi-Torpor" <me>',
@@ -320,7 +320,7 @@ return {
             {
                 name = 'Indi-STR',
                 level = 48,
-                cost = 102,
+                cost = 63,
                 id = 772,
                 magic = 'geomancy',
                 command = '/ma "Indi-STR" <me>',
@@ -331,7 +331,7 @@ return {
             {
                 name = 'Indi-Slow',
                 level = 48,
-                cost = 105,
+                cost = 94,
                 id = 795,
                 magic = 'geomancy',
                 command = '/ma "Indi-Slow" <me>',
@@ -342,7 +342,7 @@ return {
             {
                 name = 'Indi-Acumen',
                 level = 46,
-                cost = 96,
+                cost = 91,
                 id = 781,
                 magic = 'geomancy',
                 command = '/ma "Indi-Acumen" <me>',
@@ -353,7 +353,7 @@ return {
             {
                 name = 'Indi-DEX',
                 level = 45,
-                cost = 93,
+                cost = 63,
                 id = 773,
                 magic = 'geomancy',
                 command = '/ma "Indi-DEX" <me>',
@@ -364,7 +364,7 @@ return {
             {
                 name = 'Indi-VIT',
                 level = 42,
-                cost = 84,
+                cost = 63,
                 id = 774,
                 magic = 'geomancy',
                 command = '/ma "Indi-VIT" <me>',
@@ -375,7 +375,7 @@ return {
             {
                 name = 'Indi-Fend',
                 level = 40,
-                cost = 78,
+                cost = 80,
                 id = 782,
                 magic = 'geomancy',
                 command = '/ma "Indi-Fend" <me>',
@@ -386,7 +386,7 @@ return {
             {
                 name = 'Indi-AGI',
                 level = 39,
-                cost = 75,
+                cost = 63,
                 id = 775,
                 magic = 'geomancy',
                 command = '/ma "Indi-AGI" <me>',
@@ -397,7 +397,7 @@ return {
             {
                 name = 'Indi-INT',
                 level = 36,
-                cost = 66,
+                cost = 63,
                 id = 776,
                 magic = 'geomancy',
                 command = '/ma "Indi-INT" <me>',
@@ -408,7 +408,7 @@ return {
             {
                 name = 'Indi-Fury',
                 level = 34,
-                cost = 57,
+                cost = 70,
                 id = 779,
                 magic = 'geomancy',
                 command = '/ma "Indi-Fury" <me>',
@@ -419,7 +419,7 @@ return {
             {
                 name = 'Indi-MND',
                 level = 33,
-                cost = 54,
+                cost = 63,
                 id = 777,
                 magic = 'geomancy',
                 command = '/ma "Indi-MND" <me>',
@@ -452,7 +452,7 @@ return {
             {
                 name = 'Indi-Barrier',
                 level = 28,
-                cost = 48,
+                cost = 59,
                 id = 780,
                 magic = 'geomancy',
                 command = '/ma "Indi-Barrier" <me>',
@@ -463,7 +463,7 @@ return {
             {
                 name = 'Indi-Focus',
                 level = 22,
-                cost = 42,
+                cost = 49,
                 id = 785,
                 magic = 'geomancy',
                 command = '/ma "Indi-Focus" <me>',
@@ -474,7 +474,7 @@ return {
             {
                 name = 'Indi-Attunement',
                 level = 16,
-                cost = 33,
+                cost = 38,
                 id = 786,
                 magic = 'geomancy',
                 command = '/ma "Indi-Attunement" <me>',
@@ -485,7 +485,7 @@ return {
             {
                 name = 'Indi-Regen',
                 level = 15,
-                cost = 30,
+                cost = 37,
                 id = 768,
                 magic = 'geomancy',
                 command = '/ma "Indi-Regen" <me>',
@@ -496,7 +496,7 @@ return {
             {
                 name = 'Indi-Precision',
                 level = 10,
-                cost = 24,
+                cost = 25,
                 id = 783,
                 magic = 'geomancy',
                 command = '/ma "Indi-Precision" <me>',
@@ -507,7 +507,7 @@ return {
             {
                 name = 'Indi-Voidance',
                 level = 4,
-                cost = 15,
+                cost = 17,
                 id = 784,
                 magic = 'geomancy',
                 command = '/ma "Indi-Voidance" <me>',
@@ -533,7 +533,7 @@ return {
             {
                 name = 'Geo-Haste',
                 level = 74,
-                cost = 156,
+                cost = 63,
                 id = 801,
                 magic = 'geomancy',
                 command = function(target)
@@ -548,7 +548,7 @@ return {
             {
                 name = 'Geo-STR',
                 level = 52,
-                cost = 117,
+                cost = 126,
                 id = 802,
                 magic = 'geomancy',
                 command = function(target)
@@ -563,7 +563,7 @@ return {
             {
                 name = 'Geo-Acumen',
                 level = 50,
-                cost = 111,
+                cost = 182,
                 id = 811,
                 magic = 'geomancy',
                 command = function(target)
@@ -578,7 +578,7 @@ return {
             {
                 name = 'Geo-DEX',
                 level = 49,
-                cost = 108,
+                cost = 126,
                 id = 803,
                 magic = 'geomancy',
                 command = function(target)
@@ -593,7 +593,7 @@ return {
             {
                 name = 'Geo-VIT',
                 level = 46,
-                cost = 99,
+                cost = 126,
                 id = 804,
                 magic = 'geomancy',
                 command = function(target)
@@ -608,7 +608,7 @@ return {
             {
                 name = 'Geo-Fend',
                 level = 44,
-                cost = 90,
+                cost = 161,
                 id = 812,
                 magic = 'geomancy',
                 command = function(target)
@@ -623,7 +623,7 @@ return {
             {
                 name = 'Geo-AGI',
                 level = 43,
-                cost = 87,
+                cost = 126,
                 id = 805,
                 magic = 'geomancy',
                 command = function(target)
@@ -638,7 +638,7 @@ return {
             {
                 name = 'Geo-INT',
                 level = 40,
-                cost = 81,
+                cost = 126,
                 id = 806,
                 magic = 'geomancy',
                 command = function(target)
@@ -653,7 +653,7 @@ return {
             {
                 name = 'Geo-Fury',
                 level = 38,
-                cost = 72,
+                cost = 140,
                 id = 809,
                 magic = 'geomancy',
                 command = function(target)
@@ -668,7 +668,7 @@ return {
             {
                 name = 'Geo-MND',
                 level = 37,
-                cost = 69,
+                cost = 126,
                 id = 807,
                 magic = 'geomancy',
                 command = function(target)
@@ -683,7 +683,7 @@ return {
             {
                 name = 'Geo-Refresh',
                 level = 34,
-                cost = 60,
+                cost = 126,
                 id = 800,
                 magic = 'geomancy',
                 command = function(target)
@@ -698,7 +698,7 @@ return {
             {
                 name = 'Geo-CHR',
                 level = 34,
-                cost = 63,
+                cost = 126,
                 id = 808,
                 magic = 'geomancy',
                 command = function(target)
@@ -713,7 +713,7 @@ return {
             {
                 name = 'Geo-Barrier',
                 level = 32,
-                cost = 51,
+                cost = 119,
                 id = 810,
                 magic = 'geomancy',
                 command = function(target)
@@ -728,7 +728,7 @@ return {
             {
                 name = 'Geo-Focus',
                 level = 26,
-                cost = 45,
+                cost = 98,
                 id = 815,
                 magic = 'geomancy',
                 command = function(target)
@@ -743,7 +743,7 @@ return {
             {
                 name = 'Geo-Attunement',
                 level = 20,
-                cost = 39,
+                cost = 77,
                 id = 816,
                 magic = 'geomancy',
                 command = function(target)
@@ -758,7 +758,7 @@ return {
             {
                 name = 'Geo-Regen',
                 level = 19,
-                cost = 36,
+                cost = 74,
                 id = 798,
                 magic = 'geomancy',
                 command = function(target)
@@ -773,7 +773,7 @@ return {
             {
                 name = 'Geo-Precision',
                 level = 14,
-                cost = 27,
+                cost = 50,
                 id = 813,
                 magic = 'geomancy',
                 command = function(target)
@@ -788,7 +788,7 @@ return {
             {
                 name = 'Geo-Voidance',
                 level = 8,
-                cost = 21,
+                cost = 35,
                 id = 814,
                 magic = 'geomancy',
                 command = function(target)
