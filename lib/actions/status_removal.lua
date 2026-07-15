@@ -25,9 +25,15 @@ end
 -- Count removable debuffs in a list of buffs (honours per-status opt-out).
 local function count_removable_debuffs(buffs, abilities, settings)
     local count = 0
+    -- Resolve each ability's effective removal list once, not per buff -- the
+    -- opt-out filter does a gsub + table build for multi-status removers.
+    local eff = {}
+    for i, ability in ipairs(abilities) do
+        eff[i] = common.effective_debuff_ids(ability, settings)
+    end
     for _, buff_id in ipairs(buffs) do
-        for _, ability in ipairs(abilities) do
-            local ids = common.effective_debuff_ids(ability, settings)
+        for i = 1, #abilities do
+            local ids = eff[i]
             if not ids or action_core.has_any_buff({buff_id}, ids) then
                 count = count + 1
                 break
