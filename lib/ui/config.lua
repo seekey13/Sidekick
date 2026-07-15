@@ -164,21 +164,20 @@ local function render_party_dropdown(label, setting_key, include_player, party_m
         end
     end
 
-    -- Validate saved name is in current party
+    -- Resolve the display label. Show 'None' when the saved name isn't currently
+    -- in the list (member zoning / temporarily out of party) but do NOT clear the
+    -- persisted setting -- a transient absence during a zone would otherwise wipe
+    -- the saved target (this used to nil it here). Modules no-op safely when the
+    -- target is absent, and it re-matches once the member is back. The user can
+    -- still pick 'None' explicitly to clear it.
     local current_name = settings[setting_key]
     local current_display = 'None'
     if current_name then
-        local found = false
         for _, name in ipairs(options) do
             if name == current_name then
                 current_display = current_name
-                found = true
                 break
             end
-        end
-        if not found then
-            settings[setting_key] = nil
-            if on_change then on_change() end
         end
     end
 
