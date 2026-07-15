@@ -676,7 +676,8 @@ local function follow_tick()
     -- Engine owns follow when it can (keeps healing above follow); only take over otherwise.
     if automation_enabled and common.can_attack() then return end
 
-    if os.clock() - common.game_state.refreshed_at > 0.1 then
+    if not common.game_state or not common.game_state.refreshed_at
+        or os.clock() - common.game_state.refreshed_at > 0.1 then
         common.refresh_game_state()
     end
 
