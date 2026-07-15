@@ -81,6 +81,8 @@ The one exception is **opt-in leader following** (off by default): with **Follow
 
 - **`/anon` no longer stops automation**: Sidekick now reads your job directly from the game client instead of the party list, which hides your job while `/anon` is on. Automation now works normally with `/anon` active.
 
+- **Haste duration on low-level tracked targets**: Sidekick assumed Haste always lasts 180s, but it wears off sooner on players under level 40. It now scales the tracked Haste timer to the target's level (from the `/check` done when you Track Target); level 40+ is unchanged at 180s.
+
 ### [2.3.1] - 2026-07-13
 
 ### Added

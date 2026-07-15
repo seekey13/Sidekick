@@ -39,6 +39,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`/anon` no longer stops automation**: `common.get_player_job` now reads main/sub job straight from `AshitaCore:GetMemoryManager():GetPlayer()` (`GetMainJob`/`GetSubJob`) instead of the party manager (`GetMemberMainJob(0)`), which reports the player's main job as 0 while `/anon` is active — leaving no job definition loaded and automation silently doing nothing. The Player struct reports the real job regardless of `/anon`. The party route was originally used for packet sync during zoning, but Sidekick's tick loop is guarded off while loading, so that lag window never applied.  **Thanks** Karth for reporting the bug.
 
+- **Haste duration on low-level tracked targets**: Haste's base duration was tracked as a flat 180s for everyone, but on CatsEyeXI it lands shorter on players below level 40. `common.base_buff_duration` now scales the Haste timer by the tracked target's `/check`-resolved level (linear `4.5667 * Level - 2.67`, verified lv10=43s / lv40=180s); level 40+ keeps the flat 180. Thanks to **Plush** for pointing out that Haste duration decreases when cast on players below 40.
+
 ### [2.3.1] - 2026-07-13
 
 ### Added

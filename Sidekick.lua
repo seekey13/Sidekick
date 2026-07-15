@@ -841,7 +841,7 @@ ashita.events.register('packet_in', 'sidekick_packet_in', function(e)
                         -- Base duration for timed expiry (nil = no timer). The
                         -- actor (UserId) is the caster -- used for per-caster song
                         -- slot accounting on the target.
-                        local duration = common.base_buff_duration(action.Param, spell_name)
+                        local duration = common.base_buff_duration(action.Param, spell_name, target.Id)
                         local source_id = actionPacket.UserId
 
                         -- Update Trust buff tracking so game_state reflects the change
@@ -942,7 +942,7 @@ ashita.events.register('packet_in', 'sidekick_packet_in', function(e)
                     -- this resolves via song range / buff name only. It also
                     -- carries no caster, so source stays nil (no song eviction --
                     -- 0x028 is the reliable song-detection path anyway).
-                    local duration = common.base_buff_duration(buff_id, nil)
+                    local duration = common.base_buff_duration(buff_id, nil, server_id)
 
                     -- Update Trust buff tracking
                     if server_id >= 0x1000000 then

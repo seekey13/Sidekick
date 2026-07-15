@@ -1354,10 +1354,29 @@ end
     Since Trusts' buffs cannot be read from memory, we track them via packets
 ]]--
 
+-- Haste (buff_id 33) base duration scales with the target's level below 40:
+-- verified lv10=43s, lv40=180s -> linear Duration = 4.5667*Level - 2.67 (Plush).
+-- Level 40+ gets the flat 180. Only tracked targets carry a known level.
+local HASTE_BUFF_ID = 33
+local function haste_duration_for_level(level)
+    if not level or level >= 40 then return BASE_BUFF_DURATION['Haste'] end
+    return 4.5667 * level - 2.67
+end
+
 -- Resolve the base duration (seconds) for a buff application, or nil if unknown
 -- (unknown = never expires by timer, wear-off packets only — today's behavior).
--- Args: buff_id (number), spell_name (string|nil - ability/spell name when known)
-function common.base_buff_duration(buff_id, spell_name)
+-- Args: buff_id (number), spell_name (string|nil - ability/spell name when known),
+--       server_id (number|nil - target, for level-scaled durations like Haste)
+function common.base_buff_duration(buff_id, spell_name, server_id)
+    -- Haste lands with a reduced duration on players below level 40. We only
+    -- know a target's level after /check, so this applies to tracked targets.
+    if (spell_name == 'Haste' or buff_id == HASTE_BUFF_ID) and server_id then
+        local tt = tracked_targets[server_id]
+        if tt and tt.main_level then
+            return haste_duration_for_level(tt.main_level)
+        end
+    end
+
     if spell_name and BASE_BUFF_DURATION[spell_name] then
         return BASE_BUFF_DURATION[spell_name]
     end
@@ -1402,7 +1421,7 @@ function common.register_pending_buff(server_id, buff_id, spell_name)
     table.insert(pending_buffs, {
         server_id = server_id,
         buff_id = buff_id,
-        duration = common.base_buff_duration(buff_id, spell_name),
+        duration = common.base_buff_duration(buff_id, spell_name, server_id),
         timestamp = current_time
     })
 
