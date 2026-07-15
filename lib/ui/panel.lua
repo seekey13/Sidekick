@@ -174,6 +174,8 @@ function panel.render(addon_settings, save_settings)
             imgui.SameLine(0, 20)
             if imgui.Checkbox('Multisend Follow', ms_var) then
                 addon_settings.multisend_follow = ms_var[1]
+                -- Disabling Multisend Follow reverts attack range to Off.
+                if not ms_var[1] then addon_settings.attack_range = 'Off' end
                 if save_settings then save_settings() end
             end
             if imgui.IsItemHovered() then
