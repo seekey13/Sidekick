@@ -805,7 +805,7 @@ return {
     
     -- Default settings for UI
     default_settings = {
-        heal_enabled = true,
+        heal_enabled = false,
         heal_threshold = 75,
         heal_aoe_enabled = true,
         heal_aoe_threshold = 70,

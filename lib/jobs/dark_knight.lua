@@ -272,7 +272,7 @@ return {
     -- Default settings for UI
     default_settings = {
         buff_enabled = true,
-        heal_enabled = true,
+        heal_enabled = false,
         heal_threshold = 75,
         recover_enabled = true,
         recover_mp_threshold = 50,
