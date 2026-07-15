@@ -118,6 +118,24 @@ local function render_combat_only_context_menu(ctx, ability, scope)
                 imgui.SetTooltip('Cast each tier in this group independently\n(e.g. both Mage\'s Ballad and Mage\'s Ballad II).')
             end
         end
+        -- Per-status opt-out for multi-status removers (Erase, Esuna, Cursna,
+        -- Viruna, Chakra...). One checkbox per status the ability strips; all
+        -- enabled by default (absent 'skip_debuff_*' key = still removed). Keys
+        -- match common.effective_debuff_ids so the automation honours them.
+        local rids = ability.debuff_id
+        if type(rids) == 'table' and #rids >= 2 and ability.name then
+            imgui.Separator()
+            imgui.Text('Remove:')
+            local prefix = 'skip_debuff_' .. ability.name:gsub(' ', '_') .. '_'
+            for _, id in ipairs(rids) do
+                local label = common.DEBUFF_NAMES[id] or ('Status ' .. id)
+                local on = { ctx.settings[prefix .. id] ~= true }
+                if imgui.Checkbox(label .. '##' .. prefix .. id, on) then
+                    ctx.settings[prefix .. id] = (not on[1]) or nil
+                    if ctx.save_callback then ctx.save_callback() end
+                end
+            end
+        end
         imgui.EndPopup()
     end
 end

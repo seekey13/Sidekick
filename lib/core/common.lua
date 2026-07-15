@@ -621,6 +621,24 @@ common.ERASABLE_DEBUFFS = {3, 4, 5, 6, 8, 9, 11, 12, 13, 31, 128, 129, 130, 131,
 -- 9 = Curse, 15 = Doom, 20 = Bane, 30 = Curse (Bane II).
 common.CURSE_DEBUFFS = {9, 15, 20, 30}
 
+-- Human-readable names for the statuses removers can strip, for the per-status
+-- opt-out checkboxes in the ability right-click menu. Curse-family naming
+-- follows the CURSE_DEBUFFS comment above (not the raw status_effects.sql, where
+-- 9/20/30 all read "curse"/"bane"); the stat-down tail matches Panacea's family.
+common.DEBUFF_NAMES = {
+    [3]='Poison', [4]='Paralysis', [5]='Blindness', [6]='Silence',
+    [7]='Petrification', [8]='Disease', [9]='Curse', [11]='Bind',
+    [12]='Weight', [13]='Slow', [15]='Doom', [20]='Bane', [21]='Addle',
+    [30]='Curse II', [31]='Plague', [128]='Burn', [129]='Frost',
+    [130]='Choke', [131]='Rasp', [134]='Dia', [135]='Bio',
+    [136]='STR Down', [137]='DEX Down', [138]='VIT Down', [139]='AGI Down',
+    [140]='INT Down', [141]='MND Down', [142]='CHR Down', [144]='Max HP Down',
+    [145]='Max MP Down', [146]='Accuracy Down', [147]='Attack Down',
+    [148]='Evasion Down', [149]='Defense Down', [156]='Flash',
+    [167]='Magic Def. Down', [174]='Magic Acc. Down', [175]='Magic Atk. Down',
+    [189]='Max TP Down', [404]='Magic Eva. Down',
+}
+
 -- Base durations (seconds) for DEBUFFS packet-detected on Trusts/tracked targets,
 -- keyed by status id. Backstop so a missed removal packet can't loop a na-/Erase
 -- spell forever: expire_timed_buffs drops the status once the timer elapses.
@@ -651,6 +669,25 @@ local BASE_DEBUFF_DURATION = {
 -- Set form of ERASABLE_DEBUFFS for O(1) "is this a removable debuff" lookups.
 local ERASABLE_SET = {}
 for _, id in ipairs(common.ERASABLE_DEBUFFS) do ERASABLE_SET[id] = true end
+
+-- Effective (user-filtered) debuff-id list for a remover. Multi-status removers
+-- (Erase, Esuna, Cursna, Viruna, Chakra...) expose a per-status opt-out in the
+-- right-click menu; a 'skip_debuff_<AbilityName>_<id>' setting drops that id.
+-- Returns debuff_id unchanged for single-id / nil / no-settings cases, so a
+-- wildcard remover (nil debuff_id) still reads as "removes anything". A remover
+-- with every status disabled returns {}, i.e. removes nothing.
+function common.effective_debuff_ids(ability, settings)
+    local ids = ability.debuff_id
+    if type(ids) ~= 'table' or #ids < 2 or not settings or not ability.name then
+        return ids
+    end
+    local prefix = 'skip_debuff_' .. ability.name:gsub(' ', '_') .. '_'
+    local filtered = {}
+    for _, id in ipairs(ids) do
+        if settings[prefix .. id] ~= true then filtered[#filtered + 1] = id end
+    end
+    return filtered
+end
 
 -- Containers an equippable (armor) item can be worn from: main inventory (0)
 -- plus all eight Mog Wardrobes (8, 10-16). Matches the client's equip-eligible
