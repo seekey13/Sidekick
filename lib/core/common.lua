@@ -1874,10 +1874,11 @@ function common.has_silence()
     return common.has_buff(0, 6)  -- Silence buff_id = 6
 end
 
--- Check if a command is blocked by status ailments
+-- Check if a command is currently blocked -- by movement (any command) or by a
+-- status ailment (Silence on /ma, Amnesia on /ja).
 -- Args:
 --   command (string or function) - Command string or function that generates one
--- Returns: string or nil - Name of blocking status ailment, or nil if not blocked
+-- Returns: string or nil - 'Moving' / 'Silence' / 'Amnesia', or nil if not blocked
 function common.is_command_blocked(command)
     -- Get command string if it's a function
     local command_str = command
@@ -1890,8 +1891,7 @@ function common.is_command_blocked(command)
         return nil  -- Can't determine, assume not blocked
     end
     
-    -- Nothing fires while moving: spells get interrupted, and precast JAs would
-    -- otherwise spam their recasts away before the paired spell can land.
+    -- No abilities fire while moving.
     if common.is_player_moving() then
         return 'Moving'
     end
