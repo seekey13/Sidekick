@@ -8,6 +8,7 @@ local panel = {}
 
 local imgui = require('imgui')
 local common = require('lib.core.common')
+local afk = require('lib.core.afk')
 local tooltips = require('lib.ui.tooltips')
 
 -- Window state
@@ -168,6 +169,36 @@ function panel.render(addon_settings, save_settings)
             common.debug = debug_var[1]
         end
 
+        -- AFK Sleep toggle + timeout (global). Timeout shows minutes; afk_timeout is
+        -- stored in seconds, so read afk_timeout/60 and write value*60.
+        if addon_settings then
+            local afk_var = { addon_settings.afk_enabled == true }
+            imgui.SameLine(0, 20)
+            if imgui.Checkbox('AFK Sleep', afk_var) then
+                addon_settings.afk_enabled = afk_var[1]
+                if not afk_var[1] then afk.reset() end  -- never leave it stuck asleep
+                if save_settings then save_settings() end
+            end
+            if imgui.IsItemHovered() then
+                imgui.SetTooltip(tooltips.afk_sleep)
+            end
+            if addon_settings.afk_enabled then
+                local mins_var = { math.floor((addon_settings.afk_timeout or 600) / 60) }
+                imgui.SameLine(0, 20)
+                imgui.PushItemWidth(80)
+                if imgui.InputInt('Timeout (minutes)', mins_var) then
+                    -- Bounds mirror /sidekick afk <seconds> (60-3600s = 1-60m).
+                    local m = mins_var[1]
+                    if m < 1 then m = 1 end
+                    if m > 60 then m = 60 end
+                    addon_settings.afk_timeout = m * 60
+                    afk.reset()  -- restart the interval with the new timeout
+                    if save_settings then save_settings() end
+                end
+                imgui.PopItemWidth()
+            end
+        end
+
         -- Multisend Follow mode (global). ON = Attack Range shown, native Follow off.
         if addon_settings then
             local ms_var = { addon_settings.multisend_follow == true }
@@ -229,6 +260,20 @@ function panel.render(addon_settings, save_settings)
                         break
                     end
                 end
+            end
+
+            -- AFK Sleep state, beside Moving/Casting. The countdown only means anything
+            -- while automation is running: afk.update() is the only thing that advances
+            -- still_since, and the tick loop returns before it when stopped, so a stopped
+            -- addon would otherwise show a countdown draining to a permanent 'awake (0s)'.
+            if not (addon_settings and addon_settings.afk_enabled) then
+                dbg = dbg .. '   AFK: off'
+            elseif not addon_settings.automation_enabled then
+                dbg = dbg .. '   AFK: idle'
+            elseif afk.is_sleeping() then
+                dbg = dbg .. '   AFK: asleep'
+            else
+                dbg = dbg .. string.format('   AFK: awake (%.0fs)', afk.seconds_remaining(addon_settings))
             end
 
             imgui.SameLine(0, 20)

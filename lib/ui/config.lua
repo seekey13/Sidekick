@@ -7,6 +7,7 @@ local ui_config = {}
 
 local imgui = require('imgui')
 local common = require('lib.core.common')
+local afk = require('lib.core.afk')
 local ui = require('lib.ui.components')
 local tooltips = require('lib.ui.tooltips')
 
@@ -420,6 +421,12 @@ function ui_config.render(settings, job_def, callback)
                 button_text = 'Stop'
                 status_text = 'Automation loading.'
                 status_color = ui.LIGHT_BLUE
+            elseif afk.is_sleeping() then
+                -- AFK sleep (runtime gate, not a stop). Same tick order as the loop:
+                -- after loading, ahead of mount/dead/resting.
+                button_text = 'Stop'
+                status_text = 'Automation asleep - move to wake.'
+                status_color = ui.LIGHT_BLUE
             elseif is_mounted then
                 -- Mounted state (automation fully suppressed while on a mount)
                 button_text = 'Stop'
@@ -608,6 +615,9 @@ function ui_config.render(settings, job_def, callback)
                 imgui.Unindent(ui.ABILITY_LIST_INDENT)
             end
         end
+
+        -- AFK Sleep toggle + timeout live on the debug panel (/sk panel), beside
+        -- Debug Mode. The sleep status still shows on the automation status line above.
 
         -- Show job-specific sections if we have a job definition
         if job_def then

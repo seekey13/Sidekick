@@ -5,6 +5,11 @@ All notable changes to Sidekick will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.0] - 2026-07-16
+
+### Added
+- **AFK Sleep**: Sidekick now puts automation to sleep after a period with no party movement and no combat, and wakes it when you physically move again. **On by default** with a 10 minute timeout, unlike Auto Follow — sleeping only stops automation from *acting*, so the failure mode is benign. Sleep is a runtime gate, not a stop: `automation_enabled` stays true and nothing is written to disk, so a sleep cycle leaves your settings untouched. Two activity signals keep it awake, both already sampled each tick (no new memory reads): any party member moving (indices 0-5, via `game_state.player` / `game_state.party[i].position`) and party combat (`common.is_combat()` — `<bt>` resolves on party *claim*, not on your own engagement, so a healer standing back still counts). The asymmetry is deliberate: six people plus a party claim can keep automation awake, but only **your own** movement wakes it — a mob claim is not proof a human is present, movement is. Controls live in `/sk panel` beside Debug Mode (an **AFK Sleep** checkbox and a **Timeout (minutes)** field, 1-60) or via `/sidekick afk [on|off|<seconds 60-3600>]`; the automation status line in `/sk` reads *"Automation asleep - move to wake"* while gated, and the panel debug row shows the live countdown. Backed by the new `lib/core/afk.lua` and the `afk_enabled` / `afk_timeout` settings keys.
+
 ## [2.4.0] - 2026-07-15
 
 ### Added

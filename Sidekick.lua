@@ -10,7 +10,7 @@ Main addon file: job detection, event loop, command handler
 
 addon.name      = 'Sidekick'
 addon.author    = 'Seekey'
-addon.version   = '2.4.0'
+addon.version   = '2.5.0'
 addon.desc      = 'Support Job Automation Framework'
 addon.link      = 'https://github.com/seekey13/Sidekick'
 
@@ -24,6 +24,7 @@ local common = require('lib.core.common')
 local action_core = require('lib.core.action_core')
 local automation = require('lib.core.automation')
 local parse_packets = require('lib.core.parse_packets')
+local afk = require('lib.core.afk')
 
 -- Load action modules
 local heal_mod   = require('lib.actions.heal')
@@ -75,6 +76,10 @@ local default_settings = T{
     follow_distance = 5,
     -- false = native Auto Follow; true = Multisend attack-range follow (see /sk panel).
     multisend_follow = false,
+    -- AFK Sleep (job-independent). Default-on, unlike follow: it only stops
+    -- automation from acting, so the failure mode is benign.
+    afk_enabled = true,
+    afk_timeout = 600,  -- Seconds of no party movement and no combat before sleeping.
     -- Resting (/heal). Inert unless the job is MP-based and lists 'rest' in its
     -- priority_order, so these live here rather than in each MP job's defaults.
     rest_enabled = false,
@@ -496,6 +501,18 @@ local function automation_tick()
         return
     end
 
+    -- AFK Sleep: dead-man's switch. Sits after the is_loading() guard so zone-transition
+    -- garbage is never sampled (while loading the timer neither advances nor resets; the
+    -- first sample after a zone reads a wildly different position and resets naturally),
+    -- and ahead of the mount/dead/can_attack/casting guards so the timer keeps running --
+    -- and can still wake -- regardless of those states. Nothing is expected to be queued
+    -- after minutes of stillness, so gating ahead of process_scheduled_removal() drops no
+    -- in-flight work.
+    afk.update(addon_settings)
+    if afk.is_sleeping() then
+        return
+    end
+
     -- Fire any queued mid-cast /debuff strip (Bard Pianissimo, Ninja 1-shadow).
     -- Must run ahead of the is_casting() guard below, which otherwise returns before
     -- any command could be sent while a spell is casting.
@@ -632,7 +649,10 @@ local function automation_tick()
                 if addon_settings then
                     addon_settings.automation_enabled = automation_enabled
                 end
-                
+
+                -- Fresh AFK timer for the new job (its saved afk_timeout may differ).
+                afk.reset()
+
                 -- Skip this frame after job reload
                 return
             elseif level_changed then
@@ -1024,11 +1044,13 @@ ashita.events.register('command', 'sidekick_command', function(e)
         common.printf('  /sidekick panel - Toggle party state info panel')
         common.printf('  /sidekick debug - Toggle debug mode')
         common.printf('  /sidekick recast - Show all active ability recast timers')
+        common.printf('  /sidekick afk [on|off|<seconds>] - AFK Sleep: show/toggle/set timeout')
         common.printf('  /sidekick status - Show current status')
         
     elseif cmd == 'start' then
         automation_enabled = true
         addon_settings.automation_enabled = true
+        afk.reset()  -- Start awake with a full AFK interval.
         if job_def then
             local settings_file = 'settings_' .. (job_def.job_name or 'default'):lower() .. '.json'
             settings.save(addon_settings, settings_file)
@@ -1047,6 +1069,9 @@ ashita.events.register('command', 'sidekick_command', function(e)
     elseif cmd == 'toggle' then
         automation_enabled = not automation_enabled
         addon_settings.automation_enabled = automation_enabled
+        -- Same fresh-interval rule as 'start': this is the path the UI Start button
+        -- takes, so without it a restart while asleep would come back still asleep.
+        if automation_enabled then afk.reset() end
         if job_def then
             local settings_file = 'settings_' .. (job_def.job_name or 'default'):lower() .. '.json'
             settings.save(addon_settings, settings_file)
@@ -1111,6 +1136,41 @@ ashita.events.register('command', 'sidekick_command', function(e)
             common.printf('  Tracked Targets: %s', table.concat(tracked_names, ', '))
         end
         
+    elseif cmd == 'afk' then
+        -- AFK Sleep. Timeout is read/written in SECONDS here; the config slider
+        -- shows the same value in minutes.
+        local subcmd = args[3] and args[3]:lower()
+
+        if subcmd == nil then
+            common.printf('AFK Sleep: %s, timeout %ds, currently %s.',
+                addon_settings.afk_enabled and 'Enabled' or 'Disabled',
+                addon_settings.afk_timeout or 600,
+                afk.is_sleeping() and 'asleep' or 'awake')
+        elseif subcmd == 'on' or subcmd == 'off' then
+            addon_settings.afk_enabled = (subcmd == 'on')
+            if not addon_settings.afk_enabled then
+                afk.reset()  -- Never leave automation stuck asleep after disabling.
+            end
+            if job_def then
+                local settings_file = 'settings_' .. (job_def.job_name or 'default'):lower() .. '.json'
+                settings.save(addon_settings, settings_file)
+            end
+            common.printf('AFK Sleep %s.', addon_settings.afk_enabled and 'enabled' or 'disabled')
+        elseif tonumber(subcmd) then
+            local seconds = math.floor(tonumber(subcmd))
+            if seconds < 60 then seconds = 60 end
+            if seconds > 3600 then seconds = 3600 end
+            addon_settings.afk_timeout = seconds
+            afk.reset()  -- Restart the interval so the new timeout takes effect now.
+            if job_def then
+                local settings_file = 'settings_' .. (job_def.job_name or 'default'):lower() .. '.json'
+                settings.save(addon_settings, settings_file)
+            end
+            common.printf('AFK Sleep timeout set to %ds.', seconds)
+        else
+            common.printf('Usage: /sidekick afk [on|off|<seconds 60-3600>]')
+        end
+
     elseif cmd == 'addtarget' then
         -- Add current target as a tracked target
         local targets_lib = common.targets

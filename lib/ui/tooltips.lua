@@ -140,6 +140,10 @@ return {
         'before Sidekick sends /follow. The client\n' ..
         'holds position once you catch up.',
 
+    afk_sleep =
+        'Pauses automation after the Timeout with no\n' ..
+        'party movement or combat. Move to resume.',
+
     resource_recovery =
         'Self Recover (TP/MP%%) casts the checked\n' ..
         'abilities when your TP/MP drops below the\n' ..
