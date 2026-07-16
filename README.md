@@ -55,40 +55,52 @@ The one exception is **opt-in leader following** (off by default): with **Follow
 
 ## Latest Updates
 
-### [2.4.0] - 2026-07-13
+### [2.4.0] - 2026-07-15
 
 ### Added
-- **Start button right-click menu**: **Right-click the Start/Stop button** for two new options, **both off by default**. **Load stopped** makes Sidekick come up stopped every time instead of restoring the state you left it in — handy if a reload has ever come back already running. **Stop after zone** stops automation whenever you change zones.
+- **Auto Follow (opt-in leader following)**: New **Auto Follow** section at the top of `/sk` — pick a **Follow Target** and a **Distance**, and Sidekick `/follow`s them when they walk beyond it. Off by default; it's the only non-combat movement the addon does. Healing always takes priority, it keeps working while automation is stopped/paused and in towns, and a packet guard keeps `/follow` from breaking mid-route. A **Multisend Follow** checkbox in `/sk panel` switches to the old Multisend attack-range follow instead (shows **Attack Range**, disables native Follow) so the two never fight. Massive thank you to **[BUN] Shirahime**, whose follow code this is built on.
+
+- **Start button right-click menu**: **Right-click the Start/Stop button** for two new options, **both off by default**. **Load stopped** makes Sidekick come up stopped every time instead of restoring the state you left it in — handy if a reload has ever come back already running. **Stop after zone** stops automation whenever you change zones.  Thanks to **Nobodi** who proposed the idea.
+
+- **Black Mage support**: Self-only automation. Keeps your **Spikes** up (Blaze / Ice / Shock — pick one tier from the dropdown), self-heals with **Drain**, and recovers MP with **Aspir**. Drain and Aspir are cast on your battle target, so they only fire in combat, and Drain is only ever used on your own HP — never as a party cure. Thanks to **Mythicangel**, who reminded me BLM has buffs.
+
+- **Drain / Drain II / Aspir on Dark Knight, Scholar, and Geomancer**: The HP and MP drains now work on every caster job that learns them, not just Black Mage. **Dark Knight** gets Drain / Drain II for self-healing and Aspir for MP (DRK now heals and recovers at all). **Scholar** adds Drain and Aspir alongside its Cures and Sublimation. **Geomancer** adds Drain for self-healing and Aspir alongside Radial Arcana. All are cast on your battle target, so they're combat-only.
+
+- **Nether Void now boosts Drain / Drain II / Aspir**: The Dark Knight **[N]** button used to appear only on the Absorb row — it's now on the Drain, Drain II, and Aspir rows in the heal and recovery sections too. Turn it on and Nether Void fires just before the drain to boost it, with the same **Hold for Nether Void** option as the Absorb spells. DRK-main only, so it won't show up on the other jobs' Drain/Aspir.
+
+- **Geomancer Geo-bt combat-end timer**: New **Timer (seconds)** slider in the **Geo** section (default 5), under **Distance**. When your Geo-bt target dies, Full Circle now waits this long before dismissing the debuff luopan — if you pull again inside that window the luopan is kept and reused, instead of being dismissed and recast on every single pull.  Thanks to **Tai** for sharing his Geo expierence.
 
 - **Damage-Immune Trusts Skipped**: Trusts that can't take damage — **Moogle**, **Sakura**, **Kupofried**, **Star Sibyl**, **Brygid**, **Cornelia** — are no longer targeted by **Heal**, **AOE Heal**, **Debuff Removal**, or **Buff** (they sit at permanent full HP, so there's nothing to cure or buff). Their **P1–P5** buttons in those config sections are grayed and locked, with a *"Trust cannot take any damage"* tooltip.
 
-- **Bard Pianissimo Fast Casting**: New toggle in `/sk panel` (saved per Bard). Area songs are cast with **Pianissimo** up for its faster cast time, then Pianissimo is removed about a second into the cast so the song still goes out as an area song. In this mode Sidekick always waits for Pianissimo before casting an area song. **Requires the Debuff addon by atom0s (`/debuff`).** 
+- **Bard Pianissimo Fast Casting**: New toggle in `/sk panel` (saved per Bard). Area songs are cast with **Pianissimo** up for its faster cast time, then Pianissimo is removed about a second into the cast so the song still goes out as an area song. In this mode Sidekick always waits for Pianissimo before casting an area song. **Requires the Debuff addon by atom0s (`/debuff`).** Thanks to **Sleazy**, who made me aware of the trick.
 
 - **Ninja Cast with 1 Shadow**: New toggle in `/sk panel` (saved per Ninja). Normally Utsusemi won't recast while any shadows remain. With this on, Utsusemi recasts once you're down to your last shadow (still waits at 2+), and clears that last shadow a second into the cast so the fresh set applies. **Requires the Debuff addon by atom0s (`/debuff`).**
 
 - **Prerequisite-buff spells shown grayed**: Spells that need a buff to cast are now grayed in the config UI with a *"Prerequisite buff not active"* tooltip when that buff isn't up, instead of looking freely available. You can still check them ahead of time; automation waits for the buff. When a subjob gives you the same spell without the requirement, it shows normally — but only if your subjob is high enough to cast it.
 
-- **Auto Follow (opt-in leader following)**: New **Auto Follow** section at the top of `/sk` — pick a **Follow Target** and a **Distance**, and Sidekick `/follow`s them when they walk beyond it. Off by default; it's the only non-combat movement the addon does. Healing always takes priority, it keeps working while automation is stopped/paused and in towns, and a packet guard keeps `/follow` from breaking mid-route. A **Multisend Follow** checkbox in `/sk panel` switches to the old Multisend attack-range follow instead (shows **Attack Range**, disables native Follow) so the two never fight. Massive thank you to **[BUN] Shirahime**, whose follow code this is built on.
-
-- **Pick which statuses a remover strips**: Right-click any multi-status debuff remover (Erase, Esuna, Cursna, Viruna, Healing Waltz, Chakra…) and you'll get a **Remove:** list — one checkbox per status it can cure, all on by default. Uncheck a status (say, Poison on Erase) and Sidekick stops treating that status as a reason to cast — it won't fire the remover, or pick that target, just because of a disabled status. Note that when a remover fires on someone with several debuffs, the game still chooses which one it removes, so this controls *when* Sidekick casts, not exactly *what* comes off.
+- **Pick which statuses a remover strips**: Right-click any multi-status debuff remover (Erase, Esuna, Cursna, Viruna, Healing Waltz, Chakra…) and you'll get a **Remove:** list — one checkbox per status it can cure, all on by default. Uncheck a status (say, Poison on Erase) and Sidekick stops treating that status as a reason to cast — it won't fire the remover, or pick that target, just because of a disabled status. Note that when a remover fires on someone with several debuffs, the game still chooses which one it removes, so this controls *when* Sidekick casts, not exactly *what* comes off. Thanks to **Dasaikuru [DS]** for the feature recommendation.
 
 ### Changed
 - **No abilities fire while moving**: Sidekick now blocks all player actions while the moving, not just spell casts, so movement no longer causes interrupted or partially-started support actions.
 
 ### Fixed
-- **Red Mage Composure now casts**: Composure's recast id was wrong (it pointed at a different ability's timer), so Sidekick read the wrong cooldown and never fired it. Corrected to Composure's own recast id. 
+- **Red Mage Composure now casts**: Composure's recast id was wrong (it pointed at a different ability's timer), so Sidekick read the wrong cooldown and never fired it. Corrected to Composure's own recast id. Thanks to **Dasaikuru [DS]** for the report.
 
-- **Job default settings scrubbed for errors**: Red Mage's **Convert** never fired on its own — its MP threshold was stored under the wrong name, so the slider you saw wasn't the setting automation actually read. Every job's defaults were checked for the same mistake.
+- **Job default settings scrubbed for errors**: Red Mage's **Convert** never fired on its own — its MP threshold was stored under the wrong name, so the slider you saw wasn't the setting automation actually read. Every job's defaults were checked for the same mistake. Thanks to **Muziko** for finding the original bug.
+
+- **Scholar / Geomancer MP recovery**: Same problem as the Red Mage bug above, found first. Scholar's MP threshold was saved under the wrong name and Geomancer had none at all, so **Sublimation**, **Radial Arcana**, and the new **Aspir** never fired on their own until you dragged the slider. Both now have working defaults.
+
+- **Geo-bt luopan no longer dismissed the instant it lands**: Casting a Geo-bt debuff (like Geo-Frailty) could Full Circle the luopan the moment it appeared, wasting the cast. The luopan takes a moment to register after the spell finishes, and in that gap Sidekick lost track of it and treated the new luopan as someone else's. It now recognizes a freshly-cast luopan as its own. Thanks to **Nobodi** for the report.
 
 - **Geomancer Indi/Geo MP costs corrected**: Many Indi, Geo, and Geo-bt spells had `cost` values from retail rather than CatsEyeXI's `spell_list`, so Sidekick could skip a spell it could actually afford (thought MP was too low) or attempt one it couldn't. All geomancy MP costs now match the server. Thanks to **Tai** for the report.
 
 - **Bard Mazurka songs now work with Pianissimo**: Chocobo Mazurka and Raptor Mazurka were missing their single-target flag, so casting them on `ME` skipped Pianissimo (fired area-only) and the `P1`-`P5` buttons did nothing. Both now behave like every other song.
 
-- **Level-synced Bard songs no longer lock the song slots**: After a level-sync down, higher-level songs you selected stay selected but drop off the config window (you can't sing them), so they couldn't be turned off — and they kept using up your 2 song slots, blocking you from picking songs you *can* sing. Uncastable songs are now auto-deselected (on every target: `A` / `ME` / `P1`-`P5`) so the slots free up. Re-select them once you level back up. Only songs are affected; stratagem / Nether Void / Diffusion picks have no slot limit, so they stay put and switch back on when you level up.
+- **Level-synced Bard songs no longer lock the song slots**: After a level-sync down, higher-level songs you selected stay selected but drop off the config window (you can't sing them), so they couldn't be turned off — and they kept using up your 2 song slots, blocking you from picking songs you *can* sing. Uncastable songs are now auto-deselected (on every target: `A` / `ME` / `P1`-`P5`) so the slots free up. Re-select them once you level back up. Only songs are affected; stratagem / Nether Void / Diffusion picks have no slot limit, so they stay put and switch back on when you level up. Thanks to **Muziko** for the report.
 
-- **`/anon` no longer stops automation**: Sidekick now reads your job directly from the game client instead of the party list, which hides your job while `/anon` is on. Automation now works normally with `/anon` active.
+- **`/anon` no longer stops automation**: Sidekick now reads your job directly from the game client instead of the party list, which hides your job while `/anon` is on. Automation now works normally with `/anon` active. Thanks to **Karth** for the report.
 
-- **Haste duration on low-level tracked targets**: Sidekick assumed Haste always lasts 180s, but it wears off sooner on players under level 40. It now scales the tracked Haste timer to the target's level (from the `/check` done when you Track Target); level 40+ is unchanged at 180s.
+- **Haste duration on low-level tracked targets**: Sidekick assumed Haste always lasts 180s, but it wears off sooner on players under level 40. It now scales the tracked Haste timer to the target's level (from the `/check` done when you Track Target); level 40+ is unchanged at 180s. Thanks to **Plush** for pointing out that Haste duration drops below level 40.
 
 ### [2.3.1] - 2026-07-13
 
