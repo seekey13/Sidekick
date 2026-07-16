@@ -187,9 +187,10 @@ function panel.render(addon_settings, save_settings)
                 imgui.SameLine(0, 20)
                 imgui.PushItemWidth(80)
                 if imgui.InputInt('Timeout (minutes)', mins_var) then
+                    -- Bounds mirror /sidekick afk <seconds> (60-3600s = 1-60m).
                     local m = mins_var[1]
                     if m < 1 then m = 1 end
-                    if m > 30 then m = 30 end
+                    if m > 60 then m = 60 end
                     addon_settings.afk_timeout = m * 60
                     afk.reset()  -- restart the interval with the new timeout
                     if save_settings then save_settings() end
@@ -261,8 +262,15 @@ function panel.render(addon_settings, save_settings)
                 end
             end
 
-            -- AFK Sleep state, beside Moving/Casting.
-            if afk.is_sleeping() then
+            -- AFK Sleep state, beside Moving/Casting. The countdown only means anything
+            -- while automation is running: afk.update() is the only thing that advances
+            -- still_since, and the tick loop returns before it when stopped, so a stopped
+            -- addon would otherwise show a countdown draining to a permanent 'awake (0s)'.
+            if not (addon_settings and addon_settings.afk_enabled) then
+                dbg = dbg .. '   AFK: off'
+            elseif not addon_settings.automation_enabled then
+                dbg = dbg .. '   AFK: idle'
+            elseif afk.is_sleeping() then
                 dbg = dbg .. '   AFK: asleep'
             else
                 dbg = dbg .. string.format('   AFK: awake (%.0fs)', afk.seconds_remaining(addon_settings))
