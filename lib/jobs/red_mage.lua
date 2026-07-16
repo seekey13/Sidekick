@@ -716,21 +716,12 @@ return {
     default_settings = {
         heal_enabled = true,
         heal_threshold = 75,
-        heal_aoe_enabled = false,  -- Red Mage has no AOE heal
-        heal_aoe_threshold = 70,
-        heal_aoe_count_threshold = 2,
         wake_enabled = true,
         buff_enabled = true,
-        debuff_removal_enabled = false,  -- Red Mage has no debuff removal in the spell list
         recover_enabled = true,
-        recover_threshold = 20,  -- Use Convert when MP drops below 20%
+        recover_mp_threshold = 20,  -- Use Convert when MP drops below 20%
         focus_enabled = false,
-        focus_target_index = nil,
         focus_threshold = 85,
-        rest_enabled = false,
-        rest_timer = 5,
-        rest_threshold = 70,
-        rest_distance = 7,
         revive_enabled = true,
     },
     

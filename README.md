@@ -78,6 +78,8 @@ The one exception is **opt-in leader following** (off by default): with **Follow
 ### Fixed
 - **Red Mage Composure now casts**: Composure's recast id was wrong (it pointed at a different ability's timer), so Sidekick read the wrong cooldown and never fired it. Corrected to Composure's own recast id. 
 
+- **Job default settings scrubbed for errors**: Red Mage's **Convert** never fired on its own — its MP threshold was stored under the wrong name, so the slider you saw wasn't the setting automation actually read. Every job's defaults were checked for the same mistake.
+
 - **Geomancer Indi/Geo MP costs corrected**: Many Indi, Geo, and Geo-bt spells had `cost` values from retail rather than CatsEyeXI's `spell_list`, so Sidekick could skip a spell it could actually afford (thought MP was too low) or attempt one it couldn't. All geomancy MP costs now match the server. Thanks to **Tai** for the report.
 
 - **Bard Mazurka songs now work with Pianissimo**: Chocobo Mazurka and Raptor Mazurka were missing their single-target flag, so casting them on `ME` skipped Pianissimo (fired area-only) and the `P1`-`P5` buttons did nothing. Both now behave like every other song.

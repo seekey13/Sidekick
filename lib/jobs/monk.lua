@@ -90,6 +90,7 @@ return {
     -- Default settings for UI
     default_settings = {
         heal_enabled = true,
+        heal_threshold = 75,
         debuff_removal_enabled = true,
         buff_enabled = true,
     },
