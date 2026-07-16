@@ -238,7 +238,7 @@ field name must match its command (see the ability-field reference below).
 Shared utility module (~3,200 lines). Key areas:
 
 - **Logging**: `printf`, `debugf`, `errorf`, `warnf` – unified via internal `log()` helper
-- **Player state**: `get_player_level/job/mp/tp`, `is_idle/engaged/in_event`, `is_casting`, `is_player_moving`, `is_resting` (cached from entity status 33), `is_mounted` (entity status 5 or buff 252)
+- **Player state**: `get_player_level/job/mp/tp`, `is_idle/engaged/in_event`, `is_casting`, `get_last_action` (debug-panel label for the last 0x028 category seen), `is_player_moving`, `is_resting` (cached from entity status 33), `is_mounted` (entity status 5 or buff 252)
 - **Party**: `get_party_size`, `get_party_member_name/zone/distance`, `get_party_server_ids`
 - **Alliance**: `is_alliance_member`, `find_alliance_member`, `get_alliance_count`, `sorted_alliance_members`, `apply_alliance_member_buff`, `apply_external_buff`
 - **Buffs**: `has_buff`, `get_player_buffs`, `get_party_buffs`, `get_trust_buffs`
@@ -638,7 +638,9 @@ Read-only display of game state, party buffs, server IDs, target indices. Shown 
 
 The header row also holds the toggles that don't belong to any ability row: **AFK Sleep** (`afk_enabled` plus a **Timeout (minutes)** field shown only while enabled, see [afk.lua](#afklua--afk-sleep)), **Multisend Follow** (`multisend_follow`, see follow.lua), and the two job-conditional mid-cast modes — Bard **Pianissimo Fast Casting** (`pianissimo_fast_casting`) and Ninja **Cast with 1 Shadow** (`cast_with_1_shadow`), both described under [Scheduled Mid-Cast Removal](#scheduled-mid-cast-removal).
 
-The debug row shows AFK state beside Moving/Casting: `off` (disabled), `idle` (automation stopped), `asleep`, or `awake (Ns)` with the live countdown.
+The debug row shows AFK state beside Moving/Action: `off` (disabled), `idle` (automation stopped), `asleep`, or `awake (Ns)` with the live countdown.
+
+**Action** (`common.get_last_action()`) replaces the old `Casting: true/false` boolean: it names the last 0x028 category detected from the player — `casting_begin: Cure IV`, `spell_finish: Cure IV`, `job_ability`, `ws_finish`, … — so a cast can be watched start-to-finish instead of inferred from a flag. Melee rounds aren't recorded (they'd drown everything else while engaged), and the spell name is resolved only for the two magic categories (4/8), where `Param` is known to be a spell id. Reads `none` before the first action and after the stuck-cast timeout fires.
 
 ---
 

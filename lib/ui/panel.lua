@@ -247,9 +247,9 @@ function panel.render(addon_settings, save_settings)
         -- Only the values NOT already shown as table columns above.
         if common.debug then
             local target_id = common.get_target_id()
-            local dbg = string.format('Zone: %d   Target: %s   Moving: %s   Casting: %s',
+            local dbg = string.format('Zone: %d   Target: %s   Moving: %s   Action: %s',
                 common.get_zone_id(), tostring(target_id),
-                tostring(common.is_player_moving()), tostring(common.is_casting()))
+                tostring(common.is_player_moving()), common.get_last_action())
 
             -- Append the target's party slot + target index when the target is a party member
             local party = common.get_party()
@@ -262,7 +262,7 @@ function panel.render(addon_settings, save_settings)
                 end
             end
 
-            -- AFK Sleep state, beside Moving/Casting. The countdown only means anything
+            -- AFK Sleep state, beside Moving/Action. The countdown only means anything
             -- while automation is running: afk.update() is the only thing that advances
             -- still_since, and the tick loop returns before it when stopped, so a stopped
             -- addon would otherwise show a countdown draining to a permanent 'awake (0s)'.

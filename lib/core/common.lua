@@ -30,6 +30,19 @@ local casting_state = {
     cast_timeout = 30.0,
 }
 
+-- Last 0x028 action category seen from the player, for the debug panel readout.
+-- Melee rounds are deliberately not recorded (they'd drown everything else while engaged).
+local last_action = { category = nil, param = 0 }
+
+-- 0x028 action categories (see handle_action_packet)
+local ACTION_CATEGORY_NAMES = {
+    [1]  = 'melee',        [6]  = 'job_ability',    [11] = 'mob_tp_finish',
+    [2]  = 'ranged_finish',[7]  = 'ws_begin',       [12] = 'ranged_begin',
+    [3]  = 'ws_finish',    [8]  = 'casting_begin',  [13] = 'avatar_tp_finish',
+    [4]  = 'spell_finish', [9]  = 'item_begin',     [14] = 'job_ability_dnc',
+    [5]  = 'item_finish',                           [15] = 'job_ability_run',
+}
+
 -- Movement tracking state
 local movement_state = {
     last_position = {0, 0, 0},
@@ -355,6 +368,8 @@ function common.is_casting()
         if elapsed > casting_state.cast_timeout then
             common.debugf('[Casting] Timeout after %.1fs, clearing stuck casting state', elapsed)
             casting_state.is_casting = false
+            -- We lost track of the cast; don't let the panel keep reporting it.
+            last_action.category = nil
             return false
         end
     end
@@ -383,6 +398,9 @@ function common.handle_action_packet(actionPacket)
     -- Autoattack rounds say nothing about casting; ignore them entirely.
     if category == 1 then return end
 
+    last_action.category = category
+    last_action.param = actionPacket.Param
+
     local was_casting = casting_state.is_casting
 
     -- Any action we take breaks resting. is_resting is authoritative from the
@@ -404,6 +422,30 @@ function common.handle_action_packet(actionPacket)
     elseif not casting_state.is_casting and was_casting then
         common.debugf('[CASTING ENDED] Category: %d, Param: %d', category, actionPacket.Param)
     end
+end
+
+-- Debug panel readout: the last action category detected from the player, with the
+-- spell name where we have one. Param is a spell id only for the two magic
+-- categories; the rest carry ability/item ids that aren't worth resolving here.
+function common.get_last_action()
+    -- Evaluates the stuck-cast timeout, which clears last_action, so a cast whose
+    -- finish packet never arrived isn't reported forever.
+    common.is_casting()
+
+    if not last_action.category then return 'none' end
+
+    local label = ACTION_CATEGORY_NAMES[last_action.category]
+        or string.format('category %d', last_action.category)
+
+    if last_action.category == 4 or last_action.category == 8 then
+        local spell = AshitaCore:GetResourceManager():GetSpellById(last_action.param)
+        local name = spell and spell.Name and spell.Name[1]
+        if name and name ~= '' then
+            label = label .. ': ' .. name
+        end
+    end
+
+    return label
 end
 
 function common.is_player_moving()
