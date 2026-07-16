@@ -60,6 +60,10 @@ The one exception is **opt-in leader following** (off by default): with **Follow
 ### Added
 - **AFK Sleep**: Automation now goes to sleep after 10 minutes with no party movement and no combat, and wakes as soon as you move. **On by default** — unlike Auto Follow, sleeping only stops automation from acting, so there's no harm in it being on. It's a pause, not a stop: nothing is saved or reset, so `/sk start` survives a sleep cycle untouched. Anyone in your party moving, or the party being in combat, keeps it awake — but only **your own** movement wakes it back up, since a mob claim isn't proof you're at the keyboard. Toggle it and set the timeout (1-60 minutes) in `/sk panel` beside **Debug Mode**, or with `/sidekick afk [on|off|<seconds>]`. Thanks to **Mythicangel** for the idea.
 
+### Fixed
+- **67 wrong spell/ability ids** — affected spells cast the wrong thing or read the wrong cooldown. RDM/RUN Bar- and En- spells (Barstone cast Barfire), WHM Bar-*ra* line and Raise II, SCH Raise II / Reraise II / Sandstorm, BRD Water/Earth Carol swapped, and wrong cooldowns on DNC Divine Waltz II / Spectral Jig, WHM Afflatus Misery, RUN Vivacious Pulse, SCH Addendum: Black.
+- **46 wrong MP costs and levels** — Protect/Shell tiers, Regen II-III, En-II spells, Bar-*ra* line, Foil, Auspice, Enlight, Invisible/Sneak/Deodorize. Also DNC Divine Waltz (25), SCH Sublimation (35) / Blink (29), WHM Divine Seal (15).
+
 ### [2.4.0] - 2026-07-15
 
 ### Added

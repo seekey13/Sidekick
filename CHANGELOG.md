@@ -10,6 +10,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - **AFK Sleep**: Sidekick now puts automation to sleep after a period with no party movement and no combat, and wakes it when you physically move again. **On by default** with a 10 minute timeout, unlike Auto Follow — sleeping only stops automation from *acting*, so the failure mode is benign. Sleep is a runtime gate, not a stop: `automation_enabled` stays true and nothing is written to disk, so a sleep cycle leaves your settings untouched. Two activity signals keep it awake, both already sampled each tick (no new memory reads): any party member moving (indices 0-5, via `game_state.player` / `game_state.party[i].position`) and party combat (`common.is_combat()` — `<bt>` resolves on party *claim*, not on your own engagement, so a healer standing back still counts). The asymmetry is deliberate: six people plus a party claim can keep automation awake, but only **your own** movement wakes it — a mob claim is not proof a human is present, movement is. Controls live in `/sk panel` beside Debug Mode (an **AFK Sleep** checkbox and a **Timeout (minutes)** field, 1-60) or via `/sidekick afk [on|off|<seconds 60-3600>]`; the automation status line in `/sk` reads *"Automation asleep - move to wake"* while gated, and the panel debug row shows the live countdown. Backed by the new `lib/core/afk.lua` and the `afk_enabled` / `afk_timeout` settings keys.
 
+### Changed
+- **Ability id fields split into `spell_id` / `recast_id`**: the single `id` field is gone. `spell_id` (`spell_list.sql` `spellid`) is used by `/ma`, `recast_id` (`abilities.sql` `recastId`) by everything else, and the *field name* — not the command text — now selects which recast table `action_core.is_usable` reads. Replaces the old `is_spell_command` command-sniffing helper. Each ability carries exactly one. Item/ammo tier tables (BST `PET_FOOD`, NIN `SHURIKENS`, PUP `OILS`) keep their bare `id` (item ids, not abilities).
+
+### Fixed
+- **67 wrong ability ids across 6 jobs**, audited against the CatsEyeXI server SQL. These pointed at the wrong spell/timer, so the affected abilities cast the wrong thing or mis-read their cooldown:
+  - **Red Mage / Rune Fencer**: the whole Bar-element and Bar-status line was shifted (Barstone cast Barfire, Barsleep cast Barblizzard, …); all six En-spells and their II tiers were off; RUN Protect I-III and Shell IV, RDM Flurry and Phalanx II.
+  - **White Mage**: the Bar-status *-ra* line was shifted by one (Barsleepra cast Baramnesia, …); Raise II pointed at Teleport-Vahzl.
+  - **Scholar**: Raise II pointed at Reraise II, Reraise II at Reraise III, Sandstorm at Flash; Addendum: Black used its `abilityId` as a recast id.
+  - **Bard**: Water Carol and Earth Carol were swapped.
+  - **Dancer**: Divine Waltz II and Spectral Jig had wrong recast ids.
+  - **White Mage / Rune Fencer**: Afflatus Misery and Vivacious Pulse used `abilityId` values as recast ids.
+- **46 wrong MP costs and levels** corrected to match the server SQL — RDM/RUN/WHM/SCH (Protect/Shell tiers, Regen II-III, the En-II spells, the Bar-*ra* line, Foil, Auspice, Enlight, Invisible/Sneak/Deodorize, …), plus DNC Divine Waltz (25), SCH Sublimation (35) and Blink (29), WHM Divine Seal (15).
+
 ## [2.4.0] - 2026-07-15
 
 ### Added

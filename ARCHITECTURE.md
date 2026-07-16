@@ -174,9 +174,12 @@ Consolidated ability infrastructure module. Combines resource management (MP/TP 
 |---|---|
 | `has_resource(type, amount)` | Check MP or TP ≥ amount |
 | `get_resource(type)` | Current MP or TP |
-| `is_ability_ready(id)` | Ability recast timer = 0 (with 0.5s post-delay) |
-| `is_spell_ready(id)` | Spell recast timer = 0 (with 0.5s post-delay) |
-| `get_spell_recast(id)` | Remaining spell recast |
+| `is_ability_ready(recast_id)` | Ability recast timer = 0 (with 0.5s post-delay) — reads the JA recast table |
+| `is_spell_ready(spell_id)` | Spell recast timer = 0 (with 0.5s post-delay) — reads the spell recast table |
+| `get_spell_recast(spell_id)` | Remaining spell recast |
+
+The two tables are distinct and take different ids, so an ability's `spell_id` / `recast_id`
+field name must match its command (see the ability-field reference below).
 
 **Buff-ID Utilities** (formerly `buff_utils.lua`):
 
@@ -190,7 +193,7 @@ Consolidated ability infrastructure module. Combines resource management (MP/TP 
 
 | Function | Purpose |
 |---|---|
-| `is_usable(ability, job_def)` | Returns `ok, reason` after checking status ailments, resource, and cooldown |
+| `is_usable(ability, job_def)` | Returns `ok, reason` after checking status ailments, resource, and cooldown. The cooldown check keys off the *field name*: `spell_id` → `is_spell_ready`, else `recast_id` → `is_ability_ready`, else unchecked |
 | `filter_usable(abilities, job_def, tag)` | Filters a list down to usable abilities, debug-logs skipped ones |
 | `first_command(abilities, job_def, settings, tag, party_index, desc_fn)` | Returns the first usable ability as `{command, description}` or nil |
 | `try_use(ability, job_def, settings, party_index, desc, game_state)` | Single-ability execution with optional Trust buff registration |
@@ -527,6 +530,41 @@ return {
                                                     --   the spell is skipped while the JA can't fire
 }
 ```
+
+#### Id fields and their SQL sources
+
+Every id in a job file comes straight from the CatsEyeXI server SQL, and the numbers are
+only meaningful against the table they were taken from:
+
+| Field | Source | Applies to |
+|---|---|---|
+| `spell_id` | [`spell_list.sql`](https://github.com/CatsAndBoats/catseyexi/blob/base/sql/spell_list.sql) `spellid` | `/ma` abilities (spell recast + `HasSpell`) |
+| `recast_id` | [`abilities.sql`](https://github.com/CatsAndBoats/catseyexi/blob/base/sql/abilities.sql) `recastId` | everything else (`/ja`, `/item`, `/pet`, `/ws`) |
+| `ability_id` | [`abilities.sql`](https://github.com/CatsAndBoats/catseyexi/blob/base/sql/abilities.sql) `abilityId` | merit-unlocked JAs only (`HasAbility(ability_id + 512)`) |
+| `buff_id` / `debuff_id` | [`status_effects.sql`](https://github.com/CatsAndBoats/catseyexi/blob/base/sql/status_effects.sql) `id` | status tracked / removed |
+
+`cost` is `spell_list.sql` `mpCost` and `level` is the per-job level packed into the `jobs`
+blob (byte index = job id - 1), except for JAs, where `level` is `abilities.sql` `level`.
+The exception is retail-era content the 75-cap server grants early: those rows keep their
+retail `level` in SQL (Presto 77, Conspirator 87, the Unbridled Learning spells 79-98, …)
+while the job file clamps them to a reachable level. Don't "fix" those against SQL — but a
+level *below* the SQL value on ordinary content is a bug.
+
+Two rules are easy to get wrong:
+
+- **`recastId` and `abilityId` are different columns of the same `abilities.sql` row** — do
+  not conflate them. An ability carries exactly one *cooldown* id (`spell_id` **or**
+  `recast_id`), and `ability_id` is an extra, only for merit JAs.
+- **The field name, not the command text, picks the recast table.** `is_usable` no longer
+  sniffs the command for `/ma`, so a `/ma` ability given a `recast_id` will silently read
+  the wrong timer, and one given neither id is never cooldown-gated at all.
+
+Item/ammo tier-spec tables (BST `PET_FOOD`, NIN `SHURIKENS`, PUP `OILS`, …) are not
+abilities — their entries keep a bare `id`, which is an item id.
+
+Ninjutsu is a special case worth knowing: in `spell_list.sql` the `mpCost` column holds the
+**tool item id** rather than an MP cost, which is why NIN spells carry `cost = 0` and gate on
+`requires_item` instead.
 
 ---
 
