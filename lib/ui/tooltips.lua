@@ -140,6 +140,14 @@ return {
         'before Sidekick sends /follow. The client\n' ..
         'holds position once you catch up.',
 
+    afk_sleep =
+        'Dead-man\'s switch. When no party member moves\n' ..
+        'and the party is out of combat for the Timeout,\n' ..
+        'automation sleeps until YOU move -- combat does\n' ..
+        'not wake it. Automation stays started; nothing\n' ..
+        'is stopped or saved. On by default: it only\n' ..
+        'pauses acting, so it never moves you.',
+
     resource_recovery =
         'Self Recover (TP/MP%%) casts the checked\n' ..
         'abilities when your TP/MP drops below the\n' ..

@@ -8,6 +8,7 @@ local panel = {}
 
 local imgui = require('imgui')
 local common = require('lib.core.common')
+local afk = require('lib.core.afk')
 local tooltips = require('lib.ui.tooltips')
 
 -- Window state
@@ -229,6 +230,13 @@ function panel.render(addon_settings, save_settings)
                         break
                     end
                 end
+            end
+
+            -- AFK Sleep state, beside Moving/Casting.
+            if afk.is_sleeping() then
+                dbg = dbg .. '   AFK: asleep'
+            else
+                dbg = dbg .. string.format('   AFK: awake (%.0fs)', afk.seconds_remaining(addon_settings))
             end
 
             imgui.SameLine(0, 20)

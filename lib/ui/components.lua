@@ -2004,12 +2004,19 @@ function ui_components.collapsing_checkbox_header(ctx, label, setting_name, defa
     return is_open, setting_var[1]
 end
 
--- Create an integer slider UI element linked to a setting
-function ui_components.slider_int(ctx, label, setting_name, ui_var, min, max, width)
+-- Create an integer slider UI element linked to a setting.
+-- on_change (optional): receives the new slider value and owns writing the setting
+-- itself. Used when the displayed unit differs from the stored one -- AFK Sleep shows
+-- minutes but stores afk_timeout in seconds. Omitted, the slider value is stored as-is.
+function ui_components.slider_int(ctx, label, setting_name, ui_var, min, max, width, on_change)
     width = width or SLIDER_WIDTH
     imgui.PushItemWidth(width)
     if imgui.SliderInt(label, ui_var, min, max) then
-        ctx.settings[setting_name] = ui_var[1]
+        if on_change then
+            on_change(ui_var[1])
+        else
+            ctx.settings[setting_name] = ui_var[1]
+        end
         if ctx.save_callback then
             ctx.save_callback()
         end

@@ -609,6 +609,21 @@ function ui_config.render(settings, job_def, callback)
             end
         end
 
+        -- AFK Sleep (job-independent). Slider shows minutes; afk_timeout is stored in
+        -- seconds, so the slider reads afk_timeout/60 and writes value*60 via on_change.
+        do
+            local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'AFK Sleep', 'afk_enabled', true)
+            ui.item_tooltip(tooltips.afk_sleep)
+            if is_open and is_enabled then
+                imgui.Indent(ui.ABILITY_LIST_INDENT)
+                local minutes = math.floor((settings.afk_timeout or 600) / 60)
+                ui.slider_int(ctx, 'Timeout (minutes)##afk_timeout', 'afk_timeout', { minutes }, 1, 30, nil,
+                    function(value) settings.afk_timeout = value * 60 end)
+                ui.item_tooltip(tooltips.afk_sleep)
+                imgui.Unindent(ui.ABILITY_LIST_INDENT)
+            end
+        end
+
         -- Show job-specific sections if we have a job definition
         if job_def then
         
