@@ -532,8 +532,8 @@ function heal.select_ability(abilities, target_hpp, job_def, player_resource, pa
                     local ability_resource_type = ability.resource_type or job_def.resource_type
                     if action_core.has_resource(ability_resource_type, ability.cost) then
                         local is_ready = true
-                        if ability.id then
-                            is_ready = action_core.is_ability_ready(ability.id)
+                        if ability.recast_id then
+                            is_ready = action_core.is_ability_ready(ability.recast_id)
                         end
                         if is_ready then
                             return ability

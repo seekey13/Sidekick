@@ -33,7 +33,7 @@ return {
                 name = 'Repair',
                 level = 15,
                 cost = 0,
-                id = 206,
+                recast_id = 206,
                 command = '/ja "Repair" <me>',
                 pet_required = true,
                 requires_equipped_ammo = OILS,  -- gate + auto-equip tiers
@@ -49,7 +49,7 @@ return {
                 name = 'Maintenance',
                 level = 30,
                 cost = 0,
-                id = 214,
+                recast_id = 214,
                 command = '/ja "Maintenance" <me>',
                 debuff_id = common.ERASABLE_DEBUFFS,
                 pet_required = true,

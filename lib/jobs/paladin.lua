@@ -18,7 +18,7 @@ return {
                 name = 'Cure IV',
                 level = 55,
                 cost = 88,
-                id = 4,
+                spell_id = 4,
                 magic = 'white',
                 magic_type = 'healing',
                 command = function(target)
@@ -33,7 +33,7 @@ return {
                 name = 'Cure III',
                 level = 30,
                 cost = 46,
-                id = 3,
+                spell_id = 3,
                 magic = 'white',
                 magic_type = 'healing',
                 command = function(target)
@@ -48,7 +48,7 @@ return {
                 name = 'Cure II',
                 level = 17,
                 cost = 24,
-                id = 2,
+                spell_id = 2,
                 magic = 'white',
                 magic_type = 'healing',
                 command = function(target)
@@ -63,7 +63,7 @@ return {
                 name = 'Cure',
                 level = 5,
                 cost = 8,
-                id = 1,
+                spell_id = 1,
                 magic = 'white',
                 magic_type = 'healing',
                 command = function(target)
@@ -83,7 +83,7 @@ return {
                 name = 'Majesty',
                 level = 70,
                 cost = 0,
-                id = 150,  -- Majesty recast ID
+                recast_id = 150,  -- Majesty recast ID
                 command = '/ja "Majesty" <me>',
                 buff_id = 621,  -- Majesty buff
             },
@@ -92,7 +92,7 @@ return {
                 name = 'Protect IV',
                 level = 70,
                 cost = 65,
-                id = 46,  -- Protect IV spell ID
+                spell_id = 46,  -- Protect IV spell ID
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = function(target)
@@ -107,7 +107,7 @@ return {
                 name = 'Protect III',
                 level = 50,
                 cost = 46,
-                id = 45,  -- Protect III spell ID
+                spell_id = 45,  -- Protect III spell ID
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = function(target)
@@ -122,7 +122,7 @@ return {
                 name = 'Protect II',
                 level = 30,
                 cost = 28,
-                id = 44,  -- Protect II spell ID
+                spell_id = 44,  -- Protect II spell ID
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = function(target)
@@ -137,7 +137,7 @@ return {
                 name = 'Protect',
                 level = 10,
                 cost = 9,
-                id = 43,  -- Protect spell ID
+                spell_id = 43,  -- Protect spell ID
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = function(target)
@@ -152,7 +152,7 @@ return {
                 name = 'Shell III',
                 level = 60,
                 cost = 56,
-                id = 50,  -- Shell III spell ID
+                spell_id = 50,  -- Shell III spell ID
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = function(target)
@@ -167,7 +167,7 @@ return {
                 name = 'Shell II',
                 level = 40,
                 cost = 37,
-                id = 49,  -- Shell II spell ID
+                spell_id = 49,  -- Shell II spell ID
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = function(target)
@@ -182,7 +182,7 @@ return {
                 name = 'Shell',
                 level = 20,
                 cost = 18,
-                id = 48,  -- Shell spell ID
+                spell_id = 48,  -- Shell spell ID
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = function(target)
@@ -201,7 +201,7 @@ return {
                 name = 'Chivalry',
                 level = 75,
                 cost = 0,
-                id = 79,  -- Chivalry recast ID
+                recast_id = 79,  -- Chivalry recast ID
                 command = '/ja "Chivalry" <me>',
                 min_tp = 3000,  -- default TP threshold; overridden by chivalry_min_tp setting
             },

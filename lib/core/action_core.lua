@@ -143,19 +143,6 @@ end
 -- Ability Candidacy Helpers
 -- ============================================================================
 
--- Determine if an ability's command is a spell (/ma ...) or a job ability.
--- Accepts both string and function commands; probes function commands with a
--- test build against party index 0.
-local function is_spell_command(ability)
-    if type(ability.command) == 'string' then
-        return ability.command:match('^/ma%s') ~= nil
-    elseif type(ability.command) == 'function' then
-        local test = common.build_ability_command(ability, 0)
-        return test ~= nil and test:match('^/ma%s') ~= nil
-    end
-    return false
-end
-
 --[[
     Check whether a single ability is currently usable.
     Evaluates in order: status-blocked → resource → cooldown.
@@ -180,17 +167,16 @@ function action_core.is_usable(ability, job_def, cost_override)
         return false, 'insufficient ' .. res_type
     end
 
-    -- 3. Off cooldown?
-    if ability.id then
-        if is_spell_command(ability) then
-            if not action_core.is_spell_ready(ability.id) then
-                local secs = action_core.get_spell_recast(ability.id) / 60.0
-                return false, string.format('spell cooldown (%.1fs)', secs)
-            end
-        else
-            if not action_core.is_ability_ready(ability.id) then
-                return false, 'ability cooldown'
-            end
+    -- 3. Off cooldown? The field name selects the timer: spell_id (/ma) reads the
+    -- spell recast table, recast_id (/ja and friends) the ability recast table.
+    if ability.spell_id then
+        if not action_core.is_spell_ready(ability.spell_id) then
+            local secs = action_core.get_spell_recast(ability.spell_id) / 60.0
+            return false, string.format('spell cooldown (%.1fs)', secs)
+        end
+    elseif ability.recast_id then
+        if not action_core.is_ability_ready(ability.recast_id) then
+            return false, 'ability cooldown'
         end
     end
 

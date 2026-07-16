@@ -20,7 +20,7 @@ return {
                 name = 'Curing Waltz IV',
                 level = 70,
                 cost = 650,
-                id = 188,
+                recast_id = 188,
                 command = function(target)
                     return '/ja "Curing Waltz IV" '..target
                 end,
@@ -32,7 +32,7 @@ return {
                 name = 'Curing Waltz III',
                 level = 45,
                 cost = 500,
-                id = 187,
+                recast_id = 187,
                 command = function(target)
                     return '/ja "Curing Waltz III" '..target
                 end,
@@ -44,7 +44,7 @@ return {
                 name = 'Curing Waltz II',
                 level = 30,
                 cost = 350,
-                id = 186,
+                recast_id = 186,
                 command = function(target)
                     return '/ja "Curing Waltz II" '..target
                 end,
@@ -56,7 +56,7 @@ return {
                 name = 'Curing Waltz',
                 level = 15,
                 cost = 200,
-                id = 217,
+                recast_id = 217,
                 command = function(target)
                     return '/ja "Curing Waltz" '..target
                 end,
@@ -72,7 +72,7 @@ return {
                 name = 'Divine Waltz II',
                 level = 65,
                 cost = 400,
-                id = 102,
+                recast_id = 190,
                 command = '/ja "Divine Waltz II" <me>',
                 wakes = true,
                 blocked_by = 410,  -- Saber Dance blocks Waltzes
@@ -81,7 +81,7 @@ return {
                 name = 'Divine Waltz',
                 level = 20,
                 cost = 400,
-                id = 225,
+                recast_id = 225,
                 command = '/ja "Divine Waltz" <me>',
                 wakes = true,
                 blocked_by = 410,  -- Saber Dance blocks Waltzes
@@ -94,7 +94,7 @@ return {
                 name = 'Healing Waltz',
                 level = 35,
                 cost = 200,
-                id = 215,
+                recast_id = 215,
                 debuff_id = {3, 4, 5, 6, 8, 9, 11, 12, 13, 31, 128, 129, 130, 131, 134, 135, 136, 137, 138, 139, 140, 141, 142, 144, 145, 146, 147, 148, 149, 156, 167, 174, 175, 189, 404},  -- Poison, Paralyze, Blind, Silence, Disease, Curse, Bind, Weight, Slow, Plague, Burn, Frost, Choke, Rasp, Dia, Bio, STR Down, DEX Down, VIT Down, AGI Down, INT Down, MND Down, CHR Down, Max HP Down, Max MP Down, Accuracy Down, Attack Down, Evasion Down, Defense Down, Flash, Magic Def Down, Magic Acc Down, Magic Atk Down, Max TP Down, Magic Eva Down
                 command = function(target)
                     return '/ja "Healing Waltz" '..target
@@ -109,7 +109,7 @@ return {
                 name = 'Saber Dance',
                 level = 75,
                 cost = 0,
-                id = 219,
+                recast_id = 219,
                 ability_id = 237,  -- merit-unlocked: gated on HasAbility
                 command = '/ja "Saber Dance" <me>',
                 buff_id = {410, 411},  --  410 Saber Dance overrides Fan Dance
@@ -119,7 +119,7 @@ return {
                 name = 'Fan Dance',
                 level = 75,
                 cost = 0,
-                id = 224,
+                recast_id = 224,
                 ability_id = 238,  -- merit-unlocked: gated on HasAbility
                 command = '/ja "Fan Dance" <me>',
                 buff_id = {410, 411},  -- 411 Fan Dance overrides Saber Dance 
@@ -129,7 +129,7 @@ return {
                 name = 'No Foot Rise',
                 level = 75,
                 cost = 0,
-                id = 223,
+                recast_id = 223,
                 ability_id = 239,  -- merit-unlocked: gated on HasAbility
                 command = '/ja "No Foot Rise" <me>',
                 buff_id = 385,  -- 5 Finishing Moves
@@ -138,7 +138,7 @@ return {
                 name = 'Presto',
                 level = 75,
                 cost = 0,
-                id = 236,
+                recast_id = 236,
                 ability_id = 261,  -- merit-unlocked: gated on HasAbility
                 command = '/ja "Presto" <me>',
                 buff_id = 442,
@@ -147,7 +147,7 @@ return {
                 name = 'Drain Samba III',
                 level = 65,
                 cost = 400,
-                id = 216,
+                recast_id = 216,
                 command = '/ja "Drain Samba III" <me>',
                 buff_id = 368,  -- Drain Samba
                 blocked_by = 411,  -- Fan Dance blocks Sambas
@@ -157,7 +157,7 @@ return {
                 name = 'Drain Samba II',
                 level = 35,
                 cost = 250,
-                id = 216,
+                recast_id = 216,
                 command = '/ja "Drain Samba II" <me>',
                 buff_id = 368,  -- Drain Samba
                 blocked_by = 411,  -- Fan Dance blocks Sambas
@@ -167,7 +167,7 @@ return {
                 name = 'Drain Samba',
                 level = 5,
                 cost = 100,
-                id = 216,
+                recast_id = 216,
                 command = '/ja "Drain Samba" <me>',
                 buff_id = 368,  -- Drain Samba
                 blocked_by = 411,  -- Fan Dance blocks Sambas
@@ -177,7 +177,7 @@ return {
                 name = 'Aspir Samba II',
                 level = 60,
                 cost = 250,
-                id = 216,
+                recast_id = 216,
                 command = '/ja "Aspir Samba II" <me>',
                 buff_id = 369,  -- Aspir Samba
                 blocked_by = 411,  -- Fan Dance blocks Sambas
@@ -187,7 +187,7 @@ return {
                 name = 'Aspir Samba',
                 level = 25,
                 cost = 100,
-                id = 216,
+                recast_id = 216,
                 command = '/ja "Aspir Samba" <me>',
                 buff_id = 369,  -- Aspir Samba
                 blocked_by = 411,  -- Fan Dance blocks Sambas
@@ -197,7 +197,7 @@ return {
                 name = 'Haste Samba',
                 level = 45,
                 cost = 350,
-                id = 216,
+                recast_id = 216,
                 command = '/ja "Haste Samba" <me>',
                 buff_id = 370,  -- Haste Samba
                 blocked_by = 411,  -- Fan Dance blocks Sambas
@@ -207,7 +207,7 @@ return {
                 name = 'Spectral Jig',
                 level = 25,
                 cost = 0,
-                id = 195,
+                recast_id = 218,
                 command = '/ja "Spectral Jig" <me>',
                 buff_id = {71, 69},  -- Sneak (71) and Invisible (69)
                 idle_only = true,
@@ -220,7 +220,7 @@ return {
                 name = 'Contradance',
                 level = 50,
                 cost = 0,
-                id = 229,
+                recast_id = 229,
                 command = '/ja "Contradance" <me>',
             },
         },
@@ -231,7 +231,7 @@ return {
                 name = 'Reverse Flourish',
                 level = 40,
                 cost = 0,
-                id = 222,
+                recast_id = 222,
                 command = '/ja "Reverse Flourish" <me>',
                 wakes = false,
                 value = 600,

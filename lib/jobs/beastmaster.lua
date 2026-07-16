@@ -46,7 +46,7 @@ return {
                 name = 'Reward',
                 level = 12,
                 cost = 0,
-                id = 103,
+                recast_id = 103,
                 command = '/ja "Reward" <me>',
                 pet_required = true,
                 requires_equipped_ammo = PET_FOOD,  -- gate + auto-equip tiers
@@ -62,7 +62,7 @@ return {
                 name = 'Reward (Regen)',
                 level = 12,
                 cost = 0,
-                id = 103,
+                recast_id = 103,
                 command = '/ja "Reward" <me>',
                 pet_required = true,
                 requires_equipped_ammo = PET_POULTICE,  -- gate + auto-equip
@@ -81,7 +81,7 @@ return {
                 name = 'Reward (Erase)',
                 level = 12,
                 cost = 0,
-                id = 103,
+                recast_id = 103,
                 command = '/ja "Reward" <me>',
                 debuff_id = common.ERASABLE_DEBUFFS,
                 pet_required = true,
