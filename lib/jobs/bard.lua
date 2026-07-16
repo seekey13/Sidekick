@@ -840,7 +840,6 @@ return {
     -- Default settings for UI
     default_settings = {
         buff_enabled = true,
-
         pianissimo_fast_casting = false,  -- see lib/actions/buff.lua area phase
     },
     

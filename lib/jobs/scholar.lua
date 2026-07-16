@@ -831,9 +831,6 @@ return {
         debuff_removal_enabled = true,
         focus_enabled = false,
         focus_threshold = 85,
-        rest_enabled = false,
-        rest_timer = 5,
-        rest_distance = 7,
         revive_enabled = true,
     },
     

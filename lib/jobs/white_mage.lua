@@ -954,9 +954,6 @@ return {
         focus_enabled = false,
         focus_threshold = 85,
         focus_recovery_threshold = 30,  -- Devotion on the recovery target below 30% MP
-        rest_enabled = false,
-        rest_timer = 5,
-        rest_distance = 7,
         revive_enabled = true,
     },
     

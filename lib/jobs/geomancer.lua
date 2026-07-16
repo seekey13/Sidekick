@@ -819,9 +819,6 @@ return {
         geo_enabled = true,
         geo_distance_threshold = 10,
         geo_bt_timer = 5,
-        rest_enabled = false,
-        rest_timer = 5,
-        rest_distance = 7,
     },
     
     -- Action priority order

@@ -219,9 +219,6 @@ return {
         debuff_removal_enabled = false,  -- Paladin has no debuff removal
         focus_enabled = false,
         focus_threshold = 85,
-        rest_enabled = false,
-        rest_timer = 5,
-        rest_distance = 7,
         recover_enabled = false,
         recover_mp_threshold = 25,
         recover_tp_threshold = 1000,  -- Meditate (PLD/SAM) when TP drops below 1000

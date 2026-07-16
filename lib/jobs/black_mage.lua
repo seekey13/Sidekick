@@ -95,9 +95,6 @@ return {
         heal_threshold = 75,
         recover_enabled = true,
         recover_mp_threshold = 30,
-        rest_enabled = false,
-        rest_timer = 5,
-        rest_distance = 7,
     },
 
     -- Action priority order

@@ -75,6 +75,11 @@ local default_settings = T{
     follow_distance = 5,
     -- false = native Auto Follow; true = Multisend attack-range follow (see /sk panel).
     multisend_follow = false,
+    -- Resting (/heal). Inert unless the job is MP-based and lists 'rest' in its
+    -- priority_order, so these live here rather than in each MP job's defaults.
+    rest_enabled = false,
+    rest_timer = 5,
+    rest_distance = 7,
 }
 
 -- Range management state
