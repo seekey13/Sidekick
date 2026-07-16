@@ -149,7 +149,7 @@ return {
             {
                 name = 'Shell IV',
                 level = 68,
-                cost = 71,
+                cost = 75,
                 spell_id = 51,
                 magic = 'white',
                 magic_type = 'enhancing',
@@ -376,7 +376,7 @@ return {
             {
                 name = 'Phalanx II',
                 level = 75,
-                cost = 21,
+                cost = 42,
                 spell_id = 107,
                 magic = 'white',
                 magic_type = 'enhancing',
@@ -479,7 +479,7 @@ return {
             {
                 name = 'Enwater II',
                 level = 60,
-                cost = 12,
+                cost = 24,
                 spell_id = 317,
                 magic = 'white',
                 magic_type = 'enhancing',
@@ -501,7 +501,7 @@ return {
             {
                 name = 'Enfire II',
                 level = 58,
-                cost = 12,
+                cost = 24,
                 spell_id = 312,
                 magic = 'white',
                 magic_type = 'enhancing',
@@ -523,7 +523,7 @@ return {
             {
                 name = 'Enblizzard II',
                 level = 56,
-                cost = 12,
+                cost = 24,
                 spell_id = 313,
                 magic = 'white',
                 magic_type = 'enhancing',
@@ -545,7 +545,7 @@ return {
             {
                 name = 'Enaero II',
                 level = 54,
-                cost = 12,
+                cost = 24,
                 spell_id = 314,
                 magic = 'white',
                 magic_type = 'enhancing',
@@ -567,7 +567,7 @@ return {
             {
                 name = 'Enstone II',
                 level = 52,
-                cost = 12,
+                cost = 24,
                 spell_id = 315,
                 magic = 'white',
                 magic_type = 'enhancing',
@@ -589,7 +589,7 @@ return {
             {
                 name = 'Enthunder II',
                 level = 50,
-                cost = 12,
+                cost = 24,
                 spell_id = 316,
                 magic = 'white',
                 magic_type = 'enhancing',
@@ -612,7 +612,7 @@ return {
             {
                 name = 'Shock Spikes',
                 level = 60,
-                cost = 16,
+                cost = 24,
                 spell_id = 251,
                 magic = 'black',
                 magic_type = 'enhancing',
@@ -634,7 +634,7 @@ return {
             {
                 name = 'Blaze Spikes',
                 level = 20,
-                cost = 16,
+                cost = 8,
                 spell_id = 249,
                 magic = 'black',
                 magic_type = 'enhancing',
@@ -645,7 +645,7 @@ return {
             {
                 name = 'Invisible',
                 level = 25,
-                cost = 25,
+                cost = 15,
                 spell_id = 136,
                 magic = 'white',
                 magic_type = 'enhancing',
@@ -658,7 +658,7 @@ return {
             {
                 name = 'Sneak',
                 level = 20,
-                cost = 25,
+                cost = 12,
                 spell_id = 137,
                 magic = 'white',
                 magic_type = 'enhancing',
@@ -671,7 +671,7 @@ return {
             {
                 name = 'Deodorize',
                 level = 15,
-                cost = 6,
+                cost = 10,
                 spell_id = 138,
                 magic = 'white',
                 magic_type = 'enhancing',

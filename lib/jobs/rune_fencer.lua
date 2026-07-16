@@ -19,7 +19,7 @@ return {
             {
                 name = 'Protect',
                 level = 20,
-                cost = 15,
+                cost = 9,
                 spell_id = 43,
                 magic = 'white',
                 magic_type = 'enhancing',
@@ -34,7 +34,7 @@ return {
             {
                 name = 'Protect II',
                 level = 40,
-                cost = 21,
+                cost = 28,
                 spell_id = 44,
                 magic = 'white',
                 magic_type = 'enhancing',
@@ -49,7 +49,7 @@ return {
             {
                 name = 'Protect III',
                 level = 60,
-                cost = 27,
+                cost = 46,
                 spell_id = 45,
                 magic = 'white',
                 magic_type = 'enhancing',
@@ -80,7 +80,7 @@ return {
             {
                 name = 'Shell II',
                 level = 30,
-                cost = 24,
+                cost = 37,
                 spell_id = 49,
                 magic = 'white',
                 magic_type = 'enhancing',
@@ -95,7 +95,7 @@ return {
             {
                 name = 'Shell III',
                 level = 50,
-                cost = 30,
+                cost = 56,
                 spell_id = 50,
                 magic = 'white',
                 magic_type = 'enhancing',
@@ -110,7 +110,7 @@ return {
             {
                 name = 'Shell IV',
                 level = 70,
-                cost = 36,
+                cost = 75,
                 spell_id = 51,
                 magic = 'white',
                 magic_type = 'enhancing',
@@ -308,7 +308,7 @@ return {
             {
                 name = 'Regen II',
                 level = 48,
-                cost = 24,
+                cost = 36,
                 spell_id = 110,
                 magic = 'white',
                 magic_type = 'enhancing',
@@ -321,7 +321,7 @@ return {
             {
                 name = 'Regen III',
                 level = 70,
-                cost = 36,
+                cost = 64,
                 spell_id = 111,
                 magic = 'white',
                 magic_type = 'enhancing',
@@ -348,7 +348,7 @@ return {
             {
                 name = 'Foil',
                 level = 58,
-                cost = 10,
+                cost = 48,
                 spell_id = 840,
                 magic = 'white',
                 magic_type = 'enhancing',
@@ -380,7 +380,7 @@ return {
             {
                 name = 'Blaze Spikes',
                 level = 45,
-                cost = 16,
+                cost = 8,
                 spell_id = 249,
                 magic = 'black',
                 magic_type = 'enhancing',
@@ -405,7 +405,7 @@ return {
             {
                 name = 'Aquaveil',
                 level = 15,
-                cost = 14,
+                cost = 12,
                 spell_id = 55,
                 magic = 'white',
                 magic_type = 'enhancing',

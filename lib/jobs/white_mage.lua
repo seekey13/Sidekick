@@ -470,7 +470,7 @@ return {
             {
                 name = 'Shellra IV',
                 level = 68,
-                cost = 71,
+                cost = 75,
                 spell_id = 133,
                 magic = 'white',
                 magic_type = 'enhancing',
@@ -514,7 +514,7 @@ return {
             {
                 name = 'Shell IV',
                 level = 68,
-                cost = 71,
+                cost = 75,
                 spell_id = 51,
                 magic = 'white',
                 magic_type = 'enhancing',
@@ -638,7 +638,7 @@ return {
             {
                 name = 'Baramnesra',
                 level = 65,
-                cost = 12,
+                cost = 60,
                 spell_id = 85,
                 magic = 'white',
                 magic_type = 'enhancing',
@@ -649,7 +649,7 @@ return {
             {
                 name = 'Barpetra',
                 level = 43,
-                cost = 12,
+                cost = 40,
                 spell_id = 91,
                 magic = 'white',
                 magic_type = 'enhancing',
@@ -660,7 +660,7 @@ return {
             {
                 name = 'Barvira',
                 level = 39,
-                cost = 12,
+                cost = 50,
                 spell_id = 92,
                 magic = 'white',
                 magic_type = 'enhancing',
@@ -682,7 +682,7 @@ return {
             {
                 name = 'Barblindra',
                 level = 18,
-                cost = 12,
+                cost = 26,
                 spell_id = 89,
                 magic = 'white',
                 magic_type = 'enhancing',
@@ -693,7 +693,7 @@ return {
             {
                 name = 'Barparalyzra',
                 level = 12,
-                cost = 12,
+                cost = 22,
                 spell_id = 88,
                 magic = 'white',
                 magic_type = 'enhancing',
@@ -704,7 +704,7 @@ return {
             {
                 name = 'Barpoisonra',
                 level = 10,
-                cost = 12,
+                cost = 18,
                 spell_id = 87,
                 magic = 'white',
                 magic_type = 'enhancing',
@@ -715,7 +715,7 @@ return {
             {
                 name = 'Barsleepra',
                 level = 7,
-                cost = 12,
+                cost = 14,
                 spell_id = 86,
                 magic = 'white',
                 magic_type = 'enhancing',
@@ -789,7 +789,7 @@ return {
             {
                 name = 'Enlight',
                 level = 75,
-                cost = 45,
+                cost = 24,
                 spell_id = 310,
                 magic = 'white',
                 magic_type = 'divine',
@@ -799,7 +799,7 @@ return {
             {
                 name = 'Auspice',
                 level = 55,
-                cost = 15,
+                cost = 48,
                 spell_id = 96,
                 magic = 'white',
                 magic_type = 'enhancing',
@@ -809,7 +809,7 @@ return {
             {
                 name = 'Invisible',
                 level = 25,
-                cost = 25,
+                cost = 15,
                 spell_id = 136,
                 magic = 'white',
                 magic_type = 'enhancing',
@@ -822,7 +822,7 @@ return {
             {
                 name = 'Sneak',
                 level = 20,
-                cost = 25,
+                cost = 12,
                 spell_id = 137,
                 magic = 'white',
                 magic_type = 'enhancing',
@@ -835,7 +835,7 @@ return {
             {
                 name = 'Deodorize',
                 level = 15,
-                cost = 6,
+                cost = 10,
                 spell_id = 138,
                 magic = 'white',
                 magic_type = 'enhancing',

@@ -21,7 +21,7 @@ return {
                 name = 'Light Arts',
                 level = 10,
                 cost = 0,
-                recast_id = 228,  -- Job ability ID
+                recast_id = 228,
                 command = '/ja "Light Arts" <me>',
                 group = 'arts',
                 buff_id = {358, 401},  -- Can be either 358 or 401
@@ -30,7 +30,7 @@ return {
                 name = 'Addendum: White',
                 level = 10,
                 cost = 0,
-                recast_id = 231,  -- Job ability ID
+                recast_id = 231,
                 command = '/ja "Addendum: White" <me>',
                 group = 'addendum',
                 buff_id = 401,
@@ -40,7 +40,7 @@ return {
                 name = 'Dark Arts',
                 level = 10,
                 cost = 0,
-                recast_id = 232,  -- Job ability ID
+                recast_id = 232,
                 command = '/ja "Dark Arts" <me>',
                 group = 'arts',
                 buff_id = {359, 402},  -- Can be either 359 or 402
@@ -49,7 +49,7 @@ return {
                 name = 'Addendum: Black',
                 level = 30,
                 cost = 0,
-                recast_id = 231,  -- Job ability ID
+                recast_id = 231,
                 command = '/ja "Addendum: Black" <me>',
                 group = 'addendum',
                 buff_id = 402,                
@@ -59,7 +59,7 @@ return {
                 name = 'Sublimation',
                 level = 30,
                 cost = 0,
-                recast_id = 234,  -- Job ability ID
+                recast_id = 234,
                 command = '/ja "Sublimation" <me>',
                 buff_id = {187, 188},  -- Can be either 187 (activated) or 188 (complete)
             },
@@ -410,7 +410,7 @@ return {
             {
                 name = 'Invisible',
                 level = 25,
-                cost = 25,
+                cost = 15,
                 spell_id = 136,
                 magic = 'white',
                 magic_type = 'enhancing',
@@ -423,7 +423,7 @@ return {
             {
                 name = 'Sneak',
                 level = 20,
-                cost = 25,
+                cost = 12,
                 spell_id = 137,
                 magic = 'white',
                 magic_type = 'enhancing',
@@ -436,7 +436,7 @@ return {
             {
                 name = 'Deodorize',
                 level = 15,
-                cost = 6,
+                cost = 10,
                 spell_id = 138,
                 magic = 'white',
                 magic_type = 'enhancing',
@@ -654,7 +654,7 @@ return {
                 name = 'Sublimation',
                 level = 30,
                 cost = 0,
-                recast_id = 234,  -- Job ability ID
+                recast_id = 234,
                 command = '/ja "Sublimation" <me>',
                 requires_buff = {187, 188},  -- Requires Sublimation: Activated or Complete
             },
@@ -677,7 +677,7 @@ return {
                 name = 'Tranquility',
                 level = 75,
                 cost = 0,
-                recast_id = 231,  -- Job ability ID
+                recast_id = 231,
                 command = '/ja "Tranquility" <me>',
                 requires_buff = {358, 401},  -- Can be either 358 or 401
             },
@@ -685,7 +685,7 @@ return {
                 name = 'Rapture',
                 level = 55,
                 cost = 0,
-                recast_id = 231,  -- Job ability ID
+                recast_id = 231,
                 command = '/ja "Rapture" <me>',
                 requires_buff = {358, 401},  -- Can be either 358 or 401
             },
@@ -730,7 +730,7 @@ return {
                 name = 'Perpetuance (+Duration)', -- Increases the enhancement effect duration
                 level = 75,
                 cost = 0,
-                recast_id = 231,  -- Job ability ID
+                recast_id = 231,
                 command = '/ja "Perpetuance" <me>',
                 requires_buff = 401,  -- Addendum: White
                 buff_id = 469,
@@ -741,7 +741,7 @@ return {
                 name = 'Tranquility (-Enmity)', -- Reduces the Enmity Generated
                 level = 75,
                 cost = 0,
-                recast_id = 231,  -- Job ability ID
+                recast_id = 231,
                 command = '/ja "Tranquility" <me>',
                 requires_buff = {358, 401},  -- Can be either 358 or 401
                 buff_id = 414,
@@ -751,7 +751,7 @@ return {
                 name = 'Rapture (+Potency)', -- +Potency
                 level = 55,
                 cost = 0,
-                recast_id = 231,  -- Job ability ID
+                recast_id = 231,
                 command = '/ja "Rapture" <me>',
                 requires_buff = {358, 401},  -- Can be either 358 or 401
                 buff_id = 364,
@@ -761,7 +761,7 @@ return {
                 name = 'Accession (+AOE)',  -- AOE and 3x Cost of spell and 2x casting time
                 level = 40,
                 cost = 0,
-                recast_id = 231,  -- Job ability ID
+                recast_id = 231,
                 command = '/ja "Accession" <me>',
                 requires_buff = {358, 401},  -- Can be either 358 or 401
                 buff_id = 366,
@@ -773,7 +773,7 @@ return {
                 name = 'Celerity (+Casting Speed)', -- Reduces the casting time by 50%
                 level = 25,
                 cost = 0,
-                recast_id = 231,  -- Job ability ID
+                recast_id = 231,
                 command = '/ja "Celerity" <me>',
                 requires_buff = {358, 401},  -- Can be either 358 or 401
                 buff_id = 362,
@@ -783,7 +783,7 @@ return {
                 name = 'Penury (-MP Cost)', -- Reduces the MP cost by 50%
                 level = 10,
                 cost = 0,
-                recast_id = 231,  -- Job ability ID
+                recast_id = 231,
                 command = '/ja "Penury" <me>',
                 requires_buff = {358, 401},  -- Can be either 358 or 401
                 buff_id = 360,
@@ -794,7 +794,7 @@ return {
                 name = 'Alacrity (+Casting Speed)', -- Reduces the casting time by 50%
                 level = 25,
                 cost = 0,
-                recast_id = 231,  -- Job ability ID
+                recast_id = 231,
                 command = '/ja "Alacrity" <me>',
                 requires_buff = {359, 402},  -- Can be either 359 or 402
                 buff_id = 363,
@@ -804,7 +804,7 @@ return {
                 name = 'Parsimony (-MP Cost)', -- Reduces the MP cost by 50%
                 level = 10,
                 cost = 0,
-                recast_id = 231,  -- Job ability ID
+                recast_id = 231,
                 command = '/ja "Parsimony" <me>',
                 requires_buff = {359, 402},  -- Can be either 359 or 402
                 buff_id = 361,
