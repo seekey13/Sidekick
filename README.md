@@ -72,6 +72,9 @@ The one exception is **opt-in leader following** (off by default): with **Follow
 
 - **Pick which statuses a remover strips**: Right-click any multi-status debuff remover (Erase, Esuna, Cursna, Viruna, Healing Waltz, Chakra…) and you'll get a **Remove:** list — one checkbox per status it can cure, all on by default. Uncheck a status (say, Poison on Erase) and Sidekick stops treating that status as a reason to cast — it won't fire the remover, or pick that target, just because of a disabled status. Note that when a remover fires on someone with several debuffs, the game still chooses which one it removes, so this controls *when* Sidekick casts, not exactly *what* comes off.
 
+### Changed
+- **No abilities fire while moving**: Sidekick now blocks all player actions while the moving, not just spell casts, so movement no longer causes interrupted or partially-started support actions.
+
 ### Fixed
 - **Red Mage Composure now casts**: Composure's recast id was wrong (it pointed at a different ability's timer), so Sidekick read the wrong cooldown and never fired it. Corrected to Composure's own recast id. 
 

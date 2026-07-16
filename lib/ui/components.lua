@@ -127,13 +127,31 @@ local function render_combat_only_context_menu(ctx, ability, scope)
             imgui.Separator()
             imgui.Text('Remove:')
             local prefix = 'skip_debuff_' .. ability.name:gsub(' ', '_') .. '_'
-            for _, id in ipairs(rids) do
-                local label = common.DEBUFF_NAMES[id] or ('Status ' .. id)
-                local on = { ctx.settings[prefix .. id] ~= true }
-                if imgui.Checkbox(label .. '##' .. prefix .. id, on) then
-                    ctx.settings[prefix .. id] = (not on[1]) or nil
-                    if ctx.save_callback then ctx.save_callback() end
+            local function render_status_rows(first, last)
+                for i = first, last do
+                    local id = rids[i]
+                    local label = common.DEBUFF_NAMES[id] or ('Status ' .. id)
+                    local on = { ctx.settings[prefix .. id] ~= true }
+                    if imgui.Checkbox(label .. '##' .. prefix .. id, on) then
+                        ctx.settings[prefix .. id] = (not on[1]) or nil
+                        if ctx.save_callback then ctx.save_callback() end
+                    end
                 end
+            end
+            -- Long lists run off the bottom of the screen as one column, so
+            -- split them evenly across two once past ~one screen's worth.
+            local single_column_max = 18
+            if #rids > single_column_max then
+                local col_rows = math.ceil(#rids / 2)
+                imgui.BeginGroup()
+                render_status_rows(1, col_rows)
+                imgui.EndGroup()
+                imgui.SameLine(0, 20)
+                imgui.BeginGroup()
+                render_status_rows(col_rows + 1, #rids)
+                imgui.EndGroup()
+            else
+                render_status_rows(1, #rids)
             end
         end
         imgui.EndPopup()
