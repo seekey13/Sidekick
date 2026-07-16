@@ -141,12 +141,8 @@ return {
         'holds position once you catch up.',
 
     afk_sleep =
-        'Dead-man\'s switch. When no party member moves\n' ..
-        'and the party is out of combat for the Timeout,\n' ..
-        'automation sleeps until YOU move -- combat does\n' ..
-        'not wake it. Automation stays started; nothing\n' ..
-        'is stopped or saved. On by default: it only\n' ..
-        'pauses acting, so it never moves you.',
+        'Pauses automation after the Timeout with no\n' ..
+        'party movement or combat. Move to resume.',
 
     resource_recovery =
         'Self Recover (TP/MP%%) casts the checked\n' ..
