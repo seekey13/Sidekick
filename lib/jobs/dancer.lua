@@ -246,12 +246,13 @@ return {
         heal_threshold = 75,
         heal_aoe_enabled = true,
         heal_aoe_threshold = 70,
-        heal_aoe_count_threshold = 2,
+        critical_threshold = 30,
         wake_enabled = true,
         buff_enabled = true,
         debuff_removal_enabled = true,
+        recover_enabled = true,
+        recover_tp_threshold = 1000,  -- Reverse Flourish when TP drops below 1000
         focus_enabled = false,
-        focus_target_index = nil,
         focus_threshold = 85,
     },
     

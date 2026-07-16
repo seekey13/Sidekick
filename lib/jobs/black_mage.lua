@@ -97,7 +97,6 @@ return {
         recover_mp_threshold = 30,
         rest_enabled = false,
         rest_timer = 5,
-        rest_threshold = 70,
         rest_distance = 7,
     },
 

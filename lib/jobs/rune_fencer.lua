@@ -459,14 +459,12 @@ return {
         heal_threshold = 75,
         heal_aoe_enabled = false,  -- Rune Fencer has no AOE heal
         heal_aoe_threshold = 70,
-        heal_aoe_count_threshold = 2,
         wake_enabled = false,
         buff_enabled = true,
         focus_enabled = false,
-        focus_target_index = nil,
+        focus_threshold = 85,
         rest_enabled = false,
         rest_timer = 5,
-        rest_threshold = 70,
         rest_distance = 7,
     },
     
