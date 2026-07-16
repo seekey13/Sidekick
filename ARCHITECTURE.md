@@ -19,6 +19,7 @@ Sidekick.lua                   Main addon entry point
 lib/
   core/
     action_core.lua         Shared ability infrastructure (resource, cooldowns, buff-ID utils, candidacy helpers)
+    afk.lua                 AFK Sleep dead-man's switch (gates the tick after a stillness timeout)
     automation.lua          Priority-based action selection engine
     common.lua              Shared utilities (logging, party, buffs, commands)
     parse_packets.lua       Raw-packet parsing (action packet 0x028)
@@ -129,15 +130,18 @@ lib/
 2. Refresh game_state (party HP, buffs, server IDs, pet info)
    -- must precede the mount guard, else is_mounted would never clear
 3. Guard: is_loading()
-4. process_scheduled_removal() -- fires a queued mid-cast /debuff; must
+4. afk.update() → Guard: afk.is_sleeping() -- AFK Sleep dead-man's switch; after
+   is_loading so zone garbage is never sampled, before the guards below so the
+   timer keeps running (and can wake) while mounted/dead/casting
+5. process_scheduled_removal() -- fires a queued mid-cast /debuff; must
    precede the is_casting() guard or it could never send during a cast
-5. Guards: is_mounted / is_dead / can_attack / is_casting
-6. Multisend range management (only in multisend_follow mode)
-7. Check job/level change → reload job definition, skip the frame
-8. Iterate priority_order (merged per job from master_priority)
-9. For each action type → pcall action_module.execute(settings, job_def, ...)
-10. First module to return a truthy result wins
-11. Throttle check (1 s) → QueueCommand → wait for next tick
+6. Guards: is_mounted / is_dead / can_attack / is_casting
+7. Multisend range management (only in multisend_follow mode)
+8. Check job/level change → reload job definition, skip the frame
+9. Iterate priority_order (merged per job from master_priority)
+10. For each action type → pcall action_module.execute(settings, job_def, ...)
+11. First module to return a truthy result wins
+12. Throttle check (1 s) → QueueCommand → wait for next tick
 ```
 
 `follow_tick()` runs separately in `d3d_present` and deliberately bypasses the `can_attack` guard — see [follow.lua](#followlua--leader-following).
@@ -190,6 +194,41 @@ Consolidated ability infrastructure module. Combines resource management (MP/TP 
 | `filter_usable(abilities, job_def, tag)` | Filters a list down to usable abilities, debug-logs skipped ones |
 | `first_command(abilities, job_def, settings, tag, party_index, desc_fn)` | Returns the first usable ability as `{command, description}` or nil |
 | `try_use(ability, job_def, settings, party_index, desc, game_state)` | Single-ability execution with optional Trust buff registration |
+
+### afk.lua – AFK Sleep
+
+- **ADK switch** (`settings.afk_enabled`, default **on**, `afk_timeout` default 600s). After
+  `afk_timeout` seconds with no party movement and no combat, automation sleeps until the player
+  physically moves. **On by default**, unlike `follow_enabled`: sleeping only stops automation
+  from *acting*, so the failure mode is benign.
+- **A runtime gate, not a stop.** `automation_enabled` stays true and nothing is written to disk,
+  so `/sk start` survives a sleep cycle. All state is module-local and does not survive
+  `/addon reload`.
+- **Two activity signals, both already sampled each tick** (no new memory reads): party movement
+  (indices 0-5 — index 0 is the player in `game_state.player`, since `game_state.party` is 1-5
+  only) and `common.is_combat()`. `<bt>` resolves on party *claim* rather than the player's own
+  engagement, so combat already covers a healer standing back.
+- **The wake asymmetry is deliberate**: six people plus a party claim can keep automation awake,
+  but only the player's **own** movement (`common.is_player_moving()`) wakes it. A mob claim is
+  not proof a human is present; movement is. Combat explicitly does *not* wake — an AFK player in
+  a party that pulls should stay asleep.
+- **Tick placement** (see Data Flow): after the `is_loading()` guard, so zone-transition garbage is
+  never sampled — while loading the timer neither advances nor resets, and the first post-zone
+  sample reads a wildly different position and resets naturally. Ahead of the
+  mount/dead/can_attack/casting guards, so the timer keeps running and can still wake regardless
+  of those states. Nothing is expected to be queued after minutes of stillness, so gating ahead of
+  `process_scheduled_removal()` drops no in-flight work.
+- `afk.reset()` clears the timer and wakes, silently (a deliberate state clear is not a
+  movement-detected wake). Called on job change, on `/sk start` and the UI Start button
+  (`toggle`), when the timeout changes, and when the feature is disabled — the last so automation
+  is never left stuck asleep.
+- **Bounds live in two places** and must agree: `/sidekick afk <seconds>` clamps 60-3600, the
+  `/sk panel` **Timeout (minutes)** field clamps 1-60 and converts (`afk_timeout` is stored in
+  **seconds**; the field reads `/60` and writes `*60`).
+- `afk.seconds_remaining(settings)` is display-only, for the panel debug row. It returns 0 both
+  when asleep and when disabled, so the panel branches on `afk_enabled` / `automation_enabled`
+  first (`off` / `idle` / `asleep` / `awake (Ns)`) — the countdown only advances while the tick
+  loop is actually reaching `afk.update()`.
 
 ### common.lua
 
@@ -554,7 +593,9 @@ return {
 
 Read-only display of game state, party buffs, server IDs, target indices. Shown when Debug Mode is enabled. The **Debug Mode** checkbox now lives in the panel header row (next to the Stratagems counter), moved out of the configuration window. The header also shows **BST Ready charges** (`gs.ready_charges`, cyan / red-when-low) next to the stratagem counter. Entity status values are rendered as human-readable labels (`Idle`, `Engaged`, `Dead`, `Resting`, `Mounted`, etc.) via a `STATUS_LABELS` lookup table.
 
-The header row also holds the toggles that don't belong to any ability row: **Multisend Follow** (`multisend_follow`, see follow.lua), and the two job-conditional mid-cast modes — Bard **Pianissimo Fast Casting** (`pianissimo_fast_casting`) and Ninja **Cast with 1 Shadow** (`cast_with_1_shadow`), both described under [Scheduled Mid-Cast Removal](#scheduled-mid-cast-removal).
+The header row also holds the toggles that don't belong to any ability row: **AFK Sleep** (`afk_enabled` plus a **Timeout (minutes)** field shown only while enabled, see [afk.lua](#afklua--afk-sleep)), **Multisend Follow** (`multisend_follow`, see follow.lua), and the two job-conditional mid-cast modes — Bard **Pianissimo Fast Casting** (`pianissimo_fast_casting`) and Ninja **Cast with 1 Shadow** (`cast_with_1_shadow`), both described under [Scheduled Mid-Cast Removal](#scheduled-mid-cast-removal).
+
+The debug row shows AFK state beside Moving/Casting: `off` (disabled), `idle` (automation stopped), `asleep`, or `awake (Ns)` with the live countdown.
 
 ---
 
@@ -600,7 +641,7 @@ JSON persistence via Ashita's settings module.
 - **File naming**: `settings_white_mage.json`, `settings_geomancer.json`, etc.
 - **Load flow**: Detect job → load job definition → load settings file → merge with `default_settings` → save merged result.
 - **Auto-save**: On every UI change and addon unload.
-- **Addon-wide defaults**: `default_settings` in `Sidekick.lua` holds the job-independent keys — focus, follow (`follow_enabled`/`follow_distance`/`multisend_follow`), `attack_range`, and resting (`rest_enabled`/`rest_timer`/`rest_distance`, inert unless the job is MP-based and lists `rest`). Job files supply the rest.
+- **Addon-wide defaults**: `default_settings` in `Sidekick.lua` holds the job-independent keys — focus, follow (`follow_enabled`/`follow_distance`/`multisend_follow`), `attack_range`, AFK Sleep (`afk_enabled`/`afk_timeout`), and resting (`rest_enabled`/`rest_timer`/`rest_distance`, inert unless the job is MP-based and lists `rest`). Job files supply the rest.
 - **Start-button right-click menu** (both opt-in, default off): `load_stopped` ignores the saved `automation_enabled` state and loads stopped; `stop_after_zone` stops automation on zone change.
 - **Party buffs**: `settings.party_buffs[ability_name][party_index] = true/false`. Persisted keys are numeric ME/P1-P5 (0-5) and the Bard area key `'A'`; alliance (`al_`) and tracked (`tt_`) keys are session-only.
 - **Ungroup**: `settings.ungrouped_<group> = true` casts every tier in a group independently.

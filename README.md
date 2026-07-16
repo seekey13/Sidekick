@@ -55,6 +55,11 @@ The one exception is **opt-in leader following** (off by default): with **Follow
 
 ## Latest Updates
 
+### [2.5.0] - 2026-07-16
+
+### Added
+- **AFK Sleep**: Automation now goes to sleep after 10 minutes with no party movement and no combat, and wakes as soon as you move. **On by default** — unlike Auto Follow, sleeping only stops automation from acting, so there's no harm in it being on. It's a pause, not a stop: nothing is saved or reset, so `/sk start` survives a sleep cycle untouched. Anyone in your party moving, or the party being in combat, keeps it awake — but only **your own** movement wakes it back up, since a mob claim isn't proof you're at the keyboard. Toggle it and set the timeout (1-60 minutes) in `/sk panel` beside **Debug Mode**, or with `/sidekick afk [on|off|<seconds>]`. Thanks to **Mythicangel** for the idea.
+
 ### [2.4.0] - 2026-07-15
 
 ### Added
@@ -230,6 +235,7 @@ Adds three pet-support jobs (Beastmaster, Dragoon, Puppetmaster) with consumable
 - **Resource Recovery**: Automated MP and TP recovery abilities
 - **Automatic Resting**: MP-based jobs automatically rest when idle to recover MP with configurable timer, HP threshold safety, and optional follow target distance monitoring
 - **Leader Following** (opt-in, off by default): `/follow` a chosen party member when they move beyond a set distance. Healing and every other support action always take priority, and an autorun-cancel packet guard keeps `/follow` alive across the server's position syncs so it doesn't break mid-route. The only non-combat movement Sidekick performs.
+- **AFK Sleep** (on by default): Sleeps automation after a configurable period with no party movement and no combat, and wakes on your own movement. A runtime pause, not a stop — nothing is saved or reset, so your settings and automation state survive a sleep cycle.
 - **Geomancer Support**: Single-target Geo buffs on party members, target-cast Geo debuffs in combat, and automatic Full Circle / luopan management (recalls and recasts when the luopan drifts beyond the distance threshold from the selected Geo target)
 
 ### User Interface
@@ -417,6 +423,9 @@ Currently implemented support jobs:
 - `/sidekick focus clear` - Clear focus target
 - `/sidekick debug` or `/sk debug` - Toggle debug mode
 - `/sidekick recast` or `/sk recast` - Show all active ability recast timers
+- `/sidekick afk` or `/sk afk` - Show AFK Sleep state (enabled, timeout, awake/asleep)
+- `/sidekick afk on|off` - Enable/disable AFK Sleep
+- `/sidekick afk <seconds>` - Set the AFK Sleep timeout in **seconds** (60-3600; the `/sk panel` field shows the same value in minutes)
 - `/sidekick status` or `/sk status` - Show current status and settings
 
 **Note**: `/sk` is a shorthand alias for `/sidekick`. Running `/sidekick` with no arguments opens the configuration UI; use `/sidekick help` to list commands.
@@ -532,6 +541,8 @@ Settings are saved per job in JSON format in the Ashita config directory:
 - `follow_enabled` (boolean): Enable opt-in leader following (`/follow` the follow target when far); off by default. Ignored while `multisend_follow` is on
 - `follow_distance` (number): Distance in yalms the follow target must exceed before `/follow` is sent (1-15, default 5)
 - `follow_target` (string): Character name of party member to follow, shared by leader following and the resting distance check (P1-P5, optional)
+- `afk_enabled` (boolean): Enable AFK Sleep — pause automation after `afk_timeout` with no party movement and no combat, resume on your own movement (checkbox in `/sk panel`); on by default
+- `afk_timeout` (number): Seconds of no party movement and no combat before sleeping (60-3600, default 600). Stored in seconds; the `/sk panel` field shows minutes
 - `geo_enabled` (boolean): Enable geo management (Geo buffs, Geo debuffs, and Full Circle / luopan handling)
 - `geo_distance_threshold` (number): Distance (yalms) the luopan may drift from the selected Geo target before Full Circle recalls and recasts it (7-30)
 - `geo_bt_timer` (number): Seconds to wait after the Geo-bt battle target dies before Full Circle dismisses the luopan; a new battle target within the window reuses it instead (1-20, default 5)
