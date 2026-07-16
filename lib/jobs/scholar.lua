@@ -57,7 +57,7 @@ return {
             },
             {
                 name = 'Sublimation',
-                level = 30,
+                level = 35,
                 cost = 0,
                 recast_id = 234,
                 command = '/ja "Sublimation" <me>',
@@ -329,7 +329,7 @@ return {
             },
             {
                 name = 'Blink',
-                level = 30,
+                level = 29,
                 cost = 20,
                 spell_id = 53,
                 magic = 'white',
@@ -652,7 +652,7 @@ return {
         recover_mp = {
             {
                 name = 'Sublimation',
-                level = 30,
+                level = 35,
                 cost = 0,
                 recast_id = 234,
                 command = '/ja "Sublimation" <me>',

@@ -862,7 +862,7 @@ return {
             },
             {
                 name = 'Divine Seal',
-                level = 30,
+                level = 15,
                 cost = 0,
                 recast_id = 26,
                 command = '/ja "Divine Seal" <me>',

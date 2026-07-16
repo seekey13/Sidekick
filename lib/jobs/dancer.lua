@@ -79,7 +79,7 @@ return {
             },
             {
                 name = 'Divine Waltz',
-                level = 20,
+                level = 25,
                 cost = 400,
                 recast_id = 225,
                 command = '/ja "Divine Waltz" <me>',
