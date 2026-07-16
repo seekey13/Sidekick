@@ -36,6 +36,8 @@ lib/
   jobs/
     bard.lua                BRD job definition
     beastmaster.lua         BST job definition (pet-only)
+    black_mage.lua          BLM job definition (self-only)
+    blue_mage.lua           BLU job definition
     dancer.lua              DNC job definition
     dark_knight.lua         DRK job definition (self-only)
     dragoon.lua             DRG job definition
@@ -96,8 +98,11 @@ lib/
            ▼
 ┌───────────────────────────────────────────────┐
 │  Action Modules  (actions/*.lua)              │
-│  heal → status_removal → item → recover       │
-│  → revive → geo → buff → follow → rest        │
+│  master_priority (Sidekick.lua) order:        │
+│  item → recover → critical → heal_aoe → heal  │
+│  → debuff_removal → heal_pet →                │
+│  pet_debuff_removal → wake → geo → buff →     │
+│  revive → follow → rest                       │
 └──────────┬────────────────────────────────────┘
            │ uses
            ▼
@@ -120,14 +125,22 @@ lib/
 ### Automation Tick (every frame via `d3d_present`)
 
 ```
-1. Guard checks: addon loaded? automation enabled? mounted? in event/cutscene?
+1. Guard: addon loaded? automation enabled? job_def loaded?
 2. Refresh game_state (party HP, buffs, server IDs, pet info)
-3. Check job/level change → reload job definition if needed
-4. Iterate priority_order (defined per job)
-5. For each action type → pcall action_module.execute(settings, job_def, ...)
-6. First module to return {command, description} wins
-7. Throttle check → QueueCommand → wait for next tick
+   -- must precede the mount guard, else is_mounted would never clear
+3. Guard: is_loading()
+4. process_scheduled_removal() -- fires a queued mid-cast /debuff; must
+   precede the is_casting() guard or it could never send during a cast
+5. Guards: is_mounted / is_dead / can_attack / is_casting
+6. Multisend range management (only in multisend_follow mode)
+7. Check job/level change → reload job definition, skip the frame
+8. Iterate priority_order (merged per job from master_priority)
+9. For each action type → pcall action_module.execute(settings, job_def, ...)
+10. First module to return a truthy result wins
+11. Throttle check (1 s) → QueueCommand → wait for next tick
 ```
+
+`follow_tick()` runs separately in `d3d_present` and deliberately bypasses the `can_attack` guard — see [follow.lua](#followlua--leader-following).
 
 ### Action Module Pattern
 
@@ -180,7 +193,7 @@ Consolidated ability infrastructure module. Combines resource management (MP/TP 
 
 ### common.lua
 
-Shared utility module (~1,700 lines). Key areas:
+Shared utility module (~3,200 lines). Key areas:
 
 - **Logging**: `printf`, `debugf`, `errorf`, `warnf` – unified via internal `log()` helper
 - **Player state**: `get_player_level/job/mp/tp`, `is_idle/engaged/in_event`, `is_casting`, `is_player_moving`, `is_resting` (cached from entity status 33), `is_mounted` (entity status 5 or buff 252)
@@ -201,6 +214,22 @@ Shared utility module (~1,700 lines). Key areas:
 ### automation.lua
 
 Priority-based action engine with 1-second command throttle. Calls each action module's `.execute()` via `pcall`, accepts both `{command, description}` tables and raw command strings.
+
+- **Rest breaking**: `REST_BREAKING` (heal, recover, item, status_removal, debuff_removal, wake, revive) fires `/heal off` and returns before the action itself, which lands the next tick. `buff` and `geo` are low priority and never interrupt rest.
+- **Stratagem follow-up lock**: a result flagged `is_stratagem` sets `pending_stratagem = {action_type, timestamp}`; the next tick runs **only** that module so nothing pre-empts the paired spell. Released when the module returns nil, or after `STRATAGEM_FOLLOWUP_TIMEOUT` (5 s).
+- **Scheduled mid-cast removal**: a result carrying `scheduled_removal = {command, delay}` is handed to `common.schedule_command_removal`. See below.
+- `master_priority` includes `'critical'` (and DNC lists it), but there is no `critical` entry in `action_modules` — the engine skips unknown action types, so it is inert. Critical-HP healing is handled inside `heal.lua` via `abilities.critical`.
+
+### Scheduled Mid-Cast Removal
+
+Two opt-in modes need a buff stripped *during* a cast, not before or after. The action module attaches `scheduled_removal` to its result; `common.schedule_command_removal(command, delay)` stores one pending entry (only one spell casts at a time) and `common.process_scheduled_removal()` fires it from the tick loop **ahead of the `is_casting()` guard**, so it lands mid-cast instead of being throttled out by the action pipeline.
+
+| Mode | Setting | What it does |
+|---|---|---|
+| Bard **Pianissimo Fast Casting** | `pianissimo_fast_casting` | Raises Pianissimo on purpose for an area song (shorter cast time), then `/debuff 409` mid-cast so the song still lands as area. In this mode the area phase runs even while Pianissimo is up (it's ours), and always holds for Pianissimo rather than casting without it. |
+| Ninja **Cast with 1 Shadow** | `cast_with_1_shadow` | Utsusemi normally blocks while any Copy Image buff (66/444/445/446) is up. This ignores the 1-shadow buff (`one_shadow_buff = 66`) so the spell recasts at 1 shadow, then `/debuff 66` mid-cast so the new shadows apply cleanly. |
+
+Both toggles live in the `/sk panel` header row, are persisted per job, and require the Debuff addon by atom0s (`/debuff`).
 
 ### parse_packets.lua
 
@@ -224,7 +253,7 @@ FFI bindings for FFXI target resolution (battle target, scan target, last teller
 
 **AOE healing** (`execute_aoe`): Triggers when average party HP falls below threshold. Uses `action_core.first_command()`.
 
-**Pet healing** (`execute_pet`): Monitors pet HP via game state. Uses `action_core.first_command()`. For jobs whose pet-heal needs a consumable in the ammo slot (BST **Reward** → Pet Food, PUP **Repair** → Automaton Oil), `heal.pet_ammo_equip()` returns an `/equip` for the best owned tier when one isn't worn (via `common.ammo_equip_command`); the heal itself fires the following tick. If none are owned the ability stays gated out.
+**Pet healing** (`execute_pet`): Monitors pet HP via game state. Uses `action_core.first_command()`. For jobs whose pet-heal needs a consumable in the ammo slot (BST **Reward** → Pet Food, PUP **Repair** → Automaton Oil), `execute_pet` calls `common.ammo_equip_command` and returns its `/equip` for the best owned tier when one isn't worn; the heal itself fires the following tick. If none are owned the ability stays gated out.
 
 **Group / AOE target selection**: `make_group_filter(key_name)` reads session-only per-target state from `ui_config.get_party_buffs()[key_name]` (`heal_group` for single-target Group scanning, `heal_aoe_group` for the AOE average). Keys mirror the UI: numeric `0-5` (party), `tt_<sid>` (tracked), `al_<flat>` (alliance). Defaults are asymmetric — party/tracked are included unless explicitly set `false`; alliance members are excluded unless explicitly set `true` — so behavior is correct even when the config window was never opened.
 
@@ -354,6 +383,8 @@ MP and TP recovery. Monitors percentage thresholds. Uses `action_core.first_comm
 - Scans party (indices 1–5), tracked targets, and alliance sub-parties 2 & 3 for members with `entity_status == 3`.
 - Filters abilities by level, recast readiness, **and** `requires_buff` prerequisites (e.g., Scholar needs Addendum: White buff 401).
 - Validates range (`common.is_in_range`) before building each command.
+- **Pending-raise guard**: a target with `common.has_pending_raise(server_id)` is skipped. The flag is set from the 0x029 handler — the server answers a raise cast on an already-raised body with a rejection param, and without the flag the spell re-fires every tick.
+- Runs `common.check_stratagem` before each cast like the other modules, so Scholar can fire Penury to halve the Raise MP cost.
 - Falls back through all usable abilities if the first spell's command build fails.
 - All raise spells use `idle_only = true` and `target_outside = true`.
 - Controlled by `settings.revive_enabled`.
@@ -423,6 +454,12 @@ return {
     main_job_only   = false,        -- hidden when job is subjob
     target_modifier = false,        -- needs Pianissimo / similar before party cast
     wakes           = true,         -- can remove sleep
+    removal_rank    = 0,            -- removal only: 0 = targeted na-spell, 1 = generic Erase /
+                                    --   wildcard remover, 2 = self-centered AOE (Esuna)
+    exclusive_target = false,       -- GEO: single-select targeting (choosing one deselects others)
+    magic           = 'blue',       -- marks a spell for magic-specific gating (BLU set-spell list,
+                                    --   Diffusion column)
+    one_shadow_buff = 66,           -- NIN: buff id ignored/stripped by "Cast with 1 Shadow"
     range           = 20,
     is_main_job     = true,         -- false for subjob-sourced abilities
     resource_type   = nil,          -- override job resource_type ('mp'/'tp')
@@ -517,6 +554,8 @@ return {
 
 Read-only display of game state, party buffs, server IDs, target indices. Shown when Debug Mode is enabled. The **Debug Mode** checkbox now lives in the panel header row (next to the Stratagems counter), moved out of the configuration window. The header also shows **BST Ready charges** (`gs.ready_charges`, cyan / red-when-low) next to the stratagem counter. Entity status values are rendered as human-readable labels (`Idle`, `Engaged`, `Dead`, `Resting`, `Mounted`, etc.) via a `STATUS_LABELS` lookup table.
 
+The header row also holds the toggles that don't belong to any ability row: **Multisend Follow** (`multisend_follow`, see follow.lua), and the two job-conditional mid-cast modes — Bard **Pianissimo Fast Casting** (`pianissimo_fast_casting`) and Ninja **Cast with 1 Shadow** (`cast_with_1_shadow`), both described under [Scheduled Mid-Cast Removal](#scheduled-mid-cast-removal).
+
 ---
 
 ## Event System
@@ -561,6 +600,8 @@ JSON persistence via Ashita's settings module.
 - **File naming**: `settings_white_mage.json`, `settings_geomancer.json`, etc.
 - **Load flow**: Detect job → load job definition → load settings file → merge with `default_settings` → save merged result.
 - **Auto-save**: On every UI change and addon unload.
+- **Addon-wide defaults**: `default_settings` in `Sidekick.lua` holds the job-independent keys — focus, follow (`follow_enabled`/`follow_distance`/`multisend_follow`), `attack_range`, and resting (`rest_enabled`/`rest_timer`/`rest_distance`, inert unless the job is MP-based and lists `rest`). Job files supply the rest.
+- **Start-button right-click menu** (both opt-in, default off): `load_stopped` ignores the saved `automation_enabled` state and loads stopped; `stop_after_zone` stops automation on zone change.
 - **Party buffs**: `settings.party_buffs[ability_name][party_index] = true/false`. Persisted keys are numeric ME/P1-P5 (0-5) and the Bard area key `'A'`; alliance (`al_`) and tracked (`tt_`) keys are session-only.
 - **Ungroup**: `settings.ungrouped_<group> = true` casts every tier in a group independently.
 - **Stratagem hold**: `settings.stratagem_hold[<key>] = true` holds a spell until its assigned stratagem can fire.
@@ -584,3 +625,4 @@ JSON persistence via Ashita's settings module.
 - Trust buff tracking has slight packet-based delay.
 - Requires Ashita v4.
 - Attack Range feature requires [Multisend](https://github.com/ThornyFFXI/Multisend).
+- Bard Pianissimo Fast Casting and Ninja Cast with 1 Shadow require the Debuff addon by atom0s (`/debuff`).

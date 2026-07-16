@@ -47,6 +47,9 @@ each `action_module.execute(...)` inside `pcall` (a throwing module is logged, n
 `{command, description}` table or a raw command string. A **1-second throttle** gates all
 commands. Resting (`/heal`) is broken automatically before urgent actions fire. Scholar
 stratagems use a follow-up lock so the paired spell fires the tick after the stratagem JA.
+A result carrying `scheduled_removal` queues a mid-cast `/debuff` (Bard Pianissimo fast
+casting, Ninja 1-shadow Utsusemi) — that one fires from the tick loop ahead of the
+`is_casting` guard, not through the throttled pipeline.
 
 **Action modules** (`lib/actions/*.lua`). Uniform contract:
 ```lua
@@ -61,7 +64,7 @@ to action-type names in the `action_modules` table in `Sidekick.lua`.
 **Core helpers.** `lib/core/action_core.lua` is the shared ability pipeline (resource/MP-TP
 check → cooldown/recast → status-ailment gate → build command): use `is_usable`,
 `filter_usable`, `first_command`, `try_use` instead of re-implementing gating.
-`lib/core/common.lua` (~1900 lines) holds everything else: logging (`printf`/`debugf`/
+`lib/core/common.lua` (~3200 lines) holds everything else: logging (`printf`/`debugf`/
 `errorf`/`warnf`), player/party/alliance state, buff tracking (incl. packet-based pet
 status via `is_pet`/`apply_pet_buff` into `game_state.pet_debuffs`), consumable-ammo
 equip helpers (`is_ammo_equipped`/`ammo_equip_command`/`count_equippable_items`),
@@ -75,10 +78,11 @@ equip helpers (`is_ammo_equipped`/`ammo_equip_command`/`count_equippable_items`)
 control flow belongs here beyond a `command` closure and an optional validator. See
 `paladin.lua` for the minimal shape, `beastmaster.lua` for the pet/consumable-ammo shape,
 and `ARCHITECTURE.md` for every ability field (`level`, `cost`, `value`, `id` = recast id,
-`buff_id`, `debuff_id`, `group`, `idle_only`, `combat_only`, `requires_buff`,
-`target_outside`, `main_job_only`, `target_modifier`, and the pet/ammo fields
-`pet_required`, `requires_pet_name`, `requires_equipped_ammo`, `ammo_label`,
-`ammo_main_job_only`, `requires_ready_charge`, `ready_charge_cost`, `reapply_interval`, …).
+`buff_id`, `debuff_id`, `group`, `idle_only`, `combat_only`, `requires_buff`, `blocked_by`,
+`target_outside`, `main_job_only`, `target_modifier`, `requires_item`, `requires_precast`,
+and the pet/ammo fields `pet_required`, `requires_pet_name`, `requires_equipped_ammo`,
+`ammo_label`, `ammo_main_job_only`, `requires_ready_charge`, `ready_charge_cost`,
+`reapply_interval`, …).
 
 **UI** (`lib/ui/`). `config.lua` orchestrates the ImGui config window and delegates rendering
 to `components.lua`; `panel.lua` is the debug panel; `tooltips.lua` is hover help. Settings
