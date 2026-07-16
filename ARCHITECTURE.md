@@ -277,6 +277,8 @@ Both toggles live in the `/sk panel` header row, are persisted per job, and requ
 
 Parses raw packet bytes for action packet 0x028 into structured Lua tables (actor, type, targets, actions). Used by Sidekick.lua's packet_in handler for casting-state detection and Trust buff tracking.
 
+0x028 is **bit-packed, not byte-aligned** — `Type` (the 4-bit action category) sits at bit 82, not on any byte boundary, so it can only be read through this parser, never with `struct.unpack` offsets. Categories: `1` melee, `2` ranged_finish, `3` ws_finish, `4` spell_finish, `5` item_finish, `6` job_ability, `7` ws_begin, `8` casting_begin, `9` item_begin, `11` mob_tp_finish, `12` ranged_begin, `13` avatar_tp_finish, `14`/`15` job_ability (DNC/RUN). Layout matches [Windower's `fields.lua`](https://github.com/Windower/Lua/blob/dev/addons/libs/packets/fields.lua) for incoming 0x028.
+
 ### targets.lua
 
 FFI bindings for FFXI target resolution (battle target, scan target, last teller). Ashita utility module.
@@ -656,7 +658,7 @@ Regular party members: buffs read directly from game memory.
 Trusts (server_id ≥ 0x1000000): tracked via packets.
 
 1. `register_pending_buff(server_id, buff_id, spell_name)` – on cast initiation
-2. `handle_buff_application()` – packet 0x028 with completion flag
+2. `handle_buff_application()` – packet 0x028, category 4 (spell_finish), player is the actor
 3. `handle_buff_removal(server_id, buff_id)` – packet 0x029
 4. `clear_trust_buffs()` – on zone change
 

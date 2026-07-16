@@ -828,33 +828,26 @@ ashita.events.register('packet_in', 'sidekick_packet_in', function(e)
     -- Message 83  = buff/debuff removed from target (e.g. Paralyna removes Paralysis)
     -- Cure healing messages (2, 7, 24) on tracked sleeping targets infer wake
     if e.id == 0x028 then
-        -- Casting detection (always active) — uses raw bytes, not parsed packet
-        if e.data and #e.data >= 16 then
-            local actor_id = struct.unpack('I', e.data, 0x05 + 1)
-            local party = common.get_party()
-            if party then
-                local player_id = party:GetMemberServerId(0)
-                if player_id and actor_id == player_id then
-                    common.handle_action_packet(e.data)  -- Casting detection
+        local actionPacket = parse_packets.parse_action_packet(e)
 
-                    -- Check if this is a casting completion (byte 0x0F != 0x00)
-                    local completion_flag = struct.unpack('B', e.data, 0x0F + 1)
-                    if completion_flag ~= 0x00 then
-                        -- Casting completed, apply pending buff to Trust
-                        common.handle_buff_application()
-                    end
-                end
+        -- Determine if we (the player) are the actor
+        local party = common.get_party()
+        local player_id = party and party:GetMemberServerId(0)
+        local actor_is_player = (actionPacket and player_id and actionPacket.UserId == player_id)
+
+        -- Casting detection (always active). Category 8 = casting start,
+        -- 4 = casting finish; see common.handle_action_packet.
+        if actor_is_player then
+            common.handle_action_packet(actionPacket)
+
+            -- Cast finished (category 4) — apply the pending buff to the Trust.
+            if actionPacket.Type == 4 then
+                common.handle_buff_application()
             end
         end
 
-        -- Buff gain/loss tracking — uses parsed action packet
-        local actionPacket = parse_packets.parse_action_packet(e)
+        -- Buff gain/loss tracking — casting finish packets only
         if actionPacket and actionPacket.Type == 4 then
-            -- Determine if we (the player) are the actor
-            local party = common.get_party()
-            local player_id = party and party:GetMemberServerId(0)
-            local actor_is_player = (player_id and actionPacket.UserId == player_id)
-
             -- Resolve the spell name once for base-duration lookup (timed expiry)
             local spell = AshitaCore:GetResourceManager():GetSpellById(actionPacket.Param)
             local spell_name = spell and spell.Name and spell.Name[1] or nil

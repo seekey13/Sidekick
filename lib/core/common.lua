@@ -24,7 +24,10 @@ local addon_name = 'Sidekick'
 local casting_state = {
     is_casting = false,
     last_action_time = 0,
-    cast_timeout = 5.0,  -- Maximum time for a cast (seconds)
+    -- Backstop only, not a mechanism: clears the lock if a spell_finish packet is
+    -- ever missed. Must exceed the longest real cast (teleports/Raise ~20s), or it
+    -- would clear mid-cast and let automation fire during a legitimate cast.
+    cast_timeout = 30.0,
 }
 
 -- Movement tracking state
@@ -342,12 +345,10 @@ function common.can_attack()
 end
 
 function common.is_casting()
-    -- Returns true when player is casting a spell
-    -- State is tracked via packet 0x028 offset 0x0F:
-    --   0x00 = casting started
-    --   0x02 = casting complete
+    -- Returns true when player is casting a spell.
+    -- State is tracked from the 0x028 action category (see handle_action_packet).
     -- Prevents automation from spamming actions during cast time
-    
+
     -- Timeout check: if too much time has passed, clear the casting state
     if casting_state.is_casting then
         local elapsed = os.clock() - casting_state.last_action_time
@@ -361,90 +362,47 @@ function common.is_casting()
     return casting_state.is_casting
 end
 
--- Handle action packet for casting detection
--- Args: packet (string) - Raw packet data
--- This should be called from the main addon's packet handler
-function common.handle_action_packet(packet)
-    if not packet or #packet < 16 then return end
-    
-    -- Parse actor ID (offset 0x05, 4 bytes)
-    local actor_id = struct.unpack('I', packet, 0x05 + 1)
-    
-    -- Get player's server ID
-    local party = common.get_party()
-    if not party then return end
-    
-    local player_id = party:GetMemberServerId(0)
-    
-    if not player_id or actor_id ~= player_id then
-        return  -- Not player's action
-    end
-    
-    -- Parse category (offset 0x04, 1 byte)
-    local category = struct.unpack('B', packet, 0x04 + 1)
-    
-    -- Parse action state byte (offset 0x0F, 1 byte)
-    -- 0x00 = Action/Casting started
-    -- 0x01-0x04 = Action/Casting complete (various completion states)
-    local action_state = 0
-    if #packet >= 16 then
-        action_state = struct.unpack('B', packet, 0x0F + 1)
-    end
-    
-    -- Parse action ID if available (offset 0x0A, 2 bytes)
-    local action_id = 0
-    if #packet >= 12 then
-        action_id = struct.unpack('H', packet, 0x0A + 1)
-    end
-    
-    -- Track previous casting state to detect changes
-    local was_casting = casting_state.is_casting
-    
-    -- Simplified casting state logic based on action_state byte (offset 0x0F)
-    -- 0x00 = Action started (casting/channeling)
-    -- 0x01-0x04 = Action complete (various completion types)
-    -- Note: ActionID changes between start (0x58E0) and completion (spell ID), so we can't rely on it
-    
-    -- Autoattack check (should not affect casting state)
-    local is_autoattack = (action_id == 0x1844)
-    
-    if not is_autoattack then
-        -- Only track casting state for actual spell casts (category 4 = magic).
-        -- Job abilities (6), weapon skills (7/11), item usage (9), etc. are
-        -- instant and should NOT engage the casting lock — they may never send
-        -- a completion packet, causing the lock to stick until the 5s timeout.
-        local is_spell_cast = (category == 4)
+-- Handle action packet (0x028) for casting detection.
+-- Args: actionPacket (table) - parsed packet from parse_packets.parse_action_packet
+-- Caller must have already confirmed the player is the actor (UserId).
+--
+-- The 0x028 packet carries no "action state" field: cast start and cast finish are
+-- two separate packets distinguished only by the 4-bit category (actionPacket.Type):
+--    1 = melee            6 = job_ability      11 = mob_tp_finish
+--    2 = ranged_finish    7 = ws_begin         12 = ranged_begin
+--    3 = ws_finish        8 = casting_begin    13 = avatar_tp_finish
+--    4 = spell_finish     9 = item_begin       14 = job_ability (DNC)
+--    5 = item_finish                           15 = job_ability (RUN)
+-- An interrupted cast arrives as category 4 with Param 28787 (0x7073), so the
+-- "anything that isn't 8 ends the cast" rule covers interrupts with no special case.
+function common.handle_action_packet(actionPacket)
+    if not actionPacket then return end
 
-        if is_spell_cast then
-            if action_state == 0x00 then
-                -- Spell casting started
-                casting_state.is_casting = true
-                casting_state.last_action_time = os.clock()
-                -- Clear resting state when we start casting
-                is_resting = false
-            elseif action_state > 0x00 then
-                -- Spell casting complete
-                casting_state.is_casting = false
-            end
-        else
-            -- Non-spell action (JA, WS, etc.) — always clear the casting lock
-            -- in case a previous spell's completion packet was missed.
-            if casting_state.is_casting then
-                common.debugf('[CASTING] Cleared by non-spell action (category %d)', category)
-            end
-            casting_state.is_casting = false
-            -- Clear resting state for JA usage as well
-            if action_state == 0x00 then
-                is_resting = false
-            end
-        end
+    local category = actionPacket.Type
+
+    -- Autoattack rounds say nothing about casting; ignore them entirely.
+    if category == 1 then return end
+
+    local was_casting = casting_state.is_casting
+
+    -- Any action we take breaks resting. is_resting is authoritative from the
+    -- player's entity_status each tick; this only avoids a one-tick lag.
+    is_resting = false
+
+    if category == 8 then
+        casting_state.is_casting = true
+        casting_state.last_action_time = os.clock()
+    else
+        -- Cast finished, interrupted, or a non-spell action (JA/WS/item/ranged) —
+        -- none of which can overlap a cast, so the lock is safe to drop.
+        casting_state.is_casting = false
     end
-    
+
     -- Output state change messages
     if casting_state.is_casting and not was_casting then
-        common.debugf('[CASTING STARTED] State: 0x%02X, Category: %d, ActionID: 0x%04X', action_state, category, action_id)
+        common.debugf('[CASTING STARTED] Category: %d, Param: %d', category, actionPacket.Param)
     elseif not casting_state.is_casting and was_casting then
-        common.debugf('[CASTING ENDED] State: 0x%02X, Category: %d, ActionID: 0x%04X', action_state, category, action_id)
+        common.debugf('[CASTING ENDED] Category: %d, Param: %d', category, actionPacket.Param)
     end
 end
 
@@ -1427,7 +1385,7 @@ function common.register_pending_buff(server_id, buff_id, spell_name)
 
 end
 
--- Handle casting completion (packet 0x028 with byte 0x0F == 0x01)
+-- Handle casting completion (packet 0x028, category 4 = spell_finish)
 -- Matches the most recent pending buff and adds it to trust_buffs
 function common.handle_buff_application()
     if #pending_buffs == 0 then return end
