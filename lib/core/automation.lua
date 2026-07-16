@@ -9,7 +9,7 @@ local common = require('lib.core.common')
 
 -- Last command execution time
 local last_command_time = 0
-local command_throttle = 1.0 -- 1 second between commands
+local command_throttle = 1.1 -- 1.1 second between commands
 
 -- Pending stratagem follow-up: when a stratagem JA fires, we lock the next
 -- tick to the same action_type so the paired ability gets executed before the
