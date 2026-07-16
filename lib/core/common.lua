@@ -1890,16 +1890,17 @@ function common.is_command_blocked(command)
         return nil  -- Can't determine, assume not blocked
     end
     
+    -- Nothing fires while moving: spells get interrupted, and precast JAs would
+    -- otherwise spam their recasts away before the paired spell can land.
+    if common.is_player_moving() then
+        return 'Moving'
+    end
+
     -- Check command type
     if command_str:match('^/ma ') then
         -- Magic command - blocked by Silence
         if common.has_silence() then
             return 'Silence'
-        end
-        
-        -- Magic command - blocked by movement (can only cast while stationary)
-        if common.is_player_moving() then
-            return 'Moving'
         end
     elseif command_str:match('^/ja ') then
         -- Job Ability command - blocked by Amnesia

@@ -138,10 +138,11 @@ local function render_combat_only_context_menu(ctx, ability, scope)
                     end
                 end
             end
-            -- Long lists run off the bottom of the screen as one column, 
-            -- so spill the remainder into a second one.
-            local col_rows = 18
-            if #rids > col_rows then
+            -- Long lists run off the bottom of the screen as one column, so
+            -- split them evenly across two once past ~one screen's worth.
+            local single_column_max = 18
+            if #rids > single_column_max then
+                local col_rows = math.ceil(#rids / 2)
                 imgui.BeginGroup()
                 render_status_rows(1, col_rows)
                 imgui.EndGroup()
