@@ -91,7 +91,7 @@ function afk.update(settings)
         still_since = now
     elseif now - still_since >= timeout then
         sleeping = true
-        common.printf('AFK: no party movement or combat for %s. Automation asleep -- move to resume.',
+        common.printf('AFK: no party movement or combat for %s. Automation asleep - move to wake.',
             format_timeout(timeout))
     end
 end

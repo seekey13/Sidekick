@@ -425,7 +425,7 @@ function ui_config.render(settings, job_def, callback)
                 -- AFK sleep (runtime gate, not a stop). Same tick order as the loop:
                 -- after loading, ahead of mount/dead/resting.
                 button_text = 'Stop'
-                status_text = 'Automation is sleeping, move to wake.'
+                status_text = 'Automation asleep - move to wake.'
                 status_color = ui.LIGHT_BLUE
             elseif is_mounted then
                 -- Mounted state (automation fully suppressed while on a mount)
