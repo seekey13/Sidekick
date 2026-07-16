@@ -44,7 +44,7 @@ return {
                 name = 'Magic Fruit',
                 level = 58,
                 cost = 72,
-                id = 593,
+                spell_id = 593,
                 magic = 'blue',
                 command = function(target)
                     return '/ma "Magic Fruit" '..target
@@ -57,7 +57,7 @@ return {
                 name = 'Wild Carrot',
                 level = 30,
                 cost = 37,
-                id = 578,
+                spell_id = 578,
                 magic = 'blue',
                 command = function(target)
                     return '/ma "Wild Carrot" '..target
@@ -70,7 +70,7 @@ return {
                 name = 'Pollen',
                 level = 1,
                 cost = 8,
-                id = 549,
+                spell_id = 549,
                 magic = 'blue',
                 command = '/ma "Pollen" <me>',
                 value = 30,
@@ -84,7 +84,7 @@ return {
                 name = 'Healing Breeze',
                 level = 16,
                 cost = 55,
-                id = 581,
+                spell_id = 581,
                 magic = 'blue',
                 command = '/ma "Healing Breeze" <me>',
                 range = 10,
@@ -98,7 +98,7 @@ return {
                 name = 'Cocoon',
                 level = 8,
                 cost = 10,
-                id = 547,
+                spell_id = 547,
                 magic = 'blue',
                 command = '/ma "Cocoon" <me>',
                 buff_id = 93,  -- Defense Boost
@@ -107,7 +107,7 @@ return {
                 name = 'Metallic Body',
                 level = 8,
                 cost = 19,
-                id = 517,
+                spell_id = 517,
                 magic = 'blue',
                 command = '/ma "Metallic Body" <me>',
                 buff_id = 37,  -- Stoneskin
@@ -116,7 +116,7 @@ return {
                 name = 'Refueling',
                 level = 48,
                 cost = 29,
-                id = 530,
+                spell_id = 530,
                 magic = 'blue',
                 command = '/ma "Refueling" <me>',
                 buff_id = 33,  -- Haste
@@ -125,7 +125,7 @@ return {
                 name = 'Feather Barrier',
                 level = 56,
                 cost = 29,
-                id = 574,
+                spell_id = 574,
                 magic = 'blue',
                 command = '/ma "Feather Barrier" <me>',
                 buff_id = 92,  -- Evasion Boost
@@ -134,7 +134,7 @@ return {
                 name = 'Memento Mori',
                 level = 62,
                 cost = 46,
-                id = 538,
+                spell_id = 538,
                 magic = 'blue',
                 command = '/ma "Memento Mori" <me>',
                 buff_id = 190,  -- Magic Atk. Boost
@@ -143,7 +143,7 @@ return {
                 name = 'Zephyr Mantle',
                 level = 65,
                 cost = 31,
-                id = 647,
+                spell_id = 647,
                 magic = 'blue',
                 command = '/ma "Zephyr Mantle" <me>',
                 buff_id = 36,  -- Blink
@@ -152,7 +152,7 @@ return {
                 name = 'Diamondhide',
                 level = 67,
                 cost = 99,
-                id = 632,
+                spell_id = 632,
                 magic = 'blue',
                 command = '/ma "Diamondhide" <me>',
                 buff_id = 37,  -- Stoneskin (AOE, hits party within 10)
@@ -162,7 +162,7 @@ return {
                 name = 'Warm-Up',
                 level = 68,
                 cost = 59,
-                id = 636,
+                spell_id = 636,
                 magic = 'blue',
                 command = '/ma "Warm-Up" <me>',
                 buff_id = 90,  -- Accuracy Boost (also grants Evasion Boost 92)
@@ -171,7 +171,7 @@ return {
                 name = 'Amplification',
                 level = 70,
                 cost = 48,
-                id = 642,
+                spell_id = 642,
                 magic = 'blue',
                 command = '/ma "Amplification" <me>',
                 buff_id = {190, 191},  -- Magic Atk. + Magic Def. Boost
@@ -180,7 +180,7 @@ return {
                 name = 'Saline Coat',
                 level = 72,
                 cost = 66,
-                id = 614,
+                spell_id = 614,
                 magic = 'blue',
                 command = '/ma "Saline Coat" <me>',
                 buff_id = 191,  -- Magic Def. Boost
@@ -189,7 +189,7 @@ return {
                 name = 'Reactor Cool',
                 level = 74,
                 cost = 28,
-                id = 613,
+                spell_id = 613,
                 magic = 'blue',
                 command = '/ma "Reactor Cool" <me>',
                 buff_id = 35,  -- Ice Spikes (also grants Defense Boost 93)
@@ -198,7 +198,7 @@ return {
                 name = 'Plasma Charge',
                 level = 75,
                 cost = 24,
-                id = 615,
+                spell_id = 615,
                 magic = 'blue',
                 command = '/ma "Plasma Charge" <me>',
                 buff_id = 38,  -- Shock Spikes
@@ -211,7 +211,7 @@ return {
                 name = 'Battery Charge',
                 level = 75,
                 cost = 50,
-                id = 662,
+                spell_id = 662,
                 magic = 'blue',
                 command = '/ma "Battery Charge" <me>',
                 buff_id = 43,  -- Refresh
@@ -221,7 +221,7 @@ return {
                 name = 'Animating Wail',
                 level = 75,
                 cost = 53,
-                id = 661,
+                spell_id = 661,
                 magic = 'blue',
                 command = '/ma "Animating Wail" <me>',
                 buff_id = 33,  -- Haste
@@ -231,7 +231,7 @@ return {
                 name = 'Magic Barrier',
                 level = 75,
                 cost = 29,
-                id = 668,
+                spell_id = 668,
                 magic = 'blue',
                 command = '/ma "Magic Barrier" <me>',
                 buff_id = 152,  -- Magic Shield
@@ -241,7 +241,7 @@ return {
                 name = 'Occultation',
                 level = 75,
                 cost = 138,
-                id = 679,
+                spell_id = 679,
                 magic = 'blue',
                 command = '/ma "Occultation" <me>',
                 buff_id = 36,  -- Blink (multiple shadows)
@@ -251,7 +251,7 @@ return {
                 name = 'Orcish Counterstance',
                 level = 75,
                 cost = 18,
-                id = 696,
+                spell_id = 696,
                 magic = 'blue',
                 command = '/ma "Orcish Counterstance" <me>',
                 buff_id = 61,  -- Counterstance
@@ -261,7 +261,7 @@ return {
                 name = 'Barrier Tusk',
                 level = 75,
                 cost = 41,
-                id = 685,
+                spell_id = 685,
                 magic = 'blue',
                 command = '/ma "Barrier Tusk" <me>',
                 buff_id = 116,  -- Phalanx
@@ -271,7 +271,7 @@ return {
                 name = 'Harden Shell',
                 level = 75,
                 cost = 20,
-                id = 737,
+                spell_id = 737,
                 magic = 'blue',
                 command = '/ma "Harden Shell" <me>',
                 buff_id = 93,  -- Defense Boost
@@ -281,7 +281,7 @@ return {
                 name = 'Pyric Bulwark',
                 level = 75,
                 cost = 50,
-                id = 741,
+                spell_id = 741,
                 magic = 'blue',
                 command = '/ma "Pyric Bulwark" <me>',
                 buff_id = 150,  -- Physical Shield
@@ -291,7 +291,7 @@ return {
                 name = 'Carcharian Verve',
                 level = 75,
                 cost = 52,
-                id = 745,
+                spell_id = 745,
                 magic = 'blue',
                 command = '/ma "Carcharian Verve" <me>',
                 buff_id = 91,  -- Attack Boost (also grants Aquaveil 39)
@@ -309,7 +309,7 @@ return {
                 name = 'Diffusion',
                 level = 75,  -- merit ability
                 cost = 0,
-                id = 184,
+                recast_id = 184,
                 ability_id = 176,  -- merit-unlocked: gated on HasAbility
                 command = '/ja "Diffusion" <me>',
                 buff_id = 356,
@@ -324,7 +324,7 @@ return {
                 name = 'Unbridled Learning',
                 level = 75,  -- 95 retail, 75 on CatsEyeXI
                 cost = 0,
-                id = 81,
+                recast_id = 81,
                 ability_id = 298,
                 command = '/ja "Unbridled Learning" <me>',
                 buff_id = 485,

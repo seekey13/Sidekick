@@ -174,9 +174,12 @@ Consolidated ability infrastructure module. Combines resource management (MP/TP 
 |---|---|
 | `has_resource(type, amount)` | Check MP or TP ≥ amount |
 | `get_resource(type)` | Current MP or TP |
-| `is_ability_ready(id)` | Ability recast timer = 0 (with 0.5s post-delay) |
-| `is_spell_ready(id)` | Spell recast timer = 0 (with 0.5s post-delay) |
-| `get_spell_recast(id)` | Remaining spell recast |
+| `is_ability_ready(recast_id)` | Ability recast timer = 0 (with 0.5s post-delay) — reads the JA recast table |
+| `is_spell_ready(spell_id)` | Spell recast timer = 0 (with 0.5s post-delay) — reads the spell recast table |
+| `get_spell_recast(spell_id)` | Remaining spell recast |
+
+The two tables are distinct and take different ids, so an ability's `spell_id` / `recast_id`
+field name must match its command (see the ability-field reference below).
 
 **Buff-ID Utilities** (formerly `buff_utils.lua`):
 
@@ -190,7 +193,7 @@ Consolidated ability infrastructure module. Combines resource management (MP/TP 
 
 | Function | Purpose |
 |---|---|
-| `is_usable(ability, job_def)` | Returns `ok, reason` after checking status ailments, resource, and cooldown |
+| `is_usable(ability, job_def)` | Returns `ok, reason` after checking status ailments, resource, and cooldown. The cooldown check keys off the *field name*: `spell_id` → `is_spell_ready`, else `recast_id` → `is_ability_ready`, else unchecked |
 | `filter_usable(abilities, job_def, tag)` | Filters a list down to usable abilities, debug-logs skipped ones |
 | `first_command(abilities, job_def, settings, tag, party_index, desc_fn)` | Returns the first usable ability as `{command, description}` or nil |
 | `try_use(ability, job_def, settings, party_index, desc, game_state)` | Single-ability execution with optional Trust buff registration |
@@ -241,7 +244,7 @@ Shared utility module (~3,200 lines). Key areas:
 - **Buffs**: `has_buff`, `get_player_buffs`, `get_party_buffs`, `get_trust_buffs`
 - **Trust buff tracking**: `register_pending_buff`, `handle_buff_application`, `handle_buff_removal`, `drop_removed_debuff(server_id, ability)` (optimistically drops one status a na-/Erase spell just cured from a Trust/tracked/alliance target — those give no reliable wear-off packet, so without it the removal spell re-fires every tick; no-op for memory-read party members), `clear_trust_buffs`, `base_buff_duration` (buff durations + a debuff backstop: `BASE_DEBUFF_DURATION` gives packet-detected debuffs a timed fall-off, Curse/Bane/Disease/Plague never time out, other erasable debuffs default to 120s), `expire_timed_buffs` (timed expiry + Trust song slot eviction — see Trust Buff Tracking below)
 - **Status ailments**: `has_silence`, `has_amnesia`, `is_command_blocked` (returns `'Moving'` for **any** command while the player is moving, then `'Silence'` for `/ma` and `'Amnesia'` for `/ja`)
-- **Ability helpers**: `has_spell_learned(ability)` (spells: `HasSpell(id)`; job abilities carrying `ability_id` — merit-unlocked JAs like Diabolic Eye — `HasAbility(ability_id + 512)`, the +512 converting the raw abilities.sql id to the client JA resource id; only a `pcall` error assumes known — an unlearned spell/JA is *not* treated as learned), `filter_abilities_by_level` (also filters out unlearned spells/merit JAs via `has_spell_learned`, blue magic not in the BLU set-spell list via `is_blue_magic_unequipped`, an ability whose `requires_equipped_ammo` isn't currently worn, or whose `requires_item` tool isn't owned), `build_ability_command`, `check_target_modifier`
+- **Ability helpers**: `has_spell_learned(ability)` (spells: `HasSpell(spell_id)`; job abilities carrying `ability_id` — merit-unlocked JAs like Diabolic Eye — `HasAbility(ability_id + 512)`, the +512 converting the raw abilities.sql id to the client JA resource id; only a `pcall` error assumes known — an unlearned spell/JA is *not* treated as learned), `filter_abilities_by_level` (also filters out unlearned spells/merit JAs via `has_spell_learned`, blue magic not in the BLU set-spell list via `is_blue_magic_unequipped`, an ability whose `requires_equipped_ammo` isn't currently worn, or whose `requires_item` tool isn't owned), `build_ability_command`, `check_target_modifier`
 - **Blue magic set-spell gate**: `get_equipped_blue_spells()` reads the client's BLU set-spell buffer (the signature-scanned memory the blusets addon uses; slot bytes are `spell_id - 512`, main-job list at `+0x04`, sub-job at `+0xA0`) into a `{ [spell_id] = true }` set, cached 0.5s; returns `nil` when unreadable. `is_blue_magic_unequipped(ability)` is true for a `magic = 'blue'` **/ma** ability missing from that set — automation skips it (`filter_abilities_by_level`), while the UI shows the row grayed with a *"Blue Magic not currently equipped"* tooltip but still selectable. Fails open (an unreadable buffer gates nothing), and Sidekick never equips spells itself — that's the user's job (e.g. via blusets).
 - **Pet status tracking**: `is_pet(server_id)` (true for the current pet's server id, refreshed each tick), `apply_pet_buff` — pets have normal entity ids (< 0x1000000) so they miss the Trust guard; these route the pet's packet-detected buffs/debuffs into `trust_buffs` keyed by the pet's server id. `pet_type_ok(ability)` gates a `requires_pet_name` ability on the summoned pet's name (shared by job validators and the config UI so the name list lives only in the ability data).
 - **Consumable-ammo equip**: `count_equippable_items(spec)` / `find_equippable_item(spec)` scan the equip-eligible containers (main inventory + all eight Mog Wardrobes); `get_equipped_item_id(slot)` and `is_ammo_equipped(spec)` read the worn ammo; `select_ammo_equip_command(spec, level)` builds a `/equip ammo "<name>" <container>` for the best owned tier at/below `level`; `ammo_equip_command(abilities, settings, player)` picks the first enabled, level-eligible, not-yet-worn ability needing ammo and returns that equip (respecting `ammo_main_job_only`). A "spec" is a single item id, a flat id list, or a list of `{ id, name, level }` tier entries.
@@ -475,8 +478,11 @@ return {
     level           = 48,
     cost            = 88,
     value           = 400,          -- HP restored (deficit selection)
-    id              = 0,            -- Recast ID
-    ability_id      = 160,          -- JA only: raw abilities.sql id for merit-unlocked JAs
+    spell_id        = 1,            -- /ma only: spell_list.sql `spellid` (spell recast + HasSpell)
+    recast_id       = 0,            -- everything else (/ja, /item, /pet, /ws): abilities.sql `recastId`
+                                    --   Exactly one of the two per ability -- the field name selects
+                                    --   which recast table is_usable reads.
+    ability_id      = 160,          -- JA only: raw abilities.sql `abilityId` for merit-unlocked JAs
                                     --   (has_spell_learned checks HasAbility(ability_id + 512))
     command         = function(idx) return '/ma "Cure IV" <p' .. idx .. '>' end,
     -- or: command = '/ja "Divine Seal" <me>',
@@ -524,6 +530,41 @@ return {
                                                     --   the spell is skipped while the JA can't fire
 }
 ```
+
+#### Id fields and their SQL sources
+
+Every id in a job file comes straight from the CatsEyeXI server SQL, and the numbers are
+only meaningful against the table they were taken from:
+
+| Field | Source | Applies to |
+|---|---|---|
+| `spell_id` | [`spell_list.sql`](https://github.com/CatsAndBoats/catseyexi/blob/base/sql/spell_list.sql) `spellid` | `/ma` abilities (spell recast + `HasSpell`) |
+| `recast_id` | [`abilities.sql`](https://github.com/CatsAndBoats/catseyexi/blob/base/sql/abilities.sql) `recastId` | everything else (`/ja`, `/item`, `/pet`, `/ws`) |
+| `ability_id` | [`abilities.sql`](https://github.com/CatsAndBoats/catseyexi/blob/base/sql/abilities.sql) `abilityId` | merit-unlocked JAs only (`HasAbility(ability_id + 512)`) |
+| `buff_id` / `debuff_id` | [`status_effects.sql`](https://github.com/CatsAndBoats/catseyexi/blob/base/sql/status_effects.sql) `id` | status tracked / removed |
+
+`cost` is `spell_list.sql` `mpCost` and `level` is the per-job level packed into the `jobs`
+blob (byte index = job id - 1), except for JAs, where `level` is `abilities.sql` `level`.
+The exception is retail-era content the 75-cap server grants early: those rows keep their
+retail `level` in SQL (Presto 77, Conspirator 87, the Unbridled Learning spells 79-98, …)
+while the job file clamps them to a reachable level. Don't "fix" those against SQL — but a
+level *below* the SQL value on ordinary content is a bug.
+
+Two rules are easy to get wrong:
+
+- **`recastId` and `abilityId` are different columns of the same `abilities.sql` row** — do
+  not conflate them. An ability carries exactly one *cooldown* id (`spell_id` **or**
+  `recast_id`), and `ability_id` is an extra, only for merit JAs.
+- **The field name, not the command text, picks the recast table.** `is_usable` no longer
+  sniffs the command for `/ma`, so a `/ma` ability given a `recast_id` will silently read
+  the wrong timer, and one given neither id is never cooldown-gated at all.
+
+Item/ammo tier-spec tables (BST `PET_FOOD`, NIN `SHURIKENS`, PUP `OILS`, …) are not
+abilities — their entries keep a bare `id`, which is an item id.
+
+Ninjutsu is a special case worth knowing: in `spell_list.sql` the `mpCost` column holds the
+**tool item id** rather than an MP cost, which is why NIN spells carry `cost = 0` and gate on
+`requires_item` instead.
 
 ---
 

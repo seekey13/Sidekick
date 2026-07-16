@@ -61,7 +61,7 @@ local function try_full_circle(job_def, settings, main_level, sub_level, descrip
         if ability.name == 'Full Circle' then
             if common.is_command_blocked(ability.command) then return nil end
             local resource_type = ability.resource_type or job_def.resource_type
-            if ability.id and action_core.has_resource(resource_type, ability.cost) and action_core.is_ability_ready(ability.id) then
+            if ability.recast_id and action_core.has_resource(resource_type, ability.cost) and action_core.is_ability_ready(ability.recast_id) then
                 local command = common.build_ability_command(ability, 0)
                 if command then
                     return { command = command, description = description }

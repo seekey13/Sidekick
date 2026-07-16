@@ -1917,12 +1917,13 @@ end
 ]]--
 
 -- Check if a spell or job ability has been learned by the player.
--- Spells (/ma) check HasSpell(id). Job abilities check HasAbility only when the
--- definition carries an ability_id (the raw abilities.sql id; +512 converts to
+-- Spells (/ma) check HasSpell(spell_id). Job abilities check HasAbility only when
+-- the definition carries an ability_id (the raw abilities.sql id; +512 converts to
 -- the client's JA resource id) -- set it on merit-unlocked JAs like Diabolic
 -- Eye so automation skips them until merited. JAs without ability_id (and
 -- items) are always treated as known.
--- Args:   ability (table) - Ability definition with command and optional id/ability_id fields
+-- Args:   ability (table) - Ability definition with command and optional
+--                           spell_id/ability_id fields
 -- Returns: boolean (true if the ability can be used / spell is known)
 function common.has_spell_learned(ability)
     if not ability then return false end
@@ -1935,9 +1936,9 @@ function common.has_spell_learned(ability)
         if not ok then return true end  -- assume known on error
         return known
     end
-    if not ability.id then return true end                        -- no id to check
+    if not ability.spell_id then return true end                  -- no id to check
     local ok, known = pcall(function()
-        return AshitaCore:GetMemoryManager():GetPlayer():HasSpell(ability.id)
+        return AshitaCore:GetMemoryManager():GetPlayer():HasSpell(ability.spell_id)
     end)
     if not ok then return true end  -- assume known on error
     return known
@@ -2002,12 +2003,12 @@ end
 -- Fails open: when the list can't be read this returns false, so a failed
 -- signature scan can't silently disable all BLU automation.
 function common.is_blue_magic_unequipped(ability)
-    if not ability or ability.magic ~= 'blue' or not ability.id then return false end
+    if not ability or ability.magic ~= 'blue' or not ability.spell_id then return false end
     local cmd = type(ability.command) == 'function' and ability.command(0) or ability.command
     if not cmd or not cmd:match('^/ma%s') then return false end
     local set = common.get_equipped_blue_spells()
     if not set then return false end
-    return not set[ability.id]
+    return not set[ability.spell_id]
 end
 
 -- Filter abilities by level, disabled status, and pet requirements
@@ -2224,9 +2225,9 @@ function common.check_target_modifier(job_def, settings, main_level, sub_level)
         return nil
     end
     
-    -- Check cooldown if ability has an ID
-    if modifier_ability.id then
-        local is_ready = action_core.is_ability_ready(modifier_ability.id)
+    -- Check cooldown if ability has a recast ID
+    if modifier_ability.recast_id then
+        local is_ready = action_core.is_ability_ready(modifier_ability.recast_id)
         if not is_ready then
             return nil
         end
@@ -2368,7 +2369,7 @@ function common.check_stratagem(job_def, settings, ability_key, ability)
         local main_level = common.get_player_level()
         if (strat.level and main_level < strat.level)
             or not common.has_spell_learned(strat)
-            or not require('lib.core.action_core').is_ability_ready(strat.id) then
+            or not require('lib.core.action_core').is_ability_ready(strat.recast_id) then
             return unavailable
         end
     end

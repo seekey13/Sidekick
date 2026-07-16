@@ -21,7 +21,7 @@ return {
                 name = 'Light Arts',
                 level = 10,
                 cost = 0,
-                id = 228,  -- Job ability ID
+                recast_id = 228,
                 command = '/ja "Light Arts" <me>',
                 group = 'arts',
                 buff_id = {358, 401},  -- Can be either 358 or 401
@@ -30,7 +30,7 @@ return {
                 name = 'Addendum: White',
                 level = 10,
                 cost = 0,
-                id = 231,  -- Job ability ID
+                recast_id = 231,
                 command = '/ja "Addendum: White" <me>',
                 group = 'addendum',
                 buff_id = 401,
@@ -40,7 +40,7 @@ return {
                 name = 'Dark Arts',
                 level = 10,
                 cost = 0,
-                id = 232,  -- Job ability ID
+                recast_id = 232,
                 command = '/ja "Dark Arts" <me>',
                 group = 'arts',
                 buff_id = {359, 402},  -- Can be either 359 or 402
@@ -49,7 +49,7 @@ return {
                 name = 'Addendum: Black',
                 level = 30,
                 cost = 0,
-                id = 235,  -- Job ability ID
+                recast_id = 231,
                 command = '/ja "Addendum: Black" <me>',
                 group = 'addendum',
                 buff_id = 402,                
@@ -57,9 +57,9 @@ return {
             },
             {
                 name = 'Sublimation',
-                level = 30,
+                level = 35,
                 cost = 0,
-                id = 234,  -- Job ability ID
+                recast_id = 234,
                 command = '/ja "Sublimation" <me>',
                 buff_id = {187, 188},  -- Can be either 187 (activated) or 188 (complete)
             },
@@ -68,7 +68,7 @@ return {
                 name = 'Klimaform',
                 level = 46,
                 cost = 30,
-                id = 287,
+                spell_id = 287,
                 magic = 'black',
                 magic_type = 'enhancing',
                 command = '/ma "Klimaform" <me>',
@@ -79,7 +79,7 @@ return {
                 name = 'Protect IV',
                 level = 66,
                 cost = 65,
-                id = 46,
+                spell_id = 46,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = function(target)
@@ -93,7 +93,7 @@ return {
                 name = 'Protect III',
                 level = 50,
                 cost = 46,
-                id = 45,
+                spell_id = 45,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = function(target)
@@ -107,7 +107,7 @@ return {
                 name = 'Protect II',
                 level = 30,
                 cost = 28,
-                id = 44,
+                spell_id = 44,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = function(target)
@@ -121,7 +121,7 @@ return {
                 name = 'Protect',
                 level = 10,
                 cost = 9,
-                id = 43,
+                spell_id = 43,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = function(target)
@@ -136,7 +136,7 @@ return {
                 name = 'Shell IV',
                 level = 71,
                 cost = 75,
-                id = 51,
+                spell_id = 51,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = function(target)
@@ -150,7 +150,7 @@ return {
                 name = 'Shell III',
                 level = 60,
                 cost = 56,
-                id = 50,
+                spell_id = 50,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = function(target)
@@ -164,7 +164,7 @@ return {
                 name = 'Shell II',
                 level = 40,
                 cost = 37,
-                id = 49,
+                spell_id = 49,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = function(target)
@@ -178,7 +178,7 @@ return {
                 name = 'Shell',
                 level = 20,
                 cost = 18,
-                id = 48,
+                spell_id = 48,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = function(target)
@@ -192,7 +192,7 @@ return {
                 name = 'Regen III',
                 level = 59,
                 cost = 64,
-                id = 111,
+                spell_id = 111,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = function(target)
@@ -205,7 +205,7 @@ return {
                 name = 'Regen II',
                 level = 37,
                 cost = 36,
-                id = 110,
+                spell_id = 110,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = function(target)
@@ -218,7 +218,7 @@ return {
                 name = 'Regen',
                 level = 18,
                 cost = 15,
-                id = 108,
+                spell_id = 108,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = function(target)
@@ -232,7 +232,7 @@ return {
                 name = 'Aurorastorm',
                 level = 48,
                 cost = 30,
-                id = 119,
+                spell_id = 119,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Aurorastorm" <me>',
@@ -243,7 +243,7 @@ return {
                 name = 'Voidstorm',
                 level = 47,
                 cost = 30,
-                id = 118,
+                spell_id = 118,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Voidstorm" <me>',
@@ -254,7 +254,7 @@ return {
                 name = 'Thunderstorm',
                 level = 46,
                 cost = 30,
-                id = 117,
+                spell_id = 117,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Thunderstorm" <me>',
@@ -265,7 +265,7 @@ return {
                 name = 'Hailstorm',
                 level = 45,
                 cost = 30,
-                id = 116,
+                spell_id = 116,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Hailstorm" <me>',
@@ -276,7 +276,7 @@ return {
                 name = 'Firestorm',
                 level = 44,
                 cost = 30,
-                id = 115,
+                spell_id = 115,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Firestorm" <me>',
@@ -287,7 +287,7 @@ return {
                 name = 'Windstorm',
                 level = 43,
                 cost = 30,
-                id = 114,
+                spell_id = 114,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Windstorm" <me>',
@@ -298,7 +298,7 @@ return {
                 name = 'Rainstorm',
                 level = 42,
                 cost = 30,
-                id = 113,
+                spell_id = 113,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Rainstorm" <me>',
@@ -309,7 +309,7 @@ return {
                 name = 'Sandstorm',
                 level = 41,
                 cost = 30,
-                id = 112,
+                spell_id = 99,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Sandstorm" <me>',
@@ -321,7 +321,7 @@ return {
                 name = 'Stoneskin',
                 level = 44,
                 cost = 29,
-                id = 54,
+                spell_id = 54,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Stoneskin" <me>',
@@ -329,9 +329,9 @@ return {
             },
             {
                 name = 'Blink',
-                level = 30,
+                level = 29,
                 cost = 20,
-                id = 53,
+                spell_id = 53,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Blink" <me>',
@@ -341,7 +341,7 @@ return {
                 name = 'Aquaveil',
                 level = 13,
                 cost = 12,
-                id = 55,
+                spell_id = 55,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Aquaveil" <me>',
@@ -352,7 +352,7 @@ return {
                 name = 'Shock Spikes',
                 level = 70,
                 cost = 24,
-                id = 251,
+                spell_id = 251,
                 magic = 'black',
                 magic_type = 'enhancing',
                 command = '/ma "Shock Spikes" <me>',
@@ -363,7 +363,7 @@ return {
                 name = 'Ice Spikes',
                 level = 50,
                 cost = 16,
-                id = 250,
+                spell_id = 250,
                 magic = 'black',
                 magic_type = 'enhancing',
                 command = '/ma "Ice Spikes" <me>',
@@ -374,7 +374,7 @@ return {
                 name = 'Blaze Spikes',
                 level = 30,
                 cost = 8,
-                id = 249,
+                spell_id = 249,
                 magic = 'black',
                 magic_type = 'enhancing',
                 command = '/ma "Blaze Spikes" <me>',
@@ -385,7 +385,7 @@ return {
                 name = 'Reraise II',
                 level = 70,
                 cost = 150,
-                id = 142,
+                spell_id = 141,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Reraise II" <me>',
@@ -398,7 +398,7 @@ return {
                 name = 'Reraise',
                 level = 35,
                 cost = 150,
-                id = 135,
+                spell_id = 135,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Reraise" <me>',
@@ -410,8 +410,8 @@ return {
             {
                 name = 'Invisible',
                 level = 25,
-                cost = 25,
-                id = 136,
+                cost = 15,
+                spell_id = 136,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = function(target)
@@ -423,8 +423,8 @@ return {
             {
                 name = 'Sneak',
                 level = 20,
-                cost = 25,
-                id = 137,
+                cost = 12,
+                spell_id = 137,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = function(target)
@@ -436,8 +436,8 @@ return {
             {
                 name = 'Deodorize',
                 level = 15,
-                cost = 6,
-                id = 138,
+                cost = 10,
+                spell_id = 138,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = function(target)
@@ -454,7 +454,7 @@ return {
                 name = 'Poisona',
                 level = 10,
                 cost = 8,
-                id = 14,
+                spell_id = 14,
                 magic = 'white',
                 magic_type = 'healing',
                 debuff_id = 3,  -- Poison
@@ -469,7 +469,7 @@ return {
                 name = 'Paralyna',
                 level = 12,
                 cost = 12,
-                id = 15,
+                spell_id = 15,
                 magic = 'white',
                 magic_type = 'healing',
                 debuff_id = 4,  -- Paralysis
@@ -484,7 +484,7 @@ return {
                 name = 'Blindna',
                 level = 17,
                 cost = 16,
-                id = 16,
+                spell_id = 16,
                 magic = 'white',
                 magic_type = 'healing',
                 debuff_id = 5,  -- Blindness
@@ -499,7 +499,7 @@ return {
                 name = 'Silena',
                 level = 22,
                 cost = 24,
-                id = 17,
+                spell_id = 17,
                 magic = 'white',
                 magic_type = 'healing',
                 debuff_id = 6,  -- Silence
@@ -514,7 +514,7 @@ return {
                 name = 'Cursna',
                 level = 32,
                 cost = 30,
-                id = 20,
+                spell_id = 20,
                 magic = 'white',
                 magic_type = 'healing',
                 debuff_id = {9, 15, 20, 30},  -- Curse, Doom & Bane
@@ -529,7 +529,7 @@ return {
                 name = 'Erase',
                 level = 39,
                 cost = 18,
-                id = 143,
+                spell_id = 143,
                 magic = 'white',
                 magic_type = 'healing',
                 debuff_id = common.ERASABLE_DEBUFFS,
@@ -543,7 +543,7 @@ return {
                 name = 'Viruna',
                 level = 46,
                 cost = 48,
-                id = 19,
+                spell_id = 19,
                 magic = 'white',
                 magic_type = 'healing',
                 debuff_id = {8, 31},  -- Disease & Plague
@@ -557,7 +557,7 @@ return {
                 name = 'Stona',
                 level = 50,
                 cost = 40,
-                id = 18,
+                spell_id = 18,
                 magic = 'white',
                 magic_type = 'healing',
                 debuff_id = 7,  -- Petrification
@@ -576,7 +576,7 @@ return {
                 name = 'Cure IV',
                 level = 55,
                 cost = 88,
-                id = 4,
+                spell_id = 4,
                 magic = 'white',
                 magic_type = 'healing',
                 command = function(target)
@@ -591,7 +591,7 @@ return {
                 name = 'Cure III',
                 level = 30,
                 cost = 46,
-                id = 3,
+                spell_id = 3,
                 magic = 'white',
                 magic_type = 'healing',
                 command = function(target)
@@ -606,7 +606,7 @@ return {
                 name = 'Cure II',
                 level = 17,
                 cost = 24,
-                id = 2,
+                spell_id = 2,
                 magic = 'white',
                 magic_type = 'healing',
                 command = function(target)
@@ -621,7 +621,7 @@ return {
                 name = 'Cure',
                 level = 5,
                 cost = 8,
-                id = 1,
+                spell_id = 1,
                 magic = 'white',
                 magic_type = 'healing',
                 command = function(target)
@@ -638,7 +638,7 @@ return {
                 name = 'Drain',
                 level = 21,
                 cost = 21,
-                id = 245,
+                spell_id = 245,
                 magic = 'black',
                 magic_type = 'dark',
                 command = '/ma "Drain" <bt>',
@@ -652,9 +652,9 @@ return {
         recover_mp = {
             {
                 name = 'Sublimation',
-                level = 30,
+                level = 35,
                 cost = 0,
-                id = 234,  -- Job ability ID
+                recast_id = 234,
                 command = '/ja "Sublimation" <me>',
                 requires_buff = {187, 188},  -- Requires Sublimation: Activated or Complete
             },
@@ -663,7 +663,7 @@ return {
                 name = 'Aspir',
                 level = 36,
                 cost = 10,
-                id = 247,
+                spell_id = 247,
                 magic = 'black',
                 magic_type = 'dark',
                 command = '/ma "Aspir" <bt>',
@@ -677,7 +677,7 @@ return {
                 name = 'Tranquility',
                 level = 75,
                 cost = 0,
-                id = 231,  -- Job ability ID
+                recast_id = 231,
                 command = '/ja "Tranquility" <me>',
                 requires_buff = {358, 401},  -- Can be either 358 or 401
             },
@@ -685,7 +685,7 @@ return {
                 name = 'Rapture',
                 level = 55,
                 cost = 0,
-                id = 231,  -- Job ability ID
+                recast_id = 231,
                 command = '/ja "Rapture" <me>',
                 requires_buff = {358, 401},  -- Can be either 358 or 401
             },
@@ -697,7 +697,7 @@ return {
                 name = 'Raise II',
                 level = 70,
                 cost = 150,
-                id = 141,
+                spell_id = 13,
                 command = function(target)
                     return '/ma "Raise II" '..target
                 end,
@@ -712,7 +712,7 @@ return {
                 name = 'Raise',
                 level = 35,
                 cost = 150,
-                id = 12,
+                spell_id = 12,
                 command = function(target)
                     return '/ma "Raise" '..target
                 end,
@@ -730,7 +730,7 @@ return {
                 name = 'Perpetuance (+Duration)', -- Increases the enhancement effect duration
                 level = 75,
                 cost = 0,
-                id = 231,  -- Job ability ID
+                recast_id = 231,
                 command = '/ja "Perpetuance" <me>',
                 requires_buff = 401,  -- Addendum: White
                 buff_id = 469,
@@ -741,7 +741,7 @@ return {
                 name = 'Tranquility (-Enmity)', -- Reduces the Enmity Generated
                 level = 75,
                 cost = 0,
-                id = 231,  -- Job ability ID
+                recast_id = 231,
                 command = '/ja "Tranquility" <me>',
                 requires_buff = {358, 401},  -- Can be either 358 or 401
                 buff_id = 414,
@@ -751,7 +751,7 @@ return {
                 name = 'Rapture (+Potency)', -- +Potency
                 level = 55,
                 cost = 0,
-                id = 231,  -- Job ability ID
+                recast_id = 231,
                 command = '/ja "Rapture" <me>',
                 requires_buff = {358, 401},  -- Can be either 358 or 401
                 buff_id = 364,
@@ -761,7 +761,7 @@ return {
                 name = 'Accession (+AOE)',  -- AOE and 3x Cost of spell and 2x casting time
                 level = 40,
                 cost = 0,
-                id = 231,  -- Job ability ID
+                recast_id = 231,
                 command = '/ja "Accession" <me>',
                 requires_buff = {358, 401},  -- Can be either 358 or 401
                 buff_id = 366,
@@ -773,7 +773,7 @@ return {
                 name = 'Celerity (+Casting Speed)', -- Reduces the casting time by 50%
                 level = 25,
                 cost = 0,
-                id = 231,  -- Job ability ID
+                recast_id = 231,
                 command = '/ja "Celerity" <me>',
                 requires_buff = {358, 401},  -- Can be either 358 or 401
                 buff_id = 362,
@@ -783,7 +783,7 @@ return {
                 name = 'Penury (-MP Cost)', -- Reduces the MP cost by 50%
                 level = 10,
                 cost = 0,
-                id = 231,  -- Job ability ID
+                recast_id = 231,
                 command = '/ja "Penury" <me>',
                 requires_buff = {358, 401},  -- Can be either 358 or 401
                 buff_id = 360,
@@ -794,7 +794,7 @@ return {
                 name = 'Alacrity (+Casting Speed)', -- Reduces the casting time by 50%
                 level = 25,
                 cost = 0,
-                id = 231,  -- Job ability ID
+                recast_id = 231,
                 command = '/ja "Alacrity" <me>',
                 requires_buff = {359, 402},  -- Can be either 359 or 402
                 buff_id = 363,
@@ -804,7 +804,7 @@ return {
                 name = 'Parsimony (-MP Cost)', -- Reduces the MP cost by 50%
                 level = 10,
                 cost = 0,
-                id = 231,  -- Job ability ID
+                recast_id = 231,
                 command = '/ja "Parsimony" <me>',
                 requires_buff = {359, 402},  -- Can be either 359 or 402
                 buff_id = 361,

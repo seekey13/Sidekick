@@ -18,7 +18,7 @@ return {
                 name = "Knight's Minne IV (++++DEF)",
                 level = 61,
                 cost = 0,
-                id = 392,
+                spell_id = 392,
                 magic = 'song',
                 command = function(target)
                     return '/ma "Knight\'s Minne IV" '..target
@@ -32,7 +32,7 @@ return {
                 name = "Knight's Minne III (+++DEF)",
                 level = 41,
                 cost = 0,
-                id = 391,
+                spell_id = 391,
                 magic = 'song',
                 command = function(target)
                     return '/ma "Knight\'s Minne III" '..target
@@ -46,7 +46,7 @@ return {
                 name = "Knight's Minne II (++DEF)",
                 level = 21,
                 cost = 0,
-                id = 390,
+                spell_id = 390,
                 magic = 'song',
                 command = function(target)
                     return '/ma "Knight\'s Minne II" '..target
@@ -60,7 +60,7 @@ return {
                 name = "Knight's Minne (+DEF)",
                 level = 1,
                 cost = 0,
-                id = 389,
+                spell_id = 389,
                 magic = 'song',
                 command = function(target)
                     return '/ma "Knight\'s Minne" '..target
@@ -75,7 +75,7 @@ return {
                 name = 'Valor Minuet IV (++++ATK)',
                 level = 63,
                 cost = 0,
-                id = 397,
+                spell_id = 397,
                 magic = 'song',
                 command = function(target)
                     return '/ma "Valor Minuet IV" '..target
@@ -89,7 +89,7 @@ return {
                 name = 'Valor Minuet III (+++ATK)',
                 level = 43,
                 cost = 0,
-                id = 396,
+                spell_id = 396,
                 magic = 'song',
                 command = function(target)
                     return '/ma "Valor Minuet III" '..target
@@ -103,7 +103,7 @@ return {
                 name = 'Valor Minuet II (++ATK)',
                 level = 23,
                 cost = 0,
-                id = 395,
+                spell_id = 395,
                 magic = 'song',
                 command = function(target)
                     return '/ma "Valor Minuet II" '..target
@@ -117,7 +117,7 @@ return {
                 name = 'Valor Minuet (+ATK)',
                 level = 3,
                 cost = 0,
-                id = 394,
+                spell_id = 394,
                 magic = 'song',
                 command = function(target)
                     return '/ma "Valor Minuet" '..target
@@ -132,7 +132,7 @@ return {
                 name = "Army's Paeon V (+++++Regen)",
                 level = 65,
                 cost = 0,
-                id = 382,
+                spell_id = 382,
                 magic = 'song',
                 command = function(target)
                     return '/ma "Army\'s Paeon V" '..target
@@ -146,7 +146,7 @@ return {
                 name = "Army's Paeon IV (++++Regen)",
                 level = 45,
                 cost = 0,
-                id = 381,
+                spell_id = 381,
                 magic = 'song',
                 command = function(target)
                     return '/ma "Army\'s Paeon IV" '..target
@@ -160,7 +160,7 @@ return {
                 name = "Army's Paeon III (+++Regen)",
                 level = 35,
                 cost = 0,
-                id = 380,
+                spell_id = 380,
                 magic = 'song',
                 command = function(target)
                     return '/ma "Army\'s Paeon III" '..target
@@ -174,7 +174,7 @@ return {
                 name = "Army's Paeon II (++Regen)",
                 level = 15,
                 cost = 0,
-                id = 379,
+                spell_id = 379,
                 magic = 'song',
                 command = function(target)
                     return '/ma "Army\'s Paeon II" '..target
@@ -188,7 +188,7 @@ return {
                 name = "Army's Paeon (+Regen)",
                 level = 5,
                 cost = 0,
-                id = 378,
+                spell_id = 378,
                 magic = 'song',
                 command = function(target)
                     return '/ma "Army\'s Paeon" '..target
@@ -203,7 +203,7 @@ return {
                 name = 'Blade Madrigal (++ACC)',
                 level = 51,
                 cost = 0,
-                id = 400,
+                spell_id = 400,
                 magic = 'song',
                 command = function(target)
                     return '/ma "Blade Madrigal" '..target
@@ -217,7 +217,7 @@ return {
                 name = 'Sword Madrigal (+ACC)',
                 level = 11,
                 cost = 0,
-                id = 399,
+                spell_id = 399,
                 magic = 'song',
                 command = function(target)
                     return '/ma "Sword Madrigal" '..target
@@ -232,7 +232,7 @@ return {
                 name = "Archer's Prelude (++Rng Acc.)",
                 level = 71,
                 cost = 0,
-                id = 402,
+                spell_id = 402,
                 magic = 'song',
                 command = function(target)
                     return '/ma "Archer\'s Prelude" '..target
@@ -246,7 +246,7 @@ return {
                 name = "Hunter's Prelude (+Rng Acc.)",
                 level = 31,
                 cost = 0,
-                id = 401,
+                spell_id = 401,
                 magic = 'song',
                 command = function(target)
                     return '/ma "Hunter\'s Prelude" '..target
@@ -261,7 +261,7 @@ return {
                 name = 'Dragonfoe Mambo (++EVA)',
                 level = 53,
                 cost = 0,
-                id = 404,
+                spell_id = 404,
                 magic = 'song',
                 command = function(target)
                     return '/ma "Dragonfoe Mambo" '..target
@@ -275,7 +275,7 @@ return {
                 name = 'Sheepfoe Mambo (+EVA)',
                 level = 13,
                 cost = 0,
-                id = 403,
+                spell_id = 403,
                 magic = 'song',
                 command = function(target)
                     return '/ma "Sheepfoe Mambo" '..target
@@ -290,7 +290,7 @@ return {
                 name = "Mage's Ballad II (++Refresh)",
                 level = 55,
                 cost = 0,
-                id = 387,
+                spell_id = 387,
                 magic = 'song',
                 command = function(target)
                     return '/ma "Mage\'s Ballad II" '..target
@@ -304,7 +304,7 @@ return {
                 name = "Mage's Ballad (+Refresh)",
                 level = 25,
                 cost = 0,
-                id = 386,
+                spell_id = 386,
                 magic = 'song',
                 command = function(target)
                     return '/ma "Mage\'s Ballad" '..target
@@ -319,7 +319,7 @@ return {
                 name = 'Victory March (++Haste)',
                 level = 60,
                 cost = 0,
-                id = 420, 
+                spell_id = 420, 
                 magic = 'song',
                 command = function(target)
                     return '/ma "Victory March" '..target
@@ -333,7 +333,7 @@ return {
                 name = 'Advancing March (+Haste)',
                 level = 29,
                 cost = 0,
-                id = 419,
+                spell_id = 419,
                 magic = 'song',
                 command = function(target)
                     return '/ma "Advancing March" '..target
@@ -348,7 +348,7 @@ return {
                 name = 'Herculean Etude (++STR)',
                 level = 74,
                 cost = 0,
-                id = 431,
+                spell_id = 431,
                 magic = 'song',
                 command = function(target)
                     return '/ma "Herculean Etude" '..target
@@ -362,7 +362,7 @@ return {
                 name = 'Uncanny Etude (++DEX)',
                 level = 72,
                 cost = 0,
-                id = 432,
+                spell_id = 432,
                 magic = 'song',
                 command = function(target)
                     return '/ma "Uncanny Etude" '..target
@@ -376,7 +376,7 @@ return {
                 name = 'Vital Etude (++VIT)',
                 level = 70,
                 cost = 0,
-                id = 433,
+                spell_id = 433,
                 magic = 'song',
                 command = function(target)
                     return '/ma "Vital Etude" '..target
@@ -390,7 +390,7 @@ return {
                 name = 'Swift Etude (++AGI)',
                 level = 68,
                 cost = 0,
-                id = 434,
+                spell_id = 434,
                 magic = 'song',
                 command = function(target)
                     return '/ma "Swift Etude" '..target
@@ -404,7 +404,7 @@ return {
                 name = 'Sage Etude (++INT)',
                 level = 66,
                 cost = 0,
-                id = 435,
+                spell_id = 435,
                 magic = 'song',
                 command = function(target)
                     return '/ma "Sage Etude" '..target
@@ -418,7 +418,7 @@ return {
                 name = 'Logical Etude (++MND)',
                 level = 64,
                 cost = 0,
-                id = 436,
+                spell_id = 436,
                 magic = 'song',
                 command = function(target)
                     return '/ma "Logical Etude" '..target
@@ -432,7 +432,7 @@ return {
                 name = 'Bewitching Etude (++CHR)',
                 level = 62,
                 cost = 0,
-                id = 437,
+                spell_id = 437,
                 magic = 'song',
                 command = function(target)
                     return '/ma "Bewitching Etude" '..target
@@ -446,7 +446,7 @@ return {
                 name = 'Sinewy Etude (+STR)',
                 level = 34,
                 cost = 0,
-                id = 424,
+                spell_id = 424,
                 magic = 'song',
                 command = function(target)
                     return '/ma "Sinewy Etude" '..target
@@ -460,7 +460,7 @@ return {
                 name = 'Dextrous Etude (+DEX)',
                 level = 32,
                 cost = 0,
-                id = 425,
+                spell_id = 425,
                 magic = 'song',
                 command = function(target)
                     return '/ma "Dextrous Etude" '..target
@@ -474,7 +474,7 @@ return {
                 name = 'Vivacious Etude (+VIT)',
                 level = 30,
                 cost = 0,
-                id = 426,
+                spell_id = 426,
                 magic = 'song',
                 command = function(target)
                     return '/ma "Vivacious Etude" '..target
@@ -488,7 +488,7 @@ return {
                 name = 'Quick Etude (+AGI)',
                 level = 28,
                 cost = 0,
-                id = 427,
+                spell_id = 427,
                 magic = 'song',
                 command = function(target)
                     return '/ma "Quick Etude" '..target
@@ -502,7 +502,7 @@ return {
                 name = 'Learned Etude (+INT)',
                 level = 26,
                 cost = 0,
-                id = 428,
+                spell_id = 428,
                 magic = 'song',
                 command = function(target)
                     return '/ma "Learned Etude" '..target
@@ -516,7 +516,7 @@ return {
                 name = 'Spirited Etude (+MND)',
                 level = 24,
                 cost = 0,
-                id = 429,
+                spell_id = 429,
                 magic = 'song',
                 command = function(target)
                     return '/ma "Spirited Etude" '..target
@@ -531,7 +531,7 @@ return {
                 name = 'Dark Carol (+Dark Res.)',
                 level = 50,
                 cost = 0,
-                id = 445,
+                spell_id = 445,
                 magic = 'song',
                 command = function(target)
                     return '/ma "Dark Carol" '..target
@@ -545,7 +545,7 @@ return {
                 name = 'Lightning Carol (+Lightning Res.)',
                 level = 48,
                 cost = 0,
-                id = 442,
+                spell_id = 442,
                 magic = 'song',
                 command = function(target)
                     return '/ma "Lightning Carol" '..target
@@ -559,7 +559,7 @@ return {
                 name = 'Ice Carol (+Ice Res.)',
                 level = 46,
                 cost = 0,
-                id = 439,
+                spell_id = 439,
                 magic = 'song',
                 command = function(target)
                     return '/ma "Ice Carol" '..target
@@ -573,7 +573,7 @@ return {
                 name = 'Fire Carol (+Fire Res.)',
                 level = 44,
                 cost = 0,
-                id = 438,
+                spell_id = 438,
                 magic = 'song',
                 command = function(target)
                     return '/ma "Fire Carol" '..target
@@ -587,7 +587,7 @@ return {
                 name = 'Wind Carol (+Wind Res.)',
                 level = 42,
                 cost = 0,
-                id = 440,
+                spell_id = 440,
                 magic = 'song',
                 command = function(target)
                     return '/ma "Wind Carol" '..target
@@ -601,7 +601,7 @@ return {
                 name = 'Water Carol (+Water Res.)',
                 level = 40,
                 cost = 0,
-                id = 441,
+                spell_id = 443,
                 magic = 'song',
                 command = function(target)
                     return '/ma "Water Carol" '..target
@@ -615,7 +615,7 @@ return {
                 name = 'Earth Carol (+Earth Res.)',
                 level = 38,
                 cost = 0,
-                id = 443,
+                spell_id = 441,
                 magic = 'song',
                 command = function(target)
                     return '/ma "Earth Carol" '..target
@@ -629,7 +629,7 @@ return {
                 name = 'Light Carol (+Light Res.)',
                 level = 36,
                 cost = 0,
-                id = 444,
+                spell_id = 444,
                 magic = 'song',
                 command = function(target)
                     return '/ma "Light Carol" '..target
@@ -644,7 +644,7 @@ return {
                 name = 'Chocobo Mazurka (+Move Spd.)',
                 level = 73,
                 cost = 0,
-                id = 465,
+                spell_id = 465,
                 magic = 'song',
                 command = function(target)
                     return '/ma "Chocobo Mazurka" '..target
@@ -658,7 +658,7 @@ return {
                 name = 'Raptor Mazurka (+Move Spd.)',
                 level = 37,
                 cost = 0,
-                id = 467,
+                spell_id = 467,
                 magic = 'song',
                 command = function(target)
                     return '/ma "Raptor Mazurka" '..target
@@ -673,7 +673,7 @@ return {
                 name = 'Warding Round(+Curse Res.)',
                 level = 73,
                 cost = 0,
-                id = 414,
+                spell_id = 414,
                 magic = 'song',
                 command = function(target)
                     return '/ma "Warding Round" '..target
@@ -687,7 +687,7 @@ return {
                 name = "Puppet's Operetta (+Silence Res.)",
                 level = 69,
                 cost = 0,
-                id = 410,
+                spell_id = 410,
                 magic = 'song',
                 command = function(target)
                     return '/ma "Puppet\'s Operetta" '..target
@@ -701,7 +701,7 @@ return {
                 name = 'Shining Fantasia (+Blind Res.)',
                 level = 56,
                 cost = 0,
-                id = 408,
+                spell_id = 408,
                 magic = 'song',
                 command = function(target)
                     return '/ma "Shining Fantasia" '..target
@@ -715,7 +715,7 @@ return {
                 name = 'Gold Capriccio (+Pet. Res.)',
                 level = 54,
                 cost = 0,
-                id = 412,
+                spell_id = 412,
                 magic = 'song',
                 command = function(target)
                     return '/ma "Gold Capriccio" '..target
@@ -729,7 +729,7 @@ return {
                 name = 'Goblin Gavotte (+Bind Res.)',
                 level = 49,
                 cost = 0,
-                id = 415,
+                spell_id = 415,
                 magic = 'song',
                 command = function(target)
                     return '/ma "Goblin Gavotte" '..target
@@ -743,7 +743,7 @@ return {
                 name = 'Fowl Aubade (+Slow Res.)',
                 level = 33,
                 cost = 0,
-                id = 405,
+                spell_id = 405,
                 magic = 'song',
                 command = function(target)
                     return '/ma "Fowl Aubade" '..target
@@ -757,7 +757,7 @@ return {
                 name = "Scop's Operetta (+Silence Res.)",
                 level = 19,
                 cost = 0,
-                id = 409,
+                spell_id = 409,
                 magic = 'song',
                 command = function(target)
                     return '/ma "Scop\'s Operetta" '..target
@@ -772,7 +772,7 @@ return {
                 name = 'Herb Pastoral (+Poison Res.)',
                 level = 9,
                 cost = 0,
-                id = 406,
+                spell_id = 406,
                 magic = 'song',
                 command = function(target)
                     return '/ma "Herb Pastoral" '..target
@@ -787,7 +787,7 @@ return {
                 name = "Goddess's Hymnus (Reraise)",
                 level = 71,
                 cost = 0,
-                id = 464,
+                spell_id = 464,
                 magic = 'song',
                 command = function(target)
                     return '/ma "Goddess\'s Hymnus" '..target
@@ -800,7 +800,7 @@ return {
                 name = 'Foe Sirvente (+Emnity)',
                 level = 75,
                 cost = 0,
-                id = 468,
+                spell_id = 468,
                 magic = 'song',
                 command = function(target)
                     return '/ma "Foe Sirvente" '..target
@@ -813,7 +813,7 @@ return {
                 name = "Adventurer's Dirge (-Emnity)",
                 level = 75,
                 cost = 0,
-                id = 469,
+                spell_id = 469,
                 magic = 'song',
                 command = function(target)
                     return '/ma "Adventurer\'s Dirge" '..target
@@ -830,7 +830,7 @@ return {
                 name = 'Pianissimo',
                 level = 20,
                 cost = 0,
-                id = 112,
+                recast_id = 112,
                 command = '/ja "Pianissimo" <me>',
                 buff_id = 409,
             },

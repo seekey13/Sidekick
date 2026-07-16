@@ -16,7 +16,7 @@ return {
                 name = "Conspirator",
                 level = 75,
                 cost = 0,
-                id = 40,
+                recast_id = 40,
                 command = '/ja "Conspirator" <me>',
                 buff_id = 462,
                 combat_only = true,
@@ -25,7 +25,7 @@ return {
                 name = "Assassin's Charge",
                 level = 75,
                 cost = 0,
-                id = 67,
+                recast_id = 67,
                 ability_id = 155,  -- merit-unlocked: gated on HasAbility
                 command = '/ja "Assassin\'s Charge" <me>',
                 buff_id = 342,
@@ -35,7 +35,7 @@ return {
                 name = "Feint",
                 level = 75,
                 cost = 0,
-                id = 68,
+                recast_id = 68,
                 ability_id = 156,  -- merit-unlocked: gated on HasAbility
                 command = '/ja "Feint" <me>',
                 buff_id = 343,

@@ -19,7 +19,7 @@ return {
                 name = 'Healing Ruby',
                 level = 1,
                 cost = 6,
-                id = 174,
+                recast_id = 174,
                 command = function(target)
                     return '/pet "Healing Ruby" '..target
                 end,
@@ -35,7 +35,7 @@ return {
                 name = 'Healing Ruby II',
                 level = 65,
                 cost = 124,
-                id = 174,
+                recast_id = 174,
                 command = '/pet "Healing Ruby II" <me>',
                 wakes = true,
                 pet_required = true,
@@ -49,7 +49,7 @@ return {
                 name = 'Avatar\'s Favor',
                 level = 55,
                 cost = 0,
-                id = 176,
+                recast_id = 176,
                 command = '/pet "Avatar\'s Favor" <me>',
                 buff_id = 431,
                 pet_required = true,
@@ -58,7 +58,7 @@ return {
                 name = 'Shining Ruby',
                 level = 24,
                 cost = 44,
-                id = 174, -- shared with Healing Ruby
+                recast_id = 174, -- shared with Healing Ruby
                 command = '/pet "Shining Ruby" <me>',
                 buff_id = 154,
                 pet_required = true,
@@ -72,7 +72,7 @@ return {
                 name = 'Apogee',
                 level = 70,
                 cost = 0,
-                id = 108,
+                recast_id = 108,
                 command = '/ja "Apogee" <me>',
                 pet_required = true,
                 requires_pet_name = { 'Carbuncle' },

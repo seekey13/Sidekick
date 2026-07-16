@@ -77,12 +77,27 @@ equip helpers (`is_ammo_equipped`/`ammo_equip_command`/`count_equippable_items`)
 `revive`, …), `default_settings`, `priority_order`, and optional `validate_ability`. No
 control flow belongs here beyond a `command` closure and an optional validator. See
 `paladin.lua` for the minimal shape, `beastmaster.lua` for the pet/consumable-ammo shape,
-and `ARCHITECTURE.md` for every ability field (`level`, `cost`, `value`, `id` = recast id,
-`buff_id`, `debuff_id`, `group`, `idle_only`, `combat_only`, `requires_buff`, `blocked_by`,
-`target_outside`, `main_job_only`, `target_modifier`, `requires_item`, `requires_precast`,
-and the pet/ammo fields `pet_required`, `requires_pet_name`, `requires_equipped_ammo`,
-`ammo_label`, `ammo_main_job_only`, `requires_ready_charge`, `ready_charge_cost`,
-`reapply_interval`, …).
+and `ARCHITECTURE.md` for every ability field (`level`, `cost`, `value`, `spell_id` /
+`recast_id` (see below), `buff_id`, `debuff_id`, `group`, `idle_only`, `combat_only`,
+`requires_buff`, `blocked_by`, `target_outside`, `main_job_only`, `target_modifier`,
+`requires_item`, `requires_precast`, and the pet/ammo fields `pet_required`,
+`requires_pet_name`, `requires_equipped_ammo`, `ammo_label`, `ammo_main_job_only`,
+`requires_ready_charge`, `ready_charge_cost`, `reapply_interval`, …).
+
+**Ability id fields map 1:1 onto CatsEyeXI server SQL.** An ability carries exactly one
+cooldown id, and the *field name* — not the command text — selects which recast table
+`action_core.is_usable` reads, so it must match the command:
+
+| Field | Source | Applies to |
+|---|---|---|
+| `spell_id` | [`spell_list.sql`](https://github.com/CatsAndBoats/catseyexi/blob/base/sql/spell_list.sql) `spellid` | `/ma` abilities (spell recast + `HasSpell`) |
+| `recast_id` | [`abilities.sql`](https://github.com/CatsAndBoats/catseyexi/blob/base/sql/abilities.sql) `recastId` | everything else (`/ja`, `/item`, `/pet`, `/ws`) |
+| `ability_id` | [`abilities.sql`](https://github.com/CatsAndBoats/catseyexi/blob/base/sql/abilities.sql) `abilityId` | merit-unlocked JAs only (`HasAbility(ability_id + 512)`) |
+| `buff_id` / `debuff_id` | [`status_effects.sql`](https://github.com/CatsAndBoats/catseyexi/blob/base/sql/status_effects.sql) `id` | status tracked / removed |
+
+Note `recastId` and `abilityId` are different columns of the same row — do not conflate them.
+Item/ammo tier-spec tables (BST `PET_FOOD`, NIN `SHURIKENS`, PUP `OILS`, …) use a plain `id`
+= item id; those are not abilities and keep the bare `id`.
 
 **UI** (`lib/ui/`). `config.lua` orchestrates the ImGui config window and delegates rendering
 to `components.lua`; `panel.lua` is the debug panel; `tooltips.lua` is hover help. Settings
