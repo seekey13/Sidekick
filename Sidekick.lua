@@ -880,11 +880,16 @@ ashita.events.register('packet_in', 'sidekick_packet_in', function(e)
                 automation.notify_action_finished()
             end
 
-            -- Cast finished (category 4) — apply the pending buff to the Trust. An
-            -- interrupted cast never sends this packet at all, so nothing lands and the
-            -- pending buff is left to expire rather than recording a buff the Trust
-            -- never got and suppressing the recast for its full base duration.
-            if actionPacket.Type == 4 then
+            -- Cast finished (category 4) — apply the pending buff to the Trust.
+            -- INTERRUPT_PARAM is rejected here whichever category the interrupt
+            -- actually arrives on: a real spell_finish carries a spell id, and no
+            -- spell id is 28787, so this can never reject a cast that landed. If the
+            -- interrupt is a category 8 (as handle_action_packet reads it) this is
+            -- dead weight; if it is a category 4 it is the only thing stopping us
+            -- recording a buff the Trust never got and suppressing the recast for the
+            -- buff's full base duration. handle_buff_application's staleness check
+            -- does not cover it -- the entry is seconds old, not expired.
+            if actionPacket.Type == 4 and actionPacket.Param ~= common.INTERRUPT_PARAM then
                 common.handle_buff_application()
             end
         end

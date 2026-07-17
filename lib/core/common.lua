@@ -30,7 +30,7 @@ local casting_state = {
     last_action_time = 0,
     -- Backstop only, not a mechanism: clears the lock if neither a spell_finish nor an
     -- interrupt packet ever arrives (zoning already clears it via clear_casting_state).
-    cast_timeout = 15.0,
+    cast_timeout = 16.0,
 }
 
 -- Last 0x028 action category seen from the player, for the debug panel readout.
@@ -2318,6 +2318,18 @@ function common.effective_ability_cost(ability, settings, job_def)
     return math.floor(ability.cost * modifier)
 end
 
+-- The half of a precast JA's usability that cannot change without a job/level
+-- change: on-level, meritted (has_spell_learned reads ability_id), and not a
+-- main-job JA supplied by the subjob. Split out from the recast so callers can
+-- distinguish "unusable for the next few seconds" (hold the spell) from
+-- "unusable until you re-level" (don't hold at all).
+function common.precast_permanently_usable(strat, main_level, sub_level)
+    if strat.main_job_only and strat.is_main_job == false then return false end
+    local level = strat.is_main_job == false and (sub_level or 0) or (main_level or 0)
+    if strat.level and level < strat.level then return false end
+    return common.has_spell_learned(strat)
+end
+
 -- A required precast (SCH Enlightenment) is assigned only to satisfy its
 -- spell's requires_buff. Skip firing it when that prerequisite is already met
 -- another way (Addendum: White up), so the JA isn't burned for nothing -- the
@@ -2389,9 +2401,14 @@ function common.check_stratagem(job_def, settings, ability_key, ability)
     -- All strat buffs active → ready to cast the spell
     if #missing == 0 then return nil end
 
-    -- A required precast always holds, whatever the Hold setting says: its
-    -- spell is gated on the JA's buff, so casting without it would only fail.
-    if missing[1].precast_required then unavailable = false end
+    -- Fire the first missing stratagem
+    local strat = missing[1]
+
+    -- A required precast holds whatever the Hold setting says: its spell is gated on
+    -- the JA's buff, so casting without it would only fail. Scoped to the strat this
+    -- tick actually fires -- overriding for the whole list would silently apply Hold
+    -- to an unrelated charge stratagem the user deliberately left un-held.
+    if strat.precast_required then unavailable = false end
 
     -- Need one charge per missing stratagem buff. Recast-gated strats have no
     -- charge pool -- their own JA timer is checked below -- and the job files
@@ -2400,21 +2417,17 @@ function common.check_stratagem(job_def, settings, ability_key, ability)
     -- behind it is re-checked (and charge-gated) on a later tick.
     local state = common.game_state
     local charges = state and state.stratagems or 0
-    if not missing[1].recast_gate and charges < #missing then
+    if not strat.recast_gate and charges < #missing then
         return unavailable
     end
 
-    -- Fire the first missing stratagem
-    local strat = missing[1]
-
     -- Recast-gated strat: main-job JA with no charge pool. Gate on the player
-    -- actually knowing it (merit-unlocked; a de-level below its level would
-    -- likewise spam a JA that always fails) and on its own recast being ready
-    -- (action_core's shared JA gate; lazy require -- action_core requires common).
+    -- actually being able to use it at all (on-level, meritted, right job) and on
+    -- its own recast being ready (action_core's shared JA gate; lazy require --
+    -- action_core requires common).
     if strat.recast_gate then
-        local main_level = common.get_player_level()
-        if (strat.level and main_level < strat.level)
-            or not common.has_spell_learned(strat)
+        local main_level, sub_level = common.get_player_level()
+        if not common.precast_permanently_usable(strat, main_level, sub_level)
             or not require('lib.core.action_core').is_ability_ready(strat.recast_id) then
             return unavailable
         end
@@ -2493,9 +2506,14 @@ end
 -- requires_buff it is currently missing (SCH Enlightenment on an Addendum:
 -- White spell while in Dark Arts). The requires_buff gates in the action
 -- modules must let such an ability through, otherwise it never reaches
--- check_stratagem and the JA is never fired. Only the precast's own prerequisite
--- is checked, not its availability (cooldown, learned): check_stratagem holds
--- the spell itself when the JA is momentarily unable to fire.
+-- check_stratagem and the JA is never fired.
+--
+-- Recast is deliberately NOT checked: that is momentary, and check_stratagem holds
+-- the spell for the seconds the JA needs. Level / merit / main-job ARE checked --
+-- those are permanent, and since check_stratagem forces hold for a precast_required
+-- strat, letting the ability through on a JA that can never fire holds it forever
+-- instead of skipping it (a stale assignment survives a de-level, and the [E] button
+-- that prunes it only renders in Dark Arts with the config window open).
 function common.precast_satisfies_prereq(job_def, settings, ability)
     if not (ability and ability.requires_buff and settings and settings.stratagem_settings) then
         return false
@@ -2505,15 +2523,21 @@ function common.precast_satisfies_prereq(job_def, settings, ability)
     if not assigned then return false end
     local strat_defs = job_def and job_def.abilities and job_def.abilities.precast
     if not strat_defs then return false end
-    local action_core  = require('lib.core.action_core')
-    local player_buffs = common.get_player_buffs()
+    local action_core = require('lib.core.action_core')
     for _, strat in ipairs(strat_defs) do
+        -- Table lookups first, AshitaCore reads second: the UI calls this per row per
+        -- ImGui frame, and only an assigned precast_required strat that actually grants
+        -- this row's buff is worth reading the player's level and buffs for.
         if strat.precast_required and assigned[strat.name]
-            and action_core.has_any_buff({ strat.buff_id }, ability.requires_buff)
-            -- The precast's own prerequisite (Enlightenment: Dark Arts) decides
-            -- whether it applies at all; outside it the gate stays shut.
-            and (not strat.requires_buff or action_core.has_any_buff(player_buffs, strat.requires_buff)) then
-            return true
+            and action_core.has_any_buff({ strat.buff_id }, ability.requires_buff) then
+            local main_level, sub_level = common.get_player_level()
+            if common.precast_permanently_usable(strat, main_level, sub_level)
+                -- The precast's own prerequisite (Enlightenment: Dark Arts) decides
+                -- whether it applies at all; outside it the gate stays shut.
+                and (not strat.requires_buff
+                    or action_core.has_any_buff(common.get_player_buffs(), strat.requires_buff)) then
+                return true
+            end
         end
     end
     return false

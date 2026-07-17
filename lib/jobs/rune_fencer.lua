@@ -457,9 +457,8 @@ return {
         -- Precast JA, fired the tick before its paired enhancing spell.
         -- recast_gate keeps it out of the Scholar S popup and check_stratagem's
         -- charge pool (it has its own JA timer, not stratagem charges).
-        -- magic = 'white' is the column key for the E button, which shows only
-        -- on magic = 'white' + magic_type = 'enhancing' rows -- the spikes are
-        -- magic = 'black' and are deliberately left out.
+        -- Its [E] button shows only on magic = 'white' + magic_type = 'enhancing'
+        -- rows -- the spikes are magic = 'black' and are deliberately left out.
         precast = {
             {
                 name = 'Embolden',
@@ -469,7 +468,7 @@ return {
                 command = '/ja "Embolden" <me>',
                 buff_id = 534,  -- Embolden buff
                 recast_gate = true,
-                magic = 'white',
+                column = 'embolden',  -- [E] button column
             },
         },
     },

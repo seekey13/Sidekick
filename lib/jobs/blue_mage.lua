@@ -302,9 +302,9 @@ return {
         -- Precast JAs, both fired the tick before their paired spell.
         precast = {
             -- Diffusion: recast-gated stratagem (like DRK Nether Void) that
-            -- spreads the next blue buff to the party. magic = 'blue' marks it
-            -- as the D-button column on blue buff rows; recast_gate keeps it
-            -- out of the Scholar S popup and check_stratagem's charge pool.
+            -- spreads the next blue buff to the party. column names its [D]
+            -- button; recast_gate keeps it out of the Scholar S popup and
+            -- check_stratagem's charge pool.
             {
                 name = 'Diffusion',
                 level = 75,  -- merit ability
@@ -315,7 +315,7 @@ return {
                 buff_id = 356,
                 recast_gate = true,
                 main_job_only = true,
-                magic = 'blue',
+                column = 'diffusion',  -- [D] button column
             },
             -- Unbridled Learning: never user-assigned (no recast_gate, and
             -- magic = 'blue' keeps it out of the Scholar S popup). Fired only

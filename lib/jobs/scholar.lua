@@ -738,7 +738,7 @@ return {
                 precast_required = true,
                 main_job_only = true,
                 requires_buff = {359, 402},  -- Dark Arts / Addendum: Black
-                magic = 'enlighten',
+                column = 'enlightenment',  -- [E] button column
             },
             {
                 name = 'Perpetuance (+Duration)', -- Increases the enhancement effect duration

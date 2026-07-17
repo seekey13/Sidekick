@@ -937,20 +937,23 @@ local function render_scholar_stratagem_button(ability_key, ability, ctx)
     return true, 0
 end
 
--- Resolve a job's recast-gated stratagem (DRK Nether Void when magic is nil,
--- BLU Diffusion when magic is 'blue') if the player can use it: right level,
--- never offered from a subjob when main_job_only. Level-gated the same way
--- filter_abilities_by_level would be. Non-nil means that button column is
--- on-screen, so every buff row needs its leading indent (the button itself
--- renders disabled while unlearned, so learned state doesn't matter for
+-- Resolve the recast-gated stratagem that owns a given button column, if the player
+-- can use it: right level, never offered from a subjob when main_job_only.
+-- Level-gated the same way filter_abilities_by_level would be. Non-nil means that
+-- button column is on-screen, so every buff row needs its leading indent (the button
+-- itself renders disabled while unlearned, so learned state doesn't matter for
 -- alignment).
-local function recast_gate_column_strat(ctx, magic)
+--
+-- The job data names its column outright (`column = 'embolden'`). It used to key off
+-- `magic`, which meant a job file had to carry a fake magic colour ('enlighten') and
+-- Nether Void's column was spelled "magic is nil".
+local function recast_gate_column_strat(ctx, column)
     local job_def    = ctx and ctx.job_def
     local strat_defs = job_def and job_def.abilities and job_def.abilities.precast
     if not strat_defs then return nil end
     local main_level, sub_level = common.get_player_level()
     for _, s in ipairs(strat_defs) do
-        if s.recast_gate and s.magic == magic then
+        if s.recast_gate and s.column == column then
             local from_sub = s.is_main_job == false
             local level = from_sub and (sub_level or 0) or (main_level or 0)
             if not (s.main_job_only and from_sub) and level >= (s.level or 0) then
@@ -963,15 +966,15 @@ local function recast_gate_column_strat(ctx, magic)
 end
 
 local function nether_void_column_strat(ctx)
-    return recast_gate_column_strat(ctx, nil)
+    return recast_gate_column_strat(ctx, 'nether_void')
 end
 
 local function diffusion_column_strat(ctx)
-    return recast_gate_column_strat(ctx, 'blue')
+    return recast_gate_column_strat(ctx, 'diffusion')
 end
 
 local function embolden_column_strat(ctx)
-    return recast_gate_column_strat(ctx, 'white')
+    return recast_gate_column_strat(ctx, 'embolden')
 end
 
 -- SCH Enlightenment column, live only while in Dark Arts / Addendum: Black --
@@ -979,7 +982,7 @@ end
 -- column collapses entirely rather than leaving every row indented.
 local function enlightenment_column_strat(ctx)
     if not (common.has_buff(0, 359) or common.has_buff(0, 402)) then return nil end
-    return recast_gate_column_strat(ctx, 'enlighten')
+    return recast_gate_column_strat(ctx, 'enlightenment')
 end
 
 -- Set or clear one strat assignment on an ability row, dropping the row's
@@ -1005,8 +1008,12 @@ end
 -- Passing no hold_tip drops the popup and makes the button a plain on/off
 -- toggle (SCH Enlightenment): Hold is implicit for a JA its ability cannot be
 -- used without, which leaves Enable as the popup's only choice.
+-- Widget ids key on strat.name, not on `letter`: two columns can draw on one row
+-- (render_leading_slot) and two strats can want the same letter -- Embolden [E] and
+-- Enlightenment [E] do -- which would give both buttons the same ImGui id and merge
+-- them into one control.
 local function render_recast_gate_button(ability_key, ctx, strat, letter, button_tip, enable_tip, hold_tip)
-    local btn_id = letter .. '##rg_' .. letter .. '_' .. ability_key
+    local btn_id = letter .. '##rg_' .. strat.name .. '_' .. ability_key
 
     -- Merit JA not unlocked yet: draw the button disabled (like an unlearned
     -- spell row) -- grayed, click-locked, "Not Learned" tooltip. Any config
@@ -1039,7 +1046,7 @@ local function render_recast_gate_button(ability_key, ctx, strat, letter, button
     local ss = get_stratagem_settings(ctx)
     if not ss then return false end
     local assigned = ss[ability_key] and ss[ability_key][strat.name] == true
-    local popup_id = '##rg_popup_' .. letter .. '_' .. ability_key
+    local popup_id = '##rg_popup_' .. strat.name .. '_' .. ability_key
 
     -- Color: default (active) when enabled, gray when idle -- same as S button
     if not assigned then
