@@ -34,13 +34,14 @@ local casting_state = {
 -- Melee rounds are deliberately not recorded (they'd drown everything else while engaged).
 local last_action = { category = nil, param = 0 }
 
--- 0x028 action categories (see handle_action_packet)
+-- 0x028 action categories (see handle_action_packet). Category 1 (melee) is absent
+-- by design: handle_action_packet drops those packets, so last_action never holds it.
 local ACTION_CATEGORY_NAMES = {
-    [1]  = 'melee',        [6]  = 'job_ability',    [11] = 'mob_tp_finish',
-    [2]  = 'ranged_finish',[7]  = 'ws_begin',       [12] = 'ranged_begin',
-    [3]  = 'ws_finish',    [8]  = 'casting_begin',  [13] = 'avatar_tp_finish',
-    [4]  = 'spell_finish', [9]  = 'item_begin',     [14] = 'job_ability_dnc',
-    [5]  = 'item_finish',                           [15] = 'job_ability_run',
+    [2]  = 'ranged_finish', [6] = 'job_ability',    [11] = 'mob_tp_finish',
+    [3]  = 'ws_finish',     [7] = 'ws_begin',       [12] = 'ranged_begin',
+    [4]  = 'spell_finish',  [8] = 'casting_begin',  [13] = 'avatar_tp_finish',
+    [5]  = 'item_finish',   [9] = 'item_begin',     [14] = 'job_ability_dnc',
+                                                    [15] = 'job_ability_run',
 }
 
 -- Movement tracking state
@@ -422,6 +423,18 @@ function common.handle_action_packet(actionPacket)
     elseif not casting_state.is_casting and was_casting then
         common.debugf('[CASTING ENDED] Category: %d, Param: %d', category, actionPacket.Param)
     end
+end
+
+-- Drop the casting lock without waiting for the timeout. Zoning cancels an in-flight
+-- cast without ever sending the spell_finish packet, and a stuck lock is
+-- self-sustaining (locked = no actions = no packet to clear it), so the cast_timeout
+-- backstop would otherwise freeze automation for its full duration after the zone.
+function common.clear_casting_state()
+    if casting_state.is_casting then
+        common.debugf('[Casting] Cleared (zone change)')
+    end
+    casting_state.is_casting = false
+    last_action.category = nil
 end
 
 -- Debug panel readout: the last action category detected from the player, with the
