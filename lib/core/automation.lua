@@ -39,17 +39,10 @@ function automation.execute_command(command, description)
     return true
 end
 
--- Restart the throttle from an action's *completion* rather than its send.
---
--- The lockout is server-side and runs from when the server resolves the action, but
--- execute_command can only stamp the client's send. Those differ by a whole cast time
--- for a spell (the send-time stamp expires seconds before the cast even ends, so the
--- next command fires into the lockout and is eaten) and by half a round-trip for an
--- instant job ability. Our own 0x028 finish packet is the server telling us when the
--- action actually landed, which is the timer we want.
---
--- Only ever moves the stamp later: os.clock() here is always >= the send-time stamp
--- execute_command already wrote, so this can never let a command out early.
+-- Restart the throttle from an action's *completion* rather than its send. The lockout
+-- is server-side, but execute_command can only stamp the client's send -- a whole cast
+-- time early for a spell, so the next command fires into the lockout and is eaten.
+-- Only ever moves the stamp later, so it can never let a command out early.
 -- Called from the 0x028 handler; see ACTION_FINISH_CATEGORIES in Sidekick.lua.
 function automation.notify_action_finished()
     last_command_time = os.clock()

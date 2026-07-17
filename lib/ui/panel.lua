@@ -262,10 +262,9 @@ function panel.render(addon_settings, save_settings)
                 end
             end
 
-            -- AFK Sleep state, beside Moving/Action. The countdown only means anything
-            -- while automation is running: afk.update() is the only thing that advances
-            -- still_since, and the tick loop returns before it when stopped, so a stopped
-            -- addon would otherwise show a countdown draining to a permanent 'awake (0s)'.
+            -- AFK Sleep state, beside Moving/Action. Only afk.update() advances the
+            -- timer and the tick loop returns before it when stopped, so 'idle' rather
+            -- than a countdown draining to a permanent 'awake (0s)'.
             if not (addon_settings and addon_settings.afk_enabled) then
                 dbg = dbg .. '   AFK: off'
             elseif not addon_settings.automation_enabled then

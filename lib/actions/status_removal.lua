@@ -45,9 +45,9 @@ end
 
 -- Sort key for the priority loops: targeted na-spell (0) < generic Erase (1) <
 -- self-centered AOE / Esuna (2). A generic remover is identified by table identity --
--- WHM/SCH Erase share the one common.ERASABLE_DEBUFFS table. (The pet cleanses carry
--- common.PET_CLEANSE_DEBUFFS, but they only ever reach execute_pet_debuff_removal,
--- which does not sort -- they are matched here for when that stops being true.)
+-- WHM/SCH Erase share the one common.ERASABLE_DEBUFFS table. The pet cleanses
+-- (PET_CLEANSE_DEBUFFS) only reach execute_pet_debuff_removal, which does not sort;
+-- matched here for when that stops being true.
 local function removal_rank(ability)
     if ability.self_only then return 2 end
     if not ability.debuff_id

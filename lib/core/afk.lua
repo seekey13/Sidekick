@@ -1,18 +1,11 @@
 --[[
     AFK Sleep
-    Dead-man's switch for automation. When nothing has happened around the player
-    for afk_timeout seconds, automation goes to sleep until the player physically
-    moves. Sleep is a runtime gate, not a stop: automation_enabled stays true and
-    nothing is written to disk, so /sk start survives a sleep cycle.
+    Automation sleeps after afk_timeout seconds of no party movement (game_state
+    positions, indices 0-5) and no party combat (common.is_combat()). A runtime gate,
+    not a stop: automation_enabled stays true and nothing is written to disk.
 
-    Two activity signals, both already collected each tick (no new memory reads):
-      - Party movement (indices 0-5) via common.game_state.party[i].position
-      - Party combat via common.is_combat() -- <bt> resolves on party CLAIM, not on
-        the player's own engagement, so it already covers a healer standing back.
-
-    The asymmetry is intentional: six people plus a party claim can keep automation
-    awake, but only the player's OWN movement wakes it. A mob claim is not proof a
-    human is present; movement is.
+    Asymmetric by design: the whole party keeps automation awake, but only the
+    player's OWN movement wakes it -- a mob claim is not proof a human is present.
 ]]--
 
 local common = require('lib.core.common')
@@ -26,8 +19,7 @@ local sleeping = false
 
 local DEFAULT_TIMEOUT = 600  -- Seconds; mirrors default_settings.afk_timeout
 
--- Format a timeout for the sleep message: minutes when it divides evenly (10m),
--- otherwise seconds (90s). /sk afk 60 must report 60s, not 10m.
+-- Minutes when they divide evenly (10m), else seconds (90s).
 local function format_timeout(seconds)
     if seconds % 60 == 0 then
         return string.format('%dm', seconds / 60)
@@ -35,10 +27,8 @@ local function format_timeout(seconds)
     return string.format('%ds', seconds)
 end
 
--- Samples every party slot into last_positions and returns whether any member moved
--- since the previous sample. last_positions is rewritten on every call regardless of
--- state, so a slow drift across many ticks still registers as movement on each one.
--- Out-of-zone members read position as a frozen {0,0,0}, so they never register.
+-- Samples every party slot into last_positions; true when any member moved since the
+-- previous sample. Out-of-zone members read a frozen {0,0,0}, so they never register.
 -- Index 0 is the player, held in game_state.player (game_state.party is 1-5 only).
 local function sample_party_movement()
     local moved = false
@@ -49,7 +39,7 @@ local function sample_party_movement()
         local pos = member and member.position
         if pos then
             local last = last_positions[i]
-            -- Exact float inequality, the same assumption common.is_player_moving() ships on.
+            -- Exact float inequality, as common.is_player_moving() does.
             if last and (pos.x ~= last.x or pos.y ~= last.y or pos.z ~= last.z) then
                 moved = true
             end
@@ -63,11 +53,11 @@ local function sample_party_movement()
 end
 
 -- Advances the state machine. Called every tick while automation is started.
--- Emits the transition message; never prints per-tick.
+-- Prints on transition only.
 function afk.update(settings)
     if not settings or not settings.afk_enabled then
-        -- Disabled: fully inert. Reset every tick so it wakes if it was left asleep
-        -- and so re-enabling starts a full interval instead of sleeping instantly.
+        -- Reset every tick so it can't be left asleep, and so re-enabling starts a
+        -- full interval instead of sleeping instantly.
         afk.reset()
         return
     end
@@ -77,8 +67,8 @@ function afk.update(settings)
     local now = os.clock()
 
     if sleeping then
-        -- Only the player's own movement wakes automation. Combat deliberately does
-        -- NOT: an AFK player in a party that pulls should stay asleep.
+        -- Only the player's own movement wakes. Combat deliberately does not: an AFK
+        -- player in a party that pulls should stay asleep.
         if common.is_player_moving() then
             sleeping = false
             still_since = now
@@ -112,8 +102,7 @@ function afk.seconds_remaining(settings)
     return remaining
 end
 
--- Clears the timer and wakes. Called on job change and on /sk start.
--- Silent: a deliberate state clear is not a movement-detected wake.
+-- Clears the timer and wakes, silently. Called on job change and on /sk start.
 function afk.reset()
     last_positions = {}
     still_since = os.clock()

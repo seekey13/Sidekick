@@ -20,8 +20,8 @@ common.debug = false
 -- Addon name for header
 local addon_name = 'Sidekick'
 
--- Param value a 0x028 *_begin category carries in place of the spell/ability id when the
--- action was cancelled rather than started (0x7073). See handle_action_packet.
+-- Param (0x7073) a 0x028 *_begin category carries in place of the spell/ability id when
+-- the action was cancelled rather than started. See handle_action_packet.
 common.INTERRUPT_PARAM = 28787
 
 -- Casting state tracking (packet-based)
@@ -34,11 +34,10 @@ local casting_state = {
 }
 
 -- Last 0x028 action category seen from the player, for the debug panel readout.
--- Melee rounds are deliberately not recorded (they'd drown everything else while engaged).
 local last_action = { category = nil, param = 0 }
 
--- 0x028 action categories (see handle_action_packet). Category 1 (melee) is absent
--- by design: handle_action_packet drops those packets, so last_action never holds it.
+-- 0x028 action categories (see handle_action_packet). Category 1 (melee) is absent by
+-- design -- handle_action_packet drops those packets, so last_action never holds one.
 local ACTION_CATEGORY_NAMES = {
     [2]  = 'ranged_finish', [6] = 'job_ability',    [11] = 'mob_tp_finish',
     [3]  = 'ws_finish',     [7] = 'ws_begin',       [12] = 'ranged_begin',
@@ -385,18 +384,16 @@ end
 -- Args: actionPacket (table) - parsed packet from parse_packets.parse_action_packet
 -- Caller must have already confirmed the player is the actor (UserId).
 --
--- The 0x028 packet carries no "action state" field: cast start and cast finish are
--- two separate packets distinguished only by the 4-bit category (actionPacket.Type):
+-- Cast start and cast finish are separate packets, distinguished only by the 4-bit
+-- category (actionPacket.Type):
 --    1 = melee            6 = job_ability      11 = mob_tp_finish
 --    2 = ranged_finish    7 = ws_begin         12 = ranged_begin
 --    3 = ws_finish        8 = casting_begin    13 = avatar_tp_finish
 --    4 = spell_finish     9 = item_begin       14 = job_ability (DNC)
 --    5 = item_finish                           15 = job_ability (RUN)
--- An interrupted cast never sends its category 4 finish. It arrives as a *second*
--- category 8 carrying Param 28787 (0x7073) instead of a spell id -- the same marker the
--- other _begin categories (7 ws, 9 item, 12 ranged) use to signal a cancelled action.
--- Without the Param check the interrupt would re-arm the cast lock and freeze automation
--- until cast_timeout expired.
+-- An interrupted cast sends no category 4; it arrives as a *second* category 8 carrying
+-- INTERRUPT_PARAM. Without that Param check it would re-arm the cast lock and freeze
+-- automation until cast_timeout expired.
 function common.handle_action_packet(actionPacket)
     if not actionPacket then return end
 
@@ -432,9 +429,8 @@ function common.handle_action_packet(actionPacket)
 end
 
 -- Drop the casting lock without waiting for the timeout. Zoning cancels an in-flight
--- cast without ever sending the spell_finish packet, and a stuck lock is
--- self-sustaining (locked = no actions = no packet to clear it), so the cast_timeout
--- backstop would otherwise freeze automation for its full duration after the zone.
+-- cast without sending spell_finish, and a stuck lock is self-sustaining (locked = no
+-- actions = no packet to clear it), so automation would freeze for the whole timeout.
 function common.clear_casting_state()
     if casting_state.is_casting then
         common.debugf('[Casting] Cleared (zone change)')
@@ -443,9 +439,8 @@ function common.clear_casting_state()
     last_action.category = nil
 end
 
--- Debug panel readout: the last action category detected from the player, with the
--- spell name where we have one. Param is a spell id only for the two magic
--- categories; the rest carry ability/item ids that aren't worth resolving here.
+-- Debug panel readout: the last action category detected from the player, plus the
+-- spell name where we have one. Param is a spell id only for the two magic categories.
 function common.get_last_action()
     -- Evaluates the stuck-cast timeout, which clears last_action, so a cast whose
     -- finish packet never arrived isn't reported forever.
@@ -453,9 +448,8 @@ function common.get_last_action()
 
     if not last_action.category then return 'none' end
 
-    -- A cancelled action reuses its _begin category and replaces the spell/ability id
-    -- with INTERRUPT_PARAM, so report the interrupt rather than a bogus 'casting_begin'
-    -- and a spell lookup on an id that is not one.
+    -- A cancelled action reuses its _begin category, so report the interrupt rather
+    -- than a bogus 'casting_begin' and a spell lookup on an id that is not one.
     if last_action.param == common.INTERRUPT_PARAM then
         local name = ACTION_CATEGORY_NAMES[last_action.category]
         return name and ('interrupted (' .. name .. ')') or 'interrupted'
@@ -638,20 +632,17 @@ function common.get_party()
 end
 
 -- Status ailments Erase removes (WHM/SCH). The Na-spell ailments are deliberately
--- absent: Erase does not touch poison/paralysis/blindness/silence/disease/curse/
--- plague, so listing them only made Erase fire and fail.
+-- absent -- Erase does not touch them, so listing them only made Erase fire and fail.
 common.ERASABLE_DEBUFFS = {11, 12, 13, 128, 129, 130, 131, 134,
     135, 136, 137, 138, 139, 140, 141, 142, 144, 145, 146, 147, 148, 149, 156,
     167, 174, 175, 189, 404}
 
 -- Status ailments the pet cleanses remove (BST Reward, PUP Maintenance): everything
--- Erase clears, PLUS the Na-spell ailments below. NOT the same list as Erase --
--- server-side neither ability is an Erase: Maintenance walks its own ailment list and
--- only then falls back to eraseStatusEffect() (job_utils/puppetmaster.lua), and Reward
--- is a gear-dependent cleanse that never calls Erase at all (job_utils/beastmaster.lua
--- -- Beast Jackcoat clears poison/paralysis/blindness, Monster Jackcoat clears
--- silence/weight/slow, the +1s clear all six, and no Jackcoat clears nothing). Reward
--- therefore over-claims here; it fires and no-ops rather than missing a real cleanse.
+-- Erase clears plus the Na-spell ailments below. Deliberately not Erase's list --
+-- server-side neither ability is an Erase (Maintenance walks its own ailment list
+-- before falling back to eraseStatusEffect(); Reward is a Jackcoat-gear-gated cleanse
+-- that never calls Erase). Reward over-claims here, firing and no-opping without the
+-- gear rather than missing a real cleanse.
 common.PET_CLEANSE_DEBUFFS = {3, 4, 5, 6, 8, 9, 31}  -- Poison, Paralysis, Blindness,
                                                      -- Silence, Disease, Curse, Plague
 for _, id in ipairs(common.ERASABLE_DEBUFFS) do
@@ -708,10 +699,9 @@ local BASE_DEBUFF_DURATION = {
 }
 
 -- Set form of "is this a debuff some Sidekick ability can remove", for O(1) lookups.
--- Built from PET_CLEANSE_DEBUFFS, the superset: the 120s expiry backstop below keys
--- off this, and it must cover every debuff with a remover, not just Erase's share --
--- a Na-spell ailment left out of it is tracked with no timer, so one missed removal
--- packet loops the Na-spell forever.
+-- Built from the PET_CLEANSE_DEBUFFS superset, not Erase's share: the 120s expiry
+-- backstop below keys off this, and a debuff left out of it is tracked with no timer,
+-- so one missed removal packet loops its remover forever.
 local REMOVABLE_SET = {}
 for _, id in ipairs(common.PET_CLEANSE_DEBUFFS) do REMOVABLE_SET[id] = true end
 
@@ -1483,9 +1473,9 @@ function common.handle_buff_application()
     local pending = pending_buffs[#pending_buffs]
     table.remove(pending_buffs, #pending_buffs)
 
-    -- An interrupted cast registers a pending buff and never sends the spell_finish that
-    -- would pop it, so the entry outlives its cast. Without this an unrelated later
-    -- spell_finish claims it and records a buff the target never received.
+    -- An interrupted cast registers a pending buff and never sends the spell_finish
+    -- that pops it, so without this a later unrelated spell_finish claims the stale
+    -- entry and records a buff the target never received.
     if (os.clock() - pending.timestamp) > PENDING_BUFF_TIMEOUT then return end
     local source_id = common.game_state and common.game_state.player and common.game_state.player.server_id
     common.apply_external_buff(pending.server_id, pending.buff_id, pending.duration, source_id)
@@ -2336,11 +2326,10 @@ function common.effective_ability_cost(ability, settings, job_def)
     return math.floor(ability.cost * modifier)
 end
 
--- The half of a precast JA's usability that cannot change without a job/level
--- change: on-level, meritted (has_spell_learned reads ability_id), and not a
--- main-job JA supplied by the subjob. Split out from the recast so callers can
--- distinguish "unusable for the next few seconds" (hold the spell) from
--- "unusable until you re-level" (don't hold at all).
+-- The half of a precast JA's usability that only a job/level change can alter:
+-- on-level, meritted (has_spell_learned reads ability_id), and not a main-job JA
+-- supplied by the subjob. Split from the recast so callers can tell "unusable for a
+-- few seconds" (hold the spell) from "unusable until you re-level" (don't hold).
 function common.precast_permanently_usable(strat, main_level, sub_level)
     if strat.main_job_only and strat.is_main_job == false then return false end
     local level = strat.is_main_job == false and (sub_level or 0) or (main_level or 0)
@@ -2348,10 +2337,9 @@ function common.precast_permanently_usable(strat, main_level, sub_level)
     return common.has_spell_learned(strat)
 end
 
--- A required precast (SCH Enlightenment) is assigned only to satisfy its
--- spell's requires_buff. Skip firing it when that prerequisite is already met
--- another way (Addendum: White up), so the JA isn't burned for nothing -- the
--- assignment stays configured for when the stance changes back.
+-- A required precast (SCH Enlightenment) exists only to satisfy its spell's
+-- requires_buff, so don't burn the JA when that is already met another way
+-- (Addendum: White up). The assignment stays configured for when the stance changes.
 local function precast_redundant(strat, ability, player_buffs)
     if not strat.precast_required then return false end
     return require('lib.core.action_core').has_any_buff(player_buffs, ability and ability.requires_buff)
@@ -2422,27 +2410,25 @@ function common.check_stratagem(job_def, settings, ability_key, ability)
     -- Fire the first missing stratagem
     local strat = missing[1]
 
-    -- A required precast holds whatever the Hold setting says: its spell is gated on
-    -- the JA's buff, so casting without it would only fail. Scoped to the strat this
-    -- tick actually fires -- overriding for the whole list would silently apply Hold
-    -- to an unrelated charge stratagem the user deliberately left un-held.
+    -- A required precast holds regardless of the Hold setting: its spell is gated on
+    -- the JA's buff, so casting without it only fails. Scoped to the strat firing this
+    -- tick -- overriding the whole list would silently hold an unrelated charge
+    -- stratagem the user deliberately left un-held.
     if strat.precast_required then unavailable = false end
 
-    -- Need one charge per missing stratagem buff. Recast-gated strats have no
-    -- charge pool -- their own JA timer is checked below -- and the job files
-    -- list them ahead of the charge strats, so missing[1] being one means this
-    -- tick spends no charge. Only one strat fires per tick, so any charge strat
-    -- behind it is re-checked (and charge-gated) on a later tick.
+    -- Need one charge per missing stratagem buff. Recast-gated strats have no charge
+    -- pool (their own JA timer is checked below) and job files list them ahead of the
+    -- charge strats, so missing[1] being one means this tick spends no charge; any
+    -- charge strat behind it is re-checked, and charge-gated, on a later tick.
     local state = common.game_state
     local charges = state and state.stratagems or 0
     if not strat.recast_gate and charges < #missing then
         return unavailable
     end
 
-    -- Recast-gated strat: main-job JA with no charge pool. Gate on the player
-    -- actually being able to use it at all (on-level, meritted, right job) and on
-    -- its own recast being ready (action_core's shared JA gate; lazy require --
-    -- action_core requires common).
+    -- Recast-gated strat: main-job JA with no charge pool. Gate on the player being
+    -- able to use it at all (on-level, meritted, right job) and on its own recast.
+    -- Lazy require -- action_core requires common.
     if strat.recast_gate then
         local main_level, sub_level = common.get_player_level()
         if not common.precast_permanently_usable(strat, main_level, sub_level)
@@ -2521,17 +2507,14 @@ function common.check_required_precast(job_def, ability)
 end
 
 -- True when a precast_required JA assigned to this ability would grant the
--- requires_buff it is currently missing (SCH Enlightenment on an Addendum:
--- White spell while in Dark Arts). The requires_buff gates in the action
--- modules must let such an ability through, otherwise it never reaches
--- check_stratagem and the JA is never fired.
+-- requires_buff it is currently missing (SCH Enlightenment on an Addendum: White spell
+-- in Dark Arts). The action modules' requires_buff gates must let such an ability
+-- through, else it never reaches check_stratagem and the JA never fires.
 --
--- Recast is deliberately NOT checked: that is momentary, and check_stratagem holds
--- the spell for the seconds the JA needs. Level / merit / main-job ARE checked --
--- those are permanent, and since check_stratagem forces hold for a precast_required
--- strat, letting the ability through on a JA that can never fire holds it forever
--- instead of skipping it (a stale assignment survives a de-level, and the [E] button
--- that prunes it only renders in Dark Arts with the config window open).
+-- Recast is deliberately NOT checked: it's momentary, and check_stratagem holds the
+-- spell for the seconds the JA needs. Level / merit / main-job ARE -- those are
+-- permanent, and check_stratagem force-holds a precast_required strat, so a JA that
+-- can never fire would hold the ability forever instead of skipping it.
 function common.precast_satisfies_prereq(job_def, settings, ability)
     if not (ability and ability.requires_buff and settings and settings.stratagem_settings) then
         return false
@@ -2543,9 +2526,9 @@ function common.precast_satisfies_prereq(job_def, settings, ability)
     if not strat_defs then return false end
     local action_core = require('lib.core.action_core')
     for _, strat in ipairs(strat_defs) do
-        -- Table lookups first, AshitaCore reads second: the UI calls this per row per
-        -- ImGui frame, and only an assigned precast_required strat that actually grants
-        -- this row's buff is worth reading the player's level and buffs for.
+        -- Table lookups before AshitaCore reads: the UI calls this per row per ImGui
+        -- frame, and only a strat that actually grants this row's buff is worth
+        -- reading the player's level and buffs for.
         if strat.precast_required and assigned[strat.name]
             and action_core.has_any_buff({ strat.buff_id }, ability.requires_buff) then
             local main_level, sub_level = common.get_player_level()

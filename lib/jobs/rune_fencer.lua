@@ -454,11 +454,10 @@ return {
             },
         },
 
-        -- Precast JA, fired the tick before its paired enhancing spell.
-        -- recast_gate keeps it out of the Scholar S popup and check_stratagem's
-        -- charge pool (it has its own JA timer, not stratagem charges).
-        -- Its [E] button shows only on magic = 'white' + magic_type = 'enhancing'
-        -- rows -- the spikes are magic = 'black' and are deliberately left out.
+        -- Precast JA, fired the tick before its paired enhancing spell. recast_gate
+        -- keeps it out of the Scholar S popup and check_stratagem's charge pool (it
+        -- has its own JA timer). Its [E] button shows only on white enhancing rows --
+        -- the spikes are magic = 'black' and are deliberately left out.
         precast = {
             {
                 name = 'Embolden',

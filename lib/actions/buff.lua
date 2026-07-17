@@ -239,15 +239,12 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
             local config_key = area_song_config_key(ability, settings, party_buff_config, area_processed)
             if config_key and area_needs_recast(ability, party_buff_config, song_keys, available_abilities, settings, state) then
                 if fast_casting and not has_pianissimo then
-                    -- Only raise Pianissimo once the song itself is off recast and
-                    -- affordable -- otherwise Pianissimo's own recast burns down
-                    -- while the song is still waiting. Song not ready: fall through
-                    -- to the next one.
+                    -- Only raise Pianissimo once the song is off recast and affordable,
+                    -- else Pianissimo's own recast burns down while the song waits.
                     local eff_cost = common.effective_ability_cost(ability, settings, job_def)
                     if action_core.is_usable(ability, job_def, eff_cost) then
-                        -- Always hold for Pianissimo in fast mode: only cast the area
-                        -- song once Pianissimo is up. If it can't fire yet
-                        -- (recast/disabled), wait rather than casting without it.
+                        -- Fast mode always holds: wait for Pianissimo rather than
+                        -- casting the area song without it.
                         return common.check_target_modifier(job_def, settings, derived_main_level, derived_sub_level)
                     end
                 else
@@ -291,9 +288,9 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
             end
         end
         
-        -- Check required buff prerequisite for player. An assigned precast that
-        -- grants the buff (SCH Enlightenment) counts as met: check_stratagem
-        -- fires the JA below and holds the spell until its buff lands.
+        -- Check required buff prerequisite for player. An assigned precast that grants
+        -- the buff (SCH Enlightenment) counts as met -- check_stratagem fires the JA
+        -- below and holds the spell until its buff lands.
         if not should_skip and ability.requires_buff then
             if not action_core.has_any_buff(state.player.buffs, ability.requires_buff)
                 and not common.precast_satisfies_prereq(job_def, settings, ability) then
@@ -432,9 +429,9 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                                 end
                                 
                                 if not has_modifier_buff then
-                                    -- Only raise the modifier once the song itself is off
-                                    -- recast and affordable, else Pianissimo's recast burns
-                                    -- down while the song is still waiting.
+                                    -- Only raise the modifier once the song is off recast
+                                    -- and affordable, else its recast burns down while the
+                                    -- song waits.
                                     local eff_cost = common.effective_ability_cost(ability, settings, job_def)
                                     if not action_core.is_usable(ability, job_def, eff_cost) then
                                         goto continue_ability

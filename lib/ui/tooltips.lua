@@ -216,10 +216,9 @@ return {
         'down to 1 shadow (still blocks at 2+ shadows). Once casting starts\n' ..
         'issues /debuff 66 to clear the last shadow so the new set applies.',
 
-    -- Recast-gated precast JA buttons (see render_recast_gate_button): each
-    -- needs a button tip, an Enable tip and a Hold tip. Nether Void's carry a
-    -- %s for the noun, since its column covers both Absorb spells and the
-    -- Drain/Aspir rows.
+    -- Recast-gated precast JA buttons (see render_recast_gate_button): each needs a
+    -- button, Enable and Hold tip. Nether Void's take a %s noun -- its column covers
+    -- both Absorb spells and the Drain/Aspir rows.
     nether_void_button =
         'Nether Void: fire Nether Void before this %s\n' ..
         'to boost its effect. Click to configure. Lit when enabled.',
@@ -253,9 +252,8 @@ return {
         'On: skip this spell until Embolden is ready.\n' ..
         'Off (default): cast the spell unboosted when Embolden is on cooldown.',
 
-    -- Enlightenment toggles rather than opening a popup, so it needs only the
-    -- button tip: Enable is the click itself, and Hold is implicit (the spell
-    -- is gated on the JA's buff, so it always waits for it).
+    -- Enlightenment toggles rather than opening a popup, so it needs only the button
+    -- tip: Enable is the click itself, and Hold is implicit.
     enlightenment_button =
         'Enlightenment: fire Enlightenment before this spell so it can\n' ..
         'be cast in Dark Arts without Addendum: White. Click to toggle.\n' ..
