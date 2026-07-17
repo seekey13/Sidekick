@@ -727,6 +727,20 @@ return {
         -- Stratagems: JAs fired just before their paired spell (precast slot)
         precast = {
             {
+                name = 'Enlightenment',
+                level = 75,
+                cost = 0,
+                recast_id = 235,
+                ability_id = 244,  -- merit-unlocked: gated on HasAbility
+                command = '/ja "Enlightenment" <me>',
+                buff_id = 416,
+                recast_gate = true,
+                precast_required = true,
+                main_job_only = true,
+                requires_buff = {359, 402},  -- Dark Arts / Addendum: Black
+                magic = 'enlighten',
+            },
+            {
                 name = 'Perpetuance (+Duration)', -- Increases the enhancement effect duration
                 level = 75,
                 cost = 0,

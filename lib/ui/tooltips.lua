@@ -252,4 +252,12 @@ return {
     embolden_hold =
         'On: skip this spell until Embolden is ready.\n' ..
         'Off (default): cast the spell unboosted when Embolden is on cooldown.',
+
+    -- Enlightenment toggles rather than opening a popup, so it needs only the
+    -- button tip: Enable is the click itself, and Hold is implicit (the spell
+    -- is gated on the JA's buff, so it always waits for it).
+    enlightenment_button =
+        'Enlightenment: fire Enlightenment before this spell so it can\n' ..
+        'be cast in Dark Arts without Addendum: White. Click to toggle.\n' ..
+        'Lit when enabled. The spell waits until Enlightenment is ready.',
 }

@@ -8,6 +8,7 @@ local ui_components = {}
 local imgui = require('imgui')
 local common = require('lib.core.common')
 local item_module = require('lib.actions.item')
+local action_core = require('lib.core.action_core')
 local tooltips = require('lib.ui.tooltips')
 
 -- ============================================================================
@@ -973,13 +974,37 @@ local function embolden_column_strat(ctx)
     return recast_gate_column_strat(ctx, 'white')
 end
 
--- Shared body for the recast-gated strat buttons (DRK [N], BLU [D]): a
--- one-letter button opening a popup with Enable (fire the JA before the
+-- SCH Enlightenment column, live only while in Dark Arts / Addendum: Black --
+-- the only stance where an Addendum: White spell needs it. Off-stance the
+-- column collapses entirely rather than leaving every row indented.
+local function enlightenment_column_strat(ctx)
+    if not (common.has_buff(0, 359) or common.has_buff(0, 402)) then return nil end
+    return recast_gate_column_strat(ctx, 'enlighten')
+end
+
+-- Set or clear one strat assignment on an ability row, dropping the row's
+-- table once its last assignment is gone (check_stratagem treats an empty
+-- table as an assignment).
+local function set_strat_assigned(ss, ability_key, strat_name, on)
+    if on then
+        ss[ability_key] = ss[ability_key] or {}
+        ss[ability_key][strat_name] = true
+    elseif ss[ability_key] then
+        ss[ability_key][strat_name] = nil
+        if not next(ss[ability_key]) then ss[ability_key] = nil end
+    end
+end
+
+-- Shared body for the recast-gated strat buttons (DRK [N], BLU [D], SCH [E]):
+-- a one-letter button opening a popup with Enable (fire the JA before the
 -- paired ability, via the stratagem machinery) and Hold (skip the ability
 -- until the JA is ready; off = fire the ability without it when it's on
 -- cooldown). Renders disabled (Not Learned) until the merit is unlocked.
 -- Lit when enabled. Returns true when it drew the button (fills the row's
 -- leading slot).
+-- Passing no hold_tip drops the popup and makes the button a plain on/off
+-- toggle (SCH Enlightenment): Hold is implicit for a JA its ability cannot be
+-- used without, which leaves Enable as the popup's only choice.
 local function render_recast_gate_button(ability_key, ctx, strat, letter, button_tip, enable_tip, hold_tip)
     local btn_id = letter .. '##rg_' .. letter .. '_' .. ability_key
 
@@ -1024,7 +1049,12 @@ local function render_recast_gate_button(ability_key, ctx, strat, letter, button
     end
 
     if imgui.Button(btn_id, { 20, 0 }) then
-        imgui.OpenPopup(popup_id)
+        if hold_tip then
+            imgui.OpenPopup(popup_id)
+        else
+            set_strat_assigned(ss, ability_key, strat.name, not assigned)
+            if ctx.save_callback then ctx.save_callback() end
+        end
     end
 
     if imgui.IsItemHovered() then
@@ -1035,19 +1065,13 @@ local function render_recast_gate_button(ability_key, ctx, strat, letter, button
         imgui.PopStyleColor(3)
     end
 
-    if imgui.BeginPopup(popup_id) then
+    if hold_tip and imgui.BeginPopup(popup_id) then
         imgui.TextColored({ 0.8, 0.8, 0.8, 1.0 }, strat.name)
         imgui.Separator()
 
         local enable_val = { assigned }
         if imgui.Checkbox('Enable##rg_enable_' .. letter .. '_' .. ability_key, enable_val) then
-            if enable_val[1] then
-                ss[ability_key] = ss[ability_key] or {}
-                ss[ability_key][strat.name] = true
-            elseif ss[ability_key] then
-                ss[ability_key][strat.name] = nil
-                if not next(ss[ability_key]) then ss[ability_key] = nil end
-            end
+            set_strat_assigned(ss, ability_key, strat.name, enable_val[1])
             if ctx.save_callback then ctx.save_callback() end
         end
         if imgui.IsItemHovered() then
@@ -1113,6 +1137,25 @@ local function render_embolden_button(ability_key, ability, ctx)
         tooltips.embolden_button, tooltips.embolden_enable, tooltips.embolden_hold)
 end
 
+-- SCH Enlightenment [E] button on the rows Addendum: White gates, shown only
+-- while in Dark Arts -- the stance that locks them out.
+-- No popup: Hold is implicit for a spell that cannot be cast without the JA, so
+-- the button is a plain toggle (no hold_tip passed).
+local function render_enlightenment_button(ability_key, ability, ctx)
+    local strat = enlightenment_column_strat(ctx)
+    if not strat then return false end
+    -- Same rule precast_satisfies_prereq uses: the row is one this JA's buff
+    -- unlocks, which the job data already spells out as requires_buff =
+    -- {401, 416} (Addendum: White or Enlightenment). Rows gated on an arts
+    -- stance instead ({358, 401}, e.g. Tranquility) carry no 416 and get no
+    -- button -- Enlightenment frees the next spell from the addenda, it does
+    -- not change the stance.
+    if not action_core.has_any_buff({ strat.buff_id }, ability and ability.requires_buff) then
+        return false
+    end
+    return render_recast_gate_button(ability_key, ctx, strat, 'E', tooltips.enlightenment_button)
+end
+
 -- One button-width invisible spacer, keeping a row aligned under a column
 -- whose button it doesn't get.
 local function render_slot_spacer()
@@ -1124,7 +1167,10 @@ end
 --   1. the job's recast-gated button -- N (DRK Nether Void, Absorb rows),
 --      D (BLU Diffusion, blue buff rows) or E (RUN Embolden, enhancing rows).
 --      A job carries at most one of these, so it is a single column.
---   2. the scholar S button, live only while in Light/Dark Arts.
+--   2. the scholar column, live only while in Light/Dark Arts: the S button,
+--      or E (Enlightenment) on the rows that take it. The two never compete
+--      for it -- E is offered only on white rows in Dark Arts, exactly where
+--      the wrong-stance S draws a spacer -- so they share one column.
 -- Rows that don't get a given column's button get a spacer in its place, so
 -- RUN/SCH shows [E][S] on an enhancing row and [ ][S] on a Cure row. Both
 -- columns collapse away entirely when their job isn't in play.
@@ -1143,12 +1189,14 @@ local function render_leading_slot(ability_key, ability, ctx)
         or render_diffusion_button(ability_key, ability, ctx)
         or render_embolden_button(ability_key, ability, ctx)
     if not drew and not no_spacer
-        and (nether_void_column_strat(ctx) or diffusion_column_strat(ctx) or embolden_column_strat(ctx)) then
+        and (nether_void_column_strat(ctx) or diffusion_column_strat(ctx)
+            or embolden_column_strat(ctx)) then
         render_slot_spacer()
         drew = true
     end
 
-    -- Column 2: scholar's S button (or its own alignment spacer).
+    -- Column 2: scholar's E or S button (or the S button's alignment spacer).
+    if render_enlightenment_button(ability_key, ability, ctx) then return end
     if render_scholar_stratagem_button(ability_key, ability, ctx) then return end
 
     -- Neither column drew. A bard [A] column still needs other rows indented.
@@ -1630,10 +1678,12 @@ end
 
 -- True when a requires_buff (number or list) prerequisite is missing -- grays the
 -- row but keeps it selectable. Merge clears requires_buff for subjob-supplied
--- spells (SCH/WHM), so those never reach here.
-local function requires_buff_unmet(ability)
+-- spells (SCH/WHM), so those never reach here. An assigned precast that supplies
+-- the buff ([E] Enlightenment) leaves the row ungated, so it stays lit.
+local function requires_buff_unmet(ability, ctx)
     local req = ability and ability.requires_buff
     if not req then return false end
+    if ctx and common.precast_satisfies_prereq(ctx.job_def, ctx.settings, ability) then return false end
     if type(req) == 'table' then
         for _, id in ipairs(req) do
             if common.has_buff(0, id) then return false end
@@ -1669,7 +1719,7 @@ function ui_components.self_single_ability(ctx, ability, job_def, id_suffix)
     -- selectable -- equipping the spell is up to the user, automation just
     -- skips it (filter_abilities_by_level) until it's set.
     local blue_unequipped = common.is_blue_magic_unequipped(ability)
-    local buff_unmet = requires_buff_unmet(ability)
+    local buff_unmet = requires_buff_unmet(ability, ctx)
     local spell_suffix = ''
     local ability_combat_only = effective_combat_only(ability, ctx)
     local ability_idle_only = common.is_ability_idle_only(ability, ctx.settings)
@@ -1785,7 +1835,7 @@ function ui_components.self_grouped_ability(ctx, ability, job_def)
     -- Push text color after buttons so S button / ON/OFF button are not tinted
     local selected_combat_only = effective_combat_only(selected, ctx)
     local selected_idle_only = common.is_ability_idle_only(selected, ctx.settings)
-    local buff_unmet = requires_buff_unmet(selected)
+    local buff_unmet = requires_buff_unmet(selected, ctx)
     if not has_spell or no_item or buff_unmet then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
     elseif selected_combat_only then
@@ -1841,7 +1891,7 @@ function ui_components.party_single_ability(ctx, ability, job_def)
     end
     
     local wrong_pet = pet_type_unmet(ability)
-    local buff_unmet = requires_buff_unmet(ability)
+    local buff_unmet = requires_buff_unmet(ability, ctx)
 
     render_party_buttons(ctx, ability.name, has_spell, ability, false)
 
@@ -1923,7 +1973,7 @@ function ui_components.party_grouped_ability(ctx, ability, job_def)
     
     local selected_combat_only = effective_combat_only(selected, ctx)
     local selected_idle_only = common.is_ability_idle_only(selected, ctx.settings)
-    local buff_unmet = requires_buff_unmet(selected)
+    local buff_unmet = requires_buff_unmet(selected, ctx)
     if not has_spell or not has_modifier or buff_unmet then
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
     elseif selected_combat_only then
@@ -2108,7 +2158,7 @@ function ui_components.ability_checkbox(ctx, ability, job_def, id_suffix, show_s
     -- selectable -- equipping the spell is up to the user, automation just
     -- skips it (filter_abilities_by_level) until it's set.
     local blue_unequipped = common.is_blue_magic_unequipped(ability)
-    local buff_unmet = requires_buff_unmet(ability)
+    local buff_unmet = requires_buff_unmet(ability, ctx)
     local spell_suffix = ''
     if not has_spell then
         ctx.settings['disabled_' .. ability.name:gsub(' ', '_')] = true

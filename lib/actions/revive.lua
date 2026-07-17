@@ -36,9 +36,12 @@ function revive.execute(settings, job_def, main_level, sub_level, player_resourc
     if #usable == 0 then return nil end
 
     -- Remove any abilities whose required buff (e.g. Addendum: White for Scholar) is not active.
+    -- An assigned precast that grants the buff (SCH Enlightenment) counts as active:
+    -- check_stratagem fires the JA and holds the raise until its buff lands.
     local buff_usable = {}
     for _, a in ipairs(usable) do
-        if not a.requires_buff or action_core.has_any_buff(player.buffs or {}, a.requires_buff) then
+        if not a.requires_buff or action_core.has_any_buff(player.buffs or {}, a.requires_buff)
+            or common.precast_satisfies_prereq(job_def, settings, a) then
             table.insert(buff_usable, a)
         end
     end

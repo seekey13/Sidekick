@@ -291,9 +291,12 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
             end
         end
         
-        -- Check required buff prerequisite for player
+        -- Check required buff prerequisite for player. An assigned precast that
+        -- grants the buff (SCH Enlightenment) counts as met: check_stratagem
+        -- fires the JA below and holds the spell until its buff lands.
         if not should_skip and ability.requires_buff then
-            if not action_core.has_any_buff(state.player.buffs, ability.requires_buff) then
+            if not action_core.has_any_buff(state.player.buffs, ability.requires_buff)
+                and not common.precast_satisfies_prereq(job_def, settings, ability) then
                 should_skip = true
             end
         end
