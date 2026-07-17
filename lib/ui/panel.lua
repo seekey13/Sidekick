@@ -118,8 +118,12 @@ end
 -- One member row. `color` runs across every cell; low HP/MP overrides it.
 -- opts.job  : job cell text ('--' when unknown)
 -- opts.est  : prefix HP with '~' (derived, not server-reported)
+-- Returns true when the row drew its own tooltip, so the caller can hold back the
+-- table-wide legend tooltip -- both write the same tooltip window and the later
+-- SetTooltip would win.
 local function member_row(slot, color, m, opts)
     opts = opts or {}
+    local drew_tooltip = false
     imgui.TableNextRow()
     imgui.PushStyleColor(ImGuiCol_Text, color)
 
@@ -160,6 +164,7 @@ local function member_row(slot, color, m, opts)
         imgui.Text(fmt_buffs(m.buffs))
         if imgui.IsItemHovered() then
             imgui.SetTooltip(fmt_buffs(m.buffs, '\n'))
+            drew_tooltip = true
         end
     else
         imgui.Text('--')
@@ -174,6 +179,21 @@ local function member_row(slot, color, m, opts)
     imgui.Text(fmt_status(m.entity_status))
 
     imgui.PopStyleColor()
+    return drew_tooltip
+end
+
+-- The legend: what the row colors and slot markers mean. Shown as a tooltip on
+-- the table rather than as a permanent row of text.
+local function legend_tooltip()
+    imgui.BeginTooltip()
+    imgui.TextColored(ALLY_B, 'Alliance B')
+    imgui.TextColored(ALLY_C, 'Alliance C')
+    imgui.TextColored(TRACKED, 'Tracked Target')
+    imgui.TextColored(PET, 'Pet')
+    imgui.Text('Trust NPC^')
+    imgui.Text('Party Leader*')
+    imgui.Text('~HP Values Estimated')
+    imgui.EndTooltip()
 end
 
 -- Slot label + markers: '^' Trust NPC, '*' party leader.
@@ -229,14 +249,11 @@ function panel.render(addon_settings, save_settings)
         end
 
         imgui.Text(table.concat({
-            string.format('Party: %d',    main_count),
-            string.format('Alliance: %d', common.get_alliance_count()),
-            string.format('Tracked: %d',  tracked_count),
+            string.format('Action: %s',   common.get_last_action()),
+            string.format('Moving: %s',   tostring(common.is_player_moving())),
+            string.format('AFK: %s',      afk_str),
             string.format('Zone: %d',     common.get_zone_id()),
             string.format('Target: %s',   tostring(common.get_target_id())),
-            string.format('Moving: %s',   tostring(common.is_player_moving())),
-            string.format('Action: %s',   common.get_last_action()),
-            string.format('AFK: %s',      afk_str),
         }, '   '))
 
         -- Scholar Stratagem / Beastmaster Ready charges
@@ -255,119 +272,49 @@ function panel.render(addon_settings, save_settings)
             imgui.TextColored(ready_color, string.format('Ready: %d', gs.ready_charges))
         end
 
-        -- ── Controls line ────────────────────────────────────────────────
-        local debug_var = { common.debug }
-        if imgui.Checkbox('Debug Mode', debug_var) then
-            common.debug = debug_var[1]
-        end
-
-        -- AFK Sleep toggle + timeout (global). Timeout shows minutes; afk_timeout is
-        -- stored in seconds, so read afk_timeout/60 and write value*60.
-        if addon_settings then
-            local afk_var = { addon_settings.afk_enabled == true }
-            imgui.SameLine(0, 20)
-            if imgui.Checkbox('AFK Sleep', afk_var) then
-                addon_settings.afk_enabled = afk_var[1]
-                if not afk_var[1] then afk.reset() end  -- never leave it stuck asleep
-                if save_settings then save_settings() end
-            end
-            if imgui.IsItemHovered() then
-                imgui.SetTooltip(tooltips.afk_sleep)
-            end
-            if addon_settings.afk_enabled then
-                local mins_var = { math.floor((addon_settings.afk_timeout or 600) / 60) }
-                imgui.SameLine(0, 20)
-                imgui.PushItemWidth(80)
-                if imgui.InputInt('Timeout (minutes)', mins_var) then
-                    -- Bounds mirror /sidekick afk <seconds> (60-3600s = 1-60m).
-                    local m = mins_var[1]
-                    if m < 1 then m = 1 end
-                    if m > 60 then m = 60 end
-                    addon_settings.afk_timeout = m * 60
-                    afk.reset()  -- restart the interval with the new timeout
-                    if save_settings then save_settings() end
-                end
-                imgui.PopItemWidth()
-            end
-
-            -- Multisend Follow mode (global). ON = Attack Range shown, native Follow off.
-            local ms_var = { addon_settings.multisend_follow == true }
-            imgui.SameLine(0, 20)
-            if imgui.Checkbox('Multisend Follow', ms_var) then
-                addon_settings.multisend_follow = ms_var[1]
-                -- Disabling Multisend Follow reverts attack range to Off.
-                if not ms_var[1] then addon_settings.attack_range = 'Off' end
-                if save_settings then save_settings() end
-            end
-            if imgui.IsItemHovered() then
-                imgui.SetTooltip(tooltips.multisend_follow)
-            end
-        end
-
-        local main_job, sub_job = common.get_player_job()
-
-        -- Bard: Pianissimo Fast Casting. Persisted per-job. BRD as main or sub.
-        if (main_job == 10 or sub_job == 10) and addon_settings then
-            local fast_var = { addon_settings.pianissimo_fast_casting == true }
-            imgui.SameLine(0, 20)
-            if imgui.Checkbox('Pianissimo Fast Casting', fast_var) then
-                addon_settings.pianissimo_fast_casting = fast_var[1]
-                if save_settings then save_settings() end
-            end
-            if imgui.IsItemHovered() then
-                imgui.SetTooltip(tooltips.pianissimo_fast_casting)
-            end
-        end
-
-        -- Ninja: Cast with 1 Shadow. Persisted per-job. NIN as main or sub.
-        if (main_job == 13 or sub_job == 13) and addon_settings then
-            local one_shadow_var = { addon_settings.cast_with_1_shadow == true }
-            imgui.SameLine(0, 20)
-            if imgui.Checkbox('Cast with 1 Shadow', one_shadow_var) then
-                addon_settings.cast_with_1_shadow = one_shadow_var[1]
-                if save_settings then save_settings() end
-            end
-            if imgui.IsItemHovered() then
-                imgui.SetTooltip(tooltips.cast_with_1_shadow)
-            end
-        end
-
         -- ── Table ────────────────────────────────────────────────────────
+        -- NoHostExtendX: every column is WidthFixed, so without it the table
+        -- border stretches to the window width (which the controls row below
+        -- makes much wider than the columns), leaving dead space past Status.
         local TABLE_FLAGS = bit.bor(
             ImGuiTableFlags_Borders,
             ImGuiTableFlags_RowBg,
-            ImGuiTableFlags_SizingFixedFit
+            ImGuiTableFlags_SizingFixedFit,
+            ImGuiTableFlags_NoHostExtendX
         )
 
+        -- Grouped so the whole table is one hoverable item for the legend tooltip.
+        local cell_tooltip = false
+        imgui.BeginGroup()
         if imgui.BeginTable('##ps_table', 9, TABLE_FLAGS, { 0, 0 }) then
-            imgui.TableSetupColumn('Slt',      ImGuiTableColumnFlags_WidthFixed,  34)
-            imgui.TableSetupColumn('Name',     ImGuiTableColumnFlags_WidthFixed, 100)
-            imgui.TableSetupColumn('Job',      ImGuiTableColumnFlags_WidthFixed, 110)
+            imgui.TableSetupColumn('Slot',      ImGuiTableColumnFlags_WidthFixed, 34)
+            imgui.TableSetupColumn('Name',     ImGuiTableColumnFlags_WidthFixed, 150)
+            imgui.TableSetupColumn('Job',      ImGuiTableColumnFlags_WidthFixed, 100)
             imgui.TableSetupColumn('HP',       ImGuiTableColumnFlags_WidthFixed, 140)
             imgui.TableSetupColumn('MP',       ImGuiTableColumnFlags_WidthFixed, 140)
-            imgui.TableSetupColumn('TP',       ImGuiTableColumnFlags_WidthFixed,  46)
-            imgui.TableSetupColumn('Buffs',    ImGuiTableColumnFlags_WidthFixed, 168)
+            imgui.TableSetupColumn('TP',       ImGuiTableColumnFlags_WidthFixed,  38)
+            imgui.TableSetupColumn('Buffs',    ImGuiTableColumnFlags_WidthFixed, 250)
             imgui.TableSetupColumn('Position', ImGuiTableColumnFlags_WidthFixed, 168)
-            imgui.TableSetupColumn('Status',   ImGuiTableColumnFlags_WidthFixed,  80)
+            imgui.TableSetupColumn('Status',   ImGuiTableColumnFlags_WidthFixed,  60)
             imgui.TableHeadersRow()
 
             local main_leader = gs.alliance_leaders and gs.alliance_leaders[1] or 0
 
             -- ME
             if gs.player then
-                member_row(slot_label('ME', gs.player, main_leader), WHITE, gs.player,
-                    { job = party_job(gs.player) })
+                cell_tooltip = member_row(slot_label('ME', gs.player, main_leader), WHITE, gs.player,
+                    { job = party_job(gs.player) }) or cell_tooltip
 
                 -- PT (pet) -- only when the player has one out
                 if (gs.player.pet_hpp or 0) > 0 then
                     local pet_entity = common.get_pet_entity()
                     local ok, pet_name = pcall(function() return pet_entity and pet_entity.Name end)
-                    member_row('PT', PET, {
+                    cell_tooltip = member_row('PET', PET, {
                         name     = (ok and pet_name ~= '' and pet_name) or nil,
                         hpp      = gs.player.pet_hpp,
                         position = gs.player.pet_position,
                         buffs    = gs.pet_debuffs,
-                    }, {})
+                    }, {}) or cell_tooltip
                 end
             end
 
@@ -375,7 +322,8 @@ function panel.render(addon_settings, save_settings)
             for i = 1, 5 do
                 local m = gs.party[i]
                 if m then
-                    member_row(slot_label('P' .. i, m, main_leader), WHITE, m, { job = party_job(m) })
+                    cell_tooltip = member_row(slot_label('P' .. i, m, main_leader), WHITE, m,
+                        { job = party_job(m) }) or cell_tooltip
                 end
             end
 
@@ -389,8 +337,8 @@ function panel.render(addon_settings, save_settings)
                         local leader_sid = (gs.alliance_leaders and gs.alliance_leaders[pi]) or 0
                         for _, entry in ipairs(common.sorted_alliance_members(sub_party)) do
                             local m = entry.m
-                            member_row(slot_label(prefixes[pi] .. entry.local_idx, m, leader_sid),
-                                colors[pi], m, { job = party_job(m) })
+                            cell_tooltip = member_row(slot_label(prefixes[pi] .. entry.local_idx, m, leader_sid),
+                                colors[pi], m, { job = party_job(m) }) or cell_tooltip
                         end
                     end
                 end
@@ -414,27 +362,92 @@ function panel.render(addon_settings, save_settings)
                             job = string.format('Lv.%d', m.main_level)
                         end
                     end
-                    member_row('T' .. t_idx, TRACKED, m, { job = job, est = true })
+                    cell_tooltip = member_row('T' .. t_idx, TRACKED, m, { job = job, est = true })
+                        or cell_tooltip
                 end
             end
 
             imgui.EndTable()
         end
+        imgui.EndGroup()
 
-        -- ── Legend (key to the row colors and slot markers) ───────────────
-        imgui.TextColored(ALLY_B, 'Alliance B')
-        imgui.SameLine(0, 12)
-        imgui.TextColored(ALLY_C, 'Alliance C')
-        imgui.SameLine(0, 12)
-        imgui.TextColored(TRACKED, 'Tracked Target')
-        imgui.SameLine(0, 12)
-        imgui.TextColored(PET, 'Pet')
-        imgui.SameLine(0, 12)
-        imgui.Text('^ Trust NPC')
-        imgui.SameLine(0, 12)
-        imgui.Text('* Party Leader')
-        imgui.SameLine(0, 12)
-        imgui.Text('~ HP Values Estimated')
+        -- Legend, unless a cell (Buffs) already claimed the tooltip this frame.
+        if not cell_tooltip and imgui.IsItemHovered() then
+            legend_tooltip()
+        end
+
+        -- ── Controls (last row) ──────────────────────────────────────────
+        -- Everything here renders unconditionally, including the settings that
+        -- only bite on one job (Pianissimo = BRD, 1 Shadow = NIN): the panel is a
+        -- debug surface, so a stable row beats one that reshuffles on job change.
+        local debug_var = { common.debug }
+        if imgui.Checkbox('Debug Mode', debug_var) then
+            common.debug = debug_var[1]
+        end
+
+        if addon_settings then
+            -- AFK Sleep (global). afk_timeout is stored in seconds but shown in
+            -- minutes, so read afk_timeout/60 and write value*60.
+            local afk_var = { addon_settings.afk_enabled == true }
+            imgui.SameLine(0, 20)
+            if imgui.Checkbox('AFK Sleep', afk_var) then
+                addon_settings.afk_enabled = afk_var[1]
+                if not afk_var[1] then afk.reset() end  -- never leave it stuck asleep
+                if save_settings then save_settings() end
+            end
+            if imgui.IsItemHovered() then
+                imgui.SetTooltip(tooltips.afk_sleep)
+            end
+
+            local mins_var = { math.floor((addon_settings.afk_timeout or 600) / 60) }
+            imgui.SameLine(0, 20)
+            imgui.PushItemWidth(80)
+            if imgui.InputInt('Timeout (minutes)', mins_var) then
+                -- Bounds mirror /sidekick afk <seconds> (60-3600s = 1-60m).
+                local m = mins_var[1]
+                if m < 1 then m = 1 end
+                if m > 60 then m = 60 end
+                addon_settings.afk_timeout = m * 60
+                afk.reset()  -- restart the interval with the new timeout
+                if save_settings then save_settings() end
+            end
+            imgui.PopItemWidth()
+
+            -- Multisend Follow (global). ON = Attack Range shown, native Follow off.
+            local ms_var = { addon_settings.multisend_follow == true }
+            imgui.SameLine(0, 20)
+            if imgui.Checkbox('Multisend Follow', ms_var) then
+                addon_settings.multisend_follow = ms_var[1]
+                -- Disabling Multisend Follow reverts attack range to Off.
+                if not ms_var[1] then addon_settings.attack_range = 'Off' end
+                if save_settings then save_settings() end
+            end
+            if imgui.IsItemHovered() then
+                imgui.SetTooltip(tooltips.multisend_follow)
+            end
+
+            -- Pianissimo Fast Casting (BRD main or sub). Persisted per-job.
+            local fast_var = { addon_settings.pianissimo_fast_casting == true }
+            imgui.SameLine(0, 20)
+            if imgui.Checkbox('Pianissimo Fast Casting', fast_var) then
+                addon_settings.pianissimo_fast_casting = fast_var[1]
+                if save_settings then save_settings() end
+            end
+            if imgui.IsItemHovered() then
+                imgui.SetTooltip(tooltips.pianissimo_fast_casting)
+            end
+
+            -- Cast with 1 Shadow (NIN main or sub). Persisted per-job.
+            local one_shadow_var = { addon_settings.cast_with_1_shadow == true }
+            imgui.SameLine(0, 20)
+            if imgui.Checkbox('Cast with 1 Shadow', one_shadow_var) then
+                addon_settings.cast_with_1_shadow = one_shadow_var[1]
+                if save_settings then save_settings() end
+            end
+            if imgui.IsItemHovered() then
+                imgui.SetTooltip(tooltips.cast_with_1_shadow)
+            end
+        end
     end
     imgui.End()
 
