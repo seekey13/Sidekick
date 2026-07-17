@@ -961,6 +961,10 @@ local function diffusion_column_strat(ctx)
     return recast_gate_column_strat(ctx, 'blue')
 end
 
+local function embolden_column_strat(ctx)
+    return recast_gate_column_strat(ctx, 'white')
+end
+
 -- Shared body for the recast-gated strat buttons (DRK [N], BLU [D]): a
 -- one-letter button opening a popup with Enable (fire the JA before the
 -- paired ability, via the stratagem machinery) and Hold (skip the ability
@@ -1095,9 +1099,26 @@ local function render_diffusion_button(ability_key, ability, ctx)
             'Off (default): cast the buff self-only when Diffusion is on cooldown.')
 end
 
+-- RUN Embolden [E] button on every enhancing magic row: fire Embolden before
+-- the spell to boost its potency. Keyed off magic_type rather than magic so
+-- the black-magic spikes get it too -- Embolden boosts enhancing magic of
+-- either colour.
+local function render_embolden_button(ability_key, ability, ctx)
+    if not (ability and ability.magic_type == 'enhancing') then return false end
+    local strat = embolden_column_strat(ctx)
+    if not strat then return false end
+    return render_recast_gate_button(ability_key, ctx, strat, 'E',
+        'Embolden: fire Embolden before this spell to boost\n' ..
+            'its potency. Click to configure. Lit when enabled.',
+        'Fire Embolden before this spell so its effect is stronger.',
+        'On: skip this spell until Embolden is ready.\n' ..
+            'Off (default): cast the spell unboosted when Embolden is on cooldown.')
+end
+
 -- Draw a row's leading slot: the [A] button (bard, drawn later by
 -- render_party_buttons), the S button (scholar), the N button (DRK Nether
--- Void on Absorb rows), the D button (BLU Diffusion on blue buff rows), or a
+-- Void on Absorb rows), the D button (BLU Diffusion on blue buff rows), the
+-- E button (RUN Embolden on enhancing rows), or a
 -- spacer so the row aligns under whichever column is on-screen. Exactly ONE
 -- indent per row -- if scholar already drew its S button/spacer we don't add
 -- a bard spacer, so BRD/SCH gets a single indent, not two.
@@ -1111,16 +1132,19 @@ local function render_leading_slot(ability_key, ability, ctx)
     -- BLU Diffusion D button on blue magic buff rows.
     if render_diffusion_button(ability_key, ability, ctx) then return end
 
+    -- RUN Embolden E button on enhancing magic rows.
+    if render_embolden_button(ability_key, ability, ctx) then return end
+
     -- Scholar's S button (or its own alignment spacer) fills the slot when active
     -- (i.e. in Light/Dark Arts). Returns true when it drew something.
     if render_scholar_stratagem_button(ability_key, ability, ctx) then return end
 
     -- Nothing drawn. If this job carries song magic (bard [A] column), the
-    -- Nether Void N column, or the Diffusion D column, other rows still need
-    -- the indent to stay aligned. Geo-bt debuffs sit in their own section
-    -- with no such column -- skip those.
+    -- Nether Void N column, the Diffusion D column, or the Embolden E column,
+    -- other rows still need the indent to stay aligned. Geo-bt debuffs sit in
+    -- their own section with no such column -- skip those.
     local has_songs = ctx and ctx.job_def and ctx.job_def.has_songs
-    if (has_songs or nether_void_column_strat(ctx) or diffusion_column_strat(ctx)) and not (ability and ability.group == 'Geo-bt') then
+    if (has_songs or nether_void_column_strat(ctx) or diffusion_column_strat(ctx) or embolden_column_strat(ctx)) and not (ability and ability.group == 'Geo-bt') then
         imgui.Dummy({ 20, 0 })
         imgui.SameLine(0, SPACE_BETWEEN_BUTTONS)
     end
