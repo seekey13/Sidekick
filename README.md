@@ -58,16 +58,23 @@ The one exception is **opt-in leader following** (off by default): with **Follow
 ### [2.5.0] - 2026-07-16
 
 ### Added
+- **Rune Fencer Embolden**: An **E** button on every enhancing magic row (Protect, Shell, Regen, the Bar- spells, Refresh, Phalanx…) opens a popup — **Enable** fires **Embolden** just before the spell so its effect is stronger; **Hold for Embolden** skips the spell until Embolden is ready (off by default: the spell still casts unboosted while Embolden is on cooldown). RUN main only, and it doesn't appear on the Spikes, which Embolden doesn't boost.
+
+- **Scholar Enlightenment**: An **E** button on every spell that needs **Addendum: White** (Cursna, Erase, Raise/Raise II, Reraise, Regen…) fires **Enlightenment** first so the spell can be cast while you're in **Dark Arts** — no swapping stances. It's a simple on/off toggle rather than a popup: there's no "hold" option because the spell can't be cast without it at all, so Sidekick always waits for Enlightenment. The button only shows in Dark Arts / Addendum: Black, and once Addendum: White is up the JA is skipped, so you can leave it switched on and forget about it. Level-75 merit, SCH main only.
+
 - **AFK Sleep**: Automation now goes to sleep after 10 minutes with no party movement and no combat, and wakes as soon as you move. **On by default** — unlike Auto Follow, sleeping only stops automation from acting, so there's no harm in it being on. It's a pause, not a stop: nothing is saved or reset, so `/sk start` survives a sleep cycle untouched. Anyone in your party moving, or the party being in combat, keeps it awake — but only **your own** movement wakes it back up, since a mob claim isn't proof you're at the keyboard. Toggle it and set the timeout (1-60 minutes) in `/sk panel` beside **Debug Mode**, or with `/sidekick afk [on|off|<seconds>]`. Thanks to **Mythicangel** for the idea.
 
 ### Changed
 - **Fewer actions dropped** — Sidekick spaced its commands from when it *sent* the last one, a whole cast time too early for a spell, so the next action fired while the game was still locked out and got eaten. It now waits from when the action actually finishes, including actions you take by hand.
-- **Panel debug row shows `Action:` instead of `Casting:`** — names the last thing you did (`casting_begin: Cure IV`, `job_ability`, `ws_finish`) instead of `true`/`false`, so you can watch a cast start and finish. Melee swings aren't shown.
+- **Interrupts are now recognized** — an interrupted cast doesn't report finishing the way a completed one does; it re-sends its *start* packet with a marker where the spell id goes. Sidekick read that as a brand new cast and sat frozen thinking you were still casting. It now spots the marker, so an interrupt ends the cast, spaces the next action correctly, and shows as `interrupted` in the panel. The stuck-cast safety net (5 s → 16 s) is now only there for a packet that never arrives at all — long enough to outlast a real cast instead of cutting one short.
+- **Panel debug row shows `Action:` instead of `Casting:`** — names the last thing you did (`casting_begin: Cure IV`, `job_ability`, `ws_finish`, `interrupted (casting_begin)`) instead of `true`/`false`, so you can watch a cast start and finish. Melee swings aren't shown.
 
 ### Fixed
 - **Bard Pianissimo wasted on a song that isn't ready** — in **Pianissimo Fast Casting**, Pianissimo went up as soon as a song was due, even if the song was still on cooldown or unaffordable; its recast burned down while the song waited. It now waits until the song can actually be cast.
-- **Interrupted casts confused Trust buff tracking** — an interrupt looks identical to a finished cast in the packet, so the buff was recorded as landed and not recast for its full duration. Interrupts are now ignored.
-- **Zoning mid-cast froze automation** — the cancelled cast never reports finishing, so Sidekick thought you were still casting and sat idle for 30 seconds. Zoning now clears it immediately.
+- **Interrupted casts confused Trust buff tracking** — an interrupted cast never reports finishing, so the buff Sidekick was waiting to record just sat there until the next spell you cast claimed it — recording a buff on a Trust that never got it, and skipping the recast for the buff's full duration. A buff left pending for more than 10 seconds is now dropped.
+- **Zoning mid-cast froze automation** — the cancelled cast never reports finishing, so Sidekick thought you were still casting and sat idle until the safety net expired. Zoning now clears it immediately.
+- **Erase tried to cure things it can't** — Erase shared one status list with the pet cleanses (Beastmaster **Reward**, Puppetmaster **Maintenance**), so it kept firing on Poison, Paralysis, Blind, Silence, Disease, Curse, and Plague, which it doesn't remove. Erase and the pet cleanses now carry their own lists, so Erase leaves those to the na-spells and the pet abilities keep their wider reach.
+- **Scholar Addendums only fired at full charges** — **Addendum: White / Black** were checked against the stratagem timer as if it were a normal cooldown, but that timer counts down one charge at a time, so they only ever fired at a full pool. They now check for a spare stratagem charge like the stratagems do.
 - **67 wrong spell/ability ids** — affected spells cast the wrong thing or read the wrong cooldown. RDM/RUN Bar- and En- spells (Barstone cast Barfire), WHM Bar-*ra* line and Raise II, SCH Raise II / Reraise II / Sandstorm, BRD Water/Earth Carol swapped, and wrong cooldowns on DNC Divine Waltz II / Spectral Jig, WHM Afflatus Misery, RUN Vivacious Pulse, SCH Addendum: Black.
 - **46 wrong MP costs and levels** — Protect/Shell tiers, Regen II-III, En-II spells, Bar-*ra* line, Foil, Auspice, Enlight, Invisible/Sneak/Deodorize. Also DNC Divine Waltz (25), SCH Sublimation (35) / Blink (29), WHM Divine Seal (15).
 
@@ -270,7 +277,7 @@ Adds three pet-support jobs (Beastmaster, Dragoon, Puppetmaster) with consumable
 - **Status Ailment Detection**: Automatically detects and prevents casting when Silenced (magic) or Amnesiac (job abilities)
 - **Job-Specific Ability Validation**: Jobs can implement custom validators for fine-grained ability control (e.g., checking pet type, buff requirements, etc.)
 - **Pet Entity Management**: Consolidated pet entity access with `get_pet_entity()` for consistent pet checking across all features
-- **Enhanced Casting State Detection**: Packet-based casting detection using offset 0x0F state byte for accurate spell tracking
+- **Packet-Based Casting Detection**: Casting state is read from the parsed 0x028 action packet's category (`casting_begin` locks, `spell_finish` clears), including interrupts, which repeat the start category with a marker instead of reporting a finish
 - **Movement Detection**: Prevents casting while moving to avoid interrupted spells
 - **Trust Buff Tracking**: Packet-based buff tracking for Trusts (0x028 for application, 0x029 for removal)
 - **Single-Target Party Buffs**: Cast buffs on specific party members with button-based targeting (Haste, Refresh, Protect, Shell, etc.)
@@ -382,6 +389,7 @@ Currently implemented support jobs:
 - **Rune Fencer** (RUN)
   - AOE healing with job abilities (Vivacious Pulse)
   - Buff with enhancing magic (Protect I-III, Shell I-IV, Regen I-III, Refresh, Barfire, Barblizzard, Baraero, Barstone, Barthunder, Barwater, etc.)
+  - **Embolden** (level 60, RUN main): an **E** button on every enhancing magic row opens a popup — **Enable** fires Embolden before the spell to boost its potency; **Hold for Embolden** skips the spell until Embolden is ready (off by default: the spell still casts unboosted when Embolden is on cooldown). Not offered on the Spikes, which it doesn't boost
 
 - **Scholar** (SCH)
   - Single-target healing with white magic (Cure I-IV) and self-heal with dark magic (**Drain**, on your battle target — combat-only)
@@ -392,6 +400,7 @@ Currently implemented support jobs:
   - Buff with elemental magic (Blaze Spikes, Ice Spikes, Shock Spikes)
   - Buff with job abilities (Light Arts, Dark Arts, Addendum: White, Addendum: Black, Sublimation)
   - MP recovery with job abilities (Sublimation) and dark magic (**Aspir**, on your battle target — combat-only)
+  - **Enlightenment** (level 75 merit, SCH main): an **E** button on every spell that needs Addendum: White (Cursna, Erase, Raise / Raise II, Reraise, Regen…) fires Enlightenment first so the spell can be cast in **Dark Arts**. A plain on/off toggle — the spell can't be cast without it, so Sidekick always waits for it, and skips the JA when Addendum: White is already up. Shown only while in Dark Arts / Addendum: Black
 
 - **Summoner** (SMN)
   - Critical HP abilities (Apogee)
@@ -481,19 +490,22 @@ Sidekick/
 ├── Sidekick.lua              # Main addon file
 ├── lib/
 │   ├── core/
-│   │   ├── common.lua        # Shared utilities
+│   │   ├── action_core.lua   # Resource/cooldown tracking, buff-ID utils, ability candidacy
+│   │   ├── afk.lua           # AFK Sleep dead-man's switch
 │   │   ├── automation.lua    # Action selection engine
-│   │   ├── resource.lua      # Resource/cooldown tracking
-│   │   └── parse_packets.lua # Packet parsing for casting state
+│   │   ├── common.lua        # Shared utilities
+│   │   ├── parse_packets.lua # Packet parsing for casting state
+│   │   └── targets.lua       # Target-resolution helpers
 │   ├── actions/
-│   │   ├── heal.lua          # Single-target healing
-│   │   ├── heal_aoe.lua      # AOE healing
-│   │   ├── heal_pet.lua      # Pet healing
-│   │   ├── wake.lua          # Sleep removal
-│   │   ├── debuff_removal.lua # Debuff removal
-│   │   ├── recover.lua       # MP/TP recovery
 │   │   ├── buff.lua          # Buff maintenance
-│   │   └── geo.lua           # Geo buff/debuff targeting & Full Circle / luopan management
+│   │   ├── follow.lua        # Opt-in leader following
+│   │   ├── geo.lua           # Geo buff/debuff targeting & Full Circle / luopan management
+│   │   ├── heal.lua          # Healing (single-target, AOE, pet)
+│   │   ├── item.lua          # Consumable-based status removal
+│   │   ├── recover.lua       # MP/TP recovery
+│   │   ├── rest.lua          # Automatic resting (/heal)
+│   │   ├── revive.lua        # Raise dead members
+│   │   └── status_removal.lua # Debuff removal & sleep wake (single + AOE)
 │   ├── jobs/
 │   │   ├── bard.lua          # Bard abilities
 │   │   ├── beastmaster.lua   # Beastmaster abilities (pet-only)
@@ -516,8 +528,14 @@ Sidekick/
 │   │   ├── thief.lua         # Thief abilities (self-only)
 │   │   ├── warrior.lua       # Warrior abilities (self-only)
 │   │   └── white_mage.lua    # White Mage abilities
-│   └── ui_config.lua         # ImGui configuration interface
+│   └── ui/
+│       ├── components.lua    # Reusable ImGui render components
+│       ├── config.lua        # ImGui configuration window
+│       ├── panel.lua         # Debug info panel
+│       └── tooltips.lua      # Contextual hover help
 ```
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the full technical map.
 
 ## Configuration
 
