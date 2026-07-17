@@ -640,7 +640,7 @@ end
 -- Status ailments Erase-type cleanses remove: WHM/SCH Erase, and BST Reward /
 -- PUP Maintenance's pet-cleanse mode. Shared so all four abilities point at
 -- one list instead of four copies.
-common.ERASABLE_DEBUFFS = {3, 4, 5, 6, 8, 9, 11, 12, 13, 31, 128, 129, 130, 131, 134,
+common.ERASABLE_DEBUFFS = {11, 12, 13, 128, 129, 130, 131, 134,
     135, 136, 137, 138, 139, 140, 141, 142, 144, 145, 146, 147, 148, 149, 156,
     167, 174, 175, 189, 404}
 

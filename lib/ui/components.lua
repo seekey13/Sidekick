@@ -2129,10 +2129,16 @@ end
 
 -- Render an ability checkbox with spell knowledge checking
 function ui_components.ability_checkbox(ctx, ability, job_def, id_suffix, show_stratagem)
-    -- Optionally render the Scholar stratagem S button before the checkbox.
-    -- Only call when the ability's magic matches the current arts stance so that
-    -- sections where NO spell qualifies don't get pointless spacers.
-    if show_stratagem and ability.magic then
+    -- Scholar column before the checkbox: the E button (Enlightenment, on the
+    -- rows Addendum: White gates -- Raise II here) or the stratagem S button.
+    -- As in render_leading_slot the two never compete: E draws only on white
+    -- rows in Dark Arts, where S is wrong-stance.
+    local drew = show_stratagem and render_enlightenment_button(ability.name, ability, ctx)
+
+    -- The S button only applies when the ability's magic matches the current
+    -- arts stance; sections where NO spell qualifies get no column at all
+    -- rather than a row of pointless spacers.
+    if not drew and show_stratagem and ability.magic then
         local dominated = false
         if ability.magic == 'white' then
             dominated = common.has_buff(0, 358) or common.has_buff(0, 401) -- Light Arts / Addendum: White
@@ -2140,8 +2146,14 @@ function ui_components.ability_checkbox(ctx, ability, job_def, id_suffix, show_s
             dominated = common.has_buff(0, 359) or common.has_buff(0, 402) -- Dark Arts / Addendum: Black
         end
         if dominated then
-            render_scholar_stratagem_button(ability.name, ability, ctx)
+            drew = render_scholar_stratagem_button(ability.name, ability, ctx)
         end
+    end
+
+    -- While the E column is up, a row that drew neither button still needs the
+    -- indent, so Raise lines up under Raise II's [E].
+    if not drew and show_stratagem and ability.magic and enlightenment_column_strat(ctx) then
+        render_slot_spacer()
     end
 
     -- DRK Nether Void [N] button on Drain/Drain II/Aspir rows (self-gates via the
