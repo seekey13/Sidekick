@@ -637,12 +637,26 @@ function common.get_party()
     return party
 end
 
--- Status ailments Erase-type cleanses remove: WHM/SCH Erase, and BST Reward /
--- PUP Maintenance's pet-cleanse mode. Shared so all four abilities point at
--- one list instead of four copies.
+-- Status ailments Erase removes (WHM/SCH). The Na-spell ailments are deliberately
+-- absent: Erase does not touch poison/paralysis/blindness/silence/disease/curse/
+-- plague, so listing them only made Erase fire and fail.
 common.ERASABLE_DEBUFFS = {11, 12, 13, 128, 129, 130, 131, 134,
     135, 136, 137, 138, 139, 140, 141, 142, 144, 145, 146, 147, 148, 149, 156,
     167, 174, 175, 189, 404}
+
+-- Status ailments the pet cleanses remove (BST Reward, PUP Maintenance): everything
+-- Erase clears, PLUS the Na-spell ailments below. NOT the same list as Erase --
+-- server-side neither ability is an Erase: Maintenance walks its own ailment list and
+-- only then falls back to eraseStatusEffect() (job_utils/puppetmaster.lua), and Reward
+-- is a gear-dependent cleanse that never calls Erase at all (job_utils/beastmaster.lua
+-- -- Beast Jackcoat clears poison/paralysis/blindness, Monster Jackcoat clears
+-- silence/weight/slow, the +1s clear all six, and no Jackcoat clears nothing). Reward
+-- therefore over-claims here; it fires and no-ops rather than missing a real cleanse.
+common.PET_CLEANSE_DEBUFFS = {3, 4, 5, 6, 8, 9, 31}  -- Poison, Paralysis, Blindness,
+                                                     -- Silence, Disease, Curse, Plague
+for _, id in ipairs(common.ERASABLE_DEBUFFS) do
+    table.insert(common.PET_CLEANSE_DEBUFFS, id)
+end
 
 -- Curse-family statuses removed by Cursna and by Holy Water / Hallowed Water.
 -- 9 = Curse, 15 = Doom, 20 = Bane, 30 = Curse (Bane II).
@@ -693,9 +707,13 @@ local BASE_DEBUFF_DURATION = {
     [31] = INFINITE,  -- Plague      (Viruna; until removed)
 }
 
--- Set form of ERASABLE_DEBUFFS for O(1) "is this a removable debuff" lookups.
-local ERASABLE_SET = {}
-for _, id in ipairs(common.ERASABLE_DEBUFFS) do ERASABLE_SET[id] = true end
+-- Set form of "is this a debuff some Sidekick ability can remove", for O(1) lookups.
+-- Built from PET_CLEANSE_DEBUFFS, the superset: the 120s expiry backstop below keys
+-- off this, and it must cover every debuff with a remover, not just Erase's share --
+-- a Na-spell ailment left out of it is tracked with no timer, so one missed removal
+-- packet loops the Na-spell forever.
+local REMOVABLE_SET = {}
+for _, id in ipairs(common.PET_CLEANSE_DEBUFFS) do REMOVABLE_SET[id] = true end
 
 -- Effective (user-filtered) debuff-id list for a remover. Multi-status removers
 -- (Erase, Esuna, Cursna, Viruna, Chakra...) expose a per-status opt-out in the
@@ -1421,7 +1439,7 @@ function common.base_buff_duration(buff_id, spell_name, server_id)
         if d ~= nil then
             return d or nil  -- INFINITE (false) -> no timer
         end
-        if ERASABLE_SET[buff_id] then
+        if REMOVABLE_SET[buff_id] then
             return 120
         end
     end

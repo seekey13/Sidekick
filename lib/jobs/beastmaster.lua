@@ -83,7 +83,7 @@ return {
                 cost = 0,
                 recast_id = 103,
                 command = '/ja "Reward" <me>',
-                debuff_id = common.ERASABLE_DEBUFFS,
+                debuff_id = common.PET_CLEANSE_DEBUFFS,  -- not Erase's list; see common.lua
                 pet_required = true,
                 requires_equipped_ammo = PET_ROBORANT,  -- gate + auto-equip
                 ammo_label = 'Pet Roborant',            -- UI count label

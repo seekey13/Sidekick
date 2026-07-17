@@ -1008,10 +1008,12 @@ end
 -- Passing no hold_tip drops the popup and makes the button a plain on/off
 -- toggle (SCH Enlightenment): Hold is implicit for a JA its ability cannot be
 -- used without, which leaves Enable as the popup's only choice.
--- Widget ids key on strat.name, not on `letter`: two columns can draw on one row
--- (render_leading_slot) and two strats can want the same letter -- Embolden [E] and
--- Enlightenment [E] do -- which would give both buttons the same ImGui id and merge
--- them into one control.
+-- Widget ids key on strat.name, not on `letter`. `letter` is a display choice and is
+-- not unique -- Embolden and Enlightenment are both [E]. Nothing collides today
+-- (render_leading_slot draws at most one of them per row, and no job reaches both
+-- anyway), but that is a property of the caller, not of the id: two [E] buttons on one
+-- row would silently share an ImGui id and merge into one control. strat.name is the
+-- key the assignment itself is stored under, so it is unique by construction.
 local function render_recast_gate_button(ability_key, ctx, strat, letter, button_tip, enable_tip, hold_tip)
     local btn_id = letter .. '##rg_' .. strat.name .. '_' .. ability_key
 
