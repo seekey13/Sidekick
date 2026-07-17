@@ -30,7 +30,7 @@ local casting_state = {
     last_action_time = 0,
     -- Backstop only, not a mechanism: clears the lock if neither a spell_finish nor an
     -- interrupt packet ever arrives (zoning already clears it via clear_casting_state).
-    cast_timeout = 8.0,
+    cast_timeout = 15.0,
 }
 
 -- Last 0x028 action category seen from the player, for the debug panel readout.
