@@ -689,11 +689,18 @@ local function get_stratagem_hold(ctx)
     return ctx.settings.stratagem_hold
 end
 
--- Helper: check if any stratagem is assigned to an ability key in settings
-local function has_any_stratagem(ctx, ability_key)
+-- Helper: check whether any of `available` is assigned to an ability key in
+-- settings. Recast-gated JAs (RUN Embolden, DRK Nether Void, BLU Diffusion)
+-- share this per-ability table with the scholar stratagems, so matching only
+-- names the caller offers keeps one button's assignment from lighting another.
+local function has_any_stratagem(ctx, ability_key, available)
     local ss = ctx and ctx.settings and ctx.settings.stratagem_settings
-    if not ss or not ss[ability_key] then return false end
-    return next(ss[ability_key]) ~= nil
+    local assigned = ss and ss[ability_key]
+    if not assigned then return false end
+    for _, strat in ipairs(available) do
+        if assigned[strat.name] then return true end
+    end
+    return false
 end
 
 -- Helper: compute the MP modifier multiplier for an ability based on its assigned stratagems
@@ -833,7 +840,7 @@ local function render_scholar_stratagem_button(ability_key, ability, ctx)
         return false, 0
     end
 
-    local has_sel  = has_any_stratagem(ctx, ability_key)
+    local has_sel  = has_any_stratagem(ctx, ability_key, available)
     local popup_id = '##sch_strat_popup_' .. ability_key
 
     -- Color: default (active) when a stratagem is chosen, gray when idle
@@ -1106,38 +1113,48 @@ local function render_embolden_button(ability_key, ability, ctx)
         tooltips.embolden_button, tooltips.embolden_enable, tooltips.embolden_hold)
 end
 
--- Draw a row's leading slot: the [A] button (bard, drawn later by
--- render_party_buttons), the S button (scholar), the N button (DRK Nether
--- Void on Absorb rows), the D button (BLU Diffusion on blue buff rows), the
--- E button (RUN Embolden on enhancing rows), or a
--- spacer so the row aligns under whichever column is on-screen. Exactly ONE
--- indent per row -- if scholar already drew its S button/spacer we don't add
--- a bard spacer, so BRD/SCH gets a single indent, not two.
+-- One button-width invisible spacer, keeping a row aligned under a column
+-- whose button it doesn't get.
+local function render_slot_spacer()
+    imgui.Dummy({ 20, 0 })
+    imgui.SameLine(0, SPACE_BETWEEN_BUTTONS)
+end
+
+-- Draw a row's leading slot, which is up to two columns wide:
+--   1. the job's recast-gated button -- N (DRK Nether Void, Absorb rows),
+--      D (BLU Diffusion, blue buff rows) or E (RUN Embolden, enhancing rows).
+--      A job carries at most one of these, so it is a single column.
+--   2. the scholar S button, live only while in Light/Dark Arts.
+-- Rows that don't get a given column's button get a spacer in its place, so
+-- RUN/SCH shows [E][S] on an enhancing row and [ ][S] on a Cure row. Both
+-- columns collapse away entirely when their job isn't in play.
+-- Song rows are the exception: render_party_buttons draws the [A] button in
+-- the leading slot instead, and neither column applies to songs, so a bard
+-- row stays one indent wide.
 local function render_leading_slot(ability_key, ability, ctx)
-    -- Song rows: render_party_buttons draws the [A] button in this slot.
     if ability and ability.magic == 'song' then return end
 
-    -- DRK Nether Void N button on the Absorb group row.
-    if render_nether_void_button(ability_key, ability, ctx) then return end
+    -- Geo-bt debuffs render in their own section, which has no button columns
+    -- to align with -- never indent them.
+    local no_spacer = ability and ability.group == 'Geo-bt'
 
-    -- BLU Diffusion D button on blue magic buff rows.
-    if render_diffusion_button(ability_key, ability, ctx) then return end
+    -- Column 1: the recast-gated button, or its spacer while that column is up.
+    local drew = render_nether_void_button(ability_key, ability, ctx)
+        or render_diffusion_button(ability_key, ability, ctx)
+        or render_embolden_button(ability_key, ability, ctx)
+    if not drew and not no_spacer
+        and (nether_void_column_strat(ctx) or diffusion_column_strat(ctx) or embolden_column_strat(ctx)) then
+        render_slot_spacer()
+        drew = true
+    end
 
-    -- RUN Embolden E button on enhancing magic rows.
-    if render_embolden_button(ability_key, ability, ctx) then return end
-
-    -- Scholar's S button (or its own alignment spacer) fills the slot when active
-    -- (i.e. in Light/Dark Arts). Returns true when it drew something.
+    -- Column 2: scholar's S button (or its own alignment spacer).
     if render_scholar_stratagem_button(ability_key, ability, ctx) then return end
 
-    -- Nothing drawn. If this job carries song magic (bard [A] column), the
-    -- Nether Void N column, the Diffusion D column, or the Embolden E column,
-    -- other rows still need the indent to stay aligned. Geo-bt debuffs sit in
-    -- their own section with no such column -- skip those.
+    -- Neither column drew. A bard [A] column still needs other rows indented.
     local has_songs = ctx and ctx.job_def and ctx.job_def.has_songs
-    if (has_songs or nether_void_column_strat(ctx) or diffusion_column_strat(ctx) or embolden_column_strat(ctx)) and not (ability and ability.group == 'Geo-bt') then
-        imgui.Dummy({ 20, 0 })
-        imgui.SameLine(0, SPACE_BETWEEN_BUTTONS)
+    if not drew and not no_spacer and has_songs then
+        render_slot_spacer()
     end
 end
 
