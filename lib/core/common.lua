@@ -20,11 +20,16 @@ common.debug = false
 -- Addon name for header
 local addon_name = 'Sidekick'
 
+-- Param value a 0x028 *_begin category carries in place of the spell/ability id when the
+-- action was cancelled rather than started (0x7073). See handle_action_packet.
+common.INTERRUPT_PARAM = 28787
+
 -- Casting state tracking (packet-based)
 local casting_state = {
     is_casting = false,
     last_action_time = 0,
-    -- Backstop only, not a mechanism: clears the lock if a spell_finish packet does not come because of interuption.
+    -- Backstop only, not a mechanism: clears the lock if neither a spell_finish nor an
+    -- interrupt packet ever arrives (zoning already clears it via clear_casting_state).
     cast_timeout = 8.0,
 }
 
@@ -387,8 +392,11 @@ end
 --    3 = ws_finish        8 = casting_begin    13 = avatar_tp_finish
 --    4 = spell_finish     9 = item_begin       14 = job_ability (DNC)
 --    5 = item_finish                           15 = job_ability (RUN)
--- An interrupted cast arrives as category 4 with Param 28787 (0x7073), so the
--- "anything that isn't 8 ends the cast" rule covers interrupts with no special case.
+-- An interrupted cast never sends its category 4 finish. It arrives as a *second*
+-- category 8 carrying Param 28787 (0x7073) instead of a spell id -- the same marker the
+-- other _begin categories (7 ws, 9 item, 12 ranged) use to signal a cancelled action.
+-- Without the Param check the interrupt would re-arm the cast lock and freeze automation
+-- until cast_timeout expired.
 function common.handle_action_packet(actionPacket)
     if not actionPacket then return end
 
@@ -406,7 +414,7 @@ function common.handle_action_packet(actionPacket)
     -- player's entity_status each tick; this only avoids a one-tick lag.
     is_resting = false
 
-    if category == 8 then
+    if category == 8 and actionPacket.Param ~= common.INTERRUPT_PARAM then
         casting_state.is_casting = true
         casting_state.last_action_time = os.clock()
     else
@@ -444,6 +452,14 @@ function common.get_last_action()
     common.is_casting()
 
     if not last_action.category then return 'none' end
+
+    -- A cancelled action reuses its _begin category and replaces the spell/ability id
+    -- with INTERRUPT_PARAM, so report the interrupt rather than a bogus 'casting_begin'
+    -- and a spell lookup on an id that is not one.
+    if last_action.param == common.INTERRUPT_PARAM then
+        local name = ACTION_CATEGORY_NAMES[last_action.category]
+        return name and ('interrupted (' .. name .. ')') or 'interrupted'
+    end
 
     local label = ACTION_CATEGORY_NAMES[last_action.category]
         or string.format('category %d', last_action.category)
@@ -1448,6 +1464,11 @@ function common.handle_buff_application()
     -- song slots). game_state.player is refreshed each tick before packets fire.
     local pending = pending_buffs[#pending_buffs]
     table.remove(pending_buffs, #pending_buffs)
+
+    -- An interrupted cast registers a pending buff and never sends the spell_finish that
+    -- would pop it, so the entry outlives its cast. Without this an unrelated later
+    -- spell_finish claims it and records a buff the target never received.
+    if (os.clock() - pending.timestamp) > PENDING_BUFF_TIMEOUT then return end
     local source_id = common.game_state and common.game_state.player and common.game_state.player.server_id
     common.apply_external_buff(pending.server_id, pending.buff_id, pending.duration, source_id)
 end
