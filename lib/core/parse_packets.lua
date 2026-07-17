@@ -125,12 +125,16 @@ end
         basic - structured table with message fields
 ]]--
 function parse_packets.parse_message_packet(e)
-    -- Only .target (buff recipient) and .param (buff ID) are consumed by the
-    -- sole caller; struct.unpack offsets are independent, so dropping the rest
-    -- is safe.
+    -- 0x029 (GP_SERV_COMMAND_BATTLE_MESSAGE) layout: UniqueNoTar @0x08,
+    -- Data (param1) @0x0C, MessageNum (uint16) @0x18. The message id decides
+    -- what param1 means -- only status gain/loss messages carry a status id, so
+    -- the caller MUST gate on .message or every battle message (damage, synth
+    -- results, misses...) is mistaken for a buff. High bit of MessageNum is a
+    -- flag; mask to the low 15-bit id. Other struct fields are unused.
     local basic = {
-        target = struct.unpack('i4', e.data, 0x08 + 1),
-        param  = struct.unpack('i4', e.data, 0x0C + 1),
+        target  = struct.unpack('i4', e.data, 0x08 + 1),
+        param   = struct.unpack('i4', e.data, 0x0C + 1),
+        message = struct.unpack('H',  e.data, 0x18 + 1) % 0x8000,
     }
     return basic
 end

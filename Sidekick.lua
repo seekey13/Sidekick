@@ -820,6 +820,33 @@ local function is_action_finish(actionPacket)
         and actionPacket.Param == common.INTERRUPT_PARAM
 end
 
+-- 0x029 battle-message ids where param1 IS a status id (verified against the
+-- CatsEyeXI server enums msg_std.h / msg_basic.h). Everything else on 0x029
+-- (damage, misses, synth results, skill-ups, no-effect...) carries an unrelated
+-- param and must be ignored, or it injects phantom statuses (e.g. a synth whose
+-- param happened to equal Sleep=2 / Terror=28). GAINS: "gains/receives the
+-- effect of <status>" and "is <status>" families. LOSSES: EffectWearsOff (206,
+-- broadcast in-range on every wear-off) and effect-disappears/dispel.
+local STATUS_GAIN_MESSAGES = {
+    [186] = true,  -- <user> uses <skill>. <target> gains the effect of <status>
+    [203] = true,  -- <target> is <status>
+    [205] = true,  -- <target> gains the effect of <status>  (MsgStd GainsEffect)
+    [230] = true,  -- <caster> casts <spell>. <target> gains the effect of <status>
+    [236] = true,  -- <caster> casts <spell>. <target> is <status>
+    [237] = true,  -- <caster> casts <spell>. <target> receives the effect of <status>
+    [242] = true,  -- <user> uses <skill>. <target> is <status>
+    [243] = true,  -- <user> uses <skill>. <target> receives the effect of <status>
+    [266] = true,  -- <target> gains the effect of <status>
+    [277] = true,  -- <target> is <status>
+    [278] = true,  -- <target> receives the effect of <status>
+    [280] = true,  -- <target> is afflicted with <status> (CatsEyeXI status-gain variant; param@0x0C = status id, not in named msg_basic.h enum)
+}
+local STATUS_LOSE_MESSAGES = {
+    [204] = true,  -- <target>'s <status> effect wears off (variant)
+    [206] = true,  -- <target>'s <status> effect wears off  (MsgStd EffectWearsOff)
+    [343] = true,  -- <target>'s <status> effect disappears! (dispel/erase)
+}
+
 ashita.events.register('packet_in', 'sidekick_packet_in', function(e)
     if not is_loaded then
         return
@@ -864,7 +891,7 @@ ashita.events.register('packet_in', 'sidekick_packet_in', function(e)
             -- Our action just resolved — start the throttle from now, not from the
             -- send that may have been a full cast time ago.
             if is_action_finish(actionPacket) then
-                automation.notify_action_finished()
+                automation.notify_action_finished(actionPacket.Type == 4)
             end
 
             -- Cast finished (category 4) — apply the pending buff to the Trust.
@@ -960,16 +987,16 @@ ashita.events.register('packet_in', 'sidekick_packet_in', function(e)
         end
     end
 
-    -- Detect buff applications via 0x029 (message_basic).
-    -- Fires whenever any nearby entity gains a buff, including cases not covered by 0x028
-    -- (e.g. buffs not cast by the local player, out-of-party targets receiving sleep, etc.)
-    -- param  (0x0C) = buff ID
-    -- target (0x08) = server ID of the entity that received the buff
+    -- Detect buff gain/loss via 0x029 (battle message). Catches status changes
+    -- 0x028 misses (buffs not cast by the local player, out-of-party targets
+    -- getting slept, and every wear-off -- EffectWearsOff is broadcast in-range).
+    -- message (0x18) = battle-message id; param (0x0C) = status id, but ONLY when
+    -- message is a status gain/loss (STATUS_GAIN/LOSE_MESSAGES). target (0x08) =
+    -- entity the effect changed on.
     if e.id == 0x029 then
-        if e.data and #e.data >= 20 then
+        if e.data and #e.data >= 0x1A then
             local msg = parse_packets.parse_message_packet(e)
 
-            -- target is who received the buff; param is the buff ID
             local server_id = msg.target
             local buff_id   = msg.param
 
@@ -984,42 +1011,49 @@ ashita.events.register('packet_in', 'sidekick_packet_in', function(e)
                     common.debugf('[REVIVE] %s is dead — 0x029 param %d is a rejected raise spell ID; setting pending_raise flag',
                         target_name, buff_id)
                     common.set_pending_raise(server_id)
-                else
-                    -- Target is alive: param is a real buff ID, run normal tracking.
-
-                    -- Resolve buff name
+                elseif STATUS_GAIN_MESSAGES[msg.message] or STATUS_LOSE_MESSAGES[msg.message] then
+                    -- Target is alive and this is a status gain/loss message, so
+                    -- param is a real status id. Any other 0x029 (synth results,
+                    -- damage, misses...) is ignored above -- its param is unrelated
+                    -- and would otherwise inject a phantom status.
                     local buff_name = AshitaCore:GetResourceManager():GetString('buffs.names', buff_id)
                     if not buff_name or buff_name == '' then
                         buff_name = 'Buff#' .. buff_id
                     end
 
-                    common.debugf('%s gained the effect of %s (via 0x029).', target_name, buff_name)
+                    if STATUS_LOSE_MESSAGES[msg.message] then
+                        common.debugf('%s lost the effect of %s (via 0x029).', target_name, buff_name)
+                        -- handle_buff_removal no-ops on untracked ids, so no guard needed.
+                        common.handle_buff_removal(server_id, buff_id)
+                    else
+                        common.debugf('%s gained the effect of %s (via 0x029).', target_name, buff_name)
 
-                    -- Base duration for timed expiry; 0x029 has no spell id, so
-                    -- this resolves via song range / buff name only. It also
-                    -- carries no caster, so source stays nil (no song eviction --
-                    -- 0x028 is the reliable song-detection path anyway).
-                    local duration = common.base_buff_duration(buff_id, nil, server_id)
+                        -- Base duration for timed expiry; 0x029 has no spell id, so
+                        -- this resolves via song range / buff name only. It also
+                        -- carries no caster, so source stays nil (no song eviction --
+                        -- 0x028 is the reliable song-detection path anyway).
+                        local duration = common.base_buff_duration(buff_id, nil, server_id)
 
-                    -- Update Trust buff tracking
-                    if server_id >= 0x1000000 then
-                        common.apply_trust_buff(server_id, buff_id, duration)
-                    end
+                        -- Update Trust buff tracking
+                        if server_id >= 0x1000000 then
+                            common.apply_trust_buff(server_id, buff_id, duration)
+                        end
 
-                    -- Update tracked target buff tracking
-                    if common.is_tracked_target(server_id) then
-                        common.apply_tracked_target_buff(server_id, buff_id, duration)
-                    end
+                        -- Update tracked target buff tracking
+                        if common.is_tracked_target(server_id) then
+                            common.apply_tracked_target_buff(server_id, buff_id, duration)
+                        end
 
-                    -- Update alliance member buff tracking
-                    if common.is_alliance_member(server_id) then
-                        common.apply_alliance_member_buff(server_id, buff_id, duration)
-                    end
+                        -- Update alliance member buff tracking
+                        if common.is_alliance_member(server_id) then
+                            common.apply_alliance_member_buff(server_id, buff_id, duration)
+                        end
 
-                    -- Update pet buff/debuff tracking (mob debuffs on the pet
-                    -- arrive here as an out-of-party target gaining an effect)
-                    if common.is_pet(server_id) then
-                        common.apply_pet_buff(server_id, buff_id, duration)
+                        -- Update pet buff/debuff tracking (mob debuffs on the pet
+                        -- arrive here as an out-of-party target gaining an effect)
+                        if common.is_pet(server_id) then
+                            common.apply_pet_buff(server_id, buff_id, duration)
+                        end
                     end
                 end
             end
