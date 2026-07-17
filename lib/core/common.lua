@@ -81,6 +81,16 @@ local trust_buffs = {}  -- trust_buffs[server_id] = {buff_id1, buff_id2, ...}
 -- buff_timestamps[server_id][buff_id] = { at = os.clock(), dur = seconds|nil }
 local buff_timestamps = {}
 
+-- In-flight removals: when we fire a na-/Erase on a packet-tracked target we mark
+-- the cured status here rather than deleting it, so the removal module skips it for
+-- REMOVAL_SUPPRESS_WINDOW seconds (stops loop-casting while the spell resolves).
+-- A successful cast's 0x028 msg-83 deletes the status well inside the window; a
+-- rejected/resisted cast leaves no packet, so the mark expires and the status
+-- becomes eligible again -- retried instead of orphaned on the target.
+-- removal_suppress[server_id][debuff_id] = os.clock() of the attempt.
+local removal_suppress = {}
+local REMOVAL_SUPPRESS_WINDOW = 4.0  -- cast time (~2-3s) + post-action lockout (1.1s)
+
 -- Base durations (seconds) for buffs cast on Trusts/tracked targets, keyed by
 -- spell name. Our own casts pass the ability name; other casters' spells resolve
 -- via GetSpellById. Detections with no spell id (0x029) fall back to the buff
@@ -1522,6 +1532,13 @@ function common.handle_buff_removal(server_id, buff_id)
         if not next(times) then buff_timestamps[server_id] = nil end
     end
 
+    -- Clear any in-flight removal mark so a later re-application isn't suppressed.
+    local sup = removal_suppress[server_id]
+    if sup then
+        sup[buff_id] = nil
+        if not next(sup) then removal_suppress[server_id] = nil end
+    end
+
     if not trust_buffs[server_id] then return end
 
     -- Remove buff from Trust's buff list
@@ -1538,11 +1555,15 @@ function common.handle_buff_removal(server_id, buff_id)
     end
 end
 
--- Optimistically drop one status a na-/Erase spell just cured from a Trust /
--- tracked / alliance target's packet-tracked list. These targets give no reliable
--- wear-off packet, so without this the removal spell re-fires every tick. Each
--- removal spell clears exactly one status per cast, so we drop a single match;
--- the base-duration timer covers any we guess wrong. No-op for memory-read party
+-- Mark one status a na-/Erase spell just tried to cure as in-flight on a Trust /
+-- tracked / alliance / pet packet-tracked target, so the removal module stops
+-- re-selecting it (removable_after_suppression filters it out) while the cast
+-- resolves. Unlike the old hard delete, the status stays tracked: a landed cast's
+-- 0x028 msg-83 removes it for real inside the window, while a rejected/resisted
+-- cast -- which sends no removal packet -- becomes eligible again after the window
+-- and is retried, instead of vanishing from tracking while still on the target.
+-- Each removal spell clears one status per cast, so we mark a single match; the
+-- base-duration timer covers any we guess wrong. No-op for memory-read party
 -- members (their sid isn't in trust_buffs) and for abilities with no debuff_id.
 function common.drop_removed_debuff(server_id, ability)
     local ids = ability and ability.debuff_id
@@ -1554,16 +1575,40 @@ function common.drop_removed_debuff(server_id, ability)
     for _, id in ipairs(ids) do match[id] = true end
     for _, tracked_id in ipairs(list) do
         if match[tracked_id] then
-            common.handle_buff_removal(server_id, tracked_id)
+            if not removal_suppress[server_id] then removal_suppress[server_id] = {} end
+            removal_suppress[server_id][tracked_id] = os.clock()
             return
         end
     end
+end
+
+-- Return <buffs> minus any id with an in-flight removal (attempted within
+-- REMOVAL_SUPPRESS_WINDOW). Used only by the removal selector -- the panel keeps
+-- reading the full trust_buffs list, since the status really is still on the
+-- target until a removal packet or the base-duration timer clears it. Expired
+-- marks are dropped here (lazy GC) so a genuinely-failed cast retries next tick.
+function common.removable_after_suppression(server_id, buffs)
+    local sup = server_id and removal_suppress[server_id]
+    if not sup or not buffs then return buffs or {} end
+    local now = os.clock()
+    local out = {}
+    for _, id in ipairs(buffs) do
+        local at = sup[id]
+        if at and (now - at) < REMOVAL_SUPPRESS_WINDOW then
+            -- still in flight: hide from the removal selector this tick
+        else
+            if at then sup[id] = nil end  -- window elapsed: eligible again
+            out[#out + 1] = id
+        end
+    end
+    return out
 end
 
 -- Clear all Trust buffs and alliance tracking (call on zone change)
 function common.clear_trust_buffs()
     trust_buffs = {}
     buff_timestamps = {}
+    removal_suppress = {}
     pending_buffs = {}
     member_max_stats = {}
     alliance_member_sids = {}

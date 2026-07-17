@@ -137,7 +137,8 @@ function status_removal.execute_debuff_removal(settings, job_def, main_level, su
     if state.tracked and #outside_abilities > 0 then
         for sid, tt in pairs(state.tracked) do
             if tt.is_active and tt.target_index and tt.target_index > 0 then
-                tracked_buffs[sid] = tt.buffs or {}
+                -- Hide in-flight removals so a cast that's still resolving isn't re-fired.
+                tracked_buffs[sid] = common.removable_after_suppression(sid, tt.buffs)
                 tracked_debuff_counts[sid] = count_removable_debuffs(tracked_buffs[sid], outside_abilities, settings)
             end
         end
@@ -154,7 +155,7 @@ function status_removal.execute_debuff_removal(settings, job_def, main_level, su
                     if m and m.is_active and m.target_index and m.target_index > 0 then
                         local flat_index = (al_pi - 1) * 6 + local_idx
                         alliance_sid_to_key[m.server_id] = 'al_' .. flat_index
-                        alliance_buffs[m.server_id] = m.buffs or {}
+                        alliance_buffs[m.server_id] = common.removable_after_suppression(m.server_id, m.buffs)
                         alliance_debuff_counts[m.server_id] = count_removable_debuffs(alliance_buffs[m.server_id], outside_abilities, settings)
                     end
                 end
@@ -455,7 +456,10 @@ function status_removal.execute_pet_debuff_removal(settings, job_def, main_level
     if #abilities == 0 then return nil end
 
     -- Pet's packet-tracked statuses (buffs + debuffs; the loop filters by debuff_id).
-    local pet_debuffs = state.pet_debuffs or {}
+    -- Hide in-flight removals so a still-resolving cast isn't re-fired.
+    local pet = common.get_pet_entity()
+    local pet_sid = pet and (pet.ServerId or 0) or 0
+    local pet_debuffs = common.removable_after_suppression(pet_sid, state.pet_debuffs or {})
 
     -- Auto-equip the consumable only when the pet has a debuff this ability could
     -- strip, so the roborant/oil never fights the heal/Regen ammo for the slot
@@ -477,11 +481,9 @@ function status_removal.execute_pet_debuff_removal(settings, job_def, main_level
             local desc  = string.format('Removing %d debuff(s) from pet with %s', count, ability.name)
             local result = action_core.try_use(ability, job_def, settings, 0, desc)
             if result then
-                -- Drop one erasable status from tracking so a multi-debuff pet
-                -- doesn't re-fire on the same one; more casts strip the rest.
-                local pet = common.get_pet_entity()
-                local sid = pet and (pet.ServerId or 0) or 0
-                if sid ~= 0 then common.drop_removed_debuff(sid, ability) end
+                -- Suppress one erasable status so a multi-debuff pet doesn't re-fire
+                -- on the same one; more casts strip the rest.
+                if pet_sid ~= 0 then common.drop_removed_debuff(pet_sid, ability) end
                 return result
             end
         end
