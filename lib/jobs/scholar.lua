@@ -30,7 +30,7 @@ return {
                 name = 'Addendum: White',
                 level = 10,
                 cost = 0,
-                recast_id = 231,
+                requires_stratagem_charge = true,  -- charge pool (recast 231), not a plain recast
                 command = '/ja "Addendum: White" <me>',
                 group = 'addendum',
                 buff_id = 401,
@@ -49,7 +49,7 @@ return {
                 name = 'Addendum: Black',
                 level = 30,
                 cost = 0,
-                recast_id = 231,
+                requires_stratagem_charge = true,  -- charge pool (recast 231), not a plain recast
                 command = '/ja "Addendum: Black" <me>',
                 group = 'addendum',
                 buff_id = 402,                
@@ -816,6 +816,19 @@ return {
     
     -- Job-specific validators
     validators = {},
+
+    -- SCH-specific gating: the Addendums burn a stratagem, and the stratagem
+    -- pool (recast id 231) counts down per charge rather than to zero, so a
+    -- plain recast gate would only ever pass at full charges.
+    validate_ability = function(ability, common)
+        if ability.requires_stratagem_charge then
+            local gs = common.game_state
+            if not gs or (gs.stratagems or 0) < 1 then
+                return false
+            end
+        end
+        return true
+    end,
     
     -- Default settings for UI
     default_settings = {
