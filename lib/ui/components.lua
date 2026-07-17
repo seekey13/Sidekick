@@ -1168,12 +1168,14 @@ end
 --      D (BLU Diffusion, blue buff rows) or E (RUN Embolden, enhancing rows).
 --      A job carries at most one of these, so it is a single column.
 --   2. the scholar column, live only while in Light/Dark Arts: the S button,
---      or E (Enlightenment) on the rows that take it. The two never compete
---      for it -- E is offered only on white rows in Dark Arts, exactly where
---      the wrong-stance S draws a spacer -- so they share one column.
--- Rows that don't get a given column's button get a spacer in its place, so
--- RUN/SCH shows [E][S] on an enhancing row and [ ][S] on a Cure row. Both
--- columns collapse away entirely when their job isn't in play.
+--      or an E button on the rows that take one.
+-- The white-magic E buttons (SCH Enlightenment, RUN Embolden) share the
+-- scholar column while in Dark Arts instead of opening a second one: there the
+-- S button is wrong-stance on a white row and would draw nothing but a spacer,
+-- so the two never compete for the slot. In Light Arts both draw real buttons
+-- on an enhancing row, so Embolden keeps its own column and RUN/SCH reads
+-- [E][S] there and [ ][S] on a Cure row. Every column collapses away entirely
+-- when its job isn't in play, and a row that misses one gets a spacer instead.
 -- Song rows are the exception: render_party_buttons draws the [A] button in
 -- the leading slot instead, and neither column applies to songs, so a bard
 -- row stays one indent wide.
@@ -1184,19 +1186,24 @@ local function render_leading_slot(ability_key, ability, ctx)
     -- to align with -- never indent them.
     local no_spacer = ability and ability.group == 'Geo-bt'
 
+    -- Dark Arts frees the scholar column for a white-magic E button (below).
+    local in_dark_arts = common.has_buff(0, 359) or common.has_buff(0, 402)
+
     -- Column 1: the recast-gated button, or its spacer while that column is up.
     local drew = render_nether_void_button(ability_key, ability, ctx)
         or render_diffusion_button(ability_key, ability, ctx)
-        or render_embolden_button(ability_key, ability, ctx)
+        or (not in_dark_arts and render_embolden_button(ability_key, ability, ctx))
     if not drew and not no_spacer
         and (nether_void_column_strat(ctx) or diffusion_column_strat(ctx)
-            or embolden_column_strat(ctx)) then
+            or (not in_dark_arts and embolden_column_strat(ctx))) then
         render_slot_spacer()
         drew = true
     end
 
-    -- Column 2: scholar's E or S button (or the S button's alignment spacer).
+    -- Column 2: the scholar column -- an E button (Enlightenment, or Embolden
+    -- now that Dark Arts has freed the slot) or the S button / its spacer.
     if render_enlightenment_button(ability_key, ability, ctx) then return end
+    if in_dark_arts and render_embolden_button(ability_key, ability, ctx) then return end
     if render_scholar_stratagem_button(ability_key, ability, ctx) then return end
 
     -- Neither column drew. A bard [A] column still needs other rows indented.
