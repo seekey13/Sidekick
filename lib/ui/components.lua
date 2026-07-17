@@ -2620,5 +2620,7 @@ ui_components.AUTOMATION_BUTTON_WIDTH = AUTOMATION_BUTTON_WIDTH
 ui_components.LIGHT_GREEN = LIGHT_GREEN
 ui_components.LIGHT_BLUE = LIGHT_BLUE
 ui_components.LIGHT_RED = LIGHT_RED
+ui_components.LIGHT_YELLOW = LIGHT_YELLOW
+ui_components.LIGHT_GRAY = LIGHT_GRAY
 
 return ui_components
