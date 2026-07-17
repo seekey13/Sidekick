@@ -891,7 +891,7 @@ ashita.events.register('packet_in', 'sidekick_packet_in', function(e)
             -- Our action just resolved — start the throttle from now, not from the
             -- send that may have been a full cast time ago.
             if is_action_finish(actionPacket) then
-                automation.notify_action_finished()
+                automation.notify_action_finished(actionPacket.Type == 4)
             end
 
             -- Cast finished (category 4) — apply the pending buff to the Trust.

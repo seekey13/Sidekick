@@ -10,6 +10,7 @@ local common = require('lib.core.common')
 -- Last command execution time
 local last_command_time = 0
 local command_throttle = 1.1 -- seconds between commands (game's post-action lockout)
+local spell_finish_throttle = 3.1 -- spell casts carry a longer server-side lockout than other actions
 
 -- Pending stratagem follow-up: when a stratagem JA fires, we lock the next
 -- tick to the same action_type so the paired ability gets executed before the
@@ -42,10 +43,14 @@ end
 -- Restart the throttle from an action's *completion* rather than its send. The lockout
 -- is server-side, but execute_command can only stamp the client's send -- a whole cast
 -- time early for a spell, so the next command fires into the lockout and is eaten.
+-- Spell finishes carry a longer lockout, so is_spell_finish stamps the extra seconds
+-- forward: the throttle check always subtracts command_throttle, so a stamp pushed
+-- (spell_finish_throttle - command_throttle) into the future yields that full gap.
 -- Only ever moves the stamp later, so it can never let a command out early.
 -- Called from the 0x028 handler; see ACTION_FINISH_CATEGORIES in Sidekick.lua.
-function automation.notify_action_finished()
-    last_command_time = os.clock()
+function automation.notify_action_finished(is_spell_finish)
+    local throttle = is_spell_finish and spell_finish_throttle or command_throttle
+    last_command_time = os.clock() + (throttle - command_throttle)
 end
 
 --[[
