@@ -238,7 +238,7 @@ field name must match its command (see the ability-field reference below).
 Shared utility module (~3,200 lines). Key areas:
 
 - **Logging**: `printf`, `debugf`, `errorf`, `warnf` – unified via internal `log()` helper
-- **Player state**: `get_player_level/job/mp/tp`, `is_idle/engaged/in_event`, `is_casting`, `is_player_moving`, `is_resting` (cached from entity status 33), `is_mounted` (entity status 5 or buff 252)
+- **Player state**: `get_player_level/job/mp/tp`, `is_idle/engaged/in_event`, `is_casting`, `clear_casting_state` (drops the casting lock on zone change, where the cancelled cast never sends a finish packet), `get_last_action` (debug-panel label for the last 0x028 category seen), `is_player_moving`, `is_resting` (cached from entity status 33), `is_mounted` (entity status 5 or buff 252)
 - **Party**: `get_party_size`, `get_party_member_name/zone/distance`, `get_party_server_ids`
 - **Alliance**: `is_alliance_member`, `find_alliance_member`, `get_alliance_count`, `sorted_alliance_members`, `apply_alliance_member_buff`, `apply_external_buff`
 - **Buffs**: `has_buff`, `get_player_buffs`, `get_party_buffs`, `get_trust_buffs`
@@ -255,7 +255,11 @@ Shared utility module (~3,200 lines). Key areas:
 
 ### automation.lua
 
-Priority-based action engine with 1-second command throttle. Calls each action module's `.execute()` via `pcall`, accepts both `{command, description}` tables and raw command strings.
+Priority-based action engine with a 1.1-second command throttle. Calls each action module's `.execute()` via `pcall`, accepts both `{command, description}` tables and raw command strings.
+
+The throttle mirrors the game's post-action lockout. That lockout is server-side and runs from when the server **resolves** an action, but `execute_command` can only stamp the timer when the client **sends** — seconds early for a spell (the stamp expires before the cast even ends, so the next command fires into the lockout and is eaten) and half a round-trip early even for an instant job ability. So `automation.notify_action_finished()` re-stamps the timer from the player's own 0x028 finish packets, which is the server reporting when the action actually landed. `ACTION_FINISH_CATEGORIES` in Sidekick.lua lists the categories: 2/3/4/5 (ranged, WS, spell, item) and 6/14/15 (job abilities). The `*_begin` categories (7/8/9/12) are excluded — each has its own finish packet later — and melee (1) never gets that far, since `handle_action_packet` drops it.
+
+Re-stamping only ever moves the timer later, never earlier, so it cannot release a command early. It also picks up actions the **player** took by hand, which `execute_command` never sees.
 
 - **Rest breaking**: `REST_BREAKING` (heal, recover, item, status_removal, debuff_removal, wake, revive) fires `/heal off` and returns before the action itself, which lands the next tick. `buff` and `geo` are low priority and never interrupt rest.
 - **Stratagem follow-up lock**: a result flagged `is_stratagem` sets `pending_stratagem = {action_type, timestamp}`; the next tick runs **only** that module so nothing pre-empts the paired spell. Released when the module returns nil, or after `STRATAGEM_FOLLOWUP_TIMEOUT` (5 s).
@@ -276,6 +280,8 @@ Both toggles live in the `/sk panel` header row, are persisted per job, and requ
 ### parse_packets.lua
 
 Parses raw packet bytes for action packet 0x028 into structured Lua tables (actor, type, targets, actions). Used by Sidekick.lua's packet_in handler for casting-state detection and Trust buff tracking.
+
+0x028 is **bit-packed, not byte-aligned** — `Type` (the 4-bit action category) sits at bit 82, not on any byte boundary, so it can only be read through this parser, never with `struct.unpack` offsets. Categories: `1` melee, `2` ranged_finish, `3` ws_finish, `4` spell_finish, `5` item_finish, `6` job_ability, `7` ws_begin, `8` casting_begin, `9` item_begin, `11` mob_tp_finish, `12` ranged_begin, `13` avatar_tp_finish, `14`/`15` job_ability (DNC/RUN). Layout matches [Windower's `fields.lua`](https://github.com/Windower/Lua/blob/dev/addons/libs/packets/fields.lua) for incoming 0x028.
 
 ### targets.lua
 
@@ -399,7 +405,7 @@ MP and TP recovery. Monitors percentage thresholds. Uses `action_core.first_comm
   (engine handles follow there, preserving healing-over-follow priority) and otherwise runs the
   follow module directly. Unlike combat actions, follow is deliberately **not** gated on
   `can_attack`, so it works in towns/safe zones. Guards it keeps: zoning / mounted / dead /
-  casting. Reuses the shared 1s throttle via `automation.execute_command`; in the states it runs,
+  casting. Reuses the shared throttle via `automation.execute_command`; in the states it runs,
   the engine issues nothing, so the shared throttle never delays a heal.
 - Follow survives the server's position syncs via the **autorun-cancel packet guard** in
   `Sidekick.lua`'s `packet_in` handler (see Event System); without it `/follow` breaks on every
@@ -636,7 +642,9 @@ Read-only display of game state, party buffs, server IDs, target indices. Shown 
 
 The header row also holds the toggles that don't belong to any ability row: **AFK Sleep** (`afk_enabled` plus a **Timeout (minutes)** field shown only while enabled, see [afk.lua](#afklua--afk-sleep)), **Multisend Follow** (`multisend_follow`, see follow.lua), and the two job-conditional mid-cast modes — Bard **Pianissimo Fast Casting** (`pianissimo_fast_casting`) and Ninja **Cast with 1 Shadow** (`cast_with_1_shadow`), both described under [Scheduled Mid-Cast Removal](#scheduled-mid-cast-removal).
 
-The debug row shows AFK state beside Moving/Casting: `off` (disabled), `idle` (automation stopped), `asleep`, or `awake (Ns)` with the live countdown.
+The debug row shows AFK state beside Moving/Action: `off` (disabled), `idle` (automation stopped), `asleep`, or `awake (Ns)` with the live countdown.
+
+**Action** (`common.get_last_action()`) replaces the old `Casting: true/false` boolean: it names the last 0x028 category detected from the player — `casting_begin: Cure IV`, `spell_finish: Cure IV`, `job_ability`, `ws_finish`, … — so a cast can be watched start-to-finish instead of inferred from a flag. Melee rounds aren't recorded (they'd drown everything else while engaged), and the spell name is resolved only for the two magic categories (4/8), where `Param` is known to be a spell id. Reads `none` before the first action, after the stuck-cast timeout fires, and after a zone change.
 
 ---
 
@@ -656,7 +664,7 @@ Regular party members: buffs read directly from game memory.
 Trusts (server_id ≥ 0x1000000): tracked via packets.
 
 1. `register_pending_buff(server_id, buff_id, spell_name)` – on cast initiation
-2. `handle_buff_application()` – packet 0x028 with completion flag
+2. `handle_buff_application()` – packet 0x028, category 4 (spell_finish), player is the actor, `Param ~= 28787` (an interrupted cast is also category 4, but nothing landed)
 3. `handle_buff_removal(server_id, buff_id)` – packet 0x029
 4. `clear_trust_buffs()` – on zone change
 

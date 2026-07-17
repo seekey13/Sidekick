@@ -44,8 +44,12 @@ casting / can't-attack), detects job/level change and reloads the job def, then 
 **Priority engine** (`lib/core/automation.lua`). Iterates the job's `priority_order`, calls
 each `action_module.execute(...)` inside `pcall` (a throwing module is logged, not fatal).
 **First module to return a truthy result wins the tick.** Results may be a
-`{command, description}` table or a raw command string. A **1-second throttle** gates all
-commands. Resting (`/heal`) is broken automatically before urgent actions fire. Scholar
+`{command, description}` table or a raw command string. A **1.1-second throttle** gates all
+commands, matching the game's server-side post-action lockout: it is stamped on send, then
+re-stamped by `automation.notify_action_finished()` from the player's own 0x028 finish
+packets (`ACTION_FINISH_CATEGORIES` in `Sidekick.lua`), so the timer runs from when the
+server resolved the action rather than from the send that preceded it — a whole cast time
+earlier for a spell. Re-stamping only moves the timer later, never earlier. Resting (`/heal`) is broken automatically before urgent actions fire. Scholar
 stratagems use a follow-up lock so the paired spell fires the tick after the stratagem JA.
 A result carrying `scheduled_removal` queues a mid-cast `/debuff` (Bard Pianissimo fast
 casting, Ninja 1-shadow Utsusemi) — that one fires from the tick loop ahead of the

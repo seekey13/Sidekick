@@ -16,10 +16,11 @@ local parse_packets = {}
     Returns:
         actionPacket - structured table with:
             .UserId - actor server ID
-            .Type - action type (4 = magic)
+            .Type - action category (8 = casting start, 4 = casting finish,
+                    1 = melee, 6 = job ability -- see common.handle_action_packet)
             .Param - spell/ability ID
             .Recast - recast time
-            .Targets - array of targets with .Id and .Actions
+            .Targets - array of targets with .Id and .Actions (may be empty)
 ]]--
 function parse_packets.parse_action_packet(e)
     local bitData
@@ -27,7 +28,7 @@ function parse_packets.parse_action_packet(e)
     local maxLength = e.size * 8
     
     local function UnpackBits(length)
-        if ((bitOffset + length) >= maxLength) then
+        if ((bitOffset + length) > maxLength) then
             maxLength = 0 -- Using this as a flag since any malformed fields mean the data is trash anyway
             return 0
         end
@@ -105,10 +106,12 @@ function parse_packets.parse_action_packet(e)
         end
     end
 
-    if (maxLength ~= 0) and (#actionPacket.Targets > 0) then
+    -- Targets may legitimately be empty; casting detection only needs the header
+    -- fields (UserId/Type), and the buff-tracking loop no-ops on an empty list.
+    if (maxLength ~= 0) then
         return actionPacket
     end
-    
+
     return nil
 end
 

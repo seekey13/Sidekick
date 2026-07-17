@@ -579,7 +579,7 @@ Settings are saved per job in JSON format in the Ashita config directory:
 
 ### Performance
 - Efficient party checking algorithms
-- 1-second command throttle to prevent spam
+- 1.1-second command throttle to prevent spam, timed from when an action completes
 - Early returns for disabled states
 
 ## Known Limitations

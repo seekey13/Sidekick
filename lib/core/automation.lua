@@ -9,7 +9,7 @@ local common = require('lib.core.common')
 
 -- Last command execution time
 local last_command_time = 0
-local command_throttle = 1.1 -- 1.1 second between commands
+local command_throttle = 1.1 -- seconds between commands (game's post-action lockout)
 
 -- Pending stratagem follow-up: when a stratagem JA fires, we lock the next
 -- tick to the same action_type so the paired ability gets executed before the
@@ -35,8 +35,24 @@ function automation.execute_command(command, description)
     -- Execute the command
     AshitaCore:GetChatManager():QueueCommand(0, command)
     last_command_time = current_time
-    
+
     return true
+end
+
+-- Restart the throttle from an action's *completion* rather than its send.
+--
+-- The lockout is server-side and runs from when the server resolves the action, but
+-- execute_command can only stamp the client's send. Those differ by a whole cast time
+-- for a spell (the send-time stamp expires seconds before the cast even ends, so the
+-- next command fires into the lockout and is eaten) and by half a round-trip for an
+-- instant job ability. Our own 0x028 finish packet is the server telling us when the
+-- action actually landed, which is the timer we want.
+--
+-- Only ever moves the stamp later: os.clock() here is always >= the send-time stamp
+-- execute_command already wrote, so this can never let a command out early.
+-- Called from the 0x028 handler; see ACTION_FINISH_CATEGORIES in Sidekick.lua.
+function automation.notify_action_finished()
+    last_command_time = os.clock()
 end
 
 --[[

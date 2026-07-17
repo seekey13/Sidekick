@@ -800,6 +800,29 @@ ashita.events.register('d3d_present', 'sidekick_render', function()
     follow_tick()
 end)
 
+-- 0x028 categories that mark one of our actions *resolving*. The game's post-action
+-- lockout is server-side and starts here, so these restart the command throttle; see
+-- automation.notify_action_finished.
+--
+-- Job abilities are included even though they resolve instantly: execute_command stamps
+-- the throttle from the client's send, which is half a round-trip before the server
+-- actually processes the action, so the stamp is early even for a JA. This packet is the
+-- server telling us when it really happened. It also catches abilities the *player* used
+-- by hand, which execute_command never sees at all.
+--
+-- The *_begin categories (7 ws, 8 casting, 9 item, 12 ranged) are absent: they mark the
+-- start of an action, and its own finish packet lands here later. Melee (1) never
+-- reaches this table -- handle_action_packet drops those packets first.
+local ACTION_FINISH_CATEGORIES = {
+    [2]  = true,  -- ranged_finish
+    [3]  = true,  -- ws_finish
+    [4]  = true,  -- spell_finish (includes interrupts, which lock out just the same)
+    [5]  = true,  -- item_finish
+    [6]  = true,  -- job_ability
+    [14] = true,  -- job_ability (DNC -- Waltzes, which Sidekick automates)
+    [15] = true,  -- job_ability (RUN)
+}
+
 ashita.events.register('packet_in', 'sidekick_packet_in', function(e)
     if not is_loaded then
         return
@@ -828,33 +851,35 @@ ashita.events.register('packet_in', 'sidekick_packet_in', function(e)
     -- Message 83  = buff/debuff removed from target (e.g. Paralyna removes Paralysis)
     -- Cure healing messages (2, 7, 24) on tracked sleeping targets infer wake
     if e.id == 0x028 then
-        -- Casting detection (always active) — uses raw bytes, not parsed packet
-        if e.data and #e.data >= 16 then
-            local actor_id = struct.unpack('I', e.data, 0x05 + 1)
-            local party = common.get_party()
-            if party then
-                local player_id = party:GetMemberServerId(0)
-                if player_id and actor_id == player_id then
-                    common.handle_action_packet(e.data)  -- Casting detection
+        local actionPacket = parse_packets.parse_action_packet(e)
 
-                    -- Check if this is a casting completion (byte 0x0F != 0x00)
-                    local completion_flag = struct.unpack('B', e.data, 0x0F + 1)
-                    if completion_flag ~= 0x00 then
-                        -- Casting completed, apply pending buff to Trust
-                        common.handle_buff_application()
-                    end
-                end
+        -- Determine if we (the player) are the actor
+        local party = common.get_party()
+        local player_id = party and party:GetMemberServerId(0)
+        local actor_is_player = (actionPacket and player_id and actionPacket.UserId == player_id)
+
+        -- Casting detection (always active). Category 8 = casting start,
+        -- 4 = casting finish; see common.handle_action_packet.
+        if actor_is_player then
+            common.handle_action_packet(actionPacket)
+
+            -- Our action just resolved — start the throttle from now, not from the
+            -- send that may have been a full cast time ago.
+            if ACTION_FINISH_CATEGORIES[actionPacket.Type] then
+                automation.notify_action_finished()
+            end
+
+            -- Cast finished (category 4) — apply the pending buff to the Trust.
+            -- Param 28787 (0x7073) marks an interrupted cast: nothing landed, so
+            -- popping the pending buff would record a buff the Trust never got and
+            -- suppress the recast for the buff's full base duration.
+            if actionPacket.Type == 4 and actionPacket.Param ~= 28787 then
+                common.handle_buff_application()
             end
         end
 
-        -- Buff gain/loss tracking — uses parsed action packet
-        local actionPacket = parse_packets.parse_action_packet(e)
+        -- Buff gain/loss tracking — casting finish packets only
         if actionPacket and actionPacket.Type == 4 then
-            -- Determine if we (the player) are the actor
-            local party = common.get_party()
-            local player_id = party and party:GetMemberServerId(0)
-            local actor_is_player = (player_id and actionPacket.UserId == player_id)
-
             -- Resolve the spell name once for base-duration lookup (timed expiry)
             local spell = AshitaCore:GetResourceManager():GetSpellById(actionPacket.Param)
             local spell_name = spell and spell.Name and spell.Name[1] or nil
@@ -1007,6 +1032,7 @@ ashita.events.register('packet_in', 'sidekick_packet_in', function(e)
     if e.id == 0x0A then  -- Zone change packet
         common.clear_trust_buffs()
         common.clear_tracked_targets()
+        common.clear_casting_state()
 
         -- Stop after zone (opt-in via the Start button right-click menu).
         if automation_enabled and addon_settings and addon_settings.stop_after_zone == true then
