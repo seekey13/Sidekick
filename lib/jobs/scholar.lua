@@ -62,6 +62,7 @@ return {
                 recast_id = 234,
                 command = '/ja "Sublimation" <me>',
                 buff_id = {187, 188},  -- Can be either 187 (activated) or 188 (complete)
+                buff_priority = 50,
             },
             -- Klimaform
             {
