@@ -50,7 +50,8 @@ end
 -- Called from the 0x028 handler; see ACTION_FINISH_CATEGORIES in Sidekick.lua.
 function automation.notify_action_finished(is_spell_finish)
     local throttle = is_spell_finish and spell_finish_throttle or command_throttle
-    last_command_time = os.clock() + (throttle - command_throttle)
+    local finish_stamp = os.clock() + (throttle - command_throttle)
+    last_command_time = math.max(last_command_time, finish_stamp)
 end
 
 --[[
