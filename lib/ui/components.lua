@@ -8,6 +8,7 @@ local ui_components = {}
 local imgui = require('imgui')
 local common = require('lib.core.common')
 local item_module = require('lib.actions.item')
+local tooltips = require('lib.ui.tooltips')
 
 -- ============================================================================
 -- UI Constants
@@ -1076,11 +1077,9 @@ local function render_nether_void_button(ability_key, ability, ctx)
     if not strat then return false end
     local noun = ability.group == 'absorb' and 'Absorb spell' or 'spell'
     return render_recast_gate_button(ability_key, ctx, strat, 'N',
-        strat.name .. ': fire ' .. strat.name .. ' before this ' .. noun .. '\n' ..
-            'to boost its effect. Click to configure. Lit when enabled.',
-        'Fire ' .. strat.name .. ' before the selected ' .. noun .. '.',
-        'On: skip the ' .. noun .. ' until ' .. strat.name .. ' is ready.\n' ..
-            'Off (default): cast the ' .. noun .. ' without ' .. strat.name .. ' when it is on cooldown.')
+        string.format(tooltips.nether_void_button, noun),
+        string.format(tooltips.nether_void_enable, noun),
+        string.format(tooltips.nether_void_hold, noun, noun))
 end
 
 -- BLU Diffusion [D] button on every blue magic buff row: fire Diffusion
@@ -1092,11 +1091,7 @@ local function render_diffusion_button(ability_key, ability, ctx)
     local strat = diffusion_column_strat(ctx)
     if not strat then return false end
     return render_recast_gate_button(ability_key, ctx, strat, 'D',
-        'Diffusion: fire Diffusion before this buff to spread it\n' ..
-            'to the whole party. Click to configure. Lit when enabled.',
-        'Fire Diffusion before this buff so it applies to the party.',
-        'On: skip this buff until Diffusion is ready.\n' ..
-            'Off (default): cast the buff self-only when Diffusion is on cooldown.')
+        tooltips.diffusion_button, tooltips.diffusion_enable, tooltips.diffusion_hold)
 end
 
 -- RUN Embolden [E] button on every enhancing magic row: fire Embolden before
@@ -1108,11 +1103,7 @@ local function render_embolden_button(ability_key, ability, ctx)
     local strat = embolden_column_strat(ctx)
     if not strat then return false end
     return render_recast_gate_button(ability_key, ctx, strat, 'E',
-        'Embolden: fire Embolden before this spell to boost\n' ..
-            'its potency. Click to configure. Lit when enabled.',
-        'Fire Embolden before this spell so its effect is stronger.',
-        'On: skip this spell until Embolden is ready.\n' ..
-            'Off (default): cast the spell unboosted when Embolden is on cooldown.')
+        tooltips.embolden_button, tooltips.embolden_enable, tooltips.embolden_hold)
 end
 
 -- Draw a row's leading slot: the [A] button (bard, drawn later by
