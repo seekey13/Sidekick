@@ -24,10 +24,8 @@ local addon_name = 'Sidekick'
 local casting_state = {
     is_casting = false,
     last_action_time = 0,
-    -- Backstop only, not a mechanism: clears the lock if a spell_finish packet is
-    -- ever missed. Must exceed the longest real cast (teleports/Raise ~20s), or it
-    -- would clear mid-cast and let automation fire during a legitimate cast.
-    cast_timeout = 30.0,
+    -- Backstop only, not a mechanism: clears the lock if a spell_finish packet does not come because of interuption.
+    cast_timeout = 8.0,
 }
 
 -- Last 0x028 action category seen from the player, for the debug panel readout.
