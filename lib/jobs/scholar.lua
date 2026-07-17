@@ -62,6 +62,7 @@ return {
                 recast_id = 234,
                 command = '/ja "Sublimation" <me>',
                 buff_id = {187, 188},  -- Can be either 187 (activated) or 188 (complete)
+                buff_priority = 50,
             },
             -- Klimaform
             {
@@ -72,7 +73,7 @@ return {
                 magic = 'black',
                 magic_type = 'enhancing',
                 command = '/ma "Klimaform" <me>',
-                buff_id = 407,  -- Klimaform
+                buff_id = 407,
             },
             -- Protect line
             {
@@ -85,7 +86,7 @@ return {
                 command = function(target)
                     return '/ma "Protect IV" '..target
                 end,
-                buff_id = 40,  -- Protect
+                buff_id = 40,
                 group = 'protect',
                 target_outside = true,
             },
@@ -142,7 +143,7 @@ return {
                 command = function(target)
                     return '/ma "Shell IV" '..target
                 end,
-                buff_id = 41,  -- Shell
+                buff_id = 41,
                 group = 'shell',
                 target_outside = true,
             },
@@ -198,7 +199,7 @@ return {
                 command = function(target)
                     return '/ma "Regen III" '..target
                 end,
-                buff_id = 42,  -- Regen
+                buff_id = 42,
                 range = 20,
             },
             {
@@ -236,7 +237,7 @@ return {
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Aurorastorm" <me>',
-                buff_id = 184,  -- Aurorastorm
+                buff_id = 184,
                 group = 'storm',
             },
             {
@@ -247,7 +248,7 @@ return {
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Voidstorm" <me>',
-                buff_id = 185,  -- Voidstorm
+                buff_id = 185,
                 group = 'storm',
             },
             {
@@ -258,7 +259,7 @@ return {
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Thunderstorm" <me>',
-                buff_id = 182,  -- Thunderstorm
+                buff_id = 182,
                 group = 'storm',
             },
             {
@@ -269,7 +270,7 @@ return {
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Hailstorm" <me>',
-                buff_id = 179,  -- Hailstorm
+                buff_id = 179,
                 group = 'storm',
             },
             {
@@ -280,7 +281,7 @@ return {
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Firestorm" <me>',
-                buff_id = 178,  -- Firestorm
+                buff_id = 178,
                 group = 'storm',
             },
             {
@@ -291,7 +292,7 @@ return {
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Windstorm" <me>',
-                buff_id = 180,  -- Windstorm
+                buff_id = 180,
                 group = 'storm',
             },
             {
@@ -302,7 +303,7 @@ return {
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Rainstorm" <me>',
-                buff_id = 183,  -- Rainstorm
+                buff_id = 183,
                 group = 'storm',
             },
             {
@@ -313,7 +314,7 @@ return {
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Sandstorm" <me>',
-                buff_id = 181,  -- Sandstorm
+                buff_id = 181,
                 group = 'storm',
             },
             -- Other buffs
@@ -325,7 +326,7 @@ return {
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Stoneskin" <me>',
-                buff_id = 37,  -- Stoneskin
+                buff_id = 37,
             },
             {
                 name = 'Blink',
@@ -335,7 +336,7 @@ return {
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Blink" <me>',
-                buff_id = 36,  -- Blink
+                buff_id = 36,
             },
             {
                 name = 'Aquaveil',
@@ -345,7 +346,7 @@ return {
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Aquaveil" <me>',
-                buff_id = 39,  -- Aquaveil
+                buff_id = 39,
             },
             -- Spikes
             {
@@ -356,7 +357,7 @@ return {
                 magic = 'black',
                 magic_type = 'enhancing',
                 command = '/ma "Shock Spikes" <me>',
-                buff_id = 38,  -- Shock Spikes
+                buff_id = 38,
                 group = 'spikes',
             },
             {
@@ -367,7 +368,7 @@ return {
                 magic = 'black',
                 magic_type = 'enhancing',
                 command = '/ma "Ice Spikes" <me>',
-                buff_id = 35,  -- Ice Spikes
+                buff_id = 35,
                 group = 'spikes',
             },
             {
@@ -378,7 +379,7 @@ return {
                 magic = 'black',
                 magic_type = 'enhancing',
                 command = '/ma "Blaze Spikes" <me>',
-                buff_id = 34,  -- Blaze Spikes
+                buff_id = 34,
                 group = 'spikes',
             },
             {
@@ -417,7 +418,7 @@ return {
                 command = function(target)
                     return '/ma "Invisible" '..target
                 end,
-                buff_id = 69,  -- Invisible
+                buff_id = 69,
                 idle_only = true,
             },
             {
@@ -430,7 +431,7 @@ return {
                 command = function(target)
                     return '/ma "Sneak" '..target
                 end,
-                buff_id = 71,  -- Sneak
+                buff_id = 71,
                 idle_only = true,
             },
             {
@@ -444,7 +445,7 @@ return {
                     return '/ma "Deodorize" '..target
                 end,
                 idle_only = true,
-                buff_id = 70,  -- Deodorize
+                buff_id = 70,
             },
         },
         
@@ -457,7 +458,7 @@ return {
                 spell_id = 14,
                 magic = 'white',
                 magic_type = 'healing',
-                debuff_id = 3,  -- Poison
+                debuff_id = 3,
                 command = function(target)
                     return '/ma "Poisona" '..target
                 end,
@@ -472,7 +473,7 @@ return {
                 spell_id = 15,
                 magic = 'white',
                 magic_type = 'healing',
-                debuff_id = 4,  -- Paralysis
+                debuff_id = 4,
                 command = function(target)
                     return '/ma "Paralyna" '..target
                 end,
@@ -487,7 +488,7 @@ return {
                 spell_id = 16,
                 magic = 'white',
                 magic_type = 'healing',
-                debuff_id = 5,  -- Blindness
+                debuff_id = 5,
                 command = function(target)
                     return '/ma "Blindna" '..target
                 end,
@@ -502,7 +503,7 @@ return {
                 spell_id = 17,
                 magic = 'white',
                 magic_type = 'healing',
-                debuff_id = 6,  -- Silence
+                debuff_id = 6,
                 command = function(target)
                     return '/ma "Silena" '..target
                 end,
@@ -560,7 +561,7 @@ return {
                 spell_id = 18,
                 magic = 'white',
                 magic_type = 'healing',
-                debuff_id = 7,  -- Petrification
+                debuff_id = 7,
                 command = function(target)
                     return '/ma "Stona" '..target
                 end,

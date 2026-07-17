@@ -166,7 +166,7 @@ return {
                 spell_id = 18,
                 magic = 'white',
                 magic_type = 'healing',
-                debuff_id = 7,  -- Petrification
+                debuff_id = 7,
                 command = function(target)
                     return '/ma "Stona" '..target
                 end,
@@ -221,7 +221,7 @@ return {
                 spell_id = 17, 
                 magic = 'white',
                 magic_type = 'healing',
-                debuff_id = 6,  -- Silence
+                debuff_id = 6,
                 command = function(target)
                     return '/ma "Silena" '..target
                 end,
@@ -235,7 +235,7 @@ return {
                 spell_id = 16,
                 magic = 'white',
                 magic_type = 'healing',
-                debuff_id = 5,  -- Blindness
+                debuff_id = 5,
                 command = function(target)
                     return '/ma "Blindna" '..target
                 end,
@@ -249,7 +249,7 @@ return {
                 spell_id = 15,
                 magic = 'white',
                 magic_type = 'healing',
-                debuff_id = 4,  -- Paralysis
+                debuff_id = 4,
                 command = function(target)
                     return '/ma "Paralyna" '..target
                 end,
@@ -263,7 +263,7 @@ return {
                 spell_id = 14, 
                 magic = 'white',
                 magic_type = 'healing',
-                debuff_id = 3,  -- Poison
+                debuff_id = 3,
                 command = function(target)
                     return '/ma "Poisona" '..target
                 end,
@@ -280,7 +280,7 @@ return {
                 cost = 0,
                 recast_id = 29,
                 command = '/ja "Afflatus Solace" <me>',
-                buff_id = 417,  -- Afflatus Solace
+                buff_id = 417,
                 group = 'afflatus',
             },
             {
@@ -289,7 +289,7 @@ return {
                 cost = 0,
                 recast_id = 30,
                 command = '/ja "Afflatus Misery" <me>',
-                buff_id = 418,  -- Afflatus Misery
+                buff_id = 418,
                 group = 'afflatus',
             },
             {
@@ -302,7 +302,7 @@ return {
                 command = function(target)
                     return '/ma "Haste" '..target
                 end,
-                buff_id = 33,  -- Haste
+                buff_id = 33,
                 duration = 180,
                 target_outside = true,
             },
@@ -316,7 +316,7 @@ return {
                 command = function(target)
                     return '/ma "Regen III" '..target
                 end,
-                buff_id = 42,  -- Regen
+                buff_id = 42,
                 duration = 60,
             },
             {
@@ -329,7 +329,7 @@ return {
                 command = function(target)
                     return '/ma "Regen II" '..target
                 end,
-                buff_id = 42,  -- Regen
+                buff_id = 42,
                 duration = 60,
             },
             {
@@ -342,7 +342,7 @@ return {
                 command = function(target)
                     return '/ma "Regen" '..target
                 end,
-                buff_id = 42,  -- Regen
+                buff_id = 42,
                 duration = 75,
             },
             {
@@ -353,7 +353,7 @@ return {
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Protectra V" <me>',
-                buff_id = 40,  -- Protect
+                buff_id = 40,
                 group = 'protectra',
             },
             {
@@ -410,7 +410,7 @@ return {
                 command = function(target)
                     return '/ma "Protect IV" '..target
                 end,
-                buff_id = 40,  -- Protect
+                buff_id = 40,
                 group = 'protect',
                 target_outside = true,
             },
@@ -424,7 +424,7 @@ return {
                 command = function(target)
                     return '/ma "Protect III" '..target
                 end,
-                buff_id = 40,  -- Protect
+                buff_id = 40,
                 group = 'protect',
                 target_outside = true,
             },
@@ -438,7 +438,7 @@ return {
                 command = function(target)
                     return '/ma "Protect II" '..target
                 end,
-                buff_id = 40,  -- Protect
+                buff_id = 40,
                 group = 'protect',
                 target_outside = true,
             },
@@ -452,7 +452,7 @@ return {
                 command = function(target)
                     return '/ma "Protect" '..target
                 end,
-                buff_id = 40,  -- Protect
+                buff_id = 40,
                 group = 'protect',
                 target_outside = true,
             },
@@ -464,7 +464,7 @@ return {
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Shellra V" <me>',
-                buff_id = 41,  -- Shell
+                buff_id = 41,
                 group = 'shellra',
             },
             {
@@ -521,7 +521,7 @@ return {
                 command = function(target)
                     return '/ma "Shell IV" '..target
                 end,
-                buff_id = 41,  -- Shell
+                buff_id = 41,
                 group = 'shell',
                 target_outside = true,
             },
@@ -535,7 +535,7 @@ return {
                 command = function(target)
                     return '/ma "Shell III" '..target
                 end,
-                buff_id = 41,  -- Shell
+                buff_id = 41,
                 group = 'shell',
                 target_outside = true,
             },
@@ -549,7 +549,7 @@ return {
                 command = function(target)
                     return '/ma "Shell II" '..target
                 end,
-                buff_id = 41,  -- Shell
+                buff_id = 41,
                 group = 'shell',
                 target_outside = true,
             },
@@ -563,7 +563,7 @@ return {
                 command = function(target)
                     return '/ma "Shell" '..target
                 end,
-                buff_id = 41,  -- Shell
+                buff_id = 41,
                 group = 'shell',
                 target_outside = true,
             },
@@ -576,7 +576,7 @@ return {
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Barthundra" <me>',
-                buff_id = 104,  -- Barthundra
+                buff_id = 104,
                 group = 'barelement',
             },
             {
@@ -587,7 +587,7 @@ return {
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Barblizzara" <me>',
-                buff_id = 101,  -- Barblizzara
+                buff_id = 101,
                 group = 'barelement',
             },
             {
@@ -598,7 +598,7 @@ return {
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Barfira" <me>',
-                buff_id = 100,  -- Barfira
+                buff_id = 100,
                 group = 'barelement',
             },
             {
@@ -609,7 +609,7 @@ return {
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Baraera" <me>',
-                buff_id = 102,  -- Baraera
+                buff_id = 102,
                 group = 'barelement',
             },
             {
@@ -620,7 +620,7 @@ return {
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Barwatera" <me>',
-                buff_id = 105,  -- Barwatera
+                buff_id = 105,
                 group = 'barelement',
             },
             {
@@ -631,7 +631,7 @@ return {
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Barstonra" <me>',
-                buff_id = 103,  -- Barstonra
+                buff_id = 103,
                 group = 'barelement',
             },
             -- Bar Status spells
@@ -643,7 +643,7 @@ return {
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Baramnesra" <me>',
-                buff_id = 286,  -- Baramnesra
+                buff_id = 286,
                 group = 'barstatus',
             },
             {
@@ -654,7 +654,7 @@ return {
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Barpetra" <me>',
-                buff_id = 111,  -- Barpetra
+                buff_id = 111,
                 group = 'barstatus',
             },
             {
@@ -665,7 +665,7 @@ return {
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Barvira" <me>',
-                buff_id = 112,  -- Barvira
+                buff_id = 112,
                 group = 'barstatus',
             },
             {
@@ -676,7 +676,7 @@ return {
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Barsilencera" <me>',
-                buff_id = 110,  -- Barsilencera
+                buff_id = 110,
                 group = 'barstatus',
             },
             {
@@ -687,7 +687,7 @@ return {
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Barblindra" <me>',
-                buff_id = 109,  -- Barblindra
+                buff_id = 109,
                 group = 'barstatus',
             },
             {
@@ -698,7 +698,7 @@ return {
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Barparalyzra" <me>',
-                buff_id = 108,  -- Barparalyzra
+                buff_id = 108,
                 group = 'barstatus',
             },
             {
@@ -709,7 +709,7 @@ return {
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Barpoisonra" <me>',
-                buff_id = 107,  -- Barpoisonra
+                buff_id = 107,
                 group = 'barstatus',
             },
             {
@@ -720,7 +720,7 @@ return {
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Barsleepra" <me>',
-                buff_id = 106,  -- Barsleepra
+                buff_id = 106,
                 group = 'barstatus',
             },
             {
@@ -731,7 +731,7 @@ return {
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Aquaveil" <me>',
-                buff_id = 39,  -- Aquaveil
+                buff_id = 39,
             },
             {
                 name = 'Blink',
@@ -741,7 +741,7 @@ return {
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Blink" <me>',
-                buff_id = 36,  -- Blink
+                buff_id = 36,
             },
             {
                 name = 'Stoneskin',
@@ -751,7 +751,7 @@ return {
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Stoneskin" <me>',
-                buff_id = 37,  -- Stoneskin
+                buff_id = 37,
             },
             {
                 name = 'Reraise III',
@@ -761,7 +761,7 @@ return {
                 magic = 'white',
                 magic_type = 'healing',
                 command = '/ma "Reraise III" <me>',
-                buff_id = 113,  -- Reraise
+                buff_id = 113,
                 group = 'reraise',
             },
             {
@@ -772,7 +772,7 @@ return {
                 magic = 'white',
                 magic_type = 'healing',
                 command = '/ma "Reraise II" <me>',
-                buff_id = 113,  -- Reraise
+                buff_id = 113,
                 group = 'reraise',
             },
             {
@@ -783,7 +783,7 @@ return {
                 magic = 'white',
                 magic_type = 'healing',
                 command = '/ma "Reraise" <me>',
-                buff_id = 113,  -- Reraise
+                buff_id = 113,
                 group = 'reraise',
             },
             {
@@ -794,7 +794,7 @@ return {
                 magic = 'white',
                 magic_type = 'divine',
                 command = '/ma "Enlight" <me>',
-                buff_id = 274,  -- Enlight
+                buff_id = 274,
             },
             {
                 name = 'Auspice',
@@ -804,7 +804,7 @@ return {
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Auspice" <me>',
-                buff_id = 275,  -- Auspice
+                buff_id = 275,
             },
             {
                 name = 'Invisible',
@@ -816,7 +816,7 @@ return {
                 command = function(target)
                     return '/ma "Invisible" '..target
                 end,
-                buff_id = 69,  -- Invisible
+                buff_id = 69,
                 idle_only = true,
             },
             {
@@ -829,7 +829,7 @@ return {
                 command = function(target)
                     return '/ma "Sneak" '..target
                 end,
-                buff_id = 71,  -- Sneak
+                buff_id = 71,
                 idle_only = true,
             },
             {
@@ -843,7 +843,7 @@ return {
                     return '/ma "Deodorize" '..target
                 end,
                 idle_only = true,
-                buff_id = 70,  -- Deodorize
+                buff_id = 70,
             },
         },
 

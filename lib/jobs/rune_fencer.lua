@@ -32,7 +32,7 @@ return {
                     return '/ma "Protect" '..target
                 end,
                 element = 'Light',
-                buff_id = 40,  -- Protect buff
+                buff_id = 40,
                 group = 'protect',
                 target_outside = true,
             },
@@ -47,7 +47,7 @@ return {
                     return '/ma "Protect II" '..target
                 end,
                 element = 'Light',
-                buff_id = 40,  -- Protect II buff
+                buff_id = 40,
                 group = 'protect',
                 target_outside = true,
             },
@@ -62,7 +62,7 @@ return {
                     return '/ma "Protect III" '..target
                 end,
                 element = 'Light',
-                buff_id = 40,  -- Protect III buff
+                buff_id = 40,
                 group = 'protect',
                 target_outside = true,
             },
@@ -78,7 +78,7 @@ return {
                     return '/ma "Shell" '..target
                 end,
                 element = 'Light',
-                buff_id = 41,  -- Shell buff
+                buff_id = 41,
                 group = 'shell',
                 target_outside = true,
             },
@@ -93,7 +93,7 @@ return {
                     return '/ma "Shell II" '..target
                 end,
                 element = 'Light',
-                buff_id = 41,  -- Shell II buff
+                buff_id = 41,
                 group = 'shell',
                 target_outside = true,
             },
@@ -108,7 +108,7 @@ return {
                     return '/ma "Shell III" '..target
                 end,
                 element = 'Light',
-                buff_id = 41,  -- Shell III buff
+                buff_id = 41,
                 group = 'shell',
                 target_outside = true,
             },
@@ -123,7 +123,7 @@ return {
                     return '/ma "Shell IV" '..target
                 end,
                 element = 'Light',
-                buff_id = 41,  -- Shell IV buff
+                buff_id = 41,
                 group = 'shell',
                 target_outside = true,
             },
@@ -137,7 +137,7 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Barstone" <me>',
                 element = 'Wind',
-                buff_id = 103,  -- Barstone buff
+                buff_id = 103,
                 group = 'barelement',
             },
             {
@@ -149,7 +149,7 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Barwater" <me>',
                 element = 'Thunder',
-                buff_id = 105,  -- Barwater buff
+                buff_id = 105,
                 group = 'barelement',
             },
             {
@@ -161,7 +161,7 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Baraero" <me>',
                 element = 'Ice',
-                buff_id = 102,  -- Baraero buff
+                buff_id = 102,
                 group = 'barelement',
             },
             {
@@ -173,7 +173,7 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Barfire" <me>',
                 element = 'Water',
-                buff_id = 100,  -- Barfire buff
+                buff_id = 100,
                 group = 'barelement',
             },
             {
@@ -185,7 +185,7 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Barblizzard" <me>',
                 element = 'Fire',
-                buff_id = 101,  -- Barblizzard buff
+                buff_id = 101,
                 group = 'barelement',
             },
             {
@@ -197,7 +197,7 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Barthunder" <me>',
                 element = 'Earth',
-                buff_id = 104,  -- Barthunder buff
+                buff_id = 104,
                 group = 'barelement',
             },
             -- Barstatus
@@ -210,7 +210,7 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Barsleep" <me>',
                 element = 'Light',
-                buff_id = 106,  -- Barsleep buff
+                buff_id = 106,
                 group = 'barstatus',
             },
             {
@@ -222,7 +222,7 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Barpoison" <me>',
                 element = 'Thunder',
-                buff_id = 107,  -- Barpoison buff
+                buff_id = 107,
                 group = 'barstatus',
             },
             {
@@ -234,7 +234,7 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Barparalyze" <me>',
                 element = 'Fire',
-                buff_id = 108,  -- Barparalyze buff
+                buff_id = 108,
                 group = 'barstatus',
             },
             {
@@ -246,7 +246,7 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Barblind" <me>',
                 element = 'Light',
-                buff_id = 109,  -- Barblind buff
+                buff_id = 109,
                 group = 'barstatus',
             },
             {
@@ -258,7 +258,7 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Barsilence" <me>',
                 element = 'Ice',
-                buff_id = 110,  -- Barsilence buff
+                buff_id = 110,
                 group = 'barstatus',
             },
             {
@@ -270,7 +270,7 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Barvirus" <me>',
                 element = 'Water',
-                buff_id = 112,  -- Barvirus buff
+                buff_id = 112,
                 group = 'barstatus',
             },
             {
@@ -282,7 +282,7 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Barpetrify" <me>',
                 element = 'Wind',
-                buff_id = 111,  -- Barpetrify buff
+                buff_id = 111,
                 group = 'barstatus',
             },
             {
@@ -294,7 +294,7 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Baramnesia" <me>',
                 element = 'Water',
-                buff_id = 286,  -- Baramnesia buff
+                buff_id = 286,
                 group = 'barstatus',
             },
             -- Regen
@@ -308,7 +308,7 @@ return {
                 command = function(target)
                     return '/ma "Regen" '..target
                 end,
-                buff_id = 42,  -- Regen
+                buff_id = 42,
             },
             {
                 name = 'Regen II',
@@ -321,7 +321,7 @@ return {
                     return '/ma "Regen II" '..target
                 end,
                 element = 'Light',
-                buff_id = 42,  -- Regen II buff
+                buff_id = 42,
             },
             {
                 name = 'Regen III',
@@ -334,7 +334,7 @@ return {
                     return '/ma "Regen III" '..target
                 end,
                 element = 'Light',
-                buff_id = 42,  -- Regen III buff
+                buff_id = 42,
             },
             -- Refresh
             {
@@ -348,7 +348,8 @@ return {
                     return '/ma "Refresh" '..target
                 end,
                 element = 'Light',
-                buff_id = 43,  -- Refresh buff
+                buff_id = 43,
+                buff_priority = 50,
             },
             {
                 name = 'Foil',
@@ -359,15 +360,15 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Foil" <me>',
                 element = 'Wind',
-                buff_id = 568,  -- Foil buff
+                buff_id = 568,
             },
             {
                 name = 'Swordplay',
                 level = 20,
                 cost = 0,
-                recast_id = 24,  -- Swordplay recast ID
+                recast_id = 24,
                 command = '/ja "Swordplay" <me>',
-                buff_id = 532,  -- Swordplay buff
+                buff_id = 532,
                 combat_only = true,
             },
             {
@@ -379,7 +380,7 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Phalanx" <me>',
                 element = 'Light',
-                buff_id = 116,  -- Phalanx buff
+                buff_id = 116,
             },
             -- Spikes
             {
@@ -391,7 +392,7 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Blaze Spikes" <me>',
                 element = 'Fire',
-                buff_id = 34,  -- Blaze Spikes buff
+                buff_id = 34,
                 group = 'spikes',
             },
             {
@@ -403,7 +404,7 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Ice Spikes" <me>',
                 element = 'Ice',
-                buff_id = 35,  -- Ice Spikes buff
+                buff_id = 35,
                 group = 'spikes',
             },
             -- Everything else
@@ -416,7 +417,7 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Aquaveil" <me>',
                 element = 'Water',
-                buff_id = 39,  -- Aquaveil buff
+                buff_id = 39,
             },
             {
                 name = 'Blink',
@@ -427,7 +428,7 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Blink" <me>',
                 element = 'Wind',
-                buff_id = 36,  -- Blink buff
+                buff_id = 36,
             },
             {
                 name = 'Stoneskin',
@@ -438,7 +439,7 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Stoneskin" <me>',
                 element = 'Earth',
-                buff_id = 37,  -- Stoneskin buff
+                buff_id = 37,
             },
         },
         
@@ -448,7 +449,7 @@ return {
                 name = 'Vivacious Pulse',
                 level = 65,
                 cost = 0,
-                recast_id = 242,  -- Vivacious Pulse recast ID
+                recast_id = 242,
                 command = '/ja "Vivacious Pulse" <me>',
                 self_only = true,
             },
@@ -463,9 +464,9 @@ return {
                 name = 'Embolden',
                 level = 60,
                 cost = 0,
-                recast_id = 72,  -- Embolden recast ID
+                recast_id = 72,
                 command = '/ja "Embolden" <me>',
-                buff_id = 534,  -- Embolden buff
+                buff_id = 534,
                 recast_gate = true,
                 column = 'embolden',  -- [E] button column
             },
@@ -479,8 +480,6 @@ return {
     default_settings = {
         heal_enabled = true,
         heal_threshold = 75,
-        heal_aoe_enabled = false,  -- Rune Fencer has no AOE heal
-        heal_aoe_threshold = 70,
         wake_enabled = false,
         buff_enabled = true,
         focus_enabled = false,

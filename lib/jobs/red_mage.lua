@@ -86,7 +86,8 @@ return {
                 cost = 0,
                 recast_id = 50,
                 command = '/ja "Composure" <me>',
-                buff_id = 419,  -- Composure
+                buff_id = 419,
+                buff_priority = 100,
             },
             -- Protect line
             {
@@ -99,7 +100,7 @@ return {
                 command = function(target)
                     return '/ma "Protect IV" '..target
                 end,
-                buff_id = 40,  -- Protect
+                buff_id = 40,
                 group = 'protect',
                 target_outside = true,
             },
@@ -156,7 +157,7 @@ return {
                 command = function(target)
                     return '/ma "Shell IV" '..target
                 end,
-                buff_id = 41,  -- Shell
+                buff_id = 41,
                 group = 'shell',
                 target_outside = true,
             },
@@ -212,7 +213,7 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Barstone" <me>',
                 element = 'Wind',
-                buff_id = 103,  -- Barstone buff
+                buff_id = 103,
                 group = 'barelement',
             },
             {
@@ -224,7 +225,7 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Barwater" <me>',
                 element = 'Thunder',
-                buff_id = 105,  -- Barwater buff
+                buff_id = 105,
                 group = 'barelement',
             },
             {
@@ -236,7 +237,7 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Baraero" <me>',
                 element = 'Ice',
-                buff_id = 102,  -- Baraero buff
+                buff_id = 102,
                 group = 'barelement',
             },
             {
@@ -248,7 +249,7 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Barfire" <me>',
                 element = 'Water',
-                buff_id = 100,  -- Barfire buff
+                buff_id = 100,
                 group = 'barelement',
             },
             {
@@ -260,7 +261,7 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Barblizzard" <me>',
                 element = 'Fire',
-                buff_id = 101,  -- Barblizzard buff
+                buff_id = 101,
                 group = 'barelement',
             },
             {
@@ -272,7 +273,7 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Barthunder" <me>',
                 element = 'Earth',
-                buff_id = 104,  -- Barthunder buff
+                buff_id = 104,
                 group = 'barelement',
             },
             -- Barstatus
@@ -285,7 +286,7 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Barsleep" <me>',
                 element = 'Light',
-                buff_id = 106,  -- Barsleep buff
+                buff_id = 106,
                 group = 'barstatus',
             },
             {
@@ -297,7 +298,7 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Barpoison" <me>',
                 element = 'Thunder',
-                buff_id = 107,  -- Barpoison buff
+                buff_id = 107,
                 group = 'barstatus',
             },
             {
@@ -309,7 +310,7 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Barparalyze" <me>',
                 element = 'Fire',
-                buff_id = 108,  -- Barparalyze buff
+                buff_id = 108,
                 group = 'barstatus',
             },
             {
@@ -321,7 +322,7 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Barblind" <me>',
                 element = 'Light',
-                buff_id = 109,  -- Barblind buff
+                buff_id = 109,
                 group = 'barstatus',
             },
             {
@@ -333,7 +334,7 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Barsilence" <me>',
                 element = 'Ice',
-                buff_id = 110,  -- Barsilence buff
+                buff_id = 110,
                 group = 'barstatus',
             },
             {
@@ -345,7 +346,7 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Barvirus" <me>',
                 element = 'Water',
-                buff_id = 112,  -- Barvirus buff
+                buff_id = 112,
                 group = 'barstatus',
             },
             {
@@ -357,7 +358,7 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Barpetrify" <me>',
                 element = 'Wind',
-                buff_id = 111,  -- Barpetrify buff
+                buff_id = 111,
                 group = 'barstatus',
             },
             {
@@ -369,7 +370,7 @@ return {
                 magic_type = 'enhancing',
                 command = '/ma "Baramnesia" <me>',
                 element = 'Water',
-                buff_id = 286,  -- Baramnesia buff
+                buff_id = 286,
                 group = 'barstatus',
             },
             -- Other buffs
@@ -383,7 +384,7 @@ return {
                 command = function(target)
                     return '/ma "Phalanx II" '..target
                 end,
-                buff_id = 116,  -- Phalanx
+                buff_id = 116,
             },
             {
                 name = 'Regen',
@@ -395,7 +396,7 @@ return {
                 command = function(target)
                     return '/ma "Regen" '..target
                 end,
-                buff_id = 42,  -- Regen
+                buff_id = 42,
             },
             {
                 name = 'Refresh',
@@ -407,7 +408,8 @@ return {
                 command = function(target)
                     return '/ma "Refresh" '..target
                 end,
-                buff_id = 43,  -- Refresh
+                buff_id = 43,
+                buff_priority = 50,
             },
             {
                 name = 'Haste',
@@ -419,7 +421,7 @@ return {
                 command = function(target)
                     return '/ma "Haste" '..target
                 end,
-                buff_id = 33,  -- Haste
+                buff_id = 33,
                 target_outside = true,
             },
             {
@@ -432,7 +434,7 @@ return {
                 command = function(target)
                     return '/ma "Flurry" '..target
                 end,
-                buff_id = 265,  -- Flurry
+                buff_id = 265,
                 target_outside = true,
             },
             {
@@ -443,7 +445,7 @@ return {
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Stoneskin" <me>',
-                buff_id = 37,  -- Stoneskin
+                buff_id = 37,
             },
             {
                 name = 'Phalanx',
@@ -453,7 +455,7 @@ return {
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Phalanx" <me>',
-                buff_id = 116,  -- Phalanx
+                buff_id = 116,
             },
             {
                 name = 'Blink',
@@ -463,7 +465,7 @@ return {
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Blink" <me>',
-                buff_id = 36,  -- Blink
+                buff_id = 36,
             },
             {
                 name = 'Aquaveil',
@@ -473,7 +475,7 @@ return {
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Aquaveil" <me>',
-                buff_id = 39,  -- Aquaveil
+                buff_id = 39,
             },
             -- Enspells (grouped by element)
             {
@@ -484,7 +486,7 @@ return {
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Enwater II" <me>',
-                buff_id = 282,  -- Enwater
+                buff_id = 282,
                 group = 'enspell',
             },
             {
@@ -495,7 +497,7 @@ return {
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Enwater" <me>',
-                buff_id = 99,  -- Enwater
+                buff_id = 99,
                 group = 'enspell',
             },
             {
@@ -506,7 +508,7 @@ return {
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Enfire II" <me>',
-                buff_id = 277,  -- Enfire
+                buff_id = 277,
                 group = 'enspell',
             },
             {
@@ -517,7 +519,7 @@ return {
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Enfire" <me>',
-                buff_id = 94,  -- Enfire
+                buff_id = 94,
                 group = 'enspell',
             },
             {
@@ -528,7 +530,7 @@ return {
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Enblizzard II" <me>',
-                buff_id = 278,  -- Enblizzard
+                buff_id = 278,
                 group = 'enspell',
             },
             {
@@ -539,7 +541,7 @@ return {
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Enblizzard" <me>',
-                buff_id = 95,  -- Enblizzard
+                buff_id = 95,
                 group = 'enspell',
             },
             {
@@ -550,7 +552,7 @@ return {
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Enaero II" <me>',
-                buff_id = 279,  -- Enaero
+                buff_id = 279,
                 group = 'enspell',
             },
             {
@@ -561,7 +563,7 @@ return {
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Enaero" <me>',
-                buff_id = 96,  -- Enaero
+                buff_id = 96,
                 group = 'enspell',
             },
             {
@@ -572,7 +574,7 @@ return {
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Enstone II" <me>',
-                buff_id = 280,  -- Enstone
+                buff_id = 280,
                 group = 'enspell',
             },
             {
@@ -583,7 +585,7 @@ return {
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Enstone" <me>',
-                buff_id = 97,  -- Enstone
+                buff_id = 97,
                 group = 'enspell',
             },
             {
@@ -594,7 +596,7 @@ return {
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Enthunder II" <me>',
-                buff_id = 281,  -- Enthunder
+                buff_id = 281,
                 group = 'enspell',
             },
             {
@@ -605,7 +607,7 @@ return {
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = '/ma "Enthunder" <me>',
-                buff_id = 98,  -- Enthunder
+                buff_id = 98,
                 group = 'enspell',
             },
             -- Spikes (sorted by level, highest first)
@@ -617,7 +619,7 @@ return {
                 magic = 'black',
                 magic_type = 'enhancing',
                 command = '/ma "Shock Spikes" <me>',
-                buff_id = 38,  -- Shock Spikes
+                buff_id = 38,
                 group = 'spikes'
             },
             {
@@ -628,7 +630,7 @@ return {
                 magic = 'black',
                 magic_type = 'enhancing',
                 command = '/ma "Ice Spikes" <me>',
-                buff_id = 35,  -- Ice Spikes
+                buff_id = 35,
                 group = 'spikes'
             },
             {
@@ -639,7 +641,7 @@ return {
                 magic = 'black',
                 magic_type = 'enhancing',
                 command = '/ma "Blaze Spikes" <me>',
-                buff_id = 34,  -- Blaze Spikes
+                buff_id = 34,
                 group = 'spikes'
             },
             {
@@ -652,7 +654,7 @@ return {
                 command = function(target)
                     return '/ma "Invisible" '..target
                 end,
-                buff_id = 69,  -- Invisible
+                buff_id = 69,
                 idle_only = true,
             },
             {
@@ -665,7 +667,7 @@ return {
                 command = function(target)
                     return '/ma "Sneak" '..target
                 end,
-                buff_id = 71,  -- Sneak
+                buff_id = 71,
                 idle_only = true,
             },
             {
@@ -679,7 +681,7 @@ return {
                     return '/ma "Deodorize" '..target
                 end,
                 idle_only = true,
-                buff_id = 70,  -- Deodorize
+                buff_id = 70,
             },
         },
 

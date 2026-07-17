@@ -2174,8 +2174,18 @@ function common.filter_abilities_by_level(abilities, settings, main_level, sub_l
         ::continue::
     end
     
-    -- Sort by cost descending (higher cost = stronger/better)
+    -- Sort by explicit buff priority first, then cost descending.
+    -- Most abilities leave buff_priority unset/0, so existing behavior stays the same.
+    -- Keep buff_priority OFF grouped tiers: buff.lua's default-tier auto-select casts
+    -- the first grouped tier it sees and expects highest cost first, and a per-group
+    -- special-case here would make this comparator intransitive (sort crash).
     table.sort(available_abilities, function(a, b)
+        local a_priority = type(a.buff_priority) == 'number' and a.buff_priority or 0
+        local b_priority = type(b.buff_priority) == 'number' and b.buff_priority or 0
+        if a_priority ~= b_priority then
+            return a_priority > b_priority
+        end
+
         local a_cost = type(a.cost) == 'number' and a.cost or 0
         local b_cost = type(b.cost) == 'number' and b.cost or 0
         return a_cost > b_cost

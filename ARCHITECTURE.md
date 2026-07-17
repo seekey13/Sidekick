@@ -512,6 +512,10 @@ return {
     requires_buff   = 401,          -- prerequisite buff ID(s)
     blocked_by      = 410,          -- buff ID(s) that block this ability while active
                                     --   (DNC Saber Dance 410 blocks Waltzes, Fan Dance 411 blocks Sambas)
+    buff_priority   = 100,          -- buff ordering: higher = evaluated before lower-priority buffs
+                                    --   (Composure first so later self-buffs inherit its bonus). Unset = 0.
+                                    --   filter_abilities_by_level sorts priority desc, then cost desc.
+                                    --   Do NOT set on a grouped tier -- breaks tier auto-select.
     group           = 'regen',      -- mutually exclusive group
     self_only       = false,
     main_job_only   = false,        -- hidden when job is subjob
