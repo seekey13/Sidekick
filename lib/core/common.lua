@@ -106,6 +106,13 @@ local BASE_BUFF_DURATION = {
 -- All bard songs share one base duration.
 local SONG_DURATION = 120
 
+-- Backstop for a status detected on a packet-only target (Trust/tracked/alliance/
+-- pet) that matches no known buff/debuff duration. Without a timer these tracked
+-- forever, since their wear-off packets are unreliable/absent -- a stale status
+-- then lingers until zone. 300s bounds that; Sidekick never re-applies unknown
+-- statuses, so an early drop just clears tracking and re-adds on next detection.
+local UNKNOWN_BUFF_DURATION = 300
+
 -- Song slots a Trust holds (main-job bard). A new song beyond this evicts the
 -- oldest-start-time song, mirroring the game's overwrite behavior.
 local TRUST_SONG_SLOTS = 2
@@ -1432,6 +1439,8 @@ function common.base_buff_duration(buff_id, spell_name, server_id)
         if REMOVABLE_SET[buff_id] then
             return 120
         end
+        -- Unknown status on a packet-only target: cap it so it can't linger forever.
+        return UNKNOWN_BUFF_DURATION
     end
     return nil
 end
