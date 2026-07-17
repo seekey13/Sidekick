@@ -238,7 +238,7 @@ field name must match its command (see the ability-field reference below).
 Shared utility module (~3,200 lines). Key areas:
 
 - **Logging**: `printf`, `debugf`, `errorf`, `warnf` – unified via internal `log()` helper
-- **Player state**: `get_player_level/job/mp/tp`, `is_idle/engaged/in_event`, `is_casting`, `clear_casting_state` (drops the casting lock on zone change, where the cancelled cast never sends a finish packet), `get_last_action` (debug-panel label for the last 0x028 category seen), `is_player_moving`, `is_resting` (cached from entity status 33), `is_mounted` (entity status 5 or buff 252)
+- **Player state**: `get_player_level/job/mp/tp`, `is_idle/engaged/in_event`, `is_casting` (locked by 0x028 category 8 `casting_begin`, released by 4 `spell_finish`, via `handle_action_packet`; melee is dropped. `cast_timeout` = 30 s is a **backstop for a missed finish packet, not a mechanism** — must exceed the longest real cast, teleports/Raise ≈ 20 s, or it clears mid-cast), `clear_casting_state` (drops the casting lock on zone change, where the cancelled cast never sends a finish packet), `get_last_action` (debug-panel label for the last 0x028 category seen), `is_player_moving`, `is_resting` (cached from entity status 33), `is_mounted` (entity status 5 or buff 252)
 - **Party**: `get_party_size`, `get_party_member_name/zone/distance`, `get_party_server_ids`
 - **Alliance**: `is_alliance_member`, `find_alliance_member`, `get_alliance_count`, `sorted_alliance_members`, `apply_alliance_member_buff`, `apply_external_buff`
 - **Buffs**: `has_buff`, `get_player_buffs`, `get_party_buffs`, `get_trust_buffs`
@@ -272,7 +272,7 @@ Two opt-in modes need a buff stripped *during* a cast, not before or after. The 
 
 | Mode | Setting | What it does |
 |---|---|---|
-| Bard **Pianissimo Fast Casting** | `pianissimo_fast_casting` | Raises Pianissimo on purpose for an area song (shorter cast time), then `/debuff 409` mid-cast so the song still lands as area. In this mode the area phase runs even while Pianissimo is up (it's ours), and always holds for Pianissimo rather than casting without it. |
+| Bard **Pianissimo Fast Casting** | `pianissimo_fast_casting` | Raises Pianissimo on purpose for an area song (shorter cast time), then `/debuff 409` mid-cast so the song still lands as area. In this mode the area phase runs even while Pianissimo is up (it's ours), and always holds for Pianissimo rather than casting without it — but only raises it once the song itself is castable (see the song-ready gate under [buff.lua](#bufflua--buff-maintenance)). |
 | Ninja **Cast with 1 Shadow** | `cast_with_1_shadow` | Utsusemi normally blocks while any Copy Image buff (66/444/445/446) is up. This ignores the 1-shadow buff (`one_shadow_buff = 66`) so the spell recasts at 1 shadow, then `/debuff 66` mid-cast so the new shadows apply cleanly. |
 
 Both toggles live in the `/sk panel` header row, are persisted per job, and require the Debuff addon by atom0s (`/debuff`).
@@ -335,6 +335,7 @@ Runs in two phases per tick:
 - **Groups**: Mutually exclusive by default (dropdown selects the active tier). A group the user **ungroups** (`settings['ungrouped_<group>'] == true`) casts every tier independently, keyed by ability name like a non-grouped ability.
 - **Stacking same `buff_id`**: `count_instances()` / `wanted_instances()` / `song_needed()` count how many distinct selected tiers share a `buff_id` (e.g. Mage's Ballad + Mage's Ballad II both = buff 196) and treat a target as needing the song until it holds that many instances, instead of a plain presence check.
 - **Target modifier** (Pianissimo, etc.): If `ability.target_modifier = true`, sends modifier command first; next tick casts the buff.
+- **Song-ready gate on the modifier**: the modifier is only raised once the song it precedes is *itself* castable — `action_core.is_usable(ability, job_def, common.effective_ability_cost(ability, settings, job_def))`. Otherwise a song merely *due* for recast raises Pianissimo while still on its own recast or unaffordable, burning Pianissimo's recast before the song comes up. Applies to both the Phase 1 fast-casting hold and the Phase 2 `check_target_modifier` path; a song that isn't ready falls through to the next.
 - **Trust buff registration**: Calls `common.register_pending_buff()` for Trusts after cast.
 - **Ammo auto-equip**: When a pet is out and a buff needs a consumable in the ammo slot (BST **Reward (Regen)** → Pet Poultice), `common.ammo_equip_command` equips the best owned tier first (only reachable after the higher-priority pet-heal passed, so its biscuit and this poultice never contend for the slot).
 - **`reapply_interval`**: For buffs whose presence can't be read on the target (pet Regen — pet buffs aren't in memory), the buff is reapplied only after `reapply_interval` seconds have elapsed since the module's last cast (tracked in a module-local `last_self_cast` table, cleared on reload), instead of every recast, so the consumable isn't wasted.

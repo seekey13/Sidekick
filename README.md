@@ -60,7 +60,14 @@ The one exception is **opt-in leader following** (off by default): with **Follow
 ### Added
 - **AFK Sleep**: Automation now goes to sleep after 10 minutes with no party movement and no combat, and wakes as soon as you move. **On by default** — unlike Auto Follow, sleeping only stops automation from acting, so there's no harm in it being on. It's a pause, not a stop: nothing is saved or reset, so `/sk start` survives a sleep cycle untouched. Anyone in your party moving, or the party being in combat, keeps it awake — but only **your own** movement wakes it back up, since a mob claim isn't proof you're at the keyboard. Toggle it and set the timeout (1-60 minutes) in `/sk panel` beside **Debug Mode**, or with `/sidekick afk [on|off|<seconds>]`. Thanks to **Mythicangel** for the idea.
 
+### Changed
+- **Fewer actions dropped** — Sidekick spaced its commands from when it *sent* the last one, a whole cast time too early for a spell, so the next action fired while the game was still locked out and got eaten. It now waits from when the action actually finishes, including actions you take by hand.
+- **Panel debug row shows `Action:` instead of `Casting:`** — names the last thing you did (`casting_begin: Cure IV`, `job_ability`, `ws_finish`) instead of `true`/`false`, so you can watch a cast start and finish. Melee swings aren't shown.
+
 ### Fixed
+- **Bard Pianissimo wasted on a song that isn't ready** — in **Pianissimo Fast Casting**, Pianissimo went up as soon as a song was due, even if the song was still on cooldown or unaffordable; its recast burned down while the song waited. It now waits until the song can actually be cast.
+- **Interrupted casts confused Trust buff tracking** — an interrupt looks identical to a finished cast in the packet, so the buff was recorded as landed and not recast for its full duration. Interrupts are now ignored.
+- **Zoning mid-cast froze automation** — the cancelled cast never reports finishing, so Sidekick thought you were still casting and sat idle for 30 seconds. Zoning now clears it immediately.
 - **67 wrong spell/ability ids** — affected spells cast the wrong thing or read the wrong cooldown. RDM/RUN Bar- and En- spells (Barstone cast Barfire), WHM Bar-*ra* line and Raise II, SCH Raise II / Reraise II / Sandstorm, BRD Water/Earth Carol swapped, and wrong cooldowns on DNC Divine Waltz II / Spectral Jig, WHM Afflatus Misery, RUN Vivacious Pulse, SCH Addendum: Black.
 - **46 wrong MP costs and levels** — Protect/Shell tiers, Regen II-III, En-II spells, Bar-*ra* line, Foil, Auspice, Enlight, Invisible/Sneak/Deodorize. Also DNC Divine Waltz (25), SCH Sublimation (35) / Blink (29), WHM Divine Seal (15).
 
