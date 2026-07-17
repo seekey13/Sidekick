@@ -448,6 +448,7 @@ return {
                 element = 'Light',
                 group = 'Indi',
                 buff_id = 541,
+                buff_priority = 50,
             },
             {
                 name = 'Indi-Barrier',
@@ -694,6 +695,7 @@ return {
                 main_job_only = true,
                 exclusive_target = true,
                 buff_id = 541,
+                buff_priority = 50,
             },
             {
                 name = 'Geo-CHR',
