@@ -821,7 +821,7 @@ local ACTION_FINISH_CATEGORIES = {
     [4]  = true,  -- spell_finish
     [5]  = true,  -- item_finish
     [6]  = true,  -- job_ability
-    [14] = true,  -- job_ability (DNC -- Waltzes, which Sidekick automates)
+    [14] = true,  -- job_ability (DNC)
     [15] = true,  -- job_ability (RUN)
 }
 
