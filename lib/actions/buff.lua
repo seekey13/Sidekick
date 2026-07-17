@@ -239,21 +239,29 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
             local config_key = area_song_config_key(ability, settings, party_buff_config, area_processed)
             if config_key and area_needs_recast(ability, party_buff_config, song_keys, available_abilities, settings, state) then
                 if fast_casting and not has_pianissimo then
-                    -- Always hold for Pianissimo in fast mode: only cast the area
-                    -- song once Pianissimo is up. If it can't fire yet
-                    -- (recast/disabled), wait rather than casting without it.
-                    return common.check_target_modifier(job_def, settings, derived_main_level, derived_sub_level)
-                end
-                local desc = string.format('Applying area buff: %s', ability.name)
-                local result = action_core.try_use(ability, job_def, settings, 0, desc, state)
-                if result then
-                    -- Pianissimo up (fast cast): schedule its removal so the song
-                    -- reverts single-target -> area once casting is underway.
-                    if fast_casting and has_pianissimo then
-                        if type(result) ~= 'table' then result = { command = result, description = desc } end
-                        result.scheduled_removal = { command = '/debuff 409', delay = 1.0 }
+                    -- Only raise Pianissimo once the song itself is off recast and
+                    -- affordable -- otherwise Pianissimo's own recast burns down
+                    -- while the song is still waiting. Song not ready: fall through
+                    -- to the next one.
+                    local eff_cost = common.effective_ability_cost(ability, settings, job_def)
+                    if action_core.is_usable(ability, job_def, eff_cost) then
+                        -- Always hold for Pianissimo in fast mode: only cast the area
+                        -- song once Pianissimo is up. If it can't fire yet
+                        -- (recast/disabled), wait rather than casting without it.
+                        return common.check_target_modifier(job_def, settings, derived_main_level, derived_sub_level)
                     end
-                    return result
+                else
+                    local desc = string.format('Applying area buff: %s', ability.name)
+                    local result = action_core.try_use(ability, job_def, settings, 0, desc, state)
+                    if result then
+                        -- Pianissimo up (fast cast): schedule its removal so the song
+                        -- reverts single-target -> area once casting is underway.
+                        if fast_casting and has_pianissimo then
+                            if type(result) ~= 'table' then result = { command = result, description = desc } end
+                            result.scheduled_removal = { command = '/debuff 409', delay = 1.0 }
+                        end
+                        return result
+                    end
                 end
             end
         end
@@ -421,6 +429,13 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                                 end
                                 
                                 if not has_modifier_buff then
+                                    -- Only raise the modifier once the song itself is off
+                                    -- recast and affordable, else Pianissimo's recast burns
+                                    -- down while the song is still waiting.
+                                    local eff_cost = common.effective_ability_cost(ability, settings, job_def)
+                                    if not action_core.is_usable(ability, job_def, eff_cost) then
+                                        goto continue_ability
+                                    end
                                     -- Don't have modifier buff, try to use it
                                     local modifier_result = common.check_target_modifier(job_def, settings, derived_main_level, derived_sub_level)
                                     if modifier_result then
