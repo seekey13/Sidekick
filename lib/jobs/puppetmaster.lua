@@ -51,7 +51,7 @@ return {
                 cost = 0,
                 recast_id = 214,
                 command = '/ja "Maintenance" <me>',
-                debuff_id = common.ERASABLE_DEBUFFS,
+                debuff_id = common.PET_CLEANSE_DEBUFFS,  -- not Erase's list; see common.lua
                 pet_required = true,
                 requires_equipped_ammo = OILS,  -- gate + auto-equip tiers
                 ammo_main_job_only = true,      -- only PUP main can equip oils

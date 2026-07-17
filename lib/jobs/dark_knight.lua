@@ -216,6 +216,7 @@ return {
                 buff_id = 439,
                 recast_gate = true,
                 main_job_only = true,
+                column = 'nether_void',  -- [N] button column
             },
         },
 

@@ -1,8 +1,10 @@
 --[[
     Static help tooltip strings for the Sidekick Configuration UI.
-    Shown via ui_components.item_tooltip() when hovering the
-    associated control. Lines are pre-wrapped (~40-50 chars)
-    since imgui.SetTooltip does not word-wrap.
+    Shown via ui_components.item_tooltip() or imgui.SetTooltip()
+    when hovering the associated control. Lines are pre-wrapped
+    (~40-50 chars) since imgui.SetTooltip does not word-wrap.
+    A few carry %s placeholders and are string.format'ed at the
+    call site; %% is a literal percent (SetTooltip is printf-style).
 ]]--
 
 return {
@@ -213,4 +215,47 @@ return {
         'Requires the Debuff addon (/debuff). Recasts Utsusemi when you are\n' ..
         'down to 1 shadow (still blocks at 2+ shadows). Once casting starts\n' ..
         'issues /debuff 66 to clear the last shadow so the new set applies.',
+
+    -- Recast-gated precast JA buttons (see render_recast_gate_button): each needs a
+    -- button, Enable and Hold tip. Nether Void's take a %s noun -- its column covers
+    -- both Absorb spells and the Drain/Aspir rows.
+    nether_void_button =
+        'Nether Void: fire Nether Void before this %s\n' ..
+        'to boost its effect. Click to configure. Lit when enabled.',
+
+    nether_void_enable =
+        'Fire Nether Void before the selected %s.',
+
+    nether_void_hold =
+        'On: skip the %s until Nether Void is ready.\n' ..
+        'Off (default): cast the %s without Nether Void when it is on cooldown.',
+
+    diffusion_button =
+        'Diffusion: fire Diffusion before this buff to spread it\n' ..
+        'to the whole party. Click to configure. Lit when enabled.',
+
+    diffusion_enable =
+        'Fire Diffusion before this buff so it applies to the party.',
+
+    diffusion_hold =
+        'On: skip this buff until Diffusion is ready.\n' ..
+        'Off (default): cast the buff self-only when Diffusion is on cooldown.',
+
+    embolden_button =
+        'Embolden: fire Embolden before this spell to boost\n' ..
+        'its potency. Click to configure. Lit when enabled.',
+
+    embolden_enable =
+        'Fire Embolden before this spell so its effect is stronger.',
+
+    embolden_hold =
+        'On: skip this spell until Embolden is ready.\n' ..
+        'Off (default): cast the spell unboosted when Embolden is on cooldown.',
+
+    -- Enlightenment toggles rather than opening a popup, so it needs only the button
+    -- tip: Enable is the click itself, and Hold is implicit.
+    enlightenment_button =
+        'Enlightenment: fire Enlightenment before this spell so it can\n' ..
+        'be cast in Dark Arts without Addendum: White. Click to toggle.\n' ..
+        'Lit when enabled. The spell waits until Enlightenment is ready.',
 }

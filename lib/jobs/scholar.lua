@@ -30,7 +30,7 @@ return {
                 name = 'Addendum: White',
                 level = 10,
                 cost = 0,
-                recast_id = 231,
+                requires_stratagem_charge = true,  -- charge pool (recast 231), not a plain recast
                 command = '/ja "Addendum: White" <me>',
                 group = 'addendum',
                 buff_id = 401,
@@ -49,7 +49,7 @@ return {
                 name = 'Addendum: Black',
                 level = 30,
                 cost = 0,
-                recast_id = 231,
+                requires_stratagem_charge = true,  -- charge pool (recast 231), not a plain recast
                 command = '/ja "Addendum: Black" <me>',
                 group = 'addendum',
                 buff_id = 402,                
@@ -727,6 +727,20 @@ return {
         -- Stratagems: JAs fired just before their paired spell (precast slot)
         precast = {
             {
+                name = 'Enlightenment',
+                level = 75,
+                cost = 0,
+                recast_id = 235,
+                ability_id = 244,  -- merit-unlocked: gated on HasAbility
+                command = '/ja "Enlightenment" <me>',
+                buff_id = 416,
+                recast_gate = true,
+                precast_required = true,
+                main_job_only = true,
+                requires_buff = {359, 402},  -- Dark Arts / Addendum: Black
+                column = 'enlightenment',  -- [E] button column
+            },
+            {
                 name = 'Perpetuance (+Duration)', -- Increases the enhancement effect duration
                 level = 75,
                 cost = 0,
@@ -816,6 +830,19 @@ return {
     
     -- Job-specific validators
     validators = {},
+
+    -- SCH-specific gating: the Addendums burn a stratagem, and the stratagem
+    -- pool (recast id 231) counts down per charge rather than to zero, so a
+    -- plain recast gate would only ever pass at full charges.
+    validate_ability = function(ability, common)
+        if ability.requires_stratagem_charge then
+            local gs = common.game_state
+            if not gs or (gs.stratagems or 0) < 1 then
+                return false
+            end
+        end
+        return true
+    end,
     
     -- Default settings for UI
     default_settings = {

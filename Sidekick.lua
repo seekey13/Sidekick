@@ -76,8 +76,7 @@ local default_settings = T{
     follow_distance = 5,
     -- false = native Auto Follow; true = Multisend attack-range follow (see /sk panel).
     multisend_follow = false,
-    -- AFK Sleep (job-independent). Default-on, unlike follow: it only stops
-    -- automation from acting, so the failure mode is benign.
+    -- AFK Sleep (job-independent). Default-on: it only stops automation from acting.
     afk_enabled = true,
     afk_timeout = 600,  -- Seconds of no party movement and no combat before sleeping.
     -- Resting (/heal). Inert unless the job is MP-based and lists 'rest' in its
@@ -501,13 +500,9 @@ local function automation_tick()
         return
     end
 
-    -- AFK Sleep: dead-man's switch. Sits after the is_loading() guard so zone-transition
-    -- garbage is never sampled (while loading the timer neither advances nor resets; the
-    -- first sample after a zone reads a wildly different position and resets naturally),
-    -- and ahead of the mount/dead/can_attack/casting guards so the timer keeps running --
-    -- and can still wake -- regardless of those states. Nothing is expected to be queued
-    -- after minutes of stillness, so gating ahead of process_scheduled_removal() drops no
-    -- in-flight work.
+    -- AFK Sleep. After is_loading() so zone-transition positions are never sampled;
+    -- ahead of the mount/dead/can_attack/casting guards so it keeps timing (and can
+    -- wake) regardless of those states.
     afk.update(addon_settings)
     if afk.is_sleeping() then
         return
@@ -800,28 +795,30 @@ ashita.events.register('d3d_present', 'sidekick_render', function()
     follow_tick()
 end)
 
--- 0x028 categories that mark one of our actions *resolving*. The game's post-action
--- lockout is server-side and starts here, so these restart the command throttle; see
--- automation.notify_action_finished.
---
--- Job abilities are included even though they resolve instantly: execute_command stamps
--- the throttle from the client's send, which is half a round-trip before the server
--- actually processes the action, so the stamp is early even for a JA. This packet is the
--- server telling us when it really happened. It also catches abilities the *player* used
--- by hand, which execute_command never sees at all.
---
--- The *_begin categories (7 ws, 8 casting, 9 item, 12 ranged) are absent: they mark the
--- start of an action, and its own finish packet lands here later. Melee (1) never
--- reaches this table -- handle_action_packet drops those packets first.
+-- 0x028 categories marking one of our actions *resolving*. The post-action lockout is
+-- server-side and starts here, so these restart the command throttle; see
+-- automation.notify_action_finished. JAs included: they also catch abilities the player
+-- used by hand, which execute_command never sees. The *_begin categories are absent --
+-- their own finish packet lands here later; melee (1) never reaches this table.
 local ACTION_FINISH_CATEGORIES = {
     [2]  = true,  -- ranged_finish
     [3]  = true,  -- ws_finish
-    [4]  = true,  -- spell_finish (includes interrupts, which lock out just the same)
+    [4]  = true,  -- spell_finish
     [5]  = true,  -- item_finish
     [6]  = true,  -- job_ability
-    [14] = true,  -- job_ability (DNC -- Waltzes, which Sidekick automates)
+    [14] = true,  -- job_ability (DNC)
     [15] = true,  -- job_ability (RUN)
 }
+
+-- 7 ws, 8 casting, 9 item, 12 ranged. An interrupt arrives as one of these carrying
+-- INTERRUPT_PARAM, sends no finish packet, and locks out just the same.
+local ACTION_BEGIN_CATEGORIES = { [7] = true, [8] = true, [9] = true, [12] = true }
+
+local function is_action_finish(actionPacket)
+    if ACTION_FINISH_CATEGORIES[actionPacket.Type] then return true end
+    return ACTION_BEGIN_CATEGORIES[actionPacket.Type]
+        and actionPacket.Param == common.INTERRUPT_PARAM
+end
 
 ashita.events.register('packet_in', 'sidekick_packet_in', function(e)
     if not is_loaded then
@@ -858,22 +855,23 @@ ashita.events.register('packet_in', 'sidekick_packet_in', function(e)
         local player_id = party and party:GetMemberServerId(0)
         local actor_is_player = (actionPacket and player_id and actionPacket.UserId == player_id)
 
-        -- Casting detection (always active). Category 8 = casting start,
-        -- 4 = casting finish; see common.handle_action_packet.
+        -- Casting detection (always active). Category 8 = casting start (or, with
+        -- Param INTERRUPT_PARAM, interrupt), 4 = casting finish; see
+        -- common.handle_action_packet.
         if actor_is_player then
             common.handle_action_packet(actionPacket)
 
             -- Our action just resolved — start the throttle from now, not from the
             -- send that may have been a full cast time ago.
-            if ACTION_FINISH_CATEGORIES[actionPacket.Type] then
+            if is_action_finish(actionPacket) then
                 automation.notify_action_finished()
             end
 
             -- Cast finished (category 4) — apply the pending buff to the Trust.
-            -- Param 28787 (0x7073) marks an interrupted cast: nothing landed, so
-            -- popping the pending buff would record a buff the Trust never got and
-            -- suppress the recast for the buff's full base duration.
-            if actionPacket.Type == 4 and actionPacket.Param ~= 28787 then
+            -- INTERRUPT_PARAM is rejected in case the interrupt lands on category 4:
+            -- recording a buff the Trust never got would suppress the recast for the
+            -- buff's full duration. No spell id is 28787, so a real cast never trips it.
+            if actionPacket.Type == 4 and actionPacket.Param ~= common.INTERRUPT_PARAM then
                 common.handle_buff_application()
             end
         end
@@ -1095,8 +1093,8 @@ ashita.events.register('command', 'sidekick_command', function(e)
     elseif cmd == 'toggle' then
         automation_enabled = not automation_enabled
         addon_settings.automation_enabled = automation_enabled
-        -- Same fresh-interval rule as 'start': this is the path the UI Start button
-        -- takes, so without it a restart while asleep would come back still asleep.
+        -- Same fresh interval as 'start' (this is the path the UI Start button takes),
+        -- else a restart while asleep comes back still asleep.
         if automation_enabled then afk.reset() end
         if job_def then
             local settings_file = 'settings_' .. (job_def.job_name or 'default'):lower() .. '.json'

@@ -44,11 +44,17 @@ local function count_removable_debuffs(buffs, abilities, settings)
 end
 
 -- Sort key for the priority loops: targeted na-spell (0) < generic Erase (1) <
--- self-centered AOE / Esuna (2). Erase is identified by table identity -- every
--- Erase/Maintenance/Reward shares the one common.ERASABLE_DEBUFFS table.
+-- self-centered AOE / Esuna (2). A generic remover is identified by table identity --
+-- WHM/SCH Erase share the one common.ERASABLE_DEBUFFS table. The pet cleanses
+-- (PET_CLEANSE_DEBUFFS) only reach execute_pet_debuff_removal, which does not sort;
+-- matched here for when that stops being true.
 local function removal_rank(ability)
     if ability.self_only then return 2 end
-    if not ability.debuff_id or ability.debuff_id == common.ERASABLE_DEBUFFS then return 1 end
+    if not ability.debuff_id
+        or ability.debuff_id == common.ERASABLE_DEBUFFS
+        or ability.debuff_id == common.PET_CLEANSE_DEBUFFS then
+        return 1
+    end
     return 0
 end
 
