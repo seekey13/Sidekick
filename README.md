@@ -106,7 +106,15 @@ The one exception is **opt-in leader following** (off by default): with **Follow
 ### Changed
 - **No abilities fire while moving**: Sidekick now blocks all player actions while the moving, not just spell casts, so movement no longer causes interrupted or partially-started support actions.
 
+- **Smoother timing after a spell**: A spell's post-cast lockout is longer than an ability's or item's, so Sidekick now waits a little longer (3.1 s vs 1.1 s) after a spell finishes before sending its next command — instead of firing into the tail of the lockout and having the server eat the command. Non-spell actions are unchanged.
+
 ### Fixed
+- **Phantom statuses on Trusts and pets**: Sidekick read the wrong field of the game's battle messages, so unrelated events — a synth result, a miss, a skill-up — could stamp a bogus status like Sleep or Terror onto a Trust, tracked target, or pet, sending it chasing a status that was never there. It now only reacts to real status gain/loss messages, and as a bonus tracks status **wear-offs** it used to miss.
+
+- **Unknown statuses no longer stick forever**: A buff or debuff Sidekick didn't recognize on a Trust, tracked target, or pet had no expiry timer, so it lingered in tracking until you zoned. Unknowns now clear after 5 minutes as a backstop (they re-add the moment they're detected again).
+
+- **Debuff removal no longer loops or forgets a resisted cure**: When a na-/Erase is cast on a Trust, tracked target, alliance member, or pet, that status is now held as "being cured" for a few seconds rather than dropped the instant the cast goes out. A resisted or interrupted cure retries the status instead of forgetting it, and Sidekick won't re-cast the same cure while it's still resolving.
+
 - **Red Mage Composure now casts**: Composure's recast id was wrong (it pointed at a different ability's timer), so Sidekick read the wrong cooldown and never fired it. Corrected to Composure's own recast id. Thanks to **Dasaikuru [DS]** for the report.
 
 - **Job default settings scrubbed for errors**: Red Mage's **Convert** never fired on its own — its MP threshold was stored under the wrong name, so the slider you saw wasn't the setting automation actually read. Every job's defaults were checked for the same mistake. Thanks to **Muziko** for finding the original bug.
@@ -604,7 +612,7 @@ Settings are saved per job in JSON format in the Ashita config directory:
 
 ### Performance
 - Efficient party checking algorithms
-- 1.1-second command throttle to prevent spam, timed from when an action completes
+- 1.1-second command throttle to prevent spam (3.1 s after a spell, matching its longer lockout), timed from when an action completes
 - Early returns for disabled states
 
 ## Known Limitations
