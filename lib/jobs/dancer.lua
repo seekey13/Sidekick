@@ -132,7 +132,7 @@ return {
                 recast_id = 223,
                 ability_id = 239,  -- merit-unlocked: gated on HasAbility
                 command = '/ja "No Foot Rise" <me>',
-                buff_id = 385,  -- 5 Finishing Moves
+                buff_id = 385,
             },
             {
                 name = 'Presto',
@@ -149,7 +149,7 @@ return {
                 cost = 400,
                 recast_id = 216,
                 command = '/ja "Drain Samba III" <me>',
-                buff_id = 368,  -- Drain Samba
+                buff_id = 368,
                 blocked_by = 411,  -- Fan Dance blocks Sambas
                 group = 'samba',
             },
@@ -159,7 +159,7 @@ return {
                 cost = 250,
                 recast_id = 216,
                 command = '/ja "Drain Samba II" <me>',
-                buff_id = 368,  -- Drain Samba
+                buff_id = 368,
                 blocked_by = 411,  -- Fan Dance blocks Sambas
                 group = 'samba',
             },
@@ -169,7 +169,7 @@ return {
                 cost = 100,
                 recast_id = 216,
                 command = '/ja "Drain Samba" <me>',
-                buff_id = 368,  -- Drain Samba
+                buff_id = 368,
                 blocked_by = 411,  -- Fan Dance blocks Sambas
                 group = 'samba',
             },
@@ -179,7 +179,7 @@ return {
                 cost = 250,
                 recast_id = 216,
                 command = '/ja "Aspir Samba II" <me>',
-                buff_id = 369,  -- Aspir Samba
+                buff_id = 369,
                 blocked_by = 411,  -- Fan Dance blocks Sambas
                 group = 'samba',
             },
@@ -189,7 +189,7 @@ return {
                 cost = 100,
                 recast_id = 216,
                 command = '/ja "Aspir Samba" <me>',
-                buff_id = 369,  -- Aspir Samba
+                buff_id = 369,
                 blocked_by = 411,  -- Fan Dance blocks Sambas
                 group = 'samba',
             },
@@ -199,7 +199,7 @@ return {
                 cost = 350,
                 recast_id = 216,
                 command = '/ja "Haste Samba" <me>',
-                buff_id = 370,  -- Haste Samba
+                buff_id = 370,
                 blocked_by = 411,  -- Fan Dance blocks Sambas
                 group = 'samba',
             },

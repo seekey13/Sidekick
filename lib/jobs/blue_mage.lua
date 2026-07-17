@@ -101,7 +101,7 @@ return {
                 spell_id = 547,
                 magic = 'blue',
                 command = '/ma "Cocoon" <me>',
-                buff_id = 93,  -- Defense Boost
+                buff_id = 93,
             },
             {
                 name = 'Metallic Body',
@@ -110,7 +110,7 @@ return {
                 spell_id = 517,
                 magic = 'blue',
                 command = '/ma "Metallic Body" <me>',
-                buff_id = 37,  -- Stoneskin
+                buff_id = 37,
             },
             {
                 name = 'Refueling',
@@ -119,7 +119,7 @@ return {
                 spell_id = 530,
                 magic = 'blue',
                 command = '/ma "Refueling" <me>',
-                buff_id = 33,  -- Haste
+                buff_id = 33,
             },
             {
                 name = 'Feather Barrier',
@@ -128,7 +128,7 @@ return {
                 spell_id = 574,
                 magic = 'blue',
                 command = '/ma "Feather Barrier" <me>',
-                buff_id = 92,  -- Evasion Boost
+                buff_id = 92,
             },
             {
                 name = 'Memento Mori',
@@ -137,7 +137,7 @@ return {
                 spell_id = 538,
                 magic = 'blue',
                 command = '/ma "Memento Mori" <me>',
-                buff_id = 190,  -- Magic Atk. Boost
+                buff_id = 190,
             },
             {
                 name = 'Zephyr Mantle',
@@ -146,7 +146,7 @@ return {
                 spell_id = 647,
                 magic = 'blue',
                 command = '/ma "Zephyr Mantle" <me>',
-                buff_id = 36,  -- Blink
+                buff_id = 36,
             },
             {
                 name = 'Diamondhide',
@@ -183,7 +183,7 @@ return {
                 spell_id = 614,
                 magic = 'blue',
                 command = '/ma "Saline Coat" <me>',
-                buff_id = 191,  -- Magic Def. Boost
+                buff_id = 191,
             },
             {
                 name = 'Reactor Cool',
@@ -201,7 +201,7 @@ return {
                 spell_id = 615,
                 magic = 'blue',
                 command = '/ma "Plasma Charge" <me>',
-                buff_id = 38,  -- Shock Spikes
+                buff_id = 38,
             },
 
             -- Unbridled Learning spells: locked behind the Unbridled Learning
@@ -214,7 +214,7 @@ return {
                 spell_id = 662,
                 magic = 'blue',
                 command = '/ma "Battery Charge" <me>',
-                buff_id = 43,  -- Refresh
+                buff_id = 43,
                 requires_precast = 'Unbridled Learning',
             },
             {
@@ -224,7 +224,7 @@ return {
                 spell_id = 661,
                 magic = 'blue',
                 command = '/ma "Animating Wail" <me>',
-                buff_id = 33,  -- Haste
+                buff_id = 33,
                 requires_precast = 'Unbridled Learning',
             },
             {
@@ -234,7 +234,7 @@ return {
                 spell_id = 668,
                 magic = 'blue',
                 command = '/ma "Magic Barrier" <me>',
-                buff_id = 152,  -- Magic Shield
+                buff_id = 152,
                 requires_precast = 'Unbridled Learning',
             },
             {
@@ -254,7 +254,7 @@ return {
                 spell_id = 696,
                 magic = 'blue',
                 command = '/ma "Orcish Counterstance" <me>',
-                buff_id = 61,  -- Counterstance
+                buff_id = 61,
                 requires_precast = 'Unbridled Learning',
             },
             {
@@ -264,7 +264,7 @@ return {
                 spell_id = 685,
                 magic = 'blue',
                 command = '/ma "Barrier Tusk" <me>',
-                buff_id = 116,  -- Phalanx
+                buff_id = 116,
                 requires_precast = 'Unbridled Learning',
             },
             {
@@ -274,7 +274,7 @@ return {
                 spell_id = 737,
                 magic = 'blue',
                 command = '/ma "Harden Shell" <me>',
-                buff_id = 93,  -- Defense Boost
+                buff_id = 93,
                 requires_precast = 'Unbridled Learning',
             },
             {
@@ -284,7 +284,7 @@ return {
                 spell_id = 741,
                 magic = 'blue',
                 command = '/ma "Pyric Bulwark" <me>',
-                buff_id = 150,  -- Physical Shield
+                buff_id = 150,
                 requires_precast = 'Unbridled Learning',
             },
             {

@@ -85,7 +85,7 @@ return {
                 cost = 0,
                 recast_id = 150,  -- Majesty recast ID
                 command = '/ja "Majesty" <me>',
-                buff_id = 621,  -- Majesty buff
+                buff_id = 621,
             },
             -- Protect spells
             {
@@ -98,7 +98,7 @@ return {
                 command = function(target)
                     return '/ma "Protect IV" '..target
                 end,
-                buff_id = 40,  -- Protect buff
+                buff_id = 40,
                 range = 20,
                 group = 'protect',
                 target_outside = true,
@@ -113,7 +113,7 @@ return {
                 command = function(target)
                     return '/ma "Protect III" '..target
                 end,
-                buff_id = 40,  -- Protect buff
+                buff_id = 40,
                 range = 20,
                 group = 'protect',
                 target_outside = true,
@@ -128,7 +128,7 @@ return {
                 command = function(target)
                     return '/ma "Protect II" '..target
                 end,
-                buff_id = 40,  -- Protect buff
+                buff_id = 40,
                 range = 20,
                 group = 'protect',
                 target_outside = true,
@@ -143,7 +143,7 @@ return {
                 command = function(target)
                     return '/ma "Protect" '..target
                 end,
-                buff_id = 40,  -- Protect buff
+                buff_id = 40,
                 range = 20,
                 group = 'protect',
                 target_outside = true,
@@ -158,7 +158,7 @@ return {
                 command = function(target)
                     return '/ma "Shell III" '..target
                 end,
-                buff_id = 41,  -- Shell buff
+                buff_id = 41,
                 range = 20,
                 group = 'shell',
                 target_outside = true,
@@ -173,7 +173,7 @@ return {
                 command = function(target)
                     return '/ma "Shell II" '..target
                 end,
-                buff_id = 41,  -- Shell buff
+                buff_id = 41,
                 range = 20,
                 group = 'shell',
                 target_outside = true,
@@ -188,7 +188,7 @@ return {
                 command = function(target)
                     return '/ma "Shell" '..target
                 end,
-                buff_id = 41,  -- Shell buff
+                buff_id = 41,
                 range = 20,
                 group = 'shell',
                 target_outside = true,

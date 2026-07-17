@@ -24,7 +24,7 @@ return {
                     return '/ma "Knight\'s Minne IV" '..target
                 end,
                 element = 'Earth',
-                buff_id = 197,  -- Knight's Minne IV buff
+                buff_id = 197,
                 group = 'minne',
                 target_modifier = true,
             },
@@ -38,7 +38,7 @@ return {
                     return '/ma "Knight\'s Minne III" '..target
                 end,
                 element = 'Earth',
-                buff_id = 197,  -- Knight's Minne III buff
+                buff_id = 197,
                 group = 'minne',
                 target_modifier = true,
             },
@@ -52,7 +52,7 @@ return {
                     return '/ma "Knight\'s Minne II" '..target
                 end,
                 element = 'Earth',
-                buff_id = 197,  -- Knight's Minne II buff
+                buff_id = 197,
                 group = 'minne',
                 target_modifier = true,
             },
@@ -66,7 +66,7 @@ return {
                     return '/ma "Knight\'s Minne" '..target
                 end,
                 element = 'Earth',
-                buff_id = 197,  -- Knight's Minne buff
+                buff_id = 197,
                 group = 'minne',
                 target_modifier = true,
             },
@@ -81,7 +81,7 @@ return {
                     return '/ma "Valor Minuet IV" '..target
                 end,
                 element = 'Fire',
-                buff_id = 198,  -- Valor Minuet IV buff
+                buff_id = 198,
                 group = 'minuet',
                 target_modifier = true,
             },
@@ -95,7 +95,7 @@ return {
                     return '/ma "Valor Minuet III" '..target
                 end,
                 element = 'Fire',
-                buff_id = 198,  -- Valor Minuet III buff
+                buff_id = 198,
                 group = 'minuet',
                 target_modifier = true,
             },
@@ -109,7 +109,7 @@ return {
                     return '/ma "Valor Minuet II" '..target
                 end,
                 element = 'Fire',
-                buff_id = 198,  -- Valor Minuet II buff
+                buff_id = 198,
                 group = 'minuet',
                 target_modifier = true,
             },
@@ -123,7 +123,7 @@ return {
                     return '/ma "Valor Minuet" '..target
                 end,
                 element = 'Fire',
-                buff_id = 198,  -- Valor Minuet buff
+                buff_id = 198,
                 group = 'minuet',
                 target_modifier = true,
             },
@@ -138,7 +138,7 @@ return {
                     return '/ma "Army\'s Paeon V" '..target
                 end,
                 element = 'Light',
-                buff_id = 195,  -- Army's Paeon V buff
+                buff_id = 195,
                 group = 'paeon',
                 target_modifier = true,
             },
@@ -152,7 +152,7 @@ return {
                     return '/ma "Army\'s Paeon IV" '..target
                 end,
                 element = 'Light',
-                buff_id = 195,  -- Army's Paeon IV buff
+                buff_id = 195,
                 group = 'paeon',
                 target_modifier = true,
             },
@@ -166,7 +166,7 @@ return {
                     return '/ma "Army\'s Paeon III" '..target
                 end,
                 element = 'Light',
-                buff_id = 195,  -- Army's Paeon III buff
+                buff_id = 195,
                 group = 'paeon',
                 target_modifier = true,
             },
@@ -180,7 +180,7 @@ return {
                     return '/ma "Army\'s Paeon II" '..target
                 end,
                 element = 'Light',
-                buff_id = 195,  -- Army's Paeon II buff
+                buff_id = 195,
                 group = 'paeon',
                 target_modifier = true,
             },
@@ -194,7 +194,7 @@ return {
                     return '/ma "Army\'s Paeon" '..target
                 end,
                 element = 'Light',
-                buff_id = 195,  -- Army's Paeon buff
+                buff_id = 195,
                 group = 'paeon',
                 target_modifier = true,
             },
@@ -209,7 +209,7 @@ return {
                     return '/ma "Blade Madrigal" '..target
                 end,
                 element = 'Lightning',
-                buff_id = 199,  -- Blade Madrigal buff
+                buff_id = 199,
                 group = 'madrigal',
                 target_modifier = true,
             },
@@ -223,7 +223,7 @@ return {
                     return '/ma "Sword Madrigal" '..target
                 end,
                 element = 'Lightning',
-                buff_id = 199,  -- Sword Madrigal buff
+                buff_id = 199,
                 group = 'madrigal',
                 target_modifier = true,
             },
@@ -238,7 +238,7 @@ return {
                     return '/ma "Archer\'s Prelude" '..target
                 end,
                 element = 'Lightning',
-                buff_id = 200,  -- Archer's Prelude buff
+                buff_id = 200,
                 target_modifier = true,
                 group = 'prelude',
             },
@@ -252,7 +252,7 @@ return {
                     return '/ma "Hunter\'s Prelude" '..target
                 end,
                 element = 'Lightning',
-                buff_id = 200,  -- Hunter's Prelude buff
+                buff_id = 200,
                 target_modifier = true,
                 group = 'prelude',
             },
@@ -267,7 +267,7 @@ return {
                     return '/ma "Dragonfoe Mambo" '..target
                 end,
                 element = 'Wind',
-                buff_id = 201,  -- Dragonfoe Mambo buff
+                buff_id = 201,
                 target_modifier = true,
                 group = 'mambo',
             },
@@ -281,7 +281,7 @@ return {
                     return '/ma "Sheepfoe Mambo" '..target
                 end,
                 element = 'Wind',
-                buff_id = 201,  -- Sheepfoe Mambo buff
+                buff_id = 201,
                 target_modifier = true,
                 group = 'mambo',
             },
@@ -296,7 +296,7 @@ return {
                     return '/ma "Mage\'s Ballad II" '..target
                 end,
                 element = 'Light',
-                buff_id = 196,  -- Mage's Ballad II buff
+                buff_id = 196,
                 group = 'ballad',
                 target_modifier = true,
             },
@@ -310,7 +310,7 @@ return {
                     return '/ma "Mage\'s Ballad" '..target
                 end,
                 element = 'Light',
-                buff_id = 196,  -- Mage's Ballad buff
+                buff_id = 196,
                 group = 'ballad',
                 target_modifier = true,
             },
@@ -325,7 +325,7 @@ return {
                     return '/ma "Victory March" '..target
                 end,
                 element = 'Lightning',
-                buff_id = 214,  -- Victory March buff
+                buff_id = 214,
                 group = 'march',
                 target_modifier = true,
             },
@@ -339,7 +339,7 @@ return {
                     return '/ma "Advancing March" '..target
                 end,
                 element = 'Lightning',
-                buff_id = 214,  -- Advancing March buff
+                buff_id = 214,
                 group = 'march',
                 target_modifier = true,
             },
@@ -354,7 +354,7 @@ return {
                     return '/ma "Herculean Etude" '..target
                 end,
                 element = 'Fire',
-                buff_id = 215,  -- Herculean Etude buff
+                buff_id = 215,
                 group = 'etude',
                 target_modifier = true,
             },
@@ -368,7 +368,7 @@ return {
                     return '/ma "Uncanny Etude" '..target
                 end,
                 element = 'Lightning',
-                buff_id = 215,  -- Uncanny Etude buff
+                buff_id = 215,
                 group = 'etude',
                 target_modifier = true,
             },
@@ -382,7 +382,7 @@ return {
                     return '/ma "Vital Etude" '..target
                 end,
                 element = 'Earth',
-                buff_id = 215,  -- Vital Etude buff
+                buff_id = 215,
                 group = 'etude',
                 target_modifier = true,
             },
@@ -396,7 +396,7 @@ return {
                     return '/ma "Swift Etude" '..target
                 end,
                 element = 'Wind',
-                buff_id = 215,  -- Swift Etude buff
+                buff_id = 215,
                 group = 'etude',
                 target_modifier = true,
             },
@@ -410,7 +410,7 @@ return {
                     return '/ma "Sage Etude" '..target
                 end,
                 element = 'Ice',
-                buff_id = 215,  -- Sage Etude buff
+                buff_id = 215,
                 group = 'etude',
                 target_modifier = true,
             },
@@ -424,7 +424,7 @@ return {
                     return '/ma "Logical Etude" '..target
                 end,
                 element = 'Water',
-                buff_id = 215,  -- Logical Etude buff
+                buff_id = 215,
                 group = 'etude',
                 target_modifier = true,
             },
@@ -438,7 +438,7 @@ return {
                     return '/ma "Bewitching Etude" '..target
                 end,
                 element = 'Light',
-                buff_id = 215,  -- Bewitching Etude buff
+                buff_id = 215,
                 group = 'etude',
                 target_modifier = true,
             },
@@ -452,7 +452,7 @@ return {
                     return '/ma "Sinewy Etude" '..target
                 end,
                 element = 'Fire',
-                buff_id = 215,  -- Sinewy Etude buff
+                buff_id = 215,
                 group = 'etude',
                 target_modifier = true,
             },
@@ -466,7 +466,7 @@ return {
                     return '/ma "Dextrous Etude" '..target
                 end,
                 element = 'Lightning',
-                buff_id = 215,  -- Dextrous Etude buff
+                buff_id = 215,
                 group = 'etude',
                 target_modifier = true,
             },
@@ -480,7 +480,7 @@ return {
                     return '/ma "Vivacious Etude" '..target
                 end,
                 element = 'Earth',
-                buff_id = 215,  -- Vivacious Etude buff
+                buff_id = 215,
                 group = 'etude',
                 target_modifier = true,
             },
@@ -494,7 +494,7 @@ return {
                     return '/ma "Quick Etude" '..target
                 end,
                 element = 'Wind',
-                buff_id = 215,  -- Quick Etude buff
+                buff_id = 215,
                 group = 'etude',
                 target_modifier = true,
             },
@@ -508,7 +508,7 @@ return {
                     return '/ma "Learned Etude" '..target
                 end,
                 element = 'Ice',
-                buff_id = 215,  -- Learned Etude buff
+                buff_id = 215,
                 group = 'etude',
                 target_modifier = true,
             },
@@ -522,7 +522,7 @@ return {
                     return '/ma "Spirited Etude" '..target
                 end,
                 element = 'Water',
-                buff_id = 215,  -- Spirited Etude buff
+                buff_id = 215,
                 group = 'etude',
                 target_modifier = true,
             },
@@ -537,7 +537,7 @@ return {
                     return '/ma "Dark Carol" '..target
                 end,
                 element = 'Light',
-                buff_id = 216,  -- Dark Carol buff
+                buff_id = 216,
                 group = 'carol',
                 target_modifier = true,
             },
@@ -551,7 +551,7 @@ return {
                     return '/ma "Lightning Carol" '..target
                 end,
                 element = 'Earth',
-                buff_id = 216,  -- Lightning Carol buff
+                buff_id = 216,
                 group = 'carol',
                 target_modifier = true,
             },
@@ -565,7 +565,7 @@ return {
                     return '/ma "Ice Carol" '..target
                 end,
                 element = 'Fire',
-                buff_id = 216,  -- Ice Carol buff
+                buff_id = 216,
                 group = 'carol',
                 target_modifier = true,
             },
@@ -579,7 +579,7 @@ return {
                     return '/ma "Fire Carol" '..target
                 end,
                 element = 'Water',
-                buff_id = 216,  -- Fire Carol buff
+                buff_id = 216,
                 group = 'carol',
                 target_modifier = true,
             },
@@ -593,7 +593,7 @@ return {
                     return '/ma "Wind Carol" '..target
                 end,
                 element = 'Ice',
-                buff_id = 216,  -- Wind Carol buff
+                buff_id = 216,
                 group = 'carol',
                 target_modifier = true,
             },
@@ -607,7 +607,7 @@ return {
                     return '/ma "Water Carol" '..target
                 end,
                 element = 'Lightning',
-                buff_id = 216,  -- Water Carol buff
+                buff_id = 216,
                 group = 'carol',
                 target_modifier = true,
             },
@@ -621,7 +621,7 @@ return {
                     return '/ma "Earth Carol" '..target
                 end,
                 element = 'Wind',
-                buff_id = 216,  -- Earth Carol buff
+                buff_id = 216,
                 group = 'carol',
                 target_modifier = true,
             },
@@ -635,7 +635,7 @@ return {
                     return '/ma "Light Carol" '..target
                 end,
                 element = 'Dark',
-                buff_id = 216,  -- Light Carol buff
+                buff_id = 216,
                 group = 'carol',
                 target_modifier = true,
             },
@@ -650,7 +650,7 @@ return {
                     return '/ma "Chocobo Mazurka" '..target
                 end,
                 element = 'Wind',
-                buff_id = 219,  -- Chocobo Mazurka buff
+                buff_id = 219,
                 group = 'mazurka',
                 target_modifier = true,
             },
@@ -664,7 +664,7 @@ return {
                     return '/ma "Raptor Mazurka" '..target
                 end,
                 element = 'Wind',
-                buff_id = 219,  -- Raptor Mazurka buff
+                buff_id = 219,
                 group = 'mazurka',
                 target_modifier = true,
             },
@@ -679,7 +679,7 @@ return {
                     return '/ma "Warding Round" '..target
                 end,
                 element = 'Light',
-                buff_id = 209,  -- Warding Round buff
+                buff_id = 209,
                 target_modifier = true,
                 group = 'resistance',
             },
@@ -693,7 +693,7 @@ return {
                     return '/ma "Puppet\'s Operetta" '..target
                 end,
                 element = 'Ice',
-                buff_id = 206,  -- Puppet's Operetta buff
+                buff_id = 206,
                 target_modifier = true,
                 group = 'resistance',
             },
@@ -707,7 +707,7 @@ return {
                     return '/ma "Shining Fantasia" '..target
                 end,
                 element = 'Light',
-                buff_id = 205,  -- Shining Fantasia buff
+                buff_id = 205,
                 target_modifier = true,
                 group = 'resistance',
             },
@@ -721,7 +721,7 @@ return {
                     return '/ma "Gold Capriccio" '..target
                 end,
                 element = 'Wind',
-                buff_id = 207,  -- Gold Capriccio buff
+                buff_id = 207,
                 target_modifier = true,
                 group = 'resistance',
             },
@@ -735,7 +735,7 @@ return {
                     return '/ma "Goblin Gavotte" '..target
                 end,
                 element = 'Fire',
-                buff_id = 210,  -- Goblin Gavotte buff
+                buff_id = 210,
                 target_modifier = true,
                 group = 'resistance',
             },
@@ -749,7 +749,7 @@ return {
                     return '/ma "Fowl Aubade" '..target
                 end,
                 element = 'Light',
-                buff_id = 202,  -- Fowl Aubade buff
+                buff_id = 202,
                 target_modifier = true,
                 group = 'resistance',
             },
@@ -763,7 +763,7 @@ return {
                     return '/ma "Scop\'s Operetta" '..target
                 end,
                 element = 'Ice',
-                buff_id = 206,  -- Scop's Operetta buff
+                buff_id = 206,
                 target_modifier = true,
                 group = 'resistance',
             },
@@ -778,7 +778,7 @@ return {
                     return '/ma "Herb Pastoral" '..target
                 end,
                 element = 'Lightning',
-                buff_id = 203,  -- Herb Pastoral buff
+                buff_id = 203,
                 target_modifier = true,
                 group = 'resistance',
             },
@@ -793,7 +793,7 @@ return {
                     return '/ma "Goddess\'s Hymnus" '..target
                 end,
                 element = 'Light',
-                buff_id = 218,  -- Goddess's Hymnus buff
+                buff_id = 218,
                 target_modifier = true,
             },
             {
@@ -806,7 +806,7 @@ return {
                     return '/ma "Foe Sirvente" '..target
                 end,
                 element = 'Light',
-                buff_id = 220,  -- Foe Sirvente buff
+                buff_id = 220,
                 target_modifier = true,
             },
             {
@@ -819,7 +819,7 @@ return {
                     return '/ma "Adventurer\'s Dirge" '..target
                 end,
                 element = 'Light',
-                buff_id = 221,  -- Adventurer's Dirge buff
+                buff_id = 221,
                 target_modifier = true,
             },
         },

@@ -30,7 +30,7 @@ return {
                 magic = 'black',
                 magic_type = 'enhancing',
                 command = '/ma "Shock Spikes" <me>',
-                buff_id = 38,  -- Shock Spikes
+                buff_id = 38,
                 group = 'spikes',
             },
             {
@@ -41,7 +41,7 @@ return {
                 magic = 'black',
                 magic_type = 'enhancing',
                 command = '/ma "Ice Spikes" <me>',
-                buff_id = 35,  -- Ice Spikes
+                buff_id = 35,
                 group = 'spikes',
             },
             {
@@ -52,7 +52,7 @@ return {
                 magic = 'black',
                 magic_type = 'enhancing',
                 command = '/ma "Blaze Spikes" <me>',
-                buff_id = 34,  -- Blaze Spikes
+                buff_id = 34,
                 group = 'spikes',
             },
         },
