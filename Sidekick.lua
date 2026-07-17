@@ -839,6 +839,7 @@ local STATUS_GAIN_MESSAGES = {
     [266] = true,  -- <target> gains the effect of <status>
     [277] = true,  -- <target> is <status>
     [278] = true,  -- <target> receives the effect of <status>
+    [280] = true,  -- <target> is afflicted with <status> (CatsEyeXI status-gain variant; param@0x0C = status id, not in named msg_basic.h enum)
 }
 local STATUS_LOSE_MESSAGES = {
     [204] = true,  -- <target>'s <status> effect wears off (variant)
