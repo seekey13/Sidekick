@@ -1094,12 +1094,12 @@ local function render_diffusion_button(ability_key, ability, ctx)
         tooltips.diffusion_button, tooltips.diffusion_enable, tooltips.diffusion_hold)
 end
 
--- RUN Embolden [E] button on every enhancing magic row: fire Embolden before
--- the spell to boost its potency. Keyed off magic_type rather than magic so
--- the black-magic spikes get it too -- Embolden boosts enhancing magic of
--- either colour.
+-- RUN Embolden [E] button on every white enhancing magic row: fire Embolden
+-- before the spell to boost its potency. Both keys are needed: magic_type
+-- keeps the button off white non-enhancing rows, magic keeps it off the
+-- black-magic spikes (which carry magic_type = 'enhancing').
 local function render_embolden_button(ability_key, ability, ctx)
-    if not (ability and ability.magic_type == 'enhancing') then return false end
+    if not (ability and ability.magic == 'white' and ability.magic_type == 'enhancing') then return false end
     local strat = embolden_column_strat(ctx)
     if not strat then return false end
     return render_recast_gate_button(ability_key, ctx, strat, 'E',

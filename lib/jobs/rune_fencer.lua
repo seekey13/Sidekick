@@ -4,10 +4,10 @@
     - Buffs (Protect, Shell, bar spells, Regen, Refresh, Spikes, Aquaveil, Blink, Stoneskin, Foil, Phalanx, job abilities)
     - Healing (Vivacious Pulse)
     - Embolden (60, RUN main): stratagem-style JA that boosts the potency of the
-      next enhancing magic. Configured via the E button on every enhancing buff
-      row; fired through check_stratagem the tick before the spell. On cooldown:
-      the buff still casts unboosted (hold off, default) or is held until
-      Embolden is ready (hold on).
+      next enhancing magic. Configured via the E button on every white enhancing
+      buff row; fired through check_stratagem the tick before the spell. On
+      cooldown: the buff still casts unboosted (hold off, default) or is held
+      until Embolden is ready (hold on).
 ]]--
 
 
@@ -457,9 +457,9 @@ return {
         -- Precast JA, fired the tick before its paired enhancing spell.
         -- recast_gate keeps it out of the Scholar S popup and check_stratagem's
         -- charge pool (it has its own JA timer, not stratagem charges).
-        -- magic = 'white' is the column key for the E button; the button itself
-        -- shows on any magic_type = 'enhancing' row, so the black spikes get it
-        -- too -- Embolden boosts enhancing magic regardless of white/black.
+        -- magic = 'white' is the column key for the E button, which shows only
+        -- on magic = 'white' + magic_type = 'enhancing' rows -- the spikes are
+        -- magic = 'black' and are deliberately left out.
         precast = {
             {
                 name = 'Embolden',
