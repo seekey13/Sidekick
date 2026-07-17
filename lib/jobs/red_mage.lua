@@ -84,9 +84,10 @@ return {
                 name = 'Composure',
                 level = 50,
                 cost = 0,
-                recast_id = 50,
+                id = 50,
                 command = '/ja "Composure" <me>',
                 buff_id = 419,  -- Composure
+                buff_priority = 100,
             },
             -- Protect line
             {
