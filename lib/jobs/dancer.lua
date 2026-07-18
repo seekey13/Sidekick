@@ -132,7 +132,7 @@ return {
                 recast_id = 223,
                 ability_id = 239,  -- merit-unlocked: gated on HasAbility
                 command = '/ja "No Foot Rise" <me>',
-                buff_id = 385,  -- Dont use @ (5) Finishing Moves
+                buff_id = 385,  -- don't use at (5) Finishing Moves
             },
             {
                 name = 'Presto',

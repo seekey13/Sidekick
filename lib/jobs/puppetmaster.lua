@@ -46,10 +46,10 @@ return {
                 level = 75,
                 cost = 0,
                 recast_id = 211,
-                command = '/ja "Role Reversal" <me> ',
+                command = '/ja "Role Reversal" <me>',
                 pet_required = true,
-                ability_id = 180,
-            }
+                ability_id = 179,  -- merit-unlocked: gated on HasAbility (180 is Ventriloquy)
+            },
         },
 
         -- Strip the automaton's status ailments. Same Oil ammo as Repair, so no
@@ -76,6 +76,23 @@ return {
         heal_pet_threshold = 50,
         pet_debuff_removal_enabled = true,
     },
+
+    -- Role Reversal swaps master/pet HP *percentages*, so heal_pet's pet-HP-only
+    -- gate is not enough on its own: firing it blind either drops the player to a
+    -- critical HP% or, when the player is the hurt one, makes the pet worse.
+    -- Only allow it when the player is healthier than the pet and the post-swap
+    -- player HP% stays above the floor below.
+    -- ponytail: fixed 25% floor, not a setting -- validate_ability gets no
+    -- settings arg. Promote to role_reversal_min_hpp if the fixed value chafes.
+    validate_ability = function(ability, common)
+        if ability.name ~= 'Role Reversal' then return true end
+
+        local player = common.game_state and common.game_state.player
+        if not player then return false end
+
+        local pet_hpp = player.pet_hpp or 0
+        return pet_hpp >= 25 and (player.hpp or 0) > pet_hpp
+    end,
 
     -- Action priority order
     priority_order = {
