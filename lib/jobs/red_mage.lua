@@ -695,6 +695,7 @@ return {
                 cost = 0,
                 recast_id = 49,  -- Job ability
                 command = '/ja "Convert" <me>',
+                priority = 100,
             },
         },
 
