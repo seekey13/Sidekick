@@ -64,6 +64,8 @@ The one exception is **opt-in leader following** (off by default): with **Follow
 
 - **Paladin self-buffs**: PLD picks up its defensive job abilities — **Fealty**, **Rampart**, **Sentinel** and **Holy Circle**, all combat-only — plus **Reprisal** and **Majesty**, which is cast first among the buffs. Thanks to a **Funny group of Sweatlords** for pointing out they were missing.
 
+- **Puppetmaster Role Reversal**: PUP gains **Role Reversal** (level 75 merit) as a second automaton heal, used when **Repair** is on cooldown. It swaps your HP percentage with the automaton's, so it only fires when you're the healthier of the two and the swap would leave you above 25%.
+
 - **AFK Sleep**: Automation now goes to sleep after 10 minutes with no party movement and no combat, and wakes as soon as you move. **On by default**. It's a pause, not a stop: nothing is saved or reset, so `/sk start` survives a sleep cycle untouched. Anyone in your party moving, or the party being in combat, keeps it awake; only **your own** movement wakes it back up. Toggle it and set the timeout (1-60 minutes) in `/sk panel` beside **Debug Mode**, or with `/sidekick afk [on|off|<seconds>]`. Thanks to **Mythicangel** for the idea.
 
 ### Changed
@@ -78,7 +80,6 @@ The one exception is **opt-in leader following** (off by default): with **Follow
 - **Bard single-target songs raced ahead of area songs** — in **Pianissimo Fast Casting**, if an area (`[A]`) song was briefly on recast, Sidekick sang a single-target song anyway, which the area song then overwrote. The single-target pass now holds until every configured area song is established first.  Thanks to **Sleazy** for reporting the bug.
 - **Erase and Healing Waltz skipped Shock and Drown** — the two elemental damage-over-time debuffs were missing from the removable list. Both are now cured alongside Burn, Frost, Choke, and Rasp.  Thanks again to **Sleazy** for reporting the bug.
 - **Interrupted casts confused Trust buff tracking** — a buff left pending by an interrupted cast was claimed by the next spell you cast, recording a buff on a Trust that never got it and skipping the recast for its full duration. A buff pending more than 10 seconds is now dropped.
-- **Zoning mid-cast froze automation** — Sidekick thought you were still casting and sat idle until the safety net expired. Zoning now clears it immediately.
 - **Erase tried to cure things it can't** — Erase shared one status list with the pet cleanses (Beastmaster **Reward**, Puppetmaster **Maintenance**), so it kept firing on Poison, Paralysis, Blind, Silence, Disease, Curse, and Plague. Erase and the pet cleanses now carry their own lists.
 - **Scholar Addendums only fired at full charges** — **Addendum: White / Black** were checked against the stratagem timer as a normal cooldown. They now check for a spare stratagem charge like the stratagems do.
 - **67 wrong spell/ability ids** — affected spells cast the wrong thing or read the wrong cooldown. RDM/RUN Bar- and En- spells (Barstone cast Barfire), WHM Bar-*ra* line and Raise II, SCH Raise II / Reraise II / Sandstorm, BRD Water/Earth Carol swapped, and wrong cooldowns on DNC Divine Waltz II / Spectral Jig, WHM Afflatus Misery, RUN Vivacious Pulse, SCH Addendum: Black.
@@ -318,6 +319,7 @@ Currently implemented support jobs:
 
 - **Puppetmaster** (PUP) — *pet-only support*
   - Automaton healing with **Repair** (requires an **Automaton Oil** in the ammo slot; higher tiers heal more; PUP-main only)
+  - Automaton healing with **Role Reversal** (level 75 merit) when Repair is on cooldown — only fires when you're healthier than the automaton and the swap leaves you above 25% HP
   - Automaton debuff removal with **Maintenance** (same Oil ammo)
 
 - **Bard** (BRD)
