@@ -8,6 +8,11 @@
     recast_id is identical on all 25 -- the roll you pick is chosen by command text,
     not by timer. `lucky` is the total that grants the bonus effect; `unlucky` is
     kept as reference data only and is NOT read by the roll logic.
+
+    `action_id` is abilities.sql `abilityId`. It exists so lib/actions/roll.lua can
+    match a 0x028 action packet's cmd_arg back to the roll that produced it.
+    DO NOT rename it to `ability_id`: that field name is the merit-unlock gate in
+    lib/core/common.lua (HasAbility(ability_id + 512)) and would disable every roll.
 ]]--
 
 return {
@@ -23,6 +28,7 @@ return {
                 level = 5,
                 cost = 0,
                 recast_id = 193,  -- Phantom Roll recast ID
+                action_id = 114,  -- abilities.sql abilityId (NOT ability_id -- see header)
                 command = '/ja "Corsair\'s Roll" <me>',
                 buff_id = 326,  -- Corsair's Roll buff
                 lucky = 5,
@@ -33,6 +39,7 @@ return {
                 level = 8,
                 cost = 0,
                 recast_id = 193,
+                action_id = 110,
                 command = '/ja "Ninja Roll" <me>',
                 buff_id = 322,  -- Ninja Roll buff
                 lucky = 4,
@@ -43,6 +50,7 @@ return {
                 level = 11,
                 cost = 0,
                 recast_id = 193,
+                action_id = 108,
                 command = '/ja "Hunter\'s Roll" <me>',
                 buff_id = 320,  -- Hunter's Roll buff
                 lucky = 4,
@@ -53,6 +61,7 @@ return {
                 level = 14,
                 cost = 0,
                 recast_id = 193,
+                action_id = 105,
                 command = '/ja "Chaos Roll" <me>',
                 buff_id = 317,  -- Chaos Roll buff
                 lucky = 4,
@@ -63,6 +72,7 @@ return {
                 level = 17,
                 cost = 0,
                 recast_id = 193,
+                action_id = 113,
                 command = '/ja "Magus\'s Roll" <me>',
                 buff_id = 325,  -- Magus's Roll buff
                 lucky = 2,
@@ -73,6 +83,7 @@ return {
                 level = 20,
                 cost = 0,
                 recast_id = 193,
+                action_id = 100,
                 command = '/ja "Healer\'s Roll" <me>',
                 buff_id = 312,  -- Healer's Roll buff
                 lucky = 3,
@@ -83,6 +94,7 @@ return {
                 level = 23,
                 cost = 0,
                 recast_id = 193,
+                action_id = 111,
                 command = '/ja "Drachen Roll" <me>',
                 buff_id = 323,  -- Drachen Roll buff
                 lucky = 4,
@@ -93,6 +105,7 @@ return {
                 level = 26,
                 cost = 0,
                 recast_id = 193,
+                action_id = 107,
                 command = '/ja "Choral Roll" <me>',
                 buff_id = 319,  -- Choral Roll buff
                 lucky = 2,
@@ -103,6 +116,7 @@ return {
                 level = 31,
                 cost = 0,
                 recast_id = 193,
+                action_id = 99,
                 command = '/ja "Monk\'s Roll" <me>',
                 buff_id = 311,  -- Monk's Roll buff
                 lucky = 3,
@@ -113,6 +127,7 @@ return {
                 level = 34,
                 cost = 0,
                 recast_id = 193,
+                action_id = 106,
                 command = '/ja "Beast Roll" <me>',
                 buff_id = 318,  -- Beast Roll buff
                 lucky = 4,
@@ -120,9 +135,10 @@ return {
             },
             {
                 name = 'Samurai Roll (STP+)',
-                level = 37,
+                level = 34,
                 cost = 0,
                 recast_id = 193,
+                action_id = 109,
                 command = '/ja "Samurai Roll" <me>',
                 buff_id = 321,  -- Samurai Roll buff
                 lucky = 2,
@@ -133,6 +149,7 @@ return {
                 level = 40,
                 cost = 0,
                 recast_id = 193,
+                action_id = 112,
                 command = '/ja "Evoker\'s Roll" <me>',
                 buff_id = 324,  -- Evoker's Roll buff
                 lucky = 5,
@@ -143,6 +160,7 @@ return {
                 level = 43,
                 cost = 0,
                 recast_id = 193,
+                action_id = 103,
                 command = '/ja "Rogue\'s Roll" <me>',
                 buff_id = 315,  -- Rogue's Roll buff
                 lucky = 5,
@@ -153,6 +171,7 @@ return {
                 level = 46,
                 cost = 0,
                 recast_id = 193,
+                action_id = 102,
                 command = '/ja "Warlock\'s Roll" <me>',
                 buff_id = 314,  -- Warlock's Roll buff
                 lucky = 4,
@@ -163,6 +182,7 @@ return {
                 level = 49,
                 cost = 0,
                 recast_id = 193,
+                action_id = 98,
                 command = '/ja "Fighter\'s Roll" <me>',
                 buff_id = 310,  -- Fighter's Roll buff
                 lucky = 5,
@@ -173,6 +193,7 @@ return {
                 level = 52,
                 cost = 0,
                 recast_id = 193,
+                action_id = 115,
                 command = '/ja "Puppet Roll" <me>',
                 buff_id = 327,  -- Puppet Roll buff
                 lucky = 3,
@@ -183,6 +204,7 @@ return {
                 level = 55,
                 cost = 0,
                 recast_id = 193,
+                action_id = 104,
                 command = '/ja "Gallant\'s Roll" <me>',
                 buff_id = 316,  -- Gallant's Roll buff
                 lucky = 3,
@@ -193,6 +215,7 @@ return {
                 level = 58,
                 cost = 0,
                 recast_id = 193,
+                action_id = 101,
                 command = '/ja "Wizard\'s Roll" <me>',
                 buff_id = 313,  -- Wizard's Roll buff
                 lucky = 5,
@@ -203,6 +226,7 @@ return {
                 level = 61,
                 cost = 0,
                 recast_id = 193,
+                action_id = 116,
                 command = '/ja "Dancer\'s Roll" <me>',
                 buff_id = 328,  -- Dancer's Roll buff
                 lucky = 3,
@@ -213,6 +237,7 @@ return {
                 level = 64,
                 cost = 0,
                 recast_id = 193,
+                action_id = 117,
                 command = '/ja "Scholar\'s Roll" <me>',
                 buff_id = 329,  -- Scholar's Roll buff
                 lucky = 2,
@@ -223,6 +248,7 @@ return {
                 level = 67,
                 cost = 0,
                 recast_id = 193,
+                action_id = 390,
                 command = '/ja "Naturalist\'s Roll" <me>',
                 buff_id = 339,  -- Naturalist's Roll buff
                 lucky = 3,
@@ -233,6 +259,7 @@ return {
                 level = 70,
                 cost = 0,
                 recast_id = 193,
+                action_id = 391,
                 command = '/ja "Runeist\'s Roll" <me>',
                 buff_id = 600,  -- Runeist's Roll buff
                 lucky = 4,
@@ -240,9 +267,10 @@ return {
             },
             {
                 name = 'Companion\'s Roll (Pet Regain & Regen)',
-                level = 75,
+                level = 95,
                 cost = 0,
                 recast_id = 193,
+                action_id = 304,
                 command = '/ja "Companion\'s Roll" <me>',
                 buff_id = 337,  -- Companion's Roll buff
                 lucky = 2,
@@ -250,9 +278,10 @@ return {
             },
             {
                 name = 'Bolter\'s Roll (Move Speed+)',
-                level = 75,
+                level = 76,
                 cost = 0,
                 recast_id = 193,
+                action_id = 118,
                 command = '/ja "Bolter\'s Roll" <me>',
                 buff_id = 330,  -- Bolter's Roll buff
                 lucky = 3,
@@ -260,9 +289,10 @@ return {
             },
             {
                 name = 'Caster\'s Roll (Fast Cast+)',
-                level = 75,
+                level = 79,
                 cost = 0,
                 recast_id = 193,
+                action_id = 119,
                 command = '/ja "Caster\'s Roll" <me>',
                 buff_id = 331,  -- Caster's Roll buff
                 lucky = 2,

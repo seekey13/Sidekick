@@ -33,7 +33,7 @@ lib/
     recover.lua             MP/TP recovery abilities
     rest.lua                Automatic resting (/heal) with follow-target awareness
     revive.lua              Raise dead party/tracked/alliance members
-    roll.lua                COR Phantom Roll / Double-Up (incl. its own 0x028 decode)
+    roll.lua                COR Phantom Roll / Double-Up (incl. its 0x028 total reader)
     status_removal.lua      Debuff removal & sleep wake (single + AOE)
   jobs/
     bard.lua                BRD job definition
@@ -293,14 +293,19 @@ Parses raw packet bytes for action packet 0x028 into structured Lua tables (acto
 
 0x028 is **bit-packed, not byte-aligned** — `Type` (the 4-bit action category) sits at bit 82, not on any byte boundary, so it can only be read through this parser, never with `struct.unpack` offsets.
 
-The one exception is `roll.handle_action_packet`, which reads the *same* 0x028 through a
-different, byte-aligned view: category `0x51` @ `0x04`, actor id @ `0x05` (4 bytes LE), roll
-value @ `0x19` (encoded as `value * 8`, so `/8` → 1-6), and the server's running total @ `0x2A`
-(1-11). Roll totals are not exposed by this parser and are not in memory, so that raw decode is
-the only path to them; it is in-game verified and must not be rewritten on top of
-`parse_action_packet`. It is dispatched from Sidekick.lua's 0x028 handler ahead of the parse,
-guarded on the loaded job actually having `abilities.roll` so it costs one table lookup for
-every other job. Categories: `1` melee, `2` ranged_finish, `3` ws_finish, `4` spell_finish, `5` item_finish, `6` job_ability, `7` ws_begin, `8` casting_begin, `9` item_begin, `11` mob_tp_finish, `12` ranged_begin, `13` avatar_tp_finish, `14`/`15` job_ability (DNC/RUN). Layout matches [Windower's `fields.lua`](https://github.com/Windower/Lua/blob/dev/addons/libs/packets/fields.lua) for incoming 0x028.
+Field names and widths follow the server's own packer,
+[`0x028_battle2.cpp`](https://github.com/CatsAndBoats/catseyexi/blob/base/src/map/packets/s2c/0x028_battle2.cpp):
+each action carries `Resolution 3 | Kind 2 | Animation 12 | Info 5 | Scale 2 | Knockback 3 |
+Param 17 | Message 10 | Flags 31`. Note byte `0x04` is `workSize` (packed byte length), **not**
+a category — no roll decode may key off it.
+
+`roll.handle_action_packet` reads Corsair roll totals off this same parsed packet: `Type == 6`
+(job ability), `Param` = the roll's ability id (on a Double-Up the server rewrites it to the
+*underlying* roll's id, so every packet self-identifies its slot), and on the caster's own
+target entry `action.Info` = the die 1-6, `action.Param` = the running total, `action.Message` =
+420/421 roll, 424 double-up, 426/427 bust. It is dispatched from Sidekick.lua's 0x028 handler
+just after the parse, guarded on the loaded job actually having `abilities.roll` so it costs one
+table lookup for every other job. Categories: `1` melee, `2` ranged_finish, `3` ws_finish, `4` spell_finish, `5` item_finish, `6` job_ability, `7` ws_begin, `8` casting_begin, `9` item_begin, `11` mob_tp_finish, `12` ranged_begin, `13` avatar_tp_finish, `14`/`15` job_ability (DNC/RUN). Layout matches [Windower's `fields.lua`](https://github.com/Windower/Lua/blob/dev/addons/libs/packets/fields.lua) for incoming 0x028.
 
 ### targets.lua
 
@@ -580,6 +585,9 @@ return {
     lucky           = 5,            -- COR roll only: total that grants the bonus effect; roll.lua
                                     --   stops Double-Up here
     unlucky         = 9,            -- COR roll only: reference data, NOT read by any logic
+    action_id       = 114,          -- COR roll only: abilities.sql abilityId, used to match a
+                                    --   0x028 packet's cmd_arg back to the roll. Deliberately NOT
+                                    --   named ability_id, which is the merit-unlock gate.
     range           = 20,
     is_main_job     = true,         -- false for subjob-sourced abilities
     resource_type   = nil,          -- override job resource_type ('mp'/'tp')

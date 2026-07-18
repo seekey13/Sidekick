@@ -29,7 +29,7 @@ local afk = require('lib.core.afk')
 -- Load action modules
 local heal_mod   = require('lib.actions.heal')
 local status_mod = require('lib.actions.status_removal')
-local roll_mod   = require('lib.actions.roll')  -- also owns the 0x028 roll-total decode
+local roll_mod   = require('lib.actions.roll')  -- also reads roll totals off the 0x028 packet
 
 local action_modules = {
     item           = require('lib.actions.item'),
@@ -879,14 +879,14 @@ ashita.events.register('packet_in', 'sidekick_packet_in', function(e)
     -- Message 83  = buff/debuff removed from target (e.g. Paralyna removes Paralysis)
     -- Cure healing messages (2, 7, 24) on tracked sleeping targets infer wake
     if e.id == 0x028 then
-        -- Corsair roll totals: a raw byte-offset decode of the same packet (category
-        -- 0x51), not the bit-packed parse below -- see roll.handle_action_packet.
+        local actionPacket = parse_packets.parse_action_packet(e)
+
+        -- Corsair roll totals ride on the same parsed packet: cmd_arg identifies the
+        -- roll, the caster's own target entry carries the die value and running total.
         -- Costs one table lookup for every other job.
         if job_def and job_def.abilities and job_def.abilities.roll then
-            roll_mod.handle_action_packet(e.data, addon_settings, job_def)
+            roll_mod.handle_action_packet(actionPacket, addon_settings, job_def)
         end
-
-        local actionPacket = parse_packets.parse_action_packet(e)
 
         -- Determine if we (the player) are the actor
         local party = common.get_party()

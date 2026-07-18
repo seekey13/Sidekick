@@ -352,7 +352,7 @@ Currently implemented support jobs:
 - **Corsair** (COR) — *rolls only*
   - Maintains two **Phantom Rolls** of your choice (pick them from the **Rolls** section) and uses **Double-Up** on each until it is good enough
   - Stops doubling on the roll's **lucky** number, at the **Stop At Total** you set (default 5), or at 11 (12 busts)
-  - Roll totals aren't in memory, so they're read from the roll action packet — expect the occasional miss, same caveat as Trust buff tracking
+  - Roll totals aren't in memory, so they're read from the roll action packet (the packet names which roll it belongs to, so Double-Ups can't be mixed up between your two slots)
   - While **Bust** is up only one roll slot exists, so the second roll is held back until it wears
   - Rolls fire in and out of combat. Quick Draw, Ranged Attack, and Random Deal are deliberately not automated (Sidekick is support-only)
 
