@@ -5,6 +5,9 @@ All notable changes to Sidekick will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.6.0] - 2026-07-18
+- **Corsair (rolls only)**: New job def (`lib/jobs/corsair.lua`, job id 17, `resource_type = 'tp'`) carrying all 25 Phantom Rolls, and a new `roll` action type (`lib/actions/roll.lua`) slotted into `master_priority` immediately ahead of `buff`. Two roll slots are configurable (`roll1_name` / `roll2_name`); available slots drop to 1 while **Bust** (309) is up, and no new roll is cast at capacity. Double-Up fires while the Double-Up Chance buff (308) is up and the running total is neither the roll's `lucky` number nor at/above `roll_hit_threshold` (default 5) — and never at 11, since 12 busts. Every roll shares Phantom Roll's `recast_id = 193`, so `action_core.try_use` gates the cast on that one timer plus Amnesia. **Roll totals are packet-derived**: `roll.handle_action_packet` decodes the 0x028 action packet by raw byte offset (category `0x51` @ 0x04, actor @ 0x05, roll value @ 0x19 encoded as `value * 8`, running total @ 0x2A) rather than through `parse_packets` — the bit-packed parser exposes a different view and this raw decode is the in-game-verified path. Dispatched from the existing 0x028 handler, guarded on the job actually having `abilities.roll`. Quick Draw / Ranged Attack / Random Deal from the pre-3.0 job file are deliberately dropped (support-only), as is the old engaged-only gate, so rolls also fire out of combat. `unlucky` is retained as reference data and is not read by the logic.
+
 ## [2.5.0] - 2026-07-17
 
 ### Added

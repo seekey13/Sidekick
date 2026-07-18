@@ -10,6 +10,7 @@ local common = require('lib.core.common')
 local afk = require('lib.core.afk')
 local ui = require('lib.ui.components')
 local tooltips = require('lib.ui.tooltips')
+local roll = require('lib.actions.roll')  -- for reset_state() when a roll selection changes
 
 -- UI state
 local is_open = { true }
@@ -200,6 +201,51 @@ local function render_party_dropdown(label, setting_key, include_player, party_m
     imgui.PopItemWidth()
 
     return settings[setting_key]
+end
+
+-- Render a Corsair roll-selection dropdown (Roll 1 / Roll 2). Writes the roll name
+-- into settings[setting_key] and resets roll state on every change, so a stale
+-- packet total from the previous roll can't leak into the new one.
+local function render_roll_dropdown(label, setting_key, available_rolls, settings, on_change)
+    local current = settings[setting_key]
+
+    -- Show 'None' for an unset roll, or one the player can no longer use
+    local current_display = 'None'
+    for _, ability in ipairs(available_rolls) do
+        if ability.name == current then
+            current_display = ability.name
+            break
+        end
+    end
+
+    local function choose(name)
+        settings[setting_key] = name
+        roll.reset_state()
+        if on_change then on_change() end
+    end
+
+    imgui.PushItemWidth(250)
+    if imgui.BeginCombo(label, current_display) then
+        local is_none_selected = (current_display == 'None')
+        if imgui.Selectable('None', is_none_selected) then
+            choose(nil)
+        end
+        if is_none_selected then
+            imgui.SetItemDefaultFocus()
+        end
+
+        for _, ability in ipairs(available_rolls) do
+            local is_selected = (ability.name == current)
+            if imgui.Selectable(ability.name, is_selected) then
+                choose(ability.name)
+            end
+            if is_selected then
+                imgui.SetItemDefaultFocus()
+            end
+        end
+        imgui.EndCombo()
+    end
+    imgui.PopItemWidth()
 end
 
 -- ============================================================================
@@ -899,6 +945,32 @@ function ui_config.render(settings, job_def, callback)
             end
         end
         
+        -- Roll settings (Corsair): pick two rolls and the total to stop doubling at
+        if job_def and job_def.abilities.roll and has_usable_abilities(job_def.abilities.roll) then
+            local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Rolls', 'roll_enabled', true)
+            ui.item_tooltip(tooltips.rolls)
+            if is_open and is_enabled then
+                imgui.Indent(ui.ABILITY_LIST_INDENT)
+
+                local available_rolls = {}
+                for _, ability in ipairs(job_def.abilities.roll) do
+                    if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
+                        table.insert(available_rolls, ability)
+                    end
+                end
+
+                render_roll_dropdown('Roll 1', 'roll1_name', available_rolls, settings, callback)
+                ui.item_tooltip(tooltips.roll_slot)
+                render_roll_dropdown('Roll 2', 'roll2_name', available_rolls, settings, callback)
+                ui.item_tooltip(tooltips.roll_slot)
+
+                ui.slider_int(ctx, 'Stop At Total##roll_hit_threshold', 'roll_hit_threshold', { settings.roll_hit_threshold or 5 }, 2, 11)
+                ui.item_tooltip(tooltips.roll_hit_threshold)
+
+                imgui.Unindent(ui.ABILITY_LIST_INDENT)
+            end
+        end
+
         -- Buff settings
         if job_def and job_def.abilities.buff and has_usable_abilities(job_def.abilities.buff) then
             local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Buffs', 'buff_enabled', false)

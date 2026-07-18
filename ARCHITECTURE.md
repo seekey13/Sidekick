@@ -33,12 +33,14 @@ lib/
     recover.lua             MP/TP recovery abilities
     rest.lua                Automatic resting (/heal) with follow-target awareness
     revive.lua              Raise dead party/tracked/alliance members
+    roll.lua                COR Phantom Roll / Double-Up (incl. its own 0x028 decode)
     status_removal.lua      Debuff removal & sleep wake (single + AOE)
   jobs/
     bard.lua                BRD job definition
     beastmaster.lua         BST job definition (pet-only)
     black_mage.lua          BLM job definition (self-only)
     blue_mage.lua           BLU job definition
+    corsair.lua             COR job definition (rolls only)
     dancer.lua              DNC job definition
     dark_knight.lua         DRK job definition (self-only)
     dragoon.lua             DRG job definition
@@ -104,8 +106,8 @@ lib/
 │  master_priority (Sidekick.lua) order:        │
 │  item → recover → critical → heal_aoe → heal  │
 │  → debuff_removal → heal_pet →                │
-│  pet_debuff_removal → wake → geo → buff →     │
-│  revive → follow → rest                       │
+│  pet_debuff_removal → wake → geo → roll →     │
+│  buff → revive → follow → rest                │
 └──────────┬────────────────────────────────────┘
            │ uses
            ▼
@@ -289,7 +291,16 @@ Both toggles live in the `/sk panel` header row, are persisted per job, and requ
 
 Parses raw packet bytes for action packet 0x028 into structured Lua tables (actor, type, targets, actions). Used by Sidekick.lua's packet_in handler for casting-state detection and Trust buff tracking.
 
-0x028 is **bit-packed, not byte-aligned** — `Type` (the 4-bit action category) sits at bit 82, not on any byte boundary, so it can only be read through this parser, never with `struct.unpack` offsets. Categories: `1` melee, `2` ranged_finish, `3` ws_finish, `4` spell_finish, `5` item_finish, `6` job_ability, `7` ws_begin, `8` casting_begin, `9` item_begin, `11` mob_tp_finish, `12` ranged_begin, `13` avatar_tp_finish, `14`/`15` job_ability (DNC/RUN). Layout matches [Windower's `fields.lua`](https://github.com/Windower/Lua/blob/dev/addons/libs/packets/fields.lua) for incoming 0x028.
+0x028 is **bit-packed, not byte-aligned** — `Type` (the 4-bit action category) sits at bit 82, not on any byte boundary, so it can only be read through this parser, never with `struct.unpack` offsets.
+
+The one exception is `roll.handle_action_packet`, which reads the *same* 0x028 through a
+different, byte-aligned view: category `0x51` @ `0x04`, actor id @ `0x05` (4 bytes LE), roll
+value @ `0x19` (encoded as `value * 8`, so `/8` → 1-6), and the server's running total @ `0x2A`
+(1-11). Roll totals are not exposed by this parser and are not in memory, so that raw decode is
+the only path to them; it is in-game verified and must not be rewritten on top of
+`parse_action_packet`. It is dispatched from Sidekick.lua's 0x028 handler ahead of the parse,
+guarded on the loaded job actually having `abilities.roll` so it costs one table lookup for
+every other job. Categories: `1` melee, `2` ranged_finish, `3` ws_finish, `4` spell_finish, `5` item_finish, `6` job_ability, `7` ws_begin, `8` casting_begin, `9` item_begin, `11` mob_tp_finish, `12` ranged_begin, `13` avatar_tp_finish, `14`/`15` job_ability (DNC/RUN). Layout matches [Windower's `fields.lua`](https://github.com/Windower/Lua/blob/dev/addons/libs/packets/fields.lua) for incoming 0x028.
 
 ### targets.lua
 
@@ -395,6 +406,30 @@ MP and TP recovery. Monitors percentage thresholds. Uses `action_core.first_comm
 - **Entrust**: Name-based target + spell selection from UI dropdowns; fires Entrust → Indi spell on configured party member. Indi does not use a luopan, so it never conflicts with the Geo luopan.
 - All Geo spells have `main_job_only = true`.
 
+### roll.lua – Corsair Phantom Roll / Double-Up
+
+- **Two configurable roll slots** (`settings.roll1_name` / `roll2_name`, chosen from
+  `abilities.roll` in the config UI). Available slots are **2**, or **1** while **Bust** (309)
+  is up; no new roll is cast once the active configured rolls reach that count, so the second
+  roll is held back rather than fighting a Bust for the slot.
+- **Priority 1 – Double-Up an unstable roll.** Requires the Double-Up Chance buff (308), the
+  roll's own `buff_id`, and a non-zero packet-derived total that is neither the roll's `lucky`
+  number nor at/above `roll_hit_threshold` (default 5) — and never at 11, since 12 busts.
+  Priority 2 casts Roll1 when its buff is missing, then Roll2 once Roll1 exists and is no longer
+  awaiting packets (only one roll is ever in flight).
+- **Timers** (module-local, `os.clock`): 1s after the initial roll before the first Double-Up,
+  6s between Double-Ups, 2s between roll casts. Proven in-game — the shared 1.1s command
+  throttle alone is not enough to keep the packet/state machine in step.
+- Every roll shares Phantom Roll's `recast_id = 193`, so `action_core.try_use` gates the cast on
+  that single timer (plus Amnesia/movement via `is_command_blocked`); state is mutated only
+  after `try_use` returns a command. Deliberately **not** gated on being engaged — rolls fire
+  out of combat too.
+- **Roll totals come from the packet, not memory** — see the packet note under
+  [parse_packets.lua](#parse_packetslua). `roll.reset_state()` is called by the config UI
+  whenever a roll selection changes, so a stale total can't leak into the new roll;
+  `roll.get_state()` exposes the state for display. All state is module-local and does not
+  survive `/addon reload`.
+
 ### follow.lua – Leader Following
 
 - **Opt-in** (`settings.follow_enabled`, default off) job-independent leader following — the
@@ -472,6 +507,7 @@ return {
         recover_tp         = { ... },
         recover_party_mp   = { ... },
         geo                = { ... },
+        roll               = { ... },  -- COR Phantom Rolls (lucky / unlucky per roll)
         target_modifier    = { ... },
         revive             = { ... },  -- raise spells (WHM/SCH/RDM)
         precast            = { ... },  -- JAs fired just before a paired spell (SCH stratagems /
@@ -541,6 +577,9 @@ return {
                                     --   owns this JA ('nether_void' | 'diffusion' | 'embolden' |
                                     --   'enlightenment'). A UI key, never a magic colour.
     one_shadow_buff = 66,           -- NIN: buff id ignored/stripped by "Cast with 1 Shadow"
+    lucky           = 5,            -- COR roll only: total that grants the bonus effect; roll.lua
+                                    --   stops Double-Up here
+    unlucky         = 9,            -- COR roll only: reference data, NOT read by any logic
     range           = 20,
     is_main_job     = true,         -- false for subjob-sourced abilities
     resource_type   = nil,          -- override job resource_type ('mp'/'tp')

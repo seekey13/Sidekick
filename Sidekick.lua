@@ -29,6 +29,7 @@ local afk = require('lib.core.afk')
 -- Load action modules
 local heal_mod   = require('lib.actions.heal')
 local status_mod = require('lib.actions.status_removal')
+local roll_mod   = require('lib.actions.roll')  -- also owns the 0x028 roll-total decode
 
 local action_modules = {
     item           = require('lib.actions.item'),
@@ -38,6 +39,7 @@ local action_modules = {
     wake           = { execute = status_mod.execute_wake },
     debuff_removal = { execute = status_mod.execute_debuff_removal },
     pet_debuff_removal = { execute = status_mod.execute_pet_debuff_removal },
+    roll           = roll_mod,
     buff           = require('lib.actions.buff'),
     recover        = require('lib.actions.recover'),
     geo            = require('lib.actions.geo'),
@@ -115,6 +117,7 @@ local function load_single_job_definition(job_id)
         [14] = 'dragoon',     -- Dragoon
         [15] = 'summoner',    -- Summoner
         [16] = 'blue_mage',   -- Blue Mage
+        [17] = 'corsair',     -- Corsair
         [18] = 'puppetmaster',-- Puppetmaster
         [19] = 'dancer',      -- Dancer
         [20] = 'scholar',     -- Scholar
@@ -258,6 +261,7 @@ local function load_job_definition(main_job_id, sub_job_id)
         'pet_debuff_removal',
         'wake',
         'geo',
+        'roll',
         'buff',
         'revive',
         'follow',
@@ -875,6 +879,13 @@ ashita.events.register('packet_in', 'sidekick_packet_in', function(e)
     -- Message 83  = buff/debuff removed from target (e.g. Paralyna removes Paralysis)
     -- Cure healing messages (2, 7, 24) on tracked sleeping targets infer wake
     if e.id == 0x028 then
+        -- Corsair roll totals: a raw byte-offset decode of the same packet (category
+        -- 0x51), not the bit-packed parse below -- see roll.handle_action_packet.
+        -- Costs one table lookup for every other job.
+        if job_def and job_def.abilities and job_def.abilities.roll then
+            roll_mod.handle_action_packet(e.data, addon_settings, job_def)
+        end
+
         local actionPacket = parse_packets.parse_action_packet(e)
 
         -- Determine if we (the player) are the actor

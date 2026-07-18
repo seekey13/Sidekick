@@ -1,0 +1,286 @@
+--[[
+    Corsair job definition
+    Rolls only -- Phantom Roll + Double-Up automation (see lib/actions/roll.lua).
+    Quick Draw / Ranged Attack / Random Deal are deliberately absent: Sidekick is
+    support-only and does not automate combat.
+
+    Every roll shares Phantom Roll's recast (abilities.sql recastId 193), so the
+    recast_id is identical on all 25 -- the roll you pick is chosen by command text,
+    not by timer. `lucky` is the total that grants the bonus effect; `unlucky` is
+    kept as reference data only and is NOT read by the roll logic.
+]]--
+
+return {
+    job_id = 17,  -- Corsair
+    job_name = 'Corsair',
+    resource_type = 'tp',
+
+    abilities = {
+        -- Rolls (all share Phantom Roll recast 193)
+        roll = {
+            {
+                name = 'Corsair\'s Roll (EXP+)',
+                level = 5,
+                cost = 0,
+                recast_id = 193,  -- Phantom Roll recast ID
+                command = '/ja "Corsair\'s Roll" <me>',
+                buff_id = 326,  -- Corsair's Roll buff
+                lucky = 5,
+                unlucky = 9,
+            },
+            {
+                name = 'Ninja Roll (EVA+)',
+                level = 8,
+                cost = 0,
+                recast_id = 193,
+                command = '/ja "Ninja Roll" <me>',
+                buff_id = 322,  -- Ninja Roll buff
+                lucky = 4,
+                unlucky = 8,
+            },
+            {
+                name = 'Hunter\'s Roll (ACC+)',
+                level = 11,
+                cost = 0,
+                recast_id = 193,
+                command = '/ja "Hunter\'s Roll" <me>',
+                buff_id = 320,  -- Hunter's Roll buff
+                lucky = 4,
+                unlucky = 8,
+            },
+            {
+                name = 'Chaos Roll (ATK+)',
+                level = 14,
+                cost = 0,
+                recast_id = 193,
+                command = '/ja "Chaos Roll" <me>',
+                buff_id = 317,  -- Chaos Roll buff
+                lucky = 4,
+                unlucky = 8,
+            },
+            {
+                name = 'Magus\'s Roll (MDEF+)',
+                level = 17,
+                cost = 0,
+                recast_id = 193,
+                command = '/ja "Magus\'s Roll" <me>',
+                buff_id = 325,  -- Magus's Roll buff
+                lucky = 2,
+                unlucky = 6,
+            },
+            {
+                name = 'Healer\'s Roll (Cure+)',
+                level = 20,
+                cost = 0,
+                recast_id = 193,
+                command = '/ja "Healer\'s Roll" <me>',
+                buff_id = 312,  -- Healer's Roll buff
+                lucky = 3,
+                unlucky = 7,
+            },
+            {
+                name = 'Drachen Roll (PACC+)',
+                level = 23,
+                cost = 0,
+                recast_id = 193,
+                command = '/ja "Drachen Roll" <me>',
+                buff_id = 323,  -- Drachen Roll buff
+                lucky = 4,
+                unlucky = 8,
+            },
+            {
+                name = 'Choral Roll (SIR-)',
+                level = 26,
+                cost = 0,
+                recast_id = 193,
+                command = '/ja "Choral Roll" <me>',
+                buff_id = 319,  -- Choral Roll buff
+                lucky = 2,
+                unlucky = 6,
+            },
+            {
+                name = 'Monk\'s Roll (SB+)',
+                level = 31,
+                cost = 0,
+                recast_id = 193,
+                command = '/ja "Monk\'s Roll" <me>',
+                buff_id = 311,  -- Monk's Roll buff
+                lucky = 3,
+                unlucky = 7,
+            },
+            {
+                name = 'Beast Roll (PATK+)',
+                level = 34,
+                cost = 0,
+                recast_id = 193,
+                command = '/ja "Beast Roll" <me>',
+                buff_id = 318,  -- Beast Roll buff
+                lucky = 4,
+                unlucky = 8,
+            },
+            {
+                name = 'Samurai Roll (STP+)',
+                level = 37,
+                cost = 0,
+                recast_id = 193,
+                command = '/ja "Samurai Roll" <me>',
+                buff_id = 321,  -- Samurai Roll buff
+                lucky = 2,
+                unlucky = 6,
+            },
+            {
+                name = 'Evoker\'s Roll (Refresh+)',
+                level = 40,
+                cost = 0,
+                recast_id = 193,
+                command = '/ja "Evoker\'s Roll" <me>',
+                buff_id = 324,  -- Evoker's Roll buff
+                lucky = 5,
+                unlucky = 9,
+            },
+            {
+                name = 'Rogue\'s Roll (CRIT+)',
+                level = 43,
+                cost = 0,
+                recast_id = 193,
+                command = '/ja "Rogue\'s Roll" <me>',
+                buff_id = 315,  -- Rogue's Roll buff
+                lucky = 5,
+                unlucky = 9,
+            },
+            {
+                name = 'Warlock\'s Roll (MACC+)',
+                level = 46,
+                cost = 0,
+                recast_id = 193,
+                command = '/ja "Warlock\'s Roll" <me>',
+                buff_id = 314,  -- Warlock's Roll buff
+                lucky = 4,
+                unlucky = 8,
+            },
+            {
+                name = 'Fighter\'s Roll (DA+)',
+                level = 49,
+                cost = 0,
+                recast_id = 193,
+                command = '/ja "Fighter\'s Roll" <me>',
+                buff_id = 310,  -- Fighter's Roll buff
+                lucky = 5,
+                unlucky = 9,
+            },
+            {
+                name = 'Puppet Roll (PMAG+)',
+                level = 52,
+                cost = 0,
+                recast_id = 193,
+                command = '/ja "Puppet Roll" <me>',
+                buff_id = 327,  -- Puppet Roll buff
+                lucky = 3,
+                unlucky = 7,
+            },
+            {
+                name = 'Gallant\'s Roll (DMG Reflect)',
+                level = 55,
+                cost = 0,
+                recast_id = 193,
+                command = '/ja "Gallant\'s Roll" <me>',
+                buff_id = 316,  -- Gallant's Roll buff
+                lucky = 3,
+                unlucky = 7,
+            },
+            {
+                name = 'Wizard\'s Roll (MATK+)',
+                level = 58,
+                cost = 0,
+                recast_id = 193,
+                command = '/ja "Wizard\'s Roll" <me>',
+                buff_id = 313,  -- Wizard's Roll buff
+                lucky = 5,
+                unlucky = 9,
+            },
+            {
+                name = 'Dancer\'s Roll (Regen+)',
+                level = 61,
+                cost = 0,
+                recast_id = 193,
+                command = '/ja "Dancer\'s Roll" <me>',
+                buff_id = 328,  -- Dancer's Roll buff
+                lucky = 3,
+                unlucky = 7,
+            },
+            {
+                name = 'Scholar\'s Roll (CMP+)',
+                level = 64,
+                cost = 0,
+                recast_id = 193,
+                command = '/ja "Scholar\'s Roll" <me>',
+                buff_id = 329,  -- Scholar's Roll buff
+                lucky = 2,
+                unlucky = 6,
+            },
+            {
+                name = 'Naturalist\'s Roll (Enhancing+)',
+                level = 67,
+                cost = 0,
+                recast_id = 193,
+                command = '/ja "Naturalist\'s Roll" <me>',
+                buff_id = 339,  -- Naturalist's Roll buff
+                lucky = 3,
+                unlucky = 7,
+            },
+            {
+                name = 'Runeist\'s Roll (MEVA+)',
+                level = 70,
+                cost = 0,
+                recast_id = 193,
+                command = '/ja "Runeist\'s Roll" <me>',
+                buff_id = 600,  -- Runeist's Roll buff
+                lucky = 4,
+                unlucky = 8,
+            },
+            {
+                name = 'Companion\'s Roll (Pet Regain & Regen)',
+                level = 75,
+                cost = 0,
+                recast_id = 193,
+                command = '/ja "Companion\'s Roll" <me>',
+                buff_id = 337,  -- Companion's Roll buff
+                lucky = 2,
+                unlucky = 10,
+            },
+            {
+                name = 'Bolter\'s Roll (Move Speed+)',
+                level = 75,
+                cost = 0,
+                recast_id = 193,
+                command = '/ja "Bolter\'s Roll" <me>',
+                buff_id = 330,  -- Bolter's Roll buff
+                lucky = 3,
+                unlucky = 9,
+            },
+            {
+                name = 'Caster\'s Roll (Fast Cast+)',
+                level = 75,
+                cost = 0,
+                recast_id = 193,
+                command = '/ja "Caster\'s Roll" <me>',
+                buff_id = 331,  -- Caster's Roll buff
+                lucky = 2,
+                unlucky = 7,
+            },
+        },
+    },
+
+    -- Default settings for UI
+    default_settings = {
+        roll_enabled = true,
+        roll1_name = 'Corsair\'s Roll (EXP+)',
+        roll2_name = 'Ninja Roll (EVA+)',
+        roll_hit_threshold = 5,
+    },
+
+    -- Action priority order
+    priority_order = {
+        'roll',
+    },
+}

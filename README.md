@@ -54,6 +54,10 @@ A focused, support-oriented addon for Ashita v4 that automates healing, buffing,
 The one exception is **opt-in leader following** (off by default): with **Follow** enabled, Sidekick will `/follow` a chosen party member when they walk beyond a set distance. It never moves your character unless you turn this on.
 
 ## Latest Updates
+### [2.5.0] - 2026-07-18
+
+### Added
+- **Corsair**: New job — *rolls only*. Pick two **Phantom Rolls** in the new **Rolls** section and Sidekick keeps them up, using **Double-Up** on each until it lands on the roll's **lucky** number or reaches the **Stop At Total** you set (default 5). It never doubles at 11, since 12 busts, and while **Bust** is up it holds the second roll back until the slot frees. Rolls fire in and out of combat. Quick Draw, Ranged Attack, and Random Deal are deliberately not automated — Sidekick stays support-only.
 
 ### [2.5.0] - 2026-07-17
 
@@ -269,6 +273,7 @@ Adds three pet-support jobs (Beastmaster, Dragoon, Puppetmaster) with consumable
 - **Automatic Resting**: MP-based jobs automatically rest when idle to recover MP with configurable timer, HP threshold safety, and optional follow target distance monitoring
 - **Leader Following** (opt-in, off by default): `/follow` a chosen party member when they move beyond a set distance. Healing and every other support action always take priority, and an autorun-cancel packet guard keeps `/follow` alive across the server's position syncs so it doesn't break mid-route. The only non-combat movement Sidekick performs.
 - **AFK Sleep** (on by default): Sleeps automation after a configurable period with no party movement and no combat, and wakes on your own movement. A runtime pause, not a stop — nothing is saved or reset, so your settings and automation state survive a sleep cycle.
+- **Corsair Rolls**: Keeps two chosen Phantom Rolls up and Double-Ups each one until it hits its lucky number or your configured total, backing off at 11 so it can't bust. Roll totals are read from the action packet, and the second roll is held back while Bust is active.
 - **Geomancer Support**: Single-target Geo buffs on party members, target-cast Geo debuffs in combat, and automatic Full Circle / luopan management (recalls and recasts when the luopan drifts beyond the distance threshold from the selected Geo target)
 
 ### User Interface
@@ -343,6 +348,13 @@ Currently implemented support jobs:
   - **Unbridled Learning** spells (level 75: Battery Charge, Animating Wail, Magic Barrier, Occultation, Orcish Counterstance, Barrier Tusk, Harden Shell, Pyric Bulwark, Carcharian Verve) — the Unbridled Learning JA is popped automatically right before the spell, and the spell is held while the JA is on cooldown
   - **Diffusion** (level 75 merit, BLU main): a **D** button on every blue buff row opens a popup — **Enable** fires Diffusion before the buff to spread it to the whole party; **Hold for Diffusion** skips the buff until Diffusion is ready (off by default: the buff still casts self-only when Diffusion is on cooldown)
   - **Set-spell awareness**: blue magic that isn't currently equipped in your set-spell list is grayed out (*"Blue Magic not currently equipped"*) and skipped by automation — it stays selectable, and Sidekick never equips spells for you (use the blusets addon or the in-game menu)
+
+- **Corsair** (COR) — *rolls only*
+  - Maintains two **Phantom Rolls** of your choice (pick them from the **Rolls** section) and uses **Double-Up** on each until it is good enough
+  - Stops doubling on the roll's **lucky** number, at the **Stop At Total** you set (default 5), or at 11 (12 busts)
+  - Roll totals aren't in memory, so they're read from the roll action packet — expect the occasional miss, same caveat as Trust buff tracking
+  - While **Bust** is up only one roll slot exists, so the second roll is held back until it wears
+  - Rolls fire in and out of combat. Quick Draw, Ranged Attack, and Random Deal are deliberately not automated (Sidekick is support-only)
 
 - **Dancer** (DNC)
   - Critical HP abilities (Contradance)

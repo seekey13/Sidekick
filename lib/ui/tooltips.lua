@@ -164,6 +164,23 @@ return {
         'option; Bard will automatically use a target-\n' ..
         'modifier ability (e.g. Pianissimo) first.',
 
+    rolls =
+        'Corsair automation: keeps the two rolls below\n' ..
+        'active and uses Double-Up on each until it is\n' ..
+        'good enough. While Bust is up only one roll slot\n' ..
+        'is used, so Sidekick holds off recasting the other.',
+
+    roll_slot =
+        'Roll cast in this slot. Changing it clears the\n' ..
+        'tracked totals so the old roll\'s result can\'t\n' ..
+        'carry over. Set to None to leave the slot unused.',
+
+    roll_hit_threshold =
+        'Sidekick stops using Double-Up once the roll\'s\n' ..
+        'total reaches this number -- or lands exactly on\n' ..
+        'the roll\'s lucky number, whichever comes first.\n' ..
+        'It never doubles at 11, since 12 busts.',
+
     geo =
         'Geomancer automation: automatically triggers\n' ..
         'Full Circle if your luopan is out of range, and\n' ..
