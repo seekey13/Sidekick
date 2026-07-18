@@ -176,6 +176,7 @@ return {
                 command = '/ja "Radial Arcana" <me>',
                 main_job_only = true,
                 pet_required = true,
+                priority = 90,
             },
             -- MP recovery (dark magic): Aspir drains the battle target's MP.
             {

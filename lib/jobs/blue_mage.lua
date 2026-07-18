@@ -216,6 +216,7 @@ return {
                 command = '/ma "Battery Charge" <me>',
                 buff_id = 43,
                 requires_precast = 'Unbridled Learning',
+                priority = 50,
             },
             {
                 name = 'Animating Wail',
