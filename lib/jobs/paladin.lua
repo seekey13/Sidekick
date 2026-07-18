@@ -80,14 +80,6 @@ return {
         buff = {
             -- Job Abilities
             {
-                name = 'Majesty',
-                level = 70,
-                cost = 0,
-                recast_id = 150,
-                command = '/ja "Majesty" <me>',
-                buff_id = 621,
-            },
-            {
                 name = 'Fealty',
                 level = 75,
                 cost = 0,
@@ -95,6 +87,16 @@ return {
                 command = '/ja "Fealty" <me>',
                 ability_id = 157,
                 buff_id = 344,
+                combat_only = true,
+            },
+            {
+                name = 'Majesty',
+                level = 70,
+                cost = 0,
+                recast_id = 150,
+                command = '/ja "Majesty" <me>',
+                buff_id = 621,
+                priority = 100,
             },
             {
                 name = 'Rampart',
@@ -103,6 +105,7 @@ return {
                 recast_id = 77,
                 command = '/ja "Rampart" <me>',
                 buff_id = 623,
+                combat_only = true,
             },
             {
                 name = 'Reprisal',
@@ -121,6 +124,7 @@ return {
                 recast_id = 75,
                 command = '/ja "Sentinel" <me>',
                 buff_id = 62,
+                combat_only = true,
             },
             -- Protect spells
             {
@@ -235,6 +239,7 @@ return {
                 recast_id = 74,
                 command = '/ja "Holy Circle" <me>',
                 buff_id = 74,
+                combat_only = true,
             },
         },
         
