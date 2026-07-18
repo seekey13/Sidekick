@@ -176,6 +176,7 @@ return {
                 command = '/ja "Radial Arcana" <me>',
                 main_job_only = true,
                 pet_required = true,
+                priority = 90,
             },
             -- MP recovery (dark magic): Aspir drains the battle target's MP.
             {
@@ -448,7 +449,7 @@ return {
                 element = 'Light',
                 group = 'Indi',
                 buff_id = 541,
-                buff_priority = 50,
+                priority = 50,
             },
             {
                 name = 'Indi-Barrier',
@@ -695,7 +696,7 @@ return {
                 main_job_only = true,
                 exclusive_target = true,
                 buff_id = 541,
-                buff_priority = 50,
+                priority = 50,
             },
             {
                 name = 'Geo-CHR',

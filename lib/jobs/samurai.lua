@@ -64,6 +64,7 @@ return {
                 recast_id = 134,
                 command = '/ja "Meditate" <me>',
                 buff_id = 801,
+                priority = 100,
             },
         },
     },

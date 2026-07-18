@@ -87,7 +87,7 @@ return {
                 recast_id = 50,
                 command = '/ja "Composure" <me>',
                 buff_id = 419,
-                buff_priority = 100,
+                priority = 100,
             },
             -- Protect line
             {
@@ -409,7 +409,7 @@ return {
                     return '/ma "Refresh" '..target
                 end,
                 buff_id = 43,
-                buff_priority = 50,
+                priority = 50,
             },
             {
                 name = 'Haste',
@@ -423,6 +423,7 @@ return {
                 end,
                 buff_id = 33,
                 target_outside = true,
+                priority = 25,
             },
             {
                 name = 'Flurry',
@@ -436,6 +437,7 @@ return {
                 end,
                 buff_id = 265,
                 target_outside = true,
+                priority = 25,
             },
             {
                 name = 'Stoneskin',
@@ -693,6 +695,7 @@ return {
                 cost = 0,
                 recast_id = 49,  -- Job ability
                 command = '/ja "Convert" <me>',
+                priority = 100,
             },
         },
 

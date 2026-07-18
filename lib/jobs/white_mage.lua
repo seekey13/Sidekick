@@ -305,6 +305,7 @@ return {
                 buff_id = 33,
                 duration = 180,
                 target_outside = true,
+                priority = 25,
             },
             {
                 name = 'Regen III',

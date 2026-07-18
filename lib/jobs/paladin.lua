@@ -80,19 +80,58 @@ return {
         buff = {
             -- Job Abilities
             {
+                name = 'Fealty',
+                level = 75,
+                cost = 0,
+                recast_id = 78,
+                command = '/ja "Fealty" <me>',
+                ability_id = 157,
+                buff_id = 344,
+                combat_only = true,
+            },
+            {
                 name = 'Majesty',
                 level = 70,
                 cost = 0,
-                recast_id = 150,  -- Majesty recast ID
+                recast_id = 150,
                 command = '/ja "Majesty" <me>',
                 buff_id = 621,
+                priority = 100,
+            },
+            {
+                name = 'Rampart',
+                level = 62,
+                cost = 0,
+                recast_id = 77,
+                command = '/ja "Rampart" <me>',
+                buff_id = 623,
+                combat_only = true,
+            },
+            {
+                name = 'Reprisal',
+                level = 61,
+                cost = 24,
+                spell_id = 97,
+                magic = 'white',
+                magic_type = 'enhancing',
+                command = '/ma "Reprisal" <me>',
+                buff_id = 403,
+            },
+            {
+                name = 'Sentinel',
+                level = 30,
+                cost = 0,
+                recast_id = 75,
+                command = '/ja "Sentinel" <me>',
+                buff_id = 62,
+                combat_only = true,
             },
             -- Protect spells
             {
                 name = 'Protect IV',
                 level = 70,
                 cost = 65,
-                spell_id = 46,  -- Protect IV spell ID
+                spell_id = 46,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = function(target)
@@ -107,7 +146,7 @@ return {
                 name = 'Protect III',
                 level = 50,
                 cost = 46,
-                spell_id = 45,  -- Protect III spell ID
+                spell_id = 45,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = function(target)
@@ -122,7 +161,7 @@ return {
                 name = 'Protect II',
                 level = 30,
                 cost = 28,
-                spell_id = 44,  -- Protect II spell ID
+                spell_id = 44,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = function(target)
@@ -137,7 +176,7 @@ return {
                 name = 'Protect',
                 level = 10,
                 cost = 9,
-                spell_id = 43,  -- Protect spell ID
+                spell_id = 43,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = function(target)
@@ -152,7 +191,7 @@ return {
                 name = 'Shell III',
                 level = 60,
                 cost = 56,
-                spell_id = 50,  -- Shell III spell ID
+                spell_id = 50,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = function(target)
@@ -167,7 +206,7 @@ return {
                 name = 'Shell II',
                 level = 40,
                 cost = 37,
-                spell_id = 49,  -- Shell II spell ID
+                spell_id = 49,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = function(target)
@@ -182,7 +221,7 @@ return {
                 name = 'Shell',
                 level = 20,
                 cost = 18,
-                spell_id = 48,  -- Shell spell ID
+                spell_id = 48,
                 magic = 'white',
                 magic_type = 'enhancing',
                 command = function(target)
@@ -193,6 +232,15 @@ return {
                 group = 'shell',
                 target_outside = true,
             },
+            {
+                name = 'Holy Circle',
+                level = 5,
+                cost = 0,
+                recast_id = 74,
+                command = '/ja "Holy Circle" <me>',
+                buff_id = 74,
+                combat_only = true,
+            },
         },
         
         -- Recover (MP recovery via Chivalry; TP usage is controlled by chivalry_min_tp settings)
@@ -201,8 +249,9 @@ return {
                 name = 'Chivalry',
                 level = 75,
                 cost = 0,
-                recast_id = 79,  -- Chivalry recast ID
+                recast_id = 79,
                 command = '/ja "Chivalry" <me>',
+                ability_id = 158,
                 min_tp = 3000,  -- default TP threshold; overridden by chivalry_min_tp setting
             },
         },
