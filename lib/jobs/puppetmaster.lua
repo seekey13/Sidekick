@@ -45,7 +45,7 @@ return {
                 name = 'Role Reversal',
                 level = 75,
                 cost = 0,
-                recast_id = 212,
+                recast_id = 211,
                 command = '/ja "Role Reversal" <me> ',
                 pet_required = true,
                 ability_id = 180,
