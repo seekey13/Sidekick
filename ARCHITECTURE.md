@@ -541,8 +541,11 @@ return {
     recast_id       = 0,            -- everything else (/ja, /item, /pet, /ws): abilities.sql `recastId`
                                     --   Exactly one of the two per ability -- the field name selects
                                     --   which recast table is_usable reads.
-    ability_id      = 160,          -- JA only: raw abilities.sql `abilityId` for merit-unlocked JAs
-                                    --   (has_spell_learned checks HasAbility(ability_id + 512))
+    ability_id      = 160,          -- JA only: raw abilities.sql `abilityId` for JAs that are
+                                    --   unlocked individually rather than by level -- merit JAs, and
+                                    --   COR rolls (has_spell_learned checks HasAbility(id + 512)).
+                                    --   COR rolls reuse it to match a 0x028 packet's cmd_arg back
+                                    --   to the roll that produced it.
     command         = function(idx) return '/ma "Cure IV" <p' .. idx .. '>' end,
     -- or: command = '/ja "Divine Seal" <me>',
     buff_id         = 43,           -- number or table of buff IDs to track
@@ -585,9 +588,6 @@ return {
     lucky           = 5,            -- COR roll only: total that grants the bonus effect; roll.lua
                                     --   stops Double-Up here
     unlucky         = 9,            -- COR roll only: reference data, NOT read by any logic
-    action_id       = 114,          -- COR roll only: abilities.sql abilityId, used to match a
-                                    --   0x028 packet's cmd_arg back to the roll. Deliberately NOT
-                                    --   named ability_id, which is the merit-unlock gate.
     range           = 20,
     is_main_job     = true,         -- false for subjob-sourced abilities
     resource_type   = nil,          -- override job resource_type ('mp'/'tp')

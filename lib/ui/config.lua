@@ -952,9 +952,13 @@ function ui_config.render(settings, job_def, callback)
             if is_open and is_enabled then
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
 
+                -- Rolls are unlocked individually, not purely by level, so the level
+                -- check in can_use_ability isn't enough -- has_spell_learned reads the
+                -- client's own ability list (HasAbility) and drops rolls you don't know.
                 local available_rolls = {}
                 for _, ability in ipairs(job_def.abilities.roll) do
-                    if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
+                    if can_use_ability(ability) and common.has_spell_learned(ability)
+                        and not is_subjob_duplicate(job_def, ability) then
                         table.insert(available_rolls, ability)
                     end
                 end

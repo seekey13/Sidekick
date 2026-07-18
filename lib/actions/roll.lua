@@ -304,7 +304,7 @@ function roll.handle_action_packet(packet, settings, job_def)
     local roll_num, roll_ability
     for n = 1, 2 do
         local ability = find_roll_ability(roll_list, n == 1 and settings.roll1_name or settings.roll2_name)
-        if ability and ability.action_id == packet.Param then
+        if ability and ability.ability_id == packet.Param then
             roll_num, roll_ability = n, ability
             break
         end
