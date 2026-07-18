@@ -423,6 +423,7 @@ return {
                 end,
                 buff_id = 33,
                 target_outside = true,
+                priority = 25,
             },
             {
                 name = 'Flurry',
@@ -436,6 +437,7 @@ return {
                 end,
                 buff_id = 265,
                 target_outside = true,
+                priority = 25,
             },
             {
                 name = 'Stoneskin',
