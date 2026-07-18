@@ -87,7 +87,7 @@ return {
                 recast_id = 50,
                 command = '/ja "Composure" <me>',
                 buff_id = 419,
-                buff_priority = 100,
+                priority = 100,
             },
             -- Protect line
             {
@@ -409,7 +409,7 @@ return {
                     return '/ma "Refresh" '..target
                 end,
                 buff_id = 43,
-                buff_priority = 50,
+                priority = 50,
             },
             {
                 name = 'Haste',

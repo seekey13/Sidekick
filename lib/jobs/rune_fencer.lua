@@ -349,7 +349,7 @@ return {
                 end,
                 element = 'Light',
                 buff_id = 43,
-                buff_priority = 50,
+                priority = 50,
             },
             {
                 name = 'Foil',

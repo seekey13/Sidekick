@@ -33,6 +33,7 @@ return {
                 name = 'Repair',
                 level = 15,
                 cost = 0,
+                priority = 100,                 -- prefer Repair; fall to Role Reversal only when it's on cooldown
                 recast_id = 206,
                 command = '/ja "Repair" <me>',
                 pet_required = true,
@@ -40,6 +41,15 @@ return {
                 ammo_main_job_only = true,      -- only PUP main can equip oils
                 ammo_label = 'Oils',            -- UI count label
             },
+            {
+                name = 'Role Reversal',
+                level = 75,
+                cost = 0,
+                recast_id = 212,
+                command = '/ja "Role Reversal" <me> ',
+                pet_required = true,
+                ability_id = 180,
+            }
         },
 
         -- Strip the automaton's status ailments. Same Oil ammo as Repair, so no
