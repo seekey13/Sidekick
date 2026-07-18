@@ -206,14 +206,18 @@ end
 -- Render a Corsair roll-selection dropdown (Roll 1 / Roll 2). Writes the roll name
 -- into settings[setting_key] and resets roll state on every change, so a stale
 -- packet total from the previous roll can't leak into the new one.
-local function render_roll_dropdown(label, setting_key, available_rolls, settings, on_change)
+-- `tooltip` is applied here rather than by the caller: the lucky-number text below
+-- would otherwise be the "last item" that item_tooltip attaches to.
+local function render_roll_dropdown(label, setting_key, available_rolls, settings, on_change, tooltip)
     local current = settings[setting_key]
 
     -- Show 'None' for an unset roll, or one the player can no longer use
     local current_display = 'None'
+    local current_ability
     for _, ability in ipairs(available_rolls) do
         if ability.name == current then
             current_display = ability.name
+            current_ability = ability
             break
         end
     end
@@ -246,6 +250,13 @@ local function render_roll_dropdown(label, setting_key, available_rolls, setting
         imgui.EndCombo()
     end
     imgui.PopItemWidth()
+    ui.item_tooltip(tooltip)
+
+    -- Lucky number of the selected roll -- the total roll.lua stops Double-Up on
+    if current_ability and current_ability.lucky then
+        imgui.SameLine()
+        imgui.TextColored(ui.LIGHT_GREEN, string.format('(%d)', current_ability.lucky))
+    end
 end
 
 -- ============================================================================
@@ -963,10 +974,8 @@ function ui_config.render(settings, job_def, callback)
                     end
                 end
 
-                render_roll_dropdown('Roll 1', 'roll1_name', available_rolls, settings, callback)
-                ui.item_tooltip(tooltips.roll_slot)
-                render_roll_dropdown('Roll 2', 'roll2_name', available_rolls, settings, callback)
-                ui.item_tooltip(tooltips.roll_slot)
+                render_roll_dropdown('Roll 1', 'roll1_name', available_rolls, settings, callback, tooltips.roll_slot)
+                render_roll_dropdown('Roll 2', 'roll2_name', available_rolls, settings, callback, tooltips.roll_slot)
 
                 ui.slider_int(ctx, 'Stop At Total##roll_hit_threshold', 'roll_hit_threshold', { settings.roll_hit_threshold or 5 }, 2, 11)
                 ui.item_tooltip(tooltips.roll_hit_threshold)
