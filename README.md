@@ -55,12 +55,14 @@ The one exception is **opt-in leader following** (off by default): with **Follow
 
 ## Latest Updates
 
-### [2.5.0] - 2026-07-16
+### [2.5.0] - 2026-07-17
 
 ### Added
 - **Rune Fencer Embolden**: An **E** button on every enhancing magic row (Protect, Shell, Regen, the Bar- spells, Refresh, Phalanx…) opens a popup — **Enable** fires **Embolden** just before the spell so its effect is stronger; **Hold for Embolden** skips the spell until Embolden is ready (off by default: the spell still casts unboosted while Embolden is on cooldown). RUN main only, and it doesn't appear on the Spikes, which Embolden doesn't boost.
 
 - **Scholar Enlightenment**: An **E** button on every spell that needs **Addendum: White** (Cursna, Erase, Raise/Raise II, Reraise, Regen…) fires **Enlightenment** first so the spell can be cast while you're in **Dark Arts** — no swapping stances. It's a simple on/off toggle rather than a popup: there's no "hold" option because the spell can't be cast without it at all, so Sidekick always waits for Enlightenment. The button only shows in Dark Arts / Addendum: Black, and once Addendum: White is up the JA is skipped, so you can leave it switched on and forget about it. Level-75 merit, SCH main only.
+
+- **Paladin self-buffs**: PLD picks up its defensive job abilities — **Fealty**, **Rampart**, **Sentinel** and **Holy Circle** — plus **Reprisal** and **Majesty**. The four defensive cooldowns are combat-only, so they aren't burned standing around town. Majesty is cast first among the buffs, since its Cure bonus only counts on Cures cast while it's up. Thanks to a **Funny group of Sweatlords** for pointing out they were missing.
 
 - **AFK Sleep**: Automation now goes to sleep after 10 minutes with no party movement and no combat, and wakes as soon as you move. **On by default** — unlike Auto Follow, sleeping only stops automation from acting, so there's no harm in it being on. It's a pause, not a stop: nothing is saved or reset, so `/sk start` survives a sleep cycle untouched. Anyone in your party moving, or the party being in combat, keeps it awake — but only **your own** movement wakes it back up, since a mob claim isn't proof you're at the keyboard. Toggle it and set the timeout (1-60 minutes) in `/sk panel` beside **Debug Mode**, or with `/sidekick afk [on|off|<seconds>]`. Thanks to **Mythicangel** for the idea.
 
@@ -383,7 +385,9 @@ Currently implemented support jobs:
 
 - **Paladin** (PLD)
   - Single-target healing with white magic (Cure I-IV)
-  - Buff with white magic (Protect I-IV, Shell I-IV)
+  - Buff with white magic (Protect I-IV, Shell I-IV, Reprisal)
+  - Buff with job abilities (Majesty, and the combat-only Fealty, Rampart, Sentinel, Holy Circle) — Majesty is prioritized so its Cure-potency bonus is up before the Cures it boosts
+  - MP recovery with **Chivalry** (converts TP to MP; TP threshold set by the **Chivalry Min TP** setting)
 
 - **Ranger** (RNG) — *self-only support*
   - Self-buffs with job abilities (Sharpshot, Scavenge, Velocity Shot (RNG-main only), Unlimited Shot, Flashy Shot, Stealth Shot)
