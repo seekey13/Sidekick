@@ -280,7 +280,7 @@ Two opt-in modes need a buff stripped *during* a cast, not before or after. The 
 
 | Mode | Setting | What it does |
 |---|---|---|
-| Bard **Pianissimo Fast Casting** | `pianissimo_fast_casting` | Raises Pianissimo on purpose for an area song (shorter cast time), then `/debuff 409` mid-cast so the song still lands as area. In this mode the area phase runs even while Pianissimo is up (it's ours), and always holds for Pianissimo rather than casting without it — but only raises it once the song itself is castable (see the song-ready gate under [buff.lua](#bufflua--buff-maintenance)). |
+| Bard **Pianissimo Fast Casting** | `pianissimo_fast_casting` | Raises Pianissimo on purpose for an area song (shorter cast time), then `/debuff 409` mid-cast so the song still lands as area. In this mode the area phase runs even while Pianissimo is up (it's ours), and always holds for Pianissimo rather than casting without it — but only raises it once the song itself is castable (see the song-ready gate under [buff.lua](#bufflua--buff-maintenance)). It also holds the whole single-target pass while any configured `[A]` song still needs recasting but is momentarily on recast, so area songs fully establish before single-target songs fire (prevents single-target casts the area recast would overwrite). |
 | Ninja **Cast with 1 Shadow** | `cast_with_1_shadow` | Utsusemi normally blocks while any Copy Image buff (66/444/445/446) is up. This ignores the 1-shadow buff (`one_shadow_buff = 66`) so the spell recasts at 1 shadow, then `/debuff 66` mid-cast so the new shadows apply cleanly. |
 
 Both toggles live in the `/sk panel` header row, are persisted per job, and require the Debuff addon by atom0s (`/debuff`).

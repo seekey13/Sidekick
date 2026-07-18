@@ -650,7 +650,7 @@ end
 
 -- Status ailments Erase removes (WHM/SCH). The Na-spell ailments are deliberately
 -- absent -- Erase does not touch them, so listing them only made Erase fire and fail.
-common.ERASABLE_DEBUFFS = {11, 12, 13, 128, 129, 130, 131, 134,
+common.ERASABLE_DEBUFFS = {11, 12, 13, 128, 129, 130, 131, 132, 133, 134,
     135, 136, 137, 138, 139, 140, 141, 142, 144, 145, 146, 147, 148, 149, 156,
     167, 174, 175, 189, 404}
 
@@ -679,7 +679,8 @@ common.DEBUFF_NAMES = {
     [7]='Petrification', [8]='Disease', [9]='Curse', [11]='Bind',
     [12]='Weight', [13]='Slow', [15]='Doom', [20]='Bane', [21]='Addle',
     [30]='Curse II', [31]='Plague', [128]='Burn', [129]='Frost',
-    [130]='Choke', [131]='Rasp', [134]='Dia', [135]='Bio',
+    [130]='Choke', [131]='Rasp', [132]='Shock', [133]='Drown',
+    [134]='Dia', [135]='Bio',
     [136]='STR Down', [137]='DEX Down', [138]='VIT Down', [139]='AGI Down',
     [140]='INT Down', [141]='MND Down', [142]='CHR Down', [144]='Max HP Down',
     [145]='Max MP Down', [146]='Accuracy Down', [147]='Attack Down',

@@ -235,6 +235,10 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
     if fast_casting or not has_pianissimo then
         local song_keys = song_config_keys(job_def, settings)
         local area_processed = {}
+        -- Fast-casting only: set when an [A] song still needs (re)casting but
+        -- couldn't fire this tick (on recast). Forces a hold so the single-target
+        -- pass can't jump ahead and get overwritten by the area song later.
+        local area_pending = false
         for _, ability in ipairs(available_abilities) do
             local config_key = area_song_config_key(ability, settings, party_buff_config, area_processed)
             if config_key and area_needs_recast(ability, party_buff_config, song_keys, available_abilities, settings, state) then
@@ -247,6 +251,7 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                         -- casting the area song without it.
                         return common.check_target_modifier(job_def, settings, derived_main_level, derived_sub_level)
                     end
+                    area_pending = true
                 else
                     local desc = string.format('Applying area buff: %s', ability.name)
                     local result = action_core.try_use(ability, job_def, settings, 0, desc, state)
@@ -259,8 +264,20 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                         end
                         return result
                     end
+                    area_pending = true
                 end
             end
+        end
+        -- Fast-casting: every configured [A] song must be established before the
+        -- single-target pass runs. If one still needs recasting but was on recast
+        -- this tick, hold here rather than letting Phase 2 fire a single-target
+        -- song the area recast would just overwrite. (Normal mode falls through --
+        -- an on-recast song there simply can't be area-cast, so single-target may
+        -- proceed.)
+        -- ponytail: holds through silence too (song not usable), but Phase 2 songs
+        -- are equally blocked then, so nothing is lost.
+        if fast_casting and area_pending then
+            return nil
         end
     end
 
