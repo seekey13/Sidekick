@@ -238,6 +238,7 @@ return {
                 recast_id = 247,
                 command = '/ja "Blaze of Glory" <me>',
                 main_job_only = true,
+                pet_required = true,
             },
 
             -- Indi spells (highest level first)
