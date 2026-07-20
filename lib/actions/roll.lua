@@ -385,6 +385,10 @@ function roll.handle_action_packet(packet, settings, job_def)
     if total == roll_ability.lucky then
         common.successf('[Roll] %s: LUCKY %d!',
             roll_ability.name, total)
+    elseif total == 11 then
+        -- 11 is the cap and every tier stops here (12 busts), lucky included -- no
+        -- roll's lucky number reaches 11, so this never competes with the line above.
+        common.successf('[Roll] %s: 11!!!', roll_ability.name)
     end
 
     -- Every other stop reason is re-decided each tick in execute() (they depend on
