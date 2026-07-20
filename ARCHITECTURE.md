@@ -238,6 +238,32 @@ field name must match its command (see the ability-field reference below).
   first (`off` / `idle` / `asleep` / `awake (Ns)`) — the countdown only advances while the tick
   loop is actually reaching `afk.update()`.
 
+### roll_strategy.lua
+
+Pure decision math for Corsair's Double-Up, with **zero dependencies** — no `common`, no
+`action_core`, no `AshitaCore`. Primitives in, primitives out, so it can be exercised in Ashita's
+Lua VM without a live roll sequence. All stateful concerns stay in
+[roll.lua](#rolllua--corsair-phantom-roll--double-up).
+
+- `decide(total, lucky, unlucky, tier, snake_eye_ready, fold_ready)` → `'stop'` | `'double'` |
+  `'snake_eye_then_double'`, evaluated in this order:
+  1. `total >= 11` → stop (every die busts).
+  2. `total <= 5` → double unless already on `lucky` (no die can bust — free roll).
+  3. Snake Eye at 10 → guaranteed 11, zero risk, taken by **every** tier.
+  4. Snake Eye at `lucky - 1` → guaranteed lucky; taken by Lowest/Medium only. Its ~5 min recast
+     outlasts a chase, so Highest (ceiling 11, not lucky) reserves it for rule 3.
+  5. **Lowest**: stop. Never accepts a real bust chance past the zero-risk zone, Fold or not.
+  6. **Highest**: double through 6-10 chasing 11 while Fold is ready to undo a Bust; uninsured it
+     falls through to Medium's logic.
+  7. **Medium**: double while `lucky` is one die away (`lucky > total and lucky <= total + 6`);
+     also double when sitting exactly on `unlucky` and the bust chance is still ≤50%
+     (`total <= 8`); otherwise bank it.
+- `should_fold(has_bust_buff, fold_ready)` → boolean, tier-independent.
+- `self_test(log)` runs the case table for every branch above and prints PASS/FAIL per case;
+  wired to **`/sidekick roll_test`**. Rules are probability-based rather than expected-value
+  based: only one real payoff table (Corsair's Roll) is confirmed, so bust odds and reachability
+  — which are exact — drive the tiers instead of guessed payoffs for the other 24 rolls.
+
 ### common.lua
 
 Shared utility module (~3,200 lines). Key areas:
@@ -417,11 +443,17 @@ MP and TP recovery. Monitors percentage thresholds. Uses `action_core.first_comm
   `abilities.roll` in the config UI). Available slots are **2**, or **1** while **Bust** (309)
   is up; no new roll is cast once the active configured rolls reach that count, so the second
   roll is held back rather than fighting a Bust for the slot.
-- **Priority 1 – Double-Up an unstable roll.** Requires the Double-Up Chance buff (308), the
-  roll's own `buff_id`, and a non-zero packet-derived total that is neither the roll's `lucky`
-  number nor at/above `roll_hit_threshold` (default 5) — and never at 11, since 12 busts.
-  Priority 2 casts Roll1 when its buff is missing, then Roll2 once Roll1 exists and is no longer
-  awaiting packets (only one roll is ever in flight).
+- **Priority 1 – Fold a Bust.** Tier-independent: the moment Bust (309) is up and Fold is off
+  cooldown, Fold is cast. That frees the slot, so Priority 3 recasts a fresh roll into it and the
+  chase restarts — no extra state needed to "chain".
+- **Priority 2 – Double-Up a live roll.** Requires the Double-Up Chance buff (308), the roll's
+  own `buff_id`, and a non-zero packet-derived total; the actual keep-or-stop call is
+  [roll_strategy.lua](#roll_strategylua). Priority 3 casts Roll1 when its buff is missing, then
+  Roll2 once Roll1 exists and is no longer awaiting packets (only one roll is ever in flight).
+- **Snake Eye** is armed, not tracked by recast: when `roll_strategy.decide` returns
+  `'snake_eye_then_double'` the JA is cast and the slot's `snake_eye_armed` flag is set, since its
+  5-minute recast will read busy on the next tick. The flag short-circuits to a plain Double-Up
+  and is cleared when the slot's next packet total resolves (or the roll is recast).
 - **Timers** (module-local, `os.clock`): 1s after the initial roll before the first Double-Up,
   6s between Double-Ups, 2s between roll casts. Proven in-game — the shared 1.1s command
   throttle alone is not enough to keep the packet/state machine in step.
@@ -585,9 +617,9 @@ return {
                                     --   owns this JA ('nether_void' | 'diffusion' | 'embolden' |
                                     --   'enlightenment'). A UI key, never a magic colour.
     one_shadow_buff = 66,           -- NIN: buff id ignored/stripped by "Cast with 1 Shadow"
-    lucky           = 5,            -- COR roll only: total that grants the bonus effect; roll.lua
-                                    --   stops Double-Up here
-    unlucky         = 9,            -- COR roll only: reference data, NOT read by any logic
+    lucky           = 5,            -- COR roll only: total that grants the bonus effect
+    unlucky         = 9,            -- COR roll only: worst non-Bust total. Both are read by
+                                    --   roll_strategy.decide (see roll_strategy.lua)
     range           = 20,
     is_main_job     = true,         -- false for subjob-sourced abilities
     resource_type   = nil,          -- override job resource_type ('mp'/'tp')

@@ -273,7 +273,7 @@ Adds three pet-support jobs (Beastmaster, Dragoon, Puppetmaster) with consumable
 - **Automatic Resting**: MP-based jobs automatically rest when idle to recover MP with configurable timer, HP threshold safety, and optional follow target distance monitoring
 - **Leader Following** (opt-in, off by default): `/follow` a chosen party member when they move beyond a set distance. Healing and every other support action always take priority, and an autorun-cancel packet guard keeps `/follow` alive across the server's position syncs so it doesn't break mid-route. The only non-combat movement Sidekick performs.
 - **AFK Sleep** (on by default): Sleeps automation after a configurable period with no party movement and no combat, and wakes on your own movement. A runtime pause, not a stop — nothing is saved or reset, so your settings and automation state survive a sleep cycle.
-- **Corsair Rolls**: Keeps two chosen Phantom Rolls up and Double-Ups each one until it hits its lucky number or your configured total, backing off at 11 so it can't bust. Roll totals are read from the action packet, and the second roll is held back while Bust is active.
+- **Corsair Rolls**: Keeps two chosen Phantom Rolls up and Double-Ups each one according to a **Risk Tier** (Lowest / Medium / Highest) built on the roll's lucky and unlucky numbers, backing off at 11 so it can't bust. **Snake Eye** is used for guaranteed finishes and **Fold** clears a Bust the moment it lands. Roll totals are read from the action packet, and the second roll is held back while Bust is active.
 - **Geomancer Support**: Single-target Geo buffs on party members, target-cast Geo debuffs in combat, and automatic Full Circle / luopan management (recalls and recasts when the luopan drifts beyond the distance threshold from the selected Geo target)
 
 ### User Interface
@@ -351,7 +351,12 @@ Currently implemented support jobs:
 
 - **Corsair** (COR) — *rolls only*
   - Maintains two **Phantom Rolls** of your choice (pick them from the **Rolls** section) and uses **Double-Up** on each until it is good enough
-  - Stops doubling on the roll's **lucky** number, at the **Stop At Total** you set (default 5), or at 11 (12 busts)
+  - **Risk Tier** (default *Medium*) decides how far it chases a total. Every tier doubles freely at 5 or less (no die can bust), never doubles at 11 (12 busts), and uses **Snake Eye** at 10 for a guaranteed 11:
+    - *Lowest* — stops at 6 or more, never takes a bust chance
+    - *Medium* — chases the roll's **lucky** number while it's still one die away, and rerolls off the **unlucky** number while the bust chance is 50% or less
+    - *Highest* — chases 11 whenever **Fold** is up to undo a Bust, otherwise plays like Medium
+  - **Fold** is used the moment you Bust, whatever the tier — that frees the slot, so a fresh roll goes back in and the chase restarts
+  - **Snake Eye** and **Fold** are level 75 merit abilities, main job only; without them the tiers still work, just without the guaranteed finishes and the Bust insurance
   - Roll totals aren't in memory, so they're read from the roll action packet (the packet names which roll it belongs to, so Double-Ups can't be mixed up between your two slots)
   - While **Bust** is up only one roll slot exists, so the second roll is held back until it wears
   - Rolls fire in and out of combat. Quick Draw, Ranged Attack, and Random Deal are deliberately not automated (Sidekick is support-only)

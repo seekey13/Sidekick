@@ -977,8 +977,22 @@ function ui_config.render(settings, job_def, callback)
                 render_roll_dropdown('Roll 1', 'roll1_name', available_rolls, settings, callback, tooltips.roll_slot)
                 render_roll_dropdown('Roll 2', 'roll2_name', available_rolls, settings, callback, tooltips.roll_slot)
 
-                ui.slider_int(ctx, 'Stop At Total##roll_hit_threshold', 'roll_hit_threshold', { settings.roll_hit_threshold or 5 }, 2, 11)
-                ui.item_tooltip(tooltips.roll_hit_threshold)
+                -- Risk tier drives the whole Double-Up / Snake Eye / Fold decision
+                -- (lib/core/roll_strategy.lua). Labels are display-only; the setting
+                -- stores the lowercase key.
+                local tier_labels = { 'Lowest', 'Medium', 'Highest' }
+                local tier_values = { 'lowest', 'medium', 'highest' }
+                local tier_index  = { 1 }  -- default Medium
+                for i, value in ipairs(tier_values) do
+                    if value == (settings.risk_tier or 'medium') then
+                        tier_index[1] = i - 1
+                        break
+                    end
+                end
+                ui.combo(ctx, 'Risk Tier##risk_tier', 'risk_tier', tier_index, tier_labels, function(i)
+                    return tier_values[i + 1]
+                end)
+                ui.item_tooltip(tooltips.risk_tier)
 
                 imgui.Unindent(ui.ABILITY_LIST_INDENT)
             end

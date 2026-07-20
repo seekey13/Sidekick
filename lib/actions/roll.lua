@@ -1,18 +1,23 @@
 --[[
     Roll action module (Corsair)
 
-    Maintains two configured Phantom Rolls and Double-Ups each one until it hits
-    its lucky number or the configured hit threshold. Roll totals are not readable
-    from memory, so they come from the 0x028 action packet (see
-    roll.handle_action_packet at the bottom of this file).
+    Maintains two configured Phantom Rolls and Double-Ups each one according to the
+    configured risk tier (settings.risk_tier). Roll totals are not readable from
+    memory, so they come from the 0x028 action packet (see roll.handle_action_packet
+    at the bottom of this file).
+
+    The Double-Up / Snake Eye / Fold decision math lives in lib/core/roll_strategy.lua
+    (pure, self-testable); this module owns everything stateful around it -- packet
+    totals, buff reads, throttles and command construction.
 
     Deliberately NOT gated on being engaged -- rolls fire out of combat too.
 ]]--
 
 local roll = {}
 
-local common      = require('lib.core.common')
-local action_core = require('lib.core.action_core')
+local common        = require('lib.core.common')
+local action_core   = require('lib.core.action_core')
+local roll_strategy = require('lib.core.roll_strategy')
 
 -- Buff ids (status_effects.sql)
 local BUST_BUFF_ID      = 309  -- Bust: costs you a roll slot until it wears
@@ -31,13 +36,13 @@ local roll_state = {
         total = 0,
         last_action_time = 0,
         expecting_double_up = false,
-        is_stable = false,  -- Set when we hit lucky/threshold and have the buff
+        snake_eye_armed = false,  -- Snake Eye cast, next Double-Up die is forced to 1
     },
     roll2 = {
         total = 0,
         last_action_time = 0,
         expecting_double_up = false,
-        is_stable = false,
+        snake_eye_armed = false,
     },
     last_double_up_time = 0,  -- Global double-up cooldown
 }
@@ -74,80 +79,51 @@ local function count_active_configured_rolls(player_buffs, roll1_ability, roll2_
     return count
 end
 
--- Should we Double-Up this roll? (unstable, buff up, total known and below target)
-local function should_double_up_roll(settings, roll_num, roll_ability, player_buffs)
+-- What should we do with this roll right now?
+-- Returns 'stop' | 'double' | 'snake_eye_then_double'. Everything that isn't a live,
+-- doubleable roll (no buff, outside the Double-Up window, total not yet known) is
+-- 'stop'; the actual risk call is roll_strategy's.
+local function roll_decision(settings, roll_num, roll_ability, player_buffs, snake_eye_ready, fold_ready)
     if not roll_ability then
-        common.debugf('[ROLL] should_double_up_roll Roll%d: no ability', roll_num)
-        return false
+        return 'stop'
     end
 
     local state = roll_num == 1 and roll_state.roll1 or roll_state.roll2
 
-    common.debugf('[ROLL] should_double_up_roll Roll%d (%s): total=%d, stable=%s, expecting_du=%s',
-        roll_num, roll_ability.name, state.total, tostring(state.is_stable), tostring(state.expecting_double_up))
-
-    -- Must not be stable yet
-    if state.is_stable then
-        common.debugf('[ROLL] should_double_up_roll Roll%d: already stable', roll_num)
-        return false
-    end
-
     -- Must be inside the Double-Up window
     if not action_core.has_any_buff(player_buffs, DOUBLE_UP_BUFF_ID) then
-        common.debugf('[ROLL] should_double_up_roll Roll%d: no Double-Up buff (%d)', roll_num, DOUBLE_UP_BUFF_ID)
-        return false
+        common.debugf('[ROLL] Roll%d: no Double-Up buff (%d)', roll_num, DOUBLE_UP_BUFF_ID)
+        return 'stop'
     end
 
     -- Must have the roll buff active
     if not action_core.has_any_buff(player_buffs, roll_ability.buff_id) then
-        common.debugf('[ROLL] should_double_up_roll Roll%d: no roll buff (%d)', roll_num, roll_ability.buff_id)
-        return false
+        common.debugf('[ROLL] Roll%d: no roll buff (%d)', roll_num, roll_ability.buff_id)
+        return 'stop'
     end
 
     -- Must have a valid total (from packet)
     if state.total == 0 then
-        common.debugf('[ROLL] should_double_up_roll Roll%d: total is 0, waiting for packet', roll_num)
-        return false
+        common.debugf('[ROLL] Roll%d: total is 0, waiting for packet', roll_num)
+        return 'stop'
     end
 
-    -- Stop on the lucky number
-    if state.total == roll_ability.lucky then
-        common.debugf('[ROLL] should_double_up_roll Roll%d: hit lucky number %d', roll_num, roll_ability.lucky)
-        return false
+    -- Snake Eye already spent on this slot: its recast now reads busy, so the armed
+    -- flag -- not snake_eye_ready -- is what says "the forced die is waiting".
+    if state.snake_eye_armed then
+        common.debugf('[ROLL] Roll%d: Snake Eye armed, doubling into the forced 1', roll_num)
+        return 'double'
     end
 
-    -- Stop at/above the configured hit threshold
-    local hit_threshold = settings.roll_hit_threshold or 5
-    if state.total >= hit_threshold then
-        common.debugf('[ROLL] should_double_up_roll Roll%d: at/above threshold (%d >= %d)', roll_num, state.total, hit_threshold)
-        return false
-    end
+    local tier = settings.risk_tier or 'medium'
+    local decision = roll_strategy.decide(state.total, roll_ability.lucky, roll_ability.unlucky,
+        tier, snake_eye_ready, fold_ready)
 
-    -- Never double-up at 11 (12 busts)
-    if state.total >= 11 then
-        common.debugf('[ROLL] should_double_up_roll Roll%d: at/above 11', roll_num)
-        return false
-    end
+    common.debugf('[ROLL] Roll%d (%s): total=%d lucky=%d unlucky=%d tier=%s se=%s fold=%s -> %s',
+        roll_num, roll_ability.name, state.total, roll_ability.lucky or 0, roll_ability.unlucky or 0,
+        tier, tostring(snake_eye_ready), tostring(fold_ready), decision)
 
-    common.debugf('[ROLL] should_double_up_roll Roll%d: SHOULD DOUBLE-UP', roll_num)
-    return true
-end
-
--- Mark a roll stable (hit lucky or threshold while the buff is up)
-local function mark_roll_stable(roll_num, roll_ability, settings, player_buffs)
-    local state = roll_num == 1 and roll_state.roll1 or roll_state.roll2
-
-    if not action_core.has_any_buff(player_buffs, roll_ability.buff_id) then
-        return  -- Can't be stable without the buff
-    end
-
-    local hit_threshold = settings.roll_hit_threshold or 5
-    if state.total == roll_ability.lucky or state.total >= hit_threshold then
-        state.is_stable = true
-        state.expecting_double_up = false  -- Clear double-up flag when stable
-        common.debugf('[ROLL] Roll%d (%s) is now stable at total %d (lucky=%d, threshold=%d)',
-            roll_num, roll_ability.name, state.total, roll_ability.lucky, hit_threshold)
-    end
+    return decision
 end
 
 -- ============================================================================
@@ -172,19 +148,48 @@ function roll.execute(settings, job_def, main_level, sub_level, player_resource)
     local roll1_ability = find_roll_ability(available, settings.roll1_name)
     local roll2_ability = find_roll_ability(available, settings.roll2_name)
 
-    -- Mark rolls that have reached lucky/threshold so we stop doubling them
-    if roll1_ability then mark_roll_stable(1, roll1_ability, settings, player_buffs) end
-    if roll2_ability then mark_roll_stable(2, roll2_ability, settings, player_buffs) end
+    -- Snake Eye / Fold are merits, looked up by fixed name (not user-configurable).
+    -- filter_abilities_by_level applies the merit/level/main-job gates that is_usable
+    -- doesn't; is_usable then answers "off cooldown and not Amnesia'd" right now.
+    local controls   = common.filter_abilities_by_level(job_def.abilities.roll_control, settings, main_level, sub_level, job_def)
+    local snake_eye  = find_roll_ability(controls, 'Snake Eye')
+    local fold       = find_roll_ability(controls, 'Fold')
+    local snake_eye_ready = snake_eye ~= nil and action_core.is_usable(snake_eye, job_def) or false
+    local fold_ready      = fold ~= nil and action_core.is_usable(fold, job_def) or false
 
-    -- Priority 1: Double-Up an unstable roll (Roll1 first, then Roll2)
+    -- Priority 1: Fold a Bust, whatever the tier. That frees the slot so Priority 3
+    -- recasts a fresh roll into it next tick and the chase starts over.
+    if roll_strategy.should_fold(action_core.has_any_buff(player_buffs, BUST_BUFF_ID), fold_ready) then
+        local result = action_core.try_use(fold, job_def, settings, nil, 'Fold: clear Bust')
+        if result then
+            return result
+        end
+    end
+
+    -- Priority 2: Double-Up a live roll (Roll1 first, then Roll2)
     for roll_num = 1, 2 do
         -- Explicit on both arms: `n == 1 and roll1 or roll2` would fall through to
         -- Roll2 when only Roll2 is configured, and evaluate it as Roll1.
         local roll_ability = (roll_num == 1) and roll1_ability or (roll_num == 2) and roll2_ability or nil
+        local state = roll_num == 1 and roll_state.roll1 or roll_state.roll2
+        local decision = roll_decision(settings, roll_num, roll_ability, player_buffs, snake_eye_ready, fold_ready)
 
-        if roll_ability and should_double_up_roll(settings, roll_num, roll_ability, player_buffs) then
-            local state = roll_num == 1 and roll_state.roll1 or roll_state.roll2
+        -- Done chasing this one: stop holding up the other slot's cast. Only once a
+        -- total is known -- a freshly cast roll sits at 0 awaiting its packet.
+        if decision == 'stop' and state.total > 0 then
+            state.expecting_double_up = false
+        end
 
+        if decision == 'snake_eye_then_double' then
+            -- Cast now, double next tick: the die is forced server-side, so the only
+            -- thing to remember is that we already paid for it.
+            local result = action_core.try_use(snake_eye, job_def, settings, nil,
+                string.format('Snake Eye: %s (Total: %d)', roll_ability.name, state.total))
+            if result then
+                state.snake_eye_armed = true
+                return result
+            end
+        elseif decision == 'double' then
             -- 1 second after the initial roll, then 6 seconds between double-ups.
             -- Both timers are in-game proven -- do not tighten them.
             local ready_after_roll = (current_time - state.last_action_time) >= 1
@@ -208,7 +213,7 @@ function roll.execute(settings, job_def, main_level, sub_level, player_resource)
         end
     end
 
-    -- Priority 2: cast a missing roll, unless we're at slot capacity
+    -- Priority 3: cast a missing roll, unless we're at slot capacity
     local active_rolls = count_active_configured_rolls(player_buffs, roll1_ability, roll2_ability)
     if active_rolls >= get_available_roll_slots(player_buffs) then
         common.debugf('[ROLL] Blocked from casting - at capacity')
@@ -238,7 +243,7 @@ function roll.execute(settings, job_def, main_level, sub_level, player_resource)
                 -- Reset state and mark that we're expecting this roll's packet value
                 state.total = 0
                 state.expecting_double_up = true
-                state.is_stable = false
+                state.snake_eye_armed = false
                 state.last_action_time = current_time
                 return result
             end
@@ -322,7 +327,7 @@ function roll.handle_action_packet(packet, settings, job_def)
     if msg == MSG_DOUBLEUP_BUST or msg == MSG_DOUBLEUP_BUST_S or total > 11 then
         state.total = 0
         state.expecting_double_up = false
-        state.is_stable = false
+        state.snake_eye_armed = false
         common.printf('[Roll] Bust: %s', roll_ability.name)
         return
     end
@@ -333,6 +338,8 @@ function roll.handle_action_packet(packet, settings, job_def)
     end
 
     state.total = total
+    -- Whatever Snake Eye was armed for has now resolved into this total.
+    state.snake_eye_armed = false
 
     if msg == MSG_DOUBLEUP then
         roll_state.last_double_up_time = os.clock()
@@ -341,13 +348,9 @@ function roll.handle_action_packet(packet, settings, job_def)
         common.printf('[Roll] %s: %d (Total: %d)', roll_ability.name, die, total)
     end
 
-    -- Stop doubling once we hit lucky / threshold / 11
-    local hit_threshold = settings.roll_hit_threshold or 5
-    if total == roll_ability.lucky or total >= hit_threshold or total >= 11 then
-        state.expecting_double_up = false
-        common.debugf('[ROLL] Roll%d stopped doubling: total=%d, lucky=%d, threshold=%d',
-            roll_num, total, roll_ability.lucky, hit_threshold)
-    end
+    -- Whether this total is good enough to stop at is re-decided every tick in
+    -- execute() (it depends on Snake Eye / Fold readiness), which also clears
+    -- expecting_double_up once the chase is over.
 end
 
 -- ============================================================================
@@ -361,7 +364,7 @@ function roll.reset_state()
         state.total = 0
         state.last_action_time = 0
         state.expecting_double_up = false
-        state.is_stable = false
+        state.snake_eye_armed = false
     end
 
     roll_state.last_double_up_time = 0

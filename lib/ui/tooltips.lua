@@ -175,11 +175,17 @@ return {
         'tracked totals so the old roll\'s result can\'t\n' ..
         'carry over. Set to None to leave the slot unused.',
 
-    roll_hit_threshold =
-        'Sidekick stops using Double-Up once the roll\'s\n' ..
-        'total reaches this number -- or lands exactly on\n' ..
-        'the roll\'s lucky number, whichever comes first.\n' ..
-        'It never doubles at 11, since 12 busts.',
+    risk_tier =
+        'How far Double-Up chases a total. Every tier\n' ..
+        'doubles freely at 5 or less (no die can bust) and\n' ..
+        'never doubles at 11, and all three use Snake Eye\n' ..
+        'at 10 for a guaranteed 11.\n' ..
+        'Lowest: stops at 6+, never takes a bust chance.\n' ..
+        'Medium: chases the lucky number while it is still\n' ..
+        'one die away, and rerolls off the unlucky number.\n' ..
+        'Highest: chases 11 whenever Fold is up to undo a\n' ..
+        'Bust, otherwise plays like Medium.\n' ..
+        'Fold is always used the moment you Bust.',
 
     geo =
         'Geomancer automation: automatically triggers\n' ..

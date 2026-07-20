@@ -7,8 +7,9 @@
 
     Every roll shares Phantom Roll's recast (abilities.sql recastId 193), so the
     recast_id is identical on all 25 -- the roll you pick is chosen by command text,
-    not by timer. `lucky` is the total that grants the bonus effect; `unlucky` is
-    kept as reference data only and is NOT read by the roll logic.
+    not by timer. `lucky` is the total that grants the bonus effect; `unlucky` is the
+    total that gives the worst (non-Bust) result. Both are read by
+    lib/core/roll_strategy.lua when deciding whether to keep Double-Upping.
 
     `ability_id` is abilities.sql `abilityId`, and does double duty here:
       - common.has_spell_learned gates on HasAbility(ability_id + 512), so rolls the
@@ -336,7 +337,7 @@ return {
         roll_enabled = true,
         roll1_name = 'Corsair\'s Roll (EXP+)',
         roll2_name = 'Ninja Roll (EVA+)',
-        roll_hit_threshold = 5,
+        risk_tier = 'medium',  -- 'lowest' | 'medium' | 'highest' (lib/core/roll_strategy.lua)
     },
 
     -- Action priority order

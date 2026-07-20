@@ -1113,6 +1113,7 @@ ashita.events.register('command', 'sidekick_command', function(e)
         common.printf('  /sidekick panel - Toggle party state info panel')
         common.printf('  /sidekick debug - Toggle debug mode')
         common.printf('  /sidekick recast - Show all active ability recast timers')
+        common.printf('  /sidekick roll_test - Self-test the Corsair roll strategy rules')
         common.printf('  /sidekick afk [on|off|<seconds>] - AFK Sleep: show/toggle/set timeout')
         common.printf('  /sidekick status - Show current status')
         
@@ -1191,7 +1192,15 @@ ashita.events.register('command', 'sidekick_command', function(e)
         
     elseif cmd == 'recast' then
         common.show_recast_timers()
-        
+
+    elseif cmd == 'roll_test' then
+        -- roll_strategy is pure, so its decision table can be verified without a live
+        -- Corsair or a real roll sequence.
+        require('lib.core.roll_strategy').self_test(function(line)
+            common.printf('%s', line)
+        end)
+
+
     elseif cmd == 'status' then
         common.printf('Sidekick Status:')
         common.printf('  Job: %s', job_def and job_def.job_name or 'Not loaded')
