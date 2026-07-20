@@ -975,7 +975,19 @@ function ui_config.render(settings, job_def, callback)
                 end
 
                 render_roll_dropdown('Roll 1', 'roll1_name', available_rolls, settings, callback, tooltips.roll_slot)
-                render_roll_dropdown('Roll 2', 'roll2_name', available_rolls, settings, callback, tooltips.roll_slot)
+
+                -- Corsair as a subjob can only keep one roll up, so slot 2 is hidden
+                -- and force-cleared. roll.lua enforces the same rule independently.
+                local cor_is_sub = job_def.abilities.roll[1] and job_def.abilities.roll[1].is_main_job == false
+                if cor_is_sub then
+                    if settings.roll2_name then
+                        settings.roll2_name = nil
+                        roll.reset_state()
+                        callback()
+                    end
+                else
+                    render_roll_dropdown('Roll 2', 'roll2_name', available_rolls, settings, callback, tooltips.roll_slot)
+                end
 
                 -- Risk tier drives the whole Double-Up / Snake Eye / Fold decision
                 -- (lib/core/roll_strategy.lua). Labels are display-only; the setting

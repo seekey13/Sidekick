@@ -151,6 +151,12 @@ function roll.execute(settings, job_def, main_level, sub_level, player_resource)
     local roll1_ability = find_roll_ability(available, settings.roll1_name)
     local roll2_ability = find_roll_ability(available, settings.roll2_name)
 
+    -- Corsair as a subjob can only maintain one roll -- drop slot 2 outright rather
+    -- than trusting the saved setting (settings files predate this rule).
+    if roll2_ability and roll2_ability.is_main_job == false then
+        roll2_ability = nil
+    end
+
     -- Snake Eye / Fold are merits, looked up by fixed name (not user-configurable).
     -- filter_abilities_by_level applies the merit/level/main-job gates that the
     -- recast check below doesn't.
