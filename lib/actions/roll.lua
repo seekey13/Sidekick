@@ -178,7 +178,8 @@ function roll.execute(settings, job_def, main_level, sub_level, player_resource)
 
     local has_bust = action_core.has_any_buff(player_buffs, BUST_BUFF_ID)
 
-    -- Throttled so it can't flood a frame-rate tick loop; still debug-gated.
+    -- Repeats are collapsed by debugf itself; this only keeps the per-frame string
+    -- formatting off the tick loop.
     if (current_time - last_control_log) >= 2 then
         last_control_log = current_time
         common.debugf('[ROLL] controls: bust=%s | Snake Eye %s (%s) | Fold %s (%s)',
@@ -378,9 +379,18 @@ function roll.handle_action_packet(packet, settings, job_def)
         common.printf('[Roll] %s: %d (Total: %d)', roll_ability.name, die, total)
     end
 
-    -- Whether this total is good enough to stop at is re-decided every tick in
-    -- execute() (it depends on Snake Eye / Fold readiness), which also clears
-    -- expecting_double_up once the chase is over.
+    -- Landing on lucky ends the chase on every tier: every roll's lucky number is 5
+    -- or less, which is inside the zero-risk zone where roll_strategy stops on lucky
+    -- regardless of tier (rule 2). Worth calling out in green -- it's the outcome the
+    -- whole Double-Up sequence is aiming at, and it explains the sudden stop.
+    if total == roll_ability.lucky then
+        common.successf('[Roll] %s: LUCKY %d! Bonus effect at full potency -- holding here.',
+            roll_ability.name, total)
+    end
+
+    -- Every other stop reason is re-decided each tick in execute() (they depend on
+    -- Snake Eye / Fold readiness), which also clears expecting_double_up once the
+    -- chase is over.
 end
 
 -- ============================================================================

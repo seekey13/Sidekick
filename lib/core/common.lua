@@ -250,6 +250,8 @@ end
 function common.printf(fmt, ...)  log(chat.message, nil, fmt, ...) end
 function common.errorf(fmt, ...)  log(chat.error,   nil, fmt, ...) end
 function common.warnf(fmt, ...)   log(chat.warning, nil, fmt, ...) end
+-- Green. For an automation goal actually being met, not routine chatter.
+function common.successf(fmt, ...) log(chat.success, nil, fmt, ...) end
 
 --[[
     Repeat suppression for debug output. The tick loop runs every frame, so a
@@ -261,8 +263,14 @@ function common.warnf(fmt, ...)   log(chat.warning, nil, fmt, ...) end
     Each distinct message prints at most once per DEBUG_REPEAT_WINDOW; the count
     of what was swallowed rides along on the next print, so a stuck state still
     looks stuck rather than silent.
+
+    The window is deliberately long. Any actual state CHANGE formats a different
+    string and prints immediately, so nothing is delayed by it -- all it governs is
+    how often an UNCHANGED state repeats itself. It is sized against the slowest
+    thing being waited on (COR's ~60s Phantom Roll recast); anything shorter
+    reprints the same idle line several times per cycle.
 ]]--
-local DEBUG_REPEAT_WINDOW = 3.0   -- seconds
+local DEBUG_REPEAT_WINDOW = 60.0   -- seconds
 local debug_seen = {}             -- message -> { at = os.clock(), swallowed = n }
 local debug_seen_count = 0
 
