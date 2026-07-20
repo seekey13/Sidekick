@@ -67,9 +67,15 @@ function roll_strategy.decide(total, lucky, unlucky, tier, snake_eye_ready, fold
         return 'stop'
     end
 
-    -- 2. Zero-risk zone: no die can bust, so roll on unless we're already on lucky.
+    -- 2. Zero-risk zone: no die can bust, so roll on. Banking the lucky number here is
+    --    only right for the tiers whose ceiling IS lucky. Highest is chasing 11 and
+    --    gives lucky up to keep rolling -- which costs nothing at <= 5, since the worst
+    --    a die can do from 5 is land on 11.
     if total <= ZERO_RISK_MAX then
-        return (total == lucky) and 'stop' or 'double'
+        if total == lucky and tier ~= 'highest' then
+            return 'stop'
+        end
+        return 'double'
     end
 
     -- 3. Snake Eye at 10 guarantees 11, the best total there is. No randomness, so
@@ -114,7 +120,10 @@ end
 local DECIDE_CASES = {
     { { 11,  5, 9, 'highest', true,  true  }, 'stop',                  'never doubles at 11' },
     { {  3,  5, 9, 'lowest',  false, false }, 'double',                'zero-risk zone always doubles' },
-    { {  5,  5, 9, 'highest', true,  true  }, 'stop',                  'zero-risk zone stops on lucky' },
+    { {  5,  5, 9, 'medium',  true,  true  }, 'stop',                  'Medium banks lucky in the zero-risk zone' },
+    { {  5,  5, 9, 'lowest',  true,  true  }, 'stop',                  'Lowest banks lucky in the zero-risk zone' },
+    { {  5,  5, 9, 'highest', false, false }, 'double',                'Highest gives up lucky to chase 11 (no bust risk at 5)' },
+    { {  3,  3, 7, 'highest', false, false }, 'double',                'Highest rolls through lucky even with Fold down' },
     { { 10,  5, 9, 'lowest',  true,  false }, 'snake_eye_then_double', 'Snake Eye finishes 10 -> 11 on every tier' },
     { { 10,  5, 9, 'lowest',  false, false }, 'stop',                  'Lowest stops at 10 without Snake Eye' },
     { {  6,  4, 8, 'lowest',  false, true  }, 'stop',                  'Lowest will not gamble even with Fold up' },

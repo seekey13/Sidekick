@@ -249,7 +249,7 @@ Lua VM without a live roll sequence. All stateful concerns stay in
 - `decide(total, lucky, unlucky, tier, snake_eye_ready, fold_ready)` → `'stop'` | `'double'` |
   `'snake_eye_then_double'`, evaluated in this order:
   1. `total >= 11` → stop (every die busts).
-  2. `total <= 5` → double unless already on `lucky` (no die can bust — free roll).
+  2. `total <= 5` → double (no die can bust — free roll). Lowest/Medium stop if already on `lucky`, since lucky is their ceiling; **Highest does not** — its ceiling is 11, and giving up lucky costs nothing here because the worst a die can do from 5 is land on 11.
   3. Snake Eye at 10 → guaranteed 11, zero risk, taken by **every** tier.
   4. Snake Eye at `lucky - 1` → guaranteed lucky; taken by Lowest/Medium only. Its ~5 min recast
      outlasts a chase, so Highest (ceiling 11, not lucky) reserves it for rule 3.

@@ -379,12 +379,11 @@ function roll.handle_action_packet(packet, settings, job_def)
         common.printf('[Roll] %s: %d (Total: %d)', roll_ability.name, die, total)
     end
 
-    -- Landing on lucky ends the chase on every tier: every roll's lucky number is 5
-    -- or less, which is inside the zero-risk zone where roll_strategy stops on lucky
-    -- regardless of tier (rule 2). Worth calling out in green -- it's the outcome the
-    -- whole Double-Up sequence is aiming at, and it explains the sudden stop.
+    -- Landing on lucky, called out in green -- it's what the Double-Up sequence is
+    -- aiming at. Deliberately says nothing about stopping: Lowest/Medium bank it here,
+    -- but Highest rolls straight past it chasing 11.
     if total == roll_ability.lucky then
-        common.successf('[Roll] %s: LUCKY %d! Bonus effect at full potency -- holding here.',
+        common.successf('[Roll] %s: LUCKY %d!',
             roll_ability.name, total)
     end
 

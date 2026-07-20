@@ -183,8 +183,10 @@ return {
         'Lowest: stops at 6+, never takes a bust chance.\n' ..
         'Medium: chases the lucky number while it is still\n' ..
         'one die away, and rerolls off the unlucky number.\n' ..
-        'Highest: chases 11 whenever Fold is up to undo a\n' ..
-        'Bust, otherwise plays like Medium.\n' ..
+        'Highest: 11 or nothing -- it rolls straight past\n' ..
+        'the lucky number, and keeps doubling at 6-10\n' ..
+        'whenever Fold is up to undo a Bust (otherwise it\n' ..
+        'plays like Medium). Expect to give up lucky often.\n' ..
         'Fold is always used the moment you Bust.',
 
     geo =
