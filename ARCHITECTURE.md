@@ -179,7 +179,8 @@ Consolidated ability infrastructure module. Combines resource management (MP/TP 
 |---|---|
 | `has_resource(type, amount)` | Check MP or TP ≥ amount |
 | `get_resource(type)` | Current MP or TP |
-| `is_ability_ready(recast_id)` | Ability recast timer = 0 (with 0.5s post-delay) — reads the JA recast table |
+| `is_ability_ready(recast_id)` | Ability recast timer = 0 (with 0.5s post-delay) — reads the JA recast table. **Consuming**: the post-delay is tracked by arming a timestamp on the first zero-timer call and clearing it on the call that returns true, so two calls in one tick disagree by design |
+| `is_ability_recast_zero(recast_id)` | Same table, **read-only** — no post-delay bookkeeping. For deciding *whether* an ability is available without trying to use it. Using `is_usable` for that and then calling `try_use` re-arms the delay and never fires |
 | `is_spell_ready(spell_id)` | Spell recast timer = 0 (with 0.5s post-delay) — reads the spell recast table |
 | `get_spell_recast(spell_id)` | Remaining spell recast |
 
@@ -268,7 +269,7 @@ Lua VM without a live roll sequence. All stateful concerns stay in
 
 Shared utility module (~3,200 lines). Key areas:
 
-- **Logging**: `printf`, `debugf`, `errorf`, `warnf` – unified via internal `log()` helper
+- **Logging**: `printf`, `debugf`, `errorf`, `warnf` – unified via internal `log()` helper. `debugf` suppresses repeats **per message** (not consecutive — modules interleave, so identical lines are never adjacent): each distinct message prints at most once per 3s and carries the swallowed count on its next print. Without it the per-frame tick loop writes steady-state lines ~60x/second
 - **Player state**: `get_player_level/job/mp/tp`, `is_idle/engaged/in_event`, `is_casting` (locked by 0x028 category 8 `casting_begin`, released by 4 `spell_finish` or by an interrupt, via `handle_action_packet`; melee is dropped. `cast_timeout` = 16 s is a **backstop for a missed packet, not a mechanism** — interrupts (below) and zoning clear the lock explicitly, so nothing routine relies on it), `clear_casting_state` (drops the casting lock on zone change, where the cancelled cast never sends a finish packet), `get_last_action` (debug-panel label for the last 0x028 category seen), `is_player_moving`, `is_resting` (cached from entity status 33), `is_mounted` (entity status 5 or buff 252)
 - **Interrupt detection** (`common.INTERRUPT_PARAM` = 28787 / `0x7073`): a cancelled action sends **no finish packet**. It repeats its own `*_begin` category (7 WS / 8 casting / 9 item / 12 ranged) carrying `INTERRUPT_PARAM` where the spell/ability id would be — no real id collides with it. Three readers: `handle_action_packet` ignores that second category 8 rather than re-arming the cast lock (which froze automation until `cast_timeout`); `is_action_finish` in `Sidekick.lua` restarts the command throttle from it (the server's lockout applies whether the action landed or was cancelled); `get_last_action` reports `interrupted (<category>)` instead of a bogus `casting_begin` plus a spell lookup on an id that isn't one.
 - **Party**: `get_party_size`, `get_party_member_name/zone/distance`, `get_party_server_ids`

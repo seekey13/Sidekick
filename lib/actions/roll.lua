@@ -47,6 +47,9 @@ local roll_state = {
     last_double_up_time = 0,  -- Global double-up cooldown
 }
 
+-- Throttle for the Snake Eye / Fold availability debug line (see roll.execute)
+local last_control_log = 0
+
 -- ============================================================================
 -- Helper Functions
 -- ============================================================================
@@ -149,17 +152,44 @@ function roll.execute(settings, job_def, main_level, sub_level, player_resource)
     local roll2_ability = find_roll_ability(available, settings.roll2_name)
 
     -- Snake Eye / Fold are merits, looked up by fixed name (not user-configurable).
-    -- filter_abilities_by_level applies the merit/level/main-job gates that is_usable
-    -- doesn't; is_usable then answers "off cooldown and not Amnesia'd" right now.
+    -- filter_abilities_by_level applies the merit/level/main-job gates that the
+    -- recast check below doesn't.
     local controls   = common.filter_abilities_by_level(job_def.abilities.roll_control, settings, main_level, sub_level, job_def)
     local snake_eye  = find_roll_ability(controls, 'Snake Eye')
     local fold       = find_roll_ability(controls, 'Fold')
-    local snake_eye_ready = snake_eye ~= nil and action_core.is_usable(snake_eye, job_def) or false
-    local fold_ready      = fold ~= nil and action_core.is_usable(fold, job_def) or false
+
+    -- Readiness feeds a DECISION, so it must be probed read-only: action_core's
+    -- is_usable consumes the post-recast delay it tracks, and try_use calls it again
+    -- when actually casting -- that second call re-arms the delay and returns false,
+    -- so a Fold gated on is_usable could never fire. is_ability_recast_zero has no
+    -- such bookkeeping; try_use still owns the real gate at cast time.
+    local function control_ready(ability)
+        if not ability then return false, 'not learned/level/main job' end
+        local blocked = common.is_command_blocked(ability.command)
+        if blocked then return false, blocked end
+        if not action_core.is_ability_recast_zero(ability.recast_id) then
+            return false, 'cooldown'
+        end
+        return true, nil
+    end
+
+    local snake_eye_ready, snake_eye_why = control_ready(snake_eye)
+    local fold_ready, fold_why           = control_ready(fold)
+
+    local has_bust = action_core.has_any_buff(player_buffs, BUST_BUFF_ID)
+
+    -- Throttled so it can't flood a frame-rate tick loop; still debug-gated.
+    if (current_time - last_control_log) >= 2 then
+        last_control_log = current_time
+        common.debugf('[ROLL] controls: bust=%s | Snake Eye %s (%s) | Fold %s (%s)',
+            tostring(has_bust),
+            snake_eye and 'found' or 'MISSING', snake_eye_ready and 'ready' or tostring(snake_eye_why),
+            fold and 'found' or 'MISSING', fold_ready and 'ready' or tostring(fold_why))
+    end
 
     -- Priority 1: Fold a Bust, whatever the tier. That frees the slot so Priority 3
     -- recasts a fresh roll into it next tick and the chase starts over.
-    if roll_strategy.should_fold(action_core.has_any_buff(player_buffs, BUST_BUFF_ID), fold_ready) then
+    if roll_strategy.should_fold(has_bust, fold_ready) then
         local result = action_core.try_use(fold, job_def, settings, nil, 'Fold: clear Bust')
         if result then
             return result

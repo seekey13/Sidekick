@@ -251,8 +251,52 @@ function common.printf(fmt, ...)  log(chat.message, nil, fmt, ...) end
 function common.errorf(fmt, ...)  log(chat.error,   nil, fmt, ...) end
 function common.warnf(fmt, ...)   log(chat.warning, nil, fmt, ...) end
 
+--[[
+    Repeat suppression for debug output. The tick loop runs every frame, so a
+    module reporting a steady state ("no Double-Up buff") writes the same line
+    ~60x/second and buries everything that actually changed.
+
+    Per-message, not consecutive: modules interleave (Roll1 / Roll2 / Roll1 ...),
+    so an "is this the same as the previous line?" check would suppress nothing.
+    Each distinct message prints at most once per DEBUG_REPEAT_WINDOW; the count
+    of what was swallowed rides along on the next print, so a stuck state still
+    looks stuck rather than silent.
+]]--
+local DEBUG_REPEAT_WINDOW = 3.0   -- seconds
+local debug_seen = {}             -- message -> { at = os.clock(), swallowed = n }
+local debug_seen_count = 0
+
 function common.debugf(fmt, ...)
-    if common.debug then log(chat.message, '[DEBUG] ', fmt, ...) end
+    if not common.debug then return end
+
+    local args = {...}
+    local msg = fmt
+    if #args > 0 then
+        local ok, result = pcall(string.format, fmt, ...)
+        if ok then msg = result end
+    end
+
+    local now  = os.clock()
+    local seen = debug_seen[msg]
+
+    if seen and (now - seen.at) < DEBUG_REPEAT_WINDOW then
+        seen.swallowed = seen.swallowed + 1
+        return
+    end
+
+    -- Messages embed live values (totals, timers), so the key space grows with
+    -- session length. Nothing here is worth a real LRU -- drop the lot and let it
+    -- refill, at worst one extra line prints.
+    if debug_seen_count > 200 then
+        debug_seen, debug_seen_count = {}, 0
+        seen = nil
+    end
+
+    local suffix = (seen and seen.swallowed > 0) and string.format(' (x%d)', seen.swallowed + 1) or ''
+    if not debug_seen[msg] then debug_seen_count = debug_seen_count + 1 end
+    debug_seen[msg] = { at = now, swallowed = 0 }
+
+    log(chat.message, '[DEBUG] ', '%s%s', msg, suffix)
 end
 
 --[[
