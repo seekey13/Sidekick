@@ -1,6 +1,7 @@
 --[[
     Corsair job definition
-    Rolls only -- Phantom Roll + Double-Up automation (see lib/actions/roll.lua).
+    Rolls only -- Phantom Roll + Double-Up automation, plus the Snake Eye / Fold
+    roll-manipulation merits (see lib/actions/roll.lua).
     Quick Draw / Ranged Attack / Random Deal are deliberately absent: Sidekick is
     support-only and does not automate combat.
 
@@ -271,7 +272,7 @@ return {
             },
             {
                 name = 'Companion\'s Roll (Pet Regain & Regen)',
-                level = 95,
+                level = 75,
                 cost = 0,
                 recast_id = 193,
                 ability_id = 304,
@@ -282,7 +283,7 @@ return {
             },
             {
                 name = 'Bolter\'s Roll (Move Speed+)',
-                level = 76,
+                level = 75,
                 cost = 0,
                 recast_id = 193,
                 ability_id = 118,
@@ -293,7 +294,7 @@ return {
             },
             {
                 name = 'Caster\'s Roll (Fast Cast+)',
-                level = 79,
+                level = 75,
                 cost = 0,
                 recast_id = 193,
                 ability_id = 119,
@@ -301,6 +302,31 @@ return {
                 buff_id = 331,  -- Caster's Roll buff
                 lucky = 2,
                 unlucky = 7,
+            },
+        },
+
+        -- Roll manipulation merits (not buffs -- read directly by lib/actions/roll.lua).
+        -- Merit abilities, so main job only; each has its own recast, not Phantom Roll's.
+        roll_control = {
+            {
+                name = 'Snake Eye',
+                level = 75,
+                cost = 0,
+                recast_id = 197,  -- abilities.sql recastId (5 min)
+                ability_id = 177, -- abilities.sql abilityId (merit: HasAbility(id + 512))
+                command = '/ja "Snake Eye" <me>',
+                main_job_only = true,
+                -- Forces the next roll/Double-Up die to 1
+            },
+            {
+                name = 'Fold',
+                level = 75,
+                cost = 0,
+                recast_id = 198,  -- abilities.sql recastId (5 min)
+                ability_id = 178, -- abilities.sql abilityId (merit: HasAbility(id + 512))
+                command = '/ja "Fold" <me>',
+                main_job_only = true,
+                -- Removes a Bust (buff 309), freeing the roll slot
             },
         },
     },
