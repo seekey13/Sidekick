@@ -256,6 +256,11 @@ function geo.execute(settings, job_def, main_level, sub_level, player_resource)
             return nil
         end
         
+        -- Don't burn Entrust (5 min recast) unless the Indi spell is affordable
+        if not action_core.has_resource('mp', selected_spell.cost or 0) then
+            return nil
+        end
+
         -- Check if we have the Entrust buff (584)
         local has_entrust_buff = action_core.has_any_buff(player.buffs, 584)
 
@@ -264,11 +269,6 @@ function geo.execute(settings, job_def, main_level, sub_level, player_resource)
             -- Check if spell is blocked by status ailments
             local blocked_by = common.is_command_blocked(selected_spell.command)
             if blocked_by then
-                return nil
-            end
-            
-            -- Check MP cost
-            if not action_core.has_resource('mp', selected_spell.cost or 0) then
                 return nil
             end
             
