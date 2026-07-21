@@ -2428,6 +2428,45 @@ end
 -- Scholar Stratagem Pre-Cast Management
 -- ============================================================================
 
+-- Scholar Arts tax the OPPOSITE magic school by 20% (rounded up):
+--   Dark Arts / Addendum: Black up  → White Magic costs ceil(base * 1.2)
+--   Light Arts / Addendum: White up → Black Magic costs ceil(base * 1.2)
+-- Nothing else is affected (ninjutsu, songs, summoning, blue, geomancy, JAs, items).
+-- Keyed off the spell's Type from the resource manager (1 = white, 2 = black) rather
+-- than a hardcoded spell list, so it covers subjob spells and future additions too.
+local ARTS_TAX = 1.2
+local ARTS_LIGHT = {358, 401}   -- Light Arts / Addendum: White  → taxes black magic
+local ARTS_DARK  = {359, 402}   -- Dark Arts  / Addendum: Black  → taxes white magic
+local SPELL_TYPE_WHITE = 1      -- spells.dat magic type, as GetSpellById().Type
+local SPELL_TYPE_BLACK = 2
+
+-- Args:
+--   ability (table) – ability definition with .cost and .spell_id
+-- Returns: number (arts-taxed cost, or the base cost when no tax applies)
+function common.arts_adjusted_cost(ability)
+    if not ability or not ability.cost then return 0 end
+    if not ability.spell_id then return ability.cost end
+
+    -- Buff check first: no arts up is the common case (every non-SCH), and it costs one
+    -- buff read instead of a resource lookup per ability per UI frame.
+    local action_core = require('lib.core.action_core')
+    local player_buffs = common.get_player_buffs()
+    local taxed_type
+    if action_core.has_any_buff(player_buffs, ARTS_DARK) then
+        taxed_type = SPELL_TYPE_WHITE
+    elseif action_core.has_any_buff(player_buffs, ARTS_LIGHT) then
+        taxed_type = SPELL_TYPE_BLACK
+    else
+        return ability.cost
+    end
+
+    -- Unknown id → nil spell; fall back to the base cost rather than guessing a school.
+    local spell = AshitaCore:GetResourceManager():GetSpellById(ability.spell_id)
+    if not spell or spell.Type ~= taxed_type then return ability.cost end
+
+    return math.ceil(ability.cost * ARTS_TAX)
+end
+
 -- Calculate the effective MP cost of an ability considering assigned stratagems.
 -- When stratagems with mp_modifier are assigned (e.g. Penury 0.5x, Accession 3.0x),
 -- the base cost is multiplied by all assigned modifiers.
@@ -2437,20 +2476,25 @@ end
 --   ability  (table)  – ability definition with .name, .cost, and optionally .group
 --   settings (table)  – addon settings (contains stratagem_settings)
 --   job_def  (table)  – job definition (contains abilities.precast list)
--- Returns: number (modified cost, or base ability.cost if no stratagems apply)
+-- The Scholar Arts tax is applied first (ceil), then the stratagem modifier (floor):
+-- the arts penalty belongs to the spell's own cost, so Penury/Accession scale the
+-- already-taxed number. Unconfirmed against the server for the combined case; if a
+-- Penury'd cure under Dark Arts is ever off by 1 MP, this ordering is the suspect.
+-- Returns: number (modified cost, or the arts-adjusted ability.cost if no stratagems apply)
 function common.effective_ability_cost(ability, settings, job_def)
     if not ability or not ability.cost then return 0 end
-    if not settings or not settings.stratagem_settings then return ability.cost end
+    local base = common.arts_adjusted_cost(ability)
+    if not settings or not settings.stratagem_settings then return base end
 
     -- Try ability.name first, then ability.group as fallback
     local ss = settings.stratagem_settings[ability.name]
     if not ss and ability.group then
         ss = settings.stratagem_settings[ability.group]
     end
-    if not ss then return ability.cost end
+    if not ss then return base end
 
     local strat_defs = job_def and job_def.abilities and job_def.abilities.precast
-    if not strat_defs then return ability.cost end
+    if not strat_defs then return base end
 
     -- Modifiers are multiplicative (e.g. Accession 3.0x * Penury 0.5x = 1.5x).
     -- This is commutative so iteration order of pairs(ss) does not matter.
@@ -2462,7 +2506,7 @@ function common.effective_ability_cost(ability, settings, job_def)
             end
         end
     end
-    return math.floor(ability.cost * modifier)
+    return math.floor(base * modifier)
 end
 
 -- The half of a precast JA's usability that only a job/level change can alter:
