@@ -123,6 +123,20 @@ local function get_selected_geo_bt(job_def, settings, main_level, sub_level)
     return available[1]
 end
 
+-- Party slot the Geo bubble belongs to (0 = ME, 1-5 = party member), or nil when
+-- none is selected. The Geo group is single-select -- one luopan -- so at most one
+-- is on. Indexed rather than iterated with pairs(): pairs order is undefined, so
+-- two toggles briefly on at once would resolve differently in the two callers.
+local function selected_geo_target(ui_config)
+    local party_buffs = ui_config.get_party_buffs()
+    local geo_targets = party_buffs and party_buffs['Geo']
+    if not geo_targets then return nil end
+    for idx = 0, 5 do
+        if geo_targets[idx] == true then return idx end
+    end
+    return nil
+end
+
 -- The Geo spell that would be cast next, or nil if none is pending: the combat
 -- <bt> debuff when one is selected, else the selected Geo <me>/party buff tier
 -- (buff.lua casts that one) provided its target still needs it. Used to decide
@@ -131,17 +145,7 @@ local function next_geo_spell(job_def, settings, main_level, sub_level, geo_bt, 
     if in_combat and geo_bt then return geo_bt end
 
     -- Geo buff group: one enabled target (single luopan) that lacks the buff.
-    local party_buffs = require('lib.ui.config').get_party_buffs()
-    local geo_targets = party_buffs and party_buffs['Geo']
-    local target_index = nil
-    if geo_targets then
-        for idx, is_on in pairs(geo_targets) do
-            if is_on == true and type(idx) == 'number' and idx >= 0 and idx <= 5 then
-                target_index = idx
-                break
-            end
-        end
-    end
+    local target_index = selected_geo_target(require('lib.ui.config'))
     if not target_index then return nil end
 
     local candidates = {}
@@ -180,18 +184,26 @@ end
 -- Blaze of Glory enhances the luopan the next Geo spell creates, so it is a
 -- precast: callers only reach here with no luopan out, and we hold it unless
 -- that spell is affordable so the 10-minute recast isn't burned for nothing.
-local function try_blaze_of_glory(job_def, settings, main_level, sub_level, next_spell)
+--
+-- Order matters for cost: the ability lookup is a linear scan of a short list,
+-- while next_geo_spell allocates and filters, so the recast is checked first and
+-- the "what would we be enhancing?" work only happens once the JA is actually up.
+-- This runs every frame the luopan slot is empty, which for a GEO below 60 or with
+-- Blaze of Glory unchecked is every frame, full stop.
+local function try_blaze_of_glory(job_def, settings, main_level, sub_level, geo_bt, in_combat)
+    local geo_abilities = common.filter_abilities_by_level(job_def.abilities.geo or {}, settings, main_level, sub_level, job_def)
+    local bog
+    for _, ability in ipairs(geo_abilities) do
+        if ability.name == 'Blaze of Glory' then bog = ability break end
+    end
+    if not bog or not action_core.is_ability_recast_zero(bog.recast_id) then return nil end
+
+    local next_spell = next_geo_spell(job_def, settings, main_level, sub_level, geo_bt, in_combat)
     if not next_spell then return nil end
     if not action_core.has_resource(job_def.resource_type, next_spell.cost or 0) then return nil end
 
-    local geo_abilities = common.filter_abilities_by_level(job_def.abilities.geo or {}, settings, main_level, sub_level, job_def)
-    for _, ability in ipairs(geo_abilities) do
-        if ability.name == 'Blaze of Glory' then
-            return action_core.try_use(ability, job_def, settings, 0,
-                string.format('Blaze of Glory (precast for %s)', next_spell.name))
-        end
-    end
-    return nil
+    return action_core.try_use(bog, job_def, settings, 0,
+        string.format('Blaze of Glory (precast for %s)', next_spell.name))
 end
 
 -- Build a Full Circle action result if it is usable right now. Callers ensure a
@@ -221,7 +233,9 @@ end
 -- re-checks the recast, so the cooldown only matters when *deciding* to start a
 -- sequence (arcana_ready) -- never when finishing one.
 local function arcana_ability(job_def, settings, main_level)
-    if settings['disabled_Radial Arcana'] == true then return nil end
+    -- Key must match what the UI writes: 'disabled_' .. name with spaces mapped to
+    -- underscores (lib/ui/components.lua). 'disabled_Radial Arcana' never matched.
+    if settings['disabled_Radial_Arcana'] == true then return nil end
     for _, ability in ipairs(job_def.abilities.recover_mp or {}) do
         if ability.name == 'Radial Arcana' then
             if (ability.level or 1) <= (main_level or 0) then
@@ -235,16 +249,34 @@ end
 
 -- MP cost of the Geo spell holding the luopan right now, so an expensive bubble
 -- is not thrown away for one Radial Arcana. Geo-bt owns the luopan in combat;
--- otherwise it is the selected Geo buff tier.
-local function current_luopan_cost(job_def, settings, geo_bt)
+-- otherwise it is the Geo buff tier buff.lua would have cast.
+--
+-- That tier is the named selection, else the most EXPENSIVE castable one --
+-- filter_abilities_by_level sorts cost-descending and buff.lua takes [1]. The job
+-- list itself is ordered by level, so scanning it raw and taking the first 'Geo'
+-- entry reported Geo-Haste (74, 63 MP) for a luopan buff.lua had actually filled
+-- with Geo-Acumen (50, 182 MP): under ARCANA_KEEP_COST, so the expensive bubble
+-- got eaten instead of preserved -- exactly what the threshold exists to stop.
+--
+-- The level/learned gates are applied by hand rather than through
+-- filter_abilities_by_level because the job's validate_ability hides group 'Geo'
+-- whenever a luopan is out, and a luopan being out is the only time this is called.
+local function current_luopan_cost(job_def, settings, geo_bt, main_level)
     if geo_bt_pending then return (geo_bt and geo_bt.cost) or math.huge end
     local selected = settings['selected_Geo']
+    local cost = 0
     for _, ability in ipairs(job_def.abilities.buff or {}) do
-        if ability.group == 'Geo' and (selected == nil or ability.name == selected) then
-            return ability.cost or 0
+        if ability.group == 'Geo' and ability.is_main_job ~= false
+            and (ability.level or 1) <= (main_level or 0)
+            and common.has_spell_learned(ability) then
+            if selected then
+                if ability.name == selected then return ability.cost or 0 end
+            elseif (ability.cost or 0) > cost then
+                cost = ability.cost or 0
+            end
         end
     end
-    return 0
+    return cost
 end
 
 function geo.execute(settings, job_def, main_level, sub_level, player_resource)
@@ -415,7 +447,7 @@ function geo.execute(settings, job_def, main_level, sub_level, player_resource)
     -- ========================================================================
     -- Published for the job's validate_ability, which gates Radial Arcana on it.
     local spendable = has_luopan and (common.arcana_luopan
-        or current_luopan_cost(job_def, settings, geo_bt) <= ARCANA_KEEP_COST
+        or current_luopan_cost(job_def, settings, geo_bt, derived_main_level) <= ARCANA_KEEP_COST
         or (player.pet_hpp or 100) <= ARCANA_HPP_FLOOR)
     common.arcana_usable = spendable and common.is_in_luopan_radius()
 
@@ -463,7 +495,7 @@ function geo.execute(settings, job_def, main_level, sub_level, player_resource)
     -- buff.lua's Geo <me> cast (buff comes after geo in priority_order).
     if not has_luopan then
         local bog = try_blaze_of_glory(job_def, settings, derived_main_level, derived_sub_level,
-            next_geo_spell(job_def, settings, derived_main_level, derived_sub_level, geo_bt, in_combat))
+            geo_bt, in_combat)
         if bog then return bog end
     end
 
@@ -493,21 +525,9 @@ function geo.execute(settings, job_def, main_level, sub_level, player_resource)
     -- Check if player has a pet (only needed for Full Circle). Skip while our
     -- own Geo-bt luopan is out so the distance check can't dismiss the debuff.
     if common.targets.get_pet() and not geo_bt_pending then
-        -- Determine which target currently holds the Geo bubble. The Geo group
-        -- is single-select (one luopan), so at most one target is enabled.
-        -- Distance is measured from that target; if none is selected we skip
-        -- the distance-based Full Circle entirely.
-        local party_buffs = ui_config.get_party_buffs()
-        local geo_targets = party_buffs and party_buffs['Geo']
-        local selected_target_index = nil  -- 0 = ME, 1-5 = party member
-        if geo_targets then
-            for idx, is_on in pairs(geo_targets) do
-                if is_on == true and type(idx) == 'number' and idx >= 0 and idx <= 5 then
-                    selected_target_index = idx
-                    break
-                end
-            end
-        end
+        -- Distance is measured from whichever target holds the Geo bubble; if none
+        -- is selected we skip the distance-based Full Circle entirely.
+        local selected_target_index = selected_geo_target(ui_config)  -- 0 = ME, 1-5 = party
 
         -- Measure luopan distance from the selected Geo target (skip if none).
         local pet_distance = selected_target_index ~= nil
