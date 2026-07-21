@@ -54,10 +54,10 @@ A focused, support-oriented addon for Ashita v4 that automates healing, buffing,
 The one exception is **opt-in leader following** (off by default): with **Follow** enabled, Sidekick will `/follow` a chosen party member when they walk beyond a set distance. It never moves your character unless you turn this on.
 
 ## Latest Updates
-### [2.5.0] - 2026-07-18
+### [2.6.0] - 2026-07-20
 
 ### Added
-- **Corsair**: New job — *rolls only*. Pick two **Phantom Rolls** in the new **Rolls** section and Sidekick keeps them up, using **Double-Up** on each until it lands on the roll's **lucky** number or reaches the **Stop At Total** you set (default 5). It never doubles at 11, since 12 busts, and while **Bust** is up it holds the second roll back until the slot frees. Rolls fire in and out of combat. Quick Draw, Ranged Attack, and Random Deal are deliberately not automated — Sidekick stays support-only.
+- **Corsair**: New job — *rolls only*. Pick two **Phantom Rolls** in the new **Rolls** section and Sidekick keeps them up, using **Double-Up** on each according to a **Risk Tier** (Lowest / Medium / Highest) built on the roll's lucky and unlucky numbers. It never doubles at 11, since 12 busts, uses **Snake Eye** for guaranteed finishes and **Fold** the moment you Bust, and while **Bust** is up it holds the second roll back until the slot frees. Rolls fire in and out of combat. Quick Draw, Ranged Attack, and Random Deal are deliberately not automated — Sidekick stays support-only.
 
 ### [2.5.0] - 2026-07-17
 

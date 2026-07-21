@@ -318,7 +318,7 @@ Both toggles live in the `/sk panel` header row, are persisted per job, and requ
 
 Parses raw packet bytes for action packet 0x028 into structured Lua tables (actor, type, targets, actions). Used by Sidekick.lua's packet_in handler for casting-state detection and Trust buff tracking.
 
-0x028 is **bit-packed, not byte-aligned** — `Type` (the 4-bit action category) sits at bit 82, not on any byte boundary, so it can only be read through this parser, never with `struct.unpack` offsets.
+0x028 is **bit-packed, not byte-aligned** — `Type` (the 4-bit action category) sits at bit 82, not on any byte boundary, so it can only be read through this parser, never with `struct.unpack` offsets. Categories: `1` melee, `2` ranged_finish, `3` ws_finish, `4` spell_finish, `5` item_finish, `6` job_ability, `7` ws_begin, `8` casting_begin, `9` item_begin, `11` mob_tp_finish, `12` ranged_begin, `13` avatar_tp_finish, `14`/`15` job_ability (DNC/RUN).
 
 Field names and widths follow the server's own packer,
 [`0x028_battle2.cpp`](https://github.com/CatsAndBoats/catseyexi/blob/base/src/map/packets/s2c/0x028_battle2.cpp):
@@ -332,7 +332,7 @@ a category — no roll decode may key off it.
 target entry `action.Info` = the die 1-6, `action.Param` = the running total, `action.Message` =
 420/421 roll, 424 double-up, 426/427 bust. It is dispatched from Sidekick.lua's 0x028 handler
 just after the parse, guarded on the loaded job actually having `abilities.roll` so it costs one
-table lookup for every other job. Categories: `1` melee, `2` ranged_finish, `3` ws_finish, `4` spell_finish, `5` item_finish, `6` job_ability, `7` ws_begin, `8` casting_begin, `9` item_begin, `11` mob_tp_finish, `12` ranged_begin, `13` avatar_tp_finish, `14`/`15` job_ability (DNC/RUN). Layout matches [Windower's `fields.lua`](https://github.com/Windower/Lua/blob/dev/addons/libs/packets/fields.lua) for incoming 0x028.
+table lookup for every other job.
 
 ### targets.lua
 

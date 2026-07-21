@@ -157,6 +157,12 @@ function roll.execute(settings, job_def, main_level, sub_level, player_resource)
         roll2_ability = nil
     end
 
+    -- Same roll in both slots is one buff, not two: left in place it counts twice
+    -- against the slot capacity below and wedges slot 2 shut forever.
+    if roll2_ability == roll1_ability then
+        roll2_ability = nil
+    end
+
     -- Snake Eye / Fold are merits, looked up by fixed name (not user-configurable).
     -- filter_abilities_by_level applies the merit/level/main-job gates that the
     -- recast check below doesn't.
@@ -268,10 +274,12 @@ function roll.execute(settings, job_def, main_level, sub_level, player_resource)
 
     -- Which roll are we casting? Roll1 if it's missing; otherwise Roll2, but only
     -- once Roll1 exists and is no longer awaiting packets (one roll in flight).
+    -- Slot 1 set to None is not "waiting on slot 1" -- slot 2 stands alone.
+    local roll1_settled = (not roll1_ability) or (has_roll1_buff and not roll_state.roll1.expecting_double_up)
     local cast_num, cast_ability
     if roll1_ability and not has_roll1_buff then
         cast_num, cast_ability = 1, roll1_ability
-    elseif has_roll1_buff and not roll_state.roll1.expecting_double_up and roll2_ability and not has_roll2_buff then
+    elseif roll1_settled and roll2_ability and not has_roll2_buff then
         cast_num, cast_ability = 2, roll2_ability
     end
 

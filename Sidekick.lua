@@ -652,6 +652,10 @@ local function automation_tick()
                 -- Fresh AFK timer for the new job (its saved afk_timeout may differ).
                 afk.reset()
 
+                -- Roll totals belong to the old job's rolls (and the new job's saved
+                -- roll names are different anyway) -- drop them with the job.
+                roll_mod.reset_state()
+
                 -- Skip this frame after job reload
                 return
             elseif level_changed then
@@ -1199,7 +1203,6 @@ ashita.events.register('command', 'sidekick_command', function(e)
         require('lib.core.roll_strategy').self_test(function(line)
             common.printf('%s', line)
         end)
-
 
     elseif cmd == 'status' then
         common.printf('Sidekick Status:')
