@@ -316,24 +316,53 @@ function common.is_idle()
     return not common.is_combat()
 end
 
+-- Grace window (seconds) that is_combat stays true after the battle target
+-- vanishes -- covers the gap between one mob dying and someone engaging the
+-- next in a multi-mob pull, so support coverage overlaps instead of flickering.
+local COMBAT_GRACE = 5.0
+local combat_last_true = 0  -- os.clock() of the last real battle target
+
 function common.is_combat()
     local ok, bt = pcall(function()
         return targets.get_bt()
     end)
-    
+
     if not ok then
         return false  -- Assume not in combat if we can't get battle target
     end
-    
+
     -- Check if battle target is a mob (0x10 flag in SpawnFlags)
     local is_mob = bt and bit.band(bt.SpawnFlags, 0x10) ~= 0 or false
-    
-    return is_mob
+
+    if is_mob then
+        combat_last_true = os.clock()
+        return true
+    end
+
+    -- No BT right now: stay "in combat" briefly so coverage overlaps the
+    -- dead-mob -> next-mob gap.
+    return (os.clock() - combat_last_true) < COMBAT_GRACE
+end
+
+-- Settings key for a per-ability gate (prefix 'combat_only' / 'idle_only').
+-- Grouped abilities share one key (<prefix>_group_<group>); an ability with no
+-- group -- or one whose group the user has ungrouped -- gets its own
+-- (<prefix>_<ability_name_with_spaces_replaced_by_underscores>), so each tier of
+-- an ungrouped group can be gated separately (e.g. Indi-Fury in combat,
+-- Indi-Refresh while idle). No fallback to the group value once ungrouped,
+-- matching how disabled_group_<group> keys behave.
+-- Returns nil when no key can be built (unnamed, ungrouped ability).
+function common.ability_gate_key(prefix, ability, settings)
+    if not ability then return nil end
+    if ability.group and not (settings and settings['ungrouped_' .. ability.group] == true) then
+        return prefix .. '_group_' .. ability.group
+    end
+    if not ability.name then return nil end
+    return prefix .. '_' .. ability.name:gsub(' ', '_')
 end
 
 -- Returns true if the given ability should be gated to combat-only based on user settings.
--- Grouped abilities use a per-group setting (combat_only_group_<group>);
--- ungrouped abilities use a per-name setting (combat_only_<ability_name_with_spaces_replaced_by_underscores>).
+-- Key selection (per-group vs per-ability) is common.ability_gate_key.
 -- Defaults to false (allowed outside of combat).
 -- Abilities marked idle_only never participate in the combat_only gate.
 -- <bt> abilities (e.g. Geo-bt debuffs) target the battle target and are
@@ -345,33 +374,21 @@ function common.is_ability_combat_only(ability, settings)
     if ability.combat_only then return true end
     if common.ability_targets_bt(ability) then return true end
     if not settings then return false end
-    local key
-    if ability.group then
-        key = 'combat_only_group_' .. ability.group
-    else
-        if not ability.name then return false end
-        key = 'combat_only_' .. ability.name:gsub(' ', '_')
-    end
-    return settings[key] == true
+    local key = common.ability_gate_key('combat_only', ability, settings)
+    return key ~= nil and settings[key] == true
 end
 
 -- Returns true if the given ability should be gated to idle-only (out of combat).
 -- Mirror of is_ability_combat_only: a static ability.idle_only always wins;
--- otherwise a per-group (idle_only_group_<group>) or per-name
--- (idle_only_<ability_name>) user setting is consulted. Combat Only and Idle
--- Only are mutually exclusive; the UI clears one when the other is set.
+-- otherwise the user setting at common.ability_gate_key('idle_only', ...) is
+-- consulted. Combat Only and Idle Only are mutually exclusive; the UI clears
+-- one when the other is set.
 function common.is_ability_idle_only(ability, settings)
     if not ability then return false end
     if ability.idle_only then return true end
     if not settings then return false end
-    local key
-    if ability.group then
-        key = 'idle_only_group_' .. ability.group
-    else
-        if not ability.name then return false end
-        key = 'idle_only_' .. ability.name:gsub(' ', '_')
-    end
-    return settings[key] == true
+    local key = common.ability_gate_key('idle_only', ability, settings)
+    return key ~= nil and settings[key] == true
 end
 
 -- Returns true if the ability's command targets the battle target (<bt>).
