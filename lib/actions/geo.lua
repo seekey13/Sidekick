@@ -34,6 +34,18 @@ local geo_bt_cast_time = nil
 -- can be detected (see clear_tracked_geo_buffs).
 local had_luopan = false
 
+-- The "luopan out is our throwaway Radial Arcana bubble" flag lives on `common`
+-- (common.arcana_luopan) because the job's validate_ability reads it too. It is
+-- only raised once the luopan actually spawns; arcana_cast_time holds the
+-- Geo-Voidance cast in flight until then, and expires so an interrupted cast
+-- cannot wedge the sequence.
+local arcana_cast_time = nil
+
+-- A luopan whose Geo spell cost more than this is worth keeping: it is only Full
+-- Circled for Radial Arcana once nearly spent (see ARCANA_HPP_FLOOR).
+local ARCANA_KEEP_COST = 75
+local ARCANA_HPP_FLOOR = 5
+
 -- The luopan is gone, so every Geo aura it was feeding died with it. Real party
 -- members read their own buffs from memory and correct themselves; Trusts do not
 -- exist in memory (common.get_member_buffs falls back to packet-tracked
@@ -175,7 +187,43 @@ local function try_full_circle(job_def, settings, main_level, sub_level, descrip
     return nil
 end
 
+-- Radial Arcana when it is level-appropriate, enabled and off cooldown. Looked up
+-- directly rather than through filter_abilities_by_level because the job's
+-- validate_ability hides it while we are outside the bubble -- which is exactly
+-- the situation this module exists to fix.
+local function arcana_ready(job_def, settings, main_level)
+    if settings['disabled_Radial Arcana'] == true then return nil end
+    for _, ability in ipairs(job_def.abilities.recover_mp or {}) do
+        if ability.name == 'Radial Arcana' then
+            if (ability.level or 1) <= (main_level or 0)
+                and action_core.is_ability_ready(ability.recast_id) then
+                return ability
+            end
+            return nil
+        end
+    end
+    return nil
+end
+
+-- MP cost of the Geo spell holding the luopan right now, so an expensive bubble
+-- is not thrown away for one Radial Arcana. Geo-bt owns the luopan in combat;
+-- otherwise it is the selected Geo buff tier.
+local function current_luopan_cost(job_def, settings, geo_bt)
+    if geo_bt_pending then return (geo_bt and geo_bt.cost) or math.huge end
+    local selected = settings['selected_Geo']
+    for _, ability in ipairs(job_def.abilities.buff or {}) do
+        if ability.group == 'Geo' and (selected == nil or ability.name == selected) then
+            return ability.cost or 0
+        end
+    end
+    return 0
+end
+
 function geo.execute(settings, job_def, main_level, sub_level, player_resource)
+    -- Radial Arcana's gate is recomputed further down; clear it up front so an
+    -- early return here can never leave the JA cleared against a stale bubble.
+    common.arcana_usable = false
+
     -- Check if geo action is enabled
     if not settings.geo_enabled then
         return nil
@@ -216,6 +264,7 @@ function geo.execute(settings, job_def, main_level, sub_level, player_resource)
     -- rather than on issuing Full Circle, so every way of losing it is covered.
     if had_luopan and not has_luopan then
         clear_tracked_geo_buffs(job_def)
+        common.arcana_luopan = false
     end
     had_luopan = has_luopan
 
@@ -247,6 +296,71 @@ function geo.execute(settings, job_def, main_level, sub_level, player_resource)
             local fc = try_full_circle(job_def, settings, derived_main_level, derived_sub_level,
                 'Full Circle (dismissing Geo-bt luopan, combat ended)')
             if fc then return fc end
+        end
+    end
+
+    -- ========================================================================
+    -- Radial Arcana
+    -- Radial Arcana consumes the luopan and only refills party members standing
+    -- inside its aura, so the bubble it eats has to be one we can afford to
+    -- lose and one we are stood in. A cheap or nearly-spent luopan qualifies as
+    -- is; a fresh expensive one does not -- Full Circle refunds more MP from
+    -- that than Radial Arcana would yield -- so it is Full Circled and replaced
+    -- with a throwaway Geo-Voidance on <me> first.
+    -- ========================================================================
+    local arcana = arcana_ready(job_def, settings, derived_main_level)
+    local mp_low = settings.recover_enabled == true
+        and common.below_threshold(player.mpp or 0, settings.recover_mp_threshold or 30)
+
+    -- Our Geo-Voidance bubble has landed: it is spendable regardless of what
+    -- Geo tier is selected (current_luopan_cost can only guess from settings).
+    if arcana_cast_time then
+        if has_luopan then
+            common.arcana_luopan = true
+            arcana_cast_time = nil
+        elseif os.clock() - arcana_cast_time > 8 then
+            arcana_cast_time = nil  -- cast never landed; let the sequence retry
+        end
+    end
+
+    -- Published for the job's validate_ability, which gates Radial Arcana on it.
+    local spendable = has_luopan and (common.arcana_luopan
+        or current_luopan_cost(job_def, settings, geo_bt) <= ARCANA_KEEP_COST
+        or (player.pet_hpp or 100) <= ARCANA_HPP_FLOOR)
+    common.arcana_usable = spendable and common.is_in_luopan_radius()
+
+    -- Not spendable / out of range: build a bubble we can spend. recover.lua
+    -- fires Radial Arcana on the tick after it lands.
+    if arcana and mp_low and not common.arcana_usable and not arcana_cast_time then
+        if has_luopan then
+            local fc = try_full_circle(job_def, settings, derived_main_level, derived_sub_level,
+                string.format('Full Circle (luopan too dear for Radial Arcana, MP: %.1f%%)', player.mpp or 0))
+            if fc then return fc end
+        else
+            for _, ability in ipairs(job_def.abilities.buff or {}) do
+                if ability.name == 'Geo-Voidance' and (ability.level or 1) <= derived_main_level
+                    and settings['disabled_Geo-Voidance'] ~= true
+                    and common.has_spell_learned(ability) then
+                    local result = action_core.try_use(ability, job_def, settings, 0,
+                        'Geo-Voidance on self (bubble for Radial Arcana)')
+                    if result then
+                        arcana_cast_time = os.clock()
+                        return result
+                    end
+                    break
+                end
+            end
+        end
+    end
+
+    -- MP recovered another way while our throwaway bubble is still out: drop it
+    -- so the real Geo buff can retake the slot (buff.lua recasts once it is gone).
+    if common.arcana_luopan and has_luopan and not (arcana and mp_low) then
+        local fc = try_full_circle(job_def, settings, derived_main_level, derived_sub_level,
+            'Full Circle (dismissing the Radial Arcana luopan)')
+        if fc then
+            common.arcana_luopan = false
+            return fc
         end
     end
 

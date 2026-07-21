@@ -819,6 +819,12 @@ return {
         if ability.group == 'Geo' and common.get_pet_entity() then
             return false
         end
+        -- Radial Arcana consumes the luopan, so it may only fire on a bubble we
+        -- are stood in and can afford to lose. geo.lua decides that each tick
+        -- (cheap tier, nearly spent, or one it placed for this) and publishes it.
+        if ability.name == 'Radial Arcana' then
+            return common.arcana_usable == true
+        end
         return true
     end,
 
