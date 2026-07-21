@@ -213,6 +213,13 @@ return {
         'recast your current Geo spell once the\n' ..
         'luopan exceeds the Distance threshold above.',
 
+    geo_blaze_of_glory =
+        'Enhances the luopan created by your NEXT Geo\n' ..
+        'spell, so Sidekick fires it as a precast: only\n' ..
+        'when no luopan is out and the Geo spell that\n' ..
+        'follows it is affordable. Never used on a\n' ..
+        'luopan that is already down.',
+
     geo_entrust_target =
         'Party member who will receive the Entrust-\n' ..
         'assisted Indi spell selected below.',

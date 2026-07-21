@@ -1203,6 +1203,28 @@ function common.get_party_member_distance(party_index)
     return common.calculate_distance(player_entity, member_entity)
 end
 
+-- Radial Arcana consumes the luopan, so the Geomancer job's validate_ability
+-- gates it on arcana_usable: true only while we are stood in a bubble we can
+-- afford to lose. lib/actions/geo.lua recomputes it every tick (it owns the
+-- cost/HP rules) and raises arcana_luopan when the bubble out is the throwaway
+-- Geo-Voidance one it placed for this. They live on `common` because
+-- validate_ability is handed `common` and nothing else.
+-- arcana_sequence additionally holds group 'Geo' buffs off the luopan slot while
+-- the teardown/rebuild is in flight.
+common.arcana_usable   = false
+common.arcana_luopan   = false
+common.arcana_sequence = false
+
+-- True while the player is standing inside their own luopan's aura, the only
+-- place the luopan-centred Geomancer JAs (Radial Arcana, ...) reach. False with
+-- no luopan out.
+function common.is_in_luopan_radius()
+    local d = common.get_pet_distance_from_member(0)
+    -- ponytail: flat 10-yalm base radius; Widened Compass / merits are ignored
+    -- until someone asks for them.
+    return d ~= nil and d <= 10
+end
+
 -- Clear autofollow so a follow-target change stops running at the old target.
 function common.reset_autofollow()
     local af = AshitaCore:GetMemoryManager():GetAutoFollow()

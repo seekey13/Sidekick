@@ -35,6 +35,17 @@ return {
                 range = 20,
                 main_job_only = true,
             },
+            -- Enhances the luopan of the NEXT Geo spell, so it lives here as a
+            -- precast rather than a self-buff: geo.lua only fires it when no
+            -- luopan is out and the Geo spell that follows it is affordable.
+            {
+                name = 'Blaze of Glory',
+                level = 60,
+                cost = 0,
+                recast_id = 247,
+                command = '/ja "Blaze of Glory" <me>',
+                main_job_only = true,
+            },
 
             -- Geo debuffs (<bt>/enemy-target, 'Geo-bt' group). The cast and the
             -- single-luopan lifecycle are handled in lib/actions/geo.lua (not
@@ -230,14 +241,6 @@ return {
                 main_job_only = true,
                 group = 'geo_buff',
                 pet_required = true,
-            },
-            {
-                name = 'Blaze of Glory',
-                level = 60,
-                cost = 0,
-                recast_id = 247,
-                command = '/ja "Blaze of Glory" <me>',
-                main_job_only = true,
             },
 
             -- Indi spells (highest level first)
@@ -806,6 +809,33 @@ return {
         },
     },
     
+    -- Only one luopan can exist at a time, so a Geo spell cast while one is already
+    -- out is rejected by the server. geo.lua handles getting rid of the old one
+    -- (Full Circle on distance / combat end / a Geo-bt taking the slot); this just
+    -- keeps buff.lua from throwing the cast at a full slot in the meantime.
+    -- Scoped to group 'Geo': Indi follows the caster and uses no luopan, and 'Geo-bt'
+    -- must stay visible to geo.lua while a luopan is out so it can Full Circle it.
+    validate_ability = function(ability, common)
+        if ability.group == 'Geo' and common.get_pet_entity() then
+            return false
+        end
+        -- geo.lua has Full Circled the luopan to set up Radial Arcana and is about
+        -- to drop a throwaway Geo-Voidance in the slot. Without this, buff.lua sees
+        -- an empty slot and recasts the expensive Geo spell into it -- wasting both
+        -- the Full Circle and the recast. geo.lua casts the Voidance directly, so
+        -- it is unaffected by this gate.
+        if ability.group == 'Geo' and common.arcana_sequence then
+            return false
+        end
+        -- Radial Arcana consumes the luopan, so it may only fire on a bubble we
+        -- are stood in and can afford to lose. geo.lua decides that each tick
+        -- (cheap tier, nearly spent, or one it placed for this) and publishes it.
+        if ability.name == 'Radial Arcana' then
+            return common.arcana_usable == true
+        end
+        return true
+    end,
+
     -- Default settings for UI
     default_settings = {
         heal_enabled = false,

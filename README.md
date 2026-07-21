@@ -59,6 +59,12 @@ The one exception is **opt-in leader following** (off by default): with **Follow
 ### Added
 - **Corsair**: New job — *rolls only*. Pick two **Phantom Rolls** in the new **Rolls** section and Sidekick keeps them up, using **Double-Up** on each according to a **Risk Tier** (Lowest / Medium / Highest) built on the roll's lucky and unlucky numbers. It never doubles at 11, since 12 busts, uses **Snake Eye** for guaranteed finishes and **Fold** the moment you Bust, and while **Bust** is up it holds the second roll back until the slot frees. Rolls fire in and out of combat. Quick Draw, Ranged Attack, and Random Deal are deliberately not automated — Sidekick stays support-only.
 
+### Changed
+- **Geomancer Blaze of Glory is now a Geo precast**: it boosts the luopan your *next* Geo spell puts down, so Sidekick only uses it when no luopan is out and a Geo spell is actually about to be cast (and you can afford it). Its checkbox moved to the **Geo** section next to Full Circle.  Thanks to **Tai** for reporting the bug.
+
+### Fixed
+- **Geomancer Entrust fired with no MP for the Indi spell** — Entrust (5 minute recast) was used before checking you could pay for the configured Indi spell, wasting it. Both the ability and the follow-up cast are now gated on that MP.  Thanks to **Tai** for reporting the bug.
+
 ### [2.5.0] - 2026-07-17
 
 ### Added
@@ -386,7 +392,8 @@ Currently implemented support jobs:
   - Buff with Indi geomancy spells (self)
   - Debuff with Geo geomancy spells on your battle target (Geo-Vex, Geo-Frailty, Geo-Paralysis, Geo-Languor, Geo-Slip, Geo-Torpor, Geo-Slow, Geo-Poison) — combat-only, single debuff selectable via dropdown
   - Entrust system: Select target party member and Indi spell to automatically cast via Entrust ability
-  - Buff with job abilities (Lasting Emanation, Ecliptic Attrition, Collimated Fervor, Blaze of Glory, Dematerialize)
+  - Buff with job abilities (Lasting Emanation, Ecliptic Attrition, Collimated Fervor, Dematerialize)
+  - Blaze of Glory as a Geo precast: fired only when no luopan is out and the pending Geo spell is affordable
   - Self-heal with dark magic (**Drain**) on your battle target — combat-only, drains its HP to you
   - MP recovery with job abilities (Radial Arcana) and dark magic (**Aspir**, on your battle target — combat-only)
   - Geomancy/luopan management (automatic Full Circle execution)

@@ -1055,9 +1055,12 @@ function ui_config.render(settings, job_def, callback)
                     end
                 end
 
-                -- Full Circle checkbox (ungrouped geo ability, excluding Entrust)
+                -- Full Circle checkbox, kept directly above its own Distance/Timer
+                -- sliders. Blaze of Glory renders after them (below) rather than in
+                -- this loop, so it can't split Full Circle from its settings.
                 for _, ability in ipairs(job_def.abilities.geo) do
-                    if ability.group == nil and ability.name ~= 'Entrust' and can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
+                    if ability.group == nil and ability.name ~= 'Entrust' and ability.name ~= 'Blaze of Glory'
+                        and can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
                         ui.ability_checkbox(ctx, ability, job_def, 'geo')
                         ui.item_tooltip(tooltips.geo_full_circle)
                     end
@@ -1073,6 +1076,15 @@ function ui_config.render(settings, job_def, callback)
                 if job_def.job_id == 21 then
                     ui.slider_int(ctx, 'Timer (seconds)##geo_bt_timer', 'geo_bt_timer', { settings.geo_bt_timer or 5 }, 1, 20)
                     ui.item_tooltip(tooltips.geo_bt_timer)
+                end
+
+                -- Blaze of Glory: a precast for the NEXT Geo spell, not part of the
+                -- Full Circle distance logic, so it sits below those sliders.
+                for _, ability in ipairs(job_def.abilities.geo) do
+                    if ability.name == 'Blaze of Glory' and can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
+                        ui.ability_checkbox(ctx, ability, job_def, 'geo')
+                        ui.item_tooltip(tooltips.geo_blaze_of_glory)
+                    end
                 end
 
                 -- Entrust settings (only for Geomancer)
