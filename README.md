@@ -351,9 +351,9 @@ Currently implemented support jobs:
 
 - **Corsair** (COR) — *rolls only*
   - Maintains two **Phantom Rolls** of your choice (pick them from the **Rolls** section) and uses **Double-Up** on each until it is good enough
-  - **Risk Tier** (default *Medium*) decides how far it chases a total. Every tier doubles freely at 5 or less (no die can bust), never doubles at 11 (12 busts), and uses **Snake Eye** at 10 for a guaranteed 11:
-    - *Lowest* — stops at 6 or more, never takes a bust chance
-    - *Medium* — chases the roll's **lucky** number while it's still one die away, and rerolls off the **unlucky** number while the bust chance is 50% or less
+  - **Risk Tier** (default *Medium*) decides how far it chases a total. Every tier doubles at 5 or less (no die can bust) unless it is already sitting on the roll's **lucky** number, never doubles at 11 (12 busts), and uses **Snake Eye** at 10 for a guaranteed 11:
+    - *Lowest* — banks the **lucky** number on sight, and stops at 6 or more; never takes a bust chance
+    - *Medium* — banks the **lucky** number, chases it while it's still one die away, and rerolls off the **unlucky** number while the bust chance is 50% or less
     - *Highest* — 11 or nothing. It rolls straight past the **lucky** number (free at 5 or less, where nothing can bust) and keeps doubling through 6-10 whenever **Fold** is up to undo a Bust, otherwise plays like Medium. Expect to give up lucky totals regularly — that's the trade for chasing the cap
   - **Fold** is used the moment you Bust, whatever the tier — that frees the slot, so a fresh roll goes back in and the chase restarts
   - **Snake Eye** and **Fold** are level 75 merit abilities, main job only; without them the tiers still work, just without the guaranteed finishes and the Bust insurance

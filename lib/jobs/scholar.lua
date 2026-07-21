@@ -341,7 +341,7 @@ return {
             {
                 name = 'Aquaveil',
                 level = 13,
-                cost = 15,
+                cost = 12,
                 spell_id = 55,
                 magic = 'white',
                 magic_type = 'enhancing',

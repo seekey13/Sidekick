@@ -177,11 +177,13 @@ return {
 
     risk_tier =
         'How far Double-Up chases a total. Every tier\n' ..
-        'doubles freely at 5 or less (no die can bust) and\n' ..
-        'never doubles at 11, and all three use Snake Eye\n' ..
-        'at 10 for a guaranteed 11.\n' ..
-        'Lowest: stops at 6+, never takes a bust chance.\n' ..
-        'Medium: chases the lucky number while it is still\n' ..
+        'doubles at 5 or less (no die can bust) unless it\n' ..
+        'is already on the lucky number, never doubles at\n' ..
+        '11, and all three use Snake Eye at 10 for a\n' ..
+        'guaranteed 11.\n' ..
+        'Lowest: banks lucky, stops at 6+, never takes a\n' ..
+        'bust chance.\n' ..
+        'Medium: banks lucky, chases it while it is still\n' ..
         'one die away, and rerolls off the unlucky number.\n' ..
         'Highest: 11 or nothing -- it rolls straight past\n' ..
         'the lucky number, and keeps doubling at 6-10\n' ..
