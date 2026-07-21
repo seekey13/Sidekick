@@ -5,6 +5,14 @@ All notable changes to Sidekick will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.6.0] - Unreleased
+
+### Changed
+- **Blaze of Glory is now a Geo precast, not a self-buff**: it enhances the luopan created by the *next* Geo spell, so firing it as a plain self-buff burned the 10-minute recast with a luopan already out or with no Geo cast pending. The ability moved from `abilities.buff` to `abilities.geo` (its checkbox now renders in the Geo section beside Full Circle; the `disabled_Blaze_of_Glory` settings key is unchanged), and `geo.lua` fires it only when the luopan slot is free *and* a Geo spell is actually pending that it can pay for — `next_geo_spell()` resolves that to the combat `<bt>` debuff when one is selected, else the selected Geo `<me>`/party tier on its one enabled target, and returns nil when that target already holds the buff. Runs ahead of the Geo-bt cast and ahead of `buff.lua`'s Geo cast (buff comes after geo in `priority_order`).
+
+### Fixed
+- **Entrust fired without the MP to follow it**: the Indi spell's MP cost was only checked in the branch that casts it, so with the Entrust buff already up Sidekick would pop **Entrust** (5 minute recast) and then sit unable to afford the Indi spell. The cost check is now hoisted above the buff branch in `geo.lua`, gating the JA and the follow-up cast alike.
+
 ## [2.5.0] - 2026-07-17
 
 ### Added
