@@ -33,12 +33,14 @@ lib/
     recover.lua             MP/TP recovery abilities
     rest.lua                Automatic resting (/heal) with follow-target awareness
     revive.lua              Raise dead party/tracked/alliance members
+    roll.lua                COR Phantom Roll / Double-Up (incl. its 0x028 total reader)
     status_removal.lua      Debuff removal & sleep wake (single + AOE)
   jobs/
     bard.lua                BRD job definition
     beastmaster.lua         BST job definition (pet-only)
     black_mage.lua          BLM job definition (self-only)
     blue_mage.lua           BLU job definition
+    corsair.lua             COR job definition (rolls only)
     dancer.lua              DNC job definition
     dark_knight.lua         DRK job definition (self-only)
     dragoon.lua             DRG job definition
@@ -104,8 +106,8 @@ lib/
 │  master_priority (Sidekick.lua) order:        │
 │  item → recover → critical → heal_aoe → heal  │
 │  → debuff_removal → heal_pet →                │
-│  pet_debuff_removal → wake → geo → buff →     │
-│  revive → follow → rest                       │
+│  pet_debuff_removal → wake → geo → roll →     │
+│  buff → revive → follow → rest                │
 └──────────┬────────────────────────────────────┘
            │ uses
            ▼
@@ -177,7 +179,8 @@ Consolidated ability infrastructure module. Combines resource management (MP/TP 
 |---|---|
 | `has_resource(type, amount)` | Check MP or TP ≥ amount |
 | `get_resource(type)` | Current MP or TP |
-| `is_ability_ready(recast_id)` | Ability recast timer = 0 (with 0.5s post-delay) — reads the JA recast table |
+| `is_ability_ready(recast_id)` | Ability recast timer = 0 (with 0.5s post-delay) — reads the JA recast table. **Consuming**: the post-delay is tracked by arming a timestamp on the first zero-timer call and clearing it on the call that returns true, so two calls in one tick disagree by design |
+| `is_ability_recast_zero(recast_id)` | Same table, **read-only** — no post-delay bookkeeping. For deciding *whether* an ability is available without trying to use it. Using `is_usable` for that and then calling `try_use` re-arms the delay and never fires |
 | `is_spell_ready(spell_id)` | Spell recast timer = 0 (with 0.5s post-delay) — reads the spell recast table |
 | `get_spell_recast(spell_id)` | Remaining spell recast |
 
@@ -236,11 +239,37 @@ field name must match its command (see the ability-field reference below).
   first (`off` / `idle` / `asleep` / `awake (Ns)`) — the countdown only advances while the tick
   loop is actually reaching `afk.update()`.
 
+### roll_strategy.lua
+
+Pure decision math for Corsair's Double-Up, with **zero dependencies** — no `common`, no
+`action_core`, no `AshitaCore`. Primitives in, primitives out, so it can be exercised in Ashita's
+Lua VM without a live roll sequence. All stateful concerns stay in
+[roll.lua](#rolllua--corsair-phantom-roll--double-up).
+
+- `decide(total, lucky, unlucky, tier, snake_eye_ready, fold_ready)` → `'stop'` | `'double'` |
+  `'snake_eye_then_double'`, evaluated in this order:
+  1. `total >= 11` → stop (every die busts).
+  2. `total <= 5` → double (no die can bust — free roll). Lowest/Medium stop if already on `lucky`, since lucky is their ceiling; **Highest does not** — its ceiling is 11, and giving up lucky costs nothing here because the worst a die can do from 5 is land on 11.
+  3. Snake Eye at 10 → guaranteed 11, zero risk, taken by **every** tier.
+  4. Snake Eye at `lucky - 1` → guaranteed lucky; taken by Lowest/Medium only. Its ~5 min recast
+     outlasts a chase, so Highest (ceiling 11, not lucky) reserves it for rule 3.
+  5. **Lowest**: stop. Never accepts a real bust chance past the zero-risk zone, Fold or not.
+  6. **Highest**: double through 6-10 chasing 11 while Fold is ready to undo a Bust; uninsured it
+     falls through to Medium's logic.
+  7. **Medium**: double while `lucky` is one die away (`lucky > total and lucky <= total + 6`);
+     also double when sitting exactly on `unlucky` and the bust chance is still ≤50%
+     (`total <= 8`); otherwise bank it.
+- `should_fold(has_bust_buff, fold_ready)` → boolean, tier-independent.
+- `self_test(log)` runs the case table for every branch above and prints PASS/FAIL per case;
+  wired to **`/sidekick roll_test`**. Rules are probability-based rather than expected-value
+  based: only one real payoff table (Corsair's Roll) is confirmed, so bust odds and reachability
+  — which are exact — drive the tiers instead of guessed payoffs for the other 24 rolls.
+
 ### common.lua
 
 Shared utility module (~3,200 lines). Key areas:
 
-- **Logging**: `printf`, `debugf`, `errorf`, `warnf` – unified via internal `log()` helper
+- **Logging**: `printf`, `debugf`, `errorf`, `warnf`, `successf` (green, `chat.success` — reserved for an automation goal actually being met, e.g. a roll landing on its lucky number) – unified via internal `log()` helper. `debugf` suppresses repeats **per message** (not consecutive — modules interleave, so identical lines are never adjacent): each distinct message prints at most once per 60s and carries the swallowed count on its next print. Without it the per-frame tick loop writes steady-state lines ~60x/second. The window only governs how often an *unchanged* state repeats — a real state change formats a different string and prints immediately — so it is sized against the slowest thing waited on (COR's ~60s Phantom Roll recast)
 - **Player state**: `get_player_level/job/mp/tp`, `is_idle/engaged/in_event`, `is_casting` (locked by 0x028 category 8 `casting_begin`, released by 4 `spell_finish` or by an interrupt, via `handle_action_packet`; melee is dropped. `cast_timeout` = 16 s is a **backstop for a missed packet, not a mechanism** — interrupts (below) and zoning clear the lock explicitly, so nothing routine relies on it), `clear_casting_state` (drops the casting lock on zone change, where the cancelled cast never sends a finish packet), `get_last_action` (debug-panel label for the last 0x028 category seen), `is_player_moving`, `is_resting` (cached from entity status 33), `is_mounted` (entity status 5 or buff 252)
 - **Interrupt detection** (`common.INTERRUPT_PARAM` = 28787 / `0x7073`): a cancelled action sends **no finish packet**. It repeats its own `*_begin` category (7 WS / 8 casting / 9 item / 12 ranged) carrying `INTERRUPT_PARAM` where the spell/ability id would be — no real id collides with it. Three readers: `handle_action_packet` ignores that second category 8 rather than re-arming the cast lock (which froze automation until `cast_timeout`); `is_action_finish` in `Sidekick.lua` restarts the command throttle from it (the server's lockout applies whether the action landed or was cancelled); `get_last_action` reports `interrupted (<category>)` instead of a bogus `casting_begin` plus a spell lookup on an id that isn't one.
 - **Party**: `get_party_size`, `get_party_member_name/zone/distance`, `get_party_server_ids`
@@ -289,7 +318,21 @@ Both toggles live in the `/sk panel` header row, are persisted per job, and requ
 
 Parses raw packet bytes for action packet 0x028 into structured Lua tables (actor, type, targets, actions). Used by Sidekick.lua's packet_in handler for casting-state detection and Trust buff tracking.
 
-0x028 is **bit-packed, not byte-aligned** — `Type` (the 4-bit action category) sits at bit 82, not on any byte boundary, so it can only be read through this parser, never with `struct.unpack` offsets. Categories: `1` melee, `2` ranged_finish, `3` ws_finish, `4` spell_finish, `5` item_finish, `6` job_ability, `7` ws_begin, `8` casting_begin, `9` item_begin, `11` mob_tp_finish, `12` ranged_begin, `13` avatar_tp_finish, `14`/`15` job_ability (DNC/RUN). Layout matches [Windower's `fields.lua`](https://github.com/Windower/Lua/blob/dev/addons/libs/packets/fields.lua) for incoming 0x028.
+0x028 is **bit-packed, not byte-aligned** — `Type` (the 4-bit action category) sits at bit 82, not on any byte boundary, so it can only be read through this parser, never with `struct.unpack` offsets. Categories: `1` melee, `2` ranged_finish, `3` ws_finish, `4` spell_finish, `5` item_finish, `6` job_ability, `7` ws_begin, `8` casting_begin, `9` item_begin, `11` mob_tp_finish, `12` ranged_begin, `13` avatar_tp_finish, `14`/`15` job_ability (DNC/RUN).
+
+Field names and widths follow the server's own packer,
+[`0x028_battle2.cpp`](https://github.com/CatsAndBoats/catseyexi/blob/base/src/map/packets/s2c/0x028_battle2.cpp):
+each action carries `Resolution 3 | Kind 2 | Animation 12 | Info 5 | Scale 2 | Knockback 3 |
+Param 17 | Message 10 | Flags 31`. Note byte `0x04` is `workSize` (packed byte length), **not**
+a category — no roll decode may key off it.
+
+`roll.handle_action_packet` reads Corsair roll totals off this same parsed packet: `Type == 6`
+(job ability), `Param` = the roll's ability id (on a Double-Up the server rewrites it to the
+*underlying* roll's id, so every packet self-identifies its slot), and on the caster's own
+target entry `action.Info` = the die 1-6, `action.Param` = the running total, `action.Message` =
+420/421 roll, 424 double-up, 426/427 bust. It is dispatched from Sidekick.lua's 0x028 handler
+just after the parse, guarded on the loaded job actually having `abilities.roll` so it costs one
+table lookup for every other job.
 
 ### targets.lua
 
@@ -395,6 +438,36 @@ MP and TP recovery. Monitors percentage thresholds. Uses `action_core.first_comm
 - **Entrust**: Name-based target + spell selection from UI dropdowns; fires Entrust → Indi spell on configured party member. Indi does not use a luopan, so it never conflicts with the Geo luopan.
 - All Geo spells have `main_job_only = true`.
 
+### roll.lua – Corsair Phantom Roll / Double-Up
+
+- **Two configurable roll slots** (`settings.roll1_name` / `roll2_name`, chosen from
+  `abilities.roll` in the config UI). Available slots are **2**, or **1** while **Bust** (309)
+  is up; no new roll is cast once the active configured rolls reach that count, so the second
+  roll is held back rather than fighting a Bust for the slot.
+- **Priority 1 – Fold a Bust.** Tier-independent: the moment Bust (309) is up and Fold is off
+  cooldown, Fold is cast. That frees the slot, so Priority 3 recasts a fresh roll into it and the
+  chase restarts — no extra state needed to "chain".
+- **Priority 2 – Double-Up a live roll.** Requires the Double-Up Chance buff (308), the roll's
+  own `buff_id`, and a non-zero packet-derived total; the actual keep-or-stop call is
+  [roll_strategy.lua](#roll_strategylua). Priority 3 casts Roll1 when its buff is missing, then
+  Roll2 once Roll1 exists and is no longer awaiting packets (only one roll is ever in flight).
+- **Snake Eye** is armed, not tracked by recast: when `roll_strategy.decide` returns
+  `'snake_eye_then_double'` the JA is cast and the slot's `snake_eye_armed` flag is set, since its
+  5-minute recast will read busy on the next tick. The flag short-circuits to a plain Double-Up
+  and is cleared when the slot's next packet total resolves (or the roll is recast).
+- **Timers** (module-local, `os.clock`): 1s after the initial roll before the first Double-Up,
+  6s between Double-Ups, 2s between roll casts. Proven in-game — the shared 1.1s command
+  throttle alone is not enough to keep the packet/state machine in step.
+- Every roll shares Phantom Roll's `recast_id = 193`, so `action_core.try_use` gates the cast on
+  that single timer (plus Amnesia/movement via `is_command_blocked`); state is mutated only
+  after `try_use` returns a command. Deliberately **not** gated on being engaged — rolls fire
+  out of combat too.
+- **Roll totals come from the packet, not memory** — see the packet note under
+  [parse_packets.lua](#parse_packetslua). `roll.reset_state()` is called by the config UI
+  whenever a roll selection changes, so a stale total can't leak into the new roll;
+  `roll.get_state()` exposes the state for display. All state is module-local and does not
+  survive `/addon reload`.
+
 ### follow.lua – Leader Following
 
 - **Opt-in** (`settings.follow_enabled`, default off) job-independent leader following — the
@@ -472,6 +545,7 @@ return {
         recover_tp         = { ... },
         recover_party_mp   = { ... },
         geo                = { ... },
+        roll               = { ... },  -- COR Phantom Rolls (lucky / unlucky per roll)
         target_modifier    = { ... },
         revive             = { ... },  -- raise spells (WHM/SCH/RDM)
         precast            = { ... },  -- JAs fired just before a paired spell (SCH stratagems /
@@ -500,8 +574,11 @@ return {
     recast_id       = 0,            -- everything else (/ja, /item, /pet, /ws): abilities.sql `recastId`
                                     --   Exactly one of the two per ability -- the field name selects
                                     --   which recast table is_usable reads.
-    ability_id      = 160,          -- JA only: raw abilities.sql `abilityId` for merit-unlocked JAs
-                                    --   (has_spell_learned checks HasAbility(ability_id + 512))
+    ability_id      = 160,          -- JA only: raw abilities.sql `abilityId` for JAs that are
+                                    --   unlocked individually rather than by level -- merit JAs, and
+                                    --   COR rolls (has_spell_learned checks HasAbility(id + 512)).
+                                    --   COR rolls reuse it to match a 0x028 packet's cmd_arg back
+                                    --   to the roll that produced it.
     command         = function(idx) return '/ma "Cure IV" <p' .. idx .. '>' end,
     -- or: command = '/ja "Divine Seal" <me>',
     buff_id         = 43,           -- number or table of buff IDs to track
@@ -541,6 +618,9 @@ return {
                                     --   owns this JA ('nether_void' | 'diffusion' | 'embolden' |
                                     --   'enlightenment'). A UI key, never a magic colour.
     one_shadow_buff = 66,           -- NIN: buff id ignored/stripped by "Cast with 1 Shadow"
+    lucky           = 5,            -- COR roll only: total that grants the bonus effect
+    unlucky         = 9,            -- COR roll only: worst non-Bust total. Both are read by
+                                    --   roll_strategy.decide (see roll_strategy.lua)
     range           = 20,
     is_main_job     = true,         -- false for subjob-sourced abilities
     resource_type   = nil,          -- override job resource_type ('mp'/'tp')

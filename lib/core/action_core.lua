@@ -74,6 +74,31 @@ function action_core.is_ability_ready(ability_id)
     return true
 end
 
+--[[
+    Read-only variant of is_ability_ready: true when the timer reads zero, with none
+    of the POST_RECAST_DELAY bookkeeping.
+
+    is_ability_ready is a CONSUMING check -- it arms a timestamp on the first call
+    that sees a zero timer and clears it on the call that finally returns true, so
+    two calls in the same tick disagree by design. Callers that need to know whether
+    an ability is available WITHOUT trying to use it (deciding between two plans,
+    reporting state) must use this instead; the real cast still goes through
+    is_usable/try_use, which applies the delay.
+]]--
+function action_core.is_ability_recast_zero(recast_id)
+    if not recast_id then return true end
+    local recast_mgr = AshitaCore:GetMemoryManager():GetRecast()
+    if not recast_mgr then return false end
+    for i = 0, 31 do
+        local ok_id, timer_id = pcall(function() return recast_mgr:GetAbilityTimerId(i) end)
+        if ok_id and timer_id == recast_id then
+            local ok_timer, timer = pcall(function() return recast_mgr:GetAbilityTimer(i) end)
+            return ok_timer and timer == 0
+        end
+    end
+    return true  -- Not in the timer list at all = never started = ready
+end
+
 -- Check if a spell (by recast ID) is off cooldown.
 function action_core.is_spell_ready(spell_recast_id)
     if not spell_recast_id then return true end

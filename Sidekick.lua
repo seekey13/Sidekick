@@ -29,6 +29,7 @@ local afk = require('lib.core.afk')
 -- Load action modules
 local heal_mod   = require('lib.actions.heal')
 local status_mod = require('lib.actions.status_removal')
+local roll_mod   = require('lib.actions.roll')  -- also reads roll totals off the 0x028 packet
 
 local action_modules = {
     item           = require('lib.actions.item'),
@@ -38,6 +39,7 @@ local action_modules = {
     wake           = { execute = status_mod.execute_wake },
     debuff_removal = { execute = status_mod.execute_debuff_removal },
     pet_debuff_removal = { execute = status_mod.execute_pet_debuff_removal },
+    roll           = roll_mod,
     buff           = require('lib.actions.buff'),
     recover        = require('lib.actions.recover'),
     geo            = require('lib.actions.geo'),
@@ -115,6 +117,7 @@ local function load_single_job_definition(job_id)
         [14] = 'dragoon',     -- Dragoon
         [15] = 'summoner',    -- Summoner
         [16] = 'blue_mage',   -- Blue Mage
+        [17] = 'corsair',     -- Corsair
         [18] = 'puppetmaster',-- Puppetmaster
         [19] = 'dancer',      -- Dancer
         [20] = 'scholar',     -- Scholar
@@ -258,6 +261,7 @@ local function load_job_definition(main_job_id, sub_job_id)
         'pet_debuff_removal',
         'wake',
         'geo',
+        'roll',
         'buff',
         'revive',
         'follow',
@@ -648,6 +652,10 @@ local function automation_tick()
                 -- Fresh AFK timer for the new job (its saved afk_timeout may differ).
                 afk.reset()
 
+                -- Roll totals belong to the old job's rolls (and the new job's saved
+                -- roll names are different anyway) -- drop them with the job.
+                roll_mod.reset_state()
+
                 -- Skip this frame after job reload
                 return
             elseif level_changed then
@@ -877,6 +885,13 @@ ashita.events.register('packet_in', 'sidekick_packet_in', function(e)
     if e.id == 0x028 then
         local actionPacket = parse_packets.parse_action_packet(e)
 
+        -- Corsair roll totals ride on the same parsed packet: cmd_arg identifies the
+        -- roll, the caster's own target entry carries the die value and running total.
+        -- Costs one table lookup for every other job.
+        if job_def and job_def.abilities and job_def.abilities.roll then
+            roll_mod.handle_action_packet(actionPacket, addon_settings, job_def)
+        end
+
         -- Determine if we (the player) are the actor
         local party = common.get_party()
         local player_id = party and party:GetMemberServerId(0)
@@ -1102,6 +1117,7 @@ ashita.events.register('command', 'sidekick_command', function(e)
         common.printf('  /sidekick panel - Toggle party state info panel')
         common.printf('  /sidekick debug - Toggle debug mode')
         common.printf('  /sidekick recast - Show all active ability recast timers')
+        common.printf('  /sidekick roll_test - Self-test the Corsair roll strategy rules')
         common.printf('  /sidekick afk [on|off|<seconds>] - AFK Sleep: show/toggle/set timeout')
         common.printf('  /sidekick status - Show current status')
         
@@ -1180,7 +1196,14 @@ ashita.events.register('command', 'sidekick_command', function(e)
         
     elseif cmd == 'recast' then
         common.show_recast_timers()
-        
+
+    elseif cmd == 'roll_test' then
+        -- roll_strategy is pure, so its decision table can be verified without a live
+        -- Corsair or a real roll sequence.
+        require('lib.core.roll_strategy').self_test(function(line)
+            common.printf('%s', line)
+        end)
+
     elseif cmd == 'status' then
         common.printf('Sidekick Status:')
         common.printf('  Job: %s', job_def and job_def.job_name or 'Not loaded')
