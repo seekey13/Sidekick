@@ -30,6 +30,37 @@ local geo_bt_end_time = nil
 -- luopan" branch would Full Circle the debuff luopan the instant it lands.
 local geo_bt_cast_time = nil
 
+-- Whether a luopan was out on the previous execute(), so the moment it goes away
+-- can be detected (see clear_tracked_geo_buffs).
+local had_luopan = false
+
+-- The luopan is gone, so every Geo aura it was feeding died with it. Real party
+-- members read their own buffs from memory and correct themselves; Trusts do not
+-- exist in memory (common.get_member_buffs falls back to packet-tracked
+-- trust_buffs for server ids >= 0x1000000), and an aura ending because its luopan
+-- went away sends no wear-off packet at all. Left alone the tracked buff lingers
+-- until its duration cap, so buff.lua sees the Trust as already buffed and never
+-- recasts the Geo spell after a Full Circle.
+--
+-- Only group 'Geo' -- Indi spells follow the caster, not the luopan, and Geo-bt
+-- ids live on the enemy. handle_buff_removal no-ops on anything untracked.
+local function clear_tracked_geo_buffs(job_def)
+    local party = common.game_state and common.game_state.party
+    if not party then return end
+
+    for _, ability in ipairs(job_def.abilities.buff or {}) do
+        if ability.group == 'Geo' then
+            for _, buff_id in ipairs(action_core.normalize_ids(ability.buff_id)) do
+                for _, member in pairs(party) do
+                    if member and member.server_id then
+                        common.handle_buff_removal(member.server_id, buff_id)
+                    end
+                end
+            end
+        end
+    end
+end
+
 -- Returns the Geo-bt ability the user wants maintained in combat, or nil.
 -- Honors the selected_Geo-bt dropdown (falls back to the highest-cost available
 -- debuff). filter_abilities_by_level applies the level + <bt> combat gate, so
@@ -179,6 +210,14 @@ function geo.execute(settings, job_def, main_level, sub_level, player_resource)
     if has_luopan then
         geo_bt_cast_time = nil
     end
+
+    -- Luopan just went away (Full Circle, expiry, killed): drop the auras it was
+    -- feeding from packet-based buff tracking. Keyed on the entity disappearing
+    -- rather than on issuing Full Circle, so every way of losing it is covered.
+    if had_luopan and not has_luopan then
+        clear_tracked_geo_buffs(job_def)
+    end
+    had_luopan = has_luopan
 
     -- Our debuff luopan is gone (expired / battle target died): clear tracking.
     -- Ignore the short window right after a cast where the luopan entity has not
