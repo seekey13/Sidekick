@@ -242,6 +242,12 @@ function roll.execute(settings, job_def, main_level, sub_level, player_resource)
                 roll_state.roll2.expecting_double_up = false
                 state.expecting_double_up = true
 
+                -- Stamp on SEND, not just on the packet: until the 0x028 lands,
+                -- state.total still reads the pre-double value, so an unstamped gate
+                -- would let the next tick double again off a stale total and bust a
+                -- total no tier would ever gamble on. The packet re-stamps this later.
+                roll_state.last_double_up_time = current_time
+
                 return {
                     command     = '/ja "Double-Up" <me>',
                     description = string.format('Double-Up: %s (Total: %d)', roll_ability.name, state.total),
