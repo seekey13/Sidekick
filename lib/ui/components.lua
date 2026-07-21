@@ -74,20 +74,19 @@ local function render_combat_only_context_menu(ctx, ability, scope)
     -- both BeginPopupContextItem calls share an id and stack duplicate menus.
     -- Setting keys stay unscoped: it's one recast, so its gate is shared.
     local scope_suffix = scope and ('_' .. scope) or ''
-    local combat_key, idle_key, popup_id
+    -- Setting keys follow common.ability_gate_key: group-level while grouped,
+    -- per-ability once the group is ungrouped (so each tier gets its own gate).
+    local combat_key = common.ability_gate_key('combat_only', ability, ctx.settings)
+    local idle_key = common.ability_gate_key('idle_only', ability, ctx.settings)
+    if not combat_key or not idle_key then return end
+    -- Popup id is always per-ability: when a group is ungrouped each tier renders
+    -- its own row, so a shared group id would stack duplicate menus into one popup.
+    local popup_id
     if ability.group then
-        combat_key = 'combat_only_group_' .. ability.group
-        idle_key = 'idle_only_group_' .. ability.group
-        -- Per-ability popup id (not per-group): when a group is ungrouped, each
-        -- tier renders its own row, so a shared group id would stack duplicate
-        -- menus into one popup. The setting keys stay group-level.
         popup_id = '##cmenu_combat_only_group_' .. ability.group .. '_' .. (ability.name and ability.name:gsub(' ', '_') or '') .. scope_suffix
     else
         if not ability.name then return end
-        local safe_name = ability.name:gsub(' ', '_')
-        combat_key = 'combat_only_' .. safe_name
-        idle_key = 'idle_only_' .. safe_name
-        popup_id = '##cmenu_combat_only_' .. safe_name .. scope_suffix
+        popup_id = '##cmenu_combat_only_' .. ability.name:gsub(' ', '_') .. scope_suffix
     end
     if imgui.BeginPopupContextItem(popup_id) then
         if not hide_toggles then
