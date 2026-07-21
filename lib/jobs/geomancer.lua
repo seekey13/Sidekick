@@ -35,6 +35,17 @@ return {
                 range = 20,
                 main_job_only = true,
             },
+            -- Enhances the luopan of the NEXT Geo spell, so it lives here as a
+            -- precast rather than a self-buff: geo.lua only fires it when no
+            -- luopan is out and the Geo spell that follows it is affordable.
+            {
+                name = 'Blaze of Glory',
+                level = 60,
+                cost = 0,
+                recast_id = 247,
+                command = '/ja "Blaze of Glory" <me>',
+                main_job_only = true,
+            },
 
             -- Geo debuffs (<bt>/enemy-target, 'Geo-bt' group). The cast and the
             -- single-luopan lifecycle are handled in lib/actions/geo.lua (not
@@ -230,14 +241,6 @@ return {
                 main_job_only = true,
                 group = 'geo_buff',
                 pet_required = true,
-            },
-            {
-                name = 'Blaze of Glory',
-                level = 60,
-                cost = 0,
-                recast_id = 247,
-                command = '/ja "Blaze of Glory" <me>',
-                main_job_only = true,
             },
 
             -- Indi spells (highest level first)

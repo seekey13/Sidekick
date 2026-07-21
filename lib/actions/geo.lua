@@ -53,6 +53,77 @@ local function get_selected_geo_bt(job_def, settings, main_level, sub_level)
     return available[1]
 end
 
+-- The Geo spell that would be cast next, or nil if none is pending: the combat
+-- <bt> debuff when one is selected, else the selected Geo <me>/party buff tier
+-- (buff.lua casts that one) provided its target still needs it. Used to decide
+-- whether Blaze of Glory has anything to enhance.
+local function next_geo_spell(job_def, settings, main_level, sub_level, geo_bt, in_combat)
+    if in_combat and geo_bt then return geo_bt end
+
+    -- Geo buff group: one enabled target (single luopan) that lacks the buff.
+    local party_buffs = require('lib.ui.config').get_party_buffs()
+    local geo_targets = party_buffs and party_buffs['Geo']
+    local target_index = nil
+    if geo_targets then
+        for idx, is_on in pairs(geo_targets) do
+            if is_on == true and type(idx) == 'number' and idx >= 0 and idx <= 5 then
+                target_index = idx
+                break
+            end
+        end
+    end
+    if not target_index then return nil end
+
+    local candidates = {}
+    for _, ability in ipairs(job_def.abilities.buff or {}) do
+        if ability.group == 'Geo' then
+            table.insert(candidates, ability)
+        end
+    end
+    local available = common.filter_abilities_by_level(candidates, settings, main_level, sub_level, job_def)
+    if #available == 0 then return nil end
+
+    local spell = available[1]  -- cost-sorted fallback, same rule buff.lua uses
+    local selected_name = settings['selected_Geo']
+    if selected_name then
+        spell = nil
+        for _, ability in ipairs(available) do
+            if ability.name == selected_name then spell = ability break end
+        end
+        if not spell then return nil end
+    end
+
+    local state = common.game_state
+    local target_buffs
+    if target_index == 0 then
+        target_buffs = state.player.buffs or {}
+    else
+        local member = state.party[target_index]
+        if not member then return nil end
+        target_buffs = member.buffs or {}
+    end
+    if not action_core.needs_buff(target_buffs, spell.buff_id) then return nil end
+
+    return spell
+end
+
+-- Blaze of Glory enhances the luopan the next Geo spell creates, so it is a
+-- precast: callers only reach here with no luopan out, and we hold it unless
+-- that spell is affordable so the 10-minute recast isn't burned for nothing.
+local function try_blaze_of_glory(job_def, settings, main_level, sub_level, next_spell)
+    if not next_spell then return nil end
+    if not action_core.has_resource(job_def.resource_type, next_spell.cost or 0) then return nil end
+
+    local geo_abilities = common.filter_abilities_by_level(job_def.abilities.geo or {}, settings, main_level, sub_level, job_def)
+    for _, ability in ipairs(geo_abilities) do
+        if ability.name == 'Blaze of Glory' then
+            return action_core.try_use(ability, job_def, settings, 0,
+                string.format('Blaze of Glory (precast for %s)', next_spell.name))
+        end
+    end
+    return nil
+end
+
 -- Build a Full Circle action result if it is usable right now. Callers ensure a
 -- pet/luopan is present. Returns { command, description } or nil.
 local function try_full_circle(job_def, settings, main_level, sub_level, description)
@@ -138,6 +209,15 @@ function geo.execute(settings, job_def, main_level, sub_level, player_resource)
                 'Full Circle (dismissing Geo-bt luopan, combat ended)')
             if fc then return fc end
         end
+    end
+
+    -- Blaze of Glory precast: only with the luopan slot free and a Geo spell
+    -- actually pending. Runs ahead of the Geo-bt cast below and ahead of
+    -- buff.lua's Geo <me> cast (buff comes after geo in priority_order).
+    if not has_luopan then
+        local bog = try_blaze_of_glory(job_def, settings, derived_main_level, derived_sub_level,
+            next_geo_spell(job_def, settings, derived_main_level, derived_sub_level, geo_bt, in_combat))
+        if bog then return bog end
     end
 
     -- In combat with a Geo-bt debuff selected: make sure the luopan is ours.

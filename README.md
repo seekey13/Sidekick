@@ -369,7 +369,8 @@ Currently implemented support jobs:
   - Buff with Indi geomancy spells (self)
   - Debuff with Geo geomancy spells on your battle target (Geo-Vex, Geo-Frailty, Geo-Paralysis, Geo-Languor, Geo-Slip, Geo-Torpor, Geo-Slow, Geo-Poison) — combat-only, single debuff selectable via dropdown
   - Entrust system: Select target party member and Indi spell to automatically cast via Entrust ability
-  - Buff with job abilities (Lasting Emanation, Ecliptic Attrition, Collimated Fervor, Blaze of Glory, Dematerialize)
+  - Buff with job abilities (Lasting Emanation, Ecliptic Attrition, Collimated Fervor, Dematerialize)
+  - Blaze of Glory as a Geo precast: fired only when no luopan is out and the pending Geo spell is affordable
   - Self-heal with dark magic (**Drain**) on your battle target — combat-only, drains its HP to you
   - MP recovery with job abilities (Radial Arcana) and dark magic (**Aspir**, on your battle target — combat-only)
   - Geomancy/luopan management (automatic Full Circle execution)
