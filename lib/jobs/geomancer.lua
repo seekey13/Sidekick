@@ -809,6 +809,19 @@ return {
         },
     },
     
+    -- Only one luopan can exist at a time, so a Geo spell cast while one is already
+    -- out is rejected by the server. geo.lua handles getting rid of the old one
+    -- (Full Circle on distance / combat end / a Geo-bt taking the slot); this just
+    -- keeps buff.lua from throwing the cast at a full slot in the meantime.
+    -- Scoped to group 'Geo': Indi follows the caster and uses no luopan, and 'Geo-bt'
+    -- must stay visible to geo.lua while a luopan is out so it can Full Circle it.
+    validate_ability = function(ability, common)
+        if ability.group == 'Geo' and common.get_pet_entity() then
+            return false
+        end
+        return true
+    end,
+
     -- Default settings for UI
     default_settings = {
         heal_enabled = false,
