@@ -319,7 +319,7 @@ end
 -- Grace window (seconds) that is_combat stays true after the battle target
 -- vanishes -- covers the gap between one mob dying and someone engaging the
 -- next in a multi-mob pull, so support coverage overlaps instead of flickering.
-local COMBAT_GRACE = 2.0
+local COMBAT_GRACE = 5.0
 local combat_last_true = 0  -- os.clock() of the last real battle target
 
 function common.is_combat()
