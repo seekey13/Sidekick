@@ -2428,15 +2428,18 @@ end
 -- Scholar Stratagem Pre-Cast Management
 -- ============================================================================
 
--- Scholar Arts tax the OPPOSITE magic school by 20% (rounded up):
---   Dark Arts / Addendum: Black up  → White Magic costs ceil(base * 1.2)
---   Light Arts / Addendum: White up → Black Magic costs ceil(base * 1.2)
+-- Scholar Arts tax the OPPOSITE magic school by 20%:
+--   Dark Arts / Addendum: Black up  → White Magic costs base + floor(base * 0.20)
+--   Light Arts / Addendum: White up → Black Magic costs base + floor(base * 0.20)
 -- Nothing else is affected (ninjutsu, songs, summoning, blue, geomancy, JAs, items).
+-- Mirrors battleutils::CalculateSpellCost, which adds the WHITE/BLACK_MAGIC_COST mod as
+-- `cost += (int16)(base * mod / 100.0f)` — a C cast, so the tax truncates, never rounds up.
 -- Keyed off the spell's Type from the resource manager (1 = white, 2 = black) rather
 -- than a hardcoded spell list, so it covers subjob spells and future additions too.
-local ARTS_TAX = 1.2
+local ARTS_TAX_PCT = 20         -- WHITE/BLACK_MAGIC_COST mod granted by the opposing Arts
 local ARTS_LIGHT = {358, 401}   -- Light Arts / Addendum: White  → taxes black magic
 local ARTS_DARK  = {359, 402}   -- Dark Arts  / Addendum: Black  → taxes white magic
+local TABULA_RASA = 377         -- Cancels the Arts cost penalty (see below)
 local SPELL_TYPE_WHITE = 1      -- spells.dat magic type, as GetSpellById().Type
 local SPELL_TYPE_BLACK = 2
 
@@ -2447,8 +2450,8 @@ function common.arts_adjusted_cost(ability)
     if not ability or not ability.cost then return 0 end
     if not ability.spell_id then return ability.cost end
 
-    -- Buff check first: no arts up is the common case (every non-SCH), and it costs one
-    -- buff read instead of a resource lookup per ability per UI frame.
+    -- Buff check first: no arts up is the common case (every non-SCH), and it skips the
+    -- resource lookup that would otherwise run per ability per UI frame.
     local action_core = require('lib.core.action_core')
     local player_buffs = common.get_player_buffs()
     local taxed_type
@@ -2460,11 +2463,16 @@ function common.arts_adjusted_cost(ability)
         return ability.cost
     end
 
+    -- Tabula Rasa suppresses the penalty: light_arts.lua / dark_arts.lua skip the +20 mod
+    -- while it is up, and tabula_rasa.lua subtracts 30 from that same mod. Either way the
+    -- opposing school is never taxed during TR, so treat the base cost as the real one.
+    if action_core.has_any_buff(player_buffs, TABULA_RASA) then return ability.cost end
+
     -- Unknown id → nil spell; fall back to the base cost rather than guessing a school.
     local spell = AshitaCore:GetResourceManager():GetSpellById(ability.spell_id)
     if not spell or spell.Type ~= taxed_type then return ability.cost end
 
-    return math.ceil(ability.cost * ARTS_TAX)
+    return ability.cost + math.floor(ability.cost * ARTS_TAX_PCT / 100)
 end
 
 -- Calculate the effective MP cost of an ability considering assigned stratagems.
@@ -2476,37 +2484,41 @@ end
 --   ability  (table)  – ability definition with .name, .cost, and optionally .group
 --   settings (table)  – addon settings (contains stratagem_settings)
 --   job_def  (table)  – job definition (contains abilities.precast list)
--- The Scholar Arts tax is applied first (ceil), then the stratagem modifier (floor):
--- the arts penalty belongs to the spell's own cost, so Penury/Accession scale the
--- already-taxed number. Unconfirmed against the server for the combined case; if a
--- Penury'd cure under Dark Arts is ever off by 1 MP, this ordering is the suspect.
+-- The Scholar Arts tax and a stratagem modifier never stack: server-side
+-- (battleutils::CalculateSpellCost) Penury/Parsimony/Accession/Manifestation all clear
+-- `applyArts`, so a cost-modifying stratagem replaces the Arts penalty instead of
+-- compounding with it. Only when no mp_modifier stratagem is assigned does the tax apply.
 -- Returns: number (modified cost, or the arts-adjusted ability.cost if no stratagems apply)
 function common.effective_ability_cost(ability, settings, job_def)
     if not ability or not ability.cost then return 0 end
-    local base = common.arts_adjusted_cost(ability)
-    if not settings or not settings.stratagem_settings then return base end
+    if not settings or not settings.stratagem_settings then return common.arts_adjusted_cost(ability) end
 
     -- Try ability.name first, then ability.group as fallback
     local ss = settings.stratagem_settings[ability.name]
     if not ss and ability.group then
         ss = settings.stratagem_settings[ability.group]
     end
-    if not ss then return base end
+    if not ss then return common.arts_adjusted_cost(ability) end
 
     local strat_defs = job_def and job_def.abilities and job_def.abilities.precast
-    if not strat_defs then return base end
+    if not strat_defs then return common.arts_adjusted_cost(ability) end
 
     -- Modifiers are multiplicative (e.g. Accession 3.0x * Penury 0.5x = 1.5x).
     -- This is commutative so iteration order of pairs(ss) does not matter.
     local modifier = 1.0
+    local modified = false
     for strat_name, _ in pairs(ss) do
         for _, strat in ipairs(strat_defs) do
             if strat.name == strat_name and strat.mp_modifier then
                 modifier = modifier * strat.mp_modifier
+                modified = true
             end
         end
     end
-    return math.floor(base * modifier)
+    -- Flag rather than `modifier ~= 1.0`: two assigned stratagems can multiply back out to
+    -- 1.0 (Accession x Parsimony) and still be the thing that suppressed the Arts tax.
+    if not modified then return common.arts_adjusted_cost(ability) end
+    return math.floor(ability.cost * modifier)
 end
 
 -- The half of a precast JA's usability that only a job/level change can alter:
