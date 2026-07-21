@@ -773,7 +773,7 @@ return {
                 magic = 'white',
             },
             {
-                name = 'Accession (+AOE)',  -- AOE and 3x Cost of spell and 2x casting time
+                name = 'Accession (+AOE)',  -- AOE and 2x Cost of spell and 2x casting time
                 level = 40,
                 cost = 0,
                 recast_id = 231,
@@ -782,7 +782,7 @@ return {
                 buff_id = 366,
                 magic = 'white',
                 magic_types = { 'healing', 'enhancing' },
-                mp_modifier = 3.0,
+                mp_modifier = 2.0,
             },
             {
                 name = 'Celerity (+Casting Speed)', -- Reduces the casting time by 50%

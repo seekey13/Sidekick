@@ -2476,7 +2476,7 @@ function common.arts_adjusted_cost(ability)
 end
 
 -- Calculate the effective MP cost of an ability considering assigned stratagems.
--- When stratagems with mp_modifier are assigned (e.g. Penury 0.5x, Accession 3.0x),
+-- When stratagems with mp_modifier are assigned (e.g. Penury 0.5x, Accession 2.0x),
 -- the base cost is multiplied by all assigned modifiers.
 -- Checks both ability.name and ability.group as lookup keys (the UI stores stratagem
 -- assignments under the group name for grouped abilities like Protect/Shell).
@@ -2503,7 +2503,7 @@ function common.effective_ability_cost(ability, settings, job_def)
     local strat_defs = job_def and job_def.abilities and job_def.abilities.precast
     if not strat_defs then return common.arts_adjusted_cost(ability) end
 
-    -- Modifiers are multiplicative (e.g. Accession 3.0x * Penury 0.5x = 1.5x).
+    -- Modifiers are multiplicative (e.g. Accession 2.0x * Penury 0.5x = 1.0x).
     -- This is commutative so iteration order of pairs(ss) does not matter.
     local modifier = 1.0
     local modified = false
@@ -2515,8 +2515,8 @@ function common.effective_ability_cost(ability, settings, job_def)
             end
         end
     end
-    -- Flag rather than `modifier ~= 1.0`: two assigned stratagems can multiply back out to
-    -- 1.0 (Accession x Parsimony) and still be the thing that suppressed the Arts tax.
+    -- Flag rather than `modifier ~= 1.0`: Accession 2.0x * Penury 0.5x multiplies back out
+    -- to 1.0 and still is the thing that suppressed the Arts tax.
     if not modified then return common.arts_adjusted_cost(ability) end
     return math.floor(ability.cost * modifier)
 end
