@@ -316,19 +316,32 @@ function common.is_idle()
     return not common.is_combat()
 end
 
+-- Grace window (seconds) that is_combat stays true after the battle target
+-- vanishes -- covers the gap between one mob dying and someone engaging the
+-- next in a multi-mob pull, so support coverage overlaps instead of flickering.
+local COMBAT_GRACE = 2.0
+local combat_last_true = 0  -- os.clock() of the last real battle target
+
 function common.is_combat()
     local ok, bt = pcall(function()
         return targets.get_bt()
     end)
-    
+
     if not ok then
         return false  -- Assume not in combat if we can't get battle target
     end
-    
+
     -- Check if battle target is a mob (0x10 flag in SpawnFlags)
     local is_mob = bt and bit.band(bt.SpawnFlags, 0x10) ~= 0 or false
-    
-    return is_mob
+
+    if is_mob then
+        combat_last_true = os.clock()
+        return true
+    end
+
+    -- No BT right now: stay "in combat" briefly so coverage overlaps the
+    -- dead-mob -> next-mob gap.
+    return (os.clock() - combat_last_true) < COMBAT_GRACE
 end
 
 -- Settings key for a per-ability gate (prefix 'combat_only' / 'idle_only').
