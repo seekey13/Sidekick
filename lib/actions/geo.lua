@@ -436,9 +436,11 @@ function geo.execute(settings, job_def, main_level, sub_level, player_resource)
     -- deadline lapse releases the Geo group again and the existing luopan-drift /
     -- Geo-bt-takeover Full Circles clear it. Add one if it is seen to linger.
 
-    -- Blaze of Glory precast: only with the slot free and a Geo spell pending. Runs
-    -- ahead of the Geo-bt cast below and of buff.lua's Geo <me> cast.
-    if not has_luopan then
+    -- Blaze of Glory precast: only with the slot genuinely free and a Geo spell
+    -- pending. An armed arcana sequence or an in-flight Geo-Voidance also reads as
+    -- "no luopan", and BoG spent on that throwaway bubble is wasted. Runs ahead of
+    -- the Geo-bt cast below and of buff.lua's Geo <me> cast.
+    if not has_luopan and not arcana_sequence and not arcana_cast_time then
         local bog = try_blaze_of_glory(job_def, settings, derived_main_level, derived_sub_level,
             geo_bt, in_combat)
         if bog then return bog end
