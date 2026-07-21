@@ -612,6 +612,13 @@ return {
                                     --   button (the black-magic Spikes are 'enhancing' too)
     magic_types     = { 'enhancing' },  -- precast entries only: the magic_types this stratagem applies
                                     --   to (SCH Perpetuance); no field = every type of its colour
+    spell_ids       = { 1, 2, ... },   -- precast entries only: allowlist of spells the stratagem can
+                                    --   act on at all, when colour + magic_type is too coarse. SCH
+                                    --   Accession extends only spell_list.sql `AOE` = 4
+                                    --   (SPELLAOE_RADIAL_ACCE) spells — not Raise, Reraise, Haste,
+                                    --   Cure V/VI. Enforced by `common.stratagem_applies`, which
+                                    --   gates the S popup, the MP modifier and the JA alike; no
+                                    --   field = applies to everything its colour/type matched
     requires_stratagem_charge = true,  -- SCH: gate on a spare stratagem charge instead of a recast.
                                     --   The pool (recast 231) counts down per charge rather than to
                                     --   zero, so a plain recast_id passes only at full charges.

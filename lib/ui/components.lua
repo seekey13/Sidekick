@@ -704,25 +704,6 @@ local function has_any_stratagem(ctx, ability_key, available)
     return false
 end
 
--- Helper: compute the MP modifier multiplier for an ability based on its assigned stratagems
--- Returns: multiplier (number, 1.0 = no change)
-local function get_stratagem_mp_modifier(ctx, ability_key)
-    local ss = ctx and ctx.settings and ctx.settings.stratagem_settings
-    if not ss or not ss[ability_key] then return 1.0 end
-    local job_def = ctx.job_def
-    if not job_def or not job_def.abilities or not job_def.abilities.precast then return 1.0 end
-
-    local modifier = 1.0
-    for strat_name, _ in pairs(ss[ability_key]) do
-        for _, strat in ipairs(job_def.abilities.precast) do
-            if strat.name == strat_name and strat.mp_modifier then
-                modifier = modifier * strat.mp_modifier
-            end
-        end
-    end
-    return modifier
-end
-
 -- Filter stratagems from job_def that apply to a given ability at the given level
 local function get_available_stratagems(job_def, sch_level, ability)
     if not job_def or not job_def.abilities or not job_def.abilities.precast then
@@ -750,7 +731,9 @@ local function get_available_stratagems(job_def, sch_level, ability)
                     end
                 end
             end
-            if magic_ok and type_ok then
+            -- Accession carries a spell_ids allowlist: never offer it on a Raise, a
+            -- Reraise, Haste or anything else the server won't extend.
+            if magic_ok and type_ok and common.stratagem_applies(strat, ability) then
                 table.insert(available, strat)
             end
         end
@@ -1619,7 +1602,7 @@ function ui_components.group_dropdown(ctx, job_def, target_group, dropdown_width
     if selected then
         if selected.cost and selected.cost > 0 then
             local resource_label = (selected.resource_type or job_def.resource_type) == 'tp' and 'TP' or 'MP'
-            local display_cost = math.floor(selected.cost * get_stratagem_mp_modifier(ctx, target_group))
+            local display_cost = common.effective_ability_cost(selected, ctx.settings, job_def)
             current_display = selected.name .. ' (' .. display_cost .. ' ' .. resource_label .. ')'
         else
             current_display = selected.name
@@ -1654,7 +1637,7 @@ function ui_components.group_dropdown(ctx, job_def, target_group, dropdown_width
             local display_text
             if ability.cost and ability.cost > 0 then
                 local resource_label = (ability.resource_type or job_def.resource_type) == 'tp' and 'TP' or 'MP'
-                local display_cost = math.floor(ability.cost * get_stratagem_mp_modifier(ctx, target_group))
+                local display_cost = common.effective_ability_cost(ability, ctx.settings, job_def)
                 display_text = ability.name .. ' (' .. display_cost .. ' ' .. resource_label .. ')'
             else
                 display_text = ability.name
@@ -1772,7 +1755,7 @@ function ui_components.self_single_ability(ctx, ability, job_def, id_suffix)
     local desc
     if ability.cost and ability.cost > 0 then
         local resource_label = (ability.resource_type or job_def.resource_type) == 'tp' and 'TP' or 'MP'
-        local display_cost = math.floor(ability.cost * get_stratagem_mp_modifier(ctx, ability.name))
+        local display_cost = common.effective_ability_cost(ability, ctx.settings, job_def)
         desc = ability.name .. ' (' .. display_cost .. ' ' .. resource_label .. ')' .. spell_suffix
     else
         desc = ability.name .. spell_suffix
@@ -1916,7 +1899,7 @@ function ui_components.party_single_ability(ctx, ability, job_def)
     local desc
     if ability.cost and ability.cost > 0 then
         local resource_label = (ability.resource_type or job_def.resource_type) == 'tp' and 'TP' or 'MP'
-        local display_cost = math.floor(ability.cost * get_stratagem_mp_modifier(ctx, ability.name))
+        local display_cost = common.effective_ability_cost(ability, ctx.settings, job_def)
         desc = ability.name .. ' (' .. display_cost .. ' ' .. resource_label .. ')' .. spell_suffix
     else
         desc = ability.name .. spell_suffix
@@ -2211,7 +2194,7 @@ function ui_components.ability_checkbox(ctx, ability, job_def, id_suffix, show_s
     local desc
     if ability.cost and ability.cost > 0 then
         local resource_label = (ability.resource_type or job_def.resource_type) == 'tp' and 'TP' or 'MP'
-        local display_cost = math.floor(ability.cost * get_stratagem_mp_modifier(ctx, ability.name))
+        local display_cost = common.effective_ability_cost(ability, ctx.settings, job_def)
         desc = ability.name .. ' (' .. display_cost .. ' ' .. resource_label .. ')' .. spell_suffix
     else
         desc = ability.name .. spell_suffix
