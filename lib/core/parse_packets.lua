@@ -18,9 +18,13 @@ local parse_packets = {}
             .UserId - actor server ID
             .Type - action category (8 = casting start, 4 = casting finish,
                     1 = melee, 6 = job ability -- see common.handle_action_packet)
-            .Param - spell/ability ID
+            .Param - spell/ability ID (cmd_arg; on a Corsair Double-Up the server
+                     rewrites this to the underlying roll's ability id)
             .Recast - recast time
-            .Targets - array of targets with .Id and .Actions (may be empty)
+            .Targets - array of targets with .Id and .Actions (may be empty).
+                       Each action carries .Resolution/.Kind/.Animation/.Info/.Scale/
+                       .Knockback/.Param/.Message/.Flags -- see the server packer at
+                       src/map/packets/s2c/0x028_battle2.cpp for the bit layout.
 ]]--
 function parse_packets.parse_action_packet(e)
     local bitData
@@ -72,10 +76,14 @@ function parse_packets.parse_action_packet(e)
                 break
             else
                 for j = 1, actionCount do
+                    -- Field names/widths per the server's own packer,
+                    -- src/map/packets/s2c/0x028_battle2.cpp (CatsAndBoats/catseyexi).
                     local action = {}
-                    action.Reaction = UnpackBits(5)
+                    action.Resolution = UnpackBits(3)
+                    action.Kind = UnpackBits(2)
                     action.Animation = UnpackBits(12)
-                    action.SpecialEffect = UnpackBits(7)
+                    action.Info = UnpackBits(5)   -- Corsair: the die roll (1-6)
+                    action.Scale = UnpackBits(2)
                     action.Knockback = UnpackBits(3)
                     action.Param = UnpackBits(17)
                     action.Message = UnpackBits(10)

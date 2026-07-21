@@ -164,6 +164,33 @@ return {
         'option; Bard will automatically use a target-\n' ..
         'modifier ability (e.g. Pianissimo) first.',
 
+    rolls =
+        'Corsair automation: keeps the two rolls below\n' ..
+        'active and uses Double-Up on each until it is\n' ..
+        'good enough. While Bust is up only one roll slot\n' ..
+        'is used, so Sidekick holds off recasting the other.',
+
+    roll_slot =
+        'Roll cast in this slot. Changing it clears the\n' ..
+        'tracked totals so the old roll\'s result can\'t\n' ..
+        'carry over. Set to None to leave the slot unused.',
+
+    risk_tier =
+        'How far Double-Up chases a total. Every tier\n' ..
+        'doubles at 5 or less (no die can bust) unless it\n' ..
+        'is already on the lucky number, never doubles at\n' ..
+        '11, and all three use Snake Eye at 10 for a\n' ..
+        'guaranteed 11.\n' ..
+        'Lowest: banks lucky, stops at 6+, never takes a\n' ..
+        'bust chance.\n' ..
+        'Medium: banks lucky, chases it while it is still\n' ..
+        'one die away, and rerolls off the unlucky number.\n' ..
+        'Highest: 11 or nothing -- it rolls straight past\n' ..
+        'the lucky number, and keeps doubling at 6-10\n' ..
+        'whenever Fold is up to undo a Bust (otherwise it\n' ..
+        'plays like Medium). Expect to give up lucky often.\n' ..
+        'Fold is always used the moment you Bust.',
+
     geo =
         'Geomancer automation: automatically triggers\n' ..
         'Full Circle if your luopan is out of range, and\n' ..
