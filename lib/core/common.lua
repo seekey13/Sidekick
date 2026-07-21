@@ -2475,6 +2475,24 @@ function common.arts_adjusted_cost(ability)
     return ability.cost + math.floor(ability.cost * ARTS_TAX_PCT / 100)
 end
 
+-- True when a stratagem is allowed to act on this ability at all. A strat carrying
+-- `spell_ids` (SCH Accession) only works on the spells the server flags for it; matching
+-- the magic colour and type is not enough. Strats without the field apply to everything
+-- their colour/type already matched.
+-- Args:
+--   strat   (table) – stratagem definition from job_def.abilities.precast
+--   ability (table) – ability definition being cast
+-- Returns: boolean
+function common.stratagem_applies(strat, ability)
+    if not strat.spell_ids then return true end
+    local id = ability and ability.spell_id
+    if not id then return false end
+    for _, sid in ipairs(strat.spell_ids) do
+        if sid == id then return true end
+    end
+    return false
+end
+
 -- Calculate the effective MP cost of an ability considering assigned stratagems.
 -- When stratagems with mp_modifier are assigned (e.g. Penury 0.5x, Accession 2.0x),
 -- the base cost is multiplied by all assigned modifiers.
@@ -2509,7 +2527,8 @@ function common.effective_ability_cost(ability, settings, job_def)
     local modified = false
     for strat_name, _ in pairs(ss) do
         for _, strat in ipairs(strat_defs) do
-            if strat.name == strat_name and strat.mp_modifier then
+            if strat.name == strat_name and strat.mp_modifier
+               and common.stratagem_applies(strat, ability) then
                 modifier = modifier * strat.mp_modifier
                 modified = true
             end
@@ -2585,7 +2604,8 @@ function common.check_stratagem(job_def, settings, ability_key, ability)
     -- the chosen stratagem is deterministic when multiple are assigned.
     local missing = {}
     for _, strat in ipairs(strat_defs) do
-        if ss[strat.name] and not precast_redundant(strat, ability, player_buffs) then
+        if ss[strat.name] and common.stratagem_applies(strat, ability)
+           and not precast_redundant(strat, ability, player_buffs) then
             local buff_active = false
             for _, pb in ipairs(player_buffs) do
                 if pb == strat.buff_id then

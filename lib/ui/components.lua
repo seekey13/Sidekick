@@ -731,7 +731,9 @@ local function get_available_stratagems(job_def, sch_level, ability)
                     end
                 end
             end
-            if magic_ok and type_ok then
+            -- Accession carries a spell_ids allowlist: never offer it on a Raise, a
+            -- Reraise, Haste or anything else the server won't extend.
+            if magic_ok and type_ok and common.stratagem_applies(strat, ability) then
                 table.insert(available, strat)
             end
         end

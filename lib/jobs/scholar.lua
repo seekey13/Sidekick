@@ -783,6 +783,31 @@ return {
                 magic = 'white',
                 magic_types = { 'healing', 'enhancing' },
                 mp_modifier = 2.0,
+                -- Accession only extends spells the server flags SPELLAOE_RADIAL_ACCE
+                -- (spell_list.sql `AOE` = 4); every other white healing/enhancing spell is
+                -- untouched by it -- no AoE, no doubled MP, and the Arts tax still applies.
+                -- The notable misses are Raise/Raise II/III/Arise, all four Reraise tiers,
+                -- Haste/Haste II, Flurry, Cure V/VI, Temper, Gain-*, Crusade, Sacrifice,
+                -- and the lines that are already AoE on their own (Curaga, Cura, Esuna,
+                -- Boost-*, Hastega). Ids copied from spell_list.sql.
+                spell_ids = {
+                    1, 2, 3, 4,                                 -- Cure I-IV
+                    14, 15, 16, 17, 18, 19, 20,                 -- Poisona .. Cursna
+                    43, 44, 45, 46, 47,                         -- Protect I-V
+                    48, 49, 50, 51, 52,                         -- Shell I-V
+                    53, 54, 55,                                 -- Blink, Stoneskin, Aquaveil
+                    60, 61, 62, 63, 64, 65,                     -- Bar-element
+                    72, 73, 74, 75, 76, 77, 78, 84,             -- Bar-status
+                    99, 113, 114, 115, 116, 117, 118, 119,      -- Storms
+                    100, 101, 102, 103, 104, 105,               -- En-spells
+                    106,                                        -- Phalanx
+                    108, 110, 111, 477, 504,                    -- Regen I-V
+                    109,                                        -- Refresh
+                    136, 137, 138,                              -- Invisible, Sneak, Deodorize
+                    143,                                        -- Erase
+                    308, 309,                                   -- Animus Augeo / Minuo
+                    478, 495,                                   -- Embrava, Adloquium
+                },
             },
             {
                 name = 'Celerity (+Casting Speed)', -- Reduces the casting time by 50%
