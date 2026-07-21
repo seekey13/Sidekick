@@ -1209,8 +1209,11 @@ end
 -- cost/HP rules) and raises arcana_luopan when the bubble out is the throwaway
 -- Geo-Voidance one it placed for this. They live on `common` because
 -- validate_ability is handed `common` and nothing else.
-common.arcana_usable = false
-common.arcana_luopan = false
+-- arcana_sequence additionally holds group 'Geo' buffs off the luopan slot while
+-- the teardown/rebuild is in flight.
+common.arcana_usable   = false
+common.arcana_luopan   = false
+common.arcana_sequence = false
 
 -- True while the player is standing inside their own luopan's aura, the only
 -- place the luopan-centred Geomancer JAs (Radial Arcana, ...) reach. False with

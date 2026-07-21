@@ -819,6 +819,14 @@ return {
         if ability.group == 'Geo' and common.get_pet_entity() then
             return false
         end
+        -- geo.lua has Full Circled the luopan to set up Radial Arcana and is about
+        -- to drop a throwaway Geo-Voidance in the slot. Without this, buff.lua sees
+        -- an empty slot and recasts the expensive Geo spell into it -- wasting both
+        -- the Full Circle and the recast. geo.lua casts the Voidance directly, so
+        -- it is unaffected by this gate.
+        if ability.group == 'Geo' and common.arcana_sequence then
+            return false
+        end
         -- Radial Arcana consumes the luopan, so it may only fire on a bubble we
         -- are stood in and can afford to lose. geo.lua decides that each tick
         -- (cheap tier, nearly spent, or one it placed for this) and publishes it.
