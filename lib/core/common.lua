@@ -1275,7 +1275,9 @@ function common.get_follow_target_distance(name)
                 if not ti or ti == 0 then return nil end
                 local ent = GetEntity(ti)
                 if not ent or (ent.SpawnFlags or 0) <= 0 then return nil end
-                local distance = common.get_party_member_distance(i)
+                local me = targets.get_me()
+                if not me then return nil end
+                local distance = common.calculate_distance(me, ent)
                 if not distance then return nil end
                 return distance, i
             end

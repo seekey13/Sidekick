@@ -156,12 +156,24 @@ local function render_party_dropdown(label, setting_key, include_player, party_m
         table.insert(options, name)
     end
 
-    -- Include tracked target names if requested
+    -- Include tracked target names if requested. Skip names already listed: a
+    -- tracked target who later joins the party keeps their tracked entry (the
+    -- party check in add_tracked_target only runs at add time), and would
+    -- otherwise appear twice.
     if include_tracked then
         local tracked_list = common.get_tracked_targets()
         for _, tt in pairs(tracked_list) do
             if tt.name and tt.name ~= '' then
-                table.insert(options, tt.name)
+                local seen = false
+                for _, existing in ipairs(options) do
+                    if existing == tt.name then
+                        seen = true
+                        break
+                    end
+                end
+                if not seen then
+                    table.insert(options, tt.name)
+                end
             end
         end
     end

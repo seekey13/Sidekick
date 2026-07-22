@@ -132,12 +132,12 @@ return {
         'AOE fires whenever its normal condition is met.',
 
     follow =
-        'Auto-follows a party member when they move\n' ..
-        'away. Sends /follow once they pass the\n' ..
-        'Distance below; healing and every other\n' ..
-        'support action always take priority. Off by\n' ..
-        'default -- Sidekick never moves you unless\n' ..
-        'this is enabled.',
+        'Auto-follows a party member or tracked\n' ..
+        'target when they move away. Sends /follow\n' ..
+        'once they pass the Distance below; healing\n' ..
+        'and every other support action always take\n' ..
+        'priority. Off by default -- Sidekick never\n' ..
+        'moves you unless this is enabled.',
 
     follow_target =
         'Party member or tracked target to follow.\n' ..
