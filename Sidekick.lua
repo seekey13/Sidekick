@@ -875,8 +875,13 @@ ashita.events.register('packet_in', 'sidekick_packet_in', function(e)
             end
         elseif e.id == 0x37 then
             local packet = e.data:totable()
-            if packet[0x58 + 1] ~= 0 then
-                packet[0x58 + 1] = 0
+            -- Byte 0x58 is Flags4 (GeoIndi bits 0-6 + JobMasterFlag bit 7 = 0x80),
+            -- NOT an autorun flag -- movement lives in Flags0/Flags1. Zeroing the
+            -- whole byte wiped JobMasterFlag, so the 3 job-mastery stars over the
+            -- name vanished while follow was on. Preserve bit 7; leave the rest as-is.
+            local kept = bit.band(packet[0x58 + 1], 0x80)
+            if packet[0x58 + 1] ~= kept then
+                packet[0x58 + 1] = kept
                 e.data_modified = packet
             end
         end
