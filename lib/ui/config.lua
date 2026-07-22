@@ -447,6 +447,7 @@ function ui_config.render(settings, job_def, callback)
     -- the [X] was clicked. Treat collapse as "still open, just skip content" and
     -- only close on the [X] (is_open flips to false). Always call End() to match
     -- Begin() per imgui rules.
+    imgui.PushStyleVar(ImGuiStyleVar_Alpha, (settings.ui_opacity or 100) / 100)
     if imgui.Begin(window_title, is_open, ImGuiWindowFlags_NoResize + ImGuiWindowFlags_AlwaysAutoResize) then
 
         -- Display job name and levels
@@ -1192,6 +1193,7 @@ function ui_config.render(settings, job_def, callback)
 
     end
     imgui.End()
+    imgui.PopStyleVar()
 
     -- Close only when the [X] was clicked (imgui sets is_open to false). A mere
     -- collapse leaves is_open true, so the window stays open.

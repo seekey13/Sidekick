@@ -90,6 +90,8 @@ local default_settings = T{
     rest_enabled = false,
     rest_timer = 5,
     rest_distance = 7,
+    -- Config window opacity (job-independent). 1-100, set from /sk panel.
+    ui_opacity = 100,
 }
 
 -- Range management state

@@ -459,6 +459,16 @@ function panel.render(addon_settings, save_settings)
             if imgui.IsItemHovered() then
                 imgui.SetTooltip(tooltips.cast_with_1_shadow)
             end
+
+            -- UI Transparency (global). Drives the config window's alpha directly.
+            local opacity_var = { addon_settings.ui_opacity or 100 }
+            imgui.SameLine(0, 20)
+            imgui.PushItemWidth(400)
+            if imgui.SliderInt('UI Transparency', opacity_var, 1, 100) then
+                addon_settings.ui_opacity = opacity_var[1]
+                if save_settings then save_settings() end
+            end
+            imgui.PopItemWidth()
         end
     end
     imgui.End()
