@@ -435,7 +435,7 @@ function panel.render(addon_settings, save_settings)
 
             -- AFK Sleep (global). afk_timeout is stored in seconds but shown in
             -- minutes, so read afk_timeout/60 and write value*60. Starts the
-            -- second controls row, shared with the UI Transparency slider.
+            -- second controls row, shared with the UI Opacity slider.
             local afk_var = { addon_settings.afk_enabled == true }
             if imgui.Checkbox('AFK Sleep', afk_var) then
                 addon_settings.afk_enabled = afk_var[1]
@@ -460,11 +460,12 @@ function panel.render(addon_settings, save_settings)
             end
             imgui.PopItemWidth()
 
-            -- UI Transparency (global). Drives the config window's alpha directly.
+            -- UI Opacity (global). Drives the config window's alpha directly:
+            -- 100 = fully opaque, 1 = nearly invisible.
             local opacity_var = { addon_settings.ui_opacity or 100 }
             imgui.SameLine(0, 20)
             imgui.PushItemWidth(460)
-            if imgui.SliderInt('UI Transparency', opacity_var, 1, 100) then
+            if imgui.SliderInt('UI Opacity', opacity_var, 1, 100) then
                 addon_settings.ui_opacity = opacity_var[1]
                 if save_settings then save_settings() end
             end

@@ -270,6 +270,9 @@ end
 function ui_config.show()
     ui_visible = true
     is_open[1] = true
+    -- A popup left open when the window last closed leaves stale was-open
+    -- state that would arm a bg-alpha override on the reopen's first frame.
+    ui.reset_opaque_tracking()
     -- Force the window uncollapsed on open. imgui persists a collapsed state in
     -- imgui.ini; without this, opening a previously-collapsed window shows only
     -- the title bar (and used to be force-closed by the render below).
@@ -526,7 +529,7 @@ function ui_config.render(settings, job_def, callback)
 
         -- Right-click: when automation stops by itself. Both opt-in, so an absent
         -- key reads as off.
-        if imgui.BeginPopupContextItem('##cmenu_automation') then
+        if ui.begin_opaque_context_item('##cmenu_automation') then
             local load_stopped = { settings.load_stopped == true }
             if imgui.Checkbox('Load stopped', load_stopped) then
                 settings.load_stopped = load_stopped[1] or nil
@@ -543,7 +546,7 @@ function ui_config.render(settings, job_def, callback)
             if imgui.IsItemHovered() then
                 ui.set_tooltip('Stop automation whenever you change zones.')
             end
-            imgui.EndPopup()
+            ui.end_opaque_popup()
         end
 
         -- Display status on same line

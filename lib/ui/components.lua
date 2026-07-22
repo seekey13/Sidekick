@@ -83,7 +83,7 @@ local function render_combat_only_context_menu(ctx, ability, scope)
         if not ability.name then return end
         popup_id = '##cmenu_combat_only_' .. ability.name:gsub(' ', '_') .. scope_suffix
     end
-    if imgui.BeginPopupContextItem(popup_id) then
+    if ui_components.begin_opaque_context_item(popup_id) then
         -- Setting keys follow common.ability_gate_key: group-level while grouped,
         -- per-ability once the group is ungrouped (so each tier gets its own gate).
         -- Built here (not above the Ungroup block) so a grouped bt/combat_only
@@ -156,7 +156,7 @@ local function render_combat_only_context_menu(ctx, ability, scope)
                 render_status_rows(1, #rids)
             end
         end
-        imgui.EndPopup()
+        ui_components.end_opaque_popup()
     end
 end
 
@@ -848,7 +848,7 @@ local function render_scholar_stratagem_button(ability_key, ability, ctx)
         imgui.PopStyleColor(3)
     end
 
-    if imgui.BeginPopup(popup_id) then
+    if ui_components.begin_opaque_popup(popup_id) then
         imgui.TextColored({ 0.8, 0.8, 0.8, 1.0 }, 'Scholar Stratagem')
         imgui.Separator()
 
@@ -913,7 +913,7 @@ local function render_scholar_stratagem_button(ability_key, ability, ctx)
             end
         end
 
-        imgui.EndPopup()
+        ui_components.end_opaque_popup()
     end
 
     imgui.SameLine(0, SPACE_BETWEEN_BUTTONS)
@@ -1048,7 +1048,7 @@ local function render_recast_gate_button(ability_key, ctx, strat, letter, button
         imgui.PopStyleColor(3)
     end
 
-    if hold_tip and imgui.BeginPopup(popup_id) then
+    if hold_tip and ui_components.begin_opaque_popup(popup_id) then
         imgui.TextColored({ 0.8, 0.8, 0.8, 1.0 }, strat.name)
         imgui.Separator()
 
@@ -1076,7 +1076,7 @@ local function render_recast_gate_button(ability_key, ctx, strat, letter, button
             end
         end
 
-        imgui.EndPopup()
+        ui_components.end_opaque_popup()
     end
 
     imgui.SameLine(0, SPACE_BETWEEN_BUTTONS)
@@ -2126,31 +2126,70 @@ function ui_components.slider_int(ctx, label, setting_name, ui_var, min, max, wi
     imgui.PopItemWidth()
 end
 
--- Combo whose expanded menu ignores the window's ui_opacity fade: the closed
--- preview keeps the window alpha, but the open popup renders fully opaque so
--- its entries stay readable at low opacity. Pair with end_opaque_combo.
--- The popup's bg alpha must be armed BEFORE BeginCombo begins the popup window,
--- but ONLY when the popup will actually open: on a closed combo the un-consumed
+-- Popup-class windows (expanded combo menus, right-click context menus, the
+-- stratagem pickers) are readability surfaces: they ignore the window's
+-- ui_opacity fade and render fully opaque however faded the window under them
+-- is. The closed combo preview keeps the window alpha.
+-- The popup's bg alpha must be armed BEFORE Begin* creates the popup window,
+-- but ONLY when the popup will actually open: on a closed one the un-consumed
 -- SetNextWindowBgAlpha leaks onto the next window begun (usually a tooltip,
 -- which then kept a faded bg under opaque text). Open state is only known after
--- the call, so remember it per label from the previous frame -- the popup bg is
+-- the call, so remember it per id from the previous frame -- the popup bg is
 -- faded for its single first frame, which isn't perceptible.
-local combo_was_open = {}
-function ui_components.begin_opaque_combo(label, preview)
-    if combo_was_open[label] and imgui.GetStyle().Alpha < 1.0 then
+local opaque_was_open = {}
+
+local function arm_opaque_bg(id)
+    if opaque_was_open[id] and imgui.GetStyle().Alpha < 1.0 then
         imgui.SetNextWindowBgAlpha(1.0)
     end
-    local open = imgui.BeginCombo(label, preview)
-    combo_was_open[label] = open or nil
+end
+
+local function track_opaque_open(id, open)
+    opaque_was_open[id] = open or nil
     if open then
         imgui.PushStyleVar(ImGuiStyleVar_Alpha, 1.0)
     end
+end
+
+-- Called when the config window closes: a popup left open at close leaves a
+-- stale was-open entry, which on the reopen's first frame would arm
+-- SetNextWindowBgAlpha for a now-closed popup and leak it onto the next
+-- window begun -- the exact leak the previous-frame tracking exists to stop.
+function ui_components.reset_opaque_tracking()
+    opaque_was_open = {}
+end
+
+-- Pair with end_opaque_combo (only when this returns true, per BeginCombo rules).
+function ui_components.begin_opaque_combo(label, preview)
+    arm_opaque_bg(label)
+    local open = imgui.BeginCombo(label, preview)
+    track_opaque_open(label, open)
     return open
 end
 
 function ui_components.end_opaque_combo()
     imgui.PopStyleVar()
     imgui.EndCombo()
+end
+
+-- BeginPopup / BeginPopupContextItem variants. Both close with end_opaque_popup.
+function ui_components.begin_opaque_popup(popup_id)
+    arm_opaque_bg(popup_id)
+    local open = imgui.BeginPopup(popup_id)
+    track_opaque_open(popup_id, open)
+    return open
+end
+
+function ui_components.begin_opaque_context_item(popup_id)
+    arm_opaque_bg(popup_id)
+    local open = imgui.BeginPopupContextItem(popup_id)
+    track_opaque_open(popup_id, open)
+    return open
+end
+
+function ui_components.end_opaque_popup()
+    imgui.PopStyleVar()
+    imgui.EndPopup()
 end
 
 -- Create a combo dropdown UI element linked to a setting
