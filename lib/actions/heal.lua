@@ -333,9 +333,14 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
         local elapsed    = os.clock() - force_self.ts
         if elapsed > FORCE_SELF_TIMEOUT then
             force_self.active = false
-        elseif common.below_threshold(state.player.mpp or 0, settings.recover_mp_threshold or 0) then
+        elseif (state.player.mpp or 0) < (settings.recover_mp_threshold or 0) then
             -- MP still pre-swap: Convert hasn't resolved yet. Hold healing so we
             -- don't size a cure to (or burn) the MP that's about to become HP.
+            -- Plain < rather than below_threshold: that helper treats 0 as
+            -- dead/invalid, but 0 MP here (drained between the send and the
+            -- 0x028, e.g. an Aspir) is still pre-swap and must keep holding —
+            -- below_threshold would misread it as the swap having landed and
+            -- clear the flag against pre-swap HP.
             if elapsed <= FORCE_SELF_WAIT_TIMEOUT then
                 return nil
             end
