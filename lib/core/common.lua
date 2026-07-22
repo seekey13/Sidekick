@@ -1214,8 +1214,11 @@ function common.group_in_aoe_range(radius, exclude)
             local m = state.party[i]
             if m and not m.is_trust and m.hpp and m.hpp > 0
                and common.get_party_member_zone(i) == pz then
+                -- Unresolved entity (nil / <=0) = member not loaded, so out of
+                -- AOE range: fail closed to keep the hold guarantee.
                 local ei = m.target_index
-                if ei and ei > 0 and not common.is_in_range(ei, radius) then
+                if type(ei) ~= 'number' or ei <= 0
+                   or not common.is_in_range(ei, radius) then
                     return false
                 end
             end

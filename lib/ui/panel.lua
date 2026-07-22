@@ -426,7 +426,7 @@ function panel.render(addon_settings, save_settings)
                 imgui.SetTooltip(tooltips.multisend_follow)
             end
 
-            -- Hold AOE for Group (global). Holds area buffs/songs/rolls/Accession/
+            -- Hold AOE for Group (per-job). Holds area buffs/songs/rolls/Accession/
             -- Diffusion until every alive, in-zone party member is in range.
             local hold_aoe_var = { addon_settings.hold_aoe_for_group == true }
             imgui.SameLine(0, 20)
