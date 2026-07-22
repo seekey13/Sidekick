@@ -123,6 +123,14 @@ return {
         'before resting is stopped or blocked from\n' ..
         'starting.',
 
+    hold_aoe_for_group =
+        'Holds area buffs, songs, Phantom Rolls and\n' ..
+        'Accession/Diffusion spells until every alive,\n' ..
+        'in-zone party member is in range, so nobody\n' ..
+        'is left out. Trusts and members in another\n' ..
+        'zone never cause a hold. Off by default --\n' ..
+        'AOE fires whenever its normal condition is met.',
+
     follow =
         'Auto-follows a party member when they move\n' ..
         'away. Sends /follow once they pass the\n' ..

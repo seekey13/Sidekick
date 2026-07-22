@@ -780,6 +780,7 @@ return {
                 command = '/ja "Accession" <me>',
                 requires_buff = {358, 401},  -- Can be either 358 or 401
                 buff_id = 366,
+                aoe = true,  -- makes the paired spell AOE (Hold AOE for Group)
                 magic = 'white',
                 magic_types = { 'healing', 'enhancing' },
                 mp_modifier = 2.0,

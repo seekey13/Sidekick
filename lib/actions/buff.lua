@@ -234,6 +234,11 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
     local fast_casting = settings.pianissimo_fast_casting == true
     if fast_casting or not has_pianissimo then
         local song_keys = song_config_keys(job_def, settings)
+        -- Hold AOE for Group: members with at least one single-target (Pianissimo)
+        -- song assigned are managed individually, so their range must not gate the
+        -- area cast -- exclude them (threshold 1, not song_limit).
+        local aoe_excl = settings.hold_aoe_for_group
+            and dedicated_targets(party_buff_config, song_keys, 1) or nil
         local area_processed = {}
         -- Fast-casting only: set when an [A] song still needs (re)casting but
         -- couldn't fire this tick (on recast). Forces a hold so the single-target
@@ -242,7 +247,11 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
         for _, ability in ipairs(available_abilities) do
             local config_key = area_song_config_key(ability, settings, party_buff_config, area_processed)
             if config_key and area_needs_recast(ability, party_buff_config, song_keys, available_abilities, settings, state) then
-                if fast_casting and not has_pianissimo then
+                if aoe_excl and not common.group_in_aoe_range(SONG_AOE_RANGE, aoe_excl) then
+                    -- Hold: a member with no single-target song is out of range.
+                    -- Don't area-cast and don't mark pending, so the single-target
+                    -- pass still manages Pianissimo-assigned members this tick.
+                elseif fast_casting and not has_pianissimo then
                     -- Only raise Pianissimo once the song is off recast and affordable,
                     -- else Pianissimo's own recast burns down while the song waits.
                     local eff_cost = common.effective_ability_cost(ability, settings, job_def)
@@ -625,6 +634,15 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                 end
 
                 if needs_buff then
+                    -- Hold AOE for Group: Protectra/Shellra/Bar (WHM), Diamondhide
+                    -- (BLU) are <me> self-casts that hit the party. Hold until the
+                    -- group is in range. goto (not return) so a held AOE buff doesn't
+                    -- block lower-priority non-AOE self-buffs this tick.
+                    if ability.aoe and settings.hold_aoe_for_group
+                       and not common.group_in_aoe_range() then
+                        goto continue_ability
+                    end
+
                     -- Always-required precast (BLU Unbridled Learning): the
                     -- spell cannot function without the JA's buff. Fire the JA
                     -- first -- but only when the spell itself could follow it

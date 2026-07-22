@@ -1189,6 +1189,44 @@ function common.is_in_range(target_index, range)
     return distance and distance <= range_value
 end
 
+-- AOE radius (yalms). -ga/-ra, area songs, Phantom Rolls and Accession/Diffusion
+-- all land within ~10. One default; add a per-call override if a mechanism proves
+-- to differ (rolls are slightly tighter) rather than special-casing the helper.
+common.AOE_RADIUS = 10
+
+-- True when every alive, in-zone, non-trust party member (1-5) is within radius,
+-- i.e. an area buff/song/roll cast now would cover the whole group. Used to hold
+-- AOE casts until nobody would be left out (opt-in hold_aoe_for_group).
+--   Self (index 0) always qualifies and never blocks.
+--   Trusts skipped -- they auto-follow, so they're always in range.
+--   Members in another zone ignored -- an AOE can never reach them, so they must
+--     not cause an indefinite hold.
+--   Dead members skipped (hpp == 0) -- a corpse can't receive the buff and should
+--     not force a wait. Full-HP members still count: HP is irrelevant to buffs.
+--   No qualifying members (solo / everyone elsewhere) -> true -> cast normally.
+--   exclude: optional {[idx]=true} set of party indices to skip (BRD single-target).
+function common.group_in_aoe_range(radius, exclude)
+    radius = radius or common.AOE_RADIUS
+    local state = common.game_state
+    local pz = common.get_party_member_zone(0)
+    for i = 1, 5 do
+        if not (exclude and exclude[i]) then
+            local m = state.party[i]
+            if m and not m.is_trust and m.hpp and m.hpp > 0
+               and common.get_party_member_zone(i) == pz then
+                -- Unresolved entity (nil / <=0) = member not loaded, so out of
+                -- AOE range: fail closed to keep the hold guarantee.
+                local ei = m.target_index
+                if type(ei) ~= 'number' or ei <= 0
+                   or not common.is_in_range(ei, radius) then
+                    return false
+                end
+            end
+        end
+    end
+    return true
+end
+
 -- Get distance between player and party member
 -- Args: party_index (number) - Party member index (1-5)
 -- Returns: number (distance in yalms) or nil if error
@@ -2641,6 +2679,15 @@ function common.check_stratagem(job_def, settings, ability_key, ability)
 
     -- Fire the first missing stratagem
     local strat = missing[1]
+
+    -- Hold AOE for Group: Accession/Diffusion make the paired spell AOE, so hold
+    -- the whole spell until the group is in range. Return false (hold spell), not
+    -- nil -- nil would cast the spell self-only, giving the caster the buff while
+    -- the group misses it and the self-buff check then suppresses recasts.
+    -- Independent of the per-spell "Hold for Stratagem" setting.
+    if strat.aoe and settings.hold_aoe_for_group and not common.group_in_aoe_range() then
+        return false
+    end
 
     -- A required precast holds regardless of the Hold setting: its spell is gated on
     -- the JA's buff, so casting without it only fails. Scoped to the strat firing this

@@ -293,7 +293,7 @@ function panel.render(addon_settings, save_settings)
             imgui.TableSetupColumn('HP',       ImGuiTableColumnFlags_WidthFixed, 140)
             imgui.TableSetupColumn('MP',       ImGuiTableColumnFlags_WidthFixed, 140)
             imgui.TableSetupColumn('TP',       ImGuiTableColumnFlags_WidthFixed,  38)
-            imgui.TableSetupColumn('Buffs',    ImGuiTableColumnFlags_WidthFixed, 250)
+            imgui.TableSetupColumn('Buffs',    ImGuiTableColumnFlags_WidthFixed, 500)
             imgui.TableSetupColumn('Position', ImGuiTableColumnFlags_WidthFixed, 168)
             imgui.TableSetupColumn('Status',   ImGuiTableColumnFlags_WidthFixed,  60)
             imgui.TableHeadersRow()
@@ -424,6 +424,18 @@ function panel.render(addon_settings, save_settings)
             end
             if imgui.IsItemHovered() then
                 imgui.SetTooltip(tooltips.multisend_follow)
+            end
+
+            -- Hold AOE for Group (per-job). Holds area buffs/songs/rolls/Accession/
+            -- Diffusion until every alive, in-zone party member is in range.
+            local hold_aoe_var = { addon_settings.hold_aoe_for_group == true }
+            imgui.SameLine(0, 20)
+            if imgui.Checkbox('Hold AOE for Group', hold_aoe_var) then
+                addon_settings.hold_aoe_for_group = hold_aoe_var[1]
+                if save_settings then save_settings() end
+            end
+            if imgui.IsItemHovered() then
+                imgui.SetTooltip(tooltips.hold_aoe_for_group)
             end
 
             -- Pianissimo Fast Casting (BRD main or sub). Persisted per-job.
