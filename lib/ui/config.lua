@@ -184,7 +184,7 @@ local function render_party_dropdown(label, setting_key, include_player, party_m
     imgui.PushStyleColor(ImGuiCol_FrameBg, { 0.2, 0.2, 0.2, 1.0 })
     imgui.PushStyleColor(ImGuiCol_FrameBgHovered, { 0.3, 0.3, 0.3, 1.0 })
     imgui.PushStyleColor(ImGuiCol_FrameBgActive, { 0.4, 0.4, 0.4, 1.0 })
-    if imgui.BeginCombo(label, current_display) then
+    if ui.begin_opaque_combo(label, current_display) then
         for _, option in ipairs(options) do
             local is_selected = (option == current_display)
             if imgui.Selectable(option, is_selected) then
@@ -195,7 +195,7 @@ local function render_party_dropdown(label, setting_key, include_player, party_m
                 imgui.SetItemDefaultFocus()
             end
         end
-        imgui.EndCombo()
+        ui.end_opaque_combo()
     end
     imgui.PopStyleColor(3)
     imgui.PopItemWidth()
@@ -229,7 +229,7 @@ local function render_roll_dropdown(label, setting_key, available_rolls, setting
     end
 
     imgui.PushItemWidth(250)
-    if imgui.BeginCombo(label, current_display) then
+    if ui.begin_opaque_combo(label, current_display) then
         local is_none_selected = (current_display == 'None')
         if imgui.Selectable('None', is_none_selected) then
             choose(nil)
@@ -247,7 +247,7 @@ local function render_roll_dropdown(label, setting_key, available_rolls, setting
                 imgui.SetItemDefaultFocus()
             end
         end
-        imgui.EndCombo()
+        ui.end_opaque_combo()
     end
     imgui.PopItemWidth()
     ui.item_tooltip(tooltip)
@@ -270,6 +270,9 @@ end
 function ui_config.show()
     ui_visible = true
     is_open[1] = true
+    -- A popup left open when the window last closed leaves stale was-open
+    -- state that would arm a bg-alpha override on the reopen's first frame.
+    ui.reset_opaque_tracking()
     -- Force the window uncollapsed on open. imgui persists a collapsed state in
     -- imgui.ini; without this, opening a previously-collapsed window shows only
     -- the title bar (and used to be force-closed by the render below).
@@ -447,6 +450,7 @@ function ui_config.render(settings, job_def, callback)
     -- the [X] was clicked. Treat collapse as "still open, just skip content" and
     -- only close on the [X] (is_open flips to false). Always call End() to match
     -- Begin() per imgui rules.
+    imgui.PushStyleVar(ImGuiStyleVar_Alpha, (settings.ui_opacity or 100) / 100)
     if imgui.Begin(window_title, is_open, ImGuiWindowFlags_NoResize + ImGuiWindowFlags_AlwaysAutoResize) then
 
         -- Display job name and levels
@@ -525,14 +529,14 @@ function ui_config.render(settings, job_def, callback)
 
         -- Right-click: when automation stops by itself. Both opt-in, so an absent
         -- key reads as off.
-        if imgui.BeginPopupContextItem('##cmenu_automation') then
+        if ui.begin_opaque_context_item('##cmenu_automation') then
             local load_stopped = { settings.load_stopped == true }
             if imgui.Checkbox('Load stopped', load_stopped) then
                 settings.load_stopped = load_stopped[1] or nil
                 if save_callback then save_callback() end
             end
             if imgui.IsItemHovered() then
-                imgui.SetTooltip('Always load with automation stopped.\nOff: load in whatever state you left it.')
+                ui.set_tooltip('Always load with automation stopped.\nOff: load in whatever state you left it.')
             end
             local stop_after_zone = { settings.stop_after_zone == true }
             if imgui.Checkbox('Stop after zone', stop_after_zone) then
@@ -540,9 +544,9 @@ function ui_config.render(settings, job_def, callback)
                 if save_callback then save_callback() end
             end
             if imgui.IsItemHovered() then
-                imgui.SetTooltip('Stop automation whenever you change zones.')
+                ui.set_tooltip('Stop automation whenever you change zones.')
             end
-            imgui.EndPopup()
+            ui.end_opaque_popup()
         end
 
         -- Display status on same line
@@ -1136,7 +1140,7 @@ function ui_config.render(settings, job_def, callback)
                         
                         -- Entrust Spell dropdown
                         imgui.PushItemWidth(250)
-                        if imgui.BeginCombo('Entrust Spell', current_spell_display) then
+                        if ui.begin_opaque_combo('Entrust Spell', current_spell_display) then
                             -- Add None option
                             local is_none_selected = (entrust_spell_name == nil)
                             if imgui.Selectable('None', is_none_selected) then
@@ -1164,7 +1168,7 @@ function ui_config.render(settings, job_def, callback)
                                     imgui.SetItemDefaultFocus()
                                 end
                             end
-                            imgui.EndCombo()
+                            ui.end_opaque_combo()
                         end
                         imgui.PopItemWidth()
                         ui.item_tooltip(tooltips.geo_entrust_spell)
@@ -1192,6 +1196,7 @@ function ui_config.render(settings, job_def, callback)
 
     end
     imgui.End()
+    imgui.PopStyleVar()
 
     -- Close only when the [X] was clicked (imgui sets is_open to false). A mere
     -- collapse leaves is_open true, so the window stays open.

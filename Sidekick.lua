@@ -10,7 +10,7 @@ Main addon file: job detection, event loop, command handler
 
 addon.name      = 'Sidekick'
 addon.author    = 'Seekey'
-addon.version   = '2.5.0'
+addon.version   = '2.6.0'
 addon.desc      = 'Support Job Automation Framework'
 addon.link      = 'https://github.com/seekey13/Sidekick'
 
@@ -90,6 +90,8 @@ local default_settings = T{
     rest_enabled = false,
     rest_timer = 5,
     rest_distance = 7,
+    -- Config window opacity (job-independent). 1-100, set from /sk panel.
+    ui_opacity = 100,
 }
 
 -- Range management state
