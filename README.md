@@ -63,6 +63,8 @@ The one exception is **opt-in leader following** (off by default): with **Follow
 
 - **Follow a tracked target**: the **Follow Target** dropdown now lists your session tracked targets alongside party members, so you can follow — and watch the Resting distance against — someone outside your party.
 
+- **Red Mage heals itself after Convert**: **Convert** trades your HP for a full MP pool, which used to leave you nearly dead while Sidekick cured whoever *else* looked lowest. Now the first heal after Convert always goes to you, and it waits for the swap to actually land so the cure is sized against your new full MP — a proper **Cure IV**, not whatever your old empty pool could afford. If your HP lands below the critical threshold, a critical ability like **Divine Seal** (with WHM subbed) still fires first so the forced cure lands boosted, and if someone else tops you off before it goes out, the forced heal stands down.
+
 ### Changed
 - **Geomancer Blaze of Glory is now a Geo precast**: it boosts the luopan your *next* Geo spell puts down, so Sidekick only uses it when no luopan is out and a Geo spell is actually about to be cast (and you can afford it). Its checkbox moved to the **Geo** section next to Full Circle.  
 - **Per-tier Combat Only / Idle Only on ungrouped groups**: after you right-click → **Ungroup** a group, each tier now gets its own **Combat Only** / **Idle Only** setting instead of sharing one across the group — so you can run, for example, **Indi-Fury** in combat and **Indi-Refresh** while idle. Grouped (the default) tiers still share a single gate.  Thanks to **Tai** for reporting the bug and feature idea.
@@ -430,6 +432,7 @@ Currently implemented support jobs:
 - **Red Mage** (RDM)
   - Single-target healing with white magic (Cure I-IV)
   - Buff with enhancing magic (Protect I-IV, Shell I-IV, Haste, Refresh, Phalanx, Phalanx II, Enfire, Enblizzard, Enaero, Enstone, Enthunder, Enwater, Stoneskin, Blink, Aquaveil, Sneak, Invisible, Deodorize)
+  - MP recovery with **Convert** — the first heal afterward is forced onto you, sized against your post-Convert MP
   - Revive with white magic (Raise)
 
 - **Samurai** (SAM) — *self-only support*
