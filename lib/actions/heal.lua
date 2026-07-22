@@ -14,6 +14,28 @@ local action_core = require('lib.core.action_core')
 -- are included unless explicitly disabled; alliance members are excluded unless
 -- explicitly enabled. Keys match the UI: numeric 0-5 (party), 'tt_<sid>'
 -- (tracked), 'al_<flat>' (alliance).
+-- Forced self heal: set by recover.lua when an ability tagged force_self_heal
+-- (RDM Convert) fires — HP was just dumped into MP, so the next single-target
+-- heal must go to the player regardless of focus/lowest-HP logic.
+--
+-- The throttle stamps at *send*; between the Convert send and its 0x028
+-- resolution the game state is still pre-swap (old low MP, old HP). Selecting
+-- in that window picks a cure sized to the MP that's about to become HP
+-- (Cure III at 50 MP, nothing at all at 7 MP). So while the player's MP is
+-- still below recover_mp_threshold — the very condition that fired Convert —
+-- the swap hasn't landed yet: hold single-target healing and decide nothing.
+-- Cleared when the forced heal is returned, when the player's HP is already
+-- above heal_threshold *after* the swap landed, when the swap never lands
+-- within FORCE_SELF_WAIT_TIMEOUT, or after FORCE_SELF_TIMEOUT overall.
+local FORCE_SELF_WAIT_TIMEOUT = 5   -- max wait for the ability to resolve (MP jump)
+local FORCE_SELF_TIMEOUT      = 30  -- overall safety valve (e.g. silenced the whole window)
+local force_self = { active = false, ts = 0 }
+
+function heal.force_next_self_heal()
+    force_self.active = true
+    force_self.ts     = os.clock()
+end
+
 local function make_group_filter(key_name)
     local ui_config = require('lib.ui.config')
     local cfg = ui_config.get_party_buffs()
@@ -300,6 +322,55 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
         end
     end
     
+    -- Forced self heal after a force_self_heal ability (RDM Convert) fired.
+    -- Sits AFTER the critical branch on purpose: post-swap HP is usually below
+    -- critical_threshold, so a critical boost JA (Divine Seal, Contradance)
+    -- fires first — the flag survives it, and the forced cure lands boosted on
+    -- the following tick. Critical heals for party members are likewise never
+    -- blocked by the in-flight hold below (critical JAs cost no MP).
+    if force_self.active then
+        local player_hpp = state.player.hpp
+        local elapsed    = os.clock() - force_self.ts
+        if elapsed > FORCE_SELF_TIMEOUT then
+            force_self.active = false
+        elseif (state.player.mpp or 0) < (settings.recover_mp_threshold or 0) then
+            -- MP still pre-swap: Convert hasn't resolved yet. Hold healing so we
+            -- don't size a cure to (or burn) the MP that's about to become HP.
+            -- Plain < rather than below_threshold: that helper treats 0 as
+            -- dead/invalid, but 0 MP here (drained between the send and the
+            -- 0x028, e.g. an Aspir) is still pre-swap and must keep holding —
+            -- below_threshold would misread it as the swap having landed and
+            -- clear the flag against pre-swap HP.
+            if elapsed <= FORCE_SELF_WAIT_TIMEOUT then
+                return nil
+            end
+            -- Swap never landed (command eaten): give up, resume normal logic
+            force_self.active = false
+        elseif not common.below_threshold(player_hpp, settings.heal_threshold or 75) then
+            -- Swap landed but HP is fine (someone healed us first): no forced heal
+            force_self.active = false
+        else
+            local selected_ability = heal.select_ability(available_abilities, player_hpp, job_def, player_resource, 0, nil, settings)
+            if selected_ability then
+                -- Check stratagems before casting
+                local strat_result = common.check_stratagem(job_def, settings, selected_ability.name, selected_ability)
+                if strat_result == false then return nil
+                elseif strat_result then return strat_result end
+
+                local command = common.build_ability_command(selected_ability, 0)
+                if command then
+                    force_self.active = false
+                    common.debugf('[HEAL] >>> Forced self heal with %s', selected_ability.name)
+                    return {
+                        command = command,
+                        description = string.format('Forced self-heal with %s (HP: %.1f%%)', selected_ability.name, player_hpp)
+                    }
+                end
+            end
+            -- Nothing castable this tick (silence, cooldowns): fall through, flag stays set
+        end
+    end
+
     -- Priority 2: Focus target (party or tracked or alliance)
     if settings.focus_enabled and settings.focus_target and party_status.focus_needs_heal then
         -- Case A: Focus is a tracked target

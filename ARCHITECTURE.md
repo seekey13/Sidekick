@@ -349,6 +349,7 @@ FFI bindings for FFXI target resolution (battle target, scan target, last teller
 - **Deficit-based selection**: Calculates exact HP deficit, picks ability whose `value` best matches to minimise overheal.
 - **Critical HP system**: Separate ability list (`abilities.critical`) with lower threshold (default 30%).
 - Uses `action_core.filter_usable()` for resource/cooldown gating.
+- **Forced self heal**: `heal.force_next_self_heal()` (called by `recover.lua` when a `force_self_heal` ability — RDM Convert — fires) arms a module-local flag that makes `execute` heal the player ahead of focus/lowest-HP logic. The branch sits after the critical-HP branch, so a critical boost JA (Divine Seal, Contradance) still fires first and the forced cure lands boosted the next tick. While the player's MP is still below `recover_mp_threshold` the swap hasn't resolved yet (game state is pre-Convert), so the branch holds single-target healing without selecting — otherwise the cure gets sized to the MP that's about to become HP. Once MP jumps, selection runs against the post-swap pool. Cleared when the forced heal is returned, when post-swap HP is already above `heal_threshold`, when the swap never lands within 5 s, or after a 30 s overall timeout; if nothing is castable (silence, cooldowns) the flag survives and normal priority logic runs.
 
 **AOE healing** (`execute_aoe`): Triggers when average party HP falls below threshold. Uses `action_core.first_command()`.
 
@@ -427,7 +428,7 @@ the label). Returns `{command, description}`.
 
 ### recover.lua – Resource Recovery
 
-MP and TP recovery. Monitors percentage thresholds. Uses `action_core.first_command()` and `filter_usable()`. Supports `requires_buff` prerequisites.
+MP and TP recovery. Monitors percentage thresholds. Uses `action_core.first_command()` and `filter_usable()`. Supports `requires_buff` prerequisites. When the fired MP-recovery ability carries `force_self_heal` (RDM Convert), calls `heal.force_next_self_heal()` so the next heal targets the player — the winning ability is captured via `first_command`'s `description_fn` closure, which runs exactly once at command-build time.
 
 ### geo.lua – Geomancer Automation
 
@@ -663,6 +664,14 @@ return {
                                                 --   option) and skips it once the prerequisite is met
                                                 --   another way. precast_satisfies_prereq opens the action
                                                 --   modules' requires_buff gate so the spell can reach it.
+    force_self_heal        = true,              -- recover_mp entries only (RDM Convert): after this ability
+                                                --   fires, heal.execute forces exactly one self heal ahead
+                                                --   of focus/lowest-HP targeting. Heals are held until MP
+                                                --   rises back above recover_mp_threshold (the swap has
+                                                --   resolved) so the cure is sized to post-swap MP. Clears
+                                                --   when the heal is returned, post-swap HP is already
+                                                --   above heal_threshold, the swap never lands (5 s), or
+                                                --   a 30 s overall safety timeout elapses.
 }
 ```
 
