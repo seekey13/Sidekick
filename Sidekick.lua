@@ -78,6 +78,10 @@ local default_settings = T{
     follow_distance = 5,
     -- false = native Auto Follow; true = Multisend attack-range follow (see /sk panel).
     multisend_follow = false,
+    -- Hold AOE (Protectra/Shellra/Bar, area songs, Phantom Rolls, Accession/
+    -- Diffusion) until every alive, in-zone party member is in range. Opt-in;
+    -- per-job-file like every setting, so flipping it on one job doesn't sync.
+    hold_aoe_for_group = false,
     -- AFK Sleep (job-independent). Default-on: it only stops automation from acting.
     afk_enabled = true,
     afk_timeout = 600,  -- Seconds of no party movement and no combat before sleeping.

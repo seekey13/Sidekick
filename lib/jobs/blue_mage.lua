@@ -157,6 +157,7 @@ return {
                 command = '/ma "Diamondhide" <me>',
                 buff_id = 37,  -- Stoneskin (AOE, hits party within 10)
                 no_diffusion = true,  -- already AOE, D button hidden
+                aoe = true,  -- inherent AOE self-cast (Hold AOE for Group)
             },
             {
                 name = 'Warm-Up',
@@ -314,6 +315,7 @@ return {
                 ability_id = 176,  -- merit-unlocked: gated on HasAbility
                 command = '/ja "Diffusion" <me>',
                 buff_id = 356,
+                aoe = true,  -- spreads the next blue buff to the party (Hold AOE for Group)
                 recast_gate = true,
                 main_job_only = true,
                 column = 'diffusion',  -- [D] button column

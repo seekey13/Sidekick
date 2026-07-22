@@ -356,6 +356,7 @@ return {
                 command = '/ma "Protectra V" <me>',
                 buff_id = 40,
                 group = 'protectra',
+                aoe = true,  -- <me> self-cast that hits the party (Hold AOE for Group)
             },
             {
                 name = 'Protectra IV',
@@ -367,6 +368,7 @@ return {
                 command = '/ma "Protectra IV" <me>',
                 buff_id = 40,
                 group = 'protectra',
+                aoe = true,  -- <me> self-cast that hits the party (Hold AOE for Group)
             },
             {
                 name = 'Protectra III',
@@ -378,6 +380,7 @@ return {
                 command = '/ma "Protectra III" <me>',
                 buff_id = 40,
                 group = 'protectra',
+                aoe = true,  -- <me> self-cast that hits the party (Hold AOE for Group)
             },
             {
                 name = 'Protectra II',
@@ -389,6 +392,7 @@ return {
                 command = '/ma "Protectra II" <me>',
                 buff_id = 40,
                 group = 'protectra',
+                aoe = true,  -- <me> self-cast that hits the party (Hold AOE for Group)
             },
             {
                 name = 'Protectra',
@@ -400,6 +404,7 @@ return {
                 command = '/ma "Protectra" <me>',
                 buff_id = 40,
                 group = 'protectra',
+                aoe = true,  -- <me> self-cast that hits the party (Hold AOE for Group)
             },
             {
                 name = 'Protect IV',
@@ -467,6 +472,7 @@ return {
                 command = '/ma "Shellra V" <me>',
                 buff_id = 41,
                 group = 'shellra',
+                aoe = true,  -- <me> self-cast that hits the party (Hold AOE for Group)
             },
             {
                 name = 'Shellra IV',
@@ -478,6 +484,7 @@ return {
                 command = '/ma "Shellra IV" <me>',
                 buff_id = 41,
                 group = 'shellra',
+                aoe = true,  -- <me> self-cast that hits the party (Hold AOE for Group)
             },
             {
                 name = 'Shellra III',
@@ -489,6 +496,7 @@ return {
                 command = '/ma "Shellra III" <me>',
                 buff_id = 41,
                 group = 'shellra',
+                aoe = true,  -- <me> self-cast that hits the party (Hold AOE for Group)
             },
             {
                 name = 'Shellra II',
@@ -500,6 +508,7 @@ return {
                 command = '/ma "Shellra II" <me>',
                 buff_id = 41,
                 group = 'shellra',
+                aoe = true,  -- <me> self-cast that hits the party (Hold AOE for Group)
             },
             {
                 name = 'Shellra',
@@ -511,6 +520,7 @@ return {
                 command = '/ma "Shellra" <me>',
                 buff_id = 41,
                 group = 'shellra',
+                aoe = true,  -- <me> self-cast that hits the party (Hold AOE for Group)
             },
             {
                 name = 'Shell IV',
@@ -579,6 +589,7 @@ return {
                 command = '/ma "Barthundra" <me>',
                 buff_id = 104,
                 group = 'barelement',
+                aoe = true,  -- <me> self-cast that hits the party (Hold AOE for Group)
             },
             {
                 name = 'Barblizzara',
@@ -590,6 +601,7 @@ return {
                 command = '/ma "Barblizzara" <me>',
                 buff_id = 101,
                 group = 'barelement',
+                aoe = true,  -- <me> self-cast that hits the party (Hold AOE for Group)
             },
             {
                 name = 'Barfira',
@@ -601,6 +613,7 @@ return {
                 command = '/ma "Barfira" <me>',
                 buff_id = 100,
                 group = 'barelement',
+                aoe = true,  -- <me> self-cast that hits the party (Hold AOE for Group)
             },
             {
                 name = 'Baraera',
@@ -612,6 +625,7 @@ return {
                 command = '/ma "Baraera" <me>',
                 buff_id = 102,
                 group = 'barelement',
+                aoe = true,  -- <me> self-cast that hits the party (Hold AOE for Group)
             },
             {
                 name = 'Barwatera',
@@ -623,6 +637,7 @@ return {
                 command = '/ma "Barwatera" <me>',
                 buff_id = 105,
                 group = 'barelement',
+                aoe = true,  -- <me> self-cast that hits the party (Hold AOE for Group)
             },
             {
                 name = 'Barstonra',
@@ -634,6 +649,7 @@ return {
                 command = '/ma "Barstonra" <me>',
                 buff_id = 103,
                 group = 'barelement',
+                aoe = true,  -- <me> self-cast that hits the party (Hold AOE for Group)
             },
             -- Bar Status spells
             {
@@ -646,6 +662,7 @@ return {
                 command = '/ma "Baramnesra" <me>',
                 buff_id = 286,
                 group = 'barstatus',
+                aoe = true,  -- <me> self-cast that hits the party (Hold AOE for Group)
             },
             {
                 name = 'Barpetra',
@@ -657,6 +674,7 @@ return {
                 command = '/ma "Barpetra" <me>',
                 buff_id = 111,
                 group = 'barstatus',
+                aoe = true,  -- <me> self-cast that hits the party (Hold AOE for Group)
             },
             {
                 name = 'Barvira',
@@ -668,6 +686,7 @@ return {
                 command = '/ma "Barvira" <me>',
                 buff_id = 112,
                 group = 'barstatus',
+                aoe = true,  -- <me> self-cast that hits the party (Hold AOE for Group)
             },
             {
                 name = 'Barsilencera',
@@ -679,6 +698,7 @@ return {
                 command = '/ma "Barsilencera" <me>',
                 buff_id = 110,
                 group = 'barstatus',
+                aoe = true,  -- <me> self-cast that hits the party (Hold AOE for Group)
             },
             {
                 name = 'Barblindra',
@@ -690,6 +710,7 @@ return {
                 command = '/ma "Barblindra" <me>',
                 buff_id = 109,
                 group = 'barstatus',
+                aoe = true,  -- <me> self-cast that hits the party (Hold AOE for Group)
             },
             {
                 name = 'Barparalyzra',
@@ -701,6 +722,7 @@ return {
                 command = '/ma "Barparalyzra" <me>',
                 buff_id = 108,
                 group = 'barstatus',
+                aoe = true,  -- <me> self-cast that hits the party (Hold AOE for Group)
             },
             {
                 name = 'Barpoisonra',
@@ -712,6 +734,7 @@ return {
                 command = '/ma "Barpoisonra" <me>',
                 buff_id = 107,
                 group = 'barstatus',
+                aoe = true,  -- <me> self-cast that hits the party (Hold AOE for Group)
             },
             {
                 name = 'Barsleepra',
@@ -723,6 +746,7 @@ return {
                 command = '/ma "Barsleepra" <me>',
                 buff_id = 106,
                 group = 'barstatus',
+                aoe = true,  -- <me> self-cast that hits the party (Hold AOE for Group)
             },
             {
                 name = 'Aquaveil',

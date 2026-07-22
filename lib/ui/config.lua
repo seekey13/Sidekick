@@ -673,9 +673,6 @@ function ui_config.render(settings, job_def, callback)
             end
         end
 
-        -- AFK Sleep toggle + timeout live on the debug panel (/sk panel), beside
-        -- Debug Mode. The sleep status still shows on the automation status line above.
-
         -- Show job-specific sections if we have a job definition
         if job_def then
         
