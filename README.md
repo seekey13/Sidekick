@@ -57,6 +57,8 @@ The one exception is **opt-in leader following** (off by default): with **Follow
 ### [2.6.0] - 2026-07-20
 
 ### Added
+- **UI Transparency**: a new slider in `/sk panel` (1-100) fades the `/sk` config window so it sits quietly over the game. Dropdown menus (while expanded) and tooltips stay fully opaque so they're always readable at any transparency. Thanks to **Fallen** for the feature idea.
+
 - **Corsair**: New job — *rolls only*. Pick two **Phantom Rolls** in the new **Rolls** section and Sidekick keeps them up, using **Double-Up** on each according to a **Risk Tier** (Lowest / Medium / Highest) built on the roll's lucky and unlucky numbers. It never doubles at 11, since 12 busts, uses **Snake Eye** for guaranteed finishes and **Fold** the moment you Bust, and while **Bust** is up it holds the second roll back until the slot frees. Rolls fire in and out of combat. Quick Draw, Ranged Attack, and Random Deal are deliberately not automated — Sidekick stays support-only.
 
 ### Changed
