@@ -1632,7 +1632,7 @@ function ui_components.group_dropdown(ctx, job_def, target_group, dropdown_width
     end
     
     imgui.PushItemWidth(dropdown_width or DROPDOWN_FALLBACK_WIDTH)
-    if imgui.BeginCombo(combo_label, current_display) then
+    if ui_components.begin_opaque_combo(combo_label, current_display) then
         for _, ability in ipairs(usable) do
             local display_text
             if ability.cost and ability.cost > 0 then
@@ -1656,9 +1656,9 @@ function ui_components.group_dropdown(ctx, job_def, target_group, dropdown_width
                 imgui.SetItemDefaultFocus()
             end
         end
-        imgui.EndCombo()
+        ui_components.end_opaque_combo()
     end
-    
+
     -- Right-click context menu for combat_only toggle (attaches to the combo)
     if selected then
         render_combat_only_context_menu(ctx, selected)
@@ -2114,12 +2114,38 @@ function ui_components.slider_int(ctx, label, setting_name, ui_var, min, max, wi
     imgui.PopItemWidth()
 end
 
+-- Combo whose expanded menu ignores the window's ui_opacity fade: the closed
+-- preview keeps the window alpha, but the open popup renders fully opaque so
+-- its entries stay readable at low opacity. Pair with end_opaque_combo.
+function ui_components.begin_opaque_combo(label, preview)
+    local faded = imgui.GetStyle().Alpha < 1.0
+    if faded then
+        imgui.SetNextWindowBgAlpha(1.0)
+    end
+    if imgui.BeginCombo(label, preview) then
+        imgui.PushStyleVar(ImGuiStyleVar_Alpha, 1.0)
+        return true
+    end
+    -- Popup closed: no Begin consumed the BgAlpha above, and imgui keeps stray
+    -- next-window state until some window begins. Overwrite it with the current
+    -- style alpha so wherever it lands (e.g. a tooltip) it changes nothing.
+    if faded then
+        imgui.SetNextWindowBgAlpha(imgui.GetStyle().Alpha)
+    end
+    return false
+end
+
+function ui_components.end_opaque_combo()
+    imgui.PopStyleVar()
+    imgui.EndCombo()
+end
+
 -- Create a combo dropdown UI element linked to a setting
 function ui_components.combo(ctx, label, setting_name, ui_var, options, converter, width)
     width = width or SLIDER_WIDTH
     imgui.PushItemWidth(width)
     local current_value = options[ui_var[1] + 1] or options[1] or ""
-    if imgui.BeginCombo(label, current_value) then
+    if ui_components.begin_opaque_combo(label, current_value) then
         for i = 0, #options - 1 do
             local is_selected = (ui_var[1] == i)
             if imgui.Selectable(options[i + 1], is_selected) then
@@ -2137,7 +2163,7 @@ function ui_components.combo(ctx, label, setting_name, ui_var, options, converte
                 imgui.SetItemDefaultFocus()
             end
         end
-        imgui.EndCombo()
+        ui_components.end_opaque_combo()
     end
     imgui.PopItemWidth()
 end

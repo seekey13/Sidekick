@@ -184,7 +184,7 @@ local function render_party_dropdown(label, setting_key, include_player, party_m
     imgui.PushStyleColor(ImGuiCol_FrameBg, { 0.2, 0.2, 0.2, 1.0 })
     imgui.PushStyleColor(ImGuiCol_FrameBgHovered, { 0.3, 0.3, 0.3, 1.0 })
     imgui.PushStyleColor(ImGuiCol_FrameBgActive, { 0.4, 0.4, 0.4, 1.0 })
-    if imgui.BeginCombo(label, current_display) then
+    if ui.begin_opaque_combo(label, current_display) then
         for _, option in ipairs(options) do
             local is_selected = (option == current_display)
             if imgui.Selectable(option, is_selected) then
@@ -195,7 +195,7 @@ local function render_party_dropdown(label, setting_key, include_player, party_m
                 imgui.SetItemDefaultFocus()
             end
         end
-        imgui.EndCombo()
+        ui.end_opaque_combo()
     end
     imgui.PopStyleColor(3)
     imgui.PopItemWidth()
@@ -229,7 +229,7 @@ local function render_roll_dropdown(label, setting_key, available_rolls, setting
     end
 
     imgui.PushItemWidth(250)
-    if imgui.BeginCombo(label, current_display) then
+    if ui.begin_opaque_combo(label, current_display) then
         local is_none_selected = (current_display == 'None')
         if imgui.Selectable('None', is_none_selected) then
             choose(nil)
@@ -247,7 +247,7 @@ local function render_roll_dropdown(label, setting_key, available_rolls, setting
                 imgui.SetItemDefaultFocus()
             end
         end
-        imgui.EndCombo()
+        ui.end_opaque_combo()
     end
     imgui.PopItemWidth()
     ui.item_tooltip(tooltip)
@@ -1137,7 +1137,7 @@ function ui_config.render(settings, job_def, callback)
                         
                         -- Entrust Spell dropdown
                         imgui.PushItemWidth(250)
-                        if imgui.BeginCombo('Entrust Spell', current_spell_display) then
+                        if ui.begin_opaque_combo('Entrust Spell', current_spell_display) then
                             -- Add None option
                             local is_none_selected = (entrust_spell_name == nil)
                             if imgui.Selectable('None', is_none_selected) then
@@ -1165,7 +1165,7 @@ function ui_config.render(settings, job_def, callback)
                                     imgui.SetItemDefaultFocus()
                                 end
                             end
-                            imgui.EndCombo()
+                            ui.end_opaque_combo()
                         end
                         imgui.PopItemWidth()
                         ui.item_tooltip(tooltips.geo_entrust_spell)

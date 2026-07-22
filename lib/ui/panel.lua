@@ -293,7 +293,7 @@ function panel.render(addon_settings, save_settings)
             imgui.TableSetupColumn('HP',       ImGuiTableColumnFlags_WidthFixed, 140)
             imgui.TableSetupColumn('MP',       ImGuiTableColumnFlags_WidthFixed, 140)
             imgui.TableSetupColumn('TP',       ImGuiTableColumnFlags_WidthFixed,  38)
-            imgui.TableSetupColumn('Buffs',    ImGuiTableColumnFlags_WidthFixed, 500)
+            imgui.TableSetupColumn('Buffs',    ImGuiTableColumnFlags_WidthFixed, 200)
             imgui.TableSetupColumn('Position', ImGuiTableColumnFlags_WidthFixed, 168)
             imgui.TableSetupColumn('Status',   ImGuiTableColumnFlags_WidthFixed,  60)
             imgui.TableHeadersRow()
@@ -386,33 +386,6 @@ function panel.render(addon_settings, save_settings)
         end
 
         if addon_settings then
-            -- AFK Sleep (global). afk_timeout is stored in seconds but shown in
-            -- minutes, so read afk_timeout/60 and write value*60.
-            local afk_var = { addon_settings.afk_enabled == true }
-            imgui.SameLine(0, 20)
-            if imgui.Checkbox('AFK Sleep', afk_var) then
-                addon_settings.afk_enabled = afk_var[1]
-                if not afk_var[1] then afk.reset() end  -- never leave it stuck asleep
-                if save_settings then save_settings() end
-            end
-            if imgui.IsItemHovered() then
-                imgui.SetTooltip(tooltips.afk_sleep)
-            end
-
-            local mins_var = { math.floor((addon_settings.afk_timeout or 600) / 60) }
-            imgui.SameLine(0, 20)
-            imgui.PushItemWidth(80)
-            if imgui.InputInt('Timeout (minutes)', mins_var) then
-                -- Bounds mirror /sidekick afk <seconds> (60-3600s = 1-60m).
-                local m = mins_var[1]
-                if m < 1 then m = 1 end
-                if m > 60 then m = 60 end
-                addon_settings.afk_timeout = m * 60
-                afk.reset()  -- restart the interval with the new timeout
-                if save_settings then save_settings() end
-            end
-            imgui.PopItemWidth()
-
             -- Multisend Follow (global). ON = Attack Range shown, native Follow off.
             local ms_var = { addon_settings.multisend_follow == true }
             imgui.SameLine(0, 20)
@@ -460,10 +433,37 @@ function panel.render(addon_settings, save_settings)
                 imgui.SetTooltip(tooltips.cast_with_1_shadow)
             end
 
+            -- AFK Sleep (global). afk_timeout is stored in seconds but shown in
+            -- minutes, so read afk_timeout/60 and write value*60. Starts the
+            -- second controls row, shared with the UI Transparency slider.
+            local afk_var = { addon_settings.afk_enabled == true }
+            if imgui.Checkbox('AFK Sleep', afk_var) then
+                addon_settings.afk_enabled = afk_var[1]
+                if not afk_var[1] then afk.reset() end  -- never leave it stuck asleep
+                if save_settings then save_settings() end
+            end
+            if imgui.IsItemHovered() then
+                imgui.SetTooltip(tooltips.afk_sleep)
+            end
+
+            local mins_var = { math.floor((addon_settings.afk_timeout or 600) / 60) }
+            imgui.SameLine(0, 20)
+            imgui.PushItemWidth(80)
+            if imgui.InputInt('Timeout (minutes)', mins_var) then
+                -- Bounds mirror /sidekick afk <seconds> (60-3600s = 1-60m).
+                local m = mins_var[1]
+                if m < 1 then m = 1 end
+                if m > 60 then m = 60 end
+                addon_settings.afk_timeout = m * 60
+                afk.reset()  -- restart the interval with the new timeout
+                if save_settings then save_settings() end
+            end
+            imgui.PopItemWidth()
+
             -- UI Transparency (global). Drives the config window's alpha directly.
             local opacity_var = { addon_settings.ui_opacity or 100 }
             imgui.SameLine(0, 20)
-            imgui.PushItemWidth(400)
+            imgui.PushItemWidth(460)
             if imgui.SliderInt('UI Transparency', opacity_var, 1, 100) then
                 addon_settings.ui_opacity = opacity_var[1]
                 if save_settings then save_settings() end
