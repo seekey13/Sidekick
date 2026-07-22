@@ -23,42 +23,23 @@ function follow.execute(settings, job_def, main_level, sub_level, player_resourc
         return nil
     end
 
-    local gs = common.game_state
-    if not gs or not gs.party then
-        return nil
+    -- Resolves party P1-P5 first, then session tracked targets; nil when the
+    -- name matches neither or the member is zoned out (SpawnFlags gate).
+    local distance, idx = common.get_follow_target_distance(target_name)
+    if not distance then
+        return nil  -- not in party/tracked -> silent
     end
 
-    -- Party index i maps directly to <pi> (both 0-based, <p0> = player). Excludes
-    -- the player, so only matches P1-P5. Same index feeds get_party_member_distance
-    -- below (which happens to use a 1..5 convention that lines up here).
-    local idx = nil
-    for i = 1, 5 do
-        local m = gs.party[i]
-        if m and m.name == target_name then
-            idx = i
-            break
-        end
-    end
-    if not idx then
-        return nil  -- not in party -> silent
-    end
-
-    -- In-zone gate: a zoned-out member keeps their slot with a garbage position (and
-    -- get_party_member_distance may return it rather than nil), so test SpawnFlags.
-    local ti = gs.party[idx].target_index
-    if not ti or ti == 0 then return nil end
-    local ent = GetEntity(ti)
-    if not ent or (ent.SpawnFlags or 0) <= 0 then
-        return nil
-    end
-
-    local distance = common.get_party_member_distance(idx)
-    if not distance or distance <= (settings.follow_distance or 5) then
+    if distance <= (settings.follow_distance or 5) then
         return nil  -- close enough -> client holds position
     end
 
+    -- Party members use the <p_> token (idx maps directly onto <pi>); tracked
+    -- targets sit outside the party so they are followed by name, the same
+    -- name-command convention /check uses in common.add_tracked_target.
+    local cmd_target = idx and ('<p' .. idx .. '>') or target_name
     return {
-        command     = '/follow <p' .. idx .. '>',
+        command     = '/follow ' .. cmd_target,
         description = string.format('Following %s (%.1f yalms)', target_name, distance),
     }
 end
