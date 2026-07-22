@@ -1258,6 +1258,50 @@ function common.get_party_member_distance(party_index)
     return common.calculate_distance(player_entity, member_entity)
 end
 
+-- Resolve a follow-target name to a live distance. Checks party P1-P5 first,
+-- then session tracked targets. Zoned-out members keep their slot with a
+-- garbage position, so both paths gate on SpawnFlags before measuring.
+-- Args: name (string) - Character name (settings.follow_target)
+-- Returns: number|nil (distance in yalms), number|nil (party index 1-5, nil for tracked)
+function common.get_follow_target_distance(name)
+    if not name then return nil end
+
+    local gs = common.game_state
+    if gs and gs.party then
+        for i = 1, 5 do
+            local m = gs.party[i]
+            if m and m.name == name then
+                local ti = m.target_index
+                if not ti or ti == 0 then return nil end
+                local ent = GetEntity(ti)
+                if not ent or (ent.SpawnFlags or 0) <= 0 then return nil end
+                local me = targets.get_me()
+                if not me then return nil end
+                local distance = common.calculate_distance(me, ent)
+                if not distance then return nil end
+                return distance, i
+            end
+        end
+    end
+
+    -- Not in party: try session tracked targets. An entity slot can be recycled
+    -- when its occupant despawns mid-zone (tracked targets themselves are cleared
+    -- on zone change), so require the ServerId to still match.
+    for _, tt in pairs(tracked_targets) do
+        if tt.name == name then
+            local ent = (tt.target_index and tt.target_index ~= 0) and GetEntity(tt.target_index) or nil
+            if not ent or ent.ServerId ~= tt.server_id or (ent.SpawnFlags or 0) <= 0 then
+                return nil
+            end
+            local me = targets.get_me()
+            if not me then return nil end
+            return common.calculate_distance(me, ent), nil
+        end
+    end
+
+    return nil
+end
+
 -- Radial Arcana consumes the luopan, so the Geomancer job's validate_ability
 -- gates it on arcana_usable: true only while we are stood in a bubble we can
 -- afford to lose. lib/actions/geo.lua recomputes it every tick (it owns the

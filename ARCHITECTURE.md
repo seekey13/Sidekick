@@ -473,12 +473,16 @@ MP and TP recovery. Monitors percentage thresholds. Uses `action_core.first_comm
 ### follow.lua – Leader Following
 
 - **Opt-in** (`settings.follow_enabled`, default off) job-independent leader following — the
-  only non-combat movement Sidekick performs. Returns `{command = '/follow <pN>'}` when the
-  configured `follow_target` is beyond `follow_distance` (default 5), else `nil`.
-- Reuses existing primitives: finds the target in `game_state.party` (0-based indices map
-  directly to FFXI's zero-based `<pN>`, `<p0>` = player), gates in-zone on `GetSpawnFlags > 0`
-  (a zoned-out member keeps a slot with a garbage position), and measures range via
-  `common.get_party_member_distance`.
+  only non-combat movement Sidekick performs. Returns `{command = '/follow <pN>'}` (party
+  member) or `{command = '/follow <Name>'}` (tracked target) when the configured
+  `follow_target` is beyond `follow_distance` (default 5), else `nil`.
+- Target resolution and range live in `common.get_follow_target_distance(name)`: party P1-P5
+  first (0-based indices map directly to FFXI's zero-based `<pN>`, `<p0>` = player), then
+  session tracked targets (followed by name — the same name-command convention `/check` uses
+  in `common.add_tracked_target`; their entity is re-matched on `ServerId` since slots can be
+  recycled mid-zone). Both paths gate in-zone on `SpawnFlags > 0` (a zoned-out member keeps a
+  slot with a garbage position) before measuring via `common.calculate_distance`. `rest.lua`
+  shares the same resolver for its distance check.
 - Wired **low** in `master_priority` (just above `rest`) so healing and every other support
   action preempt following. Injected into the merged `available_actions` **once** in
   `load_job_definition` rather than added to all 21 job files.
@@ -708,7 +712,7 @@ Ninjutsu is a special case worth knowing: in `spell_list.sql` the `mpCost` colum
 - **Window sizing**: Uses imgui `AlwaysAutoResize` (no manually computed fixed width). A `force_expand` flag un-collapses the window once when reopened so a collapsed `imgui.ini` state doesn't leave an empty title bar. `imgui.Begin` returning `false` on collapse is treated as "still open, skip content"; only the `[X]` (is_open → false) closes it, and `End()` is always called.
 - **Group/AOE heal targets**: Calls `render_heal_group_selection(ctx, 'heal_group', true)` and `(ctx, 'heal_aoe_group', false)` under the respective threshold sliders.
 - **DRY helpers**:
-  - `render_party_dropdown(label, key, include_player, names, settings, cb)` – reusable for Focus/Follow/Recovery/Entrust Target dropdowns.
+  - `render_party_dropdown(label, key, include_player, names, settings, cb, include_tracked)` – reusable for Focus/Follow/Recovery/Entrust Target dropdowns; `include_tracked` (Follow Target only) appends session tracked-target names, skipping any already listed as a party member.
   - `has_usable_abilities(abilities)` – quick check for any level-appropriate abilities.
 - **Pet Debuff Removal section**: A collapsing checkbox header (`pet_debuff_removal_enabled`) shown only when the job has usable `pet_debuff_removal` abilities. Sets `ctx.show_pet_debuff_warning` while rendering its rows so `ability_checkbox` surfaces the *"Pet Tracked Removal is not totally reliable"* tooltip.
 - **Inline ammo count**: In the pet-heal, pet-debuff-removal, and buff sections, an ability with `requires_equipped_ammo` draws a `(<count>)` after its row via `common.count_equippable_items` — **green** when a matching item is worn (`is_ammo_equipped`), **red** when not. The buff section passes `render_ammo_count(ability, true)` so the count also names the currently equipped tier (NIN Sange shuriken). An ability with `requires_item` (NIN Ninjutsu tool) instead draws a `(<count>)` that is green when any tool is owned, red at zero.
@@ -793,7 +797,7 @@ The debug row shows AFK state beside Moving/Action: `off` (disabled), `idle` (au
 | `load` | Sidekick.lua | Set initialisation flag |
 | `unload` | Sidekick.lua | Save settings |
 | `d3d_present` | Sidekick.lua | Automation tick + UI render |
-| `packet_in` | Sidekick.lua | Casting state (0x028), Trust/pet buffs (0x028, 0x029), check response (0x0C9), zone change (0x0A), autorun-cancel guard (0x0D byte 0x42 / 0x37 byte 0x58, only while `follow_enabled`) |
+| `packet_in` | Sidekick.lua | Casting state (0x028), Trust/pet buffs (0x028, 0x029), check response (0x0C9), zone change (0x0A), autorun-cancel guard (0x0D byte 0x42, only while `follow_enabled`) |
 | `command` | Sidekick.lua | `/sidekick` command handler |
 
 ### Trust Buff Tracking

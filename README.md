@@ -51,7 +51,7 @@ A focused, support-oriented addon for Ashita v4 that automates healing, buffing,
 - Combat movement/positioning
 - Full job automation
 
-The one exception is **opt-in leader following** (off by default): with **Follow** enabled, Sidekick will `/follow` a chosen party member when they walk beyond a set distance. It never moves your character unless you turn this on.
+The one exception is **opt-in leader following** (off by default): with **Follow** enabled, Sidekick will `/follow` a chosen party member or tracked target when they walk beyond a set distance. It never moves your character unless you turn this on.
 
 ## Latest Updates
 ### [2.6.0] - 2026-07-20
@@ -61,6 +61,8 @@ The one exception is **opt-in leader following** (off by default): with **Follow
 
 - **Corsair**: New job — *rolls only*. Pick two **Phantom Rolls** in the new **Rolls** section and Sidekick keeps them up, using **Double-Up** on each according to a **Risk Tier** (Lowest / Medium / Highest) built on the roll's lucky and unlucky numbers. It never doubles at 11, since 12 busts, uses **Snake Eye** for guaranteed finishes and **Fold** the moment you Bust, and while **Bust** is up it holds the second roll back until the slot frees. Rolls fire in and out of combat. Quick Draw, Ranged Attack, and Random Deal are deliberately not automated — Sidekick stays support-only.
 
+- **Follow a tracked target**: the **Follow Target** dropdown now lists your session tracked targets alongside party members, so you can follow — and watch the Resting distance against — someone outside your party.
+
 ### Changed
 - **Geomancer Blaze of Glory is now a Geo precast**: it boosts the luopan your *next* Geo spell puts down, so Sidekick only uses it when no luopan is out and a Geo spell is actually about to be cast (and you can afford it). Its checkbox moved to the **Geo** section next to Full Circle.  
 - **Per-tier Combat Only / Idle Only on ungrouped groups**: after you right-click → **Ungroup** a group, each tier now gets its own **Combat Only** / **Idle Only** setting instead of sharing one across the group — so you can run, for example, **Indi-Fury** in combat and **Indi-Refresh** while idle. Grouped (the default) tiers still share a single gate.  Thanks to **Tai** for reporting the bug and feature idea.
@@ -69,6 +71,7 @@ The one exception is **opt-in leader following** (off by default): with **Follow
 ### Fixed
 - **Scholar MP costs now account for your Arts** — an Arts stance makes the *opposite* school cost 20% more, so a Cure IV in Dark Arts is really 105 MP, not 88. Sidekick was budgeting the cheaper number and getting casts rejected. Costs shown in the UI and used to decide what to cast now match what the server charges, including the cases where the penalty does **not** apply: under **Tabula Rasa**, or when a stratagem like Penury is assigned (a Penury'd Cure IV in Dark Arts is 44 MP, not 53). **Accession** was also charging 3x instead of the 2x it actually costs, which made Sidekick skip cures it could afford, and it was being offered on spells it cannot extend — Raise, Reraise, Haste, Cure V/VI and friends. Those rows no longer show the **S** option for it, so the charge isn't wasted.
 - **Geomancer Entrust fired with no MP for the Indi spell** — Entrust (5 minute recast) was used before checking you could pay for the configured Indi spell, wasting it. Both the ability and the follow-up cast are now gated on that MP.  Thanks to **Tai** for reporting the bug.
+- **Job-mastery stars and the Geomancer Indi aura no longer vanish while Follow is on** — the packet tweak that keeps `/follow` alive across position syncs was also clearing the byte that carries the master stars and the Indi aura display, so enabling Follow made them disappear. That byte is no longer touched; following works exactly as before. Thanks to **Morwen** for reporting the bug.
 
 ### [2.5.0] - 2026-07-17
 
@@ -282,7 +285,7 @@ Adds three pet-support jobs (Beastmaster, Dragoon, Puppetmaster) with consumable
 - **Buff Maintenance**: Auto-apply and maintain self-buffs with single-target party buff support
 - **Resource Recovery**: Automated MP and TP recovery abilities
 - **Automatic Resting**: MP-based jobs automatically rest when idle to recover MP with configurable timer, HP threshold safety, and optional follow target distance monitoring
-- **Leader Following** (opt-in, off by default): `/follow` a chosen party member when they move beyond a set distance. Healing and every other support action always take priority, and an autorun-cancel packet guard keeps `/follow` alive across the server's position syncs so it doesn't break mid-route. The only non-combat movement Sidekick performs.
+- **Leader Following** (opt-in, off by default): `/follow` a chosen party member or tracked target when they move beyond a set distance. Healing and every other support action always take priority, and an autorun-cancel packet guard keeps `/follow` alive across the server's position syncs so it doesn't break mid-route. The only non-combat movement Sidekick performs.
 - **AFK Sleep** (on by default): Sleeps automation after a configurable period with no party movement and no combat, and wakes on your own movement. A runtime pause, not a stop — nothing is saved or reset, so your settings and automation state survive a sleep cycle.
 - **Corsair Rolls**: Keeps two chosen Phantom Rolls up and Double-Ups each one according to a **Risk Tier** (Lowest / Medium / Highest) built on the roll's lucky and unlucky numbers, backing off at 11 so it can't bust. **Snake Eye** is used for guaranteed finishes and **Fold** clears a Bust the moment it lands. Roll totals are read from the action packet, and the second roll is held back while Bust is active.
 - **Geomancer Support**: Single-target Geo buffs on party members, target-cast Geo debuffs in combat, and automatic Full Circle / luopan management (recalls and recasts when the luopan drifts beyond the distance threshold from the selected Geo target)
@@ -616,7 +619,7 @@ Settings are saved per job in JSON format in the Ashita config directory:
 - `multisend_follow` (boolean): Movement mode switch (checkbox in `/sk panel`). `true` = Multisend attack-range follow (shows Attack Range, disables native Follow); `false` = native leader Follow (hides Attack Range). Mutually exclusive; off by default
 - `follow_enabled` (boolean): Enable opt-in leader following (`/follow` the follow target when far); off by default. Ignored while `multisend_follow` is on
 - `follow_distance` (number): Distance in yalms the follow target must exceed before `/follow` is sent (1-15, default 5)
-- `follow_target` (string): Character name of party member to follow, shared by leader following and the resting distance check (P1-P5, optional)
+- `follow_target` (string): Character name to follow — a party member (P1-P5) or a session tracked target — shared by leader following and the resting distance check (optional)
 - `afk_enabled` (boolean): Enable AFK Sleep — pause automation after `afk_timeout` with no party movement and no combat, resume on your own movement (checkbox in `/sk panel`); on by default
 - `afk_timeout` (number): Seconds of no party movement and no combat before sleeping (60-3600, default 600). Stored in seconds; the `/sk panel` field shows minutes
 - `geo_enabled` (boolean): Enable geo management (Geo buffs, Geo debuffs, and Full Circle / luopan handling)
