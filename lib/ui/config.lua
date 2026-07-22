@@ -665,7 +665,7 @@ function ui_config.render(settings, job_def, callback)
             ui.item_tooltip(tooltips.follow)
             if is_open and is_enabled then
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
-                follow_target_name = render_party_dropdown('Follow Target', 'follow_target', false, party_member_names, settings, follow_on_change, false)
+                follow_target_name = render_party_dropdown('Follow Target', 'follow_target', false, party_member_names, settings, follow_on_change, true)
                 ui.item_tooltip(tooltips.follow_target)
                 ui.slider_int(ctx, 'Distance (yalms)##follow_distance', 'follow_distance', { settings.follow_distance or 5 }, 1, 15)
                 ui.item_tooltip(tooltips.follow_distance)

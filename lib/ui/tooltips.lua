@@ -140,10 +140,10 @@ return {
         'this is enabled.',
 
     follow_target =
-        'Party member to follow. Switching targets\n' ..
-        'stops running at the old one and follows the\n' ..
-        'new one. Also used as the Resting distance\n' ..
-        'watch target below.',
+        'Party member or tracked target to follow.\n' ..
+        'Switching targets stops running at the old\n' ..
+        'one and follows the new one. Also used as\n' ..
+        'the Resting distance watch target below.',
 
     follow_distance =
         'Distance (yalms) the Follow Target must pass\n' ..

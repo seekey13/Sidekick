@@ -55,22 +55,15 @@ local function should_start_resting(settings, job_def)
         return false
     end
 
-    -- Check distance to follow target (if set)
+    -- Check distance to follow target (if set) -- party member or tracked target
     local rest_distance = settings.rest_distance or 7
     local follow_target = settings.follow_target
 
-    if follow_target and game_state then
-        -- Find the party member by name
-        for i = 1, 5 do
-            local member = game_state.party[i]
-            if member and member.name == follow_target then
-                local distance = common.get_party_member_distance(i)
-                if distance and distance > rest_distance then
-                    common.reset_rest_timer()
-                    return false
-                end
-                break
-            end
+    if follow_target then
+        local distance = common.get_follow_target_distance(follow_target)
+        if distance and distance > rest_distance then
+            common.reset_rest_timer()
+            return false
         end
     end
     
@@ -109,20 +102,14 @@ local function should_stop_resting(settings, job_def)
         return true
     end
 
-    -- Check distance to follow target (if set)
+    -- Check distance to follow target (if set) -- party member or tracked target
     local rest_distance = settings.rest_distance or 7
 
     local follow_target = settings.follow_target
-    if follow_target and game_state then
-        for i = 1, 5 do
-            local member = game_state.party[i]
-            if member and member.name == follow_target then
-                local distance = common.get_party_member_distance(i)
-                if distance and distance > rest_distance then
-                    return true
-                end
-                break
-            end
+    if follow_target then
+        local distance = common.get_follow_target_distance(follow_target)
+        if distance and distance > rest_distance then
+            return true
         end
     end
     
