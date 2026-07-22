@@ -1282,8 +1282,9 @@ function common.get_follow_target_distance(name)
         end
     end
 
-    -- Not in party: try session tracked targets. target_index can be reused
-    -- after a zone change, so require the ServerId to still match.
+    -- Not in party: try session tracked targets. An entity slot can be recycled
+    -- when its occupant despawns mid-zone (tracked targets themselves are cleared
+    -- on zone change), so require the ServerId to still match.
     for _, tt in pairs(tracked_targets) do
         if tt.name == name then
             local ent = (tt.target_index and tt.target_index ~= 0) and GetEntity(tt.target_index) or nil

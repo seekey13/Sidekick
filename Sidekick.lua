@@ -864,24 +864,15 @@ ashita.events.register('packet_in', 'sidekick_packet_in', function(e)
         return
     end
 
-    -- Zero the server's autorun-cancel flag on position syncs (0x0D byte 0x42, 0x37
-    -- byte 0x58) so /follow survives them. Only while native follow is enabled.
+    -- Zero the server's autorun-cancel flag on position syncs (0x0D byte 0x42) so
+    -- /follow survives them. Only while native follow is enabled. Do NOT touch 0x37
+    -- byte 0x58: that is Flags4 (GeoIndi bits 0-6 + JobMasterFlag bit 7), not a
+    -- movement flag -- zeroing it wiped the job-mastery stars and the GEO Indi aura.
     if addon_settings and addon_settings.follow_enabled and not addon_settings.multisend_follow then
         if e.id == 0x0D then
             local packet = e.data:totable()
             if packet[0x42 + 1] ~= 0 then
                 packet[0x42 + 1] = 0
-                e.data_modified = packet
-            end
-        elseif e.id == 0x37 then
-            local packet = e.data:totable()
-            -- Byte 0x58 is Flags4 (GeoIndi bits 0-6 + JobMasterFlag bit 7 = 0x80),
-            -- NOT an autorun flag -- movement lives in Flags0/Flags1. Zeroing the
-            -- whole byte wiped JobMasterFlag, so the 3 job-mastery stars over the
-            -- name vanished while follow was on. Preserve bit 7; leave the rest as-is.
-            local kept = bit.band(packet[0x58 + 1], 0x80)
-            if packet[0x58 + 1] ~= kept then
-                packet[0x58 + 1] = kept
                 e.data_modified = packet
             end
         end

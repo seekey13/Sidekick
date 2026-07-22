@@ -793,7 +793,7 @@ The debug row shows AFK state beside Moving/Action: `off` (disabled), `idle` (au
 | `load` | Sidekick.lua | Set initialisation flag |
 | `unload` | Sidekick.lua | Save settings |
 | `d3d_present` | Sidekick.lua | Automation tick + UI render |
-| `packet_in` | Sidekick.lua | Casting state (0x028), Trust/pet buffs (0x028, 0x029), check response (0x0C9), zone change (0x0A), autorun-cancel guard (0x0D byte 0x42 / 0x37 byte 0x58, only while `follow_enabled`) |
+| `packet_in` | Sidekick.lua | Casting state (0x028), Trust/pet buffs (0x028, 0x029), check response (0x0C9), zone change (0x0A), autorun-cancel guard (0x0D byte 0x42, only while `follow_enabled`) |
 | `command` | Sidekick.lua | `/sidekick` command handler |
 
 ### Trust Buff Tracking
