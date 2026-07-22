@@ -349,6 +349,7 @@ FFI bindings for FFXI target resolution (battle target, scan target, last teller
 - **Deficit-based selection**: Calculates exact HP deficit, picks ability whose `value` best matches to minimise overheal.
 - **Critical HP system**: Separate ability list (`abilities.critical`) with lower threshold (default 30%).
 - Uses `action_core.filter_usable()` for resource/cooldown gating.
+- **Forced self heal**: `heal.force_next_self_heal()` (called by `recover.lua` when a `force_self_heal` ability — RDM Convert — fires) arms a module-local flag that makes `execute` heal the player ahead of focus/lowest-HP logic. Cleared when the forced heal is returned, when player HP is already above `heal_threshold`, or after a 30 s timeout; if nothing is castable (silence, cooldowns) the flag survives and normal priority logic runs.
 
 **AOE healing** (`execute_aoe`): Triggers when average party HP falls below threshold. Uses `action_core.first_command()`.
 
@@ -427,7 +428,7 @@ the label). Returns `{command, description}`.
 
 ### recover.lua – Resource Recovery
 
-MP and TP recovery. Monitors percentage thresholds. Uses `action_core.first_command()` and `filter_usable()`. Supports `requires_buff` prerequisites.
+MP and TP recovery. Monitors percentage thresholds. Uses `action_core.first_command()` and `filter_usable()`. Supports `requires_buff` prerequisites. When the fired MP-recovery ability carries `force_self_heal` (RDM Convert), calls `heal.force_next_self_heal()` so the next heal targets the player — the winning ability is captured via `first_command`'s `description_fn` closure, which runs exactly once at command-build time.
 
 ### geo.lua – Geomancer Automation
 
@@ -663,6 +664,11 @@ return {
                                                 --   option) and skips it once the prerequisite is met
                                                 --   another way. precast_satisfies_prereq opens the action
                                                 --   modules' requires_buff gate so the spell can reach it.
+    force_self_heal        = true,              -- recover_mp entries only (RDM Convert): after this ability
+                                                --   fires, heal.execute forces exactly one self heal ahead
+                                                --   of focus/lowest-HP targeting. Clears when the heal is
+                                                --   returned, the player's HP is already above
+                                                --   heal_threshold, or a 30 s safety timeout elapses.
 }
 ```
 

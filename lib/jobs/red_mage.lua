@@ -696,6 +696,7 @@ return {
                 recast_id = 49,  -- Job ability
                 command = '/ja "Convert" <me>',
                 priority = 100,
+                force_self_heal = true,  -- HP is dumped into MP; next heal must go to self
             },
         },
 

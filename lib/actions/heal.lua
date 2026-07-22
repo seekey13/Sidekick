@@ -14,6 +14,19 @@ local action_core = require('lib.core.action_core')
 -- are included unless explicitly disabled; alliance members are excluded unless
 -- explicitly enabled. Keys match the UI: numeric 0-5 (party), 'tt_<sid>'
 -- (tracked), 'al_<flat>' (alliance).
+-- Forced self heal: set by recover.lua when an ability tagged force_self_heal
+-- (RDM Convert) fires — HP was just dumped into MP, so the next single-target
+-- heal must go to the player regardless of focus/lowest-HP logic. Cleared when
+-- the forced heal is returned, when the player's HP is already above
+-- heal_threshold, or after FORCE_SELF_TIMEOUT seconds (safety valve).
+local FORCE_SELF_TIMEOUT = 30
+local force_self = { active = false, ts = 0 }
+
+function heal.force_next_self_heal()
+    force_self.active = true
+    force_self.ts     = os.clock()
+end
+
 local function make_group_filter(key_name)
     local ui_config = require('lib.ui.config')
     local cfg = ui_config.get_party_buffs()
@@ -101,6 +114,35 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
         return nil
     end
     
+    -- Forced self heal after a force_self_heal ability (RDM Convert) fired
+    if force_self.active then
+        local player_hpp = state.player.hpp
+        if (os.clock() - force_self.ts) > FORCE_SELF_TIMEOUT
+                or not common.below_threshold(player_hpp, settings.heal_threshold or 75) then
+            -- Timed out, or Convert missed / someone else healed us first
+            force_self.active = false
+        else
+            local selected_ability = heal.select_ability(available_abilities, player_hpp, job_def, player_resource, 0, nil, settings)
+            if selected_ability then
+                -- Check stratagems before casting
+                local strat_result = common.check_stratagem(job_def, settings, selected_ability.name, selected_ability)
+                if strat_result == false then return nil
+                elseif strat_result then return strat_result end
+
+                local command = common.build_ability_command(selected_ability, 0)
+                if command then
+                    force_self.active = false
+                    common.debugf('[HEAL] >>> Forced self heal with %s', selected_ability.name)
+                    return {
+                        command = command,
+                        description = string.format('Forced self-heal with %s (HP: %.1f%%)', selected_ability.name, player_hpp)
+                    }
+                end
+            end
+            -- Nothing castable this tick (silence, cooldowns): fall through, flag stays set
+        end
+    end
+
     -- Build party_status from game_state snapshot
     local threshold       = settings.heal_threshold or 75
     local focus_enabled   = settings.focus_enabled

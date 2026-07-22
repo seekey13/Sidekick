@@ -7,6 +7,7 @@ local recover = {}
 
 local common      = require('lib.core.common')
 local action_core = require('lib.core.action_core')
+local heal        = require('lib.actions.heal')  -- no cycle: heal does not require recover
 
 -- Filter an ability list by requires_buff prerequisite.
 local function filter_buff_prereqs(abilities, buffs)
@@ -84,13 +85,26 @@ function recover.execute(settings, job_def)
     -- Priority 2: Self MP recovery
     local mp_threshold = settings.recover_mp_threshold
     if mp_threshold and common.below_threshold(player.mpp or 0, mp_threshold) then
+        -- description_fn runs exactly once, for the winning ability, at
+        -- command-build time — capture it so force_self_heal abilities
+        -- (RDM Convert) can queue a self heal. A stratagem result skips the
+        -- closure, which is correct: Convert is a JA and never takes that path.
+        local fired = nil
         local result = action_core.first_command(
             filter_tp_prereqs(
                 filter_buff_prereqs(filter('recover_mp'), player.buffs),
                 player.tp, settings),
             job_def, settings, '[RECOVER]', nil,
-            function(a) return string.format('MP recovery with %s (MP: %.1f%%)', a.name, player.mpp) end)
-        if result then return result end
+            function(a)
+                fired = a
+                return string.format('MP recovery with %s (MP: %.1f%%)', a.name, player.mpp)
+            end)
+        if result then
+            if fired and fired.force_self_heal then
+                heal.force_next_self_heal()
+            end
+            return result
+        end
     end
 
     -- Priority 3: Self TP recovery
