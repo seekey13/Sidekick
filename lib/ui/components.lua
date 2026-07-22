@@ -104,7 +104,7 @@ local function render_combat_only_context_menu(ctx, ability, scope)
                 if ctx.save_callback then ctx.save_callback() end
             end
             if imgui.IsItemHovered() then
-                imgui.SetTooltip('Only fire when out of combat (e.g. Boost on cooldown).')
+                ui_components.set_tooltip('Only fire when out of combat (e.g. Boost on cooldown).')
             end
         end
         -- Ungroup: cast every tier in the group independently instead of only
@@ -117,7 +117,7 @@ local function render_combat_only_context_menu(ctx, ability, scope)
                 if ctx.save_callback then ctx.save_callback() end
             end
             if imgui.IsItemHovered() then
-                imgui.SetTooltip('Cast each tier in this group independently\n(e.g. both Mage\'s Ballad and Mage\'s Ballad II).')
+                ui_components.set_tooltip('Cast each tier in this group independently\n(e.g. both Mage\'s Ballad and Mage\'s Ballad II).')
             end
         end
         -- Per-status opt-out for multi-status removers (Erase, Esuna, Cursna,
@@ -839,7 +839,7 @@ local function render_scholar_stratagem_button(ability_key, ability, ctx)
     end
 
     if imgui.IsItemHovered() then
-        imgui.SetTooltip('Scholar Stratagem: apply a stratagem to this spell to\n' ..
+        ui_components.set_tooltip('Scholar Stratagem: apply a stratagem to this spell to\n' ..
             'reduce MP cost or boost its effect. Click to choose which\n' ..
             'stratagems to spend. Lit when one is assigned.')
     end
@@ -908,7 +908,7 @@ local function render_scholar_stratagem_button(ability_key, ability, ctx)
                 end
             end
             if imgui.IsItemHovered() then
-                imgui.SetTooltip('On: skip this spell until the stratagem is ready.\n' ..
+                ui_components.set_tooltip('On: skip this spell until the stratagem is ready.\n' ..
                     'Off (default): cast the spell without the stratagem when it is on cooldown.')
             end
         end
@@ -1013,7 +1013,7 @@ local function render_recast_gate_button(ability_key, ctx, strat, letter, button
         imgui.Button(btn_id, { 20, 0 })
         imgui.PopStyleColor(3)
         if imgui.IsItemHovered() then
-            imgui.SetTooltip(strat.name .. ' Not Learned')
+            ui_components.set_tooltip(strat.name .. ' Not Learned')
         end
         imgui.SameLine(0, SPACE_BETWEEN_BUTTONS)
         return true
@@ -1041,7 +1041,7 @@ local function render_recast_gate_button(ability_key, ctx, strat, letter, button
     end
 
     if imgui.IsItemHovered() then
-        imgui.SetTooltip(button_tip)
+        ui_components.set_tooltip(button_tip)
     end
 
     if not assigned then
@@ -1058,7 +1058,7 @@ local function render_recast_gate_button(ability_key, ctx, strat, letter, button
             if ctx.save_callback then ctx.save_callback() end
         end
         if imgui.IsItemHovered() then
-            imgui.SetTooltip(enable_tip)
+            ui_components.set_tooltip(enable_tip)
         end
 
         -- "Hold for ...": stored under the same stratagem_hold key
@@ -1072,7 +1072,7 @@ local function render_recast_gate_button(ability_key, ctx, strat, letter, button
                 if ctx.save_callback then ctx.save_callback() end
             end
             if imgui.IsItemHovered() then
-                imgui.SetTooltip(hold_tip)
+                ui_components.set_tooltip(hold_tip)
             end
         end
 
@@ -1295,7 +1295,7 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
         end
 
         if imgui.IsItemHovered() then
-            imgui.SetTooltip('Area: sing without Pianissimo so everyone in range gets it.\nRecast tracks party members not given a specific ME/P button.')
+            ui_components.set_tooltip('Area: sing without Pianissimo so everyone in range gets it.\nRecast tracks party members not given a specific ME/P button.')
         end
 
         if not has_spell then
@@ -1335,7 +1335,7 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
     end
 
     if imgui.IsItemHovered() then
-        imgui.SetTooltip(common.get_party_member_name(0) or 'ME')
+        ui_components.set_tooltip(common.get_party_member_name(0) or 'ME')
     end
 
     if not party_has_spell then
@@ -1393,13 +1393,13 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
                 if imgui.IsItemHovered() then
                     local pname = common.get_party_member_name(party_index) or ('P' .. party_index)
                     if is_excluded then
-                        imgui.SetTooltip(pname .. '\nTrust cannot take any damage')
+                        ui_components.set_tooltip(pname .. '\nTrust cannot take any damage')
                     elseif ctx.is_trust and ctx.is_trust(party_index) and ctx.show_trust_warning then
-                        imgui.SetTooltip(pname .. '\nTrust/Tracked Removal is not totally reliable')
+                        ui_components.set_tooltip(pname .. '\nTrust/Tracked Removal is not totally reliable')
                     elseif ctx.is_trust and ctx.is_trust(party_index) and ctx.show_buff_warning then
-                        imgui.SetTooltip(pname .. '\nTrust/Tracked Buff tracking is not totally reliable')
+                        ui_components.set_tooltip(pname .. '\nTrust/Tracked Buff tracking is not totally reliable')
                     else
-                        imgui.SetTooltip(pname)
+                        ui_components.set_tooltip(pname)
                     end
                 end
                 
@@ -1461,9 +1461,9 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
 
                     if imgui.IsItemHovered() then
                         if not is_compatible then
-                            imgui.SetTooltip('Not compatible with out-of-party targets')
+                            ui_components.set_tooltip('Not compatible with out-of-party targets')
                         else
-                            imgui.SetTooltip(m.name or (prefix .. local_idx))
+                            ui_components.set_tooltip(m.name or (prefix .. local_idx))
                         end
                     end
 
@@ -1523,13 +1523,13 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
             -- Tooltip: show target name, or reason why button is disabled
             if imgui.IsItemHovered() then
                 if not is_compatible then
-                    imgui.SetTooltip('Not compatible with out-of-party targets')
+                    ui_components.set_tooltip('Not compatible with out-of-party targets')
                 elseif ctx.show_trust_warning then
-                    imgui.SetTooltip(tt.name .. '\nTrust/Tracked Removal is not totally reliable')
+                    ui_components.set_tooltip(tt.name .. '\nTrust/Tracked Removal is not totally reliable')
                 elseif ctx.show_buff_warning then
-                    imgui.SetTooltip(tt.name .. '\nTrust/Tracked Buff tracking is not totally reliable')
+                    ui_components.set_tooltip(tt.name .. '\nTrust/Tracked Buff tracking is not totally reliable')
                 else
-                    imgui.SetTooltip(tt.name)
+                    ui_components.set_tooltip(tt.name)
                 end
             end
 
@@ -1667,9 +1667,9 @@ function ui_components.group_dropdown(ctx, job_def, target_group, dropdown_width
     -- Show tooltip
     if imgui.IsItemHovered() and selected then
         if selected_combat_only then
-            imgui.SetTooltip('Combat Only')
+            ui_components.set_tooltip('Combat Only')
         elseif selected_idle_only then
-            imgui.SetTooltip('Idle Only')
+            ui_components.set_tooltip('Idle Only')
         end
     end
     
@@ -1766,21 +1766,21 @@ function ui_components.self_single_ability(ctx, ability, job_def, id_suffix)
 
     if imgui.IsItemHovered() then
         if not has_spell then
-            imgui.SetTooltip('Not Learned')
+            ui_components.set_tooltip('Not Learned')
         elseif blue_unequipped then
-            imgui.SetTooltip('Blue Magic not currently equipped')
+            ui_components.set_tooltip('Blue Magic not currently equipped')
         elseif no_ammo then
-            imgui.SetTooltip('No ' .. (ability.ammo_label or 'item') .. ' found in storage.')
+            ui_components.set_tooltip('No ' .. (ability.ammo_label or 'item') .. ' found in storage.')
         elseif no_item then
-            imgui.SetTooltip('No ' .. (ability.item_label or 'tool') .. ' or Shikanofuda in inventory.')
+            ui_components.set_tooltip('No ' .. (ability.item_label or 'tool') .. ' or Shikanofuda in inventory.')
         elseif wrong_pet then
-            imgui.SetTooltip(pet_type_tooltip(ability))
+            ui_components.set_tooltip(pet_type_tooltip(ability))
         elseif buff_unmet then
-            imgui.SetTooltip('Prerequisite buff not active')
+            ui_components.set_tooltip('Prerequisite buff not active')
         elseif ability_combat_only then
-            imgui.SetTooltip('Combat Only')
+            ui_components.set_tooltip('Combat Only')
         elseif ability_idle_only then
-            imgui.SetTooltip('Idle Only')
+            ui_components.set_tooltip('Idle Only')
         end
     end
 
@@ -1928,15 +1928,15 @@ function ui_components.party_single_ability(ctx, ability, job_def)
 
     if imgui.IsItemHovered() then
         if not has_spell then
-            imgui.SetTooltip('Not Learned')
+            ui_components.set_tooltip('Not Learned')
         elseif wrong_pet then
-            imgui.SetTooltip(pet_type_tooltip(ability))
+            ui_components.set_tooltip(pet_type_tooltip(ability))
         elseif buff_unmet then
-            imgui.SetTooltip('Prerequisite buff not active')
+            ui_components.set_tooltip('Prerequisite buff not active')
         elseif ability_combat_only then
-            imgui.SetTooltip('Combat Only')
+            ui_components.set_tooltip('Combat Only')
         elseif ability_idle_only then
-            imgui.SetTooltip('Idle Only')
+            ui_components.set_tooltip('Idle Only')
         end
     end
 
@@ -2057,10 +2057,22 @@ end
 -- UI Element Creators
 -- ============================================================================
 
+-- SetTooltip that ignores the window's ui_opacity fade (like the combo popups):
+-- the tooltip renders fully opaque however faded the window under it is.
+function ui_components.set_tooltip(text)
+    if imgui.GetStyle().Alpha < 1.0 then
+        imgui.PushStyleVar(ImGuiStyleVar_Alpha, 1.0)
+        imgui.SetTooltip(text)
+        imgui.PopStyleVar()
+    else
+        imgui.SetTooltip(text)
+    end
+end
+
 -- Show a static help tooltip for the most recently rendered item.
 function ui_components.item_tooltip(text)
     if text and imgui.IsItemHovered() then
-        imgui.SetTooltip(text)
+        ui_components.set_tooltip(text)
     end
 end
 
@@ -2117,22 +2129,23 @@ end
 -- Combo whose expanded menu ignores the window's ui_opacity fade: the closed
 -- preview keeps the window alpha, but the open popup renders fully opaque so
 -- its entries stay readable at low opacity. Pair with end_opaque_combo.
+-- The popup's bg alpha must be armed BEFORE BeginCombo begins the popup window,
+-- but ONLY when the popup will actually open: on a closed combo the un-consumed
+-- SetNextWindowBgAlpha leaks onto the next window begun (usually a tooltip,
+-- which then kept a faded bg under opaque text). Open state is only known after
+-- the call, so remember it per label from the previous frame -- the popup bg is
+-- faded for its single first frame, which isn't perceptible.
+local combo_was_open = {}
 function ui_components.begin_opaque_combo(label, preview)
-    local faded = imgui.GetStyle().Alpha < 1.0
-    if faded then
+    if combo_was_open[label] and imgui.GetStyle().Alpha < 1.0 then
         imgui.SetNextWindowBgAlpha(1.0)
     end
-    if imgui.BeginCombo(label, preview) then
+    local open = imgui.BeginCombo(label, preview)
+    combo_was_open[label] = open or nil
+    if open then
         imgui.PushStyleVar(ImGuiStyleVar_Alpha, 1.0)
-        return true
     end
-    -- Popup closed: no Begin consumed the BgAlpha above, and imgui keeps stray
-    -- next-window state until some window begins. Overwrite it with the current
-    -- style alpha so wherever it lands (e.g. a tooltip) it changes nothing.
-    if faded then
-        imgui.SetNextWindowBgAlpha(imgui.GetStyle().Alpha)
-    end
-    return false
+    return open
 end
 
 function ui_components.end_opaque_combo()
@@ -2253,21 +2266,21 @@ function ui_components.ability_checkbox(ctx, ability, job_def, id_suffix, show_s
 
     if imgui.IsItemHovered() then
         if not has_spell then
-            imgui.SetTooltip('Not Learned')
+            ui_components.set_tooltip('Not Learned')
         elseif blue_unequipped then
-            imgui.SetTooltip('Blue Magic not currently equipped')
+            ui_components.set_tooltip('Blue Magic not currently equipped')
         elseif no_ammo then
-            imgui.SetTooltip('No ' .. (ability.ammo_label or 'item') .. ' found in storage.')
+            ui_components.set_tooltip('No ' .. (ability.ammo_label or 'item') .. ' found in storage.')
         elseif wrong_pet then
-            imgui.SetTooltip(pet_type_tooltip(ability))
+            ui_components.set_tooltip(pet_type_tooltip(ability))
         elseif buff_unmet then
-            imgui.SetTooltip('Prerequisite buff not active')
+            ui_components.set_tooltip('Prerequisite buff not active')
         elseif ability_combat_only then
-            imgui.SetTooltip('Combat Only')
+            ui_components.set_tooltip('Combat Only')
         elseif ability_idle_only then
-            imgui.SetTooltip('Idle Only')
+            ui_components.set_tooltip('Idle Only')
         elseif ctx.show_pet_debuff_warning then
-            imgui.SetTooltip('Pet Debuff Removal is not totally reliable')
+            ui_components.set_tooltip('Pet Debuff Removal is not totally reliable')
         end
     end
 
@@ -2333,7 +2346,7 @@ local function render_item_removal_checkbox(ctx, entry)
         else
             tooltip_text = string.format('Use %s to remove %s', item_name, debuff_name)
         end
-        imgui.SetTooltip(tooltip_text)
+        ui_components.set_tooltip(tooltip_text)
     end
 end
 
@@ -2440,7 +2453,7 @@ function ui_components.render_party_selection(ctx, key_name, show_outside, inclu
                 end
                 -- Trust warning tooltip
                 if is_trust_member and imgui.IsItemHovered() then
-                    imgui.SetTooltip('Trust/Tracked Removal is not totally reliable')
+                    ui_components.set_tooltip('Trust/Tracked Removal is not totally reliable')
                 end
                 if not p_on then
                     imgui.PopStyleColor(3)
@@ -2477,7 +2490,7 @@ function ui_components.render_party_selection(ctx, key_name, show_outside, inclu
                             toggle_sel(al_key, not al_on)
                         end
                         if imgui.IsItemHovered() then
-                            imgui.SetTooltip(m.name or (prefix .. local_idx))
+                            ui_components.set_tooltip(m.name or (prefix .. local_idx))
                         end
                         if not al_on then
                             imgui.PopStyleColor(3)
@@ -2509,7 +2522,7 @@ function ui_components.render_party_selection(ctx, key_name, show_outside, inclu
             end
             -- Always show warning tooltip for tracked targets
             if imgui.IsItemHovered() then
-                imgui.SetTooltip(tt.name .. '\nTrust/Tracked Removal is not totally reliable')
+                ui_components.set_tooltip(tt.name .. '\nTrust/Tracked Removal is not totally reliable')
             end
             if not tt_on then
                 imgui.PopStyleColor(3)
@@ -2556,9 +2569,9 @@ function ui_components.render_heal_group_selection(ctx, key_name, show_outside)
         end
         if imgui.IsItemHovered() then
             if disabled then
-                imgui.SetTooltip((tooltip or label) .. '\nTrust cannot take any damage')
+                ui_components.set_tooltip((tooltip or label) .. '\nTrust cannot take any damage')
             elseif tooltip then
-                imgui.SetTooltip(tooltip)
+                ui_components.set_tooltip(tooltip)
             end
         end
         if disabled then imgui.PopStyleColor(4)

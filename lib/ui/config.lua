@@ -533,7 +533,7 @@ function ui_config.render(settings, job_def, callback)
                 if save_callback then save_callback() end
             end
             if imgui.IsItemHovered() then
-                imgui.SetTooltip('Always load with automation stopped.\nOff: load in whatever state you left it.')
+                ui.set_tooltip('Always load with automation stopped.\nOff: load in whatever state you left it.')
             end
             local stop_after_zone = { settings.stop_after_zone == true }
             if imgui.Checkbox('Stop after zone', stop_after_zone) then
@@ -541,7 +541,7 @@ function ui_config.render(settings, job_def, callback)
                 if save_callback then save_callback() end
             end
             if imgui.IsItemHovered() then
-                imgui.SetTooltip('Stop automation whenever you change zones.')
+                ui.set_tooltip('Stop automation whenever you change zones.')
             end
             imgui.EndPopup()
         end
