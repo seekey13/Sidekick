@@ -318,14 +318,29 @@ local function profile_snapshot(settings)
     return snap
 end
 
--- Session-only mirrors of settings keys re-seed from settings when nil (see
--- the seed blocks at the top of ui_config.render); clear them after a profile
--- Load/New so the UI and automation pick up the new values instead of stale
--- ones. Session-only tracked-target buff toggles are dropped by design (they
--- never live in settings). focus_target_name / follow_target_name mirror
+-- Session-only mirrors of settings keys are refreshed after a profile Load/New
+-- so the UI and automation pick up the new values instead of stale ones.
+-- party_buffs must be re-seeded IMMEDIATELY (not left for the next-frame seed
+-- block at the top of ui_config.render): sections below the job line render in
+-- the same frame as the load, and render_party_selection's auto-init would see
+-- a missing 'wake' key, overwrite the just-loaded settings.party_buffs.wake
+-- with defaults, and -- by making the session table non-empty -- permanently
+-- disarm the next-frame seed, leaving every party-button row (debuff removal,
+-- buffs) reading empty session state. Session-only tracked-target buff toggles
+-- are dropped by design (they never live in settings). The name mirrors
+-- (entrust etc.) are safe to lazily re-seed next frame -- their render paths
+-- only write settings on click. focus_target_name / follow_target_name mirror
 -- excluded keys -- a load never changes those, so their mirrors stay valid.
-local function profile_reset_session_state()
+local function profile_reset_session_state(settings)
     for k in pairs(party_buffs) do party_buffs[k] = nil end
+    if settings.party_buffs then
+        for ability_name, targets in pairs(settings.party_buffs) do
+            party_buffs[ability_name] = {}
+            for party_index, enabled in pairs(targets) do
+                party_buffs[ability_name][party_index] = enabled
+            end
+        end
+    end
     entrust_target_name = nil
     entrust_spell_name = nil
     focus_recovery_target_name = nil
@@ -355,7 +370,7 @@ local function profile_apply(settings, job_def, source)
             end
         end
     end
-    profile_reset_session_state()
+    profile_reset_session_state(settings)
 end
 
 -- Operations called from the profiles popup (lib/ui/components.lua). All take
