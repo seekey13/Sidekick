@@ -2739,13 +2739,14 @@ function ui_components.render_profile_button(ctx, ops)
             ui_components.set_tooltip('Delete the selected (highlighted) profile.')
         end
 
-        imgui.Separator()
-
         local names = {}
         for name in pairs(ops.list(ctx)) do
             table.insert(names, name)
         end
         table.sort(names)
+        -- List-box style: bordered fixed-height child so the profiles read as
+        -- one text list (scrolls past ~6 entries) rather than a row of buttons.
+        imgui.BeginChild('##profile_list', { 0, 120 }, true)
         if #names == 0 then
             imgui.TextColored(LIGHT_GRAY, '(no profiles saved)')
         end
@@ -2757,6 +2758,7 @@ function ui_components.render_profile_button(ctx, ops)
                 profile_name_buf[1] = name
             end
         end
+        imgui.EndChild()
 
         ui_components.end_opaque_popup()
     end
