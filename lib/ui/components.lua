@@ -2741,14 +2741,23 @@ function ui_components.render_profile_button(ctx, ops)
 
         local names = {}
         for name in pairs(ops.list(ctx)) do
-            table.insert(names, name)
+            -- ops.DEFAULT_SLOT is the parked Default working copy, not a named profile.
+            if name ~= ops.DEFAULT_SLOT then
+                table.insert(names, name)
+            end
         end
         table.sort(names)
-        -- List-box style: bordered fixed-height child so the profiles read as
-        -- one text list (scrolls past ~6 entries) rather than a row of buttons.
-        imgui.BeginChild('##profile_list', { 0, 120 }, true)
-        if #names == 0 then
-            imgui.TextColored(LIGHT_GRAY, '(no profiles saved)')
+        -- List-box style: bordered child sized to the row count (+1 for the
+        -- Default row, +16 for the border padding) so every profile is always
+        -- visible without scrolling. The popup auto-sizes around it.
+        local list_height = (#names + 1) * imgui.GetTextLineHeightWithSpacing() + 16
+        imgui.BeginChild('##profile_list', { 0, list_height }, true)
+        -- 'Default' always heads the list: the auto-saving working copy, parked
+        -- while a named profile is active. Selecting it restores that copy.
+        if imgui.Selectable('Default##profile_default', active == nil,
+                ImGuiSelectableFlags_DontClosePopups) then
+            ops.load_default(ctx)
+            profile_name_buf[1] = ''
         end
         for _, name in ipairs(names) do
             -- DontClosePopups: a load keeps the panel open so a rename can follow.

@@ -294,6 +294,11 @@ local PROFILE_EXCLUDED_KEYS = {
     follow_distance = true,
 }
 
+-- Reserved key inside a combo's profile list: the parked Default working copy.
+-- Live settings are stashed here when a named profile is loaded, and restored
+-- when the user clicks 'Default' in the list. Never shown as a named profile.
+local DEFAULT_SLOT = '__default'
+
 -- Profile list for the current main/sub combo, created on demand.
 local function profile_list(settings)
     if not settings.profiles then settings.profiles = T{} end
@@ -357,6 +362,9 @@ end
 -- the ctx object components already use (settings / job_def / save_callback).
 local profile_ops = {}
 
+-- Exposed so the popup renderer can hide the parked slot from the named list.
+profile_ops.DEFAULT_SLOT = DEFAULT_SLOT
+
 function profile_ops.list(ctx)
     return profile_list(ctx.settings)
 end
@@ -377,6 +385,7 @@ end
 -- live settings are not re-captured); no selection -> create from live settings.
 function profile_ops.save(ctx, name)
     if not name or name == '' then return end
+    if name == DEFAULT_SLOT or name == 'Default' then return end
     local list = profile_list(ctx.settings)
     local selected = profile_ops.active(ctx)
     if selected and selected ~= name then
@@ -392,16 +401,37 @@ end
 -- Save As: always create/overwrite a fresh snapshot under the typed name.
 function profile_ops.save_as(ctx, name)
     if not name or name == '' then return end
+    if name == DEFAULT_SLOT or name == 'Default' then return end
     profile_list(ctx.settings)[name] = profile_snapshot(ctx.settings)
     ctx.settings.active_profile = name
     if ctx.save_callback then ctx.save_callback() end
 end
 
 function profile_ops.load(ctx, name)
-    local snap = profile_list(ctx.settings)[name]
-    if not snap then return end
+    local list = profile_list(ctx.settings)
+    local snap = list[name]
+    if not snap or name == DEFAULT_SLOT then return end
+    -- Leaving Default: park the auto-saving working copy so clicking 'Default'
+    -- later restores it. Named-to-named switches leave the stash alone.
+    if profile_ops.active(ctx) == nil then
+        list[DEFAULT_SLOT] = profile_snapshot(ctx.settings)
+    end
     profile_apply(ctx.settings, ctx.job_def, snap)
     ctx.settings.active_profile = name
+    if ctx.save_callback then ctx.save_callback() end
+end
+
+-- Back to the Default working copy: restore the parked stash (if any) and
+-- resume plain auto-saving with no named profile active. With no stash (never
+-- left Default, or pre-stash settings file) live settings are kept as-is --
+-- only the mode switches back.
+function profile_ops.load_default(ctx)
+    if profile_ops.active(ctx) == nil then return end
+    local stash = profile_list(ctx.settings)[DEFAULT_SLOT]
+    if stash then
+        profile_apply(ctx.settings, ctx.job_def, stash)
+    end
+    ctx.settings.active_profile = nil
     if ctx.save_callback then ctx.save_callback() end
 end
 
