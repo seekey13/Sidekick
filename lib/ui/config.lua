@@ -349,7 +349,16 @@ function ui_config.render(settings, job_def, callback)
     if not ui_visible or not is_open[1] then
         return
     end
-    
+
+    -- Refresh if stale (automation tick may have already done it this frame).
+    -- With automation stopped (and follow off, panel closed) nothing else
+    -- refreshes game_state, so the alliance B/C buttons -- which read the
+    -- game_state.alliance snapshot rather than the live party manager --
+    -- would freeze until the user hit Start. Same guard as panel.lua.
+    if os.clock() - common.game_state.refreshed_at > 0.1 then
+        common.refresh_game_state()
+    end
+
     -- Load entrust settings from settings on first render
     if settings.entrust_target ~= nil and entrust_target_name == nil then
         entrust_target_name = settings.entrust_target
