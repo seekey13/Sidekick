@@ -2688,8 +2688,8 @@ function ui_components.render_profile_button(ctx, ops)
     local popup_id = '##profiles_popup'
     local active = ops.active(ctx)
 
-    imgui.SameLine()
-    if imgui.Button((active or 'Default') .. '##profiles_btn') then
+    -- Fixed width, same as the Start/Stop button; long names clip.
+    if imgui.Button((active or 'Default') .. '##profiles_btn', { AUTOMATION_BUTTON_WIDTH, 0 }) then
         profile_name_buf[1] = active or ''
         imgui.OpenPopup(popup_id)
     end

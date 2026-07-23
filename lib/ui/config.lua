@@ -683,10 +683,14 @@ function ui_config.render(settings, job_def, callback)
             if sub_level and sub_level > 0 and sub_job_id and sub_job_id > 0 then
                 sub_job_name = common.get_job_name_from_id(sub_job_id)
             end
-            imgui.TextColored(ui.LIGHT_GREEN, string.format('%s %d / %s %d', main_job_name, main_level, sub_job_name, sub_level or 0))
             -- Settings profiles: button labeled with the active profile, opens
             -- the save/load panel (rendering in components, ops defined above).
+            -- Leads the job line, fixed at the Start/Stop button width.
             ui.render_profile_button(ctx, profile_ops)
+            imgui.SameLine()
+            -- Center the job text on the button row (else it top-aligns).
+            imgui.AlignTextToFramePadding()
+            imgui.TextColored(ui.LIGHT_GREEN, string.format('%s %d / %s %d', main_job_name, main_level, sub_job_name, sub_level or 0))
         end
         
         -- Automation toggle button
