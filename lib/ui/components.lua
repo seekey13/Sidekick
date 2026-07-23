@@ -2700,7 +2700,7 @@ function ui_components.render_profile_button(ctx, ops)
     end
 
     if ui_components.begin_opaque_popup(popup_id) then
-        imgui.PushItemWidth(180)
+        imgui.PushItemWidth(238)
         imgui.InputText('##profile_name', profile_name_buf, 64)
         imgui.PopItemWidth()
 
