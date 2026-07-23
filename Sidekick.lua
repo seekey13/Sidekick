@@ -437,6 +437,11 @@ local function setup_job()
             end
         end
         
+        -- Keep the merged defaults (global + job) on the job def: the profile
+        -- New/Load helpers in lib/ui/config.lua reset or backfill live settings
+        -- from this same table, so a loaded profile can never miss a newer key.
+        job_def.merged_defaults = load_defaults
+
         -- Load settings (managed by Ashita settings library)
         -- Note: Ashita auto-determines filename based on addon name and character
         addon_settings = settings.load(load_defaults)

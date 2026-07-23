@@ -299,6 +299,7 @@ Adds three pet-support jobs (Beastmaster, Dragoon, Puppetmaster) with consumable
 
 ### User Interface
 - **ImGui Configuration UI**: User-friendly settings interface with collapsible sections
+- **Settings Profiles**: Save named snapshots of your settings per job/subjob combo (Dynamis, EXP, ...) and load them from the button on the job line. Live settings stay the auto-saving working copy; profiles only change on an explicit Save
 - **Alliance Member Buttons**: Per-member buff-toggle buttons (`<B0>`–`<B5>`, `<C0>`–`<C5>`) for alliance sub-parties B and C, shown only when an alliance is detected
 - **Group Dropdown Selectors**: Multiple abilities in a group (e.g., Cure I-V) consolidated into dropdown menus
 - **Per-Ability Toggles**: Enable/disable individual abilities

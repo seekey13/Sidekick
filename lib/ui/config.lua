@@ -272,6 +272,160 @@ local function render_roll_dropdown(label, setting_key, available_rolls, setting
 end
 
 -- ============================================================================
+-- Settings Profiles
+-- Named snapshots of live settings, per main/sub combo, stored inside the
+-- settings table itself (settings.profiles[combo][name]) so Ashita's settings
+-- module handles persistence. Live settings stay the auto-saving working copy;
+-- profiles only change via explicit Save / Save As here.
+-- Spec: docs/superpowers/specs/2026-07-22-settings-profiles-design.md
+-- ============================================================================
+
+-- Keys never copied into or out of a snapshot: container/meta, run state
+-- (loading a profile must never start/stop automation), and party-composition
+-- state that would go stale between sessions.
+local PROFILE_EXCLUDED_KEYS = {
+    profiles = true,
+    active_profile = true,
+    automation_enabled = true,
+    load_stopped = true,
+    focus_target = true,
+    follow_enabled = true,
+    follow_target = true,
+    follow_distance = true,
+}
+
+-- Profile list for the current main/sub combo, created on demand.
+local function profile_list(settings)
+    if not settings.profiles then settings.profiles = T{} end
+    local combo = common.get_job_combo()
+    if not settings.profiles[combo] then settings.profiles[combo] = T{} end
+    return settings.profiles[combo]
+end
+
+-- Snapshot live settings (minus excluded keys) for storing under a name.
+local function profile_snapshot(settings)
+    local snap = T{}
+    for key, value in pairs(settings) do
+        if not PROFILE_EXCLUDED_KEYS[key] then
+            snap[key] = common.deep_copy(value)
+        end
+    end
+    return snap
+end
+
+-- Session-only mirrors of settings keys re-seed from settings when nil (see
+-- the seed blocks at the top of ui_config.render); clear them after a profile
+-- Load/New so the UI and automation pick up the new values instead of stale
+-- ones. Session-only tracked-target buff toggles are dropped by design (they
+-- never live in settings). focus_target_name / follow_target_name mirror
+-- excluded keys -- a load never changes those, so their mirrors stay valid.
+local function profile_reset_session_state()
+    for k in pairs(party_buffs) do party_buffs[k] = nil end
+    entrust_target_name = nil
+    entrust_spell_name = nil
+    focus_recovery_target_name = nil
+end
+
+-- Replace live settings with `source` (a snapshot, or merged job defaults for
+-- New): clear every non-excluded key IN PLACE (Sidekick.lua and the settings
+-- lib hold this exact table reference -- never replace the table), copy source
+-- in, then backfill missing keys from job_def.merged_defaults. Backfill covers
+-- snapshots saved before newer settings keys existed -- same merge setup_job
+-- uses, so no nil-key surprises mid-session.
+local function profile_apply(settings, job_def, source)
+    for key in pairs(settings) do
+        if not PROFILE_EXCLUDED_KEYS[key] then
+            settings[key] = nil
+        end
+    end
+    for key, value in pairs(source) do
+        if not PROFILE_EXCLUDED_KEYS[key] then
+            settings[key] = common.deep_copy(value)
+        end
+    end
+    if job_def and job_def.merged_defaults then
+        for key, value in pairs(job_def.merged_defaults) do
+            if settings[key] == nil and not PROFILE_EXCLUDED_KEYS[key] then
+                settings[key] = common.deep_copy(value)
+            end
+        end
+    end
+    profile_reset_session_state()
+end
+
+-- Operations called from the profiles popup (lib/ui/components.lua). All take
+-- the ctx object components already use (settings / job_def / save_callback).
+local profile_ops = {}
+
+function profile_ops.list(ctx)
+    return profile_list(ctx.settings)
+end
+
+-- Active profile validated against the current combo's list. active_profile is
+-- one shared key in the settings table while profiles are per-combo, so a name
+-- loaded on another combo must read as Default here, not as active.
+function profile_ops.active(ctx)
+    local active = ctx.settings.active_profile
+    if active and profile_list(ctx.settings)[active] then
+        return active
+    end
+    return nil
+end
+
+-- Save: name matches the selected (active) profile -> overwrite its snapshot;
+-- name differs while one is selected -> rename in place (the snapshot moves,
+-- live settings are not re-captured); no selection -> create from live settings.
+function profile_ops.save(ctx, name)
+    if not name or name == '' then return end
+    local list = profile_list(ctx.settings)
+    local selected = profile_ops.active(ctx)
+    if selected and selected ~= name then
+        list[name] = list[selected]
+        list[selected] = nil
+    else
+        list[name] = profile_snapshot(ctx.settings)
+    end
+    ctx.settings.active_profile = name
+    if ctx.save_callback then ctx.save_callback() end
+end
+
+-- Save As: always create/overwrite a fresh snapshot under the typed name.
+function profile_ops.save_as(ctx, name)
+    if not name or name == '' then return end
+    profile_list(ctx.settings)[name] = profile_snapshot(ctx.settings)
+    ctx.settings.active_profile = name
+    if ctx.save_callback then ctx.save_callback() end
+end
+
+function profile_ops.load(ctx, name)
+    local snap = profile_list(ctx.settings)[name]
+    if not snap then return end
+    profile_apply(ctx.settings, ctx.job_def, snap)
+    ctx.settings.active_profile = name
+    if ctx.save_callback then ctx.save_callback() end
+end
+
+-- New: reset the working copy to job defaults (same merge as setup_job) and
+-- drop back to Default. Saved profiles are untouched.
+function profile_ops.new(ctx)
+    profile_apply(ctx.settings, ctx.job_def,
+        (ctx.job_def and ctx.job_def.merged_defaults) or {})
+    ctx.settings.active_profile = nil
+    if ctx.save_callback then ctx.save_callback() end
+end
+
+function profile_ops.delete(ctx, name)
+    if not name then return end
+    local list = profile_list(ctx.settings)
+    if not list[name] then return end
+    list[name] = nil
+    if ctx.settings.active_profile == name then
+        ctx.settings.active_profile = nil
+    end
+    if ctx.save_callback then ctx.save_callback() end
+end
+
+-- ============================================================================
 -- Module Functions
 -- ============================================================================
 
@@ -485,6 +639,9 @@ function ui_config.render(settings, job_def, callback)
                 sub_job_name = common.get_job_name_from_id(sub_job_id)
             end
             imgui.TextColored(ui.LIGHT_GREEN, string.format('%s %d / %s %d', main_job_name, main_level, sub_job_name, sub_level or 0))
+            -- Settings profiles: button labeled with the active profile, opens
+            -- the save/load panel (rendering in components, ops defined above).
+            ui.render_profile_button(ctx, profile_ops)
         end
         
         -- Automation toggle button
