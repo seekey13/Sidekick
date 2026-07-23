@@ -54,9 +54,11 @@ A focused, support-oriented addon for Ashita v4 that automates healing, buffing,
 The one exception is **opt-in leader following** (off by default): with **Follow** enabled, Sidekick will `/follow` a chosen party member or tracked target when they walk beyond a set distance. It never moves your character unless you turn this on.
 
 ## Latest Updates
-### [2.6.0] - 2026-07-20
+### [2.6.0] - 2026-07-22
 
 ### Added
+- **Settings Profiles**: a new button on the `/sk` job line (reads **Default** until you save one) opens a save/load panel for named settings snapshots — a *Dynamis* setup, an *EXP* setup — kept **per job/subjob combo**, so your WHM/BLM profiles never touch your WHM/SCH ones. Live settings stay the auto-saving working copy: tweaks after loading a profile are never written back to it until you hit **Save** (edit the name first to rename instead; **Save As** always makes a new one). Loading a profile parks your working copy, and clicking **Default** — or deleting the loaded profile — brings it right back. Loading never starts or stops automation and never touches your Follow settings.
+
 - **UI Opacity**: a new slider in `/sk panel` (1-100, 100 = fully opaque) fades the `/sk` config window so it sits quietly over the game. Dropdown menus (while expanded), right-click menus, and tooltips stay fully opaque so they're always readable at any opacity. Thanks to **Fallen** for the feature idea.
 
 - **Corsair**: New job — *rolls only*. Pick two **Phantom Rolls** in the new **Rolls** section and Sidekick keeps them up, using **Double-Up** on each according to a **Risk Tier** (Lowest / Medium / Highest) built on the roll's lucky and unlucky numbers. It never doubles at 11, since 12 busts, uses **Snake Eye** for guaranteed finishes and **Fold** the moment you Bust, and while **Bust** is up it holds the second roll back until the slot frees. Rolls fire in and out of combat. Quick Draw, Ranged Attack, and Random Deal are deliberately not automated — Sidekick stays support-only.
