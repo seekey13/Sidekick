@@ -400,7 +400,7 @@ end
 -- live settings are not re-captured); no selection -> create from live settings.
 function profile_ops.save(ctx, name)
     if not name or name == '' then return end
-    if name == DEFAULT_SLOT or name == 'Default' then return end
+    if name == DEFAULT_SLOT or name:lower() == 'default' then return end
     local list = profile_list(ctx.settings)
     local selected = profile_ops.active(ctx)
     if selected and selected ~= name then
@@ -416,7 +416,7 @@ end
 -- Save As: always create/overwrite a fresh snapshot under the typed name.
 function profile_ops.save_as(ctx, name)
     if not name or name == '' then return end
-    if name == DEFAULT_SLOT or name == 'Default' then return end
+    if name == DEFAULT_SLOT or name:lower() == 'default' then return end
     profile_list(ctx.settings)[name] = profile_snapshot(ctx.settings)
     ctx.settings.active_profile = name
     if ctx.save_callback then ctx.save_callback() end
@@ -463,9 +463,21 @@ function profile_ops.delete(ctx, name)
     if not name then return end
     local list = profile_list(ctx.settings)
     if not list[name] then return end
+    local was_active = profile_ops.active(ctx) == name
     list[name] = nil
     if ctx.settings.active_profile == name then
         ctx.settings.active_profile = nil
+    end
+    -- Deleting the selected profile drops back to Default: restore the parked
+    -- working copy (same as clicking 'Default'). Without this, live settings
+    -- keep the deleted snapshot while the UI shows Default selected, and the
+    -- next named load would park that snapshot over the stash -- destroying
+    -- the real Default working copy.
+    if was_active then
+        local stash = list[DEFAULT_SLOT]
+        if stash then
+            profile_apply(ctx.settings, ctx.job_def, stash)
+        end
     end
     if ctx.save_callback then ctx.save_callback() end
 end

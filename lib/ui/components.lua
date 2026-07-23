@@ -2746,7 +2746,7 @@ function ui_components.render_profile_button(ctx, ops)
                 table.insert(names, name)
             end
         end
-        table.sort(names)
+        table.sort(names, function(a, b) return a:lower() < b:lower() end)
         -- List-box style: bordered child sized to the row count (+1 for the
         -- Default row, +16 for the border padding) so every profile is always
         -- visible without scrolling. The popup auto-sizes around it.
