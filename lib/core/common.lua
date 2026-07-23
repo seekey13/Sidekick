@@ -680,6 +680,32 @@ function common.get_job_name(job_id)
     return tostring(job_id)
 end
 
+-- Deep copy for settings-profile snapshots. Settings hold plain data only
+-- (bool/number/string/table -- the settings lib rejects anything else), so no
+-- function/userdata handling. Tables come back as T{} to match surrounding usage.
+function common.deep_copy(value)
+    if type(value) ~= 'table' then
+        return value
+    end
+    local copy = T{}
+    for k, v in pairs(value) do
+        copy[k] = common.deep_copy(v)
+    end
+    return copy
+end
+
+-- Profile combo key for the current main/sub pair: 'WHM/BLM', 'WHM/None'.
+-- Settings-profile lists are keyed by this so WHM/BLM and WHM/SCH stay separate.
+function common.get_job_combo()
+    local main_id, sub_id = common.get_player_job()
+    local main_abbr, sub_abbr
+    for _, job in ipairs(job_data) do
+        if job.id == main_id then main_abbr = job.abbr end
+        if job.id == sub_id then sub_abbr = job.abbr end
+    end
+    return (main_abbr or 'UNK') .. '/' .. (sub_abbr or 'None')
+end
+
 -- Get pet entity
 -- Returns: pet entity object or nil if no pet
 function common.get_pet_entity()

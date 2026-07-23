@@ -272,6 +272,217 @@ local function render_roll_dropdown(label, setting_key, available_rolls, setting
 end
 
 -- ============================================================================
+-- Settings Profiles
+-- Named snapshots of live settings, per main/sub combo, stored inside the
+-- settings table itself (settings.profiles[combo][name]) so Ashita's settings
+-- module handles persistence. Live settings stay the auto-saving working copy;
+-- profiles only change via explicit Save / Save As here.
+-- Spec: docs/superpowers/specs/2026-07-22-settings-profiles-design.md
+-- ============================================================================
+
+-- Keys never copied into or out of a snapshot: container/meta, run state
+-- (loading a profile must never start/stop automation), and party-composition
+-- state that would go stale between sessions.
+local PROFILE_EXCLUDED_KEYS = {
+    profiles = true,
+    active_profile = true,
+    automation_enabled = true,
+    load_stopped = true,
+    focus_target = true,
+    follow_enabled = true,
+    follow_target = true,
+    follow_distance = true,
+}
+
+-- Reserved key inside a combo's profile list: the parked Default working copy.
+-- Live settings are stashed here when a named profile is loaded, and restored
+-- when the user clicks 'Default' in the list. Never shown as a named profile.
+local DEFAULT_SLOT = '__default'
+
+-- Profile list for the current main/sub combo, created on demand.
+local function profile_list(settings)
+    if not settings.profiles then settings.profiles = T{} end
+    local combo = common.get_job_combo()
+    if not settings.profiles[combo] then settings.profiles[combo] = T{} end
+    return settings.profiles[combo]
+end
+
+-- Snapshot live settings (minus excluded keys) for storing under a name.
+local function profile_snapshot(settings)
+    local snap = T{}
+    for key, value in pairs(settings) do
+        if not PROFILE_EXCLUDED_KEYS[key] then
+            snap[key] = common.deep_copy(value)
+        end
+    end
+    return snap
+end
+
+-- Session-only mirrors of settings keys are refreshed after a profile Load/New
+-- so the UI and automation pick up the new values instead of stale ones.
+-- party_buffs must be re-seeded IMMEDIATELY (not left for the next-frame seed
+-- block at the top of ui_config.render): sections below the job line render in
+-- the same frame as the load, and render_party_selection's auto-init would see
+-- a missing 'wake' key, overwrite the just-loaded settings.party_buffs.wake
+-- with defaults, and -- by making the session table non-empty -- permanently
+-- disarm the next-frame seed, leaving every party-button row (debuff removal,
+-- buffs) reading empty session state. Session-only tracked-target buff toggles
+-- are dropped by design (they never live in settings). The name mirrors
+-- (entrust etc.) are safe to lazily re-seed next frame -- their render paths
+-- only write settings on click. focus_target_name / follow_target_name mirror
+-- excluded keys -- a load never changes those, so their mirrors stay valid.
+local function profile_reset_session_state(settings)
+    for k in pairs(party_buffs) do party_buffs[k] = nil end
+    if settings.party_buffs then
+        for ability_name, targets in pairs(settings.party_buffs) do
+            party_buffs[ability_name] = {}
+            for party_index, enabled in pairs(targets) do
+                party_buffs[ability_name][party_index] = enabled
+            end
+        end
+    end
+    entrust_target_name = nil
+    entrust_spell_name = nil
+    focus_recovery_target_name = nil
+end
+
+-- Replace live settings with `source` (a snapshot, or merged job defaults for
+-- New): clear every non-excluded key IN PLACE (Sidekick.lua and the settings
+-- lib hold this exact table reference -- never replace the table), copy source
+-- in, then backfill missing keys from job_def.merged_defaults. Backfill covers
+-- snapshots saved before newer settings keys existed -- same merge setup_job
+-- uses, so no nil-key surprises mid-session.
+local function profile_apply(settings, job_def, source)
+    for key in pairs(settings) do
+        if not PROFILE_EXCLUDED_KEYS[key] then
+            settings[key] = nil
+        end
+    end
+    for key, value in pairs(source) do
+        if not PROFILE_EXCLUDED_KEYS[key] then
+            settings[key] = common.deep_copy(value)
+        end
+    end
+    if job_def and job_def.merged_defaults then
+        for key, value in pairs(job_def.merged_defaults) do
+            if settings[key] == nil and not PROFILE_EXCLUDED_KEYS[key] then
+                settings[key] = common.deep_copy(value)
+            end
+        end
+    end
+    profile_reset_session_state(settings)
+end
+
+-- Operations called from the profiles popup (lib/ui/components.lua). All take
+-- the ctx object components already use (settings / job_def / save_callback).
+local profile_ops = {}
+
+-- Exposed so the popup renderer can hide the parked slot from the named list.
+profile_ops.DEFAULT_SLOT = DEFAULT_SLOT
+
+function profile_ops.list(ctx)
+    return profile_list(ctx.settings)
+end
+
+-- Active profile validated against the current combo's list. active_profile is
+-- one shared key in the settings table while profiles are per-combo, so a name
+-- loaded on another combo must read as Default here, not as active.
+function profile_ops.active(ctx)
+    local active = ctx.settings.active_profile
+    if active and profile_list(ctx.settings)[active] then
+        return active
+    end
+    return nil
+end
+
+-- Save: name matches the selected (active) profile -> overwrite its snapshot;
+-- name differs while one is selected -> rename in place (the snapshot moves,
+-- live settings are not re-captured); no selection -> create from live settings.
+function profile_ops.save(ctx, name)
+    if not name or name == '' then return end
+    if name == DEFAULT_SLOT or name:lower() == 'default' then return end
+    local list = profile_list(ctx.settings)
+    local selected = profile_ops.active(ctx)
+    if selected and selected ~= name then
+        list[name] = list[selected]
+        list[selected] = nil
+    else
+        list[name] = profile_snapshot(ctx.settings)
+    end
+    ctx.settings.active_profile = name
+    if ctx.save_callback then ctx.save_callback() end
+end
+
+-- Save As: always create/overwrite a fresh snapshot under the typed name.
+function profile_ops.save_as(ctx, name)
+    if not name or name == '' then return end
+    if name == DEFAULT_SLOT or name:lower() == 'default' then return end
+    profile_list(ctx.settings)[name] = profile_snapshot(ctx.settings)
+    ctx.settings.active_profile = name
+    if ctx.save_callback then ctx.save_callback() end
+end
+
+function profile_ops.load(ctx, name)
+    local list = profile_list(ctx.settings)
+    local snap = list[name]
+    if not snap or name == DEFAULT_SLOT then return end
+    -- Leaving Default: park the auto-saving working copy so clicking 'Default'
+    -- later restores it. Named-to-named switches leave the stash alone.
+    if profile_ops.active(ctx) == nil then
+        list[DEFAULT_SLOT] = profile_snapshot(ctx.settings)
+    end
+    profile_apply(ctx.settings, ctx.job_def, snap)
+    ctx.settings.active_profile = name
+    if ctx.save_callback then ctx.save_callback() end
+end
+
+-- Back to the Default working copy: restore the parked stash (if any) and
+-- resume plain auto-saving with no named profile active. With no stash (never
+-- left Default, or pre-stash settings file) live settings are kept as-is --
+-- only the mode switches back.
+function profile_ops.load_default(ctx)
+    if profile_ops.active(ctx) == nil then return end
+    local stash = profile_list(ctx.settings)[DEFAULT_SLOT]
+    if stash then
+        profile_apply(ctx.settings, ctx.job_def, stash)
+    end
+    ctx.settings.active_profile = nil
+    if ctx.save_callback then ctx.save_callback() end
+end
+
+-- New: reset the working copy to job defaults (same merge as setup_job) and
+-- drop back to Default. Saved profiles are untouched.
+function profile_ops.new(ctx)
+    profile_apply(ctx.settings, ctx.job_def,
+        (ctx.job_def and ctx.job_def.merged_defaults) or {})
+    ctx.settings.active_profile = nil
+    if ctx.save_callback then ctx.save_callback() end
+end
+
+function profile_ops.delete(ctx, name)
+    if not name then return end
+    local list = profile_list(ctx.settings)
+    if not list[name] then return end
+    local was_active = profile_ops.active(ctx) == name
+    list[name] = nil
+    if ctx.settings.active_profile == name then
+        ctx.settings.active_profile = nil
+    end
+    -- Deleting the selected profile drops back to Default: restore the parked
+    -- working copy (same as clicking 'Default'). Without this, live settings
+    -- keep the deleted snapshot while the UI shows Default selected, and the
+    -- next named load would park that snapshot over the stash -- destroying
+    -- the real Default working copy.
+    if was_active then
+        local stash = list[DEFAULT_SLOT]
+        if stash then
+            profile_apply(ctx.settings, ctx.job_def, stash)
+        end
+    end
+    if ctx.save_callback then ctx.save_callback() end
+end
+
+-- ============================================================================
 -- Module Functions
 -- ============================================================================
 
@@ -484,6 +695,13 @@ function ui_config.render(settings, job_def, callback)
             if sub_level and sub_level > 0 and sub_job_id and sub_job_id > 0 then
                 sub_job_name = common.get_job_name_from_id(sub_job_id)
             end
+            -- Settings profiles: button labeled with the active profile, opens
+            -- the save/load panel (rendering in components, ops defined above).
+            -- Leads the job line, fixed at the Start/Stop button width.
+            ui.render_profile_button(ctx, profile_ops)
+            imgui.SameLine()
+            -- Center the job text on the button row (else it top-aligns).
+            imgui.AlignTextToFramePadding()
             imgui.TextColored(ui.LIGHT_GREEN, string.format('%s %d / %s %d', main_job_name, main_level, sub_job_name, sub_level or 0))
         end
         

@@ -2673,6 +2673,107 @@ function ui_components.render_heal_group_selection(ctx, key_name, show_outside)
 end
 
 -- ============================================================================
+-- Settings Profiles popup
+-- Job-line button labeled with the active profile ('Default' when none).
+-- Clicking opens a panel: name field, [New][Save][Save As][Delete], and a
+-- Selectable list for the current combo. Clicking a list entry loads it and
+-- keeps the panel open so a rename can follow. Ops come from lib/ui/config.lua.
+-- ============================================================================
+
+-- Typed profile name; session-only. Refilled from the active profile when the
+-- popup opens and from list clicks afterward.
+local profile_name_buf = { '' }
+
+function ui_components.render_profile_button(ctx, ops)
+    local popup_id = '##profiles_popup'
+    local active = ops.active(ctx)
+
+    -- Fixed width, same as the Start/Stop button; long names clip.
+    if imgui.Button((active or 'Default') .. '##profiles_btn', { AUTOMATION_BUTTON_WIDTH, 0 }) then
+        profile_name_buf[1] = active or ''
+        imgui.OpenPopup(popup_id)
+    end
+    if imgui.IsItemHovered() then
+        ui_components.set_tooltip('Settings profiles for this job/subjob combo.\n' ..
+            'Save named snapshots of the current settings and load them later.\n' ..
+            'Tweaks after a load auto-save to the working copy, never to the profile.')
+    end
+
+    if ui_components.begin_opaque_popup(popup_id) then
+        imgui.PushItemWidth(238)
+        imgui.InputText('##profile_name', profile_name_buf, 64)
+        imgui.PopItemWidth()
+
+        local typed = profile_name_buf[1]:match('^%s*(.-)%s*$')
+
+        if imgui.Button('New##profile_new') then
+            ops.new(ctx)
+            profile_name_buf[1] = ''
+        end
+        if imgui.IsItemHovered() then
+            ui_components.set_tooltip('Reset the working copy to job defaults.\nSaved profiles are kept.')
+        end
+        imgui.SameLine()
+        if imgui.Button('Save##profile_save') then
+            ops.save(ctx, typed)
+        end
+        if imgui.IsItemHovered() then
+            ui_components.set_tooltip('Save current settings under this name.\n' ..
+                'With a profile selected and the name edited: rename it instead.')
+        end
+        imgui.SameLine()
+        if imgui.Button('Save As##profile_save_as') then
+            ops.save_as(ctx, typed)
+        end
+        if imgui.IsItemHovered() then
+            ui_components.set_tooltip('Always save current settings under this name,\noverwriting any profile already using it.')
+        end
+        imgui.SameLine()
+        if imgui.Button('Delete##profile_delete') then
+            if active then
+                ops.delete(ctx, active)
+                profile_name_buf[1] = ''
+            end
+        end
+        if imgui.IsItemHovered() then
+            ui_components.set_tooltip('Delete the selected (highlighted) profile.')
+        end
+
+        local names = {}
+        for name in pairs(ops.list(ctx)) do
+            -- ops.DEFAULT_SLOT is the parked Default working copy, not a named profile.
+            if name ~= ops.DEFAULT_SLOT then
+                table.insert(names, name)
+            end
+        end
+        table.sort(names, function(a, b) return a:lower() < b:lower() end)
+        -- List-box style: bordered child sized to the row count (+1 for the
+        -- Default row, +16 for the border padding) so every profile is always
+        -- visible without scrolling. The popup auto-sizes around it.
+        local list_height = (#names + 1) * imgui.GetTextLineHeightWithSpacing() + 16
+        imgui.BeginChild('##profile_list', { 0, list_height }, true)
+        -- 'Default' always heads the list: the auto-saving working copy, parked
+        -- while a named profile is active. Selecting it restores that copy.
+        if imgui.Selectable('Default##profile_default', active == nil,
+                ImGuiSelectableFlags_DontClosePopups) then
+            ops.load_default(ctx)
+            profile_name_buf[1] = ''
+        end
+        for _, name in ipairs(names) do
+            -- DontClosePopups: a load keeps the panel open so a rename can follow.
+            if imgui.Selectable(name .. '##profile_' .. name, name == active,
+                    ImGuiSelectableFlags_DontClosePopups) then
+                ops.load(ctx, name)
+                profile_name_buf[1] = name
+            end
+        end
+        imgui.EndChild()
+
+        ui_components.end_opaque_popup()
+    end
+end
+
+-- ============================================================================
 -- Export Constants
 -- ============================================================================
 
