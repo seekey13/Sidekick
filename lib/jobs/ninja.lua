@@ -36,6 +36,7 @@ local SHURIKENS = {
     { id = 17303, name = 'Manji Shuriken', level = 48 },
     { id = 17304, name = 'Fuma Shuriken',  level = 60 },
     { id = 18712, name = 'Koga Shuriken',  level = 75 },
+    { id = 21357, name = 'Yoru Shuriken',  level = 75 },
 }
 
 -- Utsusemi shadow buffs (Copy Image tiers): any present == shadows still up.
