@@ -67,6 +67,8 @@ The one exception is **opt-in leader following** (off by default): with **Follow
 
 - **Red Mage heals itself after Convert**: **Convert** trades your HP for a full MP pool, which used to leave you nearly dead while Sidekick cured whoever *else* looked lowest. Now the first heal after Convert always goes to you, and it waits for the swap to actually land so the cure is sized against your new full MP — a proper **Cure IV**, not whatever your old empty pool could afford. If your HP lands below the critical threshold, a critical ability like **Divine Seal** (with WHM subbed) still fires first so the forced cure lands boosted, and if someone else tops you off before it goes out, the forced heal stands down.
 
+- **Blue Mage Triumphant Roar** (level 71): the party Attack Boost blue magic is now a supported self-buff, with the usual **D** button to spread it to the group via Diffusion.
+
 - **Hold AOE for Group**: an opt-in checkbox in `/sk panel` that holds party-wide AOE casts — **Protectra/Shellra/Bar** spells, **Diamondhide**, Bard **area songs**, fresh **Phantom Rolls**, and **Accession/Diffusion** spells — until every alive, in-zone party member is in range, so nobody misses the effect while catching up. Trusts (they auto-follow), dead members, and members in another zone never cause a hold, and Bard members assigned a **Pianissimo** single-target song are managed individually rather than holding the area cast. Off by default. Thanks to **Dirtymcnasty** for the feature idea.
 
 ### Changed
@@ -80,6 +82,7 @@ The one exception is **opt-in leader following** (off by default): with **Follow
 - **Geomancer Entrust fired with no MP for the Indi spell** — Entrust (5 minute recast) was used before checking you could pay for the configured Indi spell, wasting it. Both the ability and the follow-up cast are now gated on that MP.  Thanks to **Tai** for reporting the bug.
 - **Job-mastery stars and the Geomancer Indi aura no longer vanish while Follow is on** — the packet tweak that keeps `/follow` alive across position syncs was also clearing the byte that carries the master stars and the Indi aura display, so enabling Follow made them disappear. That byte is no longer touched; following works exactly as before. Thanks to **Morwen** for reporting the bug.
 - **Alliance members now show up in the config window without restarting automation** — the alliance **B**/**C** buttons only updated while automation (or Follow, or `/sk panel`) was running, so with automation stopped a newly joined alliance member wouldn't appear until you hit Start. The config window now refreshes the party/alliance state itself while open. Thanks to **Tai** for reporting the bug.
+- **Several Blue Mage spells wouldn't cast** — Battery Charge, Animating Wail, Magic Barrier, Occultation, Orcish Counterstance and Barrier Tusk were incorrectly locked behind **Unbridled Learning**, so Sidekick tried to pop that JA before each one and skipped the spell while it was on cooldown. On CatsEyeXI those six cast normally; only **Harden Shell**, **Pyric Bulwark** and **Carcharian Verve** still need Unbridled Learning. Thanks to **Benthere** and **Muziko** for reporting the bugs.
 
 ### [2.5.0] - 2026-07-17
 
@@ -368,8 +371,8 @@ Currently implemented support jobs:
 - **Blue Mage** (BLU)
   - Self-heal with **Pollen**; party healing with **Wild Carrot** and **Magic Fruit** (blue magic cures can't target outside the party)
   - AOE healing with **Healing Breeze**
-  - Self-buffs with blue magic (Cocoon, Metallic Body, Refueling, Feather Barrier, Memento Mori, Zephyr Mantle, Warm-Up, Amplification, Saline Coat, Reactor Cool, Plasma Charge)
-  - **Unbridled Learning** spells (level 75: Battery Charge, Animating Wail, Magic Barrier, Occultation, Orcish Counterstance, Barrier Tusk, Harden Shell, Pyric Bulwark, Carcharian Verve) — the Unbridled Learning JA is popped automatically right before the spell, and the spell is held while the JA is on cooldown
+  - Self-buffs with blue magic (Cocoon, Metallic Body, Refueling, Feather Barrier, Memento Mori, Zephyr Mantle, Warm-Up, Amplification, Triumphant Roar, Saline Coat, Reactor Cool, Plasma Charge, Battery Charge, Animating Wail, Magic Barrier, Occultation, Orcish Counterstance, Barrier Tusk)
+  - **Unbridled Learning** spells (Harden Shell, Pyric Bulwark, Carcharian Verve) — the Unbridled Learning JA is popped automatically right before the spell, and the spell is held while the JA is on cooldown
   - **Diffusion** (level 75 merit, BLU main): a **D** button on every blue buff row opens a popup — **Enable** fires Diffusion before the buff to spread it to the whole party; **Hold for Diffusion** skips the buff until Diffusion is ready (off by default: the buff still casts self-only when Diffusion is on cooldown)
   - **Set-spell awareness**: blue magic that isn't currently equipped in your set-spell list is grayed out (*"Blue Magic not currently equipped"*) and skipped by automation — it stays selectable, and Sidekick never equips spells for you (use the blusets addon or the in-game menu)
 
