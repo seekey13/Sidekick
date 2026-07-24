@@ -292,7 +292,6 @@ return {
                 spell_id = 741,
                 magic = 'blue',
                 command = '/ma "Pyric Bulwark" <me>',
-                buff_id = 150,
                 requires_precast = 'Unbridled Learning',
             },
             {
