@@ -178,6 +178,15 @@ return {
                 buff_id = {190, 191},  -- Magic Atk. + Magic Def. Boost
             },
             {
+                name = 'Triumphant Roar',
+                level = 71,
+                cost = 36,
+                spell_id = 655,
+                magic = 'blue',
+                command = '/ma "Triumphant Roar" <me>',
+                buff_id = 91,  -- Attack Boost (shares 91 with Carcharian Verve)
+            },
+            {
                 name = 'Saline Coat',
                 level = 72,
                 cost = 66,
@@ -205,9 +214,6 @@ return {
                 buff_id = 38,
             },
 
-            -- Unbridled Learning spells: locked behind the Unbridled Learning
-            -- JA buff (485). requires_precast fires the JA automatically right
-            -- before the spell -- see check_required_precast in common.lua.
             {
                 name = 'Battery Charge',
                 level = 75,
@@ -216,7 +222,6 @@ return {
                 magic = 'blue',
                 command = '/ma "Battery Charge" <me>',
                 buff_id = 43,
-                requires_precast = 'Unbridled Learning',
                 priority = 50,
             },
             {
@@ -227,7 +232,6 @@ return {
                 magic = 'blue',
                 command = '/ma "Animating Wail" <me>',
                 buff_id = 33,
-                requires_precast = 'Unbridled Learning',
             },
             {
                 name = 'Magic Barrier',
@@ -237,7 +241,6 @@ return {
                 magic = 'blue',
                 command = '/ma "Magic Barrier" <me>',
                 buff_id = 152,
-                requires_precast = 'Unbridled Learning',
             },
             {
                 name = 'Occultation',
@@ -247,7 +250,6 @@ return {
                 magic = 'blue',
                 command = '/ma "Occultation" <me>',
                 buff_id = 36,  -- Blink (multiple shadows)
-                requires_precast = 'Unbridled Learning',
             },
             {
                 name = 'Orcish Counterstance',
@@ -257,7 +259,6 @@ return {
                 magic = 'blue',
                 command = '/ma "Orcish Counterstance" <me>',
                 buff_id = 61,
-                requires_precast = 'Unbridled Learning',
             },
             {
                 name = 'Barrier Tusk',
@@ -267,8 +268,13 @@ return {
                 magic = 'blue',
                 command = '/ma "Barrier Tusk" <me>',
                 buff_id = 116,
-                requires_precast = 'Unbridled Learning',
             },
+            -- Unbridled Learning spells. Only Harden Shell, Pyric Bulwark, and
+            -- Carcharian Verve are still locked behind the Unbridled Learning
+            -- JA buff (485) on CatsEyeXI -- those carry requires_precast, which
+            -- fires the JA automatically right before the spell (see
+            -- check_required_precast in common.lua). The rest below now cast
+            -- normally like any other blue buff.
             {
                 name = 'Harden Shell',
                 level = 75,
