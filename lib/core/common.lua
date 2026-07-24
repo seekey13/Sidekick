@@ -2298,6 +2298,9 @@ end
 -- signature scan can't silently disable all BLU automation.
 function common.is_blue_magic_unequipped(ability)
     if not ability or ability.magic ~= 'blue' or not ability.spell_id then return false end
+    -- Unbridled Learning spells are unlocked by the JA, not the set-spell list,
+    -- so the equipped check never applies to them.
+    if ability.requires_precast == 'Unbridled Learning' then return false end
     local cmd = type(ability.command) == 'function' and ability.command(0) or ability.command
     if not cmd or not cmd:match('^/ma%s') then return false end
     local set = common.get_equipped_blue_spells()
