@@ -1253,6 +1253,26 @@ function common.group_in_aoe_range(radius, exclude)
     return true
 end
 
+-- os.clock() of the last "gather" party chat line, shared across every
+-- hold_aoe_for_group hold point so back-to-back holds (across abilities, or
+-- tick after tick while one member stays out of range) don't flood party chat.
+local last_gather_announce = 0
+local GATHER_ANNOUNCE_THROTTLE = 5.0
+
+-- Tell the party to gather when an AOE cast is being held for hold_aoe_for_group.
+-- Throttled to once per GATHER_ANNOUNCE_THROTTLE seconds across ALL callers (not
+-- per-ability), so it reads as one reminder line rather than one per held ability.
+-- Fires every time the hold is still active once the throttle clears, acting as a
+-- periodic reminder rather than a one-shot.
+function common.announce_gather(ability_name)
+    local now = os.clock()
+    if (now - last_gather_announce) < GATHER_ANNOUNCE_THROTTLE then
+        return
+    end
+    last_gather_announce = now
+    AshitaCore:GetChatManager():QueueCommand(1, string.format('/p Gather together for %s', ability_name))
+end
+
 -- Get distance between player and party member
 -- Args: party_index (number) - Party member index (1-5)
 -- Returns: number (distance in yalms) or nil if error
@@ -2759,6 +2779,7 @@ function common.check_stratagem(job_def, settings, ability_key, ability)
     -- the group misses it and the self-buff check then suppresses recasts.
     -- Independent of the per-spell "Hold for Stratagem" setting.
     if strat.aoe and settings.hold_aoe_for_group and not common.group_in_aoe_range() then
+        common.announce_gather(ability.name)
         return false
     end
 

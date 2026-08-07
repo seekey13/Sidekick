@@ -128,8 +128,10 @@ return {
         'Accession/Diffusion spells until every alive,\n' ..
         'in-zone party member is in range, so nobody\n' ..
         'is left out. Trusts and members in another\n' ..
-        'zone never cause a hold. Off by default --\n' ..
-        'AOE fires whenever its normal condition is met.',
+        'zone never cause a hold. While holding, sends\n' ..
+        '"/p Gather together for <ability>" at most once\n' ..
+        'every 5 seconds. Off by default -- AOE fires\n' ..
+        'whenever its normal condition is met.',
 
     follow =
         'Auto-follows a party member or tracked\n' ..
