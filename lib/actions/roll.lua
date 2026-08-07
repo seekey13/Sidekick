@@ -262,13 +262,6 @@ function roll.execute(settings, job_def, main_level, sub_level, player_resource)
         end
     end
 
-    -- Hold AOE for Group: a fresh roll is a party AOE -- hold the initial cast
-    -- until the group is in range. Double-Up (Priority 2) is not gated; it refines
-    -- an already-applied roll.
-    if settings.hold_aoe_for_group and not common.group_in_aoe_range() then
-        return nil
-    end
-
     -- Priority 3: cast a missing roll, unless we're at slot capacity
     local active_rolls = count_active_configured_rolls(player_buffs, roll1_ability, roll2_ability)
     if active_rolls >= get_available_roll_slots(player_buffs) then
@@ -291,6 +284,15 @@ function roll.execute(settings, job_def, main_level, sub_level, player_resource)
     end
 
     if cast_ability then
+        -- Hold AOE for Group: a fresh roll is a party AOE -- hold the initial cast
+        -- until the group is in range. Double-Up (Priority 2) is not gated; it
+        -- refines an already-applied roll. Checked here (not earlier) so the
+        -- gather announcement can name the actual roll about to be cast.
+        if settings.hold_aoe_for_group and not common.group_in_aoe_range() then
+            common.announce_gather(cast_ability.name)
+            return nil
+        end
+
         local state = cast_num == 1 and roll_state.roll1 or roll_state.roll2
         -- Throttle: 2 seconds between roll casts (in-game proven)
         if (current_time - state.last_action_time) >= 2 then

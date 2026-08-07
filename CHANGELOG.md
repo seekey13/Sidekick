@@ -5,6 +5,11 @@ All notable changes to Sidekick will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.7.0] - 2026-08-07
+
+### Added
+- **Hold AOE for Group now announces the wait**: while `hold_aoe_for_group` is holding a cast for a missing party member, Sidekick sends `/p Gather together for <ability name>` (e.g. "Gather together for Protectra IV"), so the party knows why nothing is happening. Backed by a new `common.announce_gather(ability_name)`, throttled to once every 5 seconds **across all four hold points combined** (not per-ability), so a straggler doesn't trigger a spam of party chat lines tick after tick. Fires repeatedly (every 5s) for as long as the hold persists, acting as a periodic reminder rather than a one-shot. Wired into all four existing hold points: area songs and `<me>` self-cast AOE buffs in `buff.lua`, fresh Phantom Rolls in `roll.lua` (the hold check there moved to after the specific roll is resolved, so the message names the actual roll being cast), and stratagem-paired AOE spells (Accession/Diffusion) in `common.check_stratagem`. No new setting — inseparable from `hold_aoe_for_group` itself.
+
 ## [2.6.0] - 2026-07-22
 
 ### Added
