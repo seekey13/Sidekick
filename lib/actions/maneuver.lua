@@ -65,6 +65,11 @@ function maneuver.execute(settings, job_def, main_level, sub_level, player_resou
         return nil
     end
 
+    -- Do not apply maneuvers while resting
+    if common.is_resting() then
+        return nil
+    end
+
     if not job_def or not job_def.abilities or not job_def.abilities.maneuver then
         return nil
     end
@@ -113,8 +118,11 @@ function maneuver.execute(settings, job_def, main_level, sub_level, player_resou
         return nil
     end
 
-    -- One attempt per tick, not a burst -- try_use covers Amnesia/movement
-    -- block and the recast-210 shared cooldown.
+    -- One attempt per tick, not a burst -- try_use covers the recast-210 shared
+    -- cooldown and the movement block. It does NOT cover Amnesia here: maneuvers
+    -- cast via /pet, and common.is_command_blocked only checks Amnesia for /ja
+    -- (and Silence for /ma) -- /pet is neither, so an Amnesia'd automaton would
+    -- still be attempted (and presumably rejected server-side).
     return action_core.try_use(missing, job_def, settings, nil, 'Maneuver: ' .. missing.name)
 end
 
@@ -126,10 +134,12 @@ end
 -- cleared on /addon reload (consistent with roll.lua's roll_state).
 local pet_target_id = nil
 
--- True when pet_target_id still resolves to a live (HP% > 0) entity. Re-scans
--- the entity array -- same GetEntity(0..2302) linear-scan pattern common.lua
+-- True when pet_target_id still resolves to a live (HP% > 0), actual mob entity.
+-- Re-scans the entity array -- same GetEntity(0..2302) linear-scan pattern common.lua
 -- uses to re-resolve tracked targets by server id -- only called from
--- execute_deploy, so the cost is paid at most once per deploy check.
+-- execute_deploy, so the cost is paid at most once per deploy check. The mob check
+-- (SpawnFlags 0x10, same test common.is_combat() uses) matters here too: a stale or
+-- mistracked id that now resolves to a non-mob entity must not read as "still live".
 local function pet_target_is_live()
     if not pet_target_id or pet_target_id == 0 then
         return false
@@ -137,7 +147,8 @@ local function pet_target_is_live()
     for idx = 0, 2302 do
         local e = GetEntity(idx)
         if e and e.ServerId == pet_target_id then
-            return (e.HPPercent or 0) > 0
+            local is_mob = bit.band(e.SpawnFlags or 0, 0x10) ~= 0
+            return is_mob and (e.HPPercent or 0) > 0
         end
     end
     return false
@@ -172,6 +183,14 @@ function maneuver.execute_deploy(settings, job_def, main_level, sub_level, playe
         return nil
     end
 
+    -- Only send the automaton at an actual mob -- same SpawnFlags 0x10 check
+    -- common.is_combat() uses -- so a party member the player happened to have
+    -- targeted can't be Deployed at.
+    local is_mob = bit.band(target.SpawnFlags or 0, 0x10) ~= 0
+    if not is_mob then
+        return nil
+    end
+
     local ability = job_def.abilities.pet_deploy[1]
     if not ability then
         return nil
@@ -188,6 +207,19 @@ end
     Reads the automaton's current target off its own 0x028 action packets --
     same parsed structure roll.handle_action_packet reads Corsair roll totals
     from. On the pet's own action, Targets[1].Id is what it's acting on.
+
+    KNOWN GAP (final-review finding #3, unresolved -- see
+    .superpowers/sdd/2026-08-08-pup-maneuver-deploy/final-review-fix-report.md):
+    this trusts Targets[1].Id off ANY action packet from the automaton,
+    including its own self-targeted actions (buffs/cures on itself or the
+    master), not just attacks. roll.handle_action_packet filters on
+    packet.Type ~= 6 (job ability) for the same reason; the equivalent filter
+    here needs the Type value(s) that mean "the automaton is attacking",
+    which was not confirmed against this server's packets and was
+    deliberately left unguessed rather than risk a wrong number silently
+    passing muster. handle_pet_sync_packet (0x068, below) also writes
+    pet_target_id and is unaffected by this gap; whichever packet arrives
+    last currently wins.
 ]]--
 function maneuver.handle_action_packet(packet, job_def)
     if not packet or not job_def or not job_def.abilities or not job_def.abilities.maneuver then
