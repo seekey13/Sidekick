@@ -2436,16 +2436,16 @@ function common.filter_abilities_by_level(abilities, settings, main_level, sub_l
             is_disabled = false  -- Default new abilities to enabled
         end
         
+        local gate_bypassed = common.ability_gate_bypassed_by_target_override(ability, settings, party_buff_gates)
+
         if is_disabled then
         elseif not common.has_spell_learned(ability) then
         elseif common.is_blue_magic_unequipped(ability) then
         elseif ability.requires_pet and not targets.get_pet() then
         elseif ability.requires_equipped_ammo and not common.is_ammo_equipped(ability.requires_equipped_ammo) then
         elseif ability.requires_item and not common.find_equippable_item(ability.requires_item) then
-        elseif common.is_ability_idle_only(ability, settings) and not common.is_idle()
-            and not common.ability_gate_bypassed_by_target_override(ability, settings, party_buff_gates) then
-        elseif common.is_ability_combat_only(ability, settings) and not common.is_combat()
-            and not common.ability_gate_bypassed_by_target_override(ability, settings, party_buff_gates) then
+        elseif common.is_ability_idle_only(ability, settings) and not common.is_idle() and not gate_bypassed then
+        elseif common.is_ability_combat_only(ability, settings) and not common.is_combat() and not gate_bypassed then
         elseif common.ability_targets_bt(ability) and not common.is_combat() then
         elseif job_def and job_def.validate_ability and not job_def.validate_ability(ability, common) then
         elseif required_level <= player_level then

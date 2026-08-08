@@ -170,6 +170,13 @@ local function target_gate_color(ctx, config_key, target_index)
     return nil
 end
 
+-- Tooltip suffix for a button tinted by target_gate_color, or '' when untinted.
+local function gate_tooltip_suffix(gate_color)
+    if gate_color == LIGHT_YELLOW then return '\n(Combat Only override)' end
+    if gate_color == LIGHT_GREEN then return '\n(Idle Only override)' end
+    return ''
+end
+
 -- Right-click 'Combat Only' / 'Idle Only' popup for a single ME/P1-P5 button.
 -- Session-only (never written to settings) and REPLACES the ability's own
 -- combat_only/idle_only gate for this one target -- see common.target_gate_ok.
@@ -1385,9 +1392,7 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group,
     end
 
     if imgui.IsItemHovered() then
-        local me_tip = common.get_party_member_name(0) or 'ME'
-        if me_gate_color == LIGHT_YELLOW then me_tip = me_tip .. '\n(Combat Only override)'
-        elseif me_gate_color == LIGHT_GREEN then me_tip = me_tip .. '\n(Idle Only override)' end
+        local me_tip = (common.get_party_member_name(0) or 'ME') .. gate_tooltip_suffix(me_gate_color)
         ui_components.set_tooltip(me_tip)
     end
 
@@ -1460,12 +1465,8 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group,
                         ui_components.set_tooltip(pname .. '\nTrust/Tracked Removal is not totally reliable')
                     elseif ctx.is_trust and ctx.is_trust(party_index) and ctx.show_buff_warning then
                         ui_components.set_tooltip(pname .. '\nTrust/Tracked Buff tracking is not totally reliable')
-                    elseif p_gate_color == LIGHT_YELLOW then
-                        ui_components.set_tooltip(pname .. '\n(Combat Only override)')
-                    elseif p_gate_color == LIGHT_GREEN then
-                        ui_components.set_tooltip(pname .. '\n(Idle Only override)')
                     else
-                        ui_components.set_tooltip(pname)
+                        ui_components.set_tooltip(pname .. gate_tooltip_suffix(p_gate_color))
                     end
                 end
 
