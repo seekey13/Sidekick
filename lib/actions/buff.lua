@@ -136,32 +136,6 @@ local function area_song_config_key(ability, settings, party_buff_config, area_p
     return config_key
 end
 
--- Every ability that is this cycle's active [A] area song (mirrors the
--- group-selection area_song_config_key applies in the Phase 1 loop).
-local function area_song_list(available_abilities, settings, party_buff_config)
-    local list = {}
-    local processed = {}
-    for _, ability in ipairs(available_abilities) do
-        if area_song_config_key(ability, settings, party_buff_config, processed) then
-            list[#list + 1] = ability
-        end
-    end
-    return list
-end
-
--- How many of `area_list`'s songs (matching this ability's main/sub tier) are
--- already active on the target. Presence-only, not stacked-instance count --
--- area songs configured together are normally distinct buffs, one slot each.
-local function held_area_count(target_buffs, area_list, tier_is_main)
-    local n = 0
-    for _, a in ipairs(area_list) do
-        if (a.is_main_job ~= false) == tier_is_main and action_core.has_any_buff(target_buffs, a.buff_id) then
-            n = n + 1
-        end
-    end
-    return n
-end
-
 -- True when any in-range party member with a free song slot lacks the song, so
 -- the area song should be (re)cast.
 --
@@ -173,11 +147,23 @@ end
 -- stops the single/area songs from endlessly knocking each other off the same
 -- member's last slot.
 local function area_needs_recast(ability, party_buff_config, song_keys, available_abilities, settings, state)
-    local song_limit    = (ability.is_main_job ~= false) and 2 or 1
-    local tier_is_main   = ability.is_main_job ~= false
-    local single_counts  = single_target_song_counts(party_buff_config, song_keys)
-    local area_list      = area_song_list(available_abilities, settings, party_buff_config)
-    local player_zone    = common.get_party_member_zone(0)
+    local tier_is_main  = ability.is_main_job ~= false
+    local song_limit    = tier_is_main and 2 or 1
+    local single_counts = single_target_song_counts(party_buff_config, song_keys)
+
+    -- Every ability that is this cycle's active [A] area song and shares this
+    -- ability's main/sub tier, for counting how many area-song slots a member
+    -- already holds (presence-only -- area songs are normally distinct buffs).
+    local area_list = {}
+    local area_processed = {}
+    for _, a in ipairs(available_abilities) do
+        if (a.is_main_job ~= false) == tier_is_main
+           and area_song_config_key(a, settings, party_buff_config, area_processed) then
+            area_list[#area_list + 1] = a
+        end
+    end
+
+    local player_zone = common.get_party_member_zone(0)
     for ti = 0, 5 do
         local remaining = song_limit - (single_counts[ti] or 0)
         if remaining > 0 then
@@ -200,10 +186,12 @@ local function area_needs_recast(ability, party_buff_config, song_keys, availabl
                     end
                 end
             end
-            if target_buffs
-               and held_area_count(target_buffs, area_list, tier_is_main) < remaining
-               and song_needed(target_buffs, ability, 'A', available_abilities, settings, party_buff_config) then
-                return true
+            if target_buffs and song_needed(target_buffs, ability, 'A', available_abilities, settings, party_buff_config) then
+                local held = 0
+                for _, a in ipairs(area_list) do
+                    if action_core.has_any_buff(target_buffs, a.buff_id) then held = held + 1 end
+                end
+                if held < remaining then return true end
             end
         end
     end
