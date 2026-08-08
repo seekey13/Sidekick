@@ -99,44 +99,6 @@ end
 -- ============================================================================
 
 --[[
-    Reads the pet's current target off its own 0x028 action packets -- same parsed
-    structure roll.handle_action_packet reads Corsair roll totals from. On the pet's
-    own action, Targets[1].Id is what it's acting on.
-
-    KNOWN GAP (carried over from the PUP-only version, unresolved -- see
-    .superpowers/sdd/2026-08-08-pup-maneuver-deploy/final-review-fix-report.md):
-    this trusts Targets[1].Id off ANY action packet from the pet, including its own
-    self-targeted actions (buffs/cures on itself or the master), not just attacks.
-    roll.handle_action_packet filters on packet.Type ~= 6 (job ability) for the same
-    reason; the equivalent filter here needs the Type value(s) that mean "the pet is
-    attacking", which was not confirmed against this server's packets and was
-    deliberately left unguessed rather than risk a wrong number silently passing
-    muster. handle_pet_sync_packet (0x068, below) also writes pet_target_id and is
-    unaffected by this gap; whichever packet arrives last currently wins.
-]]--
-function pet_deploy.handle_action_packet(packet, job_def)
-    if not packet or not job_def or not job_def.abilities or not job_def.abilities.pet_deploy then
-        return
-    end
-
-    local pet = common.targets.get_pet()
-    if not pet or not pet.ServerId then
-        return
-    end
-
-    if packet.UserId ~= pet.ServerId then
-        return
-    end
-
-    local target = packet.Targets and packet.Targets[1]
-    if not target or not target.Id or target.Id == 0 then
-        return
-    end
-
-    pet_target_id = target.Id
-end
-
---[[
     0x068 (pet sync) isn't parsed anywhere else in Sidekick, so this reads the
     two fields needed directly off the raw packet, same inline struct.unpack
     style parse_packets.parse_message_packet uses for 0x029: owner server id

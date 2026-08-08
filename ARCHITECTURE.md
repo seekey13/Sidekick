@@ -31,7 +31,7 @@ lib/
     heal.lua                All healing (single-target, AOE, pet)
     item.lua                Consumable-based status removal (Antidote, Eye/Echo Drops, Holy/Hallowed Water, Remedy, Panacea, Remedy Ointment, Tincture)
     maneuver.lua            PUP Elemental Maneuver upkeep
-    pet_deploy.lua          Send-pet-at-target for PUP (Deploy) / SMN (Assault) / BST (Fight) (incl. its 0x028/0x068 target reader)
+    pet_deploy.lua          Send-pet-at-target for PUP (Deploy) / SMN (Assault) / BST (Fight) (incl. its 0x068 target reader)
     recover.lua             MP/TP recovery abilities
     rest.lua                Automatic resting (/heal) with follow-target awareness
     revive.lua              Raise dead party/tracked/alliance members
@@ -469,13 +469,12 @@ MP and TP recovery. Monitors percentage thresholds. Uses `action_core.first_comm
   (`SpawnFlags` 0x10 bit, the same check `common.is_combat()` uses), not merely alive, so a
   targeted party member can't be Deployed at.
 - **Tracking the pet's live target**: a module-local `pet_target_id` (cleared on
-  `/addon reload`, like `roll.lua`'s `roll_state`) is kept current from two packet sources —
-  `pet_deploy.handle_action_packet` reads `Targets[1].Id` off the pet's own 0x028 action
-  packets, and `pet_deploy.handle_pet_sync_packet` reads the same field out of the pet's 0x068
-  sync packet (owner id at byte 0x08, target id at byte 0x14, both little-endian `uint32`,
-  decoded inline since 0x068 has no other consumer in Sidekick). `pet_target_is_live()`
-  re-resolves that id through the entity array and requires both `HPPercent > 0` and the mob
-  `SpawnFlags` bit before treating it as still engaged.
+  `/addon reload`, like `roll.lua`'s `roll_state`) is kept current by
+  `pet_deploy.handle_pet_sync_packet`, which reads it off the pet's 0x068 sync packet (owner id
+  at byte 0x08, target id at byte 0x14, both little-endian `uint32`, decoded inline since 0x068
+  has no other consumer in Sidekick). `pet_target_is_live()` re-resolves that id through the
+  entity array and requires both `HPPercent > 0` and the mob `SpawnFlags` bit before treating it
+  as still engaged.
 
 ### roll.lua – Corsair Phantom Roll / Double-Up
 
