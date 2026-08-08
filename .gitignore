@@ -40,3 +40,6 @@ luac.out
 *.hex
 
 docs/
+
+# Superpowers SDD workspace (ledgers, briefs, review packages) -- local scratch
+.superpowers/
