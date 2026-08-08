@@ -278,6 +278,46 @@ local function render_roll_dropdown(label, setting_key, available_rolls, setting
     end
 end
 
+-- Render a Puppetmaster maneuver-selection dropdown (Maneuver 1/2/3). Writes the
+-- maneuver name into settings[setting_key]. Unlike Corsair rolls, picking the same
+-- maneuver in more than one slot is valid -- it stacks -- so this never dedupes
+-- across slots the way render_roll_dropdown does for rolls.
+local function render_maneuver_dropdown(label, setting_key, available_maneuvers, settings, on_change)
+    local current = settings[setting_key]
+    local current_display = 'None'
+    for _, ability in ipairs(available_maneuvers) do
+        if ability.name == current then
+            current_display = ability.name
+            break
+        end
+    end
+
+    imgui.PushItemWidth(140)
+    if ui.begin_opaque_combo(label, current_display) then
+        local is_none_selected = (current_display == 'None')
+        if imgui.Selectable('None', is_none_selected) then
+            settings[setting_key] = nil
+            if on_change then on_change() end
+        end
+        if is_none_selected then
+            imgui.SetItemDefaultFocus()
+        end
+
+        for _, ability in ipairs(available_maneuvers) do
+            local is_selected = (ability.name == current)
+            if imgui.Selectable(ability.name, is_selected) then
+                settings[setting_key] = ability.name
+                if on_change then on_change() end
+            end
+            if is_selected then
+                imgui.SetItemDefaultFocus()
+            end
+        end
+        ui.end_opaque_combo()
+    end
+    imgui.PopItemWidth()
+end
+
 -- ============================================================================
 -- Settings Profiles
 -- Named snapshots of live settings, per main/sub combo, stored inside the
@@ -1111,6 +1151,34 @@ function ui_config.render(settings, job_def, callback)
                     end
                 end
                 ctx.show_pet_debuff_warning = false
+                imgui.Unindent(ui.ABILITY_LIST_INDENT)
+            end
+        end
+
+        -- Puppetmaster maneuver upkeep + Automaton Deploy. Gated on the ability list
+        -- being present and usable (same pattern as "Pet Debuff Removal" above), not
+        -- on job_def.job_id -- that only ever reads the *main* job's id and would
+        -- hide this for a subjob PUP, which is supported here.
+        if job_def and job_def.abilities.maneuver and has_usable_abilities(job_def.abilities.maneuver) then
+            local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Pet', 'maneuver_enabled', true)
+            if is_open and is_enabled then
+                imgui.Indent(ui.ABILITY_LIST_INDENT)
+
+                local available_maneuvers = {}
+                for _, ability in ipairs(job_def.abilities.maneuver) do
+                    if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
+                        table.insert(available_maneuvers, ability)
+                    end
+                end
+
+                render_maneuver_dropdown('Maneuver 1', 'maneuver1_name', available_maneuvers, settings, callback)
+                imgui.SameLine()
+                render_maneuver_dropdown('Maneuver 2', 'maneuver2_name', available_maneuvers, settings, callback)
+                imgui.SameLine()
+                render_maneuver_dropdown('Maneuver 3', 'maneuver3_name', available_maneuvers, settings, callback)
+                imgui.SameLine()
+                ui.checkbox(ctx, 'Deploy', 'pet_deploy_enabled', { settings.pet_deploy_enabled })
+
                 imgui.Unindent(ui.ABILITY_LIST_INDENT)
             end
         end
