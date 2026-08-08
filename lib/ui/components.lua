@@ -163,8 +163,8 @@ end
 -- Text color for a ME/P1-P5 button's per-target Combat/Idle override, or nil
 -- when the target has no override (inherits the ability's own gate).
 local function target_gate_color(ctx, config_key, target_index)
-    local override = ctx.party_buff_gates and config_key and ctx.party_buff_gates[config_key]
-        and ctx.party_buff_gates[config_key][target_index]
+    local override = ctx.party_buff_gates and config_key
+        and common.target_gate_override(config_key, target_index, ctx.party_buff_gates)
     if override == 'combat' then return LIGHT_YELLOW end
     if override == 'idle' then return LIGHT_GREEN end
     return nil

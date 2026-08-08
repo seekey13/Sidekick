@@ -420,6 +420,13 @@ function common.target_gate_ok(ability, config_key, target_index, settings, part
     return common.ability_gate_ok_now(ability, settings)
 end
 
+-- Config key for `ability` (group name while grouped, else ability name),
+-- matching how party_buff_config/party_buff_gates key their entries.
+function common.ability_config_key(ability, settings)
+    local grouped = ability.group and not (settings and settings['ungrouped_' .. ability.group] == true)
+    return grouped and ability.group or ability.name
+end
+
 -- True if some target's override matches the CURRENT combat/idle state, which
 -- means filter_abilities_by_level must not drop the whole ability just
 -- because its own gate doesn't match -- that one target still wants it.
@@ -427,8 +434,7 @@ end
 function common.ability_gate_bypassed_by_target_override(ability, settings, party_buff_gates)
     if not party_buff_gates or not ability then return false end
     if type(ability.command) ~= 'function' then return false end
-    local config_key = ability.group and not (settings and settings['ungrouped_' .. ability.group] == true)
-        and ability.group or ability.name
+    local config_key = common.ability_config_key(ability, settings)
     local targets = config_key and party_buff_gates[config_key]
     if not targets then return false end
     local now = common.is_combat() and 'combat' or 'idle'

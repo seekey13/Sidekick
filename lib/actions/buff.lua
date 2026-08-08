@@ -38,8 +38,7 @@ local function wanted_instances(ability, target_key, available_abilities, settin
     local keys = {}
     for _, b in ipairs(available_abilities) do
         if b.buff_id == ability.buff_id then
-            local grouped_b = b.group and settings['ungrouped_' .. b.group] ~= true
-            keys[grouped_b and b.group or b.name] = true
+            keys[common.ability_config_key(b, settings)] = true
         end
     end
     local n = 0
@@ -70,8 +69,7 @@ local function song_config_keys(job_def, settings)
     local keys = {}
     for _, ability in ipairs(job_def.abilities.buff or {}) do
         if ability.magic == 'song' then
-            local grouped = ability.group and settings['ungrouped_' .. ability.group] ~= true
-            keys[grouped and ability.group or ability.name] = true
+            keys[common.ability_config_key(ability, settings)] = true
         end
     end
     return keys
