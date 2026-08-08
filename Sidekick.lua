@@ -30,7 +30,8 @@ local afk = require('lib.core.afk')
 local heal_mod   = require('lib.actions.heal')
 local status_mod = require('lib.actions.status_removal')
 local roll_mod   = require('lib.actions.roll')  -- also reads roll totals off the 0x028 packet
-local maneuver_mod = require('lib.actions.maneuver')  -- also reads automaton target off 0x028/0x068 packets
+local maneuver_mod = require('lib.actions.maneuver')
+local pet_deploy_mod = require('lib.actions.pet_deploy')  -- reads pet target off 0x028/0x068 packets; shared by PUP/SMN/BST
 
 local action_modules = {
     item           = require('lib.actions.item'),
@@ -42,7 +43,7 @@ local action_modules = {
     pet_debuff_removal = { execute = status_mod.execute_pet_debuff_removal },
     roll           = roll_mod,
     maneuver       = maneuver_mod,
-    pet_deploy     = { execute = maneuver_mod.execute_deploy },
+    pet_deploy     = { execute = pet_deploy_mod.execute },
     buff           = require('lib.actions.buff'),
     recover        = require('lib.actions.recover'),
     geo            = require('lib.actions.geo'),
@@ -904,10 +905,10 @@ ashita.events.register('packet_in', 'sidekick_packet_in', function(e)
             roll_mod.handle_action_packet(actionPacket, addon_settings, job_def)
         end
 
-        -- Automaton target tracking rides the same parsed packet: on the pet's
-        -- own action, Targets[1] is what it's acting on.
-        if job_def and job_def.abilities and job_def.abilities.maneuver then
-            maneuver_mod.handle_action_packet(actionPacket, job_def)
+        -- Pet target tracking rides the same parsed packet: on the pet's own
+        -- action, Targets[1] is what it's acting on. Shared by PUP/SMN/BST.
+        if job_def and job_def.abilities and job_def.abilities.pet_deploy then
+            pet_deploy_mod.handle_action_packet(actionPacket, job_def)
         end
 
         -- Determine if we (the player) are the actor
@@ -1093,12 +1094,12 @@ ashita.events.register('packet_in', 'sidekick_packet_in', function(e)
         end
     end
 
-    -- Automaton target sync (0x068): not parsed anywhere else in Sidekick.
-    -- Tells us who the automaton is currently attacking without waiting on
-    -- one of its own action packets.
+    -- Pet target sync (0x068): not parsed anywhere else in Sidekick. Tells us
+    -- who the pet is currently attacking without waiting on one of its own
+    -- action packets. Shared by PUP/SMN/BST.
     if e.id == 0x068 then
-        if job_def and job_def.abilities and job_def.abilities.maneuver then
-            maneuver_mod.handle_pet_sync_packet(e, job_def)
+        if job_def and job_def.abilities and job_def.abilities.pet_deploy then
+            pet_deploy_mod.handle_pet_sync_packet(e, job_def)
         end
     end
 
