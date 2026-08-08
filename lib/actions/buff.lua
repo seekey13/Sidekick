@@ -77,15 +77,10 @@ local function song_config_keys(job_def, settings)
     return keys
 end
 
--- Party indices (0-5) whose song slots are already FULL of single-target
--- (Pianissimo) songs. A bard holds `song_limit` songs per member (2 main / 1
--- sub); once that many single-target SONGS are assigned to a member there's no
--- free slot for an area song, so it must not TRIGGER an area recast for them. A
--- member with a free slot still gets covered.
--- ponytail: counts only single-target songs, not other active [A] songs, so
--- 1 single-target + 2 area songs can still overflow -- fix by counting area
--- coverage too if that combo comes up in practice.
-local function dedicated_targets(party_buff_config, song_keys, song_limit)
+-- Party indices (0-5) mapped to how many single-target (Pianissimo) songs are
+-- configured for that member. Feeds both dedicated_targets (full/not-full) and
+-- area_needs_recast (partial capacity math).
+local function single_target_song_counts(party_buff_config, song_keys)
     local counts = {}
     for key in pairs(song_keys) do
         local targets = party_buff_config[key]
@@ -97,46 +92,21 @@ local function dedicated_targets(party_buff_config, song_keys, song_limit)
             end
         end
     end
+    return counts
+end
+
+-- Party indices (0-5) whose song slots are already FULL of single-target
+-- (Pianissimo) songs. A bard holds `song_limit` songs per member (2 main / 1
+-- sub); once that many single-target SONGS are assigned to a member there's no
+-- free slot for an area song, so it must not TRIGGER an area recast for them. A
+-- member with a free slot still gets covered.
+local function dedicated_targets(party_buff_config, song_keys, song_limit)
+    local counts = single_target_song_counts(party_buff_config, song_keys)
     local dedicated = {}
     for idx, c in pairs(counts) do
         if c >= song_limit then dedicated[idx] = true end
     end
     return dedicated
-end
-
--- True when any in-range party member with a free song slot lacks the song, so
--- the area song should be (re)cast.
-local function area_needs_recast(ability, party_buff_config, song_keys, available_abilities, settings, state)
-    local song_limit = (ability.is_main_job ~= false) and 2 or 1
-    local dedicated   = dedicated_targets(party_buff_config, song_keys, song_limit)
-    local player_zone = common.get_party_member_zone(0)
-    for ti = 0, 5 do
-        if not dedicated[ti] then
-            if ti == 0 then
-                -- Self is always in range/zone and covered by a self-cast song.
-                if song_needed(state.player.buffs or {}, ability, 'A', available_abilities, settings, party_buff_config) then
-                    return true
-                end
-            else
-                local member = state.party[ti]
-                -- Trusts have unreliable buff tracking: drops aren't detected and
-                -- only one copy of a buff_id is visible (stacked songs like Ballad
-                -- I+II always look short), which would force an endless area recast.
-                -- Skip them -- self/real players drive recast timing and the AoE
-                -- covers in-range trusts on that same cast.
-                if member and not member.is_trust then
-                    local ei = member.target_index
-                    local mz = common.get_party_member_zone(ti)
-                    if ei and ei > 0 and player_zone == mz and common.is_in_range(ei, SONG_AOE_RANGE) then
-                        if song_needed(member.buffs or {}, ability, 'A', available_abilities, settings, party_buff_config) then
-                            return true
-                        end
-                    end
-                end
-            end
-        end
-    end
-    return false
 end
 
 -- If `ability` is the active [A] area song to consider this cycle, return its
@@ -164,6 +134,68 @@ local function area_song_config_key(ability, settings, party_buff_config, area_p
         return nil
     end
     return config_key
+end
+
+-- True when any in-range party member with a free song slot lacks the song, so
+-- the area song should be (re)cast.
+--
+-- "Free slot" is capacity math, not all-or-nothing: a member with one
+-- single-target song assigned (e.g. Ballad) and two area songs configured
+-- (e.g. Minuet + March) only has room for song_limit - 1 of them. Once
+-- they're holding that many area songs -- whichever ones they happen to be --
+-- they're satisfied (single target OK with Ballad + (Minuet OR March)); this
+-- stops the single/area songs from endlessly knocking each other off the same
+-- member's last slot.
+local function area_needs_recast(ability, party_buff_config, song_keys, available_abilities, settings, state)
+    local tier_is_main  = ability.is_main_job ~= false
+    local song_limit    = tier_is_main and 2 or 1
+    local single_counts = single_target_song_counts(party_buff_config, song_keys)
+
+    -- Every ability that is this cycle's active [A] area song and shares this
+    -- ability's main/sub tier, for counting how many area-song slots a member
+    -- already holds (presence-only -- area songs are normally distinct buffs).
+    local area_list = {}
+    local area_processed = {}
+    for _, a in ipairs(available_abilities) do
+        if (a.is_main_job ~= false) == tier_is_main
+           and area_song_config_key(a, settings, party_buff_config, area_processed) then
+            area_list[#area_list + 1] = a
+        end
+    end
+
+    local player_zone = common.get_party_member_zone(0)
+    for ti = 0, 5 do
+        local remaining = song_limit - (single_counts[ti] or 0)
+        if remaining > 0 then
+            local target_buffs
+            if ti == 0 then
+                -- Self is always in range/zone and covered by a self-cast song.
+                target_buffs = state.player.buffs or {}
+            else
+                local member = state.party[ti]
+                -- Trusts have unreliable buff tracking: drops aren't detected and
+                -- only one copy of a buff_id is visible (stacked songs like Ballad
+                -- I+II always look short), which would force an endless area recast.
+                -- Skip them -- self/real players drive recast timing and the AoE
+                -- covers in-range trusts on that same cast.
+                if member and not member.is_trust then
+                    local ei = member.target_index
+                    local mz = common.get_party_member_zone(ti)
+                    if ei and ei > 0 and player_zone == mz and common.is_in_range(ei, SONG_AOE_RANGE) then
+                        target_buffs = member.buffs or {}
+                    end
+                end
+            end
+            if target_buffs and song_needed(target_buffs, ability, 'A', available_abilities, settings, party_buff_config) then
+                local held = 0
+                for _, a in ipairs(area_list) do
+                    if action_core.has_any_buff(target_buffs, a.buff_id) then held = held + 1 end
+                end
+                if held < remaining then return true end
+            end
+        end
+    end
+    return false
 end
 
 function buff.execute(settings, job_def, main_level, sub_level, player_resource, party_buff_config)
