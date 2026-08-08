@@ -1155,10 +1155,11 @@ function ui_config.render(settings, job_def, callback)
             end
         end
 
-        -- Puppetmaster maneuver upkeep + Automaton Deploy. Gated on the ability list
-        -- being present and usable (same pattern as "Pet Debuff Removal" above), not
-        -- on job_def.job_id -- that only ever reads the *main* job's id and would
-        -- hide this for a subjob PUP, which is supported here.
+        -- Puppetmaster maneuver upkeep. Gated on the ability list being present and
+        -- usable (same pattern as "Pet Debuff Removal" above), not on job_def.job_id
+        -- -- that only ever reads the *main* job's id and would hide this for a
+        -- subjob PUP, which is supported here. Automaton Deploy is its own
+        -- standalone "Pet Deploy" section below, shared with SMN/BST.
         if job_def and job_def.abilities.maneuver and has_usable_abilities(job_def.abilities.maneuver) then
             local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Pet', 'maneuver_enabled', true)
             if is_open and is_enabled then
@@ -1176,11 +1177,19 @@ function ui_config.render(settings, job_def, callback)
                 render_maneuver_dropdown('Maneuver 2', 'maneuver2_name', available_maneuvers, settings, callback)
                 imgui.SameLine()
                 render_maneuver_dropdown('Maneuver 3', 'maneuver3_name', available_maneuvers, settings, callback)
-                imgui.SameLine()
-                ui.checkbox(ctx, 'Deploy', 'pet_deploy_enabled', { settings.pet_deploy_enabled })
 
                 imgui.Unindent(ui.ABILITY_LIST_INDENT)
             end
+        end
+
+        -- Pet Deploy: send the pet at the player's current target when it has none
+        -- of its own. Shared standalone section for every job with a pet_deploy
+        -- ability (PUP Deploy, SMN Assault, BST Fight) -- single boolean, no body
+        -- content needed, same shape as "Auto Follow" above. Deliberately
+        -- independent of maneuver_enabled -- previously PUP's Deploy required both
+        -- to be on, which was a pointless coupling once Deploy has its own toggle.
+        if job_def and job_def.abilities.pet_deploy and has_usable_abilities(job_def.abilities.pet_deploy) then
+            ui.collapsing_checkbox_header(ctx, 'Pet Deploy', 'pet_deploy_enabled', false)
         end
 
         -- Item-based status removal (consumables) -- hidden until inventory loads
