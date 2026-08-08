@@ -30,6 +30,7 @@ local afk = require('lib.core.afk')
 local heal_mod   = require('lib.actions.heal')
 local status_mod = require('lib.actions.status_removal')
 local roll_mod   = require('lib.actions.roll')  -- also reads roll totals off the 0x028 packet
+local maneuver_mod = require('lib.actions.maneuver')  -- also reads automaton target off 0x028/0x068 packets
 
 local action_modules = {
     item           = require('lib.actions.item'),
@@ -40,6 +41,8 @@ local action_modules = {
     debuff_removal = { execute = status_mod.execute_debuff_removal },
     pet_debuff_removal = { execute = status_mod.execute_pet_debuff_removal },
     roll           = roll_mod,
+    maneuver       = maneuver_mod,
+    pet_deploy     = { execute = maneuver_mod.execute_deploy },
     buff           = require('lib.actions.buff'),
     recover        = require('lib.actions.recover'),
     geo            = require('lib.actions.geo'),
@@ -265,8 +268,10 @@ local function load_job_definition(main_job_id, sub_job_id)
         'debuff_removal',
         'heal_pet',
         'pet_debuff_removal',
+        'pet_deploy',
         'wake',
         'geo',
+        'maneuver',
         'roll',
         'buff',
         'revive',
@@ -899,6 +904,12 @@ ashita.events.register('packet_in', 'sidekick_packet_in', function(e)
             roll_mod.handle_action_packet(actionPacket, addon_settings, job_def)
         end
 
+        -- Automaton target tracking rides the same parsed packet: on the pet's
+        -- own action, Targets[1] is what it's acting on.
+        if job_def and job_def.abilities and job_def.abilities.maneuver then
+            maneuver_mod.handle_action_packet(actionPacket, job_def)
+        end
+
         -- Determine if we (the player) are the actor
         local party = common.get_party()
         local player_id = party and party:GetMemberServerId(0)
@@ -1081,7 +1092,16 @@ ashita.events.register('packet_in', 'sidekick_packet_in', function(e)
             end
         end
     end
-    
+
+    -- Automaton target sync (0x068): not parsed anywhere else in Sidekick.
+    -- Tells us who the automaton is currently attacking without waiting on
+    -- one of its own action packets.
+    if e.id == 0x068 then
+        if job_def and job_def.abilities and job_def.abilities.maneuver then
+            maneuver_mod.handle_pet_sync_packet(e, job_def)
+        end
+    end
+
     -- Clear Trust buffs and tracked targets on zone change
     if e.id == 0x0A then  -- Zone change packet
         common.clear_trust_buffs()
