@@ -35,6 +35,13 @@ local entrust_spell_name = nil   -- Spell name like "Indi-Haste" or nil for None
 -- party_index: 1-5 for P1-P5 (player is always handled separately)
 local party_buffs = {}
 
+-- Per-target Combat/Idle override for ME/P1-P5 buff buttons (right-click menu).
+-- Purely session state -- never written to settings, so it resets on reload.
+-- Structure: party_buff_gates[ability_name_or_group][target_index] = 'combat' | 'idle'
+-- target_index: 0 = ME, 1-5 = P1-P5. Absent = inherit the ability's own
+-- combat_only/idle_only setting. See common.target_gate_ok.
+local party_buff_gates = {}
+
 -- ============================================================================
 -- Helper Functions (Remaining in ui_config)
 -- ============================================================================
@@ -523,6 +530,10 @@ function ui_config.get_party_buffs()
     return party_buffs
 end
 
+function ui_config.get_party_buff_gates()
+    return party_buff_gates
+end
+
 function ui_config.get_entrust_config()
     -- Return nil if entrust target or spell is None
     if not entrust_target_name or not entrust_spell_name then
@@ -641,6 +652,7 @@ function ui_config.render(settings, job_def, callback)
         settings = current_settings,
         save_callback = save_callback,
         party_buffs = party_buffs,
+        party_buff_gates = party_buff_gates,
         job_def = job_def,
         is_trust = is_trust,
         filter_func = {

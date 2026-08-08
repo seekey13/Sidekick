@@ -391,6 +391,59 @@ function common.is_ability_idle_only(ability, settings)
     return key ~= nil and settings[key] == true
 end
 
+-- Effective combat/idle gate for `ability` right now, using only its own
+-- (static or user) combat_only/idle_only setting -- no per-target override.
+-- Used wherever a target has no override concept of its own (alliance,
+-- tracked targets, area songs).
+function common.ability_gate_ok_now(ability, settings)
+    if common.is_ability_idle_only(ability, settings) and not common.is_idle() then return false end
+    if common.is_ability_combat_only(ability, settings) and not common.is_combat() then return false end
+    return true
+end
+
+-- Session-only per-target Combat/Idle override, keyed the same way as
+-- party_buff_config (group name while grouped, else ability name; numeric
+-- 0-5 for ME/P1-P5). Set via the right-click menu on a ME/P1-P5 button.
+-- Returns 'combat' | 'idle' | nil (nil = no override, inherit the ability's
+-- own gate).
+function common.target_gate_override(config_key, target_index, party_buff_gates)
+    return party_buff_gates and config_key and party_buff_gates[config_key] and party_buff_gates[config_key][target_index]
+end
+
+-- Effective combat/idle gate for one target. A per-target override REPLACES
+-- (not ANDs with) the ability's own combat_only/idle_only gate for that one
+-- target; with no override it falls back to common.ability_gate_ok_now.
+function common.target_gate_ok(ability, config_key, target_index, settings, party_buff_gates)
+    local override = common.target_gate_override(config_key, target_index, party_buff_gates)
+    if override == 'combat' then return common.is_combat() end
+    if override == 'idle' then return common.is_idle() end
+    return common.ability_gate_ok_now(ability, settings)
+end
+
+-- Config key for `ability` (group name while grouped, else ability name),
+-- matching how party_buff_config/party_buff_gates key their entries.
+function common.ability_config_key(ability, settings)
+    local grouped = ability.group and not (settings and settings['ungrouped_' .. ability.group] == true)
+    return grouped and ability.group or ability.name
+end
+
+-- True if some target's override matches the CURRENT combat/idle state, which
+-- means filter_abilities_by_level must not drop the whole ability just
+-- because its own gate doesn't match -- that one target still wants it.
+-- Only party abilities (function command) carry per-target overrides.
+function common.ability_gate_bypassed_by_target_override(ability, settings, party_buff_gates)
+    if not party_buff_gates or not ability then return false end
+    if type(ability.command) ~= 'function' then return false end
+    local config_key = common.ability_config_key(ability, settings)
+    local targets = config_key and party_buff_gates[config_key]
+    if not targets then return false end
+    local now = common.is_combat() and 'combat' or 'idle'
+    for _, override in pairs(targets) do
+        if override == now then return true end
+    end
+    return false
+end
+
 -- Returns true if the ability's command targets the battle target (<bt>).
 -- These abilities cannot be cast without a valid mob battle target.
 function common.ability_targets_bt(ability)
@@ -2335,8 +2388,11 @@ end
 --   main_level (number) - Player's main job level
 --   sub_level (number) - Player's sub job level
 --   job_def (table|nil) - Job definition with optional validate_ability function
+--   party_buff_gates (table|nil) - Session-only per-target Combat/Idle overrides
+--     (see common.target_gate_ok); when omitted the idle_only/combat_only gate
+--     applies to the whole ability as before.
 -- Returns: table - Filtered and sorted abilities (by cost descending)
-function common.filter_abilities_by_level(abilities, settings, main_level, sub_level, job_def)
+function common.filter_abilities_by_level(abilities, settings, main_level, sub_level, job_def, party_buff_gates)
     local available_abilities = {}
     
     -- Safety check: return empty table if abilities is nil
@@ -2380,14 +2436,16 @@ function common.filter_abilities_by_level(abilities, settings, main_level, sub_l
             is_disabled = false  -- Default new abilities to enabled
         end
         
+        local gate_bypassed = common.ability_gate_bypassed_by_target_override(ability, settings, party_buff_gates)
+
         if is_disabled then
         elseif not common.has_spell_learned(ability) then
         elseif common.is_blue_magic_unequipped(ability) then
         elseif ability.requires_pet and not targets.get_pet() then
         elseif ability.requires_equipped_ammo and not common.is_ammo_equipped(ability.requires_equipped_ammo) then
         elseif ability.requires_item and not common.find_equippable_item(ability.requires_item) then
-        elseif common.is_ability_idle_only(ability, settings) and not common.is_idle() then
-        elseif common.is_ability_combat_only(ability, settings) and not common.is_combat() then
+        elseif common.is_ability_idle_only(ability, settings) and not common.is_idle() and not gate_bypassed then
+        elseif common.is_ability_combat_only(ability, settings) and not common.is_combat() and not gate_bypassed then
         elseif common.ability_targets_bt(ability) and not common.is_combat() then
         elseif job_def and job_def.validate_ability and not job_def.validate_ability(ability, common) then
         elseif required_level <= player_level then

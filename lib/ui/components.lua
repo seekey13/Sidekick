@@ -160,6 +160,56 @@ local function render_combat_only_context_menu(ctx, ability, scope)
     end
 end
 
+-- Text color for a ME/P1-P5 button's per-target Combat/Idle override, or nil
+-- when the target has no override (inherits the ability's own gate).
+local function target_gate_color(ctx, config_key, target_index)
+    local override = ctx.party_buff_gates and config_key
+        and common.target_gate_override(config_key, target_index, ctx.party_buff_gates)
+    if override == 'combat' then return LIGHT_YELLOW end
+    if override == 'idle' then return LIGHT_GREEN end
+    return nil
+end
+
+-- Tooltip suffix for a button tinted by target_gate_color, or '' when untinted.
+local function gate_tooltip_suffix(gate_color)
+    if gate_color == LIGHT_YELLOW then return '\n(Combat Only override)' end
+    if gate_color == LIGHT_GREEN then return '\n(Idle Only override)' end
+    return ''
+end
+
+-- Right-click 'Combat Only' / 'Idle Only' popup for a single ME/P1-P5 button.
+-- Session-only (never written to settings) and REPLACES the ability's own
+-- combat_only/idle_only gate for this one target -- see common.target_gate_ok.
+-- Buff abilities only (id_suffix == 'buff'): debuff-removal's na-spell buttons
+-- have no automation wired to read this, so showing the menu there would be
+-- inert and misleading. Also suppressed wherever the ability-level toggle is
+-- (bt / statically idle_only / statically combat_only), same rule as
+-- render_combat_only_context_menu, so an override can't fight a hard gate.
+local function render_target_gate_context_menu(ctx, ability, config_key, target_index, id_suffix)
+    if id_suffix ~= 'buff' then return end
+    if not ctx or not ability or not config_key then return end
+    if ability.idle_only or ability.combat_only or common.ability_targets_bt(ability) then return end
+    local popup_id = '##cmenu_target_gate_' .. config_key:gsub(' ', '_') .. '_' .. tostring(target_index)
+    if ui_components.begin_opaque_context_item(popup_id) then
+        ctx.party_buff_gates = ctx.party_buff_gates or {}
+        ctx.party_buff_gates[config_key] = ctx.party_buff_gates[config_key] or {}
+        local gates = ctx.party_buff_gates[config_key]
+
+        local combat_cur = { gates[target_index] == 'combat' }
+        if imgui.Checkbox('Combat Only', combat_cur) then
+            gates[target_index] = combat_cur[1] and 'combat' or nil
+        end
+        local idle_cur = { gates[target_index] == 'idle' }
+        if imgui.Checkbox('Idle Only', idle_cur) then
+            gates[target_index] = idle_cur[1] and 'idle' or nil
+        end
+        if imgui.IsItemHovered() then
+            ui_components.set_tooltip('Override for this target only (this session).\nReplaces the ability\'s own Combat/Idle setting.')
+        end
+        ui_components.end_opaque_popup()
+    end
+end
+
 -- Default filter functions (can be overridden via ctx.filter_func)
 local default_filters = {}
 
@@ -1228,7 +1278,7 @@ end
 -- Render party toggle buttons ([ME] [P1] [P2] etc.)
 -- Returns: true if any button was rendered
 -- For grouped abilities, pass group_name instead of ability_name
-local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
+local function render_party_buttons(ctx, key_name, has_spell, ability, is_group, id_suffix)
     local any_rendered = false
 
     -- Leading slot: scholar S button / bard [A] indent / spacer (aligns the row)
@@ -1323,6 +1373,9 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
         imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_UNSELECTED_ACTIVE)
     end
 
+    local me_gate_color = party_has_spell and target_gate_color(ctx, key_name, 0)
+    if me_gate_color then imgui.PushStyleColor(ImGuiCol_Text, me_gate_color) end
+
     local me_button_label = 'ME##' .. key_name .. '_me'
     if party_has_spell and imgui.Button(me_button_label, { PARTY_BUTTON_WIDTH, 0 }) then
         if is_group then
@@ -1334,9 +1387,16 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
         imgui.Button(me_button_label, { PARTY_BUTTON_WIDTH, 0 })
     end
 
-    if imgui.IsItemHovered() then
-        ui_components.set_tooltip(common.get_party_member_name(0) or 'ME')
+    if party_has_spell then
+        render_target_gate_context_menu(ctx, ability, key_name, 0, id_suffix)
     end
+
+    if imgui.IsItemHovered() then
+        local me_tip = (common.get_party_member_name(0) or 'ME') .. gate_tooltip_suffix(me_gate_color)
+        ui_components.set_tooltip(me_tip)
+    end
+
+    if me_gate_color then imgui.PopStyleColor() end
 
     if not party_has_spell then
         imgui.PopStyleColor(4)
@@ -1377,6 +1437,9 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
                     imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_UNSELECTED_ACTIVE)
                 end
                 
+                local p_gate_color = party_has_spell and target_gate_color(ctx, key_name, party_index)
+                if p_gate_color then imgui.PushStyleColor(ImGuiCol_Text, p_gate_color) end
+
                 local button_label = 'P' .. party_index .. '##' .. key_name .. '_p' .. party_index
                 if party_has_spell and imgui.Button(button_label, { PARTY_BUTTON_WIDTH, 0 }) then
                     if is_group then
@@ -1387,7 +1450,11 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
                 elseif not party_has_spell then
                     imgui.Button(button_label, { PARTY_BUTTON_WIDTH, 0 })
                 end
-                
+
+                if party_has_spell then
+                    render_target_gate_context_menu(ctx, ability, key_name, party_index, id_suffix)
+                end
+
                 -- Tooltip: party member name, plus a Trust reliability caveat
                 -- (removal vs. buff tracking) appended only on actual Trust buttons.
                 if imgui.IsItemHovered() then
@@ -1399,10 +1466,12 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group)
                     elseif ctx.is_trust and ctx.is_trust(party_index) and ctx.show_buff_warning then
                         ui_components.set_tooltip(pname .. '\nTrust/Tracked Buff tracking is not totally reliable')
                     else
-                        ui_components.set_tooltip(pname)
+                        ui_components.set_tooltip(pname .. gate_tooltip_suffix(p_gate_color))
                     end
                 end
-                
+
+                if p_gate_color then imgui.PopStyleColor() end
+
                 if not party_has_spell then
                     imgui.PopStyleColor(4)
                 elseif not is_enabled then
@@ -1871,7 +1940,7 @@ end
 
 -- Render a party-target single ability
 -- Layout: [ME] [P1] [P2]... Ability Name
-function ui_components.party_single_ability(ctx, ability, job_def)
+function ui_components.party_single_ability(ctx, ability, job_def, id_suffix)
     local has_spell = common.has_spell_learned(ability)
     local spell_suffix = ''
 
@@ -1908,7 +1977,7 @@ function ui_components.party_single_ability(ctx, ability, job_def)
     local wrong_pet = pet_type_unmet(ability)
     local buff_unmet = requires_buff_unmet(ability, ctx)
 
-    render_party_buttons(ctx, ability.name, has_spell, ability, false)
+    render_party_buttons(ctx, ability.name, has_spell, ability, false, id_suffix)
 
     imgui.SameLine()
 
@@ -1947,7 +2016,7 @@ end
 
 -- Render a party-target grouped ability with dropdown
 -- Layout: [ME] [P1] [P2]... [Dropdown]
-function ui_components.party_grouped_ability(ctx, ability, job_def)
+function ui_components.party_grouped_ability(ctx, ability, job_def, id_suffix)
     if not ability.group then
         return
     end
@@ -1982,7 +2051,7 @@ function ui_components.party_grouped_ability(ctx, ability, job_def)
         end
     end
     
-    render_party_buttons(ctx, ability.group, has_spell, selected, true)
+    render_party_buttons(ctx, ability.group, has_spell, selected, true, id_suffix)
     
     imgui.SameLine()
     
@@ -2038,13 +2107,13 @@ function ui_components.render_ability(ctx, ability, job_def, id_suffix)
     
     if has_group then
         if is_party_target then
-            ui_components.party_grouped_ability(ctx, ability, job_def)
+            ui_components.party_grouped_ability(ctx, ability, job_def, id_suffix)
         else
             ui_components.self_grouped_ability(ctx, ability, job_def)
         end
     else
         if is_party_target then
-            ui_components.party_single_ability(ctx, ability, job_def)
+            ui_components.party_single_ability(ctx, ability, job_def, id_suffix)
         else
             ui_components.self_single_ability(ctx, ability, job_def, id_suffix)
         end
