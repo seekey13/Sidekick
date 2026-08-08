@@ -118,4 +118,124 @@ function maneuver.execute(settings, job_def, main_level, sub_level, player_resou
     return action_core.try_use(missing, job_def, settings, nil, 'Maneuver: ' .. missing.name)
 end
 
+-- ============================================================================
+-- Automaton Deploy
+-- ============================================================================
+
+-- Server id the automaton is currently believed to be attacking. Module-local,
+-- cleared on /addon reload (consistent with roll.lua's roll_state).
+local pet_target_id = nil
+
+-- True when pet_target_id still resolves to a live (HP% > 0) entity. Re-scans
+-- the entity array -- same GetEntity(0..2302) linear-scan pattern common.lua
+-- uses to re-resolve tracked targets by server id -- only called from
+-- execute_deploy, so the cost is paid at most once per deploy check.
+local function pet_target_is_live()
+    if not pet_target_id or pet_target_id == 0 then
+        return false
+    end
+    for idx = 0, 2302 do
+        local e = GetEntity(idx)
+        if e and e.ServerId == pet_target_id then
+            return (e.HPPercent or 0) > 0
+        end
+    end
+    return false
+end
+
+function maneuver.execute_deploy(settings, job_def, main_level, sub_level, player_resource)
+    if not (settings.maneuver_enabled and settings.pet_deploy_enabled) then
+        return nil
+    end
+
+    if not job_def or not job_def.abilities or not job_def.abilities.pet_deploy then
+        return nil
+    end
+
+    if not common.targets.get_pet() then
+        pet_target_id = nil
+        return nil
+    end
+
+    -- Deploy is the one gate maneuver maintenance doesn't share.
+    if not common.is_combat() then
+        return nil
+    end
+
+    if pet_target_is_live() then
+        return nil
+    end
+    pet_target_id = nil
+
+    local target = common.targets.get_t()
+    if not target or (target.HPPercent or 0) <= 0 then
+        return nil
+    end
+
+    local ability = job_def.abilities.pet_deploy[1]
+    if not ability then
+        return nil
+    end
+
+    return action_core.try_use(ability, job_def, settings, nil, ability.name)
+end
+
+-- ============================================================================
+-- Packet handling
+-- ============================================================================
+
+--[[
+    Reads the automaton's current target off its own 0x028 action packets --
+    same parsed structure roll.handle_action_packet reads Corsair roll totals
+    from. On the pet's own action, Targets[1].Id is what it's acting on.
+]]--
+function maneuver.handle_action_packet(packet, job_def)
+    if not packet or not job_def or not job_def.abilities or not job_def.abilities.maneuver then
+        return
+    end
+
+    local pet = common.targets.get_pet()
+    if not pet or not pet.ServerId then
+        return
+    end
+
+    if packet.UserId ~= pet.ServerId then
+        return
+    end
+
+    local target = packet.Targets and packet.Targets[1]
+    if not target or not target.Id or target.Id == 0 then
+        return
+    end
+
+    pet_target_id = target.Id
+end
+
+--[[
+    0x068 (pet sync) isn't parsed anywhere else in Sidekick, so this reads the
+    two fields needed directly off the raw packet, same inline struct.unpack
+    style parse_packets.parse_message_packet uses for 0x029: owner server id
+    at byte 0x08, the automaton's current target server id at byte 0x14, both
+    little-endian uint32. Only updates state when the owner is the player --
+    other players' pets send this packet too.
+]]--
+function maneuver.handle_pet_sync_packet(e, job_def)
+    if not e or not e.data or not job_def or not job_def.abilities or not job_def.abilities.maneuver then
+        return
+    end
+
+    local party = common.get_party()
+    local player_id = party and party:GetMemberServerId(0)
+    if not player_id then
+        return
+    end
+
+    local owner_id = struct.unpack('I4', e.data, 0x08 + 1)
+    if owner_id ~= player_id then
+        return
+    end
+
+    pet_target_id = struct.unpack('I4', e.data, 0x14 + 1)
+end
+
 return maneuver
