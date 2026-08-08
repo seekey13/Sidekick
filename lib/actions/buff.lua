@@ -223,10 +223,12 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
     local processed_groups = {}
     
     -- Get party buff configuration from ui_config if not provided
+    local ui_config = require('lib.ui.config')
     if not party_buff_config then
-        local ui_config = require('lib.ui.config')
         party_buff_config = ui_config.get_party_buffs()
     end
+    -- Session-only per-target Combat/Idle overrides (right-click on ME/P1-P5).
+    local party_buff_gates = ui_config.get_party_buff_gates()
     
     -- Get buff abilities from job definition
     local buff_abilities = job_def.abilities.buff or {}
@@ -242,7 +244,7 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
     if equip then return equip end
 
     -- Filter abilities by level and settings
-    local available_abilities = common.filter_abilities_by_level(buff_abilities, settings, derived_main_level, derived_sub_level, job_def)
+    local available_abilities = common.filter_abilities_by_level(buff_abilities, settings, derived_main_level, derived_sub_level, job_def, party_buff_gates)
 
     if #available_abilities == 0 then
         return nil
@@ -278,7 +280,11 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
         local area_pending = false
         for _, ability in ipairs(available_abilities) do
             local config_key = area_song_config_key(ability, settings, party_buff_config, area_processed)
-            if config_key and area_needs_recast(ability, party_buff_config, song_keys, available_abilities, settings, state) then
+            -- The area [A] button has no per-target override of its own, so it must
+            -- still obey the ability's plain global gate even when filter_abilities_by_level
+            -- let the ability through only because some OTHER target (ME/P1-P5) overrode it.
+            if config_key and common.ability_gate_ok_now(ability, settings)
+               and area_needs_recast(ability, party_buff_config, song_keys, available_abilities, settings, state) then
                 if aoe_excl and not common.group_in_aoe_range(SONG_AOE_RANGE, aoe_excl) then
                     -- Hold: a member with no single-target song is out of range.
                     -- Don't area-cast and don't mark pending, so the single-target
@@ -440,6 +446,12 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                     end
                     
                     if is_target_enabled then
+                        -- Per-target Combat/Idle override (right-click on ME/P1-P5) replaces
+                        -- the ability's own gate for this one target; falls back to it otherwise.
+                        if not common.target_gate_ok(ability, config_key, target_index, settings, party_buff_gates) then
+                            goto continue_target
+                        end
+
                         local target_needs_buff = false
                         local target_entity_index = nil
                         
@@ -524,7 +536,10 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
 
                 -- After checking party members, check enabled alliance members
                 -- (only if ability has target_outside, same restriction as tracked targets).
-                if ability.target_outside and state.alliance then
+                -- Alliance targets have no per-target override, so they must still obey the
+                -- ability's plain global gate even if a ME/P1-P5 override let it past the
+                -- filter above for a different target.
+                if ability.target_outside and state.alliance and common.ability_gate_ok_now(ability, settings) then
                     for al_pi = 2, 3 do
                         local sub_party = state.alliance[al_pi]
                         if sub_party then
@@ -567,7 +582,9 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                 end
 
                 -- After checking party members, also check tracked targets (only if ability has target_outside)
-                if ability.target_outside and state.tracked then
+                -- Same global-gate guard as the alliance loop above -- tracked targets have
+                -- no per-target override either.
+                if ability.target_outside and state.tracked and common.ability_gate_ok_now(ability, settings) then
                     for sid, tt in pairs(state.tracked) do
                         -- Check if this tracked target has its button enabled in the config
                         local tt_key = 'tt_' .. sid
