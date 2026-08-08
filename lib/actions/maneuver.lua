@@ -224,6 +224,12 @@ function maneuver.handle_pet_sync_packet(e, job_def)
         return
     end
 
+    -- Guard against a truncated/malformed packet before reading through 0x18 --
+    -- same self-guard convention as common.handle_check_packet.
+    if #e.data < 0x18 then
+        return
+    end
+
     local party = common.get_party()
     local player_id = party and party:GetMemberServerId(0)
     if not player_id then
