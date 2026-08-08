@@ -51,7 +51,7 @@ A focused, support-oriented addon for Ashita v4 that automates healing, buffing,
 - Combat movement/positioning
 - Full job automation
 
-The one exception is **opt-in leader following** (off by default): with **Follow** enabled, Sidekick will `/follow` a chosen party member or tracked target when they walk beyond a set distance. It never moves your character unless you turn this on.
+The one exception is **opt-in leader following** (off by default): with **Follow** enabled, Sidekick will `/follow` a chosen party member or tracked target when they walk beyond a set distance. It never moves your character unless you turn this on. A second, narrower exception is **opt-in Automaton Deploy** (Puppetmaster, off by default): it sends the *pet*, not the player, and only at a target you've already selected yourself.
 
 ## Latest Updates
 ### [2.7.0] - 2026-08-07
@@ -360,6 +360,8 @@ Currently implemented support jobs:
   - Automaton healing with **Repair** (requires an **Automaton Oil** in the ammo slot; higher tiers heal more; PUP-main only)
   - Automaton healing with **Role Reversal** (level 75 merit) when Repair is on cooldown — only fires when you're healthier than the automaton and the swap leaves you above 25% HP
   - Automaton debuff removal with **Maintenance** (same Oil ammo)
+  - **Maneuver upkeep**: pick up to 3 elemental Maneuvers (Fire/Ice/Wind/Earth/Thunder/Water/Light/Dark) and Sidekick keeps them applied, stacking duplicates if you pick the same element twice. Works with PUP as main job or subjob; held off while **Overload** is up.
+  - **Automaton Deploy** (opt-in, off by default): sends the automaton at your current target whenever it doesn't already have one of its own. Combat-only.
 
 - **Bard** (BRD)
   - Buff with songs on self or party members using Pianissimo (level 20+) — the ME button self-buffs via Pianissimo too

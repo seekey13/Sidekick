@@ -547,6 +547,8 @@ return {
         buff               = { ... },
         debuff_removal     = { ... },
         pet_debuff_removal = { ... },  -- strip pet status ailments (BST/PUP)
+        maneuver           = { ... },  -- PUP elemental Maneuver upkeep (stacks duplicates)
+        pet_deploy         = { ... },  -- PUP Automaton Deploy (opt-in, combat-only)
         wake               = { ... },
         recover_mp         = { ... },
         recover_tp         = { ... },
