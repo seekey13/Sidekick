@@ -54,6 +54,12 @@ A focused, support-oriented addon for Ashita v4 that automates healing, buffing,
 The one exception is **opt-in leader following** (off by default): with **Follow** enabled, Sidekick will `/follow` a chosen party member or tracked target when they walk beyond a set distance. It never moves your character unless you turn this on.
 
 ## Latest Updates
+### [2.7.0] - 2026-08-07
+
+### Added
+- **Per-target Combat/Idle overrides**: right-click any **ME**/**P1**-**P5** button on a buff row to force **Combat Only** or **Idle Only** for just that one target, overriding the ability's own Combat/Idle setting — keep Haste up on everyone but force it Combat Only for one melee, say. The overridden button tints yellow (Combat Only) or green (Idle Only) as a reminder. Session-only — resets on reload, nothing is written to your settings. Thanks to **Seikio** for the feature idea.
+- **Hold AOE for Group now announces the wait**: while Hold AOE for Group is holding a cast for a straggler, Sidekick now says so in party chat (e.g. *"Gather together for Protectra IV"*), repeating every few seconds for as long as the hold lasts.
+
 ### [2.6.0] - 2026-07-22
 
 ### Added
