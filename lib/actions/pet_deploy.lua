@@ -9,6 +9,9 @@
     maneuver upkeep) so SMN/BST can reuse it without duplicating the packet-based
     pet-target tracking. Each job supplies its own single-entry abilities.pet_deploy
     list (name/recast_id/command differ per job; everything else here is generic).
+    execute() always reads job_def.abilities.pet_deploy[1] -- if a player mains and
+    subs two different pet-control jobs at once, the main job's entry wins (e.g.
+    BST/SMN with Carbuncle summoned would still try Fight, not Assault).
 
     Spec: docs/superpowers/specs/2026-08-08-pet-deploy-smn-bst-design.md
 ]]--

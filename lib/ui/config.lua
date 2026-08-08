@@ -1185,9 +1185,10 @@ function ui_config.render(settings, job_def, callback)
         -- Pet Deploy: send the pet at the player's current target when it has none
         -- of its own. Shared standalone section for every job with a pet_deploy
         -- ability (PUP Deploy, SMN Assault, BST Fight) -- single boolean, no body
-        -- content needed, same shape as "Auto Follow" above. Deliberately
-        -- independent of maneuver_enabled -- previously PUP's Deploy required both
-        -- to be on, which was a pointless coupling once Deploy has its own toggle.
+        -- content needed (unlike "Auto Follow" above, which has a target dropdown
+        -- and distance slider under its header). Deliberately independent of
+        -- maneuver_enabled -- previously PUP's Deploy required both to be on,
+        -- which was a pointless coupling once Deploy has its own toggle.
         if job_def and job_def.abilities.pet_deploy and has_usable_abilities(job_def.abilities.pet_deploy) then
             ui.collapsing_checkbox_header(ctx, 'Pet Deploy', 'pet_deploy_enabled', false)
         end

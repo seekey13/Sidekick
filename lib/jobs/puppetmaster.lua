@@ -97,8 +97,9 @@ return {
 
         -- Send the automaton at the player's current target when it has none of
         -- its own. Opt-in (pet_deploy_enabled, off by default) and combat-only,
-        -- gated in maneuver.execute_deploy -- not through filter_abilities_by_level,
-        -- there's only ever one entry to pick.
+        -- gated in pet_deploy.execute (lib/actions/pet_deploy.lua) -- when both
+        -- main and sub job supply a pet_deploy entry, execute always reads index
+        -- [1], i.e. the main job's entry wins.
         pet_deploy = {
             { name = 'Deploy', level = 1, cost = 0, recast_id = 207,
               pet_required = true, command = '/pet "Deploy" <t>' },
