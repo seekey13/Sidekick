@@ -30,7 +30,8 @@ lib/
     geo.lua                 Full Circle automation & Entrust management
     heal.lua                All healing (single-target, AOE, pet)
     item.lua                Consumable-based status removal (Antidote, Eye/Echo Drops, Holy/Hallowed Water, Remedy, Panacea, Remedy Ointment, Tincture)
-    maneuver.lua            PUP Elemental Maneuver upkeep & Automaton Deploy (incl. its 0x028/0x068 target reader)
+    maneuver.lua            PUP Elemental Maneuver upkeep
+    pet_deploy.lua          Send-pet-at-target for PUP (Deploy) / SMN (Assault) / BST (Fight) (incl. its 0x028/0x068 target reader)
     recover.lua             MP/TP recovery abilities
     rest.lua                Automatic resting (/heal) with follow-target awareness
     revive.lua              Raise dead party/tracked/alliance members
@@ -443,7 +444,7 @@ MP and TP recovery. Monitors percentage thresholds. Uses `action_core.first_comm
 - **One luopan at a time**: Geomancer's `validate_ability` drops every `group = 'Geo'` spell from `filter_abilities_by_level` while a pet is out, since the server rejects a Geo cast that would need a second luopan. `buff.lua` therefore skips it silently and casts on the tick after the luopan goes away. Deliberately scoped to `'Geo'`: `'Indi'` follows the caster and uses no luopan, and `'Geo-bt'` must stay visible while a luopan is out or `geo.lua` could never Full Circle it to take the slot. The config UI is unaffected — it gates on `can_use_ability`, not the validator, so the rows stay selectable.
 - All Geo spells have `main_job_only = true`.
 
-### maneuver.lua – Puppetmaster Elemental Maneuver Upkeep & Automaton Deploy
+### maneuver.lua – Puppetmaster Elemental Maneuver Upkeep
 
 - **Maneuver upkeep** (`maneuver.execute`): keeps up to 3 configured Elemental Maneuvers
   (`settings.maneuver1_name`/`2`/`3`) applied to the *player* — the automaton reads its gambit
@@ -455,20 +456,26 @@ MP and TP recovery. Monitors percentage thresholds. Uses `action_core.first_comm
   `filter_self_buff_blocked` while Overload (299) is up. Cast via `/pet "<name> Maneuver" <me>`,
   not `/ja` — deliberate, since the automaton (not the player) is the one gaining the gambit
   charge. Bails while resting, same as `buff.lua`/`geo.lua`.
-- **Automaton Deploy** (`maneuver.execute_deploy`): sends the automaton at the player's current
-  battle target (`/pet "Deploy" <t>`) whenever it has no live target of its own. Opt-in
-  (`settings.pet_deploy_enabled`, off by default) and the one gate maneuver upkeep doesn't share —
-  combat-only (`common.is_combat()`). The player's target must also be a genuine mob (`SpawnFlags`
-  0x10 bit, the same check `common.is_combat()` uses), not merely alive, so a targeted party
-  member can't be Deployed at.
-- **Tracking the automaton's live target**: a module-local `pet_target_id` (cleared on
+
+### pet_deploy.lua – Send-Pet-At-Target (PUP Deploy / SMN Assault / BST Fight)
+
+- **Shared across three jobs**: each job's `abilities.pet_deploy` list carries exactly one
+  entry with the job-specific `name`/`recast_id`/`command` (PUP `Deploy` recast 207, SMN
+  `Assault` recast 170, BST `Fight` recast 100); the execute/tracking logic itself is entirely
+  job-agnostic.
+- **`pet_deploy.execute`**: sends the pet at the player's current battle target whenever it has
+  no live target of its own. Opt-in (`settings.pet_deploy_enabled`, off by default) and
+  combat-only (`common.is_combat()`). The player's target must also be a genuine mob
+  (`SpawnFlags` 0x10 bit, the same check `common.is_combat()` uses), not merely alive, so a
+  targeted party member can't be Deployed at.
+- **Tracking the pet's live target**: a module-local `pet_target_id` (cleared on
   `/addon reload`, like `roll.lua`'s `roll_state`) is kept current from two packet sources —
-  `maneuver.handle_action_packet` reads `Targets[1].Id` off the automaton's own 0x028 action
-  packets, and `maneuver.handle_pet_sync_packet` reads the same field out of the automaton's 0x068
-  sync packet (owner id at byte 0x08, target id at byte 0x14, both little-endian `uint32`, decoded
-  inline since 0x068 has no other consumer in Sidekick). `pet_target_is_live()` re-resolves that id
-  through the entity array and requires both `HPPercent > 0` and the mob `SpawnFlags` bit before
-  treating it as still engaged.
+  `pet_deploy.handle_action_packet` reads `Targets[1].Id` off the pet's own 0x028 action
+  packets, and `pet_deploy.handle_pet_sync_packet` reads the same field out of the pet's 0x068
+  sync packet (owner id at byte 0x08, target id at byte 0x14, both little-endian `uint32`,
+  decoded inline since 0x068 has no other consumer in Sidekick). `pet_target_is_live()`
+  re-resolves that id through the entity array and requires both `HPPercent > 0` and the mob
+  `SpawnFlags` bit before treating it as still engaged.
 
 ### roll.lua – Corsair Phantom Roll / Double-Up
 
@@ -577,7 +584,7 @@ return {
         debuff_removal     = { ... },
         pet_debuff_removal = { ... },  -- strip pet status ailments (BST/PUP)
         maneuver           = { ... },  -- PUP elemental Maneuver upkeep (stacks duplicates)
-        pet_deploy         = { ... },  -- PUP Automaton Deploy (opt-in, combat-only)
+        pet_deploy         = { ... },  -- Send pet at target: PUP/SMN/BST (opt-in, combat-only)
         wake               = { ... },
         recover_mp         = { ... },
         recover_tp         = { ... },
@@ -841,7 +848,7 @@ The debug row shows AFK state beside Moving/Action: `off` (disabled), `idle` (au
 | `load` | Sidekick.lua | Set initialisation flag |
 | `unload` | Sidekick.lua | Save settings |
 | `d3d_present` | Sidekick.lua | Automation tick + UI render |
-| `packet_in` | Sidekick.lua | Casting state (0x028), Trust/pet buffs (0x028, 0x029), check response (0x0C9), zone change (0x0A), autorun-cancel guard (0x0D byte 0x42, only while `follow_enabled`), automaton target sync (0x068, PUP only -- `maneuver.handle_pet_sync_packet`) |
+| `packet_in` | Sidekick.lua | Casting state (0x028), Trust/pet buffs (0x028, 0x029), check response (0x0C9), zone change (0x0A), autorun-cancel guard (0x0D byte 0x42, only while `follow_enabled`), pet target sync (0x068, PUP/SMN/BST -- `pet_deploy.handle_pet_sync_packet`) |
 | `command` | Sidekick.lua | `/sidekick` command handler |
 
 ### Trust Buff Tracking
