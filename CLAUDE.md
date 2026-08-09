@@ -130,3 +130,11 @@ persist per job as `settings_<job_name>.json` via Ashita's `settings` module; so
 - Match the existing comment density and naming; job files are heavily commented with FFXI
   spell/recast ids, keep that.
 - Commits/PRs are made only when the user asks (they commit manually). Default branch `main`.
+- **`README.md`'s "Latest Updates" section shows only the current release**, written as a
+  brief, user-facing summary (bullets, no implementation detail) — not the full history.
+  `CHANGELOG.md` is the durable, detailed record and keeps every past version. When a new
+  version ships, replace the README's "Latest Updates" entry with the new version's brief
+  notes rather than appending to it, and add the full entry to `CHANGELOG.md` as usual. Any
+  contributor credit ("Thanks to ...") written into the README must also exist in
+  `CHANGELOG.md` before it is removed from README, since CHANGELOG is the only permanent
+  record of past releases.
