@@ -105,6 +105,15 @@ return {
                 ready_charge_cost = 2,         -- Wild Carrot burns 2 charges, not 1
             },
         },
+
+        -- Send the pet at the player's current target when it has none of its own.
+        -- Opt-in (pet_deploy_enabled, off by default) and combat-only, shared logic
+        -- with SMN/PUP in pet.lua. No requires_pet_name -- Fight works with
+        -- any BST pet, unlike Wild Carrot above (rabbit jugs only).
+        pet_deploy = {
+            { name = 'Fight', level = 1, cost = 0, recast_id = 100,
+              pet_required = true, command = '/pet "Fight" <t>' },
+        },
     },
 
     -- Default settings for UI
@@ -115,6 +124,7 @@ return {
         heal_aoe_enabled = true,
         heal_aoe_threshold = 70,
         pet_debuff_removal_enabled = true,
+        pet_deploy_enabled = false,
     },
 
     -- Action priority order
@@ -123,6 +133,7 @@ return {
         'heal_aoe',
         'heal_pet',
         'pet_debuff_removal',
+        'pet_deploy',
         'buff',
     },
 

@@ -30,6 +30,7 @@ lib/
     geo.lua                 Full Circle automation & Entrust management
     heal.lua                All healing (single-target, AOE, pet)
     item.lua                Consumable-based status removal (Antidote, Eye/Echo Drops, Holy/Hallowed Water, Remedy, Panacea, Remedy Ointment, Tincture)
+    pet.lua                 PUP Elemental Maneuver upkeep + send-pet-at-target for PUP (Deploy) / SMN (Assault) / BST (Fight)
     recover.lua             MP/TP recovery abilities
     rest.lua                Automatic resting (/heal) with follow-target awareness
     revive.lua              Raise dead party/tracked/alliance members
@@ -106,8 +107,9 @@ lib/
 │  master_priority (Sidekick.lua) order:        │
 │  item → recover → critical → heal_aoe → heal  │
 │  → debuff_removal → heal_pet →                │
-│  pet_debuff_removal → wake → geo → roll →     │
-│  buff → revive → follow → rest                │
+│  pet_debuff_removal → pet_deploy → wake →     │
+│  geo → maneuver → roll → buff → revive →      │
+│  follow → rest                                │
 └──────────┬────────────────────────────────────┘
            │ uses
            ▼
@@ -441,6 +443,33 @@ MP and TP recovery. Monitors percentage thresholds. Uses `action_core.first_comm
 - **One luopan at a time**: Geomancer's `validate_ability` drops every `group = 'Geo'` spell from `filter_abilities_by_level` while a pet is out, since the server rejects a Geo cast that would need a second luopan. `buff.lua` therefore skips it silently and casts on the tick after the luopan goes away. Deliberately scoped to `'Geo'`: `'Indi'` follows the caster and uses no luopan, and `'Geo-bt'` must stay visible while a luopan is out or `geo.lua` could never Full Circle it to take the slot. The config UI is unaffected — it gates on `can_use_ability`, not the validator, so the rows stay selectable.
 - All Geo spells have `main_job_only = true`.
 
+### pet.lua – Puppetmaster Maneuver Upkeep + Send-Pet-At-Target (PUP Deploy / SMN Assault / BST Fight)
+
+- **Maneuver upkeep** (`pet.execute_maneuver`, PUP only): keeps up to 3 configured Elemental
+  Maneuvers (`settings.maneuver1_name`/`2`/`3`) applied to the *player* — the automaton reads its
+  gambit charges off the master's own status, same as retail, so upkeep diffs against
+  `player.buffs`, not pet buff tracking. Picking the same element in more than one slot stacks
+  duplicates (`get_missing` counts occurrences of a `buff_id`, not just presence). Works whether
+  PUP is main or sub job; the real gate is an automaton actually being out
+  (`common.targets.get_pet()`), and all eight maneuvers share one server-side recast
+  (`recast_id = 210`) and are dropped by `filter_self_buff_blocked` while Overload (299) is up.
+  Cast via `/pet "<name> Maneuver" <me>`, not `/ja` — deliberate, since the automaton (not the
+  player) is the one gaining the gambit charge. Bails while resting, same as
+  `buff.lua`/`geo.lua`. Has no combat gate.
+- **Pet Deploy** (`pet.execute_deploy`): shared across three jobs — each job's
+  `abilities.pet_deploy` list carries exactly one entry with the job-specific
+  `name`/`recast_id`/`command` (PUP `Deploy` recast 207, SMN `Assault` recast 170, BST `Fight`
+  recast 100); the execute/tracking logic itself is entirely job-agnostic. Sends the pet at the
+  player's current battle target whenever it has no live target of its own. Opt-in
+  (`settings.pet_deploy_enabled`, off by default) and combat-only (`common.is_combat()`), unlike
+  maneuver upkeep. The player's target must also be a genuine mob (`SpawnFlags` 0x10 bit, the
+  same check `common.is_combat()` uses), not merely alive, so a targeted party member can't be
+  Deployed at.
+- **Tracking the pet's live target**: `pet_has_live_target()` reads the pet entity's own
+  `TargetIndex` directly (the same field `refresh_game_state` uses to locate the pet's target
+  for position tracking) and requires `HPPercent > 0` on the resolved entity before treating it
+  as still engaged. No packet parsing involved.
+
 ### roll.lua – Corsair Phantom Roll / Double-Up
 
 - **Two configurable roll slots** (`settings.roll1_name` / `roll2_name`, chosen from
@@ -547,6 +576,8 @@ return {
         buff               = { ... },
         debuff_removal     = { ... },
         pet_debuff_removal = { ... },  -- strip pet status ailments (BST/PUP)
+        maneuver           = { ... },  -- PUP elemental Maneuver upkeep (stacks duplicates)
+        pet_deploy         = { ... },  -- Send pet at target: PUP/SMN/BST (opt-in, combat-only)
         wake               = { ... },
         recover_mp         = { ... },
         recover_tp         = { ... },

@@ -16,20 +16,6 @@ local SONG_AOE_RANGE = 10
 -- read (pet buffs aren't tracked). Cleared on reload -> re-applies immediately.
 local last_self_cast = {}
 
--- Count active instances of a buff id. Songs that share a buff_id stack as
--- separate instances (e.g. Mage's Ballad + Mage's Ballad II = two of buff 196),
--- so a plain "has it" check is not enough.
-local function count_instances(active_buffs, buff_id)
-    local ids = action_core.normalize_ids(buff_id)
-    local n = 0
-    for _, active in ipairs(active_buffs or {}) do
-        for _, check in ipairs(ids) do
-            if active == check then n = n + 1; break end
-        end
-    end
-    return n
-end
-
 -- How many distinct selected songs share this ability's buff_id for target_key
 -- (0-5, or 'A'). A grouped group contributes one (only one tier is ever active);
 -- an ungrouped group contributes one per selected tier, so stacking tiers each
@@ -51,13 +37,15 @@ end
 
 -- True when target lacks enough instances of this song's buff to satisfy every
 -- selected tier sharing that buff_id. Falls back to the plain presence check
--- (handles buff_id == nil) unless two or more tiers are stacked.
+-- (handles buff_id == nil) unless two or more tiers are stacked. Songs that
+-- share a buff_id stack as separate instances (e.g. Mage's Ballad + Mage's
+-- Ballad II = two of buff 196), so a plain "has it" check is not enough.
 local function song_needed(target_buffs, ability, target_key, available_abilities, settings, party_buff_config)
     local wanted = wanted_instances(ability, target_key, available_abilities, settings, party_buff_config)
     if wanted <= 1 then
         return action_core.needs_buff(target_buffs, ability.buff_id)
     end
-    return count_instances(target_buffs, ability.buff_id) < wanted
+    return action_core.count_instances(target_buffs, ability.buff_id) < wanted
 end
 
 -- Config keys (group name, or ability name when ungrouped) for THIS job's songs.

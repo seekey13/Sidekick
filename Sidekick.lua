@@ -30,6 +30,7 @@ local afk = require('lib.core.afk')
 local heal_mod   = require('lib.actions.heal')
 local status_mod = require('lib.actions.status_removal')
 local roll_mod   = require('lib.actions.roll')  -- also reads roll totals off the 0x028 packet
+local pet_mod = require('lib.actions.pet')  -- PUP maneuver upkeep + PUP/SMN/BST pet deploy
 
 local action_modules = {
     item           = require('lib.actions.item'),
@@ -40,6 +41,8 @@ local action_modules = {
     debuff_removal = { execute = status_mod.execute_debuff_removal },
     pet_debuff_removal = { execute = status_mod.execute_pet_debuff_removal },
     roll           = roll_mod,
+    maneuver       = { execute = pet_mod.execute_maneuver },
+    pet_deploy     = { execute = pet_mod.execute_deploy },
     buff           = require('lib.actions.buff'),
     recover        = require('lib.actions.recover'),
     geo            = require('lib.actions.geo'),
@@ -265,8 +268,10 @@ local function load_job_definition(main_job_id, sub_job_id)
         'debuff_removal',
         'heal_pet',
         'pet_debuff_removal',
+        'pet_deploy',
         'wake',
         'geo',
+        'maneuver',
         'roll',
         'buff',
         'revive',
@@ -1081,7 +1086,7 @@ ashita.events.register('packet_in', 'sidekick_packet_in', function(e)
             end
         end
     end
-    
+
     -- Clear Trust buffs and tracked targets on zone change
     if e.id == 0x0A then  -- Zone change packet
         common.clear_trust_buffs()

@@ -68,6 +68,42 @@ return {
                 ammo_label = 'Oils',            -- UI count label
             },
         },
+
+        -- Elemental Maneuvers: buff the PLAYER (not the automaton -- same as retail,
+        -- the automaton reads its gambit charges off the master's own status), so
+        -- upkeep diffs against player.buffs, not pet buff tracking. All eight share
+        -- one server-side recast (210) and are blocked while Overload (299) is up.
+        -- No main_job_only: this server allows a subjob-PUP automaton, so maneuver
+        -- upkeep works either way -- the real gate is an automaton actually being
+        -- out (checked in pet.execute_maneuver via common.targets.get_pet()).
+        maneuver = {
+            { name = 'Fire Maneuver', level = 1, cost = 0, recast_id = 210, buff_id = 300,
+              blocked_by = 299, pet_required = true, command = '/pet "Fire Maneuver" <me>' },
+            { name = 'Ice Maneuver', level = 1, cost = 0, recast_id = 210, buff_id = 301,
+              blocked_by = 299, pet_required = true, command = '/pet "Ice Maneuver" <me>' },
+            { name = 'Wind Maneuver', level = 1, cost = 0, recast_id = 210, buff_id = 302,
+              blocked_by = 299, pet_required = true, command = '/pet "Wind Maneuver" <me>' },
+            { name = 'Earth Maneuver', level = 1, cost = 0, recast_id = 210, buff_id = 303,
+              blocked_by = 299, pet_required = true, command = '/pet "Earth Maneuver" <me>' },
+            { name = 'Thunder Maneuver', level = 1, cost = 0, recast_id = 210, buff_id = 304,
+              blocked_by = 299, pet_required = true, command = '/pet "Thunder Maneuver" <me>' },
+            { name = 'Water Maneuver', level = 1, cost = 0, recast_id = 210, buff_id = 305,
+              blocked_by = 299, pet_required = true, command = '/pet "Water Maneuver" <me>' },
+            { name = 'Light Maneuver', level = 1, cost = 0, recast_id = 210, buff_id = 306,
+              blocked_by = 299, pet_required = true, command = '/pet "Light Maneuver" <me>' },
+            { name = 'Dark Maneuver', level = 1, cost = 0, recast_id = 210, buff_id = 307,
+              blocked_by = 299, pet_required = true, command = '/pet "Dark Maneuver" <me>' },
+        },
+
+        -- Send the automaton at the player's current target when it has none of
+        -- its own. Opt-in (pet_deploy_enabled, off by default) and combat-only,
+        -- gated in pet.execute_deploy (lib/actions/pet.lua) -- when both
+        -- main and sub job supply a pet_deploy entry, execute always reads index
+        -- [1], i.e. the main job's entry wins.
+        pet_deploy = {
+            { name = 'Deploy', level = 1, cost = 0, recast_id = 207,
+              pet_required = true, command = '/pet "Deploy" <t>' },
+        },
     },
 
     -- Default settings for UI
@@ -75,6 +111,8 @@ return {
         heal_pet_enabled = true,
         heal_pet_threshold = 50,
         pet_debuff_removal_enabled = true,
+        maneuver_enabled = true,
+        pet_deploy_enabled = false,
     },
 
     -- Role Reversal swaps master/pet HP *percentages*, so heal_pet's pet-HP-only
@@ -99,5 +137,7 @@ return {
         'item',
         'heal_pet',
         'pet_debuff_removal',
+        'pet_deploy',
+        'maneuver',
     },
 }

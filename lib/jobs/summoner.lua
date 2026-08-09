@@ -78,6 +78,15 @@ return {
                 requires_pet_name = { 'Carbuncle' },
             },
         },
+
+        -- Send the avatar at the player's current target when it has none of its
+        -- own. Opt-in (pet_deploy_enabled, off by default) and combat-only, shared
+        -- logic with BST/PUP in pet.lua. No requires_pet_name -- Assault
+        -- works with any avatar, same as Avatar's Favor above.
+        pet_deploy = {
+            { name = 'Assault', level = 1, cost = 0, recast_id = 170,
+              pet_required = true, command = '/pet "Assault" <t>' },
+        },
     },
     
     -- Default settings for UI
@@ -91,6 +100,7 @@ return {
         buff_enabled = true,
         focus_enabled = false,
         focus_threshold = 85,
+        pet_deploy_enabled = false,
     },
     
     -- Action priority order
@@ -98,6 +108,7 @@ return {
         'item',
         'heal_aoe',
         'heal',
+        'pet_deploy',
         'wake',
         'buff',
         'rest',

@@ -225,15 +225,21 @@ end
 -- Render a Corsair roll-selection dropdown (Roll 1 / Roll 2). Writes the roll name
 -- into settings[setting_key] and resets roll state on every change, so a stale
 -- packet total from the previous roll can't leak into the new one.
+-- Generic named-ability selection dropdown (Corsair rolls, PUP maneuvers, ...).
 -- `tooltip` is applied here rather than by the caller: the lucky-number text below
--- would otherwise be the "last item" that item_tooltip attaches to.
-local function render_roll_dropdown(label, setting_key, available_rolls, settings, on_change, tooltip)
+-- would otherwise be the "last item" that item_tooltip attaches to. `width`
+-- defaults to 250 (roll dropdowns); pass a narrower value for tighter layouts
+-- (e.g. 140 for maneuvers, which sit three to a row). `on_select`, if given, runs
+-- before `on_change` on every pick, including 'None' -- rolls use it to reset
+-- roll.lua's tracked totals; maneuvers, which allow picking the same element in
+-- more than one slot, don't need it.
+local function render_ability_dropdown(label, setting_key, available_abilities, settings, on_change, tooltip, width, on_select)
     local current = settings[setting_key]
 
-    -- Show 'None' for an unset roll, or one the player can no longer use
+    -- Show 'None' for an unset selection, or one the player can no longer use
     local current_display = 'None'
     local current_ability
-    for _, ability in ipairs(available_rolls) do
+    for _, ability in ipairs(available_abilities) do
         if ability.name == current then
             current_display = ability.name
             current_ability = ability
@@ -243,11 +249,11 @@ local function render_roll_dropdown(label, setting_key, available_rolls, setting
 
     local function choose(name)
         settings[setting_key] = name
-        roll.reset_state()
+        if on_select then on_select() end
         if on_change then on_change() end
     end
 
-    imgui.PushItemWidth(250)
+    imgui.PushItemWidth(width or 250)
     if ui.begin_opaque_combo(label, current_display) then
         local is_none_selected = (current_display == 'None')
         if imgui.Selectable('None', is_none_selected) then
@@ -257,7 +263,7 @@ local function render_roll_dropdown(label, setting_key, available_rolls, setting
             imgui.SetItemDefaultFocus()
         end
 
-        for _, ability in ipairs(available_rolls) do
+        for _, ability in ipairs(available_abilities) do
             local is_selected = (ability.name == current)
             if imgui.Selectable(ability.name, is_selected) then
                 choose(ability.name)
@@ -1115,6 +1121,44 @@ function ui_config.render(settings, job_def, callback)
             end
         end
 
+        -- Puppetmaster maneuver upkeep. Gated on the ability list being present and
+        -- usable (same pattern as "Pet Debuff Removal" above), not on job_def.job_id
+        -- -- that only ever reads the *main* job's id and would hide this for a
+        -- subjob PUP, which is supported here. Automaton Deploy is its own
+        -- standalone "Pet Deploy" section below, shared with SMN/BST.
+        if job_def and job_def.abilities.maneuver and has_usable_abilities(job_def.abilities.maneuver) then
+            local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Pet', 'maneuver_enabled', true)
+            if is_open and is_enabled then
+                imgui.Indent(ui.ABILITY_LIST_INDENT)
+
+                local available_maneuvers = {}
+                for _, ability in ipairs(job_def.abilities.maneuver) do
+                    if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
+                        table.insert(available_maneuvers, ability)
+                    end
+                end
+
+                render_ability_dropdown('Maneuver 1', 'maneuver1_name', available_maneuvers, settings, callback, nil, 140)
+                imgui.SameLine()
+                render_ability_dropdown('Maneuver 2', 'maneuver2_name', available_maneuvers, settings, callback, nil, 140)
+                imgui.SameLine()
+                render_ability_dropdown('Maneuver 3', 'maneuver3_name', available_maneuvers, settings, callback, nil, 140)
+
+                imgui.Unindent(ui.ABILITY_LIST_INDENT)
+            end
+        end
+
+        -- Pet Deploy: send the pet at the player's current target when it has none
+        -- of its own. Shared standalone section for every job with a pet_deploy
+        -- ability (PUP Deploy, SMN Assault, BST Fight) -- single boolean, no body
+        -- content needed (unlike "Auto Follow" above, which has a target dropdown
+        -- and distance slider under its header). Deliberately independent of
+        -- maneuver_enabled -- previously PUP's Deploy required both to be on,
+        -- which was a pointless coupling once Deploy has its own toggle.
+        if job_def and job_def.abilities.pet_deploy and has_usable_abilities(job_def.abilities.pet_deploy) then
+            ui.collapsing_checkbox_header(ctx, 'Pet Deploy', 'pet_deploy_enabled', false)
+        end
+
         -- Item-based status removal (consumables) -- hidden until inventory loads
         -- (counts read as "?"); shown once readable, even if every count is 0.
         if ui.item_inventory_loaded() then
@@ -1226,7 +1270,7 @@ function ui_config.render(settings, job_def, callback)
                     end
                 end
 
-                render_roll_dropdown('Roll 1', 'roll1_name', available_rolls, settings, callback, tooltips.roll_slot)
+                render_ability_dropdown('Roll 1', 'roll1_name', available_rolls, settings, callback, tooltips.roll_slot, nil, roll.reset_state)
 
                 -- Corsair as a subjob can only keep one roll up, so slot 2 is hidden
                 -- and force-cleared. roll.lua enforces the same rule independently.
@@ -1238,7 +1282,7 @@ function ui_config.render(settings, job_def, callback)
                         callback()
                     end
                 else
-                    render_roll_dropdown('Roll 2', 'roll2_name', available_rolls, settings, callback, tooltips.roll_slot)
+                    render_ability_dropdown('Roll 2', 'roll2_name', available_rolls, settings, callback, tooltips.roll_slot, nil, roll.reset_state)
                 end
 
                 -- Risk tier drives the whole Double-Up / Snake Eye / Fold decision

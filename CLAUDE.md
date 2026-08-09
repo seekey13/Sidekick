@@ -10,7 +10,10 @@ support only — healing, buffing, debuff removal, resource recovery, revive, an
 the consumable a pet ability needs). It deliberately does **not** automate combat, tanking,
 nuking, weaponskills, or combat movement/positioning. The one movement it will do is **opt-in
 leader following** (`follow_enabled`, off by default): `/follow` a chosen party member when they
-walk beyond `follow_distance`. Entry point is `Sidekick.lua`; everything else lives under `lib/`.
+walk beyond `follow_distance`. A second, narrower exception is **opt-in Pet Deploy**
+(Puppetmaster/Summoner/Beastmaster, `pet_deploy_enabled`, off by default, see `lib/actions/pet.lua`):
+sends the *pet*, not the player, at a target the player already selected. Entry point is
+`Sidekick.lua`; everything else lives under `lib/`.
 
 ## Build / lint / test
 
@@ -127,3 +130,11 @@ persist per job as `settings_<job_name>.json` via Ashita's `settings` module; so
 - Match the existing comment density and naming; job files are heavily commented with FFXI
   spell/recast ids, keep that.
 - Commits/PRs are made only when the user asks (they commit manually). Default branch `main`.
+- **`README.md`'s "Latest Updates" section shows only the current release**, written as a
+  brief, user-facing summary (bullets, no implementation detail) — not the full history.
+  `CHANGELOG.md` is the durable, detailed record and keeps every past version. When a new
+  version ships, replace the README's "Latest Updates" entry with the new version's brief
+  notes rather than appending to it, and add the full entry to `CHANGELOG.md` as usual. Any
+  contributor credit ("Thanks to ...") written into the README must also exist in
+  `CHANGELOG.md` before it is removed from README, since CHANGELOG is the only permanent
+  record of past releases.
