@@ -137,6 +137,20 @@ function action_core.has_any_buff(active_buffs, check_ids)
     return false
 end
 
+-- Count active instances of any id in check_ids -- buffs that share an id across
+-- tiers (Ballad/Ballad II) or stack from repeated application (PUP maneuvers)
+-- need "how many", not just "has it".
+function action_core.count_instances(active_buffs, check_ids)
+    local ids = action_core.normalize_ids(check_ids)
+    local n = 0
+    for _, active in ipairs(active_buffs or {}) do
+        for _, check in ipairs(ids) do
+            if active == check then n = n + 1; break end
+        end
+    end
+    return n
+end
+
 -- Inverse of has_any_buff: true when the target is MISSING the buff.
 -- When check_ids is nil (no tracking), always returns true (treat as always needed).
 function action_core.needs_buff(active_buffs, check_ids)

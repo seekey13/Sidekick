@@ -30,7 +30,7 @@ local afk = require('lib.core.afk')
 local heal_mod   = require('lib.actions.heal')
 local status_mod = require('lib.actions.status_removal')
 local roll_mod   = require('lib.actions.roll')  -- also reads roll totals off the 0x028 packet
-local pet_mod = require('lib.actions.pet')  -- PUP maneuver upkeep + PUP/SMN/BST pet deploy; reads pet target off 0x068 packets
+local pet_mod = require('lib.actions.pet')  -- PUP maneuver upkeep + PUP/SMN/BST pet deploy
 
 local action_modules = {
     item           = require('lib.actions.item'),
@@ -1084,15 +1084,6 @@ ashita.events.register('packet_in', 'sidekick_packet_in', function(e)
                     end
                 end
             end
-        end
-    end
-
-    -- Pet target sync (0x068): not parsed anywhere else in Sidekick. Tells us
-    -- who the pet is currently attacking without waiting on one of its own
-    -- action packets. Shared by PUP/SMN/BST.
-    if e.id == 0x068 then
-        if job_def and job_def.abilities and job_def.abilities.pet_deploy then
-            pet_mod.handle_pet_sync_packet(e, job_def)
         end
     end
 

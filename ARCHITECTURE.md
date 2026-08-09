@@ -30,7 +30,7 @@ lib/
     geo.lua                 Full Circle automation & Entrust management
     heal.lua                All healing (single-target, AOE, pet)
     item.lua                Consumable-based status removal (Antidote, Eye/Echo Drops, Holy/Hallowed Water, Remedy, Panacea, Remedy Ointment, Tincture)
-    pet.lua                 PUP Elemental Maneuver upkeep + send-pet-at-target for PUP (Deploy) / SMN (Assault) / BST (Fight) (incl. its 0x068 target reader)
+    pet.lua                 PUP Elemental Maneuver upkeep + send-pet-at-target for PUP (Deploy) / SMN (Assault) / BST (Fight)
     recover.lua             MP/TP recovery abilities
     rest.lua                Automatic resting (/heal) with follow-target awareness
     revive.lua              Raise dead party/tracked/alliance members
@@ -465,13 +465,10 @@ MP and TP recovery. Monitors percentage thresholds. Uses `action_core.first_comm
   maneuver upkeep. The player's target must also be a genuine mob (`SpawnFlags` 0x10 bit, the
   same check `common.is_combat()` uses), not merely alive, so a targeted party member can't be
   Deployed at.
-- **Tracking the pet's live target**: a module-local `pet_target_id` (cleared on
-  `/addon reload`, like `roll.lua`'s `roll_state`) is kept current by
-  `pet.handle_pet_sync_packet`, which reads it off the pet's 0x068 sync packet (owner id at byte
-  0x08, target id at byte 0x14, both little-endian `uint32`, decoded inline since 0x068 has no
-  other consumer in Sidekick). `pet_target_is_live()` re-resolves that id through the entity
-  array and requires both `HPPercent > 0` and the mob `SpawnFlags` bit before treating it as
-  still engaged.
+- **Tracking the pet's live target**: `pet_has_live_target()` reads the pet entity's own
+  `TargetIndex` directly (the same field `refresh_game_state` uses to locate the pet's target
+  for position tracking) and requires `HPPercent > 0` on the resolved entity before treating it
+  as still engaged. No packet parsing involved.
 
 ### roll.lua – Corsair Phantom Roll / Double-Up
 
@@ -844,7 +841,7 @@ The debug row shows AFK state beside Moving/Action: `off` (disabled), `idle` (au
 | `load` | Sidekick.lua | Set initialisation flag |
 | `unload` | Sidekick.lua | Save settings |
 | `d3d_present` | Sidekick.lua | Automation tick + UI render |
-| `packet_in` | Sidekick.lua | Casting state (0x028), Trust/pet buffs (0x028, 0x029), check response (0x0C9), zone change (0x0A), autorun-cancel guard (0x0D byte 0x42, only while `follow_enabled`), pet target sync (0x068, PUP/SMN/BST -- `pet.handle_pet_sync_packet`) |
+| `packet_in` | Sidekick.lua | Casting state (0x028), Trust/pet buffs (0x028, 0x029), check response (0x0C9), zone change (0x0A), autorun-cancel guard (0x0D byte 0x42, only while `follow_enabled`) |
 | `command` | Sidekick.lua | `/sidekick` command handler |
 
 ### Trust Buff Tracking

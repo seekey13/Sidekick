@@ -112,9 +112,6 @@ return {
         heal_pet_threshold = 50,
         pet_debuff_removal_enabled = true,
         maneuver_enabled = true,
-        maneuver1_name = nil,
-        maneuver2_name = nil,
-        maneuver3_name = nil,
         pet_deploy_enabled = false,
     },
 
