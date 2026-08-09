@@ -30,8 +30,7 @@ local afk = require('lib.core.afk')
 local heal_mod   = require('lib.actions.heal')
 local status_mod = require('lib.actions.status_removal')
 local roll_mod   = require('lib.actions.roll')  -- also reads roll totals off the 0x028 packet
-local maneuver_mod = require('lib.actions.maneuver')
-local pet_deploy_mod = require('lib.actions.pet_deploy')  -- reads pet target off 0x068 packets; shared by PUP/SMN/BST
+local pet_mod = require('lib.actions.pet')  -- PUP maneuver upkeep + PUP/SMN/BST pet deploy; reads pet target off 0x068 packets
 
 local action_modules = {
     item           = require('lib.actions.item'),
@@ -42,8 +41,8 @@ local action_modules = {
     debuff_removal = { execute = status_mod.execute_debuff_removal },
     pet_debuff_removal = { execute = status_mod.execute_pet_debuff_removal },
     roll           = roll_mod,
-    maneuver       = maneuver_mod,
-    pet_deploy     = { execute = pet_deploy_mod.execute },
+    maneuver       = { execute = pet_mod.execute_maneuver },
+    pet_deploy     = { execute = pet_mod.execute_deploy },
     buff           = require('lib.actions.buff'),
     recover        = require('lib.actions.recover'),
     geo            = require('lib.actions.geo'),
@@ -1093,7 +1092,7 @@ ashita.events.register('packet_in', 'sidekick_packet_in', function(e)
     -- action packets. Shared by PUP/SMN/BST.
     if e.id == 0x068 then
         if job_def and job_def.abilities and job_def.abilities.pet_deploy then
-            pet_deploy_mod.handle_pet_sync_packet(e, job_def)
+            pet_mod.handle_pet_sync_packet(e, job_def)
         end
     end
 

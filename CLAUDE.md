@@ -11,7 +11,7 @@ the consumable a pet ability needs). It deliberately does **not** automate comba
 nuking, weaponskills, or combat movement/positioning. The one movement it will do is **opt-in
 leader following** (`follow_enabled`, off by default): `/follow` a chosen party member when they
 walk beyond `follow_distance`. A second, narrower exception is **opt-in Pet Deploy**
-(Puppetmaster/Summoner/Beastmaster, `pet_deploy_enabled`, off by default, see `lib/actions/pet_deploy.lua`):
+(Puppetmaster/Summoner/Beastmaster, `pet_deploy_enabled`, off by default, see `lib/actions/pet.lua`):
 sends the *pet*, not the player, at a target the player already selected. Entry point is
 `Sidekick.lua`; everything else lives under `lib/`.
 

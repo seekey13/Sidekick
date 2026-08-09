@@ -75,7 +75,7 @@ return {
         -- one server-side recast (210) and are blocked while Overload (299) is up.
         -- No main_job_only: this server allows a subjob-PUP automaton, so maneuver
         -- upkeep works either way -- the real gate is an automaton actually being
-        -- out (checked in maneuver.execute via common.targets.get_pet()).
+        -- out (checked in pet.execute_maneuver via common.targets.get_pet()).
         maneuver = {
             { name = 'Fire Maneuver', level = 1, cost = 0, recast_id = 210, buff_id = 300,
               blocked_by = 299, pet_required = true, command = '/pet "Fire Maneuver" <me>' },
@@ -97,7 +97,7 @@ return {
 
         -- Send the automaton at the player's current target when it has none of
         -- its own. Opt-in (pet_deploy_enabled, off by default) and combat-only,
-        -- gated in pet_deploy.execute (lib/actions/pet_deploy.lua) -- when both
+        -- gated in pet.execute_deploy (lib/actions/pet.lua) -- when both
         -- main and sub job supply a pet_deploy entry, execute always reads index
         -- [1], i.e. the main job's entry wins.
         pet_deploy = {

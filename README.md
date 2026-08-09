@@ -51,12 +51,13 @@ A focused, support-oriented addon for Ashita v4 that automates healing, buffing,
 - Combat movement/positioning
 - Full job automation
 
-The one exception is **opt-in leader following** (off by default): with **Follow** enabled, Sidekick will `/follow` a chosen party member or tracked target when they walk beyond a set distance. It never moves your character unless you turn this on. A second, narrower exception is **opt-in Pet Deploy** (Puppetmaster/Summoner/Beastmaster, off by default): it sends the *pet*, not the player, and only at a target you've already selected yourself.
+The one exception is **opt-in leader following** (off by default): with **Follow** enabled, Sidekick will `/follow` a chosen party member or tracked target when they walk beyond a set distance. It never moves your character unless you turn this on. A second, narrower exception is **opt-in Pet Deploy** (Puppetmaster/Summoner/Beastmaster, off by default and combat-only): it sends the *pet*, not the player, and only at a target you've already selected yourself.
 
 ## Latest Updates
 ### [2.7.0] - 2026-08-07
 
 ### Added
+- **Puppetmaster Maneuver upkeep + Pet Deploy for PUP/SMN/BST**: pick up to 3 elemental Maneuvers in the new **Pet** section and Sidekick keeps them applied, stacking duplicates if you pick the same element twice — works whether PUP is main or sub job. The "send my pet at my target" behavior (**Deploy** / **Assault** / **Fight**) is now shared by all three pet jobs too, in its own opt-in, combat-only **Pet Deploy** section separate from Maneuver upkeep.
 - **Per-target Combat/Idle overrides**: right-click any **ME**/**P1**-**P5** button on a buff row to force **Combat Only** or **Idle Only** for just that one target, overriding the ability's own Combat/Idle setting — keep Haste up on everyone but force it Combat Only for one melee, say. The overridden button tints yellow (Combat Only) or green (Idle Only) as a reminder. Session-only — resets on reload, nothing is written to your settings. Thanks to **Seikio** for the feature idea.
 - **Hold AOE for Group now announces the wait**: while Hold AOE for Group is holding a cast for a straggler, Sidekick now says so in party chat (e.g. *"Gather together for Protectra IV"*), repeating every few seconds for as long as the hold lasts. Thanks to **Toranko** for the feature idea.
 
@@ -351,7 +352,7 @@ Currently implemented support jobs:
   - Pet debuff removal with **Reward (Erase)** using a **Pet Roborant**
   - Party AOE healing with **Wild Carrot** from a rabbit jug pet (KeenearedSteffi / Rabbit), gated on a Ready charge
   - Only one ammo can be worn at a time, so the three Reward variants never contend for the ammo slot
-  - **Pet Deploy** (opt-in, off by default): sends your pet at your current target whenever it doesn't already have one of its own. Combat-only.
+  - **Pet Deploy** (opt-in, off by default): sends your pet at your current target via **Fight** whenever it doesn't already have one of its own. Combat-only — shared logic with Puppetmaster's Deploy and Summoner's Assault.
 
 - **Dragoon** (DRG) — *pet-only support*
   - Pet (wyvern) healing with **Spirit Link** (no item — transfers the master's HP)
@@ -361,8 +362,8 @@ Currently implemented support jobs:
   - Automaton healing with **Repair** (requires an **Automaton Oil** in the ammo slot; higher tiers heal more; PUP-main only)
   - Automaton healing with **Role Reversal** (level 75 merit) when Repair is on cooldown — only fires when you're healthier than the automaton and the swap leaves you above 25% HP
   - Automaton debuff removal with **Maintenance** (same Oil ammo)
-  - **Maneuver upkeep**: pick up to 3 elemental Maneuvers (Fire/Ice/Wind/Earth/Thunder/Water/Light/Dark) and Sidekick keeps them applied, stacking duplicates if you pick the same element twice. Works with PUP as main job or subjob; held off while **Overload** is up.
-  - **Pet Deploy** (opt-in, off by default, own standalone config section — not part of Maneuver upkeep): sends the automaton at your current target whenever it doesn't already have one of its own. Combat-only.
+  - **Maneuver upkeep**: pick up to 3 elemental Maneuvers (Fire/Ice/Wind/Earth/Thunder/Water/Light/Dark) and Sidekick keeps them applied, stacking duplicates if you pick the same element twice. Works with PUP as main job or subjob; held off while **Overload** is up. No combat gate — kept up in and out of battle.
+  - **Pet Deploy** (opt-in, off by default, own standalone config section — not part of Maneuver upkeep): sends the automaton at your current target via **Deploy** whenever it doesn't already have one of its own. Combat-only — shared logic with Summoner's Assault and Beastmaster's Fight.
 
 - **Bard** (BRD)
   - Buff with songs on self or party members using Pianissimo (level 20+) — the ME button self-buffs via Pianissimo too
@@ -482,7 +483,7 @@ Currently implemented support jobs:
   - AOE healing with blood pacts (Healing Ruby II - requires Carbuncle)
   - Buff with blood pacts (Avatar's Favor, Shining Ruby)
   - Smart pet validation: Carbuncle-specific abilities only execute when Carbuncle is summoned; avatar-agnostic abilities work with any avatar
-  - **Pet Deploy** (opt-in, off by default): sends your avatar at your current target via Assault whenever it doesn't already have one of its own. Combat-only.
+  - **Pet Deploy** (opt-in, off by default): sends your avatar at your current target via **Assault** whenever it doesn't already have one of its own. Combat-only — shared logic with Puppetmaster's Deploy and Beastmaster's Fight.
 
 - **Thief** (THF) — *self-only support*
   - Self-buffs with job abilities (Conspirator, Assassin's Charge, Feint) — combat-only.
