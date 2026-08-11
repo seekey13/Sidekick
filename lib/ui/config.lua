@@ -965,7 +965,7 @@ function ui_config.render(settings, job_def, callback)
                     imgui.SameLine()
                     ui.combo(ctx, '##pet_control_target', 'pet_control_target',
                         { settings.pet_control_target == '<bt>' and 1 or 0 },
-                        { '<t>', '<bt>' },
+                        { '<T>', '<BT>' },  -- display only; converter stores lowercase for the command
                         function(i) return i == 1 and '<bt>' or '<t>' end, 70)
                 end
 
