@@ -424,8 +424,9 @@ return {
                 -- party's real buffs go up first; Invisible (-20) sorts after Sneak (-10),
                 -- so Sneak lands on the whole party before Invisible starts.
                 priority = -20,
-                self_last = true,   -- party before the caster
-                skip_trusts = true, -- Trusts don't need it
+                -- Party before the caster, never on Trusts, and the only buff cast while
+                -- Invisible is up -- anything else would break it and force a reapply.
+                travel_buff = true,
             },
             {
                 name = 'Sneak',
@@ -442,8 +443,9 @@ return {
                 -- Below every default (0) buff, but ahead of Invisible (-20): the whole
                 -- party gets Sneak before Invisible starts.
                 priority = -10,
-                self_last = true,   -- party before the caster
-                skip_trusts = true, -- Trusts don't need it
+                -- Party before the caster, never on Trusts, and the only buff cast while
+                -- Invisible is up -- anything else would break it and force a reapply.
+                travel_buff = true,
             },
             {
                 name = 'Deodorize',

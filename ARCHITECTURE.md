@@ -643,14 +643,20 @@ return {
                                     --   must not delay the party's real buffs, and Sneak's higher value
                                     --   covers the whole party before Invisible starts.
                                     --   Do NOT set on a grouped tier -- breaks tier auto-select.
-    self_last       = false,        -- buff only: check party targets P1-P5 before ME instead of ME first
-                                    --   (Sneak/Invisible protect the party ahead of the caster).
-                                    --   Reorders buff.lua's single-target pass only.
-    skip_trusts     = false,        -- buff only: never cast on a Trust/NPC (is_trust, i.e.
-                                    --   server_id >= 0x1000000) in the party or in an alliance
-                                    --   sub-party. Trusts don't need Sneak/Invisible, so a cast on one
-                                    --   is wasted MP and a wasted tick. Manually added tracked targets
-                                    --   are NOT filtered -- the user picked those deliberately.
+    travel_buff     = false,        -- buff only: marks a travel buff (Sneak / Invisible). Three
+                                    --   behaviours in one flag, since none of them is ever wanted
+                                    --   without the others:
+                                    --   1. targets P1-P5 before ME, so the party is covered before
+                                    --      the caster (whose own Invisible must be the LAST cast of
+                                    --      the run -- the next cast would break it).
+                                    --   2. never cast on a Trust/NPC (is_trust, i.e. server_id >=
+                                    --      0x1000000) in the party or an alliance sub-party: wasted
+                                    --      MP and a wasted tick. Manually added tracked targets are
+                                    --      NOT filtered -- the user picked those deliberately.
+                                    --   3. while the player has Invisible (69) up, buff.lua casts
+                                    --      travel buffs and NOTHING else -- any other cast breaks
+                                    --      Invisible and costs a reapply. Heals, -na, wake and
+                                    --      revive are other modules and stay ungated.
     group           = 'regen',      -- mutually exclusive group
     self_only       = false,
     main_job_only   = false,        -- hidden when job is subjob

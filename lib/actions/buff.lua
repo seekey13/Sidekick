@@ -12,6 +12,10 @@ local action_core = require('lib.core.action_core')
 -- song, so they don't count as "missing" and never force an endless recast.
 local SONG_AOE_RANGE = 10
 
+-- Invisible (status_effects.sql id 69). Casting anything at all breaks it, so any
+-- non-travel buff cast while it's up costs an Invisible reapply on top of itself.
+local INVISIBLE_BUFF = 69
+
 -- os.clock() of our last cast per ability name, for buffs whose target we can't
 -- read (pet buffs aren't tracked). Cleared on reload -> re-applies immediately.
 local last_self_cast = {}
@@ -236,6 +240,29 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
         return nil
     end
 
+    -- While Invisible is up, cast nothing but the travel buffs. Every other buff
+    -- would break Invisible and force a reapply, so it costs two casts instead of
+    -- one and leaves the party briefly visible. Filtering the list here (rather
+    -- than guarding each loop) covers both the area-song phase and the
+    -- single-target pass below. Sneak/Invisible themselves still run: travel_buff
+    -- also puts the caster last, so their own Invisible is the final cast and
+    -- survives. Heals, -na, wake and revive live in other modules and are
+    -- deliberately NOT gated -- a dying member outranks staying hidden.
+    if action_core.has_any_buff(state.player.buffs, INVISIBLE_BUFF) then
+        local travel_only = {}
+        for _, ability in ipairs(available_abilities) do
+            if ability.travel_buff then
+                travel_only[#travel_only + 1] = ability
+            end
+        end
+        -- Only gate when this job actually has a travel buff to protect. A job with
+        -- none (Bard handed an Invisible by the party WHM) can't recast it anyway, so
+        -- suppressing its buffs would just stop it working until Invisible wore off.
+        if #travel_only > 0 then
+            available_abilities = travel_only
+        end
+    end
+
     -- Phase 1: area songs ([A]). Checked before the single-target ME/P1-P5 pass
     -- because an AoE song overwrites single-target songs on everyone it hits, so
     -- the area baseline must be established first. Covers every in-range party
@@ -422,11 +449,12 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                 end
                 
                 -- Priority order: ME, P1, P2, P3, P4, P5
-                -- self_last flips it to P1-P5 then ME: travel buffs (Sneak/Invisible)
-                -- exist to protect the party, so the party is covered before the caster
-                -- (who is standing still casting them and can re-do their own last).
+                -- travel_buff flips it to P1-P5 then ME: Sneak/Invisible exist to protect
+                -- the party, so the party is covered before the caster. Casting on someone
+                -- breaks the caster's own Invisible, so theirs must be the last cast of the
+                -- run or it would be broken by the very next one.
                 local targets_to_check = {0, 1, 2, 3, 4, 5}  -- 0 = ME, 1-5 = P1-P5
-                if ability.self_last then
+                if ability.travel_buff then
                     targets_to_check = {1, 2, 3, 4, 5, 0}    -- ME last
                 end
 
@@ -459,10 +487,10 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                             if party_member and common.is_trust_excluded(party_member.name, party_member.server_id) then
                                 goto continue_target
                             end
-                            -- skip_trusts: Sneak/Invisible on a Trust is wasted MP and a wasted
+                            -- travel_buff: Sneak/Invisible on a Trust is wasted MP and a wasted
                             -- tick -- Trusts don't take the aggro these prevent, and they're
                             -- despawned/re-summoned freely (is_trust = server_id >= 0x1000000).
-                            if party_member and party_member.is_trust and ability.skip_trusts then
+                            if party_member and party_member.is_trust and ability.travel_buff then
                                 goto continue_target
                             end
                             if party_member then
@@ -548,10 +576,10 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                                 local is_al_enabled = party_buff_config and party_buff_config[config_key] and party_buff_config[config_key][al_key] == true
                                 if is_al_enabled then
                                     local m = sub_party[local_idx]
-                                    -- Same skip_trusts guard as the party loop above -- other
-                                    -- players' Trusts show up in the alliance sub-parties, and
-                                    -- Sneak/Invisible on them is wasted MP and a wasted tick.
-                                    local skip_trust = ability.skip_trusts and m and m.is_trust
+                                    -- Same travel_buff Trust guard as the party loop above --
+                                    -- other players' Trusts show up in the alliance sub-parties,
+                                    -- and Sneak/Invisible on them is wasted MP and a wasted tick.
+                                    local skip_trust = ability.travel_buff and m and m.is_trust
                                     if m and not skip_trust and m.is_active and m.target_index and m.target_index > 0 and common.is_in_range(m.target_index, 20) then
                                         local al_buffs = m.buffs or {}
                                         local al_needs_buff = action_core.needs_buff(al_buffs, ability.buff_id)
