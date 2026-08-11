@@ -136,17 +136,23 @@ end
 -- Automaton/avatar/pet Deploy
 -- ============================================================================
 
--- True when the pet already has a live (HP% > 0) target of its own, read
--- straight off the pet entity's own TargetIndex -- the same field
--- common.lua's refresh_game_state reads to locate the pet's target for
--- position tracking, so no packet parsing is needed here.
+-- True when the pet already has a live MOB target of its own, read straight off
+-- the pet entity's own TargetIndex -- the same field common.lua's
+-- refresh_game_state reads to locate the pet's target for position tracking, so
+-- no packet parsing is needed here.
+-- The SpawnFlags 0x10 (mob) check is load-bearing, not defensive: an idle pet's
+-- TargetIndex points at its MASTER, who is alive, so an HP%-only test reads
+-- "already busy" forever and deploy never fires.
 local function pet_has_live_target(pet_entity)
     local idx = pet_entity.TargetIndex
     if not idx or idx == 0 then
         return false
     end
     local e = GetEntity(idx)
-    return e ~= nil and (e.HPPercent or 0) > 0
+    if e == nil or (e.HPPercent or 0) <= 0 then
+        return false
+    end
+    return bit.band(e.SpawnFlags or 0, 0x10) ~= 0
 end
 
 function pet.execute_deploy(settings, job_def, main_level, sub_level, player_resource)
@@ -201,10 +207,17 @@ function pet.execute_deploy(settings, job_def, main_level, sub_level, player_res
         return nil
     end
 
-    local result = action_core.try_use(ability, job_def, settings, nil, ability.name)
+    local result, reason = action_core.try_use(ability, job_def, settings, nil, ability.name)
+    if not result then
+        -- Every other bail above is a plain "not now"; this one is the ability
+        -- itself refusing (recast, Moving, resource) and is otherwise silent.
+        common.debugf('[DEPLOY] %s unavailable: %s', ability.name, tostring(reason))
+        return nil
+    end
+
     -- Jobs store the command with <t>; retarget it here rather than carrying two
     -- near-identical entries per job.
-    if result and use_bt then
+    if use_bt then
         result.command = result.command:gsub('<t>', '<bt>')
     end
     return result

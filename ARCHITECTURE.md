@@ -472,8 +472,10 @@ MP and TP recovery. Monitors percentage thresholds. Uses `action_core.first_comm
   targeted party member can't be Deployed at.
 - **Tracking the pet's live target**: `pet_has_live_target()` reads the pet entity's own
   `TargetIndex` directly (the same field `refresh_game_state` uses to locate the pet's target
-  for position tracking) and requires `HPPercent > 0` on the resolved entity before treating it
-  as still engaged. No packet parsing involved.
+  for position tracking) and requires both `HPPercent > 0` **and** `SpawnFlags` 0x10 (a mob) on
+  the resolved entity before treating it as still engaged. The mob half is load-bearing: an idle
+  pet's `TargetIndex` points at its own master, who is alive, so an HP%-only test reads "already
+  busy" permanently and deploy never fires. No packet parsing involved.
 
 ### roll.lua – Corsair Phantom Roll / Double-Up
 

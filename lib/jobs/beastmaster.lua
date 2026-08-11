@@ -107,12 +107,19 @@ return {
         },
 
         -- Send the pet at the player's current target when it has none of its own.
-        -- Opt-in (pet_deploy_enabled, off by default) and combat-only, shared logic
-        -- with SMN/PUP in pet.lua. No requires_pet_name -- Fight works with
+        -- Opt-in (pet_deploy_enabled, off by default); the <t> below is the default
+        -- target, rewritten to <bt> by pet.execute_deploy when pet_deploy_target
+        -- says so. Shared logic with SMN/PUP in pet.lua. No requires_pet_name -- Fight works with
         -- any BST pet, unlike Wild Carrot above (rabbit jugs only).
         pet_deploy = {
-            { name = 'Fight', level = 1, cost = 0, recast_id = 100,
-              pet_required = true, command = '/pet "Fight" <t>' },
+            { 
+                name = 'Fight', 
+                level = 1, 
+                cost = 0, 
+                recast_id = 100,
+                pet_required = true, 
+                command = '/pet "Fight" <t>' 
+            },
         },
     },
 

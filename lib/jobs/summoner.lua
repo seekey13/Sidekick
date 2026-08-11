@@ -80,12 +80,19 @@ return {
         },
 
         -- Send the avatar at the player's current target when it has none of its
-        -- own. Opt-in (pet_deploy_enabled, off by default) and combat-only, shared
-        -- logic with BST/PUP in pet.lua. No requires_pet_name -- Assault
+        -- own. Opt-in (pet_deploy_enabled, off by default); the <t> below is the
+        -- default target, rewritten to <bt> by pet.execute_deploy when
+        -- pet_deploy_target says so. Shared logic with BST/PUP in pet.lua. No requires_pet_name -- Assault
         -- works with any avatar, same as Avatar's Favor above.
         pet_deploy = {
-            { name = 'Assault', level = 1, cost = 0, recast_id = 170,
-              pet_required = true, command = '/pet "Assault" <t>' },
+            { 
+                name = 'Assault', 
+                level = 1, 
+                cost = 0, 
+                recast_id = 170,
+                pet_required = true, 
+                command = '/pet "Assault" <t>' 
+            },
         },
     },
     
