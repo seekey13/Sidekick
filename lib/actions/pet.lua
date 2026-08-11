@@ -8,10 +8,13 @@
         picked in more than one slot.
       * Send pet at target (PUP Deploy / SMN Assault / BST Fight -- the feature has
         no name of its own; the UI labels it with whichever ability the job has):
-        sends the pet at
-        the player's current battle target whenever it doesn't already have a
-        live target of its own (read off the pet entity's own TargetIndex).
-        Opt-in (pet_deploy_enabled, off by default) and combat-only. Shared
+        sends the pet at a mob
+        whenever it doesn't already have a live target of its own (read off the
+        pet entity's own TargetIndex). Which mob is a UI dropdown next to the
+        toggle (pet_deploy_target): '<t>' (default) uses the player's cursor
+        target and only fires while the player is engaged; '<bt>' uses the
+        battle target and needs no engaged check.
+        Opt-in (pet_deploy_enabled, off by default). Shared
         across all three jobs so none of them duplicate that check; each job
         supplies its own single-entry abilities.pet_deploy list
         (name/recast_id/command differ per job; everything else here is
@@ -20,8 +23,9 @@
         the main job's entry wins (e.g. BST/SMN with Carbuncle summoned would
         still try Fight, not Assault).
 
-    Maneuver upkeep has no combat gate; send-pet-at-target does -- that's a real
-    behavioral difference between the two, not an oversight.
+    Maneuver upkeep has no combat gate; send-pet-at-target does (engaged for
+    <t>, a live battle target for <bt>) -- that's a real behavioral difference
+    between the two, not an oversight.
 
     Both sit under the UI's "Pet Control" section and its `pet_enabled` master switch.
 
@@ -159,16 +163,27 @@ function pet.execute_deploy(settings, job_def, main_level, sub_level, player_res
         return nil
     end
 
-    -- Deploy is combat-only by design -- unlike maneuver upkeep, which has no such gate.
-    if not common.is_combat() then
-        return nil
-    end
-
     if pet_has_live_target(pet_entity) then
         return nil
     end
 
-    local target = common.targets.get_t()
+    -- Which target the pet gets sent at, picked in the UI dropdown next to the
+    -- toggle. '<bt>' fires off the battle target alone (the pet joins whatever
+    -- the party is already fighting, player need not be engaged); '<t>' only
+    -- fires while the player is engaged, so a passing cursor hover can't send
+    -- the pet at something nobody is fighting.
+    local use_bt = settings.pet_deploy_target == '<bt>'
+
+    local target
+    if use_bt then
+        local ok, bt = pcall(common.targets.get_bt)  -- ffi call, same pcall as common.is_combat
+        target = ok and bt or nil
+    else
+        if not common.is_engaged() then
+            return nil
+        end
+        target = common.targets.get_t()
+    end
     if not target or (target.HPPercent or 0) <= 0 then
         return nil
     end
@@ -186,7 +201,13 @@ function pet.execute_deploy(settings, job_def, main_level, sub_level, player_res
         return nil
     end
 
-    return action_core.try_use(ability, job_def, settings, nil, ability.name)
+    local result = action_core.try_use(ability, job_def, settings, nil, ability.name)
+    -- Jobs store the command with <t>; retarget it here rather than carrying two
+    -- near-identical entries per job.
+    if result and use_bt then
+        result.command = result.command:gsub('<t>', '<bt>')
+    end
+    return result
 end
 
 return pet

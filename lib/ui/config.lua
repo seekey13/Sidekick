@@ -955,9 +955,15 @@ function ui_config.render(settings, job_def, callback)
             if is_open and is_enabled then
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
 
-                -- Labelled with the job's own ability name (Deploy / Assault / Fight)
+                -- Labelled with the job's own ability name (Deploy / Assault / Fight),
+                -- plus the target the pet gets sent at on the same row
                 if has_pet_deploy then
                     ui.checkbox(ctx, pet_deploy_list[1].name, 'pet_deploy_enabled', { settings.pet_deploy_enabled or false })
+                    imgui.SameLine()
+                    ui.combo(ctx, '##pet_deploy_target', 'pet_deploy_target',
+                        { settings.pet_deploy_target == '<bt>' and 1 or 0 },
+                        { '<t>', '<bt>' },
+                        function(i) return i == 1 and '<bt>' or '<t>' end, 70)
                 end
 
                 -- One checkbox plus three unlabelled slot dropdowns on the same row

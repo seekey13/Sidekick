@@ -116,6 +116,7 @@ return {
         pet_enabled = true,          -- "Pet" section master switch (Maneuver + Deploy)
         maneuver_enabled = true,
         pet_deploy_enabled = false,
+        pet_deploy_target = '<t>',   -- '<t>' (engaged only) or '<bt>'
     },
 
     -- Role Reversal swaps master/pet HP *percentages*, so heal_pet's pet-HP-only

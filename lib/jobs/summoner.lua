@@ -102,6 +102,7 @@ return {
         focus_threshold = 85,
         pet_enabled = true,          -- "Pet" section master switch
         pet_deploy_enabled = false,
+        pet_deploy_target = '<t>',   -- '<t>' (engaged only) or '<bt>'
     },
     
     -- Action priority order

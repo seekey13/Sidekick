@@ -460,13 +460,16 @@ MP and TP recovery. Monitors percentage thresholds. Uses `action_core.first_comm
 - **Send pet at target** (`pet.execute_deploy`): shared across three jobs — each job's
   `abilities.pet_deploy` list carries exactly one entry with the job-specific
   `name`/`recast_id`/`command` (PUP `Deploy` recast 207, SMN `Assault` recast 170, BST `Fight`
-  recast 100); the execute/tracking logic itself is entirely job-agnostic. Sends the pet at the
-  player's current battle target whenever it has no live target of its own. Opt-in
-  (`settings.pet_deploy_enabled`, off by default, under the `pet_enabled` section master) and
-  combat-only (`common.is_combat()`), unlike
-  maneuver upkeep. The player's target must also be a genuine mob (`SpawnFlags` 0x10 bit, the
-  same check `common.is_combat()` uses), not merely alive, so a targeted party member can't be
-  Deployed at.
+  recast 100); the execute/tracking logic itself is entirely job-agnostic. Sends the pet at a mob
+  whenever it has no live target of its own. Opt-in
+  (`settings.pet_deploy_enabled`, off by default, under the `pet_enabled` section master), unlike
+  maneuver upkeep. Which mob comes from `settings.pet_deploy_target`, the dropdown beside the
+  toggle: `'<t>'` (default) is the player's cursor target and additionally requires
+  `common.is_engaged()`; `'<bt>'` is the battle target and needs no engaged check. Jobs store
+  the command with `<t>`; `execute_deploy` rewrites the returned command to `<bt>` when that
+  mode is picked, so no job carries two entries. Either way the target must be a genuine mob
+  (`SpawnFlags` 0x10 bit, the same check `common.is_combat()` uses), not merely alive, so a
+  targeted party member can't be Deployed at.
 - **Tracking the pet's live target**: `pet_has_live_target()` reads the pet entity's own
   `TargetIndex` directly (the same field `refresh_game_state` uses to locate the pet's target
   for position tracking) and requires `HPPercent > 0` on the resolved entity before treating it
@@ -764,7 +767,7 @@ Ninjutsu is a special case worth knowing: in `spell_list.sql` the `mpCost` colum
   (`pet_enabled`, default on) holding two independent per-feature checkboxes, each shown only when
   the job has that ability: the send-pet-at-target toggle (`pet_deploy_enabled`), labelled with the
   job's own ability name (`abilities.pet_deploy[1].name` — Deploy / Assault / Fight, never a generic
-  feature label), and **Maneuver**
+  feature label) followed on the same row by a `<t>`/`<bt>` dropdown (`pet_deploy_target`), and **Maneuver**
   (`maneuver_enabled`) followed on the same row by three unlabelled slot dropdowns
   (`maneuver1_name`/`2`/`3`) showing element-only names via `short_name`. `pet_enabled` is a real
   master switch, not just a UI fold: both `pet.execute_maneuver` and `pet.execute_deploy` check it.
