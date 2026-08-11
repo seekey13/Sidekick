@@ -6,28 +6,21 @@
         maneuvers applied to the player (the automaton reads them off the
         player, same as retail), stacking duplicates when the same element is
         picked in more than one slot.
-      * Send pet at target (PUP Deploy / SMN Assault / BST Fight -- the feature has
-        no name of its own; the UI labels it with whichever ability the job has):
-        sends the pet at a mob
-        whenever it doesn't already have a live target of its own (read off the
-        pet entity's own TargetIndex). Which mob is a UI dropdown next to the
-        toggle (pet_control_target): '<t>' (default) uses the player's cursor
-        target and only fires while the player is engaged; '<bt>' uses the
-        battle target and needs no engaged check.
-        Opt-in (pet_control_enabled, off by default). Shared
-        across all three jobs so none of them duplicate that check; each job
-        supplies its own single-entry abilities.pet_control list
-        (name/recast_id/command differ per job; everything else here is
-        generic). execute_deploy() always reads job_def.abilities.pet_control[1]
-        -- if a player mains and subs two different pet-control jobs at once,
-        the main job's entry wins (e.g. BST/SMN with Carbuncle summoned would
-        still try Fight, not Assault).
+      * Send pet at target (PUP Deploy / SMN Assault / BST Fight -- the UI labels
+        it with whichever ability the job has): sends the pet at a mob whenever it
+        doesn't already have a live target of its own (read off the pet entity's
+        own TargetIndex). Which mob comes from pet_control_target: '<t>' (default)
+        is the player's cursor target and only fires while engaged; '<bt>' is the
+        battle target and needs no engaged check. Opt-in (pet_control_enabled, off
+        by default). Shared across all three jobs; each supplies its own
+        single-entry abilities.pet_control list (name/recast_id/command differ per
+        job). execute_deploy() always reads pet_control[1] -- with two pet-control
+        jobs main+sub, the main job's entry wins (BST/SMN with Carbuncle out still
+        tries Fight, not Assault).
 
-    Maneuver upkeep has no combat gate; send-pet-at-target does (engaged for
-    <t>, a live battle target for <bt>) -- that's a real behavioral difference
-    between the two, not an oversight.
-
-    Both sit under the UI's "Pet Control" section and its `pet_enabled` master switch.
+    Maneuver upkeep has no combat gate; send-pet-at-target does -- a real
+    behavioral difference, not an oversight. Both sit under the UI's "Pet Control"
+    section and its `pet_enabled` master switch.
 
     Spec: docs/superpowers/specs/2026-08-08-pup-maneuver-deploy-design.md
     Spec: docs/superpowers/specs/2026-08-08-pet-deploy-smn-bst-design.md
@@ -179,18 +172,13 @@ function pet.execute_deploy(settings, job_def, main_level, sub_level, player_res
     -- fires while the player is engaged, so a passing cursor hover can't send
     -- the pet at something nobody is fighting.
     local use_bt = settings.pet_control_target == '<bt>'
-
-    local target
-    if use_bt then
-        local ok, bt = pcall(common.targets.get_bt)  -- ffi call, same pcall as common.is_combat
-        target = ok and bt or nil
-    else
-        if not common.is_engaged() then
-            return nil
-        end
-        target = common.targets.get_t()
+    if not use_bt and not common.is_engaged() then
+        return nil
     end
-    if not target or (target.HPPercent or 0) <= 0 then
+
+    -- pcall: get_bt is a raw ffi call, same guard common.is_combat() uses.
+    local ok, target = pcall(use_bt and common.targets.get_bt or common.targets.get_t)
+    if not ok or not target or (target.HPPercent or 0) <= 0 then
         return nil
     end
 
@@ -207,17 +195,10 @@ function pet.execute_deploy(settings, job_def, main_level, sub_level, player_res
         return nil
     end
 
-    local result, reason = action_core.try_use(ability, job_def, settings, nil, ability.name)
-    if not result then
-        -- Every other bail above is a plain "not now"; this one is the ability
-        -- itself refusing (recast, Moving, resource) and is otherwise silent.
-        common.debugf('[DEPLOY] %s unavailable: %s', ability.name, tostring(reason))
-        return nil
-    end
-
     -- Jobs store the command with <t>; retarget it here rather than carrying two
     -- near-identical entries per job.
-    if use_bt then
+    local result = action_core.try_use(ability, job_def, settings, nil, ability.name)
+    if result and use_bt then
         result.command = result.command:gsub('<t>', '<bt>')
     end
     return result

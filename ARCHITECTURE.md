@@ -670,9 +670,6 @@ return {
                                     --   owns this JA ('nether_void' | 'diffusion' | 'embolden' |
                                     --   'enlightenment'). A UI key, never a magic colour.
     one_shadow_buff = 66,           -- NIN: buff id ignored/stripped by "Cast with 1 Shadow"
-    short_name      = 'Fire',       -- UI only: shown in place of `name` in selection dropdowns
-                                    --   (PUP maneuver slots show 'Fire', not 'Fire Maneuver');
-                                    --   settings still store the full `name`
     lucky           = 5,            -- COR roll only: total that grants the bonus effect
     unlucky         = 9,            -- COR roll only: worst non-Bust total. Both are read by
                                     --   roll_strategy.decide (see roll_strategy.lua)
@@ -771,7 +768,8 @@ Ninjutsu is a special case worth knowing: in `spell_list.sql` the `mpCost` colum
   job's own ability name (`abilities.pet_control[1].name` — Deploy / Assault / Fight, never a generic
   feature label) followed on the same row by a `<t>`/`<bt>` dropdown (`pet_control_target`), and **Maneuver**
   (`maneuver_enabled`) followed on the same row by three unlabelled slot dropdowns
-  (`maneuver1_name`/`2`/`3`) showing element-only names via `short_name`. `pet_enabled` is a real
+  (`maneuver1_name`/`2`/`3`) showing element-only names (`render_ability_dropdown` strips the
+  trailing `' Maneuver'` for display; settings store the full name). `pet_enabled` is a real
   master switch, not just a UI fold: both `pet.execute_maneuver` and `pet.execute_deploy` check it.
 - **Pet Debuff Removal section**: A collapsing checkbox header (`pet_debuff_removal_enabled`) shown only when the job has usable `pet_debuff_removal` abilities. Sets `ctx.show_pet_debuff_warning` while rendering its rows so `ability_checkbox` surfaces the *"Pet Tracked Removal is not totally reliable"* tooltip.
 - **Inline ammo count**: In the pet-heal, pet-debuff-removal, and buff sections, an ability with `requires_equipped_ammo` draws a `(<count>)` after its row via `common.count_equippable_items` — **green** when a matching item is worn (`is_ammo_equipped`), **red** when not. The buff section passes `render_ammo_count(ability, true)` so the count also names the currently equipped tier (NIN Sange shuriken). An ability with `requires_item` (NIN Ninjutsu tool) instead draws a `(<count>)` that is green when any tool is owned, red at zero.

@@ -11,8 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **New Pet Control section (PUP/SMN/BST)**: one section (`pet_enabled`, rendered right after
   **Auto Follow**) holding both pet features as independent checkboxes. **Maneuver**
   (`maneuver_enabled`, PUP main or subjob) is followed on the same row by three unlabelled
-  dropdowns — one per slot, listing the element alone (`Fire`, `Ice`, …, via a new UI-only
-  `short_name` ability field; settings still store the full `Fire Maneuver`) — and Sidekick
+  dropdowns — one per slot, listing the element alone (`Fire`, `Ice`, …; settings still store
+  the full `Fire Maneuver`) — and Sidekick
   keeps the picks applied, stacking duplicates if you choose the same element in more than one
   slot and holding off while **Overload** is up. Beside it, the send-pet-at-target toggle
   (`pet_control_enabled`, opt-in, off by default) is labeled with the job's *own* ability

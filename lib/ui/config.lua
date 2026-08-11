@@ -229,13 +229,16 @@ end
 -- `tooltip` is applied here rather than by the caller: the lucky-number text below
 -- would otherwise be the "last item" that item_tooltip attaches to. `width`
 -- defaults to 250 (roll dropdowns); pass a narrower value for tighter layouts
--- (e.g. 100 for maneuvers, which sit three to a row). An ability may carry a
--- `short_name`, shown in place of `name` in both the preview and the list (PUP
--- maneuvers show 'Fire', not 'Fire Maneuver'); the setting still stores `name`.
--- Pass a '##id' label for an unlabelled dropdown. `on_select`, if given, runs
--- before `on_change` on every pick, including 'None' -- rolls use it to reset
--- roll.lua's tracked totals; maneuvers, which allow picking the same element in
--- more than one slot, don't need it.
+-- (e.g. 100 for maneuvers, which sit three to a row). Pass a '##id' label for an
+-- unlabelled dropdown. `on_select`, if given, runs before `on_change` on every
+-- pick, including 'None' -- rolls use it to reset roll.lua's tracked totals;
+-- maneuvers, which allow picking the same element in more than one slot, don't
+-- need it. Display strips a trailing ' Maneuver' (short_label) so the three
+-- maneuver slots fit their row; settings still store the full name.
+local function short_label(name)
+    return (name:gsub(' Maneuver$', ''))
+end
+
 local function render_ability_dropdown(label, setting_key, available_abilities, settings, on_change, tooltip, width, on_select)
     local current = settings[setting_key]
 
@@ -244,7 +247,7 @@ local function render_ability_dropdown(label, setting_key, available_abilities, 
     local current_ability
     for _, ability in ipairs(available_abilities) do
         if ability.name == current then
-            current_display = ability.short_name or ability.name
+            current_display = short_label(ability.name)
             current_ability = ability
             break
         end
@@ -268,7 +271,7 @@ local function render_ability_dropdown(label, setting_key, available_abilities, 
 
         for _, ability in ipairs(available_abilities) do
             local is_selected = (ability.name == current)
-            if imgui.Selectable(ability.short_name or ability.name, is_selected) then
+            if imgui.Selectable(short_label(ability.name), is_selected) then
                 choose(ability.name)
             end
             if is_selected then
