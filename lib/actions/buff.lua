@@ -255,9 +255,13 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                 travel_only[#travel_only + 1] = ability
             end
         end
-        -- Only gate when this job actually has a travel buff to protect. A job with
-        -- none (Bard handed an Invisible by the party WHM) can't recast it anyway, so
-        -- suppressing its buffs would just stop it working until Invisible wore off.
+        -- Only gate when a travel buff is actually castable right now. Two cases this
+        -- covers: a job with none at all (Bard handed an Invisible by the party WHM)
+        -- can't recast it anyway, so suppressing its buffs would just stop it working
+        -- until Invisible wore off; and every travel buff is idle_only, so in COMBAT
+        -- they're already filtered out above and the gate lifts on its own -- NIN keeps
+        -- recasting Utsusemi and DNC its Sambas mid-fight, where the Tonko/Jig that set
+        -- buff 69 is about to break from attacking regardless.
         if #travel_only > 0 then
             available_abilities = travel_only
         end

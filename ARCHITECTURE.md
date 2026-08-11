@@ -643,9 +643,11 @@ return {
                                     --   must not delay the party's real buffs, and Sneak's higher value
                                     --   covers the whole party before Invisible starts.
                                     --   Do NOT set on a grouped tier -- breaks tier auto-select.
-    travel_buff     = false,        -- buff only: marks a travel buff (Sneak / Invisible). Three
+    travel_buff     = false,        -- buff only: marks a travel buff (WHM/SCH/RDM Sneak +
+                                    --   Invisible, NIN Monomi + Tonko, DNC Spectral Jig). Three
                                     --   behaviours in one flag, since none of them is ever wanted
-                                    --   without the others:
+                                    --   without the others. Self-only `<me>` casts (NIN/DNC) take
+                                    --   only (3) -- the other two need a target loop they don't have:
                                     --   1. targets P1-P5 before ME, so the party is covered before
                                     --      the caster (whose own Invisible must be the LAST cast of
                                     --      the run -- the next cast would break it).
@@ -656,7 +658,11 @@ return {
                                     --   3. while the player has Invisible (69) up, buff.lua casts
                                     --      travel buffs and NOTHING else -- any other cast breaks
                                     --      Invisible and costs a reapply. Heals, -na, wake and
-                                    --      revive are other modules and stay ungated.
+                                    --      revive are other modules and stay ungated. The gate
+                                    --      lifts whenever no travel buff is castable: a job that
+                                    --      has none, and every job in COMBAT (travel buffs are
+                                    --      idle_only), so NIN shadows and DNC Sambas are only ever
+                                    --      held while idle.
     group           = 'regen',      -- mutually exclusive group
     self_only       = false,
     main_job_only   = false,        -- hidden when job is subjob

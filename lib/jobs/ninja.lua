@@ -110,6 +110,13 @@ return {
                 requires_item = TONKO_TOOLS,
                 item_label = 'Shinobi-tabi',
                 idle_only = true,
+                -- Negative priority sinks the travel buffs below every default (0) buff,
+                -- so shadows and stances go up before Sidekick starts sneaking. Both
+                -- tonko tiers carry the SAME value on purpose: a uniform shift moves the
+                -- whole group and leaves its cost-desc tier auto-select intact. What
+                -- breaks auto-select is giving tiers of one group DIFFERENT priorities.
+                priority = -20,
+                travel_buff = true,
             },
             {
                 name = 'Tonko: Ichi',
@@ -122,6 +129,8 @@ return {
                 requires_item = TONKO_TOOLS,
                 item_label = 'Shinobi-tabi',
                 idle_only = true,
+                priority = -20,  -- same value as Tonko: Ni -- see the note there
+                travel_buff = true,
             },
 
             -- Monomi (Sneak). Ungrouped single tier. Idle only.
@@ -135,6 +144,10 @@ return {
                 requires_item = MONOMI_TOOLS,
                 item_label = 'Sanjaku-Tenugui',
                 idle_only = true,
+                -- Ahead of Tonko (-20) so Sneak lands before Invisible, still below
+                -- every default (0) buff.
+                priority = -10,
+                travel_buff = true,
             },
 
             -- Sange: JA that throws a shuriken, so it needs one EQUIPPED in the
