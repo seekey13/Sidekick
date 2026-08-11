@@ -938,8 +938,9 @@ function ui_config.render(settings, job_def, callback)
         end
 
         -- Pet Control: master `pet_enabled` header checkbox (same shape as every other
-        -- section) over two independent per-feature checkboxes -- Pet Deploy (PUP
-        -- Deploy / SMN Assault / BST Fight) and Puppetmaster maneuver upkeep. Sits by
+        -- section) over two independent per-feature checkboxes -- send pet at target
+        -- (labelled PUP Deploy / SMN Assault / BST Fight, the job's own ability name --
+        -- "Deploy" is never used as the feature's name) and maneuver upkeep. Sits by
         -- Auto Follow, the other section that moves something rather than supporting it.
         -- Gated on the ability lists being present and usable (same pattern as "Pet
         -- Debuff Removal" below), not on job_def.job_id -- that only ever reads the

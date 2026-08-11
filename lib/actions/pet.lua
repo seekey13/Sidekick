@@ -6,7 +6,9 @@
         maneuvers applied to the player (the automaton reads them off the
         player, same as retail), stacking duplicates when the same element is
         picked in more than one slot.
-      * Pet Deploy (PUP Deploy / SMN Assault / BST Fight): sends the pet at
+      * Send pet at target (PUP Deploy / SMN Assault / BST Fight -- the feature has
+        no name of its own; the UI labels it with whichever ability the job has):
+        sends the pet at
         the player's current battle target whenever it doesn't already have a
         live target of its own (read off the pet entity's own TargetIndex).
         Opt-in (pet_deploy_enabled, off by default) and combat-only. Shared
@@ -18,8 +20,10 @@
         the main job's entry wins (e.g. BST/SMN with Carbuncle summoned would
         still try Fight, not Assault).
 
-    Maneuver upkeep has no combat gate; Pet Deploy does -- that's a real
+    Maneuver upkeep has no combat gate; send-pet-at-target does -- that's a real
     behavioral difference between the two, not an oversight.
+
+    Both sit under the UI's "Pet Control" section and its `pet_enabled` master switch.
 
     Spec: docs/superpowers/specs/2026-08-08-pup-maneuver-deploy-design.md
     Spec: docs/superpowers/specs/2026-08-08-pet-deploy-smn-bst-design.md

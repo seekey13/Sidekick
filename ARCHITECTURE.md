@@ -457,7 +457,7 @@ MP and TP recovery. Monitors percentage thresholds. Uses `action_core.first_comm
   player) is the one gaining the gambit charge. Bails while resting, same as
   `buff.lua`/`geo.lua`. Has no combat gate. Gated on `settings.maneuver_enabled` **and** the
   section master `settings.pet_enabled`.
-- **Pet Deploy** (`pet.execute_deploy`): shared across three jobs — each job's
+- **Send pet at target** (`pet.execute_deploy`): shared across three jobs — each job's
   `abilities.pet_deploy` list carries exactly one entry with the job-specific
   `name`/`recast_id`/`command` (PUP `Deploy` recast 207, SMN `Assault` recast 170, BST `Fight`
   recast 100); the execute/tracking logic itself is entirely job-agnostic. Sends the pet at the
@@ -762,8 +762,9 @@ Ninjutsu is a special case worth knowing: in `spell_list.sql` the `mpCost` colum
 - **Pet Control section** (rendered right after Auto Follow, ahead of the job-specific sections —
   the two sections that move something rather than support it): a collapsing checkbox header
   (`pet_enabled`, default on) holding two independent per-feature checkboxes, each shown only when
-  the job has that ability: **Pet Deploy** (`pet_deploy_enabled`), labelled with the job's own ability name
-  (`abilities.pet_deploy[1].name` — Deploy / Assault / Fight), and **Maneuver**
+  the job has that ability: the send-pet-at-target toggle (`pet_deploy_enabled`), labelled with the
+  job's own ability name (`abilities.pet_deploy[1].name` — Deploy / Assault / Fight, never a generic
+  feature label), and **Maneuver**
   (`maneuver_enabled`) followed on the same row by three unlabelled slot dropdowns
   (`maneuver1_name`/`2`/`3`) showing element-only names via `short_name`. `pet_enabled` is a real
   master switch, not just a UI fold: both `pet.execute_maneuver` and `pet.execute_deploy` check it.

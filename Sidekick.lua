@@ -30,7 +30,7 @@ local afk = require('lib.core.afk')
 local heal_mod   = require('lib.actions.heal')
 local status_mod = require('lib.actions.status_removal')
 local roll_mod   = require('lib.actions.roll')  -- also reads roll totals off the 0x028 packet
-local pet_mod = require('lib.actions.pet')  -- PUP maneuver upkeep + PUP/SMN/BST pet deploy
+local pet_mod = require('lib.actions.pet')  -- Pet Control: PUP maneuver upkeep + PUP/SMN/BST send-pet-at-target
 
 local action_modules = {
     item           = require('lib.actions.item'),
