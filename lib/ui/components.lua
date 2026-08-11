@@ -1422,7 +1422,13 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group,
                 -- Damage-immune trusts (Moogle etc.) can't be supported, so lock the button.
                 local pm = common.game_state and common.game_state.party[party_index]
                 local is_excluded = pm and common.is_trust_excluded(pm.name, pm.server_id)
+                -- travel_buff abilities (Sneak/Invisible) skip every Trust in buff.lua, so
+                -- lock their Trust buttons rather than let one be switched on and silently
+                -- do nothing. Reads pm.is_trust, the same field the automation tests, so the
+                -- button can never disagree with what the tick loop will actually do.
+                local is_trust_travel = ability and ability.travel_buff and pm and pm.is_trust
                 local party_has_spell = has_spell and has_target_modifier and not is_excluded
+                    and not is_trust_travel
                 
                 if not party_has_spell then
                     imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_DISABLED)
@@ -1461,6 +1467,8 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group,
                     local pname = common.get_party_member_name(party_index) or ('P' .. party_index)
                     if is_excluded then
                         ui_components.set_tooltip(pname .. '\nTrust cannot take any damage')
+                    elseif is_trust_travel then
+                        ui_components.set_tooltip(pname .. '\nTrusts do not need Sneak or Invisible')
                     elseif ctx.is_trust and ctx.is_trust(party_index) and ctx.show_trust_warning then
                         ui_components.set_tooltip(pname .. '\nTrust/Tracked Removal is not totally reliable')
                     elseif ctx.is_trust and ctx.is_trust(party_index) and ctx.show_buff_warning then
