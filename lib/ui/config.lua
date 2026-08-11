@@ -1124,19 +1124,20 @@ function ui_config.render(settings, job_def, callback)
             end
         end
 
-        -- Pet section: Pet Deploy (PUP Deploy / SMN Assault / BST Fight) and
-        -- Puppetmaster maneuver upkeep, each its own checkbox -- the two are
-        -- independent, so the header carries no section-wide toggle. Gated on the
-        -- ability lists being present and usable (same pattern as "Pet Debuff
-        -- Removal" above), not on job_def.job_id -- that only ever reads the *main*
-        -- job's id and would hide maneuvers for a subjob PUP, which is supported.
+        -- Pet section: master `pet_enabled` header checkbox (same shape as every
+        -- other section) over two independent per-feature checkboxes -- Pet Deploy
+        -- (PUP Deploy / SMN Assault / BST Fight) and Puppetmaster maneuver upkeep.
+        -- Gated on the ability lists being present and usable (same pattern as "Pet
+        -- Debuff Removal" above), not on job_def.job_id -- that only ever reads the
+        -- *main* job's id and would hide maneuvers for a subjob PUP, which is supported.
         local pet_deploy_list = job_def and job_def.abilities.pet_deploy
         local maneuver_list = job_def and job_def.abilities.maneuver
         local has_pet_deploy = pet_deploy_list and has_usable_abilities(pet_deploy_list)
         local has_maneuver = maneuver_list and has_usable_abilities(maneuver_list)
 
         if has_pet_deploy or has_maneuver then
-            if ui.collapsing_header('Pet') then
+            local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Pet', 'pet_enabled', true)
+            if is_open and is_enabled then
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
 
                 -- Labelled with the job's own ability name (Deploy / Assault / Fight)

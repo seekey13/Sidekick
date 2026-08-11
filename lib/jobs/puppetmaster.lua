@@ -113,6 +113,7 @@ return {
         heal_pet_enabled = true,
         heal_pet_threshold = 50,
         pet_debuff_removal_enabled = true,
+        pet_enabled = true,          -- "Pet" section master switch (Maneuver + Deploy)
         maneuver_enabled = true,
         pet_deploy_enabled = false,
     },

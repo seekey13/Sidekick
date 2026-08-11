@@ -2182,18 +2182,6 @@ function ui_components.collapsing_checkbox_header(ctx, label, setting_name, defa
     return is_open, setting_var[1]
 end
 
--- Same styled collapsing header, minus the checkbox -- for a section whose body
--- carries its own per-feature toggles instead of one section-wide boolean
--- (e.g. 'Pet': Deploy and Maneuver are independent).
-function ui_components.collapsing_header(label)
-    imgui.PushStyleColor(ImGuiCol_Header, HEADER_COLOR_NORMAL)
-    imgui.PushStyleColor(ImGuiCol_HeaderHovered, HEADER_COLOR_HOVERED)
-    imgui.PushStyleColor(ImGuiCol_HeaderActive, HEADER_COLOR_ACTIVE)
-    local is_open = imgui.CollapsingHeader(label, ImGuiTreeNodeFlags_DefaultOpen)
-    imgui.PopStyleColor(3)
-    return is_open
-end
-
 -- Create an integer slider UI element linked to a setting
 function ui_components.slider_int(ctx, label, setting_name, ui_var, min, max, width)
     width = width or SLIDER_WIDTH

@@ -58,7 +58,8 @@ end
 -- ============================================================================
 
 function pet.execute_maneuver(settings, job_def, main_level, sub_level, player_resource)
-    if not settings.maneuver_enabled then
+    -- pet_enabled is the UI's "Pet" section master switch, over both features here
+    if not settings.pet_enabled or not settings.maneuver_enabled then
         return nil
     end
 
@@ -141,7 +142,7 @@ local function pet_has_live_target(pet_entity)
 end
 
 function pet.execute_deploy(settings, job_def, main_level, sub_level, player_resource)
-    if not settings.pet_deploy_enabled then
+    if not settings.pet_enabled or not settings.pet_deploy_enabled then
         return nil
     end
 

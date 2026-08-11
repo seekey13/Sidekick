@@ -124,6 +124,7 @@ return {
         heal_aoe_enabled = true,
         heal_aoe_threshold = 70,
         pet_debuff_removal_enabled = true,
+        pet_enabled = true,          -- "Pet" section master switch
         pet_deploy_enabled = false,
     },
 

@@ -100,6 +100,7 @@ return {
         buff_enabled = true,
         focus_enabled = false,
         focus_threshold = 85,
+        pet_enabled = true,          -- "Pet" section master switch
         pet_deploy_enabled = false,
     },
     
