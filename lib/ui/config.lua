@@ -229,7 +229,10 @@ end
 -- `tooltip` is applied here rather than by the caller: the lucky-number text below
 -- would otherwise be the "last item" that item_tooltip attaches to. `width`
 -- defaults to 250 (roll dropdowns); pass a narrower value for tighter layouts
--- (e.g. 140 for maneuvers, which sit three to a row). `on_select`, if given, runs
+-- (e.g. 100 for maneuvers, which sit three to a row). An ability may carry a
+-- `short_name`, shown in place of `name` in both the preview and the list (PUP
+-- maneuvers show 'Fire', not 'Fire Maneuver'); the setting still stores `name`.
+-- Pass a '##id' label for an unlabelled dropdown. `on_select`, if given, runs
 -- before `on_change` on every pick, including 'None' -- rolls use it to reset
 -- roll.lua's tracked totals; maneuvers, which allow picking the same element in
 -- more than one slot, don't need it.
@@ -241,7 +244,7 @@ local function render_ability_dropdown(label, setting_key, available_abilities, 
     local current_ability
     for _, ability in ipairs(available_abilities) do
         if ability.name == current then
-            current_display = ability.name
+            current_display = ability.short_name or ability.name
             current_ability = ability
             break
         end
@@ -265,7 +268,7 @@ local function render_ability_dropdown(label, setting_key, available_abilities, 
 
         for _, ability in ipairs(available_abilities) do
             local is_selected = (ability.name == current)
-            if imgui.Selectable(ability.name, is_selected) then
+            if imgui.Selectable(ability.short_name or ability.name, is_selected) then
                 choose(ability.name)
             end
             if is_selected then
@@ -1121,42 +1124,46 @@ function ui_config.render(settings, job_def, callback)
             end
         end
 
-        -- Puppetmaster maneuver upkeep. Gated on the ability list being present and
-        -- usable (same pattern as "Pet Debuff Removal" above), not on job_def.job_id
-        -- -- that only ever reads the *main* job's id and would hide this for a
-        -- subjob PUP, which is supported here. Automaton Deploy is its own
-        -- standalone "Pet Deploy" section below, shared with SMN/BST.
-        if job_def and job_def.abilities.maneuver and has_usable_abilities(job_def.abilities.maneuver) then
-            local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Pet', 'maneuver_enabled', true)
-            if is_open and is_enabled then
+        -- Pet section: Pet Deploy (PUP Deploy / SMN Assault / BST Fight) and
+        -- Puppetmaster maneuver upkeep, each its own checkbox -- the two are
+        -- independent, so the header carries no section-wide toggle. Gated on the
+        -- ability lists being present and usable (same pattern as "Pet Debuff
+        -- Removal" above), not on job_def.job_id -- that only ever reads the *main*
+        -- job's id and would hide maneuvers for a subjob PUP, which is supported.
+        local pet_deploy_list = job_def and job_def.abilities.pet_deploy
+        local maneuver_list = job_def and job_def.abilities.maneuver
+        local has_pet_deploy = pet_deploy_list and has_usable_abilities(pet_deploy_list)
+        local has_maneuver = maneuver_list and has_usable_abilities(maneuver_list)
+
+        if has_pet_deploy or has_maneuver then
+            if ui.collapsing_header('Pet') then
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
 
-                local available_maneuvers = {}
-                for _, ability in ipairs(job_def.abilities.maneuver) do
-                    if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
-                        table.insert(available_maneuvers, ability)
-                    end
+                -- Labelled with the job's own ability name (Deploy / Assault / Fight)
+                if has_pet_deploy then
+                    ui.checkbox(ctx, pet_deploy_list[1].name, 'pet_deploy_enabled', { settings.pet_deploy_enabled or false })
                 end
 
-                render_ability_dropdown('Maneuver 1', 'maneuver1_name', available_maneuvers, settings, callback, nil, 140)
-                imgui.SameLine()
-                render_ability_dropdown('Maneuver 2', 'maneuver2_name', available_maneuvers, settings, callback, nil, 140)
-                imgui.SameLine()
-                render_ability_dropdown('Maneuver 3', 'maneuver3_name', available_maneuvers, settings, callback, nil, 140)
+                -- One checkbox plus three unlabelled slot dropdowns on the same row
+                if has_maneuver then
+                    local available_maneuvers = {}
+                    for _, ability in ipairs(maneuver_list) do
+                        if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
+                            table.insert(available_maneuvers, ability)
+                        end
+                    end
+
+                    ui.checkbox(ctx, 'Maneuver', 'maneuver_enabled', { settings.maneuver_enabled ~= false })
+                    imgui.SameLine()
+                    render_ability_dropdown('##maneuver1', 'maneuver1_name', available_maneuvers, settings, callback, nil, 100)
+                    imgui.SameLine()
+                    render_ability_dropdown('##maneuver2', 'maneuver2_name', available_maneuvers, settings, callback, nil, 100)
+                    imgui.SameLine()
+                    render_ability_dropdown('##maneuver3', 'maneuver3_name', available_maneuvers, settings, callback, nil, 100)
+                end
 
                 imgui.Unindent(ui.ABILITY_LIST_INDENT)
             end
-        end
-
-        -- Pet Deploy: send the pet at the player's current target when it has none
-        -- of its own. Shared standalone section for every job with a pet_deploy
-        -- ability (PUP Deploy, SMN Assault, BST Fight) -- single boolean, no body
-        -- content needed (unlike "Auto Follow" above, which has a target dropdown
-        -- and distance slider under its header). Deliberately independent of
-        -- maneuver_enabled -- previously PUP's Deploy required both to be on,
-        -- which was a pointless coupling once Deploy has its own toggle.
-        if job_def and job_def.abilities.pet_deploy and has_usable_abilities(job_def.abilities.pet_deploy) then
-            ui.collapsing_checkbox_header(ctx, 'Pet Deploy', 'pet_deploy_enabled', false)
         end
 
         -- Item-based status removal (consumables) -- hidden until inventory loads

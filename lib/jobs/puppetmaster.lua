@@ -76,22 +76,24 @@ return {
         -- No main_job_only: this server allows a subjob-PUP automaton, so maneuver
         -- upkeep works either way -- the real gate is an automaton actually being
         -- out (checked in pet.execute_maneuver via common.targets.get_pet()).
+        -- short_name is the element alone, shown in the UI's three maneuver slot
+        -- dropdowns; settings still store the full `name`.
         maneuver = {
-            { name = 'Fire Maneuver', level = 1, cost = 0, recast_id = 210, buff_id = 300,
+            { name = 'Fire Maneuver', short_name = 'Fire', level = 1, cost = 0, recast_id = 210, buff_id = 300,
               blocked_by = 299, pet_required = true, command = '/pet "Fire Maneuver" <me>' },
-            { name = 'Ice Maneuver', level = 1, cost = 0, recast_id = 210, buff_id = 301,
+            { name = 'Ice Maneuver', short_name = 'Ice', level = 1, cost = 0, recast_id = 210, buff_id = 301,
               blocked_by = 299, pet_required = true, command = '/pet "Ice Maneuver" <me>' },
-            { name = 'Wind Maneuver', level = 1, cost = 0, recast_id = 210, buff_id = 302,
+            { name = 'Wind Maneuver', short_name = 'Wind', level = 1, cost = 0, recast_id = 210, buff_id = 302,
               blocked_by = 299, pet_required = true, command = '/pet "Wind Maneuver" <me>' },
-            { name = 'Earth Maneuver', level = 1, cost = 0, recast_id = 210, buff_id = 303,
+            { name = 'Earth Maneuver', short_name = 'Earth', level = 1, cost = 0, recast_id = 210, buff_id = 303,
               blocked_by = 299, pet_required = true, command = '/pet "Earth Maneuver" <me>' },
-            { name = 'Thunder Maneuver', level = 1, cost = 0, recast_id = 210, buff_id = 304,
+            { name = 'Thunder Maneuver', short_name = 'Thunder', level = 1, cost = 0, recast_id = 210, buff_id = 304,
               blocked_by = 299, pet_required = true, command = '/pet "Thunder Maneuver" <me>' },
-            { name = 'Water Maneuver', level = 1, cost = 0, recast_id = 210, buff_id = 305,
+            { name = 'Water Maneuver', short_name = 'Water', level = 1, cost = 0, recast_id = 210, buff_id = 305,
               blocked_by = 299, pet_required = true, command = '/pet "Water Maneuver" <me>' },
-            { name = 'Light Maneuver', level = 1, cost = 0, recast_id = 210, buff_id = 306,
+            { name = 'Light Maneuver', short_name = 'Light', level = 1, cost = 0, recast_id = 210, buff_id = 306,
               blocked_by = 299, pet_required = true, command = '/pet "Light Maneuver" <me>' },
-            { name = 'Dark Maneuver', level = 1, cost = 0, recast_id = 210, buff_id = 307,
+            { name = 'Dark Maneuver', short_name = 'Dark', level = 1, cost = 0, recast_id = 210, buff_id = 307,
               blocked_by = 299, pet_required = true, command = '/pet "Dark Maneuver" <me>' },
         },
 

@@ -663,6 +663,9 @@ return {
                                     --   owns this JA ('nether_void' | 'diffusion' | 'embolden' |
                                     --   'enlightenment'). A UI key, never a magic colour.
     one_shadow_buff = 66,           -- NIN: buff id ignored/stripped by "Cast with 1 Shadow"
+    short_name      = 'Fire',       -- UI only: shown in place of `name` in selection dropdowns
+                                    --   (PUP maneuver slots show 'Fire', not 'Fire Maneuver');
+                                    --   settings still store the full `name`
     lucky           = 5,            -- COR roll only: total that grants the bonus effect
     unlucky         = 9,            -- COR roll only: worst non-Bust total. Both are read by
                                     --   roll_strategy.decide (see roll_strategy.lua)
@@ -754,6 +757,11 @@ Ninjutsu is a special case worth knowing: in `spell_list.sql` the `mpCost` colum
 - **DRY helpers**:
   - `render_party_dropdown(label, key, include_player, names, settings, cb, include_tracked)` – reusable for Focus/Follow/Recovery/Entrust Target dropdowns; `include_tracked` (Follow Target only) appends session tracked-target names, skipping any already listed as a party member.
   - `has_usable_abilities(abilities)` – quick check for any level-appropriate abilities.
+- **Pet section**: A plain `collapsing_header` (no section-wide toggle) holding two independent
+  checkboxes, each shown only when the job has that ability: **Pet Deploy**, labelled with the
+  job's own ability name (`abilities.pet_deploy[1].name` — Deploy / Assault / Fight), and
+  **Maneuver** (`maneuver_enabled`) followed on the same row by three unlabelled slot dropdowns
+  (`maneuver1_name`/`2`/`3`) showing element-only names via `short_name`.
 - **Pet Debuff Removal section**: A collapsing checkbox header (`pet_debuff_removal_enabled`) shown only when the job has usable `pet_debuff_removal` abilities. Sets `ctx.show_pet_debuff_warning` while rendering its rows so `ability_checkbox` surfaces the *"Pet Tracked Removal is not totally reliable"* tooltip.
 - **Inline ammo count**: In the pet-heal, pet-debuff-removal, and buff sections, an ability with `requires_equipped_ammo` draws a `(<count>)` after its row via `common.count_equippable_items` — **green** when a matching item is worn (`is_ammo_equipped`), **red** when not. The buff section passes `render_ammo_count(ability, true)` so the count also names the currently equipped tier (NIN Sange shuriken). An ability with `requires_item` (NIN Ninjutsu tool) instead draws a `(<count>)` that is green when any tool is owned, red at zero.
 - **Settings profiles** (`profile_ops`): named per-combo snapshots stored in `settings.profiles[combo][name]` (combo from `common.get_job_combo()`, e.g. `'WHM/BLM'`), applied **in place** over live settings with container/run-state/focus/follow keys excluded (`PROFILE_EXCLUDED_KEYS`) and missing keys backfilled from `job_def.merged_defaults`. Loading a named profile while on Default parks the auto-saving working copy under the reserved `'__default'` key (`DEFAULT_SLOT`); selecting **Default** in the list restores it (`load_default`), and deleting the active profile restores it the same way. Loading also clears the session-only mirrors (`party_buffs`, entrust, focus-recovery) so UI and automation re-seed from the loaded values. Spec: `docs/superpowers/specs/2026-07-22-settings-profiles-design.md`.
@@ -805,7 +813,9 @@ RUN/SCH in Light Arts is therefore the sole two-column case (`embolden_needs_own
 `is_song_config_key()` recognizes both grouped (group name) and ungrouped (ability name) song config keys so the per-member song limit counts them together. `is_persisted_target_key()` gates which party-buff keys persist to disk — numeric ME/P1-P5 (0-5) and the area key `'A'` persist; `al_`/`tt_` keys are session-only.
 
 **UI creators** (settings-bound):
-`checkbox`, `collapsing_checkbox_header`, `slider_int`, `combo`.
+`checkbox`, `collapsing_checkbox_header`, `collapsing_header` (same styled header minus the
+checkbox, for a section whose body holds its own independent toggles — e.g. **Pet**), `slider_int`,
+`combo`.
 
 **Context object**:
 ```lua
