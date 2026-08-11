@@ -638,7 +638,19 @@ return {
                                     --   (Composure first so later self-buffs inherit its bonus). Unset = 0.
                                     --   filter_abilities_by_level sorts priority desc, then cost desc.
                                     --   Applies to any type routed through it (buff, heal, heal_pet...).
+                                    --   May be NEGATIVE to sort an ability below every unprioritised
+                                    --   (0) one -- Sneak (-10) / Invisible (-20) are travel buffs that
+                                    --   must not delay the party's real buffs, and Sneak's higher value
+                                    --   covers the whole party before Invisible starts.
                                     --   Do NOT set on a grouped tier -- breaks tier auto-select.
+    self_last       = false,        -- buff only: check party targets P1-P5 before ME instead of ME first
+                                    --   (Sneak/Invisible protect the party ahead of the caster).
+                                    --   Reorders buff.lua's single-target pass only.
+    skip_trusts     = false,        -- buff only: never cast on a Trust/NPC (is_trust, i.e.
+                                    --   server_id >= 0x1000000) in the party or in an alliance
+                                    --   sub-party. Trusts don't need Sneak/Invisible, so a cast on one
+                                    --   is wasted MP and a wasted tick. Manually added tracked targets
+                                    --   are NOT filtered -- the user picked those deliberately.
     group           = 'regen',      -- mutually exclusive group
     self_only       = false,
     main_job_only   = false,        -- hidden when job is subjob

@@ -422,8 +422,14 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                 end
                 
                 -- Priority order: ME, P1, P2, P3, P4, P5
+                -- self_last flips it to P1-P5 then ME: travel buffs (Sneak/Invisible)
+                -- exist to protect the party, so the party is covered before the caster
+                -- (who is standing still casting them and can re-do their own last).
                 local targets_to_check = {0, 1, 2, 3, 4, 5}  -- 0 = ME, 1-5 = P1-P5
-                
+                if ability.self_last then
+                    targets_to_check = {1, 2, 3, 4, 5, 0}    -- ME last
+                end
+
                 for _, target_index in ipairs(targets_to_check) do
                     -- Check if this target is enabled in party_buff_config
                     local is_target_enabled = false
@@ -451,6 +457,12 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                             -- Zone check stays as live call (zone not stored in game_state)
                             local party_member = state.party[target_index]
                             if party_member and common.is_trust_excluded(party_member.name, party_member.server_id) then
+                                goto continue_target
+                            end
+                            -- skip_trusts: Sneak/Invisible on a Trust is wasted MP and a wasted
+                            -- tick -- Trusts don't take the aggro these prevent, and they're
+                            -- despawned/re-summoned freely (is_trust = server_id >= 0x1000000).
+                            if party_member and party_member.is_trust and ability.skip_trusts then
                                 goto continue_target
                             end
                             if party_member then
@@ -536,7 +548,11 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                                 local is_al_enabled = party_buff_config and party_buff_config[config_key] and party_buff_config[config_key][al_key] == true
                                 if is_al_enabled then
                                     local m = sub_party[local_idx]
-                                    if m and m.is_active and m.target_index and m.target_index > 0 and common.is_in_range(m.target_index, 20) then
+                                    -- Same skip_trusts guard as the party loop above -- other
+                                    -- players' Trusts show up in the alliance sub-parties, and
+                                    -- Sneak/Invisible on them is wasted MP and a wasted tick.
+                                    local skip_trust = ability.skip_trusts and m and m.is_trust
+                                    if m and not skip_trust and m.is_active and m.target_index and m.target_index > 0 and common.is_in_range(m.target_index, 20) then
                                         local al_buffs = m.buffs or {}
                                         local al_needs_buff = action_core.needs_buff(al_buffs, ability.buff_id)
                                         if al_needs_buff then

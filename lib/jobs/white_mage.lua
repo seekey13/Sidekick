@@ -843,6 +843,12 @@ return {
                 end,
                 buff_id = 69,
                 idle_only = true,
+                -- Negative priority sinks travel buffs below every default (0) buff, so the
+                -- party's real buffs go up first; Invisible (-20) sorts after Sneak (-10),
+                -- so Sneak lands on the whole party before Invisible starts.
+                priority = -20,
+                self_last = true,   -- party before the caster
+                skip_trusts = true, -- Trusts don't need it
             },
             {
                 name = 'Sneak',
@@ -856,6 +862,11 @@ return {
                 end,
                 buff_id = 71,
                 idle_only = true,
+                -- Below every default (0) buff, but ahead of Invisible (-20): the whole
+                -- party gets Sneak before Invisible starts.
+                priority = -10,
+                self_last = true,   -- party before the caster
+                skip_trusts = true, -- Trusts don't need it
             },
             {
                 name = 'Deodorize',
