@@ -107,7 +107,7 @@ lib/
 │  master_priority (Sidekick.lua) order:        │
 │  item → recover → critical → heal_aoe → heal  │
 │  → debuff_removal → heal_pet →                │
-│  pet_debuff_removal → pet_deploy → wake →     │
+│  pet_debuff_removal → pet_control → wake →     │
 │  geo → maneuver → roll → buff → revive →      │
 │  follow → rest                                │
 └──────────┬────────────────────────────────────┘
@@ -455,20 +455,27 @@ MP and TP recovery. Monitors percentage thresholds. Uses `action_core.first_comm
   (`recast_id = 210`) and are dropped by `filter_self_buff_blocked` while Overload (299) is up.
   Cast via `/pet "<name> Maneuver" <me>`, not `/ja` — deliberate, since the automaton (not the
   player) is the one gaining the gambit charge. Bails while resting, same as
-  `buff.lua`/`geo.lua`. Has no combat gate.
-- **Pet Deploy** (`pet.execute_deploy`): shared across three jobs — each job's
-  `abilities.pet_deploy` list carries exactly one entry with the job-specific
+  `buff.lua`/`geo.lua`. Has no combat gate. Gated on `settings.maneuver_enabled` **and** the
+  section master `settings.pet_enabled`.
+- **Send pet at target** (`pet.execute_deploy`): shared across three jobs — each job's
+  `abilities.pet_control` list carries exactly one entry with the job-specific
   `name`/`recast_id`/`command` (PUP `Deploy` recast 207, SMN `Assault` recast 170, BST `Fight`
-  recast 100); the execute/tracking logic itself is entirely job-agnostic. Sends the pet at the
-  player's current battle target whenever it has no live target of its own. Opt-in
-  (`settings.pet_deploy_enabled`, off by default) and combat-only (`common.is_combat()`), unlike
-  maneuver upkeep. The player's target must also be a genuine mob (`SpawnFlags` 0x10 bit, the
-  same check `common.is_combat()` uses), not merely alive, so a targeted party member can't be
-  Deployed at.
+  recast 100); the execute/tracking logic itself is entirely job-agnostic. Sends the pet at a mob
+  whenever it has no live target of its own. Opt-in
+  (`settings.pet_control_enabled`, off by default, under the `pet_enabled` section master), unlike
+  maneuver upkeep. Which mob comes from `settings.pet_control_target`, the dropdown beside the
+  toggle: `'<t>'` (default) is the player's cursor target and additionally requires
+  `common.is_engaged()`; `'<bt>'` is the battle target and needs no engaged check. Jobs store
+  the command with `<t>`; `execute_deploy` rewrites the returned command to `<bt>` when that
+  mode is picked, so no job carries two entries. Either way the target must be a genuine mob
+  (`SpawnFlags` 0x10 bit, the same check `common.is_combat()` uses), not merely alive, so a
+  targeted party member can't be Deployed at.
 - **Tracking the pet's live target**: `pet_has_live_target()` reads the pet entity's own
   `TargetIndex` directly (the same field `refresh_game_state` uses to locate the pet's target
-  for position tracking) and requires `HPPercent > 0` on the resolved entity before treating it
-  as still engaged. No packet parsing involved.
+  for position tracking) and requires both `HPPercent > 0` **and** `SpawnFlags` 0x10 (a mob) on
+  the resolved entity before treating it as still engaged. The mob half is load-bearing: an idle
+  pet's `TargetIndex` points at its own master, who is alive, so an HP%-only test reads "already
+  busy" permanently and deploy never fires. No packet parsing involved.
 
 ### roll.lua – Corsair Phantom Roll / Double-Up
 
@@ -577,7 +584,7 @@ return {
         debuff_removal     = { ... },
         pet_debuff_removal = { ... },  -- strip pet status ailments (BST/PUP)
         maneuver           = { ... },  -- PUP elemental Maneuver upkeep (stacks duplicates)
-        pet_deploy         = { ... },  -- Send pet at target: PUP/SMN/BST (opt-in, combat-only)
+        pet_control        = { ... },  -- Send pet at target: PUP/SMN/BST (opt-in; `<t>` needs engaged, `<bt>` doesn't)
         wake               = { ... },
         recover_mp         = { ... },
         recover_tp         = { ... },
@@ -754,6 +761,16 @@ Ninjutsu is a special case worth knowing: in `spell_list.sql` the `mpCost` colum
 - **DRY helpers**:
   - `render_party_dropdown(label, key, include_player, names, settings, cb, include_tracked)` – reusable for Focus/Follow/Recovery/Entrust Target dropdowns; `include_tracked` (Follow Target only) appends session tracked-target names, skipping any already listed as a party member.
   - `has_usable_abilities(abilities)` – quick check for any level-appropriate abilities.
+- **Pet Control section** (rendered right after Auto Follow, ahead of the job-specific sections —
+  the two sections that move something rather than support it): a collapsing checkbox header
+  (`pet_enabled`, default on) holding two independent per-feature checkboxes, each shown only when
+  the job has that ability: the send-pet-at-target toggle (`pet_control_enabled`), labelled with the
+  job's own ability name (`abilities.pet_control[1].name` — Deploy / Assault / Fight, never a generic
+  feature label) followed on the same row by a `<t>`/`<bt>` dropdown (`pet_control_target`), and **Maneuver**
+  (`maneuver_enabled`) followed on the same row by three unlabelled slot dropdowns
+  (`maneuver1_name`/`2`/`3`) showing element-only names (`render_ability_dropdown` strips the
+  trailing `' Maneuver'` for display; settings store the full name). `pet_enabled` is a real
+  master switch, not just a UI fold: both `pet.execute_maneuver` and `pet.execute_deploy` check it.
 - **Pet Debuff Removal section**: A collapsing checkbox header (`pet_debuff_removal_enabled`) shown only when the job has usable `pet_debuff_removal` abilities. Sets `ctx.show_pet_debuff_warning` while rendering its rows so `ability_checkbox` surfaces the *"Pet Tracked Removal is not totally reliable"* tooltip.
 - **Inline ammo count**: In the pet-heal, pet-debuff-removal, and buff sections, an ability with `requires_equipped_ammo` draws a `(<count>)` after its row via `common.count_equippable_items` — **green** when a matching item is worn (`is_ammo_equipped`), **red** when not. The buff section passes `render_ammo_count(ability, true)` so the count also names the currently equipped tier (NIN Sange shuriken). An ability with `requires_item` (NIN Ninjutsu tool) instead draws a `(<count>)` that is green when any tool is owned, red at zero.
 - **Settings profiles** (`profile_ops`): named per-combo snapshots stored in `settings.profiles[combo][name]` (combo from `common.get_job_combo()`, e.g. `'WHM/BLM'`), applied **in place** over live settings with container/run-state/focus/follow keys excluded (`PROFILE_EXCLUDED_KEYS`) and missing keys backfilled from `job_def.merged_defaults`. Loading a named profile while on Default parks the auto-saving working copy under the reserved `'__default'` key (`DEFAULT_SLOT`); selecting **Default** in the list restores it (`load_default`), and deleting the active profile restores it the same way. Loading also clears the session-only mirrors (`party_buffs`, entrust, focus-recovery) so UI and automation re-seed from the loaded values. Spec: `docs/superpowers/specs/2026-07-22-settings-profiles-design.md`.
