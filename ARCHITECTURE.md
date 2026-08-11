@@ -584,7 +584,7 @@ return {
         debuff_removal     = { ... },
         pet_debuff_removal = { ... },  -- strip pet status ailments (BST/PUP)
         maneuver           = { ... },  -- PUP elemental Maneuver upkeep (stacks duplicates)
-        pet_control         = { ... },  -- Send pet at target: PUP/SMN/BST (opt-in, combat-only)
+        pet_control        = { ... },  -- Send pet at target: PUP/SMN/BST (opt-in; `<t>` needs engaged, `<bt>` doesn't)
         wake               = { ... },
         recover_mp         = { ... },
         recover_tp         = { ... },

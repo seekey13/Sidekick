@@ -14,10 +14,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   dropdowns — one per slot, listing the element alone (`Fire`, `Ice`, …, via a new UI-only
   `short_name` ability field; settings still store the full `Fire Maneuver`) — and Sidekick
   keeps the picks applied, stacking duplicates if you choose the same element in more than one
-  slot and holding off while **Overload** is up. Beside it, the "send pet at current target"
-  toggle (`pet_control_enabled`, opt-in, combat-only) is labeled with the job's *own* ability
+  slot and holding off while **Overload** is up. Beside it, the send-pet-at-target toggle
+  (`pet_control_enabled`, opt-in, off by default) is labeled with the job's *own* ability
   rather than a generic feature name — **Deploy** on PUP, **Assault** on SMN, **Fight** on BST —
-  and is independent of Maneuver (PUP's used to be coupled to it). `pet_enabled` is a real master
+  and is independent of Maneuver (PUP's used to be coupled to it). It fires only while the pet has
+  no live target of its own, read off the pet entity's own `TargetIndex` and requiring the resolved
+  entity be a live **mob** (`SpawnFlags` 0x10) — the mob half is load-bearing, since an idle pet's
+  `TargetIndex` points at its master, so an HP%-only test reads "already busy" forever. A `<t>`/`<bt>`
+  dropdown on the same row (`pet_control_target`, default `<t>`) picks which mob: `<t>` is the
+  player's own cursor target and additionally requires being engaged, so a passing hover can't send
+  the pet at something nobody is fighting; `<bt>` is the battle target and needs no engaged check, so
+  the pet joins whatever the party is already on. Jobs store their command with `<t>` and
+  `execute_deploy` rewrites it to `<bt>` when that mode is picked, rather than each job carrying two
+  near-identical entries; either mode also requires the target itself be a live mob, so a targeted
+  party member can't be Deployed at. `pet_enabled` is a real master
   switch, not just a UI fold: both `pet.execute_maneuver` and `pet.execute_deploy` check it. Both
   features live together in `lib/actions/pet.lua`, since the pet-target tracking (reading the pet
   entity's own `TargetIndex`) is infrastructure all three jobs share.
