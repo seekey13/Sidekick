@@ -80,11 +80,11 @@ return {
         },
 
         -- Send the avatar at the player's current target when it has none of its
-        -- own. Opt-in (pet_deploy_enabled, off by default); the <t> below is the
+        -- own. Opt-in (pet_control_enabled, off by default); the <t> below is the
         -- default target, rewritten to <bt> by pet.execute_deploy when
-        -- pet_deploy_target says so. Shared logic with BST/PUP in pet.lua. No requires_pet_name -- Assault
+        -- pet_control_target says so. Shared logic with BST/PUP in pet.lua. No requires_pet_name -- Assault
         -- works with any avatar, same as Avatar's Favor above.
-        pet_deploy = {
+        pet_control = {
             { 
                 name = 'Assault', 
                 level = 1, 
@@ -108,8 +108,8 @@ return {
         focus_enabled = false,
         focus_threshold = 85,
         pet_enabled = true,          -- "Pet" section master switch
-        pet_deploy_enabled = false,
-        pet_deploy_target = '<t>',   -- '<t>' (engaged only) or '<bt>'
+        pet_control_enabled = false,
+        pet_control_target = '<t>',   -- '<t>' (engaged only) or '<bt>'
     },
     
     -- Action priority order
@@ -117,7 +117,7 @@ return {
         'item',
         'heal_aoe',
         'heal',
-        'pet_deploy',
+        'pet_control',
         'wake',
         'buff',
         'rest',

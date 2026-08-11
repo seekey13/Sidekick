@@ -11,14 +11,14 @@
         sends the pet at a mob
         whenever it doesn't already have a live target of its own (read off the
         pet entity's own TargetIndex). Which mob is a UI dropdown next to the
-        toggle (pet_deploy_target): '<t>' (default) uses the player's cursor
+        toggle (pet_control_target): '<t>' (default) uses the player's cursor
         target and only fires while the player is engaged; '<bt>' uses the
         battle target and needs no engaged check.
-        Opt-in (pet_deploy_enabled, off by default). Shared
+        Opt-in (pet_control_enabled, off by default). Shared
         across all three jobs so none of them duplicate that check; each job
-        supplies its own single-entry abilities.pet_deploy list
+        supplies its own single-entry abilities.pet_control list
         (name/recast_id/command differ per job; everything else here is
-        generic). execute_deploy() always reads job_def.abilities.pet_deploy[1]
+        generic). execute_deploy() always reads job_def.abilities.pet_control[1]
         -- if a player mains and subs two different pet-control jobs at once,
         the main job's entry wins (e.g. BST/SMN with Carbuncle summoned would
         still try Fight, not Assault).
@@ -156,11 +156,11 @@ local function pet_has_live_target(pet_entity)
 end
 
 function pet.execute_deploy(settings, job_def, main_level, sub_level, player_resource)
-    if not settings.pet_enabled or not settings.pet_deploy_enabled then
+    if not settings.pet_enabled or not settings.pet_control_enabled then
         return nil
     end
 
-    if not job_def or not job_def.abilities or not job_def.abilities.pet_deploy then
+    if not job_def or not job_def.abilities or not job_def.abilities.pet_control then
         return nil
     end
 
@@ -178,7 +178,7 @@ function pet.execute_deploy(settings, job_def, main_level, sub_level, player_res
     -- the party is already fighting, player need not be engaged); '<t>' only
     -- fires while the player is engaged, so a passing cursor hover can't send
     -- the pet at something nobody is fighting.
-    local use_bt = settings.pet_deploy_target == '<bt>'
+    local use_bt = settings.pet_control_target == '<bt>'
 
     local target
     if use_bt then
@@ -202,7 +202,7 @@ function pet.execute_deploy(settings, job_def, main_level, sub_level, player_res
         return nil
     end
 
-    local ability = job_def.abilities.pet_deploy[1]
+    local ability = job_def.abilities.pet_control[1]
     if not ability then
         return nil
     end

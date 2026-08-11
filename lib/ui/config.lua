@@ -945,23 +945,23 @@ function ui_config.render(settings, job_def, callback)
         -- Gated on the ability lists being present and usable (same pattern as "Pet
         -- Debuff Removal" below), not on job_def.job_id -- that only ever reads the
         -- *main* job's id and would hide maneuvers for a subjob PUP, which is supported.
-        local pet_deploy_list = job_def and job_def.abilities.pet_deploy
+        local pet_control_list = job_def and job_def.abilities.pet_control
         local maneuver_list = job_def and job_def.abilities.maneuver
-        local has_pet_deploy = pet_deploy_list and has_usable_abilities(pet_deploy_list)
+        local has_pet_control = pet_control_list and has_usable_abilities(pet_control_list)
         local has_maneuver = maneuver_list and has_usable_abilities(maneuver_list)
 
-        if has_pet_deploy or has_maneuver then
+        if has_pet_control or has_maneuver then
             local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Pet Control', 'pet_enabled', true)
             if is_open and is_enabled then
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
 
                 -- Labelled with the job's own ability name (Deploy / Assault / Fight),
                 -- plus the target the pet gets sent at on the same row
-                if has_pet_deploy then
-                    ui.checkbox(ctx, pet_deploy_list[1].name, 'pet_deploy_enabled', { settings.pet_deploy_enabled or false })
+                if has_pet_control then
+                    ui.checkbox(ctx, pet_control_list[1].name, 'pet_control_enabled', { settings.pet_control_enabled or false })
                     imgui.SameLine()
-                    ui.combo(ctx, '##pet_deploy_target', 'pet_deploy_target',
-                        { settings.pet_deploy_target == '<bt>' and 1 or 0 },
+                    ui.combo(ctx, '##pet_control_target', 'pet_control_target',
+                        { settings.pet_control_target == '<bt>' and 1 or 0 },
                         { '<t>', '<bt>' },
                         function(i) return i == 1 and '<bt>' or '<t>' end, 70)
                 end

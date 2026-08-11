@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `short_name` ability field; settings still store the full `Fire Maneuver`) — and Sidekick
   keeps the picks applied, stacking duplicates if you choose the same element in more than one
   slot and holding off while **Overload** is up. Beside it, the "send pet at current target"
-  toggle (`pet_deploy_enabled`, opt-in, combat-only) is labeled with the job's *own* ability
+  toggle (`pet_control_enabled`, opt-in, combat-only) is labeled with the job's *own* ability
   rather than a generic feature name — **Deploy** on PUP, **Assault** on SMN, **Fight** on BST —
   and is independent of Maneuver (PUP's used to be coupled to it). `pet_enabled` is a real master
   switch, not just a UI fold: both `pet.execute_maneuver` and `pet.execute_deploy` check it. Both

@@ -107,7 +107,7 @@ lib/
 │  master_priority (Sidekick.lua) order:        │
 │  item → recover → critical → heal_aoe → heal  │
 │  → debuff_removal → heal_pet →                │
-│  pet_debuff_removal → pet_deploy → wake →     │
+│  pet_debuff_removal → pet_control → wake →     │
 │  geo → maneuver → roll → buff → revive →      │
 │  follow → rest                                │
 └──────────┬────────────────────────────────────┘
@@ -458,12 +458,12 @@ MP and TP recovery. Monitors percentage thresholds. Uses `action_core.first_comm
   `buff.lua`/`geo.lua`. Has no combat gate. Gated on `settings.maneuver_enabled` **and** the
   section master `settings.pet_enabled`.
 - **Send pet at target** (`pet.execute_deploy`): shared across three jobs — each job's
-  `abilities.pet_deploy` list carries exactly one entry with the job-specific
+  `abilities.pet_control` list carries exactly one entry with the job-specific
   `name`/`recast_id`/`command` (PUP `Deploy` recast 207, SMN `Assault` recast 170, BST `Fight`
   recast 100); the execute/tracking logic itself is entirely job-agnostic. Sends the pet at a mob
   whenever it has no live target of its own. Opt-in
-  (`settings.pet_deploy_enabled`, off by default, under the `pet_enabled` section master), unlike
-  maneuver upkeep. Which mob comes from `settings.pet_deploy_target`, the dropdown beside the
+  (`settings.pet_control_enabled`, off by default, under the `pet_enabled` section master), unlike
+  maneuver upkeep. Which mob comes from `settings.pet_control_target`, the dropdown beside the
   toggle: `'<t>'` (default) is the player's cursor target and additionally requires
   `common.is_engaged()`; `'<bt>'` is the battle target and needs no engaged check. Jobs store
   the command with `<t>`; `execute_deploy` rewrites the returned command to `<bt>` when that
@@ -584,7 +584,7 @@ return {
         debuff_removal     = { ... },
         pet_debuff_removal = { ... },  -- strip pet status ailments (BST/PUP)
         maneuver           = { ... },  -- PUP elemental Maneuver upkeep (stacks duplicates)
-        pet_deploy         = { ... },  -- Send pet at target: PUP/SMN/BST (opt-in, combat-only)
+        pet_control         = { ... },  -- Send pet at target: PUP/SMN/BST (opt-in, combat-only)
         wake               = { ... },
         recover_mp         = { ... },
         recover_tp         = { ... },
@@ -767,9 +767,9 @@ Ninjutsu is a special case worth knowing: in `spell_list.sql` the `mpCost` colum
 - **Pet Control section** (rendered right after Auto Follow, ahead of the job-specific sections —
   the two sections that move something rather than support it): a collapsing checkbox header
   (`pet_enabled`, default on) holding two independent per-feature checkboxes, each shown only when
-  the job has that ability: the send-pet-at-target toggle (`pet_deploy_enabled`), labelled with the
-  job's own ability name (`abilities.pet_deploy[1].name` — Deploy / Assault / Fight, never a generic
-  feature label) followed on the same row by a `<t>`/`<bt>` dropdown (`pet_deploy_target`), and **Maneuver**
+  the job has that ability: the send-pet-at-target toggle (`pet_control_enabled`), labelled with the
+  job's own ability name (`abilities.pet_control[1].name` — Deploy / Assault / Fight, never a generic
+  feature label) followed on the same row by a `<t>`/`<bt>` dropdown (`pet_control_target`), and **Maneuver**
   (`maneuver_enabled`) followed on the same row by three unlabelled slot dropdowns
   (`maneuver1_name`/`2`/`3`) showing element-only names via `short_name`. `pet_enabled` is a real
   master switch, not just a UI fold: both `pet.execute_maneuver` and `pet.execute_deploy` check it.
