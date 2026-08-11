@@ -759,9 +759,10 @@ Ninjutsu is a special case worth knowing: in `spell_list.sql` the `mpCost` colum
 - **DRY helpers**:
   - `render_party_dropdown(label, key, include_player, names, settings, cb, include_tracked)` – reusable for Focus/Follow/Recovery/Entrust Target dropdowns; `include_tracked` (Follow Target only) appends session tracked-target names, skipping any already listed as a party member.
   - `has_usable_abilities(abilities)` – quick check for any level-appropriate abilities.
-- **Pet section**: A collapsing checkbox header (`pet_enabled`, default on) holding two
-  independent per-feature checkboxes, each shown only when the job has that ability: **Pet
-  Deploy** (`pet_deploy_enabled`), labelled with the job's own ability name
+- **Pet Control section** (rendered right after Auto Follow, ahead of the job-specific sections —
+  the two sections that move something rather than support it): a collapsing checkbox header
+  (`pet_enabled`, default on) holding two independent per-feature checkboxes, each shown only when
+  the job has that ability: **Pet Deploy** (`pet_deploy_enabled`), labelled with the job's own ability name
   (`abilities.pet_deploy[1].name` — Deploy / Assault / Fight), and **Maneuver**
   (`maneuver_enabled`) followed on the same row by three unlabelled slot dropdowns
   (`maneuver1_name`/`2`/`3`) showing element-only names via `short_name`. `pet_enabled` is a real

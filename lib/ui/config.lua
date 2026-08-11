@@ -937,6 +937,50 @@ function ui_config.render(settings, job_def, callback)
             end
         end
 
+        -- Pet Control: master `pet_enabled` header checkbox (same shape as every other
+        -- section) over two independent per-feature checkboxes -- Pet Deploy (PUP
+        -- Deploy / SMN Assault / BST Fight) and Puppetmaster maneuver upkeep. Sits by
+        -- Auto Follow, the other section that moves something rather than supporting it.
+        -- Gated on the ability lists being present and usable (same pattern as "Pet
+        -- Debuff Removal" below), not on job_def.job_id -- that only ever reads the
+        -- *main* job's id and would hide maneuvers for a subjob PUP, which is supported.
+        local pet_deploy_list = job_def and job_def.abilities.pet_deploy
+        local maneuver_list = job_def and job_def.abilities.maneuver
+        local has_pet_deploy = pet_deploy_list and has_usable_abilities(pet_deploy_list)
+        local has_maneuver = maneuver_list and has_usable_abilities(maneuver_list)
+
+        if has_pet_deploy or has_maneuver then
+            local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Pet Control', 'pet_enabled', true)
+            if is_open and is_enabled then
+                imgui.Indent(ui.ABILITY_LIST_INDENT)
+
+                -- Labelled with the job's own ability name (Deploy / Assault / Fight)
+                if has_pet_deploy then
+                    ui.checkbox(ctx, pet_deploy_list[1].name, 'pet_deploy_enabled', { settings.pet_deploy_enabled or false })
+                end
+
+                -- One checkbox plus three unlabelled slot dropdowns on the same row
+                if has_maneuver then
+                    local available_maneuvers = {}
+                    for _, ability in ipairs(maneuver_list) do
+                        if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
+                            table.insert(available_maneuvers, ability)
+                        end
+                    end
+
+                    ui.checkbox(ctx, 'Maneuver', 'maneuver_enabled', { settings.maneuver_enabled ~= false })
+                    imgui.SameLine()
+                    render_ability_dropdown('##maneuver1', 'maneuver1_name', available_maneuvers, settings, callback, nil, 100)
+                    imgui.SameLine()
+                    render_ability_dropdown('##maneuver2', 'maneuver2_name', available_maneuvers, settings, callback, nil, 100)
+                    imgui.SameLine()
+                    render_ability_dropdown('##maneuver3', 'maneuver3_name', available_maneuvers, settings, callback, nil, 100)
+                end
+
+                imgui.Unindent(ui.ABILITY_LIST_INDENT)
+            end
+        end
+
         -- Show job-specific sections if we have a job definition
         if job_def then
         
@@ -1120,49 +1164,6 @@ function ui_config.render(settings, job_def, callback)
                     end
                 end
                 ctx.show_pet_debuff_warning = false
-                imgui.Unindent(ui.ABILITY_LIST_INDENT)
-            end
-        end
-
-        -- Pet section: master `pet_enabled` header checkbox (same shape as every
-        -- other section) over two independent per-feature checkboxes -- Pet Deploy
-        -- (PUP Deploy / SMN Assault / BST Fight) and Puppetmaster maneuver upkeep.
-        -- Gated on the ability lists being present and usable (same pattern as "Pet
-        -- Debuff Removal" above), not on job_def.job_id -- that only ever reads the
-        -- *main* job's id and would hide maneuvers for a subjob PUP, which is supported.
-        local pet_deploy_list = job_def and job_def.abilities.pet_deploy
-        local maneuver_list = job_def and job_def.abilities.maneuver
-        local has_pet_deploy = pet_deploy_list and has_usable_abilities(pet_deploy_list)
-        local has_maneuver = maneuver_list and has_usable_abilities(maneuver_list)
-
-        if has_pet_deploy or has_maneuver then
-            local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Pet', 'pet_enabled', true)
-            if is_open and is_enabled then
-                imgui.Indent(ui.ABILITY_LIST_INDENT)
-
-                -- Labelled with the job's own ability name (Deploy / Assault / Fight)
-                if has_pet_deploy then
-                    ui.checkbox(ctx, pet_deploy_list[1].name, 'pet_deploy_enabled', { settings.pet_deploy_enabled or false })
-                end
-
-                -- One checkbox plus three unlabelled slot dropdowns on the same row
-                if has_maneuver then
-                    local available_maneuvers = {}
-                    for _, ability in ipairs(maneuver_list) do
-                        if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
-                            table.insert(available_maneuvers, ability)
-                        end
-                    end
-
-                    ui.checkbox(ctx, 'Maneuver', 'maneuver_enabled', { settings.maneuver_enabled ~= false })
-                    imgui.SameLine()
-                    render_ability_dropdown('##maneuver1', 'maneuver1_name', available_maneuvers, settings, callback, nil, 100)
-                    imgui.SameLine()
-                    render_ability_dropdown('##maneuver2', 'maneuver2_name', available_maneuvers, settings, callback, nil, 100)
-                    imgui.SameLine()
-                    render_ability_dropdown('##maneuver3', 'maneuver3_name', available_maneuvers, settings, callback, nil, 100)
-                end
-
                 imgui.Unindent(ui.ABILITY_LIST_INDENT)
             end
         end
