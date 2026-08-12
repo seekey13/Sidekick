@@ -46,13 +46,9 @@ local ACTION_CATEGORY_NAMES = {
                                                     [15] = 'job_ability_run',
 }
 
--- Movement tracking state
-local movement_state = {
-    last_position = {0, 0, 0},
-    last_check = 0,
-    is_moving = false,
-    check_interval = 0.25  -- Check every 250ms
-}
+-- How often any entity's position is re-sampled for movement (see
+-- common.is_entity_moving).
+local MOVEMENT_CHECK_INTERVAL = 0.25
 
 -- Resting state tracking
 local is_resting = false
@@ -608,45 +604,84 @@ function common.get_last_action()
     return label
 end
 
+-- True while the player is moving (for magic casting restrictions). The player
+-- is just another entity, so this is common.is_entity_moving below with the
+-- grace window cut to a single sample interval: the local player's position
+-- updates every frame, so it needs none of the packet-lag slack a remote entity
+-- does, and "moved within one interval" is the same read the old dedicated
+-- player tracker gave.
 function common.is_player_moving()
-    -- Check if player is currently moving (for magic casting restrictions)
-    -- Returns true if player has moved since last check
-    if os.clock() - movement_state.last_check < movement_state.check_interval then
-        return movement_state.is_moving
-    end
-    
-    movement_state.last_check = os.clock()
+    return common.is_entity_moving(targets.get_party_member(0), MOVEMENT_CHECK_INTERVAL)
+end
 
-    local entity_mgr = common.get_entity_manager()
-    local party = common.get_party()
-    if not entity_mgr or not party then
-        return movement_state.is_moving
-    end
-    
-    local player_index = party:GetMemberTargetIndex(0)
-    if not player_index or player_index == 0 then
-        return movement_state.is_moving
-    end
-    
-    -- Get current position (with error handling)
-    local ok, x, y, z = pcall(function()
-        return entity_mgr:GetLocalPositionX(player_index),
-               entity_mgr:GetLocalPositionY(player_index),
-               entity_mgr:GetLocalPositionZ(player_index)
+-- Position samples for entities other than the player, keyed by ServerId.
+-- Entries are three floats and are only created for entities we actually gate
+-- on (a Geo target), so they are left to accumulate for the session.
+local entity_movement = {}
+
+-- A remote entity's position only updates when its movement packet arrives, so a
+-- straight "moved since the last sample" read blinks false between updates.
+-- Anything that moved within this many seconds still counts as moving.
+local MOVING_GRACE = 0.5
+
+-- True while an entity is walking. Used by the Geomancer bubble gates: a luopan
+-- is dropped where its target stands, so casting on someone mid-stride just
+-- leaves the bubble behind them.
+-- Args: entity (userdata) - entity from common.targets / GetEntity
+--       grace (number, optional) - seconds since the last movement that still
+--           read as moving; defaults to MOVING_GRACE (common.is_player_moving
+--           passes one sample interval, having no packet lag to cover)
+-- Returns: boolean (false when the entity is missing or has never been sampled)
+function common.is_entity_moving(entity, grace)
+    if not entity then return false end
+
+    local ok, id, x, y, z = pcall(function()
+        local pos = entity.Movement.LocalPosition
+        return entity.ServerId, pos.X, pos.Y, pos.Z
     end)
-    
-    if not ok then
-        return movement_state.is_moving
-    end
-    
-    -- Compare with last known position
-    local last_pos = movement_state.last_position
-    movement_state.is_moving = (x ~= last_pos[1] or y ~= last_pos[2] or z ~= last_pos[3])
+    if not ok or not id or id == 0 then return false end
 
-    -- Update last known position
-    movement_state.last_position = {x, y, z}
-    
-    return movement_state.is_moving
+    local now   = os.clock()
+    local state = entity_movement[id]
+
+    -- First sighting: nothing to compare against, so read as standing still
+    -- rather than blocking the cast until a second sample lands.
+    if not state then
+        entity_movement[id] = { last_check = now, last_moved = nil, x = x, y = y, z = z }
+        return false
+    end
+
+    if now - state.last_check >= MOVEMENT_CHECK_INTERVAL then
+        state.last_check = now
+        if x ~= state.x or y ~= state.y or z ~= state.z then
+            state.last_moved = now
+            state.x, state.y, state.z = x, y, z
+        end
+    end
+
+    return state.last_moved ~= nil and (now - state.last_moved) < (grace or MOVING_GRACE)
+end
+
+-- Refresh the movement samples for everyone a gate might ask about (party
+-- members and the battle target). Called once per tick from refresh_game_state.
+-- Sampling cannot be left to the gates themselves: those sit behind
+-- is_command_blocked, which reports 'Moving' for every command while the player
+-- walks, so an entity read only where it is gated would be sampled exclusively
+-- while standing still and could never look like it had been moving.
+-- No throttle here: each entity carries its own last_check, so a call between
+-- sample intervals costs a position read and a compare.
+-- Args: state (table) - the game_state snapshot being built
+function common.sample_movement(state)
+    for i = 0, 5 do
+        if (i == 0 and state.player) or state.party[i] then
+            common.is_entity_moving(targets.get_party_member(i))
+        end
+    end
+
+    -- get_bt reads through an ffi pointer, and this runs outside the tick loop's
+    -- per-module pcall, so a bad read here would take the whole refresh down.
+    local ok, bt = pcall(targets.get_bt)
+    if ok then common.is_entity_moving(bt) end
 end
 
 function common.get_player_level()
@@ -3448,6 +3483,8 @@ function common.refresh_game_state()
             end
         end
     end
+
+    common.sample_movement(state)
 
     -- -----------------------------------------------------------------------
     -- Alliance sub-parties B and C: flat indices 6-17

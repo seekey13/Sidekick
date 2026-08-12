@@ -453,12 +453,18 @@ function geo.execute(settings, job_def, main_level, sub_level, player_resource)
             local fc = full_circle('Full Circle (Geo-bt taking the luopan)')
             if fc then return fc end
         elseif not has_luopan then
-            local result = action_core.first_command({ geo_bt }, job_def, settings, '[GEO-BT]', 0,
-                function(ability) return string.format('Geo-bt: %s on battle target', ability.name) end)
-            if result then
-                geo_bt_pending = true
-                geo_bt_cast_time = os.clock()
-                return result
+            -- The luopan lands where the mob stood when the cast resolved, so a mob
+            -- still on the move walks straight out of its own debuff bubble.
+            if common.is_entity_moving(common.targets.get_bt()) then
+                hold_log('[GEO] Geo-bt held: battle target is moving')
+            else
+                local result = action_core.first_command({ geo_bt }, job_def, settings, '[GEO-BT]', 0,
+                    function(ability) return string.format('Geo-bt: %s on battle target', ability.name) end)
+                if result then
+                    geo_bt_pending = true
+                    geo_bt_cast_time = os.clock()
+                    return result
+                end
             end
         end
         -- else: our debuff luopan is already up — nothing to do.
