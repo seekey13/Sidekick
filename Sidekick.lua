@@ -418,8 +418,18 @@ local function setup_job()
     
     current_main_job_id = main_job_id
     current_sub_job_id = sub_job_id
+
+    -- Seed the change-detection tracking here rather than on the first render:
+    -- during a zone/game load this function bails above, so a first-frame one-shot
+    -- would burn with nothing seeded. Level is only taken when it reads valid, so a
+    -- transient 0 can't disable level-change detection until the next job change.
+    local seed_level = common.get_player_level()
     last_job_id = main_job_id
-    
+    last_sub_job_id = sub_job_id or 0
+    if seed_level and seed_level > 0 then
+        last_level = seed_level
+    end
+
     job_def = load_job_definition(main_job_id, sub_job_id)
     
     if job_def then
@@ -756,8 +766,12 @@ ashita.events.register('load', 'sidekick_load', function()
     common.printf('Loaded! Type /sidekick help for commands.')
 end)
 
-ashita.events.register('unload', 'sidekick_unload', function()    
+ashita.events.register('unload', 'sidekick_unload', function()
     if addon_settings and job_def then
+        -- Reopen the config window on next load if it is open now. Covers /sk config
+        -- and the [X] alike, since both just move ui_config's visibility flag.
+        addon_settings.ui_open = ui_config.is_visible()
+
         local settings_file = 'settings_' .. (job_def.job_name or 'default'):lower() .. '.json'
         settings.save(addon_settings, settings_file)
     end
@@ -765,8 +779,6 @@ ashita.events.register('unload', 'sidekick_unload', function()
     common.printf('Unloaded.')
 end)
 
--- Delay job setup until first render to ensure game is initialized
-local setup_attempted = false
 -- Settings only exist once setup_job sees a valid job, which can be many frames later
 -- if the addon loads mid-zone. Restore is one-shot on that, not on the first frame.
 local state_restored = false
@@ -776,22 +788,7 @@ ashita.events.register('d3d_present', 'sidekick_render', function()
         return
     end
     
-    -- Initialize on first render
-    if not setup_attempted then
-        setup_attempted = true
-        setup_job()
-        
-        -- Initialize job tracking to prevent false job change detection
-        local job_id, sub_job_id = common.get_player_job()
-        local main_level, sub_level = common.get_player_level()
-        if job_id and job_id > 0 and main_level and main_level > 0 then
-            last_job_id = job_id
-            last_sub_job_id = sub_job_id or 0
-            last_level = main_level
-        end
-    end
-
-    -- Check for job changes (every frame)
+    -- Check for job changes (every frame); also seeds job/level change tracking
     setup_job()
 
     -- Restore the saved automation state, unless Load stopped is on
@@ -801,12 +798,9 @@ ashita.events.register('d3d_present', 'sidekick_render', function()
     if not state_restored and addon_settings then
         state_restored = true
 
-        if addon_settings.load_stopped == true then
-            automation_enabled = false
-            addon_settings.automation_enabled = false
-        else
-            automation_enabled = addon_settings.automation_enabled == true
-        end
+        automation_enabled = not addon_settings.load_stopped
+            and addon_settings.automation_enabled == true
+        addon_settings.automation_enabled = automation_enabled
 
         -- Reopen the config window if it was open at unload.
         if addon_settings.ui_open == true then
@@ -821,13 +815,6 @@ ashita.events.register('d3d_present', 'sidekick_render', function()
     -- Render config UI
     if ui_config.is_visible() and addon_settings and job_def then
         ui_config.render(addon_settings, job_def, save_settings_callback)
-    end
-
-    -- Persist the window's open/closed state. Covers both /sk config and the [X]
-    -- (which clears visibility inside render), so a reload comes back the same way.
-    if addon_settings and addon_settings.ui_open ~= ui_config.is_visible() then
-        addon_settings.ui_open = ui_config.is_visible()
-        save_settings_callback()
     end
 
     -- Render game-state panel (independent of automation / job_def)
