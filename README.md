@@ -54,13 +54,14 @@ A focused, support-oriented addon for Ashita v4 that automates healing, buffing,
 The one exception is **opt-in leader following** (off by default): with **Follow** enabled, Sidekick will `/follow` a chosen party member or tracked target when they walk beyond a set distance. It never moves your character unless you turn this on. A second, narrower exception is the **opt-in send-pet-at-target toggle** in the **Pet Control** section (Puppetmaster/Summoner/Beastmaster, off by default): it sends the *pet*, not the player, and only at the mob you pick from the dropdown beside the toggle — either your own cursor target (`<t>`, and only while you're engaged) or the battle target (`<bt>`, whatever the party is already fighting).
 
 ## Latest Updates
-### [2.7.0] - 2026-08-07
+### [2.7.0] - 2026-08-12
 
 ### Added
+- **Shared party list — your second box picks up the whole party on its own**: running Sidekick on two clients? The one sitting outside the party now tracks everyone in the other one's party automatically, adding and dropping people as they join and leave. Nothing to add by hand, nothing to turn on. It also stops `/check`-ing anyone: the box that is actually *in* the party already knows everyone's job, level and real max HP, so it just says so — which means correct HP numbers in `/sk panel` instead of estimates, and no more waiting for someone to walk into range before Sidekick knows what they are. Thanks to **Kelzalik** for the encouragment to get nerdier.
 - **New Pet Control section (PUP/SMN/BST)**: one section for both pet features, each with its own checkbox. **Maneuver** keeps up to 3 elemental Maneuvers of your choice applied (PUP main or sub). Beside it, an opt-in toggle — labeled with your job's own ability (**Deploy**/**Assault**/**Fight**) — sends your pet at your cursor target or at the battle target, your pick.
 - **Per-target Combat/Idle overrides**: right-click any **ME**/**P1**-**P5** button on a buff row to force **Combat Only** or **Idle Only** for just that one target, overriding the ability's own Combat/Idle setting — keep Haste up on everyone but force it Combat Only for one melee, say. The overridden button tints yellow (Combat Only) or green (Idle Only) as a reminder. Session-only — resets on reload, nothing is written to your settings. Thanks to **Seikio** for the feature idea.
 - **Hold AOE for Group now announces the wait**: while Hold AOE for Group is holding a cast for a straggler, Sidekick now says so in party chat (e.g. *"Gather together for Protectra IV"*), repeating every few seconds for as long as the hold lasts. Thanks to **Toranko** for the feature idea.
-- **The config window remembers if it was open**: close `/sk` and it stays closed after a reload; leave it open and it comes back open. Remembered per job, nothing to configure.
+- **The config window remembers if it was open**: close `/sk` and it stays closed after a reload; leave it open and it comes back open. Remembered per character, nothing to configure.
 - **Geomancer waits for a still target before dropping a bubble**: a luopan stays where it lands, so Sidekick now holds **Geo** debuffs while the battle target is on the move, and **Geo** enhancing spells while the party member you picked is walking — no more bubbles dropped behind someone who is about to run out of them. The cast goes out about half a second after they stand still. **Indi** spells are untouched, since those follow their target. Thanks to **Benthere** for the feature idea.
 
 ### Changed
@@ -78,7 +79,7 @@ See [CHANGELOG.md](CHANGELOG.md) for the full release history.
 - **Revive / Raise**: Automatically raises dead party members, tracked targets, and alliance members using Raise, Raise II, or Arise. Respects prerequisite buffs (Scholar requires Addendum: White), validates range, and falls back to the next available raise spell. Out-of-combat only (`idle_only`).
 - **Mount Detection**: Automation is fully suppressed while riding a mount (detected via entity status 5 or buff 252). Configuration panel shows "Automation paused (mounted)" in this state.
 - **Alliance Support**: Automatically heals, removes debuffs, wakes, and applies buffs to alliance sub-party members (parties B and C) using abilities flagged with `target_outside = true`.
-- **Tracked Targets**: Session-scoped tracking of out-of-party players for heal, buff, and status removal automation. (Power Leveling)
+- **Tracked Targets**: Session-scoped tracking of out-of-party players for heal, buff, and status removal automation. (Power Leveling). Add them by hand with **Track Target**, or let the **Shared Party List** do it: two Sidekick clients on the same PC exchange party rosters, so a box outside the party tracks the whole party automatically — complete with everyone's real job, level and max HP, no `/check` required.
 - **Item-Based Status Removal**: Automatically use consumable items to cure status ailments — Antidote (Poison), Eye Drops (Blind), Echo Drops (Silence), Holy Water / Hallowed Water (Curse/Doom/Bane), Tincture (Plague/Disease), Remedy Ointment & Remedy (Poison/Paralyze/Blind/Silence), Panacea (stat-downs). Grouped under one collapsing header with a live per-item count; matched by item ID (not name, so custom-server items work), never fired while moving, and the section hides until inventory loads
 - **Critical HP Response**: Emergency abilities (e.g., Divine Seal, Martyr, Contradance) automatically trigger when party members drop below critical threshold (default 30%)
 - **Single-Target Healing**: Intelligent HP deficit-based heal selection with priority system (Critical HP → Focus target → Regular lowest HP)
@@ -405,11 +406,14 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the full technical map.
 
 ## Configuration
 
-Settings are saved per job in JSON format in the Ashita config directory:
-- `settings_white_mage.json`
-- `settings_summoner.json`
-- `settings_dancer.json`
-- etc.
+Settings are saved per character by Ashita's settings library:
+
+```
+<Ashita>/config/addons/sidekick/<CharName>_<ServerId>/settings.lua
+```
+
+Every job on that character shares the one file — job-specific keys are merged into it as
+you switch jobs. Delete the file to reset that character back to defaults.
 
 ### Common Settings
 

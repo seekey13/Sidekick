@@ -23,6 +23,7 @@ lib/
     automation.lua          Priority-based action selection engine
     common.lua              Shared utilities (logging, party, buffs, commands)
     parse_packets.lua       Raw-packet parsing (action packet 0x028)
+    party_share.lua         Shared party list (publishes own party, auto-tracks every other session's)
     targets.lua             FFXI target-resolution helpers (from Ashita)
   actions/
     buff.lua                Buff maintenance (self + party, groups, Pianissimo)
@@ -151,7 +152,7 @@ lib/
     own 0x028 finish/interrupt packet) → QueueCommand → wait for next tick
 ```
 
-`follow_tick()` runs separately in `d3d_present` and deliberately bypasses the `can_attack` guard — see [follow.lua](#followlua--leader-following).
+`follow_tick()` runs separately in `d3d_present` and deliberately bypasses the `can_attack` guard — see [follow.lua](#followlua--leader-following). `party_share.tick()` runs there too, on its own 2 s timer and independent of `automation_enabled` — see [party_share.lua](#party_sharelua--shared-party-list).
 
 ### Action Module Pattern
 
@@ -335,6 +336,67 @@ target entry `action.Info` = the die 1-6, `action.Param` = the running total, `a
 420/421 roll, 424 double-up, 426/427 bust. It is dispatched from Sidekick.lua's 0x028 handler
 just after the parse, guarded on the loaded job actually having `abilities.roll` so it costs one
 table lookup for every other job.
+
+### party_share.lua – Shared Party List
+
+Lets a box healing from **outside** a party track that whole party with no setup at all. Two
+Sidekick sessions on the same PC exchange rosters through plain text files in
+`config/addons/sidekick/` (the directory the settings module already creates):
+
+```
+config/addons/sidekick/party_<CharName>.txt
+<server_id> <main_job> <sub_job> <main_level> <sub_level> <max_hp> <name>   -- one per member
+```
+
+**Publishing** is unconditional — no setting, every session does it. Each pass builds its own
+party's lines from `game_state` (slots 0-5, active only — `game_state.player` plus
+`game_state.party[1..5]`) and rewrites the file **only when the text changed**, so writes happen
+on join/leave/level-up, not on a timer. `party_share.cleanup()` deletes the file from the
+`unload` handler so a closed session leaves no roster behind. An empty/unavailable party
+publishes nothing rather than an empty file. **Trusts are excluded** — they are only targetable
+by their owner's own party, so they are useless to the box reading the file.
+
+The publisher is **in** the party, so its job/level/max-HP columns are the real values, not
+inferences — that is the point of shipping them. `0` means unknown (an `/anon` member's row comes
+back job 0 / level 0, exactly as a failed `/check` would). `max_hp` is the observed-at-100%
+`member_max_stats` cache rather than an `hp`/`hpp` derivation, so it is stable and doesn't churn
+the file every time someone takes damage.
+
+**Syncing** needs no host to nominate: `ashita.fs.get_dir(shared_dir, '.*', true)` lists every
+roster published on this PC, our own file is skipped by name, and the rest are merged into one
+`{[server_id] = row}` set that the pass works from. Discovery is therefore automatic — start both
+boxes and the outside healer picks the party up within one 2 s pass.
+
+- **Add** — everything missing, in one pass. Entities are resolved by a **single** scan of the
+  entity table for the whole missing set and passed as stand-in tables
+  `{ServerId, Name, TargetIndex}` (the only fields `add_tracked_target` reads). Not loaded in our
+  client — out of range or another zone — means absent from the result and retried next pass, so
+  HP/buff reads are never made against a phantom entry. Members of our **own** party (including
+  ourselves) are skipped — the normal party path already covers them.
+- **Populate** — the whole roster row goes in through `common.add_tracked_target(entity, known)`,
+  whose second argument **suppresses the `/check`** entirely: a party member's own client is a
+  better source than a check, and needs no line of sight. It hands the row to
+  `common.set_tracked_target_info`, which writes job/level and seeds `member_max_stats[sid].max_hp`
+  — replacing the `AVERAGE_HP_BY_LEVEL[main_level]` estimate a hand-added target falls back to.
+  Max HP is seeded **ahead of** that function's level guard, since `/anon` hides job and level but
+  never HP. **`/check` fires only for hand-added targets** — a roster-driven add never sends one,
+  not even for an `/anon` row (level 0), since a check would come back just as empty. That also
+  removes the reason to stagger adds: nothing can cross-assign levels in
+  `common.handle_check_packet` any more.
+- **Tag** — the new entry gets `tracked_targets[sid].auto = true` written straight onto the table
+  `common.get_tracked_targets()` returns by reference (no signature change). `auto` is what
+  separates the two populations: set means the sync owns this entry, absent means a human added it.
+- **Refresh** — entries already held get their job/level/max-HP re-applied from the roster each
+  pass (`common.set_tracked_target_info`), so a level-up or job change on the other box lands
+  here. Only `auto` entries are refreshed; a hand-added target keeps its own checked data.
+- **Remove** — only `auto` entries, and only when **some** file read back with members this pass
+  and none of them lists the entry. A pass where nothing read back — every file missing, or a read
+  that caught one mid-rewrite — removes nothing, so an absent file can never be mistaken for an
+  empty party. Hand-added targets are never removed by the sync.
+
+Tracked targets are session-only and cleared on zone (`common.clear_tracked_targets`), so the
+mirrored party goes away on a zone change like any other tracked target — and is rebuilt from the
+files within one pass.
 
 ### targets.lua
 
@@ -903,11 +965,14 @@ The current pet's list is surfaced as `game_state.pet_debuffs` and consumed by `
 
 ## Settings System
 
-JSON persistence via Ashita's settings module.
+Persistence via Ashita's `settings` library (`addons/libs/settings.lua`), which writes Lua
+tables, not JSON.
 
-- **File naming**: `settings_white_mage.json`, `settings_geomancer.json`, etc.
-- **Load flow**: Detect job → load job definition → load settings file → merge with `default_settings` → save merged result.
-- **Auto-save**: On every UI change and addon unload.
+- **File naming**: one file per *character*, not per job — `config/addons/sidekick/<Name>_<ServerId>/settings.lua`. The addon only ever uses the default alias `'settings'`, so every job on a character shares that file; job keys accumulate in it as `default_settings` from each job def is merged in.
+- **API shape**: `settings.load(defaults[, alias])` returns the cached table; `settings.save([alias])` takes an **alias string only**. Calling `settings.save(tbl, name)` looks up `cache[tbl]`, finds nil and returns `false` — a silent no-op. Always call `settings.save()`.
+- **Load flow**: Detect job → load job definition → `settings.load` (loads the character file, merges `defaults` into missing keys, writes it back) → merge `default_settings` for keys still nil.
+- **Auto-save**: On every UI change and addon unload. Ashita also flushes all cached settings on login/logout (`process_character_switch`).
+- **Config window open state**: `ui_open` is stamped from `ui_config.is_visible()` in the `unload` handler and restored one-shot on the first tick settings exist (`state_restored` in `Sidekick.lua`).
 - **Addon-wide defaults**: `default_settings` in `Sidekick.lua` holds the job-independent keys — focus, follow (`follow_enabled`/`follow_distance`/`multisend_follow`), `attack_range`, AFK Sleep (`afk_enabled`/`afk_timeout`), and resting (`rest_enabled`/`rest_timer`/`rest_distance`, inert unless the job is MP-based and lists `rest`). Job files supply the rest.
 - **Start-button right-click menu** (both opt-in, default off): `load_stopped` ignores the saved `automation_enabled` state and loads stopped; `stop_after_zone` stops automation on zone change.
 - **Party buffs**: `settings.party_buffs[ability_name][party_index] = true/false`. Persisted keys are numeric ME/P1-P5 (0-5) and the Bard area key `'A'`; alliance (`al_`) and tracked (`tt_`) keys are session-only.

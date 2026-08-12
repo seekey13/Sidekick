@@ -348,8 +348,10 @@ function panel.render(addon_settings, save_settings)
                 end
             end
 
-            -- T1-Tn (tracked targets). HP is derived (max_hp from the level table or
-            -- the 100%-cache, hp = hpp*max_hp/100), hence the '~'.
+            -- T1-Tn (tracked targets). HP is always derived from the percent
+            -- (hp = hpp*max_hp/100), but max_hp is only a guess when it came from the
+            -- level table -- a target picked up through the shared party list carries the
+            -- real number, so only max_hp_estimated rows get the '~'.
             if gs.tracked then
                 local sorted = {}
                 for _, tt in pairs(gs.tracked) do table.insert(sorted, tt) end
@@ -366,7 +368,7 @@ function panel.render(addon_settings, save_settings)
                             job = string.format('Lv.%d', m.main_level)
                         end
                     end
-                    cell_tooltip = member_row('T' .. t_idx, TRACKED, m, { job = job, est = true })
+                    cell_tooltip = member_row('T' .. t_idx, TRACKED, m, { job = job, est = m.max_hp_estimated })
                         or cell_tooltip
                 end
             end

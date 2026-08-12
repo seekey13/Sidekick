@@ -2059,9 +2059,14 @@ end
 -- ============================================================================
 
 -- Add a tracked target by entity.
--- Args: entity (userdata) - The entity to track (must be a PC with SpawnFlags & 0x0001)
+-- Args: entity (userdata|table) - The entity to track (must be a PC with SpawnFlags & 0x0001).
+--                                 Only ServerId / Name / TargetIndex are read, so a plain
+--                                 table stands in fine (see party_share.lua).
+--       known  (table|nil)      - Roster row from a trusted source (the shared party list),
+--                                 as {main_job, sub_job, main_level, sub_level, max_hp}.
+--                                 Supplying it at all means no /check is sent.
 -- Returns: boolean - true if added, false if already tracked or invalid
-function common.add_tracked_target(entity)
+function common.add_tracked_target(entity, known)
     if not entity then return false end
 
     local server_id = entity.ServerId
@@ -2098,11 +2103,49 @@ function common.add_tracked_target(entity)
         sub_level    = nil,
     }
 
+    -- A player's own client reads job/level straight out of its party list, so a roster
+    -- published by someone actually in that party is authoritative: /check would only
+    -- re-derive what we already have, and needs the target in range to answer at all.
+    -- Any roster at all suppresses the check, level 0 included -- that row means the
+    -- member is /anon, and a check would come back just as empty.
+    if known then
+        common.set_tracked_target_info(server_id, known)
+        common.printf('Now tracking: %s (%s, from shared party list)', name,
+            (known.main_level and known.main_level > 0)
+                and string.format('Lv%d', known.main_level)
+                or 'job/level hidden')
+        return true
+    end
+
     pending_checks[server_id] = os.clock()
     AshitaCore:GetChatManager():QueueCommand(1, string.format('/check %s', name))
 
     common.printf('Now tracking: %s (checking level...)', name)
     return true
+end
+
+-- Write a roster row onto a tracked target: job/level in the same "0 means unknown" shape
+-- handle_check_packet uses, plus the real max HP the publisher's own client knows (a
+-- non-party entity exposes only HP percent, so that is otherwise learned only by catching
+-- the member at 100% in build_member_snapshot). Also refreshes an entry we already hold,
+-- so a level-up on the other box lands here.
+function common.set_tracked_target_info(server_id, info)
+    local tt = tracked_targets[server_id]
+    if not tt or not info then return end
+
+    -- Ahead of the level guard: /anon hides job and level, never HP.
+    if info.max_hp and info.max_hp > 0 then
+        member_max_stats[server_id] = member_max_stats[server_id] or {}
+        member_max_stats[server_id].max_hp = info.max_hp
+    end
+
+    if not info.main_level or info.main_level <= 0 then return end
+
+    tt.main_job   = (info.main_job  and info.main_job  > 0) and info.main_job  or nil
+    tt.sub_job    = (info.sub_job   and info.sub_job   > 0) and info.sub_job   or nil
+    tt.main_level = info.main_level
+    tt.sub_level  = (info.sub_level and info.sub_level > 0) and info.sub_level or nil
+    pending_checks[server_id] = nil
 end
 
 -- Handle incoming packet 0x0C9 (character check response).
@@ -3153,7 +3196,9 @@ end
 --
 -- common.game_state.tracked[server_id] fields:
 --   server_id, name, target_index
---   hp, hpp, max_hp (cached; 0 until seen at 100% HPP)
+--   hp, hpp, max_hp (max_hp known from the 100% cache or a shared party list, else
+--                    estimated from AVERAGE_HP_BY_LEVEL; hp is always hpp-derived)
+--   max_hp_estimated (true when max_hp came from the level table, i.e. it is a guess)
 --   buffs            (table of buff IDs, packet-tracked)
 --   position         ({x, y, z} in local coords)
 --   is_tracked       (always true)
@@ -3566,11 +3611,15 @@ function common.refresh_game_state()
 
             -- Only HPPercent is available for non-party entities from GetEntity();
             -- raw HP is not exposed in the FFXI entity array for non-party PCs.
-            -- Priority: (1) observed-at-100% cache, (2) level-based estimate from AVERAGE_HP_BY_LEVEL.
+            -- Priority: (1) known max HP -- observed at 100%, or handed over by a party
+            -- member's own client through the shared party list (party_share.lua);
+            -- (2) level-based estimate from AVERAGE_HP_BY_LEVEL. Only the second is a
+            -- guess, and max_hp_estimated says so, so the panel marks the right rows '~'.
             if not member_max_stats[sid] then
                 member_max_stats[sid] = {}
             end
             local max_hp = member_max_stats[sid].max_hp or 0
+            local max_hp_estimated = (max_hp == 0)
             if max_hp == 0 and tt.main_level then
                 max_hp = AVERAGE_HP_BY_LEVEL[tt.main_level] or 0
             end
@@ -3590,6 +3639,7 @@ function common.refresh_game_state()
                 hp            = hp,
                 hpp           = hpp,
                 max_hp        = max_hp,
+                max_hp_estimated = max_hp_estimated,
                 main_job      = tt.main_job,
                 sub_job       = tt.sub_job,
                 main_level    = tt.main_level,
@@ -3603,6 +3653,7 @@ function common.refresh_game_state()
         else
             -- Entity not visible; keep entry but mark inactive
             local cached_max_hp = (member_max_stats[sid] or {}).max_hp or 0
+            local cached_estimated = (cached_max_hp == 0)
             if cached_max_hp == 0 and tt.main_level then
                 cached_max_hp = AVERAGE_HP_BY_LEVEL[tt.main_level] or 0
             end
@@ -3613,6 +3664,7 @@ function common.refresh_game_state()
                 hp            = 0,
                 hpp           = 0,
                 max_hp        = cached_max_hp,
+                max_hp_estimated = cached_estimated,
                 main_job      = tt.main_job,
                 sub_job       = tt.sub_job,
                 main_level    = tt.main_level,
