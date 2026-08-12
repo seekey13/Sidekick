@@ -705,28 +705,6 @@ function common.get_player_job()
     return job, subjob
 end
 
--- True while the player has /anon set.
---
--- The server only writes the job fields of the party-list packet when the
--- character is not anonymous (CatsEyeXI src/map/packets/s2c/0x0dd_group_list.cpp:
--- `if (!PChar->isAnon()) { packet.mjob_no = ...; packet.mjob_lv = ...; }`), so an
--- anon player's own party entry reports job/level 0 while the Player struct still
--- holds the real values. That mismatch is the flag -- there is no dedicated
--- client-side anon bit exposed through Ashita.
---
--- Party job/level 0 also breaks every level gate in the action modules, since
--- game_state.player.main_level is read from the party manager.
-function common.is_anon()
-    local party = common.get_party()
-    if not party then return false end
-    -- Party data is stale/zeroed while zoning; no verdict there.
-    if common.is_loading() then return false end
-    local job = common.get_player_job()
-    if job == 0 then return false end
-    local ok, member_job = pcall(function() return party:GetMemberMainJob(0) end)
-    return ok and member_job == 0
-end
-
 -- Job data mappings (single source of truth)
 local job_data = {
     {id = 1,  abbr = 'WAR', name = 'Warrior'},
