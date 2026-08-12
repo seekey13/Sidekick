@@ -343,7 +343,7 @@ Lets a box healing from **outside** a party track that whole party with no setup
 Sidekick sessions on the same PC exchange rosters through plain text files in
 `config/addons/sidekick/` (the directory the settings module already creates):
 
-```
+```text
 config/addons/sidekick/party_<CharName>.txt
 <server_id> <main_job> <sub_job> <main_level> <sub_level> <max_hp> <name>   -- one per member
 ```
@@ -351,16 +351,23 @@ config/addons/sidekick/party_<CharName>.txt
 **Publishing** is unconditional — no setting, every session does it. Each pass builds its own
 party's lines from `game_state` (slots 0-5, active only — `game_state.player` plus
 `game_state.party[1..5]`) and rewrites the file **only when the text changed**, so writes happen
-on join/leave/level-up, not on a timer. `party_share.cleanup()` deletes the file from the
-`unload` handler so a closed session leaves no roster behind. An empty/unavailable party
+on join/leave/level-up, not on a timer. The write goes to `party_<CharName>.txt.tmp` and is then
+swapped in (`os.remove` + `os.rename`, since `os.rename` cannot clobber on Windows) rather than
+truncating the live file: a reader catching a *truncated* roster parses a short-but-valid one and
+drops the auto targets missing from it, while a reader catching *no* file reads `nil`, and `nil`
+never drives a removal. The `.tmp` suffix keeps the in-flight file out of the `^party_(.+)%.txt$`
+listing. `party_share.cleanup()` deletes the file from the `unload` handler so a closed session
+leaves no roster behind. An empty/unavailable party
 publishes nothing rather than an empty file. **Trusts are excluded** — they are only targetable
 by their owner's own party, so they are useless to the box reading the file.
 
 The publisher is **in** the party, so its job/level/max-HP columns are the real values, not
 inferences — that is the point of shipping them. `0` means unknown (an `/anon` member's row comes
-back job 0 / level 0, exactly as a failed `/check` would). `max_hp` is the observed-at-100%
-`member_max_stats` cache rather than an `hp`/`hpp` derivation, so it is stable and doesn't churn
-the file every time someone takes damage.
+back job 0 / level 0, exactly as a failed `/check` would). Job and level are **always**
+authoritative; `max_hp` is **conditional**. It is the observed-at-100% `member_max_stats` cache
+rather than an `hp`/`hpp` derivation — stable, and it doesn't churn the file every time someone
+takes damage, but the cache is only seeded once the publisher has actually seen that member at
+100% HP, so a member hurt since the publisher met them ships `max_hp` `0`.
 
 **Syncing** needs no host to nominate: `ashita.fs.get_dir(shared_dir, '.*', true)` lists every
 roster published on this PC, our own file is skipped by name, and the rest are merged into one
@@ -379,7 +386,9 @@ boxes and the outside healer picks the party up within one 2 s pass.
   `common.set_tracked_target_info`, which writes job/level and seeds `member_max_stats[sid].max_hp`
   — replacing the `AVERAGE_HP_BY_LEVEL[main_level]` estimate a hand-added target falls back to.
   Max HP is seeded **ahead of** that function's level guard, since `/anon` hides job and level but
-  never HP. **`/check` fires only for hand-added targets** — a roster-driven add never sends one,
+  never HP. A `max_hp` of `0` is **ignored** rather than written, so a row the publisher has no
+  cached max HP for leaves the reader on its level-table estimate (and on the panel's `~`) until a
+  later pass carries a real value. **`/check` fires only for hand-added targets** — a roster-driven add never sends one,
   not even for an `/anon` row (level 0), since a check would come back just as empty. That also
   removes the reason to stagger adds: nothing can cross-assign levels in
   `common.handle_check_packet` any more.

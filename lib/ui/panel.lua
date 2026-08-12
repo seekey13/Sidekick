@@ -350,8 +350,10 @@ function panel.render(addon_settings, save_settings)
 
             -- T1-Tn (tracked targets). HP is always derived from the percent
             -- (hp = hpp*max_hp/100), but max_hp is only a guess when it came from the
-            -- level table -- a target picked up through the shared party list carries the
-            -- real number, so only max_hp_estimated rows get the '~'.
+            -- level table, so only max_hp_estimated rows get the '~'. A target picked up
+            -- through the shared party list drops the '~' once its roster row carried a
+            -- max HP value -- the publisher only has one after seeing that member at 100%
+            -- HP, so a freshly shared target can still be estimated for a while.
             if gs.tracked then
                 local sorted = {}
                 for _, tt in pairs(gs.tracked) do table.insert(sorted, tt) end
