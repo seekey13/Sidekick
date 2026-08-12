@@ -2059,9 +2059,14 @@ end
 -- ============================================================================
 
 -- Add a tracked target by entity.
--- Args: entity (userdata) - The entity to track (must be a PC with SpawnFlags & 0x0001)
+-- Args: entity (userdata|table) - The entity to track (must be a PC with SpawnFlags & 0x0001).
+--                                 Only ServerId / Name / TargetIndex are read, so a plain
+--                                 table stands in fine (see party_share.lua).
+--       known  (table|nil)      - Job/level already known from a trusted source, as
+--                                 {main_job, sub_job, main_level, sub_level}. Supplied with a
+--                                 real main_level means no /check is sent.
 -- Returns: boolean - true if added, false if already tracked or invalid
-function common.add_tracked_target(entity)
+function common.add_tracked_target(entity, known)
     if not entity then return false end
 
     local server_id = entity.ServerId
@@ -2098,11 +2103,50 @@ function common.add_tracked_target(entity)
         sub_level    = nil,
     }
 
+    -- A player's own client reads job/level straight out of its party list, so a roster
+    -- published by someone actually in that party is authoritative: /check would only
+    -- re-derive what we already have, and needs the target in range to answer at all.
+    -- Any roster at all suppresses the check, level 0 included -- that row means the
+    -- member is /anon, and a check would come back just as empty.
+    if known then
+        common.set_tracked_target_info(server_id, known)
+        common.printf('Now tracking: %s (%s, from shared party list)', name,
+            (known.main_level and known.main_level > 0)
+                and string.format('Lv%d', known.main_level)
+                or 'job/level hidden')
+        return true
+    end
+
     pending_checks[server_id] = os.clock()
     AshitaCore:GetChatManager():QueueCommand(1, string.format('/check %s', name))
 
     common.printf('Now tracking: %s (checking level...)', name)
     return true
+end
+
+-- Write known job/level onto a tracked target, in the same "0 means unknown" shape
+-- handle_check_packet uses. Also refreshes an existing entry (a level-up on the other box).
+function common.set_tracked_target_info(server_id, info)
+    local tt = tracked_targets[server_id]
+    if not tt or not info then return end
+    if not info.main_level or info.main_level <= 0 then return end
+
+    tt.main_job   = (info.main_job  and info.main_job  > 0) and info.main_job  or nil
+    tt.sub_job    = (info.sub_job   and info.sub_job   > 0) and info.sub_job   or nil
+    tt.main_level = info.main_level
+    tt.sub_level  = (info.sub_level and info.sub_level > 0) and info.sub_level or nil
+    pending_checks[server_id] = nil
+end
+
+-- Seed the max-HP cache from outside. Non-party entities expose only HP percent, so this
+-- is normally learned by catching the member at 100% (build_member_snapshot); a party
+-- member's own client already knows the real number and can hand it over.
+function common.set_member_max_hp(server_id, max_hp)
+    if not server_id or not max_hp or max_hp <= 0 then return end
+    if not member_max_stats[server_id] then
+        member_max_stats[server_id] = {}
+    end
+    member_max_stats[server_id].max_hp = max_hp
 end
 
 -- Handle incoming packet 0x0C9 (character check response).

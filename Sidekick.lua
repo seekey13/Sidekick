@@ -25,6 +25,7 @@ local action_core = require('lib.core.action_core')
 local automation = require('lib.core.automation')
 local parse_packets = require('lib.core.parse_packets')
 local afk = require('lib.core.afk')
+local party_share = require('lib.core.party_share')  -- Shared party list (publish + tracked-target sync)
 
 -- Load action modules
 local heal_mod   = require('lib.actions.heal')
@@ -775,7 +776,9 @@ ashita.events.register('unload', 'sidekick_unload', function()
         local settings_file = 'settings_' .. (job_def.job_name or 'default'):lower() .. '.json'
         settings.save(addon_settings, settings_file)
     end
-    
+
+    party_share.cleanup()
+
     common.printf('Unloaded.')
 end)
 
@@ -825,6 +828,9 @@ ashita.events.register('d3d_present', 'sidekick_render', function()
 
     -- Auto Follow while stopped/paused; no-op when the engine handled follow this tick.
     follow_tick()
+
+    -- Publish our party roster and mirror tracked anchors' parties (own 2s timer).
+    party_share.tick()
 end)
 
 -- 0x028 categories marking one of our actions *resolving*. The post-action lockout is
