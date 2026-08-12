@@ -3338,6 +3338,27 @@ local function build_member_snapshot(party_mgr, entity_mgr, flat_index)
     local sub_job    = safe_get(function() return party_mgr:GetMemberSubJob(flat_index)       end, 0)
     local main_level = safe_get(function() return party_mgr:GetMemberMainJobLevel(flat_index) end, 0)
     local sub_level  = safe_get(function() return party_mgr:GetMemberSubJobLevel(flat_index)  end, 0)
+
+    -- /anon: the server only writes job/level into the party-list packet when the
+    -- character is not anonymous (0x0dd_group_list.cpp), so our own entry comes
+    -- back as job 0 / level 0 and every level gate in the action modules fails.
+    -- The Player struct is unaffected, so patch our own row back up from it.
+    -- Only fills zeroes, so a normal (non-anon) read is never overwritten.
+    if flat_index == 0 then
+        local p = safe_get(function() return AshitaCore:GetMemoryManager():GetPlayer() end, nil)
+        if p then
+            local function fill(current, fn)
+                if current and current > 0 then return current end
+                local v = safe_get(fn, 0)
+                return (v and v > 0) and v or current
+            end
+            job        = fill(job,        function() return p:GetMainJob()      end)
+            sub_job    = fill(sub_job,    function() return p:GetSubJob()       end)
+            main_level = fill(main_level, function() return p:GetMainJobLevel() end)
+            sub_level  = fill(sub_level,  function() return p:GetSubJobLevel()  end)
+        end
+    end
+
     local job_name     = safe_get(function()
         return AshitaCore:GetResourceManager():GetString('jobs.names_abbr', job)
     end, '')
