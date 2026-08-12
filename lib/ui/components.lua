@@ -119,20 +119,26 @@ local function render_combat_only_context_menu(ctx, ability, scope)
             if imgui.IsItemHovered() then
                 ui_components.set_tooltip('Cast each tier in this group independently\n(e.g. both Mage\'s Ballad and Mage\'s Ballad II).')
             end
-            -- Auto Select for Weather/Day: keep the group's selection on the tier
-            -- whose element matches the environment (RDM enspells). Only offered
+            -- Auto Select: keep the group's selection on the tier whose element
+            -- matches the environment (RDM enspells, SCH storms). Only offered
             -- for element-tagged groups, and not while ungrouped -- ungrouped
             -- casts every tier, so there is no single selection to steer.
-            -- Applied each tick by lib/core/vanadiel.lua.
+            -- Applied each tick by lib/core/vanadiel.lua, which owns the source
+            -- order; the label just has to name what that group actually follows.
             if ability.element and ctx.settings[ung_key] ~= true then
+                local weather_only = ability.element_source == 'weather'
                 local auto_key = 'auto_element_' .. ability.group
                 local auto = { ctx.settings[auto_key] == true }
-                if imgui.Checkbox('Auto Select for Weather/Day', auto) then
+                if imgui.Checkbox(weather_only and 'Auto Select for Weather' or 'Auto Select for Weather/Day', auto) then
                     ctx.settings[auto_key] = auto[1] or nil
                     if ctx.save_callback then ctx.save_callback() end
                 end
                 if imgui.IsItemHovered() then
-                    ui_components.set_tooltip('Pick the tier matching the current element.\nStorm buff > weather > day of the week.\nThe dropdown will move on its own.\nNo match (e.g. Lightsday) leaves it alone.')
+                    if weather_only then
+                        ui_components.set_tooltip('Match the zone weather, doubling its bonus.\nThe dropdown will move on its own.\nNo weather leaves your pick alone.')
+                    else
+                        ui_components.set_tooltip('Pick the tier matching the current element.\nStorm buff > weather > day of the week.\nThe dropdown will move on its own.\nNo match (e.g. Lightsday) leaves it alone.')
+                    end
                 end
             end
         end

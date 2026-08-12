@@ -62,7 +62,11 @@ The one exception is **opt-in leader following** (off by default): with **Follow
 - **Per-target Combat/Idle overrides**: right-click any **ME**/**P1**-**P5** button on a buff row to force **Combat Only** or **Idle Only** for just that one target, overriding the ability's own Combat/Idle setting — keep Haste up on everyone but force it Combat Only for one melee, say. The overridden button tints yellow (Combat Only) or green (Idle Only) as a reminder. Session-only — resets on reload, nothing is written to your settings. Thanks to **Seikio** for the feature idea.
 - **Hold AOE for Group now announces the wait**: while Hold AOE for Group is holding a cast for a straggler, Sidekick now says so in party chat (e.g. *"Gather together for Protectra IV"*), repeating every few seconds for as long as the hold lasts. Thanks to **Toranko** for the feature idea.
 - **The config window remembers if it was open**: close `/sk` and it stays closed after a reload; leave it open and it comes back open. Remembered per character, nothing to configure.
-- **Red Mage enspells can pick their own element**: right-click the enspell dropdown and tick **Auto Select for Weather/Day**. Sidekick then keeps the enspell matched to the element that is actually giving you the damage bonus — a storm on you first, then the zone weather, then the day of the week. Fire weather gets you Enfire, Windsday gets you Enaero, and it follows the tier you can actually cast. Lightsday or Darksday (no enspell exists) leaves your pick alone. Thanks to **Cedwick** for the feature idea.
+- **Red Mage enspells and Scholar storms can pick their own element**: right-click the enspell or storm dropdown and tick **Auto Select**. Sidekick then keeps the spell matched to the element that is actually giving you the bonus, following the tier you can cast.
+  - **Enspells** (*Auto Select for Weather/Day*) follow a storm on you first, then the zone weather, then the day of the week. Fire weather gets you Enfire, Windsday gets you Enaero. Lightsday or Darksday (no enspell exists) leaves your pick alone.
+  - **Storms** (*Auto Select for Weather*) follow the zone weather only, so casting your storm on top of it doubles the weather. There is no day fallback and clear skies leave your pick alone — a storm on the wrong day costs you nothing, but the wrong storm in weather does.
+
+  Thanks to **Cedwick** for the feature idea.
 - **Geomancer waits for a still target before dropping a bubble**: a luopan stays where it lands, so Sidekick now holds **Geo** debuffs while the battle target is on the move, and **Geo** enhancing spells while the party member you picked is walking — no more bubbles dropped behind someone who is about to run out of them. The cast goes out about half a second after they stand still. **Indi** spells are untouched, since those follow their target. Thanks to **Benthere** for the feature idea.
 
 ### Changed
@@ -455,7 +459,7 @@ you switch jobs. Delete the file to reset that character back to defaults.
 - `selected_Geo-bt` (string): Selected Geo debuff spell to cast on your battle target (combat-only)
 - `disabled_group_Geo-bt` (boolean): Disables casting the selected Geo debuff
 - `ungrouped_<group>` (boolean): When true, casts every tier in the group independently instead of only the selected tier (right-click → Ungroup)
-- `auto_element_<group>` (boolean): When true, keeps the group's selected tier on the one matching the current element — storm buff, else weather, else day of the week (right-click → Auto Select for Weather/Day). Offered only for element-tagged groups (RDM enspells) and only while grouped
+- `auto_element_<group>` (boolean): When true, keeps the group's selected tier on the one matching the current element (right-click → Auto Select). RDM enspells follow storm buff, else weather, else day of the week; SCH storms follow the zone weather only. Offered only for element-tagged groups and only while grouped
 - `stratagem_hold[<key>]` (boolean): When true, hold the spell until its assigned stratagem can fire; when false (default), cast without the stratagem if no charge is available
 
 **Note**: Group/AOE heal target selection is per-session (not persisted). Debug Mode toggles from the `/sk panel` header.

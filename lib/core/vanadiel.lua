@@ -117,22 +117,30 @@ end
 -- Weather and day only turn over on Vana'diel-minute boundaries, so re-reading
 -- (and walking the player's buff list) every frame is pure waste.
 local CACHE_SECONDS = 1.0
-local last_read     = 0
-local cached_weather = nil
-local cached_day     = nil
+local last_read   = 0
+local cached_zone  = nil
+local cached_storm = nil
+local cached_day   = nil
 
 local function refresh()
     local now = os.clock()
     if now - last_read < CACHE_SECONDS then return end
     last_read = now
-    cached_weather = read_storm() or read_zone_weather()
-    cached_day = read_day()
+    cached_zone  = read_zone_weather()
+    cached_storm = read_storm()
+    cached_day   = read_day()
 end
 
 -- Current weather element -- a storm on the player wins over the zone weather.
 function vanadiel.weather_element()
     refresh()
-    return cached_weather
+    return cached_storm or cached_zone
+end
+
+-- Zone weather alone, ignoring any storm the player is carrying.
+function vanadiel.zone_weather_element()
+    refresh()
+    return cached_zone
 end
 
 function vanadiel.day_element()
@@ -140,13 +148,26 @@ function vanadiel.day_element()
     return cached_day
 end
 
--- Elements to try, best bonus first: weather, then day. Either may be absent,
--- and the two collapse to one entry when they match.
-function vanadiel.candidate_elements()
+-- Elements to try, best bonus first. `source` is the group's `element_source`:
+--
+--   'weather'  Zone weather only, storms deliberately ignored, no day fallback.
+--              For groups that *cast* the storms (SCH): a storm is the group's
+--              own output, so feeding it back would pin the pick to whatever it
+--              last cast, and a storm stacked on matching weather is the whole
+--              point (double weather bonus). No weather = nothing to match.
+--   default    Storm buff (the player's effective weather) > zone weather > day.
+--              For groups that merely *benefit* (RDM enspells).
+--
+-- Entries collapse when weather and day agree; either may be absent.
+function vanadiel.candidate_elements(source)
     refresh()
+    if source == 'weather' then
+        return cached_zone and { cached_zone } or {}
+    end
     local out = {}
-    if cached_weather then table.insert(out, cached_weather) end
-    if cached_day and cached_day ~= cached_weather then table.insert(out, cached_day) end
+    local weather = cached_storm or cached_zone
+    if weather then table.insert(out, weather) end
+    if cached_day and cached_day ~= weather then table.insert(out, cached_day) end
     return out
 end
 
@@ -180,13 +201,16 @@ local function best_for_element(job_def, group, element, main_level, sub_level)
     return best
 end
 
--- Groups in this job that carry per-ability elements, so no group name is
+-- Groups in this job that carry per-ability elements, mapped to their
+-- `element_source` ('weather', or false for the default chain). No group name is
 -- hardcoded here -- any future elemental group picks the feature up for free.
 local function elemental_groups(job_def)
     local groups = {}
     for _, abilities in pairs(job_def.abilities or {}) do
         for _, ability in ipairs(abilities) do
-            if ability.group and ability.element then groups[ability.group] = true end
+            if ability.group and ability.element then
+                groups[ability.group] = ability.element_source or false
+            end
         end
     end
     return groups
@@ -196,8 +220,8 @@ local THROTTLE_SECONDS = 1.0
 local last_apply = 0
 
 -- Point `selected_<group>` at the element-matching tier for every group with
--- 'Auto Select for Weather/Day' enabled. Weather first, day as the fallback;
--- when neither element has a castable tier the existing selection is left alone
+-- auto-select enabled, using that group's own element_source order. When no
+-- candidate element has a castable tier the existing selection is left alone
 -- rather than cleared. Called once per tick from Sidekick.lua.
 function vanadiel.apply_auto_selection(job_def, settings)
     if not job_def or not settings then return end
@@ -209,17 +233,14 @@ function vanadiel.apply_auto_selection(job_def, settings)
     local groups = elemental_groups(job_def)
     if not next(groups) then return end
 
-    local elements = vanadiel.candidate_elements()
-    if #elements == 0 then return end
-
     local main_level, sub_level = common.get_player_level()
 
-    for group in pairs(groups) do
+    for group, source in pairs(groups) do
         -- Ungrouped casts every tier independently, so there is no single
         -- selection to steer.
         if settings['auto_element_' .. group] == true
             and settings['ungrouped_' .. group] ~= true then
-            for _, element in ipairs(elements) do
+            for _, element in ipairs(vanadiel.candidate_elements(source)) do
                 local pick = best_for_element(job_def, group, element, main_level, sub_level)
                 if pick then
                     local key = 'selected_' .. group
