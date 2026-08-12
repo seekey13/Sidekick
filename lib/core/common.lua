@@ -657,7 +657,10 @@ local entity_movement = {}
 -- A remote entity's position only updates when its movement packet arrives, so a
 -- straight "moved since the last sample" read blinks false between updates.
 -- Anything that moved within this many seconds still counts as moving.
-local MOVING_GRACE = 1.5
+local MOVING_GRACE = 0.5
+
+-- os.clock() of the last sampling sweep in refresh_game_state (see there).
+local last_movement_sample = 0
 
 -- True while an entity is walking. Used by the Geomancer bubble gates: a luopan
 -- is dropped where its target stands, so casting on someone mid-stride just
@@ -693,6 +696,34 @@ function common.is_entity_moving(entity)
     end
 
     return state.last_moved ~= nil and (now - state.last_moved) < MOVING_GRACE
+end
+
+-- Refresh the movement samples for everyone a gate might ask about (party
+-- members and the battle target). Called once per tick from refresh_game_state.
+-- Sampling cannot be left to the gates themselves: those sit behind
+-- is_command_blocked, which reports 'Moving' for every command while the player
+-- walks, so an entity read only where it is gated would be sampled exclusively
+-- while standing still and could never look like it had been moving.
+-- Args: state (table) - the game_state snapshot being built
+function common.sample_movement(state)
+    if os.clock() - last_movement_sample < movement_state.check_interval then
+        return
+    end
+    last_movement_sample = os.clock()
+
+    -- Entity lookups run outside the tick loop's per-module pcall, so a bad read
+    -- here would take the whole refresh down with it.
+    local function sample(fetch)
+        local ok, entity = pcall(fetch)
+        if ok then common.is_entity_moving(entity) end
+    end
+
+    for i = 0, 5 do
+        if (i == 0 and state.player) or state.party[i] then
+            sample(function() return targets.get_party_member(i) end)
+        end
+    end
+    sample(targets.get_bt)
 end
 
 function common.get_player_level()
@@ -3494,6 +3525,8 @@ function common.refresh_game_state()
             end
         end
     end
+
+    common.sample_movement(state)
 
     -- -----------------------------------------------------------------------
     -- Alliance sub-parties B and C: flat indices 6-17

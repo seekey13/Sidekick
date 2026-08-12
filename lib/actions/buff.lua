@@ -495,6 +495,8 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                         -- behind them. Wait for them to stop.
                         if ability.group == 'Geo'
                             and common.is_entity_moving(common.targets.get_party_member(target_index)) then
+                            common.debugf('[BUFF] %s held: %s is moving', ability.name,
+                                target_index == 0 and 'you' or ('P' .. target_index))
                             goto continue_target
                         end
 
