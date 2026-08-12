@@ -767,6 +767,9 @@ end)
 
 -- Delay job setup until first render to ensure game is initialized
 local setup_attempted = false
+-- Settings only exist once setup_job sees a valid job, which can be many frames later
+-- if the addon loads mid-zone. Restore is one-shot on that, not on the first frame.
+local state_restored = false
 
 ashita.events.register('d3d_present', 'sidekick_render', function()
     if not is_loaded then
@@ -786,27 +789,31 @@ ashita.events.register('d3d_present', 'sidekick_render', function()
             last_sub_job_id = sub_job_id or 0
             last_level = main_level
         end
-        
-        -- Restore the saved automation state, unless Load stopped is on
-        -- (opt-in, right-click the Start button).
-        if addon_settings then
-            if addon_settings.load_stopped == true then
-                automation_enabled = false
-                addon_settings.automation_enabled = false
-            else
-                automation_enabled = addon_settings.automation_enabled == true
-            end
-
-            -- Reopen the config window if it was open at unload.
-            if addon_settings.ui_open == true then
-                ui_config.show()
-            end
-        end
     end
-    
+
     -- Check for job changes (every frame)
     setup_job()
-    
+
+    -- Restore the saved automation state, unless Load stopped is on
+    -- (opt-in, right-click the Start button). Runs the first tick settings exist:
+    -- loading the addon while the game is still loading leaves them nil for a while,
+    -- and skipping this would strand the local flag out of sync with the saved one.
+    if not state_restored and addon_settings then
+        state_restored = true
+
+        if addon_settings.load_stopped == true then
+            automation_enabled = false
+            addon_settings.automation_enabled = false
+        else
+            automation_enabled = addon_settings.automation_enabled == true
+        end
+
+        -- Reopen the config window if it was open at unload.
+        if addon_settings.ui_open == true then
+            ui_config.show()
+        end
+    end
+
     local save_settings_callback = function()
         settings.save()
     end
