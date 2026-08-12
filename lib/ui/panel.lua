@@ -205,6 +205,10 @@ local function slot_label(prefix, m, leader_sid)
 end
 
 local function party_job(m)
+    -- The server omits job and level for /anon characters (0x0dd_group_list.cpp),
+    -- so a zeroed row means hidden, not level 0. Our own row never lands here --
+    -- it is backfilled from the Player struct in build_member_snapshot.
+    if (m.main_level or 0) == 0 then return 'hidden' end
     return string.format('%s%d/%s%d',
         m.job_name     or '??', m.main_level or 0,
         m.sub_job_name or '??', m.sub_level  or 0)

@@ -728,7 +728,7 @@ function ui_config.render(settings, job_def, callback)
             imgui.AlignTextToFramePadding()
             imgui.TextColored(ui.LIGHT_GREEN, string.format('%s %d / %s %d', main_job_name, main_level, sub_job_name, sub_level or 0))
         end
-        
+
         -- Automation toggle button
         local is_loading = common.is_loading()
         local can_attack = common.can_attack()
