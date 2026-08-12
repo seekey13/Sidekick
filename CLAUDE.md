@@ -111,9 +111,12 @@ Item/ammo tier-spec tables (BST `PET_FOOD`, NIN `SHURIKENS`, PUP `OILS`, …) us
 
 **UI** (`lib/ui/`). `config.lua` orchestrates the ImGui config window and delegates rendering
 to `components.lua`; `panel.lua` is the debug panel; `tooltips.lua` is hover help. Settings
-persist per job as `settings_<job_name>.json` via Ashita's `settings` module; some UI state
-(group/AOE heal target selection, alliance/tracked buff toggles) is intentionally
-**session-only** and never written to disk.
+persist **per character** (not per job) via Ashita's `settings` module, in
+`config/addons/sidekick/<Name>_<ServerId>/settings.lua` — one file, default alias
+`'settings'`, shared by every job. Save with a bare `settings.save()`: the API is
+`save([alias])`, so `settings.save(tbl, filename)` is a silent no-op that returns `false`.
+Some UI state (group/AOE heal target selection, alliance/tracked buff toggles) is
+intentionally **session-only** and never written to disk.
 
 ## Adding or changing things
 

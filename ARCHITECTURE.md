@@ -965,11 +965,14 @@ The current pet's list is surfaced as `game_state.pet_debuffs` and consumed by `
 
 ## Settings System
 
-JSON persistence via Ashita's settings module.
+Persistence via Ashita's `settings` library (`addons/libs/settings.lua`), which writes Lua
+tables, not JSON.
 
-- **File naming**: `settings_white_mage.json`, `settings_geomancer.json`, etc.
-- **Load flow**: Detect job → load job definition → load settings file → merge with `default_settings` → save merged result.
-- **Auto-save**: On every UI change and addon unload.
+- **File naming**: one file per *character*, not per job — `config/addons/sidekick/<Name>_<ServerId>/settings.lua`. The addon only ever uses the default alias `'settings'`, so every job on a character shares that file; job keys accumulate in it as `default_settings` from each job def is merged in.
+- **API shape**: `settings.load(defaults[, alias])` returns the cached table; `settings.save([alias])` takes an **alias string only**. Calling `settings.save(tbl, name)` looks up `cache[tbl]`, finds nil and returns `false` — a silent no-op. Always call `settings.save()`.
+- **Load flow**: Detect job → load job definition → `settings.load` (loads the character file, merges `defaults` into missing keys, writes it back) → merge `default_settings` for keys still nil.
+- **Auto-save**: On every UI change and addon unload. Ashita also flushes all cached settings on login/logout (`process_character_switch`).
+- **Config window open state**: `ui_open` is stamped from `ui_config.is_visible()` in the `unload` handler and restored one-shot on the first tick settings exist (`state_restored` in `Sidekick.lua`).
 - **Addon-wide defaults**: `default_settings` in `Sidekick.lua` holds the job-independent keys — focus, follow (`follow_enabled`/`follow_distance`/`multisend_follow`), `attack_range`, AFK Sleep (`afk_enabled`/`afk_timeout`), and resting (`rest_enabled`/`rest_timer`/`rest_distance`, inert unless the job is MP-based and lists `rest`). Job files supply the rest.
 - **Start-button right-click menu** (both opt-in, default off): `load_stopped` ignores the saved `automation_enabled` state and loads stopped; `stop_after_zone` stops automation on zone change.
 - **Party buffs**: `settings.party_buffs[ability_name][party_index] = true/false`. Persisted keys are numeric ME/P1-P5 (0-5) and the Bard area key `'A'`; alliance (`al_`) and tracked (`tt_`) keys are session-only.

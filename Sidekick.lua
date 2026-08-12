@@ -768,13 +768,14 @@ ashita.events.register('load', 'sidekick_load', function()
 end)
 
 ashita.events.register('unload', 'sidekick_unload', function()
-    if addon_settings and job_def then
+    if addon_settings then
         -- Reopen the config window on next load if it is open now. Covers /sk config
         -- and the [X] alike, since both just move ui_config's visibility flag.
         addon_settings.ui_open = ui_config.is_visible()
 
-        local settings_file = 'settings_' .. (job_def.job_name or 'default'):lower() .. '.json'
-        settings.save(addon_settings, settings_file)
+        -- settings.save takes an ALIAS, not (table, filename) -- passing the table
+        -- silently no-ops. No alias == 'settings', the block settings.load registered.
+        settings.save()
     end
 
     party_share.cleanup()
@@ -1151,19 +1152,13 @@ ashita.events.register('command', 'sidekick_command', function(e)
         automation_enabled = true
         addon_settings.automation_enabled = true
         afk.reset()  -- Start awake with a full AFK interval.
-        if job_def then
-            local settings_file = 'settings_' .. (job_def.job_name or 'default'):lower() .. '.json'
-            settings.save(addon_settings, settings_file)
-        end
+        settings.save()
         common.printf('Automation started.')
         
     elseif cmd == 'stop' then
         automation_enabled = false
         addon_settings.automation_enabled = false
-        if job_def then
-            local settings_file = 'settings_' .. (job_def.job_name or 'default'):lower() .. '.json'
-            settings.save(addon_settings, settings_file)
-        end
+        settings.save()
         common.printf('Automation stopped.')
         
     elseif cmd == 'toggle' then
@@ -1172,10 +1167,7 @@ ashita.events.register('command', 'sidekick_command', function(e)
         -- Same fresh interval as 'start' (this is the path the UI Start button takes),
         -- else a restart while asleep comes back still asleep.
         if automation_enabled then afk.reset() end
-        if job_def then
-            local settings_file = 'settings_' .. (job_def.job_name or 'default'):lower() .. '.json'
-            settings.save(addon_settings, settings_file)
-        end
+        settings.save()
         common.printf('Automation %s.', automation_enabled and 'enabled' or 'disabled')
         
     elseif cmd == 'config' then
@@ -1186,10 +1178,7 @@ ashita.events.register('command', 'sidekick_command', function(e)
         
         if subcmd == 'clear' then
             addon_settings.focus_target = nil
-            if job_def then
-                local settings_file = 'settings_' .. (job_def.job_name or 'default'):lower() .. '.json'
-                settings.save(addon_settings, settings_file)
-            end
+            settings.save()
             common.printf('Focus target cleared.')
         elseif subcmd and tonumber(subcmd) then
             local index = tonumber(subcmd)
@@ -1197,10 +1186,7 @@ ashita.events.register('command', 'sidekick_command', function(e)
                 local member_name = common.get_party_member_name(index)
                 if member_name then
                     addon_settings.focus_target = member_name
-                    if job_def then
-                        local settings_file = 'settings_' .. (job_def.job_name or 'default'):lower() .. '.json'
-                        settings.save(addon_settings, settings_file)
-                    end
+                    settings.save()
                     common.printf('Focus target set to %s (P%d)', member_name, index)
                 else
                     common.errorf('Party member %d not found or not active.', index)
@@ -1258,10 +1244,7 @@ ashita.events.register('command', 'sidekick_command', function(e)
             if not addon_settings.afk_enabled then
                 afk.reset()  -- Never leave automation stuck asleep after disabling.
             end
-            if job_def then
-                local settings_file = 'settings_' .. (job_def.job_name or 'default'):lower() .. '.json'
-                settings.save(addon_settings, settings_file)
-            end
+            settings.save()
             common.printf('AFK Sleep %s.', addon_settings.afk_enabled and 'enabled' or 'disabled')
         elseif tonumber(subcmd) then
             local seconds = math.floor(tonumber(subcmd))
@@ -1269,10 +1252,7 @@ ashita.events.register('command', 'sidekick_command', function(e)
             if seconds > 3600 then seconds = 3600 end
             addon_settings.afk_timeout = seconds
             afk.reset()  -- Restart the interval so the new timeout takes effect now.
-            if job_def then
-                local settings_file = 'settings_' .. (job_def.job_name or 'default'):lower() .. '.json'
-                settings.save(addon_settings, settings_file)
-            end
+            settings.save()
             common.printf('AFK Sleep timeout set to %ds.', seconds)
         else
             common.printf('Usage: /sidekick afk [on|off|<seconds 60-3600>]')
