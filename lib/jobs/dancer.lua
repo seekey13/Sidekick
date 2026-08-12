@@ -211,10 +211,7 @@ return {
                 command = '/ja "Spectral Jig" <me>',
                 buff_id = {71, 69},  -- Sneak (71) and Invisible (69)
                 idle_only = true,
-                -- Grants Invisible itself, so it sorts last (-20) like the mages'
-                -- Invisible: Sambas, Flourishes and Presto go up first, and nothing
-                -- follows the Jig to break it.
-                priority = -20,
+                priority = -20,  -- grants Invisible, so sorts last like the mages' Invisible
                 travel_buff = true,
             },
         },

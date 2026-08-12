@@ -110,11 +110,9 @@ return {
                 requires_item = TONKO_TOOLS,
                 item_label = 'Shinobi-tabi',
                 idle_only = true,
-                -- Negative priority sinks the travel buffs below every default (0) buff,
-                -- so shadows and stances go up before Sidekick starts sneaking. Both
-                -- tonko tiers carry the SAME value on purpose: a uniform shift moves the
-                -- whole group and leaves its cost-desc tier auto-select intact. What
-                -- breaks auto-select is giving tiers of one group DIFFERENT priorities.
+                -- Travel buff: sorts below every default (0) buff, so shadows and stances
+                -- go up first. Both tonko tiers take the SAME value -- a uniform shift
+                -- moves the group and leaves its cost-desc tier auto-select intact.
                 priority = -20,
                 travel_buff = true,
             },
@@ -144,9 +142,7 @@ return {
                 requires_item = MONOMI_TOOLS,
                 item_label = 'Sanjaku-Tenugui',
                 idle_only = true,
-                -- Ahead of Tonko (-20) so Sneak lands before Invisible, still below
-                -- every default (0) buff.
-                priority = -10,
+                priority = -10,  -- travel buff, ahead of Tonko (-20): Sneak before Invisible
                 travel_buff = true,
             },
 

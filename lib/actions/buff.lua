@@ -240,31 +240,15 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
         return nil
     end
 
-    -- While Invisible is up, cast nothing but the travel buffs. Every other buff
-    -- would break Invisible and force a reapply, so it costs two casts instead of
-    -- one and leaves the party briefly visible. Filtering the list here (rather
-    -- than guarding each loop) covers both the area-song phase and the
-    -- single-target pass below. Sneak/Invisible themselves still run: travel_buff
-    -- also puts the caster last, so their own Invisible is the final cast and
-    -- survives. Heals, -na, wake and revive live in other modules and are
-    -- deliberately NOT gated -- a dying member outranks staying hidden.
+    -- Any cast breaks Invisible (69), so while it's up cast travel buffs only.
+    -- Heals, -na, wake and revive are other modules and stay ungated.
     if action_core.has_any_buff(state.player.buffs, INVISIBLE_BUFF) then
         local travel_only = {}
-        for _, ability in ipairs(available_abilities) do
-            if ability.travel_buff then
-                travel_only[#travel_only + 1] = ability
-            end
+        for _, a in ipairs(available_abilities) do
+            if a.travel_buff then travel_only[#travel_only + 1] = a end
         end
-        -- Only gate when a travel buff is actually castable right now. Two cases this
-        -- covers: a job with none at all (Bard handed an Invisible by the party WHM)
-        -- can't recast it anyway, so suppressing its buffs would just stop it working
-        -- until Invisible wore off; and every travel buff is idle_only, so in COMBAT
-        -- they're already filtered out above and the gate lifts on its own -- NIN keeps
-        -- recasting Utsusemi and DNC its Sambas mid-fight, where the Tonko/Jig that set
-        -- buff 69 is about to break from attacking regardless.
-        if #travel_only > 0 then
-            available_abilities = travel_only
-        end
+        -- No travel buff castable (job has none, or in combat -- all are idle_only) = no gate.
+        if #travel_only > 0 then available_abilities = travel_only end
     end
 
     -- Phase 1: area songs ([A]). Checked before the single-target ME/P1-P5 pass
@@ -452,15 +436,10 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                     goto continue_ability
                 end
                 
-                -- Priority order: ME, P1, P2, P3, P4, P5
-                -- travel_buff flips it to P1-P5 then ME: Sneak/Invisible exist to protect
-                -- the party, so the party is covered before the caster. Casting on someone
-                -- breaks the caster's own Invisible, so theirs must be the last cast of the
-                -- run or it would be broken by the very next one.
-                local targets_to_check = {0, 1, 2, 3, 4, 5}  -- 0 = ME, 1-5 = P1-P5
-                if ability.travel_buff then
-                    targets_to_check = {1, 2, 3, 4, 5, 0}    -- ME last
-                end
+                -- Priority order: ME, P1, P2, P3, P4, P5 (0 = ME, 1-5 = P1-P5).
+                -- travel buffs put the caster LAST: their own Invisible must be the final
+                -- cast of the run or the next one breaks it.
+                local targets_to_check = ability.travel_buff and {1, 2, 3, 4, 5, 0} or {0, 1, 2, 3, 4, 5}
 
                 for _, target_index in ipairs(targets_to_check) do
                     -- Check if this target is enabled in party_buff_config
@@ -488,13 +467,10 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                             -- P1-P5: Check party member buffs from game_state
                             -- Zone check stays as live call (zone not stored in game_state)
                             local party_member = state.party[target_index]
-                            if party_member and common.is_trust_excluded(party_member.name, party_member.server_id) then
-                                goto continue_target
-                            end
-                            -- travel_buff: Sneak/Invisible on a Trust is wasted MP and a wasted
-                            -- tick -- Trusts don't take the aggro these prevent, and they're
-                            -- despawned/re-summoned freely (is_trust = server_id >= 0x1000000).
-                            if party_member and party_member.is_trust and ability.travel_buff then
+                            -- Trusts take none of the aggro travel buffs prevent, so casting
+                            -- one on a Trust is wasted MP and a wasted tick.
+                            if party_member and (common.is_trust_excluded(party_member.name, party_member.server_id)
+                                or (ability.travel_buff and party_member.is_trust)) then
                                 goto continue_target
                             end
                             if party_member then
@@ -580,11 +556,9 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                                 local is_al_enabled = party_buff_config and party_buff_config[config_key] and party_buff_config[config_key][al_key] == true
                                 if is_al_enabled then
                                     local m = sub_party[local_idx]
-                                    -- Same travel_buff Trust guard as the party loop above --
-                                    -- other players' Trusts show up in the alliance sub-parties,
-                                    -- and Sneak/Invisible on them is wasted MP and a wasted tick.
-                                    local skip_trust = ability.travel_buff and m and m.is_trust
-                                    if m and not skip_trust and m.is_active and m.target_index and m.target_index > 0 and common.is_in_range(m.target_index, 20) then
+                                    -- Same travel_buff Trust skip as the party loop -- other
+                                    -- players' Trusts show up in the alliance sub-parties.
+                                    if m and not (ability.travel_buff and m.is_trust) and m.is_active and m.target_index and m.target_index > 0 and common.is_in_range(m.target_index, 20) then
                                         local al_buffs = m.buffs or {}
                                         local al_needs_buff = action_core.needs_buff(al_buffs, ability.buff_id)
                                         if al_needs_buff then

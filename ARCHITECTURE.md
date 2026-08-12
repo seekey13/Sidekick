@@ -638,31 +638,19 @@ return {
                                     --   (Composure first so later self-buffs inherit its bonus). Unset = 0.
                                     --   filter_abilities_by_level sorts priority desc, then cost desc.
                                     --   Applies to any type routed through it (buff, heal, heal_pet...).
-                                    --   May be NEGATIVE to sort an ability below every unprioritised
-                                    --   (0) one -- Sneak (-10) / Invisible (-20) are travel buffs that
-                                    --   must not delay the party's real buffs, and Sneak's higher value
-                                    --   covers the whole party before Invisible starts.
-                                    --   Do NOT set on a grouped tier -- breaks tier auto-select.
-    travel_buff     = false,        -- buff only: marks a travel buff (WHM/SCH/RDM Sneak +
+                                    --   May be NEGATIVE, to sort below every unprioritised (0)
+                                    --   ability (Sneak -10 / Invisible -20).
+                                    --   Grouped tiers must all share ONE value or none -- differing
+                                    --   values inside a group break tier auto-select.
+    travel_buff     = false,        -- buff only: Sneak/Invisible and friends (WHM/SCH/RDM Sneak +
                                     --   Invisible, NIN Monomi + Tonko, DNC Spectral Jig). Three
-                                    --   behaviours in one flag, since none of them is ever wanted
-                                    --   without the others. Self-only `<me>` casts (NIN/DNC) take
-                                    --   only (3) -- the other two need a target loop they don't have:
-                                    --   1. targets P1-P5 before ME, so the party is covered before
-                                    --      the caster (whose own Invisible must be the LAST cast of
-                                    --      the run -- the next cast would break it).
-                                    --   2. never cast on a Trust/NPC (is_trust, i.e. server_id >=
-                                    --      0x1000000) in the party or an alliance sub-party: wasted
-                                    --      MP and a wasted tick. Manually added tracked targets are
-                                    --      NOT filtered -- the user picked those deliberately.
-                                    --   3. while the player has Invisible (69) up, buff.lua casts
-                                    --      travel buffs and NOTHING else -- any other cast breaks
-                                    --      Invisible and costs a reapply. Heals, -na, wake and
-                                    --      revive are other modules and stay ungated. The gate
-                                    --      lifts whenever no travel buff is castable: a job that
-                                    --      has none, and every job in COMBAT (travel buffs are
-                                    --      idle_only), so NIN shadows and DNC Sambas are only ever
-                                    --      held while idle.
+                                    --   behaviours in buff.lua: targets P1-P5 before ME (caster's own
+                                    --   Invisible must be the last cast of the run); never cast on a
+                                    --   Trust (tracked targets are still honoured); and while the
+                                    --   player has Invisible (69) up, no other buff is cast at all.
+                                    --   Self-only `<me>` casts (NIN/DNC) only see the third. The gate
+                                    --   lifts when no travel buff is castable -- a job with none, and
+                                    --   any job in combat, since travel buffs are idle_only.
     group           = 'regen',      -- mutually exclusive group
     self_only       = false,
     main_job_only   = false,        -- hidden when job is subjob
