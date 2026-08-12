@@ -65,6 +65,9 @@ The one exception is **opt-in leader following** (off by default): with **Follow
 ### Changed
 - **Sneak and Invisible go up in a sensible order now**: they wait until your real buffs are done, then Sneak covers the whole party before Invisible starts, and you are always the last person buffed. Trusts are skipped — their buttons on those rows are greyed out. While you are invisible Sidekick casts nothing but Sneak and Invisible, since any other cast would break Invisible and cost you a reapply; healing, status removal, waking and raise carry on as normal. Applies to White Mage, Scholar and Red Mage, and to Ninja's Tonko/Monomi and Dancer's Spectral Jig — on those the pause only happens out of combat, so shadows and Sambas keep flowing in a fight.  Thanks to **Toranko** for the feature idea.
 
+### Fixed
+- **Loading Sidekick while the game is still loading no longer leaves it half-started**: it would ignore **Load stopped**, show **Stop** as if it were running, and then actually start when you clicked that Stop. It now waits for your character to finish loading before restoring the started/stopped state, so the button always matches what it is doing.
+
 See [CHANGELOG.md](CHANGELOG.md) for the full release history.
 
 ## Features
