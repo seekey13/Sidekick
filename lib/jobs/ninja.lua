@@ -110,6 +110,11 @@ return {
                 requires_item = TONKO_TOOLS,
                 item_label = 'Shinobi-tabi',
                 idle_only = true,
+                -- Travel buff: sorts below every default (0) buff, so shadows and stances
+                -- go up first. Both tonko tiers take the SAME value -- a uniform shift
+                -- moves the group and leaves its cost-desc tier auto-select intact.
+                priority = -20,
+                travel_buff = true,
             },
             {
                 name = 'Tonko: Ichi',
@@ -122,6 +127,8 @@ return {
                 requires_item = TONKO_TOOLS,
                 item_label = 'Shinobi-tabi',
                 idle_only = true,
+                priority = -20,  -- same value as Tonko: Ni -- see the note there
+                travel_buff = true,
             },
 
             -- Monomi (Sneak). Ungrouped single tier. Idle only.
@@ -135,6 +142,8 @@ return {
                 requires_item = MONOMI_TOOLS,
                 item_label = 'Sanjaku-Tenugui',
                 idle_only = true,
+                priority = -10,  -- travel buff, ahead of Tonko (-20): Sneak before Invisible
+                travel_buff = true,
             },
 
             -- Sange: JA that throws a shuriken, so it needs one EQUIPPED in the

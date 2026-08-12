@@ -211,6 +211,8 @@ return {
                 command = '/ja "Spectral Jig" <me>',
                 buff_id = {71, 69},  -- Sneak (71) and Invisible (69)
                 idle_only = true,
+                priority = -20,  -- grants Invisible, so sorts last like the mages' Invisible
+                travel_buff = true,
             },
         },
 

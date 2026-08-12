@@ -12,6 +12,10 @@ local action_core = require('lib.core.action_core')
 -- song, so they don't count as "missing" and never force an endless recast.
 local SONG_AOE_RANGE = 10
 
+-- Invisible (status_effects.sql id 69). Casting anything at all breaks it, so any
+-- non-travel buff cast while it's up costs an Invisible reapply on top of itself.
+local INVISIBLE_BUFF = 69
+
 -- os.clock() of our last cast per ability name, for buffs whose target we can't
 -- read (pet buffs aren't tracked). Cleared on reload -> re-applies immediately.
 local last_self_cast = {}
@@ -236,6 +240,17 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
         return nil
     end
 
+    -- Any cast breaks Invisible (69), so while it's up cast travel buffs only.
+    -- Heals, -na, wake and revive are other modules and stay ungated.
+    if action_core.has_any_buff(state.player.buffs, INVISIBLE_BUFF) then
+        local travel_only = {}
+        for _, a in ipairs(available_abilities) do
+            if a.travel_buff then travel_only[#travel_only + 1] = a end
+        end
+        -- No travel buff castable (job has none, or in combat -- all are idle_only) = no gate.
+        if #travel_only > 0 then available_abilities = travel_only end
+    end
+
     -- Phase 1: area songs ([A]). Checked before the single-target ME/P1-P5 pass
     -- because an AoE song overwrites single-target songs on everyone it hits, so
     -- the area baseline must be established first. Covers every in-range party
@@ -421,9 +436,11 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                     goto continue_ability
                 end
                 
-                -- Priority order: ME, P1, P2, P3, P4, P5
-                local targets_to_check = {0, 1, 2, 3, 4, 5}  -- 0 = ME, 1-5 = P1-P5
-                
+                -- Priority order: ME, P1, P2, P3, P4, P5 (0 = ME, 1-5 = P1-P5).
+                -- travel buffs put the caster LAST: their own Invisible must be the final
+                -- cast of the run or the next one breaks it.
+                local targets_to_check = ability.travel_buff and {1, 2, 3, 4, 5, 0} or {0, 1, 2, 3, 4, 5}
+
                 for _, target_index in ipairs(targets_to_check) do
                     -- Check if this target is enabled in party_buff_config
                     local is_target_enabled = false
@@ -450,7 +467,10 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                             -- P1-P5: Check party member buffs from game_state
                             -- Zone check stays as live call (zone not stored in game_state)
                             local party_member = state.party[target_index]
-                            if party_member and common.is_trust_excluded(party_member.name, party_member.server_id) then
+                            -- Trusts take none of the aggro travel buffs prevent, so casting
+                            -- one on a Trust is wasted MP and a wasted tick.
+                            if party_member and (common.is_trust_excluded(party_member.name, party_member.server_id)
+                                or (ability.travel_buff and party_member.is_trust)) then
                                 goto continue_target
                             end
                             if party_member then
@@ -536,7 +556,9 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                                 local is_al_enabled = party_buff_config and party_buff_config[config_key] and party_buff_config[config_key][al_key] == true
                                 if is_al_enabled then
                                     local m = sub_party[local_idx]
-                                    if m and m.is_active and m.target_index and m.target_index > 0 and common.is_in_range(m.target_index, 20) then
+                                    -- Same travel_buff Trust skip as the party loop -- other
+                                    -- players' Trusts show up in the alliance sub-parties.
+                                    if m and not (ability.travel_buff and m.is_trust) and m.is_active and m.target_index and m.target_index > 0 and common.is_in_range(m.target_index, 20) then
                                         local al_buffs = m.buffs or {}
                                         local al_needs_buff = action_core.needs_buff(al_buffs, ability.buff_id)
                                         if al_needs_buff then

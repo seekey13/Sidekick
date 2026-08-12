@@ -2457,9 +2457,11 @@ function common.filter_abilities_by_level(abilities, settings, main_level, sub_l
     
     -- Sort by explicit priority first, then cost descending.
     -- Most abilities leave priority unset/0, so existing behavior stays the same.
-    -- Keep priority OFF grouped tiers: buff.lua's default-tier auto-select casts
-    -- the first grouped tier it sees and expects highest cost first, and a per-group
-    -- special-case here would make this comparator intransitive (sort crash).
+    -- Priority may be negative, to sort below every unprioritised (0) ability.
+    -- One uniform value across all tiers of a group is fine (NIN 'tonko'); DIFFERENT
+    -- values within one group are not -- buff.lua's default-tier auto-select takes the
+    -- first grouped tier and expects highest cost first. Keep the two keys plain: a
+    -- per-group special-case here would make the comparator intransitive (sort crash).
     table.sort(available_abilities, function(a, b)
         local a_priority = type(a.priority) == 'number' and a.priority or 0
         local b_priority = type(b.priority) == 'number' and b.priority or 0

@@ -843,6 +843,8 @@ return {
                 end,
                 buff_id = 69,
                 idle_only = true,
+                priority = -20,      -- travel buff, sorts after Sneak (-10); see ARCHITECTURE.md
+                travel_buff = true,
             },
             {
                 name = 'Sneak',
@@ -856,6 +858,8 @@ return {
                 end,
                 buff_id = 71,
                 idle_only = true,
+                priority = -10,      -- travel buff, whole party before Invisible (-20) starts
+                travel_buff = true,
             },
             {
                 name = 'Deodorize',

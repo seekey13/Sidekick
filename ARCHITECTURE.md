@@ -638,7 +638,19 @@ return {
                                     --   (Composure first so later self-buffs inherit its bonus). Unset = 0.
                                     --   filter_abilities_by_level sorts priority desc, then cost desc.
                                     --   Applies to any type routed through it (buff, heal, heal_pet...).
-                                    --   Do NOT set on a grouped tier -- breaks tier auto-select.
+                                    --   May be NEGATIVE, to sort below every unprioritised (0)
+                                    --   ability (Sneak -10 / Invisible -20).
+                                    --   Grouped tiers must all share ONE value or none -- differing
+                                    --   values inside a group break tier auto-select.
+    travel_buff     = false,        -- buff only: Sneak/Invisible and friends (WHM/SCH/RDM Sneak +
+                                    --   Invisible, NIN Monomi + Tonko, DNC Spectral Jig). Three
+                                    --   behaviours in buff.lua: targets P1-P5 before ME (caster's own
+                                    --   Invisible must be the last cast of the run); never cast on a
+                                    --   Trust (tracked targets are still honoured); and while the
+                                    --   player has Invisible (69) up, no other buff is cast at all.
+                                    --   Self-only `<me>` casts (NIN/DNC) only see the third. The gate
+                                    --   lifts when no travel buff is castable -- a job with none, and
+                                    --   any job in combat, since travel buffs are idle_only.
     group           = 'regen',      -- mutually exclusive group
     self_only       = false,
     main_job_only   = false,        -- hidden when job is subjob
