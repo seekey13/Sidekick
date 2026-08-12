@@ -490,6 +490,14 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                             end
                         end
                         
+                        -- A Geo bubble is dropped where its target is standing and
+                        -- stays put, so casting on someone mid-stride just leaves it
+                        -- behind them. Wait for them to stop.
+                        if ability.group == 'Geo'
+                            and common.is_entity_moving(common.targets.get_party_member(target_index)) then
+                            goto continue_target
+                        end
+
                         -- Check if target needs buff
                         target_needs_buff = song_needed(target_buffs, ability, target_index, available_abilities, settings, party_buff_config)
                         

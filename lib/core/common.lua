@@ -649,6 +649,52 @@ function common.is_player_moving()
     return movement_state.is_moving
 end
 
+-- Position samples for entities other than the player, keyed by ServerId.
+-- Entries are three floats and are only created for entities we actually gate
+-- on (a Geo target), so they are left to accumulate for the session.
+local entity_movement = {}
+
+-- A remote entity's position only updates when its movement packet arrives, so a
+-- straight "moved since the last sample" read blinks false between updates.
+-- Anything that moved within this many seconds still counts as moving.
+local MOVING_GRACE = 1.5
+
+-- True while an entity is walking. Used by the Geomancer bubble gates: a luopan
+-- is dropped where its target stands, so casting on someone mid-stride just
+-- leaves the bubble behind them. Sampled on the same interval as
+-- common.is_player_moving.
+-- Args: entity (userdata) - entity from common.targets / GetEntity
+-- Returns: boolean (false when the entity is missing or has never been sampled)
+function common.is_entity_moving(entity)
+    if not entity then return false end
+
+    local ok, id, x, y, z = pcall(function()
+        local pos = entity.Movement.LocalPosition
+        return entity.ServerId, pos.X, pos.Y, pos.Z
+    end)
+    if not ok or not id or id == 0 then return false end
+
+    local now   = os.clock()
+    local state = entity_movement[id]
+
+    -- First sighting: nothing to compare against, so read as standing still
+    -- rather than blocking the cast until a second sample lands.
+    if not state then
+        entity_movement[id] = { last_check = now, last_moved = nil, x = x, y = y, z = z }
+        return false
+    end
+
+    if now - state.last_check >= movement_state.check_interval then
+        state.last_check = now
+        if x ~= state.x or y ~= state.y or z ~= state.z then
+            state.last_moved = now
+            state.x, state.y, state.z = x, y, z
+        end
+    end
+
+    return state.last_moved ~= nil and (now - state.last_moved) < MOVING_GRACE
+end
+
 function common.get_player_level()
     local player = AshitaCore:GetMemoryManager():GetPlayer()
     if not player then return 0, 0 end
