@@ -3,12 +3,13 @@
 
     Two Sidekick sessions on the same PC share party rosters through small text
     files. Every session publishes its own party to
-    config/addons/sidekick/party_<CharName>.txt; a session that manually tracks a
-    player (the "anchor") reads that player's file and mirrors the rest of their
-    party into its own tracked-target list.
+    config/addons/sidekick/party_<CharName>.txt, and every session reads every *other*
+    published file, tracking the players listed there.
 
-    So the box healing from outside the party only has to add one player, and gets
-    the whole party that player is in, kept in sync as members join and leave.
+    So the box healing from outside the party has to do nothing at all: whoever it is
+    boxing with publishes their party, and it gets tracked automatically, kept in sync
+    as members join and leave. Discovery is by directory listing -- there is no host to
+    nominate and nothing to configure.
 
     The roster carries each member's job, sub job, levels and max HP, because the
     publisher is *in* the party and reads those for real. That replaces both of the
@@ -16,7 +17,7 @@
     job/level (which needs the target in range) and the AVERAGE_HP_BY_LEVEL estimate
     for max HP (non-party entities expose only HP percent).
 
-    Auto-added entries are tagged with their anchor's server id
+    Auto-added entries are tagged with the name of the character whose file listed them
     (tracked_targets[sid].auto) and are the only ones this module ever removes --
     hand-added targets are never touched.
 ]]--
@@ -32,17 +33,19 @@ local my_file       = nil   -- Path this session publishes to, for cleanup on un
 
 -- config/addons/sidekick/ is created by the settings module at load, so there is
 -- nothing to mkdir here.
+local function shared_dir()
+    return string.format('%s\\config\\addons\\sidekick\\', AshitaCore:GetInstallPath())
+end
+
 local function shared_path(name)
-    return string.format('%s\\config\\addons\\sidekick\\party_%s.txt',
-        AshitaCore:GetInstallPath(), name)
+    return string.format('%sparty_%s.txt', shared_dir(), name)
 end
 
 --[[
     Publishing
 ]]--
 
--- One line per active party slot, numeric fields first so the name (which may not be
--- the last field's only word in some future field order) stays unambiguous last:
+-- One line per active party slot, numeric fields first so the name stays unambiguous last:
 --
 --   <server_id> <main_job> <sub_job> <main_level> <sub_level> <max_hp> <name>
 --
@@ -50,6 +53,8 @@ end
 -- list carries their real job/level, and max_hp is the observed-at-100% cache rather
 -- than an hp/hpp derivation, so the value is stable and doesn't churn the file.
 -- 0 means unknown (an /anon member publishes job 0 / level 0, same as a failed /check).
+-- Trusts are left out: they are only targetable by their owner's own party, so they are
+-- useless to the box reading this file.
 -- nil while game_state isn't populated (zoning) -- publishing nothing beats an empty roster.
 local function roster_lines()
     local gs = common.game_state
@@ -58,8 +63,8 @@ local function roster_lines()
     local lines = {}
     for i = 0, 5 do
         local m = (i == 0) and gs.player or (gs.party and gs.party[i])
-        if m and m.is_active ~= false and m.server_id and m.server_id > 0
-            and m.name and m.name ~= '' then
+        if m and m.is_active ~= false and not m.is_trust
+            and m.server_id and m.server_id > 0 and m.name and m.name ~= '' then
             table.insert(lines, string.format('%d %d %d %d %d %d %s',
                 m.server_id,
                 m.job or 0, m.sub_job or 0,
@@ -73,15 +78,12 @@ local function roster_lines()
     return lines
 end
 
-local function publish()
+local function publish(my_name)
     local lines = roster_lines()
     if not lines then return end
 
     local text = table.concat(lines, '\n') .. '\n'
     if text == last_roster then return end
-
-    local my_name = common.get_party_member_name(0)
-    if not my_name or my_name == '' then return end
 
     local path = shared_path(my_name)
     local f = io.open(path, 'w')
@@ -99,11 +101,10 @@ end
 ]]--
 
 -- Returns { [server_id] = {name, main_job, sub_job, main_level, sub_level, max_hp} } for a
--- published roster, or nil when there is no file (that character isn't running Sidekick /
--- isn't in a party) or it parsed empty (caught mid-rewrite). nil never drives removals --
--- see sync().
-local function read_roster(name)
-    local f = io.open(shared_path(name), 'r')
+-- published roster, or nil when there is no file or it parsed empty (caught mid-rewrite).
+-- nil never drives removals -- see sync().
+local function read_roster(owner)
+    local f = io.open(shared_path(owner), 'r')
     if not f then return nil end
 
     local members = {}
@@ -129,6 +130,29 @@ local function read_roster(name)
     return members
 end
 
+-- Every roster published on this PC except our own, as { [owner name] = roster }.
+-- ashita.fs.get_dir returns bare file names; the owner is what sits between the
+-- 'party_' prefix and the extension. The listing is taken unfiltered ('.*') and narrowed
+-- with a Lua pattern below -- get_dir's filter is a C++ std::regex, and there is no reason
+-- to depend on its dialect for a match we have to make anyway to pull the owner out.
+local function read_all_rosters(my_name)
+    local rosters = {}
+
+    local ok, files = pcall(function()
+        return ashita.fs.get_dir(shared_dir(), '.*', true)
+    end)
+    if not ok or not files then return rosters end
+
+    for _, file in ipairs(files) do
+        local owner = tostring(file):match('^party_(.+)%.txt$')
+        if owner and owner ~= my_name then
+            local roster = read_roster(owner)
+            if roster then rosters[owner] = roster end
+        end
+    end
+    return rosters
+end
+
 -- Locate loaded entities for a set of server ids in one pass over the entity table
 -- (one scan for the whole set, not one per member). Returns
 -- [server_id] = stand-in table carrying the three fields common.add_tracked_target reads.
@@ -152,6 +176,8 @@ local function find_entities(server_ids)
     return found
 end
 
+-- Our own party's server ids, our own included (slot 0). Anything in here is already
+-- covered by the normal party path and must never become a tracked target.
 local function my_party_sids()
     local sids  = {}
     local party = common.get_party()
@@ -169,35 +195,30 @@ end
     Syncing
 ]]--
 
-local function sync()
+local function sync(my_name)
     local tracked = common.get_tracked_targets()
+    local mine    = my_party_sids()
 
-    -- Anchors are the hand-added targets; each one's file drives one auto set.
-    local wanted       = {}  -- [server_id] = { anchor = anchor_sid, info = roster entry }
-    local live_anchors = {}  -- Anchors whose file read back with members this pass
-    for sid, tt in pairs(tracked) do
-        if not tt.auto and tt.name then
-            local roster = read_roster(tt.name)
-            if roster then
-                live_anchors[sid] = true
-                for member_sid, info in pairs(roster) do
-                    if member_sid ~= sid then
-                        wanted[member_sid] = { anchor = sid, info = info }
-                    end
-                end
+    local wanted     = {}  -- [server_id] = owner name that vouched for this member
+    local infos      = {}  -- [server_id] = roster entry
+    local live_owner = {}  -- Owners whose file read back with members this pass
+    for owner, roster in pairs(read_all_rosters(my_name)) do
+        live_owner[owner] = true
+        for sid, info in pairs(roster) do
+            if not mine[sid] then
+                wanted[sid] = owner
+                infos[sid]  = info
             end
         end
     end
 
-    -- Drop auto entries whose anchor is gone, or that a live anchor's file no
-    -- longer lists. An anchor that stopped publishing (logged out, unloaded) is
-    -- deliberately not live, so its party stays tracked instead of being wiped by
-    -- a missing file.
+    -- Drop auto entries a live owner's file no longer lists. An owner that stopped
+    -- publishing (logged out, unloaded) is deliberately not live, so its members stay
+    -- tracked rather than being wiped by a file that is merely absent -- the same
+    -- guard covers a read that caught the file mid-rewrite.
     local stale = {}
     for sid, tt in pairs(tracked) do
-        local want = wanted[sid]
-        if tt.auto and (not tracked[tt.auto]
-            or (live_anchors[tt.auto] and (not want or want.anchor ~= tt.auto))) then
+        if tt.auto and live_owner[tt.auto] and wanted[sid] ~= tt.auto then
             table.insert(stale, sid)
         end
     end
@@ -205,15 +226,16 @@ local function sync()
         common.remove_tracked_target(sid)
     end
 
-    local mine = my_party_sids()
-
     -- Refresh what the roster knows onto entries we already hold, so a level-up or a
     -- job change on the other box lands here too (the file is rewritten whenever any
-    -- published field changes, so this only ever runs on real changes).
-    for sid, want in pairs(wanted) do
-        if tracked[sid] and tracked[sid].auto == want.anchor then
-            common.set_tracked_target_info(sid, want.info)
-            common.set_member_max_hp(sid, want.info.max_hp)
+    -- published field changes, so this only ever runs on real changes). Hand-added
+    -- targets have no .auto and keep their own checked data.
+    for sid, owner in pairs(wanted) do
+        local tt = tracked[sid]
+        if tt and tt.auto then
+            tt.auto = owner
+            common.set_tracked_target_info(sid, infos[sid])
+            common.set_member_max_hp(sid, infos[sid].max_hp)
         end
     end
 
@@ -221,19 +243,18 @@ local function sync()
     -- nothing to stagger and the whole party can land in one pass.
     local missing = {}
     local any     = false
-    for sid, want in pairs(wanted) do
-        if not tracked[sid] and not mine[sid] then
-            missing[sid] = want
+    for sid, _ in pairs(wanted) do
+        if not tracked[sid] then
+            missing[sid] = true
             any = true
         end
     end
     if not any then return end
 
     for sid, entity in pairs(find_entities(missing)) do
-        local want = missing[sid]
-        if common.add_tracked_target(entity, want.info) then
-            tracked[sid].auto = want.anchor
-            common.set_member_max_hp(sid, want.info.max_hp)
+        if common.add_tracked_target(entity, infos[sid]) then
+            tracked[sid].auto = wanted[sid]
+            common.set_member_max_hp(sid, infos[sid].max_hp)
         end
     end
 end
@@ -247,8 +268,13 @@ function party_share.tick()
     if now < next_poll then return end
     next_poll = now + POLL_INTERVAL
 
-    publish()
-    sync()
+    -- Our own character name keys both halves: the file we write, and the one file in
+    -- the directory we must not read back.
+    local my_name = common.get_party_member_name(0)
+    if not my_name or my_name == '' then return end
+
+    publish(my_name)
+    sync(my_name)
 end
 
 -- Drop our published file so a closed session doesn't leave a roster behind for

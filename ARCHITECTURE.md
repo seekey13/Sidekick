@@ -23,7 +23,7 @@ lib/
     automation.lua          Priority-based action selection engine
     common.lua              Shared utilities (logging, party, buffs, commands)
     parse_packets.lua       Raw-packet parsing (action packet 0x028)
-    party_share.lua         Shared party list (publishes own party, mirrors an anchor's into tracked targets)
+    party_share.lua         Shared party list (publishes own party, auto-tracks every other session's)
     targets.lua             FFXI target-resolution helpers (from Ashita)
   actions/
     buff.lua                Buff maintenance (self + party, groups, Pianissimo)
@@ -339,9 +339,9 @@ table lookup for every other job.
 
 ### party_share.lua – Shared Party List
 
-Lets a box healing from **outside** a party track that whole party after adding just one of
-its members. Two Sidekick sessions on the same PC exchange rosters through plain text files
-in `config/addons/sidekick/` (the directory the settings module already creates):
+Lets a box healing from **outside** a party track that whole party with no setup at all. Two
+Sidekick sessions on the same PC exchange rosters through plain text files in
+`config/addons/sidekick/` (the directory the settings module already creates):
 
 ```
 config/addons/sidekick/party_<CharName>.txt
@@ -353,7 +353,8 @@ party's lines from `game_state` (slots 0-5, active only — `game_state.player` 
 `game_state.party[1..5]`) and rewrites the file **only when the text changed**, so writes happen
 on join/leave/level-up, not on a timer. `party_share.cleanup()` deletes the file from the
 `unload` handler so a closed session leaves no roster behind. An empty/unavailable party
-publishes nothing rather than an empty file.
+publishes nothing rather than an empty file. **Trusts are excluded** — they are only targetable
+by their owner's own party, so they are useless to the box reading the file.
 
 The publisher is **in** the party, so its job/level/max-HP columns are the real values, not
 inferences — that is the point of shipping them. `0` means unknown (an `/anon` member's row comes
@@ -361,15 +362,17 @@ back job 0 / level 0, exactly as a failed `/check` would). `max_hp` is the obser
 `member_max_stats` cache rather than an `hp`/`hpp` derivation, so it is stable and doesn't churn
 the file every time someone takes damage.
 
-**Syncing** treats every **hand-added** tracked target (one with no `auto` field) as an *anchor*,
-reads `party_<anchor name>.txt`, and mirrors the rest of that party into the tracked list:
+**Syncing** needs no host to nominate: `ashita.fs.get_dir(shared_dir, 'party_.*', true)` lists every
+roster published on this PC, our own file is skipped by name, and everyone in the rest is tracked.
+Discovery is therefore automatic — start both boxes and the outside healer picks the party up
+within one 2 s pass.
 
 - **Add** — everything missing, in one pass. Entities are resolved by a **single** scan of the
   entity table for the whole missing set and passed as stand-in tables
   `{ServerId, Name, TargetIndex}` (the only fields `add_tracked_target` reads). Not loaded in our
   client — out of range or another zone — means absent from the result and retried next pass, so
-  HP/buff reads are never made against a phantom entry. Members already in our own party, and the
-  anchor itself, are skipped.
+  HP/buff reads are never made against a phantom entry. Members of our **own** party (including
+  ourselves) are skipped — the normal party path already covers them.
 - **Populate** — the roster's job/level go in through `common.add_tracked_target(entity, known)`,
   whose second argument **suppresses the `/check`** entirely: a party member's own client is a
   better source than a check, and needs no line of sight. Max HP is seeded with
@@ -378,18 +381,22 @@ reads `party_<anchor name>.txt`, and mirrors the rest of that party into the tra
   add never sends one, not even for an `/anon` row (level 0), since a check would come back just
   as empty. That also removes the reason to stagger adds: nothing can cross-assign levels in
   `common.handle_check_packet` any more.
-- **Tag** — the new entry gets `tracked_targets[sid].auto = <anchor server id>` written straight
-  onto the table `common.get_tracked_targets()` returns by reference (no signature change).
+- **Tag** — the new entry gets `tracked_targets[sid].auto = <owner character name>` written
+  straight onto the table `common.get_tracked_targets()` returns by reference (no signature
+  change). `auto` is what separates the two populations: set means the sync owns this entry,
+  absent means a human added it.
 - **Refresh** — entries already held get their job/level/max-HP re-applied from the roster each
   pass (`common.set_tracked_target_info`), so a level-up or job change on the other box lands
-  here. Only `auto` entries are refreshed; an anchor keeps its own checked data.
-- **Remove** — only `auto` entries, and only when their anchor is no longer tracked, or when a
-  successfully-read, non-empty roster for that anchor stops listing them. A **missing or empty**
-  file (anchor logged out, or caught mid-rewrite) is deliberately *not* treated as an empty
-  party, so it can never wipe the list. Hand-added targets are never removed by the sync.
+  here. Only `auto` entries are refreshed; a hand-added target keeps its own checked data.
+- **Remove** — only `auto` entries, and only when the owner that vouched for them is **live this
+  pass** (their file read back non-empty) and no longer lists them. A **missing or empty** file
+  (owner logged out or unloaded, or a read that caught the file mid-rewrite) is deliberately *not*
+  treated as an empty party, so it can never wipe the list. Hand-added targets are never removed
+  by the sync.
 
 Tracked targets are session-only and cleared on zone (`common.clear_tracked_targets`), so the
-anchors — and with them the mirrored party — go away on a zone change like any other tracked target.
+mirrored party goes away on a zone change like any other tracked target — and is rebuilt from the
+files within one pass.
 
 ### targets.lua
 
