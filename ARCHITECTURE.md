@@ -362,10 +362,10 @@ back job 0 / level 0, exactly as a failed `/check` would). `max_hp` is the obser
 `member_max_stats` cache rather than an `hp`/`hpp` derivation, so it is stable and doesn't churn
 the file every time someone takes damage.
 
-**Syncing** needs no host to nominate: `ashita.fs.get_dir(shared_dir, 'party_.*', true)` lists every
-roster published on this PC, our own file is skipped by name, and everyone in the rest is tracked.
-Discovery is therefore automatic — start both boxes and the outside healer picks the party up
-within one 2 s pass.
+**Syncing** needs no host to nominate: `ashita.fs.get_dir(shared_dir, '.*', true)` lists every
+roster published on this PC, our own file is skipped by name, and the rest are merged into one
+`{[server_id] = row}` set that the pass works from. Discovery is therefore automatic — start both
+boxes and the outside healer picks the party up within one 2 s pass.
 
 - **Add** — everything missing, in one pass. Entities are resolved by a **single** scan of the
   entity table for the whole missing set and passed as stand-in tables
@@ -373,26 +373,26 @@ within one 2 s pass.
   client — out of range or another zone — means absent from the result and retried next pass, so
   HP/buff reads are never made against a phantom entry. Members of our **own** party (including
   ourselves) are skipped — the normal party path already covers them.
-- **Populate** — the roster's job/level go in through `common.add_tracked_target(entity, known)`,
+- **Populate** — the whole roster row goes in through `common.add_tracked_target(entity, known)`,
   whose second argument **suppresses the `/check`** entirely: a party member's own client is a
-  better source than a check, and needs no line of sight. Max HP is seeded with
-  `common.set_member_max_hp`, replacing the `AVERAGE_HP_BY_LEVEL[main_level]` estimate that a
-  hand-added target falls back to. **`/check` fires only for hand-added targets** — a roster-driven
-  add never sends one, not even for an `/anon` row (level 0), since a check would come back just
-  as empty. That also removes the reason to stagger adds: nothing can cross-assign levels in
+  better source than a check, and needs no line of sight. It hands the row to
+  `common.set_tracked_target_info`, which writes job/level and seeds `member_max_stats[sid].max_hp`
+  — replacing the `AVERAGE_HP_BY_LEVEL[main_level]` estimate a hand-added target falls back to.
+  Max HP is seeded **ahead of** that function's level guard, since `/anon` hides job and level but
+  never HP. **`/check` fires only for hand-added targets** — a roster-driven add never sends one,
+  not even for an `/anon` row (level 0), since a check would come back just as empty. That also
+  removes the reason to stagger adds: nothing can cross-assign levels in
   `common.handle_check_packet` any more.
-- **Tag** — the new entry gets `tracked_targets[sid].auto = <owner character name>` written
-  straight onto the table `common.get_tracked_targets()` returns by reference (no signature
-  change). `auto` is what separates the two populations: set means the sync owns this entry,
-  absent means a human added it.
+- **Tag** — the new entry gets `tracked_targets[sid].auto = true` written straight onto the table
+  `common.get_tracked_targets()` returns by reference (no signature change). `auto` is what
+  separates the two populations: set means the sync owns this entry, absent means a human added it.
 - **Refresh** — entries already held get their job/level/max-HP re-applied from the roster each
   pass (`common.set_tracked_target_info`), so a level-up or job change on the other box lands
   here. Only `auto` entries are refreshed; a hand-added target keeps its own checked data.
-- **Remove** — only `auto` entries, and only when the owner that vouched for them is **live this
-  pass** (their file read back non-empty) and no longer lists them. A **missing or empty** file
-  (owner logged out or unloaded, or a read that caught the file mid-rewrite) is deliberately *not*
-  treated as an empty party, so it can never wipe the list. Hand-added targets are never removed
-  by the sync.
+- **Remove** — only `auto` entries, and only when **some** file read back with members this pass
+  and none of them lists the entry. A pass where nothing read back — every file missing, or a read
+  that caught one mid-rewrite — removes nothing, so an absent file can never be mistaken for an
+  empty party. Hand-added targets are never removed by the sync.
 
 Tracked targets are session-only and cleared on zone (`common.clear_tracked_targets`), so the
 mirrored party goes away on a zone change like any other tracked target — and is rebuilt from the

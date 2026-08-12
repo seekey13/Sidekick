@@ -2062,9 +2062,9 @@ end
 -- Args: entity (userdata|table) - The entity to track (must be a PC with SpawnFlags & 0x0001).
 --                                 Only ServerId / Name / TargetIndex are read, so a plain
 --                                 table stands in fine (see party_share.lua).
---       known  (table|nil)      - Job/level already known from a trusted source, as
---                                 {main_job, sub_job, main_level, sub_level}. Supplied with a
---                                 real main_level means no /check is sent.
+--       known  (table|nil)      - Roster row from a trusted source (the shared party list),
+--                                 as {main_job, sub_job, main_level, sub_level, max_hp}.
+--                                 Supplying it at all means no /check is sent.
 -- Returns: boolean - true if added, false if already tracked or invalid
 function common.add_tracked_target(entity, known)
     if not entity then return false end
@@ -2124,11 +2124,21 @@ function common.add_tracked_target(entity, known)
     return true
 end
 
--- Write known job/level onto a tracked target, in the same "0 means unknown" shape
--- handle_check_packet uses. Also refreshes an existing entry (a level-up on the other box).
+-- Write a roster row onto a tracked target: job/level in the same "0 means unknown" shape
+-- handle_check_packet uses, plus the real max HP the publisher's own client knows (a
+-- non-party entity exposes only HP percent, so that is otherwise learned only by catching
+-- the member at 100% in build_member_snapshot). Also refreshes an entry we already hold,
+-- so a level-up on the other box lands here.
 function common.set_tracked_target_info(server_id, info)
     local tt = tracked_targets[server_id]
     if not tt or not info then return end
+
+    -- Ahead of the level guard: /anon hides job and level, never HP.
+    if info.max_hp and info.max_hp > 0 then
+        member_max_stats[server_id] = member_max_stats[server_id] or {}
+        member_max_stats[server_id].max_hp = info.max_hp
+    end
+
     if not info.main_level or info.main_level <= 0 then return end
 
     tt.main_job   = (info.main_job  and info.main_job  > 0) and info.main_job  or nil
@@ -2136,17 +2146,6 @@ function common.set_tracked_target_info(server_id, info)
     tt.main_level = info.main_level
     tt.sub_level  = (info.sub_level and info.sub_level > 0) and info.sub_level or nil
     pending_checks[server_id] = nil
-end
-
--- Seed the max-HP cache from outside. Non-party entities expose only HP percent, so this
--- is normally learned by catching the member at 100% (build_member_snapshot); a party
--- member's own client already knows the real number and can hand it over.
-function common.set_member_max_hp(server_id, max_hp)
-    if not server_id or not max_hp or max_hp <= 0 then return end
-    if not member_max_stats[server_id] then
-        member_max_stats[server_id] = {}
-    end
-    member_max_stats[server_id].max_hp = max_hp
 end
 
 -- Handle incoming packet 0x0C9 (character check response).

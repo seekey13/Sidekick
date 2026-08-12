@@ -1,25 +1,12 @@
 --[[
     Shared Party List
 
-    Two Sidekick sessions on the same PC share party rosters through small text
-    files. Every session publishes its own party to
-    config/addons/sidekick/party_<CharName>.txt, and every session reads every *other*
-    published file, tracking the players listed there.
+    Every Sidekick session on this PC publishes its own party to
+    config/addons/sidekick/party_<CharName>.txt and tracks the members listed in every
+    *other* such file, so a box healing from outside a party picks that party up with no
+    setup. Entries added this way carry .auto and are the only ones this module removes.
 
-    So the box healing from outside the party has to do nothing at all: whoever it is
-    boxing with publishes their party, and it gets tracked automatically, kept in sync
-    as members join and leave. Discovery is by directory listing -- there is no host to
-    nominate and nothing to configure.
-
-    The roster carries each member's job, sub job, levels and max HP, because the
-    publisher is *in* the party and reads those for real. That replaces both of the
-    guesses a hand-added tracked target has to live with: the /check round-trip for
-    job/level (which needs the target in range) and the AVERAGE_HP_BY_LEVEL estimate
-    for max HP (non-party entities expose only HP percent).
-
-    Auto-added entries are tagged with the name of the character whose file listed them
-    (tracked_targets[sid].auto) and are the only ones this module ever removes --
-    hand-added targets are never touched.
+    See ARCHITECTURE.md, "party_share.lua -- Shared Party List", for the full design.
 ]]--
 
 local common = require('lib.core.common')
@@ -108,7 +95,6 @@ local function read_roster(owner)
     if not f then return nil end
 
     local members = {}
-    local found   = false
     for line in f:lines() do
         local sid, job, sub, mlvl, slvl, mhp, member =
             line:match('^(%d+) (%d+) (%d+) (%d+) (%d+) (%d+) (.+)$')
@@ -121,36 +107,41 @@ local function read_roster(owner)
                 sub_level  = tonumber(slvl),
                 max_hp     = tonumber(mhp),
             }
-            found = true
         end
     end
     f:close()
 
-    if not found then return nil end
+    if not next(members) then return nil end
     return members
 end
 
--- Every roster published on this PC except our own, as { [owner name] = roster }.
+-- Every roster published on this PC except our own, merged into one
+-- { [server_id] = info }, plus whether any file actually read back with members.
+-- That flag is what makes removals safe: nothing read means nothing is dropped, so a
+-- file that is merely absent (owner logged out) or caught mid-rewrite can never wipe
+-- the list.
 -- ashita.fs.get_dir returns bare file names; the owner is what sits between the
 -- 'party_' prefix and the extension. The listing is taken unfiltered ('.*') and narrowed
 -- with a Lua pattern below -- get_dir's filter is a C++ std::regex, and there is no reason
 -- to depend on its dialect for a match we have to make anyway to pull the owner out.
 local function read_all_rosters(my_name)
-    local rosters = {}
+    local members  = {}
+    local read_any = false
 
-    local ok, files = pcall(function()
-        return ashita.fs.get_dir(shared_dir(), '.*', true)
-    end)
-    if not ok or not files then return rosters end
+    local ok, files = pcall(ashita.fs.get_dir, shared_dir(), '.*', true)
+    if not ok or not files then return members, false end
 
     for _, file in ipairs(files) do
         local owner = tostring(file):match('^party_(.+)%.txt$')
         if owner and owner ~= my_name then
             local roster = read_roster(owner)
-            if roster then rosters[owner] = roster end
+            if roster then
+                read_any = true
+                for sid, info in pairs(roster) do members[sid] = info end
+            end
         end
     end
-    return rosters
+    return members, read_any
 end
 
 -- Locate loaded entities for a set of server ids in one pass over the entity table
@@ -176,49 +167,30 @@ local function find_entities(server_ids)
     return found
 end
 
--- Our own party's server ids, our own included (slot 0). Anything in here is already
--- covered by the normal party path and must never become a tracked target.
-local function my_party_sids()
-    local sids  = {}
-    local party = common.get_party()
-    if not party then return sids end
-
-    for i = 0, 5 do
-        if party:GetMemberIsActive(i) == 1 then
-            sids[party:GetMemberServerId(i)] = true
-        end
-    end
-    return sids
-end
-
 --[[
     Syncing
 ]]--
 
 local function sync(my_name)
-    local tracked = common.get_tracked_targets()
-    local mine    = my_party_sids()
+    local published, read_any = read_all_rosters(my_name)
+    if not read_any then return end
 
-    local wanted     = {}  -- [server_id] = owner name that vouched for this member
-    local infos      = {}  -- [server_id] = roster entry
-    local live_owner = {}  -- Owners whose file read back with members this pass
-    for owner, roster in pairs(read_all_rosters(my_name)) do
-        live_owner[owner] = true
-        for sid, info in pairs(roster) do
-            if not mine[sid] then
-                wanted[sid] = owner
-                infos[sid]  = info
-            end
-        end
+    -- Our own party (slot 0 included) is already covered by the normal party path and
+    -- must never become a tracked target.
+    local mine = {}
+    for _, sid in ipairs(common.get_party_server_ids()) do mine[sid] = true end
+
+    local wanted = {}  -- [server_id] = roster entry, minus anyone in our own party
+    for sid, info in pairs(published) do
+        if not mine[sid] then wanted[sid] = info end
     end
 
-    -- Drop auto entries a live owner's file no longer lists. An owner that stopped
-    -- publishing (logged out, unloaded) is deliberately not live, so its members stay
-    -- tracked rather than being wiped by a file that is merely absent -- the same
-    -- guard covers a read that caught the file mid-rewrite.
-    local stale = {}
+    -- Drop auto entries no roster lists any more. Hand-added targets have no .auto and
+    -- are never touched.
+    local tracked = common.get_tracked_targets()
+    local stale   = {}
     for sid, tt in pairs(tracked) do
-        if tt.auto and live_owner[tt.auto] and wanted[sid] ~= tt.auto then
+        if tt.auto and not wanted[sid] then
             table.insert(stale, sid)
         end
     end
@@ -226,35 +198,23 @@ local function sync(my_name)
         common.remove_tracked_target(sid)
     end
 
-    -- Refresh what the roster knows onto entries we already hold, so a level-up or a
-    -- job change on the other box lands here too (the file is rewritten whenever any
-    -- published field changes, so this only ever runs on real changes). Hand-added
-    -- targets have no .auto and keep their own checked data.
-    for sid, owner in pairs(wanted) do
-        local tt = tracked[sid]
-        if tt and tt.auto then
-            tt.auto = owner
-            common.set_tracked_target_info(sid, infos[sid])
-            common.set_member_max_hp(sid, infos[sid].max_hp)
-        end
-    end
-
-    -- Add everything still missing. No /check is sent for a roster-driven add, so there is
-    -- nothing to stagger and the whole party can land in one pass.
+    -- Refresh entries we already hold (a level-up or job change on the other box lands
+    -- here), and collect the ones still missing. No /check is sent for a roster-driven
+    -- add, so there is nothing to stagger and the whole party can land in one pass.
     local missing = {}
-    local any     = false
-    for sid, _ in pairs(wanted) do
-        if not tracked[sid] then
+    for sid, info in pairs(wanted) do
+        local tt = tracked[sid]
+        if not tt then
             missing[sid] = true
-            any = true
+        elseif tt.auto then
+            common.set_tracked_target_info(sid, info)
         end
     end
-    if not any then return end
+    if not next(missing) then return end
 
     for sid, entity in pairs(find_entities(missing)) do
-        if common.add_tracked_target(entity, infos[sid]) then
-            tracked[sid].auto = wanted[sid]
-            common.set_member_max_hp(sid, infos[sid].max_hp)
+        if common.add_tracked_target(entity, wanted[sid]) then
+            tracked[sid].auto = true
         end
     end
 end
