@@ -95,6 +95,8 @@ local default_settings = T{
     rest_distance = 7,
     -- Config window opacity (job-independent). 1-100, set from /sk panel.
     ui_opacity = 100,
+    -- Whether the config window was open when the addon last unloaded; reopened on load.
+    ui_open = false,
 }
 
 -- Range management state
@@ -794,6 +796,11 @@ ashita.events.register('d3d_present', 'sidekick_render', function()
             else
                 automation_enabled = addon_settings.automation_enabled == true
             end
+
+            -- Reopen the config window if it was open at unload.
+            if addon_settings.ui_open == true then
+                ui_config.show()
+            end
         end
     end
     
@@ -807,6 +814,13 @@ ashita.events.register('d3d_present', 'sidekick_render', function()
     -- Render config UI
     if ui_config.is_visible() and addon_settings and job_def then
         ui_config.render(addon_settings, job_def, save_settings_callback)
+    end
+
+    -- Persist the window's open/closed state. Covers both /sk config and the [X]
+    -- (which clears visibility inside render), so a reload comes back the same way.
+    if addon_settings and addon_settings.ui_open ~= ui_config.is_visible() then
+        addon_settings.ui_open = ui_config.is_visible()
+        save_settings_callback()
     end
 
     -- Render game-state panel (independent of automation / job_def)
