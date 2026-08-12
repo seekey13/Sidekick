@@ -40,6 +40,10 @@ end
 -- list carries their real job/level, and max_hp is the observed-at-100% cache rather
 -- than an hp/hpp derivation, so the value is stable and doesn't churn the file.
 -- 0 means unknown (an /anon member publishes job 0 / level 0, same as a failed /check).
+-- Job and level are always known to the publisher, but max_hp is *not*: the cache is only
+-- seeded once that member has been seen at 100% HP, so a member who has been hurt since
+-- we met them publishes max_hp 0. The reader ignores a 0 (common.set_tracked_target_info)
+-- and stays on its AVERAGE_HP_BY_LEVEL estimate until a real value shows up.
 -- Trusts are left out: they are only targetable by their owner's own party, so they are
 -- useless to the box reading this file.
 -- nil while game_state isn't populated (zoning) -- publishing nothing beats an empty roster.
@@ -72,11 +76,28 @@ local function publish(my_name)
     local text = table.concat(lines, '\n') .. '\n'
     if text == last_roster then return end
 
+    -- Write a temp file and swap it in, rather than truncating the live one: a reader
+    -- that catches a truncated file parses a short-but-valid roster and drops the auto
+    -- targets missing from it, where a reader that catches no file at all reads nil,
+    -- and nil never drives a removal (see sync()). os.rename cannot clobber an existing
+    -- file on Windows, so the old roster is removed first -- which is why the swap is a
+    -- gap rather than an instant, and the gap is the safe state of the two.
+    -- ponytail: with two or more publishers, another file reading back during that gap
+    -- still satisfies read_any and costs this owner's members one pass (~2 s) before
+    -- they are re-added. Needs per-owner read tracking to close, which is not worth it
+    -- for a microsecond window hit by a 2 s poll.
     local path = shared_path(my_name)
-    local f = io.open(path, 'w')
+    local tmp  = path .. '.tmp'
+    local f = io.open(tmp, 'w')
     if not f then return end
     f:write(text)
     f:close()
+
+    os.remove(path)
+    if not os.rename(tmp, path) then
+        os.remove(tmp)
+        return
+    end
 
     my_file     = path
     last_roster = text

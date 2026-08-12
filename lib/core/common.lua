@@ -3196,9 +3196,11 @@ end
 --
 -- common.game_state.tracked[server_id] fields:
 --   server_id, name, target_index
---   hp, hpp, max_hp (max_hp known from the 100% cache or a shared party list, else
---                    estimated from AVERAGE_HP_BY_LEVEL; hp is always hpp-derived)
---   max_hp_estimated (true when max_hp came from the level table, i.e. it is a guess)
+--   hp, hpp, max_hp (max_hp known from the 100% cache or a shared party list that had
+--                    one, else estimated from AVERAGE_HP_BY_LEVEL, else 0 when there is
+--                    no level to estimate from; hp is always hpp-derived)
+--   max_hp_estimated (true only when max_hp actually came from the level table, i.e. it
+--                     is a guess; false for both a known value and no value at all)
 --   buffs            (table of buff IDs, packet-tracked)
 --   position         ({x, y, z} in local coords)
 --   is_tracked       (always true)
@@ -3612,16 +3614,21 @@ function common.refresh_game_state()
             -- Only HPPercent is available for non-party entities from GetEntity();
             -- raw HP is not exposed in the FFXI entity array for non-party PCs.
             -- Priority: (1) known max HP -- observed at 100%, or handed over by a party
-            -- member's own client through the shared party list (party_share.lua);
-            -- (2) level-based estimate from AVERAGE_HP_BY_LEVEL. Only the second is a
-            -- guess, and max_hp_estimated says so, so the panel marks the right rows '~'.
+            -- member's own client through the shared party list (party_share.lua, which
+            -- can only pass a value it has itself observed at 100%, so a roster row is
+            -- not a guarantee); (2) level-based estimate from AVERAGE_HP_BY_LEVEL. Only
+            -- the second is a guess, and max_hp_estimated says so, so the panel marks the
+            -- right rows '~'. Neither available (no cache, and no level to estimate from
+            -- -- an /anon row publishes level 0) leaves max_hp 0 and the flag false: there
+            -- is no estimate to mark, and the panel shows no number at all.
             if not member_max_stats[sid] then
                 member_max_stats[sid] = {}
             end
             local max_hp = member_max_stats[sid].max_hp or 0
-            local max_hp_estimated = (max_hp == 0)
+            local max_hp_estimated = false
             if max_hp == 0 and tt.main_level then
                 max_hp = AVERAGE_HP_BY_LEVEL[tt.main_level] or 0
+                max_hp_estimated = (max_hp > 0)
             end
             local hp = (max_hp > 0) and math.floor(hpp * max_hp / 100) or 0
 
@@ -3653,9 +3660,10 @@ function common.refresh_game_state()
         else
             -- Entity not visible; keep entry but mark inactive
             local cached_max_hp = (member_max_stats[sid] or {}).max_hp or 0
-            local cached_estimated = (cached_max_hp == 0)
+            local cached_estimated = false
             if cached_max_hp == 0 and tt.main_level then
                 cached_max_hp = AVERAGE_HP_BY_LEVEL[tt.main_level] or 0
+                cached_estimated = (cached_max_hp > 0)
             end
             state.tracked[sid] = {
                 server_id     = sid,
