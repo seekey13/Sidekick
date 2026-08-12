@@ -728,7 +728,17 @@ function ui_config.render(settings, job_def, callback)
             imgui.AlignTextToFramePadding()
             imgui.TextColored(ui.LIGHT_GREEN, string.format('%s %d / %s %d', main_job_name, main_level, sub_job_name, sub_level or 0))
         end
-        
+
+        -- /anon strips job and level out of the party-list packet, which is where
+        -- Sidekick reads its level gates from -- most actions stop firing.
+        if common.is_anon() then
+            imgui.TextColored(ui.LIGHT_RED, '/anon is ON - Sidekick will not work correctly.')
+            if imgui.IsItemHovered() then
+                imgui.SetTooltip('While /anon is set the server sends no job or level in the\nparty list, so level-gated spells and abilities are skipped.\nType /anon to turn it off.')
+            end
+        end
+
+
         -- Automation toggle button
         local is_loading = common.is_loading()
         local can_attack = common.can_attack()
