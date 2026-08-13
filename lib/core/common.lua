@@ -849,6 +849,11 @@ for _, id in ipairs(common.ERASABLE_DEBUFFS) do
     table.insert(common.PET_CLEANSE_DEBUFFS, id)
 end
 
+-- Invisible (status_effects.sql id 69). Casting anything, and any /pet command,
+-- breaks it -- so the modules that would spend it check for it first. Sneak (71)
+-- survives both and is never gated.
+common.INVISIBLE_BUFF = 69
+
 -- Curse-family statuses removed by Cursna and by Holy Water / Hallowed Water.
 -- 9 = Curse, 15 = Doom, 20 = Bane, 30 = Curse (Bane II).
 common.CURSE_DEBUFFS = {9, 15, 20, 30}

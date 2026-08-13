@@ -313,11 +313,14 @@ function panel.render(addon_settings, save_settings)
                 if (gs.player.pet_hpp or 0) > 0 then
                     local pet_entity = common.get_pet_entity()
                     local ok, pet_name = pcall(function() return pet_entity and pet_entity.Name end)
+                    -- Pet's own engaged state -- the field that gates deploy.
+                    local ok_s, pet_status = pcall(function() return pet_entity and pet_entity.Status end)
                     cell_tooltip = member_row('PET', PET, {
-                        name     = (ok and pet_name ~= '' and pet_name) or nil,
-                        hpp      = gs.player.pet_hpp,
-                        position = gs.player.pet_position,
-                        buffs    = gs.pet_debuffs,
+                        name          = (ok and pet_name ~= '' and pet_name) or nil,
+                        hpp           = gs.player.pet_hpp,
+                        position      = gs.player.pet_position,
+                        buffs         = gs.pet_debuffs,
+                        entity_status = ok_s and pet_status or nil,
                     }, {}) or cell_tooltip
                 end
             end

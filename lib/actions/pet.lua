@@ -7,9 +7,9 @@
         player, same as retail), stacking duplicates when the same element is
         picked in more than one slot.
       * Send pet at target (PUP Deploy / SMN Assault / BST Fight -- the UI labels
-        it with whichever ability the job has): sends the pet at a mob whenever it
-        doesn't already have a live target of its own (read off the pet entity's
-        own TargetIndex). Which mob comes from pet_control_target: '<t>' (default)
+        it with whichever ability the job has): sends the pet at a mob whenever the
+        pet is not already engaged (read off the pet entity's Status). Which mob
+        comes from pet_control_target: '<t>' (default)
         is the player's cursor target and only fires while engaged; '<bt>' is the
         battle target and needs no engaged check. Opt-in (pet_control_enabled, off
         by default). Shared across all three jobs; each supplies its own
@@ -20,7 +20,8 @@
 
     Maneuver upkeep has no combat gate; send-pet-at-target does -- a real
     behavioral difference, not an oversight. Both sit under the UI's "Pet Control"
-    section and its `pet_enabled` master switch.
+    section and its `pet_enabled` master switch, and both are held off entirely
+    while the player has Invisible up (common.INVISIBLE_BUFF).
 
     Spec: docs/superpowers/specs/2026-08-08-pup-maneuver-deploy-design.md
     Spec: docs/superpowers/specs/2026-08-08-pet-deploy-smn-bst-design.md
@@ -30,6 +31,15 @@ local pet = {}
 
 local common      = require('lib.core.common')
 local action_core = require('lib.core.action_core')
+
+-- Both maneuvers and the send-pet-at-target abilities go out as /pet, which drops
+-- Invisible -- so neither fires while it's up. Travel wins over upkeep: the
+-- maneuvers come back on their own once Invisible is down, a blown Invisible in a
+-- mob-heavy zone does not.
+local function is_invisible()
+    local buffs = (common.game_state.player or {}).buffs or {}
+    return action_core.has_any_buff(buffs, common.INVISIBLE_BUFF)
+end
 
 -- ============================================================================
 -- Maneuver upkeep helpers
@@ -66,6 +76,11 @@ function pet.execute_maneuver(settings, job_def, main_level, sub_level, player_r
 
     -- Do not apply maneuvers while resting
     if common.is_resting() then
+        return nil
+    end
+
+    -- Do not break Invisible for upkeep
+    if is_invisible() then
         return nil
     end
 
@@ -129,23 +144,14 @@ end
 -- Automaton/avatar/pet Deploy
 -- ============================================================================
 
--- True when the pet already has a live MOB target of its own, read straight off
--- the pet entity's own TargetIndex -- the same field common.lua's
--- refresh_game_state reads to locate the pet's target for position tracking, so
--- no packet parsing is needed here.
--- The SpawnFlags 0x10 (mob) check is load-bearing, not defensive: an idle pet's
--- TargetIndex points at its MASTER, who is alive, so an HP%-only test reads
--- "already busy" forever and deploy never fires.
-local function pet_has_live_target(pet_entity)
-    local idx = pet_entity.TargetIndex
-    if not idx or idx == 0 then
-        return false
-    end
-    local e = GetEntity(idx)
-    if e == nil or (e.HPPercent or 0) <= 0 then
-        return false
-    end
-    return bit.band(e.SpawnFlags or 0, 0x10) ~= 0
+-- True when the pet is already fighting, so deploy must not re-send it. Status
+-- (1 = engaged) is the same field is_engaged() reads off the player. Note there
+-- is no client-side field naming what another entity targets -- an entity's
+-- TargetIndex is its OWN slot, which is why an earlier version reading it never
+-- saw the pet as busy.
+local function pet_is_engaged(pet_entity)
+    local ok, status = pcall(function() return pet_entity.Status end)
+    return ok and tonumber(status) == 1
 end
 
 function pet.execute_deploy(settings, job_def, main_level, sub_level, player_resource)
@@ -157,12 +163,19 @@ function pet.execute_deploy(settings, job_def, main_level, sub_level, player_res
         return nil
     end
 
+    -- Do not break Invisible to send the pet in. Matters most on the '<bt>' path,
+    -- which has no engaged check and would otherwise fire while sneaking past a
+    -- camp toward a party fight.
+    if is_invisible() then
+        return nil
+    end
+
     local pet_entity = common.targets.get_pet()
     if not pet_entity then
         return nil
     end
 
-    if pet_has_live_target(pet_entity) then
+    if pet_is_engaged(pet_entity) then
         return nil
     end
 

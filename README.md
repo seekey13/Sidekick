@@ -58,7 +58,7 @@ The one exception is **opt-in leader following** (off by default): with **Follow
 
 ### Added
 - **Shared party list — your second box picks up the whole party on its own**: running Sidekick on two clients? The one sitting outside the party now tracks everyone in the other one's party automatically, adding and dropping people as they join and leave. Nothing to add by hand, nothing to turn on. It also stops `/check`-ing anyone: the box that is actually *in* the party already knows everyone's job and level, so it just says so — no more waiting for someone to walk into range before Sidekick knows what they are. It passes real max HP along too, once it has seen that person at full health, so `/sk panel` swaps the estimate for the real number as soon as it can (rows still showing `~` are still estimates). Thanks to **Kelzalik** for the encouragment to get nerdier.
-- **New Pet Control section (PUP/SMN/BST)**: one section for both pet features, each with its own checkbox. **Maneuver** keeps up to 3 elemental Maneuvers of your choice applied (PUP main or sub). Beside it, an opt-in toggle — labeled with your job's own ability (**Deploy**/**Assault**/**Fight**) — sends your pet at your cursor target or at the battle target, your pick.
+- **New Pet Control section (PUP/SMN/BST)**: one section for both pet features, each with its own checkbox. **Maneuver** keeps up to 3 elemental Maneuvers of your choice applied (PUP main or sub). Beside it, an opt-in toggle — labeled with your job's own ability (**Deploy**/**Assault**/**Fight**) — sends your pet at your cursor target or at the battle target, your pick, whenever it isn't already engaged. Neither feature fires while you have Invisible up.
 - **Per-target Combat/Idle overrides**: right-click any **ME**/**P1**-**P5** button on a buff row to force **Combat Only** or **Idle Only** for just that one target, overriding the ability's own Combat/Idle setting — keep Haste up on everyone but force it Combat Only for one melee, say. The overridden button tints yellow (Combat Only) or green (Idle Only) as a reminder. Session-only — resets on reload, nothing is written to your settings. Thanks to **Seikio** for the feature idea.
 - **Hold AOE for Group now announces the wait**: while Hold AOE for Group is holding a cast for a straggler, Sidekick now says so in party chat (e.g. *"Gather together for Protectra IV"*), repeating every few seconds for as long as the hold lasts. Thanks to **Toranko** for the feature idea.
 - **The config window remembers if it was open**: close `/sk` and it stays closed after a reload; leave it open and it comes back open. Remembered per character, nothing to configure.
@@ -144,7 +144,7 @@ Currently implemented support jobs:
   - Pet debuff removal with **Reward (Erase)** using a **Pet Roborant**
   - Party AOE healing with **Wild Carrot** from a rabbit jug pet (KeenearedSteffi / Rabbit), gated on a Ready charge
   - Only one ammo can be worn at a time, so the three Reward variants never contend for the ammo slot
-  - **Fight** (**Pet Control** section, opt-in, off by default): sends your pet at a mob whenever it doesn't already have a target of its own. The dropdown beside the toggle picks which mob — `<t>` (your cursor target, only while you're engaged; default) or `<bt>` (the battle target). Shared logic with Puppetmaster's Deploy and Summoner's Assault.
+  - **Fight** (**Pet Control** section, opt-in, off by default): sends your pet at a mob whenever it isn't already engaged, and never while you have Invisible up (the command would break it). The dropdown beside the toggle picks which mob — `<t>` (your cursor target, only while you're engaged; default) or `<bt>` (the battle target). Shared logic with Puppetmaster's Deploy and Summoner's Assault.
 
 - **Dragoon** (DRG) — *pet-only support*
   - Pet (wyvern) healing with **Spirit Link** (no item — transfers the master's HP)
@@ -154,8 +154,8 @@ Currently implemented support jobs:
   - Automaton healing with **Repair** (requires an **Automaton Oil** in the ammo slot; higher tiers heal more; PUP-main only)
   - Automaton healing with **Role Reversal** (level 75 merit) when Repair is on cooldown — only fires when you're healthier than the automaton and the swap leaves you above 25% HP
   - Automaton debuff removal with **Maintenance** (same Oil ammo)
-  - **Maneuver** (**Pet Control** section): pick up to 3 elemental Maneuvers (Fire/Ice/Wind/Earth/Thunder/Water/Light/Dark) from three dropdowns and Sidekick keeps them applied, stacking duplicates if you pick the same element twice. Works with PUP as main job or subjob; held off while **Overload** is up. No combat gate — kept up in and out of battle.
-  - **Deploy** (**Pet Control** section, opt-in, off by default, its own checkbox — independent of Maneuver): sends the automaton at a mob whenever it doesn't already have a target of its own. The dropdown beside the toggle picks which mob — `<t>` (your cursor target, only while you're engaged; default) or `<bt>` (the battle target). Shared logic with Summoner's Assault and Beastmaster's Fight.
+  - **Maneuver** (**Pet Control** section): pick up to 3 elemental Maneuvers (Fire/Ice/Wind/Earth/Thunder/Water/Light/Dark) from three dropdowns and Sidekick keeps them applied, stacking duplicates if you pick the same element twice. Works with PUP as main job or subjob; held off while **Overload** is up, and while you have Invisible up (the `/pet` command would break it). No combat gate — kept up in and out of battle.
+  - **Deploy** (**Pet Control** section, opt-in, off by default, its own checkbox — independent of Maneuver): sends the automaton at a mob whenever it isn't already engaged, and never while you have Invisible up (the command would break it). The dropdown beside the toggle picks which mob — `<t>` (your cursor target, only while you're engaged; default) or `<bt>` (the battle target). Shared logic with Summoner's Assault and Beastmaster's Fight.
 
 - **Bard** (BRD)
   - Buff with songs on self or party members using Pianissimo (level 20+) — the ME button self-buffs via Pianissimo too
@@ -275,7 +275,7 @@ Currently implemented support jobs:
   - AOE healing with blood pacts (Healing Ruby II - requires Carbuncle)
   - Buff with blood pacts (Avatar's Favor, Shining Ruby)
   - Smart pet validation: Carbuncle-specific abilities only execute when Carbuncle is summoned; avatar-agnostic abilities work with any avatar
-  - **Assault** (**Pet Control** section, opt-in, off by default): sends your avatar at a mob whenever it doesn't already have a target of its own. The dropdown beside the toggle picks which mob — `<t>` (your cursor target, only while you're engaged; default) or `<bt>` (the battle target). Shared logic with Puppetmaster's Deploy and Beastmaster's Fight.
+  - **Assault** (**Pet Control** section, opt-in, off by default): sends your avatar at a mob whenever it isn't already engaged, and never while you have Invisible up (the command would break it). The dropdown beside the toggle picks which mob — `<t>` (your cursor target, only while you're engaged; default) or `<bt>` (the battle target). Shared logic with Puppetmaster's Deploy and Beastmaster's Fight.
 
 - **Thief** (THF) — *self-only support*
   - Self-buffs with job abilities (Conspirator, Assassin's Charge, Feint) — combat-only.

@@ -562,7 +562,7 @@ MP and TP recovery. Monitors percentage thresholds. Uses `action_core.first_comm
   `abilities.pet_control` list carries exactly one entry with the job-specific
   `name`/`recast_id`/`command` (PUP `Deploy` recast 207, SMN `Assault` recast 170, BST `Fight`
   recast 100); the execute/tracking logic itself is entirely job-agnostic. Sends the pet at a mob
-  whenever it has no live target of its own. Opt-in
+  whenever the pet is not already engaged. Opt-in
   (`settings.pet_control_enabled`, off by default, under the `pet_enabled` section master), unlike
   maneuver upkeep. Which mob comes from `settings.pet_control_target`, the dropdown beside the
   toggle: `'<t>'` (default) is the player's cursor target and additionally requires
@@ -571,12 +571,21 @@ MP and TP recovery. Monitors percentage thresholds. Uses `action_core.first_comm
   mode is picked, so no job carries two entries. Either way the target must be a genuine mob
   (`SpawnFlags` 0x10 bit, the same check `common.is_combat()` uses), not merely alive, so a
   targeted party member can't be Deployed at.
-- **Tracking the pet's live target**: `pet_has_live_target()` reads the pet entity's own
-  `TargetIndex` directly (the same field `refresh_game_state` uses to locate the pet's target
-  for position tracking) and requires both `HPPercent > 0` **and** `SpawnFlags` 0x10 (a mob) on
-  the resolved entity before treating it as still engaged. The mob half is load-bearing: an idle
-  pet's `TargetIndex` points at its own master, who is alive, so an HP%-only test reads "already
-  busy" permanently and deploy never fires. No packet parsing involved.
+- **Is the pet already busy**: `pet_is_engaged()` reads the pet entity's `Status` — the same
+  field `common.is_engaged()` reads off the player, where `1` is engaged. Note there is **no**
+  client-side field naming what another entity is targeting: an entity's `TargetIndex` is its
+  *own* slot in the entity array (`targets.get_pet()` resolves the pet from
+  `player.PetTargetIndex`, and `refresh_game_state` feeds the pet's `TargetIndex` to
+  `GetLocalPositionX` to get the *pet's* position, not its target's). An earlier version read it
+  as the pet's target, so the pet never looked busy and deploy re-fired at the same mob every
+  recast. No packet parsing involved.
+- **Invisible gate**: both features bail while the player holds Invisible (`common.INVISIBLE_BUFF`,
+  status_effects.sql id 69) — maneuvers and the send-pet abilities both go out as `/pet`, which
+  drops it. Same rule `buff.lua`'s travel-buff gate uses, and the constant is now shared between
+  them. Travel wins over upkeep: maneuvers come back on their own once Invisible is down, a blown
+  Invisible in a mob-heavy zone does not. Bites hardest on the `'<bt>'` path, which has no engaged
+  check and would otherwise fire while sneaking past a camp toward a party fight. Sneak (71)
+  survives `/pet` and is never gated.
 
 ### roll.lua – Corsair Phantom Roll / Double-Up
 
