@@ -7,9 +7,9 @@
         player, same as retail), stacking duplicates when the same element is
         picked in more than one slot.
       * Send pet at target (PUP Deploy / SMN Assault / BST Fight -- the UI labels
-        it with whichever ability the job has): sends the pet at a mob whenever it
-        doesn't already have a live target of its own (read off the pet entity's
-        own TargetIndex). Which mob comes from pet_control_target: '<t>' (default)
+        it with whichever ability the job has): sends the pet at a mob whenever the
+        pet is not already engaged (read off the pet entity's Status). Which mob
+        comes from pet_control_target: '<t>' (default)
         is the player's cursor target and only fires while engaged; '<bt>' is the
         battle target and needs no engaged check. Opt-in (pet_control_enabled, off
         by default). Shared across all three jobs; each supplies its own
@@ -146,23 +146,16 @@ end
 -- Automaton/avatar/pet Deploy
 -- ============================================================================
 
--- True when the pet already has a live MOB target of its own, read straight off
--- the pet entity's own TargetIndex -- the same field common.lua's
--- refresh_game_state reads to locate the pet's target for position tracking, so
--- no packet parsing is needed here.
--- The SpawnFlags 0x10 (mob) check is load-bearing, not defensive: an idle pet's
--- TargetIndex points at its MASTER, who is alive, so an HP%-only test reads
--- "already busy" forever and deploy never fires.
-local function pet_has_live_target(pet_entity)
-    local idx = pet_entity.TargetIndex
-    if not idx or idx == 0 then
-        return false
-    end
-    local e = GetEntity(idx)
-    if e == nil or (e.HPPercent or 0) <= 0 then
-        return false
-    end
-    return bit.band(e.SpawnFlags or 0, 0x10) ~= 0
+-- True when the pet is already fighting something, read off the pet entity's
+-- Status -- the same field common.is_engaged() reads off the player, where 1 is
+-- engaged. There is no client-side field naming what another entity is
+-- targeting: an entity's TargetIndex is its OWN slot in the entity array (it is
+-- what targets.get_pet() resolves the pet from, via player.PetTargetIndex), so
+-- it cannot answer this question and an earlier version that read it never
+-- reported the pet as busy -- deploy re-fired at the same mob every recast.
+local function pet_is_engaged(pet_entity)
+    local ok, status = pcall(function() return pet_entity.Status end)
+    return ok and status == 1
 end
 
 function pet.execute_deploy(settings, job_def, main_level, sub_level, player_resource)
@@ -186,7 +179,7 @@ function pet.execute_deploy(settings, job_def, main_level, sub_level, player_res
         return nil
     end
 
-    if pet_has_live_target(pet_entity) then
+    if pet_is_engaged(pet_entity) then
         return nil
     end
 
