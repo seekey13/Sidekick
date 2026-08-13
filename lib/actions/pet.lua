@@ -39,8 +39,20 @@ local action_core = require('lib.core.action_core')
 -- mob-heavy zone does not.
 local INVISIBLE_BUFF = 69
 
+-- ponytail: the buff dump is temporary evidence for "the gate never trips" --
+-- debug-mode only, edge-triggered so it prints once per buff-list change. Drop it
+-- once the gate is confirmed live in-game.
+local last_buff_str = nil
+
 local function is_invisible()
-    return action_core.has_any_buff(common.game_state.player.buffs, INVISIBLE_BUFF)
+    local buffs = (common.game_state.player or {}).buffs or {}
+    local s = table.concat(buffs, ',')
+    if s ~= last_buff_str then
+        last_buff_str = s
+        common.debugf('[PET] player buffs: [%s] invisible(%d)=%s', s, INVISIBLE_BUFF,
+            tostring(action_core.has_any_buff(buffs, INVISIBLE_BUFF)))
+    end
+    return action_core.has_any_buff(buffs, INVISIBLE_BUFF)
 end
 
 -- ============================================================================
