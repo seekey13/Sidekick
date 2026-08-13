@@ -490,7 +490,7 @@ return {
                 command = '/ma "Enwater II" <me>',
                 buff_id = 282,
                 group = 'enspell',
-                element = 'water',
+                auto_element = 'water',
             },
             {
                 name = 'Enwater',
@@ -502,7 +502,7 @@ return {
                 command = '/ma "Enwater" <me>',
                 buff_id = 99,
                 group = 'enspell',
-                element = 'water',
+                auto_element = 'water',
             },
             {
                 name = 'Enfire II',
@@ -514,7 +514,7 @@ return {
                 command = '/ma "Enfire II" <me>',
                 buff_id = 277,
                 group = 'enspell',
-                element = 'fire',
+                auto_element = 'fire',
             },
             {
                 name = 'Enfire',
@@ -526,7 +526,7 @@ return {
                 command = '/ma "Enfire" <me>',
                 buff_id = 94,
                 group = 'enspell',
-                element = 'fire',
+                auto_element = 'fire',
             },
             {
                 name = 'Enblizzard II',
@@ -538,7 +538,7 @@ return {
                 command = '/ma "Enblizzard II" <me>',
                 buff_id = 278,
                 group = 'enspell',
-                element = 'ice',
+                auto_element = 'ice',
             },
             {
                 name = 'Enblizzard',
@@ -550,7 +550,7 @@ return {
                 command = '/ma "Enblizzard" <me>',
                 buff_id = 95,
                 group = 'enspell',
-                element = 'ice',
+                auto_element = 'ice',
             },
             {
                 name = 'Enaero II',
@@ -562,7 +562,7 @@ return {
                 command = '/ma "Enaero II" <me>',
                 buff_id = 279,
                 group = 'enspell',
-                element = 'wind',
+                auto_element = 'wind',
             },
             {
                 name = 'Enaero',
@@ -574,7 +574,7 @@ return {
                 command = '/ma "Enaero" <me>',
                 buff_id = 96,
                 group = 'enspell',
-                element = 'wind',
+                auto_element = 'wind',
             },
             {
                 name = 'Enstone II',
@@ -586,7 +586,7 @@ return {
                 command = '/ma "Enstone II" <me>',
                 buff_id = 280,
                 group = 'enspell',
-                element = 'earth',
+                auto_element = 'earth',
             },
             {
                 name = 'Enstone',
@@ -598,7 +598,7 @@ return {
                 command = '/ma "Enstone" <me>',
                 buff_id = 97,
                 group = 'enspell',
-                element = 'earth',
+                auto_element = 'earth',
             },
             {
                 name = 'Enthunder II',
@@ -610,7 +610,7 @@ return {
                 command = '/ma "Enthunder II" <me>',
                 buff_id = 281,
                 group = 'enspell',
-                element = 'thunder',
+                auto_element = 'thunder',
             },
             {
                 name = 'Enthunder',
@@ -622,7 +622,7 @@ return {
                 command = '/ma "Enthunder" <me>',
                 buff_id = 98,
                 group = 'enspell',
-                element = 'thunder',
+                auto_element = 'thunder',
             },
             -- Spikes (sorted by level, highest first)
             {

@@ -2,8 +2,13 @@
 Sidekick - Vana'diel environment (weather + day) and element auto-selection
 
 Reads the current elemental weather and the Vana'diel day of the week, then
-steers a group's `selected_<group>` setting at the tier whose `element` matches.
-Used by the enspell group's right-click "Auto Select for Weather/Day" item.
+steers a group's `selected_<group>` setting at the tier whose `auto_element`
+matches. Used by the enspell group's right-click "Auto Select for Weather/Day"
+item. The field is deliberately NOT called `element`: job data already carries a
+documentation-only `element` on BRD songs, GEO bubbles and bar-spells recording
+the spell's own casting element, which has nothing to do with what the caster
+wants matched to the sky (Barstone is a WIND spell), so keying off that name
+would offer the item everywhere and steer it wrong.
 
 Both readers are FFXiMain.dll signature scans -- the same signatures LuAshitacast
 and fancycompass use. Neither value is exposed through AshitaCore's managers.
@@ -131,24 +136,7 @@ local function refresh()
     cached_day   = read_day()
 end
 
--- Current weather element -- a storm on the player wins over the zone weather.
-function vanadiel.weather_element()
-    refresh()
-    return cached_storm or cached_zone
-end
-
--- Zone weather alone, ignoring any storm the player is carrying.
-function vanadiel.zone_weather_element()
-    refresh()
-    return cached_zone
-end
-
-function vanadiel.day_element()
-    refresh()
-    return cached_day
-end
-
--- Elements to try, best bonus first. `source` is the group's `element_source`:
+-- Elements to try, best bonus first. `source` is the group's `auto_element_source`:
 --
 --   'weather'  Zone weather only, storms deliberately ignored, no day fallback.
 --              For groups that *cast* the storms (SCH): a storm is the group's
@@ -159,7 +147,7 @@ end
 --              For groups that merely *benefit* (RDM enspells).
 --
 -- Entries collapse when weather and day agree; either may be absent.
-function vanadiel.candidate_elements(source)
+local function candidate_elements(source)
     refresh()
     if source == 'weather' then
         return cached_zone and { cached_zone } or {}
@@ -190,7 +178,7 @@ local function best_for_element(job_def, group, element, main_level, sub_level)
     local best = nil
     for _, abilities in pairs(job_def.abilities or {}) do
         for _, ability in ipairs(abilities) do
-            if ability.group == group and ability.element == element
+            if ability.group == group and ability.auto_element == element
                 and level_ok(ability, main_level, sub_level)
                 and common.has_spell_learned(ability)
                 and (not best or ability.level > best.level) then
@@ -201,15 +189,15 @@ local function best_for_element(job_def, group, element, main_level, sub_level)
     return best
 end
 
--- Groups in this job that carry per-ability elements, mapped to their
--- `element_source` ('weather', or false for the default chain). No group name is
--- hardcoded here -- any future elemental group picks the feature up for free.
+-- Groups in this job that carry per-ability auto-select elements, mapped to their
+-- `auto_element_source` ('weather', or false for the default chain). No group name
+-- is hardcoded here -- any future elemental group picks the feature up for free.
 local function elemental_groups(job_def)
     local groups = {}
     for _, abilities in pairs(job_def.abilities or {}) do
         for _, ability in ipairs(abilities) do
-            if ability.group and ability.element then
-                groups[ability.group] = ability.element_source or false
+            if ability.group and ability.auto_element then
+                groups[ability.group] = ability.auto_element_source or false
             end
         end
     end
@@ -220,7 +208,7 @@ local THROTTLE_SECONDS = 1.0
 local last_apply = 0
 
 -- Point `selected_<group>` at the element-matching tier for every group with
--- auto-select enabled, using that group's own element_source order. When no
+-- auto-select enabled, using that group's own auto_element_source order. When no
 -- candidate element has a castable tier the existing selection is left alone
 -- rather than cleared. Called once per tick from Sidekick.lua.
 function vanadiel.apply_auto_selection(job_def, settings)
@@ -240,7 +228,7 @@ function vanadiel.apply_auto_selection(job_def, settings)
         -- selection to steer.
         if settings['auto_element_' .. group] == true
             and settings['ungrouped_' .. group] ~= true then
-            for _, element in ipairs(vanadiel.candidate_elements(source)) do
+            for _, element in ipairs(candidate_elements(source)) do
                 local pick = best_for_element(job_def, group, element, main_level, sub_level)
                 if pick then
                     local key = 'selected_' .. group

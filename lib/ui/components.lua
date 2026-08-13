@@ -121,12 +121,14 @@ local function render_combat_only_context_menu(ctx, ability, scope)
             end
             -- Auto Select: keep the group's selection on the tier whose element
             -- matches the environment (RDM enspells, SCH storms). Only offered
-            -- for element-tagged groups, and not while ungrouped -- ungrouped
-            -- casts every tier, so there is no single selection to steer.
+            -- for `auto_element`-tagged groups, and not while ungrouped -- ungrouped
+            -- casts every tier, so there is no single selection to steer. NOT
+            -- `ability.element`: that field is documentation-only reference data on
+            -- BRD songs / GEO bubbles / bar-spells and would offer this everywhere.
             -- Applied each tick by lib/core/vanadiel.lua, which owns the source
             -- order; the label just has to name what that group actually follows.
-            if ability.element and ctx.settings[ung_key] ~= true then
-                local weather_only = ability.element_source == 'weather'
+            if ability.auto_element and ctx.settings[ung_key] ~= true then
+                local weather_only = ability.auto_element_source == 'weather'
                 local auto_key = 'auto_element_' .. ability.group
                 local auto = { ctx.settings[auto_key] == true }
                 if imgui.Checkbox(weather_only and 'Auto Select for Weather' or 'Auto Select for Weather/Day', auto) then

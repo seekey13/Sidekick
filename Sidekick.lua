@@ -534,8 +534,8 @@ local function automation_tick()
         return
     end
 
-    -- Point element-tagged groups (RDM enspells) at the tier matching the current
-    -- weather/day when 'Auto Select for Weather/Day' is on. Self-throttled to 1/sec.
+    -- Point auto_element-tagged groups (RDM enspells, SCH storms) at the tier matching
+    -- the current weather/day when 'Auto Select' is on. Self-throttled to 1/sec.
     -- Ahead of the AFK/mount/dead guards so the config dropdown stays accurate in
     -- those states too.
     vanadiel.apply_auto_selection(job_def, addon_settings)

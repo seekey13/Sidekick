@@ -350,9 +350,9 @@ degrades to "never moves the selection" instead of rescanning every tick:
 | Day | `B0015EC390518B4C24088D4424005068` | `day = floor(([[sig+0x34]+0x0C] + 92514960) / 3456) % 8` |
 
 `candidate_elements(source)` returns the elements to try, best bonus first, per the group's
-`element_source`:
+`auto_element_source`:
 
-| `element_source` | Order | Used by |
+| `auto_element_source` | Order | Used by |
 |---|---|---|
 | unset | storm buff > zone weather > day of the week | RDM enspells — the group *benefits* from whatever weather is in effect, and a storm on you **is** your weather |
 | `'weather'` | zone weather only; no storm, no day | SCH storms — the group *casts* storms, so its own output must not feed back in, and stacking a storm on matching weather is the double-weather bonus it exists for |
@@ -371,7 +371,7 @@ highest-level castable tier matching the first candidate element that has one. L
 would also have offered. **No candidate element with a castable tier leaves the selection
 untouched** — Light and Dark have no enspell, so lightsday under light weather changes nothing, and
 a storm group under clear skies keeps whatever the user picked. `settings.save()` fires only when
-the name actually changes. Groups are discovered from the `element` field alone, so no job or group
+the name actually changes. Groups are discovered from the `auto_element` field alone, so no job or group
 name appears in this module.
 
 ### party_share.lua – Shared Party List
@@ -496,7 +496,7 @@ Runs in two phases per tick:
 - **Phase 1 – Area songs (`[A]`)**: Bard songs flagged for area (`party_buff_config[key]['A'] == true`) are cast **without** Pianissimo so everyone in range gets the song, checked *before* the single-target pass because an AoE song overwrites single-target songs on everyone it hits. `area_needs_recast()` scans in-range (`SONG_AOE_RANGE` = 10 yalms), same-zone party members who aren't already covered by a dedicated single-target song (`dedicated_targets()` counts per-member song slots against the `song_limit`). Trusts are skipped for recast timing (unreliable buff tracking) but covered by the cast. Phase 1 is skipped while Pianissimo is active (it would make the area cast single-target by mistake).
 - **Phase 2 – Single-target buffs**: Per-member `<ME> <P1>–<P5>` (plus alliance/tracked) selection stored in `settings.party_buffs`. ME (`target_index 0`) now also routes through the target modifier so Bard self-songs use Pianissimo like P1-P5.
 - **Groups**: Mutually exclusive by default (dropdown selects the active tier). A group the user **ungroups** (`settings['ungrouped_<group>'] == true`) casts every tier independently, keyed by ability name like a non-grouped ability.
-- **Element auto-select**: abilities carrying an `element` (RDM enspells, SCH storms) get a right-click **Auto Select for Weather/Day** item — **Auto Select for Weather** when `element_source = 'weather'`; while `settings['auto_element_<group>']` is set, `lib/core/vanadiel.lua` rewrites `selected_<group>` from the tick loop so `buff.lua` needs no special case — it still just reads the selection.
+- **Element auto-select**: abilities carrying an `auto_element` (RDM enspells, SCH storms) get a right-click **Auto Select for Weather/Day** item — **Auto Select for Weather** when `auto_element_source = 'weather'`; while `settings['auto_element_<group>']` is set, `lib/core/vanadiel.lua` rewrites `selected_<group>` from the tick loop so `buff.lua` needs no special case — it still just reads the selection.
 - **Stacking same `buff_id`**: `count_instances()` / `wanted_instances()` / `song_needed()` count how many distinct selected tiers share a `buff_id` (e.g. Mage's Ballad + Mage's Ballad II both = buff 196) and treat a target as needing the song until it holds that many instances, instead of a plain presence check.
 - **Target modifier** (Pianissimo, etc.): If `ability.target_modifier = true`, sends modifier command first; next tick casts the buff.
 - **Song-ready gate on the modifier**: the modifier is only raised once the song it precedes is *itself* castable — `action_core.is_usable(ability, job_def, common.effective_ability_cost(ability, settings, job_def))`. Otherwise a song merely *due* for recast raises Pianissimo while still on its own recast or unaffordable, burning Pianissimo's recast before the song comes up. Applies to both the Phase 1 fast-casting hold and the Phase 2 `check_target_modifier` path; a song that isn't ready falls through to the next.
@@ -762,13 +762,17 @@ return {
                                     --   lifts when no travel buff is castable -- a job with none, and
                                     --   any job in combat, since travel buffs are idle_only.
     group           = 'regen',      -- mutually exclusive group
-    element         = 'fire',       -- grouped tiers only: the tier's element ('fire' | 'ice' | 'wind' |
-                                    --   'earth' | 'thunder' | 'water' | 'light' | 'dark'). Its presence
-                                    --   is what offers the right-click Auto Select item and lets
-                                    --   lib/core/vanadiel.lua steer selected_<group>. RDM enspells and
-                                    --   SCH storms today; no group name is hardcoded, so any elemental
-                                    --   group gets the feature by tagging its tiers.
-    element_source  = 'weather',    -- element only: where that group's auto-select reads its element.
+    auto_element    = 'fire',       -- grouped tiers only: the element this tier should be matched to the
+                                    --   sky by ('fire' | 'ice' | 'wind' | 'earth' | 'thunder' | 'water' |
+                                    --   'light' | 'dark', lowercase). Its presence is what offers the
+                                    --   right-click Auto Select item and lets lib/core/vanadiel.lua steer
+                                    --   selected_<group>. RDM enspells and SCH storms today; no group name
+                                    --   is hardcoded, so any elemental group gets the feature by tagging
+                                    --   its tiers. NOT the same field as `element` below.
+    element         = 'Wind',       -- documentation only, nothing reads it: the spell's OWN casting element
+                                    --   (BRD songs, GEO bubbles, bar-spells -- Barstone is a wind spell).
+                                    --   Unrelated to auto-select and title-cased to stay visibly distinct.
+    auto_element_source = 'weather',-- auto_element only: where that group's auto-select reads its element.
                                     --   'weather' = ZONE weather alone, storms ignored, no day fallback
                                     --   (SCH storms -- the group CASTS storms, so reading the storm buff
                                     --   would feed it its own last cast back forever, and stacking a
@@ -935,7 +939,7 @@ Ninjutsu is a special case worth knowing: in `spell_list.sql` the `mpCost` colum
 
 **Ability graying** (`self_single_ability`, `self_grouped_ability`, `group_dropdown`, `party_single_ability`, `ability_checkbox`): in addition to unlearned spells, a row is grayed (and given a matching tooltip) when it's blue magic not in the BLU set-spell list — `blue_unequipped` via `common.is_blue_magic_unequipped`, tooltip *"Blue Magic not currently equipped"*, row stays selectable since equipping is the user's job (`self_single_ability` and `ability_checkbox` only — the paths BLU rows render through) — when it's ammo-gated with none of the consumable owned — `no_ammo`, tooltip *"No `<ammo_label>` found in storage."* — when its `requires_item` tool isn't owned — `no_item`, tooltip *"No `<item_label>` or Shikanofuda in inventory."*, which also locks the ON/OFF toggle off — or when it needs a specific pet that isn't out — `wrong_pet` via `pet_type_unmet`/`common.pet_type_ok`, tooltip *"Requires pet `<name / name>`"*. `ability_checkbox` additionally renders unchecked **and** swallows clicks while `no_ammo`, so a consumable-gated row can't be enabled while unusable (the saved setting is left intact and restores when the item returns).
 
-**Right-click context menu** (`render_combat_only_context_menu`): mutually-exclusive **Combat Only** / **Idle Only** toggles (checking one clears the other) plus, for grouped buffs, an **Ungroup** checkbox (`ungrouped_<group>`) and — when the ability carries an `element` and the group is still grouped — an **Auto Select for Weather/Day** checkbox (`auto_element_<group>`, see `lib/core/vanadiel.lua`), labelled **Auto Select for Weather** where `element_source = 'weather'`. Suppressed for statically `idle_only` and `<bt>` abilities. Popup ids are per-ability (not per-group) so an ungrouped group's per-tier rows don't collide; once ungrouped, the Combat/Idle keys go per-ability too.
+**Right-click context menu** (`render_combat_only_context_menu`): mutually-exclusive **Combat Only** / **Idle Only** toggles (checking one clears the other) plus, for grouped buffs, an **Ungroup** checkbox (`ungrouped_<group>`) and — when the ability carries an `auto_element` and the group is still grouped — an **Auto Select for Weather/Day** checkbox (`auto_element_<group>`, see `lib/core/vanadiel.lua`), labelled **Auto Select for Weather** where `auto_element_source = 'weather'`. Suppressed for statically `idle_only` and `<bt>` abilities. Popup ids are per-ability (not per-group) so an ungrouped group's per-tier rows don't collide; once ungrouped, the Combat/Idle keys go per-ability too.
 
 **Per-target Combat/Idle override menu** (`render_target_gate_context_menu`, right-click on an individual **ME**/**P1**-**P5** button, buff rows only via `id_suffix == 'buff'`): the same **Combat Only** / **Idle Only** checkboxes as the ability-level menu, but scoped to one target and stored session-only in `ctx.party_buff_gates[config_key][target_index]` (`ui_config.get_party_buff_gates()`, never written to settings). An override **replaces** the ability's own gate for that target rather than ANDing with it — `common.target_gate_ok` reads it in `buff.lua`, falling back to `common.ability_gate_ok_now` (the ability's own `combat_only`/`idle_only`) when no override is set. Suppressed under the same conditions as the ability-level menu (statically `idle_only`/`combat_only`, `<bt>`) so an override can never fight a hard gate. The button tints yellow/green (`target_gate_color`, backed by `common.target_gate_override`) with a tooltip noting the override. Because `filter_abilities_by_level` runs once per ability, not per target, `common.ability_gate_bypassed_by_target_override` keeps an ability in the available list whenever *any* target's override matches the current combat/idle state, even if the ability's own gate says no — `buff.lua`'s per-target loop then applies `target_gate_ok` to decide each target individually. Area songs, alliance members and tracked targets have no override concept of their own, so those three paths in `buff.lua` still gate on `common.ability_gate_ok_now` (the ability's plain setting) even when a ME/P1-P5 override let the ability past the filter for a different target.
 
@@ -1039,7 +1043,7 @@ tables, not JSON.
 - **Start-button right-click menu** (both opt-in, default off): `load_stopped` ignores the saved `automation_enabled` state and loads stopped; `stop_after_zone` stops automation on zone change.
 - **Party buffs**: `settings.party_buffs[ability_name][party_index] = true/false`. Persisted keys are numeric ME/P1-P5 (0-5) and the Bard area key `'A'`; alliance (`al_`) and tracked (`tt_`) keys are session-only.
 - **Ungroup**: `settings.ungrouped_<group> = true` casts every tier in a group independently.
-- **Element auto-select**: `settings.auto_element_<group> = true` lets `lib/core/vanadiel.lua` steer `selected_<group>` to the tier whose `element` matches the environment. Ignored while `ungrouped_<group>` is set.
+- **Element auto-select**: `settings.auto_element_<group> = true` lets `lib/core/vanadiel.lua` steer `selected_<group>` to the tier whose `auto_element` matches the environment. Ignored while `ungrouped_<group>` is set.
 - **Stratagem hold**: `settings.stratagem_hold[<key>] = true` holds a spell until its assigned stratagem can fire.
 - **Session-only**: Group/AOE heal target selection (`ctx.party_buffs['heal_group' / 'heal_aoe_group']`) is never written to disk — it resets each load.
 
