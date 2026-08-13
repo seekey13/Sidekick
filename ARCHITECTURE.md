@@ -341,38 +341,29 @@ table lookup for every other job.
 
 Reads the Vana'diel environment and steers element-tagged groups (RDM enspells, SCH storms) at the
 tier that is actually getting the damage bonus. Neither value is exposed by `AshitaCore`, so both are
-`FFXiMain.dll` signature scans, lazy on first use and with the **failure cached** so a failed scan
-degrades to "never moves the selection" instead of rescanning every tick:
+`FFXiMain.dll` signature scans, done once at module load like `targets.lua`'s (a failed scan reads
+as 0 and the readers return `nil`, so auto-select simply never moves the selection):
 
 | Value | Signature | Read |
 |---|---|---|
-| Weather | `66A1????????663D????72` (shared with LuAshitacast / fancycompass) | `read_uint8([[sig+0x02]])`; 4-19 → element, odd = double weather (same element) |
+| Weather | `66A1????????663D????72` (shared with LuAshitacast / fancycompass) | `read_uint8([[sig+0x02]])`; 4-19 → element, two bytes each, odd = double weather (same element) |
 | Day | `B0015EC390518B4C24088D4424005068` | `day = floor(([[sig+0x34]+0x0C] + 92514960) / 3456) % 8` |
 
-`candidate_elements(source)` returns the elements to try, best bonus first, per the group's
-`auto_element_source`:
-
-| `auto_element_source` | Order | Used by |
-|---|---|---|
-| unset | storm buff > zone weather > day of the week | RDM enspells — the group *benefits* from whatever weather is in effect, and a storm on you **is** your weather |
-| `'weather'` | zone weather only; no storm, no day | SCH storms — the group *casts* storms, so its own output must not feed back in, and stacking a storm on matching weather is the double-weather bonus it exists for |
-
-Entries collapse when weather and day agree; any of them may be absent, and an empty list means
-nothing is changed. Storm statuses come off the player's own buff list in a single pass — ids
-**178-185** (tier I) and **589-596** (tier II), both in the standard
-Fire/Ice/Wind/Earth/Thunder/Water/Light/Dark order. Reads are cached for one second; weather and
-day only turn over on Vana'diel-minute boundaries.
+Storm statuses come off the player's own buff list in a single pass — ids **178-185** (tier I) and
+**589-596** (tier II), both in the standard Fire/Ice/Wind/Earth/Thunder/Water/Light/Dark order.
 
 `apply_auto_selection(job_def, settings)` runs from `automation_tick` (after the `is_loading()`
-guard, ahead of the AFK/mount/dead guards, self-throttled to 1/sec) and, for every group with
-`auto_element_<group>` set and `ungrouped_<group>` unset, writes `selected_<group>` with the
-highest-level castable tier matching the first candidate element that has one. Level / main-vs-sub
-/ `has_spell_learned` mirror the dropdown's own filter, so it can only pick a spell the dropdown
-would also have offered. **No candidate element with a castable tier leaves the selection
+guard, ahead of the AFK/mount/dead guards, self-throttled to 1/sec since weather and day only turn
+over on Vana'diel-minute boundaries). One pass over the job's abilities: for every group with
+`auto_element_<group>` set and `ungrouped_<group>` unset, `element_rank` scores each tier against
+the sky per its `auto_element_source` (see the field table below), and the best rank, then highest
+level, wins `selected_<group>`. `common.precast_permanently_usable` supplies the level /
+main-vs-sub / `has_spell_learned` gate, the same one the dropdown filters by, so it can only pick a
+spell the dropdown would also have offered. **A group with no matching castable tier is left
 untouched** — Light and Dark have no enspell, so lightsday under light weather changes nothing, and
 a storm group under clear skies keeps whatever the user picked. `settings.save()` fires only when
-the name actually changes. Groups are discovered from the `auto_element` field alone, so no job or group
-name appears in this module.
+the name actually changes. Groups are discovered from the `auto_element` field alone, so no job or
+group name appears in this module.
 
 ### party_share.lua – Shared Party List
 
