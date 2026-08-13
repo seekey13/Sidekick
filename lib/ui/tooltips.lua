@@ -152,6 +152,19 @@ return {
         'before Sidekick sends /follow. The client\n' ..
         'holds position once you catch up.',
 
+    pet_control =
+        'Pet support for PUP/SMN/BST.\n' ..
+        'Deploy/Assault/Fight (opt-in, off by default)\n' ..
+        'sends your pet at a mob whenever it is not\n' ..
+        'already engaged. The dropdown picks which mob:\n' ..
+        '- <T>: your cursor target, only while engaged\n' ..
+        '- <BT>: the battle target, no engaged check\n' ..
+        'Maneuver (PUP main or sub) keeps the 3 picked\n' ..
+        'elements applied, stacking duplicates if you\n' ..
+        'pick one twice. Held off while Overload is up.\n' ..
+        'No combat gate -- kept up in and out of battle.\n\n' ..
+        'Neither runs while you have Invisible up.',
+
     afk_sleep =
         'Pauses automation after the Timeout with no\n' ..
         'party movement or combat. Move to resume.',

@@ -955,6 +955,7 @@ function ui_config.render(settings, job_def, callback)
 
         if has_pet_control or has_maneuver then
             local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Pet Control', 'pet_enabled', true)
+            ui.item_tooltip(tooltips.pet_control)
             if is_open and is_enabled then
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
 
