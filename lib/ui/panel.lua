@@ -313,11 +313,21 @@ function panel.render(addon_settings, save_settings)
                 if (gs.player.pet_hpp or 0) > 0 then
                     local pet_entity = common.get_pet_entity()
                     local ok, pet_name = pcall(function() return pet_entity and pet_entity.Name end)
+                    -- '> Mob' is what the pet is fighting, packet-tracked (see
+                    -- common.get_pet_target_entity) -- it is what gates deploy.
+                    local tgt = common.get_pet_target_entity()
+                    local ok_t, tgt_name = pcall(function() return tgt and tgt.Name end)
+                    local name = (ok and pet_name ~= '' and pet_name) or nil
+                    if name and ok_t and tgt_name and tgt_name ~= '' then
+                        name = name .. ' > ' .. tgt_name
+                    end
+                    local ok_s, pet_status = pcall(function() return pet_entity and pet_entity.Status end)
                     cell_tooltip = member_row('PET', PET, {
-                        name     = (ok and pet_name ~= '' and pet_name) or nil,
-                        hpp      = gs.player.pet_hpp,
-                        position = gs.player.pet_position,
-                        buffs    = gs.pet_debuffs,
+                        name          = name,
+                        hpp           = gs.player.pet_hpp,
+                        position      = gs.player.pet_position,
+                        buffs         = gs.pet_debuffs,
+                        entity_status = ok_s and pet_status or nil,
                     }, {}) or cell_tooltip
                 end
             end

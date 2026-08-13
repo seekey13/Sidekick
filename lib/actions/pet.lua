@@ -39,19 +39,8 @@ local action_core = require('lib.core.action_core')
 -- mob-heavy zone does not.
 local INVISIBLE_BUFF = 69
 
--- ponytail: the buff dump is temporary evidence for "the gate never trips" --
--- debug-mode only, edge-triggered so it prints once per buff-list change. Drop it
--- once the gate is confirmed live in-game.
-local last_buff_str = nil
-
 local function is_invisible()
     local buffs = (common.game_state.player or {}).buffs or {}
-    local s = table.concat(buffs, ',')
-    if s ~= last_buff_str then
-        last_buff_str = s
-        common.debugf('[PET] player buffs: [%s] invisible(%d)=%s', s, INVISIBLE_BUFF,
-            tostring(action_core.has_any_buff(buffs, INVISIBLE_BUFF)))
-    end
     return action_core.has_any_buff(buffs, INVISIBLE_BUFF)
 end
 
@@ -158,16 +147,18 @@ end
 -- Automaton/avatar/pet Deploy
 -- ============================================================================
 
--- True when the pet is already fighting something, read off the pet entity's
--- Status -- the same field common.is_engaged() reads off the player, where 1 is
--- engaged. There is no client-side field naming what another entity is
--- targeting: an entity's TargetIndex is its OWN slot in the entity array (it is
--- what targets.get_pet() resolves the pet from, via player.PetTargetIndex), so
--- it cannot answer this question and an earlier version that read it never
--- reported the pet as busy -- deploy re-fired at the same mob every recast.
-local function pet_is_engaged(pet_entity)
+-- True when the pet already has something to fight, so deploy must not re-send it.
+-- Two independent signals, either one enough:
+--   * the pet's packet-tracked target (common.get_pet_target_entity) -- learned
+--     from the pet's own 0x028 actions, since no client-side field names what
+--     another entity targets (an entity's TargetIndex is its OWN slot, which is
+--     why an earlier version reading it never saw the pet as busy);
+--   * the pet entity's Status (1 = engaged), the same field is_engaged() reads
+--     off the player -- covers the window before the pet's first action lands.
+local function pet_is_busy(pet_entity)
+    if common.get_pet_target_entity() then return true end
     local ok, status = pcall(function() return pet_entity.Status end)
-    return ok and status == 1
+    return ok and tonumber(status) == 1
 end
 
 function pet.execute_deploy(settings, job_def, main_level, sub_level, player_resource)
@@ -191,7 +182,7 @@ function pet.execute_deploy(settings, job_def, main_level, sub_level, player_res
         return nil
     end
 
-    if pet_is_engaged(pet_entity) then
+    if pet_is_busy(pet_entity) then
         return nil
     end
 
