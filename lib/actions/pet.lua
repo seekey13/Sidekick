@@ -20,7 +20,8 @@
 
     Maneuver upkeep has no combat gate; send-pet-at-target does -- a real
     behavioral difference, not an oversight. Both sit under the UI's "Pet Control"
-    section and its `pet_enabled` master switch.
+    section and its `pet_enabled` master switch, and both are held off entirely
+    while the player has Invisible up (see INVISIBLE_BUFF).
 
     Spec: docs/superpowers/specs/2026-08-08-pup-maneuver-deploy-design.md
     Spec: docs/superpowers/specs/2026-08-08-pet-deploy-smn-bst-design.md
@@ -30,6 +31,17 @@ local pet = {}
 
 local common      = require('lib.core.common')
 local action_core = require('lib.core.action_core')
+
+-- Invisible (status_effects.sql id 69). Both maneuvers and the send-pet-at-target
+-- abilities go out as /pet, which drops it -- so neither fires while it's up.
+-- Sneak (71) survives them and is not gated. Travel wins over upkeep: the
+-- maneuvers come back on their own once Invisible is down, a blown Invisible in a
+-- mob-heavy zone does not.
+local INVISIBLE_BUFF = 69
+
+local function is_invisible()
+    return action_core.has_any_buff(common.game_state.player.buffs, INVISIBLE_BUFF)
+end
 
 -- ============================================================================
 -- Maneuver upkeep helpers
@@ -66,6 +78,11 @@ function pet.execute_maneuver(settings, job_def, main_level, sub_level, player_r
 
     -- Do not apply maneuvers while resting
     if common.is_resting() then
+        return nil
+    end
+
+    -- Do not break Invisible for upkeep
+    if is_invisible() then
         return nil
     end
 
@@ -154,6 +171,13 @@ function pet.execute_deploy(settings, job_def, main_level, sub_level, player_res
     end
 
     if not job_def or not job_def.abilities or not job_def.abilities.pet_control then
+        return nil
+    end
+
+    -- Do not break Invisible to send the pet in. Matters most on the '<bt>' path,
+    -- which has no engaged check and would otherwise fire while sneaking past a
+    -- camp toward a party fight.
+    if is_invisible() then
         return nil
     end
 
