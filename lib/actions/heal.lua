@@ -677,16 +677,6 @@ end
 -- AOE Healing  (formerly lib.actions.heal_aoe)
 -- ============================================================================
 
--- os.clock() of the last aoe_precast JA this module fired. The threshold decision is
--- made ONCE, on the tick that spends the charge; if the party heals up during the JA
--- animation the charge is already gone, so the follow-up cure goes out regardless.
--- A buff that arrived any other way (an S-popup assignment, the player pressing
--- Accession by hand) has no stamp and keeps the below_count gate, so it can't be
--- hijacked into a full-HP party. Timestamp rather than a boolean so it expires by
--- itself and needs no clearing on the paths that never reach the cure.
-local precast_fired_at = 0
-local PRECAST_FOLLOWUP_WINDOW = 5.0  -- matches automation.lua's STRATAGEM_FOLLOWUP_TIMEOUT
-
 function heal.execute_aoe(settings, job_def)
     if not settings.heal_aoe_enabled then return nil end
 
@@ -725,9 +715,8 @@ function heal.execute_aoe(settings, job_def)
         end
     end
     local avg_hp = count > 0 and (total / count) or 100
-    -- Two members below threshold plus a below-threshold average is the bar for STARTING
-    -- an AOE heal. Held as a boolean rather than an early return because the buff-up
-    -- branch below deliberately runs on a looser one -- see there.
+    -- The bar for STARTING an AOE heal. A boolean rather than an early return: the
+    -- buff-already-up branch below runs on a looser gate (the charge is already spent).
     local aoe_ready = below_count >= 2 and common.below_threshold(avg_hp, threshold)
 
     -- An aoe_precast entry (SCH Accession) is a JA that heals nothing on its own: it
@@ -739,12 +728,10 @@ function heal.execute_aoe(settings, job_def)
         if a.aoe_precast then precast = a else table.insert(plain, a) end
     end
 
-    -- The cure an aoe_precast entry would spread: this job's own single-target heals,
-    -- level-filtered, narrowed to the spells the stratagem actually applies to, then
-    -- aimed at the lowest member and range-checked against them (the spell radiates from
-    -- its TARGET, not the caster). Returns nil when nothing could follow the JA, which is
-    -- why it is consulted BEFORE the JA fires: a charge is never spent on a tick where no
-    -- cure could go out.
+    -- The cure an aoe_precast entry would spread: this job's single-target heals, narrowed
+    -- to the spells the stratagem applies to, aimed at the lowest member and range-checked
+    -- against them (the spell radiates from its TARGET, not the caster). Consulted BEFORE
+    -- the JA fires, so a charge is never spent on a tick where no cure could follow.
     local function paired_cure()
         local mp    = action_core.get_resource(job_def.resource_type)
         local cures = {}
@@ -767,15 +754,10 @@ function heal.execute_aoe(settings, job_def)
         return nil
     end
 
-    -- Buff already up: the follow-up tick (or the player raised Accession by hand). The
-    -- charge is ALREADY spent, so this runs on a looser gate than aoe_ready. When WE
-    -- fired the JA the gate is dropped entirely -- the threshold was met on the tick that
-    -- spent the charge, and re-testing it here would strand the cure and leak a
-    -- doubled-cost cast to heal.execute over a party that healed up mid-animation. A buff
-    -- from anywhere else keeps below_count >= 1, so an S-popup-assigned Accession raising
-    -- the buff can't fire this into a full-HP party.
-    local ours = (os.clock() - precast_fired_at) < PRECAST_FOLLOWUP_WINDOW
-    if precast and lowest_idx and (ours or below_count >= 1)
+    -- Buff already up: the follow-up tick, or the player raised Accession by hand. The
+    -- charge is already spent, so one member below threshold is enough -- but not zero,
+    -- or a hand-pressed Accession would fire a cure into a full-HP party.
+    if precast and lowest_idx and below_count >= 1
         and common.has_buff(0, precast.buff_id) then
         local cure = paired_cure()
         if cure then
@@ -796,17 +778,13 @@ function heal.execute_aoe(settings, job_def)
     if not aoe_ready then return nil end
 
     -- A real AOE heal outranks the precast: a free Curaga beats a charge plus double MP.
-    -- No shipped job hits this today -- Accession is SCH 40 and CatsEyeXI caps a subjob at
-    -- 37, so /SCH can never merge it into a job that already has Curaga -- but the flag is
-    -- generic and this is the order any future aoe_precast entry wants.
     local plain_result = action_core.first_command(plain, job_def, settings, '[HEAL_AOE]', nil,
         function(a) return string.format('AOE healing with %s (avg HP: %.1f%%)', a.name, avg_hp) end)
     if plain_result then return plain_result end
 
     -- Fire the JA: cheap gates first (charge, arts stance, silence/movement), and only
-    -- then confirm a cure could actually follow it. The buff check is the branch above's
-    -- mirror -- it returns on every path that matters, but if it ever falls through with
-    -- the buff up (server id unresolved, so no command could be built) re-firing the JA
+    -- then confirm a cure could actually follow it. The buff check guards the branch above
+    -- falling through (server id unresolved, so no command could be built) -- re-firing
     -- would spend a second charge on a buff the player already holds.
     if precast and lowest_idx
         and not common.has_buff(0, precast.buff_id)
@@ -825,9 +803,7 @@ function heal.execute_aoe(settings, job_def)
         end
         -- is_stratagem reuses automation.lua's follow-up lock, which re-runs ONLY this
         -- module next tick so nothing pre-empts the paired cure -- which is why no
-        -- cross-module "forced heal" flag is needed. The stamp records that the threshold
-        -- decision was made here, so the follow-up tick doesn't re-test it.
-        precast_fired_at = os.clock()
+        -- cross-module "forced heal" flag is needed.
         return {
             command      = precast.command,
             description  = string.format('Using %s (avg HP: %.1f%%)', precast.name, avg_hp),

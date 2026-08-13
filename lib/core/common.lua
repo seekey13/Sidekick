@@ -2843,8 +2843,7 @@ function common.effective_ability_cost(ability, settings, job_def)
     -- once rather than squared.
     -- Lazy require -- action_core requires common.
     local action_core = require('lib.core.action_core')
-    local buffs = (common.game_state and common.game_state.player and common.game_state.player.buffs)
-        or common.get_player_buffs()
+    local buffs = common.game_state.player and common.game_state.player.buffs
     local modifier, modified = 1.0, false
     -- stratagem_applies is tested LAST: it is the expensive gate (Accession's spell_ids
     -- is a ~50-entry linear scan) and this runs per ability per tick and per UI frame.
