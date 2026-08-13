@@ -677,6 +677,16 @@ end
 -- AOE Healing  (formerly lib.actions.heal_aoe)
 -- ============================================================================
 
+-- os.clock() of the last aoe_precast JA this module fired. The threshold decision is
+-- made ONCE, on the tick that spends the charge; if the party heals up during the JA
+-- animation the charge is already gone, so the follow-up cure goes out regardless.
+-- A buff that arrived any other way (an S-popup assignment, the player pressing
+-- Accession by hand) has no stamp and keeps the below_count gate, so it can't be
+-- hijacked into a full-HP party. Timestamp rather than a boolean so it expires by
+-- itself and needs no clearing on the paths that never reach the cure.
+local precast_fired_at = 0
+local PRECAST_FOLLOWUP_WINDOW = 5.0  -- matches automation.lua's STRATAGEM_FOLLOWUP_TIMEOUT
+
 function heal.execute_aoe(settings, job_def)
     if not settings.heal_aoe_enabled then return nil end
 
@@ -692,9 +702,12 @@ function heal.execute_aoe(settings, job_def)
 
     local group_allowed = make_group_filter('heal_aoe_group')
 
-    -- Average HP of alive, non-full party members; also count how many are below threshold
+    -- Average HP of alive, non-full party members; also count how many are below
+    -- threshold, and remember the lowest one -- an aoe_precast heal (SCH Accession)
+    -- radiates from a single target, so it needs someone to aim at.
     local threshold = settings.heal_aoe_threshold or 70
     local total, count, below_count = 0, 0, 0
+    local lowest_idx, lowest_hpp, lowest_m = nil, 101, nil
     for i = 0, 5 do
         local m = i == 0 and state.player or state.party[i]
         if m and group_allowed(i) and not common.is_trust_excluded(m.name, m.server_id) then
@@ -705,16 +718,124 @@ function heal.execute_aoe(settings, job_def)
                 if common.below_threshold(hpp, threshold) then
                     below_count = below_count + 1
                 end
+                if hpp < lowest_hpp then
+                    lowest_hpp, lowest_idx, lowest_m = hpp, i, m
+                end
             end
         end
     end
-    -- Require at least 2 members below threshold before using AOE
-    if below_count < 2 then return nil end
     local avg_hp = count > 0 and (total / count) or 100
-    if not common.below_threshold(avg_hp, threshold) then return nil end
+    -- Two members below threshold plus a below-threshold average is the bar for STARTING
+    -- an AOE heal. Held as a boolean rather than an early return because the buff-up
+    -- branch below deliberately runs on a looser one -- see there.
+    local aoe_ready = below_count >= 2 and common.below_threshold(avg_hp, threshold)
 
-    return action_core.first_command(abilities, job_def, settings, '[HEAL_AOE]', nil,
+    -- An aoe_precast entry (SCH Accession) is a JA that heals nothing on its own: it
+    -- makes the NEXT single-target cure land on everyone in range. Split it out of the
+    -- list -- first_command would otherwise fire the bare JA as though it were the heal.
+    -- Keyed off the data flag, not the job id, so any job that gains one is covered.
+    local precast, plain = nil, {}
+    for _, a in ipairs(abilities) do
+        if a.aoe_precast then precast = a else table.insert(plain, a) end
+    end
+
+    -- The cure an aoe_precast entry would spread: this job's own single-target heals,
+    -- level-filtered, narrowed to the spells the stratagem actually applies to, then
+    -- aimed at the lowest member and range-checked against them (the spell radiates from
+    -- its TARGET, not the caster). Returns nil when nothing could follow the JA, which is
+    -- why it is consulted BEFORE the JA fires: a charge is never spent on a tick where no
+    -- cure could go out.
+    local function paired_cure()
+        local mp    = action_core.get_resource(job_def.resource_type)
+        local cures = {}
+        for _, a in ipairs(common.filter_abilities_by_level(
+            job_def.abilities.heal or {}, settings,
+            player.main_level, player.sub_level, job_def)) do
+            -- Budgeted at the doubled cost Accession will charge, before the buff -- and
+            -- so effective_ability_cost -- knows anything about it.
+            if common.stratagem_applies(precast, a)
+                and math.floor((a.cost or 0) * precast.mp_modifier) <= mp then
+                table.insert(cures, a)
+            end
+        end
+        local cure = heal.select_ability(cures, lowest_hpp, job_def, nil, lowest_idx, nil, settings)
+        local tidx = lowest_m and lowest_m.target_index
+        if cure and tidx and tidx > 0
+            and common.is_in_range(tidx, type(cure.range) == 'number' and cure.range or 21) then
+            return cure
+        end
+        return nil
+    end
+
+    -- Buff already up: the follow-up tick (or the player raised Accession by hand). The
+    -- charge is ALREADY spent, so this runs on a looser gate than aoe_ready. When WE
+    -- fired the JA the gate is dropped entirely -- the threshold was met on the tick that
+    -- spent the charge, and re-testing it here would strand the cure and leak a
+    -- doubled-cost cast to heal.execute over a party that healed up mid-animation. A buff
+    -- from anywhere else keeps below_count >= 1, so an S-popup-assigned Accession raising
+    -- the buff can't fire this into a full-HP party.
+    local ours = (os.clock() - precast_fired_at) < PRECAST_FOLLOWUP_WINDOW
+    if precast and lowest_idx and (ours or below_count >= 1)
+        and common.has_buff(0, precast.buff_id) then
+        local cure = paired_cure()
+        if cure then
+            -- Cast the cure directly and let it land as an AOE. Deliberately NOT routed
+            -- through common.check_stratagem -- a stratagem the user assigned to Cure via
+            -- the S popup would spend a second charge here and break the follow-up lock.
+            local command = common.build_ability_command(cure, lowest_idx)
+            if command then
+                return {
+                    command = command,
+                    description = string.format('AOE healing %s with %s (avg HP: %.1f%%)',
+                        (lowest_m and lowest_m.name or 'party member'), cure.name, avg_hp),
+                }
+            end
+        end
+    end
+
+    if not aoe_ready then return nil end
+
+    -- A real AOE heal outranks the precast: a free Curaga beats a charge plus double MP.
+    -- No shipped job hits this today -- Accession is SCH 40 and CatsEyeXI caps a subjob at
+    -- 37, so /SCH can never merge it into a job that already has Curaga -- but the flag is
+    -- generic and this is the order any future aoe_precast entry wants.
+    local plain_result = action_core.first_command(plain, job_def, settings, '[HEAL_AOE]', nil,
         function(a) return string.format('AOE healing with %s (avg HP: %.1f%%)', a.name, avg_hp) end)
+    if plain_result then return plain_result end
+
+    -- Fire the JA: cheap gates first (charge, arts stance, silence/movement), and only
+    -- then confirm a cure could actually follow it. The buff check is the branch above's
+    -- mirror -- it returns on every path that matters, but if it ever falls through with
+    -- the buff up (server id unresolved, so no command could be built) re-firing the JA
+    -- would spend a second charge on a buff the player already holds.
+    if precast and lowest_idx
+        and not common.has_buff(0, precast.buff_id)
+        and (common.game_state.stratagems or 0) >= 1
+        and action_core.has_any_buff(player.buffs, precast.requires_buff)
+        and not common.is_command_blocked(precast.command)
+        and paired_cure() then
+        -- Accession radiates common.AOE_RADIUS (10 yalms) from the CURE's target, not the
+        -- cure's own 20-yalm range, so a lone straggler would eat the charge and the
+        -- doubled MP by themselves. The other four AOE paths get this gate inside
+        -- check_stratagem, which this one bypasses, so it is applied directly here.
+        -- Default (hold off) is unchanged: fire covering whoever is in range.
+        if settings.hold_aoe_for_group and not common.group_in_aoe_range() then
+            common.announce_gather(precast.name)
+            return nil
+        end
+        -- is_stratagem reuses automation.lua's follow-up lock, which re-runs ONLY this
+        -- module next tick so nothing pre-empts the paired cure -- which is why no
+        -- cross-module "forced heal" flag is needed. The stamp records that the threshold
+        -- decision was made here, so the follow-up tick doesn't re-test it.
+        precast_fired_at = os.clock()
+        return {
+            command      = precast.command,
+            description  = string.format('Using %s (avg HP: %.1f%%)', precast.name, avg_hp),
+            is_stratagem = true,
+        }
+    end
+
+    return nil
 end
 
 -- ============================================================================

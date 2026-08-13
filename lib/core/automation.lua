@@ -19,7 +19,7 @@ local pending_stratagem = nil   -- { action_type = string, timestamp = number }
 local STRATAGEM_FOLLOWUP_TIMEOUT = 5.0  -- seconds before we give up waiting
 
 -- Action types that should interrupt resting (/heal) before firing.
-local REST_BREAKING = { heal = true, recover = true, item = true, status_removal = true, debuff_removal = true, wake = true, revive = true }
+local REST_BREAKING = { heal = true, heal_aoe = true, recover = true, item = true, status_removal = true, debuff_removal = true, wake = true, revive = true }
 
 --[[
     Command Execution

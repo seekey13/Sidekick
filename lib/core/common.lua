@@ -1446,7 +1446,8 @@ end
 -- afford to lose. lib/actions/geo.lua recomputes it every tick (it owns the
 -- cost/HP rules) and raises arcana_luopan when the bubble out is the throwaway
 -- Geo-Voidance one it placed for this. They live on `common` because
--- validate_ability is handed `common` and nothing else.
+-- validate_ability is handed only `common` and `settings` (SCH reads the latter
+-- for the AOE stratagem reserve) -- there is nowhere else to hang live state.
 -- arcana_sequence additionally holds group 'Geo' buffs off the luopan slot while
 -- the teardown/rebuild is in flight.
 common.arcana_usable   = false
@@ -2530,7 +2531,7 @@ function common.filter_abilities_by_level(abilities, settings, main_level, sub_l
         elseif common.is_ability_idle_only(ability, settings) and not common.is_idle() and not gate_bypassed then
         elseif common.is_ability_combat_only(ability, settings) and not common.is_combat() and not gate_bypassed then
         elseif common.ability_targets_bt(ability) and not common.is_combat() then
-        elseif job_def and job_def.validate_ability and not job_def.validate_ability(ability, common) then
+        elseif job_def and job_def.validate_ability and not job_def.validate_ability(ability, common, settings) then
         elseif required_level <= player_level then
             table.insert(available_abilities, ability)
         end
@@ -2784,9 +2785,27 @@ function common.stratagem_applies(strat, ability)
     return false
 end
 
--- Calculate the effective MP cost of an ability considering assigned stratagems.
--- When stratagems with mp_modifier are assigned (e.g. Penury 0.5x, Accession 2.0x),
--- the base cost is multiplied by all assigned modifiers.
+-- The magic colour / type match: whether a stratagem may apply to an ability at all.
+-- Used by the S popup when OFFERING a stratagem (get_available_stratagems in
+-- components.lua) and by the buff-already-up path in effective_ability_cost -- without
+-- it there, a black Parsimony would halve the budgeted cost of a white Cure. spell_ids
+-- is a separate, narrower gate and stays in common.stratagem_applies.
+function common.stratagem_magic_matches(strat, ability)
+    if strat.magic and strat.magic ~= (ability and ability.magic) then return false end
+    if strat.magic_types then
+        local mt = ability and ability.magic_type
+        if not mt then return false end
+        for _, t in ipairs(strat.magic_types) do
+            if t == mt then return true end
+        end
+        return false
+    end
+    return true
+end
+
+-- Calculate the effective MP cost of an ability considering stratagems.
+-- When a stratagem with an mp_modifier (e.g. Penury 0.5x, Accession 2.0x) is assigned
+-- to the ability OR its buff is already up, the base cost is multiplied by it.
 -- Checks both ability.name and ability.group as lookup keys (the UI stores stratagem
 -- assignments under the group name for grouped abilities like Protect/Shell).
 -- Args:
@@ -2796,33 +2815,48 @@ end
 -- The Scholar Arts tax and a stratagem modifier never stack: server-side
 -- (battleutils::CalculateSpellCost) Penury/Parsimony/Accession/Manifestation all clear
 -- `applyArts`, so a cost-modifying stratagem replaces the Arts penalty instead of
--- compounding with it. Only when no mp_modifier stratagem is assigned does the tax apply.
+-- compounding with it. Only when no mp_modifier stratagem applies does the tax apply.
 -- Returns: number (modified cost, or the arts-adjusted ability.cost if no stratagems apply)
 function common.effective_ability_cost(ability, settings, job_def)
     if not ability or not ability.cost then return 0 end
-    if not settings or not settings.stratagem_settings then return common.arts_adjusted_cost(ability) end
 
-    -- Try ability.name first, then ability.group as fallback
-    local ss = settings.stratagem_settings[ability.name]
-    if not ss and ability.group then
-        ss = settings.stratagem_settings[ability.group]
-    end
-    if not ss then return common.arts_adjusted_cost(ability) end
-
+    -- Strat list first: it is the cheap check and it is nil for most jobs, so only the
+    -- four that own a precast list ever reach the buff read below.
     local strat_defs = job_def and job_def.abilities and job_def.abilities.precast
     if not strat_defs then return common.arts_adjusted_cost(ability) end
 
-    -- Modifiers are multiplicative (e.g. Accession 2.0x * Penury 0.5x = 1.0x).
-    -- This is commutative so iteration order of pairs(ss) does not matter.
-    local modifier = 1.0
-    local modified = false
-    for strat_name, _ in pairs(ss) do
-        for _, strat in ipairs(strat_defs) do
-            if strat.name == strat_name and strat.mp_modifier
-               and common.stratagem_applies(strat, ability) then
-                modifier = modifier * strat.mp_modifier
-                modified = true
-            end
+    -- Try ability.name first, then ability.group as fallback. May legitimately come back
+    -- nil now: a buff that is already up modifies the cost with nothing assigned -- so a
+    -- missing stratagem_settings table can NOT short-circuit here. It is created lazily by
+    -- the S popup, and heal.execute_aoe raises Accession without ever touching that popup,
+    -- which is exactly the player who has none.
+    local sset = settings and settings.stratagem_settings
+    local ss   = sset and (sset[ability.name] or (ability.group and sset[ability.group]))
+
+    -- A strat counts when the user assigned it OR its buff is already up: the server
+    -- charges the modified cost for whichever spell consumes the buff, whether or not
+    -- Sidekick was the one that planned it (heal.execute_aoe raises Accession itself, and
+    -- the player can raise one by hand). The buff half additionally needs the colour/type
+    -- match the S popup would have applied, which the assigned half already carries.
+    -- Modifiers are multiplicative and commutative (Accession 2.0x * Penury 0.5x = 1.0x).
+    -- ONE pass over strat_defs, so a strat that is both assigned and active is applied
+    -- once rather than squared.
+    -- Lazy require -- action_core requires common.
+    local action_core = require('lib.core.action_core')
+    local buffs = (common.game_state and common.game_state.player and common.game_state.player.buffs)
+        or common.get_player_buffs()
+    local modifier, modified = 1.0, false
+    -- stratagem_applies is tested LAST: it is the expensive gate (Accession's spell_ids
+    -- is a ~50-entry linear scan) and this runs per ability per tick and per UI frame.
+    -- Pure `and` reordering -- none of these have side effects.
+    for _, strat in ipairs(strat_defs) do
+        if strat.mp_modifier
+            and ((ss and ss[strat.name])
+                 or (action_core.has_any_buff(buffs, strat.buff_id)
+                     and common.stratagem_magic_matches(strat, ability)))
+            and common.stratagem_applies(strat, ability) then
+            modifier = modifier * strat.mp_modifier
+            modified = true
         end
     end
     -- Flag rather than `modifier ~= 1.0`: Accession 2.0x * Penury 0.5x multiplies back out
@@ -2848,6 +2882,21 @@ end
 local function precast_redundant(strat, ability, player_buffs)
     if not strat.precast_required then return false end
     return require('lib.core.action_core').has_any_buff(player_buffs, ability and ability.requires_buff)
+end
+
+-- Stratagem charges a caller may actually spend. With "Hold a Stratagem for AOE"
+-- on, one charge is fenced off for Scholar's Accession AOE heal, so every other
+-- consumer reads one fewer -- a lone charge reads as none. The AOE heal itself is
+-- the reserve's consumer and reads game_state.stratagems directly instead.
+-- heal_aoe_enabled is load-bearing, not belt-and-braces: with AOE Healing off there is
+-- nothing to reserve FOR, and the checkbox that clears the reserve lives on an ability
+-- row that config.lua only draws while the section is open AND enabled -- so a reserve
+-- left set would quietly starve Addendum: White and every assigned precast forever,
+-- with no visible control to undo it.
+function common.spendable_stratagems(settings)
+    local n = (common.game_state and common.game_state.stratagems) or 0
+    if settings and settings.stratagem_reserve_aoe and settings.heal_aoe_enabled then n = n - 1 end
+    return n > 0 and n or 0
 end
 
 -- Check if stratagem-style JAs need to fire before casting a spell (Scholar
@@ -2936,8 +2985,7 @@ function common.check_stratagem(job_def, settings, ability_key, ability)
     -- pool (their own JA timer is checked below) and job files list them ahead of the
     -- charge strats, so missing[1] being one means this tick spends no charge; any
     -- charge strat behind it is re-checked, and charge-gated, on a later tick.
-    local state = common.game_state
-    local charges = state and state.stratagems or 0
+    local charges = common.spendable_stratagems(settings)
     if not strat.recast_gate and charges < #missing then
         return unavailable
     end
