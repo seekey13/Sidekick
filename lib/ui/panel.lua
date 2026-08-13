@@ -252,26 +252,13 @@ function panel.render(addon_settings, save_settings)
             afk_str = string.format('awake (%.0fs)', afk.seconds_remaining(addon_settings))
         end
 
-        local status_line = {
+        imgui.Text(table.concat({
             string.format('Action: %s',   common.get_last_action()),
             string.format('Moving: %s',   tostring(common.is_player_moving())),
             string.format('AFK: %s',      afk_str),
             string.format('Zone: %d',     common.get_zone_id()),
             string.format('Target: %s',   tostring(common.get_target_id())),
-        }
-
-        -- What the pet is fighting (packet-tracked, see common.get_pet_target_entity)
-        -- -- the value that gates deploy, so it sits next to the player's own target.
-        -- Shown for as long as a pet is out, 'none' included: "pet out, no target" is
-        -- exactly the state deploy fires on.
-        if gs.player and (gs.player.pet_hpp or 0) > 0 then
-            local pet_tgt = common.get_pet_target_entity()
-            local ok_pt, pet_tgt_name = pcall(function() return pet_tgt and pet_tgt.Name end)
-            status_line[#status_line + 1] = string.format('Pet Target: %s',
-                (ok_pt and pet_tgt_name and pet_tgt_name ~= '' and pet_tgt_name) or 'none')
-        end
-
-        imgui.Text(table.concat(status_line, '   '))
+        }, '   '))
 
         -- Scholar Stratagem / Beastmaster Ready charges
         if gs.stratagems and gs.stratagems > 0 then
@@ -326,8 +313,7 @@ function panel.render(addon_settings, save_settings)
                 if (gs.player.pet_hpp or 0) > 0 then
                     local pet_entity = common.get_pet_entity()
                     local ok, pet_name = pcall(function() return pet_entity and pet_entity.Name end)
-                    -- Pet's own engaged state; what it is fighting is on the
-                    -- 'Pet Target' readout in the header row above.
+                    -- Pet's own engaged state -- the field that gates deploy.
                     local ok_s, pet_status = pcall(function() return pet_entity and pet_entity.Status end)
                     cell_tooltip = member_row('PET', PET, {
                         name          = (ok and pet_name ~= '' and pet_name) or nil,

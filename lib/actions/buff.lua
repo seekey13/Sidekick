@@ -12,9 +12,9 @@ local action_core = require('lib.core.action_core')
 -- song, so they don't count as "missing" and never force an endless recast.
 local SONG_AOE_RANGE = 10
 
--- Invisible (status_effects.sql id 69). Casting anything at all breaks it, so any
--- non-travel buff cast while it's up costs an Invisible reapply on top of itself.
-local INVISIBLE_BUFF = 69
+-- Casting anything at all breaks Invisible, so any non-travel buff cast while
+-- it's up costs an Invisible reapply on top of itself.
+local INVISIBLE_BUFF = common.INVISIBLE_BUFF
 
 -- os.clock() of our last cast per ability name, for buffs whose target we can't
 -- read (pet buffs aren't tracked). Cleared on reload -> re-applies immediately.

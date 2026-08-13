@@ -849,6 +849,11 @@ for _, id in ipairs(common.ERASABLE_DEBUFFS) do
     table.insert(common.PET_CLEANSE_DEBUFFS, id)
 end
 
+-- Invisible (status_effects.sql id 69). Casting anything, and any /pet command,
+-- breaks it -- so the modules that would spend it check for it first. Sneak (71)
+-- survives both and is never gated.
+common.INVISIBLE_BUFF = 69
+
 -- Curse-family statuses removed by Cursna and by Holy Water / Hallowed Water.
 -- 9 = Curse, 15 = Doom, 20 = Bane, 30 = Curse (Bane II).
 common.CURSE_DEBUFFS = {9, 15, 20, 30}
@@ -1819,71 +1824,6 @@ end
 -- use this to route the pet's buffs/debuffs into trust_buffs.
 function common.is_pet(server_id)
     return server_id ~= nil and server_id ~= 0 and server_id == pet_server_id
-end
-
--- ---------------------------------------------------------------------------
--- Pet's current target
---
--- The client exposes no field naming what another entity is targeting (an
--- entity's TargetIndex is its OWN slot), so the pet's target comes off two
--- packets, same pair Ashita's own petinfo addon reads:
---   * 0x068 (pet sync) -- authoritative: owner id @0x08, pet's target id @0x14,
---     and 0 there means "no target", which clears tracking immediately;
---   * 0x028 (action) -- the pet's own actions, melee rounds included, so a
---     fighting pet keeps this fresh between syncs.
--- A stamp older than PET_TARGET_TIMEOUT means neither source has spoken and the
--- pet is treated as free again.
--- ---------------------------------------------------------------------------
-local pet_target = { id = 0, at = 0 }
-local PET_TARGET_TIMEOUT = 10.0
-
--- Authoritative set from the pet sync packet. target_id 0 = pet has no target.
-function common.note_pet_target(target_id)
-    pet_target.id = target_id or 0
-    pet_target.at = os.clock()
-end
-
--- Record the target of an action the pet just took. No-ops for anyone else's
--- actions and for the pet acting on itself (self-buffs, e.g. an automaton's own
--- Regen), which say nothing about what it is fighting.
-function common.note_pet_action(server_id, target_id)
-    if not common.is_pet(server_id) then return end
-    if not target_id or target_id == 0 or target_id == server_id then return end
-    pet_target.id = target_id
-    pet_target.at = os.clock()
-end
-
--- The entity the pet is currently fighting, or nil when it has none, the stamp
--- went stale, or that mob is dead. Read by the debug panel and by
--- pet.execute_deploy (which must not re-send a pet that is already busy).
-function common.get_pet_target_entity()
-    if pet_target.id == 0 or (os.clock() - pet_target.at) > PET_TARGET_TIMEOUT then
-        return nil
-    end
-    -- Same lower-12-bits index derivation resolve_entity_name uses; verified
-    -- against the entity's ServerId so a recycled index can't masquerade. Falls
-    -- back to the full scan petinfo does, since a miss here would read as "pet is
-    -- free" and re-send it at a mob it is already fighting.
-    -- tonumber: entity ids come back as boxed integers from Ashita's bindings and
-    -- would never compare equal to the plain number the packet parser produced.
-    local idx = bit.band(pet_target.id, 0xFFF)
-    if idx >= 0x900 then idx = idx - 0x100 end
-    local ok, e = pcall(GetEntity, idx)
-    if not ok or e == nil or tonumber(e.ServerId) ~= pet_target.id then
-        e = nil
-        for x = 0, 2303 do
-            local ent = GetEntity(x)
-            if ent ~= nil and tonumber(ent.ServerId) == pet_target.id then
-                e = ent
-                break
-            end
-        end
-        if e == nil then return nil end
-    end
-    -- Despawned (ActorPointer 0) or dead reads as no target, so deploy is free to
-    -- send the pet at the next mob.
-    if (e.ActorPointer or 0) == 0 or (e.HPPercent or 0) <= 0 then return nil end
-    return e
 end
 
 -- Apply a buff/debuff to the pet's tracked list (called from packet detection).
@@ -3582,7 +3522,6 @@ function common.refresh_game_state()
                 if new_pet_sid ~= pet_server_id then
                     if pet_server_id ~= 0 then trust_buffs[pet_server_id] = nil end
                     pet_server_id = new_pet_sid
-                    pet_target.id = 0  -- previous pet's target says nothing about this one
                 end
                 state.pet_debuffs = (pet_server_id ~= 0 and trust_buffs[pet_server_id]) or {}
 

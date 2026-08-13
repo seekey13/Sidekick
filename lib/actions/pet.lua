@@ -21,7 +21,7 @@
     Maneuver upkeep has no combat gate; send-pet-at-target does -- a real
     behavioral difference, not an oversight. Both sit under the UI's "Pet Control"
     section and its `pet_enabled` master switch, and both are held off entirely
-    while the player has Invisible up (see INVISIBLE_BUFF).
+    while the player has Invisible up (common.INVISIBLE_BUFF).
 
     Spec: docs/superpowers/specs/2026-08-08-pup-maneuver-deploy-design.md
     Spec: docs/superpowers/specs/2026-08-08-pet-deploy-smn-bst-design.md
@@ -32,16 +32,13 @@ local pet = {}
 local common      = require('lib.core.common')
 local action_core = require('lib.core.action_core')
 
--- Invisible (status_effects.sql id 69). Both maneuvers and the send-pet-at-target
--- abilities go out as /pet, which drops it -- so neither fires while it's up.
--- Sneak (71) survives them and is not gated. Travel wins over upkeep: the
+-- Both maneuvers and the send-pet-at-target abilities go out as /pet, which drops
+-- Invisible -- so neither fires while it's up. Travel wins over upkeep: the
 -- maneuvers come back on their own once Invisible is down, a blown Invisible in a
 -- mob-heavy zone does not.
-local INVISIBLE_BUFF = 69
-
 local function is_invisible()
     local buffs = (common.game_state.player or {}).buffs or {}
-    return action_core.has_any_buff(buffs, INVISIBLE_BUFF)
+    return action_core.has_any_buff(buffs, common.INVISIBLE_BUFF)
 end
 
 -- ============================================================================
@@ -147,16 +144,12 @@ end
 -- Automaton/avatar/pet Deploy
 -- ============================================================================
 
--- True when the pet already has something to fight, so deploy must not re-send it.
--- Two independent signals, either one enough:
---   * the pet's packet-tracked target (common.get_pet_target_entity) -- learned
---     from the pet's own 0x028 actions, since no client-side field names what
---     another entity targets (an entity's TargetIndex is its OWN slot, which is
---     why an earlier version reading it never saw the pet as busy);
---   * the pet entity's Status (1 = engaged), the same field is_engaged() reads
---     off the player -- covers the window before the pet's first action lands.
-local function pet_is_busy(pet_entity)
-    if common.get_pet_target_entity() then return true end
+-- True when the pet is already fighting, so deploy must not re-send it. Status
+-- (1 = engaged) is the same field is_engaged() reads off the player. Note there
+-- is no client-side field naming what another entity targets -- an entity's
+-- TargetIndex is its OWN slot, which is why an earlier version reading it never
+-- saw the pet as busy.
+local function pet_is_engaged(pet_entity)
     local ok, status = pcall(function() return pet_entity.Status end)
     return ok and tonumber(status) == 1
 end
@@ -182,7 +175,7 @@ function pet.execute_deploy(settings, job_def, main_level, sub_level, player_res
         return nil
     end
 
-    if pet_is_busy(pet_entity) then
+    if pet_is_engaged(pet_entity) then
         return nil
     end
 

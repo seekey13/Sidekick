@@ -931,14 +931,6 @@ ashita.events.register('packet_in', 'sidekick_packet_in', function(e)
         local player_id = party and party:GetMemberServerId(0)
         local actor_is_player = (actionPacket and player_id and actionPacket.UserId == player_id)
 
-        -- Our pet acting names what it is fighting -- the only client-side source
-        -- for that (see common.note_pet_action). Melee rounds count, so this stays
-        -- fresh for as long as the pet keeps swinging.
-        if actionPacket and common.is_pet(actionPacket.UserId) then
-            local first = actionPacket.Targets and actionPacket.Targets[1]
-            common.note_pet_action(actionPacket.UserId, first and first.Id)
-        end
-
         -- Casting detection (always active). Category 8 = casting start (or, with
         -- Param INTERRUPT_PARAM, interrupt), 4 = casting finish; see
         -- common.handle_action_packet.
@@ -1034,18 +1026,6 @@ ashita.events.register('packet_in', 'sidekick_packet_in', function(e)
                     end
                 end
             end
-        end
-    end
-
-    -- Pet sync (0x068): owner server id @0x08, the pet's current target id @0x14
-    -- (0 = none). Authoritative source for what our pet is fighting -- the same
-    -- packet Ashita's petinfo addon reads. Other players' pets sync here too, so
-    -- the owner check is required.
-    if e.id == 0x068 and e.data and #e.data >= 0x18 then
-        local owner  = struct.unpack('I', e.data, 0x08 + 1)
-        local player = GetPlayerEntity()
-        if player and owner == player.ServerId then
-            common.note_pet_target(struct.unpack('I', e.data, 0x14 + 1))
         end
     end
 
