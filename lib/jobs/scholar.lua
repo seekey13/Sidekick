@@ -9,6 +9,34 @@
 
 local common = require('lib.core.common')
 
+-- Accession only extends spells the server flags SPELLAOE_RADIAL_ACCE
+-- (spell_list.sql `AOE` = 4); every other white healing/enhancing spell is
+-- untouched by it -- no AoE, no doubled MP, and the Arts tax still applies.
+-- The notable misses are Raise/Raise II/III/Arise, all four Reraise tiers,
+-- Haste/Haste II, Flurry, Cure V/VI, Temper, Gain-*, Crusade, Sacrifice,
+-- and the lines that are already AoE on their own (Curaga, Cura, Esuna,
+-- Boost-*, Hastega). Ids copied from spell_list.sql.
+-- Hoisted to a file local because two entries need the same list: the precast
+-- Accession (the S popup) and the heal_aoe Accession (the AOE cure pairing).
+local ACCESSION_SPELL_IDS = {
+    1, 2, 3, 4,                                 -- Cure I-IV
+    14, 15, 16, 17, 18, 19, 20,                 -- Poisona .. Cursna
+    43, 44, 45, 46, 47,                         -- Protect I-V
+    48, 49, 50, 51, 52,                         -- Shell I-V
+    53, 54, 55,                                 -- Blink, Stoneskin, Aquaveil
+    60, 61, 62, 63, 64, 65,                     -- Bar-element
+    72, 73, 74, 75, 76, 77, 78, 84,             -- Bar-status
+    99, 113, 114, 115, 116, 117, 118, 119,      -- Storms
+    100, 101, 102, 103, 104, 105,               -- En-spells
+    106,                                        -- Phalanx
+    108, 110, 111, 477, 504,                    -- Regen I-V
+    109,                                        -- Refresh
+    136, 137, 138,                              -- Invisible, Sneak, Deodorize
+    143,                                        -- Erase
+    308, 309,                                   -- Animus Augeo / Minuo
+    478, 495,                                   -- Embrava, Adloquium
+}
+
 return {
     job_id = 20,
     job_name = 'Scholar',
@@ -672,6 +700,25 @@ return {
             },
         },
 
+        -- AOE healing
+        -- Scholar's only "AOE heal" is Accession: the JA itself heals nothing, it
+        -- makes the NEXT single-target cure land on everyone in range. heal.execute_aoe
+        -- fires this JA, then casts the cure on the follow-up tick.
+        heal_aoe = {
+            {
+                name = 'Accession',
+                level = 40,
+                cost = 0,
+                command = '/ja "Accession" <me>',
+                buff_id = 366,
+                requires_buff = {358, 401},       -- Light Arts / Addendum: White
+                requires_stratagem_charge = true, -- charge pool (recast 231), not a plain recast
+                aoe_precast = true,               -- read by heal.execute_aoe (pairs it with a cure)
+                mp_modifier = 2.0,                -- Accession doubles the paired cure's MP
+                spell_ids = ACCESSION_SPELL_IDS,  -- cures Accession actually spreads
+            },
+        },
+
         -- Recover
         recover_mp = {
             {
@@ -807,31 +854,7 @@ return {
                 magic = 'white',
                 magic_types = { 'healing', 'enhancing' },
                 mp_modifier = 2.0,
-                -- Accession only extends spells the server flags SPELLAOE_RADIAL_ACCE
-                -- (spell_list.sql `AOE` = 4); every other white healing/enhancing spell is
-                -- untouched by it -- no AoE, no doubled MP, and the Arts tax still applies.
-                -- The notable misses are Raise/Raise II/III/Arise, all four Reraise tiers,
-                -- Haste/Haste II, Flurry, Cure V/VI, Temper, Gain-*, Crusade, Sacrifice,
-                -- and the lines that are already AoE on their own (Curaga, Cura, Esuna,
-                -- Boost-*, Hastega). Ids copied from spell_list.sql.
-                spell_ids = {
-                    1, 2, 3, 4,                                 -- Cure I-IV
-                    14, 15, 16, 17, 18, 19, 20,                 -- Poisona .. Cursna
-                    43, 44, 45, 46, 47,                         -- Protect I-V
-                    48, 49, 50, 51, 52,                         -- Shell I-V
-                    53, 54, 55,                                 -- Blink, Stoneskin, Aquaveil
-                    60, 61, 62, 63, 64, 65,                     -- Bar-element
-                    72, 73, 74, 75, 76, 77, 78, 84,             -- Bar-status
-                    99, 113, 114, 115, 116, 117, 118, 119,      -- Storms
-                    100, 101, 102, 103, 104, 105,               -- En-spells
-                    106,                                        -- Phalanx
-                    108, 110, 111, 477, 504,                    -- Regen I-V
-                    109,                                        -- Refresh
-                    136, 137, 138,                              -- Invisible, Sneak, Deodorize
-                    143,                                        -- Erase
-                    308, 309,                                   -- Animus Augeo / Minuo
-                    478, 495,                                   -- Embrava, Adloquium
-                },
+                spell_ids = ACCESSION_SPELL_IDS,  -- spells Accession actually spreads
             },
             {
                 name = 'Celerity (+Casting Speed)', -- Reduces the casting time by 50%
@@ -884,10 +907,21 @@ return {
     -- SCH-specific gating: the Addendums burn a stratagem, and the stratagem
     -- pool (recast id 231) counts down per charge rather than to zero, so a
     -- plain recast gate would only ever pass at full charges.
-    validate_ability = function(ability, common)
+    validate_ability = function(ability, common, settings)
         if ability.requires_stratagem_charge then
-            local gs = common.game_state
-            if not gs or (gs.stratagems or 0) < 1 then
+            -- The AOE Accession heal IS the reserve's consumer, so it reads the real
+            -- charge count; everything else reads the reserved-adjusted one.
+            if ability.aoe_precast then
+                -- Once its buff is up the charge is already spent and the entry only
+                -- has to survive this filter so heal.execute_aoe can cast the paired
+                -- cure. Gating on charges here would drop it on the follow-up tick --
+                -- the very tick that spent the last charge -- and strand the cure.
+                if common.has_buff(0, ability.buff_id) then return true end
+                local gs = common.game_state
+                if not gs or (gs.stratagems or 0) < 1 then
+                    return false
+                end
+            elseif common.spendable_stratagems(settings) < 1 then
                 return false
             end
         end
@@ -899,8 +933,13 @@ return {
         heal_enabled = true,
         heal_threshold = 75,
         critical_threshold = 30,
-        heal_aoe_enabled = false,  -- Scholar has no AOE heal
+        -- Opt-in: SCH's only AOE heal is Accession, which spends a stratagem charge
+        -- per cast, so it is left off until the user asks for it.
+        heal_aoe_enabled = false,
         heal_aoe_threshold = 70,
+        -- Hold one stratagem back for the AOE Accession heal above. Off by default:
+        -- with it on every other stratagem consumer sees one fewer charge.
+        stratagem_reserve_aoe = false,
         recover_enabled = true,
         recover_mp_threshold = 50,
         wake_enabled = true,
@@ -916,6 +955,7 @@ return {
         'item',
         'recover',
         'critical',
+        'heal_aoe',
         'heal',
         'debuff_removal',
         'wake',

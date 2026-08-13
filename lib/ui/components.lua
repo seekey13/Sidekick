@@ -107,6 +107,22 @@ local function render_combat_only_context_menu(ctx, ability, scope)
                 ui_components.set_tooltip('Only fire when out of combat (e.g. Boost on cooldown).')
             end
         end
+        -- Hold a Stratagem for AOE: an aoe_precast heal (SCH Accession) is the only
+        -- consumer allowed to spend the reserved charge -- common.spendable_stratagems
+        -- hides it from every other one. It rides in THIS popup rather than a second
+        -- BeginPopupContextItem on the same widget, which would stack duplicate menus
+        -- (see the note at the top of this function).
+        if ability.aoe_precast then
+            imgui.Separator()
+            local reserve = { ctx.settings.stratagem_reserve_aoe == true }
+            if imgui.Checkbox('Hold a Stratagem for AOE', reserve) then
+                ctx.settings.stratagem_reserve_aoe = reserve[1] or nil
+                if ctx.save_callback then ctx.save_callback() end
+            end
+            if imgui.IsItemHovered() then
+                ui_components.set_tooltip('Keep one stratagem in reserve for AOE healing.\nEvery other stratagem use then treats 1 charge as 0.')
+            end
+        end
         -- Ungroup: cast every tier in the group independently instead of only
         -- the selected tier. Off (grouped) by default; persisted per group.
         if ability.group then
@@ -778,33 +794,18 @@ local function get_available_stratagems(job_def, sch_level, ability)
     if not job_def or not job_def.abilities or not job_def.abilities.precast then
         return {}
     end
-    local ability_magic      = ability and ability.magic
-    local ability_magic_type = ability and ability.magic_type
     local available = {}
     for _, strat in ipairs(job_def.abilities.precast) do
         -- Recast-gated strats (DRK Nether Void) have their own N button; never
         -- offer them in the Scholar S popup (e.g. on SCH main / DRK sub).
-        if not strat.recast_gate and strat.level and sch_level >= strat.level then
-            -- Match stratagem magic colour to the ability
-            local magic_ok = (not strat.magic) or (strat.magic == ability_magic)
-            -- If stratagem restricts to specific magic_types, ability must match one
-            local type_ok = true
-            if magic_ok and strat.magic_types then
-                type_ok = false
-                if ability_magic_type then
-                    for _, mt in ipairs(strat.magic_types) do
-                        if mt == ability_magic_type then
-                            type_ok = true
-                            break
-                        end
-                    end
-                end
-            end
-            -- Accession carries a spell_ids allowlist: never offer it on a Raise, a
-            -- Reraise, Haste or anything else the server won't extend.
-            if magic_ok and type_ok and common.stratagem_applies(strat, ability) then
-                table.insert(available, strat)
-            end
+        -- stratagem_magic_matches is the colour/magic_type gate (shared with
+        -- effective_ability_cost); stratagem_applies is Accession's spell_ids
+        -- allowlist -- never offer it on a Raise, a Reraise, Haste or anything
+        -- else the server won't extend.
+        if not strat.recast_gate and strat.level and sch_level >= strat.level
+            and common.stratagem_magic_matches(strat, ability)
+            and common.stratagem_applies(strat, ability) then
+            table.insert(available, strat)
         end
     end
     return available
