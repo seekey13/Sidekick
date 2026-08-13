@@ -26,6 +26,7 @@ local automation = require('lib.core.automation')
 local parse_packets = require('lib.core.parse_packets')
 local afk = require('lib.core.afk')
 local party_share = require('lib.core.party_share')  -- Shared party list (publish + tracked-target sync)
+local vanadiel = require('lib.core.vanadiel')  -- Weather/day readers + enspell element auto-select
 
 -- Load action modules
 local heal_mod   = require('lib.actions.heal')
@@ -532,6 +533,12 @@ local function automation_tick()
     if common.is_loading() then
         return
     end
+
+    -- Point auto_element-tagged groups (RDM enspells, SCH storms) at the tier matching
+    -- the current weather/day when 'Auto Select' is on. Self-throttled to 1/sec.
+    -- Ahead of the AFK/mount/dead guards so the config dropdown stays accurate in
+    -- those states too.
+    vanadiel.apply_auto_selection(job_def, addon_settings)
 
     -- AFK Sleep. After is_loading() so zone-transition positions are never sampled;
     -- ahead of the mount/dead/can_attack/casting guards so it keeps timing (and can

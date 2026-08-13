@@ -228,7 +228,10 @@ return {
                 buff_id = 42,
                 range = 20,
             },
-            -- Storms
+            -- Storms. auto_element_source = 'weather' pins auto-select to the ZONE
+            -- weather: stacking a storm on matching weather is the double-weather
+            -- bonus this group exists for, and reading the storm buff instead
+            -- would just feed the group its own last cast back forever.
             {
                 name = 'Aurorastorm',
                 level = 48,
@@ -239,6 +242,8 @@ return {
                 command = '/ma "Aurorastorm" <me>',
                 buff_id = 184,
                 group = 'storm',
+                auto_element = 'light',
+                auto_element_source = 'weather',
             },
             {
                 name = 'Voidstorm',
@@ -250,6 +255,8 @@ return {
                 command = '/ma "Voidstorm" <me>',
                 buff_id = 185,
                 group = 'storm',
+                auto_element = 'dark',
+                auto_element_source = 'weather',
             },
             {
                 name = 'Thunderstorm',
@@ -261,6 +268,8 @@ return {
                 command = '/ma "Thunderstorm" <me>',
                 buff_id = 182,
                 group = 'storm',
+                auto_element = 'thunder',
+                auto_element_source = 'weather',
             },
             {
                 name = 'Hailstorm',
@@ -272,6 +281,8 @@ return {
                 command = '/ma "Hailstorm" <me>',
                 buff_id = 179,
                 group = 'storm',
+                auto_element = 'ice',
+                auto_element_source = 'weather',
             },
             {
                 name = 'Firestorm',
@@ -283,6 +294,8 @@ return {
                 command = '/ma "Firestorm" <me>',
                 buff_id = 178,
                 group = 'storm',
+                auto_element = 'fire',
+                auto_element_source = 'weather',
             },
             {
                 name = 'Windstorm',
@@ -294,6 +307,8 @@ return {
                 command = '/ma "Windstorm" <me>',
                 buff_id = 180,
                 group = 'storm',
+                auto_element = 'wind',
+                auto_element_source = 'weather',
             },
             {
                 name = 'Rainstorm',
@@ -305,6 +320,8 @@ return {
                 command = '/ma "Rainstorm" <me>',
                 buff_id = 183,
                 group = 'storm',
+                auto_element = 'water',
+                auto_element_source = 'weather',
             },
             {
                 name = 'Sandstorm',
@@ -316,6 +333,8 @@ return {
                 command = '/ma "Sandstorm" <me>',
                 buff_id = 181,
                 group = 'storm',
+                auto_element = 'earth',
+                auto_element_source = 'weather',
             },
             -- Other buffs
             {
