@@ -579,6 +579,13 @@ MP and TP recovery. Monitors percentage thresholds. Uses `action_core.first_comm
   `GetLocalPositionX` to get the *pet's* position, not its target's). An earlier version read it
   as the pet's target, so the pet never looked busy and deploy re-fired at the same mob every
   recast. No packet parsing involved.
+- **Invisible gate**: both features bail while the player holds Invisible (`common.INVISIBLE_BUFF`,
+  status_effects.sql id 69) — maneuvers and the send-pet abilities both go out as `/pet`, which
+  drops it. Same rule `buff.lua`'s travel-buff gate uses, and the constant is now shared between
+  them. Travel wins over upkeep: maneuvers come back on their own once Invisible is down, a blown
+  Invisible in a mob-heavy zone does not. Bites hardest on the `'<bt>'` path, which has no engaged
+  check and would otherwise fire while sneaking past a camp toward a party fight. Sneak (71)
+  survives `/pet` and is never gated.
 
 ### roll.lua – Corsair Phantom Roll / Double-Up
 
