@@ -2,7 +2,7 @@
     Monk job definition
     Support automation for Monk is self-only:
     - Self cure via Chakra (HP recovery + removes own Poison/Blindness)
-    - Self buffs (Boost, Dodge, Focus, Counterstance, Footwork)
+    - Self buffs (Boost, Dodge, Focus, Counterstance, Footwork, Perfect Counter, Impetus)
 
     All are independent self Job Abilities -- no mutually exclusive stances,
     so no grouping is needed.
@@ -69,6 +69,24 @@ return {
                 recast_id = 21,
                 command = '/ja "Footwork" <me>',
                 buff_id = 406,
+                combat_only = true,
+            },
+            {
+                name = 'Perfect Counter',
+                level = 79,
+                cost = 0,
+                recast_id = 22,
+                command = '/ja "Perfect Counter" <me>',
+                buff_id = 436,
+                combat_only = true,
+            },
+            {
+                name = 'Impetus',
+                level = 88,
+                cost = 0,
+                recast_id = 31,
+                command = '/ja "Impetus" <me>',
+                buff_id = 461,
                 combat_only = true,
             },
         },
