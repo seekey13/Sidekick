@@ -21,14 +21,14 @@ local widget_open = { true }  -- Ashita's Begin drops the flags arg unless p_ope
 -- widest of them -- keep new statuses here rather than inline, or the widget resizes when
 -- the new one shows.
 local STATUS_TEXT = {
-    loading = 'Sidekick loading',
-    asleep  = 'Sidekick asleep',
-    mounted = 'Sidekick mounted',
-    dead    = 'Sidekick dead',
-    resting = 'Sidekick resting',
-    running = 'Sidekick running',
-    paused  = 'Sidekick paused',
-    stopped = 'Sidekick stopped',
+    loading = 'Automation loading',
+    asleep  = 'Automation asleep',
+    mounted = 'Automation mounted',
+    dead    = 'Automation dead',
+    resting = 'Automation resting',
+    running = 'Automation running',
+    paused  = 'Automation paused',
+    stopped = 'Automation stopped',
 }
 local ITEM_SPACING_X = 8  -- imgui default style ItemSpacing.x
 local force_expand = false  -- when true, next render un-collapses the window once
