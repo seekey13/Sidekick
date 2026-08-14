@@ -1101,35 +1101,31 @@ function ui_config.render(settings, job_def, callback)
 
         -- Wake detection (used by the Sleep Removal section below)
         local has_wake_abilities = false
+        local has_outside_wake = false
         if job_def and job_def.abilities.heal then
             for _, ability in ipairs(job_def.abilities.heal) do
                 if ability.wakes and can_use_ability(ability) then
                     has_wake_abilities = true
-                    break
+                    if ability.target_outside then
+                        has_outside_wake = true
+                        break
+                    end
                 end
             end
         end
 
-        -- Sleep removal settings
-        if has_wake_abilities then
+        -- Sleep removal settings. Hidden while solo -- you cannot cure your own
+        -- Sleep, so with no P1..P5 to scan the whole section is dead UI.
+        if has_wake_abilities and common.get_party_size() > 1 then
             local is_open_wake, is_enabled_wake = ui.collapsing_checkbox_header(ctx, 'Sleep Removal', 'wake_enabled', false)
             ui.item_tooltip(tooltips.sleep_removal)
             if is_open_wake and is_enabled_wake then
-                -- Check if any wake-capable abilities support target_outside
-                local has_outside_wake = false
-                if job_def.abilities.heal then
-                    for _, ability in ipairs(job_def.abilities.heal) do
-                        if ability.wakes and ability.target_outside then
-                            has_outside_wake = true
-                            break
-                        end
-                    end
-                end
-
                 -- Party selection buttons (who gets sleep removal)
                 -- exclude ME since player cannot wake themselves from sleep
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
                 ui.render_party_selection(ctx, 'wake', has_outside_wake, false)
+                imgui.SameLine()
+                imgui.Text('Sleep Targets')
                 imgui.Unindent(ui.ABILITY_LIST_INDENT)
             end
         end

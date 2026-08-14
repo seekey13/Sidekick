@@ -86,7 +86,10 @@ return {
         '(never yourself) for Sleep/Sleep II.\n' ..
         '2+ asleep -> uses an AOE wake spell.\n' ..
         'Otherwise wakes the first sleeper (your Focus\n' ..
-        'Target preferred) with the cheapest option.',
+        'Target preferred) with the cheapest option.\n\n' ..
+        'Sleep Targets picks who is scanned. Toggle any\n' ..
+        'button to include/exclude that person. These\n' ..
+        'choices are saved with your settings.',
 
     debuff_removal =
         'Removes debuffs using abilities matched to\n' ..
