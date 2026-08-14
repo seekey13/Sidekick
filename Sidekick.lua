@@ -99,6 +99,8 @@ local default_settings = T{
     ui_opacity = 100,
     -- Whether the config window was open when the addon last unloaded; reopened on load.
     ui_open = false,
+    -- Same, for the floating widget (/sk widget).
+    widget_open = false,
 }
 
 -- Range management state
@@ -779,6 +781,7 @@ ashita.events.register('unload', 'sidekick_unload', function()
         -- Reopen the config window on next load if it is open now. Covers /sk config
         -- and the [X] alike, since both just move ui_config's visibility flag.
         addon_settings.ui_open = ui_config.is_visible()
+        addon_settings.widget_open = ui_config.is_widget_visible()
 
         -- settings.save takes an ALIAS, not (table, filename) -- passing the table
         -- silently no-ops. No alias == 'settings', the block settings.load registered.
@@ -817,15 +820,22 @@ ashita.events.register('d3d_present', 'sidekick_render', function()
         if addon_settings.ui_open == true then
             ui_config.show()
         end
+        if addon_settings.widget_open == true then
+            ui_config.toggle_widget()  -- starts hidden, so toggle == show
+        end
     end
 
     local save_settings_callback = function()
         settings.save()
     end
 
-    -- Render config UI
-    if ui_config.is_visible() and addon_settings and job_def then
-        ui_config.render(addon_settings, job_def, save_settings_callback)
+    -- Render config UI, then the floating widget (independent of the config window,
+    -- and unlike it does not need a job_def).
+    if addon_settings then
+        if ui_config.is_visible() and job_def then
+            ui_config.render(addon_settings, job_def, save_settings_callback)
+        end
+        ui_config.render_widget(addon_settings, job_def, save_settings_callback)
     end
 
     -- Render game-state panel (independent of automation / job_def)
@@ -1144,6 +1154,7 @@ ashita.events.register('command', 'sidekick_command', function(e)
         common.printf('  /sidekick stop - Stop automation')
         common.printf('  /sidekick toggle - Toggle automation on/off')
         common.printf('  /sidekick config - Show configuration UI')
+        common.printf('  /sidekick widget - Toggle the floating profile/job + Start/Stop widget')
         common.printf('  /sidekick focus <index> - Set focus target (0-5, party member index)')
         common.printf('  /sidekick focus clear - Clear focus target')
         common.printf('  /sidekick addtarget - Track current target for automation')
@@ -1180,6 +1191,10 @@ ashita.events.register('command', 'sidekick_command', function(e)
     elseif cmd == 'config' then
         ui_config.toggle()
         
+    elseif cmd == 'widget' then
+        -- Persisted by the unload handler, same as /sidekick config.
+        ui_config.toggle_widget()
+
     elseif cmd == 'focus' then
         local subcmd = args[3] and args[3]:lower()
         

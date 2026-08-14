@@ -15,6 +15,8 @@ local roll = require('lib.actions.roll')  -- for reset_state() when a roll selec
 -- UI state
 local is_open = { true }
 local ui_visible = false
+local widget_visible = false  -- floating header-only window (/sk widget)
+local widget_open = { true }  -- Ashita's Begin drops the flags arg unless p_open is a table
 local force_expand = false  -- when true, next render un-collapses the window once
 
 -- Settings reference and callback
@@ -501,6 +503,135 @@ function profile_ops.delete(ctx, name)
     if ctx.save_callback then ctx.save_callback() end
 end
 
+-- Profile + job line and the Start/Stop button + status line. Shared by the
+-- config window and the floating widget (/sk widget); the widget takes them
+-- over while it is open so they only ever render once per frame.
+local function render_header(ctx)
+    local settings = ctx.settings
+    local job_def = ctx.job_def
+    local save_callback = ctx.save_callback
+
+    -- Display job name and levels
+    if job_def and job_def.job_name then
+        -- Show normal job info
+        local main_job_id, sub_job_id = common.get_player_job()
+        local main_level, sub_level = common.get_player_level()
+        local main_job_name = common.get_job_name_from_id(main_job_id)
+        local sub_job_name = 'None'
+        if sub_level and sub_level > 0 and sub_job_id and sub_job_id > 0 then
+            sub_job_name = common.get_job_name_from_id(sub_job_id)
+        end
+        -- Settings profiles: button labeled with the active profile, opens
+        -- the save/load panel (rendering in components, ops defined above).
+        -- Leads the job line, fixed at the Start/Stop button width.
+        ui.render_profile_button(ctx, profile_ops)
+        imgui.SameLine()
+        -- Center the job text on the button row (else it top-aligns).
+        imgui.AlignTextToFramePadding()
+        imgui.TextColored(ui.LIGHT_GREEN, string.format('%s %d / %s %d', main_job_name, main_level, sub_job_name, sub_level or 0))
+    end
+
+    -- Automation toggle button. Blue = enabled but suppressed by a runtime gate; the
+    -- gate order below matches the tick loop's (loading, AFK sleep, mount, dead, rest).
+    local button_text = settings.automation_enabled and 'Stop' or 'Start'
+    local status_text, status_color = 'Automation stopped', ui.LIGHT_RED
+
+    if settings.automation_enabled then
+        status_color = ui.LIGHT_BLUE
+        if     common.is_loading() then status_text = 'Automation loading'
+        elseif afk.is_sleeping()   then status_text = 'Automation asleep'
+        elseif common.is_mounted() then status_text = 'Automation mounted'
+        elseif common.is_dead()    then status_text = 'Automation dead'
+        elseif common.is_resting() then status_text = 'Automation resting'
+        elseif common.can_attack() then status_text, status_color = 'Automation running', ui.LIGHT_GREEN
+        else                            status_text = 'Automation paused'  -- combat blocked
+        end
+    end
+
+    -- Use fixed width for button to keep consistent size
+    if imgui.Button(button_text, { ui.AUTOMATION_BUTTON_WIDTH, 0 }) then
+        -- Toggle automation
+        AshitaCore:GetChatManager():QueueCommand(1, '/sidekick toggle')
+    end
+
+    -- Right-click: when automation stops by itself. Both opt-in, so an absent
+    -- key reads as off.
+    if ui.begin_opaque_context_item('##cmenu_automation') then
+        local load_stopped = { settings.load_stopped == true }
+        if imgui.Checkbox('Load stopped', load_stopped) then
+            settings.load_stopped = load_stopped[1] or nil
+            if save_callback then save_callback() end
+        end
+        if imgui.IsItemHovered() then
+            ui.set_tooltip('Always load with automation stopped.\nOff: load in whatever state you left it.')
+        end
+        local stop_after_zone = { settings.stop_after_zone == true }
+        if imgui.Checkbox('Stop after zone', stop_after_zone) then
+            settings.stop_after_zone = stop_after_zone[1] or nil
+            if save_callback then save_callback() end
+        end
+        if imgui.IsItemHovered() then
+            ui.set_tooltip('Stop automation whenever you change zones.')
+        end
+        ui.end_opaque_popup()
+    end
+
+    -- Display status on same line
+    imgui.SameLine()
+    imgui.PushStyleColor(ImGuiCol_Text, status_color)
+    imgui.Text(status_text)
+    imgui.PopStyleColor()
+    ui.item_tooltip(tooltips.automation_status)
+
+    -- Add Tracked Target button: only visible when current target is a valid PC
+    -- (not NPC, not Trust, not already in party, not already tracked, not already in alliance)
+    local targets_lib = common.targets
+    local target_entity = targets_lib.get_t()
+    local show_add_btn = false
+    if target_entity then
+        local spawn_flags = target_entity.SpawnFlags or 0
+        local is_pc = bit.band(spawn_flags, 0x0001) ~= 0
+        local target_sid = target_entity.ServerId or 0
+        if is_pc and target_sid > 0 and target_sid < 0x1000000 then
+            -- Not a Trust; check it's not in our party
+            local in_party = false
+            local party_obj = common.get_party()
+            if party_obj then
+                for pi = 0, 5 do
+                    if party_obj:GetMemberIsActive(pi) == 1 then
+                        if party_obj:GetMemberServerId(pi) == target_sid then
+                            in_party = true
+                            break
+                        end
+                    end
+                end
+            end
+            if not in_party and not common.is_tracked_target(target_sid) and not common.is_alliance_member(target_sid) then
+                show_add_btn = true
+            end
+        end
+    end
+
+    local add_target_btn_width = 120
+
+    if show_add_btn then
+        if widget_visible then
+            -- The widget shrink-wraps, so there is no content edge to right-align to:
+            -- park the button past a full-width status line (+2x the 8px ItemSpacing) so
+            -- its x does not chase the status text. ponytail: the widget still resizes
+            -- when the button appears/disappears; reserve a Dummy slot if that annoys.
+            imgui.SameLine(ui.AUTOMATION_BUTTON_WIDTH + 16 + imgui.CalcTextSize('Automation mounted'))
+        else
+            local content_max_x, _ = imgui.GetContentRegionMax()
+            imgui.SameLine(content_max_x - add_target_btn_width)
+        end
+        if imgui.Button('Track Target', { add_target_btn_width, 0 }) then
+            AshitaCore:GetChatManager():QueueCommand(1, '/sidekick addtarget')
+        end
+        ui.item_tooltip(tooltips.tracked_targets)
+    end
+end
+
 -- ============================================================================
 -- Module Functions
 -- ============================================================================
@@ -536,6 +667,42 @@ end
 
 function ui_config.is_visible()
     return ui_visible
+end
+
+function ui_config.toggle_widget()
+    widget_visible = not widget_visible
+    if widget_visible then
+        ui.reset_opaque_tracking()  -- same stale-popup guard as show()
+    end
+end
+
+function ui_config.is_widget_visible()
+    return widget_visible
+end
+
+-- Floating widget: just the profile/job and Start/Stop rows, no title bar and
+-- no close button (toggled only by /sk widget). Movable by dragging the body.
+function ui_config.render_widget(settings, job_def, callback)
+    if not widget_visible then
+        return
+    end
+
+    local ctx = {
+        settings = settings,
+        save_callback = callback,
+        job_def = job_def,
+    }
+
+    imgui.PushStyleVar(ImGuiStyleVar_Alpha, (settings.ui_opacity or 100) / 100)
+    -- p_open must be a TABLE: Ashita's binding ignores the flags argument when it is nil,
+    -- which is what put a title bar + [X] on this window. NoTitleBar means the [X] never
+    -- renders, so nothing ever flips widget_open -- it is a dummy.
+    if imgui.Begin('Sidekick Widget', widget_open,
+        ImGuiWindowFlags_AlwaysAutoResize + ImGuiWindowFlags_NoTitleBar) then
+        render_header(ctx)
+    end
+    imgui.End()
+    imgui.PopStyleVar()
 end
 
 function ui_config.get_party_buffs()
@@ -709,155 +876,11 @@ function ui_config.render(settings, job_def, callback)
     imgui.PushStyleVar(ImGuiStyleVar_Alpha, (settings.ui_opacity or 100) / 100)
     if imgui.Begin(window_title, is_open, ImGuiWindowFlags_NoResize + ImGuiWindowFlags_AlwaysAutoResize) then
 
-        -- Display job name and levels
-        if job_def and job_def.job_name then
-            -- Show normal job info
-            local main_job_id, sub_job_id = common.get_player_job()
-            local main_level, sub_level = common.get_player_level()
-            local main_job_name = common.get_job_name_from_id(main_job_id)
-            local sub_job_name = 'None'
-            if sub_level and sub_level > 0 and sub_job_id and sub_job_id > 0 then
-                sub_job_name = common.get_job_name_from_id(sub_job_id)
-            end
-            -- Settings profiles: button labeled with the active profile, opens
-            -- the save/load panel (rendering in components, ops defined above).
-            -- Leads the job line, fixed at the Start/Stop button width.
-            ui.render_profile_button(ctx, profile_ops)
-            imgui.SameLine()
-            -- Center the job text on the button row (else it top-aligns).
-            imgui.AlignTextToFramePadding()
-            imgui.TextColored(ui.LIGHT_GREEN, string.format('%s %d / %s %d', main_job_name, main_level, sub_job_name, sub_level or 0))
+        -- Profile/job + Start/Stop rows move to the floating widget while it is open.
+        if not widget_visible then
+            render_header(ctx)
         end
 
-        -- Automation toggle button
-        local is_loading = common.is_loading()
-        local can_attack = common.can_attack()
-        local is_resting = common.is_resting()
-        local is_mounted = common.is_mounted()
-        local is_dead = common.is_dead()
-        local button_text
-        local status_text
-        local status_color
-        
-        if settings.automation_enabled then
-            if is_loading then
-                -- Loading state (automation fully suppressed while loading)
-                button_text = 'Stop'
-                status_text = 'Automation loading.'
-                status_color = ui.LIGHT_BLUE
-            elseif afk.is_sleeping() then
-                -- AFK sleep (runtime gate, not a stop). Same tick order as the loop:
-                -- after loading, ahead of mount/dead/resting.
-                button_text = 'Stop'
-                status_text = 'Automation asleep - move to wake.'
-                status_color = ui.LIGHT_BLUE
-            elseif is_mounted then
-                -- Mounted state (automation fully suppressed while on a mount)
-                button_text = 'Stop'
-                status_text = 'Automation mounted.'
-                status_color = ui.LIGHT_BLUE
-            elseif is_dead then
-                -- Dead state (automation fully suppressed while dead)
-                button_text = 'Stop'
-                status_text = 'Automation dead.'
-                status_color = ui.LIGHT_BLUE
-            elseif is_resting then
-                -- Resting state (automation enabled but resting for MP)
-                button_text = 'Stop'
-                status_text = 'Automation resting.'
-                status_color = ui.LIGHT_BLUE
-            elseif can_attack then
-                -- Running state
-                button_text = 'Stop'
-                status_text = 'Automation running.'
-                status_color = ui.LIGHT_GREEN
-            else
-                -- Paused state (automation enabled but combat blocked)
-                button_text = 'Stop'
-                status_text = 'Automation paused.'
-                status_color = ui.LIGHT_BLUE
-            end
-        else
-            -- Stopped state
-            button_text = 'Start'
-            status_text = 'Automation stopped.'
-            status_color = ui.LIGHT_RED
-        end
-        
-        -- Use fixed width for button to keep consistent size
-        if imgui.Button(button_text, { ui.AUTOMATION_BUTTON_WIDTH, 0 }) then
-            -- Toggle automation
-            AshitaCore:GetChatManager():QueueCommand(1, '/sidekick toggle')
-        end
-
-        -- Right-click: when automation stops by itself. Both opt-in, so an absent
-        -- key reads as off.
-        if ui.begin_opaque_context_item('##cmenu_automation') then
-            local load_stopped = { settings.load_stopped == true }
-            if imgui.Checkbox('Load stopped', load_stopped) then
-                settings.load_stopped = load_stopped[1] or nil
-                if save_callback then save_callback() end
-            end
-            if imgui.IsItemHovered() then
-                ui.set_tooltip('Always load with automation stopped.\nOff: load in whatever state you left it.')
-            end
-            local stop_after_zone = { settings.stop_after_zone == true }
-            if imgui.Checkbox('Stop after zone', stop_after_zone) then
-                settings.stop_after_zone = stop_after_zone[1] or nil
-                if save_callback then save_callback() end
-            end
-            if imgui.IsItemHovered() then
-                ui.set_tooltip('Stop automation whenever you change zones.')
-            end
-            ui.end_opaque_popup()
-        end
-
-        -- Display status on same line
-        imgui.SameLine()
-        imgui.PushStyleColor(ImGuiCol_Text, status_color)
-        imgui.Text(status_text)
-        imgui.PopStyleColor()
-        ui.item_tooltip(tooltips.automation_status)
-
-        -- Add Tracked Target button: only visible when current target is a valid PC
-        -- (not NPC, not Trust, not already in party, not already tracked, not already in alliance)
-        local targets_lib = common.targets
-        local target_entity = targets_lib.get_t()
-        local show_add_btn = false
-        if target_entity then
-            local spawn_flags = target_entity.SpawnFlags or 0
-            local is_pc = bit.band(spawn_flags, 0x0001) ~= 0
-            local target_sid = target_entity.ServerId or 0
-            if is_pc and target_sid > 0 and target_sid < 0x1000000 then
-                -- Not a Trust; check it's not in our party
-                local in_party = false
-                local party_obj = common.get_party()
-                if party_obj then
-                    for pi = 0, 5 do
-                        if party_obj:GetMemberIsActive(pi) == 1 then
-                            if party_obj:GetMemberServerId(pi) == target_sid then
-                                in_party = true
-                                break
-                            end
-                        end
-                    end
-                end
-                if not in_party and not common.is_tracked_target(target_sid) and not common.is_alliance_member(target_sid) then
-                    show_add_btn = true
-                end
-            end
-        end
-
-        if show_add_btn then
-            local add_target_btn_width = 120
-            local content_max_x, _ = imgui.GetContentRegionMax()
-            imgui.SameLine(content_max_x - add_target_btn_width)
-            if imgui.Button('Track Target', { add_target_btn_width, 0 }) then
-                AshitaCore:GetChatManager():QueueCommand(1, '/sidekick addtarget')
-            end
-            ui.item_tooltip(tooltips.tracked_targets)
-        end
-        
         -- Tracked Targets list (show if any are being tracked)
         local tracked_list = common.get_tracked_targets()
         local has_tracked = next(tracked_list) ~= nil
