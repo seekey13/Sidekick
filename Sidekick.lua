@@ -821,7 +821,7 @@ ashita.events.register('d3d_present', 'sidekick_render', function()
             ui_config.show()
         end
         if addon_settings.widget_open == true then
-            ui_config.show_widget()
+            ui_config.toggle_widget()  -- starts hidden, so toggle == show
         end
     end
 
@@ -835,7 +835,7 @@ ashita.events.register('d3d_present', 'sidekick_render', function()
     end
 
     -- Render floating widget (independent of the config window)
-    if addon_settings and job_def then
+    if addon_settings then
         ui_config.render_widget(addon_settings, job_def, save_settings_callback)
     end
 
@@ -1193,10 +1193,8 @@ ashita.events.register('command', 'sidekick_command', function(e)
         ui_config.toggle()
         
     elseif cmd == 'widget' then
+        -- Persisted by the unload handler, same as /sidekick config.
         ui_config.toggle_widget()
-        addon_settings.widget_open = ui_config.is_widget_visible()
-        settings.save()
-        common.printf('Widget %s.', ui_config.is_widget_visible() and 'shown' or 'hidden')
 
     elseif cmd == 'focus' then
         local subcmd = args[3] and args[3]:lower()

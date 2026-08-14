@@ -16,9 +16,6 @@ local roll = require('lib.actions.roll')  -- for reset_state() when a roll selec
 local is_open = { true }
 local ui_visible = false
 local widget_visible = false  -- floating header-only window (/sk widget)
--- NoTitleBar means there is no [X] to flip this, so it stays true; it only
--- exists because imgui.Begin wants a p_open table in the 3-arg form.
-local widget_open = { true }
 local force_expand = false  -- when true, next render un-collapses the window once
 
 -- Settings reference and callback
@@ -654,10 +651,11 @@ local function render_header(ctx)
 
     if show_add_btn then
         local add_target_btn_width = 120
-        -- Right-aligned in the (fixed-width) config window. The widget auto-sizes
-        -- to its content, so an absolute x there would feed back into the width
-        -- frame after frame -- it just follows the status text instead.
-        if ctx.compact then
+        -- Right-aligned in the (fixed-width) config window. In the widget it just
+        -- follows the status text: that window auto-sizes, so an absolute x would
+        -- feed back into its width frame after frame. widget_visible is enough to
+        -- tell the two apart -- the header only renders in one of them per frame.
+        if widget_visible then
             imgui.SameLine()
         else
             local content_max_x, _ = imgui.GetContentRegionMax()
@@ -714,10 +712,6 @@ function ui_config.toggle_widget()
     end
 end
 
-function ui_config.show_widget()
-    if not widget_visible then ui_config.toggle_widget() end
-end
-
 function ui_config.is_widget_visible()
     return widget_visible
 end
@@ -733,13 +727,12 @@ function ui_config.render_widget(settings, job_def, callback)
         settings = settings,
         save_callback = callback,
         job_def = job_def,
-        compact = true,
     }
 
     imgui.PushStyleVar(ImGuiStyleVar_Alpha, (settings.ui_opacity or 100) / 100)
-    if imgui.Begin('Sidekick Widget', widget_open,
-        ImGuiWindowFlags_NoResize + ImGuiWindowFlags_AlwaysAutoResize
-        + ImGuiWindowFlags_NoTitleBar + ImGuiWindowFlags_NoCollapse) then
+    -- No p_open: NoTitleBar means no [X], so nothing can flip it.
+    if imgui.Begin('Sidekick Widget', nil,
+        ImGuiWindowFlags_AlwaysAutoResize + ImGuiWindowFlags_NoTitleBar) then
         render_header(ctx)
     end
     imgui.End()
