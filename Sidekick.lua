@@ -829,13 +829,12 @@ ashita.events.register('d3d_present', 'sidekick_render', function()
         settings.save()
     end
 
-    -- Render config UI
-    if ui_config.is_visible() and addon_settings and job_def then
-        ui_config.render(addon_settings, job_def, save_settings_callback)
-    end
-
-    -- Render floating widget (independent of the config window)
+    -- Render config UI, then the floating widget (independent of the config window,
+    -- and unlike it does not need a job_def).
     if addon_settings then
+        if ui_config.is_visible() and job_def then
+            ui_config.render(addon_settings, job_def, save_settings_callback)
+        end
         ui_config.render_widget(addon_settings, job_def, save_settings_callback)
     end
 

@@ -17,20 +17,6 @@ local is_open = { true }
 local ui_visible = false
 local widget_visible = false  -- floating header-only window (/sk widget)
 local widget_open = { true }  -- Ashita's Begin drops the flags arg unless p_open is a table
--- Every status line render_header can show. In one table so the widget can measure the
--- widest of them -- keep new statuses here rather than inline, or the widget resizes when
--- the new one shows.
-local STATUS_TEXT = {
-    loading = 'Automation loading',
-    asleep  = 'Automation asleep',
-    mounted = 'Automation mounted',
-    dead    = 'Automation dead',
-    resting = 'Automation resting',
-    running = 'Automation running',
-    paused  = 'Automation paused',
-    stopped = 'Automation stopped',
-}
-local ITEM_SPACING_X = 8  -- imgui default style ItemSpacing.x
 local force_expand = false  -- when true, next render un-collapses the window once
 
 -- Settings reference and callback
@@ -517,18 +503,6 @@ function profile_ops.delete(ctx, name)
     if ctx.save_callback then ctx.save_callback() end
 end
 
--- Widget-only x for the Track Target button: [Start button][spacing][widest status][spacing].
--- Measured against the live font each frame (8 CalcTextSize calls), so it tracks font size
--- changes for free and never needs a cached value invalidated.
-local function widget_track_btn_x()
-    local widest = 0
-    for _, text in pairs(STATUS_TEXT) do
-        local w = imgui.CalcTextSize(text)
-        if w > widest then widest = w end
-    end
-    return ui.AUTOMATION_BUTTON_WIDTH + ITEM_SPACING_X + widest + ITEM_SPACING_X
-end
-
 -- Profile + job line and the Start/Stop button + status line. Shared by the
 -- config window and the floating widget (/sk widget); the widget takes them
 -- over while it is open so they only ever render once per frame.
@@ -557,61 +531,23 @@ local function render_header(ctx)
         imgui.TextColored(ui.LIGHT_GREEN, string.format('%s %d / %s %d', main_job_name, main_level, sub_job_name, sub_level or 0))
     end
 
-    -- Automation toggle button
-    local is_loading = common.is_loading()
-    local can_attack = common.can_attack()
-    local is_resting = common.is_resting()
-    local is_mounted = common.is_mounted()
-    local is_dead = common.is_dead()
-    local button_text
-    local status_text
-    local status_color
-    
+    -- Automation toggle button. Blue = enabled but suppressed by a runtime gate; the
+    -- gate order below matches the tick loop's (loading, AFK sleep, mount, dead, rest).
+    local button_text = settings.automation_enabled and 'Stop' or 'Start'
+    local status_text, status_color = 'Automation stopped', ui.LIGHT_RED
+
     if settings.automation_enabled then
-        if is_loading then
-            -- Loading state (automation fully suppressed while loading)
-            button_text = 'Stop'
-            status_text = STATUS_TEXT.loading
-            status_color = ui.LIGHT_BLUE
-        elseif afk.is_sleeping() then
-            -- AFK sleep (runtime gate, not a stop). Same tick order as the loop:
-            -- after loading, ahead of mount/dead/resting.
-            button_text = 'Stop'
-            status_text = STATUS_TEXT.asleep
-            status_color = ui.LIGHT_BLUE
-        elseif is_mounted then
-            -- Mounted state (automation fully suppressed while on a mount)
-            button_text = 'Stop'
-            status_text = STATUS_TEXT.mounted
-            status_color = ui.LIGHT_BLUE
-        elseif is_dead then
-            -- Dead state (automation fully suppressed while dead)
-            button_text = 'Stop'
-            status_text = STATUS_TEXT.dead
-            status_color = ui.LIGHT_BLUE
-        elseif is_resting then
-            -- Resting state (automation enabled but resting for MP)
-            button_text = 'Stop'
-            status_text = STATUS_TEXT.resting
-            status_color = ui.LIGHT_BLUE
-        elseif can_attack then
-            -- Running state
-            button_text = 'Stop'
-            status_text = STATUS_TEXT.running
-            status_color = ui.LIGHT_GREEN
-        else
-            -- Paused state (automation enabled but combat blocked)
-            button_text = 'Stop'
-            status_text = STATUS_TEXT.paused
-            status_color = ui.LIGHT_BLUE
+        status_color = ui.LIGHT_BLUE
+        if     common.is_loading() then status_text = 'Automation loading'
+        elseif afk.is_sleeping()   then status_text = 'Automation asleep'
+        elseif common.is_mounted() then status_text = 'Automation mounted'
+        elseif common.is_dead()    then status_text = 'Automation dead'
+        elseif common.is_resting() then status_text = 'Automation resting'
+        elseif common.can_attack() then status_text, status_color = 'Automation running', ui.LIGHT_GREEN
+        else                            status_text = 'Automation paused'  -- combat blocked
         end
-    else
-        -- Stopped state
-        button_text = 'Start'
-        status_text = STATUS_TEXT.stopped
-        status_color = ui.LIGHT_RED
     end
-    
+
     -- Use fixed width for button to keep consistent size
     if imgui.Button(button_text, { ui.AUTOMATION_BUTTON_WIDTH, 0 }) then
         -- Toggle automation
@@ -679,12 +615,12 @@ local function render_header(ctx)
     local add_target_btn_width = 120
 
     if show_add_btn then
-        -- Config window right-aligns to its content edge. The widget shrink-wraps, so
-        -- there is no edge to align to: it places the button just past the WIDEST status
-        -- line (measured, not guessed), so the window's width holds still as the status
-        -- changes. Constant x also means no width feedback frame to frame.
         if widget_visible then
-            imgui.SameLine(widget_track_btn_x())
+            -- The widget shrink-wraps, so there is no content edge to right-align to:
+            -- park the button past a full-width status line (+2x the 8px ItemSpacing) so
+            -- its x does not chase the status text. ponytail: the widget still resizes
+            -- when the button appears/disappears; reserve a Dummy slot if that annoys.
+            imgui.SameLine(ui.AUTOMATION_BUTTON_WIDTH + 16 + imgui.CalcTextSize('Automation mounted'))
         else
             local content_max_x, _ = imgui.GetContentRegionMax()
             imgui.SameLine(content_max_x - add_target_btn_width)
@@ -693,11 +629,6 @@ local function render_header(ctx)
             AshitaCore:GetChatManager():QueueCommand(1, '/sidekick addtarget')
         end
         ui.item_tooltip(tooltips.tracked_targets)
-    elseif widget_visible then
-        -- No button this frame: reserve its slot anyway, else the widget would shrink
-        -- and jump every time the target changes.
-        imgui.SameLine(widget_track_btn_x())
-        imgui.Dummy({ add_target_btn_width, 0 })
     end
 end
 
