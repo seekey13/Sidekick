@@ -913,6 +913,7 @@ Ninjutsu is a special case worth knowing: in `spell_list.sql` the `mpCost` colum
 - Delegates all rendering to `components.lua`.
 - **Window sizing**: Uses imgui `AlwaysAutoResize` (no manually computed fixed width). A `force_expand` flag un-collapses the window once when reopened so a collapsed `imgui.ini` state doesn't leave an empty title bar. `imgui.Begin` returning `false` on collapse is treated as "still open, skip content"; only the `[X]` (is_open → false) closes it, and `End()` is always called.
 - **Group/AOE heal targets**: Calls `render_heal_group_selection(ctx, 'heal_group', true)` and `(ctx, 'heal_aoe_group', false)` under the respective threshold sliders.
+- **Sleep Targets**: The Sleep Removal section calls `render_party_selection(ctx, 'wake', has_outside_wake, false)` followed by a `Sleep Targets` label on the same row (mirroring the Group/AOE heal rows). No **ME** button — a sleeping player can't wake themselves. Unlike the heal rows this state **is persisted** (`settings.party_buffs.wake`); `status_removal.execute_wake` reads the same keys.
 - **DRY helpers**:
   - `render_party_dropdown(label, key, include_player, names, settings, cb, include_tracked)` – reusable for Focus/Follow/Recovery/Entrust Target dropdowns; `include_tracked` (Follow Target only) appends session tracked-target names, skipping any already listed as a party member.
   - `has_usable_abilities(abilities)` – quick check for any level-appropriate abilities.

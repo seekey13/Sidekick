@@ -1127,9 +1127,14 @@ function ui_config.render(settings, job_def, callback)
                 end
 
                 -- Party selection buttons (who gets sleep removal)
-                -- exclude ME since player cannot wake themselves from sleep
+                -- exclude ME since player cannot wake themselves from sleep.
+                -- Label only when a button drew: solo (party_size 1) renders
+                -- nothing, and a bare SameLine would glue the text to the header.
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
-                ui.render_party_selection(ctx, 'wake', has_outside_wake, false)
+                if ui.render_party_selection(ctx, 'wake', has_outside_wake, false) then
+                    imgui.SameLine()
+                    imgui.Text('Sleep Targets')
+                end
                 imgui.Unindent(ui.ABILITY_LIST_INDENT)
             end
         end
