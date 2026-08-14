@@ -18,6 +18,10 @@ local ui_visible = false
 local widget_visible = false  -- floating header-only window (/sk widget)
 local widget_open = { true }  -- Ashita's Begin drops the flags arg unless p_open is a table
 local force_expand = false  -- when true, next render un-collapses the window once
+-- Upper bound on the widget's job line: 'Puppetmaster' is the longest job name
+-- in common.job_data, so both slots at 2-digit levels is wider than any real
+-- main/sub combo. Measured, not hardcoded in pixels, so it tracks the font.
+local WIDEST_JOB_LINE = 'Puppetmaster 99 / Puppetmaster 49'
 
 -- Settings reference and callback
 local current_settings = nil
@@ -614,17 +618,31 @@ local function render_header(ctx)
 
     local add_target_btn_width = 120
 
-    if show_add_btn then
-        if widget_visible then
-            -- The widget shrink-wraps, so there is no content edge to right-align to:
-            -- park the button past a full-width status line (+2x the 8px ItemSpacing) so
-            -- its x does not chase the status text. ponytail: the widget still resizes
-            -- when the button appears/disappears; reserve a Dummy slot if that annoys.
-            imgui.SameLine(ui.AUTOMATION_BUTTON_WIDTH + 16 + imgui.CalcTextSize('Automation mounted'))
-        else
-            local content_max_x, _ = imgui.GetContentRegionMax()
-            imgui.SameLine(content_max_x - add_target_btn_width)
+    -- The widget shrink-wraps, so there is no content edge to right-align to:
+    -- park the button at a fixed x wide enough for every row's worst case, so it
+    -- never chases the status text. The slot is claimed every frame -- a
+    -- zero-height Dummy stands in while the button is hidden -- so the widget's
+    -- auto-resize width is a constant: it no longer twitches when the button
+    -- appears/disappears or the job line changes length.
+    if widget_visible then
+        -- Row 1: profile button + 8px ItemSpacing + the longest job line any
+        -- character can show (longest job name in both slots, 2-digit levels).
+        -- Row 2: Start/Stop + 2x ItemSpacing + the longest status text + button.
+        local job_text_w = imgui.CalcTextSize(WIDEST_JOB_LINE)
+        local status_text_w = imgui.CalcTextSize('Automation mounted')
+        local widget_width = math.max(
+            ui.AUTOMATION_BUTTON_WIDTH + 8 + job_text_w,
+            ui.AUTOMATION_BUTTON_WIDTH + 16 + status_text_w + add_target_btn_width)
+        imgui.SameLine(widget_width - add_target_btn_width)
+        if not show_add_btn then
+            imgui.Dummy({ add_target_btn_width, 0 })
         end
+    elseif show_add_btn then
+        local content_max_x, _ = imgui.GetContentRegionMax()
+        imgui.SameLine(content_max_x - add_target_btn_width)
+    end
+
+    if show_add_btn then
         if imgui.Button('Track Target', { add_target_btn_width, 0 }) then
             AshitaCore:GetChatManager():QueueCommand(1, '/sidekick addtarget')
         end
