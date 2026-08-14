@@ -16,6 +16,21 @@ local roll = require('lib.actions.roll')  -- for reset_state() when a roll selec
 local is_open = { true }
 local ui_visible = false
 local widget_visible = false  -- floating header-only window (/sk widget)
+local widget_open = { true }  -- Ashita's Begin drops the flags arg unless p_open is a table
+-- Every status line render_header can show. In one table so the widget can measure the
+-- widest of them -- keep new statuses here rather than inline, or the widget resizes when
+-- the new one shows.
+local STATUS_TEXT = {
+    loading = 'Sidekick loading',
+    asleep  = 'Sidekick asleep',
+    mounted = 'Sidekick mounted',
+    dead    = 'Sidekick dead',
+    resting = 'Sidekick resting',
+    running = 'Sidekick running',
+    paused  = 'Sidekick paused',
+    stopped = 'Sidekick stopped',
+}
+local ITEM_SPACING_X = 8  -- imgui default style ItemSpacing.x
 local force_expand = false  -- when true, next render un-collapses the window once
 
 -- Settings reference and callback
@@ -502,6 +517,18 @@ function profile_ops.delete(ctx, name)
     if ctx.save_callback then ctx.save_callback() end
 end
 
+-- Widget-only x for the Track Target button: [Start button][spacing][widest status][spacing].
+-- Measured against the live font each frame (8 CalcTextSize calls), so it tracks font size
+-- changes for free and never needs a cached value invalidated.
+local function widget_track_btn_x()
+    local widest = 0
+    for _, text in pairs(STATUS_TEXT) do
+        local w = imgui.CalcTextSize(text)
+        if w > widest then widest = w end
+    end
+    return ui.AUTOMATION_BUTTON_WIDTH + ITEM_SPACING_X + widest + ITEM_SPACING_X
+end
+
 -- Profile + job line and the Start/Stop button + status line. Shared by the
 -- config window and the floating widget (/sk widget); the widget takes them
 -- over while it is open so they only ever render once per frame.
@@ -544,44 +571,44 @@ local function render_header(ctx)
         if is_loading then
             -- Loading state (automation fully suppressed while loading)
             button_text = 'Stop'
-            status_text = 'Automation loading.'
+            status_text = STATUS_TEXT.loading
             status_color = ui.LIGHT_BLUE
         elseif afk.is_sleeping() then
             -- AFK sleep (runtime gate, not a stop). Same tick order as the loop:
             -- after loading, ahead of mount/dead/resting.
             button_text = 'Stop'
-            status_text = 'Automation asleep - move to wake.'
+            status_text = STATUS_TEXT.asleep
             status_color = ui.LIGHT_BLUE
         elseif is_mounted then
             -- Mounted state (automation fully suppressed while on a mount)
             button_text = 'Stop'
-            status_text = 'Automation mounted.'
+            status_text = STATUS_TEXT.mounted
             status_color = ui.LIGHT_BLUE
         elseif is_dead then
             -- Dead state (automation fully suppressed while dead)
             button_text = 'Stop'
-            status_text = 'Automation dead.'
+            status_text = STATUS_TEXT.dead
             status_color = ui.LIGHT_BLUE
         elseif is_resting then
             -- Resting state (automation enabled but resting for MP)
             button_text = 'Stop'
-            status_text = 'Automation resting.'
+            status_text = STATUS_TEXT.resting
             status_color = ui.LIGHT_BLUE
         elseif can_attack then
             -- Running state
             button_text = 'Stop'
-            status_text = 'Automation running.'
+            status_text = STATUS_TEXT.running
             status_color = ui.LIGHT_GREEN
         else
             -- Paused state (automation enabled but combat blocked)
             button_text = 'Stop'
-            status_text = 'Automation paused.'
+            status_text = STATUS_TEXT.paused
             status_color = ui.LIGHT_BLUE
         end
     else
         -- Stopped state
         button_text = 'Start'
-        status_text = 'Automation stopped.'
+        status_text = STATUS_TEXT.stopped
         status_color = ui.LIGHT_RED
     end
     
@@ -649,14 +676,15 @@ local function render_header(ctx)
         end
     end
 
+    local add_target_btn_width = 120
+
     if show_add_btn then
-        local add_target_btn_width = 120
-        -- Right-aligned in the (fixed-width) config window. In the widget it just
-        -- follows the status text: that window auto-sizes, so an absolute x would
-        -- feed back into its width frame after frame. widget_visible is enough to
-        -- tell the two apart -- the header only renders in one of them per frame.
+        -- Config window right-aligns to its content edge. The widget shrink-wraps, so
+        -- there is no edge to align to: it places the button just past the WIDEST status
+        -- line (measured, not guessed), so the window's width holds still as the status
+        -- changes. Constant x also means no width feedback frame to frame.
         if widget_visible then
-            imgui.SameLine()
+            imgui.SameLine(widget_track_btn_x())
         else
             local content_max_x, _ = imgui.GetContentRegionMax()
             imgui.SameLine(content_max_x - add_target_btn_width)
@@ -665,6 +693,11 @@ local function render_header(ctx)
             AshitaCore:GetChatManager():QueueCommand(1, '/sidekick addtarget')
         end
         ui.item_tooltip(tooltips.tracked_targets)
+    elseif widget_visible then
+        -- No button this frame: reserve its slot anyway, else the widget would shrink
+        -- and jump every time the target changes.
+        imgui.SameLine(widget_track_btn_x())
+        imgui.Dummy({ add_target_btn_width, 0 })
     end
 end
 
@@ -730,8 +763,10 @@ function ui_config.render_widget(settings, job_def, callback)
     }
 
     imgui.PushStyleVar(ImGuiStyleVar_Alpha, (settings.ui_opacity or 100) / 100)
-    -- No p_open: NoTitleBar means no [X], so nothing can flip it.
-    if imgui.Begin('Sidekick Widget', nil,
+    -- p_open must be a TABLE: Ashita's binding ignores the flags argument when it is nil,
+    -- which is what put a title bar + [X] on this window. NoTitleBar means the [X] never
+    -- renders, so nothing ever flips widget_open -- it is a dummy.
+    if imgui.Begin('Sidekick Widget', widget_open,
         ImGuiWindowFlags_AlwaysAutoResize + ImGuiWindowFlags_NoTitleBar) then
         render_header(ctx)
     end
