@@ -2501,6 +2501,35 @@ end
 -- Party Selection Buttons (for status removal targeting)
 -- ============================================================================
 
+-- One toggle button in a target-selection row, shared by render_party_selection
+-- and render_heal_group_selection. `id` is the full ##suffix. A non-nil
+-- `disabled_reason` grays the button, swallows its click, and is appended to the
+-- tooltip (which falls back to the label) as the line explaining why.
+local function draw_toggle(label, id, on, on_click, tooltip, disabled_reason)
+    if disabled_reason then
+        imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_DISABLED)
+        imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_DISABLED)
+        imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_DISABLED)
+        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
+    elseif not on then
+        imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_UNSELECTED)
+        imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_UNSELECTED_HOVER)
+        imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_UNSELECTED_ACTIVE)
+    end
+    if imgui.Button(label .. '##' .. id, { PARTY_BUTTON_WIDTH, 0 }) and not disabled_reason then
+        on_click()
+    end
+    if imgui.IsItemHovered() then
+        if disabled_reason then
+            ui_components.set_tooltip((tooltip or label) .. '\n' .. disabled_reason)
+        elseif tooltip then
+            ui_components.set_tooltip(tooltip)
+        end
+    end
+    if disabled_reason then imgui.PopStyleColor(4)
+    elseif not on then imgui.PopStyleColor(3) end
+end
+
 -- Render party selection buttons for a feature (debuff removal, wake, etc.)
 -- Provides a row of [ME] [P1] [P2]... [B0] [C0]... [T1]... toggle buttons.
 -- Reuses ctx.party_buffs[key_name][party_index] for state storage.
@@ -2551,21 +2580,18 @@ function ui_components.render_party_selection(ctx, key_name, show_outside, inclu
 
     local any_rendered = false
 
+    -- Every button here toggles one key of the same table; only label/id and
+    -- tooltip differ.
+    local function draw(label, id, sel_key, tooltip, disabled_reason)
+        local on = is_sel(sel_key)
+        draw_toggle(label, key_name .. '_sel_' .. id, on,
+            function() toggle_sel(sel_key, not on) end, tooltip, disabled_reason)
+        any_rendered = true
+    end
+
     -- [ME] button
     if include_self then
-        local me_on = is_sel(0)
-        if not me_on then
-            imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_UNSELECTED)
-            imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_UNSELECTED_HOVER)
-            imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_UNSELECTED_ACTIVE)
-        end
-        if imgui.Button('ME##' .. key_name .. '_sel_me', { PARTY_BUTTON_WIDTH, 0 }) then
-            toggle_sel(0, not me_on)
-        end
-        if not me_on then
-            imgui.PopStyleColor(3)
-        end
-        any_rendered = true
+        draw('ME', 'me', 0)
     end
 
     -- P1-P5 buttons
@@ -2574,41 +2600,16 @@ function ui_components.render_party_selection(ctx, key_name, show_outside, inclu
         for pi = 1, 5 do
             if pi < party_size then
                 if any_rendered then imgui.SameLine() end
-                local p_on = is_sel(pi)
-                local is_trust_member = ctx.is_trust and ctx.is_trust(pi)
                 -- Damage-immune trusts (Moogle, Kupofried, ...) are immune to
                 -- status too, so they can never be a removal target -- lock the
                 -- button rather than let it be switched on and do nothing.
                 local pm = common.game_state and common.game_state.party[pi]
-                local is_excluded = (pm and common.is_trust_excluded(pm.name, pm.server_id)) or false
-
-                if is_excluded then
-                    imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_DISABLED)
-                    imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_DISABLED)
-                    imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_DISABLED)
-                    imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
-                elseif not p_on then
-                    imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_UNSELECTED)
-                    imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_UNSELECTED_HOVER)
-                    imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_UNSELECTED_ACTIVE)
-                end
-                if imgui.Button('P' .. pi .. '##' .. key_name .. '_sel_p' .. pi, { PARTY_BUTTON_WIDTH, 0 }) and not is_excluded then
-                    toggle_sel(pi, not p_on)
-                end
-                -- Trust warning tooltip
-                if imgui.IsItemHovered() then
-                    if is_excluded then
-                        ui_components.set_tooltip((pm.name or ('P' .. pi)) .. '\nCannot be given a status ailment')
-                    elseif is_trust_member then
-                        ui_components.set_tooltip('Trust/Tracked Removal is not totally reliable')
-                    end
-                end
-                if is_excluded then
-                    imgui.PopStyleColor(4)
-                elseif not p_on then
-                    imgui.PopStyleColor(3)
-                end
-                any_rendered = true
+                local is_excluded = pm and common.is_trust_excluded(pm.name, pm.server_id)
+                local trust_tip = ctx.is_trust and ctx.is_trust(pi)
+                    and 'Trust/Tracked Removal is not totally reliable' or nil
+                draw('P' .. pi, 'p' .. pi, pi,
+                    is_excluded and pm.name or trust_tip,
+                    is_excluded and 'Cannot be given a status ailment' or nil)
             end
         end
     end
@@ -2630,22 +2631,7 @@ function ui_components.render_party_selection(ctx, key_name, show_outside, inclu
                         local al_key = 'al_' .. flat_index
 
                         if any_rendered then imgui.SameLine() end
-                        local al_on = is_sel(al_key)
-                        if not al_on then
-                            imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_UNSELECTED)
-                            imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_UNSELECTED_HOVER)
-                            imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_UNSELECTED_ACTIVE)
-                        end
-                        if imgui.Button(prefix .. local_idx .. '##' .. key_name .. '_sel_' .. al_key, { PARTY_BUTTON_WIDTH, 0 }) then
-                            toggle_sel(al_key, not al_on)
-                        end
-                        if imgui.IsItemHovered() then
-                            ui_components.set_tooltip(m.name or (prefix .. local_idx))
-                        end
-                        if not al_on then
-                            imgui.PopStyleColor(3)
-                        end
-                        any_rendered = true
+                        draw(prefix .. local_idx, al_key, al_key, m.name or (prefix .. local_idx))
                     end
                 end
             end
@@ -2660,24 +2646,9 @@ function ui_components.render_party_selection(ctx, key_name, show_outside, inclu
         table.sort(sorted_tracked, function(a, b) return a.name < b.name end)
         for t_idx, tt in ipairs(sorted_tracked) do
             if any_rendered then imgui.SameLine() end
-            local tt_key = 'tt_' .. tt.sid
-            local tt_on = is_sel(tt_key)
-            if not tt_on then
-                imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_UNSELECTED)
-                imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_UNSELECTED_HOVER)
-                imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_UNSELECTED_ACTIVE)
-            end
-            if imgui.Button('T' .. t_idx .. '##' .. key_name .. '_sel_t' .. tt.sid, { PARTY_BUTTON_WIDTH, 0 }) then
-                toggle_sel(tt_key, not tt_on)
-            end
             -- Always show warning tooltip for tracked targets
-            if imgui.IsItemHovered() then
-                ui_components.set_tooltip(tt.name .. '\nTrust/Tracked Removal is not totally reliable')
-            end
-            if not tt_on then
-                imgui.PopStyleColor(3)
-            end
-            any_rendered = true
+            draw('T' .. t_idx, 't' .. tt.sid, 'tt_' .. tt.sid,
+                tt.name .. '\nTrust/Tracked Removal is not totally reliable')
         end
     end
 
@@ -2704,28 +2675,8 @@ function ui_components.render_heal_group_selection(ctx, key_name, show_outside)
     end
 
     local function draw(label, id, on, on_click, tooltip, disabled)
-        if disabled then
-            imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_DISABLED)
-            imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_DISABLED)
-            imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_DISABLED)
-            imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
-        elseif not on then
-            imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_UNSELECTED)
-            imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_UNSELECTED_HOVER)
-            imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_UNSELECTED_ACTIVE)
-        end
-        if imgui.Button(label .. '##' .. key_name .. '_gsel_' .. id, { PARTY_BUTTON_WIDTH, 0 }) and not disabled then
-            on_click()
-        end
-        if imgui.IsItemHovered() then
-            if disabled then
-                ui_components.set_tooltip((tooltip or label) .. '\nTrust cannot take any damage')
-            elseif tooltip then
-                ui_components.set_tooltip(tooltip)
-            end
-        end
-        if disabled then imgui.PopStyleColor(4)
-        elseif not on then imgui.PopStyleColor(3) end
+        draw_toggle(label, key_name .. '_gsel_' .. id, on, on_click, tooltip,
+            disabled and 'Trust cannot take any damage' or nil)
     end
 
     -- [ME]

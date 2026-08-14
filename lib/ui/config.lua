@@ -1099,9 +1099,7 @@ function ui_config.render(settings, job_def, callback)
             end
         end
 
-        -- Wake detection (used by the Sleep Removal section below).
-        -- has_outside_wake is hoisted out of the section body only so both the
-        -- loops collapse into one pass.
+        -- Wake detection (used by the Sleep Removal section below)
         local has_wake_abilities = false
         local has_outside_wake = false
         if job_def and job_def.abilities.heal then
