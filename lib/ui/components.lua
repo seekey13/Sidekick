@@ -2576,20 +2576,36 @@ function ui_components.render_party_selection(ctx, key_name, show_outside, inclu
                 if any_rendered then imgui.SameLine() end
                 local p_on = is_sel(pi)
                 local is_trust_member = ctx.is_trust and ctx.is_trust(pi)
+                -- Damage-immune trusts (Moogle, Kupofried, ...) are immune to
+                -- status too, so they can never be a removal target -- lock the
+                -- button rather than let it be switched on and do nothing.
+                local pm = common.game_state and common.game_state.party[pi]
+                local is_excluded = (pm and common.is_trust_excluded(pm.name, pm.server_id)) or false
 
-                if not p_on then
+                if is_excluded then
+                    imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_DISABLED)
+                    imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_DISABLED)
+                    imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_DISABLED)
+                    imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
+                elseif not p_on then
                     imgui.PushStyleColor(ImGuiCol_Button, COLOR_BUTTON_UNSELECTED)
                     imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_UNSELECTED_HOVER)
                     imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_UNSELECTED_ACTIVE)
                 end
-                if imgui.Button('P' .. pi .. '##' .. key_name .. '_sel_p' .. pi, { PARTY_BUTTON_WIDTH, 0 }) then
+                if imgui.Button('P' .. pi .. '##' .. key_name .. '_sel_p' .. pi, { PARTY_BUTTON_WIDTH, 0 }) and not is_excluded then
                     toggle_sel(pi, not p_on)
                 end
                 -- Trust warning tooltip
-                if is_trust_member and imgui.IsItemHovered() then
-                    ui_components.set_tooltip('Trust/Tracked Removal is not totally reliable')
+                if imgui.IsItemHovered() then
+                    if is_excluded then
+                        ui_components.set_tooltip((pm.name or ('P' .. pi)) .. '\nCannot be given a status ailment')
+                    elseif is_trust_member then
+                        ui_components.set_tooltip('Trust/Tracked Removal is not totally reliable')
+                    end
                 end
-                if not p_on then
+                if is_excluded then
+                    imgui.PopStyleColor(4)
+                elseif not p_on then
                     imgui.PopStyleColor(3)
                 end
                 any_rendered = true
