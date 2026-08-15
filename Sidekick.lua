@@ -848,7 +848,7 @@ ashita.events.register('d3d_present', 'sidekick_render', function()
     follow_tick()
 
     -- Publish our party roster and mirror tracked anchors' parties (own 2s timer).
-    party_share.tick()
+    party_share.tick(addon_settings)
 end)
 
 -- 0x028 categories marking one of our actions *resolving*. The post-action lockout is
