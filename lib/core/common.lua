@@ -2216,15 +2216,6 @@ function common.remove_tracked_target_by_name(name)
     end
 end
 
--- Clear all tracked targets (e.g., on zone change).
-function common.clear_tracked_targets()
-    for sid, _ in pairs(tracked_targets) do
-        trust_buffs[sid] = nil
-        buff_timestamps[sid] = nil
-    end
-    tracked_targets = {}
-end
-
 -- Get the tracked targets table (read-only reference).
 function common.get_tracked_targets()
     return tracked_targets
