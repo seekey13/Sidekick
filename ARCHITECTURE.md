@@ -431,9 +431,9 @@ boxes and the outside healer picks the party up within one 2 s pass.
   that caught one mid-rewrite — removes nothing, so an absent file can never be mistaken for an
   empty party. Hand-added targets are never removed by the sync.
 
-Tracked targets are session-only and cleared on zone (`common.clear_tracked_targets`), so the
-mirrored party goes away on a zone change like any other tracked target — and is rebuilt from the
-files within one pass.
+Tracked targets are session-only (an addon reload clears them) but survive zoning: each refresh
+re-resolves the entity by server id, so a zoned-out target simply goes `is_active = false` until it
+is visible again.
 
 ### targets.lua
 

@@ -1119,10 +1119,9 @@ ashita.events.register('packet_in', 'sidekick_packet_in', function(e)
         end
     end
 
-    -- Clear Trust buffs and tracked targets on zone change
+    -- Clear Trust buffs on zone change (tracked targets survive zoning)
     if e.id == 0x0A then  -- Zone change packet
         common.clear_trust_buffs()
-        common.clear_tracked_targets()
         common.clear_casting_state()
 
         -- Stop after zone (opt-in via the Start button right-click menu).
