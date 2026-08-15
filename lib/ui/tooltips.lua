@@ -28,13 +28,11 @@ return {
         'for spell sizing, as exact HP is not available.\n',
 
     party_share_folder =
-        'Where Sidekick sessions swap party rosters.\n' ..
-        'OFF: Ashita\'s own config/addons/sidekick folder,\n' ..
-        'so only clients on this PC see each other.\n' ..
-        'ON: the folder typed here. Point every PC at the\n' ..
-        'same network share (e.g. \\\\PC\\Share\\sidekick)\n' ..
-        'and a Sidekick on another machine tracks your\n' ..
-        'party. The folder must already exist.',
+        'Folder Sidekick sessions swap party rosters in.\n' ..
+        'Empty: Ashita\'s own config/addons/sidekick, so\n' ..
+        'only clients on this PC see each other. Point\n' ..
+        'every PC at one share (e.g. X:\\sidekick) to\n' ..
+        'track a party across machines. Must exist.',
 
     multisend_follow =
         'Movement mode switch. ON: use the Multisend\n' ..

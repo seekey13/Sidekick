@@ -17,14 +17,14 @@ local POLL_INTERVAL = 2.0   -- Seconds between publish/sync passes
 local next_poll     = 0
 local last_roster   = nil   -- Text last written, so an unchanged party is a no-op
 local my_file       = nil   -- Path this session publishes to, for cleanup on unload
-local my_settings   = nil   -- Set from tick(), for the optional custom directory
+local custom_dir    = nil   -- party_share_path, set from tick()
 
 -- config/addons/sidekick/ is created by the settings module at load, so there is
--- nothing to mkdir here. A custom directory (party_share_custom + party_share_path)
--- points the same files at a network share so a Sidekick on *another* PC reads them;
--- that directory must already exist -- nothing here creates it.
+-- nothing to mkdir here. A custom directory (party_share_path) points the same files
+-- at a network share so a Sidekick on *another* PC reads them; that directory must
+-- already exist -- nothing here creates it.
 local function shared_dir()
-    local custom = my_settings and my_settings.party_share_custom and my_settings.party_share_path
+    local custom = custom_dir
     if custom and custom ~= '' then
         return custom:match('[\\/]$') and custom or (custom .. '\\')
     end
@@ -257,8 +257,8 @@ end
     Public
 ]]--
 
-function party_share.tick(settings)
-    my_settings = settings
+function party_share.tick(share_path)
+    custom_dir = share_path
 
     local now = os.clock()
     if now < next_poll then return end
