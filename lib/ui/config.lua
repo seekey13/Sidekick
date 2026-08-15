@@ -32,10 +32,6 @@ local focus_target_name = nil  -- Character name or nil for None
 local focus_recovery_target_name = nil  -- Character name or nil for None
 local follow_target_name = nil  -- Character name or nil for None
 
--- Shared party folder text box. imgui writes into the buffer across frames, so it
--- has to outlive the render call; settings are the source of truth (see render).
-local share_path_buf = { '' }
-
 -- Entrust state (now saved to settings)
 local entrust_target_name = nil  -- Character name or nil for None
 local entrust_spell_name = nil   -- Spell name like "Indi-Haste" or nil for None
@@ -946,31 +942,6 @@ function ui_config.render(settings, job_def, callback)
             end
         end
         
-        -- Shared party list: off, the party_<Name>.txt rosters live in Ashita's own
-        -- config/addons/sidekick/, so only sessions on this PC see each other. On, they
-        -- go to the folder typed here -- point every PC at the same network share and a
-        -- Sidekick on another machine picks the party up. The folder must already exist.
-        local share_custom = { settings.party_share_custom == true }
-        if imgui.Checkbox('Shared party folder', share_custom) then
-            settings.party_share_custom = share_custom[1] or nil
-            if callback then callback() end
-        end
-        ui.item_tooltip(tooltips.party_share_folder)
-        if share_custom[1] then
-            imgui.SameLine()
-            imgui.PushItemWidth(260)
-            if imgui.InputText('##party_share_path', share_path_buf, 256) then
-                settings.party_share_path = share_path_buf[1]
-                if callback then callback() end
-            end
-            -- Resync while the user isn't typing, so a profile load lands in the box.
-            if not imgui.IsItemActive() and share_path_buf[1] ~= (settings.party_share_path or '') then
-                share_path_buf[1] = settings.party_share_path or ''
-            end
-            imgui.PopItemWidth()
-            ui.item_tooltip(tooltips.party_share_folder)
-        end
-
         -- Attack Range (global). Shown only in Multisend Follow mode (native Follow hidden).
         if settings.multisend_follow then
             local attack_range_options = { 'Off', 'Melee (3 yalms)', 'Ranged (15 yalms)' }

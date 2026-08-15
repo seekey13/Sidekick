@@ -16,6 +16,10 @@ local components = require('lib.ui.components')
 local is_open = { true }
 local panel_visible = false
 
+-- Shared party folder text box. imgui writes into the buffer across frames, so it
+-- has to outlive the render call; addon_settings stays the source of truth.
+local share_path_buf = { '' }
+
 -- Row colors. Each section's color runs across the whole row (pushed once per
 -- row), so the legend at the bottom reads as a key to the table.
 local WHITE = { 1.0, 1.0, 1.0, 1.0 }
@@ -481,6 +485,37 @@ function panel.render(addon_settings, save_settings)
                 if save_settings then save_settings() end
             end
             imgui.PopItemWidth()
+
+            -- Shared party folder (global). Off, the party_<Name>.txt rosters live in
+            -- Ashita's own config/addons/sidekick, so only clients on this PC see each
+            -- other; on, they go to the folder typed here -- point two PCs at the same
+            -- network share and they exchange parties. Third controls row, on its own
+            -- because the path box is wide.
+            local share_var = { addon_settings.party_share_custom == true }
+            if imgui.Checkbox('Shared party folder', share_var) then
+                addon_settings.party_share_custom = share_var[1]
+                if save_settings then save_settings() end
+            end
+            if imgui.IsItemHovered() then
+                imgui.SetTooltip(tooltips.party_share_folder)
+            end
+
+            if share_var[1] then
+                imgui.SameLine(0, 20)
+                imgui.PushItemWidth(400)
+                if imgui.InputText('##party_share_path', share_path_buf, 256) then
+                    addon_settings.party_share_path = share_path_buf[1]
+                    if save_settings then save_settings() end
+                end
+                -- Resync while the user isn't typing, so a load lands in the box.
+                if not imgui.IsItemActive() and share_path_buf[1] ~= (addon_settings.party_share_path or '') then
+                    share_path_buf[1] = addon_settings.party_share_path or ''
+                end
+                imgui.PopItemWidth()
+                if imgui.IsItemHovered() then
+                    imgui.SetTooltip(tooltips.party_share_folder)
+                end
+            end
         end
     end
     imgui.End()

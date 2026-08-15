@@ -376,7 +376,7 @@ config/addons/sidekick/party_<CharName>.txt
 <server_id> <main_job> <sub_job> <main_level> <sub_level> <max_hp> <name>   -- one per member
 ```
 
-That directory is the default, not a rule: the **Shared party folder** checkbox in `/sk`
+That directory is the default, not a rule: the **Shared party folder** checkbox in `/sk panel`
 (`party_share_custom` + `party_share_path`, passed in through `party_share.tick(settings)`)
 redirects both the publish and the listing to any folder — point two PCs at the same network
 share and they exchange rosters across machines. The folder must already exist; nothing here
