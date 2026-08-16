@@ -43,3 +43,4 @@ docs/
 
 # Superpowers SDD workspace (ledgers, briefs, review packages) -- local scratch
 .superpowers/
+.DS_Store
