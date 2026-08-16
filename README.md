@@ -86,6 +86,7 @@ The one exception is **opt-in leader following** (off by default): with **Follow
 - **Loading Sidekick while the game is still loading no longer leaves it half-started**: it would ignore **Load stopped**, show **Stop** as if it were running, and then actually start when you clicked that Stop. It now waits for your character to finish loading before restoring the started/stopped state, so the button always matches what it is doing.
 - **Two area songs of the same type now both go up**: songs like Victory March and Advancing March share one buff, and Sidekick's `[A]` check counted the first one as filling both slots — so it kept refreshing that song instead of casting the second.  Thanks to **Sleazy** for reporting the bug.
 - **Zoning no longer unticks your spells**: with the config window open, crossing a zone line briefly made the game report that you knew no spells and were level 0 — and Sidekick believed it, unticking cures and dropping song selections for good. It now ignores those frames.   Thanks to **Kelzalik** for reporting the bug.
+- **Red Mage stops recasting Flurry over and over**: Sidekick was watching for the wrong status, so Flurry always looked like it had fallen off — it got recast every pass, wasting MP and stalling the rest of the buffs behind it. It now sees the buff it actually gives you. Thanks to **swizzj225** for reporting the bug.
 
 See [CHANGELOG.md](CHANGELOG.md) for the full release history.
 
