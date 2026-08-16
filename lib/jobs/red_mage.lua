@@ -435,7 +435,7 @@ return {
                 command = function(target)
                     return '/ma "Flurry" '..target
                 end,
-                buff_id = 265,
+                buff_id = 581,
                 target_outside = true,
                 priority = 25,
             },
