@@ -2360,10 +2360,13 @@ function ui_components.ability_checkbox(ctx, ability, job_def, id_suffix, show_s
     local blue_unequipped = common.is_blue_magic_unequipped(ability)
     local buff_unmet = requires_buff_unmet(ability, ctx)
     local spell_suffix = ''
-    if not has_spell then
-        ctx.settings['disabled_' .. ability.name:gsub(' ', '_')] = true
-    end
-    
+    -- NOTE: an unlearned spell grays the row but must NOT write disabled_<name>.
+    -- HasSpell reads false for every spell during a zone-in until the spell list
+    -- repopulates, and the level is already back by then (is_loading() is false),
+    -- so writing here deselected every cure on a zone. No write is needed anyway:
+    -- filter_abilities_by_level drops unlearned abilities on its own. Same policy
+    -- as the other gray-but-keep-selected rows (no ammo / wrong pet / BLU unset).
+
     local desc
     if ability.cost and ability.cost > 0 then
         local resource_label = (ability.resource_type or job_def.resource_type) == 'tp' and 'TP' or 'MP'
