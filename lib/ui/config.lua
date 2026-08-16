@@ -769,6 +769,15 @@ function ui_config.render(settings, job_def, callback)
         return
     end
 
+    -- Zoning blanks the player memory block: HasSpell reads false for EVERY spell
+    -- and level reads 0. The render path treats that as "unlearned" and writes it
+    -- back destructively (ability_checkbox's disabled_<name> = true,
+    -- disable_uncastable_songs dropping song targets), which deselected every cure
+    -- on a zone. Skip those frames -- the window is behind a loading screen anyway.
+    if common.is_loading() then
+        return
+    end
+
     -- Refresh if stale (automation tick may have already done it this frame).
     -- With automation stopped (and follow off, panel closed) nothing else
     -- refreshes game_state, so the alliance B/C buttons -- which read the

@@ -143,7 +143,7 @@ local function area_needs_recast(ability, party_buff_config, song_keys, availabl
 
     -- Every ability that is this cycle's active [A] area song and shares this
     -- ability's main/sub tier, for counting how many area-song slots a member
-    -- already holds (presence-only -- area songs are normally distinct buffs).
+    -- already holds.
     local area_list = {}
     local area_processed = {}
     for _, a in ipairs(available_abilities) do
@@ -177,9 +177,16 @@ local function area_needs_recast(ability, party_buff_config, song_keys, availabl
                 end
             end
             if target_buffs and song_needed(target_buffs, ability, 'A', available_abilities, settings, party_buff_config) then
-                local held = 0
+                -- Count buff INSTANCES per distinct buff_id, not presence per song:
+                -- two area songs sharing an id (Victory + Advancing March = 214)
+                -- would each see the same single instance and report the member
+                -- full after one of them landed, so the second never cast.
+                local held, counted = 0, {}
                 for _, a in ipairs(area_list) do
-                    if action_core.has_any_buff(target_buffs, a.buff_id) then held = held + 1 end
+                    if a.buff_id and not counted[a.buff_id] then
+                        counted[a.buff_id] = true
+                        held = held + action_core.count_instances(target_buffs, a.buff_id)
+                    end
                 end
                 if held < remaining then return true end
             end
