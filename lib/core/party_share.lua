@@ -17,10 +17,17 @@ local POLL_INTERVAL = 2.0   -- Seconds between publish/sync passes
 local next_poll     = 0
 local last_roster   = nil   -- Text last written, so an unchanged party is a no-op
 local my_file       = nil   -- Path this session publishes to, for cleanup on unload
+local custom_dir    = nil   -- party_share_path, set from tick()
 
 -- config/addons/sidekick/ is created by the settings module at load, so there is
--- nothing to mkdir here.
+-- nothing to mkdir here. A custom directory (party_share_path) points the same files
+-- at a network share so a Sidekick on *another* PC reads them; that directory must
+-- already exist -- nothing here creates it.
 local function shared_dir()
+    local custom = custom_dir
+    if custom and custom ~= '' then
+        return custom:match('[\\/]$') and custom or (custom .. '\\')
+    end
     return string.format('%s\\config\\addons\\sidekick\\', AshitaCore:GetInstallPath())
 end
 
@@ -73,8 +80,11 @@ local function publish(my_name)
     local lines = roster_lines()
     if not lines then return end
 
+    -- Path is part of the "already published" test: switching the shared directory
+    -- has to republish even when the roster text is unchanged.
+    local path = shared_path(my_name)
     local text = table.concat(lines, '\n') .. '\n'
-    if text == last_roster then return end
+    if text == last_roster and path == my_file then return end
 
     -- Write a temp file and swap it in, rather than truncating the live one: a reader
     -- that catches a truncated file parses a short-but-valid roster and drops the auto
@@ -86,8 +96,7 @@ local function publish(my_name)
     -- still satisfies read_any and costs this owner's members one pass (~2 s) before
     -- they are re-added. Needs per-owner read tracking to close, which is not worth it
     -- for a microsecond window hit by a 2 s poll.
-    local path = shared_path(my_name)
-    local tmp  = path .. '.tmp'
+    local tmp = path .. '.tmp'
     local f = io.open(tmp, 'w')
     if not f then return end
     f:write(text)
@@ -98,6 +107,10 @@ local function publish(my_name)
         os.remove(tmp)
         return
     end
+
+    -- Directory switched: drop the roster left behind in the old one, or that PC
+    -- keeps reading a party we no longer publish there.
+    if my_file and my_file ~= path then os.remove(my_file) end
 
     my_file     = path
     last_roster = text
@@ -244,7 +257,9 @@ end
     Public
 ]]--
 
-function party_share.tick()
+function party_share.tick(share_path)
+    custom_dir = share_path
+
     local now = os.clock()
     if now < next_poll then return end
     next_poll = now + POLL_INTERVAL

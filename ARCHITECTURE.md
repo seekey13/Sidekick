@@ -376,6 +376,11 @@ config/addons/sidekick/party_<CharName>.txt
 <server_id> <main_job> <sub_job> <main_level> <sub_level> <max_hp> <name>   -- one per member
 ```
 
+That directory is the default, not a rule: **Shared party folder** in `/sk panel`
+(`party_share_path`, passed to `party_share.tick`) redirects publish and listing to any existing
+folder — point two PCs at one network share to exchange rosters. Switching folders republishes
+even when the roster is unchanged and removes the file left in the old one.
+
 **Publishing** is unconditional — no setting, every session does it. Each pass builds its own
 party's lines from `game_state` (slots 0-5, active only — `game_state.player` plus
 `game_state.party[1..5]`) and rewrites the file **only when the text changed**, so writes happen
