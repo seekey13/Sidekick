@@ -87,6 +87,10 @@ local default_settings = T{
     -- Diffusion) until every alive, in-zone party member is in range. Opt-in;
     -- per-job-file like every setting, so flipping it on one job doesn't sync.
     hold_aoe_for_group = false,
+    -- Gear-based heal potency bonuses (job-independent, set from /sk panel).
+    -- +x% applied to each heal ability's base `value` when sizing to missing HP.
+    cure_potency = 0,   -- MP heals (Cure spells, Blue Magic cures)
+    waltz_potency = 0,  -- TP heals (DNC Waltzes)
     -- AFK Sleep (job-independent). Default-on: it only stops automation from acting.
     afk_enabled = true,
     afk_timeout = 600,  -- Seconds of no party movement and no combat before sleeping.

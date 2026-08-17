@@ -60,6 +60,17 @@ return {
         'button to include/exclude that person. These\n' ..
         'choices are per-session and reset each load.',
 
+    cure_potency =
+        'Gear-based Cure Potency bonus. Raises each MP\n' ..
+        'heal\'s expected HP by this %% when sizing the\n' ..
+        'cure to a member\'s missing HP, so +potency gear\n' ..
+        'doesn\'t cause overheal-driven downranking.',
+
+    waltz_potency =
+        'Gear-based Waltz Potency bonus. Raises each\n' ..
+        'Waltz\'s expected HP by this %% when sizing the\n' ..
+        'heal to a member\'s missing HP.',
+
     critical_hp =
         'Critical abilities use their own (normally\n' ..
         'lower) threshold. If ANY group member drops\n' ..

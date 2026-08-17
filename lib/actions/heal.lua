@@ -645,19 +645,28 @@ function heal.select_ability(abilities, target_hpp, job_def, player_resource, pa
         return nil
     end
     
+    -- Gear-augmented potency (+x% from /sk panel) scales each ability's base
+    -- value: waltz_potency for TP heals (Waltzes), cure_potency for MP heals.
+    local function potency_value(ability)
+        local value = type(ability.value) == 'number' and ability.value or 0
+        local rtype = ability.resource_type or (job_def and job_def.resource_type)
+        local pct = (rtype == 'tp')
+            and (settings and settings.waltz_potency or 0)
+            or  (settings and settings.cure_potency or 0)
+        return math.floor(value * (1 + pct / 100))
+    end
+
     -- If we have HP deficit info, select based on heal value
     if hp_deficit > 0 then
         -- Sort by value descending (largest to smallest heal)
         table.sort(usable_abilities, function(a, b)
-            local a_value = type(a.value) == 'number' and a.value or 0
-            local b_value = type(b.value) == 'number' and b.value or 0
-            return a_value > b_value
+            return potency_value(a) > potency_value(b)
         end)
-        
+
         -- Find the largest heal that fits within the deficit (round down approach)
         local best_ability = nil
         for _, ability in ipairs(usable_abilities) do
-            local ability_value = type(ability.value) == 'number' and ability.value or 0
+            local ability_value = potency_value(ability)
             if ability_value > 0 and ability_value <= hp_deficit then
                 best_ability = ability
                 return best_ability
