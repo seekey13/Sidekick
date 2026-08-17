@@ -21,6 +21,71 @@ local INVISIBLE_BUFF = common.INVISIBLE_BUFF
 local NIGHTINGALE_BUFF = 347
 local TROUBADOUR_BUFF  = 348
 
+-- Manual song timers: [server_id][ability.name] = os.clock() deadline. Active
+-- only for a level-75 main-job Bard with settings.song_duration > 0 (that's
+-- where song+ duration gear lives). Instead of waiting for a buff to vanish
+-- from memory (always a reaction, so always downtime), each song we sing is
+-- stamped per target and re-sung when its timer runs out -- before the real
+-- buff drops, provided the user set the duration under their true value.
+-- Keyed by ability NAME, not buff_id, so stacked tiers sharing a buff_id
+-- (Ballad + Ballad II = two of 196) each keep their own timer. A local, so a
+-- reload clears it and every song is re-sung to establish known timers.
+-- ponytail: entries for members who left the party linger; bounded and inert.
+local song_expiry = {}
+
+local function manual_tracking_active(settings, player)
+    return (tonumber(settings.song_duration) or 0) > 0
+        and player.job == 10
+        and (player.main_level or 0) >= 75
+end
+
+-- True when we hold no live timer for this song on this member.
+local function song_timer_expired(ability, member)
+    local t = member and member.server_id and song_expiry[member.server_id]
+    local e = t and t[ability.name]
+    return not e or os.clock() >= e
+end
+
+-- Stamp when this song will need re-singing on each target index (0-5).
+-- Stamped at SEND time: the song lands a few seconds later, so the timer runs
+-- slightly early -- the safe direction. Troubadour up at cast time doubles the
+-- duration. ponytail: an interrupted early re-sing leaves a fresh timer while
+-- the old buff is still up, so the miss isn't noticed until this timer
+-- expires; the memory fallback in song_needed covers the buff-actually-missing
+-- case.
+local function stamp_song(ability, settings, state, target_indices)
+    local dur = tonumber(settings.song_duration) or 0
+    if action_core.has_any_buff(state.player.buffs, TROUBADOUR_BUFF) then
+        dur = dur * 2
+    end
+    local expiry = os.clock() + dur
+    for _, ti in ipairs(target_indices) do
+        local m = (ti == 0) and state.player or state.party[ti]
+        if m and m.server_id and m.server_id > 0 then
+            song_expiry[m.server_id] = song_expiry[m.server_id] or {}
+            song_expiry[m.server_id][ability.name] = expiry
+        end
+    end
+end
+
+-- Party indices (0-5) an area song cast right now would land on: self always,
+-- others alive in zone and within song AoE range.
+local function area_covered_indices(state)
+    local covered = { 0 }
+    local player_zone = common.get_party_member_zone(0)
+    for ti = 1, 5 do
+        local member = state.party[ti]
+        if member then
+            local ei = member.target_index
+            if ei and ei > 0 and common.get_party_member_zone(ti) == player_zone
+               and common.is_in_range(ei, SONG_AOE_RANGE) then
+                covered[#covered + 1] = ti
+            end
+        end
+    end
+    return covered
+end
+
 -- os.clock() of our last cast per ability name, for buffs whose target we can't
 -- read (pet buffs aren't tracked). Cleared on reload -> re-applies immediately.
 local last_self_cast = {}
@@ -49,7 +114,15 @@ end
 -- (handles buff_id == nil) unless two or more tiers are stacked. Songs that
 -- share a buff_id stack as separate instances (e.g. Mage's Ballad + Mage's
 -- Ballad II = two of buff 196), so a plain "has it" check is not enough.
-local function song_needed(target_buffs, ability, target_key, available_abilities, settings, party_buff_config)
+-- With manual song timers active, an expired/missing timer for this member
+-- also counts as needed -- that's what re-sings a song BEFORE it drops. The
+-- memory check stays as fallback: it catches an interrupted cast whose fresh
+-- timer would otherwise hide the missing buff.
+local function song_needed(target_buffs, ability, target_key, available_abilities, settings, party_buff_config, member, manual)
+    if manual and ability.magic == 'song' and member
+       and song_timer_expired(ability, member) then
+        return true
+    end
     local wanted = wanted_instances(ability, target_key, available_abilities, settings, party_buff_config)
     if wanted <= 1 then
         return action_core.needs_buff(target_buffs, ability.buff_id)
@@ -141,7 +214,7 @@ end
 -- they're satisfied (single target OK with Ballad + (Minuet OR March)); this
 -- stops the single/area songs from endlessly knocking each other off the same
 -- member's last slot.
-local function area_needs_recast(ability, party_buff_config, song_keys, available_abilities, settings, state)
+local function area_needs_recast(ability, party_buff_config, song_keys, available_abilities, settings, state, manual)
     local tier_is_main  = ability.is_main_job ~= false
     local song_limit    = tier_is_main and 2 or 1
     local single_counts = single_target_song_counts(party_buff_config, song_keys)
@@ -180,6 +253,15 @@ local function area_needs_recast(ability, party_buff_config, song_keys, availabl
                         target_buffs = member.buffs or {}
                     end
                 end
+            end
+            -- Manual timers: an expired timer forces the recast outright,
+            -- skipping the held-count math below -- memory still shows the old
+            -- instance we're deliberately overwriting, so counting it would
+            -- veto the early re-sing. (Trusts never reach here: target_buffs
+            -- stays nil for them above, and they're excluded from timers too.)
+            local member = (ti == 0) and state.player or state.party[ti]
+            if target_buffs and manual and song_timer_expired(ability, member) then
+                return true
             end
             if target_buffs and song_needed(target_buffs, ability, 'A', available_abilities, settings, party_buff_config) then
                 -- Count buff INSTANCES per distinct buff_id, not presence per song:
@@ -282,6 +364,8 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
     -- Pianissimo trick would only burn Pianissimo and a /debuff for nothing.
     local fast_casting = settings.pianissimo_fast_casting == true
         and not action_core.has_any_buff(state.player.buffs, NIGHTINGALE_BUFF)
+    -- Manual song timers (see song_expiry above): BRD75 main + song_duration set.
+    local manual_tracking = manual_tracking_active(settings, player)
     if fast_casting or not has_pianissimo then
         local song_keys = song_config_keys(job_def, settings)
         -- Hold AOE for Group: members with at least one single-target (Pianissimo)
@@ -300,7 +384,7 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
             -- still obey the ability's plain global gate even when filter_abilities_by_level
             -- let the ability through only because some OTHER target (ME/P1-P5) overrode it.
             if config_key and common.ability_gate_ok_now(ability, settings)
-               and area_needs_recast(ability, party_buff_config, song_keys, available_abilities, settings, state) then
+               and area_needs_recast(ability, party_buff_config, song_keys, available_abilities, settings, state, manual_tracking) then
                 if aoe_excl and not common.group_in_aoe_range(SONG_AOE_RANGE, aoe_excl) then
                     -- Hold: a member with no single-target song is out of range.
                     -- Don't area-cast and don't mark pending, so the single-target
@@ -320,6 +404,11 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                     local desc = string.format('Applying area buff: %s', ability.name)
                     local result = action_core.try_use(ability, job_def, settings, 0, desc, state)
                     if result then
+                        -- Stamp everyone the area cast covers with this song's
+                        -- re-sing deadline (send time; landing is later = safe).
+                        if manual_tracking then
+                            stamp_song(ability, settings, state, area_covered_indices(state))
+                        end
                         -- Pianissimo up (fast cast): schedule its removal so the song
                         -- reverts single-target -> area once casting is underway.
                         if fast_casting and has_pianissimo then
@@ -515,8 +604,10 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                             goto continue_target
                         end
 
-                        -- Check if target needs buff
-                        target_needs_buff = song_needed(target_buffs, ability, target_index, available_abilities, settings, party_buff_config)
+                        -- Check if target needs buff (manual song timers can force
+                        -- an early re-sing; see song_needed)
+                        local member_snapshot = (target_index == 0) and state.player or state.party[target_index]
+                        target_needs_buff = song_needed(target_buffs, ability, target_index, available_abilities, settings, party_buff_config, member_snapshot, manual_tracking)
                         
                         if target_needs_buff then
                             -- Check if this ability requires a target modifier (Pianissimo, Entrust, etc.)
@@ -557,6 +648,9 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
 
                             local result, reason = action_core.try_use(ability, job_def, settings, target_index, desc, state)
                             if result then
+                                if manual_tracking and ability.magic == 'song' then
+                                    stamp_song(ability, settings, state, { target_index })
+                                end
                                 return result
                             end
                         end
