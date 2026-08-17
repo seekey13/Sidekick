@@ -87,6 +87,10 @@ local default_settings = T{
     -- Diffusion) until every alive, in-zone party member is in range. Opt-in;
     -- per-job-file like every setting, so flipping it on one job doesn't sync.
     hold_aoe_for_group = false,
+    -- Gear-based heal potency bonuses (job-independent, set from /sk panel).
+    -- +x% applied to each heal ability's base `value` when sizing to missing HP.
+    cure_potency = 0,   -- MP heals (Cure spells, Blue Magic cures)
+    waltz_potency = 0,  -- TP heals (DNC Waltzes)
     -- AFK Sleep (job-independent). Default-on: it only stops automation from acting.
     afk_enabled = true,
     afk_timeout = 600,  -- Seconds of no party movement and no combat before sleeping.
@@ -694,6 +698,10 @@ local function automation_tick()
                 -- roll names are different anyway) -- drop them with the job.
                 roll_mod.reset_state()
 
+                -- Songs don't survive a job change, so neither may the manual
+                -- re-sing timers stamped for them.
+                action_modules.buff.reset_song_timers()
+
                 -- Skip this frame after job reload
                 return
             elseif level_changed then
@@ -959,6 +967,11 @@ ashita.events.register('packet_in', 'sidekick_packet_in', function(e)
             -- buff's full duration. No spell id is 28787, so a real cast never trips it.
             if actionPacket.Type == 4 and actionPacket.Param ~= common.INTERRUPT_PARAM then
                 common.handle_buff_application()
+                -- Same moment for Bard's manual song timers: the song's duration
+                -- starts here, so this is where it gets stamped (and where
+                -- Troubadour is read). Param is the spell id, which identifies
+                -- the song that landed; see buff.handle_song_finished.
+                action_modules.buff.handle_song_finished(actionPacket.Param)
             end
         end
 

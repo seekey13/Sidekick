@@ -13,6 +13,30 @@ return {
     abilities = {
         -- Buff songs
         buff = {
+            -- Merit JAs (BRD group 2 merits, main job only at 75). Self-only
+            -- string commands, so they render as plain checkboxes rather than
+            -- ME/P1-P5 buttons, and no Pianissimo is involved. buff.lua reads
+            -- both: Nightingale suspends the Pianissimo fast-cast trick (it
+            -- already shortens song casts), Troubadour doubles the stamped
+            -- song timers.
+            {
+                name = 'Nightingale',
+                level = 75,
+                cost = 0,
+                recast_id = 109,
+                ability_id = 163,  -- merit-unlocked: gated on HasAbility
+                command = '/ja "Nightingale" <me>',
+                buff_id = 347,
+            },
+            {
+                name = 'Troubadour',
+                level = 75,
+                cost = 0,
+                recast_id = 110,
+                ability_id = 164,  -- merit-unlocked: gated on HasAbility
+                command = '/ja "Troubadour" <me>',
+                buff_id = 348,
+            },
             -- Minne
             {
                 name = "Knight's Minne IV (++++DEF)",
@@ -841,6 +865,13 @@ return {
     default_settings = {
         buff_enabled = true,
         pianissimo_fast_casting = false,  -- see lib/actions/buff.lua area phase
+        song_duration = 0,  -- seconds; >0 at BRD75 = manual song timers (see buff.lua)
+        -- Off by default: neither JA is gated to combat (Troubadour is normally
+        -- popped before a pull, so combat_only would be wrong), so left on they
+        -- would fire on cooldown anywhere -- and a stray Nightingale suspends
+        -- Pianissimo Fast Casting for its whole duration. Opt in per character.
+        disabled_Nightingale = true,
+        disabled_Troubadour = true,
     },
     
     -- Action priority order

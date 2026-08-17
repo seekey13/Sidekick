@@ -60,6 +60,17 @@ return {
         'button to include/exclude that person. These\n' ..
         'choices are per-session and reset each load.',
 
+    cure_potency =
+        'Gear-based Cure Potency bonus. Raises each MP\n' ..
+        'heal\'s expected HP by this %% when sizing the\n' ..
+        'cure to a member\'s missing HP, so +potency gear\n' ..
+        'doesn\'t cause overheal-driven downranking.',
+
+    waltz_potency =
+        'Gear-based Waltz Potency bonus. Raises each\n' ..
+        'Waltz\'s expected HP by this %% when sizing the\n' ..
+        'heal to a member\'s missing HP.',
+
     critical_hp =
         'Critical abilities use their own (normally\n' ..
         'lower) threshold. If ANY group member drops\n' ..
@@ -270,6 +281,14 @@ return {
         'Requires the Debuff addon (/debuff). Will precast with Pianissimo,\n' ..
         'but once casting starts issues /debuff 409 to remove Pianissimo.\n' ..
         'Result: faster cast and still an area song.',
+
+    song_duration =
+        'BRD main at level 75 only. 0 = off: recast a song when its buff is\n' ..
+        'seen missing. Above 0: Sidekick tracks every song it sings per player\n' ..
+        'and re-sings after this many seconds -- set it just under your real\n' ..
+        'song duration (duration gear included) so songs never drop. Doubled\n' ..
+        'automatically while Troubadour is up. While a timer is running that\n' ..
+        'song is left alone, so an interrupted re-sing waits for the timer.',
 
     cast_with_1_shadow =
         'Requires the Debuff addon (/debuff). Recasts Utsusemi when you are\n' ..

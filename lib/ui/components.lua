@@ -2208,6 +2208,20 @@ function ui_components.collapsing_checkbox_header(ctx, label, setting_name, defa
     return is_open, setting_var[1]
 end
 
+-- Create an integer input UI element linked to a setting, clamped to [min, max]
+function ui_components.input_int(ctx, label, setting_name, ui_var, min, max, width)
+    width = width or SLIDER_WIDTH
+    imgui.PushItemWidth(width)
+    if imgui.InputInt(label, ui_var) then
+        ui_var[1] = math.max(min, math.min(max, ui_var[1]))
+        ctx.settings[setting_name] = ui_var[1]
+        if ctx.save_callback then
+            ctx.save_callback()
+        end
+    end
+    imgui.PopItemWidth()
+end
+
 -- Create an integer slider UI element linked to a setting
 function ui_components.slider_int(ctx, label, setting_name, ui_var, min, max, width)
     width = width or SLIDER_WIDTH
