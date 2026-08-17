@@ -28,8 +28,8 @@ local TROUBADOUR_BUFF  = 348
 -- from memory (always a reaction, so always downtime), each song we land is
 -- stamped per target and re-sung when its timer runs out -- before the real
 -- buff drops, provided the user set the duration under their true value.
--- Stamped on the cast-FINISH packet, never on the send; cleared for a member
--- who dies, and for everyone on a job change or a reload.
+-- Stamped on the cast-FINISH packet, never on the send; ignored for a member
+-- who is dead, and cleared for everyone on a job change or a reload.
 -- Keyed by ability NAME, not buff_id, so stacked tiers sharing a buff_id
 -- (Ballad + Ballad II = two of 196) each keep their own timer. A local, so a
 -- reload clears it and every song is re-sung to establish known timers.
@@ -40,63 +40,23 @@ local song_expiry = {}
 -- hold none. A member with no stampable server_id (0 = failed read;
 -- queue_song_stamp skips those) returns nil too -- the memory check governs there, else a zeroed
 -- self row would cycle area songs forever.
+-- A dead member reads as no deadline as well: death strips every buff, songs
+-- included, and while a timer is held it is the sole verdict (see song_needed),
+-- so a raised member would otherwise stand there songless until each one ran
+-- out. The stale row costs nothing -- the next stamp overwrites it. Dead is read
+-- the way revive.lua reads it (entity_status 3, or HPP 0 whichever lands first,
+-- matching refresh_game_state's is_dead sync).
 local function song_deadline(ability, member)
     local sid = member and member.server_id
-    if not sid or sid == 0 then return nil end
+    if not sid or sid == 0 or member.entity_status == 3 or member.hpp == 0 then return nil end
     local t = song_expiry[sid]
     return t and t[ability.name]
-end
-
--- Soonest re-sing deadline we hold, i.e. the oldest song still tracked, for the
--- debug panel's countdown. Returns seconds remaining (negative once a re-sing is
--- overdue) and the song name, or nil when nothing is stamped.
--- Only members still in the party count: a row for someone who has left is never
--- re-stamped, so its long-past deadline would otherwise always be the soonest and
--- pin the countdown at 0s forever.
-function buff.next_song_expiry()
-    local state = common.game_state
-    if not state or not state.player then return nil end
-    local party   = state.party or {}
-    local present = { [state.player.server_id or 0] = true }
-    for ti = 1, 5 do
-        local m = party[ti]
-        if m and m.server_id then present[m.server_id] = true end
-    end
-    local soonest, name
-    for sid, songs in pairs(song_expiry) do
-        if present[sid] then
-            for song_name, expiry in pairs(songs) do
-                if not soonest or expiry < soonest then
-                    soonest, name = expiry, song_name
-                end
-            end
-        end
-    end
-    if not soonest then return nil end
-    return soonest - os.clock(), name
 end
 
 -- Songs go away with the job, so every held timer must go with it too -- else a
 -- WHM keeps counting down the Victory March they sang as a Bard.
 function buff.reset_song_timers()
     song_expiry = {}
-end
-
--- A death strips every buff a member has, songs included. Drop the timers we
--- hold for anyone lying dead: while a timer is held it is the sole verdict (see
--- song_needed), so a raised member would otherwise stand there songless until
--- each one ran out. Dead read the same way revive.lua reads it (entity_status 3,
--- or HPP 0 whichever lands first, matching refresh_game_state's is_dead sync).
-local function clear_dead_song_timers(state)
-    if next(song_expiry) == nil then return end
-    local party = state.party or {}
-    for ti = 0, 5 do
-        local m = (ti == 0) and state.player or party[ti]
-        local sid = m and m.server_id
-        if sid and song_expiry[sid] and (m.entity_status == 3 or m.hpp == 0) then
-            song_expiry[sid] = nil
-        end
-    end
 end
 
 -- The song we have sent and are waiting on, or nil. Songs are stamped when their
@@ -113,16 +73,27 @@ local pending_song = nil
 
 -- Remember what to stamp once the cast lands. Server ids are resolved now rather
 -- than at finish so a party reshuffle mid-cast can't retarget the stamp.
+-- target_index = the single member (0-5) a Pianissimo song lands on; omit it for
+-- an area song, which covers self plus everyone in zone and within song range.
 -- ponytail: who is in AoE range is also sampled now, not at finish, so someone
 -- who walks out of range mid-cast still gets a timer. Sample at finish if that
 -- proves to matter.
-local function queue_song_stamp(ability, settings, state, target_indices)
+local function queue_song_stamp(ability, settings, state, target_index)
     local sids = {}
-    local party = state.party or {}
-    for _, ti in ipairs(target_indices) do
-        local m = (ti == 0) and state.player or party[ti]
-        if m and m.server_id and m.server_id > 0 then
-            sids[#sids + 1] = m.server_id
+    if target_index then
+        local m = (target_index == 0) and state.player or state.party[target_index]
+        if m and (m.server_id or 0) > 0 then sids[1] = m.server_id end
+    else
+        if (state.player.server_id or 0) > 0 then sids[1] = state.player.server_id end
+        local player_zone = common.get_party_member_zone(0)
+        for ti = 1, 5 do
+            local m  = state.party[ti]
+            local ei = m and m.target_index
+            if ei and ei > 0 and (m.server_id or 0) > 0
+               and common.get_party_member_zone(ti) == player_zone
+               and common.is_in_range(ei, SONG_AOE_RANGE) then
+                sids[#sids + 1] = m.server_id
+            end
         end
     end
     if #sids == 0 then return end
@@ -153,24 +124,6 @@ function buff.handle_song_finished(spell_id)
         song_expiry[sid] = song_expiry[sid] or {}
         song_expiry[sid][p.name] = expiry
     end
-end
-
--- Party indices (0-5) an area song cast right now would land on: self always,
--- others in zone and within song AoE range.
-local function area_covered_indices(state)
-    local covered = { 0 }
-    local player_zone = common.get_party_member_zone(0)
-    for ti = 1, 5 do
-        local member = state.party[ti]
-        if member then
-            local ei = member.target_index
-            if ei and ei > 0 and common.get_party_member_zone(ti) == player_zone
-               and common.is_in_range(ei, SONG_AOE_RANGE) then
-                covered[#covered + 1] = ti
-            end
-        end
-    end
-    return covered
 end
 
 -- os.clock() of our last cast per ability name, for buffs whose target we can't
@@ -382,19 +335,15 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
         return nil
     end
 
+    -- Do not apply buffs while resting
+    if common.is_resting() then
+        return nil
+    end
+
     -- Read player data from game_state
     local state  = common.game_state
     local player = state and state.player
     if not player then
-        return nil
-    end
-
-    -- Ahead of the resting return on purpose: someone can die while we are sat
-    -- down, and their timers must be gone before we stand up and buff again.
-    clear_dead_song_timers(state)
-
-    -- Do not apply buffs while resting
-    if common.is_resting() then
         return nil
     end
 
@@ -512,7 +461,7 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                         -- JA instead of the song there (BRD/SCH), so the song
                         -- hasn't been sent and stamping it would skip it entirely.
                         if manual_tracking and ability.magic == 'song' and not result.is_stratagem then
-                            queue_song_stamp(ability, settings, state, area_covered_indices(state))
+                            queue_song_stamp(ability, settings, state)
                         end
                         -- Pianissimo up (fast cast): schedule its removal so the song
                         -- reverts single-target -> area once casting is underway.
@@ -757,7 +706,7 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                                 -- is_stratagem = the precast JA fired, not the song
                                 -- itself; nothing to stamp until the song goes out.
                                 if manual_tracking and ability.magic == 'song' and not result.is_stratagem then
-                                    queue_song_stamp(ability, settings, state, { target_index })
+                                    queue_song_stamp(ability, settings, state, target_index)
                                 end
                                 return result
                             end

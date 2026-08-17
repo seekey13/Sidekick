@@ -648,12 +648,9 @@ function heal.select_ability(abilities, target_hpp, job_def, player_resource, pa
     -- Gear-augmented potency (+x% from /sk panel) scales each ability's base
     -- value: waltz_potency for TP heals (Waltzes), cure_potency for MP heals.
     local function potency_value(ability)
-        local value = type(ability.value) == 'number' and ability.value or 0
         local rtype = ability.resource_type or (job_def and job_def.resource_type)
-        local pct = (rtype == 'tp')
-            and (settings and settings.waltz_potency or 0)
-            or  (settings and settings.cure_potency or 0)
-        return math.floor(value * (1 + pct / 100))
+        local pct = (rtype == 'tp') and settings.waltz_potency or settings.cure_potency
+        return math.floor((tonumber(ability.value) or 0) * (1 + (pct or 0) / 100))
     end
 
     -- If we have HP deficit info, select based on heal value

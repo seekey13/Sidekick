@@ -11,7 +11,6 @@ local common = require('lib.core.common')
 local afk = require('lib.core.afk')
 local tooltips = require('lib.ui.tooltips')
 local components = require('lib.ui.components')
-local buff_action = require('lib.actions.buff')
 
 -- Window state
 local is_open = { true }
@@ -477,16 +476,6 @@ function panel.render(addon_settings, save_settings)
                 { addon_settings.song_duration or 0 }, 0, 999, INT_FIELD_WIDTH)
             if imgui.IsItemHovered() then
                 imgui.SetTooltip(tooltips.song_duration)
-            end
-
-            -- Live countdown on the oldest song we still hold a timer for, i.e.
-            -- the next one due to be re-sung. Nothing to show until a song has
-            -- been stamped (song_duration = 0 never stamps).
-            local song_left, song_name = buff_action.next_song_expiry()
-            if song_left then
-                imgui.SameLine(0, 10)
-                imgui.TextColored(TRACKED, string.format('%s %ds', song_name,
-                    math.max(0, math.floor(song_left))))
             end
 
             -- AFK Sleep (global). afk_timeout is stored in seconds but shown in
