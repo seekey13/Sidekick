@@ -44,6 +44,22 @@ local function song_deadline(ability, member)
     return t and t[ability.name]
 end
 
+-- Soonest re-sing deadline we hold, i.e. the oldest song still tracked, for the
+-- debug panel's countdown. Returns seconds remaining (negative once a re-sing is
+-- overdue) and the song name, or nil when nothing is stamped.
+function buff.next_song_expiry()
+    local soonest, name
+    for _, songs in pairs(song_expiry) do
+        for song_name, expiry in pairs(songs) do
+            if not soonest or expiry < soonest then
+                soonest, name = expiry, song_name
+            end
+        end
+    end
+    if not soonest then return nil end
+    return soonest - os.clock(), name
+end
+
 -- Stamp when this song will need re-singing on each target index (0-5).
 -- Stamped at SEND time: the song lands a few seconds later, so the timer runs
 -- slightly early -- the safe direction. Troubadour up at cast time doubles the
