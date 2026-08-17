@@ -1076,21 +1076,6 @@ function ui_config.render(settings, job_def, callback)
             if is_open and is_enabled then
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
                 ui.slider_int(ctx, 'Group (HP%)', 'heal_threshold', { settings.heal_threshold or 75 }, 1, 100)
-                -- Gear potency bonuses: only show the field(s) matching the heal
-                -- resource types this job actually has (MP cures / TP waltzes).
-                local has_mp_heal, has_tp_heal = false, false
-                for _, ability in ipairs(job_def.abilities.heal) do
-                    local rtype = ability.resource_type or job_def.resource_type
-                    if rtype == 'tp' then has_tp_heal = true else has_mp_heal = true end
-                end
-                if has_mp_heal then
-                    ui.input_int(ctx, 'Cure Potency +%', 'cure_potency', { settings.cure_potency or 0 }, 0, 100)
-                    ui.item_tooltip(tooltips.cure_potency)
-                end
-                if has_tp_heal then
-                    ui.input_int(ctx, 'Waltz Potency +%', 'waltz_potency', { settings.waltz_potency or 0 }, 0, 100)
-                    ui.item_tooltip(tooltips.waltz_potency)
-                end
                 -- Group Targets buttons only make sense when a heal can target others;
                 -- hide them for self-only heal sets (mirrors Focus Healing gate above).
                 local has_non_self_heal = false

@@ -287,8 +287,8 @@ return {
         'seen missing. Above 0: Sidekick tracks every song it sings per player\n' ..
         'and re-sings after this many seconds -- set it just under your real\n' ..
         'song duration (duration gear included) so songs never drop. Doubled\n' ..
-        'automatically while Troubadour is up. A missing buff still triggers a\n' ..
-        'recast early (e.g. after an interrupted cast).',
+        'automatically while Troubadour is up. While a timer is running that\n' ..
+        'song is left alone, so an interrupted re-sing waits for the timer.',
 
     cast_with_1_shadow =
         'Requires the Debuff addon (/debuff). Recasts Utsusemi when you are\n' ..

@@ -25,6 +25,10 @@ local ALLY_B = components.LIGHT_BLUE
 local ALLY_C = components.LIGHT_GREEN
 local TRACKED = components.LIGHT_YELLOW
 
+-- Width of the panel's numeric entry fields. InputInt spends most of its item
+-- width on the -/+ step buttons, so 120 is what leaves room for 3 digits.
+local INT_FIELD_WIDTH = 90
+
 -- ============================================================================
 -- Visibility Control
 -- ============================================================================
@@ -444,20 +448,39 @@ function panel.render(addon_settings, save_settings)
                 imgui.SetTooltip(tooltips.cast_with_1_shadow)
             end
 
+            -- ── Potency / duration row ───────────────────────────────────
+            -- All three are 3-digit fields, so they share one width.
+            local ctx = { settings = addon_settings, save_callback = save_settings }
+
+            -- Cure Potency +% (gear bonus, MP cures). See lib/actions/heal.lua.
+            components.input_int(ctx, 'Cure Potency +%', 'cure_potency',
+                { addon_settings.cure_potency or 0 }, 0, 100, INT_FIELD_WIDTH)
+            if imgui.IsItemHovered() then
+                imgui.SetTooltip(tooltips.cure_potency)
+            end
+
+            -- Waltz Potency +% (gear bonus, TP waltzes).
+            imgui.SameLine(0, 20)
+            components.input_int(ctx, 'Waltz Potency +%', 'waltz_potency',
+                { addon_settings.waltz_potency or 0 }, 0, 100, INT_FIELD_WIDTH)
+            if imgui.IsItemHovered() then
+                imgui.SetTooltip(tooltips.waltz_potency)
+            end
+
             -- Song Duration (BRD main at 75 only). 0 = off: recast when the buff
             -- is seen missing (memory-based, the default). >0 = manual song
             -- timers: re-sing each song this many seconds after we sang it,
             -- doubled while Troubadour is up. See lib/actions/buff.lua.
             imgui.SameLine(0, 20)
-            components.input_int({ settings = addon_settings, save_callback = save_settings },
-                'Song Duration (s)', 'song_duration', { addon_settings.song_duration or 0 }, 0, 999, 80)
+            components.input_int(ctx, 'Song Duration (s)', 'song_duration',
+                { addon_settings.song_duration or 0 }, 0, 999, INT_FIELD_WIDTH)
             if imgui.IsItemHovered() then
                 imgui.SetTooltip(tooltips.song_duration)
             end
 
             -- AFK Sleep (global). afk_timeout is stored in seconds but shown in
             -- minutes, so read afk_timeout/60 and write value*60. Starts the
-            -- second controls row, shared with the UI Opacity slider.
+            -- last controls row, shared with the UI Opacity slider.
             local afk_var = { addon_settings.afk_enabled == true }
             if imgui.Checkbox('AFK Sleep', afk_var) then
                 addon_settings.afk_enabled = afk_var[1]

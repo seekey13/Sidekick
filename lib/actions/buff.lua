@@ -33,16 +33,15 @@ local TROUBADOUR_BUFF  = 348
 -- ponytail: entries for members who left the party linger; bounded and inert.
 local song_expiry = {}
 
--- True when we hold no live timer for this song on this member. A member with
--- no stampable server_id (0 = failed read; stamp_song skips those) is NOT
--- treated as expired -- the memory check governs, else a zeroed self row
--- would cycle area songs forever.
-local function song_timer_expired(ability, member)
+-- The re-sing deadline we hold for this song on this member, or nil when we
+-- hold none. A member with no stampable server_id (0 = failed read; stamp_song
+-- skips those) returns nil too -- the memory check governs there, else a zeroed
+-- self row would cycle area songs forever.
+local function song_deadline(ability, member)
     local sid = member and member.server_id
-    if not sid or sid == 0 then return false end
+    if not sid or sid == 0 then return nil end
     local t = song_expiry[sid]
-    local e = t and t[ability.name]
-    return not e or os.clock() >= e
+    return t and t[ability.name]
 end
 
 -- Stamp when this song will need re-singing on each target index (0-5).
@@ -113,14 +112,18 @@ end
 -- (handles buff_id == nil) unless two or more tiers are stacked. Songs that
 -- share a buff_id stack as separate instances (e.g. Mage's Ballad + Mage's
 -- Ballad II = two of buff 196), so a plain "has it" check is not enough.
--- With manual song timers active, an expired/missing timer for this member
--- also counts as needed -- that's what re-sings a song BEFORE it drops. The
--- memory check stays as fallback: it catches an interrupted cast whose fresh
--- timer would otherwise hide the missing buff.
+-- With manual song timers active, the timer we hold for this member IS the
+-- answer, both ways: expired = re-sing (before the buff drops), still running =
+-- not needed. The instance count must not get a vote there, because it counts
+-- a shared buff_id in bulk and can't tell WHICH tier a member is short of --
+-- one member missing one March would otherwise report every March needed and
+-- re-sing them all on cooldown. The memory check governs only songs we hold no
+-- timer for (first sing after a reload, a member who just joined); the cost is
+-- that an interrupted re-sing isn't noticed until its timer runs out.
 local function song_needed(target_buffs, ability, target_key, available_abilities, settings, party_buff_config, member, manual)
-    if manual and ability.magic == 'song' and member
-       and song_timer_expired(ability, member) then
-        return true
+    if manual and ability.magic == 'song' and member then
+        local deadline = song_deadline(ability, member)
+        if deadline then return os.clock() >= deadline end
     end
     local wanted = wanted_instances(ability, target_key, available_abilities, settings, party_buff_config)
     if wanted <= 1 then
@@ -253,17 +256,19 @@ local function area_needs_recast(ability, party_buff_config, song_keys, availabl
                     end
                 end
             end
-            -- Manual timers: an expired timer forces the recast outright,
-            -- skipping the held-count math below -- memory still shows the old
-            -- instance we're deliberately overwriting, so counting it would
-            -- veto the early re-sing. (Trusts never reach here: target_buffs
-            -- stays nil for them above, and while area casts stamp them,
-            -- their entries are never read.)
+            -- Manual timers: while we hold one for this member it decides alone
+            -- (see song_needed). Expired forces the recast outright -- memory
+            -- still shows the old instance we're deliberately overwriting, so
+            -- counting it would veto the early re-sing. Still running skips this
+            -- member entirely -- the held-count math below counts a shared
+            -- buff_id in bulk and would re-sing a March they already have.
+            -- (Trusts never reach here: target_buffs stays nil for them above,
+            -- and while area casts stamp them, their entries are never read.)
             local member = (ti == 0) and state.player or state.party[ti]
-            if target_buffs and manual and song_timer_expired(ability, member) then
-                return true
-            end
-            if target_buffs and song_needed(target_buffs, ability, 'A', available_abilities, settings, party_buff_config) then
+            local deadline = target_buffs and manual and song_deadline(ability, member)
+            if deadline then
+                if os.clock() >= deadline then return true end
+            elseif target_buffs and song_needed(target_buffs, ability, 'A', available_abilities, settings, party_buff_config) then
                 -- Count buff INSTANCES per distinct buff_id, not presence per song:
                 -- two area songs sharing an id (Victory + Advancing March = 214)
                 -- would each see the same single instance and report the member
