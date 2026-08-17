@@ -271,6 +271,14 @@ return {
         'but once casting starts issues /debuff 409 to remove Pianissimo.\n' ..
         'Result: faster cast and still an area song.',
 
+    song_duration =
+        'BRD main at level 75 only. 0 = off: recast a song when its buff is\n' ..
+        'seen missing. Above 0: Sidekick tracks every song it sings per player\n' ..
+        'and re-sings after this many seconds -- set it just under your real\n' ..
+        'song duration (duration gear included) so songs never drop. Doubled\n' ..
+        'automatically while Troubadour is up. A missing buff still triggers a\n' ..
+        'recast early (e.g. after an interrupted cast).',
+
     cast_with_1_shadow =
         'Requires the Debuff addon (/debuff). Recasts Utsusemi when you are\n' ..
         'down to 1 shadow (still blocks at 2+ shadows). Once casting starts\n' ..

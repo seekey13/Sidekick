@@ -841,6 +841,7 @@ return {
     default_settings = {
         buff_enabled = true,
         pianissimo_fast_casting = false,  -- see lib/actions/buff.lua area phase
+        song_duration = 0,  -- seconds; >0 at BRD75 = manual song timers (see buff.lua)
     },
     
     -- Action priority order
