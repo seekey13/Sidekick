@@ -48,12 +48,25 @@ end
 -- Soonest re-sing deadline we hold, i.e. the oldest song still tracked, for the
 -- debug panel's countdown. Returns seconds remaining (negative once a re-sing is
 -- overdue) and the song name, or nil when nothing is stamped.
+-- Only members still in the party count: a row for someone who has left is never
+-- re-stamped, so its long-past deadline would otherwise always be the soonest and
+-- pin the countdown at 0s forever.
 function buff.next_song_expiry()
+    local state = common.game_state
+    if not state or not state.player then return nil end
+    local party   = state.party or {}
+    local present = { [state.player.server_id or 0] = true }
+    for ti = 1, 5 do
+        local m = party[ti]
+        if m and m.server_id then present[m.server_id] = true end
+    end
     local soonest, name
-    for _, songs in pairs(song_expiry) do
-        for song_name, expiry in pairs(songs) do
-            if not soonest or expiry < soonest then
-                soonest, name = expiry, song_name
+    for sid, songs in pairs(song_expiry) do
+        if present[sid] then
+            for song_name, expiry in pairs(songs) do
+                if not soonest or expiry < soonest then
+                    soonest, name = expiry, song_name
+                end
             end
         end
     end
@@ -61,13 +74,20 @@ function buff.next_song_expiry()
     return soonest - os.clock(), name
 end
 
+-- Songs go away with the job, so every held timer must go with it too -- else a
+-- WHM keeps counting down the Victory March they sang as a Bard.
+function buff.reset_song_timers()
+    song_expiry = {}
+end
+
 -- Stamp when this song will need re-singing on each target index (0-5).
 -- Stamped at SEND time: the song lands a few seconds later, so the timer runs
 -- slightly early -- the safe direction. Troubadour up at cast time doubles the
 -- duration. ponytail: an interrupted early re-sing leaves a fresh timer while
--- the old buff is still up, so the miss isn't noticed until this timer
--- expires; the memory fallback in song_needed covers the buff-actually-missing
--- case.
+-- the old buff is still up, so the miss isn't noticed until this timer expires.
+-- While a timer is held the buff-memory check gets no vote at all (see
+-- song_needed), so a song lost some other way -- a KO and raise, a Dispel, an
+-- interrupted cast -- also waits out the full timer before it is re-sung.
 local function stamp_song(ability, settings, state, target_indices)
     local dur = tonumber(settings.song_duration) or 0
     if action_core.has_any_buff(state.player.buffs, TROUBADOUR_BUFF) then
@@ -432,7 +452,10 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                     if result then
                         -- Stamp everyone the area cast covers with this song's
                         -- re-sing deadline (send time; landing is later = safe).
-                        if manual_tracking then
+                        -- Not on a stratagem result: try_use returns the precast
+                        -- JA instead of the song there (BRD/SCH), so the song
+                        -- hasn't been sent and stamping it would skip it entirely.
+                        if manual_tracking and not result.is_stratagem then
                             stamp_song(ability, settings, state, area_covered_indices(state))
                         end
                         -- Pianissimo up (fast cast): schedule its removal so the song
@@ -585,6 +608,7 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                             goto continue_target
                         end
 
+                        local target_buffs = nil
                         local target_needs_buff = false
                         local target_entity_index = nil
                         
@@ -674,7 +698,9 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
 
                             local result, reason = action_core.try_use(ability, job_def, settings, target_index, desc, state)
                             if result then
-                                if manual_tracking and ability.magic == 'song' then
+                                -- is_stratagem = the precast JA fired, not the song
+                                -- itself; nothing to stamp until the song goes out.
+                                if manual_tracking and ability.magic == 'song' and not result.is_stratagem then
                                     stamp_song(ability, settings, state, { target_index })
                                 end
                                 return result

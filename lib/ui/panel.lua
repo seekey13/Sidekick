@@ -27,7 +27,7 @@ local ALLY_C = components.LIGHT_GREEN
 local TRACKED = components.LIGHT_YELLOW
 
 -- Width of the panel's numeric entry fields. InputInt spends most of its item
--- width on the -/+ step buttons, so 120 is what leaves room for 3 digits.
+-- width on the -/+ step buttons, so 90 is what leaves room for 3 digits.
 local INT_FIELD_WIDTH = 90
 
 -- ============================================================================

@@ -698,6 +698,10 @@ local function automation_tick()
                 -- roll names are different anyway) -- drop them with the job.
                 roll_mod.reset_state()
 
+                -- Songs don't survive a job change, so neither may the manual
+                -- re-sing timers stamped for them.
+                action_modules.buff.reset_song_timers()
+
                 -- Skip this frame after job reload
                 return
             elseif level_changed then
