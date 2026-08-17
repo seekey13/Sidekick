@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - **Custom song duration — a level-75 Bard re-sings on a timer instead of waiting for a drop** (`Song Duration (s)` on `/sk panel`, `song_duration` per character, `0`/off by default; `bard.lua`, `buff.lua`, `panel.lua`, `tooltips.lua`): song+ duration gear makes real song length invisible to Sidekick, so party buffs were always reactive — a song had to *drop* before it was recast. With a duration set (BRD main at 75 only), every song Sidekick sings is stamped per target in a `song_expiry` table and re-sung when that many seconds pass, before the real buff wears — set it just under your true duration and songs never drop. **Troubadour** up at cast time doubles the stamp automatically. Timers are keyed by ability name so stacked tiers sharing a buff_id (Ballad + Ballad II) each keep their own; an expired timer bypasses the area pass's held-instance veto, since the old instance it's deliberately overwriting still shows in memory. The memory check stays as a fallback, so an interrupted cast is still caught by the buff actually being missing. Timers are session-local: a reload re-sings everything once to re-establish known deadlines.
 
+  Thanks to **Sleazy** for the brainstorming session behind this feature.
+
 ### Changed
 - **Nightingale suspends Pianissimo Fast Casting** (`buff.lua` area phase): Nightingale already shortens song casts, so while its buff (347) is up the fast-cast trick would only burn Pianissimo and a `/debuff` per song. The mode now re-enables itself when Nightingale wears.
 
