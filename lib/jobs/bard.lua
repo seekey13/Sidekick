@@ -13,6 +13,30 @@ return {
     abilities = {
         -- Buff songs
         buff = {
+            -- Merit JAs (BRD group 2 merits, main job only at 75). Self-only
+            -- string commands, so they render as plain checkboxes rather than
+            -- ME/P1-P5 buttons, and no Pianissimo is involved. buff.lua reads
+            -- both: Nightingale suspends the Pianissimo fast-cast trick (it
+            -- already shortens song casts), Troubadour doubles the stamped
+            -- song timers.
+            {
+                name = 'Nightingale',
+                level = 75,
+                cost = 0,
+                recast_id = 109,
+                ability_id = 163,  -- merit-unlocked: gated on HasAbility
+                command = '/ja "Nightingale" <me>',
+                buff_id = 347,
+            },
+            {
+                name = 'Troubadour',
+                level = 75,
+                cost = 0,
+                recast_id = 110,
+                ability_id = 164,  -- merit-unlocked: gated on HasAbility
+                command = '/ja "Troubadour" <me>',
+                buff_id = 348,
+            },
             -- Minne
             {
                 name = "Knight's Minne IV (++++DEF)",

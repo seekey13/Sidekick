@@ -16,7 +16,8 @@ local SONG_AOE_RANGE = 10
 -- it's up costs an Invisible reapply on top of itself.
 local INVISIBLE_BUFF = common.INVISIBLE_BUFF
 
--- Bard lv75 merit JAs, detected only -- Sidekick never fires them.
+-- Bard lv75 merit JAs. Cast from bard.lua's buff list (self-buffs); read here
+-- to gate the Pianissimo fast-cast trick and to double stamped song timers.
 -- CatsEyeXI status_effects.sql: 347 = nightingale, 348 = troubadour.
 local NIGHTINGALE_BUFF = 347
 local TROUBADOUR_BUFF  = 348
