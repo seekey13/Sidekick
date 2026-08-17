@@ -16,6 +16,11 @@ local SONG_AOE_RANGE = 10
 -- it's up costs an Invisible reapply on top of itself.
 local INVISIBLE_BUFF = common.INVISIBLE_BUFF
 
+-- Bard lv75 merit JAs, detected only -- Sidekick never fires them.
+-- CatsEyeXI status_effects.sql: 347 = nightingale, 348 = troubadour.
+local NIGHTINGALE_BUFF = 347
+local TROUBADOUR_BUFF  = 348
+
 -- os.clock() of our last cast per ability name, for buffs whose target we can't
 -- read (pet buffs aren't tracked). Cleared on reload -> re-applies immediately.
 local last_self_cast = {}
@@ -273,7 +278,10 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
     -- Fast-casting mode raises Pianissimo on purpose for the area cast (shorter
     -- cast time), then strips it mid-cast so the song still lands as area. In that
     -- mode we run the area phase even while Pianissimo is up, since it's ours.
+    -- Suspended while Nightingale is up: it already shortens song casting, so the
+    -- Pianissimo trick would only burn Pianissimo and a /debuff for nothing.
     local fast_casting = settings.pianissimo_fast_casting == true
+        and not action_core.has_any_buff(state.player.buffs, NIGHTINGALE_BUFF)
     if fast_casting or not has_pianissimo then
         local song_keys = song_config_keys(job_def, settings)
         -- Hold AOE for Group: members with at least one single-target (Pianissimo)
