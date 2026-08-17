@@ -54,14 +54,6 @@ A focused, support-oriented addon for Ashita v4 that automates healing, buffing,
 The one exception is **opt-in leader following** (off by default): with **Follow** enabled, Sidekick will `/follow` a chosen party member or tracked target when they walk beyond a set distance. It never moves your character unless you turn this on. A second, narrower exception is the **opt-in send-pet-at-target toggle** in the **Pet Control** section (Puppetmaster/Summoner/Beastmaster, off by default): it sends the *pet*, not the player, and only at the mob you pick from the dropdown beside the toggle — either your own cursor target (`<t>`, and only while you're engaged) or the battle target (`<bt>`, whatever the party is already fighting).
 
 ## Latest Updates
-### [Unreleased]
-
-### Added
-- **Custom song duration for level-75 Bards**: song+ duration gear makes your songs last longer than Sidekick can see, so it always waited for a song to *drop* before re-singing it. Set **Song Duration (s)** on `/sk panel` to just under your real duration and Sidekick re-sings each song on that timer instead — before it wears, so your party never loses the buff. **Troubadour** doubles the timer automatically while it's up. Set it to `0` (the default) for the old behavior. Thanks to **Sleazy** for the brainstorming session behind this feature.
-
-### Changed
-- **Nightingale pauses Pianissimo Fast Casting**: Nightingale already makes songs cast fast, so while it's up the Pianissimo trick would just waste the ability. Fast casting picks back up on its own when Nightingale wears.
-
 ### [2.7.0] - 2026-08-12
 
 ### Added
@@ -81,11 +73,14 @@ The one exception is **opt-in leader following** (off by default): with **Follow
   Thanks to **Cedwick** for the feature idea.
 - **Geomancer waits for a still target before dropping a bubble**: a luopan stays where it lands, so Sidekick now holds **Geo** debuffs while the battle target is on the move, and **Geo** enhancing spells while the party member you picked is walking — no more bubbles dropped behind someone who is about to run out of them. The cast goes out about half a second after they stand still. **Indi** spells are untouched, since those follow their target. Thanks to **Benthere** for the feature idea.
 - **Monk gets Perfect Counter and Impetus**: both were missing from Monk's buff list. They join **Boost**, **Dodge**, **Focus**, **Counterstance** and **Footwork** as combat-only self buffs you can tick on — Perfect Counter at level 79, Impetus at level 88. Thanks to **Toranko** for noticing they were missing.
+- **Custom song duration for level-75 Bards**: song+ duration gear makes your songs last longer than Sidekick can see, so it always waited for a song to *drop* before re-singing it. Set **Song Duration (s)** on `/sk panel` to just under your real duration and Sidekick re-sings each song on that timer instead — before it wears, so your party never loses the buff. **Troubadour** doubles the timer automatically while it's up. Set it to `0` (the default) for the old behavior. Thanks to **Sleazy** for the brainstorming session behind this feature.
 
 ### Changed
 - **Sneak and Invisible go up in a sensible order now**: they wait until your real buffs are done, then Sneak covers the whole party before Invisible starts, and you are always the last person buffed. Trusts are skipped — their buttons on those rows are greyed out. While you are invisible Sidekick casts nothing but Sneak and Invisible, since any other cast would break Invisible and cost you a reapply; healing, status removal, waking and raise carry on as normal. Applies to White Mage, Scholar and Red Mage, and to Ninja's Tonko/Monomi and Dancer's Spectral Jig — on those the pause only happens out of combat, so shadows and Sambas keep flowing in a fight.  Thanks to **Toranko** for the feature idea.
 
 - **Tracked targets stick around when you zone**: your tracked list used to be wiped every time you crossed a zone line, so everyone you had added by hand was gone and a second box had to rebuild its party mirror from scratch. It now survives zoning — someone you've zoned away from just shows as inactive until they're near you again. Reloading the addon still clears the list.
+
+- **Nightingale pauses Pianissimo Fast Casting**: Nightingale already makes songs cast fast, so while it's up the Pianissimo trick would just waste the ability. Fast casting picks back up on its own when Nightingale wears.
 
 ### Fixed
 - **Sidekick now knows a spell costs more under Accession even when it didn't press Accession**: pop Accession yourself and the next cure really costs double, but Sidekick was still budgeting the normal price — so it kept queuing a cure it couldn't pay for, over and over, until the buff wore off or your MP caught up. Same for Penury and the other cost stratagems, in reverse. It now reads the buff you actually have up, not just the ones it planned.
