@@ -39,9 +39,14 @@ local function manual_tracking_active(settings, player)
         and (player.main_level or 0) >= 75
 end
 
--- True when we hold no live timer for this song on this member.
+-- True when we hold no live timer for this song on this member. A member with
+-- no stampable server_id (0 = failed read; stamp_song skips those) is NOT
+-- treated as expired -- the memory check governs, else a zeroed self row
+-- would cycle area songs forever.
 local function song_timer_expired(ability, member)
-    local t = member and member.server_id and song_expiry[member.server_id]
+    local sid = member and member.server_id
+    if not sid or sid == 0 then return false end
+    local t = song_expiry[sid]
     local e = t and t[ability.name]
     return not e or os.clock() >= e
 end
@@ -69,7 +74,7 @@ local function stamp_song(ability, settings, state, target_indices)
 end
 
 -- Party indices (0-5) an area song cast right now would land on: self always,
--- others alive in zone and within song AoE range.
+-- others in zone and within song AoE range.
 local function area_covered_indices(state)
     local covered = { 0 }
     local player_zone = common.get_party_member_zone(0)
@@ -258,7 +263,8 @@ local function area_needs_recast(ability, party_buff_config, song_keys, availabl
             -- skipping the held-count math below -- memory still shows the old
             -- instance we're deliberately overwriting, so counting it would
             -- veto the early re-sing. (Trusts never reach here: target_buffs
-            -- stays nil for them above, and they're excluded from timers too.)
+            -- stays nil for them above, and while area casts stamp them,
+            -- their entries are never read.)
             local member = (ti == 0) and state.player or state.party[ti]
             if target_buffs and manual and song_timer_expired(ability, member) then
                 return true
@@ -362,6 +368,9 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
     -- mode we run the area phase even while Pianissimo is up, since it's ours.
     -- Suspended while Nightingale is up: it already shortens song casting, so the
     -- Pianissimo trick would only burn Pianissimo and a /debuff for nothing.
+    -- (If Nightingale lands between our Pianissimo raise and the song, the area
+    -- phase skips until something consumes the Pianissimo or it wears -- rare,
+    -- since players fire Nightingale before singing, not mid-sequence.)
     local fast_casting = settings.pianissimo_fast_casting == true
         and not action_core.has_any_buff(state.player.buffs, NIGHTINGALE_BUFF)
     -- Manual song timers (see song_expiry above): BRD75 main + song_duration set.
