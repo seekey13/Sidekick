@@ -33,12 +33,6 @@ local TROUBADOUR_BUFF  = 348
 -- ponytail: entries for members who left the party linger; bounded and inert.
 local song_expiry = {}
 
-local function manual_tracking_active(settings, player)
-    return (tonumber(settings.song_duration) or 0) > 0
-        and player.job == 10
-        and (player.main_level or 0) >= 75
-end
-
 -- True when we hold no live timer for this song on this member. A member with
 -- no stampable server_id (0 = failed read; stamp_song skips those) is NOT
 -- treated as expired -- the memory check governs, else a zeroed self row
@@ -374,7 +368,8 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
     local fast_casting = settings.pianissimo_fast_casting == true
         and not action_core.has_any_buff(state.player.buffs, NIGHTINGALE_BUFF)
     -- Manual song timers (see song_expiry above): BRD75 main + song_duration set.
-    local manual_tracking = manual_tracking_active(settings, player)
+    local manual_tracking = (tonumber(settings.song_duration) or 0) > 0
+        and player.job == 10 and (player.main_level or 0) >= 75
     if fast_casting or not has_pianissimo then
         local song_keys = song_config_keys(job_def, settings)
         -- Hold AOE for Group: members with at least one single-target (Pianissimo)

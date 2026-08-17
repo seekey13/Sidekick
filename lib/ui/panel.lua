@@ -448,17 +448,9 @@ function panel.render(addon_settings, save_settings)
             -- is seen missing (memory-based, the default). >0 = manual song
             -- timers: re-sing each song this many seconds after we sang it,
             -- doubled while Troubadour is up. See lib/actions/buff.lua.
-            local song_dur_var = { addon_settings.song_duration or 0 }
             imgui.SameLine(0, 20)
-            imgui.PushItemWidth(80)
-            if imgui.InputInt('Song Duration (s)', song_dur_var) then
-                local d = song_dur_var[1]
-                if d < 0 then d = 0 end
-                if d > 999 then d = 999 end
-                addon_settings.song_duration = d
-                if save_settings then save_settings() end
-            end
-            imgui.PopItemWidth()
+            components.input_int({ settings = addon_settings, save_callback = save_settings },
+                'Song Duration (s)', 'song_duration', { addon_settings.song_duration or 0 }, 0, 999, 80)
             if imgui.IsItemHovered() then
                 imgui.SetTooltip(tooltips.song_duration)
             end

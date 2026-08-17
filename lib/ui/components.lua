@@ -2213,8 +2213,7 @@ function ui_components.input_int(ctx, label, setting_name, ui_var, min, max, wid
     width = width or SLIDER_WIDTH
     imgui.PushItemWidth(width)
     if imgui.InputInt(label, ui_var) then
-        if ui_var[1] < min then ui_var[1] = min end
-        if ui_var[1] > max then ui_var[1] = max end
+        ui_var[1] = math.max(min, math.min(max, ui_var[1]))
         ctx.settings[setting_name] = ui_var[1]
         if ctx.save_callback then
             ctx.save_callback()
