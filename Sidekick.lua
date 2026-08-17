@@ -967,6 +967,11 @@ ashita.events.register('packet_in', 'sidekick_packet_in', function(e)
             -- buff's full duration. No spell id is 28787, so a real cast never trips it.
             if actionPacket.Type == 4 and actionPacket.Param ~= common.INTERRUPT_PARAM then
                 common.handle_buff_application()
+                -- Same moment for Bard's manual song timers: the song's duration
+                -- starts here, so this is where it gets stamped (and where
+                -- Troubadour is read). Param is the spell id, which identifies
+                -- the song that landed; see buff.handle_song_finished.
+                action_modules.buff.handle_song_finished(actionPacket.Param)
             end
         end
 

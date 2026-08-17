@@ -866,6 +866,12 @@ return {
         buff_enabled = true,
         pianissimo_fast_casting = false,  -- see lib/actions/buff.lua area phase
         song_duration = 0,  -- seconds; >0 at BRD75 = manual song timers (see buff.lua)
+        -- Off by default: neither JA is gated to combat (Troubadour is normally
+        -- popped before a pull, so combat_only would be wrong), so left on they
+        -- would fire on cooldown anywhere -- and a stray Nightingale suspends
+        -- Pianissimo Fast Casting for its whole duration. Opt in per character.
+        disabled_Nightingale = true,
+        disabled_Troubadour = true,
     },
     
     -- Action priority order
