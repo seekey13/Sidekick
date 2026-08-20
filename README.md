@@ -90,6 +90,10 @@ The one exception is **opt-in leader following** (off by default): with **Follow
 - **Two area songs of the same type now both go up**: songs like Victory March and Advancing March share one buff, and Sidekick's `[A]` check counted the first one as filling both slots — so it kept refreshing that song instead of casting the second.  Thanks to **Sleazy** for reporting the bug.
 - **Zoning no longer unticks your spells**: with the config window open, crossing a zone line briefly made the game report that you knew no spells and were level 0 — and Sidekick believed it, unticking cures and dropping song selections for good. It now ignores those frames.   Thanks to **Kelzalik** for reporting the bug.
 - **Red Mage stops recasting Flurry over and over**: Sidekick was watching for the wrong status, so Flurry always looked like it had fallen off — it got recast every pass, wasting MP and stalling the rest of the buffs behind it. It now sees the buff it actually gives you. Thanks to **swizzj225** for reporting the bug.
+- **Amnesia now holds back your pet commands too**: Sidekick already stopped job abilities under Amnesia, but not the ones you send through your pet — Puppetmaster Maneuvers and Deploy, Beastmaster Ready moves and Fight, Summoner Blood Pacts and Assault. The server refuses every one of those under Amnesia, so Sidekick was retrying about once a second until it wore off. They are held back with everything else now.
+- **Sidekick stops trying while you're asleep, stunned, terrorized, petrified or charmed**: none of these were checked at all, so it carried on queuing spells, abilities, items and `/heal` that the server simply refused, once a second for the whole duration. It now pauses outright until the status wears — auto-follow included, since you can't move under any of them either. `/sidekick debug` shows the pause when it happens.
+- **Mute now stops casting**: Mute blocks your magic the same way Silence does, but Sidekick only ever watched for Silence — so it kept queuing spells that could not go out. Either one holds casting now.
+
 
 See [CHANGELOG.md](CHANGELOG.md) for the full release history.
 
