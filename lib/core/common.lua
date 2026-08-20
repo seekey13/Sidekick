@@ -2308,28 +2308,16 @@ end
 -- way Silence and Amnesia do. Under any of these the server rejects spells,
 -- abilities, items, ranged attacks and /heal alike, and the player cannot move,
 -- so automation pauses outright rather than burning the action throttle on
--- commands that can only fail. Ids are status_effects.sql; values are the label
--- shown in the debug log.
-common.INCAPACITATING_STATUS = {
-    [2]  = 'Sleep',           -- Sleep / Sleepga / sleep procs
-    [7]  = 'Petrification',   -- Breakga, Medusa gaze
-    [10] = 'Stun',            -- also every mob TP-move stun
-    [14] = 'Charm',           -- Charm I -- the mob has control, not the player
-    [17] = 'Charm',           -- Charm II
-    [19] = 'Sleep',           -- Sleep II / Bard Lullaby
-    [28] = 'Terror',          -- no action AND no movement until it wears
-}
+-- commands that can only fail. status_effects.sql ids: Sleep 2 / Sleep II 19
+-- (Sleepga, Lullaby, sleep procs), Petrification 7, Stun 10, Charm 14 / 17,
+-- Terror 28 (no action AND no movement).
+common.INCAPACITATING_STATUS = { 2, 7, 10, 14, 17, 19, 28 }
 
--- Name of the status currently stopping the player from acting, or nil when the
--- player is free to act. First match wins -- which one is reported does not
--- matter, only that something is blocking.
--- Returns: string or nil
-function common.incapacitated_by()
-    for _, buff_id in ipairs(common.get_player_buffs()) do
-        local name = common.INCAPACITATING_STATUS[buff_id]
-        if name then return name end
-    end
-    return nil
+-- Whether any of them is up on the player.
+-- Returns: boolean
+function common.is_incapacitated()
+    return require('lib.core.action_core').has_any_buff(
+        common.get_player_buffs(), common.INCAPACITATING_STATUS)
 end
 
 -- Check if player has Amnesia (blocks Job Abilities)
@@ -2348,7 +2336,7 @@ end
 -- Check if a command is currently blocked -- by movement (any command) or by a
 -- status ailment (Silence/Mute on /ma, Amnesia on /ja and /pet). Statuses that
 -- block *everything* (Sleep, Stun, Terror, ...) are not checked here: the tick
--- loop's incapacitated_by() guard has already returned before any module runs.
+-- loop's is_incapacitated() guard has already returned before any module runs.
 -- Args:
 --   command (string or function) - Command string or function that generates one
 -- Returns: string or nil - 'Moving' / 'Silence' / 'Amnesia', or nil if not blocked
@@ -2376,10 +2364,8 @@ function common.is_command_blocked(command)
             return 'Silence'
         end
     elseif command_str:match('^/ja ') or command_str:match('^/pet ') then
-        -- Job Ability command - blocked by Amnesia. /pet counts: everything the
-        -- pet jobs issue through it is a job ability server-side (PUP maneuvers
-        -- and Deploy, BST Ready moves and Fight, SMN Blood Pacts and Assault),
-        -- so Amnesia rejects those the same as a /ja.
+        -- Job Ability command - blocked by Amnesia. /pet counts: maneuvers,
+        -- Ready moves, Blood Pacts and the send-pet abilities are all JAs.
         if common.has_amnesia() then
             return 'Amnesia'
         end

@@ -68,7 +68,6 @@ local last_job_id = nil
 local last_sub_job_id = nil
 local last_level = nil
 local last_unsupported_warning = nil  -- Track last unsupported job warning to prevent spam
-local last_incapacitated = nil  -- Last Sleep/Stun/Terror... pause reason logged, so it logs once per onset
 
 -- Settings file path
 local default_settings = T{
@@ -577,19 +576,11 @@ local function automation_tick()
     end
 
     -- Sleep / Stun / Terror / Petrification / Charm: the server rejects every
-    -- command, so stop the whole tick rather than let modules spend the 1.1s
-    -- throttle on guaranteed failures. Sits here, not in is_command_blocked, so
-    -- it also covers the paths that skip the ability pipeline -- items, /heal
-    -- rest, and the range/follow handling below.
-    local incapacitated = common.incapacitated_by()
-    if incapacitated then
-        if last_incapacitated ~= incapacitated then
-            common.debugf('[Guard] Paused: %s', incapacitated)
-            last_incapacitated = incapacitated
-        end
-        return
-    end
-    last_incapacitated = nil
+    -- command, so stop the whole tick rather than burn the 1.1s throttle on
+    -- guaranteed failures. Sits here, not in is_command_blocked, so it also
+    -- covers the paths that skip the ability pipeline -- items, /heal rest, and
+    -- the range/follow handling below.
+    if common.is_incapacitated() then return end
 
     -- Check if combat is allowed
     if not common.can_attack() then
@@ -778,7 +769,7 @@ local function follow_tick()
     if common.is_mounted() then return end
     if common.is_dead() then return end
     if common.is_casting() then return end
-    if common.incapacitated_by() then return end  -- slept/stunned/terrorized: can't move either
+    if common.is_incapacitated() then return end  -- slept/stunned/terrorized: can't move either
 
     local ok, result = pcall(action_modules.follow.execute, addon_settings, job_def)
     if ok and result then
