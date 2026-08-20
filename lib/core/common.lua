@@ -2317,7 +2317,7 @@ function common.has_silence()
 end
 
 -- Check if a command is currently blocked -- by movement (any command) or by a
--- status ailment (Silence on /ma, Amnesia on /ja).
+-- status ailment (Silence on /ma, Amnesia on /ja and /pet).
 -- Args:
 --   command (string or function) - Command string or function that generates one
 -- Returns: string or nil - 'Moving' / 'Silence' / 'Amnesia', or nil if not blocked
@@ -2344,8 +2344,11 @@ function common.is_command_blocked(command)
         if common.has_silence() then
             return 'Silence'
         end
-    elseif command_str:match('^/ja ') then
-        -- Job Ability command - blocked by Amnesia
+    elseif command_str:match('^/ja ') or command_str:match('^/pet ') then
+        -- Job Ability command - blocked by Amnesia. /pet counts: everything the
+        -- pet jobs issue through it is a job ability server-side (PUP maneuvers
+        -- and Deploy, BST Ready moves and Fight, SMN Blood Pacts and Assault),
+        -- so Amnesia rejects those the same as a /ja.
         if common.has_amnesia() then
             return 'Amnesia'
         end

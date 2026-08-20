@@ -133,10 +133,8 @@ function pet.execute_maneuver(settings, job_def, main_level, sub_level, player_r
     end
 
     -- One attempt per tick, not a burst -- try_use covers the recast-210 shared
-    -- cooldown and the movement block. It does NOT cover Amnesia here: maneuvers
-    -- cast via /pet, and common.is_command_blocked only checks Amnesia for /ja
-    -- (and Silence for /ma) -- /pet is neither, so an Amnesia'd automaton would
-    -- still be attempted (and presumably rejected server-side).
+    -- cooldown, the movement block, and Amnesia (is_command_blocked treats /pet
+    -- as a job ability, which is what a maneuver is server-side).
     return action_core.try_use(missing, job_def, settings, nil, 'Maneuver: ' .. missing.name)
 end
 
