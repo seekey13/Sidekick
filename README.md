@@ -58,34 +58,34 @@ The one exception is **opt-in leader following** (off by default): with **Follow
 
 ### Added
 - **Sleep Targets**: labelled buttons pick who Sidekick watches for Sleep. Saved with your settings; hidden while solo.
-- **Scholar AOE healing**: Accession plus the biggest cure that fits, aimed at whoever is hurt worst. Off by default.
+- **Scholar AOE healing**: Accession plus the biggest cure that fits, aimed at whoever is hurt worst. Off by default. — **Toranko**
 - **Hold a Stratagem for AOE**: right-click the Accession row to keep one charge in reserve for the party heal.
-- **Shared party list**: a second box outside the party tracks everyone automatically, with real jobs, levels and max HP — no `/check`.
+- **Shared party list**: a second box outside the party tracks everyone automatically, with real jobs, levels and max HP — no `/check`. — **Kelzalik**
 - **Pet Control (PUP/SMN/BST)**: keeps up to 3 Maneuvers applied, plus an opt-in Deploy/Assault/Fight toggle that sends your pet at your target.
-- **Per-target Combat/Idle overrides**: right-click a buff row's ME/P1-P5 button to force Combat Only or Idle Only for that one person. Session-only.
-- **Hold AOE for Group announces the wait** in party chat while it holds for a straggler.
-- **Floating widget (`/sk widget`)**: pops the profile button, job line, Start/Stop and status into a small movable window.
+- **Per-target Combat/Idle overrides**: right-click a buff row's ME/P1-P5 button to force Combat Only or Idle Only for that one person. Session-only. — **Seikio**
+- **Hold AOE for Group announces the wait** in party chat while it holds for a straggler. — **Toranko**
+- **Floating widget (`/sk widget`)**: pops the profile button, job line, Start/Stop and status into a small movable window. — **Muziko**
 - **The config window remembers whether it was open** across reloads.
-- **Auto Select for Red Mage enspells and Scholar storms**: right-click the dropdown to keep the spell matched to your storm, the weather or the day.
-- **Geomancer waits for a still target** before dropping a bubble. Indi spells untouched.
-- **Monk gets Perfect Counter and Impetus**.
-- **Custom song duration for level-75 Bards**: set **Song Duration (s)** on `/sk panel` and songs are re-sung on that timer instead of after they drop. Troubadour doubles it.
+- **Auto Select for Red Mage enspells and Scholar storms**: right-click the dropdown to keep the spell matched to your storm, the weather or the day. — **Cedwick**
+- **Geomancer waits for a still target** before dropping a bubble. Indi spells untouched. — **Benthere**
+- **Monk gets Perfect Counter and Impetus**. — **Toranko**
+- **Custom song duration for level-75 Bards**: set **Song Duration (s)** on `/sk panel` and songs are re-sung on that timer instead of after they drop. Troubadour doubles it. — **Sleazy**
 - **Bard gets Nightingale and Troubadour**.
-- **Cure Potency +% / Waltz Potency +%** on `/sk panel`: every heal is sized with your gear counted in, so less overheal.
+- **Cure Potency +% / Waltz Potency +%** on `/sk panel`: every heal is sized with your gear counted in, so less overheal. — **Miri**
 
 ### Changed
-- **Sneak and Invisible go up in order**: real buffs first, then Sneak across the party, then Invisible, you last. Nothing else casts while you are invisible.
+- **Sneak and Invisible go up in order**: real buffs first, then Sneak across the party, then Invisible, you last. Nothing else casts while you are invisible. — **Toranko**
 - **Tracked targets survive zoning** — they show as inactive instead of being wiped.
 - **Nightingale pauses Pianissimo fast casting** while it is up.
 
 ### Fixed
 - **Stratagem costs now read the buff you actually have up**, so an Accession you pressed yourself no longer loops a cure you can't pay for.
 - **AOE heals stand you up first** when Rest is on.
-- **`/anon` no longer makes Sidekick skip every ability** — it was reading you as level 0.
+- **`/anon` no longer makes Sidekick skip every ability** — it was reading you as level 0. — **Atsumu**, **Pax**
 - **Loading Sidekick while the game is still loading** no longer leaves the Start/Stop button backwards.
-- **Two area songs sharing a buff both go up** now (Victory March and Advancing March).
-- **Zoning no longer unticks your spells** or drops song selections.
-- **Red Mage stops recasting Flurry forever** — it watches the status the spell actually gives.
+- **Two area songs sharing a buff both go up** now (Victory March and Advancing March). — **Sleazy**
+- **Zoning no longer unticks your spells** or drops song selections. — **Kelzalik**
+- **Red Mage stops recasting Flurry forever** — it watches the status the spell actually gives. — **Swizz**
 - **Amnesia holds back pet commands too**: PUP Maneuvers and Deploy, BST Ready moves and Fight, SMN Blood Pacts and Assault.
 - **Sleep, Stun, Terror, Petrification and Charm now pause Sidekick** instead of being ignored — auto-follow included.
 - **Mute stops casting** the same as Silence.

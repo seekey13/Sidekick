@@ -149,7 +149,8 @@ intentionally **session-only** and never written to disk.
   that needs a paragraph to explain belongs in `CHANGELOG.md` and nowhere else. Mention a
   setting or command by name (**Song Duration (s)**, `/sk widget`) when the reader needs it
   to find the feature — but never explain how to use it.
-- **No contributor credits in the README.** "Thanks to ..." lines live in `CHANGELOG.md`
-  only, which is the permanent record; the README's job is the short what's-new list. Every
-  credit must already exist in `CHANGELOG.md` before it is written out of (or left out of)
-  the README.
+- **Credit in the README is the person's name in bold at the end of the line**, after an em
+  dash, and nothing else — `... — **Toranko**`, or `— **Atsumu**, **Pax**` for two. No
+  "Thanks to", no "for reporting the bug", no separate sentence; the prose form stays in
+  `CHANGELOG.md`, which is the permanent record and must carry the credit before the README
+  does. A bullet nobody reported or asked for gets no name.
