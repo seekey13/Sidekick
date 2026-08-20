@@ -2304,20 +2304,51 @@ end
     Status Ailment Blocking Checks
 ]]--
 
+-- Statuses that stop the player acting at all -- not just one command family the
+-- way Silence and Amnesia do. Under any of these the server rejects spells,
+-- abilities, items, ranged attacks and /heal alike, and the player cannot move,
+-- so automation pauses outright rather than burning the action throttle on
+-- commands that can only fail. Ids are status_effects.sql; values are the label
+-- shown in the debug log.
+common.INCAPACITATING_STATUS = {
+    [2]  = 'Sleep',           -- Sleep / Sleepga / sleep procs
+    [7]  = 'Petrification',   -- Breakga, Medusa gaze
+    [10] = 'Stun',            -- also every mob TP-move stun
+    [14] = 'Charm',           -- Charm I -- the mob has control, not the player
+    [17] = 'Charm',           -- Charm II
+    [19] = 'Sleep',           -- Sleep II / Bard Lullaby
+    [28] = 'Terror',          -- no action AND no movement until it wears
+}
+
+-- Name of the status currently stopping the player from acting, or nil when the
+-- player is free to act. First match wins -- which one is reported does not
+-- matter, only that something is blocking.
+-- Returns: string or nil
+function common.incapacitated_by()
+    for _, buff_id in ipairs(common.get_player_buffs()) do
+        local name = common.INCAPACITATING_STATUS[buff_id]
+        if name then return name end
+    end
+    return nil
+end
+
 -- Check if player has Amnesia (blocks Job Abilities)
 -- Returns: boolean
 function common.has_amnesia()
     return common.has_buff(0, 16)  -- Amnesia buff_id = 16
 end
 
--- Check if player has Silence (blocks Magic)
+-- Check if player has Silence -- or Mute, which blocks magic the same way but is
+-- a separate status the na-spells don't share (Silena won't touch it).
 -- Returns: boolean
 function common.has_silence()
-    return common.has_buff(0, 6)  -- Silence buff_id = 6
+    return common.has_buff(0, 6) or common.has_buff(0, 29)  -- Silence / Mute
 end
 
 -- Check if a command is currently blocked -- by movement (any command) or by a
--- status ailment (Silence on /ma, Amnesia on /ja and /pet).
+-- status ailment (Silence/Mute on /ma, Amnesia on /ja and /pet). Statuses that
+-- block *everything* (Sleep, Stun, Terror, ...) are not checked here: the tick
+-- loop's incapacitated_by() guard has already returned before any module runs.
 -- Args:
 --   command (string or function) - Command string or function that generates one
 -- Returns: string or nil - 'Moving' / 'Silence' / 'Amnesia', or nil if not blocked
