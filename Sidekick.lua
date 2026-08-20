@@ -575,6 +575,13 @@ local function automation_tick()
         return
     end
 
+    -- Sleep / Stun / Terror / Petrification / Charm: the server rejects every
+    -- command, so stop the whole tick rather than burn the 1.1s throttle on
+    -- guaranteed failures. Sits here, not in is_command_blocked, so it also
+    -- covers the paths that skip the ability pipeline -- items, /heal rest, and
+    -- the range/follow handling below.
+    if common.is_incapacitated() then return end
+
     -- Check if combat is allowed
     if not common.can_attack() then
         return
@@ -762,6 +769,7 @@ local function follow_tick()
     if common.is_mounted() then return end
     if common.is_dead() then return end
     if common.is_casting() then return end
+    if common.is_incapacitated() then return end  -- slept/stunned/terrorized: can't move either
 
     local ok, result = pcall(action_modules.follow.execute, addon_settings, job_def)
     if ok and result then

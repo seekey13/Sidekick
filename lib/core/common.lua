@@ -2304,20 +2304,39 @@ end
     Status Ailment Blocking Checks
 ]]--
 
+-- Statuses that stop the player acting at all -- not just one command family the
+-- way Silence and Amnesia do. Under any of these the server rejects spells,
+-- abilities, items, ranged attacks and /heal alike, and the player cannot move,
+-- so automation pauses outright rather than burning the action throttle on
+-- commands that can only fail. status_effects.sql ids: Sleep 2 / Sleep II 19
+-- (Sleepga, Lullaby, sleep procs), Petrification 7, Stun 10, Charm 14 / 17,
+-- Terror 28 (no action AND no movement).
+common.INCAPACITATING_STATUS = { 2, 7, 10, 14, 17, 19, 28 }
+
+-- Whether any of them is up on the player.
+-- Returns: boolean
+function common.is_incapacitated()
+    return require('lib.core.action_core').has_any_buff(
+        common.get_player_buffs(), common.INCAPACITATING_STATUS)
+end
+
 -- Check if player has Amnesia (blocks Job Abilities)
 -- Returns: boolean
 function common.has_amnesia()
     return common.has_buff(0, 16)  -- Amnesia buff_id = 16
 end
 
--- Check if player has Silence (blocks Magic)
+-- Check if player has Silence -- or Mute, which blocks magic the same way but is
+-- a separate status the na-spells don't share (Silena won't touch it).
 -- Returns: boolean
 function common.has_silence()
-    return common.has_buff(0, 6)  -- Silence buff_id = 6
+    return common.has_buff(0, 6) or common.has_buff(0, 29)  -- Silence / Mute
 end
 
 -- Check if a command is currently blocked -- by movement (any command) or by a
--- status ailment (Silence on /ma, Amnesia on /ja).
+-- status ailment (Silence/Mute on /ma, Amnesia on /ja and /pet). Statuses that
+-- block *everything* (Sleep, Stun, Terror, ...) are not checked here: the tick
+-- loop's is_incapacitated() guard has already returned before any module runs.
 -- Args:
 --   command (string or function) - Command string or function that generates one
 -- Returns: string or nil - 'Moving' / 'Silence' / 'Amnesia', or nil if not blocked
@@ -2344,8 +2363,9 @@ function common.is_command_blocked(command)
         if common.has_silence() then
             return 'Silence'
         end
-    elseif command_str:match('^/ja ') then
-        -- Job Ability command - blocked by Amnesia
+    elseif command_str:match('^/ja ') or command_str:match('^/pet ') then
+        -- Job Ability command - blocked by Amnesia. /pet counts: maneuvers,
+        -- Ready moves, Blood Pacts and the send-pet abilities are all JAs.
         if common.has_amnesia() then
             return 'Amnesia'
         end
