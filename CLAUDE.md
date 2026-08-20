@@ -140,7 +140,16 @@ intentionally **session-only** and never written to disk.
   brief, user-facing summary (bullets, no implementation detail) — not the full history.
   `CHANGELOG.md` is the durable, detailed record and keeps every past version. When a new
   version ships, replace the README's "Latest Updates" entry with the new version's brief
-  notes rather than appending to it, and add the full entry to `CHANGELOG.md` as usual. Any
-  contributor credit ("Thanks to ...") written into the README must also exist in
-  `CHANGELOG.md` before it is removed from README, since CHANGELOG is the only permanent
-  record of past releases.
+  notes rather than appending to it, and add the full entry to `CHANGELOG.md` as usual.
+- **One line per item in the README, no exceptions.** Every bullet under Added / Changed /
+  Fixed is a single line: bolded feature or fix name, then one sentence of what it does or
+  what it stopped doing. No sub-bullets, no second paragraph, no rationale, no walkthrough of
+  the settings involved, no before/after story. The whole 2.7.0 section fits in ~3KB; if a
+  release's notes are running past that, the bullets are too long, not too many. Anything
+  that needs a paragraph to explain belongs in `CHANGELOG.md` and nowhere else. Mention a
+  setting or command by name (**Song Duration (s)**, `/sk widget`) when the reader needs it
+  to find the feature — but never explain how to use it.
+- **No contributor credits in the README.** "Thanks to ..." lines live in `CHANGELOG.md`
+  only, which is the permanent record; the README's job is the short what's-new list. Every
+  credit must already exist in `CHANGELOG.md` before it is written out of (or left out of)
+  the README.
