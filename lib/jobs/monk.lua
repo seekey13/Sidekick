@@ -73,7 +73,7 @@ return {
             },
             {
                 name = 'Perfect Counter',
-                level = 79,
+                level = 75,
                 cost = 0,
                 recast_id = 22,
                 command = '/ja "Perfect Counter" <me>',
@@ -82,7 +82,7 @@ return {
             },
             {
                 name = 'Impetus',
-                level = 88,
+                level = 75,
                 cost = 0,
                 recast_id = 31,
                 command = '/ja "Impetus" <me>',
