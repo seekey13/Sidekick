@@ -16,6 +16,10 @@ local components = require('lib.ui.components')
 local is_open = { true }
 local panel_visible = false
 
+-- Shared party folder text box. imgui writes into the buffer across frames, so it
+-- has to outlive the render call; addon_settings stays the source of truth.
+local share_path_buf = { '' }
+
 -- Row colors. Each section's color runs across the whole row (pushed once per
 -- row), so the legend at the bottom reads as a key to the table.
 local WHITE = { 1.0, 1.0, 1.0, 1.0 }
@@ -513,6 +517,22 @@ function panel.render(addon_settings, save_settings)
             if imgui.SliderInt('UI Opacity', opacity_var, 1, 100) then
                 addon_settings.ui_opacity = opacity_var[1]
                 if save_settings then save_settings() end
+            end
+            imgui.PopItemWidth()
+
+            -- Empty = Ashita's config dir; a network share here lets two PCs swap rosters.
+            -- Own row: the path box is wide.
+            imgui.PushItemWidth(400)
+            if imgui.InputText('Shared party folder', share_path_buf, 256) then
+                addon_settings.party_share_path = share_path_buf[1]
+                if save_settings then save_settings() end
+            end
+            -- Resync while the user isn't typing, so a load lands in the box.
+            if not imgui.IsItemActive() and share_path_buf[1] ~= (addon_settings.party_share_path or '') then
+                share_path_buf[1] = addon_settings.party_share_path or ''
+            end
+            if imgui.IsItemHovered() then
+                imgui.SetTooltip(tooltips.party_share_folder)
             end
             imgui.PopItemWidth()
         end

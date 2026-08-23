@@ -27,6 +27,13 @@ return {
         'Sidekick will /check the player to get their level\n' ..
         'for spell sizing, as exact HP is not available.\n',
 
+    party_share_folder =
+        'Folder Sidekick sessions swap party rosters in.\n' ..
+        'Empty: Ashita\'s own config/addons/sidekick, so\n' ..
+        'only clients on this PC see each other. Point\n' ..
+        'every PC at one share (e.g. X:\\sidekick) to\n' ..
+        'track a party across machines. Must exist.',
+
     multisend_follow =
         'Movement mode switch. ON: use the Multisend\n' ..
         'plugin\'s follow (shows Attack Range in /sk)\n' ..
