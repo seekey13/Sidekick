@@ -963,6 +963,22 @@ ashita.events.register('packet_in', 'sidekick_packet_in', function(e)
         if actor_is_player then
             common.handle_action_packet(actionPacket)
 
+            -- Bard manual song timers, steps 2 and 3 of the handshake (step 1 is
+            -- the send; see pending_song in lib/actions/buff.lua). Cast start
+            -- confirms the song we armed really went out; an interrupt says it
+            -- never landed, so nothing may be stamped for it. Both are needed for
+            -- the timer to start only once the cast has actually completed.
+            if actionPacket.Type == 8 then
+                if actionPacket.Param == common.INTERRUPT_PARAM then
+                    action_modules.buff.handle_song_interrupted()
+                else
+                    action_modules.buff.handle_song_cast_start(actionPacket.Param)
+                end
+            elseif actionPacket.Type == 4 and actionPacket.Param == common.INTERRUPT_PARAM then
+                -- Interrupt landing on the finish category instead of the begin one.
+                action_modules.buff.handle_song_interrupted()
+            end
+
             -- Our action just resolved — start the throttle from now, not from the
             -- send that may have been a full cast time ago.
             if is_action_finish(actionPacket) then
@@ -1144,6 +1160,9 @@ ashita.events.register('packet_in', 'sidekick_packet_in', function(e)
     if e.id == 0x0A then  -- Zone change packet
         common.clear_trust_buffs()
         common.clear_casting_state()
+        -- Zoning cancels an in-flight cast without sending an interrupt packet, so
+        -- the song we were waiting on must be dropped here too.
+        action_modules.buff.handle_song_interrupted()
 
         -- Stop after zone (opt-in via the Start button right-click menu).
         if automation_enabled and addon_settings and addon_settings.stop_after_zone == true then
