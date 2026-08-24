@@ -43,11 +43,21 @@ local song_expiry = {}
 -- would force the area song to recast on cooldown -- resetting every other
 -- member's timer with it -- for as long as they lie there. Raised, they hold no
 -- timer, so the buff-memory check governs and every song is re-established at
--- once. Dead is read the way revive.lua reads it (entity_status 3, or HPP 0
--- whichever lands first, matching refresh_game_state's is_dead sync).
+-- once. entity_status 3 is the reading revive.lua uses; HPP 0 is the other half
+-- of refresh_game_state's is_dead sync, caught here for the tick before the
+-- status lands.
+-- Only a read we can trust may delete the rows. build_member_snapshot falls back
+-- to hpp = 0 on a failed pcall and leaves entity_status at its -1 sentinel, and
+-- an out-of-zone member reads 0 HPP too -- so a bare `hpp == 0` throws a live
+-- member's timers away over a transient, and permanently, where the old
+-- song_deadline check merely ignored them until the read recovered. HPP 0
+-- therefore counts only once the status read succeeded (the `entity_status >= 0`
+-- test refresh_game_state uses for the same reason). Out-of-zone members fall
+-- through as not-dead and are excluded by the zone gate in both passes.
 local function song_member_dead(member)
     if not member then return false end
-    if member.entity_status ~= 3 and member.hpp ~= 0 then return false end
+    local status = member.entity_status
+    if status ~= 3 and not (status and status >= 0 and member.hpp == 0) then return false end
     local sid = member.server_id
     if sid and sid ~= 0 then song_expiry[sid] = nil end
     return true
@@ -64,15 +74,6 @@ local function song_deadline(ability, member)
     return t and t[ability.name]
 end
 
--- Songs go away with the job, so every held timer must go with it too -- else a
--- WHM keeps counting down the Victory March they sang as a Bard. The song we
--- were waiting on goes with them (pending_song is declared below, so this goes
--- through the table field rather than the upvalue).
-function buff.reset_song_timers()
-    song_expiry = {}
-    buff.handle_song_interrupted()
-end
-
 -- The song we have sent and are waiting on, or nil. Every song -- area, party,
 -- self, single-target, fast-cast -- travels the same three steps, so they all
 -- get the same timer treatment:
@@ -80,8 +81,8 @@ end
 --      we know who the song is aimed at, so the target list is resolved here.
 --   2. STARTED (buff.handle_song_cast_start, on our own cast-BEGIN packet for
 --      that spell id) -- until this lands the command may never have reached the
---      server at all (eaten by the throttle, refused for silence / range /
---      movement / a changed target), so an armed entry alone must never stamp.
+--      server at all (refused client-side for silence / range / movement / a
+--      changed target), so an armed entry alone must never stamp.
 --   3. STAMPED (buff.handle_song_finished, on the cast-FINISH packet):
 --      * the buff starts at finish, so that is when its duration really begins;
 --      * an interrupted cast sends no finish -- buff.handle_song_interrupted
@@ -100,7 +101,22 @@ local pending_song = nil
 -- belongs to a command that never took. Without the cutoff a stale entry would
 -- sit indefinitely and then stamp on the next hand-cast of that same song --
 -- which is exactly how an interrupted song ends up holding a timer.
-local PENDING_SONG_TIMEOUT = 5.0
+local PENDING_SONG_TIMEOUT = 2.0
+
+-- And a started entry is stale after this long. A cast that dies without an
+-- interrupt packet -- the case common.lua's cast_timeout = 16.0 exists for --
+-- would otherwise leave a STARTED entry with no expiry at all, free to stamp its
+-- arm-time target list on any later finish of that song. Covers the arm window
+-- plus that same 16s outer bound on a cast.
+local PENDING_SONG_MAX_CAST = 20.0
+
+-- Songs go away with the job, so every held timer must go with it too -- else a
+-- WHM keeps counting down the Victory March they sang as a Bard, and the song we
+-- were waiting on goes with them.
+function buff.reset_song_timers()
+    song_expiry = {}
+    pending_song = nil
+end
 
 -- Remember what to stamp once the cast lands. Server ids are resolved now rather
 -- than at finish so a party reshuffle mid-cast can't retarget the stamp.
@@ -140,11 +156,16 @@ end
 
 -- Called from Sidekick.lua's 0x028 handler on the player's own cast-BEGIN
 -- (category 8, non-interrupt). Promotes the armed song once we see the server
--- actually start it. Any other spell starting means ours never went out, so the
--- entry is dropped rather than left to stamp on some later finish.
+-- actually start it. Any other spell starting while we are still ARMED means
+-- ours never went out, so the entry is dropped rather than left to stamp on some
+-- later finish. Once STARTED it is left alone: our own cast is under way, and a
+-- stray player-sourced cast-begin (the mid-cast /debuff of a Pianissimo fast-cast
+-- is the one that could plausibly emit one) must not silently cancel the timer.
+-- Nothing is risked by keeping it -- the finish still has to match the spell id
+-- and beat PENDING_SONG_MAX_CAST.
 function buff.handle_song_cast_start(spell_id)
     local p = pending_song
-    if not p then return end
+    if not p or p.started then return end
     if p.spell_id ~= spell_id or (os.clock() - p.armed_at) > PENDING_SONG_TIMEOUT then
         pending_song = nil
         return
@@ -163,11 +184,14 @@ end
 -- different spell finishing just drops the pending entry instead of stamping the
 -- wrong song. `started` is the interrupt guard: only a cast we watched the
 -- server begin may stamp, so an entry left over from a song that was interrupted
--- or never sent cannot ride a later finish packet into a timer.
+-- or never sent cannot ride a later finish packet into a timer. The age bound is
+-- the other half of that: a started cast that died without an interrupt packet
+-- must not sit forever waiting to stamp the next hand-cast of the same song.
 function buff.handle_song_finished(spell_id)
     local p = pending_song
     pending_song = nil
-    if not p or not p.started or p.spell_id ~= spell_id then return end
+    if not p or not p.started or p.spell_id ~= spell_id
+       or (os.clock() - p.armed_at) > PENDING_SONG_MAX_CAST then return end
     local state = common.game_state
     if not state or not state.player then return end
     local dur = p.duration
@@ -343,7 +367,6 @@ local function area_needs_recast(ability, party_buff_config, song_keys, availabl
                 -- Self is always in range/zone and covered by a self-cast song.
                 target_buffs = state.player.buffs or {}
             else
-                local member = state.party[ti]
                 -- Trusts have unreliable buff tracking: drops aren't detected and
                 -- only one copy of a buff_id is visible (stacked songs like Ballad
                 -- I+II always look short), which would force an endless area recast.
