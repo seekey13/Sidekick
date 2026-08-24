@@ -22,7 +22,8 @@ local INVISIBLE_BUFF = common.INVISIBLE_BUFF
 local NIGHTINGALE_BUFF = 347
 local TROUBADOUR_BUFF  = 348
 
--- Manual song timers: [server_id][ability.name] = os.clock() deadline. Active
+-- Manual song timers: [server_id][ability.name] = {deadline, verify_at}, both
+-- os.clock() stamps. Active
 -- only for a level-75 main-job Bard with settings.song_duration > 0 (that's
 -- where song+ duration gear lives). Instead of waiting for a buff to vanish
 -- from memory (always a reaction, so always downtime), each song we land is
@@ -71,7 +72,28 @@ local function song_deadline(ability, member)
     local sid = member and member.server_id
     if not sid or sid == 0 then return nil end
     local t = song_expiry[sid]
-    return t and t[ability.name]
+    local row = t and t[ability.name]
+    if not row then return nil end
+    -- Landing check, run once per stamp. The cast-FINISH packet proves the song
+    -- resolved, not who it reached: an area song stamps everyone who was in
+    -- radius at send, so a member who walked out mid-cast holds a full timer for
+    -- a song that never touched them, and their re-sing stays suppressed for its
+    -- whole duration. Their buff list settles the question -- but not at finish,
+    -- where the song has not posted to it yet (game_state is a per-frame
+    -- snapshot, and the buff array fills from the server's status packet, not
+    -- from the 0x028 we stamped on). So the row carries a verify_at and the
+    -- check waits until then; missing the buff by that point means the song
+    -- never landed, and the timer goes rather than lie for its full duration.
+    -- Deferred to the read because that is the only place we hold the member's
+    -- buffs, and it is exactly when the answer matters.
+    if row.verify_at and os.clock() >= row.verify_at then
+        row.verify_at = nil
+        if ability.buff_id and not action_core.has_any_buff(member.buffs, ability.buff_id) then
+            t[ability.name] = nil
+            return nil
+        end
+    end
+    return row.deadline
 end
 
 -- The song we have sent and are waiting on, or nil. Every song -- area, party,
@@ -109,6 +131,12 @@ local PENDING_SONG_TIMEOUT = 2.0
 -- arm-time target list on any later finish of that song. Covers the arm window
 -- plus that same 16s outer bound on a cast.
 local PENDING_SONG_MAX_CAST = 20.0
+
+-- How long after the cast finishes before a stamped timer is checked against the
+-- target's buff list (see song_deadline). Long enough for the server's status
+-- packet to land and the next game_state refresh to pick it up, so a song that
+-- really did land is never clipped for not having posted yet.
+local SONG_VERIFY_DELAY = 5.0
 
 -- Songs go away with the job, so every held timer must go with it too -- else a
 -- WHM keeps counting down the Victory March they sang as a Bard, and the song we
@@ -198,10 +226,11 @@ function buff.handle_song_finished(spell_id)
     if action_core.has_any_buff(state.player.buffs, TROUBADOUR_BUFF) then
         dur = dur * 2
     end
-    local expiry = os.clock() + dur
+    local now    = os.clock()
+    local expiry = now + dur
     for _, sid in ipairs(p.sids) do
         song_expiry[sid] = song_expiry[sid] or {}
-        song_expiry[sid][p.name] = expiry
+        song_expiry[sid][p.name] = { deadline = expiry, verify_at = now + SONG_VERIFY_DELAY }
     end
 end
 
