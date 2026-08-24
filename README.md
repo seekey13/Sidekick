@@ -84,6 +84,7 @@ The one exception is **opt-in leader following** (off by default): with **Follow
 - **`/anon` no longer makes Sidekick skip every ability** — it was reading you as level 0. — **Atsumu**, **Pax**
 - **Loading Sidekick while the game is still loading** no longer leaves the Start/Stop button backwards.
 - **Two area songs sharing a buff both go up** now (Victory March and Advancing March). — **Sleazy**
+- **A dead party member no longer forces area songs to recast on cooldown** — they are skipped until raised, instead of their empty buff list demanding a re-sing that reset everyone else's songs.
 - **Zoning no longer unticks your spells** or drops song selections. — **Kelzalik**
 - **Red Mage stops recasting Flurry forever** — it watches the status the spell actually gives. — **Swizz**
 - **Amnesia holds back pet commands too**: PUP Maneuvers and Deploy, BST Ready moves and Fight, SMN Blood Pacts and Assault.
