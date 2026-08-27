@@ -2044,12 +2044,34 @@ function common.apply_external_buff(server_id, buff_id, duration, source_id, spe
     end
     local times = buff_timestamps[server_id]
 
-    local key = spell_id and ('spell:' .. spell_id) or nil
-    if not key then
+    local function key_for_status()
         for k, t in pairs(times) do
-            if t.id == buff_id then key = k break end
+            if t.id == buff_id then return k end
         end
-        key = key or ('status:' .. buff_id)
+        return nil
+    end
+
+    local key
+    if spell_id then
+        -- Per caster, not per spell: two bards singing the same song on one
+        -- target hold two separate instances, and a bare spell key collapses
+        -- them into one row -- the second application then hits the refresh
+        -- early-out below and is never tracked at all, and evict_oldest_songs
+        -- (which counts per src) loses its accounting with it.
+        key = 'spell:' .. spell_id .. (source_id and (':' .. source_id) or '')
+        -- One landing is detected twice -- pending cast and 0x028 gain -- and
+        -- the two resolve different keys whenever only one of them carried a
+        -- spell id (a 0x029 gain arriving first keys on the status alone). For
+        -- anything but a song that is one effect, not two: refresh the row we
+        -- already hold rather than stack a phantom second instance that
+        -- count_instances would then read as the target being covered.
+        -- Songs are exempt because tiers sharing a status id (Ballad + Ballad II
+        -- = two of 196) really are two instances, told apart only by spell id.
+        if not times[key] and not is_song_buff(buff_id) then
+            key = key_for_status() or key
+        end
+    else
+        key = key_for_status() or ('status:' .. buff_id)
     end
 
     -- Stamp/refresh the start time on every application; keep a previously

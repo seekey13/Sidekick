@@ -54,8 +54,11 @@ local effective_song_duration = 0
 -- same line dozens of times a second. Log only when the text actually changes.
 -- Numbers are stripped for the comparison so a countdown ("cooldown (8.2s)" ->
 -- "(8.1s)") counts as the same message and prints once.
+-- common.debugf drops the line with debug off, but only after we have formatted
+-- and gsub'd it -- per frame, on the hot path. Check the flag before building.
 local last_song_log = {}
 local function song_debugf(key, fmt, ...)
+    if not common.debug then return end
     local msg = string.format(fmt, ...)
     local sig = msg:gsub('%d+%.?%d*', '#')
     if last_song_log[key] == sig then return end
@@ -178,6 +181,16 @@ function buff.reset_song_timers()
     effective_song_duration = 0
 end
 
+-- Drop every song timer held for one member. Our own death is the case that
+-- needs it: song_member_dead never sees us, because the tick loop's is_dead
+-- guard returns before buff.execute runs, and by the time we are raised the
+-- read says alive again -- so our own row would survive a death that stripped
+-- the songs it stands for, and we would sing nothing for a whole duration.
+-- Only the caller's row goes: everyone else's songs outlive our death.
+function buff.forget_song_timers(server_id)
+    if server_id and server_id ~= 0 then song_expiry[server_id] = nil end
+end
+
 -- Live song timers for the /sk panel readout: [server_id][song name] = {deadline}.
 -- Read-only view of the real table -- the panel formats it, nothing writes here.
 function buff.song_timers()
@@ -197,14 +210,17 @@ local function queue_song_stamp(ability, duration, state, target_index, keep)
     local sids = {}
     if target_index then
         local m = (target_index == 0) and state.player or state.party[target_index]
-        if m and (m.server_id or 0) > 0 then sids[1] = m.server_id end
+        if m and (m.server_id or 0) > 0 and not song_member_dead(m) then sids[1] = m.server_id end
     else
         if (state.player.server_id or 0) > 0 then sids[1] = state.player.server_id end
         local player_zone = common.get_party_member_zone(0)
         for ti = 1, 5 do
             local m  = state.party[ti]
             local ei = m and m.target_index
-            if ei and ei > 0 and (m.server_id or 0) > 0
+            -- A corpse in radius takes no song, so it takes no timer either --
+            -- both readers drop it again on their next pass, but stamping it at
+            -- all means one frame where a dead member looks covered.
+            if ei and ei > 0 and (m.server_id or 0) > 0 and not song_member_dead(m)
                and common.get_party_member_zone(ti) == player_zone
                and common.is_in_range(ei, SONG_AOE_RANGE) then
                 sids[#sids + 1] = m.server_id
@@ -450,11 +466,13 @@ end
 -- member voting the same reason every tick, and the reason says which of the
 -- three tests it came from.
 local function area_vote(ability, ti, reason, buffs)
-    local ids = {}
-    for _, id in ipairs(buffs or {}) do ids[#ids + 1] = tostring(id) end
-    song_debugf(ability.name .. '/vote', '%s area recast: %s -- %s [buffs: %s]', ability.name,
-        ti == 0 and 'ME' or ('P' .. ti), reason,
-        #ids > 0 and table.concat(ids, ',') or 'none')
+    if common.debug then
+        local ids = {}
+        for _, id in ipairs(buffs or {}) do ids[#ids + 1] = tostring(id) end
+        song_debugf(ability.name .. '/vote', '%s area recast: %s -- %s [buffs: %s]', ability.name,
+            ti == 0 and 'ME' or ('P' .. ti), reason,
+            #ids > 0 and table.concat(ids, ',') or 'none')
+    end
     return true
 end
 
@@ -684,6 +702,10 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
     end
     manual_tracking = manual_tracking and song_duration > 0
     effective_song_duration = manual_tracking and song_duration or 0
+    -- Set when a due [A] song is merely waiting out its recast: Phase 2 skips
+    -- single-target songs while it holds, since the area song would overwrite
+    -- them moments later. Declared out here because Phase 2 reads it.
+    local hold_songs = false
     if fast_casting or not has_pianissimo then
         -- Hold AOE for Group: members with at least one single-target (Pianissimo)
         -- song assigned are managed individually, so their range must not gate the
@@ -757,9 +779,15 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
         -- cast thrown away. Fast-casting holds on any failure (Phase 2 songs are
         -- blocked by the same silence/MP anyway, so nothing is lost); normal mode
         -- holds only for a recast, which is transient.
-        if (fast_casting and area_pending) or area_on_recast then
+        if fast_casting and area_pending then
             return nil
         end
+        -- Normal mode holds back the single-target SONGS only. They are the ones
+        -- the area cast would overwrite; every other buff the job maintains (a
+        -- subjob Protect, Nightingale, a rune) has nothing to do with the area
+        -- song and must not be stalled for the length of its recast -- which
+        -- returning out of the module here would do.
+        hold_songs = area_on_recast
     end
 
     -- Phase 2: single-target buffs (ME/P1-P5, alliance, tracked).
@@ -776,6 +804,13 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
         -- enemy debuff -- don't try to place a Geo buff luopan. (Geo-bt itself
         -- lives in abilities.geo now, so it never reaches this buff loop.)
         if ability.group == 'Geo' and common.is_combat() and settings['disabled_group_Geo-bt'] ~= true then
+            goto continue_ability
+        end
+
+        -- An [A] song is due and only its recast is in the way: singing a
+        -- single-target song now throws the cast away, since the area song
+        -- overwrites it as soon as the recast is up. Songs only -- see hold_songs.
+        if hold_songs and ability.magic == 'song' then
             goto continue_ability
         end
 

@@ -572,6 +572,14 @@ local function automation_tick()
             range_state.follow_enabled = true
             common.debugf('[Range] Dead, re-enabling follow')
         end
+        -- Death strips our own songs like anyone else's, but buff.lua's corpse
+        -- check never runs on us: this guard returns before buff.execute, and
+        -- once we are raised the read says alive. Drop our timers here instead,
+        -- so a raised Bard re-establishes their songs at once.
+        local me = common.game_state and common.game_state.player
+        if me and action_modules.buff then
+            action_modules.buff.forget_song_timers(me.server_id)
+        end
         return
     end
 
