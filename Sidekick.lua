@@ -1026,22 +1026,22 @@ ashita.events.register('packet_in', 'sidekick_packet_in', function(e)
 
                         -- Update Trust buff tracking so game_state reflects the change
                         if target.Id >= 0x1000000 then
-                            common.apply_trust_buff(target.Id, action.Param, duration, source_id, spell_name)
+                            common.apply_trust_buff(target.Id, action.Param, duration, source_id, actionPacket.Param)
                         end
 
                         -- Update tracked target buff tracking
                         if common.is_tracked_target(target.Id) then
-                            common.apply_tracked_target_buff(target.Id, action.Param, duration, source_id, spell_name)
+                            common.apply_tracked_target_buff(target.Id, action.Param, duration, source_id, actionPacket.Param)
                         end
 
                         -- Update alliance member buff tracking
                         if common.is_alliance_member(target.Id) then
-                            common.apply_alliance_member_buff(target.Id, action.Param, duration, source_id, spell_name)
+                            common.apply_alliance_member_buff(target.Id, action.Param, duration, source_id, actionPacket.Param)
                         end
 
                         -- Update pet buff/debuff tracking
                         if common.is_pet(target.Id) then
-                            common.apply_pet_buff(target.Id, action.Param, duration, source_id, spell_name)
+                            common.apply_pet_buff(target.Id, action.Param, duration, source_id, actionPacket.Param)
                         end
 
                     elseif action.Message == 83 then

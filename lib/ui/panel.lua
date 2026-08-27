@@ -8,6 +8,7 @@ local panel = {}
 
 local imgui = require('imgui')
 local common = require('lib.core.common')
+local buff = require('lib.actions.buff')
 local afk = require('lib.core.afk')
 local tooltips = require('lib.ui.tooltips')
 local components = require('lib.ui.components')
@@ -105,6 +106,31 @@ local function fmt_buffs(buffs, sep)
         table.insert(parts, buff_name(id))
     end
     return table.concat(parts, sep or ', ')
+end
+
+-- Manual song timers, one line per party member holding any. Empty unless
+-- Song Duration (s) > 0 -- that setting is what turns stamping on. Area [A]
+-- casts stamp everyone in range, so a stuck area song shows itself here.
+local function song_timer_lines(gs)
+    local timers = buff.song_timers()
+    local now, lines = os.clock(), {}
+    local function add(label, m)
+        local t = m and m.server_id and timers[m.server_id]
+        if not t then return end
+        local parts = {}
+        for name, row in pairs(t) do
+            local left = row.deadline - now
+            parts[#parts + 1] = string.format('%s %s', name,
+                left > 0 and string.format('%.0fs', left) or 'due')
+        end
+        if #parts == 0 then return end
+        table.sort(parts)
+        lines[#lines + 1] = string.format('%s %s: %s', label, m.name or '--',
+            table.concat(parts, ', '))
+    end
+    add('ME', gs.player)
+    for i = 1, 5 do add('P' .. i, gs.party and gs.party[i]) end
+    return #lines > 0 and table.concat(lines, '\n') or nil
 end
 
 local function job_abbr(id)
@@ -477,6 +503,12 @@ function panel.render(addon_settings, save_settings)
             if imgui.IsItemHovered() then
                 imgui.SetTooltip(tooltips.song_duration)
             end
+
+            -- Area group buff tracking: the timers those songs are stamped on,
+            -- read straight out of lib/actions/buff.lua. Read-only.
+            imgui.SameLine(0, 20)
+            imgui.Text('Area Buffs:')
+            imgui.Text(song_timer_lines(gs) or 'none')
 
             -- AFK Sleep (global). afk_timeout is stored in seconds but shown in
             -- minutes, so read afk_timeout/60 and write value*60. Starts the

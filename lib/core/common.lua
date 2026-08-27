@@ -125,9 +125,12 @@ local SONG_DURATION = 120
 -- statuses, so an early drop just clears tracking and re-adds on next detection.
 local UNKNOWN_BUFF_DURATION = 300
 
--- Song slots a Trust holds (main-job bard). A new song beyond this evicts the
--- oldest-start-time song, mirroring the game's overwrite behavior.
-local TRUST_SONG_SLOTS = 2
+-- Song slots one caster holds on one target. A main-job Bard maintains two; a
+-- subjob Bard one. A new song beyond that evicts that caster's oldest-start-time
+-- song, mirroring the game's overwrite behavior.
+local SONG_SLOTS_MAIN = 2
+local SONG_SLOTS_SUB  = 1
+local BRD_JOB_ID      = 10
 
 -- Ally-targetable song buff ids all live in 195-222 (Paeon..Scherzo);
 -- 192-194 / 217 target enemies and never land on allies via these handlers.
@@ -1776,8 +1779,11 @@ function common.base_buff_duration(buff_id, spell_name, server_id)
 end
 
 -- Register a pending buff when we initiate a cast on a Trust
--- Args: server_id (number), buff_id (number), spell_name (string|nil - for base duration lookup)
-function common.register_pending_buff(server_id, buff_id, spell_name)
+-- Args: server_id (number), buff_id (number), spell_name (string|nil - for base
+--       duration lookup), spell_id (number|nil - the instance key; job files name
+--       abilities with a UI label, so only the id matches what the 0x028 gain loop
+--       resolves for the same landing)
+function common.register_pending_buff(server_id, buff_id, spell_name, spell_id)
     if not server_id or not buff_id then return end
     
     -- Clean up expired pending buffs first
@@ -1795,7 +1801,7 @@ function common.register_pending_buff(server_id, buff_id, spell_name)
     table.insert(pending_buffs, {
         server_id = server_id,
         buff_id = buff_id,
-        spell_name = spell_name,
+        spell_id = spell_id,
         duration = common.base_buff_duration(buff_id, spell_name, server_id),
         timestamp = current_time
     })
@@ -1819,14 +1825,14 @@ function common.handle_buff_application()
     if (os.clock() - pending.timestamp) > PENDING_BUFF_TIMEOUT then return end
     local source_id = common.game_state and common.game_state.player and common.game_state.player.server_id
     common.apply_external_buff(pending.server_id, pending.buff_id, pending.duration, source_id,
-        pending.spell_name)
+        pending.spell_id)
 end
 
 -- Directly apply a buff to a Trust's tracked buff list (called from packet detection)
 -- Args: server_id (number), buff_id (number), duration (number|nil), source_id (number|nil - caster)
-function common.apply_trust_buff(server_id, buff_id, duration, source_id, spell_name)
+function common.apply_trust_buff(server_id, buff_id, duration, source_id, spell_id)
     if not server_id or server_id < 0x1000000 then return end
-    common.apply_external_buff(server_id, buff_id, duration, source_id, spell_name)
+    common.apply_external_buff(server_id, buff_id, duration, source_id, spell_id)
 end
 
 -- True when server_id is the current pet (refreshed each tick). Packet handlers
@@ -1837,9 +1843,9 @@ end
 
 -- Apply a buff/debuff to the pet's tracked list (called from packet detection).
 -- Pets never receive songs, so source_id is unused here but kept for a uniform signature.
-function common.apply_pet_buff(server_id, buff_id, duration, source_id, spell_name)
+function common.apply_pet_buff(server_id, buff_id, duration, source_id, spell_id)
     if not common.is_pet(server_id) then return end
-    common.apply_external_buff(server_id, buff_id, duration, source_id, spell_name)
+    common.apply_external_buff(server_id, buff_id, duration, source_id, spell_id)
 end
 
 -- Drop one tracked instance: its buff_timestamps row plus one matching id from
@@ -1981,6 +1987,16 @@ end
 -- most keep_n of that caster's songs remain. Song slots are per-caster in FFXI:
 -- each bard maintains their own set on a target, so we only ever evict songs whose
 -- tracked source matches source_id -- another bard's songs never count here.
+-- Slots the caster holds. Only our own job is readable, so every other caster
+-- is taken for a main-job Bard -- the same assumption the old flat 2 made.
+local function song_slots(source_id)
+    local me = common.game_state and common.game_state.player
+    if not me or not source_id or source_id ~= me.server_id then return SONG_SLOTS_MAIN end
+    local main_job, sub_job = common.get_player_job()
+    if main_job ~= BRD_JOB_ID and sub_job == BRD_JOB_ID then return SONG_SLOTS_SUB end
+    return SONG_SLOTS_MAIN
+end
+
 local function evict_oldest_songs(server_id, source_id, keep_n)
     local times = buff_timestamps[server_id] or {}
     local songs = {}
@@ -2007,13 +2023,16 @@ end
 -- Used by both apply_alliance_member_buff and apply_tracked_target_buff.
 -- duration   (seconds, optional): base duration for timed expiry; nil = no timer.
 -- source_id  (server_id, optional): the caster, for per-caster song slot accounting.
--- spell_name (optional): the spell that applied it -- the instance key. Two tiers
+-- spell_id   (optional): the spell that applied it -- the instance key. Two tiers
 --   sharing a status id (Ballad + Ballad II) are two effects in-game, and only the
---   spell tells them apart; re-applying the same spell refreshes its own row.
---   Without a name (0x029 carries no spell id) an already-tracked instance of that
---   status is refreshed instead -- a second detection of the effect we know about
---   is the likelier reading than a second effect having appeared unseen.
-function common.apply_external_buff(server_id, buff_id, duration, source_id, spell_name)
+--   spell tells them apart; re-applying the same spell refreshes its own row. It is
+--   the spell ID and not the ability name because one landing is detected twice --
+--   once through the pending-cast path, once through the 0x028 gain loop -- and
+--   only the id reads the same in both (job files carry a UI label for a name).
+--   With no id (0x029 carries none) an already-tracked instance of that status is
+--   refreshed instead: a second detection of the effect we know about is the
+--   likelier reading than a second effect having appeared unseen.
+function common.apply_external_buff(server_id, buff_id, duration, source_id, spell_id)
     if not server_id or not buff_id then return end
 
     if not trust_buffs[server_id] then
@@ -2025,12 +2044,12 @@ function common.apply_external_buff(server_id, buff_id, duration, source_id, spe
     end
     local times = buff_timestamps[server_id]
 
-    local key = spell_name
+    local key = spell_id and ('spell:' .. spell_id) or nil
     if not key then
         for k, t in pairs(times) do
             if t.id == buff_id then key = k break end
         end
-        key = key or buff_id
+        key = key or ('status:' .. buff_id)
     end
 
     -- Stamp/refresh the start time on every application; keep a previously
@@ -2059,7 +2078,7 @@ function common.apply_external_buff(server_id, buff_id, duration, source_id, spe
     -- the caster's slots nor eligible for eviction itself. Evicting the last
     -- tracked status drops both tables, hence the re-seat below.
     if is_song_buff(buff_id) and source_id then
-        evict_oldest_songs(server_id, source_id, TRUST_SONG_SLOTS - 1)
+        evict_oldest_songs(server_id, source_id, song_slots(source_id) - 1)
     end
 
     buff_timestamps[server_id] = buff_timestamps[server_id] or {}
@@ -2092,10 +2111,10 @@ function common.expire_timed_buffs()
 end
 
 -- Apply a buff to an alliance member (packet-based, reuses trust_buffs table).
-function common.apply_alliance_member_buff(server_id, buff_id, duration, source_id, spell_name)
+function common.apply_alliance_member_buff(server_id, buff_id, duration, source_id, spell_id)
     if not server_id or not buff_id then return end
     if not alliance_member_sids[server_id] then return end
-    common.apply_external_buff(server_id, buff_id, duration, source_id, spell_name)
+    common.apply_external_buff(server_id, buff_id, duration, source_id, spell_id)
 end
 
 -- Get Trust buffs by server_id
@@ -2275,10 +2294,10 @@ function common.get_tracked_target_buffs(server_id)
 end
 
 -- Apply a buff to a tracked target (packet-based, reuses trust_buffs table).
-function common.apply_tracked_target_buff(server_id, buff_id, duration, source_id, spell_name)
+function common.apply_tracked_target_buff(server_id, buff_id, duration, source_id, spell_id)
     if not server_id or not buff_id then return end
     if not tracked_targets[server_id] then return end
-    common.apply_external_buff(server_id, buff_id, duration, source_id, spell_name)
+    common.apply_external_buff(server_id, buff_id, duration, source_id, spell_id)
 end
 
 -- Check if a server_id belongs to a tracked target.
