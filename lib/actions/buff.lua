@@ -37,6 +37,19 @@ local TROUBADOUR_BUFF  = 348
 -- ponytail: entries for members who left the party linger; bounded and inert.
 local song_expiry = {}
 
+-- The area song path re-evaluates every frame, so a plain debugf there prints the
+-- same line dozens of times a second. Log only when the text actually changes.
+-- Numbers are stripped for the comparison so a countdown ("cooldown (8.2s)" ->
+-- "(8.1s)") counts as the same message and prints once.
+local last_song_log = {}
+local function song_debugf(key, fmt, ...)
+    local msg = string.format(fmt, ...)
+    local sig = msg:gsub('%d+%.?%d*', '#')
+    if last_song_log[key] == sig then return end
+    last_song_log[key] = sig
+    common.debugf('[SONG] %s', msg)
+end
+
 -- True when this member is dead, dropping every song timer we hold for them on
 -- the way out. Death strips every buff, songs included, so a held timer is a lie
 -- the moment they fall. Callers then skip them outright until they are raised:
@@ -148,6 +161,7 @@ local SONG_VERIFY_DELAY = 5.0
 function buff.reset_song_timers()
     song_expiry = {}
     pending_song = nil
+    last_song_log = {}
 end
 
 -- Live song timers for the /sk panel readout: [server_id][song name] = {deadline}.
@@ -204,10 +218,14 @@ end
 -- is the one that could plausibly emit one) must not silently cancel the timer.
 -- Nothing is risked by keeping it -- the finish still has to match the spell id
 -- and beat PENDING_SONG_MAX_CAST.
-function buff.handle_song_cast_start(spell_id)
+function buff.handle_song_cast_start()
     local p = pending_song
     if not p or p.started then return end
-    if p.spell_id ~= spell_id or (os.clock() - p.armed_at) > PENDING_SONG_TIMEOUT then
+    -- No spell id to check against: a category 8 packet's Param is a fixed marker,
+    -- not the spell being cast (see parse_packets). The age bound is the whole
+    -- guard, and it is enough -- the command throttle means only one action of
+    -- ours can be in flight, and the finish packet still has to match the id.
+    if (os.clock() - p.armed_at) > PENDING_SONG_TIMEOUT then
         pending_song = nil
         return
     end
@@ -232,7 +250,16 @@ function buff.handle_song_finished(spell_id)
     local p = pending_song
     pending_song = nil
     if not p or not p.started or p.spell_id ~= spell_id
-       or (os.clock() - p.armed_at) > PENDING_SONG_MAX_CAST then return end
+       or (os.clock() - p.armed_at) > PENDING_SONG_MAX_CAST then
+        -- Say which half of the handshake failed -- an empty timer table is
+        -- otherwise silent, and the three causes want different fixes.
+        if p then
+            common.debugf('[SONG] %s stamp dropped: started=%s, age %.1fs, spell %s vs finish %s',
+                p.name, tostring(p.started), os.clock() - p.armed_at,
+                tostring(p.spell_id), tostring(spell_id))
+        end
+        return
+    end
     local state = common.game_state
     if not state or not state.player then return end
     local dur = p.duration
@@ -411,7 +438,7 @@ end
 local function area_vote(ability, ti, reason, buffs)
     local ids = {}
     for _, id in ipairs(buffs or {}) do ids[#ids + 1] = tostring(id) end
-    common.debugf('[SONG] %s area recast: %s -- %s [buffs: %s]', ability.name,
+    song_debugf(ability.name .. '/vote', '%s area recast: %s -- %s [buffs: %s]', ability.name,
         ti == 0 and 'ME' or ('P' .. ti), reason,
         #ids > 0 and table.concat(ids, ',') or 'none')
     return true
@@ -645,7 +672,7 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                 else
                     local desc = string.format('Applying area buff: %s', ability.name)
                     local result, reason = action_core.try_use(ability, job_def, settings, 0, desc, state)
-                    common.debugf('[SONG] %s area cast: %s', ability.name,
+                    song_debugf(ability.name .. '/cast', '%s area cast: %s', ability.name,
                         result and 'sent' or ('BLOCKED -- ' .. tostring(reason)))
                     if result then
                         -- Queue everyone the area cast covers for this song's

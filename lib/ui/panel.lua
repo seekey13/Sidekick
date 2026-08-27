@@ -111,7 +111,7 @@ end
 -- Manual song timers, one line per party member holding any. Empty unless
 -- Song Duration (s) > 0 -- that setting is what turns stamping on. Area [A]
 -- casts stamp everyone in range, so a stuck area song shows itself here.
-local function song_timer_lines(gs)
+local function song_timer_lines(gs, settings)
     local timers = buff.song_timers()
     local now, lines = os.clock(), {}
     local function add(label, m)
@@ -130,7 +130,18 @@ local function song_timer_lines(gs)
     end
     add('ME', gs.player)
     for i = 1, 5 do add('P' .. i, gs.party and gs.party[i]) end
-    return #lines > 0 and table.concat(lines, '\n') or nil
+    if #lines > 0 then return table.concat(lines, '\n') end
+
+    -- Nothing held: say WHY, so an empty readout tells you whether stamping is
+    -- switched off or simply has not happened yet. Same two gates buff.execute
+    -- builds manual_tracking from.
+    local dur = tonumber(settings and settings.song_duration) or 0
+    if dur <= 0 then return 'off -- Song Duration (s) is 0' end
+    local job = common.get_player_job()
+    if job ~= 10 or (common.get_player_level() or 0) < 75 then
+        return 'off -- needs Bard main job at level 75'
+    end
+    return 'none held -- no song has finished casting yet'
 end
 
 local function job_abbr(id)
@@ -508,7 +519,7 @@ function panel.render(addon_settings, save_settings)
             -- read straight out of lib/actions/buff.lua. Read-only.
             imgui.SameLine(0, 20)
             imgui.Text('Area Buffs:')
-            imgui.Text(song_timer_lines(gs) or 'none')
+            imgui.Text(song_timer_lines(gs, addon_settings))
 
             -- AFK Sleep (global). afk_timeout is stored in seconds but shown in
             -- minutes, so read afk_timeout/60 and write value*60. Starts the

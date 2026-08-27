@@ -972,7 +972,7 @@ ashita.events.register('packet_in', 'sidekick_packet_in', function(e)
                 if actionPacket.Param == common.INTERRUPT_PARAM then
                     action_modules.buff.handle_song_interrupted()
                 else
-                    action_modules.buff.handle_song_cast_start(actionPacket.Param)
+                    action_modules.buff.handle_song_cast_start()
                 end
             elseif actionPacket.Type == 4 and actionPacket.Param == common.INTERRUPT_PARAM then
                 -- Interrupt landing on the finish category instead of the begin one.
