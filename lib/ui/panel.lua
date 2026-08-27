@@ -111,8 +111,8 @@ end
 -- Manual song timers, one line per party member holding any. Empty unless
 -- Song Duration (s) > 0 -- that setting is what turns stamping on. Area [A]
 -- casts stamp everyone in range, so a stuck area song shows itself here.
-local function song_timer_lines(gs, settings)
-    local timers = buff.song_timers()
+local function song_timer_lines(gs)
+    local timers, duration = buff.song_timers()
     local now, lines = os.clock(), {}
     local function add(label, m)
         local t = m and m.server_id and timers[m.server_id]
@@ -133,15 +133,13 @@ local function song_timer_lines(gs, settings)
     if #lines > 0 then return table.concat(lines, '\n') end
 
     -- Nothing held: say WHY, so an empty readout tells you whether stamping is
-    -- switched off or simply has not happened yet. Same two gates buff.execute
-    -- builds manual_tracking from.
-    local dur = tonumber(settings and settings.song_duration) or 0
-    if dur <= 0 then return 'off -- Song Duration (s) is 0' end
-    local job = common.get_player_job()
-    if job ~= 10 or (common.get_player_level() or 0) < 75 then
-        return 'off -- needs Bard main job at level 75'
+    -- switched off or simply has not happened yet. buff.execute reports the
+    -- interval actually in force, which already folds in the job/level gate and
+    -- the auto-on case, so there is nothing to re-derive here.
+    if (duration or 0) <= 0 then
+        return 'off -- manual song timers not active'
     end
-    return 'none held -- no song has finished casting yet'
+    return string.format('none held -- %ds interval, no song finished yet', duration)
 end
 
 local function job_abbr(id)
@@ -520,7 +518,7 @@ function panel.render(addon_settings, save_settings)
             -- Debug Mode only: a troubleshooting readout, not a control.
             if common.debug then
                 imgui.Text('Area Buffs:')
-                imgui.Text(song_timer_lines(gs, addon_settings))
+                imgui.Text(song_timer_lines(gs))
             end
 
             -- AFK Sleep (global). afk_timeout is stored in seconds but shown in
