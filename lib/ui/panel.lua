@@ -517,9 +517,11 @@ function panel.render(addon_settings, save_settings)
 
             -- Area group buff tracking: the timers those songs are stamped on,
             -- read straight out of lib/actions/buff.lua. Read-only.
-            imgui.SameLine(0, 20)
-            imgui.Text('Area Buffs:')
-            imgui.Text(song_timer_lines(gs, addon_settings))
+            -- Debug Mode only: a troubleshooting readout, not a control.
+            if common.debug then
+                imgui.Text('Area Buffs:')
+                imgui.Text(song_timer_lines(gs, addon_settings))
+            end
 
             -- AFK Sleep (global). afk_timeout is stored in seconds but shown in
             -- minutes, so read afk_timeout/60 and write value*60. Starts the
