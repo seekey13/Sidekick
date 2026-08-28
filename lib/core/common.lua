@@ -398,8 +398,7 @@ end
 
 -- Effective combat/idle gate for `ability` right now, using only its own
 -- (static or user) combat_only/idle_only setting -- no per-target override.
--- Used wherever a target has no override concept of its own (alliance,
--- tracked targets, area songs).
+-- Used wherever a target has no override concept of its own (area songs).
 function common.ability_gate_ok_now(ability, settings)
     if common.is_ability_idle_only(ability, settings) and not common.is_idle() then return false end
     if common.is_ability_combat_only(ability, settings) and not common.is_combat() then return false end
@@ -407,8 +406,9 @@ function common.ability_gate_ok_now(ability, settings)
 end
 
 -- Session-only per-target Combat/Idle override, keyed the same way as
--- party_buff_config (group name while grouped, else ability name; numeric
--- 0-5 for ME/P1-P5). Set via the right-click menu on a ME/P1-P5 button.
+-- party_buff_config (group name while grouped, else ability name; numeric 0-5
+-- for ME/P1-P5, 'al_<flat_index>' for alliance, 'tt_<server_id>' for tracked).
+-- Set via the right-click menu on any of those buttons.
 -- Returns 'combat' | 'idle' | nil (nil = no override, inherit the ability's
 -- own gate).
 function common.target_gate_override(config_key, target_index, party_buff_gates)
@@ -435,7 +435,9 @@ end
 -- True if some target's override matches the CURRENT combat/idle state, which
 -- means filter_abilities_by_level must not drop the whole ability just
 -- because its own gate doesn't match -- that one target still wants it.
--- Only party abilities (function command) carry per-target overrides.
+-- Only per-target abilities (function command) carry overrides -- that covers
+-- ME/P1-P5 plus the alliance and tracked buttons, which build their command
+-- from a server id the same way.
 function common.ability_gate_bypassed_by_target_override(ability, settings, party_buff_gates)
     if not party_buff_gates or not ability then return false end
     if type(ability.command) ~= 'function' then return false end

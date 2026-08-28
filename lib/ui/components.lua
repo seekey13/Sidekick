@@ -195,7 +195,7 @@ local function render_combat_only_context_menu(ctx, ability, scope)
     end
 end
 
--- Text color for a ME/P1-P5 button's per-target Combat/Idle override, or nil
+-- Text color for a target button's per-target Combat/Idle override, or nil
 -- when the target has no override (inherits the ability's own gate).
 local function target_gate_color(ctx, config_key, target_index)
     local override = ctx.party_buff_gates and config_key
@@ -212,7 +212,8 @@ local function gate_tooltip_suffix(gate_color)
     return ''
 end
 
--- Right-click 'Combat Only' / 'Idle Only' popup for a single ME/P1-P5 button.
+-- Right-click 'Combat Only' / 'Idle Only' popup for a single target button
+-- (ME/P1-P5, alliance B0-C5, tracked T1..).
 -- Session-only (never written to settings) and REPLACES the ability's own
 -- combat_only/idle_only gate for this one target -- see common.target_gate_ok.
 -- Buff abilities only (id_suffix == 'buff'): debuff-removal's na-spell buttons
@@ -1544,6 +1545,9 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group,
                         imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_UNSELECTED_ACTIVE)
                     end
 
+                    local al_gate_color = not is_disabled and target_gate_color(ctx, key_name, al_key)
+                    if al_gate_color then imgui.PushStyleColor(ImGuiCol_Text, al_gate_color) end
+
                     local button_label = prefix .. local_idx .. '##' .. key_name .. '_' .. al_key
                     local clicked = imgui.Button(button_label, { PARTY_BUTTON_WIDTH, 0 })
                     if clicked and not is_disabled then
@@ -1554,13 +1558,19 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group,
                         end
                     end
 
+                    if not is_disabled then
+                        render_target_gate_context_menu(ctx, ability, key_name, al_key, id_suffix)
+                    end
+
                     if imgui.IsItemHovered() then
                         if not is_compatible then
                             ui_components.set_tooltip('Not compatible with out-of-party targets')
                         else
-                            ui_components.set_tooltip(m.name or (prefix .. local_idx))
+                            ui_components.set_tooltip((m.name or (prefix .. local_idx)) .. gate_tooltip_suffix(al_gate_color))
                         end
                     end
+
+                    if al_gate_color then imgui.PopStyleColor() end
 
                     if is_disabled then
                         imgui.PopStyleColor(4)
@@ -1605,6 +1615,9 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group,
                 imgui.PushStyleColor(ImGuiCol_ButtonActive, COLOR_BUTTON_UNSELECTED_ACTIVE)
             end
 
+            local tt_gate_color = not is_disabled and target_gate_color(ctx, key_name, tt_key)
+            if tt_gate_color then imgui.PushStyleColor(ImGuiCol_Text, tt_gate_color) end
+
             local tt_button_label = 'T' .. t_idx .. '##' .. key_name .. '_t' .. tt.sid
             local clicked = imgui.Button(tt_button_label, { PARTY_BUTTON_WIDTH, 0 })
             if clicked and not is_disabled then
@@ -1613,6 +1626,10 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group,
                 else
                     toggle_party_buff(ctx, key_name, tt_key, not is_tt_enabled)
                 end
+            end
+
+            if not is_disabled then
+                render_target_gate_context_menu(ctx, ability, key_name, tt_key, id_suffix)
             end
 
             -- Tooltip: show target name, or reason why button is disabled
@@ -1624,9 +1641,11 @@ local function render_party_buttons(ctx, key_name, has_spell, ability, is_group,
                 elseif ctx.show_buff_warning then
                     ui_components.set_tooltip(tt.name .. '\nTrust/Tracked Buff tracking is not totally reliable')
                 else
-                    ui_components.set_tooltip(tt.name)
+                    ui_components.set_tooltip(tt.name .. gate_tooltip_suffix(tt_gate_color))
                 end
             end
+
+            if tt_gate_color then imgui.PopStyleColor() end
 
             if is_disabled then
                 imgui.PopStyleColor(4)

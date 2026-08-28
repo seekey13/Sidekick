@@ -1074,10 +1074,9 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
 
                 -- After checking party members, check enabled alliance members
                 -- (only if ability has target_outside, same restriction as tracked targets).
-                -- Alliance targets have no per-target override, so they must still obey the
-                -- ability's plain global gate even if a ME/P1-P5 override let it past the
-                -- filter above for a different target.
-                if ability.target_outside and state.alliance and common.ability_gate_ok_now(ability, settings) then
+                -- The combat/idle gate is per-target (right-click a B/C button), checked
+                -- inside the loop below alongside the party ME/P1-P5 buttons.
+                if ability.target_outside and state.alliance then
                     for al_pi = 2, 3 do
                         local sub_party = state.alliance[al_pi]
                         if sub_party then
@@ -1086,7 +1085,7 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                                 local flat_index = base_flat + local_idx
                                 local al_key = 'al_' .. flat_index
                                 local is_al_enabled = party_buff_config and party_buff_config[config_key] and party_buff_config[config_key][al_key] == true
-                                if is_al_enabled then
+                                if is_al_enabled and common.target_gate_ok(ability, config_key, al_key, settings, party_buff_gates) then
                                     local m = sub_party[local_idx]
                                     -- Same travel_buff Trust skip as the party loop -- other
                                     -- players' Trusts show up in the alliance sub-parties.
@@ -1122,14 +1121,15 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                 end
 
                 -- After checking party members, also check tracked targets (only if ability has target_outside)
-                -- Same global-gate guard as the alliance loop above -- tracked targets have
-                -- no per-target override either.
-                if ability.target_outside and state.tracked and common.ability_gate_ok_now(ability, settings) then
+                -- Same per-target combat/idle gate as the alliance loop above -- right-click
+                -- a T button to override the ability's own gate for that target.
+                if ability.target_outside and state.tracked then
                     for sid, tt in pairs(state.tracked) do
                         -- Check if this tracked target has its button enabled in the config
                         local tt_key = 'tt_' .. sid
                         local is_tt_enabled = party_buff_config and party_buff_config[config_key] and party_buff_config[config_key][tt_key] == true
-                        if is_tt_enabled and tt.is_active and tt.target_index and tt.target_index > 0 and common.is_in_range(tt.target_index, 20) then
+                        if is_tt_enabled and common.target_gate_ok(ability, config_key, tt_key, settings, party_buff_gates)
+                            and tt.is_active and tt.target_index and tt.target_index > 0 and common.is_in_range(tt.target_index, 20) then
                             local tt_buffs = tt.buffs or {}
                             local tt_needs_buff = action_core.needs_buff(tt_buffs, ability.buff_id)
                             if tt_needs_buff then

@@ -62,7 +62,7 @@ The one exception is **opt-in leader following** (off by default): with **Follow
 - **Hold a Stratagem for AOE**: right-click the Accession row to keep one charge in reserve for the party heal.
 - **Shared party list**: a second box outside the party tracks everyone automatically, with real jobs, levels and max HP — no `/check`. — **Kelzalik**
 - **Pet Control (PUP/SMN/BST)**: keeps up to 3 Maneuvers applied, plus an opt-in Deploy/Assault/Fight toggle that sends your pet at your target.
-- **Per-target Combat/Idle overrides**: right-click a buff row's ME/P1-P5 button to force Combat Only or Idle Only for that one person. Session-only. — **Seikio**
+- **Per-target Combat/Idle overrides**: right-click a buff row's ME/P1-P5, alliance or tracked button to force Combat Only or Idle Only for that one person. Session-only. — **Seikio**
 - **Hold AOE for Group announces the wait** in party chat while it holds for a straggler. — **Toranko**
 - **Floating widget (`/sk widget`)**: pops the profile button, job line, Start/Stop and status into a small movable window. — **Muziko**
 - **The config window remembers whether it was open** across reloads.
