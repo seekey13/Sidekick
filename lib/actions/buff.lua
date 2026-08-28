@@ -12,12 +12,21 @@ local action_core = require('lib.core.action_core')
 -- song, so they don't count as "missing" and never force an endless recast.
 local SONG_AOE_RANGE = 10
 
--- Re-sing interval used when manual timers are forced on with no Song Duration
--- set (see effective_song_duration). A hair under the 120s base song duration, so
--- the song is re-sung just before it drops on a bard wearing no duration gear.
--- ponytail: one flat number for every song -- they all share the 120s base. Set
--- Song Duration (s) to cover duration gear.
-local DEFAULT_SONG_DURATION = 110
+-- Re-sing interval for AREA songs when no member's buff list can answer whether
+-- one is still up (see no_readable_voter) and the user set no Song Duration. The
+-- 120s base song length: with no duration gear read from a Trust's unreliable
+-- list there is nothing better to go on, and the alternative is area songs that
+-- are never re-sung at all. Applies to [A] songs alone -- single-target songs
+-- keep waiting for the explicit setting, since guessing 120s for a bard in
+-- duration gear would re-sing their own songs early.
+local DEFAULT_SONG_DURATION = 120
+
+-- Songs one caster holds on one target: a new song beyond this overwrites that
+-- caster's oldest, and the game gives a main-job Bard two. Manual timers only
+-- run for a main-job Bard (see manual_tracking), so the sub-job's one slot never
+-- applies here. Mirrored in handle_song_finished; area_needs_recast derives the
+-- same number per tier for its slot math.
+local SONG_SLOTS = 2
 
 -- Casting anything at all breaks Invisible, so any non-travel buff cast while
 -- it's up costs an Invisible reapply on top of itself.
@@ -44,11 +53,10 @@ local TROUBADOUR_BUFF  = 348
 -- ponytail: entries for members who left the party linger; bounded and inert.
 local song_expiry = {}
 
--- The re-sing interval actually in force this tick: settings.song_duration when
--- the user set one, DEFAULT_SONG_DURATION when timers had to switch themselves
--- on, 0 when manual tracking is off. Recomputed every buff.execute and read by
--- the /sk panel readout.
-local effective_song_duration = 0
+-- server_id set of members whose song slots are wholly assigned to single-target
+-- songs. Rebuilt every buff.execute, read by handle_song_finished -- see the
+-- comment where it is filled.
+local slot_locked = {}
 
 -- The area song path re-evaluates every frame, so a plain debugf there prints the
 -- same line dozens of times a second. Log only when the text actually changes.
@@ -176,9 +184,9 @@ local SONG_VERIFY_DELAY = 5.0
 -- were waiting on goes with them.
 function buff.reset_song_timers()
     song_expiry = {}
+    slot_locked = {}
     pending_song = nil
     last_song_log = {}
-    effective_song_duration = 0
 end
 
 -- Drop every song timer held for one member. Our own death is the case that
@@ -191,10 +199,10 @@ function buff.forget_song_timers(server_id)
     if server_id and server_id ~= 0 then song_expiry[server_id] = nil end
 end
 
--- Live song timers for the /sk panel readout: [server_id][song name] = {deadline}.
+-- Live song timers for the /sk panel readout: [server_id][song name] = row.
 -- Read-only view of the real table -- the panel formats it, nothing writes here.
 function buff.song_timers()
-    return song_expiry, effective_song_duration
+    return song_expiry
 end
 
 -- Remember what to stamp once the cast lands. Server ids are resolved now rather
@@ -204,9 +212,7 @@ end
 -- ponytail: who is in AoE range is also sampled now, not at finish, so someone
 -- who walks out of range mid-cast still gets a timer. Sample at finish if that
 -- proves to matter.
--- keep = set of song names an area cast leaves standing (this cycle's [A] songs);
--- omit it for a single-target cast. See handle_song_finished.
-local function queue_song_stamp(ability, duration, state, target_index, keep)
+local function queue_song_stamp(ability, duration, state, target_index)
     local sids = {}
     if target_index then
         local m = (target_index == 0) and state.player or state.party[target_index]
@@ -233,7 +239,6 @@ local function queue_song_stamp(ability, duration, state, target_index, keep)
         name     = ability.name,
         duration = duration,
         sids     = sids,
-        keep     = keep,
         armed_at = os.clock(),
         started  = false,
     }
@@ -301,20 +306,36 @@ function buff.handle_song_finished(spell_id)
     for _, sid in ipairs(p.sids) do
         local rows = song_expiry[sid] or {}
         song_expiry[sid] = rows
-        -- An area song lands on everyone in radius and pushes their oldest song
-        -- out of its slot -- which, in the order this addon sings in (area first,
-        -- single target after), is a single-target song we still hold a timer
-        -- for. That timer would then suppress the re-sing for a whole duration,
-        -- leaving the member holding the area song we meant to have overwritten.
-        -- So an area cast drops every timer that isn't for one of this cycle's
-        -- [A] songs; a single-target song that did survive (the member had a free
-        -- slot) is simply re-sung a little early.
-        if p.keep then
-            for name in pairs(rows) do
-                if not p.keep[name] then rows[name] = nil end
+        -- One caster gets SONG_SLOTS songs on one target, and a new song beyond
+        -- that overwrites their OLDEST -- so the table has to evict the same one
+        -- the server just did. Both directions matter, and both happen every
+        -- cycle in the order this addon sings in: the area pass pushes a
+        -- single-target song off a full member, then the single-target pass
+        -- pushes an area song off the members it covers. A row left standing for
+        -- a song the server already overwrote is a timer that suppresses the
+        -- re-sing for its whole duration, and the member sits there holding
+        -- neither song.
+        -- Re-singing a song we already hold a row for is a refresh of its own
+        -- slot: it displaces nothing, so it evicts nothing.
+        if not rows[p.name] and not slot_locked[sid] then
+            local n = 0
+            for _ in pairs(rows) do n = n + 1 end
+            -- Oldest by start time, not by time left: durations differ (Troubadour
+            -- doubles one song and not the next), so the row with the least time
+            -- remaining is not necessarily the one the server drops.
+            while n >= SONG_SLOTS do
+                local oldest, oldest_at = nil, math.huge
+                for name, row in pairs(rows) do
+                    if (row.at or 0) < oldest_at then oldest, oldest_at = name, row.at or 0 end
+                end
+                if not oldest then break end
+                song_debugf(sid .. '/evict', '%s evicted from %d: slot taken by %s',
+                    oldest, sid, p.name)
+                rows[oldest] = nil
+                n = n - 1
             end
         end
-        rows[p.name] = { deadline = expiry, verify_at = now + SONG_VERIFY_DELAY }
+        rows[p.name] = { at = now, deadline = expiry, verify_at = now + SONG_VERIFY_DELAY }
     end
 end
 
@@ -356,7 +377,12 @@ end
 -- that an interrupted re-sing isn't noticed until its timer runs out.
 local function song_needed(target_buffs, ability, target_key, available_abilities, settings, party_buff_config, member, manual)
     if manual and ability.magic == 'song' and member then
-        local deadline = song_deadline(ability, member)
+        -- No landing check on a Trust: their buff list is the one this file
+        -- distrusts everywhere else (drops go undetected, stacked tiers show as
+        -- one), so a song missing from it proves nothing -- and verifying would
+        -- throw the timer away and drop them back to recasting off that same
+        -- unreliable list. The timer is all we have for them, so it stands.
+        local deadline = song_deadline(ability, member, member.is_trust)
         if deadline then return os.clock() >= deadline end
     end
     local wanted = wanted_instances(ability, target_key, available_abilities, settings, party_buff_config)
@@ -413,6 +439,37 @@ local function dedicated_targets(party_buff_config, song_keys, song_limit)
     return dedicated
 end
 
+-- True when no member's buff list can answer "is the area song still up?".
+-- A member is unreadable when they are a Trust (drops go undetected and stacked
+-- tiers show as one), out of zone or out of song range, dead, or have every song
+-- slot assigned to single-target songs -- those overwrite the area song, so its
+-- absence from their buffs proves nothing. Self is judged on the slot test alone.
+--
+-- With nobody readable the memory check can never fire: area songs are never
+-- reported missing, so they are never re-sung and the single-target pass is the
+-- only thing that ever sings -- which is exactly backwards, since a single sung
+-- with an area song owed loses the slot to it later. So the area songs fall back
+-- to a timer at DEFAULT_SONG_DURATION instead.
+local function no_readable_voter(party_buff_config, song_keys, state)
+    local single_counts = party_buff_config
+        and single_target_song_counts(party_buff_config, song_keys) or {}
+    local player_zone   = common.get_party_member_zone(0)
+    for ti = 0, 5 do
+        local member = (ti == 0) and state.player or state.party[ti]
+        if (SONG_SLOTS - (single_counts[ti] or 0)) > 0 and not song_member_dead(member) then
+            if ti == 0 then return false end
+            if member and not member.is_trust then
+                local ei = member.target_index
+                if ei and ei > 0 and player_zone == common.get_party_member_zone(ti)
+                   and common.is_in_range(ei, SONG_AOE_RANGE) then
+                    return false
+                end
+            end
+        end
+    end
+    return true
+end
+
 -- If `ability` is the active [A] area song to consider this cycle, return its
 -- config key (group name, or ability name when ungrouped); else nil. Mirrors the
 -- group-selection rules the single-target pass uses.
@@ -440,18 +497,6 @@ local function area_song_config_key(ability, settings, party_buff_config, area_p
     return config_key
 end
 
--- Names of every song that is an active [A] area song this cycle. Handed to
--- queue_song_stamp so an area cast knows which timers it did NOT overwrite.
-local function area_song_names(available_abilities, settings, party_buff_config)
-    local names, processed = {}, {}
-    for _, a in ipairs(available_abilities) do
-        if area_song_config_key(a, settings, party_buff_config, processed) then
-            names[a.name] = true
-        end
-    end
-    return names
-end
-
 -- True when any in-range party member with a free song slot lacks the song, so
 -- the area song should be (re)cast.
 --
@@ -472,35 +517,6 @@ local function area_vote(ability, ti, reason, buffs)
         song_debugf(ability.name .. '/vote', '%s area recast: %s -- %s [buffs: %s]', ability.name,
             ti == 0 and 'ME' or ('P' .. ti), reason,
             #ids > 0 and table.concat(ids, ',') or 'none')
-    end
-    return true
-end
-
--- True when no member's buff list can answer "is the area song still up?".
--- A member is unreadable when they are a Trust (drops go undetected and stacked
--- tiers show as one), out of zone or out of song range, dead, or have every song
--- slot assigned to single-target songs -- those overwrite the area song, so its
--- absence from their buffs proves nothing. Self is judged on the slot test alone.
---
--- With nobody readable the memory-based check can never fire, and area songs
--- would simply never be re-sung -- so the manual timers switch themselves on.
--- song_limit is 2 because the caller only asks this for a main-job Bard.
-local function no_readable_voter(party_buff_config, song_keys, state)
-    local single_counts = party_buff_config
-        and single_target_song_counts(party_buff_config, song_keys) or {}
-    local player_zone   = common.get_party_member_zone(0)
-    for ti = 0, 5 do
-        local member = (ti == 0) and state.player or state.party[ti]
-        if (2 - (single_counts[ti] or 0)) > 0 and not song_member_dead(member) then
-            if ti == 0 then return false end
-            if member and not member.is_trust then
-                local ei = member.target_index
-                if ei and ei > 0 and player_zone == common.get_party_member_zone(ti)
-                   and common.is_in_range(ei, SONG_AOE_RANGE) then
-                    return false
-                end
-            end
-        end
     end
     return true
 end
@@ -687,21 +703,44 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
     -- since players fire Nightingale before singing, not mid-sequence.)
     local fast_casting = settings.pianissimo_fast_casting == true
         and not action_core.has_any_buff(state.player.buffs, NIGHTINGALE_BUFF)
-    -- Manual song timers (see song_expiry above): BRD75 main, and either the user
-    -- set a Song Duration or nobody in the area group is readable -- an all-Trust
-    -- party, or a bard whose own slots are filled with [ME] songs. In that second
-    -- case there is no buff list left to recast off, so timers turn themselves on
-    -- at the default duration rather than leaving area songs never re-sung.
+    -- Manual song timers (see song_expiry above), main-job BRD75 only, and split
+    -- in two because the two passes are not in the same position.
+    --   manual_tracking -- ALL songs, and only on the explicit Song Duration.
+    --     Single-target songs land on members whose buff lists we can read, so
+    --     memory is a fine fallback there; guessing an interval for a bard in
+    --     duration gear would re-sing their own songs a minute early.
+    --   area_manual -- [A] songs alone. When nobody left in the area pool has a
+    --     readable buff list (an all-Trust remainder, or a bard whose own slots
+    --     are full of [ME] songs) memory can never report an area song missing,
+    --     so it is never re-sung and the single-target pass becomes the only
+    --     thing that sings -- backwards, since the area song takes those slots
+    --     back the moment it does fire. Falls back to DEFAULT_SONG_DURATION.
     local song_keys = song_config_keys(job_def, settings)
     local song_duration = tonumber(settings.song_duration) or 0
-    local manual_tracking = player.job == 10 and (player.main_level or 0) >= 75
-    if manual_tracking and song_duration <= 0 then
-        if no_readable_voter(party_buff_config, song_keys, state) then
-            song_duration = DEFAULT_SONG_DURATION
+    local is_bard75 = player.job == 10 and (player.main_level or 0) >= 75
+    local manual_tracking = is_bard75 and song_duration > 0
+    local area_manual, area_duration = manual_tracking, song_duration
+    if is_bard75 and not manual_tracking
+       and no_readable_voter(party_buff_config, song_keys, state) then
+        area_manual, area_duration = true, DEFAULT_SONG_DURATION
+    end
+
+    -- Members whose slots are wholly assigned to single-target songs. The area
+    -- timer we hold for them is a re-sing SCHEDULE for the group, not a claim
+    -- the song is on them -- it is not, their own singles overwrote it, which is
+    -- the same reason the area pass skips verifying them. So a single-target
+    -- stamp must not evict it: doing so leaves the area pass reading "no timer
+    -- held" and recasting on cooldown, the very thing these timers exist to
+    -- stop. Refreshed here and read at cast finish rather than threaded through
+    -- the pending entry -- the config cannot change in the second between them.
+    slot_locked = {}
+    if (manual_tracking or area_manual) and party_buff_config then
+        for ti in pairs(dedicated_targets(party_buff_config, song_keys, SONG_SLOTS)) do
+            local m   = (ti == 0) and state.player or state.party[ti]
+            local sid = m and m.server_id
+            if sid and sid ~= 0 then slot_locked[sid] = true end
         end
     end
-    manual_tracking = manual_tracking and song_duration > 0
-    effective_song_duration = manual_tracking and song_duration or 0
     -- Set when a due [A] song is merely waiting out its recast: Phase 2 skips
     -- single-target songs while it holds, since the area song would overwrite
     -- them moments later. Declared out here because Phase 2 reads it.
@@ -729,7 +768,7 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
             -- still obey the ability's plain global gate even when filter_abilities_by_level
             -- let the ability through only because some OTHER target (ME/P1-P5) overrode it.
             if config_key and common.ability_gate_ok_now(ability, settings)
-               and area_needs_recast(ability, party_buff_config, song_keys, available_abilities, settings, state, manual_tracking) then
+               and area_needs_recast(ability, party_buff_config, song_keys, available_abilities, settings, state, area_manual) then
                 if aoe_excl and not common.group_in_aoe_range(SONG_AOE_RANGE, aoe_excl) then
                     -- Hold: a member with no single-target song is out of range.
                     -- Don't area-cast and don't mark pending, so the single-target
@@ -756,9 +795,8 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                         -- Not on a stratagem result: try_use returns the precast
                         -- JA instead of the song there (BRD/SCH), so the song
                         -- hasn't been sent and stamping it would skip it entirely.
-                        if manual_tracking and ability.magic == 'song' and not result.is_stratagem then
-                            queue_song_stamp(ability, song_duration, state, nil,
-                                area_song_names(available_abilities, settings, party_buff_config))
+                        if area_manual and ability.magic == 'song' and not result.is_stratagem then
+                            queue_song_stamp(ability, area_duration, state, nil)
                         end
                         -- Pianissimo up (fast cast): schedule its removal so the song
                         -- reverts single-target -> area once casting is underway.
@@ -769,25 +807,28 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
                         return result
                     end
                     area_pending = true
-                    if reason and reason:find('cooldown') then area_on_recast = true end
                 end
             end
         end
         -- Every configured [A] song must be established before the single-target
-        -- pass runs, in both modes: an area song overwrites the single-target songs
-        -- on everyone it reaches, so a single sung ahead of a due area song is a
-        -- cast thrown away. Fast-casting holds on any failure (Phase 2 songs are
-        -- blocked by the same silence/MP anyway, so nothing is lost); normal mode
-        -- holds only for a recast, which is transient.
+        -- pass sings, in both modes, and for ANY reason the area cast did not go
+        -- out -- not just a recast. The two overwrite each other on every member
+        -- they share, so a single sung while an area song is still owed is a cast
+        -- thrown away, and the area song that follows it takes the slot back.
+        -- Fast-casting holds the whole pass (its Phase 2 songs are blocked by the
+        -- same silence/MP anyway, so nothing is lost).
         if fast_casting and area_pending then
             return nil
         end
         -- Normal mode holds back the single-target SONGS only. They are the ones
         -- the area cast would overwrite; every other buff the job maintains (a
         -- subjob Protect, Nightingale, a rune) has nothing to do with the area
-        -- song and must not be stalled for the length of its recast -- which
-        -- returning out of the module here would do.
-        hold_songs = area_on_recast
+        -- song and must not be stalled behind it -- which returning out of the
+        -- module here would do.
+        -- The one thing that does NOT hold is the gather wait above: it leaves
+        -- area_pending clear on purpose, so a member out of range can't stop the
+        -- single-target pass from managing the members it can reach.
+        hold_songs = area_pending
     end
 
     -- Phase 2: single-target buffs (ME/P1-P5, alliance, tracked).

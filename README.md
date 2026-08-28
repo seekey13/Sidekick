@@ -84,6 +84,10 @@ The one exception is **opt-in leader following** (off by default): with **Follow
 - **`/anon` no longer makes Sidekick skip every ability** — it was reading you as level 0. — **Atsumu**, **Pax**
 - **Loading Sidekick while the game is still loading** no longer leaves the Start/Stop button backwards.
 - **Two area songs sharing a buff both go up** now (Victory March and Advancing March). — **Sleazy**
+- **Song timers now respect the two-song limit** — a new song pushes out the oldest, so a song that was overwritten is re-sung instead of waiting out a dead timer.
+- **Area songs go up before single-target songs, always** — including an all-Trust party, where nothing could report them missing before.
+- **Waiting on an area song no longer holds back your other buffs** — only your single-target songs wait.
+- **Dying no longer leaves your own songs untracked** until their timers run out.
 - **A dead party member no longer forces area songs to recast on cooldown** — they are skipped until raised.
 - **Zoning no longer unticks your spells** or drops song selections. — **Kelzalik**
 - **Red Mage stops recasting Flurry forever** — it watches the status the spell actually gives. — **Swizz**
