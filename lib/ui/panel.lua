@@ -8,6 +8,7 @@ local panel = {}
 
 local imgui = require('imgui')
 local common = require('lib.core.common')
+local buff = require('lib.actions.buff')
 local afk = require('lib.core.afk')
 local tooltips = require('lib.ui.tooltips')
 local components = require('lib.ui.components')
@@ -105,6 +106,42 @@ local function fmt_buffs(buffs, sep)
         table.insert(parts, buff_name(id))
     end
     return table.concat(parts, sep or ', ')
+end
+
+-- Manual song timers, one line per party member holding any. Empty unless
+-- Song Duration (s) > 0 -- that setting is what turns stamping on. Area [A]
+-- casts stamp everyone in range, so a stuck area song shows itself here.
+local function song_timer_lines(gs, addon_settings)
+    local timers = buff.song_timers()
+    local now, lines = os.clock(), {}
+    local function add(label, m)
+        local t = m and m.server_id and timers[m.server_id]
+        if not t then return end
+        local parts = {}
+        for name, row in pairs(t) do
+            local left = row.deadline - now
+            parts[#parts + 1] = string.format('%s %s', name,
+                left > 0 and string.format('%.0fs', left) or 'due')
+        end
+        if #parts == 0 then return end
+        table.sort(parts)
+        lines[#lines + 1] = string.format('%s %s: %s', label, m.name or '--',
+            table.concat(parts, ', '))
+    end
+    add('ME', gs.player)
+    for i = 1, 5 do add('P' .. i, gs.party and gs.party[i]) end
+    if #lines > 0 then return table.concat(lines, '\n') end
+
+    -- Nothing held: say WHY, so an empty readout tells you whether stamping is
+    -- switched off or simply has not happened yet. Song Duration is the switch
+    -- for all songs; area songs additionally track themselves when no member's
+    -- buff list can be read, so 0 is reported as "single-target off" rather than
+    -- off outright. The job/level gate on top is visible in the panel already.
+    local duration = tonumber(addon_settings and addon_settings.song_duration) or 0
+    if duration <= 0 then
+        return 'none held -- single-target timers off (Song Duration 0)'
+    end
+    return string.format('none held -- %ds interval, no song finished yet', duration)
 end
 
 local function job_abbr(id)
@@ -476,6 +513,14 @@ function panel.render(addon_settings, save_settings)
                 { addon_settings.song_duration or 0 }, 0, 999, INT_FIELD_WIDTH)
             if imgui.IsItemHovered() then
                 imgui.SetTooltip(tooltips.song_duration)
+            end
+
+            -- Area group buff tracking: the timers those songs are stamped on,
+            -- read straight out of lib/actions/buff.lua. Read-only.
+            -- Debug Mode only: a troubleshooting readout, not a control.
+            if common.debug then
+                imgui.Text('Area Buffs:')
+                imgui.Text(song_timer_lines(gs, addon_settings))
             end
 
             -- AFK Sleep (global). afk_timeout is stored in seconds but shown in

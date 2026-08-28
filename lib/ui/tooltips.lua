@@ -288,7 +288,10 @@ return {
         'and re-sings after this many seconds -- set it just under your real\n' ..
         'song duration (duration gear included) so songs never drop. Doubled\n' ..
         'automatically while Troubadour is up. While a timer is running that\n' ..
-        'song is left alone, so an interrupted re-sing waits for the timer.',
+        'song is left alone, so an interrupted re-sing waits for the timer.\n' ..
+        'Required if you fill your own song slots with [ME] songs and still\n' ..
+        'want [A] songs sung for the party: your [ME] songs overwrite them on\n' ..
+        'you, so only a timer can tell when the area songs are due again.',
 
     cast_with_1_shadow =
         'Requires the Debuff addon (/debuff). Recasts Utsusemi when you are\n' ..

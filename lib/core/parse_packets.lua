@@ -53,14 +53,16 @@ function parse_packets.parse_action_packet(e)
     
     actionPacket.Type = UnpackBits(4)
     
-    -- Bandaid fix until we have more flexible packet parsing
-    if actionPacket.Type == 8 or actionPacket.Type == 9 then
-        actionPacket.Param = UnpackBits(16)
-        UnpackBits(16)  -- consume SpellGroup bits (field unused; read kept to preserve bit offset)
-    else
-        -- Not every action packet has the same data at the same offsets so we just skip this for now
-        actionPacket.Param = UnpackBits(32)
-    end
+    -- Param is a 16-bit field followed by a separate 16-bit field, in every
+    -- category -- not one 32-bit value, which is what every category but 8/9 used
+    -- to read, ORing the second field into the high bits. Same total width either
+    -- way, so Recast and the target block keep their offsets.
+    -- What Param MEANS still varies: on a _finish (4) it is the spell/ability id,
+    -- but on a _begin (8) it is a fixed marker (24931 for a real cast, 28787 =
+    -- INTERRUPT_PARAM for a cancel), never the id of the spell being cast. Match
+    -- ids off the finish packet only.
+    actionPacket.Param = UnpackBits(16)
+    UnpackBits(16)
 
     actionPacket.Recast = UnpackBits(32)
 
