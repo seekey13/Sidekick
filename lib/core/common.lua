@@ -844,7 +844,7 @@ end
 
 -- Status ailments Erase removes (WHM/SCH). The Na-spell ailments are deliberately
 -- absent -- Erase does not touch them, so listing them only made Erase fire and fail.
-common.ERASABLE_DEBUFFS = {11, 12, 13, 128, 129, 130, 131, 132, 133, 134,
+common.ERASABLE_DEBUFFS = {10, 11, 12, 13, 128, 129, 130, 131, 132, 133, 134,
     135, 136, 137, 138, 139, 140, 141, 142, 144, 145, 146, 147, 148, 149, 156,
     167, 174, 175, 189, 404}
 
