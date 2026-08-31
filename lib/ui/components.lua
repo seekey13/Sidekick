@@ -44,6 +44,13 @@ local HEADER_COLOR_NORMAL = { 0.2, 0.2, 0.2, 0.31 }
 local HEADER_COLOR_HOVERED = { 0.2, 0.2, 0.2, 0.45 }
 local HEADER_COLOR_ACTIVE = { 0.2, 0.2, 0.2, 0.65 }
 
+-- Color Constants - Tabs (disabled sections only; enabled tabs keep the theme's
+-- own ImGuiCol_Tab* colors). A section's enable checkbox lives inside its tab
+-- body, so dimming is the only thing that shows enable state without opening it.
+local TAB_COLOR_DISABLED = { 0.15, 0.15, 0.15, 0.50 }
+local TAB_COLOR_DISABLED_HOVERED = { 0.25, 0.25, 0.25, 0.60 }
+local TAB_COLOR_DISABLED_ACTIVE = { 0.30, 0.30, 0.30, 0.80 }
+
 -- ============================================================================
 -- Helper Functions
 -- ============================================================================
@@ -2215,6 +2222,12 @@ end
 --       ... 15 more ...
 --     ui.end_sections(ctx)
 
+-- A mode switch is made from a popup that opens inside a frame already begun in
+-- the old mode. Applying it on the spot would leave a BeginTabBar without its
+-- EndTabBar (or an EndTabBar with no BeginTabBar), so the click only records the
+-- request and begin_sections applies it at the top of the next frame.
+local pending_display_mode = nil
+
 -- Read a section's enable setting, falling back to its default when the key has
 -- never been written (a fresh character, or a setting added after the file was
 -- first saved).
@@ -2230,6 +2243,21 @@ local function set_section_enabled(ctx, setting_name, value)
     ctx.settings[setting_name] = value
     if ctx.save_callback then
         ctx.save_callback()
+    end
+end
+
+-- The right-click popup every section header and every tab carries. It is the
+-- only place display_mode is switched, and it offers exactly one direction:
+-- headers offer tabs, tabs offer headers. Never both at once.
+local function render_display_mode_menu(ctx, setting_name)
+    local to_tabs = ctx.section_mode ~= 'tabs'
+    if ui_components.begin_opaque_context_item('##cmenu_display_' .. setting_name) then
+        imgui.TextColored(LIGHT_GRAY, to_tabs and tooltips.display_as_tabs_hint or tooltips.display_as_headers_hint)
+        imgui.Separator()
+        if imgui.Selectable(to_tabs and 'Display as tabs' or 'Display as section headers') then
+            pending_display_mode = to_tabs and 'tabs' or 'headers'
+        end
+        ui_components.end_opaque_popup()
     end
 end
 
@@ -2249,7 +2277,36 @@ local function begin_header_section(ctx, label, setting_name, default_value)
     imgui.PushStyleColor(ImGuiCol_HeaderActive, HEADER_COLOR_ACTIVE)
     local is_open = imgui.CollapsingHeader(label, ImGuiTreeNodeFlags_DefaultOpen)
     imgui.PopStyleColor(3)
+    render_display_mode_menu(ctx, setting_name)
     return is_open, setting_var[1]
+end
+
+local function begin_tab_section(ctx, label, setting_name, default_value)
+    local enabled = section_enabled(ctx, setting_name, default_value)
+
+    if not enabled then
+        imgui.PushStyleColor(ImGuiCol_Tab, TAB_COLOR_DISABLED)
+        imgui.PushStyleColor(ImGuiCol_TabHovered, TAB_COLOR_DISABLED_HOVERED)
+        imgui.PushStyleColor(ImGuiCol_TabActive, TAB_COLOR_DISABLED_ACTIVE)
+        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
+    end
+
+    -- '###setting_name' pins the tab's id to its setting so the selected tab
+    -- survives a label change. NoPushId keeps the id stack identical whether or
+    -- not the tab is selected: render_display_mode_menu is submitted in both
+    -- cases and would otherwise hash to two different popup ids between frames.
+    -- p_open is nil on purpose: a close button would be the only widget ImGui can
+    -- draw on a tab, and the enable checkbox lives in the tab body instead.
+    local selected = imgui.BeginTabItem(label .. '###' .. setting_name, nil, ImGuiTabItemFlags_NoPushId)
+
+    -- Pop before the body renders, so tab dimming never bleeds into its contents.
+    if not enabled then
+        imgui.PopStyleColor(4)
+    end
+
+    render_display_mode_menu(ctx, setting_name)
+
+    return selected, enabled
 end
 
 -- Open the container the sections render into. Pair with end_sections.
@@ -2257,17 +2314,47 @@ end
 -- and never the setting, so the frame cannot end in a different chrome than it
 -- began in.
 function ui_components.begin_sections(ctx)
+    if pending_display_mode then
+        ctx.settings.display_mode = pending_display_mode
+        pending_display_mode = nil
+        if ctx.save_callback then
+            ctx.save_callback()
+        end
+    end
+
+    if ctx.settings.display_mode == 'tabs' then
+        -- FittingPolicyScroll keeps every label full width -- ResizeDown truncates
+        -- them on jobs with many sections, and a truncated label is unreadable at
+        -- the widths 16 tabs produce.
+        if imgui.BeginTabBar('##sk_sections', ImGuiTabBarFlags_FittingPolicyScroll) then
+            ctx.section_mode = 'tabs'
+            return
+        end
+        -- BeginTabBar refused (the window is clipped). Fall back to headers for
+        -- this frame rather than rendering no sections at all.
+    end
+
     ctx.section_mode = 'headers'
 end
 
 function ui_components.end_sections(ctx)
+    if ctx.section_mode == 'tabs' then
+        imgui.EndTabBar()
+    end
 end
 
 function ui_components.begin_section(ctx, label, setting_name, default_value)
+    if ctx.section_mode == 'tabs' then
+        return begin_tab_section(ctx, label, setting_name, default_value)
+    end
     return begin_header_section(ctx, label, setting_name, default_value)
 end
 
+-- EndTabItem is called only when BeginTabItem returned true, per ImGui's rules.
 function ui_components.end_section(ctx, is_open)
+    if ctx.section_mode == 'tabs' and is_open then
+        imgui.EndTabItem()
+    end
 end
 
 -- Create an integer input UI element linked to a setting, clamped to [min, max]

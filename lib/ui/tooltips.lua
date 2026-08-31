@@ -18,6 +18,14 @@ return {
         '- Paused: combat is currently blocked\n' ..
         '- Running: fully active',
 
+    display_as_tabs_hint =
+        'Sections are stacked as collapsing headers.',
+
+    display_as_headers_hint =
+        'Sections are shown as tabs.\n' ..
+        'Dimmed tabs are disabled.\n' ..
+        'Open a tab to enable or disable it.',
+
     tracked_targets =
         'Tracks a player outside your party/alliance.\n' ..
         'Some abilities are disabled on targets outside\n' ..
