@@ -311,8 +311,10 @@ end
 -- ============================================================================
 
 -- Keys never copied into or out of a snapshot: container/meta, run state
--- (loading a profile must never start/stop automation), and party-composition
--- state that would go stale between sessions.
+-- (loading a profile must never start/stop automation), party-composition
+-- state that would go stale between sessions, and per-character window chrome
+-- -- a profile is per main/sub combo, the window is not, so loading one must
+-- not resize the window, re-chrome its sections, refade it, or open and close it.
 local PROFILE_EXCLUDED_KEYS = {
     profiles = true,
     active_profile = true,
@@ -322,6 +324,11 @@ local PROFILE_EXCLUDED_KEYS = {
     follow_enabled = true,
     follow_target = true,
     follow_distance = true,
+    window_size_mode = true,
+    display_mode = true,
+    ui_opacity = true,
+    ui_open = true,
+    widget_open = true,
 }
 
 -- Reserved key inside a combo's profile list: the parked Default working copy.

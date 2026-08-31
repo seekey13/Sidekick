@@ -2228,6 +2228,10 @@ end
 -- request and begin_sections applies it at the top of the next frame.
 local pending_display_mode = nil
 
+-- ============================================================================
+-- Window Size Mode (auto-fit vs. custom drag-to-resize)
+-- ============================================================================
+
 -- Same one-frame defer, for the other chrome switch this window offers. The click
 -- lands inside a window imgui.Begin has already opened, but the window's flags and
 -- size constraints had to be settled before that Begin -- so the request is recorded
@@ -2265,6 +2269,10 @@ function ui_components.render_window_size_menu(ctx)
         ui_components.end_opaque_popup()
     end
 end
+
+-- ============================================================================
+-- Section Display (collapsing headers vs. tab bar)
+-- ============================================================================
 
 -- Read a section's enable setting, falling back to its default when the key has
 -- never been written (a fresh character, or a setting added after the file was
