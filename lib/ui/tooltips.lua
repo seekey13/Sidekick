@@ -26,6 +26,17 @@ return {
         'Dimmed tabs are disabled.\n' ..
         'Open a tab to enable or disable it.',
 
+    -- Named for the state each one DESCRIBES (the display_as_* pair above is named for
+    -- the action instead). The call site picks the hint for the mode currently in force.
+    window_size_auto_hint =
+        'The window resizes itself to fit its contents.\n' ..
+        'Instant, but it cannot be resized by hand.',
+
+    window_size_custom_hint =
+        'The window keeps the size you drag it to.\n' ..
+        'Drag the bottom-right corner to resize.\n' ..
+        'Contents scroll when they do not fit.',
+
     tracked_targets =
         'Tracks a player outside your party/alliance.\n' ..
         'Some abilities are disabled on targets outside\n' ..

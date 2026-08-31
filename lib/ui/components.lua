@@ -2228,6 +2228,44 @@ end
 -- request and begin_sections applies it at the top of the next frame.
 local pending_display_mode = nil
 
+-- Same one-frame defer, for the other chrome switch this window offers. The click
+-- lands inside a window imgui.Begin has already opened, but the window's flags and
+-- size constraints had to be settled before that Begin -- so the request is recorded
+-- here and config.lua applies it at the top of the next frame.
+local pending_window_size_mode = nil
+
+-- Called by config.lua BEFORE imgui.Begin. Nothing needs re-applying on the frame the
+-- mode flips: dropping AlwaysAutoResize leaves the window at the size the auto-fit had
+-- just produced, which is exactly where the user wants to start dragging from.
+function ui_components.apply_pending_window_size_mode(ctx)
+    if not pending_window_size_mode then
+        return
+    end
+    ctx.settings.window_size_mode = pending_window_size_mode
+    pending_window_size_mode = nil
+    if ctx.save_callback then
+        ctx.save_callback()
+    end
+end
+
+-- The window-body counterpart of render_display_mode_menu below: right-click on empty
+-- space -- never on a widget, see POPUP_FLAGS_EMPTY_SPACE_ONLY -- offers the one sizing
+-- mode the window is not in. Same shape as that menu: the current behaviour in gray, a
+-- separator, then a single Selectable describing the switch. Submitted once per frame,
+-- at the end of the window body.
+function ui_components.render_window_size_menu(ctx)
+    local to_custom = ctx.settings.window_size_mode ~= 'custom'
+    if ui_components.begin_opaque_context_window('##cmenu_window_size') then
+        imgui.TextColored(LIGHT_GRAY,
+            to_custom and tooltips.window_size_auto_hint or tooltips.window_size_custom_hint)
+        imgui.Separator()
+        if imgui.Selectable(to_custom and 'Use a custom window size' or 'Fit window to contents') then
+            pending_window_size_mode = to_custom and 'custom' or 'auto'
+        end
+        ui_components.end_opaque_popup()
+    end
+end
+
 -- Read a section's enable setting, falling back to its default when the key has
 -- never been written (a fresh character, or a setting added after the file was
 -- first saved).
@@ -2455,6 +2493,23 @@ end
 function ui_components.begin_opaque_context_item(popup_id)
     arm_opaque_bg(popup_id)
     local open = imgui.BeginPopupContextItem(popup_id)
+    track_opaque_open(popup_id, open)
+    return open
+end
+
+-- ImGuiPopupFlags_MouseButtonRight (1) + ImGuiPopupFlags_NoOpenOverItems (1 << 6).
+-- Written numerically on purpose: Ashita injects the ImGuiWindowFlags_/ImGuiTabBarFlags_
+-- globals this file already uses, but no ImGuiPopupFlags_ global is referenced anywhere
+-- else in the addon -- a nil one here would throw inside the render loop every frame,
+-- and a literal cannot. NoOpenOverItems is what keeps this menu off the section headers
+-- and tabs, which carry the display-mode menu instead.
+local POPUP_FLAGS_EMPTY_SPACE_ONLY = 65
+
+-- Right-click anywhere in the CURRENT window that is not a widget. Pair with
+-- end_opaque_popup, same as the other two.
+function ui_components.begin_opaque_context_window(popup_id)
+    arm_opaque_bg(popup_id)
+    local open = imgui.BeginPopupContextWindow(popup_id, POPUP_FLAGS_EMPTY_SPACE_ONLY)
     track_opaque_open(popup_id, open)
     return open
 end

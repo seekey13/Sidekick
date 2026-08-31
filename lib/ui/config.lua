@@ -27,6 +27,11 @@ local WIDEST_JOB_LINE = 'Puppetmaster 99 / Puppetmaster 49'
 local current_settings = nil
 local save_callback = nil
 
+-- Floor for the custom window size. Small enough not to fight the user, large enough
+-- that empty body space always remains for the right-click menu that leaves custom mode.
+local MIN_CUSTOM_WINDOW_WIDTH = 320
+local MIN_CUSTOM_WINDOW_HEIGHT = 200
+
 -- Focus state (now saved to settings as names)
 local focus_target_name = nil  -- Character name or nil for None
 local focus_recovery_target_name = nil  -- Character name or nil for None
@@ -900,8 +905,24 @@ function ui_config.render(settings, job_def, callback)
     -- the [X] was clicked. Treat collapse as "still open, just skip content" and
     -- only close on the [X] (is_open flips to false). Always call End() to match
     -- Begin() per imgui rules.
+    -- Window sizing, per character. 'auto' is the original behaviour: the window is
+    -- pinned to its contents and the resize grip is off. 'custom' is a plain window --
+    -- drag it to any size, contents scroll when they overflow. The mode is switched from
+    -- the right-click menu on empty body space (ui.render_window_size_menu, submitted at
+    -- the end of this window), and applied HERE rather than at the click, because both
+    -- the flags and the size constraints have to be settled before Begin opens the window.
+    ui.apply_pending_window_size_mode(ctx)
+    local window_flags = ImGuiWindowFlags_NoResize + ImGuiWindowFlags_AlwaysAutoResize
+    if settings.window_size_mode == 'custom' then
+        window_flags = 0  -- ImGuiWindowFlags_None: resize grip on, auto scrollbar on
+        -- ImGui's own floor is style.WindowMinSize (32x32), which leaves no empty body
+        -- to right-click -- and the right-click menu is the only way back to auto sizing.
+        imgui.SetNextWindowSizeConstraints(
+            { MIN_CUSTOM_WINDOW_WIDTH, MIN_CUSTOM_WINDOW_HEIGHT }, { 16384, 16384 })
+    end
+
     imgui.PushStyleVar(ImGuiStyleVar_Alpha, (settings.ui_opacity or 100) / 100)
-    if imgui.Begin(window_title, is_open, ImGuiWindowFlags_NoResize + ImGuiWindowFlags_AlwaysAutoResize) then
+    if imgui.Begin(window_title, is_open, window_flags) then
 
         -- Profile/job + Start/Stop rows move to the floating widget while it is open.
         if not widget_visible then
@@ -1579,6 +1600,12 @@ function ui_config.render(settings, job_def, callback)
         end  -- End of job_def check
 
         ui.end_sections(ctx)
+
+        -- Right-click on empty body space opens the window-sizing menu. Submitted last:
+        -- it must sit OUTSIDE the section run (ImGui allows nothing but tab items between
+        -- begin_sections and end_sections), and by here every item for the frame has been
+        -- submitted, so NoOpenOverItems has the full hover picture to test against.
+        ui.render_window_size_menu(ctx)
     end
     imgui.End()
     imgui.PopStyleVar()
