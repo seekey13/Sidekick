@@ -990,7 +990,9 @@ RUN/SCH in Light Arts is therefore the sole two-column case (`embolden_needs_own
 `is_song_config_key()` recognizes both grouped (group name) and ungrouped (ability name) song config keys so the per-member song limit counts them together. `is_persisted_target_key()` gates which party-buff keys persist to disk — numeric ME/P1-P5 (0-5) and the area key `'A'` persist; `al_`/`tt_` keys are session-only.
 
 **UI creators** (settings-bound):
-`checkbox`, `collapsing_checkbox_header`, `slider_int`, `combo`.
+`checkbox`, `begin_section` / `end_section` (with `begin_sections` / `end_sections`
+around the run — collapsing headers or a tab bar per `display_mode`), `slider_int`,
+`combo`.
 
 **Context object**:
 ```lua

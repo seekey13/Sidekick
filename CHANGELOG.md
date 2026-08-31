@@ -5,6 +5,17 @@ All notable changes to Sidekick will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.8.0] - 2026-08-31
+
+### Added
+- **Sections can render as a row of tabs instead of a stack of collapsing headers** (`components.lua` `begin_sections`/`begin_section`/`end_section`/`end_sections`, `config.lua`): the config window's sixteen main sections — Auto Follow, Pet Control, the healing and removal sections, Resting, Resource Recovery, Rolls, Buffs, Geo, Revive — now have two possible chromes, and exactly one is in force at a time. **Right-click any section header** for *Display as tabs*; **right-click any tab** for *Display as section headers*. The choice is the new per-character `display_mode` setting (`'headers'` by default), saved to the character's `settings.lua` alongside everything else, so it survives a reload and a job change.
+
+  **Each tab carries its own enable checkbox.** ImGui can draw no widget on a tab, so the checkbox sits at the top of the tab's body, above a separator, and it renders even while the section is disabled — it is the only way to switch one back on. It writes the same setting the header-mode checkbox does, so the two chromes always agree. **Disabled sections' tabs are dimmed**, which is the enable state you can read without opening anything.
+
+  The tab bar uses `FittingPolicyScroll`, so labels are never truncated and scroll arrows appear once sixteen tabs outgrow the window. It is submitted after the tracked-targets row, since ImGui allows nothing but tab items between `BeginTabBar` and `EndTabBar`. A mode switch is applied on the frame *after* the click: the popup that requests it opens inside a frame already begun in the old chrome, and switching on the spot would leave a `BeginTabBar` without its `EndTabBar`. If `BeginTabBar` ever refuses (a clipped window), that frame falls back to headers rather than rendering nothing.
+
+  Internally this replaced `collapsing_checkbox_header` with a four-call section API, and the sixteen call sites in `config.lua` now read `ui.begin_section(...)` / `ui.end_section(...)` around bodies that were not otherwise touched. No automation behaviour changed.
+
 ## [2.7.0] - 2026-08-17
 
 ### Added
