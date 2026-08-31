@@ -2200,19 +2200,44 @@ function ui_components.checkbox(ctx, label, setting_name, ui_var)
     end
 end
 
--- Create a collapsible header with checkbox
-function ui_components.collapsing_checkbox_header(ctx, label, setting_name, default_value)
-    local setting_value = ctx.settings[setting_name]
-    if setting_value == nil then
-        setting_value = default_value
+-- ============================================================================
+-- Section Display (collapsing headers vs. tab bar)
+-- ============================================================================
+-- The window's main sections render with one of two chromes, never both: the
+-- classic stack of CollapsingHeaders, or one tab per section in a single bar.
+-- Which one is the per-character `display_mode` setting. Callers use the same
+-- shape either way:
+--
+--     ui.begin_sections(ctx)
+--       local is_open, is_enabled = ui.begin_section(ctx, 'Buffs', 'buff_enabled', false)
+--       if is_open and is_enabled then ... end
+--       ui.end_section(ctx, is_open)
+--       ... 15 more ...
+--     ui.end_sections(ctx)
+
+-- Read a section's enable setting, falling back to its default when the key has
+-- never been written (a fresh character, or a setting added after the file was
+-- first saved).
+local function section_enabled(ctx, setting_name, default_value)
+    local value = ctx.settings[setting_name]
+    if value == nil then
+        value = default_value
     end
-    local setting_var = { setting_value }
+    return value and true or false
+end
+
+local function set_section_enabled(ctx, setting_name, value)
+    ctx.settings[setting_name] = value
+    if ctx.save_callback then
+        ctx.save_callback()
+    end
+end
+
+local function begin_header_section(ctx, label, setting_name, default_value)
+    local setting_var = { section_enabled(ctx, setting_name, default_value) }
     local previous_value = setting_var[1]
     if imgui.Checkbox('##' .. setting_name, setting_var) then
-        ctx.settings[setting_name] = setting_var[1]
-        if ctx.save_callback then
-            ctx.save_callback()
-        end
+        set_section_enabled(ctx, setting_name, setting_var[1])
         -- Auto-expand when enabling the section (only on the transition from disabled to enabled)
         if setting_var[1] and not previous_value then
             imgui.SetNextItemOpen(true)
@@ -2225,6 +2250,24 @@ function ui_components.collapsing_checkbox_header(ctx, label, setting_name, defa
     local is_open = imgui.CollapsingHeader(label, ImGuiTreeNodeFlags_DefaultOpen)
     imgui.PopStyleColor(3)
     return is_open, setting_var[1]
+end
+
+-- Open the container the sections render into. Pair with end_sections.
+-- Resolves the mode ONCE per frame onto ctx: begin_section reads ctx.section_mode
+-- and never the setting, so the frame cannot end in a different chrome than it
+-- began in.
+function ui_components.begin_sections(ctx)
+    ctx.section_mode = 'headers'
+end
+
+function ui_components.end_sections(ctx)
+end
+
+function ui_components.begin_section(ctx, label, setting_name, default_value)
+    return begin_header_section(ctx, label, setting_name, default_value)
+end
+
+function ui_components.end_section(ctx, is_open)
 end
 
 -- Create an integer input UI element linked to a setting, clamped to [min, max]

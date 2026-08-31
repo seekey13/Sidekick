@@ -99,6 +99,10 @@ local default_settings = T{
     rest_enabled = false,
     rest_timer = 5,
     rest_distance = 7,
+    -- Main config sections render either as a stack of collapsing headers or as
+    -- one row of tabs -- never both. Switched from the right-click menu on any
+    -- header or tab. 'headers' | 'tabs'.
+    display_mode = 'headers',
     -- Config window opacity (job-independent). 1-100, set from /sk panel.
     ui_opacity = 100,
     -- Whether the config window was open when the addon last unloaded; reopened on load.

@@ -971,6 +971,13 @@ function ui_config.render(settings, job_def, callback)
             ui.item_tooltip(tooltips.attack_range)
         end
 
+        -- Everything from here to end_sections is a "section": one enable checkbox
+        -- plus a body. They render as collapsing headers or as a tab bar depending
+        -- on settings.display_mode. Nothing but sections may be submitted between
+        -- these two calls -- in tab mode a stray widget would land inside the tab
+        -- bar, which ImGui does not allow.
+        ui.begin_sections(ctx)
+
         -- Auto Follow (job-independent, top of window). Follow Target is shared with
         -- Resting's distance check. Changing it resets autofollow. Hidden in Multisend mode.
         if not settings.multisend_follow then
@@ -978,7 +985,7 @@ function ui_config.render(settings, job_def, callback)
                 common.reset_autofollow()
                 if callback then callback() end
             end
-            local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Auto Follow', 'follow_enabled', false)
+            local is_open, is_enabled = ui.begin_section(ctx, 'Auto Follow', 'follow_enabled', false)
             ui.item_tooltip(tooltips.follow)
             if is_open and is_enabled then
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
@@ -988,6 +995,7 @@ function ui_config.render(settings, job_def, callback)
                 ui.item_tooltip(tooltips.follow_distance)
                 imgui.Unindent(ui.ABILITY_LIST_INDENT)
             end
+            ui.end_section(ctx, is_open)
         end
 
         -- Pet Control: master `pet_enabled` header checkbox (same shape as every other
@@ -1004,7 +1012,7 @@ function ui_config.render(settings, job_def, callback)
         local has_maneuver = maneuver_list and has_usable_abilities(maneuver_list)
 
         if has_pet_control or has_maneuver then
-            local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Pet Control', 'pet_enabled', true)
+            local is_open, is_enabled = ui.begin_section(ctx, 'Pet Control', 'pet_enabled', true)
             ui.item_tooltip(tooltips.pet_control)
             if is_open and is_enabled then
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
@@ -1040,6 +1048,7 @@ function ui_config.render(settings, job_def, callback)
 
                 imgui.Unindent(ui.ABILITY_LIST_INDENT)
             end
+            ui.end_section(ctx, is_open)
         end
 
         -- Show job-specific sections if we have a job definition
@@ -1056,7 +1065,7 @@ function ui_config.render(settings, job_def, callback)
             end
             
             if has_non_self_heal then
-                local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Focus Healing', 'focus_enabled', false)
+                local is_open, is_enabled = ui.begin_section(ctx, 'Focus Healing', 'focus_enabled', false)
                 ui.item_tooltip(tooltips.focus_healing)
                 if is_open and is_enabled then
                     imgui.Indent(ui.ABILITY_LIST_INDENT)
@@ -1066,12 +1075,13 @@ function ui_config.render(settings, job_def, callback)
                     ui.slider_int(ctx, 'Focus (HP%)', 'focus_threshold', { settings.focus_threshold or 85 }, 1, 100)
                     imgui.Unindent(ui.ABILITY_LIST_INDENT)
                 end
+                ui.end_section(ctx, is_open)
             end
         end
         
         -- Group Healing settings
         if job_def and job_def.abilities.heal and has_usable_abilities(job_def.abilities.heal) then
-            local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Group Healing', 'heal_enabled', false)
+            local is_open, is_enabled = ui.begin_section(ctx, 'Group Healing', 'heal_enabled', false)
             ui.item_tooltip(tooltips.group_healing)
             if is_open and is_enabled then
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
@@ -1108,11 +1118,12 @@ function ui_config.render(settings, job_def, callback)
                 end
                 imgui.Unindent(ui.ABILITY_LIST_INDENT)
             end
+            ui.end_section(ctx, is_open)
         end
         
         -- AOE Healing settings
         if job_def and job_def.abilities.heal_aoe and has_usable_abilities(job_def.abilities.heal_aoe) then
-            local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'AOE Healing', 'heal_aoe_enabled', false)
+            local is_open, is_enabled = ui.begin_section(ctx, 'AOE Healing', 'heal_aoe_enabled', false)
             ui.item_tooltip(tooltips.aoe_healing)
             if is_open and is_enabled then
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
@@ -1128,11 +1139,12 @@ function ui_config.render(settings, job_def, callback)
                 end
                 imgui.Unindent(ui.ABILITY_LIST_INDENT)
             end
+            ui.end_section(ctx, is_open)
         end
         
         -- Pet Healing settings
         if job_def and job_def.abilities.heal_pet and has_usable_abilities(job_def.abilities.heal_pet) then
-            local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Pet Healing', 'heal_pet_enabled', false)
+            local is_open, is_enabled = ui.begin_section(ctx, 'Pet Healing', 'heal_pet_enabled', false)
             ui.item_tooltip(tooltips.pet_healing)
             if is_open and is_enabled then
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
@@ -1147,6 +1159,7 @@ function ui_config.render(settings, job_def, callback)
 
                 imgui.Unindent(ui.ABILITY_LIST_INDENT)
             end
+            ui.end_section(ctx, is_open)
         end
 
         -- Wake detection (used by the Sleep Removal section below)
@@ -1167,7 +1180,7 @@ function ui_config.render(settings, job_def, callback)
         -- Sleep removal settings. Hidden while solo -- you cannot cure your own
         -- Sleep, so with no P1..P5 to scan the whole section is dead UI.
         if has_wake_abilities and common.get_party_size() > 1 then
-            local is_open_wake, is_enabled_wake = ui.collapsing_checkbox_header(ctx, 'Sleep Removal', 'wake_enabled', false)
+            local is_open_wake, is_enabled_wake = ui.begin_section(ctx, 'Sleep Removal', 'wake_enabled', false)
             ui.item_tooltip(tooltips.sleep_removal)
             if is_open_wake and is_enabled_wake then
                 -- Party selection buttons (who gets sleep removal)
@@ -1178,11 +1191,12 @@ function ui_config.render(settings, job_def, callback)
                 imgui.Text('Sleep Targets')
                 imgui.Unindent(ui.ABILITY_LIST_INDENT)
             end
+            ui.end_section(ctx, is_open_wake)
         end
 
         -- Debuff removal settings
         if job_def and job_def.abilities.debuff_removal and has_usable_abilities(job_def.abilities.debuff_removal) then
-            local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Debuff Removal', 'debuff_removal_enabled', false)
+            local is_open, is_enabled = ui.begin_section(ctx, 'Debuff Removal', 'debuff_removal_enabled', false)
             ui.item_tooltip(tooltips.debuff_removal)
             if is_open and is_enabled then
                 -- Clear temporary group rendering flags
@@ -1204,13 +1218,14 @@ function ui_config.render(settings, job_def, callback)
                 ctx.show_trust_warning = false
                 imgui.Unindent(ui.ABILITY_LIST_INDENT)
             end
+            ui.end_section(ctx, is_open)
         end
 
         -- Pet Debuff Removal settings (BST Reward+Roborant, PUP Maintenance+Oil).
         -- Pet statuses are inferred from packets (the client has no pet buff
         -- memory), so warn it's not fully reliable -- same caveat as Trust/tracked.
         if job_def and job_def.abilities.pet_debuff_removal and has_usable_abilities(job_def.abilities.pet_debuff_removal) then
-            local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Pet Debuff Removal', 'pet_debuff_removal_enabled', false)
+            local is_open, is_enabled = ui.begin_section(ctx, 'Pet Debuff Removal', 'pet_debuff_removal_enabled', false)
             if is_open and is_enabled then
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
                 ctx.show_pet_debuff_warning = true
@@ -1223,23 +1238,25 @@ function ui_config.render(settings, job_def, callback)
                 ctx.show_pet_debuff_warning = false
                 imgui.Unindent(ui.ABILITY_LIST_INDENT)
             end
+            ui.end_section(ctx, is_open)
         end
 
         -- Item-based status removal (consumables) -- hidden until inventory loads
         -- (counts read as "?"); shown once readable, even if every count is 0.
         if ui.item_inventory_loaded() then
-            local is_open_item, is_enabled_item = ui.collapsing_checkbox_header(ctx, 'Item Debuff Removal', 'item_removal_enabled', false)
+            local is_open_item, is_enabled_item = ui.begin_section(ctx, 'Item Debuff Removal', 'item_removal_enabled', false)
             ui.item_tooltip(tooltips.item_removal)
             if is_open_item and is_enabled_item then
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
                 ui.item_removal_checkboxes(ctx)
                 imgui.Unindent(ui.ABILITY_LIST_INDENT)
             end
+            ui.end_section(ctx, is_open_item)
         end
 
         -- Resting (MP jobs). Distance watches the Auto Follow section's Follow Target.
         if job_def and job_def.resource_type == 'mp' then
-            local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Resting', 'rest_enabled', false)
+            local is_open, is_enabled = ui.begin_section(ctx, 'Resting', 'rest_enabled', false)
             ui.item_tooltip(tooltips.resting)
             if is_open and is_enabled then
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
@@ -1250,6 +1267,7 @@ function ui_config.render(settings, job_def, callback)
                 ui.item_tooltip(tooltips.rest_distance)
                 imgui.Unindent(ui.ABILITY_LIST_INDENT)
             end
+            ui.end_section(ctx, is_open)
         end
         
         -- Recovery settings
@@ -1258,7 +1276,7 @@ function ui_config.render(settings, job_def, callback)
         local has_party_mp_recovery = job_def and job_def.abilities.recover_party_mp and has_usable_abilities(job_def.abilities.recover_party_mp)
         
         if has_mp_recovery or has_tp_recovery or has_party_mp_recovery then
-            local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Resource Recovery', 'recover_enabled', false)
+            local is_open, is_enabled = ui.begin_section(ctx, 'Resource Recovery', 'recover_enabled', false)
             ui.item_tooltip(tooltips.resource_recovery)
             if is_open and is_enabled then
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
@@ -1316,11 +1334,12 @@ function ui_config.render(settings, job_def, callback)
                 end
                 imgui.Unindent(ui.ABILITY_LIST_INDENT)
             end
+            ui.end_section(ctx, is_open)
         end
         
         -- Roll settings (Corsair): pick two rolls and the total to stop doubling at
         if job_def and job_def.abilities.roll and has_usable_abilities(job_def.abilities.roll) then
-            local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Rolls', 'roll_enabled', true)
+            local is_open, is_enabled = ui.begin_section(ctx, 'Rolls', 'roll_enabled', true)
             ui.item_tooltip(tooltips.rolls)
             if is_open and is_enabled then
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
@@ -1370,11 +1389,12 @@ function ui_config.render(settings, job_def, callback)
 
                 imgui.Unindent(ui.ABILITY_LIST_INDENT)
             end
+            ui.end_section(ctx, is_open)
         end
 
         -- Buff settings
         if job_def and job_def.abilities.buff and has_usable_abilities(job_def.abilities.buff) then
-            local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Buffs', 'buff_enabled', false)
+            local is_open, is_enabled = ui.begin_section(ctx, 'Buffs', 'buff_enabled', false)
             ui.item_tooltip(tooltips.buffs)
             if is_open and is_enabled then
                 -- Clear temporary group rendering flags
@@ -1397,11 +1417,12 @@ function ui_config.render(settings, job_def, callback)
                 ctx.show_buff_warning = false
                 imgui.Unindent(ui.ABILITY_LIST_INDENT)
             end
+            ui.end_section(ctx, is_open)
         end
         
         -- Geo settings (Geomancer)
         if job_def and job_def.abilities.geo and has_usable_abilities(job_def.abilities.geo) then
-            local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Geo', 'geo_enabled', false)
+            local is_open, is_enabled = ui.begin_section(ctx, 'Geo', 'geo_enabled', false)
             ui.item_tooltip(tooltips.geo)
             if is_open and is_enabled then
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
@@ -1537,11 +1558,12 @@ function ui_config.render(settings, job_def, callback)
                 end
                 imgui.Unindent(ui.ABILITY_LIST_INDENT)
             end
+            ui.end_section(ctx, is_open)
         end
 
         -- Revive settings
         if job_def and job_def.abilities.revive and has_usable_abilities(job_def.abilities.revive) then
-            local is_open, is_enabled = ui.collapsing_checkbox_header(ctx, 'Revive', 'revive_enabled', false)
+            local is_open, is_enabled = ui.begin_section(ctx, 'Revive', 'revive_enabled', false)
             ui.item_tooltip(tooltips.revive)
             if is_open and is_enabled then
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
@@ -1552,9 +1574,11 @@ function ui_config.render(settings, job_def, callback)
                 end
                 imgui.Unindent(ui.ABILITY_LIST_INDENT)
             end
+            ui.end_section(ctx, is_open)
         end
         end  -- End of job_def check
 
+        ui.end_sections(ctx)
     end
     imgui.End()
     imgui.PopStyleVar()
