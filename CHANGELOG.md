@@ -5,6 +5,17 @@ All notable changes to Sidekick will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.9.0] - 2026-08-31
+
+### Added
+- **The config window can be given a custom size** (`window_size_mode`, per character, `'auto'` by default; `config.lua`, `components.lua` `render_window_size_menu`/`apply_pending_window_size_mode`/`begin_opaque_context_window`): the window has always been pinned to its contents with `AlwaysAutoResize + NoResize`, which resizes instantly but cannot be adjusted. **Right-click any empty space in the window body** — not a header, not a tab, not a widget — for *Use a custom window size*: the window keeps the size it currently has, gains a resize grip, and scrolls when the contents outgrow it. Right-clicking empty space again offers *Fit window to contents* to go back. The menu has the same shape as the display-mode menu it sits beside: the behaviour currently in force in gray, a separator, then a single item describing the switch, so it never asks the user to pick the mode they are already in.
+
+  **The size itself is not a Sidekick setting.** ImGui already persists this window's size and position in its own `imgui.ini` — the same mechanism that keeps the window where you left it across job changes — so only the mode is written to the character's `settings.lua`. That also makes the switch to custom free of a "starting size" decision: dropping `AlwaysAutoResize` leaves the window at exactly the size the auto-fit had just produced, which is where the user wants to start dragging from.
+
+  The popup opens on empty space only, via `ImGuiPopupFlags_NoOpenOverItems`, which is what keeps it clear of the display-mode popup on every section header and tab and of the per-target and per-ability popups on the rows inside. Both flag names, like every other ImGui enum this addon uses bare, come from the `require('imgui')` at the top of the file. A mode switch is applied on the frame *after* the click, through the file-local `pending_window_size_mode` and `apply_pending_window_size_mode` — the same one-frame defer `display_mode` uses, here because `imgui.Begin`'s flags and `SetNextWindowSizeConstraints` both have to be settled before the window opens and the click necessarily happens inside a window already begun. Custom mode floors the size at 320x200: ImGui's own `WindowMinSize` is 32x32, and a window that small has no empty body left to right-click, which would strand the user in custom mode with no way back to auto sizing.
+
+  Only the config window is affected. The floating widget (`/sk widget`) and the debug panel (`/sk panel`) keep their own auto-sizing.
+
 ## [2.8.0] - 2026-08-31
 
 ### Added
