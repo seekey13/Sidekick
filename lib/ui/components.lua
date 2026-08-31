@@ -2190,8 +2190,22 @@ function ui_components.set_tooltip(text)
     end
 end
 
+-- Sections held back for the disabled end of the tab bar, and the entry the next
+-- item_tooltip belongs to. Filled by begin_section, drained by end_sections --
+-- declared up here because item_tooltip below reads them. See "Section Display".
+local deferred_tabs = {}
+local deferred_tooltip_target = nil
+
 -- Show a static help tooltip for the most recently rendered item.
 function ui_components.item_tooltip(text)
+    -- A deferred section has submitted no item yet, so IsItemHovered would test
+    -- whatever was rendered before it -- usually the previous tab. Its help rides
+    -- along with the tab instead and is shown when end_sections submits it.
+    if deferred_tooltip_target then
+        deferred_tooltip_target.tooltip = text
+        deferred_tooltip_target = nil
+        return
+    end
     if text and imgui.IsItemHovered() then
         ui_components.set_tooltip(text)
     end
@@ -2285,8 +2299,17 @@ local function section_enabled(ctx, setting_name, default_value)
     return value and true or false
 end
 
+-- The section whose enable state was just toggled. Its tab is submitted under a
+-- different id on the next frame (see begin_tab_section), which ImGui reads as the
+-- old tab closing -- without this the selection would drop onto some other section
+-- the moment the user ticked the checkbox inside the open one.
+local reselect_section = nil
+
 local function set_section_enabled(ctx, setting_name, value)
     ctx.settings[setting_name] = value
+    if ctx.section_mode == 'tabs' then
+        reselect_section = setting_name
+    end
     if ctx.save_callback then
         ctx.save_callback()
     end
@@ -2343,7 +2366,20 @@ local function begin_tab_section(ctx, label, setting_name, default_value)
     -- cases and would otherwise hash to two different popup ids between frames.
     -- p_open is nil on purpose: a close button would be the only widget ImGui can
     -- draw on a tab, and the enable checkbox lives in the tab body instead.
-    local selected = imgui.BeginTabItem(label .. '###' .. setting_name, nil, ImGuiTabItemFlags_NoPushId)
+    --
+    -- The '_off' suffix deliberately gives a disabled section a *different* id.
+    -- ImGui keeps a bar's tab order across frames and only re-sorts it into
+    -- submission order when a tab is added, so a section that merely changed state
+    -- would otherwise sit where it always sat instead of moving to the disabled
+    -- end of the bar. A new id is read as one tab closing and another opening,
+    -- which is what makes the sort happen.
+    local flags = ImGuiTabItemFlags_NoPushId
+    if reselect_section == setting_name then
+        flags = flags + ImGuiTabItemFlags_SetSelected
+        reselect_section = nil
+    end
+    local selected = imgui.BeginTabItem(
+        label .. '###' .. setting_name .. (enabled and '' or '_off'), nil, flags)
 
     -- Pop before the body renders, so tab dimming never bleeds into its contents.
     if not enabled then
@@ -2374,6 +2410,8 @@ end
 -- and never the setting, so the frame cannot end in a different chrome than it
 -- began in.
 function ui_components.begin_sections(ctx)
+    deferred_tabs = {}
+
     if pending_display_mode then
         ctx.settings.display_mode = pending_display_mode
         pending_display_mode = nil
@@ -2399,19 +2437,42 @@ end
 
 function ui_components.end_sections(ctx)
     if ctx.section_mode == 'tabs' then
+        -- The disabled sections, in declaration order, after every enabled one.
+        for _, tab in ipairs(deferred_tabs) do
+            local selected = begin_tab_section(ctx, tab.label, tab.setting_name, tab.default_value)
+            ui_components.item_tooltip(tab.tooltip)
+            if selected then
+                imgui.EndTabItem()
+            end
+        end
         imgui.EndTabBar()
     end
 end
 
 function ui_components.begin_section(ctx, label, setting_name, default_value)
-    if ctx.section_mode == 'tabs' then
-        return begin_tab_section(ctx, label, setting_name, default_value)
+    deferred_tooltip_target = nil
+
+    if ctx.section_mode ~= 'tabs' then
+        return begin_header_section(ctx, label, setting_name, default_value)
     end
-    return begin_header_section(ctx, label, setting_name, default_value)
+
+    -- Disabled sections are held back for end_sections, so the bar reads enabled
+    -- tabs first and disabled ones after. Holding one back costs nothing: the call
+    -- site gates its body on is_enabled, so a disabled tab's entire body is the
+    -- enable checkbox begin_tab_section draws itself.
+    if not section_enabled(ctx, setting_name, default_value) then
+        deferred_tabs[#deferred_tabs + 1] =
+            { label = label, setting_name = setting_name, default_value = default_value }
+        deferred_tooltip_target = deferred_tabs[#deferred_tabs]
+        return false, false
+    end
+
+    return begin_tab_section(ctx, label, setting_name, default_value)
 end
 
 -- EndTabItem is called only when BeginTabItem returned true, per ImGui's rules.
 function ui_components.end_section(ctx, is_open)
+    deferred_tooltip_target = nil
     if ctx.section_mode == 'tabs' and is_open then
         imgui.EndTabItem()
     end

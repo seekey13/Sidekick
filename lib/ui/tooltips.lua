@@ -23,7 +23,7 @@ return {
 
     display_as_headers_hint =
         'Sections are shown as tabs.\n' ..
-        'Dimmed tabs are disabled.\n' ..
+        'Dimmed tabs are disabled and sit after the enabled ones.\n' ..
         'Open a tab to enable or disable it.',
 
     -- Named for the state each one DESCRIBES (the display_as_* pair above is named for

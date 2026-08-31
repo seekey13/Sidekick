@@ -57,6 +57,8 @@ The one exception is **opt-in leader following** (off by default): with **Follow
 ### [2.9.0] - 2026-08-31
 
 ### Added
+- **Sections as tabs** — right-click any section header for *Display as tabs* (and any tab for *Display as section headers*); each tab carries its own enable checkbox, and disabled ones are dimmed.
+- **Disabled tabs sort last** — sections you switch off move to the end of the tab bar, keeping the enabled ones together on the left.
 - **Custom window size** — right-click empty space in the config window for *Use a custom window size*, then drag the corner; *Fit window to contents* puts it back on auto-sizing.
 
 See [CHANGELOG.md](CHANGELOG.md) for the full release history.
