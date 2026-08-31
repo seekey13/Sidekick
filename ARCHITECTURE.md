@@ -922,14 +922,15 @@ Ninjutsu is a special case worth knowing: in `spell_list.sql` the `mpCost` colum
 - Builds a **context object** (`ctx`) containing settings, callbacks, job_def, filter functions, and party_buffs.
 - Delegates all rendering to `components.lua`.
 - **Window sizing**: Uses imgui `AlwaysAutoResize` (no manually computed fixed width). A `force_expand` flag un-collapses the window once when reopened so a collapsed `imgui.ini` state doesn't leave an empty title bar. `imgui.Begin` returning `false` on collapse is treated as "still open, skip content"; only the `[X]` (is_open → false) closes it, and `End()` is always called.
+- **Section display** (`begin_sections`/`begin_section`/`end_section`/`end_sections` in `components.lua`): all 16 sections render through one of two chromes chosen by the per-character `display_mode` setting (`'headers'`/`'tabs'`, default `'headers'`) — the classic stack of `CollapsingHeader`s, or one scrolling tab bar. A right-click popup on any header or tab switches modes. Three invariants protect the pairing: nothing but tab items may be submitted between `begin_sections` and `end_sections` (ImGui does not allow other widgets inside a tab bar), which is why the tab bar opens after the tracked-targets row and the Attack Range combo; a display-mode switch is deferred one frame via the file-local `pending_display_mode` and applied at the top of the next `begin_sections` call, since applying it the moment the menu item is clicked would leave a `BeginTabBar` without its matching `EndTabBar`; and `begin_section` reads `ctx.section_mode`, never `ctx.settings.display_mode` directly — `begin_sections` resolves the mode once per frame, including falling back to headers when `BeginTabBar` returns false, so a frame can never end in a chrome it did not begin in. In tab mode each section's enable checkbox sits at the top of its tab body above a separator (ImGui can draw no widget on a tab itself), and a disabled section's tab is dimmed via `ImGuiCol_Tab*`/`ImGuiCol_Text`.
 - **Group/AOE heal targets**: Calls `render_heal_group_selection(ctx, 'heal_group', true)` and `(ctx, 'heal_aoe_group', false)` under the respective threshold sliders.
 - **Sleep Targets**: The Sleep Removal section calls `render_party_selection(ctx, 'wake', has_outside_wake, false)` followed by a `Sleep Targets` label on the same row (mirroring the Group/AOE heal rows). No **ME** button — a sleeping player can't wake themselves — and for the same reason the whole section is hidden while solo (`common.get_party_size() > 1`), which also guarantees at least a **P1** button for the label's `SameLine`. Unlike the heal rows this state **is persisted** (`settings.party_buffs.wake`); `status_removal.execute_wake` reads the same keys. A **P** button whose member is a damage-immune trust (`common.is_trust_excluded` — Moogle, Kupofried, …) is grayed and swallows clicks, same as on the heal-target rows: status-immune, so never a removal target.
 - **DRY helpers**:
   - `render_party_dropdown(label, key, include_player, names, settings, cb, include_tracked)` – reusable for Focus/Follow/Recovery/Entrust Target dropdowns; `include_tracked` (Follow Target only) appends session tracked-target names, skipping any already listed as a party member.
   - `has_usable_abilities(abilities)` – quick check for any level-appropriate abilities.
 - **Pet Control section** (rendered right after Auto Follow, ahead of the job-specific sections —
-  the two sections that move something rather than support it): a collapsing checkbox header
-  (`pet_enabled`, default on) holding two independent per-feature checkboxes, each shown only when
+  the two sections that move something rather than support it): a section gated by `pet_enabled`
+  (default on) holding two independent per-feature checkboxes, each shown only when
   the job has that ability: the send-pet-at-target toggle (`pet_control_enabled`), labelled with the
   job's own ability name (`abilities.pet_control[1].name` — Deploy / Assault / Fight, never a generic
   feature label) followed on the same row by a `<t>`/`<bt>` dropdown (`pet_control_target`), and **Maneuver**
@@ -937,7 +938,7 @@ Ninjutsu is a special case worth knowing: in `spell_list.sql` the `mpCost` colum
   (`maneuver1_name`/`2`/`3`) showing element-only names (`render_ability_dropdown` strips the
   trailing `' Maneuver'` for display; settings store the full name). `pet_enabled` is a real
   master switch, not just a UI fold: both `pet.execute_maneuver` and `pet.execute_deploy` check it.
-- **Pet Debuff Removal section**: A collapsing checkbox header (`pet_debuff_removal_enabled`) shown only when the job has usable `pet_debuff_removal` abilities. Sets `ctx.show_pet_debuff_warning` while rendering its rows so `ability_checkbox` surfaces the *"Pet Tracked Removal is not totally reliable"* tooltip.
+- **Pet Debuff Removal section**: A section gated by `pet_debuff_removal_enabled`, shown only when the job has usable `pet_debuff_removal` abilities. Sets `ctx.show_pet_debuff_warning` while rendering its rows so `ability_checkbox` surfaces the *"Pet Tracked Removal is not totally reliable"* tooltip.
 - **Inline ammo count**: In the pet-heal, pet-debuff-removal, and buff sections, an ability with `requires_equipped_ammo` draws a `(<count>)` after its row via `common.count_equippable_items` — **green** when a matching item is worn (`is_ammo_equipped`), **red** when not. The buff section passes `render_ammo_count(ability, true)` so the count also names the currently equipped tier (NIN Sange shuriken). An ability with `requires_item` (NIN Ninjutsu tool) instead draws a `(<count>)` that is green when any tool is owned, red at zero.
 - **Settings profiles** (`profile_ops`): named per-combo snapshots stored in `settings.profiles[combo][name]` (combo from `common.get_job_combo()`, e.g. `'WHM/BLM'`), applied **in place** over live settings with container/run-state/focus/follow keys excluded (`PROFILE_EXCLUDED_KEYS`) and missing keys backfilled from `job_def.merged_defaults`. Loading a named profile while on Default parks the auto-saving working copy under the reserved `'__default'` key (`DEFAULT_SLOT`); selecting **Default** in the list restores it (`load_default`), and deleting the active profile restores it the same way. Loading also clears the session-only mirrors (`party_buffs`, entrust, focus-recovery) so UI and automation re-seed from the loaded values. Spec: `docs/superpowers/specs/2026-07-22-settings-profiles-design.md`.
 
@@ -990,9 +991,7 @@ RUN/SCH in Light Arts is therefore the sole two-column case (`embolden_needs_own
 `is_song_config_key()` recognizes both grouped (group name) and ungrouped (ability name) song config keys so the per-member song limit counts them together. `is_persisted_target_key()` gates which party-buff keys persist to disk — numeric ME/P1-P5 (0-5) and the area key `'A'` persist; `al_`/`tt_` keys are session-only.
 
 **UI creators** (settings-bound):
-`checkbox`, `begin_section` / `end_section` (with `begin_sections` / `end_sections`
-around the run — collapsing headers or a tab bar per `display_mode`), `slider_int`,
-`combo`.
+`checkbox`, `begin_section` / `end_section` (with `begin_sections` / `end_sections` around the run — collapsing headers or a tab bar per `display_mode`), `slider_int`, `combo`.
 
 **Context object**:
 ```lua
@@ -1001,6 +1000,7 @@ around the run — collapsing headers or a tab bar per `display_mode`), `slider_
     save_callback       = save_callback,
     party_buffs         = party_buffs,
     job_def             = job_def,
+    section_mode        = 'headers',  -- 'headers' or 'tabs', set by begin_sections each frame
     filter_func = {
         can_use_ability    = ...,  -- level check
     },
