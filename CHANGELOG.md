@@ -30,6 +30,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
   Only the config window is affected. The floating widget (`/sk widget`) and the debug panel (`/sk panel`) keep their own auto-sizing.
 
+### Fixed
+- **Loading a settings profile no longer moves the window chrome around** (`PROFILE_EXCLUDED_KEYS` in `config.lua`): `ui_opacity`, `ui_open` and `widget_open` were being captured into every profile snapshot and applied back on Load, so switching profiles could fade the config window to a stranger's opacity, close it out from under you, or pop the floating widget open. They join the container/run-state/focus/follow keys the profile system already excludes, alongside the two new chrome settings `display_mode` and `window_size_mode` — none of these describe *what Sidekick does*, which is the only thing a profile is for. Snapshots saved before this change still carry the three keys on disk; they are now ignored on Load rather than applied, so no migration is needed.
+
 ## [2.7.0] - 2026-08-17
 
 ### Added

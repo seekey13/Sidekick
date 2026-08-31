@@ -2196,6 +2196,11 @@ end
 local deferred_tabs = {}
 local deferred_tooltip_target = nil
 
+-- Whether the tab begin_tab_section just submitted is hovered. Sampled there
+-- because the enable checkbox and separator it draws afterwards would otherwise
+-- be the "last item" the caller's item_tooltip tests. nil outside tab mode.
+local tab_hovered = nil
+
 -- Show a static help tooltip for the most recently rendered item.
 function ui_components.item_tooltip(text)
     -- A deferred section has submitted no item yet, so IsItemHovered would test
@@ -2204,6 +2209,16 @@ function ui_components.item_tooltip(text)
     if deferred_tooltip_target then
         deferred_tooltip_target.tooltip = text
         deferred_tooltip_target = nil
+        return
+    end
+    -- A tab's help belongs to the tab, not to the widgets begin_tab_section drew
+    -- inside it, so it rides the hover sampled there instead of IsItemHovered.
+    if tab_hovered ~= nil then
+        local hovered = tab_hovered
+        tab_hovered = nil
+        if text and hovered then
+            ui_components.set_tooltip(text)
+        end
         return
     end
     if text and imgui.IsItemHovered() then
@@ -2357,6 +2372,11 @@ local function begin_tab_section(ctx, label, setting_name, default_value)
         imgui.PushStyleColor(ImGuiCol_Tab, TAB_COLOR_DISABLED)
         imgui.PushStyleColor(ImGuiCol_TabHovered, TAB_COLOR_DISABLED_HOVERED)
         imgui.PushStyleColor(ImGuiCol_TabActive, TAB_COLOR_DISABLED_ACTIVE)
+        -- ImGui swaps to the Unfocused pair whenever the tab bar's window is not the
+        -- focused ImGui window (the widget or the panel has it), so without these two
+        -- a disabled tab's background renders at full strength half the time.
+        imgui.PushStyleColor(ImGuiCol_TabUnfocused, TAB_COLOR_DISABLED)
+        imgui.PushStyleColor(ImGuiCol_TabUnfocusedActive, TAB_COLOR_DISABLED_ACTIVE)
         imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
     end
 
@@ -2380,10 +2400,11 @@ local function begin_tab_section(ctx, label, setting_name, default_value)
     end
     local selected = imgui.BeginTabItem(
         label .. '###' .. setting_name .. (enabled and '' or '_off'), nil, flags)
+    tab_hovered = imgui.IsItemHovered()
 
     -- Pop before the body renders, so tab dimming never bleeds into its contents.
     if not enabled then
-        imgui.PopStyleColor(4)
+        imgui.PopStyleColor(6)
     end
 
     render_display_mode_menu(ctx, setting_name)
@@ -2451,6 +2472,7 @@ end
 
 function ui_components.begin_section(ctx, label, setting_name, default_value)
     deferred_tooltip_target = nil
+    tab_hovered = nil
 
     if ctx.section_mode ~= 'tabs' then
         return begin_header_section(ctx, label, setting_name, default_value)
@@ -2473,6 +2495,7 @@ end
 -- EndTabItem is called only when BeginTabItem returned true, per ImGui's rules.
 function ui_components.end_section(ctx, is_open)
     deferred_tooltip_target = nil
+    tab_hovered = nil
     if ctx.section_mode == 'tabs' and is_open then
         imgui.EndTabItem()
     end
