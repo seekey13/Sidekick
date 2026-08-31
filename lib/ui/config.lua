@@ -487,8 +487,10 @@ function profile_ops.load_default(ctx)
     if ctx.save_callback then ctx.save_callback() end
 end
 
--- New: reset the working copy to job defaults (same merge as setup_job) and
--- drop back to Default. Saved profiles are untouched.
+-- New: reset the working copy to job defaults (same merge as setup_job), minus
+-- the excluded window chrome -- New re-chromes nothing the user can see, since
+-- PROFILE_EXCLUDED_KEYS gates the backfill too. Drops back to Default. Saved
+-- profiles are untouched.
 function profile_ops.new(ctx)
     profile_apply(ctx.settings, ctx.job_def,
         (ctx.job_def and ctx.job_def.merged_defaults) or {})
