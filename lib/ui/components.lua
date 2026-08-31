@@ -2306,6 +2306,20 @@ local function begin_tab_section(ctx, label, setting_name, default_value)
 
     render_display_mode_menu(ctx, setting_name)
 
+    -- The tab-mode counterpart of the header's checkbox. ImGui can draw no widget
+    -- on a tab itself, so it goes at the top of the tab's body -- and it renders
+    -- whether or not the section is enabled, because it is the only way to switch
+    -- a disabled one back on. Everything below the separator is the section's own
+    -- controls, which the call site still gates on `is_enabled`.
+    if selected then
+        local setting_var = { enabled }
+        if imgui.Checkbox(label .. '##' .. setting_name, setting_var) then
+            set_section_enabled(ctx, setting_name, setting_var[1])
+            enabled = setting_var[1]
+        end
+        imgui.Separator()
+    end
+
     return selected, enabled
 end
 
