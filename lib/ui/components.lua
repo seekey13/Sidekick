@@ -2497,13 +2497,10 @@ function ui_components.begin_opaque_context_item(popup_id)
     return open
 end
 
--- ImGuiPopupFlags_MouseButtonRight (1) + ImGuiPopupFlags_NoOpenOverItems (1 << 6).
--- Written numerically on purpose: Ashita injects the ImGuiWindowFlags_/ImGuiTabBarFlags_
--- globals this file already uses, but no ImGuiPopupFlags_ global is referenced anywhere
--- else in the addon -- a nil one here would throw inside the render loop every frame,
--- and a literal cannot. NoOpenOverItems is what keeps this menu off the section headers
--- and tabs, which carry the display-mode menu instead.
-local POPUP_FLAGS_EMPTY_SPACE_ONLY = 65
+-- NoOpenOverItems is what keeps this menu off the section headers and tabs, which
+-- carry the display-mode menu instead, and off every widget row that has a popup of
+-- its own -- it opens on empty window space only.
+local POPUP_FLAGS_EMPTY_SPACE_ONLY = ImGuiPopupFlags_MouseButtonRight + ImGuiPopupFlags_NoOpenOverItems
 
 -- Right-click anywhere in the CURRENT window that is not a widget. Pair with
 -- end_opaque_popup, same as the other two.
