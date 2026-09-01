@@ -2314,16 +2314,21 @@ local function section_enabled(ctx, setting_name, default_value)
     return value and true or false
 end
 
--- The section whose enable state was just toggled. Its tab is submitted under a
--- different id on the next frame (see begin_tab_section), which ImGui reads as the
--- old tab closing -- without this the selection would drop onto some other section
--- the moment the user ticked the checkbox inside the open one.
-local reselect_section = nil
+-- A section the user just switched ON from inside its own tab. Its tab keeps the
+-- disabled '_off' id (see begin_tab_section) for as long as it stays selected: a
+-- fresh id reads as the old tab closing, and ImGui answers a closed selection by
+-- falling back to the most recently selected tab -- which would throw the user off
+-- the section they had just enabled. Holding the id leaves the tab exactly where
+-- it is, still selected, now drawn in the enabled style. It is released the moment
+-- the user picks another tab, and the sort back into the enabled group happens then.
+local hold_enabled_id = nil
 
 local function set_section_enabled(ctx, setting_name, value)
     ctx.settings[setting_name] = value
     if ctx.section_mode == 'tabs' then
-        reselect_section = setting_name
+        -- Enabling holds the id (stay put); disabling releases it, so the tab moves
+        -- to the disabled end and the selection falls back to the previous tab.
+        hold_enabled_id = value and setting_name or nil
     end
     if ctx.save_callback then
         ctx.save_callback()
@@ -2393,14 +2398,22 @@ local function begin_tab_section(ctx, label, setting_name, default_value)
     -- would otherwise sit where it always sat instead of moving to the disabled
     -- end of the bar. A new id is read as one tab closing and another opening,
     -- which is what makes the sort happen.
-    local flags = ImGuiTabItemFlags_NoPushId
-    if reselect_section == setting_name then
-        flags = flags + ImGuiTabItemFlags_SetSelected
-        reselect_section = nil
-    end
+    --
+    -- hold_enabled_id is the one case where the id does not follow the state: a
+    -- section switched on from inside its own tab keeps the '_off' id until the
+    -- user leaves the tab, so the tab they are standing on never closes under them.
+    local held = hold_enabled_id == setting_name
     local selected = imgui.BeginTabItem(
-        label .. '###' .. setting_name .. (enabled and '' or '_off'), nil, flags)
+        label .. '###' .. setting_name .. ((enabled and not held) and '' or '_off'),
+        nil, ImGuiTabItemFlags_NoPushId)
     tab_hovered = imgui.IsItemHovered()
+
+    -- Released on the frame the user picks another tab. The next submission carries
+    -- the plain id, which adds a tab and so re-sorts the bar -- by then the selection
+    -- is on the tab they moved to, and adding a tab never steals it.
+    if held and not selected then
+        hold_enabled_id = nil
+    end
 
     -- Pop before the body renders, so tab dimming never bleeds into its contents.
     if not enabled then
@@ -2454,6 +2467,7 @@ function ui_components.begin_sections(ctx)
     end
 
     ctx.section_mode = 'headers'
+    hold_enabled_id = nil
 end
 
 function ui_components.end_sections(ctx)
