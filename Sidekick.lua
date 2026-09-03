@@ -99,6 +99,17 @@ local default_settings = T{
     rest_enabled = false,
     rest_timer = 5,
     rest_distance = 7,
+    -- Main config sections render either as a stack of collapsing headers or as
+    -- one row of tabs -- never both. Switched from the right-click menu on any
+    -- header or tab. 'headers' | 'tabs'.
+    display_mode = 'headers',
+    -- Config window sizing. 'auto' pins the window to its contents -- instant, but the
+    -- resize grip is off. 'custom' is a plain window: drag it to any size and the
+    -- contents scroll when they overflow. Switched from the right-click menu on empty
+    -- window space. The size itself is deliberately NOT stored here -- ImGui already
+    -- persists this window's size and position in its own imgui.ini, which is what
+    -- keeps it where the user left it across job changes. 'auto' | 'custom'.
+    window_size_mode = 'auto',
     -- Config window opacity (job-independent). 1-100, set from /sk panel.
     ui_opacity = 100,
     -- Whether the config window was open when the addon last unloaded; reopened on load.

@@ -44,6 +44,13 @@ local HEADER_COLOR_NORMAL = { 0.2, 0.2, 0.2, 0.31 }
 local HEADER_COLOR_HOVERED = { 0.2, 0.2, 0.2, 0.45 }
 local HEADER_COLOR_ACTIVE = { 0.2, 0.2, 0.2, 0.65 }
 
+-- Color Constants - Tabs (disabled sections only; enabled tabs keep the theme's
+-- own ImGuiCol_Tab* colors). A section's enable checkbox lives inside its tab
+-- body, so dimming is the only thing that shows enable state without opening it.
+local TAB_COLOR_DISABLED = { 0.15, 0.15, 0.15, 0.50 }
+local TAB_COLOR_DISABLED_HOVERED = { 0.25, 0.25, 0.25, 0.60 }
+local TAB_COLOR_DISABLED_ACTIVE = { 0.30, 0.30, 0.30, 0.80 }
+
 -- ============================================================================
 -- Helper Functions
 -- ============================================================================
@@ -2183,8 +2190,37 @@ function ui_components.set_tooltip(text)
     end
 end
 
+-- Sections held back for the disabled end of the tab bar, and the entry the next
+-- item_tooltip belongs to. Filled by begin_section, drained by end_sections --
+-- declared up here because item_tooltip below reads them. See "Section Display".
+local deferred_tabs = {}
+local deferred_tooltip_target = nil
+
+-- Whether the tab begin_tab_section just submitted is hovered. Sampled there
+-- because the enable checkbox and separator it draws afterwards would otherwise
+-- be the "last item" the caller's item_tooltip tests. nil outside tab mode.
+local tab_hovered = nil
+
 -- Show a static help tooltip for the most recently rendered item.
 function ui_components.item_tooltip(text)
+    -- A deferred section has submitted no item yet, so IsItemHovered would test
+    -- whatever was rendered before it -- usually the previous tab. Its help rides
+    -- along with the tab instead and is shown when end_sections submits it.
+    if deferred_tooltip_target then
+        deferred_tooltip_target.tooltip = text
+        deferred_tooltip_target = nil
+        return
+    end
+    -- A tab's help belongs to the tab, not to the widgets begin_tab_section drew
+    -- inside it, so it rides the hover sampled there instead of IsItemHovered.
+    if tab_hovered ~= nil then
+        local hovered = tab_hovered
+        tab_hovered = nil
+        if text and hovered then
+            ui_components.set_tooltip(text)
+        end
+        return
+    end
     if text and imgui.IsItemHovered() then
         ui_components.set_tooltip(text)
     end
@@ -2200,19 +2236,114 @@ function ui_components.checkbox(ctx, label, setting_name, ui_var)
     end
 end
 
--- Create a collapsible header with checkbox
-function ui_components.collapsing_checkbox_header(ctx, label, setting_name, default_value)
-    local setting_value = ctx.settings[setting_name]
-    if setting_value == nil then
-        setting_value = default_value
+-- ============================================================================
+-- Section Display (collapsing headers vs. tab bar)
+-- ============================================================================
+-- The window's main sections render with one of two chromes, never both: the
+-- classic stack of CollapsingHeaders, or one tab per section in a single bar.
+-- Which one is the per-character `display_mode` setting. Callers use the same
+-- shape either way:
+--
+--     ui.begin_sections(ctx)
+--       local is_open, is_enabled = ui.begin_section(ctx, 'Buffs', 'buff_enabled', false)
+--       if is_open and is_enabled then ... end
+--       ui.end_section(ctx, is_open)
+--       ... 15 more ...
+--     ui.end_sections(ctx)
+
+-- A mode switch is made from a popup that opens inside a frame already begun in
+-- the old mode. Applying it on the spot would leave a BeginTabBar without its
+-- EndTabBar (or an EndTabBar with no BeginTabBar), so the click only records the
+-- request and begin_sections applies it at the top of the next frame.
+local pending_display_mode = nil
+
+-- Read a section's enable setting, falling back to its default when the key has
+-- never been written (a fresh character, or a setting added after the file was
+-- first saved).
+local function section_enabled(ctx, setting_name, default_value)
+    local value = ctx.settings[setting_name]
+    if value == nil then
+        value = default_value
     end
-    local setting_var = { setting_value }
+    return value and true or false
+end
+
+-- The section whose tab is open, and the one that was open before it. Tracked by
+-- begin_tab_section so disabling a section can hand the selection back to the tab
+-- the user came from instead of leaving the choice to ImGui.
+local selected_section = nil
+local previous_section = nil
+
+-- The section whose tab must be selected, and how many more frames to keep asking
+-- for it. Toggling a section changes its tab id (the '_off' suffix comes and goes),
+-- which ImGui reads as one tab closing and another opening -- that is what makes the
+-- bar re-sort into submission order, but a closed selection also falls back to the
+-- most recently selected tab. ImGuiTabItemFlags_SetSelected only queues a selection
+-- for the *next* BeginTabBar, and the closing tab is not dropped until the frame
+-- after that, so a single submission of the flag loses the race with that fallback.
+-- Re-submitting it until the tab reports selected covers the whole transition; the
+-- frame count stops it wedging if the target section stops rendering first (a job
+-- change or a party-size gate can remove it mid-transition).
+local reselect_id = nil
+local reselect_frames = 0
+
+local RESELECT_FRAMES = 4
+
+-- Frames left to submit the bar with ImGuiTabBarFlags_AutoSelectNewTabs. That flag
+-- is what actually moves the selection onto a section switched ON from inside its
+-- own tab: SetSelected does not stick on a tab id ImGui is meeting for the first
+-- time (the tab it would take the selection from is removed in the same layout
+-- pass, and the fallback to the most recently selected tab wins), but AutoSelectNewTabs
+-- is resolved by ImGui itself as the tab appears. It is armed only for the enable
+-- transition and only for the two frames it takes to land, because the toggled
+-- section is the only tab whose id changes on that frame -- left on, it would hand
+-- the selection to the '_off' tab a *disabling* section creates, which is the one
+-- place the plain fallback is already the wanted answer.
+local autoselect_frames = 0
+
+local function set_section_enabled(ctx, setting_name, value)
+    ctx.settings[setting_name] = value
+    if ctx.section_mode == 'tabs' then
+        -- Enabling: keep the selection on the section just switched on, so its tab
+        -- sorts into the enabled group without the user losing their place.
+        -- Disabling: its tab moves to the disabled end, so hand the selection to the
+        -- tab that was open before this one.
+        local target = setting_name
+        if value then
+            autoselect_frames = 2
+        else
+            target = (previous_section ~= setting_name) and previous_section or nil
+        end
+        if target then
+            reselect_id = target
+            reselect_frames = RESELECT_FRAMES
+        end
+    end
+    if ctx.save_callback then
+        ctx.save_callback()
+    end
+end
+
+-- The right-click popup every section header and every tab carries. It is the
+-- only place display_mode is switched, and it offers exactly one direction:
+-- headers offer tabs, tabs offer headers. Never both at once.
+local function render_display_mode_menu(ctx, setting_name)
+    local to_tabs = ctx.section_mode ~= 'tabs'
+    if ui_components.begin_opaque_context_item('##cmenu_display_' .. setting_name) then
+        imgui.TextColored(LIGHT_GRAY, to_tabs and tooltips.display_as_tabs_hint or tooltips.display_as_headers_hint)
+        imgui.Separator()
+        if imgui.Selectable(to_tabs and 'Display as tabs' or 'Display as section headers') then
+            pending_display_mode = to_tabs and 'tabs' or 'headers'
+        end
+        ui_components.end_opaque_popup()
+    end
+end
+
+local function begin_header_section(ctx, label, setting_name, default_value)
+    local setting_var = { section_enabled(ctx, setting_name, default_value) }
     local previous_value = setting_var[1]
     if imgui.Checkbox('##' .. setting_name, setting_var) then
-        ctx.settings[setting_name] = setting_var[1]
-        if ctx.save_callback then
-            ctx.save_callback()
-        end
+        set_section_enabled(ctx, setting_name, setting_var[1])
         -- Auto-expand when enabling the section (only on the transition from disabled to enabled)
         if setting_var[1] and not previous_value then
             imgui.SetNextItemOpen(true)
@@ -2224,7 +2355,214 @@ function ui_components.collapsing_checkbox_header(ctx, label, setting_name, defa
     imgui.PushStyleColor(ImGuiCol_HeaderActive, HEADER_COLOR_ACTIVE)
     local is_open = imgui.CollapsingHeader(label, ImGuiTreeNodeFlags_DefaultOpen)
     imgui.PopStyleColor(3)
+    render_display_mode_menu(ctx, setting_name)
     return is_open, setting_var[1]
+end
+
+local function begin_tab_section(ctx, label, setting_name, default_value)
+    local enabled = section_enabled(ctx, setting_name, default_value)
+
+    if not enabled then
+        imgui.PushStyleColor(ImGuiCol_Tab, TAB_COLOR_DISABLED)
+        imgui.PushStyleColor(ImGuiCol_TabHovered, TAB_COLOR_DISABLED_HOVERED)
+        imgui.PushStyleColor(ImGuiCol_TabActive, TAB_COLOR_DISABLED_ACTIVE)
+        -- ImGui swaps to the Unfocused pair whenever the tab bar's window is not the
+        -- focused ImGui window (the widget or the panel has it), so without these two
+        -- a disabled tab's background renders at full strength half the time.
+        imgui.PushStyleColor(ImGuiCol_TabUnfocused, TAB_COLOR_DISABLED)
+        imgui.PushStyleColor(ImGuiCol_TabUnfocusedActive, TAB_COLOR_DISABLED_ACTIVE)
+        imgui.PushStyleColor(ImGuiCol_Text, LIGHT_GRAY)
+    end
+
+    -- '###setting_name' pins the tab's id to its setting so the selected tab
+    -- survives a label change. NoPushId keeps the id stack identical whether or
+    -- not the tab is selected: render_display_mode_menu is submitted in both
+    -- cases and would otherwise hash to two different popup ids between frames.
+    -- p_open is nil on purpose: a close button would be the only widget ImGui can
+    -- draw on a tab, and the enable checkbox lives in the tab body instead.
+    --
+    -- The '_off' suffix deliberately gives a disabled section a *different* id.
+    -- ImGui keeps a bar's tab order across frames and only re-sorts it into
+    -- submission order when a tab is added, so a section that merely changed state
+    -- would otherwise sit where it always sat instead of moving to the enabled or
+    -- disabled end of the bar. A new id is read as one tab closing and another
+    -- opening, which is what makes the sort happen -- and SetSelected is what stops
+    -- that close from dropping the user's selection along with it.
+    local flags = ImGuiTabItemFlags_NoPushId
+    if reselect_id == setting_name then
+        flags = flags + ImGuiTabItemFlags_SetSelected
+    end
+    local selected = imgui.BeginTabItem(
+        label .. '###' .. setting_name .. (enabled and '' or '_off'), nil, flags)
+    tab_hovered = imgui.IsItemHovered()
+
+    if selected then
+        -- The request landed; stop re-submitting it so the next click can move on.
+        if reselect_id == setting_name then
+            reselect_id = nil
+        end
+        if selected_section ~= setting_name then
+            previous_section = selected_section
+            selected_section = setting_name
+        end
+    end
+
+    -- Pop before the body renders, so tab dimming never bleeds into its contents.
+    if not enabled then
+        imgui.PopStyleColor(6)
+    end
+
+    render_display_mode_menu(ctx, setting_name)
+
+    -- The tab-mode counterpart of the header's checkbox. ImGui can draw no widget
+    -- on a tab itself, so it goes at the top of the tab's body -- and it renders
+    -- whether or not the section is enabled, because it is the only way to switch
+    -- a disabled one back on. Everything below the separator is the section's own
+    -- controls, which the call site still gates on `is_enabled`.
+    if selected then
+        local setting_var = { enabled }
+        if imgui.Checkbox(label .. '##' .. setting_name, setting_var) then
+            set_section_enabled(ctx, setting_name, setting_var[1])
+            enabled = setting_var[1]
+        end
+        imgui.Separator()
+    end
+
+    return selected, enabled
+end
+
+-- Open the container the sections render into. Pair with end_sections.
+-- Resolves the mode ONCE per frame onto ctx: begin_section reads ctx.section_mode
+-- and never the setting, so the frame cannot end in a different chrome than it
+-- began in.
+function ui_components.begin_sections(ctx)
+    deferred_tabs = {}
+
+    -- Give up on a selection request the target never came back to claim.
+    if reselect_id then
+        reselect_frames = reselect_frames - 1
+        if reselect_frames <= 0 then
+            reselect_id = nil
+        end
+    end
+
+    if pending_display_mode then
+        ctx.settings.display_mode = pending_display_mode
+        pending_display_mode = nil
+        if ctx.save_callback then
+            ctx.save_callback()
+        end
+    end
+
+    if ctx.settings.display_mode == 'tabs' then
+        -- FittingPolicyScroll keeps every label full width -- ResizeDown truncates
+        -- them on jobs with many sections, and a truncated label is unreadable at
+        -- the widths 16 tabs produce.
+        local bar_flags = ImGuiTabBarFlags_FittingPolicyScroll
+        if autoselect_frames > 0 then
+            autoselect_frames = autoselect_frames - 1
+            bar_flags = bar_flags + ImGuiTabBarFlags_AutoSelectNewTabs
+        end
+        if imgui.BeginTabBar('##sk_sections', bar_flags) then
+            ctx.section_mode = 'tabs'
+            return
+        end
+        -- BeginTabBar refused (the window is clipped). Fall back to headers for
+        -- this frame rather than rendering no sections at all.
+    end
+
+    ctx.section_mode = 'headers'
+    reselect_id = nil
+    autoselect_frames = 0
+    selected_section = nil
+    previous_section = nil
+end
+
+function ui_components.end_sections(ctx)
+    if ctx.section_mode == 'tabs' then
+        -- The disabled sections, in declaration order, after every enabled one.
+        for _, tab in ipairs(deferred_tabs) do
+            local selected = begin_tab_section(ctx, tab.label, tab.setting_name, tab.default_value)
+            ui_components.item_tooltip(tab.tooltip)
+            if selected then
+                imgui.EndTabItem()
+            end
+        end
+        imgui.EndTabBar()
+    end
+end
+
+function ui_components.begin_section(ctx, label, setting_name, default_value)
+    deferred_tooltip_target = nil
+    tab_hovered = nil
+
+    if ctx.section_mode ~= 'tabs' then
+        return begin_header_section(ctx, label, setting_name, default_value)
+    end
+
+    -- Disabled sections are held back for end_sections, so the bar reads enabled
+    -- tabs first and disabled ones after. Holding one back costs nothing: the call
+    -- site gates its body on is_enabled, so a disabled tab's entire body is the
+    -- enable checkbox begin_tab_section draws itself.
+    if not section_enabled(ctx, setting_name, default_value) then
+        deferred_tabs[#deferred_tabs + 1] =
+            { label = label, setting_name = setting_name, default_value = default_value }
+        deferred_tooltip_target = deferred_tabs[#deferred_tabs]
+        return false, false
+    end
+
+    return begin_tab_section(ctx, label, setting_name, default_value)
+end
+
+-- EndTabItem is called only when BeginTabItem returned true, per ImGui's rules.
+function ui_components.end_section(ctx, is_open)
+    deferred_tooltip_target = nil
+    tab_hovered = nil
+    if ctx.section_mode == 'tabs' and is_open then
+        imgui.EndTabItem()
+    end
+end
+
+-- ============================================================================
+-- Window Size Mode (auto-fit vs. custom drag-to-resize)
+-- ============================================================================
+
+-- Same one-frame defer, for the other chrome switch this window offers. The click
+-- lands inside a window imgui.Begin has already opened, but the window's flags and
+-- size constraints had to be settled before that Begin -- so the request is recorded
+-- here and config.lua applies it at the top of the next frame.
+local pending_window_size_mode = nil
+
+-- Called by config.lua BEFORE imgui.Begin. Nothing needs re-applying on the frame the
+-- mode flips: dropping AlwaysAutoResize leaves the window at the size the auto-fit had
+-- just produced, which is exactly where the user wants to start dragging from.
+function ui_components.apply_pending_window_size_mode(ctx)
+    if not pending_window_size_mode then
+        return
+    end
+    ctx.settings.window_size_mode = pending_window_size_mode
+    pending_window_size_mode = nil
+    if ctx.save_callback then
+        ctx.save_callback()
+    end
+end
+
+-- The window-body counterpart of render_display_mode_menu above: right-click on empty
+-- space -- never on a widget, see POPUP_FLAGS_EMPTY_SPACE_ONLY -- offers the one sizing
+-- mode the window is not in. Same shape as that menu: the current behaviour in gray, a
+-- separator, then a single Selectable describing the switch. Submitted once per frame,
+-- at the end of the window body.
+function ui_components.render_window_size_menu(ctx)
+    local to_custom = ctx.settings.window_size_mode ~= 'custom'
+    if ui_components.begin_opaque_context_window('##cmenu_window_size') then
+        imgui.TextColored(LIGHT_GRAY,
+            to_custom and tooltips.window_size_auto_hint or tooltips.window_size_custom_hint)
+        imgui.Separator()
+        if imgui.Selectable(to_custom and 'Use a custom window size' or 'Fit window to contents') then
+            pending_window_size_mode = to_custom and 'custom' or 'auto'
+        end
+        ui_components.end_opaque_popup()
+    end
 end
 
 -- Create an integer input UI element linked to a setting, clamped to [min, max]
@@ -2311,6 +2649,20 @@ end
 function ui_components.begin_opaque_context_item(popup_id)
     arm_opaque_bg(popup_id)
     local open = imgui.BeginPopupContextItem(popup_id)
+    track_opaque_open(popup_id, open)
+    return open
+end
+
+-- NoOpenOverItems is what keeps this menu off the section headers and tabs, which
+-- carry the display-mode menu instead, and off every widget row that has a popup of
+-- its own -- it opens on empty window space only.
+local POPUP_FLAGS_EMPTY_SPACE_ONLY = ImGuiPopupFlags_MouseButtonRight + ImGuiPopupFlags_NoOpenOverItems
+
+-- Right-click anywhere in the CURRENT window that is not a widget. Pair with
+-- end_opaque_popup, same as the other two.
+function ui_components.begin_opaque_context_window(popup_id)
+    arm_opaque_bg(popup_id)
+    local open = imgui.BeginPopupContextWindow(popup_id, POPUP_FLAGS_EMPTY_SPACE_ONLY)
     track_opaque_open(popup_id, open)
     return open
 end

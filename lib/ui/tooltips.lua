@@ -18,6 +18,25 @@ return {
         '- Paused: combat is currently blocked\n' ..
         '- Running: fully active',
 
+    display_as_tabs_hint =
+        'Sections are stacked as collapsing headers.',
+
+    display_as_headers_hint =
+        'Sections are shown as tabs.\n' ..
+        'Dimmed tabs are disabled and sit after the enabled ones.\n' ..
+        'Open a tab to enable or disable it.',
+
+    -- Named for the state each one DESCRIBES (the display_as_* pair above is named for
+    -- the action instead). The call site picks the hint for the mode currently in force.
+    window_size_auto_hint =
+        'The window resizes itself to fit its contents.\n' ..
+        'Instant, but it cannot be resized by hand.',
+
+    window_size_custom_hint =
+        'The window keeps the size you drag it to.\n' ..
+        'Drag the bottom-right corner to resize.\n' ..
+        'Contents scroll when they do not fit.',
+
     tracked_targets =
         'Tracks a player outside your party/alliance.\n' ..
         'Some abilities are disabled on targets outside\n' ..
@@ -107,6 +126,13 @@ return {
         'specific status IDs. Priority: yourself, then\n' ..
         'your Focus Target, then whichever selected\n' ..
         'member has the most removable debuffs.',
+
+    pet_debuff_removal =
+        'Cures your pet\'s status ailments with the\n' ..
+        'checked ability, equipping the item it needs.\n' ..
+        'Pet statuses are inferred from packets rather\n' ..
+        'than read from the client, so this is not\n' ..
+        'totally reliable.',
 
     item_removal =
         'Auto-uses consumables on yourself to cure\n' ..
