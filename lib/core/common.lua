@@ -842,11 +842,16 @@ function common.get_party()
     return party
 end
 
--- Status ailments Erase removes (WHM/SCH). The Na-spell ailments are deliberately
--- absent -- Erase does not touch them, so listing them only made Erase fire and fail.
-common.ERASABLE_DEBUFFS = {11, 12, 13, 128, 129, 130, 131, 132, 133, 134,
+-- Status ailments Erase removes (WHM/SCH). Mirrors every status_effects.sql row
+-- carrying EFFECTFLAG_ERASABLE (0x2) -- the only flag EraseStatusEffect() reads --
+-- minus the two that land on a mob and never on a party member (536 Gambit,
+-- 571 Rayke, both RUN). The Na-spell ailments are deliberately absent -- Erase
+-- does not touch them, so listing them only made Erase fire and fail. Helix (186)
+-- is absent for the same reason: no erasable flag on this server, despite being a
+-- Bio/Dia-style DoT.
+common.ERASABLE_DEBUFFS = {10, 11, 12, 13, 21, 128, 129, 130, 131, 132, 133, 134,
     135, 136, 137, 138, 139, 140, 141, 142, 144, 145, 146, 147, 148, 149, 156,
-    167, 174, 175, 189, 404}
+    167, 174, 175, 189, 192, 194, 291, 298, 404}
 
 -- Status ailments the pet cleanses remove (BST Reward, PUP Maintenance): everything
 -- Erase clears plus the Na-spell ailments below. Deliberately not Erase's list --
@@ -875,7 +880,7 @@ common.CURSE_DEBUFFS = {9, 15, 20, 30}
 -- 9/20/30 all read "curse"/"bane"); the stat-down tail matches Panacea's family.
 common.DEBUFF_NAMES = {
     [3]='Poison', [4]='Paralysis', [5]='Blindness', [6]='Silence',
-    [7]='Petrification', [8]='Disease', [9]='Curse', [11]='Bind',
+    [7]='Petrification', [8]='Disease', [9]='Curse', [10]='Stun', [11]='Bind',
     [12]='Weight', [13]='Slow', [15]='Doom', [20]='Bane', [21]='Addle',
     [30]='Curse II', [31]='Plague', [128]='Burn', [129]='Frost',
     [130]='Choke', [131]='Rasp', [132]='Shock', [133]='Drown',
@@ -885,7 +890,8 @@ common.DEBUFF_NAMES = {
     [145]='Max MP Down', [146]='Accuracy Down', [147]='Attack Down',
     [148]='Evasion Down', [149]='Defense Down', [156]='Flash',
     [167]='Magic Def. Down', [174]='Magic Acc. Down', [175]='Magic Atk. Down',
-    [189]='Max TP Down', [404]='Magic Eva. Down',
+    [189]='Max TP Down', [192]='Requiem', [194]='Elegy', [291]='Enmity Down',
+    [298]='Crit. Eva. Down', [404]='Magic Eva. Down',
 }
 
 -- Base durations (seconds) for DEBUFFS packet-detected on Trusts/tracked targets,
@@ -898,7 +904,7 @@ common.DEBUFF_NAMES = {
 -- Slow), and the until-removed group (Disease/Curse/Bane/Plague -> INFINITE, which
 -- also overrides the 120s default back to no-timer). Erasable 120s debuffs
 -- (Poison/Paralyze/Blind/Silence/Dia/Bio) fall through to that default. Debuffs
--- nothing strips (Stun/Amnesia/Addle/Terror) are intentionally absent -- timing
+-- nothing strips (Amnesia/Charm/Terror) are intentionally absent -- timing
 -- them out buys nothing.
 local INFINITE = false  -- tracked but never timer-expired
 local BASE_DEBUFF_DURATION = {
