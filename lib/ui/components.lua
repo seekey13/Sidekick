@@ -2268,27 +2268,42 @@ local function section_enabled(ctx, setting_name, default_value)
     return value and true or false
 end
 
--- A section the user just switched ON from inside its own tab. Its tab keeps the
--- disabled '_off' id (see begin_tab_section) for as long as it stays selected: a
--- fresh id reads as the old tab closing, and ImGui answers a closed selection by
--- falling back to the most recently selected tab -- which would throw the user off
--- the section they had just enabled. Holding the id leaves the tab exactly where
--- it is, still selected, now drawn in the enabled style. It is released the moment
--- the user picks another tab, and the sort back into the enabled group happens then.
-local hold_enabled_id = nil
+-- The section whose tab is open, and the one that was open before it. Tracked by
+-- begin_tab_section so disabling a section can hand the selection back to the tab
+-- the user came from instead of leaving the choice to ImGui.
+local selected_section = nil
+local previous_section = nil
 
--- Whether the held section was submitted this frame. A section can stop rendering
--- while it is held -- Sleep Removal hides when the party drops to solo, job-gated
--- sections vanish on a job change -- and the release in begin_tab_section only runs
--- for a section that is still being submitted. end_sections drops the stale hold.
-local hold_submitted = false
+-- The section whose tab must be selected, and how many more frames to keep asking
+-- for it. Toggling a section changes its tab id (the '_off' suffix comes and goes),
+-- which ImGui reads as one tab closing and another opening -- that is what makes the
+-- bar re-sort into submission order, but a closed selection also falls back to the
+-- most recently selected tab. ImGuiTabItemFlags_SetSelected only queues a selection
+-- for the *next* BeginTabBar, and the closing tab is not dropped until the frame
+-- after that, so a single submission of the flag loses the race with that fallback.
+-- Re-submitting it until the tab reports selected covers the whole transition; the
+-- frame count stops it wedging if the target section stops rendering first (a job
+-- change or a party-size gate can remove it mid-transition).
+local reselect_id = nil
+local reselect_frames = 0
+
+local RESELECT_FRAMES = 4
 
 local function set_section_enabled(ctx, setting_name, value)
     ctx.settings[setting_name] = value
     if ctx.section_mode == 'tabs' then
-        -- Enabling holds the id (stay put); disabling releases it, so the tab moves
-        -- to the disabled end and the selection falls back to the previous tab.
-        hold_enabled_id = value and setting_name or nil
+        -- Enabling: keep the selection on the section just switched on, so its tab
+        -- sorts into the enabled group without the user losing their place.
+        -- Disabling: its tab moves to the disabled end, so hand the selection to the
+        -- tab that was open before this one.
+        local target = setting_name
+        if not value then
+            target = (previous_section ~= setting_name) and previous_section or nil
+        end
+        if target then
+            reselect_id = target
+            reselect_frames = RESELECT_FRAMES
+        end
     end
     if ctx.save_callback then
         ctx.save_callback()
@@ -2355,27 +2370,27 @@ local function begin_tab_section(ctx, label, setting_name, default_value)
     -- The '_off' suffix deliberately gives a disabled section a *different* id.
     -- ImGui keeps a bar's tab order across frames and only re-sorts it into
     -- submission order when a tab is added, so a section that merely changed state
-    -- would otherwise sit where it always sat instead of moving to the disabled
-    -- end of the bar. A new id is read as one tab closing and another opening,
-    -- which is what makes the sort happen.
-    --
-    -- hold_enabled_id is the one case where the id does not follow the state: a
-    -- section switched on from inside its own tab keeps the '_off' id until the
-    -- user leaves the tab, so the tab they are standing on never closes under them.
-    local held = hold_enabled_id == setting_name
-    if held then
-        hold_submitted = true
+    -- would otherwise sit where it always sat instead of moving to the enabled or
+    -- disabled end of the bar. A new id is read as one tab closing and another
+    -- opening, which is what makes the sort happen -- and SetSelected is what stops
+    -- that close from dropping the user's selection along with it.
+    local flags = ImGuiTabItemFlags_NoPushId
+    if reselect_id == setting_name then
+        flags = flags + ImGuiTabItemFlags_SetSelected
     end
     local selected = imgui.BeginTabItem(
-        label .. '###' .. setting_name .. ((enabled and not held) and '' or '_off'),
-        nil, ImGuiTabItemFlags_NoPushId)
+        label .. '###' .. setting_name .. (enabled and '' or '_off'), nil, flags)
     tab_hovered = imgui.IsItemHovered()
 
-    -- Released on the frame the user picks another tab. The next submission carries
-    -- the plain id, which adds a tab and so re-sorts the bar -- by then the selection
-    -- is on the tab they moved to, and adding a tab never steals it.
-    if held and not selected then
-        hold_enabled_id = nil
+    if selected then
+        -- The request landed; stop re-submitting it so the next click can move on.
+        if reselect_id == setting_name then
+            reselect_id = nil
+        end
+        if selected_section ~= setting_name then
+            previous_section = selected_section
+            selected_section = setting_name
+        end
     end
 
     -- Pop before the body renders, so tab dimming never bleeds into its contents.
@@ -2408,7 +2423,14 @@ end
 -- began in.
 function ui_components.begin_sections(ctx)
     deferred_tabs = {}
-    hold_submitted = false
+
+    -- Give up on a selection request the target never came back to claim.
+    if reselect_id then
+        reselect_frames = reselect_frames - 1
+        if reselect_frames <= 0 then
+            reselect_id = nil
+        end
+    end
 
     if pending_display_mode then
         ctx.settings.display_mode = pending_display_mode
@@ -2431,7 +2453,9 @@ function ui_components.begin_sections(ctx)
     end
 
     ctx.section_mode = 'headers'
-    hold_enabled_id = nil
+    reselect_id = nil
+    selected_section = nil
+    previous_section = nil
 end
 
 function ui_components.end_sections(ctx)
@@ -2443,13 +2467,6 @@ function ui_components.end_sections(ctx)
             if selected then
                 imgui.EndTabItem()
             end
-        end
-
-        -- The held section never rendered this frame, so begin_tab_section had no
-        -- chance to release it. Drop it, or it comes back stuck in the disabled
-        -- group wearing the enabled style until the user clicks away from it.
-        if not hold_submitted then
-            hold_enabled_id = nil
         end
         imgui.EndTabBar()
     end
