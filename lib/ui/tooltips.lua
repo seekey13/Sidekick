@@ -127,6 +127,13 @@ return {
         'your Focus Target, then whichever selected\n' ..
         'member has the most removable debuffs.',
 
+    pet_debuff_removal =
+        'Cures your pet\'s status ailments with the\n' ..
+        'checked ability, equipping the item it needs.\n' ..
+        'Pet statuses are inferred from packets rather\n' ..
+        'than read from the client, so this is not\n' ..
+        'totally reliable.',
+
     item_removal =
         'Auto-uses consumables on yourself to cure\n' ..
         'status ailments, independent of spell-based\n' ..

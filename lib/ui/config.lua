@@ -28,7 +28,7 @@ local current_settings = nil
 local save_callback = nil
 
 -- Floor for the custom window size. Small enough not to fight the user, large enough
--- that empty body space always remains for the right-click menu that leaves custom mode.
+-- that the window stays usable and keeps empty body space to right-click.
 local MIN_CUSTOM_WINDOW_WIDTH = 320
 local MIN_CUSTOM_WINDOW_HEIGHT = 200
 
@@ -920,8 +920,9 @@ function ui_config.render(settings, job_def, callback)
     local window_flags = ImGuiWindowFlags_NoResize + ImGuiWindowFlags_AlwaysAutoResize
     if settings.window_size_mode == 'custom' then
         window_flags = 0  -- ImGuiWindowFlags_None: resize grip on, auto scrollbar on
-        -- ImGui's own floor is style.WindowMinSize (32x32), which leaves no empty body
-        -- to right-click -- and the right-click menu is the only way back to auto sizing.
+        -- ImGui's own floor is style.WindowMinSize (32x32). The menu is still reachable
+        -- there (BeginPopupContextWindow tests the whole outer rect, so the title bar
+        -- opens it too), so this floor is comfort rather than an escape hatch.
         imgui.SetNextWindowSizeConstraints(
             { MIN_CUSTOM_WINDOW_WIDTH, MIN_CUSTOM_WINDOW_HEIGHT }, { FLT_MAX, FLT_MAX })
     end
@@ -1256,6 +1257,7 @@ function ui_config.render(settings, job_def, callback)
         -- memory), so warn it's not fully reliable -- same caveat as Trust/tracked.
         if job_def and job_def.abilities.pet_debuff_removal and has_usable_abilities(job_def.abilities.pet_debuff_removal) then
             local is_open, is_enabled = ui.begin_section(ctx, 'Pet Debuff Removal', 'pet_debuff_removal_enabled', false)
+            ui.item_tooltip(tooltips.pet_debuff_removal)
             if is_open and is_enabled then
                 imgui.Indent(ui.ABILITY_LIST_INDENT)
                 ctx.show_pet_debuff_warning = true

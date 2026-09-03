@@ -57,13 +57,13 @@ The one exception is **opt-in leader following** (off by default): with **Follow
 ### [2.8.0] - 2026-08-31
 
 ### Added
-- **Sections as tabs**: right-click any section header for *Display as tabs* (and any tab for *Display as section headers*); each tab carries its own enable checkbox, and disabled ones are dimmed. **Bloodlust** 
+- **Sections as tabs**: right-click any section header for *Display as tabs* (and any tab for *Display as section headers*); each tab carries its own enable checkbox, and disabled ones are dimmed. — **Bloodlust**
 - **Disabled tabs sort last**: sections you switch off move to the end of the tab bar, keeping the enabled ones together on the left.
-- **Custom window size**: right-click empty space in the config window for *Use a custom window size*, then drag the corner; *Fit window to contents* puts it back on auto-sizing. **Toranko** 
+- **Custom window size**: right-click empty space in the config window for *Use a custom window size*, then drag the corner; *Fit window to contents* puts it back on auto-sizing. — **Toranko**
 
 ### Fixed
 - **Loading a profile no longer changes the window itself**: opacity, and whether the config window and the widget are open, are no longer saved into or applied by profiles.
-- **Erase clears everything the server says it can**: Stun, Addle, Requiem, Elegy, Enmity Down and Crit. Eva. Down are now erasable, are named in the per-status opt-out menus, and are cleared by the pet cleanses too. **Atsumu** & **Tai**
+- **Erase clears everything the server says it can**: Stun, Addle, Requiem, Elegy, Enmity Down and Crit. Eva. Down are now erasable, are named in the per-status opt-out menus, and are cleared by the pet cleanses too. — **Atsumu**, **Tai**
 
 See [CHANGELOG.md](CHANGELOG.md) for the full release history.
 

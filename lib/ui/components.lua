@@ -2257,52 +2257,6 @@ end
 -- request and begin_sections applies it at the top of the next frame.
 local pending_display_mode = nil
 
--- ============================================================================
--- Window Size Mode (auto-fit vs. custom drag-to-resize)
--- ============================================================================
-
--- Same one-frame defer, for the other chrome switch this window offers. The click
--- lands inside a window imgui.Begin has already opened, but the window's flags and
--- size constraints had to be settled before that Begin -- so the request is recorded
--- here and config.lua applies it at the top of the next frame.
-local pending_window_size_mode = nil
-
--- Called by config.lua BEFORE imgui.Begin. Nothing needs re-applying on the frame the
--- mode flips: dropping AlwaysAutoResize leaves the window at the size the auto-fit had
--- just produced, which is exactly where the user wants to start dragging from.
-function ui_components.apply_pending_window_size_mode(ctx)
-    if not pending_window_size_mode then
-        return
-    end
-    ctx.settings.window_size_mode = pending_window_size_mode
-    pending_window_size_mode = nil
-    if ctx.save_callback then
-        ctx.save_callback()
-    end
-end
-
--- The window-body counterpart of render_display_mode_menu below: right-click on empty
--- space -- never on a widget, see POPUP_FLAGS_EMPTY_SPACE_ONLY -- offers the one sizing
--- mode the window is not in. Same shape as that menu: the current behaviour in gray, a
--- separator, then a single Selectable describing the switch. Submitted once per frame,
--- at the end of the window body.
-function ui_components.render_window_size_menu(ctx)
-    local to_custom = ctx.settings.window_size_mode ~= 'custom'
-    if ui_components.begin_opaque_context_window('##cmenu_window_size') then
-        imgui.TextColored(LIGHT_GRAY,
-            to_custom and tooltips.window_size_auto_hint or tooltips.window_size_custom_hint)
-        imgui.Separator()
-        if imgui.Selectable(to_custom and 'Use a custom window size' or 'Fit window to contents') then
-            pending_window_size_mode = to_custom and 'custom' or 'auto'
-        end
-        ui_components.end_opaque_popup()
-    end
-end
-
--- ============================================================================
--- Section Display (collapsing headers vs. tab bar)
--- ============================================================================
-
 -- Read a section's enable setting, falling back to its default when the key has
 -- never been written (a fresh character, or a setting added after the file was
 -- first saved).
@@ -2322,6 +2276,12 @@ end
 -- it is, still selected, now drawn in the enabled style. It is released the moment
 -- the user picks another tab, and the sort back into the enabled group happens then.
 local hold_enabled_id = nil
+
+-- Whether the held section was submitted this frame. A section can stop rendering
+-- while it is held -- Sleep Removal hides when the party drops to solo, job-gated
+-- sections vanish on a job change -- and the release in begin_tab_section only runs
+-- for a section that is still being submitted. end_sections drops the stale hold.
+local hold_submitted = false
 
 local function set_section_enabled(ctx, setting_name, value)
     ctx.settings[setting_name] = value
@@ -2403,6 +2363,9 @@ local function begin_tab_section(ctx, label, setting_name, default_value)
     -- section switched on from inside its own tab keeps the '_off' id until the
     -- user leaves the tab, so the tab they are standing on never closes under them.
     local held = hold_enabled_id == setting_name
+    if held then
+        hold_submitted = true
+    end
     local selected = imgui.BeginTabItem(
         label .. '###' .. setting_name .. ((enabled and not held) and '' or '_off'),
         nil, ImGuiTabItemFlags_NoPushId)
@@ -2445,6 +2408,7 @@ end
 -- began in.
 function ui_components.begin_sections(ctx)
     deferred_tabs = {}
+    hold_submitted = false
 
     if pending_display_mode then
         ctx.settings.display_mode = pending_display_mode
@@ -2480,6 +2444,13 @@ function ui_components.end_sections(ctx)
                 imgui.EndTabItem()
             end
         end
+
+        -- The held section never rendered this frame, so begin_tab_section had no
+        -- chance to release it. Drop it, or it comes back stuck in the disabled
+        -- group wearing the enabled style until the user clicks away from it.
+        if not hold_submitted then
+            hold_enabled_id = nil
+        end
         imgui.EndTabBar()
     end
 end
@@ -2512,6 +2483,48 @@ function ui_components.end_section(ctx, is_open)
     tab_hovered = nil
     if ctx.section_mode == 'tabs' and is_open then
         imgui.EndTabItem()
+    end
+end
+
+-- ============================================================================
+-- Window Size Mode (auto-fit vs. custom drag-to-resize)
+-- ============================================================================
+
+-- Same one-frame defer, for the other chrome switch this window offers. The click
+-- lands inside a window imgui.Begin has already opened, but the window's flags and
+-- size constraints had to be settled before that Begin -- so the request is recorded
+-- here and config.lua applies it at the top of the next frame.
+local pending_window_size_mode = nil
+
+-- Called by config.lua BEFORE imgui.Begin. Nothing needs re-applying on the frame the
+-- mode flips: dropping AlwaysAutoResize leaves the window at the size the auto-fit had
+-- just produced, which is exactly where the user wants to start dragging from.
+function ui_components.apply_pending_window_size_mode(ctx)
+    if not pending_window_size_mode then
+        return
+    end
+    ctx.settings.window_size_mode = pending_window_size_mode
+    pending_window_size_mode = nil
+    if ctx.save_callback then
+        ctx.save_callback()
+    end
+end
+
+-- The window-body counterpart of render_display_mode_menu above: right-click on empty
+-- space -- never on a widget, see POPUP_FLAGS_EMPTY_SPACE_ONLY -- offers the one sizing
+-- mode the window is not in. Same shape as that menu: the current behaviour in gray, a
+-- separator, then a single Selectable describing the switch. Submitted once per frame,
+-- at the end of the window body.
+function ui_components.render_window_size_menu(ctx)
+    local to_custom = ctx.settings.window_size_mode ~= 'custom'
+    if ui_components.begin_opaque_context_window('##cmenu_window_size') then
+        imgui.TextColored(LIGHT_GRAY,
+            to_custom and tooltips.window_size_auto_hint or tooltips.window_size_custom_hint)
+        imgui.Separator()
+        if imgui.Selectable(to_custom and 'Use a custom window size' or 'Fit window to contents') then
+            pending_window_size_mode = to_custom and 'custom' or 'auto'
+        end
+        ui_components.end_opaque_popup()
     end
 end
 
