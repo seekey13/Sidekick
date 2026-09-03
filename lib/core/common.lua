@@ -880,7 +880,7 @@ common.CURSE_DEBUFFS = {9, 15, 20, 30}
 -- 9/20/30 all read "curse"/"bane"); the stat-down tail matches Panacea's family.
 common.DEBUFF_NAMES = {
     [3]='Poison', [4]='Paralysis', [5]='Blindness', [6]='Silence',
-    [7]='Petrification', [8]='Disease', [9]='Curse', [11]='Bind',
+    [7]='Petrification', [8]='Disease', [9]='Curse', [10]='Stun', [11]='Bind',
     [12]='Weight', [13]='Slow', [15]='Doom', [20]='Bane', [21]='Addle',
     [30]='Curse II', [31]='Plague', [128]='Burn', [129]='Frost',
     [130]='Choke', [131]='Rasp', [132]='Shock', [133]='Drown',
