@@ -2289,6 +2289,18 @@ local reselect_frames = 0
 
 local RESELECT_FRAMES = 4
 
+-- Frames left to submit the bar with ImGuiTabBarFlags_AutoSelectNewTabs. That flag
+-- is what actually moves the selection onto a section switched ON from inside its
+-- own tab: SetSelected does not stick on a tab id ImGui is meeting for the first
+-- time (the tab it would take the selection from is removed in the same layout
+-- pass, and the fallback to the most recently selected tab wins), but AutoSelectNewTabs
+-- is resolved by ImGui itself as the tab appears. It is armed only for the enable
+-- transition and only for the two frames it takes to land, because the toggled
+-- section is the only tab whose id changes on that frame -- left on, it would hand
+-- the selection to the '_off' tab a *disabling* section creates, which is the one
+-- place the plain fallback is already the wanted answer.
+local autoselect_frames = 0
+
 local function set_section_enabled(ctx, setting_name, value)
     ctx.settings[setting_name] = value
     if ctx.section_mode == 'tabs' then
@@ -2297,7 +2309,9 @@ local function set_section_enabled(ctx, setting_name, value)
         -- Disabling: its tab moves to the disabled end, so hand the selection to the
         -- tab that was open before this one.
         local target = setting_name
-        if not value then
+        if value then
+            autoselect_frames = 2
+        else
             target = (previous_section ~= setting_name) and previous_section or nil
         end
         if target then
@@ -2444,7 +2458,12 @@ function ui_components.begin_sections(ctx)
         -- FittingPolicyScroll keeps every label full width -- ResizeDown truncates
         -- them on jobs with many sections, and a truncated label is unreadable at
         -- the widths 16 tabs produce.
-        if imgui.BeginTabBar('##sk_sections', ImGuiTabBarFlags_FittingPolicyScroll) then
+        local bar_flags = ImGuiTabBarFlags_FittingPolicyScroll
+        if autoselect_frames > 0 then
+            autoselect_frames = autoselect_frames - 1
+            bar_flags = bar_flags + ImGuiTabBarFlags_AutoSelectNewTabs
+        end
+        if imgui.BeginTabBar('##sk_sections', bar_flags) then
             ctx.section_mode = 'tabs'
             return
         end
@@ -2454,6 +2473,7 @@ function ui_components.begin_sections(ctx)
 
     ctx.section_mode = 'headers'
     reselect_id = nil
+    autoselect_frames = 0
     selected_section = nil
     previous_section = nil
 end
