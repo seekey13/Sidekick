@@ -53,6 +53,60 @@ local TROUBADOUR_BUFF  = 348
 -- ponytail: entries for members who left the party linger; bounded and inert.
 local song_expiry = {}
 
+-- Nightingale + Troubadour are popped together, and every song sung inside that
+-- window is instant and lasts twice as long. So the moment both are up, every
+-- song we hold a timer for is worth re-singing on the spot: the instances we
+-- are holding are the short ones, and the window is far too brief to spend
+-- waiting them out.
+-- os.clock() of the moment the pair was first seen, nil while no window is
+-- armed. A row stamped before it is reported due (song_deadline); a row stamped
+-- after it was already sung inside the window, so the burst converges after one
+-- pass per song rather than looping.
+-- Armed once per window and disarmed only when BOTH buffs are gone: the two
+-- wear a moment apart, and a single frame where one is missing from the
+-- snapshot must not restart the burst mid-window.
+-- Only rows we HOLD are forced. A song we hold no row for keeps falling back to
+-- buff memory, and it has to: memory is what stops a bard with more configured
+-- songs than song slots from cycling them forever.
+local song_force_at = nil
+
+-- Arm or disarm that window. Called first thing in buff.execute, ahead of its
+-- own enable/resting guards, so the pair is tracked even on ticks that buff
+-- nothing.
+local function update_song_force(state)
+    local buffs = state and state.player and state.player.buffs
+    -- An empty list is allowed to disarm, on purpose: a transient failed read
+    -- costs at most one extra burst of casts that are instant and free anyway,
+    -- while refusing to disarm here would strand the window armed for a player
+    -- who legitimately holds zero buffs -- and since arming only happens while
+    -- song_force_at is nil, the next real pop would then silently burst nothing.
+    if not buffs then return end
+    local ng = action_core.has_any_buff(buffs, NIGHTINGALE_BUFF)
+    local tb = action_core.has_any_buff(buffs, TROUBADOUR_BUFF)
+    if ng and tb then
+        if not song_force_at then
+            song_force_at = os.clock()
+            common.debugf('[SONG] Nightingale + Troubadour up: re-singing every song we hold a timer for')
+        end
+    elseif not ng and not tb then
+        song_force_at = nil
+    end
+end
+
+-- True while songs are actually being forced. /sk panel reads it, so a sudden run
+-- of songs says why it is happening. Both halves of song_deadline's test are
+-- repeated here on purpose. The armed flag alone would lie twice over: the panel
+-- renders ahead of automation_tick and outside its guards, so with automation off
+-- (or mounted / dead / casting) nothing is refreshing song_force_at and it would
+-- sit non-nil long after both buffs wore; and through a Nightingale tail the
+-- window is still armed while song_deadline forces nothing. Reading live
+-- Troubadour answers both -- it is the condition that actually gates a cast.
+function buff.song_force_active()
+    if not song_force_at then return false end
+    local p = common.game_state and common.game_state.player
+    return action_core.has_any_buff(p and p.buffs, TROUBADOUR_BUFF)
+end
+
 -- server_id set of members whose song slots are wholly assigned to single-target
 -- songs. Rebuilt every buff.execute, read by handle_song_finished -- see the
 -- comment where it is filled.
@@ -115,6 +169,29 @@ local function song_deadline(ability, member, no_verify)
     local t = song_expiry[sid]
     local row = t and t[ability.name]
     if not row then return nil end
+    -- Nightingale + Troubadour window: a row stamped before the pair went up is
+    -- a short, pre-window song. Report it due (a deadline always in the past) so
+    -- it is re-sung now at double length -- ahead of the buff-memory check,
+    -- which still sees the old instance on the target and would veto the
+    -- recast. Skipping the landing check below is free here: we are re-singing
+    -- and restamping this row either way. Returning 0 (not false or -1) matters:
+    -- callers must treat it as truthy, and area_needs_recast's
+    -- `target_buffs and manual and song_deadline(...) or nil` chain relies on
+    -- that -- a falsy sentinel would be swallowed by that and/or idiom and
+    -- silently disable the feature with no error.
+    -- Troubadour must still be up at the moment this is read, not merely when the
+    -- window armed: the doubling is Troubadour's alone (handle_song_finished reads
+    -- it there), and the two are not always popped together -- Troubadour tends to
+    -- go up before a pull and Nightingale later, so Nightingale can outlive it.
+    -- Forcing through that tail would re-sing a DOUBLED instance as a single-length
+    -- one, the exact regression this feature exists to prevent. Tested here rather
+    -- than in update_song_force so a one-frame Troubadour dropout costs a skipped
+    -- tick and nothing more: song_force_at is untouched, so the burst cannot
+    -- restart. A failed buff read reads as "not up" and skips too, the safe way.
+    if song_force_at and (row.at or 0) < song_force_at then
+        local p = common.game_state and common.game_state.player
+        if action_core.has_any_buff(p and p.buffs, TROUBADOUR_BUFF) then return 0 end
+    end
     -- Landing check, run once per stamp. The cast-FINISH packet proves the song
     -- resolved, not who it reached: an area song stamps everyone who was in
     -- radius at send, so a member who walked out mid-cast holds a full timer for
@@ -187,6 +264,8 @@ function buff.reset_song_timers()
     slot_locked = {}
     pending_song = nil
     last_song_log = {}
+    -- The window belongs to the job that opened it.
+    song_force_at = nil
 end
 
 -- Drop every song timer held for one member. Our own death is the case that
@@ -619,6 +698,13 @@ local function area_needs_recast(ability, party_buff_config, song_keys, availabl
 end
 
 function buff.execute(settings, job_def, main_level, sub_level, player_resource, party_buff_config)
+    -- Ahead of every guard below, so a pair popped while resting -- or with
+    -- buffing switched off -- still opens (and closes) a window. Not every tick,
+    -- though: a higher-priority module winning the tick skips buff.execute
+    -- entirely. Harmless, because the arm/disarm always runs before any
+    -- song_deadline read in the same call, so a stale window never reaches a vote.
+    update_song_force(common.game_state)
+
     -- Check if buff is enabled
     if not settings.buff_enabled then
         return nil
@@ -756,12 +842,6 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
         -- couldn't fire this tick (on recast). Forces a hold so the single-target
         -- pass can't jump ahead and get overwritten by the area song later.
         local area_pending = false
-        -- The same hold for normal (non-fast) casting, but narrowed to an [A] song
-        -- that is due and merely waiting out its recast: singing a single-target
-        -- song into that gap throws the cast away, since the area song overwrites
-        -- it moments later. Only a cooldown counts -- an unaffordable or
-        -- ailment-blocked area song would otherwise stall Phase 2 indefinitely.
-        local area_on_recast = false
         for _, ability in ipairs(available_abilities) do
             local config_key = area_song_config_key(ability, settings, party_buff_config, area_processed)
             -- The area [A] button has no per-target override of its own, so it must

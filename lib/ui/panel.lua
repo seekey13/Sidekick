@@ -130,6 +130,14 @@ local function song_timer_lines(gs, addon_settings)
     end
     add('ME', gs.player)
     for i = 1, 5 do add('P' .. i, gs.party and gs.party[i]) end
+
+    -- Only beside held songs: with Song Duration 0 nothing is held, so nothing
+    -- is being re-sung, and a line here would short-circuit the "why nothing is
+    -- held" explanations below.
+    if #lines > 0 and buff.song_force_active() then
+        lines[#lines + 1] = 'Nightingale + Troubadour: re-singing held songs'
+    end
+
     if #lines > 0 then return table.concat(lines, '\n') end
 
     -- Nothing held: say WHY, so an empty readout tells you whether stamping is
