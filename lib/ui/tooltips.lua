@@ -315,6 +315,8 @@ return {
         'song duration (duration gear included) so songs never drop. Doubled\n' ..
         'automatically while Troubadour is up. While a timer is running that\n' ..
         'song is left alone, so an interrupted re-sing waits for the timer.\n' ..
+        'With Nightingale AND Troubadour both up, every song being timed is\n' ..
+        're-sung once at double length while the window lasts.\n' ..
         'Required if you fill your own song slots with [ME] songs and still\n' ..
         'want [A] songs sung for the party: your [ME] songs overwrite them on\n' ..
         'you, so only a timer can tell when the area songs are due again.',
