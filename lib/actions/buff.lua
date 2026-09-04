@@ -93,19 +93,18 @@ local function update_song_force(state)
     end
 end
 
--- True while that window is armed. /sk panel reads it, so a sudden run of songs
--- says why it is happening -- and the panel is the one reader that can see this
--- go stale: it renders ahead of automation_tick and outside its guards, so with
--- automation off (or mounted / dead / casting) nothing is refreshing
--- song_force_at and the cached flag would sit non-nil long after both buffs
--- wore. Confirm against the live snapshot instead. "Either buff still up" is
--- exactly the armed-state invariant update_song_force disarms on, so this can
--- never disagree with what the next buff.execute decides.
+-- True while songs are actually being forced. /sk panel reads it, so a sudden run
+-- of songs says why it is happening. Both halves of song_deadline's test are
+-- repeated here on purpose. The armed flag alone would lie twice over: the panel
+-- renders ahead of automation_tick and outside its guards, so with automation off
+-- (or mounted / dead / casting) nothing is refreshing song_force_at and it would
+-- sit non-nil long after both buffs wore; and through a Nightingale tail the
+-- window is still armed while song_deadline forces nothing. Reading live
+-- Troubadour answers both -- it is the condition that actually gates a cast.
 function buff.song_force_active()
     if not song_force_at then return false end
-    local b = common.game_state and common.game_state.player and common.game_state.player.buffs
-    return b ~= nil and (action_core.has_any_buff(b, NIGHTINGALE_BUFF)
-                      or action_core.has_any_buff(b, TROUBADOUR_BUFF))
+    local p = common.game_state and common.game_state.player
+    return action_core.has_any_buff(p and p.buffs, TROUBADOUR_BUFF)
 end
 
 -- server_id set of members whose song slots are wholly assigned to single-target
@@ -180,7 +179,19 @@ local function song_deadline(ability, member, no_verify)
     -- `target_buffs and manual and song_deadline(...) or nil` chain relies on
     -- that -- a falsy sentinel would be swallowed by that and/or idiom and
     -- silently disable the feature with no error.
-    if song_force_at and (row.at or 0) < song_force_at then return 0 end
+    -- Troubadour must still be up at the moment this is read, not merely when the
+    -- window armed: the doubling is Troubadour's alone (handle_song_finished reads
+    -- it there), and the two are not always popped together -- Troubadour tends to
+    -- go up before a pull and Nightingale later, so Nightingale can outlive it.
+    -- Forcing through that tail would re-sing a DOUBLED instance as a single-length
+    -- one, the exact regression this feature exists to prevent. Tested here rather
+    -- than in update_song_force so a one-frame Troubadour dropout costs a skipped
+    -- tick and nothing more: song_force_at is untouched, so the burst cannot
+    -- restart. A failed buff read reads as "not up" and skips too, the safe way.
+    if song_force_at and (row.at or 0) < song_force_at then
+        local p = common.game_state and common.game_state.player
+        if action_core.has_any_buff(p and p.buffs, TROUBADOUR_BUFF) then return 0 end
+    end
     -- Landing check, run once per stamp. The cast-FINISH packet proves the song
     -- resolved, not who it reached: an area song stamps everyone who was in
     -- radius at send, so a member who walked out mid-cast holds a full timer for
