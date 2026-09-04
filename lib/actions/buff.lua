@@ -94,9 +94,18 @@ local function update_song_force(state)
 end
 
 -- True while that window is armed. /sk panel reads it, so a sudden run of songs
--- says why it is happening.
+-- says why it is happening -- and the panel is the one reader that can see this
+-- go stale: it renders ahead of automation_tick and outside its guards, so with
+-- automation off (or mounted / dead / casting) nothing is refreshing
+-- song_force_at and the cached flag would sit non-nil long after both buffs
+-- wore. Confirm against the live snapshot instead. "Either buff still up" is
+-- exactly the armed-state invariant update_song_force disarms on, so this can
+-- never disagree with what the next buff.execute decides.
 function buff.song_force_active()
-    return song_force_at ~= nil
+    if not song_force_at then return false end
+    local b = common.game_state and common.game_state.player and common.game_state.player.buffs
+    return b ~= nil and (action_core.has_any_buff(b, NIGHTINGALE_BUFF)
+                      or action_core.has_any_buff(b, TROUBADOUR_BUFF))
 end
 
 -- server_id set of members whose song slots are wholly assigned to single-target
@@ -678,9 +687,11 @@ local function area_needs_recast(ability, party_buff_config, song_keys, availabl
 end
 
 function buff.execute(settings, job_def, main_level, sub_level, player_resource, party_buff_config)
-    -- Ahead of every guard below: the Nightingale + Troubadour window has to be
-    -- armed and disarmed on ticks that buff nothing, or a pair popped while
-    -- resting would open a window that never closes.
+    -- Ahead of every guard below, so a pair popped while resting -- or with
+    -- buffing switched off -- still opens (and closes) a window. Not every tick,
+    -- though: a higher-priority module winning the tick skips buff.execute
+    -- entirely. Harmless, because the arm/disarm always runs before any
+    -- song_deadline read in the same call, so a stale window never reaches a vote.
     update_song_force(common.game_state)
 
     -- Check if buff is enabled
@@ -820,12 +831,6 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
         -- couldn't fire this tick (on recast). Forces a hold so the single-target
         -- pass can't jump ahead and get overwritten by the area song later.
         local area_pending = false
-        -- The same hold for normal (non-fast) casting, but narrowed to an [A] song
-        -- that is due and merely waiting out its recast: singing a single-target
-        -- song into that gap throws the cast away, since the area song overwrites
-        -- it moments later. Only a cooldown counts -- an unaffordable or
-        -- ailment-blocked area song would otherwise stall Phase 2 indefinitely.
-        local area_on_recast = false
         for _, ability in ipairs(available_abilities) do
             local config_key = area_song_config_key(ability, settings, party_buff_config, area_processed)
             -- The area [A] button has no per-target override of its own, so it must
