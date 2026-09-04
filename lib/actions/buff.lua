@@ -75,6 +75,11 @@ local song_force_at = nil
 -- nothing.
 local function update_song_force(state)
     local buffs = state and state.player and state.player.buffs
+    -- An empty list is allowed to disarm, on purpose: a transient failed read
+    -- costs at most one extra burst of casts that are instant and free anyway,
+    -- while refusing to disarm here would strand the window armed for a player
+    -- who legitimately holds zero buffs -- and since arming only happens while
+    -- song_force_at is nil, the next real pop would then silently burst nothing.
     if not buffs then return end
     local ng = action_core.has_any_buff(buffs, NIGHTINGALE_BUFF)
     local tb = action_core.has_any_buff(buffs, TROUBADOUR_BUFF)
@@ -161,7 +166,11 @@ local function song_deadline(ability, member, no_verify)
     -- it is re-sung now at double length -- ahead of the buff-memory check,
     -- which still sees the old instance on the target and would veto the
     -- recast. Skipping the landing check below is free here: we are re-singing
-    -- and restamping this row either way.
+    -- and restamping this row either way. Returning 0 (not false or -1) matters:
+    -- callers must treat it as truthy, and area_needs_recast's
+    -- `target_buffs and manual and song_deadline(...) or nil` chain relies on
+    -- that -- a falsy sentinel would be swallowed by that and/or idiom and
+    -- silently disable the feature with no error.
     if song_force_at and (row.at or 0) < song_force_at then return 0 end
     -- Landing check, run once per stamp. The cast-FINISH packet proves the song
     -- resolved, not who it reached: an area song stamps everyone who was in
