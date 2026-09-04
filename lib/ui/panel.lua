@@ -130,6 +130,15 @@ local function song_timer_lines(gs, addon_settings)
     end
     add('ME', gs.player)
     for i = 1, 5 do add('P' .. i, gs.party and gs.party[i]) end
+
+    -- Every timer held from before Nightingale + Troubadour went up reads as
+    -- due, so the whole set is re-sung at double length. Say so: a sudden run of
+    -- songs is otherwise unexplained, and the rows below still show their old
+    -- (pre-window) countdowns until each one is re-sung.
+    if buff.song_force_active() then
+        lines[#lines + 1] = 'Nightingale + Troubadour: re-singing held songs'
+    end
+
     if #lines > 0 then return table.concat(lines, '\n') end
 
     -- Nothing held: say WHY, so an empty readout tells you whether stamping is

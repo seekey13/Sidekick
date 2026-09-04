@@ -53,6 +53,47 @@ local TROUBADOUR_BUFF  = 348
 -- ponytail: entries for members who left the party linger; bounded and inert.
 local song_expiry = {}
 
+-- Nightingale + Troubadour are popped together, and every song sung inside that
+-- window is instant and lasts twice as long. So the moment both are up, every
+-- song we hold a timer for is worth re-singing on the spot: the instances we
+-- are holding are the short ones, and the window is far too brief to spend
+-- waiting them out.
+-- os.clock() of the moment the pair was first seen, nil while no window is
+-- armed. A row stamped before it is reported due (song_deadline); a row stamped
+-- after it was already sung inside the window, so the burst converges after one
+-- pass per song rather than looping.
+-- Armed once per window and disarmed only when BOTH buffs are gone: the two
+-- wear a moment apart, and a single frame where one is missing from the
+-- snapshot must not restart the burst mid-window.
+-- Only rows we HOLD are forced. A song we hold no row for keeps falling back to
+-- buff memory, and it has to: memory is what stops a bard with more configured
+-- songs than song slots from cycling them forever.
+local song_force_at = nil
+
+-- Arm or disarm that window. Called first thing in buff.execute, ahead of its
+-- own enable/resting guards, so the pair is tracked even on ticks that buff
+-- nothing.
+local function update_song_force(state)
+    local buffs = state and state.player and state.player.buffs
+    if not buffs then return end
+    local ng = action_core.has_any_buff(buffs, NIGHTINGALE_BUFF)
+    local tb = action_core.has_any_buff(buffs, TROUBADOUR_BUFF)
+    if ng and tb then
+        if not song_force_at then
+            song_force_at = os.clock()
+            common.debugf('[SONG] Nightingale + Troubadour up: re-singing every song we hold a timer for')
+        end
+    elseif not ng and not tb then
+        song_force_at = nil
+    end
+end
+
+-- True while that window is armed. /sk panel reads it, so a sudden run of songs
+-- says why it is happening.
+function buff.song_force_active()
+    return song_force_at ~= nil
+end
+
 -- server_id set of members whose song slots are wholly assigned to single-target
 -- songs. Rebuilt every buff.execute, read by handle_song_finished -- see the
 -- comment where it is filled.
@@ -115,6 +156,13 @@ local function song_deadline(ability, member, no_verify)
     local t = song_expiry[sid]
     local row = t and t[ability.name]
     if not row then return nil end
+    -- Nightingale + Troubadour window: a row stamped before the pair went up is
+    -- a short, pre-window song. Report it due (a deadline always in the past) so
+    -- it is re-sung now at double length -- ahead of the buff-memory check,
+    -- which still sees the old instance on the target and would veto the
+    -- recast. Skipping the landing check below is free here: we are re-singing
+    -- and restamping this row either way.
+    if song_force_at and (row.at or 0) < song_force_at then return 0 end
     -- Landing check, run once per stamp. The cast-FINISH packet proves the song
     -- resolved, not who it reached: an area song stamps everyone who was in
     -- radius at send, so a member who walked out mid-cast holds a full timer for
@@ -187,6 +235,8 @@ function buff.reset_song_timers()
     slot_locked = {}
     pending_song = nil
     last_song_log = {}
+    -- The window belongs to the job that opened it.
+    song_force_at = nil
 end
 
 -- Drop every song timer held for one member. Our own death is the case that
@@ -619,6 +669,11 @@ local function area_needs_recast(ability, party_buff_config, song_keys, availabl
 end
 
 function buff.execute(settings, job_def, main_level, sub_level, player_resource, party_buff_config)
+    -- Ahead of every guard below: the Nightingale + Troubadour window has to be
+    -- armed and disarmed on ticks that buff nothing, or a pair popped while
+    -- resting would open a window that never closes.
+    update_song_force(common.game_state)
+
     -- Check if buff is enabled
     if not settings.buff_enabled then
         return nil
