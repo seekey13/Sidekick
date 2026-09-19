@@ -810,6 +810,7 @@ function ui_config.render_widget(settings, job_def, callback)
         job_def = job_def,
     }
 
+    local theme_colors = ui.push_theme()
     imgui.PushStyleVar(ImGuiStyleVar_Alpha, (settings.ui_opacity or 100) / 100)
     -- p_open must be a TABLE: Ashita's binding ignores the flags argument when it is nil,
     -- which is what put a title bar + [X] on this window. NoTitleBar means the [X] never
@@ -824,6 +825,7 @@ function ui_config.render_widget(settings, job_def, callback)
     end
     imgui.End()
     imgui.PopStyleVar()
+    ui.pop_theme(theme_colors)
 end
 
 function ui_config.get_party_buffs()
@@ -1020,6 +1022,7 @@ function ui_config.render(settings, job_def, callback)
     -- the [X] was clicked. Treat collapse as "still open, just skip content" and
     -- only close on the [X] (is_open flips to false). Always call End() to match
     -- Begin() per imgui rules.
+    local theme_colors = ui.push_theme()
     imgui.PushStyleVar(ImGuiStyleVar_Alpha, (settings.ui_opacity or 100) / 100)
     if imgui.Begin(window_title, is_open, window_flags) then
 
@@ -1032,6 +1035,8 @@ function ui_config.render(settings, job_def, callback)
             if not widget_visible then
                 render_header(ctx)
             end
+
+            ui.render_party_overview(ctx)
 
             -- Tracked Targets list (show if any are being tracked)
             local tracked_list = common.get_tracked_targets()
@@ -1740,6 +1745,7 @@ function ui_config.render(settings, job_def, callback)
     end
     imgui.End()
     imgui.PopStyleVar()
+    ui.pop_theme(theme_colors)
 
     -- Close only when the [X] was clicked (imgui sets is_open to false). A mere
     -- collapse leaves is_open true, so the window stays open.

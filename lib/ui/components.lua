@@ -30,7 +30,7 @@ local AUTOMATION_BUTTON_WIDTH = 80
 local LIGHT_RED = { 1.0, 0.7, 0.7, 1.0 }
 local LIGHT_YELLOW = { 1.0, 1.0, 0.7, 1.0 }
 local LIGHT_GREEN = { 0.7, 1.0, 0.7, 1.0 }
-local LIGHT_BLUE = { 0.7, 0.7, 1.0, 1.0 }
+local LIGHT_BLUE = { 0.098, 0.858, 1.0, 1.0 }
 local LIGHT_GRAY = { 0.5, 0.5, 0.5, 1.0 }
 
 -- Color Constants - Buttons
@@ -40,9 +40,9 @@ local COLOR_BUTTON_UNSELECTED_HOVER = { 0.4, 0.4, 0.4, 1.0 }
 local COLOR_BUTTON_UNSELECTED_ACTIVE = { 0.5, 0.5, 0.5, 1.0 }
 
 -- Color Constants - Headers
-local HEADER_COLOR_NORMAL = { 0.2, 0.2, 0.2, 0.31 }
-local HEADER_COLOR_HOVERED = { 0.2, 0.2, 0.2, 0.45 }
-local HEADER_COLOR_ACTIVE = { 0.2, 0.2, 0.2, 0.65 }
+local HEADER_COLOR_NORMAL = { 0.059, 0.541, 0.862, 0.18 }
+local HEADER_COLOR_HOVERED = { 0.059, 0.541, 0.862, 0.34 }
+local HEADER_COLOR_ACTIVE = { 0.059, 0.541, 0.862, 0.50 }
 
 -- Color Constants - Tabs (disabled sections only; enabled tabs keep the theme's
 -- own ImGuiCol_Tab* colors). A section's enable checkbox lives inside its tab
@@ -2194,6 +2194,74 @@ end
 -- begin_section, drained by end_sections. See "Section Display".
 local deferred_tabs = {}
 
+-- Navigation is presentation state only: changing pages never toggles automation.
+local active_page = 'Healing'
+local section_pages = {
+    focus_enabled = 'Healing', heal_enabled = 'Healing', heal_aoe_enabled = 'Healing',
+    heal_pet_enabled = 'Healing', wake_enabled = 'Healing',
+    debuff_removal_enabled = 'Support', pet_debuff_removal_enabled = 'Support',
+    item_removal_enabled = 'Support', revive_enabled = 'Support',
+    roll_enabled = 'Support', buff_enabled = 'Support', geo_enabled = 'Support',
+    follow_enabled = 'Utility', pet_enabled = 'Utility', rest_enabled = 'Utility',
+    recover_enabled = 'Utility',
+}
+local overview_open = false
+
+-- Read the existing snapshot; this view does not select targets or actions.
+function ui_components.render_party_overview(ctx)
+    if not imgui.CollapsingHeader('Party overview', ImGuiTreeNodeFlags_DefaultOpen) then return end
+    local state = common.game_state
+    local members, seen = {}, {}
+    local function add(member)
+        if not member or not member.name or member.is_active == false then return end
+        local id = member.server_id or member.name
+        if seen[id] then return end
+        seen[id] = true
+        members[#members + 1] = member
+    end
+    add(state.player)
+    for i = 1, 5 do add((state.party or {})[i]) end
+    local tracked = {}
+    for _, member in pairs(state.tracked or {}) do
+        if member.is_active then tracked[#tracked + 1] = member end
+    end
+    table.sort(tracked, function(a, b) return (a.name or '') < (b.name or '') end)
+    for _, member in ipairs(tracked) do add(member) end
+    if #members == 0 then
+        imgui.TextDisabled('No party information available.')
+        return
+    end
+
+    -- Bound the overview to six rows; additional tracked targets scroll here.
+    -- A fixed width in auto-fit mode avoids feeding window width back into sizing.
+    local width = ctx.settings.window_size_mode == 'custom' and 0 or 420
+    local row_height = imgui.GetTextLineHeightWithSpacing()
+    local visible = imgui.BeginChild('##party_overview', { width, math.min(6, #members) * row_height }, false)
+    overview_open = true
+    if visible then
+        local name_width = 0
+        for _, member in ipairs(members) do
+            name_width = math.max(name_width, imgui.CalcTextSize(member.name)[1])
+        end
+        local hp_x = imgui.GetCursorPosX() + name_width + 12
+        local bar_x = hp_x + imgui.CalcTextSize('100%')[1] + 12
+        for _, member in ipairs(members) do
+            local hp = math.max(0, math.min(100, member.hpp or 0))
+            local color = hp < (ctx.settings.critical_threshold or 30) and LIGHT_RED
+                or hp < (ctx.settings.heal_threshold or 75) and LIGHT_YELLOW or LIGHT_GREEN
+            imgui.TextColored(LIGHT_BLUE, member.name)
+            imgui.SameLine(hp_x)
+            imgui.TextColored(color, string.format('%3d%%', hp))
+            imgui.SameLine(bar_x)
+            imgui.PushStyleColor(ImGuiCol_PlotHistogram, { color[1] * 0.45, color[2] * 0.45, color[3] * 0.45, 1 })
+            imgui.ProgressBar(hp / 100, { -1, imgui.GetTextLineHeight() }, '')
+            imgui.PopStyleColor()
+        end
+    end
+    imgui.EndChild()
+    overview_open = false
+end
+
 -- What tab chrome this frame currently has open, so abort_sections can close it
 -- again after a Lua error skipped the matching end_* call. Both stay false in
 -- header mode, which opens nothing that needs unwinding.
@@ -2424,6 +2492,20 @@ end
 -- and never the setting, so the frame cannot end in a different chrome than it
 -- began in.
 function ui_components.begin_sections(ctx)
+    for i, page in ipairs({ 'Healing', 'Support', 'Utility' }) do
+        if i > 1 then imgui.SameLine() end
+        local selected = active_page == page
+        if selected then imgui.PushStyleColor(ImGuiCol_Button, HEADER_COLOR_ACTIVE) end
+        local clicked = imgui.Button(page, { 90, 0 })
+        if selected then imgui.PopStyleColor() end
+        if clicked and not selected then
+            active_page = page
+            selected_section, previous_section, reselect_id = nil, nil, nil
+            autoselect_frames = 0
+        end
+    end
+    imgui.Separator()
+    ctx.section_page = active_page
     deferred_tabs = {}
     tab_bar_open = false
     tab_item_open = false
@@ -2453,7 +2535,7 @@ function ui_components.begin_sections(ctx)
             autoselect_frames = autoselect_frames - 1
             bar_flags = bar_flags + ImGuiTabBarFlags_AutoSelectNewTabs
         end
-        if imgui.BeginTabBar('##sk_sections', bar_flags) then
+        if imgui.BeginTabBar('##sk_sections_' .. ctx.section_page, bar_flags) then
             ctx.section_mode = 'tabs'
             tab_bar_open = true
             return
@@ -2492,6 +2574,10 @@ end
 -- safe to call when the run had already finished cleanly. Takes no ctx: every
 -- flag it clears is module state, and the frame's ctx is discarded either way.
 function ui_components.abort_sections()
+    if overview_open then
+        imgui.EndChild()
+        overview_open = false
+    end
     if tab_item_open then
         imgui.EndTabItem()
         tab_item_open = false
@@ -2503,6 +2589,10 @@ function ui_components.abort_sections()
 end
 
 function ui_components.begin_section(ctx, label, setting_name, default_value, tooltip)
+    -- Future sections remain reachable under Utility until explicitly categorized.
+    if (section_pages[setting_name] or 'Utility') ~= ctx.section_page then
+        return false, false
+    end
     if ctx.section_mode ~= 'tabs' then
         return begin_header_section(ctx, label, setting_name, default_value, tooltip)
     end
@@ -3242,6 +3332,51 @@ function ui_components.render_profile_button(ctx, ops)
 
         ui_components.end_opaque_popup()
     end
+end
+
+-- ============================================================================
+-- Window theme (scoped to Sidekick; never changes other addons' styles)
+-- ============================================================================
+function ui_components.push_theme()
+    local colors = {
+        { ImGuiCol_WindowBg, { 0.063, 0.067, 0.067, 0.97 } },
+        { ImGuiCol_ChildBg, { 0.039, 0.043, 0.043, 0.75 } },
+        { ImGuiCol_Header, { 0.059, 0.541, 0.862, 0.18 } },
+        { ImGuiCol_HeaderHovered, { 0.059, 0.541, 0.862, 0.34 } },
+        { ImGuiCol_HeaderActive, { 0.059, 0.541, 0.862, 0.50 } },
+        { ImGuiCol_TitleBg, { 0.039, 0.043, 0.043, 1 } },
+        { ImGuiCol_TitleBgActive, { 0.059, 0.22, 0.32, 1 } },
+        { ImGuiCol_TitleBgCollapsed, { 0.039, 0.043, 0.043, 1 } },
+        { ImGuiCol_Border, { 0.059, 0.541, 0.862, 0.72 } },
+        { ImGuiCol_Text, { 0.933, 0.914, 0.863, 1 } },
+        { ImGuiCol_FrameBg, { 0.094, 0.102, 0.102, 1 } },
+        { ImGuiCol_Button, { 0.059, 0.541, 0.862, 0.22 } },
+        { ImGuiCol_ButtonHovered, { 0.059, 0.541, 0.862, 0.50 } },
+        { ImGuiCol_ButtonActive, { 0.059, 0.541, 0.862, 0.75 } },
+        { ImGuiCol_Tab, { 0.059, 0.541, 0.862, 0.22 } },
+        { ImGuiCol_TabHovered, { 0.059, 0.541, 0.862, 0.50 } },
+        { ImGuiCol_TabActive, { 0.059, 0.541, 0.862, 0.75 } },
+        { ImGuiCol_TabUnfocused, { 0.059, 0.541, 0.862, 0.18 } },
+        { ImGuiCol_TabUnfocusedActive, { 0.059, 0.541, 0.862, 0.50 } },
+        { ImGuiCol_CheckMark, LIGHT_BLUE },
+        { ImGuiCol_SliderGrab, { 0.059, 0.541, 0.862, 1 } },
+        { ImGuiCol_SliderGrabActive, LIGHT_BLUE },
+        { ImGuiCol_ScrollbarBg, { 0.039, 0.043, 0.043, 0.82 } },
+        { ImGuiCol_ScrollbarGrab, { 0.059, 0.541, 0.862, 0.40 } },
+        { ImGuiCol_ScrollbarGrabHovered, { 0.059, 0.541, 0.862, 0.68 } },
+        { ImGuiCol_ScrollbarGrabActive, LIGHT_BLUE },
+    }
+    for _, entry in ipairs(colors) do imgui.PushStyleColor(entry[1], entry[2]) end
+    imgui.PushStyleVar(ImGuiStyleVar_WindowRounding, 10)
+    imgui.PushStyleVar(ImGuiStyleVar_FrameRounding, 5)
+    imgui.PushStyleVar(ImGuiStyleVar_WindowPadding, { 14, 12 })
+    imgui.PushStyleVar(ImGuiStyleVar_ItemSpacing, { 8, 6 })
+    return #colors
+end
+
+function ui_components.pop_theme(colors)
+    imgui.PopStyleVar(4)
+    imgui.PopStyleColor(colors)
 end
 
 -- ============================================================================
