@@ -55,7 +55,8 @@ commands, matching the game's server-side post-action lockout: it is stamped on 
 re-stamped by `automation.notify_action_finished()` from the player's own 0x028 finish
 packets (`ACTION_FINISH_CATEGORIES` in `Sidekick.lua`), so the timer runs from when the
 server resolved the action rather than from the send that preceded it — a whole cast time
-earlier for a spell. Re-stamping only moves the timer later, never earlier. Resting (`/heal`) is broken automatically before urgent actions fire. Scholar
+earlier for a spell. Re-stamping only moves the timer later, never earlier. While resting (`/heal`), the loop runs **only** the `rest` module — no action interrupts a rest;
+it ends at full MP or when the follow target passes `rest_distance`. Scholar
 stratagems use a follow-up lock so the paired spell fires the tick after the stratagem JA.
 A result carrying `scheduled_removal` queues a mid-cast `/debuff` (Bard Pianissimo fast
 casting, Ninja 1-shadow Utsusemi) — that one fires from the tick loop ahead of the

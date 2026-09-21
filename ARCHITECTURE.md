@@ -303,7 +303,7 @@ The throttle mirrors the game's post-action lockout. That lockout is server-side
 
 Re-stamping only ever moves the timer later, never earlier, so it cannot release a command early. It also picks up actions the **player** took by hand, which `execute_command` never sees.
 
-- **Rest breaking**: `REST_BREAKING` (heal, heal_aoe, recover, item, status_removal, debuff_removal, wake, revive) fires `/heal off` and returns before the action itself, which lands the next tick. `buff` and `geo` are low priority and never interrupt rest.
+- **Rest is never broken by an action**: while `common.is_resting()` is true the loop runs **only** the `rest` module — every other action type is skipped for the duration, so no heal, cleanse, wake, revive, item or recover can stand the player up. A rest ends on its own two conditions (full MP, or the follow target past `rest_distance`); see `rest.lua`. The stratagem follow-up lock is skipped while resting too, since holding the tick would starve the `rest` module — it expires on its timeout instead.
 - **Stratagem follow-up lock**: a result flagged `is_stratagem` sets `pending_stratagem = {action_type, timestamp}`; the next tick runs **only** that module so nothing pre-empts the paired spell. Released when the module returns nil, or after `STRATAGEM_FOLLOWUP_TIMEOUT` (5 s).
 - **Scheduled mid-cast removal**: a result carrying `scheduled_removal = {command, delay}` is handed to `common.schedule_command_removal`. See below.
 - `master_priority` includes `'critical'` (and DNC lists it), but there is no `critical` entry in `action_modules` — the engine skips unknown action types, so it is inert. Critical-HP healing is handled inside `heal.lua` via `abilities.critical`.
@@ -646,10 +646,9 @@ such interaction) and
 `filter_abilities_by_level` produces it, before evaluating any row — the same pattern `pet.lua`'s
 Overload handling and `status_removal.lua` use, since `try_use` does not check `blocked_by` on its own.
 
-`execute` holds off entirely while `common.is_resting()` is true: `'rune'` is deliberately absent from
-`automation.lua`'s `REST_BREAKING`, since upkeep is not urgent enough to interrupt a rest, so without
-this guard a rune would stand the player up mid-rest just to refresh upkeep — the same guard `pet.lua`,
-`buff.lua` and `geo.lua` already use. Otherwise it resolves in one order every tick: the first JA row that is
+`execute` holds off entirely while `common.is_resting()` is true — the same guard `pet.lua`, `buff.lua`
+and `geo.lua` carry. Since 2.8.0 the priority loop skips every non-`rest` module while resting anyway,
+so these guards are belt-and-braces: they keep each module honest if it is ever called outside the loop. Otherwise it resolves in one order every tick: the first JA row that is
 enabled, level-available and **recast-zero** claims the rune slots — its missing runes go up one per
 tick, then the JA fires — and Idle Runes takes them back the moment that recast is running again. A
 JA row with no runes picked claims nothing and falls through. **The rune set is prepped in or out of
@@ -745,8 +744,15 @@ rune's name, so relabelling a display string cannot rewrite a saved config.
 
 ### rest.lua – Automatic Resting
 
-- Two-phase timer: conditions become favourable → wait N seconds → `/heal on`.
-- Stops at 100% MP or when follow-target distance exceeds threshold.
+- Two-phase timer: conditions become favourable (MP-based job, `rest_enabled`, not engaged / moving /
+  casting, MP < 100%, follow target within `rest_distance`) → wait `rest_timer` seconds → `/heal on`.
+- **Exactly two exits**, both in `should_stop_resting`: MP back at 100%, or `follow_target` further than
+  `rest_distance` (measured with `common.get_follow_target_distance`, shared with `follow.lua`).
+  Nothing else sends `/heal off` — the priority loop skips every other module while resting.
+- No movement or casting exit: both stand the player up server-side, and `is_resting` re-syncs from the
+  player's `entity_status` (33 = resting) on each `refresh_game_state`, so a `/heal off` would be a
+  duplicate of what the server already did.
+- Wired last in `master_priority`, and inert unless the job is MP-based and lists `'rest'`.
 
 ### revive.lua – Raise Dead Members
 
