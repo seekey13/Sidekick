@@ -64,6 +64,9 @@ The one exception is **opt-in leader following** (off by default): with **Follow
 - **Disabled tabs sort last**: sections you switch off move to the end of the tab bar, keeping the enabled ones together on the left.
 - **Custom window size**: right-click empty space in the config window for *Use a custom window size*, then drag the corner; *Fit window to contents* puts it back on auto-sizing. — **Toranko**
 
+### Changed
+- **Resting holds**: nothing Sidekick does breaks a rest any more — it ends only at full MP or when the Follow Target passes **Distance**.
+
 ### Fixed
 - **A config window error no longer takes the client down**: a fault while drawing the config window or the widget is now logged and that frame skipped, instead of crashing outright.
 - **Loading a profile no longer changes the window itself**: opacity, and whether the config window and the widget are open, are no longer saved into or applied by profiles.
@@ -88,7 +91,7 @@ See [CHANGELOG.md](CHANGELOG.md) for the full release history.
 - **Debuff Removal**: Remove poison, paralysis, silence, and other negative status effects
 - **Buff Maintenance**: Auto-apply and maintain self-buffs with single-target party buff support
 - **Resource Recovery**: Automated MP and TP recovery abilities
-- **Automatic Resting**: MP-based jobs automatically rest when idle to recover MP with configurable timer, HP threshold safety, and optional follow target distance monitoring
+- **Automatic Resting**: MP-based jobs automatically rest when idle to recover MP, with a configurable delay timer and optional follow-target distance monitoring. Once resting, Sidekick takes no other action — the rest ends at full MP or when the follow target moves out of range
 - **Leader Following** (opt-in, off by default): `/follow` a chosen party member or tracked target when they move beyond a set distance. Healing and every other support action always take priority, and an autorun-cancel packet guard keeps `/follow` alive across the server's position syncs so it doesn't break mid-route. The only non-combat movement Sidekick performs.
 - **AFK Sleep** (on by default): Sleeps automation after a configurable period with no party movement and no combat, and wakes on your own movement. A runtime pause, not a stop — nothing is saved or reset, so your settings and automation state survive a sleep cycle.
 - **Hold AOE for Group** (opt-in, off by default): Holds area buffs (Protectra/Shellra/Bar, Diamondhide), Bard area songs, fresh Phantom Rolls, and Accession/Diffusion spells until every alive, in-zone party member is in range, so nobody misses the AOE. Trusts, dead members, and members in another zone never cause a hold. Checkbox in `/sk panel`.
@@ -442,8 +445,7 @@ you switch jobs. Delete the file to reset that character back to defaults.
 - `recover_enabled` (boolean): Enable MP/TP recovery
 - `rest_enabled` (boolean): Enable automatic resting (MP-based jobs only)
 - `rest_timer` (number): Timer duration in seconds before resting starts (1-20, default 5)
-- `rest_threshold` (number): HP% threshold - stops resting if any party member below this (1-99, default 70)
-- `rest_distance` (number): Distance in yalms to follow target - stops resting if exceeded (1-15, default 7)
+- `rest_distance` (number): Distance in yalms to follow target - stops resting if exceeded (1-15, default 7). With `rest_enabled` on, this and full MP are the only things that end a rest
 - `multisend_follow` (boolean): Movement mode switch (checkbox in `/sk panel`). `true` = Multisend attack-range follow (shows Attack Range, disables native Follow); `false` = native leader Follow (hides Attack Range). Mutually exclusive; off by default
 - `follow_enabled` (boolean): Enable opt-in leader following (`/follow` the follow target when far); off by default. Ignored while `multisend_follow` is on
 - `follow_distance` (number): Distance in yalms the follow target must exceed before `/follow` is sent (1-15, default 5)

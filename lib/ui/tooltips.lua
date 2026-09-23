@@ -144,8 +144,9 @@ return {
         'While idle (not moving/casting/engaged) and\n' ..
         'MP < 100%%, Sidekick waits Timer seconds after\n' ..
         'conditions become favorable, then sends\n' ..
-        '/heal on. Stops (/heal off) at full MP, casting,\n' ..
-        'or if Follow Target exceeds Distance.',
+        '/heal on. Nothing Sidekick does interrupts a\n' ..
+        'rest: it stops only at full MP or if Follow\n' ..
+        'Target exceeds Distance.',
 
     rest_timer =
         'Seconds to wait after conditions first become\n' ..

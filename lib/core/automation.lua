@@ -18,9 +18,6 @@ local spell_finish_throttle = 3.1 -- spell casts carry a longer server-side lock
 local pending_stratagem = nil   -- { action_type = string, timestamp = number }
 local STRATAGEM_FOLLOWUP_TIMEOUT = 5.0  -- seconds before we give up waiting
 
--- Action types that should interrupt resting (/heal) before firing.
-local REST_BREAKING = { heal = true, heal_aoe = true, recover = true, item = true, status_removal = true, debuff_removal = true, wake = true, revive = true }
-
 --[[
     Command Execution
 ]]--
@@ -97,7 +94,12 @@ function automation.execute_priority_actions(priority_order, action_modules, set
     -- run ONLY the originating action module so the paired ability fires
     -- before anything else can pre-empt it.
     -- ----------------------------------------------------------------
-    if pending_stratagem then
+    -- Resting is never interrupted by an action: while /heal is up the priority
+    -- loop runs the rest module and nothing else. Rest ends only on full MP or the
+    -- follow target outrunning rest_distance (both handled in lib/actions/rest.lua).
+    local resting = common.is_resting()
+
+    if pending_stratagem and not resting then
         local elapsed = os.clock() - pending_stratagem.timestamp
         if elapsed > STRATAGEM_FOLLOWUP_TIMEOUT then
             -- Timed out waiting — abandon the lock and resume normal priority
@@ -110,13 +112,6 @@ function automation.execute_priority_actions(priority_order, action_modules, set
             if action_module and action_module.execute then
                 local success, result = pcall(action_module.execute, settings, job_def, main_level, sub_level, player_resource)
                 if success and result then
-                    -- Break rest if needed (same logic as normal path)
-                    if REST_BREAKING[locked_type] and common.is_resting() then
-                        common.set_resting(false)
-                        common.reset_rest_timer()
-                        automation.execute_command('/heal off', 'Breaking rest for: ' .. locked_type)
-                        return true
-                    end
                     if dispatch_result(result, locked_type) then
                         return true
                     end
@@ -143,21 +138,11 @@ function automation.execute_priority_actions(priority_order, action_modules, set
     end
     
     for _, action_type in ipairs(priority_order) do
-        local action_module = action_modules[action_type]
+        local action_module = (not resting or action_type == 'rest') and action_modules[action_type] or nil
         if action_module and action_module.execute then
             local success, result = pcall(action_module.execute, settings, job_def, main_level, sub_level, player_resource)
             
             if success and result then
-                -- If resting and this is an urgent action type, break rest first.
-                -- buff and geo are low-priority and do not interrupt rest.
-                -- The actual action fires next tick once /heal off has landed.
-                if REST_BREAKING[action_type] and common.is_resting() then
-                    common.set_resting(false)
-                    common.reset_rest_timer()
-                    automation.execute_command('/heal off', 'Breaking rest for: ' .. action_type)
-                    return true
-                end
-
                 if dispatch_result(result, action_type) then
                     return true
                 end

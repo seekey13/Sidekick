@@ -2,7 +2,7 @@
     Rest action
     Handles automatic MP recovery through resting (/heal on)
     - Starts resting when conditions are met (not moving, not casting, timer elapsed)
-    - Stops resting if party member moves too far away
+    - Stops resting only on full MP or the follow target exceeding rest_distance
 ]]--
 
 local common = require('lib.core.common')
@@ -129,28 +129,9 @@ function rest.execute(settings, job_def, main_level, sub_level, player_resource)
         return nil
     end
     
-    -- Normal Mode: Track our own resting state
-    -- If currently resting, check if movement or casting started
-    if common.is_resting() then
-        if common.is_player_moving() then
-            common.set_resting(false)
-            common.reset_rest_timer()
-            return {
-                command = '/heal off',
-                description = 'Stopping rest (movement detected)'
-            }
-        end
-        
-        if common.is_casting() then
-            common.set_resting(false)
-            common.reset_rest_timer()
-            return {
-                command = '/heal off',
-                description = 'Stopping rest (casting detected)'
-            }
-        end
-    end
-    
+    -- Only full MP or the follow target outrunning rest_distance ends a rest.
+    -- Moving or casting stands the player up server-side anyway, and is_resting
+    -- re-syncs from entity_status each tick, so neither needs a /heal off here.
     -- Check if we should stop resting (priority check)
     if should_stop_resting(settings, job_def) then
         common.set_resting(false)

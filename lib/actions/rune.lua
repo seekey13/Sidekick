@@ -128,9 +128,9 @@ function rune.execute(settings, job_def, main_level, sub_level, player_resource)
         return nil
     end
 
-    -- 'rune' is deliberately absent from automation.lua's REST_BREAKING because
-    -- upkeep is not urgent enough to interrupt a rest -- so hold off rather than
-    -- stand the player up mid-rest to refresh a rune.
+    -- Never refresh upkeep mid-rest: standing the player up would cost the MP tick
+    -- that was the point of sitting down. The priority loop already skips every
+    -- non-rest module while resting; this keeps the module honest on its own.
     if common.is_resting() then
         return nil
     end
