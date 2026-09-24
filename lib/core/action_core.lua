@@ -18,19 +18,19 @@ local AshitaCore = AshitaCore
 local recast_ready_time = {}
 local POST_RECAST_DELAY = 0.5  -- 0.5 second delay after recast hits 0
 
--- Helper: check if recast timer is ready with post-delay
+-- Helper: check if recast timer is ready with post-delay.
+-- A pure read once the delay has elapsed: the stamp is kept while the timer stays
+-- at 0 and cleared only when a recast starts. Clearing it on a true result made
+-- the check self-consuming -- the first caller in a tick got true and every later
+-- check of the same spell that tick got false (e.g. the heal loop sizing Cure for
+-- an out-of-range member, then reading "no usable heal" for everyone after them).
 local function is_recast_ready_with_delay(key, timer)
     if timer == 0 then
         if not recast_ready_time[key] then
             recast_ready_time[key] = os.clock()
             return false
         end
-        local elapsed = os.clock() - recast_ready_time[key]
-        if elapsed >= POST_RECAST_DELAY then
-            recast_ready_time[key] = nil
-            return true
-        end
-        return false
+        return os.clock() - recast_ready_time[key] >= POST_RECAST_DELAY
     else
         recast_ready_time[key] = nil
         return false
