@@ -148,7 +148,9 @@ lib/
 8. Check job/level change → reload job definition, skip the frame
 9. Iterate priority_order (merged per job from master_priority)
 10. For each action type → pcall action_module.execute(settings, job_def, ...)
-11. First module to return a truthy result wins
+11. First module to return a truthy result wins. `{hold = true}` wins without sending
+    anything — `heal` returns it while a member in reach waits on a cure's recast
+    (≤ 15 s), so nothing below heal fires until it's back
 12. Throttle check (1.1 s, or 3.1 s after a spell finish; re-stamped from the action's
     own 0x028 finish/interrupt packet) → QueueCommand → wait for next tick
 ```

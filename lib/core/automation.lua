@@ -143,6 +143,11 @@ function automation.execute_priority_actions(priority_order, action_modules, set
             local success, result = pcall(action_module.execute, settings, job_def, main_level, sub_level, player_resource)
             
             if success and result then
+                -- { hold = true }: module has pending work waiting on a recast (heal).
+                -- Stop here so nothing lower-priority fires in the meantime.
+                if type(result) == 'table' and result.hold then
+                    return false
+                end
                 if dispatch_result(result, action_type) then
                     return true
                 end

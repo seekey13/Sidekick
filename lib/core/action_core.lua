@@ -108,6 +108,24 @@ function action_core.is_spell_ready(spell_recast_id)
     return is_recast_ready_with_delay('spell_' .. spell_recast_id, recast_time)
 end
 
+-- Seconds left on an ability's recast (spell_id or recast_id), 0 when ready.
+function action_core.recast_remaining(ability)
+    if ability.spell_id then
+        return action_core.get_spell_recast(ability.spell_id) / 60.0
+    end
+    if not ability.recast_id then return 0 end
+    local recast_mgr = AshitaCore:GetMemoryManager():GetRecast()
+    if not recast_mgr then return 0 end
+    for i = 0, 31 do
+        local ok_id, timer_id = pcall(function() return recast_mgr:GetAbilityTimerId(i) end)
+        if ok_id and timer_id == ability.recast_id then
+            local ok_timer, timer = pcall(function() return recast_mgr:GetAbilityTimer(i) end)
+            return ok_timer and timer / 60.0 or 0
+        end
+    end
+    return 0
+end
+
 -- Get raw spell recast timer value.
 function action_core.get_spell_recast(spell_recast_id)
     if not spell_recast_id then return 0 end

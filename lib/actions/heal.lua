@@ -31,6 +31,11 @@ local FORCE_SELF_WAIT_TIMEOUT = 5   -- max wait for the ability to resolve (MP j
 local FORCE_SELF_TIMEOUT      = 30  -- overall safety valve (e.g. silenced the whole window)
 local force_self = { active = false, ts = 0 }
 
+-- Longest recast (seconds) single-target healing will hold lower priorities for.
+-- ponytail: fixed cap so long-recast heals (Drain, Healing Ruby) never stall buffs for a
+-- minute; make it a setting if users want to tune it.
+local HEAL_HOLD_MAX_RECAST = 15
+
 function heal.force_next_self_heal()
     force_self.active = true
     force_self.ts     = os.clock()
@@ -504,6 +509,25 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
                     description = string.format('Healing %s%s with %s (HP: %.1f%%)',
                         kind, (member and member.name or 'party member'), selected_ability.name, e.hpp)
                 }
+            end
+        end
+    end
+
+    -- Nothing castable, but a member in reach still needs a heal and a cure for them is
+    -- only waiting on its recast: hold the tick so everything below heal in the priority
+    -- order (buffs, debuff removal, ...) waits for it. The loop restarts from the top each
+    -- tick, so item/recover/critical still fire. Out of range, out of MP or silenced never
+    -- holds -- waiting wouldn't fix those.
+    for _, e in ipairs(candidates) do
+        for _, a in ipairs(e.index and available_abilities or outside_abilities) do
+            if not (a.self_only and e.index ~= 0) then
+                local ok, reason = action_core.is_usable(a, job_def, common.effective_ability_cost(a, settings, job_def))
+                if not ok and reason and reason:find('cooldown')
+                    and action_core.recast_remaining(a) <= HEAL_HOLD_MAX_RECAST
+                    and common.is_in_range(e.target_index, type(a.range) == 'number' and a.range or 21) then
+                    common.debugf('[HEAL] Holding for %s recast (%.1f%% needs heal)', a.name, e.hpp)
+                    return { hold = true }
+                end
             end
         end
     end
