@@ -613,13 +613,31 @@ function status_removal.execute_wake(settings, job_def, main_level, sub_level, p
     table.sort(available_single, function(a, b) return (a.cost or 0) < (b.cost or 0) end)
     table.sort(available_aoe, function(a, b) return (a.cost or 0) < (b.cost or 0) end)
 
-    -- If 2+ members are sleeping, use AOE
+    -- If 2+ members are sleeping, use AOE. A targetable AOE (Curaga, Divine Waltz)
+    -- radiates from its target, so aim it at a sleeper in range -- the focus target
+    -- first when asleep. Self-centred ones (Healing Breeze) keep their <me>.
     if #sleeping_members >= 2 and #available_aoe > 0 then
+        local focus_idx = settings.focus_enabled and settings.focus_target
+            and common.get_party_index_by_name(settings.focus_target)
+        local order = {}
+        for _, idx in ipairs(sleeping_members) do
+            if idx == focus_idx then table.insert(order, 1, idx) else table.insert(order, idx) end
+        end
         for _, ability in ipairs(available_aoe) do
-            local desc = string.format('Waking %d sleeping members with %s', #sleeping_members, ability.name)
-            local result, reason = action_core.try_use(ability, job_def, settings, 0, desc)
-            if result then
-                return result
+            local targeted = type(ability.command) == 'function'
+            for _, idx in ipairs(targeted and order or { 0 }) do
+                local m = idx > 0 and state.party[idx]
+                if idx == 0 or (m and m.target_index and m.target_index > 0
+                    and common.is_in_range(m.target_index, type(ability.range) == 'number' and ability.range or 21)) then
+                    local desc = targeted
+                        and string.format('Waking %d sleeping members with %s on %s', #sleeping_members, ability.name, m.name or 'party member')
+                        or string.format('Waking %d sleeping members with %s', #sleeping_members, ability.name)
+                    local result = action_core.try_use(ability, job_def, settings, idx, desc)
+                    if result then
+                        return result
+                    end
+                    break  -- same usability for every target; try the next ability
+                end
             end
         end
     end

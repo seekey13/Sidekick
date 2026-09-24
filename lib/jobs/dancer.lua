@@ -73,7 +73,10 @@ return {
                 level = 65,
                 cost = 400,
                 recast_id = 190,
-                command = '/ja "Divine Waltz II" <me>',
+                command = function(target)
+                    return '/ja "Divine Waltz II" '..target
+                end,
+                target_outside = true,  -- validTarget 27: self/party/alliance
                 wakes = true,
                 blocked_by = 410,  -- Saber Dance blocks Waltzes
             },
@@ -82,7 +85,10 @@ return {
                 level = 25,
                 cost = 400,
                 recast_id = 225,
-                command = '/ja "Divine Waltz" <me>',
+                command = function(target)
+                    return '/ja "Divine Waltz" '..target
+                end,
+                target_outside = true,  -- validTarget 27: self/party/alliance
                 wakes = true,
                 blocked_by = 410,  -- Saber Dance blocks Waltzes
             },

@@ -3077,8 +3077,10 @@ function common.check_stratagem(job_def, settings, ability_key, ability)
     -- the whole spell until the group is in range. Return false (hold spell), not
     -- nil -- nil would cast the spell self-only, giving the caster the buff while
     -- the group misses it and the self-buff check then suppresses recasts.
-    -- Independent of the per-spell "Hold for Stratagem" setting.
-    if strat.aoe and settings.hold_aoe_for_group and not common.group_in_aoe_range() then
+    -- Independent of the per-spell "Hold for Stratagem" setting. Never for healing
+    -- magic: Hold AOE for Group is a buff setting and healing is too urgent to wait.
+    if strat.aoe and ability.magic_type ~= 'healing'
+        and settings.hold_aoe_for_group and not common.group_in_aoe_range() then
         common.announce_gather(ability.name, settings)
         return false
     end

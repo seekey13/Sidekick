@@ -97,14 +97,14 @@ return {
         'first - before Focus or Group healing.',
 
     aoe_healing =
-        'When the group\'s average HP falls below this %%\n' ..
-        'AND at least 2 members are below it, Sidekick\n' ..
-        'casts the checked AOE healing spell(s) instead\n' ..
-        'of single-target heals.\n\n' ..
-        'AOE healing is party-scoped (Curaga-style), so\n' ..
-        'Check Targets only lists ME and party members.\n' ..
-        'All are ON by default; toggle a button to\n' ..
-        'exclude that person from the average. These\n' ..
+        'When a party\'s average HP falls below this %%\n' ..
+        'AND at least 2 of its members are below it,\n' ..
+        'Sidekick casts the checked AOE healing spell(s)\n' ..
+        'instead of single-target heals, aimed at that\n' ..
+        'party\'s lowest-HP member where the spell allows.\n\n' ..
+        'Each alliance party is averaged on its own.\n' ..
+        'ME/party are ON by default, alliance OFF; toggle\n' ..
+        'a button to include/exclude that person. These\n' ..
         'choices are per-session and reset each load.',
 
     pet_healing =
@@ -166,7 +166,7 @@ return {
 
     hold_aoe_for_group =
         'Holds area buffs, songs, Phantom Rolls and\n' ..
-        'Accession/Diffusion spells until every alive,\n' ..
+        'Accession/Diffusion buffs until every alive,\n' ..
         'in-zone party member is in range, so nobody\n' ..
         'is left out. Trusts and members in another\n' ..
         'zone never cause a hold. While holding, sends\n' ..

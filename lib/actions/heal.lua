@@ -683,6 +683,80 @@ end
 -- AOE Healing  (formerly lib.actions.heal_aoe)
 -- ============================================================================
 
+-- An AOE heal radiates from its TARGET and lands on that target's party, so each
+-- party of the alliance is averaged on its own and healed through its lowest
+-- member. Party slots carry party_index (0-5); alliance members carry only their
+-- server id and are reachable by target_outside abilities alone.
+local function aoe_groups(state, group_allowed, threshold)
+    local function add(g, m, party_index)
+        local hpp = m.hpp or 0
+        if not common.is_active_member(hpp) or common.is_trust_excluded(m.name, m.server_id) then return end
+        g.total = g.total + hpp
+        g.count = g.count + 1
+        if common.below_threshold(hpp, threshold) then
+            table.insert(g.hurt, { m = m, hpp = hpp, party_index = party_index })
+        end
+    end
+
+    local groups = { { own = true, total = 0, count = 0, hurt = {} } }
+    for i = 0, 5 do
+        local m = i == 0 and state.player or state.party[i]
+        if m and group_allowed(i) then add(groups[1], m, i) end
+    end
+    for al_pi = 2, 3 do
+        local sub = state.alliance and state.alliance[al_pi]
+        if sub then
+            local g = { total = 0, count = 0, hurt = {} }
+            for local_idx, m in pairs(sub) do
+                if m and m.is_active and m.target_index and m.target_index > 0
+                    and group_allowed('al_' .. ((al_pi - 1) * 6 + local_idx), true) then
+                    add(g, m, nil)
+                end
+            end
+            table.insert(groups, g)
+        end
+    end
+
+    for _, g in ipairs(groups) do
+        g.avg = g.count > 0 and (g.total / g.count) or 100
+        table.sort(g.hurt, function(a, b) return a.hpp < b.hpp end)
+    end
+    return groups
+end
+
+-- Groups with at least min_hurt members below threshold (and, when need_avg, an
+-- average below it too), neediest first -- by their lowest member's HP.
+local function needy_groups(groups, min_hurt, need_avg, threshold)
+    local out = {}
+    for _, g in ipairs(groups) do
+        if #g.hurt >= min_hurt and (not need_avg or common.below_threshold(g.avg, threshold)) then
+            table.insert(out, g)
+        end
+    end
+    table.sort(out, function(a, b) return a.hurt[1].hpp < b.hurt[1].hpp end)
+    return out
+end
+
+-- Command aiming a targetable ability (function command) at hurt member t, or nil
+-- when t is out of range or outside the party for a party-only ability.
+local function aim(a, t)
+    local tidx = t.m.target_index
+    if not (tidx and tidx > 0 and common.is_in_range(tidx, type(a.range) == 'number' and a.range or 21)) then
+        return nil
+    end
+    if t.party_index then return common.build_ability_command(a, t.party_index) end
+    return a.target_outside and common.build_ability_command_for_target(a, t.m.server_id) or nil
+end
+
+-- A string command is self-centred (Healing Breeze, Mending Halation, Healing Ruby II)
+-- and only ever covers the caster's own party.
+local function aoe_command(a, g, t)
+    if type(a.command) ~= 'function' then
+        return g.own and a.command or nil
+    end
+    return aim(a, t)
+end
+
 function heal.execute_aoe(settings, job_def)
     if not settings.heal_aoe_enabled then return nil end
 
@@ -696,49 +770,28 @@ function heal.execute_aoe(settings, job_def)
     abilities = action_core.filter_self_buff_blocked(abilities, player.buffs)
     if #abilities == 0 then return nil end
 
-    local group_allowed = make_group_filter('heal_aoe_group')
-
-    -- Average HP of alive, non-full party members; also count how many are below
-    -- threshold, and remember the lowest one -- an aoe_precast heal (SCH Accession)
-    -- radiates from a single target, so it needs someone to aim at.
     local threshold = settings.heal_aoe_threshold or 70
-    local total, count, below_count = 0, 0, 0
-    local lowest_idx, lowest_hpp, lowest_m = nil, 101, nil
-    for i = 0, 5 do
-        local m = i == 0 and state.player or state.party[i]
-        if m and group_allowed(i) and not common.is_trust_excluded(m.name, m.server_id) then
-            local hpp = m.hpp or 0
-            if common.is_active_member(hpp) then
-                total = total + hpp
-                count = count + 1
-                if common.below_threshold(hpp, threshold) then
-                    below_count = below_count + 1
-                end
-                if hpp < lowest_hpp then
-                    lowest_hpp, lowest_idx, lowest_m = hpp, i, m
-                end
-            end
-        end
-    end
-    local avg_hp = count > 0 and (total / count) or 100
-    -- The bar for STARTING an AOE heal. A boolean rather than an early return: the
-    -- buff-already-up branch below runs on a looser gate (the charge is already spent).
-    local aoe_ready = below_count >= 2 and common.below_threshold(avg_hp, threshold)
+    local groups    = aoe_groups(state, make_group_filter('heal_aoe_group'), threshold)
+    -- The bar for STARTING an AOE heal: 2+ members of one party below threshold and
+    -- that party's average below it too. The buff-already-up branch below runs on a
+    -- looser gate (the charge is already spent).
+    local ready = needy_groups(groups, 2, true, threshold)
 
     -- An aoe_precast entry (SCH Accession) is a JA that heals nothing on its own: it
     -- makes the NEXT single-target cure land on everyone in range. Split it out of the
-    -- list -- first_command would otherwise fire the bare JA as though it were the heal.
+    -- list -- the plain loop would otherwise fire the bare JA as though it were the heal.
     -- Keyed off the data flag, not the job id, so any job that gains one is covered.
     local precast, plain = nil, {}
     for _, a in ipairs(abilities) do
         if a.aoe_precast then precast = a else table.insert(plain, a) end
     end
 
-    -- The cure an aoe_precast entry would spread: this job's single-target heals, narrowed
-    -- to the spells the stratagem applies to, aimed at the lowest member and range-checked
-    -- against them (the spell radiates from its TARGET, not the caster). Consulted BEFORE
-    -- the JA fires, so a charge is never spent on a tick where no cure could follow.
-    local function paired_cure()
+    -- The cure an aoe_precast entry would spread onto hurt member t: this job's
+    -- single-target heals, narrowed to the spells the stratagem applies to, aimed at t
+    -- (the spell radiates from its TARGET, not the caster). Consulted BEFORE the JA
+    -- fires, so a charge is never spent on a tick where no cure could follow.
+    -- Returns the cure and its command.
+    local function paired_cure(t)
         local mp    = action_core.get_resource(job_def.resource_type)
         local cures = {}
         for _, a in ipairs(common.filter_abilities_by_level(
@@ -747,74 +800,88 @@ function heal.execute_aoe(settings, job_def)
             -- Budgeted at the doubled cost Accession will charge, before the buff -- and
             -- so effective_ability_cost -- knows anything about it.
             if common.stratagem_applies(precast, a)
+                and (t.party_index or a.target_outside)
                 and math.floor((a.cost or 0) * precast.mp_modifier) <= mp then
                 table.insert(cures, a)
             end
         end
-        local cure = heal.select_ability(cures, lowest_hpp, job_def, nil, lowest_idx, nil, settings)
-        local tidx = lowest_m and lowest_m.target_index
-        if cure and tidx and tidx > 0
-            and common.is_in_range(tidx, type(cure.range) == 'number' and cure.range or 21) then
-            return cure
-        end
+        local cure = heal.select_ability(cures, t.hpp, job_def, nil, t.party_index,
+            not t.party_index and t.m or nil, settings)
+        local command = cure and aim(cure, t)
+        if command then return cure, command end
         return nil
     end
 
     -- Buff already up: the follow-up tick, or the player raised Accession by hand. The
     -- charge is already spent, so one member below threshold is enough -- but not zero,
     -- or a hand-pressed Accession would fire a cure into a full-HP party.
-    if precast and lowest_idx and below_count >= 1
-        and common.has_buff(0, precast.buff_id) then
-        local cure = paired_cure()
-        if cure then
+    if precast and common.has_buff(0, precast.buff_id) then
+        for _, g in ipairs(needy_groups(groups, 1, false, threshold)) do
+            local t = g.hurt[1]
             -- Cast the cure directly and let it land as an AOE. Deliberately NOT routed
             -- through common.check_stratagem -- a stratagem the user assigned to Cure via
             -- the S popup would spend a second charge here and break the follow-up lock.
-            local command = common.build_ability_command(cure, lowest_idx)
+            local cure, command = paired_cure(t)
             if command then
                 return {
                     command = command,
                     description = string.format('AOE healing %s with %s (avg HP: %.1f%%)',
-                        (lowest_m and lowest_m.name or 'party member'), cure.name, avg_hp),
+                        t.m.name or 'party member', cure.name, g.avg),
                 }
             end
         end
     end
 
-    if not aoe_ready then return nil end
+    if #ready == 0 then return nil end
 
     -- A real AOE heal outranks the precast: a free Curaga beats a charge plus double MP.
-    local plain_result = action_core.first_command(plain, job_def, settings, '[HEAL_AOE]', nil,
-        function(a) return string.format('AOE healing with %s (avg HP: %.1f%%)', a.name, avg_hp) end)
-    if plain_result then return plain_result end
+    -- Aimed at the neediest party's lowest member it can reach; no Hold AOE for Group
+    -- gate -- that is a buff setting, and healing is too urgent to wait on a gather.
+    for _, g in ipairs(ready) do
+        for _, a in ipairs(plain) do
+            local eff_cost = common.effective_ability_cost(a, settings, job_def)
+            if action_core.is_usable(a, job_def, eff_cost) then
+                for _, t in ipairs(g.hurt) do
+                    local command = aoe_command(a, g, t)
+                    if command then
+                        -- Stratagems only once the heal is known to be castable here.
+                        local strat_result = common.check_stratagem(job_def, settings, a.name, a)
+                        if strat_result then return strat_result end
+                        if strat_result == nil then
+                            return {
+                                command = command,
+                                description = string.format('AOE healing %s with %s (avg HP: %.1f%%)',
+                                    t.m.name or 'party member', a.name, g.avg),
+                            }
+                        end
+                        break
+                    end
+                end
+            end
+        end
+    end
 
     -- Fire the JA: cheap gates first (charge, arts stance, silence/movement), and only
     -- then confirm a cure could actually follow it. The buff check guards the branch above
     -- falling through (server id unresolved, so no command could be built) -- re-firing
     -- would spend a second charge on a buff the player already holds.
-    if precast and lowest_idx
+    if precast
         and not common.has_buff(0, precast.buff_id)
         and (common.game_state.stratagems or 0) >= 1
         and action_core.has_any_buff(player.buffs, precast.requires_buff)
-        and not common.is_command_blocked(precast.command)
-        and paired_cure() then
-        -- Accession radiates common.AOE_RADIUS (10 yalms) from the CURE's target, not the
-        -- cure's own 20-yalm range, so a lone straggler would eat the charge and the
-        -- doubled MP by themselves. The other four AOE paths get this gate inside
-        -- check_stratagem, which this one bypasses, so it is applied directly here.
-        -- Default (hold off) is unchanged: fire covering whoever is in range.
-        if settings.hold_aoe_for_group and not common.group_in_aoe_range() then
-            common.announce_gather(precast.name, settings)
-            return nil
+        and not common.is_command_blocked(precast.command) then
+        for _, g in ipairs(ready) do
+            if paired_cure(g.hurt[1]) then
+                -- is_stratagem reuses automation.lua's follow-up lock, which re-runs ONLY
+                -- this module next tick so nothing pre-empts the paired cure -- which is
+                -- why no cross-module "forced heal" flag is needed.
+                return {
+                    command      = precast.command,
+                    description  = string.format('Using %s (avg HP: %.1f%%)', precast.name, g.avg),
+                    is_stratagem = true,
+                }
+            end
         end
-        -- is_stratagem reuses automation.lua's follow-up lock, which re-runs ONLY this
-        -- module next tick so nothing pre-empts the paired cure -- which is why no
-        -- cross-module "forced heal" flag is needed.
-        return {
-            command      = precast.command,
-            description  = string.format('Using %s (avg HP: %.1f%%)', precast.name, avg_hp),
-            is_stratagem = true,
-        }
     end
 
     return nil

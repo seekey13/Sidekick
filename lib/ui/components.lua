@@ -3071,8 +3071,8 @@ end
 --   ME / party / tracked -> ON  by default (included unless explicitly disabled)
 --   alliance (B/C)        -> OFF by default (excluded unless explicitly enabled)
 -- State lives in ctx.party_buffs[key_name]; heal.lua reads it via the same keys.
--- show_outside: whether to draw alliance + tracked buttons (Group=true, AOE=false;
--- AOE healing is party-scoped so out-of-party buttons would do nothing).
+-- show_outside: true draws alliance + tracked buttons (Group); 'alliance' draws
+-- alliance only (AOE -- it heals by party, and tracked targets have none).
 function ui_components.render_heal_group_selection(ctx, key_name, show_outside)
     ctx.party_buffs[key_name] = ctx.party_buffs[key_name] or {}
     local state = ctx.party_buffs[key_name]
@@ -3126,6 +3126,8 @@ function ui_components.render_heal_group_selection(ctx, key_name, show_outside)
             end
         end
     end
+
+    if show_outside == 'alliance' then return true end
 
     -- Tracked targets
     local sorted = {}
