@@ -552,6 +552,20 @@ return {
                 group = 'etude',
                 target_modifier = true,
             },
+            {
+                name = 'Enchanting Etude (+CHR)',
+                level = 22,
+                cost = 0,
+                spell_id = 430,
+                magic = 'song',
+                command = function(target)
+                    return '/ma "Enchanting Etude" '..target
+                end,
+                element = 'Light',
+                buff_id = 215,
+                group = 'etude',
+                target_modifier = true,
+            },
             -- Carols
             {
                 name = 'Dark Carol (+Dark Res.)',
