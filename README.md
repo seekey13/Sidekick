@@ -77,6 +77,7 @@ The one exception is **opt-in leader following** (off by default): with **Follow
 - **Erase clears everything the server says it can**: Stun, Addle, Requiem, Elegy, Enmity Down and Crit. Eva. Down are now erasable, are named in the per-status opt-out menus, and are cleared by the pet cleanses too. — **Atsumu**, **Tai**
 - **One far-away member no longer stops healing**: someone out of range is skipped and everyone else in reach still gets cured. **Crobat**
 - **No wasted stratagems or critical boosts**: Accession-style charges and Divine Seal / Contradance-style boosts are only used when the cure can actually reach the target.
+- **Config window opens in front**: `/sk` now brings the config window above other addons' windows instead of opening it buried under them. — **Crobat**
 
 See [CHANGELOG.md](CHANGELOG.md) for the full release history.
 
