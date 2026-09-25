@@ -20,7 +20,8 @@ local POST_RECAST_DELAY = 0.5  -- 0.5 second delay after recast hits 0
 
 -- Helper: check if recast timer is ready with post-delay.
 -- A pure read once the delay has elapsed: the stamp is kept while the timer stays
--- at 0 and cleared only when a recast starts. Clearing it on a true result made
+-- at 0 and cleared when a recast starts or the ability's command is sent
+-- (clear_ready_stamp). Clearing it on a true result made
 -- the check self-consuming -- the first caller in a tick got true and every later
 -- check of the same spell that tick got false (e.g. the heal loop sizing Cure for
 -- an out-of-range member, then reading "no usable heal" for everyone after them).
@@ -35,6 +36,14 @@ local function is_recast_ready_with_delay(key, timer)
         recast_ready_time[key] = nil
         return false
     end
+end
+
+-- Forget an ability's ready stamp once its command is sent, so the next recast
+-- gets its full POST_RECAST_DELAY. Without this, an ability nobody checks during
+-- its cooldown keeps the previous stamp and reads ready the instant the timer hits 0.
+function action_core.clear_ready_stamp(ability)
+    if ability.spell_id then recast_ready_time['spell_' .. ability.spell_id] = nil end
+    if ability.recast_id then recast_ready_time['ability_' .. ability.recast_id] = nil end
 end
 
 -- Check if player has enough MP or TP.

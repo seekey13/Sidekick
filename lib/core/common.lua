@@ -2675,6 +2675,11 @@ end
 --   ability (table) - Ability definition with command field
 --   party_index (number|nil) - party index 0-5 for p0-p5
 -- Returns: string - Command string or nil
+-- Command string -> ability for every command built this tick, so automation can
+-- clear that ability's post-recast stamp when the command is actually sent.
+-- Reset at the top of each priority pass.
+common.built_commands = {}
+
 function common.build_ability_command(ability, party_index)
     local command = nil
     
@@ -2694,6 +2699,7 @@ function common.build_ability_command(ability, party_index)
         command = ability.command
     end
     
+    if command then common.built_commands[command] = ability end
     return command
 end
 
@@ -2705,13 +2711,15 @@ end
 function common.build_ability_command_for_target(ability, server_id)
     if not ability or not server_id or server_id == 0 then return nil end
 
+    local command
     if type(ability.command) == 'function' then
-        return ability.command(server_id)
+        command = ability.command(server_id)
     elseif type(ability.command) == 'string' then
-        return ability.command
+        command = ability.command
     end
 
-    return nil
+    if command then common.built_commands[command] = ability end
+    return command
 end
 
 -- ============================================================================

@@ -148,9 +148,10 @@ lib/
 8. Check job/level change → reload job definition, skip the frame
 9. Iterate priority_order (merged per job from master_priority)
 10. For each action type → pcall action_module.execute(settings, job_def, ...)
-11. First module to return a truthy result wins. `{hold = true}` wins without sending
-    anything — `heal` returns it while a member in reach waits on a cure's recast
-    (≤ 15 s), so nothing below heal fires until it's back
+11. First module to return a truthy result wins. `{hold = true}` sends nothing — `heal`
+    returns it while a member in reach waits on a cure's recast (≤ 15 s). The loop
+    continues, but only `HOLD_PASSTHROUGH` types (debuff_removal through rune) may fire;
+    geo/buff/revive/follow/rest wait, since a long cast or a /follow would delay the cure
 12. Throttle check (1.1 s, or 3.1 s after a spell finish; re-stamped from the action's
     own 0x028 finish/interrupt packet) → QueueCommand → wait for next tick
 ```
@@ -185,7 +186,7 @@ Consolidated ability infrastructure module. Combines resource management (MP/TP 
 |---|---|
 | `has_resource(type, amount)` | Check MP or TP ≥ amount |
 | `get_resource(type)` | Current MP or TP |
-| `is_ability_ready(recast_id)` | Ability recast timer = 0 (with 0.5s post-delay) — reads the JA recast table. The post-delay is timed from the first call that sees a zero timer; the stamp is cleared only when a recast starts, so repeat calls in one tick agree |
+| `is_ability_ready(recast_id)` | Ability recast timer = 0 (with 0.5s post-delay) — reads the JA recast table. The post-delay is timed from the first call that sees a zero timer; the stamp is cleared when a recast starts or when automation sends that ability's command (`clear_ready_stamp`, via `common.built_commands`, the command→ability map the builders fill each pass), so repeat calls in one tick agree |
 | `is_ability_recast_zero(recast_id)` | Same table, no post-delay. For deciding *whether* an ability is available without trying to use it |
 | `is_spell_ready(spell_id)` | Spell recast timer = 0 (with 0.5s post-delay) — reads the spell recast table |
 | `get_spell_recast(spell_id)` | Remaining spell recast |
@@ -456,13 +457,13 @@ FFI bindings for FFXI target resolution (battle target, scan target, last teller
 - Uses `action_core.filter_usable()` for resource/cooldown gating.
 - **Forced self heal**: `heal.force_next_self_heal()` (called by `recover.lua` when a `force_self_heal` ability — RDM Convert — fires) arms a module-local flag that makes `execute` heal the player ahead of focus/lowest-HP logic. The branch sits after the critical-HP branch, so a critical boost JA (Divine Seal, Contradance) still fires first and the forced cure lands boosted the next tick. While the player's MP is still below `recover_mp_threshold` the swap hasn't resolved yet (game state is pre-Convert), so the branch holds single-target healing without selecting — otherwise the cure gets sized to the MP that's about to become HP. Once MP jumps, selection runs against the post-swap pool. Cleared when the forced heal is returned, when post-swap HP is already above `heal_threshold`, when the swap never lands within 5 s, or after a 30 s overall timeout; if nothing is castable (silence, cooldowns) the flag survives and normal priority logic runs.
 
-**AOE healing** (`execute_aoe`): An AOE heal radiates from its target and lands on that target's party, so `aoe_groups` scores each party separately: the player's own (slots 0-5) and alliance parties B and C (`al_<flat>` keys, opt-in like Group heal). A party qualifies when 2+ of its members are below threshold **and** its average (alive, non-full members only) is below it too. `needy_groups` sorts qualifying parties by their lowest member. For each one, in list order, the first usable ability is **aimed at the lowest hurt member it can reach**:
-- Function command (Curaga, Divine Waltz): range-checked against that member and built with `build_ability_command` (party slot) or `build_ability_command_for_target` (alliance, `target_outside` only — Curaga's server `validTargets` is 3, self/party, so it has none; Divine Waltz is 27, so it does). An out-of-range lowest member falls through to the next-lowest.
+**AOE healing** (`execute_aoe`): An AOE heal radiates from its target and lands on that target's party, so `aoe_groups` scores each party separately: the player's own (slots 0-5) and alliance parties B and C (`al_<flat>` keys, opt-in like Group heal). A party qualifies when 2+ of its members are below threshold **and** its average (alive, non-full members only) is below it too. `needy_groups` sorts qualifying parties by their lowest member (`g.lowest`). Each party's hurt list is ordered as AOE centres — most hurt members within `common.AOE_RADIUS` of that member first (entity-to-entity distance), lowest HP breaking ties — so a lowest member standing apart (tank on the mob) doesn't soak the heal alone. For each party, in list order, the first usable ability is **aimed at the best centre it can reach**:
+- Function command (Curaga, Divine Waltz): range-checked against that member and built with `build_ability_command` (party slot) or `build_ability_command_for_target` (alliance, `target_outside` only — Curaga's server `validTargets` is 3, self/party, so it has none; Divine Waltz is 27, so it does). An out-of-range centre falls through to the next in order.
 - String command (`<me>`: Healing Breeze, Mending Halation, Healing Ruby II, Wild Carrot — self/pet-centred server-side): the caster's own party only.
 
 `check_stratagem` runs only after a command is built. **No `hold_aoe_for_group` gate anywhere on this path** — that is a buff setting, and healing is too urgent to wait on a gather; `check_stratagem` likewise skips the hold for `magic_type == 'healing'`.
 
-- **`aoe_precast` pairing (SCH Accession)**: an `abilities.heal_aoe` entry flagged `aoe_precast` is a JA that heals nothing on its own — it makes the *next* single-target cure land on everyone in range. It is split out of the plain list (which would otherwise fire the bare JA as though it were the heal) and handled on its own path, keyed off the data flag rather than the job id. The spell radiates from its **target**, so the cure is aimed at the chosen party's lowest hurt member and range-checked against them (alliance targets need a `target_outside` cure). The pass runs in three steps, in this order:
+- **`aoe_precast` pairing (SCH Accession)**: an `abilities.heal_aoe` entry flagged `aoe_precast` is a JA that heals nothing on its own — it makes the *next* single-target cure land on everyone in range. It is split out of the plain list (which would otherwise fire the bare JA as though it were the heal) and handled on its own path, keyed off the data flag rather than the job id. The spell radiates from its **target**, so the cure is aimed at the chosen party's best reachable centre (same order) and range-checked against them (alliance targets need a `target_outside` cure). The pass runs in three steps, in this order:
 
   1. **Buff already up** (the follow-up tick, or the player pressed Accession by hand) → cast the paired cure. The charge is already spent, so the gate here is the looser `below_count >= 1` rather than the full `aoe_ready` — but not zero, or a hand-pressed Accession would fire a cure into a full-HP party. The cure is cast **directly**, deliberately bypassing `common.check_stratagem` — a stratagem the user assigned to Cure through the **S** popup would spend a second charge and break the lock.
   2. Otherwise, once a party qualifies, **the plain AOE heals** — a real AOE heal outranks the precast: a free Curaga beats a charge plus double MP.

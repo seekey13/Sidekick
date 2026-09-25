@@ -16,6 +16,14 @@ local spell_finish_throttle = 3.1 -- spell casts carry a longer server-side lock
 -- tick to the same action_type so the paired ability gets executed before the
 -- priority loop can pre-empt it with something else.
 local pending_stratagem = nil   -- { action_type = string, timestamp = number }
+
+-- Action types that still run while a module holds ({hold = true}): the master
+-- priority from the hold down through 'rune'. geo/buff/revive/follow/rest wait --
+-- a long cast or a /follow would delay the heal being held for.
+local HOLD_PASSTHROUGH = {
+    debuff_removal = true, heal_pet = true, pet_debuff_removal = true, pet_control = true,
+    wake = true, maneuver = true, roll = true, rune = true,
+}
 local STRATAGEM_FOLLOWUP_TIMEOUT = 5.0  -- seconds before we give up waiting
 
 --[[
@@ -33,6 +41,8 @@ function automation.execute_command(command, description)
     -- Execute the command
     AshitaCore:GetChatManager():QueueCommand(0, command)
     last_command_time = current_time
+    local ability = common.built_commands[command]
+    if ability then require('lib.core.action_core').clear_ready_stamp(ability) end
 
     return true
 end
@@ -88,6 +98,7 @@ function automation.execute_priority_actions(priority_order, action_modules, set
     if (os.clock() - last_command_time) < command_throttle then
         return false
     end
+    common.built_commands = {}
 
     -- ----------------------------------------------------------------
     -- Stratagem follow-up: if a stratagem JA fired on the previous tick,
@@ -137,18 +148,20 @@ function automation.execute_priority_actions(priority_order, action_modules, set
         end
     end
     
+    local holding = false
     for _, action_type in ipairs(priority_order) do
-        local action_module = (not resting or action_type == 'rest') and action_modules[action_type] or nil
+        local action_module = (not resting or action_type == 'rest')
+            and (not holding or HOLD_PASSTHROUGH[action_type])
+            and action_modules[action_type] or nil
         if action_module and action_module.execute then
             local success, result = pcall(action_module.execute, settings, job_def, main_level, sub_level, player_resource)
             
             if success and result then
                 -- { hold = true }: module has pending work waiting on a recast (heal).
-                -- Stop here so nothing lower-priority fires in the meantime.
+                -- Only HOLD_PASSTHROUGH types may fire in the meantime.
                 if type(result) == 'table' and result.hold then
-                    return false
-                end
-                if dispatch_result(result, action_type) then
+                    holding = true
+                elseif dispatch_result(result, action_type) then
                     return true
                 end
             elseif not success then

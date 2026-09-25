@@ -497,8 +497,9 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
     end
 
     -- Nothing castable, but a member in reach still needs a heal and a cure for them is
-    -- only waiting on its recast: hold the tick so everything below heal in the priority
-    -- order (buffs, debuff removal, ...) waits for it. The loop restarts from the top each
+    -- only waiting on its recast: hold the tick so the slow/long actions below heal
+    -- (geo, buff, revive, follow, rest -- see automation's HOLD_PASSTHROUGH) wait for it,
+    -- while debuff removal through rune still run. The loop restarts from the top each
     -- tick, so item/recover/critical still fire. Out of range, out of MP or silenced never
     -- holds -- waiting wouldn't fix those.
     for _, e in ipairs(candidates) do
@@ -620,9 +621,12 @@ end
 -- ============================================================================
 
 -- An AOE heal radiates from its TARGET and lands on that target's party, so each
--- party of the alliance is averaged on its own and healed through its lowest
--- member. Party slots carry party_index (0-5); alliance members carry only their
--- server id and are reachable by target_outside abilities alone.
+-- party of the alliance is averaged on its own. Its hurt list is ordered as AOE
+-- centres: most hurt members within common.AOE_RADIUS first, lowest HP breaking
+-- ties -- a lowest member standing apart (tank on the mob) would otherwise soak the
+-- whole heal alone. g.lowest keeps the party's lowest HP for ranking parties.
+-- Party slots carry party_index (0-5); alliance members carry only their server id
+-- and are reachable by target_outside abilities alone.
 local function aoe_groups(state, group_allowed, threshold)
     local function add(g, m, party_index)
         local hpp = m.hpp or 0
@@ -655,7 +659,22 @@ local function aoe_groups(state, group_allowed, threshold)
 
     for _, g in ipairs(groups) do
         g.avg = g.count > 0 and (g.total / g.count) or 100
-        table.sort(g.hurt, function(a, b) return a.hpp < b.hpp end)
+        g.lowest = 100
+        for _, t in ipairs(g.hurt) do
+            g.lowest = math.min(g.lowest, t.hpp)
+            t.ent = t.m.target_index and t.m.target_index > 0 and GetEntity(t.m.target_index) or nil
+        end
+        for _, t in ipairs(g.hurt) do
+            t.covers = 0
+            for _, o in ipairs(g.hurt) do
+                local d = t.ent and o.ent and common.calculate_distance(t.ent, o.ent)
+                if o == t or (d and d <= common.AOE_RADIUS) then t.covers = t.covers + 1 end
+            end
+        end
+        table.sort(g.hurt, function(a, b)
+            if a.covers ~= b.covers then return a.covers > b.covers end
+            return a.hpp < b.hpp
+        end)
     end
     return groups
 end
@@ -669,7 +688,7 @@ local function needy_groups(groups, min_hurt, need_avg, threshold)
             table.insert(out, g)
         end
     end
-    table.sort(out, function(a, b) return a.hurt[1].hpp < b.hurt[1].hpp end)
+    table.sort(out, function(a, b) return a.lowest < b.lowest end)
     return out
 end
 
@@ -743,7 +762,7 @@ function heal.execute_aoe(settings, job_def)
     -- or a hand-pressed Accession would fire a cure into a full-HP party.
     if precast and common.has_buff(0, precast.buff_id) then
         for _, g in ipairs(needy_groups(groups, 1, false, threshold)) do
-            -- Lowest member in reach, not just the lowest: one out-of-range member
+            -- Best centre in reach, not just the best: one out-of-range member
             -- must not strand the Accession charge.
             for _, t in ipairs(g.hurt) do
                 -- Cast the cure directly and let it land as an AOE. Deliberately NOT routed
@@ -764,7 +783,7 @@ function heal.execute_aoe(settings, job_def)
     if #ready == 0 then return nil end
 
     -- A real AOE heal outranks the precast: a free Curaga beats a charge plus double MP.
-    -- Aimed at the neediest party's lowest member it can reach; no Hold AOE for Group
+    -- Aimed at the neediest party's best centre it can reach; no Hold AOE for Group
     -- gate -- that is a buff setting, and healing is too urgent to wait on a gather.
     for _, g in ipairs(ready) do
         for _, a in ipairs(plain) do
