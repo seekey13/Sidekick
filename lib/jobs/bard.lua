@@ -26,6 +26,7 @@ return {
                 recast_id = 109,
                 ability_id = 163,  -- merit-unlocked: gated on HasAbility
                 command = '/ja "Nightingale" <me>',
+                priority = 100,
                 buff_id = 347,
             },
             {
@@ -35,6 +36,7 @@ return {
                 recast_id = 110,
                 ability_id = 164,  -- merit-unlocked: gated on HasAbility
                 command = '/ja "Troubadour" <me>',
+                priority = 100,
                 buff_id = 348,
             },
             -- Minne
