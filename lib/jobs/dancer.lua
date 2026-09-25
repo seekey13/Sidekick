@@ -77,6 +77,7 @@ return {
                     return '/ja "Divine Waltz II" '..target
                 end,
                 target_outside = true,  -- validTarget 27: self/party/alliance
+                range = 10,  -- abilities.sql range 10 (AOE radius 10), not the 21 fallback
                 wakes = true,
                 blocked_by = 410,  -- Saber Dance blocks Waltzes
             },
@@ -89,6 +90,7 @@ return {
                     return '/ja "Divine Waltz" '..target
                 end,
                 target_outside = true,  -- validTarget 27: self/party/alliance
+                range = 10,  -- abilities.sql range 10 (AOE radius 10), not the 21 fallback
                 wakes = true,
                 blocked_by = 410,  -- Saber Dance blocks Waltzes
             },

@@ -185,8 +185,8 @@ Consolidated ability infrastructure module. Combines resource management (MP/TP 
 |---|---|
 | `has_resource(type, amount)` | Check MP or TP ≥ amount |
 | `get_resource(type)` | Current MP or TP |
-| `is_ability_ready(recast_id)` | Ability recast timer = 0 (with 0.5s post-delay) — reads the JA recast table. **Consuming**: the post-delay is tracked by arming a timestamp on the first zero-timer call and clearing it on the call that returns true, so two calls in one tick disagree by design |
-| `is_ability_recast_zero(recast_id)` | Same table, **read-only** — no post-delay bookkeeping. For deciding *whether* an ability is available without trying to use it. Using `is_usable` for that and then calling `try_use` re-arms the delay and never fires |
+| `is_ability_ready(recast_id)` | Ability recast timer = 0 (with 0.5s post-delay) — reads the JA recast table. The post-delay is timed from the first call that sees a zero timer; the stamp is cleared only when a recast starts, so repeat calls in one tick agree |
+| `is_ability_recast_zero(recast_id)` | Same table, no post-delay. For deciding *whether* an ability is available without trying to use it |
 | `is_spell_ready(spell_id)` | Spell recast timer = 0 (with 0.5s post-delay) — reads the spell recast table |
 | `get_spell_recast(spell_id)` | Remaining spell recast |
 
@@ -662,9 +662,7 @@ the slots and stands its runes up while idle, so the mitigation is ready before 
 every rune up and `common.is_combat()` false, `execute` returns `nil` instead of firing, and returns
 rather than falling through so idle upkeep cannot swap the prepped set straight back out. Firing a
 300-second recast at no target would waste it. Availability is read with
-`action_core.is_ability_recast_zero`, never `is_usable`: the latter's post-recast delay is consuming,
-so using it to *decide* would leave the following `try_use` nothing to consume and the JA would never
-fire. The buff diff is `action_core.first_missing_stack`, shared with PUP maneuvers, so picking the
+`action_core.is_ability_recast_zero`, which skips the post-recast delay. The buff diff is `action_core.first_missing_stack`, shared with PUP maneuvers, so picking the
 same rune in two slots correctly asks for two copies.
 
 The module also owns the settings-key helpers (`enable_key`, `slot_key`, `setting_prefix`, `max_runes`,

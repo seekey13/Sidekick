@@ -108,7 +108,6 @@ return {
                 end,
                 range = 20,
                 wakes = true,
-                target_outside = true,
             },
             {
                 name = 'Curaga III',
@@ -122,7 +121,6 @@ return {
                 end,
                 range = 20,
                 wakes = true,
-                target_outside = true,
             },
             {
                 name = 'Curaga II',
@@ -136,7 +134,6 @@ return {
                 end,
                 range = 20,
                 wakes = true,
-                target_outside = true,
             },
             {
                 name = 'Curaga',
@@ -150,7 +147,6 @@ return {
                 end,
                 range = 20,
                 wakes = true,
-                target_outside = true,
             },
         },
         

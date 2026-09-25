@@ -142,12 +142,9 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
     local party_status = {
         needs_heal        = {},
         focus_needs_heal  = false,
-        average_hp        = 100,
     }
     local group_allowed = make_group_filter('heal_group')
 
-    local total_hp     = 0
-    local active_count = 0
     for i = 0, 5 do
         local m = i == 0 and state.player or state.party[i]
         if not m then goto continue_hp_check end
@@ -156,8 +153,6 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
         if not common.is_active_member(hpp) then goto continue_hp_check end
         if common.is_trust_excluded(m.name, m.server_id) then goto continue_hp_check end
         if not group_allowed(i) then goto continue_hp_check end
-        total_hp     = total_hp     + hpp
-        active_count = active_count + 1
         local is_focus      = focus_enabled and focus_party_idx ~= nil and i == focus_party_idx
         local eff_threshold = is_focus and focus_threshold or threshold
         if hpp < eff_threshold and target_idx > 0 then
@@ -227,10 +222,6 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
         end
     end
 
-    if active_count > 0 then
-        party_status.average_hp = total_hp / active_count
-    end
-    
     -- Priority 1: Critical HP (if anyone is below critical threshold)
     local critical_threshold = settings.critical_threshold or 30
     local critical_abilities = job_def.abilities.critical or {}
@@ -273,10 +264,8 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
                         -- String command = self-boost (<me>); function command = aimed at
                         -- the member (Martyr), which can't target self and must reach them.
                         local is_boost = type(ability.command) ~= 'function'
-                        local ok
-                        if is_boost then
-                            ok = follow_ok
-                        else
+                        local ok = follow_ok
+                        if not is_boost then
                             ok = c.index ~= 0 and common.is_in_range(c.m.target_index,
                                 type(ability.range) == 'number' and ability.range or 21)
                         end
@@ -362,20 +351,18 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
                     if strat_result == false then return nil
                     elseif strat_result then return strat_result end
 
-                    do
-                        local command = common.build_ability_command_for_target(selected_ability, focus_tracked_sid)
-                        if command then
-                            -- Register pending buff for packet tracking
-                            if selected_ability.buff_id then
-                                local bid = type(selected_ability.buff_id) == 'table' and selected_ability.buff_id[1] or selected_ability.buff_id
-                                common.register_pending_buff(focus_tracked_sid, bid)
-                            end
-                            common.debugf('[HEAL] >>> Healing tracked focus target %s with %s', tt.name, selected_ability.name)
-                            return {
-                                command = command,
-                                description = string.format('Healing focus target %s with %s (HP: %.1f%%)', tt.name, selected_ability.name, focus_hpp)
-                            }
+                    local command = common.build_ability_command_for_target(selected_ability, focus_tracked_sid)
+                    if command then
+                        -- Register pending buff for packet tracking
+                        if selected_ability.buff_id then
+                            local bid = type(selected_ability.buff_id) == 'table' and selected_ability.buff_id[1] or selected_ability.buff_id
+                            common.register_pending_buff(focus_tracked_sid, bid)
                         end
+                        common.debugf('[HEAL] >>> Healing tracked focus target %s with %s', tt.name, selected_ability.name)
+                        return {
+                            command = command,
+                            description = string.format('Healing focus target %s with %s (HP: %.1f%%)', tt.name, selected_ability.name, focus_hpp)
+                        }
                     end
                 end
             end
@@ -394,19 +381,17 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
                         if strat_result == false then return nil
                         elseif strat_result then return strat_result end
 
-                        do
-                            local command = common.build_ability_command_for_target(selected_ability, focus_alliance_sid)
-                            if command then
-                                if selected_ability.buff_id then
-                                    local bid = type(selected_ability.buff_id) == 'table' and selected_ability.buff_id[1] or selected_ability.buff_id
-                                    common.register_pending_buff(focus_alliance_sid, bid)
-                                end
-                                common.debugf('[HEAL] >>> Healing alliance focus %s with %s', al_member.name, selected_ability.name)
-                                return {
-                                    command = command,
-                                    description = string.format('Healing alliance focus %s with %s (HP: %.1f%%)', al_member.name, selected_ability.name, focus_hpp)
-                                }
+                        local command = common.build_ability_command_for_target(selected_ability, focus_alliance_sid)
+                        if command then
+                            if selected_ability.buff_id then
+                                local bid = type(selected_ability.buff_id) == 'table' and selected_ability.buff_id[1] or selected_ability.buff_id
+                                common.register_pending_buff(focus_alliance_sid, bid)
                             end
+                            common.debugf('[HEAL] >>> Healing alliance focus %s with %s', al_member.name, selected_ability.name)
+                            return {
+                                command = command,
+                                description = string.format('Healing alliance focus %s with %s (HP: %.1f%%)', al_member.name, selected_ability.name, focus_hpp)
+                            }
                         end
                     end
                 end
@@ -460,8 +445,7 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
     -- stalls healing for everyone else in reach. Range is checked BEFORE stratagems
     -- so a charge is never spent on a cure that can't land.
     local function tier(e) return e.index and 1 or (e.is_tracked and 2 or 3) end
-    local candidates = {}
-    for _, e in ipairs(party_status.needs_heal) do table.insert(candidates, e) end
+    local candidates = party_status.needs_heal
     table.sort(candidates, function(a, b)
         if tier(a) ~= tier(b) then return tier(a) < tier(b) end
         return a.hpp < b.hpp
@@ -485,8 +469,7 @@ function heal.execute(settings, job_def, main_level, sub_level, player_resource)
         if not reachable then
             common.debugf('[HEAL] Skipping %s (%.1f%%): %s', member and member.name or '?', e.hpp,
                 selected_ability and 'out of range' or 'no usable heal')
-        end
-        if reachable then
+        else
             -- Check stratagems before casting
             local strat_result = common.check_stratagem(job_def, settings, selected_ability.name, selected_ability)
             if strat_result == false then return nil
@@ -701,15 +684,6 @@ local function aim(a, t)
     return a.target_outside and common.build_ability_command_for_target(a, t.m.server_id) or nil
 end
 
--- A string command is self-centred (Healing Breeze, Mending Halation, Healing Ruby II)
--- and only ever covers the caster's own party.
-local function aoe_command(a, g, t)
-    if type(a.command) ~= 'function' then
-        return g.own and a.command or nil
-    end
-    return aim(a, t)
-end
-
 function heal.execute_aoe(settings, job_def)
     if not settings.heal_aoe_enabled then return nil end
 
@@ -761,8 +735,7 @@ function heal.execute_aoe(settings, job_def)
         local cure = heal.select_ability(cures, t.hpp, job_def, nil, t.party_index,
             not t.party_index and t.m or nil, settings)
         local command = cure and aim(cure, t)
-        if command then return cure, command end
-        return nil
+        return command and cure, command
     end
 
     -- Buff already up: the follow-up tick, or the player raised Accession by hand. The
@@ -798,7 +771,14 @@ function heal.execute_aoe(settings, job_def)
             local eff_cost = common.effective_ability_cost(a, settings, job_def)
             if action_core.is_usable(a, job_def, eff_cost) then
                 for _, t in ipairs(g.hurt) do
-                    local command = aoe_command(a, g, t)
+                    -- A string command is self-centred (Healing Breeze, Mending Halation,
+                    -- Healing Ruby II) and only ever covers the caster's own party.
+                    local command
+                    if type(a.command) == 'function' then
+                        command = aim(a, t)
+                    elseif g.own then
+                        command = a.command
+                    end
                     if command then
                         -- Stratagems only once the heal is known to be castable here.
                         local strat_result = common.check_stratagem(job_def, settings, a.name, a)
@@ -827,19 +807,17 @@ function heal.execute_aoe(settings, job_def)
         and action_core.has_any_buff(player.buffs, precast.requires_buff)
         and not common.is_command_blocked(precast.command) then
         for _, g in ipairs(ready) do
-            local reachable = false
             for _, t in ipairs(g.hurt) do
-                if paired_cure(t) then reachable = true break end
-            end
-            if reachable then
-                -- is_stratagem reuses automation.lua's follow-up lock, which re-runs ONLY
-                -- this module next tick so nothing pre-empts the paired cure -- which is
-                -- why no cross-module "forced heal" flag is needed.
-                return {
-                    command      = precast.command,
-                    description  = string.format('Using %s (avg HP: %.1f%%)', precast.name, g.avg),
-                    is_stratagem = true,
-                }
+                if paired_cure(t) then
+                    -- is_stratagem reuses automation.lua's follow-up lock, which re-runs ONLY
+                    -- this module next tick so nothing pre-empts the paired cure -- which is
+                    -- why no cross-module "forced heal" flag is needed.
+                    return {
+                        command      = precast.command,
+                        description  = string.format('Using %s (avg HP: %.1f%%)', precast.name, g.avg),
+                        is_stratagem = true,
+                    }
+                end
             end
         end
     end
