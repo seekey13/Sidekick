@@ -18,23 +18,32 @@ local AshitaCore = AshitaCore
 local recast_ready_time = {}
 local POST_RECAST_DELAY = 0.5  -- 0.5 second delay after recast hits 0
 
--- Helper: check if recast timer is ready with post-delay
+-- Helper: check if recast timer is ready with post-delay.
+-- A pure read once the delay has elapsed: the stamp is kept while the timer stays
+-- at 0 and cleared when a recast starts or the ability's command is sent
+-- (clear_ready_stamp). Clearing it on a true result made
+-- the check self-consuming -- the first caller in a tick got true and every later
+-- check of the same spell that tick got false (e.g. the heal loop sizing Cure for
+-- an out-of-range member, then reading "no usable heal" for everyone after them).
 local function is_recast_ready_with_delay(key, timer)
     if timer == 0 then
         if not recast_ready_time[key] then
             recast_ready_time[key] = os.clock()
             return false
         end
-        local elapsed = os.clock() - recast_ready_time[key]
-        if elapsed >= POST_RECAST_DELAY then
-            recast_ready_time[key] = nil
-            return true
-        end
-        return false
+        return os.clock() - recast_ready_time[key] >= POST_RECAST_DELAY
     else
         recast_ready_time[key] = nil
         return false
     end
+end
+
+-- Forget an ability's ready stamp once its command is sent, so the next recast
+-- gets its full POST_RECAST_DELAY. Without this, an ability nobody checks during
+-- its cooldown keeps the previous stamp and reads ready the instant the timer hits 0.
+function action_core.clear_ready_stamp(ability)
+    if ability.spell_id then recast_ready_time['spell_' .. ability.spell_id] = nil end
+    if ability.recast_id then recast_ready_time['ability_' .. ability.recast_id] = nil end
 end
 
 -- Check if player has enough MP or TP.
@@ -58,45 +67,38 @@ function action_core.get_resource(resource_type)
     return 0
 end
 
--- Check if a job ability (by timer ID) is off cooldown.
-function action_core.is_ability_ready(ability_id)
-    if not ability_id then return true end
-    local recast_mgr = AshitaCore:GetMemoryManager():GetRecast()
-    if not recast_mgr then return false end
-    for i = 0, 31 do
-        local ok_id, timer_id = pcall(function() return recast_mgr:GetAbilityTimerId(i) end)
-        if ok_id and timer_id == ability_id then
-            local ok_timer, timer = pcall(function() return recast_mgr:GetAbilityTimer(i) end)
-            if not ok_timer then return false end
-            return is_recast_ready_with_delay('ability_' .. ability_id, timer)
-        end
-    end
-    return true
-end
-
---[[
-    Read-only variant of is_ability_ready: true when the timer reads zero, with none
-    of the POST_RECAST_DELAY bookkeeping.
-
-    is_ability_ready is a CONSUMING check -- it arms a timestamp on the first call
-    that sees a zero timer and clears it on the call that finally returns true, so
-    two calls in the same tick disagree by design. Callers that need to know whether
-    an ability is available WITHOUT trying to use it (deciding between two plans,
-    reporting state) must use this instead; the real cast still goes through
-    is_usable/try_use, which applies the delay.
-]]--
-function action_core.is_ability_recast_zero(recast_id)
-    if not recast_id then return true end
+-- Raw recast timer for an ability's timer ID: the timer, false when the recast
+-- manager (or the timer read) fails, nil when the ID isn't in the 32-slot list at
+-- all (never started = ready).
+local function ability_timer(recast_id)
     local recast_mgr = AshitaCore:GetMemoryManager():GetRecast()
     if not recast_mgr then return false end
     for i = 0, 31 do
         local ok_id, timer_id = pcall(function() return recast_mgr:GetAbilityTimerId(i) end)
         if ok_id and timer_id == recast_id then
             local ok_timer, timer = pcall(function() return recast_mgr:GetAbilityTimer(i) end)
-            return ok_timer and timer == 0
+            return ok_timer and timer
         end
     end
-    return true  -- Not in the timer list at all = never started = ready
+    return nil
+end
+
+-- Check if a job ability (by timer ID) is off cooldown.
+function action_core.is_ability_ready(ability_id)
+    if not ability_id then return true end
+    local timer = ability_timer(ability_id)
+    if timer == nil then return true end
+    if not timer then return false end
+    return is_recast_ready_with_delay('ability_' .. ability_id, timer)
+end
+
+-- is_ability_ready without the POST_RECAST_DELAY: true when the timer reads zero.
+-- For planning/reporting; the real cast still goes through is_usable/try_use.
+function action_core.is_ability_recast_zero(recast_id)
+    if not recast_id then return true end
+    local timer = ability_timer(recast_id)
+    if timer == nil then return true end
+    return timer == 0
 end
 
 -- Check if a spell (by recast ID) is off cooldown.
@@ -106,6 +108,15 @@ function action_core.is_spell_ready(spell_recast_id)
     if not recast_mgr then return false end
     local recast_time = recast_mgr:GetSpellTimer(spell_recast_id)
     return is_recast_ready_with_delay('spell_' .. spell_recast_id, recast_time)
+end
+
+-- Seconds left on an ability's recast (spell_id or recast_id), 0 when ready.
+function action_core.recast_remaining(ability)
+    if ability.spell_id then
+        return action_core.get_spell_recast(ability.spell_id) / 60.0
+    end
+    local timer = ability.recast_id and ability_timer(ability.recast_id)
+    return timer and timer / 60.0 or 0
 end
 
 -- Get raw spell recast timer value.

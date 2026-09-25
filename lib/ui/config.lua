@@ -1248,7 +1248,7 @@ function ui_config.render(settings, job_def, callback)
                 if is_open and is_enabled then
                     imgui.Indent(ui.ABILITY_LIST_INDENT)
                     ui.slider_int(ctx, 'AOE (HP%)', 'heal_aoe_threshold', { settings.heal_aoe_threshold or 70 }, 1, 100)
-                    ui.render_heal_group_selection(ctx, 'heal_aoe_group', false)
+                    ui.render_heal_group_selection(ctx, 'heal_aoe_group', 'alliance')
                     imgui.SameLine()
                     imgui.Text('AOE Targets')
 

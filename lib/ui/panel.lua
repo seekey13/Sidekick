@@ -460,7 +460,8 @@ function panel.render(addon_settings, save_settings)
             end
 
             -- Hold AOE for Group (per-job). Holds area buffs/songs/rolls/Accession/
-            -- Diffusion until every alive, in-zone party member is in range.
+            -- Diffusion buffs until every alive, in-zone party member is in range.
+            -- Never healing (heal.execute_aoe, check_stratagem skip it).
             local hold_aoe_var = { addon_settings.hold_aoe_for_group == true }
             imgui.SameLine(0, 20)
             if imgui.Checkbox('Hold AOE for Group', hold_aoe_var) then

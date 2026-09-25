@@ -93,7 +93,8 @@ return {
             },
         },
         
-        -- AOE healing
+        -- AOE healing. Aimed at the hurt party's lowest member (heal.execute_aoe);
+        -- Curaga is self/party only (validTargets 3), so no target_outside.
         heal_aoe = {
             {
                 name = 'Curaga IV',
@@ -102,10 +103,11 @@ return {
                 spell_id = 10,
                 magic = 'white',
                 magic_type = 'healing',
-                command = '/ma "Curaga IV" <me>',
+                command = function(target)
+                    return '/ma "Curaga IV" '..target
+                end,
                 range = 20,
                 wakes = true,
-                target_outside = true,
             },
             {
                 name = 'Curaga III',
@@ -114,10 +116,11 @@ return {
                 spell_id = 9,
                 magic = 'white',
                 magic_type = 'healing',
-                command = '/ma "Curaga III" <me>',
+                command = function(target)
+                    return '/ma "Curaga III" '..target
+                end,
                 range = 20,
                 wakes = true,
-                target_outside = true,
             },
             {
                 name = 'Curaga II',
@@ -126,10 +129,11 @@ return {
                 spell_id = 8,
                 magic = 'white',
                 magic_type = 'healing',
-                command = '/ma "Curaga II" <me>',
+                command = function(target)
+                    return '/ma "Curaga II" '..target
+                end,
                 range = 20,
                 wakes = true,
-                target_outside = true,
             },
             {
                 name = 'Curaga',
@@ -138,10 +142,11 @@ return {
                 spell_id = 7,
                 magic = 'white',
                 magic_type = 'healing',
-                command = '/ma "Curaga" <me>',
+                command = function(target)
+                    return '/ma "Curaga" '..target
+                end,
                 range = 20,
                 wakes = true,
-                target_outside = true,
             },
         },
         
