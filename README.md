@@ -63,14 +63,20 @@ The one exception is **opt-in leader following** (off by default): with **Follow
 - **Sections as tabs**: right-click any section header for *Display as tabs* (and any tab for *Display as section headers*); each tab carries its own enable checkbox, and disabled ones are dimmed. — **Bloodlust**
 - **Disabled tabs sort last**: sections you switch off move to the end of the tab bar, keeping the enabled ones together on the left.
 - **Custom window size**: right-click empty space in the config window for *Use a custom window size*, then drag the corner; *Fit window to contents* puts it back on auto-sizing. — **Toranko**
+- **Healing waits on a short recast**: when the only cure that can reach someone is a few seconds off cooldown, buffs, Geo, raises and follow wait for it instead of casting first. **Crobat**
 
 ### Changed
 - **Resting holds**: nothing Sidekick does breaks a rest any more — it ends only at full MP or when the Follow Target passes **Distance**.
+- **Smarter AOE healing**: Curaga and Divine Waltz are aimed at the hurt group rather than you, each alliance party is checked on its own, and **AOE Targets** now has alliance buttons.
+- **AOE wake aimed at a sleeper**: Curaga or Divine Waltz used to wake two or more members is cast on a sleeping member in range, focus target first. **Tai**
+- **Nightingale + Troubadour go first**: the pair is used before any song so the songs land inside it. **Tai**
 
 ### Fixed
 - **A config window error no longer takes the client down**: a fault while drawing the config window or the widget is now logged and that frame skipped, instead of crashing outright.
 - **Loading a profile no longer changes the window itself**: opacity, and whether the config window and the widget are open, are no longer saved into or applied by profiles.
 - **Erase clears everything the server says it can**: Stun, Addle, Requiem, Elegy, Enmity Down and Crit. Eva. Down are now erasable, are named in the per-status opt-out menus, and are cleared by the pet cleanses too. — **Atsumu**, **Tai**
+- **One far-away member no longer stops healing**: someone out of range is skipped and everyone else in reach still gets cured. **Crobat**
+- **No wasted stratagems or critical boosts**: Accession-style charges and Divine Seal / Contradance-style boosts are only used when the cure can actually reach the target.
 
 See [CHANGELOG.md](CHANGELOG.md) for the full release history.
 
@@ -84,8 +90,8 @@ See [CHANGELOG.md](CHANGELOG.md) for the full release history.
 - **Item-Based Status Removal**: Automatically use consumable items to cure status ailments — Antidote (Poison), Eye Drops (Blind), Echo Drops (Silence), Holy Water / Hallowed Water (Curse/Doom/Bane), Tincture (Plague/Disease), Remedy Ointment & Remedy (Poison/Paralyze/Blind/Silence), Panacea (stat-downs). Grouped under one collapsing header with a live per-item count; matched by item ID (not name, so custom-server items work), never fired while moving, and the section hides until inventory loads
 - **Critical HP Response**: Emergency abilities (e.g., Divine Seal, Martyr, Contradance) automatically trigger when party members drop below critical threshold (default 30%)
 - **Single-Target Healing**: Intelligent HP deficit-based heal selection with priority system (Critical HP → Focus target → Regular lowest HP)
-- **Group / AOE Heal Target Selection**: Per-target ME/P1-P5 (plus alliance and tracked for Group) buttons choose who Group and AOE healing manage; party/tracked default ON, alliance default OFF, selections per-session
-- **AOE Healing**: Party-wide healing when multiple members need HP
+- **Group / AOE Heal Target Selection**: Per-target ME/P1-P5 (plus alliance for both, and tracked for Group) buttons choose who Group and AOE healing manage; party/tracked default ON, alliance default OFF, selections per-session
+- **AOE Healing**: Party-wide healing when multiple members of one party need HP, aimed at the most-hurt cluster; alliance parties are checked separately
 - **Pet Healing & Support**: Automated healing for pets — GEO luopan, DRG wyvern, BST jug pets, PUP automaton — plus pet buff/debuff removal for jobs whose pet-heal ability needs a consumable equipped in the ammo slot (auto-equipped from inventory or a Mog Wardrobe)
 - **Sleep Removal (Wake)**: Automatically wake sleeping party members. **Sleep Targets** buttons (P1-P5, plus alliance and tracked where the spell reaches outside the party) choose who is watched, and are saved with your settings. No ME button — you can't cure your own Sleep — and the section is hidden while solo
 - **Debuff Removal**: Remove poison, paralysis, silence, and other negative status effects
@@ -94,7 +100,7 @@ See [CHANGELOG.md](CHANGELOG.md) for the full release history.
 - **Automatic Resting**: MP-based jobs automatically rest when idle to recover MP, with a configurable delay timer and optional follow-target distance monitoring. Once resting, Sidekick takes no other action — the rest ends at full MP or when the follow target moves out of range
 - **Leader Following** (opt-in, off by default): `/follow` a chosen party member or tracked target when they move beyond a set distance. Healing and every other support action always take priority, and an autorun-cancel packet guard keeps `/follow` alive across the server's position syncs so it doesn't break mid-route. The only non-combat movement Sidekick performs.
 - **AFK Sleep** (on by default): Sleeps automation after a configurable period with no party movement and no combat, and wakes on your own movement. A runtime pause, not a stop — nothing is saved or reset, so your settings and automation state survive a sleep cycle.
-- **Hold AOE for Group** (opt-in, off by default): Holds area buffs (Protectra/Shellra/Bar, Diamondhide), Bard area songs, fresh Phantom Rolls, and Accession/Diffusion spells until every alive, in-zone party member is in range, so nobody misses the AOE. Trusts, dead members, and members in another zone never cause a hold. Checkbox in `/sk panel`.
+- **Hold AOE for Group** (opt-in, off by default): Holds area buffs (Protectra/Shellra/Bar, Diamondhide), Bard area songs, fresh Phantom Rolls, and Accession/Diffusion buffs (never heals) until every alive, in-zone party member is in range, so nobody misses the AOE. Trusts, dead members, and members in another zone never cause a hold. Checkbox in `/sk panel`.
 - **Corsair Rolls**: Keeps two chosen Phantom Rolls up and Double-Ups each one according to a **Risk Tier** (Lowest / Medium / Highest) built on the roll's lucky and unlucky numbers, backing off at 11 so it can't bust. **Snake Eye** is used for guaranteed finishes and **Fold** clears a Bust the moment it lands. Roll totals are read from the action packet, and the second roll is held back while Bust is active.
 - **Geomancer Support**: Single-target Geo buffs on party members, target-cast Geo debuffs in combat, and automatic Full Circle / luopan management (recalls and recasts when the luopan drifts beyond the distance threshold from the selected Geo target)
 
