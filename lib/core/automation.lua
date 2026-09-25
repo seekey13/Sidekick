@@ -38,10 +38,18 @@ function automation.execute_command(command, description)
         return false
     end
     
+    local ability = common.built_commands[command]
+
+    -- An alliance-claimed battle target has no client <bt> (see common.get_bt);
+    -- aim at it by server id instead.
+    if command:find('<bt>', 1, true) then
+        local bt, fallback = common.get_bt()
+        if fallback then command = command:gsub('<bt>', tostring(bt.ServerId)) end
+    end
+
     -- Execute the command
     AshitaCore:GetChatManager():QueueCommand(0, command)
     last_command_time = current_time
-    local ability = common.built_commands[command]
     if ability then require('lib.core.action_core').clear_ready_stamp(ability) end
 
     return true

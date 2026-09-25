@@ -327,14 +327,66 @@ end
 local COMBAT_GRACE = 5.0
 local combat_last_true = 0  -- os.clock() of the last real battle target
 
-function common.is_combat()
-    local ok, bt = pcall(function()
-        return targets.get_bt()
-    end)
+-- The client's <bt> (SeekBattleActor) only resolves a mob claimed by our own
+-- party. One claimed by another party of the alliance shows purple and has no
+-- <bt>, though we can still fight it. Fallback: the nearest live mob within
+-- cast range whose claimer (ClaimStatus low word = claimer server id) is any
+-- alliance member. Cached briefly -- is_combat runs many times a frame.
+local ALLIANCE_BT_RANGE_SQ = 21 * 21   -- squared yalms, GetDistance's units
+local ALLIANCE_BT_CACHE    = 0.5       -- seconds between entity scans
+local alliance_bt_index, alliance_bt_at = nil, -math.huge
 
-    if not ok then
-        return false  -- Assume not in combat if we can't get battle target
+-- ponytail: nearest claimed mob wins; if multi-mob alliance pulls pick the wrong
+-- one, prefer the mob a chosen member (tank) is engaged on.
+local function find_alliance_bt()
+    local party = AshitaCore:GetMemoryManager():GetParty()
+    local ent   = AshitaCore:GetMemoryManager():GetEntity()
+    -- Low word both sides: correct whether ClaimStatus carries the full id or only its low word.
+    local claimers = {}
+    for i = 0, 17 do
+        if party:GetMemberIsActive(i) == 1 then
+            local sid = party:GetMemberServerId(i)
+            if sid and sid > 0 then claimers[bit.band(sid, 0xFFFF)] = true end
+        end
     end
+    local best, best_d = nil, ALLIANCE_BT_RANGE_SQ
+    for i = 1, 0x3FF do  -- mob/NPC entity slots
+        local claim = bit.band(ent:GetClaimStatus(i), 0xFFFF)
+        if claim ~= 0 and claimers[claim] then
+            local d = ent:GetDistance(i)
+            -- 0x200 = rendered: a despawned slot keeps its last claim info.
+            if d < best_d and ent:GetHPPercent(i) > 0
+                and bit.band(ent:GetSpawnFlags(i), 0x10) ~= 0
+                and bit.band(ent:GetRenderFlags0(i), 0x200) == 0x200 then
+                best, best_d = i, d
+            end
+        end
+    end
+    return best
+end
+
+-- Battle target: the client's <bt>, else the alliance-claimed fallback above.
+-- Second return is true for the fallback -- the client can't resolve <bt> to
+-- it, so automation.execute_command swaps <bt> for its server id.
+function common.get_bt()
+    local ok, bt = pcall(targets.get_bt)
+    if ok and bt then return bt, false end
+
+    local now = os.clock()
+    if now - alliance_bt_at >= ALLIANCE_BT_CACHE then
+        local ok_scan, index = pcall(find_alliance_bt)
+        alliance_bt_index, alliance_bt_at = ok_scan and index or nil, now
+        if alliance_bt_index then
+            common.debugf('[BT] No client <bt>; using alliance-claimed %s', GetEntity(alliance_bt_index).Name or '?')
+        end
+    end
+    local fallback = alliance_bt_index and GetEntity(alliance_bt_index)
+    if fallback then return fallback, true end
+    return nil, false
+end
+
+function common.is_combat()
+    local bt = common.get_bt()
 
     -- Check if battle target is a mob (0x10 flag in SpawnFlags)
     local is_mob = bt and bit.band(bt.SpawnFlags, 0x10) ~= 0 or false
