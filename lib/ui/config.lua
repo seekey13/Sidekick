@@ -991,11 +991,15 @@ function ui_config.render(settings, job_def, callback)
     local window_title = 'Sidekick Configuration'
 
     -- Un-collapse once when the window is (re)opened, so a collapsed imgui.ini
-    -- state doesn't leave the user staring at an empty title bar.
+    -- state doesn't leave the user staring at an empty title bar. Raise it to the
+    -- front of the stack on the same frame, or it can come up buried under
+    -- whichever addon window was focused last (fancychat covers most of the
+    -- screen). Once only: clicks in the window raise it after that as usual.
     if force_expand then
         if imgui.SetNextWindowCollapsed then
             imgui.SetNextWindowCollapsed(false)
         end
+        imgui.SetNextWindowFocus()
         force_expand = false
     end
 
