@@ -1561,12 +1561,6 @@ function ui_config.render(settings, job_def, callback)
                                         available_runes, max_runes, settings, callback)
                                 end
                             end
-
-                            -- No divider with nothing under it: a RUN main between 5
-                            -- and 19 has runes but no usable buff yet.
-                            if has_buffs then
-                                imgui.Separator()
-                            end
                         end
                     end
 
