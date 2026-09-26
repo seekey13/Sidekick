@@ -831,7 +831,24 @@ function buff.execute(settings, job_def, main_level, sub_level, player_resource,
     -- skips single-target songs while it holds, since the area song would
     -- overwrite them moments later. Declared out here because Phase 2 reads it.
     local hold_songs = false
-    if fast_casting or not has_pianissimo then
+    -- A self-buff that outranks the songs (priority > 0: Nightingale, Troubadour,
+    -- Composure) goes before the area pass. Phase 2 sorts it first, but Phase 1
+    -- runs ahead of Phase 2, so a cold start raised Pianissimo and sang every area
+    -- song before popping Nightingale -- whose faster casts suspend the fast-cast
+    -- trick anyway. Skip Phase 1 this tick and let Phase 2 fire it with its full
+    -- gating; a no-op for jobs with no area songs.
+    local lead_buff_due = false
+    for _, a in ipairs(available_abilities) do
+        if (a.priority or 0) <= 0 then break end  -- sorted priority-first
+        if type(a.command) == 'string' and not a.group
+           and not settings['disabled_' .. a.name:gsub(' ', '_')]
+           and action_core.needs_buff(state.player.buffs, a.buff_id)
+           and action_core.is_usable(a, job_def, common.effective_ability_cost(a, settings, job_def)) then
+            lead_buff_due = true
+            break
+        end
+    end
+    if not lead_buff_due and (fast_casting or not has_pianissimo) then
         -- Hold AOE for Group: members with at least one single-target (Pianissimo)
         -- song assigned are managed individually, so their range must not gate the
         -- area cast -- exclude them (threshold 1, not song_limit).
