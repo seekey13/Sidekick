@@ -484,6 +484,7 @@ return {
                     return '/ma "Regen" '..target
                 end,
                 buff_id = 42,
+                group = 'regen',
             },
             {
                 name = 'Regen II',
@@ -497,6 +498,7 @@ return {
                 end,
                 element = 'Light',
                 buff_id = 42,
+                group = 'regen',
             },
             {
                 name = 'Regen III',
@@ -510,6 +512,7 @@ return {
                 end,
                 element = 'Light',
                 buff_id = 42,
+                group = 'regen',
             },
             -- Refresh
             {

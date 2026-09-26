@@ -229,6 +229,7 @@ return {
                 end,
                 buff_id = 42,
                 range = 20,
+                group = 'regen',
             },
             {
                 name = 'Regen II',
@@ -242,6 +243,7 @@ return {
                 end,
                 buff_id = 42,
                 range = 20,
+                group = 'regen',
             },
             {
                 name = 'Regen',
@@ -255,6 +257,7 @@ return {
                 end,
                 buff_id = 42,
                 range = 20,
+                group = 'regen',
             },
             -- Storms. auto_element_source = 'weather' pins auto-select to the ZONE
             -- weather: stacking a storm on matching weather is the double-weather
