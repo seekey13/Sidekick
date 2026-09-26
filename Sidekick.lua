@@ -630,7 +630,7 @@ local function automation_tick()
 
         -- If in combat, manage range relative to the battle target
         if in_combat then
-            local bt = common.targets.get_bt()
+            local bt = common.get_bt()
             local bt_index = bt and bt.TargetIndex or nil
             if bt_index and bt_index > 0 then
                 -- Convert setting to yalms

@@ -455,7 +455,7 @@ function geo.execute(settings, job_def, main_level, sub_level, player_resource)
         elseif not has_luopan then
             -- The luopan lands where the mob stood when the cast resolved, so a mob
             -- still on the move walks straight out of its own debuff bubble.
-            if common.is_entity_moving(common.targets.get_bt()) then
+            if common.is_entity_moving((common.get_bt())) then
                 hold_log('[GEO] Geo-bt held: battle target is moving')
             else
                 local result = action_core.first_command({ geo_bt }, job_def, settings, '[GEO-BT]', 0,

@@ -166,8 +166,8 @@ function pet.execute_deploy(settings, job_def, main_level, sub_level, player_res
         return nil
     end
 
-    -- pcall: get_bt is a raw ffi call, same guard common.is_combat() uses.
-    local ok, target = pcall(use_bt and common.targets.get_bt or common.targets.get_t)
+    -- pcall: get_t is a raw ffi call (common.get_bt guards its own).
+    local ok, target = pcall(use_bt and common.get_bt or common.targets.get_t)
     if not ok or not target or (target.HPPercent or 0) <= 0 then
         return nil
     end
