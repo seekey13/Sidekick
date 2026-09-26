@@ -63,6 +63,7 @@ The one exception is **opt-in leader following** (off by default): with **Follow
 - **Sections as tabs**: right-click any section header for *Display as tabs* (and any tab for *Display as section headers*); each tab carries its own enable checkbox, and disabled ones are dimmed. — **Bloodlust**
 - **Disabled tabs sort last**: sections you switch off move to the end of the tab bar, keeping the enabled ones together on the left.
 - **Custom window size**: right-click empty space in the config window for *Use a custom window size*, then drag the corner; *Fit window to contents* puts it back on auto-sizing. — **Toranko**
+- **Favorites**: right-click any spell or ability and tick **Favorite** to pin it to the top of its list, sorted by group then name.
 - **Healing waits on a short recast**: when the only cure that can reach someone is a few seconds off cooldown, buffs, Geo, raises and follow wait for it instead of casting first. **Crobat**
 
 ### Changed
