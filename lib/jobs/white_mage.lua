@@ -324,6 +324,7 @@ return {
                 end,
                 buff_id = 42,
                 duration = 60,
+                group = 'regen',
             },
             {
                 name = 'Regen II',
@@ -337,6 +338,7 @@ return {
                 end,
                 buff_id = 42,
                 duration = 60,
+                group = 'regen',
             },
             {
                 name = 'Regen',
@@ -350,6 +352,7 @@ return {
                 end,
                 buff_id = 42,
                 duration = 75,
+                group = 'regen',
             },
             {
                 name = 'Protectra V',

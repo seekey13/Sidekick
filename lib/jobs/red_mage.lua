@@ -397,6 +397,7 @@ return {
                     return '/ma "Regen" '..target
                 end,
                 buff_id = 42,
+                group = 'regen',
             },
             {
                 name = 'Refresh',

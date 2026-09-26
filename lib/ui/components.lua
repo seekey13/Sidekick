@@ -68,14 +68,21 @@ end
 -- <bt> abilities are inherently combat-only, so they hide the Combat/Idle Only
 -- toggles; grouped ones (DRK Absorbs) still get the Ungroup entry. Geo-bt is
 -- fully suppressed: geo.lua's luopan lifecycle only supports one selected spell.
+-- Every other row also gets a 'Favorite' entry at the top (see favorites_first),
+-- so an ability with none of the gate entries still opens a menu for it.
 local function render_combat_only_context_menu(ctx, ability, scope)
     if not ability or not ctx or not ctx.settings then return end
-    if ability.idle_only then return end
     local bt = common.ability_targets_bt(ability)
     -- Statically combat_only abilities (data-defined) gate isn't user-editable,
     -- same as bt: hide the Combat/Idle toggles, but grouped ones still get Ungroup.
     local hide_toggles = bt or ability.combat_only
-    if hide_toggles and (not ability.group or ability.group == 'Geo-bt') then return end
+    local gate_menu = not ability.idle_only
+        and not (hide_toggles and (not ability.group or ability.group == 'Geo-bt'))
+    -- The Geo section keeps its fixed layout (Geo-bt, then Full Circle directly
+    -- above its sliders), so nothing there is reordered and nothing offers Favorite.
+    local favorite_key = scope ~= 'geo' and ability.group ~= 'Geo-bt'
+        and common.ability_gate_key('favorite', ability, ctx.settings)
+    if not gate_menu and not favorite_key then return end
     -- scope disambiguates the popup id when the same ability renders in two
     -- sections (e.g. Chakra in both Group Healing and Debuff Removal); without it
     -- both BeginPopupContextItem calls share an id and stack duplicate menus.
@@ -91,111 +98,128 @@ local function render_combat_only_context_menu(ctx, ability, scope)
         popup_id = '##cmenu_combat_only_' .. ability.name:gsub(' ', '_') .. scope_suffix
     end
     if ui_components.begin_opaque_context_item(popup_id) then
-        -- Setting keys follow common.ability_gate_key: group-level while grouped,
-        -- per-ability once the group is ungrouped (so each tier gets its own gate).
-        -- Built here (not above the Ungroup block) so a grouped bt/combat_only
-        -- ability with no name still reaches the Ungroup checkbox to re-group.
-        local combat_key = common.ability_gate_key('combat_only', ability, ctx.settings)
-        local idle_key = common.ability_gate_key('idle_only', ability, ctx.settings)
-        if not hide_toggles and combat_key and idle_key then
-            local combat_cur = { ctx.settings[combat_key] == true }
-            if imgui.Checkbox('Combat Only', combat_cur) then
-                ctx.settings[combat_key] = combat_cur[1] or nil
-                if combat_cur[1] then ctx.settings[idle_key] = nil end  -- mutually exclusive
-                if ctx.save_callback then ctx.save_callback() end
-            end
-            local idle_cur = { ctx.settings[idle_key] == true }
-            if imgui.Checkbox('Idle Only', idle_cur) then
-                ctx.settings[idle_key] = idle_cur[1] or nil
-                if idle_cur[1] then ctx.settings[combat_key] = nil end  -- mutually exclusive
+        -- Favorite: the row moves to the top of its list, ahead of the list's own
+        -- order (favorites_first). Keyed like the gates -- group-level while grouped,
+        -- per-ability once ungrouped -- and unscoped, so an ability listed in two
+        -- sections is a favorite in both.
+        if favorite_key then
+            local fav = { ctx.settings[favorite_key] == true }
+            if imgui.Checkbox('Favorite', fav) then
+                ctx.settings[favorite_key] = fav[1] or nil
                 if ctx.save_callback then ctx.save_callback() end
             end
             if imgui.IsItemHovered() then
-                ui_components.set_tooltip('Only fire when out of combat (e.g. Boost on cooldown).')
+                ui_components.set_tooltip('Show this at the top of its list.\nDisplay only: casting order is unchanged.')
             end
+            if gate_menu then imgui.Separator() end
         end
-        -- Hold a Stratagem for AOE: an aoe_precast heal (SCH Accession) is the only
-        -- consumer allowed to spend the reserved charge -- common.spendable_stratagems
-        -- hides it from every other one. It rides in THIS popup rather than a second
-        -- BeginPopupContextItem on the same widget, which would stack duplicate menus
-        -- (see the note at the top of this function).
-        if ability.aoe_precast then
-            imgui.Separator()
-            local reserve = { ctx.settings.stratagem_reserve_aoe == true }
-            if imgui.Checkbox('Hold a Stratagem for AOE', reserve) then
-                ctx.settings.stratagem_reserve_aoe = reserve[1] or nil
-                if ctx.save_callback then ctx.save_callback() end
-            end
-            if imgui.IsItemHovered() then
-                ui_components.set_tooltip('Keep one stratagem in reserve for AOE healing.\nEvery other stratagem use then treats 1 charge as 0.')
-            end
-        end
-        -- Ungroup: cast every tier in the group independently instead of only
-        -- the selected tier. Off (grouped) by default; persisted per group.
-        if ability.group then
-            local ung_key = 'ungrouped_' .. ability.group
-            local ung = { ctx.settings[ung_key] == true }
-            if imgui.Checkbox('Ungroup', ung) then
-                ctx.settings[ung_key] = ung[1] or nil
-                if ctx.save_callback then ctx.save_callback() end
-            end
-            if imgui.IsItemHovered() then
-                ui_components.set_tooltip('Cast each tier in this group independently\n(e.g. both Mage\'s Ballad and Mage\'s Ballad II).')
-            end
-            -- Auto Select: let lib/core/vanadiel.lua keep the group's selection on
-            -- the tier whose element matches the environment. Hidden while ungrouped
-            -- -- ungrouped casts every tier, so there is no single selection to steer.
-            if ability.auto_element and ctx.settings[ung_key] ~= true then
-                local weather_only = ability.auto_element_source == 'weather'
-                local auto_key = 'auto_element_' .. ability.group
-                local auto = { ctx.settings[auto_key] == true }
-                if imgui.Checkbox(weather_only and 'Auto Select for Weather' or 'Auto Select for Weather/Day', auto) then
-                    ctx.settings[auto_key] = auto[1] or nil
+        if gate_menu then
+            -- Setting keys follow common.ability_gate_key: group-level while grouped,
+            -- per-ability once the group is ungrouped (so each tier gets its own gate).
+            -- Built here (not above the Ungroup block) so a grouped bt/combat_only
+            -- ability with no name still reaches the Ungroup checkbox to re-group.
+            local combat_key = common.ability_gate_key('combat_only', ability, ctx.settings)
+            local idle_key = common.ability_gate_key('idle_only', ability, ctx.settings)
+            if not hide_toggles and combat_key and idle_key then
+                local combat_cur = { ctx.settings[combat_key] == true }
+                if imgui.Checkbox('Combat Only', combat_cur) then
+                    ctx.settings[combat_key] = combat_cur[1] or nil
+                    if combat_cur[1] then ctx.settings[idle_key] = nil end  -- mutually exclusive
+                    if ctx.save_callback then ctx.save_callback() end
+                end
+                local idle_cur = { ctx.settings[idle_key] == true }
+                if imgui.Checkbox('Idle Only', idle_cur) then
+                    ctx.settings[idle_key] = idle_cur[1] or nil
+                    if idle_cur[1] then ctx.settings[combat_key] = nil end  -- mutually exclusive
                     if ctx.save_callback then ctx.save_callback() end
                 end
                 if imgui.IsItemHovered() then
-                    if weather_only then
-                        ui_components.set_tooltip('Match the zone weather, doubling its bonus.\nThe dropdown will move on its own.\nNo weather leaves your pick alone.')
-                    else
-                        ui_components.set_tooltip('Pick the tier matching the current element.\nStorm buff > weather > day of the week.\nThe dropdown will move on its own.\nNo match (e.g. Lightsday) leaves it alone.')
-                    end
+                    ui_components.set_tooltip('Only fire when out of combat (e.g. Boost on cooldown).')
                 end
             end
-        end
-        -- Per-status opt-out for multi-status removers (Erase, Esuna, Cursna,
-        -- Viruna, Chakra...). One checkbox per status the ability strips; all
-        -- enabled by default (absent 'skip_debuff_*' key = still removed). Keys
-        -- match common.effective_debuff_ids so the automation honours them.
-        local rids = ability.debuff_id
-        if type(rids) == 'table' and #rids >= 2 and ability.name then
-            imgui.Separator()
-            imgui.Text('Remove:')
-            local prefix = 'skip_debuff_' .. ability.name:gsub(' ', '_') .. '_'
-            local function render_status_rows(first, last)
-                for i = first, last do
-                    local id = rids[i]
-                    local label = common.DEBUFF_NAMES[id] or ('Status ' .. id)
-                    local on = { ctx.settings[prefix .. id] ~= true }
-                    if imgui.Checkbox(label .. '##' .. prefix .. id, on) then
-                        ctx.settings[prefix .. id] = (not on[1]) or nil
+            -- Hold a Stratagem for AOE: an aoe_precast heal (SCH Accession) is the only
+            -- consumer allowed to spend the reserved charge -- common.spendable_stratagems
+            -- hides it from every other one. It rides in THIS popup rather than a second
+            -- BeginPopupContextItem on the same widget, which would stack duplicate menus
+            -- (see the note at the top of this function).
+            if ability.aoe_precast then
+                imgui.Separator()
+                local reserve = { ctx.settings.stratagem_reserve_aoe == true }
+                if imgui.Checkbox('Hold a Stratagem for AOE', reserve) then
+                    ctx.settings.stratagem_reserve_aoe = reserve[1] or nil
+                    if ctx.save_callback then ctx.save_callback() end
+                end
+                if imgui.IsItemHovered() then
+                    ui_components.set_tooltip('Keep one stratagem in reserve for AOE healing.\nEvery other stratagem use then treats 1 charge as 0.')
+                end
+            end
+            -- Ungroup: cast every tier in the group independently instead of only
+            -- the selected tier. Off (grouped) by default; persisted per group.
+            if ability.group then
+                local ung_key = 'ungrouped_' .. ability.group
+                local ung = { ctx.settings[ung_key] == true }
+                if imgui.Checkbox('Ungroup', ung) then
+                    ctx.settings[ung_key] = ung[1] or nil
+                    if ctx.save_callback then ctx.save_callback() end
+                end
+                if imgui.IsItemHovered() then
+                    ui_components.set_tooltip('Cast each tier in this group independently\n(e.g. both Mage\'s Ballad and Mage\'s Ballad II).')
+                end
+                -- Auto Select: let lib/core/vanadiel.lua keep the group's selection on
+                -- the tier whose element matches the environment. Hidden while ungrouped
+                -- -- ungrouped casts every tier, so there is no single selection to steer.
+                if ability.auto_element and ctx.settings[ung_key] ~= true then
+                    local weather_only = ability.auto_element_source == 'weather'
+                    local auto_key = 'auto_element_' .. ability.group
+                    local auto = { ctx.settings[auto_key] == true }
+                    if imgui.Checkbox(weather_only and 'Auto Select for Weather' or 'Auto Select for Weather/Day', auto) then
+                        ctx.settings[auto_key] = auto[1] or nil
                         if ctx.save_callback then ctx.save_callback() end
                     end
+                    if imgui.IsItemHovered() then
+                        if weather_only then
+                            ui_components.set_tooltip('Match the zone weather, doubling its bonus.\nThe dropdown will move on its own.\nNo weather leaves your pick alone.')
+                        else
+                            ui_components.set_tooltip('Pick the tier matching the current element.\nStorm buff > weather > day of the week.\nThe dropdown will move on its own.\nNo match (e.g. Lightsday) leaves it alone.')
+                        end
+                    end
                 end
             end
-            -- Long lists run off the bottom of the screen as one column, so
-            -- split them evenly across two once past ~one screen's worth.
-            local single_column_max = 18
-            if #rids > single_column_max then
-                local col_rows = math.ceil(#rids / 2)
-                imgui.BeginGroup()
-                render_status_rows(1, col_rows)
-                imgui.EndGroup()
-                imgui.SameLine(0, 20)
-                imgui.BeginGroup()
-                render_status_rows(col_rows + 1, #rids)
-                imgui.EndGroup()
-            else
-                render_status_rows(1, #rids)
+            -- Per-status opt-out for multi-status removers (Erase, Esuna, Cursna,
+            -- Viruna, Chakra...). One checkbox per status the ability strips; all
+            -- enabled by default (absent 'skip_debuff_*' key = still removed). Keys
+            -- match common.effective_debuff_ids so the automation honours them.
+            local rids = ability.debuff_id
+            if type(rids) == 'table' and #rids >= 2 and ability.name then
+                imgui.Separator()
+                imgui.Text('Remove:')
+                local prefix = 'skip_debuff_' .. ability.name:gsub(' ', '_') .. '_'
+                local function render_status_rows(first, last)
+                    for i = first, last do
+                        local id = rids[i]
+                        local label = common.DEBUFF_NAMES[id] or ('Status ' .. id)
+                        local on = { ctx.settings[prefix .. id] ~= true }
+                        if imgui.Checkbox(label .. '##' .. prefix .. id, on) then
+                            ctx.settings[prefix .. id] = (not on[1]) or nil
+                            if ctx.save_callback then ctx.save_callback() end
+                        end
+                    end
+                end
+                -- Long lists run off the bottom of the screen as one column, so
+                -- split them evenly across two once past ~one screen's worth.
+                local single_column_max = 18
+                if #rids > single_column_max then
+                    local col_rows = math.ceil(#rids / 2)
+                    imgui.BeginGroup()
+                    render_status_rows(1, col_rows)
+                    imgui.EndGroup()
+                    imgui.SameLine(0, 20)
+                    imgui.BeginGroup()
+                    render_status_rows(col_rows + 1, #rids)
+                    imgui.EndGroup()
+                else
+                    render_status_rows(1, #rids)
+                end
             end
         end
         ui_components.end_opaque_popup()
@@ -2172,6 +2196,66 @@ function ui_components.render_ability(ctx, ability, job_def, id_suffix)
     end
     
     return true
+end
+
+-- ============================================================================
+-- Favorites
+-- ============================================================================
+
+-- True when the right-click 'Favorite' entry is set for this row. Same key shape
+-- as the Combat/Idle gates (common.ability_gate_key), so a grouped row is one
+-- favorite and an ungrouped group's tiers are favorited one by one.
+local function is_favorite(ctx, ability)
+    local key = common.ability_gate_key('favorite', ability, ctx.settings)
+    return key ~= nil and ctx.settings[key] == true
+end
+
+-- Favorites order: grouped rows first, by group name, then everything else by
+-- ability name. Ungrouped tiers still sort under their group, so Protect I-V
+-- stay together. Case-insensitive, main job ahead of a subjob copy on a tie.
+local function favorite_before(a, b)
+    local ga, gb = a.group and a.group:lower(), b.group and b.group:lower()
+    if ga ~= gb then
+        if not ga then return false end
+        if not gb then return true end
+        return ga < gb
+    end
+    local na, nb = (a.name or ''):lower(), (b.name or ''):lower()
+    if na ~= nb then return na < nb end
+    return a.is_main_job ~= false and b.is_main_job == false
+end
+
+-- The rows of an ability list in display order: the favorited ones first (sorted
+-- by favorite_before), then the rest in the list's own order. `listed` is the
+-- call site's visibility test (level, subjob duplicate...); rows it rejects are
+-- dropped. Returns the ordered array and how many favorites lead it -- pass both
+-- to favorites_divider. Display only: job_def is untouched, so the automation's
+-- casting order never sees this.
+function ui_components.favorites_first(ctx, abilities, listed)
+    local favorites, rest = {}, {}
+    for _, ability in ipairs(abilities or {}) do
+        if not listed or listed(ability) then
+            if ctx.settings and is_favorite(ctx, ability) then
+                favorites[#favorites + 1] = ability
+            else
+                rest[#rest + 1] = ability
+            end
+        end
+    end
+    table.sort(favorites, favorite_before)
+    local favorite_count = #favorites
+    for _, ability in ipairs(rest) do
+        favorites[#favorites + 1] = ability
+    end
+    return favorites, favorite_count
+end
+
+-- Separator under the last favorite, only when non-favorite rows follow it. Call
+-- after rendering row `index` of a favorites_first list.
+function ui_components.favorites_divider(index, favorite_count, total)
+    if index == favorite_count and index < total then
+        imgui.Separator()
+    end
 end
 
 -- ============================================================================
