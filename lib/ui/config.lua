@@ -1180,6 +1180,12 @@ function ui_config.render(settings, job_def, callback)
 
             -- Show job-specific sections if we have a job definition
             if job_def then
+
+            -- The visibility test every ability list below shares, handed to
+            -- ui.favorites_first so right-click favorites lead each list.
+            local function listed(ability)
+                return can_use_ability(ability) and not is_subjob_duplicate(job_def, ability)
+            end
         
             -- Focus Healing settings
             if job_def and job_def.abilities.heal and has_usable_abilities(job_def.abilities.heal) then
@@ -1225,20 +1231,20 @@ function ui_config.render(settings, job_def, callback)
                         imgui.SameLine()
                         imgui.Text('Group Targets')
                     end
-                    for _, ability in ipairs(job_def.abilities.heal) do
-                        if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
-                            ui.ability_checkbox(ctx, ability, job_def, 'heal', true)
-                        end
+                    local rows, favorite_count = ui.favorites_first(ctx, job_def.abilities.heal, listed)
+                    for i, ability in ipairs(rows) do
+                        ui.ability_checkbox(ctx, ability, job_def, 'heal', true)
+                        ui.favorites_divider(i, favorite_count, #rows)
                     end
                 
                     -- Critical HP section (inside Group Healing)
                     if job_def.abilities.critical and has_usable_abilities(job_def.abilities.critical) then
                         ui.slider_int(ctx, 'Critical (HP%)', 'critical_threshold', { settings.critical_threshold or 30 }, 1, 50)
                         ui.item_tooltip(tooltips.critical_hp)
-                        for _, ability in ipairs(job_def.abilities.critical) do
-                            if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
-                                ui.ability_checkbox(ctx, ability, job_def, 'critical')
-                            end
+                        local rows, favorite_count = ui.favorites_first(ctx, job_def.abilities.critical, listed)
+                        for i, ability in ipairs(rows) do
+                            ui.ability_checkbox(ctx, ability, job_def, 'critical')
+                            ui.favorites_divider(i, favorite_count, #rows)
                         end
                     end
                     imgui.Unindent(ui.ABILITY_LIST_INDENT)
@@ -1256,10 +1262,10 @@ function ui_config.render(settings, job_def, callback)
                     imgui.SameLine()
                     imgui.Text('AOE Targets')
 
-                    for _, ability in ipairs(job_def.abilities.heal_aoe) do
-                        if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
-                            ui.ability_checkbox(ctx, ability, job_def, 'heal_aoe', true)
-                        end
+                    local rows, favorite_count = ui.favorites_first(ctx, job_def.abilities.heal_aoe, listed)
+                    for i, ability in ipairs(rows) do
+                        ui.ability_checkbox(ctx, ability, job_def, 'heal_aoe', true)
+                        ui.favorites_divider(i, favorite_count, #rows)
                     end
                     imgui.Unindent(ui.ABILITY_LIST_INDENT)
                 end
@@ -1273,11 +1279,11 @@ function ui_config.render(settings, job_def, callback)
                     imgui.Indent(ui.ABILITY_LIST_INDENT)
                     ui.slider_int(ctx, 'Pet (HP%)', 'heal_pet_threshold', { settings.heal_pet_threshold or 50 }, 1, 100)
                 
-                    for _, ability in ipairs(job_def.abilities.heal_pet) do
-                        if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
-                            ui.ability_checkbox(ctx, ability, job_def, 'heal_pet')
-                            render_ammo_count(ability, true)
-                        end
+                    local rows, favorite_count = ui.favorites_first(ctx, job_def.abilities.heal_pet, listed)
+                    for i, ability in ipairs(rows) do
+                        ui.ability_checkbox(ctx, ability, job_def, 'heal_pet')
+                        render_ammo_count(ability, true)
+                        ui.favorites_divider(i, favorite_count, #rows)
                     end
 
                     imgui.Unindent(ui.ABILITY_LIST_INDENT)
@@ -1331,10 +1337,10 @@ function ui_config.render(settings, job_def, callback)
 
                     imgui.Indent(ui.ABILITY_LIST_INDENT)
                     ctx.show_trust_warning = true
-                    for _, ability in ipairs(job_def.abilities.debuff_removal) do
-                        if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
-                            ui.render_ability(ctx, ability, job_def, 'debuff_removal')
-                        end
+                    local rows, favorite_count = ui.favorites_first(ctx, job_def.abilities.debuff_removal, listed)
+                    for i, ability in ipairs(rows) do
+                        ui.render_ability(ctx, ability, job_def, 'debuff_removal')
+                        ui.favorites_divider(i, favorite_count, #rows)
                     end
                     ctx.show_trust_warning = false
                     imgui.Unindent(ui.ABILITY_LIST_INDENT)
@@ -1350,11 +1356,11 @@ function ui_config.render(settings, job_def, callback)
                 if is_open and is_enabled then
                     imgui.Indent(ui.ABILITY_LIST_INDENT)
                     ctx.show_pet_debuff_warning = true
-                    for _, ability in ipairs(job_def.abilities.pet_debuff_removal) do
-                        if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
-                            ui.ability_checkbox(ctx, ability, job_def, 'pet_debuff_removal')
-                            render_ammo_count(ability)
-                        end
+                    local rows, favorite_count = ui.favorites_first(ctx, job_def.abilities.pet_debuff_removal, listed)
+                    for i, ability in ipairs(rows) do
+                        ui.ability_checkbox(ctx, ability, job_def, 'pet_debuff_removal')
+                        render_ammo_count(ability)
+                        ui.favorites_divider(i, favorite_count, #rows)
                     end
                     ctx.show_pet_debuff_warning = false
                     imgui.Unindent(ui.ABILITY_LIST_INDENT)
@@ -1401,10 +1407,10 @@ function ui_config.render(settings, job_def, callback)
                     -- Self Recover (TP%) section
                     if has_tp_recovery then
                         ui.slider_int(ctx, 'Self Recover (TP)', 'recover_tp_threshold', { settings.recover_tp_threshold or 500 }, 100, 3000)
-                        for _, ability in ipairs(job_def.abilities.recover_tp) do
-                            if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
-                                ui.ability_checkbox(ctx, ability, job_def, 'recover_tp')
-                            end
+                        local rows, favorite_count = ui.favorites_first(ctx, job_def.abilities.recover_tp, listed)
+                        for i, ability in ipairs(rows) do
+                            ui.ability_checkbox(ctx, ability, job_def, 'recover_tp')
+                            ui.favorites_divider(i, favorite_count, #rows)
                         end
                     
                         if has_mp_recovery or has_party_mp_recovery then
@@ -1416,12 +1422,12 @@ function ui_config.render(settings, job_def, callback)
                     if has_mp_recovery then
                         ui.slider_int(ctx, 'Self Recover (MP%)', 'recover_mp_threshold', { settings.recover_mp_threshold or 30 }, 1, 100)
                         local chivalry_visible = false
-                        for _, ability in ipairs(job_def.abilities.recover_mp) do
-                            if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
-                                ui.ability_checkbox(ctx, ability, job_def, 'recover_mp')
-                                if ability.min_tp ~= nil then
-                                    chivalry_visible = true
-                                end
+                        local rows, favorite_count = ui.favorites_first(ctx, job_def.abilities.recover_mp, listed)
+                        for i, ability in ipairs(rows) do
+                            ui.ability_checkbox(ctx, ability, job_def, 'recover_mp')
+                            ui.favorites_divider(i, favorite_count, #rows)
+                            if ability.min_tp ~= nil then
+                                chivalry_visible = true
                             end
                         end
                         if chivalry_visible then
@@ -1444,10 +1450,10 @@ function ui_config.render(settings, job_def, callback)
                             ui.slider_int(ctx, 'Target Recover (MP%)', 'focus_recovery_threshold', { settings.focus_recovery_threshold or 30 }, 1, 100)
                         end
                     
-                        for _, ability in ipairs(job_def.abilities.recover_party_mp) do
-                            if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
-                                ui.ability_checkbox(ctx, ability, job_def, 'recover_party_mp')
-                            end
+                        local rows, favorite_count = ui.favorites_first(ctx, job_def.abilities.recover_party_mp, listed)
+                        for i, ability in ipairs(rows) do
+                            ui.ability_checkbox(ctx, ability, job_def, 'recover_party_mp')
+                            ui.favorites_divider(i, favorite_count, #rows)
                         end
                     end
                     imgui.Unindent(ui.ABILITY_LIST_INDENT)
@@ -1565,11 +1571,11 @@ function ui_config.render(settings, job_def, callback)
                     end
 
                     ctx.show_buff_warning = true
-                    for _, ability in ipairs(job_def.abilities.buff or {}) do
-                        if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
-                            ui.render_ability(ctx, ability, job_def, 'buff')
-                            render_ammo_count(ability, true)  -- name equipped tier (NIN Sange shuriken)
-                        end
+                    local rows, favorite_count = ui.favorites_first(ctx, job_def.abilities.buff, listed)
+                    for i, ability in ipairs(rows) do
+                        ui.render_ability(ctx, ability, job_def, 'buff')
+                        render_ammo_count(ability, true)  -- name equipped tier (NIN Sange shuriken)
+                        ui.favorites_divider(i, favorite_count, #rows)
                     end
                     ctx.show_buff_warning = false
                     imgui.Unindent(ui.ABILITY_LIST_INDENT)
@@ -1722,10 +1728,10 @@ function ui_config.render(settings, job_def, callback)
                 local is_open, is_enabled = ui.begin_section(ctx, 'Revive', 'revive_enabled', false, tooltips.revive)
                 if is_open and is_enabled then
                     imgui.Indent(ui.ABILITY_LIST_INDENT)
-                    for _, ability in ipairs(job_def.abilities.revive) do
-                        if can_use_ability(ability) and not is_subjob_duplicate(job_def, ability) then
-                            ui.ability_checkbox(ctx, ability, job_def, 'revive', true)
-                        end
+                    local rows, favorite_count = ui.favorites_first(ctx, job_def.abilities.revive, listed)
+                    for i, ability in ipairs(rows) do
+                        ui.ability_checkbox(ctx, ability, job_def, 'revive', true)
+                        ui.favorites_divider(i, favorite_count, #rows)
                     end
                     imgui.Unindent(ui.ABILITY_LIST_INDENT)
                 end

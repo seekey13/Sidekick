@@ -5,6 +5,13 @@ All notable changes to Sidekick will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Favorite spells and abilities** (`components.lua` `render_combat_only_context_menu`/`favorites_first`/`favorites_divider`, `config.lua`): right-click any ability row — a checkbox, a name, or a grouped dropdown — and tick **Favorite** to move it to the top of its list, above a separator, with the rest of the list keeping its usual order underneath. Favorites are sorted by group first (grouped rows, by group name), then alphabetically by ability name, case-insensitive; the tiers of an ungrouped group still sort together under their group. The setting follows `common.ability_gate_key`, the same shape the Combat Only / Idle Only gates use: `favorite_group_<group>` while a group is grouped, `favorite_<Ability_Name>` otherwise (and per tier once ungrouped). It is unscoped, so an ability listed in two sections (Chakra in Group Healing and Debuff Removal) is a favorite in both, and like every other setting it is saved per character, so it carries across jobs. Applies to Group Healing (and its Critical list), AOE Healing, Pet Healing, Debuff Removal, Pet Debuff Removal, Resource Recovery and Buffs; the Geo section keeps its fixed layout and offers no Favorite entry. **Display only**: the lists are reordered in the config window, `job_def` is never touched, and casting priority is unchanged.
+
+  The right-click menu now opens on rows that previously had none — statically idle-only abilities and non-grouped `<bt>` / statically combat-only ones — carrying only the Favorite entry; the Combat Only / Idle Only, Ungroup, Auto Select and per-status Remove entries appear under exactly the same conditions as before.
+
 ## [2.8.0] - 2026-09-09
 
 ### Added

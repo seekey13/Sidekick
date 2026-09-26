@@ -467,6 +467,7 @@ you switch jobs. Delete the file to reset that character back to defaults.
 - `geo_bt_timer` (number): Seconds to wait after the Geo-bt battle target dies before Full Circle dismisses the luopan; a new battle target within the window reuses it instead (1-20, default 5)
 - `selected_Geo-bt` (string): Selected Geo debuff spell to cast on your battle target (combat-only)
 - `disabled_group_Geo-bt` (boolean): Disables casting the selected Geo debuff
+- `favorite_<Ability_Name>` / `favorite_group_<group>` (boolean): Shows the ability (or grouped row) at the top of its list in the config window (right-click → Favorite). Favorites sort by group, then alphabetically. Display only — casting order is unchanged
 - `ungrouped_<group>` (boolean): When true, casts every tier in the group independently instead of only the selected tier (right-click → Ungroup)
 - `auto_element_<group>` (boolean): When true, keeps the group's selected tier on the one matching the current element (right-click → Auto Select). RDM enspells follow storm buff, else weather, else day of the week; SCH storms follow the zone weather only. Offered only for element-tagged groups and only while grouped
 - `stratagem_hold[<key>]` (boolean): When true, hold the spell until its assigned stratagem can fire; when false (default), cast without the stratagem if no charge is available
