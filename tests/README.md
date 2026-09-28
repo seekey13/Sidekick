@@ -66,8 +66,11 @@ end);
 ## Server data
 
 `data/spells.lua`, `data/abilities.lua` and `data/status_effects.lua` are generated from
-the CatsEyeXI SQL and pinned to the commit in each file's header. Regenerate after a server
-update:
+the CatsEyeXI SQL and pinned to the commit in each file's header. The `server-data`
+workflow (`.github/workflows/server-data.yml`) regenerates them every Monday, runs the
+tests against the result, and opens a pull request when the rows changed; a failing test
+in that PR is a job file the server update broke. Run it early from the Actions tab, or
+regenerate by hand:
 
 ```
 make resources CATSEYE=../catseyexi

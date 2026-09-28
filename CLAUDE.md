@@ -20,20 +20,37 @@ BST Fight) — "Deploy" is one job's ability name, never the feature's name. Ent
 
 ## Build / lint / test
 
-There is **none**. This is a game client addon, not a standalone project — no package
-manager, no build step, no test suite, no linter config. The Lua runs inside Ashita's
-embedded interpreter (LuaJIT + Ashita's `AshitaCore` FFI bindings), which does not exist in
-this dev environment, so **you cannot run or import the code here**. `require('common')`,
-`imgui`, `AshitaCore:...`, `T{}` etc. only resolve in-game.
+No build step and no package manager. The addon runs inside Ashita's embedded interpreter
+(LuaJIT + Ashita's `AshitaCore` FFI bindings), which does not exist here. Outside the game
+there are **offline tests and a lint**, which need only `luajit` and `luacheck`
+(`apt-get install luajit lua-check`), run from the repo root:
 
-Verification is **in-game only**:
+- `make check` runs both; `make test` / `make lint` run one; `make test FILE=jobs_test`
+  runs one file. Without `make`: `luajit tests/run.lua` and `luacheck .`.
+- `tests/ashita.lua` is a fake client (`T{}`, `AshitaCore`, `GetEntity`, the chat, settings
+  and imgui modules) that reads from one `fake.state` table, so the real `lib/` modules
+  load unchanged. `tests/README.md` shows how to add a test.
+- `tests/jobs_test.lua` checks every job file against the CatsEyeXI SQL in `tests/data/`:
+  `spell_id` / `recast_id` / `ability_id` resolve to the row the command names, `cost`
+  matches the server MP cost, buff/debuff ids exist, every `default_settings` key is read by
+  the engine, and every job is in `job_map`. **Run it after any job-file edit**; a failure
+  there is a wrong id in the job file, not a test bug.
+- `tests/data/*.lua` is generated (`tools/gen_resources.lua`, `make resources
+  CATSEYE=../catseyexi`) — never edit it by hand. The weekly `server-data` workflow
+  regenerates it and opens a PR when the server's rows change.
+- CI (`.github/workflows/ci.yml`) runs lint and tests on every push to `main` and every PR.
+  Lint ignores the warning classes already present in `lib/` (see `.luacheckrc`); don't add
+  new warnings.
+
+A passing test proves the logic against the fake client, not the real one. Behavior still
+needs **in-game verification**:
 - Reload after edits: `/addon reload sidekick` (or `/addon load sidekick` first time).
 - Open UI: `/sidekick` (alias `/sk`). Toggle automation: `/sidekick start` | `stop` | `toggle`.
 - Inspect live state: `/sidekick panel` (debug game-state panel), `/sidekick debug` (verbose log),
   `/sidekick recast` (recast timers), `/sidekick status`.
 
-Because the code can't execute outside the client, treat changes as unverified until the
-user confirms in-game. Prefer edits that are obviously correct by inspection; call out
+Run the tests and lint before handing back a change, and still treat it as unverified until
+the user confirms in-game. Prefer edits that are obviously correct by inspection; call out
 anything that needs a live check.
 
 ## Architecture (big picture)
@@ -130,6 +147,11 @@ intentionally **session-only** and never written to disk.
   `priority_order` and to each job's `priority_order`.
 - Keep job files pure data and lean; put shared logic in `action_core`/`common`, not in job
   or UI files. Some buff IDs are server-specific to CatsEyeXI.
+- **Bug fixes and new logic in `lib/core` or `lib/actions`:** add a `tests/<module>_test.lua`
+  case that fails without the change. If the module calls something the fake client lacks,
+  add that one method to `tests/ashita.lua`, reading from `fake.state`.
+- **A spell the job file keeps although the server has no row for it** goes in
+  `missing_on_server` at the top of `tests/jobs_test.lua`, with the job file's note as the reason.
 
 ## Conventions
 
