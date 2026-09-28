@@ -104,9 +104,10 @@ local default_settings = T{
     rest_enabled = false,
     rest_timer = 5,
     rest_distance = 7,
-    -- Main config sections render either as a stack of collapsing headers or as
-    -- one row of tabs -- never both. Switched from the right-click menu on any
-    -- header or tab. 'headers' | 'tabs'.
+    -- Main config sections render as a stack of collapsing headers, one row of
+    -- tabs, or a sidebar of page buttons beside the selected page's headers.
+    -- Switched from the right-click menu on any header, tab or page button.
+    -- 'headers' | 'tabs' | 'sidebar'.
     display_mode = 'headers',
     -- Config window sizing. 'auto' pins the window to its contents -- instant, but the
     -- resize grip is off. 'custom' is a plain window: drag it to any size and the

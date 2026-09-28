@@ -62,6 +62,7 @@ The one exception is **opt-in leader following** (off by default): with **Follow
 - **Gather Alert**: the `/p Gather together for <ability>` line **Hold AOE for Group** sends while it waits can now be switched off, holding silently instead. — **Tai**
 - **Sections as tabs**: right-click any section header for *Display as tabs* (and any tab for *Display as section headers*); each tab carries its own enable checkbox, and disabled ones are dimmed. — **Bloodlust**
 - **Disabled tabs sort last**: sections you switch off move to the end of the tab bar, keeping the enabled ones together on the left.
+- **Sections as a sidebar**: right-click any section header or tab for *Display as sidebar*, which groups sections into **Healing**, **Support** and **Utility** pages picked from buttons on the left. — **FFXIOddone**
 - **Custom window size**: right-click empty space in the config window for *Use a custom window size*, then drag the corner; *Fit window to contents* puts it back on auto-sizing. — **Toranko**
 - **Favorites**: right-click any spell or ability and tick **Favorite** to pin it to the top of its list, sorted by group then name. — **Plush**
 - **Healing waits on a short recast**: when the only cure that can reach someone is a few seconds off cooldown, buffs, Geo, raises and follow wait for it instead of casting first. — **Crobat**

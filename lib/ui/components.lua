@@ -2280,9 +2280,11 @@ local deferred_tabs = {}
 
 -- What tab chrome this frame currently has open, so abort_sections can close it
 -- again after a Lua error skipped the matching end_* call. Both stay false in
--- header mode, which opens nothing that needs unwinding.
+-- header mode, which opens nothing that needs unwinding. sidebar_group_open is
+-- the same for the sidebar's content group.
 local tab_bar_open = false
 local tab_item_open = false
+local sidebar_group_open = false
 
 -- Show a static help tooltip for the most recently rendered item.
 function ui_components.item_tooltip(text)
@@ -2302,12 +2304,13 @@ function ui_components.checkbox(ctx, label, setting_name, ui_var)
 end
 
 -- ============================================================================
--- Section Display (collapsing headers vs. tab bar)
+-- Section Display (collapsing headers, tab bar, or sidebar)
 -- ============================================================================
--- The window's main sections render with one of two chromes, never both: the
--- classic stack of CollapsingHeaders, or one tab per section in a single bar.
--- Which one is the per-character `display_mode` setting. Callers use the same
--- shape either way:
+-- The window's main sections render with one of three chromes, never mixed: the
+-- classic stack of CollapsingHeaders, one tab per section in a single bar, or a
+-- sidebar of page buttons (Healing / Support / Utility) beside the headers of the
+-- selected page. Which one is the per-character `display_mode` setting. Callers
+-- use the same shape either way:
 --
 --     ui.begin_sections(ctx)
 --       local is_open, is_enabled = ui.begin_section(ctx, 'Buffs', 'buff_enabled', false, tooltips.buffs)
@@ -2321,6 +2324,27 @@ end
 -- EndTabBar (or an EndTabBar with no BeginTabBar), so the click only records the
 -- request and begin_sections applies it at the top of the next frame.
 local pending_display_mode = nil
+
+-- Sidebar mode: which page each section lives on. A section missing here lands on
+-- Utility, so a newly added one is never unreachable.
+local SIDEBAR_PAGES = { 'Healing', 'Support', 'Utility' }
+local SIDEBAR_BUTTON_WIDTH = 80
+local SECTION_PAGES = {
+    focus_enabled = 'Healing', heal_enabled = 'Healing', heal_aoe_enabled = 'Healing',
+    heal_pet_enabled = 'Healing', wake_enabled = 'Healing',
+    debuff_removal_enabled = 'Support', pet_debuff_removal_enabled = 'Support',
+    item_removal_enabled = 'Support', revive_enabled = 'Support',
+    roll_enabled = 'Support', buff_enabled = 'Support', geo_enabled = 'Support',
+    follow_enabled = 'Utility', pet_enabled = 'Utility', rest_enabled = 'Utility',
+    recover_enabled = 'Utility',
+}
+
+-- The open page is session-only view state, like the tab selection. A page gets a
+-- button only if it rendered a section last frame (nil = no frame seen yet, show
+-- all), so a job with no healing never lands on an empty Healing page.
+local active_page = SIDEBAR_PAGES[1]
+local pages_shown = nil
+local pages_seen = {}
 
 -- Read a section's enable setting, falling back to its default when the key has
 -- never been written (a fresh character, or a setting added after the file was
@@ -2389,16 +2413,27 @@ local function set_section_enabled(ctx, setting_name, value)
     end
 end
 
--- The right-click popup every section header and every tab carries. It is the
--- only place display_mode is switched, and it offers exactly one direction:
--- headers offer tabs, tabs offer headers. Never both at once.
-local function render_display_mode_menu(ctx, setting_name)
-    local to_tabs = ctx.section_mode ~= 'tabs'
-    if ui_components.begin_opaque_context_item('##cmenu_display_' .. setting_name) then
-        imgui.TextColored(LIGHT_GRAY, to_tabs and tooltips.display_as_tabs_hint or tooltips.display_as_headers_hint)
+local DISPLAY_MODES = {
+    { mode = 'headers', label = 'Display as section headers', hint = tooltips.display_headers_hint },
+    { mode = 'tabs', label = 'Display as tabs', hint = tooltips.display_tabs_hint },
+    { mode = 'sidebar', label = 'Display as sidebar', hint = tooltips.display_sidebar_hint },
+}
+
+-- The right-click popup every section header, tab and sidebar button carries. It
+-- is the only place display_mode is switched: the current mode's hint in gray,
+-- then one entry for each of the other two modes.
+local function render_display_mode_menu(ctx, id)
+    if ui_components.begin_opaque_context_item('##cmenu_display_' .. id) then
+        for _, m in ipairs(DISPLAY_MODES) do
+            if m.mode == ctx.section_mode then
+                imgui.TextColored(LIGHT_GRAY, m.hint)
+            end
+        end
         imgui.Separator()
-        if imgui.Selectable(to_tabs and 'Display as tabs' or 'Display as section headers') then
-            pending_display_mode = to_tabs and 'tabs' or 'headers'
+        for _, m in ipairs(DISPLAY_MODES) do
+            if m.mode ~= ctx.section_mode and imgui.Selectable(m.label) then
+                pending_display_mode = m.mode
+            end
         end
         ui_components.end_opaque_popup()
     end
@@ -2551,10 +2586,58 @@ function ui_components.begin_sections(ctx)
     autoselect_frames = 0
     selected_section = nil
     previous_section = nil
+
+    if ctx.settings.display_mode ~= 'sidebar' then
+        return
+    end
+
+    -- The open page rendered nothing last frame (job change, party shrank): move to
+    -- the first page that did.
+    if pages_shown and not pages_shown[active_page] then
+        for _, page in ipairs(SIDEBAR_PAGES) do
+            if pages_shown[page] then
+                active_page = page
+                break
+            end
+        end
+    end
+
+    -- Page buttons down the left, the selected page's headers in a group beside
+    -- them. Groups, not child windows, so auto-fit sizing still sees the contents.
+    imgui.BeginGroup()
+    for _, page in ipairs(SIDEBAR_PAGES) do
+        if not pages_shown or pages_shown[page] then
+            local selected = page == active_page
+            if not selected then
+                imgui.PushStyleColor(ImGuiCol_Button,        COLOR_BUTTON_UNSELECTED)
+                imgui.PushStyleColor(ImGuiCol_ButtonHovered, COLOR_BUTTON_UNSELECTED_HOVER)
+                imgui.PushStyleColor(ImGuiCol_ButtonActive,  COLOR_BUTTON_UNSELECTED_ACTIVE)
+            end
+            if imgui.Button(page .. '##sk_page', { SIDEBAR_BUTTON_WIDTH, 0 }) then
+                active_page = page
+            end
+            if not selected then
+                imgui.PopStyleColor(3)
+            end
+            render_display_mode_menu(ctx, 'page_' .. page)
+        end
+    end
+    imgui.EndGroup()
+    imgui.SameLine()
+    imgui.BeginGroup()
+    sidebar_group_open = true
+    pages_seen = {}
+    ctx.section_mode = 'sidebar'
 end
 
 function ui_components.end_sections(ctx)
-    if ctx.section_mode == 'tabs' then
+    if ctx.section_mode == 'sidebar' then
+        imgui.EndGroup()
+        sidebar_group_open = false
+        -- An empty frame (nothing rendered at all) keeps every button up rather
+        -- than leaving no way back to the display-mode menu.
+        pages_shown = next(pages_seen) and pages_seen or nil
+    elseif ctx.section_mode == 'tabs' then
         -- The disabled sections, in declaration order, after every enabled one.
         for _, tab in ipairs(deferred_tabs) do
             local selected = begin_tab_section(
@@ -2572,9 +2655,10 @@ end
 -- Close whatever tab chrome is still open, for a caller recovering from a Lua
 -- error thrown mid-frame: the end_section / end_sections calls that would have
 -- balanced BeginTabItem and BeginTabBar were skipped with the stack unwound, and
--- ImGui asserts on that rather than tolerating it. A no-op in header mode, and
--- safe to call when the run had already finished cleanly. Takes no ctx: every
--- flag it clears is module state, and the frame's ctx is discarded either way.
+-- ImGui asserts on that rather than tolerating it. Sidebar mode's content group
+-- is unwound the same way. A no-op in header mode, and safe to call when the run
+-- had already finished cleanly. Takes no ctx: every flag it clears is module
+-- state, and the frame's ctx is discarded either way.
 function ui_components.abort_sections()
     if tab_item_open then
         imgui.EndTabItem()
@@ -2584,9 +2668,22 @@ function ui_components.abort_sections()
         imgui.EndTabBar()
         tab_bar_open = false
     end
+    if sidebar_group_open then
+        imgui.EndGroup()
+        sidebar_group_open = false
+    end
 end
 
 function ui_components.begin_section(ctx, label, setting_name, default_value, tooltip)
+    -- Sidebar: only the open page's sections render, as headers.
+    if ctx.section_mode == 'sidebar' then
+        local page = SECTION_PAGES[setting_name] or 'Utility'
+        pages_seen[page] = true
+        if page ~= active_page then
+            return false, false
+        end
+    end
+
     if ctx.section_mode ~= 'tabs' then
         return begin_header_section(ctx, label, setting_name, default_value, tooltip)
     end
