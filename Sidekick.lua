@@ -108,10 +108,10 @@ local default_settings = T{
     -- Game client runs in Japanese: quoted spell/ability/item names and the gather
     -- alert are sent in Japanese (lib/core/lang.lua). Set from /sk panel.
     japanese_client = false,
-    -- Main config sections render either as a stack of collapsing headers or as
-    -- one row of tabs -- never both. Switched from the right-click menu on any
-    -- header or tab. 'headers' | 'tabs'.
-    display_mode = 'headers',
+    -- Main config sections render as collapsing headers, one tab bar, or optional
+    -- button-group navigation with a tab bar inside the selected group.
+    -- Switched from the right-click menu on any section header or tab.
+    -- 'headers' | 'tabs' | 'groups'.    display_mode = 'headers',
     -- Config window sizing. 'auto' pins the window to its contents -- instant, but the
     -- resize grip is off. 'custom' is a plain window: drag it to any size and the
     -- contents scroll when they overflow. Switched from the right-click menu on empty
