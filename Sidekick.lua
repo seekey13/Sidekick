@@ -111,7 +111,8 @@ local default_settings = T{
     -- Main config sections render as collapsing headers, one tab bar, or optional
     -- button-group navigation with a tab bar inside the selected group.
     -- Switched from the right-click menu on any section header or tab.
-    -- 'headers' | 'tabs' | 'groups'.    display_mode = 'headers',
+    -- 'headers' | 'tabs' | 'groups'.
+    display_mode = 'headers',
     -- Config window sizing. 'auto' pins the window to its contents -- instant, but the
     -- resize grip is off. 'custom' is a plain window: drag it to any size and the
     -- contents scroll when they overflow. Switched from the right-click menu on empty
