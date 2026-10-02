@@ -24,12 +24,16 @@ local function render_sections(settings, click_group)
     local tab_bars, tab_items, group_choices, group_sizes = {}, {}, {}, {};
     local header_count = 0;
     fake.imgui = {
-        CalcTextSize = function(label) return { x = #label * 8, y = 12 }; end,
+        CalcTextSize = function(label) return #label * 8, 12; end,
         Selectable = function(label, selected, flags, size)
             if label == 'Healing' or label == 'Support' or label == 'Utility' then
-                assert(size and size.x > 0, 'group selectables need explicit hit-box widths');
+                assert_eq(type(flags), 'number');
+                assert(size and type(size[1]) == 'number' and size[1] > 0,
+                    'group selectables need an explicit hit-box width');
+                assert(type(size[2]) == 'number' and size[2] > 0,
+                    'group selectables need an explicit hit-box height');
                 group_choices[#group_choices + 1] = label;
-                group_sizes[label] = size.x;
+                group_sizes[label] = size[1];
                 return label == click_group;
             end
             return false;
