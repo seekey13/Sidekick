@@ -53,6 +53,18 @@ local function render_sections(settings, click_group)
     return ctx, tab_bars, tab_items, group_choices, function() return header_count end, group_sizes;
 end
 
+test('global settings explicitly default to section headers', function()
+    local file = assert(io.open('Sidekick.lua', 'r'))
+    local source = file:read('*a')
+    file:close()
+
+    local first = assert(source:find('local default_settings = T{', 1, true))
+    local last = assert(source:find('\n}', first, true))
+    local defaults = source:sub(first, last)
+    local display_mode = defaults:match("\n%s*display_mode%s*=%s*'([^']+)'")
+    assert_eq(display_mode, 'headers')
+end)
+
 test('the default header layout stays the default', function()
     fake.reset();
     local ctx, tab_bars, _, _, header_count = render_sections({ display_mode = 'headers' });
