@@ -21,12 +21,15 @@ ImGuiTreeNodeFlags_DefaultOpen = 1;
 local components = require('lib.ui.components');
 
 local function render_sections(settings, click_group)
-    local tab_bars, tab_items, group_choices = {}, {}, {};
+    local tab_bars, tab_items, group_choices, group_sizes = {}, {}, {}, {};
     local header_count = 0;
     fake.imgui = {
-        Selectable = function(label)
+        CalcTextSize = function(label) return { x = #label * 8, y = 12 }; end,
+        Selectable = function(label, selected, flags, size)
             if label == 'Healing' or label == 'Support' or label == 'Utility' then
+                assert(size and size.x > 0, 'group selectables need explicit hit-box widths');
                 group_choices[#group_choices + 1] = label;
+                group_sizes[label] = size.x;
                 return label == click_group;
             end
             return false;
@@ -47,7 +50,7 @@ local function render_sections(settings, click_group)
 
     local ctx = { settings = settings, save_callback = function() end };
     components.begin_sections(ctx);
-    return ctx, tab_bars, tab_items, group_choices, function() return header_count end;
+    return ctx, tab_bars, tab_items, group_choices, function() return header_count end, group_sizes;
 end
 
 test('the default header layout stays the default', function()
@@ -81,10 +84,12 @@ test('button groups filter tabs and keep unassigned future sections reachable', 
         new_feature_enabled = true,
     };
 
-    local ctx, tab_bars, tab_items, group_choices = render_sections(settings, 'Support');
+    local ctx, tab_bars, tab_items, group_choices, _, group_sizes = render_sections(settings, 'Support');
     assert_eq(ctx.section_mode, 'tabs');
     assert_eq(ctx.section_page, 'Support');
     assert_eq(group_choices, { 'Healing', 'Support', 'Utility' });
+    assert_eq(group_sizes, { Healing = 56, Support = 56, Utility = 56 },
+        'button click targets should match the measured label widths');
     assert_eq(tab_bars, { '##sk_sections_Support' });
     assert_eq({ components.begin_section(ctx, 'Focus Healing', 'focus_enabled', true) }, { false, false });
     components.begin_section(ctx, 'Debuff Removal', 'debuff_removal_enabled', true);
@@ -119,7 +124,8 @@ test('button groups can be enabled from the section layout menu', function()
 
     local tab_bar_id;
     fake.imgui = {
-        Selectable = function(label) return label == 'Healing'; end,
+        CalcTextSize = function(label) return { x = #label * 8, y = 12 }; end,
+        Selectable = function(label, selected, flags, size) return label == 'Healing'; end,
         BeginTabBar = function(id)
             tab_bar_id = id;
             return true;

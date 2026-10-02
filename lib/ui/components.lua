@@ -2596,7 +2596,9 @@ function ui_components.begin_sections(ctx)
     if grouped then
         for i, group in ipairs(SECTION_GROUPS) do
             if i > 1 then imgui.SameLine() end
-            if imgui.Selectable(group, active_section_group == group) and active_section_group ~= group then
+            local group_size = imgui.CalcTextSize(group)
+            if imgui.Selectable(group, active_section_group == group, 0, group_size)
+                    and active_section_group ~= group then
                 active_section_group = group
                 selected_section, previous_section, reselect_id = nil, nil, nil
                 reselect_frames, autoselect_frames = 0, 0
