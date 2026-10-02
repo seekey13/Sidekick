@@ -139,4 +139,6 @@ test('button groups can be enabled from the section layout menu', function()
     components.end_sections(ctx);
 end);
 
+-- Keep file-local ImGui popup state from leaking into later test files.
+components.reset_opaque_tracking();
 fake.reset();
