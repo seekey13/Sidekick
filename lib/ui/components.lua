@@ -2314,6 +2314,29 @@ end
 -- begin_section, drained by end_sections. See "Section Display".
 local deferred_tabs = {}
 
+-- Optional navigation groups. Sections added later stay reachable under Utility
+-- until they are assigned a more specific page.
+local SECTION_GROUPS = { 'Healing', 'Support', 'Utility' }
+local SECTION_GROUP_BY_SETTING = {
+    focus_enabled = 'Healing',
+    heal_enabled = 'Healing',
+    heal_aoe_enabled = 'Healing',
+    heal_pet_enabled = 'Healing',
+    wake_enabled = 'Healing',
+    debuff_removal_enabled = 'Support',
+    pet_debuff_removal_enabled = 'Support',
+    item_removal_enabled = 'Support',
+    revive_enabled = 'Support',
+    roll_enabled = 'Support',
+    buff_enabled = 'Support',
+    geo_enabled = 'Support',
+    follow_enabled = 'Utility',
+    pet_enabled = 'Utility',
+    rest_enabled = 'Utility',
+    recover_enabled = 'Utility',
+}
+local active_section_group = SECTION_GROUPS[1]
+
 -- What tab chrome this frame currently has open, so abort_sections can close it
 -- again after a Lua error skipped the matching end_* call. Both stay false in
 -- header mode, which opens nothing that needs unwinding.
@@ -2338,11 +2361,11 @@ function ui_components.checkbox(ctx, label, setting_name, ui_var)
 end
 
 -- ============================================================================
--- Section Display (collapsing headers vs. tab bar)
+-- Section Display (collapsing headers, tab bar, or optional button groups)
 -- ============================================================================
--- The window's main sections render with one of two chromes, never both: the
--- classic stack of CollapsingHeaders, or one tab per section in a single bar.
--- Which one is the per-character `display_mode` setting. Callers use the same
+-- The window's main sections render with one of three layouts: the classic stack
+-- of CollapsingHeaders, one tab bar, or button groups that filter the same tab
+-- bar by purpose. Which one is the per-character `display_mode` setting. Callers use the same
 -- shape either way:
 --
 --     ui.begin_sections(ctx)
@@ -2425,16 +2448,21 @@ local function set_section_enabled(ctx, setting_name, value)
     end
 end
 
--- The right-click popup every section header and every tab carries. It is the
--- only place display_mode is switched, and it offers exactly one direction:
--- headers offer tabs, tabs offer headers. Never both at once.
+-- The right-click popup every section header and every tab carries. It keeps all
+-- three layouts available without replacing the existing section headers or tabs.
 local function render_display_mode_menu(ctx, setting_name)
-    local to_tabs = ctx.section_mode ~= 'tabs'
     if ui_components.begin_opaque_context_item('##cmenu_display_' .. setting_name) then
-        imgui.TextColored(LIGHT_GRAY, to_tabs and tooltips.display_as_tabs_hint or tooltips.display_as_headers_hint)
+        imgui.TextColored(LIGHT_GRAY, 'Section layout')
         imgui.Separator()
-        if imgui.Selectable(to_tabs and 'Display as tabs' or 'Display as section headers') then
-            pending_display_mode = to_tabs and 'tabs' or 'headers'
+        local options = {
+            { value = 'headers', label = 'Display as section headers' },
+            { value = 'tabs', label = 'Display as tabs' },
+            { value = 'groups', label = 'Display as button groups' },
+        }
+        for _, option in ipairs(options) do
+            if imgui.Selectable(option.label, ctx.settings.display_mode == option.value) then
+                pending_display_mode = option.value
+            end
         end
         ui_components.end_opaque_popup()
     end
@@ -2564,7 +2592,26 @@ function ui_components.begin_sections(ctx)
         end
     end
 
-    if ctx.settings.display_mode == 'tabs' then
+    local grouped = ctx.settings.display_mode == 'groups'
+    if grouped then
+        for i, group in ipairs(SECTION_GROUPS) do
+            if i > 1 then imgui.SameLine() end
+            local group_width, group_height = imgui.CalcTextSize(group)
+            local group_size = { group_width, group_height }
+            if imgui.Selectable(group, active_section_group == group, 0, group_size)
+                    and active_section_group ~= group then
+                active_section_group = group
+                selected_section, previous_section, reselect_id = nil, nil, nil
+                reselect_frames, autoselect_frames = 0, 0
+            end
+        end
+        imgui.Separator()
+        ctx.section_page = active_section_group
+    else
+        ctx.section_page = nil
+    end
+
+    if ctx.settings.display_mode == 'tabs' or grouped then
         -- FittingPolicyScroll keeps every label full width -- ResizeDown truncates
         -- them on jobs with many sections, and a truncated label is unreadable at
         -- the widths 16 tabs produce.
@@ -2573,13 +2620,15 @@ function ui_components.begin_sections(ctx)
             autoselect_frames = autoselect_frames - 1
             bar_flags = bar_flags + ImGuiTabBarFlags_AutoSelectNewTabs
         end
-        if imgui.BeginTabBar('##sk_sections', bar_flags) then
+        local tab_bar_id = grouped and ('##sk_sections_' .. active_section_group) or '##sk_sections'
+        if imgui.BeginTabBar(tab_bar_id, bar_flags) then
             ctx.section_mode = 'tabs'
             tab_bar_open = true
             return
         end
         -- BeginTabBar refused (the window is clipped). Fall back to headers for
-        -- this frame rather than rendering no sections at all.
+        -- this frame rather than rendering no sections at all. Group filtering
+        -- stays active so the fallback remains inside the selected page.
     end
 
     ctx.section_mode = 'headers'
@@ -2623,6 +2672,11 @@ function ui_components.abort_sections()
 end
 
 function ui_components.begin_section(ctx, label, setting_name, default_value, tooltip)
+    if ctx.settings.display_mode == 'groups'
+        and (SECTION_GROUP_BY_SETTING[setting_name] or 'Utility') ~= ctx.section_page then
+        return false, false
+    end
+
     if ctx.section_mode ~= 'tabs' then
         return begin_header_section(ctx, label, setting_name, default_value, tooltip)
     end
