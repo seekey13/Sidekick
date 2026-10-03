@@ -121,6 +121,11 @@ local default_settings = T{
     window_size_mode = 'auto',
     -- Config window opacity (job-independent). 1-100, set from /sk panel.
     ui_opacity = 100,
+    -- Optional #269 charcoal/blue skin for the config window and widget.
+    -- Missing values in older settings files resolve to the original appearance.
+    ui_skin = 'original',
+    -- Optional UI accent color; nil preserves existing colors. Set from /sk panel.
+    -- ui_accent_color is stored only after the player chooses a color.
     -- Whether the config window was open when the addon last unloaded; reopened on load.
     ui_open = false,
     -- Same, for the floating widget (/sk widget).

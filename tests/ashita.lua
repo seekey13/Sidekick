@@ -276,9 +276,15 @@ package.preload['settings'] = function()
         register = function() end,
     };
 end
--- Any imgui call is a no-op returning false; enough for a module to load, not to draw.
+-- Any imgui call is a no-op returning false unless a focused UI test supplies a handler.
 package.preload['imgui'] = function()
-    return setmetatable({}, { __index = function() return function() return false; end; end });
+    return setmetatable({}, { __index = function(_, name)
+        return function(...)
+            local handler = fake.imgui and fake.imgui[name];
+            if handler then return handler(...); end
+            return false;
+        end;
+    end });
 end
 
 -- get_bt calls into FFXiMain through an ffi function pointer; the fake's is address 1,
