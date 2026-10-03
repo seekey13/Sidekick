@@ -14,16 +14,16 @@ test('member snapshots carry every party-manager read', function()
     setup();
     common.refresh_game_state();
     local p = common.game_state.player;
-    assert_eq({ p.name, p.server_id, p.target_index, p.hp, p.hpp, p.mp, p.mpp, p.tp },
-              { 'Tester', 0x100, 0x400, 1000, 100, 500, 100, 0 });
+    assert_eq({ p.name, p.server_id, p.target_index, p.hp, p.hpp, p.hpp_valid, p.mp, p.mpp, p.tp },
+              { 'Tester', 0x100, 0x400, 1000, 100, true, 500, 100, 0 });
     assert_eq({ p.job, p.job_name, p.sub_job, p.sub_job_name, p.main_level, p.sub_level },
               { 3, 'WHM', 4, 'BLM', 75, 37 });
     assert_eq(p.position, { x = 1, y = 2, z = 3 });
     assert_eq(p.entity_status, 0);
 
     local a = common.game_state.alliance[2][0];
-    assert_eq({ a.name, a.server_id, a.hp, a.hpp, a.mp, a.mpp, a.tp, a.job_name, a.sub_job_name, a.main_level },
-              { 'Ally', 0x500, 800, 50, 20, 10, 300, 'RDM', 'WHM', 70 });
+    assert_eq({ a.name, a.server_id, a.hp, a.hpp, a.hpp_valid, a.mp, a.mpp, a.tp, a.job_name, a.sub_job_name, a.main_level },
+              { 'Ally', 0x500, 800, 50, true, 20, 10, 300, 'RDM', 'WHM', 70 });
     assert_eq(common.game_state.alliance_size, 1);
 end);
 
@@ -39,6 +39,22 @@ test('a party-manager read that throws falls back to its default', function()
     assert_eq({ a.hp, a.name, a.mp }, { 0, '', 20 });
 end);
 
+test('HPP snapshots preserve read validity separately from the zero fallback', function()
+    setup();
+    fake.state.party[0].hp_pct_read = 'nil';
+    fake.state.party[6].hp_pct_read = 'error';
+    common.refresh_game_state();
+
+    local p = common.game_state.player;
+    local a = common.game_state.alliance[2][0];
+    assert_eq({ p.hpp, p.hpp_valid, a.hpp, a.hpp_valid }, { 0, false, 0, false });
+
+    fake.state.party[0].hp_pct_read = nil;
+    fake.state.party[0].hp_pct = 0;
+    common.refresh_game_state();
+    p = common.game_state.player;
+    assert_eq({ p.hpp, p.hpp_valid }, { 0, true }, 'actual zero remains a valid dead-state reading');
+end);
 test('an /anon player row takes job and level from the Player struct', function()
     setup();
     local row = fake.state.party[0];

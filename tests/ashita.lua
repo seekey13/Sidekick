@@ -151,7 +151,14 @@ local function party()
         GetMemberTargetIndex = field('target_index', 0),
         GetMemberName = field('name', ''),
         GetMemberHP = field('hp', 0),
-        GetMemberHPPercent = field('hp_pct', 0),
+        GetMemberHPPercent = function(_, i)
+            local row = member(i)
+            if row.hp_pct_read == 'nil' then return nil end
+            if row.hp_pct_read == 'error' then error('HPP read failed') end
+            local value = row.hp_pct
+            if value == nil then return 0 end
+            return value
+        end,
         GetMemberMP = field('mp', 0),
         GetMemberMPPercent = field('mp_pct', 0),
         GetMemberTP = field('tp', 0),
@@ -276,9 +283,15 @@ package.preload['settings'] = function()
         register = function() end,
     };
 end
--- Any imgui call is a no-op returning false; enough for a module to load, not to draw.
+-- Any imgui call is a no-op returning false unless a focused UI test supplies a handler.
 package.preload['imgui'] = function()
-    return setmetatable({}, { __index = function() return function() return false; end; end });
+    return setmetatable({}, { __index = function(_, name)
+        return function(...)
+            local handler = fake.imgui and fake.imgui[name];
+            if handler then return handler(...); end
+            return false;
+        end;
+    end });
 end
 
 -- get_bt calls into FFXiMain through an ffi function pointer; the fake's is address 1,

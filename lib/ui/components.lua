@@ -2337,6 +2337,79 @@ function ui_components.checkbox(ctx, label, setting_name, ui_var)
     end
 end
 
+-- Optional, read-only view of the player, party, and active tracked targets.
+-- The caller only renders this when party_overview_enabled is true.
+local party_overview_child_open = false
+function ui_components.render_party_overview(ctx)
+    if not ctx or not ctx.settings or not ctx.settings.party_overview_enabled then return end
+    if not imgui.CollapsingHeader('Party overview', ImGuiTreeNodeFlags_DefaultOpen) then return end
+
+    local state = common.game_state
+    if os.clock() - (state.refreshed_at or 0) > 0.1 then
+        common.refresh_game_state()
+        state = common.game_state
+    end
+
+    local members, seen = {}, {}
+    local function add(member)
+        if not member or type(member.name) ~= 'string' or member.name == '' or member.is_active == false then return end
+        local server_id = tonumber(member.server_id)
+        local key = server_id and server_id > 0 and ('id:' .. tostring(server_id)) or ('name:' .. member.name:lower())
+        if seen[key] then return end
+        seen[key] = true
+        members[#members + 1] = member
+    end
+
+    add(state.player)
+    for i = 1, 5 do add((state.party or {})[i]) end
+
+    local tracked = {}
+    for _, member in pairs(state.tracked or {}) do
+        if member and member.is_active and type(member.name) == 'string' then
+            tracked[#tracked + 1] = member
+        end
+    end
+    table.sort(tracked, function(a, b)
+        local name_a, name_b = (a.name or ''):lower(), (b.name or ''):lower()
+        if name_a == name_b then return tostring(a.server_id or '') < tostring(b.server_id or '') end
+        return name_a < name_b
+    end)
+    for _, member in ipairs(tracked) do add(member) end
+
+    if #members == 0 then
+        imgui.TextDisabled('No active party or tracked targets.')
+        return
+    end
+
+    -- Bound the visible panel height; any extra tracked targets scroll within it.
+    -- A fixed auto-fit width avoids feeding the child width back into its parent.
+    local width = ctx.settings.window_size_mode == 'custom' and 0 or 420
+    local height = math.min(6, #members) * imgui.GetTextLineHeightWithSpacing()
+    local visible = imgui.BeginChild('##sk_party_overview', { width, height }, false)
+    party_overview_child_open = true
+    if visible then
+        for _, member in ipairs(members) do
+            local hp = member.hpp_valid and tonumber(member.hpp)
+            local hp_valid = type(hp) == 'number' and hp == hp
+                and hp ~= math.huge and hp ~= -math.huge
+            imgui.Text(member.name)
+            imgui.SameLine()
+            if hp_valid then
+                hp = math.max(0, math.min(100, hp))
+                local color = hp < (ctx.settings.critical_threshold or 30) and LIGHT_RED
+                    or hp < (ctx.settings.heal_threshold or 75) and LIGHT_YELLOW or LIGHT_GREEN
+                imgui.TextColored(color, string.format('%3d%%', hp))
+                imgui.SameLine()
+                imgui.ProgressBar(hp / 100, { 110, imgui.GetTextLineHeight() }, '')
+            else
+                imgui.TextDisabled('--')
+            end
+        end
+    end
+    imgui.EndChild()
+    party_overview_child_open = false
+end
+
 -- ============================================================================
 -- Section Display (collapsing headers vs. tab bar)
 -- ============================================================================
@@ -2612,6 +2685,10 @@ end
 -- safe to call when the run had already finished cleanly. Takes no ctx: every
 -- flag it clears is module state, and the frame's ctx is discarded either way.
 function ui_components.abort_sections()
+    if party_overview_child_open then
+        imgui.EndChild()
+        party_overview_child_open = false
+    end
     if tab_item_open then
         imgui.EndTabItem()
         tab_item_open = false
