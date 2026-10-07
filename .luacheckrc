@@ -4,6 +4,9 @@ std = 'luajit'
 
 max_line_length = false
 
+-- Claude Code agent worktrees are full repo copies; the per-file ignores below don't match them.
+exclude_files = { '.claude/**' }
+
 -- Ashita v4 API available inside the game client.
 read_globals = {
     'AshitaCore',
