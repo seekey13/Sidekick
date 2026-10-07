@@ -264,7 +264,7 @@ return {
                 command = '/ma "Indi-Frailty" <me>',
                 element = 'Wind',
                 group = 'Indi',
-                buff_id = 558,
+                buff_id = 612,
             },
             {
                 name = 'Indi-Vex',
@@ -275,7 +275,7 @@ return {
                 command = '/ma "Indi-Vex" <me>',
                 element = 'Light',
                 group = 'Indi',
-                buff_id = 563,
+                buff_id = 612,
             },
             {
                 name = 'Indi-Paralysis',
@@ -286,7 +286,7 @@ return {
                 command = '/ma "Indi-Paralysis" <me>',
                 element = 'Ice',
                 group = 'Indi',
-                buff_id = 566,
+                buff_id = 612,
             },
             {
                 name = 'Indi-Languor',
@@ -297,7 +297,7 @@ return {
                 command = '/ma "Indi-Languor" <me>',
                 element = 'Dark',
                 group = 'Indi',
-                buff_id = 564,
+                buff_id = 612,
             },
             {
                 name = 'Indi-Slip',
@@ -308,7 +308,7 @@ return {
                 command = '/ma "Indi-Slip" <me>',
                 element = 'Earth',
                 group = 'Indi',
-                buff_id = 561,
+                buff_id = 612,
             },
             {
                 name = 'Indi-Torpor',
@@ -319,7 +319,7 @@ return {
                 command = '/ma "Indi-Torpor" <me>',
                 element = 'Ice',
                 group = 'Indi',
-                buff_id = 562,
+                buff_id = 612,
             },
             {
                 name = 'Indi-STR',
@@ -341,7 +341,7 @@ return {
                 command = '/ma "Indi-Slow" <me>',
                 element = 'Earth',
                 group = 'Indi',
-                buff_id = 565,
+                buff_id = 612,
             },
             {
                 name = 'Indi-Acumen',

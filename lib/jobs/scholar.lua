@@ -52,6 +52,7 @@ return {
                 recast_id = 228,
                 command = '/ja "Light Arts" <me>',
                 group = 'arts',
+                priority = 100,
                 buff_id = {358, 401},  -- Can be either 358 or 401
             },
             {
@@ -71,6 +72,7 @@ return {
                 recast_id = 232,
                 command = '/ja "Dark Arts" <me>',
                 group = 'arts',
+                priority = 100,
                 buff_id = {359, 402},  -- Can be either 359 or 402
             },
             {
