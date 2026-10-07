@@ -23,8 +23,9 @@ local components = require('lib.ui.components');
 local GROUPS = { Healing = true, Support = true, Utility = true };
 
 -- One begin_sections call with a recording imgui. click_group is the group button
--- that reports a click this frame.
-local function render_sections(settings, click_group)
+-- that reports a click this frame; refuse_tab_bar makes BeginTabBar fail, as it
+-- does in a clipped window.
+local function render_sections(settings, click_group, refuse_tab_bar)
     local frame = { tab_bars = {}, tab_items = {}, group_choices = {}, group_sizes = {}, headers = 0 };
     fake.imgui = {
         -- Ashita's binding returns width and height as two numbers.
@@ -44,7 +45,7 @@ local function render_sections(settings, click_group)
         end,
         BeginTabBar = function(id)
             frame.tab_bars[#frame.tab_bars + 1] = id;
-            return true;
+            return not refuse_tab_bar;
         end,
         BeginTabItem = function(label)
             frame.tab_items[#frame.tab_items + 1] = label;
@@ -143,6 +144,36 @@ test('a group with no sections gets no button and does not stay on show', functi
     assert_eq(ctx.section_page, 'Support');
     assert_eq(frame.tab_bars, { '##sk_sections_Support' });
     components.end_sections(ctx);
+end);
+
+test('a group page filters the header fallback and defers no other page\'s tabs', function()
+    fake.reset();
+    local settings = {
+        display_mode = 'groups',
+        focus_enabled = true,
+        heal_enabled = false,
+        debuff_removal_enabled = true,
+    };
+    local sections = { 'focus_enabled', 'heal_enabled', 'debuff_removal_enabled' };
+    render_frame(settings, sections);
+
+    -- BeginTabBar refused: the frame falls back to headers, still only the page on show.
+    local ctx, frame = render_sections(settings, 'Healing', true);
+    assert_eq(ctx.section_mode, 'headers');
+    assert_eq(ctx.section_page, 'Healing');
+    for _, setting_name in ipairs(sections) do
+        components.begin_section(ctx, setting_name, setting_name, true);
+    end
+    components.end_sections(ctx);
+    assert_eq(frame.headers, 2);
+
+    -- The disabled Healing section is not held back into the Support bar.
+    ctx, frame = render_sections(settings, 'Support');
+    for _, setting_name in ipairs(sections) do
+        components.begin_section(ctx, setting_name, setting_name, true);
+    end
+    components.end_sections(ctx);
+    assert_eq(frame.tab_items, { 'debuff_removal_enabled###debuff_removal_enabled' });
 end);
 
 test('button groups can be enabled from the section layout menu', function()

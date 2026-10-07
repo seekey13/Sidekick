@@ -2335,12 +2335,14 @@ local SECTION_GROUP_BY_SETTING = {
     rest_enabled = 'Utility',
     recover_enabled = 'Utility',
 }
--- The group on show. Session-only: every load starts on the first populated group.
+-- The group on show. Session-only: starts on Healing, and begin_sections moves it
+-- to the first populated group once a frame has shown which groups this job has.
 local active_section_group = SECTION_GROUPS[1]
 -- Groups that have at least one section on this job, filled by begin_section and
 -- read by the next begin_sections, which draws no button for an empty group (a job
--- with no healing gets no blank Healing page).
-local seen_groups = {}
+-- with no healing gets no blank Healing page). Seeded with every group for the
+-- first frame, which has no previous frame to go by.
+local seen_groups = { Healing = true, Support = true, Utility = true }
 
 -- What tab chrome this frame currently has open, so abort_sections can close it
 -- again after a Lua error skipped the matching end_* call. Both stay false in
@@ -2469,7 +2471,8 @@ local function render_display_mode_menu(ctx, setting_name)
         imgui.TextColored(LIGHT_GRAY, hints[ctx.settings.display_mode] or hints.headers)
         imgui.Separator()
         for _, mode in ipairs(DISPLAY_MODES) do
-            if imgui.Selectable(mode.label, ctx.settings.display_mode == mode.value) then
+            local current = ctx.settings.display_mode == mode.value
+            if imgui.Selectable(mode.label, current) and not current then
                 pending_display_mode = mode.value
             end
         end
@@ -2588,9 +2591,10 @@ local function select_section_group(group)
 end
 
 -- Open the container the sections render into. Pair with end_sections.
--- Resolves the mode ONCE per frame onto ctx: begin_section reads ctx.section_mode
--- and ctx.section_page (the group on show, nil outside group mode) and never the
--- setting, so the frame cannot end in a different chrome than it began in.
+-- Resolves the mode ONCE per frame onto ctx: begin_section picks its chrome from
+-- ctx.section_mode and ctx.section_page (the group on show, nil outside group mode),
+-- never the setting, so the frame cannot end in a different chrome than it began in.
+-- Only the right-click menu reads the setting, for its hint and checkmark.
 function ui_components.begin_sections(ctx)
     deferred_tabs = {}
     tab_bar_open = false
@@ -2612,7 +2616,7 @@ function ui_components.begin_sections(ctx)
         end
     end
 
-    -- Last frame's groups. Empty only before the first frame, which shows every group.
+    -- Last frame's groups.
     local populated = seen_groups
     seen_groups = {}
 
@@ -2621,7 +2625,7 @@ function ui_components.begin_sections(ctx)
     if grouped then
         -- The job has no section in the group on show (a job change, or a load
         -- onto a job with no healing): move to the first group that has one.
-        if next(populated) ~= nil and not populated[active_section_group] then
+        if not populated[active_section_group] then
             for _, group in ipairs(SECTION_GROUPS) do
                 if populated[group] then
                     select_section_group(group)
@@ -2631,7 +2635,7 @@ function ui_components.begin_sections(ctx)
         end
         local drawn = false
         for _, group in ipairs(SECTION_GROUPS) do
-            if populated[group] or next(populated) == nil then
+            if populated[group] then
                 if drawn then imgui.SameLine() end
                 drawn = true
                 -- An explicit size: a zero width would stretch the Selectable across
