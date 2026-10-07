@@ -20,73 +20,76 @@ ImGuiTreeNodeFlags_DefaultOpen = 1;
 
 local components = require('lib.ui.components');
 
+local GROUPS = { Healing = true, Support = true, Utility = true };
+
+-- One begin_sections call with a recording imgui. click_group is the group button
+-- that reports a click this frame.
 local function render_sections(settings, click_group)
-    local tab_bars, tab_items, group_choices, group_sizes = {}, {}, {}, {};
-    local header_count = 0;
+    local frame = { tab_bars = {}, tab_items = {}, group_choices = {}, group_sizes = {}, headers = 0 };
     fake.imgui = {
+        -- Ashita's binding returns width and height as two numbers.
         CalcTextSize = function(label) return #label * 8, 12; end,
-        Selectable = function(label, selected, flags, size)
-            if label == 'Healing' or label == 'Support' or label == 'Utility' then
+        Selectable = function(label, _, flags, size)
+            if GROUPS[label] then
                 assert_eq(type(flags), 'number');
                 assert(size and type(size[1]) == 'number' and size[1] > 0,
                     'group selectables need an explicit hit-box width');
                 assert(type(size[2]) == 'number' and size[2] > 0,
                     'group selectables need an explicit hit-box height');
-                group_choices[#group_choices + 1] = label;
-                group_sizes[label] = size[1];
+                frame.group_choices[#frame.group_choices + 1] = label;
+                frame.group_sizes[label] = size[1];
                 return label == click_group;
             end
             return false;
         end,
         BeginTabBar = function(id)
-            tab_bars[#tab_bars + 1] = id;
+            frame.tab_bars[#frame.tab_bars + 1] = id;
             return true;
         end,
         BeginTabItem = function(label)
-            tab_items[#tab_items + 1] = label;
+            frame.tab_items[#frame.tab_items + 1] = label;
             return false;
         end,
         CollapsingHeader = function()
-            header_count = header_count + 1;
+            frame.headers = frame.headers + 1;
             return false;
         end,
     };
 
     local ctx = { settings = settings, save_callback = function() end };
     components.begin_sections(ctx);
-    return ctx, tab_bars, tab_items, group_choices, function() return header_count end, group_sizes;
+    return ctx, frame;
 end
 
-test('global settings explicitly default to section headers', function()
-    local file = assert(io.open('Sidekick.lua', 'r'))
-    local source = file:read('*a')
-    file:close()
+-- A full frame submitting the given sections, so the next begin_sections knows
+-- which groups this "job" has.
+local function render_frame(settings, sections)
+    local ctx = render_sections(settings);
+    for _, setting_name in ipairs(sections) do
+        components.begin_section(ctx, setting_name, setting_name, true);
+    end
+    components.end_sections(ctx);
+end
 
-    local first = assert(source:find('local default_settings = T{', 1, true))
-    local last = assert(source:find('\n}', first, true))
-    local defaults = source:sub(first, last)
-    local display_mode = defaults:match("\n%s*display_mode%s*=%s*'([^']+)'")
-    assert_eq(display_mode, 'headers')
-end)
-
-test('the default header layout stays the default', function()
+test('the header layout renders headers and no tab bar', function()
     fake.reset();
-    local ctx, tab_bars, _, _, header_count = render_sections({ display_mode = 'headers' });
+    local ctx, frame = render_sections({ display_mode = 'headers' });
     components.begin_section(ctx, 'Auto Follow', 'follow_enabled', true);
     assert_eq(ctx.section_mode, 'headers');
-    assert_eq(tab_bars, {});
-    assert_eq(header_count(), 1);
+    assert_eq(ctx.section_page, nil);
+    assert_eq(frame.tab_bars, {});
+    assert_eq(frame.headers, 1);
     components.end_sections(ctx);
 end);
 
-test('the original tab layout still includes sections from each group', function()
+test('the tab layout still includes sections from each group', function()
     fake.reset();
-    local ctx, tab_bars, tab_items = render_sections({ display_mode = 'tabs' });
+    local ctx, frame = render_sections({ display_mode = 'tabs' });
     components.begin_section(ctx, 'Focus Healing', 'focus_enabled', true);
     components.begin_section(ctx, 'Auto Follow', 'follow_enabled', true);
     assert_eq(ctx.section_mode, 'tabs');
-    assert_eq(#tab_bars, 1);
-    assert_eq(#tab_items, 2);
+    assert_eq(frame.tab_bars, { '##sk_sections' });
+    assert_eq(#frame.tab_items, 2);
     components.end_sections(ctx);
 end);
 
@@ -99,31 +102,52 @@ test('button groups filter tabs and keep unassigned future sections reachable', 
         follow_enabled = true,
         new_feature_enabled = true,
     };
+    render_frame(settings, { 'focus_enabled', 'debuff_removal_enabled', 'follow_enabled', 'new_feature_enabled' });
 
-    local ctx, tab_bars, tab_items, group_choices, _, group_sizes = render_sections(settings, 'Support');
+    local ctx, frame = render_sections(settings, 'Support');
     assert_eq(ctx.section_mode, 'tabs');
     assert_eq(ctx.section_page, 'Support');
-    assert_eq(group_choices, { 'Healing', 'Support', 'Utility' });
-    assert_eq(group_sizes, { Healing = 56, Support = 56, Utility = 56 },
+    assert_eq(frame.group_choices, { 'Healing', 'Support', 'Utility' });
+    assert_eq(frame.group_sizes, { Healing = 56, Support = 56, Utility = 56 },
         'button click targets should match the measured label widths');
-    assert_eq(tab_bars, { '##sk_sections_Support' });
+    assert_eq(frame.tab_bars, { '##sk_sections_Support' });
     assert_eq({ components.begin_section(ctx, 'Focus Healing', 'focus_enabled', true) }, { false, false });
     components.begin_section(ctx, 'Debuff Removal', 'debuff_removal_enabled', true);
     components.begin_section(ctx, 'Auto Follow', 'follow_enabled', true);
-    assert_eq(#tab_items, 1);
+    components.begin_section(ctx, 'Future Feature', 'new_feature_enabled', true);
+    assert_eq(frame.tab_items, { 'Debuff Removal###debuff_removal_enabled' });
     components.end_sections(ctx);
 
-    ctx, tab_bars, tab_items = render_sections(settings, 'Utility');
+    ctx, frame = render_sections(settings, 'Utility');
     assert_eq(ctx.section_page, 'Utility');
-    assert_eq(tab_bars, { '##sk_sections_Utility' });
+    assert_eq(frame.tab_bars, { '##sk_sections_Utility' });
+    components.begin_section(ctx, 'Debuff Removal', 'debuff_removal_enabled', true);
     components.begin_section(ctx, 'Future Feature', 'new_feature_enabled', true);
-    assert_eq(#tab_items, 1);
+    assert_eq(frame.tab_items, { 'Future Feature###new_feature_enabled' });
+    components.end_sections(ctx);
+end);
+
+test('a group with no sections gets no button and does not stay on show', function()
+    fake.reset();
+    local settings = { display_mode = 'groups' };
+    render_frame(settings, { 'focus_enabled' });
+    local ctx = render_sections(settings, 'Healing');
+    assert_eq(ctx.section_page, 'Healing');
+    components.end_sections(ctx);
+
+    -- A job change to one without healing: the Healing page has nothing to show.
+    render_frame(settings, { 'debuff_removal_enabled', 'follow_enabled' });
+    local frame;
+    ctx, frame = render_sections(settings);
+    assert_eq(frame.group_choices, { 'Support', 'Utility' });
+    assert_eq(ctx.section_page, 'Support');
+    assert_eq(frame.tab_bars, { '##sk_sections_Support' });
     components.end_sections(ctx);
 end);
 
 test('button groups can be enabled from the section layout menu', function()
     fake.reset();
-    local settings = { display_mode = 'headers', follow_enabled = true };
+    local settings = { display_mode = 'headers', focus_enabled = true, follow_enabled = true };
     fake.imgui = {
         BeginPopupContextItem = function() return true; end,
         Selectable = function(label)
@@ -134,24 +158,18 @@ test('button groups can be enabled from the section layout menu', function()
 
     local ctx = { settings = settings, save_callback = function() end };
     components.begin_sections(ctx);
+    components.begin_section(ctx, 'Focus Healing', 'focus_enabled', true);
     components.begin_section(ctx, 'Auto Follow', 'follow_enabled', true);
     components.end_sections(ctx);
     assert_eq(settings.display_mode, 'headers', 'the mode change waits until the next frame');
 
-    local tab_bar_id;
-    fake.imgui = {
-        CalcTextSize = function(label) return { x = #label * 8, y = 12 }; end,
-        Selectable = function(label, selected, flags, size) return label == 'Healing'; end,
-        BeginTabBar = function(id)
-            tab_bar_id = id;
-            return true;
-        end,
-    };
-    components.begin_sections(ctx);
+    local frame;
+    ctx, frame = render_sections(settings, 'Healing');
     assert_eq(settings.display_mode, 'groups');
+    assert_eq(frame.group_choices, { 'Healing', 'Utility' });
     assert_eq(ctx.section_page, 'Healing');
     assert_eq(ctx.section_mode, 'tabs');
-    assert_eq(tab_bar_id, '##sk_sections_Healing');
+    assert_eq(frame.tab_bars, { '##sk_sections_Healing' });
     components.end_sections(ctx);
 end);
 

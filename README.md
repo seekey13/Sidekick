@@ -59,6 +59,7 @@ The one exception is **opt-in leader following** (off by default): with **Follow
 ### Added
 - **Japanese client support**: tick **Japanese Client** in `/sk panel` and spells, abilities and items are sent under their Japanese names, with the **Gather Alert** in Japanese too. — **Jawn**, **アオ**
 - **Scholar Area storms**: an **[A]** button on storm rows casts Accession, then the storm on you, before any single-target storm. — **Benthere**
+- **Group pages for sections**: right-click any section header or tab for **Display as button groups**, which splits the sections into Healing, Support and Utility pages of tabs. — **FFXIOddone**
 
 ### Changed
 - **Lighter on your frame rate**: Sidekick does far less work every frame, most noticeably with tracked/alliance targets or Follow on. — **Toots**, **Yunas**

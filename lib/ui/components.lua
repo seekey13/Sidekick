@@ -2314,8 +2314,8 @@ end
 -- begin_section, drained by end_sections. See "Section Display".
 local deferred_tabs = {}
 
--- Optional navigation groups. Sections added later stay reachable under Utility
--- until they are assigned a more specific page.
+-- Group pages for display_mode 'groups'. A setting key missing here falls into
+-- Utility, so a section added later stays reachable until it is assigned a page.
 local SECTION_GROUPS = { 'Healing', 'Support', 'Utility' }
 local SECTION_GROUP_BY_SETTING = {
     focus_enabled = 'Healing',
@@ -2335,7 +2335,12 @@ local SECTION_GROUP_BY_SETTING = {
     rest_enabled = 'Utility',
     recover_enabled = 'Utility',
 }
+-- The group on show. Session-only: every load starts on the first populated group.
 local active_section_group = SECTION_GROUPS[1]
+-- Groups that have at least one section on this job, filled by begin_section and
+-- read by the next begin_sections, which draws no button for an empty group (a job
+-- with no healing gets no blank Healing page).
+local seen_groups = {}
 
 -- What tab chrome this frame currently has open, so abort_sections can close it
 -- again after a Lua error skipped the matching end_* call. Both stay false in
@@ -2364,9 +2369,10 @@ end
 -- Section Display (collapsing headers, tab bar, or optional button groups)
 -- ============================================================================
 -- The window's main sections render with one of three layouts: the classic stack
--- of CollapsingHeaders, one tab bar, or button groups that filter the same tab
--- bar by purpose. Which one is the per-character `display_mode` setting. Callers use the same
--- shape either way:
+-- of CollapsingHeaders, one tab per section in a single bar, or group pages -- a
+-- row of Healing/Support/Utility buttons over a tab bar holding only that group's
+-- sections. Which one is the per-character `display_mode` setting. Callers use the
+-- same shape either way:
 --
 --     ui.begin_sections(ctx)
 --       local is_open, is_enabled = ui.begin_section(ctx, 'Buffs', 'buff_enabled', false, tooltips.buffs)
@@ -2448,20 +2454,23 @@ local function set_section_enabled(ctx, setting_name, value)
     end
 end
 
--- The right-click popup every section header and every tab carries. It keeps all
--- three layouts available without replacing the existing section headers or tabs.
+local DISPLAY_MODES = {
+    { value = 'headers', label = 'Display as section headers' },
+    { value = 'tabs', label = 'Display as tabs' },
+    { value = 'groups', label = 'Display as button groups' },
+}
+
+-- The right-click popup every section header and every tab carries. It is the
+-- only place display_mode is switched: a hint describing the layout in force,
+-- then all three layouts with the current one checked.
 local function render_display_mode_menu(ctx, setting_name)
     if ui_components.begin_opaque_context_item('##cmenu_display_' .. setting_name) then
-        imgui.TextColored(LIGHT_GRAY, 'Section layout')
+        local hints = tooltips.section_layout_hints
+        imgui.TextColored(LIGHT_GRAY, hints[ctx.settings.display_mode] or hints.headers)
         imgui.Separator()
-        local options = {
-            { value = 'headers', label = 'Display as section headers' },
-            { value = 'tabs', label = 'Display as tabs' },
-            { value = 'groups', label = 'Display as button groups' },
-        }
-        for _, option in ipairs(options) do
-            if imgui.Selectable(option.label, ctx.settings.display_mode == option.value) then
-                pending_display_mode = option.value
+        for _, mode in ipairs(DISPLAY_MODES) do
+            if imgui.Selectable(mode.label, ctx.settings.display_mode == mode.value) then
+                pending_display_mode = mode.value
             end
         end
         ui_components.end_opaque_popup()
@@ -2567,10 +2576,21 @@ local function begin_tab_section(ctx, label, setting_name, default_value, toolti
     return selected, enabled
 end
 
+-- Each group is its own tab bar, so the selection tracking above belongs to the
+-- bar being left and is dropped with it.
+local function select_section_group(group)
+    if group == active_section_group then
+        return
+    end
+    active_section_group = group
+    selected_section, previous_section, reselect_id = nil, nil, nil
+    reselect_frames, autoselect_frames = 0, 0
+end
+
 -- Open the container the sections render into. Pair with end_sections.
 -- Resolves the mode ONCE per frame onto ctx: begin_section reads ctx.section_mode
--- and never the setting, so the frame cannot end in a different chrome than it
--- began in.
+-- and ctx.section_page (the group on show, nil outside group mode) and never the
+-- setting, so the frame cannot end in a different chrome than it began in.
 function ui_components.begin_sections(ctx)
     deferred_tabs = {}
     tab_bar_open = false
@@ -2592,23 +2612,38 @@ function ui_components.begin_sections(ctx)
         end
     end
 
+    -- Last frame's groups. Empty only before the first frame, which shows every group.
+    local populated = seen_groups
+    seen_groups = {}
+
     local grouped = ctx.settings.display_mode == 'groups'
+    ctx.section_page = nil
     if grouped then
-        for i, group in ipairs(SECTION_GROUPS) do
-            if i > 1 then imgui.SameLine() end
-            local group_width, group_height = imgui.CalcTextSize(group)
-            local group_size = { group_width, group_height }
-            if imgui.Selectable(group, active_section_group == group, 0, group_size)
-                    and active_section_group ~= group then
-                active_section_group = group
-                selected_section, previous_section, reselect_id = nil, nil, nil
-                reselect_frames, autoselect_frames = 0, 0
+        -- The job has no section in the group on show (a job change, or a load
+        -- onto a job with no healing): move to the first group that has one.
+        if next(populated) ~= nil and not populated[active_section_group] then
+            for _, group in ipairs(SECTION_GROUPS) do
+                if populated[group] then
+                    select_section_group(group)
+                    break
+                end
+            end
+        end
+        local drawn = false
+        for _, group in ipairs(SECTION_GROUPS) do
+            if populated[group] or next(populated) == nil then
+                if drawn then imgui.SameLine() end
+                drawn = true
+                -- An explicit size: a zero width would stretch the Selectable across
+                -- the row and swallow the clicks meant for the buttons after it.
+                local group_width, group_height = imgui.CalcTextSize(group)
+                if imgui.Selectable(group, active_section_group == group, 0, { group_width, group_height }) then
+                    select_section_group(group)
+                end
             end
         end
         imgui.Separator()
         ctx.section_page = active_section_group
-    else
-        ctx.section_page = nil
     end
 
     if ctx.settings.display_mode == 'tabs' or grouped then
@@ -2672,8 +2707,11 @@ function ui_components.abort_sections()
 end
 
 function ui_components.begin_section(ctx, label, setting_name, default_value, tooltip)
-    if ctx.settings.display_mode == 'groups'
-        and (SECTION_GROUP_BY_SETTING[setting_name] or 'Utility') ~= ctx.section_page then
+    -- Group pages: note the section's group (in every mode, so a switch to groups
+    -- already knows which are empty), then skip it unless its group is on show.
+    local group = SECTION_GROUP_BY_SETTING[setting_name] or 'Utility'
+    seen_groups[group] = true
+    if ctx.section_page and group ~= ctx.section_page then
         return false, false
     end
 

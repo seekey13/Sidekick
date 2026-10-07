@@ -1142,8 +1142,8 @@ function ui_config.render(settings, job_def, callback)
             end
 
             -- Everything from here to end_sections is a "section": one enable checkbox
-            -- plus a body. They render as collapsing headers or as a tab bar depending
-            -- on settings.display_mode. Nothing but sections may be submitted between
+            -- plus a body. They render as collapsing headers, a tab bar or group pages
+            -- depending on settings.display_mode. Nothing but sections may be submitted between
             -- these two calls -- in tab mode a stray widget would land inside the tab
             -- bar, which ImGui does not allow.
             ui.begin_sections(ctx)
