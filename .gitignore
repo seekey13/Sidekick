@@ -44,3 +44,6 @@ docs/
 # Superpowers SDD workspace (ledgers, briefs, review packages) -- local scratch
 .superpowers/
 .DS_Store
+
+# Claude Code agent worktrees -- local, never commit (a gitlink here breaks actions/checkout)
+.claude/worktrees/
