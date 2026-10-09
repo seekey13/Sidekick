@@ -381,6 +381,7 @@ local PROFILE_EXCLUDED_KEYS = {
     window_size_mode = true,
     display_mode = true,
     ui_opacity = true,
+    party_overview_enabled = true,
     ui_open = true,
     widget_open = true,
 }
@@ -1076,6 +1077,10 @@ function ui_config.render(settings, job_def, callback)
             -- Profile/job + Start/Stop rows move to the floating widget while it is open.
             if not widget_visible then
                 render_header(ctx)
+            end
+
+            if settings.party_overview_enabled then
+                ui.render_party_overview(ctx)
             end
 
             -- Tracked Targets list (show if any are being tracked)

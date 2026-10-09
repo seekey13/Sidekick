@@ -47,6 +47,24 @@ test('a tracked target at its cached index is read without a scan', function()
     assert_eq(n < 20, true, 'slot reads: ' .. n);
 end);
 
+test('tracked HPP accepts only percentages from zero through one hundred', function()
+    for _, value in ipairs({ -1, 101, 0, 55, math.huge, -math.huge, 0 / 0 }) do
+        reset();
+        track(0x401);
+        fake.state.entities[0x401].HPPercent = value;
+        refresh();
+        local valid = value == value and value >= 0 and value <= 100;
+        local t = common.game_state.tracked[SID];
+        assert_eq({ t.hpp, t.hpp_valid }, { valid and value or 0, valid });
+    end
+    reset();
+    track(0x401);
+    fake.state.entities[0x401].HPPercent = nil;
+    refresh();
+    local t = common.game_state.tracked[SID];
+    assert_eq({ t.hpp, t.hpp_valid }, { 0, false });
+end);
+
 test('a missing tracked target rescans at most once a second', function()
     reset();
     track(0x401);

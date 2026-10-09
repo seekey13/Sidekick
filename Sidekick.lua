@@ -122,6 +122,8 @@ local default_settings = T{
     window_size_mode = 'auto',
     -- Config window opacity (job-independent). 1-100, set from /sk panel.
     ui_opacity = 100,
+    -- Optional read-only health overview in the config window; off by default.
+    party_overview_enabled = false,
     -- Whether the config window was open when the addon last unloaded; reopened on load.
     ui_open = false,
     -- Same, for the floating widget (/sk widget).

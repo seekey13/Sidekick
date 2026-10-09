@@ -3569,13 +3569,13 @@ local function read_alliance_buffs(server_id)
     return trust_buffs[server_id] or {}
 end
 
--- Internal helper: pcall(fn, ...) returning fallback on error or nil. Pass the method
+-- Internal helper: return fallback,false on error or nil, otherwise value,true. Pass the method
 -- and its object (safe_call(0, pm.GetMemberHP, pm, i) == pm:GetMemberHP(i)) rather
 -- than a closure: the snapshot runs every frame and a closure per read is GC churn.
 local function safe_call(fallback, fn, ...)
     local ok, val = pcall(fn, ...)
-    if ok and val ~= nil then return val end
-    return fallback
+    if ok and val ~= nil then return val, true end
+    return fallback, false
 end
 
 -- Internal helper: an entity's {x, y, z}, or nil if any read fails.
@@ -3593,7 +3593,11 @@ local function build_member_snapshot(pm, entity_mgr, flat_index)
     local target_idx = safe_call(0,  pm.GetMemberTargetIndex, pm, flat_index)
 
     local hp  = safe_call(0, pm.GetMemberHP,         pm, flat_index)
-    local hpp = safe_call(0, pm.GetMemberHPPercent,  pm, flat_index)
+    local hpp, hpp_valid = safe_call(0, pm.GetMemberHPPercent, pm, flat_index)
+    hpp = tonumber(hpp)
+    hpp_valid = hpp_valid and hpp ~= nil and hpp == hpp
+        and hpp ~= math.huge and hpp ~= -math.huge and hpp >= 0 and hpp <= 100
+    if not hpp_valid then hpp = 0 end
     local mp  = safe_call(0, pm.GetMemberMP,         pm, flat_index)
     local mpp = safe_call(0, pm.GetMemberMPPercent,  pm, flat_index)
     local tp  = safe_call(0, pm.GetMemberTP,         pm, flat_index)
@@ -3657,6 +3661,7 @@ local function build_member_snapshot(pm, entity_mgr, flat_index)
         target_index = target_idx,
         hp           = hp,
         hpp          = hpp,
+        hpp_valid    = hpp_valid,
         max_hp       = max_hp,
         mp           = mp,
         mpp          = mpp,
@@ -3841,7 +3846,10 @@ function common.refresh_game_state()
         if entity and entity.ServerId ~= sid then entity = nil end
 
         if entity and entity.TargetIndex and entity.TargetIndex > 0 then
-            local hpp = entity.HPPercent or 0
+            local hpp = tonumber(entity.HPPercent)
+            local hpp_valid = hpp ~= nil and hpp == hpp
+                and hpp ~= math.huge and hpp ~= -math.huge and hpp >= 0 and hpp <= 100
+            if not hpp_valid then hpp = 0 end
 
             -- Position
             local position = {x = 0, y = 0, z = 0}
@@ -3883,6 +3891,7 @@ function common.refresh_game_state()
                 target_index  = entity.TargetIndex,
                 hp            = hp,
                 hpp           = hpp,
+                hpp_valid     = hpp_valid,
                 max_hp        = max_hp,
                 max_hp_estimated = max_hp_estimated,
                 main_job      = tt.main_job,

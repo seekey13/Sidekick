@@ -596,6 +596,16 @@ function panel.render(addon_settings, save_settings)
             if imgui.IsItemHovered() then
                 imgui.SetTooltip(tooltips.japanese_client)
             end
+
+            imgui.Separator()
+            local overview_var = { addon_settings.party_overview_enabled == true }
+            if imgui.Checkbox('Show Party Overview in Configuration', overview_var) then
+                addon_settings.party_overview_enabled = overview_var[1]
+                if save_settings then save_settings() end
+            end
+            if imgui.IsItemHovered() then
+                imgui.SetTooltip('Adds a read-only player, party, and tracked-target HP view to the configuration window.')
+            end
         end
     end
     imgui.End()
