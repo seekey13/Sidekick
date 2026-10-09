@@ -54,7 +54,8 @@ files['tests/ashita.lua'] = {
 }
 files['tests/*_test.lua'] = {
     read_globals = { 'test', 'assert_eq' },
-    -- Tests freeze os.clock to drive recast timing.
-    ignore = { '122/os' },
+    -- Tests freeze os.clock to drive recast timing, and define the ImGui enums
+    -- Ashita's binding would inject.
+    ignore = { '122/os', '111/ImGui[%w_]+' },
 }
 files['tests/data/'] = { max_line_length = false }

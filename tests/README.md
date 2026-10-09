@@ -32,6 +32,10 @@ from `fake.state`:
 
 A test edits that table and calls `fake.reset()` between cases.
 
+Every `imgui` call returns `false` unless a test puts a handler under its name in
+`fake.imgui` (`fake.imgui = { BeginTabBar = function(id) ... end }`); `fake.reset()`
+clears it.
+
 ## Test files
 
 - `jobs_test.lua` checks every `lib/jobs/*.lua` against the CatsEyeXI tables in `data/`:
@@ -51,6 +55,9 @@ A test edits that table and calls `fake.reset()` between cases.
 - `tracked_targets_test.lua` counts entity-slot reads per `refresh_game_state()`: a
   tracked target is read at its cached index, and misses share one rescan at most once
   a second.
+- `ui_components_test.lua` drives the config window's section display through a
+  recording `fake.imgui`: the header, tab and group-page layouts, group filtering, and
+  the one-frame-deferred layout switch.
 
 ## Adding a test
 

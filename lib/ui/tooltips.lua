@@ -18,16 +18,23 @@ return {
         '- Paused: combat is currently blocked\n' ..
         '- Running: fully active',
 
-    display_as_tabs_hint =
-        'Sections are stacked as collapsing headers.',
+    -- Keyed by display_mode; the section right-click menu shows the one in force.
+    section_layout_hints = {
+        headers =
+            'Sections are stacked as collapsing headers.',
+        tabs =
+            'Sections are shown as tabs.\n' ..
+            'Dimmed tabs are disabled and sit after the enabled ones.\n' ..
+            'Open a tab to enable or disable it.',
+        groups =
+            'Sections are split into Healing, Support and Utility.\n' ..
+            'Click a group to show its sections as tabs.\n' ..
+            'Dimmed tabs are disabled and sit after the enabled ones.\n' ..
+            'Open a tab to enable or disable it.',
+    },
 
-    display_as_headers_hint =
-        'Sections are shown as tabs.\n' ..
-        'Dimmed tabs are disabled and sit after the enabled ones.\n' ..
-        'Open a tab to enable or disable it.',
-
-    -- Named for the state each one DESCRIBES (the display_as_* pair above is named for
-    -- the action instead). The call site picks the hint for the mode currently in force.
+    -- Named for the state each one DESCRIBES, like section_layout_hints above. The
+    -- call site picks the hint for the mode currently in force.
     window_size_auto_hint =
         'The window resizes itself to fit its contents.\n' ..
         'Instant, but it cannot be resized by hand.',

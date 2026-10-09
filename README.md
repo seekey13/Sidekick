@@ -59,6 +59,7 @@ The one exception is **opt-in leader following** (off by default): with **Follow
 ### Added
 - **Japanese client support**: tick **Japanese Client** in `/sk panel` and spells, abilities and items are sent under their Japanese names, with the **Gather Alert** in Japanese too. — **Jawn**, **アオ**
 - **Scholar Area storms**: an **[A]** button on storm rows casts Accession, then the storm on you, before any single-target storm. — **Benthere**
+- **Group pages for sections**: right-click any section header or tab for **Display as button groups**, which splits the sections into Healing, Support and Utility pages of tabs. — **FFXIOddone**
 
 ### Changed
 - **Lighter on your frame rate**: Sidekick does far less work every frame, most noticeably with tracked/alliance targets or Follow on. — **Toots**, **Yunas**
@@ -67,7 +68,6 @@ The one exception is **opt-in leader following** (off by default): with **Follow
 - **Hold AOE for Group holds Bard single songs too**: while an area song waits on a gather, single-target songs wait with it.
 
 ### Fixed
-- **Indi auras stay visible with Follow on**: Follow no longer rewrites other players' position packets, which blanked their Geo Indi auras.
 - **Perpetuance works under Light Arts**: it no longer waits for Addendum: White, and no longer holds back an Accession assigned to the same spell. — **Benthere**
 - **Light Arts and Dark Arts go first**: Scholar raises its Arts stance before casting other buffs instead of after them. — **Vitali**
 - **Offensive Indi spells stop recasting**: Indi-Frailty, -Vex, -Paralysis, -Languor, -Slip, -Torpor and -Slow are no longer recast while their aura is still up. — **Kamakazi**
