@@ -24,12 +24,12 @@ local res = {
 }
 
 local ROLE = {
-    heal = 'heal', heal_aoe = 'heal_aoe', heal_pet = 'pet_heal', debuff_removal = 'remove',
+    heal = 'heal', heal_aoe = 'heal', heal_pet = 'pet_heal', debuff_removal = 'remove',
     pet_debuff_removal = 'pet_remove', critical = 'emergency', revive = 'revive',
     recover_mp = 'recover', recover_tp = 'recover', recover_party_mp = 'recover', buff = 'buff',
 }
 -- v2 entries a v3 job module owns instead of the generic role.
-local MODULE_OWNED = { ['heal_aoe|Accession'] = true }
+local MODULE_OWNED = {}
 
 -- Known, intended differences from v2: job|name|what -> why.
 local ACCEPTED = {
@@ -37,6 +37,8 @@ local ACCEPTED = {
     ['blue_mage|Orcish Counterstance|MISSING'] = 'v2 casts "Orcish Counterstance"; the client only knows "O. Counterstance"',
     ['blue_mage|O. Counterstance|EXTRA'] = 'same spell, under its client name',
     ['paladin|Raise|EXTRA'] = 'PLD learns Raise at 50; v2 never offered it',
+    ['scholar|Accession|MISSING'] = 'v2 paired it with cures in heal_aoe; v3 lists it as an emergency boost',
+    ['scholar|Accession|EXTRA'] = 'same ability, as a healing boost',
     -- v2 copied the server's spell_list cost; the client blocks the cast by its own
     -- (reported to the CatsEyeXI devs as a server/client mismatch).
     ['white_mage|Arise|mp'] = 'client 150, server 300',
@@ -78,9 +80,13 @@ for _, job in ipairs(jobs) do
     local player = { main = def.job_id, main_lv = 75, sub = nil, sub_lv = 0,
         has_spell = function () return true end,
         has_ability = function (id) return named[res.abilities[id].en] == true end }
-    local by = {}
+    local by, acts = {}, {}
     for _, a in ipairs(catalog.build(res, player, K)) do
-        if a.role then by[a.role .. '|' .. (a.label or a.name)] = a end
+        if a.role then
+            acts[#acts + 1] = a
+            by[a.role .. '|' .. (a.label or a.name)] = a
+            by[a.role .. '|' .. a.name] = by[a.role .. '|' .. a.name] or a  -- "Regen (keep up)" is v2's Regen
+        end
     end
 
     local seen = {}
@@ -101,9 +107,10 @@ for _, job in ipairs(jobs) do
                         cmp('level', e.level, a.level)
                         cmp('mp', e.cost, a.mp)
                     end
-                    cmp('status', list(e.buff_id), list(a.status))
+                    if not a.boost then cmp('status', list(e.buff_id), list(a.status)) end  -- v2 had no boosts
                     cmp('removes', list(e.debuff_id), list(a.removes))
-                    if role == 'heal' then cmp('potency', e.value, a.potency) end  -- v2 read value only for heals
+                    -- v2 read value only for single-target heals; v3's area priors are new.
+                    if role == 'heal' and e.value then cmp('potency', e.value, a.potency) end
                     cmp('wakes', e.wakes == true or nil, a.wakes)
                     cmp('blocked_by', list(e.blocked_by), list(a.blocked_by))
                     cmp('requires', list(e.requires_buff), list(a.requires))
@@ -125,9 +132,10 @@ for _, job in ipairs(jobs) do
         end
     end
 
-    -- Catalog actions in a generic role that v2 never offered this job (new coverage or a false positive).
-    for _, a in pairs(by) do
-        if not seen[a] then report(job, a.label or a.name, 'EXTRA', nil, a.role) end
+    -- Catalog actions in a generic role that v2 never offered this job (new coverage or a false
+    -- positive). Regen as a heal is new everywhere: v2 only kept it up as a buff.
+    for _, a in ipairs(acts) do
+        if not seen[a] and not a.tick then report(job, a.label or a.name, 'EXTRA', nil, a.role) end
     end
 end
 

@@ -8,6 +8,9 @@
 
 local can = {}
 
+can.THROTTLE = 1.1        -- the server's lockout after any action
+can.SPELL_THROTTLE = 3.1  -- ...and after a spell, counted from when it lands
+
 -- Valid-target flags (spell/ability Targets).
 local SELF, PARTY, ENEMY, CORPSE = 1, 4, 32, 128
 

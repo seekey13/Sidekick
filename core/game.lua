@@ -5,23 +5,29 @@
     snapshot alone, so tests can hand it a fake one.
 
     unit = { slot, sid, tidx, name, kind = 'self'|'party'|'trust', hpp, hp, max_hp,
-             mpp, mp, tp, in_zone, dist, status (entity), alive, buffs = { [id] = true } }
+             mpp, mp, tp, in_zone, dist, pos = { x, y, z }, status (entity), alive,
+             buffs = { [id] = true }, hot = HP still to come from your Regen }
+    Plus what healing scores with: learned potency, the day and the weather.
 ]]--
 
 local ffi = require('ffi')
 local buffs = require('core.buffs')
+local observed = require('core.observed')
 local packets = require('core.packets')
 
 local game = {}
 
 local TRUST = 0x1000000  -- server ids from here up are NPCs; in a party slot, a trust
 local DEAD, MOUNTED_STATUS, RESTING = 3, 5, 33  -- entity status
-local MOUNTED_BUFF, AMNESIA = 252, 16
+local MOUNTED_BUFF, AMNESIA, REGEN = 252, 16, 42
 local SILENCED = { 6, 29 }                          -- Silence, Mute
 local INCAPACITATED = { 2, 7, 10, 14, 17, 19, 28 }  -- Sleep, Petrify, Stun, Charm x2, Sleep II, Terror
 local COMBAT_GRACE = 5      -- seconds "in combat" lasts after the battle target goes (multi-mob pulls)
 local MOVE_SAMPLE = 0.25    -- seconds between position samples
 local READY_DELAY = 0.5     -- a recast reading 0 is trusted only after this (server lag)
+local SCH, STRATAGEMS = 20, 231
+-- Stratagem charges by SCH level (CatsEyeXI, from v2): { level, charges, seconds per charge }.
+local STRATAGEM_TIERS = { { 75, 5, 48 }, { 65, 4, 60 }, { 50, 3, 80 }, { 30, 2, 120 }, { 10, 1, 240 } }
 
 -- Towns, ships and the like: no combat, so no automation.
 local SAFE_ZONES = {}
@@ -37,13 +43,29 @@ ffi.cdef[[
 ]]
 
 -- Client functions found once, on first read (none of this exists offline).
-local seek_bt, event_ptr  -- false / 0 when the signature isn't found
+local seek_bt, event_ptr, weather_ptr, clock_ptr  -- false / 0 when the signature isn't found
 local function init()
     if seek_bt ~= nil then return end
     local bt = ashita.memory.find('FFXiMain.dll', 0, '66A1????????83EC186685C053565774??0FBFC08B0C85', 0, 0)
     seek_bt = bt and bt ~= 0 and ffi.cast('sk3_seek_battle_actor', bt) or false
     event_ptr = ashita.memory.find('FFXiMain.dll', 0,
         'A0????????84C0741AA1????????85C0741166A1????????663B05????????0F94C0C3', 0, 0) or 0
+    -- The same signatures as LuAshitacast and v2's lib/core/vanadiel.lua.
+    weather_ptr = ashita.memory.find('FFXiMain.dll', 0, '66A1????????663D????72', 0, 0) or 0
+    clock_ptr = ashita.memory.find('FFXiMain.dll', 0, 'B0015EC390518B4C24088D4424005068', 0, 0) or 0
+end
+
+-- The zone's weather id (16 Auras, 17 Stellar Glare, 18 Gloom, 19 Darkness...), 0 unknown.
+local function weather()
+    local ptr = weather_ptr ~= 0 and ashita.memory.read_uint32(weather_ptr + 0x02) or 0
+    return ptr ~= 0 and ashita.memory.read_uint8(ptr) or 0
+end
+
+-- The Vana'diel day, 0 Firesday .. 6 Lightsday, 7 Darksday; nil unknown.
+local function day()
+    local ptr = clock_ptr ~= 0 and ashita.memory.read_uint32(clock_ptr + 0x34) or 0
+    if ptr == 0 then return nil end
+    return math.floor((ashita.memory.read_uint32(ptr + 0x0C) + 92514960) / 3456) % 8
 end
 
 local max_hp = {}  -- [sid] = HP seen at 100%: heal sizing needs the deficit
@@ -112,9 +134,19 @@ local function moving(em, tidx, now)
     return now - move.moved < MOVE_SAMPLE
 end
 
+-- Stratagems share one timer that counts down to every charge back: the wait
+-- for one charge, from that timer's seconds and your SCH level.
+function game.charge_wait(seconds, sch_lv)
+    for _, t in ipairs(STRATAGEM_TIERS) do
+        if sch_lv >= t[1] then return math.max(0, seconds - (t[2] - 1) * t[3]) end
+    end
+    return seconds
+end
+
 -- Seconds until `action` (a catalog record) is off recast; 0 = ready.
 function game.recast(action)
-    local recast = AshitaCore:GetMemoryManager():GetRecast()
+    local mm = AshitaCore:GetMemoryManager()
+    local recast = mm:GetRecast()
     local key, timer = action.kind .. action.recast, 0
     if action.kind == 'ma' then
         timer = recast:GetSpellTimer(action.recast)
@@ -123,7 +155,13 @@ function game.recast(action)
             if recast:GetAbilityTimerId(i) == action.recast then timer = recast:GetAbilityTimer(i); break end
         end
     end
-    if timer > 0 then ready_since[key] = nil; return timer / 60 end
+    if timer > 0 then
+        ready_since[key] = nil
+        if action.kind ~= 'ja' or action.recast ~= STRATAGEMS then return timer / 60 end
+        local p = mm:GetPlayer()
+        return game.charge_wait(timer / 60, p:GetMainJob() == SCH and p:GetMainJobLevel()
+            or p:GetSubJob() == SCH and p:GetSubJobLevel() or 0)
+    end
     ready_since[key] = ready_since[key] or os.clock()
     return math.max(0, READY_DELAY - (os.clock() - ready_since[key]))
 end
@@ -153,15 +191,18 @@ function game.read(now)
                 in_zone = party:GetMemberZone(i) == zone,
             }
             if u.hpp == 100 and u.hp > 0 then max_hp[sid] = u.hp end
-            u.max_hp = max_hp[sid]
+            -- Never seen at full: estimate from HP%. Rough at low HP, good enough to score.
+            u.max_hp = max_hp[sid] or (u.hpp > 0 and u.hp > 0 and math.floor(u.hp * 100 / u.hpp)) or nil
             if u.in_zone and tidx > 0 then
                 u.status = em:GetStatus(tidx)
                 u.dist = i == 0 and 0 or math.sqrt(em:GetDistance(tidx))
+                u.pos = { em:GetLocalPositionX(tidx), em:GetLocalPositionY(tidx), em:GetLocalPositionZ(tidx) }
             end
             u.alive = u.hpp > 0 and u.status ~= DEAD
             if u.kind == 'self' then u.buffs = own_buffs(player)
             elseif u.kind == 'trust' then u.buffs = buffs.of(sid, now); tracks[sid] = true
             else u.buffs = party_buffs(sid) end
+            u.hot = u.buffs[REGEN] and observed.hot(sid, now) or 0
             units[#units + 1] = u
         end
     end
@@ -189,6 +230,7 @@ function game.read(now)
         silenced = any(me.buffs, SILENCED),
         amnesia = me.buffs[AMNESIA] == true,
         recast = game.recast,
+        learned = observed.learned, day = day(), weather = weather(),
     }
 end
 

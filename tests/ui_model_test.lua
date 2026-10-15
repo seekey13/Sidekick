@@ -45,7 +45,7 @@ test('WHM 75 / BLM 37: every behavior section, in order, then Options', function
     eq(view.job, 'WHM 75 / BLM 37')
     eq(keys(view.sections, 'id'), { 'heal', 'remove', 'buff', 'revive', 'options' })
     eq(keys(view.sections, 'title'), { 'Healing', 'Debuffs', 'Buffs', 'Raise', 'Options' })
-    eq(keys(section(view, 'heal').rows), { 'Cure', 'Drain', 'Divine Seal', 'Martyr' })  -- heal, then emergency
+    eq(keys(section(view, 'heal').rows), { 'Cure', 'Curaga', 'Regen', 'Drain', 'Divine Seal', 'Martyr' })  -- heal, then emergency
     eq(keys(section(view, 'revive').rows), { 'Raise', 'Arise' })
 end)
 
@@ -156,6 +156,15 @@ test('section switches and plain values', function ()
     eq(view.heal.focus_names, { 'A', 'B' })
 end)
 
+test('healing skips a member by name, and takes them back', function ()
+    local cfg = settings.defaults()
+    model.toggle_skip(cfg, 'A')
+    eq(cfg.heal.skip, { A = true })
+    eq(build(whm, cfg).heal.members, { { name = 'A', healed = false }, { name = 'B', healed = true } })
+    model.toggle_skip(cfg, 'A')
+    eq(cfg.heal.skip, {})
+end)
+
 test('status line: what it would do or why not when stopped, the last send when running', function ()
     local e = { at = 990, action = 'Cure IV', target = 'A', behavior = 'heal', why = 'A at 62%' }
     eq(build(whm, nil, nil, status({ intent = e })).status.text, 'would: Cure IV -> A (heal: A at 62%)')
@@ -183,6 +192,8 @@ test('party lines: HP against the thresholds, distance, statuses by name', funct
     eq({ view.party[2].buffs, view.party[3].kind, view.party[5].away }, { 'Haste, Protect', 'trust', true })
     eq(view.bt, { name = 'Crab', hpp = 50, dist = '4.3y' })
     eq(view.flags, { 'moving', 'safe zone' })
+    g.units[3].hpp = 35  -- the focus member is critical on their own line (40)
+    eq(build(whm, cfg, g).party[3].hp, 'critical')
 end)
 
 test('a long status list is cut short, the whole list kept for the tooltip', function ()

@@ -2,7 +2,7 @@
 
 Ground-up rewrite of [Sidekick](https://github.com/seekey13/Sidekick), the support-automation addon for Ashita v4 on [CatsEyeXI](https://www.catseyexi.com/).
 
-**Status: in development.** It heals (with critical-HP boosts and a focus target), removes debuffs, raises, and keeps up buffs you turn on, for you, your party and trusts. Sidekick v2 can stay loaded alongside it, but don't run both at once.
+**Status: in development.** It heals by urgency: the most HP for your MP or TP when someone is hurt, the fastest heal when they're in danger, a boost (Divine Seal, Accession...) when they're critical. It weighs area cures and Regen against single cures, learns what your cures really heal, and has a focus target. It also removes debuffs, raises, and keeps up buffs you turn on, for you, your party and trusts. Sidekick v2 can stay loaded alongside it, but don't run both at once.
 
 ## What's different
 
@@ -31,7 +31,7 @@ The window (`/sk3`) does what the commands do and shows what Sidekick sees:
 - **Start / Stop**, and what it would do right now, or why it's waiting (casting, moving, safe zone...).
 - **Party**: everyone as Sidekick reads them: HP against your heal threshold, MP, distance, statuses; then your battle target, pet and the flags that stop automation.
 - **Recent actions**: the last 10 sent, and why.
-- **A section per behavior** (Healing, Debuffs, Buffs, Raise), each with its on/off switch. Each row turns a family on or off and says whether it's ready or why not. Buff rows also pick a tier ("Auto" casts the best you can) or, for pick-one groups like bar-elements and songs, the spell; and the targets, ME and P1-P5. Healing has its thresholds, focus member and gear potency above its rows.
+- **A section per behavior** (Healing, Debuffs, Buffs, Raise), each with its on/off switch. Each row turns a family on or off and says whether it's ready or why not. Buff rows also pick a tier ("Auto" casts the best you can) or, for pick-one groups like bar-elements and songs, the spell; and the targets, ME and P1-P5. Healing has its HP lines (heal, danger, critical, and the focus member's own), gear potency and who to heal above its rows.
 - **Options**: Japanese client, action log.
 
 Right-click any section header or tab to lay the sections out as collapsing headers, as tabs, or as Healing / Support / Utility pages of tabs. Right-click empty space in the window to switch between fitting it to its contents and a size you drag (the contents then scroll).

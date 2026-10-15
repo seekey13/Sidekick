@@ -11,7 +11,7 @@ First presented in chat on 2026-10-14. Updated 2026-10-15 to match the decisions
 | 2a | Done, untested in game: game snapshot (`/sk3 state`) |
 | 2b | Done, untested in game: engine, heal/remove/buff/revive (`/sk3 plan`, `start`, `buff`, `focus`) |
 | 2c | Done, untested in game: settings window (`ui/model.lua` pure, `ui/window.lua` thin) |
-| 2d | Spec under review: [healing overhaul](../specs/2026-10-15-healing-design.md) |
+| 2d | Done, untested in game: [healing overhaul](../specs/2026-10-15-healing-design.md) (bands, area heals, Regen, boosts, learned potency); the in-game check of the area priors is left |
 | 3–5 | Not started |
 
 The dev command is `/sk3`, because v2 is still loaded and owns `/sk`. v3 takes `/sk` at cutover.
@@ -83,14 +83,14 @@ Record: `{kind, id, en, jp, family, tier, mp, tp, recast, range, targets, area, 
 
 ```lua
 Cure      = { role='heal', potency={30,90,200,400,700}, wakes=true },
-Curaga    = { role='heal_aoe', wakes=true },
+Curaga    = { role='heal', potency={60,130,270,450}, wakes=true },   -- area from the DAT
 Cursna    = { role='remove', removes=CURSE },
 Protect   = { role='buff' },                         -- status found by name: "Protect" -> 40
 Protectra = { role='buff', status='Protect' },
 Barfira   = { role='buff', status='Barfire', pick_one='barelement' },
 Raise     = { role='revive' },
 ['Divine Seal'] = { role='emergency' },
-Accession = { role='modifier', spends='stratagem', applies=area_able },
+Accession = { role='emergency', boost={'healing', area=10, mp=2, tiers=4} },  -- healing fires it
 Pianissimo= { role='modifier', applies=is_song },
 ```
 
@@ -125,7 +125,9 @@ That one mechanism replaces:
 - the per-feature Nether Void, Diffusion, Embolden, Enlightenment, Unbridled Learning, Accession, Pianissimo and Entrust plumbing
 - the 6 near-duplicate UI button renderers
 
-The generic behaviors (one file each, about 50–150 lines): heal, heal_aoe, emergency, remove (spells and items), wake, revive, buff, recover, rest, follow, pet_heal, pet_send.
+The generic behaviors (one file each, about 50–300 lines): heal (single and area heals, Regen, emergencies), remove (spells and items), wake, revive, buff, recover, rest, follow, pet_heal, pet_send.
+
+Healing (2d) is the one behavior that scores instead of following a list: every usable heal aimed at every reachable unit is a candidate covering the units in its area, and the band (critical, danger, efficient) picks who counts and how candidates rank. `core/observed.lua` learns each heal's real potency from 0x028 and tracks your ticking Regens, and the snapshot carries both, so the engine still decides from the snapshot alone. Healing fires Accession itself; the generic modifier chain is still for the rest.
 
 ### 5. Job modules, only where real state machines exist
 
@@ -160,11 +162,11 @@ Everything v2 does stays, including the three display modes (headers/tabs/groups
 ## Layout and size target
 
 ```
-Sidekick3.lua  core/{game,buffs,packets,can,catalog,knowledge,resources,engine,settings}.lua
+Sidekick3.lua  core/{game,buffs,packets,observed,can,catalog,knowledge,resources,engine,settings}.lua
 behaviors/*.lua  jobs/{sch,brd,cor,geo,run,pup,bst,nin,blu,dnc}.lua  ui/{model,window}.lua  tests/  tools/
 ```
 
-Target: 8k lines or less, a cut of about 70%. The architecture doc becomes one page. At the end of phase 2c the tracked code (without `tests/data`) is about 3.4k lines.
+Target: 8k lines or less, a cut of about 70%. The architecture doc becomes one page. At the end of phase 2c the tracked code (without `tests/data`) is about 3.4k lines; after 2d, about 3.9k.
 
 ## Phases
 
@@ -176,7 +178,7 @@ Target: 8k lines or less, a cut of about 70%. The architecture doc becomes one p
 | 2b | Engine plus heal, remove, buff and revive (`/sk3 plan`, `start`, `buff`, `focus`) | WHM/RDM/PLD play-test |
 | 2c | Settings window: generic rows, sections, display modes, window size | Play-test |
 | 2d | Healing overhaul: candidates by band (Critical/Danger/Efficient), Regen as a heal-over-time candidate, learned potency from 0x028 | Spec approved, then play-test |
-| 3 | The rest of the generic behaviors (heal_aoe, emergency, wake, recover, rest, follow, items, pet_heal, pet_send), focus, tracked targets, alliance, hold-AOE gather, profiles, Japanese | Fake-client scenario tests |
+| 3 | The rest of the generic behaviors (wake, recover, rest, follow, items, pet_heal, pet_send), focus, tracked targets, alliance (area heals then score per party), hold-AOE gather, profiles, Japanese | Fake-client scenario tests |
 | 4 | Job modules (BRD last, with the most time budgeted) | Per-job play-test against the README feature list |
 | 5 | Panel, widget, party_share, docs, take over `/sk`, release | v2 frozen |
 

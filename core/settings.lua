@@ -2,7 +2,8 @@
     Settings: one file per job pair (config/addons/sidekick3/<character>/WHM_BLM.lua),
     and the row rule shared by the engine and the UI.
 
-    A row is a spell family ("Cure") or a pick_one group ("barelement"):
+    A row is a spell family ("Cure"), a pick_one group ("barelement") or a labelled
+    use ("Regen (keep up)", when one family has several):
         rows[key] = { on = bool, pick = action name or nil (= best tier),
                       targets = { [party slot] = true } }    -- buffs only
     A row never saved uses its default: on, except buffs, which are opt-in.
@@ -12,8 +13,12 @@
 local settings = {}
 
 local DEFAULTS = {
-    heal = { on = true, threshold = 75, critical = 30, focus = '', focus_threshold = 85,
-             cure_potency = 0, waltz_potency = 0 },  -- +% from gear, applied to each cure's potency
+    -- HP% lines: efficient under threshold, danger, critical (behaviors/heal.lua);
+    -- the focus member has its own. skip = { [name] = true }: never healed for their sake.
+    heal = { on = true, threshold = 75, danger = 50, critical = 30,
+             focus = '', focus_threshold = 85, focus_danger = 60, focus_critical = 40, skip = {},
+             cure_potency = 0, waltz_potency = 0,  -- +% from gear
+             regen_potency = 0 },                  -- +HP per Regen tick from gear
     remove = { on = true },
     buff = { on = true },
     revive = { on = true },
@@ -22,7 +27,8 @@ local DEFAULTS = {
     ui = { open = false, display = 'headers', size = 'auto' },  -- display: headers | tabs | groups; size: auto | custom
 }
 
-function settings.key(a) return a.pick_one or a.family end
+-- pick_one before label: labelled members of one group (geo_ja) stay one row.
+function settings.key(a) return a.pick_one or a.label or a.family end
 
 function settings.row(cfg, a)
     return cfg.rows[settings.key(a)] or { on = a.role ~= 'buff' }

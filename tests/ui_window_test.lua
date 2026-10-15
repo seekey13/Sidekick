@@ -174,6 +174,16 @@ test('sliders write as they move and save once let go; focus and options save', 
     eq(cfg.heal.focus, '')
     eq(render(cfg, st, { ['Japanese client##sk3_japanese'] = true }), 1)
     eq(cfg.japanese, true)
+    eq(render(cfg, st, { ['Focus danger under##sk3_focus_danger'] = 65 }), 1)
+    eq(cfg.heal.focus_danger, 65)
+end)
+
+test('a member unticked under Heal is skipped by healing', function ()
+    local cfg, st = settings.defaults(), status()
+    eq(render(cfg, st, { ['A##sk3_heal_A'] = true }), 1)
+    eq(cfg.heal.skip, { A = true })
+    eq(render(cfg, st, { ['A##sk3_heal_A'] = true }), 1)
+    eq(cfg.heal.skip, {})
 end)
 
 test('Start/Stop and the action log change the session, not the settings', function ()

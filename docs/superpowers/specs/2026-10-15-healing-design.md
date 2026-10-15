@@ -1,6 +1,6 @@
 # Healing overhaul: design
 
-Status: design only, not implemented. Replaces the decision logic in `behaviors/heal.lua` and folds the unused `heal_aoe` role into it.
+Status: implemented 2026-10-15 (build steps 1-4), untested in game; step 5, the in-game prior check, is still to do. Replaces the decision logic in `behaviors/heal.lua` and folds the unused `heal_aoe` role into it.
 
 ## Why
 
@@ -53,6 +53,7 @@ mult = boost
 ```
 
 - `boost`: Divine Seal x2 and Rapture x1.5 on healing magic, Contradance x2 on waltzes, while the boost's status is on you. Divine Seal and Rapture both apply to the final amount.
+- Majesty's `potency` isn't a factor: the server adds it beside gear (`1 + cure% + 0.25`). So the prior becomes `a.potency * (1 + (gear% + 25) / 100)`, and `mult` carries `(1 + (gear% + 25) / 100) / (1 + gear% / 100)` so learning stores the Majesty-free base.
 - `sky`: the day and weather bonus, as the server rolls it (`xi.spells.damage.calculateDayAndWeather`). One cast in three applies day and weather together, bonus and penalty alike; the other two get nothing. So the score uses the expected value:
 
 ```lua
@@ -131,21 +132,22 @@ The waltz goes out first because it's instant. On the next tick the member is at
 
 ## Boosts
 
-Knowledge gains `boost = { kind, factor = 1, area }`, where kind is `'healing'` (healing-magic skill 33: Cure, Curaga) or `'waltz'` (TP-cost heals). `factor` multiplies the amount (see Multipliers); `area` (yalms) makes a single-target heal of that kind an area candidate.
+Knowledge gains `boost = { kind, factor = 1, potency, area }`, where kind is `'healing'` (healing-magic skill 33: Cure, Curaga) or `'waltz'` (TP-cost heals). `factor` multiplies the amount and `potency` adds to the cure-potency sum (see Multipliers). `area` (yalms) makes a Cure an area candidate.
 
 ```lua
 ['Divine Seal'] = { role = 'emergency', boost = { 'healing', 2 } },
 ['Contradance'] = { role = 'emergency', boost = { 'waltz', 2 } },
 ['Rapture']     = { role = 'emergency', requires = LIGHT, boost = { 'healing', 1.5 } },
-['Majesty']     = { role = 'buff', priority = 100, boost = { 'healing', area = 10 } },
+['Majesty']     = { role = 'buff', priority = 100, boost = { 'healing', potency = 25, area = 10 } },
 ['Accession']   = { role = 'emergency', requires = LIGHT, boost = { 'healing', area = 10, mp = 2, tiers = 4 } },
 ```
 
-The catalog resolves the boost's status the same way it resolves a buff's status (named like the action).
+The catalog resolves the boost's status the same way it resolves a buff's status (named like the action). Both radii are the server's (`xi.combat.magicAoE.calculateTypeAndRadius`: 10y radial around the target).
 
-- **Majesty (PLD)** is a `buff`: the buff behavior keeps it up, and healing never fires it. While its status is on you, every Cure candidate covers its radius, in every band. With Majesty up, Efficient picks an area Cure for a bunched group by the same arithmetic as Curaga.
-- **Accession (SCH)** is fired by healing, in Danger and Critical only. Efficient never spends a stratagem charge. In those bands, score each Cure candidate a second time as if Accession were up: it covers band units within `area`, its lockout adds `THROTTLE` for the JA, and `can.use` checks the doubled MP (`mp = 2`). If that beats the best plain candidate, fire Accession; the next tick casts the cure with the status up (Critical step 1). One hurt unit never pays for it, because covering one unit scores the same and locks out longer.
-  - `tiers = 4`: the server spreads Cure I-IV only (v2's `ACCESSION_SPELL_IDS`, from `spell_list.sql`). Cure V stays single-target.
+- **Majesty (PLD)** is a `buff`: the buff behavior keeps it up (180s), and healing never fires it. While its status is on you, every Cure tier covers 10y, in every band. With Majesty up, Efficient picks an area Cure for a bunched group by the same arithmetic as Curaga. The server's effect (`scripts/effects/majesty.lua`) also adds 25 to `CURE_POTENCY_II`, which `getCureFinal` adds to the potency sum (capped at 30), so Cure and Curaga both heal more. It also cuts white magic recast by 25%, which the score doesn't see.
+- **Accession (SCH)** is fired by healing, in Danger and Critical only. Efficient never spends a stratagem charge. In those bands, score each Cure I-IV candidate a second time as if Accession were up: it covers band units within `area`, its lockout adds `THROTTLE` for the JA, and `can.use` checks the doubled MP (`mp = 2`, `battleutils` cost). If that beats the best plain candidate, fire Accession; the next tick casts the cure with the status up (Critical step 1). One hurt unit never pays for it, because covering one unit scores the same and locks out longer.
+  - `tiers = 4`: only spells flagged `RADIAL_ACCE` spread, which is Cure I-IV (v2's `ACCESSION_SPELL_IDS`, from `spell_list.sql`). Cure V stays single-target.
+  - The server doubles that cure's recast (triples it on a /SCH), which the score doesn't see either.
   - A charge is spent whenever the score says so. Nothing else in v3 competes for charges yet (Addendum: White lasts hours), so there's no reserve; see Not in this design.
   - An Accession already up (raised by hand) counts like Majesty: the next Cure I-IV is scored as an area candidate.
 
@@ -185,6 +187,7 @@ Table potencies are caps; a leveling character with low MND heals well below the
   - `pos = { x, y, z }`, for area geometry.
   - `max_hp` falls back to `hp * 100 / hpp` when the unit has never been seen at 100%. Integer hpp makes this rough at low HP, but rough is good enough to score. Trusts included: the server's party list packet (`0x0dd_group_list.cpp`) carries a trust's real HP, so `party:GetMemberHP` reads it like a player's. v2 read every party slot the same way and cached max at 100%, but had no fallback: an unseen max meant a deficit of 0.
   - `hot` = pending Regen HP.
+  - `game.recast` for the stratagem timer (recast 231) returns 0 while a charge is banked. Port v2's `STRATAGEM_TIERS` and `charges_from_recast` (`lib/core/common.lua`). Today the raw timer blocks every stratagem while any charge recharges; this fixes Addendum: White too.
   - Plus `g.learned`, `g.day` and `g.weather`. v2's `lib/core/vanadiel.lua` already reads both from FFXiMain.dll signatures; port those two readers. Aurorastorm and the boosts come from your own statuses, which the snapshot already has.
 - **New `core/observed.lua`** (about 40 lines): learned potency plus your ticking Regens, fed by `packets.lua` and read by `game.read`. The engine still decides from the snapshot alone, so tests stay pure.
 - `core/catalog.lua`: copy `cast` (seconds, DAT value / 4), `skill` (for "healing magic"), `tick` per tier, and `boost`.
@@ -195,8 +198,8 @@ Table potencies are caps; a leveling character with low MND heals well below the
 - `tools/parity.lua`: `ROLE.heal_aoe` becomes `'heal'`. v2's `heal_aoe|Accession` moves from `MODULE_OWNED` to `ACCEPTED`: v3 lists it as an emergency boost.
 - `core/settings.lua`:
   - `heal = { on, threshold = 75, danger = 50, critical = 30, focus, focus_threshold = 85, focus_danger = 60, focus_critical = 40, skip = { [name] = true }, cure_potency, waltz_potency, regen_potency }`.
-  - `settings.key` becomes `a.label or a.pick_one or a.family`, so Regen's two uses (and Reward's three) get their own rows.
-- `core/engine.lua`: export `THROTTLE` / `SPELL_THROTTLE` for the lockout. Nothing else changes. Heal stays the first behavior; `why` names the band (`danger: Tank 42%`).
+  - `settings.key` becomes `a.pick_one or a.label or a.family`, so Regen's two uses (and Reward's three) get their own rows. `pick_one` stays first: Lasting Emanation and Ecliptic Attrition are labelled members of one group (`geo_ja`).
+- `core/can.lua`: holds `THROTTLE` / `SPELL_THROTTLE` for the lockout (not `core/engine.lua`, which requires the behaviors: heal requiring it back would loop). The engine reads them from there. Nothing else changes. Heal stays the first behavior; `why` names the band (`danger: Tank 42%`).
 - **Hold:** Danger and Critical only. If nothing is usable but a candidate covering a unit in the band is within 15s of coming off recast, hold (today's rule). The Efficient band never holds, so buffs and raises go out.
 
 ## Replaced from v2
@@ -223,7 +226,7 @@ Rewrite today's heal tests around the bands. One test each:
 - Curaga wins for a bunched group and loses when the group is spread past its radius.
 - Danger prefers an instant waltz over a slower, bigger cure.
 - Critical fires Divine Seal, then with the Seal status up picks the boosted cure (Cure IV over Cure V at 800 missing).
-- With Majesty up, Efficient picks one Cure for a bunched group; spread past the radius, it cures one.
+- With Majesty up, Efficient picks one Cure for a bunched group; spread past the radius, it cures one. Its +25 potency is divided out of a learned reading.
 - Danger fires Accession when area Cure IV beats every single cure; not for one hurt unit, not in Efficient, never paired with Cure V.
 - A stratagem with the timer running but a charge banked passes `can.use`.
 - `sky`: Lightsday under Stellar Glare is +0.117, Darksday under Darkness -0.117, Aurorastorm under Gloom +0.033, Aurorastorm under Auras +0.083.
@@ -239,8 +242,8 @@ Rewrite today's heal tests around the bands. One test each:
 
 Each step leaves `luajit tests/run.lua` green.
 
-1. Data: catalog `cast`/`tick`/`boost`; knowledge roles, priors, Regen uses; settings fields and the `settings.key` change.
-2. Snapshot: `pos`, `max_hp` fallback, `core/observed.lua` and the packets hook.
+1. Data: catalog `cast`/`tick`/`boost`; knowledge roles, priors, Regen uses, Majesty and Accession boosts; settings fields and the `settings.key` change; the parity mapping.
+2. Snapshot: `pos`, `max_hp` fallback, stratagem charges, `core/observed.lua` and the packets hook.
 3. `behaviors/heal.lua`: candidates, bands, scores, boosts, hold.
 4. Tests as above.
 5. The in-game prior check; adjust priors.

@@ -176,17 +176,40 @@ local function focus_combo(h)
     tip('Heal this member first, under its own threshold.')
 end
 
+local HEAL_LINES = {
+    { 'Heal under', 'threshold', 'Heal anyone under this HP %, with the most HP for the MP or TP.' },
+    { 'Danger under', 'danger', 'Under this HP %, heal fastest instead, and wait for a heal nearly ready.' },
+    { 'Critical under', 'critical', 'Under this HP %, boost the heal first (Divine Seal) or save them (Martyr).' },
+}
+
+-- Who healing looks after: unticked members are never healed for their own sake.
+local function heal_members(h)
+    if #h.members == 0 then return end
+    text('Heal:')
+    for _, m in ipairs(h.members) do
+        imgui.SameLine()
+        local v = { m.healed }
+        if imgui.Checkbox(m.name .. '##sk3_heal_' .. m.name, v) then model.toggle_skip(cfg, m.name); save() end
+        tip('Untick to never heal them for their own sake; an area heal may still land on them.')
+    end
+end
+
 local function draw_heal_settings(h)
-    slider('Heal under##sk3_threshold', 'heal.threshold', h.threshold, 1, 99, 'Cure anyone under this HP %.')
-    slider('Critical under##sk3_critical', 'heal.critical', h.critical, 1, 99,
-        'Under this HP %, boost the cure first (Divine Seal) or save them (Martyr).')
+    for _, l in ipairs(HEAL_LINES) do
+        slider(l[1] .. '##sk3_' .. l[2], 'heal.' .. l[2], h[l[2]], 1, 99, l[3])
+    end
     focus_combo(h)
-    slider('Focus under##sk3_focus_threshold', 'heal.focus_threshold', h.focus_threshold, 1, 99,
-        'Cure the focus member under this HP %.')
+    for _, l in ipairs(HEAL_LINES) do
+        local key = 'focus_' .. l[2]
+        slider('Focus ' .. l[1]:lower() .. '##sk3_' .. key, 'heal.' .. key, h[key], 1, 99, 'For the focus member: ' .. l[3])
+    end
     slider('Cure potency +##sk3_cure_potency', 'heal.cure_potency', h.cure_potency, 0, 50,
-        'Cure potency % from gear, to size each cure to the HP missing.')
+        'Cure potency % from gear, until a cure has been seen healing.')
     slider('Waltz potency +##sk3_waltz_potency', 'heal.waltz_potency', h.waltz_potency, 0, 50,
-        'Waltz potency % from gear.')
+        'Waltz potency % from gear, until a waltz has been seen healing.')
+    slider('Regen potency +##sk3_regen_potency', 'heal.regen_potency', h.regen_potency, 0, 30,
+        'HP per Regen tick from gear.')
+    heal_members(h)
     imgui.Separator()
 end
 
