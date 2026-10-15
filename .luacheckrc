@@ -2,9 +2,12 @@
 std = 'luajit'
 max_line_length = false
 
--- Ashita v4 injects these into the game client; require('imgui') adds the ImGui* flags.
+-- Ashita v4 injects these into the game client; require('imgui') adds the ImGui*
+-- constants (tests/ui_window_test.lua fakes the ones listed here).
 read_globals = { 'AshitaCore', 'ashita', 'struct', 'T',
     'ImGuiWindowFlags_AlwaysAutoResize',
+    'ImGuiTreeNodeFlags_DefaultOpen', 'ImGuiTableFlags_SizingFixedFit',
+    'ImGuiCol_Button', 'ImGuiCol_ButtonHovered', 'ImGuiCol_ButtonActive', 'ImGuiCol_Text', 'ImGuiCol_PlotHistogram',
 }
 globals = { 'addon' }
 

@@ -2,7 +2,7 @@
 
 Ground-up rewrite of [Sidekick](https://github.com/seekey13/Sidekick), the support-automation addon for Ashita v4 on [CatsEyeXI](https://www.catseyexi.com/).
 
-**Status: in development.** It heals (with critical-HP boosts and a focus target), removes debuffs, raises, and keeps up buffs you turn on, for you, your party and trusts. No window yet: everything is a `/sk3` command. Sidekick v2 can stay loaded alongside it, but don't run both at once.
+**Status: in development.** It heals (with critical-HP boosts and a focus target), removes debuffs, raises, and keeps up buffs you turn on, for you, your party and trusts. Sidekick v2 can stay loaded alongside it, but don't run both at once.
 
 ## What's different
 
@@ -25,6 +25,14 @@ v2 described every job's spells and abilities by hand in 22 job files. v3 reads 
 /sk3 log                print each action as it's sent (on while in development)
 /sk3 dump               write the client's spell/ability/status data to tests/data/
 ```
+
+The window (`/sk3`) does what the commands do and shows what Sidekick sees:
+
+- **Start / Stop**, and what it would do right now, or why it's waiting (casting, moving, safe zone...).
+- **Party**: everyone as Sidekick reads them: HP against your heal threshold, MP, distance, statuses; then your battle target, pet and the flags that stop automation.
+- **Recent actions**: the last 10 sent, and why.
+- **A section per behavior** (Healing, Debuffs, Buffs, Raise), each with its on/off switch. Each row turns a family on or off and says whether it's ready or why not. Buff rows also pick a tier ("Auto" casts the best you can) or, for pick-one groups like bar-elements and songs, the spell; and the targets, ME and P1-P5. Healing has its thresholds, focus member and gear potency above its rows.
+- **Options**: Japanese client, action log.
 
 Settings are kept per job pair in `config/addons/sidekick3/<character>/WHM_BLM.lua`. Healing, removal and raising are on by default; buffs only when you turn them on.
 

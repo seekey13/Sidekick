@@ -21,6 +21,7 @@ local knowledge = require('core.knowledge')
 local packets = require('core.packets')
 local resources = require('core.resources')
 local settings = require('core.settings')
+local model = require('ui.model')
 local window = require('ui.window')
 
 local function printf(fmt, ...)
@@ -149,11 +150,10 @@ local function show_catalog(which)
 end
 
 -- /sk3 state: the snapshot automation decides from, to check it reads the game right.
-local FLAGS = { 'casting', 'moving', 'combat', 'safe', 'mounted', 'dead', 'resting', 'incapacitated', 'silenced', 'amnesia' }
 local function show_state(g)
     local statuses = resources.load().statuses
     local flags = {}
-    for _, f in ipairs(FLAGS) do if g[f] then flags[#flags + 1] = f end end
+    for _, f in ipairs(model.FLAGS) do if g[f] then flags[#flags + 1] = f end end
     printf('%s%d/%s%d  zone %d  %s', abbr(g.main), g.main_lv, abbr(g.sub), g.sub_lv, g.zone, table.concat(flags, ' '))
     for _, u in ipairs(g.units) do
         local names = {}
@@ -224,10 +224,22 @@ local function buff_command(args)
     else printf('%s on%s.', key, row.pick and (' (' .. row.pick .. ')') or '') end
 end
 
+-- The window, each frame while open. A Lua error closes it, so it's reported once.
+local names = { job = abbr }
+local function draw(g)
+    names.statuses = resources.load().statuses
+    local ok, err = pcall(function ()
+        return window.render(model.build(g, cat.list, cfg, status, names), cfg, status, settings.save)
+    end)
+    if ok and not err then return end
+    status.open = false
+    print(chat.header(addon.name) .. chat.error('Window closed on an error: ' .. tostring(err)))
+end
+
 ashita.events.register('d3d_present', 'sidekick3_present', function ()
     local g, fresh = refresh(os.clock())
     if fresh then tick(g) end
-    if status.open and not g.loading then window.render(cfg, status, settings.save) end
+    if status.open and not g.loading then draw(g) end
 end)
 
 ashita.events.register('packet_in', 'sidekick3_packet_in', function (e)

@@ -16,13 +16,13 @@ local settings = require('core.settings')
 
 local model = {}
 
--- Window sections in order. `on` names the behavior switch (cfg[on].on); `group`
--- is the page each lives on in the 'groups' layout.
+-- Window sections in order. A section with roles is a behavior, switched by
+-- cfg[id].on; `group` is the page each lives on in the 'groups' layout.
 model.SECTIONS = {
-    { id = 'heal', title = 'Healing', roles = { 'heal', 'emergency' }, on = 'heal', group = 'Healing' },
-    { id = 'remove', title = 'Debuffs', roles = { 'remove' }, on = 'remove', group = 'Support' },
-    { id = 'buff', title = 'Buffs', roles = { 'buff' }, on = 'buff', group = 'Support' },
-    { id = 'revive', title = 'Raise', roles = { 'revive' }, on = 'revive', group = 'Support' },
+    { id = 'heal', title = 'Healing', roles = { 'heal', 'emergency' }, group = 'Healing' },
+    { id = 'remove', title = 'Debuffs', roles = { 'remove' }, group = 'Support' },
+    { id = 'buff', title = 'Buffs', roles = { 'buff' }, group = 'Support' },
+    { id = 'revive', title = 'Raise', roles = { 'revive' }, group = 'Support' },
     { id = 'options', title = 'Options', group = 'Utility' },
 }
 model.GROUPS = { 'Healing', 'Support', 'Utility' }
@@ -238,7 +238,7 @@ function model.build(g, cat, cfg, status, names)
     for _, s in ipairs(model.SECTIONS) do
         local section = { id = s.id, title = s.title, group = s.group }
         if s.roles then
-            section.on = cfg[s.on].on
+            section.on = cfg[s.id].on
             section.rows = build_rows(s, g, cat, cfg, units)
             for _, r in ipairs(section.rows) do
                 section.has_choices = section.has_choices or r.choices ~= nil
