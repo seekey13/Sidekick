@@ -1,42 +1,11 @@
 -- core/engine.lua and the behaviors, on fake snapshots over a real catalog
 -- (WHM 75 / BLM 37 from the dumped client data).
-local catalog = require('core.catalog')
 local engine = require('core.engine')
 local settings = require('core.settings')
-local K = require('core.knowledge')
-local res = {
-    spells = dofile('tests/data/spells.lua'),
-    abilities = dofile('tests/data/abilities.lua'),
-    statuses = dofile('tests/data/statuses.lua'),
-}
+local fake = require('tests.fake')
 
-local JAS = { ['Divine Seal'] = true, ['Martyr'] = true }
-local cat = catalog.build(res, {
-    main = 3, main_lv = 75, sub = 4, sub_lv = 37,
-    has_spell = function () return true end,
-    has_ability = function (id) return JAS[res.abilities[id].en] == true end,
-}, K)
-
-local function unit(t)
-    local u = { kind = 'party', in_zone = true, alive = true, dist = 5, buffs = {}, hpp = 100, mpp = 100, mp = 0, tp = 0 }
-    for k, v in pairs(t) do u[k] = v end
-    u.alive = t.alive ~= false and u.hpp > 0
-    return u
-end
-
--- Snapshot: you (WHM, 1000 MP) plus `others`; `waits` = { [action name] = seconds of recast }.
-local function snap(others, over, waits)
-    local me = unit({ kind = 'self', slot = 0, sid = 1, name = 'Me', dist = 0, mp = 1000, tp = 0 })
-    local units = { me }
-    for i, o in ipairs(others or {}) do
-        o.slot, o.sid = o.slot or i, o.sid or 100 + i
-        units[#units + 1] = unit(o)
-    end
-    local g = { now = 1000, me = units[1], units = units, combat = false,
-        recast = function (a) return (waits or {})[a.name] or 0 end }
-    for k, v in pairs(over or {}) do g[k] = v end
-    return g
-end
+local cat = fake.catalog(3, 75, 4, 37, { 'Divine Seal', 'Martyr' })
+local snap = fake.snap
 
 local function decide(g, cfg, mem)
     local intent, why = engine.decide(g, cat, cfg or settings.defaults(), mem or {})
