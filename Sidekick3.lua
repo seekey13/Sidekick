@@ -21,8 +21,8 @@ local knowledge = require('core.knowledge')
 local packets = require('core.packets')
 local resources = require('core.resources')
 local settings = require('core.settings')
+local imgui = require('imgui')
 local model = require('ui.model')
-local window = require('ui.window')
 
 local function printf(fmt, ...)
     print(chat.header(addon.name) .. chat.message(fmt:format(...)))
@@ -224,16 +224,29 @@ local function buff_command(args)
     else printf('%s on%s.', key, row.pick and (' (' .. row.pick .. ')') or '') end
 end
 
--- The window, each frame while open. A Lua error closes it, so it's reported once.
+-- The UI: ui/custom.lua when there is one, else the standard window (ui/README.md).
+-- A custom UI that fails to load is reported and the standard one used instead.
+local ui = require('ui.window')
+if package.searchpath('ui.custom', package.path) then
+    local ok, custom = pcall(require, 'ui.custom')
+    if ok then ui = custom
+    else print(chat.header(addon.name) .. chat.error('ui/custom.lua failed to load, using the standard window: ' .. tostring(custom))) end
+end
+
+-- Settings the UI changed, saved once no widget is held: a dragged slider saves when let go.
+local unsaved = false
+local function changed() unsaved = true end
+
+-- The UI, each frame while open. A Lua error closes it, so it's reported once.
 -- ponytail: the view (recasts included) is rebuilt every frame; if that shows in
 -- frame time, build it once per fresh snapshot and again after a save.
 local names = { job = abbr }
 local function draw(g)
     names.statuses = resources.load().statuses
     local ok, err = pcall(function ()
-        return window.render(model.build(g, cat.list, cfg, status, names), cfg, status, settings.save)
+        ui.render(model.build(g, cat.list, cfg, status, names), model.actions(cfg, status, changed))
     end)
-    if ok and not err then return end
+    if ok then return end
     status.open = false
     print(chat.header(addon.name) .. chat.error('Window closed on an error: ' .. tostring(err)))
 end
@@ -242,6 +255,10 @@ ashita.events.register('d3d_present', 'sidekick3_present', function ()
     local g, fresh = refresh(os.clock())
     if fresh then tick(g) end
     if status.open and not g.loading then draw(g) end
+    if unsaved and not imgui.IsAnyItemActive() then
+        settings.save()
+        unsaved = false
+    end
 end)
 
 ashita.events.register('packet_in', 'sidekick3_packet_in', function (e)
