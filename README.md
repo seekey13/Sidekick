@@ -12,6 +12,7 @@ v2 described every job's spells and abilities by hand in 22 job files. v3 reads 
 
 ```
 /addon load sidekick3
+/sk3 state              what Sidekick reads from the game: party, trusts, buffs, target, flags
 /sk3 catalog            what Sidekick can automate for your current job, by role
 /sk3 catalog unknown    usable actions no knowledge row covers
 /sk3 dump               write the client's spell/ability/status data to tests/data/

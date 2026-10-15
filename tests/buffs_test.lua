@@ -1,0 +1,26 @@
+-- core/buffs.lua: packet-fed statuses expire on their own.
+local buffs = require('core.buffs')
+
+test('a gained status shows until its duration runs out', function ()
+    buffs.clear()
+    buffs.gain(7, 40, 100, 1800)
+    eq(buffs.of(7, 1899), { [40] = true })
+    eq(buffs.of(7, 1900), {})
+end)
+
+test('without a known duration a status still expires', function ()
+    buffs.clear()
+    buffs.gain(7, 33, 0)
+    eq(buffs.of(7, buffs.DEFAULT_SECONDS - 1), { [33] = true })
+    eq(buffs.of(7, buffs.DEFAULT_SECONDS), {})
+end)
+
+test('lose and clear drop statuses; unknown units have none', function ()
+    buffs.clear()
+    buffs.gain(7, 40, 0); buffs.gain(7, 41, 0)
+    buffs.lose(7, 40)
+    eq(buffs.of(7, 1), { [41] = true })
+    buffs.clear()
+    eq(buffs.of(7, 1), {})
+    eq(buffs.of(99, 1), {})
+end)

@@ -28,6 +28,7 @@
     label      UI name when one action has several uses
     note       short UI hint
     travel     travel buff: still cast while Invisible
+    duration   seconds a buff lasts (or per tier), for statuses read off packets (trusts)
 ]]--
 
 -- Status sets for removals (ids: several names repeat in the status table).
@@ -116,14 +117,14 @@ local K = {
     },
 
     -- buff: white / enhancing magic ---------------------------------------------
-    ['Protect']   = { role = 'buff' },
-    ['Shell']     = { role = 'buff' },
-    ['Protectra'] = { role = 'buff', status = 'Protect' },
-    ['Shellra']   = { role = 'buff', status = 'Shell' },
-    ['Haste']     = { role = 'buff', priority = 25 },
-    ['Refresh']   = { role = 'buff', priority = 50 },
-    ['Flurry']    = { role = 'buff', priority = 25, status = 581 },
-    ['Regen']     = { role = 'buff' },
+    ['Protect']   = { role = 'buff', duration = 1800 },
+    ['Shell']     = { role = 'buff', duration = 1800 },
+    ['Protectra'] = { role = 'buff', status = 'Protect', duration = 1800 },
+    ['Shellra']   = { role = 'buff', status = 'Shell', duration = 1800 },
+    ['Haste']     = { role = 'buff', priority = 25, duration = 180 },
+    ['Refresh']   = { role = 'buff', priority = 50, duration = 150 },
+    ['Flurry']    = { role = 'buff', priority = 25, status = 581, duration = 180 },
+    ['Regen']     = { role = 'buff', duration = { 75, 60, 60 } },
     ['Phalanx']   = { role = 'buff' },
     ['Stoneskin'] = { role = 'buff' },
     ['Blink']     = { role = 'buff' },
@@ -191,14 +192,14 @@ local K = {
         { role = 'buff', priority = 50, status = { 'Sublimation: Activated', 'Sublimation: Complete' } },
         { role = 'recover', requires = { 'Sublimation: Activated', 'Sublimation: Complete' } },
     },
-    ['Sandstorm']    = { role = 'buff', pick_one = 'storm' },
-    ['Rainstorm']    = { role = 'buff', pick_one = 'storm' },
-    ['Windstorm']    = { role = 'buff', pick_one = 'storm' },
-    ['Firestorm']    = { role = 'buff', pick_one = 'storm' },
-    ['Hailstorm']    = { role = 'buff', pick_one = 'storm' },
-    ['Thunderstorm'] = { role = 'buff', pick_one = 'storm' },
-    ['Voidstorm']    = { role = 'buff', pick_one = 'storm' },
-    ['Aurorastorm']  = { role = 'buff', pick_one = 'storm' },
+    ['Sandstorm']    = { role = 'buff', pick_one = 'storm', duration = 180 },
+    ['Rainstorm']    = { role = 'buff', pick_one = 'storm', duration = 180 },
+    ['Windstorm']    = { role = 'buff', pick_one = 'storm', duration = 180 },
+    ['Firestorm']    = { role = 'buff', pick_one = 'storm', duration = 180 },
+    ['Hailstorm']    = { role = 'buff', pick_one = 'storm', duration = 180 },
+    ['Thunderstorm'] = { role = 'buff', pick_one = 'storm', duration = 180 },
+    ['Voidstorm']    = { role = 'buff', pick_one = 'storm', duration = 180 },
+    ['Aurorastorm']  = { role = 'buff', pick_one = 'storm', duration = 180 },
 
     -- buff: Bard (songs) ---------------------------------------------------------
     ['Valor Minuet']       = { role = 'buff', pick_one = 'minuet', status = 'Minuet', note = '+ATK' },

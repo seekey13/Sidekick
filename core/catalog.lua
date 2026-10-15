@@ -102,6 +102,7 @@ function catalog.build(res, player, K)
                     -- ponytail: no knowledge row sets requires on an Addendum spell; merge if one ever does.
                     requires = addendum and ADDENDUM[row.type] or ids(use.requires, idx, row.en),
                     potency = use.potency and use.potency[tier],
+                    duration = type(use.duration) == 'table' and use.duration[tier] or use.duration,
                     wakes = use.wakes, gives = use.gives, gate = use.gate, pick_one = use.pick_one,
                     priority = use.priority or 0, pet = use.pet, travel = use.travel,
                     mp = row.mp, tp = row.tp,  -- the client blocks casts by this cost, so it is the one to trust

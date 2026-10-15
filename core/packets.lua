@@ -1,0 +1,139 @@
+--[[
+    What the game tells us only through packets:
+      - when your own cast starts, finishes or is interrupted (the cast lock and
+        the post-action throttle in core/engine.lua),
+      - statuses gained and lost by units with no readable status list
+        (core/buffs.lua).
+    Message ids and bit layouts verified against the CatsEyeXI server
+    (src/map/packets/s2c/0x028_battle2.cpp, msg_std.h / msg_basic.h).
+]]--
+
+local buffs = require('core.buffs')
+
+local packets = {}
+
+-- Param carried by a cancelled action instead of a finish (no spell id is 28787).
+local INTERRUPT = 28787
+-- 0x028 categories: 2 ranged, 3 ws, 4 spell, 5 item, 6/14/15 job ability.
+local FINISH = { [2] = true, [3] = true, [4] = true, [5] = true, [6] = true, [14] = true, [15] = true }
+local CAST_BEGIN, SPELL_FINISH = 8, 4
+-- A cast whose finish packet never arrived (zoning, lost packet) unlocks after this.
+local CAST_TIMEOUT = 16
+
+-- 0x028 per-target messages.
+local GAINS_028 = { [230] = true, [266] = true }            -- target gains the effect
+local LOSES_028 = { [83] = true }                           -- effect removed (-na, Erase)
+local HEALS_028 = { [2] = true, [7] = true, [24] = true }    -- recovers HP: a cure wakes
+local SLEEP = { 2, 19 }
+
+-- 0x029 messages whose param IS a status id; every other 0x029 (damage, misses,
+-- synth results...) carries an unrelated param and must not be read as a status.
+local GAINS_029 = {
+    [186] = true, [203] = true, [205] = true, [230] = true, [236] = true, [237] = true,
+    [242] = true, [243] = true, [266] = true, [277] = true, [278] = true,
+    [280] = true,  -- CatsEyeXI "is afflicted with" variant
+}
+local LOSES_029 = { [204] = true, [206] = true, [343] = true }  -- wears off / disappears
+
+local cast = { active = false, since = 0, finished = -math.huge, spell = false }
+
+-- 0x028 action packet: header plus each target's results (bit-packed, big endian).
+local function parse_action(e)
+    local data, offset, limit = e.data_raw, 40, e.size * 8
+    local function bits(n)
+        if offset + n > limit then limit = 0; return 0 end  -- malformed: whole packet is trash
+        local v = ashita.bits.unpack_be(data, 0, offset, n)
+        offset = offset + n
+        return v
+    end
+    local p = { actor = bits(32) }
+    local count = bits(6)
+    offset = offset + 4
+    p.category = bits(4)
+    p.param = bits(16)  -- spell/ability id on a finish; a marker (or INTERRUPT) on a begin
+    bits(16)
+    bits(32)            -- recast
+    p.targets = {}
+    for _ = 1, count do
+        local t = { id = bits(32), results = {} }
+        local n = bits(4)
+        if n == 0 then break end
+        for _ = 1, n do
+            bits(3 + 2 + 12)                     -- resolution, kind, animation
+            local r = { info = bits(5) }         -- COR: the die
+            bits(2 + 3)                          -- scale, knockback
+            r.param = bits(17)
+            r.message = bits(10)
+            bits(31)                             -- flags
+            if bits(1) == 1 then bits(10 + 17 + 10) end  -- additional effect
+            if bits(1) == 1 then bits(10 + 14 + 10) end  -- spikes
+            t.results[#t.results + 1] = r
+        end
+        p.targets[#p.targets + 1] = t
+    end
+    return limit ~= 0 and p or nil
+end
+
+-- ctx: { me = your server id, tracks = { [server id] = true } for units whose
+-- statuses come from packets, duration = function(spell id) -> seconds or nil }
+local function on_action(p, ctx, now)
+    if p.actor == ctx.me and p.category ~= 1 then  -- 1 = auto-attack, says nothing
+        if p.category == CAST_BEGIN and p.param ~= INTERRUPT then
+            cast.active, cast.since = true, now
+        else
+            cast.active = false
+        end
+        if FINISH[p.category] or p.param == INTERRUPT then
+            cast.finished, cast.spell = now, p.category == SPELL_FINISH
+        end
+    end
+    if p.category ~= SPELL_FINISH or p.param == INTERRUPT then return end
+    for _, t in ipairs(p.targets) do
+        if ctx.tracks[t.id] then
+            for _, r in ipairs(t.results) do
+                if GAINS_028[r.message] then
+                    buffs.gain(t.id, r.param, now, ctx.duration(p.param))
+                elseif LOSES_028[r.message] then
+                    buffs.lose(t.id, r.param)
+                elseif HEALS_028[r.message] and p.actor == ctx.me then
+                    for _, s in ipairs(SLEEP) do buffs.lose(t.id, s) end
+                end
+            end
+        end
+    end
+end
+
+local function on_message(e, ctx, now)
+    if #e.data < 0x1A then return end
+    local target = struct.unpack('i4', e.data, 0x08 + 1)
+    local status = struct.unpack('i4', e.data, 0x0C + 1)
+    local message = struct.unpack('H', e.data, 0x18 + 1) % 0x8000
+    if not ctx.tracks[target] or status <= 0 or status == 255 then return end
+    if GAINS_029[message] then buffs.gain(target, status, now)
+    elseif LOSES_029[message] then buffs.lose(target, status) end
+end
+
+function packets.handle(e, ctx, now)
+    if e.id == 0x028 then
+        local p = parse_action(e)
+        if p then on_action(p, ctx, now) end
+    elseif e.id == 0x029 then
+        on_message(e, ctx, now)
+    elseif e.id == 0x00A then  -- zoning: a cast in flight is cancelled with no packet
+        cast.active = false
+        buffs.clear()
+    end
+end
+
+-- True while your own spell is casting.
+function packets.casting(now)
+    if cast.active and now - cast.since > CAST_TIMEOUT then cast.active = false end
+    return cast.active
+end
+
+-- When your last action resolved, and whether it was a spell (longer lockout).
+function packets.last_finish()
+    return cast.finished, cast.spell
+end
+
+return packets
