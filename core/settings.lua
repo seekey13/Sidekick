@@ -6,6 +6,7 @@
         rows[key] = { on = bool, pick = action name or nil (= best tier),
                       targets = { [party slot] = true } }    -- buffs only
     A row never saved uses its default: on, except buffs, which are opt-in.
+    `ui` is the window: open at load, section layout, auto-fit or custom size.
 ]]--
 
 local settings = {}
@@ -18,6 +19,7 @@ local DEFAULTS = {
     revive = { on = true },
     japanese = false,  -- send spell and ability names in Japanese
     rows = {},
+    ui = { open = false, display = 'headers', size = 'auto' },  -- display: headers | tabs | groups; size: auto | custom
 }
 
 function settings.key(a) return a.pick_one or a.family end

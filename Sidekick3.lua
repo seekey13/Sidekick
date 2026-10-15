@@ -21,6 +21,7 @@ local knowledge = require('core.knowledge')
 local packets = require('core.packets')
 local resources = require('core.resources')
 local settings = require('core.settings')
+local window = require('ui.window')
 
 local function printf(fmt, ...)
     print(chat.header(addon.name) .. chat.message(fmt:format(...)))
@@ -52,9 +53,18 @@ local function current_catalog(force)
 end
 
 local cfg, cfg_pair    -- settings for the current job pair
-local running = false  -- automation on (/sk3 start); never resumed on load
-local log = true       -- ponytail: print every action while in development; default off at release
 local mem = {}         -- the engine's memory between ticks
+
+-- What the window shows and toggles besides the settings.
+local status = {
+    running = false,  -- automation on (/sk3 start); never resumed on load
+    open = nil,       -- window shown; from cfg.ui.open at the first settings load
+    log = true,       -- ponytail: print every action while in development; default off at release
+    intent = nil,     -- the latest decision as a sent-style entry, or nil and...
+    why = nil,        -- ...why nothing (a gate, 'nothing to do', 'waiting for a cure')
+    sent = {},        -- the last 10 sends, newest first: { at, command, action, target, behavior, why }
+}
+local SENT_KEPT = 10
 
 -- Packets feed the cast lock and the trusts' statuses; they need to know who you
 -- are, who is tracked, and how long a spell's buff lasts.
@@ -77,19 +87,33 @@ local function refresh(now)
         packet_ctx.me, packet_ctx.tracks = snap.me.sid, snap.tracks
         local pair = abbr(snap.main) .. '_' .. abbr(snap.sub)
         if pair ~= cfg_pair then cfg, cfg_pair, mem = settings.load(pair), pair, {} end
+        -- The window stays as it is across a job change; only /sk3 and its close button move it.
+        if status.open == nil then status.open = cfg.ui.open end
     end
     return snap, true
 end
 
+local function entry(intent, now)
+    return { at = now, command = engine.command(intent, cfg), action = intent.action.name,
+             target = intent.target and intent.target.name, behavior = intent.behavior, why = intent.why }
+end
+
+-- Decide on each fresh snapshot: to act when running and the server will take a
+-- command, and while the window is open, to show what it would do. A decision
+-- that isn't sent changes nothing (revive marks a raise only through intent.sent).
 local function tick(g)
-    if not running or g.loading or not engine.ready(g, mem) then return end
-    local intent = engine.decide(g, cat.list, cfg, mem)
-    if not intent then return end
-    local command = engine.command(intent, cfg)
-    AshitaCore:GetChatManager():QueueCommand(0, command)
+    if g.loading then return end
+    local act = status.running and engine.ready(g, mem)
+    if not (act or status.open) then return end
+    local intent, why = engine.decide(g, cat.list, cfg, mem)
+    status.intent, status.why = intent and entry(intent, g.now), why
+    if not (act and intent) then return end
+    AshitaCore:GetChatManager():QueueCommand(0, status.intent.command)
     engine.sent(intent, g, mem)
     game.sent(intent.action)
-    if log then printf('%s  (%s: %s)', command, intent.behavior, intent.why) end
+    table.insert(status.sent, 1, status.intent)
+    status.sent[SENT_KEPT + 1] = nil
+    if status.log then printf('%s  (%s: %s)', status.intent.command, intent.behavior, intent.why) end
 end
 
 -- Names in chat-sized lines.
@@ -203,13 +227,15 @@ end
 ashita.events.register('d3d_present', 'sidekick3_present', function ()
     local g, fresh = refresh(os.clock())
     if fresh then tick(g) end
+    if status.open and not g.loading then window.render(cfg, status, settings.save) end
 end)
 
 ashita.events.register('packet_in', 'sidekick3_packet_in', function (e)
     packets.handle(e, packet_ctx, os.clock())
 end)
 
-local HELP = 'Commands: start, stop, plan, state, buff [name] [me p1..p5|off], focus <name|off>, catalog [unknown], log, dump'
+local HELP = '/sk3 opens or closes the window. Commands: start, stop, plan, state, '
+    .. 'buff [name] [me p1..p5|off], focus <name|off>, catalog [unknown], log, dump, help'
 
 -- ponytail: /sk3 while v2 is still installed and owns /sk; switch to /sk at cutover.
 ashita.events.register('command', 'sidekick3_command', function (e)
@@ -230,16 +256,23 @@ ashita.events.register('command', 'sidekick3_command', function (e)
         show_catalog((args[3] or ''):lower())
         return
     elseif sub == 'log' then
-        log = not log
-        printf('Action log %s.', log and 'on' or 'off')
+        status.log = not status.log
+        printf('Action log %s.', status.log and 'on' or 'off')
+        return
+    elseif sub == 'help' then
+        printf('%s', HELP)
         return
     end
 
     local g = refresh(os.clock())
     if g.loading or not cfg then printf('Waiting for the game to load your job.'); return end
-    if sub == 'start' or sub == 'stop' then
-        running = sub == 'start'
-        printf('Automation %s.', running and 'started' or 'stopped')
+    if sub == '' then
+        status.open = not status.open
+        cfg.ui.open = status.open
+        settings.save()
+    elseif sub == 'start' or sub == 'stop' then
+        status.running = sub == 'start'
+        printf('Automation %s.', status.running and 'started' or 'stopped')
     elseif sub == 'plan' then
         show_plan(g)
     elseif sub == 'state' then

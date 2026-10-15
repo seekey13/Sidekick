@@ -12,6 +12,8 @@ v2 described every job's spells and abilities by hand in 22 job files. v3 reads 
 
 ```
 /addon load sidekick3
+/sk3                    open or close the window
+/sk3 help               the command list
 /sk3 plan               what it would do right now, without doing it
 /sk3 start | stop       automation on / off (always off after a load)
 /sk3 buff Haste p1 p2   keep a buff up on those targets (me, p1-p5); "off" turns it off
