@@ -170,8 +170,10 @@ function game.read(now)
     local bt = battle_target(em)
     if bt and bt.mob then last_combat = now end
     local event = event_ptr ~= 0 and ashita.memory.read_uint32(event_ptr + 1) or 0
+    local finished, spell_finish = packets.last_finish()
 
     return {
+        finished = finished, spell_finish = spell_finish,
         now = now, zone = zone, me = me, units = units, tracks = tracks, bt = bt,
         pet = entity(em, em:GetPetTargetIndex(me.tidx)),
         main = player:GetMainJob(), main_lv = player:GetMainJobLevel(),

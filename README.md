@@ -2,7 +2,7 @@
 
 Ground-up rewrite of [Sidekick](https://github.com/seekey13/Sidekick), the support-automation addon for Ashita v4 on [CatsEyeXI](https://www.catseyexi.com/).
 
-**Status: in development, not yet automating.** Use Sidekick v2 to play. v3 can be loaded alongside it.
+**Status: in development.** It heals (with critical-HP boosts and a focus target), removes debuffs, raises, and keeps up buffs you turn on, for you, your party and trusts. No window yet: everything is a `/sk3` command. Sidekick v2 can stay loaded alongside it, but don't run both at once.
 
 ## What's different
 
@@ -12,11 +12,19 @@ v2 described every job's spells and abilities by hand in 22 job files. v3 reads 
 
 ```
 /addon load sidekick3
+/sk3 plan               what it would do right now, without doing it
+/sk3 start | stop       automation on / off (always off after a load)
+/sk3 buff Haste p1 p2   keep a buff up on those targets (me, p1-p5); "off" turns it off
+/sk3 buff Barfira       for pick-one groups (bar-elements, enspells, storms) name the spell
+/sk3 buff               list the buffs that are on
+/sk3 focus Name | off   heal this member first, at a higher threshold
 /sk3 state              what Sidekick reads from the game: party, trusts, buffs, target, flags
-/sk3 catalog            what Sidekick can automate for your current job, by role
-/sk3 catalog unknown    usable actions no knowledge row covers
+/sk3 catalog [unknown]  what it can automate for your job, by role (or what it can't)
+/sk3 log                print each action as it's sent (on while in development)
 /sk3 dump               write the client's spell/ability/status data to tests/data/
 ```
+
+Settings are kept per job pair in `config/addons/sidekick3/<character>/WHM_BLM.lua`. Healing, removal and raising are on by default; buffs only when you turn them on.
 
 ## Develop
 

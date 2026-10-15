@@ -1,0 +1,27 @@
+--[[
+    Raise fallen party members with the best raise you have. A member just raised
+    is left a minute to accept before being raised again.
+]]--
+
+local can = require('core.can')
+local settings = require('core.settings')
+
+local RAISE_WAIT = 60
+
+return function (g, cat, cfg, mem)
+    mem.raised = mem.raised or {}
+    local raises = settings.enabled(cat, cfg, 'revive')
+    table.sort(raises, function (a, b) return (a.level or 0) > (b.level or 0) end)  -- Arise, Raise III, II, I
+    for _, u in ipairs(g.units) do
+        if u.alive then
+            mem.raised[u.sid] = nil
+        elseif u.kind ~= 'self' and g.now - (mem.raised[u.sid] or -math.huge) > RAISE_WAIT then
+            for _, a in ipairs(raises) do
+                if can.reach(a, u) and can.use(a, g) then
+                    return { action = a, target = u, why = u.name,
+                             sent = function (now) mem.raised[u.sid] = now end }
+                end
+            end
+        end
+    end
+end
