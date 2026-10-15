@@ -25,7 +25,15 @@ local CHIP_EMPTY = { { 0.2, 0.2, 0.2, 1.0 }, { 0.2, 0.2, 0.2, 1.0 }, { 0.2, 0.2,
 
 local SETTING_WIDTH, PICK_WIDTH, CHIP_WIDTH, HP_WIDTH = 160, 170, 28, 80
 
-local cfg, save  -- this frame's settings and save callback
+local DISPLAYS = {
+    { 'headers', 'Sections as headers' },
+    { 'tabs', 'Sections as tabs' },
+    { 'groups', 'Sections as pages: Healing, Support, Utility' },
+}
+local SIZES = { { 'auto', 'Fit the window to its contents' }, { 'custom', 'Size the window by dragging its corner' } }
+
+local cfg, save           -- this frame's settings and save callback
+local page = 'Healing'    -- the page on show in the 'groups' layout; this session only
 
 local function esc(s) return (tostring(s):gsub('%%', '%%%%')) end
 
@@ -44,6 +52,33 @@ local function push_button(colors)
     imgui.PushStyleColor(ImGuiCol_ButtonActive, colors[3])
 end
 
+-- A menu of { value, label } setting `path`, the current value checked.
+local function choose(options, current, path)
+    for _, o in ipairs(options) do
+        if imgui.Selectable(o[2], o[1] == current) and o[1] ~= current then
+            model.set_value(cfg, path, o[1])
+            save()
+        end
+    end
+end
+
+-- Right-click on any section header or tab: the section layout. The view keeps
+-- this frame's layout, so a switch made here lands next frame, never mid-tab-bar.
+local function display_menu(view, id)
+    if imgui.BeginPopupContextItem('##sk3_display_' .. id) then
+        choose(DISPLAYS, view.display, 'ui.display')
+        imgui.EndPopup()
+    end
+end
+
+-- Right-click on empty window space (headers and widgets keep their own clicks).
+local function size_menu(view)
+    if imgui.BeginPopupContextWindow('##sk3_size', ImGuiPopupFlags_MouseButtonRight + ImGuiPopupFlags_NoOpenOverItems) then
+        choose(SIZES, view.size, 'ui.size')
+        imgui.EndPopup()
+    end
+end
+
 -- Header ---------------------------------------------------------------------------
 
 local function draw_header(view, status)
@@ -52,6 +87,7 @@ local function draw_header(view, status)
     if imgui.Button(s.running and 'Stop##sk3_run' or 'Start##sk3_run', { 70, 0 }) then status.running = not s.running end
     imgui.PopStyleColor(3)
     imgui.SameLine()
+    imgui.AlignTextToFramePadding()  -- level with the button
     text(view.job)
     text(s.state, s.running and GREEN or RED)
     imgui.SameLine()
@@ -85,7 +121,9 @@ local function draw_member(p)
 end
 
 local function draw_party(view)
-    if not imgui.CollapsingHeader('Party###sk3_party', ImGuiTreeNodeFlags_DefaultOpen) then return end
+    local open = imgui.CollapsingHeader('Party###sk3_party', ImGuiTreeNodeFlags_DefaultOpen)
+    display_menu(view, 'party')
+    if not open then return end
     if imgui.BeginTable('##sk3_party_table', 6, ImGuiTableFlags_SizingFixedFit) then
         for _, p in ipairs(view.party) do draw_member(p) end
         imgui.EndTable()
@@ -100,9 +138,9 @@ local function draw_party(view)
 end
 
 local function draw_recent(view)
-    if not imgui.CollapsingHeader(('Recent actions (%d)###sk3_recent'):format(#view.recent), ImGuiTreeNodeFlags_DefaultOpen) then
-        return
-    end
+    local open = imgui.CollapsingHeader(('Recent actions (%d)###sk3_recent'):format(#view.recent), ImGuiTreeNodeFlags_DefaultOpen)
+    display_menu(view, 'recent')
+    if not open then return end
     if #view.recent == 0 then text('Nothing sent yet.', GREY) end
     for _, r in ipairs(view.recent) do
         text(('%3ds'):format(r.age), GREY)
@@ -219,24 +257,72 @@ local function draw_body(view, s, status)
     if s.rows then draw_rows(s) else draw_options(view, status) end
 end
 
--- Sections ------------------------------------------------------------------------------
+-- Sections: built once, wrapped by the layout --------------------------------------------
 
--- A behavior's switch, beside its header.
-local function section_switch(s)
+-- A behavior's switch: beside its header, or atop its tab (a tab can't hold one).
+local function section_switch(s, label)
     local v = { s.on }
-    if imgui.Checkbox('##sk3_on_' .. s.id, v) then model.set_section(cfg, s.id, v[1]); save() end
+    if imgui.Checkbox(label .. '##sk3_on_' .. s.id, v) then model.set_section(cfg, s.id, v[1]); save() end
     tip(('%s %s'):format(s.title, s.on and 'on' or 'off'))
 end
 
-local function draw_sections(view, status)
+local function header_section(view, s, status)
+    if s.rows then
+        section_switch(s, '')
+        imgui.SameLine()
+    end
+    local open = imgui.CollapsingHeader(s.title .. '###sk3_' .. s.id, ImGuiTreeNodeFlags_DefaultOpen)
+    display_menu(view, s.id)
+    if open then draw_body(view, s, status) end
+end
+
+-- NoPushId keeps the menu's popup id the same whether or not the tab is selected.
+local function tab_section(view, s, status)
+    local label = s.title .. (s.on == false and ' (off)' or '') .. '###sk3_tab_' .. s.id
+    local open = imgui.BeginTabItem(label, nil, ImGuiTabItemFlags_NoPushId)
+    display_menu(view, s.id)
+    if not open then return end
+    if s.rows then
+        section_switch(s, s.title)
+        imgui.Separator()
+    end
+    draw_body(view, s, status)
+    imgui.EndTabItem()
+end
+
+-- One tab bar of the sections in `group` (all when nil).
+local function tab_bar(view, status, id, group)
+    if not imgui.BeginTabBar(id, ImGuiTabBarFlags_FittingPolicyScroll) then return end
     for _, s in ipairs(view.sections) do
-        if s.rows then
-            section_switch(s)
-            imgui.SameLine()
-        end
-        if imgui.CollapsingHeader(s.title .. '###sk3_' .. s.id, ImGuiTreeNodeFlags_DefaultOpen) then
-            draw_body(view, s, status)
-        end
+        if not group or s.group == group then tab_section(view, s, status) end
+    end
+    imgui.EndTabBar()
+end
+
+-- Healing / Support / Utility, each a tab bar of its sections; empty pages hidden.
+local function pages(view, status)
+    local shown, has = {}, {}
+    for _, s in ipairs(view.sections) do has[s.group] = true end
+    for _, g in ipairs(model.GROUPS) do
+        if has[g] then shown[#shown + 1] = g end
+    end
+    if not has[page] then page = shown[1] end
+    for i, g in ipairs(shown) do
+        if i > 1 then imgui.SameLine() end
+        local w, h = imgui.CalcTextSize(g)  -- an explicit size: a zero width would span the row
+        if imgui.Selectable(g .. '##sk3_page', g == page, 0, { w, h }) then page = g end
+    end
+    imgui.Separator()
+    tab_bar(view, status, '##sk3_tabs_' .. page, page)
+end
+
+local function draw_sections(view, status)
+    if view.display == 'tabs' then
+        tab_bar(view, status, '##sk3_tabs')
+    elseif view.display == 'groups' then
+        pages(view, status)
+    else
+        for _, s in ipairs(view.sections) do header_section(view, s, status) end
     end
 end
 
@@ -248,12 +334,15 @@ function window.render(view, cfg_, status, save_)
     cfg, save = cfg_, save_
     local open = { true }
     local ok, err = true, nil
-    if imgui.Begin('Sidekick3', open, ImGuiWindowFlags_AlwaysAutoResize) then
+    -- 'custom': resizable, contents scroll. Leaving 'auto' keeps the size it had fitted.
+    local flags = view.size == 'custom' and 0 or ImGuiWindowFlags_AlwaysAutoResize + ImGuiWindowFlags_NoResize
+    if imgui.Begin('Sidekick3', open, flags) then
         ok, err = pcall(function ()
             draw_header(view, status)
             draw_party(view)
             draw_recent(view)
             draw_sections(view, status)
+            size_menu(view)
         end)
     end
     imgui.End()

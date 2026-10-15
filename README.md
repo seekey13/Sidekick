@@ -34,6 +34,8 @@ The window (`/sk3`) does what the commands do and shows what Sidekick sees:
 - **A section per behavior** (Healing, Debuffs, Buffs, Raise), each with its on/off switch. Each row turns a family on or off and says whether it's ready or why not. Buff rows also pick a tier ("Auto" casts the best you can) or, for pick-one groups like bar-elements and songs, the spell; and the targets, ME and P1-P5. Healing has its thresholds, focus member and gear potency above its rows.
 - **Options**: Japanese client, action log.
 
+Right-click any section header or tab to lay the sections out as collapsing headers, as tabs, or as Healing / Support / Utility pages of tabs. Right-click empty space in the window to switch between fitting it to its contents and a size you drag (the contents then scroll).
+
 Settings are kept per job pair in `config/addons/sidekick3/<character>/WHM_BLM.lua`. Healing, removal and raising are on by default; buffs only when you turn them on.
 
 ## Develop

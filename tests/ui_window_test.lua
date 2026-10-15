@@ -66,9 +66,15 @@ local handlers = {
     end,
 }
 
+-- frame.args[name] lists each call's label; frame.clicks.popup, when set, is the
+-- one popup open this frame (else all are).
 local imgui = setmetatable({}, { __index = function (_, name)
     return function (...)
         local label = ...
+        if type(label) == 'string' then
+            frame.args[name] = frame.args[name] or {}
+            table.insert(frame.args[name], label)
+        end
         if IDS[name] then
             local id = label:match('###.*') or label
             assert(not frame.ids[id], 'duplicate widget id ' .. id)
@@ -76,8 +82,12 @@ local imgui = setmetatable({}, { __index = function (_, name)
         end
         if CLOSER[name] then
             local open = frame.clicks[name] ~= false
+            if name:match('^BeginPopup') and frame.clicks.popup then open = frame.clicks.popup == label end
             if open or ALWAYS[name] then table.insert(frame.stack, CLOSER[name]) end
-            if name == 'Begin' and frame.clicks.close then select(2, ...)[1] = false end
+            if name == 'Begin' then
+                frame.flags = select(3, ...)
+                if frame.clicks.close then select(2, ...)[1] = false end
+            end
             return open
         elseif name:match('^End') or name == 'PopItemWidth' then
             pop(name)
@@ -112,7 +122,7 @@ end
 
 -- One frame; returns the number of saves. `view` defaults to the model's.
 local function render(cfg, st, clicks, view)
-    frame = { stack = {}, texts = {}, ids = {}, clicks = clicks or {} }
+    frame = { stack = {}, texts = {}, ids = {}, args = {}, clicks = clicks or {} }
     local saves = 0
     local err = window.render(view or model.build(snap(), cat, cfg, st, NAMES), cfg, st, function () saves = saves + 1 end)
     eq(err, nil, 'no Lua error')
@@ -189,8 +199,69 @@ test('a Lua error while drawing still ends the window, and is returned', functio
     local cfg, st = settings.defaults(), status()
     local view = model.build(snap(), cat, cfg, st, NAMES)
     view.recent = nil
-    frame = { stack = {}, texts = {}, ids = {}, clicks = {} }
+    frame = { stack = {}, texts = {}, ids = {}, args = {}, clicks = {} }
     local err = window.render(view, cfg, st, function () end)
     eq(type(err), 'string')
     eq(frame.stack, {})
+end)
+
+-- One frame in `display` with Buffs switched off; `in_cat` replaces the catalog.
+local function layout(display, clicks, in_cat)
+    local cfg, st = settings.defaults(), status()
+    cfg.ui.display = display
+    cfg.buff.on = false
+    render(cfg, st, clicks, in_cat and model.build(snap(), in_cat, cfg, st, NAMES))
+    return frame.args, cfg
+end
+
+test('headers: a collapsing header per section, no tab bar', function ()
+    local args = layout('headers')
+    eq(args.CollapsingHeader, { 'Party###sk3_party', 'Recent actions (1)###sk3_recent', 'Healing###sk3_heal',
+        'Debuffs###sk3_remove', 'Buffs###sk3_buff', 'Raise###sk3_revive', 'Options###sk3_options' })
+    eq(args.BeginTabBar, nil)
+end)
+
+test('tabs: one tab bar of every section; a switched-off one says so, its switch atop it', function ()
+    local args = layout('tabs')
+    eq(args.BeginTabBar, { '##sk3_tabs' })
+    eq(args.BeginTabItem, { 'Healing###sk3_tab_heal', 'Debuffs###sk3_tab_remove', 'Buffs (off)###sk3_tab_buff',
+        'Raise###sk3_tab_revive', 'Options###sk3_tab_options' })
+    eq(args.CollapsingHeader, { 'Party###sk3_party', 'Recent actions (1)###sk3_recent' })
+    local _, cfg = layout('tabs', { ['Buffs##sk3_on_buff'] = true })
+    eq(cfg.buff.on, true)
+end)
+
+local function page_buttons(args)
+    local out = {}
+    for _, label in ipairs(args.Selectable) do
+        if label:match('##sk3_page$') then out[#out + 1] = label end
+    end
+    return out
+end
+
+test('groups: a row of pages, then the page\'s tab bar; empty pages are hidden', function ()
+    local args = layout('groups')
+    eq(page_buttons(args), { 'Healing##sk3_page', 'Support##sk3_page', 'Utility##sk3_page' })
+    eq(args.BeginTabBar, { '##sk3_tabs_Healing' })
+    eq(args.BeginTabItem, { 'Healing###sk3_tab_heal' })
+    args = layout('groups', { ['Support##sk3_page'] = true })
+    eq(args.BeginTabBar, { '##sk3_tabs_Support' })
+    eq(args.BeginTabItem, { 'Debuffs###sk3_tab_remove', 'Buffs (off)###sk3_tab_buff', 'Raise###sk3_tab_revive' })
+    args = layout('groups', nil, {})  -- nothing to automate: only Options
+    eq(page_buttons(args), { 'Utility##sk3_page' })
+    eq(args.BeginTabBar, { '##sk3_tabs_Utility' })
+end)
+
+test('right-click menus switch the layout and the window size, and save', function ()
+    local cfg, st = settings.defaults(), status()
+    eq(render(cfg, st, { popup = '##sk3_display_buff', ['Sections as tabs'] = true }), 1)
+    eq(cfg.ui.display, 'tabs')
+    eq(render(cfg, st, { popup = '##sk3_display_buff', ['Sections as tabs'] = true }), 0)  -- already
+    eq(render(cfg, st, { popup = '##sk3_display_party', ['Sections as pages: Healing, Support, Utility'] = true }), 1)
+    eq(cfg.ui.display, 'groups')
+    eq(frame.flags, ImGuiWindowFlags_AlwaysAutoResize + ImGuiWindowFlags_NoResize)
+    eq(render(cfg, st, { popup = '##sk3_size', ['Size the window by dragging its corner'] = true }), 1)
+    eq(cfg.ui.size, 'custom')
+    render(cfg, st)
+    eq(frame.flags, 0)
 end)

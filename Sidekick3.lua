@@ -225,6 +225,8 @@ local function buff_command(args)
 end
 
 -- The window, each frame while open. A Lua error closes it, so it's reported once.
+-- ponytail: the view (recasts included) is rebuilt every frame; if that shows in
+-- frame time, build it once per fresh snapshot and again after a save.
 local names = { job = abbr }
 local function draw(g)
     names.statuses = resources.load().statuses
