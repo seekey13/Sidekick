@@ -1,2 +1,5 @@
 # Claude Code agent worktrees (full repo copies)
 .claude/
+
+# A user's own UI (ui/README.md)
+ui/custom.lua

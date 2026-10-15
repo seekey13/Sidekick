@@ -1,6 +1,7 @@
 --[[
-    The Sidekick3 window: ImGui only. It draws the view ui/model.lua builds and
-    turns clicks into model mutators; it reads no game state and decides nothing.
+    The standard Sidekick3 window, and the reference UI: it uses only the `view`
+    and `act` every UI is given (ui/README.md), so ui/custom.lua can replace it.
+    ImGui only; it reads no game state and decides nothing.
 
     Ashita's binding (as v2 found it): widget values are one-element tables
     ({ true }, { 75 }), and Text, TextColored and SetTooltip take a printf
@@ -8,7 +9,6 @@
 ]]--
 
 local imgui = require('imgui')
-local model = require('ui.model')
 
 local window = {}
 
@@ -32,7 +32,7 @@ local DISPLAYS = {
 }
 local SIZES = { { 'auto', 'Fit the window to its contents' }, { 'custom', 'Size the window by dragging its corner' } }
 
-local cfg, save           -- this frame's settings and save callback
+local act                 -- this frame's actions
 local page = 'Healing'    -- the page on show in the 'groups' layout; this session only
 
 local function esc(s) return (tostring(s):gsub('%%', '%%%%')) end
@@ -55,10 +55,7 @@ end
 -- A menu of { value, label } setting `path`, the current value checked.
 local function choose(options, current, path)
     for _, o in ipairs(options) do
-        if imgui.Selectable(o[2], o[1] == current) and o[1] ~= current then
-            model.set_value(cfg, path, o[1])
-            save()
-        end
+        if imgui.Selectable(o[2], o[1] == current) and o[1] ~= current then act.set(path, o[1]) end
     end
 end
 
@@ -66,7 +63,7 @@ end
 -- this frame's layout, so a switch made here lands next frame, never mid-tab-bar.
 local function display_menu(view, id)
     if imgui.BeginPopupContextItem('##sk3_display_' .. id) then
-        choose(DISPLAYS, view.display, 'ui.display')
+        choose(DISPLAYS, view.ui.display, 'ui.display')
         imgui.EndPopup()
     end
 end
@@ -74,17 +71,17 @@ end
 -- Right-click on empty window space (headers and widgets keep their own clicks).
 local function size_menu(view)
     if imgui.BeginPopupContextWindow('##sk3_size', ImGuiPopupFlags_MouseButtonRight + ImGuiPopupFlags_NoOpenOverItems) then
-        choose(SIZES, view.size, 'ui.size')
+        choose(SIZES, view.ui.size, 'ui.size')
         imgui.EndPopup()
     end
 end
 
 -- Header ---------------------------------------------------------------------------
 
-local function draw_header(view, status)
+local function draw_header(view)
     local s = view.status
     push_button(s.running and STOP or START)
-    if imgui.Button(s.running and 'Stop##sk3_run' or 'Start##sk3_run', { 70, 0 }) then status.running = not s.running end
+    if imgui.Button(s.running and 'Stop##sk3_run' or 'Start##sk3_run', { 70, 0 }) then act.run(not s.running) end
     imgui.PopStyleColor(3)
     imgui.SameLine()
     imgui.AlignTextToFramePadding()  -- level with the button
@@ -153,22 +150,21 @@ end
 
 -- Section bodies --------------------------------------------------------------------
 
--- Sliders write as they move and save once let go.
+-- Sliders write as they move; Sidekick saves once let go.
 local function slider(label, path, value, min, max, help)
     local v = { value }
     imgui.PushItemWidth(SETTING_WIDTH)
-    if imgui.SliderInt(label, v, min, max) then model.set_value(cfg, path, v[1]) end
+    if imgui.SliderInt(label, v, min, max) then act.set(path, v[1]) end
     imgui.PopItemWidth()
-    if imgui.IsItemDeactivatedAfterEdit() then save() end
     tip(help)
 end
 
 local function focus_combo(h)
     imgui.PushItemWidth(SETTING_WIDTH)
     if imgui.BeginCombo('Focus##sk3_focus', h.focus ~= '' and h.focus or 'None') then
-        if imgui.Selectable('None##sk3_focus_none', h.focus == '') then model.set_value(cfg, 'heal.focus', ''); save() end
+        if imgui.Selectable('None##sk3_focus_none', h.focus == '') then act.set('heal.focus', '') end
         for _, name in ipairs(h.focus_names) do
-            if imgui.Selectable(name, name == h.focus) then model.set_value(cfg, 'heal.focus', name); save() end
+            if imgui.Selectable(name, name == h.focus) then act.set('heal.focus', name) end
         end
         imgui.EndCombo()
     end
@@ -194,7 +190,7 @@ local function pick_combo(r, id)
     imgui.PushItemWidth(PICK_WIDTH)
     if imgui.BeginCombo('##pick_' .. id, r.choice) then
         for _, c in ipairs(r.choices) do
-            if imgui.Selectable(c.label, c.name == r.pick) then model.set_pick(cfg, r.key, c.name); save() end
+            if imgui.Selectable(c.label, c.name == r.pick) then act.pick(r.key, c.name) end
         end
         imgui.EndCombo()
     end
@@ -210,8 +206,7 @@ local function target_chips(r, id)
         if colors then push_button(colors) end
         if disabled then imgui.PushStyleColor(ImGuiCol_Text, GREY) end
         if imgui.Button(t.label .. '##' .. id .. t.slot, { CHIP_WIDTH, 0 }) and not disabled then
-            model.toggle_target(cfg, r.key, t.slot)
-            save()
+            act.target(r.key, t.slot)
         end
         if colors then imgui.PopStyleColor(disabled and 4 or 3) end
         tip(t.name or 'empty slot')
@@ -227,7 +222,7 @@ local function draw_rows(s)
         imgui.TableNextRow()
         imgui.TableNextColumn()
         local v = { r.on }
-        if imgui.Checkbox(r.label .. '##' .. id, v) then model.set_row_on(cfg, r.key, v[1]); save() end
+        if imgui.Checkbox(r.label .. '##' .. id, v) then act.row(r.key, v[1]) end
         if s.has_choices then
             imgui.TableNextColumn()
             if r.choices then pick_combo(r, id) end
@@ -243,18 +238,18 @@ local function draw_rows(s)
     imgui.EndTable()
 end
 
-local function draw_options(view, status)
+local function draw_options(view)
     local v = { view.japanese }
-    if imgui.Checkbox('Japanese client##sk3_japanese', v) then model.set_value(cfg, 'japanese', v[1]); save() end
+    if imgui.Checkbox('Japanese client##sk3_japanese', v) then act.set('japanese', v[1]) end
     tip('Send spell and ability names in Japanese.')
     v = { view.log }
-    if imgui.Checkbox('Action log##sk3_log', v) then status.log = v[1] end
+    if imgui.Checkbox('Action log##sk3_log', v) then act.log(v[1]) end
     tip('Print each action to chat as it is sent.')
 end
 
-local function draw_body(view, s, status)
+local function draw_body(view, s)
     if s.id == 'heal' then draw_heal_settings(view.heal) end
-    if s.rows then draw_rows(s) else draw_options(view, status) end
+    if s.rows then draw_rows(s) else draw_options(view) end
 end
 
 -- Sections: built once, wrapped by the layout --------------------------------------------
@@ -262,22 +257,22 @@ end
 -- A behavior's switch: beside its header, or atop its tab (a tab can't hold one).
 local function section_switch(s, label)
     local v = { s.on }
-    if imgui.Checkbox(label .. '##sk3_on_' .. s.id, v) then model.set_section(cfg, s.id, v[1]); save() end
+    if imgui.Checkbox(label .. '##sk3_on_' .. s.id, v) then act.section(s.id, v[1]) end
     tip(('%s %s'):format(s.title, s.on and 'on' or 'off'))
 end
 
-local function header_section(view, s, status)
+local function header_section(view, s)
     if s.rows then
         section_switch(s, '')
         imgui.SameLine()
     end
     local open = imgui.CollapsingHeader(s.title .. '###sk3_' .. s.id, ImGuiTreeNodeFlags_DefaultOpen)
     display_menu(view, s.id)
-    if open then draw_body(view, s, status) end
+    if open then draw_body(view, s) end
 end
 
 -- NoPushId keeps the menu's popup id the same whether or not the tab is selected.
-local function tab_section(view, s, status)
+local function tab_section(view, s)
     local label = s.title .. (s.on == false and ' (off)' or '') .. '###sk3_tab_' .. s.id
     local open = imgui.BeginTabItem(label, nil, ImGuiTabItemFlags_NoPushId)
     display_menu(view, s.id)
@@ -286,25 +281,24 @@ local function tab_section(view, s, status)
         section_switch(s, s.title)
         imgui.Separator()
     end
-    draw_body(view, s, status)
+    draw_body(view, s)
     imgui.EndTabItem()
 end
 
 -- One tab bar of the sections in `group` (all when nil).
-local function tab_bar(view, status, id, group)
+local function tab_bar(view, id, group)
     if not imgui.BeginTabBar(id, ImGuiTabBarFlags_FittingPolicyScroll) then return end
     for _, s in ipairs(view.sections) do
-        if not group or s.group == group then tab_section(view, s, status) end
+        if not group or s.group == group then tab_section(view, s) end
     end
     imgui.EndTabBar()
 end
 
 -- Healing / Support / Utility, each a tab bar of its sections; empty pages hidden.
-local function pages(view, status)
+local function pages(view)
     local shown, has = {}, {}
-    for _, s in ipairs(view.sections) do has[s.group] = true end
-    for _, g in ipairs(model.GROUPS) do
-        if has[g] then shown[#shown + 1] = g end
+    for _, s in ipairs(view.sections) do
+        if not has[s.group] then has[s.group] = true; shown[#shown + 1] = s.group end
     end
     if not has[page] then page = shown[1] end
     for i, g in ipairs(shown) do
@@ -313,45 +307,41 @@ local function pages(view, status)
         if imgui.Selectable(g .. '##sk3_page', g == page, 0, { w, h }) then page = g end
     end
     imgui.Separator()
-    tab_bar(view, status, '##sk3_tabs_' .. page, page)
+    tab_bar(view, '##sk3_tabs_' .. page, page)
 end
 
-local function draw_sections(view, status)
-    if view.display == 'tabs' then
-        tab_bar(view, status, '##sk3_tabs')
-    elseif view.display == 'groups' then
-        pages(view, status)
+local function draw_sections(view)
+    if view.ui.display == 'tabs' then
+        tab_bar(view, '##sk3_tabs')
+    elseif view.ui.display == 'groups' then
+        pages(view)
     else
-        for _, s in ipairs(view.sections) do header_section(view, s, status) end
+        for _, s in ipairs(view.sections) do header_section(view, s) end
     end
 end
 
--- One frame. Returns a Lua error raised while drawing, after closing the window
--- cleanly; the caller reports it.
+-- One frame. A Lua error raised while drawing is raised again after the window
+-- is ended, so ImGui stays balanced and Sidekick reports it.
 -- ponytail: an error inside a table or combo still leaves that scope open, which
 -- ImGui asserts on; unwind tracked scopes (as v2's abort_sections does) if one shows up.
-function window.render(view, cfg_, status, save_)
-    cfg, save = cfg_, save_
+function window.render(view, act_)
+    act = act_
     local open = { true }
     local ok, err = true, nil
     -- 'custom': resizable, contents scroll. Leaving 'auto' keeps the size it had fitted.
-    local flags = view.size == 'custom' and 0 or ImGuiWindowFlags_AlwaysAutoResize + ImGuiWindowFlags_NoResize
+    local flags = view.ui.size == 'custom' and 0 or ImGuiWindowFlags_AlwaysAutoResize + ImGuiWindowFlags_NoResize
     if imgui.Begin('Sidekick3', open, flags) then
         ok, err = pcall(function ()
-            draw_header(view, status)
+            draw_header(view)
             draw_party(view)
             draw_recent(view)
-            draw_sections(view, status)
+            draw_sections(view)
             size_menu(view)
         end)
     end
     imgui.End()
-    if not open[1] then
-        status.open = false
-        model.set_value(cfg, 'ui.open', false)
-        save()
-    end
-    if not ok then return err end
+    if not open[1] then act.close() end
+    if not ok then error(err, 0) end
 end
 
 return window
