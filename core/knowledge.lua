@@ -25,7 +25,6 @@
     main_only  never from a subjob
     pet        needs a pet out (true) or one of these pets
     kind       'ma' | 'ja' | 'pet': this use only for that command kind
-    mp         CatsEyeXI cost where the client DAT disagrees
     label      UI name when one action has several uses
     note       short UI hint
     travel     travel buff: still cast while Invisible
@@ -92,7 +91,7 @@ local K = {
 
     -- revive -------------------------------------------------------------------
     ['Raise'] = { role = 'revive', gate = 'idle' },
-    ['Arise'] = { role = 'revive', gate = 'idle', mp = 300 },
+    ['Arise'] = { role = 'revive', gate = 'idle' },
 
     -- recover ------------------------------------------------------------------
     ['Aspir']            = { role = 'recover' },
@@ -266,9 +265,8 @@ local K = {
     ['Zephyr Mantle']   = { role = 'buff', status = 'Blink' },
     ['Occultation']     = { role = 'buff', status = 'Blink' },
     ['Warm-Up']         = { role = 'buff', status = 'Accuracy Boost' },
-    ['Triumphant Roar'] = { role = 'buff', status = 'Attack Boost', mp = 36 },
-    -- Server cost; its spell_list row is commented out, so it may not cast there yet.
-    ['Carcharian Verve']= { role = 'buff', status = 'Attack Boost', mp = 52 },
+    ['Triumphant Roar'] = { role = 'buff', status = 'Attack Boost' },
+    ['Carcharian Verve']= { role = 'buff', status = 'Attack Boost' },
     ['Reactor Cool']    = { role = 'buff', status = 'Ice Spikes' },
     ['Plasma Charge']   = { role = 'buff', status = 'Shock Spikes' },
     ['Battery Charge']  = { role = 'buff', status = 'Refresh', priority = 50 },
@@ -322,7 +320,7 @@ local K = {
     ['Geo-Voidance']    = { role = 'buff', pick_one = 'geo', main_only = true, status = 554 },
     ['Geo-Focus']       = { role = 'buff', pick_one = 'geo', main_only = true, status = 555 },
     ['Geo-Attunement']  = { role = 'buff', pick_one = 'geo', main_only = true, status = 556 },
-    ['Geo-Haste']       = { role = 'buff', pick_one = 'geo', main_only = true, status = 580, mp = 63 },
+    ['Geo-Haste']       = { role = 'buff', pick_one = 'geo', main_only = true, status = 580 },
     ['Lasting Emanation']  = { role = 'buff', pick_one = 'geo_ja', label = 'Lasting Emanation (Duration)', main_only = true, pet = true, status = false },
     ['Ecliptic Attrition'] = { role = 'buff', pick_one = 'geo_ja', label = 'Ecliptic Attrition (Effect)', main_only = true, pet = true, status = false },
 

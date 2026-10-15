@@ -37,6 +37,12 @@ local ACCEPTED = {
     ['blue_mage|Orcish Counterstance|MISSING'] = 'v2 casts "Orcish Counterstance"; the client only knows "O. Counterstance"',
     ['blue_mage|O. Counterstance|EXTRA'] = 'same spell, under its client name',
     ['paladin|Raise|EXTRA'] = 'PLD learns Raise at 50; v2 never offered it',
+    -- v2 copied the server's spell_list cost; the client blocks the cast by its own
+    -- (reported to the CatsEyeXI devs as a server/client mismatch).
+    ['white_mage|Arise|mp'] = 'client 150, server 300',
+    ['geomancer|Geo-Haste|mp'] = 'client 200, server 63',
+    ['blue_mage|Triumphant Roar|mp'] = 'client 24, server 36',
+    ['blue_mage|Carcharian Verve|mp'] = 'client 65, server 52 (row commented out)',
 }
 
 local function list(v)

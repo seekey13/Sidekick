@@ -97,6 +97,6 @@ test('trust spells are not catalogued', function ()
     eq(find(build(WHM, 75), 'Shantotto'), nil)
 end)
 
-test('CatsEyeXI MP overrides beat the DAT', function ()
-    eq(find(build(WHM, 75), 'Arise').mp, 300)
+test('MP cost is the client\'s, even where the CatsEyeXI server lists another', function ()
+    eq(find(build(WHM, 75), 'Arise').mp, 150)  -- server spell_list says 300
 end)
