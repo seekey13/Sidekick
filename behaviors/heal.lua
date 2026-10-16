@@ -10,7 +10,6 @@
       efficient  from the danger line to full HP: HP that lands where it's needed, per
                  share of the MP or TP you have; Regen allowed, and counted while it ticks
     The focus member has its own two lines; skipped members count for nothing.
-    Design: docs/superpowers/specs/2026-10-15-healing-design.md
 ]]--
 
 local can = require('core.can')

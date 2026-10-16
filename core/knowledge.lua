@@ -71,7 +71,7 @@ local K = {
         { role = 'heal' },
         { role = 'remove', removes = { 'Poison', 'Blindness' } },
     },
-    -- ponytail: area priors are guesses until the in-game check (spec build step 5).
+    -- ponytail: area priors are guesses until the in-game check (Curaga, Divine Waltz, Healing Breeze, Healing Ruby, Wild Carrot).
     ['Curaga']           = { role = 'heal', wakes = true, potency = { 60, 130, 270, 450 } },
     ['Divine Waltz']     = { role = 'heal', wakes = true, blocked_by = 'Saber Dance', potency = { 70, 300 } },
     ['Healing Breeze']   = { role = 'heal', wakes = true, potency = { 90 } },

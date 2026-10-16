@@ -11,7 +11,7 @@ First presented in chat on 2026-10-14. Updated 2026-10-15 to match the decisions
 | 2a | Done, untested in game: game snapshot (`/sk3 state`) |
 | 2b | Done, untested in game: engine, heal/remove/buff/revive (`/sk3 plan`, `start`, `buff`, `focus`) |
 | 2c | Done, untested in game: settings window (`ui/model.lua` pure, `ui/window.lua` thin) |
-| 2d | Done, untested in game: [healing overhaul](../specs/2026-10-15-healing-design.md) (bands, area heals, Regen, boosts, learned potency); the in-game check of the area priors is left |
+| 2d | Done, untested in game: healing overhaul (bands, area heals, Regen, boosts, learned potency); the in-game check of the area priors is left |
 | 3–5 | Not started |
 
 The dev command is `/sk3`, because v2 is still loaded and owns `/sk`. v3 takes `/sk` at cutover.
