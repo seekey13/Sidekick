@@ -1,6 +1,6 @@
 --[[
-    Statuses on units the client keeps no readable list for (trusts now; alliance,
-    tracked targets and pets later), pieced together from packets by core/packets.lua.
+    Statuses on units the client keeps no readable list for (trusts and your pet now;
+    alliance and tracked targets later), pieced together from packets by core/packets.lua.
     You and your party's players are read from memory instead (core/game.lua).
 ]]--
 
@@ -29,6 +29,9 @@ function buffs.of(sid, now)
     end
     return out
 end
+
+-- Everything known about sid: it died or left, and those statuses went silently.
+function buffs.forget(sid) store[sid] = nil end
 
 function buffs.clear() store = {} end
 

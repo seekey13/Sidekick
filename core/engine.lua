@@ -21,10 +21,10 @@ engine.BEHAVIORS = {
     { name = 'remove', run = require('behaviors.remove'), quick = true },
     { name = 'wake', run = require('behaviors.wake'), quick = true },
     { name = 'recover', run = require('behaviors.recover') },
-    { name = 'pet', run = pet.care },
+    { name = 'pet', run = pet.care, quick = true },
     { name = 'revive', run = require('behaviors.revive') },
     { name = 'buff', run = require('behaviors.buff') },
-    { name = 'pet_send', run = pet.send, setting = 'pet' },
+    { name = 'pet_send', run = pet.send, setting = 'pet', quick = true },
     { name = 'follow', run = require('behaviors.follow').want },
     { name = 'rest', run = require('behaviors.rest'), resting = true },
 }

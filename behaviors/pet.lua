@@ -43,7 +43,9 @@ end
 
 function pet.send(g, cat, cfg)
     local p, bt = g.pet, g.bt
-    if not p or p.status == ENGAGED or not (bt and bt.mob and bt.hpp > 0) or g.me.buffs[INVISIBLE] then return nil end
+    if not p or p.hpp == 0 or p.status == ENGAGED or not (bt and bt.mob and bt.hpp > 0) or g.me.buffs[INVISIBLE] then
+        return nil
+    end
     for _, a in ipairs(settings.enabled(cat, cfg, 'pet_send')) do
         if can.use(a, g) then return { action = a, why = ('%s at %s'):format(p.name, bt.name) } end
     end

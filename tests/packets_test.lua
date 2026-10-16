@@ -1,0 +1,41 @@
+-- core/packets.lua on parsed 0x028s: statuses landing on trusts and your pet.
+local buffs = require('core.buffs')
+local packets = require('core.packets')
+
+local ME, TRUST, PET, MOB, STRANGER = 1, 0x1000001, 0x1000002, 0x1000100, 0x1000200
+local SLEEP, POISON, PROTECT = 2, 3, 40
+local SPELL, MOB_SKILL = 4, 11
+
+local function ctx(durations)
+    return { me = ME, pet = PET, tracks = { [TRUST] = true, [PET] = true },
+             duration = function (spell) return (durations or {})[spell] end }
+end
+
+-- One action; results = { { target sid, message, param }, ... }.
+local function action(actor, category, param, results)
+    local p = { actor = actor, category = category, param = param, targets = {} }
+    for _, r in ipairs(results) do
+        p.targets[#p.targets + 1] = { id = r[1], results = { { message = r[2], param = r[3] } } }
+    end
+    return p
+end
+
+test('a mob\'s Sleepga: its main target and the others it lands on', function ()
+    buffs.clear()
+    packets.action(action(MOB, SPELL, 273, { { TRUST, 236, SLEEP }, { PET, 277, SLEEP } }), ctx(), 0)
+    eq({ buffs.of(TRUST, 1), buffs.of(PET, 1) }, { { [SLEEP] = true }, { [SLEEP] = true } })
+end)
+
+test('a TP move\'s poison, on tracked units only', function ()
+    buffs.clear()
+    packets.action(action(MOB, MOB_SKILL, 1234, { { TRUST, 242, POISON }, { STRANGER, 243, POISON } }), ctx(), 0)
+    eq({ buffs.of(TRUST, 1), buffs.of(STRANGER, 1) }, { { [POISON] = true }, {} })
+end)
+
+test('only a spell\'s id names a duration', function ()
+    buffs.clear()
+    local c = ctx({ [1234] = 10 })
+    packets.action(action(MOB, MOB_SKILL, 1234, { { TRUST, 242, POISON } }), c, 0)
+    packets.action(action(STRANGER, SPELL, 1234, { { TRUST, 230, PROTECT } }), c, 0)
+    eq(buffs.of(TRUST, 50), { [POISON] = true })
+end)

@@ -134,7 +134,7 @@ Healing (2d) is the one behavior that scores instead of following a list: every 
 
 ### 5. Job modules, only where real state machines exist
 
-`sch` (arts, stratagem charges), `brd` (song slots and timers, the hardest one), `cor` (double-up strategy, lucky table), `geo` (luopan, Full Circle, Entrust), `run` (runes), `pup` (maneuvers), `bst` (ready charges, ammo), `nin` (tools), `blu` (set-spell read), `dnc` (stance blocks).
+`sch` (arts, stratagem charges), `brd` (song slots and timers, the hardest one), `cor` (double-up strategy, lucky table), `geo` (luopan, Full Circle, Entrust, Radial Arcana), `run` (runes), `pup` (maneuvers), `bst` (ready charges, ammo), `nin` (tools), `blu` (set-spell read), `dnc` (stance blocks).
 
 WHM, PLD, RDM, WAR, MNK, THF, SAM, DRK, DRG, BLM and RNG need **no file at all**.
 
@@ -192,5 +192,6 @@ Target: 8k lines or less, a cut of about 70%. The architecture doc becomes one p
 - **CatsEyeXI changes the DATs don't show.** Covered for JAs, since `HasAbility` comes from the server. Spell levels and costs follow the client DAT by decision; server mismatches go to the CatsEyeXI devs.
 - **`HasSpell` reads false while zoning.** The catalog only rebuilds from stable state and never touches settings.
 - **Finding a buff's status by name.** Phase 1 verified every family.
-- **Ammo the pet abilities need** (pet food for Reward, oils for Repair and Maintenance) is only checked in 3a: it's worn by hand until the BST and PUP modules equip it.
+- **Ammo the pet abilities need** (pet food for Reward, oils for Repair and Maintenance) is only checked in 3a: it's worn by hand until the BST and PUP modules equip it. CatsEyeXI's Reward takes pet food only, so v2's Pet Poultice (Regen) and Pet Roborant (Erase) rows are gone.
+- **Statuses on trusts and your pet** come from packets: gains and enfeebles in 0x028 (area variants included), wear-offs in 0x029. A death clears statuses with no message, so a dead trust's or a gone pet's are forgotten.
 - **Bard song parity** is the largest unknown. Port the behavior, not the code: write the scenarios as tests first.

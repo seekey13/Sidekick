@@ -192,6 +192,10 @@ test('wake, recovery, pet, follow and rest settings write through act', function
     eq(cfg.wake.on, false)
     eq(render(cfg, st, { ['MP under##sk3_recover_mp'] = 40, ['TP under##sk3_recover_tp'] = 1500 }), 2)
     eq({ cfg.recover.mp, cfg.recover.tp }, { 40, 1500 })
+    eq(render(cfg, st, { ['Spend TP from##sk3_recover_min_tp'] = 1500 }), 0)  -- no Chivalry here
+    local pld = model.build(snap(), fake.catalog(7, 75, nil, 0, { 'Chivalry' }), cfg, st, NAMES)
+    eq(render(cfg, st, { ['Spend TP from##sk3_recover_min_tp'] = 1500 }, pld), 1)
+    eq(cfg.recover.min_tp, 1500)
     eq(render(cfg, st, { ['Follow##sk3_follow'] = true, ['A##sk3_follow_target_A'] = true }), 2)
     eq({ cfg.follow.on, cfg.follow.target, cfg.heal.focus }, { true, 'A', '' })
     eq(render(cfg, st, { ['Rest##sk3_rest'] = true, ['Rest after##sk3_rest_delay'] = 8 }), 2)

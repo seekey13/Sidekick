@@ -30,7 +30,9 @@ local ROLE = {
     pet_control = 'pet_send',
 }
 -- v2 entries a v3 job module owns instead of the generic role.
-local MODULE_OWNED = {}
+local MODULE_OWNED = {
+    ['recover|Radial Arcana'] = 'it dismisses the luopan: jobs/geo.lua decides when',
+}
 
 -- Known, intended differences from v2: job|name|what -> why.
 local ACCEPTED = {
@@ -44,6 +46,9 @@ local ACCEPTED = {
     ['beastmaster|Fight|enemy'] = 'sent at <bt>',
     ['puppetmaster|Deploy|enemy'] = 'sent at <bt>',
     ['summoner|Assault|enemy'] = 'sent at <bt>',
+    -- CatsEyeXI's Reward refuses Pet Poultice and Pet Roborant: it takes pet food only.
+    ['beastmaster|Reward (Regen)|MISSING'] = 'the server refuses Pet Poultice; every Reward gives Regen',
+    ['beastmaster|Reward (Erase)|MISSING'] = 'the server refuses Pet Roborant; Reward never erases',
     -- v2 copied the server's spell_list cost; the client blocks the cast by its own
     -- (reported to the CatsEyeXI devs as a server/client mismatch).
     ['white_mage|Arise|mp'] = 'client 150, server 300',

@@ -1,7 +1,8 @@
 --[[
     Get MP and TP back with the recovery rows that are on: under your MP line,
-    Convert, Aspir, Sublimation, Chivalry...; under it for a member, Devotion on
-    the lowest; under your TP line in combat, Meditate or Reverse Flourish.
+    Convert, Aspir, Sublimation, Chivalry (once you have recover.min_tp TP)...;
+    under it for a member, Devotion on the lowest; under your TP line in combat,
+    Meditate or Reverse Flourish.
     Highest priority first, then the best tier. Whatever costs HP waits while
     you're under your danger line.
 ]]--
@@ -32,7 +33,9 @@ return function (g, cat, cfg)
             if a.gives == 'tp' then
                 if g.combat and g.me.tp < r.tp then return { action = a, why = ('TP %d'):format(g.me.tp) } end
             elseif can.self_only(a) or can.at_enemy(a) then
-                if g.me.mpp < r.mp then return { action = a, why = ('MP %d%%'):format(g.me.mpp) } end
+                if g.me.mpp < r.mp and (not a.spends_tp or g.me.tp >= r.min_tp) then
+                    return { action = a, why = ('MP %d%%'):format(g.me.mpp) }
+                end
             else
                 local u = drained(a, g, r.mp)
                 if u then return { action = a, target = u, why = ('%s MP %d%%'):format(u.name, u.mpp) } end

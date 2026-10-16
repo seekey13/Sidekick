@@ -69,16 +69,19 @@ test('recover: Devotion on the member lowest on MP, never one with no MP', funct
     eq(decide(g, nil, cat), '/ja "Devotion" 101')
 end)
 
-test('recover: Meditate in combat under the TP line; Chivalry only at 3000 TP', function ()
+test('recover: Meditate in combat under the TP line; Chivalry from its own TP line', function ()
     local sam = fake.catalog(SAM, 75, nil, 0, { 'Meditate' })
     eq(decide(snap(nil, { combat = true }), nil, sam), '/ja "Meditate" <me>')
     eq({ decide(snap(), nil, sam) }, { nil, 'nothing to do' })
     local pld = fake.catalog(PLD, 75, nil, 0, { 'Chivalry' })
+    local cfg = cfg_with({ ['heal.on'] = false })
     local g = snap()
     g.me.mpp, g.me.tp = 20, 2000
-    eq({ decide(g, cfg_with({ ['heal.on'] = false }), pld) }, { nil, 'nothing to do' })
+    eq({ decide(g, cfg, pld) }, { nil, 'nothing to do' })
     g.me.tp = 3000
-    eq(decide(g, cfg_with({ ['heal.on'] = false }), pld), '/ja "Chivalry" <me>')
+    eq(decide(g, cfg, pld), '/ja "Chivalry" <me>')
+    g.me.tp, cfg.recover.min_tp = 2000, 1500
+    eq(decide(g, cfg, pld), '/ja "Chivalry" <me>')
 end)
 
 test('recover: Aspir from the battle target', function ()
@@ -100,10 +103,29 @@ test('pet: Repair under the pet HP line, only with an oil worn', function ()
     eq({ decide(snap(nil, { pet = automaton({ hpp = 40 }) }), nil, pup) }, { nil, 'nothing to do' })
     local cmd, intent = decide(snap(nil, { pet = automaton({ hpp = 40 }), ammo = OIL }), nil, pup)
     eq({ cmd, intent.behavior, intent.why }, { '/ja "Repair" <me>', 'pet', 'Automaton 40%' })
+    eq(decide(snap(nil, { pet = automaton({ hpp = 40 }), ammo = 19185 }), nil, pup), '/ja "Repair" <me>')  -- +3
     eq({ decide(snap(nil, { pet = automaton({ hpp = 60 }), ammo = OIL }), nil, pup) }, { nil, 'nothing to do' })
     local g = snap(nil, { pet = automaton({ hpp = 40 }), ammo = OIL })
     g.me.buffs[INVISIBLE] = true
     eq({ decide(g, nil, pup) }, { nil, 'nothing to do' })
+end)
+
+test('pet: Repair only within 20 yalms of the automaton, as the server allows', function ()
+    eq({ decide(snap(nil, { pet = automaton({ hpp = 40, dist = 25 }), ammo = OIL }), nil, pup) }, { nil, 'nothing to do' })
+end)
+
+test('pet: cared for and sent in while healing waits for a cure', function ()
+    local cat = fake.catalog(PUP, 75, WHM, 37, { 'Repair', 'Deploy' })
+    local waits = {}
+    for _, a in ipairs(cat) do if a.role == 'heal' then waits[a.name] = 5 end end
+    local hurt = { { name = 'A', hpp = 45 } }
+    eq(decide(snap(hurt, { pet = automaton({ hpp = 40 }), ammo = OIL }, waits), nil, cat), '/ja "Repair" <me>')
+    local cfg = settings.defaults()
+    cfg.rows.Deploy = { on = true }
+    local g = snap(hurt, { pet = automaton(), bt = { name = 'Crab', mob = true, dist = 5, hpp = 100 }, combat = true }, waits)
+    eq(decide(g, cfg, cat), '/pet "Deploy" <bt>')
+    g.pet = nil
+    eq({ decide(g, cfg, cat) }, { nil, 'waiting for a cure' })
 end)
 
 test('pet: Maintenance clears what ails it', function ()
@@ -119,6 +141,7 @@ test('pet: sent at the battle target when idle, opt-in', function ()
     local cmd, intent = decide(snap(nil, { pet = automaton(), bt = bt, combat = true }), cfg, pup)
     eq({ cmd, intent.behavior }, { '/pet "Deploy" <bt>', 'pet_send' })
     eq({ decide(snap(nil, { pet = automaton({ status = 1 }), bt = bt, combat = true }), cfg, pup) }, { nil, 'nothing to do' })
+    eq({ decide(snap(nil, { pet = automaton({ hpp = 0 }), bt = bt, combat = true }), cfg, pup) }, { nil, 'nothing to do' })
 end)
 
 test('pet: Spirit Link waits while you are in danger yourself', function ()
@@ -153,7 +176,9 @@ test('rest: after the quiet delay, out of combat, MP not full', function ()
     eq({ decide(g, cfg, whm) }, { nil, 'nothing to do' })
     g.moved_at, g.combat = 990, true
     eq({ decide(g, cfg, whm) }, { nil, 'nothing to do' })
-    g.combat, g.me.uses_mp = false, false
+    g.combat, g.combat_at = false, 997  -- the fight just ended
+    eq({ decide(g, cfg, whm) }, { nil, 'nothing to do' })
+    g.combat_at, g.me.uses_mp = nil, false
     eq({ decide(g, cfg, whm) }, { nil, 'nothing to do' })
 end)
 

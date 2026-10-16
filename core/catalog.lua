@@ -108,7 +108,8 @@ function catalog.build(res, player, K)
                                             mp = use.boost.mp or 1, tiers = use.boost.tiers },
                     duration = type(use.duration) == 'table' and use.duration[tier] or use.duration,
                     wakes = use.wakes, gives = use.gives, gate = use.gate, pick_one = use.pick_one,
-                    costs_hp = use.costs_hp, swaps = use.swaps, min_tp = use.min_tp, ammo = use.ammo,
+                    costs_hp = use.costs_hp, swaps = use.swaps, spends_tp = use.spends_tp,
+                    ammo = use.ammo, pet_range = use.pet_range,
                     priority = use.priority or 0, pet = use.pet, travel = use.travel, mob_skill = use.mob_skill,
                     mp = row.mp, tp = row.tp,  -- the client blocks casts by this cost, so it is the one to trust
                     recast = kind == 'ma' and id or row.recast_id,  -- spell id, or ability recast timer id

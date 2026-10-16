@@ -28,8 +28,9 @@
     gives      'tp' for a recover that restores TP (default MP)
     costs_hp   paid for with your HP: only while you're over the danger line
     swaps      trades your HP for your MP: only while you have more HP than MP
-    min_tp     TP you need before it's worth using
+    spends_tp  turns all your TP into MP (Chivalry): only from recover.min_tp up
     ammo       item ids, one of which must be in your ammo slot (pet food, oils)
+    pet_range  yalms your pet may be from you (the server refuses Repair past 20)
     gate       'combat' | 'idle' (enemy-targeted actions are combat-only anyway)
     pick_one   families sharing a key keep one selection (enspells, storms, bar-elements)
     blocked_by skip while you have any of these statuses
@@ -55,9 +56,9 @@ local WALTZ    = { 3, 4, 5, 6, 8, 9, 11, 12, 13, 31, 128, 129, 130, 131, 132, 13
 local PET_CLEANSE = { 3, 4, 5, 6, 8, 9, 31, 10, 11, 12, 13, 21, 128, 129, 130, 131, 132, 133, 134, 135,
     136, 137, 138, 139, 140, 141, 142, 144, 145, 146, 147, 148, 149, 156, 167, 174, 175, 189, 192, 194, 291, 298, 404 }
 
--- Ammo items (ids): Pet Food Alpha to Zeta Biscuit; Automaton Oil, +1, +2.
-local PET_FOOD = { 17016, 17017, 17018, 17019, 17020, 17021 }
-local OILS     = { 18731, 18732, 18733 }
+-- Ammo items (ids) the server takes: Pet Food Alpha to Theta Biscuit; Automaton Oil to +3.
+local PET_FOOD = { 17016, 17017, 17018, 17019, 17020, 17021, 17022, 17023 }
+local OILS     = { 18731, 18732, 18733, 19185 }
 
 local LIGHT = { 'Light Arts', 'Addendum: White' }
 local SAMBA = { role = 'buff', pick_one = 'samba', blocked_by = 'Fan Dance' }
@@ -119,9 +120,9 @@ local K = {
     -- recover ------------------------------------------------------------------
     ['Aspir']            = { role = 'recover' },
     ['Convert']          = { role = 'recover', priority = 100, costs_hp = true, swaps = true },
-    ['Chivalry']         = { role = 'recover', min_tp = 3000 },
+    ['Chivalry']         = { role = 'recover', spends_tp = true },
     ['Devotion']         = { role = 'recover', costs_hp = true },
-    ['Radial Arcana']    = { role = 'recover', main_only = true, pet = true, priority = 90 },
+    -- Not Radial Arcana: it dismisses the luopan, so jobs/geo.lua decides when (phase 4).
     ['Meditate']         = { role = 'recover', gives = 'tp', priority = 100, status = 801 },
     ['Reverse Flourish'] = { role = 'recover', gives = 'tp', priority = 100, requires = 'Finishing Move (5)' },
 
@@ -130,14 +131,11 @@ local K = {
     ['Spirit Link']   = { role = 'pet_heal', pet = true, costs_hp = true },
     ['Life Cycle']    = { role = 'pet_heal', pet = true, main_only = true, costs_hp = true },
     ['Dematerialize'] = { role = 'pet_heal', pet = true, main_only = true },
-    ['Repair']        = { role = 'pet_heal', pet = true, priority = 100, ammo = OILS },
+    ['Repair']        = { role = 'pet_heal', pet = true, priority = 100, ammo = OILS, pet_range = 20 },
     ['Role Reversal'] = { role = 'pet_heal', pet = true, costs_hp = true },
     ['Maintenance']   = { role = 'pet_remove', pet = true, removes = PET_CLEANSE, ammo = OILS },
-    ['Reward'] = {
-        { role = 'pet_heal', pet = true, ammo = PET_FOOD },
-        { role = 'buff', label = 'Reward (Regen)', pet = true, status = false, ammo = { 19252 } },  -- Pet Poultice
-        { role = 'pet_remove', label = 'Reward (Erase)', pet = true, removes = PET_CLEANSE, ammo = { 19251 } },  -- Pet Roborant
-    },
+    -- The server's Reward takes pet food only (no Pet Poultice or Roborant); each one also gives Regen.
+    ['Reward']        = { role = 'pet_heal', pet = true, ammo = PET_FOOD },
     -- Send the pet at your battle target.
     ['Assault'] = { role = 'pet_send', pet = true },
     ['Fight']   = { role = 'pet_send', pet = true },

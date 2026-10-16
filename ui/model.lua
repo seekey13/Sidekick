@@ -226,6 +226,9 @@ function model.build(g, cat, cfg, status, names)
         end
     end
 
+    local spends_tp = false  -- Chivalry: its TP line is worth showing
+    for _, a in ipairs(cat) do spends_tp = spends_tp or a.role == 'recover' and a.spends_tp == true end
+
     local view = {
         job = g.sub_lv > 0 and ('%s %d / %s %d'):format(names.job(g.main), g.main_lv, names.job(g.sub), g.sub_lv)
             or ('%s %d'):format(names.job(g.main), g.main_lv),
@@ -238,7 +241,7 @@ function model.build(g, cat, cfg, status, names)
                  cure_potency = h.cure_potency, waltz_potency = h.waltz_potency, regen_potency = h.regen_potency,
                  focus_names = focus_names, members = members },
         wake = cfg.wake.on,
-        recover = { mp = cfg.recover.mp, tp = cfg.recover.tp },
+        recover = { mp = cfg.recover.mp, tp = cfg.recover.tp, min_tp = cfg.recover.min_tp, spends_tp = spends_tp },
         pet_heal = cfg.pet.heal,
         follow = { on = cfg.follow.on, target = cfg.follow.target, distance = cfg.follow.distance, names = focus_names },
         rest = { on = cfg.rest.on, delay = cfg.rest.delay, distance = cfg.rest.distance },

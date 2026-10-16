@@ -3,7 +3,7 @@ local model = require('ui.model')
 local settings = require('core.settings')
 local fake = require('tests.fake')
 
-local WHM, BLM, RDM, BRD = 3, 4, 5, 10
+local WHM, BLM, RDM, PLD, BRD = 3, 4, 5, 7, 10
 local JOBS = { [WHM] = 'WHM', [BLM] = 'BLM', [RDM] = 'RDM', [BRD] = 'BRD' }
 local NAMES = { job = function (id) return JOBS[id] end, statuses = fake.res.statuses }
 
@@ -48,6 +48,11 @@ test('WHM 75 / BLM 37: every behavior section, in order, then Options', function
     eq(keys(section(view, 'recover').rows), { 'Aspir' })  -- from BLM
     eq(keys(section(view, 'heal').rows), { 'Cure', 'Curaga', 'Regen', 'Drain', 'Divine Seal', 'Martyr' })  -- heal, then emergency
     eq(keys(section(view, 'revive').rows), { 'Raise', 'Arise' })
+end)
+
+test('recovery says whether a row spends TP, so Chivalry\'s line is shown only then', function ()
+    eq(build(whm).recover, { mp = 30, tp = 1000, min_tp = 3000, spends_tp = false })
+    eq(build(fake.catalog(PLD, 75, nil, 0, { 'Chivalry' })).recover.spends_tp, true)
 end)
 
 test('a section with nothing to show is left out: BLM 75 has no removal or raise', function ()

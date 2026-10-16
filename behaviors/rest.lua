@@ -17,7 +17,8 @@ return function (g, _, cfg, mem)
         return nil
     end
     if g.combat or far or me.mpp >= 100 or not me.uses_mp then return nil end
-    local quiet = math.max(g.moved_at or -math.huge, mem.sent_at or -math.huge, g.finished or -math.huge)
+    local quiet = math.max(g.moved_at or -math.huge, mem.sent_at or -math.huge, g.finished or -math.huge,
+        g.combat_at or -math.huge)
     if g.now - quiet < r.delay then return nil end
     return { command = '/heal on', action = { name = 'Rest' }, why = ('MP %d%%'):format(me.mpp) }
 end

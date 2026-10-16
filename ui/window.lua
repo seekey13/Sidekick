@@ -221,6 +221,10 @@ local function draw_recover_settings(r)
     slider('MP under##sk3_recover_mp', 'recover.mp', r.mp, 1, 99,
         'Recover MP under this MP % (yours; a member\'s for Devotion).')
     slider('TP under##sk3_recover_tp', 'recover.tp', r.tp, 0, 3000, 'In combat, get TP back under this.')
+    if r.spends_tp then
+        slider('Spend TP from##sk3_recover_min_tp', 'recover.min_tp', r.min_tp, 0, 3000,
+            'Chivalry turns all your TP into MP: only from this much.')
+    end
     imgui.Separator()
 end
 
