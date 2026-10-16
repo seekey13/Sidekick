@@ -6,8 +6,8 @@
     use ("Regen (keep up)", when one family has several):
         rows[key] = { on = bool, pick = action name or nil (= best tier),
                       targets = { [party slot] = true } }    -- buffs only
-    A row never saved uses its default: on, except buffs and sending the pet in,
-    which are opt-in.
+    A row never saved uses its default: on, except buffs, sending the pet in and
+    items, which are opt-in.
     `ui` is the window: open at load, section layout, auto-fit or custom size.
 ]]--
 
@@ -29,7 +29,7 @@ local DEFAULTS = {
     revive = { on = true },
     follow = { on = false, target = '', distance = 5 },  -- /follow them past this many yalms
     rest = { on = false, delay = 5, distance = 7 },  -- /heal after this many quiet seconds; up past distance from follow.target
-    japanese = false,  -- send spell and ability names in Japanese
+    japanese = false,  -- send spell, ability and item names in Japanese
     rows = {},
     ui = { open = false, display = 'headers', size = 'auto' },  -- display: headers | tabs | groups; size: auto | custom
 }
@@ -40,7 +40,7 @@ function settings.key(a) return a.pick_one or a.label or a.family end
 local OPT_IN = { buff = true, pet_send = true }
 
 function settings.row(cfg, a)
-    return cfg.rows[settings.key(a)] or { on = not OPT_IN[a.role] }
+    return cfg.rows[settings.key(a)] or { on = not (OPT_IN[a.role] or a.kind == 'item') }
 end
 
 -- The catalog's actions for `role` whose row is on.

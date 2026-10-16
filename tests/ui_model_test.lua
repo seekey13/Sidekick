@@ -55,8 +55,19 @@ test('recovery says whether a row spends TP, so Chivalry\'s line is shown only t
     eq(build(fake.catalog(PLD, 75, nil, 0, { 'Chivalry' })).recover.spends_tp, true)
 end)
 
-test('a section with nothing to show is left out: BLM 75 has no removal or raise', function ()
-    eq(keys(build(fake.catalog(BLM, 75, 0, 0)).sections, 'id'), { 'heal', 'buff', 'recover', 'move', 'options' })
+test('a section with nothing to show is left out: BLM 75 has no raise, and only items under Debuffs', function ()
+    local view = build(fake.catalog(BLM, 75, 0, 0))
+    eq(keys(view.sections, 'id'), { 'heal', 'remove', 'buff', 'recover', 'move', 'options' })
+    eq(keys(section(view, 'remove').rows), { 'Antidote', 'Eye Drops', 'Echo Drops', 'Holy Water', 'Tincture',
+        'Hallowed Water', 'Remedy Ointment', 'Remedy', 'Panacea' })
+end)
+
+test('item rows are opt-in and say how many you carry; none left when you have none', function ()
+    local view = build(whm, nil, fake.snap({ { name = 'A' } }, { items = { [4151] = 12 } }))
+    local echo, antidote = row(view, 'remove', 'Echo Drops'), row(view, 'remove', 'Antidote')
+    eq({ echo.on, echo.count, echo.ready, echo.action }, { false, 12, true, 'Echo Drops' })
+    eq({ antidote.count, antidote.ready, antidote.avail }, { 0, false, 'none left' })
+    eq(row(view, 'remove', 'Poisona').count, nil)
 end)
 
 test('heal rows are on by default, with no choices or targets', function ()

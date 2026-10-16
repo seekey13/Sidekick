@@ -170,6 +170,8 @@ test('a row, its pick and its targets, and a section switch, each write and save
     eq(cfg.buff.on, false)
     eq(render(cfg, st, { ['Cure##heal_Cure'] = true }), 1)
     eq(cfg.rows.Cure, { on = false })
+    eq(render(cfg, st, { ['Echo Drops (0)###remove_Echo Drops'] = true }), 1)  -- an item, with how many you carry
+    eq(cfg.rows['Echo Drops'], { on = true })
 end)
 
 test('sliders, the focus and the options write the settings', function ()

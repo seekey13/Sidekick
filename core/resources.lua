@@ -57,12 +57,23 @@ function resources.statuses(rm)
     return out
 end
 
--- All three, read once: the DATs don't change while the client runs.
+-- Items, each read the first time it's asked for: only the few the knowledge table names are.
+function resources.items(rm)
+    return setmetatable({}, { __index = function (t, id)
+        local i = rm:GetItemById(id)
+        local en = i and i.Name[1]
+        t[id] = en and en ~= '' and { en = en, jp = i.Name[2] } or false
+        return t[id]
+    end })
+end
+
+-- All of them, read once: the DATs don't change while the client runs.
 local cache
 function resources.load()
     if not cache then
         local rm = AshitaCore:GetResourceManager()
-        cache = { spells = resources.spells(rm), abilities = resources.abilities(rm), statuses = resources.statuses(rm) }
+        cache = { spells = resources.spells(rm), abilities = resources.abilities(rm), statuses = resources.statuses(rm),
+                  items = resources.items(rm) }
     end
     return cache
 end

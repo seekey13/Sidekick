@@ -132,6 +132,7 @@ local function build_row(key, acts, cfg, g, units, buffs)
         end
     end
     row.ready, row.avail, row.action = availability(acts, r, g)
+    if acts[1].kind == 'item' then row.count = g.items and g.items[acts[1].id] or 0 end
     return row
 end
 

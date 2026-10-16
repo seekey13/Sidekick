@@ -11,7 +11,8 @@
              hot = HP still to come from your Regen, nil if none }
     The pet is { sid, tidx, name, hpp, dist, pos, status (1 engaged), buffs }.
     Plus what healing scores with: learned potency, the day and the weather;
-    the item in your ammo slot; when you last moved and last had a battle target.
+    the item in your ammo slot and what's in your inventory; when you last moved and
+    last had a battle target.
 ]]--
 
 local ffi = require('ffi')
@@ -118,6 +119,18 @@ local function ammo()
     return (id == -1 or id == 65535) and 0 or id
 end
 
+-- What's in your inventory: { [item id] = count }. Slot 0 is gil.
+local function inventory()
+    local inv, out = AshitaCore:GetMemoryManager():GetInventory(), {}
+    for i = 1, inv:GetContainerCountMax(0) do
+        local item = inv:GetContainerItem(0, i)
+        if item and item.Id ~= 0 and item.Id ~= 65535 and item.Count > 0 then
+            out[item.Id] = (out[item.Id] or 0) + item.Count
+        end
+    end
+    return out
+end
+
 local function own_buffs(player)
     local raw, list = player:GetBuffs(), {}
     for i = 1, 32 do list[i] = raw[i] or 0 end
@@ -161,6 +174,7 @@ end
 
 -- Seconds until `action` (a catalog record) is off recast; 0 = ready.
 function game.recast(action)
+    if not action.recast then return 0 end  -- items
     local mm = AshitaCore:GetMemoryManager()
     local recast = mm:GetRecast()
     local key, timer = action.kind .. action.recast, 0
@@ -248,7 +262,7 @@ function game.read(now)
     return {
         finished = finished, spell_finish = spell_finish,
         now = now, zone = zone, me = me, units = units, tracks = tracks, bt = bt,
-        pet = pet, ammo = ammo(),
+        pet = pet, ammo = ammo(), items = inventory(),
         main = player:GetMainJob(), main_lv = player:GetMainJobLevel(),
         sub = player:GetSubJob(), sub_lv = player:GetSubJobLevel(),
         casting = packets.casting(now),

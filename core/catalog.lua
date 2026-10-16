@@ -16,6 +16,7 @@ local TIERS = { II = 2, III = 3, IV = 4, V = 5, VI = 6, Ichi = 1, Ni = 2, San = 
 local PET_TYPES  = { [2] = true, [6] = true, [10] = true, [18] = true }
 local SKIP_TYPES = { [3] = true, [4] = true, [20] = true }
 local TRUST = 8  -- spell type; calling trusts is not support automation
+local SELF = 1   -- valid-target flag: items are used on you
 
 local SCH = 20
 local ADDENDUM = { [1] = { 401, 416 }, [2] = { 402, 416 } }  -- by spell type: white, black; or Enlightenment
@@ -77,10 +78,11 @@ local function spell_source(s, p)
 end
 
 -- Build the catalog.
---   res    { spells, abilities, statuses } from core/resources.lua or tests/data
+--   res    { spells, abilities, statuses, items = { [id] = { en, jp } } or nil }
+--          from core/resources.lua or tests/data
 --   player { main, main_lv, sub, sub_lv, has_spell(id), has_ability(id) }
 --   K      core/knowledge.lua
--- Returns a list of actions, one per use, sorted by kind then id.
+-- Returns a list of actions, one per use, sorted by kind then id; items last.
 function catalog.build(res, player, K)
     local idx = status_index(res.statuses)
     local out = {}
@@ -139,6 +141,25 @@ function catalog.build(res, player, K)
         if a.id ~= b.id then return a.id < b.id end
         return (a.role or '') < (b.role or '')
     end)
+
+    -- Items: knowledge names each by id (no DAT says what an item cures) and the
+    -- client spells it for /item (CatsEyeXI's custom items differ). Specific first.
+    local items = {}
+    for name, use in pairs(K) do
+        if use.item then
+            local r = res.items and res.items[use.item]
+            items[#items + 1] = {
+                kind = 'item', id = use.item, name = r and r.en or name, jp = r and r.jp or '', family = name, tier = 1,
+                role = use.role, removes = ids(use.removes, idx, name), priority = use.priority or 0,
+                one_of = use.one_of, targets = SELF, range = 0, area = 0, level = 0,
+            }
+        end
+    end
+    table.sort(items, function (a, b)
+        if a.priority ~= b.priority then return a.priority > b.priority end
+        return a.id < b.id
+    end)
+    for _, a in ipairs(items) do out[#out + 1] = a end
     return out
 end
 

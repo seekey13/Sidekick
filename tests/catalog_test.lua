@@ -99,6 +99,21 @@ test('heal fields: cast seconds, Regen ticks, boosts with their status', functio
         { kind = 'healing', factor = 1, area = 10, mp = 2, tiers = 4 })
 end)
 
+test('items: last, used on you, specific first, spelled as the client does', function ()
+    local named = { spells = res.spells, abilities = res.abilities, statuses = res.statuses,
+                    items = { [5356] = { en = 'Rmdy. Ointment', jp = '' } } }
+    local cat = catalog.build(named, { main = BLM, main_lv = 75, sub_lv = 0,
+        has_spell = function () return true end, has_ability = function () return false end }, K)
+    local tail = {}
+    for i = #cat - 8, #cat do tail[#tail + 1] = cat[i].name end
+    eq(tail, { 'Antidote', 'Eye Drops', 'Echo Drops', 'Holy Water', 'Tincture', 'Hallowed Water',
+               'Rmdy. Ointment', 'Remedy', 'Panacea' })
+    eq(cat[#cat - 9].kind ~= 'item', true)
+    local echo = find(cat, 'Echo Drops')
+    eq({ echo.kind, echo.role, echo.id, echo.removes, echo.targets }, { 'item', 'remove', 4151, { 6 }, 1 })
+    eq(find(cat, 'Rmdy. Ointment').family, 'Remedy Ointment')
+end)
+
 test('families without knowledge are listed with no role', function ()
     local a = find(build(BLM, 75), 'Fire IV')
     eq({ a ~= nil, a and a.role }, { true, nil })

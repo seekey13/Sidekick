@@ -1,6 +1,6 @@
 --[[
     What the game tells us only through packets:
-      - when your own cast starts, finishes or is interrupted (the cast lock and
+      - when your own cast or item use starts, finishes or is interrupted (the cast lock and
         the post-action throttle in core/engine.lua),
       - statuses gained and lost by units with no readable status list
         (core/buffs.lua),
@@ -18,7 +18,7 @@ local packets = {}
 local INTERRUPT = 28787
 -- 0x028 categories: 2 ranged, 3 ws, 4 spell, 5 item, 6/14/15 job ability.
 local FINISH = { [2] = true, [3] = true, [4] = true, [5] = true, [6] = true, [14] = true, [15] = true }
-local CAST_BEGIN, SPELL_FINISH = 8, 4
+local CAST_BEGIN, ITEM_BEGIN, SPELL_FINISH = 8, 9, 4
 -- A cast whose finish packet never arrived (zoning, lost packet) unlocks after this.
 local CAST_TIMEOUT = 16
 
@@ -87,7 +87,7 @@ end
 -- for units whose statuses come from packets, duration = function(spell id) -> seconds or nil }
 function packets.action(p, ctx, now)
     if p.actor == ctx.me and p.category ~= 1 then  -- 1 = auto-attack, says nothing
-        if p.category == CAST_BEGIN and p.param ~= INTERRUPT then
+        if (p.category == CAST_BEGIN or p.category == ITEM_BEGIN) and p.param ~= INTERRUPT then
             cast.active, cast.since = true, now
         else
             cast.active = false
@@ -144,7 +144,7 @@ function packets.handle(e, ctx, now)
     end
 end
 
--- True while your own spell is casting.
+-- True while your own spell is casting or your item is in use.
 function packets.casting(now)
     if cast.active and now - cast.since > CAST_TIMEOUT then cast.active = false end
     return cast.active

@@ -52,7 +52,7 @@ Text that may contain `%` (names, `why` text) must be escaped before it's drawn:
 | `pet_heal` | number | Heal your pet under this HP % |
 | `follow` | table | `{ on, target, distance, names }`: follow `target` (a name, `''` for none) once further than `distance` yalms; `names` are the members that can be followed |
 | `rest` | table | `{ on, delay, distance }`: rest after `delay` seconds with nothing to do; stand when the follow target is further than `distance` yalms |
-| `japanese` | bool | Spell and ability names are sent in Japanese |
+| `japanese` | bool | Spell, ability and item names are sent in Japanese |
 | `log` | bool | Each action sent is printed to chat |
 | `ui` | table | The UI's settings: `open` (bool), `display` (`'headers'`, `'tabs'` or `'groups'`), `size` (`'auto'` or `'custom'`), and any `ui.<name>` your UI saved. `display` and `size` are the standard window's; yours may ignore them |
 | `sections` | list | What can be automated, by behavior, below |
@@ -104,19 +104,20 @@ In this order; a behavior with nothing for your job to do is left out.
 |---|---|---|
 | `id`, `title`, `group` | string | As above. `group` is the page the standard window puts it on in its `'groups'` layout |
 | `on` | bool or nil | The behavior's switch; nil for `move` and `options` |
-| `rows` | list or nil | One per spell family or pick-one group, below; nil for `move` (its settings are `view.follow` and `view.rest`) and `options` (`view.japanese` and `view.log`) |
+| `rows` | list or nil | One per spell family, pick-one group or item, below; nil for `move` (its settings are `view.follow` and `view.rest`) and `options` (`view.japanese` and `view.log`) |
 | `has_choices`, `has_targets` | bool or nil | Some row in the section has `choices` / `targets` (to lay out columns) |
 
 ### `view.sections[i].rows[j]`
 
 | Field | Type | What it is |
 |---|---|---|
-| `key` | string | The row's id for `act`: a family (`'Cure'`, `'Haste'`) or a pick-one group (`'barelement'`, `'minuet'`) |
+| `key` | string | The row's id for `act`: a family (`'Cure'`, `'Haste'`), a pick-one group (`'barelement'`, `'minuet'`) or an item (`'Echo Drops'`) |
 | `label` | string | `'Cure'`, `'Valor Minuet (+ATK)'`, `'Sword Madrigal / Blade Madrigal'` |
-| `on` | bool | Rows start on, except buffs and sending the pet in (Assault, Fight, Deploy) |
+| `on` | bool | Rows start on, except buffs, sending the pet in (Assault, Fight, Deploy) and items |
 | `ready` | bool | It could go right now |
-| `avail` | string | `'ready'`, or why not: `'recast 12s'`, `'MP'`, `'TP'`, `'silenced'`, `'combat only'`, `'idle only'`, `'no ammo'`, `'pet too far'`, `'pick one'`, `'not available'`... |
-| `action` | string or nil | When ready, the spell or ability it would use: `'Cure V'` |
+| `avail` | string | `'ready'`, or why not: `'recast 12s'`, `'MP'`, `'TP'`, `'silenced'`, `'combat only'`, `'idle only'`, `'no ammo'`, `'pet too far'`, `'none left'`, `'pick one'`, `'not available'`... |
+| `action` | string or nil | When ready, the spell, ability or item it would use, as the client names it: `'Cure V'` |
+| `count` | number or nil | Item rows (`'Echo Drops'`, `'Remedy'`...): how many you carry |
 | `choices` | list or nil | Buff rows with tiers or a pick-one group: `{ label, name }`. A tiered row's first choice is `'Auto (best)'` with `name` nil |
 | `pick` | string or nil | The chosen `name`; nil is Auto |
 | `choice` | string or nil | The label to show for the current pick: `'Auto (best)'`, `'Pick one'`, `'Protect II'`, `'Protect V (not available)'` |
