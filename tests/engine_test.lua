@@ -41,6 +41,19 @@ test('efficient: the best HP per MP, never paying for overheal', function ()
     eq({ cmd, intent.why }, { '/ma "Cure III" 101', 'efficient: A 70%' })  -- 250 of 300 for 46 MP
 end)
 
+test('efficient runs from the danger line up to full HP', function ()
+    local cmd, intent = decide(snap({ { name = 'A', hpp = 90 } }))
+    eq({ cmd, intent.why }, { '/ma "Cure" 101', 'efficient: A 90%' })  -- 37.5 of 100 for 8 MP
+    eq({ decide(snap({ { name = 'A', hpp = 100 } })) }, { nil, 'nothing to do' })
+end)
+
+test('efficient waits while every heal would overheal', function ()
+    eq({ decide(snap({ { name = 'A', hpp = 98 } })) }, { nil, 'nothing to do' })  -- 20 missing: Cure is 37.5
+    eq(decide(snap({ { name = 'A', hpp = 96 } })), '/ma "Cure" 101')              -- 40 missing: Cure fits
+    eq(decide(snap({ { name = 'A', hpp = 49 }, { name = 'B', hpp = 98 } }, nil, { Cure = 5 })),
+        '/ma "Cure V" 101')  -- danger is untouched
+end)
+
 test('Regen wins a big enough gap; while it ticks efficient waits, danger does not', function ()
     eq(decide(snap({ { name = 'A', hpp = 60 } })), '/ma "Regen III" 101')  -- 400 over 60s for 64 MP
     local pending = { name = 'A', hpp = 60, hot = 400, buffs = { [REGEN] = true } }

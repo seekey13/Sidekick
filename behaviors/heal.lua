@@ -7,9 +7,9 @@
                  save (Martyr), then the danger score over critical units
       danger     under heal.danger: HP% restored per second locked out; holds for
                  a heal nearly off recast
-      efficient  under heal.threshold: HP that lands where it's needed, per share of
-                 the MP or TP you have; Regen allowed, and counted while it ticks
-    The focus member has its own three lines; skipped members count for nothing.
+      efficient  from the danger line to full HP: HP that lands where it's needed, per
+                 share of the MP or TP you have; Regen allowed, and counted while it ticks
+    The focus member has its own two lines; skipped members count for nothing.
     Design: docs/superpowers/specs/2026-10-15-healing-design.md
 ]]--
 
@@ -156,8 +156,9 @@ end
 
 -- The best candidate for the band, and the heal kinds that had one. A heal with
 -- no amount (Vivacious Pulse) goes only when nothing else can, and never in efficient.
+-- Efficient sends nothing while every heal would overheal: chip damage waits.
 local function best_of(band, ctx, ready, members)
-    local best, fallback, kinds = nil, nil, {}
+    local best, fallback, kinds, fits = nil, nil, {}, band ~= 'efficient'
     for _, a in ipairs(ready) do
         if not a.tick or band == 'efficient' then
             local amt, m = amount(a, ctx)
@@ -167,6 +168,8 @@ local function best_of(band, ctx, ready, members)
                     if c then c.mult = m end
                     if c and amt then
                         kinds[kind_of(a) or ''] = true
+                        -- ponytail: judged on the worst member covered; an area heal's other members may still overheal
+                        fits = fits or amt <= need(c.worst, true)
                         if better(c, best) then best = c end
                     elseif c then
                         fallback = fallback or c
@@ -175,6 +178,7 @@ local function best_of(band, ctx, ready, members)
             end
         end
     end
+    if not fits then return nil, kinds end
     return best or (band ~= 'efficient' and fallback or nil), kinds
 end
 
@@ -197,21 +201,21 @@ end
 
 local function lines(u, ctx)
     local s = ctx.s
-    if u == ctx.focus then return s.focus_critical, s.focus_danger, s.focus_threshold end
-    return s.critical, s.danger, s.threshold
+    if u == ctx.focus then return s.focus_critical, s.focus_danger end
+    return s.critical, s.danger
 end
 
 -- The band's members as a set and worst first. Danger includes critical; efficient
--- starts at the danger line and leaves out whoever your ticking Regen will cover.
+-- starts at the danger line and leaves out whoever your ticking Regen will fill.
 local function members_of(band, ctx)
     local set, list = {}, {}
     for _, u in ipairs(ctx.g.units) do
         if u.alive and u.in_zone and u.max_hp and not ctx.s.skip[u.name] then
-            local critical, danger, start = lines(u, ctx)
+            local critical, danger = lines(u, ctx)
             local inside
             if band == 'critical' then inside = u.hpp < critical
             elseif band == 'danger' then inside = u.hpp < danger
-            else inside = u.hpp >= danger and u.hpp < start and (u.hp + u.hot) * 100 < start * u.max_hp end
+            else inside = u.hpp >= danger and u.hp + u.hot < u.max_hp end
             if inside then set[u] = true; list[#list + 1] = u end
         end
     end

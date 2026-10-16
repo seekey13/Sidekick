@@ -166,8 +166,8 @@ end)
 
 test('sliders write as they move and save once let go; focus and options save', function ()
     local cfg, st = settings.defaults(), status()
-    eq(render(cfg, st, { ['Heal under##sk3_threshold'] = 60 }), 1)
-    eq(cfg.heal.threshold, 60)
+    eq(render(cfg, st, { ['Danger under##sk3_danger'] = 60 }), 1)
+    eq(cfg.heal.danger, 60)
     eq(render(cfg, st, { A = true }), 1)  -- the focus combo's member
     eq(cfg.heal.focus, 'A')
     eq(render(cfg, st, { ['None##sk3_focus_none'] = true }), 1)

@@ -146,13 +146,13 @@ end)
 test('section switches and plain values', function ()
     local cfg = settings.defaults()
     model.set_section(cfg, 'buff', false)
-    model.set_value(cfg, 'heal.threshold', 60)
+    model.set_value(cfg, 'heal.danger', 60)
     model.set_value(cfg, 'heal.focus', 'A')
     model.set_value(cfg, 'japanese', true)
     model.set_value(cfg, 'ui.display', 'tabs')
-    eq({ cfg.buff.on, cfg.heal.threshold, cfg.heal.focus, cfg.japanese, cfg.ui.display }, { false, 60, 'A', true, 'tabs' })
+    eq({ cfg.buff.on, cfg.heal.danger, cfg.heal.focus, cfg.japanese, cfg.ui.display }, { false, 60, 'A', true, 'tabs' })
     local view = build(whm, cfg)
-    eq({ section(view, 'buff').on, view.heal.threshold, view.display, view.japanese }, { false, 60, 'tabs', true })
+    eq({ section(view, 'buff').on, view.heal.danger, view.display, view.japanese }, { false, 60, 'tabs', true })
     eq(view.heal.focus_names, { 'A', 'B' })
 end)
 
@@ -176,12 +176,12 @@ test('status line: what it would do or why not when stopped, the last send when 
     eq(model.action_text(e), 'Cure IV')
 end)
 
-test('party lines: HP against the thresholds, distance, statuses by name', function ()
+test('party lines: HP against the danger and critical lines, distance, statuses by name', function ()
     local cfg = settings.defaults()
     cfg.heal.focus = 'tank'
     local g = fake.snap({
-        { name = 'A', hpp = 80, buffs = { [40] = true, [33] = true } },
-        { name = 'Tank', hpp = 80, kind = 'trust' },
+        { name = 'A', hpp = 55, buffs = { [40] = true, [33] = true } },
+        { name = 'Tank', hpp = 55, kind = 'trust' },  -- under the focus danger line (60), over the others' (50)
         { name = 'C', hpp = 20 },
         { name = 'Gone', in_zone = false },
     }, { safe = true, moving = true, bt = { name = 'Crab', hpp = 50, dist = 4.31 } })

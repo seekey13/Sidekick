@@ -13,10 +13,10 @@
 local settings = {}
 
 local DEFAULTS = {
-    -- HP% lines: efficient under threshold, danger, critical (behaviors/heal.lua);
+    -- HP% lines: danger, critical; efficient above danger (behaviors/heal.lua);
     -- the focus member has its own. skip = { [name] = true }: never healed for their sake.
-    heal = { on = true, threshold = 75, danger = 50, critical = 30,
-             focus = '', focus_threshold = 85, focus_danger = 60, focus_critical = 40, skip = {},
+    heal = { on = true, danger = 50, critical = 30,
+             focus = '', focus_danger = 60, focus_critical = 40, skip = {},
              cure_potency = 0, waltz_potency = 0,  -- +% from gear
              regen_potency = 0 },                  -- +HP per Regen tick from gear
     remove = { on = true },

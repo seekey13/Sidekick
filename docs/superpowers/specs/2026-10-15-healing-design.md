@@ -19,9 +19,9 @@ Build one list of **candidates** (an action aimed at a centre, with the units it
 |---|---|---|---|
 | Critical | `hpp < critical` (default 30) | Danger score, critical units only | Boosts (Divine Seal, Contradance, Rapture) and aimed saves (Martyr) first |
 | Danger | `hpp < danger` (default 50, new setting) | Danger score | Holds for a heal that's nearly off recast |
-| Efficient | `danger <= hpp < threshold` (default 75) | Efficient score | Regen allowed; Regen already ticking counts as healing on its way |
+| Efficient | `danger <= hpp`, anyone not at full HP | Efficient score | Regen allowed; Regen already ticking counts as healing on its way; nothing goes while every heal would overheal |
 
-The focus target has its own three lines: `focus_critical` (default 40), `focus_danger` (60), `focus_threshold` (85).
+The focus target has its own two lines: `focus_critical` (default 40), `focus_danger` (60). There is no separate "heal under" line: everything over the danger line is Efficient.
 
 Passes run worst band first. A pass that finds nothing usable falls through to the next one, so a unit out of reach never stalls healing for everyone else (same rule as today). A unit under its danger line that the Danger pass can't help isn't picked up by Efficient.
 
@@ -197,7 +197,7 @@ Table potencies are caps; a leveling character with low MND heals well below the
   - `boost` fields (Majesty, and a new Accession entry) and Regen's two uses.
 - `tools/parity.lua`: `ROLE.heal_aoe` becomes `'heal'`. v2's `heal_aoe|Accession` moves from `MODULE_OWNED` to `ACCEPTED`: v3 lists it as an emergency boost.
 - `core/settings.lua`:
-  - `heal = { on, threshold = 75, danger = 50, critical = 30, focus, focus_threshold = 85, focus_danger = 60, focus_critical = 40, skip = { [name] = true }, cure_potency, waltz_potency, regen_potency }`.
+  - `heal = { on, danger = 50, critical = 30, focus, focus_danger = 60, focus_critical = 40, skip = { [name] = true }, cure_potency, waltz_potency, regen_potency }`.
   - `settings.key` becomes `a.pick_one or a.label or a.family`, so Regen's two uses (and Reward's three) get their own rows. `pick_one` stays first: Lasting Emanation and Ecliptic Attrition are labelled members of one group (`geo_ja`).
 - `core/can.lua`: holds `THROTTLE` / `SPELL_THROTTLE` for the lockout (not `core/engine.lua`, which requires the behaviors: heal requiring it back would loop). The engine reads them from there. Nothing else changes. Heal stays the first behavior; `why` names the band (`danger: Tank 42%`).
 - **Hold:** Danger and Critical only. If nothing is usable but a candidate covering a unit in the band is within 15s of coming off recast, hold (today's rule). The Efficient band never holds, so buffs and raises go out.

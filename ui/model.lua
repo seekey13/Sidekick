@@ -180,11 +180,11 @@ local function buff_names(buffs, statuses)
     return text, table.concat(list, '\n')
 end
 
--- HP 'ok' | 'low' (under the heal threshold) | 'critical', on the focus member's lines for them.
+-- HP 'ok' | 'low' (under the danger line) | 'critical', on the focus member's lines for them.
 local function hp_state(u, h)
     local focus = h.focus ~= '' and u.name:lower() == h.focus:lower()
     if u.hpp < (focus and h.focus_critical or h.critical) then return 'critical' end
-    return u.hpp < (focus and h.focus_threshold or h.threshold) and 'low' or 'ok'
+    return u.hpp < (focus and h.focus_danger or h.danger) and 'low' or 'ok'
 end
 
 local function party(g, cfg, statuses)
@@ -227,8 +227,8 @@ function model.build(g, cat, cfg, status, names)
         party = party(g, cfg, names.statuses),
         bt = entity(g.bt), pet = entity(g.pet),
         flags = {}, recent = {}, sections = {},
-        heal = { threshold = h.threshold, danger = h.danger, critical = h.critical, focus = h.focus,
-                 focus_threshold = h.focus_threshold, focus_danger = h.focus_danger, focus_critical = h.focus_critical,
+        heal = { danger = h.danger, critical = h.critical, focus = h.focus,
+                 focus_danger = h.focus_danger, focus_critical = h.focus_critical,
                  cure_potency = h.cure_potency, waltz_potency = h.waltz_potency, regen_potency = h.regen_potency,
                  focus_names = focus_names, members = members },
         japanese = cfg.japanese, log = status.log, display = cfg.ui.display, size = cfg.ui.size,
@@ -290,7 +290,7 @@ function model.set_section(cfg, name, on)
     cfg[name].on = on
 end
 
--- path: 'heal.threshold', 'japanese', 'ui.display'...
+-- path: 'heal.danger', 'japanese', 'ui.display'...
 function model.set_value(cfg, path, value)
     local t = cfg
     local parent, key = path:match('^(.-)%.?([^.]+)$')

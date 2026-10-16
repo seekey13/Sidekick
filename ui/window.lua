@@ -173,12 +173,11 @@ local function focus_combo(h)
         imgui.EndCombo()
     end
     imgui.PopItemWidth()
-    tip('Heal this member first, under its own threshold.')
+    tip('Heal this member first, on its own lines.')
 end
 
 local HEAL_LINES = {
-    { 'Heal under', 'threshold', 'Heal anyone under this HP %, with the most HP for the MP or TP.' },
-    { 'Danger under', 'danger', 'Under this HP %, heal fastest instead, and wait for a heal nearly ready.' },
+    { 'Danger under', 'danger', 'Over this HP %, heal with the most HP for the MP or TP. Under it, heal fastest, and wait for a heal nearly ready.' },
     { 'Critical under', 'critical', 'Under this HP %, boost the heal first (Divine Seal) or save them (Martyr).' },
 }
 
