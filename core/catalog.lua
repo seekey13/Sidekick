@@ -151,7 +151,7 @@ function catalog.build(res, player, K)
             items[#items + 1] = {
                 kind = 'item', id = use.item, name = r and r.en or name, jp = r and r.jp or '', family = name, tier = 1,
                 role = use.role, removes = ids(use.removes, idx, name), priority = use.priority or 0,
-                targets = SELF, range = 0, area = 0, level = 0,
+                one_of = use.one_of, targets = SELF, range = 0, area = 0, level = 0,
             }
         end
     end
