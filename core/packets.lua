@@ -30,7 +30,7 @@ local HEALS_028 = { [7] = true, [24] = true, [102] = true, [238] = true, [263] =
 local SLEEP = { 2, 19 }  -- a heal of yours wakes
 -- Categories whose heals are yours: 4 spell, 6/14/15 job ability; 11/13 your pet's moves.
 local KIND = { [4] = 'ma', [6] = 'ja', [14] = 'ja', [15] = 'ja', [11] = 'pet', [13] = 'pet' }
-local ABILITY_BASE = 512  -- catalog ability id = packet param (ability or pet skill id) + 512
+local ABILITY_BASE = 512  -- catalog ability id = packet param (ability or pet skill id) + 512; see observed.key
 
 -- 0x029 messages whose param IS a status id; every other 0x029 (damage, misses,
 -- synth results...) carries an unrelated param and must not be read as a status.
@@ -102,7 +102,7 @@ local function on_action(p, ctx, now)
         for _, r in ipairs(t.results) do
             if HEALS_028[r.message] then
                 if key then
-                    observed.healed(key, t.id, r.param)
+                    observed.healed(key, t.id, r.param, now)
                     if tracked then for _, s in ipairs(SLEEP) do buffs.lose(t.id, s) end end
                 end
             elseif p.category == SPELL_FINISH and GAINS_028[r.message] then
@@ -113,6 +113,7 @@ local function on_action(p, ctx, now)
             end
         end
     end
+    if key then observed.done(key) end
 end
 
 local function on_message(e, ctx, now)

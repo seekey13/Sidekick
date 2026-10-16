@@ -19,7 +19,8 @@
                a cast is seen (core/observed.lua)
     tick       HP per 3s tick, per tier (Regen)
     boost      { kind, factor, potency =, area =, mp =, tiers = }: while its status is
-               on you, heals of that kind ('healing' = Cure/Curaga, 'waltz') heal
+               on you, heals of that kind ('healing' = Cure/Curaga, 'cure' = those and
+               blue magic cures, 'waltz') heal
                x factor and +potency %, and a Cure up to tier `tiers` covers `area`
                yalms at `mp` x the cost (behaviors/heal.lua)
     wakes      the heal also cures sleep
@@ -36,6 +37,7 @@
     note       short UI hint
     travel     travel buff: still cast while Invisible
     duration   seconds a buff lasts (or per tier), for statuses read off packets (trusts)
+    mob_skill  the id a jug pet's move carries in its action packet (the server's mob skill)
 ]]--
 
 -- Status sets for removals (ids: several names repeat in the status table).
@@ -63,7 +65,7 @@ local K = {
     ['Healing Ruby']      = { role = 'heal', wakes = true, pet = { 'Carbuncle' }, potency = { 250, 250 } },
     ['Wild Carrot']       = {
         { kind = 'ma', role = 'heal', wakes = true, potency = { 120 } },
-        { kind = 'pet', role = 'heal', pet = { 'KeenearedSteffi', 'Rabbit' }, potency = { 120 } },
+        { kind = 'pet', role = 'heal', pet = { 'KeenearedSteffi', 'Rabbit' }, potency = { 120 }, mob_skill = 3903 },
     },
     ['Chakra'] = {
         { role = 'heal' },
@@ -81,7 +83,7 @@ local K = {
     },
 
     -- emergency (critical HP) --------------------------------------------------
-    ['Divine Seal']  = { role = 'emergency', boost = { 'healing', 2 } },
+    ['Divine Seal']  = { role = 'emergency', boost = { 'cure', 2 } },
     ['Martyr']       = { role = 'emergency' },
     ['Contradance']  = { role = 'emergency', boost = { 'waltz', 2 } },
     ['Apogee']       = { role = 'emergency', pet = { 'Carbuncle' } },
@@ -355,7 +357,7 @@ local K = {
 
     -- buff: job abilities ---------------------------------------------------------
     ['Composure']  = { role = 'buff', priority = 100 },
-    ['Majesty']    = { role = 'buff', priority = 100, boost = { 'healing', potency = 25, area = 10 } },
+    ['Majesty']    = { role = 'buff', priority = 100, boost = { 'cure', potency = 25, area = 10 } },
     ['Boost']      = { role = 'buff', status = false },
     ['Avatar\'s Favor'] = { role = 'buff', pet = true },
     ['Shining Ruby']    = { role = 'buff', pet = { 'Carbuncle' } },

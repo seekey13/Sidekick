@@ -23,10 +23,12 @@ end
 
 local function has(flags, bit_) return bit.band(flags, bit_) ~= 0 end
 
-local function any(set, ids)
+-- Whether `set` (status id -> true) holds any of `ids`.
+function can.any(set, ids)
     for _, id in ipairs(ids or {}) do if set[id] then return true end end
     return false
 end
+local any = can.any
 
 -- Aimed at your battle target (Drain, Aspir, Absorb-): the effect lands on you.
 function can.at_enemy(a) return a.targets == ENEMY end

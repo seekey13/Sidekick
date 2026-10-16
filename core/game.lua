@@ -6,12 +6,13 @@
 
     unit = { slot, sid, tidx, name, kind = 'self'|'party'|'trust', hpp, hp, max_hp,
              mpp, mp, tp, in_zone, dist, pos = { x, y, z }, status (entity), alive,
-             buffs = { [id] = true }, hot = HP still to come from your Regen }
+             buffs = { [id] = true }, hot = HP still to come from your Regen, nil if none }
     Plus what healing scores with: learned potency, the day and the weather.
 ]]--
 
 local ffi = require('ffi')
 local buffs = require('core.buffs')
+local can = require('core.can')
 local observed = require('core.observed')
 local packets = require('core.packets')
 
@@ -79,10 +80,7 @@ local function set_of(list)
     return s
 end
 
-local function any(set, ids)
-    for _, id in ipairs(ids) do if set[id] then return true end end
-    return false
-end
+local any = can.any
 
 -- A party player's statuses, from the client's party status-icon block
 -- (5 entries of 0x30 bytes: server id, 2 high bits per icon, 32 low bytes).
@@ -114,6 +112,7 @@ local function entity(em, tidx)
     return {
         tidx = tidx, sid = em:GetServerId(tidx), name = em:GetName(tidx), hpp = em:GetHPPercent(tidx),
         dist = math.sqrt(em:GetDistance(tidx)), status = em:GetStatus(tidx),
+        pos = { em:GetLocalPositionX(tidx), em:GetLocalPositionY(tidx), em:GetLocalPositionZ(tidx) },
     }
 end
 
@@ -202,7 +201,7 @@ function game.read(now)
             if u.kind == 'self' then u.buffs = own_buffs(player)
             elseif u.kind == 'trust' then u.buffs = buffs.of(sid, now); tracks[sid] = true
             else u.buffs = party_buffs(sid) end
-            u.hot = u.buffs[REGEN] and observed.hot(sid, now) or 0
+            u.hot = observed.hot(sid, now, u.buffs[REGEN])
             units[#units + 1] = u
         end
     end

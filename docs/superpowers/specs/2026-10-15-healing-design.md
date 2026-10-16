@@ -31,7 +31,7 @@ Passes run worst band first. A pass that finds nothing usable falls through to t
 
 For each enabled `heal` action that passes `can.use(a, g)`:
 
-- **Centres:** you, for self-only actions (Healing Breeze, Chakra); otherwise each unit where `can.reach(a, u)` holds.
+- **Centres:** your pet, for a pet's area move (Healing Ruby II, Wild Carrot, Mending Halation: the server centres those on the pet, `CPetEntity::OnPetSkillFinished`); you, for self-only actions (Healing Breeze, Chakra); otherwise each unit where `can.reach(a, u)` holds.
 - **Covered:** if `a.area == 0`, the centre only. Otherwise every alive, in-zone party unit within `radius(a)` of the centre. This needs unit positions; see Snapshot. An area boost (Majesty, Accession; see Boosts) gives a single-target cure its `area` while the boost's status is on you.
 - **Amount per covered unit:** `amount(a, g) = base * mult`:
   - `base` is `g.learned[a]` if this session has seen the action heal (see Learned potency), else `a.potency * (1 + gear% / 100)` (`cure_potency` for spells, `waltz_potency` for TP heals; this is today's rule; the server caps both at +50%, so the knobs clamp there), times 1.25 for healing magic, blue magic and waltzes (CatsEyeXI's `CURE_POWER`; the server applies it in `getCureFinal`'s callers and `useWaltzAbility`, not to Drain, Chakra or blood pacts).
@@ -46,13 +46,13 @@ For each enabled `heal` action that passes `can.use(a, g)`:
 "Healing magic" means skill 33 in the DAT: Cure and Curaga.
 
 ```lua
--- healing magic
+-- light cures (healing magic, Plenilune Embrace)
 mult = boost * (1 + sky)
--- TP heals (waltzes)
+-- other blue magic cures (no element), TP heals (waltzes)
 mult = boost
 ```
 
-- `boost`: Divine Seal x2 and Rapture x1.5 on healing magic, Contradance x2 on waltzes, while the boost's status is on you. Divine Seal and Rapture both apply to the final amount.
+- `boost`: Divine Seal x2 on healing magic and blue magic cures, Rapture x1.5 on healing magic only, Contradance x2 on waltzes, while the boost's status is on you. Divine Seal and Rapture both apply to the final amount.
 - Majesty's `potency` isn't a factor: the server adds it beside gear (`1 + cure% + 0.25`). So the prior becomes `a.potency * (1 + (gear% + 25) / 100)`, and `mult` carries `(1 + (gear% + 25) / 100) / (1 + gear% / 100)` so learning stores the Majesty-free base.
 - `sky`: the day and weather bonus, as the server rolls it (`xi.spells.damage.calculateDayAndWeather`). One cast in three applies day and weather together, bonus and penalty alike; the other two get nothing. So the score uses the expected value:
 
@@ -129,19 +129,19 @@ The waltz goes out first because it's instant. On the next tick the member is at
 ## Critical band
 
 1. **A boost is already on you** (its status is up): the danger score, which now includes the boost factor, picks the heal that spends it.
-2. **A factor boost is usable** (Divine Seal, Contradance, Rapture), and a heal of the kind it boosts has a usable candidate covering a critical unit: fire the boost (instant). The next tick lands in step 1. An area boost (Accession) fires only when its area candidate wins (see Boosts).
+2. **A factor boost is usable** (Divine Seal, Contradance, Rapture), and with it up the best critical candidate is a heal of the kind it boosts: fire the boost (instant). The next tick lands in step 1. An area boost (Accession) fires only when its area candidate wins (see Boosts).
 3. **Other emergencies** work as today: an aimed save (Martyr) on the critical unit, then the other self-only emergencies.
 4. **Otherwise** run the danger score over critical units only.
 
 ## Boosts
 
-Knowledge gains `boost = { kind, factor = 1, potency, area }`, where kind is `'healing'` (healing-magic skill 33: Cure, Curaga) or `'waltz'` (TP-cost heals). `factor` multiplies the amount and `potency` adds to the cure-potency sum (see Multipliers). `area` (yalms) makes a Cure an area candidate.
+Knowledge gains `boost = { kind, factor = 1, potency, area }`, where kind is `'healing'` (healing-magic skill 33: Cure, Curaga), `'cure'` (those and blue magic cures: the server's `getCureFinal` applies Divine Seal and Majesty's Cure Potency II to both, Rapture to healing magic only) or `'waltz'` (TP-cost heals). An area only ever spreads a Cure. `factor` multiplies the amount and `potency` adds to the cure-potency sum (see Multipliers). `area` (yalms) makes a Cure an area candidate.
 
 ```lua
-['Divine Seal'] = { role = 'emergency', boost = { 'healing', 2 } },
+['Divine Seal'] = { role = 'emergency', boost = { 'cure', 2 } },
 ['Contradance'] = { role = 'emergency', boost = { 'waltz', 2 } },
 ['Rapture']     = { role = 'emergency', requires = LIGHT, boost = { 'healing', 1.5 } },
-['Majesty']     = { role = 'buff', priority = 100, boost = { 'healing', potency = 25, area = 10 } },
+['Majesty']     = { role = 'buff', priority = 100, boost = { 'cure', potency = 25, area = 10 } },
 ['Accession']   = { role = 'emergency', requires = LIGHT, boost = { 'healing', area = 10, mp = 2, tiers = 4 } },
 ```
 
@@ -178,10 +178,10 @@ Table potencies are caps; a leveling character with low MND heals well below the
 | your pet, 13 (pet skill) | Healing Ruby / II | 318 / 263 | 263 |
 | your pet, 11 (mob skill) | Wild Carrot | 238 | 238 |
 
-  So the set is `{ 7, 24, 102, 238, 263, 318, 367 }` (24 and 367 are the other "recovers HP" area variants). The packet param is the spell id, ability id or pet skill id; for these three pet heals the pet skill id equals the Blood Pact / Ready ability id (512, 517, 735). Today's `HEALS_028` (which wakes a cured sleeper) becomes this set: it lacks Curaga's 263 now, and its 2 is a damage message, not a heal.
-- At send time, store each unit's need and the `mult` in force. If `amount < need`, the heal wasn't capped by the target's max HP, so it's a real reading. Learn the base, not the boosted number, so a Divine Seal cure or a Lightsday cure doesn't inflate later ones: `r = amount / mult; learned = learned and (0.7 * learned + 0.3 * r) or r`. Ignore capped readings.
+  So the set is `{ 7, 24, 102, 238, 263, 318, 367 }` (24 and 367 are the other "recovers HP" area variants). The packet param is the spell id, ability id or pet skill id; for avatars the pet skill id equals the Blood Pact ability id (512, 517), but a jug pet sends its mob skill id (Wild Carrot: 3903, knowledge `mob_skill`). Today's `HEALS_028` (which wakes a cured sleeper) becomes this set: it lacks Curaga's 263 now, and its 2 is a damage message, not a heal.
+- At send time, store each unit's need and the `mult` in force. The expectation is spent when the action's packet resolves, and void 16s after sending (interrupted, never sent), so a later cast by hand isn't read against stale HP. If `amount < need`, the heal wasn't capped by the target's max HP, so it's a real reading. Learn the base, not the boosted number, so a Divine Seal cure or a Lightsday cure doesn't inflate later ones: `r = amount / mult; learned = learned and (0.7 * learned + 0.3 * r) or r`. Ignore capped readings.
 - The CatsEyeXI 1.25 and gear are already inside a reading, so they're applied to the table prior only. `mult` holds the expected `sky`, not the roll, so one reading can be 12% off either way; the EMA evens that out.
-- Key by `kind .. id`. Keep it for the session only; table x gear is the prior until the first reading.
+- Key by `kind .. id` (`observed.key`). Keep it for the session only; table x gear is the prior until the first reading.
 - The gear knobs (`cure_potency`, `waltz_potency`) then matter only before the first reading. Regen ticks never show in packets, so `regen_potency` stays the only Regen source.
 
 ## Snapshot and module changes
@@ -189,7 +189,7 @@ Table potencies are caps; a leveling character with low MND heals well below the
 - `core/game.lua`, per unit:
   - `pos = { x, y, z }`, for area geometry.
   - `max_hp` falls back to `hp * 100 / hpp` when the unit has never been seen at 100%. Integer hpp makes this rough at low HP, but rough is good enough to score. Trusts included: the server's party list packet (`0x0dd_group_list.cpp`) carries a trust's real HP, so `party:GetMemberHP` reads it like a player's. v2 read every party slot the same way and cached max at 100%, but had no fallback: an unseen max meant a deficit of 0.
-  - `hot` = pending Regen HP.
+  - `hot` = pending Regen HP from yours, `nil` when no Regen of yours is known there (then a Regen status counts as `THEIRS`).
   - `game.recast` for the stratagem timer (recast 231) returns 0 while a charge is banked. Port v2's `STRATAGEM_TIERS` and `charges_from_recast` (`lib/core/common.lua`). Today the raw timer blocks every stratagem while any charge recharges; this fixes Addendum: White too.
   - Plus `g.learned`, `g.day` and `g.weather`. v2's `lib/core/vanadiel.lua` already reads both from FFXiMain.dll signatures; port those two readers. Aurorastorm and the boosts come from your own statuses, which the snapshot already has.
 - **New `core/observed.lua`** (about 40 lines): learned potency plus your ticking Regens, fed by `packets.lua` and read by `game.read`. The engine still decides from the snapshot alone, so tests stay pure.

@@ -24,7 +24,7 @@ local HOLD_MAX = 15        -- seconds: a heal this close to ready is worth waiti
 local CURE_POWER = 1.25    -- CatsEyeXI's bonus on healing magic, blue magic and waltzes
 local GEAR_CAP = 50        -- the server caps cure and waltz potency from gear at +50%
 local HEALING, BLUE = 33, 43  -- spell skills
-local TICK = 3             -- seconds between Regen ticks
+local LIGHT = 6            -- element: the day and weather bonus is on light heals only
 local TP_CAP = 3000        -- TP past this is lost, so a heal spending it is free
 local AURORASTORM = { 184, 595 }
 local REGENS = { 42, 539 } -- Regen, and the GEO aura
@@ -32,17 +32,19 @@ local THEIRS = 125         -- HP taken as still to come from a Regen not yours: 
 local AURAS, STELLAR, GLOOM, DARKNESS = 16, 17, 18, 19
 local LIGHTSDAY, DARKSDAY = 6, 7
 local EPS = 1e-9
-
-local function any(set, ids)
-    for _, id in ipairs(ids or {}) do if set[id] then return true end end
-    return false
-end
+local any = can.any
 
 local function healing(a) return a.kind == 'ma' and a.skill == HEALING end  -- Cure, Curaga
+local function cure(a) return healing(a) or a.kind == 'ma' and a.skill == BLUE end  -- what Cure Potency boosts
 local function waltz(a) return (a.tp or 0) > 0 end
-local function kind_of(a) return healing(a) and 'healing' or waltz(a) and 'waltz' or nil end
 
--- The day and weather bonus on healing magic, as expected: the server applies
+-- Whether boost `b` raises heal `a`: 'healing' Cure and Curaga, 'cure' those and
+-- blue magic cures (the server's getCureFinal: Divine Seal, Majesty), 'waltz'.
+local function boosts(b, a)
+    return b.kind == 'healing' and healing(a) or b.kind == 'cure' and cure(a) or b.kind == 'waltz' and waltz(a)
+end
+
+-- The day and weather bonus on a light cure, as expected: the server applies
 -- both to one cast in three. Aurorastorm makes your weather Auras, or Stellar
 -- Glare over Auras.
 function heal.sky(g)
@@ -54,29 +56,29 @@ function heal.sky(g)
 end
 
 local function gear(a, s)
-    return math.min(waltz(a) and s.waltz_potency or s.cure_potency, GEAR_CAP)
+    return math.min(waltz(a) and s.waltz_potency or cure(a) and s.cure_potency or 0, GEAR_CAP)
 end
 
 -- What's up on you multiplies a heal: boosts of its kind (Divine Seal x2,
--- Majesty's potency beside gear's) and, for healing magic, the sky.
+-- Majesty's potency beside gear's) and, for a light cure, the sky.
 local function mult(a, ctx)
-    local kind, m = kind_of(a), 1
+    local m = 1
     for _, b in ipairs(ctx.up) do
-        if b.kind == kind then
+        if boosts(b, a) then
             local p = gear(a, ctx.s)
             m = m * b.factor * (1 + (p + (b.potency or 0)) / 100) / (1 + p / 100)
         end
     end
-    return kind == 'healing' and m * (1 + ctx.sky) or m
+    return cure(a) and a.element == LIGHT and m * (1 + ctx.sky) or m
 end
 
 -- HP one cast restores on each unit it covers, and the multiplier in it; nil
 -- when nothing says (no prior, never seen).
 local function amount(a, ctx)
-    if a.tick then return (a.tick + ctx.s.regen_potency) * math.floor(a.duration / TICK), 1 end
-    local m, base = mult(a, ctx), ctx.g.learned[a.kind .. a.id]
+    if a.tick then return (a.tick + ctx.s.regen_potency) * math.floor(a.duration / observed.TICK), 1 end
+    local m, base = mult(a, ctx), ctx.g.learned[observed.key(a)]
     if not base and a.potency then
-        local power = (a.kind == 'ma' and (a.skill == HEALING or a.skill == BLUE) or waltz(a)) and CURE_POWER or 1
+        local power = (cure(a) or waltz(a)) and CURE_POWER or 1
         base = a.potency * (1 + gear(a, ctx.s) / 100) * power
     end
     return base and base * m, m
@@ -102,7 +104,11 @@ local function forms(a, ctx, band)
     return out
 end
 
+-- A pet's area move (Healing Ruby II, Wild Carrot, Mending Halation) goes off around the pet.
+local function around_pet(a) return a.pet and a.area > 0 end
+
 local function centres(a, g)
+    if around_pet(a) then return { g.pet } end
     if can.self_only(a) or can.at_enemy(a) then return { g.me } end  -- Drain heals you
     local out = {}
     for _, u in ipairs(g.units) do if can.reach(a, u) then out[#out + 1] = u end end
@@ -116,10 +122,10 @@ local function dist(a, b)
     return math.sqrt(dx * dx + dy * dy + dz * dz)
 end
 
--- HP on its way from a Regen: yours as tracked, anyone else's as THEIRS.
+-- HP on its way from a Regen: yours as tracked (u.hot, nil when not yours), anyone else's as THEIRS.
 -- ponytail: their Regen's time left is unknown; note when the status appeared if THEIRS misjudges
 local function pending(u)
-    return u.hot > 0 and u.hot or any(u.buffs, REGENS) and THEIRS or 0
+    return u.hot or any(u.buffs, REGENS) and THEIRS or 0
 end
 
 local function need(u, efficient)
@@ -176,21 +182,20 @@ local function better(c, best)
     return c.focus and not best.focus
 end
 
--- The best candidate for the band, and the heal kinds that had one. A heal with
--- no amount (Vivacious Pulse) goes only when nothing else can, and never in efficient.
--- Efficient sends nothing while every heal would overheal: chip damage waits.
+-- The best candidate for the band. A heal with no amount (Vivacious Pulse) goes
+-- only when nothing else can, and never in efficient. Efficient sends nothing
+-- while every heal would overheal: chip damage waits.
 local function best_of(band, ctx, ready, members)
-    local best, fallback, kinds, fits = nil, nil, {}, band ~= 'efficient'
+    local best, fallback, fits = nil, nil, band ~= 'efficient'
     for _, a in ipairs(ready) do
         if not a.tick or band == 'efficient' then
             local amt, m = amount(a, ctx)
             for _, f in ipairs(forms(a, ctx, band)) do
                 for _, centre in ipairs(centres(a, ctx.g)) do
-                    local c = not (a.tick and (any(centre.buffs, a.status) or regen_for(centre, ctx) ~= a))
+                    local c = not (a.tick and (any(centre.buffs, a.status) or ctx.regen_for[centre] ~= a))
                         and rate(band, a, f, centre, amt, ctx, members)
                     if c then c.mult = m end
                     if c and amt then
-                        kinds[kind_of(a) or ''] = true
                         -- ponytail: judged on the worst member covered; an area heal's other members may still overheal
                         fits = fits or amt <= need(c.worst, true)
                         if better(c, best) then best = c end
@@ -201,8 +206,8 @@ local function best_of(band, ctx, ready, members)
             end
         end
     end
-    if not fits then return nil, kinds end
-    return best or (band ~= 'efficient' and fallback or nil), kinds
+    if not fits then return nil end
+    return best or (band ~= 'efficient' and fallback or nil)
 end
 
 local function why(c)
@@ -216,8 +221,8 @@ local function intent(c, ctx)
     if c.f.via then return { action = c.f.via, why = ('%s, for %s'):format(why(c), c.a.name) } end
     local a, s, need_at = c.a, ctx.s, {}
     for _, u in ipairs(c.cover) do need_at[u.sid] = need(u, false) end
-    return { action = a, target = c.centre, why = why(c), sent = function ()
-        observed.sent(a.kind .. a.id, { need = need_at, mult = c.mult,
+    return { action = a, target = around_pet(a) and ctx.g.me or c.centre, why = why(c), sent = function (now)
+        observed.sent(observed.key(a), { need = need_at, mult = c.mult, at = now,
             per_tick = a.tick and a.tick + s.regen_potency, seconds = a.duration })
     end }
 end
@@ -246,12 +251,20 @@ local function members_of(band, ctx)
     return set, list
 end
 
--- Critical, before the heal: a boost for the kind of heal about to land, an aimed
--- save on the worst member, then the other emergencies when a heal will follow.
-local function emergency(ctx, list, best, kinds, emergencies)
+-- Whether the best critical heal, with boost `b` up, is one `b` boosts.
+local function boosts_best(b, ctx, ready, members)
+    ctx.up[#ctx.up + 1] = b
+    local c = best_of('critical', ctx, ready, members)
+    ctx.up[#ctx.up] = nil
+    return c ~= nil and boosts(b, c.a)
+end
+
+-- Critical, before the heal: a boost for the heal that will land with it up, an
+-- aimed save on the worst member, then the other emergencies when a heal will follow.
+local function emergency(ctx, list, best, emergencies, ready, members)
     local g = ctx.g
     for _, e in ipairs(emergencies) do
-        if e.boost and e.boost.factor > 1 and kinds[e.boost.kind] and can.use(e, g) then
+        if e.boost and e.boost.factor > 1 and can.use(e, g) and boosts_best(e.boost, ctx, ready, members) then
             return { action = e, why = ('critical: %s %d%%'):format(list[1].name, list[1].hpp) }
         end
     end
@@ -276,7 +289,7 @@ local function focus_of(g, s)
 end
 
 -- What's up on you (boosts by status) and what healing may fire (Accession).
-local function context(g, cat, cfg)
+local function context(g, cat, cfg, emergencies)
     local ctx = { g = g, s = cfg.heal, up = {}, sky = heal.sky(g), focus = focus_of(g, cfg.heal) }
     for _, a in ipairs(cat) do
         if a.boost and any(g.me.buffs, a.status) then
@@ -285,16 +298,17 @@ local function context(g, cat, cfg)
             ctx.area = ctx.area or a.boost.area and a.boost
         end
     end
-    for _, e in ipairs(settings.enabled(cat, cfg, 'emergency')) do
+    for _, e in ipairs(emergencies) do
         if e.boost and e.boost.area and not any(g.me.buffs, e.status) and can.use(e, g) then ctx.accession = e end
     end
     return ctx
 end
 
 function heal.want(g, cat, cfg)
-    local ctx = context(g, cat, cfg)
+    local emergencies = settings.enabled(cat, cfg, 'emergency')
+    local ctx = context(g, cat, cfg, emergencies)
     local ready, waiting = {}, {}
-    ctx.regens = {}
+    ctx.regens, ctx.regen_for = {}, {}
     for _, a in ipairs(settings.enabled(cat, cfg, 'heal')) do
         local ok, _, wait = can.use(a, g)
         if a.tick then
@@ -302,13 +316,13 @@ function heal.want(g, cat, cfg)
         elseif ok then ready[#ready + 1] = a
         elseif wait and wait <= HOLD_MAX then waiting[#waiting + 1] = a end
     end
-    local emergencies = settings.enabled(cat, cfg, 'emergency')
+    for _, u in ipairs(g.units) do ctx.regen_for[u] = regen_for(u, ctx) end
 
     for _, band in ipairs(BANDS) do
         local members, list = members_of(band, ctx)
         if list[1] then
-            local best, kinds = best_of(band, ctx, ready, members)
-            local e = band == 'critical' and not ctx.factor_up and emergency(ctx, list, best, kinds, emergencies)
+            local best = best_of(band, ctx, ready, members)
+            local e = band == 'critical' and not ctx.factor_up and emergency(ctx, list, best, emergencies, ready, members)
             if e then return e end
             if best then return intent(best, ctx) end
             if band == 'danger' then

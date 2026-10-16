@@ -80,13 +80,18 @@ test('a Regen not yours counts as a whole Regen I still to come', function ()
     eq(decide(snap(theirs(70))), '/ma "Cure" 101')              -- 300 missing: the other 175
     eq(decide(snap(theirs(45))), '/ma "Cure V" 101')            -- danger ignores it
     eq({ decide(snap({ { name = 'A', hpp = 90, buffs = { [539] = true } } })) }, { nil, 'nothing to do' })  -- GEO aura
+    -- Yours on its last tick (or stretched past the table by gear) has nothing left to come.
+    eq(decide(snap({ { name = 'A', hpp = 90, hot = 0, buffs = { [REGEN] = true } } })), '/ma "Cure" 101')
 end)
 
 test('a Regen sent is counted once it lands, tick by tick', function ()
     local _, intent = decide(snap({ { name = 'A', hpp = 60 } }))
     intent.sent(0)
     observed.landed('ma111', 101, 10)
-    eq({ observed.hot(101, 10), observed.hot(101, 40), observed.hot(101, 70) }, { 400, 200, 0 })
+    eq({ observed.hot(101, 10, true), observed.hot(101, 40, true), observed.hot(101, 70, true) }, { 400, 200, 0 })
+    eq(observed.hot(101, 90, true), 0)    -- still up past the table: yours, with nothing counted
+    eq(observed.hot(101, 95), nil)        -- gone: over
+    eq(observed.hot(101, 96, true), nil)  -- a Regen there now isn't yours
 end)
 
 test('Curaga for a bunched group, a single heal once they spread', function ()
@@ -116,16 +121,50 @@ test('critical: Divine Seal, then the boosted cure that does the job cheapest', 
     eq(decide(snap({ { name = 'A', hpp = 20 } }, nil, { ['Divine Seal'] = 600 })), '/ja "Martyr" 101')
 end)
 
+test('critical: no Divine Seal when a waltz would still be the heal', function ()
+    local whm_dnc = fake.catalog(3, 75, DNC, 37, { 'Divine Seal', 'Curing Waltz', 'Curing Waltz II' })
+    local g = snap({ { name = 'A', hpp = 20 } })
+    g.me.tp = 1000
+    eq(decide(g, nil, nil, whm_dnc), '/ja "Curing Waltz II" 101')
+end)
+
+test('critical: Divine Seal boosts a blue magic cure too', function ()
+    local whm_blu = fake.catalog(3, 75, 16, 37, { 'Divine Seal' })
+    local cfg = settings.defaults()
+    for _, k in ipairs({ 'Cure', 'Curaga', 'Regen' }) do cfg.rows[k] = { on = false } end
+    eq(decide(snap({ { name = 'A', hpp = 20 } }), cfg, nil, whm_blu), '/ja "Divine Seal" <me>')
+end)
+
+test('a pet\'s area heal goes off around the pet', function ()
+    local smn = fake.catalog(15, 75, nil, 0, { 'Healing Ruby', 'Healing Ruby II' })
+    local g = snap(four(45), { pet = { name = 'Carbuncle', pos = { 0, 0, 0 } } })
+    g.me.pos = { 50, 0, 0 }
+    local cmd, intent = decide(g, nil, nil, smn)
+    eq({ cmd, intent.why }, { '/pet "Healing Ruby II" <me>', 'danger: P1 45% +3' })
+    g = snap(four(45), { pet = { name = 'Carbuncle', pos = { 50, 0, 0 } } })
+    eq(decide(g, nil, nil, smn), '/pet "Healing Ruby" 101')
+end)
+
 test('learned potency replaces the table; a reading under Divine Seal is halved', function ()
     local g = snap({ { name = 'A', hpp = 60 } })
     g.learned = { ma3 = 400 }
     eq(decide(g), '/ma "Cure III" 101')  -- Regen III without it
     local _, intent = decide(with(snap({ { name = 'A', hpp = 20 } }), { DIVINE_SEAL }))
     intent.sent(0)
-    observed.healed('ma4', 101, 800)  -- capped at the 800 missing: says nothing
+    observed.healed('ma4', 101, 800, 1)  -- capped at the 800 missing: says nothing
     eq(observed.learned.ma4, nil)
-    observed.healed('ma4', 101, 600)
+    observed.healed('ma4', 101, 600, 1)
     eq(observed.learned.ma4, 300)
+end)
+
+test('a reading counts only for the heal sent, while it can still be landing', function ()
+    observed.sent('ma2', { need = { [101] = 300 }, mult = 1, at = 0 })
+    observed.healed('ma2', 101, 100, 20)  -- too late: a cast by hand, HP since changed
+    eq(observed.learned.ma2, nil)
+    observed.healed('ma2', 101, 100, 3)
+    observed.done('ma2')
+    observed.healed('ma2', 101, 50, 4)    -- spent: the next one is by hand
+    eq(observed.learned.ma2, 100)
 end)
 
 test('Majesty spreads one Cure over a bunched group, and is divided out of a reading', function ()
@@ -135,7 +174,7 @@ test('Majesty spreads one Cure over a bunched group, and is divided out of a rea
     cmd, intent = decide(with(snap(four(70, true)), { MAJESTY }), nil, nil, pld)
     eq({ cmd, intent.why }, { '/ma "Cure III" 101', 'efficient: P1 70%' })
     intent.sent(0)
-    observed.healed('ma3', 101, 250)
+    observed.healed('ma3', 101, 250, 1)
     eq(observed.learned.ma3, 200)  -- 250 / 1.25
 end)
 

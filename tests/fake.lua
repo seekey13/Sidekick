@@ -24,7 +24,7 @@ end
 
 -- A unit; HP defaults to a 1000 max at its hpp, and everyone stands together.
 function fake.unit(t)
-    local u = { kind = 'party', in_zone = true, alive = true, dist = 5, pos = { 0, 0, 0 }, buffs = {}, hot = 0,
+    local u = { kind = 'party', in_zone = true, alive = true, dist = 5, pos = { 0, 0, 0 }, buffs = {},
                 hpp = 100, mpp = 100, mp = 0, tp = 0 }
     for k, v in pairs(t) do u[k] = v end
     u.alive = t.alive ~= false and u.hpp > 0

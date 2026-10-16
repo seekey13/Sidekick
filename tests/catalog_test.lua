@@ -94,7 +94,7 @@ test('heal fields: cast seconds, Regen ticks, boosts with their status', functio
     eq({ find(cat, 'Regen III', 'heal').tick, find(cat, 'Regen III', 'heal').status }, { 20, { 42 } })
     eq(find(cat, 'Regen III', 'buff').label, 'Regen (keep up)')
     local ds = find(cat, 'Divine Seal')
-    eq({ ds.boost, ds.status }, { { kind = 'healing', factor = 2, mp = 1 }, { 78 } })
+    eq({ ds.boost, ds.status }, { { kind = 'cure', factor = 2, mp = 1 }, { 78 } })
     eq(find(build(SCH, 75, nil, 0, { 'Accession' }), 'Accession').boost,
         { kind = 'healing', factor = 1, area = 10, mp = 2, tiers = 4 })
 end)
