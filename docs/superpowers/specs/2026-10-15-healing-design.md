@@ -79,6 +79,7 @@ share = a.mp > 0 and a.mp / g.me.mp
      or a.tp > 0 and (g.me.tp >= 3000 and 0 or a.tp / g.me.tp)
      or 0
 score = sum(useful_u for all covered u) / math.max(share, 1e-6)  -- free heals (Chakra) win outright
+      * math.sqrt(helped)  -- helped: band members it covers whose useful_u > 0
 
 -- Danger: HP% points restored to units in this band, per second you are locked out.
 lockout = a.kind == 'ma' and (a.cast + SPELL_THROTTLE) or THROTTLE  -- 3.1s / 1.1s, from core/engine.lua
@@ -87,6 +88,7 @@ score = sum(useful_u / max_hp_u * 100 for covered u in the band) / lockout
 
 - Efficient ranks resource efficiency in raw HP. Danger ranks speed in HP%, so a mage at 41% isn't always passed over for a tank at 49% just because the tank's deficit is bigger.
 - Under the cap, TP is priced against what you have, so a /DNC's waltz loses Efficient to a cure until MP runs low (Curing Waltz II, 175 at 400 TP, scores 200 against Cure III's 4348 at 800 MP). At the cap one waltz goes out, TP drops to 2650 and cures take over again: waltzes spend only the TP that would overflow, and a weaponskill can still be saved for.
+- Each member helped weighs in by its square root, a guess to tune in play: enough that one Curaga beats healing three people one at a time, not so much that it spends 180 MP to save one cast. Without it, a Regen II on one member ties Curaga III for four.
 - Ties go to the cheaper candidate, then to the focus target.
 - Danger counts only units in the band, so in the Critical pass a Curaga can't beat a Cure V by topping off people who aren't dying.
 
@@ -98,16 +100,17 @@ These numbers are illustrations: the Curaga potency is a prior still to be check
 
 | Candidate | MP | Useful at 70% | HP per MP | Useful at 60% | HP per MP |
 |---|---|---|---|---|---|
-| Regen III (400 total) | 64 | 300 | 4.69 | 400 | **6.25** |
-| Cure III (250) | 46 | 250 | **5.43** | 250 | 5.43 |
+| Regen II (240 total) | 36 | 240 | **6.67** | not offered | |
+| Regen III (400 total) | 64 | not offered | | 400 | **6.25** |
+| Cure III (250) | 46 | 250 | 5.43 | 250 | 5.43 |
 | Cure II (112) | 24 | 112 | 4.67 | 112 | 4.67 |
 | Cure (37) | 8 | 37 | 4.63 | 37 | 4.63 |
 | Cure IV (500) | 88 | 300 | 3.41 | 400 | 4.55 |
 | Cure V (875) | 135 | 300 | 2.22 | 400 | 2.96 |
 
-At 70%, Cure III goes out and the member ends at 95%, out of the band. At 60%, the gap is big enough to take all of Regen III, so it wins. Its 400 HP is now on its way, so the member drops out of the Efficient band. If more damage pushes them under 50%, the Danger band cures them anyway, because it ignores pending Regen.
+Each gap is offered the biggest Regen whose whole total lands: Regen II at 70%, Regen III at 60%, and either wins. Its HP is now on its way: at 60% that fills the member, who drops out of the Efficient band; at 70%, 60 HP is still missing, which a Cure (37) takes next. If more damage pushes them under 50%, the Danger band cures them anyway, because it ignores pending Regen. With 150 missing, Regen (125 of 150 for 15 MP, 8.3) beats Cure and Cure II (4.7); with 20 missing every heal would overheal, so nothing goes.
 
-**Efficient: four members bunched together, each 300 missing.** Curaga III at 337 each (270 x 1.25) gives 1200 useful for 180 MP: 6.67 HP/MP, ahead of Regen III's 4.69 on any one of them. Spread them past the radius and Curaga covers fewer people, so a single-target heal wins again. Nobody sets an "AoE threshold".
+**Efficient: members bunched together, each 300 missing.** Curaga III at 337 each (270 x 1.25) gives 300 useful on each for 180 MP. For four: 1200 / 180 = 6.67, x sqrt 4 = 13.3, ahead of Regen II's 6.67 on any one of them. For three: 5 x sqrt 3 = 8.7, still ahead. For two: 3.33 x sqrt 2 = 4.7, so they're healed one at a time. Spread them past the radius and Curaga covers fewer people, so a single-target heal wins again. Nobody sets an "AoE threshold".
 
 **Danger: one member at 45% of 1000 (550 missing), WHM/DNC with 400 TP.**
 
@@ -155,11 +158,11 @@ The catalog resolves the boost's status the same way it resolves a buff's status
 
 - **Values (CatsEyeXI):** 5 / 12 / 20 HP every 3s for Regen / II / III, over knowledge's existing 75 / 60 / 60s: 125 / 240 / 400 HP in total.
 - **Two uses** in knowledge, so both features survive:
-  - A `heal` use with `tick = { 5, 12, 20 }`. Healing decides when it's worth it. Only your highest known tier is a candidate: per MP, Regen (8.3 HP/MP) beats Regen III (6.25), so with every tier offered, Efficient would trickle Regen I onto everyone before it ever cured.
+  - A `heal` use with `tick = { 5, 12, 20 }`. Healing decides when it's worth it. On each target, only the biggest tier whose whole total lands (total <= need) is a candidate, and none when even Regen I would overheal: 125-239 missing offers Regen, 240-399 Regen II, 400+ Regen III. Tiers can't simply compete: per MP the smallest always wins (Regen 8.3 HP/MP, II 6.67, III 6.25), so Efficient would put Regen I on everyone, and its status would keep a bigger Regen off for 75s.
   - The existing `buff` use, labelled `'Regen (keep up)'`, for "always keep Regen on the tank". It stays opt-in.
 - **Efficient band only.** It's a candidate only if the target lacks the Regen status.
 - **Gear:** `regen_potency` (new setting) adds HP per tick.
-- **Pending:** when your own Regen lands (0x028, gain message, status Regen), record `{ sid, ends, per_tick }`. Pending HP = `per_tick * ticks left`. The Efficient band subtracts it from need; a unit whose `hp + pending` clears its start line isn't in the band at all. Someone else's Regen blocks recasting (the status is up) but isn't counted as pending, because its timing is unknown.
+- **Pending:** when your own Regen lands (0x028, gain message, status Regen), record `{ sid, ends, per_tick }`. Pending HP = `per_tick * ticks left`. The Efficient band subtracts it from need; a unit whose `hp + pending` reaches full HP isn't in the band at all. Someone else's Regen blocks recasting (the status is up) but isn't counted as pending, because its timing is unknown.
 - **Danger and Critical ignore pending.** HP over time doesn't save someone who's dying.
 
 ## Learned potency

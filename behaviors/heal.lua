@@ -142,8 +142,22 @@ local function rate(band, a, f, centre, amt, ctx, members)
     end
     if not c.worst then return nil end
     c.share = share(a, f, ctx.g)
-    c.score = band == 'efficient' and c.sum / math.max(c.share, 1e-6) or c.points / f.lockout
+    -- ponytail: each member helped weighs in by sqrt, a guess: enough that one Curaga beats
+    -- healing three one at a time, not so much it spends 180 MP to save one cast; tune in play
+    c.score = band == 'efficient' and c.sum / math.max(c.share, 1e-6) * math.sqrt(c.count)
+        or c.points / f.lockout
     return c
+end
+
+-- The biggest of your Regens whose whole total lands on `u`, if any. Per MP the
+-- smallest always wins, so tiers can't just compete: Regen I would go on everyone,
+-- and its status would keep a bigger one off for 75s.
+local function regen_for(u, ctx)
+    local pick
+    for _, r in ipairs(ctx.regens) do
+        if amount(r, ctx) <= need(u, true) and (not pick or r.tier > pick.tier) then pick = r end
+    end
+    return pick
 end
 
 -- Higher score; on a tie the cheaper, then the one covering the focus member.
@@ -164,7 +178,8 @@ local function best_of(band, ctx, ready, members)
             local amt, m = amount(a, ctx)
             for _, f in ipairs(forms(a, ctx, band)) do
                 for _, centre in ipairs(centres(a, ctx.g)) do
-                    local c = not (a.tick and any(centre.buffs, a.status)) and rate(band, a, f, centre, amt, ctx, members)
+                    local c = not (a.tick and (any(centre.buffs, a.status) or regen_for(centre, ctx) ~= a))
+                        and rate(band, a, f, centre, amt, ctx, members)
                     if c then c.mult = m end
                     if c and amt then
                         kinds[kind_of(a) or ''] = true
@@ -270,16 +285,15 @@ end
 
 function heal.want(g, cat, cfg)
     local ctx = context(g, cat, cfg)
-    local ready, waiting, regen = {}, {}, nil
+    local ready, waiting = {}, {}
+    ctx.regens = {}
     for _, a in ipairs(settings.enabled(cat, cfg, 'heal')) do
-        if a.tick then  -- only the best Regen you know: per MP, Regen I would trickle out first
-            if a.tick > 0 and (not regen or a.tier > regen.tier) then regen = a end
-        else
-            local ok, _, wait = can.use(a, g)
-            if ok then ready[#ready + 1] = a elseif wait and wait <= HOLD_MAX then waiting[#waiting + 1] = a end
-        end
+        local ok, _, wait = can.use(a, g)
+        if a.tick then
+            if ok and a.tick > 0 then ready[#ready + 1] = a; ctx.regens[#ctx.regens + 1] = a end
+        elseif ok then ready[#ready + 1] = a
+        elseif wait and wait <= HOLD_MAX then waiting[#waiting + 1] = a end
     end
-    if regen and can.use(regen, g) then ready[#ready + 1] = regen end
     local emergencies = settings.enabled(cat, cfg, 'emergency')
 
     for _, band in ipairs(BANDS) do

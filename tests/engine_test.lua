@@ -36,8 +36,15 @@ local function with(g, statuses)
     return g
 end
 
+-- Regen out of the way, for tests about something else.
+local function no_regen()
+    local cfg = settings.defaults()
+    cfg.rows.Regen = { on = false }
+    return cfg
+end
+
 test('efficient: the best HP per MP, never paying for overheal', function ()
-    local cmd, intent = decide(snap({ { name = 'A', hpp = 70 } }))
+    local cmd, intent = decide(snap({ { name = 'A', hpp = 70 } }), no_regen())
     eq({ cmd, intent.why }, { '/ma "Cure III" 101', 'efficient: A 70%' })  -- 250 of 300 for 46 MP
 end)
 
@@ -54,6 +61,12 @@ test('efficient waits while every heal would overheal', function ()
         '/ma "Cure V" 101')  -- danger is untouched
 end)
 
+test('Regen: the biggest whose whole total lands', function ()
+    eq(decide(snap({ { name = 'A', hpp = 85 } })), '/ma "Regen" 101')      -- 125 of 150 for 15 MP
+    eq(decide(snap({ { name = 'A', hpp = 70 } })), '/ma "Regen II" 101')   -- 240 of 300 for 36 MP
+    eq(decide(snap({ { name = 'A', hpp = 60 } })), '/ma "Regen III" 101')  -- 400 of 400 for 64 MP
+end)
+
 test('Regen wins a big enough gap; while it ticks efficient waits, danger does not', function ()
     eq(decide(snap({ { name = 'A', hpp = 60 } })), '/ma "Regen III" 101')  -- 400 over 60s for 64 MP
     local pending = { name = 'A', hpp = 60, hot = 400, buffs = { [REGEN] = true } }
@@ -68,10 +81,17 @@ test('a Regen sent is counted once it lands, tick by tick', function ()
     eq({ observed.hot(101, 10), observed.hot(101, 40), observed.hot(101, 70) }, { 400, 200, 0 })
 end)
 
-test('Curaga for a bunched group, a single cure once they spread', function ()
+test('Curaga for a bunched group, a single heal once they spread', function ()
     local cmd, intent = decide(snap(four(70)))
     eq({ cmd, intent.why }, { '/ma "Curaga III" <me>', 'efficient: P1 70% +3' })  -- 1200 HP for 180 MP
-    eq(decide(snap(four(70, true))), '/ma "Cure III" 101')
+    eq(decide(snap(four(70, true))), '/ma "Regen II" 101')
+end)
+
+test('each member helped weighs in: Curaga for three, one at a time for two', function ()
+    local three = { { name = 'P1', hpp = 70 }, { name = 'P2', hpp = 70 }, { name = 'P3', hpp = 70 } }
+    eq(decide(snap(three)), '/ma "Curaga III" <me>')  -- 900 for 180 MP x sqrt 3 beats Regen II's 240 for 36
+    table.remove(three)
+    eq(decide(snap(three)), '/ma "Regen II" 101')     -- 600 for 180 MP x sqrt 2 does not
 end)
 
 test('danger: an instant waltz before a slower, bigger cure', function ()
@@ -116,7 +136,7 @@ test('danger fires Accession when a spread Cure IV beats every single cure', fun
     local cmd, intent = decide(with(snap(three), { LIGHT_ARTS }), nil, nil, sch)
     eq({ cmd, intent.why }, { '/ja "Accession" <me>', 'danger: P1 45% +2, for Cure IV' })
     eq(decide(with(snap({ { name = 'A', hpp = 45 } }), { LIGHT_ARTS }), nil, nil, sch), '/ma "Cure IV" 101')
-    eq(decide(with(snap(four(70)), { LIGHT_ARTS }), nil, nil, sch), '/ma "Cure III" 101')  -- efficient: no charge
+    eq(decide(with(snap(four(70)), { LIGHT_ARTS }), no_regen(), nil, sch), '/ma "Cure III" 101')  -- efficient: no charge
     -- Up (by hand or from the line above): Cure I-IV spread, Cure V never does.
     local whm_sch = fake.catalog(3, 75, SCH, 37, { 'Accession' })
     three = { four(45)[1], four(45)[2], four(45)[3] }
@@ -144,17 +164,17 @@ end)
 test('low on MP, a TP heal beats an MP heal by share of what you have', function ()
     local g = snap({ { name = 'A', hpp = 70 } })
     g.me.tp, g.me.mp = 1000, 60
-    eq(decide(g, nil, nil, dnc), '/ja "Curing Waltz II" 101')
+    eq(decide(g, no_regen(), nil, dnc), '/ja "Curing Waltz II" 101')
     g.me.mp = 1000
-    eq(decide(g, nil, nil, dnc), '/ma "Cure III" 101')
+    eq(decide(g, no_regen(), nil, dnc), '/ma "Cure III" 101')
 end)
 
 test('TP at the cap is free: a waltz then; at 2650 TP the cure again', function ()
     local g = snap({ { name = 'A', hpp = 70 } })
     g.me.tp = 3000
-    eq(decide(g, nil, nil, dnc), '/ja "Curing Waltz II" 101')
+    eq(decide(g, no_regen(), nil, dnc), '/ja "Curing Waltz II" 101')
     g.me.tp = 2650
-    eq(decide(g, nil, nil, dnc), '/ma "Cure III" 101')
+    eq(decide(g, no_regen(), nil, dnc), '/ma "Cure III" 101')
 end)
 
 test('a heal nearly off recast holds in danger (not debuff removal), never in efficient', function ()
