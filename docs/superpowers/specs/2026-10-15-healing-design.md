@@ -162,7 +162,7 @@ The catalog resolves the boost's status the same way it resolves a buff's status
   - The existing `buff` use, labelled `'Regen (keep up)'`, for "always keep Regen on the tank". It stays opt-in.
 - **Efficient band only.** It's a candidate only if the target lacks the Regen status.
 - **Gear:** `regen_potency` (new setting) adds HP per tick.
-- **Pending:** when your own Regen lands (0x028, gain message, status Regen), record `{ sid, ends, per_tick }`. Pending HP = `per_tick * ticks left`. The Efficient band subtracts it from need; a unit whose `hp + pending` reaches full HP isn't in the band at all. Someone else's Regen blocks recasting (the status is up) but isn't counted as pending, because its timing is unknown.
+- **Pending:** when your own Regen lands (0x028, gain message, status Regen), record `{ sid, ends, per_tick }`. Pending HP = `per_tick * ticks left`. The Efficient band subtracts it from need; a unit whose `hp + pending` reaches full HP isn't in the band at all. Someone else's Regen blocks recasting (the status is up). Its timing is unknown, so it, and the GEO Regen aura, count as a whole Regen I still to come, 125 HP: a member missing 100 with it up isn't cured, one missing 300 is cured for the other 175.
 - **Danger and Critical ignore pending.** HP over time doesn't save someone who's dying.
 
 ## Learned potency

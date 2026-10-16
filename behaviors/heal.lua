@@ -27,6 +27,8 @@ local HEALING, BLUE = 33, 43  -- spell skills
 local TICK = 3             -- seconds between Regen ticks
 local TP_CAP = 3000        -- TP past this is lost, so a heal spending it is free
 local AURORASTORM = { 184, 595 }
+local REGENS = { 42, 539 } -- Regen, and the GEO aura
+local THEIRS = 125         -- HP taken as still to come from a Regen not yours: a whole Regen I
 local AURAS, STELLAR, GLOOM, DARKNESS = 16, 17, 18, 19
 local LIGHTSDAY, DARKSDAY = 6, 7
 local EPS = 1e-9
@@ -114,8 +116,14 @@ local function dist(a, b)
     return math.sqrt(dx * dx + dy * dy + dz * dz)
 end
 
+-- HP on its way from a Regen: yours as tracked, anyone else's as THEIRS.
+-- ponytail: their Regen's time left is unknown; note when the status appeared if THEIRS misjudges
+local function pending(u)
+    return u.hot > 0 and u.hot or any(u.buffs, REGENS) and THEIRS or 0
+end
+
 local function need(u, efficient)
-    return math.max(0, (u.max_hp or u.hp) - u.hp - (efficient and u.hot or 0))
+    return math.max(0, (u.max_hp or u.hp) - u.hp - (efficient and pending(u) or 0))
 end
 
 local function share(a, f, g)
@@ -230,7 +238,7 @@ local function members_of(band, ctx)
             local inside
             if band == 'critical' then inside = u.hpp < critical
             elseif band == 'danger' then inside = u.hpp < danger
-            else inside = u.hpp >= danger and u.hp + u.hot < u.max_hp end
+            else inside = u.hpp >= danger and u.hp + pending(u) < u.max_hp end
             if inside then set[u] = true; list[#list + 1] = u end
         end
     end

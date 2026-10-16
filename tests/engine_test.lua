@@ -74,6 +74,14 @@ test('Regen wins a big enough gap; while it ticks efficient waits, danger does n
     eq(decide(snap({ { name = 'A', hpp = 45, hot = 400, buffs = { [REGEN] = true } } })), '/ma "Cure V" 101')
 end)
 
+test('a Regen not yours counts as a whole Regen I still to come', function ()
+    local theirs = function (hpp) return { { name = 'A', hpp = hpp, buffs = { [REGEN] = true } } } end
+    eq({ decide(snap(theirs(90))) }, { nil, 'nothing to do' })  -- 100 missing, 125 on its way
+    eq(decide(snap(theirs(70))), '/ma "Cure" 101')              -- 300 missing: the other 175
+    eq(decide(snap(theirs(45))), '/ma "Cure V" 101')            -- danger ignores it
+    eq({ decide(snap({ { name = 'A', hpp = 90, buffs = { [539] = true } } })) }, { nil, 'nothing to do' })  -- GEO aura
+end)
+
 test('a Regen sent is counted once it lands, tick by tick', function ()
     local _, intent = decide(snap({ { name = 'A', hpp = 60 } }))
     intent.sent(0)
