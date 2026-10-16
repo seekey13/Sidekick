@@ -1,8 +1,8 @@
 # Sidekick v3 masterplan
 
-First presented in chat on 2026-10-14. Updated 2026-10-15 to match the decisions and progress since then. Specs for single features live in [../specs/](../specs/) and refer back to the phases here.
+First presented in chat on 2026-10-14. Updated 2026-10-16 to match the decisions and progress since then. Specs for single features live in [../specs/](../specs/) and refer back to the phases here.
 
-## Status (2026-10-15)
+## Status (2026-10-16)
 
 | Phase | State |
 |---|---|
@@ -12,7 +12,8 @@ First presented in chat on 2026-10-14. Updated 2026-10-15 to match the decisions
 | 2b | Done, untested in game: engine, heal/remove/buff/revive (`/sk3 plan`, `start`, `buff`, `focus`) |
 | 2c | Done, untested in game: settings window (`ui/model.lua` pure, `ui/window.lua` thin) |
 | 2d | Done, untested in game: healing overhaul (bands, area heals, Regen, boosts, learned potency); the in-game check of the area priors is left |
-| 3–5 | Not started |
+| 3a | Done, untested in game: wake, recover, pet care and pet send, follow, rest (`/sk3 follow`, `rest`) |
+| 3b–5 | Not started |
 
 The dev command is `/sk3`, because v2 is still loaded and owns `/sk`. v3 takes `/sk` at cutover.
 
@@ -125,13 +126,15 @@ That one mechanism replaces:
 - the per-feature Nether Void, Diffusion, Embolden, Enlightenment, Unbridled Learning, Accession, Pianissimo and Entrust plumbing
 - the 6 near-duplicate UI button renderers
 
-The generic behaviors (one file each, about 50–300 lines): heal (single and area heals, Regen, emergencies), remove (spells and items), wake, revive, buff, recover, rest, follow, pet_heal, pet_send.
+The generic behaviors (one file each, about 50–300 lines): heal (single and area heals, Regen, emergencies), remove (spells and items), wake, revive, buff, recover, rest, follow, pet (care: heal and cleanse; send).
+
+Behaviors that aren't a spell or ability (rest's `/heal`, follow's `/follow`) return the command itself. While you rest only the rest behavior runs, as in v2: it alone decides when to stand.
 
 Healing (2d) is the one behavior that scores instead of following a list: every usable heal aimed at every reachable unit is a candidate covering the units in its area, and the band (critical, danger, efficient) picks who counts and how candidates rank. `core/observed.lua` learns each heal's real potency from 0x028 and tracks your ticking Regens, and the snapshot carries both, so the engine still decides from the snapshot alone. Healing fires Accession itself; the generic modifier chain is still for the rest.
 
 ### 5. Job modules, only where real state machines exist
 
-`sch` (arts, stratagem charges), `brd` (song slots and timers, the hardest one), `cor` (double-up strategy, lucky table), `geo` (luopan, Full Circle, Entrust), `run` (runes), `pup` (maneuvers), `bst` (ready charges, ammo), `nin` (tools), `blu` (set-spell read), `dnc` (stance blocks).
+`sch` (arts, stratagem charges), `brd` (song slots and timers, the hardest one), `cor` (double-up strategy, lucky table), `geo` (luopan, Full Circle, Entrust, Radial Arcana), `run` (runes), `pup` (maneuvers), `bst` (ready charges, ammo), `nin` (tools), `blu` (set-spell read), `dnc` (stance blocks).
 
 WHM, PLD, RDM, WAR, MNK, THF, SAM, DRK, DRG, BLM and RNG need **no file at all**.
 
@@ -166,7 +169,7 @@ Sidekick3.lua  core/{game,buffs,packets,observed,can,catalog,knowledge,resources
 behaviors/*.lua  jobs/{sch,brd,cor,geo,run,pup,bst,nin,blu,dnc}.lua  ui/{model,window}.lua  tests/  tools/
 ```
 
-Target: 8k lines or less, a cut of about 70%. The architecture doc becomes one page. At the end of phase 2c the tracked code (without `tests/data`) is about 3.4k lines; after 2d, about 3.9k.
+Target: 8k lines or less, a cut of about 70%. The architecture doc becomes one page. At the end of phase 2c the tracked code (without `tests/data`) is about 3.4k lines; after 2d, about 3.9k; after 3a, about 4.6k.
 
 ## Phases
 
@@ -178,7 +181,9 @@ Target: 8k lines or less, a cut of about 70%. The architecture doc becomes one p
 | 2b | Engine plus heal, remove, buff and revive (`/sk3 plan`, `start`, `buff`, `focus`) | WHM/RDM/PLD play-test |
 | 2c | Settings window: generic rows, sections, display modes, window size | Play-test |
 | 2d | Healing overhaul: candidates by band (Critical/Danger/Efficient), Regen as a heal-over-time candidate, learned potency from 0x028 | Spec approved, then play-test |
-| 3 | The rest of the generic behaviors (wake, recover, rest, follow, items, pet_heal, pet_send), focus, tracked targets, alliance (area heals then score per party), hold-AOE gather, profiles, Japanese | Fake-client scenario tests |
+| 3a | The generic behaviors that need nothing new from the game but the ammo slot, the pet's statuses and when you last moved: wake, recover, pet care (heal, cleanse) and pet send, follow, rest | Fake-client scenario tests, then play-test |
+| 3b | Items (status removal from the inventory), tracked targets, alliance (area heals then score per party) | Fake-client scenario tests |
+| 3c | Hold-AOE gather, Multisend follow, profiles, Japanese | Fake-client scenario tests |
 | 4 | Job modules (BRD last, with the most time budgeted) | Per-job play-test against the README feature list |
 | 5 | Panel, widget, party_share, docs, take over `/sk`, release | v2 frozen |
 
@@ -187,4 +192,6 @@ Target: 8k lines or less, a cut of about 70%. The architecture doc becomes one p
 - **CatsEyeXI changes the DATs don't show.** Covered for JAs, since `HasAbility` comes from the server. Spell levels and costs follow the client DAT by decision; server mismatches go to the CatsEyeXI devs.
 - **`HasSpell` reads false while zoning.** The catalog only rebuilds from stable state and never touches settings.
 - **Finding a buff's status by name.** Phase 1 verified every family.
+- **Ammo the pet abilities need** (pet food for Reward, oils for Repair and Maintenance) is only checked in 3a: it's worn by hand until the BST and PUP modules equip it. CatsEyeXI's Reward takes pet food only, so v2's Pet Poultice (Regen) and Pet Roborant (Erase) rows are gone.
+- **Statuses on trusts and your pet** come from packets: gains and enfeebles in 0x028 (area variants included), wear-offs in 0x029. A death clears statuses with no message, so a dead trust's or a gone pet's are forgotten.
 - **Bard song parity** is the largest unknown. Port the behavior, not the code: write the scenarios as tests first.

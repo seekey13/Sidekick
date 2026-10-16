@@ -266,7 +266,7 @@ ashita.events.register('packet_in', 'sidekick3_packet_in', function (e)
 end)
 
 local HELP = '/sk3 opens or closes the window. Commands: start, stop, plan, state, '
-    .. 'buff [name] [me p1..p5|off], focus <name|off>, catalog [unknown], log, dump, help'
+    .. 'buff [name] [me p1..p5|off], focus <name|off>, follow <name|off>, rest [on|off], catalog [unknown], log, dump, help'
 
 -- ponytail: /sk3 while v2 is still installed and owns /sk; switch to /sk at cutover.
 ashita.events.register('command', 'sidekick3_command', function (e)
@@ -315,6 +315,17 @@ ashita.events.register('command', 'sidekick3_command', function (e)
         cfg.heal.focus = name
         settings.save()
         printf(name == '' and 'Focus off.' or ('Focus: %s.'):format(name))
+    elseif sub == 'follow' then
+        local name = args[3] and args[3]:lower() ~= 'off' and args[3] or ''
+        cfg.follow.on = name ~= ''
+        if name ~= '' then cfg.follow.target = name end
+        settings.save()
+        printf(name == '' and 'Follow off.' or ('Following %s past %d yalms.'):format(name, cfg.follow.distance))
+    elseif sub == 'rest' then
+        local w = (args[3] or ''):lower()
+        cfg.rest.on = w == 'on' or (w ~= 'off' and not cfg.rest.on)
+        settings.save()
+        printf('Resting %s.', cfg.rest.on and 'on' or 'off')
     else
         printf('%s', HELP)
     end

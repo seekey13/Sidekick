@@ -114,13 +114,6 @@ local function centres(a, g)
     return out
 end
 
-local function dist(a, b)
-    if a == b then return 0 end
-    if not (a.pos and b.pos) then return math.huge end
-    local dx, dy, dz = a.pos[1] - b.pos[1], a.pos[2] - b.pos[2], a.pos[3] - b.pos[3]
-    return math.sqrt(dx * dx + dy * dy + dz * dz)
-end
-
 -- HP on its way from a Regen: yours as tracked (u.hot, nil when not yours), anyone else's as THEIRS.
 -- ponytail: their Regen's time left is unknown; note when the status appeared if THEIRS misjudges
 local function pending(u)
@@ -141,7 +134,7 @@ end
 local function rate(band, a, f, centre, amt, ctx, members)
     local c = { band = band, a = a, f = f, centre = centre, cover = {}, sum = 0, points = 0, count = 0 }
     for _, u in ipairs(ctx.g.units) do
-        if u == centre or f.radius > 0 and u.alive and u.in_zone and dist(centre, u) <= f.radius then
+        if u == centre or f.radius > 0 and u.alive and u.in_zone and can.dist(centre, u) <= f.radius then
             c.cover[#c.cover + 1] = u
             local useful = amt and not ctx.s.skip[u.name] and math.min(amt, need(u, band == 'efficient')) or 0
             c.sum = c.sum + useful

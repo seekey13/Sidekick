@@ -5,9 +5,13 @@
     snapshot alone, so tests can hand it a fake one.
 
     unit = { slot, sid, tidx, name, kind = 'self'|'party'|'trust', hpp, hp, max_hp,
-             mpp, mp, tp, in_zone, dist, pos = { x, y, z }, status (entity), alive,
-             buffs = { [id] = true }, hot = HP still to come from your Regen, nil if none }
-    Plus what healing scores with: learned potency, the day and the weather.
+             mpp, mp, tp, uses_mp (yours: max MP > 0; others: seen with MP on these jobs),
+             in_zone, dist, pos = { x, y, z },
+             status (entity), alive, buffs = { [id] = true },
+             hot = HP still to come from your Regen, nil if none }
+    The pet is { sid, tidx, name, hpp, dist, pos, status (1 engaged), buffs }.
+    Plus what healing scores with: learned potency, the day and the weather;
+    the item in your ammo slot; when you last moved and last had a battle target.
 ]]--
 
 local ffi = require('ffi')
@@ -70,8 +74,10 @@ local function day()
 end
 
 local max_hp = {}  -- [sid] = HP seen at 100%: heal sizing needs the deficit
+local has_mp = {}  -- ['sid main/sub'] = true once seen with MP on those jobs: a WAR's 0% isn't an empty tank
 local move = { at = -math.huge, moved = -math.huge }
 local last_combat = -math.huge
+local pet_sid  -- the live pet last seen: its statuses are forgotten once it's gone or dead
 local ready_since = {}  -- [recast key] = when its timer first read 0
 
 local function set_of(list)
@@ -99,6 +105,17 @@ local function party_buffs(sid)
         end
     end
     return {}
+end
+
+-- The item id in your ammo slot, 0 for none. The equipment entry's Index packs
+-- where the item is: container in the high byte, slot in the low.
+local function ammo()
+    local inv = AshitaCore:GetMemoryManager():GetInventory()
+    local eq = inv:GetEquippedItem(3)
+    if not eq or not eq.Index or eq.Index == 0 then return 0 end
+    local item = inv:GetContainerItem(math.floor(eq.Index / 256), eq.Index % 256)
+    local id = item and item.Id or 0
+    return (id == -1 or id == 65535) and 0 or id
 end
 
 local function own_buffs(player)
@@ -167,6 +184,7 @@ end
 
 -- Forget `action`'s ready stamp once it's sent, so its next recast gets the full delay.
 function game.sent(action)
+    if not action.recast then return end  -- /heal, /follow: no recast
     ready_since[action.kind .. action.recast] = nil
 end
 
@@ -190,6 +208,13 @@ function game.read(now)
                 in_zone = party:GetMemberZone(i) == zone,
             }
             if u.hpp == 100 and u.hp > 0 then max_hp[sid] = u.hp end
+            if i == 0 then
+                u.uses_mp = player:GetMPMax() > 0
+            else
+                local jobs = ('%d %d/%d'):format(sid, party:GetMemberMainJob(i), party:GetMemberSubJob(i))
+                if u.mp > 0 then has_mp[jobs] = true end
+                u.uses_mp = has_mp[jobs] == true
+            end
             -- Never seen at full: estimate from HP%. Rough at low HP, good enough to score.
             u.max_hp = max_hp[sid] or (u.hpp > 0 and u.hp > 0 and math.floor(u.hp * 100 / u.hpp)) or nil
             if u.in_zone and tidx > 0 then
@@ -199,7 +224,9 @@ function game.read(now)
             end
             u.alive = u.hpp > 0 and u.status ~= DEAD
             if u.kind == 'self' then u.buffs = own_buffs(player)
-            elseif u.kind == 'trust' then u.buffs = buffs.of(sid, now); tracks[sid] = true
+            elseif u.kind == 'trust' then
+                if not u.alive then buffs.forget(sid) end  -- a death clears statuses silently
+                u.buffs = buffs.of(sid, now); tracks[sid] = true
             else u.buffs = party_buffs(sid) end
             u.hot = observed.hot(sid, now, u.buffs[REGEN])
             units[#units + 1] = u
@@ -209,18 +236,24 @@ function game.read(now)
     local me = units[1]
     local bt = battle_target(em)
     if bt and bt.mob then last_combat = now end
+    local is_moving = moving(em, me.tidx, now)  -- before moved_at is read
+    local pet = entity(em, em:GetPetTargetIndex(me.tidx))
+    -- A pet's statuses go silently when it dies or is dismissed, and the next may reuse its id.
+    if pet_sid and not (pet and pet.sid == pet_sid and pet.hpp > 0) then buffs.forget(pet_sid) end
+    pet_sid = pet and pet.hpp > 0 and pet.sid or nil
+    if pet then pet.buffs = buffs.of(pet.sid, now); tracks[pet.sid] = true end
     local event = event_ptr ~= 0 and ashita.memory.read_uint32(event_ptr + 1) or 0
     local finished, spell_finish = packets.last_finish()
 
     return {
         finished = finished, spell_finish = spell_finish,
         now = now, zone = zone, me = me, units = units, tracks = tracks, bt = bt,
-        pet = entity(em, em:GetPetTargetIndex(me.tidx)),
+        pet = pet, ammo = ammo(),
         main = player:GetMainJob(), main_lv = player:GetMainJobLevel(),
         sub = player:GetSubJob(), sub_lv = player:GetSubJobLevel(),
         casting = packets.casting(now),
-        moving = moving(em, me.tidx, now),
-        combat = now - last_combat < COMBAT_GRACE,
+        moving = is_moving, moved_at = move.moved,
+        combat = now - last_combat < COMBAT_GRACE, combat_at = last_combat,
         safe = SAFE_ZONES[zone] == true or (event ~= 0 and ashita.memory.read_uint8(event) == 1),
         mounted = me.status == MOUNTED_STATUS or me.buffs[MOUNTED_BUFF] == true,
         dead = not me.alive,

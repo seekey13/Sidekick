@@ -22,8 +22,10 @@ local CAST_BEGIN, SPELL_FINISH = 8, 4
 -- A cast whose finish packet never arrived (zoning, lost packet) unlocks after this.
 local CAST_TIMEOUT = 16
 
--- 0x028 per-target messages.
-local GAINS_028 = { [230] = true, [266] = true }            -- target gains the effect
+-- 0x028 per-target messages. Gains (param = the status): buffs and enfeebles from
+-- spells, abilities and TP moves, and the variants an area one shows its other targets.
+local GAINS_028 = { [186] = true, [230] = true, [236] = true, [237] = true, [242] = true, [243] = true,
+                    [266] = true, [277] = true, [278] = true }
 local LOSES_028 = { [83] = true }                           -- effect removed (-na, Erase)
 -- Recovers HP, param = HP: cures, waltzes, Chakra, blood pacts and their area variants.
 local HEALS_028 = { [7] = true, [24] = true, [102] = true, [238] = true, [263] = true, [318] = true, [367] = true }
@@ -80,9 +82,10 @@ local function parse_action(e)
     return limit ~= 0 and p or nil
 end
 
+-- A parsed 0x028 (tests hand one in directly).
 -- ctx: { me = your server id, pet = your pet's or nil, tracks = { [server id] = true }
 -- for units whose statuses come from packets, duration = function(spell id) -> seconds or nil }
-local function on_action(p, ctx, now)
+function packets.action(p, ctx, now)
     if p.actor == ctx.me and p.category ~= 1 then  -- 1 = auto-attack, says nothing
         if p.category == CAST_BEGIN and p.param ~= INTERRUPT then
             cast.active, cast.since = true, now
@@ -105,9 +108,11 @@ local function on_action(p, ctx, now)
                     observed.healed(key, t.id, r.param, now)
                     if tracked then for _, s in ipairs(SLEEP) do buffs.lose(t.id, s) end end
                 end
-            elseif p.category == SPELL_FINISH and GAINS_028[r.message] then
-                if tracked then buffs.gain(t.id, r.param, now, ctx.duration(p.param)) end
-                if key then observed.landed(key, t.id, now) end
+            elseif GAINS_028[r.message] then
+                -- Only a spell's id names a catalog duration; an ability's or TP move's doesn't.
+                local spell = p.category == SPELL_FINISH
+                if tracked then buffs.gain(t.id, r.param, now, spell and ctx.duration(p.param) or nil) end
+                if key and spell then observed.landed(key, t.id, now) end
             elseif p.category == SPELL_FINISH and LOSES_028[r.message] and tracked then
                 buffs.lose(t.id, r.param)
             end
@@ -129,7 +134,7 @@ end
 function packets.handle(e, ctx, now)
     if e.id == 0x028 then
         local p = parse_action(e)
-        if p then on_action(p, ctx, now) end
+        if p then packets.action(p, ctx, now) end
     elseif e.id == 0x029 then
         on_message(e, ctx, now)
     elseif e.id == 0x00A then  -- zoning: a cast in flight is cancelled with no packet

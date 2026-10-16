@@ -9,7 +9,8 @@
     A row is one use, or a list of uses when one action does several jobs
     (Chakra heals and cures). An exact name ("Healing Ruby II") beats its family.
 
-    role       heal | pet_heal | remove | pet_remove | emergency | revive | recover | buff
+    role       heal | pet_heal | remove | pet_remove | pet_send | emergency | revive |
+               recover | buff
                (a heal's area comes from the DAT: Curaga is a heal like Cure)
     status     what a buff shows: status name (lowest id with that name wins), id,
                or a list (any one counts). Omitted = the status named like the
@@ -25,6 +26,11 @@
                yalms at `mp` x the cost (behaviors/heal.lua)
     wakes      the heal also cures sleep
     gives      'tp' for a recover that restores TP (default MP)
+    costs_hp   paid for with your HP: only while you're over the danger line
+    swaps      trades your HP for your MP: only while you have more HP than MP
+    spends_tp  turns all your TP into MP (Chivalry): only from recover.min_tp up
+    ammo       item ids, one of which must be in your ammo slot (pet food, oils)
+    pet_range  yalms your pet may be from you (the server refuses Repair past 20)
     gate       'combat' | 'idle' (enemy-targeted actions are combat-only anyway)
     pick_one   families sharing a key keep one selection (enspells, storms, bar-elements)
     blocked_by skip while you have any of these statuses
@@ -49,6 +55,10 @@ local WALTZ    = { 3, 4, 5, 6, 8, 9, 11, 12, 13, 31, 128, 129, 130, 131, 132, 13
     138, 139, 140, 141, 142, 144, 145, 146, 147, 148, 149, 156, 167, 174, 175, 189, 404 }
 local PET_CLEANSE = { 3, 4, 5, 6, 8, 9, 31, 10, 11, 12, 13, 21, 128, 129, 130, 131, 132, 133, 134, 135,
     136, 137, 138, 139, 140, 141, 142, 144, 145, 146, 147, 148, 149, 156, 167, 174, 175, 189, 192, 194, 291, 298, 404 }
+
+-- Ammo items (ids) the server takes: Pet Food Alpha to Theta Biscuit; Automaton Oil to +3.
+local PET_FOOD = { 17016, 17017, 17018, 17019, 17020, 17021, 17022, 17023 }
+local OILS     = { 18731, 18732, 18733, 19185 }
 
 local LIGHT = { 'Light Arts', 'Addendum: White' }
 local SAMBA = { role = 'buff', pick_one = 'samba', blocked_by = 'Fan Dance' }
@@ -109,25 +119,27 @@ local K = {
 
     -- recover ------------------------------------------------------------------
     ['Aspir']            = { role = 'recover' },
-    ['Convert']          = { role = 'recover', priority = 100 },
-    ['Chivalry']         = { role = 'recover' },
-    ['Devotion']         = { role = 'recover' },
-    ['Radial Arcana']    = { role = 'recover', main_only = true, pet = true, priority = 90 },
+    ['Convert']          = { role = 'recover', priority = 100, costs_hp = true, swaps = true },
+    ['Chivalry']         = { role = 'recover', spends_tp = true },
+    ['Devotion']         = { role = 'recover', costs_hp = true },
+    -- Not Radial Arcana: it dismisses the luopan, so jobs/geo.lua decides when (phase 4).
     ['Meditate']         = { role = 'recover', gives = 'tp', priority = 100, status = 801 },
     ['Reverse Flourish'] = { role = 'recover', gives = 'tp', priority = 100, requires = 'Finishing Move (5)' },
 
     -- pet ----------------------------------------------------------------------
-    ['Spirit Link']   = { role = 'pet_heal', pet = true },
-    ['Life Cycle']    = { role = 'pet_heal', pet = true, main_only = true },
+    -- ponytail: equipping the ammo is the BST and PUP job modules' (phase 4); until then it's worn by hand.
+    ['Spirit Link']   = { role = 'pet_heal', pet = true, costs_hp = true },
+    ['Life Cycle']    = { role = 'pet_heal', pet = true, main_only = true, costs_hp = true },
     ['Dematerialize'] = { role = 'pet_heal', pet = true, main_only = true },
-    ['Repair']        = { role = 'pet_heal', pet = true, priority = 100 },
-    ['Role Reversal'] = { role = 'pet_heal', pet = true },
-    ['Maintenance']   = { role = 'pet_remove', pet = true, removes = PET_CLEANSE },
-    ['Reward'] = {
-        { role = 'pet_heal', pet = true },
-        { role = 'buff', label = 'Reward (Regen)', pet = true, status = false },
-        { role = 'pet_remove', label = 'Reward (Erase)', pet = true, removes = PET_CLEANSE },
-    },
+    ['Repair']        = { role = 'pet_heal', pet = true, priority = 100, ammo = OILS, pet_range = 20 },
+    ['Role Reversal'] = { role = 'pet_heal', pet = true, costs_hp = true },
+    ['Maintenance']   = { role = 'pet_remove', pet = true, removes = PET_CLEANSE, ammo = OILS },
+    -- The server's Reward takes pet food only (no Pet Poultice or Roborant); each one also gives Regen.
+    ['Reward']        = { role = 'pet_heal', pet = true, ammo = PET_FOOD },
+    -- Send the pet at your battle target.
+    ['Assault'] = { role = 'pet_send', pet = true },
+    ['Fight']   = { role = 'pet_send', pet = true },
+    ['Deploy']  = { role = 'pet_send', pet = true },
 
     -- buff: white / enhancing magic ---------------------------------------------
     ['Protect']   = { role = 'buff', duration = 1800 },

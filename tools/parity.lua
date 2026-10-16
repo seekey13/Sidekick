@@ -27,9 +27,12 @@ local ROLE = {
     heal = 'heal', heal_aoe = 'heal', heal_pet = 'pet_heal', debuff_removal = 'remove',
     pet_debuff_removal = 'pet_remove', critical = 'emergency', revive = 'revive',
     recover_mp = 'recover', recover_tp = 'recover', recover_party_mp = 'recover', buff = 'buff',
+    pet_control = 'pet_send',
 }
 -- v2 entries a v3 job module owns instead of the generic role.
-local MODULE_OWNED = {}
+local MODULE_OWNED = {
+    ['recover|Radial Arcana'] = 'it dismisses the luopan: jobs/geo.lua decides when',
+}
 
 -- Known, intended differences from v2: job|name|what -> why.
 local ACCEPTED = {
@@ -39,6 +42,13 @@ local ACCEPTED = {
     ['paladin|Raise|EXTRA'] = 'PLD learns Raise at 50; v2 never offered it',
     ['scholar|Accession|MISSING'] = 'v2 paired it with cures in heal_aoe; v3 lists it as an emergency boost',
     ['scholar|Accession|EXTRA'] = 'same ability, as a healing boost',
+    -- v2 sent the pet at <t> by default (<bt> by option); v3 always at the battle target.
+    ['beastmaster|Fight|enemy'] = 'sent at <bt>',
+    ['puppetmaster|Deploy|enemy'] = 'sent at <bt>',
+    ['summoner|Assault|enemy'] = 'sent at <bt>',
+    -- CatsEyeXI's Reward refuses Pet Poultice and Pet Roborant: it takes pet food only.
+    ['beastmaster|Reward (Regen)|MISSING'] = 'the server refuses Pet Poultice; every Reward gives Regen',
+    ['beastmaster|Reward (Erase)|MISSING'] = 'the server refuses Pet Roborant; Reward never erases',
     -- v2 copied the server's spell_list cost; the client blocks the cast by its own
     -- (reported to the CatsEyeXI devs as a server/client mismatch).
     ['white_mage|Arise|mp'] = 'client 150, server 300',
