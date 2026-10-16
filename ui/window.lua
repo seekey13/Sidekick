@@ -159,17 +159,24 @@ local function slider(label, path, value, min, max, help)
     tip(help)
 end
 
-local function focus_combo(h)
+local function checkbox(label, on, set, help)
+    local v = { on }
+    if imgui.Checkbox(label, v) then set(v[1]) end
+    tip(help)
+end
+
+-- A party member by name for setting `path`, or None ('').
+local function member_combo(label, id, current, names, path, help)
     imgui.PushItemWidth(SETTING_WIDTH)
-    if imgui.BeginCombo('Focus##sk3_focus', h.focus ~= '' and h.focus or 'None') then
-        if imgui.Selectable('None##sk3_focus_none', h.focus == '') then act.set('heal.focus', '') end
-        for _, name in ipairs(h.focus_names) do
-            if imgui.Selectable(name, name == h.focus) then act.set('heal.focus', name) end
+    if imgui.BeginCombo(label .. '##sk3_' .. id, current ~= '' and current or 'None') then
+        if imgui.Selectable('None##sk3_' .. id .. '_none', current == '') then act.set(path, '') end
+        for _, name in ipairs(names) do
+            if imgui.Selectable(name .. '##sk3_' .. id .. '_' .. name, name == current) then act.set(path, name) end
         end
         imgui.EndCombo()
     end
     imgui.PopItemWidth()
-    tip('Heal this member first, on its own lines.')
+    tip(help)
 end
 
 local HEAL_LINES = {
@@ -189,11 +196,11 @@ local function heal_members(h)
     end
 end
 
-local function draw_heal_settings(h)
+local function draw_heal_settings(h, wake)
     for _, l in ipairs(HEAL_LINES) do
         slider(l[1] .. '##sk3_' .. l[2], 'heal.' .. l[2], h[l[2]], 1, 99, l[3])
     end
-    focus_combo(h)
+    member_combo('Focus', 'focus', h.focus, h.focus_names, 'heal.focus', 'Heal this member first, on its own lines.')
     for _, l in ipairs(HEAL_LINES) do
         local key = 'focus_' .. l[2]
         slider('Focus ' .. l[1]:lower() .. '##sk3_' .. key, 'heal.' .. key, h[key], 1, 99, 'For the focus member: ' .. l[3])
@@ -205,7 +212,34 @@ local function draw_heal_settings(h)
     slider('Regen potency +##sk3_regen_potency', 'heal.regen_potency', h.regen_potency, 0, 30,
         'HP per Regen tick from gear.')
     heal_members(h)
+    checkbox('Wake sleepers##sk3_wake', wake, function (on) act.section('wake', on) end,
+        'Wake a sleeping member with a cure or waltz that is on below; an area one for two or more.')
     imgui.Separator()
+end
+
+local function draw_recover_settings(r)
+    slider('MP under##sk3_recover_mp', 'recover.mp', r.mp, 1, 99,
+        'Recover MP under this MP % (yours; a member\'s for Devotion).')
+    slider('TP under##sk3_recover_tp', 'recover.tp', r.tp, 0, 3000, 'In combat, get TP back under this.')
+    imgui.Separator()
+end
+
+local function draw_pet_settings(line)
+    slider('Pet HP under##sk3_pet_heal', 'pet.heal', line, 1, 99, 'Heal your pet under this HP %.')
+    imgui.Separator()
+end
+
+local function draw_move(view)
+    local f, r = view.follow, view.rest
+    checkbox('Follow##sk3_follow', f.on, function (on) act.set('follow.on', on) end,
+        'Follow this member once they are further away than the distance.')
+    member_combo('Leader', 'follow_target', f.target, f.names, 'follow.target', 'Who to follow; resting stands up when they leave too.')
+    slider('Follow past##sk3_follow_distance', 'follow.distance', f.distance, 1, 15, 'Yalms.')
+    imgui.Separator()
+    checkbox('Rest##sk3_rest', r.on, function (on) act.set('rest.on', on) end,
+        'Rest for MP out of combat once nothing else has happened for a while; stand at full MP.')
+    slider('Rest after##sk3_rest_delay', 'rest.delay', r.delay, 1, 20, 'Seconds of nothing to do.')
+    slider('Stand past##sk3_rest_distance', 'rest.distance', r.distance, 1, 15, 'Yalms from the leader.')
 end
 
 local function pick_combo(r, id)
@@ -270,8 +304,12 @@ local function draw_options(view)
 end
 
 local function draw_body(view, s)
-    if s.id == 'heal' then draw_heal_settings(view.heal) end
-    if s.rows then draw_rows(s) else draw_options(view) end
+    if s.id == 'heal' then draw_heal_settings(view.heal, view.wake)
+    elseif s.id == 'recover' then draw_recover_settings(view.recover)
+    elseif s.id == 'pet' then draw_pet_settings(view.pet_heal) end
+    if s.rows then draw_rows(s)
+    elseif s.id == 'move' then draw_move(view)
+    else draw_options(view) end
 end
 
 -- Sections: built once, wrapped by the layout --------------------------------------------

@@ -47,6 +47,11 @@ Text that may contain `%` (names, `why` text) must be escaped before it's drawn:
 | `flags` | list of strings | What may be holding automation up, in this order: `'casting'`, `'moving'`, `'combat'`, `'safe zone'`, `'mounted'`, `'dead'`, `'resting'`, `'incapacitated'`, `'silenced'`, `'amnesia'` |
 | `recent` | list | The last 10 actions sent, newest first: `{ age, text, why }`, e.g. `{ 12, 'Cure IV -> Kupipi', 'heal: Kupipi at 62%' }`; `age` in whole seconds |
 | `heal` | table | Healing's settings, below |
+| `wake` | bool | Sleeping members are woken with a heal that wakes |
+| `recover` | table | `{ mp, tp }`: recover MP under `mp` % (yours; a member's for Devotion), TP under `tp` (0 to 3000) in combat |
+| `pet_heal` | number | Heal your pet under this HP % |
+| `follow` | table | `{ on, target, distance, names }`: follow `target` (a name, `''` for none) once further than `distance` yalms; `names` are the members that can be followed |
+| `rest` | table | `{ on, delay, distance }`: rest after `delay` seconds with nothing to do; stand when the follow target is further than `distance` yalms |
 | `japanese` | bool | Spell and ability names are sent in Japanese |
 | `log` | bool | Each action sent is printed to chat |
 | `ui` | table | The UI's settings: `open` (bool), `display` (`'headers'`, `'tabs'` or `'groups'`), `size` (`'auto'` or `'custom'`), and any `ui.<name>` your UI saved. `display` and `size` are the standard window's; yours may ignore them |
@@ -90,13 +95,16 @@ In this order; a behavior with nothing for your job to do is left out.
 | `'remove'` | Debuffs | Support |
 | `'buff'` | Buffs | Support |
 | `'revive'` | Raise | Support |
+| `'recover'` | Recovery | Support |
+| `'pet'` | Pet | Support |
+| `'move'` | Follow & rest | Utility |
 | `'options'` | Options | Utility |
 
 | Field | Type | What it is |
 |---|---|---|
 | `id`, `title`, `group` | string | As above. `group` is the page the standard window puts it on in its `'groups'` layout |
-| `on` | bool or nil | The behavior's switch; nil for `options` |
-| `rows` | list or nil | One per spell family or pick-one group, below; nil for `options` (its settings are `view.japanese` and `view.log`) |
+| `on` | bool or nil | The behavior's switch; nil for `move` and `options` |
+| `rows` | list or nil | One per spell family or pick-one group, below; nil for `move` (its settings are `view.follow` and `view.rest`) and `options` (`view.japanese` and `view.log`) |
 | `has_choices`, `has_targets` | bool or nil | Some row in the section has `choices` / `targets` (to lay out columns) |
 
 ### `view.sections[i].rows[j]`
@@ -105,7 +113,7 @@ In this order; a behavior with nothing for your job to do is left out.
 |---|---|---|
 | `key` | string | The row's id for `act`: a family (`'Cure'`, `'Haste'`) or a pick-one group (`'barelement'`, `'minuet'`) |
 | `label` | string | `'Cure'`, `'Valor Minuet (+ATK)'`, `'Sword Madrigal / Blade Madrigal'` |
-| `on` | bool | Heal, removal and raise rows start on; buff rows start off |
+| `on` | bool | Rows start on, except buffs and sending the pet in (Assault, Fight, Deploy) |
 | `ready` | bool | It could go right now |
 | `avail` | string | `'ready'`, or why not: `'recast 12s'`, `'MP'`, `'TP'`, `'silenced'`, `'combat only'`, `'idle only'`, `'pick one'`, `'not available'`... |
 | `action` | string or nil | When ready, the spell or ability it would use: `'Cure V'` |
@@ -121,7 +129,7 @@ In this order; a behavior with nothing for your job to do is left out.
 | `act.run(on)` | Automation on or off. This session only: it is always off after a load |
 | `act.log(on)` | Print each action sent to chat, or not. This session only |
 | `act.close()` | Hide the window (remembered); `/sk3` shows it again |
-| `act.section(id, on)` | A behavior on or off: `'heal'`, `'remove'`, `'buff'` or `'revive'` |
+| `act.section(id, on)` | A behavior on or off: `'heal'`, `'remove'`, `'wake'`, `'recover'`, `'pet'`, `'buff'` or `'revive'` |
 | `act.row(key, on)` | A row on or off |
 | `act.pick(key, name)` | A row's choice: a `choices[i].name`, or nil for Auto |
 | `act.target(key, slot)` | Turn a target chip (0 to 5) on or off |
@@ -136,6 +144,12 @@ In this order; a behavior with nothing for your job to do is left out.
 | `'heal.focus'` | a name from `view.heal.focus_names`, or `''` |
 | `'heal.cure_potency'`, `'heal.waltz_potency'` | 0 to 50 |
 | `'heal.regen_potency'` | 0 to 30 |
+| `'recover.mp'`, `'pet.heal'` | 1 to 99 |
+| `'recover.tp'` | 0 to 3000 |
+| `'follow.on'`, `'rest.on'` | bool |
+| `'follow.target'` | a name from `view.follow.names`, or `''` |
+| `'follow.distance'`, `'rest.distance'` | 1 to 15 |
+| `'rest.delay'` | 1 to 20 |
 | `'japanese'` | bool |
 | `'ui.display'`, `'ui.size'` | as in `view.ui` |
 | `'ui.<name>'` | your UI's own: a string, number or bool |

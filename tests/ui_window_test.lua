@@ -176,7 +176,7 @@ test('sliders, the focus and the options write the settings', function ()
     local cfg, st = settings.defaults(), status()
     eq(render(cfg, st, { ['Danger under##sk3_danger'] = 60 }), 1)
     eq(cfg.heal.danger, 60)
-    eq(render(cfg, st, { A = true }), 1)  -- the focus combo's member
+    eq(render(cfg, st, { ['A##sk3_focus_A'] = true }), 1)  -- the focus combo's member
     eq(cfg.heal.focus, 'A')
     eq(render(cfg, st, { ['None##sk3_focus_none'] = true }), 1)
     eq(cfg.heal.focus, '')
@@ -184,6 +184,18 @@ test('sliders, the focus and the options write the settings', function ()
     eq(cfg.japanese, true)
     eq(render(cfg, st, { ['Focus danger under##sk3_focus_danger'] = 65 }), 1)
     eq(cfg.heal.focus_danger, 65)
+end)
+
+test('wake, recovery, pet, follow and rest settings write through act', function ()
+    local cfg, st = settings.defaults(), status()
+    eq(render(cfg, st, { ['Wake sleepers##sk3_wake'] = true }), 1)
+    eq(cfg.wake.on, false)
+    eq(render(cfg, st, { ['MP under##sk3_recover_mp'] = 40, ['TP under##sk3_recover_tp'] = 1500 }), 2)
+    eq({ cfg.recover.mp, cfg.recover.tp }, { 40, 1500 })
+    eq(render(cfg, st, { ['Follow##sk3_follow'] = true, ['A##sk3_follow_target_A'] = true }), 2)
+    eq({ cfg.follow.on, cfg.follow.target, cfg.heal.focus }, { true, 'A', '' })
+    eq(render(cfg, st, { ['Rest##sk3_rest'] = true, ['Rest after##sk3_rest_delay'] = 8 }), 2)
+    eq({ cfg.rest.on, cfg.rest.delay }, { true, 8 })
 end)
 
 test('a member unticked under Heal is skipped by healing', function ()
@@ -232,7 +244,8 @@ end
 test('headers: a collapsing header per section, no tab bar', function ()
     local args = layout('headers')
     eq(args.CollapsingHeader, { 'Party###sk3_party', 'Recent actions (1)###sk3_recent', 'Healing###sk3_heal',
-        'Debuffs###sk3_remove', 'Buffs###sk3_buff', 'Raise###sk3_revive', 'Options###sk3_options' })
+        'Debuffs###sk3_remove', 'Buffs###sk3_buff', 'Raise###sk3_revive', 'Recovery###sk3_recover',
+        'Follow & rest###sk3_move', 'Options###sk3_options' })
     eq(args.BeginTabBar, nil)
 end)
 
@@ -240,7 +253,7 @@ test('tabs: one tab bar of every section; a switched-off one says so, its switch
     local args = layout('tabs')
     eq(args.BeginTabBar, { '##sk3_tabs' })
     eq(args.BeginTabItem, { 'Healing###sk3_tab_heal', 'Debuffs###sk3_tab_remove', 'Buffs (off)###sk3_tab_buff',
-        'Raise###sk3_tab_revive', 'Options###sk3_tab_options' })
+        'Raise###sk3_tab_revive', 'Recovery###sk3_tab_recover', 'Follow & rest###sk3_tab_move', 'Options###sk3_tab_options' })
     eq(args.CollapsingHeader, { 'Party###sk3_party', 'Recent actions (1)###sk3_recent' })
     local _, cfg = layout('tabs', { ['Buffs##sk3_on_buff'] = true })
     eq(cfg.buff.on, true)
@@ -261,8 +274,9 @@ test('groups: a row of pages, then the page\'s tab bar; empty pages are hidden',
     eq(args.BeginTabItem, { 'Healing###sk3_tab_heal' })
     args = layout('groups', { ['Support##sk3_page'] = true })
     eq(args.BeginTabBar, { '##sk3_tabs_Support' })
-    eq(args.BeginTabItem, { 'Debuffs###sk3_tab_remove', 'Buffs (off)###sk3_tab_buff', 'Raise###sk3_tab_revive' })
-    args = layout('groups', nil, {})  -- nothing to automate: only Options
+    eq(args.BeginTabItem, { 'Debuffs###sk3_tab_remove', 'Buffs (off)###sk3_tab_buff', 'Raise###sk3_tab_revive',
+        'Recovery###sk3_tab_recover' })
+    args = layout('groups', nil, {})  -- nothing to automate: only Follow & rest and Options
     eq(page_buttons(args), { 'Utility##sk3_page' })
     eq(args.BeginTabBar, { '##sk3_tabs_Utility' })
 end)

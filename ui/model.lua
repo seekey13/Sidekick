@@ -27,6 +27,9 @@ model.SECTIONS = {
     { id = 'remove', title = 'Debuffs', roles = { 'remove' }, group = 'Support' },
     { id = 'buff', title = 'Buffs', roles = { 'buff' }, group = 'Support' },
     { id = 'revive', title = 'Raise', roles = { 'revive' }, group = 'Support' },
+    { id = 'recover', title = 'Recovery', roles = { 'recover' }, group = 'Support' },
+    { id = 'pet', title = 'Pet', roles = { 'pet_heal', 'pet_remove', 'pet_send' }, group = 'Support' },
+    { id = 'move', title = 'Follow & rest', group = 'Utility' },
     { id = 'options', title = 'Options', group = 'Utility' },
 }
 model.FLAGS = { 'casting', 'moving', 'combat', 'safe', 'mounted', 'dead', 'resting', 'incapacitated', 'silenced', 'amnesia' }
@@ -234,6 +237,11 @@ function model.build(g, cat, cfg, status, names)
                  focus_danger = h.focus_danger, focus_critical = h.focus_critical,
                  cure_potency = h.cure_potency, waltz_potency = h.waltz_potency, regen_potency = h.regen_potency,
                  focus_names = focus_names, members = members },
+        wake = cfg.wake.on,
+        recover = { mp = cfg.recover.mp, tp = cfg.recover.tp },
+        pet_heal = cfg.pet.heal,
+        follow = { on = cfg.follow.on, target = cfg.follow.target, distance = cfg.follow.distance, names = focus_names },
+        rest = { on = cfg.rest.on, delay = cfg.rest.delay, distance = cfg.rest.distance },
         japanese = cfg.japanese, log = status.log, ui = {},
     }
     for k, v in pairs(cfg.ui) do view.ui[k] = v end
@@ -278,7 +286,7 @@ function model.actions(cfg, status, changed)
         status.open, cfg.ui.open = false, false
         changed()
     end
-    -- id: 'heal' | 'remove' | 'buff' | 'revive'
+    -- id: a behavior, 'heal' | 'remove' | 'wake' | 'recover' | 'pet' | 'buff' | 'revive'
     function act.section(id, on)
         cfg[id].on = on
         changed()
@@ -303,7 +311,7 @@ function model.actions(cfg, status, changed)
         cfg.heal.skip[name] = not cfg.heal.skip[name] or nil
         changed()
     end
-    -- path: 'heal.danger', 'japanese', 'ui.display', or 'ui.<anything>' for a UI's own.
+    -- path: 'heal.danger', 'follow.on', 'japanese', 'ui.display', or 'ui.<anything>' for a UI's own.
     function act.set(path, value)
         local t = cfg
         local parent, key = path:match('^(.-)%.?([^.]+)$')

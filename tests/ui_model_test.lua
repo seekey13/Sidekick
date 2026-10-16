@@ -43,14 +43,15 @@ end
 test('WHM 75 / BLM 37: every behavior section, in order, then Options', function ()
     local view = build(whm)
     eq(view.job, 'WHM 75 / BLM 37')
-    eq(keys(view.sections, 'id'), { 'heal', 'remove', 'buff', 'revive', 'options' })
-    eq(keys(view.sections, 'title'), { 'Healing', 'Debuffs', 'Buffs', 'Raise', 'Options' })
+    eq(keys(view.sections, 'id'), { 'heal', 'remove', 'buff', 'revive', 'recover', 'move', 'options' })
+    eq(keys(view.sections, 'title'), { 'Healing', 'Debuffs', 'Buffs', 'Raise', 'Recovery', 'Follow & rest', 'Options' })
+    eq(keys(section(view, 'recover').rows), { 'Aspir' })  -- from BLM
     eq(keys(section(view, 'heal').rows), { 'Cure', 'Curaga', 'Regen', 'Drain', 'Divine Seal', 'Martyr' })  -- heal, then emergency
     eq(keys(section(view, 'revive').rows), { 'Raise', 'Arise' })
 end)
 
 test('a section with nothing to show is left out: BLM 75 has no removal or raise', function ()
-    eq(keys(build(fake.catalog(BLM, 75, 0, 0)).sections, 'id'), { 'heal', 'buff', 'options' })
+    eq(keys(build(fake.catalog(BLM, 75, 0, 0)).sections, 'id'), { 'heal', 'buff', 'recover', 'move', 'options' })
 end)
 
 test('heal rows are on by default, with no choices or targets', function ()

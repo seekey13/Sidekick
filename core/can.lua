@@ -1,8 +1,9 @@
 --[[
     The rules every behavior shares, so none re-implements them:
-      can.use(a, g)      is action `a` usable right now (cost, recast, ailments, gates)
-      can.reach(a, u)    can `a` land on unit `u` (target kind, alive, in range)
-      can.command(a, u)  the chat command that does it
+      can.use(a, g)            is action `a` usable right now (cost, recast, ailments, gates)
+      can.reach(a, u)          can `a` land on unit `u` (target kind, alive, in range)
+      can.command(a, u)        the chat command that does it
+      can.spare_hp(a, g, cfg)  can you pay what `a` costs in HP
     `a` is a catalog record, `u` a unit and `g` the snapshot from core/game.lua.
 ]]--
 
@@ -30,6 +31,27 @@ function can.any(set, ids)
 end
 local any = can.any
 
+-- Yalms between two units (or a unit and the pet); unknown positions are far apart.
+function can.dist(a, b)
+    if a == b then return 0 end
+    if not (a.pos and b.pos) then return math.huge end
+    local dx, dy, dz = a.pos[1] - b.pos[1], a.pos[2] - b.pos[2], a.pos[3] - b.pos[3]
+    return math.sqrt(dx * dx + dy * dy + dz * dz)
+end
+
+-- Whether `list` holds `x`.
+function can.holds(list, x)
+    for _, v in ipairs(list) do if v == x then return true end end
+    return false
+end
+
+-- Whether you can pay `a`'s HP price: one that costs HP (Devotion, Spirit Link)
+-- only over your danger line, one that trades HP for MP (Convert) only while it gains.
+function can.spare_hp(a, g, cfg)
+    if a.costs_hp and g.me.hpp < cfg.heal.danger then return false end
+    return not a.swaps or g.me.hp > g.me.mp
+end
+
 -- Aimed at your battle target (Drain, Aspir, Absorb-): the effect lands on you.
 function can.at_enemy(a) return a.targets == ENEMY end
 -- Only ever on you (Protectra, Esuna, most job abilities).
@@ -41,6 +63,8 @@ function can.use(a, g)
     if a.kind ~= 'ma' and g.amnesia then return false, 'amnesia' end
     if (a.mp or 0) > g.me.mp then return false, 'MP' end
     if (a.tp or 0) > 0 and a.tp > g.me.tp then return false, 'TP' end
+    if a.min_tp and g.me.tp < a.min_tp then return false, 'TP' end
+    if a.ammo and not can.holds(a.ammo, g.ammo) then return false, 'no ammo' end
     if a.requires and not any(g.me.buffs, a.requires) then return false, 'needs a status' end
     if any(g.me.buffs, a.blocked_by) then return false, 'blocked by a status' end
     if a.gate == 'combat' and not g.combat then return false, 'combat only' end
