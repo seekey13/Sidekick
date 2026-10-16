@@ -1,14 +1,17 @@
 --[[
-    What the window shows, and every change it can make. Pure: no imgui, no
+    The UI interface: what any UI file is given each frame. Pure: no imgui, no
     AshitaCore, so tests can build it from a fake snapshot and the real catalog.
+    ui/README.md documents both halves for UI authors; keep it in step.
 
-    model.build(g, cat, cfg, status, names) -> view
+    model.build(g, cat, cfg, status, names) -> view     everything a UI shows
         g       snapshot (core/game.lua)        cat     catalog list
         cfg     settings (core/settings.lua)    status  Sidekick3.lua's status table
         names   { job = function (id) -> 'WHM', statuses = { [id] = { en = } } }
+    model.actions(cfg, status, changed) -> act          every change a UI makes
+        changed() is called after each settings write; the caller saves.
 
-    Building only reads. Settings change only through the mutators below, and
-    only on user input: a frame read mid-zone must never write anything back.
+    Building only reads. Settings change only through `act`, and only on user
+    input: a frame read mid-zone must never write anything back.
 ]]--
 
 local can = require('core.can')
@@ -17,7 +20,8 @@ local settings = require('core.settings')
 local model = {}
 
 -- Window sections in order. A section with roles is a behavior, switched by
--- cfg[id].on; `group` is the page each lives on in the 'groups' layout.
+-- cfg[id].on; `group` is the page each lives on in the 'groups' layout, pages
+-- in the order their first section comes.
 model.SECTIONS = {
     { id = 'heal', title = 'Healing', roles = { 'heal', 'emergency' }, group = 'Healing' },
     { id = 'remove', title = 'Debuffs', roles = { 'remove' }, group = 'Support' },
@@ -25,7 +29,6 @@ model.SECTIONS = {
     { id = 'revive', title = 'Raise', roles = { 'revive' }, group = 'Support' },
     { id = 'options', title = 'Options', group = 'Utility' },
 }
-model.GROUPS = { 'Healing', 'Support', 'Utility' }
 model.FLAGS = { 'casting', 'moving', 'combat', 'safe', 'mounted', 'dead', 'resting', 'incapacitated', 'silenced', 'amnesia' }
 
 local SLOT_LABELS = { [0] = 'ME', 'P1', 'P2', 'P3', 'P4', 'P5' }
@@ -231,8 +234,9 @@ function model.build(g, cat, cfg, status, names)
                  focus_danger = h.focus_danger, focus_critical = h.focus_critical,
                  cure_potency = h.cure_potency, waltz_potency = h.waltz_potency, regen_potency = h.regen_potency,
                  focus_names = focus_names, members = members },
-        japanese = cfg.japanese, log = status.log, display = cfg.ui.display, size = cfg.ui.size,
+        japanese = cfg.japanese, log = status.log, ui = {},
     }
+    for k, v in pairs(cfg.ui) do view.ui[k] = v end
     for _, f in ipairs(model.FLAGS) do
         if g[f] then view.flags[#view.flags + 1] = REASONS[f] or f end
     end
@@ -255,7 +259,7 @@ function model.build(g, cat, cfg, status, names)
     return view
 end
 
--- Mutators: the only writers of cfg. The caller saves. ---------------------------
+-- Actions: everything a UI can change. The caller saves after changed(). -------
 
 -- A row as saved, created on first touch. Picks and targets exist only on buff
 -- rows, which default off.
@@ -265,37 +269,49 @@ local function saved_row(cfg, key, default_on)
     return r
 end
 
-function model.set_row_on(cfg, key, on)
-    saved_row(cfg, key, on).on = on
-end
-
--- name nil = best tier.
-function model.set_pick(cfg, key, name)
-    saved_row(cfg, key, false).pick = name
-end
-
-function model.toggle_target(cfg, key, slot)
-    local r = saved_row(cfg, key, false)
-    r.targets = r.targets or { [0] = true }
-    r.targets[slot] = not r.targets[slot] or nil
-end
-
--- A member skipped by healing is never healed for their own sake.
-function model.toggle_skip(cfg, name)
-    cfg.heal.skip[name] = not cfg.heal.skip[name] or nil
-end
-
--- name: 'heal' | 'remove' | 'buff' | 'revive'
-function model.set_section(cfg, name, on)
-    cfg[name].on = on
-end
-
--- path: 'heal.danger', 'japanese', 'ui.display'...
-function model.set_value(cfg, path, value)
-    local t = cfg
-    local parent, key = path:match('^(.-)%.?([^.]+)$')
-    for part in parent:gmatch('[^.]+') do t = t[part] end
-    t[key] = value
+function model.actions(cfg, status, changed)
+    local act = {}
+    -- This session only: automation always starts stopped, the log as set.
+    function act.run(on) status.running = on end
+    function act.log(on) status.log = on end
+    function act.close()
+        status.open, cfg.ui.open = false, false
+        changed()
+    end
+    -- id: 'heal' | 'remove' | 'buff' | 'revive'
+    function act.section(id, on)
+        cfg[id].on = on
+        changed()
+    end
+    function act.row(key, on)
+        saved_row(cfg, key, on).on = on
+        changed()
+    end
+    -- name nil = best tier.
+    function act.pick(key, name)
+        saved_row(cfg, key, false).pick = name
+        changed()
+    end
+    function act.target(key, slot)
+        local r = saved_row(cfg, key, false)
+        r.targets = r.targets or { [0] = true }
+        r.targets[slot] = not r.targets[slot] or nil
+        changed()
+    end
+    -- A member skipped by healing is never healed for their own sake.
+    function act.skip(name)
+        cfg.heal.skip[name] = not cfg.heal.skip[name] or nil
+        changed()
+    end
+    -- path: 'heal.danger', 'japanese', 'ui.display', or 'ui.<anything>' for a UI's own.
+    function act.set(path, value)
+        local t = cfg
+        local parent, key = path:match('^(.-)%.?([^.]+)$')
+        for part in parent:gmatch('[^.]+') do t = t[part] end
+        t[key] = value
+        changed()
+    end
+    return act
 end
 
 return model

@@ -36,6 +36,8 @@ The window (`/sk3`) does what the commands do and shows what Sidekick sees:
 
 Right-click any section header or tab to lay the sections out as collapsing headers, as tabs, or as Healing / Support / Utility pages of tabs. Right-click empty space in the window to switch between fitting it to its contents and a size you drag (the contents then scroll).
 
+The window is one replaceable file: put your own in `ui/custom.lua` and it's used instead. [ui/README.md](ui/README.md) documents what a UI is given and what it can change, with an example.
+
 Settings are kept per job pair in `config/addons/sidekick3/<character>/WHM_BLM.lua`. Healing, removal and raising are on by default; buffs only when you turn them on.
 
 ## Develop

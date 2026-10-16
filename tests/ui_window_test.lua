@@ -1,6 +1,6 @@
--- ui/window.lua against a fake imgui: every path draws without a Lua error,
--- every ImGui scope it opens is closed, widget ids are unique, and clicks
--- reach the settings through the model.
+-- ui/window.lua (and ui/custom.lua, when there is one) against a fake imgui:
+-- every path draws without a Lua error, every ImGui scope it opens is closed,
+-- widget ids are unique, and clicks reach the settings through `act`.
 local fake = require('tests.fake')
 local model = require('ui.model')
 local settings = require('core.settings')
@@ -120,14 +120,22 @@ local function snap()
     }, { bt = { name = 'Crab', hpp = 50, dist = 4.3 }, pet = { name = 'Carbuncle', hpp = 100, dist = 2 }, combat = true })
 end
 
--- One frame; returns the number of saves. `view` defaults to the model's.
-local function render(cfg, st, clicks, view)
+-- One frame of `ui`; returns the Lua error it raised, if any, and the number of
+-- settings writes. `view` defaults to the model's.
+local function draw(ui, cfg, st, clicks, view)
     frame = { stack = {}, texts = {}, ids = {}, args = {}, clicks = clicks or {} }
-    local saves = 0
-    local err = window.render(view or model.build(snap(), cat, cfg, st, NAMES), cfg, st, function () saves = saves + 1 end)
-    eq(err, nil, 'no Lua error')
+    local writes = 0
+    local act = model.actions(cfg, st, function () writes = writes + 1 end)
+    local ok, err = pcall(ui.render, view or model.build(snap(), cat, cfg, st, NAMES), act)
     eq(frame.stack, {}, 'every ImGui scope closed')
-    return saves
+    return not ok and err or nil, writes
+end
+
+-- One frame of the standard window; returns the number of settings writes.
+local function render(cfg, st, clicks, view)
+    local err, writes = draw(window, cfg, st, clicks, view)
+    eq(err, nil, 'no Lua error')
+    return writes
 end
 
 local function showed(s)
@@ -164,7 +172,7 @@ test('a row, its pick and its targets, and a section switch, each write and save
     eq(cfg.rows.Cure, { on = false })
 end)
 
-test('sliders write as they move and save once let go; focus and options save', function ()
+test('sliders, the focus and the options write the settings', function ()
     local cfg, st = settings.defaults(), status()
     eq(render(cfg, st, { ['Danger under##sk3_danger'] = 60 }), 1)
     eq(cfg.heal.danger, 60)
@@ -205,14 +213,11 @@ test('collapsed, only the window is begun and ended', function ()
     eq(#frame.texts, 0)
 end)
 
-test('a Lua error while drawing still ends the window, and is returned', function ()
+test('a Lua error while drawing still ends the window, then is raised', function ()
     local cfg, st = settings.defaults(), status()
     local view = model.build(snap(), cat, cfg, st, NAMES)
     view.recent = nil
-    frame = { stack = {}, texts = {}, ids = {}, args = {}, clicks = {} }
-    local err = window.render(view, cfg, st, function () end)
-    eq(type(err), 'string')
-    eq(frame.stack, {})
+    eq(type(draw(window, cfg, st, nil, view)), 'string')
 end)
 
 -- One frame in `display` with Buffs switched off; `in_cat` replaces the catalog.
@@ -275,3 +280,20 @@ test('right-click menus switch the layout and the window size, and save', functi
     render(cfg, st)
     eq(frame.flags, 0)
 end)
+
+-- A custom UI gets the same checks as the standard window's layouts. The fake
+-- answers false to any call it has no handler for; add one if yours needs it.
+if package.searchpath('ui.custom', package.path) then
+    test('ui/custom.lua draws in every layout and size, running and stopped, every scope closed', function ()
+        local custom = require('ui.custom')
+        for _, display in ipairs({ 'headers', 'tabs', 'groups' }) do
+            for _, size in ipairs({ 'auto', 'custom' }) do
+                for _, running in ipairs({ false, true }) do
+                    local cfg = settings.defaults()
+                    cfg.ui.display, cfg.ui.size = display, size
+                    eq(draw(custom, cfg, status({ running = running })), nil, 'no Lua error')
+                end
+            end
+        end
+    end)
+end
