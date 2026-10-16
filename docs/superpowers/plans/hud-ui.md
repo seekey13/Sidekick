@@ -1,6 +1,6 @@
 # HUD UI pivot: implementation plan
 
-Branch `UI-pivot`. Written 2026-10-16 at the end of the session that designed it; the user approved the design and the three choices under [Decisions](#decisions). Implement it in one go: the branch is half-done and `ui/model.lua` does not load until step 1 is in.
+Branch `UI-pivot`. Written 2026-10-16 at the end of the session that designed it; the user approved the design and the three choices under [Decisions](#decisions). Nothing is implemented yet: start at step 1.
 
 ## Goal
 
@@ -59,23 +59,92 @@ From the user, this session:
 
 ## State of the branch
 
-Uncommitted:
+Clean, at `d7fc35b` (main after PR #4), plus this plan. The designing session's partial edits to `core/settings.lua` and `ui/model.lua` were reverted; steps 1 and 2 hold the code they had. `Sidekick3.lua` needs no change: it only reads `cfg.ui.open`.
 
-- **`core/settings.lua`: done.** `DEFAULTS.ui = { open = false, hp_width = 220, hp_height = 40, mp_width = 220, mp_height = 18, name_size = 22, text_size = 14, gap = 8, opacity = 100, locked = false }`. `settings.load(pair)` loads the job pair's file without `ui`, then sets `loaded.ui = lib.load(ui_defaults, 'ui')`. `settings.save()` nils `loaded.ui` while saving the pair's file, then saves `'ui'`. An old pair file's stale `ui` key is dropped on its next save.
-- **`ui/model.lua`: partial.** Done so far:
-  - The new `model.SECTIONS` list (below).
-  - `POINTED` and `POINTED_CAST` constants.
-  - `wakes` computed beside `spends_tp`.
-  - `view.wake` removed.
-  - Each section built with `header` and `on = cfg[s.id].on`; wake is shown only when `wakes`.
-  - `view.pointer = pointer(...)` is called, **but `pointer` is not defined yet** and party entries lack `mp` and `uses_mp`. Step 1 fixes both.
-- Untouched: `ui/window.lua`, `tests/ui_window_test.lua`, `tests/ui_model_test.lua`, `ui/README.md`, `.luacheckrc`. `Sidekick3.lua` needs no change: it only reads `cfg.ui.open`.
+Auto mode's server-side check gave no verdict on Edit and Write all that session ("skipped this action"), while shell commands were fine. If it does that again, implement in the accept-edits mode.
 
-Auto mode's server-side check gave no verdict on Edit and Write all session ("skipped this action"); shell commands were fine. Implement in the accept-edits mode.
+## Step 1: `core/settings.lua`
 
-## Step 1: finish `ui/model.lua`
+`ui` moves to its own settings file, shared by every job pair. In the header comment, replace the `ui` line:
 
-Replace `party` and `entity` with this. It adds `uses_mp`, `mp` and `pointer`:
+```lua
+    `ui` is the window, shared by every job pair (its own file, ui.lua) so the HUD
+    looks the same whatever you play: shown at load, bar and font sizes in pixels,
+    the panel's opacity in %, and whether the HUD is locked in place.
+```
+
+In `DEFAULTS`, replace `ui` (and add the file name after the table):
+
+```lua
+    ui = { open = false, hp_width = 220, hp_height = 40, mp_width = 220, mp_height = 18,
+           name_size = 22, text_size = 14, gap = 8, opacity = 100, locked = false },
+}
+local UI_FILE = 'ui'
+```
+
+Replace `settings.load` and `settings.save`:
+
+```lua
+-- Ashita's settings library, loaded only in game. The job pair's file holds
+-- everything but `ui`, which loads from and saves to its own file.
+local lib, alias, loaded
+function settings.load(job_pair)
+    lib = lib or require('settings')
+    alias = job_pair
+    local function T_(t)
+        for k, v in pairs(t) do if type(v) == 'table' then t[k] = T_(v) end end
+        return T(t)
+    end
+    local d = settings.defaults()
+    local ui = d.ui
+    d.ui = nil
+    loaded = lib.load(T_(d), alias)
+    loaded.ui = lib.load(T_(ui), UI_FILE)
+    return loaded
+end
+
+function settings.save()
+    if not lib then return end
+    local ui = loaded.ui
+    loaded.ui = nil  -- kept out of the job pair's file
+    lib.save(alias)
+    loaded.ui = ui
+    lib.save(UI_FILE)
+end
+```
+
+Ashita's `settings.load` merges the defaults into what it reads, and an addon may keep several aliases loaded at once (`Ashita/addons/libs/settings.lua`). An old pair file's stale `ui` key is overwritten at load and dropped on its next save. `settings.defaults()` still includes `ui`, so the tests are unchanged by this step.
+
+## Step 2: `ui/model.lua`
+
+**a. Sections.** Replace `model.SECTIONS` and the comment above it:
+
+```lua
+-- Settings sections in order, each under its `header` (headers in the order
+-- their first section comes). Every section but 'ui' is a behavior, switched
+-- by cfg[id].on; one with roles also has rows. Wake shows only when a heal can wake.
+model.SECTIONS = {
+    { id = 'follow', title = 'Follow', header = 'Follow' },
+    { id = 'heal', title = 'Healing', roles = { 'heal', 'emergency' }, header = 'Heal' },
+    { id = 'revive', title = 'Revive', roles = { 'revive' }, header = 'Heal' },
+    { id = 'wake', title = 'Wake sleepers', header = 'Remove' },
+    { id = 'remove', title = 'Debuff removal', roles = { 'remove' }, header = 'Remove' },
+    { id = 'buff', title = 'Buffs', roles = { 'buff' }, header = 'Buff' },
+    { id = 'pet', title = 'Pet', roles = { 'pet_heal', 'pet_remove', 'pet_send' }, header = 'Pet' },
+    { id = 'recover', title = 'Recovery', roles = { 'recover' }, header = 'Recover' },
+    { id = 'rest', title = 'Resting', header = 'Recover' },
+    { id = 'ui', title = 'UI / Log', header = 'UI / Log' },
+}
+```
+
+**b. Constants.** After `BUFFS_SHOWN`:
+
+```lua
+local POINTED = 2                       -- seconds the pointer stays on what was just sent...
+local POINTED_CAST = 15                 -- ...or while it is still being cast, up to this
+```
+
+**c. Party and pointer.** Replace `party` and `entity` with this. It adds `uses_mp`, `mp` and `pointer`:
 
 ```lua
 local function party(g, cfg, statuses)
@@ -121,7 +190,45 @@ end
 
 Why the hold: while running, `status.intent` is nil during a cast (the `casting` gate), so without it the arrow would flash for a single tick. Status entries carry `target` as a name (`entry()` in `Sidekick3.lua`); pet care and at-enemy actions have no target, so they point at your own card. `pet_send` reads as `Pet:`.
 
-`model.SECTIONS`, already in the file:
+**d. `model.build`.** Replace the `spends_tp` loop:
+
+```lua
+    local spends_tp, wakes = false, false  -- Chivalry: its TP line is worth showing; a heal can wake
+    for _, a in ipairs(cat) do
+        spends_tp = spends_tp or a.role == 'recover' and a.spends_tp == true
+        wakes = wakes or a.role == 'heal' and a.wakes == true and not a.pet
+    end
+```
+
+In the `view` table, delete `wake = cfg.wake.on,` (wake is now a section). After `for k, v in pairs(cfg.ui) do view.ui[k] = v end`, add:
+
+```lua
+    view.pointer = pointer(status, g, view.party)
+```
+
+Replace the sections loop:
+
+```lua
+    for _, s in ipairs(model.SECTIONS) do
+        local section = { id = s.id, title = s.title, header = s.header, on = cfg[s.id].on }  -- 'ui': no switch
+        if s.roles then
+            section.rows = build_rows(s, g, cat, cfg, units)
+            for _, r in ipairs(section.rows) do
+                section.has_choices = section.has_choices or r.choices ~= nil
+                section.has_targets = section.has_targets or r.targets ~= nil
+            end
+        end
+        local shown = not section.rows or #section.rows > 0
+        if s.id == 'wake' then shown = wakes end
+        if shown then view.sections[#view.sections + 1] = section end
+    end
+```
+
+`wakes` mirrors `behaviors/wake.lua`, which wakes only with `heal` rows that have `wakes` and aren't a pet's.
+
+**e. Comments in `model.actions`.** On `act.section`: `-- id: a section with a switch: 'follow' | 'heal' | 'revive' | 'wake' | 'remove' | 'buff' | 'pet' | 'recover' | 'rest'`. On `act.set`: `-- path: 'heal.danger', 'follow.target', 'japanese', 'ui.hp_width', or 'ui.<anything>' for a UI's own.`
+
+The resulting sections:
 
 | id | title (switch label) | header | rows |
 |---|---|---|---|
@@ -138,7 +245,7 @@ Why the hold: while running, `status.intent` is nil during a cast (the `casting`
 
 A section with roles but no rows is still left out, so Pet appears only for pet jobs. Every section but `ui` has `on`, and `act.section(id, on)` already writes `cfg[id].on` for any of them (follow and rest included). Its comment lists the ids.
 
-## Step 2: rewrite `ui/window.lua`
+## Step 3: rewrite `ui/window.lua`
 
 Keep: the header comment's Ashita notes, `esc`, `text`, `tip`, `push_button`, `slider`, `checkbox`, `member_combo`, `HEAL_LINES`, `heal_members`, the heal, recover and pet setting bodies, `pick_combo`, `target_chips`, the row table, and the pcall-then-End-then-raise pattern.
 
@@ -247,7 +354,7 @@ Drawn on `imgui.GetBackgroundDrawList()`, so it sits outside the window without 
   - Then "Log": "Action log" (`act.log`) and the recent list (`age`s, text, grey why; "Nothing sent yet.").
   - Last, "Japanese client".
 
-## Step 3: tests
+## Step 4: tests
 
 **`tests/ui_window_test.lua`, the fake imgui.** Add handlers:
 
@@ -288,7 +395,7 @@ Drawn on `imgui.GetBackgroundDrawList()`, so it sits outside the window without 
 - New party-MP test: `mp` is `'low'` under `recover.mp` only when `uses_mp`.
 - `act.section('follow', true)` and `act.section('rest', true)` write.
 
-## Step 4: `.luacheckrc`, README, docs
+## Step 5: `.luacheckrc`, README, docs
 
 - **`.luacheckrc`.** The window test defines exactly the `ImGui*` names listed in `read_globals`.
   - Add `ImGuiWindowFlags_NoTitleBar`, `NoScrollbar`, `NoScrollWithMouse`, `NoBackground`, `NoBringToFrontOnFocus`, `NoMove`, `ImGuiStyleVar_WindowPadding` and `ImGuiStyleVar_WindowBorderSize`.
@@ -303,7 +410,7 @@ Drawn on `imgui.GetBackgroundDrawList()`, so it sits outside the window without 
   - The example: switch on `sec.on ~= nil`.
   - The test section: running and stopped, no layouts.
 - **`docs/superpowers/plans/masterplan.md`.** Add a Status row for the HUD pivot.
-- **Memory** (`sidekick3-rewrite.md`). The display and size modes were dropped by the user on 2026-10-16, and `cfg.ui` is now global. Remove the open-question line.
+- **Memory** (`sidekick3-rewrite.md`). It already records the dropped modes, the global `cfg.ui` and this plan. Once it lands, mark the pivot done and remove the "open UI question" line.
 
 ## Verify
 
