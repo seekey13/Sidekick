@@ -10,7 +10,8 @@
              status (entity), alive, buffs = { [id] = true },
              hot = HP still to come from your Regen, nil if none }
     The pet is { sid, tidx, name, hpp, dist, pos, status (1 engaged), buffs }.
-    Plus what healing scores with: learned potency, the day and the weather;
+    Plus when your cast began (cast_at, while casting);
+    what healing scores with: learned potency, the day and the weather;
     the item in your ammo slot and what's in your inventory; when you last moved and
     last had a battle target.
 ]]--
@@ -258,6 +259,7 @@ function game.read(now)
     if pet then pet.buffs = buffs.of(pet.sid, now); tracks[pet.sid] = true end
     local event = event_ptr ~= 0 and ashita.memory.read_uint32(event_ptr + 1) or 0
     local finished, spell_finish = packets.last_finish()
+    local casting, cast_at = packets.casting(now)
 
     return {
         finished = finished, spell_finish = spell_finish,
@@ -265,7 +267,7 @@ function game.read(now)
         pet = pet, ammo = ammo(), items = inventory(),
         main = player:GetMainJob(), main_lv = player:GetMainJobLevel(),
         sub = player:GetSubJob(), sub_lv = player:GetSubJobLevel(),
-        casting = packets.casting(now),
+        casting = casting, cast_at = cast_at,
         moving = is_moving, moved_at = move.moved,
         combat = now - last_combat < COMBAT_GRACE, combat_at = last_combat,
         safe = SAFE_ZONES[zone] == true or (event ~= 0 and ashita.memory.read_uint8(event) == 1),

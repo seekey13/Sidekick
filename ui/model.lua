@@ -19,18 +19,20 @@ local settings = require('core.settings')
 
 local model = {}
 
--- Window sections in order. A section with roles is a behavior, switched by
--- cfg[id].on; `group` is the page each lives on in the 'groups' layout, pages
--- in the order their first section comes.
+-- Settings sections in order, each under its `header` (headers in the order
+-- their first section comes). Every section but 'ui' is a behavior, switched
+-- by cfg[id].on; one with roles also has rows. Wake shows only when a heal can wake.
 model.SECTIONS = {
-    { id = 'heal', title = 'Healing', roles = { 'heal', 'emergency' }, group = 'Healing' },
-    { id = 'remove', title = 'Debuffs', roles = { 'remove' }, group = 'Support' },
-    { id = 'buff', title = 'Buffs', roles = { 'buff' }, group = 'Support' },
-    { id = 'revive', title = 'Raise', roles = { 'revive' }, group = 'Support' },
-    { id = 'recover', title = 'Recovery', roles = { 'recover' }, group = 'Support' },
-    { id = 'pet', title = 'Pet', roles = { 'pet_heal', 'pet_remove', 'pet_send' }, group = 'Support' },
-    { id = 'move', title = 'Follow & rest', group = 'Utility' },
-    { id = 'options', title = 'Options', group = 'Utility' },
+    { id = 'follow', title = 'Follow', header = 'Follow' },
+    { id = 'heal', title = 'Healing', roles = { 'heal', 'emergency' }, header = 'Heal' },
+    { id = 'revive', title = 'Revive', roles = { 'revive' }, header = 'Heal' },
+    { id = 'wake', title = 'Wake sleepers', header = 'Remove' },
+    { id = 'remove', title = 'Debuff removal', roles = { 'remove' }, header = 'Remove' },
+    { id = 'buff', title = 'Buffs', roles = { 'buff' }, header = 'Buff' },
+    { id = 'pet', title = 'Pet', roles = { 'pet_heal', 'pet_remove', 'pet_send' }, header = 'Pet' },
+    { id = 'recover', title = 'Recovery', roles = { 'recover' }, header = 'Recover' },
+    { id = 'rest', title = 'Resting', header = 'Recover' },
+    { id = 'ui', title = 'UI / Log', header = 'UI / Log' },
 }
 model.FLAGS = { 'casting', 'moving', 'combat', 'safe', 'mounted', 'dead', 'resting', 'incapacitated', 'silenced', 'amnesia' }
 
@@ -38,6 +40,10 @@ local SLOT_LABELS = { [0] = 'ME', 'P1', 'P2', 'P3', 'P4', 'P5' }
 local REASONS = { safe = 'safe zone' }  -- engine gate -> words
 local LABEL_FAMILIES = 3                -- a pick-one group named by more families is named by its key
 local BUFFS_SHOWN = 6                   -- status names on a party line; the rest in its tooltip
+local POINTED = 2                       -- seconds the pointer stays on what was just sent...
+local POINTED_CAST = 15                 -- ...or while it is still being cast, up to this
+local CAST_REPLY = 2                    -- a cast that began this soon after a spell or item went out is that one
+local CASTS = { ma = true, item = true }
 
 -- Rows -----------------------------------------------------------------------
 
@@ -200,7 +206,8 @@ local function party(g, cfg, statuses)
         local buffs, all = buff_names(u.buffs, statuses)
         out[#out + 1] = {
             tag = SLOT_LABELS[u.slot], kind = u.kind, name = u.name, alive = u.alive, away = not u.in_zone,
-            hpp = u.hpp, hp = hp_state(u, cfg.heal), mpp = u.mpp,
+            hpp = u.hpp, hp = hp_state(u, cfg.heal), mpp = u.mpp, uses_mp = u.uses_mp == true,
+            mp = u.uses_mp and u.mpp < cfg.recover.mp and 'low' or 'ok',
             dist = not u.in_zone and 'away' or u.kind == 'self' and '' or ('%.1fy'):format(u.dist or 0),
             buffs = buffs, buffs_all = all,
         }
@@ -210,6 +217,33 @@ end
 
 local function entity(e)
     return e and { name = e.name, hpp = e.hpp, dist = ('%.1fy'):format(e.dist or 0) }
+end
+
+-- Your cast now is the one `e` sent: it is a spell or item, and the cast began
+-- as the server answered it, not later (one you started yourself).
+local function casting(g, e)
+    return g.casting and CASTS[e.kind] and g.cast_at ~= nil and g.cast_at >= e.at and g.cast_at - e.at < CAST_REPLY
+end
+
+-- What the HUD points at: running, the decision about to go, else what was just
+-- sent while it lands; stopped, what it would do. `member` is the party line it
+-- is for: the target's, else yours (an action on you, your pet or the enemy).
+-- A target with no party line of its own is named.
+local function pointer(status, g, members)
+    local e = status.intent
+    if status.running and not e then
+        local last = status.sent[1]
+        local age = last and g.now - last.at
+        if age and (age < POINTED or age < POINTED_CAST and casting(g, last)) then e = last end
+    end
+    if not e or not members[1] then return nil end
+    local member = 1
+    for i, p in ipairs(members) do
+        if p.name == e.target then member = i end
+    end
+    local text = ('%s:%s'):format((e.behavior:gsub('_.*', ''):gsub('^%l', string.upper)), e.action)
+    if e.target and members[member].name ~= e.target then text = ('%s -> %s'):format(text, e.target) end
+    return { text = text, member = member, live = status.running }
 end
 
 -- The view ---------------------------------------------------------------------
@@ -227,8 +261,11 @@ function model.build(g, cat, cfg, status, names)
         end
     end
 
-    local spends_tp = false  -- Chivalry: its TP line is worth showing
-    for _, a in ipairs(cat) do spends_tp = spends_tp or a.role == 'recover' and a.spends_tp == true end
+    local spends_tp, wakes = false, false  -- Chivalry: its TP line is worth showing; a heal can wake
+    for _, a in ipairs(cat) do
+        spends_tp = spends_tp or a.role == 'recover' and a.spends_tp == true
+        wakes = wakes or a.role == 'heal' and a.wakes == true and not a.pet
+    end
 
     local view = {
         job = g.sub_lv > 0 and ('%s %d / %s %d'):format(names.job(g.main), g.main_lv, names.job(g.sub), g.sub_lv)
@@ -241,7 +278,6 @@ function model.build(g, cat, cfg, status, names)
                  focus_danger = h.focus_danger, focus_critical = h.focus_critical,
                  cure_potency = h.cure_potency, waltz_potency = h.waltz_potency, regen_potency = h.regen_potency,
                  focus_names = focus_names, members = members },
-        wake = cfg.wake.on,
         recover = { mp = cfg.recover.mp, tp = cfg.recover.tp, min_tp = cfg.recover.min_tp, spends_tp = spends_tp },
         pet_heal = cfg.pet.heal,
         follow = { on = cfg.follow.on, target = cfg.follow.target, distance = cfg.follow.distance, names = focus_names },
@@ -249,6 +285,7 @@ function model.build(g, cat, cfg, status, names)
         japanese = cfg.japanese, log = status.log, ui = {},
     }
     for k, v in pairs(cfg.ui) do view.ui[k] = v end
+    view.pointer = pointer(status, g, view.party)
     for _, f in ipairs(model.FLAGS) do
         if g[f] then view.flags[#view.flags + 1] = REASONS[f] or f end
     end
@@ -257,16 +294,18 @@ function model.build(g, cat, cfg, status, names)
                                           why = ('%s: %s'):format(e.behavior, e.why) }
     end
     for _, s in ipairs(model.SECTIONS) do
-        local section = { id = s.id, title = s.title, group = s.group }
+        local section = { id = s.id, title = s.title, header = s.header }
+        if s.id ~= 'ui' then section.on = cfg[s.id].on end  -- cfg.ui.on would be a UI's own
         if s.roles then
-            section.on = cfg[s.id].on
             section.rows = build_rows(s, g, cat, cfg, units)
             for _, r in ipairs(section.rows) do
                 section.has_choices = section.has_choices or r.choices ~= nil
                 section.has_targets = section.has_targets or r.targets ~= nil
             end
         end
-        if not section.rows or #section.rows > 0 then view.sections[#view.sections + 1] = section end
+        local shown = not section.rows or #section.rows > 0
+        if s.id == 'wake' then shown = wakes end
+        if shown then view.sections[#view.sections + 1] = section end
     end
     return view
 end
@@ -290,7 +329,7 @@ function model.actions(cfg, status, changed)
         status.open, cfg.ui.open = false, false
         changed()
     end
-    -- id: a behavior, 'heal' | 'remove' | 'wake' | 'recover' | 'pet' | 'buff' | 'revive'
+    -- id: a section with a switch: 'follow' | 'heal' | 'revive' | 'wake' | 'remove' | 'buff' | 'pet' | 'recover' | 'rest'
     function act.section(id, on)
         cfg[id].on = on
         changed()
@@ -315,7 +354,7 @@ function model.actions(cfg, status, changed)
         cfg.heal.skip[name] = not cfg.heal.skip[name] or nil
         changed()
     end
-    -- path: 'heal.danger', 'follow.on', 'japanese', 'ui.display', or 'ui.<anything>' for a UI's own.
+    -- path: 'heal.danger', 'follow.target', 'japanese', 'ui.hp_width', or 'ui.<anything>' for a UI's own.
     function act.set(path, value)
         local t = cfg
         local parent, key = path:match('^(.-)%.?([^.]+)$')

@@ -28,20 +28,29 @@ v2 described every job's spells and abilities by hand in 22 job files. v3 reads 
 /sk3 dump               write the client's spell/ability/status data to tests/data/
 ```
 
-The window (`/sk3`) does what the commands do and shows what Sidekick sees:
+The HUD (`/sk3`) shows the party as Sidekick reads them, and what it will do next:
 
-- **Start / Stop**, and what it would do right now, or why it's waiting (casting, moving, safe zone...).
-- **Party**: everyone as Sidekick reads them: HP against your danger and critical lines, MP, distance, statuses; then your battle target, pet and the flags that stop automation.
-- **Recent actions**: the last 10 sent, and why.
-- **A section per behavior** (Healing, Debuffs, Buffs, Raise, Recovery, Pet), each with its on/off switch. Each row turns a family on or off and says whether it's ready or why not; item rows under Debuffs (Echo Drops, Remedy...) also show how many you carry. Buff rows also pick a tier ("Auto" casts the best you can) or, for pick-one groups like bar-elements and songs, the spell; and the targets, ME and P1-P5. Healing has its HP lines (danger, critical, and the focus member's own), gear potency, who to heal and whether to wake sleepers above its rows; Recovery its MP and TP lines (and the TP Chivalry spends from); Pet its HP line. Sending the pet in is opt-in, row by row; Repair, Maintenance and Reward need their oil or pet food worn.
-- **Follow & rest**: who to follow and how far they may get; resting for MP out of combat after a few quiet seconds, standing at full MP or when the leader leaves.
-- **Options**: Japanese client, action log.
+- **A card per member**: HP and MP bars with their %, the name, and the slot (ME, P1-P5). The name and HP % turn red under your critical line, the slot and MP % under your Recover MP line. Hover a card for its distance and statuses, and whether it's a trust, KO or away.
+- **An arrow** at the member the next action is for, labelled like `Heal:Cure IV`: yellow while running, grey while stopped (what it would do). An action on you, your pet or the enemy points at your own card.
+- **The title row**: hover it for your job, what Sidekick is doing or why it's waiting (casting, moving, safe zone...), your battle target and pet. Its icons start and stop automation, open SK Settings, and close the HUD.
 
-Right-click any section header or tab to lay the sections out as collapsing headers, as tabs, or as Healing / Support / Utility pages of tabs. Right-click empty space in the window to switch between fitting it to its contents and a size you drag (the contents then scroll).
+Drag the HUD where you want it; Lock position keeps it there.
 
-The window is one replaceable file: put your own in `ui/custom.lua` and it's used instead. [ui/README.md](ui/README.md) documents what a UI is given and what it can change, with an example.
+**SK Settings**, from the cog, has every setting under collapsing headers, each section with its on/off switch:
 
-Settings are kept per job pair in `config/addons/sidekick3/<character>/WHM_BLM.lua`. Healing, removal, waking, raising, recovery and pet care are on by default; buffs, items, sending the pet in, following and resting only when you turn them on.
+- **Follow**: who to follow and how far they may get.
+- **Heal**: healing, with its HP lines (danger, critical, and the focus member's own), gear potency and who to heal; raising.
+- **Remove**: waking sleepers (when one of your heals can), and debuff removal: spells, then items (Echo Drops, Remedy...) with how many you carry.
+- **Buff**: each row picks a tier ("Auto" casts the best you can) or, for pick-one groups like bar-elements and songs, the spell; and the targets, ME and P1-P5.
+- **Pet**, for a pet job: its HP line, and its care and send rows. Sending the pet in is opt-in, row by row; Repair, Maintenance and Reward need their oil or pet food worn.
+- **Recover**: MP and TP lines (and the TP Chivalry spends from); resting for MP out of combat after a few quiet seconds, standing at full MP or when the leader leaves.
+- **UI / Log**: the HUD's bar and font sizes, spacing, panel opacity and lock; the action log and the last 10 actions sent, and why; Japanese client.
+
+Each row turns a family on or off and says whether it's ready or why not.
+
+The UI is one replaceable file: put your own in `ui/custom.lua` and it's used instead. [ui/README.md](ui/README.md) documents what a UI is given and what it can change, with an example.
+
+Settings are kept per job pair in `config/addons/sidekick3/<character>/WHM_BLM.lua`, and the HUD's in `ui.lua` beside them, shared by every job pair. Healing, removal, waking, raising, recovery and pet care are on by default; buffs, items, sending the pet in, following and resting only when you turn them on.
 
 ## Develop
 

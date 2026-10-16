@@ -8,7 +8,9 @@
                       targets = { [party slot] = true } }    -- buffs only
     A row never saved uses its default: on, except buffs, sending the pet in and
     items, which are opt-in.
-    `ui` is the window: open at load, section layout, auto-fit or custom size.
+    `ui` is the window, shared by every job pair (its own file, ui.lua) so the HUD
+    looks the same whatever you play: shown at load, bar and font sizes in pixels,
+    the panel's opacity in %, and whether the HUD is locked in place.
 ]]--
 
 local settings = {}
@@ -31,8 +33,10 @@ local DEFAULTS = {
     rest = { on = false, delay = 5, distance = 7 },  -- /heal after this many quiet seconds; up past distance from follow.target
     japanese = false,  -- send spell, ability and item names in Japanese
     rows = {},
-    ui = { open = false, display = 'headers', size = 'auto' },  -- display: headers | tabs | groups; size: auto | custom
+    ui = { open = false, hp_width = 220, hp_height = 40, mp_width = 220, mp_height = 18,
+           name_size = 22, text_size = 14, gap = 8, opacity = 100, locked = false },
 }
+local UI_FILE = 'ui'
 
 -- pick_one before label: labelled members of one group (geo_ja) stay one row.
 function settings.key(a) return a.pick_one or a.label or a.family end
@@ -62,8 +66,9 @@ function settings.defaults()
     return copy(DEFAULTS)
 end
 
--- Ashita's settings library, loaded only in game.
-local lib, alias
+-- Ashita's settings library, loaded only in game. The job pair's file holds
+-- everything but `ui`, which loads from and saves to its own file.
+local lib, alias, loaded
 function settings.load(job_pair)
     lib = lib or require('settings')
     alias = job_pair
@@ -71,11 +76,27 @@ function settings.load(job_pair)
         for k, v in pairs(t) do if type(v) == 'table' then t[k] = T_(v) end end
         return T(t)
     end
-    return lib.load(T_(settings.defaults()), alias)
+    local d = settings.defaults()
+    local ui = d.ui
+    d.ui = nil
+    loaded = lib.load(T_(d), alias)
+    loaded.ui = lib.load(T_(ui), UI_FILE)
+    return loaded
 end
 
 function settings.save()
-    if lib then lib.save(alias) end
+    if not lib then return end
+    local ui = loaded.ui
+    loaded.ui = nil  -- kept out of the job pair's file
+    lib.save(alias)
+    loaded.ui = ui
+    lib.save(UI_FILE)
+end
+
+-- The library loads every file again on a logout and login, into new tables:
+-- the ones held are then no longer the ones it saves, so load them again.
+function settings.switched()
+    return lib ~= nil and loaded ~= nil and (lib.get(alias) ~= loaded or lib.get(UI_FILE) ~= loaded.ui)
 end
 
 return settings

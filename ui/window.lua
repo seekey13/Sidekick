@@ -1,39 +1,67 @@
 --[[
-    The standard Sidekick3 window, and the reference UI: it uses only the `view`
-    and `act` every UI is given (ui/README.md), so ui/custom.lua can replace it.
+    The standard Sidekick3 UI, and the reference: it uses only the `view` and
+    `act` every UI is given (ui/README.md), so ui/custom.lua can replace it.
     ImGui only; it reads no game state and decides nothing.
+
+    Two windows. Sidekick3 is a heads-up display: the party's HP and MP bars on a
+    grey panel, the rest of the window transparent, with an arrow at whoever the
+    next action is for. Its cog opens SK Settings, every setting under
+    collapsing headers.
 
     Ashita's binding (as v2 found it): widget values are one-element tables
     ({ true }, { 75 }), and Text, TextColored and SetTooltip take a printf
     format, so any '%' shown goes through text() / tip(), which double it.
+    Draw-list AddText takes its text as is.
 ]]--
 
 local imgui = require('imgui')
 
 local window = {}
 
+local function rgb(r, g, b, a) return { r / 255, g / 255, b / 255, a or 1 } end
+
 local GREEN = { 0.6, 1.0, 0.6, 1.0 }
-local RED = { 1.0, 0.55, 0.55, 1.0 }
-local YELLOW = { 1.0, 0.85, 0.4, 1.0 }
 local GREY = { 0.55, 0.55, 0.55, 1.0 }
-local HP_BAR = { ok = { 0.2, 0.55, 0.2, 1.0 }, low = { 0.7, 0.55, 0.1, 1.0 }, critical = { 0.7, 0.15, 0.15, 1.0 } }
--- Button, hovered, active.
-local START = { { 0.15, 0.5, 0.15, 1.0 }, { 0.2, 0.6, 0.2, 1.0 }, { 0.25, 0.7, 0.25, 1.0 } }
-local STOP = { { 0.6, 0.15, 0.15, 1.0 }, { 0.7, 0.2, 0.2, 1.0 }, { 0.8, 0.25, 0.25, 1.0 } }
 local CHIP_OFF = { { 0.3, 0.3, 0.3, 1.0 }, { 0.4, 0.4, 0.4, 1.0 }, { 0.5, 0.5, 0.5, 1.0 } }
 local CHIP_EMPTY = { { 0.2, 0.2, 0.2, 1.0 }, { 0.2, 0.2, 0.2, 1.0 }, { 0.2, 0.2, 0.2, 1.0 } }
 
-local SETTING_WIDTH, PICK_WIDTH, CHIP_WIDTH, HP_WIDTH = 160, 170, 28, 80
+-- The HUD, to the user's mockup.
+local WHITE, BLACK = rgb(0xFF, 0xFF, 0xFF), rgb(0x00, 0x00, 0x00)
+local RED = rgb(0xF0, 0x7A, 0x7A)      -- text under the critical HP line or the Recover MP line
+local AWAY = rgb(0xA0, 0xA0, 0xA0)     -- text for a member in another zone
+local EMPTY = rgb(0x2E, 0x2E, 0x2E)
+local HP_TOP, HP_BOTTOM = rgb(0xFF, 0x90, 0x90), rgb(0xE3, 0x74, 0x76)
+local MP_TOP, MP_BOTTOM = rgb(0xD1, 0xD1, 0x8E), rgb(0xBA, 0xBF, 0x74)
+local PANEL = { 0x60, 0x60, 0x60 }     -- at view.ui.opacity
+-- The arrow: running, it points at what is going; stopped, at what it would do.
+local LIVE = { fill = rgb(0xFF, 0xE5, 0x45), bevel = rgb(0xFF, 0xFB, 0x5B), edge = rgb(0x8E, 0x78, 0x1F), text = WHITE }
+local WOULD = { fill = rgb(0xB4, 0xB4, 0xB4), bevel = rgb(0xD2, 0xD2, 0xD2), edge = rgb(0x5A, 0x5A, 0x5A), text = rgb(0xD0, 0xD0, 0xD0) }
 
-local DISPLAYS = {
-    { 'headers', 'Sections as headers' },
-    { 'tabs', 'Sections as tabs' },
-    { 'groups', 'Sections as pages: Healing, Support, Utility' },
+local B, PAD = 2, 4                    -- bar border, panel padding (sides and bottom), in pixels
+local TITLE = 'Sidekick3'
+local AROUND = { { -1, -1 }, { 0, -1 }, { 1, -1 }, { -1, 0 }, { 1, 0 }, { -1, 1 }, { 0, 1 }, { 1, 1 } }
+local SEGMENTS = 32                    -- an icon's circles
+
+local HUD_FLAGS = ImGuiWindowFlags_NoTitleBar + ImGuiWindowFlags_NoResize + ImGuiWindowFlags_NoScrollbar
+    + ImGuiWindowFlags_NoScrollWithMouse + ImGuiWindowFlags_AlwaysAutoResize + ImGuiWindowFlags_NoBackground
+    + ImGuiWindowFlags_NoBringToFrontOnFocus
+
+-- { label, key, min, max, help } for view.ui: sizes in pixels, the opacity in %.
+local UI_SLIDERS = {
+    { 'HP bar width', 'hp_width', 80, 600, 'Pixels.' },
+    { 'HP bar height', 'hp_height', 10, 120, 'Pixels.' },
+    { 'MP bar width', 'mp_width', 80, 600, 'Pixels.' },
+    { 'MP bar height', 'mp_height', 4, 80, 'Pixels.' },
+    { 'Name font size', 'name_size', 8, 64, 'Pixels.' },
+    { 'Text font size', 'text_size', 8, 48, 'Pixels: the title, HP %, MP % and the arrow\'s label.' },
+    { 'Spacing', 'gap', 0, 40, 'Pixels between members.' },
+    { 'Background opacity', 'opacity', 0, 100, '% of the grey panel behind the bars.' },
 }
-local SIZES = { { 'auto', 'Fit the window to its contents' }, { 'custom', 'Size the window by dragging its corner' } }
 
-local act                 -- this frame's actions
-local page = 'Healing'    -- the page on show in the 'groups' layout; this session only
+local SETTING_WIDTH, PICK_WIDTH, CHIP_WIDTH = 160, 170, 28
+
+local act                    -- this frame's actions
+local settings_open = false  -- SK Settings shown; this session only
 
 local function esc(s) return (tostring(s):gsub('%%', '%%%%')) end
 
@@ -52,103 +80,220 @@ local function push_button(colors)
     imgui.PushStyleColor(ImGuiCol_ButtonActive, colors[3])
 end
 
--- A menu of { value, label } setting `path`, the current value checked.
-local function choose(options, current, path)
-    for _, o in ipairs(options) do
-        if imgui.Selectable(o[2], o[1] == current) and o[1] ~= current then act.set(path, o[1]) end
+-- HUD drawing ------------------------------------------------------------------------
+
+local function u32(c) return imgui.GetColorU32(c) end
+
+-- `s` as drawn at `size` pixels: CalcTextSize measures at the UI font's size.
+local function measure(s, size)
+    local w, h = imgui.CalcTextSize(s)
+    local k = size / imgui.GetFontSize()
+    return w * k, h * k
+end
+
+-- AddText draws a fill and nothing else: the outline is the string stamped in
+-- black a pixel out each way, underneath. Whole pixels, so it doesn't shimmer.
+local function outlined(dl, size, x, y, color, s)
+    local font, black = imgui.GetFont(), u32(BLACK)
+    x, y = math.floor(x), math.floor(y)
+    for _, o in ipairs(AROUND) do dl:AddText(font, size, { x + o[1], y + o[2] }, black, s) end
+    dl:AddText(font, size, { x, y }, u32(color), s)
+end
+
+-- A filled triangle, wound clockwise on screen as ImGui's anti-aliasing expects.
+local function tri(dl, a, b, c, col)
+    if (b[1] - a[1]) * (c[2] - a[2]) - (b[2] - a[2]) * (c[1] - a[1]) < 0 then b, c = c, b end
+    dl:AddTriangleFilled(a, b, c, col)
+end
+
+-- A bar's fill at (x, y), w by h, `pct` of it in the top-to-bottom gradient,
+-- inside a black border B wide.
+local function bar(dl, x, y, w, h, pct, top, bottom)
+    dl:AddRectFilled({ x - B, y - B }, { x + w + B, y + h + B }, u32(BLACK))
+    dl:AddRectFilled({ x, y }, { x + w, y + h }, u32(EMPTY))
+    local fill = math.floor(w * math.min(math.max(pct, 0), 100) / 100 + 0.5)
+    if fill > 0 then
+        top, bottom = u32(top), u32(bottom)
+        dl:AddRectFilledMultiColor({ x, y }, { x + fill, y + h }, top, top, bottom, bottom)
     end
 end
 
--- Right-click on any section header or tab: the section layout. The view keeps
--- this frame's layout, so a switch made here lands next frame, never mid-tab-bar.
-local function display_menu(view, id)
-    if imgui.BeginPopupContextItem('##sk3_display_' .. id) then
-        choose(DISPLAYS, view.ui.display, 'ui.display')
-        imgui.EndPopup()
-    end
+-- Icons: MDI's geometry in a 24-unit box at (x, y), k pixels a unit. `cut` is
+-- the panel colour, for the shapes cut out of them. ---------------------------------
+
+local function at(x, y, k, px, py) return { x + px * k, y + py * k } end
+
+local function disc(dl, x, y, k, col) dl:AddCircleFilled(at(x, y, k, 12, 12), 10 * k, col, SEGMENTS) end
+
+local function close_icon(dl, x, y, k, col, cut)
+    disc(dl, x, y, k, col)
+    dl:AddLine(at(x, y, k, 8, 8), at(x, y, k, 16, 16), cut, 2 * k)
+    dl:AddLine(at(x, y, k, 16, 8), at(x, y, k, 8, 16), cut, 2 * k)
 end
 
--- Right-click on empty window space (headers and widgets keep their own clicks).
-local function size_menu(view)
-    if imgui.BeginPopupContextWindow('##sk3_size', ImGuiPopupFlags_MouseButtonRight + ImGuiPopupFlags_NoOpenOverItems) then
-        choose(SIZES, view.ui.size, 'ui.size')
-        imgui.EndPopup()
-    end
+local function play_icon(dl, x, y, k, col, cut)
+    disc(dl, x, y, k, col)
+    tri(dl, at(x, y, k, 10, 7.5), at(x, y, k, 16, 12), at(x, y, k, 10, 16.5), cut)
 end
 
--- Header ---------------------------------------------------------------------------
+local function stop_icon(dl, x, y, k, col, cut)
+    disc(dl, x, y, k, col)
+    dl:AddRectFilled(at(x, y, k, 9, 9), at(x, y, k, 15, 15), cut)
+end
 
-local function draw_header(view)
+-- Eight teeth, one pointing straight up: trapezoids from radius 6 to 10.2.
+local function cog_icon(dl, x, y, k, col, cut)
+    local cx, cy = x + 12 * k, y + 12 * k
+    dl:AddCircleFilled({ cx, cy }, 7.5 * k, col, SEGMENTS)
+    for i = 0, 7 do
+        local a = i * math.pi / 4
+        local dx, dy = math.sin(a), -math.cos(a)  -- outward
+        local function p(r, w) return { cx + (dx * r - dy * w) * k, cy + (dy * r + dx * w) * k } end
+        local b1, b2, t1, t2 = p(6, -2.3), p(6, 2.3), p(10.2, -1.9), p(10.2, 1.9)
+        tri(dl, b1, b2, t2, col)
+        tri(dl, b1, t2, t1, col)
+    end
+    dl:AddCircleFilled({ cx, cy }, 3.5 * k, cut, SEGMENTS)
+end
+
+-- An icon button s pixels square at (x, y): black, white while hovered.
+local function icon(id, x, y, s, draw, help, cut)
+    imgui.SetCursorScreenPos({ x, y })
+    local clicked = imgui.InvisibleButton(id, { s, s })
+    local hovered = imgui.IsItemHovered()
+    tip(help)
+    draw(imgui.GetWindowDrawList(), x, y, s / 24, u32(hovered and WHITE or BLACK), cut)
+    return clicked
+end
+
+-- HUD -----------------------------------------------------------------------------
+
+-- The title's tooltip: the job, what automation is doing, and what may hold it up.
+local function status_tip(view)
     local s = view.status
-    push_button(s.running and STOP or START)
-    if imgui.Button(s.running and 'Stop##sk3_run' or 'Start##sk3_run', { 70, 0 }) then act.run(not s.running) end
-    imgui.PopStyleColor(3)
-    imgui.SameLine()
-    imgui.AlignTextToFramePadding()  -- level with the button
-    text(view.job)
-    text(s.state, s.running and GREEN or RED)
-    imgui.SameLine()
-    text(s.text)
-    if s.dim then
-        imgui.SameLine()
-        text(s.dim, GREY)
-    end
-end
-
--- Party and recent actions (evaluate) ------------------------------------------------
-
-local function draw_member(p)
-    local dim = p.away and GREY or nil
-    imgui.TableNextRow()
-    imgui.TableNextColumn()
-    text(p.tag, GREY)
-    imgui.TableNextColumn()
-    text(p.name .. (p.kind == 'trust' and ' (trust)' or '') .. ((p.alive or p.away) and '' or ' (KO)'), dim)
-    imgui.TableNextColumn()
-    imgui.PushStyleColor(ImGuiCol_PlotHistogram, HP_BAR[p.hp])
-    imgui.ProgressBar(p.hpp / 100, { HP_WIDTH, 0 }, ('%d%%'):format(p.hpp))
-    imgui.PopStyleColor()
-    imgui.TableNextColumn()
-    text(('MP %d%%'):format(p.mpp), dim)
-    imgui.TableNextColumn()
-    text(p.dist, dim)
-    imgui.TableNextColumn()
-    text(p.buffs, GREY)
-    tip(p.buffs_all)
-end
-
-local function draw_party(view)
-    local open = imgui.CollapsingHeader('Party###sk3_party', ImGuiTreeNodeFlags_DefaultOpen)
-    display_menu(view, 'party')
-    if not open then return end
-    if imgui.BeginTable('##sk3_party_table', 6, ImGuiTableFlags_SizingFixedFit) then
-        for _, p in ipairs(view.party) do draw_member(p) end
-        imgui.EndTable()
-    end
+    local lines = { view.job, ('%s: %s'):format(s.state, s.text) }
+    if s.dim then lines[#lines + 1] = ('(%s)'):format(s.dim) end
+    if #view.flags > 0 then lines[#lines + 1] = '[' .. table.concat(view.flags, '] [') .. ']' end
     for _, e in ipairs({ { 'Target', view.bt }, { 'Pet', view.pet } }) do
-        if e[2] then text(('%s: %s  %d%%  %s'):format(e[1], e[2].name, e[2].hpp, e[2].dist), GREY) end
+        if e[2] then lines[#lines + 1] = ('%s: %s  %d%%  %s'):format(e[1], e[2].name, e[2].hpp, e[2].dist) end
     end
-    for i, f in ipairs(view.flags) do
-        if i > 1 then imgui.SameLine() end
-        text('[' .. f .. ']', YELLOW)
+    return table.concat(lines, '\n')
+end
+
+local function member_tip(p)
+    local notes = {}
+    if p.kind == 'trust' then notes[#notes + 1] = 'trust' end
+    if not (p.alive or p.away) then notes[#notes + 1] = 'KO' end
+    if p.away then notes[#notes + 1] = 'away' end
+    local line = ('HP %d%%'):format(p.hpp) .. (p.uses_mp and ('  MP %d%%'):format(p.mpp) or '')
+    if p.dist ~= '' and not p.away then line = line .. '  ' .. p.dist end
+    local lines = { #notes > 0 and ('%s (%s)'):format(p.name, table.concat(notes, ', ')) or p.name, line }
+    if p.buffs_all ~= '' then lines[#lines + 1] = p.buffs_all end
+    return table.concat(lines, '\n')
+end
+
+-- "Sidekick3" in bold black, then run, settings and close (icons s pixels
+-- square); the hover areas.
+local function title_row(dl, view, ts, x0, y0, pw, th, s, cut)
+    local font, black = imgui.GetFont(), u32(BLACK)
+    local _, h = measure(TITLE, ts)
+    local ty = math.floor(y0 + (th - h) / 2)
+    dl:AddText(font, ts, { x0 + 8, ty }, black, TITLE)
+    dl:AddText(font, ts, { x0 + 9, ty }, black, TITLE)  -- bold: stamped twice
+
+    local iy = y0 + math.floor((th - s) / 2)
+    local ix = x0 + pw - 6 - 3 * s - 2 * 4  -- the first icon's left
+    imgui.SetCursorScreenPos({ x0, y0 })
+    imgui.Dummy({ ix - x0, th })
+    tip(status_tip(view))
+
+    local running = view.status.running
+    if icon('##sk3_run', ix, iy, s, running and stop_icon or play_icon,
+            running and 'Stop automation' or 'Start automation', cut) then
+        act.run(not running)
+    end
+    if icon('##sk3_cog', ix + s + 4, iy, s, cog_icon, 'Settings', cut) then settings_open = not settings_open end
+    if icon('##sk3_close', ix + 2 * (s + 4), iy, s, close_icon, 'Close (/sk3 opens it again)', cut) then
+        act.close()
+        settings_open = false
     end
 end
 
-local function draw_recent(view)
-    local open = imgui.CollapsingHeader(('Recent actions (%d)###sk3_recent'):format(#view.recent), ImGuiTreeNodeFlags_DefaultOpen)
-    display_menu(view, 'recent')
-    if not open then return end
-    if #view.recent == 0 then text('Nothing sent yet.', GREY) end
-    for _, r in ipairs(view.recent) do
-        text(('%3ds'):format(r.age), GREY)
-        imgui.SameLine()
-        text(r.text)
-        imgui.SameLine()
-        text(r.why, GREY)
-    end
+-- A member's card at (x, y): the HP bar over the MP bar, sharing a border.
+local function card(dl, ui, p, x, y)
+    local fx, hp_top = x + PAD + B, y + B
+    local mp_top = hp_top + ui.hp_height + B
+    bar(dl, fx, hp_top, ui.hp_width, ui.hp_height, p.hpp, HP_TOP, HP_BOTTOM)
+    bar(dl, fx, mp_top, ui.mp_width, ui.mp_height, p.mpp, MP_TOP, MP_BOTTOM)
+
+    local hp_color = p.away and AWAY or p.hp == 'critical' and RED or WHITE
+    local mp_color = p.away and AWAY or p.mp == 'low' and RED or WHITE
+    local ts = ui.text_size
+    local _, nh = measure(p.name, ui.name_size)
+    outlined(dl, ui.name_size, fx + 4, hp_top + ui.hp_height - nh, hp_color, p.name)
+    local hp = ('%d%%'):format(p.hpp)
+    outlined(dl, ts, fx + ui.hp_width - 4 - measure(hp, ts), hp_top + 1, hp_color, hp)
+    local mp = ('%d%%'):format(p.mpp)
+    local mw, mh = measure(mp, ts)
+    local my = mp_top + (ui.mp_height - mh) / 2
+    outlined(dl, ts, fx + 4, my, mp_color, p.tag)
+    outlined(dl, ts, fx + ui.mp_width - 4 - mw, my, mp_color, mp)
 end
 
--- Section bodies --------------------------------------------------------------------
+-- The arrow left of the label, its tip just right of the panel at `cy`. On the
+-- background list: it sits outside the window without widening it, as a
+-- transparent window area would block the game's clicks.
+local function arrow(ptr, ts, right, cy)
+    local dl = imgui.GetBackgroundDrawList()
+    local c = ptr.live and LIVE or WOULD
+    local aw = ts * 1.75
+    local ah = aw * 0.6
+    local point, top, bottom = { right + 1, cy }, { right + 1 + aw, cy - ah }, { right + 1 + aw, cy + ah }
+    tri(dl, point, top, bottom, u32(c.fill))
+    local mx = right + 1 + aw * 2 / 3  -- the bevel: the same shape, smaller, about its centre
+    local function inner(q) return { mx + (q[1] - mx) * 0.55, cy + (q[2] - cy) * 0.55 } end
+    tri(dl, inner(point), inner(top), inner(bottom), u32(c.bevel))
+    dl:AddTriangle(point, top, bottom, u32(c.edge), 1)
+    local _, h = measure(ptr.text, ts)
+    outlined(dl, ts, right + 1 + aw + 4, cy - h / 2, c.text, ptr.text)
+end
+
+-- view.ui's sizes, each held to its slider's range: nothing checks a value edited
+-- by hand or set by a custom UI, and ImGui asserts on a zero-size button.
+local function hud_sizes(ui)
+    local out = {}
+    for _, l in ipairs(UI_SLIDERS) do
+        out[l[2]] = math.min(math.max(math.floor(tonumber(ui[l[2]]) or l[3]), l[3]), l[4])
+    end
+    return out
+end
+
+local function draw_hud(view)
+    local ui = hud_sizes(view.ui)
+    local dl = imgui.GetWindowDrawList()
+    local x0, y0 = imgui.GetCursorScreenPos()
+    local th, s = math.floor(ui.text_size * 1.7), math.floor(ui.text_size * 1.25)
+    local pw = math.max(2 * PAD + 2 * B + math.max(ui.hp_width, ui.mp_width),
+                        math.ceil(8 + measure(TITLE, ui.text_size) + 8 + 3 * s + 2 * 4 + 6))  -- the title row fits
+    local ch = B + ui.hp_height + B + ui.mp_height + B
+    local n = #view.party
+    local ph = th + n * ch + math.max(n - 1, 0) * ui.gap + PAD
+
+    dl:AddRectFilled({ x0, y0 }, { x0 + pw, y0 + ph }, u32(rgb(PANEL[1], PANEL[2], PANEL[3], ui.opacity / 100)))
+    title_row(dl, view, ui.text_size, x0, y0, pw, th, s, u32(rgb(PANEL[1], PANEL[2], PANEL[3])))
+    for i, p in ipairs(view.party) do
+        local y = y0 + th + (i - 1) * (ch + ui.gap)
+        card(dl, ui, p, x0, y)
+        imgui.SetCursorScreenPos({ x0 + PAD, y })
+        imgui.Dummy({ pw - 2 * PAD, ch })
+        tip(member_tip(p))
+        if view.pointer and view.pointer.member == i then arrow(view.pointer, ui.text_size, x0 + pw, y + ch / 2) end
+    end
+    imgui.SetCursorScreenPos({ x0, y0 + ph - PAD })
+    imgui.Dummy({ pw, PAD })  -- the bottom padding, and the panel's full width, for the auto-size
+end
+
+-- SK Settings bodies ---------------------------------------------------------------
 
 -- Sliders write as they move; Sidekick saves once let go.
 local function slider(label, path, value, min, max, help)
@@ -196,7 +341,8 @@ local function heal_members(h)
     end
 end
 
-local function draw_heal_settings(h, wake)
+local function draw_heal_settings(view)
+    local h = view.heal
     for _, l in ipairs(HEAL_LINES) do
         slider(l[1] .. '##sk3_' .. l[2], 'heal.' .. l[2], h[l[2]], 1, 99, l[3])
     end
@@ -212,12 +358,11 @@ local function draw_heal_settings(h, wake)
     slider('Regen potency +##sk3_regen_potency', 'heal.regen_potency', h.regen_potency, 0, 30,
         'HP per Regen tick from gear.')
     heal_members(h)
-    checkbox('Wake sleepers##sk3_wake', wake, function (on) act.section('wake', on) end,
-        'Wake a sleeping member with a cure or waltz that is on below; an area one for two or more.')
     imgui.Separator()
 end
 
-local function draw_recover_settings(r)
+local function draw_recover_settings(view)
+    local r = view.recover
     slider('MP under##sk3_recover_mp', 'recover.mp', r.mp, 1, 99,
         'Recover MP under this MP % (yours; a member\'s for Devotion).')
     slider('TP under##sk3_recover_tp', 'recover.tp', r.tp, 0, 3000, 'In combat, get TP back under this.')
@@ -228,23 +373,49 @@ local function draw_recover_settings(r)
     imgui.Separator()
 end
 
-local function draw_pet_settings(line)
-    slider('Pet HP under##sk3_pet_heal', 'pet.heal', line, 1, 99, 'Heal your pet under this HP %.')
+local function draw_pet_settings(view)
+    slider('Pet HP under##sk3_pet_heal', 'pet.heal', view.pet_heal, 1, 99, 'Heal your pet under this HP %.')
     imgui.Separator()
 end
 
-local function draw_move(view)
-    local f, r = view.follow, view.rest
-    checkbox('Follow##sk3_follow', f.on, function (on) act.set('follow.on', on) end,
-        'Follow this member once they are further away than the distance.')
+local function draw_follow(view)
+    local f = view.follow
     member_combo('Leader', 'follow_target', f.target, f.names, 'follow.target', 'Who to follow; resting stands up when they leave too.')
     slider('Follow past##sk3_follow_distance', 'follow.distance', f.distance, 1, 15, 'Yalms.')
-    imgui.Separator()
-    checkbox('Rest##sk3_rest', r.on, function (on) act.set('rest.on', on) end,
-        'Rest for MP out of combat once nothing else has happened for a while; stand at full MP.')
+end
+
+local function draw_rest(view)
+    local r = view.rest
     slider('Rest after##sk3_rest_delay', 'rest.delay', r.delay, 1, 20, 'Seconds of nothing to do.')
     slider('Stand past##sk3_rest_distance', 'rest.distance', r.distance, 1, 15, 'Yalms from the leader.')
 end
+
+local function draw_recent(view)
+    if #view.recent == 0 then text('Nothing sent yet.', GREY) end
+    for _, r in ipairs(view.recent) do
+        text(('%3ds'):format(r.age), GREY)
+        imgui.SameLine()
+        text(r.text)
+        imgui.SameLine()
+        text(r.why, GREY)
+    end
+end
+
+local function draw_ui(view)
+    for _, l in ipairs(UI_SLIDERS) do
+        slider(l[1] .. '##sk3_ui_' .. l[2], 'ui.' .. l[2], view.ui[l[2]], l[3], l[4], l[5])
+    end
+    checkbox('Lock position##sk3_ui_locked', view.ui.locked == true, function (on) act.set('ui.locked', on) end,
+        'Keep the HUD where it is: dragging it no longer moves it.')
+    imgui.Separator()
+    checkbox('Action log##sk3_log', view.log, act.log, 'Print each action to chat as it is sent.')
+    draw_recent(view)
+    imgui.Separator()
+    checkbox('Japanese client##sk3_japanese', view.japanese, function (on) act.set('japanese', on) end,
+        'Send spell, ability and item names in Japanese.')
+end
+
+-- Rows ------------------------------------------------------------------------------
 
 local function pick_combo(r, id)
     imgui.PushItemWidth(PICK_WIDTH)
@@ -274,22 +445,28 @@ local function target_chips(r, id)
 end
 
 -- One row per settings key: [x] Name (note) | pick | ME P1-P5 | ready or why not.
-local function draw_rows(s)
-    local columns = 2 + (s.has_choices and 1 or 0) + (s.has_targets and 1 or 0)
-    if not imgui.BeginTable('##sk3_rows_' .. s.id, columns, ImGuiTableFlags_SizingFixedFit) then return end
-    for _, r in ipairs(s.rows) do
-        local id = s.id .. '_' .. r.key
+-- The pick and target columns are there only when some row in this table has them.
+local function draw_rows(table_id, section_id, rows)
+    local choices, targets = false, false
+    for _, r in ipairs(rows) do
+        choices = choices or r.choices ~= nil
+        targets = targets or r.targets ~= nil
+    end
+    local columns = 2 + (choices and 1 or 0) + (targets and 1 or 0)
+    if not imgui.BeginTable(table_id, columns, ImGuiTableFlags_SizingFixedFit) then return end
+    for _, r in ipairs(rows) do
+        local id = section_id .. '_' .. r.key
         imgui.TableNextRow()
         imgui.TableNextColumn()
         local v = { r.on }
         -- An item shows how many you carry; ### keeps its id while the count changes.
         local label = r.count and ('%s (%d)###%s'):format(r.label, r.count, id) or r.label .. '##' .. id
         if imgui.Checkbox(label, v) then act.row(r.key, v[1]) end
-        if s.has_choices then
+        if choices then
             imgui.TableNextColumn()
             if r.choices then pick_combo(r, id) end
         end
-        if s.has_targets then
+        if targets then
             imgui.TableNextColumn()
             if r.targets then target_chips(r, id) end
         end
@@ -300,114 +477,102 @@ local function draw_rows(s)
     imgui.EndTable()
 end
 
-local function draw_options(view)
-    local v = { view.japanese }
-    if imgui.Checkbox('Japanese client##sk3_japanese', v) then act.set('japanese', v[1]) end
-    tip('Send spell, ability and item names in Japanese.')
-    v = { view.log }
-    if imgui.Checkbox('Action log##sk3_log', v) then act.log(v[1]) end
-    tip('Print each action to chat as it is sent.')
-end
-
-local function draw_body(view, s)
-    if s.id == 'heal' then draw_heal_settings(view.heal, view.wake)
-    elseif s.id == 'recover' then draw_recover_settings(view.recover)
-    elseif s.id == 'pet' then draw_pet_settings(view.pet_heal) end
-    if s.rows then draw_rows(s)
-    elseif s.id == 'move' then draw_move(view)
-    else draw_options(view) end
-end
-
--- Sections: built once, wrapped by the layout --------------------------------------------
-
--- A behavior's switch: beside its header, or atop its tab (a tab can't hold one).
-local function section_switch(s, label)
-    local v = { s.on }
-    if imgui.Checkbox(label .. '##sk3_on_' .. s.id, v) then act.section(s.id, v[1]) end
-    tip(('%s %s'):format(s.title, s.on and 'on' or 'off'))
-end
-
-local function header_section(view, s)
-    if s.rows then
-        section_switch(s, '')
-        imgui.SameLine()
+-- Spells and abilities, then items (rows with a count) in a table of their own.
+local function section_rows(s)
+    local acts, items = {}, {}
+    for _, r in ipairs(s.rows) do table.insert(r.count and items or acts, r) end
+    if #acts > 0 then draw_rows('##sk3_rows_' .. s.id, s.id, acts) end
+    if #items > 0 then
+        text('Items')
+        draw_rows('##sk3_rows_' .. s.id .. '_items', s.id, items)
     end
-    local open = imgui.CollapsingHeader(s.title .. '###sk3_' .. s.id, ImGuiTreeNodeFlags_DefaultOpen)
-    display_menu(view, s.id)
-    if open then draw_body(view, s) end
 end
 
--- NoPushId keeps the menu's popup id the same whether or not the tab is selected.
-local function tab_section(view, s)
-    local label = s.title .. (s.on == false and ' (off)' or '') .. '###sk3_tab_' .. s.id
-    local open = imgui.BeginTabItem(label, nil, ImGuiTabItemFlags_NoPushId)
-    display_menu(view, s.id)
-    if not open then return end
-    if s.rows then
-        section_switch(s, s.title)
-        imgui.Separator()
+-- SK Settings -----------------------------------------------------------------------
+
+local SWITCH_HELP = {
+    follow = 'Follow the leader once they are further away than the distance.',
+    heal = 'Heal the party with the rows that are on.',
+    revive = 'Raise fallen members with the rows that are on.',
+    wake = 'Wake a sleeping member with a cure or waltz that is on under Heal; an area one for two or more.',
+    remove = 'Remove debuffs with the rows that are on.',
+    buff = 'Keep the buffs that are on up on their targets.',
+    pet = 'Look after your pet, and send it in, with the rows that are on.',
+    recover = 'Get MP and TP back with the rows that are on.',
+    rest = 'Rest for MP out of combat once nothing else has happened for a while; stand at full MP.',
+}
+
+local BODIES = {
+    follow = draw_follow, heal = draw_heal_settings, recover = draw_recover_settings,
+    pet = draw_pet_settings, rest = draw_rest, ui = draw_ui,
+}
+
+-- Its switch, its settings, then its rows.
+local function draw_section(view, s)
+    if s.on ~= nil then
+        checkbox(s.title .. '##sk3_on_' .. s.id, s.on, function (on) act.section(s.id, on) end, SWITCH_HELP[s.id])
     end
-    draw_body(view, s)
-    imgui.EndTabItem()
+    if BODIES[s.id] then BODIES[s.id](view) end
+    if s.rows then section_rows(s) end
 end
 
--- One tab bar of the sections in `group` (all when nil).
-local function tab_bar(view, id, group)
-    if not imgui.BeginTabBar(id, ImGuiTabBarFlags_FittingPolicyScroll) then return end
+-- A collapsing header per `header`, in the order the sections come, closed at
+-- first so the window starts small. One whose switches are all off says so.
+local function draw_settings(view)
+    local headers, of = {}, {}
     for _, s in ipairs(view.sections) do
-        if not group or s.group == group then tab_section(view, s) end
+        if not of[s.header] then of[s.header] = {}; headers[#headers + 1] = s.header end
+        table.insert(of[s.header], s)
     end
-    imgui.EndTabBar()
-end
-
--- Healing / Support / Utility, each a tab bar of its sections; empty pages hidden.
-local function pages(view)
-    local shown, has = {}, {}
-    for _, s in ipairs(view.sections) do
-        if not has[s.group] then has[s.group] = true; shown[#shown + 1] = s.group end
-    end
-    if not has[page] then page = shown[1] end
-    for i, g in ipairs(shown) do
-        if i > 1 then imgui.SameLine() end
-        local w, h = imgui.CalcTextSize(g)  -- an explicit size: a zero width would span the row
-        if imgui.Selectable(g .. '##sk3_page', g == page, 0, { w, h }) then page = g end
-    end
-    imgui.Separator()
-    tab_bar(view, '##sk3_tabs_' .. page, page)
-end
-
-local function draw_sections(view)
-    if view.ui.display == 'tabs' then
-        tab_bar(view, '##sk3_tabs')
-    elseif view.ui.display == 'groups' then
-        pages(view)
-    else
-        for _, s in ipairs(view.sections) do header_section(view, s) end
+    for _, h in ipairs(headers) do
+        local switches, on = false, false
+        for _, s in ipairs(of[h]) do
+            if s.on ~= nil then switches, on = true, on or s.on end
+        end
+        if imgui.CollapsingHeader(h .. (switches and not on and ' (off)' or '') .. '###sk3_' .. h) then
+            for i, s in ipairs(of[h]) do
+                if i > 1 then imgui.Separator() end
+                draw_section(view, s)
+            end
+        end
     end
 end
 
--- One frame. A Lua error raised while drawing is raised again after the window
--- is ended, so ImGui stays balanced and Sidekick reports it.
+-- Windows ---------------------------------------------------------------------------
+
+-- Each window: Begin, the body under pcall, End; returns the error the body raised.
 -- ponytail: an error inside a table or combo still leaves that scope open, which
 -- ImGui asserts on; unwind tracked scopes (as v2's abort_sections does) if one shows up.
-function window.render(view, act_)
-    act = act_
+local function hud(view)
+    local flags = HUD_FLAGS + (view.ui.locked and ImGuiWindowFlags_NoMove or 0)
+    imgui.PushStyleVar(ImGuiStyleVar_WindowPadding, { 0, 0 })
+    imgui.PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0)
+    local shown = imgui.Begin('Sidekick3', true, flags)
+    imgui.PopStyleVar(2)
+    local ok, err = true, nil
+    if shown then ok, err = pcall(draw_hud, view) end
+    imgui.End()  -- ImGui keeps where it was dragged, in imgui.ini
+    if not ok then return err end
+end
+
+local function settings_window(view)
     local open = { true }
     local ok, err = true, nil
-    -- 'custom': resizable, contents scroll. Leaving 'auto' keeps the size it had fitted.
-    local flags = view.ui.size == 'custom' and 0 or ImGuiWindowFlags_AlwaysAutoResize + ImGuiWindowFlags_NoResize
-    if imgui.Begin('Sidekick3', open, flags) then
-        ok, err = pcall(function ()
-            draw_header(view)
-            draw_party(view)
-            draw_recent(view)
-            draw_sections(view)
-            size_menu(view)
-        end)
+    if imgui.Begin('SK Settings', open, ImGuiWindowFlags_AlwaysAutoResize) then
+        ok, err = pcall(draw_settings, view)
     end
     imgui.End()
-    if not open[1] then act.close() end
-    if not ok then error(err, 0) end
+    if not open[1] then settings_open = false end
+    if not ok then return err end
+end
+
+-- One frame. A Lua error raised while drawing is raised again after the windows
+-- are ended, so ImGui stays balanced and Sidekick reports it.
+function window.render(view, act_)
+    act = act_
+    local err = hud(view)
+    if settings_open then err = settings_window(view) or err end
+    if err then error(err, 0) end
 end
 
 return window

@@ -14,6 +14,7 @@ First presented in chat on 2026-10-14. Updated 2026-10-16 to match the decisions
 | 2d | Done, untested in game: healing overhaul (bands, area heals, Regen, boosts, learned potency); the in-game check of the area priors is left |
 | 3a | Done (PR #3 with its review fixes), untested in game: wake, recover, pet care and pet send, follow, rest (`/sk3 follow`, `rest`) |
 | 3b | In progress: items done, untested in game (status removal from your inventory, under Debuffs); tracked targets and alliance next |
+| UI | Done on branch `UI-pivot`, untested in game: the window became a HUD of the party's HP and MP (an arrow at the next action's member) plus SK Settings under collapsing headers; the display and size modes are gone, and `cfg.ui` is its own file shared by every job pair |
 | 3c–5 | Not started |
 
 The dev command is `/sk3`, because v2 is still loaded and owns `/sk`. v3 takes `/sk` at cutover.
@@ -149,19 +150,19 @@ rows = { Cure = { on = true }, Protect = { on = true, pick = 'Protect IV', targe
 - **No v2 migrator.** Everyone starts fresh on v3.
 - The UI edits this table directly. Nothing mirrors it, and nothing writes it from game state.
 - This removes `disabled_*`, `ungrouped_*`, the `party_buffs` sync and the zoning-wipe class of bug.
-- Open question: `ui` (layout and size) is stored per job pair; it may belong in one global file.
+- `ui` (the HUD's sizes, opacity and lock) is the exception: one file, `ui.lua`, shared by every job pair.
 
 ### 7. UI generated from the catalog
 
-- **Sections:** one per role present, shown as headers, tabs or pages.
+- **Sections:** one per role present, under collapsing headers in SK Settings.
 - **One row widget:** toggle, tier dropdown (when there is more than one tier), target chips (when not self-only), modifier chips (from the knowledge table).
 - **Tooltips:** from the DAT descriptions.
-- **Window size:** auto-fit or custom (dragged).
+- **The HUD:** the party's HP and MP bars, with an arrow at whoever the next action is for; its cog opens SK Settings, which fits itself to its contents.
 - `ui/model.lua` builds the view and owns the only setting writers; `ui/window.lua` only draws it. A user's own `ui/custom.lua` replaces the window; [ui/README.md](../../../ui/README.md) is its contract.
 
 ## Features kept
 
-Everything v2 does stays, including the three display modes (headers/tabs/groups), Multisend attack-range follow alongside native follow, and both window-size modes. New coverage the DATs reveal is welcome (PLD gets Raise; v2 never offered it).
+Everything v2 does stays, including Multisend attack-range follow alongside native follow. The exception: the three display modes (headers/tabs/groups) and both window-size modes were dropped for the HUD (2026-10-16). New coverage the DATs reveal is welcome (PLD gets Raise; v2 never offered it).
 
 ## Layout and size target
 
