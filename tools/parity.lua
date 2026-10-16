@@ -143,9 +143,10 @@ for _, job in ipairs(jobs) do
     end
 
     -- Catalog actions in a generic role that v2 never offered this job (new coverage or a false
-    -- positive). Regen as a heal is new everywhere: v2 only kept it up as a buff.
+    -- positive). Regen as a heal is new everywhere: v2 only kept it up as a buff. Items
+    -- were v2's item module, not a job file's.
     for _, a in ipairs(acts) do
-        if not seen[a] and not a.tick then report(job, a.label or a.name, 'EXTRA', nil, a.role) end
+        if not seen[a] and not a.tick and a.kind ~= 'item' then report(job, a.label or a.name, 'EXTRA', nil, a.role) end
     end
 end
 

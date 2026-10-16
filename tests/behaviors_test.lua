@@ -1,9 +1,9 @@
--- Phase 3a behaviors on fake snapshots: wake, recover, pet, follow, rest.
+-- Phase 3 behaviors on fake snapshots: wake, recover, pet, follow, rest, removal by item.
 local engine = require('core.engine')
 local settings = require('core.settings')
 local fake = require('tests.fake')
 
-local WHM, RDM, PLD, BLM, SAM, PUP, DRG = 3, 5, 7, 4, 12, 18, 14
+local WHM, RDM, PLD, BLM, SAM, PUP, DRG, MNK = 3, 5, 7, 4, 12, 18, 14, 2
 local SLEEP, POISON, INVISIBLE = 2, 3, 69
 local OIL = 18731
 local snap = fake.snap
@@ -192,4 +192,47 @@ test('resting: nothing else runs; stand at full MP or when the leader leaves', f
     g.me.mpp, g.units[2].dist = 50, 9
     local cmd, intent = decide(g, cfg, whm)
     eq({ cmd, intent.why }, { '/heal off', 'A left' })
+end)
+
+-- Removal by item, and the other removers only ever on you --------------------------------
+
+local SILENCE, PARALYSIS = 6, 4
+local ANTIDOTE, PANACEA, ECHO_DROPS, REMEDY = 4148, 4149, 4151, 4155
+
+test('items: Echo Drops when silenced, opt-in, only with one in your bag, amnesia or not', function ()
+    local g = snap(nil, { silenced = true, amnesia = true, items = { [ECHO_DROPS] = 3 } })
+    g.me.buffs[SILENCE] = true
+    local cfg = settings.defaults()
+    eq({ decide(g, cfg, whm) }, { nil, 'nothing to do' })
+    cfg.rows['Echo Drops'] = { on = true }
+    local cmd, intent = decide(g, cfg, whm)
+    eq({ cmd, intent.behavior, intent.why }, { '/item "Echo Drops" <me>', 'remove', 'Me' })
+    g.items = {}
+    eq({ decide(g, cfg, whm) }, { nil, 'nothing to do' })
+end)
+
+test('items: a spell that can go first; then the most specific item you carry, for you only', function ()
+    local cfg = settings.defaults()
+    for _, k in ipairs({ 'Antidote', 'Remedy', 'Panacea' }) do cfg.rows[k] = { on = true } end
+    local carried = { [ANTIDOTE] = 1, [REMEDY] = 1, [PANACEA] = 1 }
+    local g = snap(nil, { items = carried })
+    g.me.buffs[POISON] = true
+    eq(decide(g, cfg, whm), '/ma "Poisona" <me>')
+    local blm = fake.catalog(BLM, 75, nil, 0)
+    g = snap({ { name = 'A', buffs = { [POISON] = true } } }, { items = carried })
+    eq({ decide(g, cfg, blm) }, { nil, 'nothing to do' })
+    g.me.buffs[POISON] = true
+    eq(decide(g, cfg, blm), '/item "Antidote" <me>')
+    g.me.buffs[POISON], g.me.buffs[PARALYSIS] = nil, true
+    eq(decide(g, cfg, blm), '/item "Remedy" <me>')
+    carried[REMEDY] = nil
+    eq(decide(g, cfg, blm), '/item "Panacea" <me>')
+end)
+
+test('Chakra clears only your own poison, not a member\'s near you', function ()
+    local mnk = fake.catalog(MNK, 75, nil, 0, { 'Chakra' })
+    local g = snap({ { name = 'A', buffs = { [POISON] = true } } })
+    eq({ decide(g, nil, mnk) }, { nil, 'nothing to do' })
+    g.me.buffs[POISON] = true
+    eq(decide(g, nil, mnk), '/ja "Chakra" <me>')
 end)

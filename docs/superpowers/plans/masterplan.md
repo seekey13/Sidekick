@@ -12,8 +12,9 @@ First presented in chat on 2026-10-14. Updated 2026-10-16 to match the decisions
 | 2b | Done, untested in game: engine, heal/remove/buff/revive (`/sk3 plan`, `start`, `buff`, `focus`) |
 | 2c | Done, untested in game: settings window (`ui/model.lua` pure, `ui/window.lua` thin) |
 | 2d | Done, untested in game: healing overhaul (bands, area heals, Regen, boosts, learned potency); the in-game check of the area priors is left |
-| 3a | Done, untested in game: wake, recover, pet care and pet send, follow, rest (`/sk3 follow`, `rest`) |
-| 3b–5 | Not started |
+| 3a | Done (PR #3 with its review fixes), untested in game: wake, recover, pet care and pet send, follow, rest (`/sk3 follow`, `rest`) |
+| 3b | In progress: items done, untested in game (status removal from your inventory, under Debuffs); tracked targets and alliance next |
+| 3c–5 | Not started |
 
 The dev command is `/sk3`, because v2 is still loaded and owns `/sk`. v3 takes `/sk` at cutover.
 
@@ -156,7 +157,7 @@ rows = { Cure = { on = true }, Protect = { on = true, pick = 'Protect IV', targe
 - **One row widget:** toggle, tier dropdown (when there is more than one tier), target chips (when not self-only), modifier chips (from the knowledge table).
 - **Tooltips:** from the DAT descriptions.
 - **Window size:** auto-fit or custom (dragged).
-- `ui/model.lua` builds the view and owns the only setting writers; `ui/window.lua` only draws it. A user-written UI can replace the window (`custom-ui` branch).
+- `ui/model.lua` builds the view and owns the only setting writers; `ui/window.lua` only draws it. A user's own `ui/custom.lua` replaces the window; [ui/README.md](../../../ui/README.md) is its contract.
 
 ## Features kept
 
@@ -169,7 +170,7 @@ Sidekick3.lua  core/{game,buffs,packets,observed,can,catalog,knowledge,resources
 behaviors/*.lua  jobs/{sch,brd,cor,geo,run,pup,bst,nin,blu,dnc}.lua  ui/{model,window}.lua  tests/  tools/
 ```
 
-Target: 8k lines or less, a cut of about 70%. The architecture doc becomes one page. At the end of phase 2c the tracked code (without `tests/data`) is about 3.4k lines; after 2d, about 3.9k; after 3a, about 4.6k.
+Target: 8k lines or less, a cut of about 70%. The architecture doc becomes one page. At the end of phase 2c the tracked code (without `tests/data`) is about 3.4k lines; after 2d, about 3.9k; after 3a and its review, about 4.75k; with 3b's items, about 4.9k.
 
 ## Phases
 
@@ -194,4 +195,5 @@ Target: 8k lines or less, a cut of about 70%. The architecture doc becomes one p
 - **Finding a buff's status by name.** Phase 1 verified every family.
 - **Ammo the pet abilities need** (pet food for Reward, oils for Repair and Maintenance) is only checked in 3a: it's worn by hand until the BST and PUP modules equip it. CatsEyeXI's Reward takes pet food only, so v2's Pet Poultice (Regen) and Pet Roborant (Erase) rows are gone.
 - **Statuses on trusts and your pet** come from packets: gains and enfeebles in 0x028 (area variants included), wear-offs in 0x029. A death clears statuses with no message, so a dead trust's or a gone pet's are forgotten.
+- **Items** are named from the client's item resource, since `/item` needs its spelling (CatsEyeXI's custom items differ). What each medicine clears follows the server's item scripts: Panacea's list differs from v2's.
 - **Bard song parity** is the largest unknown. Port the behavior, not the code: write the scenarios as tests first.

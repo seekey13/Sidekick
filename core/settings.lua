@@ -6,8 +6,8 @@
     use ("Regen (keep up)", when one family has several):
         rows[key] = { on = bool, pick = action name or nil (= best tier),
                       targets = { [party slot] = true } }    -- buffs only
-    A row never saved uses its default: on, except buffs and sending the pet in,
-    which are opt-in.
+    A row never saved uses its default: on, except buffs, sending the pet in and
+    items, which are opt-in.
     `ui` is the window: open at load, section layout, auto-fit or custom size.
 ]]--
 
@@ -40,7 +40,7 @@ function settings.key(a) return a.pick_one or a.label or a.family end
 local OPT_IN = { buff = true, pet_send = true }
 
 function settings.row(cfg, a)
-    return cfg.rows[settings.key(a)] or { on = not OPT_IN[a.role] }
+    return cfg.rows[settings.key(a)] or { on = not (OPT_IN[a.role] or a.kind == 'item') }
 end
 
 -- The catalog's actions for `role` whose row is on.

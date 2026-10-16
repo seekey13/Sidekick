@@ -60,10 +60,11 @@ function can.self_only(a) return a.targets == SELF end
 -- Whether `a` can be used now, else false and why.
 function can.use(a, g)
     if a.kind == 'ma' and g.silenced then return false, 'silenced' end
-    if a.kind ~= 'ma' and g.amnesia then return false, 'amnesia' end
+    if (a.kind == 'ja' or a.kind == 'pet') and g.amnesia then return false, 'amnesia' end
     if (a.mp or 0) > g.me.mp then return false, 'MP' end
     if (a.tp or 0) > 0 and a.tp > g.me.tp then return false, 'TP' end
     if a.ammo and not can.holds(a.ammo, g.ammo) then return false, 'no ammo' end
+    if a.kind == 'item' and not (g.items and g.items[a.id]) then return false, 'none left' end
     if a.requires and not any(g.me.buffs, a.requires) then return false, 'needs a status' end
     if any(g.me.buffs, a.blocked_by) then return false, 'blocked by a status' end
     if a.gate == 'combat' and not g.combat then return false, 'combat only' end

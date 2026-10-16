@@ -282,7 +282,8 @@ local function draw_rows(s)
         imgui.TableNextRow()
         imgui.TableNextColumn()
         local v = { r.on }
-        if imgui.Checkbox(r.label .. '##' .. id, v) then act.row(r.key, v[1]) end
+        local label = r.count and ('%s (%d)'):format(r.label, r.count) or r.label  -- an item: how many you carry
+        if imgui.Checkbox(label .. '##' .. id, v) then act.row(r.key, v[1]) end
         if s.has_choices then
             imgui.TableNextColumn()
             if r.choices then pick_combo(r, id) end

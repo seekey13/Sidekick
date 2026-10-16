@@ -31,6 +31,7 @@
     spends_tp  turns all your TP into MP (Chivalry): only from recover.min_tp up
     ammo       item ids, one of which must be in your ammo slot (pet food, oils)
     pet_range  yalms your pet may be from you (the server refuses Repair past 20)
+    item       an inventory item's id: used on you with /item (opt-in: items cost gil)
     gate       'combat' | 'idle' (enemy-targeted actions are combat-only anyway)
     pick_one   families sharing a key keep one selection (enspells, storms, bar-elements)
     blocked_by skip while you have any of these statuses
@@ -59,6 +60,11 @@ local PET_CLEANSE = { 3, 4, 5, 6, 8, 9, 31, 10, 11, 12, 13, 21, 128, 129, 130, 1
 -- Ammo items (ids) the server takes: Pet Food Alpha to Theta Biscuit; Automaton Oil to +3.
 local PET_FOOD = { 17016, 17017, 17018, 17019, 17020, 17021, 17022, 17023 }
 local OILS     = { 18731, 18732, 18733, 19185 }
+
+-- What a Panacea clears (the server's item script): Paralysis, Bind, Weight, Addle,
+-- the elemental DoTs, Dia, Bio, stat downs, Inhibit TP.
+local PANACEA = { 4, 11, 12, 21, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142,
+    144, 145, 147, 148, 149, 167, 168, 174, 175 }
 
 local LIGHT = { 'Light Arts', 'Addendum: White' }
 local SAMBA = { role = 'buff', pick_one = 'samba', blocked_by = 'Fan Dance' }
@@ -112,6 +118,17 @@ local K = {
     ['Erase']         = { role = 'remove', removes = ERASABLE },
     ['Esuna']         = { role = 'remove', removes = ESUNA },
     ['Healing Waltz'] = { role = 'remove', removes = WALTZ, blocked_by = 'Saber Dance' },
+
+    -- remove: items, on you only and after any spell; priority puts the specific ones first.
+    ['Antidote']        = { role = 'remove', item = 4148, removes = 'Poison', priority = 30 },
+    ['Eye Drops']       = { role = 'remove', item = 4150, removes = 'Blindness', priority = 30 },
+    ['Echo Drops']      = { role = 'remove', item = 4151, removes = 'Silence', priority = 30 },
+    ['Holy Water']      = { role = 'remove', item = 4154, removes = CURSE, priority = 20 },  -- Doom one time in three
+    ['Hallowed Water']  = { role = 'remove', item = 5306, removes = CURSE, priority = 15 },  -- the same, dearer
+    ['Tincture']        = { role = 'remove', item = 5418, removes = { 'Plague', 'Disease' }, priority = 20 },
+    ['Remedy Ointment'] = { role = 'remove', item = 5356, removes = { 3, 4, 5, 6, 8 }, priority = 10 },  -- one of them
+    ['Remedy']          = { role = 'remove', item = 4155, removes = { 3, 4, 5, 6 }, priority = 5 },  -- Disease half the time
+    ['Panacea']         = { role = 'remove', item = 4149, removes = PANACEA },
 
     -- revive -------------------------------------------------------------------
     ['Raise'] = { role = 'revive', gate = 'idle' },

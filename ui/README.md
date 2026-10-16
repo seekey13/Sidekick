@@ -113,10 +113,11 @@ In this order; a behavior with nothing for your job to do is left out.
 |---|---|---|
 | `key` | string | The row's id for `act`: a family (`'Cure'`, `'Haste'`) or a pick-one group (`'barelement'`, `'minuet'`) |
 | `label` | string | `'Cure'`, `'Valor Minuet (+ATK)'`, `'Sword Madrigal / Blade Madrigal'` |
-| `on` | bool | Rows start on, except buffs and sending the pet in (Assault, Fight, Deploy) |
+| `on` | bool | Rows start on, except buffs, sending the pet in (Assault, Fight, Deploy) and items |
 | `ready` | bool | It could go right now |
-| `avail` | string | `'ready'`, or why not: `'recast 12s'`, `'MP'`, `'TP'`, `'silenced'`, `'combat only'`, `'idle only'`, `'no ammo'`, `'pet too far'`, `'pick one'`, `'not available'`... |
+| `avail` | string | `'ready'`, or why not: `'recast 12s'`, `'MP'`, `'TP'`, `'silenced'`, `'combat only'`, `'idle only'`, `'no ammo'`, `'pet too far'`, `'none left'`, `'pick one'`, `'not available'`... |
 | `action` | string or nil | When ready, the spell or ability it would use: `'Cure V'` |
+| `count` | number or nil | Item rows (`'Echo Drops'`, `'Remedy'`...): how many you carry |
 | `choices` | list or nil | Buff rows with tiers or a pick-one group: `{ label, name }`. A tiered row's first choice is `'Auto (best)'` with `name` nil |
 | `pick` | string or nil | The chosen `name`; nil is Auto |
 | `choice` | string or nil | The label to show for the current pick: `'Auto (best)'`, `'Pick one'`, `'Protect II'`, `'Protect V (not available)'` |
