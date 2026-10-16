@@ -3,12 +3,14 @@
       - when your own cast starts, finishes or is interrupted (the cast lock and
         the post-action throttle in core/engine.lua),
       - statuses gained and lost by units with no readable status list
-        (core/buffs.lua).
+        (core/buffs.lua),
+      - what your own heals restored and where your Regens landed (core/observed.lua).
     Message ids and bit layouts verified against the CatsEyeXI server
     (src/map/packets/s2c/0x028_battle2.cpp, msg_std.h / msg_basic.h).
 ]]--
 
 local buffs = require('core.buffs')
+local observed = require('core.observed')
 
 local packets = {}
 
@@ -23,8 +25,12 @@ local CAST_TIMEOUT = 16
 -- 0x028 per-target messages.
 local GAINS_028 = { [230] = true, [266] = true }            -- target gains the effect
 local LOSES_028 = { [83] = true }                           -- effect removed (-na, Erase)
-local HEALS_028 = { [2] = true, [7] = true, [24] = true }    -- recovers HP: a cure wakes
-local SLEEP = { 2, 19 }
+-- Recovers HP, param = HP: cures, waltzes, Chakra, blood pacts and their area variants.
+local HEALS_028 = { [7] = true, [24] = true, [102] = true, [238] = true, [263] = true, [318] = true, [367] = true }
+local SLEEP = { 2, 19 }  -- a heal of yours wakes
+-- Categories whose heals are yours: 4 spell, 6/14/15 job ability; 11/13 your pet's moves.
+local KIND = { [4] = 'ma', [6] = 'ja', [14] = 'ja', [15] = 'ja', [11] = 'pet', [13] = 'pet' }
+local ABILITY_BASE = 512  -- catalog ability id = packet param (ability or pet skill id) + 512; see observed.key
 
 -- 0x029 messages whose param IS a status id; every other 0x029 (damage, misses,
 -- synth results...) carries an unrelated param and must not be read as a status.
@@ -74,8 +80,8 @@ local function parse_action(e)
     return limit ~= 0 and p or nil
 end
 
--- ctx: { me = your server id, tracks = { [server id] = true } for units whose
--- statuses come from packets, duration = function(spell id) -> seconds or nil }
+-- ctx: { me = your server id, pet = your pet's or nil, tracks = { [server id] = true }
+-- for units whose statuses come from packets, duration = function(spell id) -> seconds or nil }
 local function on_action(p, ctx, now)
     if p.actor == ctx.me and p.category ~= 1 then  -- 1 = auto-attack, says nothing
         if p.category == CAST_BEGIN and p.param ~= INTERRUPT then
@@ -87,20 +93,27 @@ local function on_action(p, ctx, now)
             cast.finished, cast.spell = now, p.category == SPELL_FINISH
         end
     end
-    if p.category ~= SPELL_FINISH or p.param == INTERRUPT then return end
+    if p.param == INTERRUPT then return end
+    local kind = KIND[p.category]
+    local key = kind and p.actor == (kind == 'pet' and ctx.pet or ctx.me)
+        and kind .. (kind == 'ma' and p.param or p.param + ABILITY_BASE)
     for _, t in ipairs(p.targets) do
-        if ctx.tracks[t.id] then
-            for _, r in ipairs(t.results) do
-                if GAINS_028[r.message] then
-                    buffs.gain(t.id, r.param, now, ctx.duration(p.param))
-                elseif LOSES_028[r.message] then
-                    buffs.lose(t.id, r.param)
-                elseif HEALS_028[r.message] and p.actor == ctx.me then
-                    for _, s in ipairs(SLEEP) do buffs.lose(t.id, s) end
+        local tracked = ctx.tracks[t.id]
+        for _, r in ipairs(t.results) do
+            if HEALS_028[r.message] then
+                if key then
+                    observed.healed(key, t.id, r.param, now)
+                    if tracked then for _, s in ipairs(SLEEP) do buffs.lose(t.id, s) end end
                 end
+            elseif p.category == SPELL_FINISH and GAINS_028[r.message] then
+                if tracked then buffs.gain(t.id, r.param, now, ctx.duration(p.param)) end
+                if key then observed.landed(key, t.id, now) end
+            elseif p.category == SPELL_FINISH and LOSES_028[r.message] and tracked then
+                buffs.lose(t.id, r.param)
             end
         end
     end
+    if key then observed.done(key) end
 end
 
 local function on_message(e, ctx, now)
@@ -122,6 +135,7 @@ function packets.handle(e, ctx, now)
     elseif e.id == 0x00A then  -- zoning: a cast in flight is cancelled with no packet
         cast.active = false
         buffs.clear()
+        observed.clear()
     end
 end
 

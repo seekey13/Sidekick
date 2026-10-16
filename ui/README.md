@@ -71,14 +71,14 @@ Text that may contain `%` (names, `why` text) must be escaped before it's drawn:
 | `alive` | bool | |
 | `away` | bool | In another zone: its HP and MP are stale |
 | `hpp`, `mpp` | number | HP and MP, 0 to 100 |
-| `hp` | string | `'ok'`, `'low'` (under the heal threshold, or the focus threshold for the focus member) or `'critical'` (under the critical threshold) |
+| `hp` | string | `'ok'`, `'low'` (under the danger line) or `'critical'` (under the critical line); the focus member's own lines for them |
 | `dist` | string | `''` for you, `'away'`, or like `'12.3y'` |
 | `buffs` | string | Its statuses, the first 6 by name and `'+N'` for the rest |
 | `buffs_all` | string | Every status, one per line (for a tooltip) |
 
 ### `view.heal`
 
-`threshold`, `critical`, `focus_threshold` (HP %, 1 to 99); `focus` (a member's name, `''` for none); `cure_potency`, `waltz_potency` (+% from gear, 0 to 50); `focus_names` (the members that can be the focus, you excluded).
+`danger`, `critical`, `focus_danger`, `focus_critical` (HP %, 1 to 99); `focus` (a member's name, `''` for none); `cure_potency`, `waltz_potency` (+% from gear, 0 to 50); `regen_potency` (+HP per Regen tick from gear, 0 to 30); `focus_names` (the members that can be the focus, you excluded); `members` (`{ name, healed }` for each member, you excluded; `healed` false when skipped).
 
 ### `view.sections[i]`
 
@@ -125,15 +125,17 @@ In this order; a behavior with nothing for your job to do is left out.
 | `act.row(key, on)` | A row on or off |
 | `act.pick(key, name)` | A row's choice: a `choices[i].name`, or nil for Auto |
 | `act.target(key, slot)` | Turn a target chip (0 to 5) on or off |
+| `act.skip(name)` | Skip a member in healing, or take them back: a `view.heal.members[i].name` |
 | `act.set(path, value)` | A setting by path, below |
 
 `act.set` paths:
 
 | Path | Value |
 |---|---|
-| `'heal.threshold'`, `'heal.critical'`, `'heal.focus_threshold'` | 1 to 99 |
+| `'heal.danger'`, `'heal.critical'`, `'heal.focus_danger'`, `'heal.focus_critical'` | 1 to 99 |
 | `'heal.focus'` | a name from `view.heal.focus_names`, or `''` |
 | `'heal.cure_potency'`, `'heal.waltz_potency'` | 0 to 50 |
+| `'heal.regen_potency'` | 0 to 30 |
 | `'japanese'` | bool |
 | `'ui.display'`, `'ui.size'` | as in `view.ui` |
 | `'ui.<name>'` | your UI's own: a string, number or bool |

@@ -10,12 +10,9 @@ local can = require('core.can')
 
 local engine = {}
 
-local THROTTLE = 1.1        -- the server's lockout after any action
-local SPELL_THROTTLE = 3.1  -- ...and after a spell, counted from when it lands
-
 -- Priority order. `quick` behaviors still run while a cure is held for.
 engine.BEHAVIORS = {
-    { name = 'heal', run = require('behaviors.heal') },
+    { name = 'heal', run = require('behaviors.heal').want },
     { name = 'remove', run = require('behaviors.remove'), quick = true },
     { name = 'buff', run = require('behaviors.buff') },
     { name = 'revive', run = require('behaviors.revive') },
@@ -47,8 +44,8 @@ end
 -- Whether the server will take a command yet.
 function engine.ready(g, mem)
     local since_finish = g.now - (g.finished or -math.huge)
-    return g.now - (mem.sent_at or -math.huge) >= THROTTLE
-        and since_finish >= (g.spell_finish and SPELL_THROTTLE or THROTTLE)
+    return g.now - (mem.sent_at or -math.huge) >= can.THROTTLE
+        and since_finish >= (g.spell_finish and can.SPELL_THROTTLE or can.THROTTLE)
 end
 
 function engine.command(intent, cfg)

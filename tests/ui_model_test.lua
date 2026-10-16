@@ -45,7 +45,7 @@ test('WHM 75 / BLM 37: every behavior section, in order, then Options', function
     eq(view.job, 'WHM 75 / BLM 37')
     eq(keys(view.sections, 'id'), { 'heal', 'remove', 'buff', 'revive', 'options' })
     eq(keys(view.sections, 'title'), { 'Healing', 'Debuffs', 'Buffs', 'Raise', 'Options' })
-    eq(keys(section(view, 'heal').rows), { 'Cure', 'Drain', 'Divine Seal', 'Martyr' })  -- heal, then emergency
+    eq(keys(section(view, 'heal').rows), { 'Cure', 'Curaga', 'Regen', 'Drain', 'Divine Seal', 'Martyr' })  -- heal, then emergency
     eq(keys(section(view, 'revive').rows), { 'Raise', 'Arise' })
 end)
 
@@ -155,15 +155,15 @@ test('section switches and plain values, a UI\'s own under ui', function ()
     local cfg = settings.defaults()
     local act, writes = actions(cfg)
     act.section('buff', false)
-    act.set('heal.threshold', 60)
+    act.set('heal.danger', 60)
     act.set('heal.focus', 'A')
     act.set('japanese', true)
     act.set('ui.display', 'tabs')
     act.set('ui.compact', true)
-    eq({ cfg.buff.on, cfg.heal.threshold, cfg.heal.focus, cfg.japanese, cfg.ui.display }, { false, 60, 'A', true, 'tabs' })
+    eq({ cfg.buff.on, cfg.heal.danger, cfg.heal.focus, cfg.japanese, cfg.ui.display }, { false, 60, 'A', true, 'tabs' })
     eq(writes[1], 6)
     local view = build(whm, cfg)
-    eq({ section(view, 'buff').on, view.heal.threshold, view.ui.display, view.ui.compact, view.japanese }, { false, 60, 'tabs', true, true })
+    eq({ section(view, 'buff').on, view.heal.danger, view.ui.display, view.ui.compact, view.japanese }, { false, 60, 'tabs', true, true })
     eq(view.heal.focus_names, { 'A', 'B' })
     view.ui.size = 'custom'  -- the view is a copy
     eq(cfg.ui.size, 'auto')
@@ -180,6 +180,16 @@ test('run and log change the session only; close also remembers it in the settin
     eq({ st.open, cfg.ui.open, writes[1] }, { false, false, 1 })
 end)
 
+test('healing skips a member by name, and takes them back', function ()
+    local cfg = settings.defaults()
+    local act, writes = actions(cfg)
+    act.skip('A')
+    eq(cfg.heal.skip, { A = true })
+    eq(build(whm, cfg).heal.members, { { name = 'A', healed = false }, { name = 'B', healed = true } })
+    act.skip('A')
+    eq({ cfg.heal.skip, writes[1] }, { {}, 2 })
+end)
+
 test('status line: what it would do or why not when stopped, the last send when running', function ()
     local e = { at = 990, action = 'Cure IV', target = 'A', behavior = 'heal', why = 'A at 62%' }
     eq(build(whm, nil, nil, status({ intent = e })).status.text, 'would: Cure IV -> A (heal: A at 62%)')
@@ -191,12 +201,12 @@ test('status line: what it would do or why not when stopped, the last send when 
     eq(model.action_text(e), 'Cure IV')
 end)
 
-test('party lines: HP against the thresholds, distance, statuses by name', function ()
+test('party lines: HP against the danger and critical lines, distance, statuses by name', function ()
     local cfg = settings.defaults()
     cfg.heal.focus = 'tank'
     local g = fake.snap({
-        { name = 'A', hpp = 80, buffs = { [40] = true, [33] = true } },
-        { name = 'Tank', hpp = 80, kind = 'trust' },
+        { name = 'A', hpp = 55, buffs = { [40] = true, [33] = true } },
+        { name = 'Tank', hpp = 55, kind = 'trust' },  -- under the focus danger line (60), over the others' (50)
         { name = 'C', hpp = 20 },
         { name = 'Gone', in_zone = false },
     }, { safe = true, moving = true, bt = { name = 'Crab', hpp = 50, dist = 4.31 } })
@@ -207,6 +217,8 @@ test('party lines: HP against the thresholds, distance, statuses by name', funct
     eq({ view.party[2].buffs, view.party[3].kind, view.party[5].away }, { 'Haste, Protect', 'trust', true })
     eq(view.bt, { name = 'Crab', hpp = 50, dist = '4.3y' })
     eq(view.flags, { 'moving', 'safe zone' })
+    g.units[3].hpp = 35  -- the focus member is critical on their own line (40)
+    eq(build(whm, cfg, g).party[3].hp, 'critical')
 end)
 
 test('a long status list is cut short, the whole list kept for the tooltip', function ()

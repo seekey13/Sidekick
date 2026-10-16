@@ -22,10 +22,14 @@ function fake.catalog(main, main_lv, sub, sub_lv, jas)
     }, K)
 end
 
+-- A unit; HP defaults to a 1000 max at its hpp, and everyone stands together.
 function fake.unit(t)
-    local u = { kind = 'party', in_zone = true, alive = true, dist = 5, buffs = {}, hpp = 100, mpp = 100, mp = 0, tp = 0 }
+    local u = { kind = 'party', in_zone = true, alive = true, dist = 5, pos = { 0, 0, 0 }, buffs = {},
+                hpp = 100, mpp = 100, mp = 0, tp = 0 }
     for k, v in pairs(t) do u[k] = v end
     u.alive = t.alive ~= false and u.hpp > 0
+    u.max_hp = t.max_hp or (t.hp and u.hpp > 0 and math.floor(t.hp * 100 / u.hpp)) or 1000
+    u.hp = t.hp or math.floor(u.max_hp * u.hpp / 100)
     return u
 end
 
@@ -37,7 +41,7 @@ function fake.snap(others, over, waits)
         o.slot, o.sid = o.slot or i, o.sid or 100 + i
         units[#units + 1] = fake.unit(o)
     end
-    local g = { now = 1000, me = units[1], units = units, combat = false,
+    local g = { now = 1000, me = units[1], units = units, combat = false, learned = {},
         main = 3, main_lv = 75, sub = 4, sub_lv = 37,
         recast = function (a) return (waits or {})[a.name] or 0 end }
     for k, v in pairs(over or {}) do g[k] = v end

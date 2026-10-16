@@ -183,11 +183,11 @@ local function buff_names(buffs, statuses)
     return text, table.concat(list, '\n')
 end
 
--- HP 'ok' | 'low' (under the heal threshold) | 'critical'.
+-- HP 'ok' | 'low' (under the danger line) | 'critical', on the focus member's lines for them.
 local function hp_state(u, h)
-    local limit = h.focus ~= '' and u.name:lower() == h.focus:lower() and h.focus_threshold or h.threshold
-    if u.hpp < h.critical then return 'critical' end
-    return u.hpp < limit and 'low' or 'ok'
+    local focus = h.focus ~= '' and u.name:lower() == h.focus:lower()
+    if u.hpp < (focus and h.focus_critical or h.critical) then return 'critical' end
+    return u.hpp < (focus and h.focus_danger or h.danger) and 'low' or 'ok'
 end
 
 local function party(g, cfg, statuses)
@@ -215,9 +215,12 @@ function model.build(g, cat, cfg, status, names)
     for _, u in ipairs(g.units) do units[u.slot] = u end
 
     local h = cfg.heal
-    local focus_names = {}
+    local focus_names, members = {}, {}
     for _, u in ipairs(g.units) do
-        if u.kind ~= 'self' then focus_names[#focus_names + 1] = u.name end
+        if u.kind ~= 'self' then
+            focus_names[#focus_names + 1] = u.name
+            members[#members + 1] = { name = u.name, healed = not h.skip[u.name] }
+        end
     end
 
     local view = {
@@ -227,8 +230,10 @@ function model.build(g, cat, cfg, status, names)
         party = party(g, cfg, names.statuses),
         bt = entity(g.bt), pet = entity(g.pet),
         flags = {}, recent = {}, sections = {},
-        heal = { threshold = h.threshold, critical = h.critical, focus = h.focus, focus_threshold = h.focus_threshold,
-                 cure_potency = h.cure_potency, waltz_potency = h.waltz_potency, focus_names = focus_names },
+        heal = { danger = h.danger, critical = h.critical, focus = h.focus,
+                 focus_danger = h.focus_danger, focus_critical = h.focus_critical,
+                 cure_potency = h.cure_potency, waltz_potency = h.waltz_potency, regen_potency = h.regen_potency,
+                 focus_names = focus_names, members = members },
         japanese = cfg.japanese, log = status.log, ui = {},
     }
     for k, v in pairs(cfg.ui) do view.ui[k] = v end
@@ -293,7 +298,12 @@ function model.actions(cfg, status, changed)
         r.targets[slot] = not r.targets[slot] or nil
         changed()
     end
-    -- path: 'heal.threshold', 'japanese', 'ui.display', or 'ui.<anything>' for a UI's own.
+    -- A member skipped by healing is never healed for their own sake.
+    function act.skip(name)
+        cfg.heal.skip[name] = not cfg.heal.skip[name] or nil
+        changed()
+    end
+    -- path: 'heal.danger', 'japanese', 'ui.display', or 'ui.<anything>' for a UI's own.
     function act.set(path, value)
         local t = cfg
         local parent, key = path:match('^(.-)%.?([^.]+)$')

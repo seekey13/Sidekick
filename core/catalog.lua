@@ -90,7 +90,7 @@ function catalog.build(res, player, K)
         for _, use in ipairs(uses(K, row.en, family, kind)) do
             if not (use.main_only and from == 'sub') then
                 local status = use.status
-                if status == nil and use.role == 'buff' then
+                if status == nil and (use.role == 'buff' or use.boost) then
                     status = idx[row.en:lower()] or idx[family:lower()]
                 end
                 out[#out + 1] = {
@@ -102,12 +102,17 @@ function catalog.build(res, player, K)
                     -- ponytail: no knowledge row sets requires on an Addendum spell; merge if one ever does.
                     requires = addendum and ADDENDUM[row.type] or ids(use.requires, idx, row.en),
                     potency = use.potency and use.potency[tier],
+                    tick = use.tick and (use.tick[tier] or 0),  -- 0: a tier with no known value
+                    boost = use.boost and { kind = use.boost[1], factor = use.boost[2] or 1,
+                                            potency = use.boost.potency, area = use.boost.area,
+                                            mp = use.boost.mp or 1, tiers = use.boost.tiers },
                     duration = type(use.duration) == 'table' and use.duration[tier] or use.duration,
                     wakes = use.wakes, gives = use.gives, gate = use.gate, pick_one = use.pick_one,
-                    priority = use.priority or 0, pet = use.pet, travel = use.travel,
+                    priority = use.priority or 0, pet = use.pet, travel = use.travel, mob_skill = use.mob_skill,
                     mp = row.mp, tp = row.tp,  -- the client blocks casts by this cost, so it is the one to trust
                     recast = kind == 'ma' and id or row.recast_id,  -- spell id, or ability recast timer id
                     targets = row.targets, range = row.range, area = row.area,
+                    cast = row.cast and row.cast / 4,  -- seconds; spells only
                     element = row.element, skill = row.skill, type = row.type,
                     from = from, level = level,
                 }

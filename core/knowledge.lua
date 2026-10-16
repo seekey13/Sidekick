@@ -9,12 +9,20 @@
     A row is one use, or a list of uses when one action does several jobs
     (Chakra heals and cures). An exact name ("Healing Ruby II") beats its family.
 
-    role       heal | heal_aoe | pet_heal | remove | pet_remove | emergency | revive | recover | buff
+    role       heal | pet_heal | remove | pet_remove | emergency | revive | recover | buff
+               (a heal's area comes from the DAT: Curaga is a heal like Cure)
     status     what a buff shows: status name (lowest id with that name wins), id,
                or a list (any one counts). Omitted = the status named like the
                action, else like its family. false = nothing readable.
     removes    statuses a removal clears
-    potency    HP healed per tier, to size a heal to the damage
+    potency    HP healed per tier, before gear and CatsEyeXI's x1.25: a prior until
+               a cast is seen (core/observed.lua)
+    tick       HP per 3s tick, per tier (Regen)
+    boost      { kind, factor, potency =, area =, mp =, tiers = }: while its status is
+               on you, heals of that kind ('healing' = Cure/Curaga, 'cure' = those and
+               blue magic cures, 'waltz') heal
+               x factor and +potency %, and a Cure up to tier `tiers` covers `area`
+               yalms at `mp` x the cost (behaviors/heal.lua)
     wakes      the heal also cures sleep
     gives      'tp' for a recover that restores TP (default MP)
     gate       'combat' | 'idle' (enemy-targeted actions are combat-only anyway)
@@ -29,6 +37,7 @@
     note       short UI hint
     travel     travel buff: still cast while Invisible
     duration   seconds a buff lasts (or per tier), for statuses read off packets (trusts)
+    mob_skill  the id a jug pet's move carries in its action packet (the server's mob skill)
 ]]--
 
 -- Status sets for removals (ids: several names repeat in the status table).
@@ -53,29 +62,33 @@ local K = {
     ['Magic Fruit']       = { role = 'heal', wakes = true, potency = { 300 } },
     ['Plenilune Embrace'] = { role = 'heal', wakes = true, potency = { 650 } },
     ['Vivacious Pulse']   = { role = 'heal' },
-    ['Healing Ruby']      = { role = 'heal', wakes = true, pet = { 'Carbuncle' } },
-    ['Healing Ruby II']   = { role = 'heal_aoe', wakes = true, pet = { 'Carbuncle' } },
+    ['Healing Ruby']      = { role = 'heal', wakes = true, pet = { 'Carbuncle' }, potency = { 250, 250 } },
     ['Wild Carrot']       = {
         { kind = 'ma', role = 'heal', wakes = true, potency = { 120 } },
-        { kind = 'pet', role = 'heal_aoe', pet = { 'KeenearedSteffi', 'Rabbit' } },
+        { kind = 'pet', role = 'heal', pet = { 'KeenearedSteffi', 'Rabbit' }, potency = { 120 }, mob_skill = 3903 },
     },
     ['Chakra'] = {
         { role = 'heal' },
         { role = 'remove', removes = { 'Poison', 'Blindness' } },
     },
-
-    -- heal_aoe -----------------------------------------------------------------
-    ['Curaga']           = { role = 'heal_aoe', wakes = true },
-    ['Divine Waltz']     = { role = 'heal_aoe', wakes = true, blocked_by = 'Saber Dance' },
-    ['Healing Breeze']   = { role = 'heal_aoe', wakes = true },
-    ['Mending Halation'] = { role = 'heal_aoe', main_only = true, pet = true },
+    -- ponytail: area priors are guesses until the in-game check (Curaga, Divine Waltz, Healing Breeze, Healing Ruby, Wild Carrot).
+    ['Curaga']           = { role = 'heal', wakes = true, potency = { 60, 130, 270, 450 } },
+    ['Divine Waltz']     = { role = 'heal', wakes = true, blocked_by = 'Saber Dance', potency = { 70, 300 } },
+    ['Healing Breeze']   = { role = 'heal', wakes = true, potency = { 90 } },
+    ['Mending Halation'] = { role = 'heal', main_only = true, pet = true },
+    -- Two rows: healing decides when a Regen is worth casting; "keep up" holds it on chosen targets.
+    ['Regen'] = {
+        { role = 'heal', status = 'Regen', tick = { 5, 12, 20 }, duration = { 75, 60, 60 } },
+        { role = 'buff', label = 'Regen (keep up)', duration = { 75, 60, 60 } },
+    },
 
     -- emergency (critical HP) --------------------------------------------------
-    ['Divine Seal']  = { role = 'emergency' },
+    ['Divine Seal']  = { role = 'emergency', boost = { 'cure', 2 } },
     ['Martyr']       = { role = 'emergency' },
-    ['Contradance']  = { role = 'emergency' },
+    ['Contradance']  = { role = 'emergency', boost = { 'waltz', 2 } },
     ['Apogee']       = { role = 'emergency', pet = { 'Carbuncle' } },
-    ['Rapture']      = { role = 'emergency', requires = LIGHT },
+    ['Rapture']      = { role = 'emergency', requires = LIGHT, boost = { 'healing', 1.5 } },
+    ['Accession']    = { role = 'emergency', requires = LIGHT, boost = { 'healing', area = 10, mp = 2, tiers = 4 } },
     ['Tranquility']  = { role = 'emergency', requires = LIGHT },
 
     -- remove -------------------------------------------------------------------
@@ -124,7 +137,6 @@ local K = {
     ['Haste']     = { role = 'buff', priority = 25, duration = 180 },
     ['Refresh']   = { role = 'buff', priority = 50, duration = 150 },
     ['Flurry']    = { role = 'buff', priority = 25, status = 581, duration = 180 },
-    ['Regen']     = { role = 'buff', duration = { 75, 60, 60 } },
     ['Phalanx']   = { role = 'buff' },
     ['Stoneskin'] = { role = 'buff' },
     ['Blink']     = { role = 'buff' },
@@ -345,7 +357,7 @@ local K = {
 
     -- buff: job abilities ---------------------------------------------------------
     ['Composure']  = { role = 'buff', priority = 100 },
-    ['Majesty']    = { role = 'buff', priority = 100 },
+    ['Majesty']    = { role = 'buff', priority = 100, boost = { 'cure', potency = 25, area = 10 } },
     ['Boost']      = { role = 'buff', status = false },
     ['Avatar\'s Favor'] = { role = 'buff', pet = true },
     ['Shining Ruby']    = { role = 'buff', pet = { 'Carbuncle' } },
