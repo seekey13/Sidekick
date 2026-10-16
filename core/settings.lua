@@ -29,7 +29,7 @@ local DEFAULTS = {
     revive = { on = true },
     follow = { on = false, target = '', distance = 5 },  -- /follow them past this many yalms
     rest = { on = false, delay = 5, distance = 7 },  -- /heal after this many quiet seconds; up past distance from follow.target
-    japanese = false,  -- send spell and ability names in Japanese
+    japanese = false,  -- send spell, ability and item names in Japanese
     rows = {},
     ui = { open = false, display = 'headers', size = 'auto' },  -- display: headers | tabs | groups; size: auto | custom
 }

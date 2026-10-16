@@ -43,6 +43,13 @@ test('your item in use locks like a cast, until it finishes or is cut off', func
     eq(packets.casting(13), false)
 end)
 
+test('a paralyzed item use: a spell-style finish, then the interrupt, so the short lockout', function ()
+    packets.action(action(ME, 9, 24931, {}), ctx(), 20)
+    packets.action(action(ME, SPELL, 0, {}), ctx(), 21)      -- "is paralyzed", sent as a MagicFinish
+    packets.action(action(ME, 9, 28787, {}), ctx(), 21)
+    eq({ packets.casting(21), packets.last_finish() }, { false, 21, false })
+end)
+
 test('only a spell\'s id names a duration', function ()
     buffs.clear()
     local c = ctx({ [1234] = 10 })

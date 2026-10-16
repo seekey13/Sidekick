@@ -282,8 +282,9 @@ local function draw_rows(s)
         imgui.TableNextRow()
         imgui.TableNextColumn()
         local v = { r.on }
-        local label = r.count and ('%s (%d)'):format(r.label, r.count) or r.label  -- an item: how many you carry
-        if imgui.Checkbox(label .. '##' .. id, v) then act.row(r.key, v[1]) end
+        -- An item shows how many you carry; ### keeps its id while the count changes.
+        local label = r.count and ('%s (%d)###%s'):format(r.label, r.count, id) or r.label .. '##' .. id
+        if imgui.Checkbox(label, v) then act.row(r.key, v[1]) end
         if s.has_choices then
             imgui.TableNextColumn()
             if r.choices then pick_combo(r, id) end
@@ -302,7 +303,7 @@ end
 local function draw_options(view)
     local v = { view.japanese }
     if imgui.Checkbox('Japanese client##sk3_japanese', v) then act.set('japanese', v[1]) end
-    tip('Send spell and ability names in Japanese.')
+    tip('Send spell, ability and item names in Japanese.')
     v = { view.log }
     if imgui.Checkbox('Action log##sk3_log', v) then act.log(v[1]) end
     tip('Print each action to chat as it is sent.')
