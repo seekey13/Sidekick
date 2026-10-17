@@ -10,7 +10,8 @@
     (Chakra heals and cures). An exact name ("Healing Ruby II") beats its family.
 
     role       heal | pet_heal | remove | pet_remove | pet_send | emergency | revive |
-               recover | buff
+               recover | buff | modifier
+               (a modifier is a JA fired just before the spell it changes: core/engine.lua)
                (a heal's area comes from the DAT: Curaga is a heal like Cure)
     status     what a buff shows: status name (lowest id with that name wins), id,
                or a list (any one counts). Omitted = the status named like the
@@ -48,7 +49,13 @@
     travel     travel buff: still cast while Invisible
     duration   seconds a buff lasts (or per tier), for statuses read off packets (trusts)
     mob_skill  the id a jug pet's move carries in its action packet (the server's mob skill)
+    applies    a modifier's test of a catalog record: which spells a buff row may turn it on for
+    spreads    { area =, mp = }: the modifier makes a single-target spell land on everyone in
+               your party within `area` yalms of you, at `mp` x the cost (Accession)
+    chip       a modifier's short label on a buff row
 ]]--
+
+local sch = require('jobs.sch')
 
 -- Status sets for removals (ids: several names repeat in the status table).
 local CURSE    = { 9, 15, 20, 30 }  -- Curse, Doom, Curse II, Bane
@@ -70,6 +77,7 @@ local PANACEA = { 4, 11, 12, 21, 128, 129, 130, 131, 132, 133, 134, 135, 136, 13
     144, 145, 147, 148, 149, 167, 168, 174, 175 }
 
 local LIGHT = { 'Light Arts', 'Addendum: White' }
+local DARK = { 'Dark Arts', 'Addendum: Black' }
 local SAMBA = { role = 'buff', pick_one = 'samba', blocked_by = 'Fan Dance' }
 
 local K = {
@@ -107,7 +115,11 @@ local K = {
     ['Contradance']  = { role = 'emergency', boost = { 'waltz', 2 } },
     ['Apogee']       = { role = 'emergency', pet = { 'Carbuncle' } },
     ['Rapture']      = { role = 'emergency', requires = LIGHT, boost = { 'healing', 1.5 } },
-    ['Accession']    = { role = 'emergency', requires = LIGHT, boost = { 'healing', area = 10, mp = 2, tiers = 4 } },
+    ['Accession'] = {
+        { role = 'emergency', requires = LIGHT, boost = { 'healing', area = 10, mp = 2, tiers = 4 } },
+        { role = 'modifier', requires = LIGHT, applies = sch.spreads, spreads = { area = 10, mp = 2 },
+          chip = 'Acc', note = 'on everyone near you, at twice the MP' },
+    },
     ['Tranquility']  = { role = 'emergency', requires = LIGHT },
 
     -- remove -------------------------------------------------------------------
@@ -227,6 +239,16 @@ local K = {
     ['Ice Spikes']   = { role = 'buff', pick_one = 'spikes' },
     ['Shock Spikes'] = { role = 'buff', pick_one = 'spikes' },
     ['Dread Spikes'] = { role = 'buff' },
+
+    -- modifier: Scholar's stratagems, fired just before the spell (jobs/sch.lua) --
+    ['Penury']      = { role = 'modifier', requires = LIGHT, applies = sch.white, chip = 'Pen', note = 'half the MP' },
+    ['Celerity']    = { role = 'modifier', requires = LIGHT, applies = sch.white, chip = 'Cel', note = 'half the casting time' },
+    ['Perpetuance'] = { role = 'modifier', requires = LIGHT, applies = sch.enhancing, chip = 'Per', note = 'longer duration' },
+    ['Parsimony']   = { role = 'modifier', requires = DARK, applies = sch.black, chip = 'Par', note = 'half the MP' },
+    ['Alacrity']    = { role = 'modifier', requires = DARK, applies = sch.black, chip = 'Ala', note = 'half the casting time' },
+    -- No chip: fired by itself for an Addendum spell you lack the Addendum for (core/catalog.lua).
+    -- Under Dark Arts, as v2: under Light Arts, Addendum: White is the way in.
+    ['Enlightenment'] = { role = 'modifier', requires = DARK, main_only = true },
 
     -- buff: Scholar -------------------------------------------------------------
     ['Light Arts']      = { role = 'buff', pick_one = 'arts', priority = 100, status = LIGHT },

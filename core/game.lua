@@ -29,6 +29,7 @@
 
 local ffi = require('ffi')
 local buffs = require('core.buffs')
+local sch = require('jobs.sch')
 local can = require('core.can')
 local observed = require('core.observed')
 local packets = require('core.packets')
@@ -44,15 +45,12 @@ local INCAPACITATED = { 2, 7, 10, 14, 17, 19, 28 }  -- Sleep, Petrify, Stun, Cha
 local COMBAT_GRACE = 5      -- seconds "in combat" lasts after the battle target goes (multi-mob pulls)
 local MOVE_SAMPLE = 0.25    -- seconds between position samples
 local READY_DELAY = 0.5     -- a recast reading 0 is trusted only after this (server lag)
-local SCH, STRATAGEMS = 20, 231
 local PC_FIRST, PC_LAST = 0x400, 0x6FF  -- players' entity indexes (the server's range for them)
 local RESCAN = 1            -- seconds between looks for a tracked player not where last seen
 local MOB_FIRST, MOB_LAST = 1, 0x3FF  -- mobs' and NPCs' entity indexes
 local MOB = 0x10            -- spawn flag
 local CLAIM_RANGE = 21      -- yalms: a mob the alliance claimed this close is your battle target...
 local CLAIM_SCAN = 0.5      -- ...looked for at most this often
--- Stratagem charges by SCH level (CatsEyeXI, from v2): { level, charges, seconds per charge }.
-local STRATAGEM_TIERS = { { 75, 5, 48 }, { 65, 4, 60 }, { 50, 3, 80 }, { 30, 2, 120 }, { 10, 1, 240 } }
 
 -- Towns, ships and the like: no combat, so no automation.
 local SAFE_ZONES = {}
@@ -288,15 +286,6 @@ local function moving(em, tidx, now)
     return now - move.moved < MOVE_SAMPLE
 end
 
--- Stratagems share one timer that counts down to every charge back: the wait
--- for one charge, from that timer's seconds and your SCH level.
-function game.charge_wait(seconds, sch_lv)
-    for _, t in ipairs(STRATAGEM_TIERS) do
-        if sch_lv >= t[1] then return math.max(0, seconds - (t[2] - 1) * t[3]) end
-    end
-    return seconds
-end
-
 -- Seconds until `action` (a catalog record) is off recast; 0 = ready.
 function game.recast(action)
     if not action.recast then return 0 end  -- items
@@ -312,10 +301,10 @@ function game.recast(action)
     end
     if timer > 0 then
         ready_since[key] = nil
-        if action.kind ~= 'ja' or action.recast ~= STRATAGEMS then return timer / 60 end
+        if action.kind ~= 'ja' or action.recast ~= sch.STRATAGEMS then return timer / 60 end
         local p = mm:GetPlayer()
-        return game.charge_wait(timer / 60, p:GetMainJob() == SCH and p:GetMainJobLevel()
-            or p:GetSubJob() == SCH and p:GetSubJobLevel() or 0)
+        return sch.charge_wait(timer / 60, p:GetMainJob() == sch.JOB and p:GetMainJobLevel()
+            or p:GetSubJob() == sch.JOB and p:GetSubJobLevel() or 0)
     end
     ready_since[key] = ready_since[key] or os.clock()
     return math.max(0, READY_DELAY - (os.clock() - ready_since[key]))

@@ -117,7 +117,7 @@ In this order. A section with rows is left out when your job has none for it (Pe
 | `id`, `title`, `header` | string | As above. `header` is the collapsing header SK Settings puts it under, headers in the order their first section comes |
 | `on` | bool or nil | The section's switch (`act.section`); every section has one but `profile`, `track` and `ui` |
 | `rows` | list or nil | One per spell family, pick-one group or item, below; nil for the sections without rows |
-| `has_choices`, `has_targets` | bool or nil | Some row in the section has `choices` / `targets` (to lay out columns) |
+| `has_choices`, `has_targets`, `has_mods` | bool or nil | Some row in the section has `choices` / `targets` / `mods` (to lay out columns) |
 
 ### `view.sections[i].rows[j]`
 
@@ -134,6 +134,7 @@ In this order. A section with rows is left out when your job has none for it (Pe
 | `pick` | string or nil | The chosen `name`; nil is Auto |
 | `choice` | string or nil | The label to show for the current pick: `'Auto (best)'`, `'Pick one'`, `'Protect II'`, `'Protect V (not available)'` |
 | `targets` | list or nil | Buff rows that can go on others: 6 chips `{ slot, label, present, name, on, wrap }`, `slot` 0 (you, `'ME'`) to 5 (`'P5'`). `present` is false for an empty party slot (`name` is then nil). When the row's spells can go outside the party (Protect, Haste; not Regen), a chip follows for each tracked player, `'T1'` on, its `slot` their name; then 6 for each of the alliance's other parties that is there or has a chip on, `'B0'` to `'B5'` (`slot` 6 to 11) and `'C0'` to `'C5'` (12 to 17). `wrap` is true on `'B0'` and `'C0'`: the standard window starts a new line there |
+| `mods` | list or nil | Buff rows a modifier fits (SCH's stratagems): `{ name, label, note, on }`, as `{ 'Penury', 'Pen', 'half the MP', false }`. One that is on is fired just before the row's spell when its status isn't on you; Accession (`'Acc'`) instead spreads the spell from you to the row's targets near you, when two or more lack it. nil for other rows and jobs |
 
 ## `act`
 
@@ -146,6 +147,7 @@ In this order. A section with rows is left out when your job has none for it (Pe
 | `act.row(key, on)` | A row on or off |
 | `act.pick(key, name)` | A row's choice: a `choices[i].name`, or nil for Auto |
 | `act.target(key, slot)` | Turn a target chip on or off: its `slot`, 0 to 17 or a tracked player's name |
+| `act.mod(key, name)` | Turn a modifier chip on or off: its `name` (`'Penury'`, `'Accession'`) |
 | `act.track(name)` | Track a player outside your party and alliance: by name, or your current target when nil (`view.track.target` names it). This session only |
 | `act.untrack(name)` | Stop tracking a player, by name. Their buff chips stay set for when they're tracked again |
 | `act.profile(name)` | Load a profile: a `view.profiles.names[i]`, or nil for Default (the settings as they were before a profile was loaded). Loading one never changes `ui`, `japanese`, following, the focus or who healing skips |

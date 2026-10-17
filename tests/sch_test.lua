@@ -1,0 +1,178 @@
+-- SCH's stratagems (jobs/sch.lua) through the engine's modifier chain: a buff
+-- row's stratagems fired first, Accession spreading a buff, and Enlightenment
+-- for an Addendum spell; the row's chips in ui/model.lua.
+local engine = require('core.engine')
+local settings = require('core.settings')
+local can = require('core.can')
+local model = require('ui.model')
+local fake = require('tests.fake')
+
+local SCH, RDM, WHM, BLM = 20, 5, 3, 4
+local LIGHT_ARTS, DARK_ARTS, ADDENDUM_WHITE, ENLIGHTENMENT = 358, 359, 401, 416
+local PERPETUANCE, ACCESSION, PROTECT = 469, 366, 40
+local STRATAGEMS = { 'Light Arts', 'Dark Arts', 'Penury', 'Celerity', 'Accession', 'Perpetuance',
+    'Parsimony', 'Alacrity', 'Enlightenment' }
+local cat = fake.catalog(SCH, 75, RDM, 37, STRATAGEMS)
+
+-- A snapshot with these statuses on you; others in slots 1..n.
+local function snap(buffs, others, waits)
+    local g = fake.snap(others or {}, { main = SCH, sub = RDM }, waits)
+    for _, id in ipairs(buffs) do g.me.buffs[id] = true end
+    return g
+end
+
+local function cfg_with(rows)
+    local cfg = settings.defaults()
+    for k, v in pairs(rows) do cfg.rows[k] = v end
+    return cfg
+end
+
+local function decide(g, cfg, mem, list)
+    local intent, why = engine.decide(g, list or cat, cfg, mem)
+    if not intent then return nil, why end
+    return engine.command(intent, cfg), intent
+end
+
+-- Decide and, when there is something, send it.
+local function step(g, cfg, mem)
+    local cmd, intent = decide(g, cfg, mem)
+    if cmd then engine.sent(intent, g, mem) end
+    return cmd, intent
+end
+
+local function named(list, name, role)
+    for _, a in ipairs(list) do
+        if a.name == name and (not role or a.role == role) then return a end
+    end
+end
+
+test('catalog: the stratagems are modifiers that say which spells they fit', function ()
+    local pen, per, acc, par = named(cat, 'Penury', 'modifier'), named(cat, 'Perpetuance'),
+        named(cat, 'Accession', 'modifier'), named(cat, 'Parsimony')
+    local protect, spikes, raise = named(cat, 'Protect IV'), named(cat, 'Blaze Spikes'), named(cat, 'Raise II')
+    eq({ pen.applies(protect), pen.applies(spikes), par.applies(spikes), par.applies(protect) }, { true, false, true, false })
+    eq({ per.applies(protect), per.applies(spikes), per.status }, { true, false, { PERPETUANCE } })
+    eq({ acc.applies(protect), acc.applies(named(cat, 'Sandstorm')), acc.applies(raise), acc.spreads.mp }, { true, true, false, 2 })
+    eq(named(cat, 'Accession', 'emergency').boost.area, 10)  -- healing keeps its own
+end)
+
+test('catalog: an Addendum spell can go through Enlightenment', function ()
+    local raise = named(cat, 'Raise II')
+    eq({ raise.requires, raise.via and raise.via.name }, { { ADDENDUM_WHITE, ENLIGHTENMENT }, 'Enlightenment' })
+    eq(named(cat, 'Protect IV').via, nil)
+end)
+
+test('can.use: under Dark Arts an Addendum spell is usable while Enlightenment is', function ()
+    local raise = named(cat, 'Raise II')
+    eq(can.use(raise, snap({ DARK_ARTS })), true)
+    eq(select(2, can.use(raise, snap({ DARK_ARTS }, {}, { Enlightenment = 200 }))), 'needs a status')
+    eq(select(2, can.use(raise, snap({ LIGHT_ARTS }))), 'needs a status')  -- Addendum: White is the way in there
+    eq(can.use(raise, snap({ LIGHT_ARTS, ADDENDUM_WHITE })), true)
+end)
+
+test('revive under Dark Arts: Enlightenment first, then the raise while its status is expected', function ()
+    local g = snap({ DARK_ARTS }, { { name = 'A', hpp = 0 } })
+    local cfg, mem = settings.defaults(), {}
+    local cmd, intent = step(g, cfg, mem)
+    eq({ cmd, intent.behavior, intent.why }, { '/ja "Enlightenment" <me>', 'revive', 'for Raise II -> A: A' })
+    -- The JA is on recast now and its status not read yet: still the raise.
+    g = snap({ DARK_ARTS }, { { name = 'A', hpp = 0 } }, { Enlightenment = 300 })
+    g.now = 1001
+    eq(step(g, cfg, mem), '/ma "Raise II" 101')
+    -- No status after the window: the raise can't go.
+    g = snap({ DARK_ARTS }, { { name = 'A', hpp = 0 } }, { Enlightenment = 300 })
+    g.now = 1000 + engine.EXPECT + 0.1
+    eq(decide(g, cfg, mem), nil)
+end)
+
+test('a buff row\'s stratagem goes first, then the spell; never when it can\'t', function ()
+    local cfg = cfg_with({ Protect = { on = true, mods = { Perpetuance = true, Penury = true } } })
+    local mem = {}
+    local g = snap({ LIGHT_ARTS })
+    eq(step(g, cfg, mem), '/ja "Penury" <me>')
+    g = snap({ LIGHT_ARTS })
+    g.now = 1001.5
+    eq(step(g, cfg, mem), '/ja "Perpetuance" <me>')
+    g = snap({ LIGHT_ARTS, PERPETUANCE })  -- Penury's status read, Perpetuance's expected
+    eq(step(g, cfg, mem), '/ma "Protect IV" <me>')
+    -- Dark Arts: no white stratagem, so the spell alone.
+    eq(decide(snap({ DARK_ARTS }), cfg, {}), '/ma "Protect IV" <me>')
+    -- No charge left: the spell alone.
+    eq(decide(snap({ LIGHT_ARTS }, {}, { Penury = 30, Perpetuance = 30 }), cfg, {}), '/ma "Protect IV" <me>')
+    -- A stratagem that doesn't fit the spell is never fired for it.
+    cfg = cfg_with({ spikes = { on = true, pick = 'Blaze Spikes', mods = { Penury = true } } })
+    eq(decide(snap({ LIGHT_ARTS }), cfg, {}), '/ma "Blaze Spikes" <me>')
+end)
+
+test('Accession spreads a buff from you when two or more of its targets near lack it', function ()
+    local cfg = cfg_with({ Protect = { on = true, targets = { [0] = true, [1] = true, [2] = true },
+                                       mods = { Accession = true } } })
+    local others = { { name = 'A' }, { name = 'B', buffs = { [PROTECT] = true } } }
+    local mem = {}
+    local cmd, intent = step(snap({ LIGHT_ARTS }, others), cfg, mem)
+    eq({ cmd, intent.why }, { '/ja "Accession" <me>', 'for Protect IV: Me +1 lack it' })
+    local g = snap({ LIGHT_ARTS }, others, { Accession = 40 })
+    g.now = 1001.5
+    eq(step(g, cfg, mem), '/ma "Protect IV" <me>')
+    -- One lacks it: the spell on them alone, no charge spent.
+    eq(decide(snap({ LIGHT_ARTS, PROTECT }, others), cfg, {}), '/ma "Protect IV" 101')
+    -- Accession already up (healing fired it): used, though off recast it couldn't be.
+    others = { { name = 'A' }, { name = 'B' } }
+    eq(decide(snap({ LIGHT_ARTS, ACCESSION }, others, { Accession = 40 }), cfg, {}), '/ma "Protect IV" <me>')
+    -- Not the MP for twice the cost: one at a time.
+    g = snap({ LIGHT_ARTS }, others)
+    g.me.mp = 100
+    eq(decide(g, cfg, {}), '/ma "Protect IV" <me>')
+    -- Untargeted members don't count.
+    cfg.rows.Protect.targets = { [0] = true }
+    eq(decide(snap({ LIGHT_ARTS }, others), cfg, {}), '/ma "Protect IV" <me>')
+end)
+
+test('Accession: held for the group like an area spell, and only for the row\'s targets', function ()
+    local cfg = cfg_with({ Protect = { on = true, targets = { [0] = true, [1] = true, [2] = true },
+                                       mods = { Accession = true } } })
+    cfg.buff.hold_aoe = true
+    local others = { { name = 'A' }, { name = 'B', dist = 15 } }
+    local mem = {}
+    eq({ decide(snap({ LIGHT_ARTS }, others), cfg, mem) }, { nil, 'holding Protect IV: B 15.0y away' })
+    eq(engine.gather(snap({ LIGHT_ARTS }, others), cfg, mem), '/p Gather together for Protect IV')
+    cfg.rows.Protect.targets = { [0] = true, [1] = true }
+    eq(decide(snap({ LIGHT_ARTS }, others), cfg, {}), '/ja "Accession" <me>')
+end)
+
+test('UI: a buff row shows the stratagems that fit it, and act.mod turns one on and off', function ()
+    local names = { job = function () return 'SCH' end, statuses = fake.res.statuses }
+    local cfg = settings.defaults()
+    local function rows()
+        local view = model.build(fake.snap({}), cat, cfg, { running = false, sent = {} }, names)
+        local out = {}
+        for _, s in ipairs(view.sections) do
+            if s.id == 'buff' then
+                out.has_mods = s.has_mods
+                for _, r in ipairs(s.rows) do out[r.key] = r end
+            end
+        end
+        return out
+    end
+    local function chips(r)
+        local out = {}
+        for i, m in ipairs(r.mods or {}) do out[i] = m.label .. (m.on and '+' or '') end
+        return out
+    end
+    local r = rows()
+    eq({ r.has_mods, chips(r.Protect), chips(r.spikes), chips(r.storm), r['Light Arts'] and r['Light Arts'].mods },
+       { true, { 'Pen', 'Cel', 'Acc', 'Per' }, { 'Par', 'Ala' }, { 'Pen', 'Cel', 'Acc', 'Per' }, nil })
+    eq(r.Protect.mods[3].note, 'on everyone near you, at twice the MP')
+    local n = 0
+    local act = model.actions(cfg, {}, function () n = n + 1 end)
+    act.mod('Protect', 'Accession')
+    eq({ cfg.rows.Protect, chips(rows().Protect) }, { { on = false, mods = { Accession = true } }, { 'Pen', 'Cel', 'Acc+', 'Per' } })
+    act.mod('Protect', 'Accession')
+    eq({ cfg.rows.Protect.mods, n }, { {}, 2 })
+    -- Jobs without stratagems: no chips.
+    local whm = fake.catalog(WHM, 75, BLM, 37)
+    local view = model.build(fake.snap({}), whm, settings.defaults(), { running = false, sent = {} }, names)
+    for _, s in ipairs(view.sections) do
+        if s.id == 'buff' then eq(s.has_mods, false) end
+    end
+end)

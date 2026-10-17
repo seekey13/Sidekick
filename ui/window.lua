@@ -569,15 +569,27 @@ local function target_chips(r, id)
     end
 end
 
--- One row per settings key: [x] Name (note) | pick | ME P1-P5 | ready or why not.
--- The pick and target columns are there only when some row in this table has them.
+-- Stratagems fired before the row's spell: Pen, Cel, Acc...
+local function mod_chips(r, id)
+    for i, m in ipairs(r.mods) do
+        if i > 1 then imgui.SameLine(0, 2) end
+        if not m.on then push_button(CHIP_OFF) end
+        if imgui.Button(m.label .. '##' .. id .. '_mod_' .. m.name, { CHIP_WIDTH, 0 }) then act.mod(r.key, m.name) end
+        if not m.on then imgui.PopStyleColor(3) end
+        tip(m.note and ('%s first: %s'):format(m.name, m.note) or m.name)
+    end
+end
+
+-- One row per settings key: [x] Name (note) | pick | ME P1-P5 | Pen Acc | ready or why not.
+-- The pick, target and modifier columns are there only when some row in this table has them.
 local function draw_rows(table_id, section_id, rows)
-    local choices, targets = false, false
+    local choices, targets, mods = false, false, false
     for _, r in ipairs(rows) do
         choices = choices or r.choices ~= nil
         targets = targets or r.targets ~= nil
+        mods = mods or r.mods ~= nil
     end
-    local columns = 2 + (choices and 1 or 0) + (targets and 1 or 0)
+    local columns = 2 + (choices and 1 or 0) + (targets and 1 or 0) + (mods and 1 or 0)
     if not imgui.BeginTable(table_id, columns, ImGuiTableFlags_SizingFixedFit) then return end
     for _, r in ipairs(rows) do
         local id = section_id .. '_' .. r.key
@@ -594,6 +606,10 @@ local function draw_rows(table_id, section_id, rows)
         if targets then
             imgui.TableNextColumn()
             if r.targets then target_chips(r, id) end
+        end
+        if mods then
+            imgui.TableNextColumn()
+            if r.mods then mod_chips(r, id) end
         end
         imgui.TableNextColumn()
         text(r.avail, r.ready and GREEN or GREY)

@@ -90,7 +90,10 @@ function can.use(a, g)
     if (a.tp or 0) > 0 and a.tp > g.me.tp then return false, 'TP' end
     if a.ammo and not can.holds(a.ammo, g.ammo) then return false, 'no ammo' end
     if a.kind == 'item' and not (g.items and g.items[a.id]) then return false, 'none left' end
-    if a.requires and not any(g.me.buffs, a.requires) then return false, 'needs a status' end
+    -- An Addendum spell can go through Enlightenment instead (core/catalog.lua), fired first by the engine.
+    if a.requires and not any(g.me.buffs, a.requires) and not (a.via and can.use(a.via, g)) then
+        return false, 'needs a status'
+    end
     if any(g.me.buffs, a.blocked_by) then return false, 'blocked by a status' end
     if a.gate == 'combat' and not g.combat then return false, 'combat only' end
     if a.gate == 'idle' and g.combat then return false, 'idle only' end
