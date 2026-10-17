@@ -2,10 +2,11 @@
     Players outside your party you look after too (/sk3 track), this session
     only, as in v2. core/game.lua makes each a unit of kind 'tracked': healed,
     cleared, woken, raised, followed and buffed like a member, with what reaches
-    outside the party (Cure, Protect, Haste, the -na spells, Raise; not Regen,
-    Erase, or any area spell, which lands on your own party only).
+    outside the party (Cure, Curing Waltz, Protect, Haste, the -na spells, Raise;
+    not Regen, Erase, or an area spell cast from you or a member, which lands
+    on your own party only).
 
-    entry = { sid, name, tidx = entity index last seen at,
+    entry = { sid, name, tidx = entity index last seen at, hpp, status = as last seen there,
               main, main_lv, sub, sub_lv = from a /check (packet 0x0C9), nil until one answers }
     Only their HP % can be read: their max HP is estimated from that level.
 ]]--

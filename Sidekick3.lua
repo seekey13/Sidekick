@@ -191,20 +191,31 @@ local function tracked_named(name)
     end
 end
 
+-- The buff named `name` (lower case): a spell, its family or its row key.
+local function buff_named(name)
+    for _, x in ipairs(cat.list) do
+        if x.role == 'buff' and (x.name:lower() == name or x.family:lower() == name or settings.key(x):lower() == name) then
+            return x
+        end
+    end
+end
+
 -- /sk3 buff [name] [me p1..p5 <tracked name> | off]: turn a buff row on for those
--- targets, or off; with no name, list the rows that are on.
+-- targets, or off; with no name, list the rows that are on. The buff's name is
+-- the longest run of leading words naming one; the words after it are tracked players.
 local SLOTS = { me = 0, p0 = 0, p1 = 1, p2 = 2, p3 = 3, p4 = 4, p5 = 5 }
 local function buff_command(args)
     local words, slots, off = {}, {}, false
     for i = 3, #args do
         local w = args[i]:lower()
-        local t = tracked_named(w)
-        if SLOTS[w] then slots[SLOTS[w]] = true
-        elseif t then slots[t.name] = true
-        elseif w == 'off' then off = true
-        else words[#words + 1] = w end
+        if SLOTS[w] then slots[SLOTS[w]] = true elseif w == 'off' then off = true else words[#words + 1] = w end
     end
-    local name = table.concat(words, ' ')
+    local a, n
+    for k = #words, 1, -1 do
+        a = buff_named(table.concat(words, ' ', 1, k))
+        if a then n = k; break end
+    end
+    local name = table.concat(words, ' ', 1, n or #words)
     if name == '' then
         local shown = 0
         for key, row in pairs(cfg.rows) do
@@ -221,14 +232,12 @@ local function buff_command(args)
         if shown == 0 then printf('No buffs on. /sk3 buff Haste p1 p2 turns one on; /sk3 catalog lists them.') end
         return
     end
-    local a
-    for _, x in ipairs(cat.list) do
-        if x.role == 'buff' and (x.name:lower() == name or x.family:lower() == name or settings.key(x):lower() == name) then
-            a = x
-            break
-        end
-    end
     if not a then printf('No buff "%s" for this job. /sk3 catalog lists them.', name); return end
+    for k = n + 1, #words do
+        local t = tracked_named(words[k])
+        if not t then printf('Not tracking "%s": /sk3 track %s first.', words[k], words[k]); return end
+        slots[t.name] = true
+    end
     local key = settings.key(a)
     local row = cfg.rows[key] or { targets = { [0] = true } }
     row.on = not off
@@ -268,13 +277,8 @@ local function track(name)
     AshitaCore:GetChatManager():QueueCommand(1, '/check ' .. p.name)
 end
 
--- /sk3 untrack <name|all> and the UI's Untrack buttons.
+-- The UI's Untrack buttons, and /sk3 untrack <name>.
 local function untrack(name)
-    if name:lower() == 'all' then
-        while tracked.list[1] do tracked.remove(tracked.list[1].name) end
-        printf('Tracking no one.')
-        return
-    end
     local t = tracked.remove(name)
     if t then printf('Stopped tracking %s.', t.name) else printf('Not tracking "%s".', name) end
 end
@@ -371,13 +375,13 @@ ashita.events.register('command', 'sidekick3_command', function (e)
         local name = args[3] and args[3]:lower() ~= 'off' and args[3] or ''
         cfg.heal.focus = name
         settings.save()
-        printf(name == '' and 'Focus off.' or ('Focus: %s.'):format(name))
+        if name == '' then printf('Focus off.') else printf('Focus: %s.', name) end
     elseif sub == 'follow' then
         local name = args[3] and args[3]:lower() ~= 'off' and args[3] or ''
         cfg.follow.on = name ~= ''
         if name ~= '' then cfg.follow.target = name end
         settings.save()
-        printf(name == '' and 'Follow off.' or ('Following %s past %d yalms.'):format(name, cfg.follow.distance))
+        if name == '' then printf('Follow off.') else printf('Following %s past %d yalms.', name, cfg.follow.distance) end
     elseif sub == 'track' then
         if args[3] or g.target then track(args[3]); return end
         if not tracked.list[1] then printf('Tracking no one. Target a player, then /sk3 track (or /sk3 track <name>).'); return end
@@ -387,7 +391,10 @@ ashita.events.register('command', 'sidekick3_command', function (e)
         end
         printf('Tracking: %s. Target another player to add them.', table.concat(list, ', '))
     elseif sub == 'untrack' then
-        if args[3] then untrack(args[3]) else printf('/sk3 untrack <name|all>') end
+        if not args[3] then printf('/sk3 untrack <name|all>'); return end
+        if args[3]:lower() ~= 'all' or tracked_named('all') then untrack(args[3]); return end
+        while tracked.list[1] do tracked.remove(tracked.list[1].name) end
+        printf('Tracking no one.')
     elseif sub == 'rest' then
         local w = (args[3] or ''):lower()
         cfg.rest.on = w == 'on' or (w ~= 'off' and not cfg.rest.on)

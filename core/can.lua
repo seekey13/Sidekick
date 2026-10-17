@@ -62,8 +62,9 @@ function can.self_only(a) return a.targets == SELF end
 -- Can go on a player outside your party (a tracked player).
 function can.outside(a) return has(a.targets, ALLY) end
 
--- An area effect (Curaga, Esuna, Protectra, Accession) lands on the target's
--- party: from you or a member, never on a tracked player.
+-- An area effect lands on the target's party: one from you or a member
+-- (Curaga, Esuna, Protectra) never reaches a tracked player; one aimed at them
+-- (a Cure spread by Majesty or Accession, a -na by Divine Veil) lands on theirs.
 function can.in_party(u) return u.kind ~= 'tracked' end
 
 -- Whether `a` can be used now, else false and why.

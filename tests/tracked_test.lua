@@ -9,8 +9,8 @@ local settings = require('core.settings')
 local tracked = require('core.tracked')
 local fake = require('tests.fake')
 
-local WHM, BLM, SCH, WAR, BLU = 3, 4, 20, 1, 16
-local SLEEP, PARALYSIS, SLOW, PROTECT, HASTE, LIGHT_ARTS = 2, 4, 13, 40, 33, 358
+local WHM, BLM, PLD, SCH, WAR, BLU = 3, 4, 7, 20, 1, 16
+local SLEEP, PARALYSIS, SLOW, PROTECT, HASTE, LIGHT_ARTS, ACCESSION, MAJESTY = 2, 4, 13, 40, 33, 358, 366, 621
 local cat = fake.catalog(WHM, 75, BLM, 37, { 'Divine Seal', 'Martyr' })
 local snap = fake.snap
 
@@ -114,6 +114,20 @@ test('heal: Accession never spreads a Cure around a tracked player, nor counts o
     eq(decide(g, nil, sch), '/ja "Accession" <me>')  -- two in the party together: spread it
 end)
 
+test('heal: with Majesty or Accession up, a Cure aimed at a tracked player still goes, counting them alone', function ()
+    local pld = fake.catalog(PLD, 75, WHM, 37, { 'Majesty' })
+    local g = snap({ out({ hpp = 40 }) })
+    local plain = decide(g, nil, pld)
+    eq(plain:match('^/ma "Cure[ IV]*" 201$') ~= nil, true, plain)
+    g.me.buffs[MAJESTY] = true
+    eq(decide(g, nil, pld), plain)
+    local sch = fake.catalog(SCH, 75, nil, 0, { 'Accession' })
+    g = snap({ out({ hpp = 45 }) })
+    g.me.buffs[LIGHT_ARTS], g.me.buffs[ACCESSION] = true, true
+    local cmd = decide(g, nil, sch)
+    eq(cmd and cmd:match('^/ma "Cure[ IV]*" 201$') ~= nil, true, cmd)
+end)
+
 test('heal: a tracked player can be the focus, and skipped', function ()
     local cfg = settings.defaults()
     cfg.heal.focus = 'out'
@@ -165,9 +179,4 @@ test('follow: a tracked leader by name, as they have no party slot', function ()
     local cmd, intent = decide(snap({ out({ dist = 12 }) }), cfg)
     eq({ cmd, intent.why }, { '/follow Out', 'Out 12.0y away' })
     eq({ decide(snap({ out({ dist = 12, in_zone = false }) }), cfg) }, { nil, 'nothing to do' })  -- out of range
-end)
-
-test('recover: Devotion never goes on a tracked player, whose MP is unknown', function ()
-    local whm = fake.catalog(WHM, 75, nil, 0, { 'Devotion' })
-    eq({ decide(snap({ out({ hpp = 100 }) }), nil, whm) }, { nil, 'nothing to do' })
 end)

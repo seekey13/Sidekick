@@ -51,7 +51,7 @@ Drag the HUD where you want it; Lock position keeps it there.
 
 Each row turns a family on or off and says whether it's ready or why not.
 
-**Tracked players** are looked after like members with whatever reaches outside a party: Cure and waltzes, Protect, Shell, Haste, the -na spells, raises, following. Regen, Refresh, Erase and every area spell (Curaga, Esuna, Protectra) land on your own party only, so they never count them. Only their HP % can be read: Sidekick `/check`s them for their level to estimate their max HP (they see that you examined them, as in v2; an /anon player is sized like you). Tracking lasts until Sidekick3 is reloaded; a buff row remembers them by name, so tracking them again brings their buffs back.
+**Tracked players** are looked after like members with whatever reaches outside a party: Cure and Curing Waltz, Protect, Shell, Haste, the -na spells, raises, following. Regen, Refresh, Erase and Healing Waltz can't go on them, and an area spell cast from you or a member (Curaga, Esuna, Protectra) lands on your own party only, so it never counts them. Only their HP % can be read: Sidekick `/check`s them for their level to estimate their max HP (they see that you examined them, as in v2; an /anon player is sized like you). Tracking lasts until Sidekick3 is reloaded; a buff row remembers them by name, so tracking them again brings their buffs back.
 
 The UI is one replaceable file: put your own in `ui/custom.lua` and it's used instead. [ui/README.md](ui/README.md) documents what a UI is given and what it can change, with an example.
 

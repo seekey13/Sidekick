@@ -392,14 +392,16 @@ local function draw_rest(view)
     slider('Stand past##sk3_rest_distance', 'rest.distance', r.distance, 1, 15, 'Yalms from the leader.')
 end
 
--- Each tracked player with its Untrack button, then Track for your target.
+-- Each tracked player with its Untrack button (one who joined your party too),
+-- then Track for your target.
 local function draw_track(view)
     for _, p in ipairs(view.party) do
-        if p.kind == 'tracked' then
+        if p.tracked then
             if imgui.Button('Untrack##sk3_untrack_' .. p.name) then act.untrack(p.name) end
             imgui.SameLine()
-            text(('%s %s'):format(p.tag, p.name) .. (p.job and ('  ' .. p.job) or ''), p.away and GREY or nil)
-            tip(p.away and 'Out of range.' or nil)
+            local note = p.kind ~= 'tracked' and '  (in your party)' or p.job and ('  ' .. p.job) or ''
+            text(('%s %s'):format(p.tag, p.name) .. note, p.away and GREY or nil)
+            tip(p.away and (p.kind == 'tracked' and 'Out of range.' or 'In another zone.') or nil)
         end
     end
     local t = view.track.target

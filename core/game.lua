@@ -11,8 +11,9 @@
              status (entity), alive, buffs = { [id] = true },
              hot = HP still to come from your Regen, nil if none }
     A tracked player has no slot and no MP; in_zone while the client draws them
-    (in range), max_hp estimated from their /check level (else yours), and
-    main, main_lv, sub, sub_lv once a /check has answered.
+    (in range; out of it, their HP and status as last seen), max_hp estimated
+    from their /check level (else yours), and main, main_lv, sub, sub_lv once a
+    /check has answered. A member you also track has tracked = true.
     The pet is { sid, tidx, name, hpp, dist, pos, status (1 engaged), buffs }.
     `target` is your current target when it's another player: { tidx, sid, name }.
     Plus when your cast began (cast_at, while casting);
@@ -190,12 +191,13 @@ local function here(em, t)
 end
 
 -- Zoning (theirs or yours) gives everyone a new entity index: while a tracked
--- player isn't where they were, look for them again, at most once a second.
-local function relocate(em, now)
+-- player outside your party isn't where they were, look for them again, at
+-- most once a second.
+local function relocate(em, now, in_party)
     if now - rescan_at < RESCAN then return end
     local lost = {}
     for _, t in ipairs(tracked.list) do
-        if not here(em, t) then lost[t.sid] = t end
+        if not (in_party[t.sid] or here(em, t)) then lost[t.sid] = t end
     end
     if not next(lost) then return end
     rescan_at = now
@@ -207,15 +209,17 @@ end
 
 -- A tracked player as a unit. Only HP % can be read, so HP comes from the max
 -- estimated by level, or yours while the level is unknown (/anon, no /check).
+-- Out of range, their HP and status are as last seen, as a member's in another zone.
 local function tracked_unit(em, t, me, now)
-    local u = { sid = t.sid, name = t.name, kind = 'tracked', hpp = 0, mpp = 0, mp = 0, tp = 0, uses_mp = false,
+    local u = { sid = t.sid, name = t.name, kind = 'tracked', mpp = 0, mp = 0, tp = 0, uses_mp = false,
                 in_zone = here(em, t), main = t.main, main_lv = t.main_lv, sub = t.sub, sub_lv = t.sub_lv }
     if u.in_zone then
         local i = t.tidx
-        u.tidx, u.hpp, u.status = i, em:GetHPPercent(i), em:GetStatus(i)
-        u.dist = math.sqrt(em:GetDistance(i))
+        t.hpp, t.status = em:GetHPPercent(i), em:GetStatus(i)
+        u.tidx, u.dist = i, math.sqrt(em:GetDistance(i))
         u.pos = { em:GetLocalPositionX(i), em:GetLocalPositionY(i), em:GetLocalPositionZ(i) }
     end
+    u.hpp, u.status = t.hpp or 0, t.status
     u.max_hp = t.main_lv and tracked.max_hp(t.main_lv) or me.max_hp
     u.hp = u.max_hp and math.floor(u.max_hp * u.hpp / 100) or 0
     u.alive = u.hpp > 0 and u.status ~= DEAD
@@ -296,7 +300,7 @@ function game.read(now)
             in_party[sid] = true
             local u = {
                 slot = i, sid = sid, tidx = tidx, name = party:GetMemberName(i),
-                kind = i == 0 and 'self' or sid >= TRUST and 'trust' or 'party',
+                kind = i == 0 and 'self' or sid >= TRUST and 'trust' or 'party', tracked = tracked.find(sid) and true,
                 hpp = party:GetMemberHPPercent(i), hp = party:GetMemberHP(i),
                 mpp = party:GetMemberMPPercent(i), mp = party:GetMemberMP(i), tp = party:GetMemberTP(i),
                 in_zone = party:GetMemberZone(i) == zone,
@@ -328,7 +332,7 @@ function game.read(now)
     end
 
     local me = units[1]
-    relocate(em, now)
+    relocate(em, now, in_party)
     for _, t in ipairs(tracked.list) do
         if not in_party[t.sid] then  -- one who joined your party is a member while they stay
             units[#units + 1] = tracked_unit(em, t, me, now)

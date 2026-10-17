@@ -10,8 +10,10 @@
       efficient  from the danger line to full HP: HP that lands where it's needed, per
                  share of the MP or TP you have; Regen allowed, and counted while it ticks
     The focus member has its own two lines; skipped members count for nothing.
-    A tracked player is healed like a member, but only by a heal aimed at them:
-    an area heal lands on your party alone.
+    A tracked player is healed like a member, by a heal aimed at them. An area
+    heal lands on the target's party, so one centred on you or a member never
+    reaches them, and one aimed at them (a Cure spread by Majesty or Accession)
+    counts them alone: Accession is never fired for them.
 ]]--
 
 local can = require('core.can')
@@ -134,10 +136,11 @@ end
 
 -- One candidate: `a` in form `f` aimed at `centre`. Nil unless it reaches a band member.
 local function rate(band, a, f, centre, amt, ctx, members)
-    if f.radius > 0 and not can.in_party(centre) then return nil end  -- it would land on their party
+    if f.via and not can.in_party(centre) then return nil end
+    local spread = f.radius > 0 and can.in_party(centre)  -- around a tracked player it lands on their party
     local c = { band = band, a = a, f = f, centre = centre, cover = {}, sum = 0, points = 0, count = 0 }
     for _, u in ipairs(ctx.g.units) do
-        if u == centre or f.radius > 0 and can.in_party(u) and u.alive and u.in_zone and can.dist(centre, u) <= f.radius then
+        if u == centre or spread and can.in_party(u) and u.alive and u.in_zone and can.dist(centre, u) <= f.radius then
             c.cover[#c.cover + 1] = u
             local useful = amt and not ctx.s.skip[u.name] and math.min(amt, need(u, band == 'efficient')) or 0
             c.sum = c.sum + useful

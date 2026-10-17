@@ -76,7 +76,8 @@ Text that may contain `%` (names, `why` text) must be escaped before it's drawn:
 | `name` | string | |
 | `job` | string or nil | A tracked player's jobs once a `/check` has answered: `'WHM 75 / BLM 37'`; nil for everyone else |
 | `alive` | bool | |
-| `away` | bool | In another zone (its HP and MP are stale), or for a tracked player, out of range (HP shows 0) |
+| `away` | bool | In another zone (its HP and MP are stale), or for a tracked player, out of range (its HP as last seen) |
+| `tracked` | bool | You track this player: every `'tracked'` line, and a member who joined your party while tracked (they are tracked again when they leave) |
 | `hpp`, `mpp` | number | HP and MP, 0 to 100 |
 | `hp` | string | `'ok'`, `'low'` (under the danger line) or `'critical'` (under the critical line); the focus member's own lines for them |
 | `uses_mp` | bool | It has MP: yours when your max MP is over 0; another member's once it has been seen with MP on its current jobs. Never a tracked player's: their MP can't be read (`mpp` is 0) |
@@ -104,7 +105,7 @@ In this order. A section with rows is left out when your job has none for it (Pe
 | `'pet'` | Pet | Pet | `view.pet_heal`, rows |
 | `'recover'` | Recovery | Recover | `view.recover`, rows |
 | `'rest'` | Resting | Recover | `view.rest` |
-| `'track'` | Tracked players | Tracked | `view.track`, and the `party` lines of kind `'tracked'` |
+| `'track'` | Tracked players | Tracked | `view.track`, and the `party` lines with `tracked` |
 | `'ui'` | UI / Log | UI / Log | `view.ui`, `view.log`, `view.recent`, `view.japanese` |
 
 | Field | Type | What it is |

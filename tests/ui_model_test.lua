@@ -318,6 +318,8 @@ test('tracked players: tagged T1 on, their jobs once a /check answers, and among
     eq({ out.kind, out.job, out.away, out.uses_mp, far.job, far.away }, { 'tracked', 'WHM 75 / BLM 37', false, false, nil, true })
     eq(view.heal.focus_names, { 'A', 'Out', 'Far' })
     eq(view.follow.names, { 'A', 'Out', 'Far' })
+    eq(keys(view.party, 'tracked'), { false, false, true, true })
+    eq(build(whm, nil, fake.snap({ { name = 'A', tracked = true } })).party[2].tracked, true)  -- joined your party
 end)
 
 test('buff rows reaching outside the party get a chip per tracked player, its slot their name', function ()

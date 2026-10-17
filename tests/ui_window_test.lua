@@ -513,7 +513,7 @@ if package.searchpath('ui.custom', package.path) then
 end
 
 test('a tracked player\'s card has no MP %; Tracked lists them to untrack, and offers your target', function ()
-    local g = fake.snap({ { name = 'A' }, { kind = 'tracked', name = 'Out', hpp = 80, main = 3, main_lv = 75, sub = 4, sub_lv = 37 } },
+    local g = fake.snap({ { name = 'A', tracked = true }, { kind = 'tracked', name = 'Out', hpp = 80, main = 3, main_lv = 75, sub = 4, sub_lv = 37 } },
         { target = { sid = 900, tidx = 1200, name = 'Stranger' } })
     local cfg, st = settings.defaults(), status()
     open_settings()
@@ -523,7 +523,7 @@ test('a tracked player\'s card has no MP %; Tracked lists them to untrack, and o
     eq({ tracking_calls, writes }, { { { 'remove', 'Out' }, { 'add', 'Stranger' } }, 0 })
     eq({ fill('T1') ~= nil, fill('80%') ~= nil, fill('0%') }, { true, true, nil })  -- Out's MP is unknown, not 0
     eq(tipped('Out (tracked, WHM 75 / BLM 37)\nHP 80%  5.0y'), true)
-    eq(showed('T1 Out  WHM 75 / BLM 37'), true)
+    eq({ showed('T1 Out  WHM 75 / BLM 37'), showed('P1 A  (in your party)') }, { true, true })
     g.target = nil
     render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
     eq(showed('Target a player outside your party to track them, or /sk3 track Name.'), true)
