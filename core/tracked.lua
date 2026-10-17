@@ -40,11 +40,12 @@ function tracked.add(sid, name, tidx, auto)
     return true
 end
 
--- Stop tracking server id `sid`, forgetting their statuses; the entry, or nil.
-function tracked.drop(sid)
+-- Stop tracking server id `sid`, forgetting their statuses unless `keep` (one who
+-- joined your party or alliance: still seen by the same packets); the entry, or nil.
+function tracked.drop(sid, keep)
     for i, t in ipairs(tracked.list) do
         if t.sid == sid then
-            buffs.forget(sid)
+            if not keep then buffs.forget(sid) end
             return table.remove(tracked.list, i)
         end
     end
@@ -64,6 +65,7 @@ end
 function tracked.checked(sid, main, main_lv, sub, sub_lv)
     local t = tracked.find(sid)
     if not t or main_lv == 0 then return end
+    if main_lv ~= t.main_lv then t.max_hp = nil end  -- a session file's, for other jobs
     t.main, t.main_lv, t.sub, t.sub_lv = main, main_lv, sub, sub_lv
 end
 

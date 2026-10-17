@@ -81,7 +81,7 @@ Text that may contain `%` (names, `why` text) must be escaped before it's drawn:
 | `name` | string | |
 | `job` | string or nil | A tracked player's jobs once a `/check` or another session's file has answered: `'WHM 75 / BLM 37'`; nil for everyone else |
 | `alive` | bool | |
-| `away` | bool | In another zone (its HP and MP are stale), or for a tracked player, out of range (its HP as last seen) |
+| `away` | bool | In another zone (its HP and MP are stale), or for a tracked player, out of range (its HP as last seen, or as another Sidekick session on this PC reads it) |
 | `tracked` | bool | You track this player: every `'tracked'` line, and a member who joined your party or alliance while tracked (they are tracked again when they leave) |
 | `shared` | string or nil | A tracked player another Sidekick session on this PC lists (its party): that session's character name. Tracked while it lists them; untracked by hand, they stay off until tracked again |
 | `hpp`, `mpp` | number | HP and MP, 0 to 100 |

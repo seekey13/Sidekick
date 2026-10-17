@@ -192,10 +192,11 @@ local function show_state(g)
         local names = {}
         for id in pairs(u.buffs) do names[#names + 1] = statuses[id] and statuses[id].en or tostring(id) end
         table.sort(names)
-        local out = u.kind == 'tracked'  -- max HP estimated from the level, or yours; no MP read
+        local out = u.kind == 'tracked'  -- max HP estimated from the level, or yours (else a session file's); no MP read
+        local guess = out and not tracked.find(u.sid).max_hp
         local kind = u.auto and 'auto' or out and 'track' or u.kind == 'alliance' and model.TAGS[u.slot] or u.kind
         printf('  %-5s %-14s HP %3d%%%s %s  %s  %s', kind, u.name, u.hpp,
-            u.max_hp and ((out and '/~' or '/') .. u.max_hp) or '',
+            u.max_hp and ((guess and '/~' or '/') .. u.max_hp) or '',
             out and (u.main_lv and ('%s%d'):format(abbr(u.main), u.main_lv) or 'lv ?') or ('MP %3d%%'):format(u.mpp),
             u.in_zone and ('%.1fy'):format(u.dist or 0) or 'away', table.concat(names, ', '))
     end
@@ -309,7 +310,7 @@ end
 local function track(name)
     local g = snap
     if g.loading then return end
-    local p = name and game.find_player(name) or not name and g.target
+    local p = name and (game.find_player(name) or share.named(share.sessions, name)) or not name and g.target
     if not p then
         if name then printf('No player "%s" near you.', name) else printf('Target a player first, or /sk3 track <name>.') end
         return
@@ -321,9 +322,13 @@ local function track(name)
         end
     end
     local shared = share.known(share.sessions, p.sid)  -- their level comes from a session file: no /check
+    local had = tracked.find(p.sid)
+    local from = had and had.auto
     if tracked.add(p.sid, p.name, p.tidx) then
         printf('Tracking %s: healed, cleared, raised and buffed (buff rows pick them by name).%s', p.name,
             shared and '' or ' Checking their level.')
+    elseif from then
+        printf('Tracking %s yourself now: kept when %s\'s session stops listing them.', p.name, from)
     else
         printf('Already tracking %s%s.', p.name, shared and '' or '; checking their level again')
     end

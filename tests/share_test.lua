@@ -9,7 +9,7 @@ local WHM, BLM, RDM, WAR, PROTECT = 3, 4, 5, 1, 40
 
 local function member(sid, name, over)
     local m = { sid = sid, name = name, main = WHM, main_lv = 75, sub = BLM, sub_lv = 37,
-                hpp = 80, hp = 800, max_hp = 1000, mpp = 50, mp = 400 }
+                hpp = 80, hp = 800, max_hp = 1000, mpp = 50, mp = 400, here = true }
     for k, v in pairs(over or {}) do m[k] = v end
     return m
 end
@@ -34,6 +34,7 @@ test('a file caught mid-write, empty or of another version reads as nothing', fu
     eq(share.decode(nil), nil)
     eq(share.decode(''), nil)
     eq(share.decode(text:sub(1, #text - 12)), nil)  -- the last line cut short
+    eq(share.decode(text:sub(1, #text - 6)), nil)   -- cut after the name: the end line is missing
     eq(share.decode((text:gsub('session 1', 'session 2'))), nil)
     eq(share.decode('sk3 session 1\n5 0\n'), nil)  -- no members
 end)
@@ -43,13 +44,14 @@ test('the roster is you and your party\'s players with their jobs; a max HP only
                           { name = 'Trust', kind = 'trust' },
                           { name = 'B0', kind = 'alliance' },
                           { name = 'Out', kind = 'tracked' },
-                          { name = 'P2', hpp = 40 } })
+                          { name = 'P2', hpp = 40, in_zone = false },
+                          { name = '' } })  -- not filled in yet: left out, not a file no one can read
     g.me.jobs, g.me.max_known = { WHM, 75, BLM, 37 }, true
     local r = share.roster(g)
     eq(#r, 3)
     eq({ r[1].name, r[1].main, r[1].main_lv, r[1].max_hp }, { 'Me', WHM, 75, 1000 })
     eq({ r[2].name, r[2].main, r[2].sub_lv, r[2].max_hp }, { 'P1', RDM, 35, 1000 })
-    eq({ r[3].name, r[3].hpp, r[3].max_hp, r[3].main }, { 'P2', 40, 0, nil })
+    eq({ r[3].name, r[3].hpp, r[3].max_hp, r[3].main, r[3].here, r[2].here }, { 'P2', 40, 0, nil, false, true })
     eq(share.decode(share.encode(r, false, 1)).members[3].main_lv, 0)  -- unknown jobs as 0
 end)
 
@@ -135,5 +137,54 @@ test('auto-track: an /anon member\'s level from the file (0) never hides one kno
     share.sync({ Box = session('Box', 2, { member(500, 'Box', { main = 0, main_lv = 0, sub = 0, sub_lv = 0, max_hp = 0 }) }) }, {})
     local t = tracked.find(500)
     eq({ t.main, t.main_lv, t.max_hp }, { WHM, 75, 1000 })
+    reset()
+end)
+
+test('auto-track: one who joins your alliance keeps the statuses seen on them', function ()
+    reset()
+    share.sync({ Box = session('Box', 1, { member(500, 'Box') }) }, {})
+    buffs.gain(500, PROTECT, 0)
+    share.sync({ Box = session('Box', 2, { member(500, 'Box') }) }, { [500] = true })
+    eq({ #tracked.list, buffs.of(500, 1) }, { 0, { [PROTECT] = true } })
+    buffs.clear()
+    reset()
+end)
+
+test('auto-track: HP from a file only for a member in its owner\'s zone; dropped when no file lists them', function ()
+    reset()
+    tracked.add(501, 'Mate', 1100)
+    share.sync({ Box = session('Box', 1, { member(500, 'Box'), member(501, 'Mate', { here = false }) }) }, {})
+    local t = tracked.find(501)
+    eq({ t.shared_hpp, t.max_hp, tracked.find(500).shared_hpp }, { nil, 1000, 80 })
+    share.sync({}, {})  -- hand-tracked, no file lists them now: nothing of the file's kept
+    eq({ t.shared_hpp, t.max_hp, t.main_lv }, { nil, nil, 75 })
+    reset()
+end)
+
+test('auto-track: a player two sessions list comes from their own session\'s file, whatever the order', function ()
+    reset()
+    local live = { A = session('A', 1, { member(500, 'A'), member(600, 'B', { hpp = 10 }) }),
+                   B = session('B', 1, { member(600, 'B', { hpp = 90 }), member(500, 'A', { hpp = 20 }) }) }
+    share.sync(live, {})
+    eq({ tracked.find(500).auto, tracked.find(500).shared_hpp, tracked.find(600).auto, tracked.find(600).shared_hpp },
+       { 'A', 80, 'B', 90 })
+    reset()
+end)
+
+test('a player a session lists can be found by name, in any case, out of sight', function ()
+    local live = { Box = session('Box', 1, { member(500, 'Box'), member(501, 'Mate') }) }
+    eq(share.named(live, 'mate'), { sid = 501, name = 'Mate' })
+    eq(share.named(live, 'nobody'), nil)
+end)
+
+test('a /check at another level drops the max HP a file gave', function ()
+    reset()
+    tracked.add(501, 'Mate', 1100)
+    local t = tracked.find(501)
+    t.main_lv, t.max_hp = 75, 2000
+    tracked.checked(501, WHM, 75, BLM, 37)
+    eq(t.max_hp, 2000)
+    tracked.checked(501, WHM, 60, BLM, 30)
+    eq(t.max_hp, nil)
     reset()
 end)

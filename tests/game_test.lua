@@ -226,7 +226,7 @@ end)
 test('another unit moving: for half a second after its position last changed; seen first, it stands', function ()
     reset()
     world.party[2] = { sid = 101, tidx = 0x401, name = 'Tank', hpp = 100, hp = 1000, mpp = 0, mp = 0 }
-    world.ents[0x401] = { sid = 150, name = 'Tank', hpp = 100, dist = 5 }
+    world.ents[0x401] = { sid = 101, name = 'Tank', hpp = 100, dist = 5 }
     eq(unit(read(), 101).moving, false)
     world.ents[0x401].dist = 6
     eq(unit(read(), 101).moving, true)
