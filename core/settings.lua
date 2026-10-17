@@ -10,6 +10,7 @@
     them again brings their buffs back.
     A row never saved uses its default: on, except buffs, sending the pet in and
     items, which are opt-in.
+    `profiles` are named snapshots of the rest (core/profiles.lua).
     `ui` is the window, shared by every job pair (its own file, ui.lua) so the HUD
     looks the same whatever you play: shown at load, bar and font sizes in pixels,
     the panel's opacity in %, and whether the HUD is locked in place.
@@ -38,6 +39,7 @@ local DEFAULTS = {
     rest = { on = false, delay = 5, distance = 7 },  -- /heal after this many quiet seconds; up past distance from follow.target
     japanese = false,  -- send spell, ability and item names in Japanese
     rows = {},
+    profiles = {}, profile = '', parked = {},  -- named snapshots (core/profiles.lua)
     ui = { open = false, hp_width = 220, hp_height = 40, mp_width = 220, mp_height = 18,
            name_size = 22, text_size = 14, gap = 8, opacity = 100, locked = false },
 }
@@ -61,15 +63,15 @@ function settings.enabled(cat, cfg, role)
     return out
 end
 
--- A fresh copy of the defaults, for tests and new files.
-function settings.defaults()
-    local function copy(t)
-        local out = {}
-        for k, v in pairs(t) do out[k] = type(v) == 'table' and copy(v) or v end
-        return out
-    end
-    return copy(DEFAULTS)
+local function copy(t)
+    local out = {}
+    for k, v in pairs(t) do out[k] = type(v) == 'table' and copy(v) or v end
+    return out
 end
+settings.defaults_copy = copy
+
+-- A fresh copy of the defaults, for tests and new files.
+function settings.defaults() return copy(DEFAULTS) end
 
 -- Ashita's settings library, loaded only in game. The job pair's file holds
 -- everything but `ui`, which loads from and saves to its own file.
@@ -81,11 +83,21 @@ function settings.load(job_pair)
         for k, v in pairs(t) do if type(v) == 'table' then t[k] = T_(v) end end
         return T(t)
     end
-    local d = settings.defaults()
+    -- The library fills a key the file lacks with the defaults' own table and
+    -- keeps those defaults (for the next character's load): give it copies, so
+    -- what is written into the settings (a profile, a skipped name) stays out of them.
+    local function detach(defaults)
+        for k, v in pairs(defaults) do
+            if type(v) == 'table' then defaults[k] = T_(settings.defaults_copy(v)) end
+        end
+    end
+    local d = T_(settings.defaults())
     local ui = d.ui
     d.ui = nil
-    loaded = lib.load(T_(d), alias)
-    loaded.ui = lib.load(T_(ui), UI_FILE)
+    loaded = lib.load(d, alias)
+    detach(d)
+    loaded.ui = lib.load(ui, UI_FILE)
+    detach(ui)
     return loaded
 end
 

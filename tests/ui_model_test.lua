@@ -43,13 +43,15 @@ end
 test('WHM 75 / BLM 37: every section, in order, each under its header, then UI / Log', function ()
     local view = build(whm)
     eq(view.job, 'WHM 75 / BLM 37')
-    eq(keys(view.sections, 'id'), { 'follow', 'heal', 'revive', 'wake', 'remove', 'buff', 'recover', 'rest', 'track', 'ui' })
-    eq(keys(view.sections, 'title'), { 'Follow', 'Healing', 'Revive', 'Wake sleepers', 'Debuff removal', 'Buffs',
+    eq(keys(view.sections, 'id'), { 'profile', 'follow', 'heal', 'revive', 'wake', 'remove', 'buff', 'recover', 'rest', 'track', 'ui' })
+    eq(keys(view.sections, 'title'), { 'Profiles', 'Follow', 'Healing', 'Revive', 'Wake sleepers', 'Debuff removal', 'Buffs',
         'Recovery', 'Resting', 'Tracked players', 'UI / Log' })
-    eq(keys(view.sections, 'header'), { 'Follow', 'Heal', 'Heal', 'Remove', 'Remove', 'Buff', 'Recover', 'Recover',
+    eq(keys(view.sections, 'header'), { 'Profiles', 'Follow', 'Heal', 'Heal', 'Remove', 'Remove', 'Buff', 'Recover', 'Recover',
         'Tracked', 'UI / Log' })
-    eq(keys(view.sections, 'on'), { false, true, true, true, true, true, true, false })  -- Tracked, UI / Log: no switch
-    eq({ section(view, 'track').on, section(view, 'ui').on }, { nil, nil })
+    local on = {}
+    for i = 2, #view.sections do on[i - 1] = view.sections[i].on end
+    eq(on, { false, true, true, true, true, true, true, false })  -- Profiles, Tracked, UI / Log: no switch
+    eq({ section(view, 'profile').on, section(view, 'track').on, section(view, 'ui').on }, { nil, nil, nil })
     local cfg = settings.defaults()
     cfg.ui.on = true  -- a custom UI's own key
     eq(section(build(whm, cfg), 'ui').on, nil)
@@ -69,7 +71,7 @@ test('a section with nothing to show is left out: BLM 75 has no raise, no heal t
         if a.role == 'heal' then eq(a.wakes, nil, a.name) end
     end
     local view = build(blm)
-    eq(keys(view.sections, 'id'), { 'follow', 'heal', 'remove', 'buff', 'recover', 'rest', 'track', 'ui' })
+    eq(keys(view.sections, 'id'), { 'profile', 'follow', 'heal', 'remove', 'buff', 'recover', 'rest', 'track', 'ui' })
     eq(keys(section(view, 'remove').rows), { 'Antidote', 'Eye Drops', 'Echo Drops', 'Holy Water', 'Tincture',
         'Hallowed Water', 'Remedy Ointment', 'Remedy', 'Panacea' })
 end)
