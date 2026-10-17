@@ -55,6 +55,18 @@ function settings.row(cfg, a)
     return cfg.rows[settings.key(a)] or { on = not (OPT_IN[a.role] or a.kind == 'item') }
 end
 
+-- The buff in `cat` named `name` (lower case): a spell, its family or its row key,
+-- or the spell's Japanese name (typed on a Japanese client, in the DAT's encoding).
+-- The second result is true when it names the spell itself, not its row.
+function settings.buff_named(cat, name)
+    for _, x in ipairs(cat) do
+        if x.role == 'buff' then
+            local spell = x.name:lower() == name or (x.jp or '') ~= '' and x.jp:lower() == name
+            if spell or x.family:lower() == name or settings.key(x):lower() == name then return x, spell end
+        end
+    end
+end
+
 -- The catalog's actions for `role` whose row is on.
 function settings.enabled(cat, cfg, role)
     local out = {}

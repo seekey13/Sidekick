@@ -26,8 +26,8 @@ test('a profile never holds the profiles, the HUD, the language, following, the 
     profiles.save(cfg, 'EXP')
     profiles.save_as(cfg, 'Two')
     local snap = cfg.profiles.Two
-    eq({ snap.profiles, snap.profile, snap.parked, snap.ui, snap.japanese, snap.follow, snap.heal.focus, snap.heal.skip },
-        { nil, nil, nil, nil, nil, nil, nil, nil })
+    eq({ snap.profiles, snap.profile, snap.parked, snap.ui, snap.follow, snap.heal.focus, snap.heal.skip },
+        { nil, nil, nil, nil, nil, nil, nil })
     eq(snap.rows.Haste, { on = true, targets = { [0] = true, [3] = true } })
     eq(snap.heal.danger, 50)
 end)

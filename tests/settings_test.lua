@@ -116,3 +116,15 @@ test('a key the file lacks is the defaults\' table in Ashita\'s library: writing
         eq({ lib.defaults.WHM_BLM.profiles, lib.defaults.WHM_BLM.heal.skip, lib.defaults.ui.hp_width }, { {}, {}, 220 })
     end)
 end)
+
+test('a buff is named by its spell, family or row key, or in Japanese by its spell', function ()
+    local settings = require('core.settings')
+    local cat = require('tests.fake').catalog(3, 75, 4, 37)
+    local p4
+    for _, a in ipairs(cat) do if a.name == 'Protect IV' then p4 = a end end
+    eq({ settings.buff_named(cat, 'protect iv') }, { p4, true })
+    eq({ settings.buff_named(cat, p4.jp:lower()) }, { p4, true })
+    eq(settings.buff_named(cat, 'protect').family, 'Protect')
+    eq(settings.buff_named(cat, 'barelement').pick_one, 'barelement')
+    eq(settings.buff_named(cat, 'nothing'), nil)
+end)
