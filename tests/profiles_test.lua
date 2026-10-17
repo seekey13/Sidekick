@@ -18,9 +18,10 @@ test('save keeps the settings as they are now; later changes stay out of it', fu
     eq(cfg.profiles.Dynamis.heal.danger, 40)
 end)
 
-test('a profile never holds the profiles, the HUD, the language, following, the focus or who is skipped', function ()
+test('a profile never holds the profiles, the HUD, the language, following, the focus, who is skipped or Entrust\'s member', function ()
     local cfg = cfg_with(function (c)
         c.ui.japanese, c.follow.on, c.follow.target, c.heal.focus, c.heal.skip.Kupipi = true, true, 'A', 'B', true
+        c.geo.entrust, c.geo.entrust_spell = 'Tank', 'Indi-Fury'
         c.rows.Haste = { on = true, targets = { [0] = true, [3] = true } }
     end)
     profiles.save(cfg, 'EXP')
@@ -29,6 +30,7 @@ test('a profile never holds the profiles, the HUD, the language, following, the 
     eq({ snap.profiles, snap.profile, snap.parked, snap.ui, snap.follow, snap.heal.focus, snap.heal.skip },
         { nil, nil, nil, nil, nil, nil, nil })
     eq(snap.rows.Haste, { on = true, targets = { [0] = true, [3] = true } })
+    eq({ snap.geo.entrust, snap.geo.entrust_spell }, { nil, 'Indi-Fury' })
     eq(snap.heal.danger, 50)
 end)
 

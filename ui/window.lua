@@ -511,6 +511,32 @@ local function draw_rolls(view)
     end
 end
 
+-- An Indi- spell for Entrust, or None ('').
+local function indi_combo(current, names)
+    imgui.PushItemWidth(PICK_WIDTH + SETTING_WIDTH / 2)
+    if imgui.BeginCombo('Entrust spell##sk3_geo_entrust_spell', current ~= '' and current or 'None') then
+        if imgui.Selectable('None##sk3_geo_entrust_spell_none', current == '') then act.set('geo.entrust_spell', '') end
+        for _, name in ipairs(names) do
+            if imgui.Selectable(name .. '##sk3_geo_entrust_spell_' .. name, name == current) then act.set('geo.entrust_spell', name) end
+        end
+        imgui.EndCombo()
+    end
+    imgui.PopItemWidth()
+    tip('The Indi- spell Entrust puts on that member whenever they lack its aura.')
+end
+
+local function draw_geo(view)
+    local g = view.geo
+    slider('Recall past##sk3_geo_distance', 'geo.distance', g.distance, 3, 30,
+        'Yalms: Full Circle the luopan once who it is on is further than this from it, so it goes down again.')
+    slider('Keep after combat##sk3_geo_linger', 'geo.linger', g.linger, 1, 20,
+        'Seconds a debuff luopan waits once combat is over before Full Circle recalls it: a new battle target in that time keeps it.')
+    member_combo('Entrust to', 'geo_entrust', g.entrust, g.names, 'geo.entrust',
+        'With Entrust on, put the Indi- spell picked on this member (within 20 yalms).')
+    indi_combo(g.entrust_spell, g.indi)
+    imgui.Separator()
+end
+
 -- Each tracked player with its Untrack button (one who joined your party or
 -- alliance too), then Track for your target.
 local function draw_track(view)
@@ -708,6 +734,8 @@ local SWITCH_HELP = {
     buff = 'Keep the buffs that are on up on their targets.',
     roll = 'Keep the rolls picked up, and Double-Up the last one by the risk picked. Held for the group with '
         .. 'Hold area buffs, as an area buff.',
+    geo = 'Keep a luopan down: the Geo row\'s on its target, or the Geo debuff\'s on your battle target in combat. '
+        .. 'Full Circle recalls it when its target leaves it, and a debuff\'s after combat.',
     pet = 'Look after your pet, and send it in, with the rows that are on.',
     recover = 'Get MP and TP back with the rows that are on.',
     rest = 'Rest for MP out of combat once nothing else has happened for a while; stand at full MP.',
@@ -715,7 +743,7 @@ local SWITCH_HELP = {
 
 local BODIES = {
     follow = draw_follow, heal = draw_heal_settings, recover = draw_recover_settings, buff = draw_buff_settings,
-    roll = draw_rolls,
+    roll = draw_rolls, geo = draw_geo,
     pet = draw_pet_settings, rest = draw_rest, track = draw_track, ui = draw_ui, profile = draw_profiles,
 }
 

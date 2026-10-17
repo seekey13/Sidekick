@@ -10,7 +10,8 @@
     (Chakra heals and cures). An exact name ("Healing Ruby II") beats its family.
 
     role       heal | pet_heal | remove | pet_remove | pet_send | emergency | revive | roll |
-               recover | buff | modifier
+               recover | buff | modifier | geo
+               (geo: the luopan's spells and abilities, jobs/geo.lua's)
                (a modifier is a JA fired just before the spell it changes: core/engine.lua)
                (a heal's area comes from the DAT: Curaga is a heal like Cure)
     status     what a buff shows: status name (lowest id with that name wins), id,
@@ -53,10 +54,13 @@
     spreads    { area =, mp = }: the modifier makes a single-target spell land on everyone in
                your party within `area` yalms of you, at `mp` x the cost (Accession)
     chip       a modifier's short label on a buff row
+    luopan     'buff' | 'debuff': a Geo- spell, put down as a luopan; 'spend': spends
+               the luopan (Radial Arcana), which jobs/geo.lua decides when
     lucky      a Phantom Roll's lucky and unlucky totals (jobs/cor.lua)
     unlucky
 ]]--
 
+local geo = require('jobs.geo')
 local sch = require('jobs.sch')
 
 -- Status sets for removals (ids: several names repeat in the status table).
@@ -157,7 +161,8 @@ local K = {
     ['Convert']          = { role = 'recover', priority = 100, costs_hp = true, swaps = true },
     ['Chivalry']         = { role = 'recover', spends_tp = true },
     ['Devotion']         = { role = 'recover', costs_hp = true },
-    -- Not Radial Arcana: it dismisses the luopan, so jobs/geo.lua decides when (phase 4).
+    -- Spends the luopan: jobs/geo.lua decides when, for behaviors/recover.lua.
+    ['Radial Arcana']    = { role = 'recover', main_only = true, pet = true, priority = 90, luopan = 'spend' },
     ['Meditate']         = { role = 'recover', gives = 'tp', priority = 100, status = 801 },
     ['Reverse Flourish'] = { role = 'recover', gives = 'tp', priority = 100, requires = 'Finishing Move (5)' },
 
@@ -351,54 +356,14 @@ local K = {
     ['O. Counterstance']= { role = 'buff', status = 'Counterstance' },
     ['Pyric Bulwark']   = { role = 'buff' },
 
-    -- buff: Geomancer (Indi- on you, Geo- on a luopan: both show the aura status) --
-    ['Indi-Regen']      = { role = 'buff', pick_one = 'indi', status = 539 },
-    ['Indi-Refresh']    = { role = 'buff', pick_one = 'indi', status = 541, priority = 50 },
-    ['Indi-STR']        = { role = 'buff', pick_one = 'indi', status = 542 },
-    ['Indi-DEX']        = { role = 'buff', pick_one = 'indi', status = 543 },
-    ['Indi-VIT']        = { role = 'buff', pick_one = 'indi', status = 544 },
-    ['Indi-AGI']        = { role = 'buff', pick_one = 'indi', status = 545 },
-    ['Indi-INT']        = { role = 'buff', pick_one = 'indi', status = 546 },
-    ['Indi-MND']        = { role = 'buff', pick_one = 'indi', status = 547 },
-    ['Indi-CHR']        = { role = 'buff', pick_one = 'indi', status = 548 },
-    ['Indi-Fury']       = { role = 'buff', pick_one = 'indi', status = 549 },
-    ['Indi-Barrier']    = { role = 'buff', pick_one = 'indi', status = 550 },
-    ['Indi-Acumen']     = { role = 'buff', pick_one = 'indi', status = 551 },
-    ['Indi-Fend']       = { role = 'buff', pick_one = 'indi', status = 552 },
-    ['Indi-Precision']  = { role = 'buff', pick_one = 'indi', status = 553 },
-    ['Indi-Voidance']   = { role = 'buff', pick_one = 'indi', status = 554 },
-    ['Indi-Focus']      = { role = 'buff', pick_one = 'indi', status = 555 },
-    ['Indi-Attunement'] = { role = 'buff', pick_one = 'indi', status = 556 },
-    ['Indi-Haste']      = { role = 'buff', pick_one = 'indi', status = 580 },
-    -- Offensive Indi auras show only "Colure Active" on you.
-    ['Indi-Poison']     = { role = 'buff', pick_one = 'indi', status = 612 },
-    ['Indi-Frailty']    = { role = 'buff', pick_one = 'indi', status = 612 },
-    ['Indi-Slow']       = { role = 'buff', pick_one = 'indi', status = 612 },
-    ['Indi-Torpor']     = { role = 'buff', pick_one = 'indi', status = 612 },
-    ['Indi-Slip']       = { role = 'buff', pick_one = 'indi', status = 612 },
-    ['Indi-Languor']    = { role = 'buff', pick_one = 'indi', status = 612 },
-    ['Indi-Paralysis']  = { role = 'buff', pick_one = 'indi', status = 612 },
-    ['Indi-Vex']        = { role = 'buff', pick_one = 'indi', status = 612 },
-    ['Geo-Regen']       = { role = 'buff', pick_one = 'geo', main_only = true, status = 539 },
-    ['Geo-Refresh']     = { role = 'buff', pick_one = 'geo', main_only = true, status = 541, priority = 50 },
-    ['Geo-STR']         = { role = 'buff', pick_one = 'geo', main_only = true, status = 542 },
-    ['Geo-DEX']         = { role = 'buff', pick_one = 'geo', main_only = true, status = 543 },
-    ['Geo-VIT']         = { role = 'buff', pick_one = 'geo', main_only = true, status = 544 },
-    ['Geo-AGI']         = { role = 'buff', pick_one = 'geo', main_only = true, status = 545 },
-    ['Geo-INT']         = { role = 'buff', pick_one = 'geo', main_only = true, status = 546 },
-    ['Geo-MND']         = { role = 'buff', pick_one = 'geo', main_only = true, status = 547 },
-    ['Geo-CHR']         = { role = 'buff', pick_one = 'geo', main_only = true, status = 548 },
-    ['Geo-Fury']        = { role = 'buff', pick_one = 'geo', main_only = true, status = 549 },
-    ['Geo-Barrier']     = { role = 'buff', pick_one = 'geo', main_only = true, status = 550 },
-    ['Geo-Acumen']      = { role = 'buff', pick_one = 'geo', main_only = true, status = 551 },
-    ['Geo-Fend']        = { role = 'buff', pick_one = 'geo', main_only = true, status = 552 },
-    ['Geo-Precision']   = { role = 'buff', pick_one = 'geo', main_only = true, status = 553 },
-    ['Geo-Voidance']    = { role = 'buff', pick_one = 'geo', main_only = true, status = 554 },
-    ['Geo-Focus']       = { role = 'buff', pick_one = 'geo', main_only = true, status = 555 },
-    ['Geo-Attunement']  = { role = 'buff', pick_one = 'geo', main_only = true, status = 556 },
-    ['Geo-Haste']       = { role = 'buff', pick_one = 'geo', main_only = true, status = 580 },
+    -- buff: Geomancer's Indi- auras and the luopan's Geo- ones are filled in below, from geo.AURAS.
     ['Lasting Emanation']  = { role = 'buff', pick_one = 'geo_ja', label = 'Lasting Emanation (Duration)', main_only = true, pet = true, status = false },
     ['Ecliptic Attrition'] = { role = 'buff', pick_one = 'geo_ja', label = 'Ecliptic Attrition (Effect)', main_only = true, pet = true, status = false },
+
+    -- geo: Geomancer's luopan (jobs/geo.lua) ------------------------------------
+    ['Full Circle']    = { role = 'geo', main_only = true, pet = true, note = 'recall the luopan' },
+    ['Blaze of Glory'] = { role = 'geo', main_only = true, status = 'Blaze of Glory', note = 'before a luopan' },
+    ['Entrust']        = { role = 'geo', main_only = true, status = 'Entrust', note = 'an Indi- on a member' },
 
     -- buff: Ninja -----------------------------------------------------------------
     ['Utsusemi'] = { role = 'buff', status = { 66, 444, 445, 446 } },  -- Copy Image (1-4)
@@ -465,6 +430,19 @@ for name, r in pairs({
     ['Caster\'s Roll'] = { 'Fast Cast+', 2, 7 },
 }) do
     K[name] = { role = 'roll', note = r[1], lucky = r[2], unlucky = r[3] }
+end
+
+-- Geomancer: an Indi- aura is on you, a Geo- one on a luopan (jobs/geo.lua); both show
+-- the same status. An offensive Indi- shows only "Colure Active" on you; an offensive
+-- Geo- goes on your battle target, where nothing can be read.
+for name, status in pairs(geo.AURAS) do
+    local priority = name == 'Refresh' and 50 or nil
+    K['Indi-' .. name] = { role = 'buff', pick_one = 'indi', status = status, priority = priority }
+    K['Geo-' .. name] = { role = 'geo', pick_one = 'geo', luopan = 'buff', main_only = true, status = status, priority = priority }
+end
+for _, name in ipairs(geo.DEBUFFS) do
+    K['Indi-' .. name] = { role = 'buff', pick_one = 'indi', status = geo.COLURE }
+    K['Geo-' .. name] = { role = 'geo', pick_one = 'geo_debuff', luopan = 'debuff', main_only = true, status = false }
 end
 
 -- Absorb- spells (DRK): drain a stat off your battle target onto you.

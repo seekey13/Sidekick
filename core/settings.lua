@@ -9,8 +9,8 @@
                       mods = { [modifier name] = true } }  -- buffs only: stratagems fired first
     A tracked player's name stays on the row after they're untracked, so tracking
     them again brings their buffs back.
-    A row never saved uses its default: on, except buffs, sending the pet in and
-    items, which are opt-in.
+    A row never saved uses its default: on, except buffs (a luopan's Geo- spells
+    too), sending the pet in and items, which are opt-in.
     `profiles` are named snapshots of the rest (core/profiles.lua).
     `ui` is shared by every job pair (its own file, ui.lua): the window, so the HUD
     looks the same whatever you play (shown at load, bar and font sizes in pixels,
@@ -37,6 +37,9 @@ local DEFAULTS = {
     -- COR: the rolls kept up (names, '' for none; the second only on a COR main
     -- job) and how far Double-Up chases a total: 'lowest' | 'medium' | 'highest'.
     roll = { on = true, first = '', second = '', risk = 'medium' },
+    -- GEO: recall the luopan past `distance` yalms from who it's on, and a debuff's
+    -- `linger` seconds after combat; Entrust puts the Indi- spell named on the member named.
+    geo = { on = true, distance = 10, linger = 5, entrust = '', entrust_spell = '' },
     buff = { on = true,
              hold_aoe = false,  -- hold an area buff spell (Protectra, songs) until the party's players gather
              gather = true },   -- ...and ask them to in party chat
@@ -56,16 +59,19 @@ function settings.key(a) return a.pick_one or a.label or a.family end
 
 local OPT_IN = { buff = true, pet_send = true }
 
+local OPT_IN_LUOPAN = { buff = true, debuff = true }  -- a Geo- spell, like a buff
+
 function settings.row(cfg, a)
-    return cfg.rows[settings.key(a)] or { on = not (OPT_IN[a.role] or a.kind == 'item') }
+    return cfg.rows[settings.key(a)] or { on = not (OPT_IN[a.role] or OPT_IN_LUOPAN[a.luopan] or a.kind == 'item') }
 end
 
--- The buff in `cat` named `name` (lower case): a spell, its family or its row key,
+-- The buff in `cat` named `name` (lower case): a spell, its family or its row key
+-- (a luopan's Geo- buffs too),
 -- or the spell's Japanese name (typed on a Japanese client, in the DAT's encoding).
 -- The second result is true when it names the spell itself, not its row.
 function settings.buff_named(cat, name)
     for _, x in ipairs(cat) do
-        if x.role == 'buff' then
+        if x.role == 'buff' or x.luopan == 'buff' then
             local spell = x.name:lower() == name or (x.jp or '') ~= '' and x.jp:lower() == name
             if spell or x.family:lower() == name or settings.key(x):lower() == name then return x, spell end
         end
