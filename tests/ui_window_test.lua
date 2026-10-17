@@ -526,8 +526,9 @@ test('a tracked player\'s card has no MP %; Tracked lists them to untrack, and o
     eq({ showed('T1 Out  WHM 75 / BLM 37'), showed('P1 A  (in your party)') }, { true, true })
     g.target = nil
     render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
-    eq(showed('Target a player outside your party to track them, or /sk3 track Name.'), true)
+    eq(showed('Target a player outside your alliance to track them, or /sk3 track Name.'), true)
 end)
+
 test('Heal the alliance writes heal.alliance; alliance chips write their slot; Tracked lists one in the alliance', function ()
     local g = fake.snap({ { name = 'A' }, { kind = 'alliance', name = 'Bea', tracked = true } })
     local cfg, st = settings.defaults(), status()

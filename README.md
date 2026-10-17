@@ -2,7 +2,7 @@
 
 Ground-up rewrite of [Sidekick](https://github.com/seekey13/Sidekick), the support-automation addon for Ashita v4 on [CatsEyeXI](https://www.catseyexi.com/).
 
-**Status: in development.** It heals by urgency: the most HP for your MP or TP when someone is hurt, the fastest heal when they're in danger, a boost (Divine Seal, Accession...) when they're critical. It weighs area cures and Regen against single cures, learns what your cures really heal, and has a focus target. It also removes debuffs (with items too, when you turn them on), wakes sleepers, raises, keeps up buffs you turn on, recovers MP and TP (Convert, Devotion, Aspir, Meditate...), looks after your pet (Repair, Spirit Link, sending it in), and can follow a member and rest when there's nothing to do, for you, your party and trusts, your alliance, and players outside your party you track. Sidekick v2 can stay loaded alongside it, but don't run both at once.
+**Status: in development.** It heals by urgency: the most HP for your MP or TP when someone is hurt, the fastest heal when they're in danger, a boost (Divine Seal, Accession...) when they're critical. It weighs area cures and Regen against single cures, learns what your cures really heal, and has a focus target. It also removes debuffs (with items too, when you turn them on), wakes sleepers, raises, keeps up buffs you turn on, recovers MP and TP (Convert, Devotion, Aspir, Meditate...), looks after your pet (Repair, Spirit Link, sending it in), and can follow a member and rest when there's nothing to do, for you, your party and trusts, your alliance, and players outside it you track. Sidekick v2 can stay loaded alongside it, but don't run both at once.
 
 ## What's different
 
@@ -22,7 +22,7 @@ v2 described every job's spells and abilities by hand in 22 job files. v3 reads 
 /sk3 focus Name | off   heal this member first, on its own HP lines
 /sk3 follow Name | off  follow this member
 /sk3 rest [on | off]    rest for MP when there's nothing to do
-/sk3 track [Name]       look after a player outside your party too: your target, or by name; else list them
+/sk3 track [Name]       look after a player outside your alliance too: your target, or by name; else list them
 /sk3 untrack Name | all stop tracking them
 /sk3 state              what Sidekick reads from the game: party, trusts, buffs, target, flags
 /sk3 catalog [unknown]  what it can automate for your job, by role (or what it can't)
@@ -46,7 +46,7 @@ Drag the HUD where you want it; Lock position keeps it there.
 - **Buff**: each row picks a tier ("Auto" casts the best you can) or, for pick-one groups like bar-elements and songs, the spell; and the targets, ME and P1-P5, and when the spell can go outside the party, T1... for tracked players and a line each for the alliance's other parties, B0-B5 and C0-C5.
 - **Pet**, for a pet job: its HP line, and its care and send rows. Sending the pet in is opt-in, row by row; Repair, Maintenance and Reward need their oil or pet food worn.
 - **Recover**: MP and TP lines (and the TP Chivalry spends from); resting for MP out of combat after a few quiet seconds, standing at full MP or when the leader leaves.
-- **Tracked**: the players you track, each with Untrack, and Track for your target when it's a player outside your party.
+- **Tracked**: the players you track, each with Untrack, and Track for your target when it's a player outside your party and alliance.
 - **UI / Log**: the HUD's bar and font sizes, spacing, panel opacity and lock; the action log and the last 10 actions sent, and why; Japanese client.
 
 Each row turns a family on or off and says whether it's ready or why not.

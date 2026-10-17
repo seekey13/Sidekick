@@ -3,10 +3,12 @@
 -- while in your party or alliance; the alliance's other parties; your target
 -- when it's a player; a player by name.
 local buffs = require('core.buffs')
+local can = require('core.can')
 local game = require('core.game')
 local tracked = require('core.tracked')
 
 local ME, OUT, STRANGER, PROTECT = 1, 500, 900, 40
+local TRUST, PET = 0x1000005, 0x1000700
 
 -- The world: party members by slot (0 first), entities by index. An entity
 -- stands `dist` yalms along x from you; `shown = false` is out of range.
@@ -15,7 +17,7 @@ local function reset()
     world = {
         party = { { sid = ME, tidx = 0x400, name = 'Me', hpp = 100, hp = 1000, mpp = 100, mp = 500 } },
         ents = { [0x400] = { sid = ME, name = 'Me' } },
-        target = 0, sub = nil,
+        target = 0, sub = nil, pet = nil,
     }
     tracked.list = {}
     buffs.clear()
@@ -36,7 +38,7 @@ local em = {
     GetLocalPositionY = const(0), GetLocalPositionZ = const(0),
     GetRenderFlags0 = function (_, i) return (world.ents[i] and world.ents[i].shown ~= false) and 0x200 or 0 end,
     GetRawEntity = function (_, i) return world.ents[i] and {} or nil end,
-    GetPetTargetIndex = const(0), GetSpawnFlags = const(0),
+    GetPetTargetIndex = function () return world.pet or 0 end, GetSpawnFlags = const(0),
 }
 local party = {
     GetMemberIsActive = function (_, i) return world.party[i + 1] and 1 or 0 end,
@@ -171,6 +173,36 @@ test('a tracked player who joins the alliance is a member of it while they stay,
     eq({ #g.units, unit(g, OUT).kind, unit(g, OUT).slot, unit(g, OUT).tracked }, { 2, 'alliance', 6, true })
     world.party[7] = nil
     eq(unit(read(), OUT).kind, 'tracked')
+end)
+
+test('an alliance member the client isn\'t drawing is out of reach, not 0 yalms away; the alliance comes last', function ()
+    reset()
+    world.party[7] = { sid = 600, tidx = 0x500, name = 'Bea', hpp = 40, hp = 400, mpp = 80, mp = 400 }  -- no entity
+    world.ents[0x450] = { sid = OUT, name = 'Out', hpp = 90, dist = 5 }
+    tracked.add(OUT, 'Out', 0x450)
+    local g = read()
+    local b = unit(g, 600)
+    eq({ b.in_zone, b.dist, b.pos, b.alive }, { true, nil, nil, true })
+    eq(can.reach({ kind = 'ma', role = 'heal', targets = 63, range = 12 }, b), false)  -- Cure
+    eq({ g.units[2].kind, g.units[3].kind }, { 'tracked', 'alliance' })  -- as v2: party, tracked, alliance
+    world.ents[0x500] = { sid = 600, name = 'Bea', hpp = 40, dist = 7 }
+    eq(unit(read(), 600).dist, 7)
+end)
+
+test('a trust\'s and the pet\'s statuses last across reads; a trust dismissed is forgotten', function ()
+    reset()
+    local kupipi = { sid = TRUST, tidx = 0x100, name = 'Kupipi', hpp = 100, hp = 900, mpp = 100, mp = 500 }
+    world.party[2], world.ents[0x100] = kupipi, { sid = TRUST, name = 'Kupipi', hpp = 100, dist = 3 }
+    world.pet, world.ents[0x700] = 0x700, { sid = PET, name = 'Carbuncle', hpp = 100, dist = 2 }
+    buffs.gain(TRUST, PROTECT, now)
+    buffs.gain(PET, PROTECT, now)
+    read()
+    local g = read()
+    eq({ unit(g, TRUST).kind, unit(g, TRUST).buffs, g.pet.buffs }, { 'trust', { [PROTECT] = true }, { [PROTECT] = true } })
+    world.party[2] = nil
+    read()
+    world.party[2] = kupipi  -- called again, with the same id
+    eq({ unit(read(), TRUST).buffs, read().pet.buffs }, { {}, { [PROTECT] = true } })
 end)
 
 reset()

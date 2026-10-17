@@ -59,6 +59,7 @@ local UI_SLIDERS = {
 }
 
 local SETTING_WIDTH, PICK_WIDTH, CHIP_WIDTH = 160, 170, 28
+local JOINED = { party = '  (in your party)', alliance = '  (in your alliance)' }  -- a tracked player's note
 
 local act                    -- this frame's actions
 local settings_open = false  -- SK Settings shown; this session only
@@ -398,13 +399,12 @@ end
 -- Each tracked player with its Untrack button (one who joined your party or
 -- alliance too), then Track for your target.
 local function draw_track(view)
-    local notes = { party = '  (in your party)', trust = '  (in your party)', alliance = '  (in your alliance)' }
     for _, list in ipairs({ view.party, view.alliance }) do
         for _, p in ipairs(list) do
             if p.tracked then
                 if imgui.Button('Untrack##sk3_untrack_' .. p.name) then act.untrack(p.name) end
                 imgui.SameLine()
-                local note = notes[p.kind] or p.job and ('  ' .. p.job) or ''
+                local note = JOINED[p.kind] or p.job and ('  ' .. p.job) or ''
                 text(('%s %s'):format(p.tag, p.name) .. note, p.away and GREY or nil)
                 tip(p.away and (p.kind == 'tracked' and 'Out of range.' or 'In another zone.') or nil)
             end
@@ -415,7 +415,7 @@ local function draw_track(view)
         if imgui.Button(('Track %s##sk3_track'):format(t)) then act.track(t) end
         tip('Heal, clear, raise and buff them too, with what reaches outside the party. This session only.')
     else
-        text('Target a player outside your party to track them, or /sk3 track Name.', GREY)
+        text('Target a player outside your alliance to track them, or /sk3 track Name.', GREY)
     end
 end
 

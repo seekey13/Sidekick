@@ -53,7 +53,7 @@ Text that may contain `%` (names, `why` text) must be escaped before it's drawn:
 | `pet_heal` | number | Heal your pet under this HP % |
 | `follow` | table | `{ on, target, distance, names }`: follow `target` (a name, `''` for none) once further than `distance` yalms; `names` are the members (the alliance's and tracked players too) that can be followed |
 | `rest` | table | `{ on, delay, distance }`: rest after `delay` seconds with nothing to do; stand when the follow target is further than `distance` yalms |
-| `track` | table | `{ target }`: your current target's name when it's a player you could track (not in your party, not tracked yet), else nil |
+| `track` | table | `{ target }`: your current target's name when it's a player you could track (not in your party or alliance, not tracked yet), else nil |
 | `japanese` | bool | Spell, ability and item names are sent in Japanese |
 | `log` | bool | Each action sent is printed to chat |
 | `ui` | table | The UI's settings, shared by every job pair: `open` (bool), and any `ui.<name>` your UI saved. The standard HUD's, which yours may ignore: `hp_width`, `mp_width` (80 to 600), `hp_height` (10 to 120), `mp_height` (4 to 80), `name_size` (8 to 64), `text_size` (8 to 48), `gap` (0 to 40), all in pixels; `opacity` (0 to 100, the panel's %); `locked` (bool, it can't be dragged) |
@@ -73,7 +73,7 @@ Text that may contain `%` (names, `why` text) must be escaped before it's drawn:
 | Field | Type | What it is |
 |---|---|---|
 | `tag` | string | `'ME'`, `'P1'` to `'P5'`; `'T1'`, `'T2'`... for the players you track; in `alliance`, `'B0'` to `'B5'` and `'C0'` to `'C5'` |
-| `kind` | string | `'self'`, `'party'`, `'trust'` or `'tracked'` (a player outside your party you track: `/sk3 track`); `'alliance'` in `alliance` |
+| `kind` | string | `'self'`, `'party'`, `'trust'` or `'tracked'` (a player outside your party and alliance you track: `/sk3 track`); `'alliance'` in `alliance` |
 | `name` | string | |
 | `job` | string or nil | A tracked player's jobs once a `/check` has answered: `'WHM 75 / BLM 37'`; nil for everyone else |
 | `alive` | bool | |
@@ -143,7 +143,7 @@ In this order. A section with rows is left out when your job has none for it (Pe
 | `act.row(key, on)` | A row on or off |
 | `act.pick(key, name)` | A row's choice: a `choices[i].name`, or nil for Auto |
 | `act.target(key, slot)` | Turn a target chip on or off: its `slot`, 0 to 17 or a tracked player's name |
-| `act.track(name)` | Track a player outside your party: by name, or your current target when nil (`view.track.target` names it). This session only |
+| `act.track(name)` | Track a player outside your party and alliance: by name, or your current target when nil (`view.track.target` names it). This session only |
 | `act.untrack(name)` | Stop tracking a player, by name. Their buff chips stay set for when they're tracked again |
 | `act.skip(name)` | Skip a member (or tracked player) in healing, or take them back: a `view.heal.members[i].name` |
 | `act.set(path, value)` | A setting by path, below |

@@ -353,6 +353,7 @@ test('track and untrack go to the tracking functions Sidekick gives, writing no 
     act.untrack('Out')
     eq({ calls, writes }, { { { 'add', 'Stranger' }, { 'add' }, { 'remove', 'Out' } }, 0 })
 end)
+
 -- The alliance -----------------------------------------------------------------------
 
 local function alliance_snap()

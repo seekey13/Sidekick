@@ -4,8 +4,8 @@
     (bar-elements, enspells...) needs a pick. Self-only buffs go on you; an area
     self-cast (Protectra) is recast when anyone in your party near you lacks it.
     A row's targets are party and alliance slots (0-17) and tracked players'
-    names. Statuses that
-    can't be read (Boost) are recast whenever they're off recast.
+    names. Statuses that can't be read (Boost) are recast whenever they're off
+    recast.
     Songs, rolls and the like belong to job modules, not here.
 ]]--
 

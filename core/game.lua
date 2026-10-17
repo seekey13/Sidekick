@@ -1,7 +1,8 @@
 --[[
-    One read of the game: you, your party and trusts, your alliance's other two
-    parties, then the players you track (core/tracked.lua), as one list of
-    units; your battle target and pet, and the flags that stop automation
+    One read of the game: you, your party and trusts, the players you track
+    (core/tracked.lua), then your alliance's other two parties, as one list of
+    units (behaviors go down it in that order, as v2 did); your battle target
+    and pet, and the flags that stop automation
     (casting, moving, mounted, dead, incapacitated, safe zone...). The engine
     decides from this snapshot alone, so tests can hand it a fake one.
 
@@ -296,7 +297,7 @@ function game.read(now)
     local zone = party:GetMemberZone(0)
     if player:GetMainJobLevel() == 0 or zone == 0 then return { loading = true, now = now } end
 
-    local units, tracks, listed = {}, {}, {}
+    local units, allied, tracks, listed = {}, {}, {}, {}
     for i = 0, 17 do
         if party:GetMemberIsActive(i) == 1 then
             local sid, tidx = party:GetMemberServerId(i), party:GetMemberTargetIndex(i)
@@ -319,7 +320,9 @@ function game.read(now)
             end
             -- Never seen at full: estimate from HP%. Rough at low HP, good enough to score.
             u.max_hp = max_hp[sid] or (u.hpp > 0 and u.hp > 0 and math.floor(u.hp * 100 / u.hpp)) or nil
-            if u.in_zone and tidx > 0 then
+            -- Only one the client draws: out of its range a member has no entity, and
+            -- would read as 0 yalms away. Then dist and pos are unknown: out of reach.
+            if u.in_zone and tidx > 0 and (i == 0 or present(em, tidx)) then
                 u.status = em:GetStatus(tidx)
                 u.dist = i == 0 and 0 or math.sqrt(em:GetDistance(tidx))
                 u.pos = { em:GetLocalPositionX(tidx), em:GetLocalPositionY(tidx), em:GetLocalPositionZ(tidx) }
@@ -332,7 +335,8 @@ function game.read(now)
                 u.buffs = buffs.of(sid, now); tracks[sid] = true
             end
             u.hot = observed.hot(sid, now, u.buffs[REGEN])
-            units[#units + 1] = u
+            local list = u.kind == 'alliance' and allied or units
+            list[#list + 1] = u
         end
     end
 
@@ -344,6 +348,7 @@ function game.read(now)
             tracks[t.sid] = true
         end
     end
+    for _, u in ipairs(allied) do units[#units + 1] = u end
 
     local bt = battle_target(em)
     if bt and bt.mob then last_combat = now end

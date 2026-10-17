@@ -258,7 +258,7 @@ local function buff_command(args)
     end
 end
 
--- /sk3 track [name] and the UI's Track button: a player outside your party, by
+-- /sk3 track [name] and the UI's Track button: a player outside your alliance, by
 -- name or your current target. A /check asks their level, so heals are sized
 -- (they're told you examined them, as v2 did); tracking them again asks again.
 local function track(name)
