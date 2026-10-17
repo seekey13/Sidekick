@@ -108,10 +108,17 @@ function settings.load(job_pair)
     local ui = d.ui
     d.ui = nil
     loaded = lib.load(d, alias)
-    loaded.japanese = nil  -- a pair's own before it moved to `ui`
     detach(d)
     loaded.ui = lib.load(ui, UI_FILE)
     detach(ui)
+    -- A pair's own Japanese client from before it moved to `ui`: carried over when
+    -- on, and saved at once so the pair's file no longer holds it.
+    local old = loaded.japanese
+    if old ~= nil then
+        loaded.japanese = nil
+        if old == true then loaded.ui.japanese = true end
+        settings.save()
+    end
     return loaded
 end
 

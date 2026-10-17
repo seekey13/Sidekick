@@ -69,14 +69,17 @@ test('every job pair shares ui; the rest is the pair\'s own', function ()
     end)
 end)
 
-test('the Japanese client is shared by every job pair, in ui; a pair\'s own from before is dropped', function ()
-    with_lib({ WHM_BLM = { japanese = true } }, function (settings, lib)
+test('the Japanese client is shared by every job pair, in ui; a pair\'s own from before is carried over once', function ()
+    with_lib({ WHM_BLM = { japanese = true }, BRD_WHM = { japanese = false } }, function (settings, lib)
         local cfg = settings.load('WHM_BLM')
-        eq({ cfg.japanese, cfg.ui.japanese }, { nil, false })
-        cfg.ui.japanese = true
+        eq({ cfg.japanese, cfg.ui.japanese }, { nil, true })
+        eq({ lib.files.WHM_BLM.japanese, lib.files.ui.japanese }, { nil, true })  -- saved at once
+        eq(settings.load('BRD_WHM').ui.japanese, true)  -- an old off never turns it off
+        eq(lib.files.BRD_WHM.japanese, nil)
+        cfg = settings.load('WHM_BLM')
+        cfg.ui.japanese = false
         settings.save()
-        eq({ lib.files.WHM_BLM.japanese, lib.files.ui.japanese }, { nil, true })
-        eq(settings.load('BRD_WHM').ui.japanese, true)
+        eq(settings.load('WHM_BLM').ui.japanese, false)  -- nothing left to carry over again
     end)
 end)
 
