@@ -22,7 +22,7 @@ v2 described every job's spells and abilities by hand in 22 job files. v3 reads 
 /sk3 focus Name | off   heal this member first, on its own HP lines
 /sk3 follow Name | off  follow this member
 /sk3 rest [on | off]    rest for MP when there's nothing to do
-/sk3 track [Name]       look after a player outside your party too: your target, or by name
+/sk3 track [Name]       look after a player outside your party too: your target, or by name; else list them
 /sk3 untrack Name | all stop tracking them
 /sk3 state              what Sidekick reads from the game: party, trusts, buffs, target, flags
 /sk3 catalog [unknown]  what it can automate for your job, by role (or what it can't)

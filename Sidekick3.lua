@@ -383,7 +383,13 @@ ashita.events.register('command', 'sidekick3_command', function (e)
         settings.save()
         if name == '' then printf('Follow off.') else printf('Following %s past %d yalms.', name, cfg.follow.distance) end
     elseif sub == 'track' then
-        if args[3] or g.target then track(args[3]); return end
+        -- With no name it only adds your target when it's someone new: one already
+        -- tracked is re-checked by name, so no one is examined by accident.
+        local new = g.target
+        for _, u in ipairs(g.units) do
+            if new and u.sid == new.sid then new = nil end
+        end
+        if args[3] or new then track(args[3]); return end
         if not tracked.list[1] then printf('Tracking no one. Target a player, then /sk3 track (or /sk3 track <name>).'); return end
         local list = {}
         for i, t in ipairs(tracked.list) do
