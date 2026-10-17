@@ -353,3 +353,43 @@ test('track and untrack go to the tracking functions Sidekick gives, writing no 
     act.untrack('Out')
     eq({ calls, writes }, { { { 'add', 'Stranger' }, { 'add' }, { 'remove', 'Out' } }, 0 })
 end)
+
+-- The alliance -----------------------------------------------------------------------
+
+local function alliance_snap()
+    return fake.snap({ { name = 'A' }, { kind = 'alliance', name = 'Bea' }, { kind = 'alliance', name = 'Bo', slot = 8 } })
+end
+
+test('the alliance\'s other parties are listed apart, B0-B5 and C0-C5, to focus and follow; the pointer finds them', function ()
+    local view = build(whm, nil, alliance_snap())
+    eq({ keys(view.party, 'tag'), keys(view.alliance, 'tag'), keys(view.alliance, 'kind') },
+       { { 'ME', 'P1' }, { 'B0', 'B2' }, { 'alliance', 'alliance' } })
+    eq({ view.heal.focus_names, view.follow.names }, { { 'A', 'Bea', 'Bo' }, { 'A', 'Bea', 'Bo' } })
+    eq({ view.heal.members, view.heal.alliance }, { { { name = 'A', healed = true } }, false })
+    local cfg = settings.defaults()
+    cfg.heal.alliance, cfg.heal.skip = true, { Bo = true }
+    local g = alliance_snap()
+    g.units[#g.units + 1] = fake.unit({ kind = 'alliance', name = 'Cy', slot = 12, sid = 303 })
+    eq(build(whm, cfg, g).heal.members, { { name = 'A', healed = true }, { name = 'Bea', healed = true, wrap = true },
+        { name = 'Bo', healed = false }, { name = 'Cy', healed = true, wrap = true } })  -- a line per party, to skip
+    eq(model.TAGS[17], 'C5')
+    local e = { at = 990, action = 'Cure IV', target = 'Bea', behavior = 'heal', why = 'danger: Bea 45%' }
+    eq(build(whm, nil, alliance_snap(), status({ intent = e })).pointer, { text = 'Heal:Cure IV', ally = 1, live = false })
+end)
+
+test('buff rows reaching outside the party get a line of chips per party of the alliance there', function ()
+    local view = build(whm, nil, alliance_snap())
+    local haste = row(view, 'buff', 'Haste')
+    eq(keys(haste.targets, 'label'), { 'ME', 'P1', 'P2', 'P3', 'P4', 'P5', 'B0', 'B1', 'B2', 'B3', 'B4', 'B5' })
+    eq(haste.targets[7], { slot = 6, label = 'B0', present = true, name = 'Bea', on = false, wrap = true })
+    eq({ haste.targets[8].present, haste.targets[8].wrap, haste.targets[9].name }, { false, nil, 'Bo' })
+    eq(#row(view, 'buff', 'Regen (keep up)').targets, 6)  -- party only
+    local cfg = settings.defaults()
+    local act = model.actions(cfg, status(), function () end)
+    act.target('Haste', 6)
+    act.target('Haste', 14)
+    eq(cfg.rows.Haste.targets, { [0] = true, [6] = true, [14] = true })
+    haste = row(build(whm, cfg, alliance_snap()), 'buff', 'Haste')
+    eq({ haste.targets[7].on, haste.targets[13].label, haste.targets[15].on, haste.targets[15].present },
+       { true, 'C0', true, false })  -- party C gone, but a chip of it on: still shown, to clear
+end)

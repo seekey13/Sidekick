@@ -4,7 +4,8 @@
     erasable status), then Esuna (an area cast on you, reaching those near you),
     then an item on you (Echo Drops, Remedy...; opt-in, they cost gil). A remover
     only ever on you with no area (Chakra, items) clears only your own; Esuna
-    reaches your party only, so a tracked player gets a -na spell or nothing.
+    reaches your party only, so the alliance's other parties and tracked
+    players get a -na spell or nothing.
     Items go by what they'd clear on you now: Doom first (it kills), then Silence
     if you cast, then the most of your statuses in one use; then cheap and
     specific first. An /item the server never answers (a locked or bazaar stack)

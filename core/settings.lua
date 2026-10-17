@@ -5,7 +5,7 @@
     A row is a spell family ("Cure"), a pick_one group ("barelement") or a labelled
     use ("Regen (keep up)", when one family has several):
         rows[key] = { on = bool, pick = action name or nil (= best tier),
-                      targets = { [party slot] = true, [tracked name] = true } }  -- buffs only
+                      targets = { [party or alliance slot] = true, [tracked name] = true } }  -- buffs only
     A tracked player's name stays on the row after they're untracked, so tracking
     them again brings their buffs back.
     A row never saved uses its default: on, except buffs, sending the pet in and
@@ -19,9 +19,10 @@ local settings = {}
 
 local DEFAULTS = {
     -- HP% lines: danger, critical; efficient above danger (behaviors/heal.lua);
-    -- the focus member has its own. skip = { [name] = true }: never healed for their sake.
+    -- the focus member has its own. skip = { [name] = true }: never healed for their sake;
+    -- alliance: the alliance's other parties healed too (v2's default: off).
     heal = { on = true, danger = 50, critical = 30,
-             focus = '', focus_danger = 60, focus_critical = 40, skip = {},
+             focus = '', focus_danger = 60, focus_critical = 40, skip = {}, alliance = false,
              cure_potency = 0, waltz_potency = 0,  -- +% from gear
              regen_potency = 0 },                  -- +HP per Regen tick from gear
     remove = { on = true },

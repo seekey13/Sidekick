@@ -4,8 +4,8 @@
     ImGui only; it reads no game state and decides nothing.
 
     Two windows. Sidekick3 is a heads-up display: the party's HP and MP bars on a
-    grey panel, the rest of the window transparent, with an arrow at whoever the
-    next action is for. Its cog opens SK Settings, every setting under
+    grey panel (the alliance's other parties as thin HP rows under them), the
+    rest of the window transparent, with an arrow at whoever the next action is for. Its cog opens SK Settings, every setting under
     collapsing headers.
 
     Ashita's binding (as v2 found it): widget values are one-element tables
@@ -59,6 +59,7 @@ local UI_SLIDERS = {
 }
 
 local SETTING_WIDTH, PICK_WIDTH, CHIP_WIDTH = 160, 170, 28
+local JOINED = { party = '  (in your party)', alliance = '  (in your alliance)' }  -- a tracked player's note
 
 local act                    -- this frame's actions
 local settings_open = false  -- SK Settings shown; this session only
@@ -182,7 +183,7 @@ end
 
 local function member_tip(p)
     local notes = {}
-    if p.kind == 'trust' or p.kind == 'tracked' then notes[#notes + 1] = p.kind end
+    if p.kind == 'trust' or p.kind == 'tracked' or p.kind == 'alliance' then notes[#notes + 1] = p.kind end
     if p.job then notes[#notes + 1] = p.job end
     if not (p.alive or p.away) then notes[#notes + 1] = 'KO' end
     if p.away then notes[#notes + 1] = 'away' end
@@ -242,6 +243,19 @@ local function card(dl, ui, p, x, y)
     if p.kind ~= 'tracked' then outlined(dl, ts, fx + ui.mp_width - 4 - mw, my, mp_color, mp) end
 end
 
+-- An alliance member's row, its bar's top at `top`: a thin HP bar (the MP bar's
+-- height) with the tag and name on it and the HP % at its end.
+local function ally_row(dl, ui, p, x, top)
+    local fx, ts = x + PAD + B, ui.text_size
+    bar(dl, fx, top, ui.hp_width, ui.mp_height, p.hpp, HP_TOP, HP_BOTTOM)
+    local color = p.away and AWAY or p.hp == 'critical' and RED or WHITE
+    local label, hp = p.tag .. ' ' .. p.name, ('%d%%'):format(p.hpp)
+    local _, h = measure(label, ts)
+    local ty = top + (ui.mp_height - h) / 2
+    outlined(dl, ts, fx + 4, ty, color, label)
+    outlined(dl, ts, fx + ui.hp_width - 4 - measure(hp, ts), ty, color, hp)
+end
+
 -- The arrow left of the label, its tip just right of the panel at `cy`. On the
 -- background list: it sits outside the window without widening it, as a
 -- transparent window area would block the game's clicks.
@@ -279,7 +293,16 @@ local function draw_hud(view)
                         math.ceil(8 + measure(TITLE, ui.text_size) + 8 + 3 * s + 2 * 4 + 6))  -- the title row fits
     local ch = B + ui.hp_height + B + ui.mp_height + B
     local n = #view.party
-    local ph = th + n * ch + math.max(n - 1, 0) * ui.gap + PAD
+    -- Under the cards, the alliance's rows: B0-B5, then C0-C5, each party after a
+    -- gap. Rows share their borders, as a card's two bars do; `rows` holds each bar's top.
+    local below, rows, last = th + n * ch + math.max(n - 1, 0) * ui.gap, {}, nil
+    for j, p in ipairs(view.alliance) do
+        local party = p.tag:sub(1, 1)
+        if party ~= last then below = below + ui.gap + B end
+        rows[j], last = below, party
+        below = below + ui.mp_height + B
+    end
+    local ph = below + PAD
 
     dl:AddRectFilled({ x0, y0 }, { x0 + pw, y0 + ph }, u32(rgb(PANEL[1], PANEL[2], PANEL[3], ui.opacity / 100)))
     title_row(dl, view, ui.text_size, x0, y0, pw, th, s, u32(rgb(PANEL[1], PANEL[2], PANEL[3])))
@@ -290,6 +313,14 @@ local function draw_hud(view)
         imgui.Dummy({ pw - 2 * PAD, ch })
         tip(member_tip(p))
         if view.pointer and view.pointer.member == i then arrow(view.pointer, ui.text_size, x0 + pw, y + ch / 2) end
+    end
+    for j, p in ipairs(view.alliance) do
+        local top = y0 + rows[j]
+        ally_row(dl, ui, p, x0, top)
+        imgui.SetCursorScreenPos({ x0 + PAD, top - B })
+        imgui.Dummy({ pw - 2 * PAD, ui.mp_height + B })
+        tip(member_tip(p))
+        if view.pointer and view.pointer.ally == j then arrow(view.pointer, ui.text_size, x0 + pw, top + ui.mp_height / 2) end
     end
     imgui.SetCursorScreenPos({ x0, y0 + ph - PAD })
     imgui.Dummy({ pw, PAD })  -- the bottom padding, and the panel's full width, for the auto-size
@@ -332,11 +363,12 @@ local HEAL_LINES = {
 }
 
 -- Who healing looks after: unticked members are never healed for their own sake.
+-- Each of the alliance's other parties starts a line.
 local function heal_members(h)
     if #h.members == 0 then return end
     text('Heal:')
     for _, m in ipairs(h.members) do
-        imgui.SameLine()
+        if not m.wrap then imgui.SameLine() end
         local v = { m.healed }
         if imgui.Checkbox(m.name .. '##sk3_heal_' .. m.name, v) then act.skip(m.name) end
         tip('Untick to never heal them for their own sake; an area heal may still land on them.')
@@ -359,6 +391,9 @@ local function draw_heal_settings(view)
         'Waltz potency % from gear, until a waltz has been seen healing.')
     slider('Regen potency +##sk3_regen_potency', 'heal.regen_potency', h.regen_potency, 0, 30,
         'HP per Regen tick from gear.')
+    checkbox('Heal the alliance##sk3_heal_alliance', h.alliance, function (on) act.set('heal.alliance', on) end,
+        'Heal the alliance\'s other parties too, with heals that reach outside your party. Raising, waking, '
+        .. 'removal and buffs look after them whatever this says, and the focus member is always healed.')
     heal_members(h)
     imgui.Separator()
 end
@@ -392,16 +427,18 @@ local function draw_rest(view)
     slider('Stand past##sk3_rest_distance', 'rest.distance', r.distance, 1, 15, 'Yalms from the leader.')
 end
 
--- Each tracked player with its Untrack button (one who joined your party too),
--- then Track for your target.
+-- Each tracked player with its Untrack button (one who joined your party or
+-- alliance too), then Track for your target.
 local function draw_track(view)
-    for _, p in ipairs(view.party) do
-        if p.tracked then
-            if imgui.Button('Untrack##sk3_untrack_' .. p.name) then act.untrack(p.name) end
-            imgui.SameLine()
-            local note = p.kind ~= 'tracked' and '  (in your party)' or p.job and ('  ' .. p.job) or ''
-            text(('%s %s'):format(p.tag, p.name) .. note, p.away and GREY or nil)
-            tip(p.away and (p.kind == 'tracked' and 'Out of range.' or 'In another zone.') or nil)
+    for _, list in ipairs({ view.party, view.alliance }) do
+        for _, p in ipairs(list) do
+            if p.tracked then
+                if imgui.Button('Untrack##sk3_untrack_' .. p.name) then act.untrack(p.name) end
+                imgui.SameLine()
+                local note = JOINED[p.kind] or p.job and ('  ' .. p.job) or ''
+                text(('%s %s'):format(p.tag, p.name) .. note, p.away and GREY or nil)
+                tip(p.away and (p.kind == 'tracked' and 'Out of range.' or 'In another zone.') or nil)
+            end
         end
     end
     local t = view.track.target
@@ -409,7 +446,7 @@ local function draw_track(view)
         if imgui.Button(('Track %s##sk3_track'):format(t)) then act.track(t) end
         tip('Heal, clear, raise and buff them too, with what reaches outside the party. This session only.')
     else
-        text('Target a player outside your party to track them, or /sk3 track Name.', GREY)
+        text('Target a player outside your alliance to track them, or /sk3 track Name.', GREY)
     end
 end
 
@@ -451,10 +488,11 @@ local function pick_combo(r, id)
     imgui.PopItemWidth()
 end
 
--- ME, P1-P5. An empty slot can't be picked, but a picked one can still be cleared.
+-- ME, P1-P5, T1...; B0-B5 and C0-C5 each on a line of their own. An empty
+-- slot can't be picked, but a picked one can still be cleared.
 local function target_chips(r, id)
     for i, t in ipairs(r.targets) do
-        if i > 1 then imgui.SameLine(0, 2) end
+        if i > 1 and not t.wrap then imgui.SameLine(0, 2) end
         local disabled = not t.present and not t.on
         local colors = disabled and CHIP_EMPTY or not t.on and CHIP_OFF
         if colors then push_button(colors) end

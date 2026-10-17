@@ -59,8 +59,9 @@ function engine.ready(g, mem)
         and since_finish >= (g.spell_finish and can.SPELL_THROTTLE or can.THROTTLE)
 end
 
-function engine.command(intent, cfg)
-    return intent.command or can.command(intent.action, intent.target, cfg.japanese)
+-- The chat command for `intent`; `g` names a battle target the client has no <bt> for.
+function engine.command(intent, cfg, g)
+    return intent.command or can.command(intent.action, intent.target, cfg.japanese, g and g.bt)
 end
 
 -- Record a send: the throttle restarts and the intent's behavior is told.

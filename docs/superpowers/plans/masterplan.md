@@ -1,8 +1,8 @@
 # Sidekick v3 masterplan
 
-First presented in chat on 2026-10-14. Updated 2026-10-16 to match the decisions and progress since then. Specs for single features live in [../specs/](../specs/) and refer back to the phases here.
+First presented in chat on 2026-10-14. Updated 2026-10-17 to match the decisions and progress since then. Specs for single features live in [../specs/](../specs/) and refer back to the phases here.
 
-## Status (2026-10-16)
+## Status (2026-10-17)
 
 | Phase | State |
 |---|---|
@@ -13,7 +13,7 @@ First presented in chat on 2026-10-14. Updated 2026-10-16 to match the decisions
 | 2c | Done, untested in game: settings window (`ui/model.lua` pure, `ui/window.lua` thin) |
 | 2d | Done, untested in game: healing overhaul (bands, area heals, Regen, boosts, learned potency); the in-game check of the area priors is left |
 | 3a | Done (PR #3 with its review fixes), untested in game: wake, recover, pet care and pet send, follow, rest (`/sk3 follow`, `rest`) |
-| 3b | In progress: items and tracked players done, untested in game (status removal from your inventory, under Debuffs; `/sk3 track`, players outside the party looked after with what reaches them); alliance next |
+| 3b | Done, untested in game: items (status removal from your inventory, under Debuffs), tracked players (`/sk3 track`, players outside the party looked after with what reaches them) and the alliance (party slots 6-17, each party scored on its own by area heals; healing them opt-in) |
 | UI | Done (PR #5), untested in game: the window became a HUD of the party's HP and MP (an arrow at the next action's member) plus SK Settings under collapsing headers; the display and size modes are gone, and `cfg.ui` is its own file shared by every job pair |
 | 3c–5 | Not started |
 
@@ -171,7 +171,7 @@ Sidekick3.lua  core/{game,buffs,packets,observed,can,catalog,knowledge,resources
 behaviors/*.lua  jobs/{sch,brd,cor,geo,run,pup,bst,nin,blu,dnc}.lua  ui/{model,window}.lua  tests/  tools/
 ```
 
-Target: 8k lines or less, a cut of about 70%. The architecture doc becomes one page. At the end of phase 2c the tracked code (without `tests/data`) is about 3.4k lines; after 2d, about 3.9k; after 3a and its review, about 4.75k; with 3b's items, about 4.9k (Lua only, as every count here); after the HUD, about 5.85k; with tracked players and their review, about 6.25k.
+Target: 8k lines or less, a cut of about 70%. The architecture doc becomes one page. At the end of phase 2c the tracked code (without `tests/data`) is about 3.4k lines; after 2d, about 3.9k; after 3a and its review, about 4.75k; with 3b's items, about 4.9k (Lua only, as every count here); after the HUD, about 5.85k; with tracked players and their review, about 6.25k; with the alliance and its review, about 6.8k.
 
 ## Phases
 
@@ -198,4 +198,5 @@ Target: 8k lines or less, a cut of about 70%. The architecture doc becomes one p
 - **Statuses on trusts and your pet** come from packets: gains and enfeebles in 0x028 (area variants included), wear-offs in 0x029. A death clears statuses with no message, so a dead trust's or a gone pet's are forgotten.
 - **Items** are named from the client's item resource, since `/item` needs its spelling (CatsEyeXI's custom items differ). What each medicine clears follows the server's item scripts: Panacea's list differs from v2's. The server drops a use of a locked or bazaar-priced stack with no reply, so an unanswered `/item` holds items back 4s; not counting such stacks waits on checking in game that Ashita's item flags show the lock.
 - **Tracked players** (`core/tracked.lua`, session only as in v2) are units of kind `tracked`: the DAT's "ally" target bit (8) says what reaches outside the party (Cure, Protect, Haste, the -na spells, Raise; not Regen, Erase, Curaga), and the server's area effects land on the target's own party, so no area spell cast from you or a member counts them (a Cure aimed at them and spread by Majesty or Accession counts them alone; Accession is never fired for them). Only their HP % is readable: max HP comes from the level a `/check` gives (packet 0x0C9, matched by server id), as v2's average-HP table (a straight line), else your own, until party_share (phase 5) gives the real one; heals on them teach no potency. Decided 2026-10-16: healing ranks them by urgency alone, like members (not party first); a buff row's name key never applies while they're in your party. The `/check` tells them they were examined, as in v2.
+- **The alliance** (party slots 6-17) are units of kind `alliance`, B0-B5 and C0-C5: their HP and MP read as a member's, their statuses from packets as a trust's (forgotten when they leave, so one back starts clean). They come after tracked players in the unit list, as in v2, and one the client isn't drawing is out of reach (any member's entity read needs it drawn). The DAT's ally bit says what reaches them, as for tracked players. An area effect lands on its target's party alone (server targetfind), so `can.together` scores each party on its own: Curaga, Esuna and Protectra from you never count them, and a Cure spread by Majesty or Accession aimed at one of them covers their party, so Accession may be fired for them (v2 did too). Healing them is opt-in (`heal.alliance`, off as in v2) but for the focus member; raising, waking, removal and buff chips need no switch. Decided 2026-10-17: with it on, healing ranks them by urgency alone, like members and tracked players; each can then be unticked under Heal (a line per party); the HUD shows them as thin HP rows under the cards, which the arrow can point at. A mob another party claimed has no client `<bt>`: as in v2, the nearest live mob within 21 yalms claimed by anyone in the alliance is the battle target (`claimed`, so commands aim at its server id), looked for at most every 0.5s; checking ClaimStatus in game is left.
 - **Bard song parity** is the largest unknown. Port the behavior, not the code: write the scenarios as tests first.

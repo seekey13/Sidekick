@@ -96,8 +96,8 @@ local function refresh(now)
     return snap, true
 end
 
-local function entry(intent, now)
-    return { at = now, command = engine.command(intent, cfg), action = intent.action.name, kind = intent.action.kind,
+local function entry(intent, g)
+    return { at = g.now, command = engine.command(intent, cfg, g), action = intent.action.name, kind = intent.action.kind,
              target = intent.target and intent.target.name, behavior = intent.behavior, why = intent.why }
 end
 
@@ -109,7 +109,7 @@ local function tick(g)
     local act = status.running and engine.ready(g, mem)
     if not (act or status.open) then return end
     local intent, why = engine.decide(g, cat.list, cfg, mem)
-    status.intent, status.why = intent and entry(intent, g.now), why
+    status.intent, status.why = intent and entry(intent, g), why
     if not (act and intent) then return end
     AshitaCore:GetChatManager():QueueCommand(0, status.intent.command)
     engine.sent(intent, g, mem)
@@ -162,7 +162,8 @@ local function show_state(g)
         for id in pairs(u.buffs) do names[#names + 1] = statuses[id] and statuses[id].en or tostring(id) end
         table.sort(names)
         local out = u.kind == 'tracked'  -- max HP estimated from the level, or yours; no MP read
-        printf('  %-5s %-14s HP %3d%%%s %s  %s  %s', out and 'track' or u.kind, u.name, u.hpp,
+        local kind = out and 'track' or u.kind == 'alliance' and model.TAGS[u.slot] or u.kind
+        printf('  %-5s %-14s HP %3d%%%s %s  %s  %s', kind, u.name, u.hpp,
             u.max_hp and ((out and '/~' or '/') .. u.max_hp) or '',
             out and (u.main_lv and ('%s%d'):format(abbr(u.main), u.main_lv) or 'lv ?') or ('MP %3d%%'):format(u.mpp),
             u.in_zone and ('%.1fy'):format(u.dist or 0) or 'away', table.concat(names, ', '))
@@ -177,7 +178,7 @@ end
 local function show_plan(g)
     local intent, why = engine.decide(g, cat.list, cfg, mem)
     if intent then
-        printf('Would send %s  (%s: %s)', engine.command(intent, cfg), intent.behavior, intent.why)
+        printf('Would send %s  (%s: %s)', engine.command(intent, cfg, g), intent.behavior, intent.why)
     else
         printf('Nothing to do now: %s.', why)
     end
@@ -200,10 +201,11 @@ local function buff_named(name)
     end
 end
 
--- /sk3 buff [name] [me p1..p5 <tracked name> | off]: turn a buff row on for those
--- targets, or off; with no name, list the rows that are on. The buff's name is
--- the longest run of leading words naming one; the words after it are tracked players.
-local SLOTS = { me = 0, p0 = 0, p1 = 1, p2 = 2, p3 = 3, p4 = 4, p5 = 5 }
+-- /sk3 buff [name] [me p1..p5 b0..c5 <tracked name> | off]: turn a buff row on for
+-- those targets, or off; with no name, list the rows that are on. The buff's name
+-- is the longest run of leading words naming one; the words after it are tracked players.
+local SLOTS = { p0 = 0 }  -- me, p1-p5, and the alliance's b0-b5, c0-c5
+for slot, tag in pairs(model.TAGS) do SLOTS[tag:lower()] = slot end
 local function buff_command(args)
     local words, slots, off = {}, {}, false
     for i = 3, #args do
@@ -222,7 +224,7 @@ local function buff_command(args)
             if row.on and row.targets then
                 local t = {}
                 for slot in pairs(row.targets) do
-                    t[#t + 1] = type(slot) == 'string' and slot or slot == 0 and 'me' or 'p' .. slot
+                    t[#t + 1] = type(slot) == 'string' and slot or model.TAGS[slot]:lower()
                 end
                 table.sort(t)
                 printf('  %s%s -> %s', key, row.pick and (' (' .. row.pick .. ')') or '', table.concat(t, ' '))
@@ -249,13 +251,14 @@ local function buff_command(args)
     elseif a.pick_one and not row.pick then printf('%s on, but pick one: /sk3 buff <spell name>.', key)
     else printf('%s on%s.', key, row.pick and (' (' .. row.pick .. ')') or '') end
     for slot in pairs(row.on and slots or {}) do
-        if type(slot) == 'string' and not can.outside(a) then
-            printf('%s can\'t go on players outside your party: not on %s.', a.family, slot)
+        local outside = type(slot) == 'string' or slot > 5  -- a tracked name, or the alliance's B0-C5
+        if outside and not can.outside(a) then
+            printf('%s can\'t go on players outside your party: not on %s.', a.family, model.TAGS[slot] or slot)
         end
     end
 end
 
--- /sk3 track [name] and the UI's Track button: a player outside your party, by
+-- /sk3 track [name] and the UI's Track button: a player outside your alliance, by
 -- name or your current target. A /check asks their level, so heals are sized
 -- (they're told you examined them, as v2 did); tracking them again asks again.
 local function track(name)
@@ -267,7 +270,10 @@ local function track(name)
         return
     end
     for _, u in ipairs(g.units) do
-        if u.sid == p.sid and u.kind ~= 'tracked' then printf('%s is in your party.', p.name); return end
+        if u.sid == p.sid and u.kind ~= 'tracked' then
+            printf('%s is in your %s.', p.name, u.kind == 'alliance' and 'alliance' or 'party')
+            return
+        end
     end
     if tracked.add(p.sid, p.name, p.tidx) then
         printf('Tracking %s: healed, cleared, raised and buffed (buff rows pick them by name). Checking their level.', p.name)
@@ -326,7 +332,7 @@ ashita.events.register('packet_in', 'sidekick3_packet_in', function (e)
 end)
 
 local HELP = '/sk3 opens or closes the window. Commands: start, stop, plan, state, '
-    .. 'buff [name] [me p1..p5 <tracked>|off], focus <name|off>, follow <name|off>, rest [on|off], '
+    .. 'buff [name] [me p1..p5 b0..c5 <tracked>|off], focus <name|off>, follow <name|off>, rest [on|off], '
     .. 'track [name], untrack <name|all>, catalog [unknown], log, dump, help'
 
 -- ponytail: /sk3 while v2 is still installed and owns /sk; switch to /sk at cutover.
