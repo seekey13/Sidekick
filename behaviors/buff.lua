@@ -6,7 +6,8 @@
     With buff.hold_aoe on, an area spell is held while a player in your party
     who lacks it is out of its reach (or not drawn), so nobody is left out: it
     goes out once they gather, and mem.gather says what waits on whom (the engine
-    asks the party to gather). Trusts follow you and never hold it.
+    asks the party to gather when someone near lacks it too; otherwise it waits
+    quietly). Trusts follow you and never hold it.
     A row's targets are party and alliance slots (0-17) and tracked players'
     names. Statuses that can't be read (Boost) are recast whenever they're off
     recast.
@@ -72,7 +73,11 @@ return function (g, cat, cfg, mem)
             if can.self_only(a) and a.area > 0 then
                 local near, away = area(a, g, hold and a.kind == 'ma')
                 if away then
-                    mem.gather = mem.gather or { action = a, who = away }
+                    -- Ask the party only when someone near needs it too: one who
+                    -- stays away (a puller) waits for silently.
+                    if not mem.gather or (near and not mem.gather.ask) then
+                        mem.gather = { action = a, who = away, ask = near ~= nil }
+                    end
                 elseif near then
                     return { action = a, why = ('%s lacks it'):format(near.name) }
                 end

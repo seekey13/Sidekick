@@ -434,7 +434,8 @@ local function draw_buff_settings(view)
         .. 'reach, so nobody is left out. Trusts and members in another zone never hold it.')
     if b.hold_aoe then
         checkbox('Ask them to gather##sk3_gather', b.gather, function (on) act.set('buff.gather', on) end,
-            'While one is held, say "Gather together for <spell>" in party chat, at most every 5 seconds.')
+            'While one is held that someone near you lacks too, say "Gather together for <spell>" in party chat, '
+                .. 'at most every 5 seconds.')
     end
     imgui.Separator()
 end

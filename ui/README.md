@@ -52,7 +52,7 @@ Text that may contain `%` (names, `why` text) must be escaped before it's drawn:
 | `recover` | table | `{ mp, tp, min_tp, spends_tp }`: recover MP under `mp` % (yours; a member's for Devotion), TP under `tp` (0 to 3000) in combat; Chivalry only from `min_tp` TP. `spends_tp`: a row spends TP (Chivalry), so `min_tp` is worth showing |
 | `pet_heal` | number | Heal your pet under this HP % |
 | `follow` | table | `{ on, target, distance, names }`: follow `target` (a name, `''` for none) once further than `distance` yalms; `names` are the members (the alliance's and tracked players too) that can be followed |
-| `buff` | table | `{ hold_aoe, gather }`: `hold_aoe` holds an area buff spell (Protectra, songs) while a player in your party who lacks it is out of its reach; `gather` then asks them to gather in party chat, at most every 5 seconds |
+| `buff` | table | `{ hold_aoe, gather }`: `hold_aoe` holds an area buff spell (Protectra, songs) while a player in your party who lacks it is out of its reach; `gather` then asks them to gather in party chat, at most every 5 seconds, when someone near you lacks it too |
 | `rest` | table | `{ on, delay, distance }`: rest after `delay` seconds with nothing to do; stand when the follow target is further than `distance` yalms |
 | `track` | table | `{ target }`: your current target's name when it's a player you could track (not in your party or alliance, not tracked yet), else nil |
 | `japanese` | bool | Spell, ability and item names are sent in Japanese |

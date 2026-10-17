@@ -38,12 +38,23 @@ test('on: held while a player lacking it is out of reach, and why says so', func
     eq(decide(g, cfg), '/ma "Protectra V" <me>')
 end)
 
-test('on: a far player lacking it is reason to cast once they gather, even with everyone near covered', function ()
+test('on: with everyone near covered, a far player lacking it is waited for without asking', function ()
     local g, cfg = setup()
+    local mem = {}
     g.me.buffs[PROTECT] = true
-    eq({ decide(g, cfg) }, { nil, 'holding Protectra V: B 15.0y away' })
+    eq({ decide(g, cfg, mem) }, { nil, 'holding Protectra V: B 15.0y away' })
+    eq(engine.gather(g, cfg, mem), nil)
     g.units[3].dist = 5
-    eq({ decide(g, cfg) }, { '/ma "Protectra V" <me>', 'B lacks it' })
+    eq({ decide(g, cfg, mem) }, { '/ma "Protectra V" <me>', 'B lacks it' })
+end)
+
+test('on: a later held row someone near needs is the one asked for', function ()
+    local g, cfg = setup()
+    local mem = {}
+    g.me.buffs[PROTECT] = true
+    cfg.rows.Shellra = { on = true }
+    decide(g, cfg, mem)
+    eq(engine.gather(g, cfg, mem), '/p Gather together for Shellra V')
 end)
 
 test('on: no hold for one far who has it, a trust, the dead, another zone or the alliance', function ()
@@ -127,7 +138,7 @@ end)
 
 test('gather in Japanese keeps the English name when there is no Japanese one', function ()
     local g, cfg = setup()
-    local mem = { gather = { action = { name = 'Custom', jp = '' }, who = g.units[3] } }
+    local mem = { gather = { action = { name = 'Custom', jp = '' }, who = g.units[3], ask = true } }
     cfg.japanese = true
     eq(engine.gather(g, cfg, mem), '/p \x8f\x57\x82\xdc\x82\xc1\x82\xc4\x82\xad\x82\xbe\x82\xb3\x82\xa2\x81\x42  Custom')
 end)

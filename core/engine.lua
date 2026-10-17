@@ -62,10 +62,11 @@ function engine.decide(g, cat, cfg, mem)
 end
 
 -- The party chat line asking everyone to gather for the buff held on this
--- decision, at most every GATHER_EVERY seconds; nil when there's none to send.
+-- decision (when someone near you lacks it too), at most every GATHER_EVERY
+-- seconds; nil when there's none to send.
 function engine.gather(g, cfg, mem)
     local w = mem.gather
-    if not (w and cfg.buff.gather) or g.now - (mem.gathered_at or -math.huge) < engine.GATHER_EVERY then return nil end
+    if not (w and w.ask and cfg.buff.gather) or g.now - (mem.gathered_at or -math.huge) < engine.GATHER_EVERY then return nil end
     mem.gathered_at = g.now
     local a = w.action
     if cfg.japanese then return '/p ' .. GATHER_JP .. '  ' .. ((a.jp or '') ~= '' and a.jp or a.name) end
