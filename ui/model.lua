@@ -146,14 +146,28 @@ local function chips(acts, r, units, outsiders)
     return out
 end
 
-local function build_row(key, acts, cfg, g, units, buffs, outsiders)
+-- Modifier chips (SCH's stratagems): each one in the catalog that fits one of
+-- the row's spells.
+local function mod_chips(acts, r, modifiers)
+    local on, out = r.mods or {}, {}
+    for _, m in ipairs(modifiers) do
+        local fits = false
+        for _, a in ipairs(acts) do fits = fits or m.applies(a) end
+        if fits then out[#out + 1] = { name = m.name, label = m.chip or m.name, note = m.note, on = on[m.name] == true } end
+    end
+    return out[1] and out or nil
+end
+
+-- `modifiers` (a list, maybe empty) only for buff rows.
+local function build_row(key, acts, cfg, g, units, modifiers, outsiders)
     local r = settings.row(cfg, acts[1])
     local notes = distinct(acts, 'note')
     local note = #notes == 1 and notes[1] or nil
     local row = { key = key, label = row_label(key, acts, note), on = r.on == true }
-    if buffs then
+    if modifiers then
         row.choices = choices(acts, note)
         row.targets = chips(acts, r, units, outsiders)
+        row.mods = mod_chips(acts, r, modifiers)
     end
     if row.choices then
         row.pick = r.pick
@@ -180,8 +194,12 @@ local function build_rows(s, g, cat, cfg, units, outsiders)
             end
         end
     end
+    local modifiers = {}
+    for _, a in ipairs(cat) do
+        if a.role == 'modifier' and a.applies then modifiers[#modifiers + 1] = a end
+    end
     for _, key in ipairs(order) do
-        rows[#rows + 1] = build_row(key, acts_of[key], cfg, g, units, s.id == 'buff', outsiders)
+        rows[#rows + 1] = build_row(key, acts_of[key], cfg, g, units, s.id == 'buff' and modifiers, outsiders)
     end
     return rows
 end
@@ -319,7 +337,9 @@ function model.build(g, cat, cfg, status, names)
     end
 
     local spends_tp, wakes = false, false  -- Chivalry: its TP line is worth showing; a heal can wake
+    local stratagems = false               -- SCH: the charge reserve is worth showing
     for _, a in ipairs(cat) do
+        stratagems = stratagems or a.role == 'modifier' and a.applies ~= nil
         spends_tp = spends_tp or a.role == 'recover' and a.spends_tp == true
         wakes = wakes or a.role == 'heal' and a.wakes == true and not a.pet
     end
@@ -332,6 +352,7 @@ function model.build(g, cat, cfg, status, names)
         heal = { danger = h.danger, critical = h.critical, focus = h.focus, alliance = h.alliance,
                  focus_danger = h.focus_danger, focus_critical = h.focus_critical,
                  cure_potency = h.cure_potency, waltz_potency = h.waltz_potency, regen_potency = h.regen_potency,
+                 reserve = h.reserve, stratagems = stratagems,
                  focus_names = focus_names, members = members },
         recover = { mp = cfg.recover.mp, tp = cfg.recover.tp, min_tp = cfg.recover.min_tp, spends_tp = spends_tp },
         pet_heal = cfg.pet.heal,
@@ -361,6 +382,7 @@ function model.build(g, cat, cfg, status, names)
             for _, r in ipairs(section.rows) do
                 section.has_choices = section.has_choices or r.choices ~= nil
                 section.has_targets = section.has_targets or r.targets ~= nil
+                section.has_mods = section.has_mods or r.mods ~= nil
             end
         end
         local shown = not section.rows or #section.rows > 0
@@ -372,8 +394,8 @@ end
 
 -- Actions: everything a UI can change. The caller saves after changed(). -------
 
--- A row as saved, created on first touch. Picks and targets exist only on buff
--- rows, which default off.
+-- A row as saved, created on first touch. Picks, targets and modifiers exist
+-- only on buff rows, which default off.
 local function saved_row(cfg, key, default_on)
     local r = cfg.rows[key]
     if not r then r = { on = default_on }; cfg.rows[key] = r end
@@ -410,6 +432,13 @@ function model.actions(cfg, status, changed, tracking)
         r.targets[slot] = not r.targets[slot] or nil
         changed()
     end
+    -- A modifier (a stratagem: 'Penury', 'Accession'...) fired before the row's spell, on or off.
+    function act.mod(key, name)
+        local r = saved_row(cfg, key, false)
+        r.mods = r.mods or {}
+        r.mods[name] = not r.mods[name] or nil
+        changed()
+    end
     -- Profiles (core/profiles.lua): load one by name, nil for Default; save
     -- (renames the loaded one when the name differs), save as, new, delete.
     function act.profile(name)
@@ -434,7 +463,7 @@ function model.actions(cfg, status, changed, tracking)
         cfg.heal.skip[name] = not cfg.heal.skip[name] or nil
         changed()
     end
-    -- path: 'heal.danger', 'heal.alliance', 'buff.hold_aoe', 'follow.target', 'japanese', 'ui.hp_width', or 'ui.<anything>' for a UI's own.
+    -- path: 'heal.danger', 'heal.alliance', 'heal.reserve', 'buff.hold_aoe', 'follow.target', 'japanese', 'ui.hp_width', or 'ui.<anything>' for a UI's own.
     function act.set(path, value)
         if path == 'japanese' then path = 'ui.japanese' end  -- shared by every job pair, as the HUD
         local t = cfg

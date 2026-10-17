@@ -15,7 +15,7 @@ end
 
 -- Healing (behaviors/heal.lua). Members have 1000 HP; WHM 75 table potencies x 1.25.
 local heal = require('behaviors.heal')
-local game = require('core.game')
+local stratagems = require('jobs.sch')
 local observed = require('core.observed')
 local can = require('core.can')
 
@@ -191,11 +191,11 @@ test('danger fires Accession when a spread Cure IV beats every single cure', fun
 end)
 
 test('a stratagem with its timer running but a charge banked is usable', function ()
-    eq({ game.charge_wait(100, 75), game.charge_wait(200, 75), game.charge_wait(100, 37) }, { 0, 8, 0 })
+    eq({ stratagems.charge_wait(100, 75), stratagems.charge_wait(200, 75), stratagems.charge_wait(100, 37) }, { 0, 8, 0 })
     local accession
-    for _, a in ipairs(sch) do if a.name == 'Accession' then accession = a end end
+    for _, a in ipairs(sch) do if a.name == 'Accession' and a.role == 'emergency' then accession = a end end
     local g = with(snap({}), { LIGHT_ARTS })
-    g.recast = function () return game.charge_wait(100, 75) end
+    g.recast = function () return stratagems.charge_wait(100, 75) end
     eq(can.use(accession, g), true)
 end)
 

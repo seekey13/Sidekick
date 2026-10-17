@@ -9,6 +9,10 @@
     While you rest, only resting runs: it alone decides when to stand.
     A buff held for the group to gather (behaviors/buff.lua) leaves mem.gather,
     which engine.gather turns into a party chat line.
+    Modifiers: an intent may list intent.mods (stratagems a buff row turned on),
+    and an Addendum spell you lack the Addendum for has action.via (Enlightenment).
+    One whose status isn't on you goes first, alone; its status is then taken as
+    on you for EXPECT seconds, so the next decision sends the spell.
 ]]--
 
 local can = require('core.can')
@@ -32,14 +36,43 @@ engine.BEHAVIORS = {
 }
 
 local GATES = { 'loading', 'dead', 'mounted', 'safe', 'incapacitated', 'casting', 'moving' }
+engine.EXPECT = 2  -- seconds a modifier's status is taken as on you once it's sent
 engine.GATHER_EVERY = 5  -- seconds between asks to gather, as v2
 -- 集まってください。 in Shift-JIS, the game's chat encoding (as the names from the DATs).
 local GATHER_JP = '\x8f\x57\x82\xdc\x82\xc1\x82\xc4\x82\xad\x82\xbe\x82\xb3\x82\xa2\x81\x42'
+
+-- The modifier to send before `intent`'s action, as an intent of its own, or nil.
+local function modifier(intent, g)
+    local a = intent.action
+    local first = a.via and a.requires and not can.any(g.me.buffs, a.requires) and a.via
+    for _, m in ipairs(intent.mods or {}) do
+        if first then break end
+        if m.status and not can.any(g.me.buffs, m.status) and can.use(m, g) then first = m end
+    end
+    if not first then return nil end
+    local on = intent.target and (' -> ' .. intent.target.name) or ''
+    return { action = first, expect = first.status, why = ('for %s%s: %s'):format(a.name, on, intent.why) }
+end
+
+-- `g` with the statuses expected from modifiers just sent on you: a copy for
+-- this decision only, so the HUD and /sk3 state still show what the game says.
+local function expecting(g, mem)
+    local extra = nil
+    for id, until_ in pairs(mem.expect or {}) do
+        if g.now < until_ then extra = extra or {}; extra[id] = true else mem.expect[id] = nil end
+    end
+    if not extra then return g end
+    local me = setmetatable({ buffs = setmetatable(extra, { __index = g.me.buffs }) }, { __index = g.me })
+    local units = {}
+    for i, u in ipairs(g.units) do units[i] = u == g.me and me or u end
+    return setmetatable({ me = me, units = units }, { __index = g })
+end
 
 -- The intent for now, or nil and why not. `mem` is the engine's own memory
 -- between ticks (behaviors keep theirs in it too).
 function engine.decide(g, cat, cfg, mem)
     mem.gather = nil
+    g = expecting(g, mem)
     for _, gate in ipairs(GATES) do
         if g[gate] then return nil, gate end
     end
@@ -50,6 +83,7 @@ function engine.decide(g, cat, cfg, mem)
             if intent and intent.hold then
                 holding = true
             elseif intent then
+                intent = modifier(intent, g) or intent
                 intent.behavior = b.name
                 return intent
             end
@@ -87,9 +121,14 @@ function engine.command(intent, cfg, g)
     return can.command(intent.action, intent.target, cfg.ui.japanese, g and g.bt)
 end
 
--- Record a send: the throttle restarts and the intent's behavior is told.
+-- Record a send: the throttle restarts, a modifier's status is expected, and
+-- the intent's behavior is told.
 function engine.sent(intent, g, mem)
     mem.sent_at = g.now
+    for _, id in ipairs(intent.expect or {}) do
+        mem.expect = mem.expect or {}
+        mem.expect[id] = g.now + engine.EXPECT
+    end
     if intent.sent then intent.sent(g.now) end
 end
 

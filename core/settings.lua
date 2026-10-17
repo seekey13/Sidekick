@@ -5,7 +5,8 @@
     A row is a spell family ("Cure"), a pick_one group ("barelement") or a labelled
     use ("Regen (keep up)", when one family has several):
         rows[key] = { on = bool, pick = action name or nil (= best tier),
-                      targets = { [party or alliance slot] = true, [tracked name] = true } }  -- buffs only
+                      targets = { [party or alliance slot] = true, [tracked name] = true },  -- buffs only
+                      mods = { [modifier name] = true } }  -- buffs only: stratagems fired first
     A tracked player's name stays on the row after they're untracked, so tracking
     them again brings their buffs back.
     A row never saved uses its default: on, except buffs, sending the pet in and
@@ -26,7 +27,8 @@ local DEFAULTS = {
     heal = { on = true, danger = 50, critical = 30,
              focus = '', focus_danger = 60, focus_critical = 40, skip = {}, alliance = false,
              cure_potency = 0, waltz_potency = 0,  -- +% from gear
-             regen_potency = 0 },                  -- +HP per Regen tick from gear
+             regen_potency = 0,                    -- +HP per Regen tick from gear
+             reserve = false },  -- SCH: buff rows leave the last stratagem charge for healing (as v2's, opt-in)
     remove = { on = true },
     wake = { on = true },                  -- wake sleeping members with a heal that wakes
     recover = { on = true, mp = 30, tp = 1000,    -- under your MP% (a member's, for Devotion), your TP
@@ -72,6 +74,16 @@ function settings.enabled(cat, cfg, role)
     local out = {}
     for _, a in ipairs(cat) do
         if a.role == role and settings.row(cfg, a).on then out[#out + 1] = a end
+    end
+    return out
+end
+
+-- The modifiers (Penury, Accession...) turned on for `a`'s row that fit `a`.
+function settings.mods(cat, cfg, a)
+    local on, out = settings.row(cfg, a).mods, {}
+    if not on then return out end
+    for _, m in ipairs(cat) do
+        if m.role == 'modifier' and m.applies and on[m.name] and m.applies(a) then out[#out + 1] = m end
     end
     return out
 end

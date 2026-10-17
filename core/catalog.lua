@@ -92,7 +92,7 @@ function catalog.build(res, player, K)
         for _, use in ipairs(uses(K, row.en, family, kind)) do
             if not (use.main_only and from == 'sub') then
                 local status = use.status
-                if status == nil and (use.role == 'buff' or use.boost) then
+                if status == nil and (use.role == 'buff' or use.role == 'modifier' or use.boost) then
                     status = idx[row.en:lower()] or idx[family:lower()]
                 end
                 out[#out + 1] = {
@@ -112,6 +112,7 @@ function catalog.build(res, player, K)
                     wakes = use.wakes, gives = use.gives, gate = use.gate, pick_one = use.pick_one,
                     costs_hp = use.costs_hp, swaps = use.swaps, spends_tp = use.spends_tp,
                     ammo = use.ammo, pet_range = use.pet_range,
+                    applies = use.applies, spreads = use.spreads, chip = use.chip, addendum = addendum or nil,
                     priority = use.priority or 0, pet = use.pet, travel = use.travel, mob_skill = use.mob_skill,
                     mp = row.mp, tp = row.tp,  -- the client blocks casts by this cost, so it is the one to trust
                     recast = kind == 'ma' and id or row.recast_id,  -- spell id, or ability recast timer id
@@ -134,6 +135,16 @@ function catalog.build(res, player, K)
         if not SKIP_TYPES[a.type] and player.has_ability(id) then
             add(PET_TYPES[a.type] and 'pet' or 'ja', id, a)
         end
+    end
+
+    -- Enlightenment is an Addendum spell's way in without the Addendum: can.use
+    -- counts it, and the engine fires it first.
+    local enlightenment
+    for _, a in ipairs(out) do
+        if a.role == 'modifier' and a.name == 'Enlightenment' then enlightenment = a end
+    end
+    for _, a in ipairs(out) do
+        if a.addendum then a.via = enlightenment end
     end
 
     table.sort(out, function (a, b)
