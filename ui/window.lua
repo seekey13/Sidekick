@@ -359,6 +359,9 @@ local function draw_heal_settings(view)
         'Waltz potency % from gear, until a waltz has been seen healing.')
     slider('Regen potency +##sk3_regen_potency', 'heal.regen_potency', h.regen_potency, 0, 30,
         'HP per Regen tick from gear.')
+    checkbox('Heal the alliance##sk3_heal_alliance', h.alliance, function (on) act.set('heal.alliance', on) end,
+        'Heal the alliance\'s other parties too, with heals that reach outside your party. Raising, waking, '
+        .. 'removal and buffs look after them whatever this says, and the focus member is always healed.')
     heal_members(h)
     imgui.Separator()
 end
@@ -392,16 +395,19 @@ local function draw_rest(view)
     slider('Stand past##sk3_rest_distance', 'rest.distance', r.distance, 1, 15, 'Yalms from the leader.')
 end
 
--- Each tracked player with its Untrack button (one who joined your party too),
--- then Track for your target.
+-- Each tracked player with its Untrack button (one who joined your party or
+-- alliance too), then Track for your target.
 local function draw_track(view)
-    for _, p in ipairs(view.party) do
-        if p.tracked then
-            if imgui.Button('Untrack##sk3_untrack_' .. p.name) then act.untrack(p.name) end
-            imgui.SameLine()
-            local note = p.kind ~= 'tracked' and '  (in your party)' or p.job and ('  ' .. p.job) or ''
-            text(('%s %s'):format(p.tag, p.name) .. note, p.away and GREY or nil)
-            tip(p.away and (p.kind == 'tracked' and 'Out of range.' or 'In another zone.') or nil)
+    local notes = { party = '  (in your party)', trust = '  (in your party)', alliance = '  (in your alliance)' }
+    for _, list in ipairs({ view.party, view.alliance }) do
+        for _, p in ipairs(list) do
+            if p.tracked then
+                if imgui.Button('Untrack##sk3_untrack_' .. p.name) then act.untrack(p.name) end
+                imgui.SameLine()
+                local note = notes[p.kind] or p.job and ('  ' .. p.job) or ''
+                text(('%s %s'):format(p.tag, p.name) .. note, p.away and GREY or nil)
+                tip(p.away and (p.kind == 'tracked' and 'Out of range.' or 'In another zone.') or nil)
+            end
         end
     end
     local t = view.track.target
@@ -451,10 +457,11 @@ local function pick_combo(r, id)
     imgui.PopItemWidth()
 end
 
--- ME, P1-P5. An empty slot can't be picked, but a picked one can still be cleared.
+-- ME, P1-P5, T1...; B0-B5 and C0-C5 each on a line of their own. An empty
+-- slot can't be picked, but a picked one can still be cleared.
 local function target_chips(r, id)
     for i, t in ipairs(r.targets) do
-        if i > 1 then imgui.SameLine(0, 2) end
+        if i > 1 and not t.wrap then imgui.SameLine(0, 2) end
         local disabled = not t.present and not t.on
         local colors = disabled and CHIP_EMPTY or not t.on and CHIP_OFF
         if colors then push_button(colors) end

@@ -2,7 +2,8 @@
     The rules every behavior shares, so none re-implements them:
       can.use(a, g)            is action `a` usable right now (cost, recast, ailments, gates)
       can.reach(a, u)          can `a` land on unit `u` (target kind, alive, in range)
-      can.in_party(u)          is `u` in your party: area effects land on no one else
+      can.in_party(u)          is `u` in your party: area effects from you land on no one else
+      can.together(c, u)       does an area effect aimed at `c` land on `u` (the same party)
       can.command(a, u)        the chat command that does it
       can.spare_hp(a, g, cfg)  can you pay what `a` costs in HP
     `a` is a catalog record, `u` a unit and `g` the snapshot from core/game.lua.
@@ -14,8 +15,8 @@ can.THROTTLE = 1.1        -- the server's lockout after any action
 can.SPELL_THROTTLE = 3.1  -- ...and after a spell, counted from when it lands
 
 -- Valid-target flags (spell/ability Targets). ALLY is a player outside your
--- party: Cure, Protect, Haste, the -na spells and Raise have it; Regen, Erase,
--- Curaga don't.
+-- party, in your alliance or not: Cure, Protect, Haste, the -na spells and
+-- Raise have it; Regen, Erase, Curaga don't.
 local SELF, PARTY, ALLY, ENEMY, CORPSE = 1, 4, 8, 32, 128
 
 -- Range index -> yalms: index * multiplier (the client's lookup); 13+ are self-range.
@@ -59,13 +60,27 @@ end
 function can.at_enemy(a) return a.targets == ENEMY end
 -- Only ever on you (Protectra, Esuna, most job abilities).
 function can.self_only(a) return a.targets == SELF end
--- Can go on a player outside your party (a tracked player).
+-- Can go on a player outside your party (the alliance's other parties, a tracked player).
 function can.outside(a) return has(a.targets, ALLY) end
 
+-- Which party of the alliance `u` is in: 1 yours (you, members, trusts, your
+-- pet), 2 for slots 6-11, 3 for 12-17; nil for a tracked player, whose party
+-- is unknown.
+function can.party(u)
+    if u.kind == 'tracked' then return nil end
+    return u.kind == 'alliance' and (u.slot < 12 and 2 or 3) or 1
+end
+
+function can.in_party(u) return can.party(u) == 1 end
+
 -- An area effect lands on the target's party: one from you or a member
--- (Curaga, Esuna, Protectra) never reaches a tracked player; one aimed at them
--- (a Cure spread by Majesty or Accession, a -na by Divine Veil) lands on theirs.
-function can.in_party(u) return u.kind ~= 'tracked' end
+-- (Curaga, Esuna, Protectra) never reaches the alliance's other parties or a
+-- tracked player; one aimed at someone else (a Cure spread by Majesty or
+-- Accession, a -na by Divine Veil) lands on their party alone.
+function can.together(centre, u)
+    local p = can.party(centre)
+    return p ~= nil and p == can.party(u)
+end
 
 -- Whether `a` can be used now, else false and why.
 function can.use(a, g)

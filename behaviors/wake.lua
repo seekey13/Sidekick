@@ -2,8 +2,9 @@
     Wake sleeping members with a heal that wakes (Cure, Curaga, waltzes...): the
     healing rows that are on. Two or more asleep together get an area heal aimed
     to cover the most; otherwise the cheapest heal that reaches the first sleeper.
-    The focus member is woken first. An area heal wakes your party only: a
-    tracked player needs one aimed at them.
+    The focus member is woken first. An area heal wakes its target's party
+    only: you or a member yours, so the alliance's other parties and tracked
+    players need one aimed at them.
 ]]--
 
 local can = require('core.can')
@@ -32,10 +33,10 @@ local function aim(a, u, g)
     return can.reach(a, u) and u
 end
 
--- How many sleepers an area heal centred on `centre` covers.
+-- How many sleepers an area heal centred on `centre` covers: those of its party near it.
 local function covered(list, centre, radius)
     local n = 0
-    for _, u in ipairs(list) do if can.in_party(u) and can.dist(centre, u) <= radius then n = n + 1 end end
+    for _, u in ipairs(list) do if can.together(centre, u) and can.dist(centre, u) <= radius then n = n + 1 end end
     return n
 end
 

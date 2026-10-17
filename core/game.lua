@@ -1,19 +1,21 @@
 --[[
-    One read of the game: you, your party and trusts, then the players you track
-    (core/tracked.lua), as one list of units; your battle target and pet, and
-    the flags that stop automation (casting, moving, mounted, dead,
-    incapacitated, safe zone...). The engine decides from this snapshot alone,
-    so tests can hand it a fake one.
+    One read of the game: you, your party and trusts, your alliance's other two
+    parties, then the players you track (core/tracked.lua), as one list of
+    units; your battle target and pet, and the flags that stop automation
+    (casting, moving, mounted, dead, incapacitated, safe zone...). The engine
+    decides from this snapshot alone, so tests can hand it a fake one.
 
-    unit = { slot, sid, tidx, name, kind = 'self'|'party'|'trust'|'tracked', hpp, hp, max_hp,
+    unit = { slot, sid, tidx, name, kind = 'self'|'party'|'trust'|'alliance'|'tracked', hpp, hp, max_hp,
              mpp, mp, tp, uses_mp (yours: max MP > 0; others: seen with MP on these jobs),
              in_zone, dist, pos = { x, y, z },
              status (entity), alive, buffs = { [id] = true },
              hot = HP still to come from your Regen, nil if none }
+    Slots: 0 you, 1-5 your party, 6-11 and 12-17 the alliance's other parties
+    (kind 'alliance', their statuses from packets as a trust's).
     A tracked player has no slot and no MP; in_zone while the client draws them
     (in range; out of it, their HP and status as last seen), max_hp estimated
     from their /check level (else yours), and main, main_lv, sub, sub_lv once a
-    /check has answered. A member you also track has tracked = true.
+    /check has answered. A member (or alliance member) you also track has tracked = true.
     The pet is { sid, tidx, name, hpp, dist, pos, status (1 engaged), buffs }.
     `target` is your current target when it's another player: { tidx, sid, name }.
     Plus when your cast began (cast_at, while casting);
@@ -91,6 +93,7 @@ local last_combat = -math.huge
 local pet_sid  -- the live pet last seen: its statuses are forgotten once it's gone or dead
 local ready_since = {}  -- [recast key] = when its timer first read 0
 local rescan_at = -math.huge
+local fed = {}  -- [sid] = true: last read's units whose statuses come from packets
 
 local function set_of(list)
     local s = {}
@@ -191,13 +194,13 @@ local function here(em, t)
 end
 
 -- Zoning (theirs or yours) gives everyone a new entity index: while a tracked
--- player outside your party isn't where they were, look for them again, at
+-- player outside your alliance isn't where they were, look for them again, at
 -- most once a second.
-local function relocate(em, now, in_party)
+local function relocate(em, now, listed)
     if now - rescan_at < RESCAN then return end
     local lost = {}
     for _, t in ipairs(tracked.list) do
-        if not (in_party[t.sid] or here(em, t)) then lost[t.sid] = t end
+        if not (listed[t.sid] or here(em, t)) then lost[t.sid] = t end
     end
     if not next(lost) then return end
     rescan_at = now
@@ -293,14 +296,15 @@ function game.read(now)
     local zone = party:GetMemberZone(0)
     if player:GetMainJobLevel() == 0 or zone == 0 then return { loading = true, now = now } end
 
-    local units, tracks, in_party = {}, {}, {}
-    for i = 0, 5 do
+    local units, tracks, listed = {}, {}, {}
+    for i = 0, 17 do
         if party:GetMemberIsActive(i) == 1 then
             local sid, tidx = party:GetMemberServerId(i), party:GetMemberTargetIndex(i)
-            in_party[sid] = true
+            listed[sid] = true
             local u = {
                 slot = i, sid = sid, tidx = tidx, name = party:GetMemberName(i),
-                kind = i == 0 and 'self' or sid >= TRUST and 'trust' or 'party', tracked = tracked.find(sid) and true,
+                kind = i == 0 and 'self' or i > 5 and 'alliance' or sid >= TRUST and 'trust' or 'party',
+                tracked = tracked.find(sid) and true,
                 hpp = party:GetMemberHPPercent(i), hp = party:GetMemberHP(i),
                 mpp = party:GetMemberMPPercent(i), mp = party:GetMemberMP(i), tp = party:GetMemberTP(i),
                 in_zone = party:GetMemberZone(i) == zone,
@@ -322,19 +326,20 @@ function game.read(now)
             end
             u.alive = u.hpp > 0 and u.status ~= DEAD
             if u.kind == 'self' then u.buffs = own_buffs(player)
-            elseif u.kind == 'trust' then
+            elseif u.kind == 'party' then u.buffs = party_buffs(sid)
+            else  -- a trust or the alliance: the client keeps no list
                 if not u.alive then buffs.forget(sid) end  -- a death clears statuses silently
                 u.buffs = buffs.of(sid, now); tracks[sid] = true
-            else u.buffs = party_buffs(sid) end
+            end
             u.hot = observed.hot(sid, now, u.buffs[REGEN])
             units[#units + 1] = u
         end
     end
 
     local me = units[1]
-    relocate(em, now, in_party)
+    relocate(em, now, listed)
     for _, t in ipairs(tracked.list) do
-        if not in_party[t.sid] then  -- one who joined your party is a member while they stay
+        if not listed[t.sid] then  -- one who joined your party or alliance is a member while they stay
             units[#units + 1] = tracked_unit(em, t, me, now)
             tracks[t.sid] = true
         end
@@ -348,6 +353,12 @@ function game.read(now)
     if pet_sid and not (pet and pet.sid == pet_sid and pet.hpp > 0) then buffs.forget(pet_sid) end
     pet_sid = pet and pet.hpp > 0 and pet.sid or nil
     if pet then pet.buffs = buffs.of(pet.sid, now); tracks[pet.sid] = true end
+    -- Statuses on one gone since the last read (a trust dismissed, a member who
+    -- left the alliance) went silently: if they come back, they start clean.
+    for sid in pairs(fed) do
+        if not tracks[sid] then buffs.forget(sid) end
+    end
+    fed = tracks
     local event = event_ptr ~= 0 and ashita.memory.read_uint32(event_ptr + 1) or 0
     local finished, spell_finish = packets.last_finish()
     local casting, cast_at = packets.casting(now)

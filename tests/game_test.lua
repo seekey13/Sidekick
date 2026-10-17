@@ -1,6 +1,7 @@
 -- core/game.lua's read of tracked players, against a fake client: found by
 -- entity index and again after zoning, as last seen out of range, a member
--- while in your party; your target when it's a player; a player by name.
+-- while in your party or alliance; the alliance's other parties; your target
+-- when it's a player; a player by name.
 local buffs = require('core.buffs')
 local game = require('core.game')
 local tracked = require('core.tracked')
@@ -139,6 +140,37 @@ test('find_player: a player drawn near you, by name in any case', function ()
     eq(game.find_player('Crab'), nil)  -- not a player's index
     world.ents[0x480].shown = false
     eq(game.find_player('stranger'), nil)
+end)
+
+test('the alliance\'s other parties: slots 6-17, statuses from packets, forgotten once they leave', function ()
+    reset()
+    local bea = { sid = 600, tidx = 0x500, name = 'Bea', hpp = 50, hp = 500, mpp = 80, mp = 400 }
+    world.party[7] = bea                                                                          -- slot 6: B0
+    world.party[13] = { sid = 601, tidx = 0x501, name = 'Cal', hpp = 100, hp = 1200, mpp = 0, mp = 0 }  -- slot 12: C0
+    world.ents[0x500] = { sid = 600, name = 'Bea', hpp = 50, dist = 7 }
+    world.ents[0x501] = { sid = 601, name = 'Cal', hpp = 100, dist = 9 }
+    buffs.gain(600, PROTECT, now)
+    local g = read()
+    local b, c = unit(g, 600), unit(g, 601)
+    eq({ #g.units, b.kind, b.slot, b.hpp, b.max_hp, b.dist, b.uses_mp, b.buffs, g.tracks[600] },
+       { 3, 'alliance', 6, 50, 1000, 7, true, { [PROTECT] = true }, true })
+    eq({ c.kind, c.slot, c.max_hp, c.uses_mp, g.tracks[601] }, { 'alliance', 12, 1200, false, true })
+    world.party[7] = nil  -- Bea leaves, and the wear-off packets go with her
+    g = read()
+    eq({ #g.units, g.tracks[600] }, { 2, nil })
+    world.party[7] = bea
+    eq(unit(read(), 600).buffs, {})  -- back, with nothing stale
+end)
+
+test('a tracked player who joins the alliance is a member of it while they stay, marked tracked', function ()
+    reset()
+    world.ents[0x450] = { sid = OUT, name = 'Out', hpp = 90, dist = 5 }
+    tracked.add(OUT, 'Out', 0x450)
+    world.party[7] = { sid = OUT, tidx = 0x450, name = 'Out', hpp = 90, hp = 900, mpp = 50, mp = 100 }
+    local g = read()
+    eq({ #g.units, unit(g, OUT).kind, unit(g, OUT).slot, unit(g, OUT).tracked }, { 2, 'alliance', 6, true })
+    world.party[7] = nil
+    eq(unit(read(), OUT).kind, 'tracked')
 end)
 
 reset()

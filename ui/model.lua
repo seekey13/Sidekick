@@ -38,7 +38,10 @@ model.SECTIONS = {
 }
 model.FLAGS = { 'casting', 'moving', 'combat', 'safe', 'mounted', 'dead', 'resting', 'incapacitated', 'silenced', 'amnesia' }
 
-local SLOT_LABELS = { [0] = 'ME', 'P1', 'P2', 'P3', 'P4', 'P5' }
+-- Party slots' tags: ME, P1-P5, then the alliance's other parties, B0-B5 and C0-C5 (as v2).
+model.TAGS = { [0] = 'ME', 'P1', 'P2', 'P3', 'P4', 'P5' }
+for i = 0, 5 do model.TAGS[6 + i], model.TAGS[12 + i] = 'B' .. i, 'C' .. i end
+local TAGS = model.TAGS
 local REASONS = { safe = 'safe zone' }  -- engine gate -> words
 local LABEL_FAMILIES = 3                -- a pick-one group named by more families is named by its key
 local BUFFS_SHOWN = 6                   -- status names on a party line; the rest in its tooltip
@@ -108,8 +111,10 @@ local function availability(acts, r, g)
     return false, reason or 'not available'
 end
 
--- Target chips ME, P1-P5 for a buff that can go on others, then T1... for each
--- tracked player when it can go outside the party (their slot is their name).
+-- Target chips ME, P1-P5 for a buff that can go on others. When it can go
+-- outside the party: T1... for each tracked player (their slot is their name),
+-- then B0-B5 and C0-C5 on lines of their own (`wrap`), for each of the
+-- alliance's other parties that is there or has a chip on.
 local function chips(acts, r, units, outsiders)
     local reaches, outside = false, false
     for _, a in ipairs(acts) do
@@ -119,12 +124,22 @@ local function chips(acts, r, units, outsiders)
     if not reaches then return nil end
     local on = r.targets or { [0] = true }
     local out = {}
-    for slot = 0, 5 do
+    local function add(slot, wrap)
         local u = units[slot]
-        out[#out + 1] = { slot = slot, label = SLOT_LABELS[slot], present = u ~= nil, name = u and u.name, on = on[slot] == true }
+        out[#out + 1] = { slot = slot, label = TAGS[slot], present = u ~= nil, name = u and u.name, on = on[slot] == true,
+                          wrap = wrap }
     end
-    for i, u in ipairs(outside and outsiders or {}) do
+    for slot = 0, 5 do add(slot) end
+    if not outside then return out end
+    for i, u in ipairs(outsiders) do
         out[#out + 1] = { slot = u.name, label = 'T' .. i, present = true, name = u.name, on = on[u.name] == true }
+    end
+    for _, first in ipairs({ 6, 12 }) do
+        local shown = false
+        for slot = first, first + 5 do shown = shown or units[slot] ~= nil or on[slot] == true end
+        if shown then
+            for slot = first, first + 5 do add(slot, slot == first or nil) end
+        end
     end
     return out
 end
@@ -215,14 +230,16 @@ local function jobs(job, main, main_lv, sub, sub_lv)
     return ('%s %d'):format(job(main), main_lv)
 end
 
--- Everyone: party slots ME, P1-P5; tracked players T1... with their jobs once a /check answers.
+-- Everyone: party slots ME, P1-P5 and tracked players T1... with their jobs once
+-- a /check answers; then the alliance's other parties, B0-B5 and C0-C5, apart.
 local function party(g, cfg, names)
-    local out, n = {}, 0
+    local out, alliance, n = {}, {}, 0
     for _, u in ipairs(g.units) do
         local buffs, all = buff_names(u.buffs, names.statuses)
-        local tag = SLOT_LABELS[u.slot]
+        local tag = TAGS[u.slot]
         if u.kind == 'tracked' then n = n + 1; tag = 'T' .. n end
-        out[#out + 1] = {
+        local list = u.kind == 'alliance' and alliance or out
+        list[#list + 1] = {
             tag = tag, kind = u.kind, name = u.name, alive = u.alive, away = not u.in_zone,
             tracked = u.kind == 'tracked' or u.tracked == true,
             job = u.main_lv and jobs(names.job, u.main, u.main_lv, u.sub, u.sub_lv) or nil,
@@ -232,7 +249,7 @@ local function party(g, cfg, names)
             buffs = buffs, buffs_all = all,
         }
     end
-    return out
+    return out, alliance
 end
 
 local function entity(e)
@@ -276,12 +293,13 @@ function model.build(g, cat, cfg, status, names)
         known[u.sid] = true
     end
 
+    -- The alliance can be the focus or followed; heal.alliance heals them all or none.
     local h = cfg.heal
     local focus_names, members = {}, {}
     for _, u in ipairs(g.units) do
         if u.kind ~= 'self' then
             focus_names[#focus_names + 1] = u.name
-            members[#members + 1] = { name = u.name, healed = not h.skip[u.name] }
+            if u.kind ~= 'alliance' then members[#members + 1] = { name = u.name, healed = not h.skip[u.name] } end
         end
     end
 
@@ -294,10 +312,9 @@ function model.build(g, cat, cfg, status, names)
     local view = {
         job = jobs(names.job, g.main, g.main_lv, g.sub, g.sub_lv),
         status = status_line(status),
-        party = party(g, cfg, names),
         bt = entity(g.bt), pet = entity(g.pet),
         flags = {}, recent = {}, sections = {},
-        heal = { danger = h.danger, critical = h.critical, focus = h.focus,
+        heal = { danger = h.danger, critical = h.critical, focus = h.focus, alliance = h.alliance,
                  focus_danger = h.focus_danger, focus_critical = h.focus_critical,
                  cure_potency = h.cure_potency, waltz_potency = h.waltz_potency, regen_potency = h.regen_potency,
                  focus_names = focus_names, members = members },
@@ -309,6 +326,7 @@ function model.build(g, cat, cfg, status, names)
         track = { target = g.target and not known[g.target.sid] and g.target.name or nil },
         japanese = cfg.japanese, log = status.log, ui = {},
     }
+    view.party, view.alliance = party(g, cfg, names)
     for k, v in pairs(cfg.ui) do view.ui[k] = v end
     view.pointer = pointer(status, g, view.party)
     for _, f in ipairs(model.FLAGS) do
@@ -368,7 +386,7 @@ function model.actions(cfg, status, changed, tracking)
         saved_row(cfg, key, false).pick = name
         changed()
     end
-    -- slot: a party slot 0-5, or a tracked player's name.
+    -- slot: a party slot 0-5, an alliance slot 6-17, or a tracked player's name.
     function act.target(key, slot)
         local r = saved_row(cfg, key, false)
         r.targets = r.targets or { [0] = true }
@@ -383,7 +401,7 @@ function model.actions(cfg, status, changed, tracking)
         cfg.heal.skip[name] = not cfg.heal.skip[name] or nil
         changed()
     end
-    -- path: 'heal.danger', 'follow.target', 'japanese', 'ui.hp_width', or 'ui.<anything>' for a UI's own.
+    -- path: 'heal.danger', 'heal.alliance', 'follow.target', 'japanese', 'ui.hp_width', or 'ui.<anything>' for a UI's own.
     function act.set(path, value)
         local t = cfg
         local parent, key = path:match('^(.-)%.?([^.]+)$')

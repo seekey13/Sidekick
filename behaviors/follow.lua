@@ -1,9 +1,11 @@
 --[[
     /follow the member named in follow.target once they're further than
     follow.distance. Low in priority, so support goes first; while you move the
-    engine waits anyway, so it isn't sent again until you stop. A tracked
-    player has no party slot, so is followed by name.
+    engine waits anyway, so it isn't sent again until you stop. Only your
+    party has <p1>-<p5>: the alliance and tracked players are followed by name.
 ]]--
+
+local can = require('core.can')
 
 local follow = {}
 
@@ -19,7 +21,7 @@ function follow.want(g, _, cfg)
     local f = cfg.follow
     local u = follow.leader(g, f.target)
     if not (u and u.in_zone and u.dist) or u.dist <= f.distance then return nil end
-    local who = u.slot and ('<p%d>'):format(u.slot) or u.name
+    local who = can.in_party(u) and ('<p%d>'):format(u.slot) or u.name
     return { command = '/follow ' .. who, action = { name = 'Follow' }, target = u,
              why = ('%s %.1fy away'):format(u.name, u.dist) }
 end

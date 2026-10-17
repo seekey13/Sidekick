@@ -1,6 +1,7 @@
 --[[
-    Raise fallen party members with the best raise you have. A member just raised
-    is left a minute to accept before being raised again.
+    Raise fallen party and alliance members, and tracked players, with the best
+    raise you have. One just raised is left a minute to accept before being
+    raised again.
 ]]--
 
 local can = require('core.can')

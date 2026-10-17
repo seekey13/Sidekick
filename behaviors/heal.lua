@@ -9,11 +9,14 @@
                  a heal nearly off recast
       efficient  from the danger line to full HP: HP that lands where it's needed, per
                  share of the MP or TP you have; Regen allowed, and counted while it ticks
-    The focus member has its own two lines; skipped members count for nothing.
-    A tracked player is healed like a member, by a heal aimed at them. An area
-    heal lands on the target's party, so one centred on you or a member never
-    reaches them, and one aimed at them (a Cure spread by Majesty or Accession)
-    counts them alone: Accession is never fired for them.
+    The focus member has its own two lines; skipped members count for nothing,
+    and so do the alliance's other parties unless heal.alliance is on.
+    An area heal lands on the target's party alone, so each party is scored on
+    its own: one centred on you or a member covers your party, a Cure aimed at
+    someone in another party and spread by Majesty or Accession covers theirs.
+    A tracked player is healed like a member, by a heal aimed at them; their
+    party is unknown, so a spread Cure counts them alone, and Accession is
+    never fired for them.
 ]]--
 
 local can = require('core.can')
@@ -134,15 +137,22 @@ local function share(a, f, g)
     return 0
 end
 
+-- Never healed for their own sake: a member skipped by name, and the alliance's
+-- other parties while heal.alliance is off (the focus member is still healed).
+local function skipped(u, ctx)
+    return ctx.s.skip[u.name] or u.kind == 'alliance' and not ctx.s.alliance and u ~= ctx.focus
+end
+
 -- One candidate: `a` in form `f` aimed at `centre`. Nil unless it reaches a band member.
+-- An area form covers the centre's party near them; a tracked player's is unknown.
 local function rate(band, a, f, centre, amt, ctx, members)
-    if f.via and not can.in_party(centre) then return nil end
-    local spread = f.radius > 0 and can.in_party(centre)  -- around a tracked player it lands on their party
+    if f.via and not can.party(centre) then return nil end
+    local spread = f.radius > 0
     local c = { band = band, a = a, f = f, centre = centre, cover = {}, sum = 0, points = 0, count = 0 }
     for _, u in ipairs(ctx.g.units) do
-        if u == centre or spread and can.in_party(u) and u.alive and u.in_zone and can.dist(centre, u) <= f.radius then
+        if u == centre or spread and can.together(centre, u) and u.alive and u.in_zone and can.dist(centre, u) <= f.radius then
             c.cover[#c.cover + 1] = u
-            local useful = amt and not ctx.s.skip[u.name] and math.min(amt, need(u, band == 'efficient')) or 0
+            local useful = amt and not skipped(u, ctx) and math.min(amt, need(u, band == 'efficient')) or 0
             c.sum = c.sum + useful
             if members[u] and (useful > 0 or not amt) then
                 c.points = c.points + useful / u.max_hp * 100
@@ -216,12 +226,12 @@ end
 -- The candidate as an intent. Sending it tells core/observed.lua what to expect,
 -- so the real HP restored can be learned and a Regen counted while it ticks. A
 -- tracked player's max HP is a guess, so a heal capped by it could pass for a
--- weak one: what lands on them teaches nothing.
+-- weak one: what lands on them teaches nothing. The alliance's HP is read as a member's.
 local function intent(c, ctx)
     if c.f.via then return { action = c.f.via, why = ('%s, for %s'):format(why(c), c.a.name) } end
     local a, s, need_at = c.a, ctx.s, {}
     for _, u in ipairs(c.cover) do
-        if can.in_party(u) then need_at[u.sid] = need(u, false) end
+        if u.kind ~= 'tracked' then need_at[u.sid] = need(u, false) end
     end
     return { action = a, target = around_pet(a) and ctx.g.me or c.centre, why = why(c), sent = function (now)
         observed.sent(observed.key(a), { need = need_at, mult = c.mult, at = now,
@@ -240,7 +250,7 @@ end
 local function members_of(band, ctx)
     local set, list = {}, {}
     for _, u in ipairs(ctx.g.units) do
-        if u.alive and u.in_zone and u.max_hp and not ctx.s.skip[u.name] then
+        if u.alive and u.in_zone and u.max_hp and not skipped(u, ctx) then
             local critical, danger = lines(u, ctx)
             local inside
             if band == 'critical' then inside = u.hpp < critical
