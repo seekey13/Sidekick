@@ -3,10 +3,16 @@
     its picked tier, else the best tier you can cast now; a pick_one group
     (bar-elements, enspells...) needs a pick. Self-only buffs go on you; an area
     self-cast (Protectra) is recast when anyone in your party near you lacks it.
+    With buff.hold_aoe on, an area spell is held while a player in your party
+    who lacks it is out of its reach (or not drawn), so nobody is left out: it
+    goes out once they gather, and mem.gather says what waits on whom (the engine
+    asks the party to gather when someone near lacks it too; otherwise it waits
+    quietly). Trusts follow you and never hold it.
     A row's targets are party and alliance slots (0-17) and tracked players'
     names. Statuses that can't be read (Boost) are recast whenever they're off
     recast.
-    Songs, rolls and the like belong to job modules, not here.
+    Songs are kept up here until the BRD module takes them (phase 4); rolls and
+    the like belong to job modules.
 ]]--
 
 local can = require('core.can')
@@ -44,18 +50,39 @@ local function chosen(cat, cfg, g)
     return out
 end
 
-return function (g, cat, cfg)
+-- For an area self-cast: who near you lacks it, and, holding for the group,
+-- the first player in your party who lacks it out of its reach.
+local function area(a, g, hold)
+    local near, away
+    for _, u in ipairs(g.units) do
+        local here = u.kind == 'self' or (u.dist or math.huge) <= AREA_RADIUS
+        if (u.kind == 'self' or can.in_party(u) and u.alive and u.in_zone) and lacks(a, u) then
+            if here then near = near or u
+            elseif hold and u.kind == 'party' and not away then away = u end
+        end
+    end
+    return near, away
+end
+
+return function (g, cat, cfg, mem)
     local invisible = g.me.buffs[INVISIBLE]
+    local hold = cfg.buff.hold_aoe
     for _, c in ipairs(chosen(cat, cfg, g)) do
         local a = c.action
         if (a.travel or not invisible) and can.use(a, g) then
-            if can.self_only(a) then
-                local around = a.area > 0 and AREA_RADIUS or 0
-                for _, u in ipairs(g.units) do
-                    if u.kind == 'self' or (can.in_party(u) and u.alive and u.in_zone and (u.dist or math.huge) <= around) then
-                        if lacks(a, u) then return { action = a, why = ('%s lacks it'):format(u.name) } end
+            if can.self_only(a) and a.area > 0 then
+                local near, away = area(a, g, hold and a.kind == 'ma')
+                if away then
+                    -- Ask the party only when someone near needs it too: one who
+                    -- stays away (a puller) waits for silently.
+                    if not mem.gather or (near and not mem.gather.ask) then
+                        mem.gather = { action = a, who = away, ask = near ~= nil }
                     end
+                elseif near then
+                    return { action = a, why = ('%s lacks it'):format(near.name) }
                 end
+            elseif can.self_only(a) then
+                if lacks(a, g.me) then return { action = a, why = ('%s lacks it'):format(g.me.name) } end
             else
                 for _, u in ipairs(g.units) do
                     if c.targets[u.slot or u.name] and can.reach(a, u) and lacks(a, u) then

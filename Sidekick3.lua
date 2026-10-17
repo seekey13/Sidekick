@@ -110,6 +110,8 @@ local function tick(g)
     if not (act or status.open) then return end
     local intent, why = engine.decide(g, cat.list, cfg, mem)
     status.intent, status.why = intent and entry(intent, g), why
+    local gather = status.running and engine.gather(g, cfg, mem)
+    if gather then AshitaCore:GetChatManager():QueueCommand(1, gather) end
     if not (act and intent) then return end
     AshitaCore:GetChatManager():QueueCommand(0, status.intent.command)
     engine.sent(intent, g, mem)

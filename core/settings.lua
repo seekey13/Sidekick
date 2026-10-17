@@ -30,7 +30,9 @@ local DEFAULTS = {
     recover = { on = true, mp = 30, tp = 1000,    -- under your MP% (a member's, for Devotion), your TP
                 min_tp = 3000 },                   -- Chivalry from this much TP
     pet = { on = true, heal = 50 },        -- heal your pet under this HP%
-    buff = { on = true },
+    buff = { on = true,
+             hold_aoe = false,  -- hold an area buff spell (Protectra, songs) until the party's players gather
+             gather = true },   -- ...and ask them to in party chat
     revive = { on = true },
     follow = { on = false, target = '', distance = 5 },  -- /follow them past this many yalms
     rest = { on = false, delay = 5, distance = 7 },  -- /heal after this many quiet seconds; up past distance from follow.target

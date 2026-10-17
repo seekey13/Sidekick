@@ -466,6 +466,11 @@ test('sliders, the focus and the options write the settings', function ()
     eq(cfg.japanese, true)
     eq(render(cfg, st, { ['Focus danger under##sk3_focus_danger'] = 65 }), 1)
     eq(cfg.heal.focus_danger, 65)
+    eq(frame.ids['Ask them to gather##sk3_gather'], nil)  -- only while holding
+    eq(render(cfg, st, { ['Hold area buffs for the group##sk3_hold_aoe'] = true }), 1)
+    eq(cfg.buff.hold_aoe, true)
+    eq(render(cfg, st, { ['Ask them to gather##sk3_gather'] = true }), 1)
+    eq(cfg.buff.gather, false)
 end)
 
 test('recovery, pet, follow and rest settings write through act', function ()

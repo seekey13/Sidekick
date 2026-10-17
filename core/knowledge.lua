@@ -38,6 +38,8 @@
     blocked_by skip while you have any of these statuses
     requires   needs any of these statuses on you
     priority   sorts ahead (+) / behind (-) inside its role
+    area       overrides the DAT's area: 0 for blue magic the DAT gives an area (15)
+               though it lands on you alone (Battery Charge, Occultation...)
     main_only  never from a subjob
     pet        needs a pet out (true) or one of these pets
     kind       'ma' | 'ja' | 'pet': this use only for that command kind
@@ -297,25 +299,25 @@ local K = {
 
     -- buff: Blue magic (the status is a generic boost, not the spell's name) ------
     ['Cocoon']          = { role = 'buff', status = 'Defense Boost' },
-    ['Harden Shell']    = { role = 'buff', status = 'Defense Boost' },
+    ['Harden Shell']    = { role = 'buff', status = 'Defense Boost', area = 0 },
     ['Metallic Body']   = { role = 'buff', status = 'Stoneskin' },
     ['Diamondhide']     = { role = 'buff', status = 'Stoneskin' },
     ['Refueling']       = { role = 'buff', status = 'Haste' },
-    ['Animating Wail']  = { role = 'buff', status = 'Haste' },
+    ['Animating Wail']  = { role = 'buff', status = 'Haste', area = 0 },
     ['Feather Barrier'] = { role = 'buff', status = 'Evasion Boost' },
     ['Memento Mori']    = { role = 'buff', status = 'Magic Atk. Boost' },
     ['Saline Coat']     = { role = 'buff', status = 'Magic Def. Boost' },
     ['Amplification']   = { role = 'buff', status = { 'Magic Atk. Boost', 'Magic Def. Boost' } },
     ['Zephyr Mantle']   = { role = 'buff', status = 'Blink' },
-    ['Occultation']     = { role = 'buff', status = 'Blink' },
+    ['Occultation']     = { role = 'buff', status = 'Blink', area = 0 },
     ['Warm-Up']         = { role = 'buff', status = 'Accuracy Boost' },
     ['Triumphant Roar'] = { role = 'buff', status = 'Attack Boost' },
     ['Carcharian Verve']= { role = 'buff', status = 'Attack Boost' },
     ['Reactor Cool']    = { role = 'buff', status = 'Ice Spikes' },
     ['Plasma Charge']   = { role = 'buff', status = 'Shock Spikes' },
-    ['Battery Charge']  = { role = 'buff', status = 'Refresh', priority = 50 },
+    ['Battery Charge']  = { role = 'buff', status = 'Refresh', priority = 50, area = 0 },
     ['Magic Barrier']   = { role = 'buff', status = 'Magic Shield' },
-    ['Barrier Tusk']    = { role = 'buff', status = 'Physical Shield' },
+    ['Barrier Tusk']    = { role = 'buff', status = 'Physical Shield', area = 0 },
     ['O. Counterstance']= { role = 'buff', status = 'Counterstance' },
     ['Pyric Bulwark']   = { role = 'buff' },
 

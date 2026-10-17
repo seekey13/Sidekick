@@ -115,7 +115,7 @@ function catalog.build(res, player, K)
                     priority = use.priority or 0, pet = use.pet, travel = use.travel, mob_skill = use.mob_skill,
                     mp = row.mp, tp = row.tp,  -- the client blocks casts by this cost, so it is the one to trust
                     recast = kind == 'ma' and id or row.recast_id,  -- spell id, or ability recast timer id
-                    targets = row.targets, range = row.range, area = row.area,
+                    targets = row.targets, range = row.range, area = use.area or row.area,
                     cast = row.cast and row.cast / 4,  -- seconds; spells only
                     element = row.element, skill = row.skill, type = row.type,
                     from = from, level = level,
