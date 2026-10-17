@@ -193,7 +193,7 @@ end)
 test('a stratagem with its timer running but a charge banked is usable', function ()
     eq({ stratagems.charge_wait(100, 75), stratagems.charge_wait(200, 75), stratagems.charge_wait(100, 37) }, { 0, 8, 0 })
     local accession
-    for _, a in ipairs(sch) do if a.name == 'Accession' then accession = a end end
+    for _, a in ipairs(sch) do if a.name == 'Accession' and a.role == 'emergency' then accession = a end end
     local g = with(snap({}), { LIGHT_ARTS })
     g.recast = function () return stratagems.charge_wait(100, 75) end
     eq(can.use(accession, g), true)

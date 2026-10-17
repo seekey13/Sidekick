@@ -54,13 +54,25 @@ local function modifier(intent, g)
     return { action = first, expect = first.status, why = ('for %s%s: %s'):format(a.name, on, intent.why) }
 end
 
+-- `g` with the statuses expected from modifiers just sent on you: a copy for
+-- this decision only, so the HUD and /sk3 state still show what the game says.
+local function expecting(g, mem)
+    local extra = nil
+    for id, until_ in pairs(mem.expect or {}) do
+        if g.now < until_ then extra = extra or {}; extra[id] = true else mem.expect[id] = nil end
+    end
+    if not extra then return g end
+    local me = setmetatable({ buffs = setmetatable(extra, { __index = g.me.buffs }) }, { __index = g.me })
+    local units = {}
+    for i, u in ipairs(g.units) do units[i] = u == g.me and me or u end
+    return setmetatable({ me = me, units = units }, { __index = g })
+end
+
 -- The intent for now, or nil and why not. `mem` is the engine's own memory
 -- between ticks (behaviors keep theirs in it too).
 function engine.decide(g, cat, cfg, mem)
     mem.gather = nil
-    for id, until_ in pairs(mem.expect or {}) do
-        if g.now < until_ then g.me.buffs[id] = true else mem.expect[id] = nil end
-    end
+    g = expecting(g, mem)
     for _, gate in ipairs(GATES) do
         if g[gate] then return nil, gate end
     end

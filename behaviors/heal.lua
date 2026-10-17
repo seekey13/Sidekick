@@ -228,7 +228,7 @@ end
 -- tracked player's max HP is a guess, so a heal capped by it could pass for a
 -- weak one: what lands on them teaches nothing. The alliance's HP is read as a member's.
 local function intent(c, ctx)
-    if c.f.via then return { action = c.f.via, why = ('%s, for %s'):format(why(c), c.a.name) } end
+    if c.f.via then return { action = c.f.via, expect = c.f.via.status, why = ('%s, for %s'):format(why(c), c.a.name) } end
     local a, s, need_at = c.a, ctx.s, {}
     for _, u in ipairs(c.cover) do
         if u.kind ~= 'tracked' then need_at[u.sid] = need(u, false) end
@@ -277,7 +277,7 @@ local function emergency(ctx, list, best, emergencies, ready, members)
     local g = ctx.g
     for _, e in ipairs(emergencies) do
         if e.boost and e.boost.factor > 1 and can.use(e, g) and boosts_best(e.boost, ctx, ready, members) then
-            return { action = e, why = ('critical: %s %d%%'):format(list[1].name, list[1].hpp) }
+            return { action = e, expect = e.status, why = ('critical: %s %d%%'):format(list[1].name, list[1].hpp) }
         end
     end
     for _, u in ipairs(list) do

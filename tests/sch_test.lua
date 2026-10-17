@@ -176,3 +176,30 @@ test('UI: a buff row shows the stratagems that fit it, and act.mod turns one on 
         if s.id == 'buff' then eq(s.has_mods, false) end
     end
 end)
+
+test('Accession held for the group only while two or more would get it', function ()
+    local cfg = cfg_with({ Protect = { on = true, targets = { [0] = true, [1] = true, [2] = true },
+                                       mods = { Accession = true } } })
+    cfg.buff.hold_aoe = true
+    -- Only B, far, lacks it: no point waiting for a spread; Protect on B alone.
+    local others = { { name = 'A', buffs = { [PROTECT] = true } }, { name = 'B', dist = 15 } }
+    eq(decide(snap({ LIGHT_ARTS, PROTECT }, others), cfg, {}), '/ma "Protect IV" 102')
+end)
+
+test('heal\'s own Accession is expected too, so a lagging status read spends no second charge', function ()
+    local cfg = settings.defaults()
+    local others = { { name = 'A', hpp = 45 }, { name = 'B', hpp = 45 }, { name = 'C', hpp = 45 } }
+    local mem = {}
+    eq(step(snap({ LIGHT_ARTS }, others), cfg, mem), '/ja "Accession" <me>')
+    local g = snap({ LIGHT_ARTS }, others)
+    g.now = 1001.2
+    local cmd = step(g, cfg, mem)
+    eq(cmd:match('^/ma "Cure'), '/ma "Cure')
+end)
+
+test('expected statuses stay out of the snapshot the HUD and /sk3 state read', function ()
+    local g = snap({ DARK_ARTS }, { { name = 'A', hpp = 0 } })
+    local mem = { expect = { [ENLIGHTENMENT] = 1001 } }
+    eq(decide(g, settings.defaults(), mem), '/ma "Raise II" 101')
+    eq({ g.me.buffs[ENLIGHTENMENT], g.units[1].buffs[ENLIGHTENMENT] }, { nil, nil })
+end)

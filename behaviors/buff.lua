@@ -15,7 +15,7 @@
     each first (core/engine.lua). Accession instead spreads the spell from you
     to your party near you, at twice the MP: for two or more of the row's
     targets near you who lack it (with one, the spell goes on them alone), and
-    held for the group like an area spell.
+    held for the group like an area spell while two or more would get it.
     Songs are kept up here until the BRD module takes them (phase 4); rolls and
     the like belong to job modules.
 ]]--
@@ -59,18 +59,18 @@ end
 
 -- For an area self-cast: who near you lacks it (the first, and how many), and,
 -- holding for the group, the first player in your party who lacks it out of its
--- reach. `wanted` (a row's targets) narrows who counts.
+-- reach (and how many). `wanted` (a row's targets) narrows who counts.
 local function area(a, g, hold, wanted)
-    local near, count, away = nil, 0, nil
+    local near, count, away, far = nil, 0, nil, 0
     for _, u in ipairs(g.units) do
         local here = u.kind == 'self' or (u.dist or math.huge) <= AREA_RADIUS
         if (u.kind == 'self' or can.in_party(u) and u.alive and u.in_zone) and lacks(a, u)
             and (not wanted or wanted[u.slot]) then
             if here then near, count = near or u, count + 1
-            elseif hold and u.kind == 'party' and not away then away = u end
+            elseif hold and u.kind == 'party' then away, far = away or u, far + 1 end
         end
     end
-    return near, away, count
+    return near, away, count, far
 end
 
 -- Holding `a` for `away` to gather: ask the party only when someone near needs
@@ -102,9 +102,10 @@ return function (g, cat, cfg, mem)
         local a = c.action
         if (a.travel or not invisible) and can.use(a, g) then
             local acc, mods = spreading(c, g)
-            local near, away, count
-            if acc then near, away, count = area(a, g, hold, not can.self_only(a) and c.targets or nil) end
-            if away then
+            local near, away, count, far
+            if acc then near, away, count, far = area(a, g, hold, not can.self_only(a) and c.targets or nil) end
+            -- Held only when the spread could reach two or more once they gather.
+            if away and count + far >= 2 then
                 wait_for(mem, a, near, away)
             elseif acc and count >= 2 then
                 table.insert(mods, acc)
