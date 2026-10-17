@@ -25,7 +25,7 @@ local model = {}
 -- Settings sections in order, each under its `header` (headers in the order
 -- their first section comes). Every section but 'profile', 'track' and 'ui' is a behavior,
 -- switched by cfg[id].on; one with roles also has rows. Wake shows only when a heal can wake,
--- Rolls only for a job with rolls.
+-- Rolls only for a job with rolls, Geomancy only with a Geo- spell (a GEO main job).
 model.SECTIONS = {
     { id = 'profile', title = 'Profiles', header = 'Profiles', switch = false },
     { id = 'follow', title = 'Follow', header = 'Follow' },
@@ -35,6 +35,7 @@ model.SECTIONS = {
     { id = 'remove', title = 'Debuff removal', roles = { 'remove' }, header = 'Remove' },
     { id = 'buff', title = 'Buffs', roles = { 'buff' }, header = 'Buff' },
     { id = 'roll', title = 'Rolls', header = 'Buff' },
+    { id = 'geo', title = 'Geomancy', roles = { 'geo' }, header = 'Buff' },
     { id = 'pet', title = 'Pet', roles = { 'pet_heal', 'pet_remove', 'pet_send' }, header = 'Pet' },
     { id = 'recover', title = 'Recovery', roles = { 'recover' }, header = 'Recover' },
     { id = 'rest', title = 'Resting', header = 'Recover' },
@@ -161,7 +162,7 @@ local function mod_chips(acts, r, modifiers)
     return out[1] and out or nil
 end
 
--- `modifiers` (a list, maybe empty) only for buff rows.
+-- `modifiers` (a list, maybe empty) only for buff and luopan rows.
 local function build_row(key, acts, cfg, g, units, modifiers, outsiders)
     local r = settings.row(cfg, acts[1])
     local notes = distinct(acts, 'note')
@@ -202,7 +203,8 @@ local function build_rows(s, g, cat, cfg, units, outsiders)
         if a.role == 'modifier' and a.applies then modifiers[#modifiers + 1] = a end
     end
     for _, key in ipairs(order) do
-        rows[#rows + 1] = build_row(key, acts_of[key], cfg, g, units, s.id == 'buff' and modifiers, outsiders)
+        local chipped = s.id == 'buff' or s.id == 'geo'
+        rows[#rows + 1] = build_row(key, acts_of[key], cfg, g, units, chipped and modifiers, outsiders)
     end
     return rows
 end
@@ -341,6 +343,7 @@ function model.build(g, cat, cfg, status, names)
 
     local spends_tp, wakes = false, false  -- Chivalry: its TP line is worth showing; a heal can wake
     local stratagems = false               -- SCH: the charge reserve is worth showing
+    local indi, luopans = {}, false        -- GEO: the Indi- spells Entrust can put on a member; a Geo- spell
     local rolls, last = {}, nil            -- COR: the rolls to pick from, and the last one's total
     for _, a in ipairs(cat) do
         if a.lucky then
@@ -351,11 +354,18 @@ function model.build(g, cat, cfg, status, names)
             end
         end
         stratagems = stratagems or a.role == 'modifier' and a.applies ~= nil
+        if a.pick_one == 'indi' then indi[#indi + 1] = a.name end
+        luopans = luopans or a.luopan == 'buff' or a.luopan == 'debuff'
         spends_tp = spends_tp or a.role == 'recover' and a.spends_tp == true
         wakes = wakes or a.role == 'heal' and a.wakes == true and not a.pet
     end
 
     table.sort(rolls, function (x, y) return x.name < y.name end)
+    table.sort(indi)
+    local party_names = {}  -- your party but you: who Entrust can go on
+    for _, u in ipairs(g.units) do
+        if u.kind ~= 'self' and can.in_party(u) then party_names[#party_names + 1] = u.name end
+    end
 
     local view = {
         job = jobs(names.job, g.main, g.main_lv, g.sub, g.sub_lv),
@@ -374,6 +384,8 @@ function model.build(g, cat, cfg, status, names)
         buff = { hold_aoe = cfg.buff.hold_aoe, gather = cfg.buff.gather },
         roll = { first = cfg.roll.first, second = cfg.roll.second, risk = cfg.roll.risk, risks = cor.RISKS,
                  two = g.main == cor.JOB, choices = rolls, last = last },
+        geo = { distance = cfg.geo.distance, linger = cfg.geo.linger, entrust = cfg.geo.entrust,
+                entrust_spell = cfg.geo.entrust_spell, indi = indi, names = party_names },
         -- Your target, by name, when it's a player who could be tracked: not in the party, not tracked yet.
         track = { target = g.target and not known[g.target.sid] and g.target.name or nil },
         japanese = cfg.ui.japanese, log = status.log, ui = {},
@@ -403,6 +415,7 @@ function model.build(g, cat, cfg, status, names)
         local shown = not section.rows or #section.rows > 0
         if s.id == 'wake' then shown = wakes end
         if s.id == 'roll' then shown = rolls[1] ~= nil end
+        if s.id == 'geo' then shown = luopans end
         if shown then view.sections[#view.sections + 1] = section end
     end
     return view
@@ -427,7 +440,8 @@ function model.actions(cfg, status, changed, tracking)
         status.open, cfg.ui.open = false, false
         changed()
     end
-    -- id: a section with a switch: 'follow' | 'heal' | 'revive' | 'wake' | 'remove' | 'buff' | 'roll' | 'pet' | 'recover' | 'rest'
+    -- id: a section with a switch: 'follow' | 'heal' | 'revive' | 'wake' | 'remove' | 'buff' | 'roll' | 'geo' | 'pet'
+    -- | 'recover' | 'rest'
     function act.section(id, on)
         cfg[id].on = on
         changed()
@@ -479,7 +493,8 @@ function model.actions(cfg, status, changed, tracking)
         cfg.heal.skip[name] = not cfg.heal.skip[name] or nil
         changed()
     end
-    -- path: 'heal.danger', 'heal.alliance', 'heal.reserve', 'buff.hold_aoe', 'roll.first', 'roll.risk', 'follow.target',
+    -- path: 'heal.danger', 'heal.alliance', 'heal.reserve', 'buff.hold_aoe', 'roll.first', 'roll.risk', 'geo.distance',
+    -- 'geo.entrust', 'geo.entrust_spell', 'follow.target',
     -- 'japanese', 'ui.hp_width', or 'ui.<anything>' for a UI's own.
     function act.set(path, value)
         if path == 'japanese' then path = 'ui.japanese' end  -- shared by every job pair, as the HUD

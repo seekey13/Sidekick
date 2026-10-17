@@ -9,7 +9,8 @@
     generic category must appear in the catalog with the same role, and agree on
     status, removes, potency, gates, level and MP; rolls on their lucky and unlucky
     totals too. The other job-mechanic categories (runes, maneuvers, geo, precast)
-    belong to job modules and are not checked here.
+    belong to job modules and are not checked here; the luopan's (v2's geo and its
+    Geo buff group) are, as v3's geo role.
 ]]--
 
 local sk3 = arg[0]:gsub('[\\/]tools[\\/]parity%.lua$', '')
@@ -28,12 +29,10 @@ local ROLE = {
     heal = 'heal', heal_aoe = 'heal', heal_pet = 'pet_heal', debuff_removal = 'remove',
     pet_debuff_removal = 'pet_remove', critical = 'emergency', revive = 'revive',
     recover_mp = 'recover', recover_tp = 'recover', recover_party_mp = 'recover', buff = 'buff',
-    pet_control = 'pet_send', roll = 'roll', roll_control = 'roll',
+    pet_control = 'pet_send', roll = 'roll', roll_control = 'roll', geo = 'geo',
 }
 -- v2 entries a v3 job module owns instead of the generic role.
-local MODULE_OWNED = {
-    ['recover|Radial Arcana'] = 'it dismisses the luopan: jobs/geo.lua decides when',
-}
+local MODULE_OWNED = {}
 
 -- Known, intended differences from v2: job|name|what -> why.
 local ACCEPTED = {
@@ -44,6 +43,7 @@ local ACCEPTED = {
     ['scholar|Accession|MISSING'] = 'v2 paired it with cures in heal_aoe; v3 lists it as an emergency boost',
     ['scholar|Accession|EXTRA'] = 'same ability, as a healing boost',
     ['corsair|Snake Eye|MISSING'] = 'a modifier fired before a Double-Up (jobs/cor.lua)',
+    ['geomancer|Blaze of Glory|status'] = 'a modifier before a luopan: its status says it is waiting (jobs/geo.lua)',
     -- v2 sent the pet at <t> by default (<bt> by option); v3 always at the battle target.
     ['beastmaster|Fight|enemy'] = 'sent at <bt>',
     ['puppetmaster|Deploy|enemy'] = 'sent at <bt>',
@@ -103,8 +103,8 @@ for _, job in ipairs(jobs) do
 
     local seen = {}
     for cat, entries in pairs(def.abilities) do
-        local role = ROLE[cat]
-        for _, e in ipairs(role and entries or {}) do
+        for _, e in ipairs(ROLE[cat] and entries or {}) do
+            local role = cat == 'buff' and e.group == 'Geo' and 'geo' or ROLE[cat]  -- a luopan
             local cmd = type(e.command) == 'function' and e.command('<t>') or e.command
             local real = cmd:match('"(.-)"')
             if not MODULE_OWNED[role .. '|' .. real] then
@@ -119,7 +119,8 @@ for _, job in ipairs(jobs) do
                         cmp('level', e.level, a.level)
                         cmp('mp', e.cost, a.mp)
                     end
-                    if not a.boost then cmp('status', list(e.buff_id), list(a.status)) end  -- v2 had no boosts
+                    -- v2 had no boosts; its Geo debuffs named the enemy's status, which can't be read.
+                    if not a.boost and a.luopan ~= 'debuff' then cmp('status', list(e.buff_id), list(a.status)) end
                     cmp('removes', list(e.debuff_id), list(a.removes))
                     -- v2 read value only for single-target heals; v3's area priors are new.
                     if role == 'heal' and e.value then cmp('potency', e.value, a.potency) end

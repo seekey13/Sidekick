@@ -659,3 +659,18 @@ test('COR: Rolls under Buff picks each roll and the risk; Roll 2 only on a Corsa
     render(cfg, st, {}, view(13, 17, fake.catalog(13, 75, 17, 37, jas)))  -- NIN / COR
     eq({ showed('Roll 2: Corsair main job only'), has(frame.args.BeginCombo, 'Roll 2##sk3_roll_second') }, { true, false })
 end)
+
+test('GEO: Geomancy under Buff: its rows, how far and how long, and Entrust\'s member and spell', function ()
+    open_settings()
+    local geo = fake.catalog(21, 75, nil, 0, { 'Full Circle', 'Blaze of Glory', 'Entrust' })
+    local cfg, st = settings.defaults(), status()
+    local function view() local g = snap(); g.main = 21; return model.build(g, geo, cfg, st, NAMES) end
+    eq(render(cfg, st, { ['Recall past##sk3_geo_distance'] = 12, ['Keep after combat##sk3_geo_linger'] = 8 }, view()), 2)
+    eq({ cfg.geo.distance, cfg.geo.linger }, { 12, 8 })
+    eq(render(cfg, st, { ['A##sk3_geo_entrust_A'] = true, ['Indi-Fury##sk3_geo_entrust_spell_Indi-Fury'] = true }, view()), 2)
+    eq({ cfg.geo.entrust, cfg.geo.entrust_spell }, { 'A', 'Indi-Fury' })
+    eq(render(cfg, st, { ['P1##geo_geo1'] = true }, view()), 1)  -- the Geo row's target chips
+    eq(cfg.rows.geo.targets, { [0] = true, [1] = true })
+    eq(frame.columns['##sk3_rows_geo'], 4)  -- name, pick, targets, ready
+    eq(render(cfg, st, { ['Recall past##sk3_geo_distance'] = 12 }), 0)  -- WHM: no Geomancy
+end)

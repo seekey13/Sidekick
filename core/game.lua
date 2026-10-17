@@ -10,6 +10,7 @@
              mpp, mp, tp, uses_mp (yours: max MP > 0; others: seen with MP on these jobs),
              in_zone, dist, pos = { x, y, z },
              status (entity), alive, buffs = { [id] = true },
+             moving (others: moved in the last half second),
              hot = HP still to come from your Regen, nil if none }
     Slots: 0 you, 1-5 your party, 6-11 and 12-17 the alliance's other parties
     (kind 'alliance', their statuses from packets as a trust's).
@@ -18,7 +19,7 @@
     from their /check level (else yours), and main, main_lv, sub, sub_lv once a
     /check has answered. A member (or alliance member) you also track has tracked = true.
     The pet is { sid, tidx, name, hpp, dist, pos, status (1 engaged), buffs }; the
-    battle target `bt` { sid, tidx, name, hpp, dist, pos, mob, claimed }, `claimed`
+    battle target `bt` { sid, tidx, name, hpp, dist, pos, mob, claimed, moving }, `claimed`
     when it's a mob another party of the alliance claimed (the client has no <bt>).
     `target` is your current target when it's another player: { tidx, sid, name }.
     Plus when your cast began (cast_at, while casting);
@@ -30,6 +31,7 @@
 local ffi = require('ffi')
 local buffs = require('core.buffs')
 local cor = require('jobs.cor')
+local geo = require('jobs.geo')
 local sch = require('jobs.sch')
 local can = require('core.can')
 local observed = require('core.observed')
@@ -45,6 +47,7 @@ local SILENCED = { 6, 29 }                          -- Silence, Mute
 local INCAPACITATED = { 2, 7, 10, 14, 17, 19, 28 }  -- Sleep, Petrify, Stun, Charm x2, Sleep II, Terror
 local COMBAT_GRACE = 5      -- seconds "in combat" lasts after the battle target goes (multi-mob pulls)
 local MOVE_SAMPLE = 0.25    -- seconds between position samples
+local MOVE_GRACE = 0.5      -- seconds another stays "moving": their position comes only with their packets
 local READY_DELAY = 0.5     -- a recast reading 0 is trusted only after this (server lag)
 local PC_FIRST, PC_LAST = 0x400, 0x6FF  -- players' entity indexes (the server's range for them)
 local RESCAN = 1            -- seconds between looks for a tracked player not where last seen
@@ -95,6 +98,7 @@ end
 local max_hp = {}  -- [sid] = HP seen at 100%: heal sizing needs the deficit
 local has_mp = {}  -- ['sid main/sub'] = true once seen with MP on those jobs: a WAR's 0% isn't an empty tank
 local move = { at = -math.huge, moved = -math.huge }
+local motion = {}  -- [sid] = { x, y, z, moved }: where each other unit and the battle target last were
 local last_combat = -math.huge
 local pet_sid  -- the live pet last seen: its statuses are forgotten once it's gone or dead
 local ready_since = {}  -- [recast key] = when its timer first read 0
@@ -287,6 +291,18 @@ local function moving(em, tidx, now)
     return now - move.moved < MOVE_SAMPLE
 end
 
+-- Whether `e` (a unit or the battle target) moved within MOVE_GRACE: a luopan
+-- stays where it lands (jobs/geo.lua). A first sighting reads as standing still.
+local function on_the_move(seen, e, now)
+    if not e.pos then return nil end
+    local m = motion[e.sid] or { moved = -math.huge }
+    local x, y, z = e.pos[1], e.pos[2], e.pos[3]
+    if m.x and (x ~= m.x or y ~= m.y or z ~= m.z) then m.moved = now end
+    m.x, m.y, m.z = x, y, z
+    seen[e.sid] = m
+    return now - m.moved < MOVE_GRACE
+end
+
 local function ability_timer(recast, id)
     for i = 0, 31 do
         if recast:GetAbilityTimerId(i) == id then return recast:GetAbilityTimer(i) end
@@ -395,9 +411,23 @@ function game.read(now)
     local bt = battle_target(em) or allied[1] and claimed_target(em, listed, now) or nil
     if bt and bt.mob then last_combat = now end
     local is_moving = moving(em, me.tidx, now)  -- before moved_at is read
+    local seen = {}
+    for _, u in ipairs(units) do
+        if u.kind ~= 'self' then u.moving = on_the_move(seen, u, now) end
+    end
+    if bt then bt.moving = on_the_move(seen, bt, now) end
+    motion = seen
     local pet = entity(em, em:GetPetTargetIndex(me.tidx))
     -- A pet's statuses go silently when it dies or is dismissed, and the next may reuse its id.
-    if pet_sid and not (pet and pet.sid == pet_sid and pet.hpp > 0) then buffs.forget(pet_sid) end
+    -- A luopan's auras end with it, with no message: forget them on those whose statuses come from packets.
+    if pet_sid and not (pet and pet.sid == pet_sid and pet.hpp > 0) then
+        buffs.forget(pet_sid)
+        if player:GetMainJob() == geo.JOB then
+            for sid in pairs(tracks) do
+                for _, id in pairs(geo.AURAS) do buffs.lose(sid, id) end
+            end
+        end
+    end
     pet_sid = pet and pet.hpp > 0 and pet.sid or nil
     if pet then pet.buffs = buffs.of(pet.sid, now); tracks[pet.sid] = true end
     -- Statuses on one gone since the last read (a trust dismissed, a member who

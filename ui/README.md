@@ -54,6 +54,7 @@ Text that may contain `%` (names, `why` text) must be escaped before it's drawn:
 | `follow` | table | `{ on, target, distance, names }`: follow `target` (a name, `''` for none) once further than `distance` yalms; `names` are the members (the alliance's and tracked players too) that can be followed |
 | `buff` | table | `{ hold_aoe, gather }`: `hold_aoe` holds an area buff spell (Protectra, songs) while a player in your party who lacks it is out of its reach; `gather` then asks them to gather in party chat, at most every 5 seconds, when someone near you lacks it too |
 | `roll` | table | Corsair's rolls: `{ first, second, risk, risks, two, choices, last }`. `first` and `second` are the rolls kept up, by name (`''` for none); `two` is true on a Corsair main job, the only one that keeps a second. `risk` is how far Double-Up chases a total, one of `risks`: `'lowest'`, `'medium'`, `'highest'`. `choices` lists every roll you have, by name: `{ name, label, lucky, unlucky }`, as `{ name = 'Corsair\'s Roll', label = 'Corsair\'s Roll (EXP+)', lucky = 5, unlucky = 9 }`. `last` is the last roll's total while it's on you (or it just busted), when it's one of them: `{ name, total, lucky, unlucky, bust }`, else nil. A `second` equal to `first` keeps one roll |
+| `geo` | table | Geomancer's luopan: `{ distance, linger, entrust, entrust_spell, indi, names }`. Full Circle recalls the luopan once who it went on is further than `distance` yalms from it (3 to 30), and a debuff's `linger` seconds after combat (1 to 20). Entrust puts the Indi- spell `entrust_spell` (a name from `indi`, every Indi- you have, or `''`) on the member `entrust` (a name from `names`, your party but you, or `''`) |
 | `rest` | table | `{ on, delay, distance }`: rest after `delay` seconds with nothing to do; stand when the follow target is further than `distance` yalms |
 | `track` | table | `{ target }`: your current target's name when it's a player you could track (not in your party or alliance, not tracked yet), else nil |
 | `japanese` | bool | Spell, ability and item names are sent in Japanese. Shared by every job pair: it's kept in `ui`'s file (`ui.japanese`) |
@@ -96,7 +97,7 @@ Text that may contain `%` (names, `why` text) must be escaped before it's drawn:
 
 ### `view.sections[i]`
 
-In this order. A section with rows is left out when your job has none for it (Pet shows only for a pet job), Wake sleepers only shows when one of your heals wakes (a cure or waltz; not a pet's), and Rolls only when you have a roll (Corsair).
+In this order. A section with rows is left out when your job has none for it (Pet shows only for a pet job), Wake sleepers only shows when one of your heals wakes (a cure or waltz; not a pet's), Rolls only when you have a roll (Corsair), and Geomancy only when you have a Geo- spell (a Geomancer main job).
 
 | `id` | `title` | `header` | Its settings |
 |---|---|---|---|
@@ -108,6 +109,7 @@ In this order. A section with rows is left out when your job has none for it (Pe
 | `'remove'` | Debuff removal | Remove | rows: spells and abilities, then items |
 | `'buff'` | Buffs | Buff | `view.buff`, rows |
 | `'roll'` | Rolls | Buff | `view.roll` (a job with rolls only) |
+| `'geo'` | Geomancy | Buff | `view.geo`, rows: the Geo row (its luopan's spell and targets), the Geo debuff row, Full Circle, Blaze of Glory, Entrust |
 | `'pet'` | Pet | Pet | `view.pet_heal`, rows |
 | `'recover'` | Recovery | Recover | `view.recover`, rows |
 | `'rest'` | Resting | Recover | `view.rest` |
@@ -127,15 +129,15 @@ In this order. A section with rows is left out when your job has none for it (Pe
 |---|---|---|
 | `key` | string | The row's id for `act`: a family (`'Cure'`, `'Haste'`), a pick-one group (`'barelement'`, `'minuet'`) or an item (`'Echo Drops'`) |
 | `label` | string | `'Cure'`, `'Valor Minuet (+ATK)'`, `'Sword Madrigal / Blade Madrigal'` |
-| `on` | bool | Rows start on, except buffs, sending the pet in (Assault, Fight, Deploy) and items |
+| `on` | bool | Rows start on, except buffs (and a Geomancer's Geo and Geo debuff rows), sending the pet in (Assault, Fight, Deploy) and items |
 | `ready` | bool | It could go right now |
 | `avail` | string | `'ready'`, or why not: `'recast 12s'`, `'MP'`, `'TP'`, `'silenced'`, `'combat only'`, `'idle only'`, `'no ammo'`, `'pet too far'`, `'none left'`, `'pick one'`, `'not available'`... |
 | `action` | string or nil | When ready, the spell, ability or item it would use, as the client names it: `'Cure V'` |
 | `count` | number or nil | Item rows (`'Echo Drops'`, `'Remedy'`...): how many you carry |
-| `choices` | list or nil | Buff rows with tiers or a pick-one group: `{ label, name }`. A tiered row's first choice is `'Auto (best)'` with `name` nil |
+| `choices` | list or nil | Buff rows (and the Geomancy section's) with tiers or a pick-one group: `{ label, name }`. A tiered row's first choice is `'Auto (best)'` with `name` nil |
 | `pick` | string or nil | The chosen `name`; nil is Auto |
 | `choice` | string or nil | The label to show for the current pick: `'Auto (best)'`, `'Pick one'`, `'Protect II'`, `'Protect V (not available)'` |
-| `targets` | list or nil | Buff rows that can go on others: 6 chips `{ slot, label, present, name, on, wrap }`, `slot` 0 (you, `'ME'`) to 5 (`'P5'`). `present` is false for an empty party slot (`name` is then nil). When the row's spells can go outside the party (Protect, Haste; not Regen), a chip follows for each tracked player, `'T1'` on, its `slot` their name; then 6 for each of the alliance's other parties that is there or has a chip on, `'B0'` to `'B5'` (`slot` 6 to 11) and `'C0'` to `'C5'` (12 to 17). `wrap` is true on `'B0'` and `'C0'`: the standard window starts a new line there |
+| `targets` | list or nil | Buff rows that can go on others (and the Geo row: its luopan goes on the first of them who lacks it): 6 chips `{ slot, label, present, name, on, wrap }`, `slot` 0 (you, `'ME'`) to 5 (`'P5'`). `present` is false for an empty party slot (`name` is then nil). When the row's spells can go outside the party (Protect, Haste; not Regen), a chip follows for each tracked player, `'T1'` on, its `slot` their name; then 6 for each of the alliance's other parties that is there or has a chip on, `'B0'` to `'B5'` (`slot` 6 to 11) and `'C0'` to `'C5'` (12 to 17). `wrap` is true on `'B0'` and `'C0'`: the standard window starts a new line there |
 | `mods` | list or nil | Buff rows a modifier fits (SCH's stratagems): `{ name, label, note, on }`, as `{ 'Penury', 'Pen', 'half the MP', false }`. One that is on is fired just before the row's spell when its status isn't on you; Accession (`'Acc'`) instead spreads the spell from you to the row's targets near you whenever one there lacks it. nil for other rows and jobs |
 
 ## `act`
@@ -145,7 +147,7 @@ In this order. A section with rows is left out when your job has none for it (Pe
 | `act.run(on)` | Automation on or off. This session only: it is always off after a load |
 | `act.log(on)` | Print each action sent to chat, or not. This session only |
 | `act.close()` | Hide the UI (remembered); `/sk3` shows it again |
-| `act.section(id, on)` | A section's switch: `'follow'`, `'heal'`, `'revive'`, `'wake'`, `'remove'`, `'buff'`, `'roll'`, `'pet'`, `'recover'` or `'rest'` |
+| `act.section(id, on)` | A section's switch: `'follow'`, `'heal'`, `'revive'`, `'wake'`, `'remove'`, `'buff'`, `'roll'`, `'geo'`, `'pet'`, `'recover'` or `'rest'` |
 | `act.row(key, on)` | A row on or off |
 | `act.pick(key, name)` | A row's choice: a `choices[i].name`, or nil for Auto |
 | `act.target(key, slot)` | Turn a target chip on or off: its `slot`, 0 to 17 or a tracked player's name |
@@ -173,6 +175,10 @@ In this order. A section with rows is left out when your job has none for it (Pe
 | `'follow.target'` | a name from `view.follow.names`, or `''` |
 | `'roll.first'`, `'roll.second'` | a name from `view.roll.choices`, or `''` |
 | `'roll.risk'` | one of `view.roll.risks` |
+| `'geo.distance'` | 3 to 30 |
+| `'geo.linger'` | 1 to 20 |
+| `'geo.entrust'` | a name from `view.geo.names`, or `''` |
+| `'geo.entrust_spell'` | a name from `view.geo.indi`, or `''` |
 | `'follow.distance'`, `'rest.distance'` | 1 to 15 |
 | `'rest.delay'` | 1 to 20 |
 | `'japanese'` | bool |

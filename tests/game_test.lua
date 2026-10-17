@@ -17,7 +17,7 @@ local function reset()
     world = {
         party = { { sid = ME, tidx = 0x400, name = 'Me', hpp = 100, hp = 1000, mpp = 100, mp = 500 } },
         ents = { [0x400] = { sid = ME, name = 'Me' } },
-        target = 0, sub = nil, pet = nil,
+        target = 0, sub = nil, pet = nil, main = 3,
     }
     tracked.list = {}
     buffs.clear()
@@ -54,7 +54,7 @@ local party = {
     GetMemberTP = const(0), GetMemberZone = const(100), GetMemberMainJob = const(3), GetMemberSubJob = const(4),
 }
 local player = {
-    GetMainJob = const(3), GetMainJobLevel = const(75), GetSubJob = const(4), GetSubJobLevel = const(37),
+    GetMainJob = function () return world.main end, GetMainJobLevel = const(75), GetSubJob = const(4), GetSubJobLevel = const(37),
     GetMPMax = const(500), GetBuffs = const({}),
 }
 -- While you pick a sub-target, index 0 is the one being picked and 1 your target.
@@ -220,6 +220,32 @@ test('with no <bt>, a mob another party of the alliance claimed is your battle t
     eq(read(0.5).bt.name, 'Snail')
     world.ents[0x103].hpp = 0
     eq({ read().bt, read(0.5).bt.name }, { nil, 'Crab' })  -- dead: dropped at once, the next look finds another
+end)
+
+test('another unit moving: for half a second after its position last changed; seen first, it stands', function ()
+    reset()
+    world.party[2] = { sid = 101, tidx = 0x401, name = 'Tank', hpp = 100, hp = 1000, mpp = 0, mp = 0 }
+    world.ents[0x401] = { sid = 101, name = 'Tank', hpp = 100, dist = 5 }
+    eq(unit(read(), 101).moving, false)
+    world.ents[0x401].dist = 6
+    eq(unit(read(), 101).moving, true)
+    eq(unit(read(0.3), 101).moving, true)   -- no new position yet: their packets come apart
+    eq(unit(read(0.3), 101).moving, false)
+    eq(unit(read(), ME).moving, nil)  -- you: the moving gate
+end)
+
+test('a GEO\'s luopan gone: its auras are forgotten on those whose statuses come from packets', function ()
+    reset()
+    world.main = 21
+    local kupipi = { sid = TRUST, tidx = 0x100, name = 'Kupipi', hpp = 100, hp = 900, mpp = 100, mp = 500 }
+    world.party[2], world.ents[0x100] = kupipi, { sid = TRUST, name = 'Kupipi', hpp = 100, dist = 3 }
+    world.pet, world.ents[0x700] = 0x700, { sid = PET, name = 'Luopan', hpp = 100, dist = 2 }
+    buffs.gain(TRUST, 580, now)   -- Geo-Haste's aura
+    buffs.gain(TRUST, PROTECT, now)
+    eq(unit(read(), TRUST).buffs, { [580] = true, [PROTECT] = true })
+    world.pet = nil
+    read()
+    eq(unit(read(), TRUST).buffs, { [PROTECT] = true })
 end)
 
 reset()
