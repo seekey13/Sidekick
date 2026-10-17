@@ -427,6 +427,18 @@ local function draw_rest(view)
     slider('Stand past##sk3_rest_distance', 'rest.distance', r.distance, 1, 15, 'Yalms from the leader.')
 end
 
+local function draw_buff_settings(view)
+    local b = view.buff
+    checkbox('Hold area buffs for the group##sk3_hold_aoe', b.hold_aoe, function (on) act.set('buff.hold_aoe', on) end,
+        'Hold an area buff spell (Protectra, Barfira, songs) while a player in your party who lacks it is out of its '
+        .. 'reach, so nobody is left out. Trusts and members in another zone never hold it.')
+    if b.hold_aoe then
+        checkbox('Ask them to gather##sk3_gather', b.gather, function (on) act.set('buff.gather', on) end,
+            'While one is held, say "Gather together for <spell>" in party chat, at most every 5 seconds.')
+    end
+    imgui.Separator()
+end
+
 -- Each tracked player with its Untrack button (one who joined your party or
 -- alliance too), then Track for your target.
 local function draw_track(view)
@@ -564,7 +576,7 @@ local SWITCH_HELP = {
 }
 
 local BODIES = {
-    follow = draw_follow, heal = draw_heal_settings, recover = draw_recover_settings,
+    follow = draw_follow, heal = draw_heal_settings, recover = draw_recover_settings, buff = draw_buff_settings,
     pet = draw_pet_settings, rest = draw_rest, track = draw_track, ui = draw_ui,
 }
 

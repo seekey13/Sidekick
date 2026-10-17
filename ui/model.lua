@@ -335,6 +335,7 @@ function model.build(g, cat, cfg, status, names)
         pet_heal = cfg.pet.heal,
         follow = { on = cfg.follow.on, target = cfg.follow.target, distance = cfg.follow.distance, names = focus_names },
         rest = { on = cfg.rest.on, delay = cfg.rest.delay, distance = cfg.rest.distance },
+        buff = { hold_aoe = cfg.buff.hold_aoe, gather = cfg.buff.gather },
         -- Your target, by name, when it's a player who could be tracked: not in the party, not tracked yet.
         track = { target = g.target and not known[g.target.sid] and g.target.name or nil },
         japanese = cfg.japanese, log = status.log, ui = {},
@@ -414,7 +415,7 @@ function model.actions(cfg, status, changed, tracking)
         cfg.heal.skip[name] = not cfg.heal.skip[name] or nil
         changed()
     end
-    -- path: 'heal.danger', 'heal.alliance', 'follow.target', 'japanese', 'ui.hp_width', or 'ui.<anything>' for a UI's own.
+    -- path: 'heal.danger', 'heal.alliance', 'buff.hold_aoe', 'follow.target', 'japanese', 'ui.hp_width', or 'ui.<anything>' for a UI's own.
     function act.set(path, value)
         local t = cfg
         local parent, key = path:match('^(.-)%.?([^.]+)$')

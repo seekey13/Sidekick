@@ -7,6 +7,8 @@
     The first intent wins. A behavior returning { hold = true } (a cure nearly off
     recast) lets only the quick behaviors after it run until the cure goes out.
     While you rest, only resting runs: it alone decides when to stand.
+    A buff held for the group to gather (behaviors/buff.lua) leaves mem.gather,
+    which engine.gather turns into a party chat line.
 ]]--
 
 local can = require('core.can')
@@ -30,10 +32,14 @@ engine.BEHAVIORS = {
 }
 
 local GATES = { 'loading', 'dead', 'mounted', 'safe', 'incapacitated', 'casting', 'moving' }
+engine.GATHER_EVERY = 5  -- seconds between asks to gather, as v2
+-- 集まってください。 in Shift-JIS, the game's chat encoding (as the names from the DATs).
+local GATHER_JP = '\x8f\x57\x82\xdc\x82\xc1\x82\xc4\x82\xad\x82\xbe\x82\xb3\x82\xa2\x81\x42'
 
 -- The intent for now, or nil and why not. `mem` is the engine's own memory
 -- between ticks (behaviors keep theirs in it too).
 function engine.decide(g, cat, cfg, mem)
+    mem.gather = nil
     for _, gate in ipairs(GATES) do
         if g[gate] then return nil, gate end
     end
@@ -49,7 +55,21 @@ function engine.decide(g, cat, cfg, mem)
             end
         end
     end
-    return nil, g.resting and 'resting' or holding and 'waiting for a cure' or 'nothing to do'
+    local w = mem.gather
+    local away = w and (w.who.dist and ('%.1fy away'):format(w.who.dist) or 'not in sight')
+    return nil, g.resting and 'resting' or holding and 'waiting for a cure'
+        or w and ('holding %s: %s %s'):format(w.action.name, w.who.name, away) or 'nothing to do'
+end
+
+-- The party chat line asking everyone to gather for the buff held on this
+-- decision, at most every GATHER_EVERY seconds; nil when there's none to send.
+function engine.gather(g, cfg, mem)
+    local w = mem.gather
+    if not (w and cfg.buff.gather) or g.now - (mem.gathered_at or -math.huge) < engine.GATHER_EVERY then return nil end
+    mem.gathered_at = g.now
+    local a = w.action
+    if cfg.japanese and (a.jp or '') ~= '' then return '/p ' .. GATHER_JP .. '  ' .. a.jp end
+    return '/p Gather together for ' .. a.name
 end
 
 -- Whether the server will take a command yet.
