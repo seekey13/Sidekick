@@ -546,8 +546,11 @@ local function draw_track(view)
                 if imgui.Button('Untrack##sk3_untrack_' .. p.name) then act.untrack(p.name) end
                 imgui.SameLine()
                 local note = JOINED[p.kind] or p.job and ('  ' .. p.job) or ''
+                if p.shared and not JOINED[p.kind] then note = note .. '  (from ' .. p.shared .. ')' end
                 text(('%s %s'):format(p.tag, p.name) .. note, p.away and GREY or nil)
-                tip(p.away and (p.kind == 'tracked' and 'Out of range.' or 'In another zone.') or nil)
+                local where = p.away and (p.kind == 'tracked' and 'Out of range.' or 'In another zone.') or nil
+                local from = p.shared and ('Tracked while %s\'s session lists them; Untrack keeps them off until tracked again.'):format(p.shared)
+                tip(where and from and (where .. '\n' .. from) or where or from)
             end
         end
     end

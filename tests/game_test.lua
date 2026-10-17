@@ -52,10 +52,11 @@ local party = {
     GetMemberMPPercent = function (_, i) return member(i).mpp end,
     GetMemberMP = function (_, i) return member(i).mp end,
     GetMemberTP = const(0), GetMemberZone = const(100), GetMemberMainJob = const(3), GetMemberSubJob = const(4),
+    GetMemberMainJobLevel = const(75), GetMemberSubJobLevel = const(37),
 }
 local player = {
     GetMainJob = function () return world.main end, GetMainJobLevel = const(75), GetSubJob = const(4), GetSubJobLevel = const(37),
-    GetMPMax = const(500), GetBuffs = const({}),
+    GetMPMax = const(500), GetHPMax = function () return world.hp_max or 0 end, GetBuffs = const({}),
 }
 -- While you pick a sub-target, index 0 is the one being picked and 1 your target.
 local target = {
@@ -225,7 +226,7 @@ end)
 test('another unit moving: for half a second after its position last changed; seen first, it stands', function ()
     reset()
     world.party[2] = { sid = 101, tidx = 0x401, name = 'Tank', hpp = 100, hp = 1000, mpp = 0, mp = 0 }
-    world.ents[0x401] = { sid = 101, name = 'Tank', hpp = 100, dist = 5 }
+    world.ents[0x401] = { sid = 150, name = 'Tank', hpp = 100, dist = 5 }
     eq(unit(read(), 101).moving, false)
     world.ents[0x401].dist = 6
     eq(unit(read(), 101).moving, true)
@@ -250,5 +251,30 @@ test('a GEO\'s luopan gone: its auras are forgotten on those whose statuses come
 end)
 
 reset()
+-- Last: your max HP read whole stays in game.lua's memory.
+test('sessions: your max HP read whole and your party\'s jobs, for the session file', function ()
+    reset()
+    world.hp_max = 1234
+    world.party[1].hp = 600
+    world.party[2] = { sid = 150, tidx = 0x401, name = 'P1', hpp = 50, hp = 500, mpp = 50, mp = 100 }
+    world.ents[0x401] = { sid = 150, name = 'P1', dist = 3 }
+    local g = read()
+    local me, p1 = unit(g, ME), unit(g, 150)
+    eq({ me.max_hp, me.max_known, me.jobs }, { 1234, true, { 3, 75, 4, 37 } })
+    eq({ p1.max_known, p1.jobs }, { false, { 3, 75, 4, 37 } })
+end)
+
+test('sessions: a player another session lists has its max HP, and its HP while not drawn', function ()
+    reset()
+    tracked.add(OUT, 'Out', nil, 'Box')
+    local t = tracked.list[1]
+    t.max_hp, t.main_lv, t.shared_hpp = 1500, 75, 40
+    local u = unit(read(), OUT)
+    eq({ u.in_zone, u.hpp, u.alive, u.max_hp, u.hp, u.auto }, { false, 40, true, 1500, 600, 'Box' })
+    world.ents[0x450] = { sid = OUT, name = 'Out', hpp = 90, dist = 5 }
+    t.tidx = 0x450
+    eq(unit(read(), OUT).hpp, 90)  -- drawn: their entity, not the file
+end)
+
 rawset(_G, 'AshitaCore', nil)
 rawset(_G, 'ashita', nil)

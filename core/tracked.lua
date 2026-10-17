@@ -7,13 +7,18 @@
     member, which lands on your own party only).
 
     entry = { sid, name, tidx = entity index last seen at, hpp, status = as last seen there,
-              main, main_lv, sub, sub_lv = from a /check (packet 0x0C9), nil until one answers }
-    Only their HP % can be read: their max HP is estimated from that level.
+              main, main_lv, sub, sub_lv = from a /check (packet 0x0C9), nil until one answers,
+              auto = the owner's name when core/share.lua tracks them for another session,
+              max_hp, shared_hpp = from a session file listing them (core/share.lua) }
+    Only their HP % can be read: their max HP is estimated from that level, unless
+    a session file gives the real one.
+    An auto entry untracked by hand is `declined`: not tracked again by a session
+    file until tracked by hand.
 ]]--
 
 local buffs = require('core.buffs')
 
-local tracked = { list = {} }
+local tracked = { list = {}, declined = {} }
 
 -- Average max HP at a level over every race and job: v2's table, which is this line.
 function tracked.max_hp(level) return math.floor(54 + 15.7 * level) end
@@ -22,19 +27,35 @@ function tracked.find(sid)
     for _, t in ipairs(tracked.list) do if t.sid == sid then return t end end
 end
 
--- Track a player; false when they already are.
-function tracked.add(sid, name, tidx)
-    if tracked.find(sid) then return false end
-    tracked.list[#tracked.list + 1] = { sid = sid, name = name, tidx = tidx }
+-- Track a player; false when they already are. By hand (no `auto`), one a
+-- session file tracked becomes your own, and one declined may come back.
+function tracked.add(sid, name, tidx, auto)
+    local t = tracked.find(sid)
+    if not auto then tracked.declined[sid] = nil end
+    if t then
+        if not auto then t.auto = nil end
+        return false
+    end
+    tracked.list[#tracked.list + 1] = { sid = sid, name = name, tidx = tidx, auto = auto }
     return true
 end
 
--- Stop tracking `name` (any case), forgetting their statuses; the entry, or nil.
-function tracked.remove(name)
+-- Stop tracking server id `sid`, forgetting their statuses; the entry, or nil.
+function tracked.drop(sid)
     for i, t in ipairs(tracked.list) do
-        if t.name:lower() == name:lower() then
-            buffs.forget(t.sid)
+        if t.sid == sid then
+            buffs.forget(sid)
             return table.remove(tracked.list, i)
+        end
+    end
+end
+
+-- Stop tracking `name` (any case) by hand; the entry, or nil.
+function tracked.remove(name)
+    for _, t in ipairs(tracked.list) do
+        if t.name:lower() == name:lower() then
+            if t.auto then tracked.declined[t.sid] = true end
+            return tracked.drop(t.sid)
         end
     end
 end

@@ -23,6 +23,7 @@ local packets = require('core.packets')
 local profiles = require('core.profiles')
 local resources = require('core.resources')
 local settings = require('core.settings')
+local share = require('core.share')
 local tracked = require('core.tracked')
 local imgui = require('imgui')
 local model = require('ui.model')
@@ -192,7 +193,7 @@ local function show_state(g)
         for id in pairs(u.buffs) do names[#names + 1] = statuses[id] and statuses[id].en or tostring(id) end
         table.sort(names)
         local out = u.kind == 'tracked'  -- max HP estimated from the level, or yours; no MP read
-        local kind = out and 'track' or u.kind == 'alliance' and model.TAGS[u.slot] or u.kind
+        local kind = u.auto and 'auto' or out and 'track' or u.kind == 'alliance' and model.TAGS[u.slot] or u.kind
         printf('  %-5s %-14s HP %3d%%%s %s  %s  %s', kind, u.name, u.hpp,
             u.max_hp and ((out and '/~' or '/') .. u.max_hp) or '',
             out and (u.main_lv and ('%s%d'):format(abbr(u.main), u.main_lv) or 'lv ?') or ('MP %3d%%'):format(u.mpp),
@@ -319,18 +320,22 @@ local function track(name)
             return
         end
     end
+    local shared = share.known(share.sessions, p.sid)  -- their level comes from a session file: no /check
     if tracked.add(p.sid, p.name, p.tidx) then
-        printf('Tracking %s: healed, cleared, raised and buffed (buff rows pick them by name). Checking their level.', p.name)
+        printf('Tracking %s: healed, cleared, raised and buffed (buff rows pick them by name).%s', p.name,
+            shared and '' or ' Checking their level.')
     else
-        printf('Already tracking %s; checking their level again.', p.name)
+        printf('Already tracking %s%s.', p.name, shared and '' or '; checking their level again')
     end
-    AshitaCore:GetChatManager():QueueCommand(1, '/check ' .. p.name)
+    if not shared then AshitaCore:GetChatManager():QueueCommand(1, '/check ' .. p.name) end
 end
 
 -- The UI's Untrack buttons, and /sk3 untrack <name>.
 local function untrack(name)
     local t = tracked.remove(name)
-    if t then printf('Stopped tracking %s.', t.name) else printf('Not tracking "%s".', name) end
+    if not t then printf('Not tracking "%s".', name)
+    elseif t.auto then printf('Stopped tracking %s (from %s\'s session) until /sk3 track %s.', t.name, t.auto, t.name)
+    else printf('Stopped tracking %s.', t.name) end
 end
 local tracking = { add = track, remove = untrack }
 
@@ -363,13 +368,18 @@ end
 
 ashita.events.register('d3d_present', 'sidekick3_present', function ()
     local g, fresh = refresh(os.clock())
-    if fresh then tick(g) end
+    if fresh then
+        tick(g)
+        share.tick(g, status.running, g.now)
+    end
     if status.open and not g.loading then draw(g) end
     if unsaved and not imgui.IsAnyItemActive() then
         settings.save()
         unsaved = false
     end
 end)
+
+ashita.events.register('unload', 'sidekick3_unload', share.close)
 
 ashita.events.register('packet_in', 'sidekick3_packet_in', function (e)
     packets.handle(e, packet_ctx, os.clock())
@@ -446,6 +456,7 @@ ashita.events.register('command', 'sidekick3_command', function (e)
         local list = {}
         for i, t in ipairs(tracked.list) do
             list[i] = t.name .. (t.main_lv and (' (%s%d)'):format(abbr(t.main), t.main_lv) or '')
+                .. (t.auto and (' from ' .. t.auto) or '')
         end
         printf('Tracking: %s. Target another player to add them.', table.concat(list, ', '))
     elseif sub == 'untrack' then
