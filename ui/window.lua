@@ -63,6 +63,8 @@ local JOINED = { party = '  (in your party)', alliance = '  (in your alliance)' 
 
 local act                    -- this frame's actions
 local settings_open = false  -- SK Settings shown; this session only
+local profile_name = { '' }  -- the profile name typed; this session only...
+local profile_shown          -- ...filled in again when the profile loaded changes
 
 local function esc(s) return (tostring(s):gsub('%%', '%%%%')) end
 
@@ -173,6 +175,7 @@ end
 local function status_tip(view)
     local s = view.status
     local lines = { view.job, ('%s: %s'):format(s.state, s.text) }
+    if view.profiles.active then lines[1] = ('%s  (profile %s)'):format(view.job, view.profiles.active) end
     if s.dim then lines[#lines + 1] = ('(%s)'):format(s.dim) end
     if #view.flags > 0 then lines[#lines + 1] = '[' .. table.concat(view.flags, '] [') .. ']' end
     for _, e in ipairs({ { 'Target', view.bt }, { 'Pet', view.pet } }) do
@@ -463,6 +466,39 @@ local function draw_track(view)
     end
 end
 
+-- The name to save under, Save / Save as / New / Delete, then every profile:
+-- a click loads it (Default, the working copy as it was before one was loaded).
+local function draw_profiles(view)
+    local p = view.profiles
+    local active = p.active or ''
+    if active ~= profile_shown then profile_name[1], profile_shown = active, active end
+    imgui.PushItemWidth(SETTING_WIDTH)
+    imgui.InputText('Name##sk3_profile_name', profile_name, 64)
+    imgui.PopItemWidth()
+    tip('A name for Save or Save as. Each job pair has its own profiles.')
+    local typed = profile_name[1]:match('^%s*(.-)%s*$')
+    if imgui.Button('Save##sk3_profile_save') then act.save_profile(typed) end
+    tip('Save the settings as they are now under this name. With a profile loaded and the name changed, '
+        .. 'rename that profile instead.')
+    imgui.SameLine()
+    if imgui.Button('Save as##sk3_profile_save_as') then act.save_profile(typed, true) end
+    tip('Save the settings as they are now under this name, over any profile already named so.')
+    imgui.SameLine()
+    if imgui.Button('New##sk3_profile_new') then act.new_profile() end
+    tip('Every setting back to its default, on Default. Saved profiles are kept.')
+    if p.active then
+        imgui.SameLine()
+        if imgui.Button('Delete##sk3_profile_delete') then act.delete_profile(p.active) end
+        tip(('Delete %s, and go back to Default.'):format(p.active))
+    end
+    if imgui.Selectable('Default##sk3_profile_default', p.active == nil) then act.profile(nil) end
+    tip('The working copy: your settings as they were before a profile was loaded.')
+    for _, name in ipairs(p.names) do
+        if imgui.Selectable(name .. '##sk3_profile_' .. name, name == p.active) then act.profile(name) end
+    end
+    text('Changes save to the settings in use; to a profile only with Save.', GREY)
+end
+
 local function draw_recent(view)
     if #view.recent == 0 then text('Nothing sent yet.', GREY) end
     for _, r in ipairs(view.recent) do
@@ -578,7 +614,7 @@ local SWITCH_HELP = {
 
 local BODIES = {
     follow = draw_follow, heal = draw_heal_settings, recover = draw_recover_settings, buff = draw_buff_settings,
-    pet = draw_pet_settings, rest = draw_rest, track = draw_track, ui = draw_ui,
+    pet = draw_pet_settings, rest = draw_rest, track = draw_track, ui = draw_ui, profile = draw_profiles,
 }
 
 -- Its switch, its settings, then its rows.
@@ -603,7 +639,9 @@ local function draw_settings(view)
         for _, s in ipairs(of[h]) do
             if s.on ~= nil then switches, on = true, on or s.on end
         end
-        if imgui.CollapsingHeader(h .. (switches and not on and ' (off)' or '') .. '###sk3_' .. h) then
+        local note = switches and not on and ' (off)' or ''
+        if h == 'Profiles' and view.profiles.active then note = ': ' .. view.profiles.active end
+        if imgui.CollapsingHeader(h .. note .. '###sk3_' .. h) then
             for i, s in ipairs(of[h]) do
                 if i > 1 then imgui.Separator() end
                 draw_section(view, s)

@@ -20,6 +20,7 @@ local engine = require('core.engine')
 local game = require('core.game')
 local knowledge = require('core.knowledge')
 local packets = require('core.packets')
+local profiles = require('core.profiles')
 local resources = require('core.resources')
 local settings = require('core.settings')
 local tracked = require('core.tracked')
@@ -260,6 +261,29 @@ local function buff_command(args)
     end
 end
 
+-- /sk3 profile [name | default]: load a profile of this job pair's (SK Settings
+-- saves them), or Default; with no name, list them. Names may have spaces.
+local function profile_command(args)
+    local name = table.concat(args, ' ', 3)
+    if name == '' then
+        local list = profiles.names(cfg)
+        printf('Profiles for %s (loaded: %s): Default%s', cfg_pair, profiles.active(cfg) or 'Default',
+            #list > 0 and (', ' .. table.concat(list, ', ')) or '')
+        return
+    end
+    if name:lower() == 'default' then
+        profiles.load_default(cfg)
+        settings.save()
+        printf('Profile: Default.')
+        return
+    end
+    local stored = profiles.find(cfg, name)
+    if not stored then printf('No profile "%s" for %s. /sk3 profile lists them.', name, cfg_pair); return end
+    profiles.load(cfg, stored)
+    settings.save()
+    printf('Profile loaded: %s.', stored)
+end
+
 -- /sk3 track [name] and the UI's Track button: a player outside your alliance, by
 -- name or your current target. A /check asks their level, so heals are sized
 -- (they're told you examined them, as v2 did); tracking them again asks again.
@@ -335,7 +359,7 @@ end)
 
 local HELP = '/sk3 opens or closes the window. Commands: start, stop, plan, state, '
     .. 'buff [name] [me p1..p5 b0..c5 <tracked>|off], focus <name|off>, follow <name|off>, rest [on|off], '
-    .. 'track [name], untrack <name|all>, catalog [unknown], log, dump, help'
+    .. 'track [name], untrack <name|all>, profile [name|default], catalog [unknown], log, dump, help'
 
 -- ponytail: /sk3 while v2 is still installed and owns /sk; switch to /sk at cutover.
 ashita.events.register('command', 'sidekick3_command', function (e)
@@ -379,6 +403,8 @@ ashita.events.register('command', 'sidekick3_command', function (e)
         show_state(g)
     elseif sub == 'buff' then
         buff_command(args)
+    elseif sub == 'profile' then
+        profile_command(args)
     elseif sub == 'focus' then
         local name = args[3] and args[3]:lower() ~= 'off' and args[3] or ''
         cfg.heal.focus = name

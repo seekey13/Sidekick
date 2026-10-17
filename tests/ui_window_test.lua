@@ -412,11 +412,11 @@ end
 test('a header for each group of sections, in order, closed at first; all its switches off, it says so', function ()
     local cfg = settings.defaults()
     cfg.buff.on = false
-    eq(headers(cfg), { 'Follow (off)###sk3_Follow', 'Heal###sk3_Heal', 'Remove###sk3_Remove', 'Buff (off)###sk3_Buff',
+    eq(headers(cfg), { 'Profiles###sk3_Profiles', 'Follow (off)###sk3_Follow', 'Heal###sk3_Heal', 'Remove###sk3_Remove', 'Buff (off)###sk3_Buff',
         'Recover###sk3_Recover', 'Tracked###sk3_Tracked', 'UI / Log###sk3_UI / Log' })
     for _, flags in pairs(frame.headers) do eq(flags, 0) end
     eq(headers(settings.defaults(), fake.catalog(18, 75, nil, 0, { 'Repair', 'Deploy' })),  -- PUP
-        { 'Follow (off)###sk3_Follow', 'Remove###sk3_Remove', 'Pet###sk3_Pet', 'Recover (off)###sk3_Recover',
+        { 'Profiles###sk3_Profiles', 'Follow (off)###sk3_Follow', 'Remove###sk3_Remove', 'Pet###sk3_Pet', 'Recover (off)###sk3_Recover',
           'Tracked###sk3_Tracked', 'UI / Log###sk3_UI / Log' })
 end)
 
@@ -563,4 +563,25 @@ test('Heal the alliance writes heal.alliance; alliance chips write their slot; T
     eq(render(cfg, st, { ['Bea##sk3_heal_Bea'] = true }, model.build(g, cat, cfg, st, NAMES)), 1)  -- listed: heal.alliance is on
     eq(cfg.heal.skip, { Bea = true })
     eq({ fill('Bea'), fill('B0 Bea') }, { nil, WHITE })  -- no card in the HUD: a row
+end)
+
+test('Profiles: Save names the profile loaded, a click loads one, Default goes back; the header names it', function ()
+    open_settings()
+    local cfg, st = settings.defaults(), status()
+    cfg.heal.danger = 40
+    render(cfg, st, { ['Save as##sk3_profile_save_as'] = true })  -- the name typed is blank: nothing saved
+    eq(next(cfg.profiles), nil)
+    cfg.profiles.Dynamis = { heal = { danger = 20 } }
+    local writes = render(cfg, st, { ['Dynamis##sk3_profile_Dynamis'] = true })
+    eq({ cfg.profile, cfg.heal.danger, cfg.parked.heal.danger, writes }, { 'Dynamis', 20, 40, 1 })
+    render(cfg, st)
+    eq(has(frame.args.CollapsingHeader, 'Profiles: Dynamis###sk3_Profiles'), true)
+    eq(has(frame.args.Button, 'Delete##sk3_profile_delete'), true)
+    cfg.heal.danger = 25
+    render(cfg, st, { ['Save##sk3_profile_save'] = true })  -- the name field holds the one loaded
+    eq(cfg.profiles.Dynamis.heal.danger, 25)
+    render(cfg, st, { ['Default##sk3_profile_default'] = true })
+    eq({ cfg.profile, cfg.heal.danger }, { '', 40 })
+    render(cfg, st)
+    eq(has(frame.args.Button, 'Delete##sk3_profile_delete'), false)
 end)

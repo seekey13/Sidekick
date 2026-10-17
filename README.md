@@ -22,6 +22,7 @@ v2 described every job's spells and abilities by hand in 22 job files. v3 reads 
 /sk3 focus Name | off   heal this member first, on its own HP lines
 /sk3 follow Name | off  follow this member
 /sk3 rest [on | off]    rest for MP when there's nothing to do
+/sk3 profile [Name]     load a settings profile (default: back to your own settings); with no name, list them
 /sk3 track [Name]       look after a player outside your alliance too: your target, or by name; else list them
 /sk3 untrack Name | all stop tracking them
 /sk3 state              what Sidekick reads from the game: party, trusts, buffs, target, flags
@@ -41,6 +42,7 @@ Drag the HUD where you want it; Lock position keeps it there.
 
 **SK Settings**, from the cog, has every setting under collapsing headers, each section with its on/off switch:
 
+- **Profiles**: named snapshots of your settings (Dynamis, EXP...), each job pair with its own. Type a name and Save (with a profile loaded, a new name renames it), Save as, New (every setting back to its default) or Delete; click one to load it. Your settings stay the working copy: changes after a load are kept, but reach the profile only when you Save it, and Default brings back the settings you had before you loaded one. A profile never changes the HUD, the Japanese client, following, the focus member or who healing skips.
 - **Follow**: who to follow and how far they may get.
 - **Heal**: healing, with its HP lines (danger, critical, and the focus member's own), gear potency and who to heal: the alliance's other parties too when you tick Heal the alliance, each of their parties then on a line of its own to untick; raising.
 - **Remove**: waking sleepers (when one of your heals can), and debuff removal: spells, then items (Echo Drops, Remedy...) with how many you carry.
@@ -58,7 +60,7 @@ Each row turns a family on or off and says whether it's ready or why not.
 
 The UI is one replaceable file: put your own in `ui/custom.lua` and it's used instead. [ui/README.md](ui/README.md) documents what a UI is given and what it can change, with an example.
 
-Settings are kept per job pair in `config/addons/sidekick3/<character>/WHM_BLM.lua`, and the HUD's in `ui.lua` beside them, shared by every job pair. Healing, removal, waking, raising, recovery and pet care are on by default; buffs, items, sending the pet in, following, resting and healing the alliance only when you turn them on.
+Settings are kept per job pair in `config/addons/sidekick3/<character>/WHM_BLM.lua` (its profiles too), and the HUD's in `ui.lua` beside them, shared by every job pair. Healing, removal, waking, raising, recovery and pet care are on by default; buffs, items, sending the pet in, following, resting and healing the alliance only when you turn them on.
 
 ## Develop
 

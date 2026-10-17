@@ -16,14 +16,16 @@
 ]]--
 
 local can = require('core.can')
+local profiles = require('core.profiles')
 local settings = require('core.settings')
 
 local model = {}
 
 -- Settings sections in order, each under its `header` (headers in the order
--- their first section comes). Every section but 'track' and 'ui' is a behavior,
+-- their first section comes). Every section but 'profile', 'track' and 'ui' is a behavior,
 -- switched by cfg[id].on; one with roles also has rows. Wake shows only when a heal can wake.
 model.SECTIONS = {
+    { id = 'profile', title = 'Profiles', header = 'Profiles', switch = false },
     { id = 'follow', title = 'Follow', header = 'Follow' },
     { id = 'heal', title = 'Healing', roles = { 'heal', 'emergency' }, header = 'Heal' },
     { id = 'revive', title = 'Revive', roles = { 'revive' }, header = 'Heal' },
@@ -339,6 +341,7 @@ function model.build(g, cat, cfg, status, names)
         -- Your target, by name, when it's a player who could be tracked: not in the party, not tracked yet.
         track = { target = g.target and not known[g.target.sid] and g.target.name or nil },
         japanese = cfg.japanese, log = status.log, ui = {},
+        profiles = { active = profiles.active(cfg), names = profiles.names(cfg) },
     }
     view.party, view.alliance = party(g, cfg, names)
     for k, v in pairs(cfg.ui) do view.ui[k] = v end
@@ -406,6 +409,22 @@ function model.actions(cfg, status, changed, tracking)
         r.targets = r.targets or { [0] = true }
         r.targets[slot] = not r.targets[slot] or nil
         changed()
+    end
+    -- Profiles (core/profiles.lua): load one by name, nil for Default; save
+    -- (renames the loaded one when the name differs), save as, new, delete.
+    function act.profile(name)
+        if name then profiles.load(cfg, name) else profiles.load_default(cfg) end
+        changed()
+    end
+    function act.save_profile(name, as_new)
+        if (as_new and profiles.save_as or profiles.save)(cfg, name) then changed() end
+    end
+    function act.new_profile()
+        profiles.new(cfg)
+        changed()
+    end
+    function act.delete_profile(name)
+        if profiles.delete(cfg, name) then changed() end
     end
     -- Track a player: by name, or your target when nil. This session only, as untracking.
     function act.track(name) tracking.add(name) end

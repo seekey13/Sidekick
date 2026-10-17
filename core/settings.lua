@@ -10,6 +10,7 @@
     them again brings their buffs back.
     A row never saved uses its default: on, except buffs, sending the pet in and
     items, which are opt-in.
+    `profiles` are named snapshots of the rest (core/profiles.lua).
     `ui` is the window, shared by every job pair (its own file, ui.lua) so the HUD
     looks the same whatever you play: shown at load, bar and font sizes in pixels,
     the panel's opacity in %, and whether the HUD is locked in place.
@@ -38,6 +39,7 @@ local DEFAULTS = {
     rest = { on = false, delay = 5, distance = 7 },  -- /heal after this many quiet seconds; up past distance from follow.target
     japanese = false,  -- send spell, ability and item names in Japanese
     rows = {},
+    profiles = {}, profile = '', parked = {},  -- named snapshots (core/profiles.lua)
     ui = { open = false, hp_width = 220, hp_height = 40, mp_width = 220, mp_height = 18,
            name_size = 22, text_size = 14, gap = 8, opacity = 100, locked = false },
 }

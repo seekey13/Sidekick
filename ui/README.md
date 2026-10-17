@@ -57,6 +57,7 @@ Text that may contain `%` (names, `why` text) must be escaped before it's drawn:
 | `track` | table | `{ target }`: your current target's name when it's a player you could track (not in your party or alliance, not tracked yet), else nil |
 | `japanese` | bool | Spell, ability and item names are sent in Japanese |
 | `log` | bool | Each action sent is printed to chat |
+| `profiles` | table | `{ active, names }`: the profile loaded (nil for Default, the working copy) and every saved profile's name, in order, case aside. Each job pair has its own |
 | `ui` | table | The UI's settings, shared by every job pair: `open` (bool), and any `ui.<name>` your UI saved. The standard HUD's, which yours may ignore: `hp_width`, `mp_width` (80 to 600), `hp_height` (10 to 120), `mp_height` (4 to 80), `name_size` (8 to 64), `text_size` (8 to 48), `gap` (0 to 40), all in pixels; `opacity` (0 to 100, the panel's %); `locked` (bool, it can't be dragged) |
 | `sections` | list | Every setting, by section, below |
 
@@ -98,6 +99,7 @@ In this order. A section with rows is left out when your job has none for it (Pe
 
 | `id` | `title` | `header` | Its settings |
 |---|---|---|---|
+| `'profile'` | Profiles | Profiles | `view.profiles` |
 | `'follow'` | Follow | Follow | `view.follow` |
 | `'heal'` | Healing | Heal | `view.heal`, rows |
 | `'revive'` | Revive | Heal | rows |
@@ -113,7 +115,7 @@ In this order. A section with rows is left out when your job has none for it (Pe
 | Field | Type | What it is |
 |---|---|---|
 | `id`, `title`, `header` | string | As above. `header` is the collapsing header SK Settings puts it under, headers in the order their first section comes |
-| `on` | bool or nil | The section's switch (`act.section`); every section has one but `track` and `ui` |
+| `on` | bool or nil | The section's switch (`act.section`); every section has one but `profile`, `track` and `ui` |
 | `rows` | list or nil | One per spell family, pick-one group or item, below; nil for the sections without rows |
 | `has_choices`, `has_targets` | bool or nil | Some row in the section has `choices` / `targets` (to lay out columns) |
 
@@ -146,6 +148,10 @@ In this order. A section with rows is left out when your job has none for it (Pe
 | `act.target(key, slot)` | Turn a target chip on or off: its `slot`, 0 to 17 or a tracked player's name |
 | `act.track(name)` | Track a player outside your party and alliance: by name, or your current target when nil (`view.track.target` names it). This session only |
 | `act.untrack(name)` | Stop tracking a player, by name. Their buff chips stay set for when they're tracked again |
+| `act.profile(name)` | Load a profile: a `view.profiles.names[i]`, or nil for Default (the settings as they were before a profile was loaded). Loading one never changes `ui`, `japanese`, following, the focus or who healing skips |
+| `act.save_profile(name, as_new)` | Save the settings as they are now under `name`. Without `as_new`, while another profile is loaded, that profile is renamed to `name` instead (as v2). A blank name or `'Default'` saves nothing. Changes after a load go to the settings, never the profile, until it's saved |
+| `act.new_profile()` | Every setting back to its default (but those a profile never changes), on Default; profiles are kept |
+| `act.delete_profile(name)` | Delete a profile; deleting the loaded one goes back to Default |
 | `act.skip(name)` | Skip a member (or tracked player) in healing, or take them back: a `view.heal.members[i].name` |
 | `act.set(path, value)` | A setting by path, below |
 
