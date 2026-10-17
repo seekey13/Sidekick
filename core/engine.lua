@@ -68,7 +68,7 @@ function engine.gather(g, cfg, mem)
     if not (w and cfg.buff.gather) or g.now - (mem.gathered_at or -math.huge) < engine.GATHER_EVERY then return nil end
     mem.gathered_at = g.now
     local a = w.action
-    if cfg.japanese and (a.jp or '') ~= '' then return '/p ' .. GATHER_JP .. '  ' .. a.jp end
+    if cfg.japanese then return '/p ' .. GATHER_JP .. '  ' .. ((a.jp or '') ~= '' and a.jp or a.name) end
     return '/p Gather together for ' .. a.name
 end
 

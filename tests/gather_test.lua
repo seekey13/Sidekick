@@ -4,7 +4,7 @@ local engine = require('core.engine')
 local settings = require('core.settings')
 local fake = require('tests.fake')
 
-local WHM, BLM, PROTECT, SNEAK = 3, 4, 40, 71
+local WHM, BLM, PROTECT, SNEAK, REFRESH = 3, 4, 40, 71, 43
 local cat = fake.catalog(WHM, 75, BLM, 37)
 local snap = fake.snap
 
@@ -99,4 +99,35 @@ test('gather: off holds quietly; in Japanese, the Japanese line and name', funct
     for _, a in ipairs(cat) do if a.name == 'Protectra V' then jp = a.jp end end
     eq(engine.gather(g, cfg, mem),
         '/p \x8f\x57\x82\xdc\x82\xc1\x82\xc4\x82\xad\x82\xbe\x82\xb3\x82\xa2\x81\x42  ' .. jp)
+end)
+
+test('blue magic the DAT gives an area but that lands on you alone is never held, nor cast for others', function ()
+    local blu = fake.catalog(16, 75, nil, 0)
+    local cfg = settings.defaults()
+    cfg.rows['Battery Charge'] = { on = true }
+    cfg.buff.hold_aoe = true
+    local g = snap({ { name = 'A' }, { name = 'B', dist = 20 } })
+    local mem = {}
+    eq(engine.command(engine.decide(g, blu, cfg, mem), cfg), '/ma "Battery Charge" <me>')
+    g.me.buffs[REFRESH] = true
+    eq({ engine.decide(g, blu, cfg, mem) }, { nil, 'nothing to do' })
+    eq(engine.gather(g, cfg, mem), nil)
+end)
+
+test('only spells are held: an area job ability goes out for those near you', function ()
+    local g, cfg = setup()
+    local ja = {}
+    for _, a in ipairs(cat) do
+        if a.name == 'Protectra V' then for k, v in pairs(a) do ja[k] = v end end
+    end
+    ja.kind = 'ja'
+    local intent = engine.decide(g, { ja }, cfg, {})
+    eq(intent and intent.why, 'Me lacks it')
+end)
+
+test('gather in Japanese keeps the English name when there is no Japanese one', function ()
+    local g, cfg = setup()
+    local mem = { gather = { action = { name = 'Custom', jp = '' }, who = g.units[3] } }
+    cfg.japanese = true
+    eq(engine.gather(g, cfg, mem), '/p \x8f\x57\x82\xdc\x82\xc1\x82\xc4\x82\xad\x82\xbe\x82\xb3\x82\xa2\x81\x42  Custom')
 end)

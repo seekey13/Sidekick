@@ -10,7 +10,8 @@
     A row's targets are party and alliance slots (0-17) and tracked players'
     names. Statuses that can't be read (Boost) are recast whenever they're off
     recast.
-    Songs, rolls and the like belong to job modules, not here.
+    Songs are kept up here until the BRD module takes them (phase 4); rolls and
+    the like belong to job modules.
 ]]--
 
 local can = require('core.can')
