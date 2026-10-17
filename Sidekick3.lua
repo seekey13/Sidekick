@@ -14,6 +14,7 @@ addon.link    = 'https://github.com/seekey13/Sidekick3'
 
 require('common')
 local chat = require('chat')
+local can = require('core.can')
 local catalog = require('core.catalog')
 local engine = require('core.engine')
 local game = require('core.game')
@@ -21,6 +22,7 @@ local knowledge = require('core.knowledge')
 local packets = require('core.packets')
 local resources = require('core.resources')
 local settings = require('core.settings')
+local tracked = require('core.tracked')
 local imgui = require('imgui')
 local model = require('ui.model')
 
@@ -159,8 +161,10 @@ local function show_state(g)
         local names = {}
         for id in pairs(u.buffs) do names[#names + 1] = statuses[id] and statuses[id].en or tostring(id) end
         table.sort(names)
-        printf('  %-5s %-14s HP %3d%%%s MP %3d%%  %s  %s', u.kind, u.name, u.hpp,
-            u.max_hp and ('/' .. u.max_hp) or '', u.mpp,
+        local out = u.kind == 'tracked'  -- max HP estimated from the level, or yours; no MP read
+        printf('  %-5s %-14s HP %3d%%%s %s  %s  %s', out and 'track' or u.kind, u.name, u.hpp,
+            u.max_hp and ((out and '/~' or '/') .. u.max_hp) or '',
+            out and (u.main_lv and ('%s%d'):format(abbr(u.main), u.main_lv) or 'lv ?') or ('MP %3d%%'):format(u.mpp),
             u.in_zone and ('%.1fy'):format(u.dist or 0) or 'away', table.concat(names, ', '))
     end
     for _, t in ipairs({ { 'bt', g.bt }, { 'pet', g.pet } }) do
@@ -180,14 +184,25 @@ local function show_plan(g)
     if not engine.ready(g, mem) then printf('(still inside the post-action lockout)') end
 end
 
--- /sk3 buff [name] [me p1..p5 | off]: turn a buff row on for those targets, or off;
--- with no name, list the rows that are on.
+-- The tracked player named `name` (any case), else nil.
+local function tracked_named(name)
+    for _, t in ipairs(tracked.list) do
+        if t.name:lower() == name:lower() then return t end
+    end
+end
+
+-- /sk3 buff [name] [me p1..p5 <tracked name> | off]: turn a buff row on for those
+-- targets, or off; with no name, list the rows that are on.
 local SLOTS = { me = 0, p0 = 0, p1 = 1, p2 = 2, p3 = 3, p4 = 4, p5 = 5 }
 local function buff_command(args)
     local words, slots, off = {}, {}, false
     for i = 3, #args do
         local w = args[i]:lower()
-        if SLOTS[w] then slots[SLOTS[w]] = true elseif w == 'off' then off = true else words[#words + 1] = w end
+        local t = tracked_named(w)
+        if SLOTS[w] then slots[SLOTS[w]] = true
+        elseif t then slots[t.name] = true
+        elseif w == 'off' then off = true
+        else words[#words + 1] = w end
     end
     local name = table.concat(words, ' ')
     if name == '' then
@@ -195,7 +210,9 @@ local function buff_command(args)
         for key, row in pairs(cfg.rows) do
             if row.on and row.targets then
                 local t = {}
-                for slot in pairs(row.targets) do t[#t + 1] = slot == 0 and 'me' or 'p' .. slot end
+                for slot in pairs(row.targets) do
+                    t[#t + 1] = type(slot) == 'string' and slot or slot == 0 and 'me' or 'p' .. slot
+                end
                 table.sort(t)
                 printf('  %s%s -> %s', key, row.pick and (' (' .. row.pick .. ')') or '', table.concat(t, ' '))
                 shown = shown + 1
@@ -222,7 +239,46 @@ local function buff_command(args)
     if not row.on then printf('%s off.', key)
     elseif a.pick_one and not row.pick then printf('%s on, but pick one: /sk3 buff <spell name>.', key)
     else printf('%s on%s.', key, row.pick and (' (' .. row.pick .. ')') or '') end
+    for slot in pairs(row.on and slots or {}) do
+        if type(slot) == 'string' and not can.outside(a) then
+            printf('%s can\'t go on players outside your party: not on %s.', a.family, slot)
+        end
+    end
 end
+
+-- /sk3 track [name] and the UI's Track button: a player outside your party, by
+-- name or your current target. A /check asks their level, so heals are sized
+-- (they're told you examined them, as v2 did); tracking them again asks again.
+local function track(name)
+    local g = snap
+    if g.loading then return end
+    local p = name and game.find_player(name) or not name and g.target
+    if not p then
+        if name then printf('No player "%s" near you.', name) else printf('Target a player first, or /sk3 track <name>.') end
+        return
+    end
+    for _, u in ipairs(g.units) do
+        if u.sid == p.sid and u.kind ~= 'tracked' then printf('%s is in your party.', p.name); return end
+    end
+    if tracked.add(p.sid, p.name, p.tidx) then
+        printf('Tracking %s: healed, cleared, raised and buffed (buff rows pick them by name). Checking their level.', p.name)
+    else
+        printf('Already tracking %s; checking their level again.', p.name)
+    end
+    AshitaCore:GetChatManager():QueueCommand(1, '/check ' .. p.name)
+end
+
+-- /sk3 untrack <name|all> and the UI's Untrack buttons.
+local function untrack(name)
+    if name:lower() == 'all' then
+        while tracked.list[1] do tracked.remove(tracked.list[1].name) end
+        printf('Tracking no one.')
+        return
+    end
+    local t = tracked.remove(name)
+    if t then printf('Stopped tracking %s.', t.name) else printf('Not tracking "%s".', name) end
+end
+local tracking = { add = track, remove = untrack }
 
 -- The UI: ui/custom.lua when there is one, else the standard window (ui/README.md).
 -- A custom UI that fails to load is reported and the standard one used instead.
@@ -244,7 +300,7 @@ local names = { job = abbr }
 local function draw(g)
     names.statuses = resources.load().statuses
     local ok, err = pcall(function ()
-        ui.render(model.build(g, cat.list, cfg, status, names), model.actions(cfg, status, changed))
+        ui.render(model.build(g, cat.list, cfg, status, names), model.actions(cfg, status, changed, tracking))
     end)
     if ok then return end
     status.open = false
@@ -266,7 +322,8 @@ ashita.events.register('packet_in', 'sidekick3_packet_in', function (e)
 end)
 
 local HELP = '/sk3 opens or closes the window. Commands: start, stop, plan, state, '
-    .. 'buff [name] [me p1..p5|off], focus <name|off>, follow <name|off>, rest [on|off], catalog [unknown], log, dump, help'
+    .. 'buff [name] [me p1..p5 <tracked>|off], focus <name|off>, follow <name|off>, rest [on|off], '
+    .. 'track [name], untrack <name|all>, catalog [unknown], log, dump, help'
 
 -- ponytail: /sk3 while v2 is still installed and owns /sk; switch to /sk at cutover.
 ashita.events.register('command', 'sidekick3_command', function (e)
@@ -321,6 +378,16 @@ ashita.events.register('command', 'sidekick3_command', function (e)
         if name ~= '' then cfg.follow.target = name end
         settings.save()
         printf(name == '' and 'Follow off.' or ('Following %s past %d yalms.'):format(name, cfg.follow.distance))
+    elseif sub == 'track' then
+        if args[3] or g.target then track(args[3]); return end
+        if not tracked.list[1] then printf('Tracking no one. Target a player, then /sk3 track (or /sk3 track <name>).'); return end
+        local list = {}
+        for i, t in ipairs(tracked.list) do
+            list[i] = t.name .. (t.main_lv and (' (%s%d)'):format(abbr(t.main), t.main_lv) or '')
+        end
+        printf('Tracking: %s. Target another player to add them.', table.concat(list, ', '))
+    elseif sub == 'untrack' then
+        if args[3] then untrack(args[3]) else printf('/sk3 untrack <name|all>') end
     elseif sub == 'rest' then
         local w = (args[3] or ''):lower()
         cfg.rest.on = w == 'on' or (w ~= 'off' and not cfg.rest.on)

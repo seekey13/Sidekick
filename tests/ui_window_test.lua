@@ -196,13 +196,20 @@ local function begun(label) return has(frame.args.Begin, label) end
 -- SK Settings stays open between frames, as in game; this follows it.
 local settings_shown = false
 
+-- What Track and Untrack asked of Sidekick, in order.
+local tracking_calls = {}
+local TRACKING = {
+    add = function (name) tracking_calls[#tracking_calls + 1] = { 'add', name } end,
+    remove = function (name) tracking_calls[#tracking_calls + 1] = { 'remove', name } end,
+}
+
 -- One frame of `ui`; returns the Lua error it raised, if any, and the number of
 -- settings writes. `view` defaults to the model's.
 local function draw(ui, cfg, st, clicks, view)
     frame = { stack = {}, vars = 0, texts = {}, ids = {}, args = {}, flags = {}, columns = {}, headers = {},
               drawn = {}, extent = {}, clicks = clicks or {} }
     local writes = 0
-    local act = model.actions(cfg, st, function () writes = writes + 1 end)
+    local act = model.actions(cfg, st, function () writes = writes + 1 end, TRACKING)
     local ok, err = pcall(ui.render, view or model.build(snap(), cat, cfg, st, NAMES), act)
     eq(frame.stack, {}, 'every ImGui scope closed')
     eq(frame.vars, 0, 'every style var popped')
@@ -389,11 +396,11 @@ test('a header for each group of sections, in order, closed at first; all its sw
     local cfg = settings.defaults()
     cfg.buff.on = false
     eq(headers(cfg), { 'Follow (off)###sk3_Follow', 'Heal###sk3_Heal', 'Remove###sk3_Remove', 'Buff (off)###sk3_Buff',
-        'Recover###sk3_Recover', 'UI / Log###sk3_UI / Log' })
+        'Recover###sk3_Recover', 'Tracked###sk3_Tracked', 'UI / Log###sk3_UI / Log' })
     for _, flags in pairs(frame.headers) do eq(flags, 0) end
     eq(headers(settings.defaults(), fake.catalog(18, 75, nil, 0, { 'Repair', 'Deploy' })),  -- PUP
         { 'Follow (off)###sk3_Follow', 'Remove###sk3_Remove', 'Pet###sk3_Pet', 'Recover (off)###sk3_Recover',
-          'UI / Log###sk3_UI / Log' })
+          'Tracked###sk3_Tracked', 'UI / Log###sk3_UI / Log' })
 end)
 
 test('section switches write: Buffs, Follow, Wake sleepers, Resting', function ()
@@ -504,3 +511,20 @@ if package.searchpath('ui.custom', package.path) then
         end
     end)
 end
+
+test('a tracked player\'s card has no MP %; Tracked lists them to untrack, and offers your target', function ()
+    local g = fake.snap({ { name = 'A' }, { kind = 'tracked', name = 'Out', hpp = 80, main = 3, main_lv = 75, sub = 4, sub_lv = 37 } },
+        { target = { sid = 900, tidx = 1200, name = 'Stranger' } })
+    local cfg, st = settings.defaults(), status()
+    open_settings()
+    tracking_calls = {}
+    local writes = render(cfg, st, { ['Untrack##sk3_untrack_Out'] = true, ['Track Stranger##sk3_track'] = true },
+        model.build(g, cat, cfg, st, NAMES))
+    eq({ tracking_calls, writes }, { { { 'remove', 'Out' }, { 'add', 'Stranger' } }, 0 })
+    eq({ fill('T1') ~= nil, fill('80%') ~= nil, fill('0%') }, { true, true, nil })  -- Out's MP is unknown, not 0
+    eq(tipped('Out (tracked, WHM 75 / BLM 37)\nHP 80%  5.0y'), true)
+    eq(showed('T1 Out  WHM 75 / BLM 37'), true)
+    g.target = nil
+    render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
+    eq(showed('Target a player outside your party to track them, or /sk3 track Name.'), true)
+end)

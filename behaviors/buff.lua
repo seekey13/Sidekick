@@ -2,7 +2,8 @@
     Keep the buffs you turned on up on the targets you picked. A row's action is
     its picked tier, else the best tier you can cast now; a pick_one group
     (bar-elements, enspells...) needs a pick. Self-only buffs go on you; an area
-    self-cast (Protectra) is recast when anyone near you lacks it. Statuses that
+    self-cast (Protectra) is recast when anyone in your party near you lacks it.
+    A row's targets are party slots and tracked players' names. Statuses that
     can't be read (Boost) are recast whenever they're off recast.
     Songs, rolls and the like belong to job modules, not here.
 ]]--
@@ -50,13 +51,13 @@ return function (g, cat, cfg)
             if can.self_only(a) then
                 local around = a.area > 0 and AREA_RADIUS or 0
                 for _, u in ipairs(g.units) do
-                    if u.kind == 'self' or (u.alive and u.in_zone and (u.dist or math.huge) <= around) then
+                    if u.kind == 'self' or (can.in_party(u) and u.alive and u.in_zone and (u.dist or math.huge) <= around) then
                         if lacks(a, u) then return { action = a, why = ('%s lacks it'):format(u.name) } end
                     end
                 end
             else
                 for _, u in ipairs(g.units) do
-                    if c.targets[u.slot] and can.reach(a, u) and lacks(a, u) then
+                    if c.targets[u.slot or u.name] and can.reach(a, u) and lacks(a, u) then
                         return { action = a, target = u, why = u.name }
                     end
                 end

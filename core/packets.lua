@@ -4,13 +4,15 @@
         the post-action throttle in core/engine.lua),
       - statuses gained and lost by units with no readable status list
         (core/buffs.lua),
-      - what your own heals restored and where your Regens landed (core/observed.lua).
+      - what your own heals restored and where your Regens landed (core/observed.lua),
+      - a /check's answer: a tracked player's jobs and levels (core/tracked.lua).
     Message ids and bit layouts verified against the CatsEyeXI server
-    (src/map/packets/s2c/0x028_battle2.cpp, msg_std.h / msg_basic.h).
+    (src/map/packets/s2c/0x028_battle2.cpp, 0x0c9_equip_inspect_general.h, msg_std.h / msg_basic.h).
 ]]--
 
 local buffs = require('core.buffs')
 local observed = require('core.observed')
+local players = require('core.tracked')  -- the players you track
 
 local packets = {}
 
@@ -131,12 +133,25 @@ local function on_message(e, ctx, now)
     elseif LOSES_029[message] then buffs.lose(target, status) end
 end
 
+-- 0x0C9 comes twice per /check: equipment (flag 3), then the general part
+-- (flag 1) with the checked player's server id and their jobs and levels.
+local CHECK_GENERAL = 1
+local function on_check(e)
+    local d = e.data
+    if #d < 0x26 or d:byte(0x0A + 1) ~= CHECK_GENERAL then return end
+    local b1, b2, b3, b4 = d:byte(0x04 + 1, 0x04 + 4)
+    players.checked(b1 + b2 * 0x100 + b3 * 0x10000 + b4 * 0x1000000,
+        d:byte(0x22 + 1), d:byte(0x24 + 1), d:byte(0x23 + 1), d:byte(0x25 + 1))
+end
+
 function packets.handle(e, ctx, now)
     if e.id == 0x028 then
         local p = parse_action(e)
         if p then packets.action(p, ctx, now) end
     elseif e.id == 0x029 then
         on_message(e, ctx, now)
+    elseif e.id == 0x0C9 then
+        on_check(e)
     elseif e.id == 0x00A then  -- zoning: a cast in flight is cancelled with no packet
         cast.active = false
         buffs.clear()

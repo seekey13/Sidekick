@@ -2,6 +2,7 @@
     The rules every behavior shares, so none re-implements them:
       can.use(a, g)            is action `a` usable right now (cost, recast, ailments, gates)
       can.reach(a, u)          can `a` land on unit `u` (target kind, alive, in range)
+      can.in_party(u)          is `u` in your party: area effects land on no one else
       can.command(a, u)        the chat command that does it
       can.spare_hp(a, g, cfg)  can you pay what `a` costs in HP
     `a` is a catalog record, `u` a unit and `g` the snapshot from core/game.lua.
@@ -12,8 +13,10 @@ local can = {}
 can.THROTTLE = 1.1        -- the server's lockout after any action
 can.SPELL_THROTTLE = 3.1  -- ...and after a spell, counted from when it lands
 
--- Valid-target flags (spell/ability Targets).
-local SELF, PARTY, ENEMY, CORPSE = 1, 4, 32, 128
+-- Valid-target flags (spell/ability Targets). ALLY is a player outside your
+-- party: Cure, Protect, Haste, the -na spells and Raise have it; Regen, Erase,
+-- Curaga don't.
+local SELF, PARTY, ALLY, ENEMY, CORPSE = 1, 4, 8, 32, 128
 
 -- Range index -> yalms: index * multiplier (the client's lookup); 13+ are self-range.
 local RANGE_MULT = { [2] = 1.70, [3] = 1.490909, [4] = 1.44, [5] = 1.377778, [6] = 1.30, [7] = 1.20,
@@ -56,6 +59,12 @@ end
 function can.at_enemy(a) return a.targets == ENEMY end
 -- Only ever on you (Protectra, Esuna, most job abilities).
 function can.self_only(a) return a.targets == SELF end
+-- Can go on a player outside your party (a tracked player).
+function can.outside(a) return has(a.targets, ALLY) end
+
+-- An area effect (Curaga, Esuna, Protectra, Accession) lands on the target's
+-- party: from you or a member, never on a tracked player.
+function can.in_party(u) return u.kind ~= 'tracked' end
 
 -- Whether `a` can be used now, else false and why.
 function can.use(a, g)
@@ -97,7 +106,7 @@ function can.reach(a, u)
         return false
     end
     if u.kind == 'self' then return has(a.targets, SELF) end
-    if not has(a.targets, PARTY) then return false end
+    if not has(a.targets, can.in_party(u) and PARTY or ALLY) then return false end
     return (u.dist or math.huge) <= can.yalms(a.range)
 end
 

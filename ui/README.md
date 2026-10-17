@@ -41,7 +41,7 @@ Text that may contain `%` (names, `why` text) must be escaped before it's drawn:
 |---|---|---|
 | `job` | string | `'WHM 75 / BLM 37'`, or `'WAR 75'` with no subjob |
 | `status` | table | The status line, below |
-| `party` | list | You, then your party and trusts, below |
+| `party` | list | You, then your party and trusts, then the players you track, below |
 | `bt` | table or nil | Your battle target: `{ name, hpp, dist }`, `dist` like `'4.3y'` |
 | `pet` | table or nil | Your pet, the same shape as `bt` |
 | `flags` | list of strings | What may be holding automation up, in this order: `'casting'`, `'moving'`, `'combat'`, `'safe zone'`, `'mounted'`, `'dead'`, `'resting'`, `'incapacitated'`, `'silenced'`, `'amnesia'` |
@@ -50,8 +50,9 @@ Text that may contain `%` (names, `why` text) must be escaped before it's drawn:
 | `heal` | table | Healing's settings, below |
 | `recover` | table | `{ mp, tp, min_tp, spends_tp }`: recover MP under `mp` % (yours; a member's for Devotion), TP under `tp` (0 to 3000) in combat; Chivalry only from `min_tp` TP. `spends_tp`: a row spends TP (Chivalry), so `min_tp` is worth showing |
 | `pet_heal` | number | Heal your pet under this HP % |
-| `follow` | table | `{ on, target, distance, names }`: follow `target` (a name, `''` for none) once further than `distance` yalms; `names` are the members that can be followed |
+| `follow` | table | `{ on, target, distance, names }`: follow `target` (a name, `''` for none) once further than `distance` yalms; `names` are the members (and tracked players) that can be followed |
 | `rest` | table | `{ on, delay, distance }`: rest after `delay` seconds with nothing to do; stand when the follow target is further than `distance` yalms |
+| `track` | table | `{ target }`: your current target's name when it's a player you could track (not in your party, not tracked yet), else nil |
 | `japanese` | bool | Spell, ability and item names are sent in Japanese |
 | `log` | bool | Each action sent is printed to chat |
 | `ui` | table | The UI's settings, shared by every job pair: `open` (bool), and any `ui.<name>` your UI saved. The standard HUD's, which yours may ignore: `hp_width`, `mp_width` (80 to 600), `hp_height` (10 to 120), `mp_height` (4 to 80), `name_size` (8 to 64), `text_size` (8 to 48), `gap` (0 to 40), all in pixels; `opacity` (0 to 100, the panel's %); `locked` (bool, it can't be dragged) |
@@ -70,14 +71,15 @@ Text that may contain `%` (names, `why` text) must be escaped before it's drawn:
 
 | Field | Type | What it is |
 |---|---|---|
-| `tag` | string | `'ME'`, `'P1'` to `'P5'` |
-| `kind` | string | `'self'`, `'party'` or `'trust'` |
+| `tag` | string | `'ME'`, `'P1'` to `'P5'`; `'T1'`, `'T2'`... for the players you track |
+| `kind` | string | `'self'`, `'party'`, `'trust'` or `'tracked'` (a player outside your party you track: `/sk3 track`) |
 | `name` | string | |
+| `job` | string or nil | A tracked player's jobs once a `/check` has answered: `'WHM 75 / BLM 37'`; nil for everyone else |
 | `alive` | bool | |
-| `away` | bool | In another zone: its HP and MP are stale |
+| `away` | bool | In another zone (its HP and MP are stale), or for a tracked player, out of range (HP shows 0) |
 | `hpp`, `mpp` | number | HP and MP, 0 to 100 |
 | `hp` | string | `'ok'`, `'low'` (under the danger line) or `'critical'` (under the critical line); the focus member's own lines for them |
-| `uses_mp` | bool | It has MP: yours when your max MP is over 0; another member's once it has been seen with MP on its current jobs |
+| `uses_mp` | bool | It has MP: yours when your max MP is over 0; another member's once it has been seen with MP on its current jobs. Never a tracked player's: their MP can't be read (`mpp` is 0) |
 | `mp` | string | `'low'` when it uses MP and is under the Recover MP line (`view.recover.mp`), else `'ok'` |
 | `dist` | string | `''` for you, `'away'`, or like `'12.3y'` |
 | `buffs` | string | Its statuses, the first 6 by name and `'+N'` for the rest |
@@ -85,7 +87,7 @@ Text that may contain `%` (names, `why` text) must be escaped before it's drawn:
 
 ### `view.heal`
 
-`danger`, `critical`, `focus_danger`, `focus_critical` (HP %, 1 to 99); `focus` (a member's name, `''` for none); `cure_potency`, `waltz_potency` (+% from gear, 0 to 50); `regen_potency` (+HP per Regen tick from gear, 0 to 30); `focus_names` (the members that can be the focus, you excluded); `members` (`{ name, healed }` for each member, you excluded; `healed` false when skipped).
+`danger`, `critical`, `focus_danger`, `focus_critical` (HP %, 1 to 99); `focus` (a member's name, `''` for none); `cure_potency`, `waltz_potency` (+% from gear, 0 to 50); `regen_potency` (+HP per Regen tick from gear, 0 to 30); `focus_names` (the members that can be the focus, you excluded, tracked players included); `members` (`{ name, healed }` for each member and tracked player, you excluded; `healed` false when skipped).
 
 ### `view.sections[i]`
 
@@ -102,12 +104,13 @@ In this order. A section with rows is left out when your job has none for it (Pe
 | `'pet'` | Pet | Pet | `view.pet_heal`, rows |
 | `'recover'` | Recovery | Recover | `view.recover`, rows |
 | `'rest'` | Resting | Recover | `view.rest` |
+| `'track'` | Tracked players | Tracked | `view.track`, and the `party` lines of kind `'tracked'` |
 | `'ui'` | UI / Log | UI / Log | `view.ui`, `view.log`, `view.recent`, `view.japanese` |
 
 | Field | Type | What it is |
 |---|---|---|
 | `id`, `title`, `header` | string | As above. `header` is the collapsing header SK Settings puts it under, headers in the order their first section comes |
-| `on` | bool or nil | The section's switch (`act.section`); every section has one but `ui` |
+| `on` | bool or nil | The section's switch (`act.section`); every section has one but `track` and `ui` |
 | `rows` | list or nil | One per spell family, pick-one group or item, below; nil for the sections without rows |
 | `has_choices`, `has_targets` | bool or nil | Some row in the section has `choices` / `targets` (to lay out columns) |
 
@@ -125,7 +128,7 @@ In this order. A section with rows is left out when your job has none for it (Pe
 | `choices` | list or nil | Buff rows with tiers or a pick-one group: `{ label, name }`. A tiered row's first choice is `'Auto (best)'` with `name` nil |
 | `pick` | string or nil | The chosen `name`; nil is Auto |
 | `choice` | string or nil | The label to show for the current pick: `'Auto (best)'`, `'Pick one'`, `'Protect II'`, `'Protect V (not available)'` |
-| `targets` | list or nil | Buff rows that can go on others: 6 chips `{ slot, label, present, name, on }`, `slot` 0 (you, `'ME'`) to 5 (`'P5'`). `present` is false for an empty party slot (`name` is then nil) |
+| `targets` | list or nil | Buff rows that can go on others: 6 chips `{ slot, label, present, name, on }`, `slot` 0 (you, `'ME'`) to 5 (`'P5'`). `present` is false for an empty party slot (`name` is then nil). When the row's spells can go outside the party (Protect, Haste; not Regen), a chip follows for each tracked player, `'T1'` on, its `slot` their name |
 
 ## `act`
 
@@ -137,8 +140,10 @@ In this order. A section with rows is left out when your job has none for it (Pe
 | `act.section(id, on)` | A section's switch: `'follow'`, `'heal'`, `'revive'`, `'wake'`, `'remove'`, `'buff'`, `'pet'`, `'recover'` or `'rest'` |
 | `act.row(key, on)` | A row on or off |
 | `act.pick(key, name)` | A row's choice: a `choices[i].name`, or nil for Auto |
-| `act.target(key, slot)` | Turn a target chip (0 to 5) on or off |
-| `act.skip(name)` | Skip a member in healing, or take them back: a `view.heal.members[i].name` |
+| `act.target(key, slot)` | Turn a target chip on or off: its `slot`, 0 to 5 or a tracked player's name |
+| `act.track(name)` | Track a player outside your party: by name, or your current target when nil (`view.track.target` names it). This session only |
+| `act.untrack(name)` | Stop tracking a player, by name. Their buff chips stay set for when they're tracked again |
+| `act.skip(name)` | Skip a member (or tracked player) in healing, or take them back: a `view.heal.members[i].name` |
 | `act.set(path, value)` | A setting by path, below |
 
 `act.set` paths:
