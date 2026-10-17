@@ -1,6 +1,7 @@
 --[[
     Rest (/heal) for MP once nothing else has happened for rest.delay seconds:
-    out of combat, not moving, nothing sent and MP not full. While resting
+    out of combat, not moving, nothing sent and MP not full, and no behavior
+    busy with a step due soon (mem.busy_until: a Corsair's Double-Up). While resting
     nothing else runs; you stand at full MP, or when the follow target gets
     further than rest.distance.
 ]]--
@@ -16,7 +17,7 @@ return function (g, _, cfg, mem)
         if far then return { command = '/heal off', action = { name = 'Stand' }, why = ('%s left'):format(leader.name) } end
         return nil
     end
-    if g.combat or far or me.mpp >= 100 or not me.uses_mp then return nil end
+    if g.combat or far or me.mpp >= 100 or not me.uses_mp or g.now < (mem.busy_until or -math.huge) then return nil end
     local quiet = math.max(g.moved_at or -math.huge, mem.sent_at or -math.huge, g.finished or -math.huge,
         g.combat_at or -math.huge)
     if g.now - quiet < r.delay then return nil end

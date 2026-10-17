@@ -16,13 +16,15 @@
     to the row's targets in your party near you, at twice the MP, whenever one
     there lacks it (as v2), and is held for the group like an area spell. With
     heal.reserve on, buff rows never spend the last stratagem charge (jobs/sch.lua).
-    Songs are kept up here until the BRD module takes them (phase 4); rolls and
-    the like belong to job modules.
+    Songs are kept up here until the BRD module takes them (phase 4); Corsair's
+    rolls are jobs/cor.lua's.
 ]]--
 
 local can = require('core.can')
 local sch = require('jobs.sch')
 local settings = require('core.settings')
+
+local buff = {}
 
 local INVISIBLE = 69
 local AREA_RADIUS = 10  -- yalms around you
@@ -60,11 +62,12 @@ end
 
 -- For an area self-cast: who near you lacks it (the first, and how many), and,
 -- holding for the group, the first player in your party who lacks it out of its
--- reach. `wanted` (a row's targets) narrows who counts.
-local function area(a, g, hold, wanted)
+-- reach (`radius` yalms, AREA_RADIUS when nil). `wanted` (a row's targets)
+-- narrows who counts. Corsair's rolls are held with it too (jobs/cor.lua).
+function buff.area(a, g, hold, wanted, radius)
     local near, count, away = nil, 0, nil
     for _, u in ipairs(g.units) do
-        local here = u.kind == 'self' or (u.dist or math.huge) <= AREA_RADIUS
+        local here = u.kind == 'self' or (u.dist or math.huge) <= (radius or AREA_RADIUS)
         if (u.kind == 'self' or can.in_party(u) and u.alive and u.in_zone) and lacks(a, u)
             and (not wanted or wanted[u.slot]) then
             if here then near, count = near or u, count + 1
@@ -76,7 +79,7 @@ end
 
 -- Holding `a` for `away` to gather: ask the party only when someone near needs
 -- it too; one who stays away (a puller) is waited for silently.
-local function wait_for(mem, a, near, away)
+function buff.wait_for(mem, a, near, away)
     if not mem.gather or (near and not mem.gather.ask) then
         mem.gather = { action = a, who = away, ask = near ~= nil }
     end
@@ -97,7 +100,7 @@ local function spreading(c, g, cfg)
     return acc, others
 end
 
-return function (g, cat, cfg, mem)
+function buff.want(g, cat, cfg, mem)
     local invisible = g.me.buffs[INVISIBLE]
     local hold = cfg.buff.hold_aoe
     for _, c in ipairs(chosen(cat, cfg, g)) do
@@ -105,17 +108,17 @@ return function (g, cat, cfg, mem)
         if (a.travel or not invisible) and can.use(a, g) and sch.spare(a, g, cfg) then
             local acc, mods = spreading(c, g, cfg)
             local near, away, count
-            if acc then near, away, count = area(a, g, hold, not can.self_only(a) and c.targets or nil) end
+            if acc then near, away, count = buff.area(a, g, hold, not can.self_only(a) and c.targets or nil) end
             if away then
-                wait_for(mem, a, near, away)
+                buff.wait_for(mem, a, near, away)
             elseif acc and count >= 1 then
                 table.insert(mods, acc)
                 local why = count > 1 and ('%s +%d lack it'):format(near.name, count - 1) or ('%s lacks it'):format(near.name)
                 return { action = a, mods = mods, why = why }
             elseif can.self_only(a) and a.area > 0 then
-                near, away = area(a, g, hold and a.kind == 'ma')
+                near, away = buff.area(a, g, hold and a.kind == 'ma')
                 if away then
-                    wait_for(mem, a, near, away)
+                    buff.wait_for(mem, a, near, away)
                 elseif near then
                     return { action = a, mods = mods, why = ('%s lacks it'):format(near.name) }
                 end
@@ -131,3 +134,5 @@ return function (g, cat, cfg, mem)
         end
     end
 end
+
+return buff

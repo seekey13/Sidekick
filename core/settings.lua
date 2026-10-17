@@ -34,6 +34,9 @@ local DEFAULTS = {
     recover = { on = true, mp = 30, tp = 1000,    -- under your MP% (a member's, for Devotion), your TP
                 min_tp = 3000 },                   -- Chivalry from this much TP
     pet = { on = true, heal = 50 },        -- heal your pet under this HP%
+    -- COR: the rolls kept up (names, '' for none; the second only on a COR main
+    -- job) and how far Double-Up chases a total: 'lowest' | 'medium' | 'highest'.
+    roll = { on = true, first = '', second = '', risk = 'medium' },
     buff = { on = true,
              hold_aoe = false,  -- hold an area buff spell (Protectra, songs) until the party's players gather
              gather = true },   -- ...and ask them to in party chat

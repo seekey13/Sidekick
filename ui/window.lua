@@ -447,6 +447,62 @@ local function draw_buff_settings(view)
     imgui.Separator()
 end
 
+local RISKS = {
+    lowest = 'Lowest: banks lucky, and never doubles once a die could bust (6 or more).',
+    medium = 'Medium: banks lucky, chases it while it is one die away, and doubles off unlucky up to 8.',
+    highest = 'Highest: 11 or nothing. Rolls past lucky, and doubles at 6-10 while Fold is ready to undo a Bust; '
+        .. 'without Fold, plays as Medium.',
+}
+
+-- A roll for setting `path`, or None (''). A pick the job no longer has says so.
+local function roll_combo(label, id, current, choices, path)
+    local shown = current ~= '' and current .. ' (not available)' or 'None'
+    for _, c in ipairs(choices) do
+        if c.name == current then shown = c.label end
+    end
+    imgui.PushItemWidth(PICK_WIDTH + SETTING_WIDTH / 2)
+    if imgui.BeginCombo(label .. '##sk3_' .. id, shown) then
+        if imgui.Selectable('None##sk3_' .. id .. '_none', current == '') then act.set(path, '') end
+        for _, c in ipairs(choices) do
+            if imgui.Selectable(c.label .. '##sk3_' .. id .. '_' .. c.name, c.name == current) then act.set(path, c.name) end
+            tip(('Lucky %d, unlucky %d.'):format(c.lucky, c.unlucky))
+        end
+        imgui.EndCombo()
+    end
+    imgui.PopItemWidth()
+end
+
+local function draw_rolls(view)
+    local r = view.roll
+    roll_combo('Roll 1', 'roll_first', r.first, r.choices, 'roll.first')
+    if r.two then
+        roll_combo('Roll 2', 'roll_second', r.second, r.choices, 'roll.second')
+        if r.second ~= '' and r.second == r.first then text('Roll 2 is Roll 1: one roll kept up', GREY) end
+    else
+        text('Roll 2: Corsair main job only', GREY)
+    end
+    imgui.PushItemWidth(SETTING_WIDTH)
+    if imgui.BeginCombo('Risk##sk3_roll_risk', (r.risk:gsub('^%l', string.upper))) then
+        for _, risk in ipairs(r.risks) do
+            if imgui.Selectable(risk:gsub('^%l', string.upper) .. '##sk3_roll_risk_' .. risk, risk == r.risk) then
+                act.set('roll.risk', risk)
+            end
+            tip(RISKS[risk])
+        end
+        imgui.EndCombo()
+    end
+    imgui.PopItemWidth()
+    tip('How far Double-Up chases a total. Every risk doubles at 5 or under (Lowest and Medium bank a lucky '
+        .. 'there), never at 11, and turns 10 into 11 with Snake Eye. '
+        .. 'Fold clears a Bust whenever it is ready.')
+    local l = r.last
+    if l then
+        local word = l.bust and ' (Bust)' or l.total == l.lucky and ' (lucky)' or l.total == 11 and ' (11)'
+            or l.total == l.unlucky and ' (unlucky)' or ''
+        text(('Last: %s %d%s'):format(l.name, l.total, word))
+    end
+end
+
 -- Each tracked player with its Untrack button (one who joined your party or
 -- alliance too), then Track for your target.
 local function draw_track(view)
@@ -642,6 +698,8 @@ local SWITCH_HELP = {
     wake = 'Wake a sleeping member with a cure or waltz that is on under Heal; an area one for two or more.',
     remove = 'Remove debuffs with the rows that are on.',
     buff = 'Keep the buffs that are on up on their targets.',
+    roll = 'Keep the rolls picked up, and Double-Up the last one by the risk picked. Held for the group with '
+        .. 'Hold area buffs, as an area buff.',
     pet = 'Look after your pet, and send it in, with the rows that are on.',
     recover = 'Get MP and TP back with the rows that are on.',
     rest = 'Rest for MP out of combat once nothing else has happened for a while; stand at full MP.',
@@ -649,6 +707,7 @@ local SWITCH_HELP = {
 
 local BODIES = {
     follow = draw_follow, heal = draw_heal_settings, recover = draw_recover_settings, buff = draw_buff_settings,
+    roll = draw_rolls,
     pet = draw_pet_settings, rest = draw_rest, track = draw_track, ui = draw_ui, profile = draw_profiles,
 }
 

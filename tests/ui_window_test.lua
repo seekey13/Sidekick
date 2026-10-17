@@ -631,3 +631,31 @@ test('SCH: Keep a stratagem for healing, under Heal, only for a job with stratag
     eq(cfg.heal.reserve, true)
     eq(render(cfg, st, { ['Keep a stratagem for healing##sk3_heal_reserve'] = true }), 0)  -- WHM: not drawn
 end)
+
+test('COR: Rolls under Buff picks each roll and the risk; Roll 2 only on a Corsair main job', function ()
+    open_settings()
+    local jas = { 'Corsair\'s Roll', 'Ninja Roll', 'Double-Up', 'Snake Eye', 'Fold' }
+    local cor = fake.catalog(17, 75, 3, 37, jas)
+    local cfg, st = settings.defaults(), status()
+    local function view(main, sub, list)
+        local g = snap()
+        g.main, g.sub = main or 17, sub or 3
+        g.roll = { id = 622, total = 4, at = 990 }
+        g.me.buffs[322] = true  -- Ninja Roll on you
+        return model.build(g, list or cor, cfg, st, NAMES)
+    end
+    eq(render(cfg, st, { ['Corsair\'s Roll (EXP+)##sk3_roll_first_Corsair\'s Roll'] = true }, view()), 1)
+    eq(render(cfg, st, { ['Ninja Roll (EVA+)##sk3_roll_second_Ninja Roll'] = true }, view()), 1)
+    eq(render(cfg, st, { ['Highest##sk3_roll_risk_highest'] = true, ['Rolls##sk3_on_roll'] = true }, view()), 2)
+    eq(cfg.roll, { on = false, first = 'Corsair\'s Roll', second = 'Ninja Roll', risk = 'highest' })
+    eq({ showed('Last: Ninja Roll 4 (lucky)'), tipped('Lucky 5, unlucky 9.') }, { true, true })
+    cfg.roll.second = cfg.roll.first
+    render(cfg, st, {}, view())
+    eq(showed('Roll 2 is Roll 1: one roll kept up'), true)
+    cfg.roll.first = 'Bolter\'s Roll'
+    render(cfg, st, {}, view())
+    eq(has(frame.args.BeginCombo, 'Roll 1##sk3_roll_first'), true)
+    eq(has(frame.args.Selectable, 'None##sk3_roll_first_none'), true)
+    render(cfg, st, {}, view(13, 17, fake.catalog(13, 75, 17, 37, jas)))  -- NIN / COR
+    eq({ showed('Roll 2: Corsair main job only'), has(frame.args.BeginCombo, 'Roll 2##sk3_roll_second') }, { true, false })
+end)

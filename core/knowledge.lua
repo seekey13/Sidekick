@@ -9,7 +9,7 @@
     A row is one use, or a list of uses when one action does several jobs
     (Chakra heals and cures). An exact name ("Healing Ruby II") beats its family.
 
-    role       heal | pet_heal | remove | pet_remove | pet_send | emergency | revive |
+    role       heal | pet_heal | remove | pet_remove | pet_send | emergency | revive | roll |
                recover | buff | modifier
                (a modifier is a JA fired just before the spell it changes: core/engine.lua)
                (a heal's area comes from the DAT: Curaga is a heal like Cure)
@@ -53,6 +53,8 @@
     spreads    { area =, mp = }: the modifier makes a single-target spell land on everyone in
                your party within `area` yalms of you, at `mp` x the cost (Accession)
     chip       a modifier's short label on a buff row
+    lucky      a Phantom Roll's lucky and unlucky totals (jobs/cor.lua)
+    unlucky
 ]]--
 
 local sch = require('jobs.sch')
@@ -250,6 +252,12 @@ local K = {
     -- Under Dark Arts, as v2: under Light Arts, Addendum: White is the way in.
     ['Enlightenment'] = { role = 'modifier', requires = DARK, main_only = true },
 
+    -- Corsair: Phantom Rolls, kept up and Double-Upped by jobs/cor.lua, not as buff rows.
+    -- The note is what the roll gives; Double-Up and Fold are found by name.
+    ['Double-Up'] = { role = 'roll' },
+    ['Fold']      = { role = 'roll' },
+    ['Snake Eye'] = { role = 'modifier', note = 'the next die rolls 1' },  -- fired before a Double-Up
+
     -- buff: Scholar -------------------------------------------------------------
     ['Light Arts']      = { role = 'buff', pick_one = 'arts', priority = 100, status = LIGHT },
     ['Dark Arts']       = { role = 'buff', pick_one = 'arts', priority = 100, status = { 'Dark Arts', 'Addendum: Black' } },
@@ -438,6 +446,25 @@ for _, name in ipairs({
     'Warding Circle', 'Third Eye', 'Swordplay',
 }) do
     K[name] = { role = 'buff', gate = 'combat' }
+end
+
+-- Phantom Rolls: { note, lucky, unlucky } (v2's table). Each shows the status named like it.
+for name, r in pairs({
+    ['Corsair\'s Roll'] = { 'EXP+', 5, 9 },      ['Ninja Roll'] = { 'EVA+', 4, 8 },
+    ['Hunter\'s Roll'] = { 'ACC+', 4, 8 },       ['Chaos Roll'] = { 'ATK+', 4, 8 },
+    ['Magus\'s Roll'] = { 'MDEF+', 2, 6 },       ['Healer\'s Roll'] = { 'Cure+', 3, 7 },
+    ['Drachen Roll'] = { 'PACC+', 4, 8 },        ['Choral Roll'] = { 'SIR-', 2, 6 },
+    ['Monk\'s Roll'] = { 'SB+', 3, 7 },          ['Beast Roll'] = { 'PATK+', 4, 8 },
+    ['Samurai Roll'] = { 'STP+', 2, 6 },         ['Evoker\'s Roll'] = { 'Refresh+', 5, 9 },
+    ['Rogue\'s Roll'] = { 'CRIT+', 5, 9 },       ['Warlock\'s Roll'] = { 'MACC+', 4, 8 },
+    ['Fighter\'s Roll'] = { 'DA+', 5, 9 },       ['Puppet Roll'] = { 'PMAG+', 3, 7 },
+    ['Gallant\'s Roll'] = { 'DMG Reflect', 3, 7 }, ['Wizard\'s Roll'] = { 'MATK+', 5, 9 },
+    ['Dancer\'s Roll'] = { 'Regen+', 3, 7 },     ['Scholar\'s Roll'] = { 'CMP+', 2, 6 },
+    ['Naturalist\'s Roll'] = { 'Enhancing+', 3, 7 }, ['Runeist\'s Roll'] = { 'MEVA+', 4, 8 },
+    ['Companion\'s Roll'] = { 'Pet Regain & Regen', 2, 10 }, ['Bolter\'s Roll'] = { 'Move Speed+', 3, 9 },
+    ['Caster\'s Roll'] = { 'Fast Cast+', 2, 7 },
+}) do
+    K[name] = { role = 'roll', note = r[1], lucky = r[2], unlucky = r[3] }
 end
 
 -- Absorb- spells (DRK): drain a stat off your battle target onto you.

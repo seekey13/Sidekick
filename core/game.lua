@@ -24,11 +24,12 @@
     Plus when your cast began (cast_at, while casting);
     what healing scores with: learned potency, the day and the weather;
     the item in your ammo slot and what's in your inventory; when you last moved and
-    last had a battle target.
+    last had a battle target; your last Phantom Roll's total (`roll`, jobs/cor.lua).
 ]]--
 
 local ffi = require('ffi')
 local buffs = require('core.buffs')
+local cor = require('jobs.cor')
 local sch = require('jobs.sch')
 local can = require('core.can')
 local observed = require('core.observed')
@@ -412,7 +413,7 @@ function game.read(now)
     return {
         finished = finished, spell_finish = spell_finish,
         now = now, zone = zone, me = me, units = units, tracks = tracks, bt = bt, target = player_target(mm, em),
-        pet = pet, ammo = ammo(), items = inventory(), stratagems = stratagems(mm, player),
+        pet = pet, ammo = ammo(), items = inventory(), stratagems = stratagems(mm, player), roll = cor.last(),
         main = player:GetMainJob(), main_lv = player:GetMainJobLevel(),
         sub = player:GetSubJob(), sub_lv = player:GetSubJobLevel(),
         casting = casting, cast_at = cast_at,

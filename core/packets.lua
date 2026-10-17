@@ -5,12 +5,14 @@
       - statuses gained and lost by units with no readable status list
         (core/buffs.lua),
       - what your own heals restored and where your Regens landed (core/observed.lua),
-      - a /check's answer: a tracked player's jobs and levels (core/tracked.lua).
+      - a /check's answer: a tracked player's jobs and levels (core/tracked.lua),
+      - your Phantom Rolls' totals (jobs/cor.lua).
     Message ids and bit layouts verified against the CatsEyeXI server
     (src/map/packets/s2c/0x028_battle2.cpp, 0x0c9_equip_inspect_general.h, msg_std.h / msg_basic.h).
 ]]--
 
 local buffs = require('core.buffs')
+local cor = require('jobs.cor')
 local observed = require('core.observed')
 local players = require('core.tracked')  -- the players you track
 
@@ -105,6 +107,9 @@ function packets.action(p, ctx, now)
     for _, t in ipairs(p.targets) do
         local tracked = ctx.tracks[t.id]
         for _, r in ipairs(t.results) do
+            if kind == 'ja' and p.actor == ctx.me and t.id == ctx.me then
+                cor.rolled(p.param + ABILITY_BASE, r.param, r.message, now, r.info)
+            end
             if HEALS_028[r.message] then
                 if key then
                     observed.healed(key, t.id, r.param, now)
@@ -156,6 +161,7 @@ function packets.handle(e, ctx, now)
         cast.active = false
         buffs.clear()
         observed.clear()
+        cor.clear()
     end
 end
 

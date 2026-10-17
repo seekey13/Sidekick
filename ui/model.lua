@@ -16,6 +16,7 @@
 ]]--
 
 local can = require('core.can')
+local cor = require('jobs.cor')
 local profiles = require('core.profiles')
 local settings = require('core.settings')
 
@@ -23,7 +24,8 @@ local model = {}
 
 -- Settings sections in order, each under its `header` (headers in the order
 -- their first section comes). Every section but 'profile', 'track' and 'ui' is a behavior,
--- switched by cfg[id].on; one with roles also has rows. Wake shows only when a heal can wake.
+-- switched by cfg[id].on; one with roles also has rows. Wake shows only when a heal can wake,
+-- Rolls only for a job with rolls.
 model.SECTIONS = {
     { id = 'profile', title = 'Profiles', header = 'Profiles', switch = false },
     { id = 'follow', title = 'Follow', header = 'Follow' },
@@ -32,6 +34,7 @@ model.SECTIONS = {
     { id = 'wake', title = 'Wake sleepers', header = 'Remove' },
     { id = 'remove', title = 'Debuff removal', roles = { 'remove' }, header = 'Remove' },
     { id = 'buff', title = 'Buffs', roles = { 'buff' }, header = 'Buff' },
+    { id = 'roll', title = 'Rolls', header = 'Buff' },
     { id = 'pet', title = 'Pet', roles = { 'pet_heal', 'pet_remove', 'pet_send' }, header = 'Pet' },
     { id = 'recover', title = 'Recovery', roles = { 'recover' }, header = 'Recover' },
     { id = 'rest', title = 'Resting', header = 'Recover' },
@@ -338,11 +341,21 @@ function model.build(g, cat, cfg, status, names)
 
     local spends_tp, wakes = false, false  -- Chivalry: its TP line is worth showing; a heal can wake
     local stratagems = false               -- SCH: the charge reserve is worth showing
+    local rolls, last = {}, nil            -- COR: the rolls to pick from, and the last one's total
     for _, a in ipairs(cat) do
+        if a.lucky then
+            rolls[#rolls + 1] = { name = a.name, label = ('%s (%s)'):format(a.name, a.note), lucky = a.lucky, unlucky = a.unlucky }
+            -- While it's on you, or just busted (it's gone then).
+            if g.roll and g.roll.id == a.id and (g.roll.bust or can.any(g.me.buffs, a.status)) then
+                last = { name = a.name, total = g.roll.total, lucky = a.lucky, unlucky = a.unlucky, bust = g.roll.bust == true }
+            end
+        end
         stratagems = stratagems or a.role == 'modifier' and a.applies ~= nil
         spends_tp = spends_tp or a.role == 'recover' and a.spends_tp == true
         wakes = wakes or a.role == 'heal' and a.wakes == true and not a.pet
     end
+
+    table.sort(rolls, function (x, y) return x.name < y.name end)
 
     local view = {
         job = jobs(names.job, g.main, g.main_lv, g.sub, g.sub_lv),
@@ -359,6 +372,8 @@ function model.build(g, cat, cfg, status, names)
         follow = { on = cfg.follow.on, target = cfg.follow.target, distance = cfg.follow.distance, names = focus_names },
         rest = { on = cfg.rest.on, delay = cfg.rest.delay, distance = cfg.rest.distance },
         buff = { hold_aoe = cfg.buff.hold_aoe, gather = cfg.buff.gather },
+        roll = { first = cfg.roll.first, second = cfg.roll.second, risk = cfg.roll.risk, risks = cor.RISKS,
+                 two = g.main == cor.JOB, choices = rolls, last = last },
         -- Your target, by name, when it's a player who could be tracked: not in the party, not tracked yet.
         track = { target = g.target and not known[g.target.sid] and g.target.name or nil },
         japanese = cfg.ui.japanese, log = status.log, ui = {},
@@ -387,6 +402,7 @@ function model.build(g, cat, cfg, status, names)
         end
         local shown = not section.rows or #section.rows > 0
         if s.id == 'wake' then shown = wakes end
+        if s.id == 'roll' then shown = rolls[1] ~= nil end
         if shown then view.sections[#view.sections + 1] = section end
     end
     return view
@@ -411,7 +427,7 @@ function model.actions(cfg, status, changed, tracking)
         status.open, cfg.ui.open = false, false
         changed()
     end
-    -- id: a section with a switch: 'follow' | 'heal' | 'revive' | 'wake' | 'remove' | 'buff' | 'pet' | 'recover' | 'rest'
+    -- id: a section with a switch: 'follow' | 'heal' | 'revive' | 'wake' | 'remove' | 'buff' | 'roll' | 'pet' | 'recover' | 'rest'
     function act.section(id, on)
         cfg[id].on = on
         changed()
@@ -463,7 +479,8 @@ function model.actions(cfg, status, changed, tracking)
         cfg.heal.skip[name] = not cfg.heal.skip[name] or nil
         changed()
     end
-    -- path: 'heal.danger', 'heal.alliance', 'heal.reserve', 'buff.hold_aoe', 'follow.target', 'japanese', 'ui.hp_width', or 'ui.<anything>' for a UI's own.
+    -- path: 'heal.danger', 'heal.alliance', 'heal.reserve', 'buff.hold_aoe', 'roll.first', 'roll.risk', 'follow.target',
+    -- 'japanese', 'ui.hp_width', or 'ui.<anything>' for a UI's own.
     function act.set(path, value)
         if path == 'japanese' then path = 'ui.japanese' end  -- shared by every job pair, as the HUD
         local t = cfg
