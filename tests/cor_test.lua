@@ -97,7 +97,7 @@ test('packets: your roll\'s total from your own entry, its Double-Ups, a Bust, z
     packets.action(roll_packet(OTHER, NINJA_ID, { { ME, 421, 3 } }), ctx, 11)  -- another Corsair's roll on you
     eq(cor.last().id, CORSAIRS_ID)
     packets.action(roll_packet(ME, CORSAIRS_ID, { { ME, 424, 9 } }), ctx, 12)  -- a Double-Up names the roll
-    eq(cor.last(), { id = CORSAIRS_ID, total = 9, die = 0, at = 12 })
+    eq(cor.last(), { id = CORSAIRS_ID, total = 9, die = 0, at = 12, doubled = true })
     packets.action(roll_packet(ME, CORSAIRS_ID, { { ME, 426, 13 } }), ctx, 13)
     eq(cor.last(), { id = CORSAIRS_ID, total = 13, die = 0, at = 13, bust = true })
     packets.action(roll_packet(ME, NINJA_ID, { { ME, 424, 12 } }), ctx, 13.5)  -- a Double-Up past 11 is a Bust too
@@ -128,13 +128,15 @@ test('a roll is doubled at 5 or under, then the Double-Ups 6 seconds apart; a ba
     g.now = 1002
     local cmd, intent = step(g, cfg, mem)
     eq({ cmd, intent.why }, { '/ja "Double-Up" <me>', 'Corsair\'s Roll at 2' })
-    g = snap({ CORSAIRS, DOUBLE_UP_CHANCE }, { id = CORSAIRS_ID, total = 4, at = 1003 })
+    g = snap({ CORSAIRS, DOUBLE_UP_CHANCE }, { id = CORSAIRS_ID, total = 4, at = 1003, doubled = true })
     g.now = 1004
     eq(decide(g, cfg, mem), nil)  -- a die can't bust yet, but the last Double-Up was 2s ago
     g.now = 1008
+    eq(decide(g, cfg, mem), nil)  -- 6s from the send, but its total came at 1003 (lag)
+    g.now = 1009
     eq(step(g, cfg, mem), '/ja "Double-Up" <me>')
-    g = snap({ CORSAIRS, DOUBLE_UP_CHANCE }, { id = CORSAIRS_ID, total = 5, at = 1009 })
-    g.now = 1010
+    g = snap({ CORSAIRS, DOUBLE_UP_CHANCE }, { id = CORSAIRS_ID, total = 5, at = 1010, doubled = true })
+    g.now = 1011
     eq(decide(g, cfg, mem), '/ja "Ninja Roll" <me>')  -- lucky: banked
 end)
 
@@ -211,6 +213,15 @@ test('resting waits while a Double-Up is due, then may start once the roll is se
     g = snap({ CORSAIRS }, { id = CORSAIRS_ID, total = 5, at = 1006.5 }, nil, {}, over)
     g.me.mpp, g.now = 60, 1012
     eq(decide(g, cfg, mem), '/heal on')
+end)
+
+test('nothing while you are Invisible: no roll, Double-Up or Fold', function ()
+    local INVISIBLE = 69
+    local cfg = cfg_with('Corsair\'s Roll')
+    eq(decide(snap({ INVISIBLE }), cfg, {}), nil)
+    eq(decide(snap({ INVISIBLE, BUST }), cfg, {}), nil)
+    eq(decide(snap({ INVISIBLE, CORSAIRS, DOUBLE_UP_CHANCE }, { id = CORSAIRS_ID, total = 2, at = 990 }), cfg, {}), nil)
+    eq(decide(snap({ CORSAIRS, DOUBLE_UP_CHANCE }, { id = CORSAIRS_ID, total = 2, at = 990 }), cfg, {}), '/ja "Double-Up" <me>')
 end)
 
 test('a Bust: Fold when it is ready; until then it takes a roll\'s place', function ()

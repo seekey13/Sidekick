@@ -7,13 +7,14 @@
 
     The totals come only from your own 0x028 job ability packets
     (core/packets.lua -> cor.rolled), and the snapshot carries the last one
-    (g.roll = { id, total, die, at, bust }), so the decision reads the snapshot alone.
+    (g.roll = { id, total, die, at, bust, doubled }), so the decision reads the snapshot alone.
     A Double-Up Chance is for the last roll alone: no other is ever doubled.
     A roll or Double-Up sent waits for its total; one that never comes (a lost
     packet) leaves that roll as it is after WAIT seconds, never doubled blind,
     and no total older than the last send is doubled. A new roll waits until
     the last one is settled, so its chase isn't cut short; while it waits,
     mem.busy_until keeps resting from starting (behaviors/rest.lua).
+    Nothing goes while you're Invisible (a roll would break it), as buffs.
     With buff.hold_aoe on, a roll is held like an area buff spell until the
     party's players who lack it are inside its area (the DAT's, about 8 yalms).
 ]]--
@@ -25,10 +26,10 @@ local cor = {}
 
 cor.JOB = 17
 cor.RISKS = { 'lowest', 'medium', 'highest' }
-cor.DOUBLE_GAP = 6  -- seconds between Double-Ups (in-game proven, v2)
+cor.DOUBLE_GAP = 6  -- seconds between Double-Ups, from the send and from its total (in-game proven, v2)
 cor.WAIT = 5        -- seconds a roll or Double-Up sent waits for its total
 
-local DOUBLE_UP_CHANCE, BUST, SNAKE_EYE = 308, 309, 357  -- statuses
+local INVISIBLE, DOUBLE_UP_CHANCE, BUST, SNAKE_EYE = 69, 308, 309, 357  -- statuses
 local ROLL, ROLL_SUB, DOUBLED, BUSTED, BUSTED_SUB = 420, 421, 424, 426, 427  -- 0x028 messages
 
 local MAX_TOTAL = 11           -- 12 or more busts
@@ -37,7 +38,7 @@ local UNLUCKY_REROLL_MAX = 8   -- past 8 a die busts more often than not
 
 -- The roll packets -----------------------------------------------------------
 
-local last  -- { id = catalog id, total, die, at, bust }: the last roll, as the server said it
+local last  -- { id = catalog id, total, die, at, bust, doubled }: the last roll, as the server said it
 
 -- One of your job ability packets, on your own target entry: `id` the catalog
 -- id (on a Double-Up the server names the roll doubled), `total` its param,
@@ -45,7 +46,7 @@ local last  -- { id = catalog id, total, die, at, bust }: the last roll, as the 
 function cor.rolled(id, total, message, now, die)
     local bust = message == BUSTED or message == BUSTED_SUB or (message == DOUBLED and total > MAX_TOTAL)
     if bust or message == ROLL or message == ROLL_SUB or message == DOUBLED then
-        last = { id = id, total = total, die = die, at = now, bust = bust or nil }
+        last = { id = id, total = total, die = die, at = now, bust = bust or nil, doubled = message == DOUBLED or nil }
     end
 end
 
@@ -117,6 +118,7 @@ function cor.want(g, cat, cfg, mem)
     mem.cor = st
     local fold, double, snake = named(cat, 'Fold'), named(cat, 'Double-Up'), named(cat, 'Snake Eye')
     local buffs = g.me.buffs
+    if buffs[INVISIBLE] then return nil end
 
     -- A Bust takes a roll's place until it wears; Fold frees it at once.
     if buffs[BUST] and ready(fold, g) then return { action = fold, why = 'Bust' } end
@@ -131,7 +133,7 @@ function cor.want(g, cat, cfg, mem)
         local decision = (buffs[SNAKE_EYE] and r.total < MAX_TOTAL) and 'double'
             or cor.decide(r.total, roll.lucky, roll.unlucky, cfg.roll.risk, ready(snake, g), ready(fold, g))
         if decision ~= 'stop' then
-            local gap = (st.doubled or -math.huge) + cor.DOUBLE_GAP
+            local gap = math.max(st.doubled or -math.huge, r.doubled and r.at or -math.huge) + cor.DOUBLE_GAP
             local _, _, wait = can.use(double, g)
             if g.now < gap or wait then busy(mem, math.max(gap, g.now + (wait or 0))); return nil end
             if not ready(double, g) then return nil end
