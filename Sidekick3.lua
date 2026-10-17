@@ -96,8 +96,8 @@ local function refresh(now)
     return snap, true
 end
 
-local function entry(intent, now)
-    return { at = now, command = engine.command(intent, cfg), action = intent.action.name, kind = intent.action.kind,
+local function entry(intent, g)
+    return { at = g.now, command = engine.command(intent, cfg, g), action = intent.action.name, kind = intent.action.kind,
              target = intent.target and intent.target.name, behavior = intent.behavior, why = intent.why }
 end
 
@@ -109,7 +109,7 @@ local function tick(g)
     local act = status.running and engine.ready(g, mem)
     if not (act or status.open) then return end
     local intent, why = engine.decide(g, cat.list, cfg, mem)
-    status.intent, status.why = intent and entry(intent, g.now), why
+    status.intent, status.why = intent and entry(intent, g), why
     if not (act and intent) then return end
     AshitaCore:GetChatManager():QueueCommand(0, status.intent.command)
     engine.sent(intent, g, mem)
@@ -178,7 +178,7 @@ end
 local function show_plan(g)
     local intent, why = engine.decide(g, cat.list, cfg, mem)
     if intent then
-        printf('Would send %s  (%s: %s)', engine.command(intent, cfg), intent.behavior, intent.why)
+        printf('Would send %s  (%s: %s)', engine.command(intent, cfg, g), intent.behavior, intent.why)
     else
         printf('Nothing to do now: %s.', why)
     end

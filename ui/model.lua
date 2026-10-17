@@ -264,9 +264,10 @@ end
 
 -- What the HUD points at: running, the decision about to go, else what was just
 -- sent while it lands; stopped, what it would do. `member` is the party line it
--- is for: the target's, else yours (an action on you, your pet or the enemy).
--- A target with no party line of its own is named.
-local function pointer(status, g, members)
+-- is for: the target's, else yours (an action on you, your pet or the enemy);
+-- for an alliance member, `ally` is their line instead. A target with no line
+-- of its own is named.
+local function pointer(status, g, members, allies)
     local e = status.intent
     if status.running and not e then
         local last = status.sent[1]
@@ -274,13 +275,17 @@ local function pointer(status, g, members)
         if age and (age < POINTED or age < POINTED_CAST and casting(g, last)) then e = last end
     end
     if not e or not members[1] then return nil end
-    local member = 1
+    local member, ally = 1, nil
     for i, p in ipairs(members) do
         if p.name == e.target then member = i end
     end
+    for j, p in ipairs(allies) do
+        if p.name == e.target then member, ally = nil, j end
+    end
     local text = ('%s:%s'):format((e.behavior:gsub('_.*', ''):gsub('^%l', string.upper)), e.action)
-    if e.target and members[member].name ~= e.target then text = ('%s -> %s'):format(text, e.target) end
-    return { text = text, member = member, live = status.running }
+    local line = ally and allies[ally] or members[member]
+    if e.target and line.name ~= e.target then text = ('%s -> %s'):format(text, e.target) end
+    return { text = text, member = member, ally = ally, live = status.running }
 end
 
 -- The view ---------------------------------------------------------------------
@@ -293,13 +298,21 @@ function model.build(g, cat, cfg, status, names)
         known[u.sid] = true
     end
 
-    -- The alliance can be the focus or followed; heal.alliance heals them all or none.
+    -- The alliance can be the focus or followed, and is listed to skip while
+    -- heal.alliance is on, each of their parties on a line of its own (`wrap`).
     local h = cfg.heal
-    local focus_names, members = {}, {}
+    local focus_names, members, begun = {}, {}, {}
     for _, u in ipairs(g.units) do
         if u.kind ~= 'self' then
             focus_names[#focus_names + 1] = u.name
-            if u.kind ~= 'alliance' then members[#members + 1] = { name = u.name, healed = not h.skip[u.name] } end
+            if u.kind ~= 'alliance' or h.alliance then
+                local wrap
+                if u.kind == 'alliance' then
+                    local p = can.party(u)
+                    wrap, begun[p] = not begun[p] or nil, true
+                end
+                members[#members + 1] = { name = u.name, healed = not h.skip[u.name], wrap = wrap }
+            end
         end
     end
 
@@ -328,7 +341,7 @@ function model.build(g, cat, cfg, status, names)
     }
     view.party, view.alliance = party(g, cfg, names)
     for k, v in pairs(cfg.ui) do view.ui[k] = v end
-    view.pointer = pointer(status, g, view.party)
+    view.pointer = pointer(status, g, view.party, view.alliance)
     for _, f in ipairs(model.FLAGS) do
         if g[f] then view.flags[#view.flags + 1] = REASONS[f] or f end
     end

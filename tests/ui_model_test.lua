@@ -360,17 +360,21 @@ local function alliance_snap()
     return fake.snap({ { name = 'A' }, { kind = 'alliance', name = 'Bea' }, { kind = 'alliance', name = 'Bo', slot = 8 } })
 end
 
-test('the alliance\'s other parties are listed apart, B0-B5 and C0-C5, to focus and follow but not as cards', function ()
+test('the alliance\'s other parties are listed apart, B0-B5 and C0-C5, to focus and follow; the pointer finds them', function ()
     local view = build(whm, nil, alliance_snap())
     eq({ keys(view.party, 'tag'), keys(view.alliance, 'tag'), keys(view.alliance, 'kind') },
        { { 'ME', 'P1' }, { 'B0', 'B2' }, { 'alliance', 'alliance' } })
     eq({ view.heal.focus_names, view.follow.names }, { { 'A', 'Bea', 'Bo' }, { 'A', 'Bea', 'Bo' } })
-    eq(view.heal.members, { { name = 'A', healed = true } })  -- heal.alliance heals them all or none
-    eq(view.heal.alliance, false)
+    eq({ view.heal.members, view.heal.alliance }, { { { name = 'A', healed = true } }, false })
+    local cfg = settings.defaults()
+    cfg.heal.alliance, cfg.heal.skip = true, { Bo = true }
+    local g = alliance_snap()
+    g.units[#g.units + 1] = fake.unit({ kind = 'alliance', name = 'Cy', slot = 12, sid = 303 })
+    eq(build(whm, cfg, g).heal.members, { { name = 'A', healed = true }, { name = 'Bea', healed = true, wrap = true },
+        { name = 'Bo', healed = false }, { name = 'Cy', healed = true, wrap = true } })  -- a line per party, to skip
     eq(model.TAGS[17], 'C5')
     local e = { at = 990, action = 'Cure IV', target = 'Bea', behavior = 'heal', why = 'danger: Bea 45%' }
-    eq(build(whm, nil, alliance_snap(), status({ intent = e })).pointer,
-       { text = 'Heal:Cure IV -> Bea', member = 1, live = false })  -- no card of their own: named
+    eq(build(whm, nil, alliance_snap(), status({ intent = e })).pointer, { text = 'Heal:Cure IV', ally = 1, live = false })
 end)
 
 test('buff rows reaching outside the party get a line of chips per party of the alliance there', function ()

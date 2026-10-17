@@ -4,7 +4,7 @@
       can.reach(a, u)          can `a` land on unit `u` (target kind, alive, in range)
       can.in_party(u)          is `u` in your party: area effects from you land on no one else
       can.together(c, u)       does an area effect aimed at `c` land on `u` (the same party)
-      can.command(a, u)        the chat command that does it
+      can.command(a, u, j, bt) the chat command that does it
       can.spare_hp(a, g, cfg)  can you pay what `a` costs in HP
     `a` is a catalog record, `u` a unit and `g` the snapshot from core/game.lua.
 ]]--
@@ -126,10 +126,13 @@ function can.reach(a, u)
     return (u.dist or math.huge) <= can.yalms(a.range)
 end
 
--- '/ma "Cure IV" 12345678': party members by server id, you as <me>, enemies as <bt>.
-function can.command(a, u, japanese)
+-- '/ma "Cure IV" 12345678': party members by server id, you as <me>, enemies as
+-- <bt>; by server id when the client has none for it (`bt` claimed by another
+-- party of the alliance, core/game.lua).
+function can.command(a, u, japanese, bt)
     local name = japanese and a.jp ~= '' and a.jp or a.name
-    local target = can.at_enemy(a) and '<bt>' or (u == nil or u.kind == 'self') and '<me>' or tostring(u.sid)
+    local enemy = bt and bt.claimed and tostring(bt.sid) or '<bt>'
+    local target = can.at_enemy(a) and enemy or (u == nil or u.kind == 'self') and '<me>' or tostring(u.sid)
     return ('/%s "%s" %s'):format(a.kind, name, target)
 end
 

@@ -38,7 +38,9 @@ local em = {
     GetLocalPositionY = const(0), GetLocalPositionZ = const(0),
     GetRenderFlags0 = function (_, i) return (world.ents[i] and world.ents[i].shown ~= false) and 0x200 or 0 end,
     GetRawEntity = function (_, i) return world.ents[i] and {} or nil end,
-    GetPetTargetIndex = function () return world.pet or 0 end, GetSpawnFlags = const(0),
+    GetPetTargetIndex = function () return world.pet or 0 end,
+    GetSpawnFlags = function (_, i) return ent(i).flags or 0 end,
+    GetClaimStatus = function (_, i) return ent(i).claim or 0 end,
 }
 local party = {
     GetMemberIsActive = function (_, i) return world.party[i + 1] and 1 or 0 end,
@@ -203,6 +205,21 @@ test('a trust\'s and the pet\'s statuses last across reads; a trust dismissed is
     read()
     world.party[2] = kupipi  -- called again, with the same id
     eq({ unit(read(), TRUST).buffs, read().pet.buffs }, { {}, { [PROTECT] = true } })
+end)
+
+test('with no <bt>, a mob another party of the alliance claimed is your battle target: the nearest in 21y', function ()
+    reset()
+    local function mob(name, dist, claimer) return { sid = 0x1000000 + dist, name = name, hpp = 80, dist = dist, flags = 0x10, claim = claimer } end
+    world.ents[0x100], world.ents[0x101], world.ents[0x102] = mob('Crab', 10, 600), mob('Bat', 5, 999), mob('Worm', 30, 600)
+    eq(read(1).bt, nil)  -- no alliance: no look
+    world.party[7] = { sid = 600, tidx = 0x500, name = 'Bea', hpp = 100, hp = 1000, mpp = 0, mp = 0 }
+    local g = read(1)
+    eq({ g.bt.name, g.bt.tidx, g.bt.mob, g.bt.claimed, g.combat }, { 'Crab', 0x100, true, true, true })  -- Bat: a stranger's; Worm: too far
+    world.ents[0x103] = mob('Snail', 4, 600)
+    eq(read().bt.name, 'Crab')  -- looked for again at most every 0.5s
+    eq(read(0.5).bt.name, 'Snail')
+    world.ents[0x103].hpp = 0
+    eq({ read().bt, read(0.5).bt.name }, { nil, 'Crab' })  -- dead: dropped at once, the next look finds another
 end)
 
 reset()

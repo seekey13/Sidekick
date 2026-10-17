@@ -161,6 +161,16 @@ test('recover: Devotion is for your party only', function ()
     eq(decide(g), '/ja "Devotion" 101')
 end)
 
+test('an enemy action on a mob another party claimed names it by server id, as the client has no <bt> for it', function ()
+    local g = snap({ ally() }, { bt = { sid = 9000, name = 'Crab', hpp = 80, dist = 5, mob = true, claimed = true } })
+    g.me.mpp = 20
+    local cfg = settings.defaults()
+    local intent = engine.decide(g, cat, cfg, {})
+    eq(engine.command(intent, cfg, g), '/ma "Aspir" 9000')
+    g.bt.claimed = nil  -- your party's: the client's <bt>
+    eq(engine.command(intent, cfg, g), '/ma "Aspir" <bt>')
+end)
+
 test('follow: an alliance leader by name, as only your party has <p1>-<p5>', function ()
     local cfg = settings.defaults()
     cfg.follow = { on = true, target = 'Bob', distance = 5 }

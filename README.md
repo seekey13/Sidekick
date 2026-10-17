@@ -32,8 +32,9 @@ v2 described every job's spells and abilities by hand in 22 job files. v3 reads 
 
 The HUD (`/sk3`) shows the party as Sidekick reads them, and what it will do next:
 
-- **A card per member**: HP and MP bars with their %, the name, and the slot (ME, P1-P5), then one per tracked player (T1, T2..., HP only). The name and HP % turn red under your critical line, the slot and MP % under your Recover MP line. Hover a card for its distance and statuses, and whether it's a trust, tracked, KO or away. The alliance's other parties have no card.
-- **An arrow** at the member the next action is for, labelled like `Heal:Cure IV`: yellow while running, grey while stopped (what it would do). An action on you, your pet or the enemy points at your own card, and so does one for someone with no card, named: `Heal:Cure IV -> Name`.
+- **A card per member**: HP and MP bars with their %, the name, and the slot (ME, P1-P5), then one per tracked player (T1, T2..., HP only). The name and HP % turn red under your critical line, the slot and MP % under your Recover MP line. Hover a card for its distance and statuses, and whether it's a trust, tracked, KO or away.
+- **The alliance's other parties** under the cards: a thin HP bar each, with its slot (B0-B5, C0-C5) and name, each party after a gap.
+- **An arrow** at the member the next action is for, labelled like `Heal:Cure IV`: yellow while running, grey while stopped (what it would do). An action on you, your pet or the enemy points at your own card.
 - **The title row**: hover it for your job, what Sidekick is doing or why it's waiting (casting, moving, safe zone...), your battle target and pet. Its icons start and stop automation, open SK Settings, and close the HUD.
 
 Drag the HUD where you want it; Lock position keeps it there.
@@ -41,7 +42,7 @@ Drag the HUD where you want it; Lock position keeps it there.
 **SK Settings**, from the cog, has every setting under collapsing headers, each section with its on/off switch:
 
 - **Follow**: who to follow and how far they may get.
-- **Heal**: healing, with its HP lines (danger, critical, and the focus member's own), gear potency and who to heal, the alliance's other parties too when you tick Heal the alliance; raising.
+- **Heal**: healing, with its HP lines (danger, critical, and the focus member's own), gear potency and who to heal: the alliance's other parties too when you tick Heal the alliance, each of their parties then on a line of its own to untick; raising.
 - **Remove**: waking sleepers (when one of your heals can), and debuff removal: spells, then items (Echo Drops, Remedy...) with how many you carry.
 - **Buff**: each row picks a tier ("Auto" casts the best you can) or, for pick-one groups like bar-elements and songs, the spell; and the targets, ME and P1-P5, and when the spell can go outside the party, T1... for tracked players and a line each for the alliance's other parties, B0-B5 and C0-C5.
 - **Pet**, for a pet job: its HP line, and its care and send rows. Sending the pet in is opt-in, row by row; Repair, Maintenance and Reward need their oil or pet food worn.
@@ -53,7 +54,7 @@ Each row turns a family on or off and says whether it's ready or why not.
 
 **Tracked players** are looked after like members with whatever reaches outside a party: Cure and Curing Waltz, Protect, Shell, Haste, the -na spells, raises, following. Regen, Refresh, Erase and Healing Waltz can't go on them, and an area spell cast from you or a member (Curaga, Esuna, Protectra) lands on your own party only, so it never counts them. Only their HP % can be read: Sidekick `/check`s them for their level to estimate their max HP (they see that you examined them, as in v2; an /anon player is sized like you). Tracking lasts until Sidekick3 is reloaded; a buff row remembers them by name, so tracking them again brings their buffs back.
 
-**The alliance's other two parties** are looked after with the same spells: raised, woken, cleared with the -na spells and buffed on their chips, and healed only when Heal the alliance is on (off by default, as in v2: their parties have healers of their own) or when one is your focus. An area spell lands on its target's party alone, so each party is weighed on its own: Curaga, Esuna and Protectra cast from you or a member never reach them, while a Cure spread by Majesty or Accession and aimed at one of them covers their party near them. Their statuses come from what the game reports around you, as a trust's do.
+**The alliance's other two parties** are looked after with the same spells: raised, woken, cleared with the -na spells and buffed on their chips, and healed only when Heal the alliance is on (off by default, as in v2: their parties have healers of their own) or when one is your focus; healing then ranks them by urgency alone, like your party. An area spell lands on its target's party alone, so each party is weighed on its own: Curaga, Esuna and Protectra cast from you or a member never reach them, while a Cure spread by Majesty or Accession and aimed at one of them covers their party near them. Their statuses come from what the game reports around you, as a trust's do. A mob another party of the alliance claimed has no `<bt>` in the client, though you fight it too: Sidekick then takes the nearest one within 21 yalms claimed by anyone in the alliance as your battle target, as v2 did, and aims at it by its id.
 
 The UI is one replaceable file: put your own in `ui/custom.lua` and it's used instead. [ui/README.md](ui/README.md) documents what a UI is given and what it can change, with an example.
 

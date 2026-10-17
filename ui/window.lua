@@ -4,8 +4,8 @@
     ImGui only; it reads no game state and decides nothing.
 
     Two windows. Sidekick3 is a heads-up display: the party's HP and MP bars on a
-    grey panel, the rest of the window transparent, with an arrow at whoever the
-    next action is for. Its cog opens SK Settings, every setting under
+    grey panel (the alliance's other parties as thin HP rows under them), the
+    rest of the window transparent, with an arrow at whoever the next action is for. Its cog opens SK Settings, every setting under
     collapsing headers.
 
     Ashita's binding (as v2 found it): widget values are one-element tables
@@ -183,7 +183,7 @@ end
 
 local function member_tip(p)
     local notes = {}
-    if p.kind == 'trust' or p.kind == 'tracked' then notes[#notes + 1] = p.kind end
+    if p.kind == 'trust' or p.kind == 'tracked' or p.kind == 'alliance' then notes[#notes + 1] = p.kind end
     if p.job then notes[#notes + 1] = p.job end
     if not (p.alive or p.away) then notes[#notes + 1] = 'KO' end
     if p.away then notes[#notes + 1] = 'away' end
@@ -243,6 +243,19 @@ local function card(dl, ui, p, x, y)
     if p.kind ~= 'tracked' then outlined(dl, ts, fx + ui.mp_width - 4 - mw, my, mp_color, mp) end
 end
 
+-- An alliance member's row, its bar's top at `top`: a thin HP bar (the MP bar's
+-- height) with the tag and name on it and the HP % at its end.
+local function ally_row(dl, ui, p, x, top)
+    local fx, ts = x + PAD + B, ui.text_size
+    bar(dl, fx, top, ui.hp_width, ui.mp_height, p.hpp, HP_TOP, HP_BOTTOM)
+    local color = p.away and AWAY or p.hp == 'critical' and RED or WHITE
+    local label, hp = p.tag .. ' ' .. p.name, ('%d%%'):format(p.hpp)
+    local _, h = measure(label, ts)
+    local ty = top + (ui.mp_height - h) / 2
+    outlined(dl, ts, fx + 4, ty, color, label)
+    outlined(dl, ts, fx + ui.hp_width - 4 - measure(hp, ts), ty, color, hp)
+end
+
 -- The arrow left of the label, its tip just right of the panel at `cy`. On the
 -- background list: it sits outside the window without widening it, as a
 -- transparent window area would block the game's clicks.
@@ -280,7 +293,16 @@ local function draw_hud(view)
                         math.ceil(8 + measure(TITLE, ui.text_size) + 8 + 3 * s + 2 * 4 + 6))  -- the title row fits
     local ch = B + ui.hp_height + B + ui.mp_height + B
     local n = #view.party
-    local ph = th + n * ch + math.max(n - 1, 0) * ui.gap + PAD
+    -- Under the cards, the alliance's rows: B0-B5, then C0-C5, each party after a
+    -- gap. Rows share their borders, as a card's two bars do; `rows` holds each bar's top.
+    local below, rows, last = th + n * ch + math.max(n - 1, 0) * ui.gap, {}, nil
+    for j, p in ipairs(view.alliance) do
+        local party = p.tag:sub(1, 1)
+        if party ~= last then below = below + ui.gap + B end
+        rows[j], last = below, party
+        below = below + ui.mp_height + B
+    end
+    local ph = below + PAD
 
     dl:AddRectFilled({ x0, y0 }, { x0 + pw, y0 + ph }, u32(rgb(PANEL[1], PANEL[2], PANEL[3], ui.opacity / 100)))
     title_row(dl, view, ui.text_size, x0, y0, pw, th, s, u32(rgb(PANEL[1], PANEL[2], PANEL[3])))
@@ -291,6 +313,14 @@ local function draw_hud(view)
         imgui.Dummy({ pw - 2 * PAD, ch })
         tip(member_tip(p))
         if view.pointer and view.pointer.member == i then arrow(view.pointer, ui.text_size, x0 + pw, y + ch / 2) end
+    end
+    for j, p in ipairs(view.alliance) do
+        local top = y0 + rows[j]
+        ally_row(dl, ui, p, x0, top)
+        imgui.SetCursorScreenPos({ x0 + PAD, top - B })
+        imgui.Dummy({ pw - 2 * PAD, ui.mp_height + B })
+        tip(member_tip(p))
+        if view.pointer and view.pointer.ally == j then arrow(view.pointer, ui.text_size, x0 + pw, top + ui.mp_height / 2) end
     end
     imgui.SetCursorScreenPos({ x0, y0 + ph - PAD })
     imgui.Dummy({ pw, PAD })  -- the bottom padding, and the panel's full width, for the auto-size
@@ -333,11 +363,12 @@ local HEAL_LINES = {
 }
 
 -- Who healing looks after: unticked members are never healed for their own sake.
+-- Each of the alliance's other parties starts a line.
 local function heal_members(h)
     if #h.members == 0 then return end
     text('Heal:')
     for _, m in ipairs(h.members) do
-        imgui.SameLine()
+        if not m.wrap then imgui.SameLine() end
         local v = { m.healed }
         if imgui.Checkbox(m.name .. '##sk3_heal_' .. m.name, v) then act.skip(m.name) end
         tip('Untick to never heal them for their own sake; an area heal may still land on them.')

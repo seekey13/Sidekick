@@ -42,12 +42,12 @@ Text that may contain `%` (names, `why` text) must be escaped before it's drawn:
 | `job` | string | `'WHM 75 / BLM 37'`, or `'WAR 75'` with no subjob |
 | `status` | table | The status line, below |
 | `party` | list | You, then your party and trusts, then the players you track, below |
-| `alliance` | list | The alliance's other two parties, as `party` lines (kind `'alliance'`, tags `'B0'` to `'B5'` and `'C0'` to `'C5'`); empty outside an alliance. The standard HUD draws no card for them |
-| `bt` | table or nil | Your battle target: `{ name, hpp, dist }`, `dist` like `'4.3y'` |
+| `alliance` | list | The alliance's other two parties, as `party` lines (kind `'alliance'`, tags `'B0'` to `'B5'` and `'C0'` to `'C5'`); empty outside an alliance. The standard HUD draws them as thin HP rows under the cards |
+| `bt` | table or nil | Your battle target: `{ name, hpp, dist }`, `dist` like `'4.3y'`. With no `<bt>` of your party's, the nearest mob another party of the alliance claimed |
 | `pet` | table or nil | Your pet, the same shape as `bt` |
 | `flags` | list of strings | What may be holding automation up, in this order: `'casting'`, `'moving'`, `'combat'`, `'safe zone'`, `'mounted'`, `'dead'`, `'resting'`, `'incapacitated'`, `'silenced'`, `'amnesia'` |
 | `recent` | list | The last 10 actions sent, newest first: `{ age, text, why }`, e.g. `{ 12, 'Cure IV -> Kupipi', 'heal: Kupipi at 62%' }`; `age` in whole seconds |
-| `pointer` | table or nil | What automation is about to do, or would do, for the standard HUD's arrow: `{ text, member, live }`. `text` is the behavior then the action, `'Heal:Cure IV'`; a target with no party line of its own (an alliance member, say) is added by name (`'Heal:Cure IV -> Name'`). `member` is the index in `party` it is for: the target's, else yours (an action on you, your pet or the enemy, as pet care's `'Pet:Healing Ruby'`). `live`: running, it is the decision about to go or, for a moment after (longer while it is being cast), what was just sent; stopped (false), what it would do. nil when there is nothing |
+| `pointer` | table or nil | What automation is about to do, or would do, for the standard HUD's arrow: `{ text, member, ally, live }`. `text` is the behavior then the action, `'Heal:Cure IV'`; a target with no line of its own is added by name (`'Heal:Cure IV -> Name'`). `member` is the index in `party` it is for: the target's, else yours (an action on you, your pet or the enemy, as pet care's `'Pet:Healing Ruby'`). For an alliance member, `ally` is their index in `alliance` and `member` is nil. `live`: running, it is the decision about to go or, for a moment after (longer while it is being cast), what was just sent; stopped (false), what it would do. nil when there is nothing |
 | `heal` | table | Healing's settings, below |
 | `recover` | table | `{ mp, tp, min_tp, spends_tp }`: recover MP under `mp` % (yours; a member's for Devotion), TP under `tp` (0 to 3000) in combat; Chivalry only from `min_tp` TP. `spends_tp`: a row spends TP (Chivalry), so `min_tp` is worth showing |
 | `pet_heal` | number | Heal your pet under this HP % |
@@ -89,7 +89,7 @@ Text that may contain `%` (names, `why` text) must be escaped before it's drawn:
 
 ### `view.heal`
 
-`danger`, `critical`, `focus_danger`, `focus_critical` (HP %, 1 to 99); `focus` (a member's name, `''` for none); `alliance` (bool: the alliance's other parties are healed too; the focus member always is); `cure_potency`, `waltz_potency` (+% from gear, 0 to 50); `regen_potency` (+HP per Regen tick from gear, 0 to 30); `focus_names` (the members that can be the focus, you excluded, the alliance's and tracked players included); `members` (`{ name, healed }` for each member and tracked player, you and the alliance excluded; `healed` false when skipped).
+`danger`, `critical`, `focus_danger`, `focus_critical` (HP %, 1 to 99); `focus` (a member's name, `''` for none); `alliance` (bool: the alliance's other parties are healed too; the focus member always is); `cure_potency`, `waltz_potency` (+% from gear, 0 to 50); `regen_potency` (+HP per Regen tick from gear, 0 to 30); `focus_names` (the members that can be the focus, you excluded, the alliance's and tracked players included); `members` (`{ name, healed, wrap }` for each member and tracked player, you excluded, and the alliance's while `alliance` is on; `healed` false when skipped; `wrap` true on the first of each of the alliance's parties, where the standard window starts a line).
 
 ### `view.sections[i]`
 

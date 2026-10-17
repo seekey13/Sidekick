@@ -334,6 +334,23 @@ test('critical HP turns the name and HP % red, MP under the Recover line the tag
     eq({ fill('Gone'), fill('P3') }, { AWAY, AWAY })
 end)
 
+test('the alliance gets a thin HP row each under the cards, a gap before each party; the arrow points at one', function ()
+    local cfg = settings.defaults()
+    local g = fake.snap({ { name = 'A' }, { kind = 'alliance', name = 'Bea', hpp = 20 }, { kind = 'alliance', name = 'Bo', slot = 7 },
+        { kind = 'alliance', name = 'Cy', slot = 12, in_zone = false } })
+    local st = status({ intent = { at = 990, action = 'Cure IV', target = 'Bo', behavior = 'heal', why = 'Bo' } })
+    render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
+    local cards = 23 + 2 * 64 + 8               -- title, two cards and the gap between them
+    local b, c = cards + 8 + 2, cards + 8 + 2 + 2 * 20 + 8 + 2  -- each party's first bar top: after a gap and a border
+    eq(frame.extent.Sidekick3, { 100 + 232, 50 + c + 20 + 4 })  -- the panel still fits its items exactly
+    eq(calls('AddRectFilled')[1].args[2][2], 50 + c + 20 + 4)
+    eq({ fill('B0 Bea'), fill('20%'), fill('B1 Bo'), fill('C0 Cy') }, { RED, RED, WHITE, AWAY })
+    eq(tipped('Bea (alliance)\nHP 20%  MP 100%  5.0y'), true)
+    local arrow = calls('AddTriangleFilled', 'background')
+    eq({ #arrow, arrow[1].args[1] }, { 2, { 100 + 232 + 1, 50 + b + 20 + 9 } })  -- one arrow (fill, bevel): Bo's row, its centre
+    eq(fill('Heal:Cure IV', 'background') ~= nil, true)
+end)
+
 test('the arrow points at the card the next action is for: yellow running, grey stopped, none idle', function ()
     render(settings.defaults(), status())
     local arrow = calls('AddTriangleFilled', 'background')[1].args
@@ -538,5 +555,7 @@ test('Heal the alliance writes heal.alliance; alliance chips write their slot; T
     eq(render(cfg, st, { ['B0##buff_Haste6'] = true }, model.build(g, cat, cfg, st, NAMES)), 1)
     eq(cfg.rows.Haste.targets, { [0] = true, [6] = true })
     eq(showed('B0 Bea  (in your alliance)'), true)
-    eq(fill('Bea'), nil)  -- no card in the HUD
+    eq(render(cfg, st, { ['Bea##sk3_heal_Bea'] = true }, model.build(g, cat, cfg, st, NAMES)), 1)  -- listed: heal.alliance is on
+    eq(cfg.heal.skip, { Bea = true })
+    eq({ fill('Bea'), fill('B0 Bea') }, { nil, WHITE })  -- no card in the HUD: a row
 end)

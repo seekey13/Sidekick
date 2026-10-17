@@ -17,7 +17,9 @@
     (in range; out of it, their HP and status as last seen), max_hp estimated
     from their /check level (else yours), and main, main_lv, sub, sub_lv once a
     /check has answered. A member (or alliance member) you also track has tracked = true.
-    The pet is { sid, tidx, name, hpp, dist, pos, status (1 engaged), buffs }.
+    The pet is { sid, tidx, name, hpp, dist, pos, status (1 engaged), buffs }; the
+    battle target `bt` { sid, tidx, name, hpp, dist, pos, mob, claimed }, `claimed`
+    when it's a mob another party of the alliance claimed (the client has no <bt>).
     `target` is your current target when it's another player: { tidx, sid, name }.
     Plus when your cast began (cast_at, while casting);
     what healing scores with: learned potency, the day and the weather;
@@ -45,6 +47,10 @@ local READY_DELAY = 0.5     -- a recast reading 0 is trusted only after this (se
 local SCH, STRATAGEMS = 20, 231
 local PC_FIRST, PC_LAST = 0x400, 0x6FF  -- players' entity indexes (the server's range for them)
 local RESCAN = 1            -- seconds between looks for a tracked player not where last seen
+local MOB_FIRST, MOB_LAST = 1, 0x3FF  -- mobs' and NPCs' entity indexes
+local MOB = 0x10            -- spawn flag
+local CLAIM_RANGE = 21      -- yalms: a mob the alliance claimed this close is your battle target...
+local CLAIM_SCAN = 0.5      -- ...looked for at most this often
 -- Stratagem charges by SCH level (CatsEyeXI, from v2): { level, charges, seconds per charge }.
 local STRATAGEM_TIERS = { { 75, 5, 48 }, { 65, 4, 60 }, { 50, 3, 80 }, { 30, 2, 120 }, { 10, 1, 240 } }
 
@@ -94,6 +100,7 @@ local last_combat = -math.huge
 local pet_sid  -- the live pet last seen: its statuses are forgotten once it's gone or dead
 local ready_since = {}  -- [recast key] = when its timer first read 0
 local rescan_at = -math.huge
+local claim = { at = -math.huge, tidx = nil }  -- the last look for an alliance-claimed mob
 local fed = {}  -- [sid] = true: last read's units whose statuses come from packets
 
 local function set_of(list)
@@ -238,7 +245,38 @@ local function battle_target(em)
     local actor = seek_bt()
     if actor == nil then return nil end  -- NULL pointer: no battle target
     local bt = entity(em, actor.GuideNo)
-    if bt then bt.mob = bit.band(em:GetSpawnFlags(bt.tidx), 0x10) ~= 0 end
+    if bt then bt.mob = bit.band(em:GetSpawnFlags(bt.tidx), MOB) ~= 0 end
+    return bt
+end
+
+-- The client's <bt> is only a mob your own party claimed: one another party of
+-- the alliance claimed has none, though you fight it too. Then, as v2 did, the
+-- nearest live mob in CLAIM_RANGE claimed by anyone in the alliance (`listed`,
+-- by server id), marked `claimed`: commands name it by server id, not <bt>.
+-- Claims are compared on their low word, in case ClaimStatus holds only that.
+-- ponytail: nearest wins; if multi-mob pulls pick the wrong one, prefer the tank's mob
+local function claimed_target(em, listed, now)
+    local claimers = {}
+    for sid in pairs(listed) do claimers[bit.band(sid, 0xFFFF)] = true end
+    local function fought(i)
+        local c = bit.band(em:GetClaimStatus(i), 0xFFFF)
+        return c ~= 0 and claimers[c] and em:GetHPPercent(i) > 0 and bit.band(em:GetSpawnFlags(i), MOB) ~= 0
+            and present(em, i)
+    end
+    if now - claim.at >= CLAIM_SCAN then
+        claim.at, claim.tidx = now, nil
+        local best = CLAIM_RANGE
+        for i = MOB_FIRST, MOB_LAST do
+            if fought(i) then
+                local d = math.sqrt(em:GetDistance(i))
+                if d <= best then best, claim.tidx = d, i end
+            end
+        end
+    elseif claim.tidx and not fought(claim.tidx) then
+        claim.tidx = nil  -- dead or gone since the last look
+    end
+    local bt = entity(em, claim.tidx)
+    if bt then bt.mob, bt.claimed = true, true end
     return bt
 end
 
@@ -350,7 +388,7 @@ function game.read(now)
     end
     for _, u in ipairs(allied) do units[#units + 1] = u end
 
-    local bt = battle_target(em)
+    local bt = battle_target(em) or allied[1] and claimed_target(em, listed, now) or nil
     if bt and bt.mob then last_combat = now end
     local is_moving = moving(em, me.tidx, now)  -- before moved_at is read
     local pet = entity(em, em:GetPetTargetIndex(me.tidx))
