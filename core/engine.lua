@@ -9,8 +9,9 @@
     While you rest, only resting runs: it alone decides when to stand.
     A buff held for the group to gather (behaviors/buff.lua) leaves mem.gather,
     which engine.gather turns into a party chat line.
-    Modifiers: an intent may list intent.mods (stratagems a buff row turned on),
-    and an Addendum spell you lack the Addendum for has action.via (Enlightenment).
+    Modifiers: an intent may list intent.mods (stratagems a buff row turned on,
+    Snake Eye before a Double-Up), and an Addendum spell you lack the Addendum
+    for has action.via (Enlightenment).
     One whose status isn't on you goes first, alone; its status is then taken as
     on you for EXPECT seconds, so the next decision sends the spell.
 ]]--
@@ -29,7 +30,8 @@ engine.BEHAVIORS = {
     { name = 'recover', run = require('behaviors.recover') },
     { name = 'pet', run = pet.care, quick = true },
     { name = 'revive', run = require('behaviors.revive') },
-    { name = 'buff', run = require('behaviors.buff') },
+    { name = 'roll', run = require('jobs.cor').want },
+    { name = 'buff', run = require('behaviors.buff').want },
     { name = 'pet_send', run = pet.send, setting = 'pet', quick = true },
     { name = 'follow', run = require('behaviors.follow').want },
     { name = 'rest', run = require('behaviors.rest'), resting = true },

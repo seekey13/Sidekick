@@ -107,11 +107,26 @@ end
 -- warned about once a session, as v2: the client won't take them.
 local warned_english = {}
 
+-- Each new Phantom Roll total, printed while the log is on (as v2, lucky and 11 called out).
+local rolled_at
+local function say_roll(g)
+    local r = g.roll
+    if not r or r.at == rolled_at then return end
+    rolled_at = r.at
+    for _, a in ipairs(status.log and cat.list or {}) do
+        if a.id == r.id and a.lucky then
+            local word = r.total == a.lucky and ': lucky!' or r.total == 11 and ': 11!' or r.total == a.unlucky and ': unlucky' or ''
+            printf('%s %d%s', a.name, r.total, word)
+        end
+    end
+end
+
 -- Decide on each fresh snapshot: to act when running and the server will take a
 -- command, and while the window is open, to show what it would do. A decision
 -- that isn't sent changes nothing (revive marks a raise only through intent.sent).
 local function tick(g)
     if g.loading then return end
+    say_roll(g)
     local act = status.running and engine.ready(g, mem)
     if not (act or status.open) then return end
     local intent, why = engine.decide(g, cat.list, cfg, mem)

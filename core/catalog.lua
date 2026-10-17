@@ -92,7 +92,7 @@ function catalog.build(res, player, K)
         for _, use in ipairs(uses(K, row.en, family, kind)) do
             if not (use.main_only and from == 'sub') then
                 local status = use.status
-                if status == nil and (use.role == 'buff' or use.role == 'modifier' or use.boost) then
+                if status == nil and (use.role == 'buff' or use.role == 'modifier' or use.lucky or use.boost) then
                     status = idx[row.en:lower()] or idx[family:lower()]
                 end
                 out[#out + 1] = {
@@ -113,6 +113,7 @@ function catalog.build(res, player, K)
                     costs_hp = use.costs_hp, swaps = use.swaps, spends_tp = use.spends_tp,
                     ammo = use.ammo, pet_range = use.pet_range,
                     applies = use.applies, spreads = use.spreads, chip = use.chip, addendum = addendum or nil,
+                    lucky = use.lucky, unlucky = use.unlucky,
                     priority = use.priority or 0, pet = use.pet, travel = use.travel, mob_skill = use.mob_skill,
                     mp = row.mp, tp = row.tp,  -- the client blocks casts by this cost, so it is the one to trust
                     recast = kind == 'ma' and id or row.recast_id,  -- spell id, or ability recast timer id

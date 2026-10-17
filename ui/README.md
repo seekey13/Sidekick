@@ -53,6 +53,7 @@ Text that may contain `%` (names, `why` text) must be escaped before it's drawn:
 | `pet_heal` | number | Heal your pet under this HP % |
 | `follow` | table | `{ on, target, distance, names }`: follow `target` (a name, `''` for none) once further than `distance` yalms; `names` are the members (the alliance's and tracked players too) that can be followed |
 | `buff` | table | `{ hold_aoe, gather }`: `hold_aoe` holds an area buff spell (Protectra, songs) while a player in your party who lacks it is out of its reach; `gather` then asks them to gather in party chat, at most every 5 seconds, when someone near you lacks it too |
+| `roll` | table | Corsair's rolls: `{ first, second, risk, risks, two, choices, last }`. `first` and `second` are the rolls kept up, by name (`''` for none); `two` is true on a Corsair main job, the only one that keeps a second. `risk` is how far Double-Up chases a total, one of `risks`: `'lowest'`, `'medium'`, `'highest'`. `choices` lists every roll you have, by name: `{ name, label, lucky, unlucky }`, as `{ 'Corsair\'s Roll', 'Corsair\'s Roll (EXP+)', 5, 9 }`. `last` is the last roll's total when it's one of them: `{ name, total, lucky, unlucky }`, else nil |
 | `rest` | table | `{ on, delay, distance }`: rest after `delay` seconds with nothing to do; stand when the follow target is further than `distance` yalms |
 | `track` | table | `{ target }`: your current target's name when it's a player you could track (not in your party or alliance, not tracked yet), else nil |
 | `japanese` | bool | Spell, ability and item names are sent in Japanese. Shared by every job pair: it's kept in `ui`'s file (`ui.japanese`) |
@@ -95,7 +96,7 @@ Text that may contain `%` (names, `why` text) must be escaped before it's drawn:
 
 ### `view.sections[i]`
 
-In this order. A section with rows is left out when your job has none for it (Pet shows only for a pet job), and Wake sleepers only shows when one of your heals wakes (a cure or waltz; not a pet's).
+In this order. A section with rows is left out when your job has none for it (Pet shows only for a pet job), Wake sleepers only shows when one of your heals wakes (a cure or waltz; not a pet's), and Rolls only when you have a roll (Corsair).
 
 | `id` | `title` | `header` | Its settings |
 |---|---|---|---|
@@ -106,6 +107,7 @@ In this order. A section with rows is left out when your job has none for it (Pe
 | `'wake'` | Wake sleepers | Remove | its switch only |
 | `'remove'` | Debuff removal | Remove | rows: spells and abilities, then items |
 | `'buff'` | Buffs | Buff | `view.buff`, rows |
+| `'roll'` | Rolls | Buff | `view.roll` (a job with rolls only) |
 | `'pet'` | Pet | Pet | `view.pet_heal`, rows |
 | `'recover'` | Recovery | Recover | `view.recover`, rows |
 | `'rest'` | Resting | Recover | `view.rest` |
@@ -143,7 +145,7 @@ In this order. A section with rows is left out when your job has none for it (Pe
 | `act.run(on)` | Automation on or off. This session only: it is always off after a load |
 | `act.log(on)` | Print each action sent to chat, or not. This session only |
 | `act.close()` | Hide the UI (remembered); `/sk3` shows it again |
-| `act.section(id, on)` | A section's switch: `'follow'`, `'heal'`, `'revive'`, `'wake'`, `'remove'`, `'buff'`, `'pet'`, `'recover'` or `'rest'` |
+| `act.section(id, on)` | A section's switch: `'follow'`, `'heal'`, `'revive'`, `'wake'`, `'remove'`, `'buff'`, `'roll'`, `'pet'`, `'recover'` or `'rest'` |
 | `act.row(key, on)` | A row on or off |
 | `act.pick(key, name)` | A row's choice: a `choices[i].name`, or nil for Auto |
 | `act.target(key, slot)` | Turn a target chip on or off: its `slot`, 0 to 17 or a tracked player's name |
@@ -169,6 +171,8 @@ In this order. A section with rows is left out when your job has none for it (Pe
 | `'recover.tp'`, `'recover.min_tp'` | 0 to 3000 |
 | `'follow.on'`, `'rest.on'`, `'heal.alliance'`, `'heal.reserve'`, `'buff.hold_aoe'`, `'buff.gather'` | bool |
 | `'follow.target'` | a name from `view.follow.names`, or `''` |
+| `'roll.first'`, `'roll.second'` | a name from `view.roll.choices`, or `''` |
+| `'roll.risk'` | one of `view.roll.risks` |
 | `'follow.distance'`, `'rest.distance'` | 1 to 15 |
 | `'rest.delay'` | 1 to 20 |
 | `'japanese'` | bool |

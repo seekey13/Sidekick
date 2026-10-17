@@ -7,8 +7,9 @@
 
     For every job at level 75 (all spells and abilities known) each v2 entry in a
     generic category must appear in the catalog with the same role, and agree on
-    status, removes, potency, gates, level and MP. Job-mechanic categories (rolls,
-    runes, maneuvers, geo, precast) belong to job modules and are not checked here.
+    status, removes, potency, gates, level and MP; rolls on their lucky and unlucky
+    totals too. The other job-mechanic categories (runes, maneuvers, geo, precast)
+    belong to job modules and are not checked here.
 ]]--
 
 local sk3 = arg[0]:gsub('[\\/]tools[\\/]parity%.lua$', '')
@@ -27,7 +28,7 @@ local ROLE = {
     heal = 'heal', heal_aoe = 'heal', heal_pet = 'pet_heal', debuff_removal = 'remove',
     pet_debuff_removal = 'pet_remove', critical = 'emergency', revive = 'revive',
     recover_mp = 'recover', recover_tp = 'recover', recover_party_mp = 'recover', buff = 'buff',
-    pet_control = 'pet_send',
+    pet_control = 'pet_send', roll = 'roll', roll_control = 'roll',
 }
 -- v2 entries a v3 job module owns instead of the generic role.
 local MODULE_OWNED = {
@@ -42,6 +43,7 @@ local ACCEPTED = {
     ['paladin|Raise|EXTRA'] = 'PLD learns Raise at 50; v2 never offered it',
     ['scholar|Accession|MISSING'] = 'v2 paired it with cures in heal_aoe; v3 lists it as an emergency boost',
     ['scholar|Accession|EXTRA'] = 'same ability, as a healing boost',
+    ['corsair|Snake Eye|MISSING'] = 'a modifier fired before a Double-Up (jobs/cor.lua)',
     -- v2 sent the pet at <t> by default (<bt> by option); v3 always at the battle target.
     ['beastmaster|Fight|enemy'] = 'sent at <bt>',
     ['puppetmaster|Deploy|enemy'] = 'sent at <bt>',
@@ -122,6 +124,8 @@ for _, job in ipairs(jobs) do
                     -- v2 read value only for single-target heals; v3's area priors are new.
                     if role == 'heal' and e.value then cmp('potency', e.value, a.potency) end
                     cmp('wakes', e.wakes == true or nil, a.wakes)
+                    cmp('lucky', e.lucky, a.lucky)
+                    cmp('unlucky', e.unlucky, a.unlucky)
                     cmp('blocked_by', list(e.blocked_by), list(a.blocked_by))
                     cmp('requires', list(e.requires_buff), list(a.requires))
                     cmp('priority', e.priority or 0, a.priority)
