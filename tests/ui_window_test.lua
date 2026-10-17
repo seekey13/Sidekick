@@ -14,16 +14,18 @@ end
 
 -- Openers and their closers. Every opener reports open (so every body draws)
 -- unless a test sets frame.clicks[opener] = false; Begin and Push* need their
--- closer either way.
+-- closer either way. Style vars are counted apart: ImGui lets them be pushed
+-- before a Begin and popped straight after it. Tabs and popups are for custom UIs.
 local CLOSER = {
     Begin = 'End', BeginTable = 'EndTable', BeginCombo = 'EndCombo', BeginTabBar = 'EndTabBar',
     BeginTabItem = 'EndTabItem', BeginPopupContextItem = 'EndPopup', BeginPopupContextWindow = 'EndPopup',
     PushStyleColor = 'PopStyleColor', PushItemWidth = 'PopItemWidth',
 }
 local ALWAYS = { Begin = true, PushStyleColor = true, PushItemWidth = true }
-local IDS = { Checkbox = true, Button = true, SliderInt = true, BeginCombo = true, CollapsingHeader = true, BeginTabItem = true }
+local IDS = { Checkbox = true, Button = true, InvisibleButton = true, SliderInt = true, BeginCombo = true,
+              CollapsingHeader = true, BeginTabItem = true }
 
-local frame  -- { stack, texts, ids, clicks, edited }
+local frame  -- { stack, vars, texts, ids, args, flags, columns, headers, drawn, window, cursor, extent, clicks, edited }
 
 local function pop(closer)
     local top = table.remove(frame.stack)
@@ -37,13 +39,67 @@ local function shown(fmt)
     frame.texts[#frame.texts + 1] = fmt:gsub('%%%%', '%%')
 end
 
+local function point(p, what)
+    assert(type(p) == 'table' and type(p[1]) == 'number' and type(p[2]) == 'number', what .. ': must be { x, y }')
+end
+
+-- The arguments of each draw-list call that are points.
+local POINTS = { AddRectFilled = { 1, 2 }, AddRect = { 1, 2 }, AddRectFilledMultiColor = { 1, 2 }, AddLine = { 1, 2 },
+                 AddCircleFilled = { 1 }, AddCircle = { 1 }, AddTriangleFilled = { 1, 2, 3 }, AddTriangle = { 1, 2, 3 } }
+
+-- A draw list records each call as { list, name, args }. Its text is drawn as is,
+-- AddText(pos, col, s) or AddText(font, size, pos, col, s).
+local function draw_list(list)
+    return setmetatable({}, { __index = function (_, name)
+        return function (_, ...)
+            local args = { ... }
+            for _, i in ipairs(POINTS[name] or {}) do point(args[i], name) end
+            if name == 'AddText' then
+                local at = type(args[1]) == 'table' and 1 or 3
+                point(args[at], name)
+                assert(type(args[at + 2]) == 'string', 'AddText: text must be a string')
+            end
+            frame.drawn[#frame.drawn + 1] = { list = list, name = name, args = args }
+        end
+    end })
+end
+
+-- Items placed with SetCursorScreenPos widen the window's content to their far corner.
+local function placed(size, what)
+    point(size, what)
+    assert(size[1] >= 0 and size[2] >= 0, what .. ': negative size')
+    if not frame.cursor then return end
+    local e = frame.extent[frame.window] or { -math.huge, -math.huge }
+    frame.extent[frame.window] = { math.max(e[1], frame.cursor[1] + size[1]), math.max(e[2], frame.cursor[2] + size[2]) }
+end
+local WINDOW_LIST, BACKGROUND_LIST = draw_list('window'), draw_list('background')
+
 local handlers = {
     Text = function (fmt) shown(fmt) end,
     TextColored = function (color, fmt) assert(#color == 4); shown(fmt) end,
     SetTooltip = function (fmt) shown(fmt) end,
     IsItemHovered = function () return true end,
     CalcTextSize = function (s) return #s * 7, 13 end,
-    ProgressBar = function (f) assert(f >= 0 and f <= 1) end,
+    GetFontSize = function () return 13 end,
+    GetFont = function () return 'font' end,
+    GetCursorScreenPos = function () return 100, 50 end,
+    GetColorU32 = function (c) assert(#c == 4); return c end,  -- so tests can compare colours
+    GetWindowDrawList = function () return WINDOW_LIST end,
+    GetBackgroundDrawList = function () return BACKGROUND_LIST end,
+    PushStyleVar = function (var, v)
+        if var == ImGuiStyleVar_WindowPadding then point(v, 'WindowPadding') end
+        if var == ImGuiStyleVar_WindowBorderSize then assert(type(v) == 'number', 'WindowBorderSize: must be a number') end
+        frame.vars = frame.vars + 1
+    end,
+    SetCursorScreenPos = function (p)
+        point(p, 'SetCursorScreenPos')
+        frame.cursor = p
+    end,
+    Dummy = function (size) placed(size, 'Dummy') end,
+    PopStyleVar = function (n)
+        frame.vars = frame.vars - (n or 1)
+        assert(frame.vars >= 0, 'PopStyleVar with none pushed')
+    end,
     PopStyleColor = function (n) for _ = 1, n or 1 do pop('PopStyleColor') end end,
     Checkbox = function (label, v)
         assert(type(v) == 'table' and type(v[1]) == 'boolean', label .. ': value must be { bool }')
@@ -52,6 +108,11 @@ local handlers = {
         return true
     end,
     Button = function (label) return frame.clicks[label] == true end,
+    InvisibleButton = function (label, size)
+        placed(size, label)
+        assert(size[1] > 0 and size[2] > 0, label .. ': ImGui asserts on a zero size')
+        return frame.clicks[label] == true
+    end,
     Selectable = function (label) return frame.clicks[label] == true end,
     SliderInt = function (label, v, min, max)
         assert(type(v) == 'table' and v[1] >= min and v[1] <= max, label .. ': value must be { n } in range')
@@ -66,8 +127,8 @@ local handlers = {
     end,
 }
 
--- frame.args[name] lists each call's label; frame.clicks.popup, when set, is the
--- one popup open this frame (else all are).
+-- frame.args[name] lists each call's label. clicks.close = a window's label
+-- clicks that window's close button.
 local imgui = setmetatable({}, { __index = function (_, name)
     return function (...)
         local label = ...
@@ -82,16 +143,20 @@ local imgui = setmetatable({}, { __index = function (_, name)
         end
         if CLOSER[name] then
             local open = frame.clicks[name] ~= false
-            if name:match('^BeginPopup') and frame.clicks.popup then open = frame.clicks.popup == label end
             if open or ALWAYS[name] then table.insert(frame.stack, CLOSER[name]) end
             if name == 'Begin' then
-                frame.flags = select(3, ...)
-                if frame.clicks.close then select(2, ...)[1] = false end
+                frame.window, frame.cursor = label, nil
+                local p_open
+                p_open, frame.flags[label] = select(2, ...)
+                if frame.clicks.close == label and type(p_open) == 'table' then p_open[1] = false end
+            elseif name == 'BeginTable' then
+                frame.columns[label] = select(2, ...)
             end
             return open
         elseif name:match('^End') or name == 'PopItemWidth' then
             pop(name)
         elseif name == 'CollapsingHeader' then
+            frame.headers[label] = select(2, ...) or 0
             return frame.clicks[label] ~= false
         elseif handlers[name] then
             return handlers[name](...)
@@ -120,14 +185,28 @@ local function snap()
     }, { bt = { name = 'Crab', hpp = 50, dist = 4.3 }, pet = { name = 'Carbuncle', hpp = 100, dist = 2 }, combat = true })
 end
 
+local function has(list, x)
+    for _, v in ipairs(list or {}) do if v == x then return true end end
+    return false
+end
+
+-- The last frame began this window.
+local function begun(label) return has(frame.args.Begin, label) end
+
+-- SK Settings stays open between frames, as in game; this follows it.
+local settings_shown = false
+
 -- One frame of `ui`; returns the Lua error it raised, if any, and the number of
 -- settings writes. `view` defaults to the model's.
 local function draw(ui, cfg, st, clicks, view)
-    frame = { stack = {}, texts = {}, ids = {}, args = {}, clicks = clicks or {} }
+    frame = { stack = {}, vars = 0, texts = {}, ids = {}, args = {}, flags = {}, columns = {}, headers = {},
+              drawn = {}, extent = {}, clicks = clicks or {} }
     local writes = 0
     local act = model.actions(cfg, st, function () writes = writes + 1 end)
     local ok, err = pcall(ui.render, view or model.build(snap(), cat, cfg, st, NAMES), act)
     eq(frame.stack, {}, 'every ImGui scope closed')
+    eq(frame.vars, 0, 'every style var popped')
+    settings_shown = begun('SK Settings') and frame.clicks.close ~= 'SK Settings'
     return not ok and err or nil, writes
 end
 
@@ -138,25 +217,195 @@ local function render(cfg, st, clicks, view)
     return writes
 end
 
-local function showed(s)
-    for _, t in ipairs(frame.texts) do if t == s then return true end end
+-- SK Settings, opened through the HUD's cog (or closed with its X) unless it already is.
+local function open_settings()
+    if not settings_shown then render(settings.defaults(), status(), { ['##sk3_cog'] = true }) end
+    assert(settings_shown, 'SK Settings open')
+end
+
+local function close_settings()
+    if settings_shown then render(settings.defaults(), status(), { close = 'SK Settings' }) end
+    assert(not settings_shown, 'SK Settings closed')
+end
+
+local function showed(s) return has(frame.texts, s) end
+
+-- Some tooltip or text holds `s`.
+local function tipped(s)
+    for _, t in ipairs(frame.texts) do if t:find(s, 1, true) then return true end end
     return false
 end
 
-test('draws the whole window in each display mode and size, every scope closed', function ()
-    for _, display in ipairs({ 'headers', 'tabs', 'groups' }) do
-        for _, size in ipairs({ 'auto', 'custom' }) do
-            local cfg = settings.defaults()
-            cfg.ui.display, cfg.ui.size = display, size
-            eq(render(cfg, status()), 0)
-            eq({ showed('WHM 75 / BLM 37'), showed('would: Cure IV -> A (heal: A at 62%)'), showed('ready') }, { true, true, true })
-        end
+-- The draw calls named `name` on `list` ('window' when nil).
+local function calls(name, list)
+    local out = {}
+    for _, d in ipairs(frame.drawn) do
+        if d.name == name and d.list == (list or 'window') then out[#out + 1] = d end
     end
-    eq(render(settings.defaults(), status({ running = true, intent = false, why = 'casting' })), 0)
-    eq({ showed('Running'), showed('Cure IV -> A (heal: A at 62%)'), showed('casting') }, { true, true, true })
+    return out
+end
+
+-- The colour `s` was last drawn in: its fill, drawn after its outline.
+local function fill(s, list)
+    local color
+    for _, d in ipairs(calls('AddText', list)) do
+        if d.args[5] == s then color = d.args[4] end
+    end
+    return color
+end
+
+local function rgb(r, g, b) return { r / 255, g / 255, b / 255, 1 } end
+local WHITE, RED, AWAY = rgb(0xFF, 0xFF, 0xFF), rgb(0xF0, 0x7A, 0x7A), rgb(0xA0, 0xA0, 0xA0)
+
+-- The HUD ---------------------------------------------------------------------------
+
+test('the HUD draws running and stopped; SK Settings only once the cog opens it, until its X', function ()
+    close_settings()
+    for _, running in ipairs({ true, false }) do  -- stopped last, for its tooltip
+        eq(render(settings.defaults(), status({ running = running })), 0)
+        eq({ begun('Sidekick3'), begun('SK Settings') }, { true, false })
+    end
+    eq(tipped('WHM 75 / BLM 37\nStopped: would: Cure IV -> A (heal: A at 62%)\n[combat]\nTarget: Crab  50%  4.3y'), true)
+    eq(render(settings.defaults(), status(), { ['##sk3_cog'] = true }), 0)
+    eq({ begun('SK Settings'), showed('ready') }, { true, true })
+    render(settings.defaults(), status({ running = true, intent = false, why = 'casting' }))
+    eq({ begun('SK Settings'), tipped('Running: Cure IV -> A (heal: A at 62%)\n(casting)') }, { true, true })
+    eq(render(settings.defaults(), status(), { close = 'SK Settings' }), 0)
+    render(settings.defaults(), status())
+    eq(begun('SK Settings'), false)
+    open_settings()
+    render(settings.defaults(), status(), { ['##sk3_cog'] = true })  -- the cog closes it too
+    eq(begun('SK Settings'), false)
 end)
 
-test('a row, its pick and its targets, and a section switch, each write and save', function ()
+test('a card per member: name, HP %, tag and MP % drawn as is, the rest in its tooltip', function ()
+    render(settings.defaults(), status())
+    for _, s in ipairs({ 'Sidekick3', 'Me', 'A', 'B', '62%', '100%', 'ME', 'P1', 'P2' }) do eq(fill(s) ~= nil, true, s) end
+    eq(tipped('A\nHP 62%  MP 100%  5.0y\nProtect\nShell'), true)
+    eq(tipped('B (trust, away)\nHP 100%  MP 100%'), true)
+end)
+
+test('the panel and bars follow the UI settings', function ()
+    local cfg = settings.defaults()
+    cfg.ui.hp_width, cfg.ui.opacity = 300, 50
+    render(cfg, status())
+    local panel = calls('AddRectFilled')[1].args
+    eq({ panel[1], panel[2][1], panel[3] }, { { 100, 50 }, 100 + 2 * 4 + 2 * 2 + 300, { 0x60 / 255, 0x60 / 255, 0x60 / 255, 0.5 } })
+    local hp = calls('AddRectFilledMultiColor')[3].args  -- A's HP: 62% of 300
+    eq({ hp[1], hp[2] }, { { 106, 50 + 23 + 64 + 8 + 2 }, { 106 + 186, 50 + 23 + 64 + 8 + 2 + 40 } })
+    cfg.ui.hp_width, cfg.ui.mp_width, cfg.ui.text_size = 80, 80, 48  -- big text on short bars: the title row still fits
+    render(cfg, status())
+    eq(calls('AddRectFilled')[1].args[2][1], 100 + math.ceil(8 + 9 * 7 * 48 / 13 + 8 + 3 * 60 + 2 * 4 + 6))
+end)
+
+test('the HUD\'s items reach exactly the panel\'s far corner, so its auto-size fits the panel', function ()
+    render(settings.defaults(), status())
+    eq(frame.extent.Sidekick3, calls('AddRectFilled')[1].args[2])
+    eq(frame.extent.Sidekick3, { 100 + 232, 50 + 23 + 3 * 64 + 2 * 8 + 4 })
+end)
+
+test('sizes out of their sliders\' range, set by hand or by a custom UI, are held to it', function ()
+    close_settings()  -- its sliders would show the values as they are
+    local cfg = settings.defaults()
+    cfg.ui.text_size, cfg.ui.hp_width, cfg.ui.opacity = 0, 5000, -20  -- a zero text size would make zero-size icons
+    render(cfg, status())
+    local panel = calls('AddRectFilled')[1].args
+    eq({ panel[2][1], panel[3][4] }, { 100 + 2 * 4 + 2 * 2 + 600, 0 })
+end)
+
+test('critical HP turns the name and HP % red, MP under the Recover line the tag and MP %', function ()
+    local cfg, st = settings.defaults(), status()
+    local g = fake.snap({
+        { name = 'A', hpp = 20, mpp = 10 },
+        { name = 'W', hpp = 90, mpp = 0, uses_mp = false },  -- no MP to recover
+        { name = 'Gone', hpp = 25, in_zone = false },
+    })
+    render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
+    eq({ fill('A'), fill('20%'), fill('P1'), fill('10%') }, { RED, RED, RED, RED })
+    eq({ fill('W'), fill('90%'), fill('P2'), fill('0%') }, { WHITE, WHITE, WHITE, WHITE })
+    eq({ fill('Me'), fill('ME') }, { WHITE, WHITE })
+    eq({ fill('Gone'), fill('P3') }, { AWAY, AWAY })
+end)
+
+test('the arrow points at the card the next action is for: yellow running, grey stopped, none idle', function ()
+    render(settings.defaults(), status())
+    local arrow = calls('AddTriangleFilled', 'background')[1].args
+    eq({ arrow[1], arrow[4] }, { { 100 + 232 + 1, 50 + 23 + 72 + 32 }, rgb(0xB4, 0xB4, 0xB4) })  -- A's card, its centre
+    eq(fill('Heal:Cure IV', 'background'), rgb(0xD0, 0xD0, 0xD0))
+    render(settings.defaults(), status({ running = true }))
+    eq(calls('AddTriangleFilled', 'background')[1].args[4], rgb(0xFF, 0xE5, 0x45))
+    eq(fill('Heal:Cure IV', 'background'), WHITE)
+    render(settings.defaults(), status({ intent = false }))
+    eq(#calls('AddTriangleFilled', 'background'), 0)
+end)
+
+test('the run icon starts and stops automation, for this session only', function ()
+    local cfg, st = settings.defaults(), status()
+    eq(render(cfg, st, { ['##sk3_run'] = true }), 0)
+    eq(st.running, true)
+    eq(render(cfg, st, { ['##sk3_run'] = true }), 0)
+    eq(st.running, false)
+    eq(cfg, settings.defaults())
+end)
+
+test('the close icon closes the HUD, remembers it, and hides SK Settings', function ()
+    open_settings()
+    local cfg, st = settings.defaults(), status()
+    cfg.ui.open = true
+    eq(render(cfg, st, { ['##sk3_close'] = true }), 1)
+    eq({ st.open, cfg.ui.open, begun('SK Settings') }, { false, false, false })
+    render(cfg, st)
+    eq(begun('SK Settings'), false)
+end)
+
+test('hidden, only the windows are begun and ended', function ()
+    open_settings()
+    eq(render(settings.defaults(), status(), { Begin = false }), 0)
+    eq({ #frame.texts, #frame.drawn, begun('SK Settings') }, { 0, 0, true })
+end)
+
+test('a Lua error while drawing still ends both windows, then is raised', function ()
+    open_settings()
+    local cfg, st = settings.defaults(), status()
+    local view = model.build(snap(), cat, cfg, st, NAMES)
+    view.recent = nil  -- in SK Settings
+    eq(type(draw(window, cfg, st, nil, view)), 'string')
+    view = model.build(snap(), cat, cfg, st, NAMES)
+    view.party = nil  -- in the HUD
+    eq(type(draw(window, cfg, st, nil, view)), 'string')
+end)
+
+-- SK Settings -----------------------------------------------------------------------
+
+-- SK Settings' headers for `cfg` (and `in_cat` in place of the catalog).
+local function headers(cfg, in_cat)
+    open_settings()
+    local st = status()
+    render(cfg, st, nil, in_cat and model.build(snap(), in_cat, cfg, st, NAMES))
+    return frame.args.CollapsingHeader
+end
+
+test('a header for each group of sections, in order, closed at first; all its switches off, it says so', function ()
+    local cfg = settings.defaults()
+    cfg.buff.on = false
+    eq(headers(cfg), { 'Follow (off)###sk3_Follow', 'Heal###sk3_Heal', 'Remove###sk3_Remove', 'Buff (off)###sk3_Buff',
+        'Recover###sk3_Recover', 'UI / Log###sk3_UI / Log' })
+    for _, flags in pairs(frame.headers) do eq(flags, 0) end
+    eq(headers(settings.defaults(), fake.catalog(18, 75, nil, 0, { 'Repair', 'Deploy' })),  -- PUP
+        { 'Follow (off)###sk3_Follow', 'Remove###sk3_Remove', 'Pet###sk3_Pet', 'Recover (off)###sk3_Recover',
+          'UI / Log###sk3_UI / Log' })
+end)
+
+test('section switches write: Buffs, Follow, Wake sleepers, Resting', function ()
+    open_settings()
+    local cfg, st = settings.defaults(), status()
+    eq(render(cfg, st, { ['Buffs##sk3_on_buff'] = true, ['Follow##sk3_on_follow'] = true,
+        ['Wake sleepers##sk3_on_wake'] = true, ['Resting##sk3_on_rest'] = true }), 4)
+    eq({ cfg.buff.on, cfg.follow.on, cfg.wake.on, cfg.rest.on }, { false, true, false, true })
+end)
+
+test('a row, its pick and its targets each write and save', function ()
+    open_settings()
     local cfg, st = settings.defaults(), status()
     eq(render(cfg, st, { ['Protect##buff_Protect'] = true }), 1)
     eq(cfg.rows.Protect, { on = true })
@@ -166,15 +415,22 @@ test('a row, its pick and its targets, and a section switch, each write and save
     eq(cfg.rows.Protect.targets, { [0] = true, [1] = true })
     eq(render(cfg, st, { ['P4##buff_Protect4'] = true }), 0)  -- empty slot
     eq(cfg.rows.Protect.targets, { [0] = true, [1] = true })
-    eq(render(cfg, st, { ['##sk3_on_buff'] = true }), 1)
-    eq(cfg.buff.on, false)
     eq(render(cfg, st, { ['Cure##heal_Cure'] = true }), 1)
     eq(cfg.rows.Cure, { on = false })
     eq(render(cfg, st, { ['Echo Drops (0)###remove_Echo Drops'] = true }), 1)  -- an item, with how many you carry
     eq(cfg.rows['Echo Drops'], { on = true })
 end)
 
+test('items get a table of their own, with no empty pick or target columns', function ()
+    open_settings()
+    render(settings.defaults(), status())
+    eq({ frame.columns['##sk3_rows_remove'], frame.columns['##sk3_rows_remove_items'], frame.columns['##sk3_rows_buff'] },
+       { 2, 2, 4 })
+    eq(showed('Items'), true)
+end)
+
 test('sliders, the focus and the options write the settings', function ()
+    open_settings()
     local cfg, st = settings.defaults(), status()
     eq(render(cfg, st, { ['Danger under##sk3_danger'] = 60 }), 1)
     eq(cfg.heal.danger, 60)
@@ -188,23 +444,26 @@ test('sliders, the focus and the options write the settings', function ()
     eq(cfg.heal.focus_danger, 65)
 end)
 
-test('wake, recovery, pet, follow and rest settings write through act', function ()
+test('recovery, pet, follow and rest settings write through act', function ()
+    open_settings()
     local cfg, st = settings.defaults(), status()
-    eq(render(cfg, st, { ['Wake sleepers##sk3_wake'] = true }), 1)
-    eq(cfg.wake.on, false)
     eq(render(cfg, st, { ['MP under##sk3_recover_mp'] = 40, ['TP under##sk3_recover_tp'] = 1500 }), 2)
     eq({ cfg.recover.mp, cfg.recover.tp }, { 40, 1500 })
     eq(render(cfg, st, { ['Spend TP from##sk3_recover_min_tp'] = 1500 }), 0)  -- no Chivalry here
     local pld = model.build(snap(), fake.catalog(7, 75, nil, 0, { 'Chivalry' }), cfg, st, NAMES)
     eq(render(cfg, st, { ['Spend TP from##sk3_recover_min_tp'] = 1500 }, pld), 1)
     eq(cfg.recover.min_tp, 1500)
-    eq(render(cfg, st, { ['Follow##sk3_follow'] = true, ['A##sk3_follow_target_A'] = true }), 2)
-    eq({ cfg.follow.on, cfg.follow.target, cfg.heal.focus }, { true, 'A', '' })
-    eq(render(cfg, st, { ['Rest##sk3_rest'] = true, ['Rest after##sk3_rest_delay'] = 8 }), 2)
-    eq({ cfg.rest.on, cfg.rest.delay }, { true, 8 })
+    local pup = model.build(snap(), fake.catalog(18, 75, nil, 0, { 'Repair', 'Deploy' }), cfg, st, NAMES)
+    eq(render(cfg, st, { ['Pet HP under##sk3_pet_heal'] = 70 }, pup), 1)
+    eq(cfg.pet.heal, 70)
+    eq(render(cfg, st, { ['A##sk3_follow_target_A'] = true, ['Follow past##sk3_follow_distance'] = 9 }), 2)
+    eq({ cfg.follow.target, cfg.follow.distance, cfg.heal.focus }, { 'A', 9, '' })
+    eq(render(cfg, st, { ['Rest after##sk3_rest_delay'] = 8, ['Stand past##sk3_rest_distance'] = 12 }), 2)
+    eq({ cfg.rest.delay, cfg.rest.distance }, { 8, 12 })
 end)
 
 test('a member unticked under Heal is skipped by healing', function ()
+    open_settings()
     local cfg, st = settings.defaults(), status()
     eq(render(cfg, st, { ['A##sk3_heal_A'] = true }), 1)
     eq(cfg.heal.skip, { A = true })
@@ -212,108 +471,36 @@ test('a member unticked under Heal is skipped by healing', function ()
     eq(cfg.heal.skip, {})
 end)
 
-test('Start/Stop and the action log change the session, not the settings', function ()
+test('UI / Log: the sliders size the HUD, Lock position keeps it still', function ()
+    open_settings()
     local cfg, st = settings.defaults(), status()
-    eq(render(cfg, st, { ['Start##sk3_run'] = true, ['Action log##sk3_log'] = true }), 0)
-    eq({ st.running, st.log }, { true, false })
-    eq(cfg, settings.defaults())
-end)
-
-test('the close button closes the window and remembers it', function ()
-    local cfg, st = settings.defaults(), status()
-    cfg.ui.open = true
-    eq(render(cfg, st, { close = true }), 1)
-    eq({ st.open, cfg.ui.open }, { false, false })
-end)
-
-test('collapsed, only the window is begun and ended', function ()
-    eq(render(settings.defaults(), status(), { Begin = false }), 0)
-    eq(#frame.texts, 0)
-end)
-
-test('a Lua error while drawing still ends the window, then is raised', function ()
-    local cfg, st = settings.defaults(), status()
-    local view = model.build(snap(), cat, cfg, st, NAMES)
-    view.recent = nil
-    eq(type(draw(window, cfg, st, nil, view)), 'string')
-end)
-
--- One frame in `display` with Buffs switched off; `in_cat` replaces the catalog.
-local function layout(display, clicks, in_cat)
-    local cfg, st = settings.defaults(), status()
-    cfg.ui.display = display
-    cfg.buff.on = false
-    render(cfg, st, clicks, in_cat and model.build(snap(), in_cat, cfg, st, NAMES))
-    return frame.args, cfg
-end
-
-test('headers: a collapsing header per section, no tab bar', function ()
-    local args = layout('headers')
-    eq(args.CollapsingHeader, { 'Party###sk3_party', 'Recent actions (1)###sk3_recent', 'Healing###sk3_heal',
-        'Debuffs###sk3_remove', 'Buffs###sk3_buff', 'Raise###sk3_revive', 'Recovery###sk3_recover',
-        'Follow & rest###sk3_move', 'Options###sk3_options' })
-    eq(args.BeginTabBar, nil)
-end)
-
-test('tabs: one tab bar of every section; a switched-off one says so, its switch atop it', function ()
-    local args = layout('tabs')
-    eq(args.BeginTabBar, { '##sk3_tabs' })
-    eq(args.BeginTabItem, { 'Healing###sk3_tab_heal', 'Debuffs###sk3_tab_remove', 'Buffs (off)###sk3_tab_buff',
-        'Raise###sk3_tab_revive', 'Recovery###sk3_tab_recover', 'Follow & rest###sk3_tab_move', 'Options###sk3_tab_options' })
-    eq(args.CollapsingHeader, { 'Party###sk3_party', 'Recent actions (1)###sk3_recent' })
-    local _, cfg = layout('tabs', { ['Buffs##sk3_on_buff'] = true })
-    eq(cfg.buff.on, true)
-end)
-
-local function page_buttons(args)
-    local out = {}
-    for _, label in ipairs(args.Selectable) do
-        if label:match('##sk3_page$') then out[#out + 1] = label end
-    end
-    return out
-end
-
-test('groups: a row of pages, then the page\'s tab bar; empty pages are hidden', function ()
-    local args = layout('groups')
-    eq(page_buttons(args), { 'Healing##sk3_page', 'Support##sk3_page', 'Utility##sk3_page' })
-    eq(args.BeginTabBar, { '##sk3_tabs_Healing' })
-    eq(args.BeginTabItem, { 'Healing###sk3_tab_heal' })
-    args = layout('groups', { ['Support##sk3_page'] = true })
-    eq(args.BeginTabBar, { '##sk3_tabs_Support' })
-    eq(args.BeginTabItem, { 'Debuffs###sk3_tab_remove', 'Buffs (off)###sk3_tab_buff', 'Raise###sk3_tab_revive',
-        'Recovery###sk3_tab_recover' })
-    args = layout('groups', nil, {})  -- nothing to automate: only Follow & rest and Options
-    eq(page_buttons(args), { 'Utility##sk3_page' })
-    eq(args.BeginTabBar, { '##sk3_tabs_Utility' })
-end)
-
-test('right-click menus switch the layout and the window size, and save', function ()
-    local cfg, st = settings.defaults(), status()
-    eq(render(cfg, st, { popup = '##sk3_display_buff', ['Sections as tabs'] = true }), 1)
-    eq(cfg.ui.display, 'tabs')
-    eq(render(cfg, st, { popup = '##sk3_display_buff', ['Sections as tabs'] = true }), 0)  -- already
-    eq(render(cfg, st, { popup = '##sk3_display_party', ['Sections as pages: Healing, Support, Utility'] = true }), 1)
-    eq(cfg.ui.display, 'groups')
-    eq(frame.flags, ImGuiWindowFlags_AlwaysAutoResize + ImGuiWindowFlags_NoResize)
-    eq(render(cfg, st, { popup = '##sk3_size', ['Size the window by dragging its corner'] = true }), 1)
-    eq(cfg.ui.size, 'custom')
+    eq(render(cfg, st, { ['HP bar width##sk3_ui_hp_width'] = 300, ['Name font size##sk3_ui_name_size'] = 30,
+        ['Background opacity##sk3_ui_opacity'] = 50 }), 3)
+    eq({ cfg.ui.hp_width, cfg.ui.name_size, cfg.ui.opacity }, { 300, 30, 50 })
+    local free = frame.flags.Sidekick3
+    eq(render(cfg, st, { ['Lock position##sk3_ui_locked'] = true }), 1)
+    eq(cfg.ui.locked, true)
     render(cfg, st)
-    eq(frame.flags, 0)
+    eq(frame.flags.Sidekick3 - free, ImGuiWindowFlags_NoMove)
 end)
 
--- A custom UI gets the same checks as the standard window's layouts. The fake
--- answers false to any call it has no handler for; add one if yours needs it.
+test('the action log changes the session, not the settings; the recent list is under it', function ()
+    open_settings()
+    local cfg, st = settings.defaults(), status()
+    eq(render(cfg, st, { ['Action log##sk3_log'] = true }), 0)
+    eq({ st.log, showed('Cure IV -> A'), showed('heal: A at 62%') }, { false, true, true })
+    eq(cfg, settings.defaults())
+    render(cfg, status({ sent = {} }))
+    eq(showed('Nothing sent yet.'), true)
+end)
+
+-- A custom UI gets the same checks as the standard window. The fake answers
+-- false to any call it has no handler for; add one if yours needs it.
 if package.searchpath('ui.custom', package.path) then
-    test('ui/custom.lua draws in every layout and size, running and stopped, every scope closed', function ()
+    test('ui/custom.lua draws running and stopped, every scope closed', function ()
         local custom = require('ui.custom')
-        for _, display in ipairs({ 'headers', 'tabs', 'groups' }) do
-            for _, size in ipairs({ 'auto', 'custom' }) do
-                for _, running in ipairs({ false, true }) do
-                    local cfg = settings.defaults()
-                    cfg.ui.display, cfg.ui.size = display, size
-                    eq(draw(custom, cfg, status({ running = running })), nil, 'no Lua error')
-                end
-            end
+        for _, running in ipairs({ false, true }) do
+            eq(draw(custom, settings.defaults(), status({ running = running })), nil, 'no Lua error')
         end
     end)
 end

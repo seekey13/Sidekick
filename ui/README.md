@@ -1,8 +1,8 @@
 # Your own Sidekick3 UI
 
-Sidekick3's window is one replaceable Lua file. Sidekick does all the deciding and acting; a UI only **shows** a table of data (`view`) and **changes** things through a table of functions (`act`). Anything that keeps to that contract can replace the standard window: a compact HP list, a bar of on/off switches, two small windows instead of one.
+Sidekick3's UI is one replaceable Lua file. Sidekick does all the deciding and acting; a UI only **shows** a table of data (`view`) and **changes** things through a table of functions (`act`). Anything that keeps to that contract can replace the standard UI: a compact HP list, a bar of on/off switches, one big window instead of two.
 
-[window.lua](window.lua) is the standard window and the reference: it uses every field and every action below.
+[window.lua](window.lua) is the standard UI and the reference: a heads-up display of the party's HP and MP (the **Sidekick3** window), whose cog opens **SK Settings**, every setting under collapsing headers. It uses nearly every field and every action below.
 
 ## Install
 
@@ -46,16 +46,16 @@ Text that may contain `%` (names, `why` text) must be escaped before it's drawn:
 | `pet` | table or nil | Your pet, the same shape as `bt` |
 | `flags` | list of strings | What may be holding automation up, in this order: `'casting'`, `'moving'`, `'combat'`, `'safe zone'`, `'mounted'`, `'dead'`, `'resting'`, `'incapacitated'`, `'silenced'`, `'amnesia'` |
 | `recent` | list | The last 10 actions sent, newest first: `{ age, text, why }`, e.g. `{ 12, 'Cure IV -> Kupipi', 'heal: Kupipi at 62%' }`; `age` in whole seconds |
+| `pointer` | table or nil | What automation is about to do, or would do, for the standard HUD's arrow: `{ text, member, live }`. `text` is the behavior then the action, `'Heal:Cure IV'`; a target with no party line of its own is added by name (`'Heal:Cure IV -> Name'`). `member` is the index in `party` it is for: the target's, else yours (an action on you, your pet or the enemy, as pet care's `'Pet:Healing Ruby'`). `live`: running, it is the decision about to go or, for a moment after (longer while it is being cast), what was just sent; stopped (false), what it would do. nil when there is nothing |
 | `heal` | table | Healing's settings, below |
-| `wake` | bool | Sleeping members are woken with a heal that wakes |
 | `recover` | table | `{ mp, tp, min_tp, spends_tp }`: recover MP under `mp` % (yours; a member's for Devotion), TP under `tp` (0 to 3000) in combat; Chivalry only from `min_tp` TP. `spends_tp`: a row spends TP (Chivalry), so `min_tp` is worth showing |
 | `pet_heal` | number | Heal your pet under this HP % |
 | `follow` | table | `{ on, target, distance, names }`: follow `target` (a name, `''` for none) once further than `distance` yalms; `names` are the members that can be followed |
 | `rest` | table | `{ on, delay, distance }`: rest after `delay` seconds with nothing to do; stand when the follow target is further than `distance` yalms |
 | `japanese` | bool | Spell, ability and item names are sent in Japanese |
 | `log` | bool | Each action sent is printed to chat |
-| `ui` | table | The UI's settings: `open` (bool), `display` (`'headers'`, `'tabs'` or `'groups'`), `size` (`'auto'` or `'custom'`), and any `ui.<name>` your UI saved. `display` and `size` are the standard window's; yours may ignore them |
-| `sections` | list | What can be automated, by behavior, below |
+| `ui` | table | The UI's settings, shared by every job pair: `open` (bool), and any `ui.<name>` your UI saved. The standard HUD's, which yours may ignore: `hp_width`, `mp_width` (80 to 600), `hp_height` (10 to 120), `mp_height` (4 to 80), `name_size` (8 to 64), `text_size` (8 to 48), `gap` (0 to 40), all in pixels; `opacity` (0 to 100, the panel's %); `locked` (bool, it can't be dragged) |
+| `sections` | list | Every setting, by section, below |
 
 ### `view.status`
 
@@ -77,6 +77,8 @@ Text that may contain `%` (names, `why` text) must be escaped before it's drawn:
 | `away` | bool | In another zone: its HP and MP are stale |
 | `hpp`, `mpp` | number | HP and MP, 0 to 100 |
 | `hp` | string | `'ok'`, `'low'` (under the danger line) or `'critical'` (under the critical line); the focus member's own lines for them |
+| `uses_mp` | bool | It has MP: yours when your max MP is over 0; another member's once it has been seen with MP on its current jobs |
+| `mp` | string | `'low'` when it uses MP and is under the Recover MP line (`view.recover.mp`), else `'ok'` |
 | `dist` | string | `''` for you, `'away'`, or like `'12.3y'` |
 | `buffs` | string | Its statuses, the first 6 by name and `'+N'` for the rest |
 | `buffs_all` | string | Every status, one per line (for a tooltip) |
@@ -87,24 +89,26 @@ Text that may contain `%` (names, `why` text) must be escaped before it's drawn:
 
 ### `view.sections[i]`
 
-In this order; a behavior with nothing for your job to do is left out.
+In this order. A section with rows is left out when your job has none for it (Pet shows only for a pet job), and Wake sleepers only shows when one of your heals wakes (a cure or waltz; not a pet's).
 
-| `id` | `title` | `group` |
-|---|---|---|
-| `'heal'` | Healing | Healing |
-| `'remove'` | Debuffs | Support |
-| `'buff'` | Buffs | Support |
-| `'revive'` | Raise | Support |
-| `'recover'` | Recovery | Support |
-| `'pet'` | Pet | Support |
-| `'move'` | Follow & rest | Utility |
-| `'options'` | Options | Utility |
+| `id` | `title` | `header` | Its settings |
+|---|---|---|---|
+| `'follow'` | Follow | Follow | `view.follow` |
+| `'heal'` | Healing | Heal | `view.heal`, rows |
+| `'revive'` | Revive | Heal | rows |
+| `'wake'` | Wake sleepers | Remove | its switch only |
+| `'remove'` | Debuff removal | Remove | rows: spells and abilities, then items |
+| `'buff'` | Buffs | Buff | rows |
+| `'pet'` | Pet | Pet | `view.pet_heal`, rows |
+| `'recover'` | Recovery | Recover | `view.recover`, rows |
+| `'rest'` | Resting | Recover | `view.rest` |
+| `'ui'` | UI / Log | UI / Log | `view.ui`, `view.log`, `view.recent`, `view.japanese` |
 
 | Field | Type | What it is |
 |---|---|---|
-| `id`, `title`, `group` | string | As above. `group` is the page the standard window puts it on in its `'groups'` layout |
-| `on` | bool or nil | The behavior's switch; nil for `move` and `options` |
-| `rows` | list or nil | One per spell family, pick-one group or item, below; nil for `move` (its settings are `view.follow` and `view.rest`) and `options` (`view.japanese` and `view.log`) |
+| `id`, `title`, `header` | string | As above. `header` is the collapsing header SK Settings puts it under, headers in the order their first section comes |
+| `on` | bool or nil | The section's switch (`act.section`); every section has one but `ui` |
+| `rows` | list or nil | One per spell family, pick-one group or item, below; nil for the sections without rows |
 | `has_choices`, `has_targets` | bool or nil | Some row in the section has `choices` / `targets` (to lay out columns) |
 
 ### `view.sections[i].rows[j]`
@@ -129,8 +133,8 @@ In this order; a behavior with nothing for your job to do is left out.
 |---|---|
 | `act.run(on)` | Automation on or off. This session only: it is always off after a load |
 | `act.log(on)` | Print each action sent to chat, or not. This session only |
-| `act.close()` | Hide the window (remembered); `/sk3` shows it again |
-| `act.section(id, on)` | A behavior on or off: `'heal'`, `'remove'`, `'wake'`, `'recover'`, `'pet'`, `'buff'` or `'revive'` |
+| `act.close()` | Hide the UI (remembered); `/sk3` shows it again |
+| `act.section(id, on)` | A section's switch: `'follow'`, `'heal'`, `'revive'`, `'wake'`, `'remove'`, `'buff'`, `'pet'`, `'recover'` or `'rest'` |
 | `act.row(key, on)` | A row on or off |
 | `act.pick(key, name)` | A row's choice: a `choices[i].name`, or nil for Auto |
 | `act.target(key, slot)` | Turn a target chip (0 to 5) on or off |
@@ -152,10 +156,17 @@ In this order; a behavior with nothing for your job to do is left out.
 | `'follow.distance'`, `'rest.distance'` | 1 to 15 |
 | `'rest.delay'` | 1 to 20 |
 | `'japanese'` | bool |
-| `'ui.display'`, `'ui.size'` | as in `view.ui` |
+| `'ui.hp_width'`, `'ui.mp_width'` | 80 to 600 |
+| `'ui.hp_height'` | 10 to 120 |
+| `'ui.mp_height'` | 4 to 80 |
+| `'ui.name_size'` | 8 to 64 |
+| `'ui.text_size'` | 8 to 48 |
+| `'ui.gap'` | 0 to 40 |
+| `'ui.opacity'` | 0 to 100 |
+| `'ui.locked'` | bool |
 | `'ui.<name>'` | your UI's own: a string, number or bool |
 
-Nothing is checked, so keep values in range. Settings are kept per job pair (one file for WHM/BLM, another for WHM/SCH), so a UI's own `ui.<name>` is too.
+Nothing is checked, so keep values in range. Settings are kept per job pair (one file for WHM/BLM, another for WHM/SCH), but for `ui`: every job pair shares it (its own file, `ui.lua`), so a UI's own `ui.<name>` is the same whatever you play.
 
 ### Saving
 
@@ -167,9 +178,10 @@ Sidekick saves after any `act` call that changes a setting, once no ImGui widget
 
 - **Widget values are one-element tables.** `local v = { view.japanese }` then `if imgui.Checkbox('Japanese', v) then act.set('japanese', v[1]) end`. The same for `SliderInt`, `InputText` and the rest.
 - **`Text`, `TextColored` and `SetTooltip` take a printf format.** A `%` in what you show must be doubled: `imgui.Text((s:gsub('%%', '%%%%')))`. `why` texts and HP like `'62%'` need it.
+- **Draw-list text is not a format.** `imgui.GetWindowDrawList():AddText(imgui.GetFont(), size, { x, y }, color, s)` draws `s` as is, at `size` pixels: don't double its `%`. Colours there are `imgui.GetColorU32({ r, g, b, a })`.
 - **Labels are ids.** Two widgets with the same label in one window clash; add a unique suffix after `##` (`'On##heal'`), which isn't shown. Use `###` to keep the id when the label changes (`'Recent (3)###recent'`).
 - **Close what you open.** `Begin` always needs `End`. `BeginTable`, `BeginCombo`, `BeginTabBar`, `BeginTabItem` and `BeginPopup*` need their `End*` only when they returned true. Every `Push*` needs its `Pop*`.
-- **Constants** like `ImGuiWindowFlags_NoTitleBar` are globals `require('imgui')` defines. When you use a new one, add it to `read_globals` in `.luacheckrc`: luacheck then accepts it, and the test below defines it.
+- **Constants** like `ImGuiWindowFlags_NoDecoration` are globals `require('imgui')` defines. When you use a new one, add it to `read_globals` in `.luacheckrc`: luacheck then accepts it, and the test below defines it.
 
 ## Test it
 
@@ -177,7 +189,7 @@ Sidekick saves after any `act` call that changes a setting, once no ImGui widget
 luajit tests/run.lua ui_window
 ```
 
-With `ui/custom.lua` present, this also draws it through a fake ImGui in every layout, running and stopped, and fails on a Lua error or an ImGui scope left open. The fake answers `false` to calls it has no handler for; if your UI needs a number back (a width, say), add a handler in `tests/ui_window_test.lua`. In the game, `/addon reload sidekick3` picks up each change.
+With `ui/custom.lua` present, this also draws it through a fake ImGui, running and stopped, and fails on a Lua error or an ImGui scope left open. The fake answers `false` to calls it has no handler for; if your UI needs a number back (a width, say), add a handler in `tests/ui_window_test.lua`. In the game, `/addon reload sidekick3` picks up each change.
 
 ## Example
 
@@ -200,7 +212,7 @@ local function draw(view, act)
         text(('%-3s %-14s %3d%%'):format(p.tag, p.name, p.hpp))
     end
     for _, sec in ipairs(view.sections) do
-        if sec.rows then
+        if sec.on ~= nil then
             local v = { sec.on }
             if imgui.Checkbox(sec.title .. '##mini_' .. sec.id, v) then act.section(sec.id, v[1]) end
         end

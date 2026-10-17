@@ -63,7 +63,7 @@ local status = {
     log = true,       -- ponytail: print every action while in development; default off at release
     intent = nil,     -- the latest decision as a sent-style entry, or nil and...
     why = nil,        -- ...why nothing (a gate, 'nothing to do', 'waiting for a cure')
-    sent = {},        -- the last 10 sends, newest first: { at, command, action, target, behavior, why }
+    sent = {},        -- the last 10 sends, newest first: { at, command, action, kind, target, behavior, why }
 }
 local SENT_KEPT = 10
 
@@ -87,7 +87,7 @@ local function refresh(now)
         current_catalog()
         packet_ctx.me, packet_ctx.pet, packet_ctx.tracks = snap.me.sid, snap.pet and snap.pet.sid, snap.tracks
         local pair = abbr(snap.main) .. '_' .. abbr(snap.sub)
-        if pair ~= cfg_pair then cfg, cfg_pair, mem = settings.load(pair), pair, {} end
+        if pair ~= cfg_pair or settings.switched() then cfg, cfg_pair, mem = settings.load(pair), pair, {} end
         -- The window stays as it is across a job change; only /sk3 and its close button move it.
         if status.open == nil then status.open = cfg.ui.open end
     end
@@ -95,7 +95,7 @@ local function refresh(now)
 end
 
 local function entry(intent, now)
-    return { at = now, command = engine.command(intent, cfg), action = intent.action.name,
+    return { at = now, command = engine.command(intent, cfg), action = intent.action.name, kind = intent.action.kind,
              target = intent.target and intent.target.name, behavior = intent.behavior, why = intent.why }
 end
 

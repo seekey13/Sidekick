@@ -35,7 +35,7 @@ end)
 
 test('your item in use locks like a cast, until it finishes or is cut off', function ()
     packets.action(action(ME, 9, 24931, {}), ctx(), 10)  -- 24931: an item's start
-    eq(packets.casting(10.5), true)
+    eq({ packets.casting(10.5) }, { true, 10 })  -- and when it began
     packets.action(action(ME, 5, ECHO, {}), ctx(), 11)
     eq({ packets.casting(11), packets.last_finish() }, { false, 11, false })
     packets.action(action(ME, 9, 24931, {}), ctx(), 12)

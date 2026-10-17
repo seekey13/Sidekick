@@ -40,11 +40,18 @@ local function copy(t)
     return out
 end
 
-test('WHM 75 / BLM 37: every behavior section, in order, then Options', function ()
+test('WHM 75 / BLM 37: every section, in order, each under its header, then UI / Log', function ()
     local view = build(whm)
     eq(view.job, 'WHM 75 / BLM 37')
-    eq(keys(view.sections, 'id'), { 'heal', 'remove', 'buff', 'revive', 'recover', 'move', 'options' })
-    eq(keys(view.sections, 'title'), { 'Healing', 'Debuffs', 'Buffs', 'Raise', 'Recovery', 'Follow & rest', 'Options' })
+    eq(keys(view.sections, 'id'), { 'follow', 'heal', 'revive', 'wake', 'remove', 'buff', 'recover', 'rest', 'ui' })
+    eq(keys(view.sections, 'title'), { 'Follow', 'Healing', 'Revive', 'Wake sleepers', 'Debuff removal', 'Buffs',
+        'Recovery', 'Resting', 'UI / Log' })
+    eq(keys(view.sections, 'header'), { 'Follow', 'Heal', 'Heal', 'Remove', 'Remove', 'Buff', 'Recover', 'Recover', 'UI / Log' })
+    eq(keys(view.sections, 'on'), { false, true, true, true, true, true, true, false })  -- UI / Log has no switch
+    eq(section(view, 'ui').on, nil)
+    local cfg = settings.defaults()
+    cfg.ui.on = true  -- a custom UI's own key
+    eq(section(build(whm, cfg), 'ui').on, nil)
     eq(keys(section(view, 'recover').rows), { 'Aspir' })  -- from BLM
     eq(keys(section(view, 'heal').rows), { 'Cure', 'Curaga', 'Regen', 'Drain', 'Divine Seal', 'Martyr' })  -- heal, then emergency
     eq(keys(section(view, 'revive').rows), { 'Raise', 'Arise' })
@@ -55,9 +62,13 @@ test('recovery says whether a row spends TP, so Chivalry\'s line is shown only t
     eq(build(fake.catalog(PLD, 75, nil, 0, { 'Chivalry' })).recover.spends_tp, true)
 end)
 
-test('a section with nothing to show is left out: BLM 75 has no raise, and only items under Debuffs', function ()
-    local view = build(fake.catalog(BLM, 75, 0, 0))
-    eq(keys(view.sections, 'id'), { 'heal', 'remove', 'buff', 'recover', 'move', 'options' })
+test('a section with nothing to show is left out: BLM 75 has no raise, no heal that wakes, only items under Debuffs', function ()
+    local blm = fake.catalog(BLM, 75, 0, 0)
+    for _, a in ipairs(blm) do
+        if a.role == 'heal' then eq(a.wakes, nil, a.name) end
+    end
+    local view = build(blm)
+    eq(keys(view.sections, 'id'), { 'follow', 'heal', 'remove', 'buff', 'recover', 'rest', 'ui' })
     eq(keys(section(view, 'remove').rows), { 'Antidote', 'Eye Drops', 'Echo Drops', 'Holy Water', 'Tincture',
         'Hallowed Water', 'Remedy Ointment', 'Remedy', 'Panacea' })
 end)
@@ -172,18 +183,22 @@ test('section switches and plain values, a UI\'s own under ui', function ()
     local cfg = settings.defaults()
     local act, writes = actions(cfg)
     act.section('buff', false)
+    act.section('follow', true)
+    act.section('rest', true)
     act.set('heal.danger', 60)
     act.set('heal.focus', 'A')
     act.set('japanese', true)
-    act.set('ui.display', 'tabs')
+    act.set('ui.hp_width', 300)
     act.set('ui.compact', true)
-    eq({ cfg.buff.on, cfg.heal.danger, cfg.heal.focus, cfg.japanese, cfg.ui.display }, { false, 60, 'A', true, 'tabs' })
-    eq(writes[1], 6)
+    eq({ cfg.buff.on, cfg.follow.on, cfg.rest.on, cfg.heal.danger, cfg.heal.focus, cfg.japanese, cfg.ui.hp_width },
+       { false, true, true, 60, 'A', true, 300 })
+    eq(writes[1], 8)
     local view = build(whm, cfg)
-    eq({ section(view, 'buff').on, view.heal.danger, view.ui.display, view.ui.compact, view.japanese }, { false, 60, 'tabs', true, true })
+    eq({ section(view, 'buff').on, section(view, 'follow').on, section(view, 'rest').on, view.heal.danger,
+         view.ui.hp_width, view.ui.compact, view.japanese }, { false, true, true, 60, 300, true, true })
     eq(view.heal.focus_names, { 'A', 'B' })
-    view.ui.size = 'custom'  -- the view is a copy
-    eq(cfg.ui.size, 'auto')
+    view.ui.mp_width = 100  -- the view is a copy
+    eq(cfg.ui.mp_width, 220)
 end)
 
 test('run and log change the session only; close also remembers it in the settings', function ()
@@ -236,6 +251,46 @@ test('party lines: HP against the danger and critical lines, distance, statuses 
     eq(view.flags, { 'moving', 'safe zone' })
     g.units[3].hpp = 35  -- the focus member is critical on their own line (40)
     eq(build(whm, cfg, g).party[3].hp, 'critical')
+end)
+
+test('party MP is low under the Recover MP line, only for those who use MP', function ()
+    local g = fake.snap({ { name = 'A', mpp = 20 }, { name = 'W', mpp = 0, uses_mp = false }, { name = 'C', mpp = 30 } })
+    local view = build(whm, nil, g)
+    eq(keys(view.party, 'mp'), { 'ok', 'low', 'ok', 'ok' })
+    eq(keys(view.party, 'uses_mp'), { true, true, false, true })
+end)
+
+test('the pointer, stopped: what it would do, at the card of the member it is for', function ()
+    local e = { at = 990, action = 'Cure IV', target = 'A', behavior = 'heal', why = 'A at 62%' }
+    eq(build(whm, nil, nil, status({ intent = e })).pointer, { text = 'Heal:Cure IV', member = 2, live = false })
+    eq(build(whm).pointer, nil)  -- nothing to do
+end)
+
+test('the pointer, running: the decision, else the last send for a moment, or while it is cast', function ()
+    local e = { at = 990, action = 'Cure IV', target = 'A', behavior = 'heal', why = 'A at 62%' }
+    local LIVE = { text = 'Heal:Cure IV', member = 2, live = true }
+    eq(build(whm, nil, nil, status({ running = true, intent = e })).pointer, LIVE)
+    e.at = 999  -- sent 1s ago
+    eq(build(whm, nil, nil, status({ running = true, sent = { e } })).pointer, LIVE)
+    e.at = 997  -- 3s ago
+    eq(build(whm, nil, nil, status({ running = true, sent = { e } })).pointer, nil)
+    e.at, e.kind = 990, 'ma'  -- 10s ago, and its cast began as the server answered
+    local function casting(at)
+        return fake.snap({ { name = 'A' }, { name = 'B' } }, { casting = true, cast_at = at })
+    end
+    eq(build(whm, nil, casting(990.4), status({ running = true, sent = { e } })).pointer, LIVE)
+    eq(build(whm, nil, casting(995), status({ running = true, sent = { e } })).pointer, nil)  -- a cast of your own, later
+    e.kind = 'ja'  -- an ability casts nothing: the cast is yours
+    eq(build(whm, nil, casting(990.4), status({ running = true, sent = { e } })).pointer, nil)
+end)
+
+test('the pointer: an action on no one (pet care, sending it in) is on yours; a target with no card is named', function ()
+    local e = { at = 990, action = 'Healing Ruby', behavior = 'pet', why = 'Carbuncle 40%' }
+    eq(build(whm, nil, nil, status({ intent = e })).pointer, { text = 'Pet:Healing Ruby', member = 1, live = false })
+    e = { at = 990, action = 'Deploy', behavior = 'pet_send', why = 'Automaton at Crab' }
+    eq(build(whm, nil, nil, status({ intent = e })).pointer, { text = 'Pet:Deploy', member = 1, live = false })
+    e = { at = 990, action = 'Cure IV', target = 'Zed', behavior = 'heal', why = 'Zed at 40%' }  -- not in the party
+    eq(build(whm, nil, nil, status({ intent = e })).pointer, { text = 'Heal:Cure IV -> Zed', member = 1, live = false })
 end)
 
 test('a long status list is cut short, the whole list kept for the tooltip', function ()

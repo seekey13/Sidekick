@@ -144,10 +144,10 @@ function packets.handle(e, ctx, now)
     end
 end
 
--- True while your own spell is casting or your item is in use.
+-- True while your own spell is casting or your item is in use, and when it began.
 function packets.casting(now)
     if cast.active and now - cast.since > CAST_TIMEOUT then cast.active = false end
-    return cast.active
+    return cast.active, cast.active and cast.since or nil
 end
 
 -- When your last action resolved, and whether it was a spell (longer lockout).
