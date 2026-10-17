@@ -622,3 +622,12 @@ test('SCH: a buff row\'s stratagem chips get a column of their own and each togg
     render(cfg, st, {})
     eq(frame.columns['##sk3_rows_buff'], 4)  -- WHM: no stratagems, no column
 end)
+
+test('SCH: Keep a stratagem for healing, under Heal, only for a job with stratagems', function ()
+    open_settings()
+    local sch = fake.catalog(20, 75, 5, 37, { 'Light Arts', 'Penury', 'Accession' })
+    local cfg, st = settings.defaults(), status()
+    eq(render(cfg, st, { ['Keep a stratagem for healing##sk3_heal_reserve'] = true }, model.build(snap(), sch, cfg, st, NAMES)), 1)
+    eq(cfg.heal.reserve, true)
+    eq(render(cfg, st, { ['Keep a stratagem for healing##sk3_heal_reserve'] = true }), 0)  -- WHM: not drawn
+end)

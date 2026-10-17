@@ -286,6 +286,24 @@ local function moving(em, tidx, now)
     return now - move.moved < MOVE_SAMPLE
 end
 
+local function ability_timer(recast, id)
+    for i = 0, 31 do
+        if recast:GetAbilityTimerId(i) == id then return recast:GetAbilityTimer(i) end
+    end
+    return 0
+end
+
+local function sch_level(p)
+    return p:GetMainJob() == sch.JOB and p:GetMainJobLevel() or p:GetSubJob() == sch.JOB and p:GetSubJobLevel() or 0
+end
+
+-- Stratagem charges banked now; nil off SCH.
+local function stratagems(mm, player)
+    local lv = sch_level(player)
+    if lv == 0 then return nil end
+    return sch.charges(ability_timer(mm:GetRecast(), sch.STRATAGEMS) / 60, lv)
+end
+
 -- Seconds until `action` (a catalog record) is off recast; 0 = ready.
 function game.recast(action)
     if not action.recast then return 0 end  -- items
@@ -295,16 +313,12 @@ function game.recast(action)
     if action.kind == 'ma' then
         timer = recast:GetSpellTimer(action.recast)
     elseif action.recast and action.recast > 0 then
-        for i = 0, 31 do
-            if recast:GetAbilityTimerId(i) == action.recast then timer = recast:GetAbilityTimer(i); break end
-        end
+        timer = ability_timer(recast, action.recast)
     end
     if timer > 0 then
         ready_since[key] = nil
         if action.kind ~= 'ja' or action.recast ~= sch.STRATAGEMS then return timer / 60 end
-        local p = mm:GetPlayer()
-        return sch.charge_wait(timer / 60, p:GetMainJob() == sch.JOB and p:GetMainJobLevel()
-            or p:GetSubJob() == sch.JOB and p:GetSubJobLevel() or 0)
+        return sch.charge_wait(timer / 60, sch_level(mm:GetPlayer()))
     end
     ready_since[key] = ready_since[key] or os.clock()
     return math.max(0, READY_DELAY - (os.clock() - ready_since[key]))
@@ -398,7 +412,7 @@ function game.read(now)
     return {
         finished = finished, spell_finish = spell_finish,
         now = now, zone = zone, me = me, units = units, tracks = tracks, bt = bt, target = player_target(mm, em),
-        pet = pet, ammo = ammo(), items = inventory(),
+        pet = pet, ammo = ammo(), items = inventory(), stratagems = stratagems(mm, player),
         main = player:GetMainJob(), main_lv = player:GetMainJobLevel(),
         sub = player:GetSubJob(), sub_lv = player:GetSubJobLevel(),
         casting = casting, cast_at = cast_at,

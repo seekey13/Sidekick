@@ -13,14 +13,15 @@
     recast.
     A row's modifiers (SCH's stratagems) go with its spell: the engine fires
     each first (core/engine.lua). Accession instead spreads the spell from you
-    to your party near you, at twice the MP: for two or more of the row's
-    targets near you who lack it (with one, the spell goes on them alone), and
-    held for the group like an area spell while two or more would get it.
+    to the row's targets in your party near you, at twice the MP, whenever one
+    there lacks it (as v2), and is held for the group like an area spell. With
+    heal.reserve on, buff rows never spend the last stratagem charge (jobs/sch.lua).
     Songs are kept up here until the BRD module takes them (phase 4); rolls and
     the like belong to job modules.
 ]]--
 
 local can = require('core.can')
+local sch = require('jobs.sch')
 local settings = require('core.settings')
 
 local INVISIBLE = 69
@@ -59,18 +60,18 @@ end
 
 -- For an area self-cast: who near you lacks it (the first, and how many), and,
 -- holding for the group, the first player in your party who lacks it out of its
--- reach (and how many). `wanted` (a row's targets) narrows who counts.
+-- reach. `wanted` (a row's targets) narrows who counts.
 local function area(a, g, hold, wanted)
-    local near, count, away, far = nil, 0, nil, 0
+    local near, count, away = nil, 0, nil
     for _, u in ipairs(g.units) do
         local here = u.kind == 'self' or (u.dist or math.huge) <= AREA_RADIUS
         if (u.kind == 'self' or can.in_party(u) and u.alive and u.in_zone) and lacks(a, u)
             and (not wanted or wanted[u.slot]) then
             if here then near, count = near or u, count + 1
-            elseif hold and u.kind == 'party' then away, far = away or u, far + 1 end
+            elseif hold and u.kind == 'party' and not away then away = u end
         end
     end
-    return near, away, count, far
+    return near, away, count
 end
 
 -- Holding `a` for `away` to gather: ask the party only when someone near needs
@@ -81,17 +82,18 @@ local function wait_for(mem, a, near, away)
     end
 end
 
--- A row's Accession, split from its other modifiers, when it can spread `a` now:
--- up on you already, or usable with the MP for the doubled spell.
-local function spreading(c, g)
+-- A row's Accession, split from its other modifiers (those it may spend), when
+-- it can spread `a` now: up on you already, or spare and usable with the MP for
+-- the doubled spell.
+local function spreading(c, g, cfg)
     local others, acc = {}, nil
     for _, m in ipairs(c.mods) do
-        if m.spreads then acc = m else others[#others + 1] = m end
+        if m.spreads then acc = m elseif sch.spare(m, g, cfg) then others[#others + 1] = m end
     end
     local a = c.action
     if acc and not can.reach(a, g.me) then acc = nil end
-    if acc and not can.any(g.me.buffs, acc.status)
-        and not (can.use(acc, g) and (a.mp or 0) * acc.spreads.mp <= g.me.mp) then acc = nil end
+    if acc and not can.any(g.me.buffs, acc.status) and not (sch.spare(acc, g, cfg) and can.use(acc, g)
+        and (a.mp or 0) * acc.spreads.mp <= g.me.mp) then acc = nil end
     return acc, others
 end
 
@@ -100,16 +102,16 @@ return function (g, cat, cfg, mem)
     local hold = cfg.buff.hold_aoe
     for _, c in ipairs(chosen(cat, cfg, g)) do
         local a = c.action
-        if (a.travel or not invisible) and can.use(a, g) then
-            local acc, mods = spreading(c, g)
-            local near, away, count, far
-            if acc then near, away, count, far = area(a, g, hold, not can.self_only(a) and c.targets or nil) end
-            -- Held only when the spread could reach two or more once they gather.
-            if away and count + far >= 2 then
+        if (a.travel or not invisible) and can.use(a, g) and sch.spare(a, g, cfg) then
+            local acc, mods = spreading(c, g, cfg)
+            local near, away, count
+            if acc then near, away, count = area(a, g, hold, not can.self_only(a) and c.targets or nil) end
+            if away then
                 wait_for(mem, a, near, away)
-            elseif acc and count >= 2 then
+            elseif acc and count >= 1 then
                 table.insert(mods, acc)
-                return { action = a, mods = mods, why = ('%s +%d lack it'):format(near.name, count - 1) }
+                local why = count > 1 and ('%s +%d lack it'):format(near.name, count - 1) or ('%s lacks it'):format(near.name)
+                return { action = a, mods = mods, why = why }
             elseif can.self_only(a) and a.area > 0 then
                 near, away = area(a, g, hold and a.kind == 'ma')
                 if away then

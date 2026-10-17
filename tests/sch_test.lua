@@ -10,7 +10,7 @@ local fake = require('tests.fake')
 local SCH, RDM, WHM, BLM = 20, 5, 3, 4
 local LIGHT_ARTS, DARK_ARTS, ADDENDUM_WHITE, ENLIGHTENMENT = 358, 359, 401, 416
 local PERPETUANCE, ACCESSION, PROTECT = 469, 366, 40
-local STRATAGEMS = { 'Light Arts', 'Dark Arts', 'Penury', 'Celerity', 'Accession', 'Perpetuance',
+local STRATAGEMS = { 'Light Arts', 'Dark Arts', 'Addendum: White', 'Penury', 'Celerity', 'Accession', 'Perpetuance',
     'Parsimony', 'Alacrity', 'Enlightenment' }
 local cat = fake.catalog(SCH, 75, RDM, 37, STRATAGEMS)
 
@@ -104,7 +104,7 @@ test('a buff row\'s stratagem goes first, then the spell; never when it can\'t',
     eq(decide(snap({ LIGHT_ARTS }), cfg, {}), '/ma "Blaze Spikes" <me>')
 end)
 
-test('Accession spreads a buff from you when two or more of its targets near lack it', function ()
+test('Accession spreads a buff from you whenever one of its targets near lacks it (as v2)', function ()
     local cfg = cfg_with({ Protect = { on = true, targets = { [0] = true, [1] = true, [2] = true },
                                        mods = { Accession = true } } })
     local others = { { name = 'A' }, { name = 'B', buffs = { [PROTECT] = true } } }
@@ -114,8 +114,9 @@ test('Accession spreads a buff from you when two or more of its targets near lac
     local g = snap({ LIGHT_ARTS }, others, { Accession = 40 })
     g.now = 1001.5
     eq(step(g, cfg, mem), '/ma "Protect IV" <me>')
-    -- One lacks it: the spell on them alone, no charge spent.
-    eq(decide(snap({ LIGHT_ARTS, PROTECT }, others), cfg, {}), '/ma "Protect IV" 101')
+    -- One lacks it: spread all the same.
+    cmd, intent = decide(snap({ LIGHT_ARTS, PROTECT }, others), cfg, {})
+    eq({ cmd, intent.why }, { '/ja "Accession" <me>', 'for Protect IV: A lacks it' })
     -- Accession already up (healing fired it): used, though off recast it couldn't be.
     others = { { name = 'A' }, { name = 'B' } }
     eq(decide(snap({ LIGHT_ARTS, ACCESSION }, others, { Accession = 40 }), cfg, {}), '/ma "Protect IV" <me>')
@@ -123,9 +124,9 @@ test('Accession spreads a buff from you when two or more of its targets near lac
     g = snap({ LIGHT_ARTS }, others)
     g.me.mp = 100
     eq(decide(g, cfg, {}), '/ma "Protect IV" <me>')
-    -- Untargeted members don't count.
+    -- Untargeted members don't count: with only them lacking it, nothing to do.
     cfg.rows.Protect.targets = { [0] = true }
-    eq(decide(snap({ LIGHT_ARTS }, others), cfg, {}), '/ma "Protect IV" <me>')
+    eq(decide(snap({ LIGHT_ARTS, PROTECT }, others), cfg, {}), nil)
 end)
 
 test('Accession: held for the group like an area spell, and only for the row\'s targets', function ()
@@ -163,6 +164,11 @@ test('UI: a buff row shows the stratagems that fit it, and act.mod turns one on 
     eq({ r.has_mods, chips(r.Protect), chips(r.spikes), chips(r.storm), r['Light Arts'] and r['Light Arts'].mods },
        { true, { 'Pen', 'Cel', 'Acc', 'Per' }, { 'Par', 'Ala' }, { 'Pen', 'Cel', 'Acc', 'Per' }, nil })
     eq(r.Protect.mods[3].note, 'on everyone near you, at twice the MP')
+    local function heal_view(list)
+        return model.build(fake.snap({}), list, cfg, { running = false, sent = {} }, names).heal
+    end
+    eq({ heal_view(cat).stratagems, heal_view(cat).reserve, heal_view(fake.catalog(WHM, 75, BLM, 37)).stratagems },
+       { true, false, false })
     local n = 0
     local act = model.actions(cfg, {}, function () n = n + 1 end)
     act.mod('Protect', 'Accession')
@@ -177,13 +183,37 @@ test('UI: a buff row shows the stratagems that fit it, and act.mod turns one on 
     end
 end)
 
-test('Accession held for the group only while two or more would get it', function ()
+test('Accession held for the group like Protectra, even for one far player lacking it', function ()
     local cfg = cfg_with({ Protect = { on = true, targets = { [0] = true, [1] = true, [2] = true },
                                        mods = { Accession = true } } })
     cfg.buff.hold_aoe = true
-    -- Only B, far, lacks it: no point waiting for a spread; Protect on B alone.
     local others = { { name = 'A', buffs = { [PROTECT] = true } }, { name = 'B', dist = 15 } }
-    eq(decide(snap({ LIGHT_ARTS, PROTECT }, others), cfg, {}), '/ma "Protect IV" 102')
+    eq({ decide(snap({ LIGHT_ARTS, PROTECT }, others), cfg, {}) }, { nil, 'holding Protect IV: B 15.0y away' })
+end)
+
+test('charges: counted from the pool timer and your SCH level', function ()
+    local sch = require('jobs.sch')
+    eq({ sch.charges(0, 75), sch.charges(1, 75), sch.charges(100, 75), sch.charges(240, 75), sch.charges(0, 37) },
+       { 5, 4, 2, 0, 2 })
+end)
+
+test('heal.reserve: buff rows leave the last charge for healing', function ()
+    local protect = cfg_with({ Protect = { on = true, targets = { [0] = true, [1] = true },
+                                           mods = { Penury = true, Accession = true } } })
+    local addendum = cfg_with({ addendum = { on = true, pick = 'Addendum: White' } })
+    local others = { { name = 'A', buffs = { [PROTECT] = true } } }
+    local function with(cfg, charges, reserve)
+        local g = snap({ LIGHT_ARTS }, others)
+        g.stratagems = charges
+        cfg.heal.reserve = reserve
+        return (decide(g, cfg, {}))
+    end
+    eq({ with(protect, 1, false), with(protect, 2, true) }, { '/ja "Penury" <me>', '/ja "Penury" <me>' })
+    eq({ with(addendum, 1, false), with(addendum, 2, true) }, { '/ja "Addendum: White" <me>', '/ja "Addendum: White" <me>' })
+    -- One left: no Penury, no Accession, the spell alone; no Addendum.
+    eq({ with(protect, 1, true), with(addendum, 1, true) }, { '/ma "Protect IV" <me>', nil })
+    -- Charges unknown (no SCH): nothing held back.
+    eq(with(protect, nil, true), '/ja "Penury" <me>')
 end)
 
 test('heal\'s own Accession is expected too, so a lagging status read spends no second charge', function ()

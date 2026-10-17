@@ -22,6 +22,21 @@ function sch.charge_wait(seconds, sch_lv)
     return seconds
 end
 
+-- Charges banked, from the pool timer's seconds and your SCH level.
+function sch.charges(seconds, sch_lv)
+    for _, t in ipairs(TIERS) do
+        if sch_lv >= t[1] then return math.max(0, t[2] - math.ceil(seconds / t[3])) end
+    end
+    return 0
+end
+
+-- Whether a buff row may spend stratagem action `a` (a modifier, an Addendum):
+-- with heal.reserve on, the last charge is kept for healing's Accession and Rapture.
+function sch.spare(a, g, cfg)
+    if not (cfg.heal.reserve and a.kind == 'ja' and a.recast == sch.STRATAGEMS) then return true end
+    return g.stratagems == nil or g.stratagems > 1
+end
+
 local WHITE, BLACK = 1, 2  -- spell types
 local ENHANCING = 34       -- spell skill
 

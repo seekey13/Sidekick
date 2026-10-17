@@ -27,7 +27,8 @@ local DEFAULTS = {
     heal = { on = true, danger = 50, critical = 30,
              focus = '', focus_danger = 60, focus_critical = 40, skip = {}, alliance = false,
              cure_potency = 0, waltz_potency = 0,  -- +% from gear
-             regen_potency = 0 },                  -- +HP per Regen tick from gear
+             regen_potency = 0,                    -- +HP per Regen tick from gear
+             reserve = false },  -- SCH: buff rows leave the last stratagem charge for healing (as v2's, opt-in)
     remove = { on = true },
     wake = { on = true },                  -- wake sleeping members with a heal that wakes
     recover = { on = true, mp = 30, tp = 1000,    -- under your MP% (a member's, for Devotion), your TP

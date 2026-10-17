@@ -397,6 +397,10 @@ local function draw_heal_settings(view)
     checkbox('Heal the alliance##sk3_heal_alliance', h.alliance, function (on) act.set('heal.alliance', on) end,
         'Heal the alliance\'s other parties too, with heals that reach outside your party. Raising, waking, '
         .. 'removal and buffs look after them whatever this says, and the focus member is always healed.')
+    if h.stratagems then
+        checkbox('Keep a stratagem for healing##sk3_heal_reserve', h.reserve, function (on) act.set('heal.reserve', on) end,
+            'Buff rows never spend the last stratagem charge, so healing has one for Accession or Rapture.')
+    end
     heal_members(h)
     imgui.Separator()
 end

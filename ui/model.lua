@@ -337,7 +337,9 @@ function model.build(g, cat, cfg, status, names)
     end
 
     local spends_tp, wakes = false, false  -- Chivalry: its TP line is worth showing; a heal can wake
+    local stratagems = false               -- SCH: the charge reserve is worth showing
     for _, a in ipairs(cat) do
+        stratagems = stratagems or a.role == 'modifier' and a.applies ~= nil
         spends_tp = spends_tp or a.role == 'recover' and a.spends_tp == true
         wakes = wakes or a.role == 'heal' and a.wakes == true and not a.pet
     end
@@ -350,6 +352,7 @@ function model.build(g, cat, cfg, status, names)
         heal = { danger = h.danger, critical = h.critical, focus = h.focus, alliance = h.alliance,
                  focus_danger = h.focus_danger, focus_critical = h.focus_critical,
                  cure_potency = h.cure_potency, waltz_potency = h.waltz_potency, regen_potency = h.regen_potency,
+                 reserve = h.reserve, stratagems = stratagems,
                  focus_names = focus_names, members = members },
         recover = { mp = cfg.recover.mp, tp = cfg.recover.tp, min_tp = cfg.recover.min_tp, spends_tp = spends_tp },
         pet_heal = cfg.pet.heal,
@@ -460,7 +463,7 @@ function model.actions(cfg, status, changed, tracking)
         cfg.heal.skip[name] = not cfg.heal.skip[name] or nil
         changed()
     end
-    -- path: 'heal.danger', 'heal.alliance', 'buff.hold_aoe', 'follow.target', 'japanese', 'ui.hp_width', or 'ui.<anything>' for a UI's own.
+    -- path: 'heal.danger', 'heal.alliance', 'heal.reserve', 'buff.hold_aoe', 'follow.target', 'japanese', 'ui.hp_width', or 'ui.<anything>' for a UI's own.
     function act.set(path, value)
         if path == 'japanese' then path = 'ui.japanese' end  -- shared by every job pair, as the HUD
         local t = cfg
