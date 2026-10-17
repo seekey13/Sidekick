@@ -33,14 +33,14 @@ v2 described every job's spells and abilities by hand in 22 job files. v3 reads 
 
 The HUD (`/sk3`) shows the party as Sidekick reads them, and what it will do next:
 
-- **A card per member**: HP and MP bars with their %, the name, and the slot (ME, P1-P5), then one per tracked player (T1, T2..., HP only). The name and HP % turn red under your critical line, the slot and MP % under your Recover MP line. Hover a card for its distance and statuses, and whether it's a trust, tracked, KO or away.
-- **The alliance's other parties** under the cards: a thin HP bar each, with its slot (B0-B5, C0-C5) and name, each party after a gap.
+- **A card per member**: HP and MP bars, the name, and the slot (ME, P1-P5), then one per tracked player (T1, T2..., HP only). The name turns red under your critical line, the slot under your Recover MP line. Hover a card for its HP and MP %, distance and statuses, and whether it's a trust, tracked, KO or away. Your own card's HP bar has the icons that start and stop automation and open SK Settings.
+- **The alliance's other parties** under the cards: a thin HP bar each, with its slot (B0-B5, C0-C5) and name, each party after a gap; hover one for its HP %.
 - **An arrow** at the member the next action is for, labelled like `Heal:Cure IV`: yellow while running, grey while stopped (what it would do). An action on you, your pet or the enemy points at your own card.
-- **The title row**: hover it for your job, what Sidekick is doing or why it's waiting (casting, moving, safe zone...), your battle target and pet. Its icons start and stop automation, open SK Settings, and close the HUD.
+- **The title row**: hover it for your job, what Sidekick is doing or why it's waiting (casting, moving, safe zone...), your battle target and pet. Its icon closes the HUD.
 
 Drag the HUD where you want it; Lock position keeps it there.
 
-**SK Settings**, from the cog, has every setting under collapsing headers, each section with its on/off switch:
+**SK Settings**, from the cog on your card, has every setting under collapsing headers, each section with its on/off switch:
 
 - **Profiles**: named snapshots of your settings (Dynamis, EXP...), each job pair with its own. Type a name and Save (with a profile loaded, a new name renames it; never over another profile), Save as (over one of that name too), New (every setting back to its default) or Delete; click one to load it. Your settings stay the working copy: changes after a load are kept, but reach the profile only when you Save it, and Default brings back the settings you had before you loaded one. A profile never changes the HUD, the Japanese client, following, the focus member or who healing skips.
 - **Follow**: who to follow and how far they may get.

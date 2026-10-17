@@ -5,8 +5,8 @@
 
     Two windows. Sidekick3 is a heads-up display: the party's HP and MP bars on a
     grey panel (the alliance's other parties as thin HP rows under them), the
-    rest of the window transparent, with an arrow at whoever the next action is for. Its cog opens SK Settings, every setting under
-    collapsing headers.
+    rest of the window transparent, with an arrow at whoever the next action is for. Your own card's
+    HP bar carries the run icon and the cog, which opens SK Settings, every setting under collapsing headers.
 
     Ashita's binding (as v2 found it): widget values are one-element tables
     ({ true }, { 75 }), and Text, TextColored and SetTooltip take a printf
@@ -53,7 +53,8 @@ local UI_SLIDERS = {
     { 'MP bar width', 'mp_width', 80, 600, 'Pixels.' },
     { 'MP bar height', 'mp_height', 4, 80, 'Pixels.' },
     { 'Name font size', 'name_size', 8, 64, 'Pixels.' },
-    { 'Text font size', 'text_size', 8, 48, 'Pixels: the title, HP %, MP % and the arrow\'s label.' },
+    { 'Text font size', 'text_size', 8, 48, 'Pixels: the title, the tags, the alliance\'s names and the arrow\'s label; '
+        .. 'the icons follow it, as far as the HP bar fits them.' },
     { 'Spacing', 'gap', 0, 40, 'Pixels between members.' },
     { 'Background opacity', 'opacity', 0, 100, '% of the grey panel behind the bars.' },
 }
@@ -159,14 +160,15 @@ local function cog_icon(dl, x, y, k, col, cut)
     dl:AddCircleFilled({ cx, cy }, 3.5 * k, cut, SEGMENTS)
 end
 
--- An icon button s pixels square at (x, y): black, white while hovered.
+-- An icon button s pixels square at (x, y): black, white while hovered. Also
+-- returns whether it's hovered.
 local function icon(id, x, y, s, draw, help, cut)
     imgui.SetCursorScreenPos({ x, y })
     local clicked = imgui.InvisibleButton(id, { s, s })
     local hovered = imgui.IsItemHovered()
     tip(help)
     draw(imgui.GetWindowDrawList(), x, y, s / 24, u32(hovered and WHITE or BLACK), cut)
-    return clicked
+    return clicked, hovered
 end
 
 -- HUD -----------------------------------------------------------------------------
@@ -197,8 +199,7 @@ local function member_tip(p)
     return table.concat(lines, '\n')
 end
 
--- "Sidekick3" in bold black, then run, settings and close (icons s pixels
--- square); the hover areas.
+-- "Sidekick3" in bold black, then close (an icon s pixels square); the hover areas.
 local function title_row(dl, view, ts, x0, y0, pw, th, s, cut)
     local font, black = imgui.GetFont(), u32(BLACK)
     local _, h = measure(TITLE, ts)
@@ -207,25 +208,39 @@ local function title_row(dl, view, ts, x0, y0, pw, th, s, cut)
     dl:AddText(font, ts, { x0 + 9, ty }, black, TITLE)  -- bold: stamped twice
 
     local iy = y0 + math.floor((th - s) / 2)
-    local ix = x0 + pw - 6 - 3 * s - 2 * 4  -- the first icon's left
+    local ix = x0 + pw - 6 - s  -- the icon's left
     imgui.SetCursorScreenPos({ x0, y0 })
     imgui.Dummy({ ix - x0, th })
     tip(status_tip(view))
 
-    local running = view.status.running
-    if icon('##sk3_run', ix, iy, s, running and stop_icon or play_icon,
-            running and 'Stop automation' or 'Start automation', cut) then
-        act.run(not running)
-    end
-    if icon('##sk3_cog', ix + s + 4, iy, s, cog_icon, 'Settings', cut) then settings_open = not settings_open end
-    if icon('##sk3_close', ix + 2 * (s + 4), iy, s, close_icon, 'Close (/sk3 opens it again)', cut) then
+    if icon('##sk3_close', ix, iy, s, close_icon, 'Close (/sk3 opens it again)', cut) then
         act.close()
         settings_open = false
     end
 end
 
--- A member's card at (x, y): the HP bar over the MP bar, sharing a border. A
--- tracked player's MP can't be read: their bar stays empty, with no %.
+-- Run and settings at the top right of your card's HP bar, s pixels square (at
+-- most what the bar fits), each cut in the bar's colour under it. Returns
+-- whether one is hovered, so the card's own tooltip gives way.
+local function card_icons(view, ui, p, x, y, s)
+    local fx, hp_top = x + PAD + B, y + B
+    s = math.min(s, ui.hp_height - 4, math.floor((ui.hp_width - 8) / 2))
+    local filled = fx + math.floor(ui.hp_width * math.min(math.max(p.hpp, 0), 100) / 100 + 0.5)
+    local iy, cog_x = hp_top + 2, fx + ui.hp_width - 2 - s
+    local run_x = cog_x - 4 - s
+    local function cut(ix) return u32(ix + s / 2 < filled and HP_TOP or EMPTY) end
+
+    local running = view.status.running
+    local clicked, over_run = icon('##sk3_run', run_x, iy, s, running and stop_icon or play_icon,
+        running and 'Stop automation' or 'Start automation', cut(run_x))
+    if clicked then act.run(not running) end
+    local cog, over_cog = icon('##sk3_cog', cog_x, iy, s, cog_icon, 'Settings', cut(cog_x))
+    if cog then settings_open = not settings_open end
+    return over_run or over_cog
+end
+
+-- A member's card at (x, y): the HP bar over the MP bar, sharing a border, the
+-- % of each only in its tooltip. A tracked player's MP can't be read: their bar stays empty.
 local function card(dl, ui, p, x, y)
     local fx, hp_top = x + PAD + B, y + B
     local mp_top = hp_top + ui.hp_height + B
@@ -234,29 +249,21 @@ local function card(dl, ui, p, x, y)
 
     local hp_color = p.away and AWAY or p.hp == 'critical' and RED or WHITE
     local mp_color = p.away and AWAY or p.mp == 'low' and RED or WHITE
-    local ts = ui.text_size
     local _, nh = measure(p.name, ui.name_size)
     outlined(dl, ui.name_size, fx + 4, hp_top + ui.hp_height - nh, hp_color, p.name)
-    local hp = ('%d%%'):format(p.hpp)
-    outlined(dl, ts, fx + ui.hp_width - 4 - measure(hp, ts), hp_top + 1, hp_color, hp)
-    local mp = ('%d%%'):format(p.mpp)
-    local mw, mh = measure(mp, ts)
-    local my = mp_top + (ui.mp_height - mh) / 2
-    outlined(dl, ts, fx + 4, my, mp_color, p.tag)
-    if p.kind ~= 'tracked' then outlined(dl, ts, fx + ui.mp_width - 4 - mw, my, mp_color, mp) end
+    local _, th = measure(p.tag, ui.text_size)
+    outlined(dl, ui.text_size, fx + 4, mp_top + (ui.mp_height - th) / 2, mp_color, p.tag)
 end
 
 -- An alliance member's row, its bar's top at `top`: a thin HP bar (the MP bar's
--- height) with the tag and name on it and the HP % at its end.
+-- height) with the tag and name on it, its HP % only in its tooltip.
 local function ally_row(dl, ui, p, x, top)
     local fx, ts = x + PAD + B, ui.text_size
     bar(dl, fx, top, ui.hp_width, ui.mp_height, p.hpp, HP_TOP, HP_BOTTOM)
     local color = p.away and AWAY or p.hp == 'critical' and RED or WHITE
-    local label, hp = p.tag .. ' ' .. p.name, ('%d%%'):format(p.hpp)
+    local label = p.tag .. ' ' .. p.name
     local _, h = measure(label, ts)
-    local ty = top + (ui.mp_height - h) / 2
-    outlined(dl, ts, fx + 4, ty, color, label)
-    outlined(dl, ts, fx + ui.hp_width - 4 - measure(hp, ts), ty, color, hp)
+    outlined(dl, ts, fx + 4, top + (ui.mp_height - h) / 2, color, label)
 end
 
 -- The arrow left of the label, its tip just right of the panel at `cy`. On the
@@ -293,7 +300,7 @@ local function draw_hud(view)
     local x0, y0 = imgui.GetCursorScreenPos()
     local th, s = math.floor(ui.text_size * 1.7), math.floor(ui.text_size * 1.25)
     local pw = math.max(2 * PAD + 2 * B + math.max(ui.hp_width, ui.mp_width),
-                        math.ceil(8 + measure(TITLE, ui.text_size) + 8 + 3 * s + 2 * 4 + 6))  -- the title row fits
+                        math.ceil(8 + measure(TITLE, ui.text_size) + 8 + s + 6))  -- the title row fits
     local ch = B + ui.hp_height + B + ui.mp_height + B
     local n = #view.party
     -- Under the cards, the alliance's rows: B0-B5, then C0-C5, each party after a
@@ -312,9 +319,10 @@ local function draw_hud(view)
     for i, p in ipairs(view.party) do
         local y = y0 + th + (i - 1) * (ch + ui.gap)
         card(dl, ui, p, x0, y)
+        local on_icon = p.kind == 'self' and card_icons(view, ui, p, x0, y, s)
         imgui.SetCursorScreenPos({ x0 + PAD, y })
         imgui.Dummy({ pw - 2 * PAD, ch })
-        tip(member_tip(p))
+        if not on_icon then tip(member_tip(p)) end
         if view.pointer and view.pointer.member == i then arrow(view.pointer, ui.text_size, x0 + pw, y + ch / 2) end
     end
     for j, p in ipairs(view.alliance) do

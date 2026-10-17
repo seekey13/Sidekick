@@ -286,9 +286,10 @@ test('the HUD draws running and stopped; SK Settings only once the cog opens it,
     eq(begun('SK Settings'), false)
 end)
 
-test('a card per member: name, HP %, tag and MP % drawn as is, the rest in its tooltip', function ()
+test('a card per member: name and tag drawn as is, its HP % and MP % and the rest in its tooltip', function ()
     render(settings.defaults(), status())
-    for _, s in ipairs({ 'Sidekick3', 'Me', 'A', 'B', '62%', '100%', 'ME', 'P1', 'P2' }) do eq(fill(s) ~= nil, true, s) end
+    for _, s in ipairs({ 'Sidekick3', 'Me', 'A', 'B', 'ME', 'P1', 'P2' }) do eq(fill(s) ~= nil, true, s) end
+    eq({ fill('62%'), fill('100%') }, { nil, nil })
     eq(tipped('A\nHP 62%  MP 100%  5.0y\nProtect\nShell'), true)
     eq(tipped('B (trust, away)\nHP 100%  MP 100%'), true)
 end)
@@ -303,7 +304,7 @@ test('the panel and bars follow the UI settings', function ()
     eq({ hp[1], hp[2] }, { { 106, 50 + 23 + 64 + 8 + 2 }, { 106 + 186, 50 + 23 + 64 + 8 + 2 + 40 } })
     cfg.ui.hp_width, cfg.ui.mp_width, cfg.ui.text_size = 80, 80, 48  -- big text on short bars: the title row still fits
     render(cfg, status())
-    eq(calls('AddRectFilled')[1].args[2][1], 100 + math.ceil(8 + 9 * 7 * 48 / 13 + 8 + 3 * 60 + 2 * 4 + 6))
+    eq(calls('AddRectFilled')[1].args[2][1], 100 + math.ceil(8 + 9 * 7 * 48 / 13 + 8 + 60 + 6))
 end)
 
 test('the HUD\'s items reach exactly the panel\'s far corner, so its auto-size fits the panel', function ()
@@ -321,7 +322,7 @@ test('sizes out of their sliders\' range, set by hand or by a custom UI, are hel
     eq({ panel[2][1], panel[3][4] }, { 100 + 2 * 4 + 2 * 2 + 600, 0 })
 end)
 
-test('critical HP turns the name and HP % red, MP under the Recover line the tag and MP %', function ()
+test('critical HP turns the name red, MP under the Recover line the tag', function ()
     local cfg, st = settings.defaults(), status()
     local g = fake.snap({
         { name = 'A', hpp = 20, mpp = 10 },
@@ -329,8 +330,8 @@ test('critical HP turns the name and HP % red, MP under the Recover line the tag
         { name = 'Gone', hpp = 25, in_zone = false },
     })
     render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
-    eq({ fill('A'), fill('20%'), fill('P1'), fill('10%') }, { RED, RED, RED, RED })
-    eq({ fill('W'), fill('90%'), fill('P2'), fill('0%') }, { WHITE, WHITE, WHITE, WHITE })
+    eq({ fill('A'), fill('P1') }, { RED, RED })
+    eq({ fill('W'), fill('P2') }, { WHITE, WHITE })
     eq({ fill('Me'), fill('ME') }, { WHITE, WHITE })
     eq({ fill('Gone'), fill('P3') }, { AWAY, AWAY })
 end)
@@ -345,7 +346,7 @@ test('the alliance gets a thin HP row each under the cards, a gap before each pa
     local b, c = cards + 8 + 2, cards + 8 + 2 + 2 * 20 + 8 + 2  -- each party's first bar top: after a gap and a border
     eq(frame.extent.Sidekick3, { 100 + 232, 50 + c + 20 + 4 })  -- the panel still fits its items exactly
     eq(calls('AddRectFilled')[1].args[2][2], 50 + c + 20 + 4)
-    eq({ fill('B0 Bea'), fill('20%'), fill('B1 Bo'), fill('C0 Cy') }, { RED, RED, WHITE, AWAY })
+    eq({ fill('B0 Bea'), fill('B1 Bo'), fill('C0 Cy'), fill('20%') }, { RED, WHITE, AWAY, nil })
     eq(tipped('Bea (alliance)\nHP 20%  MP 100%  5.0y'), true)
     local arrow = calls('AddTriangleFilled', 'background')
     eq({ #arrow, arrow[1].args[1] }, { 2, { 100 + 232 + 1, 50 + b + 20 + 9 } })  -- one arrow (fill, bevel): Bo's row, its centre
@@ -362,6 +363,49 @@ test('the arrow points at the card the next action is for: yellow running, grey 
     eq(fill('Heal:Cure IV', 'background'), WHITE)
     render(settings.defaults(), status({ intent = false }))
     eq(#calls('AddTriangleFilled', 'background'), 0)
+end)
+
+-- The icons drawn at (x, y): their discs' centres, in the order drawn.
+local function discs()
+    local out = {}
+    for _, d in ipairs(calls('AddCircleFilled')) do out[#out + 1] = d.args[1] end
+    return out
+end
+
+test('run and the cog sit at the top right of your own HP bar, the title row keeps close', function ()
+    close_settings()
+    render(settings.defaults(), status())
+    -- Text 14: icons 17px. Your card's HP bar runs x 106-326 from y 75; close is in the title row at y 50.
+    local c = discs()
+    eq(c[1], { 100 + 232 - 6 - 17 + 8.5, 50 + 3 + 8.5 })                 -- close
+    eq({ c[2], c[3] }, { { 326 - 2 - 17 - 4 - 17 + 8.5, 77 + 8.5 }, { 326 - 2 - 17 + 8.5, 77 + 8.5 } })  -- run, then the cog's body
+    eq(#frame.args.InvisibleButton, 3)
+    -- On a full bar the icons are cut in its colour; on an empty one, in the empty colour.
+    local cfg, st = settings.defaults(), status()
+    local g = fake.snap({ { name = 'A' } })
+    g.me.hpp = 10
+    render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
+    eq(calls('AddTriangleFilled')[1].args[4], rgb(0x2E, 0x2E, 0x2E))  -- the play triangle, cut on empty
+    render(settings.defaults(), status())
+    eq(calls('AddTriangleFilled')[1].args[4], rgb(0xFF, 0x90, 0x90))
+end)
+
+test('a short HP bar shrinks the icons to fit it', function ()
+    local cfg = settings.defaults()
+    cfg.ui.hp_height = 12
+    render(cfg, status())
+    local c = discs()
+    eq(c[2][2] - 75, 2 + 4)  -- 8px icons, 2px from the bar's top
+    cfg.ui.hp_height, cfg.ui.hp_width, cfg.ui.text_size = 120, 80, 48  -- big text on a narrow bar: both still fit across it
+    render(cfg, status())
+    c = discs()
+    eq({ c[2][1] - 18, c[3][1] + 18 }, { 106 + 80 - 2 - 36 - 4 - 36, 106 + 80 - 2 })  -- 36px icons, from the bar's left to its right
+end)
+
+test('an icon\'s tooltip replaces the card\'s', function ()
+    render(settings.defaults(), status())  -- the fake hovers everything: the icons win
+    eq({ tipped('Start automation'), tipped('Settings'), tipped('Me\nHP') }, { true, true, false })
+    eq(tipped('A\nHP 62%'), true)
 end)
 
 test('the run icon starts and stops automation, for this session only', function ()
@@ -535,7 +579,7 @@ if package.searchpath('ui.custom', package.path) then
     end)
 end
 
-test('a tracked player\'s card has no MP %; Tracked lists them to untrack, and offers your target', function ()
+test('a tracked player\'s card has its tag; Tracked lists them to untrack, and offers your target', function ()
     local g = fake.snap({ { name = 'A', tracked = true }, { kind = 'tracked', name = 'Out', hpp = 80, main = 3, main_lv = 75, sub = 4, sub_lv = 37 } },
         { target = { sid = 900, tidx = 1200, name = 'Stranger' } })
     local cfg, st = settings.defaults(), status()
@@ -544,7 +588,7 @@ test('a tracked player\'s card has no MP %; Tracked lists them to untrack, and o
     local writes = render(cfg, st, { ['Untrack##sk3_untrack_Out'] = true, ['Track Stranger##sk3_track'] = true },
         model.build(g, cat, cfg, st, NAMES))
     eq({ tracking_calls, writes }, { { { 'remove', 'Out' }, { 'add', 'Stranger' } }, 0 })
-    eq({ fill('T1') ~= nil, fill('80%') ~= nil, fill('0%') }, { true, true, nil })  -- Out's MP is unknown, not 0
+    eq(fill('T1') ~= nil, true)
     eq(tipped('Out (tracked, WHM 75 / BLM 37)\nHP 80%  5.0y'), true)
     eq({ showed('T1 Out  WHM 75 / BLM 37'), showed('P1 A  (in your party)') }, { true, true })
     g.target = nil
