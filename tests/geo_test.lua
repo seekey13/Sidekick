@@ -193,6 +193,64 @@ test('Radial Arcana: off recast, Recover off or the MP over the line, nothing be
     eq(decide(low({}, nil, nil, 3), cfg_with({ ['Radial Arcana'] = { on = false } }), mem()), nil)
 end)
 
+test('a luopan that came while nothing decided (a new pet since) is not the one remembered', function ()
+    local cfg = cfg_with({ geo = HASTE_ROW, geo_debuff = { on = true, pick = 'Geo-Frailty' }, ['Blaze of Glory'] = { on = false } })
+    local mem = {}
+    step(snap({ TANK }, { bt = CRAB, combat = true, combat_at = 1000 }), cfg, mem)
+    local g = snap({ TANK }, { now = 1003, bt = CRAB, combat = true, combat_at = 1003 }, nil, 6)
+    g.pet.since = 1003
+    decide(g, cfg, mem)  -- the debuff's, seen up
+    g = snap({ TANK }, { now = 1060, combat_at = 1003 }, nil, 2)
+    g.pet.since = 1050  -- put down by hand on the Tank meanwhile
+    eq({ decide(g, cfg, mem) }, { nil, 'nothing to do' })  -- not recalled as the debuff's
+end)
+
+test('Radial Arcana sent: the luopan going is left alone, not recalled again', function ()
+    local cfg = cfg_with({ geo = { on = true, pick = 'Geo-Haste', targets = { [0] = true } },
+                           geo_debuff = { on = true, pick = 'Geo-Frailty' }, ['Blaze of Glory'] = { on = false } })
+    local mem = { geo = { luopan = { action = named(cat, 'Geo-Voidance'), sid = 1, spare = true, up = true, at = 0 } } }
+    eq(step(low({}, nil, nil, 1), cfg, mem), '/ja "Radial Arcana" <me>')
+    eq(decide(snap({}, { now = 1001.2 }, { ['Radial Arcana'] = 300 }, 1), cfg, mem), nil)
+    local fight = { now = 1001.2, bt = CRAB, combat = true, combat_at = 1001 }
+    eq(decide(snap({}, fight, { ['Radial Arcana'] = 300 }, 1), cfg, mem), nil)
+end)
+
+test('Radial Arcana: no Geo-Voidance to follow, a dear luopan is left; off mid-sequence, the slot is let go', function ()
+    local function dear() return { geo = { luopan = { action = named(cat, 'Geo-Haste'), up = true, at = 0 } } } end
+    local silenced = low({}, { silenced = true }, nil, 3)
+    eq(decide(silenced, cfg_with(), dear()), nil)
+    local cfg = cfg_with({ geo = { on = true, pick = 'Geo-Haste', targets = { [0] = true } }, ['Blaze of Glory'] = { on = false } })
+    local mem = { geo = { arcana = 1010 } }
+    eq(decide(snap({}), cfg, mem), '/ma "Geo-Voidance" <me>')  -- the sequence goes on, not the Geo row
+    cfg.recover.on = false
+    eq(decide(snap({}), cfg, mem), '/ma "Geo-Haste" <me>')
+end)
+
+test('the Geo debuff takes the slot only when it could follow: in range and not moving', function ()
+    local cfg = cfg_with({ geo = HASTE_ROW, geo_debuff = { on = true, pick = 'Geo-Frailty' }, ['Blaze of Glory'] = { on = false } })
+    local far = {}
+    for k, v in pairs(CRAB) do far[k] = v end
+    far.dist = 30
+    local mem = {}
+    step(snap({ TANK }), cfg, mem)
+    eq(decide(snap({ TANK }, { now = 1003, bt = far, combat = true, combat_at = 1003 }, nil, 2), cfg, mem), nil)
+    local poor = snap({ TANK }, { now = 1003, bt = CRAB, combat = true, combat_at = 1003 }, nil, 2)
+    poor.me.mp = 100
+    eq(decide(poor, cfg, mem), '/ja "Full Circle" <me>')  -- MP: Full Circle gives some back
+end)
+
+test('drift after a reload with no targets saved: from you; one whose holder is gone is recalled', function ()
+    local cfg = cfg_with({ geo = { on = true, pick = 'Geo-Haste' }, ['Blaze of Glory'] = { on = false } })
+    eq(decide(snap({}, nil, nil, 25), cfg, {}), '/ja "Full Circle" <me>')
+    local mem = { geo = { luopan = { action = named(cat, 'Geo-Haste'), sid = 999, up = true, at = 0 } } }
+    local cmd, intent = decide(snap({ TANK }, nil, nil, 2), cfg_with({ geo = HASTE_ROW }), mem)
+    eq({ cmd, intent.why }, { '/ja "Full Circle" <me>', 'who it went on is gone' })
+    local nowhere = snap({ { name = 'Tank', pos = false } }, nil, nil, 2)
+    nowhere.units[2].pos = nil
+    local _, lost = decide(nowhere, cfg_with({ geo = HASTE_ROW }), { geo = { luopan = { sid = 101, up = true, at = 0 } } })
+    eq(lost.why, 'Tank out of sight')
+end)
+
 test('model: Geomancy under Buff for a GEO main job, its rows with picks and the Geo row\'s chips', function ()
     local cfg = settings.defaults()
     local function names() return { job = function () return 'GEO' end, statuses = fake.res.statuses } end
@@ -206,6 +264,11 @@ test('model: Geomancy under Buff for a GEO main job, its rows with picks and the
        { 'Geo', false, 'Pick one', 6, 'Geo debuff', nil })
     eq({ rows['Full Circle'].on, rows['Full Circle'].avail, rows['Blaze of Glory'].on, rows.Entrust.on },
        { true, 'no pet', true, true })
+    local recovery
+    for _, x in ipairs(view.sections) do if x.id == 'recover' then recovery = x end end
+    for _, r in ipairs(recovery.rows) do
+        if r.key == 'Radial Arcana' then eq({ r.ready, r.avail }, { true, 'ready' }) end  -- no luopan: it puts one down
+    end
     eq({ view.geo.distance, view.geo.linger, view.geo.names, view.geo.indi[1] }, { 10, 5, { 'Tank' }, 'Indi-AGI' })
     local rdm = model.build(snap({ TANK }), fake.catalog(RDM, 75, GEO, 37, JAS), cfg, { sent = {} }, names())
     for _, x in ipairs(rdm.sections) do assert(x.id ~= 'geo', 'no Geomancy on a GEO subjob') end

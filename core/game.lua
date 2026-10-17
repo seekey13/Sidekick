@@ -18,7 +18,7 @@
     (in range; out of it, their HP and status as last seen), max_hp estimated
     from their /check level (else yours), and main, main_lv, sub, sub_lv once a
     /check has answered. A member (or alliance member) you also track has tracked = true.
-    The pet is { sid, tidx, name, hpp, dist, pos, status (1 engaged), buffs }; the
+    The pet is { sid, tidx, name, hpp, dist, pos, status (1 engaged), buffs, since (first seen) }; the
     battle target `bt` { sid, tidx, name, hpp, dist, pos, mob, claimed, moving }, `claimed`
     when it's a mob another party of the alliance claimed (the client has no <bt>).
     `target` is your current target when it's another player: { tidx, sid, name }.
@@ -101,6 +101,7 @@ local move = { at = -math.huge, moved = -math.huge }
 local motion = {}  -- [sid] = { x, y, z, moved }: where each other unit and the battle target last were
 local last_combat = -math.huge
 local pet_sid  -- the live pet last seen: its statuses are forgotten once it's gone or dead
+local pet_since  -- when that pet was first seen: a new one (it may reuse the id) comes after a read without one
 local ready_since = {}  -- [recast key] = when its timer first read 0
 local rescan_at = -math.huge
 local claim = { at = -math.huge, tidx = nil }  -- the last look for an alliance-claimed mob
@@ -426,9 +427,15 @@ function game.read(now)
             for sid in pairs(tracks) do
                 for _, id in pairs(geo.AURAS) do buffs.lose(sid, id) end
             end
+            for _, u in ipairs(units) do  -- already read this time round
+                if tracks[u.sid] then u.buffs = buffs.of(u.sid, now) end
+            end
         end
     end
-    pet_sid = pet and pet.hpp > 0 and pet.sid or nil
+    local alive = pet and pet.hpp > 0
+    if alive and pet.sid ~= pet_sid then pet_since = now end
+    if pet then pet.since = pet_since end
+    pet_sid = alive and pet.sid or nil
     if pet then pet.buffs = buffs.of(pet.sid, now); tracks[pet.sid] = true end
     -- Statuses on one gone since the last read (a trust dismissed, a member who
     -- left the alliance) went silently: if they come back, they start clean.

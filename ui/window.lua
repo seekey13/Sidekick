@@ -520,7 +520,7 @@ end
 local function draw_geo(view)
     local g = view.geo
     slider('Recall past##sk3_geo_distance', 'geo.distance', g.distance, 3, 30,
-        'Yalms: Full Circle the luopan once who it is on is further than this from it, so it goes down again by them.')
+        'Yalms: Full Circle the luopan once who it is on is further than this from it, so it goes down again.')
     slider('Keep after combat##sk3_geo_linger', 'geo.linger', g.linger, 1, 20,
         'Seconds a debuff luopan waits once combat is over before Full Circle recalls it: a new battle target in that time keeps it.')
     member_combo('Entrust to', 'geo_entrust', g.entrust, g.names, 'geo.entrust',

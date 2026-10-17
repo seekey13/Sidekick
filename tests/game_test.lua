@@ -242,10 +242,11 @@ test('a GEO\'s luopan gone: its auras are forgotten on those whose statuses come
     world.pet, world.ents[0x700] = 0x700, { sid = PET, name = 'Luopan', hpp = 100, dist = 2 }
     buffs.gain(TRUST, 580, now)   -- Geo-Haste's aura
     buffs.gain(TRUST, PROTECT, now)
-    eq(unit(read(), TRUST).buffs, { [580] = true, [PROTECT] = true })
+    local first = read()
+    eq(unit(first, TRUST).buffs, { [580] = true, [PROTECT] = true })
+    eq({ first.pet.since, read().pet.since }, { first.now, first.now })  -- when it was first seen
     world.pet = nil
-    read()
-    eq(unit(read(), TRUST).buffs, { [PROTECT] = true })
+    eq(unit(read(), TRUST).buffs, { [PROTECT] = true })  -- on the read that finds it gone
 end)
 
 reset()

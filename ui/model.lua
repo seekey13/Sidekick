@@ -109,6 +109,8 @@ local function availability(acts, r, g)
     for _, a in ipairs(sorted) do
         if not r.pick or r.pick == a.name then
             local ok, why, w = can.use(a, g)
+            -- Radial Arcana with no luopan out puts one down to spend (jobs/geo.lua).
+            if a.luopan == 'spend' and why == 'no pet' and g.recast(a) == 0 then ok = true end
             if ok then return true, 'ready', a.name end
             if w then wait = math.min(wait or w, w) else reason = reason or why end
         end
