@@ -114,6 +114,7 @@ local handlers = {
         return frame.clicks[label] == true
     end,
     Selectable = function (label) return frame.clicks[label] == true end,
+    GetCursorPosX = function () return 8 end,
     SliderInt = function (label, v, min, max)
         assert(type(v) == 'table' and v[1] >= min and v[1] <= max, label .. ': value must be { n } in range')
         if not frame.clicks[label] then return false end
@@ -574,7 +575,7 @@ test('Profiles: Save names the profile loaded, a click loads one, Default goes b
     render(cfg, st, { ['Save as##sk3_profile_save_as'] = true })  -- the name typed is blank: nothing saved
     eq(next(cfg.profiles), nil)
     cfg.profiles.Dynamis = { heal = { danger = 20 } }
-    local writes = render(cfg, st, { ['Dynamis##sk3_profile_Dynamis'] = true })
+    local writes = render(cfg, st, { ['##sk3_profile_1'] = true })
     eq({ cfg.profile, cfg.heal.danger, cfg.parked.heal.danger, writes }, { 'Dynamis', 20, 40, 1 })
     render(cfg, st)
     eq(has(frame.args.CollapsingHeader, 'Profiles: Dynamis###sk3_Profiles'), true)
@@ -586,8 +587,24 @@ test('Profiles: Save names the profile loaded, a click loads one, Default goes b
     eq({ cfg.profile, cfg.heal.danger }, { '', 40 })
     render(cfg, st)
     eq(has(frame.args.Button, 'Delete##sk3_profile_delete'), false)
-    render(cfg, st, { ['Dynamis##sk3_profile_Dynamis'] = true })
+    render(cfg, st, { ['##sk3_profile_1'] = true })
     render(cfg, st, { ['New##sk3_profile_new'] = true })  -- the name loaded is cleared with it
     render(cfg, st, { ['Save##sk3_profile_save'] = true })
     eq({ profiles_named(cfg), cfg.profile }, { { 'Dynamis' }, '' })
+end)
+
+test('Profiles: a name with ## is drawn whole, each row its own; the header keeps one #; a taken name says so', function ()
+    open_settings()
+    local cfg, st = settings.defaults(), status()
+    cfg.profiles['Sky##2'], cfg.profiles['a###x'], cfg.profiles['b###x'] = {}, {}, {}
+    render(cfg, st, { ['##sk3_profile_2'] = true })  -- names in order: a###x, b###x, Sky##2
+    eq(cfg.profile, 'b###x')
+    render(cfg, st, { ['##sk3_profile_3'] = true })
+    eq(cfg.profile, 'Sky##2')
+    render(cfg, st)
+    eq({ showed('Sky##2'), showed('a###x'), has(frame.args.CollapsingHeader, 'Profiles: Sky#2###sk3_Profiles') },
+        { true, true, true })
+    render(cfg, st, { ['Default##sk3_profile_default'] = true })
+    render(cfg, st)  -- the name field empties with Default
+    eq(showed('a###x exists: Save as replaces it.'), false)
 end)

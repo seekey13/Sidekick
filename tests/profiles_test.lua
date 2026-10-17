@@ -95,6 +95,21 @@ test('save under another name while one is loaded renames it; with Default loade
     eq(profiles.names(cfg), { 'Dynamis', 'EXP' })
 end)
 
+test('Save never lands on another profile, renaming or adding; Save as replaces it', function ()
+    local cfg = cfg_with(function (c) c.heal.danger = 10 end)
+    profiles.save_as(cfg, 'X')
+    cfg.heal.danger = 20
+    profiles.save_as(cfg, 'Y')
+    profiles.load(cfg, 'X')
+    eq(profiles.save(cfg, 'Y'), false)  -- X renamed onto Y
+    profiles.load_default(cfg)
+    eq(profiles.save(cfg, 'Y'), false)  -- a new one over Y
+    eq({ cfg.profiles.X.heal.danger, cfg.profiles.Y.heal.danger }, { 10, 20 })
+    cfg.heal.danger = 30
+    eq(profiles.save_as(cfg, 'Y'), true)
+    eq(cfg.profiles.Y.heal.danger, 30)
+end)
+
 test('no profile is blank or named Default; find takes any case, an exact match first', function ()
     local cfg = cfg_with()
     eq({ profiles.save(cfg, ''), profiles.save_as(cfg, 'default'), profiles.save(cfg, 'DEFAULT') }, { false, false, false })

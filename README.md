@@ -42,7 +42,7 @@ Drag the HUD where you want it; Lock position keeps it there.
 
 **SK Settings**, from the cog, has every setting under collapsing headers, each section with its on/off switch:
 
-- **Profiles**: named snapshots of your settings (Dynamis, EXP...), each job pair with its own. Type a name and Save (with a profile loaded, a new name renames it), Save as, New (every setting back to its default) or Delete; click one to load it. Your settings stay the working copy: changes after a load are kept, but reach the profile only when you Save it, and Default brings back the settings you had before you loaded one. A profile never changes the HUD, the Japanese client, following, the focus member or who healing skips.
+- **Profiles**: named snapshots of your settings (Dynamis, EXP...), each job pair with its own. Type a name and Save (with a profile loaded, a new name renames it; never over another profile), Save as (over one of that name too), New (every setting back to its default) or Delete; click one to load it. Your settings stay the working copy: changes after a load are kept, but reach the profile only when you Save it, and Default brings back the settings you had before you loaded one. A profile never changes the HUD, the Japanese client, following, the focus member or who healing skips.
 - **Follow**: who to follow and how far they may get.
 - **Heal**: healing, with its HP lines (danger, critical, and the focus member's own), gear potency and who to heal: the alliance's other parties too when you tick Heal the alliance, each of their parties then on a line of its own to untick; raising.
 - **Remove**: waking sleepers (when one of your heals can), and debuff removal: spells, then items (Echo Drops, Remedy...) with how many you carry.

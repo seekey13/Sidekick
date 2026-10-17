@@ -466,6 +466,11 @@ local function draw_track(view)
     end
 end
 
+local function has_name(names, name)
+    for _, n in ipairs(names) do if n == name then return true end end
+    return false
+end
+
 -- The name to save under, Save / Save as / New / Delete, then every profile:
 -- a click loads it (Default, the working copy as it was before one was loaded).
 local function draw_profiles(view)
@@ -479,7 +484,7 @@ local function draw_profiles(view)
     local typed = profile_name[1]:match('^%s*(.-)%s*$')
     if imgui.Button('Save##sk3_profile_save') then act.save_profile(typed) end
     tip('Save the settings as they are now under this name. With a profile loaded and the name changed, '
-        .. 'rename that profile instead.')
+        .. 'rename that profile instead. Never over another profile: Save as replaces one.')
     imgui.SameLine()
     if imgui.Button('Save as##sk3_profile_save_as') then act.save_profile(typed, true) end
     tip('Save the settings as they are now under this name, over any profile already named so.')
@@ -494,10 +499,17 @@ local function draw_profiles(view)
         if imgui.Button('Delete##sk3_profile_delete') then act.delete_profile(p.active) end
         tip(('Delete %s, and go back to Default.'):format(p.active))
     end
+    local taken = typed ~= p.active and has_name(p.names, typed)
+    if taken then text(('%s exists: Save as replaces it.'):format(typed), GREY) end
     if imgui.Selectable('Default##sk3_profile_default', p.active == nil) then act.profile(nil) end
     tip('The working copy: your settings as they were before a profile was loaded.')
-    for _, name in ipairs(p.names) do
-        if imgui.Selectable(name .. '##sk3_profile_' .. name, name == p.active) then act.profile(name) end
+    -- A name is drawn over a blank row, not as its label: ImGui would cut a
+    -- name at '##' and take an id from its '###'.
+    for i, name in ipairs(p.names) do
+        local x = imgui.GetCursorPosX()
+        if imgui.Selectable('##sk3_profile_' .. i, name == p.active) then act.profile(name) end
+        imgui.SameLine(x)
+        text(name)
     end
     text('Changes save to the settings in use; to a profile only with Save.', GREY)
 end
@@ -643,7 +655,8 @@ local function draw_settings(view)
             if s.on ~= nil then switches, on = true, on or s.on end
         end
         local note = switches and not on and ' (off)' or ''
-        if h == 'Profiles' and view.profiles.active then note = ': ' .. view.profiles.active end
+        -- '##' in a header's label would end what it shows.
+        if h == 'Profiles' and view.profiles.active then note = ': ' .. view.profiles.active:gsub('#+', '#') end
         if imgui.CollapsingHeader(h .. note .. '###sk3_' .. h) then
             for i, s in ipairs(of[h]) do
                 if i > 1 then imgui.Separator() end

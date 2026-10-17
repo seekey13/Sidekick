@@ -97,10 +97,12 @@ end
 
 -- Save: under the loaded profile's name, the settings as they are now; under
 -- another name while one is loaded, that profile renamed (not saved again);
--- with Default loaded, a new profile. False for a name a profile can't have.
+-- with Default loaded, a new profile. False for a name a profile can't have,
+-- and for another profile's name: only Save as replaces one.
 function profiles.save(cfg, name)
     if not valid(name) then return false end
     local active = profiles.active(cfg)
+    if cfg.profiles[name] and name ~= active then return false end
     if active and active ~= name then
         cfg.profiles[name], cfg.profiles[active] = cfg.profiles[active], nil
     else
