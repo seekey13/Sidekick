@@ -236,7 +236,27 @@ test('the Geo debuff takes the slot only when it could follow: in range and not 
     eq(decide(snap({ TANK }, { now = 1003, bt = far, combat = true, combat_at = 1003 }, nil, 2), cfg, mem), nil)
     local poor = snap({ TANK }, { now = 1003, bt = CRAB, combat = true, combat_at = 1003 }, nil, 2)
     poor.me.mp = 100
-    eq(decide(poor, cfg, mem), '/ja "Full Circle" <me>')  -- MP: Full Circle gives some back
+    eq(decide(poor, cfg, mem), nil)  -- 100 + 100 back from Geo-Haste is short of Geo-Frailty's 294
+    poor.me.mp = 200
+    eq(decide(poor, cfg, mem), '/ja "Full Circle" <me>')  -- 200 + 100 back covers it
+    poor.pet.hpp = 50
+    eq(decide(poor, cfg, mem), nil)  -- the refund falls with its HP: 200 + 50
+end)
+
+test('the Geo row changed while its luopan is out: recalled to follow its pick or targets', function ()
+    local cfg, mem = cfg_with({ geo = { on = true, pick = 'Geo-Haste', targets = { [1] = true } },
+                               ['Blaze of Glory'] = { on = false } }), {}
+    step(snap({ TANK }), cfg, mem)
+    eq(decide(snap({ TANK }, { now = 1003 }, nil, 2), cfg, mem), nil)
+    cfg.rows.geo.pick = 'Geo-Fury'
+    local cmd, intent = decide(snap({ TANK }, { now = 1003 }, nil, 2), cfg, mem)
+    eq({ cmd, intent.why }, { '/ja "Full Circle" <me>', 'the Geo row changed' })
+    cfg.rows.geo.pick, cfg.rows.geo.targets = 'Geo-Haste', { [0] = true }
+    eq(decide(snap({ TANK }, { now = 1003 }, nil, 2), cfg, mem), '/ja "Full Circle" <me>')
+    cfg.rows.geo.targets = { [0] = true, [1] = true }  -- still one of its targets: kept
+    eq(decide(snap({ TANK }, { now = 1003 }, nil, 2), cfg, mem), nil)
+    cfg.rows.geo.on = false  -- off: left alone
+    eq(decide(snap({ TANK }, { now = 1003 }, nil, 2), cfg, mem), nil)
 end)
 
 test('drift after a reload with no targets saved: from you; one whose holder is gone is recalled', function ()

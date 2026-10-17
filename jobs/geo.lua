@@ -4,12 +4,13 @@
       - the Geo row's luopan goes on the first of its targets (in slot order) in
         reach who lacks its aura, while the slot is free. It stays where it lands,
         so it waits while they move. Who it went on is remembered: once they're
-        further than geo.distance from it (or gone), Full Circle recalls it, and
-        it goes down again on the first of the row's targets who lacks it (as v2).
+        further than geo.distance from it (or gone), or the row's pick or targets
+        no longer fit it, Full Circle recalls it, and it goes down again on the
+        first of the row's targets who lacks it (as v2, but for the settings).
       - the Geo debuff row's luopan goes on your battle target in combat (waiting
         while it moves), taking the slot from any other luopan with Full Circle.
         Only while the debuff could follow (in range, off recast, not
-        silenced). Once combat is over it's recalled after geo.linger seconds, so a new
+        silenced, the MP short by no more than Full Circle gives back). Once combat is over it's recalled after geo.linger seconds, so a new
         battle target in that time keeps it (as v2).
       - Blaze of Glory goes just before either, as a modifier (core/engine.lua).
       - Entrust, with a member and an Indi- spell picked, puts that Indi- on them
@@ -43,6 +44,8 @@ local KEEP_MP = 75         -- a luopan dearer than this is recalled rather than 
 local SPENT_HP = 5         -- ...unless it's down to this HP %
 local SEQUENCE = 20        -- seconds a Radial Arcana sequence keeps the slot once begun
 local SPENT = 10           -- seconds after Radial Arcana before another begins (its recast shows late)
+-- ponytail: Full Circle's refund taken as half the luopan's cost at its HP %; check it in game.
+local REFUND = 0.5
 
 -- mem.geo: { luopan = { action, sid = who it went on, debuff, spare, at, up, since,
 -- spent = Radial Arcana sent on it } or nil, arcana = when the sequence lets the slot
@@ -63,8 +66,8 @@ local function state(g, mem)
     return st
 end
 
--- Whether Geo-Voidance `v` could go down once the slot is free (MP and recast may come back).
-local function spare_ok(v, g)
+-- Whether luopan spell `v` could go down once the slot is free (MP and recast may come back).
+local function could_go(v, g)
     local ok, why = can.use(v, g)
     return ok or why == 'MP' or why:match('^recast') ~= nil
 end
@@ -165,8 +168,10 @@ function geo.want(g, cat, cfg, mem)
     if up and l.debuff and not fighting then
         if g.now - (g.combat_at or -math.huge) >= cfg.geo.linger then intent = recall('combat over') end
     elseif debuff and fighting then
+        -- It could go once the slot is free: short of MP only by what Full Circle gives back.
         local ok, why = can.use(debuff, g)
-        local could = not bt.moving and (ok or why == 'MP')  -- it could go once the slot is free
+        local back = up and l.action and math.floor((l.action.mp or 0) * p.hpp / 100 * REFUND) or 0
+        local could = not bt.moving and (ok or why == 'MP' and g.me.mp + back >= (debuff.mp or 0))
         if up and not l.debuff then
             if could then intent = recall('for ' .. debuff.name) end
         elseif not l and not bt.moving and can.use(debuff, g) then
@@ -174,12 +179,15 @@ function geo.want(g, cat, cfg, mem)
         end
     elseif up and not l.debuff then
         local a, row = picked(cat, cfg, 'geo')
-        local h = holder(l, g, row and (row.targets or { [0] = true }))
+        local targets = row and (row.targets or { [0] = true })
+        local h = holder(l, g, targets)
         local d = h and can.dist(h, p)
         if l.spare and a then
             intent = recall('Radial Arcana passed it up')  -- the sequence ran out: free the slot for the Geo row
         elseif l.sid and not h then
             intent = recall('who it went on is gone')
+        elseif a and l.action and (l.action.name ~= a.name or h and not targets[h.slot]) and could_go(a, g) then
+            intent = recall('the Geo row changed')  -- the luopan follows the row's pick and targets
         elseif d and d > cfg.geo.distance then
             intent = recall(d < math.huge and ('%s %.1fy from it'):format(h.name, d) or (h.name .. ' out of sight'))
         end
@@ -211,7 +219,7 @@ function geo.arcana(a, g, cat, cfg, mem)
                      sent = function (now) st.spent, st.arcana, l.spent = now, nil, true end }
         end
         -- Recalled only when a spare can follow it.
-        local fc = cfg.geo.on and voidance and spare_ok(voidance, g) and on(cat, cfg, 'Full Circle')
+        local fc = cfg.geo.on and voidance and could_go(voidance, g) and on(cat, cfg, 'Full Circle')
         if fc and can.use(fc, g) then return { action = fc, why = 'to put down one for Radial Arcana', sent = arm } end
     elseif not l and cfg.geo.on and voidance and can.use(voidance, g) then
         local spare = put(st, voidance, g.me, 'spare')
