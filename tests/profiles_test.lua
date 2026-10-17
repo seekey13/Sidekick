@@ -20,14 +20,14 @@ end)
 
 test('a profile never holds the profiles, the HUD, the language, following, the focus or who is skipped', function ()
     local cfg = cfg_with(function (c)
-        c.japanese, c.follow.on, c.follow.target, c.heal.focus, c.heal.skip.Kupipi = true, true, 'A', 'B', true
+        c.ui.japanese, c.follow.on, c.follow.target, c.heal.focus, c.heal.skip.Kupipi = true, true, 'A', 'B', true
         c.rows.Haste = { on = true, targets = { [0] = true, [3] = true } }
     end)
     profiles.save(cfg, 'EXP')
     profiles.save_as(cfg, 'Two')
     local snap = cfg.profiles.Two
-    eq({ snap.profiles, snap.profile, snap.parked, snap.ui, snap.japanese, snap.follow, snap.heal.focus, snap.heal.skip },
-        { nil, nil, nil, nil, nil, nil, nil, nil })
+    eq({ snap.profiles, snap.profile, snap.parked, snap.ui, snap.follow, snap.heal.focus, snap.heal.skip },
+        { nil, nil, nil, nil, nil, nil, nil })
     eq(snap.rows.Haste, { on = true, targets = { [0] = true, [3] = true } })
     eq(snap.heal.danger, 50)
 end)
@@ -124,10 +124,10 @@ test('no profile is blank or named Default; find takes any case, an exact match 
 end)
 
 test('new resets the working copy to the defaults on Default; delete of the loaded one goes back to Default', function ()
-    local cfg = cfg_with(function (c) c.heal.danger, c.japanese = 40, true end)
+    local cfg = cfg_with(function (c) c.heal.danger, c.ui.japanese = 40, true end)
     profiles.save_as(cfg, 'A')
     profiles.new(cfg)
-    eq({ cfg.heal.danger, cfg.japanese, cfg.profile, profiles.names(cfg) }, { 50, true, '', { 'A' } })
+    eq({ cfg.heal.danger, cfg.ui.japanese, cfg.profile, profiles.names(cfg) }, { 50, true, '', { 'A' } })
     cfg.heal.danger = 65
     profiles.load(cfg, 'A')
     eq(profiles.delete(cfg, 'A'), true)

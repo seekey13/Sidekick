@@ -11,9 +11,10 @@
     A row never saved uses its default: on, except buffs, sending the pet in and
     items, which are opt-in.
     `profiles` are named snapshots of the rest (core/profiles.lua).
-    `ui` is the window, shared by every job pair (its own file, ui.lua) so the HUD
-    looks the same whatever you play: shown at load, bar and font sizes in pixels,
-    the panel's opacity in %, and whether the HUD is locked in place.
+    `ui` is shared by every job pair (its own file, ui.lua): the window, so the HUD
+    looks the same whatever you play (shown at load, bar and font sizes in pixels,
+    the panel's opacity in %, whether the HUD is locked in place), and whether the
+    client runs in Japanese, which is the install's and not a job's.
 ]]--
 
 local settings = {}
@@ -37,11 +38,11 @@ local DEFAULTS = {
     revive = { on = true },
     follow = { on = false, target = '', distance = 5 },  -- /follow them past this many yalms
     rest = { on = false, delay = 5, distance = 7 },  -- /heal after this many quiet seconds; up past distance from follow.target
-    japanese = false,  -- send spell, ability and item names in Japanese
     rows = {},
     profiles = {}, profile = '', parked = {},  -- named snapshots (core/profiles.lua)
     ui = { open = false, hp_width = 220, hp_height = 40, mp_width = 220, mp_height = 18,
-           name_size = 22, text_size = 14, gap = 8, opacity = 100, locked = false },
+           name_size = 22, text_size = 14, gap = 8, opacity = 100, locked = false,
+           japanese = false },  -- send spell, ability and item names in Japanese
 }
 local UI_FILE = 'ui'
 
@@ -52,6 +53,18 @@ local OPT_IN = { buff = true, pet_send = true }
 
 function settings.row(cfg, a)
     return cfg.rows[settings.key(a)] or { on = not (OPT_IN[a.role] or a.kind == 'item') }
+end
+
+-- The buff in `cat` named `name` (lower case): a spell, its family or its row key,
+-- or the spell's Japanese name (typed on a Japanese client, in the DAT's encoding).
+-- The second result is true when it names the spell itself, not its row.
+function settings.buff_named(cat, name)
+    for _, x in ipairs(cat) do
+        if x.role == 'buff' then
+            local spell = x.name:lower() == name or (x.jp or '') ~= '' and x.jp:lower() == name
+            if spell or x.family:lower() == name or settings.key(x):lower() == name then return x, spell end
+        end
+    end
 end
 
 -- The catalog's actions for `role` whose row is on.
@@ -98,6 +111,14 @@ function settings.load(job_pair)
     detach(d)
     loaded.ui = lib.load(ui, UI_FILE)
     detach(ui)
+    -- A pair's own Japanese client from before it moved to `ui`: carried over when
+    -- on, and saved at once so the pair's file no longer holds it.
+    local old = loaded.japanese
+    if old ~= nil then
+        loaded.japanese = nil
+        if old == true then loaded.ui.japanese = true end
+        settings.save()
+    end
     return loaded
 end
 

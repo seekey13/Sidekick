@@ -69,7 +69,7 @@ function engine.gather(g, cfg, mem)
     if not (w and w.ask and cfg.buff.gather) or g.now - (mem.gathered_at or -math.huge) < engine.GATHER_EVERY then return nil end
     mem.gathered_at = g.now
     local a = w.action
-    if cfg.japanese then return '/p ' .. GATHER_JP .. '  ' .. ((a.jp or '') ~= '' and a.jp or a.name) end
+    if cfg.ui.japanese then return '/p ' .. GATHER_JP .. '  ' .. ((a.jp or '') ~= '' and a.jp or a.name) end
     return '/p Gather together for ' .. a.name
 end
 
@@ -81,8 +81,10 @@ function engine.ready(g, mem)
 end
 
 -- The chat command for `intent`; `g` names a battle target the client has no <bt> for.
+-- The second result is true when a Japanese client is sent an English name (can.command).
 function engine.command(intent, cfg, g)
-    return intent.command or can.command(intent.action, intent.target, cfg.japanese, g and g.bt)
+    if intent.command then return intent.command end
+    return can.command(intent.action, intent.target, cfg.ui.japanese, g and g.bt)
 end
 
 -- Record a send: the throttle restarts and the intent's behavior is told.

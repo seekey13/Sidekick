@@ -105,7 +105,7 @@ test('gather: off holds quietly; in Japanese, the Japanese line and name', funct
     cfg.buff.gather = false
     eq({ decide(g, cfg, mem) }, { nil, 'holding Protectra V: B 15.0y away' })
     eq(engine.gather(g, cfg, mem), nil)
-    cfg.buff.gather, cfg.japanese = true, true
+    cfg.buff.gather, cfg.ui.japanese = true, true
     local jp
     for _, a in ipairs(cat) do if a.name == 'Protectra V' then jp = a.jp end end
     eq(engine.gather(g, cfg, mem),
@@ -139,6 +139,6 @@ end)
 test('gather in Japanese keeps the English name when there is no Japanese one', function ()
     local g, cfg = setup()
     local mem = { gather = { action = { name = 'Custom', jp = '' }, who = g.units[3], ask = true } }
-    cfg.japanese = true
+    cfg.ui.japanese = true
     eq(engine.gather(g, cfg, mem), '/p \x8f\x57\x82\xdc\x82\xc1\x82\xc4\x82\xad\x82\xbe\x82\xb3\x82\xa2\x81\x42  Custom')
 end)

@@ -69,6 +69,20 @@ test('every job pair shares ui; the rest is the pair\'s own', function ()
     end)
 end)
 
+test('the Japanese client is shared by every job pair, in ui; a pair\'s own from before is carried over once', function ()
+    with_lib({ WHM_BLM = { japanese = true }, BRD_WHM = { japanese = false } }, function (settings, lib)
+        local cfg = settings.load('WHM_BLM')
+        eq({ cfg.japanese, cfg.ui.japanese }, { nil, true })
+        eq({ lib.files.WHM_BLM.japanese, lib.files.ui.japanese }, { nil, true })  -- saved at once
+        eq(settings.load('BRD_WHM').ui.japanese, true)  -- an old off never turns it off
+        eq(lib.files.BRD_WHM.japanese, nil)
+        cfg = settings.load('WHM_BLM')
+        cfg.ui.japanese = false
+        settings.save()
+        eq(settings.load('WHM_BLM').ui.japanese, false)  -- nothing left to carry over again
+    end)
+end)
+
 test('after a relog the library saves new tables: switched() says to load them again', function ()
     with_lib({}, function (settings, lib)
         eq(settings.switched(), false)  -- nothing loaded yet
@@ -104,4 +118,16 @@ test('a key the file lacks is the defaults\' table in Ashita\'s library: writing
         cfg.profiles.Dyna, cfg.heal.skip.Kupipi, cfg.ui.hp_width = {}, true, 300
         eq({ lib.defaults.WHM_BLM.profiles, lib.defaults.WHM_BLM.heal.skip, lib.defaults.ui.hp_width }, { {}, {}, 220 })
     end)
+end)
+
+test('a buff is named by its spell, family or row key, or in Japanese by its spell', function ()
+    local settings = require('core.settings')
+    local cat = require('tests.fake').catalog(3, 75, 4, 37)
+    local p4
+    for _, a in ipairs(cat) do if a.name == 'Protect IV' then p4 = a end end
+    eq({ settings.buff_named(cat, 'protect iv') }, { p4, true })
+    eq({ settings.buff_named(cat, p4.jp:lower()) }, { p4, true })
+    eq(settings.buff_named(cat, 'protect').family, 'Protect')
+    eq(settings.buff_named(cat, 'barelement').pick_one, 'barelement')
+    eq(settings.buff_named(cat, 'nothing'), nil)
 end)

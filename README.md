@@ -17,7 +17,7 @@ v2 described every job's spells and abilities by hand in 22 job files. v3 reads 
 /sk3 plan               what it would do right now, without doing it
 /sk3 start | stop       automation on / off (always off after a load)
 /sk3 buff Haste p1 b0   keep a buff up on those targets (me, p1-p5, b0-c5 for the alliance, a tracked player's name); "off" turns it off
-/sk3 buff Barfira       for pick-one groups (bar-elements, enspells, storms) name the spell
+/sk3 buff Barfira       for pick-one groups (bar-elements, enspells, storms) name the spell; a Japanese client may name it in Japanese
 /sk3 buff               list the buffs that are on
 /sk3 focus Name | off   heal this member first, on its own HP lines
 /sk3 follow Name | off  follow this member
@@ -50,7 +50,7 @@ Drag the HUD where you want it; Lock position keeps it there.
 - **Pet**, for a pet job: its HP line, and its care and send rows. Sending the pet in is opt-in, row by row; Repair, Maintenance and Reward need their oil or pet food worn.
 - **Recover**: MP and TP lines (and the TP Chivalry spends from); resting for MP out of combat after a few quiet seconds, standing at full MP or when the leader leaves.
 - **Tracked**: the players you track, each with Untrack, and Track for your target when it's a player outside your party and alliance.
-- **UI / Log**: the HUD's bar and font sizes, spacing, panel opacity and lock; the action log and the last 10 actions sent, and why; Japanese client.
+- **UI / Log**: the HUD's bar and font sizes, spacing, panel opacity and lock; the action log and the last 10 actions sent, and why; Japanese client, shared by every job pair as the HUD is: spell, ability and item names (and the gather line) go out in Japanese, and Sidekick warns once in chat about any name the client has no Japanese spelling for, since it then goes out in English.
 
 Each row turns a family on or off and says whether it's ready or why not.
 

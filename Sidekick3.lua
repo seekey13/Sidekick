@@ -66,7 +66,7 @@ local status = {
     log = true,       -- ponytail: print every action while in development; default off at release
     intent = nil,     -- the latest decision as a sent-style entry, or nil and...
     why = nil,        -- ...why nothing (a gate, 'nothing to do', 'waiting for a cure')
-    sent = {},        -- the last 10 sends, newest first: { at, command, action, kind, target, behavior, why }
+    sent = {},        -- the last 10 sends, newest first: { at, command, english, action, kind, target, behavior, why }
 }
 local SENT_KEPT = 10
 
@@ -98,9 +98,14 @@ local function refresh(now)
 end
 
 local function entry(intent, g)
-    return { at = g.now, command = engine.command(intent, cfg, g), action = intent.action.name, kind = intent.action.kind,
+    local command, english = engine.command(intent, cfg, g)
+    return { at = g.now, command = command, english = english, action = intent.action.name, kind = intent.action.kind,
              target = intent.target and intent.target.name, behavior = intent.behavior, why = intent.why }
 end
+
+-- Names a Japanese client was sent in English (no Japanese one in the DAT), each
+-- warned about once a session, as v2: the client won't take them.
+local warned_english = {}
 
 -- Decide on each fresh snapshot: to act when running and the server will take a
 -- command, and while the window is open, to show what it would do. A decision
@@ -115,6 +120,11 @@ local function tick(g)
     if gather then AshitaCore:GetChatManager():QueueCommand(1, gather) end
     if not (act and intent) then return end
     AshitaCore:GetChatManager():QueueCommand(0, status.intent.command)
+    if status.intent.english and not warned_english[status.intent.action] then
+        warned_english[status.intent.action] = true
+        print(chat.header(addon.name) .. chat.warning(('No Japanese name for "%s": sent in English, which the Japanese client won\'t take.')
+            :format(status.intent.action)))
+    end
     engine.sent(intent, g, mem)
     game.sent(intent.action)
     table.insert(status.sent, 1, status.intent)
@@ -195,15 +205,6 @@ local function tracked_named(name)
     end
 end
 
--- The buff named `name` (lower case): a spell, its family or its row key.
-local function buff_named(name)
-    for _, x in ipairs(cat.list) do
-        if x.role == 'buff' and (x.name:lower() == name or x.family:lower() == name or settings.key(x):lower() == name) then
-            return x
-        end
-    end
-end
-
 -- /sk3 buff [name] [me p1..p5 b0..c5 <tracked name> | off]: turn a buff row on for
 -- those targets, or off; with no name, list the rows that are on. The buff's name
 -- is the longest run of leading words naming one; the words after it are tracked players.
@@ -215,9 +216,9 @@ local function buff_command(args)
         local w = args[i]:lower()
         if SLOTS[w] then slots[SLOTS[w]] = true elseif w == 'off' then off = true else words[#words + 1] = w end
     end
-    local a, n
+    local a, n, spell
     for k = #words, 1, -1 do
-        a = buff_named(table.concat(words, ' ', 1, k))
+        a, spell = settings.buff_named(cat.list, table.concat(words, ' ', 1, k))
         if a then n = k; break end
     end
     local name = table.concat(words, ' ', 1, n or #words)
@@ -246,7 +247,7 @@ local function buff_command(args)
     local key = settings.key(a)
     local row = cfg.rows[key] or { targets = { [0] = true } }
     row.on = not off
-    if a.name:lower() == name and (a.pick_one or a.tier > 1) then row.pick = a.name end
+    if spell and (a.pick_one or a.tier > 1) then row.pick = a.name end
     if next(slots) then row.targets = slots end
     cfg.rows[key] = row
     settings.save()

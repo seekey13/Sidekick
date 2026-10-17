@@ -464,7 +464,7 @@ test('sliders, the focus and the options write the settings', function ()
     eq(render(cfg, st, { ['None##sk3_focus_none'] = true }), 1)
     eq(cfg.heal.focus, '')
     eq(render(cfg, st, { ['Japanese client##sk3_japanese'] = true }), 1)
-    eq(cfg.japanese, true)
+    eq(cfg.ui.japanese, true)
     eq(render(cfg, st, { ['Focus danger under##sk3_focus_danger'] = 65 }), 1)
     eq(cfg.heal.focus_danger, 65)
     eq(frame.ids['Ask them to gather##sk3_gather'], nil)  -- only while holding

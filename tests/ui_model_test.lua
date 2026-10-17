@@ -193,7 +193,7 @@ test('section switches and plain values, a UI\'s own under ui', function ()
     act.set('japanese', true)
     act.set('ui.hp_width', 300)
     act.set('ui.compact', true)
-    eq({ cfg.buff.on, cfg.follow.on, cfg.rest.on, cfg.heal.danger, cfg.heal.focus, cfg.japanese, cfg.ui.hp_width },
+    eq({ cfg.buff.on, cfg.follow.on, cfg.rest.on, cfg.heal.danger, cfg.heal.focus, cfg.ui.japanese, cfg.ui.hp_width },
        { false, true, true, 60, 'A', true, 300 })
     eq(writes[1], 8)
     local view = build(whm, cfg)

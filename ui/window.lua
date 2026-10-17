@@ -536,7 +536,7 @@ local function draw_ui(view)
     draw_recent(view)
     imgui.Separator()
     checkbox('Japanese client##sk3_japanese', view.japanese, function (on) act.set('japanese', on) end,
-        'Send spell, ability and item names in Japanese.')
+        'Send spell, ability and item names in Japanese, on every job.')
 end
 
 -- Rows ------------------------------------------------------------------------------
