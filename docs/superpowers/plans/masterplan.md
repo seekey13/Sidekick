@@ -15,7 +15,7 @@ First presented in chat on 2026-10-14. Updated 2026-10-17 to match the decisions
 | 3a | Done (PR #3 with its review fixes), untested in game: wake, recover, pet care and pet send, follow, rest (`/sk3 follow`, `rest`) |
 | 3b | Done, untested in game: items (status removal from your inventory, under Debuffs), tracked players (`/sk3 track`, players outside the party looked after with what reaches them) and the alliance (party slots 6-17, each party scored on its own by area heals; healing them opt-in) |
 | UI | Done (PR #5), untested in game: the window became a HUD of the party's HP and MP (an arrow at the next action's member) plus SK Settings under collapsing headers; the display and size modes are gone, and `cfg.ui` is its own file shared by every job pair |
-| 3c | In progress: Hold-AOE gather done, untested in game (`buff.hold_aoe`: an area buff spell waits while a player in your party who lacks it is out of reach, and `/p Gather together for <spell>` goes out every 5s while it does); Multisend follow, profiles and Japanese left |
+| 3c | In progress: Hold-AOE gather done, untested in game (`buff.hold_aoe`: an area buff spell waits while a player in your party who lacks it is out of reach, and `/p Gather together for <spell>` goes out every 5s while it does); profiles and Japanese left |
 | 4–5 | Not started |
 
 The dev command is `/sk3`, because v2 is still loaded and owns `/sk`. v3 takes `/sk` at cutover.
@@ -163,7 +163,7 @@ rows = { Cure = { on = true }, Protect = { on = true, pick = 'Protect IV', targe
 
 ## Features kept
 
-Everything v2 does stays, including Multisend attack-range follow alongside native follow. The exception: the three display modes (headers/tabs/groups) and both window-size modes were dropped for the HUD (2026-10-16). New coverage the DATs reveal is welcome (PLD gets Raise; v2 never offered it).
+Everything v2 does stays. The exceptions: the three display modes (headers/tabs/groups) and both window-size modes were dropped for the HUD (2026-10-16), and Multisend attack-range follow was dropped (2026-10-17); native follow stays. New coverage the DATs reveal is welcome (PLD gets Raise; v2 never offered it).
 
 ## Layout and size target
 
@@ -186,7 +186,7 @@ Target: 8k lines or less, a cut of about 70%. The architecture doc becomes one p
 | 2d | Healing overhaul: candidates by band (Critical/Danger/Efficient), Regen as a heal-over-time candidate, learned potency from 0x028 | Spec approved, then play-test |
 | 3a | The generic behaviors that need nothing new from the game but the ammo slot, the pet's statuses and when you last moved: wake, recover, pet care (heal, cleanse) and pet send, follow, rest | Fake-client scenario tests, then play-test |
 | 3b | Items (status removal from the inventory), tracked targets, alliance (area heals then score per party) | Fake-client scenario tests |
-| 3c | Hold-AOE gather, Multisend follow, profiles, Japanese | Fake-client scenario tests |
+| 3c | Hold-AOE gather, profiles, Japanese | Fake-client scenario tests |
 | 4 | Job modules (BRD last, with the most time budgeted) | Per-job play-test against the README feature list |
 | 5 | Panel, widget, party_share (as v2: also a tracked player's real max HP and level from a session in their party, in place of the `/check` estimate), docs, take over `/sk`, release | v2 frozen |
 
