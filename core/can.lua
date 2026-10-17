@@ -128,12 +128,15 @@ end
 
 -- '/ma "Cure IV" 12345678': party members by server id, you as <me>, enemies as
 -- <bt>; by server id when the client has none for it (`bt` claimed by another
--- party of the alliance, core/game.lua).
+-- party of the alliance, core/game.lua). In Japanese, the name is the DAT's
+-- Japanese one; the second result is true when there is none, so the English
+-- one went instead (the Japanese client won't take it).
 function can.command(a, u, japanese, bt)
-    local name = japanese and a.jp ~= '' and a.jp or a.name
+    local english = japanese and (a.jp or '') == ''
+    local name = japanese and not english and a.jp or a.name
     local enemy = bt and bt.claimed and tostring(bt.sid) or '<bt>'
     local target = can.at_enemy(a) and enemy or (u == nil or u.kind == 'self') and '<me>' or tostring(u.sid)
-    return ('/%s "%s" %s'):format(a.kind, name, target)
+    return ('/%s "%s" %s'):format(a.kind, name, target), english
 end
 
 return can

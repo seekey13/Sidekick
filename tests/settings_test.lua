@@ -69,6 +69,17 @@ test('every job pair shares ui; the rest is the pair\'s own', function ()
     end)
 end)
 
+test('the Japanese client is shared by every job pair, in ui; a pair\'s own from before is dropped', function ()
+    with_lib({ WHM_BLM = { japanese = true } }, function (settings, lib)
+        local cfg = settings.load('WHM_BLM')
+        eq({ cfg.japanese, cfg.ui.japanese }, { nil, false })
+        cfg.ui.japanese = true
+        settings.save()
+        eq({ lib.files.WHM_BLM.japanese, lib.files.ui.japanese }, { nil, true })
+        eq(settings.load('BRD_WHM').ui.japanese, true)
+    end)
+end)
+
 test('after a relog the library saves new tables: switched() says to load them again', function ()
     with_lib({}, function (settings, lib)
         eq(settings.switched(), false)  -- nothing loaded yet

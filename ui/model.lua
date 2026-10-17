@@ -340,7 +340,7 @@ function model.build(g, cat, cfg, status, names)
         buff = { hold_aoe = cfg.buff.hold_aoe, gather = cfg.buff.gather },
         -- Your target, by name, when it's a player who could be tracked: not in the party, not tracked yet.
         track = { target = g.target and not known[g.target.sid] and g.target.name or nil },
-        japanese = cfg.japanese, log = status.log, ui = {},
+        japanese = cfg.ui.japanese, log = status.log, ui = {},
         profiles = { active = profiles.active(cfg), names = profiles.names(cfg) },
     }
     view.party, view.alliance = party(g, cfg, names)
@@ -436,6 +436,7 @@ function model.actions(cfg, status, changed, tracking)
     end
     -- path: 'heal.danger', 'heal.alliance', 'buff.hold_aoe', 'follow.target', 'japanese', 'ui.hp_width', or 'ui.<anything>' for a UI's own.
     function act.set(path, value)
+        if path == 'japanese' then path = 'ui.japanese' end  -- shared by every job pair, as the HUD
         local t = cfg
         local parent, key = path:match('^(.-)%.?([^.]+)$')
         for part in parent:gmatch('[^.]+') do t = t[part] end

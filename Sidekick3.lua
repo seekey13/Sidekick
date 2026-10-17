@@ -98,9 +98,14 @@ local function refresh(now)
 end
 
 local function entry(intent, g)
-    return { at = g.now, command = engine.command(intent, cfg, g), action = intent.action.name, kind = intent.action.kind,
+    local command, english = engine.command(intent, cfg, g)
+    return { at = g.now, command = command, english = english, action = intent.action.name, kind = intent.action.kind,
              target = intent.target and intent.target.name, behavior = intent.behavior, why = intent.why }
 end
+
+-- Names a Japanese client was sent in English (no Japanese one in the DAT), each
+-- warned about once a session, as v2: the client won't take them.
+local warned_english = {}
 
 -- Decide on each fresh snapshot: to act when running and the server will take a
 -- command, and while the window is open, to show what it would do. A decision
@@ -115,6 +120,11 @@ local function tick(g)
     if gather then AshitaCore:GetChatManager():QueueCommand(1, gather) end
     if not (act and intent) then return end
     AshitaCore:GetChatManager():QueueCommand(0, status.intent.command)
+    if status.intent.english and not warned_english[status.intent.action] then
+        warned_english[status.intent.action] = true
+        print(chat.header(addon.name) .. chat.warning(('No Japanese name for "%s": sent in English, which the Japanese client won\'t take.')
+            :format(status.intent.action)))
+    end
     engine.sent(intent, g, mem)
     game.sent(intent.action)
     table.insert(status.sent, 1, status.intent)
@@ -195,10 +205,12 @@ local function tracked_named(name)
     end
 end
 
--- The buff named `name` (lower case): a spell, its family or its row key.
+-- The buff named `name` (lower case): a spell, its family or its row key, or the
+-- spell's Japanese name (typed on a Japanese client, in its encoding as the DAT's).
 local function buff_named(name)
     for _, x in ipairs(cat.list) do
-        if x.role == 'buff' and (x.name:lower() == name or x.family:lower() == name or settings.key(x):lower() == name) then
+        if x.role == 'buff' and (x.name:lower() == name or x.family:lower() == name or settings.key(x):lower() == name
+                or (x.jp or '') ~= '' and x.jp:lower() == name) then
             return x
         end
     end
@@ -246,7 +258,8 @@ local function buff_command(args)
     local key = settings.key(a)
     local row = cfg.rows[key] or { targets = { [0] = true } }
     row.on = not off
-    if a.name:lower() == name and (a.pick_one or a.tier > 1) then row.pick = a.name end
+    local spell = a.name:lower() == name or (a.jp or '') ~= '' and a.jp:lower() == name
+    if spell and (a.pick_one or a.tier > 1) then row.pick = a.name end
     if next(slots) then row.targets = slots end
     cfg.rows[key] = row
     settings.save()

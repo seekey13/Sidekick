@@ -7,7 +7,7 @@
     from Default first parks the working copy (cfg.parked), so Default brings it back.
 
     Never in a snapshot, and never changed by a load: the profiles themselves, the
-    HUD (`ui`, its own file), the client's language, and who the party is now:
+    HUD and the client's language (`ui`, its own file), and who the party is now:
     following, the focus member and the members healing skips.
 ]]--
 
@@ -16,7 +16,7 @@ local settings = require('core.settings')
 local profiles = {}
 
 -- true: the whole key is kept; a table: those keys inside it.
-local KEPT = { profiles = true, profile = true, parked = true, ui = true, japanese = true, follow = true,
+local KEPT = { profiles = true, profile = true, parked = true, ui = true, follow = true,
                heal = { focus = true, skip = true } }
 
 local function copy(v)

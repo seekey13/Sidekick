@@ -305,3 +305,21 @@ test('throttle: 1.1s after anything, 3.1s after a spell lands', function ()
     eq(engine.ready({ now = 103, finished = 100.5, spell_finish = true }, mem), false)
     eq(engine.ready({ now = 103.7, finished = 100.5, spell_finish = true }, mem), true)
 end)
+
+-- A Japanese client (cfg.ui.japanese): names from the DAT's Japanese column.
+test('in Japanese, spells, abilities and items go by their Japanese names; an English one is flagged', function ()
+    local cfg = settings.defaults()
+    cfg.ui.japanese = true
+    local function named(n) for _, a in ipairs(cat) do if a.name == n then return a end end end
+    local cure, seal = named('Cure IV'), named('Divine Seal')
+    local me, p1 = { kind = 'self' }, { kind = 'party', sid = 12345678 }
+    eq({ engine.command({ action = cure, target = p1 }, cfg) }, { '/ma "\131P\131A\131\139IV" 12345678', false })
+    eq({ engine.command({ action = seal }, cfg) }, { '/ja "\143\151\144_\130\204\136\243" <me>', false })
+    eq({ can.command({ kind = 'item', name = 'Echo Drops', jp = '\131G\131R\129[\131h\131\141\131b\131v' }, me, true) },
+        { '/item "\131G\131R\129[\131h\131\141\131b\131v" <me>', false })
+    eq({ can.command({ kind = 'item', name = 'Rmdy. Ointment', jp = '' }, me, true) }, { '/item "Rmdy. Ointment" <me>', true })
+    eq({ can.command({ kind = 'ma', name = 'Custom' }, me, true) }, { '/ma "Custom" <me>', true })
+    cfg.ui.japanese = false
+    eq({ engine.command({ action = cure, target = p1 }, cfg) }, { '/ma "Cure IV" 12345678', false })
+    eq({ engine.command({ command = '/heal on', action = { name = 'Rest' } }, cfg) }, { '/heal on' })
+end)
