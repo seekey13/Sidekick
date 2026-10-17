@@ -477,6 +477,7 @@ local function draw_rolls(view)
     roll_combo('Roll 1', 'roll_first', r.first, r.choices, 'roll.first')
     if r.two then
         roll_combo('Roll 2', 'roll_second', r.second, r.choices, 'roll.second')
+        if r.second ~= '' and r.second == r.first then text('Roll 2 is Roll 1: one roll kept up', GREY) end
     else
         text('Roll 2: Corsair main job only', GREY)
     end
@@ -491,11 +492,13 @@ local function draw_rolls(view)
         imgui.EndCombo()
     end
     imgui.PopItemWidth()
-    tip('How far Double-Up chases a total. Every risk doubles at 5 or under unless on lucky, never at 11, '
-        .. 'and turns 10 into 11 with Snake Eye. Fold clears a Bust whenever it is ready.')
+    tip('How far Double-Up chases a total. Every risk doubles at 5 or under (Lowest and Medium bank a lucky '
+        .. 'there), never at 11, and turns 10 into 11 with Snake Eye. '
+        .. 'Fold clears a Bust whenever it is ready.')
     local l = r.last
     if l then
-        local word = l.total == l.lucky and ' (lucky)' or l.total == l.unlucky and ' (unlucky)' or ''
+        local word = l.bust and ' (Bust)' or l.total == l.lucky and ' (lucky)' or l.total == 11 and ' (11)'
+            or l.total == l.unlucky and ' (unlucky)' or ''
         text(('Last: %s %d%s'):format(l.name, l.total, word))
     end
 end

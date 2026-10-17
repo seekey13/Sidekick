@@ -93,13 +93,15 @@ end
 test('packets: your roll\'s total from your own entry, its Double-Ups, a Bust, zoning', function ()
     cor.clear()
     packets.action(roll_packet(ME, CORSAIRS_ID, { { OTHER, 421, 4 }, { ME, 420, 4 } }), ctx, 10)
-    eq(cor.last(), { id = CORSAIRS_ID, total = 4, at = 10 })
+    eq(cor.last(), { id = CORSAIRS_ID, total = 4, die = 0, at = 10 })
     packets.action(roll_packet(OTHER, NINJA_ID, { { ME, 421, 3 } }), ctx, 11)  -- another Corsair's roll on you
     eq(cor.last().id, CORSAIRS_ID)
     packets.action(roll_packet(ME, CORSAIRS_ID, { { ME, 424, 9 } }), ctx, 12)  -- a Double-Up names the roll
-    eq(cor.last(), { id = CORSAIRS_ID, total = 9, at = 12 })
+    eq(cor.last(), { id = CORSAIRS_ID, total = 9, die = 0, at = 12 })
     packets.action(roll_packet(ME, CORSAIRS_ID, { { ME, 426, 13 } }), ctx, 13)
-    eq(cor.last(), nil)
+    eq(cor.last(), { id = CORSAIRS_ID, total = 13, die = 0, at = 13, bust = true })
+    packets.action(roll_packet(ME, NINJA_ID, { { ME, 424, 12 } }), ctx, 13.5)  -- a Double-Up past 11 is a Bust too
+    eq(cor.last().bust, true)
     packets.action(roll_packet(ME, NINJA_ID, { { ME, 420, 2 } }), ctx, 14)
     packets.handle({ id = 0x00A }, ctx, 15)
     eq(cor.last(), nil)
@@ -162,6 +164,55 @@ test('Snake Eye at 10 goes first, as a modifier, then the Double-Up while its st
     eq(decide(g, cfg, {}), '/ja "Double-Up" <me>')
 end)
 
+test('a busted roll is never doubled: its total is a Bust\'s', function ()
+    local g = snap({ CORSAIRS, DOUBLE_UP_CHANCE }, { id = CORSAIRS_ID, total = 3, at = 990, bust = true })
+    eq(decide(g, cfg_with('Corsair\'s Roll'), {}), nil)
+end)
+
+test('highest doubles at 6-10 while Fold is ready, else plays as medium', function ()
+    local g = snap({ NINJA, DOUBLE_UP_CHANCE }, { id = NINJA_ID, total = 7, at = 990 })
+    eq(decide(g, cfg_with('Ninja Roll', '', 'highest'), {}), '/ja "Double-Up" <me>')
+    g = snap({ NINJA, DOUBLE_UP_CHANCE }, { id = NINJA_ID, total = 7, at = 990 }, { Fold = 200 })
+    eq(decide(g, cfg_with('Ninja Roll', '', 'highest'), {}), nil)
+    g.roll.total = 8
+    eq(decide(g, cfg_with('Ninja Roll', '', 'highest'), {}), '/ja "Double-Up" <me>')  -- off unlucky, as medium
+end)
+
+test('Snake Eye on you never doubles an 11', function ()
+    local g = snap({ CORSAIRS, DOUBLE_UP_CHANCE, SNAKE_EYE }, { id = CORSAIRS_ID, total = 11, at = 990 })
+    eq(decide(g, cfg_with('Corsair\'s Roll'), {}), nil)
+end)
+
+test('a newer roll sent and its total not in: the earlier total is never doubled, though its rule now says so', function ()
+    local cfg, mem = cfg_with('Ninja Roll', 'Corsair\'s Roll', 'highest'), {}
+    -- Ninja Roll settled at 7 (Fold down), so Corsair's Roll went.
+    local g = snap({ NINJA, DOUBLE_UP_CHANCE }, { id = NINJA_ID, total = 7, at = 990 }, { Fold = 200 })
+    eq(step(g, cfg, mem), '/ja "Corsair\'s Roll" <me>')
+    -- Its packet is late or lost; Fold comes ready and the chance status is Corsair's now.
+    for _, now in ipairs({ 1001.5, 1000 + cor.WAIT + 1 }) do
+        g = snap({ NINJA, CORSAIRS, DOUBLE_UP_CHANCE }, { id = NINJA_ID, total = 7, at = 990 }, { ['Corsair\'s Roll'] = 60 })
+        g.now = now
+        eq(decide(g, cfg, mem), nil)
+    end
+end)
+
+test('resting waits while a Double-Up is due, then may start once the roll is settled', function ()
+    local cfg, mem = cfg_with('Corsair\'s Roll'), {}
+    cfg.rest.on = true
+    local over = { finished = 990 }
+    local g = snap({ CORSAIRS, DOUBLE_UP_CHANCE }, { id = CORSAIRS_ID, total = 2, at = 990 }, nil, {}, over)
+    g.me.mpp = 60
+    eq(step(g, cfg, mem), '/ja "Double-Up" <me>')  -- at 1000
+    g = snap({ CORSAIRS, DOUBLE_UP_CHANCE }, { id = CORSAIRS_ID, total = 4, at = 1000.5 }, nil, {}, over)
+    g.me.mpp, g.now = 60, 1005.6
+    eq({ decide(g, cfg, mem) }, { nil, 'nothing to do' })  -- the next Double-Up is due at 1006
+    g.now = 1006
+    eq(step(g, cfg, mem), '/ja "Double-Up" <me>')
+    g = snap({ CORSAIRS }, { id = CORSAIRS_ID, total = 5, at = 1006.5 }, nil, {}, over)
+    g.me.mpp, g.now = 60, 1012
+    eq(decide(g, cfg, mem), '/heal on')
+end)
+
 test('a Bust: Fold when it is ready; until then it takes a roll\'s place', function ()
     local cfg = cfg_with('Corsair\'s Roll', 'Ninja Roll')
     local cmd, intent = decide(snap({ BUST, NINJA }), cfg, {})
@@ -220,7 +271,7 @@ test('the Rolls section: only for a job with rolls; picks, risk, the second for 
         return table.concat(ids, ' ')
     end
     local cfg = cfg_with('Ninja Roll', '', 'highest')
-    local view = model.build(snap({}, { id = NINJA_ID, total = 4, at = 990 }), cat, cfg, st, NAMES)
+    local view = model.build(snap({ NINJA }, { id = NINJA_ID, total = 4, at = 990 }), cat, cfg, st, NAMES)
     eq(sections(view):find('buff roll') ~= nil, true)
     local r = view.roll
     eq({ r.first, r.second, r.risk, r.risks, r.two }, { 'Ninja Roll', '', 'highest', { 'lowest', 'medium', 'highest' }, true })
@@ -229,7 +280,9 @@ test('the Rolls section: only for a job with rolls; picks, risk, the second for 
         { name = 'Corsair\'s Roll', label = 'Corsair\'s Roll (EXP+)', lucky = 5, unlucky = 9 },
         { name = 'Ninja Roll', label = 'Ninja Roll (EVA+)', lucky = 4, unlucky = 8 },
     })
-    eq(r.last, { name = 'Ninja Roll', total = 4, lucky = 4, unlucky = 8 })
+    eq(r.last, { name = 'Ninja Roll', total = 4, lucky = 4, unlucky = 8, bust = false })
+    eq(model.build(snap({}, { id = NINJA_ID, total = 4, at = 990 }), cat, cfg, st, NAMES).roll.last, nil)  -- worn off
+    eq(model.build(snap({}, { id = NINJA_ID, total = 12, at = 990, bust = true }), cat, cfg, st, NAMES).roll.last.bust, true)
     eq(model.build(snap({}, nil, nil, {}, { main = NIN, sub = COR }), fake.catalog(NIN, 75, COR, 37, JAS), cfg, st, NAMES).roll.two, false)
     eq(sections(model.build(fake.snap({}), fake.catalog(WHM, 75, NIN, 37), cfg, st, NAMES)):find('roll'), nil)
     local act = model.actions(cfg, st, function () end)

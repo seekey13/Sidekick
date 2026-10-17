@@ -7,11 +7,13 @@
 
     The totals come only from your own 0x028 job ability packets
     (core/packets.lua -> cor.rolled), and the snapshot carries the last one
-    (g.roll = { id, total, at }), so the decision reads the snapshot alone.
+    (g.roll = { id, total, die, at, bust }), so the decision reads the snapshot alone.
     A Double-Up Chance is for the last roll alone: no other is ever doubled.
     A roll or Double-Up sent waits for its total; one that never comes (a lost
-    packet) leaves that roll as it is after WAIT seconds, never doubled blind.
-    A new roll waits until the last one is settled, so its chase isn't cut short.
+    packet) leaves that roll as it is after WAIT seconds, never doubled blind,
+    and no total older than the last send is doubled. A new roll waits until
+    the last one is settled, so its chase isn't cut short; while it waits,
+    mem.busy_until keeps resting from starting (behaviors/rest.lua).
     With buff.hold_aoe on, a roll is held like an area buff spell until the
     party's players who lack it are inside its area (the DAT's, about 8 yalms).
 ]]--
@@ -35,15 +37,15 @@ local UNLUCKY_REROLL_MAX = 8   -- past 8 a die busts more often than not
 
 -- The roll packets -----------------------------------------------------------
 
-local last  -- { id = catalog id, total, at }: the last roll's total, as the server said it
+local last  -- { id = catalog id, total, die, at, bust }: the last roll, as the server said it
 
 -- One of your job ability packets, on your own target entry: `id` the catalog
--- id (on a Double-Up the server names the roll doubled), `total` its param.
-function cor.rolled(id, total, message, now)
-    if message == BUSTED or message == BUSTED_SUB or (message == DOUBLED and total > MAX_TOTAL) then
-        last = nil
-    elseif message == ROLL or message == ROLL_SUB or message == DOUBLED then
-        last = { id = id, total = total, at = now }
+-- id (on a Double-Up the server names the roll doubled), `total` its param,
+-- `die` its info.
+function cor.rolled(id, total, message, now, die)
+    local bust = message == BUSTED or message == BUSTED_SUB or (message == DOUBLED and total > MAX_TOTAL)
+    if bust or message == ROLL or message == ROLL_SUB or message == DOUBLED then
+        last = { id = id, total = total, die = die, at = now, bust = bust or nil }
     end
 end
 
@@ -68,7 +70,8 @@ end
 -- then Double-Up). risk: 'lowest' banks lucky and never risks a bust; 'medium'
 -- banks lucky, chases it one die away and rerolls off unlucky; 'highest' chases
 -- 11 while Fold is ready to undo a Bust, else plays as medium. Snake Eye takes 10
--- to 11 on every risk, and lucky - 1 to lucky but on highest (it saves it for 10).
+-- to 11 on every risk, and lucky - 1 to lucky but on highest (v2's rule; no roll's
+-- lucky is over 5, so 5 or under doubles first and it never comes up).
 function cor.decide(total, lucky, unlucky, risk, snake_ready, fold_ready)
     if total >= MAX_TOTAL then return 'stop' end
     if total <= ZERO_RISK_MAX then
@@ -102,6 +105,9 @@ end
 
 local function ready(a, g) return a ~= nil and (can.use(a, g)) end
 
+-- Busy until `t`: a step of COR's is due then, so resting mustn't start before it.
+local function busy(mem, t) mem.busy_until = math.max(mem.busy_until or -math.huge, t) end
+
 local function up(a, g) return can.any(g.me.buffs, a.status) end
 
 function cor.want(g, cat, cfg, mem)
@@ -116,22 +122,29 @@ function cor.want(g, cat, cfg, mem)
     if buffs[BUST] and ready(fold, g) then return { action = fold, why = 'Bust' } end
 
     -- The last roll, doubled while it's worth it; until it's settled, no new roll.
+    -- Only a total newer than every send: a roll sent since may own the Double-Up Chance.
     local r = g.roll
-    local roll
-    for _, a in ipairs(rolls) do if r and a.id == r.id then roll = a end end
-    local sent = roll and st.sent[roll.id] or -math.huge
-    if roll and r.at >= sent and buffs[DOUBLE_UP_CHANCE] and up(roll, g) and double then
-        local decision = buffs[SNAKE_EYE] and 'double'
+    local roll, newest = nil, -math.huge
+    for _, at in pairs(st.sent) do newest = math.max(newest, at) end
+    for _, a in ipairs(rolls) do if r and not r.bust and a.id == r.id then roll = a end end
+    if roll and r.at >= newest and buffs[DOUBLE_UP_CHANCE] and up(roll, g) and double then
+        local decision = (buffs[SNAKE_EYE] and r.total < MAX_TOTAL) and 'double'
             or cor.decide(r.total, roll.lucky, roll.unlucky, cfg.roll.risk, ready(snake, g), ready(fold, g))
         if decision ~= 'stop' then
-            if g.now - (st.doubled or -math.huge) < cor.DOUBLE_GAP or not ready(double, g) then return nil end
+            local gap = (st.doubled or -math.huge) + cor.DOUBLE_GAP
+            local _, _, wait = can.use(double, g)
+            if g.now < gap or wait then busy(mem, math.max(gap, g.now + (wait or 0))); return nil end
+            if not ready(double, g) then return nil end
             return { action = double, mods = decision == 'snake_eye' and { snake } or nil,
                      why = ('%s at %d'):format(roll.name, r.total),
                      sent = function (now) st.sent[roll.id], st.doubled = now, now end }
         end
     end
     for id, at in pairs(st.sent) do
-        if g.now - at < cor.WAIT and not (r and r.id == id and r.at >= at) then return nil end  -- its total is on its way
+        if g.now - at < cor.WAIT and not (r and r.id == id and r.at >= at) then  -- its total is on its way
+            busy(mem, at + cor.WAIT)
+            return nil
+        end
     end
 
     -- A roll that isn't up, while a slot is free.

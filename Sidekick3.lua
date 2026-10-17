@@ -107,7 +107,8 @@ end
 -- warned about once a session, as v2: the client won't take them.
 local warned_english = {}
 
--- Each new Phantom Roll total, printed while the log is on (as v2, lucky and 11 called out).
+-- Each new Phantom Roll total, its die and a Bust, printed while the log is on
+-- (as v2, lucky and 11 called out).
 local rolled_at
 local function say_roll(g)
     local r = g.roll
@@ -115,8 +116,9 @@ local function say_roll(g)
     rolled_at = r.at
     for _, a in ipairs(status.log and cat.list or {}) do
         if a.id == r.id and a.lucky then
+            if r.bust then printf('%s: Bust', a.name); return end
             local word = r.total == a.lucky and ': lucky!' or r.total == 11 and ': 11!' or r.total == a.unlucky and ': unlucky' or ''
-            printf('%s %d%s', a.name, r.total, word)
+            printf('%s: %d (total %d)%s', a.name, r.die or 0, r.total, word)
         end
     end
 end

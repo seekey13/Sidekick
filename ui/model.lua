@@ -345,7 +345,10 @@ function model.build(g, cat, cfg, status, names)
     for _, a in ipairs(cat) do
         if a.lucky then
             rolls[#rolls + 1] = { name = a.name, label = ('%s (%s)'):format(a.name, a.note), lucky = a.lucky, unlucky = a.unlucky }
-            if g.roll and g.roll.id == a.id then last = { name = a.name, total = g.roll.total, lucky = a.lucky, unlucky = a.unlucky } end
+            -- While it's on you, or just busted (it's gone then).
+            if g.roll and g.roll.id == a.id and (g.roll.bust or can.any(g.me.buffs, a.status)) then
+                last = { name = a.name, total = g.roll.total, lucky = a.lucky, unlucky = a.unlucky, bust = g.roll.bust == true }
+            end
         end
         stratagems = stratagems or a.role == 'modifier' and a.applies ~= nil
         spends_tp = spends_tp or a.role == 'recover' and a.spends_tp == true

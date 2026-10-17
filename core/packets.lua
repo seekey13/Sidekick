@@ -108,7 +108,7 @@ function packets.action(p, ctx, now)
         local tracked = ctx.tracks[t.id]
         for _, r in ipairs(t.results) do
             if kind == 'ja' and p.actor == ctx.me and t.id == ctx.me then
-                cor.rolled(p.param + ABILITY_BASE, r.param, r.message, now)
+                cor.rolled(p.param + ABILITY_BASE, r.param, r.message, now, r.info)
             end
             if HEALS_028[r.message] then
                 if key then
