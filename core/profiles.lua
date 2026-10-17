@@ -82,12 +82,16 @@ function profiles.active(cfg)
     return name ~= '' and cfg.profiles[name] and name or nil
 end
 
--- The profile named `name`: exactly, else in any case (chat isn't case-exact).
+-- A name as chat gives it back: any case, spaces run together.
+local function loose(name) return (name:lower():gsub('%s+', ' ')) end
+
+-- The profile named `name`: exactly, else in any case and spacing (a command's
+-- words are joined by single spaces, and chat isn't case-exact).
 function profiles.find(cfg, name)
     if not valid(name) then return nil end
     if cfg.profiles[name] then return name end
     for stored in pairs(cfg.profiles) do
-        if stored:lower() == name:lower() then return stored end
+        if loose(stored) == loose(name) then return stored end
     end
 end
 
@@ -114,12 +118,13 @@ function profiles.save_as(cfg, name)
     return true
 end
 
--- Load a profile by its stored name. Leaving Default parks the working copy;
--- going from one profile to another leaves it parked as it was.
+-- Load a profile by its stored name. Leaving Default parks the working copy,
+-- as does the first load after a Save from Default (nothing parked yet); going
+-- from one profile to another leaves it parked as it was.
 function profiles.load(cfg, name)
     local snap = cfg.profiles[name]
     if not snap then return false end
-    if not profiles.active(cfg) then cfg.parked = snapshot(cfg) end
+    if not profiles.active(cfg) or not next(cfg.parked) then cfg.parked = snapshot(cfg) end
     apply(cfg, snap)
     cfg.profile = name
     return true

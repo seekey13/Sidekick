@@ -83,3 +83,25 @@ test('after a relog the library saves new tables: switched() says to load them a
         eq(lib.files.ui.hp_width, 444)
     end)
 end)
+
+test('a key the file lacks is the defaults\' table in Ashita\'s library: writing a profile there leaves its defaults alone', function ()
+    with_lib({ WHM_BLM = { heal = { danger = 40 } } }, function (settings, lib)
+        -- As Ashita's merge: a missing key takes the defaults' own table, and the defaults are kept.
+        function lib.load(defaults, alias)
+            local t = copy(lib.files[alias] or {})
+            local function by_ref(x, d)
+                for k, v in pairs(d) do
+                    if x[k] == nil then x[k] = v
+                    elseif type(v) == 'table' and type(x[k]) == 'table' then by_ref(x[k], v) end
+                end
+            end
+            by_ref(t, defaults)
+            lib.cache[alias], lib.defaults = t, lib.defaults or {}
+            lib.defaults[alias] = defaults
+            return t
+        end
+        local cfg = settings.load('WHM_BLM')
+        cfg.profiles.Dyna, cfg.heal.skip.Kupipi, cfg.ui.hp_width = {}, true, 300
+        eq({ lib.defaults.WHM_BLM.profiles, lib.defaults.WHM_BLM.heal.skip, lib.defaults.ui.hp_width }, { {}, {}, 220 })
+    end)
+end)

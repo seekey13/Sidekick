@@ -63,15 +63,15 @@ function settings.enabled(cat, cfg, role)
     return out
 end
 
--- A fresh copy of the defaults, for tests and new files.
-function settings.defaults()
-    local function copy(t)
-        local out = {}
-        for k, v in pairs(t) do out[k] = type(v) == 'table' and copy(v) or v end
-        return out
-    end
-    return copy(DEFAULTS)
+local function copy(t)
+    local out = {}
+    for k, v in pairs(t) do out[k] = type(v) == 'table' and copy(v) or v end
+    return out
 end
+settings.defaults_copy = copy
+
+-- A fresh copy of the defaults, for tests and new files.
+function settings.defaults() return copy(DEFAULTS) end
 
 -- Ashita's settings library, loaded only in game. The job pair's file holds
 -- everything but `ui`, which loads from and saves to its own file.
@@ -83,11 +83,21 @@ function settings.load(job_pair)
         for k, v in pairs(t) do if type(v) == 'table' then t[k] = T_(v) end end
         return T(t)
     end
-    local d = settings.defaults()
+    -- The library fills a key the file lacks with the defaults' own table and
+    -- keeps those defaults (for the next character's load): give it copies, so
+    -- what is written into the settings (a profile, a skipped name) stays out of them.
+    local function detach(defaults)
+        for k, v in pairs(defaults) do
+            if type(v) == 'table' then defaults[k] = T_(settings.defaults_copy(v)) end
+        end
+    end
+    local d = T_(settings.defaults())
     local ui = d.ui
     d.ui = nil
-    loaded = lib.load(T_(d), alias)
-    loaded.ui = lib.load(T_(ui), UI_FILE)
+    loaded = lib.load(d, alias)
+    detach(d)
+    loaded.ui = lib.load(ui, UI_FILE)
+    detach(ui)
     return loaded
 end
 

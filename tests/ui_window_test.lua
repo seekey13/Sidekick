@@ -565,6 +565,8 @@ test('Heal the alliance writes heal.alliance; alliance chips write their slot; T
     eq({ fill('Bea'), fill('B0 Bea') }, { nil, WHITE })  -- no card in the HUD: a row
 end)
 
+local function profiles_named(cfg) return require('core.profiles').names(cfg) end
+
 test('Profiles: Save names the profile loaded, a click loads one, Default goes back; the header names it', function ()
     open_settings()
     local cfg, st = settings.defaults(), status()
@@ -584,4 +586,8 @@ test('Profiles: Save names the profile loaded, a click loads one, Default goes b
     eq({ cfg.profile, cfg.heal.danger }, { '', 40 })
     render(cfg, st)
     eq(has(frame.args.Button, 'Delete##sk3_profile_delete'), false)
+    render(cfg, st, { ['Dynamis##sk3_profile_Dynamis'] = true })
+    render(cfg, st, { ['New##sk3_profile_new'] = true })  -- the name loaded is cleared with it
+    render(cfg, st, { ['Save##sk3_profile_save'] = true })
+    eq({ profiles_named(cfg), cfg.profile }, { { 'Dynamis' }, '' })
 end)

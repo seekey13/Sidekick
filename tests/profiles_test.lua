@@ -63,6 +63,18 @@ test('going from one profile to another keeps the Default parked from before the
     eq(cfg.recover.mp, 99)
 end)
 
+test('a Save from Default parks nothing, so the next load parks the working copy for Default', function ()
+    local cfg = cfg_with(function (c) c.heal.danger = 42 end)
+    profiles.save(cfg, 'A')
+    cfg.heal.danger = 41
+    profiles.save_as(cfg, 'B')
+    cfg.heal.danger = 43
+    profiles.load(cfg, 'A')
+    profiles.load(cfg, 'B')
+    profiles.load_default(cfg)
+    eq(cfg.heal.danger, 43)
+end)
+
 test('a profile saved before newer settings existed gets their defaults', function ()
     local cfg = cfg_with()
     cfg.profiles.Old = { heal = { danger = 35 }, rows = {} }
@@ -92,6 +104,8 @@ test('no profile is blank or named Default; find takes any case, an exact match 
     eq({ profiles.find(cfg, 'Tank'), profiles.find(cfg, 'tank') }, { 'Tank', 'tank' })
     eq({ profiles.find(cfg, 'TANK') ~= nil, profiles.find(cfg, 'heal'), profiles.find(cfg, 'default') }, { true, nil, nil })
     eq(profiles.names(cfg)[1]:lower(), 'tank')
+    profiles.save_as(cfg, 'Sky  Two')
+    eq(profiles.find(cfg, 'sky two'), 'Sky  Two')  -- as /sk3 profile joins its words
 end)
 
 test('new resets the working copy to the defaults on Default; delete of the loaded one goes back to Default', function ()

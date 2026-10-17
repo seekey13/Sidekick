@@ -484,7 +484,10 @@ local function draw_profiles(view)
     if imgui.Button('Save as##sk3_profile_save_as') then act.save_profile(typed, true) end
     tip('Save the settings as they are now under this name, over any profile already named so.')
     imgui.SameLine()
-    if imgui.Button('New##sk3_profile_new') then act.new_profile() end
+    if imgui.Button('New##sk3_profile_new') then
+        act.new_profile()
+        profile_name[1] = ''
+    end
     tip('Every setting back to its default, on Default. Saved profiles are kept.')
     if p.active then
         imgui.SameLine()
