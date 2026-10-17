@@ -182,7 +182,8 @@ end
 
 local function member_tip(p)
     local notes = {}
-    if p.kind == 'trust' then notes[#notes + 1] = 'trust' end
+    if p.kind == 'trust' or p.kind == 'tracked' then notes[#notes + 1] = p.kind end
+    if p.job then notes[#notes + 1] = p.job end
     if not (p.alive or p.away) then notes[#notes + 1] = 'KO' end
     if p.away then notes[#notes + 1] = 'away' end
     local line = ('HP %d%%'):format(p.hpp) .. (p.uses_mp and ('  MP %d%%'):format(p.mpp) or '')
@@ -219,7 +220,8 @@ local function title_row(dl, view, ts, x0, y0, pw, th, s, cut)
     end
 end
 
--- A member's card at (x, y): the HP bar over the MP bar, sharing a border.
+-- A member's card at (x, y): the HP bar over the MP bar, sharing a border. A
+-- tracked player's MP can't be read: their bar stays empty, with no %.
 local function card(dl, ui, p, x, y)
     local fx, hp_top = x + PAD + B, y + B
     local mp_top = hp_top + ui.hp_height + B
@@ -237,7 +239,7 @@ local function card(dl, ui, p, x, y)
     local mw, mh = measure(mp, ts)
     local my = mp_top + (ui.mp_height - mh) / 2
     outlined(dl, ts, fx + 4, my, mp_color, p.tag)
-    outlined(dl, ts, fx + ui.mp_width - 4 - mw, my, mp_color, mp)
+    if p.kind ~= 'tracked' then outlined(dl, ts, fx + ui.mp_width - 4 - mw, my, mp_color, mp) end
 end
 
 -- The arrow left of the label, its tip just right of the panel at `cy`. On the
@@ -390,6 +392,27 @@ local function draw_rest(view)
     slider('Stand past##sk3_rest_distance', 'rest.distance', r.distance, 1, 15, 'Yalms from the leader.')
 end
 
+-- Each tracked player with its Untrack button (one who joined your party too),
+-- then Track for your target.
+local function draw_track(view)
+    for _, p in ipairs(view.party) do
+        if p.tracked then
+            if imgui.Button('Untrack##sk3_untrack_' .. p.name) then act.untrack(p.name) end
+            imgui.SameLine()
+            local note = p.kind ~= 'tracked' and '  (in your party)' or p.job and ('  ' .. p.job) or ''
+            text(('%s %s'):format(p.tag, p.name) .. note, p.away and GREY or nil)
+            tip(p.away and (p.kind == 'tracked' and 'Out of range.' or 'In another zone.') or nil)
+        end
+    end
+    local t = view.track.target
+    if t then
+        if imgui.Button(('Track %s##sk3_track'):format(t)) then act.track(t) end
+        tip('Heal, clear, raise and buff them too, with what reaches outside the party. This session only.')
+    else
+        text('Target a player outside your party to track them, or /sk3 track Name.', GREY)
+    end
+end
+
 local function draw_recent(view)
     if #view.recent == 0 then text('Nothing sent yet.', GREY) end
     for _, r in ipairs(view.recent) do
@@ -504,7 +527,7 @@ local SWITCH_HELP = {
 
 local BODIES = {
     follow = draw_follow, heal = draw_heal_settings, recover = draw_recover_settings,
-    pet = draw_pet_settings, rest = draw_rest, ui = draw_ui,
+    pet = draw_pet_settings, rest = draw_rest, track = draw_track, ui = draw_ui,
 }
 
 -- Its switch, its settings, then its rows.

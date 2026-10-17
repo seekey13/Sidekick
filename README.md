@@ -2,7 +2,7 @@
 
 Ground-up rewrite of [Sidekick](https://github.com/seekey13/Sidekick), the support-automation addon for Ashita v4 on [CatsEyeXI](https://www.catseyexi.com/).
 
-**Status: in development.** It heals by urgency: the most HP for your MP or TP when someone is hurt, the fastest heal when they're in danger, a boost (Divine Seal, Accession...) when they're critical. It weighs area cures and Regen against single cures, learns what your cures really heal, and has a focus target. It also removes debuffs (with items too, when you turn them on), wakes sleepers, raises, keeps up buffs you turn on, recovers MP and TP (Convert, Devotion, Aspir, Meditate...), looks after your pet (Repair, Spirit Link, sending it in), and can follow a member and rest when there's nothing to do, for you, your party and trusts. Sidekick v2 can stay loaded alongside it, but don't run both at once.
+**Status: in development.** It heals by urgency: the most HP for your MP or TP when someone is hurt, the fastest heal when they're in danger, a boost (Divine Seal, Accession...) when they're critical. It weighs area cures and Regen against single cures, learns what your cures really heal, and has a focus target. It also removes debuffs (with items too, when you turn them on), wakes sleepers, raises, keeps up buffs you turn on, recovers MP and TP (Convert, Devotion, Aspir, Meditate...), looks after your pet (Repair, Spirit Link, sending it in), and can follow a member and rest when there's nothing to do, for you, your party and trusts, and players outside your party you track. Sidekick v2 can stay loaded alongside it, but don't run both at once.
 
 ## What's different
 
@@ -16,12 +16,14 @@ v2 described every job's spells and abilities by hand in 22 job files. v3 reads 
 /sk3 help               the command list
 /sk3 plan               what it would do right now, without doing it
 /sk3 start | stop       automation on / off (always off after a load)
-/sk3 buff Haste p1 p2   keep a buff up on those targets (me, p1-p5); "off" turns it off
+/sk3 buff Haste p1 p2   keep a buff up on those targets (me, p1-p5, a tracked player's name); "off" turns it off
 /sk3 buff Barfira       for pick-one groups (bar-elements, enspells, storms) name the spell
 /sk3 buff               list the buffs that are on
 /sk3 focus Name | off   heal this member first, on its own HP lines
 /sk3 follow Name | off  follow this member
 /sk3 rest [on | off]    rest for MP when there's nothing to do
+/sk3 track [Name]       look after a player outside your party too: your target, or by name; else list them
+/sk3 untrack Name | all stop tracking them
 /sk3 state              what Sidekick reads from the game: party, trusts, buffs, target, flags
 /sk3 catalog [unknown]  what it can automate for your job, by role (or what it can't)
 /sk3 log                print each action as it's sent (on while in development)
@@ -30,7 +32,7 @@ v2 described every job's spells and abilities by hand in 22 job files. v3 reads 
 
 The HUD (`/sk3`) shows the party as Sidekick reads them, and what it will do next:
 
-- **A card per member**: HP and MP bars with their %, the name, and the slot (ME, P1-P5). The name and HP % turn red under your critical line, the slot and MP % under your Recover MP line. Hover a card for its distance and statuses, and whether it's a trust, KO or away.
+- **A card per member**: HP and MP bars with their %, the name, and the slot (ME, P1-P5), then one per tracked player (T1, T2..., HP only). The name and HP % turn red under your critical line, the slot and MP % under your Recover MP line. Hover a card for its distance and statuses, and whether it's a trust, tracked, KO or away.
 - **An arrow** at the member the next action is for, labelled like `Heal:Cure IV`: yellow while running, grey while stopped (what it would do). An action on you, your pet or the enemy points at your own card.
 - **The title row**: hover it for your job, what Sidekick is doing or why it's waiting (casting, moving, safe zone...), your battle target and pet. Its icons start and stop automation, open SK Settings, and close the HUD.
 
@@ -41,12 +43,15 @@ Drag the HUD where you want it; Lock position keeps it there.
 - **Follow**: who to follow and how far they may get.
 - **Heal**: healing, with its HP lines (danger, critical, and the focus member's own), gear potency and who to heal; raising.
 - **Remove**: waking sleepers (when one of your heals can), and debuff removal: spells, then items (Echo Drops, Remedy...) with how many you carry.
-- **Buff**: each row picks a tier ("Auto" casts the best you can) or, for pick-one groups like bar-elements and songs, the spell; and the targets, ME and P1-P5.
+- **Buff**: each row picks a tier ("Auto" casts the best you can) or, for pick-one groups like bar-elements and songs, the spell; and the targets, ME and P1-P5, and T1... for tracked players when the spell can go outside the party.
 - **Pet**, for a pet job: its HP line, and its care and send rows. Sending the pet in is opt-in, row by row; Repair, Maintenance and Reward need their oil or pet food worn.
 - **Recover**: MP and TP lines (and the TP Chivalry spends from); resting for MP out of combat after a few quiet seconds, standing at full MP or when the leader leaves.
+- **Tracked**: the players you track, each with Untrack, and Track for your target when it's a player outside your party.
 - **UI / Log**: the HUD's bar and font sizes, spacing, panel opacity and lock; the action log and the last 10 actions sent, and why; Japanese client.
 
 Each row turns a family on or off and says whether it's ready or why not.
+
+**Tracked players** are looked after like members with whatever reaches outside a party: Cure and Curing Waltz, Protect, Shell, Haste, the -na spells, raises, following. Regen, Refresh, Erase and Healing Waltz can't go on them, and an area spell cast from you or a member (Curaga, Esuna, Protectra) lands on your own party only, so it never counts them. Only their HP % can be read: Sidekick `/check`s them for their level to estimate their max HP (they see that you examined them, as in v2; an /anon player is sized like you). Tracking lasts until Sidekick3 is reloaded; a buff row remembers them by name, so tracking them again brings their buffs back.
 
 The UI is one replaceable file: put your own in `ui/custom.lua` and it's used instead. [ui/README.md](ui/README.md) documents what a UI is given and what it can change, with an example.
 

@@ -33,12 +33,17 @@ function fake.unit(t)
     return u
 end
 
--- Snapshot: you (WHM 75 / BLM 37, 1000 MP) plus `others` in slots 1..n;
--- `over` sets snapshot fields; `waits` = { [action name] = seconds of recast }.
+-- Snapshot: you (WHM 75 / BLM 37, 1000 MP) plus `others` in slots 1..n (a
+-- tracked player has none, and no MP); `over` sets snapshot fields;
+-- `waits` = { [action name] = seconds of recast }.
 function fake.snap(others, over, waits)
     local units = { fake.unit({ kind = 'self', slot = 0, sid = 1, name = 'Me', dist = 0, mp = 1000, tp = 0 }) }
     for i, o in ipairs(others or {}) do
-        o.slot, o.sid = o.slot or i, o.sid or 100 + i
+        if o.kind == 'tracked' then
+            o.sid, o.mpp, o.uses_mp = o.sid or 200 + i, 0, false
+        else
+            o.slot, o.sid = o.slot or i, o.sid or 100 + i
+        end
         units[#units + 1] = fake.unit(o)
     end
     local g = { now = 1000, me = units[1], units = units, combat = false, learned = {},

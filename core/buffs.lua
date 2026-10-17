@@ -1,6 +1,6 @@
 --[[
-    Statuses on units the client keeps no readable list for (trusts and your pet now;
-    alliance and tracked targets later), pieced together from packets by core/packets.lua.
+    Statuses on units the client keeps no readable list for (trusts, your pet and
+    tracked players now; alliance later), pieced together from packets by core/packets.lua.
     You and your party's players are read from memory instead (core/game.lua).
 ]]--
 

@@ -5,7 +5,9 @@
     A row is a spell family ("Cure"), a pick_one group ("barelement") or a labelled
     use ("Regen (keep up)", when one family has several):
         rows[key] = { on = bool, pick = action name or nil (= best tier),
-                      targets = { [party slot] = true } }    -- buffs only
+                      targets = { [party slot] = true, [tracked name] = true } }  -- buffs only
+    A tracked player's name stays on the row after they're untracked, so tracking
+    them again brings their buffs back.
     A row never saved uses its default: on, except buffs, sending the pet in and
     items, which are opt-in.
     `ui` is the window, shared by every job pair (its own file, ui.lua) so the HUD

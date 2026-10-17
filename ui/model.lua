@@ -7,8 +7,9 @@
         g       snapshot (core/game.lua)        cat     catalog list
         cfg     settings (core/settings.lua)    status  Sidekick3.lua's status table
         names   { job = function (id) -> 'WHM', statuses = { [id] = { en = } } }
-    model.actions(cfg, status, changed) -> act          every change a UI makes
+    model.actions(cfg, status, changed, tracking) -> act    every change a UI makes
         changed() is called after each settings write; the caller saves.
+        tracking = { add = function (name or nil: your target), remove = function (name) }
 
     Building only reads. Settings change only through `act`, and only on user
     input: a frame read mid-zone must never write anything back.
@@ -20,8 +21,8 @@ local settings = require('core.settings')
 local model = {}
 
 -- Settings sections in order, each under its `header` (headers in the order
--- their first section comes). Every section but 'ui' is a behavior, switched
--- by cfg[id].on; one with roles also has rows. Wake shows only when a heal can wake.
+-- their first section comes). Every section but 'track' and 'ui' is a behavior,
+-- switched by cfg[id].on; one with roles also has rows. Wake shows only when a heal can wake.
 model.SECTIONS = {
     { id = 'follow', title = 'Follow', header = 'Follow' },
     { id = 'heal', title = 'Healing', roles = { 'heal', 'emergency' }, header = 'Heal' },
@@ -32,7 +33,8 @@ model.SECTIONS = {
     { id = 'pet', title = 'Pet', roles = { 'pet_heal', 'pet_remove', 'pet_send' }, header = 'Pet' },
     { id = 'recover', title = 'Recovery', roles = { 'recover' }, header = 'Recover' },
     { id = 'rest', title = 'Resting', header = 'Recover' },
-    { id = 'ui', title = 'UI / Log', header = 'UI / Log' },
+    { id = 'track', title = 'Tracked players', header = 'Tracked', switch = false },
+    { id = 'ui', title = 'UI / Log', header = 'UI / Log', switch = false },
 }
 model.FLAGS = { 'casting', 'moving', 'combat', 'safe', 'mounted', 'dead', 'resting', 'incapacitated', 'silenced', 'amnesia' }
 
@@ -106,10 +108,14 @@ local function availability(acts, r, g)
     return false, reason or 'not available'
 end
 
--- Target chips ME, P1-P5 for a buff that can go on others.
-local function chips(acts, r, units)
-    local reaches = false
-    for _, a in ipairs(acts) do reaches = reaches or not (can.self_only(a) or can.at_enemy(a)) end
+-- Target chips ME, P1-P5 for a buff that can go on others, then T1... for each
+-- tracked player when it can go outside the party (their slot is their name).
+local function chips(acts, r, units, outsiders)
+    local reaches, outside = false, false
+    for _, a in ipairs(acts) do
+        reaches = reaches or not (can.self_only(a) or can.at_enemy(a))
+        outside = outside or can.outside(a)
+    end
     if not reaches then return nil end
     local on = r.targets or { [0] = true }
     local out = {}
@@ -117,17 +123,20 @@ local function chips(acts, r, units)
         local u = units[slot]
         out[#out + 1] = { slot = slot, label = SLOT_LABELS[slot], present = u ~= nil, name = u and u.name, on = on[slot] == true }
     end
+    for i, u in ipairs(outside and outsiders or {}) do
+        out[#out + 1] = { slot = u.name, label = 'T' .. i, present = true, name = u.name, on = on[u.name] == true }
+    end
     return out
 end
 
-local function build_row(key, acts, cfg, g, units, buffs)
+local function build_row(key, acts, cfg, g, units, buffs, outsiders)
     local r = settings.row(cfg, acts[1])
     local notes = distinct(acts, 'note')
     local note = #notes == 1 and notes[1] or nil
     local row = { key = key, label = row_label(key, acts, note), on = r.on == true }
     if buffs then
         row.choices = choices(acts, note)
-        row.targets = chips(acts, r, units)
+        row.targets = chips(acts, r, units, outsiders)
     end
     if row.choices then
         row.pick = r.pick
@@ -143,7 +152,7 @@ local function build_row(key, acts, cfg, g, units, buffs)
 end
 
 -- One section's rows, one per settings key, roles in the section's order.
-local function build_rows(s, g, cat, cfg, units)
+local function build_rows(s, g, cat, cfg, units, outsiders)
     local rows, acts_of, order = {}, {}, {}
     for _, role in ipairs(s.roles) do
         for _, a in ipairs(cat) do
@@ -155,7 +164,7 @@ local function build_rows(s, g, cat, cfg, units)
         end
     end
     for _, key in ipairs(order) do
-        rows[#rows + 1] = build_row(key, acts_of[key], cfg, g, units, s.id == 'buff')
+        rows[#rows + 1] = build_row(key, acts_of[key], cfg, g, units, s.id == 'buff', outsiders)
     end
     return rows
 end
@@ -200,12 +209,23 @@ local function hp_state(u, h)
     return u.hpp < (focus and h.focus_danger or h.danger) and 'low' or 'ok'
 end
 
-local function party(g, cfg, statuses)
-    local out = {}
+-- 'WHM 75 / BLM 37', or 'WAR 75' with no subjob.
+local function jobs(job, main, main_lv, sub, sub_lv)
+    if (sub_lv or 0) > 0 then return ('%s %d / %s %d'):format(job(main), main_lv, job(sub), sub_lv) end
+    return ('%s %d'):format(job(main), main_lv)
+end
+
+-- Everyone: party slots ME, P1-P5; tracked players T1... with their jobs once a /check answers.
+local function party(g, cfg, names)
+    local out, n = {}, 0
     for _, u in ipairs(g.units) do
-        local buffs, all = buff_names(u.buffs, statuses)
+        local buffs, all = buff_names(u.buffs, names.statuses)
+        local tag = SLOT_LABELS[u.slot]
+        if u.kind == 'tracked' then n = n + 1; tag = 'T' .. n end
         out[#out + 1] = {
-            tag = SLOT_LABELS[u.slot], kind = u.kind, name = u.name, alive = u.alive, away = not u.in_zone,
+            tag = tag, kind = u.kind, name = u.name, alive = u.alive, away = not u.in_zone,
+            tracked = u.kind == 'tracked' or u.tracked == true,
+            job = u.main_lv and jobs(names.job, u.main, u.main_lv, u.sub, u.sub_lv) or nil,
             hpp = u.hpp, hp = hp_state(u, cfg.heal), mpp = u.mpp, uses_mp = u.uses_mp == true,
             mp = u.uses_mp and u.mpp < cfg.recover.mp and 'low' or 'ok',
             dist = not u.in_zone and 'away' or u.kind == 'self' and '' or ('%.1fy'):format(u.dist or 0),
@@ -249,8 +269,12 @@ end
 -- The view ---------------------------------------------------------------------
 
 function model.build(g, cat, cfg, status, names)
-    local units = {}
-    for _, u in ipairs(g.units) do units[u.slot] = u end
+    local units, outsiders, known = {}, {}, {}
+    for _, u in ipairs(g.units) do
+        if u.slot then units[u.slot] = u end
+        if u.kind == 'tracked' then outsiders[#outsiders + 1] = u end
+        known[u.sid] = true
+    end
 
     local h = cfg.heal
     local focus_names, members = {}, {}
@@ -268,10 +292,9 @@ function model.build(g, cat, cfg, status, names)
     end
 
     local view = {
-        job = g.sub_lv > 0 and ('%s %d / %s %d'):format(names.job(g.main), g.main_lv, names.job(g.sub), g.sub_lv)
-            or ('%s %d'):format(names.job(g.main), g.main_lv),
+        job = jobs(names.job, g.main, g.main_lv, g.sub, g.sub_lv),
         status = status_line(status),
-        party = party(g, cfg, names.statuses),
+        party = party(g, cfg, names),
         bt = entity(g.bt), pet = entity(g.pet),
         flags = {}, recent = {}, sections = {},
         heal = { danger = h.danger, critical = h.critical, focus = h.focus,
@@ -282,6 +305,8 @@ function model.build(g, cat, cfg, status, names)
         pet_heal = cfg.pet.heal,
         follow = { on = cfg.follow.on, target = cfg.follow.target, distance = cfg.follow.distance, names = focus_names },
         rest = { on = cfg.rest.on, delay = cfg.rest.delay, distance = cfg.rest.distance },
+        -- Your target, by name, when it's a player who could be tracked: not in the party, not tracked yet.
+        track = { target = g.target and not known[g.target.sid] and g.target.name or nil },
         japanese = cfg.japanese, log = status.log, ui = {},
     }
     for k, v in pairs(cfg.ui) do view.ui[k] = v end
@@ -295,9 +320,9 @@ function model.build(g, cat, cfg, status, names)
     end
     for _, s in ipairs(model.SECTIONS) do
         local section = { id = s.id, title = s.title, header = s.header }
-        if s.id ~= 'ui' then section.on = cfg[s.id].on end  -- cfg.ui.on would be a UI's own
+        if s.switch ~= false then section.on = cfg[s.id].on end  -- cfg.ui.on would be a UI's own
         if s.roles then
-            section.rows = build_rows(s, g, cat, cfg, units)
+            section.rows = build_rows(s, g, cat, cfg, units, outsiders)
             for _, r in ipairs(section.rows) do
                 section.has_choices = section.has_choices or r.choices ~= nil
                 section.has_targets = section.has_targets or r.targets ~= nil
@@ -320,7 +345,7 @@ local function saved_row(cfg, key, default_on)
     return r
 end
 
-function model.actions(cfg, status, changed)
+function model.actions(cfg, status, changed, tracking)
     local act = {}
     -- This session only: automation always starts stopped, the log as set.
     function act.run(on) status.running = on end
@@ -343,12 +368,16 @@ function model.actions(cfg, status, changed)
         saved_row(cfg, key, false).pick = name
         changed()
     end
+    -- slot: a party slot 0-5, or a tracked player's name.
     function act.target(key, slot)
         local r = saved_row(cfg, key, false)
         r.targets = r.targets or { [0] = true }
         r.targets[slot] = not r.targets[slot] or nil
         changed()
     end
+    -- Track a player: by name, or your target when nil. This session only, as untracking.
+    function act.track(name) tracking.add(name) end
+    function act.untrack(name) tracking.remove(name) end
     -- A member skipped by healing is never healed for their own sake.
     function act.skip(name)
         cfg.heal.skip[name] = not cfg.heal.skip[name] or nil

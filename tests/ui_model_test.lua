@@ -43,12 +43,13 @@ end
 test('WHM 75 / BLM 37: every section, in order, each under its header, then UI / Log', function ()
     local view = build(whm)
     eq(view.job, 'WHM 75 / BLM 37')
-    eq(keys(view.sections, 'id'), { 'follow', 'heal', 'revive', 'wake', 'remove', 'buff', 'recover', 'rest', 'ui' })
+    eq(keys(view.sections, 'id'), { 'follow', 'heal', 'revive', 'wake', 'remove', 'buff', 'recover', 'rest', 'track', 'ui' })
     eq(keys(view.sections, 'title'), { 'Follow', 'Healing', 'Revive', 'Wake sleepers', 'Debuff removal', 'Buffs',
-        'Recovery', 'Resting', 'UI / Log' })
-    eq(keys(view.sections, 'header'), { 'Follow', 'Heal', 'Heal', 'Remove', 'Remove', 'Buff', 'Recover', 'Recover', 'UI / Log' })
-    eq(keys(view.sections, 'on'), { false, true, true, true, true, true, true, false })  -- UI / Log has no switch
-    eq(section(view, 'ui').on, nil)
+        'Recovery', 'Resting', 'Tracked players', 'UI / Log' })
+    eq(keys(view.sections, 'header'), { 'Follow', 'Heal', 'Heal', 'Remove', 'Remove', 'Buff', 'Recover', 'Recover',
+        'Tracked', 'UI / Log' })
+    eq(keys(view.sections, 'on'), { false, true, true, true, true, true, true, false })  -- Tracked, UI / Log: no switch
+    eq({ section(view, 'track').on, section(view, 'ui').on }, { nil, nil })
     local cfg = settings.defaults()
     cfg.ui.on = true  -- a custom UI's own key
     eq(section(build(whm, cfg), 'ui').on, nil)
@@ -68,7 +69,7 @@ test('a section with nothing to show is left out: BLM 75 has no raise, no heal t
         if a.role == 'heal' then eq(a.wakes, nil, a.name) end
     end
     local view = build(blm)
-    eq(keys(view.sections, 'id'), { 'follow', 'heal', 'remove', 'buff', 'recover', 'rest', 'ui' })
+    eq(keys(view.sections, 'id'), { 'follow', 'heal', 'remove', 'buff', 'recover', 'rest', 'track', 'ui' })
     eq(keys(section(view, 'remove').rows), { 'Antidote', 'Eye Drops', 'Echo Drops', 'Holy Water', 'Tincture',
         'Hallowed Water', 'Remedy Ointment', 'Remedy', 'Panacea' })
 end)
@@ -300,4 +301,55 @@ test('a long status list is cut short, the whole list kept for the tooltip', fun
     eq(select(2, p.buffs:gsub(', ', '')), 5)
     eq(p.buffs:match('%+%d+$'), '+2')
     eq(select(2, p.buffs_all:gsub('\n', '')), 7)
+end)
+
+-- Tracked players ----------------------------------------------------------------------
+
+local function tracked_snap(over)
+    return fake.snap({ { name = 'A' },
+        { kind = 'tracked', name = 'Out', main = WHM, main_lv = 75, sub = BLM, sub_lv = 37 },
+        { kind = 'tracked', name = 'Far', in_zone = false } }, over)
+end
+
+test('tracked players: tagged T1 on, their jobs once a /check answers, and among the names to pick', function ()
+    local view = build(whm, nil, tracked_snap())
+    eq(keys(view.party, 'tag'), { 'ME', 'P1', 'T1', 'T2' })
+    local out, far = view.party[3], view.party[4]
+    eq({ out.kind, out.job, out.away, out.uses_mp, far.job, far.away }, { 'tracked', 'WHM 75 / BLM 37', false, false, nil, true })
+    eq(view.heal.focus_names, { 'A', 'Out', 'Far' })
+    eq(view.follow.names, { 'A', 'Out', 'Far' })
+    eq(keys(view.party, 'tracked'), { false, false, true, true })
+    eq(build(whm, nil, fake.snap({ { name = 'A', tracked = true } })).party[2].tracked, true)  -- joined your party
+end)
+
+test('buff rows reaching outside the party get a chip per tracked player, its slot their name', function ()
+    local view = build(whm, nil, tracked_snap())
+    local haste = row(view, 'buff', 'Haste')
+    eq(keys(haste.targets, 'label'), { 'ME', 'P1', 'P2', 'P3', 'P4', 'P5', 'T1', 'T2' })
+    eq(haste.targets[7], { slot = 'Out', label = 'T1', present = true, name = 'Out', on = false })
+    eq(#row(view, 'buff', 'Regen (keep up)').targets, 6)  -- party only
+    local cfg = settings.defaults()
+    model.actions(cfg, status(), function () end).target('Haste', 'Out')
+    eq(cfg.rows.Haste.targets, { [0] = true, Out = true })
+    eq(row(build(whm, cfg, tracked_snap()), 'buff', 'Haste').targets[7].on, true)
+end)
+
+test('Track is offered for your target only when it is a player not in the party or tracked', function ()
+    local stranger = { sid = 900, tidx = 1200, name = 'Stranger' }
+    eq(build(whm, nil, tracked_snap({ target = stranger })).track, { target = 'Stranger' })
+    eq(build(whm, nil, tracked_snap({ target = { sid = 101, tidx = 1100, name = 'A' } })).track, {})
+    eq(build(whm, nil, tracked_snap({ target = { sid = 202, tidx = 1101, name = 'Out' } })).track, {})
+    eq(build(whm, nil, tracked_snap()).track, {})
+end)
+
+test('track and untrack go to the tracking functions Sidekick gives, writing no setting', function ()
+    local calls, writes = {}, 0
+    local act = model.actions(settings.defaults(), status(), function () writes = writes + 1 end, {
+        add = function (name) calls[#calls + 1] = { 'add', name } end,
+        remove = function (name) calls[#calls + 1] = { 'remove', name } end,
+    })
+    act.track('Stranger')
+    act.track()
+    act.untrack('Out')
+    eq({ calls, writes }, { { { 'add', 'Stranger' }, { 'add' }, { 'remove', 'Out' } }, 0 })
 end)
