@@ -65,8 +65,8 @@ end)
 test('can.use: under Dark Arts an Addendum spell is usable while Enlightenment is', function ()
     local raise = named(cat, 'Raise II')
     eq(can.use(raise, snap({ DARK_ARTS })), true)
-    eq(select(2, can.use(raise, snap({ DARK_ARTS }, {}, { Enlightenment = 200 }))), 'needs a status')
-    eq(select(2, can.use(raise, snap({ LIGHT_ARTS }))), 'needs a status')  -- Addendum: White is the way in there
+    eq(select(2, can.use(raise, snap({ DARK_ARTS }, {}, { Enlightenment = 200 }))), 'needs Addendum: White')
+    eq(select(2, can.use(raise, snap({ LIGHT_ARTS }))), 'needs Addendum: White')  -- Addendum: White is the way in there
     eq(can.use(raise, snap({ LIGHT_ARTS, ADDENDUM_WHITE })), true)
 end)
 
@@ -276,5 +276,5 @@ test('a held row says what it waits for', function ()
     for _, s in ipairs(v.sections) do
         for _, r in ipairs(s.rows or {}) do if r.key == 'Protect' then row = r end end
     end
-    eq({ row.ready, row.avail }, { false, 'waits for Pen: needs a status' })
+    eq({ row.ready, row.avail }, { false, 'waits for Pen: needs Light Arts' })
 end)

@@ -59,12 +59,16 @@ local function ids(v, idx, what)
     return out
 end
 
--- What a row it blocks calls the blocking statuses: "Saber Dance", "Vallation or Liement".
-local function blocker(v, statuses)
-    if type(v) ~= 'table' then v = { v } end
-    local out = {}
-    for i, x in ipairs(v) do out[i] = type(x) == 'number' and statuses[x].en or x end
-    return table.concat(out, ' or ')
+-- Status id -> its name, for the ids in these lists: what can.use names as blocking or needed.
+local function names(statuses, ...)
+    local out
+    for _, list in pairs({ ... }) do
+        for _, id in ipairs(list) do
+            out = out or {}
+            out[id] = statuses[id] and statuses[id].en
+        end
+    end
+    return out
 end
 
 -- Knowledge uses for one action: exact name beats family; a use may be kind-specific.
@@ -116,7 +120,6 @@ function catalog.build(res, player, K)
                     status = ids(status, idx, row.en),
                     removes = ids(use.removes, idx, row.en),
                     blocked_by = ids(use.blocked_by, idx, row.en),
-                    blocker = use.blocked_by and blocker(use.blocked_by, res.statuses),
                     -- ponytail: no knowledge row sets requires on an Addendum spell; merge if one ever does.
                     requires = addendum and ADDENDUM[row.type] or ids(use.unbridled and UNBRIDLED or use.requires, idx, row.en),
                     unbridled = use.unbridled,
@@ -141,6 +144,8 @@ function catalog.build(res, player, K)
                     element = row.element, skill = row.skill, type = row.type,
                     from = from, level = level,
                 }
+                local a = out[#out]
+                a.names = names(res.statuses, a.blocked_by or {}, a.requires or {})
             end
         end
     end

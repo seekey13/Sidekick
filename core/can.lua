@@ -96,10 +96,10 @@ function can.use(a, g)
     if a.kind == 'item' and not (g.items and g.items[a.id]) then return false, 'none left' end
     -- An Addendum spell can go through Enlightenment instead (core/catalog.lua), fired first by the engine.
     if a.requires and not any(g.me.buffs, a.requires) and not (a.via and can.use(a.via, g)) then
-        return false, 'needs a status'
+        return false, 'needs ' .. (a.names and a.names[a.requires[1]] or 'a status')
     end
     for _, id in ipairs(a.blocked_by or {}) do
-        if g.me.buffs[id] then return false, 'blocked by ' .. (a.blocker or 'a status') end
+        if g.me.buffs[id] then return false, 'blocked by ' .. (a.names and a.names[id] or 'a status') end
     end
     if a.gate == 'combat' and not g.combat then return false, 'combat only' end
     if a.gate == 'idle' and g.combat then return false, 'idle only' end

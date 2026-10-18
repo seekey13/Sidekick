@@ -43,7 +43,8 @@ test('catalog: Trance waives waltzes and Aspir Samba; stances name what they blo
          named(cat, 'Healing Waltz').trance, named(cat, 'Aspir Samba').trance },
        { true, true, true, true })
     eq({ named(cat, 'Drain Samba').trance, named(cat, 'Haste Samba').trance }, { nil, nil })
-    eq({ named(cat, 'Curing Waltz').blocker, named(cat, 'Haste Samba').blocker }, { 'Saber Dance', 'Fan Dance' })
+    eq({ named(cat, 'Curing Waltz').names, named(cat, 'Haste Samba').names },
+       { { [SABER] = 'Saber Dance' }, { [FAN] = 'Fan Dance' } })
     eq({ named(cat, 'Reverse Flourish').requires, named(cat, 'No Foot Rise').status }, { { FM5, FM6 }, { FM5, FM6 } })
 end)
 
@@ -69,6 +70,13 @@ test('Trance: a waltz at no TP, the biggest one, since it costs nothing', functi
     eq(decide(g), '/ja "Curing Waltz IV" 101')
 end)
 
+test('Trance: a free waltz beats Regen for chip damage', function ()
+    local g = snap(0, {}, { { name = 'A', hpp = 70 } })
+    eq(decide(g), '/ma "Regen" 101')
+    g.me.buffs[TRANCE] = true
+    eq(decide(g), '/ja "Curing Waltz III" 101')
+end)
+
 test('Trance: Aspir Samba at no TP; Drain and Haste Samba still want theirs', function ()
     local g = snap(0, { TRANCE }, {}, { combat = true })
     eq(decide(g, cfg_with({ samba = 'Aspir Samba' })), '/ja "Aspir Samba" <me>')
@@ -85,6 +93,7 @@ end)
 
 test('finishing moves: Reverse Flourish at five or more, No Foot Rise under five', function ()
     local g = snap(200, { FM4 }, {}, { combat = true })
+    eq({ can.use(named(cat, 'Reverse Flourish'), g) }, { false, 'needs Finishing Move (5)' })
     local cfg = cfg_with({ ['No Foot Rise'] = true })
     eq(decide(g, cfg), '/ja "No Foot Rise" <me>')
     for _, fm in ipairs({ FM5, FM6 }) do
