@@ -26,6 +26,7 @@ local settings = require('core.settings')
 local share = require('core.share')
 local tracked = require('core.tracked')
 local imgui = require('imgui')
+local nin = require('jobs.nin')
 local model = require('ui.model')
 
 local function printf(fmt, ...)
@@ -133,6 +134,11 @@ end
 local function tick(g)
     if g.loading then return end
     say_roll(g)
+    -- Utsusemi's last shadow, cancelled mid-cast (jobs/nin.lua): packet 0x0F1, as the Debuff addon sends.
+    local shadow = nin.cancel(g, mem)
+    if shadow then
+        AshitaCore:GetPacketManager():AddOutgoingPacket(0xF1, { 0xF1, 0x04, 0x00, 0x00, shadow % 256, math.floor(shadow / 256), 0x00, 0x00 })
+    end
     local act = status.running and engine.ready(g, mem)
     if not (act or status.open) then return end
     local intent, why = engine.decide(g, cat.list, cfg, mem)

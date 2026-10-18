@@ -18,11 +18,16 @@
     heal.reserve on, buff rows never spend the last stratagem charge (jobs/sch.lua).
     A row with Hold on (rows[key].hold, v2's Hold for Stratagem / Embolden) waits
     while any of its modifiers can't go with the spell; without it the spell goes alone.
+    A row that needs ammo worn (Sange's shuriken) and would go with it first
+    equips it (core/ammo.lua). Ninjutsu wait for their tools, and Utsusemi may be
+    recast at its last shadow (jobs/nin.lua).
     Songs are kept up here until the BRD module takes them (phase 4); Corsair's
     rolls are jobs/cor.lua's.
 ]]--
 
+local ammo = require('core.ammo')
 local can = require('core.can')
+local nin = require('jobs.nin')
 local sch = require('jobs.sch')
 local settings = require('core.settings')
 
@@ -31,9 +36,10 @@ local buff = {}
 local INVISIBLE = 69
 local AREA_RADIUS = 10  -- yalms around you
 
-local function lacks(a, u)
+-- `status` (a list) stands in for `a`'s own when given.
+local function lacks(a, u, status)
     if not a.status then return true end
-    for _, id in ipairs(a.status) do if u.buffs[id] then return false end end
+    for _, id in ipairs(status or a.status) do if u.buffs[id] then return false end end
     return true
 end
 
@@ -54,6 +60,8 @@ local function chosen(cat, cfg, g)
         for _, a in ipairs(list) do
             if row.pick == a.name or (not row.pick and not a.pick_one and can.use(a, g)) then pick = a; break end
         end
+        -- None can go now: the best, so its ammo can be equipped for it.
+        if not (pick or row.pick or list[1].pick_one) then pick = list[1] end
         if pick then
             out[#out + 1] = { action = pick, targets = row.targets or { [0] = true }, mods = settings.mods(cat, cfg, pick),
                               hold = row.hold == true }
@@ -130,6 +138,10 @@ function buff.want(g, cat, cfg, mem)
     local hold = cfg.buff.hold_aoe
     for _, c in ipairs(chosen(cat, cfg, g)) do
         local a = c.action
+        if (a.travel or not invisible) and a.ammo and can.self_only(a) and lacks(a, g.me) and not can.use(a, g) then
+            local intent = ammo.equip(a, g, cfg, mem, ('%s lacks it'):format(g.me.name))
+            if intent then return intent end
+        end
         if (a.travel or not invisible) and can.use(a, g) and sch.spare(a, g, cfg) then
             local acc, mods = spreading(c, g, cfg)
             local spreads = false  -- Accession on, and someone near you it would reach lacks it
@@ -159,7 +171,12 @@ function buff.want(g, cat, cfg, mem)
                         return { action = a, mods = mods, why = ('%s lacks it'):format(near.name) }
                     end
                 elseif can.self_only(a) then
-                    if lacks(a, g.me) then return { action = a, mods = mods, why = ('%s lacks it'):format(g.me.name) } end
+                    local shadows = nin.shadows(a, cfg)
+                    if lacks(a, g.me, shadows) then
+                        local last = shadows and g.me.buffs[a.last_shadow] and a.last_shadow or nil
+                        local why = last and '%s: one shadow left' or '%s lacks it'
+                        return { action = a, mods = mods, why = why:format(g.me.name), cancel = last }
+                    end
                 else
                     for _, u in ipairs(g.units) do
                         if c.targets[u.slot or u.name] and can.reach(a, u) and lacks(a, u) then

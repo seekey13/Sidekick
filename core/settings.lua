@@ -48,7 +48,8 @@ local DEFAULTS = {
     maneuver = { on = true, slot_1 = '', slot_2 = '', slot_3 = '' },
     buff = { on = true,
              hold_aoe = false,  -- hold an area buff spell (Protectra, songs) until the party's players gather
-             gather = true },   -- ...and ask them to in party chat
+             gather = true,     -- ...and ask them to in party chat
+             one_shadow = false },  -- NIN: recast Utsusemi at its last shadow (v2's Cast with 1 Shadow)
     revive = { on = true },
     follow = { on = false, target = '', distance = 5 },  -- /follow them past this many yalms
     rest = { on = false, delay = 5, distance = 7 },  -- /heal after this many quiet seconds; up past distance from follow.target
