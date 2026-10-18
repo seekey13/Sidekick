@@ -145,10 +145,11 @@ test('nothing goes while you are Invisible, off RUN or with Runes off', function
     eq(decide(snap(), cfg), nil)
 end)
 
-test('runes still go while a cure is held for', function ()
-    local b
-    for _, x in ipairs(engine.BEHAVIORS) do if x.name == 'rune' then b = x end end
-    eq(b.quick, true)
+test('runes still go while a cure is held for, ahead of the luopan', function ()
+    local at = {}
+    for i, x in ipairs(engine.BEHAVIORS) do at[x.name] = i end
+    eq(engine.BEHAVIORS[at.rune].quick, true)
+    eq(at.rune < at.geo and at.geo < at.buff, true, 'before the luopan and buffs, as v2')
 end)
 
 test('Embolden on a buff row goes just before the spell', function ()
