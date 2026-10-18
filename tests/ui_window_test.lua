@@ -137,10 +137,11 @@ local imgui = setmetatable({}, { __index = function (_, name)
             frame.args[name] = frame.args[name] or {}
             table.insert(frame.args[name], label)
         end
-        if IDS[name] then
+        if IDS[name] then  -- ImGui's ids are per window
             local id = label:match('###.*') or label
-            assert(not frame.ids[id], 'duplicate widget id ' .. id)
-            frame.ids[id] = true
+            local key = (name == 'Begin' and '' or frame.window or '') .. '|' .. id
+            assert(not frame.ids[key], 'duplicate widget id ' .. id)
+            frame.ids[key] = true
         end
         if CLOSER[name] then
             local open = frame.clicks[name] ~= false
@@ -206,11 +207,19 @@ local TRACKING = {
 
 -- One frame of `ui`; returns the Lua error it raised, if any, and the number of
 -- settings writes. `view` defaults to the model's.
+-- What act.remote sent, as { session, fn, args... }.
+local remote_calls = {}
+local function send(name, call)
+    local c = { name }
+    for i = 1, call.n + 1 do c[i + 1] = call[i] end
+    remote_calls[#remote_calls + 1] = c
+end
+
 local function draw(ui, cfg, st, clicks, view)
     frame = { stack = {}, vars = 0, texts = {}, ids = {}, args = {}, flags = {}, columns = {}, headers = {},
               drawn = {}, extent = {}, clicks = clicks or {} }
     local writes = 0
-    local act = model.actions(cfg, st, function () writes = writes + 1 end, TRACKING)
+    local act = model.actions(cfg, st, function () writes = writes + 1 end, TRACKING, send)
     local ok, err = pcall(ui.render, view or model.build(snap(), cat, cfg, st, NAMES), act)
     eq(frame.stack, {}, 'every ImGui scope closed')
     eq(frame.vars, 0, 'every style var popped')
@@ -511,7 +520,7 @@ test('sliders, the focus and the options write the settings', function ()
     eq(cfg.ui.japanese, true)
     eq(render(cfg, st, { ['Focus danger under##sk3_focus_danger'] = 65 }), 1)
     eq(cfg.heal.focus_danger, 65)
-    eq(frame.ids['Ask them to gather##sk3_gather'], nil)  -- only while holding
+    eq(frame.ids['SK Settings|Ask them to gather##sk3_gather'], nil)  -- only while holding
     eq(render(cfg, st, { ['Hold area buffs for the group##sk3_hold_aoe'] = true }), 1)
     eq(cfg.buff.hold_aoe, true)
     eq(render(cfg, st, { ['Ask them to gather##sk3_gather'] = true }), 1)
@@ -717,4 +726,118 @@ test('GEO: Geomancy under Buff: its rows, how far and how long, and Entrust\'s m
     eq(cfg.rows.geo.targets, { [0] = true, [1] = true })
     eq(frame.columns['##sk3_rows_geo'], 4)  -- name, pick, targets, ready
     eq(render(cfg, st, { ['Recall past##sk3_geo_distance'] = 12 }), 0)  -- WHM: no Geomancy
+end)
+
+-- Remote control -------------------------------------------------------------------
+
+-- A's a session too: its view as its own session publishes it (with its own settings).
+local function remote_status(t)
+    local st = status(t)
+    st.sessions = { A = { running = false, members = { { sid = 101, name = 'A' } } } }
+    st.watching = st.watching or {}
+    return st
+end
+
+local function remote_view(cfg)
+    local st = status({ running = true, sent = {} })
+    return model.published(model.build(snap(), cat, cfg, st, NAMES))
+end
+
+test('another session\'s card has its run icon and cog: run starts it there, the cog shows its settings', function ()
+    close_settings()
+    local cfg, st = settings.defaults(), remote_status()
+    remote_calls = {}
+    render(cfg, st, nil, model.build(snap(), cat, cfg, st, NAMES))
+    eq({ has(frame.args.InvisibleButton, '##sk3_run_A'), has(frame.args.InvisibleButton, '##sk3_cog_A') }, { true, true })
+    eq({ tipped('Start A\'s automation'), tipped('Settings for A'), tipped('A\nHP 62%') }, { true, true, false })
+    eq(has(frame.args.InvisibleButton, '##sk3_run_B'), false)  -- a trust: no session
+    eq(render(cfg, st, { ['##sk3_run_A'] = true }, model.build(snap(), cat, cfg, st, NAMES)), 0)
+    eq({ remote_calls, st.running }, { { { 'A', 'run', true } }, false })  -- sent there, not run here
+    st.sessions.A.running = true
+    render(cfg, st, nil, model.build(snap(), cat, cfg, st, NAMES))
+    eq(tipped('Stop A\'s automation'), true)
+    render(cfg, st, { ['##sk3_cog_A'] = true }, model.build(snap(), cat, cfg, st, NAMES))
+    eq({ st.watching, settings_shown }, { { A = true }, false })
+    render(cfg, st, nil, model.build(snap(), cat, cfg, st, NAMES))
+    eq({ begun('SK Settings: A###sk3_settings_A'), showed('Waiting for A\'s session...') }, { true, true })
+    render(cfg, st, { ['##sk3_cog_A'] = true }, model.build(snap(), cat, cfg, st, NAMES))  -- the cog again hides it
+    eq(st.watching, {})
+end)
+
+test('another session\'s SK Settings draw its view; changes go to it, never to your settings', function ()
+    close_settings()
+    local mine, theirs = settings.defaults(), settings.defaults()
+    theirs.heal.danger = 33
+    local st = remote_status({ watching = { A = true } })
+    st.views = { A = remote_view(theirs) }
+    remote_calls = {}
+    local function frame_with(clicks) return render(mine, st, clicks, model.build(snap(), cat, mine, st, NAMES)) end
+    eq(frame_with({ ['Danger under##sk3_danger'] = 60, ['Cure##heal_Cure'] = true, ['Buffs##sk3_on_buff'] = true,
+        ['Save as##sk3_profile_save_as'] = true }), 0)
+    eq(remote_calls, { { 'A', 'save_profile', '', true }, { 'A', 'set', 'heal.danger', 60 }, { 'A', 'row', 'Cure', false },
+        { 'A', 'section', 'buff', false } })  -- in the order drawn
+    eq(mine, settings.defaults())
+    eq({ showed('WHM 75 / BLM 37  Running'), showed('Nothing sent yet.') }, { true, true })  -- its own status and log
+    eq({ has(frame.args.Checkbox, 'Action log##sk3_log'), has(frame.args.Checkbox, 'Japanese client##sk3_japanese'),
+         has(frame.args.SliderInt, 'HP bar width##sk3_ui_hp_width') }, { false, false, false })  -- the HUD and log are its own
+    frame_with({ close = 'SK Settings: A###sk3_settings_A' })
+    eq(st.watching, {})
+end)
+
+test('your SK Settings and another session\'s draw side by side, each its own profile name', function ()
+    open_settings()
+    local cfg, st = settings.defaults(), remote_status({ watching = { A = true } })
+    cfg.profiles.Mine = {}
+    cfg.profile = 'Mine'
+    st.views = { A = remote_view(settings.defaults()) }
+    remote_calls = {}
+    render(cfg, st, { ['Save##sk3_profile_save'] = true }, model.build(snap(), cat, cfg, st, NAMES))
+    eq({ begun('SK Settings'), begun('SK Settings: A###sk3_settings_A') }, { true, true })
+    eq(remote_calls, { { 'A', 'save_profile', '' } })  -- A's name field: blank, A has no profile loaded
+    eq(cfg.profiles.Mine.heal ~= nil, true)  -- the click also landed in your own window: saved there under Mine
+end)
+
+test('a view that won\'t draw closes its window and is not shown again; the HUD comes back', function ()
+    close_settings()
+    local cfg, st = settings.defaults(), remote_status({ watching = { A = true } })
+    st.views = { A = { job = 'WHM 75', status = { state = 'Stopped' }, version = model.VIEW } }  -- broken: no sections
+    local err = draw(window, cfg, st, nil, model.build(snap(), cat, cfg, st, NAMES))
+    eq({ type(err), st.watching }, { 'string', {} })
+    render(cfg, st, nil, model.build(snap(), cat, cfg, st, NAMES))
+    eq(begun('SK Settings: A###sk3_settings_A'), false)
+end)
+
+test('another session\'s Tracked says where to target, its game not yours', function ()
+    close_settings()
+    local cfg, st = settings.defaults(), remote_status({ watching = { A = true } })
+    local v = remote_view(cfg)
+    v.track = {}
+    st.views = { A = v }
+    render(cfg, st, nil, model.build(snap(), cat, cfg, st, NAMES))
+    eq(showed('Target a player outside the alliance in A\'s game to track them there.'), true)
+    st.watching = {}
+end)
+
+test('a view from a session running another version is not drawn: it says to reload it', function ()
+    close_settings()
+    local cfg, st = settings.defaults(), remote_status({ watching = { A = true } })
+    local v = remote_view(cfg)
+    v.version = model.VIEW + 1
+    st.views = { A = v }
+    render(cfg, st, nil, model.build(snap(), cat, cfg, st, NAMES))
+    eq({ showed('A runs another version of Sidekick3: /addon reload sidekick3 there.'), frame.args.CollapsingHeader },
+       { true, nil })
+    st.watching = {}
+end)
+
+test('chips and Heal ticks send the state they\'re set to, here and to another session', function ()
+    open_settings()
+    local cfg, st = settings.defaults(), remote_status({ watching = { A = true } })
+    st.views = { A = remote_view(settings.defaults()) }
+    remote_calls = {}
+    render(cfg, st, { ['P1##buff_Protect1'] = true, ['A##sk3_heal_A'] = true }, model.build(snap(), cat, cfg, st, NAMES))
+    eq({ cfg.rows.Protect.targets, cfg.heal.skip }, { { [0] = true, [1] = true }, { A = true } })
+    eq(remote_calls, { { 'A', 'skip', 'A', true }, { 'A', 'target', 'Protect', 1, true } })
+    st.watching = {}
+    close_settings()
 end)

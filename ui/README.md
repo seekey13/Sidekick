@@ -62,6 +62,8 @@ Text that may contain `%` (names, `why` text) must be escaped before it's drawn:
 | `profiles` | table | `{ active, names }`: the profile loaded (nil for Default, the working copy) and every saved profile's name, in order, case aside. Each job pair has its own |
 | `ui` | table | The UI's settings, shared by every job pair: `open` (bool), and any `ui.<name>` your UI saved. The standard HUD's, which yours may ignore: `hp_width`, `mp_width` (80 to 600), `hp_height` (10 to 120), `mp_height` (4 to 80), `name_size` (8 to 64), `text_size` (8 to 48), `gap` (0 to 40), all in pixels; `opacity` (0 to 100, the panel's %); `locked` (bool, it can't be dragged); `japanese` (bool, the client's language, as `view.japanese`: not free for a UI's own use) |
 | `sections` | list | Every setting, by section, below |
+| `remote` | list | The SK Settings of other Sidekick sessions on this PC you have open (`act.watch`; sent only while your UI is open), by name: `{ name, view, other }`. `view` is the view that session built and sent (nil until its first one comes, about a second): the same fields as yours but `pointer`, `ui` and `remote`, plus `session` (its name) and `version`. Draw it with `act.remote(name)` in place of `act`. `other` is true (and `view` nil) when that session runs another version of Sidekick3, whose view this one can't draw |
+| `session` | string or nil | Only on a view in `remote`: the session it came from. nil on yours |
 
 ### `view.status`
 
@@ -91,6 +93,7 @@ Text that may contain `%` (names, `why` text) must be escaped before it's drawn:
 | `dist` | string | `''` for you, `'away'`, or like `'12.3y'` |
 | `buffs` | string | Its statuses, the first 6 by name and `'+N'` for the rest |
 | `buffs_all` | string | Every status, one per line (for a tooltip) |
+| `session` | table or nil | This player is another Sidekick session on this PC (a party member, a tracked player or one of the alliance; never you or a trust): `{ name, running, open }`. `running`: its automation is on; `open`: its SK Settings are shown here (`view.remote`). The standard HUD puts a run icon and a cog on its card, as on yours |
 
 ### `view.heal`
 
@@ -151,16 +154,18 @@ In this order. A section with rows is left out when your job has none for it (Pe
 | `act.section(id, on)` | A section's switch: `'follow'`, `'heal'`, `'revive'`, `'wake'`, `'remove'`, `'buff'`, `'roll'`, `'geo'`, `'pet'`, `'recover'` or `'rest'` |
 | `act.row(key, on)` | A row on or off |
 | `act.pick(key, name)` | A row's choice: a `choices[i].name`, or nil for Auto |
-| `act.target(key, slot)` | Turn a target chip on or off: its `slot`, 0 to 17 or a tracked player's name |
-| `act.mod(key, name)` | Turn a modifier chip on or off: its `name` (`'Penury'`, `'Accession'`) |
+| `act.target(key, slot, on)` | Turn a target chip on or off: its `slot`, 0 to 17 or a tracked player's name; `on` true or false sets it, nil toggles it |
+| `act.mod(key, name, on)` | Turn a modifier chip on or off: its `name` (`'Penury'`, `'Accession'`); `on` sets it, nil toggles it |
 | `act.track(name)` | Track a player outside your party and alliance: by name, or your current target when nil (`view.track.target` names it). This session only |
 | `act.untrack(name)` | Stop tracking a player, by name. Their buff chips stay set for when they're tracked again |
 | `act.profile(name)` | Load a profile: a `view.profiles.names[i]`, or nil for Default (the settings as they were before a profile was loaded). Loading one never changes `ui`, `japanese`, following, the focus or who healing skips |
 | `act.save_profile(name, as_new)` | Save the settings as they are now under `name`. Without `as_new`, while another profile is loaded, that profile is renamed to `name` instead (as v2). A blank name, `'Default'`, or another profile's name saves nothing: only `as_new` replaces a profile. Changes after a load go to the settings, never the profile, until it's saved |
 | `act.new_profile()` | Every setting back to its default (but those a profile never changes), on Default; profiles are kept |
 | `act.delete_profile(name)` | Delete a profile; deleting the loaded one goes back to Default |
-| `act.skip(name)` | Skip a member (or tracked player) in healing, or take them back: a `view.heal.members[i].name` |
+| `act.skip(name, skip)` | Skip a member (or tracked player) in healing (`skip` true), or take them back (false): a `view.heal.members[i].name`; nil toggles |
 | `act.set(path, value)` | A setting by path, below |
+| `act.watch(name, on)` | Show another session's SK Settings (a `party[i].session.name`), or stop: it then sends its view, which comes in `view.remote`. This session only; closed when that session goes |
+| `act.remote(name)` | Another session's `act`, to change it from here: `run`, `section`, `row`, `pick`, `target`, `mod`, `profile`, `save_profile`, `new_profile`, `delete_profile`, `track` (by name only), `untrack`, `skip` and `set`. `target`, `mod` and `skip` need their state (`true` or `false`), never a toggle: the view you click is a moment old. `set` takes only the paths in the table below but `'japanese'` and `'ui.*'` (the HUD is each session's own), a number held to its range. There's no `close`, `log`, `watch` or `remote`. Each call goes through the files the sessions share and is made there, through its own `act`, within a second or so (a quarter second while its SK Settings are open); its view in `view.remote` then shows it |
 
 `act.set` paths:
 

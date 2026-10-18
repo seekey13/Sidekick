@@ -7,9 +7,12 @@
         g       snapshot (core/game.lua)        cat     catalog list
         cfg     settings (core/settings.lua)    status  Sidekick3.lua's status table
         names   { job = function (id) -> 'WHM', statuses = { [id] = { en = } } }
-    model.actions(cfg, status, changed, tracking) -> act    every change a UI makes
+    model.actions(cfg, status, changed, tracking, send) -> act    every change a UI makes
         changed() is called after each settings write; the caller saves.
         tracking = { add = function (name or nil: your target), remove = function (name) }
+        send(name, call): an `act` call for another session (core/share.lua's share.send)
+    model.published(view) -> what a session shows of its view to another (remote control)
+    model.apply(act, cfg, call) -> whether a call another session sent was one it may make, and made
 
     Building only reads. Settings change only through `act`, and only on user
     input: a frame read mid-zone must never write anything back.
@@ -259,7 +262,8 @@ end
 
 -- Everyone: party slots ME, P1-P5 and tracked players T1... with their jobs once
 -- a /check answers; then the alliance's other parties, B0-B5 and C0-C5, apart.
-local function party(g, cfg, names)
+-- A player who is another Sidekick session (`sessions`, by server id) says so.
+local function party(g, cfg, names, sessions)
     local out, alliance, n = {}, {}, 0
     for _, u in ipairs(g.units) do
         local buffs, all = buff_names(u.buffs, names.statuses)
@@ -274,9 +278,37 @@ local function party(g, cfg, names)
             mp = u.uses_mp and u.mpp < cfg.recover.mp and 'low' or 'ok',
             dist = not u.in_zone and 'away' or u.kind == 'self' and '' or ('%.1fy'):format(u.dist or 0),
             buffs = buffs, buffs_all = all,
+            session = u.kind ~= 'self' and u.kind ~= 'trust' and sessions[u.sid] or nil,
         }
     end
     return out, alliance
+end
+
+-- Other Sidekick sessions on this PC (status.sessions, by owner name) by their
+-- server id: { name, running, open (its SK Settings shown here) }.
+local function by_sid(status)
+    local out, watching = {}, status.watching or {}
+    for name, s in pairs(status.sessions or {}) do
+        out[s.members[1].sid] = { name = name, running = s.running, open = watching[name] == true }
+    end
+    return out
+end
+
+-- The SK Settings shown here for other sessions, by name: { name, view, other },
+-- the view their session last published (nil until one comes), marked with its
+-- `session`; `other` instead when it's another version's (model.VIEW).
+local function remote_views(status)
+    local out = {}
+    for name in pairs(status.watching or {}) do
+        if (status.sessions or {})[name] then
+            local v = (status.views or {})[name]
+            local other = v ~= nil and v.version ~= model.VIEW or nil
+            if v and not other then v.session = name end
+            out[#out + 1] = { name = name, view = not other and v or nil, other = other }
+        end
+    end
+    table.sort(out, function (a, b) return a.name < b.name end)
+    return out
 end
 
 local function entity(e)
@@ -393,7 +425,8 @@ function model.build(g, cat, cfg, status, names)
         japanese = cfg.ui.japanese, log = status.log, ui = {},
         profiles = { active = profiles.active(cfg), names = profiles.names(cfg) },
     }
-    view.party, view.alliance = party(g, cfg, names)
+    view.party, view.alliance = party(g, cfg, names, by_sid(status))
+    view.remote = remote_views(status)
     for k, v in pairs(cfg.ui) do view.ui[k] = v end
     view.pointer = pointer(status, g, view.party, view.alliance)
     for _, f in ipairs(model.FLAGS) do
@@ -423,7 +456,91 @@ function model.build(g, cat, cfg, status, names)
     return view
 end
 
+-- What a session publishes of its view for another's SK Settings: all but the
+-- HUD's (the pointer and its sizes) and the views it shows of others itself,
+-- with the view's `version`, VIEW: raise it when a field the window draws changes,
+-- so a session still running older code isn't drawn from a view it can't read.
+model.VIEW = 1
+function model.published(view)
+    local out = {}
+    for k, v in pairs(view) do out[k] = v end
+    out.pointer, out.ui, out.remote = nil, nil, nil
+    out.version = model.VIEW
+    return out
+end
+
 -- Actions: everything a UI can change. The caller saves after changed(). -------
+
+-- The act calls another session may make here: all but act.close, act.log,
+-- the HUD's settings (`ui.*`, the Japanese client) and tracking your target.
+-- Each one's arguments, by the types each may be ('|' between them), checked as it
+-- arrives. Chips come with the state they're set to: a toggle sent from a view a
+-- moment old could undo a click.
+local REMOTE = {
+    run = { 'boolean' }, section = { 'string', 'boolean' }, row = { 'string', 'boolean' },
+    pick = { 'string', 'string|nil' }, target = { 'string', 'number|string', 'boolean' },
+    mod = { 'string', 'string', 'boolean' }, profile = { 'string|nil' }, save_profile = { 'string', 'boolean|nil' },
+    new_profile = {}, delete_profile = { 'string' }, track = { 'string' }, untrack = { 'string' },
+    skip = { 'string', 'boolean' }, set = { 'string', 'boolean|number|string' },
+}
+
+-- The settings act.set may change from another session: a number's range (the
+-- standard window's sliders), 'bool', 'name' (a member, a spell, a roll or ''), or a
+-- list of the values it takes.
+model.REMOTE_SET = {
+    ['heal.danger'] = { 1, 99 }, ['heal.critical'] = { 1, 99 }, ['heal.focus_danger'] = { 1, 99 },
+    ['heal.focus_critical'] = { 1, 99 }, ['heal.cure_potency'] = { 0, 50 }, ['heal.waltz_potency'] = { 0, 50 },
+    ['heal.regen_potency'] = { 0, 30 }, ['heal.focus'] = 'name', ['heal.alliance'] = 'bool', ['heal.reserve'] = 'bool',
+    ['recover.mp'] = { 1, 99 }, ['recover.tp'] = { 0, 3000 }, ['recover.min_tp'] = { 0, 3000 }, ['pet.heal'] = { 1, 99 },
+    ['follow.on'] = 'bool', ['follow.target'] = 'name', ['follow.distance'] = { 1, 15 },
+    ['rest.on'] = 'bool', ['rest.delay'] = { 1, 20 }, ['rest.distance'] = { 1, 15 },
+    ['buff.hold_aoe'] = 'bool', ['buff.gather'] = 'bool',
+    ['roll.first'] = 'name', ['roll.second'] = 'name', ['roll.risk'] = { list = cor.RISKS },
+    ['geo.distance'] = { 3, 30 }, ['geo.linger'] = { 1, 20 }, ['geo.entrust'] = 'name', ['geo.entrust_spell'] = 'name',
+}
+
+-- `value` for act.set's `path` from another session, held to its range; nil when
+-- it's not one REMOTE_SET lists or not a value it takes.
+local function settable(path, value)
+    local want = model.REMOTE_SET[path]
+    if want == 'bool' then return type(value) == 'boolean' and value or nil end
+    if want == 'name' then return type(value) == 'string' and value or nil end
+    if type(want) ~= 'table' then return nil end
+    if want.list then
+        for _, v in ipairs(want.list) do if v == value then return value end end
+        return nil
+    end
+    if type(value) ~= 'number' then return nil end
+    return math.min(math.max(math.floor(value), want[1]), want[2])
+end
+
+local function fits(v, types)
+    if type(v) == 'number' and (v ~= v or v == math.huge or v == -math.huge) then return false end
+    return ('|' .. types .. '|'):find('|' .. type(v) .. '|', 1, true) ~= nil
+end
+
+-- Make `call` ({ fn, n = #args, args... }), sent by another session, through `act`,
+-- when it's one REMOTE lists with arguments of the right types (`n` of them, no
+-- more than it takes); whether it was. Only those arguments are passed on.
+function model.apply(act, cfg, call)
+    local fn = call[1]
+    local types = type(fn) == 'string' and REMOTE[fn]
+    if not types or type(call.n) ~= 'number' or call.n > #types then return false end
+    for i, t in ipairs(types) do
+        if not fits(call[i + 1], t) or i > call.n and call[i + 1] ~= nil then return false end
+    end
+    local a, b = call[2], call[3]
+    if fn == 'section' and (a == 'ui' or type(cfg[a]) ~= 'table' or type(cfg[a].on) ~= 'boolean') then return false end
+    if fn == 'target' and type(b) == 'number' and (b % 1 ~= 0 or b < 0 or b > 17) then return false end
+    if fn == 'set' then
+        local v = settable(a, b)
+        if v == nil then return false end
+        act.set(a, v)
+        return true
+    end
+    act[fn](unpack(call, 2, #types + 1))
+    return true
+end
 
 -- A row as saved, created on first touch. Picks, targets and modifiers exist
 -- only on buff rows, which default off.
@@ -433,7 +550,7 @@ local function saved_row(cfg, key, default_on)
     return r
 end
 
-function model.actions(cfg, status, changed, tracking)
+function model.actions(cfg, status, changed, tracking, send)
     local act = {}
     -- This session only: automation always starts stopped, the log as set.
     function act.run(on) status.running = on end
@@ -458,17 +575,21 @@ function model.actions(cfg, status, changed, tracking)
         changed()
     end
     -- slot: a party slot 0-5, an alliance slot 6-17, or a tracked player's name.
-    function act.target(key, slot)
+    -- `on` sets it; without it the chip toggles.
+    function act.target(key, slot, on)
         local r = saved_row(cfg, key, false)
         r.targets = r.targets or { [0] = true }
-        r.targets[slot] = not r.targets[slot] or nil
+        if on == nil then on = not r.targets[slot] end
+        r.targets[slot] = on or nil
         changed()
     end
-    -- A modifier (a stratagem: 'Penury', 'Accession'...) fired before the row's spell, on or off.
-    function act.mod(key, name)
+    -- A modifier (a stratagem: 'Penury', 'Accession'...) fired before the row's spell,
+    -- on or off (`on`; without it, toggled).
+    function act.mod(key, name, on)
         local r = saved_row(cfg, key, false)
         r.mods = r.mods or {}
-        r.mods[name] = not r.mods[name] or nil
+        if on == nil then on = not r.mods[name] end
+        r.mods[name] = on or nil
         changed()
     end
     -- Profiles (core/profiles.lua): load one by name, nil for Default; save
@@ -491,8 +612,10 @@ function model.actions(cfg, status, changed, tracking)
     function act.track(name) tracking.add(name) end
     function act.untrack(name) tracking.remove(name) end
     -- A member skipped by healing is never healed for their own sake.
-    function act.skip(name)
-        cfg.heal.skip[name] = not cfg.heal.skip[name] or nil
+    -- `skip` sets it; without it, toggled.
+    function act.skip(name, skip)
+        if skip == nil then skip = not cfg.heal.skip[name] end
+        cfg.heal.skip[name] = skip or nil
         changed()
     end
     -- path: 'heal.danger', 'heal.alliance', 'heal.reserve', 'buff.hold_aoe', 'roll.first', 'roll.risk', 'geo.distance',
@@ -505,6 +628,19 @@ function model.actions(cfg, status, changed, tracking)
         for part in parent:gmatch('[^.]+') do t = t[part] end
         t[key] = value
         changed()
+    end
+    -- Another session's SK Settings shown here, or not: this session only.
+    function act.watch(name, on)
+        status.watching = status.watching or {}
+        status.watching[name] = on or nil
+    end
+    -- The act of another session, `name`: the REMOTE calls, sent to it to make.
+    function act.remote(name)
+        local r = {}
+        for fn in pairs(REMOTE) do
+            r[fn] = function (...) if send then send(name, { fn, n = select('#', ...), ... }) end end
+        end
+        return r
     end
     return act
 end

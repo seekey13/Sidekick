@@ -68,6 +68,9 @@ local status = {
     intent = nil,     -- the latest decision as a sent-style entry, or nil and...
     why = nil,        -- ...why nothing (a gate, 'nothing to do', 'waiting for a cure')
     sent = {},        -- the last 10 sends, newest first: { at, command, english, action, kind, target, behavior, why }
+    sessions = {},    -- the other Sidekick sessions on this PC (core/share.lua), by name...
+    watching = {},    -- ...those whose SK Settings are shown here: { [name] = true }...
+    views = {},       -- ...and the views they published for it
 }
 local SENT_KEPT = 10
 
@@ -361,21 +364,51 @@ local function changed() unsaved = true end
 -- ponytail: the view (recasts included) is rebuilt every frame; if that shows in
 -- frame time, build it once per fresh snapshot and again after a save.
 local names = { job = abbr }
-local function draw(g)
+local function view(g)
     names.statuses = resources.load().statuses
+    return model.build(g, cat.list, cfg, status, names)
+end
+local function draw(g)
     local ok, err = pcall(function ()
-        ui.render(model.build(g, cat.list, cfg, status, names), model.actions(cfg, status, changed, tracking))
+        ui.render(view(g), model.actions(cfg, status, changed, tracking, share.send))
     end)
     if ok then return end
     status.open = false
     print(chat.header(addon.name) .. chat.error('Window closed on an error: ' .. tostring(err)))
 end
 
+-- Remote control: what another session sent (core/share.lua), made through this
+-- session's own act as if clicked here, when it's a call ui/model.lua lets it make.
+local view_failed  -- the last error building your view for another session, printed once
+local shared = {
+    view = function ()
+        local ok, v = pcall(view, snap)
+        if ok then view_failed = nil; return model.published(v) end
+        if v ~= view_failed then
+            print(chat.header(addon.name) .. chat.error('Settings view for another session failed: ' .. tostring(v)))
+            view_failed = v
+        end
+        error(v, 0)
+    end,
+    apply = function (from, call)
+        local ok, done = pcall(model.apply, model.actions(cfg, status, changed, tracking, share.send), cfg, call)
+        if not ok then
+            print(chat.header(addon.name) .. chat.error(('%s\'s session sent %s, which failed: %s'):format(from, tostring(call[1]), tostring(done))))
+        elseif done and call[1] == 'run' then
+            printf('Automation %s from %s\'s session.', status.running and 'started' or 'stopped', from)
+        end
+    end,
+}
+
 ashita.events.register('d3d_present', 'sidekick3_present', function ()
     local g, fresh = refresh(os.clock())
     if fresh then
         tick(g)
-        share.tick(g, status.running, g.now)
+        status.sessions = share.tick(g, g.now, status, shared)
+        status.views = share.views
+        for name in pairs(status.watching) do
+            if not status.sessions[name] then status.watching[name] = nil end  -- gone: its window closes
+        end
     end
     if status.open and not g.loading then draw(g) end
     if unsaved and not imgui.IsAnyItemActive() then
