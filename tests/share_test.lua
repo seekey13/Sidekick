@@ -35,8 +35,30 @@ test('a file caught mid-write, empty or of another version reads as nothing', fu
     eq(share.decode(''), nil)
     eq(share.decode(text:sub(1, #text - 12)), nil)  -- the last line cut short
     eq(share.decode(text:sub(1, #text - 6)), nil)   -- cut after the name: the end line is missing
-    eq(share.decode((text:gsub('session 1', 'session 2'))), nil)
-    eq(share.decode('sk3 session 1\n5 0\n'), nil)  -- no members
+    eq(share.decode((text:gsub('session 2', 'session 1'))), nil)
+    eq(share.decode('sk3 session 2\n5 0 0\nend\n'), nil)  -- no members
+    eq(share.decode((text:gsub('\nend', '\nwhat 1\nend'))), nil)  -- a line of no kind it knows
+end)
+
+test('remote control lines read back: who it watches, its calls and its acknowledgements, its epoch', function ()
+    local calls = { { to = 'Two', epoch = 7, n = 3, call = { 'set', n = 2, 'heal.danger', 60 } },
+                    { to = 'Two', epoch = 7, n = 4, call = { 'pick', n = 2, 'Protect' } } }  -- Auto: a nil after the key
+    local text = share.encode({ member(10, 'Box') }, false, 5,
+        { epoch = 1234, watch = { Two = true, Three = true }, calls = calls, acks = { Two = { epoch = 9, n = 12 }, Idle = { epoch = 1, n = 0 } } })
+    local s = share.decode(text)
+    eq({ s.epoch, s.watch, s.calls, s.acks }, { 1234, { Two = true, Three = true }, calls, { Two = { epoch = 9, n = 12 } } })
+    eq(share.decode((text:gsub('do Two 7 4 [^\n]+', 'do Two 7 4 {1="pick",2="Prot'))), nil)  -- a call cut short
+end)
+
+test('pack and unpack: nested plain data round trips, quotes, backslashes and new lines in strings', function ()
+    local v = { 1, -2.5, 'a "q" \\ b\nc', true, false, { x = { [3] = 'y' }, ['k=v,}'] = 1e20 }, n = 6 }
+    eq(share.unpack(share.pack(v)), v)
+    eq(share.pack('a\nb'):find('\n'), nil)  -- one line, whatever the strings hold
+    eq(share.unpack(share.pack({ f = print, k = 1 })), { k = 1 })  -- a function is left out
+    for _, bad in ipairs({ '', '{', '{1=}', '{1=2', '"abc', '{1=2}x', 'return 1', '{["a"]=1}', 'os.exit()', 42 }) do
+        eq(share.unpack(bad), nil, tostring(bad))
+    end
+    eq(share.unpack(('{1='):rep(100000)), nil)  -- nested past the stack: nothing, no error
 end)
 
 test('the roster is you and your party\'s players with their jobs; a max HP only once known', function ()
@@ -196,4 +218,142 @@ test('a /check at another level drops the max HP a file gave', function ()
     tracked.checked(501, WHM, 60, BLM, 30)
     eq(t.max_hp, nil)
     reset()
+end)
+
+-- Remote control ----------------------------------------------------------------
+
+local function call(fn, ...) return { fn, n = select('#', ...), ... } end
+
+test('a slider\'s drag queues only its latest value; anything between keeps both', function ()
+    local pending = {}
+    share.queue(pending, 'Two', 7, call('set', 'heal.danger', 50), 1)
+    share.queue(pending, 'Three', 8, call('set', 'heal.danger', 10), 2)  -- another session's
+    share.queue(pending, 'Two', 7, call('set', 'heal.danger', 55), 3)
+    eq({ #pending, pending[2].n, pending[2].call[3] }, { 2, 3, 55 })
+    share.queue(pending, 'Two', 7, call('save_profile', 'X'), 4)
+    share.queue(pending, 'Two', 7, call('set', 'heal.danger', 60), 5)  -- after a save: the save keeps 55
+    share.queue(pending, 'Two', 7, call('row', 'Cure', true), 6)
+    share.queue(pending, 'Two', 7, call('row', 'Cure', false), 7)  -- toggles are never merged
+    local ns = {}
+    for i, p in ipairs(pending) do ns[i] = p.n end
+    eq(ns, { 2, 3, 4, 5, 6, 7 })
+end)
+
+test('a call goes once: applied in order, acknowledged, then dropped by its sender', function ()
+    local applied, pending = {}, {}
+    share.queue(pending, 'Two', 70, call('row', 'Cure', false), 1)
+    share.queue(pending, 'Two', 70, call('run', true), 2)
+    share.queue(pending, 'Three', 80, call('run', true), 3)
+    local box = session('Box', 1, { member(500, 'Box') })
+    box.epoch, box.calls, box.watch, box.acks = 11, pending, {}, {}
+    local got = share.inbox({ Box = box }, 'Two', 70, applied)
+    eq({ #got, got[1].from, got[1].call[1], got[2].call[1] }, { 2, 'Box', 'row', 'run' })
+    eq(share.inbox({ Box = box }, 'Two', 70, applied), {})  -- read again: nothing new
+    eq(share.inbox({ Box = box }, 'Two', 71, {}), {})       -- Two reloaded since: not its calls
+    local two = session('Two', 1, { member(600, 'Two') })
+    two.epoch, two.calls, two.watch, two.acks = 70, {}, {}, { Box = applied.Box }
+    local three = session('Three', 1, { member(700, 'Three') })
+    three.epoch, three.calls, three.watch, three.acks = 80, {}, {}, {}
+    share.settle(pending, { Two = two, Three = three }, 'Box', 11)
+    eq({ #pending, pending[1].to }, { 1, 'Three' })
+    three.epoch = 81  -- reloaded before it took it: dropped, never sent to the new load
+    share.settle(pending, { Two = two, Three = three }, 'Box', 11)
+    eq(#pending, 0)
+    share.queue(pending, 'Gone', 1, call('run', true), 4)
+    share.settle(pending, {}, 'Box', 11)
+    eq(#pending, 0)
+end)
+
+test('a sender\'s reload starts its calls again from the first; an ack for its old load drops nothing', function ()
+    local applied = {}
+    local box = session('Box', 1, { member(500, 'Box') })
+    box.epoch, box.watch, box.acks = 11, {}, {}
+    box.calls = { { to = 'Two', epoch = 70, n = 5, call = call('run', true) } }
+    eq(#share.inbox({ Box = box }, 'Two', 70, applied), 1)
+    box.epoch, box.calls = 12, { { to = 'Two', epoch = 70, n = 1, call = call('run', false) } }
+    local got = share.inbox({ Box = box }, 'Two', 70, applied)
+    eq({ #got, got[1].call[2], applied.Box }, { 1, false, { epoch = 12, n = 1 } })
+    local pending = { { to = 'Two', epoch = 70, n = 1, call = call('run', true) } }
+    local two = session('Two', 1, { member(600, 'Two') })
+    two.epoch, two.calls, two.watch, two.acks = 70, {}, {}, { Box = { epoch = 11, n = 5 } }
+    share.settle(pending, { Two = two }, 'Box', 12)
+    eq(#pending, 1)
+end)
+
+test('a session is watched while one has its SK Settings open, and busy while calls for it wait', function ()
+    local box = session('Box', 1, { member(500, 'Box') })
+    box.watch, box.calls = {}, {}
+    eq({ share.watched({ Box = box }, 'Two') }, { false, false })
+    box.calls = { { to = 'Two', epoch = 1, n = 1, call = call('run', true) } }
+    eq({ share.watched({ Box = box }, 'Two') }, { false, true })
+    box.watch = { Two = true }
+    eq({ share.watched({ Box = box }, 'Two') }, { true, true })
+end)
+
+-- Two sessions over an in-memory filesystem: share.tick's files end to end.
+test('two sessions: a call goes, is applied once and acknowledged; a watched session publishes its view', function ()
+    local files = {}
+    local real = { open = io.open, remove = os.remove, rename = os.rename, AshitaCore = rawget(_G, 'AshitaCore'),
+                   ashita = rawget(_G, 'ashita') }
+    local DIR = 'X:\\config\\addons\\sidekick3\\'
+    rawset(io, 'open', function (p, mode)
+        if mode == 'r' and not files[p] then return nil end
+        local buf = {}
+        return { write = function (_, t) buf[#buf + 1] = t; return true end, read = function () return files[p] end,
+                 close = function () if mode == 'w' then files[p] = table.concat(buf) end; return true end }
+    end)
+    rawset(os, 'remove', function (p) files[p] = nil end)
+    rawset(os, 'rename', function (a, b)
+        if not files[a] or files[b] then return nil end
+        files[b], files[a] = files[a], nil
+        return true
+    end)
+    rawset(_G, 'AshitaCore', { GetInstallPath = function () return 'X:' end })
+    rawset(_G, 'ashita', { fs = { get_dir = function ()
+        local out = {}
+        for p in pairs(files) do out[#out + 1] = p:sub(#DIR + 1) end
+        return out
+    end } })
+    local original = package.loaded['core.share']
+    local ok, err = pcall(function ()
+        package.loaded['core.share'] = nil
+        local a = require('core.share')
+        package.loaded['core.share'] = nil
+        local b = require('core.share')
+        b.epoch = a.epoch + 1
+        local function g(sid, name) return { loading = false, units = { fake.unit({ kind = 'self', slot = 0, sid = sid, name = name }) } } end
+        local ga, gb = g(1, 'Alpha'), g(2, 'Beta')
+        local sa, sb = { running = false, watching = {} }, { running = false, watching = {} }
+        local got = {}
+        local hb = { apply = function (from, c) got[#got + 1] = { from, c[1] }; sb.running = c[2] end,
+                     view = function () return { job = 'WHM 75', sections = { { id = 'heal', on = true } } } end }
+        local ha = { apply = function () error('nothing is sent to Alpha') end, view = function () error('nobody watches Alpha') end }
+        local clock = 0
+        local function both() clock = clock + 1; a.tick(ga, clock, sa, ha); b.tick(gb, clock, sb, hb) end
+        both(); both()
+        eq({ a.sessions.Beta ~= nil, b.sessions.Alpha ~= nil, a.send('Nobody', { 'run', n = 1, true }) }, { true, true, false })
+        eq(a.send('Beta', { 'run', n = 1, true }), true)
+        both()
+        eq({ got, sb.running }, { { { 'Alpha', 'run' } }, true })
+        eq(share.decode(files[DIR .. 'session_Beta.txt']).running, true)
+        both(); both()
+        eq({ #got, #share.decode(files[DIR .. 'session_Alpha.txt']).calls }, { 1, 0 })  -- acknowledged: no longer sent
+        sa.watching.Beta = true
+        both(); both()
+        eq(a.views.Beta, { job = 'WHM 75', sections = { { id = 'heal', on = true } } })
+        sa.watching.Beta = nil
+        both(); both()
+        eq({ a.views.Beta, files[DIR .. 'view_Beta.txt'] }, { nil, nil })
+        b.close()
+        eq({ files[DIR .. 'session_Beta.txt'], files[DIR .. 'session_Alpha.txt'] ~= nil }, { nil, true })
+        a.close()
+    end)
+    rawset(io, 'open', real.open)
+    rawset(os, 'remove', real.remove)
+    rawset(os, 'rename', real.rename)
+    rawset(_G, 'AshitaCore', real.AshitaCore)
+    rawset(_G, 'ashita', real.ashita)
+    package.loaded['core.share'] = original
+    reset()
+    assert(ok, err)
 end)

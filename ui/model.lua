@@ -7,9 +7,12 @@
         g       snapshot (core/game.lua)        cat     catalog list
         cfg     settings (core/settings.lua)    status  Sidekick3.lua's status table
         names   { job = function (id) -> 'WHM', statuses = { [id] = { en = } } }
-    model.actions(cfg, status, changed, tracking) -> act    every change a UI makes
+    model.actions(cfg, status, changed, tracking, send) -> act    every change a UI makes
         changed() is called after each settings write; the caller saves.
         tracking = { add = function (name or nil: your target), remove = function (name) }
+        send(name, call): an `act` call for another session (core/share.lua's share.send)
+    model.published(view) -> what a session shows of its view to another (remote control)
+    model.apply(act, cfg, call) -> whether a call another session sent was one it may make, and made
 
     Building only reads. Settings change only through `act`, and only on user
     input: a frame read mid-zone must never write anything back.
@@ -259,7 +262,8 @@ end
 
 -- Everyone: party slots ME, P1-P5 and tracked players T1... with their jobs once
 -- a /check answers; then the alliance's other parties, B0-B5 and C0-C5, apart.
-local function party(g, cfg, names)
+-- A player who is another Sidekick session (`sessions`, by server id) says so.
+local function party(g, cfg, names, sessions)
     local out, alliance, n = {}, {}, 0
     for _, u in ipairs(g.units) do
         local buffs, all = buff_names(u.buffs, names.statuses)
@@ -274,9 +278,35 @@ local function party(g, cfg, names)
             mp = u.uses_mp and u.mpp < cfg.recover.mp and 'low' or 'ok',
             dist = not u.in_zone and 'away' or u.kind == 'self' and '' or ('%.1fy'):format(u.dist or 0),
             buffs = buffs, buffs_all = all,
+            session = u.kind ~= 'self' and u.kind ~= 'trust' and sessions[u.sid] or nil,
         }
     end
     return out, alliance
+end
+
+-- Other Sidekick sessions on this PC (status.sessions, by owner name) by their
+-- server id: { name, running, open (its SK Settings shown here) }.
+local function by_sid(status)
+    local out, watching = {}, status.watching or {}
+    for name, s in pairs(status.sessions or {}) do
+        out[s.members[1].sid] = { name = name, running = s.running, open = watching[name] == true }
+    end
+    return out
+end
+
+-- The SK Settings shown here for other sessions, by name: { name, view }, the view
+-- their session last published (nil until one comes), marked with its `session`.
+local function remote_views(status)
+    local out = {}
+    for name in pairs(status.watching or {}) do
+        if (status.sessions or {})[name] then
+            local v = (status.views or {})[name]
+            if v then v.session = name end
+            out[#out + 1] = { name = name, view = v }
+        end
+    end
+    table.sort(out, function (a, b) return a.name < b.name end)
+    return out
 end
 
 local function entity(e)
@@ -393,7 +423,8 @@ function model.build(g, cat, cfg, status, names)
         japanese = cfg.ui.japanese, log = status.log, ui = {},
         profiles = { active = profiles.active(cfg), names = profiles.names(cfg) },
     }
-    view.party, view.alliance = party(g, cfg, names)
+    view.party, view.alliance = party(g, cfg, names, by_sid(status))
+    view.remote = remote_views(status)
     for k, v in pairs(cfg.ui) do view.ui[k] = v end
     view.pointer = pointer(status, g, view.party, view.alliance)
     for _, f in ipairs(model.FLAGS) do
@@ -423,7 +454,55 @@ function model.build(g, cat, cfg, status, names)
     return view
 end
 
+-- What a session publishes of its view for another's SK Settings: all but the
+-- HUD's (the pointer and its sizes) and the views it shows of others itself.
+function model.published(view)
+    local out = {}
+    for k, v in pairs(view) do out[k] = v end
+    out.pointer, out.ui, out.remote = nil, nil, nil
+    return out
+end
+
 -- Actions: everything a UI can change. The caller saves after changed(). -------
+
+-- The act calls another session may make here: all but act.close, act.log,
+-- the HUD's settings (`ui.*`, the Japanese client) and tracking your target.
+-- Each one's leading arguments' types, checked as it arrives.
+local REMOTE = {
+    run = { 'boolean' }, section = { 'string', 'boolean' }, row = { 'string', 'boolean' }, pick = { 'string' },
+    target = { 'string' }, mod = { 'string', 'string' }, profile = {}, save_profile = { 'string' }, new_profile = {},
+    delete_profile = { 'string' }, track = { 'string' }, untrack = { 'string' }, skip = { 'string' },
+    set = { 'string' },
+}
+
+-- Whether `path` is a setting act.set may change from another session: one that
+-- exists, not the HUD's, and `value` of its type.
+local function settable(cfg, path, value)
+    if path == 'japanese' or path:match('^ui%.') or type(value) == 'table' then return false end
+    local parent, key = path:match('^(.-)%.?([^.]+)$')
+    if not parent or parent == '' then return false end
+    local t = cfg
+    for part in parent:gmatch('[^.]+') do t = type(t) == 'table' and t[part] or nil end
+    return type(t) == 'table' and t[key] ~= nil and type(t[key]) == type(value)
+end
+
+-- Make `call` ({ fn, n = #args, args... }), sent by another session, through `act`,
+-- when it's one REMOTE lists with arguments of the right types; whether it was.
+function model.apply(act, cfg, call)
+    local fn = call[1]
+    local types = type(fn) == 'string' and REMOTE[fn]
+    if not types or type(call.n) ~= 'number' then return false end
+    for i, t in ipairs(types) do
+        if type(call[i + 1]) ~= t then return false end
+    end
+    if fn == 'section' and (call[2] == 'ui' or type(cfg[call[2]]) ~= 'table' or type(cfg[call[2]].on) ~= 'boolean') then
+        return false
+    end
+    if fn == 'set' and not settable(cfg, call[2], call[3]) then return false end
+    if fn == 'target' and type(call[3]) ~= 'number' and type(call[3]) ~= 'string' then return false end
+    act[fn](unpack(call, 2, call.n + 1))
+    return true
+end
 
 -- A row as saved, created on first touch. Picks, targets and modifiers exist
 -- only on buff rows, which default off.
@@ -433,7 +512,7 @@ local function saved_row(cfg, key, default_on)
     return r
 end
 
-function model.actions(cfg, status, changed, tracking)
+function model.actions(cfg, status, changed, tracking, send)
     local act = {}
     -- This session only: automation always starts stopped, the log as set.
     function act.run(on) status.running = on end
@@ -505,6 +584,19 @@ function model.actions(cfg, status, changed, tracking)
         for part in parent:gmatch('[^.]+') do t = t[part] end
         t[key] = value
         changed()
+    end
+    -- Another session's SK Settings shown here, or not: this session only.
+    function act.watch(name, on)
+        status.watching = status.watching or {}
+        status.watching[name] = on or nil
+    end
+    -- The act of another session, `name`: the REMOTE calls, sent to it to make.
+    function act.remote(name)
+        local r = {}
+        for fn in pairs(REMOTE) do
+            r[fn] = function (...) if send then send(name, { fn, n = select('#', ...), ... }) end end
+        end
+        return r
     end
     return act
 end

@@ -395,3 +395,74 @@ test('buff rows reaching outside the party get a line of chips per party of the 
     eq({ haste.targets[7].on, haste.targets[13].label, haste.targets[15].on, haste.targets[15].present },
        { true, 'C0', true, false })  -- party C gone, but a chip of it on: still shown, to clear
 end)
+
+-- Remote control -------------------------------------------------------------------
+
+local function sessions(running)
+    return { A = { running = running, members = { { sid = 101, name = 'A' } } },
+             Far = { running = false, members = { { sid = 900, name = 'Far' } } } }  -- not in your party
+end
+
+test('a member who is another session says so, running or not and whether its SK Settings are shown here', function ()
+    local st = status({ sessions = sessions(true), watching = { A = true } })
+    local view = build(whm, nil, nil, st)
+    eq({ view.party[1].session, view.party[2].session, view.party[3].session },
+       { nil, { name = 'A', running = true, open = true }, nil })
+    eq(view.remote, { { name = 'A' } })  -- watched, no view from it yet
+    st.views = { A = { job = 'RDM 75' } }
+    view = build(whm, nil, nil, st)
+    eq(view.remote, { { name = 'A', view = { job = 'RDM 75', session = 'A' } } })
+    st.watching = { Gone = true }  -- not a live session: no window for it
+    eq(build(whm, nil, nil, st).remote, {})
+end)
+
+test('a published view leaves out the HUD\'s pointer and sizes and the views it shows itself', function ()
+    local view = build(whm, nil, nil, status({ intent = { at = 990, action = 'Cure', target = 'A', behavior = 'heal', why = 'x' } }))
+    local out = model.published(view)
+    eq({ out.pointer, out.ui, out.remote, out.job, out.sections == view.sections }, { nil, nil, nil, 'WHM 75 / BLM 37', true })
+    eq(view.pointer ~= nil, true)  -- the view itself is left as it was
+end)
+
+local function call(fn, ...) return { fn, n = select('#', ...), ... } end
+
+test('act.remote sends each call to its session; act.watch shows its SK Settings', function ()
+    local sent, st = {}, status()
+    local act = model.actions(settings.defaults(), st, function () end, nil, function (name, c) sent[#sent + 1] = { name, c } end)
+    local r = act.remote('A')
+    r.set('heal.danger', 60)
+    r.pick('Protect', nil)
+    r.run(true)
+    eq(sent, { { 'A', call('set', 'heal.danger', 60) }, { 'A', call('pick', 'Protect', nil) }, { 'A', call('run', true) } })
+    eq({ r.close, r.log, r.watch, r.remote }, { nil, nil, nil, nil })  -- the HUD's and the log are each session's own
+    act.watch('A', true)
+    eq(st.watching, { A = true })
+    act.watch('A', false)
+    eq(st.watching, {})
+end)
+
+test('another session\'s calls apply through act; the HUD\'s settings, the log and bad arguments never', function ()
+    local cfg, st, writes = settings.defaults(), status(), 0
+    local tracks = {}
+    local act = model.actions(cfg, st, function () writes = writes + 1 end,
+        { add = function (n) tracks[#tracks + 1] = n end, remove = function () end })
+    local function apply(...) return model.apply(act, cfg, call(...)) end
+    eq({ apply('run', true), st.running }, { true, true })
+    eq({ apply('set', 'heal.danger', 60), cfg.heal.danger }, { true, 60 })
+    eq({ apply('row', 'Protect', true), apply('pick', 'Protect', 'Protect II'), apply('target', 'Protect', 1) },
+       { true, true, true })
+    eq(cfg.rows.Protect, { on = true, pick = 'Protect II', targets = { [0] = true, [1] = true } })
+    eq({ apply('pick', 'Protect', nil), cfg.rows.Protect.pick }, { true, nil })  -- back to Auto
+    eq({ apply('section', 'buff', true), cfg.buff.on }, { true, true })
+    eq({ apply('track', 'Out'), tracks }, { true, { 'Out' } })
+    local before = writes
+    for _, bad in ipairs({
+        call('close'), call('log', false), call('watch', 'A', true), call('remote', 'B'), call('track', nil),  -- your target: never from afar
+        call('set', 'ui.hp_width', 300), call('set', 'japanese', true), call('set', 'heal', 1), call('set', 'heal.nope', 1),
+        call('set', 'heal.danger', 'high'), call('set', 'heal.skip', {}), call('set', 'danger', 1), call('section', 'ui', true),
+        call('section', 'nope', true), call('section', 'heal', 'yes'), call('row', 5, true), call('target', 'Protect', true),
+        { 'run', true }, { 42 },
+    }) do
+        eq(model.apply(act, cfg, bad), false, tostring(bad[1]) .. ' ' .. tostring(bad[2]))
+    end
+    eq({ writes, cfg.ui.hp_width ~= 300, cfg.ui.japanese, st.log }, { before, true, false, true })
+end)

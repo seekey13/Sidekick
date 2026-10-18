@@ -62,6 +62,8 @@ Text that may contain `%` (names, `why` text) must be escaped before it's drawn:
 | `profiles` | table | `{ active, names }`: the profile loaded (nil for Default, the working copy) and every saved profile's name, in order, case aside. Each job pair has its own |
 | `ui` | table | The UI's settings, shared by every job pair: `open` (bool), and any `ui.<name>` your UI saved. The standard HUD's, which yours may ignore: `hp_width`, `mp_width` (80 to 600), `hp_height` (10 to 120), `mp_height` (4 to 80), `name_size` (8 to 64), `text_size` (8 to 48), `gap` (0 to 40), all in pixels; `opacity` (0 to 100, the panel's %); `locked` (bool, it can't be dragged); `japanese` (bool, the client's language, as `view.japanese`: not free for a UI's own use) |
 | `sections` | list | Every setting, by section, below |
+| `remote` | list | The SK Settings of other Sidekick sessions on this PC you have open (`act.watch`), by name: `{ name, view }`. `view` is the view that session built and sent (nil until its first one comes, about a second): the same fields as yours but `pointer`, `ui` and `remote`, plus `session` (its name). Draw it with `act.remote(name)` in place of `act` |
+| `session` | string or nil | Only on a view in `remote`: the session it came from. nil on yours |
 
 ### `view.status`
 
@@ -91,6 +93,7 @@ Text that may contain `%` (names, `why` text) must be escaped before it's drawn:
 | `dist` | string | `''` for you, `'away'`, or like `'12.3y'` |
 | `buffs` | string | Its statuses, the first 6 by name and `'+N'` for the rest |
 | `buffs_all` | string | Every status, one per line (for a tooltip) |
+| `session` | table or nil | This player is another Sidekick session on this PC (a party member, a tracked player or one of the alliance; never you or a trust): `{ name, running, open }`. `running`: its automation is on; `open`: its SK Settings are shown here (`view.remote`). The standard HUD puts a run icon and a cog on its card, as on yours |
 
 ### `view.heal`
 
@@ -161,6 +164,8 @@ In this order. A section with rows is left out when your job has none for it (Pe
 | `act.delete_profile(name)` | Delete a profile; deleting the loaded one goes back to Default |
 | `act.skip(name)` | Skip a member (or tracked player) in healing, or take them back: a `view.heal.members[i].name` |
 | `act.set(path, value)` | A setting by path, below |
+| `act.watch(name, on)` | Show another session's SK Settings (a `party[i].session.name`), or stop: it then sends its view, which comes in `view.remote`. This session only; closed when that session goes |
+| `act.remote(name)` | Another session's `act`, to change it from here: `run`, `section`, `row`, `pick`, `target`, `mod`, `profile`, `save_profile`, `new_profile`, `delete_profile`, `track` (by name only), `untrack`, `skip` and `set` (but `'japanese'` and `'ui.*'`: the HUD is each session's own). There's no `close`, `log`, `watch` or `remote`. Each call goes through the files the sessions share and is made there, through its own `act`, within a second or so (a quarter second while its SK Settings are open); its view in `view.remote` then shows it |
 
 `act.set` paths:
 

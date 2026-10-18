@@ -7,6 +7,8 @@
     grey panel (the alliance's other parties as thin HP rows under them), the
     rest of the window transparent, with an arrow at whoever the next action is for. Your own card's
     HP bar carries the run icon and the cog, which opens SK Settings, every setting under collapsing headers.
+    So does the card of a player who is another Sidekick session on this PC: its icons
+    start and stop that session and open its own SK Settings, drawn here from its view.
 
     Ashita's binding (as v2 found it): widget values are one-element tables
     ({ true }, { 75 }), and Text, TextColored and SetTooltip take a printf
@@ -62,10 +64,10 @@ local UI_SLIDERS = {
 local SETTING_WIDTH, PICK_WIDTH, CHIP_WIDTH = 160, 170, 28
 local JOINED = { party = '  (in your party)', alliance = '  (in your alliance)' }  -- a tracked player's note
 
-local act                    -- this frame's actions
+local act                    -- this frame's actions (another session's, while drawing its SK Settings)
 local settings_open = false  -- SK Settings shown; this session only
-local profile_name = { '' }  -- the profile name typed; this session only...
-local profile_shown          -- ...filled in again when the profile loaded changes
+local profile_names = {}     -- per SK Settings window ('' for yours, else the session's name), this session only:
+                             -- { typed = { name }, shown }, the name filled in again when the profile loaded changes
 
 local function esc(s) return (tostring(s):gsub('%%', '%%%%')) end
 
@@ -219,9 +221,9 @@ local function title_row(dl, view, ts, x0, y0, pw, th, s, cut)
     end
 end
 
--- Run and settings at the top right of your card's HP bar, s pixels square (at
--- most what the bar fits), each cut in the bar's colour under it. Returns
--- whether one is hovered, so the card's own tooltip gives way.
+-- Run and settings at the top right of the HP bar of your card, or of another
+-- session's, s pixels square (at most what the bar fits), each cut in the bar's
+-- colour under it. Returns whether one is hovered, so the card's own tooltip gives way.
 local function card_icons(view, ui, p, x, y, s)
     local fx, hp_top = x + PAD + B, y + B
     s = math.min(s, ui.hp_height - 4, math.floor((ui.hp_width - 8) / 2))
@@ -230,12 +232,16 @@ local function card_icons(view, ui, p, x, y, s)
     local run_x = cog_x - 4 - s
     local function cut(ix) return u32(ix + s / 2 < filled and HP_TOP or EMPTY) end
 
-    local running = view.status.running
-    local clicked, over_run = icon('##sk3_run', run_x, iy, s, running and stop_icon or play_icon,
-        running and 'Stop automation' or 'Start automation', cut(run_x))
-    if clicked then act.run(not running) end
-    local cog, over_cog = icon('##sk3_cog', cog_x, iy, s, cog_icon, 'Settings', cut(cog_x))
-    if cog then settings_open = not settings_open end
+    local remote = p.session
+    local running = remote and remote.running or not remote and view.status.running
+    local id, whose = remote and ('_' .. remote.name) or '', remote and (remote.name .. '\'s ') or ''
+    local clicked, over_run = icon('##sk3_run' .. id, run_x, iy, s, running and stop_icon or play_icon,
+        (running and 'Stop ' or 'Start ') .. whose .. 'automation', cut(run_x))
+    if clicked then (remote and act.remote(remote.name) or act).run(not running) end
+    local cog, over_cog = icon('##sk3_cog' .. id, cog_x, iy, s, cog_icon, remote and ('Settings for ' .. remote.name) or 'Settings',
+        cut(cog_x))
+    if cog and remote then act.watch(remote.name, not remote.open)
+    elseif cog then settings_open = not settings_open end
     return over_run or over_cog
 end
 
@@ -319,7 +325,7 @@ local function draw_hud(view)
     for i, p in ipairs(view.party) do
         local y = y0 + th + (i - 1) * (ch + ui.gap)
         card(dl, ui, p, x0, y)
-        local on_icon = p.kind == 'self' and card_icons(view, ui, p, x0, y, s)
+        local on_icon = (p.kind == 'self' or p.session) and card_icons(view, ui, p, x0, y, s)
         imgui.SetCursorScreenPos({ x0 + PAD, y })
         imgui.Dummy({ pw - 2 * PAD, ch })
         if not on_icon then tip(member_tip(p)) end
@@ -573,7 +579,10 @@ end
 local function draw_profiles(view)
     local p = view.profiles
     local active = p.active or ''
-    if active ~= profile_shown then profile_name[1], profile_shown = active, active end
+    local state = profile_names[view.session or '']
+    if not state then state = { typed = { '' } }; profile_names[view.session or ''] = state end
+    local profile_name = state.typed
+    if active ~= state.shown then profile_name[1], state.shown = active, active end
     imgui.PushItemWidth(SETTING_WIDTH)
     imgui.InputText('Name##sk3_profile_name', profile_name, 64)
     imgui.PopItemWidth()
@@ -622,7 +631,9 @@ local function draw_recent(view)
     end
 end
 
+-- Another session's shows only what it sent: its HUD and log are its own.
 local function draw_ui(view)
+    if view.session then return draw_recent(view) end
     for _, l in ipairs(UI_SLIDERS) do
         slider(l[1] .. '##sk3_ui_' .. l[2], 'ui.' .. l[2], view.ui[l[2]], l[3], l[4], l[5])
     end
@@ -812,12 +823,37 @@ local function settings_window(view)
     if not ok then return err end
 end
 
+-- Another session's SK Settings, from the view it published, its changes sent to
+-- it; until its first view comes, a line saying so.
+local function draw_remote(r)
+    if not r.view then return text(('Waiting for %s\'s session...'):format(r.name), GREY) end
+    text(('%s  %s'):format(r.view.job, r.view.status.state), r.view.status.running and GREEN or GREY)
+    tip('Changes here are sent to that session, which applies them within a second or so.')
+    imgui.Separator()
+    draw_settings(r.view)
+end
+
+local function remote_window(r)
+    local open = { true }
+    local ok, err = true, nil
+    if imgui.Begin(('SK Settings: %s###sk3_settings_%s'):format(r.name, r.name), open, ImGuiWindowFlags_AlwaysAutoResize) then
+        local mine = act
+        act = mine.remote(r.name)
+        ok, err = pcall(draw_remote, r)
+        act = mine
+    end
+    imgui.End()
+    if not open[1] then act.watch(r.name, false) end
+    if not ok then return err end
+end
+
 -- One frame. A Lua error raised while drawing is raised again after the windows
 -- are ended, so ImGui stays balanced and Sidekick reports it.
 function window.render(view, act_)
     act = act_
     local err = hud(view)
     if settings_open then err = settings_window(view) or err end
+    for _, r in ipairs(view.remote or {}) do err = remote_window(r) or err end
     if err then error(err, 0) end
 end
 
