@@ -8,9 +8,9 @@
     For every job at level 75 (all spells and abilities known) each v2 entry in a
     generic category must appear in the catalog with the same role, and agree on
     status, removes, potency, gates, level and MP; rolls on their lucky and unlucky
-    totals too. The other job-mechanic categories (runes, maneuvers, geo, precast)
+    totals too. The other job-mechanic categories (maneuvers, geo, precast)
     belong to job modules and are not checked here; the luopan's (v2's geo and its
-    Geo buff group) are, as v3's geo role.
+    Geo buff group) are, as v3's geo role, and the runes and wards, as its rune and ward roles.
 ]]--
 
 local sk3 = arg[0]:gsub('[\\/]tools[\\/]parity%.lua$', '')
@@ -29,7 +29,7 @@ local ROLE = {
     heal = 'heal', heal_aoe = 'heal', heal_pet = 'pet_heal', debuff_removal = 'remove',
     pet_debuff_removal = 'pet_remove', critical = 'emergency', revive = 'revive',
     recover_mp = 'recover', recover_tp = 'recover', recover_party_mp = 'recover', buff = 'buff',
-    pet_control = 'pet_send', roll = 'roll', roll_control = 'roll', geo = 'geo',
+    pet_control = 'pet_send', roll = 'roll', roll_control = 'roll', geo = 'geo', rune = 'rune', rune_ja = 'ward',
 }
 -- v2 entries a v3 job module owns instead of the generic role.
 local MODULE_OWNED = {}

@@ -61,7 +61,7 @@ local UI_SLIDERS = {
     { 'Background opacity', 'opacity', 0, 100, '% of the grey panel behind the bars.' },
 }
 
-local SETTING_WIDTH, PICK_WIDTH, CHIP_WIDTH = 160, 170, 28
+local SETTING_WIDTH, PICK_WIDTH, CHIP_WIDTH, RUNE_WIDTH = 160, 170, 28, 130
 local JOINED = { party = '  (in your party)', alliance = '  (in your alliance)' }  -- a tracked player's note
 
 local act                    -- this frame's actions (another session's, while drawing its SK Settings)
@@ -543,6 +543,62 @@ local function draw_geo(view)
     imgui.Separator()
 end
 
+-- What a set's slots show of each rune.
+local SHOWS = { element = 'Each rune by the element it adds to your attacks.',
+                resist = 'Each rune by the element it resists.', ailments = 'Each rune by the ailments it defends against.' }
+
+local function rune_tip(r)
+    return ('%s: adds %s, resists %s, against %s.'):format(r.name, r.element, r.resist, r.ailments)
+end
+
+-- A rune for slot `i` of `set`, or None (''). A pick the job no longer has says so.
+local function rune_combo(set, i, choices)
+    local current, id = set.picks[i], ('sk3_rune_%s_%d'):format(set.key, i)
+    local shown = current ~= '' and current .. ' (not available)' or 'None'
+    for _, r in ipairs(choices) do
+        if r.name == current then shown = r[set.shows] end
+    end
+    imgui.PushItemWidth(RUNE_WIDTH)
+    if imgui.BeginCombo('##' .. id, shown) then
+        if imgui.Selectable('None##' .. id .. '_none', current == '') then act.set(('rune.%s_%d'):format(set.key, i), '') end
+        for _, r in ipairs(choices) do
+            if imgui.Selectable(r[set.shows] .. '##' .. id .. '_' .. r.name, r.name == current) then
+                act.set(('rune.%s_%d'):format(set.key, i), r.name)
+            end
+            tip(rune_tip(r))
+        end
+        imgui.EndCombo()
+    end
+    imgui.PopItemWidth()
+    tip(SHOWS[set.shows])
+end
+
+-- A line per set: Idle, then each ward with its switch; a combo per rune slot, then whether it's ready.
+local function draw_runes(view)
+    local r = view.rune
+    if not imgui.BeginTable('##sk3_runes', 2 + r.slots, ImGuiTableFlags_SizingFixedFit) then return end
+    for _, set in ipairs(r.sets) do
+        imgui.TableNextRow()
+        imgui.TableNextColumn()
+        if set.ward then
+            local v = { set.on }
+            if imgui.Checkbox(set.label .. '##sk3_rune_' .. set.key, v) then act.row(set.ward, v[1]) end
+            tip(('Once %s is ready, its runes take the slots, then it fires in combat.'):format(set.ward))
+        else
+            text(set.label)
+            tip('The runes kept up the rest of the time.')
+        end
+        for i = 1, r.slots do
+            imgui.TableNextColumn()
+            rune_combo(set, i, r.runes)
+        end
+        imgui.TableNextColumn()
+        if set.ward then text(set.avail, set.ready and GREEN or GREY) end
+    end
+    imgui.EndTable()
+    imgui.Separator()
+end
+
 -- Each tracked player with its Untrack button (one who joined your party or
 -- alliance too), then Track for your target.
 local function draw_track(view)
@@ -751,6 +807,8 @@ local SWITCH_HELP = {
         .. 'Hold area buffs, as an area buff.',
     geo = 'Keep a luopan down: the Geo row\'s on its target, or the Geo debuff\'s on your battle target in combat. '
         .. 'Full Circle recalls it when its target leaves it, and a debuff\'s after combat.',
+    rune = 'Keep the runes picked up: a ward\'s set once it is ready, then the ward in combat; the Idle set the rest '
+        .. 'of the time. Lunge and Swipe are yours: the runes go back up after.',
     pet = 'Look after your pet, and send it in, with the rows that are on.',
     recover = 'Get MP and TP back with the rows that are on.',
     rest = 'Rest for MP out of combat once nothing else has happened for a while; stand at full MP.',
@@ -758,7 +816,7 @@ local SWITCH_HELP = {
 
 local BODIES = {
     follow = draw_follow, heal = draw_heal_settings, recover = draw_recover_settings, buff = draw_buff_settings,
-    roll = draw_rolls, geo = draw_geo,
+    roll = draw_rolls, geo = draw_geo, rune = draw_runes,
     pet = draw_pet_settings, rest = draw_rest, track = draw_track, ui = draw_ui, profile = draw_profiles,
 }
 

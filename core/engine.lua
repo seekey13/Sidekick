@@ -11,8 +11,8 @@
     which engine.gather turns into a party chat line.
     Modifiers: an intent may list intent.mods (stratagems a buff row turned on,
     Snake Eye before a Double-Up, Blaze of Glory before a luopan, Entrust before
-    an Indi- on a member), and an Addendum spell you lack the Addendum for has
-    action.via (Enlightenment).
+    an Indi- on a member, Embolden before enhancing magic), and an Addendum
+    spell you lack the Addendum for has action.via (Enlightenment).
     One whose status isn't on you goes first, alone; its status is then taken as
     on you for EXPECT seconds, so the next decision sends the spell.
 ]]--
@@ -33,6 +33,7 @@ engine.BEHAVIORS = {
     { name = 'revive', run = require('behaviors.revive') },
     { name = 'roll', run = require('jobs.cor').want },
     { name = 'geo', run = require('jobs.geo').want },
+    { name = 'rune', run = require('jobs.run').want, quick = true },
     { name = 'buff', run = require('behaviors.buff').want },
     { name = 'pet_send', run = pet.send, setting = 'pet', quick = true },
     { name = 'follow', run = require('behaviors.follow').want },

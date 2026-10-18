@@ -728,6 +728,26 @@ test('GEO: Geomancy under Buff: its rows, how far and how long, and Entrust\'s m
     eq(render(cfg, st, { ['Recall past##sk3_geo_distance'] = 12 }), 0)  -- WHM: no Geomancy
 end)
 
+test('RUN: Runes under Buff: a line per set, a rune per slot by what it does, each ward\'s switch', function ()
+    open_settings()
+    local run = fake.catalog(22, 75, 4, 37, { 'Ignis', 'Gelus', 'Vallation', 'Pflug' })
+    local cfg, st = settings.defaults(), status()
+    local function view() local g = snap(); g.main = 22; return model.build(g, run, cfg, st, NAMES) end
+    eq(render(cfg, st, { ['Fire##sk3_rune_idle_1_Ignis'] = true, ['Wind##sk3_rune_vallation_2_Gelus'] = true }, view()), 2)
+    eq({ cfg.rune.idle_1, cfg.rune.vallation_2 }, { 'Ignis', 'Gelus' })
+    eq(has(frame.args.Selectable, 'Silence / Weight##sk3_rune_pflug_3_Gelus'), true, 'Pflug shows the ailments')
+    eq(tipped('Ignis: adds Fire, resists Ice, against Paralyze / Bind.'), true)
+    render(cfg, st, {}, view())
+    eq({ has(frame.args.BeginCombo, '##sk3_rune_idle_1'), showed('Idle') }, { true, true })
+    eq(frame.columns['##sk3_runes'], 5)  -- the set, three slots, ready
+    eq(render(cfg, st, { ['Pflug##sk3_rune_pflug'] = true, ['Runes##sk3_on_rune'] = true }, view()), 2)
+    eq({ cfg.rows.Pflug.on, cfg.rune.on }, { false, false })
+    cfg.rune.idle_2 = 'Lux'
+    render(cfg, st, {}, view())
+    eq(has(frame.args.BeginCombo, '##sk3_rune_idle_2'), true)
+    eq(render(cfg, st, { ['Fire##sk3_rune_idle_1_Ignis'] = true }), 0)  -- WHM: no Runes
+end)
+
 -- Remote control -------------------------------------------------------------------
 
 -- A's a session too: its view as its own session publishes it (with its own settings).

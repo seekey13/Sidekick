@@ -21,6 +21,8 @@
 local can = require('core.can')
 local cor = require('jobs.cor')
 local profiles = require('core.profiles')
+local run = require('jobs.run')
+local sch = require('jobs.sch')
 local settings = require('core.settings')
 
 local model = {}
@@ -28,7 +30,8 @@ local model = {}
 -- Settings sections in order, each under its `header` (headers in the order
 -- their first section comes). Every section but 'profile', 'track' and 'ui' is a behavior,
 -- switched by cfg[id].on; one with roles also has rows. Wake shows only when a heal can wake,
--- Rolls only for a job with rolls, Geomancy only with a Geo- spell (a GEO main job).
+-- Rolls only for a job with rolls, Geomancy only with a Geo- spell (a GEO main job),
+-- Runes only with a rune (RUN, main or sub).
 model.SECTIONS = {
     { id = 'profile', title = 'Profiles', header = 'Profiles', switch = false },
     { id = 'follow', title = 'Follow', header = 'Follow' },
@@ -39,6 +42,7 @@ model.SECTIONS = {
     { id = 'buff', title = 'Buffs', roles = { 'buff' }, header = 'Buff' },
     { id = 'roll', title = 'Rolls', header = 'Buff' },
     { id = 'geo', title = 'Geomancy', roles = { 'geo' }, header = 'Buff' },
+    { id = 'rune', title = 'Runes', header = 'Buff' },
     { id = 'pet', title = 'Pet', roles = { 'pet_heal', 'pet_remove', 'pet_send' }, header = 'Pet' },
     { id = 'recover', title = 'Recovery', roles = { 'recover' }, header = 'Recover' },
     { id = 'rest', title = 'Resting', header = 'Recover' },
@@ -155,7 +159,7 @@ local function chips(acts, r, units, outsiders)
     return out
 end
 
--- Modifier chips (SCH's stratagems): each one in the catalog that fits one of
+-- Modifier chips (SCH's stratagems, RUN's Embolden): each one in the catalog that fits one of
 -- the row's spells.
 local function mod_chips(acts, r, modifiers)
     local on, out = r.mods or {}, {}
@@ -212,6 +216,37 @@ local function build_rows(s, g, cat, cfg, units, outsiders)
         rows[#rows + 1] = build_row(key, acts_of[key], cfg, g, units, chipped and modifiers, outsiders)
     end
     return rows
+end
+
+-- RUN: the runes to pick from, and each set's picks (jobs/run.lua): Idle, then
+-- each ward you have, with its switch (its row) and whether it's ready.
+local function runes(g, cat, cfg)
+    local mine, wards = run.actions(cat)
+    local out = { slots = run.slots(run.level(g)), runes = {}, sets = {} }
+    for _, r in ipairs(run.RUNES) do
+        local a = mine[r[1]]
+        if a then
+            out.runes[#out.runes + 1] = { name = a.name, element = a.rune.element, resist = a.rune.resist,
+                                          ailments = a.rune.ailments }
+        end
+    end
+    if not out.runes[1] then return out end
+    local ward = {}
+    for _, w in ipairs(wards) do ward[w.name] = w end
+    for _, set in ipairs(run.SETS) do
+        local w = set.ward and ward[set.ward]
+        if not set.ward or w then
+            local e = { key = set.key, label = set.label or set.ward, shows = set.shows, ward = w and w.name, picks = {} }
+            for i = 1, run.SLOTS do e.picks[i] = cfg.rune[set.key .. '_' .. i] end
+            if w then
+                local r = settings.row(cfg, w)
+                e.on = r.on == true
+                e.ready, e.avail = availability({ w }, r, g)
+            end
+            out.sets[#out.sets + 1] = e
+        end
+    end
+    return out
 end
 
 -- Status and party -----------------------------------------------------------
@@ -387,7 +422,7 @@ function model.build(g, cat, cfg, status, names)
                 last = { name = a.name, total = g.roll.total, lucky = a.lucky, unlucky = a.unlucky, bust = g.roll.bust == true }
             end
         end
-        stratagems = stratagems or a.role == 'modifier' and a.applies ~= nil
+        stratagems = stratagems or a.kind == 'ja' and a.recast == sch.STRATAGEMS
         if a.pick_one == 'indi' then indi[#indi + 1] = a.name end
         luopans = luopans or a.luopan == 'buff' or a.luopan == 'debuff'
         spends_tp = spends_tp or a.role == 'recover' and a.spends_tp == true
@@ -420,6 +455,7 @@ function model.build(g, cat, cfg, status, names)
                  two = g.main == cor.JOB, choices = rolls, last = last },
         geo = { distance = cfg.geo.distance, linger = cfg.geo.linger, entrust = cfg.geo.entrust,
                 entrust_spell = cfg.geo.entrust_spell, indi = indi, names = party_names },
+        rune = runes(g, cat, cfg),
         -- Your target, by name, when it's a player who could be tracked: not in the party, not tracked yet.
         track = { target = g.target and not known[g.target.sid] and g.target.name or nil },
         japanese = cfg.ui.japanese, log = status.log, ui = {},
@@ -451,6 +487,7 @@ function model.build(g, cat, cfg, status, names)
         if s.id == 'wake' then shown = wakes end
         if s.id == 'roll' then shown = rolls[1] ~= nil end
         if s.id == 'geo' then shown = luopans end
+        if s.id == 'rune' then shown = view.rune.runes[1] ~= nil end
         if shown then view.sections[#view.sections + 1] = section end
     end
     return view
@@ -460,7 +497,7 @@ end
 -- HUD's (the pointer and its sizes) and the views it shows of others itself,
 -- with the view's `version`, VIEW: raise it when a field the window draws changes,
 -- so a session still running older code isn't drawn from a view it can't read.
-model.VIEW = 1
+model.VIEW = 2
 function model.published(view)
     local out = {}
     for k, v in pairs(view) do out[k] = v end
@@ -498,6 +535,9 @@ model.REMOTE_SET = {
     ['roll.first'] = 'name', ['roll.second'] = 'name', ['roll.risk'] = { list = cor.RISKS },
     ['geo.distance'] = { 3, 30 }, ['geo.linger'] = { 1, 20 }, ['geo.entrust'] = 'name', ['geo.entrust_spell'] = 'name',
 }
+for _, set in ipairs(run.SETS) do
+    for i = 1, run.SLOTS do model.REMOTE_SET[run.path(set.key, i)] = 'name' end
+end
 
 -- `value` for act.set's `path` from another session, held to its range; nil when
 -- it's not one REMOTE_SET lists or not a value it takes.
@@ -559,7 +599,7 @@ function model.actions(cfg, status, changed, tracking, send)
         status.open, cfg.ui.open = false, false
         changed()
     end
-    -- id: a section with a switch: 'follow' | 'heal' | 'revive' | 'wake' | 'remove' | 'buff' | 'roll' | 'geo' | 'pet'
+    -- id: a section with a switch: 'follow' | 'heal' | 'revive' | 'wake' | 'remove' | 'buff' | 'roll' | 'geo' | 'rune' | 'pet'
     -- | 'recover' | 'rest'
     function act.section(id, on)
         cfg[id].on = on
@@ -619,7 +659,7 @@ function model.actions(cfg, status, changed, tracking, send)
         changed()
     end
     -- path: 'heal.danger', 'heal.alliance', 'heal.reserve', 'buff.hold_aoe', 'roll.first', 'roll.risk', 'geo.distance',
-    -- 'geo.entrust', 'geo.entrust_spell', 'follow.target',
+    -- 'geo.entrust', 'geo.entrust_spell', 'rune.idle_1', 'follow.target',
     -- 'japanese', 'ui.hp_width', or 'ui.<anything>' for a UI's own.
     function act.set(path, value)
         if path == 'japanese' then path = 'ui.japanese' end  -- shared by every job pair, as the HUD

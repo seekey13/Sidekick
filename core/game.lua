@@ -12,6 +12,7 @@
              jobs = { main, main_lv, sub, sub_lv } (you and your party's players),
              in_zone, dist, pos = { x, y, z },
              status (entity), alive, buffs = { [id] = true },
+             stacks = { [id] = how many stand } (you only: runes stack),
              moving (others: moved in the last half second),
              hot = HP still to come from your Regen, nil if none }
     Slots: 0 you, 1-5 your party, 6-11 and 12-17 the alliance's other parties
@@ -160,10 +161,14 @@ local function inventory()
     return out
 end
 
+-- Your statuses, and how many of each stand (runes stack: jobs/run.lua).
 local function own_buffs(player)
-    local raw, list = player:GetBuffs(), {}
-    for i = 1, 32 do list[i] = raw[i] or 0 end
-    return set_of(list)
+    local raw, list, stacks = player:GetBuffs(), {}, {}
+    for i = 1, 32 do
+        list[i] = raw[i] or 0
+        stacks[list[i]] = (stacks[list[i]] or 0) + 1
+    end
+    return set_of(list), stacks
 end
 
 local function entity(em, tidx)
@@ -399,7 +404,7 @@ function game.read(now)
                 u.pos = { em:GetLocalPositionX(tidx), em:GetLocalPositionY(tidx), em:GetLocalPositionZ(tidx) }
             end
             u.alive = u.hpp > 0 and u.status ~= DEAD
-            if u.kind == 'self' then u.buffs = own_buffs(player)
+            if u.kind == 'self' then u.buffs, u.stacks = own_buffs(player)
             elseif u.kind == 'party' then u.buffs = party_buffs(sid)
             else  -- a trust or the alliance: the client keeps no list
                 if not u.alive then buffs.forget(sid) end  -- a death clears statuses silently
