@@ -20,6 +20,7 @@
 
 local can = require('core.can')
 local cor = require('jobs.cor')
+local pet = require('behaviors.pet')
 local profiles = require('core.profiles')
 local pup = require('jobs.pup')
 local run = require('jobs.run')
@@ -121,6 +122,12 @@ local function availability(acts, r, g)
             -- Radial Arcana with no luopan out puts one down to spend (jobs/geo.lua).
             if a.luopan == 'spend' and why == 'no pet' and g.recast(a) == 0 then ok = true end
             if ok then return true, 'ready', a.name end
+            -- Ammo you hold but don't wear is equipped for it (behaviors/pet.lua).
+            local it = why == 'no ammo' and pet.wearable(a, g)
+            if it then
+                ok, why, w = can.use(a, setmetatable({ ammo = it.id }, { __index = g }))
+                if ok then return true, 'equips ' .. it.en, a.name end
+            end
             if w then wait = math.min(wait or w, w) else reason = reason or why end
         end
     end

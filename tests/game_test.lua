@@ -296,9 +296,13 @@ test('owned ammo: your bag before the wardrobes, by the number /equip names each
     local core = rawget(_G, 'AshitaCore')
     rawset(_G, 'AshitaCore', { GetMemoryManager = const(mm), GetResourceManager = const({ GetItemById = function (_, id) return items[id] end }) })
     eq(game.owned({ 19185, 17016, 18731 }), {
-        { id = 19185, en = 'Automat. Oil +3', jp = 'oil3', level = 1, jobs = 2 ^ 18, bag = 2 },  -- Mog Wardrobe 2
-        { id = 18731, en = 'Automaton Oil', jp = 'oil', level = 1, jobs = 2 ^ 18, bag = 1 },  -- the empty stack in your bag skipped
+        { id = 19185, en = 'Automat. Oil +3', jp = 'oil3', level = 1, jobs = 2 ^ 18, bag = 2, count = 2 },  -- Mog Wardrobe 2
+        { id = 18731, en = 'Automaton Oil', jp = 'oil', level = 1, jobs = 2 ^ 18, bag = 1, count = 4 },  -- the empty stack in your bag skipped
     })
+    local ids = { 18731 }
+    eq(#game.owned(ids), 1)
+    bags[10] = {}
+    eq(#game.owned(ids), 1, 'kept a second')
     inventory.GetContainerCountMax, inventory.GetContainerItem = const(0), nil
     rawset(_G, 'AshitaCore', core)
 end)

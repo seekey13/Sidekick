@@ -139,7 +139,7 @@ In this order. A section with rows is left out when your job has none for it (Pe
 | `label` | string | `'Cure'`, `'Valor Minuet (+ATK)'`, `'Sword Madrigal / Blade Madrigal'` |
 | `on` | bool | Rows start on, except buffs (and a Geomancer's Geo and Geo debuff rows), sending the pet in (Assault, Fight, Deploy) and items |
 | `ready` | bool | It could go right now |
-| `avail` | string | `'ready'`, or why not: `'recast 12s'`, `'MP'`, `'TP'`, `'silenced'`, `'combat only'`, `'idle only'`, `'no ammo'`, `'pet too far'`, `'none left'`, `'pick one'`, `'not available'`... |
+| `avail` | string | `'ready'` (or, for a pet care row whose ammo you hold but don't wear, `'equips <item>'`: it's equipped first, then the row goes), or why not: `'recast 12s'`, `'MP'`, `'TP'`, `'silenced'`, `'combat only'`, `'idle only'`, `'no ammo'`, `'pet too far'`, `'none left'`, `'pick one'`, `'not available'`... |
 | `action` | string or nil | When ready, the spell, ability or item it would use, as the client names it: `'Cure V'` |
 | `count` | number or nil | Item rows (`'Echo Drops'`, `'Remedy'`...): how many you carry |
 | `choices` | list or nil | Buff rows (and the Geomancy section's) with tiers or a pick-one group: `{ label, name }`. A tiered row's first choice is `'Auto (best)'` with `name` nil |

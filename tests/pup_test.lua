@@ -2,6 +2,8 @@
 -- through the engine; the oil pet care equips (behaviors/pet.lua); and the
 -- Maneuvers section in ui/model.lua.
 local engine = require('core.engine')
+local packets = require('core.packets')
+local pup = require('jobs.pup')
 local settings = require('core.settings')
 local model = require('ui.model')
 local fake = require('tests.fake')
@@ -107,6 +109,37 @@ test('pet care comes first: Repair before a maneuver; one goes while a cure is h
     eq(decide(g, cfg), '/pet "Fire Maneuver" <me>')
 end)
 
+-- A 0x044 as the server builds it: the job at 0x04, the automaton's name at 0x58.
+local function job_packet(job, name)
+    local b = {}
+    for i = 1, 0x58 + 16 + 64 do b[i] = 0 end
+    b[0x04 + 1] = job
+    for i = 1, #name do b[0x58 + i] = name:byte(i) end
+    return { id = 0x044, data = string.char(unpack(b)) }
+end
+
+test('maneuvers go only on your automaton: named by the server, else guessed from your jobs', function ()
+    local cfg = cfg_with({ 'Fire Maneuver' })
+    packets.handle(job_packet(PUP, 'Sharpshot'), {}, 0)
+    eq(pup.automaton(), 'Sharpshot')
+    packets.handle(job_packet(BST, 'Ignored'), {}, 0)  -- another job's: not the automaton's
+    eq(pup.automaton(), 'Sharpshot')
+    eq(decide(snap(nil, { automaton = 'Sharpshot', pet = automaton({ name = 'Sharpshot' }) }), cfg), '/pet "Fire Maneuver" <me>')
+    eq({ decide(snap(nil, { automaton = 'Sharpshot', pet = automaton({ name = 'FunguarFamiliar' }) }), cfg) },
+       { nil, 'nothing to do' })
+    packets.handle(job_packet(PUP, 'SixteenCharName!'), {}, 0)  -- 16 long: no NUL
+    eq(pup.automaton(), 'SixteenCharName!')
+    packets.handle(job_packet(PUP, ''), {}, 0)
+    eq(pup.automaton(), nil)
+    -- Not named yet: a PUP main's pet is it; a PUP sub's, unless the main job has a pet of its own.
+    local bst = fake.catalog(BST, 75, PUP, 37, { 'Fire Maneuver' })
+    eq({ decide(snap(nil, { main = BST, sub = PUP, sub_lv = 37 }), cfg, bst) }, { nil, 'nothing to do' })
+    local war = fake.catalog(WAR, 75, PUP, 37, { 'Fire Maneuver' })
+    eq(decide(snap(nil, { main = WAR, sub = PUP, sub_lv = 37 }), cfg, war), '/pet "Fire Maneuver" <me>')
+    eq(decide(snap(nil, { main = BST, sub = PUP, sub_lv = 37, automaton = 'Automaton' }), cfg, bst),
+       '/pet "Fire Maneuver" <me>')
+end)
+
 -- Ammo -----------------------------------------------------------------------------
 
 test('Repair with no oil worn equips the best one you hold that your main job wears', function ()
@@ -135,6 +168,21 @@ test('the oil is equipped only when Repair could then go, and once in a while', 
     g.now = g.now + 2
     eq({ decide(g, cfg, cat, mem) }, { nil, 'nothing to do' }, 'not again, nor Role Reversal, while it shows')
     g.now = g.now + 2
+    eq(decide(g, cfg, cat, mem), '/equip ammo "Automaton Oil" 0')
+end)
+
+test('an equip that never shows is given up on after 3, so the next row goes, until the slot or the count changes', function ()
+    local items = { [OIL] = { 'Automaton Oil', 1 } }
+    local mem, cfg = {}, settings.defaults()
+    local g = snap(nil, { pet = automaton({ hpp = 40 }), owned = owned(items) })
+    for _ = 1, 3 do
+        local cmd, intent = decide(g, cfg, cat, mem)
+        eq(cmd, '/equip ammo "Automaton Oil" 0')
+        engine.sent(intent, g, mem)
+        g.now = g.now + 3
+    end
+    eq(decide(g, cfg, cat, mem), '/ja "Role Reversal" <me>')
+    g.ammo = 12345  -- something else went on: worth trying again
     eq(decide(g, cfg, cat, mem), '/equip ammo "Automaton Oil" 0')
 end)
 
@@ -183,6 +231,18 @@ test('ui: Maneuvers under Pet, a PUP\'s alone: each by its element, the slots\' 
     eq(model.build(snap(nil, { pet = false }), cat, cfg, status(), NAMES).maneuver.avail, 'no pet')
     local whm = model.build(fake.snap(), fake.catalog(WHM, 75, nil, 0), cfg, status(), NAMES)
     for _, s in ipairs(whm.sections) do eq(s.id ~= 'maneuver', true, 'no Maneuvers off PUP') end
+end)
+
+test('ui: a care row whose ammo you hold says it equips it', function ()
+    local g = snap(nil, { owned = owned({ [OIL] = { 'Automaton Oil', 1 } }) })
+    local view = model.build(g, cat, settings.defaults(), status(), NAMES)
+    local rows = {}
+    for _, sec in ipairs(view.sections) do for _, r in ipairs(sec.rows or {}) do rows[r.key] = r end end
+    eq({ rows.Repair.ready, rows.Repair.avail }, { true, 'equips Automaton Oil' })
+    g.owned = owned({})
+    view = model.build(g, cat, settings.defaults(), status(), NAMES)
+    for _, sec in ipairs(view.sections) do for _, r in ipairs(sec.rows or {}) do rows[r.key] = r end end
+    eq({ rows.Repair.ready, rows.Repair.avail }, { false, 'no ammo' })
 end)
 
 test('ui: a slot set from another session takes a name only', function ()

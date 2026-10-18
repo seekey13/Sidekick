@@ -6,15 +6,18 @@
         (core/buffs.lua),
       - what your own heals restored and where your Regens landed (core/observed.lua),
       - a /check's answer: a tracked player's jobs and levels (core/tracked.lua),
-      - your Phantom Rolls' totals (jobs/cor.lua).
+      - your Phantom Rolls' totals (jobs/cor.lua),
+      - your automaton's name (jobs/pup.lua).
     Message ids and bit layouts verified against the CatsEyeXI server
-    (src/map/packets/s2c/0x028_battle2.cpp, 0x0c9_equip_inspect_general.h, msg_std.h / msg_basic.h).
+    (src/map/packets/s2c/0x028_battle2.cpp, 0x0c9_equip_inspect_general.h, 0x044_extended_job_pup.h,
+    msg_std.h / msg_basic.h).
 ]]--
 
 local buffs = require('core.buffs')
 local cor = require('jobs.cor')
 local observed = require('core.observed')
 local players = require('core.tracked')  -- the players you track
+local pup = require('jobs.pup')
 
 local packets = {}
 
@@ -149,6 +152,14 @@ local function on_check(e)
         d:byte(0x22 + 1), d:byte(0x24 + 1), d:byte(0x23 + 1), d:byte(0x25 + 1))
 end
 
+-- 0x044, the extended job data, for PUP (main or sub): the automaton's name, 16
+-- bytes at 0x58, NUL-padded (none when it's 16 long).
+local function on_extended_job(e)
+    local d = e.data
+    if #d < 0x58 + 16 or d:byte(0x04 + 1) ~= pup.JOB then return end
+    pup.named((d:sub(0x58 + 1, 0x58 + 16):match('^[^%z]*')))
+end
+
 function packets.handle(e, ctx, now)
     if e.id == 0x028 then
         local p = parse_action(e)
@@ -157,6 +168,8 @@ function packets.handle(e, ctx, now)
         on_message(e, ctx, now)
     elseif e.id == 0x0C9 then
         on_check(e)
+    elseif e.id == 0x044 then
+        on_extended_job(e)
     elseif e.id == 0x00A then  -- zoning: a cast in flight is cancelled with no packet
         cast.active = false
         buffs.clear()
