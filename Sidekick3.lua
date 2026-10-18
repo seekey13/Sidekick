@@ -26,6 +26,7 @@ local settings = require('core.settings')
 local share = require('core.share')
 local tracked = require('core.tracked')
 local imgui = require('imgui')
+local blu = require('jobs.blu')
 local nin = require('jobs.nin')
 local model = require('ui.model')
 
@@ -37,19 +38,28 @@ local function abbr(job)
     return job > 0 and AshitaCore:GetResourceManager():GetString('jobs.names_abbr', job) or 'none'
 end
 
--- The catalog for the character as it is right now, rebuilt when job or level
--- changes (or on demand: a newly learned spell changes neither).
+-- The catalog for the character as it is right now, rebuilt when job, level or
+-- the blue magic set changes (or on demand: a newly learned spell changes none).
 local cat = { key = nil, list = {}, by_spell = {} }
+-- The blue magic set not known yet: said once, and only when loaded in game
+-- (on login the zone-in 0x044 may come a moment after the job level).
+local said_unset = AshitaCore:GetMemoryManager():GetPlayer():GetMainJobLevel() == 0
 local function current_catalog(force)
     local p = AshitaCore:GetMemoryManager():GetPlayer()
-    local key = ('%d/%d/%d/%d'):format(p:GetMainJob(), p:GetMainJobLevel(), p:GetSubJob(), p:GetSubJobLevel())
+    local key = ('%d/%d/%d/%d/%d'):format(p:GetMainJob(), p:GetMainJobLevel(), p:GetSubJob(), p:GetSubJobLevel(), blu.version())
     if force or key ~= cat.key then
         cat.key, cat.by_spell = key, {}
+        local blue = p:GetMainJob() == blu.JOB or p:GetSubJob() == blu.JOB
+        if blue and not blu.set() and not said_unset then
+            said_unset = true
+            printf('No blue magic until the server sends your set spells: it does when you zone or change one.')
+        end
         cat.list = catalog.build(resources.load(), {
             main = p:GetMainJob(), main_lv = p:GetMainJobLevel(),
             sub = p:GetSubJob(), sub_lv = p:GetSubJobLevel(),
             has_spell = function (id) return p:HasSpell(id) end,
             has_ability = function (id) return p:HasAbility(id) end,
+            set_spells = blu.set() or {},  -- none until the server says (jobs/blu.lua)
         }, knowledge)
         for _, a in ipairs(cat.list) do
             if a.kind == 'ma' then cat.by_spell[a.id] = a end

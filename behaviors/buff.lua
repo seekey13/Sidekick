@@ -14,7 +14,9 @@
     A row's modifiers (SCH's stratagems) go with its spell: the engine fires
     each first (core/engine.lua). Accession instead spreads the spell from you
     to the row's targets in your party near you, at twice the MP, whenever one
-    there lacks it (as v2), and is held for the group like an area spell. With
+    there lacks it (as v2), and is held for the group like an area spell;
+    BLU's Diffusion spreads a blue magic buff on you the same way, at its own
+    MP, but only while someone but you lacks it (jobs/blu.lua). With
     heal.reserve on, buff rows never spend the last stratagem charge (jobs/sch.lua).
     A row with Hold on (rows[key].hold, v2's Hold for Stratagem / Embolden) waits
     while any of its modifiers can't go with the spell; without it the spell goes alone.
@@ -96,9 +98,9 @@ function buff.wait_for(mem, a, near, away)
     end
 end
 
--- A row's Accession, split from its other modifiers (those it may spend), when
--- it can spread `a` now: up on you already, or spare and usable with the MP for
--- the doubled spell.
+-- A row's Accession (or Diffusion), split from its other modifiers (those it
+-- may spend), when it can spread `a` now: up on you already, or spare and
+-- usable with the MP for the spell at its spread cost.
 local function spreading(c, g, cfg)
     local others, acc = {}, nil
     for _, m in ipairs(c.mods) do
@@ -144,11 +146,14 @@ function buff.want(g, cat, cfg, mem)
         end
         if (a.travel or not invisible) and can.use(a, g) and sch.spare(a, g, cfg) then
             local acc, mods = spreading(c, g, cfg)
-            local spreads = false  -- Accession on, and someone near you it would reach lacks it
+            -- Accession on, and someone near you it would reach lacks it (for a
+            -- self-only spell, someone but you: on you alone it needs no spread).
+            local spreads = false
             for _, m in ipairs(c.hold and c.mods or {}) do
                 if m.spreads and can.reach(a, g.me) then
-                    local _, _, n = buff.area(a, g, false, not can.self_only(a) and c.targets or nil)
-                    spreads = n >= 1
+                    local self_only = can.self_only(a)
+                    local _, _, n = buff.area(a, g, false, not self_only and c.targets or nil)
+                    spreads = n - (self_only and lacks(a, g.me) and 1 or 0) >= 1
                 end
             end
             local wait = held(c, acc, spreads, g, cfg)
@@ -157,6 +162,8 @@ function buff.want(g, cat, cfg, mem)
             else
                 local near, away, count
                 if acc then near, away, count = buff.area(a, g, hold, not can.self_only(a) and c.targets or nil) end
+                -- Diffusion only for someone but you: on you alone the spell goes as it is.
+                if acc and acc.spreads.others and not away and count - (lacks(a, g.me) and 1 or 0) < 1 then acc = nil end
                 if away then
                     buff.wait_for(mem, a, near, away)
                 elseif acc and count >= 1 then
