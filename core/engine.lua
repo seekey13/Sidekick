@@ -11,8 +11,8 @@
     which engine.gather turns into a party chat line.
     Modifiers: an intent may list intent.mods (stratagems a buff row turned on,
     Snake Eye before a Double-Up, Blaze of Glory before a luopan, Entrust before
-    an Indi- on a member), and an Addendum spell you lack the Addendum for has
-    action.via (Enlightenment).
+    an Indi- on a member, Embolden before enhancing magic), and an Addendum
+    spell you lack the Addendum for has action.via (Enlightenment).
     One whose status isn't on you goes first, alone; its status is then taken as
     on you for EXPECT seconds, so the next decision sends the spell.
 ]]--
@@ -32,6 +32,7 @@ engine.BEHAVIORS = {
     { name = 'pet', run = pet.care, quick = true },
     { name = 'revive', run = require('behaviors.revive') },
     { name = 'roll', run = require('jobs.cor').want },
+    { name = 'rune', run = require('jobs.run').want, quick = true },
     { name = 'geo', run = require('jobs.geo').want },
     { name = 'buff', run = require('behaviors.buff').want },
     { name = 'pet_send', run = pet.send, setting = 'pet', quick = true },
@@ -75,7 +76,7 @@ end
 -- The intent for now, or nil and why not. `mem` is the engine's own memory
 -- between ticks (behaviors keep theirs in it too).
 function engine.decide(g, cat, cfg, mem)
-    mem.gather = nil
+    mem.gather, mem.waiting = nil, nil
     g = expecting(g, mem)
     for _, gate in ipairs(GATES) do
         if g[gate] then return nil, gate end
@@ -93,10 +94,11 @@ function engine.decide(g, cat, cfg, mem)
             end
         end
     end
-    local w = mem.gather
+    local w, h = mem.gather, mem.waiting
     local away = w and (w.who.dist and ('%.1fy away'):format(w.who.dist) or 'not in sight')
     return nil, g.resting and 'resting' or holding and 'waiting for a cure'
-        or w and ('holding %s: %s %s'):format(w.action.name, w.who.name, away) or 'nothing to do'
+        or w and ('holding %s: %s %s'):format(w.action.name, w.who.name, away)
+        or h and ('holding %s for %s'):format(h.action.name, h.mod.name) or 'nothing to do'
 end
 
 -- The party chat line asking everyone to gather for the buff held on this

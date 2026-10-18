@@ -56,7 +56,7 @@ local party = {
 }
 local player = {
     GetMainJob = function () return world.main end, GetMainJobLevel = const(75), GetSubJob = const(4), GetSubJobLevel = const(37),
-    GetMPMax = const(500), GetHPMax = function () return world.hp_max or 0 end, GetBuffs = const({}),
+    GetMPMax = const(500), GetHPMax = function () return world.hp_max or 0 end, GetBuffs = function () return world.buffs or {} end,
 }
 -- While you pick a sub-target, index 0 is the one being picked and 1 your target.
 local target = {
@@ -274,6 +274,13 @@ test('sessions: a player another session lists has its max HP, and its HP while 
     world.ents[0x450] = { sid = OUT, name = 'Out', hpp = 90, dist = 5 }
     t.tidx = 0x450
     eq(unit(read(), OUT).hpp, 90)  -- drawn: their entity, not the file
+end)
+
+test('your statuses: a set, and how many of each stand (runes stack); empty slots counted as none', function ()
+    reset()
+    world.buffs = { 523, 523, 524, 0, 255, -1 }
+    local me = unit(read(), ME)
+    eq({ me.buffs, me.stacks }, { { [523] = true, [524] = true }, { [523] = 2, [524] = 1 } })
 end)
 
 rawset(_G, 'AshitaCore', nil)

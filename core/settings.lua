@@ -6,7 +6,8 @@
     use ("Regen (keep up)", when one family has several):
         rows[key] = { on = bool, pick = action name or nil (= best tier),
                       targets = { [party or alliance slot] = true, [tracked name] = true },  -- buffs only
-                      mods = { [modifier name] = true } }  -- buffs only: stratagems fired first
+                      mods = { [modifier name] = true },  -- buffs only: stratagems, Embolden fired first
+                      hold = true }  -- buffs only: the spell waits while one of its mods can't go
     A tracked player's name stays on the row after they're untracked, so tracking
     them again brings their buffs back.
     A row never saved uses its default: on, except buffs (a luopan's Geo- spells
@@ -40,6 +41,9 @@ local DEFAULTS = {
     -- GEO: recall the luopan past `distance` yalms from who it's on, and a debuff's
     -- `linger` seconds after combat; Entrust puts the Indi- spell named on the member named.
     geo = { on = true, distance = 10, linger = 5, entrust = '', entrust_spell = '' },
+    -- RUN: each set's rune per slot, by name ('' for none): idle_1..3, then
+    -- vallation_, valiance_ and pflug_ (jobs/run.lua). Every slot starts empty.
+    rune = { on = true },
     buff = { on = true,
              hold_aoe = false,  -- hold an area buff spell (Protectra, songs) until the party's players gather
              gather = true },   -- ...and ask them to in party chat
@@ -52,6 +56,9 @@ local DEFAULTS = {
            name_size = 22, text_size = 14, gap = 8, opacity = 100, locked = false,
            japanese = false },  -- send spell, ability and item names in Japanese
 }
+for _, set in ipairs({ 'idle', 'vallation', 'valiance', 'pflug' }) do
+    for i = 1, 3 do DEFAULTS.rune[set .. '_' .. i] = '' end
+end
 local UI_FILE = 'ui'
 
 -- pick_one before label: labelled members of one group (geo_ja) stay one row.

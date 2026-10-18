@@ -12,7 +12,7 @@
         tracking = { add = function (name or nil: your target), remove = function (name) }
         send(name, call): an `act` call for another session (core/share.lua's share.send)
     model.published(view) -> what a session shows of its view to another (remote control)
-    model.apply(act, cfg, call) -> whether a call another session sent was one it may make, and made
+    model.apply(act, cfg, call, cat) -> whether a call another session sent was one it may make, and made
 
     Building only reads. Settings change only through `act`, and only on user
     input: a frame read mid-zone must never write anything back.
@@ -21,6 +21,8 @@
 local can = require('core.can')
 local cor = require('jobs.cor')
 local profiles = require('core.profiles')
+local run = require('jobs.run')
+local sch = require('jobs.sch')
 local settings = require('core.settings')
 
 local model = {}
@@ -28,7 +30,8 @@ local model = {}
 -- Settings sections in order, each under its `header` (headers in the order
 -- their first section comes). Every section but 'profile', 'track' and 'ui' is a behavior,
 -- switched by cfg[id].on; one with roles also has rows. Wake shows only when a heal can wake,
--- Rolls only for a job with rolls, Geomancy only with a Geo- spell (a GEO main job).
+-- Rolls only for a job with rolls, Geomancy only with a Geo- spell (a GEO main job),
+-- Runes only with a rune (RUN, main or sub).
 model.SECTIONS = {
     { id = 'profile', title = 'Profiles', header = 'Profiles', switch = false },
     { id = 'follow', title = 'Follow', header = 'Follow' },
@@ -39,6 +42,7 @@ model.SECTIONS = {
     { id = 'buff', title = 'Buffs', roles = { 'buff' }, header = 'Buff' },
     { id = 'roll', title = 'Rolls', header = 'Buff' },
     { id = 'geo', title = 'Geomancy', roles = { 'geo' }, header = 'Buff' },
+    { id = 'rune', title = 'Runes', header = 'Buff' },
     { id = 'pet', title = 'Pet', roles = { 'pet_heal', 'pet_remove', 'pet_send' }, header = 'Pet' },
     { id = 'recover', title = 'Recovery', roles = { 'recover' }, header = 'Recover' },
     { id = 'rest', title = 'Resting', header = 'Recover' },
@@ -155,7 +159,7 @@ local function chips(acts, r, units, outsiders)
     return out
 end
 
--- Modifier chips (SCH's stratagems): each one in the catalog that fits one of
+-- Modifier chips (SCH's stratagems, RUN's Embolden): each one in the catalog that fits one of
 -- the row's spells.
 local function mod_chips(acts, r, modifiers)
     local on, out = r.mods or {}, {}
@@ -177,6 +181,7 @@ local function build_row(key, acts, cfg, g, units, modifiers, outsiders)
         row.choices = choices(acts, note)
         row.targets = chips(acts, r, units, outsiders)
         row.mods = mod_chips(acts, r, modifiers)
+        if row.mods then row.hold = r.hold == true end  -- wait for them, or go without
     end
     if row.choices then
         row.pick = r.pick
@@ -187,6 +192,13 @@ local function build_row(key, acts, cfg, g, units, modifiers, outsiders)
         end
     end
     row.ready, row.avail, row.action = availability(acts, r, g)
+    -- Held: a modifier on for it that can't go says why it waits.
+    for _, m in ipairs(row.hold and modifiers or {}) do
+        if row.ready and (r.mods or {})[m.name] and not can.any(g.me.buffs, m.status) then
+            local ok, why = can.use(m, g)
+            if not ok then row.ready, row.avail = false, ('waits for %s: %s'):format(m.chip or m.name, why) end
+        end
+    end
     if acts[1].kind == 'item' then row.count = g.items and g.items[acts[1].id] or 0 end
     return row
 end
@@ -212,6 +224,38 @@ local function build_rows(s, g, cat, cfg, units, outsiders)
         rows[#rows + 1] = build_row(key, acts_of[key], cfg, g, units, chipped and modifiers, outsiders)
     end
     return rows
+end
+
+-- RUN: the runes to pick from, and each set's picks (jobs/run.lua): Idle, then
+-- each ward you have, with its switch (its row) and whether it's ready.
+local function runes(g, cat, cfg)
+    local mine, wards = run.actions(cat)
+    local lv = run.level(g)
+    local out = { slots = lv > 0 and run.slots(lv) or 0, runes = {}, sets = {} }
+    for _, r in ipairs(run.RUNES) do
+        local a = mine[r[1]]
+        if a then
+            out.runes[#out.runes + 1] = { name = a.name, element = a.rune.element, resist = a.rune.resist,
+                                          ailments = a.rune.ailments }
+        end
+    end
+    if not out.runes[1] then return out end
+    local ward = {}
+    for _, w in ipairs(wards) do ward[w.name] = w end
+    for _, set in ipairs(run.SETS) do
+        local w = set.ward and ward[set.ward]
+        if not set.ward or w then
+            local e = { key = set.key, label = set.label or set.ward, shows = set.shows, ward = w and w.name, picks = {} }
+            for i = 1, run.SLOTS do e.picks[i] = cfg.rune[set.key .. '_' .. i] end
+            if w then
+                local r = settings.row(cfg, w)
+                e.on = r.on == true
+                e.ready, e.avail = availability({ w }, r, g)
+            end
+            out.sets[#out.sets + 1] = e
+        end
+    end
+    return out
 end
 
 -- Status and party -----------------------------------------------------------
@@ -387,7 +431,7 @@ function model.build(g, cat, cfg, status, names)
                 last = { name = a.name, total = g.roll.total, lucky = a.lucky, unlucky = a.unlucky, bust = g.roll.bust == true }
             end
         end
-        stratagems = stratagems or a.role == 'modifier' and a.applies ~= nil
+        stratagems = stratagems or a.kind == 'ja' and a.recast == sch.STRATAGEMS
         if a.pick_one == 'indi' then indi[#indi + 1] = a.name end
         luopans = luopans or a.luopan == 'buff' or a.luopan == 'debuff'
         spends_tp = spends_tp or a.role == 'recover' and a.spends_tp == true
@@ -420,6 +464,7 @@ function model.build(g, cat, cfg, status, names)
                  two = g.main == cor.JOB, choices = rolls, last = last },
         geo = { distance = cfg.geo.distance, linger = cfg.geo.linger, entrust = cfg.geo.entrust,
                 entrust_spell = cfg.geo.entrust_spell, indi = indi, names = party_names },
+        rune = runes(g, cat, cfg),
         -- Your target, by name, when it's a player who could be tracked: not in the party, not tracked yet.
         track = { target = g.target and not known[g.target.sid] and g.target.name or nil },
         japanese = cfg.ui.japanese, log = status.log, ui = {},
@@ -451,6 +496,7 @@ function model.build(g, cat, cfg, status, names)
         if s.id == 'wake' then shown = wakes end
         if s.id == 'roll' then shown = rolls[1] ~= nil end
         if s.id == 'geo' then shown = luopans end
+        if s.id == 'rune' then shown = view.rune.runes[1] ~= nil end
         if shown then view.sections[#view.sections + 1] = section end
     end
     return view
@@ -460,7 +506,7 @@ end
 -- HUD's (the pointer and its sizes) and the views it shows of others itself,
 -- with the view's `version`, VIEW: raise it when a field the window draws changes,
 -- so a session still running older code isn't drawn from a view it can't read.
-model.VIEW = 1
+model.VIEW = 2
 function model.published(view)
     local out = {}
     for k, v in pairs(view) do out[k] = v end
@@ -479,7 +525,7 @@ end
 local REMOTE = {
     run = { 'boolean' }, section = { 'string', 'boolean' }, row = { 'string', 'boolean' },
     pick = { 'string', 'string|nil' }, target = { 'string', 'number|string', 'boolean' },
-    mod = { 'string', 'string', 'boolean' }, profile = { 'string|nil' }, save_profile = { 'string', 'boolean|nil' },
+    mod = { 'string', 'string', 'boolean' }, hold = { 'string', 'boolean' }, profile = { 'string|nil' }, save_profile = { 'string', 'boolean|nil' },
     new_profile = {}, delete_profile = { 'string' }, track = { 'string' }, untrack = { 'string' },
     skip = { 'string', 'boolean' }, set = { 'string', 'boolean|number|string' },
 }
@@ -498,6 +544,9 @@ model.REMOTE_SET = {
     ['roll.first'] = 'name', ['roll.second'] = 'name', ['roll.risk'] = { list = cor.RISKS },
     ['geo.distance'] = { 3, 30 }, ['geo.linger'] = { 1, 20 }, ['geo.entrust'] = 'name', ['geo.entrust_spell'] = 'name',
 }
+for _, set in ipairs(run.SETS) do
+    for i = 1, run.SLOTS do model.REMOTE_SET[run.path(set.key, i)] = 'name' end
+end
 
 -- `value` for act.set's `path` from another session, held to its range; nil when
 -- it's not one REMOTE_SET lists or not a value it takes.
@@ -519,10 +568,22 @@ local function fits(v, types)
     return ('|' .. types .. '|'):find('|' .. type(v) .. '|', 1, true) ~= nil
 end
 
+-- The calls that set a chip on a row: only for a buff or luopan row this job has,
+-- since one never saved is made off (a default-on row like Cure would be turned off).
+local CHIPS = { hold = true, mod = true, target = true }
+
+local function chipped(cat, key)
+    for _, a in ipairs(cat or {}) do
+        if (a.role == 'buff' or a.role == 'geo') and settings.key(a) == key then return true end
+    end
+    return false
+end
+
 -- Make `call` ({ fn, n = #args, args... }), sent by another session, through `act`,
 -- when it's one REMOTE lists with arguments of the right types (`n` of them, no
 -- more than it takes); whether it was. Only those arguments are passed on.
-function model.apply(act, cfg, call)
+-- `cat` is this session's catalog: chips only on its rows that have them.
+function model.apply(act, cfg, call, cat)
     local fn = call[1]
     local types = type(fn) == 'string' and REMOTE[fn]
     if not types or type(call.n) ~= 'number' or call.n > #types then return false end
@@ -531,6 +592,7 @@ function model.apply(act, cfg, call)
     end
     local a, b = call[2], call[3]
     if fn == 'section' and (a == 'ui' or type(cfg[a]) ~= 'table' or type(cfg[a].on) ~= 'boolean') then return false end
+    if CHIPS[fn] and not chipped(cat, a) then return false end
     if fn == 'target' and type(b) == 'number' and (b % 1 ~= 0 or b < 0 or b > 17) then return false end
     if fn == 'set' then
         local v = settable(a, b)
@@ -559,7 +621,7 @@ function model.actions(cfg, status, changed, tracking, send)
         status.open, cfg.ui.open = false, false
         changed()
     end
-    -- id: a section with a switch: 'follow' | 'heal' | 'revive' | 'wake' | 'remove' | 'buff' | 'roll' | 'geo' | 'pet'
+    -- id: a section with a switch: 'follow' | 'heal' | 'revive' | 'wake' | 'remove' | 'buff' | 'roll' | 'geo' | 'rune' | 'pet'
     -- | 'recover' | 'rest'
     function act.section(id, on)
         cfg[id].on = on
@@ -592,6 +654,12 @@ function model.actions(cfg, status, changed, tracking, send)
         r.mods[name] = on or nil
         changed()
     end
+    -- Whether a row's spell waits while one of its modifiers can't go with it
+    -- (Hold), or goes without (the default).
+    function act.hold(key, on)
+        saved_row(cfg, key, false).hold = on or nil
+        changed()
+    end
     -- Profiles (core/profiles.lua): load one by name, nil for Default; save
     -- (renames the loaded one when the name differs), save as, new, delete.
     function act.profile(name)
@@ -619,7 +687,7 @@ function model.actions(cfg, status, changed, tracking, send)
         changed()
     end
     -- path: 'heal.danger', 'heal.alliance', 'heal.reserve', 'buff.hold_aoe', 'roll.first', 'roll.risk', 'geo.distance',
-    -- 'geo.entrust', 'geo.entrust_spell', 'follow.target',
+    -- 'geo.entrust', 'geo.entrust_spell', 'rune.idle_1', 'follow.target',
     -- 'japanese', 'ui.hp_width', or 'ui.<anything>' for a UI's own.
     function act.set(path, value)
         if path == 'japanese' then path = 'ui.japanese' end  -- shared by every job pair, as the HUD

@@ -16,6 +16,8 @@
     to the row's targets in your party near you, at twice the MP, whenever one
     there lacks it (as v2), and is held for the group like an area spell. With
     heal.reserve on, buff rows never spend the last stratagem charge (jobs/sch.lua).
+    A row with Hold on (rows[key].hold, v2's Hold for Stratagem / Embolden) waits
+    while any of its modifiers can't go with the spell; without it the spell goes alone.
     Songs are kept up here until the BRD module takes them (phase 4); Corsair's
     rolls are jobs/cor.lua's.
 ]]--
@@ -53,7 +55,8 @@ local function chosen(cat, cfg, g)
             if row.pick == a.name or (not row.pick and not a.pick_one and can.use(a, g)) then pick = a; break end
         end
         if pick then
-            out[#out + 1] = { action = pick, targets = row.targets or { [0] = true }, mods = settings.mods(cat, cfg, pick) }
+            out[#out + 1] = { action = pick, targets = row.targets or { [0] = true }, mods = settings.mods(cat, cfg, pick),
+                              hold = row.hold == true }
         end
     end
     table.sort(out, function (x, y) return x.action.priority > y.action.priority end)
@@ -100,6 +103,28 @@ local function spreading(c, g, cfg)
     return acc, others
 end
 
+-- With its Hold on, the modifier a row waits for, or nil: one not on you that
+-- isn't spare and usable, or more stratagems to fire than charges to spend
+-- (as v2). Accession counts only when the spell would spread (`spreads`); `acc`
+-- is it when it can.
+local function held(c, acc, spreads, g, cfg)
+    if not c.hold then return nil end
+    local charges, first = 0, nil
+    for _, m in ipairs(c.mods) do
+        local up = can.any(g.me.buffs, m.status)
+        if m.spreads then
+            if spreads and not acc then return m end
+        elseif not up and not (sch.spare(m, g, cfg) and can.use(m, g)) then
+            return m
+        end
+        if not up and m.kind == 'ja' and m.recast == sch.STRATAGEMS and (spreads or not m.spreads) then
+            charges, first = charges + 1, first or m
+        end
+    end
+    local spare = g.stratagems and g.stratagems - (cfg.heal.reserve and 1 or 0)
+    if spare and charges > spare then return first end
+end
+
 function buff.want(g, cat, cfg, mem)
     local invisible = g.me.buffs[INVISIBLE]
     local hold = cfg.buff.hold_aoe
@@ -107,27 +132,39 @@ function buff.want(g, cat, cfg, mem)
         local a = c.action
         if (a.travel or not invisible) and can.use(a, g) and sch.spare(a, g, cfg) then
             local acc, mods = spreading(c, g, cfg)
-            local near, away, count
-            if acc then near, away, count = buff.area(a, g, hold, not can.self_only(a) and c.targets or nil) end
-            if away then
-                buff.wait_for(mem, a, near, away)
-            elseif acc and count >= 1 then
-                table.insert(mods, acc)
-                local why = count > 1 and ('%s +%d lack it'):format(near.name, count - 1) or ('%s lacks it'):format(near.name)
-                return { action = a, mods = mods, why = why }
-            elseif can.self_only(a) and a.area > 0 then
-                near, away = buff.area(a, g, hold and a.kind == 'ma')
+            local spreads = false  -- Accession on, and someone near you it would reach lacks it
+            for _, m in ipairs(c.hold and c.mods or {}) do
+                if m.spreads and can.reach(a, g.me) then
+                    local _, _, n = buff.area(a, g, false, not can.self_only(a) and c.targets or nil)
+                    spreads = n >= 1
+                end
+            end
+            local wait = held(c, acc, spreads, g, cfg)
+            if wait then
+                mem.waiting = mem.waiting or { action = a, mod = wait }
+            else
+                local near, away, count
+                if acc then near, away, count = buff.area(a, g, hold, not can.self_only(a) and c.targets or nil) end
                 if away then
                     buff.wait_for(mem, a, near, away)
-                elseif near then
-                    return { action = a, mods = mods, why = ('%s lacks it'):format(near.name) }
-                end
-            elseif can.self_only(a) then
-                if lacks(a, g.me) then return { action = a, mods = mods, why = ('%s lacks it'):format(g.me.name) } end
-            else
-                for _, u in ipairs(g.units) do
-                    if c.targets[u.slot or u.name] and can.reach(a, u) and lacks(a, u) then
-                        return { action = a, target = u, mods = mods, why = u.name }
+                elseif acc and count >= 1 then
+                    table.insert(mods, acc)
+                    local why = count > 1 and ('%s +%d lack it'):format(near.name, count - 1) or ('%s lacks it'):format(near.name)
+                    return { action = a, mods = mods, why = why }
+                elseif can.self_only(a) and a.area > 0 then
+                    near, away = buff.area(a, g, hold and a.kind == 'ma')
+                    if away then
+                        buff.wait_for(mem, a, near, away)
+                    elseif near then
+                        return { action = a, mods = mods, why = ('%s lacks it'):format(near.name) }
+                    end
+                elseif can.self_only(a) then
+                    if lacks(a, g.me) then return { action = a, mods = mods, why = ('%s lacks it'):format(g.me.name) } end
+                else
+                    for _, u in ipairs(g.units) do
+                        if c.targets[u.slot or u.name] and can.reach(a, u) and lacks(a, u) then
+                            return { action = a, target = u, mods = mods, why = u.name }
+                        end
                     end
                 end
             end

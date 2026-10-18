@@ -10,8 +10,9 @@
     (Chakra heals and cures). An exact name ("Healing Ruby II") beats its family.
 
     role       heal | pet_heal | remove | pet_remove | pet_send | emergency | revive | roll |
-               recover | buff | modifier | geo
+               recover | buff | modifier | geo | rune | ward
                (geo: the luopan's spells and abilities, jobs/geo.lua's)
+               (rune, ward: Rune Fencer's runes and the abilities that read them, jobs/run.lua's)
                (a modifier is a JA fired just before the spell it changes: core/engine.lua)
                (a heal's area comes from the DAT: Curaga is a heal like Cure)
     status     what a buff shows: status name (lowest id with that name wins), id,
@@ -58,9 +59,12 @@
                the luopan (Radial Arcana), which jobs/geo.lua decides when
     lucky      a Phantom Roll's lucky and unlucky totals (jobs/cor.lua)
     unlucky
+    rune       { element, resist, ailments }: what a rune adds, resists and defends
+               against, as Runes shows it (jobs/run.lua)
 ]]--
 
 local geo = require('jobs.geo')
+local run = require('jobs.run')
 local sch = require('jobs.sch')
 
 -- Status sets for removals (ids: several names repeat in the status table).
@@ -263,6 +267,15 @@ local K = {
     ['Fold']      = { role = 'roll' },
     ['Snake Eye'] = { role = 'modifier', note = 'the next die rolls 1' },  -- fired before a Double-Up
 
+    -- Rune Fencer: the wards read the runes up (jobs/run.lua), in priority order as v2.
+    -- Valiance does nothing on you under Vallation; Vallation would replace a
+    -- party-wide Valiance with less (v2's rule); Liement stops both.
+    ['Vallation'] = { role = 'ward', priority = 3, status = 'Vallation', blocked_by = { 'Valiance', 'Liement' } },
+    ['Valiance']  = { role = 'ward', priority = 2, status = 'Valiance', blocked_by = { 'Vallation', 'Liement' } },
+    ['Pflug']     = { role = 'ward', priority = 1, status = 'Pflug' },
+    -- Fired before white enhancing magic, as a stratagem (not the Spikes, which are black).
+    ['Embolden']  = { role = 'modifier', applies = sch.enhancing, chip = 'Emb', note = 'more potent' },
+
     -- buff: Scholar -------------------------------------------------------------
     ['Light Arts']      = { role = 'buff', pick_one = 'arts', priority = 100, status = LIGHT },
     ['Dark Arts']       = { role = 'buff', pick_one = 'arts', priority = 100, status = { 'Dark Arts', 'Addendum: Black' } },
@@ -430,6 +443,11 @@ for name, r in pairs({
     ['Caster\'s Roll'] = { 'Fast Cast+', 2, 7 },
 }) do
     K[name] = { role = 'roll', note = r[1], lucky = r[2], unlucky = r[3] }
+end
+
+-- Rune Fencer's runes: each shows the status named like it.
+for _, r in ipairs(run.RUNES) do
+    K[r[1]] = { role = 'rune', status = r[1], rune = { element = r[2], resist = r[3], ailments = r[4] } }
 end
 
 -- Geomancer: an Indi- aura is on you, a Geo- one on a luopan (jobs/geo.lua); both show

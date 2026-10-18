@@ -61,7 +61,7 @@ local UI_SLIDERS = {
     { 'Background opacity', 'opacity', 0, 100, '% of the grey panel behind the bars.' },
 }
 
-local SETTING_WIDTH, PICK_WIDTH, CHIP_WIDTH = 160, 170, 28
+local SETTING_WIDTH, PICK_WIDTH, CHIP_WIDTH, RUNE_WIDTH = 160, 170, 28, 130
 local JOINED = { party = '  (in your party)', alliance = '  (in your alliance)' }  -- a tracked player's note
 
 local act                    -- this frame's actions (another session's, while drawing its SK Settings)
@@ -543,6 +543,62 @@ local function draw_geo(view)
     imgui.Separator()
 end
 
+-- What a set's slots show of each rune.
+local SHOWS = { element = 'Each rune by the element it adds to your attacks.',
+                resist = 'Each rune by the element it resists.', ailments = 'Each rune by the ailments it defends against.' }
+
+local function rune_tip(r)
+    return ('%s: adds %s, resists %s, against %s.'):format(r.name, r.element, r.resist, r.ailments)
+end
+
+-- A rune for slot `i` of `set`, or None (''). A pick the job no longer has says so.
+local function rune_combo(set, i, choices)
+    local current, id = set.picks[i], ('sk3_rune_%s_%d'):format(set.key, i)
+    local shown = current ~= '' and current .. ' (not available)' or 'None'
+    for _, r in ipairs(choices) do
+        if r.name == current then shown = r[set.shows] end
+    end
+    imgui.PushItemWidth(RUNE_WIDTH)
+    if imgui.BeginCombo('##' .. id, shown) then
+        if imgui.Selectable('None##' .. id .. '_none', current == '') then act.set(('rune.%s_%d'):format(set.key, i), '') end
+        for _, r in ipairs(choices) do
+            if imgui.Selectable(r[set.shows] .. '##' .. id .. '_' .. r.name, r.name == current) then
+                act.set(('rune.%s_%d'):format(set.key, i), r.name)
+            end
+            tip(rune_tip(r))
+        end
+        imgui.EndCombo()
+    end
+    imgui.PopItemWidth()
+    tip(SHOWS[set.shows])
+end
+
+-- A line per set: Idle, then each ward with its switch; a combo per rune slot, then whether it's ready.
+local function draw_runes(view)
+    local r = view.rune
+    if not imgui.BeginTable('##sk3_runes', 2 + r.slots, ImGuiTableFlags_SizingFixedFit) then return end
+    for _, set in ipairs(r.sets) do
+        imgui.TableNextRow()
+        imgui.TableNextColumn()
+        if set.ward then
+            local v = { set.on }
+            if imgui.Checkbox(set.label .. '##sk3_rune_' .. set.key, v) then act.row(set.ward, v[1]) end
+            tip(('Once %s is ready, its runes take the slots, then it fires in combat.'):format(set.ward))
+        else
+            text(set.label)
+            tip('The runes kept up the rest of the time.')
+        end
+        for i = 1, r.slots do
+            imgui.TableNextColumn()
+            rune_combo(set, i, r.runes)
+        end
+        imgui.TableNextColumn()
+        if set.ward then text(set.avail, set.ready and GREEN or GREY) end
+    end
+    imgui.EndTable()
+    imgui.Separator()
+end
+
 -- Each tracked player with its Untrack button (one who joined your party or
 -- alliance too), then Track for your target.
 local function draw_track(view)
@@ -678,7 +734,7 @@ local function target_chips(r, id)
     end
 end
 
--- Stratagems fired before the row's spell: Pen, Cel, Acc...
+-- Modifiers fired before the row's spell (Pen, Cel, Acc, Emb...), then Hold: wait for them.
 local function mod_chips(r, id)
     for i, m in ipairs(r.mods) do
         if i > 1 then imgui.SameLine(0, 2) end
@@ -687,6 +743,18 @@ local function mod_chips(r, id)
         if not m.on then imgui.PopStyleColor(3) end
         tip(m.note and ('%s first: %s'):format(m.name, m.note) or m.name)
     end
+    -- With none on, it waits for nothing: dimmed, but kept and still clickable.
+    local any = false
+    for _, m in ipairs(r.mods) do any = any or m.on end
+    imgui.SameLine(0, 2)
+    local colors = not any and CHIP_EMPTY or not r.hold and CHIP_OFF
+    if colors then push_button(colors) end
+    if not any then imgui.PushStyleColor(ImGuiCol_Text, GREY) end
+    if imgui.Button('Hold##' .. id .. '_hold') then act.hold(r.key, not r.hold) end
+    if colors then imgui.PopStyleColor(any and 3 or 4) end
+    tip('Wait while a modifier picked here can\'t go with the spell (on recast, too few charges, the wrong Arts, '
+        .. 'Accession unable to spread it, or short of MP for it); otherwise the spell goes without it.'
+        .. (any and '' or '\nNo modifier is on here: it waits for nothing.'))
 end
 
 -- One row per settings key: [x] Name (note) | pick | ME P1-P5 | Pen Acc | ready or why not.
@@ -751,6 +819,8 @@ local SWITCH_HELP = {
         .. 'Hold area buffs, as an area buff.',
     geo = 'Keep a luopan down: the Geo row\'s on its target, or the Geo debuff\'s on your battle target in combat. '
         .. 'Full Circle recalls it when its target leaves it, and a debuff\'s after combat.',
+    rune = 'Keep the runes picked up: a ward\'s set once it is ready, then the ward in combat; the Idle set the rest '
+        .. 'of the time. Lunge and Swipe are yours: the runes go back up after.',
     pet = 'Look after your pet, and send it in, with the rows that are on.',
     recover = 'Get MP and TP back with the rows that are on.',
     rest = 'Rest for MP out of combat once nothing else has happened for a while; stand at full MP.',
@@ -758,7 +828,7 @@ local SWITCH_HELP = {
 
 local BODIES = {
     follow = draw_follow, heal = draw_heal_settings, recover = draw_recover_settings, buff = draw_buff_settings,
-    roll = draw_rolls, geo = draw_geo,
+    roll = draw_rolls, geo = draw_geo, rune = draw_runes,
     pet = draw_pet_settings, rest = draw_rest, track = draw_track, ui = draw_ui, profile = draw_profiles,
 }
 

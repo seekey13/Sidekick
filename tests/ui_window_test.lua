@@ -672,6 +672,8 @@ test('SCH: a buff row\'s stratagem chips get a column of their own and each togg
     eq(frame.columns['##sk3_rows_buff'], 5)  -- name, pick, targets, stratagems, ready
     eq(render(cfg, st, { ['Acc##buff_Protect_mod_Accession'] = true }, view()), 1)
     eq(cfg.rows.Protect.mods, {})
+    eq(render(cfg, st, { ['Hold##buff_Protect_hold'] = true }, view()), 1)
+    eq({ cfg.rows.Protect.hold, tipped('No modifier is on here: it waits for nothing.') }, { true, true })
     render(cfg, st, {})
     eq(frame.columns['##sk3_rows_buff'], 4)  -- WHM: no stratagems, no column
 end)
@@ -726,6 +728,30 @@ test('GEO: Geomancy under Buff: its rows, how far and how long, and Entrust\'s m
     eq(cfg.rows.geo.targets, { [0] = true, [1] = true })
     eq(frame.columns['##sk3_rows_geo'], 4)  -- name, pick, targets, ready
     eq(render(cfg, st, { ['Recall past##sk3_geo_distance'] = 12 }), 0)  -- WHM: no Geomancy
+end)
+
+test('RUN: Runes under Buff: a line per set, a rune per slot by what it does, each ward\'s switch', function ()
+    open_settings()
+    local run = fake.catalog(22, 75, 4, 37, { 'Ignis', 'Gelus', 'Vallation', 'Pflug' })
+    local cfg, st = settings.defaults(), status()
+    local function view() local g = snap(); g.main = 22; return model.build(g, run, cfg, st, NAMES) end
+    eq(render(cfg, st, { ['Fire##sk3_rune_idle_1_Ignis'] = true, ['Wind##sk3_rune_vallation_2_Gelus'] = true }, view()), 2)
+    eq({ cfg.rune.idle_1, cfg.rune.vallation_2 }, { 'Ignis', 'Gelus' })
+    eq(has(frame.args.Selectable, 'Silence / Weight##sk3_rune_pflug_3_Gelus'), true, 'Pflug shows the ailments')
+    eq(tipped('Ignis: adds Fire, resists Ice, against Paralyze / Bind.'), true)
+    render(cfg, st, {}, view())
+    eq({ has(frame.args.BeginCombo, '##sk3_rune_idle_1'), showed('Idle') }, { true, true })
+    eq(frame.columns['##sk3_runes'], 5)  -- the set, three slots, ready
+    eq(render(cfg, st, { ['Pflug##sk3_rune_pflug'] = true, ['Runes##sk3_on_rune'] = true }, view()), 2)
+    eq({ cfg.rows.Pflug.on, cfg.rune.on }, { false, false })
+    cfg.rune.idle_2 = 'Lux'
+    render(cfg, st, {}, view())
+    eq(has(frame.args.BeginCombo, '##sk3_rune_idle_2'), true)
+    local sub = fake.catalog(1, 75, 22, 37, { 'Ignis', 'Vallation' })
+    local g = snap(); g.main, g.sub = 1, 22
+    render(cfg, st, {}, model.build(g, sub, cfg, st, NAMES))  -- WAR / RUN 37: two slots
+    eq({ frame.columns['##sk3_runes'], has(frame.args.BeginCombo, '##sk3_rune_idle_3') }, { 4, false })
+    eq(render(cfg, st, { ['Fire##sk3_rune_idle_1_Ignis'] = true }), 0)  -- WHM: no Runes
 end)
 
 -- Remote control -------------------------------------------------------------------

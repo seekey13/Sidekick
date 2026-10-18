@@ -448,7 +448,7 @@ test('another session\'s calls apply through act; the HUD\'s settings, the log a
     local tracks = {}
     local act = model.actions(cfg, st, function () writes = writes + 1 end,
         { add = function (n) tracks[#tracks + 1] = n end, remove = function () end })
-    local function apply(...) return model.apply(act, cfg, call(...)) end
+    local function apply(...) return model.apply(act, cfg, call(...), whm) end
     eq({ apply('run', true), st.running }, { true, true })
     eq({ apply('set', 'heal.danger', 60), cfg.heal.danger }, { true, 60 })
     eq({ apply('row', 'Protect', true), apply('pick', 'Protect', 'Protect II'), apply('target', 'Protect', 1, true) },
@@ -471,11 +471,13 @@ test('another session\'s calls apply through act; the HUD\'s settings, the log a
         call('pick', 'Protect', true), call('pick', 'Protect', {}), call('save_profile', 'X', 'yes'), call('profile', 5),
         call('set', 'heal.danger', 0 / 0), call('set', 'heal.danger', 1 / 0), call('target', 'Protect', 2.5),
         call('target', 'Protect', 18), { 'run', true, n = 1e8 },
+        call('hold', 'Cure', true), call('target', 'Cure', 1, true), call('mod', 'Nope', 'Penury', true),  -- no such chip
     }) do
-        eq(model.apply(act, cfg, bad), false, tostring(bad[1]) .. ' ' .. tostring(bad[2]))
+        eq(model.apply(act, cfg, bad, whm), false, tostring(bad[1]) .. ' ' .. tostring(bad[2]))
     end
     eq({ writes, cfg.ui.hp_width ~= 300, cfg.ui.japanese, st.log, cfg.heal.danger, cfg.heal.on, cfg.rows.Protect.pick },
        { before, true, false, true, 60, true, nil })
+    eq(cfg.rows.Cure, nil, 'a default-on row is never made off from afar')
     eq({ apply('target', 'Protect', 'Out', true), apply('save_profile', 'X', true), apply('profile', nil) }, { true, true, true })
 end)
 
@@ -483,11 +485,11 @@ test('a remote chip is set to the state sent, never toggled: a click twice is st
     local cfg = settings.defaults()
     local act = model.actions(cfg, status(), function () end)
     for _ = 1, 2 do
-        eq({ model.apply(act, cfg, call('target', 'Haste', 2, true)), model.apply(act, cfg, call('mod', 'Haste', 'Penury', true)),
-             model.apply(act, cfg, call('skip', 'A', true)) }, { true, true, true })
+        eq({ model.apply(act, cfg, call('target', 'Haste', 2, true), whm), model.apply(act, cfg, call('mod', 'Haste', 'Penury', true), whm),
+             model.apply(act, cfg, call('skip', 'A', true), whm) }, { true, true, true })
     end
     eq({ cfg.rows.Haste.targets, cfg.rows.Haste.mods, cfg.heal.skip }, { { [0] = true, [2] = true }, { Penury = true }, { A = true } })
-    model.apply(act, cfg, call('target', 'Haste', 0, false))
+    model.apply(act, cfg, call('target', 'Haste', 0, false), whm)
     eq(cfg.rows.Haste.targets, { [2] = true })
     act.skip('A')  -- yours, without a state, still toggles
     eq(cfg.heal.skip, {})
@@ -496,7 +498,7 @@ end)
 test('a remote setting is one of the window\'s, held to its slider\'s range', function ()
     local cfg = settings.defaults()
     local act = model.actions(cfg, status(), function () end)
-    local function set(path, v) return model.apply(act, cfg, call('set', path, v)) end
+    local function set(path, v) return model.apply(act, cfg, call('set', path, v), whm) end
     eq({ set('heal.danger', -5), cfg.heal.danger, set('recover.tp', 1e300), cfg.recover.tp, set('geo.distance', 12.7), cfg.geo.distance },
        { true, 1, true, 3000, true, 12 })
     eq({ set('roll.risk', 'highest'), cfg.roll.risk, set('heal.alliance', true), cfg.heal.alliance, set('heal.focus', 'A') },
