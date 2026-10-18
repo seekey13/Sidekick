@@ -409,9 +409,11 @@ test('a member who is another session says so, running or not and whether its SK
     eq({ view.party[1].session, view.party[2].session, view.party[3].session },
        { nil, { name = 'A', running = true, open = true }, nil })
     eq(view.remote, { { name = 'A' } })  -- watched, no view from it yet
-    st.views = { A = { job = 'RDM 75' } }
+    st.views = { A = { job = 'RDM 75', version = model.VIEW } }
     view = build(whm, nil, nil, st)
-    eq(view.remote, { { name = 'A', view = { job = 'RDM 75', session = 'A' } } })
+    eq(view.remote, { { name = 'A', view = { job = 'RDM 75', version = model.VIEW, session = 'A' } } })
+    st.views = { A = { job = 'RDM 75' } }  -- from a session running another version: not drawn
+    eq(build(whm, nil, nil, st).remote, { { name = 'A', other = true } })
     st.watching = { Gone = true }  -- not a live session: no window for it
     eq(build(whm, nil, nil, st).remote, {})
 end)
@@ -419,7 +421,8 @@ end)
 test('a published view leaves out the HUD\'s pointer and sizes and the views it shows itself', function ()
     local view = build(whm, nil, nil, status({ intent = { at = 990, action = 'Cure', target = 'A', behavior = 'heal', why = 'x' } }))
     local out = model.published(view)
-    eq({ out.pointer, out.ui, out.remote, out.job, out.sections == view.sections }, { nil, nil, nil, 'WHM 75 / BLM 37', true })
+    eq({ out.pointer, out.ui, out.remote, out.job, out.sections == view.sections, out.version },
+       { nil, nil, nil, 'WHM 75 / BLM 37', true, model.VIEW })
     eq(view.pointer ~= nil, true)  -- the view itself is left as it was
 end)
 
@@ -448,7 +451,7 @@ test('another session\'s calls apply through act; the HUD\'s settings, the log a
     local function apply(...) return model.apply(act, cfg, call(...)) end
     eq({ apply('run', true), st.running }, { true, true })
     eq({ apply('set', 'heal.danger', 60), cfg.heal.danger }, { true, 60 })
-    eq({ apply('row', 'Protect', true), apply('pick', 'Protect', 'Protect II'), apply('target', 'Protect', 1) },
+    eq({ apply('row', 'Protect', true), apply('pick', 'Protect', 'Protect II'), apply('target', 'Protect', 1, true) },
        { true, true, true })
     eq(cfg.rows.Protect, { on = true, pick = 'Protect II', targets = { [0] = true, [1] = true } })
     eq({ apply('pick', 'Protect', nil), cfg.rows.Protect.pick }, { true, nil })  -- back to Auto
@@ -459,7 +462,10 @@ test('another session\'s calls apply through act; the HUD\'s settings, the log a
         call('close'), call('log', false), call('watch', 'A', true), call('remote', 'B'), call('track', nil),  -- your target: never from afar
         call('set', 'ui.hp_width', 300), call('set', 'japanese', true), call('set', 'heal', 1), call('set', 'heal.nope', 1),
         call('set', 'heal.danger', 'high'), call('set', 'heal.skip', {}), call('set', 'danger', 1), call('section', 'ui', true),
-        call('section', 'nope', true), call('section', 'heal', 'yes'), call('row', 5, true), call('target', 'Protect', true),
+        call('section', 'nope', true), call('section', 'heal', 'yes'), call('row', 5, true), call('target', 'Protect', true, true),
+        call('target', 'Protect', 1), call('mod', 'Protect', 'Penury'), call('skip', 'A'),  -- a bare toggle: never from afar
+        call('set', 'profiles.X.heal.danger', 50), call('set', 'parked.heal.danger', 50), call('set', 'roll.risk', 'wild'),
+        call('set', 'follow.on', 1),
         { 'run', true }, { 42 },
         { 'set', 'heal.danger', 60, n = 1 }, { 'section', 'heal', true, n = 1 }, call('run', true, 'extra'),  -- n not its args
         call('pick', 'Protect', true), call('pick', 'Protect', {}), call('save_profile', 'X', 'yes'), call('profile', 5),
@@ -470,5 +476,33 @@ test('another session\'s calls apply through act; the HUD\'s settings, the log a
     end
     eq({ writes, cfg.ui.hp_width ~= 300, cfg.ui.japanese, st.log, cfg.heal.danger, cfg.heal.on, cfg.rows.Protect.pick },
        { before, true, false, true, 60, true, nil })
-    eq({ apply('target', 'Protect', 'Out'), apply('save_profile', 'X', true), apply('profile', nil) }, { true, true, true })
+    eq({ apply('target', 'Protect', 'Out', true), apply('save_profile', 'X', true), apply('profile', nil) }, { true, true, true })
+end)
+
+test('a remote chip is set to the state sent, never toggled: a click twice is still on', function ()
+    local cfg = settings.defaults()
+    local act = model.actions(cfg, status(), function () end)
+    for _ = 1, 2 do
+        eq({ model.apply(act, cfg, call('target', 'Haste', 2, true)), model.apply(act, cfg, call('mod', 'Haste', 'Penury', true)),
+             model.apply(act, cfg, call('skip', 'A', true)) }, { true, true, true })
+    end
+    eq({ cfg.rows.Haste.targets, cfg.rows.Haste.mods, cfg.heal.skip }, { { [0] = true, [2] = true }, { Penury = true }, { A = true } })
+    model.apply(act, cfg, call('target', 'Haste', 0, false))
+    eq(cfg.rows.Haste.targets, { [2] = true })
+    act.skip('A')  -- yours, without a state, still toggles
+    eq(cfg.heal.skip, {})
+end)
+
+test('a remote setting is one of the window\'s, held to its slider\'s range', function ()
+    local cfg = settings.defaults()
+    local act = model.actions(cfg, status(), function () end)
+    local function set(path, v) return model.apply(act, cfg, call('set', path, v)) end
+    eq({ set('heal.danger', -5), cfg.heal.danger, set('recover.tp', 1e300), cfg.recover.tp, set('geo.distance', 12.7), cfg.geo.distance },
+       { true, 1, true, 3000, true, 12 })
+    eq({ set('roll.risk', 'highest'), cfg.roll.risk, set('heal.alliance', true), cfg.heal.alliance, set('heal.focus', 'A') },
+       { true, 'highest', true, true, true })
+    for path in pairs(model.REMOTE_SET) do  -- every one is a real setting
+        local part, key = path:match('^(%w+)%.(.+)$')
+        eq(cfg[part][key] ~= nil, true, path)
+    end
 end)

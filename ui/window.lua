@@ -387,7 +387,7 @@ local function heal_members(h)
     for _, m in ipairs(h.members) do
         if not m.wrap then imgui.SameLine() end
         local v = { m.healed }
-        if imgui.Checkbox(m.name .. '##sk3_heal_' .. m.name, v) then act.skip(m.name) end
+        if imgui.Checkbox(m.name .. '##sk3_heal_' .. m.name, v) then act.skip(m.name, m.healed) end
         tip('Untick to never heal them for their own sake; an area heal may still land on them.')
     end
 end
@@ -671,7 +671,7 @@ local function target_chips(r, id)
         if colors then push_button(colors) end
         if disabled then imgui.PushStyleColor(ImGuiCol_Text, GREY) end
         if imgui.Button(t.label .. '##' .. id .. t.slot, { CHIP_WIDTH, 0 }) and not disabled then
-            act.target(r.key, t.slot)
+            act.target(r.key, t.slot, not t.on)
         end
         if colors then imgui.PopStyleColor(disabled and 4 or 3) end
         tip(t.name or 'empty slot')
@@ -683,7 +683,7 @@ local function mod_chips(r, id)
     for i, m in ipairs(r.mods) do
         if i > 1 then imgui.SameLine(0, 2) end
         if not m.on then push_button(CHIP_OFF) end
-        if imgui.Button(m.label .. '##' .. id .. '_mod_' .. m.name, { CHIP_WIDTH, 0 }) then act.mod(r.key, m.name) end
+        if imgui.Button(m.label .. '##' .. id .. '_mod_' .. m.name, { CHIP_WIDTH, 0 }) then act.mod(r.key, m.name, not m.on) end
         if not m.on then imgui.PopStyleColor(3) end
         tip(m.note and ('%s first: %s'):format(m.name, m.note) or m.name)
     end
@@ -827,6 +827,9 @@ end
 -- Another session's SK Settings, from the view it published, its changes sent to
 -- it; until its first view comes, a line saying so.
 local function draw_remote(r)
+    if r.other then
+        return text(('%s runs another version of Sidekick3: /addon reload sidekick3 there.'):format(r.name), GREY)
+    end
     if not r.view then return text(('Waiting for %s\'s session...'):format(r.name), GREY) end
     text(('%s  %s'):format(r.view.job, r.view.status.state), r.view.status.running and GREEN or GREY)
     tip('Changes here are sent to that session, which applies them within a second or so.')

@@ -294,15 +294,17 @@ local function by_sid(status)
     return out
 end
 
--- The SK Settings shown here for other sessions, by name: { name, view }, the view
--- their session last published (nil until one comes), marked with its `session`.
+-- The SK Settings shown here for other sessions, by name: { name, view, other },
+-- the view their session last published (nil until one comes), marked with its
+-- `session`; `other` instead when it's another version's (model.VIEW).
 local function remote_views(status)
     local out = {}
     for name in pairs(status.watching or {}) do
         if (status.sessions or {})[name] then
             local v = (status.views or {})[name]
-            if v then v.session = name end
-            out[#out + 1] = { name = name, view = v }
+            local other = v ~= nil and v.version ~= model.VIEW or nil
+            if v and not other then v.session = name end
+            out[#out + 1] = { name = name, view = not other and v or nil, other = other }
         end
     end
     table.sort(out, function (a, b) return a.name < b.name end)
@@ -455,11 +457,15 @@ function model.build(g, cat, cfg, status, names)
 end
 
 -- What a session publishes of its view for another's SK Settings: all but the
--- HUD's (the pointer and its sizes) and the views it shows of others itself.
+-- HUD's (the pointer and its sizes) and the views it shows of others itself,
+-- with the view's `version`, VIEW: raise it when a field the window draws changes,
+-- so a session still running older code isn't drawn from a view it can't read.
+model.VIEW = 1
 function model.published(view)
     local out = {}
     for k, v in pairs(view) do out[k] = v end
     out.pointer, out.ui, out.remote = nil, nil, nil
+    out.version = model.VIEW
     return out
 end
 
@@ -467,24 +473,45 @@ end
 
 -- The act calls another session may make here: all but act.close, act.log,
 -- the HUD's settings (`ui.*`, the Japanese client) and tracking your target.
--- Each one's arguments, by the types each may be ('|' between them), checked as it arrives.
+-- Each one's arguments, by the types each may be ('|' between them), checked as it
+-- arrives. Chips come with the state they're set to: a toggle sent from a view a
+-- moment old could undo a click.
 local REMOTE = {
     run = { 'boolean' }, section = { 'string', 'boolean' }, row = { 'string', 'boolean' },
-    pick = { 'string', 'string|nil' }, target = { 'string', 'number|string' }, mod = { 'string', 'string' },
-    profile = { 'string|nil' }, save_profile = { 'string', 'boolean|nil' }, new_profile = {},
-    delete_profile = { 'string' }, track = { 'string' }, untrack = { 'string' }, skip = { 'string' },
-    set = { 'string', 'boolean|number|string' },
+    pick = { 'string', 'string|nil' }, target = { 'string', 'number|string', 'boolean' },
+    mod = { 'string', 'string', 'boolean' }, profile = { 'string|nil' }, save_profile = { 'string', 'boolean|nil' },
+    new_profile = {}, delete_profile = { 'string' }, track = { 'string' }, untrack = { 'string' },
+    skip = { 'string', 'boolean' }, set = { 'string', 'boolean|number|string' },
 }
 
--- Whether `path` is a setting act.set may change from another session: one that
--- exists, not the HUD's, and `value` of its type.
-local function settable(cfg, path, value)
-    if path == 'japanese' or path:match('^ui%.') then return false end
-    local parent, key = path:match('^(.-)%.?([^.]+)$')
-    if not parent or parent == '' then return false end
-    local t = cfg
-    for part in parent:gmatch('[^.]+') do t = type(t) == 'table' and t[part] or nil end
-    return type(t) == 'table' and t[key] ~= nil and type(t[key]) == type(value)
+-- The settings act.set may change from another session: a number's range (the
+-- standard window's sliders), 'bool', 'name' (a member, a spell, a roll or ''), or a
+-- list of the values it takes.
+model.REMOTE_SET = {
+    ['heal.danger'] = { 1, 99 }, ['heal.critical'] = { 1, 99 }, ['heal.focus_danger'] = { 1, 99 },
+    ['heal.focus_critical'] = { 1, 99 }, ['heal.cure_potency'] = { 0, 50 }, ['heal.waltz_potency'] = { 0, 50 },
+    ['heal.regen_potency'] = { 0, 30 }, ['heal.focus'] = 'name', ['heal.alliance'] = 'bool', ['heal.reserve'] = 'bool',
+    ['recover.mp'] = { 1, 99 }, ['recover.tp'] = { 0, 3000 }, ['recover.min_tp'] = { 0, 3000 }, ['pet.heal'] = { 1, 99 },
+    ['follow.on'] = 'bool', ['follow.target'] = 'name', ['follow.distance'] = { 1, 15 },
+    ['rest.on'] = 'bool', ['rest.delay'] = { 1, 20 }, ['rest.distance'] = { 1, 15 },
+    ['buff.hold_aoe'] = 'bool', ['buff.gather'] = 'bool',
+    ['roll.first'] = 'name', ['roll.second'] = 'name', ['roll.risk'] = { list = cor.RISKS },
+    ['geo.distance'] = { 3, 30 }, ['geo.linger'] = { 1, 20 }, ['geo.entrust'] = 'name', ['geo.entrust_spell'] = 'name',
+}
+
+-- `value` for act.set's `path` from another session, held to its range; nil when
+-- it's not one REMOTE_SET lists or not a value it takes.
+local function settable(path, value)
+    local want = model.REMOTE_SET[path]
+    if want == 'bool' then return type(value) == 'boolean' and value or nil end
+    if want == 'name' then return type(value) == 'string' and value or nil end
+    if type(want) ~= 'table' then return nil end
+    if want.list then
+        for _, v in ipairs(want.list) do if v == value then return value end end
+        return nil
+    end
+    if type(value) ~= 'number' then return nil end
+    return math.min(math.max(math.floor(value), want[1]), want[2])
 end
 
 local function fits(v, types)
@@ -504,8 +531,13 @@ function model.apply(act, cfg, call)
     end
     local a, b = call[2], call[3]
     if fn == 'section' and (a == 'ui' or type(cfg[a]) ~= 'table' or type(cfg[a].on) ~= 'boolean') then return false end
-    if fn == 'set' and not settable(cfg, a, b) then return false end
     if fn == 'target' and type(b) == 'number' and (b % 1 ~= 0 or b < 0 or b > 17) then return false end
+    if fn == 'set' then
+        local v = settable(a, b)
+        if v == nil then return false end
+        act.set(a, v)
+        return true
+    end
     act[fn](unpack(call, 2, #types + 1))
     return true
 end
@@ -543,17 +575,21 @@ function model.actions(cfg, status, changed, tracking, send)
         changed()
     end
     -- slot: a party slot 0-5, an alliance slot 6-17, or a tracked player's name.
-    function act.target(key, slot)
+    -- `on` sets it; without it the chip toggles.
+    function act.target(key, slot, on)
         local r = saved_row(cfg, key, false)
         r.targets = r.targets or { [0] = true }
-        r.targets[slot] = not r.targets[slot] or nil
+        if on == nil then on = not r.targets[slot] end
+        r.targets[slot] = on or nil
         changed()
     end
-    -- A modifier (a stratagem: 'Penury', 'Accession'...) fired before the row's spell, on or off.
-    function act.mod(key, name)
+    -- A modifier (a stratagem: 'Penury', 'Accession'...) fired before the row's spell,
+    -- on or off (`on`; without it, toggled).
+    function act.mod(key, name, on)
         local r = saved_row(cfg, key, false)
         r.mods = r.mods or {}
-        r.mods[name] = not r.mods[name] or nil
+        if on == nil then on = not r.mods[name] end
+        r.mods[name] = on or nil
         changed()
     end
     -- Profiles (core/profiles.lua): load one by name, nil for Default; save
@@ -576,8 +612,10 @@ function model.actions(cfg, status, changed, tracking, send)
     function act.track(name) tracking.add(name) end
     function act.untrack(name) tracking.remove(name) end
     -- A member skipped by healing is never healed for their own sake.
-    function act.skip(name)
-        cfg.heal.skip[name] = not cfg.heal.skip[name] or nil
+    -- `skip` sets it; without it, toggled.
+    function act.skip(name, skip)
+        if skip == nil then skip = not cfg.heal.skip[name] end
+        cfg.heal.skip[name] = skip or nil
         changed()
     end
     -- path: 'heal.danger', 'heal.alliance', 'heal.reserve', 'buff.hold_aoe', 'roll.first', 'roll.risk', 'geo.distance',

@@ -800,7 +800,7 @@ end)
 test('a view that won\'t draw closes its window and is not shown again; the HUD comes back', function ()
     close_settings()
     local cfg, st = settings.defaults(), remote_status({ watching = { A = true } })
-    st.views = { A = { job = 'WHM 75', status = { state = 'Stopped' } } }  -- another version's shape: no sections
+    st.views = { A = { job = 'WHM 75', status = { state = 'Stopped' }, version = model.VIEW } }  -- broken: no sections
     local err = draw(window, cfg, st, nil, model.build(snap(), cat, cfg, st, NAMES))
     eq({ type(err), st.watching }, { 'string', {} })
     render(cfg, st, nil, model.build(snap(), cat, cfg, st, NAMES))
@@ -816,4 +816,28 @@ test('another session\'s Tracked says where to target, its game not yours', func
     render(cfg, st, nil, model.build(snap(), cat, cfg, st, NAMES))
     eq(showed('Target a player outside the alliance in A\'s game to track them there.'), true)
     st.watching = {}
+end)
+
+test('a view from a session running another version is not drawn: it says to reload it', function ()
+    close_settings()
+    local cfg, st = settings.defaults(), remote_status({ watching = { A = true } })
+    local v = remote_view(cfg)
+    v.version = model.VIEW + 1
+    st.views = { A = v }
+    render(cfg, st, nil, model.build(snap(), cat, cfg, st, NAMES))
+    eq({ showed('A runs another version of Sidekick3: /addon reload sidekick3 there.'), frame.args.CollapsingHeader },
+       { true, nil })
+    st.watching = {}
+end)
+
+test('chips and Heal ticks send the state they\'re set to, here and to another session', function ()
+    open_settings()
+    local cfg, st = settings.defaults(), remote_status({ watching = { A = true } })
+    st.views = { A = remote_view(settings.defaults()) }
+    remote_calls = {}
+    render(cfg, st, { ['P1##buff_Protect1'] = true, ['A##sk3_heal_A'] = true }, model.build(snap(), cat, cfg, st, NAMES))
+    eq({ cfg.rows.Protect.targets, cfg.heal.skip }, { { [0] = true, [1] = true }, { A = true } })
+    eq(remote_calls, { { 'A', 'skip', 'A', true }, { 'A', 'target', 'Protect', 1, true } })
+    st.watching = {}
+    close_settings()
 end)
