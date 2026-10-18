@@ -120,8 +120,8 @@ function catalog.build(res, player, K)
                     lucky = use.lucky, unlucky = use.unlucky, luopan = use.luopan, rune = use.rune,
                     priority = use.priority or 0, pet = use.pet, travel = use.travel, mob_skill = use.mob_skill,
                     -- the client blocks casts by this cost, so it is the one to trust
-                    mp = (kind == 'ja' and CHARGES[row.type] or kind == 'pet' and row.type == READY_MOVE) and 0 or row.mp,
-                    tp = row.tp, charges = kind == 'pet' and row.type == READY_MOVE and row.mp or nil,
+                    mp = (kind == 'ja' and CHARGES[row.type] or row.type == READY_MOVE) and 0 or row.mp,
+                    tp = row.tp, charges = row.type == READY_MOVE and row.mp or nil,
                     recast = kind == 'ma' and id or row.recast_id,  -- spell id, or ability recast timer id
                     targets = row.targets, range = row.range, area = use.area or row.area,
                     cast = row.cast and row.cast / 4,  -- seconds; spells only

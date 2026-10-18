@@ -398,7 +398,7 @@ function game.recast(action)
         if action.kind == 'ja' and action.recast == sch.STRATAGEMS then
             return sch.charge_wait(timer / 60, sch_level(mm:GetPlayer()))
         end
-        if action.recast == bst.READY then return bst.charge_wait(timer / 60, action.charges) end
+        if action.kind == 'pet' and action.recast == bst.READY then return bst.charge_wait(timer / 60, action.charges) end
         return timer / 60
     end
     ready_since[key] = ready_since[key] or os.clock()

@@ -71,7 +71,7 @@ local inventory = { GetEquippedItem = const({ Index = 0 }), GetContainerCountMax
 local recast = {
     GetAbilityTimerId = function (_, i) return (world.timers or {})[i + 1] and world.timers[i + 1][1] or 0 end,
     GetAbilityTimer = function (_, i) return (world.timers or {})[i + 1] and world.timers[i + 1][2] * 60 or 0 end,
-    GetSpellTimer = const(0),
+    GetSpellTimer = function (_, id) return ((world.spell_timers or {})[id] or 0) * 60 end,
 }
 local mm = { GetPlayer = const(player), GetParty = const(party), GetEntity = const(em), GetTarget = const(target),
              GetInventory = const(inventory), GetRecast = const(recast) }
@@ -296,7 +296,9 @@ test('BST: Ready charges from the pool timer; a Ready move waits only for the ch
     eq(g.ready, 1)
     eq({ game.recast({ kind = 'pet', recast = 102, charges = 1 }), game.recast({ kind = 'pet', recast = 102, charges = 2 }) },
         { 0, 15 })
-    eq(game.recast({ kind = 'ja', recast = 102 }), 0)  -- Sic: one charge
+    eq(game.recast({ kind = 'pet', recast = 102 }), 0)  -- Sic: one charge
+    world.spell_timers = { [102] = 8 }
+    eq(game.recast({ kind = 'ma', recast = 102 }), 8)  -- Enaero, spell 102: its own recast, no charges
     world.main = 3
     eq(read().ready, nil)  -- off BST
 end)
@@ -324,4 +326,3 @@ test('owned ammo: your bag before the wardrobes, by the number /equip names each
     inventory.GetContainerCountMax, inventory.GetContainerItem = const(0), nil
     rawset(_G, 'AshitaCore', core)
 end)
-
