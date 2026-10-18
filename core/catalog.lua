@@ -20,7 +20,8 @@ local SKIP_TYPES = { [3] = true, [4] = true, [20] = true }
 local CHARGES = { [9] = true, [15] = true, [21] = true }
 local READY_MOVE = 18  -- a jug pet's move: the DAT's MP is the Ready charges it costs (jobs/bst.lua)
 local TRUST = 8  -- spell type; calling trusts is not support automation
-local BLUE_MAGIC = 6  -- spell type: castable only while set (jobs/blu.lua)
+local BLUE_MAGIC = 6  -- spell type: castable only while set, or through Unbridled Learning (jobs/blu.lua)
+local UNBRIDLED = 'Unbridled Learning'
 local SELF = 1   -- valid-target flag: items are used on you
 
 local SCH = 20
@@ -108,7 +109,8 @@ function catalog.build(res, player, K)
                     removes = ids(use.removes, idx, row.en),
                     blocked_by = ids(use.blocked_by, idx, row.en),
                     -- ponytail: no knowledge row sets requires on an Addendum spell; merge if one ever does.
-                    requires = addendum and ADDENDUM[row.type] or ids(use.requires, idx, row.en),
+                    requires = addendum and ADDENDUM[row.type] or ids(use.unbridled and UNBRIDLED or use.requires, idx, row.en),
+                    unbridled = use.unbridled,
                     potency = use.potency and use.potency[tier],
                     tick = use.tick and (use.tick[tier] or 0),  -- 0: a tier with no known value
                     boost = use.boost and { kind = use.boost[1], factor = use.boost[2] or 1,
@@ -136,7 +138,8 @@ function catalog.build(res, player, K)
 
     for id, s in pairs(res.spells) do
         if s.type ~= TRUST and player.has_spell(id)
-            and not (s.type == BLUE_MAGIC and player.set_spells and not player.set_spells[id]) then
+            and not (s.type == BLUE_MAGIC and player.set_spells and not player.set_spells[id]
+                     and not (K[s.en] and K[s.en].unbridled)) then
             local from, level, addendum = spell_source(s, player)
             if from then add('ma', id, s, from, level, addendum) end
         end
@@ -147,14 +150,16 @@ function catalog.build(res, player, K)
         end
     end
 
-    -- Enlightenment is an Addendum spell's way in without the Addendum: can.use
-    -- counts it, and the engine fires it first.
-    local enlightenment
+    -- Enlightenment is an Addendum spell's way in without the Addendum, and
+    -- Unbridled Learning an Unbridled spell's: can.use counts it, and the engine
+    -- fires it first.
+    local via = {}
     for _, a in ipairs(out) do
-        if a.role == 'modifier' and a.name == 'Enlightenment' then enlightenment = a end
+        if a.role == 'modifier' and (a.name == 'Enlightenment' or a.name == UNBRIDLED) then via[a.name] = a end
     end
     for _, a in ipairs(out) do
-        if a.addendum then a.via = enlightenment end
+        if a.addendum then a.via = via.Enlightenment end
+        if a.unbridled then a.via = via[UNBRIDLED] end
     end
 
     table.sort(out, function (a, b)

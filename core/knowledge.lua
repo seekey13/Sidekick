@@ -55,8 +55,10 @@
     duration   seconds a buff lasts (or per tier), for statuses read off packets (trusts)
     mob_skill  the id a jug pet's move carries in its action packet (the server's mob skill)
     applies    a modifier's test of a catalog record: which spells a buff row may turn it on for
-    spreads    { area =, mp = }: the modifier makes a single-target spell land on everyone in
-               your party within `area` yalms of you, at `mp` x the cost (Accession, Diffusion)
+    spreads    { area =, mp =, others = }: the modifier makes a single-target spell land on everyone
+               in your party within `area` yalms of you, at `mp` x the cost (Accession, Diffusion);
+               `others`: only while someone but you lacks it (Diffusion's long recast)
+    unbridled  blue magic cast through Unbridled Learning, never set (jobs/blu.lua)
     chip       a modifier's short label on a buff row
     luopan     'buff' | 'debuff': a Geo- spell, put down as a luopan; 'spend': spends
                the luopan (Radial Arcana), which jobs/geo.lua decides when
@@ -353,7 +355,7 @@ local K = {
 
     -- buff: Blue magic (the status is a generic boost, not the spell's name) ------
     ['Cocoon']          = { role = 'buff', status = 'Defense Boost' },
-    ['Harden Shell']    = { role = 'buff', status = 'Defense Boost', area = 0 },
+    ['Harden Shell']    = { role = 'buff', status = 'Defense Boost', area = 0, unbridled = true },
     ['Metallic Body']   = { role = 'buff', status = 'Stoneskin' },
     ['Diamondhide']     = { role = 'buff', status = 'Stoneskin' },
     ['Refueling']       = { role = 'buff', status = 'Haste' },
@@ -366,17 +368,19 @@ local K = {
     ['Occultation']     = { role = 'buff', status = 'Blink', area = 0 },
     ['Warm-Up']         = { role = 'buff', status = 'Accuracy Boost' },
     ['Triumphant Roar'] = { role = 'buff', status = 'Attack Boost' },
-    ['Carcharian Verve']= { role = 'buff', status = 'Attack Boost' },
+    ['Carcharian Verve']= { role = 'buff', status = 'Attack Boost', unbridled = true },
     ['Reactor Cool']    = { role = 'buff', status = 'Ice Spikes' },
     ['Plasma Charge']   = { role = 'buff', status = 'Shock Spikes' },
     ['Battery Charge']  = { role = 'buff', status = 'Refresh', priority = 50, area = 0 },
     ['Magic Barrier']   = { role = 'buff', status = 'Magic Shield' },
     ['Barrier Tusk']    = { role = 'buff', status = 'Physical Shield', area = 0 },
     ['O. Counterstance']= { role = 'buff', status = 'Counterstance' },
-    ['Pyric Bulwark']   = { role = 'buff' },
+    ['Pyric Bulwark']   = { role = 'buff', unbridled = true },
     -- Fired before a blue magic buff on you alone, it lands on your party near you (jobs/blu.lua).
-    ['Diffusion'] = { role = 'modifier', applies = blu.diffuses, spreads = { area = 10, mp = 1 },
+    ['Diffusion'] = { role = 'modifier', applies = blu.diffuses, spreads = { area = 10, mp = 1, others = true },
                       chip = 'Dif', note = 'on everyone near you' },
+    -- No chip: fired by itself before an Unbridled spell (core/catalog.lua); level 75 on CatsEyeXI.
+    ['Unbridled Learning'] = { role = 'modifier', main_only = true },
 
     -- buff: Geomancer's Indi- auras and the luopan's Geo- ones are filled in below, from geo.AURAS.
     ['Lasting Emanation']  = { role = 'buff', pick_one = 'geo_ja', label = 'Lasting Emanation (Duration)', main_only = true, pet = true, status = false },

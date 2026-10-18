@@ -16,7 +16,7 @@
     to the row's targets in your party near you, at twice the MP, whenever one
     there lacks it (as v2), and is held for the group like an area spell;
     BLU's Diffusion spreads a blue magic buff on you the same way, at its own
-    MP (jobs/blu.lua). With
+    MP, but only while someone but you lacks it (jobs/blu.lua). With
     heal.reserve on, buff rows never spend the last stratagem charge (jobs/sch.lua).
     A row with Hold on (rows[key].hold, v2's Hold for Stratagem / Embolden) waits
     while any of its modifiers can't go with the spell; without it the spell goes alone.
@@ -162,6 +162,8 @@ function buff.want(g, cat, cfg, mem)
             else
                 local near, away, count
                 if acc then near, away, count = buff.area(a, g, hold, not can.self_only(a) and c.targets or nil) end
+                -- Diffusion only for someone but you: on you alone the spell goes as it is.
+                if acc and acc.spreads.others and not away and count - (lacks(a, g.me) and 1 or 0) < 1 then acc = nil end
                 if away then
                     buff.wait_for(mem, a, near, away)
                 elseif acc and count >= 1 then

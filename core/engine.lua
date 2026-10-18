@@ -14,7 +14,8 @@
     Modifiers: an intent may list intent.mods (stratagems a buff row turned on,
     Snake Eye before a Double-Up, Blaze of Glory before a luopan, Entrust before
     an Indi- on a member, Embolden before enhancing magic), and an Addendum
-    spell you lack the Addendum for has action.via (Enlightenment).
+    spell you lack the Addendum for has action.via (Enlightenment), as an
+    Unbridled spell does (Unbridled Learning, jobs/blu.lua).
     One whose status isn't on you goes first, alone; its status is then taken as
     on you for EXPECT seconds, so the next decision sends the spell.
 ]]--

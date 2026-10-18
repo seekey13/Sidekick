@@ -11,8 +11,8 @@ local fake = require('tests.fake')
 
 local BLU, WHM = 16, 3
 local COCOON, METALLIC, REFUELING, HEALING_BREEZE = 547, 517, 530, 581  -- spell ids
-local DEFENSE_BOOST, DIFFUSION = 93, 356
-local cat = fake.catalog(BLU, 75, WHM, 37, { 'Diffusion' })
+local DEFENSE_BOOST, DIFFUSION, UNBRIDLED = 93, 356, 485
+local cat = fake.catalog(BLU, 75, WHM, 37, { 'Diffusion', 'Unbridled Learning' })
 
 local function named(list, name, role)
     for _, a in ipairs(list) do
@@ -20,14 +20,14 @@ local function named(list, name, role)
     end
 end
 
--- The catalog for BLU 75 / WHM 37 with only `set` (spell ids) set.
-local function with_set(set)
+-- The catalog for BLU 75 / WHM 37 with only `set` (spell ids) set, and these job abilities.
+local function with_set(set, jas)
     local ids = {}
     for _, id in ipairs(set) do ids[id] = true end
     return catalog.build(fake.res, {
         main = BLU, main_lv = 75, sub = WHM, sub_lv = 37,
         has_spell = function () return true end,
-        has_ability = function () return false end,
+        has_ability = function (id) return (jas or {})[fake.res.abilities[id].en] == true end,
         set_spells = ids,
     }, K)
 end
@@ -88,11 +88,28 @@ test('0x044: BLU\'s 20 slots hold each spell id - 0x200, 0 for an empty one', fu
     eq({ blu.set()[REFUELING], blu.set()[REFUELING + 19], blu.set()[METALLIC], blu.version() }, { true, true, nil, v + 2 })
 end)
 
+test('Unbridled spells are never set: Unbridled Learning goes first, as v2', function ()
+    local list = with_set({}, { ['Unbridled Learning'] = true })
+    local hs = named(list, 'Harden Shell')
+    eq({ hs.requires, hs.via and hs.via.name, named(list, 'Cocoon') }, { { UNBRIDLED }, 'Unbridled Learning', nil })
+    eq(named(with_set({}), 'Harden Shell').via, nil)  -- Unbridled Learning not had: the spell can't go
+    local cfg = cfg_with({ ['Harden Shell'] = { on = true } })
+    local mem = {}
+    local cmd, intent = decide(snap(), cfg, mem)
+    eq(cmd, '/ja "Unbridled Learning" <me>')
+    engine.sent(intent, snap(), mem)
+    local g = snap({}, {}, { ['Unbridled Learning'] = 300 })
+    g.now = 1001.5
+    eq(decide(g, cfg, mem), '/ma "Harden Shell" <me>')
+    eq(decide(snap({ UNBRIDLED }), cfg), '/ma "Harden Shell" <me>')
+    eq(decide(snap({}, {}, { ['Unbridled Learning'] = 300 }), cfg), nil)  -- on recast: waits
+end)
+
 -- Diffusion ------------------------------------------------------------------------
 
 test('catalog: Diffusion fits blue magic that goes on you alone', function ()
     local dif = named(cat, 'Diffusion')
-    eq({ dif.role, dif.status, dif.chip, dif.spreads }, { 'modifier', { DIFFUSION }, 'Dif', { area = 10, mp = 1 } })
+    eq({ dif.role, dif.status, dif.chip, dif.spreads }, { 'modifier', { DIFFUSION }, 'Dif', { area = 10, mp = 1, others = true } })
     eq({ dif.applies(named(cat, 'Cocoon')), dif.applies(named(cat, 'Refueling')), dif.applies(named(cat, 'Battery Charge')),
          dif.applies(named(cat, 'Protect')) }, { true, true, true, false })
     -- Already an area spell (Diamondhide), or not on you alone (Magic Fruit): nothing to spread.
@@ -112,6 +129,10 @@ test('Diffusion spreads a blue magic buff whenever someone near you lacks it', f
     -- Up on you, but A lacks it: spread to A.
     cmd, intent = decide(snap({ DEFENSE_BOOST }, others), cfg, {})
     eq({ cmd, intent.why }, { '/ja "Diffusion" <me>', 'for Cocoon: A lacks it' })
+    -- Only you lack it, solo or with the party covered: the spell alone, Diffusion kept.
+    cmd, intent = decide(snap({}, { { name = 'A', buffs = { [DEFENSE_BOOST] = true } } }), cfg, {})
+    eq({ cmd, intent.why }, { '/ma "Cocoon" <me>', 'Me lacks it' })
+    eq(decide(snap({}), cfg, {}), '/ma "Cocoon" <me>')
     -- Without the chip, only you count.
     cfg.rows.Cocoon.mods = nil
     eq(decide(snap({ DEFENSE_BOOST }, others), cfg, {}), nil)
