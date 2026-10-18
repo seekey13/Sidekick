@@ -8,8 +8,9 @@
     Sange's shuriken is ammo, equipped like a pet's oil (core/ammo.lua).
     With buff.one_shadow (v2's Cast with 1 Shadow, off by default) Utsusemi is
     recast while its last shadow is up, not only once it's gone, and that shadow
-    is cancelled CANCEL_AFTER seconds into the cast, while it's still casting, so
-    the new ones land (Ichi is refused over Ni's shadows otherwise).
+    is cancelled CANCEL_AFTER seconds into the cast, while it's still casting (one
+    cut short before then keeps it), so the new ones land (Ichi is refused over
+    Ni's shadows otherwise).
 ]]--
 
 local nin = {}
@@ -37,7 +38,7 @@ end
 
 -- The status to cancel now for a cast at one shadow, or nil: once CANCEL_AFTER
 -- seconds have passed since the send, and only while that cast goes on (one cut
--- short keeps it). Cleared once due, sent or not.
+-- short before then keeps it). Cleared once due, sent or not.
 function nin.cancel(g, mem)
     local c = mem.cancel
     if not c or g.now - c.at < nin.CANCEL_AFTER then return nil end

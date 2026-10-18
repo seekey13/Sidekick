@@ -6,7 +6,7 @@
     the knowledge table lists, its better). One that doesn't show after TRIES
     sends is given up on, so what comes next can go, until your ammo slot or how
     many you hold of it changes. Pet care and buff rows share one ammo slot, so
-    they share the wait in the engine's memory too.
+    they share the wait in the engine's memory too; the tries are counted per action.
 ]]--
 
 local can = require('core.can')
@@ -40,7 +40,8 @@ function ammo.equip(a, g, cfg, mem, why)
     if not it then return nil end
     -- What an equip of it was sent into: the same again means it didn't take.
     local into = ('%d %d %d'):format(it.id, g.ammo or 0, it.count or 0)
-    local tried = mem.ammo_tried
+    mem.ammo_tried = mem.ammo_tried or {}
+    local tried = mem.ammo_tried[a.name]
     if tried and tried.into == into and tried.n >= ammo.TRIES then return nil end
     local english = cfg.ui.japanese and (it.jp or '') == ''
     local name = cfg.ui.japanese and not english and it.jp or it.en
@@ -48,7 +49,7 @@ function ammo.equip(a, g, cfg, mem, why)
              why = ('for %s: %s'):format(a.name, why),
              sent = function (now)
                  mem.ammo_at = now
-                 mem.ammo_tried = { into = into, n = tried and tried.into == into and tried.n + 1 or 1 }
+                 mem.ammo_tried[a.name] = { into = into, n = tried and tried.into == into and tried.n + 1 or 1 }
              end }
 end
 

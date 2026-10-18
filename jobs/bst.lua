@@ -5,7 +5,7 @@
     the DAT gives as its MP (Wild Carrot 2), which core/catalog.lua keeps as
     a.charges; core/game.lua reads the pool through bst.charges and
     bst.charge_wait, so a move is usable once it has its charges, not only at a
-    full pool. Reward's pet food is equipped by pet care (behaviors/pet.lua).
+    full pool. Reward's pet food is equipped by pet care (core/ammo.lua).
 ]]--
 
 local bst = {}

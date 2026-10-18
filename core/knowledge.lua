@@ -176,7 +176,7 @@ local K = {
     ['Reverse Flourish'] = { role = 'recover', gives = 'tp', priority = 100, requires = 'Finishing Move (5)' },
 
     -- pet ----------------------------------------------------------------------
-    -- The ammo is equipped from your bags or wardrobes when it's needed (behaviors/pet.lua).
+    -- The ammo is equipped from your bags or wardrobes when it's needed (core/ammo.lua).
     ['Spirit Link']   = { role = 'pet_heal', pet = true, costs_hp = true },
     ['Life Cycle']    = { role = 'pet_heal', pet = true, main_only = true, costs_hp = true },
     ['Dematerialize'] = { role = 'pet_heal', pet = true, main_only = true },

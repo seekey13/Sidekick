@@ -60,8 +60,8 @@ local function chosen(cat, cfg, g)
         for _, a in ipairs(list) do
             if row.pick == a.name or (not row.pick and not a.pick_one and can.use(a, g)) then pick = a; break end
         end
-        -- None can go now: the best, so its ammo can be equipped for it.
-        if not (pick or row.pick or list[1].pick_one) then pick = list[1] end
+        -- None can go now: the best, when it needs ammo, so that can be equipped for it.
+        if not (pick or row.pick or list[1].pick_one) and list[1].ammo then pick = list[1] end
         if pick then
             out[#out + 1] = { action = pick, targets = row.targets or { [0] = true }, mods = settings.mods(cat, cfg, pick),
                               hold = row.hold == true }

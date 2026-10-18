@@ -164,6 +164,40 @@ test('Sange waiting on its shuriken leaves the buff rows after it to go', functi
     eq(decide(g, cfg, cat, mem), '/ma "Utsusemi: Ni" <me>')
 end)
 
+test('Sange\'s equip names the shuriken in Japanese on a Japanese client', function ()
+    local cfg = cfg_with({ Sange = true })
+    cfg.ui.japanese = true
+    local own = function (ids)
+        local out = {}
+        for _, id in ipairs(ids) do
+            if id == SHURIKEN then out[1] = { id = id, en = 'Shuriken', jp = '\142\232', level = 18, jobs = bit.lshift(1, NIN), bag = 0 } end
+        end
+        return out
+    end
+    eq(decide(snap(nil, nil, { combat = true, owned = own }), cfg), '/equip ammo "\142\232" 0')
+end)
+
+test('equips given up on are counted per action: another row\'s doesn\'t reset them', function ()
+    local cfg = cfg_with({ Sange = true, Utsusemi = true })
+    local mem, g = {}, snap({ [SHIHEI] = 9 }, { COPY4 }, { combat = true, owned = owned({ [SHURIKEN] = { 'Shuriken', 18 } }) })
+    for _ = 1, 3 do
+        local cmd, intent = decide(g, cfg, cat, mem)
+        eq(cmd, '/equip ammo "Shuriken" 0')
+        engine.sent(intent, g, mem)
+        mem.ammo_tried.Reward = { into = 'x', n = 1 }  -- pet care's food in between
+        g.now = g.now + 3
+    end
+    eq({ decide(g, cfg, cat, mem) }, { nil, 'nothing to do' })
+end)
+
+test('a row with no ammo and no tier it can use still sends nothing', function ()
+    local cfg = cfg_with({ Utsusemi = true, nin_stance = true })
+    cfg.rows.nin_stance.pick = 'Yonin'
+    eq({ decide(snap({ [SHIHEI] = 1 }, { COPY4 }, nil, { Yonin = 30 }), cfg) }, { nil, 'nothing to do' })
+    eq({ decide(snap({ [SHIHEI] = 1 }, { COPY4 }, nil, { Yonin = 30, ['Utsusemi: Ni'] = 30, ['Utsusemi: Ichi'] = 10 }), cfg) },
+       { nil, 'nothing to do' })
+end)
+
 -- UI -----------------------------------------------------------------------------------
 
 local NAMES = { job = function (id) return ({ [13] = 'NIN', [1] = 'WAR', [3] = 'WHM' })[id] end, statuses = fake.res.statuses }
@@ -182,6 +216,9 @@ test('ui: a ninjutsu row shows its tools (not as an item row) and says when ther
     r = rows(model.build(snap(), cat, cfg, status(), NAMES))
     eq({ r.Utsusemi.tools, r.Utsusemi.ready, r.Utsusemi.avail }, { 0, false, 'no tools' })
     eq(r.Yonin and r.Yonin.tools or r.nin_stance.tools, nil)
+    local war = fake.catalog(WAR, 75, NIN, 37)
+    r = rows(model.build(snap({ [FUDA] = 9 }, nil, { main = WAR, sub = NIN }), war, cfg, status(), NAMES))
+    eq({ r.Utsusemi.tools, r.Utsusemi.avail }, { 0, 'no tools' }, 'Shikanofuda counts on a NIN main job only')
 end)
 
 test('ui: Sange says it equips the shuriken you hold', function ()
