@@ -15,16 +15,24 @@
     each first (core/engine.lua). Accession instead spreads the spell from you
     to the row's targets in your party near you, at twice the MP, whenever one
     there lacks it (as v2), and is held for the group like an area spell. With
-    heal.reserve on, buff rows never spend the last stratagem charge (jobs/sch.lua).
+    heal.reserve on, buff rows never spend the last stratagem charge (a job module's `spare`).
     Songs are kept up here until the BRD module takes them (phase 4); Corsair's
     rolls are jobs/cor.lua's.
 ]]--
 
 local can = require('core.can')
-local sch = require('jobs.sch')
 local settings = require('core.settings')
 
 local buff = {}
+
+-- Whether a buff row may spend `a` now, by every job module's `spare` (core/jobs.lua).
+-- Required here, not above: a job module (jobs/cor.lua) requires this file.
+local function spare(a, g, cfg)
+    for f in require('core.jobs').each('spare') do
+        if not f(a, g, cfg) then return false end
+    end
+    return true
+end
 
 local INVISIBLE = 69
 local AREA_RADIUS = 10  -- yalms around you
@@ -91,11 +99,11 @@ end
 local function spreading(c, g, cfg)
     local others, acc = {}, nil
     for _, m in ipairs(c.mods) do
-        if m.spreads then acc = m elseif sch.spare(m, g, cfg) then others[#others + 1] = m end
+        if m.spreads then acc = m elseif spare(m, g, cfg) then others[#others + 1] = m end
     end
     local a = c.action
     if acc and not can.reach(a, g.me) then acc = nil end
-    if acc and not can.any(g.me.buffs, acc.status) and not (sch.spare(acc, g, cfg) and can.use(acc, g)
+    if acc and not can.any(g.me.buffs, acc.status) and not (spare(acc, g, cfg) and can.use(acc, g)
         and (a.mp or 0) * acc.spreads.mp <= g.me.mp) then acc = nil end
     return acc, others
 end
@@ -105,7 +113,7 @@ function buff.want(g, cat, cfg, mem)
     local hold = cfg.buff.hold_aoe
     for _, c in ipairs(chosen(cat, cfg, g)) do
         local a = c.action
-        if (a.travel or not invisible) and can.use(a, g) and sch.spare(a, g, cfg) then
+        if (a.travel or not invisible) and can.use(a, g) and spare(a, g, cfg) then
             local acc, mods = spreading(c, g, cfg)
             local near, away, count
             if acc then near, away, count = buff.area(a, g, hold, not can.self_only(a) and c.targets or nil) end

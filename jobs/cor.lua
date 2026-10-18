@@ -6,7 +6,7 @@
     Fold clears a Bust whenever it's ready.
 
     The totals come only from your own 0x028 job ability packets
-    (core/packets.lua -> cor.rolled), and the snapshot carries the last one
+    (core/packets.lua -> cor.ability), and the snapshot carries the last one
     (g.roll = { id, total, die, at, bust, doubled }), so the decision reads the snapshot alone.
     A Double-Up Chance is for the last roll alone: no other is ever doubled.
     A roll or Double-Up sent waits for its total; one that never comes (a lost
@@ -50,8 +50,11 @@ function cor.rolled(id, total, message, now, die)
     end
 end
 
+cor.ability = cor.rolled
 function cor.last() return last end
-function cor.clear() last = nil end  -- zoning
+function cor.clear() last = nil end
+cor.zone = cor.clear
+function cor.read(g) g.roll = last end
 
 -- The strategy (v2's lib/core/roll_strategy.lua) -------------------------------
 
@@ -162,6 +165,64 @@ function cor.want(g, cat, cfg, mem)
             return { action = a, why = 'not up', sent = function (now) st.sent[a.id] = now end }
         end
     end
+end
+
+-- Knowledge (core/knowledge.lua says what each field means) --------------------
+
+-- Kept up and Double-Upped here, not as buff rows. The note is what the roll gives;
+-- Double-Up and Fold are found by name.
+local K = {
+    ['Double-Up'] = { role = 'roll' },
+    ['Fold']      = { role = 'roll' },
+    ['Snake Eye'] = { role = 'modifier', note = 'the next die rolls 1' },  -- fired before a Double-Up
+}
+-- Phantom Rolls: { note, lucky, unlucky } (v2's table). Each shows the status named like it.
+for name, r in pairs({
+    ['Corsair\'s Roll'] = { 'EXP+', 5, 9 },      ['Ninja Roll'] = { 'EVA+', 4, 8 },
+    ['Hunter\'s Roll'] = { 'ACC+', 4, 8 },       ['Chaos Roll'] = { 'ATK+', 4, 8 },
+    ['Magus\'s Roll'] = { 'MDEF+', 2, 6 },       ['Healer\'s Roll'] = { 'Cure+', 3, 7 },
+    ['Drachen Roll'] = { 'PACC+', 4, 8 },        ['Choral Roll'] = { 'SIR-', 2, 6 },
+    ['Monk\'s Roll'] = { 'SB+', 3, 7 },          ['Beast Roll'] = { 'PATK+', 4, 8 },
+    ['Samurai Roll'] = { 'STP+', 2, 6 },         ['Evoker\'s Roll'] = { 'Refresh+', 5, 9 },
+    ['Rogue\'s Roll'] = { 'CRIT+', 5, 9 },       ['Warlock\'s Roll'] = { 'MACC+', 4, 8 },
+    ['Fighter\'s Roll'] = { 'DA+', 5, 9 },       ['Puppet Roll'] = { 'PMAG+', 3, 7 },
+    ['Gallant\'s Roll'] = { 'DMG Reflect', 3, 7 }, ['Wizard\'s Roll'] = { 'MATK+', 5, 9 },
+    ['Dancer\'s Roll'] = { 'Regen+', 3, 7 },     ['Scholar\'s Roll'] = { 'CMP+', 2, 6 },
+    ['Naturalist\'s Roll'] = { 'Enhancing+', 3, 7 }, ['Runeist\'s Roll'] = { 'MEVA+', 4, 8 },
+    ['Companion\'s Roll'] = { 'Pet Regain & Regen', 2, 10 }, ['Bolter\'s Roll'] = { 'Move Speed+', 3, 9 },
+    ['Caster\'s Roll'] = { 'Fast Cast+', 2, 7 },
+}) do
+    K[name] = { role = 'roll', note = r[1], lucky = r[2], unlucky = r[3] }
+end
+cor.knowledge = K
+
+cor.behaviors = { { name = 'roll', run = cor.want, before = 'buff' } }
+
+-- The rolls kept up (names, '' for none; the second only on a COR main job) and
+-- how far Double-Up chases a total: 'lowest' | 'medium' | 'highest'.
+cor.settings = { roll = { on = true, first = '', second = '', risk = 'medium' } }
+
+-- SK Settings: Rolls, for a job with rolls (ui/model.lua).
+cor.ui = {
+    section = { id = 'roll', title = 'Rolls', header = 'Buff', before = 'pet' },
+    set = { ['roll.first'] = 'name', ['roll.second'] = 'name', ['roll.risk'] = { list = cor.RISKS } },
+}
+
+-- The view's `roll`: the rolls to pick from, and the last one's total; and whether it's shown.
+function cor.ui.view(cat, cfg, g)
+    local rolls, done = {}, nil
+    for _, a in ipairs(cat) do
+        if a.lucky then
+            rolls[#rolls + 1] = { name = a.name, label = ('%s (%s)'):format(a.name, a.note), lucky = a.lucky, unlucky = a.unlucky }
+            -- While it's on you, or just busted (it's gone then).
+            if g.roll and g.roll.id == a.id and (g.roll.bust or can.any(g.me.buffs, a.status)) then
+                done = { name = a.name, total = g.roll.total, lucky = a.lucky, unlucky = a.unlucky, bust = g.roll.bust == true }
+            end
+        end
+    end
+    table.sort(rolls, function (x, y) return x.name < y.name end)
+    return { first = cfg.roll.first, second = cfg.roll.second, risk = cfg.roll.risk, risks = cor.RISKS,
+             two = g.main == cor.JOB, choices = rolls, last = done }, rolls[1] ~= nil
 end
 
 return cor

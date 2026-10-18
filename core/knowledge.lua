@@ -4,14 +4,15 @@
     One row per family (the name without its tier: "Cure IV" -> Cure), shared by
     every job, so the Cure row covers WHM, RDM, PLD and SCH alike. Level, cost,
     recast, range, targets, element and SCH's Addendum gate all come from the
-    DATs; see core/catalog.lua. A family with no row is not automated.
+    DATs; see core/catalog.lua. A family with no row is not automated. Rows a job
+    module acts on itself, or that need its code, are in the module (core/jobs.lua).
 
     A row is one use, or a list of uses when one action does several jobs
     (Chakra heals and cures). An exact name ("Healing Ruby II") beats its family.
 
     role       heal | pet_heal | remove | pet_remove | pet_send | emergency | revive | roll |
                recover | buff | modifier | geo
-               (geo: the luopan's spells and abilities, jobs/geo.lua's)
+               (roll and geo: a job module's, jobs/cor.lua and jobs/geo.lua)
                (a modifier is a JA fired just before the spell it changes: core/engine.lua)
                (a heal's area comes from the DAT: Curaga is a heal like Cure)
     status     what a buff shows: status name (lowest id with that name wins), id,
@@ -55,13 +56,14 @@
                your party within `area` yalms of you, at `mp` x the cost (Accession)
     chip       a modifier's short label on a buff row
     luopan     'buff' | 'debuff': a Geo- spell, put down as a luopan; 'spend': spends
-               the luopan (Radial Arcana), which jobs/geo.lua decides when
+               the luopan (Radial Arcana)
+    decide     function (a, g, cat, cfg, mem): a recover row that decides for itself
+               what to send for it (Radial Arcana, jobs/geo.lua)
     lucky      a Phantom Roll's lucky and unlucky totals (jobs/cor.lua)
     unlucky
 ]]--
 
-local geo = require('jobs.geo')
-local sch = require('jobs.sch')
+local jobs = require('core.jobs')
 
 -- Status sets for removals (ids: several names repeat in the status table).
 local CURSE    = { 9, 15, 20, 30 }  -- Curse, Doom, Curse II, Bane
@@ -121,11 +123,7 @@ local K = {
     ['Contradance']  = { role = 'emergency', boost = { 'waltz', 2 } },
     ['Apogee']       = { role = 'emergency', pet = { 'Carbuncle' } },
     ['Rapture']      = { role = 'emergency', requires = LIGHT, boost = { 'healing', 1.5 } },
-    ['Accession'] = {
-        { role = 'emergency', requires = LIGHT, boost = { 'healing', area = 10, mp = 2, tiers = 4 } },
-        { role = 'modifier', requires = LIGHT, applies = sch.spreads, spreads = { area = 10, mp = 2 },
-          chip = 'Acc', note = 'on everyone near you, at twice the MP' },
-    },
+    -- Accession: jobs/sch.lua
     ['Tranquility']  = { role = 'emergency', requires = LIGHT },
 
     -- remove -------------------------------------------------------------------
@@ -161,8 +159,7 @@ local K = {
     ['Convert']          = { role = 'recover', priority = 100, costs_hp = true, swaps = true },
     ['Chivalry']         = { role = 'recover', spends_tp = true },
     ['Devotion']         = { role = 'recover', costs_hp = true },
-    -- Spends the luopan: jobs/geo.lua decides when, for behaviors/recover.lua.
-    ['Radial Arcana']    = { role = 'recover', main_only = true, pet = true, priority = 90, luopan = 'spend' },
+    -- Radial Arcana: jobs/geo.lua
     ['Meditate']         = { role = 'recover', gives = 'tp', priority = 100, status = 801 },
     ['Reverse Flourish'] = { role = 'recover', gives = 'tp', priority = 100, requires = 'Finishing Move (5)' },
 
@@ -247,21 +244,12 @@ local K = {
     ['Shock Spikes'] = { role = 'buff', pick_one = 'spikes' },
     ['Dread Spikes'] = { role = 'buff' },
 
-    -- modifier: Scholar's stratagems, fired just before the spell (jobs/sch.lua) --
-    ['Penury']      = { role = 'modifier', requires = LIGHT, applies = sch.white, chip = 'Pen', note = 'half the MP' },
-    ['Celerity']    = { role = 'modifier', requires = LIGHT, applies = sch.white, chip = 'Cel', note = 'half the casting time' },
-    ['Perpetuance'] = { role = 'modifier', requires = LIGHT, applies = sch.enhancing, chip = 'Per', note = 'longer duration' },
-    ['Parsimony']   = { role = 'modifier', requires = DARK, applies = sch.black, chip = 'Par', note = 'half the MP' },
-    ['Alacrity']    = { role = 'modifier', requires = DARK, applies = sch.black, chip = 'Ala', note = 'half the casting time' },
+    -- modifier: Scholar's stratagems (Penury, Accession...) are jobs/sch.lua's.
     -- No chip: fired by itself for an Addendum spell you lack the Addendum for (core/catalog.lua).
     -- Under Dark Arts, as v2: under Light Arts, Addendum: White is the way in.
     ['Enlightenment'] = { role = 'modifier', requires = DARK, main_only = true },
 
-    -- Corsair: Phantom Rolls, kept up and Double-Upped by jobs/cor.lua, not as buff rows.
-    -- The note is what the roll gives; Double-Up and Fold are found by name.
-    ['Double-Up'] = { role = 'roll' },
-    ['Fold']      = { role = 'roll' },
-    ['Snake Eye'] = { role = 'modifier', note = 'the next die rolls 1' },  -- fired before a Double-Up
+    -- Corsair's Phantom Rolls, Double-Up, Fold and Snake Eye are jobs/cor.lua's.
 
     -- buff: Scholar -------------------------------------------------------------
     ['Light Arts']      = { role = 'buff', pick_one = 'arts', priority = 100, status = LIGHT },
@@ -356,14 +344,9 @@ local K = {
     ['O. Counterstance']= { role = 'buff', status = 'Counterstance' },
     ['Pyric Bulwark']   = { role = 'buff' },
 
-    -- buff: Geomancer's Indi- auras and the luopan's Geo- ones are filled in below, from geo.AURAS.
+    -- buff: Geomancer's Indi- auras and the luopan's Geo- ones are jobs/geo.lua's.
     ['Lasting Emanation']  = { role = 'buff', pick_one = 'geo_ja', label = 'Lasting Emanation (Duration)', main_only = true, pet = true, status = false },
     ['Ecliptic Attrition'] = { role = 'buff', pick_one = 'geo_ja', label = 'Ecliptic Attrition (Effect)', main_only = true, pet = true, status = false },
-
-    -- geo: Geomancer's luopan (jobs/geo.lua) ------------------------------------
-    ['Full Circle']    = { role = 'geo', main_only = true, pet = true, note = 'recall the luopan' },
-    ['Blaze of Glory'] = { role = 'geo', main_only = true, status = 'Blaze of Glory', note = 'before a luopan' },
-    ['Entrust']        = { role = 'geo', main_only = true, status = 'Entrust', note = 'an Indi- on a member' },
 
     -- buff: Ninja -----------------------------------------------------------------
     ['Utsusemi'] = { role = 'buff', status = { 66, 444, 445, 446 } },  -- Copy Image (1-4)
@@ -413,38 +396,6 @@ for _, name in ipairs({
     K[name] = { role = 'buff', gate = 'combat' }
 end
 
--- Phantom Rolls: { note, lucky, unlucky } (v2's table). Each shows the status named like it.
-for name, r in pairs({
-    ['Corsair\'s Roll'] = { 'EXP+', 5, 9 },      ['Ninja Roll'] = { 'EVA+', 4, 8 },
-    ['Hunter\'s Roll'] = { 'ACC+', 4, 8 },       ['Chaos Roll'] = { 'ATK+', 4, 8 },
-    ['Magus\'s Roll'] = { 'MDEF+', 2, 6 },       ['Healer\'s Roll'] = { 'Cure+', 3, 7 },
-    ['Drachen Roll'] = { 'PACC+', 4, 8 },        ['Choral Roll'] = { 'SIR-', 2, 6 },
-    ['Monk\'s Roll'] = { 'SB+', 3, 7 },          ['Beast Roll'] = { 'PATK+', 4, 8 },
-    ['Samurai Roll'] = { 'STP+', 2, 6 },         ['Evoker\'s Roll'] = { 'Refresh+', 5, 9 },
-    ['Rogue\'s Roll'] = { 'CRIT+', 5, 9 },       ['Warlock\'s Roll'] = { 'MACC+', 4, 8 },
-    ['Fighter\'s Roll'] = { 'DA+', 5, 9 },       ['Puppet Roll'] = { 'PMAG+', 3, 7 },
-    ['Gallant\'s Roll'] = { 'DMG Reflect', 3, 7 }, ['Wizard\'s Roll'] = { 'MATK+', 5, 9 },
-    ['Dancer\'s Roll'] = { 'Regen+', 3, 7 },     ['Scholar\'s Roll'] = { 'CMP+', 2, 6 },
-    ['Naturalist\'s Roll'] = { 'Enhancing+', 3, 7 }, ['Runeist\'s Roll'] = { 'MEVA+', 4, 8 },
-    ['Companion\'s Roll'] = { 'Pet Regain & Regen', 2, 10 }, ['Bolter\'s Roll'] = { 'Move Speed+', 3, 9 },
-    ['Caster\'s Roll'] = { 'Fast Cast+', 2, 7 },
-}) do
-    K[name] = { role = 'roll', note = r[1], lucky = r[2], unlucky = r[3] }
-end
-
--- Geomancer: an Indi- aura is on you, a Geo- one on a luopan (jobs/geo.lua); both show
--- the same status. An offensive Indi- shows only "Colure Active" on you; an offensive
--- Geo- goes on your battle target, where nothing can be read.
-for name, status in pairs(geo.AURAS) do
-    local priority = name == 'Refresh' and 50 or nil
-    K['Indi-' .. name] = { role = 'buff', pick_one = 'indi', status = status, priority = priority }
-    K['Geo-' .. name] = { role = 'geo', pick_one = 'geo', luopan = 'buff', main_only = true, status = status, priority = priority }
-end
-for _, name in ipairs(geo.DEBUFFS) do
-    K['Indi-' .. name] = { role = 'buff', pick_one = 'indi', status = geo.COLURE }
-    K['Geo-' .. name] = { role = 'geo', pick_one = 'geo_debuff', luopan = 'debuff', main_only = true, status = false }
-end
-
 -- Absorb- spells (DRK): drain a stat off your battle target onto you.
 for name, status in pairs({
     STR = 'STR Boost', DEX = 'DEX Boost', VIT = 'VIT Boost', AGI = 'AGI Boost',
@@ -454,5 +405,13 @@ for name, status in pairs({
 end
 K['Absorb-Attri'] = { role = 'buff', pick_one = 'absorb', status = false }
 K['Absorb-TP']    = { role = 'buff', pick_one = 'absorb', status = false }
+
+-- The job modules' own rows (core/jobs.lua).
+for rows in jobs.each('knowledge') do
+    for name, row in pairs(rows) do
+        assert(K[name] == nil, 'a job module repeats a knowledge row: ' .. name)
+        K[name] = row
+    end
+end
 
 return K

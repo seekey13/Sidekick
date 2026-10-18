@@ -34,12 +34,7 @@ local DEFAULTS = {
     recover = { on = true, mp = 30, tp = 1000,    -- under your MP% (a member's, for Devotion), your TP
                 min_tp = 3000 },                   -- Chivalry from this much TP
     pet = { on = true, heal = 50 },        -- heal your pet under this HP%
-    -- COR: the rolls kept up (names, '' for none; the second only on a COR main
-    -- job) and how far Double-Up chases a total: 'lowest' | 'medium' | 'highest'.
-    roll = { on = true, first = '', second = '', risk = 'medium' },
-    -- GEO: recall the luopan past `distance` yalms from who it's on, and a debuff's
-    -- `linger` seconds after combat; Entrust puts the Indi- spell named on the member named.
-    geo = { on = true, distance = 10, linger = 5, entrust = '', entrust_spell = '' },
+    -- The job modules' sections (roll, geo) come from their `settings` (core/jobs.lua).
     buff = { on = true,
              hold_aoe = false,  -- hold an area buff spell (Protectra, songs) until the party's players gather
              gather = true },   -- ...and ask them to in party chat
@@ -104,8 +99,18 @@ local function copy(t)
 end
 settings.defaults_copy = copy
 
--- A fresh copy of the defaults, for tests and new files.
-function settings.defaults() return copy(DEFAULTS) end
+-- A fresh copy of the defaults, the job modules' sections too, for tests and new files.
+-- core.jobs is required here, not above: the job modules require this file.
+function settings.defaults()
+    local out = copy(DEFAULTS)
+    for sections in require('core.jobs').each('settings') do
+        for k, v in pairs(sections) do
+            assert(out[k] == nil, 'a job module repeats a setting: ' .. k)
+            out[k] = copy(v)
+        end
+    end
+    return out
+end
 
 -- Ashita's settings library, loaded only in game. The job pair's file holds
 -- everything but `ui`, which loads from and saves to its own file.

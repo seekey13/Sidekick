@@ -16,7 +16,7 @@
       - Entrust, with a member and an Indi- spell picked, puts that Indi- on them
         whenever they lack its aura within ENTRUST_RANGE (Entrust first, as a modifier).
     Radial Arcana spends the luopan for MP under your Recover MP line (geo.arcana,
-    for behaviors/recover.lua): one that's cheap, nearly spent or put down for
+    its recover row's `decide`, for behaviors/recover.lua): one that's cheap, nearly spent or put down for
     it, once you're within RADIUS of it. A dear one is recalled first (Full Circle
     gives MP back) and a Geo-Voidance put down on you to spend instead, as v2;
     begun, that sequence keeps the slot for SEQUENCE seconds, whatever your MP does.
@@ -29,7 +29,7 @@ local settings = require('core.settings')
 local geo = {}
 
 geo.JOB = 21
--- The aura statuses an Indi- or Geo- spell shows (core/knowledge.lua), by the name after the dash.
+-- The aura statuses an Indi- or Geo- spell shows (geo.knowledge), by the name after the dash.
 geo.AURAS = { Regen = 539, Refresh = 541, STR = 542, DEX = 543, VIT = 544, AGI = 545, INT = 546, MND = 547,
               CHR = 548, Fury = 549, Barrier = 550, Acumen = 551, Fend = 552, Precision = 553, Voidance = 554,
               Focus = 555, Attunement = 556, Haste = 580 }
@@ -225,6 +225,57 @@ function geo.arcana(a, g, cat, cfg, mem)
         local spare = put(st, voidance, g.me, 'spare')
         return { action = voidance, why = 'for Radial Arcana', sent = function (now) arm(now); spare(now) end }
     end
+end
+
+-- Knowledge (core/knowledge.lua says what each field means) --------------------
+
+local K = {
+    ['Full Circle']    = { role = 'geo', main_only = true, pet = true, note = 'recall the luopan' },
+    ['Blaze of Glory'] = { role = 'geo', main_only = true, status = 'Blaze of Glory', note = 'before a luopan' },
+    ['Entrust']        = { role = 'geo', main_only = true, status = 'Entrust', note = 'an Indi- on a member' },
+    ['Radial Arcana']  = { role = 'recover', main_only = true, pet = true, priority = 90, luopan = 'spend', decide = geo.arcana },
+}
+-- An Indi- aura is on you, a Geo- one on a luopan; both show the same status.
+-- An offensive Indi- shows only "Colure Active" on you; an offensive Geo- goes
+-- on your battle target, where nothing can be read.
+for name, status in pairs(geo.AURAS) do
+    local priority = name == 'Refresh' and 50 or nil
+    K['Indi-' .. name] = { role = 'buff', pick_one = 'indi', status = status, priority = priority }
+    K['Geo-' .. name] = { role = 'geo', pick_one = 'geo', luopan = 'buff', main_only = true, status = status, priority = priority }
+end
+for _, name in ipairs(geo.DEBUFFS) do
+    K['Indi-' .. name] = { role = 'buff', pick_one = 'indi', status = geo.COLURE }
+    K['Geo-' .. name] = { role = 'geo', pick_one = 'geo_debuff', luopan = 'debuff', main_only = true, status = false }
+end
+geo.knowledge = K
+
+geo.behaviors = { { name = 'geo', run = geo.want, before = 'buff' } }
+
+-- A luopan's auras end with it, with no message.
+geo.pet_auras = {}
+for _, id in pairs(geo.AURAS) do geo.pet_auras[#geo.pet_auras + 1] = id end
+
+-- Recall the luopan past `distance` yalms from who it's on, and a debuff's `linger`
+-- seconds after combat; Entrust puts the Indi- spell named on the member named.
+geo.settings = { geo = { on = true, distance = 10, linger = 5, entrust = '', entrust_spell = '' } }
+
+-- SK Settings: Geomancy, only with a Geo- spell (a GEO main job) (ui/model.lua).
+geo.ui = {
+    section = { id = 'geo', title = 'Geomancy', roles = { 'geo' }, header = 'Buff', before = 'pet' },
+    set = { ['geo.distance'] = { 3, 30 }, ['geo.linger'] = { 1, 20 }, ['geo.entrust'] = 'name', ['geo.entrust_spell'] = 'name' },
+}
+
+-- The view's `geo`: the Indi- spells Entrust can put on a member, and who; and whether it's shown.
+function geo.ui.view(cat, cfg, _, party_names)
+    local indi, luopans = {}, false
+    for _, a in ipairs(cat) do
+        if a.pick_one == 'indi' then indi[#indi + 1] = a.name end
+        luopans = luopans or a.luopan == 'buff' or a.luopan == 'debuff'
+    end
+    table.sort(indi)
+    local c = cfg.geo
+    return { distance = c.distance, linger = c.linger, entrust = c.entrust, entrust_spell = c.entrust_spell,
+             indi = indi, names = party_names }, luopans
 end
 
 return geo

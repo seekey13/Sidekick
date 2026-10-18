@@ -18,6 +18,7 @@
 ]]--
 
 local can = require('core.can')
+local jobs = require('core.jobs')
 local pet = require('behaviors.pet')
 
 local engine = {}
@@ -31,13 +32,20 @@ engine.BEHAVIORS = {
     { name = 'recover', run = require('behaviors.recover') },
     { name = 'pet', run = pet.care, quick = true },
     { name = 'revive', run = require('behaviors.revive') },
-    { name = 'roll', run = require('jobs.cor').want },
-    { name = 'geo', run = require('jobs.geo').want },
     { name = 'buff', run = require('behaviors.buff').want },
     { name = 'pet_send', run = pet.send, setting = 'pet', quick = true },
     { name = 'follow', run = require('behaviors.follow').want },
     { name = 'rest', run = require('behaviors.rest'), resting = true },
 }
+-- The job modules' behaviors, each before the one it names (core/jobs.lua): Rolls, then Geomancy, before buffs.
+for list in jobs.each('behaviors') do
+    for _, b in ipairs(list) do
+        local at
+        for i, x in ipairs(engine.BEHAVIORS) do if x.name == b.before then at = i end end
+        assert(at, 'a job behavior goes before an unknown one: ' .. tostring(b.before))
+        table.insert(engine.BEHAVIORS, at, { name = b.name, run = b.run, setting = b.setting, quick = b.quick })
+    end
+end
 
 local GATES = { 'loading', 'dead', 'mounted', 'safe', 'incapacitated', 'casting', 'moving' }
 engine.EXPECT = 2  -- seconds a modifier's status is taken as on you once it's sent

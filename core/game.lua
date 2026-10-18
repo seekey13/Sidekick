@@ -28,15 +28,14 @@
     Plus when your cast began (cast_at, while casting);
     what healing scores with: learned potency, the day and the weather;
     the item in your ammo slot and what's in your inventory; when you last moved and
-    last had a battle target; your last Phantom Roll's total (`roll`, jobs/cor.lua).
+    last had a battle target; and the job modules' own fields (core/jobs.lua: `read`):
+    stratagem charges, your last Phantom Roll's total.
 ]]--
 
 local ffi = require('ffi')
 local buffs = require('core.buffs')
-local cor = require('jobs.cor')
-local geo = require('jobs.geo')
-local sch = require('jobs.sch')
 local can = require('core.can')
+local job_modules = require('core.jobs')
 local observed = require('core.observed')
 local packets = require('core.packets')
 local tracked = require('core.tracked')
@@ -317,17 +316,6 @@ local function ability_timer(recast, id)
     return 0
 end
 
-local function sch_level(p)
-    return p:GetMainJob() == sch.JOB and p:GetMainJobLevel() or p:GetSubJob() == sch.JOB and p:GetSubJobLevel() or 0
-end
-
--- Stratagem charges banked now; nil off SCH.
-local function stratagems(mm, player)
-    local lv = sch_level(player)
-    if lv == 0 then return nil end
-    return sch.charges(ability_timer(mm:GetRecast(), sch.STRATAGEMS) / 60, lv)
-end
-
 -- Seconds until `action` (a catalog record) is off recast; 0 = ready.
 function game.recast(action)
     if not action.recast then return 0 end  -- items
@@ -341,8 +329,11 @@ function game.recast(action)
     end
     if timer > 0 then
         ready_since[key] = nil
-        if action.kind ~= 'ja' or action.recast ~= sch.STRATAGEMS then return timer / 60 end
-        return sch.charge_wait(timer / 60, sch_level(mm:GetPlayer()))
+        for f in job_modules.each('recast') do
+            local wait = f(action, timer / 60, mm:GetPlayer())
+            if wait then return wait end
+        end
+        return timer / 60
     end
     ready_since[key] = ready_since[key] or os.clock()
     return math.max(0, READY_DELAY - (os.clock() - ready_since[key]))
@@ -435,10 +426,14 @@ function game.read(now)
     -- A luopan's auras end with it, with no message: forget them on those whose statuses come from packets.
     if pet_sid and not (pet and pet.sid == pet_sid and pet.hpp > 0) then
         buffs.forget(pet_sid)
-        if player:GetMainJob() == geo.JOB then
+        local gone = false
+        for auras in job_modules.each('pet_auras', player:GetMainJob()) do
+            gone = true
             for sid in pairs(tracks) do
-                for _, id in pairs(geo.AURAS) do buffs.lose(sid, id) end
+                for _, id in ipairs(auras) do buffs.lose(sid, id) end
             end
+        end
+        if gone then
             for _, u in ipairs(units) do  -- already read this time round
                 if tracks[u.sid] then u.buffs = buffs.of(u.sid, now) end
             end
@@ -459,10 +454,10 @@ function game.read(now)
     local finished, spell_finish = packets.last_finish()
     local casting, cast_at = packets.casting(now)
 
-    return {
+    local g = {
         finished = finished, spell_finish = spell_finish,
         now = now, zone = zone, me = me, units = units, tracks = tracks, bt = bt, target = player_target(mm, em),
-        pet = pet, ammo = ammo(), items = inventory(), stratagems = stratagems(mm, player), roll = cor.last(),
+        pet = pet, ammo = ammo(), items = inventory(),
         main = player:GetMainJob(), main_lv = player:GetMainJobLevel(),
         sub = player:GetSubJob(), sub_lv = player:GetSubJobLevel(),
         casting = casting, cast_at = cast_at,
@@ -478,6 +473,9 @@ function game.read(now)
         recast = game.recast,
         learned = observed.learned, day = day(), weather = weather(),
     }
+    local function timer(id) return ability_timer(mm:GetRecast(), id) end
+    for f in job_modules.each('read') do f(g, player, timer) end
+    return g
 end
 
 return game

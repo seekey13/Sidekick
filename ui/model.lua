@@ -19,7 +19,7 @@
 ]]--
 
 local can = require('core.can')
-local cor = require('jobs.cor')
+local job_modules = require('core.jobs')
 local profiles = require('core.profiles')
 local settings = require('core.settings')
 
@@ -27,8 +27,9 @@ local model = {}
 
 -- Settings sections in order, each under its `header` (headers in the order
 -- their first section comes). Every section but 'profile', 'track' and 'ui' is a behavior,
--- switched by cfg[id].on; one with roles also has rows. Wake shows only when a heal can wake,
--- Rolls only for a job with rolls, Geomancy only with a Geo- spell (a GEO main job).
+-- switched by cfg[id].on; one with roles also has rows. Wake shows only when a heal can wake.
+-- A job module's section (Rolls, Geomancy) goes in before the one it names and
+-- shows when its `view` says (core/jobs.lua).
 model.SECTIONS = {
     { id = 'profile', title = 'Profiles', header = 'Profiles', switch = false },
     { id = 'follow', title = 'Follow', header = 'Follow' },
@@ -37,14 +38,18 @@ model.SECTIONS = {
     { id = 'wake', title = 'Wake sleepers', header = 'Remove' },
     { id = 'remove', title = 'Debuff removal', roles = { 'remove' }, header = 'Remove' },
     { id = 'buff', title = 'Buffs', roles = { 'buff' }, header = 'Buff' },
-    { id = 'roll', title = 'Rolls', header = 'Buff' },
-    { id = 'geo', title = 'Geomancy', roles = { 'geo' }, header = 'Buff' },
     { id = 'pet', title = 'Pet', roles = { 'pet_heal', 'pet_remove', 'pet_send' }, header = 'Pet' },
     { id = 'recover', title = 'Recovery', roles = { 'recover' }, header = 'Recover' },
     { id = 'rest', title = 'Resting', header = 'Recover' },
     { id = 'track', title = 'Tracked players', header = 'Tracked', switch = false },
     { id = 'ui', title = 'UI / Log', header = 'UI / Log', switch = false },
 }
+for spec in job_modules.each('ui') do
+    local s, at = spec.section, nil
+    for i, x in ipairs(model.SECTIONS) do if x.id == s.before then at = i end end
+    assert(at, 'a job section goes before an unknown one: ' .. tostring(s.before))
+    table.insert(model.SECTIONS, at, { id = s.id, title = s.title, roles = s.roles, header = s.header })
+end
 model.FLAGS = { 'casting', 'moving', 'combat', 'safe', 'mounted', 'dead', 'resting', 'incapacitated', 'silenced', 'amnesia' }
 
 -- Party slots' tags: ME, P1-P5, then the alliance's other parties, B0-B5 and C0-C5 (as v2).
@@ -376,27 +381,14 @@ function model.build(g, cat, cfg, status, names)
     end
 
     local spends_tp, wakes = false, false  -- Chivalry: its TP line is worth showing; a heal can wake
-    local stratagems = false               -- SCH: the charge reserve is worth showing
-    local indi, luopans = {}, false        -- GEO: the Indi- spells Entrust can put on a member; a Geo- spell
-    local rolls, last = {}, nil            -- COR: the rolls to pick from, and the last one's total
+    local stratagems = false               -- a modifier a row turns on: the charge reserve is worth showing
     for _, a in ipairs(cat) do
-        if a.lucky then
-            rolls[#rolls + 1] = { name = a.name, label = ('%s (%s)'):format(a.name, a.note), lucky = a.lucky, unlucky = a.unlucky }
-            -- While it's on you, or just busted (it's gone then).
-            if g.roll and g.roll.id == a.id and (g.roll.bust or can.any(g.me.buffs, a.status)) then
-                last = { name = a.name, total = g.roll.total, lucky = a.lucky, unlucky = a.unlucky, bust = g.roll.bust == true }
-            end
-        end
         stratagems = stratagems or a.role == 'modifier' and a.applies ~= nil
-        if a.pick_one == 'indi' then indi[#indi + 1] = a.name end
-        luopans = luopans or a.luopan == 'buff' or a.luopan == 'debuff'
         spends_tp = spends_tp or a.role == 'recover' and a.spends_tp == true
         wakes = wakes or a.role == 'heal' and a.wakes == true and not a.pet
     end
 
-    table.sort(rolls, function (x, y) return x.name < y.name end)
-    table.sort(indi)
-    local party_names = {}  -- your party but you: who Entrust can go on
+    local party_names = {}  -- your party but you: who a job module's section may pick (Entrust)
     for _, u in ipairs(g.units) do
         if u.kind ~= 'self' and can.in_party(u) then party_names[#party_names + 1] = u.name end
     end
@@ -416,15 +408,16 @@ function model.build(g, cat, cfg, status, names)
         follow = { on = cfg.follow.on, target = cfg.follow.target, distance = cfg.follow.distance, names = focus_names },
         rest = { on = cfg.rest.on, delay = cfg.rest.delay, distance = cfg.rest.distance },
         buff = { hold_aoe = cfg.buff.hold_aoe, gather = cfg.buff.gather },
-        roll = { first = cfg.roll.first, second = cfg.roll.second, risk = cfg.roll.risk, risks = cor.RISKS,
-                 two = g.main == cor.JOB, choices = rolls, last = last },
-        geo = { distance = cfg.geo.distance, linger = cfg.geo.linger, entrust = cfg.geo.entrust,
-                entrust_spell = cfg.geo.entrust_spell, indi = indi, names = party_names },
         -- Your target, by name, when it's a player who could be tracked: not in the party, not tracked yet.
         track = { target = g.target and not known[g.target.sid] and g.target.name or nil },
         japanese = cfg.ui.japanese, log = status.log, ui = {},
         profiles = { active = profiles.active(cfg), names = profiles.names(cfg) },
     }
+    local job_shown = {}  -- [section id] = whether a job module's section is shown
+    for spec in job_modules.each('ui') do
+        local id = spec.section.id
+        view[id], job_shown[id] = spec.view(cat, cfg, g, party_names)
+    end
     view.party, view.alliance = party(g, cfg, names, by_sid(status))
     view.remote = remote_views(status)
     for k, v in pairs(cfg.ui) do view.ui[k] = v end
@@ -449,8 +442,7 @@ function model.build(g, cat, cfg, status, names)
         end
         local shown = not section.rows or #section.rows > 0
         if s.id == 'wake' then shown = wakes end
-        if s.id == 'roll' then shown = rolls[1] ~= nil end
-        if s.id == 'geo' then shown = luopans end
+        if job_shown[s.id] ~= nil then shown = job_shown[s.id] end
         if shown then view.sections[#view.sections + 1] = section end
     end
     return view
@@ -495,9 +487,10 @@ model.REMOTE_SET = {
     ['follow.on'] = 'bool', ['follow.target'] = 'name', ['follow.distance'] = { 1, 15 },
     ['rest.on'] = 'bool', ['rest.delay'] = { 1, 20 }, ['rest.distance'] = { 1, 15 },
     ['buff.hold_aoe'] = 'bool', ['buff.gather'] = 'bool',
-    ['roll.first'] = 'name', ['roll.second'] = 'name', ['roll.risk'] = { list = cor.RISKS },
-    ['geo.distance'] = { 3, 30 }, ['geo.linger'] = { 1, 20 }, ['geo.entrust'] = 'name', ['geo.entrust_spell'] = 'name',
 }
+for spec in job_modules.each('ui') do
+    for path, want in pairs(spec.set or {}) do model.REMOTE_SET[path] = want end
+end
 
 -- `value` for act.set's `path` from another session, held to its range; nil when
 -- it's not one REMOTE_SET lists or not a value it takes.

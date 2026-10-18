@@ -143,6 +143,8 @@ Healing (2d) is the one behavior that scores instead of following a list: every 
 
 WHM, PLD, RDM, WAR, MNK, THF, SAM, DRK, DRG, BLM and RNG need **no file at all**.
 
+**One way in (decided 2026-10-18).** `core/`, `behaviors/` and `ui/` never require a job module or compare against a job id; they reach the modules only through [core/jobs.lua](../../../core/jobs.lua), which lists them and documents the fields a module may have: its knowledge rows, behaviors (each placed before a named one), settings defaults, a snapshot `read`, a `recast` override, `ability` and `zone` packet events, `pet_auras`, a `spare` check for buff rows and its SK Settings section (`ui`). A recover row may carry its own `decide` (Radial Arcana). [tests/jobs_test.lua](../../../tests/jobs_test.lua) fails on a leak. A field is added only when a module needs it, and documented there: v2's shared files grew by every job reaching into them, and this is what stops that. The window (`ui/window.lua`) still draws Rolls and Geomancy by section id, since `view.roll` and `view.geo` are part of the custom-UI contract; whether job sections become generic widgets waits on BRD showing a need.
+
 ### 6. Settings: one schema, keyed by family
 
 ```lua
