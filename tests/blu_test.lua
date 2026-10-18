@@ -77,17 +77,15 @@ test('0x044: BLU\'s 20 slots hold each spell id - 0x200, 0 for an empty one', fu
     local v = blu.version()
     eq(blu.set(), { [COCOON] = true, [METALLIC] = true })
     packets.handle(job_packet(WHM, { REFUELING - 0x200 }), {}, 0)  -- another job's: not a set
+    eq({ blu.set(), blu.version() }, { { [COCOON] = true, [METALLIC] = true }, v })
     local sub = job_packet(BLU, { COCOON - 0x200 })
     sub.data = sub.data:sub(1, 5) .. '\1' .. sub.data:sub(7)  -- a BLU subjob's (IsSubJob at 0x05): its set too
     packets.handle(sub, {}, 0)
-    eq(blu.set(), { [COCOON] = true })
-    packets.handle(job_packet(BLU, { COCOON - 0x200, 0, METALLIC - 0x200 }), {}, 0)
-    v = blu.version()
-    eq({ blu.set(), blu.version() }, { { [COCOON] = true, [METALLIC] = true }, v })
+    eq({ blu.set(), blu.version() }, { { [COCOON] = true }, v + 1 })
     local all = {}
     for i = 1, 20 do all[i] = REFUELING - 0x200 + i - 1 end
     packets.handle(job_packet(BLU, all), {}, 0)
-    eq({ blu.set()[REFUELING], blu.set()[REFUELING + 19], blu.set()[METALLIC], blu.version() }, { true, true, nil, v + 1 })
+    eq({ blu.set()[REFUELING], blu.set()[REFUELING + 19], blu.set()[METALLIC], blu.version() }, { true, true, nil, v + 2 })
 end)
 
 -- Diffusion ------------------------------------------------------------------------
