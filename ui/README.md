@@ -56,6 +56,7 @@ Text that may contain `%` (names, `why` text) must be escaped before it's drawn:
 | `roll` | table | Corsair's rolls: `{ first, second, risk, risks, two, choices, last }`. `first` and `second` are the rolls kept up, by name (`''` for none); `two` is true on a Corsair main job, the only one that keeps a second. `risk` is how far Double-Up chases a total, one of `risks`: `'lowest'`, `'medium'`, `'highest'`. `choices` lists every roll you have, by name: `{ name, label, lucky, unlucky }`, as `{ name = 'Corsair\'s Roll', label = 'Corsair\'s Roll (EXP+)', lucky = 5, unlucky = 9 }`. `last` is the last roll's total while it's on you (or it just busted), when it's one of them: `{ name, total, lucky, unlucky, bust }`, else nil. A `second` equal to `first` keeps one roll |
 | `geo` | table | Geomancer's luopan: `{ distance, linger, entrust, entrust_spell, indi, names }`. Full Circle recalls the luopan once who it went on is further than `distance` yalms from it (3 to 30), and a debuff's `linger` seconds after combat (1 to 20). Entrust puts the Indi- spell `entrust_spell` (a name from `indi`, every Indi- you have, or `''`) on the member `entrust` (a name from `names`, your party but you, or `''`) |
 | `rune` | table | Rune Fencer's runes: `{ slots, runes, sets }`. `slots` is how many runes stand at once at your RUN level, main or sub (1 to 3). `runes` lists every rune you have, `{ name, element, resist, ailments }`, as `{ name = 'Ignis', element = 'Fire', resist = 'Ice', ailments = 'Paralyze / Bind' }`: what it adds to your attacks, the element it resists, the ailments it defends against. `sets` are Idle, then each ward you have (Vallation, Valiance, Pflug): `{ key, label, shows, ward, on, ready, avail, picks }`. `picks` holds a rune name (or `''`) for each of the 3 slots, though only the first `slots` count; set slot `i` with `act.set('rune.<key>_<i>', name)`. `shows` is the field of `runes` the set's picks are best named by (`'element'` for Idle, `'resist'` for Vallation and Valiance, `'ailments'` for Pflug). A ward's set also has `ward` (its name, the row key for `act.row`), `on` (its row), `ready` and `avail` as a row's. Off RUN, `slots` is 0 and `runes` and `sets` are empty |
+| `maneuver` | table | Puppetmaster's maneuvers: `{ choices, picks, ready, avail }`. `choices` lists every maneuver you have, in element order, `{ name, label }`, as `{ name = 'Fire Maneuver', label = 'Fire' }`. `picks` holds a maneuver name (or `''`) for each of the 3 slots; the same one twice keeps two up. Set slot `i` with `act.set('maneuver.slot_<i>', name)`. `ready` and `avail` as a row's, for them all (they share one recast and gate: `'no pet'` without an automaton out, `'blocked by a status'` under Overload). Off PUP, `choices` is empty and `ready` and `avail` nil |
 | `rest` | table | `{ on, delay, distance }`: rest after `delay` seconds with nothing to do; stand when the follow target is further than `distance` yalms |
 | `track` | table | `{ target }`: your current target's name when it's a player you could track (not in your party or alliance, not tracked yet), else nil |
 | `japanese` | bool | Spell, ability and item names are sent in Japanese. Shared by every job pair: it's kept in `ui`'s file (`ui.japanese`) |
@@ -102,7 +103,7 @@ Text that may contain `%` (names, `why` text) must be escaped before it's drawn:
 
 ### `view.sections[i]`
 
-In this order. A section with rows is left out when your job has none for it (Pet shows only for a pet job), Wake sleepers only shows when one of your heals wakes (a cure or waltz; not a pet's), Rolls only when you have a roll (Corsair), Geomancy only when you have a Geo- spell (a Geomancer main job), and Runes only when you have a rune (Rune Fencer, main or sub).
+In this order. A section with rows is left out when your job has none for it (Pet shows only for a pet job), Wake sleepers only shows when one of your heals wakes (a cure or waltz; not a pet's), Rolls only when you have a roll (Corsair), Geomancy only when you have a Geo- spell (a Geomancer main job), Runes only when you have a rune (Rune Fencer, main or sub), and Maneuvers only when you have a maneuver (Puppetmaster, main or sub).
 
 | `id` | `title` | `header` | Its settings |
 |---|---|---|---|
@@ -117,6 +118,7 @@ In this order. A section with rows is left out when your job has none for it (Pe
 | `'geo'` | Geomancy | Buff | `view.geo`, rows: the Geo row (its luopan's spell and targets), the Geo debuff row, Full Circle, Blaze of Glory, Entrust |
 | `'rune'` | Runes | Buff | `view.rune` (a job with runes only) |
 | `'pet'` | Pet | Pet | `view.pet_heal`, rows |
+| `'maneuver'` | Maneuvers | Pet | `view.maneuver` (a job with maneuvers only) |
 | `'recover'` | Recovery | Recover | `view.recover`, rows |
 | `'rest'` | Resting | Recover | `view.rest` |
 | `'track'` | Tracked players | Tracked | `view.track`, and the `party` and `alliance` lines with `tracked` |
@@ -154,7 +156,7 @@ In this order. A section with rows is left out when your job has none for it (Pe
 | `act.run(on)` | Automation on or off. This session only: it is always off after a load |
 | `act.log(on)` | Print each action sent to chat, or not. This session only |
 | `act.close()` | Hide the UI (remembered); `/sk3` shows it again |
-| `act.section(id, on)` | A section's switch: `'follow'`, `'heal'`, `'revive'`, `'wake'`, `'remove'`, `'buff'`, `'roll'`, `'geo'`, `'rune'`, `'pet'`, `'recover'` or `'rest'` |
+| `act.section(id, on)` | A section's switch: `'follow'`, `'heal'`, `'revive'`, `'wake'`, `'remove'`, `'buff'`, `'roll'`, `'geo'`, `'rune'`, `'pet'`, `'maneuver'`, `'recover'` or `'rest'` |
 | `act.row(key, on)` | A row on or off |
 | `act.pick(key, name)` | A row's choice: a `choices[i].name`, or nil for Auto |
 | `act.target(key, slot, on)` | Turn a target chip on or off: its `slot`, 0 to 17 or a tracked player's name; `on` true or false sets it, nil toggles it |
@@ -190,6 +192,7 @@ In this order. A section with rows is left out when your job has none for it (Pe
 | `'geo.entrust'` | a name from `view.geo.names`, or `''` |
 | `'geo.entrust_spell'` | a name from `view.geo.indi`, or `''` |
 | `'rune.idle_1'` to `'rune.idle_3'`, `'rune.vallation_1'`..., `'rune.valiance_1'`..., `'rune.pflug_1'`... | a name from `view.rune.runes`, or `''` |
+| `'maneuver.slot_1'` to `'maneuver.slot_3'` | a name from `view.maneuver.choices`, or `''` |
 | `'follow.distance'`, `'rest.distance'` | 1 to 15 |
 | `'rest.delay'` | 1 to 20 |
 | `'japanese'` | bool |

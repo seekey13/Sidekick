@@ -21,6 +21,7 @@
 local can = require('core.can')
 local cor = require('jobs.cor')
 local profiles = require('core.profiles')
+local pup = require('jobs.pup')
 local run = require('jobs.run')
 local sch = require('jobs.sch')
 local settings = require('core.settings')
@@ -31,7 +32,7 @@ local model = {}
 -- their first section comes). Every section but 'profile', 'track' and 'ui' is a behavior,
 -- switched by cfg[id].on; one with roles also has rows. Wake shows only when a heal can wake,
 -- Rolls only for a job with rolls, Geomancy only with a Geo- spell (a GEO main job),
--- Runes only with a rune (RUN, main or sub).
+-- Runes only with a rune (RUN, main or sub), Maneuvers only with a maneuver (PUP, main or sub).
 model.SECTIONS = {
     { id = 'profile', title = 'Profiles', header = 'Profiles', switch = false },
     { id = 'follow', title = 'Follow', header = 'Follow' },
@@ -44,6 +45,7 @@ model.SECTIONS = {
     { id = 'geo', title = 'Geomancy', roles = { 'geo' }, header = 'Buff' },
     { id = 'rune', title = 'Runes', header = 'Buff' },
     { id = 'pet', title = 'Pet', roles = { 'pet_heal', 'pet_remove', 'pet_send' }, header = 'Pet' },
+    { id = 'maneuver', title = 'Maneuvers', header = 'Pet' },
     { id = 'recover', title = 'Recovery', roles = { 'recover' }, header = 'Recover' },
     { id = 'rest', title = 'Resting', header = 'Recover' },
     { id = 'track', title = 'Tracked players', header = 'Tracked', switch = false },
@@ -258,6 +260,21 @@ local function runes(g, cat, cfg)
     return out
 end
 
+-- PUP: the maneuvers to pick from, by element, and each slot's pick (jobs/pup.lua).
+local function maneuvers(g, cat, cfg)
+    local out, first = { choices = {}, picks = {} }, nil
+    for _, a in ipairs(cat) do  -- in id order: the game's element order
+        if a.role == 'maneuver' then
+            out.choices[#out.choices + 1] = { name = a.name, label = (a.name:gsub(' Maneuver$', '')) }
+            first = first or a
+        end
+    end
+    for i = 1, pup.SLOTS do out.picks[i] = cfg.maneuver['slot_' .. i] end
+    -- They share one recast and every gate, so one says whether they can go.
+    if first then out.ready, out.avail = availability({ first }, {}, g) end
+    return out
+end
+
 -- Status and party -----------------------------------------------------------
 
 local function reason(why) return REASONS[why] or why or '' end
@@ -465,6 +482,7 @@ function model.build(g, cat, cfg, status, names)
         geo = { distance = cfg.geo.distance, linger = cfg.geo.linger, entrust = cfg.geo.entrust,
                 entrust_spell = cfg.geo.entrust_spell, indi = indi, names = party_names },
         rune = runes(g, cat, cfg),
+        maneuver = maneuvers(g, cat, cfg),
         -- Your target, by name, when it's a player who could be tracked: not in the party, not tracked yet.
         track = { target = g.target and not known[g.target.sid] and g.target.name or nil },
         japanese = cfg.ui.japanese, log = status.log, ui = {},
@@ -497,6 +515,7 @@ function model.build(g, cat, cfg, status, names)
         if s.id == 'roll' then shown = rolls[1] ~= nil end
         if s.id == 'geo' then shown = luopans end
         if s.id == 'rune' then shown = view.rune.runes[1] ~= nil end
+        if s.id == 'maneuver' then shown = view.maneuver.choices[1] ~= nil end
         if shown then view.sections[#view.sections + 1] = section end
     end
     return view
@@ -506,7 +525,7 @@ end
 -- HUD's (the pointer and its sizes) and the views it shows of others itself,
 -- with the view's `version`, VIEW: raise it when a field the window draws changes,
 -- so a session still running older code isn't drawn from a view it can't read.
-model.VIEW = 2
+model.VIEW = 3
 function model.published(view)
     local out = {}
     for k, v in pairs(view) do out[k] = v end
@@ -547,6 +566,7 @@ model.REMOTE_SET = {
 for _, set in ipairs(run.SETS) do
     for i = 1, run.SLOTS do model.REMOTE_SET[run.path(set.key, i)] = 'name' end
 end
+for i = 1, pup.SLOTS do model.REMOTE_SET[pup.path(i)] = 'name' end
 
 -- `value` for act.set's `path` from another session, held to its range; nil when
 -- it's not one REMOTE_SET lists or not a value it takes.
@@ -621,7 +641,7 @@ function model.actions(cfg, status, changed, tracking, send)
         status.open, cfg.ui.open = false, false
         changed()
     end
-    -- id: a section with a switch: 'follow' | 'heal' | 'revive' | 'wake' | 'remove' | 'buff' | 'roll' | 'geo' | 'rune' | 'pet'
+    -- id: a section with a switch: 'follow' | 'heal' | 'revive' | 'wake' | 'remove' | 'buff' | 'roll' | 'geo' | 'rune' | 'pet' | 'maneuver'
     -- | 'recover' | 'rest'
     function act.section(id, on)
         cfg[id].on = on
@@ -687,7 +707,7 @@ function model.actions(cfg, status, changed, tracking, send)
         changed()
     end
     -- path: 'heal.danger', 'heal.alliance', 'heal.reserve', 'buff.hold_aoe', 'roll.first', 'roll.risk', 'geo.distance',
-    -- 'geo.entrust', 'geo.entrust_spell', 'rune.idle_1', 'follow.target',
+    -- 'geo.entrust', 'geo.entrust_spell', 'rune.idle_1', 'maneuver.slot_1', 'follow.target',
     -- 'japanese', 'ui.hp_width', or 'ui.<anything>' for a UI's own.
     function act.set(path, value)
         if path == 'japanese' then path = 'ui.japanese' end  -- shared by every job pair, as the HUD

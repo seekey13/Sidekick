@@ -44,6 +44,8 @@ local DEFAULTS = {
     -- RUN: each set's rune per slot, by name ('' for none): idle_1..3, then
     -- vallation_, valiance_ and pflug_ (jobs/run.lua). Every slot starts empty.
     rune = { on = true },
+    -- PUP: the maneuver per slot, by name ('' for none; jobs/pup.lua). Every slot starts empty.
+    maneuver = { on = true, slot_1 = '', slot_2 = '', slot_3 = '' },
     buff = { on = true,
              hold_aoe = false,  -- hold an area buff spell (Protectra, songs) until the party's players gather
              gather = true },   -- ...and ask them to in party chat

@@ -754,6 +754,20 @@ test('RUN: Runes under Buff: a line per set, a rune per slot by what it does, ea
     eq(render(cfg, st, { ['Fire##sk3_rune_idle_1_Ignis'] = true }), 0)  -- WHM: no Runes
 end)
 
+test('PUP: Maneuvers under Pet: a combo per slot by element, then whether they can go', function ()
+    open_settings()
+    local pup = fake.catalog(18, 75, 3, 37, { 'Fire Maneuver', 'Light Maneuver' })
+    local cfg, st = settings.defaults(), status()
+    local function view() local g = snap(); g.main = 18; return model.build(g, pup, cfg, st, NAMES) end
+    eq(render(cfg, st, { ['Fire##sk3_maneuver_1_Fire Maneuver'] = true, ['Light##sk3_maneuver_3_Light Maneuver'] = true }, view()), 2)
+    eq({ cfg.maneuver.slot_1, cfg.maneuver.slot_2, cfg.maneuver.slot_3 }, { 'Fire Maneuver', '', 'Light Maneuver' })
+    render(cfg, st, {}, view())
+    eq({ has(frame.args.BeginCombo, '##sk3_maneuver_2'), frame.columns['##sk3_maneuvers'], showed('ready') }, { true, 4, true })
+    eq(render(cfg, st, { ['None##sk3_maneuver_1_none'] = true, ['Maneuvers##sk3_on_maneuver'] = true }, view()), 2)
+    eq({ cfg.maneuver.slot_1, cfg.maneuver.on }, { '', false })
+    eq(render(cfg, st, { ['Fire##sk3_maneuver_1_Fire Maneuver'] = true }), 0)  -- WHM: no Maneuvers
+end)
+
 -- Remote control -------------------------------------------------------------------
 
 -- A's a session too: its view as its own session publishes it (with its own settings).

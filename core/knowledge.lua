@@ -10,9 +10,10 @@
     (Chakra heals and cures). An exact name ("Healing Ruby II") beats its family.
 
     role       heal | pet_heal | remove | pet_remove | pet_send | emergency | revive | roll |
-               recover | buff | modifier | geo | rune | ward
+               recover | buff | modifier | geo | rune | ward | maneuver
                (geo: the luopan's spells and abilities, jobs/geo.lua's)
                (rune, ward: Rune Fencer's runes and the abilities that read them, jobs/run.lua's)
+               (maneuver: Puppetmaster's, on you for the automaton, jobs/pup.lua's)
                (a modifier is a JA fired just before the spell it changes: core/engine.lua)
                (a heal's area comes from the DAT: Curaga is a heal like Cure)
     status     what a buff shows: status name (lowest id with that name wins), id,
@@ -171,7 +172,7 @@ local K = {
     ['Reverse Flourish'] = { role = 'recover', gives = 'tp', priority = 100, requires = 'Finishing Move (5)' },
 
     -- pet ----------------------------------------------------------------------
-    -- ponytail: equipping the ammo is the BST and PUP job modules' (phase 4); until then it's worn by hand.
+    -- The ammo is equipped from your bags or wardrobes when it's needed (behaviors/pet.lua).
     ['Spirit Link']   = { role = 'pet_heal', pet = true, costs_hp = true },
     ['Life Cycle']    = { role = 'pet_heal', pet = true, main_only = true, costs_hp = true },
     ['Dematerialize'] = { role = 'pet_heal', pet = true, main_only = true },
@@ -443,6 +444,12 @@ for name, r in pairs({
     ['Caster\'s Roll'] = { 'Fast Cast+', 2, 7 },
 }) do
     K[name] = { role = 'roll', note = r[1], lucky = r[2], unlucky = r[3] }
+end
+
+-- Puppetmaster's maneuvers: each shows the status named like it; Overload stops them all.
+for _, e in ipairs({ 'Fire', 'Ice', 'Wind', 'Earth', 'Thunder', 'Water', 'Light', 'Dark' }) do
+    local name = e .. ' Maneuver'
+    K[name] = { role = 'maneuver', pet = true, status = name, blocked_by = 'Overload' }
 end
 
 -- Rune Fencer's runes: each shows the status named like it.

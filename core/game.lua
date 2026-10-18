@@ -28,7 +28,8 @@
     `target` is your current target when it's another player: { tidx, sid, name }.
     Plus when your cast began (cast_at, while casting);
     what healing scores with: learned potency, the day and the weather;
-    the item in your ammo slot and what's in your inventory; when you last moved and
+    the item in your ammo slot and what's in your inventory (and `owned`, the ammo
+    you hold where it can be worn from, read when asked); when you last moved and
     last had a battle target; your last Phantom Roll's total (`roll`, jobs/cor.lua).
 ]]--
 
@@ -147,6 +148,32 @@ local function ammo()
     local item = inv:GetContainerItem(math.floor(eq.Index / 256), eq.Index % 256)
     local id = item and item.Id or 0
     return (id == -1 or id == 65535) and 0 or id
+end
+
+-- Where ammo can be worn from: your bag, then the Mog Wardrobes, each as
+-- { container, the number /equip names it by }.
+local EQUIP_FROM = { { 0, 0 }, { 8, 1 }, { 10, 2 }, { 11, 3 }, { 12, 4 }, { 13, 5 }, { 14, 6 }, { 15, 7 }, { 16, 8 } }
+
+-- The items of `ids` you hold where they can be worn from, in the order of `ids`:
+-- { { id, en, jp, level, jobs (bit n: job n wears it), bag (for /equip) }, ... }.
+-- Read when asked (pet care wanting its ammo), not every tick: it walks every bag.
+function game.owned(ids)
+    local inv, rm, want, bag = AshitaCore:GetMemoryManager():GetInventory(), AshitaCore:GetResourceManager(), {}, {}
+    for _, id in ipairs(ids) do want[id] = true end
+    for _, c in ipairs(EQUIP_FROM) do
+        for i = 1, inv:GetContainerCountMax(c[1]) do
+            local item = inv:GetContainerItem(c[1], i)
+            if item and want[item.Id] and item.Count > 0 and not bag[item.Id] then bag[item.Id] = c[2] end
+        end
+    end
+    local out = {}
+    for _, id in ipairs(ids) do
+        local r = bag[id] and rm:GetItemById(id)
+        if r then
+            out[#out + 1] = { id = id, en = r.Name[1], jp = r.Name[2], level = r.Level, jobs = r.Jobs, bag = bag[id] }
+        end
+    end
+    return out
 end
 
 -- What's in your inventory: { [item id] = count }. Slot 0 is gil.
@@ -481,7 +508,7 @@ function game.read(now)
         incapacitated = any(me.buffs, INCAPACITATED),
         silenced = any(me.buffs, SILENCED),
         amnesia = me.buffs[AMNESIA] == true,
-        recast = game.recast,
+        recast = game.recast, owned = game.owned,
         learned = observed.learned, day = day(), weather = weather(),
     }
 end

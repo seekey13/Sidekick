@@ -36,6 +36,7 @@ engine.BEHAVIORS = {
     { name = 'geo', run = require('jobs.geo').want },
     { name = 'buff', run = require('behaviors.buff').want },
     { name = 'pet_send', run = pet.send, setting = 'pet', quick = true },
+    { name = 'maneuver', run = require('jobs.pup').want, quick = true },
     { name = 'follow', run = require('behaviors.follow').want },
     { name = 'rest', run = require('behaviors.rest'), resting = true },
 }
