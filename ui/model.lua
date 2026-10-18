@@ -550,8 +550,8 @@ local REMOTE = {
 }
 
 -- The settings act.set may change from another session: a number's range (the
--- standard window's sliders), 'bool', 'name' (a member, a spell, a roll or ''), or a
--- list of the values it takes.
+-- standard window's sliders), 'bool', 'name' (a member, a spell, a roll or ''),
+-- 'maneuver' (a maneuver's name or ''), or a list of the values it takes.
 model.REMOTE_SET = {
     ['heal.danger'] = { 1, 99 }, ['heal.critical'] = { 1, 99 }, ['heal.focus_danger'] = { 1, 99 },
     ['heal.focus_critical'] = { 1, 99 }, ['heal.cure_potency'] = { 0, 50 }, ['heal.waltz_potency'] = { 0, 50 },
@@ -566,13 +566,19 @@ model.REMOTE_SET = {
 for _, set in ipairs(run.SETS) do
     for i = 1, run.SLOTS do model.REMOTE_SET[run.path(set.key, i)] = 'name' end
 end
-for i = 1, pup.SLOTS do model.REMOTE_SET[pup.path(i)] = 'name' end
+for i = 1, pup.SLOTS do model.REMOTE_SET[pup.path(i)] = 'maneuver' end
 
 -- `value` for act.set's `path` from another session, held to its range; nil when
 -- it's not one REMOTE_SET lists or not a value it takes.
 local function settable(path, value)
     local want = model.REMOTE_SET[path]
-    if want == 'bool' then return type(value) == 'boolean' and value or nil end
+    if want == 'bool' then
+        if type(value) == 'boolean' then return value end  -- false too: `and value or nil` would drop it
+        return nil
+    end
+    if want == 'maneuver' then
+        return type(value) == 'string' and (value == '' or value:find(' Maneuver$') ~= nil) and value or nil
+    end
     if want == 'name' then return type(value) == 'string' and value or nil end
     if type(want) ~= 'table' then return nil end
     if want.list then

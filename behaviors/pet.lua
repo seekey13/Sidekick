@@ -50,11 +50,12 @@ local function use(a, g, cfg, mem, why)
     if not a.ammo or can.holds(a.ammo, g.ammo) or not can.use(a, setmetatable({ ammo = a.ammo[1] }, { __index = g })) then
         return nil
     end
+    if g.now - (mem.ammo_at or -math.huge) < EQUIP_WAIT then return nil, true end  -- before walking the bags
     local it = wearable(a, g)
     if not it then return nil end
-    if g.now - (mem.ammo_at or -math.huge) < EQUIP_WAIT then return nil, true end
-    local name = cfg.ui.japanese and (it.jp or '') ~= '' and it.jp or it.en
-    return { command = ('/equip ammo "%s" %d'):format(name, it.bag), action = { name = it.en },
+    local english = cfg.ui.japanese and (it.jp or '') == ''
+    local name = cfg.ui.japanese and not english and it.jp or it.en
+    return { command = ('/equip ammo "%s" %d'):format(name, it.bag), english = english or nil, action = { name = it.en },
              why = ('for %s: %s'):format(a.name, why), sent = function (now) mem.ammo_at = now end }
 end
 

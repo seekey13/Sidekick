@@ -161,6 +161,9 @@ test('Reward equips pet food the same way; a Japanese client gets its Japanese n
     local cfg = settings.defaults()
     cfg.ui.japanese = true
     eq(decide(g, cfg, bst), '/equip ammo "\131y\131b" 1')
+    food[BISCUIT].jp = ''  -- none in the DAT: sent in English, flagged so it's warned about
+    local _, intent = decide(g, cfg, bst)
+    eq({ engine.command(intent, cfg) }, { '/equip ammo "Pet Fd. Alpha" 1', true })
 end)
 
 -- UI -------------------------------------------------------------------------------
@@ -187,6 +190,16 @@ test('ui: a slot set from another session takes a name only', function ()
     local act = model.actions(cfg, st, function () end)
     eq(model.apply(act, cfg, { 'set', n = 2, 'maneuver.slot_2', 'Ice Maneuver' }, cat), true)
     eq(cfg.maneuver.slot_2, 'Ice Maneuver')
-    model.apply(act, cfg, { 'set', n = 2, 'maneuver.slot_2', 5 }, cat)
+    eq(model.apply(act, cfg, { 'set', n = 2, 'maneuver.slot_2', 5 }, cat), false)
+    eq(model.apply(act, cfg, { 'set', n = 2, 'maneuver.slot_2', 'Cure' }, cat), false)
     eq(cfg.maneuver.slot_2, 'Ice Maneuver')
+    eq(model.apply(act, cfg, { 'set', n = 2, 'maneuver.slot_2', '' }, cat), true)
+    eq(cfg.maneuver.slot_2, '')
+end)
+
+test('ui: a bool set from another session can be switched off as well as on', function ()
+    local cfg = settings.defaults()
+    local act = model.actions(cfg, status(), function () end)
+    eq({ model.apply(act, cfg, { 'set', n = 2, 'buff.gather', false }, cat), cfg.buff.gather }, { true, false })
+    eq({ model.apply(act, cfg, { 'set', n = 2, 'buff.gather', true }, cat), cfg.buff.gather }, { true, true })
 end)
