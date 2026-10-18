@@ -261,6 +261,20 @@ end
 
 -- Remote control ----------------------------------------------------------------
 
+-- Who `/sk3 start|stop <who>` reaches: whether it's you (no name, or `me`'s), and
+-- the live sessions it's sent to, by name: the one named `who` (any case), or with
+-- 'all', every one (a session of a character named All is taken by name first).
+-- nil, nil when no session has that name.
+function share.reach(live, me, who)
+    if not who or who:lower() == me:lower() then return true, {} end
+    who = who:lower()
+    for name in pairs(live) do
+        if name:lower() == who then return false, { name } end
+    end
+    if who == 'all' then return true, sorted_keys(live) end
+    return nil, nil
+end
+
 -- Queue `call` ({ fn, n = #args, args... }), numbered `n`, for the session `to` at its
 -- `epoch`, on `pending`. A `set` straight after one of the same path for the same
 -- session replaces it: a slider's drag sends only its latest value.

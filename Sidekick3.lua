@@ -338,6 +338,27 @@ local function track(name)
     if not shared then AshitaCore:GetChatManager():QueueCommand(1, '/check ' .. p.name) end
 end
 
+-- /sk3 start|stop [name|all]: automation on or off here, in another Sidekick3
+-- session on this PC by its character's name (sent as its run icon would be), or
+-- here and in every one.
+local function run_command(g, on, who)
+    local here, others = share.reach(share.sessions, g.me.name, who)
+    if not here and not others then printf('No Sidekick3 session "%s" on this PC.', who); return end
+    if here then
+        status.running = on
+        printf('Automation %s.', on and 'started' or 'stopped')
+    end
+    local sent = {}
+    for _, name in ipairs(others) do
+        if share.send(name, { 'run', n = 1, on }) then sent[#sent + 1] = name end
+    end
+    if sent[1] then
+        printf('%s automation in %s.', on and 'Starting' or 'Stopping', table.concat(sent, ', '))
+    elseif who and here and who:lower() == 'all' then
+        printf('No other Sidekick3 sessions on this PC.')
+    end
+end
+
 -- The UI's Untrack buttons, and /sk3 untrack <name>.
 local function untrack(name)
     local t = tracked.remove(name)
@@ -423,7 +444,7 @@ ashita.events.register('packet_in', 'sidekick3_packet_in', function (e)
     packets.handle(e, packet_ctx, os.clock())
 end)
 
-local HELP = '/sk3 opens or closes the window. Commands: start, stop, plan, state, '
+local HELP = '/sk3 opens or closes the window. Commands: start [name|all], stop [name|all], plan, state, '
     .. 'buff [name] [me p1..p5 b0..c5 <tracked>|off], focus <name|off>, follow <name|off>, rest [on|off], '
     .. 'track [name], untrack <name|all>, profile [name|default], catalog [unknown], log, dump, help'
 
@@ -461,8 +482,7 @@ ashita.events.register('command', 'sidekick3_command', function (e)
         cfg.ui.open = status.open
         settings.save()
     elseif sub == 'start' or sub == 'stop' then
-        status.running = sub == 'start'
-        printf('Automation %s.', status.running and 'started' or 'stopped')
+        run_command(g, sub == 'start', args[3])
     elseif sub == 'plan' then
         show_plan(g)
     elseif sub == 'state' then

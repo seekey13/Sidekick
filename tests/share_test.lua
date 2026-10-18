@@ -233,6 +233,18 @@ end)
 
 local function call(fn, ...) return { fn, n = select('#', ...), ... } end
 
+test('/sk3 start|stop reaches you, a session by name in any case, or you and every session with all', function ()
+    local live = { Beta = session('Beta', 1, { member(2, 'Beta') }), Gamma = session('Gamma', 1, { member(3, 'Gamma') }) }
+    eq({ share.reach(live, 'Alpha', nil) }, { true, {} })
+    eq({ share.reach(live, 'Alpha', 'alpha') }, { true, {} })
+    eq({ share.reach(live, 'Alpha', 'gAMMA') }, { false, { 'Gamma' } })
+    eq({ share.reach(live, 'Alpha', 'ALL') }, { true, { 'Beta', 'Gamma' } })
+    eq({ share.reach({}, 'Alpha', 'all') }, { true, {} })
+    eq({ share.reach(live, 'Alpha', 'Nobody') }, { nil, nil })
+    live.All = session('All', 1, { member(4, 'All') })  -- a character named All is that session
+    eq({ share.reach(live, 'Alpha', 'all') }, { false, { 'All' } })
+end)
+
 test('a slider\'s drag queues only its latest value; anything between keeps both', function ()
     local pending = {}
     share.queue(pending, 'Two', 7, call('set', 'heal.danger', 50), 1)
