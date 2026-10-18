@@ -42,6 +42,7 @@
     gate       'combat' | 'idle' (enemy-targeted actions are combat-only anyway)
     pick_one   families sharing a key keep one selection (enspells, storms, bar-elements)
     blocked_by skip while you have any of these statuses
+    trance     no TP needed under Trance (waltzes, Aspir Samba: jobs/dnc.lua)
     requires   needs any of these statuses on you
     priority   sorts ahead (+) / behind (-) inside its role
     area       overrides the DAT's area: 0 for blue magic the DAT gives an area (15)
@@ -97,11 +98,12 @@ local PANACEA = { 4, 11, 12, 21, 128, 129, 130, 131, 132, 133, 134, 135, 136, 13
 local LIGHT = { 'Light Arts', 'Addendum: White' }
 local DARK = { 'Dark Arts', 'Addendum: Black' }
 local SAMBA = { role = 'buff', pick_one = 'samba', blocked_by = 'Fan Dance' }
+local FINISHING_5 = { 'Finishing Move (5)', 'Finishing Move (6+)' }  -- five or more (jobs/dnc.lua)
 
 local K = {
     -- heal ---------------------------------------------------------------------
     ['Cure']              = { role = 'heal', wakes = true, potency = { 30, 90, 200, 400, 700 } },
-    ['Curing Waltz']      = { role = 'heal', wakes = true, blocked_by = 'Saber Dance', potency = { 70, 140, 300, 600 } },
+    ['Curing Waltz']      = { role = 'heal', wakes = true, blocked_by = 'Saber Dance', trance = true, potency = { 70, 140, 300, 600 } },
     ['Drain']             = { role = 'heal', potency = { 90, 180 } },
     ['Pollen']            = { role = 'heal', potency = { 30 } },
     ['Magic Fruit']       = { role = 'heal', wakes = true, potency = { 300 } },
@@ -118,7 +120,7 @@ local K = {
     },
     -- ponytail: area priors are guesses until the in-game check (Curaga, Divine Waltz, Healing Breeze, Healing Ruby, Wild Carrot).
     ['Curaga']           = { role = 'heal', wakes = true, potency = { 60, 130, 270, 450 } },
-    ['Divine Waltz']     = { role = 'heal', wakes = true, blocked_by = 'Saber Dance', potency = { 70, 300 } },
+    ['Divine Waltz']     = { role = 'heal', wakes = true, blocked_by = 'Saber Dance', trance = true, potency = { 70, 300 } },
     ['Healing Breeze']   = { role = 'heal', wakes = true, potency = { 90 } },
     ['Mending Halation'] = { role = 'heal', main_only = true, pet = true },
     -- Two rows: healing decides when a Regen is worth casting; "keep up" holds it on chosen targets.
@@ -150,7 +152,7 @@ local K = {
     ['Cursna']        = { role = 'remove', removes = CURSE },
     ['Erase']         = { role = 'remove', removes = ERASABLE },
     ['Esuna']         = { role = 'remove', removes = ESUNA },
-    ['Healing Waltz'] = { role = 'remove', removes = WALTZ, blocked_by = 'Saber Dance' },
+    ['Healing Waltz'] = { role = 'remove', removes = WALTZ, blocked_by = 'Saber Dance', trance = true },
 
     -- remove: items, on you only and after any spell. behaviors/remove.lua orders them by what
     -- they'd clear on you, then by priority: cheap and specific first.
@@ -176,7 +178,7 @@ local K = {
     -- Spends the luopan: jobs/geo.lua decides when, for behaviors/recover.lua.
     ['Radial Arcana']    = { role = 'recover', main_only = true, pet = true, priority = 90, luopan = 'spend' },
     ['Meditate']         = { role = 'recover', gives = 'tp', priority = 100, status = 801 },
-    ['Reverse Flourish'] = { role = 'recover', gives = 'tp', priority = 100, requires = 'Finishing Move (5)' },
+    ['Reverse Flourish'] = { role = 'recover', gives = 'tp', priority = 100, requires = FINISHING_5 },
 
     -- pet ----------------------------------------------------------------------
     -- The ammo is equipped from your bags or wardrobes when it's needed (core/ammo.lua).
@@ -402,11 +404,11 @@ local K = {
 
     -- buff: Dancer ------------------------------------------------------------------
     ['Drain Samba']  = SAMBA,
-    ['Aspir Samba']  = SAMBA,
+    ['Aspir Samba']  = { role = 'buff', pick_one = 'samba', blocked_by = 'Fan Dance', trance = true },
     ['Haste Samba']  = SAMBA,
     ['Saber Dance']  = { role = 'buff', gate = 'combat', status = { 'Saber Dance', 'Fan Dance' } },
     ['Fan Dance']    = { role = 'buff', gate = 'combat', status = { 'Saber Dance', 'Fan Dance' } },
-    ['No Foot Rise'] = { role = 'buff', status = 'Finishing Move (5)' },
+    ['No Foot Rise'] = { role = 'buff', status = FINISHING_5 },
     ['Presto']       = { role = 'buff' },
     ['Spectral Jig'] = { role = 'buff', gate = 'idle', travel = true, priority = -20, status = { 'Sneak', 'Invisible' } },
 

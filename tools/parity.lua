@@ -46,6 +46,9 @@ local ACCEPTED = {
     ['scholar|Accession|EXTRA'] = 'same ability, as a healing boost',
     ['corsair|Snake Eye|MISSING'] = 'a modifier fired before a Double-Up (jobs/cor.lua)',
     ['geomancer|Blaze of Glory|status'] = 'a modifier before a luopan: its status says it is waiting (jobs/geo.lua)',
+    -- Finishing moves past five show one status, Finishing Move (6+) (jobs/dnc.lua).
+    ['dancer|No Foot Rise|status'] = 'five or more finishing moves: 385 or 588',
+    ['dancer|Reverse Flourish|requires'] = 'five or more finishing moves: 385 or 588',
     -- v2 sent the pet at <t> by default (<bt> by option); v3 always at the battle target.
     ['beastmaster|Fight|enemy'] = 'sent at <bt>',
     ['puppetmaster|Deploy|enemy'] = 'sent at <bt>',

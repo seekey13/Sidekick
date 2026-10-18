@@ -59,6 +59,14 @@ local function ids(v, idx, what)
     return out
 end
 
+-- What a row it blocks calls the blocking statuses: "Saber Dance", "Vallation or Liement".
+local function blocker(v, statuses)
+    if type(v) ~= 'table' then v = { v } end
+    local out = {}
+    for i, x in ipairs(v) do out[i] = type(x) == 'number' and statuses[x].en or x end
+    return table.concat(out, ' or ')
+end
+
 -- Knowledge uses for one action: exact name beats family; a use may be kind-specific.
 local function uses(K, name, family, kind)
     local row = K[name] or K[family]
@@ -108,6 +116,7 @@ function catalog.build(res, player, K)
                     status = ids(status, idx, row.en),
                     removes = ids(use.removes, idx, row.en),
                     blocked_by = ids(use.blocked_by, idx, row.en),
+                    blocker = use.blocked_by and blocker(use.blocked_by, res.statuses),
                     -- ponytail: no knowledge row sets requires on an Addendum spell; merge if one ever does.
                     requires = addendum and ADDENDUM[row.type] or ids(use.unbridled and UNBRIDLED or use.requires, idx, row.en),
                     unbridled = use.unbridled,
@@ -117,7 +126,7 @@ function catalog.build(res, player, K)
                                             potency = use.boost.potency, area = use.boost.area,
                                             mp = use.boost.mp or 1, tiers = use.boost.tiers },
                     duration = type(use.duration) == 'table' and use.duration[tier] or use.duration,
-                    wakes = use.wakes, gives = use.gives, gate = use.gate, pick_one = use.pick_one,
+                    wakes = use.wakes, trance = use.trance, gives = use.gives, gate = use.gate, pick_one = use.pick_one,
                     costs_hp = use.costs_hp, swaps = use.swaps, spends_tp = use.spends_tp,
                     ammo = use.ammo, pet_range = use.pet_range, tool = use.tool, last_shadow = use.last_shadow,
                     applies = use.applies, spreads = use.spreads, chip = use.chip, addendum = addendum or nil,
