@@ -20,6 +20,7 @@ local SKIP_TYPES = { [3] = true, [4] = true, [20] = true }
 local CHARGES = { [9] = true, [15] = true, [21] = true }
 local READY_MOVE = 18  -- a jug pet's move: the DAT's MP is the Ready charges it costs (jobs/bst.lua)
 local TRUST = 8  -- spell type; calling trusts is not support automation
+local BLUE_MAGIC = 6  -- spell type: castable only while set (jobs/blu.lua)
 local SELF = 1   -- valid-target flag: items are used on you
 
 local SCH = 20
@@ -84,7 +85,8 @@ end
 -- Build the catalog.
 --   res    { spells, abilities, statuses, items = { [id] = { en, jp } } or nil }
 --          from core/resources.lua or tests/data
---   player { main, main_lv, sub, sub_lv, has_spell(id), has_ability(id) }
+--   player { main, main_lv, sub, sub_lv, has_spell(id), has_ability(id),
+--            set_spells = { [id] = true } or nil: the blue magic set; nil takes every one learned }
 --   K      core/knowledge.lua
 -- Returns a list of actions, one per use, sorted by kind then id; items last.
 function catalog.build(res, player, K)
@@ -133,7 +135,8 @@ function catalog.build(res, player, K)
     end
 
     for id, s in pairs(res.spells) do
-        if s.type ~= TRUST and player.has_spell(id) then
+        if s.type ~= TRUST and player.has_spell(id)
+            and not (s.type == BLUE_MAGIC and player.set_spells and not player.set_spells[id]) then
             local from, level, addendum = spell_source(s, player)
             if from then add('ma', id, s, from, level, addendum) end
         end

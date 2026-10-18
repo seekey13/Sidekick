@@ -56,7 +56,7 @@
     mob_skill  the id a jug pet's move carries in its action packet (the server's mob skill)
     applies    a modifier's test of a catalog record: which spells a buff row may turn it on for
     spreads    { area =, mp = }: the modifier makes a single-target spell land on everyone in
-               your party within `area` yalms of you, at `mp` x the cost (Accession)
+               your party within `area` yalms of you, at `mp` x the cost (Accession, Diffusion)
     chip       a modifier's short label on a buff row
     luopan     'buff' | 'debuff': a Geo- spell, put down as a luopan; 'spend': spends
                the luopan (Radial Arcana), which jobs/geo.lua decides when
@@ -66,6 +66,7 @@
                against, as Runes shows it (jobs/run.lua)
 ]]--
 
+local blu = require('jobs.blu')
 local geo = require('jobs.geo')
 local run = require('jobs.run')
 local sch = require('jobs.sch')
@@ -373,6 +374,9 @@ local K = {
     ['Barrier Tusk']    = { role = 'buff', status = 'Physical Shield', area = 0 },
     ['O. Counterstance']= { role = 'buff', status = 'Counterstance' },
     ['Pyric Bulwark']   = { role = 'buff' },
+    -- Fired before a blue magic buff on you alone, it lands on your party near you (jobs/blu.lua).
+    ['Diffusion'] = { role = 'modifier', applies = blu.diffuses, spreads = { area = 10, mp = 1 },
+                      chip = 'Dif', note = 'on everyone near you' },
 
     -- buff: Geomancer's Indi- auras and the luopan's Geo- ones are filled in below, from geo.AURAS.
     ['Lasting Emanation']  = { role = 'buff', pick_one = 'geo_ja', label = 'Lasting Emanation (Duration)', main_only = true, pet = true, status = false },

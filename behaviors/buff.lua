@@ -14,7 +14,9 @@
     A row's modifiers (SCH's stratagems) go with its spell: the engine fires
     each first (core/engine.lua). Accession instead spreads the spell from you
     to the row's targets in your party near you, at twice the MP, whenever one
-    there lacks it (as v2), and is held for the group like an area spell. With
+    there lacks it (as v2), and is held for the group like an area spell;
+    BLU's Diffusion spreads a blue magic buff on you the same way, at its own
+    MP (jobs/blu.lua). With
     heal.reserve on, buff rows never spend the last stratagem charge (jobs/sch.lua).
     A row with Hold on (rows[key].hold, v2's Hold for Stratagem / Embolden) waits
     while any of its modifiers can't go with the spell; without it the spell goes alone.
@@ -96,9 +98,9 @@ function buff.wait_for(mem, a, near, away)
     end
 end
 
--- A row's Accession, split from its other modifiers (those it may spend), when
--- it can spread `a` now: up on you already, or spare and usable with the MP for
--- the doubled spell.
+-- A row's Accession (or Diffusion), split from its other modifiers (those it
+-- may spend), when it can spread `a` now: up on you already, or spare and
+-- usable with the MP for the spell at its spread cost.
 local function spreading(c, g, cfg)
     local others, acc = {}, nil
     for _, m in ipairs(c.mods) do
