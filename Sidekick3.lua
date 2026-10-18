@@ -41,7 +41,9 @@ end
 -- The catalog for the character as it is right now, rebuilt when job, level or
 -- the blue magic set changes (or on demand: a newly learned spell changes none).
 local cat = { key = nil, list = {}, by_spell = {} }
-local said_unset  -- the blue magic set not known yet: said once a session
+-- The blue magic set not known yet: said once, and only when loaded in game
+-- (on login the zone-in 0x044 may come a moment after the job level).
+local said_unset = AshitaCore:GetMemoryManager():GetPlayer():GetMainJobLevel() == 0
 local function current_catalog(force)
     local p = AshitaCore:GetMemoryManager():GetPlayer()
     local key = ('%d/%d/%d/%d/%d'):format(p:GetMainJob(), p:GetMainJobLevel(), p:GetSubJob(), p:GetSubJobLevel(), blu.version())

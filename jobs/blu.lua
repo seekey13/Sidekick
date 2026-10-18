@@ -34,9 +34,10 @@ end
 function blu.set() return set end
 function blu.version() return version end
 
--- What Diffusion spreads: blue magic that goes on you alone.
+-- What Diffusion spreads: blue magic that goes on you alone (not one already
+-- an area spell, Diamondhide; the knowledge table's area 0 keeps Battery Charge in).
 function blu.diffuses(a)
-    return a.kind == 'ma' and a.type == blu.MAGIC and a.targets == SELF
+    return a.kind == 'ma' and a.type == blu.MAGIC and a.targets == SELF and a.area == 0
 end
 
 return blu

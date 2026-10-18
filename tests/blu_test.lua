@@ -73,11 +73,16 @@ test('catalog: only the set blue magic; other jobs\' spells are untouched', func
 end)
 
 test('0x044: BLU\'s 20 slots hold each spell id - 0x200, 0 for an empty one', function ()
-    eq(blu.set(), nil)
     packets.handle(job_packet(BLU, { COCOON - 0x200, 0, METALLIC - 0x200 }), {}, 0)
     local v = blu.version()
     eq(blu.set(), { [COCOON] = true, [METALLIC] = true })
     packets.handle(job_packet(WHM, { REFUELING - 0x200 }), {}, 0)  -- another job's: not a set
+    local sub = job_packet(BLU, { COCOON - 0x200 })
+    sub.data = sub.data:sub(1, 5) .. '\1' .. sub.data:sub(7)  -- a BLU subjob's (IsSubJob at 0x05): its set too
+    packets.handle(sub, {}, 0)
+    eq(blu.set(), { [COCOON] = true })
+    packets.handle(job_packet(BLU, { COCOON - 0x200, 0, METALLIC - 0x200 }), {}, 0)
+    v = blu.version()
     eq({ blu.set(), blu.version() }, { { [COCOON] = true, [METALLIC] = true }, v })
     local all = {}
     for i = 1, 20 do all[i] = REFUELING - 0x200 + i - 1 end
@@ -90,8 +95,10 @@ end)
 test('catalog: Diffusion fits blue magic that goes on you alone', function ()
     local dif = named(cat, 'Diffusion')
     eq({ dif.role, dif.status, dif.chip, dif.spreads }, { 'modifier', { DIFFUSION }, 'Dif', { area = 10, mp = 1 } })
-    eq({ dif.applies(named(cat, 'Cocoon')), dif.applies(named(cat, 'Refueling')), dif.applies(named(cat, 'Protect')) },
-       { true, true, false })
+    eq({ dif.applies(named(cat, 'Cocoon')), dif.applies(named(cat, 'Refueling')), dif.applies(named(cat, 'Battery Charge')),
+         dif.applies(named(cat, 'Protect')) }, { true, true, true, false })
+    -- Already an area spell (Diamondhide), or not on you alone (Magic Fruit): nothing to spread.
+    eq({ dif.applies(named(cat, 'Diamondhide')), dif.applies(named(cat, 'Magic Fruit')) }, { false, false })
 end)
 
 test('Diffusion spreads a blue magic buff whenever someone near you lacks it', function ()
@@ -119,6 +126,9 @@ test('Diffusion on recast: the spell goes alone, or waits with Hold on', functio
     eq(decide(snap({ DEFENSE_BOOST }, others, { Diffusion = 300 }), cfg), nil)  -- only A lacks it
     cfg.rows.Cocoon.hold = true
     eq(decide(snap({}, others, { Diffusion = 300 }), cfg), nil)
+    -- ...but not when only you lack it: on you alone it needs no Diffusion.
+    eq(decide(snap({}, { { name = 'A', buffs = { [DEFENSE_BOOST] = true } } }, { Diffusion = 300 }), cfg), '/ma "Cocoon" <me>')
+    eq(decide(snap({}, {}, { Diffusion = 300 }), cfg), '/ma "Cocoon" <me>')
 end)
 
 test('UI: a blue magic buff row has a Dif chip; other rows don\'t', function ()

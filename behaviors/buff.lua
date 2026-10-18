@@ -146,11 +146,14 @@ function buff.want(g, cat, cfg, mem)
         end
         if (a.travel or not invisible) and can.use(a, g) and sch.spare(a, g, cfg) then
             local acc, mods = spreading(c, g, cfg)
-            local spreads = false  -- Accession on, and someone near you it would reach lacks it
+            -- Accession on, and someone near you it would reach lacks it (for a
+            -- self-only spell, someone but you: on you alone it needs no spread).
+            local spreads = false
             for _, m in ipairs(c.hold and c.mods or {}) do
                 if m.spreads and can.reach(a, g.me) then
-                    local _, _, n = buff.area(a, g, false, not can.self_only(a) and c.targets or nil)
-                    spreads = n >= 1
+                    local self_only = can.self_only(a)
+                    local _, _, n = buff.area(a, g, false, not self_only and c.targets or nil)
+                    spreads = n - (self_only and lacks(a, g.me) and 1 or 0) >= 1
                 end
             end
             local wait = held(c, acc, spreads, g, cfg)
