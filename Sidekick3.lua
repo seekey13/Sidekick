@@ -343,18 +343,22 @@ end
 -- here and in every one.
 local function run_command(g, on, who)
     local here, others = share.reach(share.sessions, g.me.name, who)
-    if not here and not others then printf('No Sidekick3 session "%s" on this PC.', who); return end
+    if not here and not others then
+        local live = {}
+        for name in pairs(share.sessions) do live[#live + 1] = name end
+        table.sort(live)
+        printf('No Sidekick3 session "%s" on this PC (%s).', who,
+            live[1] and ('sessions: ' .. table.concat(live, ', ')) or 'no other sessions')
+        return
+    end
     if here then
         status.running = on
         printf('Automation %s.', on and 'started' or 'stopped')
     end
-    local sent = {}
-    for _, name in ipairs(others) do
-        if share.send(name, { 'run', n = 1, on }) then sent[#sent + 1] = name end
-    end
-    if sent[1] then
-        printf('%s automation in %s.', on and 'Starting' or 'Stopping', table.concat(sent, ', '))
-    elseif who and here and who:lower() == 'all' then
+    for _, name in ipairs(others) do share.send(name, { 'run', n = 1, on }) end
+    if others[1] then
+        printf('%s automation in %s.', on and 'Starting' or 'Stopping', table.concat(others, ', '))
+    elseif here and who and who:lower() == 'all' and not next(share.sessions) then
         printf('No other Sidekick3 sessions on this PC.')
     end
 end

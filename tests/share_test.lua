@@ -240,7 +240,8 @@ test('/sk3 start|stop reaches you, a session by name in any case, or you and eve
     eq({ share.reach(live, 'Alpha', 'gAMMA') }, { false, { 'Gamma' } })
     eq({ share.reach(live, 'Alpha', 'ALL') }, { true, { 'Beta', 'Gamma' } })
     eq({ share.reach({}, 'Alpha', 'all') }, { true, {} })
-    eq({ share.reach(live, 'Alpha', 'Nobody') }, { nil, nil })
+    eq({ select('#', share.reach(live, 'Alpha', 'Nobody')), share.reach(live, 'Alpha', 'Nobody') }, { 2 })
+    eq({ share.reach(live, 'All', 'all') }, { true, {} })  -- you, named All: this session alone
     live.All = session('All', 1, { member(4, 'All') })  -- a character named All is that session
     eq({ share.reach(live, 'Alpha', 'all') }, { false, { 'All' } })
 end)
