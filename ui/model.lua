@@ -181,6 +181,7 @@ local function build_row(key, acts, cfg, g, units, modifiers, outsiders)
         row.choices = choices(acts, note)
         row.targets = chips(acts, r, units, outsiders)
         row.mods = mod_chips(acts, r, modifiers)
+        if row.mods then row.hold = r.hold == true end  -- wait for them, or go without
     end
     if row.choices then
         row.pick = r.pick
@@ -517,7 +518,7 @@ end
 local REMOTE = {
     run = { 'boolean' }, section = { 'string', 'boolean' }, row = { 'string', 'boolean' },
     pick = { 'string', 'string|nil' }, target = { 'string', 'number|string', 'boolean' },
-    mod = { 'string', 'string', 'boolean' }, profile = { 'string|nil' }, save_profile = { 'string', 'boolean|nil' },
+    mod = { 'string', 'string', 'boolean' }, hold = { 'string', 'boolean' }, profile = { 'string|nil' }, save_profile = { 'string', 'boolean|nil' },
     new_profile = {}, delete_profile = { 'string' }, track = { 'string' }, untrack = { 'string' },
     skip = { 'string', 'boolean' }, set = { 'string', 'boolean|number|string' },
 }
@@ -631,6 +632,12 @@ function model.actions(cfg, status, changed, tracking, send)
         r.mods = r.mods or {}
         if on == nil then on = not r.mods[name] end
         r.mods[name] = on or nil
+        changed()
+    end
+    -- Whether a row's spell waits while one of its modifiers can't go with it
+    -- (Hold), or goes without (the default).
+    function act.hold(key, on)
+        saved_row(cfg, key, false).hold = on or nil
         changed()
     end
     -- Profiles (core/profiles.lua): load one by name, nil for Default; save

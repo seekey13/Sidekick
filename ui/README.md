@@ -145,6 +145,7 @@ In this order. A section with rows is left out when your job has none for it (Pe
 | `choice` | string or nil | The label to show for the current pick: `'Auto (best)'`, `'Pick one'`, `'Protect II'`, `'Protect V (not available)'` |
 | `targets` | list or nil | Buff rows that can go on others (and the Geo row: its luopan goes on the first of them who lacks it): 6 chips `{ slot, label, present, name, on, wrap }`, `slot` 0 (you, `'ME'`) to 5 (`'P5'`). `present` is false for an empty party slot (`name` is then nil). When the row's spells can go outside the party (Protect, Haste; not Regen), a chip follows for each tracked player, `'T1'` on, its `slot` their name; then 6 for each of the alliance's other parties that is there or has a chip on, `'B0'` to `'B5'` (`slot` 6 to 11) and `'C0'` to `'C5'` (12 to 17). `wrap` is true on `'B0'` and `'C0'`: the standard window starts a new line there |
 | `mods` | list or nil | Buff rows a modifier fits (SCH's stratagems, RUN's Embolden): `{ name, label, note, on }`, as `{ 'Penury', 'Pen', 'half the MP', false }`. One that is on is fired just before the row's spell when its status isn't on you; Accession (`'Acc'`) instead spreads the spell from you to the row's targets near you whenever one there lacks it. nil for other rows and jobs |
+| `hold` | bool or nil | Rows with `mods`: the spell waits while one of the modifiers on for it can't go with it (on recast, no charge left, the wrong Arts), as v2's Hold for Stratagem; false, it goes without. nil for rows without `mods` |
 
 ## `act`
 
@@ -158,6 +159,7 @@ In this order. A section with rows is left out when your job has none for it (Pe
 | `act.pick(key, name)` | A row's choice: a `choices[i].name`, or nil for Auto |
 | `act.target(key, slot, on)` | Turn a target chip on or off: its `slot`, 0 to 17 or a tracked player's name; `on` true or false sets it, nil toggles it |
 | `act.mod(key, name, on)` | Turn a modifier chip on or off: its `name` (`'Penury'`, `'Accession'`); `on` sets it, nil toggles it |
+| `act.hold(key, on)` | A row's Hold: `true`, its spell waits while a modifier on for it can't go with it; `false` (the default), it goes without |
 | `act.track(name)` | Track a player outside your party and alliance: by name, or your current target when nil (`view.track.target` names it). This session only |
 | `act.untrack(name)` | Stop tracking a player, by name. Their buff chips stay set for when they're tracked again |
 | `act.profile(name)` | Load a profile: a `view.profiles.names[i]`, or nil for Default (the settings as they were before a profile was loaded). Loading one never changes `ui`, `japanese`, following, the focus or who healing skips |
@@ -167,7 +169,7 @@ In this order. A section with rows is left out when your job has none for it (Pe
 | `act.skip(name, skip)` | Skip a member (or tracked player) in healing (`skip` true), or take them back (false): a `view.heal.members[i].name`; nil toggles |
 | `act.set(path, value)` | A setting by path, below |
 | `act.watch(name, on)` | Show another session's SK Settings (a `party[i].session.name`), or stop: it then sends its view, which comes in `view.remote`. This session only; closed when that session goes |
-| `act.remote(name)` | Another session's `act`, to change it from here: `run`, `section`, `row`, `pick`, `target`, `mod`, `profile`, `save_profile`, `new_profile`, `delete_profile`, `track` (by name only), `untrack`, `skip` and `set`. `target`, `mod` and `skip` need their state (`true` or `false`), never a toggle: the view you click is a moment old. `set` takes only the paths in the table below but `'japanese'` and `'ui.*'` (the HUD is each session's own), a number held to its range. There's no `close`, `log`, `watch` or `remote`. Each call goes through the files the sessions share and is made there, through its own `act`, within a second or so (a quarter second while its SK Settings are open); its view in `view.remote` then shows it |
+| `act.remote(name)` | Another session's `act`, to change it from here: `run`, `section`, `row`, `pick`, `target`, `mod`, `hold`, `profile`, `save_profile`, `new_profile`, `delete_profile`, `track` (by name only), `untrack`, `skip` and `set`. `target`, `mod` and `skip` need their state (`true` or `false`), never a toggle: the view you click is a moment old. `set` takes only the paths in the table below but `'japanese'` and `'ui.*'` (the HUD is each session's own), a number held to its range. There's no `close`, `log`, `watch` or `remote`. Each call goes through the files the sessions share and is made there, through its own `act`, within a second or so (a quarter second while its SK Settings are open); its view in `view.remote` then shows it |
 
 `act.set` paths:
 

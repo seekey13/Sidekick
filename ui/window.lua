@@ -734,7 +734,7 @@ local function target_chips(r, id)
     end
 end
 
--- Stratagems fired before the row's spell: Pen, Cel, Acc...
+-- Modifiers fired before the row's spell (Pen, Cel, Acc, Emb...), then Hold: wait for them.
 local function mod_chips(r, id)
     for i, m in ipairs(r.mods) do
         if i > 1 then imgui.SameLine(0, 2) end
@@ -743,6 +743,12 @@ local function mod_chips(r, id)
         if not m.on then imgui.PopStyleColor(3) end
         tip(m.note and ('%s first: %s'):format(m.name, m.note) or m.name)
     end
+    imgui.SameLine(0, 2)
+    if not r.hold then push_button(CHIP_OFF) end
+    if imgui.Button('Hold##' .. id .. '_hold') then act.hold(r.key, not r.hold) end
+    if not r.hold then imgui.PopStyleColor(3) end
+    tip('Wait while a modifier picked here can\'t go with the spell (on recast, no charge left); '
+        .. 'otherwise the spell goes without it.')
 end
 
 -- One row per settings key: [x] Name (note) | pick | ME P1-P5 | Pen Acc | ready or why not.

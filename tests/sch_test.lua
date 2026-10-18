@@ -233,3 +233,11 @@ test('expected statuses stay out of the snapshot the HUD and /sk3 state read', f
     eq(decide(g, settings.defaults(), mem), '/ma "Raise II" 101')
     eq({ g.me.buffs[ENLIGHTENMENT], g.units[1].buffs[ENLIGHTENMENT] }, { nil, nil })
 end)
+
+test('Hold on a row: its spell waits while a stratagem picked can\'t go (wrong Arts, no charge); without, it goes alone', function ()
+    local cfg = cfg_with({ Protect = { on = true, mods = { Penury = true }, hold = true } })
+    eq(decide(snap({ DARK_ARTS }), cfg, {}), nil)
+    eq(decide(snap({ LIGHT_ARTS }), cfg, {}), '/ja "Penury" <me>')
+    cfg.rows.Protect.hold = nil
+    eq(decide(snap({ DARK_ARTS }), cfg, {}), '/ma "Protect IV" <me>')
+end)

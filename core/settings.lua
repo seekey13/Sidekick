@@ -6,7 +6,8 @@
     use ("Regen (keep up)", when one family has several):
         rows[key] = { on = bool, pick = action name or nil (= best tier),
                       targets = { [party or alliance slot] = true, [tracked name] = true },  -- buffs only
-                      mods = { [modifier name] = true } }  -- buffs only: stratagems fired first
+                      mods = { [modifier name] = true },  -- buffs only: stratagems, Embolden fired first
+                      hold = true }  -- buffs only: the spell waits while one of its mods can't go
     A tracked player's name stays on the row after they're untracked, so tracking
     them again brings their buffs back.
     A row never saved uses its default: on, except buffs (a luopan's Geo- spells

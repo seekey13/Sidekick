@@ -161,6 +161,16 @@ test('Embolden on a buff row goes just before the spell', function ()
     eq(decide(snap(nil, nil, { Embolden = 200 }), cfg), '/ma "Protect III" <me>', 'on recast, the spell goes unboosted')
 end)
 
+test('Hold on its row: the spell waits while Embolden can\'t go with it', function ()
+    local cfg = settings.defaults()
+    cfg.rows.Protect = { on = true, mods = { Embolden = true }, hold = true }
+    eq(decide(snap(nil, nil, { Embolden = 200 }), cfg), nil)
+    eq(decide(snap({ [EMBOLDEN] = 1 }, nil, { Embolden = 200 }), cfg), '/ma "Protect III" <me>', 'up already: it goes')
+    eq(decide(snap(), cfg), '/ja "Embolden" <me>')
+    cfg.rows.Shell = { on = true }
+    eq(decide(snap(nil, nil, { Embolden = 200 }), cfg), '/ma "Shell IV" <me>', 'only that row waits')
+end)
+
 local NAMES = { job = function (id) return ({ [22] = 'RUN', [4] = 'BLM', [1] = 'WAR', [3] = 'WHM' })[id] end,
                 statuses = fake.res.statuses }
 local function view(g, list, cfg)
@@ -193,6 +203,14 @@ test('model: a buff row of white enhancing magic gets an Emb chip', function ()
     local protect
     for _, r in ipairs(section(v, 'buff').rows) do if r.key == 'Protect' then protect = r end end
     eq(protect.mods, { { name = 'Embolden', label = 'Emb', note = 'more potent', on = false } })
+    eq(protect.hold, false)
+    local cfg = settings.defaults()
+    local act = model.actions(cfg, { running = false, sent = {} }, function () end)
+    act.hold('Protect', true)
+    eq(cfg.rows.Protect, { on = false, hold = true })
+    eq(model.apply(act, cfg, { 'hold', n = 2, 'Protect', false }), true)
+    eq(cfg.rows.Protect.hold, nil)
+    eq(model.apply(act, cfg, { 'hold', n = 1, 'Protect' }), false, 'its state, never a toggle')
 end)
 
 test('another session may pick a rune for any set\'s slot, by name', function ()
