@@ -268,7 +268,7 @@ local function party(g, cfg, names)
         local list = u.kind == 'alliance' and alliance or out
         list[#list + 1] = {
             tag = tag, kind = u.kind, name = u.name, alive = u.alive, away = not u.in_zone,
-            tracked = u.kind == 'tracked' or u.tracked == true,
+            tracked = u.kind == 'tracked' or u.tracked == true, shared = u.auto,
             job = u.main_lv and jobs(names.job, u.main, u.main_lv, u.sub, u.sub_lv) or nil,
             hpp = u.hpp, hp = hp_state(u, cfg.heal), mpp = u.mpp, uses_mp = u.uses_mp == true,
             mp = u.uses_mp and u.mpp < cfg.recover.mp and 'low' or 'ok',

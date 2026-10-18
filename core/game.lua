@@ -8,6 +8,8 @@
 
     unit = { slot, sid, tidx, name, kind = 'self'|'party'|'trust'|'alliance'|'tracked', hpp, hp, max_hp,
              mpp, mp, tp, uses_mp (yours: max MP > 0; others: seen with MP on these jobs),
+             max_known (max_hp is real: yours, or seen at full HP),
+             jobs = { main, main_lv, sub, sub_lv } (you and your party's players),
              in_zone, dist, pos = { x, y, z },
              status (entity), alive, buffs = { [id] = true },
              moving (others: moved in the last half second),
@@ -15,9 +17,10 @@
     Slots: 0 you, 1-5 your party, 6-11 and 12-17 the alliance's other parties
     (kind 'alliance', their statuses from packets as a trust's).
     A tracked player has no slot and no MP; in_zone while the client draws them
-    (in range; out of it, their HP and status as last seen), max_hp estimated
-    from their /check level (else yours), and main, main_lv, sub, sub_lv once a
-    /check has answered. A member (or alliance member) you also track has tracked = true.
+    (in range; out of it, their HP and status as last seen, or as a session file
+    says), max_hp from a session file, else estimated from their /check level (else
+    yours), and main, main_lv, sub, sub_lv once a /check or a session file has
+    answered; `auto` names the session whose file tracks them (core/share.lua). A member (or alliance member) you also track has tracked = true.
     The pet is { sid, tidx, name, hpp, dist, pos, status (1 engaged), buffs, since (first seen) }; the
     battle target `bt` { sid, tidx, name, hpp, dist, pos, mob, claimed, moving }, `claimed`
     when it's a mob another party of the alliance claimed (the client has no <bt>).
@@ -227,15 +230,18 @@ end
 -- Out of range, their HP and status are as last seen, as a member's in another zone.
 local function tracked_unit(em, t, me, now)
     local u = { sid = t.sid, name = t.name, kind = 'tracked', mpp = 0, mp = 0, tp = 0, uses_mp = false,
-                in_zone = here(em, t), main = t.main, main_lv = t.main_lv, sub = t.sub, sub_lv = t.sub_lv }
+                in_zone = here(em, t), main = t.main, main_lv = t.main_lv, sub = t.sub, sub_lv = t.sub_lv,
+                auto = t.auto }
     if u.in_zone then
         local i = t.tidx
         t.hpp, t.status = em:GetHPPercent(i), em:GetStatus(i)
         u.tidx, u.dist = i, math.sqrt(em:GetDistance(i))
         u.pos = { em:GetLocalPositionX(i), em:GetLocalPositionY(i), em:GetLocalPositionZ(i) }
+    elseif t.shared_hpp then  -- not drawn: their own session's client still reads them
+        t.hpp, t.status = t.shared_hpp, nil
     end
     u.hpp, u.status = t.hpp or 0, t.status
-    u.max_hp = t.main_lv and tracked.max_hp(t.main_lv) or me.max_hp
+    u.max_hp = t.max_hp or t.main_lv and tracked.max_hp(t.main_lv) or me.max_hp
     u.hp = u.max_hp and math.floor(u.max_hp * u.hpp / 100) or 0
     u.alive = u.hpp > 0 and u.status ~= DEAD
     if u.in_zone and not u.alive then buffs.forget(t.sid) end  -- a death clears statuses silently
@@ -370,6 +376,12 @@ function game.read(now)
                 in_zone = party:GetMemberZone(i) == zone,
             }
             if u.hpp == 100 and u.hp > 0 then max_hp[sid] = u.hp end
+            if i == 0 and player:GetHPMax() > 0 then max_hp[sid] = player:GetHPMax() end
+            u.max_known = max_hp[sid] ~= nil
+            if i <= 5 then
+                u.jobs = { party:GetMemberMainJob(i), party:GetMemberMainJobLevel(i),
+                           party:GetMemberSubJob(i), party:GetMemberSubJobLevel(i) }
+            end
             if i == 0 then
                 u.uses_mp = player:GetMPMax() > 0
             else
