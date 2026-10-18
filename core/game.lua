@@ -392,14 +392,18 @@ function game.recast(action)
     elseif action.recast and action.recast > 0 then
         timer = ability_timer(recast, action.recast)
     end
-    if timer > 0 then
+    local wait = timer / 60
+    -- Charge pools: usable once the charges it costs are back, not the whole pool,
+    -- and then after the same delay as a recast run out.
+    if timer > 0 and action.kind == 'ja' and action.recast == sch.STRATAGEMS then
+        wait = sch.charge_wait(wait, sch_level(mm:GetPlayer()))
+    elseif timer > 0 and action.kind == 'pet' and action.recast == bst.READY then
+        wait = bst.charge_wait(wait, action.charges)
+    end
+    key = key .. (action.charges and ':' .. action.charges or '')
+    if wait > 0 then
         ready_since[key] = nil
-        -- Charge pools: usable once the charges it costs are back, not the whole pool.
-        if action.kind == 'ja' and action.recast == sch.STRATAGEMS then
-            return sch.charge_wait(timer / 60, sch_level(mm:GetPlayer()))
-        end
-        if action.kind == 'pet' and action.recast == bst.READY then return bst.charge_wait(timer / 60, action.charges) end
-        return timer / 60
+        return wait
     end
     ready_since[key] = ready_since[key] or os.clock()
     return math.max(0, READY_DELAY - (os.clock() - ready_since[key]))
@@ -408,7 +412,7 @@ end
 -- Forget `action`'s ready stamp once it's sent, so its next recast gets the full delay.
 function game.sent(action)
     if not action.recast then return end  -- /heal, /follow: no recast
-    ready_since[action.kind .. action.recast] = nil
+    ready_since[action.kind .. action.recast .. (action.charges and ':' .. action.charges or '')] = nil
 end
 
 -- The snapshot. { loading = true } until the client has the player's job.

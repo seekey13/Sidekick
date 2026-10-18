@@ -8,7 +8,8 @@
       danger     under heal.danger: HP% restored per second locked out; holds for
                  a heal nearly off recast
       efficient  from the danger line to full HP: HP that lands where it's needed, per
-                 share of the MP, TP or Ready charges you have; Regen allowed, and counted while it ticks
+                 share of the MP or TP you have; Regen allowed, and counted while it ticks;
+                 never a Ready move, whose charges are kept for the pet's attacks
     The focus member has its own two lines; skipped members count for nothing,
     and so do the alliance's other parties unless heal.alliance is on.
     An area heal lands on the target's party alone, so each party is scored on
@@ -132,7 +133,6 @@ local function need(u, efficient)
 end
 
 local function share(a, f, g)
-    if a.charges then return a.charges / math.max(g.ready or 0, a.charges) end  -- Wild Carrot's Ready charges
     if f.mp > 0 then return f.mp / g.me.mp end
     if waltz(a) then return g.me.tp >= TP_CAP and 0 or a.tp / g.me.tp end
     return 0
@@ -193,11 +193,12 @@ end
 
 -- The best candidate for the band. A heal with no amount (Vivacious Pulse) goes
 -- only when nothing else can, and never in efficient. Efficient sends nothing
--- while every heal would overheal: chip damage waits.
+-- while every heal would overheal: chip damage waits. A Ready move (Wild Carrot)
+-- keeps its charges for the pet's attacks unless someone is in danger.
 local function best_of(band, ctx, ready, members)
     local best, fallback, fits = nil, nil, band ~= 'efficient'
     for _, a in ipairs(ready) do
-        if not a.tick or band == 'efficient' then
+        if (not a.tick or band == 'efficient') and not (a.charges and band == 'efficient') then
             local amt, m = amount(a, ctx)
             for _, f in ipairs(forms(a, ctx, band)) do
                 for _, centre in ipairs(centres(a, ctx.g)) do

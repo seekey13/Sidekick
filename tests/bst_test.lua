@@ -54,16 +54,20 @@ test('catalog: a Ready move costs the charges the DAT gives as its MP, and no MP
     eq({ blu.mp > 0, blu.charges }, { true, nil })
 end)
 
-test('Wild Carrot heals the party on a BST with no MP, once two charges are banked', function ()
+test('Wild Carrot heals the party in danger on a BST with no MP, once two charges are banked', function ()
     local cat = fake.catalog(BST, 75, WAR, 37, JAS)
-    local cmd, intent = decide(snap(50, WAR, 2), cat)
+    local cmd, intent = decide(snap(40, WAR, 2), cat)
     eq({ cmd, intent.behavior }, { '/pet "Wild Carrot" <me>', 'heal' })
-    eq(decide(snap(50, WAR, 1), cat), nil)  -- one charge: not enough
-    eq(decide(snap(50, WAR, 3, { pet = rabbit({ name = 'FunguarFamiliar' }) }), cat), nil)  -- not a rabbit
+    eq(decide(snap(40, WAR, 1), cat), nil)  -- one charge: not enough
+    eq(decide(snap(40, WAR, 3, { pet = rabbit({ name = 'FunguarFamiliar' }) }), cat), nil)  -- not a rabbit
 end)
 
-test('Wild Carrot weighs its charges against MP: a cheap spell first when healing for efficiency, the carrot in danger', function ()
+test('Wild Carrot only in danger: its charges are kept for the pet\'s attacks on chip damage', function ()
     local cat = fake.catalog(BST, 75, WHM, 37, JAS)
     eq(decide(snap(80, WHM, 3), cat), '/ma "Regen" 101')
     eq(decide(snap(40, WHM, 3), cat), '/pet "Wild Carrot" <me>')
+    local war = fake.catalog(BST, 75, WAR, 37, JAS)
+    local danger = settings.defaults().heal.danger
+    eq(decide(snap(danger + 10, WAR, 3), war), nil)  -- no MP heal, and still no carrot over the danger line
+    eq(decide(snap(danger - 1, WAR, 3), war), '/pet "Wild Carrot" <me>')
 end)

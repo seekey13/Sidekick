@@ -294,9 +294,11 @@ test('BST: Ready charges from the pool timer; a Ready move waits only for the ch
     world.main, world.timers = 9, { { 102, 45 } }  -- one charge back in 15s: 1 banked
     local g = read()
     eq(g.ready, 1)
-    eq({ game.recast({ kind = 'pet', recast = 102, charges = 1 }), game.recast({ kind = 'pet', recast = 102, charges = 2 }) },
-        { 0, 15 })
-    eq(game.recast({ kind = 'pet', recast = 102 }), 0)  -- Sic: one charge
+    -- A charge back waits the half-second delay a recast run out does, then reads ready.
+    local function soon(a) local w = game.recast(a); return w > 0 and w <= 0.5 end
+    eq({ soon({ kind = 'pet', recast = 102, charges = 1 }), game.recast({ kind = 'pet', recast = 102, charges = 2 }) },
+        { true, 15 })
+    eq(soon({ kind = 'pet', recast = 102 }), true)  -- Sic: one charge
     world.spell_timers = { [102] = 8 }
     eq(game.recast({ kind = 'ma', recast = 102 }), 8)  -- Enaero, spell 102: its own recast, no charges
     world.main = 3
