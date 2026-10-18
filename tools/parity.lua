@@ -132,6 +132,7 @@ for _, job in ipairs(jobs) do
                     cmp('blocked_by', list(e.blocked_by), list(a.blocked_by))
                     cmp('requires', list(e.requires_buff), list(a.requires))
                     cmp('priority', e.priority or 0, a.priority)
+                    cmp('charges', e.ready_charge_cost or e.requires_ready_charge and 1 or nil, a.charges)
                     local enemy = cmd:find('<bt>') ~= nil
                     cmp('gate', e.combat_only and not enemy and 'combat' or e.idle_only and 'idle' or nil, a.gate)
                     cmp('enemy', enemy, a.targets == 32)

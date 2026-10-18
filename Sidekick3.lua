@@ -207,6 +207,8 @@ local function show_state(g)
         local e = t[2]
         if e then printf('  %-5s %-14s HP %3d%%  %.1fy%s', t[1], e.name, e.hpp, e.dist, e.mob and ' (mob)' or '') end
     end
+    if g.stratagems then printf('  stratagems %d', g.stratagems) end
+    if g.ready then printf('  Ready charges %d', g.ready) end
 end
 
 -- /sk3 plan: what automation would do this moment, without doing it.

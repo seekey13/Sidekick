@@ -67,8 +67,14 @@ local target = {
     end,
 }
 local inventory = { GetEquippedItem = const({ Index = 0 }), GetContainerCountMax = const(0) }
+-- Ability timers by recast id, in seconds (the client's are in 60ths).
+local recast = {
+    GetAbilityTimerId = function (_, i) return (world.timers or {})[i + 1] and world.timers[i + 1][1] or 0 end,
+    GetAbilityTimer = function (_, i) return (world.timers or {})[i + 1] and world.timers[i + 1][2] * 60 or 0 end,
+    GetSpellTimer = function (_, id) return ((world.spell_timers or {})[id] or 0) * 60 end,
+}
 local mm = { GetPlayer = const(player), GetParty = const(party), GetEntity = const(em), GetTarget = const(target),
-             GetInventory = const(inventory) }
+             GetInventory = const(inventory), GetRecast = const(recast) }
 rawset(_G, 'AshitaCore', { GetMemoryManager = const(mm), GetPointerManager = const({ Get = const(0) }) })
 rawset(_G, 'ashita', { memory = { find = const(0), read_uint32 = const(0), read_uint8 = const(0) } })
 
@@ -281,6 +287,22 @@ test('your statuses: a set, and how many of each stand (runes stack); empty slot
     world.buffs = { 523, 523, 524, 0, 255, -1 }
     local me = unit(read(), ME)
     eq({ me.buffs, me.stacks }, { { [523] = true, [524] = true }, { [523] = 2, [524] = 1 } })
+end)
+
+test('BST: Ready charges from the pool timer; a Ready move waits only for the charges it costs', function ()
+    reset()
+    world.main, world.timers = 9, { { 102, 45 } }  -- one charge back in 15s: 1 banked
+    local g = read()
+    eq(g.ready, 1)
+    -- A charge back waits the half-second delay a recast run out does, then reads ready.
+    local function soon(a) local w = game.recast(a); return w > 0 and w <= 0.5 end
+    eq({ soon({ kind = 'pet', recast = 102, charges = 1 }), game.recast({ kind = 'pet', recast = 102, charges = 2 }) },
+        { true, 15 })
+    eq(soon({ kind = 'pet', recast = 102 }), true)  -- Sic: one charge
+    world.spell_timers = { [102] = 8 }
+    eq(game.recast({ kind = 'ma', recast = 102 }), 8)  -- Enaero, spell 102: its own recast, no charges
+    world.main = 3
+    eq(read().ready, nil)  -- off BST
 end)
 
 rawset(_G, 'AshitaCore', nil)
