@@ -379,8 +379,17 @@ end
 
 -- Remote control: what another session sent (core/share.lua), made through this
 -- session's own act as if clicked here, when it's a call ui/model.lua lets it make.
+local view_failed  -- the last error building your view for another session, printed once
 local shared = {
-    view = function () return model.published(view(snap)) end,
+    view = function ()
+        local ok, v = pcall(view, snap)
+        if ok then view_failed = nil; return model.published(v) end
+        if v ~= view_failed then
+            print(chat.header(addon.name) .. chat.error('Settings view for another session failed: ' .. tostring(v)))
+            view_failed = v
+        end
+        error(v, 0)
+    end,
     apply = function (from, call)
         local ok, done = pcall(model.apply, model.actions(cfg, status, changed, tracking, share.send), cfg, call)
         if not ok then

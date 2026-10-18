@@ -3,9 +3,10 @@
     publishes a session file, config/addons/sidekick3/session_<Name>.txt, and
     reads the others'. No network: the files are the whole channel.
 
-    session = { name, heartbeat = os.time() of the last write, running,
+    session = { name, heartbeat = os.time() of the last write, running, epoch (its load's),
                 members = { you first, then your party's players (trusts left out):
-                            { sid, name, main, main_lv, sub, sub_lv, hpp, hp, max_hp, mpp, mp, here } } }
+                            { sid, name, main, main_lv, sub, sub_lv, hpp, hp, max_hp, mpp, mp, here } },
+                watch, calls, acks (remote control, below) }
     max_hp is 0 when unknown: a member not yet seen at full HP. `here`: in the
     owner's zone, so their HP is current (a member elsewhere has stale HP).
     The file ends with an `end` line: one without it was cut short.
@@ -47,6 +48,7 @@ function share.pack(v)
     if t == 'string' then
         return '"' .. v:gsub('[%c"\\]', function (c) return ('\\%03d'):format(c:byte()) end) .. '"'
     elseif t == 'number' then
+        if v ~= v or v == math.huge or v == -math.huge then return nil end  -- no text reads back as it
         return v == math.floor(v) and math.abs(v) < 2 ^ 53 and ('%d'):format(v) or ('%.17g'):format(v)
     elseif t == 'boolean' then
         return v and 't' or 'f'
@@ -58,7 +60,7 @@ function share.pack(v)
         end
         return '{' .. table.concat(out, ',') .. '}'
     end
-end  -- anything else (a function) is left out of its table
+end  -- anything else (a function, a number not finite) is left out of its table
 
 -- The value at `s` position i, and the position after it; nil for none.
 local function parse(s, i)
@@ -151,10 +153,11 @@ function share.decode(text)
             }
         elseif watch then
             s.watch[watch] = true
-        elseif to then
+        elseif to then  -- one that won't read is skipped: the next call's ack covers its number
             call = share.unpack(call)
-            if type(call) ~= 'table' then return nil end
-            s.calls[#s.calls + 1] = { to = to, epoch = tonumber(to_epoch), n = tonumber(n), call = call }
+            if type(call) == 'table' then
+                s.calls[#s.calls + 1] = { to = to, epoch = tonumber(to_epoch), n = tonumber(n), call = call }
+            end
         elseif from then
             s.acks[from] = { epoch = tonumber(from_epoch), n = tonumber(acked) }
         else
@@ -331,6 +334,7 @@ local pending, sent_n = {}, 0  -- calls sent to other sessions not acknowledged 
 local applied = {}             -- [sender] = { epoch, n }: the last call applied from each
 local published = true         -- your view's file may exist (one left by a crash is removed at the first tick)
 local view_text                -- what it holds
+local views_read = {}          -- [owner name] = the text of their view last read
 
 local function dir() return ('%s\\config\\addons\\sidekick3\\'):format(AshitaCore:GetInstallPath()) end
 local function path(name) return ('%ssession_%s.txt'):format(dir(), name) end
@@ -387,15 +391,21 @@ local function publish(name, view)
     end
 end
 
--- The views of the live sessions in `watching`; a file caught mid-write keeps the last read.
+-- The views of the live sessions in `watching`, parsed only when changed; a file
+-- caught mid-write keeps the last read, one gone (its session no longer sends it) is forgotten.
 local function read_views(watching, live)
     for name in pairs(share.views) do
-        if not (watching[name] and live[name]) then share.views[name] = nil end
+        if not (watching[name] and live[name]) then share.views[name], views_read[name] = nil, nil end
     end
     for name in pairs(watching) do
         if live[name] then
-            local v = share.unpack(read(view_path(name)))
-            if type(v) == 'table' then share.views[name] = v end
+            local text = read(view_path(name))
+            if not text then
+                share.views[name], views_read[name] = nil, nil
+            elseif text ~= views_read[name] then
+                local v = share.unpack(text)
+                if type(v) == 'table' then share.views[name], views_read[name] = v, text end
+            end
         end
     end
 end
@@ -412,10 +422,10 @@ function share.send(to, call)
 end
 
 -- Publish, read and sync, at most every EVERY seconds (FAST while watching or
--- watched). `g` is the snapshot (a loading one republishes the last roster, so a
+-- watched, or while calls wait either way). `g` is the snapshot (a loading one republishes the last roster, so a
 -- zone isn't taken for a session gone, for LOADING seconds: past that, as after a
--- logout, your file is deleted). `status` gives `running` and `watching` (the
--- sessions whose SK Settings you have open); `hooks.apply(from, call)` applies a
+-- logout, your file is deleted). `status` gives `running`, `open` and `watching` (the
+-- sessions whose SK Settings you have open: watched only while the HUD is); `hooks.apply(from, call)` applies a
 -- call another session sent (never while loading), `hooks.view()` builds the view
 -- a watcher draws.
 function share.tick(g, clock, status, hooks)
@@ -441,7 +451,7 @@ function share.tick(g, clock, status, hooks)
     for from, a in pairs(applied) do
         if live[from] then acks[from] = a end
     end
-    for name in pairs(status.watching) do
+    for name in pairs(status.open and status.watching or {}) do
         if live[name] then watch[name] = true end
     end
     if write(path(me), share.encode(roster, status.running, os.time(),

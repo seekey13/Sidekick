@@ -467,18 +467,19 @@ end
 
 -- The act calls another session may make here: all but act.close, act.log,
 -- the HUD's settings (`ui.*`, the Japanese client) and tracking your target.
--- Each one's leading arguments' types, checked as it arrives.
+-- Each one's arguments, by the types each may be ('|' between them), checked as it arrives.
 local REMOTE = {
-    run = { 'boolean' }, section = { 'string', 'boolean' }, row = { 'string', 'boolean' }, pick = { 'string' },
-    target = { 'string' }, mod = { 'string', 'string' }, profile = {}, save_profile = { 'string' }, new_profile = {},
+    run = { 'boolean' }, section = { 'string', 'boolean' }, row = { 'string', 'boolean' },
+    pick = { 'string', 'string|nil' }, target = { 'string', 'number|string' }, mod = { 'string', 'string' },
+    profile = { 'string|nil' }, save_profile = { 'string', 'boolean|nil' }, new_profile = {},
     delete_profile = { 'string' }, track = { 'string' }, untrack = { 'string' }, skip = { 'string' },
-    set = { 'string' },
+    set = { 'string', 'boolean|number|string' },
 }
 
 -- Whether `path` is a setting act.set may change from another session: one that
 -- exists, not the HUD's, and `value` of its type.
 local function settable(cfg, path, value)
-    if path == 'japanese' or path:match('^ui%.') or type(value) == 'table' then return false end
+    if path == 'japanese' or path:match('^ui%.') then return false end
     local parent, key = path:match('^(.-)%.?([^.]+)$')
     if not parent or parent == '' then return false end
     local t = cfg
@@ -486,21 +487,26 @@ local function settable(cfg, path, value)
     return type(t) == 'table' and t[key] ~= nil and type(t[key]) == type(value)
 end
 
+local function fits(v, types)
+    if type(v) == 'number' and (v ~= v or v == math.huge or v == -math.huge) then return false end
+    return ('|' .. types .. '|'):find('|' .. type(v) .. '|', 1, true) ~= nil
+end
+
 -- Make `call` ({ fn, n = #args, args... }), sent by another session, through `act`,
--- when it's one REMOTE lists with arguments of the right types; whether it was.
+-- when it's one REMOTE lists with arguments of the right types (`n` of them, no
+-- more than it takes); whether it was. Only those arguments are passed on.
 function model.apply(act, cfg, call)
     local fn = call[1]
     local types = type(fn) == 'string' and REMOTE[fn]
-    if not types or type(call.n) ~= 'number' then return false end
+    if not types or type(call.n) ~= 'number' or call.n > #types then return false end
     for i, t in ipairs(types) do
-        if type(call[i + 1]) ~= t then return false end
+        if not fits(call[i + 1], t) or i > call.n and call[i + 1] ~= nil then return false end
     end
-    if fn == 'section' and (call[2] == 'ui' or type(cfg[call[2]]) ~= 'table' or type(cfg[call[2]].on) ~= 'boolean') then
-        return false
-    end
-    if fn == 'set' and not settable(cfg, call[2], call[3]) then return false end
-    if fn == 'target' and type(call[3]) ~= 'number' and type(call[3]) ~= 'string' then return false end
-    act[fn](unpack(call, 2, call.n + 1))
+    local a, b = call[2], call[3]
+    if fn == 'section' and (a == 'ui' or type(cfg[a]) ~= 'table' or type(cfg[a].on) ~= 'boolean') then return false end
+    if fn == 'set' and not settable(cfg, a, b) then return false end
+    if fn == 'target' and type(b) == 'number' and (b % 1 ~= 0 or b < 0 or b > 17) then return false end
+    act[fn](unpack(call, 2, #types + 1))
     return true
 end
 

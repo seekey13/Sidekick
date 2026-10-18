@@ -565,7 +565,8 @@ local function draw_track(view)
         if imgui.Button(('Track %s##sk3_track'):format(t)) then act.track(t) end
         tip('Heal, clear, raise and buff them too, with what reaches outside the party. This session only.')
     else
-        text('Target a player outside your alliance to track them, or /sk3 track Name.', GREY)
+        text(view.session and ('Target a player outside the alliance in %s\'s game to track them there.'):format(view.session)
+            or 'Target a player outside your alliance to track them, or /sk3 track Name.', GREY)
     end
 end
 
@@ -838,12 +839,14 @@ local function remote_window(r)
     local ok, err = true, nil
     if imgui.Begin(('SK Settings: %s###sk3_settings_%s'):format(r.name, r.name), open, ImGuiWindowFlags_AlwaysAutoResize) then
         local mine = act
-        act = mine.remote(r.name)
-        ok, err = pcall(draw_remote, r)
+        ok, err = pcall(function ()
+            act = mine.remote(r.name)
+            draw_remote(r)
+        end)
         act = mine
     end
     imgui.End()
-    if not open[1] then act.watch(r.name, false) end
+    if not (open[1] and ok) then act.watch(r.name, false) end  -- a view that won't draw isn't drawn again
     if not ok then return err end
 end
 

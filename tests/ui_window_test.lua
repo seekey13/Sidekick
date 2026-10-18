@@ -796,3 +796,24 @@ test('your SK Settings and another session\'s draw side by side, each its own pr
     eq(remote_calls, { { 'A', 'save_profile', '' } })  -- A's name field: blank, A has no profile loaded
     eq(cfg.profiles.Mine.heal ~= nil, true)  -- the click also landed in your own window: saved there under Mine
 end)
+
+test('a view that won\'t draw closes its window and is not shown again; the HUD comes back', function ()
+    close_settings()
+    local cfg, st = settings.defaults(), remote_status({ watching = { A = true } })
+    st.views = { A = { job = 'WHM 75', status = { state = 'Stopped' } } }  -- another version's shape: no sections
+    local err = draw(window, cfg, st, nil, model.build(snap(), cat, cfg, st, NAMES))
+    eq({ type(err), st.watching }, { 'string', {} })
+    render(cfg, st, nil, model.build(snap(), cat, cfg, st, NAMES))
+    eq(begun('SK Settings: A###sk3_settings_A'), false)
+end)
+
+test('another session\'s Tracked says where to target, its game not yours', function ()
+    close_settings()
+    local cfg, st = settings.defaults(), remote_status({ watching = { A = true } })
+    local v = remote_view(cfg)
+    v.track = {}
+    st.views = { A = v }
+    render(cfg, st, nil, model.build(snap(), cat, cfg, st, NAMES))
+    eq(showed('Target a player outside the alliance in A\'s game to track them there.'), true)
+    st.watching = {}
+end)

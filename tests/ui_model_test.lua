@@ -461,8 +461,14 @@ test('another session\'s calls apply through act; the HUD\'s settings, the log a
         call('set', 'heal.danger', 'high'), call('set', 'heal.skip', {}), call('set', 'danger', 1), call('section', 'ui', true),
         call('section', 'nope', true), call('section', 'heal', 'yes'), call('row', 5, true), call('target', 'Protect', true),
         { 'run', true }, { 42 },
+        { 'set', 'heal.danger', 60, n = 1 }, { 'section', 'heal', true, n = 1 }, call('run', true, 'extra'),  -- n not its args
+        call('pick', 'Protect', true), call('pick', 'Protect', {}), call('save_profile', 'X', 'yes'), call('profile', 5),
+        call('set', 'heal.danger', 0 / 0), call('set', 'heal.danger', 1 / 0), call('target', 'Protect', 2.5),
+        call('target', 'Protect', 18), { 'run', true, n = 1e8 },
     }) do
         eq(model.apply(act, cfg, bad), false, tostring(bad[1]) .. ' ' .. tostring(bad[2]))
     end
-    eq({ writes, cfg.ui.hp_width ~= 300, cfg.ui.japanese, st.log }, { before, true, false, true })
+    eq({ writes, cfg.ui.hp_width ~= 300, cfg.ui.japanese, st.log, cfg.heal.danger, cfg.heal.on, cfg.rows.Protect.pick },
+       { before, true, false, true, 60, true, nil })
+    eq({ apply('target', 'Protect', 'Out'), apply('save_profile', 'X', true), apply('profile', nil) }, { true, true, true })
 end)

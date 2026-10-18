@@ -47,7 +47,7 @@ test('remote control lines read back: who it watches, its calls and its acknowle
         { epoch = 1234, watch = { Two = true, Three = true }, calls = calls, acks = { Two = { epoch = 9, n = 12 }, Idle = { epoch = 1, n = 0 } } })
     local s = share.decode(text)
     eq({ s.epoch, s.watch, s.calls, s.acks }, { 1234, { Two = true, Three = true }, calls, { Two = { epoch = 9, n = 12 } } })
-    eq(share.decode((text:gsub('do Two 7 4 [^\n]+', 'do Two 7 4 {1="pick",2="Prot'))), nil)  -- a call cut short
+    eq(share.decode((text:gsub('do Two 7 4 [^\n]+', 'do Two 7 4 {1="pick",2="Prot'))).calls, { calls[1] })  -- one cut short: skipped
 end)
 
 test('pack and unpack: nested plain data round trips, quotes, backslashes and new lines in strings', function ()
@@ -59,6 +59,15 @@ test('pack and unpack: nested plain data round trips, quotes, backslashes and ne
         eq(share.unpack(bad), nil, tostring(bad))
     end
     eq(share.unpack(('{1='):rep(100000)), nil)  -- nested past the stack: nothing, no error
+    eq({ share.pack(1 / 0), share.pack(0 / 0), share.unpack(share.pack({ 'set', 1 / 0, -1 / 0, 0 / 0, 5 })) },
+       { nil, nil, { 'set', [5] = 5 } })  -- no text reads back as them: left out
+end)
+
+test('a call that won\'t read is skipped, the rest of its file still read', function ()
+    local calls = { { to = 'Two', epoch = 7, n = 3, call = { 'run', n = 1, true } } }
+    local text = share.encode({ member(10, 'Box') }, false, 5, { epoch = 1, calls = calls })
+    local s = share.decode((text:gsub('\nend', '\ndo Two 7 2 {1="run",2=inf}\nend')))
+    eq({ s.name, s.calls }, { 'Box', calls })
 end)
 
 test('the roster is you and your party\'s players with their jobs; a max HP only once known', function ()
@@ -323,10 +332,14 @@ test('two sessions: a call goes, is applied once and acknowledged; a watched ses
         b.epoch = a.epoch + 1
         local function g(sid, name) return { loading = false, units = { fake.unit({ kind = 'self', slot = 0, sid = sid, name = name }) } } end
         local ga, gb = g(1, 'Alpha'), g(2, 'Beta')
-        local sa, sb = { running = false, watching = {} }, { running = false, watching = {} }
+        local sa, sb = { running = false, open = true, watching = {} }, { running = false, open = true, watching = {} }
         local got = {}
+        local fail = false
         local hb = { apply = function (from, c) got[#got + 1] = { from, c[1] }; sb.running = c[2] end,
-                     view = function () return { job = 'WHM 75', sections = { { id = 'heal', on = true } } } end }
+                     view = function ()
+                         if fail then error('no view') end
+                         return { job = 'WHM 75', sections = { { id = 'heal', on = true } } }
+                     end }
         local ha = { apply = function () error('nothing is sent to Alpha') end, view = function () error('nobody watches Alpha') end }
         local clock = 0
         local function both() clock = clock + 1; a.tick(ga, clock, sa, ha); b.tick(gb, clock, sb, hb) end
@@ -338,9 +351,21 @@ test('two sessions: a call goes, is applied once and acknowledged; a watched ses
         eq(share.decode(files[DIR .. 'session_Beta.txt']).running, true)
         both(); both()
         eq({ #got, #share.decode(files[DIR .. 'session_Alpha.txt']).calls }, { 1, 0 })  -- acknowledged: no longer sent
-        sa.watching.Beta = true
+        sa.watching.Beta, sa.open = true, false  -- the HUD closed: its windows with it, so not watched
+        both(); both()
+        eq({ share.decode(files[DIR .. 'session_Alpha.txt']).watch, files[DIR .. 'view_Beta.txt'] }, { {}, nil })
+        sa.open = true
         both(); both()
         eq(a.views.Beta, { job = 'WHM 75', sections = { { id = 'heal', on = true } } })
+        fail = true  -- its view fails while still watched: the file goes, and isn't kept as if current
+        both()
+        fail = false
+        clock = clock + 1
+        a.tick(ga, clock, sa, ha)
+        eq(a.views.Beta, nil)
+        b.tick(gb, clock, sb, hb)
+        both()
+        eq(a.views.Beta ~= nil, true)
         sa.watching.Beta = nil
         both(); both()
         eq({ a.views.Beta, files[DIR .. 'view_Beta.txt'] }, { nil, nil })
