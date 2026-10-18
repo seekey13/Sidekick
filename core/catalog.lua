@@ -18,6 +18,7 @@ local SKIP_TYPES = { [3] = true, [4] = true, [20] = true }
 -- Ability types the DAT gives a cost of 1 MP they don't have: charges (Quick Draw,
 -- stratagems) and runes, each 0 MP in game.
 local CHARGES = { [9] = true, [15] = true, [21] = true }
+local READY_MOVE = 18  -- a jug pet's move: the DAT's MP is the Ready charges it costs (jobs/bst.lua)
 local TRUST = 8  -- spell type; calling trusts is not support automation
 local SELF = 1   -- valid-target flag: items are used on you
 
@@ -119,7 +120,8 @@ function catalog.build(res, player, K)
                     lucky = use.lucky, unlucky = use.unlucky, luopan = use.luopan, rune = use.rune,
                     priority = use.priority or 0, pet = use.pet, travel = use.travel, mob_skill = use.mob_skill,
                     -- the client blocks casts by this cost, so it is the one to trust
-                    mp = kind == 'ja' and CHARGES[row.type] and 0 or row.mp, tp = row.tp,
+                    mp = (kind == 'ja' and CHARGES[row.type] or kind == 'pet' and row.type == READY_MOVE) and 0 or row.mp,
+                    tp = row.tp, charges = kind == 'pet' and row.type == READY_MOVE and row.mp or nil,
                     recast = kind == 'ma' and id or row.recast_id,  -- spell id, or ability recast timer id
                     targets = row.targets, range = row.range, area = use.area or row.area,
                     cast = row.cast and row.cast / 4,  -- seconds; spells only

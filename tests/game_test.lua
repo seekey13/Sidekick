@@ -67,8 +67,14 @@ local target = {
     end,
 }
 local inventory = { GetEquippedItem = const({ Index = 0 }), GetContainerCountMax = const(0) }
+-- Ability timers by recast id, in seconds (the client's are in 60ths).
+local recast = {
+    GetAbilityTimerId = function (_, i) return (world.timers or {})[i + 1] and world.timers[i + 1][1] or 0 end,
+    GetAbilityTimer = function (_, i) return (world.timers or {})[i + 1] and world.timers[i + 1][2] * 60 or 0 end,
+    GetSpellTimer = const(0),
+}
 local mm = { GetPlayer = const(player), GetParty = const(party), GetEntity = const(em), GetTarget = const(target),
-             GetInventory = const(inventory) }
+             GetInventory = const(inventory), GetRecast = const(recast) }
 rawset(_G, 'AshitaCore', { GetMemoryManager = const(mm), GetPointerManager = const({ Get = const(0) }) })
 rawset(_G, 'ashita', { memory = { find = const(0), read_uint32 = const(0), read_uint8 = const(0) } })
 
@@ -283,6 +289,18 @@ test('your statuses: a set, and how many of each stand (runes stack); empty slot
     eq({ me.buffs, me.stacks }, { { [523] = true, [524] = true }, { [523] = 2, [524] = 1 } })
 end)
 
+test('BST: Ready charges from the pool timer; a Ready move waits only for the charges it costs', function ()
+    reset()
+    world.main, world.timers = 9, { { 102, 45 } }  -- one charge back in 15s: 1 banked
+    local g = read()
+    eq(g.ready, 1)
+    eq({ game.recast({ kind = 'pet', recast = 102, charges = 1 }), game.recast({ kind = 'pet', recast = 102, charges = 2 }) },
+        { 0, 15 })
+    eq(game.recast({ kind = 'ja', recast = 102 }), 0)  -- Sic: one charge
+    world.main = 3
+    eq(read().ready, nil)  -- off BST
+end)
+
 rawset(_G, 'AshitaCore', nil)
 rawset(_G, 'ashita', nil)
 
@@ -306,3 +324,4 @@ test('owned ammo: your bag before the wardrobes, by the number /equip names each
     inventory.GetContainerCountMax, inventory.GetContainerItem = const(0), nil
     rawset(_G, 'AshitaCore', core)
 end)
+
