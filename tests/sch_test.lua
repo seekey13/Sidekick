@@ -241,3 +241,40 @@ test('Hold on a row: its spell waits while a stratagem picked can\'t go (wrong A
     cfg.rows.Protect.hold = nil
     eq(decide(snap({ DARK_ARTS }), cfg, {}), '/ma "Protect IV" <me>')
 end)
+
+test('Hold counts the charges: it waits while there are more stratagems to fire than charges to spend', function ()
+    local cfg = cfg_with({ Protect = { on = true, mods = { Penury = true, Celerity = true }, hold = true } })
+    local function with(charges, reserve, over)
+        local g = snap({ LIGHT_ARTS })
+        g.stratagems = charges
+        for _, id in ipairs(over or {}) do g.me.buffs[id] = true end
+        cfg.heal.reserve = reserve
+        return decide(g, cfg, {})
+    end
+    eq({ with(1) }, { nil, 'holding Protect IV for Penury' })
+    eq(with(2), '/ja "Penury" <me>')
+    eq(with(2, true), nil, 'the reserve leaves one: too few for two')
+    eq(with(1, false, { 360 }), '/ja "Celerity" <me>', 'Penury up already: one to fire, one charge')
+    eq(with(nil), '/ja "Penury" <me>', 'charges unknown: not counted')
+end)
+
+test('Hold and Accession: waits only when the spell would spread to someone it reaches', function ()
+    local cfg = cfg_with({ Protect = { on = true, targets = { [0] = false, [1] = true }, mods = { Accession = true }, hold = true } })
+    local function with(others, waits)
+        local g = snap({ LIGHT_ARTS }, others, waits)
+        return (decide(g, cfg, {}))
+    end
+    eq(with({ { name = 'A' } }, { Accession = 30 }), nil, 'A near and lacking it: waits for Accession')
+    eq(with({ { name = 'A', dist = 15 } }, { Accession = 30 }), '/ma "Protect IV" 101', 'A too far to spread to: goes alone')
+end)
+
+test('a held row says what it waits for', function ()
+    local cfg = cfg_with({ Protect = { on = true, mods = { Penury = true }, hold = true } })
+    local v = model.build(snap({ DARK_ARTS }), cat, cfg, { running = false, sent = {} },
+        { job = function () return 'SCH' end, statuses = fake.res.statuses })
+    local row
+    for _, s in ipairs(v.sections) do
+        for _, r in ipairs(s.rows or {}) do if r.key == 'Protect' then row = r end end
+    end
+    eq({ row.ready, row.avail }, { false, 'waits for Pen: needs a status' })
+end)

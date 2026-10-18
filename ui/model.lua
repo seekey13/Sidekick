@@ -192,6 +192,13 @@ local function build_row(key, acts, cfg, g, units, modifiers, outsiders)
         end
     end
     row.ready, row.avail, row.action = availability(acts, r, g)
+    -- Held: a modifier on for it that can't go says why it waits.
+    for _, m in ipairs(row.hold and modifiers or {}) do
+        if row.ready and (r.mods or {})[m.name] and not can.any(g.me.buffs, m.status) then
+            local ok, why = can.use(m, g)
+            if not ok then row.ready, row.avail = false, ('waits for %s: %s'):format(m.chip or m.name, why) end
+        end
+    end
     if acts[1].kind == 'item' then row.count = g.items and g.items[acts[1].id] or 0 end
     return row
 end

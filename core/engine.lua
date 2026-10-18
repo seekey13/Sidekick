@@ -76,7 +76,7 @@ end
 -- The intent for now, or nil and why not. `mem` is the engine's own memory
 -- between ticks (behaviors keep theirs in it too).
 function engine.decide(g, cat, cfg, mem)
-    mem.gather = nil
+    mem.gather, mem.waiting = nil, nil
     g = expecting(g, mem)
     for _, gate in ipairs(GATES) do
         if g[gate] then return nil, gate end
@@ -94,10 +94,11 @@ function engine.decide(g, cat, cfg, mem)
             end
         end
     end
-    local w = mem.gather
+    local w, h = mem.gather, mem.waiting
     local away = w and (w.who.dist and ('%.1fy away'):format(w.who.dist) or 'not in sight')
     return nil, g.resting and 'resting' or holding and 'waiting for a cure'
-        or w and ('holding %s: %s %s'):format(w.action.name, w.who.name, away) or 'nothing to do'
+        or w and ('holding %s: %s %s'):format(w.action.name, w.who.name, away)
+        or h and ('holding %s for %s'):format(h.action.name, h.mod.name) or 'nothing to do'
 end
 
 -- The party chat line asking everyone to gather for the buff held on this

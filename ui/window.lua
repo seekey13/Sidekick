@@ -747,8 +747,8 @@ local function mod_chips(r, id)
     if not r.hold then push_button(CHIP_OFF) end
     if imgui.Button('Hold##' .. id .. '_hold') then act.hold(r.key, not r.hold) end
     if not r.hold then imgui.PopStyleColor(3) end
-    tip('Wait while a modifier picked here can\'t go with the spell (on recast, no charge left); '
-        .. 'otherwise the spell goes without it.')
+    tip('Wait while a modifier picked here can\'t go with the spell (on recast, too few charges, the wrong Arts, '
+        .. 'Accession unable to spread it); otherwise the spell goes without it.')
 end
 
 -- One row per settings key: [x] Name (note) | pick | ME P1-P5 | Pen Acc | ready or why not.
