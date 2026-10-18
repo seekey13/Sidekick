@@ -460,8 +460,8 @@ local function draw_buff_settings(view)
     end
     if b.shadows then
         checkbox('Cast Utsusemi at one shadow##sk3_one_shadow', b.one_shadow, function (on) act.set('buff.one_shadow', on) end,
-            'Recast Utsusemi while its last shadow is up, not only once it is gone; that shadow is cancelled '
-                .. 'a second into the cast, so the new ones land.')
+            'Recast Utsusemi while its last shadow is up, not only once it is gone. For Ichi, which cannot replace '
+                .. 'Ni\'s shadows, that shadow is cancelled a second into the cast, so the new ones land.')
     end
     imgui.Separator()
 end

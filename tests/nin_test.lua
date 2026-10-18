@@ -89,39 +89,49 @@ end)
 
 -- One shadow -----------------------------------------------------------------------
 
-test('with one_shadow, Utsusemi is recast at its last shadow and that shadow is cancelled mid-cast', function ()
+test('with one_shadow, Utsusemi is recast at its last shadow; Ni needs no cancel, it replaces them', function ()
     local cfg, items, mem = cfg_with({ Utsusemi = true }), { [SHIHEI] = 3 }, {}
     cfg.buff.one_shadow = true
     eq({ decide(snap(items, { COPY2 }), cfg) }, { nil, 'nothing to do' }, 'two left')
     local g = snap(items, { COPY })
     local cmd, intent = decide(g, cfg, cat, mem)
-    eq({ cmd, intent.why, intent.cancel }, { '/ma "Utsusemi: Ni" <me>', 'Me: one shadow left', COPY })
+    eq({ cmd, intent.why, intent.cancel }, { '/ma "Utsusemi: Ni" <me>', 'Me: one shadow left', nil })
     engine.sent(intent, g, mem)
+    eq(mem.cancel, nil)
+end)
+
+-- Ichi at one shadow (Ni on recast), sent: g, mem.
+local function ichi_sent()
+    local cfg, mem = cfg_with({ Utsusemi = true }), {}
+    cfg.buff.one_shadow = true
+    local g = snap({ [SHIHEI] = 3 }, { COPY }, nil, { ['Utsusemi: Ni'] = 60 })
+    local cmd, intent = decide(g, cfg, cat, mem)
+    eq({ cmd, intent.why, intent.cancel }, { '/ma "Utsusemi: Ichi" <me>', 'Me: one shadow left', COPY })
+    engine.sent(intent, g, mem)
+    return g, mem
+end
+
+test('Ichi at one shadow cancels it a second into the cast, once', function ()
+    local g, mem = ichi_sent()
     g.casting = true
     g.now = g.now + 0.5
     eq(nin.cancel(g, mem), nil, 'not yet')
     g.now = g.now + 0.5
     eq(nin.cancel(g, mem), COPY)
     eq(nin.cancel(g, mem), nil, 'once')
-    -- With none up it goes as usual, and nothing is cancelled.
-    g = snap(items)
-    cmd, intent = decide(g, cfg, cat, mem)
-    eq(cmd, '/ma "Utsusemi: Ni" <me>')
-    eq(intent.cancel, nil)
-    engine.sent(intent, g, mem)
-    eq(mem.cancel, nil)
 end)
 
-test('a cast cut short, or a shadow already gone, cancels nothing', function ()
-    local cfg, items, mem = cfg_with({ Utsusemi = true }), { [SHIHEI] = 3 }, {}
-    cfg.buff.one_shadow = true
-    local g = snap(items, { COPY })
-    local _, intent = decide(g, cfg, cat, mem)
-    engine.sent(intent, g, mem)
+test('a cast that shows late is waited for until 1.1s; one that never shows, or a shadow gone, cancels nothing', function ()
+    local g, mem = ichi_sent()
     g.now = g.now + 1
-    eq(nin.cancel(g, mem), nil, 'not casting')
+    eq(nin.cancel(g, mem), nil, 'not casting yet')
+    g.now, g.casting = g.now + 0.05, true
+    eq(nin.cancel(g, mem), COPY, 'shown late')
+    g, mem = ichi_sent()
+    g.now = g.now + 1.1
+    eq(nin.cancel(g, mem), nil, 'never shown')
     eq(mem.cancel, nil, 'and forgotten')
-    engine.sent(intent, g, mem)
+    g, mem = ichi_sent()
     g.casting, g.me.buffs[COPY] = true, nil
     g.now = g.now + 1
     eq(nin.cancel(g, mem), nil, 'gone already')

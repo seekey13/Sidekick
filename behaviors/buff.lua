@@ -173,8 +173,9 @@ function buff.want(g, cat, cfg, mem)
                 elseif can.self_only(a) then
                     local shadows = nin.shadows(a, cfg)
                     if lacks(a, g.me, shadows) then
-                        local last = shadows and g.me.buffs[a.last_shadow] and a.last_shadow or nil
-                        local why = last and '%s: one shadow left' or '%s lacks it'
+                        local up = shadows and g.me.buffs[a.last_shadow]
+                        local last = up and a.tier == 1 and a.last_shadow or nil  -- Ichi alone needs it gone
+                        local why = up and '%s: one shadow left' or '%s lacks it'
                         return { action = a, mods = mods, why = why:format(g.me.name), cancel = last }
                     end
                 else
