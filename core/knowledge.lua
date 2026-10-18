@@ -97,7 +97,7 @@ local PANACEA = { 4, 11, 12, 21, 128, 129, 130, 131, 132, 133, 134, 135, 136, 13
 
 local LIGHT = { 'Light Arts', 'Addendum: White' }
 local DARK = { 'Dark Arts', 'Addendum: Black' }
-local SAMBA = { role = 'buff', pick_one = 'samba', blocked_by = 'Fan Dance' }
+local SAMBA = { role = 'buff', gate = 'combat', pick_one = 'samba', blocked_by = 'Fan Dance' }
 local FINISHING_5 = { 'Finishing Move (5)', 'Finishing Move (6+)' }  -- five or more (jobs/dnc.lua)
 
 local K = {
@@ -404,12 +404,13 @@ local K = {
 
     -- buff: Dancer ------------------------------------------------------------------
     ['Drain Samba']  = SAMBA,
-    ['Aspir Samba']  = { role = 'buff', pick_one = 'samba', blocked_by = 'Fan Dance', trance = true },
+    ['Aspir Samba']  = { role = 'buff', gate = 'combat', pick_one = 'samba', blocked_by = 'Fan Dance', trance = true },
     ['Haste Samba']  = SAMBA,
     ['Saber Dance']  = { role = 'buff', gate = 'combat', status = { 'Saber Dance', 'Fan Dance' } },
     ['Fan Dance']    = { role = 'buff', gate = 'combat', status = { 'Saber Dance', 'Fan Dance' } },
+    -- ponytail: five taken as full; a max finishing move bonus (gear) would allow more.
     ['No Foot Rise'] = { role = 'buff', status = FINISHING_5 },
-    ['Presto']       = { role = 'buff' },
+    ['Presto']       = { role = 'buff', gate = 'combat' },  -- for your next Step, by hand
     ['Spectral Jig'] = { role = 'buff', gate = 'idle', travel = true, priority = -20, status = { 'Sneak', 'Invisible' } },
 
     -- buff: job abilities ---------------------------------------------------------

@@ -49,6 +49,14 @@ local ACCEPTED = {
     -- Finishing moves past five show one status, Finishing Move (6+) (jobs/dnc.lua).
     ['dancer|No Foot Rise|status'] = 'five or more finishing moves: 385 or 588',
     ['dancer|Reverse Flourish|requires'] = 'five or more finishing moves: 385 or 588',
+    -- Decided 2026-10-18: in combat only (v2 kept them up idle, for nothing).
+    ['dancer|Aspir Samba|gate'] = 'a samba works on your melee hits only',
+    ['dancer|Aspir Samba II|gate'] = 'a samba works on your melee hits only',
+    ['dancer|Drain Samba|gate'] = 'a samba works on your melee hits only',
+    ['dancer|Drain Samba II|gate'] = 'a samba works on your melee hits only',
+    ['dancer|Drain Samba III|gate'] = 'a samba works on your melee hits only',
+    ['dancer|Haste Samba|gate'] = 'a samba works on your melee hits only',
+    ['dancer|Presto|gate'] = 'for a Step, which only you fire',
     -- v2 sent the pet at <t> by default (<bt> by option); v3 always at the battle target.
     ['beastmaster|Fight|enemy'] = 'sent at <bt>',
     ['puppetmaster|Deploy|enemy'] = 'sent at <bt>',

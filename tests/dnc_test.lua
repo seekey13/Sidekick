@@ -9,7 +9,7 @@ local SABER, FAN, TRANCE = 410, 411, 376
 local FM4, FM5, FM6 = 384, 385, 588  -- Finishing Move (4), (5), (6+)
 local cat = fake.catalog(DNC, 75, WHM, 37, { 'Curing Waltz', 'Curing Waltz II', 'Curing Waltz III',
     'Curing Waltz IV', 'Divine Waltz', 'Healing Waltz', 'Drain Samba', 'Aspir Samba', 'Haste Samba',
-    'Saber Dance', 'Fan Dance', 'No Foot Rise', 'Reverse Flourish' })
+    'Saber Dance', 'Fan Dance', 'No Foot Rise', 'Reverse Flourish', 'Presto' })
 
 local function named(list, name)
     for _, a in ipairs(list) do if a.name == name then return a end end
@@ -82,6 +82,15 @@ test('Trance: Aspir Samba at no TP; Drain and Haste Samba still want theirs', fu
     eq(decide(g, cfg_with({ samba = 'Aspir Samba' })), '/ja "Aspir Samba" <me>')
     eq({ can.use(named(cat, 'Haste Samba'), g) }, { false, 'TP' })
     eq(decide(g, cfg_with({ samba = 'Haste Samba' })), nil)
+end)
+
+test('sambas and Presto go in combat only', function ()
+    local cfg = cfg_with({ samba = 'Haste Samba', Presto = true })
+    eq({ can.use(named(cat, 'Haste Samba'), snap(1000)) }, { false, 'combat only' })
+    eq(decide(snap(1000), cfg), nil)
+    eq(decide(snap(1000, {}, {}, { combat = true }), cfg), '/ja "Haste Samba" <me>')
+    eq(decide(snap(1000), cfg_with({ Presto = true })), nil)
+    eq(decide(snap(1000, {}, {}, { combat = true }), cfg_with({ Presto = true })), '/ja "Presto" <me>')
 end)
 
 test('Trance: a sleeper is woken with a free waltz rather than a cure', function ()
