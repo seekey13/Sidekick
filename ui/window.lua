@@ -458,6 +458,11 @@ local function draw_buff_settings(view)
             'While one is held that someone near you lacks too, say "Gather together for <spell>" in party chat, '
                 .. 'at most every 5 seconds.')
     end
+    if b.shadows then
+        checkbox('Cast Utsusemi at one shadow##sk3_one_shadow', b.one_shadow, function (on) act.set('buff.one_shadow', on) end,
+            'Recast Utsusemi while its last shadow is up, not only once it is gone. For Ichi, which cannot replace '
+                .. 'Ni\'s shadows, that shadow is cancelled a second into the cast, so the new ones land.')
+    end
     imgui.Separator()
 end
 
@@ -803,8 +808,9 @@ local function draw_rows(table_id, section_id, rows)
         imgui.TableNextRow()
         imgui.TableNextColumn()
         local v = { r.on }
-        -- An item shows how many you carry; ### keeps its id while the count changes.
-        local label = r.count and ('%s (%d)###%s'):format(r.label, r.count, id) or r.label .. '##' .. id
+        -- An item shows how many you carry, ninjutsu their tools; ### keeps its id while the count changes.
+        local n = r.count or r.tools
+        local label = n and ('%s (%d)###%s'):format(r.label, n, id) or r.label .. '##' .. id
         if imgui.Checkbox(label, v) then act.row(r.key, v[1]) end
         if choices then
             imgui.TableNextColumn()

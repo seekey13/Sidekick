@@ -9,6 +9,8 @@
     While you rest, only resting runs: it alone decides when to stand.
     A buff held for the group to gather (behaviors/buff.lua) leaves mem.gather,
     which engine.gather turns into a party chat line.
+    An intent may name a status of yours to cancel a moment into its cast
+    (intent.cancel: Utsusemi's last shadow, jobs/nin.lua).
     Modifiers: an intent may list intent.mods (stratagems a buff row turned on,
     Snake Eye before a Double-Up, Blaze of Glory before a luopan, Entrust before
     an Indi- on a member, Embolden before enhancing magic), and an Addendum
@@ -128,10 +130,11 @@ function engine.command(intent, cfg, g)
     return can.command(intent.action, intent.target, cfg.ui.japanese, g and g.bt)
 end
 
--- Record a send: the throttle restarts, a modifier's status is expected, and
--- the intent's behavior is told.
+-- Record a send: the throttle restarts, a modifier's status is expected, a
+-- status to cancel mid-cast is noted (jobs/nin.lua), and the intent's behavior is told.
 function engine.sent(intent, g, mem)
     mem.sent_at = g.now
+    mem.cancel = intent.cancel and { id = intent.cancel, at = g.now } or nil
     for _, id in ipairs(intent.expect or {}) do
         mem.expect = mem.expect or {}
         mem.expect[id] = g.now + engine.EXPECT

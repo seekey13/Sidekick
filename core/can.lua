@@ -9,6 +9,8 @@
     `a` is a catalog record, `u` a unit and `g` the snapshot from core/game.lua.
 ]]--
 
+local nin = require('jobs.nin')
+
 local can = {}
 
 can.THROTTLE = 1.1        -- the server's lockout after any action
@@ -89,6 +91,7 @@ function can.use(a, g)
     if (a.mp or 0) > g.me.mp then return false, 'MP' end
     if (a.tp or 0) > 0 and a.tp > g.me.tp then return false, 'TP' end
     if a.ammo and not can.holds(a.ammo, g.ammo) then return false, 'no ammo' end
+    if a.tool and nin.tools(a, g) == 0 then return false, 'no tools' end
     if a.kind == 'item' and not (g.items and g.items[a.id]) then return false, 'none left' end
     -- An Addendum spell can go through Enlightenment instead (core/catalog.lua), fired first by the engine.
     if a.requires and not any(g.me.buffs, a.requires) and not (a.via and can.use(a.via, g)) then

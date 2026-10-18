@@ -53,6 +53,10 @@ local ACCEPTED = {
     -- CatsEyeXI's Reward refuses Pet Poultice and Pet Roborant: it takes pet food only.
     ['beastmaster|Reward (Regen)|MISSING'] = 'the server refuses Pet Poultice; every Reward gives Regen',
     ['beastmaster|Reward (Erase)|MISSING'] = 'the server refuses Pet Roborant; Reward never erases',
+    -- Ammo v2 didn't list but the server takes (core/knowledge.lua).
+    ['beastmaster|Reward|ammo'] = 'Pet Food Eta and Theta Biscuit too',
+    ['puppetmaster|Repair|ammo'] = 'Automaton Oil +3 too',
+    ['puppetmaster|Maintenance|ammo'] = 'Automaton Oil +3 too',
     -- v2 copied the server's spell_list cost; the client blocks the cast by its own
     -- (reported to the CatsEyeXI devs as a server/client mismatch).
     ['white_mage|Arise|mp'] = 'client 150, server 300',
@@ -133,6 +137,11 @@ for _, job in ipairs(jobs) do
                     cmp('requires', list(e.requires_buff), list(a.requires))
                     cmp('priority', e.priority or 0, a.priority)
                     cmp('charges', e.ready_charge_cost or e.requires_ready_charge and 1 or nil, a.charges)
+                    -- v2's tools list the family's own first, then Shikanofuda (jobs/nin.lua's).
+                    cmp('tool', e.requires_item and e.requires_item[1].id, a.tool)
+                    local worn = {}
+                    for i, it in ipairs(e.requires_equipped_ammo or {}) do worn[i] = it.id end
+                    cmp('ammo', list(e.requires_equipped_ammo and worn), list(a.ammo))
                     local enemy = cmd:find('<bt>') ~= nil
                     cmp('gate', e.combat_only and not enemy and 'combat' or e.idle_only and 'idle' or nil, a.gate)
                     cmp('enemy', enemy, a.targets == 32)

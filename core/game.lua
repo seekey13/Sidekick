@@ -159,7 +159,7 @@ local EQUIP_FROM = { { 0, 0 }, { 8, 1 }, { 10, 2 }, { 11, 3 }, { 12, 4 }, { 13, 
 
 -- The items of `ids` you hold where they can be worn from, in the order of `ids`:
 -- { { id, en, jp, level, jobs (bit n: job n wears it), bag (for /equip), count (all bags) }, ... }.
--- Read when asked (pet care and its rows wanting their ammo), not every tick: it
+-- Read when asked (rows wanting their ammo: pet care's, Sange), not every tick: it
 -- walks every bag, so a list's answer is kept OWNED_KEPT seconds (as v2 kept its counts).
 local OWNED_KEPT = 1
 local owned_cache = setmetatable({}, { __mode = 'k' })

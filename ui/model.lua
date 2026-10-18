@@ -18,9 +18,10 @@
     input: a frame read mid-zone must never write anything back.
 ]]--
 
+local ammo = require('core.ammo')
 local can = require('core.can')
 local cor = require('jobs.cor')
-local pet = require('behaviors.pet')
+local nin = require('jobs.nin')
 local profiles = require('core.profiles')
 local pup = require('jobs.pup')
 local run = require('jobs.run')
@@ -122,8 +123,8 @@ local function availability(acts, r, g)
             -- Radial Arcana with no luopan out puts one down to spend (jobs/geo.lua).
             if a.luopan == 'spend' and why == 'no pet' and g.recast(a) == 0 then ok = true end
             if ok then return true, 'ready', a.name end
-            -- Ammo you hold but don't wear is equipped for it (behaviors/pet.lua).
-            local it = why == 'no ammo' and pet.wearable(a, g)
+            -- Ammo you hold but don't wear is equipped for it (core/ammo.lua).
+            local it = why == 'no ammo' and ammo.wearable(a, g)
             if it then
                 ok, why, w = can.use(a, setmetatable({ ammo = it.id }, { __index = g }))
                 if ok then return true, 'equips ' .. it.en, a.name end
@@ -209,6 +210,7 @@ local function build_row(key, acts, cfg, g, units, modifiers, outsiders)
         end
     end
     if acts[1].kind == 'item' then row.count = g.items and g.items[acts[1].id] or 0 end
+    if acts[1].tool then row.tools = nin.tools(acts[1], g) end
     return row
 end
 
@@ -445,6 +447,7 @@ function model.build(g, cat, cfg, status, names)
 
     local spends_tp, wakes = false, false  -- Chivalry: its TP line is worth showing; a heal can wake
     local stratagems = false               -- SCH: the charge reserve is worth showing
+    local shadows = false                  -- NIN: Utsusemi, so recasting at one shadow is worth showing
     local indi, luopans = {}, false        -- GEO: the Indi- spells Entrust can put on a member; a Geo- spell
     local rolls, last = {}, nil            -- COR: the rolls to pick from, and the last one's total
     for _, a in ipairs(cat) do
@@ -456,6 +459,7 @@ function model.build(g, cat, cfg, status, names)
             end
         end
         stratagems = stratagems or a.kind == 'ja' and a.recast == sch.STRATAGEMS
+        shadows = shadows or a.last_shadow ~= nil
         if a.pick_one == 'indi' then indi[#indi + 1] = a.name end
         luopans = luopans or a.luopan == 'buff' or a.luopan == 'debuff'
         spends_tp = spends_tp or a.role == 'recover' and a.spends_tp == true
@@ -483,7 +487,7 @@ function model.build(g, cat, cfg, status, names)
         pet_heal = cfg.pet.heal,
         follow = { on = cfg.follow.on, target = cfg.follow.target, distance = cfg.follow.distance, names = focus_names },
         rest = { on = cfg.rest.on, delay = cfg.rest.delay, distance = cfg.rest.distance },
-        buff = { hold_aoe = cfg.buff.hold_aoe, gather = cfg.buff.gather },
+        buff = { hold_aoe = cfg.buff.hold_aoe, gather = cfg.buff.gather, one_shadow = cfg.buff.one_shadow, shadows = shadows },
         roll = { first = cfg.roll.first, second = cfg.roll.second, risk = cfg.roll.risk, risks = cor.RISKS,
                  two = g.main == cor.JOB, choices = rolls, last = last },
         geo = { distance = cfg.geo.distance, linger = cfg.geo.linger, entrust = cfg.geo.entrust,
@@ -566,7 +570,7 @@ model.REMOTE_SET = {
     ['recover.mp'] = { 1, 99 }, ['recover.tp'] = { 0, 3000 }, ['recover.min_tp'] = { 0, 3000 }, ['pet.heal'] = { 1, 99 },
     ['follow.on'] = 'bool', ['follow.target'] = 'name', ['follow.distance'] = { 1, 15 },
     ['rest.on'] = 'bool', ['rest.delay'] = { 1, 20 }, ['rest.distance'] = { 1, 15 },
-    ['buff.hold_aoe'] = 'bool', ['buff.gather'] = 'bool',
+    ['buff.hold_aoe'] = 'bool', ['buff.gather'] = 'bool', ['buff.one_shadow'] = 'bool',
     ['roll.first'] = 'name', ['roll.second'] = 'name', ['roll.risk'] = { list = cor.RISKS },
     ['geo.distance'] = { 3, 30 }, ['geo.linger'] = { 1, 20 }, ['geo.entrust'] = 'name', ['geo.entrust_spell'] = 'name',
 }

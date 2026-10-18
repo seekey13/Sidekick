@@ -33,7 +33,9 @@
     costs_hp   paid for with your HP: only while you're over the danger line
     swaps      trades your HP for your MP: only while you have more HP than MP
     spends_tp  turns all your TP into MP (Chivalry): only from recover.min_tp up
-    ammo       item ids, one of which must be in your ammo slot (pet food, oils)
+    ammo       item ids, one of which must be in your ammo slot (pet food, oils, shuriken)
+    tool       the ninja tool item a cast spends from your inventory (jobs/nin.lua)
+    last_shadow the status that shows one shadow left (Utsusemi, jobs/nin.lua)
     pet_range  yalms your pet may be from you (the server refuses Repair past 20)
     item       an inventory item's id: used on you with /item (opt-in: items cost gil)
     one_of     clears just one of `removes` per use, at random (Remedy Ointment)
@@ -78,9 +80,11 @@ local WALTZ    = { 3, 4, 5, 6, 8, 9, 11, 12, 13, 31, 128, 129, 130, 131, 132, 13
 local PET_CLEANSE = { 3, 4, 5, 6, 8, 9, 31, 10, 11, 12, 13, 21, 128, 129, 130, 131, 132, 133, 134, 135,
     136, 137, 138, 139, 140, 141, 142, 144, 145, 146, 147, 148, 149, 156, 167, 174, 175, 189, 192, 194, 291, 298, 404 }
 
--- Ammo items (ids) the server takes: Pet Food Alpha to Theta Biscuit; Automaton Oil to +3.
+-- Ammo items (ids) the server takes: Pet Food Alpha to Theta Biscuit; Automaton Oil to +3;
+-- shuriken, Shuriken to Yoru (v2's list).
 local PET_FOOD = { 17016, 17017, 17018, 17019, 17020, 17021, 17022, 17023 }
 local OILS     = { 18731, 18732, 18733, 19185 }
+local SHURIKEN = { 17301, 17302, 17303, 17304, 18712, 22999 }
 
 -- What a Panacea clears (the server's item script): Paralysis, Bind, Weight, Addle,
 -- the elemental DoTs, Dia, Bio, stat downs, Inhibit TP.
@@ -172,7 +176,7 @@ local K = {
     ['Reverse Flourish'] = { role = 'recover', gives = 'tp', priority = 100, requires = 'Finishing Move (5)' },
 
     -- pet ----------------------------------------------------------------------
-    -- The ammo is equipped from your bags or wardrobes when it's needed (behaviors/pet.lua).
+    -- The ammo is equipped from your bags or wardrobes when it's needed (core/ammo.lua).
     ['Spirit Link']   = { role = 'pet_heal', pet = true, costs_hp = true },
     ['Life Cycle']    = { role = 'pet_heal', pet = true, main_only = true, costs_hp = true },
     ['Dematerialize'] = { role = 'pet_heal', pet = true, main_only = true },
@@ -380,12 +384,13 @@ local K = {
     ['Entrust']        = { role = 'geo', main_only = true, status = 'Entrust', note = 'an Indi- on a member' },
 
     -- buff: Ninja -----------------------------------------------------------------
-    ['Utsusemi'] = { role = 'buff', status = { 66, 444, 445, 446 } },  -- Copy Image (1-4)
-    ['Monomi']   = { role = 'buff', gate = 'idle', travel = true, priority = -10, status = 'Sneak' },
-    ['Tonko']    = { role = 'buff', gate = 'idle', travel = true, priority = -20, status = 'Invisible' },
+    -- Each cast spends a tool from your inventory (Shihei, Shinobi-tabi, Sanjaku-tenugui; jobs/nin.lua).
+    ['Utsusemi'] = { role = 'buff', status = { 66, 444, 445, 446 }, last_shadow = 66, tool = 1179 },  -- Copy Image (1-4+)
+    ['Monomi']   = { role = 'buff', gate = 'idle', travel = true, priority = -10, status = 'Sneak', tool = 2553 },
+    ['Tonko']    = { role = 'buff', gate = 'idle', travel = true, priority = -20, status = 'Invisible', tool = 1194 },
     ['Yonin']    = { role = 'buff', pick_one = 'nin_stance' },
     ['Innin']    = { role = 'buff', pick_one = 'nin_stance' },
-    ['Sange']    = { role = 'buff', gate = 'combat' },
+    ['Sange']    = { role = 'buff', gate = 'combat', ammo = SHURIKEN },  -- Daken then throws the shuriken worn
 
     -- buff: Dancer ------------------------------------------------------------------
     ['Drain Samba']  = SAMBA,
