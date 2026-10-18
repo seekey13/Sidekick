@@ -15,6 +15,9 @@ local TIERS = { II = 2, III = 3, IV = 4, V = 5, VI = 6, Ichi = 1, Ni = 2, San = 
 -- 3 weapon skill, 4 trait, 20 monstrosity are not actions here.
 local PET_TYPES  = { [2] = true, [6] = true, [10] = true, [18] = true }
 local SKIP_TYPES = { [3] = true, [4] = true, [20] = true }
+-- Ability types the DAT gives a cost of 1 MP they don't have: charges (Quick Draw,
+-- stratagems) and runes, each 0 MP in game.
+local CHARGES = { [9] = true, [15] = true, [21] = true }
 local TRUST = 8  -- spell type; calling trusts is not support automation
 local SELF = 1   -- valid-target flag: items are used on you
 
@@ -115,7 +118,8 @@ function catalog.build(res, player, K)
                     applies = use.applies, spreads = use.spreads, chip = use.chip, addendum = addendum or nil,
                     lucky = use.lucky, unlucky = use.unlucky, luopan = use.luopan, rune = use.rune,
                     priority = use.priority or 0, pet = use.pet, travel = use.travel, mob_skill = use.mob_skill,
-                    mp = row.mp, tp = row.tp,  -- the client blocks casts by this cost, so it is the one to trust
+                    -- the client blocks casts by this cost, so it is the one to trust
+                    mp = kind == 'ja' and CHARGES[row.type] and 0 or row.mp, tp = row.tp,
                     recast = kind == 'ma' and id or row.recast_id,  -- spell id, or ability recast timer id
                     targets = row.targets, range = row.range, area = use.area or row.area,
                     cast = row.cast and row.cast / 4,  -- seconds; spells only

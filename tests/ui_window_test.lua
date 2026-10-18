@@ -745,6 +745,10 @@ test('RUN: Runes under Buff: a line per set, a rune per slot by what it does, ea
     cfg.rune.idle_2 = 'Lux'
     render(cfg, st, {}, view())
     eq(has(frame.args.BeginCombo, '##sk3_rune_idle_2'), true)
+    local sub = fake.catalog(1, 75, 22, 37, { 'Ignis', 'Vallation' })
+    local g = snap(); g.main, g.sub = 1, 22
+    render(cfg, st, {}, model.build(g, sub, cfg, st, NAMES))  -- WAR / RUN 37: two slots
+    eq({ frame.columns['##sk3_runes'], has(frame.args.BeginCombo, '##sk3_rune_idle_3') }, { 4, false })
     eq(render(cfg, st, { ['Fire##sk3_rune_idle_1_Ignis'] = true }), 0)  -- WHM: no Runes
 end)
 

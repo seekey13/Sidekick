@@ -165,8 +165,9 @@ end
 local function own_buffs(player)
     local raw, list, stacks = player:GetBuffs(), {}, {}
     for i = 1, 32 do
-        list[i] = raw[i] or 0
-        stacks[list[i]] = (stacks[list[i]] or 0) + 1
+        local id = raw[i] or 0
+        list[i] = id
+        if id > 0 and id ~= 255 then stacks[id] = (stacks[id] or 0) + 1 end
     end
     return set_of(list), stacks
 end

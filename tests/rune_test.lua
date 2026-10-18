@@ -68,6 +68,43 @@ test('Idle keeps its runes up, the same rune twice meaning two; an empty slot is
     eq(decide(snap({ [IGNIS] = 2 }), cfg), '/ja "Gelus" <me>')
 end)
 
+test('runes, Quick Draw and stratagems cost no MP, whatever the DAT says: they go at 0 MP', function ()
+    local g = snap()
+    g.me.mp = 0
+    eq(decide(g, cfg_with({ idle = { 'Ignis' } })), '/ja "Ignis" <me>')
+    local sch = fake.catalog(20, 75, WHM, 37, { 'Penury', 'Light Arts' })
+    eq({ named(cat, 'Ignis').mp, named(sch, 'Penury').mp }, { 0, 0 })
+end)
+
+-- The game pushes the oldest rune out for a new one past the slots.
+local function cast(held, name, slots)
+    held[#held + 1] = name
+    if #held > slots then table.remove(held, 1) end
+end
+local function stacks_of(held)
+    local ids = {}
+    for _, n in ipairs({ 'Ignis', 'Gelus', 'Tellus' }) do ids[n] = named(cat, n).status[1] end
+    local out = {}
+    for _, n in ipairs(held) do out[ids[n]] = (out[ids[n]] or 0) + 1 end
+    return out
+end
+
+test('a set settles however the runes up are ordered, the oldest pushed out each time', function ()
+    local cfg = cfg_with({ idle = { 'Gelus', 'Ignis', 'Ignis' } })
+    local list = fake.catalog(RUN, 75, BLM, 37, { 'Ignis', 'Gelus', 'Tellus' })
+    for _, start in ipairs({ { 'Ignis', 'Gelus', 'Tellus' }, { 'Gelus', 'Tellus', 'Tellus' }, { 'Ignis', 'Ignis', 'Tellus' } }) do
+        local held, casts = { unpack(start) }, 0
+        while true do
+            local cmd = decide(snap(stacks_of(held)), cfg, list)
+            if not cmd then break end
+            cast(held, cmd:match('"(.-)"'), 3)
+            casts = casts + 1
+            assert(casts <= 3, 'settles within the slots')
+        end
+        eq(stacks_of(held), stacks_of({ 'Gelus', 'Ignis', 'Ignis' }))
+    end
+end)
+
 test('a set holds only as many runes as the level stands: a RUN subjob\'s two', function ()
     local cfg = cfg_with({ idle = { 'Ignis', 'Ignis', 'Gelus' } })
     local sub = { main = WAR, main_lv = 75, sub = RUN, sub_lv = 37 }

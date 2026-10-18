@@ -222,7 +222,8 @@ end
 -- each ward you have, with its switch (its row) and whether it's ready.
 local function runes(g, cat, cfg)
     local mine, wards = run.actions(cat)
-    local out = { slots = run.slots(run.level(g)), runes = {}, sets = {} }
+    local lv = run.level(g)
+    local out = { slots = lv > 0 and run.slots(lv) or 0, runes = {}, sets = {} }
     for _, r in ipairs(run.RUNES) do
         local a = mine[r[1]]
         if a then
