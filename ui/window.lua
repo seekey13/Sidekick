@@ -61,7 +61,7 @@ local UI_SLIDERS = {
     { 'Background opacity', 'opacity', 0, 100, '% of the grey panel behind the bars.' },
 }
 
-local SETTING_WIDTH, PICK_WIDTH, CHIP_WIDTH, RUNE_WIDTH = 160, 170, 28, 130
+local SETTING_WIDTH, PICK_WIDTH, CHIP_WIDTH, RUNE_WIDTH, MANEUVER_WIDTH = 160, 170, 28, 130, 90
 local JOINED = { party = '  (in your party)', alliance = '  (in your alliance)' }  -- a tracked player's note
 
 local act                    -- this frame's actions (another session's, while drawing its SK Settings)
@@ -599,6 +599,36 @@ local function draw_runes(view)
     imgui.Separator()
 end
 
+-- PUP: a combo per maneuver slot, by element (None for ''), then whether they can go.
+local function draw_maneuvers(view)
+    local m = view.maneuver
+    if not imgui.BeginTable('##sk3_maneuvers', 1 + #m.picks, ImGuiTableFlags_SizingFixedFit) then return end
+    imgui.TableNextRow()
+    for i, current in ipairs(m.picks) do
+        imgui.TableNextColumn()
+        local id = 'sk3_maneuver_' .. i
+        local shown = current ~= '' and current .. ' (not available)' or 'None'
+        for _, c in ipairs(m.choices) do
+            if c.name == current then shown = c.label end
+        end
+        imgui.PushItemWidth(MANEUVER_WIDTH)
+        if imgui.BeginCombo('##' .. id, shown) then
+            if imgui.Selectable('None##' .. id .. '_none', current == '') then act.set('maneuver.slot_' .. i, '') end
+            for _, c in ipairs(m.choices) do
+                if imgui.Selectable(c.label .. '##' .. id .. '_' .. c.name, c.name == current) then
+                    act.set('maneuver.slot_' .. i, c.name)
+                end
+            end
+            imgui.EndCombo()
+        end
+        imgui.PopItemWidth()
+        tip('The same element in two slots keeps two up.')
+    end
+    imgui.TableNextColumn()
+    text(m.avail, m.ready and GREEN or GREY)
+    imgui.EndTable()
+end
+
 -- Each tracked player with its Untrack button (one who joined your party or
 -- alliance too), then Track for your target.
 local function draw_track(view)
@@ -822,13 +852,14 @@ local SWITCH_HELP = {
     rune = 'Keep the runes picked up: a ward\'s set once it is ready, then the ward in combat; the Idle set the rest '
         .. 'of the time. Lunge and Swipe are yours: the runes go back up after.',
     pet = 'Look after your pet, and send it in, with the rows that are on.',
+    maneuver = 'Keep the maneuvers picked up on you while your automaton is out (none under Overload).',
     recover = 'Get MP and TP back with the rows that are on.',
     rest = 'Rest for MP out of combat once nothing else has happened for a while; stand at full MP.',
 }
 
 local BODIES = {
     follow = draw_follow, heal = draw_heal_settings, recover = draw_recover_settings, buff = draw_buff_settings,
-    roll = draw_rolls, geo = draw_geo, rune = draw_runes,
+    roll = draw_rolls, geo = draw_geo, rune = draw_runes, maneuver = draw_maneuvers,
     pet = draw_pet_settings, rest = draw_rest, track = draw_track, ui = draw_ui, profile = draw_profiles,
 }
 

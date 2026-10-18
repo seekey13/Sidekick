@@ -36,6 +36,7 @@ engine.BEHAVIORS = {
     { name = 'geo', run = require('jobs.geo').want },
     { name = 'buff', run = require('behaviors.buff').want },
     { name = 'pet_send', run = pet.send, setting = 'pet', quick = true },
+    { name = 'maneuver', run = require('jobs.pup').want, quick = true },
     { name = 'follow', run = require('behaviors.follow').want },
     { name = 'rest', run = require('behaviors.rest'), resting = true },
 }
@@ -123,7 +124,7 @@ end
 -- The chat command for `intent`; `g` names a battle target the client has no <bt> for.
 -- The second result is true when a Japanese client is sent an English name (can.command).
 function engine.command(intent, cfg, g)
-    if intent.command then return intent.command end
+    if intent.command then return intent.command, intent.english end  -- an equip may name its item in English
     return can.command(intent.action, intent.target, cfg.ui.japanese, g and g.bt)
 end
 

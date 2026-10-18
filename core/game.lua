@@ -28,14 +28,17 @@
     `target` is your current target when it's another player: { tidx, sid, name }.
     Plus when your cast began (cast_at, while casting);
     what healing scores with: learned potency, the day and the weather;
-    the item in your ammo slot and what's in your inventory; when you last moved and
-    last had a battle target; your last Phantom Roll's total (`roll`, jobs/cor.lua).
+    the item in your ammo slot and what's in your inventory (and `owned`, the ammo
+    you hold where it can be worn from, read when asked); when you last moved and
+    last had a battle target; your last Phantom Roll's total (`roll`, jobs/cor.lua);
+    your automaton's name (`automaton`, jobs/pup.lua), nil until the server says it.
 ]]--
 
 local ffi = require('ffi')
 local buffs = require('core.buffs')
 local cor = require('jobs.cor')
 local geo = require('jobs.geo')
+local pup = require('jobs.pup')
 local sch = require('jobs.sch')
 local can = require('core.can')
 local observed = require('core.observed')
@@ -147,6 +150,43 @@ local function ammo()
     local item = inv:GetContainerItem(math.floor(eq.Index / 256), eq.Index % 256)
     local id = item and item.Id or 0
     return (id == -1 or id == 65535) and 0 or id
+end
+
+-- Where ammo can be worn from: your bag, then the Mog Wardrobes, each as
+-- { container, the number /equip names it by }.
+local EQUIP_FROM = { { 0, 0 }, { 8, 1 }, { 10, 2 }, { 11, 3 }, { 12, 4 }, { 13, 5 }, { 14, 6 }, { 15, 7 }, { 16, 8 } }
+
+-- The items of `ids` you hold where they can be worn from, in the order of `ids`:
+-- { { id, en, jp, level, jobs (bit n: job n wears it), bag (for /equip), count (all bags) }, ... }.
+-- Read when asked (pet care and its rows wanting their ammo), not every tick: it
+-- walks every bag, so a list's answer is kept OWNED_KEPT seconds (as v2 kept its counts).
+local OWNED_KEPT = 1
+local owned_cache = setmetatable({}, { __mode = 'k' })
+function game.owned(ids)
+    local now = os.clock()
+    local hit = owned_cache[ids]
+    if hit and now - hit.at < OWNED_KEPT then return hit.out end
+    local inv, rm, want, bag, count = AshitaCore:GetMemoryManager():GetInventory(), AshitaCore:GetResourceManager(), {}, {}, {}
+    for _, id in ipairs(ids) do want[id] = true end
+    for _, c in ipairs(EQUIP_FROM) do
+        for i = 1, inv:GetContainerCountMax(c[1]) do
+            local item = inv:GetContainerItem(c[1], i)
+            if item and want[item.Id] and item.Count > 0 then
+                bag[item.Id] = bag[item.Id] or c[2]
+                count[item.Id] = (count[item.Id] or 0) + item.Count
+            end
+        end
+    end
+    local out = {}
+    for _, id in ipairs(ids) do
+        local r = bag[id] and rm:GetItemById(id)
+        if r then
+            out[#out + 1] = { id = id, en = r.Name[1], jp = r.Name[2], level = r.Level, jobs = r.Jobs, bag = bag[id],
+                              count = count[id] }
+        end
+    end
+    owned_cache[ids] = { at = now, out = out }
+    return out
 end
 
 -- What's in your inventory: { [item id] = count }. Slot 0 is gil.
@@ -469,6 +509,7 @@ function game.read(now)
         finished = finished, spell_finish = spell_finish,
         now = now, zone = zone, me = me, units = units, tracks = tracks, bt = bt, target = player_target(mm, em),
         pet = pet, ammo = ammo(), items = inventory(), stratagems = stratagems(mm, player), roll = cor.last(),
+        automaton = pup.automaton(),
         main = player:GetMainJob(), main_lv = player:GetMainJobLevel(),
         sub = player:GetSubJob(), sub_lv = player:GetSubJobLevel(),
         casting = casting, cast_at = cast_at,
@@ -481,7 +522,7 @@ function game.read(now)
         incapacitated = any(me.buffs, INCAPACITATED),
         silenced = any(me.buffs, SILENCED),
         amnesia = me.buffs[AMNESIA] == true,
-        recast = game.recast,
+        recast = game.recast, owned = game.owned,
         learned = observed.learned, day = day(), weather = weather(),
     }
 end
