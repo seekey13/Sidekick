@@ -340,9 +340,10 @@ end
 
 -- /sk3 start|stop [name|all]: automation on or off here, in another Sidekick3
 -- session on this PC by its character's name (sent as its run icon would be), or
--- here and in every one.
-local function run_command(g, on, who)
-    local here, others = share.reach(share.sessions, g.me.name, who)
+-- here and in every one. `me`: your name, nil while loading with no session
+-- file of yours up (other sessions can't be reached then).
+local function run_command(me, on, who)
+    local here, others = share.reach(share.sessions, me or '', who)
     if not here and not others then
         local live = {}
         for name in pairs(share.sessions) do live[#live + 1] = name end
@@ -355,9 +356,10 @@ local function run_command(g, on, who)
         status.running = on
         printf('Automation %s.', on and 'started' or 'stopped')
     end
+    if others[1] and not me then printf('Other sessions can\'t be reached until your game has loaded.'); return end
     for _, name in ipairs(others) do share.send(name, { 'run', n = 1, on }) end
-    if others[1] then
-        printf('%s automation in %s.', on and 'Starting' or 'Stopping', table.concat(others, ', '))
+    if others[1] then  -- each prints it in its own chat once applied
+        printf('Sent %s to %s.', on and 'start' or 'stop', table.concat(others, ', '))
     elseif here and who and who:lower() == 'all' and not next(share.sessions) then
         printf('No other Sidekick3 sessions on this PC.')
     end
@@ -480,13 +482,15 @@ ashita.events.register('command', 'sidekick3_command', function (e)
     end
 
     local g = refresh(os.clock())
+    -- Stop goes through while you load (a zone): your file keeps carrying calls for share.LOADING seconds.
+    if sub == 'stop' and (g.loading or not cfg) then run_command(share.me(), false, args[3]); return end
     if g.loading or not cfg then printf('Waiting for the game to load your job.'); return end
     if sub == '' then
         status.open = not status.open
         cfg.ui.open = status.open
         settings.save()
     elseif sub == 'start' or sub == 'stop' then
-        run_command(g, sub == 'start', args[3])
+        run_command(g.me.name, sub == 'start', args[3])
     elseif sub == 'plan' then
         show_plan(g)
     elseif sub == 'state' then

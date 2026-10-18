@@ -489,6 +489,9 @@ function share.tick(g, clock, status, hooks)
     return live
 end
 
+-- Your name while your session file is up (kept while loading, LOADING seconds at most), else nil.
+function share.me() return mine end
+
 -- Remove your files on unload, so no closed session's file is left behind (the
 -- others still keep its last read until it goes stale).
 function share.close()
