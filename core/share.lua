@@ -20,8 +20,11 @@
 local tracked = require('core.tracked')
 
 local share = {
-    STALE = 5,  -- seconds without a write before a session counts as gone
-    EVERY = 1,  -- seconds between publishing and reading
+    STALE = 5,      -- seconds without a write before a session counts as gone
+    EVERY = 1,      -- seconds between publishing and reading
+    GRACE = 15,     -- seconds an auto entry no file lists is kept before it's dropped
+    LOADING = 60,   -- seconds a loading session (zoning, logged out) keeps its last roster up
+    PRUNE = 3600,   -- seconds after which a file no one wrote (a crashed session's) is deleted
 }
 
 local VERSION = 'sk3 session 1'
@@ -88,11 +91,12 @@ end
 
 -- Bring the tracked list in line with the live sessions: add who they list
 -- (as `auto`), refresh what each file says of anyone tracked, and drop the auto
--- entries no live session lists. `listed` = { [sid] = true }: you, your party and
--- alliance, never tracked from a file; one dropped for joining them keeps the
--- statuses seen on them. A player several files list is taken from their own
+-- entries no live session has listed for GRACE seconds (at clock `now`), so a
+-- hitch or a short roster doesn't forget a party's statuses. `listed` = { [sid] = true }:
+-- you, your party and alliance, never tracked from a file; one dropped at once for
+-- joining them keeps the statuses seen on them. A player several files list is taken from their own
 -- session's file, else the first owner by name, so the owner stays put.
-function share.sync(live, listed)
+function share.sync(live, listed, now)
     local owners = {}
     for owner in pairs(live) do owners[#owners + 1] = owner end
     table.sort(owners)
@@ -107,8 +111,13 @@ function share.sync(live, listed)
     end
     for i = #tracked.list, 1, -1 do
         local t = tracked.list[i]
-        if t.auto and not wanted[t.sid] then tracked.drop(t.sid, listed[t.sid]) end
-        if not wanted[t.sid] then t.max_hp, t.shared_hpp = nil, nil end  -- hand-tracked: no file says now
+        if wanted[t.sid] then
+            t.unlisted_at = nil
+        else
+            t.max_hp, t.shared_hpp = nil, nil  -- no file says now
+            t.unlisted_at = t.unlisted_at or now
+            if t.auto and (listed[t.sid] or now - t.unlisted_at >= share.GRACE) then tracked.drop(t.sid, listed[t.sid]) end
+        end
     end
     for sid, w in pairs(wanted) do
         local m, t = w.m, tracked.find(sid)
@@ -149,7 +158,8 @@ end
 
 share.sessions = {}   -- the other live sessions, by owner name
 local sessions = {}   -- [owner name] = the last session read whole from their file
-local roster          -- what you last published: kept up while loading (zoning)
+local roster          -- what you last published: kept up while loading (zoning), LOADING seconds at most
+local roster_at = 0   -- the clock when it was read
 local mine            -- your file's path while one is written
 local next_at = 0
 
@@ -179,17 +189,27 @@ local function read_others(me)
             local f = io.open(path(owner), 'r')
             local s = f and share.decode(f:read('*a'))
             if f then f:close() end
-            if s then sessions[owner] = s end
+            if s and os.time() - s.heartbeat > share.PRUNE then
+                os.remove(path(owner))  -- left by a session that crashed
+            elseif s then
+                sessions[owner] = s
+            end
         end
     end
 end
 
 -- Publish, read and sync, at most every EVERY seconds. `g` is the snapshot (a
--- loading one republishes the last roster, so a zone isn't taken for a session gone).
+-- loading one republishes the last roster, so a zone isn't taken for a session
+-- gone, for LOADING seconds: past that, as after a logout, your file is deleted).
 function share.tick(g, running, clock)
     if clock < next_at then return share.sessions end
     next_at = clock + share.EVERY
-    if not g.loading then roster = share.roster(g) end
+    if not g.loading then
+        roster, roster_at = share.roster(g), clock
+    elseif roster and clock - roster_at > share.LOADING then
+        roster = nil
+        share.close()
+    end
     if not roster then return share.sessions end
     local me = roster[1].name
     local file = path(me)
@@ -203,7 +223,7 @@ function share.tick(g, running, clock)
     for _, u in ipairs(g.units) do
         if u.kind ~= 'tracked' then listed[u.sid] = true end
     end
-    share.sync(live, listed)
+    share.sync(live, listed, clock)
     return live
 end
 

@@ -467,8 +467,15 @@ ashita.events.register('command', 'sidekick3_command', function (e)
     elseif sub == 'untrack' then
         if not args[3] then printf('/sk3 untrack <name|all>'); return end
         if args[3]:lower() ~= 'all' or tracked_named('all') then untrack(args[3]); return end
-        while tracked.list[1] do tracked.remove(tracked.list[1].name) end
+        local declined = {}
+        while tracked.list[1] do
+            local t = tracked.remove(tracked.list[1].name)
+            if t.auto then declined[#declined + 1] = t.name end
+        end
         printf('Tracking no one.')
+        if declined[1] then
+            printf('Other sessions\' players kept off until tracked by hand (/sk3 track <name>): %s.', table.concat(declined, ', '))
+        end
     elseif sub == 'rest' then
         local w = (args[3] or ''):lower()
         cfg.rest.on = w == 'on' or (w ~= 'off' and not cfg.rest.on)
