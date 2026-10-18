@@ -233,6 +233,19 @@ end)
 
 local function call(fn, ...) return { fn, n = select('#', ...), ... } end
 
+test('/sk3 start|stop reaches you, a session by name in any case, or you and every session with all', function ()
+    local live = { Beta = session('Beta', 1, { member(2, 'Beta') }), Gamma = session('Gamma', 1, { member(3, 'Gamma') }) }
+    eq({ share.reach(live, 'Alpha', nil) }, { true, {} })
+    eq({ share.reach(live, 'Alpha', 'alpha') }, { true, {} })
+    eq({ share.reach(live, 'Alpha', 'gAMMA') }, { false, { 'Gamma' } })
+    eq({ share.reach(live, 'Alpha', 'ALL') }, { true, { 'Beta', 'Gamma' } })
+    eq({ share.reach({}, 'Alpha', 'all') }, { true, {} })
+    eq({ select('#', share.reach(live, 'Alpha', 'Nobody')), share.reach(live, 'Alpha', 'Nobody') }, { 2 })
+    eq({ share.reach(live, 'All', 'all') }, { true, {} })  -- you, named All: this session alone
+    live.All = session('All', 1, { member(4, 'All') })  -- a character named All is that session
+    eq({ share.reach(live, 'Alpha', 'all') }, { false, { 'All' } })
+end)
+
 test('a slider\'s drag queues only its latest value; anything between keeps both', function ()
     local pending = {}
     share.queue(pending, 'Two', 7, call('set', 'heal.danger', 50), 1)
@@ -345,6 +358,7 @@ test('two sessions: a call goes, is applied once and acknowledged; a watched ses
         local function both() clock = clock + 1; a.tick(ga, clock, sa, ha); b.tick(gb, clock, sb, hb) end
         both(); both()
         eq({ a.sessions.Beta ~= nil, b.sessions.Alpha ~= nil, a.send('Nobody', { 'run', n = 1, true }) }, { true, true, false })
+        eq({ a.me(), b.me() }, { 'Alpha', 'Beta' })  -- /sk3 stop reaches others while loading by it
         eq(a.send('Beta', { 'run', n = 1, true }), true)
         both()
         eq({ got, sb.running }, { { { 'Alpha', 'run' } }, true })
@@ -372,6 +386,7 @@ test('two sessions: a call goes, is applied once and acknowledged; a watched ses
         b.close()
         eq({ files[DIR .. 'session_Beta.txt'], files[DIR .. 'session_Alpha.txt'] ~= nil }, { nil, true })
         a.close()
+        eq(a.me(), nil)
     end)
     rawset(io, 'open', real.open)
     rawset(os, 'remove', real.remove)
