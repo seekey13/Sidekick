@@ -12,7 +12,7 @@
         tracking = { add = function (name or nil: your target), remove = function (name) }
         send(name, call): an `act` call for another session (core/share.lua's share.send)
     model.published(view) -> what a session shows of its view to another (remote control)
-    model.apply(act, cfg, call) -> whether a call another session sent was one it may make, and made
+    model.apply(act, cfg, call, cat) -> whether a call another session sent was one it may make, and made
 
     Building only reads. Settings change only through `act`, and only on user
     input: a frame read mid-zone must never write anything back.
@@ -568,10 +568,22 @@ local function fits(v, types)
     return ('|' .. types .. '|'):find('|' .. type(v) .. '|', 1, true) ~= nil
 end
 
+-- The calls that set a chip on a row: only for a buff or luopan row this job has,
+-- since one never saved is made off (a default-on row like Cure would be turned off).
+local CHIPS = { hold = true, mod = true, target = true }
+
+local function chipped(cat, key)
+    for _, a in ipairs(cat or {}) do
+        if (a.role == 'buff' or a.role == 'geo') and settings.key(a) == key then return true end
+    end
+    return false
+end
+
 -- Make `call` ({ fn, n = #args, args... }), sent by another session, through `act`,
 -- when it's one REMOTE lists with arguments of the right types (`n` of them, no
 -- more than it takes); whether it was. Only those arguments are passed on.
-function model.apply(act, cfg, call)
+-- `cat` is this session's catalog: chips only on its rows that have them.
+function model.apply(act, cfg, call, cat)
     local fn = call[1]
     local types = type(fn) == 'string' and REMOTE[fn]
     if not types or type(call.n) ~= 'number' or call.n > #types then return false end
@@ -580,6 +592,7 @@ function model.apply(act, cfg, call)
     end
     local a, b = call[2], call[3]
     if fn == 'section' and (a == 'ui' or type(cfg[a]) ~= 'table' or type(cfg[a].on) ~= 'boolean') then return false end
+    if CHIPS[fn] and not chipped(cat, a) then return false end
     if fn == 'target' and type(b) == 'number' and (b % 1 ~= 0 or b < 0 or b > 17) then return false end
     if fn == 'set' then
         local v = settable(a, b)

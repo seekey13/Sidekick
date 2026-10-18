@@ -418,7 +418,7 @@ local shared = {
         error(v, 0)
     end,
     apply = function (from, call)
-        local ok, done = pcall(model.apply, model.actions(cfg, status, changed, tracking, share.send), cfg, call)
+        local ok, done = pcall(model.apply, model.actions(cfg, status, changed, tracking, share.send), cfg, call, cat.list)
         if not ok then
             print(chat.header(addon.name) .. chat.error(('%s\'s session sent %s, which failed: %s'):format(from, tostring(call[1]), tostring(done))))
         elseif done and call[1] == 'run' then

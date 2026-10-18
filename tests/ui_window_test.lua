@@ -673,7 +673,7 @@ test('SCH: a buff row\'s stratagem chips get a column of their own and each togg
     eq(render(cfg, st, { ['Acc##buff_Protect_mod_Accession'] = true }, view()), 1)
     eq(cfg.rows.Protect.mods, {})
     eq(render(cfg, st, { ['Hold##buff_Protect_hold'] = true }, view()), 1)
-    eq(cfg.rows.Protect.hold, true)
+    eq({ cfg.rows.Protect.hold, tipped('No modifier is on here: it waits for nothing.') }, { true, true })
     render(cfg, st, {})
     eq(frame.columns['##sk3_rows_buff'], 4)  -- WHM: no stratagems, no column
 end)

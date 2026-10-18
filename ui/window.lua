@@ -743,12 +743,18 @@ local function mod_chips(r, id)
         if not m.on then imgui.PopStyleColor(3) end
         tip(m.note and ('%s first: %s'):format(m.name, m.note) or m.name)
     end
+    -- With none on, it waits for nothing: dimmed, but kept and still clickable.
+    local any = false
+    for _, m in ipairs(r.mods) do any = any or m.on end
     imgui.SameLine(0, 2)
-    if not r.hold then push_button(CHIP_OFF) end
+    local colors = not any and CHIP_EMPTY or not r.hold and CHIP_OFF
+    if colors then push_button(colors) end
+    if not any then imgui.PushStyleColor(ImGuiCol_Text, GREY) end
     if imgui.Button('Hold##' .. id .. '_hold') then act.hold(r.key, not r.hold) end
-    if not r.hold then imgui.PopStyleColor(3) end
+    if colors then imgui.PopStyleColor(any and 3 or 4) end
     tip('Wait while a modifier picked here can\'t go with the spell (on recast, too few charges, the wrong Arts, '
-        .. 'Accession unable to spread it); otherwise the spell goes without it.')
+        .. 'Accession unable to spread it, or short of MP for it); otherwise the spell goes without it.'
+        .. (any and '' or '\nNo modifier is on here: it waits for nothing.'))
 end
 
 -- One row per settings key: [x] Name (note) | pick | ME P1-P5 | Pen Acc | ready or why not.
