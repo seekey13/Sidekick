@@ -13,7 +13,7 @@
              in_zone, dist, pos = { x, y, z },
              status (entity), alive, buffs = { [id] = true },
              stacks = { [id] = how many stand } (you and your party's players: runes
-             and songs of one kind stack),
+             and songs of one kind stack; nil for a player the client's list has no entry for yet),
              moving (others: moved in the last half second),
              hot = HP still to come from your Regen, nil if none }
     Slots: 0 you, 1-5 your party, 6-11 and 12-17 the alliance's other parties
@@ -135,10 +135,12 @@ local function counted(list)
 end
 
 -- A party player's statuses and their stacks, from the client's party status-icon
--- block (5 entries of 0x30 bytes: server id, 2 high bits per icon, 32 low bytes).
+-- block (5 entries of 0x30 bytes: server id, 2 high bits per icon, 32 low bytes);
+-- no stacks while they aren't in it yet (just joined, just zoned), so nothing
+-- reads that as every status gone (jobs/brd.lua's stamps).
 local function party_buffs(sid)
     local base = ashita.memory.read_uint32(AshitaCore:GetPointerManager():Get('party.statusicons'))
-    if base == 0 then return {}, {} end
+    if base == 0 then return {}, nil end
     for i = 0, 4 do
         local entry = base + 0x30 * i
         if ashita.memory.read_uint32(entry) == sid then
@@ -150,7 +152,7 @@ local function party_buffs(sid)
             return counted(list)
         end
     end
-    return {}, {}
+    return {}, nil
 end
 
 -- The item id in your ammo slot, 0 for none. The equipment entry's Index packs

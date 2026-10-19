@@ -578,6 +578,12 @@ local function draw_songs(view)
     end
     tip('Two songs of one kind (Victory and Advancing March) stand side by side; a song picked twice is one. '
         .. 'While an area song is owed, the songs on one member wait: it would push them out.')
+    if m.timed then
+        slider('Song Duration##sk3_song_duration', 'song.duration', m.duration, 0, 300,
+            'Seconds: sing each song again this long after it landed, before it wears (0: only once it\'s gone). '
+            .. 'Set it just under your songs\' real duration, gear included; doubled for a song sung under Troubadour. '
+            .. 'While Nightingale and Troubadour are both up, every song sung without Troubadour is sung again.')
+    end
 end
 
 -- An Indi- spell for Entrust, or None ('').

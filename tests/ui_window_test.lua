@@ -730,6 +730,8 @@ test('BRD: Songs under Buff: Area and each slot that is filled or has a pick, a 
     eq({ frame.columns['##sk3_songs'], showed('Area'), showed('ME'), showed('P1'), showed('P2'), showed('P3') },
        { 4, true, true, true, true, false })  -- P2 is B, a trust in another zone; P3 is no one
     eq({ showed('Pianissimo: ready'), has(frame.args.BeginCombo, '##sk3_song_me_2') }, { true, true })
+    eq(render(cfg, st, { ['Song Duration##sk3_song_duration'] = 170 }, view()), 1)  -- BRD 75 main
+    eq(cfg.song.duration, 170)
     cfg.song.p4_1 = 'Herb Pastoral'
     render(cfg, st, {}, view())
     eq({ showed('P4'), showed('no one') }, { true, true })  -- a pick keeps its line
@@ -737,6 +739,7 @@ test('BRD: Songs under Buff: Area and each slot that is filled or has a pick, a 
     eq({ cfg.song.area_1, cfg.song.on }, { '', false })
     render(cfg, st, {}, view(3, 10, fake.catalog(3, 75, 10, 15, {})))  -- WHM / BRD 15: one slot, no Pianissimo
     eq({ frame.columns['##sk3_songs'], showed('Songs on one member need Pianissimo (Bard 20)') }, { 3, true })
+    eq(has(frame.args.SliderInt, 'Song Duration##sk3_song_duration'), false)  -- a subjob has no timers
     eq(render(cfg, st, { [minuet] = true }), 0)  -- WHM: no Songs
 end)
 

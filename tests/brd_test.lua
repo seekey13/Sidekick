@@ -5,7 +5,7 @@ local brd = require('jobs.brd')
 local fake = require('tests.fake')
 
 local BRD, WHM = 10, 3
-local MINUET, MARCH, BALLAD, PIANISSIMO, INVISIBLE = 198, 214, 196, 409, 69
+local MINUET, MARCH, BALLAD, PIANISSIMO, INVISIBLE, NIGHTINGALE, TROUBADOUR = 198, 214, 196, 409, 69, 347, 348
 local cat = fake.catalog(BRD, 75, WHM, 37, { 'Pianissimo', 'Nightingale', 'Troubadour' })
 
 local function named(list, name)
@@ -35,8 +35,9 @@ local function player(t, buffs)
     return t
 end
 
--- Song picks: { area_1 = 'Valor Minuet IV', p1_1 = 'Mage\'s Ballad II', ... }.
+-- Song picks: { area_1 = 'Valor Minuet IV', p1_1 = 'Mage\'s Ballad II', ... }. No song stamped yet.
 local function cfg_with(picks, over)
+    brd.clear()
     local cfg = settings.defaults()
     for k, v in pairs(picks or {}) do cfg.song[k] = v end
     for k, v in pairs(over or {}) do cfg.buff[k] = v end
@@ -86,6 +87,8 @@ test('two of one kind stand twice; with one up, the one sung less lately goes', 
     local cmd, intent = decide(g, cfg, mem)
     eq(cmd, '/ma "Victory March" <me>')
     engine.sent(intent, g, mem)
+    eq(decide(snap({}, { MARCH }, { now = 1003 }), cfg, mem), '/ma "Victory March" <me>')  -- not landed yet: as if cut off
+    brd.landed(intent.action, { 1 }, 1004, {}, 2)  -- its finish
     g = snap({}, { MARCH }, { now = 1030 })  -- one March up: Victory, sung last
     eq(decide(g, cfg, mem), '/ma "Advancing March" <me>')
 end)
@@ -220,4 +223,120 @@ test('without Pianissimo a slot\'s own picks take no slot: the area songs are st
     local cfg = cfg_with({ area_1 = 'Valor Minuet', me_1 = 'Army\'s Paeon', me_2 = 'Knight\'s Minne' })
     local cmd = engine.command(engine.decide(snap({}, {}, { main_lv = 15, sub_lv = 7 }), below, cfg, {}), cfg)
     eq(cmd, '/ma "Valor Minuet" <me>')
+end)
+
+-- Song timers ------------------------------------------------------------------
+
+local function song(name) return named(cat, name) end
+
+test('stamps: one per song on each it landed on; one more than the slots pushes out the oldest', function ()
+    brd.clear()
+    brd.landed(song('Valor Minuet IV'), { 1, 101 }, 10, {}, 2)
+    brd.landed(song('Victory March'), { 1 }, 20, { [TROUBADOUR] = true }, 2)
+    brd.landed(song('Valor Minuet IV'), { 1 }, 30, {}, 2)  -- sung again: its own refreshed, nothing pushed
+    eq(brd.stamps()[1], { ['Valor Minuet IV'] = { at = 30, id = MINUET }, ['Victory March'] = { at = 20, id = MARCH, double = true } })
+    -- The one that would wear first goes, as the server's: Minuet (ends 150), not
+    -- the doubled March that landed before it (ends 260).
+    brd.landed(song('Mage\'s Ballad II'), { 1, 101 }, 40, {}, 2)
+    eq({ brd.stamps()[1]['Valor Minuet IV'], brd.stamps()[1]['Victory March'].at, brd.stamps()[101]['Valor Minuet IV'].at },
+       { nil, 20, 10 })
+    brd.landed(song('Victory March'), { 101 }, 50, {}, 1)  -- a subjob's one slot
+    eq(brd.stamps()[101], { ['Victory March'] = { at = 50, id = MARCH } })
+end)
+
+test('Song Duration: a song is sung again that long after it landed, while it\'s still up', function ()
+    local cfg = cfg_with({ area_1 = 'Valor Minuet IV' })
+    cfg.song.duration = 100
+    local A = player({ name = 'A' }, { MINUET })
+    brd.landed(song('Valor Minuet IV'), { 1, 101 }, 1000, {}, 2)
+    eq(select(2, decide(snap({ A }, { MINUET }, { now = 1099 }), cfg)), 'nothing to do')
+    local cmd, intent = decide(snap({ A }, { MINUET }, { now = 1100 }), cfg)
+    eq({ cmd, intent.why }, { '/ma "Valor Minuet IV" <me>', 'Me +1 are due' })
+    -- Off (0), or not a BRD 75 main job: only once it's gone.
+    cfg.song.duration = 0
+    eq(select(2, decide(snap({ A }, { MINUET }, { now = 1100 }), cfg)), 'nothing to do')
+    cfg.song.duration = 100
+    eq(select(2, decide(snap({ A }, { MINUET }, { now = 1100, main_lv = 74 }), cfg)), 'nothing to do')
+    -- Sung under Troubadour: twice as long.
+    brd.landed(song('Valor Minuet IV'), { 1, 101 }, 1000, { [TROUBADOUR] = true }, 2)
+    eq(select(2, decide(snap({ A }, { MINUET }, { now = 1199 }), cfg)), 'nothing to do')
+    eq(decide(snap({ A }, { MINUET }, { now = 1200 }), cfg), '/ma "Valor Minuet IV" <me>')
+end)
+
+test('Song Duration: a stamp not yet due holds the song, a member with none goes by their statuses', function ()
+    local cfg = cfg_with({ area_1 = 'Valor Minuet IV' })
+    cfg.song.duration = 100
+    brd.landed(song('Valor Minuet IV'), { 1, 101 }, 1000, {}, 2)
+    -- Just landed: its status not shown yet, the stamp holds it.
+    eq(select(2, decide(snap({ player({ name = 'A' }) }, {}, { now = 1002 }), cfg)), 'nothing to do')
+    -- B joined after it: no stamp, lacks it.
+    local g = snap({ player({ name = 'A' }, { MINUET }), player({ name = 'B' }) }, { MINUET }, { now = 1010 })
+    eq(select(2, decide(g, cfg)).why, 'B lacks it')
+end)
+
+test('a stamp goes once a list we can read stops showing its song, or its member dies', function ()
+    local cfg = cfg_with({ area_1 = 'Valor Minuet IV' })
+    cfg.song.duration = 100
+    brd.landed(song('Valor Minuet IV'), { 1, 101 }, 1000, {}, 2)
+    -- Dispelled from A past VERIFY: A lacks it again.
+    eq(select(2, decide(snap({ player({ name = 'A' }) }, { MINUET }, { now = 1000 + brd.VERIFY }), cfg)).why, 'A lacks it')
+    eq(brd.stamps()[101]['Valor Minuet IV'], nil)
+    brd.landed(song('Valor Minuet IV'), { 101 }, 1010, {}, 2)
+    local quiet = cfg_with({ area_1 = 'Valor Minuet IV' })
+    quiet.revive.on = false
+    brd.landed(song('Valor Minuet IV'), { 101 }, 1010, {}, 2)
+    decide(snap({ player({ name = 'A', hpp = 0 }) }, { MINUET }, { now = 1011 }), quiet)
+    eq(brd.stamps()[101], nil)
+    -- A trust's statuses can't say: its stamp stands.
+    brd.landed(song('Valor Minuet IV'), { 101 }, 1010, {}, 2)
+    quiet.song.duration = 100
+    eq(select(2, decide(snap({ { name = 'Kupipi', kind = 'trust' } }, { MINUET }, { now = 1050 }), quiet)), 'nothing to do')
+    -- Released (no longer in the snapshot): its stamps are forgotten.
+    decide(snap({}, { MINUET }, { now = 1051 }), quiet)
+    eq(brd.stamps()[101], nil)
+end)
+
+test('Song Duration: of two one-kind songs, the one due goes', function ()
+    local cfg = cfg_with({ area_1 = 'Victory March', area_2 = 'Advancing March' })
+    cfg.song.duration = 100
+    brd.landed(song('Victory March'), { 1 }, 1000, { [TROUBADOUR] = true }, 2)  -- landed first, lasts twice as long
+    brd.landed(song('Advancing March'), { 1 }, 1010, {}, 2)
+    eq(decide(snap({}, { MARCH, MARCH }, { now = 1110 }), cfg), '/ma "Advancing March" <me>')
+end)
+
+test('Nightingale and Troubadour up: every song stamped without Troubadour is sung again, once', function ()
+    local cfg = cfg_with({ area_1 = 'Valor Minuet IV', p1_1 = 'Mage\'s Ballad II' })
+    brd.landed(song('Valor Minuet IV'), { 1, 101 }, 1000, {}, 2)
+    brd.landed(song('Mage\'s Ballad II'), { 101 }, 1005, {}, 2)
+    local up = { MINUET, NIGHTINGALE, TROUBADOUR }
+    local A = player({ name = 'A' }, { MINUET, BALLAD })
+    eq(decide(snap({ A }, up, { now = 1020 }), cfg), '/ma "Valor Minuet IV" <me>')
+    brd.landed(song('Valor Minuet IV'), { 1, 101 }, 1025, { [NIGHTINGALE] = true, [TROUBADOUR] = true }, 2)
+    eq(decide(snap({ A }, up, { now = 1030 }), cfg), '/ja "Pianissimo" <me>')
+    brd.landed(song('Mage\'s Ballad II'), { 101 }, 1035, { [TROUBADOUR] = true }, 2)
+    eq(select(2, decide(snap({ A }, up, { now = 1040 }), cfg)), 'nothing to do')
+    -- Troubadour alone: nothing forced.
+    brd.landed(song('Valor Minuet IV'), { 1, 101 }, 1050, {}, 2)
+    eq(select(2, decide(snap({ A }, { MINUET, TROUBADOUR }, { now = 1060 }), cfg)), 'nothing to do')
+end)
+
+test('Hold area buffs: a far player whose stamp is due but who still has it holds nothing', function ()
+    local cfg = cfg_with({ area_1 = 'Valor Minuet IV' }, { hold_aoe = true })
+    cfg.song.duration = 100
+    brd.landed(song('Valor Minuet IV'), { 1, 101 }, 1000, {}, 2)
+    local g = snap({ player({ name = 'Far', dist = 25 }, { MINUET }) }, { MINUET }, { now = 1100 })
+    eq(decide(g, cfg), '/ma "Valor Minuet IV" <me>')
+    -- One who lacks it is still waited for.
+    g = snap({ player({ name = 'Far', dist = 25 }) }, { MINUET }, { now = 1100 })
+    eq(select(2, decide(g, cfg)), 'holding Valor Minuet IV: Far 25.0y away')
+end)
+
+test('a party player with no status list yet (no stacks) keeps their stamps', function ()
+    local cfg = cfg_with({ area_1 = 'Valor Minuet IV' })
+    cfg.song.duration = 100
+    brd.landed(song('Valor Minuet IV'), { 1, 101 }, 1000, {}, 2)
+    local A = player({ name = 'A' })
+    A.stacks = nil
+    decide(snap({ A }, { MINUET }, { now = 1050 }), cfg)
+    eq(brd.stamps()[101]['Valor Minuet IV'].at, 1000)
 end)
