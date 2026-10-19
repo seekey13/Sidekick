@@ -44,6 +44,21 @@ test('the party moving or combat keeps it awake; neither wakes it once asleep', 
     eq(afk.update(at(300, { combat = true }, { { name = 'A', moving = true } }), cfg, st), true)  -- a pull is no proof you're back
 end)
 
+test('with Follow on, the leader getting past its distance wakes it, so following goes on', function ()
+    local cfg, st = settings.defaults(), {}
+    cfg.afk.minutes, cfg.follow.on, cfg.follow.target = 1, true, 'A'
+    afk.update(at(0, nil, { { name = 'A', dist = 3 } }), cfg, st)
+    eq(afk.update(at(60, nil, { { name = 'A', dist = 3 } }), cfg, st), true)
+    eq(afk.update(at(70, nil, { { name = 'B', dist = 30 }, { name = 'A', dist = 5 } }), cfg, st), true)  -- within 5: still asleep
+    eq({ afk.update(at(71, nil, { { name = 'A', dist = 9 } }), cfg, st) },
+       { false, 'AFK: A is leaving. Automation resumed to follow.' })
+    eq(engine.decide(at(72, nil, { { name = 'A', dist = 9 } }), cat, cfg, {}).command, '/follow <p1>')
+    cfg.follow.on = false  -- off, the leader wakes nothing
+    afk.update(at(80, nil, { { name = 'A', dist = 3 } }), cfg, st)
+    eq(afk.update(at(140, nil, { { name = 'A', dist = 3 } }), cfg, st), true)
+    eq(afk.update(at(141, nil, { { name = 'A', dist = 30 } }), cfg, st), true)
+end)
+
 test('off: never asleep, and turned on again it waits the whole time', function ()
     local cfg, st = settings.defaults(), {}
     cfg.afk.minutes = 1

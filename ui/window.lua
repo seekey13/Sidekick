@@ -943,7 +943,8 @@ local SWITCH_HELP = {
     recover = 'Get MP and TP back with the rows that are on.',
     rest = 'Rest for MP out of combat once nothing else has happened for a while; stand at full MP.',
     afk = 'While running, pause automation once no one in your party has moved and there has been no combat for '
-        .. 'a while; your own movement wakes it (a pull doesn\'t). Nothing is stopped or saved.',
+        .. 'a while; your own movement wakes it (a pull doesn\'t), and so does the leader leaving with Follow on. '
+        .. 'Nothing is stopped or saved.',
 }
 
 local BODIES = {
