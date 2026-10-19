@@ -1,6 +1,7 @@
 --[[
     The standard Sidekick3 UI, and the reference: it uses only the `view` and
-    `act` every UI is given (ui/README.md), so ui/custom.lua can replace it.
+    `act` every UI is given (ui/README.md), so ui/custom.lua can replace it, and
+    takes each setting's range from ui/model.lua's REMOTE_SET, which holds it once.
     ImGui only; it reads no game state and decides nothing. Everything is drawn
     on ImGui's draw lists in ui/kit.lua's look (docs/vana-ui-style.md), and SK
     Settings' sidebar and page layout follow VanaCore's addons/vanacore/vana/vana.lua
@@ -27,6 +28,7 @@
 
 local imgui = require('imgui')
 local kit = require('ui.kit')
+local LIMITS = require('ui.model').REMOTE_SET  -- each setting's range, as a session takes it from another
 
 local window = {}
 
@@ -419,17 +421,23 @@ local function line(pg, label, help, h, color)
     return cy
 end
 
-local function slider(pg, label, id, path, value, min, max, help, unit)
+-- A control's id from its label and the setting it sets: 'Rest after##sk3_rest_delay'.
+local function id_of(label, path) return label .. '##sk3_' .. path:gsub('%.', '_') end
+
+-- A slider for setting `path` (`value`), over its range in LIMITS unless `range` ({ min, max }) is given.
+local function slider(pg, label, path, value, help, unit, range)
     local cy = line(pg, label, help)
-    local v, moved = kit.slider(id, pg.right - S(SLIDER_W), cy, S(SLIDER_W), value, min, max, true, pg.alpha, unit)
+    local r = range or LIMITS[path]
+    local v, moved = kit.slider(id_of(label, path), pg.right - S(SLIDER_W), cy, S(SLIDER_W), value, r[1], r[2], true, pg.alpha, unit)
     if moved then act.set(path, v) end
 end
 
-local function switch(pg, label, id, on, set, help)
+-- A switch: `set(on)` when flipped, else setting `path` (also its id).
+local function switch(pg, label, path, on, help, set)
     local cy = line(pg, label, help)
-    local v, flipped = kit.switch(id, pg.right - S(kit.SW_W), cy, on, true, pg.alpha)
+    local v, flipped = kit.switch(id_of(label, path), pg.right - S(kit.SW_W), cy, on, true, pg.alpha)
     kit.tip(help)
-    if flipped then set(v) end
+    if flipped then (set or function (x) act.set(path, x) end)(v) end
 end
 
 -- A drop-down at the right of a labelled line; `body` lists its choices.
@@ -472,14 +480,44 @@ local function flow(items, x0, right, gap)
     return n
 end
 
--- A party member by name for setting `path`, or None ('').
-local function member_pick(pg, label, id, current, names, path, help)
-    pick(pg, label, label .. '##sk3_' .. id, current ~= '' and current or 'None', function ()
-        if imgui.Selectable('None##sk3_' .. id .. '_none', current == '') then act.set(path, '') end
-        for _, name in ipairs(names) do
-            if imgui.Selectable(name .. '##sk3_' .. id .. '_' .. name, name == current) then act.set(path, name) end
+-- What a pick shows: its choice's `field` (label), or None; a pick the job no longer has says so
+-- (a name, as one who isn't here now, doesn't).
+local function shown_pick(current, choices, field)
+    for _, c in ipairs(choices) do
+        if c.name == current then return c[field or 'label'] end
+    end
+    return current ~= '' and current .. (choices.names and '' or ' (not available)') or 'None'
+end
+
+-- A drop-down's list for setting `path`: None (''), then each of `choices` ({ name, label }) by its
+-- `field` (label), `current` ticked, each with the tooltip `tip(choice)` gives; `id` keeps their ids apart.
+local function options(id, path, current, choices, field, tip)
+    return function ()
+        if imgui.Selectable('None##' .. id .. '_none', current == '') then act.set(path, '') end
+        for _, c in ipairs(choices) do
+            if imgui.Selectable(c[field or 'label'] .. '##' .. id .. '_' .. c.name, c.name == current) then act.set(path, c.name) end
+            if tip then kit.tip(tip(c)) end
         end
-    end, help)
+    end
+end
+
+-- Names as choices.
+local function named(names)
+    local out = { names = true }
+    for i, n in ipairs(names) do out[i] = { name = n, label = n } end
+    return out
+end
+
+-- A labelled line's drop-down for setting `path` (None for ''), `w` wide (PICK_W).
+local function choice(pg, label, id, path, current, choices, help, w, tip)
+    pick(pg, label, label .. '##sk3_' .. id, shown_pick(current, choices), options('sk3_' .. id, path, current, choices, nil, tip),
+        help, w)
+end
+
+-- A slot's drop-down at (x, cy), `w` wide, for setting `path`. Returns whether it's hovered.
+local function slot_pick(id, path, current, choices, x, cy, w, alpha, field, tip)
+    return kit.dropdown('##' .. id, x, cy, w, shown_pick(current, choices, field), true, alpha,
+        options(id, path, current, choices, field, tip))
 end
 
 -- SK Settings bodies ---------------------------------------------------------------
@@ -511,32 +549,24 @@ end
 
 local function draw_heal_settings(view, pg)
     local h = view.heal
-    for _, l in ipairs(HEAL_LINES) do
-        slider(pg, l[1], l[1] .. '##sk3_' .. l[2], 'heal.' .. l[2], h[l[2]], 1, 99, l[3], '%')
-    end
+    for _, l in ipairs(HEAL_LINES) do slider(pg, l[1], 'heal.' .. l[2], h[l[2]], l[3], '%') end
     -- A heal line at or under its danger line leaves nothing between them: only danger heals go.
     if h.threshold <= h.danger then note(pg, 'Heal under is at or under Danger under: no efficient heals, only danger ones.', P.amber) end
-    member_pick(pg, 'Focus', 'focus', h.focus, h.focus_names, 'heal.focus', 'Heal this member first, on its own lines.')
+    choice(pg, 'Focus', 'focus', 'heal.focus', h.focus, named(h.focus_names), 'Heal this member first, on its own lines.')
     for _, l in ipairs(HEAL_LINES) do
-        local key = 'focus_' .. l[2]
-        local label = 'Focus ' .. l[1]:lower()
-        slider(pg, label, label .. '##sk3_' .. key, 'heal.' .. key, h[key], 1, 99, 'For the focus member: ' .. l[3], '%')
+        slider(pg, 'Focus ' .. l[1]:lower(), 'heal.focus_' .. l[2], h['focus_' .. l[2]], 'For the focus member: ' .. l[3], '%')
     end
     if h.focus_threshold <= h.focus_danger then
         note(pg, 'Focus heal under is at or under Focus danger under: the focus member gets danger heals only.', P.amber)
     end
-    slider(pg, 'Cure potency +', 'Cure potency +##sk3_cure_potency', 'heal.cure_potency', h.cure_potency, 0, 50,
-        'Cure potency % from gear, until a cure has been seen healing.', '%')
-    slider(pg, 'Waltz potency +', 'Waltz potency +##sk3_waltz_potency', 'heal.waltz_potency', h.waltz_potency, 0, 50,
-        'Waltz potency % from gear, until a waltz has been seen healing.', '%')
-    slider(pg, 'Regen potency +', 'Regen potency +##sk3_regen_potency', 'heal.regen_potency', h.regen_potency, 0, 30,
-        'HP per Regen tick from gear.')
-    switch(pg, 'Heal the alliance', 'Heal the alliance##sk3_heal_alliance', h.alliance, function (on) act.set('heal.alliance', on) end,
+    slider(pg, 'Cure potency +', 'heal.cure_potency', h.cure_potency, 'Cure potency % from gear, until a cure has been seen healing.', '%')
+    slider(pg, 'Waltz potency +', 'heal.waltz_potency', h.waltz_potency, 'Waltz potency % from gear, until a waltz has been seen healing.', '%')
+    slider(pg, 'Regen potency +', 'heal.regen_potency', h.regen_potency, 'HP per Regen tick from gear.')
+    switch(pg, 'Heal the alliance', 'heal.alliance', h.alliance,
         'Heal the alliance\'s other parties too, with heals that reach outside your party. Raising, waking, '
         .. 'removal and buffs look after them whatever this says, and the focus member is always healed.')
     if h.stratagems then
-        switch(pg, 'Keep a stratagem for healing', 'Keep a stratagem for healing##sk3_heal_reserve', h.reserve,
-            function (on) act.set('heal.reserve', on) end,
+        switch(pg, 'Keep a stratagem for healing', 'heal.reserve', h.reserve,
             'Buff rows never spend the last stratagem charge, so healing has one for Accession or Rapture.')
     end
     heal_members(pg, h)
@@ -544,53 +574,48 @@ end
 
 local function draw_recover_settings(view, pg)
     local r = view.recover
-    slider(pg, 'MP under', 'MP under##sk3_recover_mp', 'recover.mp', r.mp, 1, 99,
-        'Recover MP under this MP % (yours; a member\'s for Devotion).', '%')
-    slider(pg, 'TP under', 'TP under##sk3_recover_tp', 'recover.tp', r.tp, 0, 3000, 'In combat, get TP back under this.')
+    slider(pg, 'MP under', 'recover.mp', r.mp, 'Recover MP under this MP % (yours; a member\'s for Devotion).', '%')
+    slider(pg, 'TP under', 'recover.tp', r.tp, 'In combat, get TP back under this.')
     if r.spends_tp then
-        slider(pg, 'Spend TP from', 'Spend TP from##sk3_recover_min_tp', 'recover.min_tp', r.min_tp, 0, 3000,
-            'Chivalry turns all your TP into MP: only from this much.')
+        slider(pg, 'Spend TP from', 'recover.min_tp', r.min_tp, 'Chivalry turns all your TP into MP: only from this much.')
     end
 end
 
 local function draw_pet_settings(view, pg)
-    slider(pg, 'Pet HP under', 'Pet HP under##sk3_pet_heal', 'pet.heal', view.pet_heal, 1, 99, 'Heal your pet under this HP %.', '%')
+    slider(pg, 'Pet HP under', 'pet.heal', view.pet_heal, 'Heal your pet under this HP %.', '%')
 end
 
 local function draw_follow(view, pg)
     local f = view.follow
-    member_pick(pg, 'Leader', 'follow_target', f.target, f.names, 'follow.target', 'Who to follow; resting stands up when they leave too.')
-    slider(pg, 'Follow past', 'Follow past##sk3_follow_distance', 'follow.distance', f.distance, 1, 15, 'Yalms.', 'y')
+    choice(pg, 'Leader', 'follow_target', 'follow.target', f.target, named(f.names), 'Who to follow; resting stands up when they leave too.')
+    slider(pg, 'Follow past', 'follow.distance', f.distance, 'Yalms.', 'y')
 end
 
 local function draw_rest(view, pg)
     local r = view.rest
-    slider(pg, 'Rest after', 'Rest after##sk3_rest_delay', 'rest.delay', r.delay, 1, 20, 'Seconds of nothing to do.', 's')
-    slider(pg, 'Stand past', 'Stand past##sk3_rest_distance', 'rest.distance', r.distance, 1, 15, 'Yalms from the leader.', 'y')
+    slider(pg, 'Rest after', 'rest.delay', r.delay, 'Seconds of nothing to do.', 's')
+    slider(pg, 'Stand past', 'rest.distance', r.distance, 'Yalms from the leader.', 'y')
 end
 
 local function draw_afk(view, pg)
     local a = view.afk
-    slider(pg, 'Sleep after', 'Sleep after##sk3_afk_minutes', 'afk.minutes', a.minutes, 1, 60,
-        'Minutes with no one in your party moving and no combat.', 'm')
+    slider(pg, 'Sleep after', 'afk.minutes', a.minutes, 'Minutes with no one in your party moving and no combat.', 'm')
     if a.asleep then note(pg, 'Asleep: move to wake.')
     elseif a.left then note(pg, ('Sleeps in %d min without movement or combat.'):format(math.ceil(a.left / 60))) end
 end
 
 local function draw_buff_settings(view, pg)
     local b = view.buff
-    switch(pg, 'Hold area buffs for the group', 'Hold area buffs for the group##sk3_hold_aoe', b.hold_aoe,
-        function (on) act.set('buff.hold_aoe', on) end,
+    switch(pg, 'Hold area buffs for the group', 'buff.hold_aoe', b.hold_aoe,
         'Hold an area buff spell (Protectra, Barfira, songs) while a player in your party who lacks it is out of its '
         .. 'reach, so nobody is left out. Trusts and members in another zone never hold it.')
     if b.hold_aoe then
-        switch(pg, 'Ask them to gather', 'Ask them to gather##sk3_gather', b.gather, function (on) act.set('buff.gather', on) end,
+        switch(pg, 'Ask them to gather', 'buff.gather', b.gather,
             'While one is held that someone near you lacks too, say "Gather together for <spell>" in party chat, '
                 .. 'at most every 5 seconds.')
     end
     if b.shadows then
-        switch(pg, 'Cast Utsusemi at one shadow', 'Cast Utsusemi at one shadow##sk3_one_shadow', b.one_shadow,
-            function (on) act.set('buff.one_shadow', on) end,
+        switch(pg, 'Cast Utsusemi at one shadow', 'buff.one_shadow', b.one_shadow,
             'Recast Utsusemi while its last shadow is up, not only once it is gone. For Ichi, which cannot replace '
                 .. 'Ni\'s shadows, that shadow is cancelled a second into the cast, so the new ones land.')
     end
@@ -605,30 +630,13 @@ local RISKS = {
 local RISK_HELP = 'How far Double-Up chases a total. Every risk doubles at 5 or under (Lowest and Medium bank a lucky '
     .. 'there), never at 11, and turns 10 into 11 with Snake Eye. Fold clears a Bust whenever it is ready.'
 
--- What a pick shows: its choice's label, or None; a pick the job no longer has says so.
-local function shown_pick(current, choices, field)
-    for _, c in ipairs(choices) do
-        if c.name == current then return c[field or 'label'] end
-    end
-    return current ~= '' and current .. ' (not available)' or 'None'
-end
-
--- A roll for setting `path`, or None ('').
-local function roll_pick(pg, label, id, current, choices, path)
-    pick(pg, label, label .. '##sk3_' .. id, shown_pick(current, choices), function ()
-        if imgui.Selectable('None##sk3_' .. id .. '_none', current == '') then act.set(path, '') end
-        for _, c in ipairs(choices) do
-            if imgui.Selectable(c.label .. '##sk3_' .. id .. '_' .. c.name, c.name == current) then act.set(path, c.name) end
-            kit.tip(('Lucky %d, unlucky %d.'):format(c.lucky, c.unlucky))
-        end
-    end, nil, S(ROLL_W))
-end
+local function lucky(c) return ('Lucky %d, unlucky %d.'):format(c.lucky, c.unlucky) end
 
 local function draw_rolls(view, pg)
     local r = view.roll
-    roll_pick(pg, 'Roll 1', 'roll_first', r.first, r.choices, 'roll.first')
+    choice(pg, 'Roll 1', 'roll_first', 'roll.first', r.first, r.choices, nil, S(ROLL_W), lucky)
     if r.two then
-        roll_pick(pg, 'Roll 2', 'roll_second', r.second, r.choices, 'roll.second')
+        choice(pg, 'Roll 2', 'roll_second', 'roll.second', r.second, r.choices, nil, S(ROLL_W), lucky)
         if r.second ~= '' and r.second == r.first then note(pg, 'Roll 2 is Roll 1: one roll kept up') end
     else
         note(pg, 'Roll 2: Corsair main job only')
@@ -652,18 +660,6 @@ local function draw_rolls(view, pg)
     end
 end
 
--- A song for slot `i` of `set`, or None ('').
-local function song_pick(set, i, choices, x, cy, w, alpha)
-    local current, id = set.picks[i], ('sk3_song_%s_%d'):format(set.key, i)
-    local path = ('song.%s_%d'):format(set.key, i)
-    kit.dropdown('##' .. id, x, cy, w, shown_pick(current, choices), true, alpha, function ()
-        if imgui.Selectable('None##' .. id .. '_none', current == '') then act.set(path, '') end
-        for _, c in ipairs(choices) do
-            if imgui.Selectable(c.label .. '##' .. id .. '_' .. c.name, c.name == current) then act.set(path, c.name) end
-        end
-    end)
-end
-
 local SONG_HELP = {
     area = 'Sung as they are, on you and everyone in your party near you, whenever someone there lacks one. '
         .. 'A member with songs of their own picked keeps only the slots those leave.',
@@ -684,7 +680,10 @@ local function draw_songs(view, pg)
             local dim = set.key ~= 'area' and not (set.present and m.pianissimo)
             local cy = line(pg, set.label, SONG_HELP[set.key] or ('Sung on %s alone, through Pianissimo, whenever they lack one.')
                 :format(set.name or 'whoever is in this party slot'), nil, dim and P.dim or P.text)
-            for i = 1, m.slots do song_pick(set, i, m.choices, pg.lx + col + (i - 1) * (w + gap), cy, w, pg.alpha) end
+            for i = 1, m.slots do
+                slot_pick(('sk3_song_%s_%d'):format(set.key, i), ('song.%s_%d'):format(set.key, i), set.picks[i], m.choices,
+                    pg.lx + col + (i - 1) * (w + gap), cy, w, pg.alpha)
+            end
             if set.key ~= 'area' then
                 local nx = pg.lx + col + m.slots * (w + gap) + S(4)
                 kit.text_mid(pg.dl, nx, cy, kit.fit(set.name or 'no one', pg.right - nx, kit.fonts.text, S(SMALL + 0.5)),
@@ -700,15 +699,14 @@ local function draw_songs(view, pg)
     end
     if kit.over(pg.x, y, pg.w, pg.y - y) then kit.tooltip(SONGS_TIP) end
     if m.pianissimo then
-        switch(pg, 'Pianissimo fast casting', 'Pianissimo fast casting##sk3_song_fast', m.fast,
-            function (on) act.set('song.fast', on) end,
+        switch(pg, 'Pianissimo fast casting', 'song.fast', m.fast,
             'Fire Pianissimo before an area song too, for its shorter cast, and cancel it a second into the cast '
                 .. 'so the song still lands on everyone near you. None is fired while Nightingale is up (its casts are '
                 .. 'short already); with Pianissimo on recast the area song goes without it. A Pianissimo already up '
                 .. 'goes to the next area song, or to a member\'s song while that area song can\'t go yet.')
     end
     if m.timed then
-        slider(pg, 'Song Duration', 'Song Duration##sk3_song_duration', 'song.duration', m.duration, 0, 300,
+        slider(pg, 'Song Duration', 'song.duration', m.duration,
             'Seconds: sing each song again this long after it landed, before it wears (0: only once it\'s gone). '
             .. 'Set it just under your songs\' real duration, gear included; doubled for a song sung under Troubadour. '
             .. 'While Nightingale and Troubadour are both up, every song sung without Troubadour is sung again.', 's')
@@ -717,18 +715,14 @@ end
 
 local function draw_geo(view, pg)
     local g = view.geo
-    slider(pg, 'Recall past', 'Recall past##sk3_geo_distance', 'geo.distance', g.distance, 3, 30,
+    slider(pg, 'Recall past', 'geo.distance', g.distance,
         'Yalms: Full Circle the luopan once who it is on is further than this from it, so it goes down again.', 'y')
-    slider(pg, 'Keep after combat', 'Keep after combat##sk3_geo_linger', 'geo.linger', g.linger, 1, 20,
+    slider(pg, 'Keep after combat', 'geo.linger', g.linger,
         'Seconds a debuff luopan waits once combat is over before Full Circle recalls it: a new battle target in that time keeps it.', 's')
-    member_pick(pg, 'Entrust to', 'geo_entrust', g.entrust, g.names, 'geo.entrust',
+    choice(pg, 'Entrust to', 'geo_entrust', 'geo.entrust', g.entrust, named(g.names),
         'With Entrust on, put the Indi- spell picked on this member (within 20 yalms).')
-    pick(pg, 'Entrust spell', 'Entrust spell##sk3_geo_entrust_spell', g.entrust_spell ~= '' and g.entrust_spell or 'None', function ()
-        if imgui.Selectable('None##sk3_geo_entrust_spell_none', g.entrust_spell == '') then act.set('geo.entrust_spell', '') end
-        for _, name in ipairs(g.indi) do
-            if imgui.Selectable(name .. '##sk3_geo_entrust_spell_' .. name, name == g.entrust_spell) then act.set('geo.entrust_spell', name) end
-        end
-    end, 'The Indi- spell Entrust puts on that member whenever they lack its aura.')
+    choice(pg, 'Entrust spell', 'geo_entrust_spell', 'geo.entrust_spell', g.entrust_spell, named(g.indi),
+        'The Indi- spell Entrust puts on that member whenever they lack its aura.')
 end
 
 -- What a set's slots show of each rune.
@@ -741,17 +735,11 @@ end
 
 -- A rune for slot `i` of `set`, or None ('').
 local function rune_pick(set, i, runes, x, cy, w, alpha)
-    local current, id = set.picks[i], ('sk3_rune_%s_%d'):format(set.key, i)
-    local path = ('rune.%s_%d'):format(set.key, i)
-    local shown = shown_pick(current, runes, set.shows)
-    local hovered = kit.dropdown('##' .. id, x, cy, w, shown, true, alpha, function ()
-        if imgui.Selectable('None##' .. id .. '_none', current == '') then act.set(path, '') end
-        for _, r in ipairs(runes) do
-            if imgui.Selectable(r[set.shows] .. '##' .. id .. '_' .. r.name, r.name == current) then act.set(path, r.name) end
-            kit.tip(rune_tip(r))
-        end
-    end)
-    if hovered then kit.tooltip(shown .. '\n' .. SHOWS[set.shows]) end
+    local current = set.picks[i]
+    if slot_pick(('sk3_rune_%s_%d'):format(set.key, i), ('rune.%s_%d'):format(set.key, i), current, runes, x, cy, w, alpha,
+            set.shows, rune_tip) then
+        kit.tooltip(shown_pick(current, runes, set.shows) .. '\n' .. SHOWS[set.shows])
+    end
 end
 
 -- A line per set: Idle, then each ward with its switch; a drop-down per rune slot, then whether it's ready.
@@ -784,14 +772,9 @@ local function draw_maneuvers(view, pg)
     local cy = line(pg, nil, nil)
     local gap, w = S(6), S(MANEUVER_W)
     for i, current in ipairs(m.picks) do
-        local id, path = 'sk3_maneuver_' .. i, 'maneuver.slot_' .. i
-        local hovered = kit.dropdown('##' .. id, pg.lx + (i - 1) * (w + gap), cy, w, shown_pick(current, m.choices), true, pg.alpha, function ()
-            if imgui.Selectable('None##' .. id .. '_none', current == '') then act.set(path, '') end
-            for _, c in ipairs(m.choices) do
-                if imgui.Selectable(c.label .. '##' .. id .. '_' .. c.name, c.name == current) then act.set(path, c.name) end
-            end
-        end)
-        if hovered then kit.tooltip('The same element in two slots keeps two up.') end
+        if slot_pick('sk3_maneuver_' .. i, 'maneuver.slot_' .. i, current, m.choices, pg.lx + (i - 1) * (w + gap), cy, w, pg.alpha) then
+            kit.tooltip('The same element in two slots keeps two up.')
+        end
     end
     kit.text_right(pg.dl, pg.right, cy, m.avail, m.ready and P.teal or P.dim, kit.fonts.text, S(SMALL + 0.5), pg.alpha)
 end
@@ -925,21 +908,21 @@ local function draw_ui(view, pg)
     if view.session then return draw_recent(view, pg) end
     subheader(pg, 'HUD')
     for _, l in ipairs(UI_SLIDERS) do
-        slider(pg, l[1], l[1] .. '##sk3_ui_' .. l[2], 'ui.' .. l[2], view.ui[l[2]], l[3], l[4], l[5], l[6])
+        slider(pg, l[1], 'ui.' .. l[2], view.ui[l[2]], l[5], l[6], { l[3], l[4] })
     end
-    switch(pg, 'Lock position', 'Lock position##sk3_ui_locked', view.ui.locked == true, function (on) act.set('ui.locked', on) end,
+    switch(pg, 'Lock position', 'ui.locked', view.ui.locked == true,
         'Keep the HUD and the widget where they are: dragging them no longer moves them.')
-    switch(pg, 'Widget', 'Widget##sk3_ui_widget', view.ui.widget == true, function (on) act.set('ui.widget', on) end,
+    switch(pg, 'Widget', 'ui.widget', view.ui.widget == true,
         'A small window of its own: the profile loaded (pick another to load it) and your job, then Start/Stop, '
         .. 'the state, Settings, and Track for your target. Up with the HUD closed too. Also /sk3 widget.')
     subheader(pg, 'SK SETTINGS')
-    slider(pg, 'Size', 'Size##sk3_ui_scale', 'ui.scale', ui_scale(view.ui), 50, 200,
-        'This window\'s size and the widget\'s, % of the size that suits your screen. Taken up once the slider is let go.', '%')
+    slider(pg, 'Size', 'ui.scale', ui_scale(view.ui),
+        'This window\'s size and the widget\'s, % of the size that suits your screen. Taken up once the slider is let go.', '%', { 50, 200 })
     subheader(pg, 'LOG')
-    switch(pg, 'Action log', 'Action log##sk3_log', view.log, act.log, 'Print each action to chat as it is sent.')
+    switch(pg, 'Action log', 'log', view.log, 'Print each action to chat as it is sent.', act.log)
     draw_recent(view, pg)
     subheader(pg, 'CLIENT')
-    switch(pg, 'Japanese client', 'Japanese client##sk3_japanese', view.japanese, function (on) act.set('japanese', on) end,
+    switch(pg, 'Japanese client', 'japanese', view.japanese,
         'Send spell, ability and item names in Japanese, on every job.')
 end
 
@@ -1266,29 +1249,15 @@ local function settings_shell(label, open, index, body)
     if not ok then return err end
 end
 
--- Each window: Begin, the body under pcall, End; returns the error the body raised.
--- ponytail: an error inside a drop-down's list still leaves its popup open, which
--- ImGui asserts on; unwind tracked scopes (as v2's abort_sections does) if one shows up.
-local function hud(view)
-    local flags = HUD_FLAGS + (view.ui.locked and ImGuiWindowFlags_NoMove or 0)
+-- The HUD or the widget: a window ImGui draws nothing of, `draw(view)` inside under pcall
+-- (Begin, the body, End); returns the error the body raised.
+local function panel(title, flags, draw, view)
     imgui.PushStyleVar(ImGuiStyleVar_WindowPadding, { 0, 0 })
     imgui.PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0)
-    local shown = imgui.Begin('Sidekick3', true, flags)
+    local shown = imgui.Begin(title, true, flags + (view.ui.locked and ImGuiWindowFlags_NoMove or 0))
     imgui.PopStyleVar(2)
     local ok, err = true, nil
-    if shown then ok, err = pcall(draw_hud, view) end
-    imgui.End()  -- ImGui keeps where it was dragged, in imgui.ini
-    if not ok then return err end
-end
-
-local function widget(view)
-    local flags = WIDGET_FLAGS + (view.ui.locked and ImGuiWindowFlags_NoMove or 0)
-    imgui.PushStyleVar(ImGuiStyleVar_WindowPadding, { 0, 0 })
-    imgui.PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0)
-    local shown = imgui.Begin('SK Widget', true, flags)
-    imgui.PopStyleVar(2)
-    local ok, err = true, nil
-    if shown then ok, err = pcall(draw_widget, view) end
+    if shown then ok, err = pcall(draw, view) end
     imgui.End()  -- ImGui keeps where it was dragged, in imgui.ini
     if not ok then return err end
 end
@@ -1335,11 +1304,11 @@ function window.render(view, act_)
     local err
     if open then
         kit.prefix = 'hud|'
-        err = hud(view)
+        err = panel('Sidekick3', HUD_FLAGS, draw_hud, view)
     end
     if view.ui.widget then
         kit.prefix = 'widget|'
-        err = widget(view) or err
+        err = panel('SK Widget', WIDGET_FLAGS, draw_widget, view) or err
     end
     kit.prefix = ''
     if settings_open then err = settings_window(view) or err end

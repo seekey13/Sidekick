@@ -642,7 +642,7 @@ local REMOTE = {
 }
 
 -- The settings act.set may change from another session: a number's range (the
--- standard window's sliders), 'bool', 'name' (a member, a spell, a roll or ''),
+-- one source of it: the standard window's sliders take theirs from here), 'bool', 'name' (a member, a spell, a roll or ''),
 -- 'maneuver' (a maneuver's name or ''), or a list of the values it takes. A song
 -- slot takes a 'name': one the job lacks is skipped, as a rune's.
 model.REMOTE_SET = {
