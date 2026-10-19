@@ -76,6 +76,13 @@ local profile_names = {}     -- per SK Settings window ('' for yours, else the s
 
 local function esc(s) return (tostring(s):gsub('%%', '%%%%')) end
 
+-- A profile's name in a label: '##' would end what it shows, and so would a '#'
+-- left just before the '###' of the id, so one at the end is kept apart.
+local function shown_name(name)
+    local s = name:gsub('#+', '#')
+    return s:sub(-1) == '#' and s .. ' ' or s
+end
+
 local function text(s, color)
     if color then imgui.TextColored(color, esc(s)) else imgui.Text(esc(s)) end
 end
@@ -350,8 +357,8 @@ end
 
 -- The widget ------------------------------------------------------------------------
 
--- The status in a few words, so the widget's width barely moves: the state, and
--- while running what holds it up. The whole of it is the tooltip, as the HUD title's.
+-- The status in a few words: the state, and while running what holds it up. The
+-- whole of it is the tooltip, as the HUD title's.
 local function short_status(s)
     if not s.running then return 'Stopped', GREY end
     if s.dim then return 'Running: ' .. s.dim, GREY end
@@ -362,9 +369,7 @@ end
 -- Start/Stop, the status, Settings, then Track for your target.
 local function draw_widget(view)
     local p = view.profiles
-    -- '##' in a label would end what it shows, as a header's.
-    local shown = p.active and p.active:gsub('#+', '#') or 'Default'
-    if imgui.Button(shown .. '###sk3_widget_profile') then imgui.OpenPopup('##sk3_widget_profiles') end
+    if imgui.Button((p.active and shown_name(p.active) or 'Default') .. '###sk3_widget_profile') then imgui.OpenPopup('##sk3_widget_profiles') end
     tip('Load a profile. SK Settings saves them.')
     if imgui.BeginPopup('##sk3_widget_profiles') then
         if imgui.Selectable('Default##sk3_widget_profile_default', p.active == nil) then act.profile(nil) end
@@ -377,12 +382,14 @@ local function draw_widget(view)
         imgui.EndPopup()
     end
     imgui.SameLine()
+    imgui.AlignTextToFramePadding()  -- else it sits at the top of the button row
     text(view.job)
 
     local s = view.status
     if imgui.Button((s.running and 'Stop' or 'Start') .. '###sk3_widget_run') then act.run(not s.running) end
     tip((s.running and 'Stop' or 'Start') .. ' automation')
     imgui.SameLine()
+    imgui.AlignTextToFramePadding()
     local line, color = short_status(s)
     text(line, color)
     tip(status_tip(view))
@@ -1033,8 +1040,7 @@ local function draw_settings(view)
             if s.on ~= nil then switches, on = true, on or s.on end
         end
         local note = switches and not on and ' (off)' or ''
-        -- '##' in a header's label would end what it shows.
-        if h == 'Profiles' and view.profiles.active then note = ': ' .. view.profiles.active:gsub('#+', '#') end
+        if h == 'Profiles' and view.profiles.active then note = ': ' .. shown_name(view.profiles.active) end
         if imgui.CollapsingHeader(h .. note .. '###sk3_' .. h) then
             for i, s in ipairs(of[h]) do
                 if i > 1 then imgui.Separator() end
@@ -1047,7 +1053,7 @@ end
 -- Windows ---------------------------------------------------------------------------
 
 -- Each window: Begin, the body under pcall, End; returns the error the body raised.
--- ponytail: an error inside a table or combo still leaves that scope open, which
+-- ponytail: an error inside a table, combo or popup still leaves that scope open, which
 -- ImGui asserts on; unwind tracked scopes (as v2's abort_sections does) if one shows up.
 local function hud(view)
     local flags = HUD_FLAGS + (view.ui.locked and ImGuiWindowFlags_NoMove or 0)

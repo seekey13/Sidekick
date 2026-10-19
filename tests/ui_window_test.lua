@@ -481,8 +481,9 @@ end)
 test('the widget\'s Start/Stop runs this session only; Settings opens and closes SK Settings', function ()
     close_settings()
     local cfg, st = widget_cfg(), status()
+    remote_calls = {}
     eq(render(cfg, st, { ['Start###sk3_widget_run'] = true }), 0)
-    eq(st.running, true)
+    eq({ st.running, remote_calls }, { true, {} })
     eq(render(cfg, st, { ['Stop###sk3_widget_run'] = true }), 0)
     eq(st.running, false)
     render(cfg, st, { ['Settings##sk3_widget_settings'] = true })
@@ -491,7 +492,6 @@ test('the widget\'s Start/Stop runs this session only; Settings opens and closes
     render(cfg, st, { ['Settings##sk3_widget_settings'] = true })
     render(cfg, st)
     eq(begun('SK Settings'), false)
-    settings_shown = false
 end)
 
 test('the widget\'s profile button lists the profiles: a click loads one, Default goes back', function ()
@@ -504,6 +504,10 @@ test('the widget\'s profile button lists the profiles: a click loads one, Defaul
     eq({ has(frame.args.Button, 'Sky#1###sk3_widget_profile'), showed('Sky##1') }, { true, true })
     render(cfg, st, { ['Default##sk3_widget_profile_default'] = true })
     eq({ cfg.profile, cfg.heal.danger }, { '', 40 })
+    cfg.profiles['Sky#'] = {}
+    render(cfg, st, { ['##sk3_widget_profile_1'] = true })  -- sorted before Sky##1
+    render(cfg, st)
+    eq(has(frame.args.Button, 'Sky# ###sk3_widget_profile'), true)
 end)
 
 test('the widget offers Track for a player you target outside the alliance', function ()

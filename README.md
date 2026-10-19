@@ -43,7 +43,7 @@ The HUD (`/sk3`) shows the party as Sidekick reads them, and what it will do nex
 
 Drag the HUD where you want it; Lock position keeps it there.
 
-**The widget** (`/sk3 widget`, or Widget under UI / Log; off by default), v2's floating widget: a small window beside the HUD with the profile loaded as a button (click it to load another, or Default) and your job, then Start/Stop, the status in a word or two (`Stopped`, `Running`, `Running: casting`; hover it for the rest), Settings (opens SK Settings) and, when your target is a player outside your party and alliance, Track. It shows while the HUD does, closes with it, and is dragged by its body (Lock position keeps it still too).
+**The widget** (`/sk3 widget`, or Widget under UI / Log; off by default), v2's floating widget: a small window of its own (drag it where you want it) with the profile loaded as a button (click it to load another, or Default) and your job, then Start/Stop, the status in a word or two (`Stopped`, `Running`, `Running: casting`; hover it for the rest), Settings (opens or closes SK Settings) and, when your target is a player outside your party and alliance, Track. It shows while the HUD does, closes with it, and is dragged by its body (Lock position keeps it still too).
 
 **SK Settings**, from the cog on your card, has every setting under collapsing headers, each section with its on/off switch:
 
