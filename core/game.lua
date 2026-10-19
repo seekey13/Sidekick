@@ -12,7 +12,8 @@
              jobs = { main, main_lv, sub, sub_lv } (you and your party's players),
              in_zone, dist, pos = { x, y, z },
              status (entity), alive, buffs = { [id] = true },
-             stacks = { [id] = how many stand } (you only: runes stack),
+             stacks = { [id] = how many stand } (you and your party's players: runes
+             and songs of one kind stack),
              moving (others: moved in the last half second),
              hot = HP still to come from your Regen, nil if none }
     Slots: 0 you, 1-5 your party, 6-11 and 12-17 the alliance's other parties
@@ -123,11 +124,21 @@ end
 
 local any = can.any
 
--- A party player's statuses, from the client's party status-icon block
--- (5 entries of 0x30 bytes: server id, 2 high bits per icon, 32 low bytes).
+-- A list of status ids as a set, and how many of each stand (runes stack:
+-- jobs/run.lua; so do songs of one kind: jobs/brd.lua).
+local function counted(list)
+    local stacks = {}
+    for _, id in ipairs(list) do
+        if id > 0 and id ~= 255 then stacks[id] = (stacks[id] or 0) + 1 end
+    end
+    return set_of(list), stacks
+end
+
+-- A party player's statuses and their stacks, from the client's party status-icon
+-- block (5 entries of 0x30 bytes: server id, 2 high bits per icon, 32 low bytes).
 local function party_buffs(sid)
     local base = ashita.memory.read_uint32(AshitaCore:GetPointerManager():Get('party.statusicons'))
-    if base == 0 then return {} end
+    if base == 0 then return {}, {} end
     for i = 0, 4 do
         local entry = base + 0x30 * i
         if ashita.memory.read_uint32(entry) == sid then
@@ -136,10 +147,10 @@ local function party_buffs(sid)
                 local high = bit.band(bit.rshift(ashita.memory.read_uint8(entry + 8 + math.floor(j / 4)), (j % 4) * 2), 3)
                 list[#list + 1] = high * 256 + ashita.memory.read_uint8(entry + 16 + j)
             end
-            return set_of(list)
+            return counted(list)
         end
     end
-    return {}
+    return {}, {}
 end
 
 -- The item id in your ammo slot, 0 for none. The equipment entry's Index packs
@@ -202,15 +213,11 @@ local function inventory()
     return out
 end
 
--- Your statuses, and how many of each stand (runes stack: jobs/run.lua).
+-- Your statuses, and how many of each stand.
 local function own_buffs(player)
-    local raw, list, stacks = player:GetBuffs(), {}, {}
-    for i = 1, 32 do
-        local id = raw[i] or 0
-        list[i] = id
-        if id > 0 and id ~= 255 then stacks[id] = (stacks[id] or 0) + 1 end
-    end
-    return set_of(list), stacks
+    local raw, list = player:GetBuffs(), {}
+    for i = 1, 32 do list[i] = raw[i] or 0 end
+    return counted(list)
 end
 
 local function entity(em, tidx)
@@ -461,7 +468,7 @@ function game.read(now)
             end
             u.alive = u.hpp > 0 and u.status ~= DEAD
             if u.kind == 'self' then u.buffs, u.stacks = own_buffs(player)
-            elseif u.kind == 'party' then u.buffs = party_buffs(sid)
+            elseif u.kind == 'party' then u.buffs, u.stacks = party_buffs(sid)
             else  -- a trust or the alliance: the client keeps no list
                 if not u.alive then buffs.forget(sid) end  -- a death clears statuses silently
                 u.buffs = buffs.of(sid, now); tracks[sid] = true

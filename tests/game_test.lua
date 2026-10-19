@@ -289,6 +289,31 @@ test('your statuses: a set, and how many of each stand (runes stack); empty slot
     eq({ me.buffs, me.stacks }, { { [523] = true, [524] = true }, { [523] = 2, [524] = 1 } })
 end)
 
+test('a party player\'s statuses from the status-icon block, and their stacks: two songs of one kind stand twice', function ()
+    reset()
+    world.ents[0x450] = { sid = OUT, name = 'Out', hpp = 90, dist = 5 }
+    world.party[2] = { sid = OUT, tidx = 0x450, name = 'Out', hpp = 90, hp = 900, mpp = 50, mp = 100 }
+    -- Entry 1 is theirs: March (214) twice, Minuet (198), and 300 (high bits 1, low 44); the rest empty (255).
+    local POINTER, BASE = 0x10, 0x1000
+    local entry, bytes = BASE + 0x30, {}
+    for j, id in ipairs({ 214, 214, 198, 300 }) do
+        local k = j - 1
+        bytes[entry + 16 + k] = id % 256
+        local at = entry + 8 + math.floor(k / 4)
+        bytes[at] = (bytes[at] or 0) + math.floor(id / 256) * 4 ^ (k % 4)
+    end
+    for k = 4, 31 do bytes[entry + 16 + k] = 255 end
+    local core, ash = rawget(_G, 'AshitaCore'), rawget(_G, 'ashita')
+    rawset(_G, 'AshitaCore', { GetMemoryManager = const(mm), GetPointerManager = const({ Get = const(POINTER) }) })
+    rawset(_G, 'ashita', { memory = { find = const(0),
+        read_uint32 = function (addr) return addr == POINTER and BASE or addr == entry and OUT or 0 end,
+        read_uint8 = function (addr) return bytes[addr] or 0 end } })
+    local u = unit(read(), OUT)
+    rawset(_G, 'AshitaCore', core)
+    rawset(_G, 'ashita', ash)
+    eq({ u.buffs, u.stacks }, { { [214] = true, [198] = true, [300] = true }, { [214] = 2, [198] = 1, [300] = 1 } })
+end)
+
 test('BST: Ready charges from the pool timer; a Ready move waits only for the charges it costs', function ()
     reset()
     world.main, world.timers = 9, { { 102, 45 } }  -- one charge back in 15s: 1 banked

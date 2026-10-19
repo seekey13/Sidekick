@@ -715,6 +715,31 @@ test('COR: Rolls under Buff picks each roll and the risk; Roll 2 only on a Corsa
     eq({ showed('Roll 2: Corsair main job only'), has(frame.args.BeginCombo, 'Roll 2##sk3_roll_second') }, { true, false })
 end)
 
+test('BRD: Songs under Buff: Area and each slot that is filled or has a pick, a combo per song slot', function ()
+    open_settings()
+    local brd = fake.catalog(10, 75, 3, 37, { 'Pianissimo' })
+    local cfg, st = settings.defaults(), status()
+    local function view(main, sub, list)
+        local g = snap(); g.main, g.sub = main or 10, sub or 3
+        return model.build(g, list or brd, cfg, st, NAMES)
+    end
+    local minuet = 'Valor Minuet IV (+ATK)##sk3_song_area_1_Valor Minuet IV'
+    eq(render(cfg, st, { [minuet] = true, ['Mage\'s Ballad II (+Refresh)##sk3_song_p1_2_Mage\'s Ballad II'] = true }, view()), 2)
+    eq({ cfg.song.area_1, cfg.song.p1_2 }, { 'Valor Minuet IV', 'Mage\'s Ballad II' })
+    render(cfg, st, {}, view())
+    eq({ frame.columns['##sk3_songs'], showed('Area'), showed('ME'), showed('P1'), showed('P2'), showed('P3') },
+       { 4, true, true, true, true, false })  -- P2 is B, a trust in another zone; P3 is no one
+    eq({ showed('Pianissimo: ready'), has(frame.args.BeginCombo, '##sk3_song_me_2') }, { true, true })
+    cfg.song.p4_1 = 'Herb Pastoral'
+    render(cfg, st, {}, view())
+    eq({ showed('P4'), showed('no one') }, { true, true })  -- a pick keeps its line
+    eq(render(cfg, st, { ['None##sk3_song_area_1_none'] = true, ['Songs##sk3_on_song'] = true }, view()), 2)
+    eq({ cfg.song.area_1, cfg.song.on }, { '', false })
+    render(cfg, st, {}, view(3, 10, fake.catalog(3, 75, 10, 15, {})))  -- WHM / BRD 15: one slot, no Pianissimo
+    eq({ frame.columns['##sk3_songs'], showed('Songs on one member need Pianissimo (Bard 20)') }, { 3, true })
+    eq(render(cfg, st, { [minuet] = true }), 0)  -- WHM: no Songs
+end)
+
 test('GEO: Geomancy under Buff: its rows, how far and how long, and Entrust\'s member and spell', function ()
     open_settings()
     local geo = fake.catalog(21, 75, nil, 0, { 'Full Circle', 'Blaze of Glory', 'Entrust' })

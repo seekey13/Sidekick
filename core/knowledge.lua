@@ -10,10 +10,11 @@
     (Chakra heals and cures). An exact name ("Healing Ruby II") beats its family.
 
     role       heal | pet_heal | remove | pet_remove | pet_send | emergency | revive | roll |
-               recover | buff | modifier | geo | rune | ward | maneuver
+               recover | buff | modifier | geo | rune | ward | maneuver | song
                (geo: the luopan's spells and abilities, jobs/geo.lua's)
                (rune, ward: Rune Fencer's runes and the abilities that read them, jobs/run.lua's)
                (maneuver: Puppetmaster's, on you for the automaton, jobs/pup.lua's)
+               (song: Bard's songs, jobs/brd.lua's)
                (a modifier is a JA fired just before the spell it changes: core/engine.lua)
                (a heal's area comes from the DAT: Curaga is a heal like Cure)
     status     what a buff shows: status name (lowest id with that name wins), id,
@@ -98,6 +99,7 @@ local PANACEA = { 4, 11, 12, 21, 128, 129, 130, 131, 132, 133, 134, 135, 136, 13
 local LIGHT = { 'Light Arts', 'Addendum: White' }
 local DARK = { 'Dark Arts', 'Addendum: Black' }
 local SAMBA = { role = 'buff', gate = 'combat', pick_one = 'samba', blocked_by = 'Fan Dance' }
+local function SONG(status, note) return { role = 'song', status = status, note = note, duration = 120 } end
 local FINISHING_5 = { 'Finishing Move (5)', 'Finishing Move (6+)' }  -- five or more (jobs/dnc.lua)
 
 local K = {
@@ -304,54 +306,57 @@ local K = {
     ['Voidstorm']    = { role = 'buff', pick_one = 'storm', duration = 180 },
     ['Aurorastorm']  = { role = 'buff', pick_one = 'storm', duration = 180 },
 
-    -- buff: Bard (songs) ---------------------------------------------------------
-    ['Valor Minuet']       = { role = 'buff', pick_one = 'minuet', status = 'Minuet', note = '+ATK' },
-    ['Knight\'s Minne']    = { role = 'buff', pick_one = 'minne', status = 'Minne', note = '+DEF' },
-    ['Army\'s Paeon']      = { role = 'buff', pick_one = 'paeon', status = 'Paeon', note = '+Regen' },
-    ['Mage\'s Ballad']     = { role = 'buff', pick_one = 'ballad', status = 'Ballad', note = '+Refresh' },
-    ['Sword Madrigal']     = { role = 'buff', pick_one = 'madrigal', status = 'Madrigal', note = '+ACC' },
-    ['Blade Madrigal']     = { role = 'buff', pick_one = 'madrigal', status = 'Madrigal', note = '++ACC' },
-    ['Hunter\'s Prelude']  = { role = 'buff', pick_one = 'prelude', status = 'Prelude', note = '+Rng Acc.' },
-    ['Archer\'s Prelude']  = { role = 'buff', pick_one = 'prelude', status = 'Prelude', note = '++Rng Acc.' },
-    ['Advancing March']    = { role = 'buff', pick_one = 'march', status = 'March', note = '+Haste' },
-    ['Victory March']      = { role = 'buff', pick_one = 'march', status = 'March', note = '++Haste' },
-    ['Sheepfoe Mambo']     = { role = 'buff', pick_one = 'mambo', status = 'Mambo', note = '+EVA' },
-    ['Dragonfoe Mambo']    = { role = 'buff', pick_one = 'mambo', status = 'Mambo', note = '++EVA' },
-    ['Raptor Mazurka']     = { role = 'buff', pick_one = 'mazurka', status = 'Mazurka', note = '+Move Spd.' },
-    ['Chocobo Mazurka']    = { role = 'buff', pick_one = 'mazurka', status = 'Mazurka', note = '+Move Spd.' },
-    ['Adventurer\'s Dirge']= { role = 'buff', status = 'Dirge', note = '-Enmity' },
-    ['Foe Sirvente']       = { role = 'buff', status = 'Sirvente', note = '+Enmity' },
-    ['Goddess\'s Hymnus']  = { role = 'buff', status = 'Hymnus', note = 'Reraise' },
-    ['Fowl Aubade']        = { role = 'buff', pick_one = 'resistance', status = 'Aubade', note = '+Slow Res.' },
-    ['Herb Pastoral']      = { role = 'buff', pick_one = 'resistance', status = 'Pastoral', note = '+Poison Res.' },
-    ['Shining Fantasia']   = { role = 'buff', pick_one = 'resistance', status = 'Fantasia', note = '+Blind Res.' },
-    ['Scop\'s Operetta']   = { role = 'buff', pick_one = 'resistance', status = 'Operetta', note = '+Silence Res.' },
-    ['Puppet\'s Operetta'] = { role = 'buff', pick_one = 'resistance', status = 'Operetta', note = '+Silence Res.' },
-    ['Gold Capriccio']     = { role = 'buff', pick_one = 'resistance', status = 'Capriccio', note = '+Pet. Res.' },
-    ['Warding Round']      = { role = 'buff', pick_one = 'resistance', status = 'Round', note = '+Curse Res.' },
-    ['Goblin Gavotte']     = { role = 'buff', pick_one = 'resistance', status = 'Gavotte', note = '+Bind Res.' },
-    ['Fire Carol']         = { role = 'buff', pick_one = 'carol', status = 'Carol', note = '+Fire Res.' },
-    ['Ice Carol']          = { role = 'buff', pick_one = 'carol', status = 'Carol', note = '+Ice Res.' },
-    ['Wind Carol']         = { role = 'buff', pick_one = 'carol', status = 'Carol', note = '+Wind Res.' },
-    ['Earth Carol']        = { role = 'buff', pick_one = 'carol', status = 'Carol', note = '+Earth Res.' },
-    ['Lightning Carol']    = { role = 'buff', pick_one = 'carol', status = 'Carol', note = '+Lightning Res.' },
-    ['Water Carol']        = { role = 'buff', pick_one = 'carol', status = 'Carol', note = '+Water Res.' },
-    ['Light Carol']        = { role = 'buff', pick_one = 'carol', status = 'Carol', note = '+Light Res.' },
-    ['Dark Carol']         = { role = 'buff', pick_one = 'carol', status = 'Carol', note = '+Dark Res.' },
-    ['Sinewy Etude']       = { role = 'buff', pick_one = 'etude', status = 'Etude', note = '+STR' },
-    ['Dextrous Etude']     = { role = 'buff', pick_one = 'etude', status = 'Etude', note = '+DEX' },
-    ['Vivacious Etude']    = { role = 'buff', pick_one = 'etude', status = 'Etude', note = '+VIT' },
-    ['Quick Etude']        = { role = 'buff', pick_one = 'etude', status = 'Etude', note = '+AGI' },
-    ['Learned Etude']      = { role = 'buff', pick_one = 'etude', status = 'Etude', note = '+INT' },
-    ['Spirited Etude']     = { role = 'buff', pick_one = 'etude', status = 'Etude', note = '+MND' },
-    ['Enchanting Etude']   = { role = 'buff', pick_one = 'etude', status = 'Etude', note = '+CHR' },
-    ['Herculean Etude']    = { role = 'buff', pick_one = 'etude', status = 'Etude', note = '++STR' },
-    ['Uncanny Etude']      = { role = 'buff', pick_one = 'etude', status = 'Etude', note = '++DEX' },
-    ['Vital Etude']        = { role = 'buff', pick_one = 'etude', status = 'Etude', note = '++VIT' },
-    ['Swift Etude']        = { role = 'buff', pick_one = 'etude', status = 'Etude', note = '++AGI' },
-    ['Sage Etude']         = { role = 'buff', pick_one = 'etude', status = 'Etude', note = '++INT' },
-    ['Logical Etude']      = { role = 'buff', pick_one = 'etude', status = 'Etude', note = '++MND' },
-    ['Bewitching Etude']   = { role = 'buff', pick_one = 'etude', status = 'Etude', note = '++CHR' },
+    -- song: Bard's songs, sung on you and everyone near you, or on one member through
+    -- Pianissimo (jobs/brd.lua's, not buff rows). The status is the song's kind (Minuet...).
+    -- The duration (120s, LSB's base) is what a trust's statuses expire by: their wear-offs go missing.
+    ['Valor Minuet']       = SONG('Minuet', '+ATK'),
+    ['Knight\'s Minne']    = SONG('Minne', '+DEF'),
+    ['Army\'s Paeon']      = SONG('Paeon', '+Regen'),
+    ['Mage\'s Ballad']     = SONG('Ballad', '+Refresh'),
+    ['Sword Madrigal']     = SONG('Madrigal', '+ACC'),
+    ['Blade Madrigal']     = SONG('Madrigal', '++ACC'),
+    ['Hunter\'s Prelude']  = SONG('Prelude', '+Rng Acc.'),
+    ['Archer\'s Prelude']  = SONG('Prelude', '++Rng Acc.'),
+    ['Advancing March']    = SONG('March', '+Haste'),
+    ['Victory March']      = SONG('March', '++Haste'),
+    ['Sheepfoe Mambo']     = SONG('Mambo', '+EVA'),
+    ['Dragonfoe Mambo']    = SONG('Mambo', '++EVA'),
+    ['Raptor Mazurka']     = SONG('Mazurka', '+Move Spd.'),
+    ['Chocobo Mazurka']    = SONG('Mazurka', '+Move Spd.'),
+    ['Adventurer\'s Dirge'] = SONG('Dirge', '-Enmity'),
+    ['Foe Sirvente']       = SONG('Sirvente', '+Enmity'),
+    ['Goddess\'s Hymnus']  = SONG('Hymnus', 'Reraise'),
+    ['Fowl Aubade']        = SONG('Aubade', '+Slow Res.'),
+    ['Herb Pastoral']      = SONG('Pastoral', '+Poison Res.'),
+    ['Shining Fantasia']   = SONG('Fantasia', '+Blind Res.'),
+    ['Scop\'s Operetta']   = SONG('Operetta', '+Silence Res.'),
+    ['Puppet\'s Operetta'] = SONG('Operetta', '+Silence Res.'),
+    ['Gold Capriccio']     = SONG('Capriccio', '+Pet. Res.'),
+    ['Warding Round']      = SONG('Round', '+Curse Res.'),
+    ['Goblin Gavotte']     = SONG('Gavotte', '+Bind Res.'),
+    ['Fire Carol']         = SONG('Carol', '+Fire Res.'),
+    ['Ice Carol']          = SONG('Carol', '+Ice Res.'),
+    ['Wind Carol']         = SONG('Carol', '+Wind Res.'),
+    ['Earth Carol']        = SONG('Carol', '+Earth Res.'),
+    ['Lightning Carol']    = SONG('Carol', '+Lightning Res.'),
+    ['Water Carol']        = SONG('Carol', '+Water Res.'),
+    ['Light Carol']        = SONG('Carol', '+Light Res.'),
+    ['Dark Carol']         = SONG('Carol', '+Dark Res.'),
+    ['Sinewy Etude']       = SONG('Etude', '+STR'),
+    ['Dextrous Etude']     = SONG('Etude', '+DEX'),
+    ['Vivacious Etude']    = SONG('Etude', '+VIT'),
+    ['Quick Etude']        = SONG('Etude', '+AGI'),
+    ['Learned Etude']      = SONG('Etude', '+INT'),
+    ['Spirited Etude']     = SONG('Etude', '+MND'),
+    ['Enchanting Etude']   = SONG('Etude', '+CHR'),
+    ['Herculean Etude']    = SONG('Etude', '++STR'),
+    ['Uncanny Etude']      = SONG('Etude', '++DEX'),
+    ['Vital Etude']        = SONG('Etude', '++VIT'),
+    ['Swift Etude']        = SONG('Etude', '++AGI'),
+    ['Sage Etude']         = SONG('Etude', '++INT'),
+    ['Logical Etude']      = SONG('Etude', '++MND'),
+    ['Bewitching Etude']   = SONG('Etude', '++CHR'),
+    ['Pianissimo'] = { role = 'modifier', note = 'the next song on one member' },  -- fired before a song (jobs/brd.lua)
     ['Troubadour']  = { role = 'buff', priority = 100 },
     ['Nightingale'] = { role = 'buff', priority = 100 },
 

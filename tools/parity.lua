@@ -11,7 +11,8 @@
     totals too. The other job-mechanic categories (geo, precast) belong to job
     modules and are not checked here; the luopan's (v2's geo and its Geo buff
     group) are, as v3's geo role, the runes and wards, as its rune and ward roles,
-    and the maneuvers, as its maneuver role.
+    the maneuvers, as its maneuver role, and the songs, as its song role (their
+    groups aren't: v3 picks songs by slot, jobs/brd.lua).
 ]]--
 
 local sk3 = arg[0]:gsub('[\\/]tools[\\/]parity%.lua$', '')
@@ -121,7 +122,9 @@ for _, job in ipairs(jobs) do
     local seen = {}
     for cat, entries in pairs(def.abilities) do
         for _, e in ipairs(ROLE[cat] and entries or {}) do
-            local role = cat == 'buff' and e.group == 'Geo' and 'geo' or ROLE[cat]  -- a luopan
+            -- A luopan's, or a song (jobs/brd.lua's slots, so its v2 group is no row: not compared).
+            local role = cat == 'buff' and e.group == 'Geo' and 'geo' or cat == 'buff' and e.magic == 'song' and 'song'
+                or ROLE[cat]
             local cmd = type(e.command) == 'function' and e.command('<t>') or e.command
             local real = cmd:match('"(.-)"')
             if not MODULE_OWNED[role .. '|' .. real] then
@@ -158,7 +161,7 @@ for _, job in ipairs(jobs) do
                     cmp('enemy', enemy, a.targets == 32)
                     cmp('pet', list(e.requires_pet_name) or e.pet_required, type(a.pet) == 'table' and list(a.pet) or a.pet)
                     -- Grouping: one v2 group <-> one v3 group (pick_one, else the family).
-                    if e.group then
+                    if e.group and role ~= 'song' then
                         local v2g, v3g = job .. '|' .. role .. '|' .. e.group, a.pick_one or a.family
                         groups[v2g] = groups[v2g] or {}
                         groups[v2g][v3g] = true

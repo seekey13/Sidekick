@@ -23,8 +23,7 @@
     A row that needs ammo worn (Sange's shuriken) and would go with it first
     equips it (core/ammo.lua). Ninjutsu wait for their tools, and Utsusemi may be
     recast at its last shadow (jobs/nin.lua).
-    Songs are kept up here until the BRD module takes them (phase 4); Corsair's
-    rolls are jobs/cor.lua's.
+    Bard's songs are jobs/brd.lua's and Corsair's rolls jobs/cor.lua's.
 ]]--
 
 local ammo = require('core.ammo')

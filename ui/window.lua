@@ -522,6 +522,64 @@ local function draw_rolls(view)
     end
 end
 
+-- A song for slot `i` of `set`, or None (''). A pick the job no longer has says so.
+local function song_combo(set, i, choices)
+    local current, id = set.picks[i], ('sk3_song_%s_%d'):format(set.key, i)
+    local shown = current ~= '' and current .. ' (not available)' or 'None'
+    for _, c in ipairs(choices) do
+        if c.name == current then shown = c.label end
+    end
+    imgui.PushItemWidth(PICK_WIDTH + SETTING_WIDTH / 2)
+    if imgui.BeginCombo('##' .. id, shown) then
+        if imgui.Selectable('None##' .. id .. '_none', current == '') then act.set(('song.%s_%d'):format(set.key, i), '') end
+        for _, c in ipairs(choices) do
+            if imgui.Selectable(c.label .. '##' .. id .. '_' .. c.name, c.name == current) then
+                act.set(('song.%s_%d'):format(set.key, i), c.name)
+            end
+        end
+        imgui.EndCombo()
+    end
+    imgui.PopItemWidth()
+end
+
+local SONG_HELP = {
+    area = 'Sung as they are, on you and everyone in your party near you, whenever someone there lacks one. '
+        .. 'A member with songs of their own picked keeps only the slots those leave.',
+}
+
+-- BRD: a line per target, Area first, then each party slot that is filled or has a
+-- pick; a combo per song slot. A slot with no one in it says so.
+local function draw_songs(view)
+    local m = view.song
+    if not imgui.BeginTable('##sk3_songs', 2 + m.slots, ImGuiTableFlags_SizingFixedFit) then return end
+    for _, set in ipairs(m.sets) do
+        local picked = false
+        for i = 1, m.slots do picked = picked or set.picks[i] ~= '' end
+        if set.key == 'area' or set.present or picked then
+            imgui.TableNextRow()
+            imgui.TableNextColumn()
+            local dim = set.key ~= 'area' and not (set.present and m.pianissimo)
+            text(set.label, dim and GREY or nil)
+            tip(SONG_HELP[set.key] or ('Sung on %s alone, through Pianissimo, whenever they lack one.')
+                :format(set.name or 'whoever is in this party slot'))
+            for i = 1, m.slots do
+                imgui.TableNextColumn()
+                song_combo(set, i, m.choices)
+            end
+            imgui.TableNextColumn()
+            if set.key ~= 'area' then text(set.name or 'no one', GREY) end
+        end
+    end
+    imgui.EndTable()
+    if m.pianissimo then
+        text('Pianissimo: ' .. m.avail, m.ready and GREEN or GREY)
+    else
+        text('Songs on one member need Pianissimo (Bard 20)', GREY)
+    end
+    tip('Two songs of one kind (Victory and Advancing March) stand side by side; a song picked twice is one. '
+        .. 'While an area song is owed, the songs on one member wait: it would push them out.')
+end
+
 -- An Indi- spell for Entrust, or None ('').
 local function indi_combo(current, names)
     imgui.PushItemWidth(PICK_WIDTH + SETTING_WIDTH / 2)
@@ -853,6 +911,8 @@ local SWITCH_HELP = {
     buff = 'Keep the buffs that are on up on their targets.',
     roll = 'Keep the rolls picked up, and Double-Up the last one by the risk picked. Held for the group with '
         .. 'Hold area buffs, as an area buff.',
+    song = 'Keep the songs picked up: the area ones on everyone near you, then each member\'s own through Pianissimo. '
+        .. 'Held for the group with Hold area buffs, as an area buff.',
     geo = 'Keep a luopan down: the Geo row\'s on its target, or the Geo debuff\'s on your battle target in combat. '
         .. 'Full Circle recalls it when its target leaves it, and a debuff\'s after combat.',
     rune = 'Keep the runes picked up: a ward\'s set once it is ready, then the ward in combat; the Idle set the rest '
@@ -865,7 +925,7 @@ local SWITCH_HELP = {
 
 local BODIES = {
     follow = draw_follow, heal = draw_heal_settings, recover = draw_recover_settings, buff = draw_buff_settings,
-    roll = draw_rolls, geo = draw_geo, rune = draw_runes, maneuver = draw_maneuvers,
+    roll = draw_rolls, song = draw_songs, geo = draw_geo, rune = draw_runes, maneuver = draw_maneuvers,
     pet = draw_pet_settings, rest = draw_rest, track = draw_track, ui = draw_ui, profile = draw_profiles,
 }
 
