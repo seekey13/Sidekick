@@ -43,6 +43,14 @@
     Troubadour are both up, every song stamped without Troubadour is due, so it's
     sung again at double length (new: v2 only with Song Duration set). The stamps
     also say which of two one-kind songs was sung last.
+
+    Pianissimo fast casting (cfg.song.fast, off as v2's opt-in): an area song
+    goes through Pianissimo too, for its shorter cast, and Pianissimo is
+    cancelled engine.CANCEL_AFTER seconds into the cast (packet 0x0F1, as
+    Utsusemi's last shadow), so the song still lands on everyone near you. So
+    while it's on, Pianissimo up doesn't stop the area songs: the next one takes
+    it. With Pianissimo on recast an area song goes without it. Not while
+    Nightingale is up, which already shortens the cast (as v2).
 ]]--
 
 local buff = require('behaviors.buff')
@@ -257,10 +265,12 @@ function brd.want(g, cat, cfg, mem)
         return lacks(u, a, { area, mine(u) }) and held(u, area) < free(u)
     end
 
-    -- Area songs, unless the next song would land on one member.
+    -- Area songs, unless the next song would land on one member (with fast
+    -- casting, an area song takes Pianissimo and cancels it mid-cast).
     local up = g.me.buffs[PIANISSIMO]
+    local fast = cfg.song.fast and pianissimo and not g.me.buffs[NIGHTINGALE]
     local owed = false
-    for _, a in ipairs(up and {} or area) do
+    for _, a in ipairs(up and not fast and {} or area) do
         local near, count_, away = voters(a, g, free, owes, cfg.buff.hold_aoe)
         if away then
             -- The songs on one member wait only when it's for someone near too:
@@ -272,6 +282,7 @@ function brd.want(g, cat, cfg, mem)
             if pick then
                 local verb = due(near, a) and { 'is due', 'are due' } or { 'lacks it', 'lack it' }
                 local why = count_ > 1 and ('%s +%d %s'):format(near.name, count_ - 1, verb[2]) or ('%s %s'):format(near.name, verb[1])
+                if fast then return { action = pick, why = why, mods = { pianissimo }, cancel = PIANISSIMO } end
                 return { action = pick, why = why }
             end
             owed = true

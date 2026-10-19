@@ -732,6 +732,8 @@ test('BRD: Songs under Buff: Area and each slot that is filled or has a pick, a 
     eq({ showed('Pianissimo: ready'), has(frame.args.BeginCombo, '##sk3_song_me_2') }, { true, true })
     eq(render(cfg, st, { ['Song Duration##sk3_song_duration'] = 170 }, view()), 1)  -- BRD 75 main
     eq(cfg.song.duration, 170)
+    eq(render(cfg, st, { ['Pianissimo fast casting##sk3_song_fast'] = true }, view()), 1)
+    eq(cfg.song.fast, true)
     cfg.song.p4_1 = 'Herb Pastoral'
     render(cfg, st, {}, view())
     eq({ showed('P4'), showed('no one') }, { true, true })  -- a pick keeps its line
@@ -740,6 +742,7 @@ test('BRD: Songs under Buff: Area and each slot that is filled or has a pick, a 
     render(cfg, st, {}, view(3, 10, fake.catalog(3, 75, 10, 15, {})))  -- WHM / BRD 15: one slot, no Pianissimo
     eq({ frame.columns['##sk3_songs'], showed('Songs on one member need Pianissimo (Bard 20)') }, { 3, true })
     eq(has(frame.args.SliderInt, 'Song Duration##sk3_song_duration'), false)  -- a subjob has no timers
+    eq(has(frame.args.Checkbox, 'Pianissimo fast casting##sk3_song_fast'), false)  -- nor fast casting, with no Pianissimo
     eq(render(cfg, st, { [minuet] = true }), 0)  -- WHM: no Songs
 end)
 

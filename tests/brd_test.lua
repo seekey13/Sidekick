@@ -340,3 +340,58 @@ test('a party player with no status list yet (no stacks) keeps their stamps', fu
     decide(snap({ A }, { MINUET }, { now = 1050 }), cfg)
     eq(brd.stamps()[101]['Valor Minuet IV'].at, 1000)
 end)
+
+-- Pianissimo fast casting ---------------------------------------------------------
+
+-- Song picks with fast casting on.
+local function fast_cfg(picks)
+    local cfg = cfg_with(picks)
+    cfg.song.fast = true
+    return cfg
+end
+
+test('fast casting: Pianissimo, then the area song on <me>, Pianissimo cancelled a second into the cast', function ()
+    local cfg, mem = fast_cfg({ area_1 = 'Valor Minuet IV' }), {}
+    local g = snap({ player({ name = 'A' }) })
+    local cmd, intent = decide(g, cfg, mem)
+    eq({ cmd, intent.why }, { '/ja "Pianissimo" <me>', 'for Valor Minuet IV: Me +1 lack it' })
+    engine.sent(intent, g, mem)
+    cmd, intent = decide(g, cfg, mem)
+    eq({ cmd, intent.cancel }, { '/ma "Valor Minuet IV" <me>', PIANISSIMO })
+    engine.sent(intent, g, mem)
+    g = snap({ player({ name = 'A' }) }, { PIANISSIMO }, { now = g.now + 1, casting = true })
+    eq(engine.cancel(g, mem), PIANISSIMO)
+    eq(engine.cancel(g, mem), nil, 'once')
+end)
+
+test('fast casting: Pianissimo up takes the area song first, then the songs on one member', function ()
+    local cfg = fast_cfg({ area_1 = 'Valor Minuet IV', p1_1 = 'Mage\'s Ballad II' })
+    eq(decide(snap({ player({ name = 'A' }) }, { PIANISSIMO }), cfg), '/ma "Valor Minuet IV" <me>')
+    eq(decide(snap({ player({ name = 'A' }, { MINUET }) }, { MINUET, PIANISSIMO }), cfg), '/ma "Mage\'s Ballad II" 101')
+end)
+
+test('fast casting: with Pianissimo on recast the area song goes without it, cancelling nothing', function ()
+    local cfg, mem = fast_cfg({ area_1 = 'Valor Minuet IV' }), {}
+    local g = snap({}, {}, nil, { Pianissimo = 20 })
+    local cmd, intent = decide(g, cfg, mem)
+    eq(cmd, '/ma "Valor Minuet IV" <me>')
+    engine.sent(intent, g, mem)
+    g = snap({}, {}, { now = g.now + 1, casting = true })
+    eq(engine.cancel(g, mem), nil)
+end)
+
+test('fast casting: not while Nightingale is up; off, Pianissimo up still holds the area songs', function ()
+    local cfg = fast_cfg({ area_1 = 'Valor Minuet IV' })
+    local cmd, intent = decide(snap({}, { NIGHTINGALE }), cfg)
+    eq({ cmd, intent.cancel }, { '/ma "Valor Minuet IV" <me>', nil })
+    eq(select(2, decide(snap({}, { NIGHTINGALE, PIANISSIMO }), cfg)), 'nothing to do')
+    cfg.song.fast = false
+    eq(select(2, decide(snap({}, { PIANISSIMO }), cfg)), 'nothing to do')
+end)
+
+test('fast casting: no Pianissimo (under BRD 20), the area songs go as they are', function ()
+    local below = fake.catalog(BRD, 15, WHM, 7, {})
+    local cfg = fast_cfg({ area_1 = 'Valor Minuet' })
+    local intent = engine.decide(snap({}, {}, { main_lv = 15, sub_lv = 7 }), below, cfg, {})
+    eq({ intent and intent.action.name, intent and intent.cancel }, { 'Valor Minuet', nil })
+end)

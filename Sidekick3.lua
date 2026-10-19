@@ -28,7 +28,6 @@ local tracked = require('core.tracked')
 local imgui = require('imgui')
 local blu = require('jobs.blu')
 local brd = require('jobs.brd')
-local nin = require('jobs.nin')
 local model = require('ui.model')
 
 local function printf(fmt, ...)
@@ -151,10 +150,11 @@ end
 local function tick(g)
     if g.loading then return end
     say_roll(g)
-    -- Utsusemi's last shadow, cancelled mid-cast (jobs/nin.lua): packet 0x0F1, as the Debuff addon sends.
-    local shadow = nin.cancel(g, mem)
-    if shadow then
-        AshitaCore:GetPacketManager():AddOutgoingPacket(0xF1, { 0xF1, 0x04, 0x00, 0x00, shadow % 256, math.floor(shadow / 256), 0x00, 0x00 })
+    -- A status cancelled mid-cast (Utsusemi's last shadow, jobs/nin.lua; Pianissimo
+    -- under an area song, jobs/brd.lua): packet 0x0F1, as the Debuff addon sends.
+    local off = engine.cancel(g, mem)
+    if off then
+        AshitaCore:GetPacketManager():AddOutgoingPacket(0xF1, { 0xF1, 0x04, 0x00, 0x00, off % 256, math.floor(off / 256), 0x00, 0x00 })
     end
     local act = status.running and engine.ready(g, mem)
     if not (act or status.open) then return end
