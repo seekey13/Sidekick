@@ -169,10 +169,7 @@ Everything v2 does stays. The exceptions: the three display modes (headers/tabs/
 
 ## Layout and size target
 
-```
-Sidekick3.lua  core/{game,buffs,packets,observed,can,catalog,knowledge,resources,engine,settings}.lua
-behaviors/*.lua  jobs/{sch,brd,cor,geo,run,pup,bst,nin,blu,dnc}.lua  ui/{model,window}.lua  tests/  tools/
-```
+The layout, module by module, is [ARCHITECTURE.md](../../../ARCHITECTURE.md)'s table.
 
 Target: 8k lines or less, a cut of about 70%. The architecture doc becomes one page. At the end of phase 2c the tracked code (without `tests/data`) is about 3.4k lines; after 2d, about 3.9k; after 3a and its review, about 4.75k; with 3b's items, about 4.9k (Lua only, as every count here); after the HUD, about 5.85k; with tracked players and their review, about 6.25k; with the alliance and its review, about 6.8k; with Hold-AOE gather, about 6.9k; with profiles, about 7.3k; with Japanese, about 7.5k; with SCH, about 7.9k; with COR, about 8.6k (past the target, with BRD and seven more modules to come); with GEO and its review, about 9.3k; with session files and auto-track, about 9.45k; with remote control, about 10.6k; with `/sk3 start|stop <name|all>`, about 10.8k; with RUN, about 11.3k; with PUP, about 11.6k; with BST, about 12.15k; with NIN, about 12.5k; with BLU, about 12.75k; with DNC, about 12.95k; with BRD's song upkeep, about 13.15k; with its song timers, about 13.4k; with Pianissimo fast casting, about 13.5k; with AFK sleep, about 13.7k; with the widget, about 13.85k; with the docs test, about 13.95k (counting every tracked Lua file but `tests/data`, tests included).
 

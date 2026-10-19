@@ -13,7 +13,7 @@ core/packets    packet stores  jobs/*.lua       real state machines only
 ```
 
 - **The game is read, never guessed.** What an action costs, reaches and needs comes from the client DATs (`core/resources.lua`) and the server's learned lists (`HasSpell`, `HasAbility`). Only what an action is *for* is written by hand, once per family, in `core/knowledge.lua`. The client DAT wins over the server's SQL.
-- **The engine decides from one snapshot alone.** `game.read` gathers everything a decision needs into a plain table (`g`), so tests hand the engine a fake one and no behavior touches `AshitaCore`.
+- **The engine decides from one snapshot alone.** `game.read` gathers everything a decision needs into one table (`g`; recasts and the inventory are read through its `g.recast` and `g.owned` functions), so tests hand the engine a fake one and no behavior touches `AshitaCore`. What only packets say lives in the module they feed (`core/buffs.lua`, a job module's song stamps or rolls), read into the snapshot or by the job module.
 - **Nothing writes settings from game state.** Settings change only when you change them: through a UI's `act` (`ui/model.lua`), a `/sk3` command, a profile load, or another session's remote call that `model.apply` accepts.
 
 ## One frame
@@ -21,7 +21,7 @@ core/packets    packet stores  jobs/*.lua       real state machines only
 `Sidekick3.lua` wires the events; everything it calls is a module below.
 
 1. **`d3d_present`** → `refresh`: at most 10 times a second, `game.read` takes a new snapshot. Once the game is loaded it rebuilds the catalog when your jobs, levels or Blue Mage set change, loads the settings when the job pair changes, and updates AFK sleep (`core/afk.lua`).
-2. **`tick`** on a new snapshot: `engine.cancel` (a status to cancel mid-cast, packet 0x0F1), then `engine.ready` (running, and past the throttle since the last send and the last action to finish) and `engine.decide`. The intent goes out with `QueueCommand`, and `engine.sent` and `game.sent` remember it. While the window is open it decides even when stopped, to show what it would do.
+2. **`tick`** on a new snapshot: `engine.cancel` (a status to cancel mid-cast, packet 0x0F1), then `engine.ready` (running, and past the throttle since the last send and the last action to finish) and `engine.decide`. The intent goes out with `QueueCommand`, and `engine.sent` and `game.sent` remember it. While the HUD or the widget is up it decides even when stopped, to show what it would do; `engine.gather` sends the party-chat gather line.
 3. **`share.tick`** writes this session's file and reads the others' (boxing, `core/share.lua`).
 4. **Draw**: `model.build(g, catalog, cfg, status)` makes the `view`, `model.actions` the `act`, and `ui.render(view, act)` draws them (`ui/window.lua`, or your `ui/custom.lua`). An error closes the UI instead of the game.
 5. **Save** what the UI changed once no widget is held, so a dragged slider saves when let go.
@@ -61,8 +61,8 @@ The first intent wins. Shared rules live in `core/can.lua` (`can.use`, `can.reac
 ## Changing it
 
 - **A spell family it doesn't automate** (`/sk3 catalog unknown` lists them): a row in `core/knowledge.lua`. Level, cost, range and targets come from the DATs; a test in `tests/catalog_test.lua`.
-- **A new kind of action**: a behavior file returning intents, and its place in `engine.BEHAVIORS`. Read the snapshot, decide, return; keep state in `mem`, the engine's memory, never in the snapshot.
-- **A job mechanic the generic roles can't carry**: a file in `jobs/`, called from the behavior or the snapshot that needs it.
+- **A new kind of action**: a behavior file returning intents, and its place in `engine.BEHAVIORS`. Read the snapshot, decide, return; keep a behavior's state in `mem`, the engine's memory, never in the snapshot; state fed by packets lives in its job module.
+- **A job mechanic the generic roles can't carry**: a file in `jobs/`, called from the behavior or the snapshot that needs it, or, when it acts on its own (rolls, runes, songs), given its own place in `engine.BEHAVIORS`. Name it in the module table above: `tests/docs_test.lua` fails until it is.
 - **Something new to show or set**: a field in `model.build` or a call in `model.actions`, documented in [ui/README.md](ui/README.md) in the same change, then drawn in `ui/window.lua`.
 
 ## Tests
