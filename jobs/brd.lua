@@ -66,10 +66,18 @@ function brd.slots(g)
     return g.sub == brd.JOB and 1 or 0
 end
 
+-- Whether Song Duration can be set: a BRD main job from TIMED_LEVEL.
+function brd.timer_job(g) return g.main == brd.JOB and g.main_lv >= brd.TIMED_LEVEL end
+
 -- Song Duration in seconds when the timers decide, else nil.
 function brd.timed(g, cfg)
     local s = cfg.song.duration or 0
-    return g.main == brd.JOB and g.main_lv >= brd.TIMED_LEVEL and s > 0 and s or nil
+    return brd.timer_job(g) and s > 0 and s or nil
+end
+
+-- How long song `a` lasts as it lands now, by its base duration: twice that under Troubadour.
+function brd.lasts(a, buffs)
+    return a.duration * ((buffs or {})[TROUBADOUR] and 2 or 1)
 end
 
 -- Your songs' stamps: stamps[server id][song name] = { at, id = its status, double }.
@@ -77,7 +85,8 @@ local stamps = {}
 
 -- Song `a` (a catalog record) landed on these server ids at `now`, from your own
 -- spell finish; `buffs` are yours (Troubadour doubles it), `slots` how many songs
--- stand on each (one more pushes out the oldest, by when it landed).
+-- stand on each: one more pushes out the one that would wear first (LSB's
+-- ApplyBardEffect), by when it landed and whether it was doubled.
 function brd.landed(a, sids, now, buffs, slots)
     for _, sid in ipairs(sids) do
         local rows = stamps[sid] or {}
@@ -86,9 +95,10 @@ function brd.landed(a, sids, now, buffs, slots)
             local n = 0
             for _ in pairs(rows) do n = n + 1 end
             while n >= math.max(slots or brd.SLOTS, 1) do
-                local first
+                local first, ends = nil, math.huge
                 for name, r in pairs(rows) do
-                    if not first or r.at < rows[first].at then first = name end
+                    local e = r.at + a.duration * (r.double and 2 or 1)
+                    if e < ends then first, ends = name, e end
                 end
                 rows[first], n = nil, n - 1
             end
@@ -100,8 +110,14 @@ end
 function brd.stamps() return stamps end
 function brd.clear() stamps = {} end  -- a job change: your songs go with it
 
--- Drop the stamps a death or a list we can read says are gone.
+-- Drop the stamps a death or a list we can read says are gone, and those of
+-- any no longer in the snapshot (a trust released or gone, one who left).
 local function prune(g)
+    local listed = {}
+    for _, u in ipairs(g.units) do listed[u.sid or false] = true end
+    for sid in pairs(stamps) do
+        if not listed[sid] then stamps[sid] = nil end
+    end
     for _, u in ipairs(g.units) do
         local rows = u.sid and stamps[u.sid]
         if rows and u.in_zone and not u.alive then
@@ -253,7 +269,8 @@ function brd.want(g, cat, cfg, mem)
         elseif near then
             local pick = choose(a, area, near)
             if pick then
-                local why = count_ > 1 and ('%s +%d lack it'):format(near.name, count_ - 1) or ('%s lacks it'):format(near.name)
+                local verb = due(near, a) and { 'is due', 'are due' } or { 'lacks it', 'lack it' }
+                local why = count_ > 1 and ('%s +%d %s'):format(near.name, count_ - 1, verb[2]) or ('%s %s'):format(near.name, verb[1])
                 return { action = pick, why = why }
             end
             owed = true

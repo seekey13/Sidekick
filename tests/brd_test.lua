@@ -235,9 +235,11 @@ test('stamps: one per song on each it landed on; one more than the slots pushes 
     brd.landed(song('Victory March'), { 1 }, 20, { [TROUBADOUR] = true }, 2)
     brd.landed(song('Valor Minuet IV'), { 1 }, 30, {}, 2)  -- sung again: its own refreshed, nothing pushed
     eq(brd.stamps()[1], { ['Valor Minuet IV'] = { at = 30, id = MINUET }, ['Victory March'] = { at = 20, id = MARCH, double = true } })
+    -- The one that would wear first goes, as the server's: Minuet (ends 150), not
+    -- the doubled March that landed before it (ends 260).
     brd.landed(song('Mage\'s Ballad II'), { 1, 101 }, 40, {}, 2)
-    eq({ brd.stamps()[1]['Victory March'], brd.stamps()[1]['Mage\'s Ballad II'].at, brd.stamps()[101]['Valor Minuet IV'].at },
-       { nil, 40, 10 })
+    eq({ brd.stamps()[1]['Valor Minuet IV'], brd.stamps()[1]['Victory March'].at, brd.stamps()[101]['Valor Minuet IV'].at },
+       { nil, 20, 10 })
     brd.landed(song('Victory March'), { 101 }, 50, {}, 1)  -- a subjob's one slot
     eq(brd.stamps()[101], { ['Victory March'] = { at = 50, id = MARCH } })
 end)
@@ -248,7 +250,8 @@ test('Song Duration: a song is sung again that long after it landed, while it\'s
     local A = player({ name = 'A' }, { MINUET })
     brd.landed(song('Valor Minuet IV'), { 1, 101 }, 1000, {}, 2)
     eq(select(2, decide(snap({ A }, { MINUET }, { now = 1099 }), cfg)), 'nothing to do')
-    eq(decide(snap({ A }, { MINUET }, { now = 1100 }), cfg), '/ma "Valor Minuet IV" <me>')
+    local cmd, intent = decide(snap({ A }, { MINUET }, { now = 1100 }), cfg)
+    eq({ cmd, intent.why }, { '/ma "Valor Minuet IV" <me>', 'Me +1 are due' })
     -- Off (0), or not a BRD 75 main job: only once it's gone.
     cfg.song.duration = 0
     eq(select(2, decide(snap({ A }, { MINUET }, { now = 1100 }), cfg)), 'nothing to do')
@@ -288,6 +291,9 @@ test('a stamp goes once a list we can read stops showing its song, or its member
     brd.landed(song('Valor Minuet IV'), { 101 }, 1010, {}, 2)
     quiet.song.duration = 100
     eq(select(2, decide(snap({ { name = 'Kupipi', kind = 'trust' } }, { MINUET }, { now = 1050 }), quiet)), 'nothing to do')
+    -- Released (no longer in the snapshot): its stamps are forgotten.
+    decide(snap({}, { MINUET }, { now = 1051 }), quiet)
+    eq(brd.stamps()[101], nil)
 end)
 
 test('Song Duration: of two one-kind songs, the one due goes', function ()

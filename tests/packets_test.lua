@@ -61,7 +61,8 @@ end)
 test('your song is stamped on who its finish says it landed on, doubled under Troubadour', function ()
     local brd = require('jobs.brd')
     brd.clear()
-    local minuet = { name = 'Valor Minuet IV', status = { 198 } }
+    local minuet = { name = 'Valor Minuet IV', status = { 198 }, duration = 120 }
+    buffs.clear()
     local c = ctx()
     c.song = function (id) return id == 397 and minuet or nil end
     c.buffs, c.slots = { [348] = true }, 2
@@ -69,6 +70,8 @@ test('your song is stamped on who its finish says it landed on, doubled under Tr
     packets.action(action(ME, SPELL, 397, { { ME, 230, 198 }, { TRUST, 266, 198 }, { STRANGER, 75, 198 } }), c, 5)
     eq({ brd.stamps()[ME], brd.stamps()[TRUST], brd.stamps()[STRANGER] },
        { { ['Valor Minuet IV'] = { at = 5, id = 198, double = true } }, { ['Valor Minuet IV'] = { at = 5, id = 198, double = true } }, nil })
+    -- The trust's status, read from packets, lasts twice its 120s too.
+    eq({ buffs.of(TRUST, 5 + 239)[198], buffs.of(TRUST, 5 + 241)[198] }, { true, nil })
     -- Another's song, or your other spells, stamp nothing.
     brd.clear()
     packets.action(action(MOB, SPELL, 397, { { ME, 230, 198 } }), c, 6)

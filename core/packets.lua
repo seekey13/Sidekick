@@ -128,7 +128,9 @@ function packets.action(p, ctx, now)
             elseif GAINS_028[r.message] then
                 -- Only a spell's id names a catalog duration; an ability's or TP move's doesn't.
                 local spell = p.category == SPELL_FINISH
-                if tracked then buffs.gain(t.id, r.param, now, spell and ctx.duration(p.param) or nil) end
+                -- Your song lasts twice as long under Troubadour (jobs/brd.lua).
+                local lasts = song and brd.lasts(song, ctx.buffs) or spell and ctx.duration(p.param) or nil
+                if tracked then buffs.gain(t.id, r.param, now, lasts) end
                 if key and spell then observed.landed(key, t.id, now) end
                 if song then sung[#sung + 1] = t.id end
             elseif p.category == SPELL_FINISH and LOSES_028[r.message] and tracked then
