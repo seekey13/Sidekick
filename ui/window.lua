@@ -9,6 +9,9 @@
     HP bar carries the run icon and the cog, which opens SK Settings, every setting under collapsing headers.
     So does the card of a player who is another Sidekick session on this PC: its icons
     start and stop that session and open its own SK Settings, drawn here from its view.
+    The widget (`ui.widget`, `/sk3 widget`) is a third, v2's floating one: the profile
+    loaded and the job, then Start/Stop, the status, Settings and Track for your target.
+    It shows with the HUD closed too (`view.ui.open` false), as v2's did.
 
     Ashita's binding (as v2 found it): widget values are one-element tables
     ({ true }, { 75 }), and Text, TextColored and SetTooltip take a printf
@@ -44,6 +47,9 @@ local TITLE = 'Sidekick3'
 local AROUND = { { -1, -1 }, { 0, -1 }, { 1, -1 }, { -1, 0 }, { 1, 0 }, { -1, 1 }, { 0, 1 }, { 1, 1 } }
 local SEGMENTS = 32                    -- an icon's circles
 
+local WIDGET_FLAGS = ImGuiWindowFlags_NoTitleBar + ImGuiWindowFlags_NoResize + ImGuiWindowFlags_AlwaysAutoResize
+    + ImGuiWindowFlags_NoScrollbar
+
 local HUD_FLAGS = ImGuiWindowFlags_NoTitleBar + ImGuiWindowFlags_NoResize + ImGuiWindowFlags_NoScrollbar
     + ImGuiWindowFlags_NoScrollWithMouse + ImGuiWindowFlags_AlwaysAutoResize + ImGuiWindowFlags_NoBackground
     + ImGuiWindowFlags_NoBringToFrontOnFocus
@@ -66,10 +72,18 @@ local JOINED = { party = '  (in your party)', alliance = '  (in your alliance)' 
 
 local act                    -- this frame's actions (another session's, while drawing its SK Settings)
 local settings_open = false  -- SK Settings shown; this session only
+local hud_open = true        -- last frame's view.ui.open: closing the HUD (/sk3) closes SK Settings with it
 local profile_names = {}     -- per SK Settings window ('' for yours, else the session's name), this session only:
                              -- { typed = { name }, shown }, the name filled in again when the profile loaded changes
 
 local function esc(s) return (tostring(s):gsub('%%', '%%%%')) end
+
+-- A profile's name in a label: '##' would end what it shows, and so would a '#'
+-- left just before the '###' of the id, so one at the end is kept apart.
+local function shown_name(name)
+    local s = name:gsub('#+', '#')
+    return s:sub(-1) == '#' and s .. ' ' or s
+end
 
 local function text(s, color)
     if color then imgui.TextColored(color, esc(s)) else imgui.Text(esc(s)) end
@@ -341,6 +355,56 @@ local function draw_hud(view)
     end
     imgui.SetCursorScreenPos({ x0, y0 + ph - PAD })
     imgui.Dummy({ pw, PAD })  -- the bottom padding, and the panel's full width, for the auto-size
+end
+
+-- The widget ------------------------------------------------------------------------
+
+-- The state alone, so the widget keeps its width and Track its place: the rest,
+-- what it does or why it waits, is the tooltip, as the HUD title's.
+local function short_status(view)
+    local s = view.status
+    if not s.running then return 'Stopped', GREY end
+    if view.afk.asleep then return 'Asleep', GREY end
+    return 'Running', s.dim and GREY or GREEN
+end
+
+-- The profile loaded as a button (a click lists them to load), then the job;
+-- Start/Stop, the status, Settings, then Track for your target.
+local function draw_widget(view)
+    local p = view.profiles
+    if imgui.Button((p.active and shown_name(p.active) or 'Default') .. '###sk3_widget_profile') then imgui.OpenPopup('##sk3_widget_profiles') end
+    tip('Load a profile. SK Settings saves them.')
+    if imgui.BeginPopup('##sk3_widget_profiles') then
+        if imgui.Selectable('Default##sk3_widget_profile_default', p.active == nil) then act.profile(nil) end
+        for i, name in ipairs(p.names) do  -- over a blank row, as in Profiles
+            local x = imgui.GetCursorPosX()
+            if imgui.Selectable('##sk3_widget_profile_' .. i, name == p.active) then act.profile(name) end
+            imgui.SameLine(x)
+            text(name)
+        end
+        imgui.EndPopup()
+    end
+    imgui.SameLine()
+    imgui.AlignTextToFramePadding()  -- else it sits at the top of the button row
+    text(view.job)
+
+    local s = view.status
+    if imgui.Button((s.running and 'Stop' or 'Start') .. '###sk3_widget_run') then act.run(not s.running) end
+    tip((s.running and 'Stop' or 'Start') .. ' automation')
+    imgui.SameLine()
+    imgui.AlignTextToFramePadding()
+    local line, color = short_status(view)
+    text(line, color)
+    tip(status_tip(view))
+    imgui.SameLine()
+    if imgui.Button('Settings##sk3_widget_settings') then settings_open = not settings_open end
+    tip('Open or close SK Settings')
+    local t = view.track.target
+    if t then
+        imgui.SameLine()
+        if imgui.Button(('Track %s###sk3_widget_track'):format(t)) then act.track(t) end
+        tip('Heal, clear, raise and buff them too, with what reaches outside the party. This session only.')
+    end
 end
 
 -- SK Settings bodies ---------------------------------------------------------------
@@ -809,7 +873,10 @@ local function draw_ui(view)
         slider(l[1] .. '##sk3_ui_' .. l[2], 'ui.' .. l[2], view.ui[l[2]], l[3], l[4], l[5])
     end
     checkbox('Lock position##sk3_ui_locked', view.ui.locked == true, function (on) act.set('ui.locked', on) end,
-        'Keep the HUD where it is: dragging it no longer moves it.')
+        'Keep the HUD and the widget where they are: dragging them no longer moves them.')
+    checkbox('Widget##sk3_ui_widget', view.ui.widget == true, function (on) act.set('ui.widget', on) end,
+        'A small window of its own: the profile loaded (a click loads another) and your job, then Start/Stop, '
+        .. 'the status, Settings, and Track for your target. Also /sk3 widget.')
     imgui.Separator()
     checkbox('Action log##sk3_log', view.log, act.log, 'Print each action to chat as it is sent.')
     draw_recent(view)
@@ -976,8 +1043,7 @@ local function draw_settings(view)
             if s.on ~= nil then switches, on = true, on or s.on end
         end
         local note = switches and not on and ' (off)' or ''
-        -- '##' in a header's label would end what it shows.
-        if h == 'Profiles' and view.profiles.active then note = ': ' .. view.profiles.active:gsub('#+', '#') end
+        if h == 'Profiles' and view.profiles.active then note = ': ' .. shown_name(view.profiles.active) end
         if imgui.CollapsingHeader(h .. note .. '###sk3_' .. h) then
             for i, s in ipairs(of[h]) do
                 if i > 1 then imgui.Separator() end
@@ -990,7 +1056,7 @@ end
 -- Windows ---------------------------------------------------------------------------
 
 -- Each window: Begin, the body under pcall, End; returns the error the body raised.
--- ponytail: an error inside a table or combo still leaves that scope open, which
+-- ponytail: an error inside a table, combo or popup still leaves that scope open, which
 -- ImGui asserts on; unwind tracked scopes (as v2's abort_sections does) if one shows up.
 local function hud(view)
     local flags = HUD_FLAGS + (view.ui.locked and ImGuiWindowFlags_NoMove or 0)
@@ -1001,6 +1067,14 @@ local function hud(view)
     local ok, err = true, nil
     if shown then ok, err = pcall(draw_hud, view) end
     imgui.End()  -- ImGui keeps where it was dragged, in imgui.ini
+    if not ok then return err end
+end
+
+local function widget(view)
+    local flags = WIDGET_FLAGS + (view.ui.locked and ImGuiWindowFlags_NoMove or 0)
+    local ok, err = true, nil
+    if imgui.Begin('SK Widget', true, flags) then ok, err = pcall(draw_widget, view) end
+    imgui.End()
     if not ok then return err end
 end
 
@@ -1048,9 +1122,16 @@ end
 -- are ended, so ImGui stays balanced and Sidekick reports it.
 function window.render(view, act_)
     act = act_
-    local err = hud(view)
+    local open = view.ui.open ~= false
+    if hud_open and not open then settings_open = false end
+    hud_open = open
+    local err
+    if open then err = hud(view) end
+    if view.ui.widget then err = widget(view) or err end
     if settings_open then err = settings_window(view) or err end
-    for _, r in ipairs(view.remote or {}) do err = remote_window(r) or err end
+    if open then
+        for _, r in ipairs(view.remote or {}) do err = remote_window(r) or err end
+    end
     if err then error(err, 0) end
 end
 

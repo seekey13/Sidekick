@@ -535,6 +535,7 @@ function model.build(g, cat, cfg, status, names)
     view.party, view.alliance = party(g, cfg, names, by_sid(status))
     view.remote = remote_views(status)
     for k, v in pairs(cfg.ui) do view.ui[k] = v end
+    view.ui.open = status.open == true  -- shown now: an error closes it for the session alone
     view.pointer = pointer(status, g, view.party, view.alliance)
     for _, f in ipairs(model.FLAGS) do
         if g[f] then view.flags[#view.flags + 1] = REASONS[f] or f end

@@ -2,7 +2,7 @@
 
 Sidekick3's UI is one replaceable Lua file. Sidekick does all the deciding and acting; a UI only **shows** a table of data (`view`) and **changes** things through a table of functions (`act`). Anything that keeps to that contract can replace the standard UI: a compact HP list, a bar of on/off switches, one big window instead of two.
 
-[window.lua](window.lua) is the standard UI and the reference: a heads-up display of the party's HP and MP (the **Sidekick3** window), whose cog on your own card opens **SK Settings**, every setting under collapsing headers. It uses nearly every field and every action below.
+[window.lua](window.lua) is the standard UI and the reference: a heads-up display of the party's HP and MP (the **Sidekick3** window), whose cog on your own card opens **SK Settings**, every setting under collapsing headers, and, with `ui.widget` on, **SK Widget**, v2's floating widget: the profile loaded (a click lists the others to load) and the job, then Start/Stop, the status, Settings and Track for your target. It uses nearly every field and every action below.
 
 ## Install
 
@@ -19,7 +19,7 @@ A UI file returns a table with one function:
 ```lua
 local ui = {}
 
--- Called every frame while the window is open, from Ashita's d3d_present.
+-- Called every frame while the UI is open or the widget is on, from Ashita's d3d_present.
 function ui.render(view, act)
 end
 
@@ -31,6 +31,7 @@ return ui
 - **`act` is the only way to change anything.** Sidekick saves settings for you (see [Saving](#saving)).
 - **Every ImGui scope it opens must be closed, even when it errors.** ImGui crashes the game on a `Begin` with no `End`. Guard the inside of the window with `pcall`, end the window, then raise the error, as the example and `window.lua` do.
 - **State of its own** (which page is showing, a collapsed panel) lives in locals in the file and lasts until the addon reloads. To keep a preference across reloads, save it under `ui.` with `act.set('ui.<name>', value)` and read it back from `view.ui.<name>`.
+- **Draw nothing but a widget of your own while `view.ui.open` is false.** Sidekick also calls `render` with the UI closed while `view.ui.widget` is on, so a widget can stay up on its own (the standard UI's does). A UI with no widget returns at once then, as the example does.
 - `/sk3` opening and closing the window, the commands, and automation itself don't depend on the UI. A UI with no Start button still runs with `/sk3 start`.
 
 ## `view`
@@ -64,7 +65,7 @@ Text that may contain `%` (names, `why` text) must be escaped before it's drawn:
 | `japanese` | bool | Spell, ability and item names are sent in Japanese. Shared by every job pair: it's kept in `ui`'s file (`ui.japanese`) |
 | `log` | bool | Each action sent is printed to chat |
 | `profiles` | table | `{ active, names }`: the profile loaded (nil for Default, the working copy) and every saved profile's name, in order, case aside. Each job pair has its own |
-| `ui` | table | The UI's settings, shared by every job pair: `open` (bool), and any `ui.<name>` your UI saved. The standard HUD's, which yours may ignore: `hp_width`, `mp_width` (80 to 600), `hp_height` (10 to 120), `mp_height` (4 to 80), `name_size` (8 to 64), `text_size` (8 to 48), `gap` (0 to 40), all in pixels; `opacity` (0 to 100, the panel's %); `locked` (bool, it can't be dragged); `japanese` (bool, the client's language, as `view.japanese`: not free for a UI's own use) |
+| `ui` | table | The UI's settings, shared by every job pair: `open` (bool, the UI is shown now: false once `/sk3`, `act.close()` or an error hid it), and any `ui.<name>` your UI saved. The standard HUD's, which yours may ignore: `hp_width`, `mp_width` (80 to 600), `hp_height` (10 to 120), `mp_height` (4 to 80), `name_size` (8 to 64), `text_size` (8 to 48), `gap` (0 to 40), all in pixels; `opacity` (0 to 100, the panel's %); `locked` (bool, it and the widget can't be dragged); `widget` (bool, the widget is shown, with the UI closed too: `/sk3 widget` switches it; a UI with no widget may ignore it); `japanese` (bool, the client's language, as `view.japanese`: not free for a UI's own use) |
 | `sections` | list | Every setting, by section, below |
 | `remote` | list | The SK Settings of other Sidekick sessions on this PC you have open (`act.watch`; sent only while your UI is open), by name: `{ name, view, other }`. `view` is the view that session built and sent (nil until its first one comes, about a second): the same fields as yours but `pointer`, `ui` and `remote`, plus `session` (its name) and `version`. Draw it with `act.remote(name)` in place of `act`. `other` is true (and `view` nil) when that session runs another version of Sidekick3, whose view this one can't draw |
 | `session` | string or nil | Only on a view in `remote`: the session it came from. nil on yours |
@@ -160,7 +161,7 @@ In this order. A section with rows is left out when your job has none for it (Pe
 |---|---|
 | `act.run(on)` | Automation on or off. This session only: it is always off after a load |
 | `act.log(on)` | Print each action sent to chat, or not. This session only |
-| `act.close()` | Hide the UI (remembered); `/sk3` shows it again |
+| `act.close()` | Hide the UI (remembered); `/sk3` shows it again. A widget stays while `ui.widget` is on |
 | `act.section(id, on)` | A section's switch: `'follow'`, `'heal'`, `'revive'`, `'wake'`, `'remove'`, `'buff'`, `'roll'`, `'song'`, `'geo'`, `'rune'`, `'pet'`, `'maneuver'`, `'recover'`, `'rest'` or `'afk'` |
 | `act.row(key, on)` | A row on or off |
 | `act.pick(key, name)` | A row's choice: a `choices[i].name`, or nil for Auto |
@@ -211,7 +212,7 @@ In this order. A section with rows is left out when your job has none for it (Pe
 | `'ui.text_size'` | 8 to 48 |
 | `'ui.gap'` | 0 to 40 |
 | `'ui.opacity'` | 0 to 100 |
-| `'ui.locked'` | bool |
+| `'ui.locked'`, `'ui.widget'` | bool |
 | `'ui.<name>'` | your UI's own: a string, number or bool |
 
 Nothing is checked, so keep values in range. Settings are kept per job pair (one file for WHM/BLM, another for WHM/SCH), but for `ui`: every job pair shares it (its own file, `ui.lua`), so a UI's own `ui.<name>` is the same whatever you play.
@@ -268,6 +269,7 @@ local function draw(view, act)
 end
 
 function ui.render(view, act)
+    if not view.ui.open then return end  -- it has no widget to show on its own
     local open = { true }
     local ok, err = true, nil
     if imgui.Begin('Sidekick3 mini', open, ImGuiWindowFlags_AlwaysAutoResize) then

@@ -15,10 +15,10 @@ end
 -- Openers and their closers. Every opener reports open (so every body draws)
 -- unless a test sets frame.clicks[opener] = false; Begin and Push* need their
 -- closer either way. Style vars are counted apart: ImGui lets them be pushed
--- before a Begin and popped straight after it. Tabs and popups are for custom UIs.
+-- before a Begin and popped straight after it. Tabs and context popups are for custom UIs.
 local CLOSER = {
     Begin = 'End', BeginTable = 'EndTable', BeginCombo = 'EndCombo', BeginTabBar = 'EndTabBar',
-    BeginTabItem = 'EndTabItem', BeginPopupContextItem = 'EndPopup', BeginPopupContextWindow = 'EndPopup',
+    BeginTabItem = 'EndTabItem', BeginPopup = 'EndPopup', BeginPopupContextItem = 'EndPopup', BeginPopupContextWindow = 'EndPopup',
     PushStyleColor = 'PopStyleColor', PushItemWidth = 'PopItemWidth',
 }
 local ALWAYS = { Begin = true, PushStyleColor = true, PushItemWidth = true }
@@ -451,6 +451,123 @@ test('a Lua error while drawing still ends both windows, then is raised', functi
     view = model.build(snap(), cat, cfg, st, NAMES)
     view.party = nil  -- in the HUD
     eq(type(draw(window, cfg, st, nil, view)), 'string')
+end)
+
+-- The widget ------------------------------------------------------------------------
+
+local function widget_cfg()
+    local cfg = settings.defaults()
+    cfg.ui.widget = true
+    return cfg
+end
+
+test('the widget is off at first; on, it shows the profile, the job and the status, its whole in the tooltip', function ()
+    close_settings()
+    render(settings.defaults(), status())
+    eq(begun('SK Widget'), false)
+    local cfg = widget_cfg()
+    render(cfg, status())
+    eq({ begun('SK Widget'), has(frame.args.Button, 'Default###sk3_widget_profile'), showed('WHM 75 / BLM 37'),
+         showed('Stopped'), has(frame.args.Button, 'Start###sk3_widget_run') }, { true, true, true, true, true })
+    eq(tipped('Stopped: would: Cure IV -> A (heal: A at 62%)'), true)
+    eq(frame.flags['SK Widget'] - ImGuiWindowFlags_NoTitleBar - ImGuiWindowFlags_NoResize
+        - ImGuiWindowFlags_AlwaysAutoResize - ImGuiWindowFlags_NoScrollbar, 0)
+    render(cfg, status({ running = true, intent = false, why = 'casting' }))
+    eq({ showed('Running'), tipped('(casting)'), has(frame.args.Button, 'Stop###sk3_widget_run') }, { true, true, true })
+end)
+
+test('the widget\'s Start/Stop runs this session only; Settings opens and closes SK Settings', function ()
+    close_settings()
+    local cfg, st = widget_cfg(), status()
+    remote_calls = {}
+    eq(render(cfg, st, { ['Start###sk3_widget_run'] = true }), 0)
+    eq({ st.running, remote_calls }, { true, {} })
+    eq(render(cfg, st, { ['Stop###sk3_widget_run'] = true }), 0)
+    eq(st.running, false)
+    render(cfg, st, { ['Settings##sk3_widget_settings'] = true })
+    render(cfg, st)
+    eq(begun('SK Settings'), true)
+    render(cfg, st, { ['Settings##sk3_widget_settings'] = true })
+    render(cfg, st)
+    eq(begun('SK Settings'), false)
+end)
+
+test('the widget\'s profile button lists the profiles: a click loads one, Default goes back', function ()
+    local cfg, st = widget_cfg(), status()
+    cfg.heal.danger = 40
+    cfg.profiles['Sky##1'] = { heal = { danger = 20 } }
+    eq(render(cfg, st, { ['##sk3_widget_profile_1'] = true }), 1)
+    eq({ cfg.profile, cfg.heal.danger }, { 'Sky##1', 20 })
+    render(cfg, st)
+    eq({ has(frame.args.Button, 'Sky#1###sk3_widget_profile'), showed('Sky##1') }, { true, true })
+    render(cfg, st, { ['Default##sk3_widget_profile_default'] = true })
+    eq({ cfg.profile, cfg.heal.danger }, { '', 40 })
+    cfg.profiles['Sky#'] = {}
+    render(cfg, st, { ['##sk3_widget_profile_1'] = true })  -- sorted before Sky##1
+    render(cfg, st)
+    eq(has(frame.args.Button, 'Sky# ###sk3_widget_profile'), true)
+end)
+
+test('the widget offers Track for a player you target outside the alliance', function ()
+    local g = fake.snap({ { name = 'A' } }, { target = { sid = 900, tidx = 1200, name = 'Stranger' } })
+    local cfg, st = widget_cfg(), status()
+    tracking_calls = {}
+    render(cfg, st, { ['Track Stranger###sk3_widget_track'] = true }, model.build(g, cat, cfg, st, NAMES))
+    eq(tracking_calls, { { 'add', 'Stranger' } })
+    g.target = nil
+    render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
+    eq(has(frame.args.Button, 'Track Stranger###sk3_widget_track'), false)
+end)
+
+test('UI / Log turns the widget on and off; Lock position keeps it still too', function ()
+    open_settings()
+    local cfg, st = settings.defaults(), status()
+    eq(render(cfg, st, { ['Widget##sk3_ui_widget'] = true }), 1)
+    eq(cfg.ui.widget, true)
+    render(cfg, st)
+    local free = frame.flags['SK Widget']
+    cfg.ui.locked = true
+    render(cfg, st)
+    eq(frame.flags['SK Widget'] - free, ImGuiWindowFlags_NoMove)
+    eq(render(cfg, st, { ['Widget##sk3_ui_widget'] = true }), 1)
+    eq(cfg.ui.widget, false)
+    close_settings()
+end)
+
+test('with the HUD closed the widget still shows, and its Settings opens SK Settings; closing the HUD closes them', function ()
+    close_settings()
+    local cfg = widget_cfg()
+    render(cfg, status({ open = false }))
+    eq({ begun('Sidekick3'), begun('SK Widget') }, { false, true })
+    render(cfg, status({ open = false }), { ['Settings##sk3_widget_settings'] = true })
+    render(cfg, status({ open = false }))
+    eq({ begun('Sidekick3'), begun('SK Settings') }, { false, true })
+    render(cfg, status())
+    render(cfg, status({ open = false }))  -- /sk3 closed the HUD
+    eq(begun('SK Settings'), false)
+    render(settings.defaults(), status({ open = false }))
+    eq({ begun('Sidekick3'), begun('SK Widget'), begun('SK Settings') }, { false, false, false })
+    render(settings.defaults(), status())
+end)
+
+test('the widget says the state alone: what it does or why it waits is in its tooltip', function ()
+    local cfg = widget_cfg()
+    render(cfg, status({ running = true, intent = false, why = 'holding Valor Minuet IV for Pianissimo' }))
+    eq({ showed('Running'), tipped('(holding Valor Minuet IV for Pianissimo)') }, { true, true })
+    local g = snap()
+    g.afk = true
+    local st = status({ running = true })
+    render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
+    eq(showed('Asleep'), true)
+end)
+
+test('a Lua error in the widget still ends every window, then is raised', function ()
+    close_settings()
+    local cfg, st = widget_cfg(), status()
+    local view = model.build(snap(), cat, cfg, st, NAMES)
+    view.track = nil  -- read by the widget alone while SK Settings is closed
+    local err = draw(window, cfg, st, nil, view)
+    eq({ type(err), begun('Sidekick3'), begun('SK Widget') }, { 'string', true, true })
 end)
 
 -- SK Settings -----------------------------------------------------------------------
