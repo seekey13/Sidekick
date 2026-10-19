@@ -534,7 +534,7 @@ function model.build(g, cat, cfg, status, names)
                 last = { name = a.name, total = g.roll.total, lucky = a.lucky, unlucky = a.unlucky, bust = g.roll.bust == true }
             end
         end
-        stratagems = stratagems or a.kind == 'ja' and a.recast == sch.STRATAGEMS
+        stratagems = stratagems or sch.POOL:spends(a)
         shadows = shadows or a.last_shadow ~= nil
         if a.pick_one == 'indi' then indi[#indi + 1] = a.name end
         luopans = luopans or a.luopan == 'buff' or a.luopan == 'debuff'

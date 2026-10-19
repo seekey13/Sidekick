@@ -45,13 +45,15 @@ local sch = require('jobs.sch')
 local can = require('core.can')
 local observed = require('core.observed')
 local packets = require('core.packets')
+local status = require('core.status')
 local tracked = require('core.tracked')
+local util = require('core.util')
 
 local game = {}
 
 local TRUST = 0x1000000  -- server ids from here up are NPCs; in a party slot, a trust
 local DEAD, MOUNTED_STATUS, RESTING = 3, 5, 33  -- entity status
-local MOUNTED_BUFF, AMNESIA, REGEN = 252, 16, 42
+local MOUNTED_BUFF, AMNESIA, REGEN = 252, 16, status.REGEN
 local SILENCED = { 6, 29 }                          -- Silence, Mute
 local INCAPACITATED = { 2, 7, 10, 14, 17, 19, 28 }  -- Sleep, Petrify, Stun, Charm x2, Sleep II, Terror
 local COMBAT_GRACE = 5      -- seconds "in combat" lasts after the battle target goes (multi-mob pulls)
@@ -222,12 +224,17 @@ local function own_buffs(player)
     return counted(list)
 end
 
+local function position(em, i)
+    return { em:GetLocalPositionX(i), em:GetLocalPositionY(i), em:GetLocalPositionZ(i) }
+end
+
+local function distance(em, i) return math.sqrt(em:GetDistance(i)) end
+
 local function entity(em, tidx)
     if not tidx or tidx == 0 then return nil end
     return {
         tidx = tidx, sid = em:GetServerId(tidx), name = em:GetName(tidx), hpp = em:GetHPPercent(tidx),
-        dist = math.sqrt(em:GetDistance(tidx)), status = em:GetStatus(tidx),
-        pos = { em:GetLocalPositionX(tidx), em:GetLocalPositionY(tidx), em:GetLocalPositionZ(tidx) },
+        dist = distance(em, tidx), status = em:GetStatus(tidx), pos = position(em, tidx),
     }
 end
 
@@ -291,8 +298,7 @@ local function tracked_unit(em, t, me, now)
     if u.in_zone then
         local i = t.tidx
         t.hpp, t.status = em:GetHPPercent(i), em:GetStatus(i)
-        u.tidx, u.dist = i, math.sqrt(em:GetDistance(i))
-        u.pos = { em:GetLocalPositionX(i), em:GetLocalPositionY(i), em:GetLocalPositionZ(i) }
+        u.tidx, u.dist, u.pos = i, distance(em, i), position(em, i)
     elseif t.shared_hpp then  -- not drawn: their own session's client still reads them
         t.hpp, t.status = t.shared_hpp, nil
     end
@@ -334,7 +340,7 @@ local function claimed_target(em, listed, now)
         local best = CLAIM_RANGE
         for i = MOB_FIRST, MOB_LAST do
             if fought(i) then
-                local d = math.sqrt(em:GetDistance(i))
+                local d = distance(em, i)
                 if d <= best then best, claim.tidx = d, i end
             end
         end
@@ -348,7 +354,7 @@ end
 
 local function moving(em, tidx, now)
     if now - move.at < MOVE_SAMPLE then return now - move.moved < MOVE_SAMPLE end
-    local x, y, z = em:GetLocalPositionX(tidx), em:GetLocalPositionY(tidx), em:GetLocalPositionZ(tidx)
+    local x, y, z = unpack(position(em, tidx))
     if move.x and (x ~= move.x or y ~= move.y or z ~= move.z) then move.moved = now end
     move.at, move.x, move.y, move.z = now, x, y, z
     return now - move.moved < MOVE_SAMPLE
@@ -373,43 +379,44 @@ local function ability_timer(recast, id)
     return 0
 end
 
-local function sch_level(p)
-    return p:GetMainJob() == sch.JOB and p:GetMainJobLevel() or p:GetSubJob() == sch.JOB and p:GetSubJobLevel() or 0
+-- Your jobs and levels, as the snapshot carries them.
+local function jobs_of(player)
+    return { main = player:GetMainJob(), main_lv = player:GetMainJobLevel(),
+             sub = player:GetSubJob(), sub_lv = player:GetSubJobLevel() }
 end
 
--- Stratagem charges banked now; nil off SCH.
-local function stratagems(mm, player)
-    local lv = sch_level(player)
+-- Charges banked now in `pool` (core/charges.lua); nil off its job.
+local function banked(mm, jobs, pool)
+    local lv = util.level(jobs, pool.job)
     if lv == 0 then return nil end
-    return sch.charges(ability_timer(mm:GetRecast(), sch.STRATAGEMS) / 60, lv)
+    return pool:banked(ability_timer(mm:GetRecast(), pool.recast) / 60, lv)
 end
 
--- Ready charges banked now; nil off BST.
-local function ready_charges(mm, player)
-    if player:GetMainJob() ~= bst.JOB and player:GetSubJob() ~= bst.JOB then return nil end
-    return bst.charges(ability_timer(mm:GetRecast(), bst.READY) / 60)
-end
+local POOLS = { sch.POOL, bst.POOL }
+
+-- A key per recast `action` waits on: a pool's per charges it costs.
+local function ready_key(action) return action.kind .. action.recast .. (action.charges and ':' .. action.charges or '') end
 
 -- Seconds until `action` (a catalog record) is off recast; 0 = ready.
 function game.recast(action)
     if not action.recast then return 0 end  -- items
     local mm = AshitaCore:GetMemoryManager()
     local recast = mm:GetRecast()
-    local key, timer = action.kind .. action.recast, 0
+    local timer = 0
     if action.kind == 'ma' then
         timer = recast:GetSpellTimer(action.recast)
-    elseif action.recast and action.recast > 0 then
+    elseif action.recast > 0 then
         timer = ability_timer(recast, action.recast)
     end
     local wait = timer / 60
     -- Charge pools: usable once the charges it costs are back, not the whole pool,
     -- and then after the same delay as a recast run out.
-    if timer > 0 and action.kind == 'ja' and action.recast == sch.STRATAGEMS then
-        wait = sch.charge_wait(wait, sch_level(mm:GetPlayer()))
-    elseif timer > 0 and action.kind == 'pet' and action.recast == bst.READY then
-        wait = bst.charge_wait(wait, action.charges)
+    for _, pool in ipairs(POOLS) do
+        if timer > 0 and pool:spends(action) then
+            wait = pool:wait(wait, util.level(jobs_of(mm:GetPlayer()), pool.job), action.charges)
+        end
     end
-    key = key .. (action.charges and ':' .. action.charges or '')
+    local key = ready_key(action)
     if wait > 0 then
         ready_since[key] = nil
         return wait
@@ -421,7 +428,7 @@ end
 -- Forget `action`'s ready stamp once it's sent, so its next recast gets the full delay.
 function game.sent(action)
     if not action.recast then return end  -- /heal, /follow: no recast
-    ready_since[action.kind .. action.recast .. (action.charges and ':' .. action.charges or '')] = nil
+    ready_since[ready_key(action)] = nil
 end
 
 -- The snapshot. { loading = true } until the client has the player's job.
@@ -431,6 +438,7 @@ function game.read(now)
     local player, party, em = mm:GetPlayer(), mm:GetParty(), mm:GetEntity()
     local zone = party:GetMemberZone(0)
     if player:GetMainJobLevel() == 0 or zone == 0 then return { loading = true, now = now } end
+    local jobs = jobs_of(player)
 
     local units, allied, tracks, listed = {}, {}, {}, {}
     for i = 0, 17 do
@@ -455,9 +463,9 @@ function game.read(now)
             if i == 0 then
                 u.uses_mp = player:GetMPMax() > 0
             else
-                local jobs = ('%d %d/%d'):format(sid, party:GetMemberMainJob(i), party:GetMemberSubJob(i))
-                if u.mp > 0 then has_mp[jobs] = true end
-                u.uses_mp = has_mp[jobs] == true
+                local key = ('%d %d/%d'):format(sid, party:GetMemberMainJob(i), party:GetMemberSubJob(i))
+                if u.mp > 0 then has_mp[key] = true end
+                u.uses_mp = has_mp[key] == true
             end
             -- Never seen at full: estimate from HP%. Rough at low HP, good enough to score.
             u.max_hp = max_hp[sid] or (u.hpp > 0 and u.hp > 0 and math.floor(u.hp * 100 / u.hpp)) or nil
@@ -465,8 +473,7 @@ function game.read(now)
             -- would read as 0 yalms away. Then dist and pos are unknown: out of reach.
             if u.in_zone and tidx > 0 and (i == 0 or present(em, tidx)) then
                 u.status = em:GetStatus(tidx)
-                u.dist = i == 0 and 0 or math.sqrt(em:GetDistance(tidx))
-                u.pos = { em:GetLocalPositionX(tidx), em:GetLocalPositionY(tidx), em:GetLocalPositionZ(tidx) }
+                u.dist, u.pos = i == 0 and 0 or distance(em, tidx), position(em, tidx)
             end
             u.alive = u.hpp > 0 and u.status ~= DEAD
             if u.kind == 'self' then u.buffs, u.stacks = own_buffs(player)
@@ -506,7 +513,7 @@ function game.read(now)
     -- A luopan's auras end with it, with no message: forget them on those whose statuses come from packets.
     if pet_sid and not (pet and pet.sid == pet_sid and pet.hpp > 0) then
         buffs.forget(pet_sid)
-        if player:GetMainJob() == geo.JOB then
+        if jobs.main == geo.JOB then
             for sid in pairs(tracks) do
                 for _, id in pairs(geo.AURAS) do buffs.lose(sid, id) end
             end
@@ -533,11 +540,10 @@ function game.read(now)
     return {
         finished = finished, spell_finish = spell_finish,
         now = now, zone = zone, me = me, units = units, tracks = tracks, bt = bt, target = player_target(mm, em),
-        pet = pet, ammo = ammo(), items = inventory(), stratagems = stratagems(mm, player), ready = ready_charges(mm, player),
+        pet = pet, ammo = ammo(), items = inventory(), stratagems = banked(mm, jobs, sch.POOL), ready = banked(mm, jobs, bst.POOL),
         roll = cor.last(),
         automaton = pup.automaton(),
-        main = player:GetMainJob(), main_lv = player:GetMainJobLevel(),
-        sub = player:GetSubJob(), sub_lv = player:GetSubJobLevel(),
+        main = jobs.main, main_lv = jobs.main_lv, sub = jobs.sub, sub_lv = jobs.sub_lv,
         casting = casting, cast_at = cast_at,
         moving = is_moving, moved_at = move.moved,
         combat = now - last_combat < COMBAT_GRACE, combat_at = last_combat,

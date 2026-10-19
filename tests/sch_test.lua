@@ -193,8 +193,9 @@ end)
 
 test('charges: counted from the pool timer and your SCH level', function ()
     local sch = require('jobs.sch')
-    eq({ sch.charges(0, 75), sch.charges(1, 75), sch.charges(100, 75), sch.charges(240, 75), sch.charges(0, 37) },
-       { 5, 4, 2, 0, 2 })
+    local p = sch.POOL
+    eq({ p:banked(0, 75), p:banked(1, 75), p:banked(100, 75), p:banked(240, 75), p:banked(0, 37), p:banked(0, 5) },
+       { 5, 4, 2, 0, 2, 0 })
 end)
 
 test('heal.reserve: buff rows leave the last charge for healing', function ()

@@ -1,39 +1,24 @@
 --[[
-    Scholar: stratagems. They share one charge pool, recast timer 231, whose
-    timer counts down to every charge back; core/game.lua reads it through
-    sch.charge_wait. Each stratagem changes the next spell, so it is a modifier
+    Scholar: stratagems. They share one charge pool, recast timer 231
+    (core/charges.lua). Each stratagem changes the next spell, so it is a modifier
     (core/knowledge.lua): the engine fires it just before the spell a buff row
     turned it on for (core/engine.lua), and these say which spells it fits.
     Enlightenment opens the Addendum spells without the Addendum (core/catalog.lua).
 ]]--
 
+local charges = require('core.charges')
+
 local sch = {}
 
-sch.JOB, sch.STRATAGEMS = 20, 231
-
+sch.JOB = 20
 -- Stratagem charges by SCH level (CatsEyeXI, from v2): { level, charges, seconds per charge }.
-local TIERS = { { 75, 5, 48 }, { 65, 4, 60 }, { 50, 3, 80 }, { 30, 2, 120 }, { 10, 1, 240 } }
-
--- The wait for one charge, from the pool timer's seconds and your SCH level.
-function sch.charge_wait(seconds, sch_lv)
-    for _, t in ipairs(TIERS) do
-        if sch_lv >= t[1] then return math.max(0, seconds - (t[2] - 1) * t[3]) end
-    end
-    return seconds
-end
-
--- Charges banked, from the pool timer's seconds and your SCH level.
-function sch.charges(seconds, sch_lv)
-    for _, t in ipairs(TIERS) do
-        if sch_lv >= t[1] then return math.max(0, t[2] - math.ceil(seconds / t[3])) end
-    end
-    return 0
-end
+sch.POOL = charges.pool({ job = sch.JOB, kind = 'ja', recast = 231,
+    tiers = { { 75, 5, 48 }, { 65, 4, 60 }, { 50, 3, 80 }, { 30, 2, 120 }, { 10, 1, 240 } } })
 
 -- Whether a buff row may spend stratagem action `a` (a modifier, an Addendum):
 -- with heal.reserve on, the last charge is kept for healing's Accession and Rapture.
 function sch.spare(a, g, cfg)
-    if not (cfg.heal.reserve and a.kind == 'ja' and a.recast == sch.STRATAGEMS) then return true end
+    if not (cfg.heal.reserve and sch.POOL:spends(a)) then return true end
     return g.stratagems == nil or g.stratagems > 1
 end
 

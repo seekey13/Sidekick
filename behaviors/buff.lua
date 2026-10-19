@@ -126,7 +126,7 @@ local function held(c, acc, spreads, g, cfg)
         elseif not up and not (sch.spare(m, g, cfg) and can.use(m, g)) then
             return m
         end
-        if not up and m.kind == 'ja' and m.recast == sch.STRATAGEMS and (spreads or not m.spreads) then
+        if not up and sch.POOL:spends(m) and (spreads or not m.spreads) then
             charges, first = charges + 1, first or m
         end
     end

@@ -19,7 +19,7 @@ local function rabbit(t)
 end
 
 -- BST 75 / `sub` 37 with the rabbit out and `ready` charges banked; members at `hpp`.
--- A Ready move waits as the pool would (bst.charge_wait), as core/game.lua reads it.
+-- A Ready move waits as the pool would (bst.POOL:wait), as core/game.lua reads it.
 local function snap(hpp, sub, ready, over)
     local o = { main = BST, main_lv = 75, sub = sub or WAR, sub_lv = 37, pet = rabbit(), ready = ready }
     for k, v in pairs(over or {}) do o[k] = v end
@@ -28,7 +28,7 @@ local function snap(hpp, sub, ready, over)
     local g = fake.snap(others, o)
     g.me.mp = sub == WHM and 400 or 0
     local seconds = (3 - (ready or 3)) * 30
-    g.recast = function (a) return a.recast == bst.READY and bst.charge_wait(seconds, a.charges) or 0 end
+    g.recast = function (a) return bst.POOL:spends(a) and bst.POOL:wait(seconds, 75, a.charges) or 0 end
     return g
 end
 
@@ -38,15 +38,17 @@ local function decide(g, list, cfg)
 end
 
 test('charges: counted from the pool timer, 30s each of 3; the wait is for the charges a move costs', function ()
-    eq({ bst.charges(0), bst.charges(1), bst.charges(30), bst.charges(31), bst.charges(90) }, { 3, 2, 2, 1, 0 })
-    eq({ bst.charge_wait(45, 1), bst.charge_wait(45, 2), bst.charge_wait(45), bst.charge_wait(0, 3) }, { 0, 15, 0, 0 })
-    eq(bst.charge_wait(90, 3), 90)
+    local p = bst.POOL
+    eq({ p:banked(0, 75), p:banked(1, 75), p:banked(30, 75), p:banked(31, 75), p:banked(90, 75), p:banked(0, 1) },
+       { 3, 2, 2, 1, 0, 3 })
+    eq({ p:wait(45, 75, 1), p:wait(45, 75, 2), p:wait(45, 75), p:wait(0, 75, 3) }, { 0, 15, 0, 0 })
+    eq({ p:wait(90, 75, 3), p:banked(0, 0), p:wait(45, 0) }, { 90, 0, 45 })  -- off BST: no pool
 end)
 
 test('catalog: a Ready move costs the charges the DAT gives as its MP, and no MP', function ()
     local cat = fake.catalog(BST, 75, WAR, 37, JAS)
     local carrot = named(cat, 'Wild Carrot')
-    eq({ carrot.kind, carrot.mp, carrot.charges, carrot.recast }, { 'pet', 0, 2, bst.READY })
+    eq({ carrot.kind, carrot.mp, carrot.charges, carrot.recast }, { 'pet', 0, 2, bst.POOL.recast })
     eq({ named(cat, 'Sudden Lunge').mp, named(cat, 'Sudden Lunge').charges }, { 0, 1 })
     eq(named(cat, 'Reward').charges, nil)
     -- BLU's Wild Carrot is a spell: its MP is MP.
