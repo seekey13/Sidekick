@@ -450,3 +450,23 @@ test('two sessions: what one\'s automation sends is in its file at once, read fo
         b.close()
     end)
 end)
+
+test('a write that fails while it acts is tried again at the next tick, not at every read until it goes', function ()
+    two_sessions(function (a, _, files, DIR)
+        local ga, sa = in_game(1, 'Alpha'), { running = true, open = false, watching = {} }
+        local acting
+        local ha = { apply = function () end, view = function () end, act = function () return acting end }
+        a.tick(ga, 1, sa, ha)
+        local open, get_dir, failing, listed = io.open, ashita.fs.get_dir, true, 0
+        rawset(io, 'open', function (p, mode) if failing and mode == 'w' then return nil end return open(p, mode) end)
+        rawset(ashita.fs, 'get_dir', function (...) listed = listed + 1; return get_dir(...) end)
+        acting = { behavior = 'heal', action = 'Cure IV', target = 'Alpha' }
+        a.tick(ga, 1.1, sa, ha)  -- it acted: tried at once, and the write fails
+        a.tick(ga, 1.2, sa, ha); a.tick(ga, 1.3, sa, ha)  -- not due again until 2.1
+        eq(listed, 1)
+        failing = false
+        a.tick(ga, 2.2, sa, ha)
+        eq({ listed, share.decode(files[DIR .. 'session_Alpha.txt']).act }, { 2, acting })
+        a.close()
+    end)
+end)

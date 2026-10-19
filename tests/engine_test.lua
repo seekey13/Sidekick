@@ -48,21 +48,35 @@ test('efficient: the best HP per MP, never paying for overheal', function ()
     eq({ cmd, intent.why }, { '/ma "Cure III" 101', 'efficient: A 70%' })  -- 250 of 300 for 46 MP
 end)
 
-test('efficient runs from the danger line up to full HP', function ()
-    local cmd, intent = decide(snap({ { name = 'A', hpp = 90 } }))
+-- The heal line raised to `n`, for tests about what goes on near full HP.
+local function heal_under(n)
+    local cfg = settings.defaults()
+    cfg.heal.threshold = n
+    return cfg
+end
+
+test('efficient runs from the danger line up to the heal line; the focus member has its own', function ()
+    eq(decide(snap({ { name = 'A', hpp = 74 } })), '/ma "Regen II" 101')           -- under 75: 240 of 260
+    eq({ decide(snap({ { name = 'A', hpp = 76 } })) }, { nil, 'nothing to do' })  -- over it: left be
+    local cfg = settings.defaults()
+    cfg.heal.focus = 'A'
+    eq(decide(snap({ { name = 'A', hpp = 80 } }), cfg), '/ma "Regen" 101')           -- under the focus line, 85
+    eq({ decide(snap({ { name = 'A', hpp = 86 } }), cfg) }, { nil, 'nothing to do' })
+    local cmd, intent = decide(snap({ { name = 'A', hpp = 90 } }), heal_under(99))
     eq({ cmd, intent.why }, { '/ma "Cure" 101', 'efficient: A 90%' })  -- 37.5 of 100 for 8 MP
-    eq({ decide(snap({ { name = 'A', hpp = 100 } })) }, { nil, 'nothing to do' })
+    eq({ decide(snap({ { name = 'A', hpp = 100 } }), heal_under(99)) }, { nil, 'nothing to do' })
 end)
 
 test('efficient waits while every heal would overheal', function ()
-    eq({ decide(snap({ { name = 'A', hpp = 98 } })) }, { nil, 'nothing to do' })  -- 20 missing: Cure is 37.5
-    eq(decide(snap({ { name = 'A', hpp = 96 } })), '/ma "Cure" 101')              -- 40 missing: Cure fits
-    eq(decide(snap({ { name = 'A', hpp = 49 }, { name = 'B', hpp = 98 } }, nil, { Cure = 5 })),
+    local cfg = heal_under(99)
+    eq({ decide(snap({ { name = 'A', hpp = 98 } }), cfg) }, { nil, 'nothing to do' })  -- 20 missing: Cure is 37.5
+    eq(decide(snap({ { name = 'A', hpp = 96 } }), cfg), '/ma "Cure" 101')              -- 40 missing: Cure fits
+    eq(decide(snap({ { name = 'A', hpp = 49 }, { name = 'B', hpp = 98 } }, nil, { Cure = 5 }), cfg),
         '/ma "Cure V" 101')  -- danger is untouched
 end)
 
 test('Regen: the biggest whose whole total lands', function ()
-    eq(decide(snap({ { name = 'A', hpp = 85 } })), '/ma "Regen" 101')      -- 125 of 150 for 15 MP
+    eq(decide(snap({ { name = 'A', hpp = 85 } }), heal_under(90)), '/ma "Regen" 101')  -- 125 of 150 for 15 MP
     eq(decide(snap({ { name = 'A', hpp = 70 } })), '/ma "Regen II" 101')   -- 240 of 300 for 36 MP
     eq(decide(snap({ { name = 'A', hpp = 60 } })), '/ma "Regen III" 101')  -- 400 of 400 for 64 MP
 end)
@@ -76,12 +90,14 @@ end)
 
 test('a Regen not yours counts as a whole Regen I still to come', function ()
     local theirs = function (hpp) return { { name = 'A', hpp = hpp, buffs = { [REGEN] = true } } } end
-    eq({ decide(snap(theirs(90))) }, { nil, 'nothing to do' })  -- 100 missing, 125 on its way
-    eq(decide(snap(theirs(70))), '/ma "Cure" 101')              -- 300 missing: the other 175
-    eq(decide(snap(theirs(45))), '/ma "Cure V" 101')            -- danger ignores it
-    eq({ decide(snap({ { name = 'A', hpp = 90, buffs = { [539] = true } } })) }, { nil, 'nothing to do' })  -- GEO aura
+    local full = heal_under(99)
+    eq({ decide(snap(theirs(90)), full) }, { nil, 'nothing to do' })  -- 100 missing, 125 on its way
+    eq(decide(snap(theirs(70)), full), '/ma "Cure" 101')              -- 300 missing: the other 175
+    eq({ decide(snap(theirs(70))) }, { nil, 'nothing to do' })        -- on the heal line (75), 700 + 125 is over it
+    eq(decide(snap(theirs(45))), '/ma "Cure V" 101')                  -- danger ignores it
+    eq({ decide(snap({ { name = 'A', hpp = 90, buffs = { [539] = true } } }), full) }, { nil, 'nothing to do' })  -- GEO aura
     -- Yours on its last tick (or stretched past the table by gear) has nothing left to come.
-    eq(decide(snap({ { name = 'A', hpp = 90, hot = 0, buffs = { [REGEN] = true } } })), '/ma "Cure" 101')
+    eq(decide(snap({ { name = 'A', hpp = 90, hot = 0, buffs = { [REGEN] = true } } }), full), '/ma "Cure" 101')
 end)
 
 test('a Regen sent is counted once it lands, tick by tick', function ()

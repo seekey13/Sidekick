@@ -613,7 +613,7 @@ end
 -- HUD's (its labels and sizes) and the views it shows of others itself,
 -- with the view's `version`, VIEW: raise it when a field the window draws changes,
 -- so a session still running older code isn't drawn from a view it can't read.
-model.VIEW = 3
+model.VIEW = 4
 function model.published(view)
     local out = {}
     for k, v in pairs(view) do out[k] = v end

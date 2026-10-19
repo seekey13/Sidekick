@@ -102,7 +102,7 @@ Text that may contain `%` (names, `why` text) must be escaped before it's drawn:
 
 ### `view.heal`
 
-`danger`, `critical`, `focus_danger`, `focus_critical` (HP %, 1 to 99); `focus` (a member's name, `''` for none); `alliance` (bool: the alliance's other parties are healed too; the focus member always is); `cure_potency`, `waltz_potency` (+% from gear, 0 to 50); `regen_potency` (+HP per Regen tick from gear, 0 to 30); `reserve` (bool: buff rows leave the last stratagem charge for healing) and `stratagems` (bool: your job has stratagems, so `reserve` is worth showing); `focus_names` (the members that can be the focus, you excluded, the alliance's and tracked players included); `members` (`{ name, healed, wrap }` for each member and tracked player, you excluded, and the alliance's while `alliance` is on; `healed` false when skipped; `wrap` true on the first of each of the alliance's parties, where the standard window starts a line).
+`threshold`, `danger`, `critical`, `focus_threshold`, `focus_danger`, `focus_critical` (HP %, 1 to 99: efficient heals run from `danger` up to `threshold`); `focus` (a member's name, `''` for none); `alliance` (bool: the alliance's other parties are healed too; the focus member always is); `cure_potency`, `waltz_potency` (+% from gear, 0 to 50); `regen_potency` (+HP per Regen tick from gear, 0 to 30); `reserve` (bool: buff rows leave the last stratagem charge for healing) and `stratagems` (bool: your job has stratagems, so `reserve` is worth showing); `focus_names` (the members that can be the focus, you excluded, the alliance's and tracked players included); `members` (`{ name, healed, wrap }` for each member and tracked player, you excluded, and the alliance's while `alliance` is on; `healed` false when skipped; `wrap` true on the first of each of the alliance's parties, where the standard window starts a line).
 
 ### `view.sections[i]`
 
@@ -182,7 +182,7 @@ In this order. A section with rows is left out when your job has none for it (Pe
 
 | Path | Value |
 |---|---|
-| `'heal.danger'`, `'heal.critical'`, `'heal.focus_danger'`, `'heal.focus_critical'` | 1 to 99 |
+| `'heal.threshold'`, `'heal.danger'`, `'heal.critical'`, `'heal.focus_threshold'`, `'heal.focus_danger'`, `'heal.focus_critical'` | 1 to 99 |
 | `'heal.focus'` | a name from `view.heal.focus_names`, or `''` |
 | `'heal.cure_potency'`, `'heal.waltz_potency'` | 0 to 50 |
 | `'heal.regen_potency'` | 0 to 30 |

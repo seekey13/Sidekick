@@ -64,7 +64,7 @@ end)
 
 test('Wild Carrot only in danger: its charges are kept for the pet\'s attacks on chip damage', function ()
     local cat = fake.catalog(BST, 75, WHM, 37, JAS)
-    eq(decide(snap(80, WHM, 3), cat), '/ma "Regen" 101')
+    eq(decide(snap(70, WHM, 3), cat), '/ma "Regen" 101')  -- chip damage, under the heal line: MP, not charges
     eq(decide(snap(40, WHM, 3), cat), '/pet "Wild Carrot" <me>')
     local war = fake.catalog(BST, 75, WAR, 37, JAS)
     local danger = settings.defaults().heal.danger

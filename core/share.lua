@@ -363,7 +363,7 @@ local roster          -- what you last published: kept up while loading (zoning)
 local roster_at = 0   -- the clock when it was read
 local mine            -- your name while your file is written
 local written         -- the text it holds
-local acted = ''      -- the `act` it holds, packed ('' for none)
+local acted = ''      -- the `act` last written or tried, packed ('' for none)
 local next_at = 0
 local pending, sent_n = {}, 0  -- calls sent to other sessions not acknowledged yet, and the last call's number
 local applied = {}             -- [sender] = { epoch, n }: the last call applied from each
@@ -467,7 +467,8 @@ end
 -- a watcher draws, `hooks.act()` gives what your automation just sent while it lands, or nil.
 function share.tick(g, clock, status, hooks)
     local act = not g.loading and hooks.act() or nil
-    if clock < next_at and (act and share.pack(act) or '') == acted then return share.sessions end
+    local packed = act and share.pack(act) or ''
+    if clock < next_at and packed == acted then return share.sessions end
     next_at = clock + share.EVERY
     if not g.loading then
         roster, roster_at = share.roster(g), clock
@@ -494,7 +495,8 @@ function share.tick(g, clock, status, hooks)
     end
     local text = share.encode(roster, status.running, os.time(),
         { epoch = share.epoch, act = act, watch = watch, calls = pending, acks = acks })
-    if text == written or write(path(me), text) then mine, written, acted = me, text, act and share.pack(act) or '' end
+    acted = packed  -- one that fails to write goes at the next tick, not at every read until it's written
+    if text == written or write(path(me), text) then mine, written = me, text end
     local watched, called = share.watched(live, me)
     if not g.loading then  -- a zone leaves the last view up
         local ok, view = true, nil

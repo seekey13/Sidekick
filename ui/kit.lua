@@ -171,8 +171,8 @@ function kit.fit(s, room, font, px)
     local n = #s
     repeat
         n = n - 1
-        while n > 1 and (s:byte(n + 1) or 0) >= 0x80 and (s:byte(n + 1) or 0) < 0xC0 do n = n - 1 end
-    until n <= 1 or measure(s:sub(1, n) .. dots, font, px) <= room
+        while n > 0 and (s:byte(n + 1) or 0) >= 0x80 and (s:byte(n + 1) or 0) < 0xC0 do n = n - 1 end
+    until n <= 0 or measure(s:sub(1, n) .. dots, font, px) <= room
     return s:sub(1, n) .. dots
 end
 

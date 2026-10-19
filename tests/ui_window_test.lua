@@ -1102,3 +1102,9 @@ test('chips and Heal members send the state they\'re set to, here and to another
     st.watching = {}
     close_settings()
 end)
+
+-- The fake measures 7 pixels a byte at 13 pixels: each cut below is the longest that fits.
+test('the kit cuts text to fit with an ellipsis, never inside a character', function ()
+    eq({ kit.fit('Kupipi', 42, 'font', 13), kit.fit('Kupipi', 41, 'font', 13) }, { 'Kupipi', 'Ku...' })
+    eq({ kit.fit('a\195\169bc', 28, 'font', 13), kit.fit('\195\169a', 10, 'font', 13) }, { 'a...', '...' })
+end)
