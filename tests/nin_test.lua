@@ -1,7 +1,6 @@
 -- Ninja (jobs/nin.lua): the tools ninjutsu spend, Sange's shuriken equipped
 -- (core/ammo.lua), Utsusemi recast at its last shadow, and their UI.
 local engine = require('core.engine')
-local nin = require('jobs.nin')
 local settings = require('core.settings')
 local model = require('ui.model')
 local fake = require('tests.fake')

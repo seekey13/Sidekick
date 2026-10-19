@@ -1,5 +1,6 @@
 --[[
-    Decide the next action. The gates that stop everything are checked once here;
+    Decide the next action. The gates that stop everything are checked once here
+    (AFK sleep among them: core/afk.lua, g.afk set by Sidekick3.lua);
     then each behavior, in priority order, may return an intent:
         { action = catalog record, target = unit or nil (you / battle target), why = text }
     or, for what isn't a spell or ability (/heal, /follow):
@@ -47,7 +48,7 @@ engine.BEHAVIORS = {
     { name = 'rest', run = require('behaviors.rest'), resting = true },
 }
 
-local GATES = { 'loading', 'dead', 'mounted', 'safe', 'incapacitated', 'casting', 'moving' }
+local GATES = { 'loading', 'dead', 'mounted', 'safe', 'afk', 'incapacitated', 'casting', 'moving' }
 engine.EXPECT = 2  -- seconds a modifier's status is taken as on you once it's sent
 engine.GATHER_EVERY = 5  -- seconds between asks to gather, as v2
 engine.CANCEL_AFTER = 1    -- seconds into the cast to cancel intent.cancel, as v2
