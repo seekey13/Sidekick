@@ -1,0 +1,624 @@
+--[[
+    The look the standard UI's windows share, after VanaCore's /vana window
+    (docs/vana-ui-style.md): one palette, sizes through S(), every control drawn
+    on ImGui's draw lists over an invisible button, its states eased.
+
+    A control takes its value and returns the new one and whether it changed; it
+    reads and writes no setting. Under ImGui 1.92 (Ashita 4.30's libs, as VanaCore
+    gives them) text is Segoe UI at any size; on 1.81 (Ashita 4.16) every face is
+    ImGui's own font, scaled. Draw-list text is drawn as is: no '%' doubling.
+]]--
+
+local imgui = require('imgui')
+
+local kit = {}
+
+kit.P = {
+    bg = '#161822', side = '#10121A', border = '#2A2E3E', line = '#242838', hover = '#1F2334',
+    well = '#0E1017', well_edge = '#272B3C', field = '#080A10', field_edge = '#3E4460', popup = '#0F1118',
+    white = '#FFFFFF', text = '#E8EAF1', text2 = '#BDC1D0', dim = '#7B8095', faint = '#4E536A',
+    accent = '#7AA2F7', accent2 = '#A9C1FF', accent_lo = '#3E5CB3', accent_bg = '#1B2340',
+    teal = '#5FD3B3', amber = '#E8B45C', rose = '#EE6F78', rose_bg = '#3A2026',
+    knob = '#F2F3F8', off = '#2B2F42', seg = '#313752', ink = '#0B1020',
+    hp = '#EE6F78', mp = '#E8B45C',  -- the HUD's bars: the mockup's red and yellow, from the palette
+}
+local P = kit.P
+
+kit.BODY, kit.SMALL = 16, 13.5  -- the text sizes, unscaled
+kit.SW_W, kit.SW_H = 32, 17     -- a switch
+
+local VERSION = tonumber(IMGUI_VERSION_NUM) or 0
+kit.dynamic = VERSION >= 19200  -- fonts added while running, drawn at any size
+local CHILD_FLAGS = VERSION >= 19000  -- BeginChild's third argument: child flags, no longer a border bool
+-- ImDrawFlags (1.92) or ImDrawCornerFlags (1.81): nil rounds every corner
+kit.LEFT_CORNERS = ImDrawFlags_RoundCornersLeft or ImDrawCornerFlags_Left
+
+-- Colours --------------------------------------------------------------------------
+
+-- '#RRGGBB' and an alpha to an ImU32 (0xAABBGGRR), for a draw list.
+function kit.u32(hex, alpha)
+    local r, g, b = tonumber(hex:sub(2, 3), 16), tonumber(hex:sub(4, 5), 16), tonumber(hex:sub(6, 7), 16)
+    local a = math.floor(math.max(0, math.min(1, alpha or 1)) * 255 + 0.5)
+    return ((a * 256 + b) * 256 + g) * 256 + r
+end
+
+-- '#RRGGBB' and an alpha to { r, g, b, a }, for PushStyleColor.
+function kit.rgba(hex, alpha)
+    return { tonumber(hex:sub(2, 3), 16) / 255, tonumber(hex:sub(4, 5), 16) / 255, tonumber(hex:sub(6, 7), 16) / 255, alpha or 1 }
+end
+
+-- The colour `t` of the way from `a` to `b`.
+function kit.mix(a, b, t)
+    t = math.max(0, math.min(1, t))
+    local out = '#'
+    for i = 2, 6, 2 do
+        local x, y = tonumber(a:sub(i, i + 1), 16), tonumber(b:sub(i, i + 1), 16)
+        out = out .. ('%02X'):format(math.floor(x + (y - x) * t + 0.5))
+    end
+    return out
+end
+local mix = kit.mix
+
+-- Scale ----------------------------------------------------------------------------
+
+kit.scale = 1
+function kit.S(n) return math.floor(n * kit.scale + 0.5) end
+local S = kit.S
+
+-- The screen's size, 1920 by 1080 until ImGui says.
+function kit.screen()
+    local ok, d = pcall(function () return imgui.GetIO().DisplaySize end)
+    local w, h = ok and d and tonumber(d.x), ok and d and tonumber(d.y)
+    if not (w and h and w > 0 and h > 0) then return 1920, 1080 end
+    return w, h
+end
+
+-- 1440 pixels tall is 1.1 (0.825 to 1.76 across screens), times the user's own (0.5 to 2).
+local function set_scale(user)
+    local _, h = kit.screen()
+    kit.scale = math.max(0.75, math.min(1.6, h / 1440)) * 1.1 * math.max(0.5, math.min(2, user or 1))
+end
+
+-- Fonts and text -------------------------------------------------------------------
+
+kit.fonts = {}      -- text, semi, bold_italic: ImGui's own font until Segoe UI is in
+kit.custom = false  -- Segoe UI is: measured and drawn at the size asked
+local fonts_tried, fonts_pending = false, nil
+local FACES = { { 'text', 'segoeui.ttf' }, { 'semi', 'seguisb.ttf', 'text' }, { 'bold_italic', 'segoeuiz.ttf', 'semi' } }
+
+-- Segoe UI from Windows' fonts, each face falling back to the one before; nil without the regular.
+local function load_fonts()
+    local dir = ((os.getenv and os.getenv('WINDIR')) or 'C:\\Windows') .. '\\Fonts\\'
+    local out = {}
+    for _, face in ipairs(FACES) do
+        local path = dir .. face[2]
+        local file = io.open(path, 'rb')
+        if file then
+            file:close()
+            local ok, font = pcall(imgui.AddFontFromFileTTF, path, 18)
+            if ok and font then out[face[1]] = font end
+        end
+        out[face[1]] = out[face[1]] or out[face[3]]
+    end
+    return out.text and out or nil
+end
+
+local measured, measured_n = {}, 0
+
+-- `s` drawn in `font` at `px` pixels: its width and height. Cached, as the same labels are measured every frame.
+function kit.measure(s, font, px)
+    s = tostring(s)
+    local key = tostring(font) .. '|' .. px .. '|' .. s
+    local m = measured[key]
+    if not m then
+        if measured_n > 4000 then measured, measured_n = {}, 0 end  -- live values keep adding strings
+        local w, h
+        if kit.custom then
+            imgui.PushFont(font, px)
+            w, h = imgui.CalcTextSize(s)
+            imgui.PopFont()
+        else
+            w, h = imgui.CalcTextSize(s)  -- at the font's own size
+            local k = px / imgui.GetFontSize()
+            w, h = w * k, h * k
+        end
+        m = { w, h }
+        measured[key], measured_n = m, measured_n + 1
+    end
+    return m[1], m[2]
+end
+local measure = kit.measure
+
+-- Segoe UI's line holds a tall ascent and a descent: centred by its box, its letters sit low.
+local function lift(h) return kit.custom and math.floor(h * 0.06 + 0.5) or 0 end
+
+function kit.text(dl, x, y, s, color, font, px, alpha)
+    dl:AddText(font, px, { math.floor(x + 0.5), math.floor(y + 0.5) }, kit.u32(color, alpha), s)
+end
+local text = kit.text
+
+-- Text with its middle at cy: from x, ending at `right`, or centred on cx.
+function kit.text_mid(dl, x, cy, s, color, font, px, alpha)
+    local _, h = measure(s, font, px)
+    text(dl, x, cy - h / 2 - lift(h), s, color, font, px, alpha)
+end
+
+function kit.text_right(dl, right, cy, s, color, font, px, alpha)
+    local w, h = measure(s, font, px)
+    text(dl, right - w, cy - h / 2 - lift(h), s, color, font, px, alpha)
+end
+
+function kit.text_centred(dl, cx, cy, s, color, font, px, alpha)
+    local w, h = measure(s, font, px)
+    text(dl, cx - w / 2, cy - h / 2 - lift(h), s, color, font, px, alpha)
+end
+
+-- Text over the game or a bar: stamped in black a pixel out each way first, so it reads on anything.
+local AROUND = { { -1, -1 }, { 0, -1 }, { 1, -1 }, { -1, 0 }, { 1, 0 }, { -1, 1 }, { 0, 1 }, { 1, 1 } }
+function kit.halo(dl, x, y, s, color, font, px, alpha)
+    x, y = math.floor(x + 0.5), math.floor(y + 0.5)
+    local dark = kit.u32('#000000', 0.85 * (alpha or 1))
+    for _, o in ipairs(AROUND) do dl:AddText(font, px, { x + o[1], y + o[2] }, dark, s) end
+    dl:AddText(font, px, { x, y }, kit.u32(color, alpha), s)
+end
+
+-- `s` cut to `room` pixels, with an ellipsis; never inside a UTF-8 character.
+function kit.fit(s, room, font, px)
+    s = tostring(s)
+    if measure(s, font, px) <= room then return s end
+    local dots = kit.custom and '…' or '...'
+    local n = #s
+    repeat
+        n = n - 1
+        while n > 1 and (s:byte(n + 1) or 0) >= 0x80 and (s:byte(n + 1) or 0) < 0xC0 do n = n - 1 end
+    until n <= 1 or measure(s:sub(1, n) .. dots, font, px) <= room
+    return s:sub(1, n) .. dots
+end
+
+-- `s` broken into lines `width` pixels wide at its spaces (its own lines kept).
+function kit.wrap(s, font, px, width)
+    local lines = {}
+    for para in (tostring(s) .. '\n'):gmatch('(.-)\n') do
+        local cur = ''
+        for word in para:gmatch('%S+') do
+            local try = cur == '' and word or cur .. ' ' .. word
+            if cur ~= '' and measure(try, font, px) > width then
+                lines[#lines + 1], cur = cur, word
+            else
+                cur = try
+            end
+        end
+        lines[#lines + 1] = cur
+    end
+    return lines
+end
+
+-- Shapes ---------------------------------------------------------------------------
+
+-- (corners nil rounds all four: it isn't passed, as 1.81 reads 0 as none and 1.92 as all.)
+function kit.fill(dl, x, y, w, h, color, r, alpha, corners)
+    local a, b, c = { x, y }, { x + w, y + h }, kit.u32(color, alpha)
+    if corners then dl:AddRectFilled(a, b, c, r or 0, corners) else dl:AddRectFilled(a, b, c, r or 0) end
+end
+local fill = kit.fill
+
+function kit.outline(dl, x, y, w, h, color, r, alpha)
+    dl:AddRect({ x, y }, { x + w, y + h }, kit.u32(color, alpha), r or 0)
+end
+local outline = kit.outline
+
+function kit.circle(dl, cx, cy, r, color, alpha) dl:AddCircleFilled({ cx, cy }, r, kit.u32(color, alpha), 24) end
+function kit.ring(dl, cx, cy, r, color, alpha) dl:AddCircle({ cx, cy }, r, kit.u32(color, alpha), 24) end
+
+function kit.line(dl, x1, y1, x2, y2, color, alpha, thickness)
+    dl:AddLine({ x1, y1 }, { x2, y2 }, kit.u32(color, alpha), thickness or 1)
+end
+
+-- A filled triangle, wound clockwise on screen as ImGui's anti-aliasing expects.
+function kit.tri(dl, a, b, c, color, alpha)
+    if (b[1] - a[1]) * (c[2] - a[2]) - (b[2] - a[2]) * (c[1] - a[1]) < 0 then b, c = c, b end
+    dl:AddTriangleFilled(a, b, c, kit.u32(color, alpha))
+end
+
+-- An icon `size` across centred on (cx, cy), drawn in shapes so no font has to carry it: 'close', 'play', 'stop',
+-- 'cog' (its hole in `cut`), 'down', 'right'. In a 24-unit box.
+function kit.icon(dl, name, cx, cy, size, color, alpha, cut)
+    local k = size / 24
+    local function p(x, y) return { cx + (x - 12) * k, cy + (y - 12) * k } end
+    local col, t = kit.u32(color, alpha), math.max(1, 2 * k)
+    if name == 'close' then
+        dl:AddLine(p(6, 6), p(18, 18), col, t)
+        dl:AddLine(p(18, 6), p(6, 18), col, t)
+    elseif name == 'play' then
+        kit.tri(dl, p(8, 5), p(19, 12), p(8, 19), color, alpha)
+    elseif name == 'stop' then
+        dl:AddRectFilled(p(6, 6), p(18, 18), col, 2 * k)
+    elseif name == 'cog' then
+        -- eight teeth, one straight up: trapezoids from radius 7 to 12, round a body of 9 with a hole of 4
+        dl:AddCircleFilled({ cx, cy }, 9 * k, col, 24)
+        for i = 0, 7 do
+            local a = i * math.pi / 4
+            local dx, dy = math.sin(a), -math.cos(a)
+            local function q(r, w) return { cx + (dx * r - dy * w) * k, cy + (dy * r + dx * w) * k } end
+            local b1, b2, t1, t2 = q(7, -2.8), q(7, 2.8), q(12, -2.2), q(12, 2.2)
+            kit.tri(dl, b1, b2, t2, color, alpha)
+            kit.tri(dl, b1, t2, t1, color, alpha)
+        end
+        dl:AddCircleFilled({ cx, cy }, 4 * k, kit.u32(cut or P.bg), 24)
+    elseif name == 'down' then
+        dl:AddLine(p(5, 9), p(12, 16), col, t)
+        dl:AddLine(p(12, 16), p(19, 9), col, t)
+    elseif name == 'right' then
+        dl:AddLine(p(9, 5), p(16, 12), col, t)
+        dl:AddLine(p(16, 12), p(9, 19), col, t)
+    end
+end
+
+-- Frames, easing and the mouse ------------------------------------------------------
+
+kit.clock = os.clock  -- (the tests step it, so every eased value lands at once)
+kit.prefix = ''       -- each window's own: two windows drawing one control keep their own eased state
+local anim, last, dt = {}, nil, 0
+
+-- Once a frame, before any window: the time since the last, the fonts, the scale (`user`, 1 for 100%).
+function kit.frame(user)
+    local now = kit.clock()
+    dt = last and math.max(0, math.min(0.1, now - last)) or 0  -- capped: a hitch takes one step, not a jump
+    last = now
+    if fonts_pending then  -- added last frame: usable from this one
+        for k, f in pairs(fonts_pending) do kit.fonts[k] = f end
+        kit.custom, fonts_pending = true, nil
+    elseif not kit.custom then
+        local f = imgui.GetFont()
+        kit.fonts.text, kit.fonts.semi, kit.fonts.bold_italic = f, f, f
+        if kit.dynamic and not fonts_tried then
+            fonts_tried = true
+            fonts_pending = load_fonts()
+        end
+    end
+    set_scale(user)
+end
+
+-- `id`'s value moved towards `target` a share of the way each frame (`speed` a second: 18 lands in about a sixth).
+function kit.ease(id, target, speed)
+    id = kit.prefix .. id
+    local v = anim[id]
+    if v == nil then
+        v = target  -- a new control starts where it should be
+    else
+        v = v + (target - v) * math.min(1, dt * (speed or 18))
+        if math.abs(v - target) < 0.003 then v = target end
+    end
+    anim[id] = v
+    return v
+end
+local ease = kit.ease
+
+-- The input half of every control: an invisible button over its box. Hovered, clicked, held.
+function kit.hit(id, x, y, w, h)
+    imgui.SetCursorScreenPos({ x, y })
+    local clicked = imgui.InvisibleButton(id, { math.max(1, w), math.max(1, h) })
+    return imgui.IsItemHovered(), clicked, imgui.IsItemActive()
+end
+local hit = kit.hit
+
+-- The mouse over a box of this window, with no item made for it.
+function kit.over(x, y, w, h)
+    return imgui.IsWindowHovered() and imgui.IsMouseHoveringRect({ x, y }, { x + w, y + h })
+end
+
+function kit.esc(s) return (tostring(s):gsub('%%', '%%%%')) end
+
+-- Lines past `n` characters broken at a space.
+local function wrap_chars(s, n)
+    local out = {}
+    for line in (s .. '\n'):gmatch('(.-)\n') do
+        while #line > n do
+            local cut = line:sub(1, n + 1):match('^.*() ')
+            if not cut or cut < n / 2 then break end
+            out[#out + 1], line = line:sub(1, cut - 1), line:sub(cut + 1)
+        end
+        out[#out + 1] = line
+    end
+    return table.concat(out, '\n')
+end
+
+local TOOLTIP_COLOURS = { { ImGuiCol_PopupBg, kit.rgba(P.popup, 0.97) }, { ImGuiCol_Border, kit.rgba(P.border) },
+                          { ImGuiCol_Text, kit.rgba(P.text) } }
+
+-- A tooltip by the mouse, in the palette, wrapped (SetTooltip takes a printf format: its '%' are doubled).
+function kit.tooltip(s)
+    if not s or s == '' then return end
+    for _, c in ipairs(TOOLTIP_COLOURS) do imgui.PushStyleColor(c[1], c[2]) end
+    imgui.PushStyleVar(ImGuiStyleVar_WindowPadding, { S(9), S(6) })
+    imgui.PushStyleVar(ImGuiStyleVar_WindowRounding, S(4))
+    imgui.PushStyleVar(ImGuiStyleVar_PopupRounding, S(4))
+    imgui.PushStyleVar(ImGuiStyleVar_PopupBorderSize, 1)
+    if kit.custom then imgui.PushFont(kit.fonts.text, S(kit.SMALL + 0.5)) end
+    imgui.SetTooltip(kit.esc(wrap_chars(tostring(s), 72)))
+    if kit.custom then imgui.PopFont() end
+    imgui.PopStyleVar(4)
+    imgui.PopStyleColor(#TOOLTIP_COLOURS)
+end
+
+-- The last item's tooltip, while it's hovered.
+function kit.tip(s)
+    if s and s ~= '' and imgui.IsItemHovered() then kit.tooltip(s) end
+end
+
+local POPUP_COLOURS = {
+    { ImGuiCol_PopupBg, kit.rgba(P.popup) }, { ImGuiCol_Border, kit.rgba(P.border) }, { ImGuiCol_Text, kit.rgba(P.text) },
+    { ImGuiCol_Header, kit.rgba(P.accent_bg) }, { ImGuiCol_HeaderHovered, kit.rgba(P.hover) },
+    { ImGuiCol_HeaderActive, kit.rgba(P.accent_lo) }, { ImGuiCol_Separator, kit.rgba(P.line) },
+    { ImGuiCol_FrameBg, kit.rgba(P.well) }, { ImGuiCol_FrameBgHovered, kit.rgba(P.well) }, { ImGuiCol_FrameBgActive, kit.rgba(P.well) },
+}
+
+-- ImGui's own popups (a drop-down's list, a typed number) in the palette, with the padding the windows here take away.
+function kit.push_popup_style()
+    for _, c in ipairs(POPUP_COLOURS) do imgui.PushStyleColor(c[1], c[2]) end
+    imgui.PushStyleVar(ImGuiStyleVar_WindowPadding, { S(10), S(8) })
+    imgui.PushStyleVar(ImGuiStyleVar_PopupRounding, S(5))
+    imgui.PushStyleVar(ImGuiStyleVar_PopupBorderSize, 1)
+    imgui.PushStyleVar(ImGuiStyleVar_FramePadding, { S(8), S(4) })
+    imgui.PushStyleVar(ImGuiStyleVar_FrameRounding, S(4))
+    imgui.PushStyleVar(ImGuiStyleVar_ItemSpacing, { S(8), S(6) })
+end
+
+function kit.pop_popup_style()
+    imgui.PopStyleVar(6)
+    imgui.PopStyleColor(#POPUP_COLOURS)
+end
+
+-- A child window `w` by `h` at the cursor, scrolling its own items (EndChild after, whatever it returns).
+function kit.child(id, w, h)
+    if CHILD_FLAGS then return imgui.BeginChild(id, { w, h }, 0, ImGuiWindowFlags_NoNavInputs) end
+    return imgui.BeginChild(id, { w, h }, false, ImGuiWindowFlags_NoNavInputs)
+end
+
+-- Controls: each centred on cy; `enabled` false draws it at 0.4 and takes no click ----
+
+local function faded(enabled, alpha) return (enabled == false and 0.4 or 1) * (alpha or 1) end
+
+-- A switch, kit.SW_W by kit.SW_H. Returns on, changed.
+function kit.switch(id, x, cy, on, enabled, alpha)
+    local w, h = S(kit.SW_W), S(kit.SW_H)
+    local y = cy - h / 2
+    local hovered, clicked = hit(id, x, y, w, h)
+    local changed = clicked and enabled ~= false
+    if changed then on = not on end
+    local t, a = ease(id, on and 1 or 0), faded(enabled, alpha)
+    local dl = imgui.GetWindowDrawList()
+    fill(dl, x, y, w, h, mix(P.off, P.accent, t), h / 2, a)
+    if hovered and enabled ~= false then fill(dl, x, y, w, h, '#FFFFFF', h / 2, 0.08 * a) end
+    local r = (h - S(4)) / 2
+    kit.circle(dl, x + S(2) + r + (w - S(4) - r * 2) * t, cy, r, P.knob, a)
+    return on, changed == true
+end
+
+-- Where slider `id` (its track from x, w wide) is dragged to, min to max, while it's held; else nil.
+-- The last item is its track. (The tests stand in for the mouse here.)
+function kit.dragged(_, x, w, min, max)
+    if not imgui.IsItemActive() then return nil end
+    local mx = imgui.GetMousePos()
+    if type(mx) == 'table' then mx = mx.x or mx[1] end
+    return min + (max - min) * math.max(0, math.min(1, (mx - x) / w))
+end
+
+local numbers = {}  -- a slider's id -> its typed number's text ({ s }), while that box is open
+
+-- The number typed in slider `id`'s box, once Enter is pressed; nil until then.
+local function number_box(id, min, max)
+    local key, typed = kit.prefix .. id, nil
+    local buf = numbers[key]
+    kit.push_popup_style()
+    if imgui.BeginPopup(id .. '.number') then
+        if kit.custom then imgui.PushFont(kit.fonts.text, S(kit.SMALL + 1)) end
+        if buf.focus then
+            imgui.SetKeyboardFocusHere()
+            buf.focus = false
+        end
+        imgui.PushItemWidth(S(90))
+        if imgui.InputText('##' .. id .. '.typed', buf, 16, ImGuiInputTextFlags_CharsDecimal
+                + ImGuiInputTextFlags_EnterReturnsTrue + ImGuiInputTextFlags_AutoSelectAll) then
+            typed = tonumber(buf[1])
+            imgui.CloseCurrentPopup()
+        end
+        imgui.PopItemWidth()
+        imgui.TextDisabled(('%d to %d'):format(min, max))
+        if kit.custom then imgui.PopFont() end
+        imgui.EndPopup()
+    else
+        numbers[key] = nil  -- shut: clicked away, or Escape
+    end
+    kit.pop_popup_style()
+    return typed
+end
+
+-- A slider of whole numbers, `w` wide: the track, then the value (`unit` after it), which a click lets you type.
+-- Returns value, changed (each frame it moves: write it then; Sidekick saves once it's let go).
+function kit.slider(id, x, cy, w, value, min, max, enabled, alpha, unit)
+    local dl, on, a = imgui.GetWindowDrawList(), enabled ~= false, faded(enabled, alpha)
+    local value_w = S(52)
+    local track = w - value_w - S(10)
+    local function held(v) return math.max(min, math.min(max, math.floor(v + 0.5))) end
+    -- the press area runs past the track's ends, so the knob drawn half past either end is still the slider's
+    local hovered = hit(id, x - S(4), cy - S(9), track + S(12), S(18))
+    local dragged = on and kit.dragged(id, x, track, min, max) or nil
+    local changed = false
+    if dragged then
+        local v = held(dragged)
+        if v ~= value then value, changed = v, true end
+    end
+    local f, th = max > min and math.max(0, math.min(1, (value - min) / (max - min))) or 0, S(4)
+    fill(dl, x, cy - th / 2, track, th, P.off, th / 2, a)
+    if f > 0 then fill(dl, x, cy - th / 2, math.max(th, track * f), th, P.accent, th / 2, a) end
+    local lit = ease(id .. '.lit', (hovered or dragged) and on and 1 or 0, 22)
+    kit.circle(dl, x + track * f, cy, S(5.5) + S(1) * lit, dragged and P.accent2 or mix(P.knob, P.accent2, lit * 0.5), a)
+    local vx = x + track + S(10)
+    local vhov, vclick = hit(id .. '.value', vx, cy - S(10), value_w, S(20))
+    if vhov and on then fill(dl, vx, cy - S(10), value_w, S(20), P.hover, S(3)) end
+    kit.text_right(dl, vx + value_w - S(4), cy, tostring(value) .. (unit or ''), P.text2, kit.fonts.text, S(kit.SMALL + 0.5), a)
+    if vclick and on then
+        numbers[kit.prefix .. id] = { tostring(value), focus = true }
+        imgui.OpenPopup(id .. '.number')
+    end
+    local typed = numbers[kit.prefix .. id] and number_box(id, min, max)
+    if typed then
+        local v = held(typed)
+        if v ~= value then value, changed = v, true end
+    end
+    return value, changed
+end
+
+function kit.segments_width(labels, px)
+    local widths, total = {}, S(4)
+    for i, label in ipairs(labels) do
+        widths[i] = measure(label, kit.fonts.text, px) + S(20)
+        total = total + widths[i] + (i > 1 and S(1) or 0)
+    end
+    return total, widths
+end
+
+-- Words side by side in a sunken box, one chosen (`index`, 0 for none); segment i's button is ids[i].
+-- Returns index, changed, the segment hovered.
+function kit.segments(ids, x, cy, labels, index, enabled, alpha, px)
+    px = px or S(kit.BODY - 1)
+    local dl, on, a = imgui.GetWindowDrawList(), enabled ~= false, faded(enabled, alpha)
+    local h = px + S(8)
+    local y = cy - h / 2
+    local total, widths = kit.segments_width(labels, px)
+    fill(dl, x, y, total, h, P.well, S(4), a)
+    outline(dl, x, y, total, h, P.well_edge, S(4), a)
+    local changed, over, at = false, nil, x + S(2)
+    for i, label in ipairs(labels) do
+        local sy, sh = y + S(2), h - S(4)
+        local hovered, clicked = hit(ids[i], at, sy, widths[i], sh)
+        if hovered then over = i end
+        if clicked and on and index ~= i then index, changed = i, true end
+        local t = ease(ids[i], index == i and 1 or 0)
+        if t > 0.01 then fill(dl, at, sy, widths[i], sh, P.seg, S(3), t * a) end
+        if hovered and on and index ~= i then fill(dl, at, sy, widths[i], sh, '#FFFFFF', S(3), 0.05 * a) end
+        kit.text_centred(dl, at + widths[i] / 2, cy, label, mix(P.dim, P.text, t), kit.fonts.text, px, a)
+        at = at + widths[i] + S(1)
+    end
+    return index, changed, over
+end
+
+-- A drop-down `w` wide showing `shown` (whole in a tooltip when it's cut to fit); a click opens its list, ImGui's popup,
+-- which `body()` fills with Selectables (a pick closes it). Returns whether its box is hovered.
+function kit.dropdown(id, x, cy, w, shown, enabled, alpha, body)
+    local h, pad = S(24), S(8)
+    local y = cy - h / 2
+    local hovered, clicked = hit(id, x, y, w, h)
+    local list = id .. '.list'
+    local open = imgui.IsPopupOpen(list) == true
+    local dl, on, a = imgui.GetWindowDrawList(), enabled ~= false, faded(enabled, alpha)
+    fill(dl, x, y, w, h, P.well, S(4), a)
+    outline(dl, x, y, w, h, (hovered or open) and on and P.accent_lo or P.well_edge, S(4), a)
+    local px = S(kit.SMALL + 0.5)
+    local fitted = kit.fit(shown, w - pad * 2 - S(14), kit.fonts.text, px)
+    if hovered and fitted ~= shown then kit.tooltip(shown) end
+    kit.text_mid(dl, x + pad, cy, fitted, P.text2, kit.fonts.text, px, a)
+    kit.icon(dl, open and 'right' or 'down', x + w - pad - S(4), cy, S(11), P.dim, a)
+    if clicked and on then imgui.OpenPopup(list) end
+    imgui.SetNextWindowPos({ x, y + h + S(2) })
+    imgui.SetNextWindowSizeConstraints({ w, 0 }, { math.max(w, S(360)), S(420) })
+    kit.push_popup_style()
+    if imgui.BeginPopup(list) then
+        if kit.custom then imgui.PushFont(kit.fonts.text, S(kit.BODY - 1)) end
+        body()
+        if kit.custom then imgui.PopFont() end
+        imgui.EndPopup()
+    end
+    kit.pop_popup_style()
+    return hovered
+end
+
+function kit.button_width(label)
+    return measure(label, kit.fonts.text, S(kit.SMALL + 0.5)) + S(22)
+end
+
+-- A button: 'ghost' (a border), 'accent' (filled) or 'danger' (rose). Returns clicked, its width.
+function kit.button(id, x, cy, label, kind, enabled, alpha)
+    local w, h = kit.button_width(label), S(24)
+    local y = cy - h / 2
+    local hovered, clicked, active = hit(id, x, y, w, h)
+    local dl, on, a = imgui.GetWindowDrawList(), enabled ~= false, faded(enabled, alpha)
+    local t = ease(id, hovered and on and 1 or 0, 22)
+    local fg
+    if kind == 'accent' then
+        fill(dl, x, y, w, h, mix(P.accent, P.accent2, t * 0.6), S(4), a)
+        outline(dl, x, y, w, h, '#FFFFFF', S(4), 0.22 * a)
+        fg = P.ink
+    elseif kind == 'danger' then
+        fill(dl, x, y, w, h, mix(P.well, P.rose, 0.10 + 0.10 * t), S(4), a)
+        outline(dl, x, y, w, h, P.rose, S(4), (0.45 + 0.25 * t) * a)
+        fg = mix(P.rose, '#FFFFFF', t * 0.35)
+    else
+        fill(dl, x, y, w, h, mix(P.well, P.hover, t), S(4), a)
+        outline(dl, x, y, w, h, mix(P.well_edge, P.accent_lo, t), S(4), a)
+        fg = mix(P.text2, P.text, t)
+    end
+    if active then fill(dl, x, y, w, h, '#000000', S(4), 0.15) end
+    kit.text_centred(dl, x + w / 2, cy, label, fg, kit.fonts.text, S(kit.SMALL + 0.5), a)
+    return clicked and on, w
+end
+
+function kit.chip_width(label)
+    return math.max(S(30), measure(label, kit.fonts.text, S(kit.SMALL - 0.5)) + S(14))
+end
+
+-- A small toggle, `w` wide: 'on' (the accent), 'held' (amber), 'off', or 'empty' (nothing there: an outline).
+-- Returns clicked.
+function kit.chip(id, x, cy, w, label, state, enabled, alpha)
+    local h = S(20)
+    local y = cy - h / 2
+    local hovered, clicked = hit(id, x, y, w, h)
+    local dl, on, a = imgui.GetWindowDrawList(), enabled ~= false, alpha or 1
+    local t = ease(id, (state == 'on' or state == 'held') and 1 or 0)
+    local fg
+    if state == 'empty' then
+        outline(dl, x, y, w, h, P.line, S(4), a)
+        fg = P.faint
+    else
+        local held = state == 'held'
+        local lit_fill, lit_edge = held and mix(P.well, P.amber, 0.18) or P.accent_bg, held and mix(P.well, P.amber, 0.6) or P.accent_lo
+        fill(dl, x, y, w, h, mix(P.well, lit_fill, t), S(4), a)
+        outline(dl, x, y, w, h, mix(P.well_edge, lit_edge, t), S(4), a)
+        fg = mix(P.dim, held and P.amber or P.accent2, t)
+    end
+    if hovered and on then fill(dl, x, y, w, h, '#FFFFFF', S(4), 0.06 * a) end
+    kit.text_centred(dl, x + w / 2, cy, label, fg, kit.fonts.text, S(kit.SMALL - 0.5), a)
+    return clicked and on
+end
+
+local FIELD_CLEAR = { 0, 0, 0, 0 }
+
+-- A text field `w` wide over a sunken box, `hint` in it while it's empty; `buf` is its { text }. Returns edited.
+function kit.input(id, x, cy, w, buf, max, hint)
+    local h = S(26)
+    local y = cy - h / 2
+    local dl = imgui.GetWindowDrawList()
+    fill(dl, x, y, w, h, P.field, S(5))
+    outline(dl, x, y, w, h, P.field_edge, S(5))
+    local px = S(kit.SMALL + 1)
+    if hint and buf[1] == '' then kit.text_mid(dl, x + S(9), cy, hint, P.faint, kit.fonts.text, px) end
+    local text_h = kit.custom and px or imgui.GetFontSize()
+    imgui.SetCursorScreenPos({ x + S(1), y })
+    imgui.PushStyleColor(ImGuiCol_FrameBg, FIELD_CLEAR)
+    imgui.PushStyleColor(ImGuiCol_FrameBgHovered, FIELD_CLEAR)
+    imgui.PushStyleColor(ImGuiCol_FrameBgActive, FIELD_CLEAR)
+    imgui.PushStyleColor(ImGuiCol_Text, kit.rgba(P.text))
+    imgui.PushStyleVar(ImGuiStyleVar_FramePadding, { S(8), math.max(0, (h - text_h) / 2) })
+    imgui.PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0)
+    if kit.custom then imgui.PushFont(kit.fonts.text, px) end
+    imgui.PushItemWidth(w - S(2))
+    local edited = imgui.InputText(id, buf, max)
+    imgui.PopItemWidth()
+    if kit.custom then imgui.PopFont() end
+    imgui.PopStyleVar(2)
+    imgui.PopStyleColor(4)
+    return edited == true
+end
+
+return kit

@@ -1,179 +1,61 @@
 --[[
     The standard Sidekick3 UI, and the reference: it uses only the `view` and
     `act` every UI is given (ui/README.md), so ui/custom.lua can replace it.
-    ImGui only; it reads no game state and decides nothing.
+    ImGui only; it reads no game state and decides nothing. Everything is drawn
+    on ImGui's draw lists in ui/kit.lua's look (docs/vana-ui-style.md).
 
-    Two windows. Sidekick3 is a heads-up display: the party's HP and MP bars on a
-    grey panel (the alliance's other parties as thin HP rows under them), the
-    rest of the window transparent, with an arrow at whoever the next action is for. Your own card's
-    HP bar carries the run icon and the cog, which opens SK Settings, every setting under collapsing headers.
-    So does the card of a player who is another Sidekick session on this PC: its icons
-    start and stop that session and open its own SK Settings, drawn here from its view.
+    Two kinds of window. Sidekick3 is a heads-up display: the party's HP and MP
+    bars on a dark panel (the alliance's other parties as thin HP rows under them),
+    with a label pointing at whoever the next action is for. Your own card's HP bar
+    carries the run button and the cog, which opens SK Settings: a page per group
+    of sections, listed down its left, each section under a heading with its switch.
+    So does the card of a player who is another Sidekick session on this PC: its
+    buttons start and stop that session and open its own SK Settings, drawn here
+    from its view.
 
-    Ashita's binding (as v2 found it): widget values are one-element tables
-    ({ true }, { 75 }), and Text, TextColored and SetTooltip take a printf
-    format, so any '%' shown goes through text() / tip(), which double it.
-    Draw-list AddText takes its text as is.
+    Ashita's binding: widget values are one-element tables ({ 'text' }), and
+    SetTooltip takes a printf format (kit.tooltip doubles any '%'). Draw-list text
+    is drawn as is.
 ]]--
 
 local imgui = require('imgui')
+local kit = require('ui.kit')
 
 local window = {}
 
-local function rgb(r, g, b, a) return { r / 255, g / 255, b / 255, a or 1 } end
+local P, S = kit.P, kit.S
+local BODY, SMALL = kit.BODY, kit.SMALL
 
-local GREEN = { 0.6, 1.0, 0.6, 1.0 }
-local GREY = { 0.55, 0.55, 0.55, 1.0 }
-local CHIP_OFF = { { 0.3, 0.3, 0.3, 1.0 }, { 0.4, 0.4, 0.4, 1.0 }, { 0.5, 0.5, 0.5, 1.0 } }
-local CHIP_EMPTY = { { 0.2, 0.2, 0.2, 1.0 }, { 0.2, 0.2, 0.2, 1.0 }, { 0.2, 0.2, 0.2, 1.0 } }
-
--- The HUD, to the user's mockup.
-local WHITE, BLACK = rgb(0xFF, 0xFF, 0xFF), rgb(0x00, 0x00, 0x00)
-local RED = rgb(0xF0, 0x7A, 0x7A)      -- text under the critical HP line or the Recover MP line
-local AWAY = rgb(0xA0, 0xA0, 0xA0)     -- text for a member in another zone
-local EMPTY = rgb(0x2E, 0x2E, 0x2E)
-local HP_TOP, HP_BOTTOM = rgb(0xFF, 0x90, 0x90), rgb(0xE3, 0x74, 0x76)
-local MP_TOP, MP_BOTTOM = rgb(0xD1, 0xD1, 0x8E), rgb(0xBA, 0xBF, 0x74)
-local PANEL = { 0x60, 0x60, 0x60 }     -- at view.ui.opacity
--- The arrow: running, it points at what is going; stopped, at what it would do.
-local LIVE = { fill = rgb(0xFF, 0xE5, 0x45), bevel = rgb(0xFF, 0xFB, 0x5B), edge = rgb(0x8E, 0x78, 0x1F), text = WHITE }
-local WOULD = { fill = rgb(0xB4, 0xB4, 0xB4), bevel = rgb(0xD2, 0xD2, 0xD2), edge = rgb(0x5A, 0x5A, 0x5A), text = rgb(0xD0, 0xD0, 0xD0) }
-
-local B, PAD = 2, 4                    -- bar border, panel padding (sides and bottom), in pixels
-local TITLE = 'Sidekick3'
-local AROUND = { { -1, -1 }, { 0, -1 }, { 1, -1 }, { -1, 0 }, { 1, 0 }, { -1, 1 }, { 0, 1 }, { 1, 1 } }
-local SEGMENTS = 32                    -- an icon's circles
-
-local HUD_FLAGS = ImGuiWindowFlags_NoTitleBar + ImGuiWindowFlags_NoResize + ImGuiWindowFlags_NoScrollbar
-    + ImGuiWindowFlags_NoScrollWithMouse + ImGuiWindowFlags_AlwaysAutoResize + ImGuiWindowFlags_NoBackground
-    + ImGuiWindowFlags_NoBringToFrontOnFocus
-
--- { label, key, min, max, help } for view.ui: sizes in pixels, the opacity in %.
+-- { label, key, min, max, help, unit } for view.ui: sizes in pixels, the opacity in %.
 local UI_SLIDERS = {
-    { 'HP bar width', 'hp_width', 80, 600, 'Pixels.' },
-    { 'HP bar height', 'hp_height', 10, 120, 'Pixels.' },
-    { 'MP bar width', 'mp_width', 80, 600, 'Pixels.' },
-    { 'MP bar height', 'mp_height', 4, 80, 'Pixels.' },
-    { 'Name font size', 'name_size', 8, 64, 'Pixels.' },
+    { 'HP bar width', 'hp_width', 80, 600, 'Pixels.', 'px' },
+    { 'HP bar height', 'hp_height', 10, 120, 'Pixels.', 'px' },
+    { 'MP bar width', 'mp_width', 80, 600, 'Pixels.', 'px' },
+    { 'MP bar height', 'mp_height', 4, 80, 'Pixels.', 'px' },
+    { 'Name font size', 'name_size', 8, 64, 'Pixels.', 'px' },
     { 'Text font size', 'text_size', 8, 48, 'Pixels: the title, the tags, the alliance\'s names and the arrow\'s label; '
-        .. 'the icons follow it, as far as the HP bar fits them.' },
-    { 'Spacing', 'gap', 0, 40, 'Pixels between members.' },
-    { 'Background opacity', 'opacity', 0, 100, '% of the grey panel behind the bars.' },
+        .. 'the buttons follow it, as far as the HP bar fits them.', 'px' },
+    { 'Spacing', 'gap', 0, 40, 'Pixels between members.', 'px' },
+    { 'Background opacity', 'opacity', 0, 100, '% of the panel behind the bars.', '%' },
 }
 
-local SETTING_WIDTH, PICK_WIDTH, CHIP_WIDTH, RUNE_WIDTH, MANEUVER_WIDTH = 160, 170, 28, 130, 90
 local JOINED = { party = '  (in your party)', alliance = '  (in your alliance)' }  -- a tracked player's note
 
 local act                    -- this frame's actions (another session's, while drawing its SK Settings)
 local settings_open = false  -- SK Settings shown; this session only
 local profile_names = {}     -- per SK Settings window ('' for yours, else the session's name), this session only:
                              -- { typed = { name }, shown }, the name filled in again when the profile loaded changes
-
-local function esc(s) return (tostring(s):gsub('%%', '%%%%')) end
-
-local function text(s, color)
-    if color then imgui.TextColored(color, esc(s)) else imgui.Text(esc(s)) end
-end
-
--- Tooltip for the last item.
-local function tip(s)
-    if s and s ~= '' and imgui.IsItemHovered() then imgui.SetTooltip(esc(s)) end
-end
-
-local function push_button(colors)
-    imgui.PushStyleColor(ImGuiCol_Button, colors[1])
-    imgui.PushStyleColor(ImGuiCol_ButtonHovered, colors[2])
-    imgui.PushStyleColor(ImGuiCol_ButtonActive, colors[3])
-end
-
--- HUD drawing ------------------------------------------------------------------------
-
-local function u32(c) return imgui.GetColorU32(c) end
-
--- `s` as drawn at `size` pixels: CalcTextSize measures at the UI font's size.
-local function measure(s, size)
-    local w, h = imgui.CalcTextSize(s)
-    local k = size / imgui.GetFontSize()
-    return w * k, h * k
-end
-
--- AddText draws a fill and nothing else: the outline is the string stamped in
--- black a pixel out each way, underneath. Whole pixels, so it doesn't shimmer.
-local function outlined(dl, size, x, y, color, s)
-    local font, black = imgui.GetFont(), u32(BLACK)
-    x, y = math.floor(x), math.floor(y)
-    for _, o in ipairs(AROUND) do dl:AddText(font, size, { x + o[1], y + o[2] }, black, s) end
-    dl:AddText(font, size, { x, y }, u32(color), s)
-end
-
--- A filled triangle, wound clockwise on screen as ImGui's anti-aliasing expects.
-local function tri(dl, a, b, c, col)
-    if (b[1] - a[1]) * (c[2] - a[2]) - (b[2] - a[2]) * (c[1] - a[1]) < 0 then b, c = c, b end
-    dl:AddTriangleFilled(a, b, c, col)
-end
-
--- A bar's fill at (x, y), w by h, `pct` of it in the top-to-bottom gradient,
--- inside a black border B wide.
-local function bar(dl, x, y, w, h, pct, top, bottom)
-    dl:AddRectFilled({ x - B, y - B }, { x + w + B, y + h + B }, u32(BLACK))
-    dl:AddRectFilled({ x, y }, { x + w, y + h }, u32(EMPTY))
-    local fill = math.floor(w * math.min(math.max(pct, 0), 100) / 100 + 0.5)
-    if fill > 0 then
-        top, bottom = u32(top), u32(bottom)
-        dl:AddRectFilledMultiColor({ x, y }, { x + fill, y + h }, top, top, bottom, bottom)
-    end
-end
-
--- Icons: MDI's geometry in a 24-unit box at (x, y), k pixels a unit. `cut` is
--- the panel colour, for the shapes cut out of them. ---------------------------------
-
-local function at(x, y, k, px, py) return { x + px * k, y + py * k } end
-
-local function disc(dl, x, y, k, col) dl:AddCircleFilled(at(x, y, k, 12, 12), 10 * k, col, SEGMENTS) end
-
-local function close_icon(dl, x, y, k, col, cut)
-    disc(dl, x, y, k, col)
-    dl:AddLine(at(x, y, k, 8, 8), at(x, y, k, 16, 16), cut, 2 * k)
-    dl:AddLine(at(x, y, k, 16, 8), at(x, y, k, 8, 16), cut, 2 * k)
-end
-
-local function play_icon(dl, x, y, k, col, cut)
-    disc(dl, x, y, k, col)
-    tri(dl, at(x, y, k, 10, 7.5), at(x, y, k, 16, 12), at(x, y, k, 10, 16.5), cut)
-end
-
-local function stop_icon(dl, x, y, k, col, cut)
-    disc(dl, x, y, k, col)
-    dl:AddRectFilled(at(x, y, k, 9, 9), at(x, y, k, 15, 15), cut)
-end
-
--- Eight teeth, one pointing straight up: trapezoids from radius 6 to 10.2.
-local function cog_icon(dl, x, y, k, col, cut)
-    local cx, cy = x + 12 * k, y + 12 * k
-    dl:AddCircleFilled({ cx, cy }, 7.5 * k, col, SEGMENTS)
-    for i = 0, 7 do
-        local a = i * math.pi / 4
-        local dx, dy = math.sin(a), -math.cos(a)  -- outward
-        local function p(r, w) return { cx + (dx * r - dy * w) * k, cy + (dy * r + dx * w) * k } end
-        local b1, b2, t1, t2 = p(6, -2.3), p(6, 2.3), p(10.2, -1.9), p(10.2, 1.9)
-        tri(dl, b1, b2, t2, col)
-        tri(dl, b1, t2, t1, col)
-    end
-    dl:AddCircleFilled({ cx, cy }, 3.5 * k, cut, SEGMENTS)
-end
-
--- An icon button s pixels square at (x, y): black, white while hovered. Also
--- returns whether it's hovered.
-local function icon(id, x, y, s, draw, help, cut)
-    imgui.SetCursorScreenPos({ x, y })
-    local clicked = imgui.InvisibleButton(id, { s, s })
-    local hovered = imgui.IsItemHovered()
-    tip(help)
-    draw(imgui.GetWindowDrawList(), x, y, s / 24, u32(hovered and WHITE or BLACK), cut)
-    return clicked, hovered
-end
+local panes = {}             -- per SK Settings window, as profile_names: { page, folded = { [section id] = true } }
+local user_scale = 1         -- SK Settings' size (view.ui.scale), taken up while nothing is held
 
 -- HUD -----------------------------------------------------------------------------
+
+local HUD_PAD, BAR_GAP, ROUND = 8, 3, 4  -- the panel's padding, between bars, the bars' corners (pixels)
+local TITLE = 'Sidekick3'
+
+local HUD_FLAGS = ImGuiWindowFlags_NoTitleBar + ImGuiWindowFlags_NoResize + ImGuiWindowFlags_NoScrollbar
+    + ImGuiWindowFlags_NoScrollWithMouse + ImGuiWindowFlags_AlwaysAutoResize + ImGuiWindowFlags_NoBackground
+    + ImGuiWindowFlags_NoBringToFrontOnFocus
 
 -- The title's tooltip: the job, what automation is doing, and what may hold it up.
 local function status_tip(view)
@@ -201,93 +83,111 @@ local function member_tip(p)
     return table.concat(lines, '\n')
 end
 
--- "Sidekick3" in bold black, then close (an icon s pixels square); the hover areas.
-local function title_row(dl, view, ts, x0, y0, pw, th, s, cut)
-    local font, black = imgui.GetFont(), u32(BLACK)
-    local _, h = measure(TITLE, ts)
-    local ty = math.floor(y0 + (th - h) / 2)
-    dl:AddText(font, ts, { x0 + 8, ty }, black, TITLE)
-    dl:AddText(font, ts, { x0 + 9, ty }, black, TITLE)  -- bold: stamped twice
+-- A bar at (x, y), w by h: a sunken track, `pct` of it filled in `color` (eased, by `id`), edged in `edge`.
+local function bar(dl, id, x, y, w, h, pct, color, alpha, edge)
+    local r = math.min(ROUND, math.floor(h / 2))
+    kit.fill(dl, x, y, w, h, P.well, r)
+    local fw = math.floor(w * kit.ease(id, math.min(math.max(pct, 0), 100) / 100, 12) + 0.5)
+    if fw > 0 then kit.fill(dl, x, y, fw, h, color, math.min(r, fw / 2), alpha) end
+    kit.outline(dl, x, y, w, h, edge or P.well_edge, r)
+end
 
-    local iy = y0 + math.floor((th - s) / 2)
-    local ix = x0 + pw - 6 - s  -- the icon's left
+-- A round button s across at (x, y): `lit` (running, its settings shown) fills it in the accent. Returns clicked,
+-- hovered.
+local function disc_button(id, x, y, s, glyph, lit, help)
+    local hovered, clicked = kit.hit(id, x, y, s, s)
+    kit.tip(help)
+    local dl = imgui.GetWindowDrawList()
+    local disc = lit and (hovered and P.accent2 or P.accent) or (hovered and P.accent_lo or P.well)
+    kit.circle(dl, x + s / 2, y + s / 2, s / 2, disc)
+    kit.icon(dl, glyph, x + s / 2, y + s / 2, s * 0.62, lit and P.ink or P.text, 1, disc)
+    return clicked, hovered
+end
+
+-- "Sidekick3", then close (s pixels across); the title's hover area says what automation is doing.
+local function title_row(dl, view, ts, x0, y0, pw, th, s)
+    local font = kit.fonts.semi
+    local _, h = kit.measure(TITLE, font, ts)
+    kit.halo(dl, x0 + HUD_PAD, y0 + (th - h) / 2, TITLE, P.white, font, ts)
+    local ix, iy = x0 + pw - HUD_PAD - s, y0 + math.floor((th - s) / 2)
     imgui.SetCursorScreenPos({ x0, y0 })
     imgui.Dummy({ ix - x0, th })
-    tip(status_tip(view))
-
-    if icon('##sk3_close', ix, iy, s, close_icon, 'Close (/sk3 opens it again)', cut) then
+    kit.tip(status_tip(view))
+    local hovered, clicked = kit.hit('##sk3_close', ix, iy, s, s)
+    kit.tip('Close (/sk3 opens it again)')
+    kit.circle(dl, ix + s / 2, iy + s / 2, s / 2, hovered and P.rose_bg or P.well, 0.85)
+    kit.icon(dl, 'close', ix + s / 2, iy + s / 2, s * 0.55, hovered and P.rose or P.dim)
+    if clicked then
         act.close()
         settings_open = false
     end
 end
 
--- Run and settings at the top right of the HP bar of your card, or of another
--- session's, s pixels square (at most what the bar fits), each cut in the bar's
--- colour under it. Returns whether one is hovered, so the card's own tooltip gives way.
+-- Run and the cog at the top right of the HP bar of your card, or of another session's, s pixels across (at most
+-- what the bar fits). Returns whether one is hovered, so the card's own tooltip gives way.
 local function card_icons(view, ui, p, x, y, s)
-    local fx, hp_top = x + PAD + B, y + B
+    local fx = x + HUD_PAD
     s = math.min(s, ui.hp_height - 4, math.floor((ui.hp_width - 8) / 2))
-    local filled = fx + math.floor(ui.hp_width * math.min(math.max(p.hpp, 0), 100) / 100 + 0.5)
-    local iy, cog_x = hp_top + 2, fx + ui.hp_width - 2 - s
+    local iy, cog_x = y + 2, fx + ui.hp_width - 2 - s
     local run_x = cog_x - 4 - s
-    local function cut(ix) return u32(ix + s / 2 < filled and HP_TOP or EMPTY) end
-
     local remote = p.session
     local running = remote and remote.running or not remote and view.status.running
+    local shown = remote and remote.open or not remote and settings_open
     local id, whose = remote and ('_' .. remote.name) or '', remote and (remote.name .. '\'s ') or ''
-    local clicked, over_run = icon('##sk3_run' .. id, run_x, iy, s, running and stop_icon or play_icon,
-        (running and 'Stop ' or 'Start ') .. whose .. 'automation', cut(run_x))
+    local clicked, over_run = disc_button('##sk3_run' .. id, run_x, iy, s, running and 'stop' or 'play', running,
+        (running and 'Stop ' or 'Start ') .. whose .. 'automation')
     if clicked then (remote and act.remote(remote.name) or act).run(not running) end
-    local cog, over_cog = icon('##sk3_cog' .. id, cog_x, iy, s, cog_icon, remote and ('Settings for ' .. remote.name) or 'Settings',
-        cut(cog_x))
+    local cog, over_cog = disc_button('##sk3_cog' .. id, cog_x, iy, s, 'cog', shown,
+        remote and ('Settings for ' .. remote.name) or 'Settings')
     if cog and remote then act.watch(remote.name, not remote.open)
     elseif cog then settings_open = not settings_open end
     return over_run or over_cog
 end
 
--- A member's card at (x, y): the HP bar over the MP bar, sharing a border, the
--- % of each only in its tooltip. A tracked player's MP can't be read: their bar stays empty.
+-- A member's card at (x, y): the HP bar over the MP bar, the name on the one and the tag on the other, the % of each
+-- only in its tooltip. A tracked player's MP can't be read: their bar stays empty. Critical HP edges the bar and
+-- turns the name rose; MP under the Recover line, the tag. Away, the bars fade and the text greys.
 local function card(dl, ui, p, x, y)
-    local fx, hp_top = x + PAD + B, y + B
-    local mp_top = hp_top + ui.hp_height + B
-    bar(dl, fx, hp_top, ui.hp_width, ui.hp_height, p.hpp, HP_TOP, HP_BOTTOM)
-    bar(dl, fx, mp_top, ui.mp_width, ui.mp_height, p.mpp, MP_TOP, MP_BOTTOM)
-
-    local hp_color = p.away and AWAY or p.hp == 'critical' and RED or WHITE
-    local mp_color = p.away and AWAY or p.mp == 'low' and RED or WHITE
-    local _, nh = measure(p.name, ui.name_size)
-    outlined(dl, ui.name_size, fx + 4, hp_top + ui.hp_height - nh, hp_color, p.name)
-    local _, th = measure(p.tag, ui.text_size)
-    outlined(dl, ui.text_size, fx + 4, mp_top + (ui.mp_height - th) / 2, mp_color, p.tag)
+    local fx, mp_top = x + HUD_PAD, y + ui.hp_height + BAR_GAP
+    local fade = p.away and 0.45 or 1
+    local critical = p.hp == 'critical' and not p.away
+    bar(dl, 'hp.' .. p.name, fx, y, ui.hp_width, ui.hp_height, p.hpp, P.hp, fade, critical and P.rose or nil)
+    bar(dl, 'mp.' .. p.name, fx, mp_top, ui.mp_width, ui.mp_height, p.mpp, P.mp, fade)
+    local font = kit.fonts.semi
+    local _, nh = kit.measure(p.name, font, ui.name_size)
+    kit.halo(dl, fx + 6, y + ui.hp_height - nh, p.name, p.away and P.dim or critical and P.rose or P.white, font, ui.name_size)
+    local _, th = kit.measure(p.tag, font, ui.text_size)
+    kit.halo(dl, fx + 6, mp_top + (ui.mp_height - th) / 2, p.tag,
+        p.away and P.dim or p.mp == 'low' and P.rose or P.text2, font, ui.text_size)
 end
 
--- An alliance member's row, its bar's top at `top`: a thin HP bar (the MP bar's
--- height) with the tag and name on it, its HP % only in its tooltip.
+-- An alliance member's row, its bar's top at `top`: a thin HP bar (the MP bar's height) with the tag and name on
+-- it, its HP % only in its tooltip.
 local function ally_row(dl, ui, p, x, top)
-    local fx, ts = x + PAD + B, ui.text_size
-    bar(dl, fx, top, ui.hp_width, ui.mp_height, p.hpp, HP_TOP, HP_BOTTOM)
-    local color = p.away and AWAY or p.hp == 'critical' and RED or WHITE
+    local fx = x + HUD_PAD
+    local critical = p.hp == 'critical' and not p.away
+    bar(dl, 'ally.' .. p.name, fx, top, ui.hp_width, ui.mp_height, p.hpp, P.hp, p.away and 0.45 or 1, critical and P.rose or nil)
     local label = p.tag .. ' ' .. p.name
-    local _, h = measure(label, ts)
-    outlined(dl, ts, fx + 4, top + (ui.mp_height - h) / 2, color, label)
+    local _, h = kit.measure(label, kit.fonts.semi, ui.text_size)
+    kit.halo(dl, fx + 6, top + (ui.mp_height - h) / 2, label, p.away and P.dim or critical and P.rose or P.white,
+        kit.fonts.semi, ui.text_size)
 end
 
--- The arrow left of the label, its tip just right of the panel at `cy`. On the
--- background list: it sits outside the window without widening it, as a
--- transparent window area would block the game's clicks.
+-- A label in a pill, its point just right of the panel at `cy`: amber while running (what goes), grey while stopped
+-- (what would). On the background list: it sits outside the window without widening it, as a transparent window area
+-- would block the game's clicks.
 local function arrow(ptr, ts, right, cy)
     local dl = imgui.GetBackgroundDrawList()
-    local c = ptr.live and LIVE or WOULD
-    local aw = ts * 1.75
-    local ah = aw * 0.6
-    local point, top, bottom = { right + 1, cy }, { right + 1 + aw, cy - ah }, { right + 1 + aw, cy + ah }
-    tri(dl, point, top, bottom, u32(c.fill))
-    local mx = right + 1 + aw * 2 / 3  -- the bevel: the same shape, smaller, about its centre
-    local function inner(q) return { mx + (q[1] - mx) * 0.55, cy + (q[2] - cy) * 0.55 } end
-    tri(dl, inner(point), inner(top), inner(bottom), u32(c.bevel))
-    dl:AddTriangle(point, top, bottom, u32(c.edge), 1)
-    local _, h = measure(ptr.text, ts)
-    outlined(dl, ts, right + 1 + aw + 4, cy - h / 2, c.text, ptr.text)
+    local font = kit.fonts.semi
+    local tw = kit.measure(ptr.text, font, ts)
+    local h, pad = math.floor(ts * 1.6), math.floor(ts * 0.6)
+    local x = right + 2 + math.floor(h * 0.45)  -- the pill's left, after its point
+    local w = tw + pad * 2
+    local color = ptr.live and P.amber or P.seg
+    kit.fill(dl, x, cy - h / 2 + 2, w, h, '#000000', h / 2, 0.3)  -- its shadow
+    kit.tri(dl, { right + 2, cy }, { x + h / 4, cy - h * 0.32 }, { x + h / 4, cy + h * 0.32 }, color)
+    kit.fill(dl, x, cy - h / 2, w, h, color, h / 2)
+    kit.text_mid(dl, x + pad, cy, ptr.text, ptr.live and P.ink or P.text2, font, ts)
 end
 
 -- view.ui's sizes, each held to its slider's range: nothing checks a value edited
@@ -304,166 +204,230 @@ local function draw_hud(view)
     local ui = hud_sizes(view.ui)
     local dl = imgui.GetWindowDrawList()
     local x0, y0 = imgui.GetCursorScreenPos()
-    local th, s = math.floor(ui.text_size * 1.7), math.floor(ui.text_size * 1.25)
-    local pw = math.max(2 * PAD + 2 * B + math.max(ui.hp_width, ui.mp_width),
-                        math.ceil(8 + measure(TITLE, ui.text_size) + 8 + s + 6))  -- the title row fits
-    local ch = B + ui.hp_height + B + ui.mp_height + B
+    local th, s = math.floor(ui.text_size * 1.8), math.floor(ui.text_size * 1.25)
+    local pw = math.max(2 * HUD_PAD + math.max(ui.hp_width, ui.mp_width),
+                        math.ceil(HUD_PAD + kit.measure(TITLE, kit.fonts.semi, ui.text_size) + 8 + s + HUD_PAD))  -- the title row fits
+    local ch = ui.hp_height + BAR_GAP + ui.mp_height
     local n = #view.party
-    -- Under the cards, the alliance's rows: B0-B5, then C0-C5, each party after a
-    -- gap. Rows share their borders, as a card's two bars do; `rows` holds each bar's top.
+    -- Under the cards, the alliance's rows: B0-B5, then C0-C5, each party after a gap; `rows` holds each bar's top.
     local below, rows, last = th + n * ch + math.max(n - 1, 0) * ui.gap, {}, nil
     for j, p in ipairs(view.alliance) do
         local party = p.tag:sub(1, 1)
-        if party ~= last then below = below + ui.gap + B end
+        below = below + (party ~= last and math.max(ui.gap, BAR_GAP) or BAR_GAP)
         rows[j], last = below, party
-        below = below + ui.mp_height + B
+        below = below + ui.mp_height
     end
-    local ph = below + PAD
-
-    dl:AddRectFilled({ x0, y0 }, { x0 + pw, y0 + ph }, u32(rgb(PANEL[1], PANEL[2], PANEL[3], ui.opacity / 100)))
-    title_row(dl, view, ui.text_size, x0, y0, pw, th, s, u32(rgb(PANEL[1], PANEL[2], PANEL[3])))
+    local ph = below + HUD_PAD
+    local opacity = ui.opacity / 100
+    kit.fill(dl, x0, y0, pw, ph, P.bg, 6, opacity)
+    kit.outline(dl, x0, y0, pw, ph, P.border, 6, opacity)
+    title_row(dl, view, ui.text_size, x0, y0, pw, th, s)
     for i, p in ipairs(view.party) do
         local y = y0 + th + (i - 1) * (ch + ui.gap)
         card(dl, ui, p, x0, y)
         local on_icon = (p.kind == 'self' or p.session) and card_icons(view, ui, p, x0, y, s)
-        imgui.SetCursorScreenPos({ x0 + PAD, y })
-        imgui.Dummy({ pw - 2 * PAD, ch })
-        if not on_icon then tip(member_tip(p)) end
+        imgui.SetCursorScreenPos({ x0 + HUD_PAD, y })
+        imgui.Dummy({ pw - 2 * HUD_PAD, ch })
+        if not on_icon then kit.tip(member_tip(p)) end
         if view.pointer and view.pointer.member == i then arrow(view.pointer, ui.text_size, x0 + pw, y + ch / 2) end
     end
     for j, p in ipairs(view.alliance) do
         local top = y0 + rows[j]
         ally_row(dl, ui, p, x0, top)
-        imgui.SetCursorScreenPos({ x0 + PAD, top - B })
-        imgui.Dummy({ pw - 2 * PAD, ui.mp_height + B })
-        tip(member_tip(p))
+        imgui.SetCursorScreenPos({ x0 + HUD_PAD, top })
+        imgui.Dummy({ pw - 2 * HUD_PAD, ui.mp_height })
+        kit.tip(member_tip(p))
         if view.pointer and view.pointer.ally == j then arrow(view.pointer, ui.text_size, x0 + pw, top + ui.mp_height / 2) end
     end
-    imgui.SetCursorScreenPos({ x0, y0 + ph - PAD })
-    imgui.Dummy({ pw, PAD })  -- the bottom padding, and the panel's full width, for the auto-size
+    imgui.SetCursorScreenPos({ x0, y0 + ph - HUD_PAD })
+    imgui.Dummy({ pw, HUD_PAD })  -- the bottom padding, and the panel's full width, for the auto-size
 end
 
--- SK Settings bodies ---------------------------------------------------------------
+-- SK Settings: the page's rows -----------------------------------------------------
 
--- Sliders write as they move; Sidekick saves once let go.
-local function slider(label, path, value, min, max, help)
-    local v = { value }
-    imgui.PushItemWidth(SETTING_WIDTH)
-    if imgui.SliderInt(label, v, min, max) then act.set(path, v[1]) end
-    imgui.PopItemWidth()
-    tip(help)
+local SIDE_W, PAGE_W, WIN_H, MARGIN = 160, 580, 580, 6  -- unscaled, as every size from here
+local TITLE_H, HEAD_H, ROW_H, NAV_H, CHIP_LINE = 44, 36, 30, 28, 26
+local LEFT, PAD, GUTTER, LABEL_W = 24, 18, 12, 120
+local SLIDER_W, PICK_W, ROLL_W, RUNE_W, MANEUVER_W, CHIP_W = 230, 190, 270, 110, 110, 30
+local FOOT = { Profiles = true, ['UI / Log'] = true }  -- set apart at the foot of the list of pages
+
+--[[ pg: where a page's rows go, from top to bottom: { dl, x, w, y (the next row's top), lx (where labels start),
+     right (where controls end), alpha (0.55 under a section switched off) }. ]]--
+
+-- A line `h` tall (ROW_H unless given): the band under the mouse, `label` at the left, `help` over the label's half.
+-- Returns its first line's middle.
+local function line(pg, label, help, h, color)
+    h = h or S(ROW_H)
+    local y = pg.y
+    pg.y = y + h
+    if kit.over(pg.x + S(4), y, pg.w - S(8), h) then kit.fill(pg.dl, pg.x + S(4), y, pg.w - S(8), h, P.hover, S(3), 0.8) end
+    local cy = y + math.min(h, S(ROW_H)) / 2
+    if label then kit.text_mid(pg.dl, pg.lx, cy, label, color or P.text, kit.fonts.text, S(BODY), pg.alpha) end
+    if help and kit.over(pg.x, y, pg.w / 2, h) then kit.tooltip(help) end
+    return cy
 end
 
-local function checkbox(label, on, set, help)
-    local v = { on }
-    if imgui.Checkbox(label, v) then set(v[1]) end
-    tip(help)
+local function slider(pg, label, id, path, value, min, max, help, unit)
+    local cy = line(pg, label, help)
+    local v, moved = kit.slider(id, pg.right - S(SLIDER_W), cy, S(SLIDER_W), value, min, max, true, pg.alpha, unit)
+    if moved then act.set(path, v) end
+end
+
+local function switch(pg, label, id, on, set, help)
+    local cy = line(pg, label, help)
+    local v, flipped = kit.switch(id, pg.right - S(kit.SW_W), cy, on, true, pg.alpha)
+    kit.tip(help)
+    if flipped then set(v) end
+end
+
+-- A drop-down at the right of a labelled line; `body` lists its choices.
+local function pick(pg, label, id, shown, body, help, w)
+    local cy = line(pg, label, help)
+    w = w or S(PICK_W)
+    kit.dropdown(id, pg.right - w, cy, w, shown, true, pg.alpha, body)
+end
+
+-- Text across the page, wrapped.
+local function note(pg, s, color)
+    local px = S(SMALL + 0.5)
+    for _, l in ipairs(kit.wrap(s, kit.fonts.text, px, pg.right - pg.lx)) do
+        kit.text_mid(pg.dl, pg.lx, pg.y + S(11), l, color or P.dim, kit.fonts.text, px, pg.alpha)
+        pg.y = pg.y + S(22)
+    end
+end
+
+-- A group's heading inside a section: capitals in teal, a line after.
+local function subheader(pg, s)
+    pg.y = pg.y + S(8)
+    local cy = pg.y + S(12)
+    local font, px = kit.fonts.semi, S(SMALL - 1)
+    kit.text_mid(pg.dl, pg.lx, cy, s, P.teal, font, px, pg.alpha)
+    local tx = pg.lx + kit.measure(s, font, px) + S(10)
+    if pg.right > tx then kit.line(pg.dl, tx, cy, pg.right, cy, P.teal, 0.35 * pg.alpha) end
+    pg.y = pg.y + S(26)
+end
+
+-- Lays `items` ({ w, wrap, pre }) out in lines from x0 to right, `gap` apart, each getting .x and .line (from 1):
+-- one with `wrap` starts a line, `pre` adds room before one that doesn't. Returns the number of lines.
+local function flow(items, x0, right, gap)
+    local x, n = x0, 1
+    for i, it in ipairs(items) do
+        if i > 1 and (it.wrap or x + (it.pre or 0) + it.w > right) then x, n = x0, n + 1
+        elseif i > 1 then x = x + (it.pre or 0) end
+        it.x, it.line = x, n
+        x = x + it.w + gap
+    end
+    return n
 end
 
 -- A party member by name for setting `path`, or None ('').
-local function member_combo(label, id, current, names, path, help)
-    imgui.PushItemWidth(SETTING_WIDTH)
-    if imgui.BeginCombo(label .. '##sk3_' .. id, current ~= '' and current or 'None') then
+local function member_pick(pg, label, id, current, names, path, help)
+    pick(pg, label, label .. '##sk3_' .. id, current ~= '' and current or 'None', function ()
         if imgui.Selectable('None##sk3_' .. id .. '_none', current == '') then act.set(path, '') end
         for _, name in ipairs(names) do
             if imgui.Selectable(name .. '##sk3_' .. id .. '_' .. name, name == current) then act.set(path, name) end
         end
-        imgui.EndCombo()
-    end
-    imgui.PopItemWidth()
-    tip(help)
+    end, help)
 end
+
+-- SK Settings bodies ---------------------------------------------------------------
 
 local HEAL_LINES = {
     { 'Danger under', 'danger', 'Over this HP %, heal with the most HP for the MP or TP. Under it, heal fastest, and wait for a heal nearly ready.' },
     { 'Critical under', 'critical', 'Under this HP %, boost the heal first (Divine Seal) or save them (Martyr).' },
 }
+local HEAL_TIP = 'Untick to never heal them for their own sake; an area heal may still land on them.'
 
--- Who healing looks after: unticked members are never healed for their own sake.
--- Each of the alliance's other parties starts a line.
-local function heal_members(h)
+-- Who healing looks after, a chip each: one switched off is never healed for its own sake. Each of the alliance's
+-- other parties starts a line.
+local function heal_members(pg, h)
     if #h.members == 0 then return end
-    text('Heal:')
-    for _, m in ipairs(h.members) do
-        if not m.wrap then imgui.SameLine() end
-        local v = { m.healed }
-        if imgui.Checkbox(m.name .. '##sk3_heal_' .. m.name, v) then act.skip(m.name, m.healed) end
-        tip('Untick to never heal them for their own sake; an area heal may still land on them.')
+    local items = {}
+    for i, m in ipairs(h.members) do items[i] = { w = kit.chip_width(m.name), wrap = m.wrap } end
+    local lines = flow(items, pg.lx + S(LABEL_W), pg.right, S(4))
+    local cy = line(pg, 'Heal', HEAL_TIP, S(ROW_H) + (lines - 1) * S(CHIP_LINE))
+    for i, m in ipairs(h.members) do
+        local it = items[i]
+        if kit.chip(m.name .. '##sk3_heal_' .. m.name, it.x, cy + (it.line - 1) * S(CHIP_LINE), it.w, m.name,
+                m.healed and 'on' or 'off', true, pg.alpha) then
+            act.skip(m.name, m.healed)
+        end
+        kit.tip(HEAL_TIP)
     end
 end
 
-local function draw_heal_settings(view)
+local function draw_heal_settings(view, pg)
     local h = view.heal
     for _, l in ipairs(HEAL_LINES) do
-        slider(l[1] .. '##sk3_' .. l[2], 'heal.' .. l[2], h[l[2]], 1, 99, l[3])
+        slider(pg, l[1], l[1] .. '##sk3_' .. l[2], 'heal.' .. l[2], h[l[2]], 1, 99, l[3], '%')
     end
-    member_combo('Focus', 'focus', h.focus, h.focus_names, 'heal.focus', 'Heal this member first, on its own lines.')
+    member_pick(pg, 'Focus', 'focus', h.focus, h.focus_names, 'heal.focus', 'Heal this member first, on its own lines.')
     for _, l in ipairs(HEAL_LINES) do
         local key = 'focus_' .. l[2]
-        slider('Focus ' .. l[1]:lower() .. '##sk3_' .. key, 'heal.' .. key, h[key], 1, 99, 'For the focus member: ' .. l[3])
+        local label = 'Focus ' .. l[1]:lower()
+        slider(pg, label, label .. '##sk3_' .. key, 'heal.' .. key, h[key], 1, 99, 'For the focus member: ' .. l[3], '%')
     end
-    slider('Cure potency +##sk3_cure_potency', 'heal.cure_potency', h.cure_potency, 0, 50,
-        'Cure potency % from gear, until a cure has been seen healing.')
-    slider('Waltz potency +##sk3_waltz_potency', 'heal.waltz_potency', h.waltz_potency, 0, 50,
-        'Waltz potency % from gear, until a waltz has been seen healing.')
-    slider('Regen potency +##sk3_regen_potency', 'heal.regen_potency', h.regen_potency, 0, 30,
+    slider(pg, 'Cure potency +', 'Cure potency +##sk3_cure_potency', 'heal.cure_potency', h.cure_potency, 0, 50,
+        'Cure potency % from gear, until a cure has been seen healing.', '%')
+    slider(pg, 'Waltz potency +', 'Waltz potency +##sk3_waltz_potency', 'heal.waltz_potency', h.waltz_potency, 0, 50,
+        'Waltz potency % from gear, until a waltz has been seen healing.', '%')
+    slider(pg, 'Regen potency +', 'Regen potency +##sk3_regen_potency', 'heal.regen_potency', h.regen_potency, 0, 30,
         'HP per Regen tick from gear.')
-    checkbox('Heal the alliance##sk3_heal_alliance', h.alliance, function (on) act.set('heal.alliance', on) end,
+    switch(pg, 'Heal the alliance', 'Heal the alliance##sk3_heal_alliance', h.alliance, function (on) act.set('heal.alliance', on) end,
         'Heal the alliance\'s other parties too, with heals that reach outside your party. Raising, waking, '
         .. 'removal and buffs look after them whatever this says, and the focus member is always healed.')
     if h.stratagems then
-        checkbox('Keep a stratagem for healing##sk3_heal_reserve', h.reserve, function (on) act.set('heal.reserve', on) end,
+        switch(pg, 'Keep a stratagem for healing', 'Keep a stratagem for healing##sk3_heal_reserve', h.reserve,
+            function (on) act.set('heal.reserve', on) end,
             'Buff rows never spend the last stratagem charge, so healing has one for Accession or Rapture.')
     end
-    heal_members(h)
-    imgui.Separator()
+    heal_members(pg, h)
 end
 
-local function draw_recover_settings(view)
+local function draw_recover_settings(view, pg)
     local r = view.recover
-    slider('MP under##sk3_recover_mp', 'recover.mp', r.mp, 1, 99,
-        'Recover MP under this MP % (yours; a member\'s for Devotion).')
-    slider('TP under##sk3_recover_tp', 'recover.tp', r.tp, 0, 3000, 'In combat, get TP back under this.')
+    slider(pg, 'MP under', 'MP under##sk3_recover_mp', 'recover.mp', r.mp, 1, 99,
+        'Recover MP under this MP % (yours; a member\'s for Devotion).', '%')
+    slider(pg, 'TP under', 'TP under##sk3_recover_tp', 'recover.tp', r.tp, 0, 3000, 'In combat, get TP back under this.')
     if r.spends_tp then
-        slider('Spend TP from##sk3_recover_min_tp', 'recover.min_tp', r.min_tp, 0, 3000,
+        slider(pg, 'Spend TP from', 'Spend TP from##sk3_recover_min_tp', 'recover.min_tp', r.min_tp, 0, 3000,
             'Chivalry turns all your TP into MP: only from this much.')
     end
-    imgui.Separator()
 end
 
-local function draw_pet_settings(view)
-    slider('Pet HP under##sk3_pet_heal', 'pet.heal', view.pet_heal, 1, 99, 'Heal your pet under this HP %.')
-    imgui.Separator()
+local function draw_pet_settings(view, pg)
+    slider(pg, 'Pet HP under', 'Pet HP under##sk3_pet_heal', 'pet.heal', view.pet_heal, 1, 99, 'Heal your pet under this HP %.', '%')
 end
 
-local function draw_follow(view)
+local function draw_follow(view, pg)
     local f = view.follow
-    member_combo('Leader', 'follow_target', f.target, f.names, 'follow.target', 'Who to follow; resting stands up when they leave too.')
-    slider('Follow past##sk3_follow_distance', 'follow.distance', f.distance, 1, 15, 'Yalms.')
+    member_pick(pg, 'Leader', 'follow_target', f.target, f.names, 'follow.target', 'Who to follow; resting stands up when they leave too.')
+    slider(pg, 'Follow past', 'Follow past##sk3_follow_distance', 'follow.distance', f.distance, 1, 15, 'Yalms.', 'y')
 end
 
-local function draw_rest(view)
+local function draw_rest(view, pg)
     local r = view.rest
-    slider('Rest after##sk3_rest_delay', 'rest.delay', r.delay, 1, 20, 'Seconds of nothing to do.')
-    slider('Stand past##sk3_rest_distance', 'rest.distance', r.distance, 1, 15, 'Yalms from the leader.')
+    slider(pg, 'Rest after', 'Rest after##sk3_rest_delay', 'rest.delay', r.delay, 1, 20, 'Seconds of nothing to do.', 's')
+    slider(pg, 'Stand past', 'Stand past##sk3_rest_distance', 'rest.distance', r.distance, 1, 15, 'Yalms from the leader.', 'y')
 end
 
-local function draw_buff_settings(view)
+local function draw_buff_settings(view, pg)
     local b = view.buff
-    checkbox('Hold area buffs for the group##sk3_hold_aoe', b.hold_aoe, function (on) act.set('buff.hold_aoe', on) end,
+    switch(pg, 'Hold area buffs for the group', 'Hold area buffs for the group##sk3_hold_aoe', b.hold_aoe,
+        function (on) act.set('buff.hold_aoe', on) end,
         'Hold an area buff spell (Protectra, Barfira, songs) while a player in your party who lacks it is out of its '
         .. 'reach, so nobody is left out. Trusts and members in another zone never hold it.')
     if b.hold_aoe then
-        checkbox('Ask them to gather##sk3_gather', b.gather, function (on) act.set('buff.gather', on) end,
+        switch(pg, 'Ask them to gather', 'Ask them to gather##sk3_gather', b.gather, function (on) act.set('buff.gather', on) end,
             'While one is held that someone near you lacks too, say "Gather together for <spell>" in party chat, '
                 .. 'at most every 5 seconds.')
     end
     if b.shadows then
-        checkbox('Cast Utsusemi at one shadow##sk3_one_shadow', b.one_shadow, function (on) act.set('buff.one_shadow', on) end,
+        switch(pg, 'Cast Utsusemi at one shadow', 'Cast Utsusemi at one shadow##sk3_one_shadow', b.one_shadow,
+            function (on) act.set('buff.one_shadow', on) end,
             'Recast Utsusemi while its last shadow is up, not only once it is gone. For Ichi, which cannot replace '
                 .. 'Ni\'s shadows, that shadow is cancelled a second into the cast, so the new ones land.')
     end
-    imgui.Separator()
 end
 
 local RISKS = {
@@ -472,144 +436,125 @@ local RISKS = {
     highest = 'Highest: 11 or nothing. Rolls past lucky, and doubles at 6-10 while Fold is ready to undo a Bust; '
         .. 'without Fold, plays as Medium.',
 }
+local RISK_HELP = 'How far Double-Up chases a total. Every risk doubles at 5 or under (Lowest and Medium bank a lucky '
+    .. 'there), never at 11, and turns 10 into 11 with Snake Eye. Fold clears a Bust whenever it is ready.'
 
--- A roll for setting `path`, or None (''). A pick the job no longer has says so.
-local function roll_combo(label, id, current, choices, path)
-    local shown = current ~= '' and current .. ' (not available)' or 'None'
+-- What a pick shows: its choice's label, or None; a pick the job no longer has says so.
+local function shown_pick(current, choices, field)
     for _, c in ipairs(choices) do
-        if c.name == current then shown = c.label end
+        if c.name == current then return c[field or 'label'] end
     end
-    imgui.PushItemWidth(PICK_WIDTH + SETTING_WIDTH / 2)
-    if imgui.BeginCombo(label .. '##sk3_' .. id, shown) then
+    return current ~= '' and current .. ' (not available)' or 'None'
+end
+
+-- A roll for setting `path`, or None ('').
+local function roll_pick(pg, label, id, current, choices, path)
+    pick(pg, label, label .. '##sk3_' .. id, shown_pick(current, choices), function ()
         if imgui.Selectable('None##sk3_' .. id .. '_none', current == '') then act.set(path, '') end
         for _, c in ipairs(choices) do
             if imgui.Selectable(c.label .. '##sk3_' .. id .. '_' .. c.name, c.name == current) then act.set(path, c.name) end
-            tip(('Lucky %d, unlucky %d.'):format(c.lucky, c.unlucky))
+            kit.tip(('Lucky %d, unlucky %d.'):format(c.lucky, c.unlucky))
         end
-        imgui.EndCombo()
-    end
-    imgui.PopItemWidth()
+    end, nil, S(ROLL_W))
 end
 
-local function draw_rolls(view)
+local function draw_rolls(view, pg)
     local r = view.roll
-    roll_combo('Roll 1', 'roll_first', r.first, r.choices, 'roll.first')
+    roll_pick(pg, 'Roll 1', 'roll_first', r.first, r.choices, 'roll.first')
     if r.two then
-        roll_combo('Roll 2', 'roll_second', r.second, r.choices, 'roll.second')
-        if r.second ~= '' and r.second == r.first then text('Roll 2 is Roll 1: one roll kept up', GREY) end
+        roll_pick(pg, 'Roll 2', 'roll_second', r.second, r.choices, 'roll.second')
+        if r.second ~= '' and r.second == r.first then note(pg, 'Roll 2 is Roll 1: one roll kept up') end
     else
-        text('Roll 2: Corsair main job only', GREY)
+        note(pg, 'Roll 2: Corsair main job only')
     end
-    imgui.PushItemWidth(SETTING_WIDTH)
-    if imgui.BeginCombo('Risk##sk3_roll_risk', (r.risk:gsub('^%l', string.upper))) then
-        for _, risk in ipairs(r.risks) do
-            if imgui.Selectable(risk:gsub('^%l', string.upper) .. '##sk3_roll_risk_' .. risk, risk == r.risk) then
-                act.set('roll.risk', risk)
-            end
-            tip(RISKS[risk])
-        end
-        imgui.EndCombo()
+    local labels, ids, index = {}, {}, 0
+    for i, risk in ipairs(r.risks) do
+        labels[i] = (risk:gsub('^%l', string.upper))
+        ids[i] = labels[i] .. '##sk3_roll_risk_' .. risk
+        if risk == r.risk then index = i end
     end
-    imgui.PopItemWidth()
-    tip('How far Double-Up chases a total. Every risk doubles at 5 or under (Lowest and Medium bank a lucky '
-        .. 'there), never at 11, and turns 10 into 11 with Snake Eye. '
-        .. 'Fold clears a Bust whenever it is ready.')
+    local cy = line(pg, 'Risk', RISK_HELP)
+    local px = S(BODY - 1)
+    local picked, moved, over = kit.segments(ids, pg.right - kit.segments_width(labels, px), cy, labels, index, true, pg.alpha, px)
+    if over then kit.tooltip(RISKS[r.risks[over]]) end
+    if moved then act.set('roll.risk', r.risks[picked]) end
     local l = r.last
     if l then
         local word = l.bust and ' (Bust)' or l.total == l.lucky and ' (lucky)' or l.total == 11 and ' (11)'
             or l.total == l.unlucky and ' (unlucky)' or ''
-        text(('Last: %s %d%s'):format(l.name, l.total, word))
+        note(pg, ('Last: %s %d%s'):format(l.name, l.total, word), l.bust and P.rose or P.text2)
     end
 end
 
--- A song for slot `i` of `set`, or None (''). A pick the job no longer has says so.
-local function song_combo(set, i, choices)
+-- A song for slot `i` of `set`, or None ('').
+local function song_pick(set, i, choices, x, cy, w, alpha)
     local current, id = set.picks[i], ('sk3_song_%s_%d'):format(set.key, i)
-    local shown = current ~= '' and current .. ' (not available)' or 'None'
-    for _, c in ipairs(choices) do
-        if c.name == current then shown = c.label end
-    end
-    imgui.PushItemWidth(PICK_WIDTH + SETTING_WIDTH / 2)
-    if imgui.BeginCombo('##' .. id, shown) then
-        if imgui.Selectable('None##' .. id .. '_none', current == '') then act.set(('song.%s_%d'):format(set.key, i), '') end
+    local path = ('song.%s_%d'):format(set.key, i)
+    kit.dropdown('##' .. id, x, cy, w, shown_pick(current, choices), true, alpha, function ()
+        if imgui.Selectable('None##' .. id .. '_none', current == '') then act.set(path, '') end
         for _, c in ipairs(choices) do
-            if imgui.Selectable(c.label .. '##' .. id .. '_' .. c.name, c.name == current) then
-                act.set(('song.%s_%d'):format(set.key, i), c.name)
-            end
+            if imgui.Selectable(c.label .. '##' .. id .. '_' .. c.name, c.name == current) then act.set(path, c.name) end
         end
-        imgui.EndCombo()
-    end
-    imgui.PopItemWidth()
+    end)
 end
 
 local SONG_HELP = {
     area = 'Sung as they are, on you and everyone in your party near you, whenever someone there lacks one. '
         .. 'A member with songs of their own picked keeps only the slots those leave.',
 }
+local SONGS_TIP = 'Two songs of one kind (Victory and Advancing March) stand side by side; a song picked twice is one. '
+    .. 'While an area song is owed, the songs on one member wait: it would push them out.'
 
--- BRD: a line per target, Area first, then each party slot that is filled or has a
--- pick; a combo per song slot. A slot with no one in it says so.
-local function draw_songs(view)
+-- BRD: a line per target, Area first, then each party slot that is filled or has a pick; a drop-down per song slot.
+-- A slot with no one in it says so.
+local function draw_songs(view, pg)
     local m = view.song
-    if not imgui.BeginTable('##sk3_songs', 2 + m.slots, ImGuiTableFlags_SizingFixedFit) then return end
+    local col, gap = S(56), S(6)
+    local w = math.min(S(PICK_W), math.floor((pg.right - pg.lx - col - S(90)) / math.max(m.slots, 1)) - gap)
     for _, set in ipairs(m.sets) do
         local picked = false
         for i = 1, m.slots do picked = picked or set.picks[i] ~= '' end
         if set.key == 'area' or set.present or picked then
-            imgui.TableNextRow()
-            imgui.TableNextColumn()
             local dim = set.key ~= 'area' and not (set.present and m.pianissimo)
-            text(set.label, dim and GREY or nil)
-            tip(SONG_HELP[set.key] or ('Sung on %s alone, through Pianissimo, whenever they lack one.')
-                :format(set.name or 'whoever is in this party slot'))
-            for i = 1, m.slots do
-                imgui.TableNextColumn()
-                song_combo(set, i, m.choices)
+            local cy = line(pg, set.label, SONG_HELP[set.key] or ('Sung on %s alone, through Pianissimo, whenever they lack one.')
+                :format(set.name or 'whoever is in this party slot'), nil, dim and P.dim or P.text)
+            for i = 1, m.slots do song_pick(set, i, m.choices, pg.lx + col + (i - 1) * (w + gap), cy, w, pg.alpha) end
+            if set.key ~= 'area' then
+                local nx = pg.lx + col + m.slots * (w + gap) + S(4)
+                kit.text_mid(pg.dl, nx, cy, kit.fit(set.name or 'no one', pg.right - nx, kit.fonts.text, S(SMALL + 0.5)),
+                    P.dim, kit.fonts.text, S(SMALL + 0.5), pg.alpha)
             end
-            imgui.TableNextColumn()
-            if set.key ~= 'area' then text(set.name or 'no one', GREY) end
         end
     end
-    imgui.EndTable()
+    local y = pg.y
     if m.pianissimo then
-        text('Pianissimo: ' .. m.avail, m.ready and GREEN or GREY)
+        note(pg, 'Pianissimo: ' .. m.avail, m.ready and P.teal or P.dim)
     else
-        text('Songs on one member need Pianissimo (Bard 20)', GREY)
+        note(pg, 'Songs on one member need Pianissimo (Bard 20)', P.dim)
     end
-    tip('Two songs of one kind (Victory and Advancing March) stand side by side; a song picked twice is one. '
-        .. 'While an area song is owed, the songs on one member wait: it would push them out.')
+    if kit.over(pg.x, y, pg.w, pg.y - y) then kit.tooltip(SONGS_TIP) end
     if m.timed then
-        slider('Song Duration##sk3_song_duration', 'song.duration', m.duration, 0, 300,
+        slider(pg, 'Song Duration', 'Song Duration##sk3_song_duration', 'song.duration', m.duration, 0, 300,
             'Seconds: sing each song again this long after it landed, before it wears (0: only once it\'s gone). '
             .. 'Set it just under your songs\' real duration, gear included; doubled for a song sung under Troubadour. '
-            .. 'While Nightingale and Troubadour are both up, every song sung without Troubadour is sung again.')
+            .. 'While Nightingale and Troubadour are both up, every song sung without Troubadour is sung again.', 's')
     end
 end
 
--- An Indi- spell for Entrust, or None ('').
-local function indi_combo(current, names)
-    imgui.PushItemWidth(PICK_WIDTH + SETTING_WIDTH / 2)
-    if imgui.BeginCombo('Entrust spell##sk3_geo_entrust_spell', current ~= '' and current or 'None') then
-        if imgui.Selectable('None##sk3_geo_entrust_spell_none', current == '') then act.set('geo.entrust_spell', '') end
-        for _, name in ipairs(names) do
-            if imgui.Selectable(name .. '##sk3_geo_entrust_spell_' .. name, name == current) then act.set('geo.entrust_spell', name) end
-        end
-        imgui.EndCombo()
-    end
-    imgui.PopItemWidth()
-    tip('The Indi- spell Entrust puts on that member whenever they lack its aura.')
-end
-
-local function draw_geo(view)
+local function draw_geo(view, pg)
     local g = view.geo
-    slider('Recall past##sk3_geo_distance', 'geo.distance', g.distance, 3, 30,
-        'Yalms: Full Circle the luopan once who it is on is further than this from it, so it goes down again.')
-    slider('Keep after combat##sk3_geo_linger', 'geo.linger', g.linger, 1, 20,
-        'Seconds a debuff luopan waits once combat is over before Full Circle recalls it: a new battle target in that time keeps it.')
-    member_combo('Entrust to', 'geo_entrust', g.entrust, g.names, 'geo.entrust',
+    slider(pg, 'Recall past', 'Recall past##sk3_geo_distance', 'geo.distance', g.distance, 3, 30,
+        'Yalms: Full Circle the luopan once who it is on is further than this from it, so it goes down again.', 'y')
+    slider(pg, 'Keep after combat', 'Keep after combat##sk3_geo_linger', 'geo.linger', g.linger, 1, 20,
+        'Seconds a debuff luopan waits once combat is over before Full Circle recalls it: a new battle target in that time keeps it.', 's')
+    member_pick(pg, 'Entrust to', 'geo_entrust', g.entrust, g.names, 'geo.entrust',
         'With Entrust on, put the Indi- spell picked on this member (within 20 yalms).')
-    indi_combo(g.entrust_spell, g.indi)
-    imgui.Separator()
+    pick(pg, 'Entrust spell', 'Entrust spell##sk3_geo_entrust_spell', g.entrust_spell ~= '' and g.entrust_spell or 'None', function ()
+        if imgui.Selectable('None##sk3_geo_entrust_spell_none', g.entrust_spell == '') then act.set('geo.entrust_spell', '') end
+        for _, name in ipairs(g.indi) do
+            if imgui.Selectable(name .. '##sk3_geo_entrust_spell_' .. name, name == g.entrust_spell) then act.set('geo.entrust_spell', name) end
+        end
+    end, 'The Indi- spell Entrust puts on that member whenever they lack its aura.')
 end
 
 -- What a set's slots show of each rune.
@@ -620,108 +565,94 @@ local function rune_tip(r)
     return ('%s: adds %s, resists %s, against %s.'):format(r.name, r.element, r.resist, r.ailments)
 end
 
--- A rune for slot `i` of `set`, or None (''). A pick the job no longer has says so.
-local function rune_combo(set, i, choices)
+-- A rune for slot `i` of `set`, or None ('').
+local function rune_pick(set, i, runes, x, cy, w, alpha)
     local current, id = set.picks[i], ('sk3_rune_%s_%d'):format(set.key, i)
-    local shown = current ~= '' and current .. ' (not available)' or 'None'
-    for _, r in ipairs(choices) do
-        if r.name == current then shown = r[set.shows] end
-    end
-    imgui.PushItemWidth(RUNE_WIDTH)
-    if imgui.BeginCombo('##' .. id, shown) then
-        if imgui.Selectable('None##' .. id .. '_none', current == '') then act.set(('rune.%s_%d'):format(set.key, i), '') end
-        for _, r in ipairs(choices) do
-            if imgui.Selectable(r[set.shows] .. '##' .. id .. '_' .. r.name, r.name == current) then
-                act.set(('rune.%s_%d'):format(set.key, i), r.name)
-            end
-            tip(rune_tip(r))
+    local path = ('rune.%s_%d'):format(set.key, i)
+    local shown = shown_pick(current, runes, set.shows)
+    local hovered = kit.dropdown('##' .. id, x, cy, w, shown, true, alpha, function ()
+        if imgui.Selectable('None##' .. id .. '_none', current == '') then act.set(path, '') end
+        for _, r in ipairs(runes) do
+            if imgui.Selectable(r[set.shows] .. '##' .. id .. '_' .. r.name, r.name == current) then act.set(path, r.name) end
+            kit.tip(rune_tip(r))
         end
-        imgui.EndCombo()
-    end
-    imgui.PopItemWidth()
-    tip(SHOWS[set.shows])
+    end)
+    if hovered then kit.tooltip(shown .. '\n' .. SHOWS[set.shows]) end
 end
 
--- A line per set: Idle, then each ward with its switch; a combo per rune slot, then whether it's ready.
-local function draw_runes(view)
+-- A line per set: Idle, then each ward with its switch; a drop-down per rune slot, then whether it's ready.
+local function draw_runes(view, pg)
     local r = view.rune
-    if not imgui.BeginTable('##sk3_runes', 2 + r.slots, ImGuiTableFlags_SizingFixedFit) then return end
+    local col, gap, ready_w = S(LABEL_W), S(6), S(80)
+    local w = math.min(S(RUNE_W), math.floor((pg.right - pg.lx - col - ready_w) / math.max(r.slots, 1)) - gap)
     for _, set in ipairs(r.sets) do
-        imgui.TableNextRow()
-        imgui.TableNextColumn()
+        local cy
         if set.ward then
-            local v = { set.on }
-            if imgui.Checkbox(set.label .. '##sk3_rune_' .. set.key, v) then act.row(set.ward, v[1]) end
-            tip(('Once %s is ready, its runes take the slots, then it fires in combat.'):format(set.ward))
+            local help = ('Once %s is ready, its runes take the slots, then it fires in combat.'):format(set.ward)
+            cy = line(pg, nil, help)
+            local on, flipped = kit.switch(set.label .. '##sk3_rune_' .. set.key, pg.lx, cy, set.on, true, pg.alpha)
+            kit.tip(help)
+            if flipped then act.row(set.ward, on) end
+            kit.text_mid(pg.dl, pg.lx + S(kit.SW_W) + S(8), cy, set.label, set.on and P.text or P.dim, kit.fonts.text, S(BODY), pg.alpha)
         else
-            text(set.label)
-            tip('The runes kept up the rest of the time.')
+            cy = line(pg, set.label, 'The runes kept up the rest of the time.')
         end
-        for i = 1, r.slots do
-            imgui.TableNextColumn()
-            rune_combo(set, i, r.runes)
+        for i = 1, r.slots do rune_pick(set, i, r.runes, pg.lx + col + (i - 1) * (w + gap), cy, w, pg.alpha) end
+        if set.ward then
+            kit.text_right(pg.dl, pg.right, cy, set.avail, set.ready and P.teal or P.dim, kit.fonts.text, S(SMALL + 0.5), pg.alpha)
         end
-        imgui.TableNextColumn()
-        if set.ward then text(set.avail, set.ready and GREEN or GREY) end
     end
-    imgui.EndTable()
-    imgui.Separator()
 end
 
--- PUP: a combo per maneuver slot, by element (None for ''), then whether they can go.
-local function draw_maneuvers(view)
+-- PUP: a drop-down per maneuver slot, by element (None for ''), then whether they can go.
+local function draw_maneuvers(view, pg)
     local m = view.maneuver
-    if not imgui.BeginTable('##sk3_maneuvers', 1 + #m.picks, ImGuiTableFlags_SizingFixedFit) then return end
-    imgui.TableNextRow()
+    local cy = line(pg, nil, nil)
+    local gap, w = S(6), S(MANEUVER_W)
     for i, current in ipairs(m.picks) do
-        imgui.TableNextColumn()
-        local id = 'sk3_maneuver_' .. i
-        local shown = current ~= '' and current .. ' (not available)' or 'None'
-        for _, c in ipairs(m.choices) do
-            if c.name == current then shown = c.label end
-        end
-        imgui.PushItemWidth(MANEUVER_WIDTH)
-        if imgui.BeginCombo('##' .. id, shown) then
-            if imgui.Selectable('None##' .. id .. '_none', current == '') then act.set('maneuver.slot_' .. i, '') end
+        local id, path = 'sk3_maneuver_' .. i, 'maneuver.slot_' .. i
+        local hovered = kit.dropdown('##' .. id, pg.lx + (i - 1) * (w + gap), cy, w, shown_pick(current, m.choices), true, pg.alpha, function ()
+            if imgui.Selectable('None##' .. id .. '_none', current == '') then act.set(path, '') end
             for _, c in ipairs(m.choices) do
-                if imgui.Selectable(c.label .. '##' .. id .. '_' .. c.name, c.name == current) then
-                    act.set('maneuver.slot_' .. i, c.name)
-                end
+                if imgui.Selectable(c.label .. '##' .. id .. '_' .. c.name, c.name == current) then act.set(path, c.name) end
             end
-            imgui.EndCombo()
-        end
-        imgui.PopItemWidth()
-        tip('The same element in two slots keeps two up.')
+        end)
+        if hovered then kit.tooltip('The same element in two slots keeps two up.') end
     end
-    imgui.TableNextColumn()
-    text(m.avail, m.ready and GREEN or GREY)
-    imgui.EndTable()
+    kit.text_right(pg.dl, pg.right, cy, m.avail, m.ready and P.teal or P.dim, kit.fonts.text, S(SMALL + 0.5), pg.alpha)
 end
 
--- Each tracked player with its Untrack button (one who joined your party or
--- alliance too), then Track for your target.
-local function draw_track(view)
+-- Each tracked player with its Untrack button (one who joined your party or alliance too), then Track for your
+-- target.
+local function draw_track(view, pg)
+    local px = S(BODY)
     for _, list in ipairs({ view.party, view.alliance }) do
         for _, p in ipairs(list) do
             if p.tracked then
-                if imgui.Button('Untrack##sk3_untrack_' .. p.name) then act.untrack(p.name) end
-                imgui.SameLine()
-                local note = JOINED[p.kind] or p.job and ('  ' .. p.job) or ''
-                if p.shared and not JOINED[p.kind] then note = note .. '  (from ' .. p.shared .. ')' end
-                text(('%s %s'):format(p.tag, p.name) .. note, p.away and GREY or nil)
+                local cy = line(pg, nil, nil)
+                local bw = kit.button_width('Untrack')
+                if kit.button('Untrack##sk3_untrack_' .. p.name, pg.right - bw, cy, 'Untrack', 'ghost', true, pg.alpha) then
+                    act.untrack(p.name)
+                end
+                local s = ('%s %s'):format(p.tag, p.name) .. (JOINED[p.kind] or p.job and ('  ' .. p.job) or '')
+                if p.shared and not JOINED[p.kind] then s = s .. '  (from ' .. p.shared .. ')' end
+                local room = pg.right - bw - S(12) - pg.lx
+                kit.text_mid(pg.dl, pg.lx, cy, kit.fit(s, room, kit.fonts.text, px), p.away and P.dim or P.text, kit.fonts.text, px, pg.alpha)
                 local where = p.away and (p.kind == 'tracked' and 'Out of range.' or 'In another zone.') or nil
                 local from = p.shared and ('Tracked while %s\'s session lists them; Untrack keeps them off until tracked again.'):format(p.shared)
-                tip(where and from and (where .. '\n' .. from) or where or from)
+                local help = where and from and (where .. '\n' .. from) or where or from
+                if help and kit.over(pg.lx, cy - S(ROW_H) / 2, room, S(ROW_H)) then kit.tooltip(help) end
             end
         end
     end
     local t = view.track.target
     if t then
-        if imgui.Button(('Track %s##sk3_track'):format(t)) then act.track(t) end
-        tip('Heal, clear, raise and buff them too, with what reaches outside the party. This session only.')
+        local cy = line(pg, nil, nil)
+        if kit.button(('Track %s##sk3_track'):format(t), pg.lx, cy, 'Track ' .. t, 'accent', true, pg.alpha) then act.track(t) end
+        kit.tip('Heal, clear, raise and buff them too, with what reaches outside the party. This session only.')
     else
-        text(view.session and ('Target a player outside the alliance in %s\'s game to track them there.'):format(view.session)
-            or 'Target a player outside your alliance to track them, or /sk3 track Name.', GREY)
+        note(pg, view.session and ('Target a player outside the alliance in %s\'s game to track them there.'):format(view.session)
+            or 'Target a player outside your alliance to track them, or /sk3 track Name.')
     end
 end
 
@@ -730,179 +661,188 @@ local function has_name(names, name)
     return false
 end
 
--- The name to save under, Save / Save as / New / Delete, then every profile:
--- a click loads it (Default, the working copy as it was before one was loaded).
-local function draw_profiles(view)
+-- A profile's line in the list: lit when it's the one in use. Returns clicked.
+local function profile_item(pg, id, name, on, help)
+    local ih = S(28)
+    local x, y, w = pg.x + S(4), pg.y, pg.w - S(8)
+    pg.y = y + ih
+    local hovered, clicked = kit.hit(id, x, y, w, ih)
+    kit.tip(help)
+    local t = kit.ease(id, on and 1 or 0, 20)
+    if t > 0.01 then
+        kit.fill(pg.dl, x, y, w, ih, P.accent_bg, S(3), 0.9 * t)
+        kit.fill(pg.dl, x, y + S(5), S(2), ih - S(10), P.accent, S(1), t)
+    end
+    if hovered and not on then kit.fill(pg.dl, x, y, w, ih, P.hover, S(3), 0.8) end
+    kit.text_mid(pg.dl, pg.lx, y + ih / 2, name, on and P.white or P.text, kit.fonts.text, S(BODY))
+    return clicked
+end
+
+-- The name to save under, Save / Save as / New / Delete, then every profile: a click loads it (Default, the working
+-- copy as it was before one was loaded).
+local function draw_profiles(view, pg)
     local p = view.profiles
     local active = p.active or ''
     local state = profile_names[view.session or '']
     if not state then state = { typed = { '' } }; profile_names[view.session or ''] = state end
     local profile_name = state.typed
     if active ~= state.shown then profile_name[1], state.shown = active, active end
-    imgui.PushItemWidth(SETTING_WIDTH)
-    imgui.InputText('Name##sk3_profile_name', profile_name, 64)
-    imgui.PopItemWidth()
-    tip('A name for Save or Save as. Each job pair has its own profiles.')
+    local cy = line(pg, 'Name', 'A name for Save or Save as. Each job pair has its own profiles.')
+    local fw = S(260)
+    kit.input('##sk3_profile_name', pg.right - fw, cy, fw, profile_name, 64, 'Name to save under')
     local typed = profile_name[1]:match('^%s*(.-)%s*$')
-    if imgui.Button('Save##sk3_profile_save') then act.save_profile(typed) end
-    tip('Save the settings as they are now under this name. With a profile loaded and the name changed, '
-        .. 'rename that profile instead. Never over another profile: Save as replaces one.')
-    imgui.SameLine()
-    if imgui.Button('Save as##sk3_profile_save_as') then act.save_profile(typed, true) end
-    tip('Save the settings as they are now under this name, over any profile already named so.')
-    imgui.SameLine()
-    if imgui.Button('New##sk3_profile_new') then
-        act.new_profile()
-        profile_name[1] = ''
+    local buttons = {
+        { 'Save', 'save', 'accent', 'Save the settings as they are now under this name. With a profile loaded and the name changed, '
+            .. 'rename that profile instead. Never over another profile: Save as replaces one.' },
+        { 'Save as', 'save_as', 'ghost', 'Save the settings as they are now under this name, over any profile already named so.' },
+        { 'New', 'new', 'ghost', 'Every setting back to its default, on Default. Saved profiles are kept.' },
+    }
+    if p.active then buttons[#buttons + 1] = { 'Delete', 'delete', 'danger', ('Delete %s, and go back to Default.'):format(p.active) } end
+    local by = line(pg, nil, nil, S(ROW_H) + S(4))
+    local bx = pg.right - (#buttons - 1) * S(6)
+    for _, b in ipairs(buttons) do bx = bx - kit.button_width(b[1]) end
+    for _, b in ipairs(buttons) do
+        local clicked, bw = kit.button(b[1] .. '##sk3_profile_' .. b[2], bx, by, b[1], b[3], true, pg.alpha)
+        kit.tip(b[4])
+        if clicked then
+            if b[2] == 'save' then act.save_profile(typed)
+            elseif b[2] == 'save_as' then act.save_profile(typed, true)
+            elseif b[2] == 'new' then
+                act.new_profile()
+                profile_name[1] = ''
+            else act.delete_profile(p.active) end
+        end
+        bx = bx + bw + S(6)
     end
-    tip('Every setting back to its default, on Default. Saved profiles are kept.')
-    if p.active then
-        imgui.SameLine()
-        if imgui.Button('Delete##sk3_profile_delete') then act.delete_profile(p.active) end
-        tip(('Delete %s, and go back to Default.'):format(p.active))
+    if typed ~= p.active and has_name(p.names, typed) then note(pg, ('%s exists: Save as replaces it.'):format(typed), P.amber) end
+    subheader(pg, 'SAVED')
+    if profile_item(pg, 'Default##sk3_profile_default', 'Default', p.active == nil,
+            'The working copy: your settings as they were before a profile was loaded.') then
+        act.profile(nil)
     end
-    local taken = typed ~= p.active and has_name(p.names, typed)
-    if taken then text(('%s exists: Save as replaces it.'):format(typed), GREY) end
-    if imgui.Selectable('Default##sk3_profile_default', p.active == nil) then act.profile(nil) end
-    tip('The working copy: your settings as they were before a profile was loaded.')
-    -- A name is drawn over a blank row, not as its label: ImGui would cut a
-    -- name at '##' and take an id from its '###'.
+    -- (drawn on the draw list, a name with '##' in it is shown whole)
     for i, name in ipairs(p.names) do
-        local x = imgui.GetCursorPosX()
-        if imgui.Selectable('##sk3_profile_' .. i, name == p.active) then act.profile(name) end
-        imgui.SameLine(x)
-        text(name)
+        if profile_item(pg, '##sk3_profile_' .. i, name, name == p.active) then act.profile(name) end
     end
-    text('Changes save to the settings in use; to a profile only with Save.', GREY)
+    pg.y = pg.y + S(6)
+    note(pg, 'Changes save to the settings in use; to a profile only with Save.', P.faint)
 end
 
-local function draw_recent(view)
-    if #view.recent == 0 then text('Nothing sent yet.', GREY) end
+local function draw_recent(view, pg)
+    if #view.recent == 0 then return note(pg, 'Nothing sent yet.') end
+    local px = S(SMALL + 0.5)
     for _, r in ipairs(view.recent) do
-        text(('%3ds'):format(r.age), GREY)
-        imgui.SameLine()
-        text(r.text)
-        imgui.SameLine()
-        text(r.why, GREY)
+        local cy = line(pg, nil, nil, S(24))
+        kit.text_right(pg.dl, pg.lx + S(30), cy, ('%ds'):format(r.age), P.faint, kit.fonts.text, px, pg.alpha)
+        local tx = pg.lx + S(40)
+        kit.text_mid(pg.dl, tx, cy, r.text, P.text, kit.fonts.text, px, pg.alpha)
+        local wx = tx + kit.measure(r.text, kit.fonts.text, px) + S(10)
+        if pg.right - wx > S(30) then
+            kit.text_mid(pg.dl, wx, cy, kit.fit(r.why, pg.right - wx, kit.fonts.text, px), P.dim, kit.fonts.text, px, pg.alpha)
+        end
     end
 end
+
+-- SK Settings' size, % of the size for the screen: view.ui.scale, held to its slider's range.
+local function ui_scale(ui) return math.min(math.max(math.floor(tonumber(ui and ui.scale) or 100), 50), 200) end
 
 -- Another session's shows only what it sent: its HUD and log are its own.
-local function draw_ui(view)
-    if view.session then return draw_recent(view) end
+local function draw_ui(view, pg)
+    if view.session then return draw_recent(view, pg) end
+    subheader(pg, 'HUD')
     for _, l in ipairs(UI_SLIDERS) do
-        slider(l[1] .. '##sk3_ui_' .. l[2], 'ui.' .. l[2], view.ui[l[2]], l[3], l[4], l[5])
+        slider(pg, l[1], l[1] .. '##sk3_ui_' .. l[2], 'ui.' .. l[2], view.ui[l[2]], l[3], l[4], l[5], l[6])
     end
-    checkbox('Lock position##sk3_ui_locked', view.ui.locked == true, function (on) act.set('ui.locked', on) end,
+    switch(pg, 'Lock position', 'Lock position##sk3_ui_locked', view.ui.locked == true, function (on) act.set('ui.locked', on) end,
         'Keep the HUD where it is: dragging it no longer moves it.')
-    imgui.Separator()
-    checkbox('Action log##sk3_log', view.log, act.log, 'Print each action to chat as it is sent.')
-    draw_recent(view)
-    imgui.Separator()
-    checkbox('Japanese client##sk3_japanese', view.japanese, function (on) act.set('japanese', on) end,
+    subheader(pg, 'SK SETTINGS')
+    slider(pg, 'Size', 'Size##sk3_ui_scale', 'ui.scale', ui_scale(view.ui), 50, 200,
+        'This window\'s size, % of the size that suits your screen. Taken up once the slider is let go.', '%')
+    subheader(pg, 'LOG')
+    switch(pg, 'Action log', 'Action log##sk3_log', view.log, act.log, 'Print each action to chat as it is sent.')
+    draw_recent(view, pg)
+    subheader(pg, 'CLIENT')
+    switch(pg, 'Japanese client', 'Japanese client##sk3_japanese', view.japanese, function (on) act.set('japanese', on) end,
         'Send spell, ability and item names in Japanese, on every job.')
 end
 
 -- Rows ------------------------------------------------------------------------------
 
-local function pick_combo(r, id)
-    imgui.PushItemWidth(PICK_WIDTH)
-    if imgui.BeginCombo('##pick_' .. id, r.choice) then
-        for _, c in ipairs(r.choices) do
-            if imgui.Selectable(c.label, c.name == r.pick) then act.pick(r.key, c.name) end
-        end
-        imgui.EndCombo()
-    end
-    imgui.PopItemWidth()
-end
+local HOLD_TIP = 'Wait while a modifier picked here can\'t go with the spell (on recast, too few charges, the wrong Arts, '
+    .. 'Accession unable to spread it, or short of MP for it); otherwise the spell goes without it.'
 
--- ME, P1-P5, T1...; B0-B5 and C0-C5 each on a line of their own. An empty
--- slot can't be picked, but a picked one can still be cleared.
-local function target_chips(r, id)
-    for i, t in ipairs(r.targets) do
-        if i > 1 and not t.wrap then imgui.SameLine(0, 2) end
-        local disabled = not t.present and not t.on
-        local colors = disabled and CHIP_EMPTY or not t.on and CHIP_OFF
-        if colors then push_button(colors) end
-        if disabled then imgui.PushStyleColor(ImGuiCol_Text, GREY) end
-        if imgui.Button(t.label .. '##' .. id .. t.slot, { CHIP_WIDTH, 0 }) and not disabled then
-            act.target(r.key, t.slot, not t.on)
-        end
-        if colors then imgui.PopStyleColor(disabled and 4 or 3) end
-        tip(t.name or 'empty slot')
-    end
-end
+-- One row per settings key: its name (and how many you carry), ready or why not, its switch; under them, when it has
+-- any, its pick, its targets (ME, P1-P5, T1...; B0-B5 and C0-C5 each on a line of their own) and its modifiers fired
+-- before its spell (Pen, Cel, Acc, Emb...), then Hold: wait for them.
+local function family_row(pg, sid, r)
+    local id = sid .. '_' .. r.key
+    local n = r.count or r.tools
+    local items = {}
+    if r.choices then items[#items + 1] = { w = S(PICK_W), kind = 'pick' } end
+    for _, t in ipairs(r.targets or {}) do items[#items + 1] = { w = S(CHIP_W), kind = 'target', t = t, wrap = t.wrap } end
+    for i, m in ipairs(r.mods or {}) do items[#items + 1] = { w = kit.chip_width(m.label), kind = 'mod', m = m, pre = i == 1 and S(8) or nil } end
+    if r.mods then items[#items + 1] = { w = kit.chip_width('Hold'), kind = 'hold' } end
+    local lines = #items > 0 and flow(items, pg.lx + S(14), pg.right, S(4)) or 0
+    local cy = line(pg, nil, nil, S(ROW_H) + lines * S(CHIP_LINE) + (lines > 0 and S(4) or 0))
 
--- Modifiers fired before the row's spell (Pen, Cel, Acc, Emb...), then Hold: wait for them.
-local function mod_chips(r, id)
-    for i, m in ipairs(r.mods) do
-        if i > 1 then imgui.SameLine(0, 2) end
-        if not m.on then push_button(CHIP_OFF) end
-        if imgui.Button(m.label .. '##' .. id .. '_mod_' .. m.name, { CHIP_WIDTH, 0 }) then act.mod(r.key, m.name, not m.on) end
-        if not m.on then imgui.PopStyleColor(3) end
-        tip(m.note and ('%s first: %s'):format(m.name, m.note) or m.name)
-    end
-    -- With none on, it waits for nothing: dimmed, but kept and still clickable.
+    -- An item shows how many you carry, ninjutsu their tools; ### keeps its id while the count changes.
+    local sx = pg.right - S(kit.SW_W)
+    local on, flipped = kit.switch(n and ('%s (%d)###%s'):format(r.label, n, id) or r.label .. '##' .. id, sx, cy, r.on, true, pg.alpha)
+    if flipped then act.row(r.key, on) end
+    local px = S(SMALL + 0.5)
+    local aw = kit.measure(r.avail, kit.fonts.text, px)
+    local ax = sx - S(12) - aw
+    kit.text_mid(pg.dl, ax, cy, r.avail, r.ready and P.teal or P.dim, kit.fonts.text, px, pg.alpha)
+    if r.action and kit.over(ax, cy - S(10), aw, S(20)) then kit.tooltip(r.action) end
+    local label = n and ('%s (%d)'):format(r.label, n) or r.label
+    kit.text_mid(pg.dl, pg.lx, cy, kit.fit(label, ax - S(12) - pg.lx, kit.fonts.text, S(BODY)), r.on and P.text or P.dim,
+        kit.fonts.text, S(BODY), pg.alpha)
+
     local any = false
-    for _, m in ipairs(r.mods) do any = any or m.on end
-    imgui.SameLine(0, 2)
-    local colors = not any and CHIP_EMPTY or not r.hold and CHIP_OFF
-    if colors then push_button(colors) end
-    if not any then imgui.PushStyleColor(ImGuiCol_Text, GREY) end
-    if imgui.Button('Hold##' .. id .. '_hold') then act.hold(r.key, not r.hold) end
-    if colors then imgui.PopStyleColor(any and 3 or 4) end
-    tip('Wait while a modifier picked here can\'t go with the spell (on recast, too few charges, the wrong Arts, '
-        .. 'Accession unable to spread it, or short of MP for it); otherwise the spell goes without it.'
-        .. (any and '' or '\nNo modifier is on here: it waits for nothing.'))
+    for _, m in ipairs(r.mods or {}) do any = any or m.on end
+    local top = cy + S(ROW_H) / 2 + S(CHIP_LINE) / 2 - S(2)  -- the first line of chips' middle
+    for _, it in ipairs(items) do
+        local icy = top + (it.line - 1) * S(CHIP_LINE)
+        if it.kind == 'pick' then
+            kit.dropdown('##pick_' .. id, it.x, icy, it.w, r.choice, true, pg.alpha, function ()
+                for _, c in ipairs(r.choices) do
+                    if imgui.Selectable(c.label, c.name == r.pick) then act.pick(r.key, c.name) end
+                end
+            end)
+        elseif it.kind == 'target' then
+            -- An empty slot can't be picked, but a picked one can still be cleared.
+            local t = it.t
+            local empty = not t.present and not t.on
+            if kit.chip(t.label .. '##' .. id .. t.slot, it.x, icy, it.w, t.label, empty and 'empty' or t.on and 'on' or 'off',
+                    not empty, pg.alpha) then
+                act.target(r.key, t.slot, not t.on)
+            end
+            kit.tip(t.name or 'empty slot')
+        elseif it.kind == 'mod' then
+            local m = it.m
+            if kit.chip(m.label .. '##' .. id .. '_mod_' .. m.name, it.x, icy, it.w, m.label, m.on and 'on' or 'off', true, pg.alpha) then
+                act.mod(r.key, m.name, not m.on)
+            end
+            kit.tip(m.note and ('%s first: %s'):format(m.name, m.note) or m.name)
+        else
+            -- With no modifier on, it waits for nothing: an outline, but kept and still clickable.
+            if kit.chip('Hold##' .. id .. '_hold', it.x, icy, it.w, 'Hold', not any and 'empty' or r.hold and 'held' or 'off', true, pg.alpha) then
+                act.hold(r.key, not r.hold)
+            end
+            kit.tip(HOLD_TIP .. (any and '' or '\nNo modifier is on here: it waits for nothing.'))
+        end
+    end
 end
 
--- One row per settings key: [x] Name (note) | pick | ME P1-P5 | Pen Acc | ready or why not.
--- The pick, target and modifier columns are there only when some row in this table has them.
-local function draw_rows(table_id, section_id, rows)
-    local choices, targets, mods = false, false, false
-    for _, r in ipairs(rows) do
-        choices = choices or r.choices ~= nil
-        targets = targets or r.targets ~= nil
-        mods = mods or r.mods ~= nil
-    end
-    local columns = 2 + (choices and 1 or 0) + (targets and 1 or 0) + (mods and 1 or 0)
-    if not imgui.BeginTable(table_id, columns, ImGuiTableFlags_SizingFixedFit) then return end
-    for _, r in ipairs(rows) do
-        local id = section_id .. '_' .. r.key
-        imgui.TableNextRow()
-        imgui.TableNextColumn()
-        local v = { r.on }
-        -- An item shows how many you carry, ninjutsu their tools; ### keeps its id while the count changes.
-        local n = r.count or r.tools
-        local label = n and ('%s (%d)###%s'):format(r.label, n, id) or r.label .. '##' .. id
-        if imgui.Checkbox(label, v) then act.row(r.key, v[1]) end
-        if choices then
-            imgui.TableNextColumn()
-            if r.choices then pick_combo(r, id) end
-        end
-        if targets then
-            imgui.TableNextColumn()
-            if r.targets then target_chips(r, id) end
-        end
-        if mods then
-            imgui.TableNextColumn()
-            if r.mods then mod_chips(r, id) end
-        end
-        imgui.TableNextColumn()
-        text(r.avail, r.ready and GREEN or GREY)
-        tip(r.action)
-    end
-    imgui.EndTable()
-end
-
--- Spells and abilities, then items (rows with a count) in a table of their own.
-local function section_rows(s)
+-- Spells and abilities, then items (rows with a count) under a heading of their own.
+local function section_rows(pg, s, has_body)
     local acts, items = {}, {}
     for _, r in ipairs(s.rows) do table.insert(r.count and items or acts, r) end
-    if #acts > 0 then draw_rows('##sk3_rows_' .. s.id, s.id, acts) end
+    if #acts > 0 and has_body then subheader(pg, 'ACTIONS') end
+    for _, r in ipairs(acts) do family_row(pg, s.id, r) end
     if #items > 0 then
-        text('Items')
-        draw_rows('##sk3_rows_' .. s.id .. '_items', s.id, items)
+        subheader(pg, 'ITEMS')
+        for _, r in ipairs(items) do family_row(pg, s.id, r) end
     end
 end
 
@@ -935,44 +875,219 @@ local BODIES = {
     pet = draw_pet_settings, rest = draw_rest, track = draw_track, ui = draw_ui, profile = draw_profiles,
 }
 
--- Its switch, its settings, then its rows.
-local function draw_section(view, s)
+-- A section's heading: a chevron and its title (a click folds it), a line, its switch at the end. Returns folded.
+local function heading(pane, pg, s)
+    local dl, cy = pg.dl, pg.y + S(HEAD_H) / 2
+    local line_end = pg.right
     if s.on ~= nil then
-        checkbox(s.title .. '##sk3_on_' .. s.id, s.on, function (on) act.section(s.id, on) end, SWITCH_HELP[s.id])
+        local on, flipped = kit.switch(s.title .. '##sk3_on_' .. s.id, line_end - S(kit.SW_W), cy, s.on, true)
+        kit.tip(SWITCH_HELP[s.id])
+        if flipped then act.section(s.id, on) end
+        line_end = line_end - S(kit.SW_W) - S(12)
     end
-    if BODIES[s.id] then BODIES[s.id](view) end
-    if s.rows then section_rows(s) end
+    local font, px = kit.fonts.bold_italic, S(BODY + 5)
+    local tw = kit.measure(s.title, font, px)
+    local hovered, clicked = kit.hit('##sk3_fold_' .. s.id, pg.x + S(2), cy - S(12), S(LEFT) - S(2) + tw + S(8), S(24))
+    kit.tip(SWITCH_HELP[s.id])
+    if clicked then pane.folded[s.id] = not pane.folded[s.id] or nil end
+    local folded = pane.folded[s.id] == true
+    kit.icon(dl, folded and 'right' or 'down', pg.x + S(GUTTER), cy, S(11), hovered and P.text or P.faint)
+    local color = s.on == false and kit.mix(P.white, P.dim, 0.5) or kit.mix(P.white, P.accent2, hovered and 0.35 or 0)
+    kit.text_mid(dl, pg.lx, cy, s.title, color, font, px)
+    local tx = pg.lx + tw + S(10)
+    if line_end > tx then kit.line(dl, tx, cy, line_end, cy, P.line) end
+    pg.y = pg.y + S(HEAD_H) + S(2)
+    return folded
 end
 
--- A collapsing header per `header`, in the order the sections come, closed at
--- first so the window starts small. One whose switches are all off says so.
-local function draw_settings(view)
-    local headers, of = {}, {}
+-- Its heading (none when the page says it already: Profiles, UI / Log), its settings, then its rows; switched off,
+-- they're drawn faded, still settable.
+local function draw_section(view, pane, pg, s, page)
+    if not (s.on == nil and s.title == page) and heading(pane, pg, s) then return end
+    pg.alpha = s.on == false and 0.55 or 1
+    local body = BODIES[s.id]
+    if body then body(view, pg) end
+    if s.rows then section_rows(pg, s, body ~= nil) end
+    pg.alpha = 1
+    pg.y = pg.y + S(14)
+end
+
+-- The pages: one per `header`, in the order the sections come. `on`: a switch of one of its sections is.
+local function pages_of(view)
+    local pages, of = {}, {}
     for _, s in ipairs(view.sections) do
-        if not of[s.header] then of[s.header] = {}; headers[#headers + 1] = s.header end
-        table.insert(of[s.header], s)
-    end
-    for _, h in ipairs(headers) do
-        local switches, on = false, false
-        for _, s in ipairs(of[h]) do
-            if s.on ~= nil then switches, on = true, on or s.on end
+        local p = of[s.header]
+        if not p then
+            p = { name = s.header, sections = {} }
+            of[s.header], pages[#pages + 1] = p, p
         end
-        local note = switches and not on and ' (off)' or ''
-        -- '##' in a header's label would end what it shows.
-        if h == 'Profiles' and view.profiles.active then note = ': ' .. view.profiles.active:gsub('#+', '#') end
-        if imgui.CollapsingHeader(h .. note .. '###sk3_' .. h) then
-            for i, s in ipairs(of[h]) do
-                if i > 1 then imgui.Separator() end
-                draw_section(view, s)
-            end
+        p.sections[#p.sections + 1] = s
+        if s.on ~= nil then p.switches, p.on = true, p.on or s.on end
+    end
+    return pages
+end
+
+local function find(pages, name)
+    for _, p in ipairs(pages) do if p.name == name then return p end end
+end
+
+-- The page shown first: the first of the list's top, not its foot.
+local function first(pages)
+    for _, p in ipairs(pages) do if not FOOT[p.name] then return p.name end end
+    return pages[1] and pages[1].name
+end
+
+-- A page's line in the list: a dot, teal while one of its switches is on (a ring when all are off), its name and
+-- `tag` (the profile loaded). A click shows it. Returns its height.
+local function nav_item(pane, page, x, y, w, tag)
+    local dl, ih = imgui.GetWindowDrawList(), S(NAV_H)
+    local hovered, clicked = kit.hit('##sk3_page_' .. page.name, x, y, w, ih)
+    if clicked then pane.page = page.name end
+    local active = pane.page == page.name
+    local t = kit.ease('nav.' .. page.name, active and 1 or 0, 20)
+    if t > 0.01 then
+        kit.fill(dl, x, y, w, ih, P.accent_bg, 0, 0.9 * t)
+        kit.fill(dl, x, y, S(2), ih, P.accent, 0, t)
+    end
+    if hovered and not active then kit.fill(dl, x, y, w, ih, P.hover, 0, 0.7) end
+    local cy, dx = y + ih / 2, x + S(PAD) + S(4)
+    if page.switches and page.on then kit.circle(dl, dx, cy, S(3.5), P.teal)
+    elseif page.switches then kit.ring(dl, dx, cy, S(3.5), P.faint) end
+    if hovered and page.switches and not page.on then kit.tooltip('Every switch here is off.') end
+    local nx, px = x + S(PAD) + S(16), S(BODY + 0.5)
+    kit.text_mid(dl, nx, cy, page.name, active and P.white or P.text, kit.fonts.text, px)
+    if tag then
+        local room = x + w - S(PAD) - (nx + kit.measure(page.name, kit.fonts.text, px) + S(8))
+        if room > S(20) then
+            kit.text_right(dl, x + w - S(PAD), cy, kit.fit(tag, room, kit.fonts.text, S(SMALL)), P.faint, kit.fonts.text, S(SMALL))
         end
     end
+    return ih
+end
+
+-- Whose settings these are (SK Settings, or the session's name), its job and whether it runs; then its pages, and
+-- Profiles and UI / Log at the foot.
+local function draw_sidebar(view, pane, pages, name, x, y, w, h)
+    local dl, pad = imgui.GetWindowDrawList(), S(PAD)
+    local st = view.status
+    local title_px, small = S(BODY + 2), S(SMALL)
+    kit.text_mid(dl, x + pad, y + S(24), kit.fit(name or 'SK Settings', w - pad * 2, kit.fonts.semi, title_px), P.white, kit.fonts.semi, title_px)
+    kit.text_mid(dl, x + pad, y + S(46), kit.fit(view.job, w - pad * 2, kit.fonts.text, small), P.dim, kit.fonts.text, small)
+    kit.circle(dl, x + pad + S(3), y + S(65), S(3), st.running and P.teal or P.faint)
+    kit.text_mid(dl, x + pad + S(12), y + S(65), st.state, st.running and P.teal or P.dim, kit.fonts.text, small)
+    if kit.over(x, y, w, S(78)) then
+        kit.tooltip(name and 'Changes here are sent to that session, which applies them within a second or so.' or status_tip(view))
+    end
+    local ny = y + S(86)
+    kit.line(dl, x + pad, ny - S(6), x + w - pad, ny - S(6), P.border, 0.8)
+    local foot = {}
+    for _, p in ipairs(pages) do
+        if FOOT[p.name] then foot[#foot + 1] = p else ny = ny + nav_item(pane, p, x, ny + S(2), w) end
+    end
+    if #foot == 0 then return end
+    local fy = y + h - S(10) - #foot * S(NAV_H)
+    kit.line(dl, x + pad, fy - S(26), x + w - pad, fy - S(26), P.border, 0.8)
+    kit.text_mid(dl, x + pad, fy - S(12), 'SETUP', P.faint, kit.fonts.semi, S(SMALL - 1.5))
+    for _, p in ipairs(foot) do
+        fy = fy + nav_item(pane, p, x, fy, w, p.name == 'Profiles' and view.profiles.active or nil)
+    end
+end
+
+-- A page's title line: its name, `note` after it, the close button (open[1] = false) at the right, a line under.
+local function title_bar(title, note_, x, y, w, open)
+    local dl = imgui.GetWindowDrawList()
+    local cy = y + S(TITLE_H) / 2
+    local font, px = kit.fonts.semi, S(BODY + 3)
+    kit.text_mid(dl, x + S(LEFT), cy, title, P.white, font, px)
+    local cx = x + w - S(PAD) - S(6)
+    if note_ then
+        local nx = x + S(LEFT) + kit.measure(title, font, px) + S(10)
+        local room = cx - S(20) - nx
+        if room > S(30) then kit.text_mid(dl, nx, cy, kit.fit(note_, room, kit.fonts.text, S(SMALL)), P.faint, kit.fonts.text, S(SMALL)) end
+    end
+    local hovered, clicked = kit.hit('##sk3_settings_close', cx - S(11), cy - S(11), S(22), S(22))
+    kit.tip('Close')
+    if hovered then kit.circle(dl, cx, cy, S(11), P.rose_bg) end
+    kit.icon(dl, 'close', cx, cy, S(14), hovered and P.rose or P.dim)
+    if clicked then open[1] = false end
+    kit.line(dl, x, y + S(TITLE_H), x + w, y + S(TITLE_H), P.border)
+end
+
+-- The page's sections, scrolling under its title. A Lua error inside still ends the child, then is raised.
+local function draw_page(view, pane, page, x, y, w, h, open)
+    title_bar(page.name, page.name == 'Profiles' and view.profiles.active and ('loaded: ' .. view.profiles.active) or nil, x, y, w, open)
+    imgui.SetCursorScreenPos({ x, y + S(TITLE_H) + 1 })
+    local ok, err = true, nil
+    if kit.child('##sk3_pane_' .. page.name, w, h - S(TITLE_H) - 1) then
+        ok, err = pcall(function ()
+            local cx, cy = imgui.GetCursorScreenPos()
+            local pg = { dl = imgui.GetWindowDrawList(), x = cx, w = w, y = cy + S(10), lx = cx + S(LEFT), right = cx + w - S(PAD), alpha = 1 }
+            for _, s in ipairs(page.sections) do draw_section(view, pane, pg, s, page.name) end
+            imgui.SetCursorScreenPos({ cx, pg.y })
+            imgui.Dummy({ 1, S(10) })  -- what's drawn has no item: this one tells the child how far it scrolls
+        end)
+    end
+    imgui.EndChild()
+    if not ok then error(err, 0) end
+end
+
+-- A SK Settings window's inside, from `view`: `key` and `name` are '' and nil for yours, the session's name for
+-- another's.
+local function draw_settings(view, key, name, x, y, side, pw, ph, open)
+    local pages = pages_of(view)
+    local pane = panes[key]
+    if not pane then pane = { folded = {} }; panes[key] = pane end
+    if not find(pages, pane.page) then pane.page = first(pages) end
+    draw_sidebar(view, pane, pages, name, x, y, side, ph)
+    local page = find(pages, pane.page)
+    if page then draw_page(view, pane, page, x + side + 1, y, pw - side - 1, ph, open) end
 end
 
 -- Windows ---------------------------------------------------------------------------
 
+local SETTINGS_FLAGS = ImGuiWindowFlags_NoTitleBar + ImGuiWindowFlags_NoResize + ImGuiWindowFlags_NoScrollbar
+    + ImGuiWindowFlags_NoScrollWithMouse + ImGuiWindowFlags_NoCollapse + ImGuiWindowFlags_NoBackground
+    + ImGuiWindowFlags_NoNavInputs  -- NoNavInputs: Tab is the game's (target cycling), not ImGui's
+local SETTINGS_COLOURS = {
+    { ImGuiCol_ChildBg, { 0, 0, 0, 0 } }, { ImGuiCol_ScrollbarBg, { 0, 0, 0, 0 } },
+    { ImGuiCol_ScrollbarGrab, kit.rgba('#3A4158') }, { ImGuiCol_ScrollbarGrabHovered, kit.rgba('#4A5270') },
+    { ImGuiCol_ScrollbarGrabActive, kit.rgba(P.accent_lo) },
+}
+
+-- A SK Settings window, the `index`th open (each starts a little further down and right): ImGui draws none of it, the
+-- panel and its sidebar are drawn here, then `body(x, y, side, pw, ph)` inside. Returns the error the body raised.
+local function settings_shell(label, open, index, body)
+    local m, side = S(MARGIN), S(SIDE_W)
+    local pw, ph = side + S(PAGE_W), S(WIN_H)
+    local sw, sh = kit.screen()
+    imgui.SetNextWindowPos({ sw / 2 + index * S(36), sh / 2 + index * S(36) }, ImGuiCond_FirstUseEver, { 0.5, 0.5 })
+    imgui.SetNextWindowSize({ pw + m * 2, ph + m * 2 }, ImGuiCond_Always)
+    for _, c in ipairs(SETTINGS_COLOURS) do imgui.PushStyleColor(c[1], c[2]) end
+    imgui.PushStyleVar(ImGuiStyleVar_WindowPadding, { 0, 0 })
+    imgui.PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0)
+    imgui.PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0, 0 })
+    imgui.PushStyleVar(ImGuiStyleVar_ScrollbarSize, S(6))
+    imgui.PushStyleVar(ImGuiStyleVar_ScrollbarRounding, S(3))
+    local ok, err = true, nil
+    if imgui.Begin(label, open, SETTINGS_FLAGS) then
+        local x, y = imgui.GetCursorScreenPos()
+        x, y = x + m, y + m
+        local dl = imgui.GetWindowDrawList()
+        kit.fill(dl, x - 1, y, pw + 2, ph + 2, '#000000', S(6), 0.35)  -- its shadow
+        kit.fill(dl, x, y, pw, ph, P.bg, S(5))
+        kit.fill(dl, x, y, side, ph, P.side, S(5), 1, kit.LEFT_CORNERS)
+        kit.line(dl, x + side, y, x + side, y + ph, P.border)
+        kit.outline(dl, x, y, pw, ph, P.border, S(5))
+        ok, err = pcall(body, x, y, side, pw, ph)
+    end
+    imgui.End()
+    imgui.PopStyleVar(5)
+    imgui.PopStyleColor(#SETTINGS_COLOURS)
+    if not ok then return err end
+end
+
 -- Each window: Begin, the body under pcall, End; returns the error the body raised.
--- ponytail: an error inside a table or combo still leaves that scope open, which
+-- ponytail: an error inside a drop-down's list still leaves its popup open, which
 -- ImGui asserts on; unwind tracked scopes (as v2's abort_sections does) if one shows up.
 local function hud(view)
     local flags = HUD_FLAGS + (view.ui.locked and ImGuiWindowFlags_NoMove or 0)
@@ -988,51 +1103,49 @@ end
 
 local function settings_window(view)
     local open = { true }
-    local ok, err = true, nil
-    if imgui.Begin('SK Settings', open, ImGuiWindowFlags_AlwaysAutoResize) then
-        ok, err = pcall(draw_settings, view)
-    end
-    imgui.End()
+    local err = settings_shell('SK Settings', open, 0, function (x, y, side, pw, ph)
+        draw_settings(view, '', nil, x, y, side, pw, ph, open)
+    end)
     if not open[1] then settings_open = false end
-    if not ok then return err end
+    return err
 end
 
--- Another session's SK Settings, from the view it published, its changes sent to
--- it; until its first view comes, a line saying so.
-local function draw_remote(r)
-    if r.other then
-        return text(('%s runs another version of Sidekick3: /addon reload sidekick3 there.'):format(r.name), GREY)
-    end
-    if not r.view then return text(('Waiting for %s\'s session...'):format(r.name), GREY) end
-    text(('%s  %s'):format(r.view.job, r.view.status.state), r.view.status.running and GREEN or GREY)
-    tip('Changes here are sent to that session, which applies them within a second or so.')
-    imgui.Separator()
-    draw_settings(r.view)
-end
-
-local function remote_window(r)
+-- Another session's SK Settings, from the view it published, its changes sent to it; until its first view comes, or
+-- from a session running other code, a line saying so.
+local function remote_window(r, index)
     local open = { true }
-    local ok, err = true, nil
-    if imgui.Begin(('SK Settings: %s###sk3_settings_%s'):format(r.name, r.name), open, ImGuiWindowFlags_AlwaysAutoResize) then
-        local mine = act
-        ok, err = pcall(function ()
-            act = mine.remote(r.name)
-            draw_remote(r)
-        end)
-        act = mine
-    end
-    imgui.End()
-    if not (open[1] and ok) then act.watch(r.name, false) end  -- a view that won't draw isn't drawn again
-    if not ok then return err end
+    local mine = act
+    local err = settings_shell(('SK Settings: %s###sk3_settings_%s'):format(r.name, r.name), open, index, function (x, y, side, pw, ph)
+        act = mine.remote(r.name)
+        if r.view and not r.other then return draw_settings(r.view, r.name, r.name, x, y, side, pw, ph, open) end
+        local dl = imgui.GetWindowDrawList()
+        kit.text_mid(dl, x + S(PAD), y + S(24), kit.fit(r.name, side - S(PAD) * 2, kit.fonts.semi, S(BODY + 2)), P.white, kit.fonts.semi, S(BODY + 2))
+        title_bar('SK Settings', nil, x + side + 1, y, pw - side - 1, open)
+        local pg = { dl = dl, x = x + side + 1, w = pw - side - 1, y = y + S(TITLE_H) + S(14), lx = x + side + 1 + S(LEFT),
+                     right = x + pw - S(PAD), alpha = 1 }
+        note(pg, r.other and ('%s runs another version of Sidekick3: /addon reload sidekick3 there.'):format(r.name)
+            or ('Waiting for %s\'s session...'):format(r.name))
+    end)
+    act = mine
+    if not (open[1] and not err) then act.watch(r.name, false) end  -- a view that won't draw isn't drawn again
+    return err
 end
 
 -- One frame. A Lua error raised while drawing is raised again after the windows
 -- are ended, so ImGui stays balanced and Sidekick reports it.
 function window.render(view, act_)
     act = act_
+    if not imgui.IsAnyItemActive() then user_scale = ui_scale(view.ui) / 100 end  -- not mid-drag: the window would move under it
+    kit.frame(user_scale)
+    kit.prefix = 'hud|'
     local err = hud(view)
+    kit.prefix = ''
     if settings_open then err = settings_window(view) or err end
-    for _, r in ipairs(view.remote or {}) do err = remote_window(r) or err end
+    for i, r in ipairs(view.remote or {}) do
+        kit.prefix = r.name .. '|'
+        err = remote_window(r, i) or err
+    end
+    kit.prefix = ''
     if err then error(err, 0) end
 end
 

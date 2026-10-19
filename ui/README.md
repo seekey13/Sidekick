@@ -2,7 +2,7 @@
 
 Sidekick3's UI is one replaceable Lua file. Sidekick does all the deciding and acting; a UI only **shows** a table of data (`view`) and **changes** things through a table of functions (`act`). Anything that keeps to that contract can replace the standard UI: a compact HP list, a bar of on/off switches, one big window instead of two.
 
-[window.lua](window.lua) is the standard UI and the reference: a heads-up display of the party's HP and MP (the **Sidekick3** window), whose cog on your own card opens **SK Settings**, every setting under collapsing headers. It uses nearly every field and every action below.
+[window.lua](window.lua) is the standard UI and the reference: a heads-up display of the party's HP and MP (the **Sidekick3** window), whose cog on your own card opens **SK Settings**, a page per group of settings listed down its left. It uses nearly every field and every action below. Its look is [kit.lua](kit.lua)'s, after VanaCore's own `/vana` window ([docs/vana-ui-style.md](../docs/vana-ui-style.md)): a palette, and switches, sliders, drop-downs, chips and buttons drawn on ImGui's draw lists over invisible buttons. A custom UI can `require('ui.kit')` for the same look; each control takes its value and returns the new one and whether it changed, and `kit.frame(scale)` must run once a frame before any of them.
 
 ## Install
 
@@ -63,7 +63,7 @@ Text that may contain `%` (names, `why` text) must be escaped before it's drawn:
 | `japanese` | bool | Spell, ability and item names are sent in Japanese. Shared by every job pair: it's kept in `ui`'s file (`ui.japanese`) |
 | `log` | bool | Each action sent is printed to chat |
 | `profiles` | table | `{ active, names }`: the profile loaded (nil for Default, the working copy) and every saved profile's name, in order, case aside. Each job pair has its own |
-| `ui` | table | The UI's settings, shared by every job pair: `open` (bool), and any `ui.<name>` your UI saved. The standard HUD's, which yours may ignore: `hp_width`, `mp_width` (80 to 600), `hp_height` (10 to 120), `mp_height` (4 to 80), `name_size` (8 to 64), `text_size` (8 to 48), `gap` (0 to 40), all in pixels; `opacity` (0 to 100, the panel's %); `locked` (bool, it can't be dragged); `japanese` (bool, the client's language, as `view.japanese`: not free for a UI's own use) |
+| `ui` | table | The UI's settings, shared by every job pair: `open` (bool), and any `ui.<name>` your UI saved. The standard HUD's, which yours may ignore: `hp_width`, `mp_width` (80 to 600), `hp_height` (10 to 120), `mp_height` (4 to 80), `name_size` (8 to 64), `text_size` (8 to 48), `gap` (0 to 40), all in pixels; `opacity` (0 to 100, the panel's %); `locked` (bool, it can't be dragged); SK Settings' `scale` (50 to 200, % of the size that suits the screen; nil for 100); `japanese` (bool, the client's language, as `view.japanese`: not free for a UI's own use) |
 | `sections` | list | Every setting, by section, below |
 | `remote` | list | The SK Settings of other Sidekick sessions on this PC you have open (`act.watch`; sent only while your UI is open), by name: `{ name, view, other }`. `view` is the view that session built and sent (nil until its first one comes, about a second): the same fields as yours but `pointer`, `ui` and `remote`, plus `session` (its name) and `version`. Draw it with `act.remote(name)` in place of `act`. `other` is true (and `view` nil) when that session runs another version of Sidekick3, whose view this one can't draw |
 | `session` | string or nil | Only on a view in `remote`: the session it came from. nil on yours |
@@ -209,6 +209,7 @@ In this order. A section with rows is left out when your job has none for it (Pe
 | `'ui.gap'` | 0 to 40 |
 | `'ui.opacity'` | 0 to 100 |
 | `'ui.locked'` | bool |
+| `'ui.scale'` | 50 to 200 |
 | `'ui.<name>'` | your UI's own: a string, number or bool |
 
 Nothing is checked, so keep values in range. Settings are kept per job pair (one file for WHM/BLM, another for WHM/SCH), but for `ui`: every job pair shares it (its own file, `ui.lua`), so a UI's own `ui.<name>` is the same whatever you play.
@@ -225,8 +226,9 @@ Sidekick saves after any `act` call that changes a setting, once no ImGui widget
 - **`Text`, `TextColored` and `SetTooltip` take a printf format.** A `%` in what you show must be doubled: `imgui.Text((s:gsub('%%', '%%%%')))`. `why` texts and HP like `'62%'` need it.
 - **Draw-list text is not a format.** `imgui.GetWindowDrawList():AddText(imgui.GetFont(), size, { x, y }, color, s)` draws `s` as is, at `size` pixels: don't double its `%`. Colours there are `imgui.GetColorU32({ r, g, b, a })`.
 - **Labels are ids.** Two widgets with the same label in one window clash; add a unique suffix after `##` (`'On##heal'`), which isn't shown. Use `###` to keep the id when the label changes (`'Recent (3)###recent'`).
-- **Close what you open.** `Begin` always needs `End`. `BeginTable`, `BeginCombo`, `BeginTabBar`, `BeginTabItem` and `BeginPopup*` need their `End*` only when they returned true. Every `Push*` needs its `Pop*`.
+- **Close what you open.** `Begin` and `BeginChild` always need `End` and `EndChild`. `BeginTable`, `BeginCombo`, `BeginTabBar`, `BeginTabItem` and `BeginPopup*` need their `End*` only when they returned true. Every `Push*` needs its `Pop*`.
 - **Constants** like `ImGuiWindowFlags_NoDecoration` are globals `require('imgui')` defines. When you use a new one, add it to `read_globals` in `.luacheckrc`: luacheck then accepts it, and the test below defines it.
+- **Two ImGui versions.** Ashita 4.30's libraries (VanaCore's default) are ImGui 1.92 (`IMGUI_VERSION_NUM` 19223), Ashita 4.16's are 1.81 (18000), and some calls differ between them: `BeginChild`'s third argument, the corner flags of `AddRectFilled`, `PushFont`'s size. `ui/kit.lua` handles them; use it, or check `IMGUI_VERSION_NUM` yourself.
 
 ## Test it
 
@@ -234,7 +236,7 @@ Sidekick saves after any `act` call that changes a setting, once no ImGui widget
 luajit tests/run.lua ui_window
 ```
 
-With `ui/custom.lua` present, this also draws it through a fake ImGui, running and stopped, and fails on a Lua error or an ImGui scope left open. The fake answers `false` to calls it has no handler for; if your UI needs a number back (a width, say), add a handler in `tests/ui_window_test.lua`. In the game, `/addon reload sidekick3` picks up each change.
+With `ui/custom.lua` present, this also draws it through a fake ImGui, running and stopped, and fails on a Lua error or an ImGui scope left open. The fake answers `false` to calls it has no handler for; if your UI needs a number back (a width, say), add a handler in `tests/ui_window_test.lua`. It reports every popup open, so a drop-down's list is drawn and its choices can be clicked; for `ui/kit.lua`'s controls it steps `kit.clock` a second a frame (every eased value lands at once) and drags a slider through `kit.dragged`. In the game, `/addon reload sidekick3` picks up each change.
 
 ## Example
 

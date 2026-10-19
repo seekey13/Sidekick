@@ -12,20 +12,20 @@ for i, name in ipairs(rc.read_globals) do
     if name:match('^ImGui') then rawset(_G, name, i) end
 end
 
--- Openers and their closers. Every opener reports open (so every body draws)
--- unless a test sets frame.clicks[opener] = false; Begin and Push* need their
--- closer either way. Style vars are counted apart: ImGui lets them be pushed
--- before a Begin and popped straight after it. Tabs and popups are for custom UIs.
+-- Openers and their closers. Every opener reports open (so every body draws, every
+-- popup's list too) unless a test sets frame.clicks[opener] = false; Begin, BeginChild
+-- and Push* need their closer either way. Style vars are counted apart: ImGui lets
+-- them be pushed before a Begin and popped straight after it. Tabs are for custom UIs.
 local CLOSER = {
-    Begin = 'End', BeginTable = 'EndTable', BeginCombo = 'EndCombo', BeginTabBar = 'EndTabBar',
-    BeginTabItem = 'EndTabItem', BeginPopupContextItem = 'EndPopup', BeginPopupContextWindow = 'EndPopup',
+    Begin = 'End', BeginChild = 'EndChild', BeginTable = 'EndTable', BeginCombo = 'EndCombo', BeginTabBar = 'EndTabBar',
+    BeginTabItem = 'EndTabItem', BeginPopup = 'EndPopup', BeginPopupContextItem = 'EndPopup', BeginPopupContextWindow = 'EndPopup',
     PushStyleColor = 'PopStyleColor', PushItemWidth = 'PopItemWidth',
 }
-local ALWAYS = { Begin = true, PushStyleColor = true, PushItemWidth = true }
+local ALWAYS = { Begin = true, BeginChild = true, PushStyleColor = true, PushItemWidth = true }
 local IDS = { Checkbox = true, Button = true, InvisibleButton = true, SliderInt = true, BeginCombo = true,
               CollapsingHeader = true, BeginTabItem = true }
 
-local frame  -- { stack, vars, texts, ids, args, flags, columns, headers, drawn, window, cursor, extent, clicks, edited }
+local frame  -- { stack, vars, texts, ids, args, flags, columns, drawn, window, cursor, extent, clicks, edited }
 
 local function pop(closer)
     local top = table.remove(frame.stack)
@@ -77,6 +77,7 @@ local WINDOW_LIST, BACKGROUND_LIST = draw_list('window'), draw_list('background'
 local handlers = {
     Text = function (fmt) shown(fmt) end,
     TextColored = function (color, fmt) assert(#color == 4); shown(fmt) end,
+    TextDisabled = function (fmt) shown(fmt) end,
     SetTooltip = function (fmt) shown(fmt) end,
     IsItemHovered = function () return true end,
     CalcTextSize = function (s) return #s * 7, 13 end,
@@ -108,12 +109,20 @@ local handlers = {
         return true
     end,
     Button = function (label) return frame.clicks[label] == true end,
+    -- A click is clicks[label] = true; a slider is dragged to clicks[label] = n (kit.dragged, below).
     InvisibleButton = function (label, size)
         placed(size, label)
         assert(size[1] > 0 and size[2] > 0, label .. ': ImGui asserts on a zero size')
         return frame.clicks[label] == true
     end,
     Selectable = function (label) return frame.clicks[label] == true end,
+    -- Typing: clicks[label] = 'text' types it and presses Enter.
+    InputText = function (label, v)
+        assert(type(v) == 'table' and type(v[1]) == 'string', label .. ': value must be { string }')
+        if type(frame.clicks[label]) ~= 'string' then return false end
+        v[1] = frame.clicks[label]
+        return true
+    end,
     GetCursorPosX = function () return 8 end,
     SliderInt = function (label, v, min, max)
         assert(type(v) == 'table' and v[1] >= min and v[1] <= max, label .. ': value must be { n } in range')
@@ -157,9 +166,6 @@ local imgui = setmetatable({}, { __index = function (_, name)
             return open
         elseif name:match('^End') or name == 'PopItemWidth' then
             pop(name)
-        elseif name == 'CollapsingHeader' then
-            frame.headers[label] = select(2, ...) or 0
-            return frame.clicks[label] ~= false
         elseif handlers[name] then
             return handlers[name](...)
         end
@@ -167,8 +173,16 @@ local imgui = setmetatable({}, { __index = function (_, name)
     end
 end })
 package.preload['imgui'] = function () return imgui end
-package.loaded['ui.window'] = nil
+package.loaded['ui.kit'], package.loaded['ui.window'] = nil, nil
 local window = require('ui.window')
+
+-- The kit's clock steps a second a frame, so every eased value lands at once; a
+-- slider is held while the test drags it, to the value it names.
+local kit = require('ui.kit')
+local P = kit.P
+local tick = 0
+kit.clock = function () tick = tick + 1; return tick end
+kit.dragged = function (id) local v = frame.clicks[id]; return type(v) == 'number' and v or nil end
 
 local cat = fake.catalog(3, 75, 4, 37, { 'Divine Seal', 'Martyr' })
 local NAMES = { job = function (id) return ({ [3] = 'WHM', [4] = 'BLM' })[id] end, statuses = fake.res.statuses }
@@ -205,8 +219,6 @@ local TRACKING = {
     remove = function (name) tracking_calls[#tracking_calls + 1] = { 'remove', name } end,
 }
 
--- One frame of `ui`; returns the Lua error it raised, if any, and the number of
--- settings writes. `view` defaults to the model's.
 -- What act.remote sent, as { session, fn, args... }.
 local remote_calls = {}
 local function send(name, call)
@@ -215,8 +227,10 @@ local function send(name, call)
     remote_calls[#remote_calls + 1] = c
 end
 
+-- One frame of `ui`; returns the Lua error it raised, if any, and the number of
+-- settings writes. `view` defaults to the model's.
 local function draw(ui, cfg, st, clicks, view)
-    frame = { stack = {}, vars = 0, texts = {}, ids = {}, args = {}, flags = {}, columns = {}, headers = {},
+    frame = { stack = {}, vars = 0, texts = {}, ids = {}, args = {}, flags = {}, columns = {},
               drawn = {}, extent = {}, clicks = clicks or {} }
     local writes = 0
     local act = model.actions(cfg, st, function () writes = writes + 1 end, TRACKING, send)
@@ -224,6 +238,7 @@ local function draw(ui, cfg, st, clicks, view)
     eq(frame.stack, {}, 'every ImGui scope closed')
     eq(frame.vars, 0, 'every style var popped')
     settings_shown = begun('SK Settings') and frame.clicks.close ~= 'SK Settings'
+        and frame.clicks['##sk3_settings_close'] ~= true
     return not ok and err or nil, writes
 end
 
@@ -232,6 +247,14 @@ local function render(cfg, st, clicks, view)
     local err, writes = draw(window, cfg, st, clicks, view)
     eq(err, nil, 'no Lua error')
     return writes
+end
+
+-- `clicks` with SK Settings' page `name` clicked too: the list of pages is drawn
+-- first, so the page shows in that same frame.
+local function on(name, clicks)
+    clicks = clicks or {}
+    clicks['##sk3_page_' .. name] = true
+    return clicks
 end
 
 -- SK Settings, opened through the HUD's cog (or closed with its X) unless it already is.
@@ -244,8 +267,6 @@ local function close_settings()
     if settings_shown then render(settings.defaults(), status(), { close = 'SK Settings' }) end
     assert(not settings_shown, 'SK Settings closed')
 end
-
-local function showed(s) return has(frame.texts, s) end
 
 -- Some tooltip or text holds `s`.
 local function tipped(s)
@@ -271,8 +292,18 @@ local function fill(s, list)
     return color
 end
 
-local function rgb(r, g, b) return { r / 255, g / 255, b / 255, 1 } end
-local WHITE, RED, AWAY = rgb(0xFF, 0xFF, 0xFF), rgb(0xF0, 0x7A, 0x7A), rgb(0xA0, 0xA0, 0xA0)
+-- `s` was drawn: the drawn text, one string after another, a space apart, holds it
+-- (so a note wrapped onto two lines still reads whole).
+local function drew(s, list)
+    local all = {}
+    for _, d in ipairs(calls('AddText', list)) do all[#all + 1] = d.args[5] end
+    return (' ' .. table.concat(all, ' ') .. ' '):find(s, 1, true) ~= nil
+end
+
+-- A widget's button was made: its id among this frame's invisible buttons.
+local function button(id) return has(frame.args.InvisibleButton, id) end
+
+local u32 = kit.u32
 
 -- The HUD ---------------------------------------------------------------------------
 
@@ -284,10 +315,15 @@ test('the HUD draws running and stopped; SK Settings only once the cog opens it,
     end
     eq(tipped('WHM 75 / BLM 37\nStopped: would: Cure IV -> A (heal: A at 62%)\n[combat]\nTarget: Crab  50%  4.3y'), true)
     eq(render(settings.defaults(), status(), { ['##sk3_cog'] = true }), 0)
-    eq({ begun('SK Settings'), showed('ready') }, { true, true })
+    eq({ begun('SK Settings'), drew('Follow past') }, { true, true })  -- its first page: Follow
     render(settings.defaults(), status({ running = true, intent = false, why = 'casting' }))
     eq({ begun('SK Settings'), tipped('Running: Cure IV -> A (heal: A at 62%)\n(casting)') }, { true, true })
     eq(render(settings.defaults(), status(), { close = 'SK Settings' }), 0)
+    render(settings.defaults(), status())
+    eq(begun('SK Settings'), false)
+    open_settings()
+    render(settings.defaults(), status(), { ['##sk3_settings_close'] = true })  -- its own X
+    eq(begun('SK Settings'), true)
     render(settings.defaults(), status())
     eq(begun('SK Settings'), false)
     open_settings()
@@ -296,6 +332,7 @@ test('the HUD draws running and stopped; SK Settings only once the cog opens it,
 end)
 
 test('a card per member: name and tag drawn as is, its HP % and MP % and the rest in its tooltip', function ()
+    close_settings()
     render(settings.defaults(), status())
     for _, s in ipairs({ 'Sidekick3', 'Me', 'A', 'B', 'ME', 'P1', 'P2' }) do eq(fill(s) ~= nil, true, s) end
     eq({ fill('62%'), fill('100%') }, { nil, nil })
@@ -303,35 +340,45 @@ test('a card per member: name and tag drawn as is, its HP % and MP % and the res
     eq(tipped('B (trust, away)\nHP 100%  MP 100%'), true)
 end)
 
+-- The HP fill drawn from (x, y): its rectangle's far corner and its colour.
+local function hp_fill(x, y)
+    for _, d in ipairs(calls('AddRectFilled')) do
+        if d.args[1][1] == x and d.args[1][2] == y and d.args[3] == u32(P.hp) then return d.args[2] end
+    end
+end
+
 test('the panel and bars follow the UI settings', function ()
+    close_settings()
     local cfg = settings.defaults()
     cfg.ui.hp_width, cfg.ui.opacity = 300, 50
     render(cfg, status())
     local panel = calls('AddRectFilled')[1].args
-    eq({ panel[1], panel[2][1], panel[3] }, { { 100, 50 }, 100 + 2 * 4 + 2 * 2 + 300, { 0x60 / 255, 0x60 / 255, 0x60 / 255, 0.5 } })
-    local hp = calls('AddRectFilledMultiColor')[3].args  -- A's HP: 62% of 300
-    eq({ hp[1], hp[2] }, { { 106, 50 + 23 + 64 + 8 + 2 }, { 106 + 186, 50 + 23 + 64 + 8 + 2 + 40 } })
+    eq({ panel[1], panel[2][1], panel[3] }, { { 100, 50 }, 100 + 2 * 8 + 300, u32(P.bg, 0.5) })
+    -- Title 25, then a card 40 + 3 + 18 high and 8 apart: A's, the second, from y 144; 62% of 300.
+    eq(hp_fill(108, 144), { 108 + 186, 144 + 40 })
     cfg.ui.hp_width, cfg.ui.mp_width, cfg.ui.text_size = 80, 80, 48  -- big text on short bars: the title row still fits
     render(cfg, status())
-    eq(calls('AddRectFilled')[1].args[2][1], 100 + math.ceil(8 + 9 * 7 * 48 / 13 + 8 + 60 + 6))
+    eq(calls('AddRectFilled')[1].args[2][1], 100 + math.ceil(8 + 9 * 7 * 48 / 13 + 8 + 60 + 8))
 end)
 
 test('the HUD\'s items reach exactly the panel\'s far corner, so its auto-size fits the panel', function ()
+    close_settings()
     render(settings.defaults(), status())
     eq(frame.extent.Sidekick3, calls('AddRectFilled')[1].args[2])
-    eq(frame.extent.Sidekick3, { 100 + 232, 50 + 23 + 3 * 64 + 2 * 8 + 4 })
+    eq(frame.extent.Sidekick3, { 100 + 236, 50 + 25 + 3 * 61 + 2 * 8 + 8 })
 end)
 
 test('sizes out of their sliders\' range, set by hand or by a custom UI, are held to it', function ()
     close_settings()  -- its sliders would show the values as they are
     local cfg = settings.defaults()
-    cfg.ui.text_size, cfg.ui.hp_width, cfg.ui.opacity = 0, 5000, -20  -- a zero text size would make zero-size icons
+    cfg.ui.text_size, cfg.ui.hp_width, cfg.ui.opacity = 0, 5000, -20  -- a zero text size would make zero-size buttons
     render(cfg, status())
     local panel = calls('AddRectFilled')[1].args
-    eq({ panel[2][1], panel[3][4] }, { 100 + 2 * 4 + 2 * 2 + 600, 0 })
+    eq({ panel[2][1], panel[3] }, { 100 + 2 * 8 + 600, u32(P.bg, 0) })
 end)
 
-test('critical HP turns the name red, MP under the Recover line the tag', function ()
+test('critical HP turns the name rose, MP under the Recover line the tag; away greys both', function ()
+    close_settings()
     local cfg, st = settings.defaults(), status()
     local g = fake.snap({
         { name = 'A', hpp = 20, mpp = 10 },
@@ -339,85 +386,89 @@ test('critical HP turns the name red, MP under the Recover line the tag', functi
         { name = 'Gone', hpp = 25, in_zone = false },
     })
     render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
-    eq({ fill('A'), fill('P1') }, { RED, RED })
-    eq({ fill('W'), fill('P2') }, { WHITE, WHITE })
-    eq({ fill('Me'), fill('ME') }, { WHITE, WHITE })
-    eq({ fill('Gone'), fill('P3') }, { AWAY, AWAY })
+    eq({ fill('A'), fill('P1') }, { u32(P.rose), u32(P.rose) })
+    eq({ fill('W'), fill('P2') }, { u32(P.white), u32(P.text2) })
+    eq({ fill('Me'), fill('ME') }, { u32(P.white), u32(P.text2) })
+    eq({ fill('Gone'), fill('P3') }, { u32(P.dim), u32(P.dim) })
 end)
 
 test('the alliance gets a thin HP row each under the cards, a gap before each party; the arrow points at one', function ()
+    close_settings()
     local cfg = settings.defaults()
     local g = fake.snap({ { name = 'A' }, { kind = 'alliance', name = 'Bea', hpp = 20 }, { kind = 'alliance', name = 'Bo', slot = 7 },
         { kind = 'alliance', name = 'Cy', slot = 12, in_zone = false } })
     local st = status({ intent = { at = 990, action = 'Cure IV', target = 'Bo', behavior = 'heal', why = 'Bo' } })
     render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
-    local cards = 23 + 2 * 64 + 8               -- title, two cards and the gap between them
-    local b, c = cards + 8 + 2, cards + 8 + 2 + 2 * 20 + 8 + 2  -- each party's first bar top: after a gap and a border
-    eq(frame.extent.Sidekick3, { 100 + 232, 50 + c + 20 + 4 })  -- the panel still fits its items exactly
-    eq(calls('AddRectFilled')[1].args[2][2], 50 + c + 20 + 4)
-    eq({ fill('B0 Bea'), fill('B1 Bo'), fill('C0 Cy'), fill('20%') }, { RED, WHITE, AWAY, nil })
+    local cards = 25 + 2 * 61 + 8               -- title, two cards and the gap between them
+    local b, c = cards + 8, cards + 8 + 18 + 3 + 18 + 8  -- each party's first bar top: after a gap
+    eq(frame.extent.Sidekick3, { 100 + 236, 50 + c + 18 + 8 })  -- the panel still fits its items exactly
+    eq(calls('AddRectFilled')[1].args[2][2], 50 + c + 18 + 8)
+    eq({ fill('B0 Bea'), fill('B1 Bo'), fill('C0 Cy'), fill('20%') }, { u32(P.rose), u32(P.white), u32(P.dim), nil })
     eq(tipped('Bea (alliance)\nHP 20%  MP 100%  5.0y'), true)
     local arrow = calls('AddTriangleFilled', 'background')
-    eq({ #arrow, arrow[1].args[1] }, { 2, { 100 + 232 + 1, 50 + b + 20 + 9 } })  -- one arrow (fill, bevel): Bo's row, its centre
+    eq({ #arrow, arrow[1].args[1] }, { 1, { 100 + 236 + 2, 50 + b + 18 + 3 + 9 } })  -- its point: Bo's row, its middle
     eq(fill('Heal:Cure IV', 'background') ~= nil, true)
 end)
 
-test('the arrow points at the card the next action is for: yellow running, grey stopped, none idle', function ()
+test('the arrow\'s label points at the card the next action is for: amber running, grey stopped, none idle', function ()
+    close_settings()
     render(settings.defaults(), status())
     local arrow = calls('AddTriangleFilled', 'background')[1].args
-    eq({ arrow[1], arrow[4] }, { { 100 + 232 + 1, 50 + 23 + 72 + 32 }, rgb(0xB4, 0xB4, 0xB4) })  -- A's card, its centre
-    eq(fill('Heal:Cure IV', 'background'), rgb(0xD0, 0xD0, 0xD0))
+    eq({ arrow[1], arrow[4] }, { { 100 + 236 + 2, 50 + 25 + 69 + 30.5 }, u32(P.seg) })  -- A's card, its middle
+    eq(fill('Heal:Cure IV', 'background'), u32(P.text2))
     render(settings.defaults(), status({ running = true }))
-    eq(calls('AddTriangleFilled', 'background')[1].args[4], rgb(0xFF, 0xE5, 0x45))
-    eq(fill('Heal:Cure IV', 'background'), WHITE)
+    eq(calls('AddTriangleFilled', 'background')[1].args[4], u32(P.amber))
+    eq(fill('Heal:Cure IV', 'background'), u32(P.ink))
     render(settings.defaults(), status({ intent = false }))
     eq(#calls('AddTriangleFilled', 'background'), 0)
 end)
 
--- The icons drawn at (x, y): their discs' centres, in the order drawn.
+-- The round buttons and glyphs drawn: their discs' centres and colours, in the order drawn.
 local function discs()
     local out = {}
-    for _, d in ipairs(calls('AddCircleFilled')) do out[#out + 1] = d.args[1] end
+    for _, d in ipairs(calls('AddCircleFilled')) do out[#out + 1] = { d.args[1][1], d.args[1][2], d.args[3] } end
     return out
 end
 
-test('run and the cog sit at the top right of your own HP bar, the title row keeps close', function ()
+test('run and the cog sit at the top right of your own HP bar, the title row keeps close; lit while on', function ()
     close_settings()
     render(settings.defaults(), status())
-    -- Text 14: icons 17px. Your card's HP bar runs x 106-326 from y 75; close is in the title row at y 50.
+    -- Text 14: buttons 17px. Your card's HP bar runs x 108-328 from y 75; close is in the title row at y 50.
     local c = discs()
-    eq(c[1], { 100 + 232 - 6 - 17 + 8.5, 50 + 3 + 8.5 })                 -- close
-    eq({ c[2], c[3] }, { { 326 - 2 - 17 - 4 - 17 + 8.5, 77 + 8.5 }, { 326 - 2 - 17 + 8.5, 77 + 8.5 } })  -- run, then the cog's body
+    eq({ c[1][1], c[1][2] }, { 100 + 236 - 8 - 17 + 8.5, 50 + 4 + 8.5 })                    -- close
+    eq({ c[2][1], c[2][2], c[3][1], c[3][2] }, { 328 - 2 - 17 - 4 - 17 + 8.5, 77 + 8.5, 328 - 2 - 17 + 8.5, 77 + 8.5 })  -- run, cog
     eq(#frame.args.InvisibleButton, 3)
-    -- On a full bar the icons are cut in its colour; on an empty one, in the empty colour.
-    local cfg, st = settings.defaults(), status()
-    local g = fake.snap({ { name = 'A' } })
-    g.me.hpp = 10
-    render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
-    eq(calls('AddTriangleFilled')[1].args[4], rgb(0x2E, 0x2E, 0x2E))  -- the play triangle, cut on empty
+    -- The fake hovers everything: run unlit is the accent's low shade, lit its light one; the cog lit while SK Settings shows.
+    eq({ c[2][3], c[3][3] }, { u32(P.accent_lo), u32(P.accent_lo) })
+    render(settings.defaults(), status({ running = true }))
+    eq(discs()[2][3], u32(P.accent2))
+    open_settings()
     render(settings.defaults(), status())
-    eq(calls('AddTriangleFilled')[1].args[4], rgb(0xFF, 0x90, 0x90))
+    eq(discs()[3][3], u32(P.accent2))
+    close_settings()
 end)
 
-test('a short HP bar shrinks the icons to fit it', function ()
+test('a short HP bar shrinks the buttons to fit it', function ()
+    close_settings()
     local cfg = settings.defaults()
     cfg.ui.hp_height = 12
     render(cfg, status())
     local c = discs()
-    eq(c[2][2] - 75, 2 + 4)  -- 8px icons, 2px from the bar's top
+    eq(c[2][2] - 75, 2 + 4)  -- 8px buttons, 2px from the bar's top
     cfg.ui.hp_height, cfg.ui.hp_width, cfg.ui.text_size = 120, 80, 48  -- big text on a narrow bar: both still fit across it
     render(cfg, status())
     c = discs()
-    eq({ c[2][1] - 18, c[3][1] + 18 }, { 106 + 80 - 2 - 36 - 4 - 36, 106 + 80 - 2 })  -- 36px icons, from the bar's left to its right
+    eq({ c[2][1] - 18, c[3][1] + 18 }, { 108 + 80 - 2 - 36 - 4 - 36, 108 + 80 - 2 })  -- 36px buttons, from the bar's left to its right
 end)
 
-test('an icon\'s tooltip replaces the card\'s', function ()
-    render(settings.defaults(), status())  -- the fake hovers everything: the icons win
+test('a button\'s tooltip replaces the card\'s', function ()
+    close_settings()
+    render(settings.defaults(), status())  -- the fake hovers everything: the buttons win
     eq({ tipped('Start automation'), tipped('Settings'), tipped('Me\nHP') }, { true, true, false })
     eq(tipped('A\nHP 62%'), true)
 end)
 
-test('the run icon starts and stops automation, for this session only', function ()
+test('the run button starts and stops automation, for this session only', function ()
     local cfg, st = settings.defaults(), status()
     eq(render(cfg, st, { ['##sk3_run'] = true }), 0)
     eq(st.running, true)
@@ -426,7 +477,7 @@ test('the run icon starts and stops automation, for this session only', function
     eq(cfg, settings.defaults())
 end)
 
-test('the close icon closes the HUD, remembers it, and hides SK Settings', function ()
+test('the close button closes the HUD, remembers it, and hides SK Settings', function ()
     open_settings()
     local cfg, st = settings.defaults(), status()
     cfg.ui.open = true
@@ -446,8 +497,11 @@ test('a Lua error while drawing still ends both windows, then is raised', functi
     open_settings()
     local cfg, st = settings.defaults(), status()
     local view = model.build(snap(), cat, cfg, st, NAMES)
-    view.recent = nil  -- in SK Settings
+    view.sections = nil  -- in SK Settings
     eq(type(draw(window, cfg, st, nil, view)), 'string')
+    view = model.build(snap(), cat, cfg, st, NAMES)
+    view.recent = nil  -- in SK Settings' UI / Log page, inside its scrolling child
+    eq(type(draw(window, cfg, st, on('UI / Log'), view)), 'string')
     view = model.build(snap(), cat, cfg, st, NAMES)
     view.party = nil  -- in the HUD
     eq(type(draw(window, cfg, st, nil, view)), 'string')
@@ -455,126 +509,171 @@ end)
 
 -- SK Settings -----------------------------------------------------------------------
 
--- SK Settings' headers for `cfg` (and `in_cat` in place of the catalog).
-local function headers(cfg, in_cat)
+-- SK Settings' pages for `cfg` (and `in_cat` in place of the catalog), in the list's order.
+local function pages(cfg, in_cat)
     open_settings()
     local st = status()
     render(cfg, st, nil, in_cat and model.build(snap(), in_cat, cfg, st, NAMES))
-    return frame.args.CollapsingHeader
+    local out = {}
+    for _, id in ipairs(frame.args.InvisibleButton) do
+        local name = id:match('^##sk3_page_(.*)')
+        if name then out[#out + 1] = name end
+    end
+    return out
 end
 
-test('a header for each group of sections, in order, closed at first; all its switches off, it says so', function ()
+test('a page for each group of sections, in order, Profiles and UI / Log at the foot; one with every switch off a ring', function ()
     local cfg = settings.defaults()
     cfg.buff.on = false
-    eq(headers(cfg), { 'Profiles###sk3_Profiles', 'Follow (off)###sk3_Follow', 'Heal###sk3_Heal', 'Remove###sk3_Remove', 'Buff (off)###sk3_Buff',
-        'Recover###sk3_Recover', 'Tracked###sk3_Tracked', 'UI / Log###sk3_UI / Log' })
-    for _, flags in pairs(frame.headers) do eq(flags, 0) end
-    eq(headers(settings.defaults(), fake.catalog(18, 75, nil, 0, { 'Repair', 'Deploy' })),  -- PUP
-        { 'Profiles###sk3_Profiles', 'Follow (off)###sk3_Follow', 'Remove###sk3_Remove', 'Pet###sk3_Pet', 'Recover (off)###sk3_Recover',
-          'Tracked###sk3_Tracked', 'UI / Log###sk3_UI / Log' })
+    eq(pages(cfg), { 'Follow', 'Heal', 'Remove', 'Buff', 'Recover', 'Tracked', 'Profiles', 'UI / Log' })
+    eq(#calls('AddCircle'), 2)  -- Follow and Buff: all off
+    eq(pages(settings.defaults(), fake.catalog(18, 75, nil, 0, { 'Repair', 'Deploy' })),  -- PUP
+        { 'Follow', 'Remove', 'Pet', 'Recover', 'Tracked', 'Profiles', 'UI / Log' })
+    eq(#calls('AddCircle'), 2)  -- Follow and Recover
+end)
+
+test('a click on a page shows it; a click on a section\'s title folds it, and again unfolds it', function ()
+    open_settings()
+    local cfg, st = settings.defaults(), status()
+    render(cfg, st, on('Heal'))
+    eq({ button('##sk3_fold_heal'), button('##sk3_fold_revive'), button('##sk3_fold_buff') }, { true, true, false })
+    eq({ button('Danger under##sk3_danger'), button('Cure##heal_Cure') }, { true, true })
+    render(cfg, st, { ['##sk3_fold_heal'] = true })
+    render(cfg, st)
+    eq({ button('Danger under##sk3_danger'), button('Cure##heal_Cure'), button('##sk3_fold_revive') }, { false, false, true })
+    render(cfg, st, { ['##sk3_fold_heal'] = true })
+    render(cfg, st, on('Buff'))
+    eq({ button('##sk3_fold_buff'), button('##sk3_fold_heal') }, { true, false })
+    render(cfg, st, on('Heal'))
+    eq(button('Cure##heal_Cure'), true)
 end)
 
 test('section switches write: Buffs, Follow, Wake sleepers, Resting', function ()
     open_settings()
     local cfg, st = settings.defaults(), status()
-    eq(render(cfg, st, { ['Buffs##sk3_on_buff'] = true, ['Follow##sk3_on_follow'] = true,
-        ['Wake sleepers##sk3_on_wake'] = true, ['Resting##sk3_on_rest'] = true }), 4)
+    eq(render(cfg, st, on('Buff', { ['Buffs##sk3_on_buff'] = true })), 1)
+    eq(render(cfg, st, on('Follow', { ['Follow##sk3_on_follow'] = true })), 1)
+    eq(render(cfg, st, on('Remove', { ['Wake sleepers##sk3_on_wake'] = true })), 1)
+    eq(render(cfg, st, on('Recover', { ['Resting##sk3_on_rest'] = true })), 1)
     eq({ cfg.buff.on, cfg.follow.on, cfg.wake.on, cfg.rest.on }, { false, true, false, true })
+end)
+
+test('a section switched off draws its rows faded, still settable', function ()
+    open_settings()
+    local cfg, st = settings.defaults(), status()
+    render(cfg, st, on('Buff'))
+    eq(fill('Protect'), u32(P.dim))  -- a buff row starts off: its name dimmed
+    cfg.buff.on = false
+    eq(render(cfg, st, on('Buff', { ['Protect##buff_Protect'] = true })), 1)
+    eq({ fill('Protect'), cfg.rows.Protect.on }, { u32(P.dim, 0.55), true })
 end)
 
 test('a row, its pick and its targets each write and save', function ()
     open_settings()
     local cfg, st = settings.defaults(), status()
-    eq(render(cfg, st, { ['Protect##buff_Protect'] = true }), 1)
+    eq(render(cfg, st, on('Buff', { ['Protect##buff_Protect'] = true })), 1)
     eq(cfg.rows.Protect, { on = true })
-    eq(render(cfg, st, { ['Protect II'] = true }), 1)
+    eq(render(cfg, st, on('Buff', { ['Protect II'] = true })), 1)
     eq(cfg.rows.Protect.pick, 'Protect II')
-    eq(render(cfg, st, { ['P1##buff_Protect1'] = true }), 1)
+    eq(render(cfg, st, on('Buff', { ['P1##buff_Protect1'] = true })), 1)
     eq(cfg.rows.Protect.targets, { [0] = true, [1] = true })
-    eq(render(cfg, st, { ['P4##buff_Protect4'] = true }), 0)  -- empty slot
+    eq(render(cfg, st, on('Buff', { ['P4##buff_Protect4'] = true })), 0)  -- empty slot
     eq(cfg.rows.Protect.targets, { [0] = true, [1] = true })
-    eq(render(cfg, st, { ['Cure##heal_Cure'] = true }), 1)
+    eq(render(cfg, st, on('Heal', { ['Cure##heal_Cure'] = true })), 1)
     eq(cfg.rows.Cure, { on = false })
-    eq(render(cfg, st, { ['Echo Drops (0)###remove_Echo Drops'] = true }), 1)  -- an item, with how many you carry
+    eq(render(cfg, st, on('Remove', { ['Echo Drops (0)###remove_Echo Drops'] = true })), 1)  -- an item, with how many you carry
     eq(cfg.rows['Echo Drops'], { on = true })
 end)
 
-test('items get a table of their own, with no empty pick or target columns', function ()
+test('items get a heading of their own, with no pick or targets', function ()
     open_settings()
-    render(settings.defaults(), status())
-    eq({ frame.columns['##sk3_rows_remove'], frame.columns['##sk3_rows_remove_items'], frame.columns['##sk3_rows_buff'] },
-       { 2, 2, 4 })
-    eq(showed('Items'), true)
+    render(settings.defaults(), status(), on('Remove'))
+    eq({ drew('ITEMS'), button('Echo Drops (0)###remove_Echo Drops'), button('##pick_remove_Echo Drops') }, { true, true, false })
+    render(settings.defaults(), status(), on('Buff'))
+    eq({ button('##pick_buff_Protect'), button('P1##buff_Protect1'), drew('ITEMS') }, { true, true, false })
 end)
 
 test('sliders, the focus and the options write the settings', function ()
     open_settings()
     local cfg, st = settings.defaults(), status()
-    eq(render(cfg, st, { ['Danger under##sk3_danger'] = 60 }), 1)
+    eq(render(cfg, st, on('Heal', { ['Danger under##sk3_danger'] = 60 })), 1)
     eq(cfg.heal.danger, 60)
-    eq(render(cfg, st, { ['A##sk3_focus_A'] = true }), 1)  -- the focus combo's member
+    eq(render(cfg, st, on('Heal', { ['A##sk3_focus_A'] = true })), 1)  -- the focus drop-down's member
     eq(cfg.heal.focus, 'A')
-    eq(render(cfg, st, { ['None##sk3_focus_none'] = true }), 1)
+    eq(render(cfg, st, on('Heal', { ['None##sk3_focus_none'] = true })), 1)
     eq(cfg.heal.focus, '')
-    eq(render(cfg, st, { ['Japanese client##sk3_japanese'] = true }), 1)
+    eq(render(cfg, st, on('UI / Log', { ['Japanese client##sk3_japanese'] = true })), 1)
     eq(cfg.ui.japanese, true)
-    eq(render(cfg, st, { ['Focus danger under##sk3_focus_danger'] = 65 }), 1)
+    eq(render(cfg, st, on('Heal', { ['Focus danger under##sk3_focus_danger'] = 65 })), 1)
     eq(cfg.heal.focus_danger, 65)
+    render(cfg, st, on('Buff'))
     eq(frame.ids['SK Settings|Ask them to gather##sk3_gather'], nil)  -- only while holding
-    eq(render(cfg, st, { ['Hold area buffs for the group##sk3_hold_aoe'] = true }), 1)
+    eq(render(cfg, st, on('Buff', { ['Hold area buffs for the group##sk3_hold_aoe'] = true })), 1)
     eq(cfg.buff.hold_aoe, true)
-    eq(render(cfg, st, { ['Ask them to gather##sk3_gather'] = true }), 1)
+    eq(render(cfg, st, on('Buff', { ['Ask them to gather##sk3_gather'] = true })), 1)
     eq(cfg.buff.gather, false)
+end)
+
+test('a slider\'s value, clicked, takes a typed number, held to its range', function ()
+    open_settings()
+    local cfg, st = settings.defaults(), status()
+    eq(render(cfg, st, on('Heal', { ['Danger under##sk3_danger.value'] = true, ['##Danger under##sk3_danger.typed'] = '45' })), 1)
+    eq(cfg.heal.danger, 45)
+    eq(render(cfg, st, on('Heal', { ['##Danger under##sk3_danger.typed'] = '250' })), 1)
+    eq(cfg.heal.danger, 99)
+    eq(render(cfg, st, on('Heal', { ['##Danger under##sk3_danger.typed'] = 'lots' })), 0)
 end)
 
 test('recovery, pet, follow and rest settings write through act', function ()
     open_settings()
     local cfg, st = settings.defaults(), status()
-    eq(render(cfg, st, { ['MP under##sk3_recover_mp'] = 40, ['TP under##sk3_recover_tp'] = 1500 }), 2)
+    eq(render(cfg, st, on('Recover', { ['MP under##sk3_recover_mp'] = 40, ['TP under##sk3_recover_tp'] = 1500 })), 2)
     eq({ cfg.recover.mp, cfg.recover.tp }, { 40, 1500 })
-    eq(render(cfg, st, { ['Spend TP from##sk3_recover_min_tp'] = 1500 }), 0)  -- no Chivalry here
+    eq(render(cfg, st, on('Recover', { ['Spend TP from##sk3_recover_min_tp'] = 1500 })), 0)  -- no Chivalry here
     local pld = model.build(snap(), fake.catalog(7, 75, nil, 0, { 'Chivalry' }), cfg, st, NAMES)
-    eq(render(cfg, st, { ['Spend TP from##sk3_recover_min_tp'] = 1500 }, pld), 1)
+    eq(render(cfg, st, on('Recover', { ['Spend TP from##sk3_recover_min_tp'] = 1500 }), pld), 1)
     eq(cfg.recover.min_tp, 1500)
     local pup = model.build(snap(), fake.catalog(18, 75, nil, 0, { 'Repair', 'Deploy' }), cfg, st, NAMES)
-    eq(render(cfg, st, { ['Pet HP under##sk3_pet_heal'] = 70 }, pup), 1)
+    eq(render(cfg, st, on('Pet', { ['Pet HP under##sk3_pet_heal'] = 70 }), pup), 1)
     eq(cfg.pet.heal, 70)
-    eq(render(cfg, st, { ['A##sk3_follow_target_A'] = true, ['Follow past##sk3_follow_distance'] = 9 }), 2)
+    eq(render(cfg, st, on('Follow', { ['A##sk3_follow_target_A'] = true, ['Follow past##sk3_follow_distance'] = 9 })), 2)
     eq({ cfg.follow.target, cfg.follow.distance, cfg.heal.focus }, { 'A', 9, '' })
-    eq(render(cfg, st, { ['Rest after##sk3_rest_delay'] = 8, ['Stand past##sk3_rest_distance'] = 12 }), 2)
+    eq(render(cfg, st, on('Recover', { ['Rest after##sk3_rest_delay'] = 8, ['Stand past##sk3_rest_distance'] = 12 })), 2)
     eq({ cfg.rest.delay, cfg.rest.distance }, { 8, 12 })
 end)
 
-test('a member unticked under Heal is skipped by healing', function ()
+test('a member switched off under Heal is skipped by healing', function ()
     open_settings()
     local cfg, st = settings.defaults(), status()
-    eq(render(cfg, st, { ['A##sk3_heal_A'] = true }), 1)
+    eq(render(cfg, st, on('Heal', { ['A##sk3_heal_A'] = true })), 1)
     eq(cfg.heal.skip, { A = true })
-    eq(render(cfg, st, { ['A##sk3_heal_A'] = true }), 1)
+    eq(render(cfg, st, on('Heal', { ['A##sk3_heal_A'] = true })), 1)
     eq(cfg.heal.skip, {})
 end)
 
-test('UI / Log: the sliders size the HUD, Lock position keeps it still', function ()
+test('UI / Log: the sliders size the HUD and SK Settings, Lock position keeps the HUD still', function ()
     open_settings()
     local cfg, st = settings.defaults(), status()
-    eq(render(cfg, st, { ['HP bar width##sk3_ui_hp_width'] = 300, ['Name font size##sk3_ui_name_size'] = 30,
-        ['Background opacity##sk3_ui_opacity'] = 50 }), 3)
-    eq({ cfg.ui.hp_width, cfg.ui.name_size, cfg.ui.opacity }, { 300, 30, 50 })
+    eq(render(cfg, st, on('UI / Log', { ['HP bar width##sk3_ui_hp_width'] = 300, ['Name font size##sk3_ui_name_size'] = 30,
+        ['Background opacity##sk3_ui_opacity'] = 50, ['Size##sk3_ui_scale'] = 150 })), 4)
+    eq({ cfg.ui.hp_width, cfg.ui.name_size, cfg.ui.opacity, cfg.ui.scale }, { 300, 30, 50, 150 })
     local free = frame.flags.Sidekick3
-    eq(render(cfg, st, { ['Lock position##sk3_ui_locked'] = true }), 1)
+    eq(render(cfg, st, on('UI / Log', { ['Lock position##sk3_ui_locked'] = true })), 1)
     eq(cfg.ui.locked, true)
     render(cfg, st)
     eq(frame.flags.Sidekick3 - free, ImGuiWindowFlags_NoMove)
+    cfg.ui.scale = nil
+    render(cfg, st)
 end)
 
 test('the action log changes the session, not the settings; the recent list is under it', function ()
     open_settings()
     local cfg, st = settings.defaults(), status()
-    eq(render(cfg, st, { ['Action log##sk3_log'] = true }), 0)
-    eq({ st.log, showed('Cure IV -> A'), showed('heal: A at 62%') }, { false, true, true })
+    eq(render(cfg, st, on('UI / Log', { ['Action log##sk3_log'] = true })), 0)
+    eq({ st.log, drew('Cure IV -> A'), drew('heal: A at 62%') }, { false, true, true })
     eq(cfg, settings.defaults())
-    render(cfg, status({ sent = {} }))
-    eq(showed('Nothing sent yet.'), true)
+    render(cfg, status({ sent = {} }), on('UI / Log'))
+    eq(drew('Nothing sent yet.'), true)
 end)
 
 -- A custom UI gets the same checks as the standard window. The fake answers
@@ -594,97 +693,102 @@ test('a tracked player\'s card has its tag; Tracked lists them to untrack, and o
     local cfg, st = settings.defaults(), status()
     open_settings()
     tracking_calls = {}
-    local writes = render(cfg, st, { ['Untrack##sk3_untrack_Out'] = true, ['Track Stranger##sk3_track'] = true },
+    local writes = render(cfg, st, on('Tracked', { ['Untrack##sk3_untrack_Out'] = true, ['Track Stranger##sk3_track'] = true }),
         model.build(g, cat, cfg, st, NAMES))
     eq({ tracking_calls, writes }, { { { 'remove', 'Out' }, { 'add', 'Stranger' } }, 0 })
     eq(fill('T1') ~= nil, true)
     eq(tipped('Out (tracked, WHM 75 / BLM 37)\nHP 80%  5.0y'), true)
-    eq({ showed('T1 Out  WHM 75 / BLM 37'), showed('P1 A  (in your party)') }, { true, true })
+    eq({ drew('T1 Out  WHM 75 / BLM 37'), drew('P1 A  (in your party)') }, { true, true })
     g.target = nil
-    render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
-    eq(showed('Target a player outside your alliance to track them, or /sk3 track Name.'), true)
+    render(cfg, st, on('Tracked'), model.build(g, cat, cfg, st, NAMES))
+    eq(drew('Target a player outside your alliance to track them, or /sk3 track Name.'), true)
 end)
 
 test('Heal the alliance writes heal.alliance; alliance chips write their slot; Tracked lists one in the alliance', function ()
     local g = fake.snap({ { name = 'A' }, { kind = 'alliance', name = 'Bea', tracked = true } })
     local cfg, st = settings.defaults(), status()
     open_settings()
-    eq(render(cfg, st, { ['Heal the alliance##sk3_heal_alliance'] = true }), 1)
+    eq(render(cfg, st, on('Heal', { ['Heal the alliance##sk3_heal_alliance'] = true })), 1)
     eq(cfg.heal.alliance, true)
-    eq(render(cfg, st, { ['B0##buff_Haste6'] = true }, model.build(g, cat, cfg, st, NAMES)), 1)
+    eq(render(cfg, st, on('Buff', { ['B0##buff_Haste6'] = true }), model.build(g, cat, cfg, st, NAMES)), 1)
     eq(cfg.rows.Haste.targets, { [0] = true, [6] = true })
-    eq(showed('B0 Bea  (in your alliance)'), true)
-    eq(render(cfg, st, { ['Bea##sk3_heal_Bea'] = true }, model.build(g, cat, cfg, st, NAMES)), 1)  -- listed: heal.alliance is on
+    eq({ fill('Bea'), fill('B0 Bea') }, { nil, u32(P.white) })  -- no card in the HUD: a row
+    render(cfg, st, on('Tracked'), model.build(g, cat, cfg, st, NAMES))
+    eq(drew('B0 Bea  (in your alliance)'), true)
+    eq(render(cfg, st, on('Heal', { ['Bea##sk3_heal_Bea'] = true }), model.build(g, cat, cfg, st, NAMES)), 1)  -- listed: heal.alliance is on
     eq(cfg.heal.skip, { Bea = true })
-    eq({ fill('Bea'), fill('B0 Bea') }, { nil, WHITE })  -- no card in the HUD: a row
 end)
 
 local function profiles_named(cfg) return require('core.profiles').names(cfg) end
 
-test('Profiles: Save names the profile loaded, a click loads one, Default goes back; the header names it', function ()
+test('Profiles: Save names the profile loaded, a click loads one, Default goes back; the list names it', function ()
     open_settings()
     local cfg, st = settings.defaults(), status()
     cfg.heal.danger = 40
-    render(cfg, st, { ['Save as##sk3_profile_save_as'] = true })  -- the name typed is blank: nothing saved
+    render(cfg, st, on('Profiles', { ['Save as##sk3_profile_save_as'] = true }))  -- the name typed is blank: nothing saved
     eq(next(cfg.profiles), nil)
     cfg.profiles.Dynamis = { heal = { danger = 20 } }
-    local writes = render(cfg, st, { ['##sk3_profile_1'] = true })
+    local writes = render(cfg, st, on('Profiles', { ['##sk3_profile_1'] = true }))
     eq({ cfg.profile, cfg.heal.danger, cfg.parked.heal.danger, writes }, { 'Dynamis', 20, 40, 1 })
-    render(cfg, st)
-    eq(has(frame.args.CollapsingHeader, 'Profiles: Dynamis###sk3_Profiles'), true)
-    eq(has(frame.args.Button, 'Delete##sk3_profile_delete'), true)
+    render(cfg, st, on('Profiles'))
+    eq({ drew('loaded: Dynamis'), button('Delete##sk3_profile_delete') }, { true, true })
     cfg.heal.danger = 25
-    render(cfg, st, { ['Save##sk3_profile_save'] = true })  -- the name field holds the one loaded
+    render(cfg, st, on('Profiles', { ['Save##sk3_profile_save'] = true }))  -- the name field holds the one loaded
     eq(cfg.profiles.Dynamis.heal.danger, 25)
-    render(cfg, st, { ['Default##sk3_profile_default'] = true })
+    render(cfg, st, on('Profiles', { ['Default##sk3_profile_default'] = true }))
     eq({ cfg.profile, cfg.heal.danger }, { '', 40 })
-    render(cfg, st)
-    eq(has(frame.args.Button, 'Delete##sk3_profile_delete'), false)
-    render(cfg, st, { ['##sk3_profile_1'] = true })
-    render(cfg, st, { ['New##sk3_profile_new'] = true })  -- the name loaded is cleared with it
-    render(cfg, st, { ['Save##sk3_profile_save'] = true })
+    render(cfg, st, on('Profiles'))
+    eq(button('Delete##sk3_profile_delete'), false)
+    render(cfg, st, on('Profiles', { ['##sk3_profile_1'] = true }))
+    render(cfg, st, on('Profiles', { ['New##sk3_profile_new'] = true }))  -- the name loaded is cleared with it
+    render(cfg, st, on('Profiles', { ['Save##sk3_profile_save'] = true }))
     eq({ profiles_named(cfg), cfg.profile }, { { 'Dynamis' }, '' })
+    eq(render(cfg, st, on('Profiles', { ['##sk3_profile_name'] = ' Sky ' })), 0)  -- typed, then saved under it trimmed
+    render(cfg, st, on('Profiles', { ['Save##sk3_profile_save'] = true }))
+    eq(profiles_named(cfg), { 'Dynamis', 'Sky' })
 end)
 
-test('Profiles: a name with ## is drawn whole, each row its own; the header keeps one #; a taken name says so', function ()
+test('Profiles: a name with ## is drawn whole, each row its own; a taken name says so', function ()
     open_settings()
     local cfg, st = settings.defaults(), status()
     cfg.profiles['Sky##2'], cfg.profiles['a###x'], cfg.profiles['b###x'] = {}, {}, {}
-    render(cfg, st, { ['##sk3_profile_2'] = true })  -- names in order: a###x, b###x, Sky##2
+    render(cfg, st, on('Profiles', { ['##sk3_profile_2'] = true }))  -- names in order: a###x, b###x, Sky##2
     eq(cfg.profile, 'b###x')
-    render(cfg, st, { ['##sk3_profile_3'] = true })
+    render(cfg, st, on('Profiles', { ['##sk3_profile_3'] = true }))
     eq(cfg.profile, 'Sky##2')
-    render(cfg, st)
-    eq({ showed('Sky##2'), showed('a###x'), has(frame.args.CollapsingHeader, 'Profiles: Sky#2###sk3_Profiles') },
-        { true, true, true })
-    render(cfg, st, { ['Default##sk3_profile_default'] = true })
-    render(cfg, st)  -- the name field empties with Default
-    eq(showed('a###x exists: Save as replaces it.'), false)
+    render(cfg, st, on('Profiles'))
+    eq({ drew('Sky##2'), drew('a###x'), drew('loaded: Sky##2') }, { true, true, true })
+    render(cfg, st, on('Profiles', { ['##sk3_profile_name'] = 'a###x' }))
+    render(cfg, st, on('Profiles'))
+    eq(drew('a###x exists: Save as replaces it.'), true)
+    render(cfg, st, on('Profiles', { ['Default##sk3_profile_default'] = true }))
+    render(cfg, st, on('Profiles'))  -- the name field empties with Default
+    eq(drew('exists: Save as replaces it.'), false)
 end)
 
-test('SCH: a buff row\'s stratagem chips get a column of their own and each toggles', function ()
+test('SCH: a buff row\'s stratagem chips follow its targets and each toggles', function ()
     open_settings()
     local sch = fake.catalog(20, 75, 5, 37, { 'Light Arts', 'Penury', 'Celerity', 'Accession', 'Perpetuance' })
     local cfg, st = settings.defaults(), status()
     local function view() return model.build(snap(), sch, cfg, st, NAMES) end
-    eq(render(cfg, st, { ['Acc##buff_Protect_mod_Accession'] = true }, view()), 1)
+    eq(render(cfg, st, on('Buff', { ['Acc##buff_Protect_mod_Accession'] = true }), view()), 1)
     eq(cfg.rows.Protect, { on = false, mods = { Accession = true } })
-    eq(frame.columns['##sk3_rows_buff'], 5)  -- name, pick, targets, stratagems, ready
-    eq(render(cfg, st, { ['Acc##buff_Protect_mod_Accession'] = true }, view()), 1)
+    eq(button('Pen##buff_Protect_mod_Penury'), true)
+    eq(render(cfg, st, on('Buff', { ['Acc##buff_Protect_mod_Accession'] = true }), view()), 1)
     eq(cfg.rows.Protect.mods, {})
-    eq(render(cfg, st, { ['Hold##buff_Protect_hold'] = true }, view()), 1)
+    eq(render(cfg, st, on('Buff', { ['Hold##buff_Protect_hold'] = true }), view()), 1)
     eq({ cfg.rows.Protect.hold, tipped('No modifier is on here: it waits for nothing.') }, { true, true })
-    render(cfg, st, {})
-    eq(frame.columns['##sk3_rows_buff'], 4)  -- WHM: no stratagems, no column
+    render(cfg, st, on('Buff'))
+    eq({ button('Pen##buff_Protect_mod_Penury'), button('Hold##buff_Protect_hold') }, { false, false })  -- WHM: no stratagems
 end)
 
 test('SCH: Keep a stratagem for healing, under Heal, only for a job with stratagems', function ()
     open_settings()
     local sch = fake.catalog(20, 75, 5, 37, { 'Light Arts', 'Penury', 'Accession' })
     local cfg, st = settings.defaults(), status()
-    eq(render(cfg, st, { ['Keep a stratagem for healing##sk3_heal_reserve'] = true }, model.build(snap(), sch, cfg, st, NAMES)), 1)
+    eq(render(cfg, st, on('Heal', { ['Keep a stratagem for healing##sk3_heal_reserve'] = true }), model.build(snap(), sch, cfg, st, NAMES)), 1)
     eq(cfg.heal.reserve, true)
-    eq(render(cfg, st, { ['Keep a stratagem for healing##sk3_heal_reserve'] = true }), 0)  -- WHM: not drawn
+    eq(render(cfg, st, on('Heal', { ['Keep a stratagem for healing##sk3_heal_reserve'] = true })), 0)  -- WHM: not drawn
 end)
 
 test('COR: Rolls under Buff picks each roll and the risk; Roll 2 only on a Corsair main job', function ()
@@ -699,23 +803,23 @@ test('COR: Rolls under Buff picks each roll and the risk; Roll 2 only on a Corsa
         g.me.buffs[322] = true  -- Ninja Roll on you
         return model.build(g, list or cor, cfg, st, NAMES)
     end
-    eq(render(cfg, st, { ['Corsair\'s Roll (EXP+)##sk3_roll_first_Corsair\'s Roll'] = true }, view()), 1)
-    eq(render(cfg, st, { ['Ninja Roll (EVA+)##sk3_roll_second_Ninja Roll'] = true }, view()), 1)
-    eq(render(cfg, st, { ['Highest##sk3_roll_risk_highest'] = true, ['Rolls##sk3_on_roll'] = true }, view()), 2)
+    eq(render(cfg, st, on('Buff', { ['Corsair\'s Roll (EXP+)##sk3_roll_first_Corsair\'s Roll'] = true }), view()), 1)
+    eq(render(cfg, st, on('Buff', { ['Ninja Roll (EVA+)##sk3_roll_second_Ninja Roll'] = true }), view()), 1)
+    eq(render(cfg, st, on('Buff', { ['Highest##sk3_roll_risk_highest'] = true, ['Rolls##sk3_on_roll'] = true }), view()), 2)
     eq(cfg.roll, { on = false, first = 'Corsair\'s Roll', second = 'Ninja Roll', risk = 'highest' })
-    eq({ showed('Last: Ninja Roll 4 (lucky)'), tipped('Lucky 5, unlucky 9.') }, { true, true })
+    eq({ drew('Last: Ninja Roll 4 (lucky)'), tipped('Lucky 5, unlucky 9.'), tipped('Highest: 11 or nothing.') }, { true, true, true })
     cfg.roll.second = cfg.roll.first
-    render(cfg, st, {}, view())
-    eq(showed('Roll 2 is Roll 1: one roll kept up'), true)
+    render(cfg, st, on('Buff'), view())
+    eq(drew('Roll 2 is Roll 1: one roll kept up'), true)
     cfg.roll.first = 'Bolter\'s Roll'
-    render(cfg, st, {}, view())
-    eq(has(frame.args.BeginCombo, 'Roll 1##sk3_roll_first'), true)
+    render(cfg, st, on('Buff'), view())
+    eq({ button('Roll 1##sk3_roll_first'), drew('Bolter\'s Roll (not available)') }, { true, true })
     eq(has(frame.args.Selectable, 'None##sk3_roll_first_none'), true)
-    render(cfg, st, {}, view(13, 17, fake.catalog(13, 75, 17, 37, jas)))  -- NIN / COR
-    eq({ showed('Roll 2: Corsair main job only'), has(frame.args.BeginCombo, 'Roll 2##sk3_roll_second') }, { true, false })
+    render(cfg, st, on('Buff'), view(13, 17, fake.catalog(13, 75, 17, 37, jas)))  -- NIN / COR
+    eq({ drew('Roll 2: Corsair main job only'), button('Roll 2##sk3_roll_second') }, { true, false })
 end)
 
-test('BRD: Songs under Buff: Area and each slot that is filled or has a pick, a combo per song slot', function ()
+test('BRD: Songs under Buff: Area and each slot that is filled or has a pick, a drop-down per song slot', function ()
     open_settings()
     local brd = fake.catalog(10, 75, 3, 37, { 'Pianissimo' })
     local cfg, st = settings.defaults(), status()
@@ -724,23 +828,24 @@ test('BRD: Songs under Buff: Area and each slot that is filled or has a pick, a 
         return model.build(g, list or brd, cfg, st, NAMES)
     end
     local minuet = 'Valor Minuet IV (+ATK)##sk3_song_area_1_Valor Minuet IV'
-    eq(render(cfg, st, { [minuet] = true, ['Mage\'s Ballad II (+Refresh)##sk3_song_p1_2_Mage\'s Ballad II'] = true }, view()), 2)
+    eq(render(cfg, st, on('Buff', { [minuet] = true, ['Mage\'s Ballad II (+Refresh)##sk3_song_p1_2_Mage\'s Ballad II'] = true }), view()), 2)
     eq({ cfg.song.area_1, cfg.song.p1_2 }, { 'Valor Minuet IV', 'Mage\'s Ballad II' })
-    render(cfg, st, {}, view())
-    eq({ frame.columns['##sk3_songs'], showed('Area'), showed('ME'), showed('P1'), showed('P2'), showed('P3') },
-       { 4, true, true, true, true, false })  -- P2 is B, a trust in another zone; P3 is no one
-    eq({ showed('Pianissimo: ready'), has(frame.args.BeginCombo, '##sk3_song_me_2') }, { true, true })
-    eq(render(cfg, st, { ['Song Duration##sk3_song_duration'] = 170 }, view()), 1)  -- BRD 75 main
+    render(cfg, st, on('Buff'), view())
+    -- Area, ME, P1 and P2 (B, a trust in another zone); P3 is no one. Two slots on a Bard main job.
+    eq({ button('##sk3_song_area_2'), button('##sk3_song_me_1'), button('##sk3_song_p1_1'), button('##sk3_song_p2_1'),
+         button('##sk3_song_p3_1') }, { true, true, true, true, false })
+    eq({ drew('Pianissimo: ready'), button('##sk3_song_me_2') }, { true, true })
+    eq(render(cfg, st, on('Buff', { ['Song Duration##sk3_song_duration'] = 170 }), view()), 1)  -- BRD 75 main
     eq(cfg.song.duration, 170)
     cfg.song.p4_1 = 'Herb Pastoral'
-    render(cfg, st, {}, view())
-    eq({ showed('P4'), showed('no one') }, { true, true })  -- a pick keeps its line
-    eq(render(cfg, st, { ['None##sk3_song_area_1_none'] = true, ['Songs##sk3_on_song'] = true }, view()), 2)
+    render(cfg, st, on('Buff'), view())
+    eq({ button('##sk3_song_p4_1'), drew('no one') }, { true, true })  -- a pick keeps its line
+    eq(render(cfg, st, on('Buff', { ['None##sk3_song_area_1_none'] = true, ['Songs##sk3_on_song'] = true }), view()), 2)
     eq({ cfg.song.area_1, cfg.song.on }, { '', false })
-    render(cfg, st, {}, view(3, 10, fake.catalog(3, 75, 10, 15, {})))  -- WHM / BRD 15: one slot, no Pianissimo
-    eq({ frame.columns['##sk3_songs'], showed('Songs on one member need Pianissimo (Bard 20)') }, { 3, true })
-    eq(has(frame.args.SliderInt, 'Song Duration##sk3_song_duration'), false)  -- a subjob has no timers
-    eq(render(cfg, st, { [minuet] = true }), 0)  -- WHM: no Songs
+    render(cfg, st, on('Buff'), view(3, 10, fake.catalog(3, 75, 10, 15, {})))  -- WHM / BRD 15: one slot, no Pianissimo
+    eq({ button('##sk3_song_area_2'), drew('Songs on one member need Pianissimo (Bard 20)') }, { false, true })
+    eq(button('Song Duration##sk3_song_duration'), false)  -- a subjob has no timers
+    eq(render(cfg, st, on('Buff', { [minuet] = true })), 0)  -- WHM: no Songs
 end)
 
 test('GEO: Geomancy under Buff: its rows, how far and how long, and Entrust\'s member and spell', function ()
@@ -748,14 +853,14 @@ test('GEO: Geomancy under Buff: its rows, how far and how long, and Entrust\'s m
     local geo = fake.catalog(21, 75, nil, 0, { 'Full Circle', 'Blaze of Glory', 'Entrust' })
     local cfg, st = settings.defaults(), status()
     local function view() local g = snap(); g.main = 21; return model.build(g, geo, cfg, st, NAMES) end
-    eq(render(cfg, st, { ['Recall past##sk3_geo_distance'] = 12, ['Keep after combat##sk3_geo_linger'] = 8 }, view()), 2)
+    eq(render(cfg, st, on('Buff', { ['Recall past##sk3_geo_distance'] = 12, ['Keep after combat##sk3_geo_linger'] = 8 }), view()), 2)
     eq({ cfg.geo.distance, cfg.geo.linger }, { 12, 8 })
-    eq(render(cfg, st, { ['A##sk3_geo_entrust_A'] = true, ['Indi-Fury##sk3_geo_entrust_spell_Indi-Fury'] = true }, view()), 2)
+    eq(render(cfg, st, on('Buff', { ['A##sk3_geo_entrust_A'] = true, ['Indi-Fury##sk3_geo_entrust_spell_Indi-Fury'] = true }), view()), 2)
     eq({ cfg.geo.entrust, cfg.geo.entrust_spell }, { 'A', 'Indi-Fury' })
-    eq(render(cfg, st, { ['P1##geo_geo1'] = true }, view()), 1)  -- the Geo row's target chips
+    eq(render(cfg, st, on('Buff', { ['P1##geo_geo1'] = true }), view()), 1)  -- the Geo row's target chips
     eq(cfg.rows.geo.targets, { [0] = true, [1] = true })
-    eq(frame.columns['##sk3_rows_geo'], 4)  -- name, pick, targets, ready
-    eq(render(cfg, st, { ['Recall past##sk3_geo_distance'] = 12 }), 0)  -- WHM: no Geomancy
+    eq(button('##pick_geo_geo'), true)  -- its luopan's spell
+    eq(render(cfg, st, on('Buff', { ['Recall past##sk3_geo_distance'] = 12 })), 0)  -- WHM: no Geomancy
 end)
 
 test('RUN: Runes under Buff: a line per set, a rune per slot by what it does, each ward\'s switch', function ()
@@ -763,37 +868,36 @@ test('RUN: Runes under Buff: a line per set, a rune per slot by what it does, ea
     local run = fake.catalog(22, 75, 4, 37, { 'Ignis', 'Gelus', 'Vallation', 'Pflug' })
     local cfg, st = settings.defaults(), status()
     local function view() local g = snap(); g.main = 22; return model.build(g, run, cfg, st, NAMES) end
-    eq(render(cfg, st, { ['Fire##sk3_rune_idle_1_Ignis'] = true, ['Wind##sk3_rune_vallation_2_Gelus'] = true }, view()), 2)
+    eq(render(cfg, st, on('Buff', { ['Fire##sk3_rune_idle_1_Ignis'] = true, ['Wind##sk3_rune_vallation_2_Gelus'] = true }), view()), 2)
     eq({ cfg.rune.idle_1, cfg.rune.vallation_2 }, { 'Ignis', 'Gelus' })
     eq(has(frame.args.Selectable, 'Silence / Weight##sk3_rune_pflug_3_Gelus'), true, 'Pflug shows the ailments')
     eq(tipped('Ignis: adds Fire, resists Ice, against Paralyze / Bind.'), true)
-    render(cfg, st, {}, view())
-    eq({ has(frame.args.BeginCombo, '##sk3_rune_idle_1'), showed('Idle') }, { true, true })
-    eq(frame.columns['##sk3_runes'], 5)  -- the set, three slots, ready
-    eq(render(cfg, st, { ['Pflug##sk3_rune_pflug'] = true, ['Runes##sk3_on_rune'] = true }, view()), 2)
+    render(cfg, st, on('Buff'), view())
+    eq({ button('##sk3_rune_idle_1'), button('##sk3_rune_idle_3'), drew('Idle') }, { true, true, true })  -- three slots
+    eq(render(cfg, st, on('Buff', { ['Pflug##sk3_rune_pflug'] = true, ['Runes##sk3_on_rune'] = true }), view()), 2)
     eq({ cfg.rows.Pflug.on, cfg.rune.on }, { false, false })
     cfg.rune.idle_2 = 'Lux'
-    render(cfg, st, {}, view())
-    eq(has(frame.args.BeginCombo, '##sk3_rune_idle_2'), true)
+    render(cfg, st, on('Buff'), view())
+    eq({ button('##sk3_rune_idle_2'), tipped('Lux (not available)\nEach rune by the element') }, { true, true })  -- cut to fit, whole on hover
     local sub = fake.catalog(1, 75, 22, 37, { 'Ignis', 'Vallation' })
     local g = snap(); g.main, g.sub = 1, 22
-    render(cfg, st, {}, model.build(g, sub, cfg, st, NAMES))  -- WAR / RUN 37: two slots
-    eq({ frame.columns['##sk3_runes'], has(frame.args.BeginCombo, '##sk3_rune_idle_3') }, { 4, false })
-    eq(render(cfg, st, { ['Fire##sk3_rune_idle_1_Ignis'] = true }), 0)  -- WHM: no Runes
+    render(cfg, st, on('Buff'), model.build(g, sub, cfg, st, NAMES))  -- WAR / RUN 37: two slots
+    eq({ button('##sk3_rune_idle_2'), button('##sk3_rune_idle_3') }, { true, false })
+    eq(render(cfg, st, on('Buff', { ['Fire##sk3_rune_idle_1_Ignis'] = true })), 0)  -- WHM: no Runes
 end)
 
-test('PUP: Maneuvers under Pet: a combo per slot by element, then whether they can go', function ()
+test('PUP: Maneuvers under Pet: a drop-down per slot by element, then whether they can go', function ()
     open_settings()
     local pup = fake.catalog(18, 75, 3, 37, { 'Fire Maneuver', 'Light Maneuver' })
     local cfg, st = settings.defaults(), status()
     local function view() local g = snap(); g.main = 18; return model.build(g, pup, cfg, st, NAMES) end
-    eq(render(cfg, st, { ['Fire##sk3_maneuver_1_Fire Maneuver'] = true, ['Light##sk3_maneuver_3_Light Maneuver'] = true }, view()), 2)
+    eq(render(cfg, st, on('Pet', { ['Fire##sk3_maneuver_1_Fire Maneuver'] = true, ['Light##sk3_maneuver_3_Light Maneuver'] = true }), view()), 2)
     eq({ cfg.maneuver.slot_1, cfg.maneuver.slot_2, cfg.maneuver.slot_3 }, { 'Fire Maneuver', '', 'Light Maneuver' })
-    render(cfg, st, {}, view())
-    eq({ has(frame.args.BeginCombo, '##sk3_maneuver_2'), frame.columns['##sk3_maneuvers'], showed('ready') }, { true, 4, true })
-    eq(render(cfg, st, { ['None##sk3_maneuver_1_none'] = true, ['Maneuvers##sk3_on_maneuver'] = true }, view()), 2)
+    render(cfg, st, on('Pet'), view())
+    eq({ button('##sk3_maneuver_2'), drew('ready') }, { true, true })
+    eq(render(cfg, st, on('Pet', { ['None##sk3_maneuver_1_none'] = true, ['Maneuvers##sk3_on_maneuver'] = true }), view()), 2)
     eq({ cfg.maneuver.slot_1, cfg.maneuver.on }, { '', false })
-    eq(render(cfg, st, { ['Fire##sk3_maneuver_1_Fire Maneuver'] = true }), 0)  -- WHM: no Maneuvers
+    eq(render(cfg, st, on('Pet', { ['Fire##sk3_maneuver_1_Fire Maneuver'] = true })), 0)  -- WHM: no Maneuvers
 end)
 
 -- Remote control -------------------------------------------------------------------
@@ -811,14 +915,14 @@ local function remote_view(cfg)
     return model.published(model.build(snap(), cat, cfg, st, NAMES))
 end
 
-test('another session\'s card has its run icon and cog: run starts it there, the cog shows its settings', function ()
+test('another session\'s card has its run button and cog: run starts it there, the cog shows its settings', function ()
     close_settings()
     local cfg, st = settings.defaults(), remote_status()
     remote_calls = {}
     render(cfg, st, nil, model.build(snap(), cat, cfg, st, NAMES))
-    eq({ has(frame.args.InvisibleButton, '##sk3_run_A'), has(frame.args.InvisibleButton, '##sk3_cog_A') }, { true, true })
+    eq({ button('##sk3_run_A'), button('##sk3_cog_A') }, { true, true })
     eq({ tipped('Start A\'s automation'), tipped('Settings for A'), tipped('A\nHP 62%') }, { true, true, false })
-    eq(has(frame.args.InvisibleButton, '##sk3_run_B'), false)  -- a trust: no session
+    eq(button('##sk3_run_B'), false)  -- a trust: no session
     eq(render(cfg, st, { ['##sk3_run_A'] = true }, model.build(snap(), cat, cfg, st, NAMES)), 0)
     eq({ remote_calls, st.running }, { { { 'A', 'run', true } }, false })  -- sent there, not run here
     st.sessions.A.running = true
@@ -827,7 +931,7 @@ test('another session\'s card has its run icon and cog: run starts it there, the
     render(cfg, st, { ['##sk3_cog_A'] = true }, model.build(snap(), cat, cfg, st, NAMES))
     eq({ st.watching, settings_shown }, { { A = true }, false })
     render(cfg, st, nil, model.build(snap(), cat, cfg, st, NAMES))
-    eq({ begun('SK Settings: A###sk3_settings_A'), showed('Waiting for A\'s session...') }, { true, true })
+    eq({ begun('SK Settings: A###sk3_settings_A'), drew('Waiting for A\'s session...') }, { true, true })
     render(cfg, st, { ['##sk3_cog_A'] = true }, model.build(snap(), cat, cfg, st, NAMES))  -- the cog again hides it
     eq(st.watching, {})
 end)
@@ -840,14 +944,16 @@ test('another session\'s SK Settings draw its view; changes go to it, never to y
     st.views = { A = remote_view(theirs) }
     remote_calls = {}
     local function frame_with(clicks) return render(mine, st, clicks, model.build(snap(), cat, mine, st, NAMES)) end
-    eq(frame_with({ ['Danger under##sk3_danger'] = 60, ['Cure##heal_Cure'] = true, ['Buffs##sk3_on_buff'] = true,
-        ['Save as##sk3_profile_save_as'] = true }), 0)
-    eq(remote_calls, { { 'A', 'save_profile', '', true }, { 'A', 'set', 'heal.danger', 60 }, { 'A', 'row', 'Cure', false },
-        { 'A', 'section', 'buff', false } })  -- in the order drawn
+    eq(frame_with(on('Heal', { ['Danger under##sk3_danger'] = 60, ['Cure##heal_Cure'] = true })), 0)
+    eq(frame_with(on('Buff', { ['Buffs##sk3_on_buff'] = true })), 0)
+    eq(frame_with(on('Profiles', { ['Save as##sk3_profile_save_as'] = true })), 0)
+    eq(remote_calls, { { 'A', 'set', 'heal.danger', 60 }, { 'A', 'row', 'Cure', false }, { 'A', 'section', 'buff', false },
+        { 'A', 'save_profile', '', true } })  -- in the order clicked
     eq(mine, settings.defaults())
-    eq({ showed('WHM 75 / BLM 37  Running'), showed('Nothing sent yet.') }, { true, true })  -- its own status and log
-    eq({ has(frame.args.Checkbox, 'Action log##sk3_log'), has(frame.args.Checkbox, 'Japanese client##sk3_japanese'),
-         has(frame.args.SliderInt, 'HP bar width##sk3_ui_hp_width') }, { false, false, false })  -- the HUD and log are its own
+    frame_with(on('UI / Log'))
+    eq({ drew('WHM 75 / BLM 37'), drew('Running'), drew('Nothing sent yet.') }, { true, true, true })  -- its own status and log
+    eq({ button('Action log##sk3_log'), button('Japanese client##sk3_japanese'), button('HP bar width##sk3_ui_hp_width') },
+       { false, false, false })  -- the HUD and log are its own
     frame_with({ close = 'SK Settings: A###sk3_settings_A' })
     eq(st.watching, {})
 end)
@@ -859,7 +965,7 @@ test('your SK Settings and another session\'s draw side by side, each its own pr
     cfg.profile = 'Mine'
     st.views = { A = remote_view(settings.defaults()) }
     remote_calls = {}
-    render(cfg, st, { ['Save##sk3_profile_save'] = true }, model.build(snap(), cat, cfg, st, NAMES))
+    render(cfg, st, on('Profiles', { ['Save##sk3_profile_save'] = true }), model.build(snap(), cat, cfg, st, NAMES))
     eq({ begun('SK Settings'), begun('SK Settings: A###sk3_settings_A') }, { true, true })
     eq(remote_calls, { { 'A', 'save_profile', '' } })  -- A's name field: blank, A has no profile loaded
     eq(cfg.profiles.Mine.heal ~= nil, true)  -- the click also landed in your own window: saved there under Mine
@@ -881,8 +987,8 @@ test('another session\'s Tracked says where to target, its game not yours', func
     local v = remote_view(cfg)
     v.track = {}
     st.views = { A = v }
-    render(cfg, st, nil, model.build(snap(), cat, cfg, st, NAMES))
-    eq(showed('Target a player outside the alliance in A\'s game to track them there.'), true)
+    render(cfg, st, on('Tracked'), model.build(snap(), cat, cfg, st, NAMES))
+    eq(drew('Target a player outside the alliance in A\'s game to track them there.'), true)
     st.watching = {}
 end)
 
@@ -893,19 +999,20 @@ test('a view from a session running another version is not drawn: it says to rel
     v.version = model.VIEW + 1
     st.views = { A = v }
     render(cfg, st, nil, model.build(snap(), cat, cfg, st, NAMES))
-    eq({ showed('A runs another version of Sidekick3: /addon reload sidekick3 there.'), frame.args.CollapsingHeader },
-       { true, nil })
+    eq({ drew('A runs another version of Sidekick3: /addon reload sidekick3 there.'), button('##sk3_page_Heal') },
+       { true, false })
     st.watching = {}
 end)
 
-test('chips and Heal ticks send the state they\'re set to, here and to another session', function ()
+test('chips and Heal members send the state they\'re set to, here and to another session', function ()
     open_settings()
     local cfg, st = settings.defaults(), remote_status({ watching = { A = true } })
     st.views = { A = remote_view(settings.defaults()) }
     remote_calls = {}
-    render(cfg, st, { ['P1##buff_Protect1'] = true, ['A##sk3_heal_A'] = true }, model.build(snap(), cat, cfg, st, NAMES))
+    render(cfg, st, on('Buff', { ['P1##buff_Protect1'] = true }), model.build(snap(), cat, cfg, st, NAMES))
+    render(cfg, st, on('Heal', { ['A##sk3_heal_A'] = true }), model.build(snap(), cat, cfg, st, NAMES))
     eq({ cfg.rows.Protect.targets, cfg.heal.skip }, { { [0] = true, [1] = true }, { A = true } })
-    eq(remote_calls, { { 'A', 'skip', 'A', true }, { 'A', 'target', 'Protect', 1, true } })
+    eq(remote_calls, { { 'A', 'target', 'Protect', 1, true }, { 'A', 'skip', 'A', true } })
     st.watching = {}
     close_settings()
 end)
