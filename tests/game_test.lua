@@ -57,6 +57,7 @@ local party = {
 local player = {
     GetMainJob = function () return world.main end, GetMainJobLevel = const(75), GetSubJob = const(4), GetSubJobLevel = const(37),
     GetMPMax = const(500), GetHPMax = function () return world.hp_max or 0 end, GetBuffs = function () return world.buffs or {} end,
+    GetPetMPPercent = function () return world.pet_mpp or 0 end, GetPetTP = function () return world.pet_tp or 0 end,
 }
 -- While you pick a sub-target, index 0 is the one being picked and 1 your target.
 local target = {
@@ -212,6 +213,14 @@ test('a trust\'s and the pet\'s statuses last across reads; a trust dismissed is
     read()
     world.party[2] = kupipi  -- called again, with the same id
     eq({ unit(read(), TRUST).buffs, read().pet.buffs }, { {}, { [PROTECT] = true } })
+end)
+
+test('your pet: its HP % from its entity, its MP % and TP as the client reads them for you', function ()
+    reset()
+    world.pet, world.ents[0x700] = 0x700, { sid = PET, name = 'Ifrit', hpp = 80, dist = 2 }
+    world.pet_mpp, world.pet_tp = 60, 1500
+    local p = read().pet
+    eq({ p.name, p.hpp, p.mpp, p.tp }, { 'Ifrit', 80, 60, 1500 })
 end)
 
 test('with no <bt>, a mob another party of the alliance claimed is your battle target: the nearest in 21y', function ()

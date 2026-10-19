@@ -4,11 +4,12 @@
     ImGui only; it reads no game state and decides nothing. Everything is drawn
     on ImGui's draw lists in ui/kit.lua's look (docs/vana-ui-style.md).
 
-    Two kinds of window. Sidekick3 is a heads-up display: the party's HP and MP
-    bars on a dark panel (the alliance's other parties as thin HP rows under them),
-    with a label pointing at whoever the next action is for. Your own card's HP bar
-    carries the run button and the cog, which opens SK Settings: a page per group
-    of sections, listed down its left, each section under a heading with its switch.
+    Two kinds of window. Sidekick3 is a heads-up display: the party's HP, MP and TP
+    bars on a dark panel, your pet's under yours (the alliance's other parties as
+    thin HP rows under them), with a label pointing at whoever the next action is
+    for. Your own card's HP bar carries the run button and the cog, which opens SK
+    Settings: a page per group of sections, listed down its left, each section
+    under a heading with its switch.
     So does the card of a player who is another Sidekick session on this PC: its
     buttons start and stop that session and open its own SK Settings, drawn here
     from its view.
@@ -32,6 +33,8 @@ local UI_SLIDERS = {
     { 'HP bar height', 'hp_height', 10, 120, 'Pixels.', 'px' },
     { 'MP bar width', 'mp_width', 80, 600, 'Pixels.', 'px' },
     { 'MP bar height', 'mp_height', 4, 80, 'Pixels.', 'px' },
+    { 'TP bar width', 'tp_width', 80, 600, 'Pixels: its three parts, 1000 TP each, together.', 'px' },
+    { 'TP bar height', 'tp_height', 4, 80, 'Pixels.', 'px' },
     { 'Name font size', 'name_size', 8, 64, 'Pixels.', 'px' },
     { 'Text font size', 'text_size', 8, 48, 'Pixels: the title, the tags, the alliance\'s names and the arrow\'s label; '
         .. 'the buttons follow it, as far as the HP bar fits them.', 'px' },
@@ -77,19 +80,43 @@ local function member_tip(p)
     if not (p.alive or p.away) then notes[#notes + 1] = 'KO' end
     if p.away then notes[#notes + 1] = 'away' end
     local line = ('HP %d%%'):format(p.hpp) .. (p.uses_mp and ('  MP %d%%'):format(p.mpp) or '')
+        .. (p.kind ~= 'tracked' and ('  TP %d'):format(p.tp) or '')  -- a tracked player's can't be read
     if p.dist ~= '' and not p.away then line = line .. '  ' .. p.dist end
     local lines = { #notes > 0 and ('%s (%s)'):format(p.name, table.concat(notes, ', ')) or p.name, line }
     if p.buffs_all ~= '' then lines[#lines + 1] = p.buffs_all end
     return table.concat(lines, '\n')
 end
 
--- A bar at (x, y), w by h: a sunken track, `pct` of it filled in `color` (eased, by `id`), edged in `edge`.
-local function bar(dl, id, x, y, w, h, pct, color, alpha, edge)
+local function pet_tip(pet)
+    return ('%s (pet)\nHP %d%%  MP %d%%  TP %d  %s'):format(pet.name, pet.hpp, pet.mpp, pet.tp, pet.dist)
+end
+
+-- A sunken track at (x, y), w by h, `f` (0 to 1) of it filled in `color`, edged in `edge`.
+local function track(dl, x, y, w, h, f, color, alpha, edge)
     local r = math.min(ROUND, math.floor(h / 2))
     kit.fill(dl, x, y, w, h, P.well, r)
-    local fw = math.floor(w * kit.ease(id, math.min(math.max(pct, 0), 100) / 100, 12) + 0.5)
+    local fw = math.floor(w * f + 0.5)
     if fw > 0 then kit.fill(dl, x, y, fw, h, color, math.min(r, fw / 2), alpha) end
     kit.outline(dl, x, y, w, h, edge or P.well_edge, r)
+end
+
+-- A bar: `pct` of its track filled (eased, by `id`).
+local function bar(dl, id, x, y, w, h, pct, color, alpha, edge)
+    track(dl, x, y, w, h, kit.ease(id, math.min(math.max(pct, 0), 100) / 100, 12), color, alpha, edge)
+end
+
+local TIER, TIERS = 1000, 3  -- TP: a weapon skill's worth, and how many stand
+
+-- The TP bar: a track per 1000 TP side by side, each filling once the one before is full (eased, by `id`); the one
+-- still filling is drawn faint, as Floaties draws it.
+local function tp_bar(dl, id, x, y, w, h, tp, alpha)
+    local t = kit.ease(id, math.min(math.max(tp, 0), TIER * TIERS) / TIER, 12)  -- in tiers
+    local tw = (w - (TIERS - 1) * BAR_GAP) / TIERS
+    for i = 1, TIERS do
+        local f = math.min(math.max(t - (i - 1), 0), 1)
+        local tx = math.floor(x + (i - 1) * (tw + BAR_GAP) + 0.5)
+        track(dl, tx, y, math.floor(x + i * tw + (i - 1) * BAR_GAP + 0.5) - tx, h, f, P.tp, (f < 1 and 0.5 or 1) * alpha)
+    end
 end
 
 -- A round button s across at (x, y): `lit` (running, its settings shown) fills it in the accent. Returns clicked,
@@ -144,15 +171,17 @@ local function card_icons(view, ui, p, x, y, s)
     return over_run or over_cog
 end
 
--- A member's card at (x, y): the HP bar over the MP bar, the name on the one and the tag on the other, the % of each
--- only in its tooltip. A tracked player's MP can't be read: their bar stays empty. Critical HP edges the bar and
--- turns the name rose; MP under the Recover line, the tag. Away, the bars fade and the text greys.
-local function card(dl, ui, p, x, y)
+-- A member's card at (x, y): the HP bar over the MP bar over the TP bar, the name on the first and the tag on the
+-- second, the % of each (TP's number) only in its tooltip. A tracked player's MP and TP can't be read: their bars stay
+-- empty. Critical HP edges the bar and turns the name rose; MP under the Recover line, the tag. Away, the bars fade
+-- and the text greys. `id` keeps the bars' eased fills apart.
+local function card(dl, ui, p, x, y, id)
     local fx, mp_top = x + HUD_PAD, y + ui.hp_height + BAR_GAP
     local fade = p.away and 0.45 or 1
     local critical = p.hp == 'critical' and not p.away
-    bar(dl, 'hp.' .. p.name, fx, y, ui.hp_width, ui.hp_height, p.hpp, P.hp, fade, critical and P.rose or nil)
-    bar(dl, 'mp.' .. p.name, fx, mp_top, ui.mp_width, ui.mp_height, p.mpp, P.mp, fade)
+    bar(dl, 'hp.' .. id, fx, y, ui.hp_width, ui.hp_height, p.hpp, P.hp, fade, critical and P.rose or nil)
+    bar(dl, 'mp.' .. id, fx, mp_top, ui.mp_width, ui.mp_height, p.mpp, P.mp, fade)
+    tp_bar(dl, 'tp.' .. id, fx, mp_top + ui.mp_height + BAR_GAP, ui.tp_width, ui.tp_height, p.tp, fade)
     local font = kit.fonts.semi
     local _, nh = kit.measure(p.name, font, ui.name_size)
     kit.halo(dl, fx + 6, y + ui.hp_height - nh, p.name, p.away and P.dim or critical and P.rose or P.white, font, ui.name_size)
@@ -200,15 +229,40 @@ local function hud_sizes(ui)
     return out
 end
 
+-- The cards from the top: each party line's (`member`, its index) and, under yours, your pet's (`pet`), drawn from a
+-- line of the same shape tagged PET; `id` keeps their eased fills apart.
+local function cards_of(view)
+    local out = {}
+    for i, p in ipairs(view.party) do
+        out[#out + 1] = { p = p, id = p.name, member = i }
+        local pet = i == 1 and view.pet
+        if pet then
+            out[#out + 1] = { p = { name = pet.name, tag = 'PET', hpp = pet.hpp, mpp = pet.mpp, tp = pet.tp },
+                              id = 'pet.' .. pet.name, pet = true }
+        end
+    end
+    return out
+end
+
+-- Whether the arrow points at card `c`: your pet's for its own actions, else the member's.
+local function pointed(view, c)
+    local ptr = view.pointer
+    if not ptr then return false end
+    local to_pet = ptr.pet == true and view.pet ~= nil
+    if c.pet then return to_pet end
+    return not to_pet and ptr.member == c.member
+end
+
 local function draw_hud(view)
     local ui = hud_sizes(view.ui)
     local dl = imgui.GetWindowDrawList()
     local x0, y0 = imgui.GetCursorScreenPos()
     local th, s = math.floor(ui.text_size * 1.8), math.floor(ui.text_size * 1.25)
-    local pw = math.max(2 * HUD_PAD + math.max(ui.hp_width, ui.mp_width),
+    local pw = math.max(2 * HUD_PAD + math.max(ui.hp_width, ui.mp_width, ui.tp_width),
                         math.ceil(HUD_PAD + kit.measure(TITLE, kit.fonts.semi, ui.text_size) + 8 + s + HUD_PAD))  -- the title row fits
-    local ch = ui.hp_height + BAR_GAP + ui.mp_height
-    local n = #view.party
+    local ch = ui.hp_height + BAR_GAP + ui.mp_height + BAR_GAP + ui.tp_height
+    local cards = cards_of(view)
+    local n = #cards
     -- Under the cards, the alliance's rows: B0-B5, then C0-C5, each party after a gap; `rows` holds each bar's top.
     local below, rows, last = th + n * ch + math.max(n - 1, 0) * ui.gap, {}, nil
     for j, p in ipairs(view.alliance) do
@@ -222,14 +276,14 @@ local function draw_hud(view)
     kit.fill(dl, x0, y0, pw, ph, P.bg, 6, opacity)
     kit.outline(dl, x0, y0, pw, ph, P.border, 6, opacity)
     title_row(dl, view, ui.text_size, x0, y0, pw, th, s)
-    for i, p in ipairs(view.party) do
-        local y = y0 + th + (i - 1) * (ch + ui.gap)
-        card(dl, ui, p, x0, y)
+    for i, c in ipairs(cards) do
+        local p, y = c.p, y0 + th + (i - 1) * (ch + ui.gap)
+        card(dl, ui, p, x0, y, c.id)
         local on_icon = (p.kind == 'self' or p.session) and card_icons(view, ui, p, x0, y, s)
         imgui.SetCursorScreenPos({ x0 + HUD_PAD, y })
         imgui.Dummy({ pw - 2 * HUD_PAD, ch })
-        if not on_icon then kit.tip(member_tip(p)) end
-        if view.pointer and view.pointer.member == i then arrow(view.pointer, ui.text_size, x0 + pw, y + ch / 2) end
+        if not on_icon then kit.tip(c.pet and pet_tip(view.pet) or member_tip(p)) end
+        if pointed(view, c) then arrow(view.pointer, ui.text_size, x0 + pw, y + ch / 2) end
     end
     for j, p in ipairs(view.alliance) do
         local top = y0 + rows[j]

@@ -69,6 +69,7 @@ local POINTED = 2                       -- seconds the pointer stays on what was
 local POINTED_CAST = 15                 -- ...or while it is still being cast, up to this
 local CAST_REPLY = 2                    -- a cast that began this soon after a spell or item went out is that one
 local CASTS = { ma = true, item = true }
+local FOR_PET = { pet = true, pet_send = true }  -- behaviors whose actions are your pet's: care, and sending it in
 
 -- Rows -----------------------------------------------------------------------
 
@@ -373,7 +374,7 @@ local function party(g, cfg, names, sessions)
             tag = tag, kind = u.kind, name = u.name, alive = u.alive, away = not u.in_zone,
             tracked = u.kind == 'tracked' or u.tracked == true, shared = u.auto,
             job = u.main_lv and jobs(names.job, u.main, u.main_lv, u.sub, u.sub_lv) or nil,
-            hpp = u.hpp, hp = hp_state(u, cfg.heal), mpp = u.mpp, uses_mp = u.uses_mp == true,
+            hpp = u.hpp, hp = hp_state(u, cfg.heal), mpp = u.mpp, uses_mp = u.uses_mp == true, tp = u.tp or 0,
             mp = u.uses_mp and u.mpp < cfg.recover.mp and 'low' or 'ok',
             dist = not u.in_zone and 'away' or u.kind == 'self' and '' or ('%.1fy'):format(u.dist or 0),
             buffs = buffs, buffs_all = all,
@@ -414,6 +415,13 @@ local function entity(e)
     return e and { name = e.name, hpp = e.hpp, dist = ('%.1fy'):format(e.dist or 0) }
 end
 
+-- Your pet: as the battle target, with its MP % and TP.
+local function pet_line(e)
+    local p = entity(e)
+    if p then p.mpp, p.tp = e.mpp or 0, e.tp or 0 end
+    return p
+end
+
 -- Your cast now is the one `e` sent: it is a spell or item, and the cast began
 -- as the server answered it, not later (one you started yourself).
 local function casting(g, e)
@@ -424,7 +432,8 @@ end
 -- sent while it lands; stopped, what it would do. `member` is the party line it
 -- is for: the target's, else yours (an action on you, your pet or the enemy);
 -- for an alliance member, `ally` is their line instead. A target with no line
--- of its own is named.
+-- of its own is named. `pet`: it is your pet's (care, or sending it in), so the
+-- HUD points at its card, under yours.
 local function pointer(status, g, members, allies)
     local e = status.intent
     if status.running and not e then
@@ -443,7 +452,8 @@ local function pointer(status, g, members, allies)
     local text = ('%s:%s'):format((e.behavior:gsub('_.*', ''):gsub('^%l', string.upper)), e.action)
     local line = ally and allies[ally] or members[member]
     if e.target and line.name ~= e.target then text = ('%s -> %s'):format(text, e.target) end
-    return { text = text, member = member, ally = ally, live = status.running }
+    local pet = FOR_PET[e.behavior] and not e.target and g.pet ~= nil or nil
+    return { text = text, member = member, ally = ally, live = status.running, pet = pet }
 end
 
 -- The view ---------------------------------------------------------------------
@@ -505,7 +515,7 @@ function model.build(g, cat, cfg, status, names)
     local view = {
         job = jobs(names.job, g.main, g.main_lv, g.sub, g.sub_lv),
         status = status_line(status),
-        bt = entity(g.bt), pet = entity(g.pet),
+        bt = entity(g.bt), pet = pet_line(g.pet),
         flags = {}, recent = {}, sections = {},
         heal = { danger = h.danger, critical = h.critical, focus = h.focus, alliance = h.alliance,
                  focus_danger = h.focus_danger, focus_critical = h.focus_critical,

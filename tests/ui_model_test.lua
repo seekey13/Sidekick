@@ -274,6 +274,14 @@ test('party MP is low under the Recover MP line, only for those who use MP', fun
     eq(keys(view.party, 'uses_mp'), { true, true, false, true })
 end)
 
+test('each party line has its TP; your pet its HP %, MP % and TP', function ()
+    local g = fake.snap({ { name = 'A', tp = 1500 } }, { pet = { name = 'Ifrit', hpp = 80, mpp = 60, tp = 2100, dist = 2 } })
+    local view = build(whm, nil, g)
+    eq(keys(view.party, 'tp'), { 0, 1500 })
+    eq(view.pet, { name = 'Ifrit', hpp = 80, mpp = 60, tp = 2100, dist = '2.0y' })
+    eq(build(whm).pet, nil)
+end)
+
 test('the pointer, stopped: what it would do, at the card of the member it is for', function ()
     local e = { at = 990, action = 'Cure IV', target = 'A', behavior = 'heal', why = 'A at 62%' }
     eq(build(whm, nil, nil, status({ intent = e })).pointer, { text = 'Heal:Cure IV', member = 2, live = false })
@@ -305,6 +313,16 @@ test('the pointer: an action on no one (pet care, sending it in) is on yours; a 
     eq(build(whm, nil, nil, status({ intent = e })).pointer, { text = 'Pet:Deploy', member = 1, live = false })
     e = { at = 990, action = 'Cure IV', target = 'Zed', behavior = 'heal', why = 'Zed at 40%' }  -- not in the party
     eq(build(whm, nil, nil, status({ intent = e })).pointer, { text = 'Heal:Cure IV -> Zed', member = 1, live = false })
+end)
+
+test('the pointer: with a pet out, its care and sending it in are for its card; anything else is not', function ()
+    local g = fake.snap({ { name = 'A' } }, { pet = { name = 'Carbuncle', hpp = 40, dist = 2 } })
+    for _, b in ipairs({ 'pet', 'pet_send' }) do
+        local e = { at = 990, action = 'Healing Ruby', behavior = b, why = 'Carbuncle 40%' }
+        eq(build(whm, nil, g, status({ intent = e })).pointer, { text = 'Pet:Healing Ruby', member = 1, live = false, pet = true })
+    end
+    local e = { at = 990, action = 'Cure IV', target = 'A', behavior = 'heal', why = 'A at 62%' }
+    eq(build(whm, nil, g, status({ intent = e })).pointer, { text = 'Heal:Cure IV', member = 2, live = false })
 end)
 
 test('a long status list is cut short, the whole list kept for the tooltip', function ()

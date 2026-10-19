@@ -59,7 +59,7 @@ local DEFAULTS = {
     rest = { on = false, delay = 5, distance = 7 },  -- /heal after this many quiet seconds; up past distance from follow.target
     rows = {},
     profiles = {}, profile = '', parked = {},  -- named snapshots (core/profiles.lua)
-    ui = { open = false, hp_width = 220, hp_height = 40, mp_width = 220, mp_height = 18,
+    ui = { open = false, hp_width = 220, hp_height = 40, mp_width = 220, mp_height = 18, tp_width = 220, tp_height = 8,
            name_size = 22, text_size = 14, gap = 8, opacity = 100, locked = false,
            japanese = false },  -- send spell, ability and item names in Japanese
 }

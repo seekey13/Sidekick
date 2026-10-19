@@ -701,8 +701,8 @@ done in a sixth of a second.
 
 ## In Sidekick3
 
-`ui/kit.lua` is this doc in code: the palette (§2, plus `hp` and `mp` for the HUD's bars, the rose and amber nearest
-the old mockup's red and yellow), `S` and the scale (§3), the fonts and text helpers (§4), the shapes, easing and hit
+`ui/kit.lua` is this doc in code: the palette (§2, plus `hp`, `mp` and `tp` for the HUD's bars: the rose and amber
+nearest the old mockup's red and yellow, and the teal), `S` and the scale (§3), the fonts and text helpers (§4), the shapes, easing and hit
 boxes (§7), and the controls (§8: switch, slider, segments, drop-down, button, chip, text field). `ui/window.lua` draws
 everything with it:
 
@@ -713,8 +713,9 @@ everything with it:
   chips on the lines under it.
 - **The HUD** keeps its layout and the sizes set under UI / Log, in the palette: a dark rounded panel, sunken rounded
   bars whose fill eases to each new value, round buttons filled in the accent while on, and the next action's label as
-  a pill (amber running, grey stopped). Its text keeps a dark halo, as it sits on bars and, with the panel see-through,
-  on the game.
+  a pill (amber running, grey stopped). Each card is HP over MP over TP, your pet's card under yours; the TP bar is
+  three sunken parts of 1000 TP, each solid once full and at half alpha while it fills (as Floaties draws it). Its
+  text keeps a dark halo, as it sits on bars and, with the panel see-through, on the game.
 
 What differs from vana:
 

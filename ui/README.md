@@ -2,7 +2,7 @@
 
 Sidekick3's UI is one replaceable Lua file. Sidekick does all the deciding and acting; a UI only **shows** a table of data (`view`) and **changes** things through a table of functions (`act`). Anything that keeps to that contract can replace the standard UI: a compact HP list, a bar of on/off switches, one big window instead of two.
 
-[window.lua](window.lua) is the standard UI and the reference: a heads-up display of the party's HP and MP (the **Sidekick3** window), whose cog on your own card opens **SK Settings**, a page per group of settings listed down its left. It uses nearly every field and every action below. Its look is [kit.lua](kit.lua)'s, after VanaCore's own `/vana` window ([docs/vana-ui-style.md](../docs/vana-ui-style.md)): a palette, and switches, sliders, drop-downs, chips and buttons drawn on ImGui's draw lists over invisible buttons. A custom UI can `require('ui.kit')` for the same look; each control takes its value and returns the new one and whether it changed, and `kit.frame(scale)` must run once a frame before any of them.
+[window.lua](window.lua) is the standard UI and the reference: a heads-up display of the party's HP, MP and TP, your pet's under yours (the **Sidekick3** window), whose cog on your own card opens **SK Settings**, a page per group of settings listed down its left. It uses nearly every field and every action below. Its look is [kit.lua](kit.lua)'s, after VanaCore's own `/vana` window ([docs/vana-ui-style.md](../docs/vana-ui-style.md)): a palette, and switches, sliders, drop-downs, chips and buttons drawn on ImGui's draw lists over invisible buttons. A custom UI can `require('ui.kit')` for the same look; each control takes its value and returns the new one and whether it changed, and `kit.frame(scale)` must run once a frame before any of them.
 
 ## Install
 
@@ -44,10 +44,10 @@ Text that may contain `%` (names, `why` text) must be escaped before it's drawn:
 | `party` | list | You, then your party and trusts, then the players you track, below |
 | `alliance` | list | The alliance's other two parties, as `party` lines (kind `'alliance'`, tags `'B0'` to `'B5'` and `'C0'` to `'C5'`); empty outside an alliance. The standard HUD draws them as thin HP rows under the cards |
 | `bt` | table or nil | Your battle target: `{ name, hpp, dist }`, `dist` like `'4.3y'`. With no `<bt>` of your party's, the nearest mob another party of the alliance claimed |
-| `pet` | table or nil | Your pet, the same shape as `bt` |
+| `pet` | table or nil | Your pet: `{ name, hpp, mpp, tp, dist }`, as `bt` plus its MP % and its TP (0 to 3000). The standard HUD gives it a card under yours, tagged `PET` |
 | `flags` | list of strings | What may be holding automation up, in this order: `'casting'`, `'moving'`, `'combat'`, `'safe zone'`, `'mounted'`, `'dead'`, `'resting'`, `'incapacitated'`, `'silenced'`, `'amnesia'` |
 | `recent` | list | The last 10 actions sent, newest first: `{ age, text, why }`, e.g. `{ 12, 'Cure IV -> Kupipi', 'heal: Kupipi at 62%' }`; `age` in whole seconds |
-| `pointer` | table or nil | What automation is about to do, or would do, for the standard HUD's arrow: `{ text, member, ally, live }`. `text` is the behavior then the action, `'Heal:Cure IV'`; a target with no line of its own is added by name (`'Heal:Cure IV -> Name'`). `member` is the index in `party` it is for: the target's, else yours (an action on you, your pet or the enemy, as pet care's `'Pet:Healing Ruby'`). For an alliance member, `ally` is their index in `alliance` and `member` is nil. `live`: running, it is the decision about to go or, for a moment after (longer while it is being cast), what was just sent; stopped (false), what it would do. nil when there is nothing |
+| `pointer` | table or nil | What automation is about to do, or would do, for the standard HUD's arrow: `{ text, member, ally, live, pet }`. `text` is the behavior then the action, `'Heal:Cure IV'`; a target with no line of its own is added by name (`'Heal:Cure IV -> Name'`). `member` is the index in `party` it is for: the target's, else yours (an action on you, your pet or the enemy, as pet care's `'Pet:Healing Ruby'`). For an alliance member, `ally` is their index in `alliance` and `member` is nil. `pet` is true when it is your pet's own, pet care or sending it in (`'Pet:Healing Ruby'`, `'Pet:Deploy'`), while `view.pet` is there: the standard HUD points at the pet's card then; `member` is still yours, for a UI with no pet card. `live`: running, it is the decision about to go or, for a moment after (longer while it is being cast), what was just sent; stopped (false), what it would do. nil when there is nothing |
 | `heal` | table | Healing's settings, below |
 | `recover` | table | `{ mp, tp, min_tp, spends_tp }`: recover MP under `mp` % (yours; a member's for Devotion), TP under `tp` (0 to 3000) in combat; Chivalry only from `min_tp` TP. `spends_tp`: a row spends TP (Chivalry), so `min_tp` is worth showing |
 | `pet_heal` | number | Heal your pet under this HP % |
@@ -63,7 +63,7 @@ Text that may contain `%` (names, `why` text) must be escaped before it's drawn:
 | `japanese` | bool | Spell, ability and item names are sent in Japanese. Shared by every job pair: it's kept in `ui`'s file (`ui.japanese`) |
 | `log` | bool | Each action sent is printed to chat |
 | `profiles` | table | `{ active, names }`: the profile loaded (nil for Default, the working copy) and every saved profile's name, in order, case aside. Each job pair has its own |
-| `ui` | table | The UI's settings, shared by every job pair: `open` (bool), and any `ui.<name>` your UI saved. The standard HUD's, which yours may ignore: `hp_width`, `mp_width` (80 to 600), `hp_height` (10 to 120), `mp_height` (4 to 80), `name_size` (8 to 64), `text_size` (8 to 48), `gap` (0 to 40), all in pixels; `opacity` (0 to 100, the panel's %); `locked` (bool, it can't be dragged); SK Settings' `scale` (50 to 200, % of the size that suits the screen; nil for 100); `japanese` (bool, the client's language, as `view.japanese`: not free for a UI's own use) |
+| `ui` | table | The UI's settings, shared by every job pair: `open` (bool), and any `ui.<name>` your UI saved. The standard HUD's, which yours may ignore: `hp_width`, `mp_width`, `tp_width` (80 to 600), `hp_height` (10 to 120), `mp_height`, `tp_height` (4 to 80), `name_size` (8 to 64), `text_size` (8 to 48), `gap` (0 to 40), all in pixels; `opacity` (0 to 100, the panel's %); `locked` (bool, it can't be dragged); SK Settings' `scale` (50 to 200, % of the size that suits the screen; nil for 100); `japanese` (bool, the client's language, as `view.japanese`: not free for a UI's own use) |
 | `sections` | list | Every setting, by section, below |
 | `remote` | list | The SK Settings of other Sidekick sessions on this PC you have open (`act.watch`; sent only while your UI is open), by name: `{ name, view, other }`. `view` is the view that session built and sent (nil until its first one comes, about a second): the same fields as yours but `pointer`, `ui` and `remote`, plus `session` (its name) and `version`. Draw it with `act.remote(name)` in place of `act`. `other` is true (and `view` nil) when that session runs another version of Sidekick3, whose view this one can't draw |
 | `session` | string or nil | Only on a view in `remote`: the session it came from. nil on yours |
@@ -90,6 +90,7 @@ Text that may contain `%` (names, `why` text) must be escaped before it's drawn:
 | `tracked` | bool | You track this player: every `'tracked'` line, and a member who joined your party or alliance while tracked (they are tracked again when they leave) |
 | `shared` | string or nil | A tracked player another Sidekick session on this PC lists (its party): that session's character name. Tracked while it lists them; untracked by hand, they stay off until tracked again |
 | `hpp`, `mpp` | number | HP and MP, 0 to 100 |
+| `tp` | number | TP, 0 to 3000. Never a tracked player's: their TP can't be read (0). The standard HUD draws it as a bar of three parts, 1000 TP each, under the MP bar |
 | `hp` | string | `'ok'`, `'low'` (under the danger line) or `'critical'` (under the critical line); the focus member's own lines for them |
 | `uses_mp` | bool | It has MP: yours when your max MP is over 0; another member's once it has been seen with MP on its current jobs. Never a tracked player's: their MP can't be read (`mpp` is 0) |
 | `mp` | string | `'low'` when it uses MP and is under the Recover MP line (`view.recover.mp`), else `'ok'` |
@@ -201,9 +202,9 @@ In this order. A section with rows is left out when your job has none for it (Pe
 | `'follow.distance'`, `'rest.distance'` | 1 to 15 |
 | `'rest.delay'` | 1 to 20 |
 | `'japanese'` | bool |
-| `'ui.hp_width'`, `'ui.mp_width'` | 80 to 600 |
+| `'ui.hp_width'`, `'ui.mp_width'`, `'ui.tp_width'` | 80 to 600 |
 | `'ui.hp_height'` | 10 to 120 |
-| `'ui.mp_height'` | 4 to 80 |
+| `'ui.mp_height'`, `'ui.tp_height'` | 4 to 80 |
 | `'ui.name_size'` | 8 to 64 |
 | `'ui.text_size'` | 8 to 48 |
 | `'ui.gap'` | 0 to 40 |

@@ -331,12 +331,12 @@ test('the HUD draws running and stopped; SK Settings only once the cog opens it,
     eq(begun('SK Settings'), false)
 end)
 
-test('a card per member: name and tag drawn as is, its HP % and MP % and the rest in its tooltip', function ()
+test('a card per member: name and tag drawn as is, its HP %, MP % and TP and the rest in its tooltip', function ()
     close_settings()
     render(settings.defaults(), status())
     for _, s in ipairs({ 'Sidekick3', 'Me', 'A', 'B', 'ME', 'P1', 'P2' }) do eq(fill(s) ~= nil, true, s) end
     eq({ fill('62%'), fill('100%') }, { nil, nil })
-    eq(tipped('A\nHP 62%  MP 100%  5.0y\nProtect\nShell'), true)
+    eq(tipped('A\nHP 62%  MP 100%  TP 0  5.0y\nProtect\nShell'), true)
     eq(tipped('B (trust, away)\nHP 100%  MP 100%'), true)
 end)
 
@@ -354,9 +354,13 @@ test('the panel and bars follow the UI settings', function ()
     render(cfg, status())
     local panel = calls('AddRectFilled')[1].args
     eq({ panel[1], panel[2][1], panel[3] }, { { 100, 50 }, 100 + 2 * 8 + 300, u32(P.bg, 0.5) })
-    -- Title 25, then a card 40 + 3 + 18 high and 8 apart: A's, the second, from y 144; 62% of 300.
-    eq(hp_fill(108, 144), { 108 + 186, 144 + 40 })
-    cfg.ui.hp_width, cfg.ui.mp_width, cfg.ui.text_size = 80, 80, 48  -- big text on short bars: the title row still fits
+    -- Title 25, then cards 40 + 3 + 18 + 3 + 8 high and 8 apart: A's, the third (under yours and your pet's), from
+    -- y 235; 62% of 300.
+    eq(hp_fill(108, 235), { 108 + 186, 235 + 40 })
+    cfg.ui.tp_width = 400  -- the widest bar sets the panel's width
+    render(cfg, status())
+    eq(calls('AddRectFilled')[1].args[2][1], 100 + 2 * 8 + 400)
+    cfg.ui.hp_width, cfg.ui.mp_width, cfg.ui.tp_width, cfg.ui.text_size = 80, 80, 80, 48  -- big text on short bars: the title row still fits
     render(cfg, status())
     eq(calls('AddRectFilled')[1].args[2][1], 100 + math.ceil(8 + 9 * 7 * 48 / 13 + 8 + 60 + 8))
 end)
@@ -365,7 +369,7 @@ test('the HUD\'s items reach exactly the panel\'s far corner, so its auto-size f
     close_settings()
     render(settings.defaults(), status())
     eq(frame.extent.Sidekick3, calls('AddRectFilled')[1].args[2])
-    eq(frame.extent.Sidekick3, { 100 + 236, 50 + 25 + 3 * 61 + 2 * 8 + 8 })
+    eq(frame.extent.Sidekick3, { 100 + 236, 50 + 25 + 4 * 72 + 3 * 8 + 8 })  -- yours, your pet's, A's and B's cards
 end)
 
 test('sizes out of their sliders\' range, set by hand or by a custom UI, are held to it', function ()
@@ -392,6 +396,58 @@ test('critical HP turns the name rose, MP under the Recover line the tag; away g
     eq({ fill('Gone'), fill('P3') }, { u32(P.dim), u32(P.dim) })
 end)
 
+-- The TP fills drawn: each one's corners and colour, in the order drawn.
+local function tp_fills()
+    local out = {}
+    for _, d in ipairs(calls('AddRectFilled')) do
+        if d.args[3] == u32(P.tp) or d.args[3] == u32(P.tp, 0.5) then out[#out + 1] = { d.args[1], d.args[2], d.args[3] } end
+    end
+    return out
+end
+
+test('the TP bar, under the MP bar: a part per 1000 TP, each filling in turn, the one filling faint', function ()
+    close_settings()
+    local cfg, st = settings.defaults(), status()
+    local function tp(n)
+        render(cfg, st, nil, model.build(fake.snap({ { name = 'A', tp = n } }), cat, cfg, st, NAMES))
+        return tp_fills()
+    end
+    -- A's card from y 155 (under yours, 72 high, and a gap): its TP bar from 155 + 40 + 3 + 18 + 3, 8 high. Its three
+    -- parts share 220 less two gaps of 3: x 108-179, 182-254 and 257-328.
+    eq(tp(1500), { { { 108, 219 }, { 179, 227 }, u32(P.tp) }, { { 182, 219 }, { 218, 227 }, u32(P.tp, 0.5) } })
+    eq(tipped('A\nHP 100%  MP 100%  TP 1500  5.0y'), true)
+    eq(tp(3000), { { { 108, 219 }, { 179, 227 }, u32(P.tp) }, { { 182, 219 }, { 254, 227 }, u32(P.tp) },
+                   { { 257, 219 }, { 328, 227 }, u32(P.tp) } })
+    eq(#tp(0), 0)
+    render(cfg, st, nil, model.build(fake.snap({ { kind = 'tracked', name = 'Out', tp = 0 } }), cat, cfg, st, NAMES))
+    eq(tipped('Out (tracked)\nHP 100%  5.0y'), true)  -- a tracked player's TP can't be read
+end)
+
+test('your pet\'s card sits under yours, before P1: its HP, MP and TP, and its own tooltip', function ()
+    close_settings()
+    local cfg, st = settings.defaults(), status()
+    local g = fake.snap({ { name = 'A' } }, { pet = { name = 'Ifrit', hpp = 50, mpp = 40, tp = 1000, dist = 3 } })
+    render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
+    eq({ hp_fill(108, 75), hp_fill(108, 155), hp_fill(108, 235) }, { { 328, 115 }, { 108 + 110, 195 }, { 328, 275 } })
+    eq({ fill('Ifrit'), fill('PET') }, { u32(P.white), u32(P.text2) })
+    eq(tp_fills(), { { { 108, 155 + 64 }, { 179, 155 + 72 }, u32(P.tp) } })  -- 1000 TP: one part, full
+    eq(tipped('Ifrit (pet)\nHP 50%  MP 40%  TP 1000  3.0y'), true)
+    g.pet = nil
+    render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
+    eq({ fill('PET'), hp_fill(108, 155) }, { nil, { 328, 195 } })  -- no pet: A's card under yours
+end)
+
+test('the arrow points at your pet\'s card for its care and sending it in', function ()
+    close_settings()
+    local cfg = settings.defaults()
+    for _, b in ipairs({ 'pet', 'pet_send', 'heal' }) do
+        local st = status({ intent = { at = 990, action = 'Healing Ruby', behavior = b, why = 'Carbuncle at 40%' } })
+        render(cfg, st, nil, model.build(snap(), cat, cfg, st, NAMES))
+        local arrow = calls('AddTriangleFilled', 'background')
+        eq({ #arrow, arrow[1].args[1][2] }, { 1, b == 'heal' and 75 + 36 or 155 + 36 }, b)  -- yours for a heal of no one
+    end
+end)
+
 test('the alliance gets a thin HP row each under the cards, a gap before each party; the arrow points at one', function ()
     close_settings()
     local cfg = settings.defaults()
@@ -399,12 +455,12 @@ test('the alliance gets a thin HP row each under the cards, a gap before each pa
         { kind = 'alliance', name = 'Cy', slot = 12, in_zone = false } })
     local st = status({ intent = { at = 990, action = 'Cure IV', target = 'Bo', behavior = 'heal', why = 'Bo' } })
     render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
-    local cards = 25 + 2 * 61 + 8               -- title, two cards and the gap between them
+    local cards = 25 + 2 * 72 + 8               -- title, two cards and the gap between them
     local b, c = cards + 8, cards + 8 + 18 + 3 + 18 + 8  -- each party's first bar top: after a gap
     eq(frame.extent.Sidekick3, { 100 + 236, 50 + c + 18 + 8 })  -- the panel still fits its items exactly
     eq(calls('AddRectFilled')[1].args[2][2], 50 + c + 18 + 8)
     eq({ fill('B0 Bea'), fill('B1 Bo'), fill('C0 Cy'), fill('20%') }, { u32(P.rose), u32(P.white), u32(P.dim), nil })
-    eq(tipped('Bea (alliance)\nHP 20%  MP 100%  5.0y'), true)
+    eq(tipped('Bea (alliance)\nHP 20%  MP 100%  TP 0  5.0y'), true)
     local arrow = calls('AddTriangleFilled', 'background')
     eq({ #arrow, arrow[1].args[1] }, { 1, { 100 + 236 + 2, 50 + b + 18 + 3 + 9 } })  -- its point: Bo's row, its middle
     eq(fill('Heal:Cure IV', 'background') ~= nil, true)
@@ -414,7 +470,7 @@ test('the arrow\'s label points at the card the next action is for: amber runnin
     close_settings()
     render(settings.defaults(), status())
     local arrow = calls('AddTriangleFilled', 'background')[1].args
-    eq({ arrow[1], arrow[4] }, { { 100 + 236 + 2, 50 + 25 + 69 + 30.5 }, u32(P.seg) })  -- A's card, its middle
+    eq({ arrow[1], arrow[4] }, { { 100 + 236 + 2, 50 + 25 + 2 * 80 + 36 }, u32(P.seg) })  -- A's card, under your pet's: its middle
     eq(fill('Heal:Cure IV', 'background'), u32(P.text2))
     render(settings.defaults(), status({ running = true }))
     eq(calls('AddTriangleFilled', 'background')[1].args[4], u32(P.amber))
@@ -655,8 +711,10 @@ test('UI / Log: the sliders size the HUD and SK Settings, Lock position keeps th
     open_settings()
     local cfg, st = settings.defaults(), status()
     eq(render(cfg, st, on('UI / Log', { ['HP bar width##sk3_ui_hp_width'] = 300, ['Name font size##sk3_ui_name_size'] = 30,
-        ['Background opacity##sk3_ui_opacity'] = 50, ['Size##sk3_ui_scale'] = 150 })), 4)
-    eq({ cfg.ui.hp_width, cfg.ui.name_size, cfg.ui.opacity, cfg.ui.scale }, { 300, 30, 50, 150 })
+        ['TP bar width##sk3_ui_tp_width'] = 250, ['TP bar height##sk3_ui_tp_height'] = 12,
+        ['Background opacity##sk3_ui_opacity'] = 50, ['Size##sk3_ui_scale'] = 150 })), 6)
+    eq({ cfg.ui.hp_width, cfg.ui.name_size, cfg.ui.tp_width, cfg.ui.tp_height, cfg.ui.opacity, cfg.ui.scale },
+       { 300, 30, 250, 12, 50, 150 })
     local free = frame.flags.Sidekick3
     eq(render(cfg, st, on('UI / Log', { ['Lock position##sk3_ui_locked'] = true })), 1)
     eq(cfg.ui.locked, true)

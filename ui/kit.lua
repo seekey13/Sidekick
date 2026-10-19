@@ -20,7 +20,8 @@ kit.P = {
     accent = '#7AA2F7', accent2 = '#A9C1FF', accent_lo = '#3E5CB3', accent_bg = '#1B2340',
     teal = '#5FD3B3', amber = '#E8B45C', rose = '#EE6F78', rose_bg = '#3A2026',
     knob = '#F2F3F8', off = '#2B2F42', seg = '#313752', ink = '#0B1020',
-    hp = '#EE6F78', mp = '#E8B45C',  -- the HUD's bars: the mockup's red and yellow, from the palette
+    hp = '#EE6F78', mp = '#E8B45C',  -- the HUD's bars: the mockup's red and yellow, from the palette,
+    tp = '#5FD3B3',                  -- and TP in its teal, as what is ready
 }
 local P = kit.P
 
