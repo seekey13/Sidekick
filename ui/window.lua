@@ -439,11 +439,16 @@ local function draw_heal_settings(view, pg)
     for _, l in ipairs(HEAL_LINES) do
         slider(pg, l[1], l[1] .. '##sk3_' .. l[2], 'heal.' .. l[2], h[l[2]], 1, 99, l[3], '%')
     end
+    -- A heal line at or under its danger line leaves nothing between them: only danger heals go.
+    if h.threshold <= h.danger then note(pg, 'Heal under is at or under Danger under: no efficient heals, only danger ones.', P.amber) end
     member_pick(pg, 'Focus', 'focus', h.focus, h.focus_names, 'heal.focus', 'Heal this member first, on its own lines.')
     for _, l in ipairs(HEAL_LINES) do
         local key = 'focus_' .. l[2]
         local label = 'Focus ' .. l[1]:lower()
         slider(pg, label, label .. '##sk3_' .. key, 'heal.' .. key, h[key], 1, 99, 'For the focus member: ' .. l[3], '%')
+    end
+    if h.focus_threshold <= h.focus_danger then
+        note(pg, 'Focus heal under is at or under Focus danger under: the focus member gets danger heals only.', P.amber)
     end
     slider(pg, 'Cure potency +', 'Cure potency +##sk3_cure_potency', 'heal.cure_potency', h.cure_potency, 0, 50,
         'Cure potency % from gear, until a cure has been seen healing.', '%')

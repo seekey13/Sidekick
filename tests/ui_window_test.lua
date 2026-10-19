@@ -698,6 +698,17 @@ test('sliders, the focus and the options write the settings', function ()
     eq(cfg.buff.gather, false)
 end)
 
+test('a heal line at or under its danger line says only danger heals go', function ()
+    open_settings()
+    local cfg, st = settings.defaults(), status()
+    local MINE, FOCUS = 'Heal under is at or under Danger under', 'Focus heal under is at or under Focus danger under'
+    render(cfg, st, on('Heal'))
+    eq({ drew(MINE), drew(FOCUS) }, { false, false })
+    cfg.heal.threshold, cfg.heal.focus_threshold = cfg.heal.danger, cfg.heal.focus_danger - 1
+    render(cfg, st, on('Heal'))
+    eq({ drew(MINE), drew(FOCUS) }, { true, true })
+end)
+
 test('a slider\'s value, clicked, takes a typed number, held to its range', function ()
     open_settings()
     local cfg, st = settings.defaults(), status()
