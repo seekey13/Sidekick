@@ -319,3 +319,24 @@ test('Nightingale and Troubadour up: every song stamped without Troubadour is su
     brd.landed(song('Valor Minuet IV'), { 1, 101 }, 1050, {}, 2)
     eq(select(2, decide(snap({ A }, { MINUET, TROUBADOUR }, { now = 1060 }), cfg)), 'nothing to do')
 end)
+
+test('Hold area buffs: a far player whose stamp is due but who still has it holds nothing', function ()
+    local cfg = cfg_with({ area_1 = 'Valor Minuet IV' }, { hold_aoe = true })
+    cfg.song.duration = 100
+    brd.landed(song('Valor Minuet IV'), { 1, 101 }, 1000, {}, 2)
+    local g = snap({ player({ name = 'Far', dist = 25 }, { MINUET }) }, { MINUET }, { now = 1100 })
+    eq(decide(g, cfg), '/ma "Valor Minuet IV" <me>')
+    -- One who lacks it is still waited for.
+    g = snap({ player({ name = 'Far', dist = 25 }) }, { MINUET }, { now = 1100 })
+    eq(select(2, decide(g, cfg)), 'holding Valor Minuet IV: Far 25.0y away')
+end)
+
+test('a party player with no status list yet (no stacks) keeps their stamps', function ()
+    local cfg = cfg_with({ area_1 = 'Valor Minuet IV' })
+    cfg.song.duration = 100
+    brd.landed(song('Valor Minuet IV'), { 1, 101 }, 1000, {}, 2)
+    local A = player({ name = 'A' })
+    A.stacks = nil
+    decide(snap({ A }, { MINUET }, { now = 1050 }), cfg)
+    eq(brd.stamps()[101]['Valor Minuet IV'].at, 1000)
+end)

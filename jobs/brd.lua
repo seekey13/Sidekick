@@ -185,18 +185,19 @@ end
 local function here(u) return u.in_zone and u.alive and can.in_party(u) end
 
 -- Area song `a`: who near you it's for is owed it (the first, and how many),
--- and, holding for the group, the first player in your party owed it out of
--- its reach with no song of their own. `free(u)`: the slots `u` has for area
--- songs; `owes(u, a)`: whether `u` is owed it.
+-- and, holding for the group, the first player in your party lacking it out of
+-- its reach with no song of their own (a stamp due on one who still has it holds
+-- nothing). `free(u)`: the slots `u` has for area songs; `owes(u, a, lacking)`:
+-- whether `u` is owed it (`lacking`: by their statuses alone).
 local function voters(a, g, free, owes, hold)
     local radius = can.yalms(a.area)
     local near, n, away = nil, 0, nil
     for _, u in ipairs(g.units) do
         local slots = free(u)
-        if here(u) and slots > 0 and owes(u, a) then
+        if here(u) and slots > 0 then
             if u.kind == 'self' or (u.dist or math.huge) <= radius then
-                near, n = near or u, n + 1
-            elseif hold and u.kind == 'party' and slots == brd.slots(g) and not away then
+                if owes(u, a) then near, n = near or u, n + 1 end
+            elseif hold and u.kind == 'party' and slots == brd.slots(g) and not away and owes(u, a, true) then
                 away = u
             end
         end
@@ -248,11 +249,11 @@ function brd.want(g, cat, cfg, mem)
     -- without Pianissimo (under BRD 20), since they can't go.
     local function mine(u) return pianissimo and u.slot and own[u.slot] or {} end
     local function free(u) return u.slot and u.slot <= 5 and n - #mine(u) or 0 end
-    -- Whether `u` is owed area song `a`: its stamp says so, else they lack it and
-    -- hold fewer of the area songs than the slots they have for them.
-    local function owes(u, a)
-        local d = due(u, a)
-        if d ~= nil then return d end
+    -- Whether `u` is owed area song `a`: its stamp says so (unless `lacking`), else
+    -- they lack it and hold fewer of the area songs than the slots they have for them.
+    local function owes(u, a, lacking)
+        local d = not lacking and due(u, a)
+        if not lacking and d ~= nil then return d end
         return lacks(u, a, { area, mine(u) }) and held(u, area) < free(u)
     end
 
