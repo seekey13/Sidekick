@@ -43,14 +43,17 @@ end
 test('WHM 75 / BLM 37: every section, in order, each under its header, then UI / Log', function ()
     local view = build(whm)
     eq(view.job, 'WHM 75 / BLM 37')
-    eq(keys(view.sections, 'id'), { 'profile', 'follow', 'heal', 'revive', 'wake', 'remove', 'buff', 'recover', 'rest', 'track', 'ui' })
+    eq(keys(view.sections, 'id'), { 'profile', 'follow', 'heal', 'revive', 'wake', 'remove', 'buff', 'recover', 'rest', 'track', 'afk', 'ui' })
     eq(keys(view.sections, 'title'), { 'Profiles', 'Follow', 'Healing', 'Revive', 'Wake sleepers', 'Debuff removal', 'Buffs',
-        'Recovery', 'Resting', 'Tracked players', 'UI / Log' })
+        'Recovery', 'Resting', 'Tracked players', 'AFK sleep', 'UI / Log' })
     eq(keys(view.sections, 'header'), { 'Profiles', 'Follow', 'Heal', 'Heal', 'Remove', 'Remove', 'Buff', 'Recover', 'Recover',
-        'Tracked', 'UI / Log' })
+        'Tracked', 'AFK', 'UI / Log' })
     local on = {}
-    for i = 2, #view.sections do on[i - 1] = view.sections[i].on end
+    for i = 2, #view.sections do
+        if view.sections[i].id ~= 'afk' then on[#on + 1] = view.sections[i].on end
+    end
     eq(on, { false, true, true, true, true, true, true, false })  -- Profiles, Tracked, UI / Log: no switch
+    eq(section(view, 'afk').on, true)
     eq({ section(view, 'profile').on, section(view, 'track').on, section(view, 'ui').on }, { nil, nil, nil })
     local cfg = settings.defaults()
     cfg.ui.on = true  -- a custom UI's own key
@@ -71,7 +74,7 @@ test('a section with nothing to show is left out: BLM 75 has no raise, no heal t
         if a.role == 'heal' then eq(a.wakes, nil, a.name) end
     end
     local view = build(blm)
-    eq(keys(view.sections, 'id'), { 'profile', 'follow', 'heal', 'remove', 'buff', 'recover', 'rest', 'track', 'ui' })
+    eq(keys(view.sections, 'id'), { 'profile', 'follow', 'heal', 'remove', 'buff', 'recover', 'rest', 'track', 'afk', 'ui' })
     eq(keys(section(view, 'remove').rows), { 'Antidote', 'Eye Drops', 'Echo Drops', 'Holy Water', 'Tincture',
         'Hallowed Water', 'Remedy Ointment', 'Remedy', 'Panacea' })
 end)
@@ -117,7 +120,7 @@ test('BRD 75 / WHM 37: Songs under Buff, Area then each party slot; no song is a
     local view = build(cat, cfg, g)
     eq({ section(view, 'song').header, section(view, 'song').on, keys(view.sections, 'id')[8] }, { 'Buff', true, 'song' })
     local s = view.song
-    eq({ s.slots, s.pianissimo, s.ready, s.avail, s.timed, s.duration }, { 2, true, true, 'ready', true, 0 })
+    eq({ s.slots, s.pianissimo, s.ready, s.avail, s.timed, s.duration, s.fast }, { 2, true, true, 'ready', true, 0, false })
     eq(s.choices[1], { name = 'Army\'s Paeon', label = 'Army\'s Paeon (+Regen)' })
     eq(keys(s.sets), { 'area', 'me', 'p1', 'p2', 'p3', 'p4', 'p5' })
     eq({ s.sets[1].picks, s.sets[1].name, s.sets[3].picks, s.sets[3].name, s.sets[3].present, s.sets[5].present },

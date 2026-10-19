@@ -2,7 +2,7 @@
 
 Sidekick3's UI is one replaceable Lua file. Sidekick does all the deciding and acting; a UI only **shows** a table of data (`view`) and **changes** things through a table of functions (`act`). Anything that keeps to that contract can replace the standard UI: a compact HP list, a bar of on/off switches, one big window instead of two.
 
-[window.lua](window.lua) is the standard UI and the reference: a heads-up display of the party's HP, MP and TP, your pet's under yours (the **Sidekick3** window), whose cog on your own card opens **SK Settings**, a page per group of settings listed down its left. It uses nearly every field and every action below. Its look is [kit.lua](kit.lua)'s, after VanaCore's own `/vana` window ([docs/vana-ui-style.md](../docs/vana-ui-style.md)): a palette, and switches, sliders, drop-downs, chips and buttons drawn on ImGui's draw lists over invisible buttons. A custom UI can `require('ui.kit')` for the same look; each control takes its value and returns the new one and whether it changed, and `kit.frame(scale)` must run once a frame before any of them.
+[window.lua](window.lua) is the standard UI and the reference: a heads-up display of the party's HP, MP and TP, your pet's under yours (the **Sidekick3** window), whose cog on your own card opens **SK Settings**, a page per group of settings listed down its left, and, with `ui.widget` on, **SK Widget**, v2's floating widget: the profile loaded (a click lists the others to load) and the job, then Start/Stop, the status, Settings and Track for your target. It uses nearly every field and every action below. Its look is [kit.lua](kit.lua)'s, after VanaCore's own `/vana` window ([docs/vana-ui-style.md](../docs/vana-ui-style.md)): a palette, and switches, sliders, drop-downs, chips and buttons drawn on ImGui's draw lists over invisible buttons. A custom UI can `require('ui.kit')` for the same look; each control takes its value and returns the new one and whether it changed, and `kit.frame(scale)` must run once a frame before any of them.
 
 ## Install
 
@@ -19,7 +19,7 @@ A UI file returns a table with one function:
 ```lua
 local ui = {}
 
--- Called every frame while the window is open, from Ashita's d3d_present.
+-- Called every frame while the UI is open or the widget is on, from Ashita's d3d_present.
 function ui.render(view, act)
 end
 
@@ -31,6 +31,7 @@ return ui
 - **`act` is the only way to change anything.** Sidekick saves settings for you (see [Saving](#saving)).
 - **Every ImGui scope it opens must be closed, even when it errors.** ImGui crashes the game on a `Begin` with no `End`. Guard the inside of the window with `pcall`, end the window, then raise the error, as the example and `window.lua` do.
 - **State of its own** (which page is showing, a collapsed panel) lives in locals in the file and lasts until the addon reloads. To keep a preference across reloads, save it under `ui.` with `act.set('ui.<name>', value)` and read it back from `view.ui.<name>`.
+- **Draw nothing but a widget of your own while `view.ui.open` is false.** Sidekick also calls `render` with the UI closed while `view.ui.widget` is on, so a widget can stay up on its own (the standard UI's does). A UI with no widget returns at once then, as the example does.
 - `/sk3` opening and closing the window, the commands, and automation itself don't depend on the UI. A UI with no Start button still runs with `/sk3 start`.
 
 ## `view`
@@ -45,7 +46,7 @@ Text that may contain `%` (names, `why` text) must be escaped before it's drawn:
 | `alliance` | list | The alliance's other two parties, as `party` lines (kind `'alliance'`, tags `'B0'` to `'B5'` and `'C0'` to `'C5'`); empty outside an alliance. The standard HUD draws them as thin HP rows under the cards |
 | `bt` | table or nil | Your battle target: `{ name, hpp, dist }`, `dist` like `'4.3y'`. With no `<bt>` of your party's, the nearest mob another party of the alliance claimed |
 | `pet` | table or nil | Your pet: `{ name, hpp, mpp, tp, dist }`, as `bt` plus its MP % and its TP (0 to 3000). The standard HUD gives it a card under yours, tagged `PET` |
-| `flags` | list of strings | What may be holding automation up, in this order: `'casting'`, `'moving'`, `'combat'`, `'safe zone'`, `'mounted'`, `'dead'`, `'resting'`, `'incapacitated'`, `'silenced'`, `'amnesia'` |
+| `flags` | list of strings | What may be holding automation up, in this order: `'casting'`, `'moving'`, `'combat'`, `'safe zone'`, `'AFK asleep'`, `'mounted'`, `'dead'`, `'resting'`, `'incapacitated'`, `'silenced'`, `'amnesia'` |
 | `recent` | list | The last 10 actions sent, newest first: `{ age, text, why }`, e.g. `{ 12, 'Cure IV -> Kupipi', 'heal: Kupipi at 62%' }`; `age` in whole seconds |
 | `pointer` | table or nil | What automation is about to do, or would do, for the standard HUD's arrow: `{ text, member, ally, live, pet }`. `text` is the behavior then the action, `'Heal:Cure IV'`; a target with no line of its own is added by name (`'Heal:Cure IV -> Name'`). `member` is the index in `party` it is for: the target's, else yours (an action on you, your pet or the enemy, as pet care's `'Pet:Healing Ruby'`). For an alliance member, `ally` is their index in `alliance` and `member` is nil. `pet` is true when it is your pet's own, pet care or sending it in (`'Pet:Healing Ruby'`, `'Pet:Deploy'`), while `view.pet` is there: the standard HUD points at the pet's card then; `member` is still yours, for a UI with no pet card. `live`: running, it is the decision about to go or, for a moment after (longer while it is being cast), what was just sent; stopped (false), what it would do. nil when there is nothing |
 | `others` | list | What the other Sidekick sessions on this PC are doing as it goes, for the standard HUD's blue labels: `{ session, text, member, ally }` each, by `session` (its character's name). `text`, `member` and `ally` as `pointer`'s, but an action on no one (on that session's player, its pet or the enemy) is at that session's own line, never yours. One shows while that session's own `pointer` would show what it just sent: a moment after it goes, longer while it's being cast. Empty when none is acting, or none is on a line here |
@@ -55,16 +56,17 @@ Text that may contain `%` (names, `why` text) must be escaped before it's drawn:
 | `follow` | table | `{ on, target, distance, names }`: follow `target` (a name, `''` for none) once further than `distance` yalms; `names` are the members (the alliance's and tracked players too) that can be followed |
 | `buff` | table | `{ hold_aoe, gather, one_shadow, shadows }`: `hold_aoe` holds an area buff spell (Protectra, songs) while a player in your party who lacks it is out of its reach; `gather` then asks them to gather in party chat, at most every 5 seconds, when someone near you lacks it too; `one_shadow` recasts Utsusemi while its last shadow is up (for Ichi, cancelling that shadow a second into the cast), and `shadows` says your job has Utsusemi, so it's worth showing |
 | `roll` | table | Corsair's rolls: `{ first, second, risk, risks, two, choices, last }`. `first` and `second` are the rolls kept up, by name (`''` for none); `two` is true on a Corsair main job, the only one that keeps a second. `risk` is how far Double-Up chases a total, one of `risks`: `'lowest'`, `'medium'`, `'highest'`. `choices` lists every roll you have, by name: `{ name, label, lucky, unlucky }`, as `{ name = 'Corsair\'s Roll', label = 'Corsair\'s Roll (EXP+)', lucky = 5, unlucky = 9 }`. `last` is the last roll's total while it's on you (or it just busted), when it's one of them: `{ name, total, lucky, unlucky, bust }`, else nil. A `second` equal to `first` keeps one roll |
-| `song` | table | Bard's songs: `{ slots, choices, sets, pianissimo, ready, avail }`. `slots` is how many songs stand on each target, 2 on a Bard main job, 1 on a subjob. `choices` lists every song you have, in id order (each kind's tiers together), `{ name, label }`, as `{ name = 'Valor Minuet IV', label = 'Valor Minuet IV (+ATK)' }`. `sets` are Area, then each party slot: `{ key, label, picks, name, present }`; `key` is `'area'`, `'me'` or `'p1'` to `'p5'`, `label` `'Area'`, `'ME'`, `'P1'`...; `picks` holds a song name (or `''`) for each of the 2 slots, though only the first `slots` count; set slot `i` with `act.set('song.<key>_<i>', name)`. Area songs are sung as they are, on everyone near you; a party slot's on whoever is in it (`name`, `present`; nil and false for an empty slot) through Pianissimo. `pianissimo` is false when you have none (under Bard 20), so a party slot's songs can't go; otherwise `ready` and `avail` are Pianissimo's, as a row's. `timed` is true on a Bard main job from 75, where `duration` (Song Duration, seconds, 0 off) is set with `act.set('song.duration', n)`: each song is then sung again that long after it landed. Off BRD, `choices` and `sets` are empty and `slots` 0 |
+| `song` | table | Bard's songs: `{ slots, choices, sets, pianissimo, ready, avail }`. `slots` is how many songs stand on each target, 2 on a Bard main job, 1 on a subjob. `choices` lists every song you have, in id order (each kind's tiers together), `{ name, label }`, as `{ name = 'Valor Minuet IV', label = 'Valor Minuet IV (+ATK)' }`. `sets` are Area, then each party slot: `{ key, label, picks, name, present }`; `key` is `'area'`, `'me'` or `'p1'` to `'p5'`, `label` `'Area'`, `'ME'`, `'P1'`...; `picks` holds a song name (or `''`) for each of the 2 slots, though only the first `slots` count; set slot `i` with `act.set('song.<key>_<i>', name)`. Area songs are sung as they are, on everyone near you; a party slot's on whoever is in it (`name`, `present`; nil and false for an empty slot) through Pianissimo. `pianissimo` is false when you have none (under Bard 20), so a party slot's songs can't go; otherwise `ready` and `avail` are Pianissimo's, as a row's. `timed` is true on a Bard main job from 75, where `duration` (Song Duration, seconds, 0 off) is set with `act.set('song.duration', n)`: each song is then sung again that long after it landed. `fast` (Pianissimo fast casting, set with `act.set('song.fast', on)`) fires Pianissimo before an area song too and cancels it a second into the cast; only worth showing while `pianissimo` is true. Off BRD, `choices` and `sets` are empty and `slots` 0 |
 | `geo` | table | Geomancer's luopan: `{ distance, linger, entrust, entrust_spell, indi, names }`. Full Circle recalls the luopan once who it went on is further than `distance` yalms from it (3 to 30), and a debuff's `linger` seconds after combat (1 to 20). Entrust puts the Indi- spell `entrust_spell` (a name from `indi`, every Indi- you have, or `''`) on the member `entrust` (a name from `names`, your party but you, or `''`) |
 | `rune` | table | Rune Fencer's runes: `{ slots, runes, sets }`. `slots` is how many runes stand at once at your RUN level, main or sub (1 to 3). `runes` lists every rune you have, `{ name, element, resist, ailments }`, as `{ name = 'Ignis', element = 'Fire', resist = 'Ice', ailments = 'Paralyze / Bind' }`: what it adds to your attacks, the element it resists, the ailments it defends against. `sets` are Idle, then each ward you have (Vallation, Valiance, Pflug): `{ key, label, shows, ward, on, ready, avail, picks }`. `picks` holds a rune name (or `''`) for each of the 3 slots, though only the first `slots` count; set slot `i` with `act.set('rune.<key>_<i>', name)`. `shows` is the field of `runes` the set's picks are best named by (`'element'` for Idle, `'resist'` for Vallation and Valiance, `'ailments'` for Pflug). A ward's set also has `ward` (its name, the row key for `act.row`), `on` (its row), `ready` and `avail` as a row's. Off RUN, `slots` is 0 and `runes` and `sets` are empty |
 | `maneuver` | table | Puppetmaster's maneuvers: `{ choices, picks, ready, avail }`. `choices` lists every maneuver you have, in element order, `{ name, label }`, as `{ name = 'Fire Maneuver', label = 'Fire' }`. `picks` holds a maneuver name (or `''`) for each of the 3 slots; the same one twice keeps two up. Set slot `i` with `act.set('maneuver.slot_<i>', name)`. `ready` and `avail` as a row's, for them all (they share one recast and gate: `'no pet'` without an automaton out, `'blocked by a status'` under Overload). Off PUP, `choices` is empty and `ready` and `avail` nil |
 | `rest` | table | `{ on, delay, distance }`: rest after `delay` seconds with nothing to do; stand when the follow target is further than `distance` yalms |
+| `afk` | table | `{ minutes, asleep, left }`: AFK sleep pauses automation once no one in your party has moved and there has been no combat for `minutes` (1 to 60), and your own movement wakes it; its switch is the `'afk'` section's. `asleep` is true while it sleeps; `left` is the seconds until it would, nil while it's off, asleep or automation is stopped (it counts only while running) |
 | `track` | table | `{ target }`: your current target's name when it's a player you could track (not in your party or alliance, not tracked yet), else nil |
 | `japanese` | bool | Spell, ability and item names are sent in Japanese. Shared by every job pair: it's kept in `ui`'s file (`ui.japanese`) |
 | `log` | bool | Each action sent is printed to chat |
 | `profiles` | table | `{ active, names }`: the profile loaded (nil for Default, the working copy) and every saved profile's name, in order, case aside. Each job pair has its own |
-| `ui` | table | The UI's settings, shared by every job pair: `open` (bool), and any `ui.<name>` your UI saved. The standard HUD's, which yours may ignore: `hp_width`, `mp_width`, `tp_width` (80 to 600), `hp_height` (10 to 120), `mp_height`, `tp_height` (4 to 80), `name_size` (8 to 64), `text_size` (8 to 48), `gap` (0 to 40), all in pixels; `opacity` (0 to 100, the panel's %); `locked` (bool, it can't be dragged); SK Settings' `scale` (50 to 200, % of the size that suits the screen; nil for 100); `japanese` (bool, the client's language, as `view.japanese`: not free for a UI's own use) |
+| `ui` | table | The UI's settings, shared by every job pair: `open` (bool, the UI is shown now: false once `/sk3`, `act.close()` or an error hid it), and any `ui.<name>` your UI saved. The standard HUD's, which yours may ignore: `hp_width`, `mp_width`, `tp_width` (80 to 600), `hp_height` (10 to 120), `mp_height`, `tp_height` (4 to 80), `name_size` (8 to 64), `text_size` (8 to 48), `gap` (0 to 40), all in pixels; `opacity` (0 to 100, the panel's %); `locked` (bool, it and the widget can't be dragged); `widget` (bool, the widget is shown, with the UI closed too: `/sk3 widget` switches it; a UI with no widget may ignore it); SK Settings' `scale` (50 to 200, % of the size that suits the screen; nil for 100); `japanese` (bool, the client's language, as `view.japanese`: not free for a UI's own use) |
 | `sections` | list | Every setting, by section, below |
 | `remote` | list | The SK Settings of other Sidekick sessions on this PC you have open (`act.watch`; sent only while your UI is open), by name: `{ name, view, other }`. `view` is the view that session built and sent (nil until its first one comes, about a second): the same fields as yours but `pointer`, `others`, `ui` and `remote`, plus `session` (its name) and `version`. Draw it with `act.remote(name)` in place of `act`. `other` is true (and `view` nil) when that session runs another version of Sidekick3, whose view this one can't draw |
 | `session` | string or nil | Only on a view in `remote`: the session it came from. nil on yours |
@@ -76,7 +78,7 @@ Text that may contain `%` (names, `why` text) must be escaped before it's drawn:
 | `running` | bool | Automation is on |
 | `state` | string | `'Running'` or `'Stopped'` |
 | `text` | string | Running: the last action sent, or `'nothing sent yet'`. Stopped: what it would do now (`'would: Cure IV -> Kupipi (heal: Kupipi at 62%)'`), or why it wouldn't |
-| `dim` | string or nil | Running and not acting: why (`'casting'`, `'safe zone'`, `'nothing to do'`...) |
+| `dim` | string or nil | Running and not acting: why (`'casting'`, `'safe zone'`, `'AFK asleep'`, `'nothing to do'`...) |
 
 ### `view.party[i]`
 
@@ -126,6 +128,7 @@ In this order. A section with rows is left out when your job has none for it (Pe
 | `'recover'` | Recovery | Recover | `view.recover`, rows |
 | `'rest'` | Resting | Recover | `view.rest` |
 | `'track'` | Tracked players | Tracked | `view.track`, and the `party` and `alliance` lines with `tracked` |
+| `'afk'` | AFK sleep | AFK | `view.afk` |
 | `'ui'` | UI / Log | UI / Log | `view.ui`, `view.log`, `view.recent`, `view.japanese` |
 
 | Field | Type | What it is |
@@ -160,8 +163,8 @@ In this order. A section with rows is left out when your job has none for it (Pe
 |---|---|
 | `act.run(on)` | Automation on or off. This session only: it is always off after a load |
 | `act.log(on)` | Print each action sent to chat, or not. This session only |
-| `act.close()` | Hide the UI (remembered); `/sk3` shows it again |
-| `act.section(id, on)` | A section's switch: `'follow'`, `'heal'`, `'revive'`, `'wake'`, `'remove'`, `'buff'`, `'roll'`, `'song'`, `'geo'`, `'rune'`, `'pet'`, `'maneuver'`, `'recover'` or `'rest'` |
+| `act.close()` | Hide the UI (remembered); `/sk3` shows it again. A widget stays while `ui.widget` is on |
+| `act.section(id, on)` | A section's switch: `'follow'`, `'heal'`, `'revive'`, `'wake'`, `'remove'`, `'buff'`, `'roll'`, `'song'`, `'geo'`, `'rune'`, `'pet'`, `'maneuver'`, `'recover'`, `'rest'` or `'afk'` |
 | `act.row(key, on)` | A row on or off |
 | `act.pick(key, name)` | A row's choice: a `choices[i].name`, or nil for Auto |
 | `act.target(key, slot, on)` | Turn a target chip on or off: its `slot`, 0 to 17 or a tracked player's name; `on` true or false sets it, nil toggles it |
@@ -169,7 +172,7 @@ In this order. A section with rows is left out when your job has none for it (Pe
 | `act.hold(key, on)` | A row's Hold: `true`, its spell waits while a modifier on for it can't go with it; `false` (the default), it goes without |
 | `act.track(name)` | Track a player outside your party and alliance: by name, or your current target when nil (`view.track.target` names it). This session only |
 | `act.untrack(name)` | Stop tracking a player, by name. Their buff chips stay set for when they're tracked again |
-| `act.profile(name)` | Load a profile: a `view.profiles.names[i]`, or nil for Default (the settings as they were before a profile was loaded). Loading one never changes `ui`, `japanese`, following, the focus or who healing skips |
+| `act.profile(name)` | Load a profile: a `view.profiles.names[i]`, or nil for Default (the settings as they were before a profile was loaded). Loading one never changes `ui`, `japanese`, following, AFK sleep, the focus or who healing skips |
 | `act.save_profile(name, as_new)` | Save the settings as they are now under `name`. Without `as_new`, while another profile is loaded, that profile is renamed to `name` instead (as v2). A blank name, `'Default'`, or another profile's name saves nothing: only `as_new` replaces a profile. Changes after a load go to the settings, never the profile, until it's saved |
 | `act.new_profile()` | Every setting back to its default (but those a profile never changes), on Default; profiles are kept |
 | `act.delete_profile(name)` | Delete a profile; deleting the loaded one goes back to Default |
@@ -188,7 +191,7 @@ In this order. A section with rows is left out when your job has none for it (Pe
 | `'heal.regen_potency'` | 0 to 30 |
 | `'recover.mp'`, `'pet.heal'` | 1 to 99 |
 | `'recover.tp'`, `'recover.min_tp'` | 0 to 3000 |
-| `'follow.on'`, `'rest.on'`, `'heal.alliance'`, `'heal.reserve'`, `'buff.hold_aoe'`, `'buff.gather'` | bool |
+| `'follow.on'`, `'rest.on'`, `'afk.on'`, `'heal.alliance'`, `'heal.reserve'`, `'buff.hold_aoe'`, `'buff.gather'`, `'song.fast'` | bool |
 | `'follow.target'` | a name from `view.follow.names`, or `''` |
 | `'roll.first'`, `'roll.second'` | a name from `view.roll.choices`, or `''` |
 | `'roll.risk'` | one of `view.roll.risks` |
@@ -202,6 +205,7 @@ In this order. A section with rows is left out when your job has none for it (Pe
 | `'song.duration'` | 0 to 300 |
 | `'follow.distance'`, `'rest.distance'` | 1 to 15 |
 | `'rest.delay'` | 1 to 20 |
+| `'afk.minutes'` | 1 to 60 |
 | `'japanese'` | bool |
 | `'ui.hp_width'`, `'ui.mp_width'`, `'ui.tp_width'` | 80 to 600 |
 | `'ui.hp_height'` | 10 to 120 |
@@ -210,7 +214,7 @@ In this order. A section with rows is left out when your job has none for it (Pe
 | `'ui.text_size'` | 8 to 48 |
 | `'ui.gap'` | 0 to 40 |
 | `'ui.opacity'` | 0 to 100 |
-| `'ui.locked'` | bool |
+| `'ui.locked'`, `'ui.widget'` | bool |
 | `'ui.scale'` | 50 to 200 |
 | `'ui.<name>'` | your UI's own: a string, number or bool |
 
@@ -269,6 +273,7 @@ local function draw(view, act)
 end
 
 function ui.render(view, act)
+    if not view.ui.open then return end  -- it has no widget to show on its own
     local open = { true }
     local ok, err = true, nil
     if imgui.Begin('Sidekick3 mini', open, ImGuiWindowFlags_AlwaysAutoResize) then

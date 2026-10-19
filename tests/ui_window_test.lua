@@ -591,6 +591,123 @@ test('a Lua error while drawing still ends both windows, then is raised', functi
     eq(type(draw(window, cfg, st, nil, view)), 'string')
 end)
 
+-- The widget ------------------------------------------------------------------------
+
+local function widget_cfg()
+    local cfg = settings.defaults()
+    cfg.ui.widget = true
+    return cfg
+end
+
+test('the widget is off at first; on, it shows the profile, the job and the state, its whole in the tooltip', function ()
+    close_settings()
+    render(settings.defaults(), status())
+    eq(begun('SK Widget'), false)
+    local cfg = widget_cfg()
+    render(cfg, status({ open = false }))  -- the HUD closed, so the tooltip is the widget's
+    eq({ begun('SK Widget'), button('##sk3_widget_profile'), drew('Default'), drew('WHM 75 / BLM 37'), drew('Stopped'),
+         button('##sk3_widget_run'), drew(' Start ') }, { true, true, true, true, true, true, true })
+    eq(tipped('Stopped: would: Cure IV -> A (heal: A at 62%)'), true)
+    eq(frame.flags['SK Widget'] - ImGuiWindowFlags_NoTitleBar - ImGuiWindowFlags_NoResize - ImGuiWindowFlags_AlwaysAutoResize
+        - ImGuiWindowFlags_NoScrollbar - ImGuiWindowFlags_NoScrollWithMouse - ImGuiWindowFlags_NoBackground, 0)
+    eq(frame.extent['SK Widget'], calls('AddRectFilled')[1].args[2])  -- its items reach its panel's far corner
+    render(cfg, status({ open = false, running = true, intent = false, why = 'casting' }))
+    eq({ drew('Running'), tipped('(casting)'), drew(' Stop ') }, { true, true, true })
+end)
+
+test('the widget\'s Start/Stop runs this session only; Settings opens and closes SK Settings', function ()
+    close_settings()
+    local cfg, st = widget_cfg(), status()
+    remote_calls = {}
+    eq(render(cfg, st, { ['##sk3_widget_run'] = true }), 0)
+    eq({ st.running, remote_calls }, { true, {} })
+    eq(render(cfg, st, { ['##sk3_widget_run'] = true }), 0)
+    eq(st.running, false)
+    render(cfg, st, { ['##sk3_widget_settings'] = true })
+    render(cfg, st)
+    eq(begun('SK Settings'), true)
+    render(cfg, st, { ['##sk3_widget_settings'] = true })
+    render(cfg, st)
+    eq(begun('SK Settings'), false)
+end)
+
+test('the widget\'s profile drop-down lists the profiles: a click loads one, Default goes back', function ()
+    close_settings()
+    local cfg, st = widget_cfg(), status()
+    cfg.heal.danger = 40
+    cfg.profiles['Sky##1'] = { heal = { danger = 20 } }
+    eq(render(cfg, st, { ['##sk3_widget_profile_1'] = true }), 1)
+    eq({ cfg.profile, cfg.heal.danger }, { 'Sky##1', 20 })
+    render(cfg, st)
+    eq({ drew('Sky##1'), tipped('Sky##1') }, { true, true })  -- whole, in its box and in its list
+    render(cfg, st, { ['Default##sk3_widget_profile_default'] = true })
+    eq({ cfg.profile, cfg.heal.danger }, { '', 40 })
+end)
+
+test('the widget offers Track for a player you target outside the alliance', function ()
+    close_settings()
+    local g = fake.snap({ { name = 'A' } }, { target = { sid = 900, tidx = 1200, name = 'Stranger' } })
+    local cfg, st = widget_cfg(), status()
+    tracking_calls = {}
+    render(cfg, st, { ['##sk3_widget_track'] = true }, model.build(g, cat, cfg, st, NAMES))
+    eq({ tracking_calls, drew('Track Stranger') }, { { { 'add', 'Stranger' } }, true })
+    g.target = nil
+    render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
+    eq({ button('##sk3_widget_track'), drew('Track Stranger') }, { false, false })
+end)
+
+test('UI / Log turns the widget on and off; Lock position keeps it still too', function ()
+    open_settings()
+    local cfg, st = settings.defaults(), status()
+    eq(render(cfg, st, on('UI / Log', { ['Widget##sk3_ui_widget'] = true })), 1)
+    eq(cfg.ui.widget, true)
+    render(cfg, st)
+    local free = frame.flags['SK Widget']
+    cfg.ui.locked = true
+    render(cfg, st)
+    eq(frame.flags['SK Widget'] - free, ImGuiWindowFlags_NoMove)
+    eq(render(cfg, st, on('UI / Log', { ['Widget##sk3_ui_widget'] = true })), 1)
+    eq(cfg.ui.widget, false)
+    close_settings()
+end)
+
+test('with the HUD closed the widget still shows, and its Settings opens SK Settings; closing the HUD closes them', function ()
+    close_settings()
+    local cfg = widget_cfg()
+    render(cfg, status({ open = false }))
+    eq({ begun('Sidekick3'), begun('SK Widget') }, { false, true })
+    render(cfg, status({ open = false }), { ['##sk3_widget_settings'] = true })
+    render(cfg, status({ open = false }))
+    eq({ begun('Sidekick3'), begun('SK Settings') }, { false, true })
+    render(cfg, status())
+    render(cfg, status({ open = false }))  -- /sk3 closed the HUD
+    eq(begun('SK Settings'), false)
+    render(settings.defaults(), status({ open = false }))
+    eq({ begun('Sidekick3'), begun('SK Widget'), begun('SK Settings') }, { false, false, false })
+    render(settings.defaults(), status())
+end)
+
+test('the widget says the state alone: what it does or why it waits is in its tooltip', function ()
+    close_settings()
+    local cfg = widget_cfg()
+    render(cfg, status({ open = false, running = true, intent = false, why = 'holding Valor Minuet IV for Pianissimo' }))
+    eq({ drew('Running'), tipped('(holding Valor Minuet IV for Pianissimo)'), drew('holding') }, { true, true, false })
+    local g = snap()
+    g.afk = true
+    local st = status({ open = false, running = true })
+    render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
+    eq(drew('Asleep'), true)
+end)
+
+test('a Lua error in the widget still ends every window, then is raised', function ()
+    close_settings()
+    local cfg, st = widget_cfg(), status()
+    local view = model.build(snap(), cat, cfg, st, NAMES)
+    view.track = nil  -- read by the widget alone while SK Settings is closed
+    local err = draw(window, cfg, st, nil, view)
+    eq({ type(err), begun('Sidekick3'), begun('SK Widget') }, { 'string', true, true })
+end)
+
 -- SK Settings -----------------------------------------------------------------------
 
 -- SK Settings' pages for `cfg` (and `in_cat` in place of the catalog), in the list's order.
@@ -609,10 +726,10 @@ end
 test('a page for each group of sections, in order, Profiles and UI / Log at the foot; one with every switch off a ring', function ()
     local cfg = settings.defaults()
     cfg.buff.on = false
-    eq(pages(cfg), { 'Follow', 'Heal', 'Remove', 'Buff', 'Recover', 'Tracked', 'Profiles', 'UI / Log' })
+    eq(pages(cfg), { 'Follow', 'Heal', 'Remove', 'Buff', 'Recover', 'Tracked', 'AFK', 'Profiles', 'UI / Log' })
     eq(#calls('AddCircle'), 2)  -- Follow and Buff: all off
     eq(pages(settings.defaults(), fake.catalog(18, 75, nil, 0, { 'Repair', 'Deploy' })),  -- PUP
-        { 'Follow', 'Remove', 'Pet', 'Recover', 'Tracked', 'Profiles', 'UI / Log' })
+        { 'Follow', 'Remove', 'Pet', 'Recover', 'Tracked', 'AFK', 'Profiles', 'UI / Log' })
     eq(#calls('AddCircle'), 2)  -- Follow and Recover
 end)
 
@@ -735,6 +852,20 @@ test('recovery, pet, follow and rest settings write through act', function ()
     eq({ cfg.follow.target, cfg.follow.distance, cfg.heal.focus }, { 'A', 9, '' })
     eq(render(cfg, st, on('Recover', { ['Rest after##sk3_rest_delay'] = 8, ['Stand past##sk3_rest_distance'] = 12 })), 2)
     eq({ cfg.rest.delay, cfg.rest.distance }, { 8, 12 })
+end)
+
+test('AFK sleep: its minutes, and how it stands while running', function ()
+    open_settings()
+    local cfg, st = settings.defaults(), status()
+    eq(render(cfg, st, on('AFK', { ['Sleep after##sk3_afk_minutes'] = 20, ['AFK sleep##sk3_on_afk'] = true })), 2)
+    eq(cfg.afk, { on = false, minutes = 20 })
+    local g = snap()
+    g.afk_in = 125
+    render(cfg, st, on('AFK'), model.build(g, cat, cfg, st, NAMES))
+    eq(drew('Sleeps in 3 min without movement or combat.'), true)
+    g.afk, g.afk_in = true, nil
+    render(cfg, st, on('AFK'), model.build(g, cat, cfg, st, NAMES))
+    eq(drew('Asleep: move to wake.'), true)
 end)
 
 test('a member switched off under Heal is skipped by healing', function ()
@@ -934,6 +1065,8 @@ test('BRD: Songs under Buff: Area and each slot that is filled or has a pick, a 
     eq({ drew('Pianissimo: ready'), button('##sk3_song_me_2') }, { true, true })
     eq(render(cfg, st, on('Buff', { ['Song Duration##sk3_song_duration'] = 170 }), view()), 1)  -- BRD 75 main
     eq(cfg.song.duration, 170)
+    eq(render(cfg, st, on('Buff', { ['Pianissimo fast casting##sk3_song_fast'] = true }), view()), 1)
+    eq(cfg.song.fast, true)
     cfg.song.p4_1 = 'Herb Pastoral'
     render(cfg, st, on('Buff'), view())
     eq({ button('##sk3_song_p4_1'), drew('no one') }, { true, true })  -- a pick keeps its line
@@ -942,6 +1075,7 @@ test('BRD: Songs under Buff: Area and each slot that is filled or has a pick, a 
     render(cfg, st, on('Buff'), view(3, 10, fake.catalog(3, 75, 10, 15, {})))  -- WHM / BRD 15: one slot, no Pianissimo
     eq({ button('##sk3_song_area_2'), drew('Songs on one member need Pianissimo (Bard 20)') }, { false, true })
     eq(button('Song Duration##sk3_song_duration'), false)  -- a subjob has no timers
+    eq(button('Pianissimo fast casting##sk3_song_fast'), false)  -- nor fast casting, with no Pianissimo
     eq(render(cfg, st, on('Buff', { [minuet] = true })), 0)  -- WHM: no Songs
 end)
 

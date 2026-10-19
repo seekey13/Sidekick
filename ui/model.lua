@@ -18,6 +18,7 @@
     input: a frame read mid-zone must never write anything back.
 ]]--
 
+local afk = require('core.afk')
 local ammo = require('core.ammo')
 local brd = require('jobs.brd')
 local can = require('core.can')
@@ -32,8 +33,8 @@ local settings = require('core.settings')
 local model = {}
 
 -- Settings sections in order, each under its `header` (headers in the order
--- their first section comes). Every section but 'profile', 'track' and 'ui' is a behavior,
--- switched by cfg[id].on; one with roles also has rows. Wake shows only when a heal can wake,
+-- their first section comes). 'profile', 'track' and 'ui' have no switch; every
+-- other section is switched by cfg[id].on, and all but 'afk' are behaviors; one with roles also has rows. Wake shows only when a heal can wake,
 -- Rolls only for a job with rolls, Songs only with a song (BRD, main or sub), Geomancy only
 -- with a Geo- spell (a GEO main job), Runes only with a rune (RUN, main or sub), Maneuvers
 -- only with a maneuver (PUP, main or sub).
@@ -54,15 +55,16 @@ model.SECTIONS = {
     { id = 'recover', title = 'Recovery', roles = { 'recover' }, header = 'Recover' },
     { id = 'rest', title = 'Resting', header = 'Recover' },
     { id = 'track', title = 'Tracked players', header = 'Tracked', switch = false },
+    { id = 'afk', title = 'AFK sleep', header = 'AFK' },
     { id = 'ui', title = 'UI / Log', header = 'UI / Log', switch = false },
 }
-model.FLAGS = { 'casting', 'moving', 'combat', 'safe', 'mounted', 'dead', 'resting', 'incapacitated', 'silenced', 'amnesia' }
+model.FLAGS = { 'casting', 'moving', 'combat', 'safe', 'afk', 'mounted', 'dead', 'resting', 'incapacitated', 'silenced', 'amnesia' }
 
 -- Party slots' tags: ME, P1-P5, then the alliance's other parties, B0-B5 and C0-C5 (as v2).
 model.TAGS = { [0] = 'ME', 'P1', 'P2', 'P3', 'P4', 'P5' }
 for i = 0, 5 do model.TAGS[6 + i], model.TAGS[12 + i] = 'B' .. i, 'C' .. i end
 local TAGS = model.TAGS
-local REASONS = { safe = 'safe zone' }  -- engine gate -> words
+local REASONS = { safe = 'safe zone', afk = 'AFK asleep' }  -- engine gate -> words
 local LABEL_FAMILIES = 3                -- a pick-one group named by more families is named by its key
 local BUFFS_SHOWN = 6                   -- status names on a party line; the rest in its tooltip
 local POINTED = 2                       -- seconds the pointer stays on what was just sent...
@@ -294,7 +296,7 @@ end
 local function songs(g, cat, cfg, units)
     local mine, pianissimo = brd.actions(cat)
     local out = { slots = brd.slots(g), choices = {}, sets = {}, pianissimo = pianissimo ~= nil,
-                  timed = brd.timer_job(g), duration = cfg.song.duration }
+                  timed = brd.timer_job(g), duration = cfg.song.duration, fast = cfg.song.fast }
     for _, a in ipairs(cat) do  -- in id order: each kind's tiers together
         if mine[a.name] == a then
             out.choices[#out.choices + 1] = { name = a.name, label = ('%s (%s)'):format(a.name, a.note) }
@@ -561,6 +563,7 @@ function model.build(g, cat, cfg, status, names)
         pet_heal = cfg.pet.heal,
         follow = { on = cfg.follow.on, target = cfg.follow.target, distance = cfg.follow.distance, names = focus_names },
         rest = { on = cfg.rest.on, delay = cfg.rest.delay, distance = cfg.rest.distance },
+        afk = { minutes = cfg.afk.minutes, asleep = g.afk == true, left = g.afk_in },
         buff = { hold_aoe = cfg.buff.hold_aoe, gather = cfg.buff.gather, one_shadow = cfg.buff.one_shadow, shadows = shadows },
         roll = { first = cfg.roll.first, second = cfg.roll.second, risk = cfg.roll.risk, risks = cor.RISKS,
                  two = g.main == cor.JOB, choices = rolls, last = last },
@@ -577,6 +580,7 @@ function model.build(g, cat, cfg, status, names)
     view.party, view.alliance = party(g, cfg, names, by_sid(status))
     view.remote = remote_views(status)
     for k, v in pairs(cfg.ui) do view.ui[k] = v end
+    view.ui.open = status.open == true  -- shown now: an error closes it for the session alone
     view.pointer = pointer(status, g, view.party, view.alliance)
     view.others = others(status, view.party, view.alliance)
     for _, f in ipairs(model.FLAGS) do
@@ -613,7 +617,7 @@ end
 -- HUD's (its labels and sizes) and the views it shows of others itself,
 -- with the view's `version`, VIEW: raise it when a field the window draws changes,
 -- so a session still running older code isn't drawn from a view it can't read.
-model.VIEW = 4
+model.VIEW = 5
 function model.published(view)
     local out = {}
     for k, v in pairs(view) do out[k] = v end
@@ -648,10 +652,11 @@ model.REMOTE_SET = {
     ['recover.mp'] = { 1, 99 }, ['recover.tp'] = { 0, 3000 }, ['recover.min_tp'] = { 0, 3000 }, ['pet.heal'] = { 1, 99 },
     ['follow.on'] = 'bool', ['follow.target'] = 'name', ['follow.distance'] = { 1, 15 },
     ['rest.on'] = 'bool', ['rest.delay'] = { 1, 20 }, ['rest.distance'] = { 1, 15 },
+    ['afk.on'] = 'bool', ['afk.minutes'] = { afk.MIN, afk.MAX },
     ['buff.hold_aoe'] = 'bool', ['buff.gather'] = 'bool', ['buff.one_shadow'] = 'bool',
     ['roll.first'] = 'name', ['roll.second'] = 'name', ['roll.risk'] = { list = cor.RISKS },
     ['geo.distance'] = { 3, 30 }, ['geo.linger'] = { 1, 20 }, ['geo.entrust'] = 'name', ['geo.entrust_spell'] = 'name',
-    ['song.duration'] = { 0, 300 },
+    ['song.duration'] = { 0, 300 }, ['song.fast'] = 'bool',
 }
 for _, set in ipairs(run.SETS) do
     for i = 1, run.SLOTS do model.REMOTE_SET[run.path(set.key, i)] = 'name' end
@@ -734,14 +739,18 @@ end
 function model.actions(cfg, status, changed, tracking, send)
     local act = {}
     -- This session only: automation always starts stopped, the log as set.
-    function act.run(on) status.running = on end
+    -- A start also wakes AFK sleep and starts its wait over (Sidekick3.lua), as v2.
+    function act.run(on)
+        status.running = on
+        if on then status.restart = true end
+    end
     function act.log(on) status.log = on end
     function act.close()
         status.open, cfg.ui.open = false, false
         changed()
     end
     -- id: a section with a switch: 'follow' | 'heal' | 'revive' | 'wake' | 'remove' | 'buff' | 'roll' | 'song' | 'geo' | 'rune' | 'pet' | 'maneuver'
-    -- | 'recover' | 'rest'
+    -- | 'recover' | 'rest' | 'afk'
     function act.section(id, on)
         cfg[id].on = on
         changed()

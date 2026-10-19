@@ -20,6 +20,7 @@ addon.link    = 'https://github.com/seekey13/Sidekick3'
 
 require('common')
 local chat = require('chat')
+local afk = require('core.afk')
 local can = require('core.can')
 local catalog = require('core.catalog')
 local engine = require('core.engine')
@@ -34,7 +35,6 @@ local tracked = require('core.tracked')
 local imgui = require('imgui')
 local blu = require('jobs.blu')
 local brd = require('jobs.brd')
-local nin = require('jobs.nin')
 local model = require('ui.model')
 
 local function printf(fmt, ...)
@@ -82,6 +82,7 @@ local mem = {}         -- the engine's memory between ticks
 local status = {
     running = false,  -- automation on (/sk3 start); never resumed on load
     open = nil,       -- window shown; from cfg.ui.open at the first settings load
+    failed = nil,     -- the UI raised an error: not drawn, the widget either, until /sk3 or /sk3 widget
     log = true,       -- ponytail: print every action while in development; default off at release
     intent = nil,     -- the latest decision as a sent-style entry, or nil and...
     why = nil,        -- ...why nothing (a gate, 'nothing to do', 'waiting for a cure')
@@ -89,6 +90,7 @@ local status = {
     sessions = {},    -- the other Sidekick sessions on this PC (core/share.lua), by name...
     watching = {},    -- ...those whose SK Settings are shown here: { [name] = true }...
     views = {},       -- ...and the views they published for it
+    restart = nil,    -- automation just started: AFK sleep starts over (core/afk.lua)
 }
 local SENT_KEPT = 10
 
@@ -121,6 +123,17 @@ local function refresh(now)
         if pair ~= cfg_pair or settings.switched() then cfg, cfg_pair, mem = settings.load(pair), pair, {} end
         -- The window stays as it is across a job change; only /sk3 and its close button move it.
         if status.open == nil then status.open = cfg.ui.open end
+        -- AFK sleep counts only while running, and starts over on a start or a job change.
+        if status.restart then mem.afk, status.restart = nil, nil end
+        if status.running then
+            mem.afk = mem.afk or {}
+            local said
+            snap.afk, said = afk.update(snap, cfg, mem.afk)
+            snap.afk_in = afk.left(snap, cfg, mem.afk)
+            if said then printf('%s', said) end
+        else
+            mem.afk = nil
+        end
     end
     return snap, true
 end
@@ -157,13 +170,14 @@ end
 local function tick(g)
     if g.loading then return end
     say_roll(g)
-    -- Utsusemi's last shadow, cancelled mid-cast (jobs/nin.lua): packet 0x0F1, as the Debuff addon sends.
-    local shadow = nin.cancel(g, mem)
-    if shadow then
-        AshitaCore:GetPacketManager():AddOutgoingPacket(0xF1, { 0xF1, 0x04, 0x00, 0x00, shadow % 256, math.floor(shadow / 256), 0x00, 0x00 })
+    -- A status cancelled mid-cast (Utsusemi's last shadow, jobs/nin.lua; Pianissimo
+    -- under an area song, jobs/brd.lua): packet 0x0F1, as the Debuff addon sends.
+    local off = engine.cancel(g, mem)
+    if off then
+        AshitaCore:GetPacketManager():AddOutgoingPacket(0xF1, { 0xF1, 0x04, 0x00, 0x00, off % 256, math.floor(off / 256), 0x00, 0x00 })
     end
     local act = status.running and engine.ready(g, mem)
-    if not (act or status.open) then return end
+    if not (act or status.open or cfg.ui.widget) then return end
     local intent, why = engine.decide(g, cat.list, cfg, mem)
     status.intent, status.why = intent and entry(intent, g), why
     local gather = status.running and engine.gather(g, cfg, mem)
@@ -315,6 +329,27 @@ local function buff_command(args)
     end
 end
 
+-- /sk3 afk [on | off | minutes]: AFK sleep on, off, or after that many minutes;
+-- with nothing, how it stands.
+local function afk_command(w, g)
+    local n = tonumber(w)
+    if w == 'on' or w == 'off' then
+        cfg.afk.on = w == 'on'
+    elseif n then
+        cfg.afk.on, cfg.afk.minutes = true, math.min(math.max(math.floor(n), afk.MIN), afk.MAX)
+    elseif w ~= '' then
+        printf('/sk3 afk [on | off | minutes (%d to %d)]', afk.MIN, afk.MAX)
+        return
+    end
+    if w ~= '' then settings.save() end
+    if not cfg.afk.on then printf('AFK sleep off.'); return end
+    local st = mem.afk or {}
+    local left = afk.left(g, cfg, st)
+    local now = not status.running and 'counts only while running' or st.asleep and 'asleep: move to wake'
+        or left and ('sleeps in %d min'):format(math.ceil(left / 60)) or 'starts counting now'
+    printf('AFK sleep after %d min with no party movement or combat (%s).', cfg.afk.minutes, now)
+end
+
 -- /sk3 profile [name | default]: load a profile of this job pair's (SK Settings
 -- saves them), or Default; with no name, list them. Names may have spaces.
 local function profile_command(args)
@@ -385,6 +420,7 @@ local function run_command(me, on, who)
     end
     if here then
         status.running = on
+        if on then status.restart = true end  -- wakes AFK sleep, as the run icon's start
         printf('Automation %s.', on and 'started' or 'stopped')
     end
     if others[1] and not me then printf('Other sessions can\'t be reached until your game has loaded.'); return end
@@ -431,7 +467,7 @@ local function draw(g)
         ui.render(view(g), model.actions(cfg, status, changed, tracking, share.send))
     end)
     if ok then return end
-    status.open = false
+    status.open, status.failed = false, true
     print(chat.header(addon.name) .. chat.error('Window closed on an error: ' .. tostring(err)))
 end
 
@@ -473,7 +509,8 @@ ashita.events.register('d3d_present', 'sidekick3_present', function ()
             if not status.sessions[name] then status.watching[name] = nil end  -- gone: its window closes
         end
     end
-    if status.open and not g.loading then draw(g) end
+    -- The widget is drawn with the HUD closed too.
+    if (status.open or cfg and cfg.ui.widget and not status.failed) and not g.loading then draw(g) end
     if unsaved and not imgui.IsAnyItemActive() then
         settings.save()
         unsaved = false
@@ -486,9 +523,9 @@ ashita.events.register('packet_in', 'sidekick3_packet_in', function (e)
     packets.handle(e, packet_ctx, os.clock())
 end)
 
-local HELP = '/sk3 opens or closes the window. Commands: start [name|all], stop [name|all], plan, state, '
+local HELP = '/sk3 opens or closes the window. Commands: widget, start [name|all], stop [name|all], plan, state, '
     .. 'buff [name] [me p1..p5 b0..c5 <tracked>|off], focus <name|off>, follow <name|off>, rest [on|off], '
-    .. 'track [name], untrack <name|all>, profile [name|default], catalog [unknown], log, dump, help'
+    .. 'track [name], untrack <name|all>, profile [name|default], afk [on|off|minutes], catalog [unknown], log, dump, help'
 
 -- ponytail: /sk3 while v2 is still installed and owns /sk; switch to /sk at cutover.
 ashita.events.register('command', 'sidekick3_command', function (e)
@@ -522,9 +559,13 @@ ashita.events.register('command', 'sidekick3_command', function (e)
     if sub == 'stop' and (g.loading or not cfg) then run_command(share.me(), false, args[3]); return end
     if g.loading or not cfg then printf('Waiting for the game to load your job.'); return end
     if sub == '' then
-        status.open = not status.open
+        status.open, status.failed = not status.open, nil
         cfg.ui.open = status.open
         settings.save()
+    elseif sub == 'widget' then
+        cfg.ui.widget, status.failed = not cfg.ui.widget, nil
+        settings.save()
+        printf('Widget %s.', cfg.ui.widget and 'on' or 'off')
     elseif sub == 'start' or sub == 'stop' then
         run_command(g.me.name, sub == 'start', args[3])
     elseif sub == 'plan' then
@@ -573,6 +614,8 @@ ashita.events.register('command', 'sidekick3_command', function (e)
         if declined[1] then
             printf('Other sessions\' players kept off until tracked by hand (/sk3 track <name>): %s.', table.concat(declined, ', '))
         end
+    elseif sub == 'afk' then
+        afk_command((args[3] or ''):lower(), g)
     elseif sub == 'rest' then
         local w = (args[3] or ''):lower()
         cfg.rest.on = w == 'on' or (w ~= 'off' and not cfg.rest.on)

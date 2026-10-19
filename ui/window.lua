@@ -6,7 +6,7 @@
     Settings' sidebar and page layout follow VanaCore's addons/vanacore/vana/vana.lua
     (Copyright (C) 2026 Vekien, GPL-3.0-or-later).
 
-    Two kinds of window. Sidekick3 is a heads-up display: the party's HP, MP and TP
+    Three kinds of window. Sidekick3 is a heads-up display: the party's HP, MP and TP
     bars on a dark panel, your pet's under yours (the alliance's other parties as
     thin HP rows under them), with a label pointing at whoever the next action is
     for, and one at whoever another Sidekick session on this PC acts on, as it
@@ -16,6 +16,9 @@
     So does the card of a player who is another Sidekick session on this PC: its
     buttons start and stop that session and open its own SK Settings, drawn here
     from its view.
+    The widget (`ui.widget`, `/sk3 widget`) is v2's floating one: the profile loaded
+    and the job, then Start/Stop, the state, Settings and Track for your target. It
+    shows with the HUD closed too (`view.ui.open` false), as v2's did.
 
     Ashita's binding: widget values are one-element tables ({ 'text' }), and
     SetTooltip takes a printf format (kit.tooltip doubles any '%'). Draw-list text
@@ -49,6 +52,7 @@ local JOINED = { party = '  (in your party)', alliance = '  (in your alliance)' 
 
 local act                    -- this frame's actions (another session's, while drawing its SK Settings)
 local settings_open = false  -- SK Settings shown; this session only
+local hud_open = true        -- last frame's view.ui.open: closing the HUD (/sk3) closes SK Settings with it
 local profile_names = {}     -- per SK Settings window ('' for yours, else the session's name), this session only:
                              -- { typed = { name }, shown }, the name filled in again when the profile loaded changes
 local panes = {}             -- per SK Settings window, as profile_names: { page, folded = { [section id] = true } }
@@ -320,6 +324,77 @@ local function draw_hud(view)
     imgui.Dummy({ pw, HUD_PAD })  -- the bottom padding, and the panel's full width, for the auto-size
 end
 
+-- The widget ------------------------------------------------------------------------
+
+local WIDGET_FLAGS = ImGuiWindowFlags_NoTitleBar + ImGuiWindowFlags_NoResize + ImGuiWindowFlags_AlwaysAutoResize
+    + ImGuiWindowFlags_NoScrollbar + ImGuiWindowFlags_NoScrollWithMouse + ImGuiWindowFlags_NoBackground
+local STATES = { 'Stopped', 'Running', 'Asleep' }
+
+-- The state alone, so the widget keeps its width and Track its place: the rest,
+-- what it does or why it waits, is the tooltip, as the HUD title's.
+local function short_status(view)
+    local s = view.status
+    if not s.running then return 'Stopped', P.dim end
+    if view.afk.asleep then return 'Asleep', P.dim end
+    return 'Running', s.dim and P.dim or P.teal
+end
+
+-- On a panel of its own, sized as SK Settings is: the profile loaded in a drop-down (its list loads one), then the
+-- job; Start/Stop, the state, Settings, then Track for your target.
+local function draw_widget(view)
+    local p, s, t = view.profiles, view.status, view.track.target
+    local dl = imgui.GetWindowDrawList()
+    local x0, y0 = imgui.GetCursorScreenPos()
+    local pad, gap, row, px = S(10), S(8), S(30), S(SMALL + 0.5)
+    local shown = p.active or 'Default'
+    local pick_w = math.min(S(200), math.max(S(110), kit.measure(shown, kit.fonts.text, px) + S(40)))
+    local state, color = short_status(view)
+    local state_w = 0
+    for _, w in ipairs(STATES) do state_w = math.max(state_w, kit.measure(w, kit.fonts.text, px)) end
+    state_w = state_w + S(12)  -- its dot
+    local run, track_label = s.running and 'Stop' or 'Start', t and ('Track ' .. t)
+    local top = pick_w + gap + kit.measure(view.job, kit.fonts.text, px)
+    local bottom = kit.button_width(run) + gap + state_w + gap + kit.button_width('Settings')
+        + (t and gap + kit.button_width(track_label) or 0)
+    local pw, ph = math.ceil(pad * 2 + math.max(top, bottom)), pad * 2 + row * 2
+    kit.fill(dl, x0, y0, pw, ph, P.bg, S(6))
+    kit.outline(dl, x0, y0, pw, ph, P.border, S(6))
+
+    local x, cy = x0 + pad, y0 + pad + row / 2
+    local hovered = kit.dropdown('##sk3_widget_profile', x, cy, pick_w, shown, true, 1, function ()
+        if imgui.Selectable('Default##sk3_widget_profile_default', p.active == nil) then act.profile(nil) end
+        for i, name in ipairs(p.names) do  -- over a blank row, so a name with '##' in it shows whole
+            local sx = imgui.GetCursorPosX()
+            if imgui.Selectable('##sk3_widget_profile_' .. i, name == p.active) then act.profile(name) end
+            imgui.SameLine(sx)
+            imgui.Text(kit.esc(name))
+        end
+    end)
+    if hovered then kit.tooltip(shown .. '\nLoad a profile. SK Settings saves them.') end
+    kit.text_mid(dl, x + pick_w + gap, cy, view.job, P.text2, kit.fonts.text, px)
+
+    x, cy = x0 + pad, cy + row
+    local clicked, bw = kit.button('##sk3_widget_run', x, cy, run, s.running and 'accent' or 'ghost')
+    kit.tip(run .. ' automation')
+    if clicked then act.run(not s.running) end
+    x = x + bw + gap
+    kit.circle(dl, x + S(3), cy, S(3), s.running and color or P.faint)
+    kit.text_mid(dl, x + S(12), cy, state, color, kit.fonts.text, px)
+    imgui.SetCursorScreenPos({ x, cy - row / 2 })
+    imgui.Dummy({ state_w, row })
+    kit.tip(status_tip(view))
+    x = x + state_w + gap
+    clicked, bw = kit.button('##sk3_widget_settings', x, cy, 'Settings', settings_open and 'accent' or 'ghost')
+    kit.tip('Open or close SK Settings')
+    if clicked then settings_open = not settings_open end
+    if t then
+        if kit.button('##sk3_widget_track', x + bw + gap, cy, track_label, 'ghost') then act.track(t) end
+        kit.tip('Heal, clear, raise and buff them too, with what reaches outside the party. This session only.')
+    end
+    imgui.SetCursorScreenPos({ x0, y0 + ph - 1 })
+    imgui.Dummy({ pw, 1 })  -- the panel's full size, for the auto-size
+end
+
 -- SK Settings: the page's rows -----------------------------------------------------
 
 local SIDE_W, PAGE_W, WIN_H, MARGIN = 160, 580, 580, 6  -- unscaled, as every size from here
@@ -494,6 +569,14 @@ local function draw_rest(view, pg)
     slider(pg, 'Stand past', 'Stand past##sk3_rest_distance', 'rest.distance', r.distance, 1, 15, 'Yalms from the leader.', 'y')
 end
 
+local function draw_afk(view, pg)
+    local a = view.afk
+    slider(pg, 'Sleep after', 'Sleep after##sk3_afk_minutes', 'afk.minutes', a.minutes, 1, 60,
+        'Minutes with no one in your party moving and no combat.', 'm')
+    if a.asleep then note(pg, 'Asleep: move to wake.')
+    elseif a.left then note(pg, ('Sleeps in %d min without movement or combat.'):format(math.ceil(a.left / 60))) end
+end
+
 local function draw_buff_settings(view, pg)
     local b = view.buff
     switch(pg, 'Hold area buffs for the group', 'Hold area buffs for the group##sk3_hold_aoe', b.hold_aoe,
@@ -616,6 +699,14 @@ local function draw_songs(view, pg)
         note(pg, 'Songs on one member need Pianissimo (Bard 20)', P.dim)
     end
     if kit.over(pg.x, y, pg.w, pg.y - y) then kit.tooltip(SONGS_TIP) end
+    if m.pianissimo then
+        switch(pg, 'Pianissimo fast casting', 'Pianissimo fast casting##sk3_song_fast', m.fast,
+            function (on) act.set('song.fast', on) end,
+            'Fire Pianissimo before an area song too, for its shorter cast, and cancel it a second into the cast '
+                .. 'so the song still lands on everyone near you. None is fired while Nightingale is up (its casts are '
+                .. 'short already); with Pianissimo on recast the area song goes without it. A Pianissimo already up '
+                .. 'goes to the next area song, or to a member\'s song while that area song can\'t go yet.')
+    end
     if m.timed then
         slider(pg, 'Song Duration', 'Song Duration##sk3_song_duration', 'song.duration', m.duration, 0, 300,
             'Seconds: sing each song again this long after it landed, before it wears (0: only once it\'s gone). '
@@ -837,10 +928,13 @@ local function draw_ui(view, pg)
         slider(pg, l[1], l[1] .. '##sk3_ui_' .. l[2], 'ui.' .. l[2], view.ui[l[2]], l[3], l[4], l[5], l[6])
     end
     switch(pg, 'Lock position', 'Lock position##sk3_ui_locked', view.ui.locked == true, function (on) act.set('ui.locked', on) end,
-        'Keep the HUD where it is: dragging it no longer moves it.')
+        'Keep the HUD and the widget where they are: dragging them no longer moves them.')
+    switch(pg, 'Widget', 'Widget##sk3_ui_widget', view.ui.widget == true, function (on) act.set('ui.widget', on) end,
+        'A small window of its own: the profile loaded (pick another to load it) and your job, then Start/Stop, '
+        .. 'the state, Settings, and Track for your target. Up with the HUD closed too. Also /sk3 widget.')
     subheader(pg, 'SK SETTINGS')
     slider(pg, 'Size', 'Size##sk3_ui_scale', 'ui.scale', ui_scale(view.ui), 50, 200,
-        'This window\'s size, % of the size that suits your screen. Taken up once the slider is let go.', '%')
+        'This window\'s size and the widget\'s, % of the size that suits your screen. Taken up once the slider is let go.', '%')
     subheader(pg, 'LOG')
     switch(pg, 'Action log', 'Action log##sk3_log', view.log, act.log, 'Print each action to chat as it is sent.')
     draw_recent(view, pg)
@@ -950,12 +1044,15 @@ local SWITCH_HELP = {
     maneuver = 'Keep the maneuvers picked up on you while your automaton is out (none under Overload).',
     recover = 'Get MP and TP back with the rows that are on.',
     rest = 'Rest for MP out of combat once nothing else has happened for a while; stand at full MP.',
+    afk = 'While running, pause automation once no one in your party has moved and there has been no combat for '
+        .. 'a while; your own movement wakes it (a pull doesn\'t), and so does the leader leaving with Follow on. '
+        .. 'Nothing is stopped or saved.',
 }
 
 local BODIES = {
     follow = draw_follow, heal = draw_heal_settings, recover = draw_recover_settings, buff = draw_buff_settings,
     roll = draw_rolls, song = draw_songs, geo = draw_geo, rune = draw_runes, maneuver = draw_maneuvers,
-    pet = draw_pet_settings, rest = draw_rest, track = draw_track, ui = draw_ui, profile = draw_profiles,
+    pet = draw_pet_settings, rest = draw_rest, afk = draw_afk, track = draw_track, ui = draw_ui, profile = draw_profiles,
 }
 
 -- A section's heading: a chevron and its title (a click folds it), a line, its switch at the end. Returns folded.
@@ -1184,6 +1281,18 @@ local function hud(view)
     if not ok then return err end
 end
 
+local function widget(view)
+    local flags = WIDGET_FLAGS + (view.ui.locked and ImGuiWindowFlags_NoMove or 0)
+    imgui.PushStyleVar(ImGuiStyleVar_WindowPadding, { 0, 0 })
+    imgui.PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0)
+    local shown = imgui.Begin('SK Widget', true, flags)
+    imgui.PopStyleVar(2)
+    local ok, err = true, nil
+    if shown then ok, err = pcall(draw_widget, view) end
+    imgui.End()  -- ImGui keeps where it was dragged, in imgui.ini
+    if not ok then return err end
+end
+
 local function settings_window(view)
     local open = { true }
     local err = settings_shell('SK Settings', open, 0, function (x, y, side, pw, ph)
@@ -1220,15 +1329,27 @@ function window.render(view, act_)
     act = act_
     if not imgui.IsAnyItemActive() then user_scale = ui_scale(view.ui) / 100 end  -- not mid-drag: the window would move under it
     kit.frame(user_scale)
-    kit.prefix = 'hud|'
-    local err = hud(view)
-    kit.prefix = ''
-    if settings_open then err = settings_window(view) or err end
-    for i, r in ipairs(view.remote or {}) do
-        kit.prefix = r.name .. '|'
-        err = remote_window(r, i) or err
+    local open = view.ui.open ~= false
+    if hud_open and not open then settings_open = false end
+    hud_open = open
+    local err
+    if open then
+        kit.prefix = 'hud|'
+        err = hud(view)
+    end
+    if view.ui.widget then
+        kit.prefix = 'widget|'
+        err = widget(view) or err
     end
     kit.prefix = ''
+    if settings_open then err = settings_window(view) or err end
+    if open then
+        for i, r in ipairs(view.remote or {}) do
+            kit.prefix = r.name .. '|'
+            err = remote_window(r, i) or err
+        end
+        kit.prefix = ''
+    end
     if err then error(err, 0) end
 end
 

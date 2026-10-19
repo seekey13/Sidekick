@@ -250,6 +250,21 @@ test('another unit moving: for half a second after its position last changed; se
     eq(unit(read(), ME).moving, nil)  -- you: the moving gate
 end)
 
+test('you moving: a zone or teleport isn\'t, so it never wakes AFK sleep', function ()
+    reset()
+    read(1)
+    world.ents[0x400].dist = 3
+    eq(read(1).moving, true)
+    eq(read(1).moving, false)
+    local zone = party.GetMemberZone
+    party.GetMemberZone = const(101)
+    world.ents[0x400].dist = 50  -- Teleport-Holla: somewhere else
+    eq(read(1).moving, false)
+    world.ents[0x400].dist = 51
+    eq(read(1).moving, true)  -- walking in the new zone still is
+    party.GetMemberZone = zone
+end)
+
 test('a GEO\'s luopan gone: its auras are forgotten on those whose statuses come from packets', function ()
     reset()
     world.main = 21

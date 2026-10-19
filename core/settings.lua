@@ -48,8 +48,9 @@ local DEFAULTS = {
     maneuver = { on = true, slot_1 = '', slot_2 = '', slot_3 = '' },
     -- BRD: each target's songs by name ('' for none): area_1, area_2, then each
     -- party slot's, me_ and p1_ to p5_ (jobs/brd.lua). Every slot starts empty.
-    -- `duration`: Song Duration, seconds after a song lands to sing it again (BRD 75 main; 0 off).
-    song = { on = true, duration = 0 },
+    -- `duration`: Song Duration, seconds after a song lands to sing it again (BRD 75 main; 0 off);
+    -- `fast`: Pianissimo fast casting, an area song through Pianissimo cancelled mid-cast.
+    song = { on = true, duration = 0, fast = false },
     buff = { on = true,
              hold_aoe = false,  -- hold an area buff spell (Protectra, songs, rolls) until the party's players gather
              gather = true,     -- ...and ask them to in party chat
@@ -57,10 +58,12 @@ local DEFAULTS = {
     revive = { on = true },
     follow = { on = false, target = '', distance = 5 },  -- /follow them past this many yalms
     rest = { on = false, delay = 5, distance = 7 },  -- /heal after this many quiet seconds; up past distance from follow.target
+    afk = { on = true, minutes = 10 },  -- sleep after this long with no party movement or combat (core/afk.lua; v2's, on)
     rows = {},
     profiles = {}, profile = '', parked = {},  -- named snapshots (core/profiles.lua)
     ui = { open = false, hp_width = 220, hp_height = 40, mp_width = 220, mp_height = 18, tp_width = 220, tp_height = 8,
            name_size = 22, text_size = 14, gap = 8, opacity = 100, locked = false,
+           widget = false,  -- the widget, v2's floating one (/sk3 widget)
            japanese = false },  -- send spell, ability and item names in Japanese
 }
 for _, set in ipairs({ 'idle', 'vallation', 'valiance', 'pflug' }) do

@@ -43,6 +43,17 @@
     Troubadour are both up, every song stamped without Troubadour is due, so it's
     sung again at double length (new: v2 only with Song Duration set). The stamps
     also say which of two one-kind songs was sung last.
+
+    Pianissimo fast casting (cfg.song.fast, off as v2's opt-in): an area song
+    goes through Pianissimo too, for its shorter cast, and Pianissimo is
+    cancelled engine.CANCEL_AFTER seconds into the cast (packet 0x0F1, as
+    Utsusemi's last shadow), so the song still lands on everyone near you. So
+    while it's on, Pianissimo up doesn't stop the area songs: the next one takes
+    it, unless it can't go now (its recast, MP, held for the group): then a
+    song on one member spends it. With Pianissimo on recast an area song goes
+    without it. None is raised while Nightingale is up, which already shortens
+    the cast (as v2), but one already up still goes to an area song (new: v2
+    held the area songs until it wore).
 ]]--
 
 local buff = require('behaviors.buff')
@@ -257,29 +268,35 @@ function brd.want(g, cat, cfg, mem)
         return lacks(u, a, { area, mine(u) }) and held(u, area) < free(u)
     end
 
-    -- Area songs, unless the next song would land on one member.
+    -- Area songs, unless the next song would land on one member (with fast
+    -- casting, an area song takes Pianissimo and cancels it mid-cast; under
+    -- Nightingale only one already up, none is raised for it).
     local up = g.me.buffs[PIANISSIMO]
+    local fast = cfg.song.fast and pianissimo and (up or not g.me.buffs[NIGHTINGALE])
     local owed = false
-    for _, a in ipairs(up and {} or area) do
+    for _, a in ipairs(up and not fast and {} or area) do
         local near, count_, away = voters(a, g, free, owes, cfg.buff.hold_aoe)
         if away then
             -- The songs on one member wait only when it's for someone near too:
             -- otherwise it refreshes what they have and pushes nothing out.
             buff.wait_for(mem, a, near, away)
-            owed = owed or near ~= nil
+            owed = owed or near ~= nil and a
         elseif near then
             local pick = choose(a, area, near)
             if pick then
                 local verb = due(near, a) and { 'is due', 'are due' } or { 'lacks it', 'lack it' }
                 local why = count_ > 1 and ('%s +%d %s'):format(near.name, count_ - 1, verb[2]) or ('%s %s'):format(near.name, verb[1])
+                if fast then return { action = pick, why = why, mods = { pianissimo }, cancel = PIANISSIMO } end
                 return { action = pick, why = why }
             end
-            owed = true
+            owed = owed or a
         end
     end
-    if owed then return nil end
 
-    -- Each slot's songs on whoever is there, through Pianissimo.
+    -- Each slot's songs on whoever is there, through Pianissimo; while an area
+    -- song is owed they wait (it would push them out), and say for which, unless
+    -- Pianissimo is up: an area song that can't go now leaves it to them, rather
+    -- than letting it wear.
     for slot = 0, 5 do
         local u = by_slot[slot]
         for _, a in ipairs(u and here(u) and own[slot] or {}) do
@@ -287,7 +304,10 @@ function brd.want(g, cat, cfg, mem)
             local short = d or d == nil and lacks(u, a, { own[slot], free(u) > 0 and area or {} })
             local pick = (u.kind == 'self' or (u.dist or math.huge) <= can.yalms(a.range)) and short
                 and choose(a, own[slot], u)
-            if pick then
+            if pick and owed and not up then
+                mem.waiting = mem.waiting or { action = pick, mod = owed }
+                return nil
+            elseif pick then
                 if not (pianissimo and (up or can.use(pianissimo, g))) then
                     if pianissimo then mem.waiting = mem.waiting or { action = pick, mod = pianissimo } end
                     return nil
