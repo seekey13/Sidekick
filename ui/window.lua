@@ -7,7 +7,8 @@
     Two kinds of window. Sidekick3 is a heads-up display: the party's HP, MP and TP
     bars on a dark panel, your pet's under yours (the alliance's other parties as
     thin HP rows under them), with a label pointing at whoever the next action is
-    for. Your own card's HP bar carries the run button and the cog, which opens SK
+    for, and one at whoever another Sidekick session on this PC acts on, as it
+    goes. Your own card's HP bar carries the run button and the cog, which opens SK
     Settings: a page per group of sections, listed down its left, each section
     under a heading with its switch.
     So does the card of a player who is another Sidekick session on this PC: its
@@ -36,7 +37,7 @@ local UI_SLIDERS = {
     { 'TP bar width', 'tp_width', 80, 600, 'Pixels: its three parts, 1000 TP each, together.', 'px' },
     { 'TP bar height', 'tp_height', 4, 80, 'Pixels.', 'px' },
     { 'Name font size', 'name_size', 8, 64, 'Pixels.', 'px' },
-    { 'Text font size', 'text_size', 8, 48, 'Pixels: the title, the tags, the alliance\'s names and the arrow\'s label; '
+    { 'Text font size', 'text_size', 8, 48, 'Pixels: the title, the tags, the alliance\'s names and the action labels; '
         .. 'the buttons follow it, as far as the HP bar fits them.', 'px' },
     { 'Spacing', 'gap', 0, 40, 'Pixels between members.', 'px' },
     { 'Background opacity', 'opacity', 0, 100, '% of the panel behind the bars.', '%' },
@@ -202,21 +203,31 @@ local function ally_row(dl, ui, p, x, top)
         kit.fonts.semi, ui.text_size)
 end
 
--- A label in a pill, its point just right of the panel at `cy`: amber while running (what goes), grey while stopped
--- (what would). On the background list: it sits outside the window without widening it, as a transparent window area
--- would block the game's clicks.
-local function arrow(ptr, ts, right, cy)
+-- Labels in pills side by side, the first's point just right of the panel at `cy`: this session's amber while running
+-- (what goes), grey while stopped (what would); another session's blue, after its name on a darker part. On the
+-- background list: they sit outside the window without widening it, as a transparent window area would block the
+-- game's clicks.
+local function draw_labels(list, ts, right, cy)
+    if not list[1] then return end
     local dl = imgui.GetBackgroundDrawList()
     local font = kit.fonts.semi
-    local tw = kit.measure(ptr.text, font, ts)
     local h, pad = math.floor(ts * 1.6), math.floor(ts * 0.6)
-    local x = right + 2 + math.floor(h * 0.45)  -- the pill's left, after its point
-    local w = tw + pad * 2
-    local color = ptr.live and P.amber or P.seg
-    kit.fill(dl, x, cy - h / 2 + 2, w, h, '#000000', h / 2, 0.3)  -- its shadow
-    kit.tri(dl, { right + 2, cy }, { x + h / 4, cy - h * 0.32 }, { x + h / 4, cy + h * 0.32 }, color)
-    kit.fill(dl, x, cy - h / 2, w, h, color, h / 2)
-    kit.text_mid(dl, x + pad, cy, ptr.text, ptr.live and P.ink or P.text2, font, ts)
+    local x = right + 2 + math.floor(h * 0.45)  -- the first pill's left, after its point
+    for i, l in ipairs(list) do
+        local who = l.session
+        local nw = who and kit.measure(who, font, ts) + pad * 2 or 0  -- the name's part
+        local w = nw + kit.measure(l.text, font, ts) + pad * 2
+        local color = who and P.accent or l.live and P.amber or P.seg
+        kit.fill(dl, x, cy - h / 2 + 2, w, h, '#000000', h / 2, 0.3)  -- its shadow
+        if i == 1 then kit.tri(dl, { right + 2, cy }, { x + h / 4, cy - h * 0.32 }, { x + h / 4, cy + h * 0.32 }, color) end
+        kit.fill(dl, x, cy - h / 2, w, h, color, h / 2)
+        if who then
+            kit.fill(dl, x, cy - h / 2, nw, h, P.accent_lo, h / 2, 1, kit.LEFT_CORNERS)
+            kit.text_mid(dl, x + pad, cy, who, P.white, font, ts)
+        end
+        kit.text_mid(dl, x + nw + pad, cy, l.text, (who or l.live) and P.ink or P.text2, font, ts)
+        x = x + w + math.floor(h * 0.3)
+    end
 end
 
 -- view.ui's sizes, each held to its slider's range: nothing checks a value edited
@@ -253,6 +264,16 @@ local function pointed(view, c)
     return not to_pet and ptr.member == c.member
 end
 
+-- The labels at card `c`, or at the alliance's row `j`: this session's first, then each other session's there.
+local function labels_at(view, c, j)
+    local ptr, out = view.pointer, {}
+    if c and pointed(view, c) or j and ptr and ptr.ally == j then out[1] = ptr end
+    for _, o in ipairs(view.others) do
+        if c and not c.pet and o.member == c.member or j and o.ally == j then out[#out + 1] = o end
+    end
+    return out
+end
+
 local function draw_hud(view)
     local ui = hud_sizes(view.ui)
     local dl = imgui.GetWindowDrawList()
@@ -283,7 +304,7 @@ local function draw_hud(view)
         imgui.SetCursorScreenPos({ x0 + HUD_PAD, y })
         imgui.Dummy({ pw - 2 * HUD_PAD, ch })
         if not on_icon then kit.tip(c.pet and pet_tip(view.pet) or member_tip(p)) end
-        if pointed(view, c) then arrow(view.pointer, ui.text_size, x0 + pw, y + ch / 2) end
+        draw_labels(labels_at(view, c), ui.text_size, x0 + pw, y + ch / 2)
     end
     for j, p in ipairs(view.alliance) do
         local top = y0 + rows[j]
@@ -291,7 +312,7 @@ local function draw_hud(view)
         imgui.SetCursorScreenPos({ x0 + HUD_PAD, top })
         imgui.Dummy({ pw - 2 * HUD_PAD, ui.mp_height })
         kit.tip(member_tip(p))
-        if view.pointer and view.pointer.ally == j then arrow(view.pointer, ui.text_size, x0 + pw, top + ui.mp_height / 2) end
+        draw_labels(labels_at(view, nil, j), ui.text_size, x0 + pw, top + ui.mp_height / 2)
     end
     imgui.SetCursorScreenPos({ x0, y0 + ph - HUD_PAD })
     imgui.Dummy({ pw, HUD_PAD })  -- the bottom padding, and the panel's full width, for the auto-size

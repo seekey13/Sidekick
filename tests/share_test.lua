@@ -35,9 +35,22 @@ test('a file caught mid-write, empty or of another version reads as nothing', fu
     eq(share.decode(''), nil)
     eq(share.decode(text:sub(1, #text - 12)), nil)  -- the last line cut short
     eq(share.decode(text:sub(1, #text - 6)), nil)   -- cut after the name: the end line is missing
-    eq(share.decode((text:gsub('session 2', 'session 1'))), nil)
-    eq(share.decode('sk3 session 2\n5 0 0\nend\n'), nil)  -- no members
+    eq(share.decode((text:gsub('session 3', 'session 2'))), nil)
+    eq(share.decode('sk3 session 3\n5 0 0\nend\n'), nil)  -- no members
     eq(share.decode((text:gsub('\nend', '\nwhat 1\nend'))), nil)  -- a line of no kind it knows
+end)
+
+test('what its automation just sent reads back, no target when on itself; one that won\'t read is left out', function ()
+    local act = { behavior = 'heal', action = 'Cure IV', target = 'Two Words' }
+    local text = share.encode({ member(10, 'Box') }, true, 5, { act = act })
+    eq(share.decode(text).act, act)
+    local song = { behavior = 'song', action = 'Valor Minuet IV' }
+    eq(share.decode(share.encode({ member(10, 'Box') }, true, 5, { act = song })).act, song)
+    eq(share.decode(share.encode({ member(10, 'Box') }, true, 5)).act, nil)
+    for _, bad in ipairs({ 'act {1="heal"', 'act {behavior="heal"}', 'act {behavior="heal",action="Cure",target=3}', 'act 42' }) do
+        local s = share.decode((text:gsub('act [^\n]+', bad)))
+        eq({ s.name, s.act }, { 'Box', nil }, bad)
+    end
 end)
 
 test('remote control lines read back: who it watches, its calls and its acknowledgements, its epoch', function ()
@@ -312,8 +325,9 @@ test('a session is watched while one has its SK Settings open, and busy while ca
     eq({ share.watched({ Box = box }, 'Two') }, { true, true })
 end)
 
--- Two sessions over an in-memory filesystem: share.tick's files end to end.
-test('two sessions: a call goes, is applied once and acknowledged; a watched session publishes its view', function ()
+-- Two sessions over an in-memory filesystem, share.tick's files end to end: fn(a, b, files, DIR),
+-- `a` and `b` each a core/share.lua of its own.
+local function two_sessions(fn)
     local files = {}
     local real = { open = io.open, remove = os.remove, rename = os.rename, AshitaCore = rawget(_G, 'AshitaCore'),
                    ashita = rawget(_G, 'ashita') }
@@ -343,8 +357,24 @@ test('two sessions: a call goes, is applied once and acknowledged; a watched ses
         package.loaded['core.share'] = nil
         local b = require('core.share')
         b.epoch = a.epoch + 1
-        local function g(sid, name) return { loading = false, units = { fake.unit({ kind = 'self', slot = 0, sid = sid, name = name }) } } end
-        local ga, gb = g(1, 'Alpha'), g(2, 'Beta')
+        fn(a, b, files, DIR)
+    end)
+    rawset(io, 'open', real.open)
+    rawset(os, 'remove', real.remove)
+    rawset(os, 'rename', real.rename)
+    rawset(_G, 'AshitaCore', real.AshitaCore)
+    rawset(_G, 'ashita', real.ashita)
+    package.loaded['core.share'] = original
+    reset()
+    assert(ok, err)
+end
+
+local function in_game(sid, name) return { loading = false, units = { fake.unit({ kind = 'self', slot = 0, sid = sid, name = name }) } } end
+local function idle() return nil end
+
+test('two sessions: a call goes, is applied once and acknowledged; a watched session publishes its view', function ()
+    two_sessions(function (a, b, files, DIR)
+        local ga, gb = in_game(1, 'Alpha'), in_game(2, 'Beta')
         local sa, sb = { running = false, open = true, watching = {} }, { running = false, open = true, watching = {} }
         local got = {}
         local fail = false
@@ -352,8 +382,9 @@ test('two sessions: a call goes, is applied once and acknowledged; a watched ses
                      view = function ()
                          if fail then error('no view') end
                          return { job = 'WHM 75', sections = { { id = 'heal', on = true } } }
-                     end }
-        local ha = { apply = function () error('nothing is sent to Alpha') end, view = function () error('nobody watches Alpha') end }
+                     end, act = idle }
+        local ha = { apply = function () error('nothing is sent to Alpha') end, view = function () error('nobody watches Alpha') end,
+                     act = idle }
         local clock = 0
         local function both() clock = clock + 1; a.tick(ga, clock, sa, ha); b.tick(gb, clock, sb, hb) end
         both(); both()
@@ -388,12 +419,34 @@ test('two sessions: a call goes, is applied once and acknowledged; a watched ses
         a.close()
         eq(a.me(), nil)
     end)
-    rawset(io, 'open', real.open)
-    rawset(os, 'remove', real.remove)
-    rawset(os, 'rename', real.rename)
-    rawset(_G, 'AshitaCore', real.AshitaCore)
-    rawset(_G, 'ashita', real.ashita)
-    package.loaded['core.share'] = original
-    reset()
-    assert(ok, err)
+end)
+
+test('two sessions: what one\'s automation sends is in its file at once, read four times a second while the other\'s HUD shows', function ()
+    two_sessions(function (a, b, files, DIR)
+        local ga, gb = in_game(1, 'Alpha'), in_game(2, 'Beta')
+        local sa, sb = { running = false, open = true, watching = {} }, { running = true, open = false, watching = {} }
+        local acting
+        local ha = { apply = function () end, view = function () end, act = idle }
+        local hb = { apply = function () end, view = function () end, act = function () return acting end }
+        a.tick(ga, 1, sa, ha); b.tick(gb, 1, sb, hb)
+        a.tick(ga, 2, sa, ha); b.tick(gb, 2, sb, hb)  -- each has read the other: Beta runs, and Alpha's HUD shows
+        acting = { behavior = 'heal', action = 'Cure IV', target = 'Alpha' }
+        b.tick(gb, 2.1, sb, hb)  -- not due for a second, but it acted
+        eq(share.decode(files[DIR .. 'session_Beta.txt']).act, acting)
+        a.tick(ga, 2.25, sa, ha)
+        eq(a.sessions.Beta.act, acting)
+        acting = nil
+        b.tick(gb, 2.3, sb, hb)  -- done: off at once too
+        eq(share.decode(files[DIR .. 'session_Beta.txt']).act, nil)
+        sa.open = false  -- Alpha's HUD closed: read every second again
+        a.tick(ga, 2.5, sa, ha)
+        acting = { behavior = 'song', action = 'Valor Minuet IV' }
+        b.tick(gb, 2.6, sb, hb)
+        a.tick(ga, 3, sa, ha)
+        eq(a.sessions.Beta.act, nil)
+        a.tick(ga, 3.5, sa, ha)
+        eq(a.sessions.Beta.act, acting)
+        a.close()
+        b.close()
+    end)
 end)

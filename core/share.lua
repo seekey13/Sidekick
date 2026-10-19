@@ -6,10 +6,18 @@
     session = { name, heartbeat = os.time() of the last write, running, epoch (its load's),
                 members = { you first, then your party's players (trusts left out):
                             { sid, name, main, main_lv, sub, sub_lv, hpp, hp, max_hp, mpp, mp, here } },
+                act = { behavior, action, target } or nil,
                 watch, calls, acks (remote control, below) }
     max_hp is 0 when unknown: a member not yet seen at full HP. `here`: in the
     owner's zone, so their HP is current (a member elsewhere has stale HP).
     The file ends with an `end` line: one without it was cut short.
+    A file is rewritten only when its text changes: its heartbeat does every second.
+
+    Actions: `act` is what the session's automation just sent, while it lands (the
+    HUD's pointer once it's gone, ui/model.lua): its target's name, nil for itself,
+    its pet or the enemy. The file is rewritten as soon as it changes, and read four
+    times a second while your HUD is open and another session's automation runs, so
+    your HUD points at what the others do as it goes.
 
     Auto-track: each session tracks the players other sessions list (core/tracked.lua,
     `auto` = the owner's name), but those in its own party or alliance, with no /check:
@@ -38,7 +46,7 @@ local share = {
     PRUNE = 3600,   -- seconds after which a file no one wrote (a crashed session's) is deleted
 }
 
-local VERSION = 'sk3 session 2'
+local VERSION = 'sk3 session 3'
 
 -- Plain data (strings, numbers, booleans and tables of them) as one line of text,
 -- and back: `act` calls and views go through files. Read with a parser of its
@@ -105,8 +113,8 @@ local function sorted_keys(t)
 end
 
 -- The file's text for a roster (share.roster), whether it runs, and the os.time()
--- written at. `extra` (optional): { epoch, watch = { [name] = true }, calls (share.queue's
--- list), acks = { [sender] = { epoch, n } } }.
+-- written at. `extra` (optional): { epoch, act = { behavior, action, target }, watch = { [name] = true },
+-- calls (share.queue's list), acks = { [sender] = { epoch, n } } }.
 function share.encode(members, running, heartbeat, extra)
     extra = extra or {}
     local lines = { VERSION, ('%d %d %d'):format(heartbeat, running and 1 or 0, extra.epoch or 0) }
@@ -115,6 +123,7 @@ function share.encode(members, running, heartbeat, extra)
             m.sub or 0, m.sub_lv or 0, m.hpp or 0, m.hp or 0, m.max_hp or 0, m.mpp or 0, m.mp or 0,
             m.here and 1 or 0, m.name)
     end
+    if extra.act then lines[#lines + 1] = 'act ' .. share.pack(extra.act) end
     for _, name in ipairs(sorted_keys(extra.watch)) do lines[#lines + 1] = 'watch ' .. name end
     for _, c in ipairs(extra.calls or {}) do
         lines[#lines + 1] = ('do %s %d %d %s'):format(c.to, c.epoch, c.n, share.pack(c.call))
@@ -127,9 +136,16 @@ function share.encode(members, running, heartbeat, extra)
     return table.concat(lines, '\n') .. '\n'
 end
 
+-- An `act` line's value as { behavior, action, target }; nil when it isn't one.
+local function action(t)
+    if type(t) ~= 'table' or type(t.behavior) ~= 'string' or type(t.action) ~= 'string' then return nil end
+    if t.target ~= nil and type(t.target) ~= 'string' then return nil end
+    return { behavior = t.behavior, action = t.action, target = t.target }
+end
+
 -- A session from a file's text; nil for none, another version, or one caught mid-write.
--- Besides share.encode's fields: watch = { [name] = true }, calls = { { to, epoch, n, call } },
--- acks = { [sender] = { epoch, n } }.
+-- Besides share.encode's fields: act (nil for none), watch = { [name] = true },
+-- calls = { { to, epoch, n, call } }, acks = { [sender] = { epoch, n } }.
 function share.decode(text)
     if not text then return nil end
     local lines = {}
@@ -142,6 +158,7 @@ function share.decode(text)
     for i = 3, #lines - 1 do
         local line = lines[i]
         local f = { line:match('^(%d+) (%d+) (%d+) (%d+) (%d+) (%d+) (%d+) (%d+) (%d+) (%d+) ([01]) (.+)$') }
+        local acted = line:match('^act (.+)$')
         local watch = line:match('^watch (%S+)$')
         local to, to_epoch, n, call = line:match('^do (%S+) (%d+) (%d+) (.+)$')
         local from, from_epoch, acked = line:match('^ack (%S+) (%d+) (%d+)$')
@@ -151,6 +168,8 @@ function share.decode(text)
                 sub_lv = tonumber(f[5]), hpp = tonumber(f[6]), hp = tonumber(f[7]), max_hp = tonumber(f[8]),
                 mpp = tonumber(f[9]), mp = tonumber(f[10]), here = f[11] == '1', name = f[12],
             }
+        elseif acted then  -- one that won't read is left out, as a call
+            s.act = action(share.unpack(acted))
         elseif watch then
             s.watch[watch] = true
         elseif to then  -- one that won't read is skipped: the next call's ack covers its number
@@ -343,6 +362,8 @@ local sessions = {}   -- [owner name] = the last session read whole from their f
 local roster          -- what you last published: kept up while loading (zoning), LOADING seconds at most
 local roster_at = 0   -- the clock when it was read
 local mine            -- your name while your file is written
+local written         -- the text it holds
+local acted = ''      -- the `act` it holds, packed ('' for none)
 local next_at = 0
 local pending, sent_n = {}, 0  -- calls sent to other sessions not acknowledged yet, and the last call's number
 local applied = {}             -- [sender] = { epoch, n }: the last call applied from each
@@ -436,14 +457,17 @@ function share.send(to, call)
 end
 
 -- Publish, read and sync, at most every EVERY seconds (FAST while watching or
--- watched, or while calls wait either way). `g` is the snapshot (a loading one republishes the last roster, so a
+-- watched, while calls wait either way, or while your HUD is open and another session's
+-- automation runs), and at once when what your automation does changes. `g` is the snapshot
+-- (a loading one republishes the last roster, so a
 -- zone isn't taken for a session gone, for LOADING seconds: past that, as after a
 -- logout, your file is deleted). `status` gives `running`, `open` and `watching` (the
 -- sessions whose SK Settings you have open: watched only while the HUD is); `hooks.apply(from, call)` applies a
 -- call another session sent (never while loading), `hooks.view()` builds the view
--- a watcher draws.
+-- a watcher draws, `hooks.act()` gives what your automation just sent while it lands, or nil.
 function share.tick(g, clock, status, hooks)
-    if clock < next_at then return share.sessions end
+    local act = not g.loading and hooks.act() or nil
+    if clock < next_at and (act and share.pack(act) or '') == acted then return share.sessions end
     next_at = clock + share.EVERY
     if not g.loading then
         roster, roster_at = share.roster(g), clock
@@ -468,10 +492,9 @@ function share.tick(g, clock, status, hooks)
     for name in pairs(status.open and status.watching or {}) do
         if live[name] then watch[name] = true end
     end
-    if write(path(me), share.encode(roster, status.running, os.time(),
-            { epoch = share.epoch, watch = watch, calls = pending, acks = acks })) then
-        mine = me
-    end
+    local text = share.encode(roster, status.running, os.time(),
+        { epoch = share.epoch, act = act, watch = watch, calls = pending, acks = acks })
+    if text == written or write(path(me), text) then mine, written, acted = me, text, act and share.pack(act) or '' end
     local watched, called = share.watched(live, me)
     if not g.loading then  -- a zone leaves the last view up
         local ok, view = true, nil
@@ -479,7 +502,9 @@ function share.tick(g, clock, status, hooks)
         publish(me, ok and view or nil)
     end
     read_views(watch, live)
-    if pending[1] or next(watch) or watched or called then next_at = clock + share.FAST end
+    local running = false  -- another session's automation: while your HUD shows, read as it acts
+    for _, s in pairs(live) do running = running or s.running end
+    if pending[1] or next(watch) or watched or called or status.open and running then next_at = clock + share.FAST end
     if g.loading then return live end
     local listed = {}
     for _, u in ipairs(g.units) do
@@ -498,7 +523,7 @@ function share.close()
     if mine then
         os.remove(path(mine))
         os.remove(view_path(mine))
-        mine, published, view_text = nil, false, nil
+        mine, written, acted, published, view_text = nil, nil, '', false, nil
     end
 end
 

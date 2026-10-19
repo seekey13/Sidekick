@@ -428,6 +428,32 @@ local function casting(g, e)
     return g.casting and CASTS[e.kind] and g.cast_at ~= nil and g.cast_at >= e.at and g.cast_at - e.at < CAST_REPLY
 end
 
+-- What was just sent, while it lands: for POINTED seconds, or while it is still
+-- being cast up to POINTED_CAST; nil when stopped. The HUD points at it once the
+-- decision is gone, and the session file lists it for the others' (core/share.lua).
+function model.landing(status, g)
+    local last = status.running and status.sent[1]
+    local age = last and g.now - last.at
+    if age and (age < POINTED or age < POINTED_CAST and casting(g, last)) then return last end
+end
+
+-- Where action `e` goes: its target's line, else the line given (`member` in
+-- `members`, or `ally` in `allies`: whoever acts); a line of the alliance's is
+-- `ally` with `member` nil. Returns member, ally and the label, 'Heal:Cure IV',
+-- with the target named when the line isn't theirs.
+local function aim(e, members, allies, member, ally)
+    for i, p in ipairs(members) do
+        if p.name == e.target then member, ally = i, nil end
+    end
+    for j, p in ipairs(allies) do
+        if p.name == e.target then member, ally = nil, j end
+    end
+    local text = ('%s:%s'):format((e.behavior:gsub('_.*', ''):gsub('^%l', string.upper)), e.action)
+    local line = ally and allies[ally] or members[member]
+    if e.target and not (line and line.name == e.target) then text = ('%s -> %s'):format(text, e.target) end
+    return member, ally, text
+end
+
 -- What the HUD points at: running, the decision about to go, else what was just
 -- sent while it lands; stopped, what it would do. `member` is the party line it
 -- is for: the target's, else yours (an action on you, your pet or the enemy);
@@ -435,25 +461,34 @@ end
 -- of its own is named. `pet`: it is your pet's (care, or sending it in), so the
 -- HUD points at its card, under yours.
 local function pointer(status, g, members, allies)
-    local e = status.intent
-    if status.running and not e then
-        local last = status.sent[1]
-        local age = last and g.now - last.at
-        if age and (age < POINTED or age < POINTED_CAST and casting(g, last)) then e = last end
-    end
+    local e = status.intent or model.landing(status, g)
     if not e or not members[1] then return nil end
-    local member, ally = 1, nil
-    for i, p in ipairs(members) do
-        if p.name == e.target then member = i end
-    end
-    for j, p in ipairs(allies) do
-        if p.name == e.target then member, ally = nil, j end
-    end
-    local text = ('%s:%s'):format((e.behavior:gsub('_.*', ''):gsub('^%l', string.upper)), e.action)
-    local line = ally and allies[ally] or members[member]
-    if e.target and line.name ~= e.target then text = ('%s -> %s'):format(text, e.target) end
+    local member, ally, text = aim(e, members, allies, 1, nil)
     local pet = FOR_PET[e.behavior] and not e.target and g.pet ~= nil or nil
     return { text = text, member = member, ally = ally, live = status.running, pet = pet }
+end
+
+-- What the other Sidekick sessions on this PC are doing as it goes (each one's
+-- `act`, from its file), by name: a label each, as the pointer's, at its target's
+-- line, else at the line of the session's own player (its action on itself, its
+-- pet or the enemy); none when neither has a line here.
+local function others(status, members, allies)
+    local out = {}
+    for name, s in pairs(status.sessions or {}) do
+        if s.act then
+            local own, own_ally
+            for i, p in ipairs(members) do
+                if p.session and p.session.name == name then own = i end
+            end
+            for j, p in ipairs(allies) do
+                if p.session and p.session.name == name then own_ally = j end
+            end
+            local member, ally, text = aim(s.act, members, allies, own, own_ally)
+            if member or ally then out[#out + 1] = { session = name, text = text, member = member, ally = ally } end
+        end
+    end
+    table.sort(out, function (a, b) return a.session < b.session end)
+    return out
 end
 
 -- The view ---------------------------------------------------------------------
@@ -543,6 +578,7 @@ function model.build(g, cat, cfg, status, names)
     view.remote = remote_views(status)
     for k, v in pairs(cfg.ui) do view.ui[k] = v end
     view.pointer = pointer(status, g, view.party, view.alliance)
+    view.others = others(status, view.party, view.alliance)
     for _, f in ipairs(model.FLAGS) do
         if g[f] then view.flags[#view.flags + 1] = REASONS[f] or f end
     end
@@ -574,14 +610,14 @@ function model.build(g, cat, cfg, status, names)
 end
 
 -- What a session publishes of its view for another's SK Settings: all but the
--- HUD's (the pointer and its sizes) and the views it shows of others itself,
+-- HUD's (its labels and sizes) and the views it shows of others itself,
 -- with the view's `version`, VIEW: raise it when a field the window draws changes,
 -- so a session still running older code isn't drawn from a view it can't read.
 model.VIEW = 3
 function model.published(view)
     local out = {}
     for k, v in pairs(view) do out[k] = v end
-    out.pointer, out.ui, out.remote = nil, nil, nil
+    out.pointer, out.others, out.ui, out.remote = nil, nil, nil, nil
     out.version = model.VIEW
     return out
 end

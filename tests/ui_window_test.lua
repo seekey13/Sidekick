@@ -479,6 +479,34 @@ test('the arrow\'s label points at the card the next action is for: amber runnin
     eq(#calls('AddTriangleFilled', 'background'), 0)
 end)
 
+-- The pills drawn in `color` on the background list: each one's AddRectFilled arguments.
+local function pills(color)
+    local out = {}
+    for _, d in ipairs(calls('AddRectFilled', 'background')) do
+        if d.args[3] == u32(color) then out[#out + 1] = d.args end
+    end
+    return out
+end
+
+test('another session\'s label is blue, after its name: after yours on the same card, else pointing itself', function ()
+    close_settings()
+    local cfg = settings.defaults()
+    local st = status({ running = true })
+    st.sessions = { A = { running = true, members = { { sid = 101, name = 'A' } },
+                          act = { behavior = 'buff', action = 'Haste', target = 'A' } } }  -- the card yours is at
+    render(cfg, st, nil, model.build(snap(), cat, cfg, st, NAMES))
+    local own, theirs, name = pills(P.amber), pills(P.accent), pills(P.accent_lo)
+    eq({ #own, #theirs, #name, #calls('AddTriangleFilled', 'background') }, { 1, 1, 1, 1 })  -- one point: yours
+    eq(theirs[1][1][1] > own[1][2][1], true)  -- after yours
+    eq({ theirs[1][1][2], name[1][1] }, { own[1][1][2], theirs[1][1] })  -- in line; its name at its left
+    eq({ fill('A', 'background'), fill('Buff:Haste', 'background') }, { u32(P.white), u32(P.ink) })
+    st.intent, st.sent = false, {}
+    st.sessions.A.act = { behavior = 'heal', action = 'Cure IV', target = 'Me' }  -- yours only: it points itself
+    render(cfg, st, nil, model.build(snap(), cat, cfg, st, NAMES))
+    local tri = calls('AddTriangleFilled', 'background')
+    eq({ #tri, tri[1].args[1], tri[1].args[4], #pills(P.amber) }, { 1, { 100 + 236 + 2, 75 + 36 }, u32(P.accent), 0 })
+end)
+
 -- The round buttons and glyphs drawn: their discs' centres and colours, in the order drawn.
 local function discs()
     local out = {}

@@ -450,6 +450,11 @@ local shared = {
             printf('Automation %s from %s\'s session.', status.running and 'started' or 'stopped', from)
         end
     end,
+    -- What automation just sent, while it lands: the other sessions' HUDs point at it.
+    act = function ()
+        local e = model.landing(status, snap)
+        return e and { behavior = e.behavior, action = e.action, target = e.target }
+    end,
 }
 
 ashita.events.register('d3d_present', 'sidekick3_present', function ()
