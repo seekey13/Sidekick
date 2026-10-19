@@ -35,11 +35,7 @@ local function cfg_with(sets)
     return cfg
 end
 
-local function decide(g, cfg, list)
-    local intent, why = engine.decide(g, list or cat, cfg, {})
-    if not intent then return nil, why end
-    return engine.command(intent, cfg), intent
-end
+local function decide(g, cfg, list) return fake.decide(g, list or cat, cfg) end
 
 test('catalog: runes, wards in priority order with their blocks, Embolden for white enhancing magic', function ()
     local ignis, vallation = named(cat, 'Ignis'), named(cat, 'Vallation')

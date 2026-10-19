@@ -41,11 +41,7 @@ local function cfg_with(picks)
     return cfg
 end
 
-local function decide(g, cfg, list, mem)
-    local intent, why = engine.decide(g, list or cat, cfg or settings.defaults(), mem or {})
-    if not intent then return nil, why end
-    return engine.command(intent, cfg or settings.defaults()), intent
-end
+local function decide(g, cfg, list, mem) return fake.decide(g, list or cat, cfg, mem) end
 
 -- What you hold where ammo can be worn from: { [id] = { en, level, jobs, bag } }.
 local PUP_ONLY = bit.lshift(1, PUP)

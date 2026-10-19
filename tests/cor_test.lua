@@ -33,11 +33,7 @@ local function cfg_with(first, second, risk)
     return cfg
 end
 
-local function decide(g, cfg, mem, list)
-    local intent, why = engine.decide(g, list or cat, cfg, mem)
-    if not intent then return nil, why end
-    return engine.command(intent, cfg), intent
-end
+local function decide(g, cfg, mem, list) return fake.decide(g, list or cat, cfg, mem) end
 
 -- Decide and, when there is something, send it.
 local function step(g, cfg, mem)

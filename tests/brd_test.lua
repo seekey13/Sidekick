@@ -44,11 +44,7 @@ local function cfg_with(picks, over)
     return cfg
 end
 
-local function decide(g, cfg, mem)
-    local intent, why = engine.decide(g, cat, cfg or settings.defaults(), mem or {})
-    if not intent then return nil, why end
-    return engine.command(intent, cfg or settings.defaults()), intent
-end
+local function decide(g, cfg, mem) return fake.decide(g, cat, cfg, mem) end
 
 test('catalog: songs are their own role, by the kind they show; Pianissimo a modifier with no chip', function ()
     local m = named(cat, 'Valor Minuet IV')

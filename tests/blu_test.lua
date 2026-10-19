@@ -54,11 +54,7 @@ local function cfg_with(rows)
     return cfg
 end
 
-local function decide(g, cfg, mem)
-    local intent, why = engine.decide(g, cat, cfg, mem or {})
-    if not intent then return nil, why end
-    return engine.command(intent, cfg), intent
-end
+local function decide(g, cfg, mem) return fake.decide(g, cat, cfg, mem) end
 
 -- Set spells -----------------------------------------------------------------------
 

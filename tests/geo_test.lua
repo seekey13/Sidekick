@@ -34,11 +34,7 @@ local function cfg_with(rows, geo)
     return cfg
 end
 
-local function decide(g, cfg, mem)
-    local intent, why = engine.decide(g, cat, cfg, mem)
-    if not intent then return nil, why end
-    return engine.command(intent, cfg), intent
-end
+local function decide(g, cfg, mem) return fake.decide(g, cat, cfg, mem) end
 
 local function step(g, cfg, mem)
     local cmd, intent = decide(g, cfg, mem)

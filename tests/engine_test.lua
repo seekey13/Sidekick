@@ -7,11 +7,7 @@ local fake = require('tests.fake')
 local cat = fake.catalog(3, 75, 4, 37, { 'Divine Seal', 'Martyr' })
 local snap = fake.snap
 
-local function decide(g, cfg, mem, list)
-    local intent, why = engine.decide(g, list or cat, cfg or settings.defaults(), mem or {})
-    if not intent then return nil, why end
-    return engine.command(intent, cfg or settings.defaults()), intent
-end
+local function decide(g, cfg, mem, list) return fake.decide(g, list or cat, cfg, mem) end
 
 -- Healing (behaviors/heal.lua). Members have 1000 HP; WHM 75 table potencies x 1.25.
 local heal = require('behaviors.heal')
