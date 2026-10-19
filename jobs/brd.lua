@@ -29,6 +29,20 @@
     Nothing goes while you're Invisible, as buffs. With buff.hold_aoe on, an
     area song is held while a player in your party who lacks it, with no song
     picked for them alone, is out of its reach (or not drawn); trusts follow.
+
+    Song timers (v2's Song Duration): each of your songs is stamped on everyone
+    your cast's finish packet says it landed on (core/packets.lua -> brd.landed),
+    doubled while Troubadour is up as it lands, and a stamp one more song pushes
+    out goes with it. A stamp is dropped once its member dies, or (you and your
+    party's players, whose lists can be read) once VERIFY seconds on its kind
+    shows on them no more. On a BRD main job from TIMED_LEVEL with Song Duration
+    (cfg.song.duration) set, a stamp decides alone whether its song is due: from
+    that many seconds after it landed (twice that when doubled), so a song is sung
+    again before it wears, while the one it stands for is still up; a song with no
+    stamp is due when it's missing, as without timers. While Nightingale and
+    Troubadour are both up, every song stamped without Troubadour is due, so it's
+    sung again at double length (new: v2 only with Song Duration set). The stamps
+    also say which of two one-kind songs was sung last.
 ]]--
 
 local buff = require('behaviors.buff')
@@ -42,12 +56,62 @@ brd.SLOTS = 2  -- songs per target on a BRD main job; one on a subjob
 brd.SETS = { { key = 'area', label = 'Area' }, { key = 'me', slot = 0, label = 'ME' } }
 for i = 1, 5 do brd.SETS[#brd.SETS + 1] = { key = 'p' .. i, slot = i, label = 'P' .. i } end
 
-local INVISIBLE, PIANISSIMO = 69, 409
+local INVISIBLE, PIANISSIMO, NIGHTINGALE, TROUBADOUR = 69, 409, 347, 348
+brd.TIMED_LEVEL = 75  -- Song Duration only for a BRD main job from here, as v2 (where song duration gear is)
+brd.VERIFY = 5        -- seconds after a song lands before its status must show on a list we can read
 
 -- How many songs stand on each target for your BRD level: 0 off Bard.
 function brd.slots(g)
     if g.main == brd.JOB then return brd.SLOTS end
     return g.sub == brd.JOB and 1 or 0
+end
+
+-- Song Duration in seconds when the timers decide, else nil.
+function brd.timed(g, cfg)
+    local s = cfg.song.duration or 0
+    return g.main == brd.JOB and g.main_lv >= brd.TIMED_LEVEL and s > 0 and s or nil
+end
+
+-- Your songs' stamps: stamps[server id][song name] = { at, id = its status, double }.
+local stamps = {}
+
+-- Song `a` (a catalog record) landed on these server ids at `now`, from your own
+-- spell finish; `buffs` are yours (Troubadour doubles it), `slots` how many songs
+-- stand on each (one more pushes out the oldest, by when it landed).
+function brd.landed(a, sids, now, buffs, slots)
+    for _, sid in ipairs(sids) do
+        local rows = stamps[sid] or {}
+        stamps[sid] = rows
+        if not rows[a.name] then  -- sung again, a song refreshes its own
+            local n = 0
+            for _ in pairs(rows) do n = n + 1 end
+            while n >= math.max(slots or brd.SLOTS, 1) do
+                local first
+                for name, r in pairs(rows) do
+                    if not first or r.at < rows[first].at then first = name end
+                end
+                rows[first], n = nil, n - 1
+            end
+        end
+        rows[a.name] = { at = now, id = a.status[1], double = (buffs or {})[TROUBADOUR] == true or nil }
+    end
+end
+
+function brd.stamps() return stamps end
+function brd.clear() stamps = {} end  -- a job change: your songs go with it
+
+-- Drop the stamps a death or a list we can read says are gone.
+local function prune(g)
+    for _, u in ipairs(g.units) do
+        local rows = u.sid and stamps[u.sid]
+        if rows and u.in_zone and not u.alive then
+            stamps[u.sid] = nil
+        elseif rows and u.in_zone and u.stacks then
+            for name, r in pairs(rows) do
+                if g.now - r.at >= brd.VERIFY and (u.stacks[r.id] or 0) == 0 then rows[name] = nil end
+            end
+        end
+    end
 end
 
 -- The settings path of a set's slot `i`: 'song.area_1', 'song.p3_2'.
@@ -104,15 +168,16 @@ end
 -- Whether `u` can be sung to: there, alive, in your party.
 local function here(u) return u.in_zone and u.alive and can.in_party(u) end
 
--- Area song `a`: who near you it's for lacks it (the first, and how many),
--- and, holding for the group, the first player in your party lacking it out of
--- its reach with no song of their own. `free(u)`: the slots `u` has for area songs.
-local function voters(a, area, g, free, mine, hold)
+-- Area song `a`: who near you it's for is owed it (the first, and how many),
+-- and, holding for the group, the first player in your party owed it out of
+-- its reach with no song of their own. `free(u)`: the slots `u` has for area
+-- songs; `owes(u, a)`: whether `u` is owed it.
+local function voters(a, g, free, owes, hold)
     local radius = can.yalms(a.area)
     local near, n, away = nil, 0, nil
     for _, u in ipairs(g.units) do
         local slots = free(u)
-        if here(u) and slots > 0 and lacks(u, a, { area, mine(u) }) and held(u, area) < slots then
+        if here(u) and slots > 0 and owes(u, a) then
             if u.kind == 'self' or (u.dist or math.huge) <= radius then
                 near, n = near or u, n + 1
             elseif hold and u.kind == 'party' and slots == brd.slots(g) and not away then
@@ -123,14 +188,14 @@ local function voters(a, area, g, free, mine, hold)
     return near, n, away
 end
 
--- Of `set`'s songs of `a`'s kind, the one sung least lately on `on` ('area' or a
--- server id) that can go now, else nil: which of two one-kind songs is up can't
--- be read, and the one sung last is likeliest.
-local function oldest(a, set, on, sung, g)
-    local best, at = nil, math.huge
+-- Of `set`'s songs of `a`'s kind, the one landed least lately on `u` that can go
+-- now and isn't up by its timer (`due` false), else nil: which of two one-kind
+-- songs is up can't be read, and the one sung last is likeliest.
+local function oldest(a, set, u, g, due)
+    local rows, best, at = stamps[u.sid] or {}, nil, math.huge
     for _, s in ipairs(set) do
-        local t = sung[s.name .. '>' .. on] or -math.huge
-        if s.status[1] == a.status[1] and t < at and can.use(s, g) then best, at = s, t end
+        local t = rows[s.name] and rows[s.name].at or -math.huge
+        if s.status[1] == a.status[1] and t < at and due(u, s) ~= false and can.use(s, g) then best, at = s, t end
     end
     return best
 end
@@ -138,9 +203,23 @@ end
 function brd.want(g, cat, cfg, mem)
     local n = brd.slots(g)
     if n == 0 or g.me.buffs[INVISIBLE] then return nil end
-    mem.brd = mem.brd or { sung = {} }  -- sung['<name>><area|sid>']: when it was last sent
-    local sung = mem.brd.sung
-    local function sent(a, on) return function (now) sung[a.name .. '>' .. on] = now end end
+    prune(g)
+    local timed = brd.timed(g, cfg)
+    local window = g.me.buffs[NIGHTINGALE] and g.me.buffs[TROUBADOUR]
+    -- What your stamp of `a` on `u` says: true due, false still up, nil that it can't say.
+    local function due(u, a)
+        local r = stamps[u.sid] and stamps[u.sid][a.name]
+        if not r then return nil end
+        if window and not r.double then return true end
+        if not timed then return nil end
+        return g.now >= r.at + timed * (r.double and 2 or 1)
+    end
+    -- The song to sing for `a` on `u`: `a` itself when its stamp says it's due, else
+    -- of its kind the one sung least lately.
+    local function choose(a, set, u)
+        if due(u, a) then return can.use(a, g) and a or nil end
+        return oldest(a, set, u, g, due)
+    end
     local songs, pianissimo = brd.actions(cat)
     local area, own, by_slot = brd.picked(cfg, 'area', songs, n), {}, {}
     for _, set in ipairs(brd.SETS) do
@@ -153,22 +232,29 @@ function brd.want(g, cat, cfg, mem)
     -- without Pianissimo (under BRD 20), since they can't go.
     local function mine(u) return pianissimo and u.slot and own[u.slot] or {} end
     local function free(u) return u.slot and u.slot <= 5 and n - #mine(u) or 0 end
+    -- Whether `u` is owed area song `a`: its stamp says so, else they lack it and
+    -- hold fewer of the area songs than the slots they have for them.
+    local function owes(u, a)
+        local d = due(u, a)
+        if d ~= nil then return d end
+        return lacks(u, a, { area, mine(u) }) and held(u, area) < free(u)
+    end
 
     -- Area songs, unless the next song would land on one member.
     local up = g.me.buffs[PIANISSIMO]
     local owed = false
     for _, a in ipairs(up and {} or area) do
-        local near, count_, away = voters(a, area, g, free, mine, cfg.buff.hold_aoe)
+        local near, count_, away = voters(a, g, free, owes, cfg.buff.hold_aoe)
         if away then
             -- The songs on one member wait only when it's for someone near too:
             -- otherwise it refreshes what they have and pushes nothing out.
             buff.wait_for(mem, a, near, away)
             owed = owed or near ~= nil
         elseif near then
-            local pick = oldest(a, area, 'area', sung, g)
+            local pick = choose(a, area, near)
             if pick then
                 local why = count_ > 1 and ('%s +%d lack it'):format(near.name, count_ - 1) or ('%s lacks it'):format(near.name)
-                return { action = pick, why = why, sent = sent(pick, 'area') }
+                return { action = pick, why = why }
             end
             owed = true
         end
@@ -179,15 +265,16 @@ function brd.want(g, cat, cfg, mem)
     for slot = 0, 5 do
         local u = by_slot[slot]
         for _, a in ipairs(u and here(u) and own[slot] or {}) do
-            local pick = (u.kind == 'self' or (u.dist or math.huge) <= can.yalms(a.range)) and lacks(u, a, { own[slot], free(u) > 0 and area or {} })
-                and oldest(a, own[slot], u.sid, sung, g)
+            local d = due(u, a)
+            local short = d or d == nil and lacks(u, a, { own[slot], free(u) > 0 and area or {} })
+            local pick = (u.kind == 'self' or (u.dist or math.huge) <= can.yalms(a.range)) and short
+                and choose(a, own[slot], u)
             if pick then
                 if not (pianissimo and (up or can.use(pianissimo, g))) then
                     if pianissimo then mem.waiting = mem.waiting or { action = pick, mod = pianissimo } end
                     return nil
                 end
-                return { action = pick, target = u.kind ~= 'self' and u or nil, mods = { pianissimo }, why = u.name,
-                         sent = sent(pick, u.sid) }
+                return { action = pick, target = u.kind ~= 'self' and u or nil, mods = { pianissimo }, why = u.name }
             end
         end
     end

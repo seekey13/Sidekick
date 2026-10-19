@@ -117,7 +117,7 @@ test('BRD 75 / WHM 37: Songs under Buff, Area then each party slot; no song is a
     local view = build(cat, cfg, g)
     eq({ section(view, 'song').header, section(view, 'song').on, keys(view.sections, 'id')[8] }, { 'Buff', true, 'song' })
     local s = view.song
-    eq({ s.slots, s.pianissimo, s.ready, s.avail }, { 2, true, true, 'ready' })
+    eq({ s.slots, s.pianissimo, s.ready, s.avail, s.timed, s.duration }, { 2, true, true, 'ready', true, 0 })
     eq(s.choices[1], { name = 'Army\'s Paeon', label = 'Army\'s Paeon (+Regen)' })
     eq(keys(s.sets), { 'area', 'me', 'p1', 'p2', 'p3', 'p4', 'p5' })
     eq({ s.sets[1].picks, s.sets[1].name, s.sets[3].picks, s.sets[3].name, s.sets[3].present, s.sets[5].present },
@@ -126,7 +126,8 @@ test('BRD 75 / WHM 37: Songs under Buff, Area then each party slot; no song is a
         'barelement', 'barstatus', 'Regen (keep up)', 'Protectra', 'Shellra', 'Reraise', 'Invisible', 'Sneak', 'Deodorize' },
         'no song rows')
     g.main, g.sub = WHM, BRD
-    eq(build(fake.catalog(WHM, 75, BRD, 15), cfg, g).song.pianissimo, false)  -- under BRD 20
+    eq({ build(fake.catalog(WHM, 75, BRD, 15), cfg, g).song.pianissimo, build(fake.catalog(WHM, 75, BRD, 15), cfg, g).song.timed },
+       { false, false })  -- under BRD 20; Song Duration on a BRD main job alone
     eq(section(build(whm), 'song'), nil)
 end)
 

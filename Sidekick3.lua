@@ -27,6 +27,7 @@ local share = require('core.share')
 local tracked = require('core.tracked')
 local imgui = require('imgui')
 local blu = require('jobs.blu')
+local brd = require('jobs.brd')
 local nin = require('jobs.nin')
 local model = require('ui.model')
 
@@ -93,6 +94,10 @@ local packet_ctx = {
         local a = cat.by_spell[spell_id]
         return a and a.duration
     end,
+    song = function (spell_id)  -- your songs are stamped on who they land on (jobs/brd.lua)
+        local a = cat.by_spell[spell_id]
+        return a and a.role == 'song' and a or nil
+    end,
 }
 
 -- Latest game snapshot, at most 10 a second: plenty for a 1.1s action throttle.
@@ -104,7 +109,9 @@ local function refresh(now)
     if not snap.loading then
         current_catalog()
         packet_ctx.me, packet_ctx.pet, packet_ctx.tracks = snap.me.sid, snap.pet and snap.pet.sid, snap.tracks
+        packet_ctx.buffs, packet_ctx.slots = snap.me.buffs, brd.slots(snap)
         local pair = abbr(snap.main) .. '_' .. abbr(snap.sub)
+        if pair ~= cfg_pair then brd.clear() end  -- your songs go with the job
         if pair ~= cfg_pair or settings.switched() then cfg, cfg_pair, mem = settings.load(pair), pair, {} end
         -- The window stays as it is across a job change; only /sk3 and its close button move it.
         if status.open == nil then status.open = cfg.ui.open end

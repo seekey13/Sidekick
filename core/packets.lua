@@ -7,6 +7,7 @@
       - what your own heals restored and where your Regens landed (core/observed.lua),
       - a /check's answer: a tracked player's jobs and levels (core/tracked.lua),
       - your Phantom Rolls' totals (jobs/cor.lua),
+      - who your songs landed on (jobs/brd.lua),
       - your automaton's name (jobs/pup.lua),
       - your Blue Mage's set spells (jobs/blu.lua).
     Message ids and bit layouts verified against the CatsEyeXI server
@@ -15,6 +16,7 @@
 ]]--
 
 local blu = require('jobs.blu')
+local brd = require('jobs.brd')
 local buffs = require('core.buffs')
 local cor = require('jobs.cor')
 local observed = require('core.observed')
@@ -93,7 +95,8 @@ end
 
 -- A parsed 0x028 (tests hand one in directly).
 -- ctx: { me = your server id, pet = your pet's or nil, tracks = { [server id] = true }
--- for units whose statuses come from packets, duration = function(spell id) -> seconds or nil }
+-- for units whose statuses come from packets, duration = function(spell id) -> seconds or nil,
+-- song = function(spell id) -> the song's catalog record or nil, buffs = yours, slots = your songs per target }
 function packets.action(p, ctx, now)
     if p.actor == ctx.me and p.category ~= 1 then  -- 1 = auto-attack, says nothing
         if (p.category == CAST_BEGIN or p.category == ITEM_BEGIN) and p.param ~= INTERRUPT then
@@ -109,6 +112,8 @@ function packets.action(p, ctx, now)
     local kind = KIND[p.category]
     local key = kind and p.actor == (kind == 'pet' and ctx.pet or ctx.me)
         and kind .. (kind == 'ma' and p.param or p.param + ABILITY_BASE)
+    local song = p.actor == ctx.me and p.category == SPELL_FINISH and ctx.song and ctx.song(p.param)
+    local sung = {}  -- who your song landed on
     for _, t in ipairs(p.targets) do
         local tracked = ctx.tracks[t.id]
         for _, r in ipairs(t.results) do
@@ -125,12 +130,14 @@ function packets.action(p, ctx, now)
                 local spell = p.category == SPELL_FINISH
                 if tracked then buffs.gain(t.id, r.param, now, spell and ctx.duration(p.param) or nil) end
                 if key and spell then observed.landed(key, t.id, now) end
+                if song then sung[#sung + 1] = t.id end
             elseif p.category == SPELL_FINISH and LOSES_028[r.message] and tracked then
                 buffs.lose(t.id, r.param)
             end
         end
     end
     if key then observed.done(key) end
+    if sung[1] then brd.landed(song, sung, now, ctx.buffs, ctx.slots) end
 end
 
 local function on_message(e, ctx, now)
