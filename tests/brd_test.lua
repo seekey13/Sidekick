@@ -381,11 +381,12 @@ test('fast casting: with Pianissimo on recast the area song goes without it, can
     eq(engine.cancel(g, mem), nil)
 end)
 
-test('fast casting: not while Nightingale is up; off, Pianissimo up still holds the area songs', function ()
+test('fast casting: under Nightingale none is raised, one already up is taken; off, Pianissimo up holds the area songs', function ()
     local cfg = fast_cfg({ area_1 = 'Valor Minuet IV' })
     local cmd, intent = decide(snap({}, { NIGHTINGALE }), cfg)
     eq({ cmd, intent.cancel }, { '/ma "Valor Minuet IV" <me>', nil })
-    eq(select(2, decide(snap({}, { NIGHTINGALE, PIANISSIMO }), cfg)), 'nothing to do')
+    cmd, intent = decide(snap({}, { NIGHTINGALE, TROUBADOUR, PIANISSIMO }), cfg)
+    eq({ cmd, intent.cancel }, { '/ma "Valor Minuet IV" <me>', PIANISSIMO })
     cfg.song.fast = false
     eq(select(2, decide(snap({}, { PIANISSIMO }), cfg)), 'nothing to do')
 end)
@@ -395,4 +396,12 @@ test('fast casting: no Pianissimo (under BRD 20), the area songs go as they are'
     local cfg = fast_cfg({ area_1 = 'Valor Minuet' })
     local intent = engine.decide(snap({}, {}, { main_lv = 15, sub_lv = 7 }), below, cfg, {})
     eq({ intent and intent.action.name, intent and intent.cancel }, { 'Valor Minuet', nil })
+end)
+
+test('fast casting: Pianissimo up and the owed area song can\'t go now: a song on one member spends it', function ()
+    local cfg = fast_cfg({ area_1 = 'Valor Minuet IV', p1_1 = 'Mage\'s Ballad II' })
+    local waits = { ['Valor Minuet IV'] = 10 }
+    eq(decide(snap({ player({ name = 'A' }) }, { PIANISSIMO }, nil, waits), cfg), '/ma "Mage\'s Ballad II" 101')
+    -- Without Pianissimo up, the member's song still waits for the area song.
+    eq(select(2, decide(snap({ player({ name = 'A' }) }, {}, nil, waits), cfg)), 'holding Mage\'s Ballad II for Valor Minuet IV')
 end)

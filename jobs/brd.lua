@@ -49,8 +49,11 @@
     cancelled engine.CANCEL_AFTER seconds into the cast (packet 0x0F1, as
     Utsusemi's last shadow), so the song still lands on everyone near you. So
     while it's on, Pianissimo up doesn't stop the area songs: the next one takes
-    it. With Pianissimo on recast an area song goes without it. Not while
-    Nightingale is up, which already shortens the cast (as v2).
+    it, unless it can't go now (its recast, MP, held for the group): then a
+    song on one member spends it. With Pianissimo on recast an area song goes
+    without it. None is raised while Nightingale is up, which already shortens
+    the cast (as v2), but one already up still goes to an area song (new: v2
+    held the area songs until it wore).
 ]]--
 
 local buff = require('behaviors.buff')
@@ -266,9 +269,10 @@ function brd.want(g, cat, cfg, mem)
     end
 
     -- Area songs, unless the next song would land on one member (with fast
-    -- casting, an area song takes Pianissimo and cancels it mid-cast).
+    -- casting, an area song takes Pianissimo and cancels it mid-cast; under
+    -- Nightingale only one already up, none is raised for it).
     local up = g.me.buffs[PIANISSIMO]
-    local fast = cfg.song.fast and pianissimo and not g.me.buffs[NIGHTINGALE]
+    local fast = cfg.song.fast and pianissimo and (up or not g.me.buffs[NIGHTINGALE])
     local owed = false
     for _, a in ipairs(up and not fast and {} or area) do
         local near, count_, away = voters(a, g, free, owes, cfg.buff.hold_aoe)
@@ -290,7 +294,9 @@ function brd.want(g, cat, cfg, mem)
     end
 
     -- Each slot's songs on whoever is there, through Pianissimo; while an area
-    -- song is owed they wait (it would push them out), and say for which.
+    -- song is owed they wait (it would push them out), and say for which, unless
+    -- Pianissimo is up: an area song that can't go now leaves it to them, rather
+    -- than letting it wear.
     for slot = 0, 5 do
         local u = by_slot[slot]
         for _, a in ipairs(u and here(u) and own[slot] or {}) do
@@ -298,7 +304,7 @@ function brd.want(g, cat, cfg, mem)
             local short = d or d == nil and lacks(u, a, { own[slot], free(u) > 0 and area or {} })
             local pick = (u.kind == 'self' or (u.dist or math.huge) <= can.yalms(a.range)) and short
                 and choose(a, own[slot], u)
-            if pick and owed then
+            if pick and owed and not up then
                 mem.waiting = mem.waiting or { action = pick, mod = owed }
                 return nil
             elseif pick then

@@ -581,9 +581,9 @@ local function draw_songs(view)
     if m.pianissimo then
         checkbox('Pianissimo fast casting##sk3_song_fast', m.fast, function (on) act.set('song.fast', on) end,
             'Fire Pianissimo before an area song too, for its shorter cast, and cancel it a second into the cast '
-                .. 'so the song still lands on everyone near you. Not while Nightingale is up (its casts are short '
-                .. 'already); with Pianissimo on recast the area song goes without it. A Pianissimo already up '
-                .. '(fired by hand, or for a member\'s song) goes to the next area song too.')
+                .. 'so the song still lands on everyone near you. None is fired while Nightingale is up (its casts are '
+                .. 'short already); with Pianissimo on recast the area song goes without it. A Pianissimo already up '
+                .. 'goes to the next area song, or to a member\'s song while that area song can\'t go yet.')
     end
     if m.timed then
         slider('Song Duration##sk3_song_duration', 'song.duration', m.duration, 0, 300,
