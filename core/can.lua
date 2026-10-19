@@ -5,6 +5,7 @@
       can.in_party(u)          is `u` in your party: area effects from you land on no one else
       can.together(c, u)       does an area effect aimed at `c` land on `u` (the same party)
       can.command(a, u, j, bt) the chat command that does it
+      can.lacks(a, u)          is `a`'s status off `u`
       can.spare_hp(a, g, cfg)  can you pay what `a` costs in HP
     `a` is a catalog record, `u` a unit and `g` the snapshot from core/game.lua.
 ]]--
@@ -16,6 +17,8 @@ local can = {}
 
 can.THROTTLE = 1.1        -- the server's lockout after any action
 can.SPELL_THROTTLE = 3.1  -- ...and after a spell, counted from when it lands
+can.INVISIBLE = 69        -- status: most automation waits while it's on you
+can.SLEEP = { 2, 19 }     -- statuses: Sleep, Sleep II
 
 -- Valid-target flags (spell/ability Targets). ALLY is a player outside your
 -- party, in your alliance or not: Cure, Protect, Haste, the -na spells and
@@ -44,6 +47,12 @@ function can.dist(a, b)
     if not (a.pos and b.pos) then return math.huge end
     local dx, dy, dz = a.pos[1] - b.pos[1], a.pos[2] - b.pos[2], a.pos[3] - b.pos[3]
     return math.sqrt(dx * dx + dy * dy + dz * dz)
+end
+
+-- Whether `u` lacks `a`'s status (`status`, a list, stands in for it when given):
+-- always, for one with no status to read (Boost).
+function can.lacks(a, u, status)
+    return a.status == nil or not any(u.buffs, status or a.status)
 end
 
 -- Whether `list` holds `x`.
@@ -135,14 +144,19 @@ function can.reach(a, u)
     return (u.dist or math.huge) <= can.yalms(a.range)
 end
 
+-- The name to send for `x` (an action, or an item as core/ammo.lua's { en, jp }):
+-- in Japanese, the DAT's Japanese one. The second result is true when there is
+-- none, so the English one goes instead (the Japanese client won't take it).
+function can.name(x, japanese)
+    local english = japanese and (x.jp or '') == ''
+    return japanese and not english and x.jp or x.name or x.en, english
+end
+
 -- '/ma "Cure IV" 12345678': party members by server id, you as <me>, enemies as
 -- <bt>; by server id when the client has none for it (`bt` claimed by another
--- party of the alliance, core/game.lua). In Japanese, the name is the DAT's
--- Japanese one; the second result is true when there is none, so the English
--- one went instead (the Japanese client won't take it).
+-- party of the alliance, core/game.lua). The second result is can.name's.
 function can.command(a, u, japanese, bt)
-    local english = japanese and (a.jp or '') == ''
-    local name = japanese and not english and a.jp or a.name
+    local name, english = can.name(a, japanese)
     local enemy = bt and bt.claimed and tostring(bt.sid) or '<bt>'
     local target = can.at_enemy(a) and enemy or (u == nil or u.kind == 'self') and '<me>' or tostring(u.sid)
     return ('/%s "%s" %s'):format(a.kind, name, target), english

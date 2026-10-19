@@ -24,6 +24,7 @@ local can = require('core.can')
 local dnc = require('jobs.dnc')
 local observed = require('core.observed')
 local settings = require('core.settings')
+local util = require('core.util')
 
 local heal = {}
 
@@ -301,14 +302,9 @@ local function emergency(ctx, list, best, emergencies, ready, members)
     end
 end
 
-local function focus_of(g, s)
-    if s.focus == '' then return nil end
-    for _, u in ipairs(g.units) do if u.name:lower() == s.focus:lower() then return u end end
-end
-
 -- What's up on you (boosts by status) and what healing may fire (Accession).
 local function context(g, cat, cfg, emergencies)
-    local ctx = { g = g, s = cfg.heal, up = {}, sky = heal.sky(g), focus = focus_of(g, cfg.heal) }
+    local ctx = { g = g, s = cfg.heal, up = {}, sky = heal.sky(g), focus = util.named(g.units, cfg.heal.focus) }
     for _, a in ipairs(cat) do
         if a.boost and any(g.me.buffs, a.status) then
             ctx.up[#ctx.up + 1] = a.boost

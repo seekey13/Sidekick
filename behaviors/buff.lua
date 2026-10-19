@@ -28,21 +28,15 @@
 
 local ammo = require('core.ammo')
 local can = require('core.can')
+local catalog = require('core.catalog')
 local nin = require('jobs.nin')
 local sch = require('jobs.sch')
 local settings = require('core.settings')
 
 local buff = {}
 
-local INVISIBLE = 69
 local AREA_RADIUS = 10  -- yalms around you
-
--- `status` (a list) stands in for `a`'s own when given.
-local function lacks(a, u, status)
-    if not a.status then return true end
-    for _, id in ipairs(status or a.status) do if u.buffs[id] then return false end end
-    return true
-end
+local lacks = can.lacks
 
 -- Each row's action, best tier first, highest priority rows first.
 local function chosen(cat, cfg, g)
@@ -56,7 +50,7 @@ local function chosen(cat, cfg, g)
     for _, key in ipairs(keys) do
         local list = by_key[key]
         local row = settings.row(cfg, list[1])
-        table.sort(list, function (a, b) return (a.level or 0) > (b.level or 0) end)
+        table.sort(list, catalog.by_level)
         local pick
         for _, a in ipairs(list) do
             if row.pick == a.name or (not row.pick and not a.pick_one and can.use(a, g)) then pick = a; break end
@@ -135,7 +129,7 @@ local function held(c, acc, spreads, g, cfg)
 end
 
 function buff.want(g, cat, cfg, mem)
-    local invisible = g.me.buffs[INVISIBLE]
+    local invisible = g.me.buffs[can.INVISIBLE]
     local hold = cfg.buff.hold_aoe
     for _, c in ipairs(chosen(cat, cfg, g)) do
         local a = c.action

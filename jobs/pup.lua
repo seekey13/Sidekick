@@ -13,14 +13,15 @@
 ]]--
 
 local can = require('core.can')
+local catalog = require('core.catalog')
 local run = require('jobs.run')
+local settings = require('core.settings')
 
 local pup = {}
 
 pup.JOB = 18
 pup.SLOTS = 3
 
-local INVISIBLE = 69
 local PET_JOBS = { [9] = true, [14] = true, [15] = true, [21] = true }  -- BST, DRG, SMN, GEO
 
 local automaton  -- your automaton's name, once the server has said it
@@ -36,33 +37,11 @@ function pup.is_automaton(g)
     return g.main == pup.JOB or not PET_JOBS[g.main]
 end
 
--- The settings path of slot `i`: 'maneuver.slot_1'.
-function pup.path(i) return ('maneuver.slot_%d'):format(i) end
-
--- Your maneuvers by name.
-function pup.actions(cat)
-    local out = {}
-    for _, a in ipairs(cat) do
-        if a.role == 'maneuver' then out[a.name] = a end
-    end
-    return out
-end
-
--- The maneuvers picked, as catalog records in slot order: a slot with none (or
--- one you lack) is skipped.
-function pup.picked(cfg, mine)
-    local out = {}
-    for i = 1, pup.SLOTS do
-        local a = mine[cfg.maneuver['slot_' .. i]]
-        if a then out[#out + 1] = a end
-    end
-    return out
-end
-
 function pup.want(g, cat, cfg)
-    if not pup.is_automaton(g) or g.me.buffs[INVISIBLE] then return nil end
+    if not pup.is_automaton(g) or g.me.buffs[can.INVISIBLE] then return nil end
     -- Counted as runes are: the same maneuver twice wants two up.
-    local missing = run.missing(pup.picked(cfg, pup.actions(cat)), g.me)
+    local picked = settings.picks(cfg, 'maneuver', 'slot', pup.SLOTS, catalog.by_name(cat, 'maneuver'))
+    local missing = run.missing(picked, g.me)
     if missing and can.use(missing, g) then return { action = missing, why = g.pet.name } end
 end
 

@@ -22,6 +22,7 @@ local afk = require('core.afk')
 local ammo = require('core.ammo')
 local brd = require('jobs.brd')
 local can = require('core.can')
+local catalog = require('core.catalog')
 local cor = require('jobs.cor')
 local nin = require('jobs.nin')
 local profiles = require('core.profiles')
@@ -29,6 +30,7 @@ local pup = require('jobs.pup')
 local run = require('jobs.run')
 local sch = require('jobs.sch')
 local settings = require('core.settings')
+local util = require('core.util')
 
 local model = {}
 
@@ -74,8 +76,6 @@ local CASTS = { ma = true, item = true }
 
 -- Rows -----------------------------------------------------------------------
 
-local function by_level(a, b) return (a.level or 0) > (b.level or 0) end
-
 -- Each distinct value of `field` over `acts`, in order.
 local function distinct(acts, field)
     local out, seen = {}, {}
@@ -120,7 +120,7 @@ local function availability(acts, r, g)
     if acts[1].pick_one and not r.pick then return false, 'pick one' end
     local sorted = {}
     for i, a in ipairs(acts) do sorted[i] = a end
-    table.sort(sorted, by_level)
+    table.sort(sorted, catalog.by_level)
     local wait, reason
     for _, a in ipairs(sorted) do
         if not r.pick or r.pick == a.name then
@@ -337,10 +337,16 @@ local function status_line(status)
              text = status.intent and ('would: ' .. model.action_text(status.intent, true)) or reason(status.why) }
 end
 
-local function buff_names(buffs, statuses)
+-- The names of the statuses in `buffs` ({ [id] = true }), sorted; an id with none as is.
+function model.status_names(buffs, statuses)
     local list = {}
     for id in pairs(buffs) do list[#list + 1] = statuses[id] and statuses[id].en or tostring(id) end
     table.sort(list)
+    return list
+end
+
+local function buff_names(buffs, statuses)
+    local list = model.status_names(buffs, statuses)
     local shown = {}
     for i = 1, math.min(#list, BUFFS_SHOWN) do shown[i] = list[i] end
     local text = table.concat(shown, ', ')
@@ -400,7 +406,7 @@ end
 -- `session`; `other` instead when it's another version's (model.VIEW).
 local function remote_views(status)
     local out = {}
-    for name in pairs(status.watching or {}) do
+    for _, name in ipairs(util.keys(status.watching)) do
         if (status.sessions or {})[name] then
             local v = (status.views or {})[name]
             local other = v ~= nil and v.version ~= model.VIEW or nil
@@ -408,7 +414,6 @@ local function remote_views(status)
             out[#out + 1] = { name = name, view = not other and v or nil, other = other }
         end
     end
-    table.sort(out, function (a, b) return a.name < b.name end)
     return out
 end
 
@@ -544,6 +549,9 @@ function model.build(g, cat, cfg, status, names)
         view.recent[#view.recent + 1] = { age = math.floor(g.now - e.at), text = model.action_text(e),
                                           why = ('%s: %s'):format(e.behavior, e.why) }
     end
+    -- The sections shown only for what the job has.
+    local only = { wake = wakes, roll = rolls[1] ~= nil, song = view.song.choices[1] ~= nil, geo = luopans,
+                   rune = view.rune.runes[1] ~= nil, maneuver = view.maneuver.choices[1] ~= nil }
     for _, s in ipairs(model.SECTIONS) do
         local section = { id = s.id, title = s.title, header = s.header }
         if s.switch ~= false then section.on = cfg[s.id].on end  -- cfg.ui.on would be a UI's own
@@ -555,13 +563,8 @@ function model.build(g, cat, cfg, status, names)
                 section.has_mods = section.has_mods or r.mods ~= nil
             end
         end
-        local shown = not section.rows or #section.rows > 0
-        if s.id == 'wake' then shown = wakes end
-        if s.id == 'roll' then shown = rolls[1] ~= nil end
-        if s.id == 'song' then shown = view.song.choices[1] ~= nil end
-        if s.id == 'geo' then shown = luopans end
-        if s.id == 'rune' then shown = view.rune.runes[1] ~= nil end
-        if s.id == 'maneuver' then shown = view.maneuver.choices[1] ~= nil end
+        local shown = only[s.id]
+        if shown == nil then shown = not section.rows or #section.rows > 0 end
         if shown then view.sections[#view.sections + 1] = section end
     end
     return view
@@ -612,12 +615,10 @@ model.REMOTE_SET = {
     ['geo.distance'] = { 3, 30 }, ['geo.linger'] = { 1, 20 }, ['geo.entrust'] = 'name', ['geo.entrust_spell'] = 'name',
     ['song.duration'] = { 0, 300 }, ['song.fast'] = 'bool',
 }
-for _, set in ipairs(run.SETS) do
-    for i = 1, run.SLOTS do model.REMOTE_SET[run.path(set.key, i)] = 'name' end
-end
-for i = 1, pup.SLOTS do model.REMOTE_SET[pup.path(i)] = 'maneuver' end
-for _, set in ipairs(brd.SETS) do
-    for i = 1, brd.SLOTS do model.REMOTE_SET[brd.path(set.key, i)] = 'name' end
+for section, sets in pairs(settings.SLOTS) do
+    for _, key in ipairs(sets.keys) do
+        for i = 1, sets.n do model.REMOTE_SET[settings.path(section, key, i)] = section == 'maneuver' and 'maneuver' or 'name' end
+    end
 end
 
 -- `value` for act.set's `path` from another session, held to its range; nil when
@@ -690,6 +691,14 @@ local function saved_row(cfg, key, default_on)
     return r
 end
 
+-- `t[field][key]` set to `on` (toggled when nil); a row's targets start as just you.
+local function chip(t, field, key, on, changed)
+    t[field] = t[field] or (field == 'targets' and { [0] = true } or {})
+    if on == nil then on = not t[field][key] end
+    t[field][key] = on or nil
+    changed()
+end
+
 function model.actions(cfg, status, changed, tracking, send)
     local act = {}
     -- This session only: automation always starts stopped, the log as set.
@@ -720,22 +729,10 @@ function model.actions(cfg, status, changed, tracking, send)
     end
     -- slot: a party slot 0-5, an alliance slot 6-17, or a tracked player's name.
     -- `on` sets it; without it the chip toggles.
-    function act.target(key, slot, on)
-        local r = saved_row(cfg, key, false)
-        r.targets = r.targets or { [0] = true }
-        if on == nil then on = not r.targets[slot] end
-        r.targets[slot] = on or nil
-        changed()
-    end
+    function act.target(key, slot, on) chip(saved_row(cfg, key, false), 'targets', slot, on, changed) end
     -- A modifier (a stratagem: 'Penury', 'Accession'...) fired before the row's spell,
     -- on or off (`on`; without it, toggled).
-    function act.mod(key, name, on)
-        local r = saved_row(cfg, key, false)
-        r.mods = r.mods or {}
-        if on == nil then on = not r.mods[name] end
-        r.mods[name] = on or nil
-        changed()
-    end
+    function act.mod(key, name, on) chip(saved_row(cfg, key, false), 'mods', name, on, changed) end
     -- Whether a row's spell waits while one of its modifiers can't go with it
     -- (Hold), or goes without (the default).
     function act.hold(key, on)
@@ -763,11 +760,7 @@ function model.actions(cfg, status, changed, tracking, send)
     function act.untrack(name) tracking.remove(name) end
     -- A member skipped by healing is never healed for their own sake.
     -- `skip` sets it; without it, toggled.
-    function act.skip(name, skip)
-        if skip == nil then skip = not cfg.heal.skip[name] end
-        cfg.heal.skip[name] = skip or nil
-        changed()
-    end
+    function act.skip(name, skip) chip(cfg.heal, 'skip', name, skip, changed) end
     -- path: 'heal.danger', 'heal.alliance', 'heal.reserve', 'buff.hold_aoe', 'roll.first', 'roll.risk', 'geo.distance',
     -- 'geo.entrust', 'geo.entrust_spell', 'rune.idle_1', 'maneuver.slot_1', 'song.area_1', 'song.p1_2', 'follow.target',
     -- 'japanese', 'ui.hp_width', or 'ui.<anything>' for a UI's own.

@@ -220,47 +220,7 @@ local K = {
     ['Sneak']     = { role = 'buff', gate = 'idle', travel = true, priority = -10 },
     ['Invisible'] = { role = 'buff', gate = 'idle', travel = true, priority = -20 },
     ['Deodorize'] = { role = 'buff', gate = 'idle' },
-
-    ['Barfire']     = { role = 'buff', pick_one = 'barelement' },
-    ['Barblizzard'] = { role = 'buff', pick_one = 'barelement' },
-    ['Baraero']     = { role = 'buff', pick_one = 'barelement' },
-    ['Barstone']    = { role = 'buff', pick_one = 'barelement' },
-    ['Barthunder']  = { role = 'buff', pick_one = 'barelement' },
-    ['Barwater']    = { role = 'buff', pick_one = 'barelement' },
-    ['Barfira']     = { role = 'buff', pick_one = 'barelement', status = 'Barfire' },
-    ['Barblizzara'] = { role = 'buff', pick_one = 'barelement', status = 'Barblizzard' },
-    ['Baraera']     = { role = 'buff', pick_one = 'barelement', status = 'Baraero' },
-    ['Barstonra']   = { role = 'buff', pick_one = 'barelement', status = 'Barstone' },
-    ['Barthundra']  = { role = 'buff', pick_one = 'barelement', status = 'Barthunder' },
-    ['Barwatera']   = { role = 'buff', pick_one = 'barelement', status = 'Barwater' },
-
-    ['Barsleep']     = { role = 'buff', pick_one = 'barstatus' },
-    ['Barpoison']    = { role = 'buff', pick_one = 'barstatus' },
-    ['Barparalyze']  = { role = 'buff', pick_one = 'barstatus' },
-    ['Barblind']     = { role = 'buff', pick_one = 'barstatus' },
-    ['Barsilence']   = { role = 'buff', pick_one = 'barstatus' },
-    ['Barpetrify']   = { role = 'buff', pick_one = 'barstatus' },
-    ['Barvirus']     = { role = 'buff', pick_one = 'barstatus' },
-    ['Baramnesia']   = { role = 'buff', pick_one = 'barstatus' },
-    ['Barsleepra']   = { role = 'buff', pick_one = 'barstatus', status = 'Barsleep' },
-    ['Barpoisonra']  = { role = 'buff', pick_one = 'barstatus', status = 'Barpoison' },
-    ['Barparalyzra'] = { role = 'buff', pick_one = 'barstatus', status = 'Barparalyze' },
-    ['Barblindra']   = { role = 'buff', pick_one = 'barstatus', status = 'Barblind' },
-    ['Barsilencera'] = { role = 'buff', pick_one = 'barstatus', status = 'Barsilence' },
-    ['Barpetra']     = { role = 'buff', pick_one = 'barstatus', status = 'Barpetrify' },
-    ['Barvira']      = { role = 'buff', pick_one = 'barstatus', status = 'Barvirus' },
-    ['Baramnesra']   = { role = 'buff', pick_one = 'barstatus', status = 'Baramnesia' },
-
-    -- Enspell II shows its own status ("Enfire II"), found by the full name.
-    ['Enfire']     = { role = 'buff', pick_one = 'enspell' },
-    ['Enblizzard'] = { role = 'buff', pick_one = 'enspell' },
-    ['Enaero']     = { role = 'buff', pick_one = 'enspell' },
-    ['Enstone']    = { role = 'buff', pick_one = 'enspell' },
-    ['Enthunder']  = { role = 'buff', pick_one = 'enspell' },
-    ['Enwater']    = { role = 'buff', pick_one = 'enspell' },
-    ['Blaze Spikes'] = { role = 'buff', pick_one = 'spikes' },
-    ['Ice Spikes']   = { role = 'buff', pick_one = 'spikes' },
-    ['Shock Spikes'] = { role = 'buff', pick_one = 'spikes' },
+    -- Bar-spells, enspells, spikes: filled in below.
     ['Dread Spikes'] = { role = 'buff' },
 
     -- modifier: Scholar's stratagems, fired just before the spell (jobs/sch.lua) --
@@ -297,14 +257,7 @@ local K = {
         { role = 'buff', priority = 50, status = { 'Sublimation: Activated', 'Sublimation: Complete' } },
         { role = 'recover', requires = { 'Sublimation: Activated', 'Sublimation: Complete' } },
     },
-    ['Sandstorm']    = { role = 'buff', pick_one = 'storm', duration = 180 },
-    ['Rainstorm']    = { role = 'buff', pick_one = 'storm', duration = 180 },
-    ['Windstorm']    = { role = 'buff', pick_one = 'storm', duration = 180 },
-    ['Firestorm']    = { role = 'buff', pick_one = 'storm', duration = 180 },
-    ['Hailstorm']    = { role = 'buff', pick_one = 'storm', duration = 180 },
-    ['Thunderstorm'] = { role = 'buff', pick_one = 'storm', duration = 180 },
-    ['Voidstorm']    = { role = 'buff', pick_one = 'storm', duration = 180 },
-    ['Aurorastorm']  = { role = 'buff', pick_one = 'storm', duration = 180 },
+    -- Storms: filled in below.
 
     -- song: Bard's songs, sung on you and everyone near you, or on one member through
     -- Pianissimo (jobs/brd.lua's, not buff rows). The status is the song's kind (Minuet...).
@@ -436,6 +389,26 @@ local K = {
     ['Bounty Shot']= { role = 'buff' },
     ['Velocity Shot'] = { role = 'buff', gate = 'combat', main_only = true },
 }
+
+-- Pick-one groups of plain buffs, each showing the status named like it. A bar-spell's
+-- area form (Barfira) shows its single form's (Barfire). Enspell II shows its own
+-- status ("Enfire II"), found by the full name.
+for group, names in pairs({
+    barelement = { Barfire = 'Barfira', Barblizzard = 'Barblizzara', Baraero = 'Baraera', Barstone = 'Barstonra',
+                   Barthunder = 'Barthundra', Barwater = 'Barwatera' },
+    barstatus = { Barsleep = 'Barsleepra', Barpoison = 'Barpoisonra', Barparalyze = 'Barparalyzra',
+                  Barblind = 'Barblindra', Barsilence = 'Barsilencera', Barpetrify = 'Barpetra', Barvirus = 'Barvira',
+                  Baramnesia = 'Baramnesra' },
+    enspell = { 'Enfire', 'Enblizzard', 'Enaero', 'Enstone', 'Enthunder', 'Enwater' },
+    spikes = { 'Blaze Spikes', 'Ice Spikes', 'Shock Spikes' },
+    storm = { 'Sandstorm', 'Rainstorm', 'Windstorm', 'Firestorm', 'Hailstorm', 'Thunderstorm', 'Voidstorm', 'Aurorastorm' },
+}) do
+    for k, v in pairs(names) do
+        local name = type(k) == 'string' and k or v
+        K[name] = { role = 'buff', pick_one = group, duration = group == 'storm' and 180 or nil }
+        if type(k) == 'string' then K[v] = { role = 'buff', pick_one = group, status = k } end
+    end
+end
 
 -- Plain combat-only self buffs.
 for _, name in ipairs({

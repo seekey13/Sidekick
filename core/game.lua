@@ -106,8 +106,8 @@ end
 
 local max_hp = {}  -- [sid] = HP seen at 100%: heal sizing needs the deficit
 local has_mp = {}  -- ['sid main/sub'] = true once seen with MP on those jobs: a WAR's 0% isn't an empty tank
-local move = { at = -math.huge, moved = -math.huge }
-local motion = {}  -- [sid] = { x, y, z, moved }: where each other unit and the battle target last were
+local move = { at = -math.huge, moved = -math.huge }  -- your position, sampled: { at, pos, moved, zone }
+local motion = {}  -- [sid] = { pos, moved }: where each other unit and the battle target last were
 local last_combat = -math.huge
 local pet_sid  -- the live pet last seen: its statuses are forgotten once it's gone or dead
 local pet_since  -- when that pet was first seen: a new one (it may reuse the id) comes after a read without one
@@ -116,23 +116,20 @@ local rescan_at = -math.huge
 local claim = { at = -math.huge, tidx = nil }  -- the last look for an alliance-claimed mob
 local fed = {}  -- [sid] = true: last read's units whose statuses come from packets
 
-local function set_of(list)
-    local s = {}
-    for _, id in ipairs(list) do if id > 0 and id ~= 255 then s[id] = true end end
-    return s
-end
-
 local any = can.any
 
 -- A list of status ids as a set, and how many of each stand (runes stack:
 -- jobs/run.lua; so do songs of one kind: jobs/brd.lua).
 local function counted(list)
-    local stacks = {}
+    local set, stacks = {}, {}
     for _, id in ipairs(list) do
-        if id > 0 and id ~= 255 then stacks[id] = (stacks[id] or 0) + 1 end
+        if id > 0 and id ~= 255 then set[id], stacks[id] = true, (stacks[id] or 0) + 1 end
     end
-    return set_of(list), stacks
+    return set, stacks
 end
+
+local function pos(em, i) return { em:GetLocalPositionX(i), em:GetLocalPositionY(i), em:GetLocalPositionZ(i) } end
+local function dist(em, i) return math.sqrt(em:GetDistance(i)) end
 
 -- A party player's statuses and their stacks, from the client's party status-icon
 -- block (5 entries of 0x30 bytes: server id, 2 high bits per icon, 32 low bytes);
@@ -224,11 +221,8 @@ end
 
 local function entity(em, tidx)
     if not tidx or tidx == 0 then return nil end
-    return {
-        tidx = tidx, sid = em:GetServerId(tidx), name = em:GetName(tidx), hpp = em:GetHPPercent(tidx),
-        dist = math.sqrt(em:GetDistance(tidx)), status = em:GetStatus(tidx),
-        pos = { em:GetLocalPositionX(tidx), em:GetLocalPositionY(tidx), em:GetLocalPositionZ(tidx) },
-    }
+    return { tidx = tidx, sid = em:GetServerId(tidx), name = em:GetName(tidx), hpp = em:GetHPPercent(tidx),
+             dist = dist(em, tidx), status = em:GetStatus(tidx), pos = pos(em, tidx) }
 end
 
 -- An entity the client is drawing: spawned near you, not hidden.
@@ -291,8 +285,7 @@ local function tracked_unit(em, t, me, now)
     if u.in_zone then
         local i = t.tidx
         t.hpp, t.status = em:GetHPPercent(i), em:GetStatus(i)
-        u.tidx, u.dist = i, math.sqrt(em:GetDistance(i))
-        u.pos = { em:GetLocalPositionX(i), em:GetLocalPositionY(i), em:GetLocalPositionZ(i) }
+        u.tidx, u.dist, u.pos = i, dist(em, i), pos(em, i)
     elseif t.shared_hpp then  -- not drawn: their own session's client still reads them
         t.hpp, t.status = t.shared_hpp, nil
     end
@@ -334,7 +327,7 @@ local function claimed_target(em, listed, now)
         local best = CLAIM_RANGE
         for i = MOB_FIRST, MOB_LAST do
             if fought(i) then
-                local d = math.sqrt(em:GetDistance(i))
+                local d = dist(em, i)
                 if d <= best then best, claim.tidx = d, i end
             end
         end
@@ -346,22 +339,29 @@ local function claimed_target(em, listed, now)
     return bt
 end
 
+-- `m` (a move record) now at `p`: its `moved` is `now` when that isn't where it last
+-- was. A first sighting reads as standing still.
+local function step(m, p, now)
+    local q = m.pos
+    if q and (p[1] ~= q[1] or p[2] ~= q[2] or p[3] ~= q[3]) then m.moved = now end
+    m.pos = p
+end
+
+-- Whether you moved, your position sampled every MOVE_SAMPLE.
 local function moving(em, tidx, now)
-    if now - move.at < MOVE_SAMPLE then return now - move.moved < MOVE_SAMPLE end
-    local x, y, z = em:GetLocalPositionX(tidx), em:GetLocalPositionY(tidx), em:GetLocalPositionZ(tidx)
-    if move.x and (x ~= move.x or y ~= move.y or z ~= move.z) then move.moved = now end
-    move.at, move.x, move.y, move.z = now, x, y, z
+    if now - move.at >= MOVE_SAMPLE then
+        move.at = now
+        step(move, pos(em, tidx), now)
+    end
     return now - move.moved < MOVE_SAMPLE
 end
 
 -- Whether `e` (a unit or the battle target) moved within MOVE_GRACE: a luopan
--- stays where it lands (jobs/geo.lua). A first sighting reads as standing still.
+-- stays where it lands (jobs/geo.lua).
 local function on_the_move(seen, e, now)
     if not e.pos then return nil end
     local m = motion[e.sid] or { moved = -math.huge }
-    local x, y, z = e.pos[1], e.pos[2], e.pos[3]
-    if m.x and (x ~= m.x or y ~= m.y or z ~= m.z) then m.moved = now end
-    m.x, m.y, m.z = x, y, z
+    step(m, e.pos, now)
     seen[e.sid] = m
     return now - m.moved < MOVE_GRACE
 end
@@ -390,17 +390,18 @@ local function ready_charges(mm, player)
     return bst.charges(ability_timer(mm:GetRecast(), bst.READY) / 60)
 end
 
+-- The key `action`'s ready stamp is kept under: a charge pool's per charge count.
+local function recast_key(action)
+    return action.kind .. action.recast .. (action.charges and ':' .. action.charges or '')
+end
+
 -- Seconds until `action` (a catalog record) is off recast; 0 = ready.
 function game.recast(action)
     if not action.recast then return 0 end  -- items
     local mm = AshitaCore:GetMemoryManager()
     local recast = mm:GetRecast()
-    local key, timer = action.kind .. action.recast, 0
-    if action.kind == 'ma' then
-        timer = recast:GetSpellTimer(action.recast)
-    elseif action.recast and action.recast > 0 then
-        timer = ability_timer(recast, action.recast)
-    end
+    local timer = action.kind == 'ma' and recast:GetSpellTimer(action.recast)
+        or action.recast > 0 and ability_timer(recast, action.recast) or 0
     local wait = timer / 60
     -- Charge pools: usable once the charges it costs are back, not the whole pool,
     -- and then after the same delay as a recast run out.
@@ -409,7 +410,7 @@ function game.recast(action)
     elseif timer > 0 and action.kind == 'pet' and action.recast == bst.READY then
         wait = bst.charge_wait(wait, action.charges)
     end
-    key = key .. (action.charges and ':' .. action.charges or '')
+    local key = recast_key(action)
     if wait > 0 then
         ready_since[key] = nil
         return wait
@@ -420,8 +421,7 @@ end
 
 -- Forget `action`'s ready stamp once it's sent, so its next recast gets the full delay.
 function game.sent(action)
-    if not action.recast then return end  -- /heal, /follow: no recast
-    ready_since[action.kind .. action.recast .. (action.charges and ':' .. action.charges or '')] = nil
+    if action.recast then ready_since[recast_key(action)] = nil end  -- /heal, /follow: no recast
 end
 
 -- The snapshot. { loading = true } until the client has the player's job.
@@ -464,9 +464,7 @@ function game.read(now)
             -- Only one the client draws: out of its range a member has no entity, and
             -- would read as 0 yalms away. Then dist and pos are unknown: out of reach.
             if u.in_zone and tidx > 0 and (i == 0 or present(em, tidx)) then
-                u.status = em:GetStatus(tidx)
-                u.dist = i == 0 and 0 or math.sqrt(em:GetDistance(tidx))
-                u.pos = { em:GetLocalPositionX(tidx), em:GetLocalPositionY(tidx), em:GetLocalPositionZ(tidx) }
+                u.status, u.dist, u.pos = em:GetStatus(tidx), i == 0 and 0 or dist(em, tidx), pos(em, tidx)
             end
             u.alive = u.hpp > 0 and u.status ~= DEAD
             if u.kind == 'self' then u.buffs, u.stacks = own_buffs(player)
@@ -493,7 +491,7 @@ function game.read(now)
 
     local bt = battle_target(em) or allied[1] and claimed_target(em, listed, now) or nil
     if bt and bt.mob then last_combat = now end
-    if move.zone ~= zone then move.x, move.zone = nil, zone end  -- a zone or teleport isn't you moving (AFK sleep)
+    if move.zone ~= zone then move.pos, move.zone = nil, zone end  -- a zone or teleport isn't you moving (AFK sleep)
     local is_moving = moving(em, me.tidx, now)  -- before moved_at is read
     local seen = {}
     for _, u in ipairs(units) do

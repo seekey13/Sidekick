@@ -21,6 +21,7 @@
 
 local buff = require('behaviors.buff')
 local can = require('core.can')
+local catalog = require('core.catalog')
 
 local cor = {}
 
@@ -29,7 +30,7 @@ cor.RISKS = { 'lowest', 'medium', 'highest' }
 cor.DOUBLE_GAP = 6  -- seconds between Double-Ups, from the send and from its total (in-game proven, v2)
 cor.WAIT = 5        -- seconds a roll or Double-Up sent waits for its total
 
-local INVISIBLE, DOUBLE_UP_CHANCE, BUST, SNAKE_EYE = 69, 308, 309, 357  -- statuses
+local DOUBLE_UP_CHANCE, BUST, SNAKE_EYE = 308, 309, 357  -- statuses
 local ROLL, ROLL_SUB, DOUBLED, BUSTED, BUSTED_SUB = 420, 421, 424, 426, 427  -- 0x028 messages
 
 local MAX_TOTAL = 11           -- 12 or more busts
@@ -87,18 +88,12 @@ end
 
 -- The behavior -------------------------------------------------------------------
 
-local function named(cat, name)
-    for _, a in ipairs(cat) do
-        if a.name == name and (a.role == 'roll' or a.role == 'modifier') then return a end
-    end
-end
-
 -- The rolls picked, as catalog records: the second only on a COR main job, and
 -- never the first again.
 function cor.picked(cat, cfg, main)
     local out = {}
     for i, name in ipairs({ cfg.roll.first, cfg.roll.second }) do
-        local a = (i == 1 or main == cor.JOB) and named(cat, name)
+        local a = (i == 1 or main == cor.JOB) and catalog.find(cat, name, 'roll')
         if a and a.lucky and a ~= out[1] then out[#out + 1] = a end
     end
     return out
@@ -116,9 +111,10 @@ function cor.want(g, cat, cfg, mem)
     if not rolls[1] then return nil end
     local st = mem.cor or { sent = {} }  -- sent[id]: when the roll or its Double-Up last went
     mem.cor = st
-    local fold, double, snake = named(cat, 'Fold'), named(cat, 'Double-Up'), named(cat, 'Snake Eye')
+    local fold, double = catalog.find(cat, 'Fold', 'roll'), catalog.find(cat, 'Double-Up', 'roll')
+    local snake = catalog.find(cat, 'Snake Eye', 'modifier')
     local buffs = g.me.buffs
-    if buffs[INVISIBLE] then return nil end
+    if buffs[can.INVISIBLE] then return nil end
 
     -- A Bust takes a roll's place until it wears; Fold frees it at once.
     if buffs[BUST] and ready(fold, g) then return { action = fold, why = 'Bust' } end

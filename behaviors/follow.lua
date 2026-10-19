@@ -6,15 +6,14 @@
 ]]--
 
 local can = require('core.can')
+local util = require('core.util')
 
 local follow = {}
 
 -- The unit named `name` (any case), not you; nil when there's none.
 function follow.leader(g, name)
-    if name == '' then return nil end
-    for _, u in ipairs(g.units) do
-        if u.kind ~= 'self' and u.name:lower() == name:lower() then return u end
-    end
+    local u = util.named(g.units, name)
+    return u and u.kind ~= 'self' and u or nil
 end
 
 function follow.want(g, _, cfg)

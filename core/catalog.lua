@@ -95,6 +95,29 @@ local function spell_source(s, p)
     return 'sub', s.lv[p.sub], addendum
 end
 
+-- The first action in `cat` named `name`, in `role` when given.
+function catalog.find(cat, name, role)
+    for _, a in ipairs(cat) do
+        if a.name == name and (not role or a.role == role) then return a end
+    end
+end
+
+-- The actions of `role` in `cat`, by name.
+function catalog.by_name(cat, role)
+    local out = {}
+    for _, a in ipairs(cat) do
+        if a.role == role then out[a.name] = a end
+    end
+    return out
+end
+
+-- Sort orders: the higher level first; higher priority first, then the higher level.
+function catalog.by_level(a, b) return (a.level or 0) > (b.level or 0) end
+function catalog.by_priority(a, b)
+    if a.priority ~= b.priority then return a.priority > b.priority end
+    return catalog.by_level(a, b)
+end
+
 -- Build the catalog.
 --   res    { spells, abilities, statuses, items = { [id] = { en, jp } } or nil }
 --          from core/resources.lua or tests/data
@@ -109,6 +132,8 @@ function catalog.build(res, player, K)
     local function add(kind, id, row, from, level, addendum)
         local family, tier = catalog.split(row.en)
         for _, use in ipairs(uses(K, row.en, family, kind)) do
+            -- `requires` is "any of": an Addendum's own list can't take another's.
+            assert(not (addendum and use.requires), row.en .. ': an Addendum spell with requires of its own')
             if not (use.main_only and from == 'sub') then
                 local status = use.status
                 if status == nil and (use.role == 'buff' or use.role == 'modifier' or use.lucky or use.boost) then
@@ -120,7 +145,6 @@ function catalog.build(res, player, K)
                     status = ids(status, idx, row.en),
                     removes = ids(use.removes, idx, row.en),
                     blocked_by = ids(use.blocked_by, idx, row.en),
-                    -- ponytail: no knowledge row sets requires on an Addendum spell; merge if one ever does.
                     requires = addendum and ADDENDUM[row.type] or ids(use.unbridled and UNBRIDLED or use.requires, idx, row.en),
                     unbridled = use.unbridled,
                     potency = use.potency and use.potency[tier],
@@ -167,13 +191,9 @@ function catalog.build(res, player, K)
     -- Enlightenment is an Addendum spell's way in without the Addendum, and
     -- Unbridled Learning an Unbridled spell's: can.use counts it, and the engine
     -- fires it first.
-    local via = {}
+    local enlightenment, unbridled = catalog.find(out, 'Enlightenment', 'modifier'), catalog.find(out, UNBRIDLED, 'modifier')
     for _, a in ipairs(out) do
-        if a.role == 'modifier' and (a.name == 'Enlightenment' or a.name == UNBRIDLED) then via[a.name] = a end
-    end
-    for _, a in ipairs(out) do
-        if a.addendum then a.via = via.Enlightenment end
-        if a.unbridled then a.via = via[UNBRIDLED] end
+        a.via = a.addendum and enlightenment or a.unbridled and unbridled or nil
     end
 
     table.sort(out, function (a, b)

@@ -58,6 +58,8 @@
 
 local buff = require('behaviors.buff')
 local can = require('core.can')
+local catalog = require('core.catalog')
+local settings = require('core.settings')
 
 local brd = {}
 
@@ -67,7 +69,7 @@ brd.SLOTS = 2  -- songs per target on a BRD main job; one on a subjob
 brd.SETS = { { key = 'area', label = 'Area' }, { key = 'me', slot = 0, label = 'ME' } }
 for i = 1, 5 do brd.SETS[#brd.SETS + 1] = { key = 'p' .. i, slot = i, label = 'P' .. i } end
 
-local INVISIBLE, PIANISSIMO, NIGHTINGALE, TROUBADOUR = 69, 409, 347, 348
+local PIANISSIMO, NIGHTINGALE, TROUBADOUR = 409, 347, 348
 brd.TIMED_LEVEL = 75  -- Song Duration only for a BRD main job from here, as v2 (where song duration gear is)
 brd.VERIFY = 5        -- seconds after a song lands before its status must show on a list we can read
 
@@ -141,29 +143,13 @@ local function prune(g)
     end
 end
 
--- The settings path of a set's slot `i`: 'song.area_1', 'song.p3_2'.
-function brd.path(key, i) return ('song.%s_%d'):format(key, i) end
-
 -- Your songs by name, and Pianissimo.
 function brd.actions(cat)
-    local songs, pianissimo = {}, nil
-    for _, a in ipairs(cat) do
-        if a.role == 'song' then songs[a.name] = a end
-        if a.name == 'Pianissimo' and a.role == 'modifier' then pianissimo = a end
-    end
-    return songs, pianissimo
+    return catalog.by_name(cat, 'song'), catalog.find(cat, 'Pianissimo', 'modifier')
 end
 
--- A set's songs, as catalog records in slot order, for the first `n` slots: a
--- slot with none (or one you lack) is skipped, and a song picked twice is one.
-function brd.picked(cfg, key, songs, n)
-    local out, seen = {}, {}
-    for i = 1, n do
-        local a = songs[cfg.song[key .. '_' .. i]]
-        if a and not seen[a] then seen[a] = true; out[#out + 1] = a end
-    end
-    return out
-end
+-- A set's songs for the first `n` slots: a song picked twice is one.
+function brd.picked(cfg, key, songs, n) return settings.picks(cfg, 'song', key, n, songs, true) end
 
 -- How many of status `id` stand on `u`; a trust's (no stacks) stand for all.
 local function count(u, id)
@@ -230,7 +216,7 @@ end
 
 function brd.want(g, cat, cfg, mem)
     local n = brd.slots(g)
-    if n == 0 or g.me.buffs[INVISIBLE] then return nil end
+    if n == 0 or g.me.buffs[can.INVISIBLE] then return nil end
     prune(g)
     local timed = brd.timed(g, cfg)
     local window = g.me.buffs[NIGHTINGALE] and g.me.buffs[TROUBADOUR]

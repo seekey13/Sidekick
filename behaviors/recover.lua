@@ -9,6 +9,7 @@
 ]]--
 
 local can = require('core.can')
+local catalog = require('core.catalog')
 local geo = require('jobs.geo')
 local settings = require('core.settings')
 
@@ -25,12 +26,7 @@ end
 
 return function (g, cat, cfg, mem)
     local r = cfg.recover
-    local list = settings.enabled(cat, cfg, 'recover')
-    table.sort(list, function (a, b)
-        if a.priority ~= b.priority then return a.priority > b.priority end
-        return (a.level or 0) > (b.level or 0)
-    end)
-    for _, a in ipairs(list) do
+    for _, a in ipairs(settings.enabled(cat, cfg, 'recover', catalog.by_priority)) do
         if a.luopan then
             local intent = geo.arcana(a, g, cat, cfg, mem)
             if intent then return intent end

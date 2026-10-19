@@ -453,6 +453,19 @@ test('a Lua error while drawing still ends both windows, then is raised', functi
     eq(type(draw(window, cfg, st, nil, view)), 'string')
 end)
 
+test('a Lua error inside a combo or a table closes it before its window ends', function ()
+    open_settings()
+    local cfg, st = settings.defaults(), status()
+    local view = model.build(snap(), cat, cfg, st, NAMES)
+    view.heal.focus_names = { false }  -- in the Focus combo
+    eq(type(draw(window, cfg, st, nil, view)), 'string')
+    view = model.build(snap(), cat, cfg, st, NAMES)
+    for _, s in ipairs(view.sections) do
+        if s.id == 'buff' then s.rows[1].targets = { {} } end  -- in the Buffs table
+    end
+    eq(type(draw(window, cfg, st, nil, view)), 'string')
+end)
+
 -- The widget ------------------------------------------------------------------------
 
 local function widget_cfg()
@@ -627,20 +640,20 @@ end)
 test('sliders, the focus and the options write the settings', function ()
     open_settings()
     local cfg, st = settings.defaults(), status()
-    eq(render(cfg, st, { ['Danger under##sk3_danger'] = 60 }), 1)
+    eq(render(cfg, st, { ['Danger under##sk3_heal_danger'] = 60 }), 1)
     eq(cfg.heal.danger, 60)
-    eq(render(cfg, st, { ['A##sk3_focus_A'] = true }), 1)  -- the focus combo's member
+    eq(render(cfg, st, { ['A##sk3_heal_focus_A'] = true }), 1)  -- the focus combo's member
     eq(cfg.heal.focus, 'A')
-    eq(render(cfg, st, { ['None##sk3_focus_none'] = true }), 1)
+    eq(render(cfg, st, { ['None##sk3_heal_focus_none'] = true }), 1)
     eq(cfg.heal.focus, '')
     eq(render(cfg, st, { ['Japanese client##sk3_japanese'] = true }), 1)
     eq(cfg.ui.japanese, true)
-    eq(render(cfg, st, { ['Focus danger under##sk3_focus_danger'] = 65 }), 1)
+    eq(render(cfg, st, { ['Focus danger under##sk3_heal_focus_danger'] = 65 }), 1)
     eq(cfg.heal.focus_danger, 65)
-    eq(frame.ids['SK Settings|Ask them to gather##sk3_gather'], nil)  -- only while holding
-    eq(render(cfg, st, { ['Hold area buffs for the group##sk3_hold_aoe'] = true }), 1)
+    eq(frame.ids['SK Settings|Ask them to gather##sk3_buff_gather'], nil)  -- only while holding
+    eq(render(cfg, st, { ['Hold area buffs for the group##sk3_buff_hold_aoe'] = true }), 1)
     eq(cfg.buff.hold_aoe, true)
-    eq(render(cfg, st, { ['Ask them to gather##sk3_gather'] = true }), 1)
+    eq(render(cfg, st, { ['Ask them to gather##sk3_buff_gather'] = true }), 1)
     eq(cfg.buff.gather, false)
 end)
 
@@ -921,13 +934,13 @@ test('PUP: Maneuvers under Pet: a combo per slot by element, then whether they c
     local pup = fake.catalog(18, 75, 3, 37, { 'Fire Maneuver', 'Light Maneuver' })
     local cfg, st = settings.defaults(), status()
     local function view() local g = snap(); g.main = 18; return model.build(g, pup, cfg, st, NAMES) end
-    eq(render(cfg, st, { ['Fire##sk3_maneuver_1_Fire Maneuver'] = true, ['Light##sk3_maneuver_3_Light Maneuver'] = true }, view()), 2)
+    eq(render(cfg, st, { ['Fire##sk3_maneuver_slot_1_Fire Maneuver'] = true, ['Light##sk3_maneuver_slot_3_Light Maneuver'] = true }, view()), 2)
     eq({ cfg.maneuver.slot_1, cfg.maneuver.slot_2, cfg.maneuver.slot_3 }, { 'Fire Maneuver', '', 'Light Maneuver' })
     render(cfg, st, {}, view())
-    eq({ has(frame.args.BeginCombo, '##sk3_maneuver_2'), frame.columns['##sk3_maneuvers'], showed('ready') }, { true, 4, true })
-    eq(render(cfg, st, { ['None##sk3_maneuver_1_none'] = true, ['Maneuvers##sk3_on_maneuver'] = true }, view()), 2)
+    eq({ has(frame.args.BeginCombo, '##sk3_maneuver_slot_2'), frame.columns['##sk3_maneuvers'], showed('ready') }, { true, 4, true })
+    eq(render(cfg, st, { ['None##sk3_maneuver_slot_1_none'] = true, ['Maneuvers##sk3_on_maneuver'] = true }, view()), 2)
     eq({ cfg.maneuver.slot_1, cfg.maneuver.on }, { '', false })
-    eq(render(cfg, st, { ['Fire##sk3_maneuver_1_Fire Maneuver'] = true }), 0)  -- WHM: no Maneuvers
+    eq(render(cfg, st, { ['Fire##sk3_maneuver_slot_1_Fire Maneuver'] = true }), 0)  -- WHM: no Maneuvers
 end)
 
 -- Remote control -------------------------------------------------------------------
@@ -974,7 +987,7 @@ test('another session\'s SK Settings draw its view; changes go to it, never to y
     st.views = { A = remote_view(theirs) }
     remote_calls = {}
     local function frame_with(clicks) return render(mine, st, clicks, model.build(snap(), cat, mine, st, NAMES)) end
-    eq(frame_with({ ['Danger under##sk3_danger'] = 60, ['Cure##heal_Cure'] = true, ['Buffs##sk3_on_buff'] = true,
+    eq(frame_with({ ['Danger under##sk3_heal_danger'] = 60, ['Cure##heal_Cure'] = true, ['Buffs##sk3_on_buff'] = true,
         ['Save as##sk3_profile_save_as'] = true }), 0)
     eq(remote_calls, { { 'A', 'save_profile', '', true }, { 'A', 'set', 'heal.danger', 60 }, { 'A', 'row', 'Cure', false },
         { 'A', 'section', 'buff', false } })  -- in the order drawn

@@ -18,6 +18,7 @@
 local blu = require('jobs.blu')
 local brd = require('jobs.brd')
 local buffs = require('core.buffs')
+local can = require('core.can')
 local cor = require('jobs.cor')
 local observed = require('core.observed')
 local players = require('core.tracked')  -- the players you track
@@ -40,7 +41,6 @@ local GAINS_028 = { [186] = true, [230] = true, [236] = true, [237] = true, [242
 local LOSES_028 = { [83] = true }                           -- effect removed (-na, Erase)
 -- Recovers HP, param = HP: cures, waltzes, Chakra, blood pacts and their area variants.
 local HEALS_028 = { [7] = true, [24] = true, [102] = true, [238] = true, [263] = true, [318] = true, [367] = true }
-local SLEEP = { 2, 19 }  -- a heal of yours wakes
 -- Categories whose heals are yours: 4 spell, 6/14/15 job ability; 11/13 your pet's moves.
 local KIND = { [4] = 'ma', [6] = 'ja', [14] = 'ja', [15] = 'ja', [11] = 'pet', [13] = 'pet' }
 local ABILITY_BASE = 512  -- catalog ability id = packet param (ability or pet skill id) + 512; see observed.key
@@ -123,7 +123,7 @@ function packets.action(p, ctx, now)
             if HEALS_028[r.message] then
                 if key then
                     observed.healed(key, t.id, r.param, now)
-                    if tracked then for _, s in ipairs(SLEEP) do buffs.lose(t.id, s) end end
+                    if tracked then for _, s in ipairs(can.SLEEP) do buffs.lose(t.id, s) end end  -- it wakes
                 end
             elseif GAINS_028[r.message] then
                 -- Only a spell's id names a catalog duration; an ability's or TP move's doesn't.

@@ -28,6 +28,7 @@
 ]]--
 
 local tracked = require('core.tracked')
+local util = require('core.util')
 
 local share = {
     STALE = 5,      -- seconds without a write before a session counts as gone
@@ -97,13 +98,6 @@ function share.unpack(s)
     if ok and i == #s + 1 then return v end
 end
 
-local function sorted_keys(t)
-    local out = {}
-    for k in pairs(t or {}) do out[#out + 1] = k end
-    table.sort(out)
-    return out
-end
-
 -- The file's text for a roster (share.roster), whether it runs, and the os.time()
 -- written at. `extra` (optional): { epoch, watch = { [name] = true }, calls (share.queue's
 -- list), acks = { [sender] = { epoch, n } } }.
@@ -115,11 +109,11 @@ function share.encode(members, running, heartbeat, extra)
             m.sub or 0, m.sub_lv or 0, m.hpp or 0, m.hp or 0, m.max_hp or 0, m.mpp or 0, m.mp or 0,
             m.here and 1 or 0, m.name)
     end
-    for _, name in ipairs(sorted_keys(extra.watch)) do lines[#lines + 1] = 'watch ' .. name end
+    for _, name in ipairs(util.keys(extra.watch)) do lines[#lines + 1] = 'watch ' .. name end
     for _, c in ipairs(extra.calls or {}) do
         lines[#lines + 1] = ('do %s %d %d %s'):format(c.to, c.epoch, c.n, share.pack(c.call))
     end
-    for _, name in ipairs(sorted_keys(extra.acks)) do
+    for _, name in ipairs(util.keys(extra.acks)) do
         local a = extra.acks[name]
         if a.n > 0 then lines[#lines + 1] = ('ack %s %d %d'):format(name, a.epoch, a.n) end
     end
@@ -202,11 +196,8 @@ end
 -- joining them keeps the statuses seen on them. A player several files list is taken from their own
 -- session's file, else the first owner by name, so the owner stays put.
 function share.sync(live, listed, now)
-    local owners = {}
-    for owner in pairs(live) do owners[#owners + 1] = owner end
-    table.sort(owners)
     local wanted = {}  -- [sid] = { member, owner name }
-    for _, owner in ipairs(owners) do
+    for _, owner in ipairs(util.keys(live)) do
         for i, m in ipairs(live[owner].members) do
             local w = wanted[m.sid]
             if not listed[m.sid] and (not w or i == 1 and not w.own) then
@@ -251,11 +242,9 @@ end
 -- A player some live session lists by `name` (any case), as { sid, name }, or nil:
 -- one out of your sight can still be tracked by name.
 function share.named(live, name)
-    name = name:lower()
     for _, s in pairs(live) do
-        for _, m in ipairs(s.members) do
-            if m.name:lower() == name then return { sid = m.sid, name = m.name } end
-        end
+        local m = util.named(s.members, name)
+        if m then return { sid = m.sid, name = m.name } end
     end
 end
 
@@ -271,7 +260,7 @@ function share.reach(live, me, who)
     for name in pairs(live) do
         if name:lower() == who then return false, { name } end
     end
-    if who == 'all' then return true, sorted_keys(live) end
+    if who == 'all' then return true, util.keys(live) end
     return nil, nil
 end
 
@@ -305,7 +294,7 @@ end
 -- new epoch (a reload) starts again from its first call.
 function share.inbox(live, me, epoch, applied)
     local out = {}
-    for _, from in ipairs(sorted_keys(live)) do
+    for _, from in ipairs(util.keys(live)) do
         local s = live[from]
         local a = applied[from]
         if not a or a.epoch ~= s.epoch then a = { epoch = s.epoch, n = 0 }; applied[from] = a end

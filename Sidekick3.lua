@@ -26,14 +26,16 @@ local resources = require('core.resources')
 local settings = require('core.settings')
 local share = require('core.share')
 local tracked = require('core.tracked')
+local util = require('core.util')
 local imgui = require('imgui')
 local blu = require('jobs.blu')
 local brd = require('jobs.brd')
 local model = require('ui.model')
 
-local function printf(fmt, ...)
-    print(chat.header(addon.name) .. chat.message(fmt:format(...)))
-end
+-- A chat line in `style` (chat.message, chat.warning, chat.error).
+local function say(style, fmt, ...) print(chat.header(addon.name) .. style(fmt:format(...))) end
+local function printf(fmt, ...) say(chat.message, fmt, ...) end
+local function on_off(on) return on and 'on' or 'off' end
 
 local function abbr(job)
     return job > 0 and AshitaCore:GetResourceManager():GetString('jobs.names_abbr', job) or 'none'
@@ -180,8 +182,8 @@ local function tick(g)
     AshitaCore:GetChatManager():QueueCommand(0, status.intent.command)
     if status.intent.english and not warned_english[status.intent.action] then
         warned_english[status.intent.action] = true
-        print(chat.header(addon.name) .. chat.warning(('No Japanese name for "%s": sent in English, which the Japanese client won\'t take.')
-            :format(status.intent.action)))
+        say(chat.warning, 'No Japanese name for "%s": sent in English, which the Japanese client won\'t take.',
+            status.intent.action)
     end
     engine.sent(intent, g, mem)
     game.sent(intent.action)
@@ -229,16 +231,13 @@ local function show_state(g)
     for _, f in ipairs(model.FLAGS) do if g[f] then flags[#flags + 1] = f end end
     printf('%s%d/%s%d  zone %d  %s', abbr(g.main), g.main_lv, abbr(g.sub), g.sub_lv, g.zone, table.concat(flags, ' '))
     for _, u in ipairs(g.units) do
-        local names = {}
-        for id in pairs(u.buffs) do names[#names + 1] = statuses[id] and statuses[id].en or tostring(id) end
-        table.sort(names)
         local out = u.kind == 'tracked'  -- max HP estimated from the level, or yours (else a session file's); no MP read
         local guess = out and not tracked.find(u.sid).max_hp
         local kind = u.auto and 'auto' or out and 'track' or u.kind == 'alliance' and model.TAGS[u.slot] or u.kind
         printf('  %-5s %-14s HP %3d%%%s %s  %s  %s', kind, u.name, u.hpp,
             u.max_hp and ((guess and '/~' or '/') .. u.max_hp) or '',
             out and (u.main_lv and ('%s%d'):format(abbr(u.main), u.main_lv) or 'lv ?') or ('MP %3d%%'):format(u.mpp),
-            u.in_zone and ('%.1fy'):format(u.dist or 0) or 'away', table.concat(names, ', '))
+            u.in_zone and ('%.1fy'):format(u.dist or 0) or 'away', table.concat(model.status_names(u.buffs, statuses), ', '))
     end
     for _, t in ipairs({ { 'bt', g.bt }, { 'pet', g.pet } }) do
         local e = t[2]
@@ -257,13 +256,6 @@ local function show_plan(g)
         printf('Nothing to do now: %s.', why)
     end
     if not engine.ready(g, mem) then printf('(still inside the post-action lockout)') end
-end
-
--- The tracked player named `name` (any case), else nil.
-local function tracked_named(name)
-    for _, t in ipairs(tracked.list) do
-        if t.name:lower() == name:lower() then return t end
-    end
 end
 
 -- /sk3 buff [name] [me p1..p5 b0..c5 <tracked name> | off]: turn a buff row on for
@@ -301,7 +293,7 @@ local function buff_command(args)
     end
     if not a then printf('No buff "%s" for this job. /sk3 catalog lists them.', name); return end
     for k = n + 1, #words do
-        local t = tracked_named(words[k])
+        local t = util.named(tracked.list, words[k])
         if not t then printf('Not tracking "%s": /sk3 track %s first.', words[k], words[k]); return end
         slots[t.name] = true
     end
@@ -330,7 +322,7 @@ local function afk_command(w, g)
     if w == 'on' or w == 'off' then
         cfg.afk.on = w == 'on'
     elseif n then
-        cfg.afk.on, cfg.afk.minutes = true, math.min(math.max(math.floor(n), afk.MIN), afk.MAX)
+        cfg.afk.on, cfg.afk.minutes = true, util.clamp(math.floor(n), afk.MIN, afk.MAX)
     elseif w ~= '' then
         printf('/sk3 afk [on | off | minutes (%d to %d)]', afk.MIN, afk.MAX)
         return
@@ -405,9 +397,7 @@ end
 local function run_command(me, on, who)
     local here, others = share.reach(share.sessions, me or '', who)
     if not here and not others then
-        local live = {}
-        for name in pairs(share.sessions) do live[#live + 1] = name end
-        table.sort(live)
+        local live = util.keys(share.sessions)
         printf('No Sidekick3 session "%s" on this PC (%s).', who,
             live[1] and ('sessions: ' .. table.concat(live, ', ')) or 'no other sessions')
         return
@@ -441,28 +431,45 @@ local ui = require('ui.window')
 if package.searchpath('ui.custom', package.path) then
     local ok, custom = pcall(require, 'ui.custom')
     if ok then ui = custom
-    else print(chat.header(addon.name) .. chat.error('ui/custom.lua failed to load, using the standard window: ' .. tostring(custom))) end
+    else say(chat.error, 'ui/custom.lua failed to load, using the standard window: %s', tostring(custom)) end
 end
+
+-- The view (recasts included) of snapshot `g`, built once per snapshot, and again
+-- after anything it shows changes (an `act` call, a command, the other sessions).
+local names = { job = abbr }
+local built, built_for
+local function view(g)
+    if built_for ~= g then
+        names.statuses = resources.load().statuses
+        built, built_for = model.build(g, cat.list, cfg, status, names), g
+    end
+    return built
+end
+local function stale() built_for = nil end
 
 -- Settings the UI changed, saved once no widget is held: a dragged slider saves when let go.
 local unsaved = false
 local function changed() unsaved = true end
 
--- The UI, each frame while open. A Lua error closes it, so it's reported once.
--- ponytail: the view (recasts included) is rebuilt every frame; if that shows in
--- frame time, build it once per fresh snapshot and again after a save.
-local names = { job = abbr }
-local function view(g)
-    names.statuses = resources.load().statuses
-    return model.build(g, cat.list, cfg, status, names)
+-- The UI's `act` for the settings in use: each call (but another session's, sent
+-- there) leaves the view to rebuild.
+local act, act_cfg
+local function actions()
+    if act_cfg ~= cfg then
+        act, act_cfg = model.actions(cfg, status, changed, tracking, share.send), cfg
+        for name, fn in pairs(act) do
+            if name ~= 'remote' then act[name] = function (...) stale(); return fn(...) end end
+        end
+    end
+    return act
 end
+
+-- The UI, each frame while open. A Lua error closes it, so it's reported once.
 local function draw(g)
-    local ok, err = pcall(function ()
-        ui.render(view(g), model.actions(cfg, status, changed, tracking, share.send))
-    end)
+    local ok, err = pcall(function () ui.render(view(g), actions()) end)
     if ok then return end
     status.open, status.failed = false, true
-    print(chat.header(addon.name) .. chat.error('Window closed on an error: ' .. tostring(err)))
+    say(chat.error, 'Window closed on an error: %s', tostring(err))
 end
 
 -- Remote control: what another session sent (core/share.lua), made through this
@@ -473,15 +480,15 @@ local shared = {
         local ok, v = pcall(view, snap)
         if ok then view_failed = nil; return model.published(v) end
         if v ~= view_failed then
-            print(chat.header(addon.name) .. chat.error('Settings view for another session failed: ' .. tostring(v)))
+            say(chat.error, 'Settings view for another session failed: %s', tostring(v))
             view_failed = v
         end
         error(v, 0)
     end,
     apply = function (from, call)
-        local ok, done = pcall(model.apply, model.actions(cfg, status, changed, tracking, share.send), cfg, call, cat.list)
+        local ok, done = pcall(model.apply, actions(), cfg, call, cat.list)
         if not ok then
-            print(chat.header(addon.name) .. chat.error(('%s\'s session sent %s, which failed: %s'):format(from, tostring(call[1]), tostring(done))))
+            say(chat.error, '%s\'s session sent %s, which failed: %s', from, tostring(call[1]), tostring(done))
         elseif done and call[1] == 'run' then
             printf('Automation %s from %s\'s session.', status.running and 'started' or 'stopped', from)
         end
@@ -497,6 +504,7 @@ ashita.events.register('d3d_present', 'sidekick3_present', function ()
         for name in pairs(status.watching) do
             if not status.sessions[name] then status.watching[name] = nil end  -- gone: its window closes
         end
+        stale()
     end
     -- The widget is drawn with the HUD closed too.
     if (status.open or cfg and cfg.ui.widget and not status.failed) and not g.loading then draw(g) end
@@ -516,6 +524,99 @@ local HELP = '/sk3 opens or closes the window. Commands: widget, start [name|all
     .. 'buff [name] [me p1..p5 b0..c5 <tracked>|off], focus <name|off>, follow <name|off>, rest [on|off], '
     .. 'track [name], untrack <name|all>, profile [name|default], afk [on|off|minutes], catalog [unknown], log, dump, help'
 
+-- A command's name argument, or '' for none or "off".
+local function name_or_off(args)
+    return args[3] and args[3]:lower() ~= 'off' and args[3] or ''
+end
+
+-- /sk3 track [name]. With no name it only adds your target when it's someone new:
+-- one already tracked is re-checked by name, so no one is examined by accident.
+local function track_command(args, g)
+    local new = g.target
+    for _, u in ipairs(g.units) do
+        if new and u.sid == new.sid then new = nil end
+    end
+    if args[3] or new then track(args[3]); return end
+    if not tracked.list[1] then printf('Tracking no one. Target a player, then /sk3 track (or /sk3 track <name>).'); return end
+    local list = {}
+    for i, t in ipairs(tracked.list) do
+        list[i] = t.name .. (t.main_lv and (' (%s%d)'):format(abbr(t.main), t.main_lv) or '')
+            .. (t.auto and (' from ' .. t.auto) or '')
+    end
+    printf('Tracking: %s. Target another player to add them.', table.concat(list, ', '))
+end
+
+-- /sk3 untrack <name|all>: "all" unless a tracked player is named All.
+local function untrack_command(args)
+    if not args[3] then printf('/sk3 untrack <name|all>'); return end
+    if args[3]:lower() ~= 'all' or util.named(tracked.list, 'all') then untrack(args[3]); return end
+    local declined = {}
+    while tracked.list[1] do
+        local t = tracked.remove(tracked.list[1].name)
+        if t.auto then declined[#declined + 1] = t.name end
+    end
+    printf('Tracking no one.')
+    if declined[1] then
+        printf('Other sessions\' players kept off until tracked by hand (/sk3 track <name>): %s.', table.concat(declined, ', '))
+    end
+end
+
+-- Commands that work before the game has loaded your job: function (args).
+local ANYTIME = {
+    dump = function ()
+        local ok, result = pcall(require('tools.dump').run, addon.path)
+        if not ok then return say(chat.error, 'Dump failed: %s', tostring(result)) end
+        printf('Dumped %d spells, %d abilities, %d statuses to tests/data/', result.spells, result.abilities, result.statuses)
+    end,
+    catalog = function (args) show_catalog((args[3] or ''):lower()) end,
+    log = function ()
+        status.log = not status.log
+        printf('Action log %s.', on_off(status.log))
+    end,
+    help = function () printf('%s', HELP) end,
+}
+
+-- The rest, once it has: function (args, g).
+local COMMANDS = {
+    [''] = function ()
+        status.open, status.failed = not status.open, nil
+        cfg.ui.open = status.open
+        settings.save()
+    end,
+    widget = function ()
+        cfg.ui.widget, status.failed = not cfg.ui.widget, nil
+        settings.save()
+        printf('Widget %s.', on_off(cfg.ui.widget))
+    end,
+    start = function (args, g) run_command(g.me.name, true, args[3]) end,
+    stop = function (args, g) run_command(g.me.name, false, args[3]) end,
+    plan = function (_, g) show_plan(g) end,
+    state = function (_, g) show_state(g) end,
+    buff = buff_command,
+    profile = profile_command,
+    focus = function (args)
+        cfg.heal.focus = name_or_off(args)
+        settings.save()
+        if cfg.heal.focus == '' then printf('Focus off.') else printf('Focus: %s.', cfg.heal.focus) end
+    end,
+    follow = function (args)
+        local name = name_or_off(args)
+        cfg.follow.on = name ~= ''
+        if name ~= '' then cfg.follow.target = name end
+        settings.save()
+        if name == '' then printf('Follow off.') else printf('Following %s past %d yalms.', name, cfg.follow.distance) end
+    end,
+    track = track_command,
+    untrack = untrack_command,
+    afk = function (args, g) afk_command((args[3] or ''):lower(), g) end,
+    rest = function (args)
+        local w = (args[3] or ''):lower()
+        cfg.rest.on = w == 'on' or (w ~= 'off' and not cfg.rest.on)
+        settings.save()
+        printf('Resting %s.', on_off(cfg.rest.on))
+    end,
+}
+
 -- ponytail: /sk3 while v2 is still installed and owns /sk; switch to /sk at cutover.
 ashita.events.register('command', 'sidekick3_command', function (e)
     local args = e.command:args()
@@ -523,94 +624,11 @@ ashita.events.register('command', 'sidekick3_command', function (e)
     e.blocked = true
 
     local sub = (args[2] or ''):lower()
-    if sub == 'dump' then
-        local ok, result = pcall(require('tools.dump').run, addon.path)
-        if ok then
-            printf('Dumped %d spells, %d abilities, %d statuses to tests/data/', result.spells, result.abilities, result.statuses)
-        else
-            print(chat.header(addon.name) .. chat.error('Dump failed: ' .. tostring(result)))
-        end
-        return
-    elseif sub == 'catalog' then
-        show_catalog((args[3] or ''):lower())
-        return
-    elseif sub == 'log' then
-        status.log = not status.log
-        printf('Action log %s.', status.log and 'on' or 'off')
-        return
-    elseif sub == 'help' then
-        printf('%s', HELP)
-        return
-    end
-
+    if ANYTIME[sub] then return ANYTIME[sub](args) end
     local g = refresh(os.clock())
     -- Stop goes through while you load (a zone): your file keeps carrying calls for share.LOADING seconds.
     if sub == 'stop' and (g.loading or not cfg) then run_command(share.me(), false, args[3]); return end
     if g.loading or not cfg then printf('Waiting for the game to load your job.'); return end
-    if sub == '' then
-        status.open, status.failed = not status.open, nil
-        cfg.ui.open = status.open
-        settings.save()
-    elseif sub == 'widget' then
-        cfg.ui.widget, status.failed = not cfg.ui.widget, nil
-        settings.save()
-        printf('Widget %s.', cfg.ui.widget and 'on' or 'off')
-    elseif sub == 'start' or sub == 'stop' then
-        run_command(g.me.name, sub == 'start', args[3])
-    elseif sub == 'plan' then
-        show_plan(g)
-    elseif sub == 'state' then
-        show_state(g)
-    elseif sub == 'buff' then
-        buff_command(args)
-    elseif sub == 'profile' then
-        profile_command(args)
-    elseif sub == 'focus' then
-        local name = args[3] and args[3]:lower() ~= 'off' and args[3] or ''
-        cfg.heal.focus = name
-        settings.save()
-        if name == '' then printf('Focus off.') else printf('Focus: %s.', name) end
-    elseif sub == 'follow' then
-        local name = args[3] and args[3]:lower() ~= 'off' and args[3] or ''
-        cfg.follow.on = name ~= ''
-        if name ~= '' then cfg.follow.target = name end
-        settings.save()
-        if name == '' then printf('Follow off.') else printf('Following %s past %d yalms.', name, cfg.follow.distance) end
-    elseif sub == 'track' then
-        -- With no name it only adds your target when it's someone new: one already
-        -- tracked is re-checked by name, so no one is examined by accident.
-        local new = g.target
-        for _, u in ipairs(g.units) do
-            if new and u.sid == new.sid then new = nil end
-        end
-        if args[3] or new then track(args[3]); return end
-        if not tracked.list[1] then printf('Tracking no one. Target a player, then /sk3 track (or /sk3 track <name>).'); return end
-        local list = {}
-        for i, t in ipairs(tracked.list) do
-            list[i] = t.name .. (t.main_lv and (' (%s%d)'):format(abbr(t.main), t.main_lv) or '')
-                .. (t.auto and (' from ' .. t.auto) or '')
-        end
-        printf('Tracking: %s. Target another player to add them.', table.concat(list, ', '))
-    elseif sub == 'untrack' then
-        if not args[3] then printf('/sk3 untrack <name|all>'); return end
-        if args[3]:lower() ~= 'all' or tracked_named('all') then untrack(args[3]); return end
-        local declined = {}
-        while tracked.list[1] do
-            local t = tracked.remove(tracked.list[1].name)
-            if t.auto then declined[#declined + 1] = t.name end
-        end
-        printf('Tracking no one.')
-        if declined[1] then
-            printf('Other sessions\' players kept off until tracked by hand (/sk3 track <name>): %s.', table.concat(declined, ', '))
-        end
-    elseif sub == 'afk' then
-        afk_command((args[3] or ''):lower(), g)
-    elseif sub == 'rest' then
-        local w = (args[3] or ''):lower()
-        cfg.rest.on = w == 'on' or (w ~= 'off' and not cfg.rest.on)
-        settings.save()
-        printf('Resting %s.', cfg.rest.on and 'on' or 'off')
-    else
-        printf('%s', HELP)
-    end
+    (COMMANDS[sub] or ANYTIME.help)(args, g)
+    stale()
 end)

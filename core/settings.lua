@@ -19,6 +19,8 @@
     client runs in Japanese, which is the install's and not a job's.
 ]]--
 
+local util = require('core.util')
+
 local settings = {}
 
 local DEFAULTS = {
@@ -41,14 +43,10 @@ local DEFAULTS = {
     -- GEO: recall the luopan past `distance` yalms from who it's on, and a debuff's
     -- `linger` seconds after combat; Entrust puts the Indi- spell named on the member named.
     geo = { on = true, distance = 10, linger = 5, entrust = '', entrust_spell = '' },
-    -- RUN: each set's rune per slot, by name ('' for none): idle_1..3, then
-    -- vallation_, valiance_ and pflug_ (jobs/run.lua). Every slot starts empty.
+    -- RUN, PUP, BRD: each slot's pick, filled in from settings.SLOTS below.
     rune = { on = true },
-    -- PUP: the maneuver per slot, by name ('' for none; jobs/pup.lua). Every slot starts empty.
-    maneuver = { on = true, slot_1 = '', slot_2 = '', slot_3 = '' },
-    -- BRD: each target's songs by name ('' for none): area_1, area_2, then each
-    -- party slot's, me_ and p1_ to p5_ (jobs/brd.lua). Every slot starts empty.
-    -- `duration`: Song Duration, seconds after a song lands to sing it again (BRD 75 main; 0 off);
+    maneuver = { on = true },
+    -- BRD: `duration`: Song Duration, seconds after a song lands to sing it again (BRD 75 main; 0 off);
     -- `fast`: Pianissimo fast casting, an area song through Pianissimo cancelled mid-cast.
     song = { on = true, duration = 0, fast = false },
     buff = { on = true,
@@ -66,23 +64,42 @@ local DEFAULTS = {
            widget = false,  -- the widget, v2's floating one (/sk3 widget)
            japanese = false },  -- send spell, ability and item names in Japanese
 }
-for _, set in ipairs({ 'idle', 'vallation', 'valiance', 'pflug' }) do
-    for i = 1, 3 do DEFAULTS.rune[set .. '_' .. i] = '' end
-end
-for _, set in ipairs({ 'area', 'me', 'p1', 'p2', 'p3', 'p4', 'p5' }) do
-    for i = 1, 2 do DEFAULTS.song[set .. '_' .. i] = '' end
+-- The sections that pick actions by slot: each set's slots, `<key>_1` to `<key>_<n>`,
+-- name one ('' for none): the runes (jobs/run.lua), maneuvers (jobs/pup.lua) and songs (jobs/brd.lua).
+settings.SLOTS = {
+    rune = { n = 3, keys = { 'idle', 'vallation', 'valiance', 'pflug' } },
+    maneuver = { n = 3, keys = { 'slot' } },
+    song = { n = 2, keys = { 'area', 'me', 'p1', 'p2', 'p3', 'p4', 'p5' } },
+}
+for section, sets in pairs(settings.SLOTS) do
+    for _, key in ipairs(sets.keys) do
+        for i = 1, sets.n do DEFAULTS[section][key .. '_' .. i] = '' end
+    end
 end
 local UI_FILE = 'ui'
+
+-- The settings path of slot `i` of a set: 'rune.idle_1', 'song.p3_2'.
+function settings.path(section, key, i) return ('%s.%s_%d'):format(section, key, i) end
+
+-- The actions a set's first `n` slots pick, from `by_name`, in slot order: a slot
+-- with none (or one you lack) is skipped; `unique` takes an action picked twice once.
+function settings.picks(cfg, section, key, n, by_name, unique)
+    local out, seen = {}, {}
+    for i = 1, n do
+        local a = by_name[cfg[section][key .. '_' .. i]]
+        if a and not (unique and seen[a]) then seen[a] = true; out[#out + 1] = a end
+    end
+    return out
+end
 
 -- pick_one before label: labelled members of one group (geo_ja) stay one row.
 function settings.key(a) return a.pick_one or a.label or a.family end
 
 local OPT_IN = { buff = true, pet_send = true }
 
-local OPT_IN_LUOPAN = { buff = true, debuff = true }  -- a Geo- spell, like a buff
-
 function settings.row(cfg, a)
-    return cfg.rows[settings.key(a)] or { on = not (OPT_IN[a.role] or OPT_IN_LUOPAN[a.luopan] or a.kind == 'item') }
+    local luopan = a.luopan == 'buff' or a.luopan == 'debuff'  -- a Geo- spell, like a buff
+    return cfg.rows[settings.key(a)] or { on = not (OPT_IN[a.role] or luopan or a.kind == 'item') }
 end
 
 -- The buff in `cat` named `name` (lower case): a spell, its family or its row key
@@ -98,12 +115,13 @@ function settings.buff_named(cat, name)
     end
 end
 
--- The catalog's actions for `role` whose row is on.
-function settings.enabled(cat, cfg, role)
+-- The catalog's actions for `role` whose row is on, sorted by `order` when given.
+function settings.enabled(cat, cfg, role, order)
     local out = {}
     for _, a in ipairs(cat) do
         if a.role == role and settings.row(cfg, a).on then out[#out + 1] = a end
     end
+    if order then table.sort(out, order) end
     return out
 end
 
@@ -117,15 +135,8 @@ function settings.mods(cat, cfg, a)
     return out
 end
 
-local function copy(t)
-    local out = {}
-    for k, v in pairs(t) do out[k] = type(v) == 'table' and copy(v) or v end
-    return out
-end
-settings.defaults_copy = copy
-
 -- A fresh copy of the defaults, for tests and new files.
-function settings.defaults() return copy(DEFAULTS) end
+function settings.defaults() return util.copy(DEFAULTS) end
 
 -- Ashita's settings library, loaded only in game. The job pair's file holds
 -- everything but `ui`, which loads from and saves to its own file.
@@ -142,7 +153,7 @@ function settings.load(job_pair)
     -- what is written into the settings (a profile, a skipped name) stays out of them.
     local function detach(defaults)
         for k, v in pairs(defaults) do
-            if type(v) == 'table' then defaults[k] = T_(settings.defaults_copy(v)) end
+            if type(v) == 'table' then defaults[k] = T_(util.copy(v)) end
         end
     end
     local d = T_(settings.defaults())

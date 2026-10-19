@@ -20,6 +20,7 @@
 ]]--
 
 local can = require('core.can')
+local catalog = require('core.catalog')
 local settings = require('core.settings')
 
 local run = {}
@@ -45,8 +46,6 @@ run.SETS = { { key = 'idle', label = 'Idle', shows = 'element' },
              { key = 'valiance', ward = 'Valiance', shows = 'resist' },
              { key = 'pflug', ward = 'Pflug', shows = 'ailments' } }
 
-local INVISIBLE = 69
-
 -- Your RUN level, main or sub; 0 off RUN.
 function run.level(g)
     if g.main == run.JOB then return g.main_lv end
@@ -56,20 +55,6 @@ end
 -- How many runes stand at once at RUN level `lv`.
 function run.slots(lv)
     return lv >= 65 and 3 or lv >= 35 and 2 or 1
-end
-
--- The settings path of a set's slot `i`: 'rune.idle_1'.
-function run.path(key, i) return ('rune.%s_%d'):format(key, i) end
-
--- The runes `key`'s set picks, as catalog records in slot order, up to `slots`:
--- a slot with none (or a rune you lack) is skipped, not the end of the set.
-function run.picked(cfg, key, runes, slots)
-    local out = {}
-    for i = 1, slots do
-        local a = runes[cfg.rune[key .. '_' .. i]]
-        if a then out[#out + 1] = a end
-    end
-    return out
 end
 
 -- The first rune of `want` not standing, counting each pick: the same rune
@@ -86,23 +71,22 @@ end
 
 -- Your runes by name, and the wards in priority order (Vallation, Valiance, Pflug).
 function run.actions(cat)
-    local runes, wards = {}, {}
+    local wards = {}
     for _, a in ipairs(cat) do
-        if a.role == 'rune' then runes[a.name] = a end
         if a.role == 'ward' then wards[#wards + 1] = a end
     end
-    table.sort(wards, function (x, y) return x.priority > y.priority end)
-    return runes, wards
+    table.sort(wards, catalog.by_priority)
+    return catalog.by_name(cat, 'rune'), wards
 end
 
 function run.want(g, cat, cfg)
     local lv = run.level(g)
-    if lv == 0 or g.me.buffs[INVISIBLE] then return nil end
+    if lv == 0 or g.me.buffs[can.INVISIBLE] then return nil end
     local runes, wards = run.actions(cat)
     local slots = run.slots(lv)
     for _, w in ipairs(wards) do
         if settings.row(cfg, w).on and can.use(w, g) then
-            local want = run.picked(cfg, w.family:lower(), runes, slots)
+            local want = settings.picks(cfg, 'rune', w.family:lower(), slots, runes)
             if want[1] then
                 local missing = run.missing(want, g.me)
                 if missing then
@@ -115,7 +99,7 @@ function run.want(g, cat, cfg)
             end
         end
     end
-    local missing = run.missing(run.picked(cfg, 'idle', runes, slots), g.me)
+    local missing = run.missing(settings.picks(cfg, 'rune', 'idle', slots, runes), g.me)
     if missing and can.use(missing, g) then return { action = missing, why = 'idle' } end
 end
 

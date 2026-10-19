@@ -43,8 +43,7 @@ function ammo.equip(a, g, cfg, mem, why)
     mem.ammo_tried = mem.ammo_tried or {}
     local tried = mem.ammo_tried[a.name]
     if tried and tried.into == into and tried.n >= ammo.TRIES then return nil end
-    local english = cfg.ui.japanese and (it.jp or '') == ''
-    local name = cfg.ui.japanese and not english and it.jp or it.en
+    local name, english = can.name(it, cfg.ui.japanese)
     return { command = ('/equip ammo "%s" %d'):format(name, it.bag), english = english or nil, action = { name = it.en },
              why = ('for %s: %s'):format(a.name, why),
              sent = function (now)
