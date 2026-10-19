@@ -390,23 +390,29 @@ local K = {
     ['Velocity Shot'] = { role = 'buff', gate = 'combat', main_only = true },
 }
 
--- Pick-one groups of plain buffs, each showing the status named like it. A bar-spell's
--- area form (Barfira) shows its single form's (Barfire). Enspell II shows its own
--- status ("Enfire II"), found by the full name.
+-- Pick-one groups of plain buffs, each showing the status named like it. Enspell
+-- II shows its own status ("Enfire II"), found by the full name.
 for group, names in pairs({
+    enspell = { 'Enfire', 'Enblizzard', 'Enaero', 'Enstone', 'Enthunder', 'Enwater' },
+    spikes = { 'Blaze Spikes', 'Ice Spikes', 'Shock Spikes' },
+    storm = { 'Sandstorm', 'Rainstorm', 'Windstorm', 'Firestorm', 'Hailstorm', 'Thunderstorm', 'Voidstorm', 'Aurorastorm' },
+}) do
+    for _, name in ipairs(names) do
+        K[name] = { role = 'buff', pick_one = group, duration = group == 'storm' and 180 or nil }
+    end
+end
+
+-- Bar-spells, by group: each single form, and its area form (Barfira) showing the single form's status (Barfire).
+for group, forms in pairs({
     barelement = { Barfire = 'Barfira', Barblizzard = 'Barblizzara', Baraero = 'Baraera', Barstone = 'Barstonra',
                    Barthunder = 'Barthundra', Barwater = 'Barwatera' },
     barstatus = { Barsleep = 'Barsleepra', Barpoison = 'Barpoisonra', Barparalyze = 'Barparalyzra',
                   Barblind = 'Barblindra', Barsilence = 'Barsilencera', Barpetrify = 'Barpetra', Barvirus = 'Barvira',
                   Baramnesia = 'Baramnesra' },
-    enspell = { 'Enfire', 'Enblizzard', 'Enaero', 'Enstone', 'Enthunder', 'Enwater' },
-    spikes = { 'Blaze Spikes', 'Ice Spikes', 'Shock Spikes' },
-    storm = { 'Sandstorm', 'Rainstorm', 'Windstorm', 'Firestorm', 'Hailstorm', 'Thunderstorm', 'Voidstorm', 'Aurorastorm' },
 }) do
-    for k, v in pairs(names) do
-        local name = type(k) == 'string' and k or v
-        K[name] = { role = 'buff', pick_one = group, duration = group == 'storm' and 180 or nil }
-        if type(k) == 'string' then K[v] = { role = 'buff', pick_one = group, status = k } end
+    for single, area in pairs(forms) do
+        K[single] = { role = 'buff', pick_one = group }
+        K[area] = { role = 'buff', pick_one = group, status = single }
     end
 end
 

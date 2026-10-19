@@ -25,7 +25,7 @@ local ALWAYS = { Begin = true, PushStyleColor = true, PushItemWidth = true }
 local IDS = { Checkbox = true, Button = true, InvisibleButton = true, SliderInt = true, BeginCombo = true,
               CollapsingHeader = true, BeginTabItem = true }
 
-local frame  -- { stack, vars, texts, ids, args, flags, columns, headers, drawn, window, cursor, extent, clicks, edited }
+local frame  -- { stack, vars, texts, ids, args, flags, columns, previews, headers, drawn, window, cursor, extent, clicks, edited }
 
 local function pop(closer)
     local top = table.remove(frame.stack)
@@ -153,6 +153,8 @@ local imgui = setmetatable({}, { __index = function (_, name)
                 if frame.clicks.close == label and type(p_open) == 'table' then p_open[1] = false end
             elseif name == 'BeginTable' then
                 frame.columns[label] = select(2, ...)
+            elseif name == 'BeginCombo' then
+                frame.previews[label] = select(2, ...)  -- what it shows closed
             end
             return open
         elseif name:match('^End') or name == 'PopItemWidth' then
@@ -216,7 +218,7 @@ local function send(name, call)
 end
 
 local function draw(ui, cfg, st, clicks, view)
-    frame = { stack = {}, vars = 0, texts = {}, ids = {}, args = {}, flags = {}, columns = {}, headers = {},
+    frame = { stack = {}, vars = 0, texts = {}, ids = {}, args = {}, flags = {}, columns = {}, previews = {}, headers = {},
               drawn = {}, extent = {}, clicks = clicks or {} }
     local writes = 0
     local act = model.actions(cfg, st, function () writes = writes + 1 end, TRACKING, send)
@@ -655,6 +657,23 @@ test('sliders, the focus and the options write the settings', function ()
     eq(cfg.buff.hold_aoe, true)
     eq(render(cfg, st, { ['Ask them to gather##sk3_buff_gather'] = true }), 1)
     eq(cfg.buff.gather, false)
+end)
+
+test('a member combo shows a name as it was typed; a spell or roll the job lacks says so', function ()
+    open_settings()
+    local cfg, st = settings.defaults(), status()
+    cfg.heal.focus, cfg.follow.target = 'a', 'Gone'  -- /sk3 focus a: healing matches any case
+    render(cfg, st)
+    eq({ frame.previews['Focus##sk3_heal_focus'], frame.previews['Leader##sk3_follow_target'] }, { 'a', 'Gone' })
+    cfg.heal.focus = ''
+    render(cfg, st)
+    eq(frame.previews['Focus##sk3_heal_focus'], 'None')
+    local cor = fake.catalog(17, 75, 3, 37, { 'Corsair\'s Roll' })
+    local g = snap()
+    g.main = 17
+    cfg.roll.first = 'Bolter\'s Roll'
+    render(cfg, st, nil, model.build(g, cor, cfg, st, NAMES))
+    eq(frame.previews['Roll 1##sk3_roll_first'], 'Bolter\'s Roll (not available)')
 end)
 
 test('recovery, pet, follow and rest settings write through act', function ()

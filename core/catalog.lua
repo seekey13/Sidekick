@@ -133,7 +133,7 @@ function catalog.build(res, player, K)
         local family, tier = catalog.split(row.en)
         for _, use in ipairs(uses(K, row.en, family, kind)) do
             -- `requires` is "any of": an Addendum's own list can't take another's.
-            assert(not (addendum and use.requires), row.en .. ': an Addendum spell with requires of its own')
+            if addendum and use.requires then error(row.en .. ': an Addendum spell with requires of its own', 0) end
             if not (use.main_only and from == 'sub') then
                 local status = use.status
                 if status == nil and (use.role == 'buff' or use.role == 'modifier' or use.lucky or use.boost) then
@@ -193,7 +193,8 @@ function catalog.build(res, player, K)
     -- fires it first.
     local enlightenment, unbridled = catalog.find(out, 'Enlightenment', 'modifier'), catalog.find(out, UNBRIDLED, 'modifier')
     for _, a in ipairs(out) do
-        a.via = a.addendum and enlightenment or a.unbridled and unbridled or nil
+        if a.addendum then a.via = enlightenment
+        elseif a.unbridled then a.via = unbridled end
     end
 
     table.sort(out, function (a, b)

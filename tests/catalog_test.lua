@@ -126,3 +126,10 @@ end)
 test('MP cost is the client\'s, even where the CatsEyeXI server lists another', function ()
     eq(find(build(WHM, 75), 'Arise').mp, 150)  -- server spell_list says 300
 end)
+
+test('an Addendum spell given requires of its own is refused: requires is any of, and the Addendum\'s are its own', function ()
+    local own = setmetatable({ Raise = { role = 'revive', requires = 'Light Arts' } }, { __index = K })
+    local ok, err = pcall(catalog.build, res, { main = SCH, main_lv = 75, sub_lv = 0,
+        has_spell = function () return true end, has_ability = function () return false end }, own)
+    eq({ ok, err }, { false, 'Raise II: an Addendum spell with requires of its own' })
+end)

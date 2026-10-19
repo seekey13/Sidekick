@@ -458,7 +458,7 @@ local function actions()
     if act_cfg ~= cfg then
         act, act_cfg = model.actions(cfg, status, changed, tracking, share.send), cfg
         for name, fn in pairs(act) do
-            if name ~= 'remote' then act[name] = function (...) stale(); return fn(...) end end
+            if type(fn) == 'function' and name ~= 'remote' then act[name] = function (...) stale(); return fn(...) end end
         end
     end
     return act
@@ -617,18 +617,21 @@ local COMMANDS = {
     end,
 }
 
+-- /sk3 `sub`, with the command's words.
+local function command(sub, args)
+    if ANYTIME[sub] then return ANYTIME[sub](args) end
+    local g = refresh(os.clock())
+    -- Stop goes through while you load (a zone): your file keeps carrying calls for share.LOADING seconds.
+    if sub == 'stop' and (g.loading or not cfg) then return run_command(share.me(), false, args[3]) end
+    if g.loading or not cfg then return printf('Waiting for the game to load your job.') end
+    (COMMANDS[sub] or ANYTIME.help)(args, g)
+end
+
 -- ponytail: /sk3 while v2 is still installed and owns /sk; switch to /sk at cutover.
 ashita.events.register('command', 'sidekick3_command', function (e)
     local args = e.command:args()
     if #args == 0 or args[1]:lower() ~= '/sk3' then return end
     e.blocked = true
-
-    local sub = (args[2] or ''):lower()
-    if ANYTIME[sub] then return ANYTIME[sub](args) end
-    local g = refresh(os.clock())
-    -- Stop goes through while you load (a zone): your file keeps carrying calls for share.LOADING seconds.
-    if sub == 'stop' and (g.loading or not cfg) then run_command(share.me(), false, args[3]); return end
-    if g.loading or not cfg then printf('Waiting for the game to load your job.'); return end
-    (COMMANDS[sub] or ANYTIME.help)(args, g)
-    stale()
+    command((args[2] or ''):lower(), args)
+    stale()  -- whatever it changed shows at once
 end)

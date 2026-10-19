@@ -400,8 +400,12 @@ function game.recast(action)
     if not action.recast then return 0 end  -- items
     local mm = AshitaCore:GetMemoryManager()
     local recast = mm:GetRecast()
-    local timer = action.kind == 'ma' and recast:GetSpellTimer(action.recast)
-        or action.recast > 0 and ability_timer(recast, action.recast) or 0
+    local timer = 0
+    if action.kind == 'ma' then
+        timer = recast:GetSpellTimer(action.recast)
+    elseif action.recast > 0 then
+        timer = ability_timer(recast, action.recast)
+    end
     local wait = timer / 60
     -- Charge pools: usable once the charges it costs are back, not the whole pool,
     -- and then after the same delay as a recast run out.

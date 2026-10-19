@@ -355,8 +355,7 @@ local function buff_names(buffs, statuses)
 end
 
 -- HP 'ok' | 'low' (under the danger line) | 'critical', on the focus member's lines for them.
-local function hp_state(u, h)
-    local focus = h.focus ~= '' and u.name:lower() == h.focus:lower()
+local function hp_state(u, h, focus)
     if u.hpp < (focus and h.focus_critical or h.critical) then return 'critical' end
     return u.hpp < (focus and h.focus_danger or h.danger) and 'low' or 'ok'
 end
@@ -372,6 +371,7 @@ end
 -- A player who is another Sidekick session (`sessions`, by server id) says so.
 local function party(g, cfg, names, sessions)
     local out, alliance, n = {}, {}, 0
+    local focus = util.named(g.units, cfg.heal.focus)
     for _, u in ipairs(g.units) do
         local buffs, all = buff_names(u.buffs, names.statuses)
         local tag = TAGS[u.slot]
@@ -381,7 +381,7 @@ local function party(g, cfg, names, sessions)
             tag = tag, kind = u.kind, name = u.name, alive = u.alive, away = not u.in_zone,
             tracked = u.kind == 'tracked' or u.tracked == true, shared = u.auto,
             job = u.main_lv and jobs(names.job, u.main, u.main_lv, u.sub, u.sub_lv) or nil,
-            hpp = u.hpp, hp = hp_state(u, cfg.heal), mpp = u.mpp, uses_mp = u.uses_mp == true,
+            hpp = u.hpp, hp = hp_state(u, cfg.heal, u == focus), mpp = u.mpp, uses_mp = u.uses_mp == true,
             mp = u.uses_mp and u.mpp < cfg.recover.mp and 'low' or 'ok',
             dist = not u.in_zone and 'away' or u.kind == 'self' and '' or ('%.1fy'):format(u.dist or 0),
             buffs = buffs, buffs_all = all,
@@ -639,7 +639,7 @@ local function settable(path, value)
         return nil
     end
     if type(value) ~= 'number' then return nil end
-    return math.min(math.max(math.floor(value), want[1]), want[2])
+    return util.clamp(math.floor(value), want[1], want[2])
 end
 
 local function fits(v, types)
@@ -691,9 +691,9 @@ local function saved_row(cfg, key, default_on)
     return r
 end
 
--- `t[field][key]` set to `on` (toggled when nil); a row's targets start as just you.
-local function chip(t, field, key, on, changed)
-    t[field] = t[field] or (field == 'targets' and { [0] = true } or {})
+-- `t[field][key]` set to `on` (toggled when nil); `t[field]` starts as `fresh` (empty when nil).
+local function chip(t, field, key, on, changed, fresh)
+    t[field] = t[field] or fresh or {}
     if on == nil then on = not t[field][key] end
     t[field][key] = on or nil
     changed()
@@ -729,7 +729,7 @@ function model.actions(cfg, status, changed, tracking, send)
     end
     -- slot: a party slot 0-5, an alliance slot 6-17, or a tracked player's name.
     -- `on` sets it; without it the chip toggles.
-    function act.target(key, slot, on) chip(saved_row(cfg, key, false), 'targets', slot, on, changed) end
+    function act.target(key, slot, on) chip(saved_row(cfg, key, false), 'targets', slot, on, changed, { [0] = true }) end
     -- A modifier (a stratagem: 'Penury', 'Accession'...) fired before the row's spell,
     -- on or off (`on`; without it, toggled).
     function act.mod(key, name, on) chip(saved_row(cfg, key, false), 'mods', name, on, changed) end

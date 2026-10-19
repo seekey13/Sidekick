@@ -82,12 +82,12 @@ local UI_FILE = 'ui'
 function settings.path(section, key, i) return ('%s.%s_%d'):format(section, key, i) end
 
 -- The actions a set's first `n` slots pick, from `by_name`, in slot order: a slot
--- with none (or one you lack) is skipped; `unique` takes an action picked twice once.
-function settings.picks(cfg, section, key, n, by_name, unique)
-    local out, seen = {}, {}
+-- with none (or one you lack) is skipped.
+function settings.picks(cfg, section, key, n, by_name)
+    local out = {}
     for i = 1, n do
         local a = by_name[cfg[section][key .. '_' .. i]]
-        if a and not (unique and seen[a]) then seen[a] = true; out[#out + 1] = a end
+        if a then out[#out + 1] = a end
     end
     return out
 end

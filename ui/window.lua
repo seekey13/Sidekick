@@ -94,9 +94,10 @@ local function tip(s)
     if s and s ~= '' and imgui.IsItemHovered() then imgui.SetTooltip(esc(s)) end
 end
 
--- The closers of the ImGui scopes open now (a table, a combo, a popup, an item
--- width), innermost last. A Lua error raised inside one leaves it open, which
--- ImGui asserts on: the window unwinds them all before it ends.
+-- The closers of the ImGui scopes open now, innermost last. A Lua error raised
+-- inside a table, combo or popup leaves it open, which ImGui asserts on at End:
+-- the window unwinds them all before it ends. Item widths pushed are tracked
+-- too, so every push is popped whatever happens.
 local scopes = {}
 
 -- Track a scope its opener reports `opened`; returns `opened`.
@@ -451,8 +452,9 @@ local function id_of(path) return '##sk3_' .. path:gsub('%.', '_') end
 local function slider(label, path, value, min, max, help)
     local v = { value }
     imgui.PushItemWidth(SETTING_WIDTH)
+    begin(true, imgui.PopItemWidth)
     if imgui.SliderInt(label .. id_of(path), v, min, max) then act.set(path, v[1]) end
-    imgui.PopItemWidth()
+    finish()
     tip(help)
 end
 
@@ -468,12 +470,13 @@ local function toggle(label, path, on, help)
 end
 
 -- A combo for setting `path`: None ('') unless `o.required`, then `choices`
--- ({ name, label }), each tipped with o.tip(choice) when given; a pick no longer
--- among them (one the job lacks) says so. `o.width` defaults to SETTING_WIDTH.
+-- ({ name, label }), each tipped with o.tip(choice) when given. A pick no longer
+-- among them (one the job lacks) says so, unless `o.free`: a name typed in chat
+-- or of someone not here yet shows as it is. `o.width` defaults to SETTING_WIDTH.
 local function combo(label, path, current, choices, o)
     o = o or {}
     local id = id_of(path)
-    local shown = current == '' and 'None' or current .. ' (not available)'
+    local shown = current == '' and 'None' or o.free and current or current .. ' (not available)'
     for _, c in ipairs(choices) do
         if c.name == current then shown = c.label end
     end
@@ -521,7 +524,7 @@ end
 local function draw_heal_settings(view)
     local h = view.heal
     for _, l in ipairs(HEAL_LINES) do slider(l[1], 'heal.' .. l[2], h[l[2]], 1, 99, l[3]) end
-    combo('Focus', 'heal.focus', h.focus, plain(h.focus_names))
+    combo('Focus', 'heal.focus', h.focus, plain(h.focus_names), { free = true })
     tip('Heal this member first, on its own lines.')
     for _, l in ipairs(HEAL_LINES) do
         local key = 'focus_' .. l[2]
@@ -558,7 +561,7 @@ end
 
 local function draw_follow(view)
     local f = view.follow
-    combo('Leader', 'follow.target', f.target, plain(f.names))
+    combo('Leader', 'follow.target', f.target, plain(f.names), { free = true })
     tip('Who to follow; resting stands up when they leave too.')
     slider('Follow past', 'follow.distance', f.distance, 1, 15, 'Yalms.')
 end
@@ -691,9 +694,9 @@ local function draw_geo(view)
         'Yalms: Full Circle the luopan once who it is on is further than this from it, so it goes down again.')
     slider('Keep after combat', 'geo.linger', g.linger, 1, 20,
         'Seconds a debuff luopan waits once combat is over before Full Circle recalls it: a new battle target in that time keeps it.')
-    combo('Entrust to', 'geo.entrust', g.entrust, plain(g.names))
+    combo('Entrust to', 'geo.entrust', g.entrust, plain(g.names), { free = true })
     tip('With Entrust on, put the Indi- spell picked on this member (within 20 yalms).')
-    combo('Entrust spell', 'geo.entrust_spell', g.entrust_spell, plain(g.indi), { width = WIDE })
+    combo('Entrust spell', 'geo.entrust_spell', g.entrust_spell, plain(g.indi), { width = WIDE, free = true })
     tip('The Indi- spell Entrust puts on that member whenever they lack its aura.')
     imgui.Separator()
 end
@@ -784,8 +787,9 @@ local function draw_profiles(view)
     local profile_name = state.typed
     if active ~= state.shown then profile_name[1], state.shown = active, active end
     imgui.PushItemWidth(SETTING_WIDTH)
+    begin(true, imgui.PopItemWidth)
     imgui.InputText('Name##sk3_profile_name', profile_name, 64)
-    imgui.PopItemWidth()
+    finish()
     tip('A name for Save or Save as. Each job pair has its own profiles.')
     local typed = profile_name[1]:match('^%s*(.-)%s*$')
     if imgui.Button('Save##sk3_profile_save') then act.save_profile(typed) end

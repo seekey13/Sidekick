@@ -149,7 +149,13 @@ function brd.actions(cat)
 end
 
 -- A set's songs for the first `n` slots: a song picked twice is one.
-function brd.picked(cfg, key, songs, n) return settings.picks(cfg, 'song', key, n, songs, true) end
+function brd.picked(cfg, key, songs, n)
+    local out, seen = {}, {}
+    for _, a in ipairs(settings.picks(cfg, 'song', key, n, songs)) do
+        if not seen[a] then seen[a] = true; out[#out + 1] = a end
+    end
+    return out
+end
 
 -- How many of status `id` stand on `u`; a trust's (no stacks) stand for all.
 local function count(u, id)
