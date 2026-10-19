@@ -193,3 +193,31 @@ test('Hold area buffs: an area song waits for a player who lacks it, the songs o
     cfg.song.p1_1 = 'Mage\'s Ballad'
     eq(decide(g, cfg), '/ma "Valor Minuet IV" <me>')
 end)
+
+test('a member\'s own songs and the area ones of one kind are one set', function ()
+    -- Area Victory March up on you; your own Advancing March wants a second March.
+    local cfg = cfg_with({ area_1 = 'Victory March', me_1 = 'Advancing March' })
+    eq(decide(snap({}, { MARCH, PIANISSIMO }), cfg), '/ma "Advancing March" <me>')
+    -- No March up: the area one first; one up (which can't be read), the second through Pianissimo.
+    eq(decide(snap({}, {}), cfg), '/ma "Victory March" <me>')
+    eq(decide(snap({}, { MARCH }), cfg), '/ja "Pianissimo" <me>')
+    -- An area Ballad on A, and A's own Ballad II.
+    cfg = cfg_with({ area_1 = 'Mage\'s Ballad', p1_1 = 'Mage\'s Ballad II' })
+    eq(decide(snap({ player({ name = 'A' }, { BALLAD }) }, { BALLAD, PIANISSIMO }), cfg), '/ma "Mage\'s Ballad II" 101')
+    -- One song in both: one Ballad.
+    cfg = cfg_with({ area_1 = 'Mage\'s Ballad II', p1_1 = 'Mage\'s Ballad II' })
+    eq(select(2, decide(snap({ player({ name = 'A' }, { BALLAD }) }, { BALLAD }), cfg)), 'nothing to do')
+end)
+
+test('Hold area buffs with no one near lacking it: the songs on one member still go', function ()
+    local cfg = cfg_with({ area_1 = 'Valor Minuet IV', p2_1 = 'Mage\'s Ballad II' }, { hold_aoe = true })
+    local g = snap({ player({ name = 'Far', dist = 40 }), player({ name = 'B' }, { MINUET }) }, { MINUET })
+    eq(decide(g, cfg), '/ja "Pianissimo" <me>')
+end)
+
+test('without Pianissimo a slot\'s own picks take no slot: the area songs are still yours', function ()
+    local below = fake.catalog(BRD, 15, WHM, 7, {})
+    local cfg = cfg_with({ area_1 = 'Valor Minuet', me_1 = 'Army\'s Paeon', me_2 = 'Knight\'s Minne' })
+    local cmd = engine.command(engine.decide(snap({}, {}, { main_lv = 15, sub_lv = 7 }), below, cfg, {}), cfg)
+    eq(cmd, '/ma "Valor Minuet" <me>')
+end)
