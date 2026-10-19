@@ -408,7 +408,8 @@ end
 -- SK Settings bodies ---------------------------------------------------------------
 
 local HEAL_LINES = {
-    { 'Danger under', 'danger', 'Over this HP %, heal with the most HP for the MP or TP. Under it, heal fastest, and wait for a heal nearly ready.' },
+    { 'Heal under', 'threshold', 'Under this HP %, heal with the most HP for the MP or TP. Over it, missing HP is left be.' },
+    { 'Danger under', 'danger', 'Under this HP %, heal fastest instead, and wait for a heal nearly ready.' },
     { 'Critical under', 'critical', 'Under this HP %, boost the heal first (Divine Seal) or save them (Martyr).' },
 }
 local HEAL_TIP = 'Untick to never heal them for their own sake; an area heal may still land on them.'

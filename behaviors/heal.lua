@@ -7,10 +7,11 @@
                  save (Martyr), then the danger score over critical units
       danger     under heal.danger: HP% restored per second locked out; holds for
                  a heal nearly off recast
-      efficient  from the danger line to full HP: HP that lands where it's needed, per
-                 share of the MP or TP you have; Regen allowed, and counted while it ticks;
-                 never a Ready move, whose charges are kept for the pet's attacks
-    The focus member has its own two lines; skipped members count for nothing,
+      efficient  from the danger line to heal.threshold: HP that lands where it's needed,
+                 per share of the MP or TP you have; Regen allowed, and counted while it
+                 ticks; never a Ready move, whose charges are kept for the pet's attacks.
+                 Over the threshold, missing HP is left be
+    The focus member has its own three lines; skipped members count for nothing,
     and so do the alliance's other parties unless heal.alliance is on.
     An area heal lands on the target's party alone, so each party is scored on
     its own: one centred on you or a member covers your party, a Cure aimed at
@@ -247,21 +248,22 @@ end
 
 local function lines(u, ctx)
     local s = ctx.s
-    if u == ctx.focus then return s.focus_critical, s.focus_danger end
-    return s.critical, s.danger
+    if u == ctx.focus then return s.focus_critical, s.focus_danger, s.focus_threshold end
+    return s.critical, s.danger, s.threshold
 end
 
 -- The band's members as a set and worst first. Danger includes critical; efficient
--- starts at the danger line and leaves out whoever your ticking Regen will fill.
+-- runs from the danger line to the threshold and leaves out whoever a ticking Regen
+-- will bring over it.
 local function members_of(band, ctx)
     local set, list = {}, {}
     for _, u in ipairs(ctx.g.units) do
         if u.alive and u.in_zone and u.max_hp and not skipped(u, ctx) then
-            local critical, danger = lines(u, ctx)
+            local critical, danger, threshold = lines(u, ctx)
             local inside
             if band == 'critical' then inside = u.hpp < critical
             elseif band == 'danger' then inside = u.hpp < danger
-            else inside = u.hpp >= danger and u.hp + pending(u) < u.max_hp end
+            else inside = u.hpp >= danger and u.hpp < threshold and (u.hp + pending(u)) * 100 < threshold * u.max_hp end
             if inside then set[u] = true; list[#list + 1] = u end
         end
     end

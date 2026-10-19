@@ -552,8 +552,8 @@ function model.build(g, cat, cfg, status, names)
         status = status_line(status),
         bt = entity(g.bt), pet = pet_line(g.pet),
         flags = {}, recent = {}, sections = {},
-        heal = { danger = h.danger, critical = h.critical, focus = h.focus, alliance = h.alliance,
-                 focus_danger = h.focus_danger, focus_critical = h.focus_critical,
+        heal = { threshold = h.threshold, danger = h.danger, critical = h.critical, focus = h.focus, alliance = h.alliance,
+                 focus_threshold = h.focus_threshold, focus_danger = h.focus_danger, focus_critical = h.focus_critical,
                  cure_potency = h.cure_potency, waltz_potency = h.waltz_potency, regen_potency = h.regen_potency,
                  reserve = h.reserve, stratagems = stratagems,
                  focus_names = focus_names, members = members },
@@ -642,8 +642,8 @@ local REMOTE = {
 -- 'maneuver' (a maneuver's name or ''), or a list of the values it takes. A song
 -- slot takes a 'name': one the job lacks is skipped, as a rune's.
 model.REMOTE_SET = {
-    ['heal.danger'] = { 1, 99 }, ['heal.critical'] = { 1, 99 }, ['heal.focus_danger'] = { 1, 99 },
-    ['heal.focus_critical'] = { 1, 99 }, ['heal.cure_potency'] = { 0, 50 }, ['heal.waltz_potency'] = { 0, 50 },
+    ['heal.threshold'] = { 1, 99 }, ['heal.danger'] = { 1, 99 }, ['heal.critical'] = { 1, 99 },
+    ['heal.focus_threshold'] = { 1, 99 }, ['heal.focus_danger'] = { 1, 99 }, ['heal.focus_critical'] = { 1, 99 }, ['heal.cure_potency'] = { 0, 50 }, ['heal.waltz_potency'] = { 0, 50 },
     ['heal.regen_potency'] = { 0, 30 }, ['heal.focus'] = 'name', ['heal.alliance'] = 'bool', ['heal.reserve'] = 'bool',
     ['recover.mp'] = { 1, 99 }, ['recover.tp'] = { 0, 3000 }, ['recover.min_tp'] = { 0, 3000 }, ['pet.heal'] = { 1, 99 },
     ['follow.on'] = 'bool', ['follow.target'] = 'name', ['follow.distance'] = { 1, 15 },

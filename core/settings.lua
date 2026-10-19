@@ -22,11 +22,11 @@
 local settings = {}
 
 local DEFAULTS = {
-    -- HP% lines: danger, critical; efficient above danger (behaviors/heal.lua);
+    -- HP% lines: efficient under threshold, danger, critical (behaviors/heal.lua);
     -- the focus member has its own. skip = { [name] = true }: never healed for their sake;
     -- alliance: the alliance's other parties healed too (v2's default: off).
-    heal = { on = true, danger = 50, critical = 30,
-             focus = '', focus_danger = 60, focus_critical = 40, skip = {}, alliance = false,
+    heal = { on = true, threshold = 75, danger = 50, critical = 30,
+             focus = '', focus_threshold = 85, focus_danger = 60, focus_critical = 40, skip = {}, alliance = false,
              cure_potency = 0, waltz_potency = 0,  -- +% from gear
              regen_potency = 0,                    -- +HP per Regen tick from gear
              reserve = false },  -- SCH: buff rows leave the last stratagem charge for healing (as v2's, opt-in)
