@@ -113,11 +113,7 @@ function can.use(a, g)
     if a.pet then
         if not g.pet then return false, 'no pet' end
         if a.pet_range and (g.pet.dist or math.huge) > a.pet_range then return false, 'pet too far' end
-        if type(a.pet) == 'table' then
-            local named = false
-            for _, n in ipairs(a.pet) do named = named or n == g.pet.name end
-            if not named then return false, 'wrong pet' end
-        end
+        if type(a.pet) == 'table' and not can.holds(a.pet, g.pet.name) then return false, 'wrong pet' end
     end
     if can.at_enemy(a) then
         if not (g.bt and g.bt.mob) then return false, 'no battle target' end

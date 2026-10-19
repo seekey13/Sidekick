@@ -17,6 +17,7 @@
 ]]--
 
 local buffs = require('core.buffs')
+local util = require('core.util')
 
 local tracked = { list = {}, declined = {} }
 
@@ -53,12 +54,10 @@ end
 
 -- Stop tracking `name` (any case) by hand; the entry, or nil.
 function tracked.remove(name)
-    for _, t in ipairs(tracked.list) do
-        if t.name:lower() == name:lower() then
-            if t.auto then tracked.declined[t.sid] = true end
-            return tracked.drop(t.sid)
-        end
-    end
+    local t = util.named(tracked.list, name)
+    if not t then return nil end
+    if t.auto then tracked.declined[t.sid] = true end
+    return tracked.drop(t.sid)
 end
 
 -- A /check's answer: jobs and levels, all 0 for a player who is /anon.

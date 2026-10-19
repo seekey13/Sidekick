@@ -32,6 +32,7 @@ local resources = require('core.resources')
 local settings = require('core.settings')
 local share = require('core.share')
 local tracked = require('core.tracked')
+local util = require('core.util')
 local imgui = require('imgui')
 local blu = require('jobs.blu')
 local brd = require('jobs.brd')
@@ -266,11 +267,7 @@ local function show_plan(g)
 end
 
 -- The tracked player named `name` (any case), else nil.
-local function tracked_named(name)
-    for _, t in ipairs(tracked.list) do
-        if t.name:lower() == name:lower() then return t end
-    end
-end
+local function tracked_named(name) return util.named(tracked.list, name) end
 
 -- /sk3 buff [name] [me p1..p5 b0..c5 <tracked name> | off]: turn a buff row on for
 -- those targets, or off; with no name, list the rows that are on. The buff's name
