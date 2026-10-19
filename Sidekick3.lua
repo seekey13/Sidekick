@@ -14,6 +14,7 @@ addon.link    = 'https://github.com/seekey13/Sidekick3'
 
 require('common')
 local chat = require('chat')
+local afk = require('core.afk')
 local can = require('core.can')
 local catalog = require('core.catalog')
 local engine = require('core.engine')
@@ -82,6 +83,7 @@ local status = {
     sessions = {},    -- the other Sidekick sessions on this PC (core/share.lua), by name...
     watching = {},    -- ...those whose SK Settings are shown here: { [name] = true }...
     views = {},       -- ...and the views they published for it
+    restart = nil,    -- automation just started: AFK sleep starts over (core/afk.lua)
 }
 local SENT_KEPT = 10
 
@@ -114,6 +116,17 @@ local function refresh(now)
         if pair ~= cfg_pair or settings.switched() then cfg, cfg_pair, mem = settings.load(pair), pair, {} end
         -- The window stays as it is across a job change; only /sk3 and its close button move it.
         if status.open == nil then status.open = cfg.ui.open end
+        -- AFK sleep counts only while running, and starts over on a start or a job change.
+        if status.restart then mem.afk, status.restart = nil, nil end
+        if status.running then
+            mem.afk = mem.afk or {}
+            local said
+            snap.afk, said = afk.update(snap, cfg, mem.afk)
+            snap.afk_in = afk.left(snap, cfg, mem.afk)
+            if said then printf('%s', said) end
+        else
+            mem.afk = nil
+        end
     end
     return snap, true
 end
@@ -309,6 +322,27 @@ local function buff_command(args)
     end
 end
 
+-- /sk3 afk [on | off | minutes]: AFK sleep on, off, or after that many minutes;
+-- with nothing, how it stands.
+local function afk_command(w, g)
+    local n = tonumber(w)
+    if w == 'on' or w == 'off' then
+        cfg.afk.on = w == 'on'
+    elseif n then
+        cfg.afk.on, cfg.afk.minutes = true, math.min(math.max(math.floor(n), afk.MIN), afk.MAX)
+    elseif w ~= '' then
+        printf('/sk3 afk [on | off | minutes (%d to %d)]', afk.MIN, afk.MAX)
+        return
+    end
+    if w ~= '' then settings.save() end
+    if not cfg.afk.on then printf('AFK sleep off.'); return end
+    local st = mem.afk or {}
+    local left = afk.left(g, cfg, st)
+    local now = not status.running and 'counts only while running' or st.asleep and 'asleep: move to wake'
+        or left and ('sleeps in %d min'):format(math.ceil(left / 60)) or 'starts counting now'
+    printf('AFK sleep after %d min with no party movement or combat (%s).', cfg.afk.minutes, now)
+end
+
 -- /sk3 profile [name | default]: load a profile of this job pair's (SK Settings
 -- saves them), or Default; with no name, list them. Names may have spaces.
 local function profile_command(args)
@@ -379,6 +413,7 @@ local function run_command(me, on, who)
     end
     if here then
         status.running = on
+        if on then status.restart = true end  -- wakes AFK sleep, as the run icon's start
         printf('Automation %s.', on and 'started' or 'stopped')
     end
     if others[1] and not me then printf('Other sessions can\'t be reached until your game has loaded.'); return end
@@ -477,7 +512,7 @@ end)
 
 local HELP = '/sk3 opens or closes the window. Commands: start [name|all], stop [name|all], plan, state, '
     .. 'buff [name] [me p1..p5 b0..c5 <tracked>|off], focus <name|off>, follow <name|off>, rest [on|off], '
-    .. 'track [name], untrack <name|all>, profile [name|default], catalog [unknown], log, dump, help'
+    .. 'track [name], untrack <name|all>, profile [name|default], afk [on|off|minutes], catalog [unknown], log, dump, help'
 
 -- ponytail: /sk3 while v2 is still installed and owns /sk; switch to /sk at cutover.
 ashita.events.register('command', 'sidekick3_command', function (e)
@@ -562,6 +597,8 @@ ashita.events.register('command', 'sidekick3_command', function (e)
         if declined[1] then
             printf('Other sessions\' players kept off until tracked by hand (/sk3 track <name>): %s.', table.concat(declined, ', '))
         end
+    elseif sub == 'afk' then
+        afk_command((args[3] or ''):lower(), g)
     elseif sub == 'rest' then
         local w = (args[3] or ''):lower()
         cfg.rest.on = w == 'on' or (w ~= 'off' and not cfg.rest.on)

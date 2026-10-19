@@ -45,7 +45,7 @@ Text that may contain `%` (names, `why` text) must be escaped before it's drawn:
 | `alliance` | list | The alliance's other two parties, as `party` lines (kind `'alliance'`, tags `'B0'` to `'B5'` and `'C0'` to `'C5'`); empty outside an alliance. The standard HUD draws them as thin HP rows under the cards |
 | `bt` | table or nil | Your battle target: `{ name, hpp, dist }`, `dist` like `'4.3y'`. With no `<bt>` of your party's, the nearest mob another party of the alliance claimed |
 | `pet` | table or nil | Your pet, the same shape as `bt` |
-| `flags` | list of strings | What may be holding automation up, in this order: `'casting'`, `'moving'`, `'combat'`, `'safe zone'`, `'mounted'`, `'dead'`, `'resting'`, `'incapacitated'`, `'silenced'`, `'amnesia'` |
+| `flags` | list of strings | What may be holding automation up, in this order: `'casting'`, `'moving'`, `'combat'`, `'safe zone'`, `'AFK asleep'`, `'mounted'`, `'dead'`, `'resting'`, `'incapacitated'`, `'silenced'`, `'amnesia'` |
 | `recent` | list | The last 10 actions sent, newest first: `{ age, text, why }`, e.g. `{ 12, 'Cure IV -> Kupipi', 'heal: Kupipi at 62%' }`; `age` in whole seconds |
 | `pointer` | table or nil | What automation is about to do, or would do, for the standard HUD's arrow: `{ text, member, ally, live }`. `text` is the behavior then the action, `'Heal:Cure IV'`; a target with no line of its own is added by name (`'Heal:Cure IV -> Name'`). `member` is the index in `party` it is for: the target's, else yours (an action on you, your pet or the enemy, as pet care's `'Pet:Healing Ruby'`). For an alliance member, `ally` is their index in `alliance` and `member` is nil. `live`: running, it is the decision about to go or, for a moment after (longer while it is being cast), what was just sent; stopped (false), what it would do. nil when there is nothing |
 | `heal` | table | Healing's settings, below |
@@ -59,6 +59,7 @@ Text that may contain `%` (names, `why` text) must be escaped before it's drawn:
 | `rune` | table | Rune Fencer's runes: `{ slots, runes, sets }`. `slots` is how many runes stand at once at your RUN level, main or sub (1 to 3). `runes` lists every rune you have, `{ name, element, resist, ailments }`, as `{ name = 'Ignis', element = 'Fire', resist = 'Ice', ailments = 'Paralyze / Bind' }`: what it adds to your attacks, the element it resists, the ailments it defends against. `sets` are Idle, then each ward you have (Vallation, Valiance, Pflug): `{ key, label, shows, ward, on, ready, avail, picks }`. `picks` holds a rune name (or `''`) for each of the 3 slots, though only the first `slots` count; set slot `i` with `act.set('rune.<key>_<i>', name)`. `shows` is the field of `runes` the set's picks are best named by (`'element'` for Idle, `'resist'` for Vallation and Valiance, `'ailments'` for Pflug). A ward's set also has `ward` (its name, the row key for `act.row`), `on` (its row), `ready` and `avail` as a row's. Off RUN, `slots` is 0 and `runes` and `sets` are empty |
 | `maneuver` | table | Puppetmaster's maneuvers: `{ choices, picks, ready, avail }`. `choices` lists every maneuver you have, in element order, `{ name, label }`, as `{ name = 'Fire Maneuver', label = 'Fire' }`. `picks` holds a maneuver name (or `''`) for each of the 3 slots; the same one twice keeps two up. Set slot `i` with `act.set('maneuver.slot_<i>', name)`. `ready` and `avail` as a row's, for them all (they share one recast and gate: `'no pet'` without an automaton out, `'blocked by a status'` under Overload). Off PUP, `choices` is empty and `ready` and `avail` nil |
 | `rest` | table | `{ on, delay, distance }`: rest after `delay` seconds with nothing to do; stand when the follow target is further than `distance` yalms |
+| `afk` | table | `{ minutes, asleep, left }`: AFK sleep pauses automation once no one in your party has moved and there has been no combat for `minutes` (1 to 60), and your own movement wakes it; its switch is the `'afk'` section's. `asleep` is true while it sleeps; `left` is the seconds until it would, nil while it's off, asleep or automation is stopped (it counts only while running) |
 | `track` | table | `{ target }`: your current target's name when it's a player you could track (not in your party or alliance, not tracked yet), else nil |
 | `japanese` | bool | Spell, ability and item names are sent in Japanese. Shared by every job pair: it's kept in `ui`'s file (`ui.japanese`) |
 | `log` | bool | Each action sent is printed to chat |
@@ -75,7 +76,7 @@ Text that may contain `%` (names, `why` text) must be escaped before it's drawn:
 | `running` | bool | Automation is on |
 | `state` | string | `'Running'` or `'Stopped'` |
 | `text` | string | Running: the last action sent, or `'nothing sent yet'`. Stopped: what it would do now (`'would: Cure IV -> Kupipi (heal: Kupipi at 62%)'`), or why it wouldn't |
-| `dim` | string or nil | Running and not acting: why (`'casting'`, `'safe zone'`, `'nothing to do'`...) |
+| `dim` | string or nil | Running and not acting: why (`'casting'`, `'safe zone'`, `'AFK asleep'`, `'nothing to do'`...) |
 
 ### `view.party[i]`
 
@@ -124,6 +125,7 @@ In this order. A section with rows is left out when your job has none for it (Pe
 | `'recover'` | Recovery | Recover | `view.recover`, rows |
 | `'rest'` | Resting | Recover | `view.rest` |
 | `'track'` | Tracked players | Tracked | `view.track`, and the `party` and `alliance` lines with `tracked` |
+| `'afk'` | AFK sleep | AFK | `view.afk` |
 | `'ui'` | UI / Log | UI / Log | `view.ui`, `view.log`, `view.recent`, `view.japanese` |
 
 | Field | Type | What it is |
@@ -159,7 +161,7 @@ In this order. A section with rows is left out when your job has none for it (Pe
 | `act.run(on)` | Automation on or off. This session only: it is always off after a load |
 | `act.log(on)` | Print each action sent to chat, or not. This session only |
 | `act.close()` | Hide the UI (remembered); `/sk3` shows it again |
-| `act.section(id, on)` | A section's switch: `'follow'`, `'heal'`, `'revive'`, `'wake'`, `'remove'`, `'buff'`, `'roll'`, `'song'`, `'geo'`, `'rune'`, `'pet'`, `'maneuver'`, `'recover'` or `'rest'` |
+| `act.section(id, on)` | A section's switch: `'follow'`, `'heal'`, `'revive'`, `'wake'`, `'remove'`, `'buff'`, `'roll'`, `'song'`, `'geo'`, `'rune'`, `'pet'`, `'maneuver'`, `'recover'`, `'rest'` or `'afk'` |
 | `act.row(key, on)` | A row on or off |
 | `act.pick(key, name)` | A row's choice: a `choices[i].name`, or nil for Auto |
 | `act.target(key, slot, on)` | Turn a target chip on or off: its `slot`, 0 to 17 or a tracked player's name; `on` true or false sets it, nil toggles it |
@@ -167,7 +169,7 @@ In this order. A section with rows is left out when your job has none for it (Pe
 | `act.hold(key, on)` | A row's Hold: `true`, its spell waits while a modifier on for it can't go with it; `false` (the default), it goes without |
 | `act.track(name)` | Track a player outside your party and alliance: by name, or your current target when nil (`view.track.target` names it). This session only |
 | `act.untrack(name)` | Stop tracking a player, by name. Their buff chips stay set for when they're tracked again |
-| `act.profile(name)` | Load a profile: a `view.profiles.names[i]`, or nil for Default (the settings as they were before a profile was loaded). Loading one never changes `ui`, `japanese`, following, the focus or who healing skips |
+| `act.profile(name)` | Load a profile: a `view.profiles.names[i]`, or nil for Default (the settings as they were before a profile was loaded). Loading one never changes `ui`, `japanese`, following, AFK sleep, the focus or who healing skips |
 | `act.save_profile(name, as_new)` | Save the settings as they are now under `name`. Without `as_new`, while another profile is loaded, that profile is renamed to `name` instead (as v2). A blank name, `'Default'`, or another profile's name saves nothing: only `as_new` replaces a profile. Changes after a load go to the settings, never the profile, until it's saved |
 | `act.new_profile()` | Every setting back to its default (but those a profile never changes), on Default; profiles are kept |
 | `act.delete_profile(name)` | Delete a profile; deleting the loaded one goes back to Default |
@@ -186,7 +188,7 @@ In this order. A section with rows is left out when your job has none for it (Pe
 | `'heal.regen_potency'` | 0 to 30 |
 | `'recover.mp'`, `'pet.heal'` | 1 to 99 |
 | `'recover.tp'`, `'recover.min_tp'` | 0 to 3000 |
-| `'follow.on'`, `'rest.on'`, `'heal.alliance'`, `'heal.reserve'`, `'buff.hold_aoe'`, `'buff.gather'`, `'song.fast'` | bool |
+| `'follow.on'`, `'rest.on'`, `'afk.on'`, `'heal.alliance'`, `'heal.reserve'`, `'buff.hold_aoe'`, `'buff.gather'`, `'song.fast'` | bool |
 | `'follow.target'` | a name from `view.follow.names`, or `''` |
 | `'roll.first'`, `'roll.second'` | a name from `view.roll.choices`, or `''` |
 | `'roll.risk'` | one of `view.roll.risks` |
@@ -200,6 +202,7 @@ In this order. A section with rows is left out when your job has none for it (Pe
 | `'song.duration'` | 0 to 300 |
 | `'follow.distance'`, `'rest.distance'` | 1 to 15 |
 | `'rest.delay'` | 1 to 20 |
+| `'afk.minutes'` | 1 to 60 |
 | `'japanese'` | bool |
 | `'ui.hp_width'`, `'ui.mp_width'` | 80 to 600 |
 | `'ui.hp_height'` | 10 to 120 |

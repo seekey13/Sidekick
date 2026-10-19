@@ -467,11 +467,11 @@ test('a header for each group of sections, in order, closed at first; all its sw
     local cfg = settings.defaults()
     cfg.buff.on = false
     eq(headers(cfg), { 'Profiles###sk3_Profiles', 'Follow (off)###sk3_Follow', 'Heal###sk3_Heal', 'Remove###sk3_Remove', 'Buff (off)###sk3_Buff',
-        'Recover###sk3_Recover', 'Tracked###sk3_Tracked', 'UI / Log###sk3_UI / Log' })
+        'Recover###sk3_Recover', 'Tracked###sk3_Tracked', 'AFK###sk3_AFK', 'UI / Log###sk3_UI / Log' })
     for _, flags in pairs(frame.headers) do eq(flags, 0) end
     eq(headers(settings.defaults(), fake.catalog(18, 75, nil, 0, { 'Repair', 'Deploy' })),  -- PUP
         { 'Profiles###sk3_Profiles', 'Follow (off)###sk3_Follow', 'Remove###sk3_Remove', 'Pet###sk3_Pet', 'Recover (off)###sk3_Recover',
-          'Tracked###sk3_Tracked', 'UI / Log###sk3_UI / Log' })
+          'Tracked###sk3_Tracked', 'AFK###sk3_AFK', 'UI / Log###sk3_UI / Log' })
 end)
 
 test('section switches write: Buffs, Follow, Wake sleepers, Resting', function ()
@@ -543,6 +543,20 @@ test('recovery, pet, follow and rest settings write through act', function ()
     eq({ cfg.follow.target, cfg.follow.distance, cfg.heal.focus }, { 'A', 9, '' })
     eq(render(cfg, st, { ['Rest after##sk3_rest_delay'] = 8, ['Stand past##sk3_rest_distance'] = 12 }), 2)
     eq({ cfg.rest.delay, cfg.rest.distance }, { 8, 12 })
+end)
+
+test('AFK sleep: its minutes, and how it stands while running', function ()
+    open_settings()
+    local cfg, st = settings.defaults(), status()
+    eq(render(cfg, st, { ['Sleep after##sk3_afk_minutes'] = 20, ['AFK sleep##sk3_on_afk'] = true }), 2)
+    eq(cfg.afk, { on = false, minutes = 20 })
+    local g = snap()
+    g.afk_in = 125
+    render(cfg, st, {}, model.build(g, cat, cfg, st, NAMES))
+    eq(showed('Sleeps in 3 min without movement or combat.'), true)
+    g.afk, g.afk_in = true, nil
+    render(cfg, st, {}, model.build(g, cat, cfg, st, NAMES))
+    eq(showed('Asleep: move to wake.'), true)
 end)
 
 test('a member unticked under Heal is skipped by healing', function ()

@@ -448,6 +448,14 @@ local function draw_rest(view)
     slider('Stand past##sk3_rest_distance', 'rest.distance', r.distance, 1, 15, 'Yalms from the leader.')
 end
 
+local function draw_afk(view)
+    local a = view.afk
+    slider('Sleep after##sk3_afk_minutes', 'afk.minutes', a.minutes, 1, 60,
+        'Minutes with no one in your party moving and no combat.')
+    if a.asleep then text('Asleep: move to wake.', GREY)
+    elseif a.left then text(('Sleeps in %d min without movement or combat.'):format(math.ceil(a.left / 60)), GREY) end
+end
+
 local function draw_buff_settings(view)
     local b = view.buff
     checkbox('Hold area buffs for the group##sk3_hold_aoe', b.hold_aoe, function (on) act.set('buff.hold_aoe', on) end,
@@ -934,12 +942,15 @@ local SWITCH_HELP = {
     maneuver = 'Keep the maneuvers picked up on you while your automaton is out (none under Overload).',
     recover = 'Get MP and TP back with the rows that are on.',
     rest = 'Rest for MP out of combat once nothing else has happened for a while; stand at full MP.',
+    afk = 'While running, pause automation once no one in your party has moved and there has been no combat for '
+        .. 'a while; your own movement wakes it (a pull doesn\'t), and so does the leader leaving with Follow on. '
+        .. 'Nothing is stopped or saved.',
 }
 
 local BODIES = {
     follow = draw_follow, heal = draw_heal_settings, recover = draw_recover_settings, buff = draw_buff_settings,
     roll = draw_rolls, song = draw_songs, geo = draw_geo, rune = draw_runes, maneuver = draw_maneuvers,
-    pet = draw_pet_settings, rest = draw_rest, track = draw_track, ui = draw_ui, profile = draw_profiles,
+    pet = draw_pet_settings, rest = draw_rest, afk = draw_afk, track = draw_track, ui = draw_ui, profile = draw_profiles,
 }
 
 -- Its switch, its settings, then its rows.

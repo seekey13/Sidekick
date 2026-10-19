@@ -493,6 +493,7 @@ function game.read(now)
 
     local bt = battle_target(em) or allied[1] and claimed_target(em, listed, now) or nil
     if bt and bt.mob then last_combat = now end
+    if move.zone ~= zone then move.x, move.zone = nil, zone end  -- a zone or teleport isn't you moving (AFK sleep)
     local is_moving = moving(em, me.tidx, now)  -- before moved_at is read
     local seen = {}
     for _, u in ipairs(units) do
