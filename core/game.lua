@@ -394,7 +394,7 @@ end
 
 local POOLS = { sch.POOL, bst.POOL }
 
--- A key per recast `action` waits on: a pool's per charges it costs.
+-- Where `action`'s ready stamp is kept: by its recast, and for a pool's by the charges it costs too.
 local function ready_key(action) return action.kind .. action.recast .. (action.charges and ':' .. action.charges or '') end
 
 -- Seconds until `action` (a catalog record) is off recast; 0 = ready.
