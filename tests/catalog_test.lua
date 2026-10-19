@@ -69,6 +69,13 @@ test('SCH Addendum spells need Addendum or Enlightenment when only SCH can cast 
     eq(find(build(SCH, 75), 'Raise').requires, nil)           -- plain Raise needs nothing
 end)
 
+test('a knowledge row that would require more of an Addendum spell is refused, not dropped', function ()
+    local k = setmetatable({ Poisona = { role = 'remove', removes = 'Poison', requires = 'Composure' } }, { __index = K })
+    local ok, err = pcall(catalog.build, res, { main = SCH, main_lv = 75, sub_lv = 0,
+        has_spell = function () return true end, has_ability = function () return false end }, k)
+    eq({ ok, (tostring(err):match('Poisona: .*')) }, { false, 'Poisona: an Addendum spell can\'t require more' })
+end)
+
 test('a non-SCH source drops the Addendum gate (SCH/WHM, WHM/SCH)', function ()
     eq(find(build(SCH, 75, WHM, 37), 'Poisona').requires, nil)  -- WHM sub casts it at 6
     eq(find(build(WHM, 75, SCH, 37), 'Poisona').requires, nil)

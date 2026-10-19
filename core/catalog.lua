@@ -59,18 +59,6 @@ local function ids(v, idx, what)
     return out
 end
 
--- The lists given, one after another, as one; nil when none is.
-local function merged(...)
-    local out
-    for i = 1, select('#', ...) do
-        for _, id in ipairs(select(i, ...)) do
-            out = out or {}
-            out[#out + 1] = id
-        end
-    end
-    return out
-end
-
 -- Status id -> its name, for the ids in these lists: what can.use names as blocking or needed.
 local function names(statuses, ...)
     local out
@@ -121,6 +109,8 @@ function catalog.build(res, player, K)
     local function add(kind, id, row, from, level, addendum)
         local family, tier = catalog.split(row.en)
         for _, use in ipairs(uses(K, row.en, family, kind)) do
+            -- `requires` is one any-of list, and an Addendum spell's is its Addendum or Enlightenment.
+            assert(not (addendum and use.requires), ('%s: an Addendum spell can\'t require more'):format(row.en))
             if not (use.main_only and from == 'sub') then
                 local status = use.status
                 if status == nil and (use.role == 'buff' or use.role == 'modifier' or use.lucky or use.boost) then
@@ -132,9 +122,7 @@ function catalog.build(res, player, K)
                     status = ids(status, idx, row.en),
                     removes = ids(use.removes, idx, row.en),
                     blocked_by = ids(use.blocked_by, idx, row.en),
-                    -- An Addendum spell needs its Addendum (or Enlightenment) on top of anything its row needs.
-                    requires = merged(addendum and ADDENDUM[row.type] or {},
-                                      ids(use.unbridled and UNBRIDLED or use.requires, idx, row.en) or {}),
+                    requires = addendum and ADDENDUM[row.type] or ids(use.unbridled and UNBRIDLED or use.requires, idx, row.en),
                     unbridled = use.unbridled,
                     potency = use.potency and use.potency[tier],
                     tick = use.tick and (use.tick[tier] or 0),  -- 0: a tier with no known value
