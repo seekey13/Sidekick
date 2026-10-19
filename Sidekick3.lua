@@ -76,6 +76,7 @@ local mem = {}         -- the engine's memory between ticks
 local status = {
     running = false,  -- automation on (/sk3 start); never resumed on load
     open = nil,       -- window shown; from cfg.ui.open at the first settings load
+    failed = nil,     -- the UI raised an error: not drawn, the widget either, until /sk3 or /sk3 widget
     log = true,       -- ponytail: print every action while in development; default off at release
     intent = nil,     -- the latest decision as a sent-style entry, or nil and...
     why = nil,        -- ...why nothing (a gate, 'nothing to do', 'waiting for a cure')
@@ -170,7 +171,7 @@ local function tick(g)
         AshitaCore:GetPacketManager():AddOutgoingPacket(0xF1, { 0xF1, 0x04, 0x00, 0x00, off % 256, math.floor(off / 256), 0x00, 0x00 })
     end
     local act = status.running and engine.ready(g, mem)
-    if not (act or status.open) then return end
+    if not (act or status.open or cfg.ui.widget) then return end
     local intent, why = engine.decide(g, cat.list, cfg, mem)
     status.intent, status.why = intent and entry(intent, g), why
     local gather = status.running and engine.gather(g, cfg, mem)
@@ -460,7 +461,7 @@ local function draw(g)
         ui.render(view(g), model.actions(cfg, status, changed, tracking, share.send))
     end)
     if ok then return end
-    status.open = false
+    status.open, status.failed = false, true
     print(chat.header(addon.name) .. chat.error('Window closed on an error: ' .. tostring(err)))
 end
 
@@ -497,7 +498,8 @@ ashita.events.register('d3d_present', 'sidekick3_present', function ()
             if not status.sessions[name] then status.watching[name] = nil end  -- gone: its window closes
         end
     end
-    if status.open and not g.loading then draw(g) end
+    -- The widget is drawn with the HUD closed too.
+    if (status.open or cfg and cfg.ui.widget and not status.failed) and not g.loading then draw(g) end
     if unsaved and not imgui.IsAnyItemActive() then
         settings.save()
         unsaved = false
@@ -546,14 +548,13 @@ ashita.events.register('command', 'sidekick3_command', function (e)
     if sub == 'stop' and (g.loading or not cfg) then run_command(share.me(), false, args[3]); return end
     if g.loading or not cfg then printf('Waiting for the game to load your job.'); return end
     if sub == '' then
-        status.open = not status.open
+        status.open, status.failed = not status.open, nil
         cfg.ui.open = status.open
         settings.save()
     elseif sub == 'widget' then
-        -- It's a window of the UI, so it shows only while the UI is open: turning it on opens it.
-        cfg.ui.widget = not (cfg.ui.widget and status.open)
-        if cfg.ui.widget then status.open, cfg.ui.open = true, true end
+        cfg.ui.widget, status.failed = not cfg.ui.widget, nil
         settings.save()
+        printf('Widget %s.', cfg.ui.widget and 'on' or 'off')
     elseif sub == 'start' or sub == 'stop' then
         run_command(g.me.name, sub == 'start', args[3])
     elseif sub == 'plan' then

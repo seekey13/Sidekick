@@ -13,7 +13,7 @@ v2 described every job's spells and abilities by hand in 22 job files. v3 reads 
 ```
 /addon load sidekick3
 /sk3                    open or close the window
-/sk3 widget             show or hide the widget (it opens the window too)
+/sk3 widget             show or hide the widget, with or without the HUD
 /sk3 help               the command list
 /sk3 plan               what it would do right now, without doing it
 /sk3 start | stop       automation on / off (always off after a load)
@@ -43,7 +43,7 @@ The HUD (`/sk3`) shows the party as Sidekick reads them, and what it will do nex
 
 Drag the HUD where you want it; Lock position keeps it there.
 
-**The widget** (`/sk3 widget`, or Widget under UI / Log; off by default), v2's floating widget: a small window of its own (drag it where you want it) with the profile loaded as a button (click it to load another, or Default) and your job, then Start/Stop, the status in a word or two (`Stopped`, `Running`, `Running: casting`; hover it for the rest), Settings (opens or closes SK Settings) and, when your target is a player outside your party and alliance, Track. It shows while the HUD does, closes with it, and is dragged by its body (Lock position keeps it still too).
+**The widget** (`/sk3 widget`, or Widget under UI / Log; off by default), v2's floating widget: a small window of its own (drag it where you want it) with the profile loaded as a button (click it to load another, or Default) and your job, then Start/Stop, the state (`Stopped`, `Running`, `Asleep`; hover it for what it's doing or why it waits), Settings (opens or closes SK Settings) and, when your target is a player outside your party and alliance, Track. It stays up with the HUD closed (`/sk3` or its close icon), so you can keep just the widget beside another party list; `/sk3 widget` hides it again. Drag it by its body (Lock position keeps it still too).
 
 **SK Settings**, from the cog on your card, has every setting under collapsing headers, each section with its on/off switch:
 

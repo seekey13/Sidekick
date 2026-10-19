@@ -473,9 +473,7 @@ test('the widget is off at first; on, it shows the profile, the job and the stat
     eq(frame.flags['SK Widget'] - ImGuiWindowFlags_NoTitleBar - ImGuiWindowFlags_NoResize
         - ImGuiWindowFlags_AlwaysAutoResize - ImGuiWindowFlags_NoScrollbar, 0)
     render(cfg, status({ running = true, intent = false, why = 'casting' }))
-    eq({ showed('Running: casting'), has(frame.args.Button, 'Stop###sk3_widget_run') }, { true, true })
-    render(cfg, status({ running = true }))
-    eq(showed('Running'), true)
+    eq({ showed('Running'), tipped('(casting)'), has(frame.args.Button, 'Stop###sk3_widget_run') }, { true, true, true })
 end)
 
 test('the widget\'s Start/Stop runs this session only; Settings opens and closes SK Settings', function ()
@@ -534,6 +532,33 @@ test('UI / Log turns the widget on and off; Lock position keeps it still too', f
     eq(render(cfg, st, { ['Widget##sk3_ui_widget'] = true }), 1)
     eq(cfg.ui.widget, false)
     close_settings()
+end)
+
+test('with the HUD closed the widget still shows, and its Settings opens SK Settings; closing the HUD closes them', function ()
+    close_settings()
+    local cfg = widget_cfg()
+    render(cfg, status({ open = false }))
+    eq({ begun('Sidekick3'), begun('SK Widget') }, { false, true })
+    render(cfg, status({ open = false }), { ['Settings##sk3_widget_settings'] = true })
+    render(cfg, status({ open = false }))
+    eq({ begun('Sidekick3'), begun('SK Settings') }, { false, true })
+    render(cfg, status())
+    render(cfg, status({ open = false }))  -- /sk3 closed the HUD
+    eq(begun('SK Settings'), false)
+    render(settings.defaults(), status({ open = false }))
+    eq({ begun('Sidekick3'), begun('SK Widget'), begun('SK Settings') }, { false, false, false })
+    render(settings.defaults(), status())
+end)
+
+test('the widget says the state alone: what it does or why it waits is in its tooltip', function ()
+    local cfg = widget_cfg()
+    render(cfg, status({ running = true, intent = false, why = 'holding Valor Minuet IV for Pianissimo' }))
+    eq({ showed('Running'), tipped('(holding Valor Minuet IV for Pianissimo)') }, { true, true })
+    local g = snap()
+    g.afk = true
+    local st = status({ running = true })
+    render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
+    eq(showed('Asleep'), true)
 end)
 
 test('a Lua error in the widget still ends every window, then is raised', function ()

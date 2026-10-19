@@ -11,6 +11,7 @@
     start and stop that session and open its own SK Settings, drawn here from its view.
     The widget (`ui.widget`, `/sk3 widget`) is a third, v2's floating one: the profile
     loaded and the job, then Start/Stop, the status, Settings and Track for your target.
+    It shows with the HUD closed too (`view.ui.open` false), as v2's did.
 
     Ashita's binding (as v2 found it): widget values are one-element tables
     ({ true }, { 75 }), and Text, TextColored and SetTooltip take a printf
@@ -71,6 +72,7 @@ local JOINED = { party = '  (in your party)', alliance = '  (in your alliance)' 
 
 local act                    -- this frame's actions (another session's, while drawing its SK Settings)
 local settings_open = false  -- SK Settings shown; this session only
+local hud_open = true        -- last frame's view.ui.open: closing the HUD (/sk3) closes SK Settings with it
 local profile_names = {}     -- per SK Settings window ('' for yours, else the session's name), this session only:
                              -- { typed = { name }, shown }, the name filled in again when the profile loaded changes
 
@@ -357,12 +359,13 @@ end
 
 -- The widget ------------------------------------------------------------------------
 
--- The status in a few words: the state, and while running what holds it up. The
--- whole of it is the tooltip, as the HUD title's.
-local function short_status(s)
+-- The state alone, so the widget keeps its width and Track its place: the rest,
+-- what it does or why it waits, is the tooltip, as the HUD title's.
+local function short_status(view)
+    local s = view.status
     if not s.running then return 'Stopped', GREY end
-    if s.dim then return 'Running: ' .. s.dim, GREY end
-    return 'Running', GREEN
+    if view.afk.asleep then return 'Asleep', GREY end
+    return 'Running', s.dim and GREY or GREEN
 end
 
 -- The profile loaded as a button (a click lists them to load), then the job;
@@ -390,7 +393,7 @@ local function draw_widget(view)
     tip((s.running and 'Stop' or 'Start') .. ' automation')
     imgui.SameLine()
     imgui.AlignTextToFramePadding()
-    local line, color = short_status(s)
+    local line, color = short_status(view)
     text(line, color)
     tip(status_tip(view))
     imgui.SameLine()
@@ -1119,10 +1122,16 @@ end
 -- are ended, so ImGui stays balanced and Sidekick reports it.
 function window.render(view, act_)
     act = act_
-    local err = hud(view)
+    local open = view.ui.open ~= false
+    if hud_open and not open then settings_open = false end
+    hud_open = open
+    local err
+    if open then err = hud(view) end
     if view.ui.widget then err = widget(view) or err end
     if settings_open then err = settings_window(view) or err end
-    for _, r in ipairs(view.remote or {}) do err = remote_window(r) or err end
+    if open then
+        for _, r in ipairs(view.remote or {}) do err = remote_window(r) or err end
+    end
     if err then error(err, 0) end
 end
 
