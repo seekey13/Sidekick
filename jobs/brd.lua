@@ -22,7 +22,8 @@
     songs and the area ones they count for are one set: an area Victory March
     and their own Advancing March want two Marches. Then each slot's picks, on whoever is there, alive and in
     reach, whenever they lack one. While Pianissimo is up the area songs wait:
-    the next song lands on one member. Of two songs of one kind with one up,
+    the next song lands on one member (one left with no one to sing to wears
+    off on its own, as v2). Of two songs of one kind with one up,
     the one sung less lately goes (new: v2 sang the first picked, which may be
     the one up).
     Nothing goes while you're Invisible, as buffs. With buff.hold_aoe on, an
