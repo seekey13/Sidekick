@@ -54,9 +54,10 @@ end)
 
 test('rune slots follow the RUN level, main or sub', function ()
     eq({ run.slots(5), run.slots(34), run.slots(35), run.slots(64), run.slots(65) }, { 1, 1, 2, 2, 3 })
-    eq(run.level(snap()), 75)
-    eq(run.level(snap(nil, { main = WAR, sub = RUN, sub_lv = 37 })), 37)
-    eq(run.level(snap(nil, { main = WAR, sub = WHM })), 0)
+    local level = require('core.util').level
+    eq(level(snap(), run.JOB), 75)
+    eq(level(snap(nil, { main = WAR, sub = RUN, sub_lv = 37 }), run.JOB), 37)
+    eq(level(snap(nil, { main = WAR, sub = WHM }), run.JOB), 0)
 end)
 
 test('Idle keeps its runes up, the same rune twice meaning two; an empty slot is skipped', function ()

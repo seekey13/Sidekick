@@ -21,6 +21,7 @@
 
 local buff = require('behaviors.buff')
 local can = require('core.can')
+local status = require('core.status')
 
 local cor = {}
 
@@ -29,7 +30,7 @@ cor.RISKS = { 'lowest', 'medium', 'highest' }
 cor.DOUBLE_GAP = 6  -- seconds between Double-Ups, from the send and from its total (in-game proven, v2)
 cor.WAIT = 5        -- seconds a roll or Double-Up sent waits for its total
 
-local INVISIBLE, DOUBLE_UP_CHANCE, BUST, SNAKE_EYE = 69, 308, 309, 357  -- statuses
+local DOUBLE_UP_CHANCE, BUST, SNAKE_EYE = 308, 309, 357  -- statuses
 local ROLL, ROLL_SUB, DOUBLED, BUSTED, BUSTED_SUB = 420, 421, 424, 426, 427  -- 0x028 messages
 
 local MAX_TOTAL = 11           -- 12 or more busts
@@ -109,7 +110,7 @@ local function ready(a, g) return a ~= nil and (can.use(a, g)) end
 -- Busy until `t`: a step of COR's is due then, so resting mustn't start before it.
 local function busy(mem, t) mem.busy_until = math.max(mem.busy_until or -math.huge, t) end
 
-local function up(a, g) return can.any(g.me.buffs, a.status) end
+local function up(a, g) return not can.lacks(a, g.me) end
 
 function cor.want(g, cat, cfg, mem)
     local rolls = cor.picked(cat, cfg, g.main)
@@ -118,7 +119,7 @@ function cor.want(g, cat, cfg, mem)
     mem.cor = st
     local fold, double, snake = named(cat, 'Fold'), named(cat, 'Double-Up'), named(cat, 'Snake Eye')
     local buffs = g.me.buffs
-    if buffs[INVISIBLE] then return nil end
+    if buffs[status.INVISIBLE] then return nil end
 
     -- A Bust takes a roll's place until it wears; Fold frees it at once.
     if buffs[BUST] and ready(fold, g) then return { action = fold, why = 'Bust' } end

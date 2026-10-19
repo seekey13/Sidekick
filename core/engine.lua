@@ -25,6 +25,7 @@
 
 local can = require('core.can')
 local pet = require('behaviors.pet')
+local util = require('core.util')
 
 local engine = {}
 
@@ -119,7 +120,7 @@ function engine.gather(g, cfg, mem)
     if not (w and w.ask and cfg.buff.gather) or g.now - (mem.gathered_at or -math.huge) < engine.GATHER_EVERY then return nil end
     mem.gathered_at = g.now
     local a = w.action
-    if cfg.ui.japanese then return '/p ' .. GATHER_JP .. '  ' .. ((a.jp or '') ~= '' and a.jp or a.name) end
+    if cfg.ui.japanese then return '/p ' .. GATHER_JP .. '  ' .. util.spelled(a.name, a.jp, true) end
     return '/p Gather together for ' .. a.name
 end
 

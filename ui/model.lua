@@ -29,6 +29,8 @@ local pup = require('jobs.pup')
 local run = require('jobs.run')
 local sch = require('jobs.sch')
 local settings = require('core.settings')
+local slots = require('core.slots')
+local util = require('core.util')
 
 local model = {}
 
@@ -247,7 +249,7 @@ end
 -- each ward you have, with its switch (its row) and whether it's ready.
 local function runes(g, cat, cfg)
     local mine, wards = run.actions(cat)
-    local lv = run.level(g)
+    local lv = util.level(g, run.JOB)
     local out = { slots = lv > 0 and run.slots(lv) or 0, runes = {}, sets = {} }
     for _, r in ipairs(run.RUNES) do
         local a = mine[r[1]]
@@ -262,8 +264,8 @@ local function runes(g, cat, cfg)
     for _, set in ipairs(run.SETS) do
         local w = set.ward and ward[set.ward]
         if not set.ward or w then
-            local e = { key = set.key, label = set.label or set.ward, shows = set.shows, ward = w and w.name, picks = {} }
-            for i = 1, run.SLOTS do e.picks[i] = cfg.rune[set.key .. '_' .. i] end
+            local e = { key = set.key, label = set.label or set.ward, shows = set.shows, ward = w and w.name,
+                        picks = slots.names(cfg.rune, set.key, run.SLOTS) }
             if w then
                 local r = settings.row(cfg, w)
                 e.on = r.on == true
@@ -277,14 +279,13 @@ end
 
 -- PUP: the maneuvers to pick from, by element, and each slot's pick (jobs/pup.lua).
 local function maneuvers(g, cat, cfg)
-    local out, first = { choices = {}, picks = {} }, nil
+    local out, first = { choices = {}, picks = slots.names(cfg.maneuver, 'slot', pup.SLOTS) }, nil
     for _, a in ipairs(cat) do  -- in id order: the game's element order
         if a.role == 'maneuver' then
             out.choices[#out.choices + 1] = { name = a.name, label = (a.name:gsub(' Maneuver$', '')) }
             first = first or a
         end
     end
-    for i = 1, pup.SLOTS do out.picks[i] = cfg.maneuver['slot_' .. i] end
     -- They share one recast and every gate, so one says whether they can go.
     if first then out.ready, out.avail = availability({ first }, {}, g) end
     return out
@@ -304,8 +305,7 @@ local function songs(g, cat, cfg, units)
     end
     if not out.choices[1] then return out end
     for _, set in ipairs(brd.SETS) do
-        local e = { key = set.key, label = set.label, picks = {} }
-        for i = 1, brd.SLOTS do e.picks[i] = cfg.song[set.key .. '_' .. i] end
+        local e = { key = set.key, label = set.label, picks = slots.names(cfg.song, set.key, brd.SLOTS) }
         if set.slot then
             local u = units[set.slot]
             e.name, e.present = u and u.name, u ~= nil
@@ -658,12 +658,11 @@ model.REMOTE_SET = {
     ['geo.distance'] = { 3, 30 }, ['geo.linger'] = { 1, 20 }, ['geo.entrust'] = 'name', ['geo.entrust_spell'] = 'name',
     ['song.duration'] = { 0, 300 }, ['song.fast'] = 'bool',
 }
-for _, set in ipairs(run.SETS) do
-    for i = 1, run.SLOTS do model.REMOTE_SET[run.path(set.key, i)] = 'name' end
-end
-for i = 1, pup.SLOTS do model.REMOTE_SET[pup.path(i)] = 'maneuver' end
-for _, set in ipairs(brd.SETS) do
-    for i = 1, brd.SLOTS do model.REMOTE_SET[brd.path(set.key, i)] = 'name' end
+for _, s in ipairs({ { 'rune', run.SETS, run.SLOTS, 'name' }, { 'song', brd.SETS, brd.SLOTS, 'name' },
+                    { 'maneuver', { { key = 'slot' } }, pup.SLOTS, 'maneuver' } }) do
+    for _, set in ipairs(s[2]) do
+        for i = 1, s[3] do model.REMOTE_SET[slots.path(s[1], set.key, i)] = s[4] end
+    end
 end
 
 -- `value` for act.set's `path` from another session, held to its range; nil when

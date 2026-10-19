@@ -31,18 +31,12 @@ local can = require('core.can')
 local nin = require('jobs.nin')
 local sch = require('jobs.sch')
 local settings = require('core.settings')
+local status = require('core.status')
 
 local buff = {}
 
-local INVISIBLE = 69
 local AREA_RADIUS = 10  -- yalms around you
-
--- `status` (a list) stands in for `a`'s own when given.
-local function lacks(a, u, status)
-    if not a.status then return true end
-    for _, id in ipairs(status or a.status) do if u.buffs[id] then return false end end
-    return true
-end
+local lacks = can.lacks
 
 -- Each row's action, best tier first, highest priority rows first.
 local function chosen(cat, cfg, g)
@@ -135,7 +129,7 @@ local function held(c, acc, spreads, g, cfg)
 end
 
 function buff.want(g, cat, cfg, mem)
-    local invisible = g.me.buffs[INVISIBLE]
+    local invisible = g.me.buffs[status.INVISIBLE]
     local hold = cfg.buff.hold_aoe
     for _, c in ipairs(chosen(cat, cfg, g)) do
         local a = c.action

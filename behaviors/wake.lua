@@ -10,8 +10,7 @@
 local can = require('core.can')
 local dnc = require('jobs.dnc')
 local settings = require('core.settings')
-
-local SLEEP = { 2, 19 }  -- Sleep, Sleep II
+local status = require('core.status')
 
 local function cost(a, g) return (a.mp or 0) + dnc.tp(a, g) end
 
@@ -20,7 +19,7 @@ local function sleepers(g, cfg)
     local out = {}
     local focus = cfg.heal.focus:lower()
     for _, u in ipairs(g.units) do
-        if u.kind ~= 'self' and u.alive and u.in_zone and can.any(u.buffs, SLEEP) then
+        if u.kind ~= 'self' and u.alive and u.in_zone and can.any(u.buffs, status.SLEEP) then
             if focus ~= '' and u.name:lower() == focus then table.insert(out, 1, u) else out[#out + 1] = u end
         end
     end

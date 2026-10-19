@@ -58,6 +58,8 @@
 
 local buff = require('behaviors.buff')
 local can = require('core.can')
+local slots = require('core.slots')
+local status = require('core.status')
 
 local brd = {}
 
@@ -67,7 +69,7 @@ brd.SLOTS = 2  -- songs per target on a BRD main job; one on a subjob
 brd.SETS = { { key = 'area', label = 'Area' }, { key = 'me', slot = 0, label = 'ME' } }
 for i = 1, 5 do brd.SETS[#brd.SETS + 1] = { key = 'p' .. i, slot = i, label = 'P' .. i } end
 
-local INVISIBLE, PIANISSIMO, NIGHTINGALE, TROUBADOUR = 69, 409, 347, 348
+local PIANISSIMO, NIGHTINGALE, TROUBADOUR = 409, 347, 348
 brd.TIMED_LEVEL = 75  -- Song Duration only for a BRD main job from here, as v2 (where song duration gear is)
 brd.VERIFY = 5        -- seconds after a song lands before its status must show on a list we can read
 
@@ -95,17 +97,17 @@ end
 local stamps = {}
 
 -- Song `a` (a catalog record) landed on these server ids at `now`, from your own
--- spell finish; `buffs` are yours (Troubadour doubles it), `slots` how many songs
+-- spell finish; `buffs` are yours (Troubadour doubles it), `stand` how many songs
 -- stand on each: one more pushes out the one that would wear first (LSB's
 -- ApplyBardEffect), by when it landed and whether it was doubled.
-function brd.landed(a, sids, now, buffs, slots)
+function brd.landed(a, sids, now, buffs, stand)
     for _, sid in ipairs(sids) do
         local rows = stamps[sid] or {}
         stamps[sid] = rows
         if not rows[a.name] then  -- sung again, a song refreshes its own
             local n = 0
             for _ in pairs(rows) do n = n + 1 end
-            while n >= math.max(slots or brd.SLOTS, 1) do
+            while n >= math.max(stand or brd.SLOTS, 1) do
                 local first, ends = nil, math.huge
                 for name, r in pairs(rows) do
                     local e = r.at + a.duration * (r.double and 2 or 1)
@@ -141,29 +143,14 @@ local function prune(g)
     end
 end
 
--- The settings path of a set's slot `i`: 'song.area_1', 'song.p3_2'.
-function brd.path(key, i) return ('song.%s_%d'):format(key, i) end
-
 -- Your songs by name, and Pianissimo.
 function brd.actions(cat)
-    local songs, pianissimo = {}, nil
-    for _, a in ipairs(cat) do
-        if a.role == 'song' then songs[a.name] = a end
-        if a.name == 'Pianissimo' and a.role == 'modifier' then pianissimo = a end
-    end
-    return songs, pianissimo
+    return slots.by_name(cat, 'song'), slots.by_name(cat, 'modifier').Pianissimo
 end
 
 -- A set's songs, as catalog records in slot order, for the first `n` slots: a
 -- slot with none (or one you lack) is skipped, and a song picked twice is one.
-function brd.picked(cfg, key, songs, n)
-    local out, seen = {}, {}
-    for i = 1, n do
-        local a = songs[cfg.song[key .. '_' .. i]]
-        if a and not seen[a] then seen[a] = true; out[#out + 1] = a end
-    end
-    return out
-end
+function brd.picked(cfg, key, songs, n) return slots.picked(cfg.song, key, songs, n, true) end
 
 -- How many of status `id` stand on `u`; a trust's (no stacks) stand for all.
 local function count(u, id)
@@ -204,11 +191,11 @@ local function voters(a, g, free, owes, hold)
     local radius = can.yalms(a.area)
     local near, n, away = nil, 0, nil
     for _, u in ipairs(g.units) do
-        local slots = free(u)
-        if here(u) and slots > 0 then
+        local room = free(u)
+        if here(u) and room > 0 then
             if u.kind == 'self' or (u.dist or math.huge) <= radius then
                 if owes(u, a) then near, n = near or u, n + 1 end
-            elseif hold and u.kind == 'party' and slots == brd.slots(g) and not away and owes(u, a, true) then
+            elseif hold and u.kind == 'party' and room == brd.slots(g) and not away and owes(u, a, true) then
                 away = u
             end
         end
@@ -230,7 +217,7 @@ end
 
 function brd.want(g, cat, cfg, mem)
     local n = brd.slots(g)
-    if n == 0 or g.me.buffs[INVISIBLE] then return nil end
+    if n == 0 or g.me.buffs[status.INVISIBLE] then return nil end
     prune(g)
     local timed = brd.timed(g, cfg)
     local window = g.me.buffs[NIGHTINGALE] and g.me.buffs[TROUBADOUR]
