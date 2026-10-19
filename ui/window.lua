@@ -9,6 +9,8 @@
     HP bar carries the run icon and the cog, which opens SK Settings, every setting under collapsing headers.
     So does the card of a player who is another Sidekick session on this PC: its icons
     start and stop that session and open its own SK Settings, drawn here from its view.
+    The widget (`ui.widget`, `/sk3 widget`) is a third, v2's floating one: the profile
+    loaded and the job, then Start/Stop, the status, Settings and Track for your target.
 
     Ashita's binding (as v2 found it): widget values are one-element tables
     ({ true }, { 75 }), and Text, TextColored and SetTooltip take a printf
@@ -43,6 +45,9 @@ local B, PAD = 2, 4                    -- bar border, panel padding (sides and b
 local TITLE = 'Sidekick3'
 local AROUND = { { -1, -1 }, { 0, -1 }, { 1, -1 }, { -1, 0 }, { 1, 0 }, { -1, 1 }, { 0, 1 }, { 1, 1 } }
 local SEGMENTS = 32                    -- an icon's circles
+
+local WIDGET_FLAGS = ImGuiWindowFlags_NoTitleBar + ImGuiWindowFlags_NoResize + ImGuiWindowFlags_AlwaysAutoResize
+    + ImGuiWindowFlags_NoScrollbar
 
 local HUD_FLAGS = ImGuiWindowFlags_NoTitleBar + ImGuiWindowFlags_NoResize + ImGuiWindowFlags_NoScrollbar
     + ImGuiWindowFlags_NoScrollWithMouse + ImGuiWindowFlags_AlwaysAutoResize + ImGuiWindowFlags_NoBackground
@@ -341,6 +346,55 @@ local function draw_hud(view)
     end
     imgui.SetCursorScreenPos({ x0, y0 + ph - PAD })
     imgui.Dummy({ pw, PAD })  -- the bottom padding, and the panel's full width, for the auto-size
+end
+
+-- The widget ------------------------------------------------------------------------
+
+-- The status in a few words, so the widget's width barely moves: the state, and
+-- while running what holds it up. The whole of it is the tooltip, as the HUD title's.
+local function short_status(s)
+    if not s.running then return 'Stopped', GREY end
+    if s.dim then return 'Running: ' .. s.dim, GREY end
+    return 'Running', GREEN
+end
+
+-- The profile loaded as a button (a click lists them to load), then the job;
+-- Start/Stop, the status, Settings, then Track for your target.
+local function draw_widget(view)
+    local p = view.profiles
+    -- '##' in a label would end what it shows, as a header's.
+    local shown = p.active and p.active:gsub('#+', '#') or 'Default'
+    if imgui.Button(shown .. '###sk3_widget_profile') then imgui.OpenPopup('##sk3_widget_profiles') end
+    tip('Load a profile. SK Settings saves them.')
+    if imgui.BeginPopup('##sk3_widget_profiles') then
+        if imgui.Selectable('Default##sk3_widget_profile_default', p.active == nil) then act.profile(nil) end
+        for i, name in ipairs(p.names) do  -- over a blank row, as in Profiles
+            local x = imgui.GetCursorPosX()
+            if imgui.Selectable('##sk3_widget_profile_' .. i, name == p.active) then act.profile(name) end
+            imgui.SameLine(x)
+            text(name)
+        end
+        imgui.EndPopup()
+    end
+    imgui.SameLine()
+    text(view.job)
+
+    local s = view.status
+    if imgui.Button((s.running and 'Stop' or 'Start') .. '###sk3_widget_run') then act.run(not s.running) end
+    tip((s.running and 'Stop' or 'Start') .. ' automation')
+    imgui.SameLine()
+    local line, color = short_status(s)
+    text(line, color)
+    tip(status_tip(view))
+    imgui.SameLine()
+    if imgui.Button('Settings##sk3_widget_settings') then settings_open = not settings_open end
+    tip('Open or close SK Settings')
+    local t = view.track.target
+    if t then
+        imgui.SameLine()
+        if imgui.Button(('Track %s###sk3_widget_track'):format(t)) then act.track(t) end
+        tip('Heal, clear, raise and buff them too, with what reaches outside the party. This session only.')
+    end
 end
 
 -- SK Settings bodies ---------------------------------------------------------------
@@ -809,7 +863,10 @@ local function draw_ui(view)
         slider(l[1] .. '##sk3_ui_' .. l[2], 'ui.' .. l[2], view.ui[l[2]], l[3], l[4], l[5])
     end
     checkbox('Lock position##sk3_ui_locked', view.ui.locked == true, function (on) act.set('ui.locked', on) end,
-        'Keep the HUD where it is: dragging it no longer moves it.')
+        'Keep the HUD and the widget where they are: dragging them no longer moves them.')
+    checkbox('Widget##sk3_ui_widget', view.ui.widget == true, function (on) act.set('ui.widget', on) end,
+        'A small window of its own: the profile loaded (a click loads another) and your job, then Start/Stop, '
+        .. 'the status, Settings, and Track for your target. Also /sk3 widget.')
     imgui.Separator()
     checkbox('Action log##sk3_log', view.log, act.log, 'Print each action to chat as it is sent.')
     draw_recent(view)
@@ -1004,6 +1061,14 @@ local function hud(view)
     if not ok then return err end
 end
 
+local function widget(view)
+    local flags = WIDGET_FLAGS + (view.ui.locked and ImGuiWindowFlags_NoMove or 0)
+    local ok, err = true, nil
+    if imgui.Begin('SK Widget', true, flags) then ok, err = pcall(draw_widget, view) end
+    imgui.End()
+    if not ok then return err end
+end
+
 local function settings_window(view)
     local open = { true }
     local ok, err = true, nil
@@ -1049,6 +1114,7 @@ end
 function window.render(view, act_)
     act = act_
     local err = hud(view)
+    if view.ui.widget then err = widget(view) or err end
     if settings_open then err = settings_window(view) or err end
     for _, r in ipairs(view.remote or {}) do err = remote_window(r) or err end
     if err then error(err, 0) end

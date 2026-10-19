@@ -510,7 +510,7 @@ ashita.events.register('packet_in', 'sidekick3_packet_in', function (e)
     packets.handle(e, packet_ctx, os.clock())
 end)
 
-local HELP = '/sk3 opens or closes the window. Commands: start [name|all], stop [name|all], plan, state, '
+local HELP = '/sk3 opens or closes the window. Commands: widget, start [name|all], stop [name|all], plan, state, '
     .. 'buff [name] [me p1..p5 b0..c5 <tracked>|off], focus <name|off>, follow <name|off>, rest [on|off], '
     .. 'track [name], untrack <name|all>, profile [name|default], afk [on|off|minutes], catalog [unknown], log, dump, help'
 
@@ -548,6 +548,11 @@ ashita.events.register('command', 'sidekick3_command', function (e)
     if sub == '' then
         status.open = not status.open
         cfg.ui.open = status.open
+        settings.save()
+    elseif sub == 'widget' then
+        -- It's a window of the UI, so it shows only while the UI is open: turning it on opens it.
+        cfg.ui.widget = not (cfg.ui.widget and status.open)
+        if cfg.ui.widget then status.open, cfg.ui.open = true, true end
         settings.save()
     elseif sub == 'start' or sub == 'stop' then
         run_command(g.me.name, sub == 'start', args[3])

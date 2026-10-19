@@ -13,6 +13,7 @@ v2 described every job's spells and abilities by hand in 22 job files. v3 reads 
 ```
 /addon load sidekick3
 /sk3                    open or close the window
+/sk3 widget             show or hide the widget (it opens the window too)
 /sk3 help               the command list
 /sk3 plan               what it would do right now, without doing it
 /sk3 start | stop       automation on / off (always off after a load)
@@ -42,6 +43,8 @@ The HUD (`/sk3`) shows the party as Sidekick reads them, and what it will do nex
 
 Drag the HUD where you want it; Lock position keeps it there.
 
+**The widget** (`/sk3 widget`, or Widget under UI / Log; off by default), v2's floating widget: a small window beside the HUD with the profile loaded as a button (click it to load another, or Default) and your job, then Start/Stop, the status in a word or two (`Stopped`, `Running`, `Running: casting`; hover it for the rest), Settings (opens SK Settings) and, when your target is a player outside your party and alliance, Track. It shows while the HUD does, closes with it, and is dragged by its body (Lock position keeps it still too).
+
 **SK Settings**, from the cog on your card, has every setting under collapsing headers, each section with its on/off switch:
 
 - **Profiles**: named snapshots of your settings (Dynamis, EXP...), each job pair with its own. Type a name and Save (with a profile loaded, a new name renames it; never over another profile), Save as (over one of that name too), New (every setting back to its default) or Delete; click one to load it. Your settings stay the working copy: changes after a load are kept, but reach the profile only when you Save it, and Default brings back the settings you had before you loaded one. A profile never changes the HUD, the Japanese client, following, AFK sleep, the focus member, who healing skips or who Entrust goes on.
@@ -53,7 +56,7 @@ Drag the HUD where you want it; Lock position keeps it there.
 - **Recover**: MP and TP lines (and the TP Chivalry spends from); resting for MP out of combat after a few quiet seconds, standing at full MP or when the leader leaves.
 - **Tracked**: the players you track, each with Untrack, and Track for your target when it's a player outside your party and alliance.
 - **AFK**: **AFK sleep** (on by default, as v2's), while running, pauses automation once no one in your party (you, its players and trusts) has moved and there has been no combat for Sleep after (10 minutes), and says so in chat; your own movement wakes it, never a pull, since a fight is no proof you're back; with Follow on, so does the leader getting further than its distance, so you keep following. A pause, not a stop: automation stays running and nothing is saved. The section says how long is left, and the HUD's title tooltip says `[AFK asleep]` while it sleeps. The wait starts over when you start automation (from another box too, which wakes it), change job or change the minutes; being zoned or teleported by someone else doesn't wake it.
-- **UI / Log**: the HUD's bar and font sizes, spacing, panel opacity and lock; the action log and the last 10 actions sent, and why; Japanese client, shared by every job pair as the HUD is: spell, ability and item names (and the gather line) go out in Japanese, and Sidekick warns once in chat about any name the client has no Japanese spelling for, since it then goes out in English.
+- **UI / Log**: the HUD's bar and font sizes, spacing, panel opacity and lock; the widget; the action log and the last 10 actions sent, and why; Japanese client, shared by every job pair as the HUD is: spell, ability and item names (and the gather line) go out in Japanese, and Sidekick warns once in chat about any name the client has no Japanese spelling for, since it then goes out in English.
 
 Each row turns a family on or off and says whether it's ready or why not.
 

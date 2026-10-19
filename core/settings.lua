@@ -63,6 +63,7 @@ local DEFAULTS = {
     profiles = {}, profile = '', parked = {},  -- named snapshots (core/profiles.lua)
     ui = { open = false, hp_width = 220, hp_height = 40, mp_width = 220, mp_height = 18,
            name_size = 22, text_size = 14, gap = 8, opacity = 100, locked = false,
+           widget = false,  -- the widget, v2's floating one (/sk3 widget)
            japanese = false },  -- send spell, ability and item names in Japanese
 }
 for _, set in ipairs({ 'idle', 'vallation', 'valiance', 'pflug' }) do
