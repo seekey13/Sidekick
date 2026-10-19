@@ -23,7 +23,7 @@
     says), max_hp from a session file, else estimated from their /check level (else
     yours), and main, main_lv, sub, sub_lv once a /check or a session file has
     answered; `auto` names the session whose file tracks them (core/share.lua). A member (or alliance member) you also track has tracked = true.
-    The pet is { sid, tidx, name, hpp, dist, pos, status (1 engaged), buffs, since (first seen) }; the
+    The pet is { sid, tidx, name, hpp, mpp, tp, dist, pos, status (1 engaged), buffs, since (first seen) }; the
     battle target `bt` { sid, tidx, name, hpp, dist, pos, mob, claimed, moving }, `claimed`
     when it's a mob another party of the alliance claimed (the client has no <bt>).
     `target` is your current target when it's another player: { tidx, sid, name }.
@@ -517,7 +517,7 @@ function game.read(now)
     end
     local alive = pet and pet.hpp > 0
     if alive and pet.sid ~= pet_sid then pet_since = now end
-    if pet then pet.since = pet_since end
+    if pet then pet.since, pet.mpp, pet.tp = pet_since, player:GetPetMPPercent(), player:GetPetTP() end
     pet_sid = alive and pet.sid or nil
     if pet then pet.buffs = buffs.of(pet.sid, now); tracks[pet.sid] = true end
     -- Statuses on one gone since the last read (a trust dismissed, a member who

@@ -22,11 +22,11 @@
 local settings = {}
 
 local DEFAULTS = {
-    -- HP% lines: danger, critical; efficient above danger (behaviors/heal.lua);
+    -- HP% lines: efficient under threshold, danger, critical (behaviors/heal.lua);
     -- the focus member has its own. skip = { [name] = true }: never healed for their sake;
     -- alliance: the alliance's other parties healed too (v2's default: off).
-    heal = { on = true, danger = 50, critical = 30,
-             focus = '', focus_danger = 60, focus_critical = 40, skip = {}, alliance = false,
+    heal = { on = true, threshold = 75, danger = 50, critical = 30,
+             focus = '', focus_threshold = 85, focus_danger = 60, focus_critical = 40, skip = {}, alliance = false,
              cure_potency = 0, waltz_potency = 0,  -- +% from gear
              regen_potency = 0,                    -- +HP per Regen tick from gear
              reserve = false },  -- SCH: buff rows leave the last stratagem charge for healing (as v2's, opt-in)
@@ -61,7 +61,7 @@ local DEFAULTS = {
     afk = { on = true, minutes = 10 },  -- sleep after this long with no party movement or combat (core/afk.lua; v2's, on)
     rows = {},
     profiles = {}, profile = '', parked = {},  -- named snapshots (core/profiles.lua)
-    ui = { open = false, hp_width = 220, hp_height = 40, mp_width = 220, mp_height = 18,
+    ui = { open = false, hp_width = 220, hp_height = 40, mp_width = 220, mp_height = 18, tp_width = 220, tp_height = 8,
            name_size = 22, text_size = 14, gap = 8, opacity = 100, locked = false,
            widget = false,  -- the widget, v2's floating one (/sk3 widget)
            japanese = false },  -- send spell, ability and item names in Japanese

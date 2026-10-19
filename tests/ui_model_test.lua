@@ -277,6 +277,14 @@ test('party MP is low under the Recover MP line, only for those who use MP', fun
     eq(keys(view.party, 'uses_mp'), { true, true, false, true })
 end)
 
+test('each party line has its TP; your pet its HP %, MP % and TP', function ()
+    local g = fake.snap({ { name = 'A', tp = 1500 } }, { pet = { name = 'Ifrit', hpp = 80, mpp = 60, tp = 2100, dist = 2 } })
+    local view = build(whm, nil, g)
+    eq(keys(view.party, 'tp'), { 0, 1500 })
+    eq(view.pet, { name = 'Ifrit', hpp = 80, mpp = 60, tp = 2100, dist = '2.0y' })
+    eq(build(whm).pet, nil)
+end)
+
 test('the pointer, stopped: what it would do, at the card of the member it is for', function ()
     local e = { at = 990, action = 'Cure IV', target = 'A', behavior = 'heal', why = 'A at 62%' }
     eq(build(whm, nil, nil, status({ intent = e })).pointer, { text = 'Heal:Cure IV', member = 2, live = false })
@@ -308,6 +316,16 @@ test('the pointer: an action on no one (pet care, sending it in) is on yours; a 
     eq(build(whm, nil, nil, status({ intent = e })).pointer, { text = 'Pet:Deploy', member = 1, live = false })
     e = { at = 990, action = 'Cure IV', target = 'Zed', behavior = 'heal', why = 'Zed at 40%' }  -- not in the party
     eq(build(whm, nil, nil, status({ intent = e })).pointer, { text = 'Heal:Cure IV -> Zed', member = 1, live = false })
+end)
+
+test('the pointer: with a pet out, its care and sending it in are for its card; anything else is not', function ()
+    local g = fake.snap({ { name = 'A' } }, { pet = { name = 'Carbuncle', hpp = 40, dist = 2 } })
+    for _, b in ipairs({ 'pet', 'pet_send' }) do
+        local e = { at = 990, action = 'Healing Ruby', behavior = b, why = 'Carbuncle 40%' }
+        eq(build(whm, nil, g, status({ intent = e })).pointer, { text = 'Pet:Healing Ruby', member = 1, live = false, pet = true })
+    end
+    local e = { at = 990, action = 'Cure IV', target = 'A', behavior = 'heal', why = 'A at 62%' }
+    eq(build(whm, nil, g, status({ intent = e })).pointer, { text = 'Heal:Cure IV', member = 2, live = false })
 end)
 
 test('a long status list is cut short, the whole list kept for the tooltip', function ()
@@ -432,12 +450,51 @@ test('a member who is another session says so, running or not and whether its SK
     eq(build(whm, nil, nil, st).remote, {})
 end)
 
-test('a published view leaves out the HUD\'s pointer and sizes and the views it shows itself', function ()
+test('another session\'s action as it goes: a label at its target\'s line, else at its own player\'s, by session', function ()
+    local st = status({ sessions = sessions(true) })
+    eq(build(whm, nil, nil, st).others, {})  -- nothing going
+    st.sessions.A.act = { behavior = 'heal', action = 'Cure IV', target = 'B' }
+    eq(build(whm, nil, nil, st).others, { { session = 'A', text = 'Heal:Cure IV', member = 3 } })
+    st.sessions.A.act = { behavior = 'song', action = 'Valor Minuet IV' }  -- on itself
+    eq(build(whm, nil, nil, st).others, { { session = 'A', text = 'Song:Valor Minuet IV', member = 2 } })
+    st.sessions.A.act = { behavior = 'pet_send', action = 'Deploy' }  -- its pet's: its own card, not yours
+    eq(build(whm, nil, fake.snap({ { name = 'A' } }, { pet = { name = 'Carbuncle', hpp = 40 } }), st).others,
+       { { session = 'A', text = 'Pet:Deploy', member = 2 } })
+    st.sessions.A.act = { behavior = 'heal', action = 'Cure IV', target = 'Zed' }  -- no line here: named, at its own
+    eq(build(whm, nil, nil, st).others, { { session = 'A', text = 'Heal:Cure IV -> Zed', member = 2 } })
+    st.sessions.Far.act = { behavior = 'heal', action = 'Cure IV', target = 'Me' }  -- no line of its own, but you have one
+    eq(build(whm, nil, nil, st).others, { { session = 'A', text = 'Heal:Cure IV -> Zed', member = 2 },
+                                          { session = 'Far', text = 'Heal:Cure IV', member = 1 } })
+    st.sessions.Far.act = { behavior = 'buff', action = 'Haste', target = 'Zed' }  -- neither has one: no label
+    eq(#build(whm, nil, nil, st).others, 1)
+end)
+
+test('another session\'s action on the alliance, or from it, is at the alliance\'s row', function ()
+    local st = status({ sessions = { Bea = { running = true, members = { { sid = 301, name = 'Bea' } },
+                                             act = { behavior = 'heal', action = 'Cure IV', target = 'Bo' } } } })
+    eq(build(whm, nil, alliance_snap(), st).others, { { session = 'Bea', text = 'Heal:Cure IV', ally = 2 } })
+    st.sessions.Bea.act = { behavior = 'buff', action = 'Protect IV', target = 'A' }
+    eq(build(whm, nil, alliance_snap(), st).others, { { session = 'Bea', text = 'Buff:Protect IV', member = 2 } })
+    st.sessions.Bea.act = { behavior = 'buff', action = 'Protectra V' }
+    eq(build(whm, nil, alliance_snap(), st).others, { { session = 'Bea', text = 'Buff:Protectra V', ally = 1 } })
+end)
+
+test('landing: the last send for a moment, or while it is cast; nothing while stopped', function ()
+    local e = { at = 999, action = 'Cure IV', target = 'A', behavior = 'heal', why = 'A at 62%' }
+    local g = fake.snap({ { name = 'A' } })
+    eq(model.landing(status({ running = true, sent = { e } }), g), e)
+    eq(model.landing(status({ sent = { e } }), g), nil)
+    eq(model.landing(status({ running = true }), g), nil)
+    e.at = 997
+    eq(model.landing(status({ running = true, sent = { e } }), g), nil)
+end)
+
+test('a published view leaves out the HUD\'s labels and sizes and the views it shows itself', function ()
     local view = build(whm, nil, nil, status({ intent = { at = 990, action = 'Cure', target = 'A', behavior = 'heal', why = 'x' } }))
     local out = model.published(view)
-    eq({ out.pointer, out.ui, out.remote, out.job, out.sections == view.sections, out.version },
-       { nil, nil, nil, 'WHM 75 / BLM 37', true, model.VIEW })
-    eq(view.pointer ~= nil, true)  -- the view itself is left as it was
+    eq({ out.pointer, out.others, out.ui, out.remote, out.job, out.sections == view.sections, out.version },
+       { nil, nil, nil, nil, 'WHM 75 / BLM 37', true, model.VIEW })
+    eq({ view.pointer ~= nil, view.others }, { true, {} })  -- the view itself is left as it was
 end)
 
 local function call(fn, ...) return { fn, n = select('#', ...), ... } end

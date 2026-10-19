@@ -71,6 +71,7 @@ local POINTED = 2                       -- seconds the pointer stays on what was
 local POINTED_CAST = 15                 -- ...or while it is still being cast, up to this
 local CAST_REPLY = 2                    -- a cast that began this soon after a spell or item went out is that one
 local CASTS = { ma = true, item = true }
+local FOR_PET = { pet = true, pet_send = true }  -- behaviors whose actions are your pet's: care, and sending it in
 
 -- Rows -----------------------------------------------------------------------
 
@@ -375,7 +376,7 @@ local function party(g, cfg, names, sessions)
             tag = tag, kind = u.kind, name = u.name, alive = u.alive, away = not u.in_zone,
             tracked = u.kind == 'tracked' or u.tracked == true, shared = u.auto,
             job = u.main_lv and jobs(names.job, u.main, u.main_lv, u.sub, u.sub_lv) or nil,
-            hpp = u.hpp, hp = hp_state(u, cfg.heal), mpp = u.mpp, uses_mp = u.uses_mp == true,
+            hpp = u.hpp, hp = hp_state(u, cfg.heal), mpp = u.mpp, uses_mp = u.uses_mp == true, tp = u.tp or 0,
             mp = u.uses_mp and u.mpp < cfg.recover.mp and 'low' or 'ok',
             dist = not u.in_zone and 'away' or u.kind == 'self' and '' or ('%.1fy'):format(u.dist or 0),
             buffs = buffs, buffs_all = all,
@@ -416,36 +417,80 @@ local function entity(e)
     return e and { name = e.name, hpp = e.hpp, dist = ('%.1fy'):format(e.dist or 0) }
 end
 
+-- Your pet: as the battle target, with its MP % and TP.
+local function pet_line(e)
+    local p = entity(e)
+    if p then p.mpp, p.tp = e.mpp or 0, e.tp or 0 end
+    return p
+end
+
 -- Your cast now is the one `e` sent: it is a spell or item, and the cast began
 -- as the server answered it, not later (one you started yourself).
 local function casting(g, e)
     return g.casting and CASTS[e.kind] and g.cast_at ~= nil and g.cast_at >= e.at and g.cast_at - e.at < CAST_REPLY
 end
 
--- What the HUD points at: running, the decision about to go, else what was just
--- sent while it lands; stopped, what it would do. `member` is the party line it
--- is for: the target's, else yours (an action on you, your pet or the enemy);
--- for an alliance member, `ally` is their line instead. A target with no line
--- of its own is named.
-local function pointer(status, g, members, allies)
-    local e = status.intent
-    if status.running and not e then
-        local last = status.sent[1]
-        local age = last and g.now - last.at
-        if age and (age < POINTED or age < POINTED_CAST and casting(g, last)) then e = last end
-    end
-    if not e or not members[1] then return nil end
-    local member, ally = 1, nil
+-- What was just sent, while it lands: for POINTED seconds, or while it is still
+-- being cast up to POINTED_CAST; nil when stopped. The HUD points at it once the
+-- decision is gone, and the session file lists it for the others' (core/share.lua).
+function model.landing(status, g)
+    local last = status.running and status.sent[1]
+    local age = last and g.now - last.at
+    if age and (age < POINTED or age < POINTED_CAST and casting(g, last)) then return last end
+end
+
+-- Where action `e` goes: its target's line, else the line given (`member` in
+-- `members`, or `ally` in `allies`: whoever acts); a line of the alliance's is
+-- `ally` with `member` nil. Returns member, ally and the label, 'Heal:Cure IV',
+-- with the target named when the line isn't theirs.
+local function aim(e, members, allies, member, ally)
     for i, p in ipairs(members) do
-        if p.name == e.target then member = i end
+        if p.name == e.target then member, ally = i, nil end
     end
     for j, p in ipairs(allies) do
         if p.name == e.target then member, ally = nil, j end
     end
     local text = ('%s:%s'):format((e.behavior:gsub('_.*', ''):gsub('^%l', string.upper)), e.action)
     local line = ally and allies[ally] or members[member]
-    if e.target and line.name ~= e.target then text = ('%s -> %s'):format(text, e.target) end
-    return { text = text, member = member, ally = ally, live = status.running }
+    if e.target and not (line and line.name == e.target) then text = ('%s -> %s'):format(text, e.target) end
+    return member, ally, text
+end
+
+-- What the HUD points at: running, the decision about to go, else what was just
+-- sent while it lands; stopped, what it would do. `member` is the party line it
+-- is for: the target's, else yours (an action on you, your pet or the enemy);
+-- for an alliance member, `ally` is their line instead. A target with no line
+-- of its own is named. `pet`: it is your pet's (care, or sending it in), so the
+-- HUD points at its card, under yours.
+local function pointer(status, g, members, allies)
+    local e = status.intent or model.landing(status, g)
+    if not e or not members[1] then return nil end
+    local member, ally, text = aim(e, members, allies, 1, nil)
+    local pet = FOR_PET[e.behavior] and not e.target and g.pet ~= nil or nil
+    return { text = text, member = member, ally = ally, live = status.running, pet = pet }
+end
+
+-- What the other Sidekick sessions on this PC are doing as it goes (each one's
+-- `act`, from its file), by name: a label each, as the pointer's, at its target's
+-- line, else at the line of the session's own player (its action on itself, its
+-- pet or the enemy); none when neither has a line here.
+local function others(status, members, allies)
+    local out = {}
+    for name, s in pairs(status.sessions or {}) do
+        if s.act then
+            local own, own_ally
+            for i, p in ipairs(members) do
+                if p.session and p.session.name == name then own = i end
+            end
+            for j, p in ipairs(allies) do
+                if p.session and p.session.name == name then own_ally = j end
+            end
+            local member, ally, text = aim(s.act, members, allies, own, own_ally)
+            if member or ally then out[#out + 1] = { session = name, text = text, member = member, ally = ally } end
+        end
+    end
+    table.sort(out, function (a, b) return a.session < b.session end)
+    return out
 end
 
 -- The view ---------------------------------------------------------------------
@@ -507,10 +552,10 @@ function model.build(g, cat, cfg, status, names)
     local view = {
         job = jobs(names.job, g.main, g.main_lv, g.sub, g.sub_lv),
         status = status_line(status),
-        bt = entity(g.bt), pet = entity(g.pet),
+        bt = entity(g.bt), pet = pet_line(g.pet),
         flags = {}, recent = {}, sections = {},
-        heal = { danger = h.danger, critical = h.critical, focus = h.focus, alliance = h.alliance,
-                 focus_danger = h.focus_danger, focus_critical = h.focus_critical,
+        heal = { threshold = h.threshold, danger = h.danger, critical = h.critical, focus = h.focus, alliance = h.alliance,
+                 focus_threshold = h.focus_threshold, focus_danger = h.focus_danger, focus_critical = h.focus_critical,
                  cure_potency = h.cure_potency, waltz_potency = h.waltz_potency, regen_potency = h.regen_potency,
                  reserve = h.reserve, stratagems = stratagems,
                  focus_names = focus_names, members = members },
@@ -537,6 +582,7 @@ function model.build(g, cat, cfg, status, names)
     for k, v in pairs(cfg.ui) do view.ui[k] = v end
     view.ui.open = status.open == true  -- shown now: an error closes it for the session alone
     view.pointer = pointer(status, g, view.party, view.alliance)
+    view.others = others(status, view.party, view.alliance)
     for _, f in ipairs(model.FLAGS) do
         if g[f] then view.flags[#view.flags + 1] = REASONS[f] or f end
     end
@@ -568,14 +614,14 @@ function model.build(g, cat, cfg, status, names)
 end
 
 -- What a session publishes of its view for another's SK Settings: all but the
--- HUD's (the pointer and its sizes) and the views it shows of others itself,
+-- HUD's (its labels and sizes) and the views it shows of others itself,
 -- with the view's `version`, VIEW: raise it when a field the window draws changes,
 -- so a session still running older code isn't drawn from a view it can't read.
-model.VIEW = 4
+model.VIEW = 5
 function model.published(view)
     local out = {}
     for k, v in pairs(view) do out[k] = v end
-    out.pointer, out.ui, out.remote = nil, nil, nil
+    out.pointer, out.others, out.ui, out.remote = nil, nil, nil, nil
     out.version = model.VIEW
     return out
 end
@@ -600,8 +646,8 @@ local REMOTE = {
 -- 'maneuver' (a maneuver's name or ''), or a list of the values it takes. A song
 -- slot takes a 'name': one the job lacks is skipped, as a rune's.
 model.REMOTE_SET = {
-    ['heal.danger'] = { 1, 99 }, ['heal.critical'] = { 1, 99 }, ['heal.focus_danger'] = { 1, 99 },
-    ['heal.focus_critical'] = { 1, 99 }, ['heal.cure_potency'] = { 0, 50 }, ['heal.waltz_potency'] = { 0, 50 },
+    ['heal.threshold'] = { 1, 99 }, ['heal.danger'] = { 1, 99 }, ['heal.critical'] = { 1, 99 },
+    ['heal.focus_threshold'] = { 1, 99 }, ['heal.focus_danger'] = { 1, 99 }, ['heal.focus_critical'] = { 1, 99 }, ['heal.cure_potency'] = { 0, 50 }, ['heal.waltz_potency'] = { 0, 50 },
     ['heal.regen_potency'] = { 0, 30 }, ['heal.focus'] = 'name', ['heal.alliance'] = 'bool', ['heal.reserve'] = 'bool',
     ['recover.mp'] = { 1, 99 }, ['recover.tp'] = { 0, 3000 }, ['recover.min_tp'] = { 0, 3000 }, ['pet.heal'] = { 1, 99 },
     ['follow.on'] = 'bool', ['follow.target'] = 'name', ['follow.distance'] = { 1, 15 },
