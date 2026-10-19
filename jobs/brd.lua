@@ -276,7 +276,7 @@ function brd.want(g, cat, cfg, mem)
             -- The songs on one member wait only when it's for someone near too:
             -- otherwise it refreshes what they have and pushes nothing out.
             buff.wait_for(mem, a, near, away)
-            owed = owed or near ~= nil
+            owed = owed or near ~= nil and a
         elseif near then
             local pick = choose(a, area, near)
             if pick then
@@ -285,12 +285,12 @@ function brd.want(g, cat, cfg, mem)
                 if fast then return { action = pick, why = why, mods = { pianissimo }, cancel = PIANISSIMO } end
                 return { action = pick, why = why }
             end
-            owed = true
+            owed = owed or a
         end
     end
-    if owed then return nil end
 
-    -- Each slot's songs on whoever is there, through Pianissimo.
+    -- Each slot's songs on whoever is there, through Pianissimo; while an area
+    -- song is owed they wait (it would push them out), and say for which.
     for slot = 0, 5 do
         local u = by_slot[slot]
         for _, a in ipairs(u and here(u) and own[slot] or {}) do
@@ -298,7 +298,10 @@ function brd.want(g, cat, cfg, mem)
             local short = d or d == nil and lacks(u, a, { own[slot], free(u) > 0 and area or {} })
             local pick = (u.kind == 'self' or (u.dist or math.huge) <= can.yalms(a.range)) and short
                 and choose(a, own[slot], u)
-            if pick then
+            if pick and owed then
+                mem.waiting = mem.waiting or { action = pick, mod = owed }
+                return nil
+            elseif pick then
                 if not (pianissimo and (up or can.use(pianissimo, g))) then
                     if pianissimo then mem.waiting = mem.waiting or { action = pick, mod = pianissimo } end
                     return nil
