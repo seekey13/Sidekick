@@ -92,5 +92,25 @@ test('another session may switch it and set its minutes, held to the slider\'s r
     eq({ model.apply(act, cfg, call('section', 'afk', false), cat), cfg.afk.on }, { true, false })
     eq({ model.apply(act, cfg, call('set', 'afk.minutes', 90), cat), cfg.afk.minutes }, { true, afk.MAX })
     eq({ model.apply(act, cfg, call('set', 'afk.minutes', 0), cat), cfg.afk.minutes }, { true, afk.MIN })
+    eq({ model.apply(act, cfg, call('set', 'afk.on', true), cat), cfg.afk.on }, { true, true })
     eq(model.apply(act, cfg, call('set', 'afk.on', 'yes'), cat), false)
+end)
+
+test('changing the minutes starts the wait over, so a slider dragged down never sleeps at once', function ()
+    local cfg, st = settings.defaults(), {}
+    afk.update(at(0), cfg, st)
+    eq(afk.update(at(480), cfg, st), false)
+    cfg.afk.minutes = 5
+    eq(afk.update(at(481), cfg, st), false)
+    eq(afk.left(at(481), cfg, st), 300)
+    eq(afk.update(at(781), cfg, st), true)
+end)
+
+test('a start (the run icon, a remote one, /sk3 start) asks for the wait to start over, even while running', function ()
+    local st = { running = true }
+    local act = model.actions(settings.defaults(), st, function () end, {}, nil)
+    act.run(false)
+    eq(st.restart, nil)
+    act.run(true)
+    eq({ st.running, st.restart }, { true, true })
 end)

@@ -49,8 +49,11 @@ test('WHM 75 / BLM 37: every section, in order, each under its header, then UI /
     eq(keys(view.sections, 'header'), { 'Profiles', 'Follow', 'Heal', 'Heal', 'Remove', 'Remove', 'Buff', 'Recover', 'Recover',
         'Tracked', 'AFK', 'UI / Log' })
     local on = {}
-    for i = 2, #view.sections do on[i - 1] = view.sections[i].on end
-    eq(on, { false, true, true, true, true, true, true, false, [10] = true })  -- Profiles, Tracked, UI / Log: no switch
+    for i = 2, #view.sections do
+        if view.sections[i].id ~= 'afk' then on[#on + 1] = view.sections[i].on end
+    end
+    eq(on, { false, true, true, true, true, true, true, false })  -- Profiles, Tracked, UI / Log: no switch
+    eq(section(view, 'afk').on, true)
     eq({ section(view, 'profile').on, section(view, 'track').on, section(view, 'ui').on }, { nil, nil, nil })
     local cfg = settings.defaults()
     cfg.ui.on = true  -- a custom UI's own key

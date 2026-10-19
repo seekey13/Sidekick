@@ -33,8 +33,8 @@ local settings = require('core.settings')
 local model = {}
 
 -- Settings sections in order, each under its `header` (headers in the order
--- their first section comes). Every section but 'profile', 'track', 'afk' and 'ui' is a behavior;
--- all but 'profile', 'track' and 'ui' are switched by cfg[id].on; one with roles also has rows. Wake shows only when a heal can wake,
+-- their first section comes). 'profile', 'track' and 'ui' have no switch; every
+-- other section is switched by cfg[id].on, and all but 'afk' are behaviors; one with roles also has rows. Wake shows only when a heal can wake,
 -- Rolls only for a job with rolls, Songs only with a song (BRD, main or sub), Geomancy only
 -- with a Geo- spell (a GEO main job), Runes only with a rune (RUN, main or sub), Maneuvers
 -- only with a maneuver (PUP, main or sub).
@@ -605,7 +605,7 @@ model.REMOTE_SET = {
     ['recover.mp'] = { 1, 99 }, ['recover.tp'] = { 0, 3000 }, ['recover.min_tp'] = { 0, 3000 }, ['pet.heal'] = { 1, 99 },
     ['follow.on'] = 'bool', ['follow.target'] = 'name', ['follow.distance'] = { 1, 15 },
     ['rest.on'] = 'bool', ['rest.delay'] = { 1, 20 }, ['rest.distance'] = { 1, 15 },
-    ['afk.minutes'] = { afk.MIN, afk.MAX },
+    ['afk.on'] = 'bool', ['afk.minutes'] = { afk.MIN, afk.MAX },
     ['buff.hold_aoe'] = 'bool', ['buff.gather'] = 'bool', ['buff.one_shadow'] = 'bool',
     ['roll.first'] = 'name', ['roll.second'] = 'name', ['roll.risk'] = { list = cor.RISKS },
     ['geo.distance'] = { 3, 30 }, ['geo.linger'] = { 1, 20 }, ['geo.entrust'] = 'name', ['geo.entrust_spell'] = 'name',
@@ -692,7 +692,11 @@ end
 function model.actions(cfg, status, changed, tracking, send)
     local act = {}
     -- This session only: automation always starts stopped, the log as set.
-    function act.run(on) status.running = on end
+    -- A start also wakes AFK sleep and starts its wait over (Sidekick3.lua), as v2.
+    function act.run(on)
+        status.running = on
+        if on then status.restart = true end
+    end
     function act.log(on) status.log = on end
     function act.close()
         status.open, cfg.ui.open = false, false

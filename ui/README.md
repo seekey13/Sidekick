@@ -188,7 +188,7 @@ In this order. A section with rows is left out when your job has none for it (Pe
 | `'heal.regen_potency'` | 0 to 30 |
 | `'recover.mp'`, `'pet.heal'` | 1 to 99 |
 | `'recover.tp'`, `'recover.min_tp'` | 0 to 3000 |
-| `'follow.on'`, `'rest.on'`, `'heal.alliance'`, `'heal.reserve'`, `'buff.hold_aoe'`, `'buff.gather'`, `'song.fast'` | bool |
+| `'follow.on'`, `'rest.on'`, `'afk.on'`, `'heal.alliance'`, `'heal.reserve'`, `'buff.hold_aoe'`, `'buff.gather'`, `'song.fast'` | bool |
 | `'follow.target'` | a name from `view.follow.names`, or `''` |
 | `'roll.first'`, `'roll.second'` | a name from `view.roll.choices`, or `''` |
 | `'roll.risk'` | one of `view.roll.risks` |

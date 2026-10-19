@@ -83,6 +83,7 @@ local status = {
     sessions = {},    -- the other Sidekick sessions on this PC (core/share.lua), by name...
     watching = {},    -- ...those whose SK Settings are shown here: { [name] = true }...
     views = {},       -- ...and the views they published for it
+    restart = nil,    -- automation just started: AFK sleep starts over (core/afk.lua)
 }
 local SENT_KEPT = 10
 
@@ -116,6 +117,7 @@ local function refresh(now)
         -- The window stays as it is across a job change; only /sk3 and its close button move it.
         if status.open == nil then status.open = cfg.ui.open end
         -- AFK sleep counts only while running, and starts over on a start or a job change.
+        if status.restart then mem.afk, status.restart = nil, nil end
         if status.running then
             mem.afk = mem.afk or {}
             local said
@@ -336,8 +338,8 @@ local function afk_command(w, g)
     if not cfg.afk.on then printf('AFK sleep off.'); return end
     local st = mem.afk or {}
     local left = afk.left(g, cfg, st)
-    local now = st.asleep and 'asleep: move to wake' or left and ('sleeps in %d min'):format(math.ceil(left / 60))
-        or 'counting while running'
+    local now = not status.running and 'counts only while running' or st.asleep and 'asleep: move to wake'
+        or left and ('sleeps in %d min'):format(math.ceil(left / 60)) or 'starts counting now'
     printf('AFK sleep after %d min with no party movement or combat (%s).', cfg.afk.minutes, now)
 end
 
@@ -411,6 +413,7 @@ local function run_command(me, on, who)
     end
     if here then
         status.running = on
+        if on then status.restart = true end  -- wakes AFK sleep, as the run icon's start
         printf('Automation %s.', on and 'started' or 'stopped')
     end
     if others[1] and not me then printf('Other sessions can\'t be reached until your game has loaded.'); return end

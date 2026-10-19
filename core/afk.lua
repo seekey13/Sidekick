@@ -10,9 +10,11 @@
     following goes on (asleep, nothing would send /follow; v2 then stopped
     following once the game's own /follow was lost).
 
-    Its memory (`st`) is the caller's: when you were last seen active and whether
-    asleep. Sidekick3.lua keeps it in the engine's memory, so a job change starts
-    a full wait, and drops it while automation is stopped, so a start does too.
+    Its memory (`st`) is the caller's: when you were last seen active, the
+    minutes counted with, and whether asleep. Sidekick3.lua keeps it in the
+    engine's memory, so a job change starts a full wait, and drops it on a start
+    and while automation is stopped, so a start does too. Changing the minutes
+    starts the wait over too, as v2 (a slider dragged down never sleeps at once).
 ]]--
 
 local follow = require('behaviors.follow')
@@ -44,6 +46,7 @@ function afk.update(g, cfg, st)
         if leaving then return false, ('AFK: %s is leaving. Automation resumed to follow.'):format(leaving.target.name) end
         return false, 'AFK: you moved. Automation resumed.'
     end
+    if st.minutes ~= cfg.afk.minutes then st.still, st.minutes = nil, cfg.afk.minutes end
     if not st.still or g.combat or moved(g) then st.still = g.now; return false end
     if g.now - st.still < cfg.afk.minutes * 60 then return false end
     st.asleep = true
