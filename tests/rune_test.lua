@@ -12,9 +12,7 @@ local IGNIS, TELLUS, VALLATION, VALIANCE, EMBOLDEN, LIEMENT, INVISIBLE = 523, 52
 local JAS = { 'Ignis', 'Gelus', 'Tellus', 'Vallation', 'Valiance', 'Pflug', 'Embolden', 'Swordplay' }
 local cat = fake.catalog(RUN, 75, BLM, 37, JAS)
 
-local function named(list, name, role)
-    for _, a in ipairs(list) do if a.name == name and (not role or a.role == role) then return a end end
-end
+local named = fake.named
 
 -- RUN 75 (or `over`'s jobs) with these statuses on you, counted: { [id] = n }.
 local function snap(stacks, over, waits)

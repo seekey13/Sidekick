@@ -10,9 +10,7 @@ local cat = fake.catalog(DNC, 75, WHM, 37, { 'Curing Waltz', 'Curing Waltz II', 
     'Curing Waltz IV', 'Divine Waltz', 'Healing Waltz', 'Drain Samba', 'Aspir Samba', 'Haste Samba',
     'Saber Dance', 'Fan Dance', 'No Foot Rise', 'Reverse Flourish', 'Presto' })
 
-local function named(list, name)
-    for _, a in ipairs(list) do if a.name == name then return a end end
-end
+local named = fake.named
 
 -- DNC 75 / WHM 37 with `tp`, these statuses on you, and `others`; `over` sets snapshot fields.
 local function snap(tp, buffs, others, over)

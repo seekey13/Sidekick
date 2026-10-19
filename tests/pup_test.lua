@@ -14,9 +14,7 @@ local OIL, OIL1, OIL3, BISCUIT = 18731, 18732, 19185, 17016
 local JAS = { 'Fire Maneuver', 'Ice Maneuver', 'Light Maneuver', 'Repair', 'Maintenance', 'Role Reversal', 'Deploy' }
 local cat = fake.catalog(PUP, 75, WHM, 37, JAS)
 
-local function named(list, name)
-    for _, a in ipairs(list) do if a.name == name then return a end end
-end
+local named = fake.named
 
 local function automaton(t)
     local p = { name = 'Automaton', hpp = 100, dist = 3, status = 0, buffs = {} }

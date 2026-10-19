@@ -36,11 +36,7 @@ local function step(g, cfg, mem)
     return cmd, intent
 end
 
-local function named(list, name, role)
-    for _, a in ipairs(list) do
-        if a.name == name and (not role or a.role == role) then return a end
-    end
-end
+local named = fake.named
 
 test('catalog: the stratagems are modifiers that say which spells they fit', function ()
     local pen, per, acc, par = named(cat, 'Penury', 'modifier'), named(cat, 'Perpetuance'),

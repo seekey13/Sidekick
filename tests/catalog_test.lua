@@ -23,11 +23,7 @@ local function build(main, main_lv, sub, sub_lv, jas, unlearned)
     }, K)
 end
 
-local function find(cat, name, role)
-    for _, a in ipairs(cat) do
-        if a.name == name and (role == nil or a.role == role) then return a end
-    end
-end
+local find = require('tests.fake').named
 
 test('split parses roman and ninjutsu tiers, leaves other names alone', function ()
     eq({ catalog.split('Cure IV') }, { 'Cure', 4 })

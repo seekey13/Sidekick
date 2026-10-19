@@ -8,9 +8,7 @@ local BRD, WHM = 10, 3
 local MINUET, MARCH, BALLAD, PIANISSIMO, INVISIBLE, NIGHTINGALE, TROUBADOUR = 198, 214, 196, 409, 69, 347, 348
 local cat = fake.catalog(BRD, 75, WHM, 37, { 'Pianissimo', 'Nightingale', 'Troubadour' })
 
-local function named(list, name)
-    for _, a in ipairs(list) do if a.name == name then return a end end
-end
+local named = fake.named
 
 -- BRD 75 / WHM 37 with `others`; `buffs` on you, as stacks (an id twice stands twice).
 local function snap(others, buffs, over, waits)

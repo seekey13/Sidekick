@@ -8,9 +8,7 @@ local fake = require('tests.fake')
 local BST, WAR, WHM = 9, 1, 3
 local JAS = { 'Wild Carrot', 'Sudden Lunge', 'Reward' }
 
-local function named(list, name)
-    for _, a in ipairs(list) do if a.name == name then return a end end
-end
+local named = fake.named
 
 local function rabbit(t)
     local p = { name = 'KeenearedSteffi', hpp = 100, dist = 3, pos = { 0, 0, 0 }, status = 0, buffs = {} }

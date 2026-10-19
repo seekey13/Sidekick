@@ -59,6 +59,13 @@ function fake.snap(others, over, waits)
     return g
 end
 
+-- The action in `list` named `name` (of `role`, when given), else nil.
+function fake.named(list, name, role)
+    for _, a in ipairs(list) do
+        if a.name == name and (not role or a.role == role) then return a end
+    end
+end
+
 -- The engine's decision on `g` from catalog `cat` (`cfg` the defaults, `mem` a fresh
 -- one when nil): the command it would send and the intent, or nil and why not.
 function fake.decide(g, cat, cfg, mem)

@@ -14,11 +14,7 @@ local COCOON, METALLIC, REFUELING, HEALING_BREEZE = 547, 517, 530, 581  -- spell
 local DEFENSE_BOOST, DIFFUSION, UNBRIDLED = 93, 356, 485
 local cat = fake.catalog(BLU, 75, WHM, 37, { 'Diffusion', 'Unbridled Learning' })
 
-local function named(list, name, role)
-    for _, a in ipairs(list) do
-        if a.name == name and (not role or a.role == role) then return a end
-    end
-end
+local named = fake.named
 
 -- The catalog for BLU 75 / WHM 37 with only `set` (spell ids) set, and these job abilities.
 local function with_set(set, jas)

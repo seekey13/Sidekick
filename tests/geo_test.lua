@@ -12,11 +12,7 @@ local HASTE, FURY, BLAZE, ENTRUST = 580, 549, 569, 584  -- statuses
 local JAS = { 'Full Circle', 'Blaze of Glory', 'Entrust', 'Radial Arcana' }
 local cat = fake.catalog(GEO, 75, nil, 0, JAS)
 
-local function named(list, name, role)
-    for _, a in ipairs(list) do
-        if a.name == name and (not role or a.role == role) then return a end
-    end
-end
+local named = fake.named
 
 -- GEO 75 with `others` in slots 1..n; `pet` (a luopan) at `pet_at` yalms along x from you.
 local function snap(others, over, waits, pet_at)
