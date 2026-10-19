@@ -135,6 +135,9 @@ test('a ward that is off, has no runes picked or is blocked takes nothing: the n
     cfg.rows.Vallation, cfg.rune.vallation_1 = nil, ''
     eq(select(2, decide(snap(), cfg)).why, 'for Valiance')
     eq(decide(snap({ [LIEMENT] = 1 }), cfg), '/ja "Ignis" <me>', 'Liement stops both')
+    local valiance = named(cat, 'Valiance')
+    eq({ require('core.can').use(valiance, snap({ [LIEMENT] = 1 })) }, { false, 'blocked by Liement' },
+        'the row names the status that is up')
 end)
 
 test('nothing goes while you are Invisible, off RUN or with Runes off', function ()

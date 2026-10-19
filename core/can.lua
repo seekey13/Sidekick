@@ -9,6 +9,7 @@
     `a` is a catalog record, `u` a unit and `g` the snapshot from core/game.lua.
 ]]--
 
+local dnc = require('jobs.dnc')
 local nin = require('jobs.nin')
 
 local can = {}
@@ -89,15 +90,17 @@ function can.use(a, g)
     if a.kind == 'ma' and g.silenced then return false, 'silenced' end
     if (a.kind == 'ja' or a.kind == 'pet') and g.amnesia then return false, 'amnesia' end
     if (a.mp or 0) > g.me.mp then return false, 'MP' end
-    if (a.tp or 0) > 0 and a.tp > g.me.tp then return false, 'TP' end
+    if dnc.tp(a, g) > g.me.tp then return false, 'TP' end
     if a.ammo and not can.holds(a.ammo, g.ammo) then return false, 'no ammo' end
     if a.tool and nin.tools(a, g) == 0 then return false, 'no tools' end
     if a.kind == 'item' and not (g.items and g.items[a.id]) then return false, 'none left' end
     -- An Addendum spell can go through Enlightenment instead (core/catalog.lua), fired first by the engine.
     if a.requires and not any(g.me.buffs, a.requires) and not (a.via and can.use(a.via, g)) then
-        return false, 'needs a status'
+        return false, 'needs ' .. (a.names and a.names[a.requires[1]] or 'a status')
     end
-    if any(g.me.buffs, a.blocked_by) then return false, 'blocked by a status' end
+    for _, id in ipairs(a.blocked_by or {}) do
+        if g.me.buffs[id] then return false, 'blocked by ' .. (a.names and a.names[id] or 'a status') end
+    end
     if a.gate == 'combat' and not g.combat then return false, 'combat only' end
     if a.gate == 'idle' and g.combat then return false, 'idle only' end
     if a.pet then

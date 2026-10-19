@@ -59,6 +59,18 @@ local function ids(v, idx, what)
     return out
 end
 
+-- Status id -> its name, for the ids in these lists: what can.use names as blocking or needed.
+local function names(statuses, ...)
+    local out
+    for _, list in pairs({ ... }) do
+        for _, id in ipairs(list) do
+            out = out or {}
+            out[id] = statuses[id] and statuses[id].en
+        end
+    end
+    return out
+end
+
 -- Knowledge uses for one action: exact name beats family; a use may be kind-specific.
 local function uses(K, name, family, kind)
     local row = K[name] or K[family]
@@ -117,7 +129,7 @@ function catalog.build(res, player, K)
                                             potency = use.boost.potency, area = use.boost.area,
                                             mp = use.boost.mp or 1, tiers = use.boost.tiers },
                     duration = type(use.duration) == 'table' and use.duration[tier] or use.duration,
-                    wakes = use.wakes, gives = use.gives, gate = use.gate, pick_one = use.pick_one,
+                    wakes = use.wakes, trance = use.trance, gives = use.gives, gate = use.gate, pick_one = use.pick_one,
                     costs_hp = use.costs_hp, swaps = use.swaps, spends_tp = use.spends_tp,
                     ammo = use.ammo, pet_range = use.pet_range, tool = use.tool, last_shadow = use.last_shadow,
                     applies = use.applies, spreads = use.spreads, chip = use.chip, addendum = addendum or nil,
@@ -132,6 +144,8 @@ function catalog.build(res, player, K)
                     element = row.element, skill = row.skill, type = row.type,
                     from = from, level = level,
                 }
+                local a = out[#out]
+                a.names = names(res.statuses, a.blocked_by or {}, a.requires or {})
             end
         end
     end
