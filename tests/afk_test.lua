@@ -59,6 +59,22 @@ test('with Follow on, the leader getting past its distance wakes it, so followin
     eq(afk.update(at(141, nil, { { name = 'A', dist = 30 } }), cfg, st), true)
 end)
 
+test('profiles never change it: a load, Default or New leaves it as it is', function ()
+    local profiles = require('core.profiles')
+    local cfg = settings.defaults()
+    cfg.afk.on, cfg.afk.minutes = false, 30
+    profiles.save(cfg, 'EXP')
+    cfg.afk.on = true
+    profiles.load(cfg, 'EXP')
+    eq(cfg.afk, { on = true, minutes = 30 })
+    cfg.afk.on = false
+    profiles.new(cfg)
+    eq(cfg.afk, { on = false, minutes = 30 })
+    cfg.profiles.Old = { heal = { danger = 40 } }  -- saved before AFK sleep existed
+    profiles.load(cfg, 'Old')
+    eq(cfg.afk, { on = false, minutes = 30 })
+end)
+
 test('off: never asleep, and turned on again it waits the whole time', function ()
     local cfg, st = settings.defaults(), {}
     cfg.afk.minutes = 1
