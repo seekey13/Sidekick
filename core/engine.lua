@@ -13,7 +13,8 @@
     (intent.cancel: Utsusemi's last shadow, jobs/nin.lua).
     Modifiers: an intent may list intent.mods (stratagems a buff row turned on,
     Snake Eye before a Double-Up, Blaze of Glory before a luopan, Entrust before
-    an Indi- on a member, Embolden before enhancing magic), and an Addendum
+    an Indi- on a member, Embolden before enhancing magic, Pianissimo before a
+    song on one member), and an Addendum
     spell you lack the Addendum for has action.via (Enlightenment), as an
     Unbridled spell does (Unbridled Learning, jobs/blu.lua).
     One whose status isn't on you goes first, alone; its status is then taken as
@@ -38,6 +39,7 @@ engine.BEHAVIORS = {
     { name = 'rune', run = require('jobs.run').want, quick = true },
     { name = 'geo', run = require('jobs.geo').want },
     { name = 'buff', run = require('behaviors.buff').want },
+    { name = 'song', run = require('jobs.brd').want },
     { name = 'pet_send', run = pet.send, setting = 'pet', quick = true },
     { name = 'maneuver', run = require('jobs.pup').want, quick = true },
     { name = 'follow', run = require('behaviors.follow').want },

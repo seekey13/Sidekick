@@ -46,8 +46,11 @@ local DEFAULTS = {
     rune = { on = true },
     -- PUP: the maneuver per slot, by name ('' for none; jobs/pup.lua). Every slot starts empty.
     maneuver = { on = true, slot_1 = '', slot_2 = '', slot_3 = '' },
+    -- BRD: each target's songs by name ('' for none): area_1, area_2, then each
+    -- party slot's, me_ and p1_ to p5_ (jobs/brd.lua). Every slot starts empty.
+    song = { on = true },
     buff = { on = true,
-             hold_aoe = false,  -- hold an area buff spell (Protectra, songs) until the party's players gather
+             hold_aoe = false,  -- hold an area buff spell (Protectra, songs, rolls) until the party's players gather
              gather = true,     -- ...and ask them to in party chat
              one_shadow = false },  -- NIN: recast Utsusemi at its last shadow (v2's Cast with 1 Shadow)
     revive = { on = true },
@@ -61,6 +64,9 @@ local DEFAULTS = {
 }
 for _, set in ipairs({ 'idle', 'vallation', 'valiance', 'pflug' }) do
     for i = 1, 3 do DEFAULTS.rune[set .. '_' .. i] = '' end
+end
+for _, set in ipairs({ 'area', 'me', 'p1', 'p2', 'p3', 'p4', 'p5' }) do
+    for i = 1, 2 do DEFAULTS.song[set .. '_' .. i] = '' end
 end
 local UI_FILE = 'ui'
 

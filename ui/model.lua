@@ -19,6 +19,7 @@
 ]]--
 
 local ammo = require('core.ammo')
+local brd = require('jobs.brd')
 local can = require('core.can')
 local cor = require('jobs.cor')
 local nin = require('jobs.nin')
@@ -33,8 +34,9 @@ local model = {}
 -- Settings sections in order, each under its `header` (headers in the order
 -- their first section comes). Every section but 'profile', 'track' and 'ui' is a behavior,
 -- switched by cfg[id].on; one with roles also has rows. Wake shows only when a heal can wake,
--- Rolls only for a job with rolls, Geomancy only with a Geo- spell (a GEO main job),
--- Runes only with a rune (RUN, main or sub), Maneuvers only with a maneuver (PUP, main or sub).
+-- Rolls only for a job with rolls, Songs only with a song (BRD, main or sub), Geomancy only
+-- with a Geo- spell (a GEO main job), Runes only with a rune (RUN, main or sub), Maneuvers
+-- only with a maneuver (PUP, main or sub).
 model.SECTIONS = {
     { id = 'profile', title = 'Profiles', header = 'Profiles', switch = false },
     { id = 'follow', title = 'Follow', header = 'Follow' },
@@ -44,6 +46,7 @@ model.SECTIONS = {
     { id = 'remove', title = 'Debuff removal', roles = { 'remove' }, header = 'Remove' },
     { id = 'buff', title = 'Buffs', roles = { 'buff' }, header = 'Buff' },
     { id = 'roll', title = 'Rolls', header = 'Buff' },
+    { id = 'song', title = 'Songs', header = 'Buff' },
     { id = 'geo', title = 'Geomancy', roles = { 'geo' }, header = 'Buff' },
     { id = 'rune', title = 'Runes', header = 'Buff' },
     { id = 'pet', title = 'Pet', roles = { 'pet_heal', 'pet_remove', 'pet_send' }, header = 'Pet' },
@@ -284,6 +287,31 @@ local function maneuvers(g, cat, cfg)
     return out
 end
 
+-- BRD: the songs to pick from, and each target's picks (jobs/brd.lua): Area, then
+-- each party slot with who is in it; `pianissimo` false when you have none (under
+-- BRD 20), so the songs on one member can't go.
+local function songs(g, cat, cfg, units)
+    local mine, pianissimo = brd.actions(cat)
+    local out = { slots = brd.slots(g), choices = {}, sets = {}, pianissimo = pianissimo ~= nil }
+    for _, a in ipairs(cat) do  -- in id order: each kind's tiers together
+        if mine[a.name] == a then
+            out.choices[#out.choices + 1] = { name = a.name, label = ('%s (%s)'):format(a.name, a.note) }
+        end
+    end
+    if not out.choices[1] then return out end
+    for _, set in ipairs(brd.SETS) do
+        local e = { key = set.key, label = set.label, picks = {} }
+        for i = 1, brd.SLOTS do e.picks[i] = cfg.song[set.key .. '_' .. i] end
+        if set.slot then
+            local u = units[set.slot]
+            e.name, e.present = u and u.name, u ~= nil
+        end
+        out.sets[#out.sets + 1] = e
+    end
+    if pianissimo then out.ready, out.avail = availability({ pianissimo }, {}, g) end
+    return out
+end
+
 -- Status and party -----------------------------------------------------------
 
 local function reason(why) return REASONS[why] or why or '' end
@@ -492,6 +520,7 @@ function model.build(g, cat, cfg, status, names)
                  two = g.main == cor.JOB, choices = rolls, last = last },
         geo = { distance = cfg.geo.distance, linger = cfg.geo.linger, entrust = cfg.geo.entrust,
                 entrust_spell = cfg.geo.entrust_spell, indi = indi, names = party_names },
+        song = songs(g, cat, cfg, units),
         rune = runes(g, cat, cfg),
         maneuver = maneuvers(g, cat, cfg),
         -- Your target, by name, when it's a player who could be tracked: not in the party, not tracked yet.
@@ -524,6 +553,7 @@ function model.build(g, cat, cfg, status, names)
         local shown = not section.rows or #section.rows > 0
         if s.id == 'wake' then shown = wakes end
         if s.id == 'roll' then shown = rolls[1] ~= nil end
+        if s.id == 'song' then shown = view.song.choices[1] ~= nil end
         if s.id == 'geo' then shown = luopans end
         if s.id == 'rune' then shown = view.rune.runes[1] ~= nil end
         if s.id == 'maneuver' then shown = view.maneuver.choices[1] ~= nil end
@@ -562,7 +592,8 @@ local REMOTE = {
 
 -- The settings act.set may change from another session: a number's range (the
 -- standard window's sliders), 'bool', 'name' (a member, a spell, a roll or ''),
--- 'maneuver' (a maneuver's name or ''), or a list of the values it takes.
+-- 'maneuver' (a maneuver's name or ''), or a list of the values it takes. A song
+-- slot takes a 'name': one the job lacks is skipped, as a rune's.
 model.REMOTE_SET = {
     ['heal.danger'] = { 1, 99 }, ['heal.critical'] = { 1, 99 }, ['heal.focus_danger'] = { 1, 99 },
     ['heal.focus_critical'] = { 1, 99 }, ['heal.cure_potency'] = { 0, 50 }, ['heal.waltz_potency'] = { 0, 50 },
@@ -578,6 +609,9 @@ for _, set in ipairs(run.SETS) do
     for i = 1, run.SLOTS do model.REMOTE_SET[run.path(set.key, i)] = 'name' end
 end
 for i = 1, pup.SLOTS do model.REMOTE_SET[pup.path(i)] = 'maneuver' end
+for _, set in ipairs(brd.SETS) do
+    for i = 1, brd.SLOTS do model.REMOTE_SET[brd.path(set.key, i)] = 'name' end
+end
 
 -- `value` for act.set's `path` from another session, held to its range; nil when
 -- it's not one REMOTE_SET lists or not a value it takes.
@@ -658,7 +692,7 @@ function model.actions(cfg, status, changed, tracking, send)
         status.open, cfg.ui.open = false, false
         changed()
     end
-    -- id: a section with a switch: 'follow' | 'heal' | 'revive' | 'wake' | 'remove' | 'buff' | 'roll' | 'geo' | 'rune' | 'pet' | 'maneuver'
+    -- id: a section with a switch: 'follow' | 'heal' | 'revive' | 'wake' | 'remove' | 'buff' | 'roll' | 'song' | 'geo' | 'rune' | 'pet' | 'maneuver'
     -- | 'recover' | 'rest'
     function act.section(id, on)
         cfg[id].on = on
@@ -724,7 +758,7 @@ function model.actions(cfg, status, changed, tracking, send)
         changed()
     end
     -- path: 'heal.danger', 'heal.alliance', 'heal.reserve', 'buff.hold_aoe', 'roll.first', 'roll.risk', 'geo.distance',
-    -- 'geo.entrust', 'geo.entrust_spell', 'rune.idle_1', 'maneuver.slot_1', 'follow.target',
+    -- 'geo.entrust', 'geo.entrust_spell', 'rune.idle_1', 'maneuver.slot_1', 'song.area_1', 'song.p1_2', 'follow.target',
     -- 'japanese', 'ui.hp_width', or 'ui.<anything>' for a UI's own.
     function act.set(path, value)
         if path == 'japanese' then path = 'ui.japanese' end  -- shared by every job pair, as the HUD
