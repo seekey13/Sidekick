@@ -456,6 +456,11 @@ local function note(pg, s, color)
     end
 end
 
+-- Whether something can go now, ending at `right`: 'ready' in teal, else why not, dim.
+local function readiness(pg, right, cy, avail, ready)
+    kit.text_right(pg.dl, right, cy, avail, ready and P.teal or P.dim, kit.fonts.text, S(SMALL + 0.5), pg.alpha)
+end
+
 -- A group's heading inside a section: capitals in teal, a line after.
 local function subheader(pg, s)
     pg.y = pg.y + S(8)
@@ -761,7 +766,7 @@ local function draw_runes(view, pg)
         end
         for i = 1, r.slots do rune_pick(set, i, r.runes, pg.lx + col + (i - 1) * (w + gap), cy, w, pg.alpha) end
         if set.ward then
-            kit.text_right(pg.dl, pg.right, cy, set.avail, set.ready and P.teal or P.dim, kit.fonts.text, S(SMALL + 0.5), pg.alpha)
+            readiness(pg, pg.right, cy, set.avail, set.ready)
         end
     end
 end
@@ -776,7 +781,7 @@ local function draw_maneuvers(view, pg)
             kit.tooltip('The same element in two slots keeps two up.')
         end
     end
-    kit.text_right(pg.dl, pg.right, cy, m.avail, m.ready and P.teal or P.dim, kit.fonts.text, S(SMALL + 0.5), pg.alpha)
+    readiness(pg, pg.right, cy, m.avail, m.ready)
 end
 
 -- Each tracked player with its Untrack button (one who joined your party or alliance too), then Track for your
@@ -952,7 +957,7 @@ local function family_row(pg, sid, r)
     local px = S(SMALL + 0.5)
     local aw = kit.measure(r.avail, kit.fonts.text, px)
     local ax = sx - S(12) - aw
-    kit.text_mid(pg.dl, ax, cy, r.avail, r.ready and P.teal or P.dim, kit.fonts.text, px, pg.alpha)
+    readiness(pg, sx - S(12), cy, r.avail, r.ready)
     if r.action and kit.over(ax, cy - S(10), aw, S(20)) then kit.tooltip(r.action) end
     local label = n and ('%s (%d)'):format(r.label, n) or r.label
     kit.text_mid(pg.dl, pg.lx, cy, kit.fit(label, ax - S(12) - pg.lx, kit.fonts.text, S(BODY)), r.on and P.text or P.dim,

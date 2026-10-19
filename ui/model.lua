@@ -590,6 +590,9 @@ function model.build(g, cat, cfg, status, names)
         view.recent[#view.recent + 1] = { age = math.floor(g.now - e.at), text = model.action_text(e),
                                           why = ('%s: %s'):format(e.behavior, e.why) }
     end
+    -- Sections shown only for a job that has what they keep up; any other with rows only while it has some.
+    local has = { wake = wakes, roll = rolls[1] ~= nil, song = view.song.choices[1] ~= nil, geo = luopans,
+                  rune = view.rune.runes[1] ~= nil, maneuver = view.maneuver.choices[1] ~= nil }
     for _, s in ipairs(model.SECTIONS) do
         local section = { id = s.id, title = s.title, header = s.header }
         if s.switch ~= false then section.on = cfg[s.id].on end  -- cfg.ui.on would be a UI's own
@@ -601,13 +604,8 @@ function model.build(g, cat, cfg, status, names)
                 section.has_mods = section.has_mods or r.mods ~= nil
             end
         end
-        local shown = not section.rows or #section.rows > 0
-        if s.id == 'wake' then shown = wakes end
-        if s.id == 'roll' then shown = rolls[1] ~= nil end
-        if s.id == 'song' then shown = view.song.choices[1] ~= nil end
-        if s.id == 'geo' then shown = luopans end
-        if s.id == 'rune' then shown = view.rune.runes[1] ~= nil end
-        if s.id == 'maneuver' then shown = view.maneuver.choices[1] ~= nil end
+        local shown = has[s.id]
+        if shown == nil then shown = not section.rows or #section.rows > 0 end
         if shown then view.sections[#view.sections + 1] = section end
     end
     return view
