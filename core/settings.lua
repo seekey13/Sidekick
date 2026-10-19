@@ -48,8 +48,9 @@ local DEFAULTS = {
     maneuver = { on = true, slot_1 = '', slot_2 = '', slot_3 = '' },
     -- BRD: each target's songs by name ('' for none): area_1, area_2, then each
     -- party slot's, me_ and p1_ to p5_ (jobs/brd.lua). Every slot starts empty.
-    -- `duration`: Song Duration, seconds after a song lands to sing it again (BRD 75 main; 0 off).
-    song = { on = true, duration = 0 },
+    -- `duration`: Song Duration, seconds after a song lands to sing it again (BRD 75 main; 0 off);
+    -- `fast`: Pianissimo fast casting, an area song through Pianissimo cancelled mid-cast.
+    song = { on = true, duration = 0, fast = false },
     buff = { on = true,
              hold_aoe = false,  -- hold an area buff spell (Protectra, songs, rolls) until the party's players gather
              gather = true,     -- ...and ask them to in party chat

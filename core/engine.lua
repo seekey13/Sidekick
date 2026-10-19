@@ -10,7 +10,8 @@
     A buff held for the group to gather (behaviors/buff.lua) leaves mem.gather,
     which engine.gather turns into a party chat line.
     An intent may name a status of yours to cancel a moment into its cast
-    (intent.cancel: Utsusemi's last shadow, jobs/nin.lua).
+    (intent.cancel: Utsusemi's last shadow, jobs/nin.lua; Pianissimo under an
+    area song, jobs/brd.lua), which engine.cancel says when to send.
     Modifiers: an intent may list intent.mods (stratagems a buff row turned on,
     Snake Eye before a Double-Up, Blaze of Glory before a luopan, Entrust before
     an Indi- on a member, Embolden before enhancing magic, Pianissimo before a
@@ -49,6 +50,8 @@ engine.BEHAVIORS = {
 local GATES = { 'loading', 'dead', 'mounted', 'safe', 'incapacitated', 'casting', 'moving' }
 engine.EXPECT = 2  -- seconds a modifier's status is taken as on you once it's sent
 engine.GATHER_EVERY = 5  -- seconds between asks to gather, as v2
+engine.CANCEL_AFTER = 1    -- seconds into the cast to cancel intent.cancel, as v2
+engine.CANCEL_UNTIL = 1.1  -- ...or as soon as the cast shows until then (can.THROTTLE: no send comes sooner)
 -- 集まってください。 in Shift-JIS, the game's chat encoding (as the names from the DATs).
 local GATHER_JP = '\x8f\x57\x82\xdc\x82\xc1\x82\xc4\x82\xad\x82\xbe\x82\xb3\x82\xa2\x81\x42'
 
@@ -133,8 +136,20 @@ function engine.command(intent, cfg, g)
     return can.command(intent.action, intent.target, cfg.ui.japanese, g and g.bt)
 end
 
+-- The status of yours to cancel now for the intent last sent, or nil: once
+-- CANCEL_AFTER seconds have passed since the send, and only while that cast goes
+-- on (one cut short before then keeps it); a cast that shows late (lag) is waited
+-- for until CANCEL_UNTIL. Cleared once sent or past that.
+function engine.cancel(g, mem)
+    local c = mem.cancel
+    if not c or g.now - c.at < engine.CANCEL_AFTER then return nil end
+    if not g.casting and g.now - c.at < engine.CANCEL_UNTIL then return nil end  -- not shown yet
+    mem.cancel = nil
+    if g.casting and g.me.buffs[c.id] then return c.id end
+end
+
 -- Record a send: the throttle restarts, a modifier's status is expected, a
--- status to cancel mid-cast is noted (jobs/nin.lua), and the intent's behavior is told.
+-- status to cancel mid-cast is noted (engine.cancel), and the intent's behavior is told.
 function engine.sent(intent, g, mem)
     mem.sent_at = g.now
     mem.cancel = intent.cancel and { id = intent.cancel, at = g.now } or nil

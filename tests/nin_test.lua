@@ -115,26 +115,26 @@ test('Ichi at one shadow cancels it a second into the cast, once', function ()
     local g, mem = ichi_sent()
     g.casting = true
     g.now = g.now + 0.5
-    eq(nin.cancel(g, mem), nil, 'not yet')
+    eq(engine.cancel(g, mem), nil, 'not yet')
     g.now = g.now + 0.5
-    eq(nin.cancel(g, mem), COPY)
-    eq(nin.cancel(g, mem), nil, 'once')
+    eq(engine.cancel(g, mem), COPY)
+    eq(engine.cancel(g, mem), nil, 'once')
 end)
 
 test('a cast that shows late is waited for until 1.1s; one that never shows, or a shadow gone, cancels nothing', function ()
     local g, mem = ichi_sent()
     g.now = g.now + 1
-    eq(nin.cancel(g, mem), nil, 'not casting yet')
+    eq(engine.cancel(g, mem), nil, 'not casting yet')
     g.now, g.casting = g.now + 0.05, true
-    eq(nin.cancel(g, mem), COPY, 'shown late')
+    eq(engine.cancel(g, mem), COPY, 'shown late')
     g, mem = ichi_sent()
     g.now = g.now + 1.1
-    eq(nin.cancel(g, mem), nil, 'never shown')
+    eq(engine.cancel(g, mem), nil, 'never shown')
     eq(mem.cancel, nil, 'and forgotten')
     g, mem = ichi_sent()
     g.casting, g.me.buffs[COPY] = true, nil
     g.now = g.now + 1
-    eq(nin.cancel(g, mem), nil, 'gone already')
+    eq(engine.cancel(g, mem), nil, 'gone already')
 end)
 
 -- Sange --------------------------------------------------------------------------------

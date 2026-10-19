@@ -293,7 +293,7 @@ end
 local function songs(g, cat, cfg, units)
     local mine, pianissimo = brd.actions(cat)
     local out = { slots = brd.slots(g), choices = {}, sets = {}, pianissimo = pianissimo ~= nil,
-                  timed = brd.timer_job(g), duration = cfg.song.duration }
+                  timed = brd.timer_job(g), duration = cfg.song.duration, fast = cfg.song.fast }
     for _, a in ipairs(cat) do  -- in id order: each kind's tiers together
         if mine[a.name] == a then
             out.choices[#out.choices + 1] = { name = a.name, label = ('%s (%s)'):format(a.name, a.note) }
@@ -605,7 +605,7 @@ model.REMOTE_SET = {
     ['buff.hold_aoe'] = 'bool', ['buff.gather'] = 'bool', ['buff.one_shadow'] = 'bool',
     ['roll.first'] = 'name', ['roll.second'] = 'name', ['roll.risk'] = { list = cor.RISKS },
     ['geo.distance'] = { 3, 30 }, ['geo.linger'] = { 1, 20 }, ['geo.entrust'] = 'name', ['geo.entrust_spell'] = 'name',
-    ['song.duration'] = { 0, 300 },
+    ['song.duration'] = { 0, 300 }, ['song.fast'] = 'bool',
 }
 for _, set in ipairs(run.SETS) do
     for i = 1, run.SLOTS do model.REMOTE_SET[run.path(set.key, i)] = 'name' end
