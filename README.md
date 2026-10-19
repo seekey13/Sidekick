@@ -76,3 +76,9 @@ luacheck .
 ```
 
 `tools/parity.lua` checks the catalog against v2's job files. Run it from a v2 checkout next to this one: `cd ../Sidekick && luajit ../Sidekick3/tools/parity.lua`.
+
+## Licence
+
+Sidekick3 is free software under the GNU General Public License, version 3 or (at your option) any later version: see [LICENSE](LICENSE). Copyright (c) 2026 Seekey.
+
+Its UI kit (`ui/kit.lua`) and SK Settings' layout (`ui/window.lua`) are based on VanaCore's `/vana` window (`addons/vanacore/vana/draw.lua` and `vana.lua`, Copyright (C) 2026 Vekien, GPL-3.0-or-later). Sidekick3 is not VanaCore, and isn't made or endorsed by Vekien; VanaCore's name and logo aren't licensed with it. `tests/data/` is dumped from the game client's data (`/sk3 dump`) and isn't covered by this licence.

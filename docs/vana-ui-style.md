@@ -10,10 +10,11 @@ redo by hand (the text box, popups, the colour picker).
 **Source:** VanaCore's `addons\vanacore\vana\`. `draw.lua` holds the palette, scale, fonts, helpers and controls.
 `vana.lua` holds the window, the sidebar, and the section and row layout. Line references below are to those files.
 
-**Licence:** VanaCore is GPL-3.0. Its `LICENSING.md` says an addon that copies VanaCore's code is not an independent
-module, so pasting `draw.lua` into Sidekick3 would put Sidekick3 under the GPL. The snippets in this doc are
-re-implementations written for Sidekick3. Colours and measurements are facts, not code, so they can be reused. The vana
-logo is all rights reserved: don't copy it.
+**Licence:** VanaCore is GPL-3.0-or-later, and its `LICENSING.md` says an addon that copies VanaCore's code, or is
+otherwise based on it, is not an independent module. Sidekick3 is GPL-3.0-or-later too (`LICENSE`), so `ui/kit.lua`
+is based on `draw.lua` in the open, with a notice in its header and in the README. The vana logo is all rights reserved
+and outside the GPL: don't copy it. VanaCore's name may say what Sidekick3 is based on, never that it is VanaCore or
+made or endorsed by Vekien.
 
 **Why it works in Sidekick3:** under VanaCore, an Ashita addon's `require('imgui')` loads Ashita 4.30's `imgui.lua`.
 That file forwards every call to `AshitaCore:GetGuiManager()`, and VanaCore's `compat\ashita.lua` sets that to

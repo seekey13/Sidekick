@@ -4,6 +4,12 @@ Copyright (c) 2026 Seekey
 https://github.com/seekey13/Sidekick3
 
 This addon is designed for Ashita v4 and the CatsEyeXI private server.
+
+This program is free software: you can redistribute it and/or modify it under the
+terms of the GNU General Public License as published by the Free Software Foundation,
+either version 3 of the License, or (at your option) any later version. It is
+distributed WITHOUT ANY WARRANTY; see LICENSE for the details.
+SPDX-License-Identifier: GPL-3.0-or-later
 ]]--
 
 addon.name    = 'Sidekick3'

@@ -2,7 +2,9 @@
     The standard Sidekick3 UI, and the reference: it uses only the `view` and
     `act` every UI is given (ui/README.md), so ui/custom.lua can replace it.
     ImGui only; it reads no game state and decides nothing. Everything is drawn
-    on ImGui's draw lists in ui/kit.lua's look (docs/vana-ui-style.md).
+    on ImGui's draw lists in ui/kit.lua's look (docs/vana-ui-style.md), and SK
+    Settings' sidebar and page layout follow VanaCore's addons/vanacore/vana/vana.lua
+    (Copyright (C) 2026 Vekien, GPL-3.0-or-later).
 
     Two kinds of window. Sidekick3 is a heads-up display: the party's HP, MP and TP
     bars on a dark panel, your pet's under yours (the alliance's other parties as
