@@ -64,6 +64,8 @@ local user_scale = 1         -- SK Settings' size (view.ui.scale), taken up whil
 -- HUD -----------------------------------------------------------------------------
 
 local HUD_PAD, BAR_GAP, ROUND = 8, 3, 4  -- the panel's padding, between bars, the bars' corners (pixels)
+local BAR_FILL = 0.78                     -- the fill lets the game show through, as the reference bar
+local BAR_GLOW = 3                        -- white bloom outside the bar, in pixels
 local TITLE = 'Sidekick3'
 
 local HUD_FLAGS = ImGuiWindowFlags_NoTitleBar + ImGuiWindowFlags_NoResize + ImGuiWindowFlags_NoScrollbar
@@ -101,18 +103,21 @@ local function pet_tip(pet)
     return ('%s (pet)\nHP %d%%  MP %d%%  TP %d  %s'):format(pet.name, pet.hpp, pet.mpp, pet.tp, pet.dist)
 end
 
--- A sunken track at (x, y), w by h, `f` (0 to 1) of it filled in `color`, edged in `edge`.
-local function track(dl, x, y, w, h, f, color, alpha, edge)
+-- A track at (x, y), w by h, `f` (0 to 1) of it filled in `color`. A white glow
+-- borders the whole bar. The fill is slightly transparent.
+local function track(dl, x, y, w, h, f, color, alpha)
     local r = math.min(ROUND, math.floor(h / 2))
-    kit.fill(dl, x, y, w, h, P.well, r)
-    local fw = math.floor(w * f + 0.5)
-    if fw > 0 then kit.fill(dl, x, y, fw, h, color, math.min(r, fw / 2), alpha) end
-    kit.outline(dl, x, y, w, h, edge or P.well_edge, r)
+    for i = BAR_GLOW, 1, -1 do
+        kit.outline(dl, x - i, y - i, w + i * 2, h + i * 2, P.white, r + i, alpha * 0.14 * (BAR_GLOW - i + 1))
+    end
+    local fw = math.max(0, math.min(w, math.floor(w * f + 0.5)))
+    if fw > 0 then kit.fill(dl, x, y, fw, h, color, math.min(r, fw / 2), alpha * BAR_FILL) end
+    kit.outline(dl, x, y, w, h, P.white, r, alpha * 0.7)
 end
 
 -- A bar: `pct` of its track filled (eased, by `id`).
-local function bar(dl, id, x, y, w, h, pct, color, alpha, edge)
-    track(dl, x, y, w, h, kit.ease(id, math.min(math.max(pct, 0), 100) / 100, 12), color, alpha, edge)
+local function bar(dl, id, x, y, w, h, pct, color, alpha)
+    track(dl, x, y, w, h, kit.ease(id, math.min(math.max(pct, 0), 100) / 100, 12), color, alpha)
 end
 
 local TIER, TIERS = 1000, 3  -- TP: a weapon skill's worth, and how many stand
@@ -189,13 +194,13 @@ end
 
 -- A member's card at (x, y): the HP bar over the MP bar over the TP bar, the name on the first and the tag on the
 -- second, the % of each (TP's number) only in its tooltip. A tracked player's MP and TP can't be read: their bars stay
--- empty. Critical HP edges the bar and turns the name rose; MP under the Recover line, the tag. Away, the bars fade
+-- empty. Critical HP turns the name rose; MP under the Recover line, the tag. Away, the bars fade
 -- and the text greys. `id` keeps the bars' eased fills apart.
 local function card(dl, ui, p, x, y, id)
     local fx, mp_top = x + HUD_PAD, y + ui.hp_height + BAR_GAP
     local fade = p.away and 0.45 or 1
     local critical = p.hp == 'critical' and not p.away
-    bar(dl, 'hp.' .. id, fx, y, ui.hp_width, ui.hp_height, p.hpp, P.hp, fade, critical and P.rose or nil)
+    bar(dl, 'hp.' .. id, fx, y, ui.hp_width, ui.hp_height, p.hpp, P.hp, fade)
     bar(dl, 'mp.' .. id, fx, mp_top, ui.mp_width, ui.mp_height, p.mpp, P.mp, fade)
     tp_bar(dl, 'tp.' .. id, fx, mp_top + ui.mp_height + BAR_GAP, ui.tp_width, ui.tp_height, p.tp, fade)
     local font = kit.fonts.semi
@@ -211,7 +216,7 @@ end
 local function ally_row(dl, ui, p, x, top)
     local fx = x + HUD_PAD
     local critical = p.hp == 'critical' and not p.away
-    bar(dl, 'ally.' .. p.name, fx, top, ui.hp_width, ui.mp_height, p.hpp, P.hp, p.away and 0.45 or 1, critical and P.rose or nil)
+    bar(dl, 'ally.' .. p.name, fx, top, ui.hp_width, ui.mp_height, p.hpp, P.hp, p.away and 0.45 or 1)
     local label = p.tag .. ' ' .. p.name
     local _, h = kit.measure(label, kit.fonts.semi, ui.text_size)
     kit.halo(dl, fx + 6, top + (ui.mp_height - h) / 2, label, p.away and P.dim or critical and P.rose or P.white,

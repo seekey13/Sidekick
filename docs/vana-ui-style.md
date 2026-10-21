@@ -712,10 +712,11 @@ everything with it:
   child, each section a heading (§9) with its switch, each setting a row: label at the left, control at the right.
   Spell and ability rows put their name, readiness and switch on one line and their pick, target chips and modifier
   chips on the lines under it.
-- **The HUD** keeps its layout and the sizes set under UI / Log, in the palette: a dark rounded panel, sunken rounded
-  bars whose fill eases to each new value, round buttons filled in the accent while on, and the next action's label as
+- **The HUD** keeps its layout and the sizes set under UI / Log, in the palette: a dark rounded panel, rounded
+  bars with a white glow and a slightly transparent fill that eases to each new value,
+  round buttons filled in the accent while on, and the next action's label as
   a pill (amber running, grey stopped). Each card is HP over MP over TP, your pet's card under yours; the TP bar is
-  three sunken parts of 1000 TP, each solid once full and at half alpha while it fills (as Floaties draws it). Its
+  three parts of 1000 TP, each solid once full and at half alpha while it fills (as Floaties draws it). Its
   text keeps a dark halo, as it sits on bars and, with the panel see-through, on the game. The panel, its frame, the
   title and the close mark fade out until the mouse is over the window (Tracker's chrome) and fade back to the
   Background opacity while it is. The bars do not fade. The close mark is Tracker's X, rose under the pointer.

@@ -347,10 +347,12 @@ test('a card per member: name and tag drawn as is, its HP %, MP % and TP and the
     eq(tipped('B (trust, away)\nHP 100%  MP 100%'), true)
 end)
 
+local BAR_FILL = 0.78  -- ui/window.lua's fill: slightly transparent
+
 -- The HP fill drawn from (x, y): its rectangle's far corner and its colour.
 local function hp_fill(x, y)
     for _, d in ipairs(calls('AddRectFilled')) do
-        if d.args[1][1] == x and d.args[1][2] == y and d.args[3] == u32(P.hp) then return d.args[2] end
+        if d.args[1][1] == x and d.args[1][2] == y and d.args[3] == u32(P.hp, BAR_FILL) then return d.args[2] end
     end
 end
 
@@ -364,6 +366,11 @@ test('the panel and bars follow the UI settings', function ()
     -- Title 25, then cards 40 + 3 + 18 + 3 + 8 high and 8 apart: A's, the third (under yours and your pet's), from
     -- y 235; 62% of 300.
     eq(hp_fill(108, 235), { 108 + 186, 235 + 40 })
+    local glow = false  -- the bar's own edge is white; the bloom sits a pixel or two outside it
+    for _, d in ipairs(calls('AddRect')) do
+        glow = glow or (d.args[1][1] == 108 and d.args[1][2] == 235 and d.args[3] == u32(P.white, 0.7))
+    end
+    eq(glow, true)
     cfg.ui.tp_width = 400  -- the widest bar sets the panel's width
     render(cfg, status())
     eq(calls('AddRectFilled')[1].args[2][1], 100 + 2 * 8 + 400)
@@ -419,9 +426,10 @@ end)
 
 -- The TP fills drawn: each one's corners and colour, in the order drawn.
 local function tp_fills()
+    local full, filling = u32(P.tp, BAR_FILL), u32(P.tp, 0.5 * BAR_FILL)
     local out = {}
     for _, d in ipairs(calls('AddRectFilled')) do
-        if d.args[3] == u32(P.tp) or d.args[3] == u32(P.tp, 0.5) then out[#out + 1] = { d.args[1], d.args[2], d.args[3] } end
+        if d.args[3] == full or d.args[3] == filling then out[#out + 1] = { d.args[1], d.args[2], d.args[3] } end
     end
     return out
 end
@@ -435,10 +443,10 @@ test('the TP bar, under the MP bar: a part per 1000 TP, each filling in turn, th
     end
     -- A's card from y 155 (under yours, 72 high, and a gap): its TP bar from 155 + 40 + 3 + 18 + 3, 8 high. Its three
     -- parts share 220 less two gaps of 3: x 108-179, 182-254 and 257-328.
-    eq(tp(1500), { { { 108, 219 }, { 179, 227 }, u32(P.tp) }, { { 182, 219 }, { 218, 227 }, u32(P.tp, 0.5) } })
+    eq(tp(1500), { { { 108, 219 }, { 179, 227 }, u32(P.tp, BAR_FILL) }, { { 182, 219 }, { 218, 227 }, u32(P.tp, 0.5 * BAR_FILL) } })
     eq(tipped('A\nHP 100%  MP 100%  TP 1500  5.0y'), true)
-    eq(tp(3000), { { { 108, 219 }, { 179, 227 }, u32(P.tp) }, { { 182, 219 }, { 254, 227 }, u32(P.tp) },
-                   { { 257, 219 }, { 328, 227 }, u32(P.tp) } })
+    eq(tp(3000), { { { 108, 219 }, { 179, 227 }, u32(P.tp, BAR_FILL) }, { { 182, 219 }, { 254, 227 }, u32(P.tp, BAR_FILL) },
+                   { { 257, 219 }, { 328, 227 }, u32(P.tp, BAR_FILL) } })
     eq(#tp(0), 0)
     render(cfg, st, nil, model.build(fake.snap({ { kind = 'tracked', name = 'Out', tp = 0 } }), cat, cfg, st, NAMES))
     eq(tipped('Out (tracked)\nHP 100%  5.0y'), true)  -- a tracked player's TP can't be read
@@ -451,7 +459,7 @@ test('your pet\'s card sits under yours, before P1: its HP, MP and TP, and its o
     render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
     eq({ hp_fill(108, 75), hp_fill(108, 155), hp_fill(108, 235) }, { { 328, 115 }, { 108 + 110, 195 }, { 328, 275 } })
     eq({ fill('Ifrit'), fill('PET') }, { u32(P.white), u32(P.text2) })
-    eq(tp_fills(), { { { 108, 155 + 64 }, { 179, 155 + 72 }, u32(P.tp) } })  -- 1000 TP: one part, full
+    eq(tp_fills(), { { { 108, 155 + 64 }, { 179, 155 + 72 }, u32(P.tp, BAR_FILL) } })  -- 1000 TP: one part, full
     eq(tipped('Ifrit (pet)\nHP 50%  MP 40%  TP 1000  3.0y'), true)
     g.pet = nil
     render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
