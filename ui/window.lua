@@ -4,7 +4,9 @@
     ImGui only; it reads no game state and decides nothing. Everything is drawn
     on ImGui's draw lists in ui/kit.lua's look (docs/vana-ui-style.md), and SK
     Settings' sidebar and page layout follow VanaCore's addons/vanacore/vana/vana.lua
-    (Copyright (C) 2026 Vekien, GPL-3.0-or-later).
+    (Copyright (C) 2026 Vekien, GPL-3.0-or-later). The HUD's panel, frame, title
+    and close fade out until the mouse is over the window, as Tracker's do; the
+    bars stay. Section headers are Tracker's: Segoe semibold italic, small capitals.
 
     Three kinds of window. Sidekick3 is a heads-up display: the party's HP, MP and TP
     bars on a dark panel, your pet's under yours (the alliance's other parties as
@@ -45,7 +47,8 @@ local UI_SLIDERS = {
     { 'Text font size', 'text_size', 8, 48, 'Pixels: the title, the tags, the alliance\'s names and the action labels; '
         .. 'the buttons follow it, as far as the HP bar fits them.', 'px' },
     { 'Spacing', 'gap', 0, 40, 'Pixels between members.', 'px' },
-    { 'Background opacity', 'opacity', 0, 100, '% of the panel behind the bars.', '%' },
+    { 'Background opacity', 'opacity', 0, 100,
+        'How solid the panel behind the bars is while the mouse is over it, %. It fades out until then.', '%' },
 }
 
 local JOINED = { party = '  (in your party)', alliance = '  (in your alliance)' }  -- a tracked player's note
@@ -138,19 +141,25 @@ local function disc_button(id, x, y, s, glyph, lit, help)
     return clicked, hovered
 end
 
+-- Tracker's close: an X, dim until the pointer is on it, then rose. No disc behind it.
+local function close_mark(id, cx, cy, box, alpha)
+    local hovered, clicked = kit.hit(id, cx - box / 2, cy - box / 2, box, box)
+    kit.icon(imgui.GetWindowDrawList(), 'close', cx, cy, box * 0.72, hovered and P.rose or P.dim, alpha)
+    return clicked, hovered
+end
+
 -- "Sidekick3", then close (s pixels across); the title's hover area says what automation is doing.
-local function title_row(dl, view, ts, x0, y0, pw, th, s)
+-- Both fade with the panel (`chrome`).
+local function title_row(dl, view, ts, x0, y0, pw, th, s, chrome)
     local font = kit.fonts.semi
     local _, h = kit.measure(TITLE, font, ts)
-    kit.halo(dl, x0 + HUD_PAD, y0 + (th - h) / 2, TITLE, P.white, font, ts)
-    local ix, iy = x0 + pw - HUD_PAD - s, y0 + math.floor((th - s) / 2)
+    kit.halo(dl, x0 + HUD_PAD, y0 + (th - h) / 2, TITLE, P.white, font, ts, chrome)
+    local cx, cy = x0 + pw - HUD_PAD - s / 2, y0 + th / 2
     imgui.SetCursorScreenPos({ x0, y0 })
-    imgui.Dummy({ ix - x0, th })
+    imgui.Dummy({ cx - s / 2 - x0, th })
     kit.tip(status_tip(view))
-    local hovered, clicked = kit.hit('##sk3_close', ix, iy, s, s)
+    local clicked = close_mark('##sk3_close', cx, cy, s, chrome)
     kit.tip('Close (/sk3 opens it again)')
-    kit.circle(dl, ix + s / 2, iy + s / 2, s / 2, hovered and P.rose_bg or P.well, 0.85)
-    kit.icon(dl, 'close', ix + s / 2, iy + s / 2, s * 0.55, hovered and P.rose or P.dim)
     if clicked then
         act.close()
         settings_open = false
@@ -299,10 +308,12 @@ local function draw_hud(view)
         below = below + ui.mp_height
     end
     local ph = below + HUD_PAD
-    local opacity = ui.opacity / 100
+    -- Last frame's window rect is what IsWindowHovered reads. The bars stay solid.
+    local chrome = kit.ease('chrome', imgui.IsWindowHovered() and 1 or 0)
+    local opacity = ui.opacity / 100 * chrome
     kit.fill(dl, x0, y0, pw, ph, P.bg, 6, opacity)
     kit.outline(dl, x0, y0, pw, ph, P.border, 6, opacity)
-    title_row(dl, view, ui.text_size, x0, y0, pw, th, s)
+    title_row(dl, view, ui.text_size, x0, y0, pw, th, s, chrome)
     for i, c in ipairs(cards) do
         local p, y = c.p, y0 + th + (i - 1) * (ch + ui.gap)
         card(dl, ui, p, x0, y, c.id)
@@ -397,10 +408,14 @@ end
 
 -- SK Settings: the page's rows -----------------------------------------------------
 
-local SIDE_W, PAGE_W, WIN_H, MARGIN = 160, 580, 580, 6  -- unscaled, as every size from here
-local TITLE_H, HEAD_H, ROW_H, NAV_H, CHIP_LINE = 44, 36, 30, 28, 26
+-- Fixed for every job. 390 is the narrowest page that still holds a slider beside
+-- "Focus danger under" and the longest roll name ("Companion's Roll (Pet Regain
+-- & Regen)") beside "Roll 1". Song, rune and maneuver picks have their own widths
+-- below and wrap onto the next line; the window does not grow to fit a job.
+local SIDE_W, PAGE_W, WIN_H, MARGIN = 160, 390, 580, 6  -- unscaled, as every size from here
+local TITLE_H, HEAD_H, ROW_H, NAV_H, CHIP_LINE = 44, 28, 30, 28, 26
 local LEFT, PAD, GUTTER, LABEL_W = 24, 18, 12, 120
-local SLIDER_W, PICK_W, ROLL_W, RUNE_W, MANEUVER_W, CHIP_W = 230, 190, 270, 110, 110, 30
+local SLIDER_W, PICK_W, ROLL_W, RUNE_W, MANEUVER_W, SONG_W, CHIP_W = 180, 220, 286, 168, 90, 248, 30
 local FOOT = { Profiles = true, ['UI / Log'] = true }  -- set apart at the foot of the list of pages
 
 --[[ pg: where a page's rows go, from top to bottom: { dl, x, w, y (the next row's top), lx (where labels start),
@@ -448,13 +463,14 @@ local function note(pg, s, color)
     end
 end
 
--- A group's heading inside a section: capitals in teal, a line after.
+-- A group's heading inside a section: Tracker's small capitals, a line after.
 local function subheader(pg, s)
     pg.y = pg.y + S(8)
     local cy = pg.y + S(12)
-    local font, px = kit.fonts.semi, S(SMALL - 1)
-    kit.text_mid(pg.dl, pg.lx, cy, s, P.teal, font, px, pg.alpha)
-    local tx = pg.lx + kit.measure(s, font, px) + S(10)
+    local font, px, spacing = kit.fonts.semi_italic, S(SMALL), math.max(1, S(1.2))
+    local title = string.upper(s)
+    local tw = kit.text_spaced(pg.dl, pg.lx, cy, title, P.teal, font, px, spacing, pg.alpha)
+    local tx = pg.lx + tw + S(10)
     if pg.right > tx then kit.line(pg.dl, tx, cy, pg.right, cy, P.teal, 0.35 * pg.alpha) end
     pg.y = pg.y + S(26)
 end
@@ -672,23 +688,31 @@ local SONGS_TIP = 'Two songs of one kind (Victory and Advancing March) stand sid
     .. 'While an area song is owed, the songs on one member wait: it would push them out.'
 
 -- BRD: a line per target, Area first, then each party slot that is filled or has a pick; a drop-down per song slot.
--- A slot with no one in it says so.
+-- The drop-downs are SONG_W, wide enough for the longest song, and wrap. A member's name sits on the label line.
 local function draw_songs(view, pg)
     local m = view.song
-    local col, gap = S(56), S(6)
-    local w = math.min(S(PICK_W), math.floor((pg.right - pg.lx - col - S(90)) / math.max(m.slots, 1)) - gap)
+    local col, gap, box = S(56), S(6), S(SONG_W)
     for _, set in ipairs(m.sets) do
         local picked = false
         for i = 1, m.slots do picked = picked or set.picks[i] ~= '' end
         if set.key == 'area' or set.present or picked then
             local dim = set.key ~= 'area' and not (set.present and m.pianissimo)
+            local name = set.key ~= 'area' and (set.name or 'no one') or nil
+            local items = {}
+            for i = 1, m.slots do items[i] = { w = box, i = i } end
+            local lines = flow(items, pg.lx + col, pg.right, gap)
+            -- A name shares the label line, so the picks start on the next one.
+            local h = S(ROW_H) + (lines - (name and 0 or 1)) * S(CHIP_LINE)
             local cy = line(pg, set.label, SONG_HELP[set.key] or ('Sung on %s alone, through Pianissimo, whenever they lack one.')
-                :format(set.name or 'whoever is in this party slot'), nil, dim and P.dim or P.text)
-            for i = 1, m.slots do song_pick(set, i, m.choices, pg.lx + col + (i - 1) * (w + gap), cy, w, pg.alpha) end
-            if set.key ~= 'area' then
-                local nx = pg.lx + col + m.slots * (w + gap) + S(4)
-                kit.text_mid(pg.dl, nx, cy, kit.fit(set.name or 'no one', pg.right - nx, kit.fonts.text, S(SMALL + 0.5)),
-                    P.dim, kit.fonts.text, S(SMALL + 0.5), pg.alpha)
+                :format(set.name or 'whoever is in this party slot'), h, dim and P.dim or P.text)
+            for _, it in ipairs(items) do
+                local icy = cy + (it.line - (name and 0 or 1)) * S(CHIP_LINE)
+                song_pick(set, it.i, m.choices, it.x, icy, box, pg.alpha)
+            end
+            if name then
+                local px = S(SMALL + 0.5)
+                kit.text_right(pg.dl, pg.right, cy, kit.fit(name, pg.right - pg.lx - col, kit.fonts.text, px),
+                    P.dim, kit.fonts.text, px, pg.alpha)
             end
         end
     end
@@ -754,46 +778,55 @@ local function rune_pick(set, i, runes, x, cy, w, alpha)
     if hovered then kit.tooltip(shown .. '\n' .. SHOWS[set.shows]) end
 end
 
--- A line per set: Idle, then each ward with its switch; a drop-down per rune slot, then whether it's ready.
+-- A line per set: Idle, then each ward with its switch and whether it's ready. The rune picks are RUNE_W
+-- (the longest ailment list) and wrap under that line.
 local function draw_runes(view, pg)
     local r = view.rune
-    local col, gap, ready_w = S(LABEL_W), S(6), S(80)
-    local w = math.min(S(RUNE_W), math.floor((pg.right - pg.lx - col - ready_w) / math.max(r.slots, 1)) - gap)
+    local gap, box = S(6), S(RUNE_W)
     for _, set in ipairs(r.sets) do
-        local cy
+        local items = {}
+        for i = 1, r.slots do items[i] = { w = box, i = i } end
+        local lines = flow(items, pg.lx, pg.right, gap)
+        local help = set.ward and ('Once %s is ready, its runes take the slots, then it fires in combat.'):format(set.ward)
+            or 'The runes kept up the rest of the time.'
+        local cy = line(pg, set.ward and nil or set.label, help, S(ROW_H) + lines * S(CHIP_LINE))
         if set.ward then
-            local help = ('Once %s is ready, its runes take the slots, then it fires in combat.'):format(set.ward)
-            cy = line(pg, nil, help)
             local on, flipped = kit.switch(set.label .. '##sk3_rune_' .. set.key, pg.lx, cy, set.on, true, pg.alpha)
             kit.tip(help)
             if flipped then act.row(set.ward, on) end
             kit.text_mid(pg.dl, pg.lx + S(kit.SW_W) + S(8), cy, set.label, set.on and P.text or P.dim, kit.fonts.text, S(BODY), pg.alpha)
-        else
-            cy = line(pg, set.label, 'The runes kept up the rest of the time.')
-        end
-        for i = 1, r.slots do rune_pick(set, i, r.runes, pg.lx + col + (i - 1) * (w + gap), cy, w, pg.alpha) end
-        if set.ward then
             kit.text_right(pg.dl, pg.right, cy, set.avail, set.ready and P.teal or P.dim, kit.fonts.text, S(SMALL + 0.5), pg.alpha)
         end
+        for _, it in ipairs(items) do rune_pick(set, it.i, r.runes, it.x, cy + it.line * S(CHIP_LINE), box, pg.alpha) end
     end
 end
 
--- PUP: a drop-down per maneuver slot, by element (None for ''), then whether they can go.
+-- PUP: a drop-down per maneuver slot, by element (None for ''), MANEUVER_W wide so "Thunder" fits. They wrap.
+-- Whether they can go sits on the last line when it fits beside them, and on a line of its own when it doesn't.
 local function draw_maneuvers(view, pg)
     local m = view.maneuver
-    local cy = line(pg, nil, nil)
-    local gap, w = S(6), S(MANEUVER_W)
-    for i, current in ipairs(m.picks) do
-        local id, path = 'sk3_maneuver_' .. i, 'maneuver.slot_' .. i
-        local hovered = kit.dropdown('##' .. id, pg.lx + (i - 1) * (w + gap), cy, w, shown_pick(current, m.choices), true, pg.alpha, function ()
-            if imgui.Selectable('None##' .. id .. '_none', current == '') then act.set(path, '') end
+    local gap, box, px = S(6), S(MANEUVER_W), S(SMALL + 0.5)
+    local items = {}
+    for i = 1, #m.picks do items[i] = { w = box, i = i } end
+    local lines = flow(items, pg.lx, pg.right, gap)
+    local avail_w = kit.measure(m.avail or '', kit.fonts.text, px)
+    local last = items[#items]
+    local beside = last and pg.right - (last.x + last.w + S(10)) or 0
+    local extra = (beside >= avail_w) and 0 or 1
+    local cy = line(pg, nil, nil, S(ROW_H) + (lines - 1 + extra) * S(CHIP_LINE))
+    for _, it in ipairs(items) do
+        local i, id, path = it.i, 'sk3_maneuver_' .. it.i, 'maneuver.slot_' .. it.i
+        local icy = cy + (it.line - 1) * S(CHIP_LINE)
+        local hovered = kit.dropdown('##' .. id, it.x, icy, box, shown_pick(m.picks[i], m.choices), true, pg.alpha, function ()
+            if imgui.Selectable('None##' .. id .. '_none', m.picks[i] == '') then act.set(path, '') end
             for _, c in ipairs(m.choices) do
-                if imgui.Selectable(c.label .. '##' .. id .. '_' .. c.name, c.name == current) then act.set(path, c.name) end
+                if imgui.Selectable(c.label .. '##' .. id .. '_' .. c.name, c.name == m.picks[i]) then act.set(path, c.name) end
             end
         end)
         if hovered then kit.tooltip('The same element in two slots keeps two up.') end
     end
-    kit.text_right(pg.dl, pg.right, cy, m.avail, m.ready and P.teal or P.dim, kit.fonts.text, S(SMALL + 0.5), pg.alpha)
+    local ay = cy + (extra == 0 and last.line - 1 or lines) * S(CHIP_LINE)
+    kit.text_right(pg.dl, pg.right, ay, m.avail, m.ready and P.teal or P.dim, kit.fonts.text, px, pg.alpha)
 end
 
 -- Each tracked player with its Untrack button (one who joined your party or alliance too), then Track for your
@@ -1065,15 +1098,16 @@ local function heading(pane, pg, s)
         if flipped then act.section(s.id, on) end
         line_end = line_end - S(kit.SW_W) - S(12)
     end
-    local font, px = kit.fonts.bold_italic, S(BODY + 5)
-    local tw = kit.measure(s.title, font, px)
+    local font, px, spacing = kit.fonts.semi_italic, S(SMALL), math.max(1, S(1.2))
+    local title = string.upper(s.title)
+    local tw = kit.text_spaced(nil, 0, 0, title, nil, font, px, spacing)
     local hovered, clicked = kit.hit('##sk3_fold_' .. s.id, pg.x + S(2), cy - S(12), S(LEFT) - S(2) + tw + S(8), S(24))
     kit.tip(SWITCH_HELP[s.id])
     if clicked then pane.folded[s.id] = not pane.folded[s.id] or nil end
     local folded = pane.folded[s.id] == true
-    kit.icon(dl, folded and 'right' or 'down', pg.x + S(GUTTER), cy, S(11), hovered and P.text or P.faint)
-    local color = s.on == false and kit.mix(P.white, P.dim, 0.5) or kit.mix(P.white, P.accent2, hovered and 0.35 or 0)
-    kit.text_mid(dl, pg.lx, cy, s.title, color, font, px)
+    kit.icon(dl, folded and 'right' or 'down', pg.x + S(GUTTER), cy, S(11), hovered and P.teal or P.faint)
+    local base = s.on == false and kit.mix(P.teal, P.dim, 0.55) or P.teal
+    kit.text_spaced(dl, pg.lx, cy, title, kit.mix(base, P.white, hovered and 0.25 or 0), font, px, spacing)
     local tx = pg.lx + tw + S(10)
     if line_end > tx then kit.line(dl, tx, cy, line_end, cy, P.line) end
     pg.y = pg.y + S(HEAD_H) + S(2)
@@ -1150,7 +1184,7 @@ end
 local function draw_sidebar(view, pane, pages, name, x, y, w, h)
     local dl, pad = imgui.GetWindowDrawList(), S(PAD)
     local st = view.status
-    local title_px, small = S(BODY + 2), S(SMALL)
+    local title_px, small = S(BODY), S(SMALL)
     kit.text_mid(dl, x + pad, y + S(24), kit.fit(name or 'SK Settings', w - pad * 2, kit.fonts.semi, title_px), P.white, kit.fonts.semi, title_px)
     kit.text_mid(dl, x + pad, y + S(46), kit.fit(view.job, w - pad * 2, kit.fonts.text, small), P.dim, kit.fonts.text, small)
     kit.circle(dl, x + pad + S(3), y + S(65), S(3), st.running and P.teal or P.faint)
@@ -1177,19 +1211,17 @@ end
 local function title_bar(title, note_, x, y, w, open)
     local dl = imgui.GetWindowDrawList()
     local cy = y + S(TITLE_H) / 2
-    local font, px = kit.fonts.semi, S(BODY + 3)
+    local font, px = kit.fonts.semi, S(BODY)
     kit.text_mid(dl, x + S(LEFT), cy, title, P.white, font, px)
-    local cx = x + w - S(PAD) - S(6)
+    local box = S(21)
+    local cx = x + w - S(PAD) - box / 2
     if note_ then
         local nx = x + S(LEFT) + kit.measure(title, font, px) + S(10)
-        local room = cx - S(20) - nx
+        local room = cx - box / 2 - S(8) - nx
         if room > S(30) then kit.text_mid(dl, nx, cy, kit.fit(note_, room, kit.fonts.text, S(SMALL)), P.faint, kit.fonts.text, S(SMALL)) end
     end
-    local hovered, clicked = kit.hit('##sk3_settings_close', cx - S(11), cy - S(11), S(22), S(22))
+    if close_mark('##sk3_settings_close', cx, cy, box) then open[1] = false end
     kit.tip('Close')
-    if hovered then kit.circle(dl, cx, cy, S(11), P.rose_bg) end
-    kit.icon(dl, 'close', cx, cy, S(14), hovered and P.rose or P.dim)
-    if clicked then open[1] = false end
     kit.line(dl, x, y + S(TITLE_H), x + w, y + S(TITLE_H), P.border)
 end
 

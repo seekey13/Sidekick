@@ -86,10 +86,14 @@ end
 
 -- Fonts and text -------------------------------------------------------------------
 
-kit.fonts = {}      -- text, semi, bold_italic: ImGui's own font until Segoe UI is in
+kit.fonts = {}      -- text, semi, bold_italic, semi_italic: ImGui's own font until Segoe UI is in
 kit.custom = false  -- Segoe UI is: measured and drawn at the size asked
 local fonts_tried, fonts_pending = false, nil
-local FACES = { { 'text', 'segoeui.ttf' }, { 'semi', 'seguisb.ttf', 'text' }, { 'bold_italic', 'segoeuiz.ttf', 'semi' } }
+-- The same four faces Tracker loads. Each falls back to the one named last.
+local FACES = {
+    { 'text', 'segoeui.ttf' }, { 'semi', 'seguisb.ttf', 'text' },
+    { 'bold_italic', 'segoeuiz.ttf', 'semi' }, { 'semi_italic', 'seguisbi.ttf', 'semi' },
+}
 
 -- Segoe UI from Windows' fonts, each face falling back to the one before; nil without the regular.
 local function load_fonts()
@@ -156,6 +160,23 @@ end
 function kit.text_centred(dl, cx, cy, s, color, font, px, alpha)
     local w, h = measure(s, font, px)
     text(dl, cx - w / 2, cy - h / 2 - lift(h), s, color, font, px, alpha)
+end
+
+-- Capitals one glyph at a time, `spacing` pixels apart (ImGui has no tracking).
+-- Tracker's section headers. Returns the width. `dl` nil only measures.
+function kit.text_spaced(dl, x, cy, s, color, font, px, spacing, alpha)
+    s, spacing = tostring(s or ''), spacing or 0
+    local start, i, n = x, 1, #s
+    while i <= n do
+        local b = s:byte(i)
+        local len = (b >= 0xF0 and 4) or (b >= 0xE0 and 3) or (b >= 0xC0 and 2) or 1
+        local letter = s:sub(i, i + len - 1)
+        if dl then kit.text_mid(dl, x, cy, letter, color, font, px, alpha) end
+        x = x + measure(letter, font, px) + spacing
+        i = i + len
+    end
+    if x == start then return 0 end
+    return x - start - spacing
 end
 
 -- Text over the game or a bar: stamped in black a pixel out each way first, so it reads on anything.
@@ -275,7 +296,7 @@ function kit.frame(user)
         kit.custom, fonts_pending = true, nil
     elseif not kit.custom then
         local f = imgui.GetFont()
-        kit.fonts.text, kit.fonts.semi, kit.fonts.bold_italic = f, f, f
+        kit.fonts.text, kit.fonts.semi, kit.fonts.bold_italic, kit.fonts.semi_italic = f, f, f, f
         if kit.dynamic and not fonts_tried then
             fonts_tried = true
             fonts_pending = load_fonts()

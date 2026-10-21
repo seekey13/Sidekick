@@ -716,7 +716,10 @@ everything with it:
   bars whose fill eases to each new value, round buttons filled in the accent while on, and the next action's label as
   a pill (amber running, grey stopped). Each card is HP over MP over TP, your pet's card under yours; the TP bar is
   three sunken parts of 1000 TP, each solid once full and at half alpha while it fills (as Floaties draws it). Its
-  text keeps a dark halo, as it sits on bars and, with the panel see-through, on the game.
+  text keeps a dark halo, as it sits on bars and, with the panel see-through, on the game. The panel, its frame, the
+  title and the close mark fade out until the mouse is over the window (Tracker's chrome) and fade back to the
+  Background opacity while it is. The bars do not fade. The close mark is Tracker's X, rose under the pointer.
+  Section headers are Tracker's small capitals: Segoe semibold italic, letter-spaced.
 
 What differs from vana:
 
@@ -726,7 +729,7 @@ What differs from vana:
 | A typed number in a window beside the main one | A popup by the value (`kit.slider`) |
 | Raw ImGui numbers | The constants `require('imgui')` defines, each listed in `.luacheckrc`'s `read_globals` |
 | ImGui 1.92 only | 1.81 too (Ashita 4.16): ImGui's own font at every size, measured by scaling `CalcTextSize`; `BeginChild`'s border bool; 1.81's corner flags. `IMGUI_VERSION_NUM` decides |
-| Sizes of §5 | `ui/window.lua`'s constants: a 580-wide page for the chips, rows of 30 |
+| Sizes of §5 | `ui/window.lua`'s constants: a 390-wide page, fixed for every job, rows of 30 |
 | Search, sub-tabs, presets, section resets | Not drawn: Sidekick3's pages are short, and its view has no defaults to reset to |
 
 **Tests:** the fake ImGui in `tests/ui_window_test.lua` reports every popup open (so drop-down lists draw and their

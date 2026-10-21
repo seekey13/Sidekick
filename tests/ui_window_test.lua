@@ -80,6 +80,12 @@ local handlers = {
     TextDisabled = function (fmt) shown(fmt) end,
     SetTooltip = function (fmt) shown(fmt) end,
     IsItemHovered = function () return true end,
+    -- The HUD's chrome reads this. A test sets clicks.hover = false for the faded frame.
+    IsWindowHovered = function () return frame.hover ~= false end,
+    SetNextWindowSize = function (size)
+        point(size, 'SetNextWindowSize')
+        frame.window_size = size
+    end,
     CalcTextSize = function (s) return #s * 7, 13 end,
     GetFontSize = function () return 13 end,
     GetFont = function () return 'font' end,
@@ -232,6 +238,7 @@ end
 local function draw(ui, cfg, st, clicks, view)
     frame = { stack = {}, vars = 0, texts = {}, ids = {}, args = {}, flags = {}, columns = {},
               drawn = {}, extent = {}, clicks = clicks or {} }
+    frame.hover = frame.clicks.hover ~= false
     local writes = 0
     local act = model.actions(cfg, st, function () writes = writes + 1 end, TRACKING, send)
     local ok, err = pcall(ui.render, view or model.build(snap(), cat, cfg, st, NAMES), act)
@@ -363,6 +370,20 @@ test('the panel and bars follow the UI settings', function ()
     cfg.ui.hp_width, cfg.ui.mp_width, cfg.ui.tp_width, cfg.ui.text_size = 80, 80, 80, 48  -- big text on short bars: the title row still fits
     render(cfg, status())
     eq(calls('AddRectFilled')[1].args[2][1], 100 + math.ceil(8 + 9 * 7 * 48 / 13 + 8 + 60 + 8))
+end)
+
+test('the panel, frame, title and close fade out until the mouse is over the window; the bars stay', function ()
+    close_settings()
+    local cfg = settings.defaults()
+    render(cfg, status(), { hover = false })
+    eq(calls('AddRectFilled')[1].args[3], u32(P.bg, 0))
+    eq(calls('AddRect')[1].args[3], u32(P.border, 0))
+    eq(fill('Sidekick3'), u32(P.white, 0))
+    local rose = false
+    for _, d in ipairs(calls('AddLine')) do rose = rose or d.args[3] == u32(P.rose, 0) end
+    eq({ rose, hp_fill(108, 75) ~= nil }, { true, true })
+    render(cfg, status())  -- over it again: back to the Background opacity
+    eq({ calls('AddRectFilled')[1].args[3], fill('Sidekick3') }, { u32(P.bg), u32(P.white) })
 end)
 
 test('the HUD\'s items reach exactly the panel\'s far corner, so its auto-size fits the panel', function ()
@@ -514,21 +535,33 @@ local function discs()
     return out
 end
 
+-- The close mark's X: the two strokes' shared middle, and the colour of the first.
+local function close_x()
+    local lines = {}
+    for _, d in ipairs(calls('AddLine')) do
+        if d.args[3] == u32(P.rose) then lines[#lines + 1] = d.args end
+    end
+    if #lines < 2 then return nil end
+    local a, b = lines[1][1], lines[1][2]
+    return { (a[1] + b[1]) / 2, (a[2] + b[2]) / 2 }
+end
+
 test('run and the cog sit at the top right of your own HP bar, the title row keeps close; lit while on', function ()
     close_settings()
     render(settings.defaults(), status())
-    -- Text 14: buttons 17px. Your card's HP bar runs x 108-328 from y 75; close is in the title row at y 50.
+    -- Text 14: buttons 17px. Your card's HP bar runs x 108-328 from y 75. Close is an X in the title row, no disc.
     local c = discs()
-    eq({ c[1][1], c[1][2] }, { 100 + 236 - 8 - 17 + 8.5, 50 + 4 + 8.5 })                    -- close
-    eq({ c[2][1], c[2][2], c[3][1], c[3][2] }, { 328 - 2 - 17 - 4 - 17 + 8.5, 77 + 8.5, 328 - 2 - 17 + 8.5, 77 + 8.5 })  -- run, cog
+    eq(close_x(), { 100 + 236 - 8 - 8.5, 50 + 12.5 })
+    eq({ c[1][1], c[1][2], c[2][1], c[2][2] }, { 328 - 2 - 17 - 4 - 17 + 8.5, 77 + 8.5, 328 - 2 - 17 + 8.5, 77 + 8.5 })
     eq(#frame.args.InvisibleButton, 3)
     -- The fake hovers everything: run unlit is the accent's low shade, lit its light one; the cog lit while SK Settings shows.
-    eq({ c[2][3], c[3][3] }, { u32(P.accent_lo), u32(P.accent_lo) })
+    eq({ c[1][3], c[2][3] }, { u32(P.accent_lo), u32(P.accent_lo) })
     render(settings.defaults(), status({ running = true }))
-    eq(discs()[2][3], u32(P.accent2))
+    eq(discs()[1][3], u32(P.accent2))
     open_settings()
     render(settings.defaults(), status())
-    eq(discs()[3][3], u32(P.accent2))
+    eq(discs()[2][3], u32(P.accent2))
+    eq(close_x() ~= nil, true)  -- SK Settings' X, rose under the pointer, and no disc of its own
     close_settings()
 end)
 
@@ -538,11 +571,11 @@ test('a short HP bar shrinks the buttons to fit it', function ()
     cfg.ui.hp_height = 12
     render(cfg, status())
     local c = discs()
-    eq(c[2][2] - 75, 2 + 4)  -- 8px buttons, 2px from the bar's top
+    eq(c[1][2] - 75, 2 + 4)  -- 8px buttons, 2px from the bar's top
     cfg.ui.hp_height, cfg.ui.hp_width, cfg.ui.text_size = 120, 80, 48  -- big text on a narrow bar: both still fit across it
     render(cfg, status())
     c = discs()
-    eq({ c[2][1] - 18, c[3][1] + 18 }, { 108 + 80 - 2 - 36 - 4 - 36, 108 + 80 - 2 })  -- 36px buttons, from the bar's left to its right
+    eq({ c[1][1] - 18, c[2][1] + 18 }, { 108 + 80 - 2 - 36 - 4 - 36, 108 + 80 - 2 })  -- 36px buttons, from the bar's left to its right
 end)
 
 test('a button\'s tooltip replaces the card\'s', function ()
@@ -723,6 +756,16 @@ local function pages(cfg, in_cat)
     return out
 end
 
+test('SK Settings is one fixed width, the same for every job', function ()
+    open_settings()
+    render(settings.defaults(), status())
+    local size = { kit.S(160) + kit.S(390) + 2 * kit.S(6), kit.S(580) + 2 * kit.S(6) }
+    eq(frame.window_size, size)
+    local pup = fake.catalog(18, 75, nil, 0, { 'Repair', 'Deploy' })
+    render(settings.defaults(), status(), nil, model.build(snap(), pup, settings.defaults(), status(), NAMES))
+    eq(frame.window_size, size)
+end)
+
 test('a page for each group of sections, in order, Profiles and UI / Log at the foot; one with every switch off a ring', function ()
     local cfg = settings.defaults()
     cfg.buff.on = false
@@ -789,9 +832,9 @@ end)
 test('items get a heading of their own, with no pick or targets', function ()
     open_settings()
     render(settings.defaults(), status(), on('Remove'))
-    eq({ drew('ITEMS'), button('Echo Drops (0)###remove_Echo Drops'), button('##pick_remove_Echo Drops') }, { true, true, false })
+    eq({ drew('I T E M S'), button('Echo Drops (0)###remove_Echo Drops'), button('##pick_remove_Echo Drops') }, { true, true, false })
     render(settings.defaults(), status(), on('Buff'))
-    eq({ button('##pick_buff_Protect'), button('P1##buff_Protect1'), drew('ITEMS') }, { true, true, false })
+    eq({ button('##pick_buff_Protect'), button('P1##buff_Protect1'), drew('I T E M S') }, { true, true, false })
 end)
 
 test('sliders, the focus and the options write the settings', function ()
