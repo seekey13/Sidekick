@@ -230,8 +230,15 @@ function kit.fill(dl, x, y, w, h, color, r, alpha, corners)
 end
 local fill = kit.fill
 
-function kit.outline(dl, x, y, w, h, color, r, alpha)
-    dl:AddRect({ x, y }, { x + w, y + h }, kit.u32(color, alpha), r or 0)
+function kit.outline(dl, x, y, w, h, color, r, alpha, thickness)
+    local col, rad = kit.u32(color, alpha), r or 0
+    if thickness and thickness ~= 1 then
+        -- Thickness is the last argument, so the corner flags have to be passed too. 0 squares the corners on 1.81.
+        local corners = ImDrawFlags_RoundCornersAll or ImDrawCornerFlags_All
+        dl:AddRect({ x, y }, { x + w, y + h }, col, rad, corners, thickness)
+    else
+        dl:AddRect({ x, y }, { x + w, y + h }, col, rad)
+    end
 end
 local outline = kit.outline
 

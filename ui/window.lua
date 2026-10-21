@@ -64,9 +64,11 @@ local user_scale = 1         -- SK Settings' size (view.ui.scale), taken up whil
 -- HUD -----------------------------------------------------------------------------
 
 local HUD_PAD, BAR_GAP, ROUND = 8, 3, 4  -- the panel's padding, between bars, the bars' corners (pixels)
-local BAR_FILL = 0.78                     -- the fill lets the game show through, as the reference bar
+local BAR_FILL = 0.7                     -- the fill lets the game show through, as the reference bar
 local BAR_TRACK_A = 0.7                   -- bar background stays at 70%: gray hovered, black while not
-local BAR_OFF = '#000000'                  -- that background while the pointer is off the panel
+local BAR_EDGE = 1                         -- the stroke around each bar
+local BAR_EDGE_A = 0.7                     -- that stroke is black at 70%, and it does not fade with the panel
+local BAR_OFF = '#0c0c0c'                  -- the background while the pointer is off the panel; the stroke is always this
 local TITLE = 'Sidekick3'
 
 local HUD_FLAGS = ImGuiWindowFlags_NoTitleBar + ImGuiWindowFlags_NoResize + ImGuiWindowFlags_NoScrollbar
@@ -106,7 +108,8 @@ end
 
 -- A track at (x, y), w by h, `f` (0 to 1) of it filled in `color`. The whole bar has a
 -- background at 70% that does not fade with the panel: gray while the pointer is over
--- it (`chrome` 1), black while not. No edge and no glow. The fill is slightly transparent.
+-- it (`chrome` 1), near-black while not. A 1px stroke in that same near-black, at 70%, sits on the edge.
+-- The fill is at 70% too.
 local function track(dl, x, y, w, h, f, color, alpha, chrome)
     local r = math.min(ROUND, math.floor(h / 2))
     kit.fill(dl, x, y, w, h, kit.mix(BAR_OFF, P.track, chrome), r, BAR_TRACK_A)
@@ -114,6 +117,7 @@ local function track(dl, x, y, w, h, f, color, alpha, chrome)
     if fw > 0 then
         kit.fill(dl, x, y, fw, h, color, math.min(r, fw / 2), alpha * BAR_FILL, fw < w and kit.LEFT_CORNERS or nil)
     end
+    kit.outline(dl, x, y, w, h, BAR_OFF, r, BAR_EDGE_A, BAR_EDGE)
 end
 
 -- A bar: `pct` of its track filled (eased, by `id`).

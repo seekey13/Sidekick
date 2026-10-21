@@ -20,7 +20,8 @@ read_globals = { 'AshitaCore', 'ashita', 'struct', 'T',
     'ImGuiCol_Header', 'ImGuiCol_HeaderHovered', 'ImGuiCol_HeaderActive',
     'ImGuiCol_ScrollbarBg', 'ImGuiCol_ScrollbarGrab', 'ImGuiCol_ScrollbarGrabHovered', 'ImGuiCol_ScrollbarGrabActive',
     'ImGuiInputTextFlags_CharsDecimal', 'ImGuiInputTextFlags_EnterReturnsTrue', 'ImGuiInputTextFlags_AutoSelectAll',
-    'IMGUI_VERSION_NUM', 'ImDrawFlags_RoundCornersLeft', 'ImDrawCornerFlags_Left',
+    'IMGUI_VERSION_NUM', 'ImDrawFlags_RoundCornersLeft', 'ImDrawFlags_RoundCornersAll',
+    'ImDrawCornerFlags_Left', 'ImDrawCornerFlags_All',
 }
 globals = { 'addon' }
 
