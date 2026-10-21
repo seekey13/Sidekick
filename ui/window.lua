@@ -194,35 +194,43 @@ local function card_icons(view, ui, p, x, y, s)
     return over_run or over_cog
 end
 
+-- The name on an HP bar. Over 75% it stays white; at 75% it turns yellow, at 50% orange and at 25% red.
+-- Away, it greys with the bars.
+local function name_color(p)
+    if p.away then return P.dim end
+    local hpp = p.hpp or 100
+    if hpp <= 25 then return P.red end
+    if hpp <= 50 then return P.orange end
+    if hpp <= 75 then return P.yellow end
+    return P.white
+end
+
 -- A member's card at (x, y): the HP bar over the MP bar over the TP bar, the name on the first and the tag on the
 -- second, the % of each (TP's number) only in its tooltip. A tracked player's MP and TP can't be read: their bars stay
--- empty. Critical HP turns the name rose; MP under the Recover line, the tag. Away, the bars fade
--- and the text greys. `id` keeps the bars' eased fills apart.
+-- empty. The name turns yellow at 75% HP, orange at 50% and red at 25%; MP under the Recover line turns the tag
+-- rose. Away, the bars fade and the text greys. `id` keeps the bars' eased fills apart.
 local function card(dl, ui, p, x, y, id, chrome)
     local fx, mp_top = x + HUD_PAD, y + ui.hp_height + BAR_GAP
     local fade = p.away and 0.45 or 1
-    local critical = p.hp == 'critical' and not p.away
     bar(dl, 'hp.' .. id, fx, y, ui.hp_width, ui.hp_height, p.hpp, P.hp, fade, chrome)
     bar(dl, 'mp.' .. id, fx, mp_top, ui.mp_width, ui.mp_height, p.mpp, P.mp, fade, chrome)
     tp_bar(dl, 'tp.' .. id, fx, mp_top + ui.mp_height + BAR_GAP, ui.tp_width, ui.tp_height, p.tp, fade, chrome)
     local font = kit.fonts.semi
     local _, nh = kit.measure(p.name, font, ui.name_size)
-    kit.halo(dl, fx + 6, y + ui.hp_height - nh, p.name, p.away and P.dim or critical and P.rose or P.white, font, ui.name_size)
+    kit.halo(dl, fx + 6, y + ui.hp_height - nh, p.name, name_color(p), font, ui.name_size)
     local _, th = kit.measure(p.tag, font, ui.text_size)
     kit.halo(dl, fx + 6, mp_top + (ui.mp_height - th) / 2, p.tag,
         p.away and P.dim or p.mp == 'low' and P.rose or P.text2, font, ui.text_size)
 end
 
 -- An alliance member's row, its bar's top at `top`: a thin HP bar (the MP bar's height) with the tag and name on
--- it, its HP % only in its tooltip.
+-- it, coloured as a card's name is, its HP % only in its tooltip.
 local function ally_row(dl, ui, p, x, top, chrome)
     local fx = x + HUD_PAD
-    local critical = p.hp == 'critical' and not p.away
     bar(dl, 'ally.' .. p.name, fx, top, ui.hp_width, ui.mp_height, p.hpp, P.hp, p.away and 0.45 or 1, chrome)
     local label = p.tag .. ' ' .. p.name
     local _, h = kit.measure(label, kit.fonts.semi, ui.text_size)
-    kit.halo(dl, fx + 6, top + (ui.mp_height - h) / 2, label, p.away and P.dim or critical and P.rose or P.white,
-        kit.fonts.semi, ui.text_size)
+    kit.halo(dl, fx + 6, top + (ui.mp_height - h) / 2, label, name_color(p), kit.fonts.semi, ui.text_size)
 end
 
 -- Labels in pills side by side, the first's point just right of the panel at `cy`: this session's amber while running

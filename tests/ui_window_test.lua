@@ -419,19 +419,24 @@ test('sizes out of their sliders\' range, set by hand or by a custom UI, are hel
     eq({ panel[2][1], panel[3] }, { 100 + 2 * 8 + 600, u32(P.bg, 0) })
 end)
 
-test('critical HP turns the name rose, MP under the Recover line the tag; away greys both', function ()
+test('a name turns yellow at 75% HP, orange at 50% and red at 25%; away greys it, low MP the tag', function ()
     close_settings()
     local cfg, st = settings.defaults(), status()
     local g = fake.snap({
-        { name = 'A', hpp = 20, mpp = 10 },
-        { name = 'W', hpp = 90, mpp = 0, uses_mp = false },  -- no MP to recover
-        { name = 'Gone', hpp = 25, in_zone = false },
+        { name = 'High', hpp = 76 },
+        { name = 'Yel', hpp = 75 },
+        { name = 'Org', hpp = 50, mpp = 10 },
+        { name = 'Red', hpp = 25 },
+        { name = 'Gone', hpp = 10, in_zone = false },
+        { kind = 'tracked', name = 'Mid', hpp = 51 },  -- still yellow: not at 50% yet
+        { kind = 'tracked', name = 'Low', hpp = 26 },  -- still orange: not at 25% yet
     })
     render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
-    eq({ fill('A'), fill('P1') }, { u32(P.rose), u32(P.rose) })
-    eq({ fill('W'), fill('P2') }, { u32(P.white), u32(P.text2) })
-    eq({ fill('Me'), fill('ME') }, { u32(P.white), u32(P.text2) })
-    eq({ fill('Gone'), fill('P3') }, { u32(P.dim), u32(P.dim) })
+    eq({ fill('Me'), fill('High'), fill('Yel'), fill('Mid') },
+        { u32(P.white), u32(P.white), u32(P.yellow), u32(P.yellow) })
+    eq({ fill('Org'), fill('P3'), fill('Low'), fill('Red') },
+        { u32(P.orange), u32(P.rose), u32(P.orange), u32(P.red) })
+    eq({ fill('Gone'), fill('P5') }, { u32(P.dim), u32(P.dim) })
 end)
 
 -- The TP fills drawn: each one's corners and colour, in the order drawn.
@@ -468,7 +473,7 @@ test('your pet\'s card sits under yours, before P1: its HP, MP and TP, and its o
     local g = fake.snap({ { name = 'A' } }, { pet = { name = 'Ifrit', hpp = 50, mpp = 40, tp = 1000, dist = 3 } })
     render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
     eq({ hp_fill(108, 75), hp_fill(108, 155), hp_fill(108, 235) }, { { 328, 115 }, { 108 + 110, 195 }, { 328, 275 } })
-    eq({ fill('Ifrit'), fill('PET') }, { u32(P.white), u32(P.text2) })
+    eq({ fill('Ifrit'), fill('PET') }, { u32(P.orange), u32(P.text2) })  -- 50% HP: the name is orange
     eq(tp_fills(), { { { 108, 155 + 64 }, { 179, 155 + 72 }, u32(P.tp, BAR_FILL) } })  -- 1000 TP: one part, full
     eq(tipped('Ifrit (pet)\nHP 50%  MP 40%  TP 1000  3.0y'), true)
     g.pet = nil
@@ -490,15 +495,15 @@ end)
 test('the alliance gets a thin HP row each under the cards, a gap before each party; the arrow points at one', function ()
     close_settings()
     local cfg = settings.defaults()
-    local g = fake.snap({ { name = 'A' }, { kind = 'alliance', name = 'Bea', hpp = 20 }, { kind = 'alliance', name = 'Bo', slot = 7 },
-        { kind = 'alliance', name = 'Cy', slot = 12, in_zone = false } })
+    local g = fake.snap({ { name = 'A' }, { kind = 'alliance', name = 'Bea', hpp = 20 },
+        { kind = 'alliance', name = 'Bo', slot = 7, hpp = 75 }, { kind = 'alliance', name = 'Cy', slot = 12, in_zone = false } })
     local st = status({ intent = { at = 990, action = 'Cure IV', target = 'Bo', behavior = 'heal', why = 'Bo' } })
     render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
     local cards = 25 + 2 * 72 + 8               -- title, two cards and the gap between them
     local b, c = cards + 8, cards + 8 + 18 + 3 + 18 + 8  -- each party's first bar top: after a gap
     eq(frame.extent.Sidekick3, { 100 + 236, 50 + c + 18 + 8 })  -- the panel still fits its items exactly
     eq(calls('AddRectFilled')[1].args[2][2], 50 + c + 18 + 8)
-    eq({ fill('B0 Bea'), fill('B1 Bo'), fill('C0 Cy'), fill('20%') }, { u32(P.rose), u32(P.white), u32(P.dim), nil })
+    eq({ fill('B0 Bea'), fill('B1 Bo'), fill('C0 Cy'), fill('20%') }, { u32(P.red), u32(P.yellow), u32(P.dim), nil })
     eq(tipped('Bea (alliance)\nHP 20%  MP 100%  TP 0  5.0y'), true)
     local arrow = calls('AddTriangleFilled', 'background')
     eq({ #arrow, arrow[1].args[1] }, { 1, { 100 + 236 + 2, 50 + b + 18 + 3 + 9 } })  -- its point: Bo's row, its middle

@@ -27,6 +27,7 @@ kit.P = {
     hp = '#EE6F78', mp = '#E8B45C',  -- the HUD's bars: the mockup's red and yellow, from the palette,
     tp = '#5FD3B3',                  -- and TP in its teal, as what is ready
     track = '#808080',               -- each HUD bar's background, at 70%, not faded with the panel
+    yellow = '#E8C84A', orange = '#E8883A', red = '#E8454E',  -- a name on an HP bar, at 75%, 50% and 25%
 }
 local P = kit.P
 
