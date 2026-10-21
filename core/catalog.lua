@@ -25,6 +25,7 @@ local UNBRIDLED = 'Unbridled Learning'
 local SELF = 1   -- valid-target flag: items are used on you
 
 local SCH = 20
+local PUP = 18  -- its maneuvers are pet commands: HasAbility lists those only while a pet is out
 local ADDENDUM = { [1] = { 401, 416 }, [2] = { 402, 416 } }  -- by spell type: white, black; or Enlightenment
 
 -- "Cure IV" -> "Cure", 4; "Utsusemi: Ni" -> "Utsusemi", 2; "Haste" -> "Haste", 1
@@ -158,8 +159,18 @@ function catalog.build(res, player, K)
             if from then add('ma', id, s, from, level, addendum) end
         end
     end
+    -- A pet command leaves the client's ability list while no pet is out. The
+    -- catalog is rebuilt on a job or level change, not when the automaton is
+    -- called, so a PUP's maneuvers (main or sub) are listed for the job: the
+    -- Maneuvers section stays up, and none goes until an automaton is out
+    -- (jobs/pup.lua, can.use). Anything else still waits on HasAbility.
+    local function listed(id, row)
+        if player.has_ability(id) then return true end
+        local use = K[row.en]
+        return use ~= nil and use.role == 'maneuver' and (player.main == PUP or player.sub == PUP)
+    end
     for id, a in pairs(res.abilities) do
-        if not SKIP_TYPES[a.type] and player.has_ability(id) then
+        if not SKIP_TYPES[a.type] and listed(id, a) then
             add(PET_TYPES[a.type] and 'pet' or 'ja', id, a)
         end
     end

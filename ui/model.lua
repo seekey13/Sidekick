@@ -37,7 +37,7 @@ local model = {}
 -- other section is switched by cfg[id].on, and all but 'afk' are behaviors; one with roles also has rows. Wake shows only when a heal can wake,
 -- Rolls only for a job with rolls, Songs only with a song (BRD, main or sub), Geomancy only
 -- with a Geo- spell (a GEO main job), Runes only with a rune (RUN, main or sub), Maneuvers
--- only with a maneuver (PUP, main or sub).
+-- for a PUP, main or sub, automaton out or not (none goes until one is).
 model.SECTIONS = {
     { id = 'profile', title = 'Profiles', header = 'Profiles', switch = false },
     { id = 'follow', title = 'Follow', header = 'Follow' },
