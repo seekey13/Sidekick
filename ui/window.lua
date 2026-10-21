@@ -984,7 +984,6 @@ local function draw_ui(view, pg)
     slider(pg, 'Size', 'Size##sk3_ui_scale', 'ui.scale', ui_scale(view.ui), 50, 200,
         'This window\'s size and the widget\'s, % of the size that suits your screen. Taken up once the slider is let go.', '%')
     subheader(pg, 'LOG')
-    switch(pg, 'Action log', 'Action log##sk3_log', view.log, act.log, 'Print each action to chat as it is sent.')
     draw_recent(view, pg)
     subheader(pg, 'CLIENT')
     switch(pg, 'Japanese client', 'Japanese client##sk3_japanese', view.japanese, function (on) act.set('japanese', on) end,

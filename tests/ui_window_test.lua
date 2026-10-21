@@ -960,12 +960,12 @@ test('UI / Log: the sliders size the HUD and SK Settings, Lock position keeps th
     render(cfg, st)
 end)
 
-test('the action log changes the session, not the settings; the recent list is under it', function ()
+test('UI / Log lists the last actions sent, and has no action log switch', function ()
     open_settings()
     local cfg, st = settings.defaults(), status()
-    eq(render(cfg, st, on('UI / Log', { ['Action log##sk3_log'] = true })), 0)
-    eq({ st.log, drew('Cure IV -> A'), drew('heal: A at 62%') }, { false, true, true })
-    eq(cfg, settings.defaults())
+    eq(render(cfg, st, on('UI / Log')), 0)
+    eq({ button('Action log##sk3_log'), drew('Cure IV -> A'), drew('heal: A at 62%') }, { false, true, true })
+    eq({ cfg, st.log }, { settings.defaults(), true })  -- the page writes nothing, and leaves the session log as it was
     render(cfg, status({ sent = {} }), on('UI / Log'))
     eq(drew('Nothing sent yet.'), true)
 end)
@@ -1250,7 +1250,7 @@ test('another session\'s SK Settings draw its view; changes go to it, never to y
     frame_with(on('UI / Log'))
     eq({ drew('WHM 75 / BLM 37'), drew('Running'), drew('Nothing sent yet.') }, { true, true, true })  -- its own status and log
     eq({ button('Action log##sk3_log'), button('Japanese client##sk3_japanese'), button('HP bar width##sk3_ui_hp_width') },
-       { false, false, false })  -- the HUD and log are its own
+       { false, false, false })  -- no action log switch; the HUD is its own
     frame_with({ close = 'SK Settings: A###sk3_settings_A' })
     eq(st.watching, {})
 end)

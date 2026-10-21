@@ -64,7 +64,6 @@ Text that may contain `%` (names, `why` text) must be escaped before it's drawn:
 | `afk` | table | `{ minutes, asleep, left }`: AFK sleep pauses automation once no one in your party has moved and there has been no combat for `minutes` (1 to 60), and your own movement wakes it; its switch is the `'afk'` section's. `asleep` is true while it sleeps; `left` is the seconds until it would, nil while it's off, asleep or automation is stopped (it counts only while running) |
 | `track` | table | `{ target }`: your current target's name when it's a player you could track (not in your party or alliance, not tracked yet), else nil |
 | `japanese` | bool | Spell, ability and item names are sent in Japanese. Shared by every job pair: it's kept in `ui`'s file (`ui.japanese`) |
-| `log` | bool | Each action sent is printed to chat |
 | `profiles` | table | `{ active, names }`: the profile loaded (nil for Default, the working copy) and every saved profile's name, in order, case aside. Each job pair has its own |
 | `ui` | table | The UI's settings, shared by every job pair: `open` (bool, the UI is shown now: false once `/sk3`, `act.close()` or an error hid it), and any `ui.<name>` your UI saved. The standard HUD's, which yours may ignore: `hp_width`, `mp_width`, `tp_width` (80 to 600), `hp_height` (10 to 120), `mp_height`, `tp_height` (4 to 80), `name_size` (8 to 64), `text_size` (8 to 48), `gap` (0 to 40), all in pixels; `opacity` (0 to 100, the panel's %); `locked` (bool, it and the widget can't be dragged); `widget` (bool, the widget is shown, with the UI closed too: `/sk3 widget` switches it; a UI with no widget may ignore it); SK Settings' `scale` (50 to 200, % of the size that suits the screen; nil for 100); `japanese` (bool, the client's language, as `view.japanese`: not free for a UI's own use) |
 | `sections` | list | Every setting, by section, below |
@@ -129,7 +128,7 @@ In this order. A section with rows is left out when your job has none for it (Pe
 | `'rest'` | Resting | Recover | `view.rest` |
 | `'track'` | Tracked players | Tracked | `view.track`, and the `party` and `alliance` lines with `tracked` |
 | `'afk'` | AFK sleep | AFK | `view.afk` |
-| `'ui'` | UI / Log | UI / Log | `view.ui`, `view.log`, `view.recent`, `view.japanese` |
+| `'ui'` | UI / Log | UI / Log | `view.ui`, `view.recent`, `view.japanese` |
 
 | Field | Type | What it is |
 |---|---|---|
@@ -162,7 +161,6 @@ In this order. A section with rows is left out when your job has none for it (Pe
 | Function | What it does |
 |---|---|
 | `act.run(on)` | Automation on or off. This session only: it is always off after a load |
-| `act.log(on)` | Print each action sent to chat, or not. This session only |
 | `act.close()` | Hide the UI (remembered); `/sk3` shows it again. A widget stays while `ui.widget` is on |
 | `act.section(id, on)` | A section's switch: `'follow'`, `'heal'`, `'revive'`, `'wake'`, `'remove'`, `'buff'`, `'roll'`, `'song'`, `'geo'`, `'rune'`, `'pet'`, `'maneuver'`, `'recover'`, `'rest'` or `'afk'` |
 | `act.row(key, on)` | A row on or off |
@@ -179,7 +177,7 @@ In this order. A section with rows is left out when your job has none for it (Pe
 | `act.skip(name, skip)` | Skip a member (or tracked player) in healing (`skip` true), or take them back (false): a `view.heal.members[i].name`; nil toggles |
 | `act.set(path, value)` | A setting by path, below |
 | `act.watch(name, on)` | Show another session's SK Settings (a `party[i].session.name`), or stop: it then sends its view, which comes in `view.remote`. This session only; closed when that session goes |
-| `act.remote(name)` | Another session's `act`, to change it from here: `run`, `section`, `row`, `pick`, `target`, `mod`, `hold`, `profile`, `save_profile`, `new_profile`, `delete_profile`, `track` (by name only), `untrack`, `skip` and `set`. `target`, `mod`, `hold` and `skip` need their state (`true` or `false`), never a toggle: the view you click is a moment old. `target`, `mod` and `hold` are refused there for a row that has no chips in that session (a buff or luopan row of its job). `set` takes only the paths in the table below but `'japanese'` and `'ui.*'` (the HUD is each session's own), a number held to its range. There's no `close`, `log`, `watch` or `remote`. Each call goes through the files the sessions share and is made there, through its own `act`, within a second or so (a quarter second while its SK Settings are open); its view in `view.remote` then shows it |
+| `act.remote(name)` | Another session's `act`, to change it from here: `run`, `section`, `row`, `pick`, `target`, `mod`, `hold`, `profile`, `save_profile`, `new_profile`, `delete_profile`, `track` (by name only), `untrack`, `skip` and `set`. `target`, `mod`, `hold` and `skip` need their state (`true` or `false`), never a toggle: the view you click is a moment old. `target`, `mod` and `hold` are refused there for a row that has no chips in that session (a buff or luopan row of its job). `set` takes only the paths in the table below but `'japanese'` and `'ui.*'` (the HUD is each session's own), a number held to its range. There's no `close`, `watch` or `remote`. The action log is not an action: `/sk3 log` on that session turns it on for debugging. Each call goes through the files the sessions share and is made there, through its own `act`, within a second or so (a quarter second while its SK Settings are open); its view in `view.remote` then shows it |
 
 `act.set` paths:
 
