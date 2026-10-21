@@ -702,8 +702,8 @@ done in a sixth of a second.
 
 ## In Sidekick3
 
-`ui/kit.lua` is this doc in code: the palette (§2, plus `hp`, `mp` and `tp` for the HUD's bars: the rose and amber
-nearest the old mockup's red and yellow, and the teal), `S` and the scale (§3), the fonts and text helpers (§4), the shapes, easing and hit
+`ui/kit.lua` is this doc in code: the palette (§2, plus `hp`, `mp`, `tp` and `track` for the HUD's bars: the rose and amber
+nearest the old mockup's red and yellow, the teal, and a gray background behind each bar), `S` and the scale (§3), the fonts and text helpers (§4), the shapes, easing and hit
 boxes (§7), and the controls (§8: switch, slider, segments, drop-down, button, chip, text field). `ui/window.lua` draws
 everything with it:
 
@@ -713,13 +713,15 @@ everything with it:
   Spell and ability rows put their name, readiness and switch on one line and their pick, target chips and modifier
   chips on the lines under it.
 - **The HUD** keeps its layout and the sizes set under UI / Log, in the palette: a dark rounded panel, rounded
-  bars with a white glow and a slightly transparent fill that eases to each new value,
+  bars with a background at 70% that does not fade (gray while the pointer is over the panel, black while it is not), no edge and no glow, and a slightly transparent fill that eases to each new value,
   round buttons filled in the accent while on, and the next action's label as
   a pill (amber running, grey stopped). Each card is HP over MP over TP, your pet's card under yours; the TP bar is
   three parts of 1000 TP, each solid once full and at half alpha while it fills (as Floaties draws it). Its
   text keeps a dark halo, as it sits on bars and, with the panel see-through, on the game. The panel, its frame, the
   title and the close mark fade out until the mouse is over the window (Tracker's chrome) and fade back to the
-  Background opacity while it is. The bars do not fade. The close mark is Tracker's X, rose under the pointer.
+  Background opacity while it is. That fade is only the panel around the bars: each bar's background stays at 70%,
+  gray while hovered and black while not.
+  The close mark is Tracker's X, rose under the pointer.
   Section headers are Tracker's small capitals: Segoe semibold italic, letter-spaced.
 
 What differs from vana:

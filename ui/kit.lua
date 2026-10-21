@@ -26,6 +26,7 @@ kit.P = {
     knob = '#F2F3F8', off = '#2B2F42', seg = '#313752', ink = '#0B1020',
     hp = '#EE6F78', mp = '#E8B45C',  -- the HUD's bars: the mockup's red and yellow, from the palette,
     tp = '#5FD3B3',                  -- and TP in its teal, as what is ready
+    track = '#808080',               -- each HUD bar's background, at 70%, not faded with the panel
 }
 local P = kit.P
 

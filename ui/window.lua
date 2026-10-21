@@ -65,7 +65,8 @@ local user_scale = 1         -- SK Settings' size (view.ui.scale), taken up whil
 
 local HUD_PAD, BAR_GAP, ROUND = 8, 3, 4  -- the panel's padding, between bars, the bars' corners (pixels)
 local BAR_FILL = 0.78                     -- the fill lets the game show through, as the reference bar
-local BAR_GLOW = 3                        -- white bloom outside the bar, in pixels
+local BAR_TRACK_A = 0.7                   -- bar background stays at 70%: gray hovered, black while not
+local BAR_OFF = '#000000'                  -- that background while the pointer is off the panel
 local TITLE = 'Sidekick3'
 
 local HUD_FLAGS = ImGuiWindowFlags_NoTitleBar + ImGuiWindowFlags_NoResize + ImGuiWindowFlags_NoScrollbar
@@ -103,34 +104,35 @@ local function pet_tip(pet)
     return ('%s (pet)\nHP %d%%  MP %d%%  TP %d  %s'):format(pet.name, pet.hpp, pet.mpp, pet.tp, pet.dist)
 end
 
--- A track at (x, y), w by h, `f` (0 to 1) of it filled in `color`. A white glow
--- borders the whole bar. The fill is slightly transparent.
-local function track(dl, x, y, w, h, f, color, alpha)
+-- A track at (x, y), w by h, `f` (0 to 1) of it filled in `color`. The whole bar has a
+-- background at 70% that does not fade with the panel: gray while the pointer is over
+-- it (`chrome` 1), black while not. No edge and no glow. The fill is slightly transparent.
+local function track(dl, x, y, w, h, f, color, alpha, chrome)
     local r = math.min(ROUND, math.floor(h / 2))
-    for i = BAR_GLOW, 1, -1 do
-        kit.outline(dl, x - i, y - i, w + i * 2, h + i * 2, P.white, r + i, alpha * 0.14 * (BAR_GLOW - i + 1))
-    end
+    kit.fill(dl, x, y, w, h, kit.mix(BAR_OFF, P.track, chrome), r, BAR_TRACK_A)
     local fw = math.max(0, math.min(w, math.floor(w * f + 0.5)))
-    if fw > 0 then kit.fill(dl, x, y, fw, h, color, math.min(r, fw / 2), alpha * BAR_FILL) end
-    kit.outline(dl, x, y, w, h, P.white, r, alpha * 0.7)
+    if fw > 0 then
+        kit.fill(dl, x, y, fw, h, color, math.min(r, fw / 2), alpha * BAR_FILL, fw < w and kit.LEFT_CORNERS or nil)
+    end
 end
 
 -- A bar: `pct` of its track filled (eased, by `id`).
-local function bar(dl, id, x, y, w, h, pct, color, alpha)
-    track(dl, x, y, w, h, kit.ease(id, math.min(math.max(pct, 0), 100) / 100, 12), color, alpha)
+local function bar(dl, id, x, y, w, h, pct, color, alpha, chrome)
+    track(dl, x, y, w, h, kit.ease(id, math.min(math.max(pct, 0), 100) / 100, 12), color, alpha, chrome)
 end
 
 local TIER, TIERS = 1000, 3  -- TP: a weapon skill's worth, and how many stand
 
 -- The TP bar: a track per 1000 TP side by side, each filling once the one before is full (eased, by `id`); the one
 -- still filling is drawn faint, as Floaties draws it.
-local function tp_bar(dl, id, x, y, w, h, tp, alpha)
+local function tp_bar(dl, id, x, y, w, h, tp, alpha, chrome)
     local t = kit.ease(id, math.min(math.max(tp, 0), TIER * TIERS) / TIER, 12)  -- in tiers
     local tw = (w - (TIERS - 1) * BAR_GAP) / TIERS
     for i = 1, TIERS do
         local f = math.min(math.max(t - (i - 1), 0), 1)
         local tx = math.floor(x + (i - 1) * (tw + BAR_GAP) + 0.5)
-        track(dl, tx, y, math.floor(x + i * tw + (i - 1) * BAR_GAP + 0.5) - tx, h, f, P.tp, (f < 1 and 0.5 or 1) * alpha)
+        track(dl, tx, y, math.floor(x + i * tw + (i - 1) * BAR_GAP + 0.5) - tx, h, f, P.tp,
+            (f < 1 and 0.5 or 1) * alpha, chrome)
     end
 end
 
@@ -196,13 +198,13 @@ end
 -- second, the % of each (TP's number) only in its tooltip. A tracked player's MP and TP can't be read: their bars stay
 -- empty. Critical HP turns the name rose; MP under the Recover line, the tag. Away, the bars fade
 -- and the text greys. `id` keeps the bars' eased fills apart.
-local function card(dl, ui, p, x, y, id)
+local function card(dl, ui, p, x, y, id, chrome)
     local fx, mp_top = x + HUD_PAD, y + ui.hp_height + BAR_GAP
     local fade = p.away and 0.45 or 1
     local critical = p.hp == 'critical' and not p.away
-    bar(dl, 'hp.' .. id, fx, y, ui.hp_width, ui.hp_height, p.hpp, P.hp, fade)
-    bar(dl, 'mp.' .. id, fx, mp_top, ui.mp_width, ui.mp_height, p.mpp, P.mp, fade)
-    tp_bar(dl, 'tp.' .. id, fx, mp_top + ui.mp_height + BAR_GAP, ui.tp_width, ui.tp_height, p.tp, fade)
+    bar(dl, 'hp.' .. id, fx, y, ui.hp_width, ui.hp_height, p.hpp, P.hp, fade, chrome)
+    bar(dl, 'mp.' .. id, fx, mp_top, ui.mp_width, ui.mp_height, p.mpp, P.mp, fade, chrome)
+    tp_bar(dl, 'tp.' .. id, fx, mp_top + ui.mp_height + BAR_GAP, ui.tp_width, ui.tp_height, p.tp, fade, chrome)
     local font = kit.fonts.semi
     local _, nh = kit.measure(p.name, font, ui.name_size)
     kit.halo(dl, fx + 6, y + ui.hp_height - nh, p.name, p.away and P.dim or critical and P.rose or P.white, font, ui.name_size)
@@ -213,10 +215,10 @@ end
 
 -- An alliance member's row, its bar's top at `top`: a thin HP bar (the MP bar's height) with the tag and name on
 -- it, its HP % only in its tooltip.
-local function ally_row(dl, ui, p, x, top)
+local function ally_row(dl, ui, p, x, top, chrome)
     local fx = x + HUD_PAD
     local critical = p.hp == 'critical' and not p.away
-    bar(dl, 'ally.' .. p.name, fx, top, ui.hp_width, ui.mp_height, p.hpp, P.hp, p.away and 0.45 or 1)
+    bar(dl, 'ally.' .. p.name, fx, top, ui.hp_width, ui.mp_height, p.hpp, P.hp, p.away and 0.45 or 1, chrome)
     local label = p.tag .. ' ' .. p.name
     local _, h = kit.measure(label, kit.fonts.semi, ui.text_size)
     kit.halo(dl, fx + 6, top + (ui.mp_height - h) / 2, label, p.away and P.dim or critical and P.rose or P.white,
@@ -321,7 +323,7 @@ local function draw_hud(view)
     title_row(dl, view, ui.text_size, x0, y0, pw, th, s, chrome)
     for i, c in ipairs(cards) do
         local p, y = c.p, y0 + th + (i - 1) * (ch + ui.gap)
-        card(dl, ui, p, x0, y, c.id)
+        card(dl, ui, p, x0, y, c.id, chrome)
         local on_icon = (p.kind == 'self' or p.session) and card_icons(view, ui, p, x0, y, s)
         imgui.SetCursorScreenPos({ x0 + HUD_PAD, y })
         imgui.Dummy({ pw - 2 * HUD_PAD, ch })
@@ -330,7 +332,7 @@ local function draw_hud(view)
     end
     for j, p in ipairs(view.alliance) do
         local top = y0 + rows[j]
-        ally_row(dl, ui, p, x0, top)
+        ally_row(dl, ui, p, x0, top, chrome)
         imgui.SetCursorScreenPos({ x0 + HUD_PAD, top })
         imgui.Dummy({ pw - 2 * HUD_PAD, ui.mp_height })
         kit.tip(member_tip(p))

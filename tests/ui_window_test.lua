@@ -347,7 +347,8 @@ test('a card per member: name and tag drawn as is, its HP %, MP % and TP and the
     eq(tipped('B (trust, away)\nHP 100%  MP 100%'), true)
 end)
 
-local BAR_FILL = 0.78  -- ui/window.lua's fill: slightly transparent
+local BAR_FILL = 0.78       -- ui/window.lua's fill: slightly transparent
+local BAR_TRACK_A = 0.7     -- each bar's gray background; it does not fade with the panel
 
 -- The HP fill drawn from (x, y): its rectangle's far corner and its colour.
 local function hp_fill(x, y)
@@ -366,11 +367,16 @@ test('the panel and bars follow the UI settings', function ()
     -- Title 25, then cards 40 + 3 + 18 + 3 + 8 high and 8 apart: A's, the third (under yours and your pet's), from
     -- y 235; 62% of 300.
     eq(hp_fill(108, 235), { 108 + 186, 235 + 40 })
-    local glow = false  -- the bar's own edge is white; the bloom sits a pixel or two outside it
-    for _, d in ipairs(calls('AddRect')) do
-        glow = glow or (d.args[1][1] == 108 and d.args[1][2] == 235 and d.args[3] == u32(P.white, 0.7))
+    local rest, glow = false, false  -- the whole bar has a 70% gray background; nothing outlines or blooms it
+    for _, d in ipairs(calls('AddRectFilled')) do
+        rest = rest or (d.args[1][1] == 108 and d.args[1][2] == 235 and d.args[2][1] == 108 + 300
+            and d.args[2][2] == 235 + 40 and d.args[3] == u32(P.track, BAR_TRACK_A))
     end
-    eq(glow, true)
+    for _, d in ipairs(calls('AddRect')) do
+        local x, y = d.args[1][1], d.args[1][2]
+        glow = glow or (x >= 105 and x <= 108 and y >= 232 and y <= 235)
+    end
+    eq({ rest, glow }, { true, false })
     cfg.ui.tp_width = 400  -- the widest bar sets the panel's width
     render(cfg, status())
     eq(calls('AddRectFilled')[1].args[2][1], 100 + 2 * 8 + 400)
@@ -386,9 +392,13 @@ test('the panel, frame, title and close fade out until the mouse is over the win
     eq(calls('AddRectFilled')[1].args[3], u32(P.bg, 0))
     eq(calls('AddRect')[1].args[3], u32(P.border, 0))
     eq(fill('Sidekick3'), u32(P.white, 0))
-    local rose = false
+    local rose, back = false, false  -- the panel around the bars is gone; each bar's background is black at 70%
     for _, d in ipairs(calls('AddLine')) do rose = rose or d.args[3] == u32(P.rose, 0) end
-    eq({ rose, hp_fill(108, 75) ~= nil }, { true, true })
+    for _, d in ipairs(calls('AddRectFilled')) do
+        back = back or (d.args[1][1] == 108 and d.args[1][2] == 75 and d.args[2][1] == 108 + 220
+            and d.args[2][2] == 75 + 40 and d.args[3] == u32('#000000', BAR_TRACK_A))
+    end
+    eq({ rose, hp_fill(108, 75) ~= nil, back }, { true, true, true })
     render(cfg, status())  -- over it again: back to the Background opacity
     eq({ calls('AddRectFilled')[1].args[3], fill('Sidekick3') }, { u32(P.bg), u32(P.white) })
 end)
