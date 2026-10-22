@@ -14,9 +14,7 @@ local CORSAIRS_ID, NINJA_ID = 626, 622  -- catalog ids: the server's ability id 
 local JAS = { 'Corsair\'s Roll', 'Ninja Roll', 'Chaos Roll', 'Double-Up', 'Snake Eye', 'Fold' }
 local cat = fake.catalog(COR, 75, WHM, 37, JAS)
 
-local function named(list, name)
-    for _, a in ipairs(list) do if a.name == name then return a end end
-end
+local named = fake.named
 
 -- COR 75 / WHM 37 with these statuses on you and this last roll; others in slots 1..n.
 local function snap(buffs, roll, waits, others, over)
@@ -33,11 +31,7 @@ local function cfg_with(first, second, risk)
     return cfg
 end
 
-local function decide(g, cfg, mem, list)
-    local intent, why = engine.decide(g, list or cat, cfg, mem)
-    if not intent then return nil, why end
-    return engine.command(intent, cfg), intent
-end
+local function decide(g, cfg, mem, list) return fake.decide(g, list or cat, cfg, mem) end
 
 -- Decide and, when there is something, send it.
 local function step(g, cfg, mem)

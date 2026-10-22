@@ -12,12 +12,7 @@ local cat = fake.catalog(WHM, 75, BLM, 37, { 'Divine Seal', 'Martyr', 'Devotion'
 local sch = fake.catalog(SCH, 75, nil, 0, { 'Accession' })
 local snap = fake.snap
 
-local function decide(g, cfg, list)
-    cfg = cfg or settings.defaults()
-    local intent, why = engine.decide(g, list or cat, cfg, {})
-    if not intent then return nil, why end
-    return engine.command(intent, cfg), intent
-end
+local function decide(g, cfg, list) return fake.decide(g, list or cat, cfg) end
 
 -- An alliance member, 'Bob' unless named: the first is slot 6 (B0), server id 301.
 local function ally(t)

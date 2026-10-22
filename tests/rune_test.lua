@@ -12,9 +12,7 @@ local IGNIS, TELLUS, VALLATION, VALIANCE, EMBOLDEN, LIEMENT, INVISIBLE = 523, 52
 local JAS = { 'Ignis', 'Gelus', 'Tellus', 'Vallation', 'Valiance', 'Pflug', 'Embolden', 'Swordplay' }
 local cat = fake.catalog(RUN, 75, BLM, 37, JAS)
 
-local function named(list, name, role)
-    for _, a in ipairs(list) do if a.name == name and (not role or a.role == role) then return a end end
-end
+local named = fake.named
 
 -- RUN 75 (or `over`'s jobs) with these statuses on you, counted: { [id] = n }.
 local function snap(stacks, over, waits)
@@ -35,11 +33,7 @@ local function cfg_with(sets)
     return cfg
 end
 
-local function decide(g, cfg, list)
-    local intent, why = engine.decide(g, list or cat, cfg, {})
-    if not intent then return nil, why end
-    return engine.command(intent, cfg), intent
-end
+local function decide(g, cfg, list) return fake.decide(g, list or cat, cfg) end
 
 test('catalog: runes, wards in priority order with their blocks, Embolden for white enhancing magic', function ()
     local ignis, vallation = named(cat, 'Ignis'), named(cat, 'Vallation')
@@ -54,9 +48,10 @@ end)
 
 test('rune slots follow the RUN level, main or sub', function ()
     eq({ run.slots(5), run.slots(34), run.slots(35), run.slots(64), run.slots(65) }, { 1, 1, 2, 2, 3 })
-    eq(run.level(snap()), 75)
-    eq(run.level(snap(nil, { main = WAR, sub = RUN, sub_lv = 37 })), 37)
-    eq(run.level(snap(nil, { main = WAR, sub = WHM })), 0)
+    local level = require('core.util').level
+    eq(level(snap(), run.JOB), 75)
+    eq(level(snap(nil, { main = WAR, sub = RUN, sub_lv = 37 }), run.JOB), 37)
+    eq(level(snap(nil, { main = WAR, sub = WHM }), run.JOB), 0)
 end)
 
 test('Idle keeps its runes up, the same rune twice meaning two; an empty slot is skipped', function ()

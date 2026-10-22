@@ -11,9 +11,7 @@ local SHIHEI, TABI, FUDA = 1179, 1194, 2972
 local SHURIKEN, FUMA, KOGA = 17301, 17304, 18712
 local cat = fake.catalog(NIN, 75, WAR, 37, { 'Sange', 'Yonin', 'Innin' })
 
-local function named(list, name)
-    for _, a in ipairs(list) do if a.name == name then return a end end
-end
+local named = fake.named
 
 -- NIN 75 / WAR 37 holding `items` ({ [id] = count }), these statuses on you; `over` sets snapshot fields.
 local function snap(items, buffs, over, waits)
@@ -31,11 +29,7 @@ local function cfg_with(rows)
     return cfg
 end
 
-local function decide(g, cfg, list, mem)
-    local intent, why = engine.decide(g, list or cat, cfg, mem or {})
-    if not intent then return nil, why end
-    return engine.command(intent, cfg), intent
-end
+local function decide(g, cfg, list, mem) return fake.decide(g, list or cat, cfg, mem) end
 
 -- What you hold where ammo can be worn from: { [id] = { en, level } }, NIN-wearable, in the bag.
 local function owned(items)

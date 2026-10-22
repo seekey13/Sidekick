@@ -11,23 +11,18 @@
 local ammo = require('core.ammo')
 local can = require('core.can')
 local settings = require('core.settings')
+local status = require('core.status')
+local util = require('core.util')
 
-local INVISIBLE = 69
 local ENGAGED = 1  -- entity status
 
 local pet = {}
 
-local function by_priority(list)
-    table.sort(list, function (a, b)
-        if a.priority ~= b.priority then return a.priority > b.priority end
-        return (a.level or 0) > (b.level or 0)
-    end)
+-- The rows of `role` that are on, highest priority first.
+local function rows(cat, cfg, role)
+    local list = settings.enabled(cat, cfg, role)
+    table.sort(list, util.by_priority)
     return list
-end
-
-local function clears(a, p)
-    for _, id in ipairs(a.removes) do if p.buffs[id] then return true end end
-    return false
 end
 
 -- `a` now, or the equip of its ammo when that alone stops it (core/ammo.lua); nil
@@ -39,17 +34,17 @@ end
 
 function pet.care(g, cat, cfg, mem)
     local p = g.pet
-    if not p or p.hpp == 0 or g.me.buffs[INVISIBLE] then return nil end
+    if not p or p.hpp == 0 or g.me.buffs[status.INVISIBLE] then return nil end
     if p.hpp < cfg.pet.heal then
-        for _, a in ipairs(by_priority(settings.enabled(cat, cfg, 'pet_heal'))) do
+        for _, a in ipairs(rows(cat, cfg, 'pet_heal')) do
             if can.spare_hp(a, g, cfg) then
                 local intent, equipping = use(a, g, cfg, mem, ('%s %d%%'):format(p.name, p.hpp))
                 if intent or equipping then return intent end  -- not the next row while its ammo goes on
             end
         end
     end
-    for _, a in ipairs(by_priority(settings.enabled(cat, cfg, 'pet_remove'))) do
-        if clears(a, p) then
+    for _, a in ipairs(rows(cat, cfg, 'pet_remove')) do
+        if can.any(p.buffs, a.removes) then
             local intent, equipping = use(a, g, cfg, mem, p.name)
             if intent or equipping then return intent end
         end
@@ -58,7 +53,7 @@ end
 
 function pet.send(g, cat, cfg)
     local p, bt = g.pet, g.bt
-    if not p or p.hpp == 0 or p.status == ENGAGED or not (bt and bt.mob and bt.hpp > 0) or g.me.buffs[INVISIBLE] then
+    if not p or p.hpp == 0 or p.status == ENGAGED or not (bt and bt.mob and bt.hpp > 0) or g.me.buffs[status.INVISIBLE] then
         return nil
     end
     for _, a in ipairs(settings.enabled(cat, cfg, 'pet_send')) do

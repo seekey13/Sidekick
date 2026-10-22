@@ -25,6 +25,8 @@ local can = require('core.can')
 local dnc = require('jobs.dnc')
 local observed = require('core.observed')
 local settings = require('core.settings')
+local status = require('core.status')
+local util = require('core.util')
 
 local heal = {}
 
@@ -36,7 +38,7 @@ local HEALING, BLUE = 33, 43  -- spell skills
 local LIGHT = 6            -- element: the day and weather bonus is on light heals only
 local TP_CAP = 3000        -- TP past this is lost, so a heal spending it is free
 local AURORASTORM = { 184, 595 }
-local REGENS = { 42, 539 } -- Regen, and the GEO aura
+local REGENS = { status.REGEN, 539 }  -- Regen, and the GEO aura
 local THEIRS = 125         -- HP taken as still to come from a Regen not yours: a whole Regen I
 local AURAS, STELLAR, GLOOM, DARKNESS = 16, 17, 18, 19
 local LIGHTSDAY, DARKSDAY = 6, 7
@@ -303,14 +305,9 @@ local function emergency(ctx, list, best, emergencies, ready, members)
     end
 end
 
-local function focus_of(g, s)
-    if s.focus == '' then return nil end
-    for _, u in ipairs(g.units) do if u.name:lower() == s.focus:lower() then return u end end
-end
-
 -- What's up on you (boosts by status) and what healing may fire (Accession).
 local function context(g, cat, cfg, emergencies)
-    local ctx = { g = g, s = cfg.heal, up = {}, sky = heal.sky(g), focus = focus_of(g, cfg.heal) }
+    local ctx = { g = g, s = cfg.heal, up = {}, sky = heal.sky(g), focus = util.named(g.units, cfg.heal.focus) }
     for _, a in ipairs(cat) do
         if a.boost and any(g.me.buffs, a.status) then
             ctx.up[#ctx.up + 1] = a.boost

@@ -8,9 +8,7 @@ local BRD, WHM = 10, 3
 local MINUET, MARCH, BALLAD, PIANISSIMO, INVISIBLE, NIGHTINGALE, TROUBADOUR = 198, 214, 196, 409, 69, 347, 348
 local cat = fake.catalog(BRD, 75, WHM, 37, { 'Pianissimo', 'Nightingale', 'Troubadour' })
 
-local function named(list, name)
-    for _, a in ipairs(list) do if a.name == name then return a end end
-end
+local named = fake.named
 
 -- BRD 75 / WHM 37 with `others`; `buffs` on you, as stacks (an id twice stands twice).
 local function snap(others, buffs, over, waits)
@@ -44,11 +42,7 @@ local function cfg_with(picks, over)
     return cfg
 end
 
-local function decide(g, cfg, mem)
-    local intent, why = engine.decide(g, cat, cfg or settings.defaults(), mem or {})
-    if not intent then return nil, why end
-    return engine.command(intent, cfg or settings.defaults()), intent
-end
+local function decide(g, cfg, mem) return fake.decide(g, cat, cfg, mem) end
 
 test('catalog: songs are their own role, by the kind they show; Pianissimo a modifier with no chip', function ()
     local m = named(cat, 'Valor Minuet IV')

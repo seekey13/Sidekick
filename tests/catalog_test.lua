@@ -23,11 +23,7 @@ local function build(main, main_lv, sub, sub_lv, jas, unlearned)
     }, K)
 end
 
-local function find(cat, name, role)
-    for _, a in ipairs(cat) do
-        if a.name == name and (role == nil or a.role == role) then return a end
-    end
-end
+local find = require('tests.fake').named
 
 test('split parses roman and ninjutsu tiers, leaves other names alone', function ()
     eq({ catalog.split('Cure IV') }, { 'Cure', 4 })
@@ -67,6 +63,13 @@ test('SCH Addendum spells need Addendum or Enlightenment when only SCH can cast 
     eq(find(build(SCH, 75), 'Poisona').requires, { 401, 416 })
     eq(find(build(SCH, 75), 'Sleep').requires, { 402, 416 })  -- Addendum: Black
     eq(find(build(SCH, 75), 'Raise').requires, nil)           -- plain Raise needs nothing
+end)
+
+test('a knowledge row that would require more of an Addendum spell is refused, not dropped', function ()
+    local k = setmetatable({ Poisona = { role = 'remove', removes = 'Poison', requires = 'Composure' } }, { __index = K })
+    local ok, err = pcall(catalog.build, res, { main = SCH, main_lv = 75, sub_lv = 0,
+        has_spell = function () return true end, has_ability = function () return false end }, k)
+    eq({ ok, (tostring(err):match('Poisona: .*')) }, { false, 'Poisona: an Addendum spell can\'t require more' })
 end)
 
 test('a non-SCH source drops the Addendum gate (SCH/WHM, WHM/SCH)', function ()

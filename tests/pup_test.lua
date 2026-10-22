@@ -14,9 +14,7 @@ local OIL, OIL1, OIL3, BISCUIT = 18731, 18732, 19185, 17016
 local JAS = { 'Fire Maneuver', 'Ice Maneuver', 'Light Maneuver', 'Repair', 'Maintenance', 'Role Reversal', 'Deploy' }
 local cat = fake.catalog(PUP, 75, WHM, 37, JAS)
 
-local function named(list, name)
-    for _, a in ipairs(list) do if a.name == name then return a end end
-end
+local named = fake.named
 
 local function automaton(t)
     local p = { name = 'Automaton', hpp = 100, dist = 3, status = 0, buffs = {} }
@@ -41,11 +39,7 @@ local function cfg_with(picks)
     return cfg
 end
 
-local function decide(g, cfg, list, mem)
-    local intent, why = engine.decide(g, list or cat, cfg or settings.defaults(), mem or {})
-    if not intent then return nil, why end
-    return engine.command(intent, cfg or settings.defaults()), intent
-end
+local function decide(g, cfg, list, mem) return fake.decide(g, list or cat, cfg, mem) end
 
 -- What you hold where ammo can be worn from: { [id] = { en, level, jobs, bag } }.
 local PUP_ONLY = bit.lshift(1, PUP)

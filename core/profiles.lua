@@ -13,6 +13,7 @@
 ]]--
 
 local settings = require('core.settings')
+local util = require('core.util')
 
 local profiles = {}
 
@@ -20,12 +21,7 @@ local profiles = {}
 local KEPT = { profiles = true, profile = true, parked = true, ui = true, follow = true, afk = true,
                heal = { focus = true, skip = true }, geo = { entrust = true } }
 
-local function copy(v)
-    if type(v) ~= 'table' then return v end
-    local out = {}
-    for k, x in pairs(v) do out[k] = copy(x) end
-    return out
-end
+local copy = util.copy
 
 -- The defaults under every key `t` lacks, as Ashita's library fills a file
 -- saved before newer settings existed.

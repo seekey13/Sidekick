@@ -1,6 +1,5 @@
 -- Dancer (jobs/dnc.lua): the stances' blocks, Trance's free TP, and finishing moves past five.
 local can = require('core.can')
-local engine = require('core.engine')
 local settings = require('core.settings')
 local fake = require('tests.fake')
 
@@ -11,9 +10,7 @@ local cat = fake.catalog(DNC, 75, WHM, 37, { 'Curing Waltz', 'Curing Waltz II', 
     'Curing Waltz IV', 'Divine Waltz', 'Healing Waltz', 'Drain Samba', 'Aspir Samba', 'Haste Samba',
     'Saber Dance', 'Fan Dance', 'No Foot Rise', 'Reverse Flourish', 'Presto' })
 
-local function named(list, name)
-    for _, a in ipairs(list) do if a.name == name then return a end end
-end
+local named = fake.named
 
 -- DNC 75 / WHM 37 with `tp`, these statuses on you, and `others`; `over` sets snapshot fields.
 local function snap(tp, buffs, others, over)
@@ -32,11 +29,7 @@ local function cfg_with(rows)
     return cfg
 end
 
-local function decide(g, cfg)
-    local intent, why = engine.decide(g, cat, cfg or settings.defaults(), {})
-    if not intent then return nil, why end
-    return engine.command(intent, cfg or settings.defaults()), intent
-end
+local function decide(g, cfg) return fake.decide(g, cat, cfg) end
 
 test('catalog: Trance waives waltzes and Aspir Samba; stances name what they block', function ()
     eq({ named(cat, 'Curing Waltz III').trance, named(cat, 'Divine Waltz').trance,

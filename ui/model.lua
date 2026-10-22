@@ -29,6 +29,8 @@ local pup = require('jobs.pup')
 local run = require('jobs.run')
 local sch = require('jobs.sch')
 local settings = require('core.settings')
+local slots = require('core.slots')
+local util = require('core.util')
 
 local model = {}
 
@@ -247,7 +249,7 @@ end
 -- each ward you have, with its switch (its row) and whether it's ready.
 local function runes(g, cat, cfg)
     local mine, wards = run.actions(cat)
-    local lv = run.level(g)
+    local lv = util.level(g, run.JOB)
     local out = { slots = lv > 0 and run.slots(lv) or 0, runes = {}, sets = {} }
     for _, r in ipairs(run.RUNES) do
         local a = mine[r[1]]
@@ -262,8 +264,8 @@ local function runes(g, cat, cfg)
     for _, set in ipairs(run.SETS) do
         local w = set.ward and ward[set.ward]
         if not set.ward or w then
-            local e = { key = set.key, label = set.label or set.ward, shows = set.shows, ward = w and w.name, picks = {} }
-            for i = 1, run.SLOTS do e.picks[i] = cfg.rune[set.key .. '_' .. i] end
+            local e = { key = set.key, label = set.label or set.ward, shows = set.shows, ward = w and w.name,
+                        picks = slots.names(cfg.rune, set.key, run.SLOTS) }
             if w then
                 local r = settings.row(cfg, w)
                 e.on = r.on == true
@@ -277,14 +279,13 @@ end
 
 -- PUP: the maneuvers to pick from, by element, and each slot's pick (jobs/pup.lua).
 local function maneuvers(g, cat, cfg)
-    local out, first = { choices = {}, picks = {} }, nil
+    local out, first = { choices = {}, picks = slots.names(cfg.maneuver, 'slot', pup.SLOTS) }, nil
     for _, a in ipairs(cat) do  -- in id order: the game's element order
         if a.role == 'maneuver' then
             out.choices[#out.choices + 1] = { name = a.name, label = (a.name:gsub(' Maneuver$', '')) }
             first = first or a
         end
     end
-    for i = 1, pup.SLOTS do out.picks[i] = cfg.maneuver['slot_' .. i] end
     -- They share one recast and every gate, so one says whether they can go.
     if first then out.ready, out.avail = availability({ first }, {}, g) end
     return out
@@ -304,8 +305,7 @@ local function songs(g, cat, cfg, units)
     end
     if not out.choices[1] then return out end
     for _, set in ipairs(brd.SETS) do
-        local e = { key = set.key, label = set.label, picks = {} }
-        for i = 1, brd.SLOTS do e.picks[i] = cfg.song[set.key .. '_' .. i] end
+        local e = { key = set.key, label = set.label, picks = slots.names(cfg.song, set.key, brd.SLOTS) }
         if set.slot then
             local u = units[set.slot]
             e.name, e.present = u and u.name, u ~= nil
@@ -534,7 +534,7 @@ function model.build(g, cat, cfg, status, names)
                 last = { name = a.name, total = g.roll.total, lucky = a.lucky, unlucky = a.unlucky, bust = g.roll.bust == true }
             end
         end
-        stratagems = stratagems or a.kind == 'ja' and a.recast == sch.STRATAGEMS
+        stratagems = stratagems or sch.POOL:spends(a)
         shadows = shadows or a.last_shadow ~= nil
         if a.pick_one == 'indi' then indi[#indi + 1] = a.name end
         luopans = luopans or a.luopan == 'buff' or a.luopan == 'debuff'
@@ -590,6 +590,9 @@ function model.build(g, cat, cfg, status, names)
         view.recent[#view.recent + 1] = { age = math.floor(g.now - e.at), text = model.action_text(e),
                                           why = ('%s: %s'):format(e.behavior, e.why) }
     end
+    -- Sections shown only for a job that has what they keep up; any other with rows only while it has some.
+    local has = { wake = wakes, roll = rolls[1] ~= nil, song = view.song.choices[1] ~= nil, geo = luopans,
+                  rune = view.rune.runes[1] ~= nil, maneuver = view.maneuver.choices[1] ~= nil }
     for _, s in ipairs(model.SECTIONS) do
         local section = { id = s.id, title = s.title, header = s.header }
         if s.switch ~= false then section.on = cfg[s.id].on end  -- cfg.ui.on would be a UI's own
@@ -601,13 +604,8 @@ function model.build(g, cat, cfg, status, names)
                 section.has_mods = section.has_mods or r.mods ~= nil
             end
         end
-        local shown = not section.rows or #section.rows > 0
-        if s.id == 'wake' then shown = wakes end
-        if s.id == 'roll' then shown = rolls[1] ~= nil end
-        if s.id == 'song' then shown = view.song.choices[1] ~= nil end
-        if s.id == 'geo' then shown = luopans end
-        if s.id == 'rune' then shown = view.rune.runes[1] ~= nil end
-        if s.id == 'maneuver' then shown = view.maneuver.choices[1] ~= nil end
+        local shown = has[s.id]
+        if shown == nil then shown = not section.rows or #section.rows > 0 end
         if shown then view.sections[#view.sections + 1] = section end
     end
     return view
@@ -642,7 +640,7 @@ local REMOTE = {
 }
 
 -- The settings act.set may change from another session: a number's range (the
--- standard window's sliders), 'bool', 'name' (a member, a spell, a roll or ''),
+-- one source of it: the standard window's sliders take theirs from here), 'bool', 'name' (a member, a spell, a roll or ''),
 -- 'maneuver' (a maneuver's name or ''), or a list of the values it takes. A song
 -- slot takes a 'name': one the job lacks is skipped, as a rune's.
 model.REMOTE_SET = {
@@ -658,12 +656,11 @@ model.REMOTE_SET = {
     ['geo.distance'] = { 3, 30 }, ['geo.linger'] = { 1, 20 }, ['geo.entrust'] = 'name', ['geo.entrust_spell'] = 'name',
     ['song.duration'] = { 0, 300 }, ['song.fast'] = 'bool',
 }
-for _, set in ipairs(run.SETS) do
-    for i = 1, run.SLOTS do model.REMOTE_SET[run.path(set.key, i)] = 'name' end
-end
-for i = 1, pup.SLOTS do model.REMOTE_SET[pup.path(i)] = 'maneuver' end
-for _, set in ipairs(brd.SETS) do
-    for i = 1, brd.SLOTS do model.REMOTE_SET[brd.path(set.key, i)] = 'name' end
+for _, s in ipairs({ { 'rune', run.SETS, run.SLOTS, 'name' }, { 'song', brd.SETS, brd.SLOTS, 'name' },
+                    { 'maneuver', { { key = 'slot' } }, pup.SLOTS, 'maneuver' } }) do
+    for _, set in ipairs(s[2]) do
+        for i = 1, s[3] do model.REMOTE_SET[slots.path(s[1], set.key, i)] = s[4] end
+    end
 end
 
 -- `value` for act.set's `path` from another session, held to its range; nil when

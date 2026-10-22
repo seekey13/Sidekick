@@ -2,7 +2,6 @@
 -- behavior with one, on fake snapshots over a real catalog (WHM 75 / BLM 37).
 local buffs = require('core.buffs')
 local can = require('core.can')
-local engine = require('core.engine')
 local observed = require('core.observed')
 local packets = require('core.packets')
 local settings = require('core.settings')
@@ -14,12 +13,7 @@ local SLEEP, PARALYSIS, SLOW, PROTECT, HASTE, LIGHT_ARTS, ACCESSION, MAJESTY = 2
 local cat = fake.catalog(WHM, 75, BLM, 37, { 'Divine Seal', 'Martyr' })
 local snap = fake.snap
 
-local function decide(g, cfg, list, mem)
-    cfg = cfg or settings.defaults()
-    local intent, why = engine.decide(g, list or cat, cfg, mem or {})
-    if not intent then return nil, why end
-    return engine.command(intent, cfg), intent
-end
+local function decide(g, cfg, list, mem) return fake.decide(g, list or cat, cfg, mem) end
 
 -- A tracked player, 'Out' (server id 201 when first in the list).
 local function out(t)
