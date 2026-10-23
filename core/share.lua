@@ -26,7 +26,7 @@
     its auto entries; hand-tracked players are never dropped, nor one declined (untracked by hand) added.
 
     Remote control: any session controls any other. A controller's file lists the
-    sessions whose SK Settings it has open (`watch`) and the `act` calls it sent
+    sessions whose Sidekick Settings it has open (`watch`) and the `act` calls it sent
     them (`do`, numbered, each addressed to its target's epoch: a reload starts a
     new one, and calls to the old one are dropped). The target applies each call
     once, in order, through its own model.actions (ui/model.lua says which it takes),
@@ -341,7 +341,7 @@ function share.inbox(live, me, epoch, applied)
     return out
 end
 
--- Whether a live session has `me`'s SK Settings open, or calls for `me` waiting.
+-- Whether a live session has `me`'s Sidekick Settings open, or calls for `me` waiting.
 function share.watched(live, me)
     for _, s in pairs(live) do
         if s.watch[me] then return true, true end
@@ -462,7 +462,7 @@ end
 -- (a loading one republishes the last roster, so a
 -- zone isn't taken for a session gone, for LOADING seconds: past that, as after a
 -- logout, your file is deleted). `status` gives `running`, `open` and `watching` (the
--- sessions whose SK Settings you have open: watched only while the HUD is); `hooks.apply(from, call)` applies a
+-- sessions whose Sidekick Settings you have open: watched only while the HUD is); `hooks.apply(from, call)` applies a
 -- call another session sent (never while loading), `hooks.view()` builds the view
 -- a watcher draws, `hooks.act()` gives what your automation just sent while it lands, or nil.
 function share.tick(g, clock, status, hooks)

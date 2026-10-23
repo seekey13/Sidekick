@@ -434,7 +434,7 @@ local function sessions(running)
              Far = { running = false, members = { { sid = 900, name = 'Far' } } } }  -- not in your party
 end
 
-test('a member who is another session says so, running or not and whether its SK Settings are shown here', function ()
+test('a member who is another session says so, running or not and whether its Sidekick Settings are shown here', function ()
     local st = status({ sessions = sessions(true), watching = { A = true } })
     local view = build(whm, nil, nil, st)
     eq({ view.party[1].session, view.party[2].session, view.party[3].session },
@@ -498,7 +498,7 @@ end)
 
 local function call(fn, ...) return { fn, n = select('#', ...), ... } end
 
-test('act.remote sends each call to its session; act.watch shows its SK Settings', function ()
+test('act.remote sends each call to its session; act.watch shows its Sidekick Settings', function ()
     local sent, st = {}, status()
     local act = model.actions(settings.defaults(), st, function () end, nil, function (name, c) sent[#sent + 1] = { name, c } end)
     local r = act.remote('A')

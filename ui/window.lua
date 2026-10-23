@@ -16,7 +16,7 @@
     Settings: a page per group of sections, listed down its left, each section
     under a heading with its switch.
     So does the card of a player who is another Sidekick session on this PC: its
-    buttons start and stop that session and open its own SK Settings, drawn here
+    buttons start and stop that session and open its own Sidekick Settings, drawn here
     from its view.
     The widget (`ui.widget`, `/sk3 widget`) is v2's floating one: the profile loaded
     and the job, then Start/Stop, the state, Settings and Track for your target. It
@@ -53,13 +53,13 @@ local UI_SLIDERS = {
 
 local JOINED = { party = '  (in your party)', alliance = '  (in your alliance)' }  -- a tracked player's note
 
-local act                    -- this frame's actions (another session's, while drawing its SK Settings)
-local settings_open = false  -- SK Settings shown; this session only
-local hud_open = true        -- last frame's view.ui.open: closing the HUD (/sk3) closes SK Settings with it
-local profile_names = {}     -- per SK Settings window ('' for yours, else the session's name), this session only:
+local act                    -- this frame's actions (another session's, while drawing its Sidekick Settings)
+local settings_open = false  -- Sidekick Settings shown; this session only
+local hud_open = true        -- last frame's view.ui.open: closing the HUD (/sk3) closes Sidekick Settings with it
+local profile_names = {}     -- per Sidekick Settings window ('' for yours, else the session's name), this session only:
                              -- { typed = { name }, shown }, the name filled in again when the profile loaded changes
-local panes = {}             -- per SK Settings window, as profile_names: { page, folded = { [section id] = true } }
-local user_scale = 1         -- SK Settings' size (view.ui.scale), taken up while nothing is held
+local panes = {}             -- per Sidekick Settings window, as profile_names: { page, folded = { [section id] = true } }
+local user_scale = 1         -- Sidekick Settings' size (view.ui.scale), taken up while nothing is held
 
 -- HUD -----------------------------------------------------------------------------
 
@@ -369,7 +369,7 @@ local function short_status(view)
     return 'Running', s.dim and P.dim or P.teal
 end
 
--- On a panel of its own, sized as SK Settings is: the profile loaded in a drop-down (its list loads one), then the
+-- On a panel of its own, sized as Sidekick Settings is: the profile loaded in a drop-down (its list loads one), then the
 -- job; Start/Stop, the state, Settings, then Track for your target.
 local function draw_widget(view)
     local p, s, t = view.profiles, view.status, view.track.target
@@ -400,7 +400,7 @@ local function draw_widget(view)
             imgui.Text(kit.esc(name))
         end
     end)
-    if hovered then kit.tooltip(shown .. '\nLoad a profile. SK Settings saves them.') end
+    if hovered then kit.tooltip(shown .. '\nLoad a profile. Sidekick Settings saves them.') end
     kit.text_mid(dl, x + pick_w + gap, cy, view.job, P.text2, kit.fonts.text, px)
 
     x, cy = x0 + pad, cy + row
@@ -415,7 +415,7 @@ local function draw_widget(view)
     kit.tip(status_tip(view))
     x = x + state_w + gap
     clicked, bw = kit.button('##sk3_widget_settings', x, cy, 'Settings', settings_open and 'accent' or 'ghost')
-    kit.tip('Open or close SK Settings')
+    kit.tip('Open or close Sidekick Settings')
     if clicked then settings_open = not settings_open end
     if t then
         if kit.button('##sk3_widget_track', x + bw + gap, cy, track_label, 'ghost') then act.track(t) end
@@ -425,7 +425,7 @@ local function draw_widget(view)
     imgui.Dummy({ pw, 1 })  -- the panel's full size, for the auto-size
 end
 
--- SK Settings: the page's rows -----------------------------------------------------
+-- Sidekick Settings: the page's rows -----------------------------------------------------
 
 -- Fixed for every job. 390 is the narrowest page that still holds a slider beside
 -- "Focus danger under" and the longest roll name ("Companion's Roll (Pet Regain
@@ -517,7 +517,7 @@ local function member_pick(pg, label, id, current, names, path, help)
     end, help)
 end
 
--- SK Settings bodies ---------------------------------------------------------------
+-- Sidekick Settings bodies ---------------------------------------------------------------
 
 local HEAL_LINES = {
     { 'Heal under', 'threshold', 'Under this HP %, heal with the most HP for the MP or TP. Over it, missing HP is left be.' },
@@ -969,7 +969,7 @@ local function draw_recent(view, pg)
     end
 end
 
--- SK Settings' size, % of the size for the screen: view.ui.scale, held to its slider's range.
+-- Sidekick Settings' size, % of the size for the screen: view.ui.scale, held to its slider's range.
 local function ui_scale(ui) return math.min(math.max(math.floor(tonumber(ui and ui.scale) or 100), 50), 200) end
 
 -- Another session's shows only what it sent: its HUD and log are its own.
@@ -984,7 +984,7 @@ local function draw_ui(view, pg)
     switch(pg, 'Widget', 'Widget##sk3_ui_widget', view.ui.widget == true, function (on) act.set('ui.widget', on) end,
         'A small window of its own: the profile loaded (pick another to load it) and your job, then Start/Stop, '
         .. 'the state, Settings, and Track for your target. Up with the HUD closed too. Also /sk3 widget.')
-    subheader(pg, 'SK SETTINGS')
+    subheader(pg, 'Sidekick Settings')
     slider(pg, 'Size', 'Size##sk3_ui_scale', 'ui.scale', ui_scale(view.ui), 50, 200,
         'This window\'s size and the widget\'s, % of the size that suits your screen. Taken up once the slider is let go.', '%')
     subheader(pg, 'LOG')
@@ -1074,7 +1074,7 @@ local function section_rows(pg, s, has_body)
     end
 end
 
--- SK Settings -----------------------------------------------------------------------
+-- Sidekick Settings -----------------------------------------------------------------------
 
 local SWITCH_HELP = {
     follow = 'Follow the leader once they are further away than the distance.',
@@ -1197,13 +1197,13 @@ local function nav_item(pane, page, x, y, w, tag)
     return ih
 end
 
--- Whose settings these are (SK Settings, or the session's name), its job and whether it runs; then its pages, and
+-- Whose settings these are (Sidekick Settings, or the session's name), its job and whether it runs; then its pages, and
 -- Profiles and UI / Log at the foot.
 local function draw_sidebar(view, pane, pages, name, x, y, w, h)
     local dl, pad = imgui.GetWindowDrawList(), S(PAD)
     local st = view.status
     local title_px, small = S(BODY), S(SMALL)
-    kit.text_mid(dl, x + pad, y + S(24), kit.fit(name or 'SK Settings', w - pad * 2, kit.fonts.semi, title_px), P.white, kit.fonts.semi, title_px)
+    kit.text_mid(dl, x + pad, y + S(24), kit.fit(name or 'Sidekick Settings', w - pad * 2, kit.fonts.semi, title_px), P.white, kit.fonts.semi, title_px)
     kit.text_mid(dl, x + pad, y + S(46), kit.fit(view.job, w - pad * 2, kit.fonts.text, small), P.dim, kit.fonts.text, small)
     kit.circle(dl, x + pad + S(3), y + S(65), S(3), st.running and P.teal or P.faint)
     kit.text_mid(dl, x + pad + S(12), y + S(65), st.state, st.running and P.teal or P.dim, kit.fonts.text, small)
@@ -1261,7 +1261,7 @@ local function draw_page(view, pane, page, x, y, w, h, open)
     if not ok then error(err, 0) end
 end
 
--- A SK Settings window's inside, from `view`: `key` and `name` are '' and nil for yours, the session's name for
+-- A Sidekick Settings window's inside, from `view`: `key` and `name` are '' and nil for yours, the session's name for
 -- another's.
 local function draw_settings(view, key, name, x, y, side, pw, ph, open)
     local pages = pages_of(view)
@@ -1284,7 +1284,7 @@ local SETTINGS_COLOURS = {
     { ImGuiCol_ScrollbarGrabActive, kit.rgba(P.accent_lo) },
 }
 
--- A SK Settings window, the `index`th open (each starts a little further down and right): ImGui draws none of it, the
+-- A Sidekick Settings window, the `index`th open (each starts a little further down and right): ImGui draws none of it, the
 -- panel and its sidebar are drawn here, then `body(x, y, side, pw, ph)` inside. Returns the error the body raised.
 local function settings_shell(label, open, index, body)
     local m, side = S(MARGIN), S(SIDE_W)
@@ -1345,24 +1345,24 @@ end
 
 local function settings_window(view)
     local open = { true }
-    local err = settings_shell('SK Settings', open, 0, function (x, y, side, pw, ph)
+    local err = settings_shell('Sidekick Settings', open, 0, function (x, y, side, pw, ph)
         draw_settings(view, '', nil, x, y, side, pw, ph, open)
     end)
     if not open[1] then settings_open = false end
     return err
 end
 
--- Another session's SK Settings, from the view it published, its changes sent to it; until its first view comes, or
+-- Another session's Sidekick Settings, from the view it published, its changes sent to it; until its first view comes, or
 -- from a session running other code, a line saying so.
 local function remote_window(r, index)
     local open = { true }
     local mine = act
-    local err = settings_shell(('SK Settings: %s###sk3_settings_%s'):format(r.name, r.name), open, index, function (x, y, side, pw, ph)
+    local err = settings_shell(('Sidekick Settings: %s###sk3_settings_%s'):format(r.name, r.name), open, index, function (x, y, side, pw, ph)
         act = mine.remote(r.name)
         if r.view and not r.other then return draw_settings(r.view, r.name, r.name, x, y, side, pw, ph, open) end
         local dl = imgui.GetWindowDrawList()
         kit.text_mid(dl, x + S(PAD), y + S(24), kit.fit(r.name, side - S(PAD) * 2, kit.fonts.semi, S(BODY + 2)), P.white, kit.fonts.semi, S(BODY + 2))
-        title_bar('SK Settings', nil, x + side + 1, y, pw - side - 1, open)
+        title_bar('Sidekick Settings', nil, x + side + 1, y, pw - side - 1, open)
         local pg = { dl = dl, x = x + side + 1, w = pw - side - 1, y = y + S(TITLE_H) + S(14), lx = x + side + 1 + S(LEFT),
                      right = x + pw - S(PAD), alpha = 1 }
         note(pg, r.other and ('%s runs another version of Sidekick3: /addon reload sidekick3 there.'):format(r.name)

@@ -316,7 +316,7 @@ local function draw_window(state)
     imgui.PushStyleVar(ImGuiStyleVar_ScrollbarRounding, S(3))
 
     local open = { true }
-    if imgui.Begin('SK Settings###sk3settings', open, FLAGS) then
+    if imgui.Begin('Sidekick Settings###sk3settings', open, FLAGS) then
         local wx, wy = imgui.GetWindowPos()
         local x, y = wx + m, wy + m
         local dl = imgui.GetWindowDrawList()
@@ -708,7 +708,7 @@ nearest the old mockup's red and yellow, the teal, and a gray background behind 
 boxes (§7), and the controls (§8: switch, slider, segments, drop-down, button, chip, text field). `ui/window.lua` draws
 everything with it:
 
-- **SK Settings** is the vana window. The sidebar lists a page per group of sections, Profiles and UI / Log at its foot
+- **Sidekick Settings** is the vana window. The sidebar lists a page per group of sections, Profiles and UI / Log at its foot
   under SETUP, with a teal dot (or a ring when every switch is off) where vana has an icon. Each page is a scrolling
   child, each section a heading (§9) with its switch, each setting a row: label at the left, control at the right.
   Spell and ability rows put their name, readiness and switch on one line and their pick, target chips and modifier

@@ -387,7 +387,7 @@ local function party(g, cfg, names, sessions)
 end
 
 -- Other Sidekick sessions on this PC (status.sessions, by owner name) by their
--- server id: { name, running, open (its SK Settings shown here) }.
+-- server id: { name, running, open (its Sidekick Settings shown here) }.
 local function by_sid(status)
     local out, watching = {}, status.watching or {}
     for name, s in pairs(status.sessions or {}) do
@@ -396,7 +396,7 @@ local function by_sid(status)
     return out
 end
 
--- The SK Settings shown here for other sessions, by name: { name, view, other },
+-- The Sidekick Settings shown here for other sessions, by name: { name, view, other },
 -- the view their session last published (nil until one comes), marked with its
 -- `session`; `other` instead when it's another version's (model.VIEW).
 local function remote_views(status)
@@ -613,7 +613,7 @@ function model.build(g, cat, cfg, status, names)
     return view
 end
 
--- What a session publishes of its view for another's SK Settings: all but the
+-- What a session publishes of its view for another's Sidekick Settings: all but the
 -- HUD's (its labels and sizes) and the views it shows of others itself,
 -- with the view's `version`, VIEW: raise it when a field the window draws changes,
 -- so a session still running older code isn't drawn from a view it can't read.
@@ -825,7 +825,7 @@ function model.actions(cfg, status, changed, tracking, send)
         t[key] = value
         changed()
     end
-    -- Another session's SK Settings shown here, or not: this session only.
+    -- Another session's Sidekick Settings shown here, or not: this session only.
     function act.watch(name, on)
         status.watching = status.watching or {}
         status.watching[name] = on or nil

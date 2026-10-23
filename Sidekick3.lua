@@ -88,7 +88,7 @@ local status = {
     why = nil,        -- ...why nothing (a gate, 'nothing to do', 'waiting for a cure')
     sent = {},        -- the last 10 sends, newest first: { at, command, english, action, kind, target, behavior, why }
     sessions = {},    -- the other Sidekick sessions on this PC (core/share.lua), by name...
-    watching = {},    -- ...those whose SK Settings are shown here: { [name] = true }...
+    watching = {},    -- ...those whose Sidekick Settings are shown here: { [name] = true }...
     views = {},       -- ...and the views they published for it
     restart = nil,    -- automation just started: AFK sleep starts over (core/afk.lua)
 }
@@ -350,7 +350,7 @@ local function afk_command(w, g)
     printf('AFK sleep after %d min with no party movement or combat (%s).', cfg.afk.minutes, now)
 end
 
--- /sk3 profile [name | default]: load a profile of this job pair's (SK Settings
+-- /sk3 profile [name | default]: load a profile of this job pair's (Sidekick Settings
 -- saves them), or Default; with no name, list them. Names may have spaces.
 local function profile_command(args)
     local name = table.concat(args, ' ', 3)
