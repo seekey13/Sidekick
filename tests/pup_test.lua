@@ -219,12 +219,26 @@ test('ui: Maneuvers under Pet, a PUP\'s alone: each by its element, the slots\' 
     local ids = {}
     for _, s in ipairs(view.sections) do ids[s.id] = s.header end
     eq(ids.maneuver, 'Pet')
+    -- Every element, including ones the client isn't listing (no automaton out when the catalog was built).
     eq(view.maneuver.choices, { { name = 'Fire Maneuver', label = 'Fire' }, { name = 'Ice Maneuver', label = 'Ice' },
-                                { name = 'Light Maneuver', label = 'Light' } })
+                                { name = 'Wind Maneuver', label = 'Wind' }, { name = 'Earth Maneuver', label = 'Earth' },
+                                { name = 'Thunder Maneuver', label = 'Thunder' }, { name = 'Water Maneuver', label = 'Water' },
+                                { name = 'Light Maneuver', label = 'Light' }, { name = 'Dark Maneuver', label = 'Dark' } })
     eq({ view.maneuver.picks, view.maneuver.ready, view.maneuver.avail }, { { 'Fire Maneuver', '', 'Light Maneuver' }, false, 'recast 8s' })
     eq(model.build(snap(nil, { pet = false }), cat, cfg, status(), NAMES).maneuver.avail, 'no pet')
     local whm = model.build(fake.snap(), fake.catalog(WHM, 75, nil, 0), cfg, status(), NAMES)
     for _, s in ipairs(whm.sections) do eq(s.id ~= 'maneuver', true, 'no Maneuvers off PUP') end
+end)
+
+test('ui: Maneuvers stay up with the automaton dismissed, and none goes until it is out', function ()
+    local bare = fake.catalog(PUP, 75, WHM, 37, {})  -- the client lists no pet commands
+    local cfg = cfg_with({ 'Wind Maneuver' })
+    local view = model.build(snap(nil, { pet = false }), bare, cfg, status(), NAMES)
+    local shown = false
+    for _, s in ipairs(view.sections) do shown = shown or s.id == 'maneuver' end
+    eq({ shown, #view.maneuver.choices, view.maneuver.avail }, { true, 8, 'no pet' })
+    eq({ decide(snap(nil, { pet = false }), cfg, bare) }, { nil, 'nothing to do' })
+    eq(decide(snap(), cfg, bare), '/pet "Wind Maneuver" <me>')
 end)
 
 test('ui: a care row whose ammo you hold says it equips it', function ()

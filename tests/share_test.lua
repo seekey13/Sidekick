@@ -315,7 +315,7 @@ test('a sender\'s reload starts its calls again from the first; an ack for its o
     eq(#pending, 1)
 end)
 
-test('a session is watched while one has its SK Settings open, and busy while calls for it wait', function ()
+test('a session is watched while one has its Sidekick Settings open, and busy while calls for it wait', function ()
     local box = session('Box', 1, { member(500, 'Box') })
     box.watch, box.calls = {}, {}
     eq({ share.watched({ Box = box }, 'Two') }, { false, false })

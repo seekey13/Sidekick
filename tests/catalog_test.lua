@@ -126,6 +126,26 @@ test('trust spells are not catalogued', function ()
     eq(find(build(WHM, 75), 'Shantotto'), nil)
 end)
 
+-- Pet commands leave HasAbility while no pet is out. A PUP still has every
+-- maneuver, once; Deploy and the rest of the pet commands do not.
+test('a PUP has every maneuver even when the client lists none', function ()
+    local PUP, WAR = 18, 1
+    local names = {}
+    for _, a in ipairs(build(PUP, 75, nil, 0, {})) do
+        if a.role == 'maneuver' then names[#names + 1] = a.name end
+    end
+    eq(names, { 'Fire Maneuver', 'Ice Maneuver', 'Wind Maneuver', 'Earth Maneuver',
+                'Thunder Maneuver', 'Water Maneuver', 'Light Maneuver', 'Dark Maneuver' })
+    local n = 0
+    for _, a in ipairs(build(PUP, 75, nil, 0, { 'Fire Maneuver' })) do
+        if a.name == 'Fire Maneuver' then n = n + 1 end
+    end
+    eq(n, 1)
+    eq(find(build(PUP, 75, nil, 0, {}), 'Deploy'), nil)
+    eq(find(build(WAR, 75, PUP, 37, {}), 'Ice Maneuver').role, 'maneuver')
+    eq(find(build(WHM, 75, nil, 0, {}), 'Fire Maneuver'), nil)
+end)
+
 test('MP cost is the client\'s, even where the CatsEyeXI server lists another', function ()
     eq(find(build(WHM, 75), 'Arise').mp, 150)  -- server spell_list says 300
 end)

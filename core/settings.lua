@@ -15,7 +15,7 @@
     `profiles` are named snapshots of the rest (core/profiles.lua).
     `ui` is shared by every job pair (its own file, ui.lua): the window, so the HUD
     looks the same whatever you play (shown at load, bar and font sizes in pixels,
-    the panel's opacity in %, whether the HUD is locked in place), and whether the
+    whether the HUD is locked in place), and whether the
     client runs in Japanese, which is the install's and not a job's.
 ]]--
 
@@ -64,7 +64,7 @@ local DEFAULTS = {
     rows = {},
     profiles = {}, profile = '', parked = {},  -- named snapshots (core/profiles.lua)
     ui = { open = false, hp_width = 220, hp_height = 40, mp_width = 220, mp_height = 18, tp_width = 220, tp_height = 8,
-           name_size = 22, text_size = 14, gap = 8, opacity = 100, locked = false,
+           name_size = 22, text_size = 14, gap = 8, locked = false,
            widget = false,  -- the widget, v2's floating one (/sk3 widget)
            japanese = false },  -- send spell, ability and item names in Japanese
 }

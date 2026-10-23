@@ -86,12 +86,12 @@ local status = {
     running = false,  -- automation on (/sk3 start); never resumed on load
     open = nil,       -- window shown; from cfg.ui.open at the first settings load
     failed = nil,     -- the UI raised an error: not drawn, the widget either, until /sk3 or /sk3 widget
-    log = true,       -- ponytail: print every action while in development; default off at release
+    log = false,      -- /sk3 log prints each action to chat; off unless debugging
     intent = nil,     -- the latest decision as a sent-style entry, or nil and...
     why = nil,        -- ...why nothing (a gate, 'nothing to do', 'waiting for a cure')
     sent = {},        -- the last 10 sends, newest first: { at, command, english, action, kind, target, behavior, why }
     sessions = {},    -- the other Sidekick sessions on this PC (core/share.lua), by name...
-    watching = {},    -- ...those whose SK Settings are shown here: { [name] = true }...
+    watching = {},    -- ...those whose Sidekick Settings are shown here: { [name] = true }...
     views = {},       -- ...and the views they published for it
     restart = nil,    -- automation just started: AFK sleep starts over (core/afk.lua)
 }
@@ -348,7 +348,7 @@ local function afk_command(w, g)
     printf('AFK sleep after %d min with no party movement or combat (%s).', cfg.afk.minutes, now)
 end
 
--- /sk3 profile [name | default]: load a profile of this job pair's (SK Settings
+-- /sk3 profile [name | default]: load a profile of this job pair's (Sidekick Settings
 -- saves them), or Default; with no name, list them. Names may have spaces.
 local function profile_command(args)
     local name = table.concat(args, ' ', 3)
@@ -528,6 +528,13 @@ ashita.events.register('d3d_present', 'sidekick3_present', function ()
         settings.save()
         unsaved = false
     end
+end)
+
+-- The UI's fonts, outside any frame (ImGui 1.81 takes none mid-frame). An error is reported, and the UI still drawn.
+ashita.events.register('load', 'sidekick3_load', function ()
+    if not ui.load then return end
+    local ok, err = pcall(ui.load)
+    if not ok then say(chat.error, 'The UI failed at load: %s', tostring(err)) end
 end)
 
 ashita.events.register('unload', 'sidekick3_unload', share.close)

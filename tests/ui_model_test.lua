@@ -223,8 +223,8 @@ test('run and log change the session only; close also remembers it in the settin
     cfg.ui.open = true
     local act, writes = actions(cfg, st)
     act.run(true)
-    act.log(false)
-    eq({ st.running, st.log, writes[1] }, { true, false, 0 })
+    act.log(false)  -- a custom UI's switch; the standard one has none
+    eq({ st.running, st.log, writes[1], build(whm, cfg, nil, st).log }, { true, false, 0, false })
     act.close()
     eq({ st.open, cfg.ui.open, writes[1] }, { false, false, 1 })
 end)
@@ -435,7 +435,7 @@ local function sessions(running)
              Far = { running = false, members = { { sid = 900, name = 'Far' } } } }  -- not in your party
 end
 
-test('a member who is another session says so, running or not and whether its SK Settings are shown here', function ()
+test('a member who is another session says so, running or not and whether its Sidekick Settings are shown here', function ()
     local st = status({ sessions = sessions(true), watching = { A = true } })
     local view = build(whm, nil, nil, st)
     eq({ view.party[1].session, view.party[2].session, view.party[3].session },
@@ -499,7 +499,7 @@ end)
 
 local function call(fn, ...) return { fn, n = select('#', ...), ... } end
 
-test('act.remote sends each call to its session; act.watch shows its SK Settings', function ()
+test('act.remote sends each call to its session; act.watch shows its Sidekick Settings', function ()
     local sent, st = {}, status()
     local act = model.actions(settings.defaults(), st, function () end, nil, function (name, c) sent[#sent + 1] = { name, c } end)
     local r = act.remote('A')

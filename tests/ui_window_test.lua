@@ -19,7 +19,7 @@ end
 local CLOSER = {
     Begin = 'End', BeginChild = 'EndChild', BeginTable = 'EndTable', BeginCombo = 'EndCombo', BeginTabBar = 'EndTabBar',
     BeginTabItem = 'EndTabItem', BeginPopup = 'EndPopup', BeginPopupContextItem = 'EndPopup', BeginPopupContextWindow = 'EndPopup',
-    PushStyleColor = 'PopStyleColor', PushItemWidth = 'PopItemWidth',
+    BeginTooltip = 'EndTooltip', PushStyleColor = 'PopStyleColor', PushItemWidth = 'PopItemWidth',
 }
 local ALWAYS = { Begin = true, BeginChild = true, PushStyleColor = true, PushItemWidth = true }
 local IDS = { Checkbox = true, Button = true, InvisibleButton = true, SliderInt = true, BeginCombo = true,
@@ -79,7 +79,28 @@ local handlers = {
     TextColored = function (color, fmt) assert(#color == 4); shown(fmt) end,
     TextDisabled = function (fmt) shown(fmt) end,
     SetTooltip = function (fmt) shown(fmt) end,
+    TextUnformatted = function (s)  -- the kit's tooltips, the one drawn each frame
+        assert(type(s) == 'string', 'text must be a string')
+        frame.texts[#frame.texts + 1] = s
+        frame.tips[#frame.tips + 1] = s
+    end,
+    -- The fake is ImGui 1.81 (no IMGUI_VERSION_NUM), whose PushFont takes the face alone.
+    PushFont = function (font, px)
+        assert(font ~= nil and px == nil, 'PushFont: the face alone on 1.81')
+        table.insert(frame.stack, 'PopFont')
+    end,
+    PopFont = function () pop('PopFont') end,
+    SetWindowFontScale = function (k)
+        frame.font_scales = frame.font_scales or {}
+        frame.font_scales[#frame.font_scales + 1] = k
+    end,
     IsItemHovered = function () return true end,
+    -- The HUD's chrome reads this. A test sets clicks.hover = false for the faded frame.
+    IsWindowHovered = function () return frame.hover ~= false end,
+    SetNextWindowSize = function (size)
+        point(size, 'SetNextWindowSize')
+        frame.window_size = size
+    end,
     CalcTextSize = function (s) return #s * 7, 13 end,
     GetFontSize = function () return 13 end,
     GetFont = function () return 'font' end,
@@ -183,6 +204,16 @@ local P = kit.P
 local tick = 0
 kit.clock = function () tick = tick + 1; return tick end
 kit.dragged = function (id) local v = frame.clicks[id]; return type(v) == 'number' and v or nil end
+-- The fake hovers everything, so every tooltip is asked for each frame and, as in game, only the last is drawn:
+-- each one asked for is kept with the texts too (frame.asked), so a test can find any.
+local tooltip = kit.tooltip
+kit.tooltip = function (s)
+    if s and s ~= '' then
+        frame.texts[#frame.texts + 1] = tostring(s)
+        frame.asked[#frame.asked + 1] = tostring(s)
+    end
+    tooltip(s)
+end
 
 local cat = fake.catalog(3, 75, 4, 37, { 'Divine Seal', 'Martyr' })
 local NAMES = { job = function (id) return ({ [3] = 'WHM', [4] = 'BLM' })[id] end, statuses = fake.res.statuses }
@@ -209,7 +240,7 @@ end
 -- The last frame began this window.
 local function begun(label) return has(frame.args.Begin, label) end
 
--- SK Settings stays open between frames, as in game; this follows it.
+-- Sidekick Settings stays open between frames, as in game; this follows it.
 local settings_shown = false
 
 -- What Track and Untrack asked of Sidekick, in order.
@@ -231,13 +262,14 @@ end
 -- settings writes. `view` defaults to the model's.
 local function draw(ui, cfg, st, clicks, view)
     frame = { stack = {}, vars = 0, texts = {}, ids = {}, args = {}, flags = {}, columns = {},
-              drawn = {}, extent = {}, clicks = clicks or {} }
+              drawn = {}, extent = {}, clicks = clicks or {}, asked = {}, tips = {} }
+    frame.hover = frame.clicks.hover ~= false
     local writes = 0
     local act = model.actions(cfg, st, function () writes = writes + 1 end, TRACKING, send)
     local ok, err = pcall(ui.render, view or model.build(snap(), cat, cfg, st, NAMES), act)
     eq(frame.stack, {}, 'every ImGui scope closed')
     eq(frame.vars, 0, 'every style var popped')
-    settings_shown = begun('SK Settings') and frame.clicks.close ~= 'SK Settings'
+    settings_shown = begun('Sidekick Settings') and frame.clicks.close ~= 'Sidekick Settings'
         and frame.clicks['##sk3_settings_close'] ~= true
     return not ok and err or nil, writes
 end
@@ -249,7 +281,7 @@ local function render(cfg, st, clicks, view)
     return writes
 end
 
--- `clicks` with SK Settings' page `name` clicked too: the list of pages is drawn
+-- `clicks` with Sidekick Settings' page `name` clicked too: the list of pages is drawn
 -- first, so the page shows in that same frame.
 local function on(name, clicks)
     clicks = clicks or {}
@@ -257,15 +289,15 @@ local function on(name, clicks)
     return clicks
 end
 
--- SK Settings, opened through the HUD's cog (or closed with its X) unless it already is.
+-- Sidekick Settings, opened through the HUD's cog (or closed with its X) unless it already is.
 local function open_settings()
     if not settings_shown then render(settings.defaults(), status(), { ['##sk3_cog'] = true }) end
-    assert(settings_shown, 'SK Settings open')
+    assert(settings_shown, 'Sidekick Settings open')
 end
 
 local function close_settings()
-    if settings_shown then render(settings.defaults(), status(), { close = 'SK Settings' }) end
-    assert(not settings_shown, 'SK Settings closed')
+    if settings_shown then render(settings.defaults(), status(), { close = 'Sidekick Settings' }) end
+    assert(not settings_shown, 'Sidekick Settings closed')
 end
 
 -- Some tooltip or text holds `s`.
@@ -307,28 +339,28 @@ local u32 = kit.u32
 
 -- The HUD ---------------------------------------------------------------------------
 
-test('the HUD draws running and stopped; SK Settings only once the cog opens it, until its X', function ()
+test('the HUD draws running and stopped; Sidekick Settings only once the cog opens it, until its X', function ()
     close_settings()
     for _, running in ipairs({ true, false }) do  -- stopped last, for its tooltip
         eq(render(settings.defaults(), status({ running = running })), 0)
-        eq({ begun('Sidekick3'), begun('SK Settings') }, { true, false })
+        eq({ begun('Sidekick3'), begun('Sidekick Settings') }, { true, false })
     end
     eq(tipped('WHM 75 / BLM 37\nStopped: would: Cure IV -> A (heal: A at 62%)\n[combat]\nTarget: Crab  50%  4.3y'), true)
     eq(render(settings.defaults(), status(), { ['##sk3_cog'] = true }), 0)
-    eq({ begun('SK Settings'), drew('Follow past') }, { true, true })  -- its first page: Follow
+    eq({ begun('Sidekick Settings'), drew('Follow past') }, { true, true })  -- its first page: Follow
     render(settings.defaults(), status({ running = true, intent = false, why = 'casting' }))
-    eq({ begun('SK Settings'), tipped('Running: Cure IV -> A (heal: A at 62%)\n(casting)') }, { true, true })
-    eq(render(settings.defaults(), status(), { close = 'SK Settings' }), 0)
+    eq({ begun('Sidekick Settings'), tipped('Running: Cure IV -> A (heal: A at 62%)\n(casting)') }, { true, true })
+    eq(render(settings.defaults(), status(), { close = 'Sidekick Settings' }), 0)
     render(settings.defaults(), status())
-    eq(begun('SK Settings'), false)
+    eq(begun('Sidekick Settings'), false)
     open_settings()
     render(settings.defaults(), status(), { ['##sk3_settings_close'] = true })  -- its own X
-    eq(begun('SK Settings'), true)
+    eq(begun('Sidekick Settings'), true)
     render(settings.defaults(), status())
-    eq(begun('SK Settings'), false)
+    eq(begun('Sidekick Settings'), false)
     open_settings()
     render(settings.defaults(), status(), { ['##sk3_cog'] = true })  -- the cog closes it too
-    eq(begun('SK Settings'), false)
+    eq(begun('Sidekick Settings'), false)
 end)
 
 test('a card per member: name and tag drawn as is, its HP %, MP % and TP and the rest in its tooltip', function ()
@@ -340,29 +372,72 @@ test('a card per member: name and tag drawn as is, its HP %, MP % and TP and the
     eq(tipped('B (trust, away)\nHP 100%  MP 100%'), true)
 end)
 
+local BAR_FILL = 0.7        -- ui/window.lua's fill, at 70%
+local BAR_TRACK_A = 0.7     -- each bar's gray background; it does not fade with the panel
+local BAR_OFF = '#0c0c0c'   -- the empty track while the pointer is off the panel, and the stroke
+local BAR_EDGE_A = 0.7      -- that 1px stroke, at the same 70%
+
 -- The HP fill drawn from (x, y): its rectangle's far corner and its colour.
 local function hp_fill(x, y)
     for _, d in ipairs(calls('AddRectFilled')) do
-        if d.args[1][1] == x and d.args[1][2] == y and d.args[3] == u32(P.hp) then return d.args[2] end
+        if d.args[1][1] == x and d.args[1][2] == y and d.args[3] == u32(P.hp, BAR_FILL) then return d.args[2] end
+    end
+end
+
+-- A bar's near-black stroke, on the bar itself: w by h from (x, y), 1px at 70%.
+local function bar_edge(x, y, w, h)
+    for _, d in ipairs(calls('AddRect')) do
+        if d.args[1][1] == x and d.args[1][2] == y and d.args[2][1] == x + w and d.args[2][2] == y + h
+            and d.args[3] == u32(BAR_OFF, BAR_EDGE_A) and d.args[6] == nil then
+            return true
+        end
     end
 end
 
 test('the panel and bars follow the UI settings', function ()
     close_settings()
     local cfg = settings.defaults()
-    cfg.ui.hp_width, cfg.ui.opacity = 300, 50
+    cfg.ui.hp_width = 300
     render(cfg, status())
     local panel = calls('AddRectFilled')[1].args
-    eq({ panel[1], panel[2][1], panel[3] }, { { 100, 50 }, 100 + 2 * 8 + 300, u32(P.bg, 0.5) })
+    eq({ panel[1], panel[2][1], panel[3] }, { { 100, 50 }, 100 + 2 * 8 + 300, u32(P.bg) })  -- hovered: solid
     -- Title 25, then cards 40 + 3 + 18 + 3 + 8 high and 8 apart: A's, the third (under yours and your pet's), from
     -- y 235; 62% of 300.
     eq(hp_fill(108, 235), { 108 + 186, 235 + 40 })
+    local rest, glow = false, false  -- the whole bar has a 70% gray background and a 1px near-black stroke, no bloom
+    for _, d in ipairs(calls('AddRectFilled')) do
+        rest = rest or (d.args[1][1] == 108 and d.args[1][2] == 235 and d.args[2][1] == 108 + 300
+            and d.args[2][2] == 235 + 40 and d.args[3] == u32(P.track, BAR_TRACK_A))
+    end
+    for _, d in ipairs(calls('AddRect')) do
+        local x, y = d.args[1][1], d.args[1][2]
+        glow = glow or (x >= 105 and x < 108 and y >= 232 and y < 235)
+    end
+    eq({ rest, glow, bar_edge(108, 235, 300, 40) }, { true, false, true })
     cfg.ui.tp_width = 400  -- the widest bar sets the panel's width
     render(cfg, status())
     eq(calls('AddRectFilled')[1].args[2][1], 100 + 2 * 8 + 400)
     cfg.ui.hp_width, cfg.ui.mp_width, cfg.ui.tp_width, cfg.ui.text_size = 80, 80, 80, 48  -- big text on short bars: the title row still fits
     render(cfg, status())
     eq(calls('AddRectFilled')[1].args[2][1], 100 + math.ceil(8 + 9 * 7 * 48 / 13 + 8 + 60 + 8))
+end)
+
+test('the panel, frame, title and close fade out until the mouse is over the window; the bars stay', function ()
+    close_settings()
+    local cfg = settings.defaults()
+    render(cfg, status(), { hover = false })
+    eq(calls('AddRectFilled')[1].args[3], u32(P.bg, 0))
+    eq(calls('AddRect')[1].args[3], u32(P.border, 0))
+    eq(fill('Sidekick3'), u32(P.white, 0))
+    local rose, back = false, false  -- the panel around the bars is gone; each bar's background is near-black at 70%
+    for _, d in ipairs(calls('AddLine')) do rose = rose or d.args[3] == u32(P.rose, 0) end
+    for _, d in ipairs(calls('AddRectFilled')) do
+        back = back or (d.args[1][1] == 108 and d.args[1][2] == 75 and d.args[2][1] == 108 + 220
+            and d.args[2][2] == 75 + 40 and d.args[3] == u32(BAR_OFF, BAR_TRACK_A))
+    end
+    eq({ rose, hp_fill(108, 75) ~= nil, back, bar_edge(108, 75, 220, 40) }, { true, true, true, true })
+    render(cfg, status())  -- over it again: solid
+    eq({ calls('AddRectFilled')[1].args[3], fill('Sidekick3') }, { u32(P.bg), u32(P.white) })
 end)
 
 test('the HUD\'s items reach exactly the panel\'s far corner, so its auto-size fits the panel', function ()
@@ -375,32 +450,37 @@ end)
 test('sizes out of their sliders\' range, set by hand or by a custom UI, are held to it', function ()
     close_settings()  -- its sliders would show the values as they are
     local cfg = settings.defaults()
-    cfg.ui.text_size, cfg.ui.hp_width, cfg.ui.opacity = 0, 5000, -20  -- a zero text size would make zero-size buttons
+    cfg.ui.text_size, cfg.ui.hp_width = 0, 5000  -- a zero text size would make zero-size buttons
     render(cfg, status())
-    local panel = calls('AddRectFilled')[1].args
-    eq({ panel[2][1], panel[3] }, { 100 + 2 * 8 + 600, u32(P.bg, 0) })
+    eq(calls('AddRectFilled')[1].args[2][1], 100 + 2 * 8 + 600)
 end)
 
-test('critical HP turns the name rose, MP under the Recover line the tag; away greys both', function ()
+test('a name turns yellow at 75% HP, orange at 50% and red at 25%; away greys it, low MP the tag', function ()
     close_settings()
     local cfg, st = settings.defaults(), status()
     local g = fake.snap({
-        { name = 'A', hpp = 20, mpp = 10 },
-        { name = 'W', hpp = 90, mpp = 0, uses_mp = false },  -- no MP to recover
-        { name = 'Gone', hpp = 25, in_zone = false },
+        { name = 'High', hpp = 76 },
+        { name = 'Yel', hpp = 75 },
+        { name = 'Org', hpp = 50, mpp = 10 },
+        { name = 'Red', hpp = 25 },
+        { name = 'Gone', hpp = 10, in_zone = false },
+        { kind = 'tracked', name = 'Mid', hpp = 51 },  -- still yellow: not at 50% yet
+        { kind = 'tracked', name = 'Low', hpp = 26 },  -- still orange: not at 25% yet
     })
     render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
-    eq({ fill('A'), fill('P1') }, { u32(P.rose), u32(P.rose) })
-    eq({ fill('W'), fill('P2') }, { u32(P.white), u32(P.text2) })
-    eq({ fill('Me'), fill('ME') }, { u32(P.white), u32(P.text2) })
-    eq({ fill('Gone'), fill('P3') }, { u32(P.dim), u32(P.dim) })
+    eq({ fill('Me'), fill('High'), fill('Yel'), fill('Mid') },
+        { u32(P.white), u32(P.white), u32(P.yellow), u32(P.yellow) })
+    eq({ fill('Org'), fill('P3'), fill('Low'), fill('Red') },
+        { u32(P.orange), u32(P.rose), u32(P.orange), u32(P.red) })
+    eq({ fill('Gone'), fill('P5') }, { u32(P.dim), u32(P.dim) })
 end)
 
 -- The TP fills drawn: each one's corners and colour, in the order drawn.
 local function tp_fills()
+    local full, filling = u32(P.tp, BAR_FILL), u32(P.tp, 0.5 * BAR_FILL)
     local out = {}
     for _, d in ipairs(calls('AddRectFilled')) do
-        if d.args[3] == u32(P.tp) or d.args[3] == u32(P.tp, 0.5) then out[#out + 1] = { d.args[1], d.args[2], d.args[3] } end
+        if d.args[3] == full or d.args[3] == filling then out[#out + 1] = { d.args[1], d.args[2], d.args[3] } end
     end
     return out
 end
@@ -414,10 +494,11 @@ test('the TP bar, under the MP bar: a part per 1000 TP, each filling in turn, th
     end
     -- A's card from y 155 (under yours, 72 high, and a gap): its TP bar from 155 + 40 + 3 + 18 + 3, 8 high. Its three
     -- parts share 220 less two gaps of 3: x 108-179, 182-254 and 257-328.
-    eq(tp(1500), { { { 108, 219 }, { 179, 227 }, u32(P.tp) }, { { 182, 219 }, { 218, 227 }, u32(P.tp, 0.5) } })
+    eq(tp(1500), { { { 108, 219 }, { 179, 227 }, u32(P.tp, BAR_FILL) }, { { 182, 219 }, { 218, 227 }, u32(P.tp, 0.5 * BAR_FILL) } })
+    eq(bar_edge(108, 219, 71, 8), true)  -- the stroke stays on each part, full even while that part is still filling
     eq(tipped('A\nHP 100%  MP 100%  TP 1500  5.0y'), true)
-    eq(tp(3000), { { { 108, 219 }, { 179, 227 }, u32(P.tp) }, { { 182, 219 }, { 254, 227 }, u32(P.tp) },
-                   { { 257, 219 }, { 328, 227 }, u32(P.tp) } })
+    eq(tp(3000), { { { 108, 219 }, { 179, 227 }, u32(P.tp, BAR_FILL) }, { { 182, 219 }, { 254, 227 }, u32(P.tp, BAR_FILL) },
+                   { { 257, 219 }, { 328, 227 }, u32(P.tp, BAR_FILL) } })
     eq(#tp(0), 0)
     render(cfg, st, nil, model.build(fake.snap({ { kind = 'tracked', name = 'Out', tp = 0 } }), cat, cfg, st, NAMES))
     eq(tipped('Out (tracked)\nHP 100%  5.0y'), true)  -- a tracked player's TP can't be read
@@ -429,8 +510,8 @@ test('your pet\'s card sits under yours, before P1: its HP, MP and TP, and its o
     local g = fake.snap({ { name = 'A' } }, { pet = { name = 'Ifrit', hpp = 50, mpp = 40, tp = 1000, dist = 3 } })
     render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
     eq({ hp_fill(108, 75), hp_fill(108, 155), hp_fill(108, 235) }, { { 328, 115 }, { 108 + 110, 195 }, { 328, 275 } })
-    eq({ fill('Ifrit'), fill('PET') }, { u32(P.white), u32(P.text2) })
-    eq(tp_fills(), { { { 108, 155 + 64 }, { 179, 155 + 72 }, u32(P.tp) } })  -- 1000 TP: one part, full
+    eq({ fill('Ifrit'), fill('PET') }, { u32(P.orange), u32(P.text2) })  -- 50% HP: the name is orange
+    eq(tp_fills(), { { { 108, 155 + 64 }, { 179, 155 + 72 }, u32(P.tp, BAR_FILL) } })  -- 1000 TP: one part, full
     eq(tipped('Ifrit (pet)\nHP 50%  MP 40%  TP 1000  3.0y'), true)
     g.pet = nil
     render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
@@ -451,15 +532,15 @@ end)
 test('the alliance gets a thin HP row each under the cards, a gap before each party; the arrow points at one', function ()
     close_settings()
     local cfg = settings.defaults()
-    local g = fake.snap({ { name = 'A' }, { kind = 'alliance', name = 'Bea', hpp = 20 }, { kind = 'alliance', name = 'Bo', slot = 7 },
-        { kind = 'alliance', name = 'Cy', slot = 12, in_zone = false } })
+    local g = fake.snap({ { name = 'A' }, { kind = 'alliance', name = 'Bea', hpp = 20 },
+        { kind = 'alliance', name = 'Bo', slot = 7, hpp = 75 }, { kind = 'alliance', name = 'Cy', slot = 12, in_zone = false } })
     local st = status({ intent = { at = 990, action = 'Cure IV', target = 'Bo', behavior = 'heal', why = 'Bo' } })
     render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
     local cards = 25 + 2 * 72 + 8               -- title, two cards and the gap between them
     local b, c = cards + 8, cards + 8 + 18 + 3 + 18 + 8  -- each party's first bar top: after a gap
     eq(frame.extent.Sidekick3, { 100 + 236, 50 + c + 18 + 8 })  -- the panel still fits its items exactly
     eq(calls('AddRectFilled')[1].args[2][2], 50 + c + 18 + 8)
-    eq({ fill('B0 Bea'), fill('B1 Bo'), fill('C0 Cy'), fill('20%') }, { u32(P.rose), u32(P.white), u32(P.dim), nil })
+    eq({ fill('B0 Bea'), fill('B1 Bo'), fill('C0 Cy'), fill('20%') }, { u32(P.red), u32(P.yellow), u32(P.dim), nil })
     eq(tipped('Bea (alliance)\nHP 20%  MP 100%  TP 0  5.0y'), true)
     local arrow = calls('AddTriangleFilled', 'background')
     eq({ #arrow, arrow[1].args[1] }, { 1, { 100 + 236 + 2, 50 + b + 18 + 3 + 9 } })  -- its point: Bo's row, its middle
@@ -514,21 +595,33 @@ local function discs()
     return out
 end
 
+-- The close mark's X: the two strokes' shared middle, and the colour of the first.
+local function close_x()
+    local lines = {}
+    for _, d in ipairs(calls('AddLine')) do
+        if d.args[3] == u32(P.rose) then lines[#lines + 1] = d.args end
+    end
+    if #lines < 2 then return nil end
+    local a, b = lines[1][1], lines[1][2]
+    return { (a[1] + b[1]) / 2, (a[2] + b[2]) / 2 }
+end
+
 test('run and the cog sit at the top right of your own HP bar, the title row keeps close; lit while on', function ()
     close_settings()
     render(settings.defaults(), status())
-    -- Text 14: buttons 17px. Your card's HP bar runs x 108-328 from y 75; close is in the title row at y 50.
+    -- Text 14: buttons 17px. Your card's HP bar runs x 108-328 from y 75. Close is an X in the title row, no disc.
     local c = discs()
-    eq({ c[1][1], c[1][2] }, { 100 + 236 - 8 - 17 + 8.5, 50 + 4 + 8.5 })                    -- close
-    eq({ c[2][1], c[2][2], c[3][1], c[3][2] }, { 328 - 2 - 17 - 4 - 17 + 8.5, 77 + 8.5, 328 - 2 - 17 + 8.5, 77 + 8.5 })  -- run, cog
+    eq(close_x(), { 100 + 236 - 8 - 8.5, 50 + 12.5 })
+    eq({ c[1][1], c[1][2], c[2][1], c[2][2] }, { 328 - 2 - 17 - 4 - 17 + 8.5, 77 + 8.5, 328 - 2 - 17 + 8.5, 77 + 8.5 })
     eq(#frame.args.InvisibleButton, 3)
-    -- The fake hovers everything: run unlit is the accent's low shade, lit its light one; the cog lit while SK Settings shows.
-    eq({ c[2][3], c[3][3] }, { u32(P.accent_lo), u32(P.accent_lo) })
+    -- The fake hovers everything: run unlit is the accent's low shade, lit its light one; the cog lit while Sidekick Settings shows.
+    eq({ c[1][3], c[2][3] }, { u32(P.accent_lo), u32(P.accent_lo) })
     render(settings.defaults(), status({ running = true }))
-    eq(discs()[2][3], u32(P.accent2))
+    eq(discs()[1][3], u32(P.accent2))
     open_settings()
     render(settings.defaults(), status())
-    eq(discs()[3][3], u32(P.accent2))
+    eq(discs()[2][3], u32(P.accent2))
+    eq(close_x() ~= nil, true)  -- Sidekick Settings' X, rose under the pointer, and no disc of its own
     close_settings()
 end)
 
@@ -538,11 +631,11 @@ test('a short HP bar shrinks the buttons to fit it', function ()
     cfg.ui.hp_height = 12
     render(cfg, status())
     local c = discs()
-    eq(c[2][2] - 75, 2 + 4)  -- 8px buttons, 2px from the bar's top
+    eq(c[1][2] - 75, 2 + 4)  -- 8px buttons, 2px from the bar's top
     cfg.ui.hp_height, cfg.ui.hp_width, cfg.ui.text_size = 120, 80, 48  -- big text on a narrow bar: both still fit across it
     render(cfg, status())
     c = discs()
-    eq({ c[2][1] - 18, c[3][1] + 18 }, { 108 + 80 - 2 - 36 - 4 - 36, 108 + 80 - 2 })  -- 36px buttons, from the bar's left to its right
+    eq({ c[1][1] - 18, c[2][1] + 18 }, { 108 + 80 - 2 - 36 - 4 - 36, 108 + 80 - 2 })  -- 36px buttons, from the bar's left to its right
 end)
 
 test('a button\'s tooltip replaces the card\'s', function ()
@@ -550,6 +643,17 @@ test('a button\'s tooltip replaces the card\'s', function ()
     render(settings.defaults(), status())  -- the fake hovers everything: the buttons win
     eq({ tipped('Start automation'), tipped('Settings'), tipped('Me\nHP') }, { true, true, false })
     eq(tipped('A\nHP 62%'), true)
+end)
+
+-- A row's help covers its label's half, where a ward's switch, a rune or a Risk segment can sit with a tooltip of its
+-- own: two in one frame show one, never both stacked.
+test('only the last tooltip asked for in a frame is drawn, as SetTooltip shows one', function ()
+    close_settings()
+    render(settings.defaults(), status())
+    eq({ #frame.asked > 1, frame.tips }, { true, { frame.asked[#frame.asked] } })
+    kit.tooltip('Left over')  -- asked for after a UI's last kit.tooltips: the next kit.frame draws it
+    render(settings.defaults(), status())
+    eq({ frame.tips[1], #frame.tips }, { 'Left over', 2 })
 end)
 
 test('the run button starts and stops automation, for this session only', function ()
@@ -561,30 +665,30 @@ test('the run button starts and stops automation, for this session only', functi
     eq(cfg, settings.defaults())
 end)
 
-test('the close button closes the HUD, remembers it, and hides SK Settings', function ()
+test('the close button closes the HUD, remembers it, and hides Sidekick Settings', function ()
     open_settings()
     local cfg, st = settings.defaults(), status()
     cfg.ui.open = true
     eq(render(cfg, st, { ['##sk3_close'] = true }), 1)
-    eq({ st.open, cfg.ui.open, begun('SK Settings') }, { false, false, false })
+    eq({ st.open, cfg.ui.open, begun('Sidekick Settings') }, { false, false, false })
     render(cfg, st)
-    eq(begun('SK Settings'), false)
+    eq(begun('Sidekick Settings'), false)
 end)
 
 test('hidden, only the windows are begun and ended', function ()
     open_settings()
     eq(render(settings.defaults(), status(), { Begin = false }), 0)
-    eq({ #frame.texts, #frame.drawn, begun('SK Settings') }, { 0, 0, true })
+    eq({ #frame.texts, #frame.drawn, begun('Sidekick Settings') }, { 0, 0, true })
 end)
 
 test('a Lua error while drawing still ends both windows, then is raised', function ()
     open_settings()
     local cfg, st = settings.defaults(), status()
     local view = model.build(snap(), cat, cfg, st, NAMES)
-    view.sections = nil  -- in SK Settings
+    view.sections = nil  -- in Sidekick Settings
     eq(type(draw(window, cfg, st, nil, view)), 'string')
     view = model.build(snap(), cat, cfg, st, NAMES)
-    view.recent = nil  -- in SK Settings' UI / Log page, inside its scrolling child
+    view.recent = nil  -- in Sidekick Settings' UI / Log page, inside its scrolling child
     eq(type(draw(window, cfg, st, on('UI / Log'), view)), 'string')
     view = model.build(snap(), cat, cfg, st, NAMES)
     view.party = nil  -- in the HUD
@@ -615,7 +719,7 @@ test('the widget is off at first; on, it shows the profile, the job and the stat
     eq({ drew('Running'), tipped('(casting)'), drew(' Stop ') }, { true, true, true })
 end)
 
-test('the widget\'s Start/Stop runs this session only; Settings opens and closes SK Settings', function ()
+test('the widget\'s Start/Stop runs this session only; Settings opens and closes Sidekick Settings', function ()
     close_settings()
     local cfg, st = widget_cfg(), status()
     remote_calls = {}
@@ -625,10 +729,10 @@ test('the widget\'s Start/Stop runs this session only; Settings opens and closes
     eq(st.running, false)
     render(cfg, st, { ['##sk3_widget_settings'] = true })
     render(cfg, st)
-    eq(begun('SK Settings'), true)
+    eq(begun('Sidekick Settings'), true)
     render(cfg, st, { ['##sk3_widget_settings'] = true })
     render(cfg, st)
-    eq(begun('SK Settings'), false)
+    eq(begun('Sidekick Settings'), false)
 end)
 
 test('the widget\'s profile drop-down lists the profiles: a click loads one, Default goes back', function ()
@@ -671,19 +775,19 @@ test('UI / Log turns the widget on and off; Lock position keeps it still too', f
     close_settings()
 end)
 
-test('with the HUD closed the widget still shows, and its Settings opens SK Settings; closing the HUD closes them', function ()
+test('with the HUD closed the widget still shows, and its Settings opens Sidekick Settings; closing the HUD closes them', function ()
     close_settings()
     local cfg = widget_cfg()
     render(cfg, status({ open = false }))
     eq({ begun('Sidekick3'), begun('SK Widget') }, { false, true })
     render(cfg, status({ open = false }), { ['##sk3_widget_settings'] = true })
     render(cfg, status({ open = false }))
-    eq({ begun('Sidekick3'), begun('SK Settings') }, { false, true })
+    eq({ begun('Sidekick3'), begun('Sidekick Settings') }, { false, true })
     render(cfg, status())
     render(cfg, status({ open = false }))  -- /sk3 closed the HUD
-    eq(begun('SK Settings'), false)
+    eq(begun('Sidekick Settings'), false)
     render(settings.defaults(), status({ open = false }))
-    eq({ begun('Sidekick3'), begun('SK Widget'), begun('SK Settings') }, { false, false, false })
+    eq({ begun('Sidekick3'), begun('SK Widget'), begun('Sidekick Settings') }, { false, false, false })
     render(settings.defaults(), status())
 end)
 
@@ -703,14 +807,14 @@ test('a Lua error in the widget still ends every window, then is raised', functi
     close_settings()
     local cfg, st = widget_cfg(), status()
     local view = model.build(snap(), cat, cfg, st, NAMES)
-    view.track = nil  -- read by the widget alone while SK Settings is closed
+    view.track = nil  -- read by the widget alone while Sidekick Settings is closed
     local err = draw(window, cfg, st, nil, view)
     eq({ type(err), begun('Sidekick3'), begun('SK Widget') }, { 'string', true, true })
 end)
 
--- SK Settings -----------------------------------------------------------------------
+-- Sidekick Settings -----------------------------------------------------------------------
 
--- SK Settings' pages for `cfg` (and `in_cat` in place of the catalog), in the list's order.
+-- Sidekick Settings' pages for `cfg` (and `in_cat` in place of the catalog), in the list's order.
 local function pages(cfg, in_cat)
     open_settings()
     local st = status()
@@ -722,6 +826,16 @@ local function pages(cfg, in_cat)
     end
     return out
 end
+
+test('Sidekick Settings is one fixed width, the same for every job', function ()
+    open_settings()
+    render(settings.defaults(), status())
+    local size = { kit.S(160) + kit.S(390) + 2 * kit.S(6), kit.S(580) + 2 * kit.S(6) }
+    eq(frame.window_size, size)
+    local pup = fake.catalog(18, 75, nil, 0, { 'Repair', 'Deploy' })
+    render(settings.defaults(), status(), nil, model.build(snap(), pup, settings.defaults(), status(), NAMES))
+    eq(frame.window_size, size)
+end)
 
 test('a page for each group of sections, in order, Profiles and UI / Log at the foot; one with every switch off a ring', function ()
     local cfg = settings.defaults()
@@ -789,9 +903,9 @@ end)
 test('items get a heading of their own, with no pick or targets', function ()
     open_settings()
     render(settings.defaults(), status(), on('Remove'))
-    eq({ drew('ITEMS'), button('Echo Drops (0)###remove_Echo Drops'), button('##pick_remove_Echo Drops') }, { true, true, false })
+    eq({ drew('I T E M S'), button('Echo Drops (0)###remove_Echo Drops'), button('##pick_remove_Echo Drops') }, { true, true, false })
     render(settings.defaults(), status(), on('Buff'))
-    eq({ button('##pick_buff_Protect'), button('P1##buff_Protect1'), drew('ITEMS') }, { true, true, false })
+    eq({ button('##pick_buff_Protect'), button('P1##buff_Protect1'), drew('I T E M S') }, { true, true, false })
 end)
 
 test('sliders, the focus and the options write the settings', function ()
@@ -808,7 +922,7 @@ test('sliders, the focus and the options write the settings', function ()
     eq(render(cfg, st, on('Heal', { ['Focus danger under##sk3_heal_focus_danger'] = 65 })), 1)
     eq(cfg.heal.focus_danger, 65)
     render(cfg, st, on('Buff'))
-    eq(frame.ids['SK Settings|Ask them to gather##sk3_buff_gather'], nil)  -- only while holding
+    eq(frame.ids['Sidekick Settings|Ask them to gather##sk3_buff_gather'], nil)  -- only while holding
     eq(render(cfg, st, on('Buff', { ['Hold area buffs for the group##sk3_buff_hold_aoe'] = true })), 1)
     eq(cfg.buff.hold_aoe, true)
     eq(render(cfg, st, on('Buff', { ['Ask them to gather##sk3_buff_gather'] = true })), 1)
@@ -877,14 +991,14 @@ test('a member switched off under Heal is skipped by healing', function ()
     eq(cfg.heal.skip, {})
 end)
 
-test('UI / Log: the sliders size the HUD and SK Settings, Lock position keeps the HUD still', function ()
+test('UI / Log: the sliders size the HUD and Sidekick Settings, Lock position keeps the HUD still', function ()
     open_settings()
     local cfg, st = settings.defaults(), status()
     eq(render(cfg, st, on('UI / Log', { ['HP bar width##sk3_ui_hp_width'] = 300, ['Name font size##sk3_ui_name_size'] = 30,
         ['TP bar width##sk3_ui_tp_width'] = 250, ['TP bar height##sk3_ui_tp_height'] = 12,
-        ['Background opacity##sk3_ui_opacity'] = 50, ['Size##sk3_ui_scale'] = 150 })), 6)
-    eq({ cfg.ui.hp_width, cfg.ui.name_size, cfg.ui.tp_width, cfg.ui.tp_height, cfg.ui.opacity, cfg.ui.scale },
-       { 300, 30, 250, 12, 50, 150 })
+        ['Size##sk3_ui_scale'] = 150 })), 5)
+    eq({ cfg.ui.hp_width, cfg.ui.name_size, cfg.ui.tp_width, cfg.ui.tp_height, cfg.ui.scale }, { 300, 30, 250, 12, 150 })
+    eq(button('Background opacity##sk3_ui_opacity'), false)  -- the panel is solid while hovered: nothing to set
     local free = frame.flags.Sidekick3
     eq(render(cfg, st, on('UI / Log', { ['Lock position##sk3_ui_locked'] = true })), 1)
     eq(cfg.ui.locked, true)
@@ -894,12 +1008,12 @@ test('UI / Log: the sliders size the HUD and SK Settings, Lock position keeps th
     render(cfg, st)
 end)
 
-test('the action log changes the session, not the settings; the recent list is under it', function ()
+test('UI / Log lists the last actions sent, and has no action log switch', function ()
     open_settings()
     local cfg, st = settings.defaults(), status()
-    eq(render(cfg, st, on('UI / Log', { ['Action log##sk3_log'] = true })), 0)
-    eq({ st.log, drew('Cure IV -> A'), drew('heal: A at 62%') }, { false, true, true })
-    eq(cfg, settings.defaults())
+    eq(render(cfg, st, on('UI / Log')), 0)
+    eq({ button('Action log##sk3_log'), drew('Cure IV -> A'), drew('heal: A at 62%') }, { false, true, true })
+    eq({ cfg, st.log }, { settings.defaults(), true })  -- the page writes nothing, and leaves the session log as it was
     render(cfg, status({ sent = {} }), on('UI / Log'))
     eq(drew('Nothing sent yet.'), true)
 end)
@@ -1162,12 +1276,12 @@ test('another session\'s card has its run button and cog: run starts it there, t
     render(cfg, st, { ['##sk3_cog_A'] = true }, model.build(snap(), cat, cfg, st, NAMES))
     eq({ st.watching, settings_shown }, { { A = true }, false })
     render(cfg, st, nil, model.build(snap(), cat, cfg, st, NAMES))
-    eq({ begun('SK Settings: A###sk3_settings_A'), drew('Waiting for A\'s session...') }, { true, true })
+    eq({ begun('Sidekick Settings: A###sk3_settings_A'), drew('Waiting for A\'s session...') }, { true, true })
     render(cfg, st, { ['##sk3_cog_A'] = true }, model.build(snap(), cat, cfg, st, NAMES))  -- the cog again hides it
     eq(st.watching, {})
 end)
 
-test('another session\'s SK Settings draw its view; changes go to it, never to your settings', function ()
+test('another session\'s Sidekick Settings draw its view; changes go to it, never to your settings', function ()
     close_settings()
     local mine, theirs = settings.defaults(), settings.defaults()
     theirs.heal.danger = 33
@@ -1184,12 +1298,12 @@ test('another session\'s SK Settings draw its view; changes go to it, never to y
     frame_with(on('UI / Log'))
     eq({ drew('WHM 75 / BLM 37'), drew('Running'), drew('Nothing sent yet.') }, { true, true, true })  -- its own status and log
     eq({ button('Action log##sk3_log'), button('Japanese client##sk3_japanese'), button('HP bar width##sk3_ui_hp_width') },
-       { false, false, false })  -- the HUD and log are its own
-    frame_with({ close = 'SK Settings: A###sk3_settings_A' })
+       { false, false, false })  -- no action log switch; the HUD is its own
+    frame_with({ close = 'Sidekick Settings: A###sk3_settings_A' })
     eq(st.watching, {})
 end)
 
-test('your SK Settings and another session\'s draw side by side, each its own profile name', function ()
+test('your Sidekick Settings and another session\'s draw side by side, each its own profile name', function ()
     open_settings()
     local cfg, st = settings.defaults(), remote_status({ watching = { A = true } })
     cfg.profiles.Mine = {}
@@ -1197,7 +1311,7 @@ test('your SK Settings and another session\'s draw side by side, each its own pr
     st.views = { A = remote_view(settings.defaults()) }
     remote_calls = {}
     render(cfg, st, on('Profiles', { ['Save##sk3_profile_save'] = true }), model.build(snap(), cat, cfg, st, NAMES))
-    eq({ begun('SK Settings'), begun('SK Settings: A###sk3_settings_A') }, { true, true })
+    eq({ begun('Sidekick Settings'), begun('Sidekick Settings: A###sk3_settings_A') }, { true, true })
     eq(remote_calls, { { 'A', 'save_profile', '' } })  -- A's name field: blank, A has no profile loaded
     eq(cfg.profiles.Mine.heal ~= nil, true)  -- the click also landed in your own window: saved there under Mine
 end)
@@ -1209,7 +1323,7 @@ test('a view that won\'t draw closes its window and is not shown again; the HUD 
     local err = draw(window, cfg, st, nil, model.build(snap(), cat, cfg, st, NAMES))
     eq({ type(err), st.watching }, { 'string', {} })
     render(cfg, st, nil, model.build(snap(), cat, cfg, st, NAMES))
-    eq(begun('SK Settings: A###sk3_settings_A'), false)
+    eq(begun('Sidekick Settings: A###sk3_settings_A'), false)
 end)
 
 test('another session\'s Tracked says where to target, its game not yours', function ()
@@ -1259,4 +1373,30 @@ test('a drop-down whose list raises closes every scope it opened, then raises th
               clicks = {}, window = 'T' }
     local ok, err = pcall(kit.dropdown, '##sk3_t', 0, 10, 100, 'x', true, 1, function () error('boom', 0) end)
     eq({ ok, err, frame.stack, frame.vars }, { false, 'boom', {}, 0 })
+end)
+
+-- Last, as Segoe UI stays in once it's baked. The fake is ImGui 1.81, as Ashita 4.16's.
+test('on ImGui 1.81 Segoe UI is added at load and drawn; a tooltip\'s is sized by its window\'s font scale', function ()
+    close_settings()
+    local added, real_open = {}, io.open
+    handlers.AddFontFromFileTTF = function (path, px)
+        local file = path:match('[^\\/]+$')
+        added[#added + 1] = file .. ' ' .. px
+        return file
+    end
+    rawset(io, 'open', function () return { close = function () end } end)  -- every face is there
+    local ok, err = pcall(window.load)
+    rawset(io, 'open', real_open)
+    assert(ok, err)
+    eq(added, { 'segoeui.ttf 18', 'seguisb.ttf 18', 'segoeuiz.ttf 18', 'seguisbi.ttf 18' })
+    render(settings.defaults(), status())
+    local faces = {}
+    for _, d in ipairs(calls('AddText')) do
+        if type(d.args[1]) == 'string' then faces[d.args[1]] = true end
+    end
+    eq({ kit.custom, faces['seguisb.ttf'], faces.font }, { true, true, nil }, 'the HUD drawn in Segoe semibold')
+    eq(tipped('A\nHP 62%  MP 100%  TP 0  5.0y\nProtect\nShell'), true)
+    local scales = frame.font_scales or {}
+    eq({ has(scales, kit.S(kit.SMALL + 0.5) / 18), scales[#scales] }, { true, 1 }, 'its 18px bake scaled, then put back')
+    eq(kit.fit('Kupipi', 41, 'font', 13), 'Ku...', 'no \226\128\166 in a Latin-1 bake')
 end)

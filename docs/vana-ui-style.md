@@ -19,8 +19,8 @@ made or endorsed by Vekien.
 **Why it works in Sidekick3:** under VanaCore, an Ashita addon's `require('imgui')` loads Ashita 4.30's `imgui.lua`.
 That file forwards every call to `AshitaCore:GetGuiManager()`, and VanaCore's `compat\ashita.lua` sets that to
 `vana.imgui`. So Sidekick3 has the same ImGui as vana, with `PushFont(font, size)`, `AddFontFromFileTTF`, draw lists
-and `InvisibleButton`. On the stock CatsEyeXI Ashita 4.16 client (ImGui 1.81) the fonts part doesn't work; see
-[In Sidekick3](#in-sidekick3).
+and `InvisibleButton`. On the stock CatsEyeXI Ashita 4.16 client (ImGui 1.81) fonts work differently: they can only
+be added outside a frame and are drawn from one baked size; see [In Sidekick3](#in-sidekick3).
 
 ---
 
@@ -316,7 +316,7 @@ local function draw_window(state)
     imgui.PushStyleVar(ImGuiStyleVar_ScrollbarRounding, S(3))
 
     local open = { true }
-    if imgui.Begin('SK Settings###sk3settings', open, FLAGS) then
+    if imgui.Begin('Sidekick Settings###sk3settings', open, FLAGS) then
         local wx, wy = imgui.GetWindowPos()
         local x, y = wx + m, wy + m
         local dl = imgui.GetWindowDrawList()
@@ -702,21 +702,29 @@ done in a sixth of a second.
 
 ## In Sidekick3
 
-`ui/kit.lua` is this doc in code: the palette (§2, plus `hp`, `mp` and `tp` for the HUD's bars: the rose and amber
-nearest the old mockup's red and yellow, and the teal), `S` and the scale (§3), the fonts and text helpers (§4), the shapes, easing and hit
+`ui/kit.lua` is this doc in code: the palette (§2, plus `hp`, `mp`, `tp` and `track` for the HUD's bars: the rose and amber
+nearest the old mockup's red and yellow, the teal, and a gray background behind each bar; and `yellow`, `orange` and
+`red` for a name on an HP bar, at 75%, 50% and 25%), `S` and the scale (§3), the fonts and text helpers (§4), the shapes, easing and hit
 boxes (§7), and the controls (§8: switch, slider, segments, drop-down, button, chip, text field). `ui/window.lua` draws
 everything with it:
 
-- **SK Settings** is the vana window. The sidebar lists a page per group of sections, Profiles and UI / Log at its foot
+- **Sidekick Settings** is the vana window. The sidebar lists a page per group of sections, Profiles and UI / Log at its foot
   under SETUP, with a teal dot (or a ring when every switch is off) where vana has an icon. Each page is a scrolling
   child, each section a heading (§9) with its switch, each setting a row: label at the left, control at the right.
   Spell and ability rows put their name, readiness and switch on one line and their pick, target chips and modifier
   chips on the lines under it.
-- **The HUD** keeps its layout and the sizes set under UI / Log, in the palette: a dark rounded panel, sunken rounded
-  bars whose fill eases to each new value, round buttons filled in the accent while on, and the next action's label as
+- **The HUD** keeps its layout and the sizes set under UI / Log, in the palette: a dark rounded panel, rounded
+  bars with a background at 70% that does not fade (gray while the pointer is over the panel, near-black while it
+  is not), a 1px near-black border at that same 70% that does not fade, and a fill at 70% that eases to each new value,
+  round buttons filled in the accent while on, and the next action's label as
   a pill (amber running, grey stopped). Each card is HP over MP over TP, your pet's card under yours; the TP bar is
-  three sunken parts of 1000 TP, each solid once full and at half alpha while it fills (as Floaties draws it). Its
-  text keeps a dark halo, as it sits on bars and, with the panel see-through, on the game.
+  three parts of 1000 TP, each solid once full and at half alpha while it fills (as Floaties draws it). Its
+  text keeps a dark halo, as it sits on bars and, with the panel see-through, on the game. The panel, its frame, the
+  title and the close mark fade out until the mouse is over the window (Tracker's chrome) and fade back in, solid,
+  while it is. That fade is only the panel around the bars: each bar's background stays at 70%, gray while hovered
+  and black while not.
+  The close mark is Tracker's X, rose under the pointer.
+  Section headers are Tracker's small capitals: Segoe semibold italic, letter-spaced.
 
 What differs from vana:
 
@@ -725,8 +733,8 @@ What differs from vana:
 | Font Awesome icons | Icons drawn in shapes (`kit.icon`: close, play, stop, cog, the chevrons), so no font has to carry them |
 | A typed number in a window beside the main one | A popup by the value (`kit.slider`) |
 | Raw ImGui numbers | The constants `require('imgui')` defines, each listed in `.luacheckrc`'s `read_globals` |
-| ImGui 1.92 only | 1.81 too (Ashita 4.16): ImGui's own font at every size, measured by scaling `CalcTextSize`; `BeginChild`'s border bool; 1.81's corner flags. `IMGUI_VERSION_NUM` decides |
-| Sizes of §5 | `ui/window.lua`'s constants: a 580-wide page for the chips, rows of 30 |
+| ImGui 1.92 only | 1.81 too (Ashita 4.16): Segoe UI added in Ashita's `load` event (`window.load` → `kit.bake`), as 1.81 locks its atlas during a frame; draw-list text drawn from the 18px bake at the size asked, measured by scaling `CalcTextSize`; ImGui's own items (tooltips, popups, the text field) sized with `SetWindowFontScale` inside their window (`kit.push_font`); `...` for the ellipsis, as the bake holds Latin-1 alone; `BeginChild`'s border bool; 1.81's corner flags. `IMGUI_VERSION_NUM` decides |
+| Sizes of §5 | `ui/window.lua`'s constants: a 390-wide page, fixed for every job, rows of 30 |
 | Search, sub-tabs, presets, section resets | Not drawn: Sidekick3's pages are short, and its view has no defaults to reset to |
 
 **Tests:** the fake ImGui in `tests/ui_window_test.lua` reports every popup open (so drop-down lists draw and their

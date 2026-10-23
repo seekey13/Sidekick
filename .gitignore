@@ -3,3 +3,6 @@
 
 # A user's own UI (ui/README.md)
 ui/custom.lua
+
+# Release builds
+*.zip

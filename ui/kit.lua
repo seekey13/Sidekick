@@ -8,8 +8,9 @@
     GPL-3.0-or-later too (LICENSE); VanaCore's name and logo aren't licensed with it.
 
     A control takes its value and returns the new one and whether it changed; it
-    reads and writes no setting. Under ImGui 1.92 (Ashita 4.30's libs, as VanaCore
-    gives them) text is Segoe UI at any size; on 1.81 (Ashita 4.16) every face is
+    reads and writes no setting. Text is Segoe UI, added once at load (kit.bake):
+    under ImGui 1.92 (Ashita 4.30's libs, as VanaCore gives them) drawn at any size,
+    on 1.81 (Ashita 4.16) from its 18px bake, scaled. Without the font files it's
     ImGui's own font, scaled. Draw-list text is drawn as is: no '%' doubling.
 ]]--
 
@@ -26,6 +27,8 @@ kit.P = {
     knob = '#F2F3F8', off = '#2B2F42', seg = '#313752', ink = '#0B1020',
     hp = '#EE6F78', mp = '#E8B45C',  -- the HUD's bars: the mockup's red and yellow, from the palette,
     tp = '#5FD3B3',                  -- and TP in its teal, as what is ready
+    track = '#808080',               -- each HUD bar's background, at 70%, not faded with the panel
+    yellow = '#E8C84A', orange = '#E8883A', red = '#E8454E',  -- a name on an HP bar, at 75%, 50% and 25%
 }
 local P = kit.P
 
@@ -86,10 +89,15 @@ end
 
 -- Fonts and text -------------------------------------------------------------------
 
-kit.fonts = {}      -- text, semi, bold_italic: ImGui's own font until Segoe UI is in
+kit.fonts = {}      -- text, semi, bold_italic, semi_italic: ImGui's own font until Segoe UI is in
 kit.custom = false  -- Segoe UI is: measured and drawn at the size asked
 local fonts_tried, fonts_pending = false, nil
-local FACES = { { 'text', 'segoeui.ttf' }, { 'semi', 'seguisb.ttf', 'text' }, { 'bold_italic', 'segoeuiz.ttf', 'semi' } }
+local BAKE = 18     -- the size each face is added at; 1.81 scales it to the size asked
+-- The same four faces Tracker loads. Each falls back to the one named last.
+local FACES = {
+    { 'text', 'segoeui.ttf' }, { 'semi', 'seguisb.ttf', 'text' },
+    { 'bold_italic', 'segoeuiz.ttf', 'semi' }, { 'semi_italic', 'seguisbi.ttf', 'semi' },
+}
 
 -- Segoe UI from Windows' fonts, each face falling back to the one before; nil without the regular.
 local function load_fonts()
@@ -100,12 +108,40 @@ local function load_fonts()
         local file = io.open(path, 'rb')
         if file then
             file:close()
-            local ok, font = pcall(imgui.AddFontFromFileTTF, path, 18)
+            local ok, font = pcall(imgui.AddFontFromFileTTF, path, BAKE)
             if ok and font then out[face[1]] = font end
         end
         out[face[1]] = out[face[1]] or out[face[3]]
     end
     return out.text and out or nil
+end
+
+-- Segoe UI, once, from Sidekick's load event (window.load): outside any frame, as ImGui 1.81 locks its font atlas
+-- while one is drawn. 1.92 takes a font mid-frame too (kit.frame adds it then for a UI with no load). The faces are
+-- drawn from the next kit.frame.
+function kit.bake()
+    if fonts_tried then return end
+    fonts_tried = true
+    fonts_pending = load_fonts()
+end
+
+-- `font` at `px` for ImGui's own items until kit.pop_font (a popup's, a tooltip's, a text field's); nothing until
+-- Segoe UI is in. 1.81's PushFont takes no size: the face goes on at its bake and the window's font scale makes up the
+-- rest. Nothing else here sets that scale, so the pop puts back 1.
+function kit.push_font(font, px)
+    if not kit.custom then return end
+    if kit.dynamic then
+        imgui.PushFont(font, px)
+    else
+        imgui.PushFont(font)
+        imgui.SetWindowFontScale(px / BAKE)
+    end
+end
+
+function kit.pop_font()
+    if not kit.custom then return end
+    if not kit.dynamic then imgui.SetWindowFontScale(1) end
+    imgui.PopFont()
 end
 
 local measured, measured_n = {}, 0
@@ -118,13 +154,15 @@ function kit.measure(s, font, px)
     if not m then
         if measured_n > 4000 then measured, measured_n = {}, 0 end  -- live values keep adding strings
         local w, h
-        if kit.custom then
+        if kit.custom and kit.dynamic then
             imgui.PushFont(font, px)
             w, h = imgui.CalcTextSize(s)
             imgui.PopFont()
         else
+            if kit.custom then imgui.PushFont(font) end  -- 1.81: at its bake
             w, h = imgui.CalcTextSize(s)  -- at the font's own size
             local k = px / imgui.GetFontSize()
+            if kit.custom then imgui.PopFont() end
             w, h = w * k, h * k
         end
         m = { w, h }
@@ -158,6 +196,23 @@ function kit.text_centred(dl, cx, cy, s, color, font, px, alpha)
     text(dl, cx - w / 2, cy - h / 2 - lift(h), s, color, font, px, alpha)
 end
 
+-- Capitals one glyph at a time, `spacing` pixels apart (ImGui has no tracking).
+-- Tracker's section headers. Returns the width. `dl` nil only measures.
+function kit.text_spaced(dl, x, cy, s, color, font, px, spacing, alpha)
+    s, spacing = tostring(s or ''), spacing or 0
+    local start, i, n = x, 1, #s
+    while i <= n do
+        local b = s:byte(i)
+        local len = (b >= 0xF0 and 4) or (b >= 0xE0 and 3) or (b >= 0xC0 and 2) or 1
+        local letter = s:sub(i, i + len - 1)
+        if dl then kit.text_mid(dl, x, cy, letter, color, font, px, alpha) end
+        x = x + measure(letter, font, px) + spacing
+        i = i + len
+    end
+    if x == start then return 0 end
+    return x - start - spacing
+end
+
 -- Text over the game or a bar: stamped in black a pixel out each way first, so it reads on anything.
 local AROUND = { { -1, -1 }, { 0, -1 }, { 1, -1 }, { -1, 0 }, { 1, 0 }, { -1, 1 }, { 0, 1 }, { 1, 1 } }
 function kit.halo(dl, x, y, s, color, font, px, alpha)
@@ -171,7 +226,7 @@ end
 function kit.fit(s, room, font, px)
     s = tostring(s)
     if measure(s, font, px) <= room then return s end
-    local dots = kit.custom and '…' or '...'
+    local dots = kit.custom and kit.dynamic and '…' or '...'  -- 1.81 bakes Latin-1 alone: no '…'
     local n = #s
     repeat
         n = n - 1
@@ -207,8 +262,15 @@ function kit.fill(dl, x, y, w, h, color, r, alpha, corners)
 end
 local fill = kit.fill
 
-function kit.outline(dl, x, y, w, h, color, r, alpha)
-    dl:AddRect({ x, y }, { x + w, y + h }, kit.u32(color, alpha), r or 0)
+function kit.outline(dl, x, y, w, h, color, r, alpha, thickness)
+    local col, rad = kit.u32(color, alpha), r or 0
+    if thickness and thickness ~= 1 then
+        -- Thickness is the last argument, so the corner flags have to be passed too. 0 squares the corners on 1.81.
+        local corners = ImDrawFlags_RoundCornersAll or ImDrawCornerFlags_All
+        dl:AddRect({ x, y }, { x + w, y + h }, col, rad, corners, thickness)
+    else
+        dl:AddRect({ x, y }, { x + w, y + h }, col, rad)
+    end
 end
 local outline = kit.outline
 
@@ -270,18 +332,16 @@ function kit.frame(user)
     local now = kit.clock()
     dt = last and math.max(0, math.min(0.1, now - last)) or 0  -- capped: a hitch takes one step, not a jump
     last = now
-    if fonts_pending then  -- added last frame: usable from this one
+    if fonts_pending then  -- added before this frame: usable from it
         for k, f in pairs(fonts_pending) do kit.fonts[k] = f end
         kit.custom, fonts_pending = true, nil
     elseif not kit.custom then
         local f = imgui.GetFont()
-        kit.fonts.text, kit.fonts.semi, kit.fonts.bold_italic = f, f, f
-        if kit.dynamic and not fonts_tried then
-            fonts_tried = true
-            fonts_pending = load_fonts()
-        end
+        kit.fonts.text, kit.fonts.semi, kit.fonts.bold_italic, kit.fonts.semi_italic = f, f, f, f
+        if kit.dynamic then kit.bake() end
     end
     set_scale(user)
+    kit.tooltips()  -- one a UI left asked for last frame, a frame late
 end
 
 -- `id`'s value moved towards `target` a share of the way each frame (`speed` a second: 18 lands in about a sixth).
@@ -331,17 +391,32 @@ end
 local TOOLTIP_COLOURS = { { ImGuiCol_PopupBg, kit.rgba(P.popup, 0.97) }, { ImGuiCol_Border, kit.rgba(P.border) },
                           { ImGuiCol_Text, kit.rgba(P.text) } }
 
--- A tooltip by the mouse, in the palette, wrapped (SetTooltip takes a printf format: its '%' are doubled).
+local tip_pending  -- the tooltip asked for last this frame, for kit.tooltips
+
+-- A tooltip by the mouse. Only the last asked for in a frame shows, as with SetTooltip (BeginTooltip would stack
+-- them all): kit.tooltips draws it once the windows are, or the next kit.frame does.
 function kit.tooltip(s)
-    if not s or s == '' then return end
+    if s and s ~= '' then tip_pending = tostring(s) end
+end
+
+-- Once a frame, after every window: the tooltip asked for last, in the palette, wrapped, drawn as is
+-- (TextUnformatted: no '%' doubling). Its font goes on inside it, as 1.81 sizes a font by the window it's in.
+-- (1.92's BeginTooltip says whether to draw; 1.81's says nothing.)
+function kit.tooltips()
+    local s = tip_pending
+    if not s then return end
+    tip_pending = nil
     for _, c in ipairs(TOOLTIP_COLOURS) do imgui.PushStyleColor(c[1], c[2]) end
     imgui.PushStyleVar(ImGuiStyleVar_WindowPadding, { S(9), S(6) })
     imgui.PushStyleVar(ImGuiStyleVar_WindowRounding, S(4))
     imgui.PushStyleVar(ImGuiStyleVar_PopupRounding, S(4))
     imgui.PushStyleVar(ImGuiStyleVar_PopupBorderSize, 1)
-    if kit.custom then imgui.PushFont(kit.fonts.text, S(kit.SMALL + 0.5)) end
-    imgui.SetTooltip(kit.esc(wrap_chars(tostring(s), 72)))
-    if kit.custom then imgui.PopFont() end
+    if imgui.BeginTooltip() ~= false then
+        kit.push_font(kit.fonts.text, S(kit.SMALL + 0.5))
+        imgui.TextUnformatted(wrap_chars(s, 72))
+        kit.pop_font()
+        imgui.EndTooltip()
+    end
     imgui.PopStyleVar(4)
     imgui.PopStyleColor(#TOOLTIP_COLOURS)
 end
@@ -371,9 +446,9 @@ function kit.popup(id, px, body)
     imgui.PushStyleVar(ImGuiStyleVar_ItemSpacing, { S(8), S(6) })
     local open, ok, err = imgui.BeginPopup(id), true, nil
     if open then
-        if kit.custom then imgui.PushFont(kit.fonts.text, px) end
+        kit.push_font(kit.fonts.text, px)
         ok, err = pcall(body)
-        if kit.custom then imgui.PopFont() end
+        kit.pop_font()
         imgui.EndPopup()
     end
     imgui.PopStyleVar(6)
@@ -611,11 +686,11 @@ function kit.input(id, x, cy, w, buf, max, hint)
     imgui.PushStyleColor(ImGuiCol_Text, kit.rgba(P.text))
     imgui.PushStyleVar(ImGuiStyleVar_FramePadding, { S(8), math.max(0, (h - text_h) / 2) })
     imgui.PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0)
-    if kit.custom then imgui.PushFont(kit.fonts.text, px) end
+    kit.push_font(kit.fonts.text, px)
     imgui.PushItemWidth(w - S(2))
     local edited = imgui.InputText(id, buf, max)
     imgui.PopItemWidth()
-    if kit.custom then imgui.PopFont() end
+    kit.pop_font()
     imgui.PopStyleVar(2)
     imgui.PopStyleColor(4)
     return edited == true

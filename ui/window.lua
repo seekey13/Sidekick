@@ -5,7 +5,9 @@
     ImGui only; it reads no game state and decides nothing. Everything is drawn
     on ImGui's draw lists in ui/kit.lua's look (docs/vana-ui-style.md), and SK
     Settings' sidebar and page layout follow VanaCore's addons/vanacore/vana/vana.lua
-    (Copyright (C) 2026 Vekien, GPL-3.0-or-later).
+    (Copyright (C) 2026 Vekien, GPL-3.0-or-later). The HUD's panel, frame, title
+    and close fade out until the mouse is over the window, as Tracker's do; the
+    bars stay. Section headers are Tracker's: Segoe semibold italic, small capitals.
 
     Three kinds of window. Sidekick3 is a heads-up display: the party's HP, MP and TP
     bars on a dark panel, your pet's under yours (the alliance's other parties as
@@ -15,15 +17,15 @@
     Settings: a page per group of sections, listed down its left, each section
     under a heading with its switch.
     So does the card of a player who is another Sidekick session on this PC: its
-    buttons start and stop that session and open its own SK Settings, drawn here
+    buttons start and stop that session and open its own Sidekick Settings, drawn here
     from its view.
     The widget (`ui.widget`, `/sk3 widget`) is v2's floating one: the profile loaded
     and the job, then Start/Stop, the state, Settings and Track for your target. It
     shows with the HUD closed too (`view.ui.open` false), as v2's did.
 
-    Ashita's binding: widget values are one-element tables ({ 'text' }), and
-    SetTooltip takes a printf format (kit.tooltip doubles any '%'). Draw-list text
-    is drawn as is.
+    Ashita's binding: widget values are one-element tables ({ 'text' }), and Text
+    takes a printf format (kit.esc doubles any '%'). Draw-list text and kit.tooltip's
+    are drawn as is.
 ]]--
 
 local imgui = require('imgui')
@@ -35,7 +37,7 @@ local window = {}
 local P, S = kit.P, kit.S
 local BODY, SMALL = kit.BODY, kit.SMALL
 
--- { label, key, min, max, help, unit } for view.ui: sizes in pixels, the opacity in %.
+-- { label, key, min, max, help, unit } for view.ui: sizes in pixels.
 local UI_SLIDERS = {
     { 'HP bar width', 'hp_width', 80, 600, 'Pixels.', 'px' },
     { 'HP bar height', 'hp_height', 10, 120, 'Pixels.', 'px' },
@@ -47,22 +49,26 @@ local UI_SLIDERS = {
     { 'Text font size', 'text_size', 8, 48, 'Pixels: the title, the tags, the alliance\'s names and the action labels; '
         .. 'the buttons follow it, as far as the HP bar fits them.', 'px' },
     { 'Spacing', 'gap', 0, 40, 'Pixels between members.', 'px' },
-    { 'Background opacity', 'opacity', 0, 100, '% of the panel behind the bars.', '%' },
 }
 
 local JOINED = { party = '  (in your party)', alliance = '  (in your alliance)' }  -- a tracked player's note
 
-local act                    -- this frame's actions (another session's, while drawing its SK Settings)
-local settings_open = false  -- SK Settings shown; this session only
-local hud_open = true        -- last frame's view.ui.open: closing the HUD (/sk3) closes SK Settings with it
-local profile_names = {}     -- per SK Settings window ('' for yours, else the session's name), this session only:
+local act                    -- this frame's actions (another session's, while drawing its Sidekick Settings)
+local settings_open = false  -- Sidekick Settings shown; this session only
+local hud_open = true        -- last frame's view.ui.open: closing the HUD (/sk3) closes Sidekick Settings with it
+local profile_names = {}     -- per Sidekick Settings window ('' for yours, else the session's name), this session only:
                              -- { typed = { name }, shown }, the name filled in again when the profile loaded changes
-local panes = {}             -- per SK Settings window, as profile_names: { page, folded = { [section id] = true } }
-local user_scale = 1         -- SK Settings' size (view.ui.scale), taken up while nothing is held
+local panes = {}             -- per Sidekick Settings window, as profile_names: { page, folded = { [section id] = true } }
+local user_scale = 1         -- Sidekick Settings' size (view.ui.scale), taken up while nothing is held
 
 -- HUD -----------------------------------------------------------------------------
 
 local HUD_PAD, BAR_GAP, ROUND = 8, 3, 4  -- the panel's padding, between bars, the bars' corners (pixels)
+local BAR_FILL = 0.7                     -- the fill lets the game show through, as the reference bar
+local BAR_TRACK_A = 0.7                  -- bar background stays at 70%: gray hovered, black while not
+local BAR_EDGE = 1                       -- the stroke around each bar
+local BAR_EDGE_A = 0.7                   -- that stroke is black at 70%, and it does not fade with the panel
+local BAR_OFF = '#0c0c0c'                -- the background while the pointer is off the panel; the stroke is always this
 local TITLE = 'Sidekick3'
 
 local HUD_FLAGS = ImGuiWindowFlags_NoTitleBar + ImGuiWindowFlags_NoResize + ImGuiWindowFlags_NoScrollbar
@@ -100,31 +106,37 @@ local function pet_tip(pet)
     return ('%s (pet)\nHP %d%%  MP %d%%  TP %d  %s'):format(pet.name, pet.hpp, pet.mpp, pet.tp, pet.dist)
 end
 
--- A sunken track at (x, y), w by h, `f` (0 to 1) of it filled in `color`, edged in `edge`.
-local function track(dl, x, y, w, h, f, color, alpha, edge)
+-- A track at (x, y), w by h, `f` (0 to 1) of it filled in `color`. The whole bar has a
+-- background at 70% that does not fade with the panel: gray while the pointer is over
+-- it (`chrome` 1), near-black while not. A 1px stroke in that same near-black, at 70%, sits on the edge.
+-- The fill is at 70% too.
+local function track(dl, x, y, w, h, f, color, alpha, chrome)
     local r = math.min(ROUND, math.floor(h / 2))
-    kit.fill(dl, x, y, w, h, P.well, r)
-    local fw = math.floor(w * f + 0.5)
-    if fw > 0 then kit.fill(dl, x, y, fw, h, color, math.min(r, fw / 2), alpha) end
-    kit.outline(dl, x, y, w, h, edge or P.well_edge, r)
+    kit.fill(dl, x, y, w, h, kit.mix(BAR_OFF, P.track, chrome), r, BAR_TRACK_A)
+    local fw = math.max(0, math.min(w, math.floor(w * f + 0.5)))
+    if fw > 0 then
+        kit.fill(dl, x, y, fw, h, color, math.min(r, fw / 2), alpha * BAR_FILL, fw < w and kit.LEFT_CORNERS or nil)
+    end
+    kit.outline(dl, x, y, w, h, BAR_OFF, r, BAR_EDGE_A, BAR_EDGE)
 end
 
 -- A bar: `pct` of its track filled (eased, by `id`).
-local function bar(dl, id, x, y, w, h, pct, color, alpha, edge)
-    track(dl, x, y, w, h, kit.ease(id, math.min(math.max(pct, 0), 100) / 100, 12), color, alpha, edge)
+local function bar(dl, id, x, y, w, h, pct, color, alpha, chrome)
+    track(dl, x, y, w, h, kit.ease(id, math.min(math.max(pct, 0), 100) / 100, 12), color, alpha, chrome)
 end
 
 local TIER, TIERS = 1000, 3  -- TP: a weapon skill's worth, and how many stand
 
 -- The TP bar: a track per 1000 TP side by side, each filling once the one before is full (eased, by `id`); the one
 -- still filling is drawn faint, as Floaties draws it.
-local function tp_bar(dl, id, x, y, w, h, tp, alpha)
+local function tp_bar(dl, id, x, y, w, h, tp, alpha, chrome)
     local t = kit.ease(id, math.min(math.max(tp, 0), TIER * TIERS) / TIER, 12)  -- in tiers
     local tw = (w - (TIERS - 1) * BAR_GAP) / TIERS
     for i = 1, TIERS do
         local f = math.min(math.max(t - (i - 1), 0), 1)
         local tx = math.floor(x + (i - 1) * (tw + BAR_GAP) + 0.5)
-        track(dl, tx, y, math.floor(x + i * tw + (i - 1) * BAR_GAP + 0.5) - tx, h, f, P.tp, (f < 1 and 0.5 or 1) * alpha)
+        track(dl, tx, y, math.floor(x + i * tw + (i - 1) * BAR_GAP + 0.5) - tx, h, f, P.tp,
+            (f < 1 and 0.5 or 1) * alpha, chrome)
     end
 end
 
@@ -140,19 +152,25 @@ local function disc_button(id, x, y, s, glyph, lit, help)
     return clicked, hovered
 end
 
+-- Tracker's close: an X, dim until the pointer is on it, then rose. No disc behind it.
+local function close_mark(id, cx, cy, box, alpha)
+    local hovered, clicked = kit.hit(id, cx - box / 2, cy - box / 2, box, box)
+    kit.icon(imgui.GetWindowDrawList(), 'close', cx, cy, box * 0.72, hovered and P.rose or P.dim, alpha)
+    return clicked, hovered
+end
+
 -- "Sidekick3", then close (s pixels across); the title's hover area says what automation is doing.
-local function title_row(dl, view, ts, x0, y0, pw, th, s)
+-- Both fade with the panel (`chrome`).
+local function title_row(dl, view, ts, x0, y0, pw, th, s, chrome)
     local font = kit.fonts.semi
     local _, h = kit.measure(TITLE, font, ts)
-    kit.halo(dl, x0 + HUD_PAD, y0 + (th - h) / 2, TITLE, P.white, font, ts)
-    local ix, iy = x0 + pw - HUD_PAD - s, y0 + math.floor((th - s) / 2)
+    kit.halo(dl, x0 + HUD_PAD, y0 + (th - h) / 2, TITLE, P.white, font, ts, chrome)
+    local cx, cy = x0 + pw - HUD_PAD - s / 2, y0 + th / 2
     imgui.SetCursorScreenPos({ x0, y0 })
-    imgui.Dummy({ ix - x0, th })
+    imgui.Dummy({ cx - s / 2 - x0, th })
     kit.tip(status_tip(view))
-    local hovered, clicked = kit.hit('##sk3_close', ix, iy, s, s)
+    local clicked = close_mark('##sk3_close', cx, cy, s, chrome)
     kit.tip('Close (/sk3 opens it again)')
-    kit.circle(dl, ix + s / 2, iy + s / 2, s / 2, hovered and P.rose_bg or P.well, 0.85)
-    kit.icon(dl, 'close', ix + s / 2, iy + s / 2, s * 0.55, hovered and P.rose or P.dim)
     if clicked then
         act.close()
         settings_open = false
@@ -180,35 +198,43 @@ local function card_icons(view, ui, p, x, y, s)
     return over_run or over_cog
 end
 
+-- The name on an HP bar. Over 75% it stays white; at 75% it turns yellow, at 50% orange and at 25% red.
+-- Away, it greys with the bars.
+local function name_color(p)
+    if p.away then return P.dim end
+    local hpp = p.hpp or 100
+    if hpp <= 25 then return P.red end
+    if hpp <= 50 then return P.orange end
+    if hpp <= 75 then return P.yellow end
+    return P.white
+end
+
 -- A member's card at (x, y): the HP bar over the MP bar over the TP bar, the name on the first and the tag on the
 -- second, the % of each (TP's number) only in its tooltip. A tracked player's MP and TP can't be read: their bars stay
--- empty. Critical HP edges the bar and turns the name rose; MP under the Recover line, the tag. Away, the bars fade
--- and the text greys. `id` keeps the bars' eased fills apart.
-local function card(dl, ui, p, x, y, id)
+-- empty. The name turns yellow at 75% HP, orange at 50% and red at 25%; MP under the Recover line turns the tag
+-- rose. Away, the bars fade and the text greys. `id` keeps the bars' eased fills apart.
+local function card(dl, ui, p, x, y, id, chrome)
     local fx, mp_top = x + HUD_PAD, y + ui.hp_height + BAR_GAP
     local fade = p.away and 0.45 or 1
-    local critical = p.hp == 'critical' and not p.away
-    bar(dl, 'hp.' .. id, fx, y, ui.hp_width, ui.hp_height, p.hpp, P.hp, fade, critical and P.rose or nil)
-    bar(dl, 'mp.' .. id, fx, mp_top, ui.mp_width, ui.mp_height, p.mpp, P.mp, fade)
-    tp_bar(dl, 'tp.' .. id, fx, mp_top + ui.mp_height + BAR_GAP, ui.tp_width, ui.tp_height, p.tp, fade)
+    bar(dl, 'hp.' .. id, fx, y, ui.hp_width, ui.hp_height, p.hpp, P.hp, fade, chrome)
+    bar(dl, 'mp.' .. id, fx, mp_top, ui.mp_width, ui.mp_height, p.mpp, P.mp, fade, chrome)
+    tp_bar(dl, 'tp.' .. id, fx, mp_top + ui.mp_height + BAR_GAP, ui.tp_width, ui.tp_height, p.tp, fade, chrome)
     local font = kit.fonts.semi
     local _, nh = kit.measure(p.name, font, ui.name_size)
-    kit.halo(dl, fx + 6, y + ui.hp_height - nh, p.name, p.away and P.dim or critical and P.rose or P.white, font, ui.name_size)
+    kit.halo(dl, fx + 6, y + ui.hp_height - nh, p.name, name_color(p), font, ui.name_size)
     local _, th = kit.measure(p.tag, font, ui.text_size)
     kit.halo(dl, fx + 6, mp_top + (ui.mp_height - th) / 2, p.tag,
         p.away and P.dim or p.mp == 'low' and P.rose or P.text2, font, ui.text_size)
 end
 
 -- An alliance member's row, its bar's top at `top`: a thin HP bar (the MP bar's height) with the tag and name on
--- it, its HP % only in its tooltip.
-local function ally_row(dl, ui, p, x, top)
+-- it, coloured as a card's name is, its HP % only in its tooltip.
+local function ally_row(dl, ui, p, x, top, chrome)
     local fx = x + HUD_PAD
-    local critical = p.hp == 'critical' and not p.away
-    bar(dl, 'ally.' .. p.name, fx, top, ui.hp_width, ui.mp_height, p.hpp, P.hp, p.away and 0.45 or 1, critical and P.rose or nil)
+    bar(dl, 'ally.' .. p.name, fx, top, ui.hp_width, ui.mp_height, p.hpp, P.hp, p.away and 0.45 or 1, chrome)
     local label = p.tag .. ' ' .. p.name
     local _, h = kit.measure(label, kit.fonts.semi, ui.text_size)
-    kit.halo(dl, fx + 6, top + (ui.mp_height - h) / 2, label, p.away and P.dim or critical and P.rose or P.white,
-        kit.fonts.semi, ui.text_size)
+    kit.halo(dl, fx + 6, top + (ui.mp_height - h) / 2, label, name_color(p), kit.fonts.semi, ui.text_size)
 end
 
 -- Labels in pills side by side, the first's point just right of the panel at `cy`: this session's amber while running
@@ -301,13 +327,15 @@ local function draw_hud(view)
         below = below + ui.mp_height
     end
     local ph = below + HUD_PAD
-    local opacity = ui.opacity / 100
-    kit.fill(dl, x0, y0, pw, ph, P.bg, 6, opacity)
-    kit.outline(dl, x0, y0, pw, ph, P.border, 6, opacity)
-    title_row(dl, view, ui.text_size, x0, y0, pw, th, s)
+    -- The panel is solid while the mouse is over the window (last frame's rect, as IsWindowHovered reads it) and gone
+    -- off it. The bars stay.
+    local chrome = kit.ease('chrome', imgui.IsWindowHovered() and 1 or 0)
+    kit.fill(dl, x0, y0, pw, ph, P.bg, 6, chrome)
+    kit.outline(dl, x0, y0, pw, ph, P.border, 6, chrome)
+    title_row(dl, view, ui.text_size, x0, y0, pw, th, s, chrome)
     for i, c in ipairs(cards) do
         local p, y = c.p, y0 + th + (i - 1) * (ch + ui.gap)
-        card(dl, ui, p, x0, y, c.id)
+        card(dl, ui, p, x0, y, c.id, chrome)
         local on_icon = (p.kind == 'self' or p.session) and card_icons(view, ui, p, x0, y, s)
         imgui.SetCursorScreenPos({ x0 + HUD_PAD, y })
         imgui.Dummy({ pw - 2 * HUD_PAD, ch })
@@ -316,7 +344,7 @@ local function draw_hud(view)
     end
     for j, p in ipairs(view.alliance) do
         local top = y0 + rows[j]
-        ally_row(dl, ui, p, x0, top)
+        ally_row(dl, ui, p, x0, top, chrome)
         imgui.SetCursorScreenPos({ x0 + HUD_PAD, top })
         imgui.Dummy({ pw - 2 * HUD_PAD, ui.mp_height })
         kit.tip(member_tip(p))
@@ -341,7 +369,7 @@ local function short_status(view)
     return 'Running', s.dim and P.dim or P.teal
 end
 
--- On a panel of its own, sized as SK Settings is: the profile loaded in a drop-down (its list loads one), then the
+-- On a panel of its own, sized as Sidekick Settings is: the profile loaded in a drop-down (its list loads one), then the
 -- job; Start/Stop, the state, Settings, then Track for your target.
 local function draw_widget(view)
     local p, s, t = view.profiles, view.status, view.track.target
@@ -372,7 +400,7 @@ local function draw_widget(view)
             imgui.Text(kit.esc(name))
         end
     end)
-    if hovered then kit.tooltip(shown .. '\nLoad a profile. SK Settings saves them.') end
+    if hovered then kit.tooltip(shown .. '\nLoad a profile. Sidekick Settings saves them.') end
     kit.text_mid(dl, x + pick_w + gap, cy, view.job, P.text2, kit.fonts.text, px)
 
     x, cy = x0 + pad, cy + row
@@ -387,7 +415,7 @@ local function draw_widget(view)
     kit.tip(status_tip(view))
     x = x + state_w + gap
     clicked, bw = kit.button('##sk3_widget_settings', x, cy, 'Settings', settings_open and 'accent' or 'ghost')
-    kit.tip('Open or close SK Settings')
+    kit.tip('Open or close Sidekick Settings')
     if clicked then settings_open = not settings_open end
     if t then
         if kit.button('##sk3_widget_track', x + bw + gap, cy, track_label, 'ghost') then act.track(t) end
@@ -397,12 +425,16 @@ local function draw_widget(view)
     imgui.Dummy({ pw, 1 })  -- the panel's full size, for the auto-size
 end
 
--- SK Settings: the page's rows -----------------------------------------------------
+-- Sidekick Settings: the page's rows -----------------------------------------------------
 
-local SIDE_W, PAGE_W, WIN_H, MARGIN = 160, 580, 580, 6  -- unscaled, as every size from here
-local TITLE_H, HEAD_H, ROW_H, NAV_H, CHIP_LINE = 44, 36, 30, 28, 26
+-- Fixed for every job. 390 is the narrowest page that still holds a slider beside
+-- "Focus danger under" and the longest roll name ("Companion's Roll (Pet Regain
+-- & Regen)") beside "Roll 1". Song, rune and maneuver picks have their own widths
+-- below and wrap onto the next line; the window does not grow to fit a job.
+local SIDE_W, PAGE_W, WIN_H, MARGIN = 160, 390, 580, 6  -- unscaled, as every size from here
+local TITLE_H, HEAD_H, ROW_H, NAV_H, CHIP_LINE = 44, 28, 30, 28, 26
 local LEFT, PAD, GUTTER, LABEL_W = 24, 18, 12, 120
-local SLIDER_W, PICK_W, ROLL_W, RUNE_W, MANEUVER_W, CHIP_W = 230, 190, 270, 110, 110, 30
+local SLIDER_W, PICK_W, ROLL_W, RUNE_W, MANEUVER_W, SONG_W, CHIP_W = 180, 220, 286, 168, 90, 248, 30
 local FOOT = { Profiles = true, ['UI / Log'] = true }  -- set apart at the foot of the list of pages
 
 --[[ pg: where a page's rows go, from top to bottom: { dl, x, w, y (the next row's top), lx (where labels start),
@@ -461,13 +493,14 @@ local function readiness(pg, right, cy, avail, ready)
     kit.text_right(pg.dl, right, cy, avail, ready and P.teal or P.dim, kit.fonts.text, S(SMALL + 0.5), pg.alpha)
 end
 
--- A group's heading inside a section: capitals in teal, a line after.
+-- A group's heading inside a section: Tracker's small capitals, a line after.
 local function subheader(pg, s)
     pg.y = pg.y + S(8)
     local cy = pg.y + S(12)
-    local font, px = kit.fonts.semi, S(SMALL - 1)
-    kit.text_mid(pg.dl, pg.lx, cy, s, P.teal, font, px, pg.alpha)
-    local tx = pg.lx + kit.measure(s, font, px) + S(10)
+    local font, px, spacing = kit.fonts.semi_italic, S(SMALL), math.max(1, S(1.2))
+    local title = string.upper(s)
+    local tw = kit.text_spaced(pg.dl, pg.lx, cy, title, P.teal, font, px, spacing, pg.alpha)
+    local tx = pg.lx + tw + S(10)
     if pg.right > tx then kit.line(pg.dl, tx, cy, pg.right, cy, P.teal, 0.35 * pg.alpha) end
     pg.y = pg.y + S(26)
 end
@@ -525,7 +558,7 @@ local function slot_pick(id, path, current, choices, x, cy, w, alpha, field, tip
         options(id, path, current, choices, field, tip))
 end
 
--- SK Settings bodies ---------------------------------------------------------------
+-- Sidekick Settings bodies ---------------------------------------------------------------
 
 local HEAL_LINES = {
     { 'Heal under', 'threshold', 'Under this HP %, heal with the most HP for the MP or TP. Over it, missing HP is left be.' },
@@ -673,26 +706,32 @@ local SONGS_TIP = 'Two songs of one kind (Victory and Advancing March) stand sid
     .. 'While an area song is owed, the songs on one member wait: it would push them out.'
 
 -- BRD: a line per target, Area first, then each party slot that is filled or has a pick; a drop-down per song slot.
--- A slot with no one in it says so.
+-- The drop-downs are SONG_W, wide enough for the longest song, and wrap. A member's name sits on the label line.
 local function draw_songs(view, pg)
     local m = view.song
-    local col, gap = S(56), S(6)
-    local w = math.min(S(PICK_W), math.floor((pg.right - pg.lx - col - S(90)) / math.max(m.slots, 1)) - gap)
+    local col, gap, box = S(56), S(6), S(SONG_W)
     for _, set in ipairs(m.sets) do
         local picked = false
         for i = 1, m.slots do picked = picked or set.picks[i] ~= '' end
         if set.key == 'area' or set.present or picked then
             local dim = set.key ~= 'area' and not (set.present and m.pianissimo)
+            local name = set.key ~= 'area' and (set.name or 'no one') or nil
+            local items = {}
+            for i = 1, m.slots do items[i] = { w = box, i = i } end
+            local lines = flow(items, pg.lx + col, pg.right, gap)
+            -- A name shares the label line, so the picks start on the next one.
+            local h = S(ROW_H) + (lines - (name and 0 or 1)) * S(CHIP_LINE)
             local cy = line(pg, set.label, SONG_HELP[set.key] or ('Sung on %s alone, through Pianissimo, whenever they lack one.')
-                :format(set.name or 'whoever is in this party slot'), nil, dim and P.dim or P.text)
-            for i = 1, m.slots do
-                slot_pick(('sk3_song_%s_%d'):format(set.key, i), ('song.%s_%d'):format(set.key, i), set.picks[i], m.choices,
-                    pg.lx + col + (i - 1) * (w + gap), cy, w, pg.alpha)
+                :format(set.name or 'whoever is in this party slot'), h, dim and P.dim or P.text)
+            for _, it in ipairs(items) do
+                local icy = cy + (it.line - (name and 0 or 1)) * S(CHIP_LINE)
+                slot_pick(('sk3_song_%s_%d'):format(set.key, it.i), ('song.%s_%d'):format(set.key, it.i), set.picks[it.i],
+                    m.choices, it.x, icy, box, pg.alpha)
             end
-            if set.key ~= 'area' then
-                local nx = pg.lx + col + m.slots * (w + gap) + S(4)
-                kit.text_mid(pg.dl, nx, cy, kit.fit(set.name or 'no one', pg.right - nx, kit.fonts.text, S(SMALL + 0.5)),
-                    P.dim, kit.fonts.text, S(SMALL + 0.5), pg.alpha)
+            if name then
+                local px = S(SMALL + 0.5)
+                kit.text_right(pg.dl, pg.right, cy, kit.fit(name, pg.right - pg.lx - col, kit.fonts.text, px),
+                    P.dim, kit.fonts.text, px, pg.alpha)
             end
         end
     end
@@ -747,41 +786,50 @@ local function rune_pick(set, i, runes, x, cy, w, alpha)
     end
 end
 
--- A line per set: Idle, then each ward with its switch; a drop-down per rune slot, then whether it's ready.
+-- A line per set: Idle, then each ward with its switch and whether it's ready. The rune picks are RUNE_W
+-- (the longest ailment list) and wrap under that line.
 local function draw_runes(view, pg)
     local r = view.rune
-    local col, gap, ready_w = S(LABEL_W), S(6), S(80)
-    local w = math.min(S(RUNE_W), math.floor((pg.right - pg.lx - col - ready_w) / math.max(r.slots, 1)) - gap)
+    local gap, box = S(6), S(RUNE_W)
     for _, set in ipairs(r.sets) do
-        local cy
+        local items = {}
+        for i = 1, r.slots do items[i] = { w = box, i = i } end
+        local lines = flow(items, pg.lx, pg.right, gap)
+        local help = set.ward and ('Once %s is ready, its runes take the slots, then it fires in combat.'):format(set.ward)
+            or 'The runes kept up the rest of the time.'
+        local cy = line(pg, set.ward and nil or set.label, help, S(ROW_H) + lines * S(CHIP_LINE))
         if set.ward then
-            local help = ('Once %s is ready, its runes take the slots, then it fires in combat.'):format(set.ward)
-            cy = line(pg, nil, help)
             local on, flipped = kit.switch(set.label .. '##sk3_rune_' .. set.key, pg.lx, cy, set.on, true, pg.alpha)
             kit.tip(help)
             if flipped then act.row(set.ward, on) end
             kit.text_mid(pg.dl, pg.lx + S(kit.SW_W) + S(8), cy, set.label, set.on and P.text or P.dim, kit.fonts.text, S(BODY), pg.alpha)
-        else
-            cy = line(pg, set.label, 'The runes kept up the rest of the time.')
-        end
-        for i = 1, r.slots do rune_pick(set, i, r.runes, pg.lx + col + (i - 1) * (w + gap), cy, w, pg.alpha) end
-        if set.ward then
             readiness(pg, pg.right, cy, set.avail, set.ready)
         end
+        for _, it in ipairs(items) do rune_pick(set, it.i, r.runes, it.x, cy + it.line * S(CHIP_LINE), box, pg.alpha) end
     end
 end
 
--- PUP: a drop-down per maneuver slot, by element (None for ''), then whether they can go.
+-- PUP: a drop-down per maneuver slot, by element (None for ''), MANEUVER_W wide so "Thunder" fits. They wrap.
+-- Whether they can go sits on the last line when it fits beside them, and on a line of its own when it doesn't.
 local function draw_maneuvers(view, pg)
     local m = view.maneuver
-    local cy = line(pg, nil, nil)
-    local gap, w = S(6), S(MANEUVER_W)
-    for i, current in ipairs(m.picks) do
-        if slot_pick('sk3_maneuver_' .. i, 'maneuver.slot_' .. i, current, m.choices, pg.lx + (i - 1) * (w + gap), cy, w, pg.alpha) then
+    local gap, box, px = S(6), S(MANEUVER_W), S(SMALL + 0.5)
+    local items = {}
+    for i = 1, #m.picks do items[i] = { w = box, i = i } end
+    local lines = flow(items, pg.lx, pg.right, gap)
+    local avail_w = kit.measure(m.avail or '', kit.fonts.text, px)
+    local last = items[#items]
+    local beside = last and pg.right - (last.x + last.w + S(10)) or 0
+    local extra = (beside >= avail_w) and 0 or 1
+    local cy = line(pg, nil, nil, S(ROW_H) + (lines - 1 + extra) * S(CHIP_LINE))
+    for _, it in ipairs(items) do
+        local i = it.i
+        if slot_pick('sk3_maneuver_' .. i, 'maneuver.slot_' .. i, m.picks[i], m.choices, it.x, cy + (it.line - 1) * S(CHIP_LINE),
+                box, pg.alpha) then
             kit.tooltip('The same element in two slots keeps two up.')
         end
     end
-    readiness(pg, pg.right, cy, m.avail, m.ready)
+    readiness(pg, pg.right, cy + (extra == 0 and last.line - 1 or lines) * S(CHIP_LINE), m.avail, m.ready)
 end
 
 -- Each tracked player with its Untrack button (one who joined your party or alliance too), then Track for your
@@ -905,10 +953,10 @@ local function draw_recent(view, pg)
     end
 end
 
--- SK Settings' size, % of the size for the screen: view.ui.scale, held to its slider's range.
+-- Sidekick Settings' size, % of the size for the screen: view.ui.scale, held to its slider's range.
 local function ui_scale(ui) return math.min(math.max(math.floor(tonumber(ui and ui.scale) or 100), 50), 200) end
 
--- Another session's shows only what it sent: its HUD and log are its own.
+-- Another session's shows only what it sent: its HUD is its own.
 local function draw_ui(view, pg)
     if view.session then return draw_recent(view, pg) end
     subheader(pg, 'HUD')
@@ -920,11 +968,10 @@ local function draw_ui(view, pg)
     switch(pg, 'Widget', 'ui.widget', view.ui.widget == true,
         'A small window of its own: the profile loaded (pick another to load it) and your job, then Start/Stop, '
         .. 'the state, Settings, and Track for your target. Up with the HUD closed too. Also /sk3 widget.')
-    subheader(pg, 'SK SETTINGS')
+    subheader(pg, 'Sidekick Settings')
     slider(pg, 'Size', 'ui.scale', ui_scale(view.ui),
         'This window\'s size and the widget\'s, % of the size that suits your screen. Taken up once the slider is let go.', '%', { 50, 200 })
     subheader(pg, 'LOG')
-    switch(pg, 'Action log', 'log', view.log, 'Print each action to chat as it is sent.', act.log)
     draw_recent(view, pg)
     subheader(pg, 'CLIENT')
     switch(pg, 'Japanese client', 'japanese', view.japanese,
@@ -1011,7 +1058,7 @@ local function section_rows(pg, s, has_body)
     end
 end
 
--- SK Settings -----------------------------------------------------------------------
+-- Sidekick Settings -----------------------------------------------------------------------
 
 local SWITCH_HELP = {
     follow = 'Follow the leader once they are further away than the distance.',
@@ -1053,15 +1100,16 @@ local function heading(pane, pg, s)
         if flipped then act.section(s.id, on) end
         line_end = line_end - S(kit.SW_W) - S(12)
     end
-    local font, px = kit.fonts.bold_italic, S(BODY + 5)
-    local tw = kit.measure(s.title, font, px)
+    local font, px, spacing = kit.fonts.semi_italic, S(SMALL), math.max(1, S(1.2))
+    local title = string.upper(s.title)
+    local tw = kit.text_spaced(nil, 0, 0, title, nil, font, px, spacing)
     local hovered, clicked = kit.hit('##sk3_fold_' .. s.id, pg.x + S(2), cy - S(12), S(LEFT) - S(2) + tw + S(8), S(24))
     kit.tip(SWITCH_HELP[s.id])
     if clicked then pane.folded[s.id] = not pane.folded[s.id] or nil end
     local folded = pane.folded[s.id] == true
-    kit.icon(dl, folded and 'right' or 'down', pg.x + S(GUTTER), cy, S(11), hovered and P.text or P.faint)
-    local color = s.on == false and kit.mix(P.white, P.dim, 0.5) or kit.mix(P.white, P.accent2, hovered and 0.35 or 0)
-    kit.text_mid(dl, pg.lx, cy, s.title, color, font, px)
+    kit.icon(dl, folded and 'right' or 'down', pg.x + S(GUTTER), cy, S(11), hovered and P.teal or P.faint)
+    local base = s.on == false and kit.mix(P.teal, P.dim, 0.55) or P.teal
+    kit.text_spaced(dl, pg.lx, cy, title, kit.mix(base, P.white, hovered and 0.25 or 0), font, px, spacing)
     local tx = pg.lx + tw + S(10)
     if line_end > tx then kit.line(dl, tx, cy, line_end, cy, P.line) end
     pg.y = pg.y + S(HEAD_H) + S(2)
@@ -1133,13 +1181,13 @@ local function nav_item(pane, page, x, y, w, tag)
     return ih
 end
 
--- Whose settings these are (SK Settings, or the session's name), its job and whether it runs; then its pages, and
+-- Whose settings these are (Sidekick Settings, or the session's name), its job and whether it runs; then its pages, and
 -- Profiles and UI / Log at the foot.
 local function draw_sidebar(view, pane, pages, name, x, y, w, h)
     local dl, pad = imgui.GetWindowDrawList(), S(PAD)
     local st = view.status
-    local title_px, small = S(BODY + 2), S(SMALL)
-    kit.text_mid(dl, x + pad, y + S(24), kit.fit(name or 'SK Settings', w - pad * 2, kit.fonts.semi, title_px), P.white, kit.fonts.semi, title_px)
+    local title_px, small = S(BODY), S(SMALL)
+    kit.text_mid(dl, x + pad, y + S(24), kit.fit(name or 'Sidekick Settings', w - pad * 2, kit.fonts.semi, title_px), P.white, kit.fonts.semi, title_px)
     kit.text_mid(dl, x + pad, y + S(46), kit.fit(view.job, w - pad * 2, kit.fonts.text, small), P.dim, kit.fonts.text, small)
     kit.circle(dl, x + pad + S(3), y + S(65), S(3), st.running and P.teal or P.faint)
     kit.text_mid(dl, x + pad + S(12), y + S(65), st.state, st.running and P.teal or P.dim, kit.fonts.text, small)
@@ -1165,19 +1213,17 @@ end
 local function title_bar(title, note_, x, y, w, open)
     local dl = imgui.GetWindowDrawList()
     local cy = y + S(TITLE_H) / 2
-    local font, px = kit.fonts.semi, S(BODY + 3)
+    local font, px = kit.fonts.semi, S(BODY)
     kit.text_mid(dl, x + S(LEFT), cy, title, P.white, font, px)
-    local cx = x + w - S(PAD) - S(6)
+    local box = S(21)
+    local cx = x + w - S(PAD) - box / 2
     if note_ then
         local nx = x + S(LEFT) + kit.measure(title, font, px) + S(10)
-        local room = cx - S(20) - nx
+        local room = cx - box / 2 - S(8) - nx
         if room > S(30) then kit.text_mid(dl, nx, cy, kit.fit(note_, room, kit.fonts.text, S(SMALL)), P.faint, kit.fonts.text, S(SMALL)) end
     end
-    local hovered, clicked = kit.hit('##sk3_settings_close', cx - S(11), cy - S(11), S(22), S(22))
+    if close_mark('##sk3_settings_close', cx, cy, box) then open[1] = false end
     kit.tip('Close')
-    if hovered then kit.circle(dl, cx, cy, S(11), P.rose_bg) end
-    kit.icon(dl, 'close', cx, cy, S(14), hovered and P.rose or P.dim)
-    if clicked then open[1] = false end
     kit.line(dl, x, y + S(TITLE_H), x + w, y + S(TITLE_H), P.border)
 end
 
@@ -1199,7 +1245,7 @@ local function draw_page(view, pane, page, x, y, w, h, open)
     if not ok then error(err, 0) end
 end
 
--- A SK Settings window's inside, from `view`: `key` and `name` are '' and nil for yours, the session's name for
+-- A Sidekick Settings window's inside, from `view`: `key` and `name` are '' and nil for yours, the session's name for
 -- another's.
 local function draw_settings(view, key, name, x, y, side, pw, ph, open)
     local pages = pages_of(view)
@@ -1222,7 +1268,7 @@ local SETTINGS_COLOURS = {
     { ImGuiCol_ScrollbarGrabActive, kit.rgba(P.accent_lo) },
 }
 
--- A SK Settings window, the `index`th open (each starts a little further down and right): ImGui draws none of it, the
+-- A Sidekick Settings window, the `index`th open (each starts a little further down and right): ImGui draws none of it, the
 -- panel and its sidebar are drawn here, then `body(x, y, side, pw, ph)` inside. Returns the error the body raised.
 local function settings_shell(label, open, index, body)
     local m, side = S(MARGIN), S(SIDE_W)
@@ -1269,24 +1315,24 @@ end
 
 local function settings_window(view)
     local open = { true }
-    local err = settings_shell('SK Settings', open, 0, function (x, y, side, pw, ph)
+    local err = settings_shell('Sidekick Settings', open, 0, function (x, y, side, pw, ph)
         draw_settings(view, '', nil, x, y, side, pw, ph, open)
     end)
     if not open[1] then settings_open = false end
     return err
 end
 
--- Another session's SK Settings, from the view it published, its changes sent to it; until its first view comes, or
+-- Another session's Sidekick Settings, from the view it published, its changes sent to it; until its first view comes, or
 -- from a session running other code, a line saying so.
 local function remote_window(r, index)
     local open = { true }
     local mine = act
-    local err = settings_shell(('SK Settings: %s###sk3_settings_%s'):format(r.name, r.name), open, index, function (x, y, side, pw, ph)
+    local err = settings_shell(('Sidekick Settings: %s###sk3_settings_%s'):format(r.name, r.name), open, index, function (x, y, side, pw, ph)
         act = mine.remote(r.name)
         if r.view and not r.other then return draw_settings(r.view, r.name, r.name, x, y, side, pw, ph, open) end
         local dl = imgui.GetWindowDrawList()
         kit.text_mid(dl, x + S(PAD), y + S(24), kit.fit(r.name, side - S(PAD) * 2, kit.fonts.semi, S(BODY + 2)), P.white, kit.fonts.semi, S(BODY + 2))
-        title_bar('SK Settings', nil, x + side + 1, y, pw - side - 1, open)
+        title_bar('Sidekick Settings', nil, x + side + 1, y, pw - side - 1, open)
         local pg = { dl = dl, x = x + side + 1, w = pw - side - 1, y = y + S(TITLE_H) + S(14), lx = x + side + 1 + S(LEFT),
                      right = x + pw - S(PAD), alpha = 1 }
         note(pg, r.other and ('%s runs another version of Sidekick3: /addon reload sidekick3 there.'):format(r.name)
@@ -1296,6 +1342,9 @@ local function remote_window(r, index)
     if not (open[1] and not err) then act.watch(r.name, false) end  -- a view that won't draw isn't drawn again
     return err
 end
+
+-- Once, at load, before any frame: Segoe UI, which ImGui 1.81 (Ashita 4.16) takes only then.
+function window.load() kit.bake() end
 
 -- One frame. A Lua error raised while drawing is raised again after the windows
 -- are ended, so ImGui stays balanced and Sidekick reports it.
@@ -1324,6 +1373,7 @@ function window.render(view, act_)
         end
         kit.prefix = ''
     end
+    kit.tooltips()
     if err then error(err, 0) end
 end
 
