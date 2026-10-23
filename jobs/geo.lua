@@ -25,6 +25,8 @@
 
 local can = require('core.can')
 local settings = require('core.settings')
+local status = require('core.status')
+local util = require('core.util')
 
 local geo = {}
 
@@ -36,7 +38,6 @@ geo.AURAS = { Regen = 539, Refresh = 541, STR = 542, DEX = 543, VIT = 544, AGI =
 geo.DEBUFFS = { 'Poison', 'Frailty', 'Slow', 'Torpor', 'Slip', 'Languor', 'Paralysis', 'Vex' }
 geo.COLURE = 612  -- "Colure Active": what an offensive Indi- shows on you
 
-local INVISIBLE = 69
 local LAND = 8             -- seconds a luopan sent may take to appear
 local ENTRUST_RANGE = 20   -- yalms (v2)
 local RADIUS = 10          -- yalms from the luopan Radial Arcana reaches (v2; Widened Compass ignored)
@@ -72,7 +73,7 @@ local function could_go(v, g)
     return ok or why == 'MP' or why:match('^recast') ~= nil
 end
 
-local function lacks(a, u) return not can.any(u.buffs, a.status) end
+local lacks = can.lacks
 
 -- The luopan ability named `name` when its row is on.
 local function on(cat, cfg, name)
@@ -132,25 +133,21 @@ local function arcana_on(cat, cfg)
 end
 
 local function entrust(g, cat, cfg)
-    local e, name = on(cat, cfg, 'Entrust'), cfg.geo.entrust:lower()
-    if not e or name == '' or not (can.any(g.me.buffs, e.status) or can.use(e, g)) then return nil end
+    local e = on(cat, cfg, 'Entrust')
+    if not e or not (can.any(g.me.buffs, e.status) or can.use(e, g)) then return nil end
     local indi
     for _, a in ipairs(cat) do
         if a.pick_one == 'indi' and a.name == cfg.geo.entrust_spell then indi = a end
     end
     if not (indi and can.use(indi, g)) then return nil end
-    for _, u in ipairs(g.units) do
-        if u.kind ~= 'self' and can.in_party(u) and u.name:lower() == name then
-            if u.alive and u.in_zone and (u.dist or math.huge) <= ENTRUST_RANGE and lacks(indi, u) then
-                return { action = indi, target = u, mods = { e }, why = ('%s (Entrust)'):format(u.name) }
-            end
-            return nil
-        end
+    local u = util.named(g.units, cfg.geo.entrust, g.me)
+    if u and can.in_party(u) and u.alive and u.in_zone and (u.dist or math.huge) <= ENTRUST_RANGE and lacks(indi, u) then
+        return { action = indi, target = u, mods = { e }, why = ('%s (Entrust)'):format(u.name) }
     end
 end
 
 function geo.want(g, cat, cfg, mem)
-    if g.main ~= geo.JOB or g.me.buffs[INVISIBLE] then return nil end
+    if g.main ~= geo.JOB or g.me.buffs[status.INVISIBLE] then return nil end
     local st = state(g, mem)
     if st.arcana and not (cfg.recover.on and arcana_on(cat, cfg)) then st.arcana = nil end
     if st.arcana then return nil end  -- the slot is Radial Arcana's (geo.arcana)
@@ -199,7 +196,7 @@ end
 
 -- Radial Arcana `a` (a recover row) for behaviors/recover.lua: what to send for it now, or nil.
 function geo.arcana(a, g, cat, cfg, mem)
-    if g.me.buffs[INVISIBLE] then return nil end
+    if g.me.buffs[status.INVISIBLE] then return nil end
     local st = state(g, mem)
     local ok, why = can.use(a, g)
     if not st.arcana then

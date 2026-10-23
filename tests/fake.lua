@@ -1,7 +1,9 @@
 -- What the engine and UI tests share: a real catalog from the dumped client
 -- data (tests/data), and fake snapshots shaped like core/game.lua's.
 local catalog = require('core.catalog')
+local engine = require('core.engine')
 local K = require('core.knowledge')
+local settings = require('core.settings')
 
 local fake = {}
 
@@ -55,6 +57,22 @@ function fake.snap(others, over, waits)
         recast = function (a) return (waits or {})[a.name] or 0 end }
     for k, v in pairs(over or {}) do g[k] = v end
     return g
+end
+
+-- The action in `list` named `name` (of `role`, when given), else nil.
+function fake.named(list, name, role)
+    for _, a in ipairs(list) do
+        if a.name == name and (not role or a.role == role) then return a end
+    end
+end
+
+-- The engine's decision on `g` from catalog `cat` (`cfg` the defaults, `mem` a fresh
+-- one when nil): the command it would send and the intent, or nil and why not.
+function fake.decide(g, cat, cfg, mem)
+    cfg = cfg or settings.defaults()
+    local intent, why = engine.decide(g, cat, cfg, mem or {})
+    if not intent then return nil, why end
+    return engine.command(intent, cfg), intent
 end
 
 return fake

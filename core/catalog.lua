@@ -110,6 +110,8 @@ function catalog.build(res, player, K)
     local function add(kind, id, row, from, level, addendum)
         local family, tier = catalog.split(row.en)
         for _, use in ipairs(uses(K, row.en, family, kind)) do
+            -- `requires` is one any-of list, and an Addendum spell's is its Addendum or Enlightenment.
+            assert(not (addendum and use.requires), ('%s: an Addendum spell can\'t require more'):format(row.en))
             if not (use.main_only and from == 'sub') then
                 local status = use.status
                 if status == nil and (use.role == 'buff' or use.role == 'modifier' or use.lucky or use.boost) then
@@ -121,7 +123,6 @@ function catalog.build(res, player, K)
                     status = ids(status, idx, row.en),
                     removes = ids(use.removes, idx, row.en),
                     blocked_by = ids(use.blocked_by, idx, row.en),
-                    -- ponytail: no knowledge row sets requires on an Addendum spell; merge if one ever does.
                     requires = addendum and ADDENDUM[row.type] or ids(use.unbridled and UNBRIDLED or use.requires, idx, row.en),
                     unbridled = use.unbridled,
                     potency = use.potency and use.potency[tier],

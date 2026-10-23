@@ -27,11 +27,7 @@ local function cfg_with(rows)
     return cfg
 end
 
-local function decide(g, cfg, mem, list)
-    local intent, why = engine.decide(g, list or cat, cfg, mem)
-    if not intent then return nil, why end
-    return engine.command(intent, cfg), intent
-end
+local function decide(g, cfg, mem, list) return fake.decide(g, list or cat, cfg, mem) end
 
 -- Decide and, when there is something, send it.
 local function step(g, cfg, mem)
@@ -40,11 +36,7 @@ local function step(g, cfg, mem)
     return cmd, intent
 end
 
-local function named(list, name, role)
-    for _, a in ipairs(list) do
-        if a.name == name and (not role or a.role == role) then return a end
-    end
-end
+local named = fake.named
 
 test('catalog: the stratagems are modifiers that say which spells they fit', function ()
     local pen, per, acc, par = named(cat, 'Penury', 'modifier'), named(cat, 'Perpetuance'),
@@ -193,8 +185,9 @@ end)
 
 test('charges: counted from the pool timer and your SCH level', function ()
     local sch = require('jobs.sch')
-    eq({ sch.charges(0, 75), sch.charges(1, 75), sch.charges(100, 75), sch.charges(240, 75), sch.charges(0, 37) },
-       { 5, 4, 2, 0, 2 })
+    local p = sch.POOL
+    eq({ p:banked(0, 75), p:banked(1, 75), p:banked(100, 75), p:banked(240, 75), p:banked(0, 37), p:banked(0, 5) },
+       { 5, 4, 2, 0, 2, 0 })
 end)
 
 test('heal.reserve: buff rows leave the last charge for healing', function ()

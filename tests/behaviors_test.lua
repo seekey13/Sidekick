@@ -8,12 +8,7 @@ local SLEEP, POISON, INVISIBLE = 2, 3, 69
 local OIL = 18731
 local snap = fake.snap
 
-local function decide(g, cfg, list, mem)
-    cfg = cfg or settings.defaults()
-    local intent, why = engine.decide(g, list, cfg, mem or {})
-    if not intent then return nil, why end
-    return engine.command(intent, cfg), intent
-end
+local function decide(g, cfg, list, mem) return fake.decide(g, list, cfg, mem) end
 
 local function cfg_with(t)
     local cfg = settings.defaults()

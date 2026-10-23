@@ -11,6 +11,7 @@
 
 local dnc = require('jobs.dnc')
 local nin = require('jobs.nin')
+local util = require('core.util')
 
 local can = {}
 
@@ -37,6 +38,12 @@ function can.any(set, ids)
     return false
 end
 local any = can.any
+
+-- Whether `u` shows none of `a`'s statuses (`status`, a list, stands in for them
+-- when given); true for one with no status that can be read (Boost).
+function can.lacks(a, u, status)
+    return not (a.status and any(u.buffs, status or a.status))
+end
 
 -- Yalms between two units (or a unit and the pet); unknown positions are far apart.
 function can.dist(a, b)
@@ -106,11 +113,7 @@ function can.use(a, g)
     if a.pet then
         if not g.pet then return false, 'no pet' end
         if a.pet_range and (g.pet.dist or math.huge) > a.pet_range then return false, 'pet too far' end
-        if type(a.pet) == 'table' then
-            local named = false
-            for _, n in ipairs(a.pet) do named = named or n == g.pet.name end
-            if not named then return false, 'wrong pet' end
-        end
+        if type(a.pet) == 'table' and not can.holds(a.pet, g.pet.name) then return false, 'wrong pet' end
     end
     if can.at_enemy(a) then
         if not (g.bt and g.bt.mob) then return false, 'no battle target' end
@@ -141,8 +144,7 @@ end
 -- Japanese one; the second result is true when there is none, so the English
 -- one went instead (the Japanese client won't take it).
 function can.command(a, u, japanese, bt)
-    local english = japanese and (a.jp or '') == ''
-    local name = japanese and not english and a.jp or a.name
+    local name, english = util.spelled(a.name, a.jp, japanese)
     local enemy = bt and bt.claimed and tostring(bt.sid) or '<bt>'
     local target = can.at_enemy(a) and enemy or (u == nil or u.kind == 'self') and '<me>' or tostring(u.sid)
     return ('/%s "%s" %s'):format(a.kind, name, target), english

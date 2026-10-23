@@ -36,6 +36,7 @@
 ]]--
 
 local tracked = require('core.tracked')
+local util = require('core.util')
 
 local share = {
     STALE = 5,      -- seconds without a write before a session counts as gone
@@ -105,12 +106,7 @@ function share.unpack(s)
     if ok and i == #s + 1 then return v end
 end
 
-local function sorted_keys(t)
-    local out = {}
-    for k in pairs(t or {}) do out[#out + 1] = k end
-    table.sort(out)
-    return out
-end
+local sorted_keys = util.sorted_keys
 
 -- The file's text for a roster (share.roster), whether it runs, and the os.time()
 -- written at. `extra` (optional): { epoch, act = { behavior, action, target }, watch = { [name] = true },

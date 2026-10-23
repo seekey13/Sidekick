@@ -25,11 +25,6 @@ local function rank(a)
     return #a.removes > 6 and 1 or 0
 end
 
-local function clears(a, u)
-    for _, id in ipairs(a.removes) do if u.buffs[id] then return true end end
-    return false
-end
-
 -- What item `a` would do for you now: Doom weighs most, then Silence if you cast,
 -- then one per status it clears. One that clears a single status at random
 -- (Remedy Ointment) is sure only when you have just one of its.
@@ -58,7 +53,7 @@ return function (g, cat, cfg, mem)
     for _, u in ipairs(g.units) do
         if u.alive and u.in_zone then
             for _, a in ipairs(removers) do
-                if clears(a, u) and not (unanswered and a.kind == 'item') and can.use(a, g) then
+                if can.any(u.buffs, a.removes) and not (unanswered and a.kind == 'item') and can.use(a, g) then
                     if can.self_only(a) then
                         if u.kind == 'self' and a.area == 0 then
                             local intent = { action = a, why = u.name }

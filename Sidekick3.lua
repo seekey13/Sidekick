@@ -32,14 +32,17 @@ local resources = require('core.resources')
 local settings = require('core.settings')
 local share = require('core.share')
 local tracked = require('core.tracked')
+local util = require('core.util')
 local imgui = require('imgui')
 local blu = require('jobs.blu')
 local brd = require('jobs.brd')
 local model = require('ui.model')
 
-local function printf(fmt, ...)
-    print(chat.header(addon.name) .. chat.message(fmt:format(...)))
+-- A line in chat in `style` (chat.message, chat.error, chat.warning).
+local function say(style, fmt, ...)
+    print(chat.header(addon.name) .. style(fmt:format(...)))
 end
+local function printf(fmt, ...) say(chat.message, fmt, ...) end
 
 local function abbr(job)
     return job > 0 and AshitaCore:GetResourceManager():GetString('jobs.names_abbr', job) or 'none'
@@ -186,8 +189,7 @@ local function tick(g)
     AshitaCore:GetChatManager():QueueCommand(0, status.intent.command)
     if status.intent.english and not warned_english[status.intent.action] then
         warned_english[status.intent.action] = true
-        print(chat.header(addon.name) .. chat.warning(('No Japanese name for "%s": sent in English, which the Japanese client won\'t take.')
-            :format(status.intent.action)))
+        say(chat.warning, 'No Japanese name for "%s": sent in English, which the Japanese client won\'t take.', status.intent.action)
     end
     engine.sent(intent, g, mem)
     game.sent(intent.action)
@@ -266,11 +268,7 @@ local function show_plan(g)
 end
 
 -- The tracked player named `name` (any case), else nil.
-local function tracked_named(name)
-    for _, t in ipairs(tracked.list) do
-        if t.name:lower() == name:lower() then return t end
-    end
-end
+local function tracked_named(name) return util.named(tracked.list, name) end
 
 -- /sk3 buff [name] [me p1..p5 b0..c5 <tracked name> | off]: turn a buff row on for
 -- those targets, or off; with no name, list the rows that are on. The buff's name
@@ -447,28 +445,42 @@ local ui = require('ui.window')
 if package.searchpath('ui.custom', package.path) then
     local ok, custom = pcall(require, 'ui.custom')
     if ok then ui = custom
-    else print(chat.header(addon.name) .. chat.error('ui/custom.lua failed to load, using the standard window: ' .. tostring(custom))) end
+    else say(chat.error, 'ui/custom.lua failed to load, using the standard window: %s', tostring(custom)) end
 end
 
 -- Settings the UI changed, saved once no widget is held: a dragged slider saves when let go.
 local unsaved = false
 local function changed() unsaved = true end
 
--- The UI, each frame while open. A Lua error closes it, so it's reported once.
--- ponytail: the view (recasts included) is rebuilt every frame; if that shows in
--- frame time, build it once per fresh snapshot and again after a save.
 local names = { job = abbr }
 local function view(g)
     names.statuses = resources.load().statuses
     return model.build(g, cat.list, cfg, status, names)
 end
+
+-- The view the UI draws, built once per fresh snapshot and again after anything
+-- changes what it shows (an act call, a command, another session's call), not every frame.
+local shown
+local function stale() shown = nil end
+
+-- `act`, each call of which makes the view stale.
+local function acts()
+    local act = model.actions(cfg, status, changed, tracking, share.send)
+    return setmetatable({}, { __index = function (_, k)
+        local f = act[k]
+        return f and function (...) stale(); return f(...) end
+    end })
+end
+
+-- The UI, each frame while open. A Lua error closes it, so it's reported once.
 local function draw(g)
     local ok, err = pcall(function ()
-        ui.render(view(g), model.actions(cfg, status, changed, tracking, share.send))
+        shown = shown or view(g)
+        ui.render(shown, acts())
     end)
     if ok then return end
     status.open, status.failed = false, true
-    print(chat.header(addon.name) .. chat.error('Window closed on an error: ' .. tostring(err)))
+    say(chat.error, 'Window closed on an error: %s', tostring(err))
 end
 
 -- Remote control: what another session sent (core/share.lua), made through this
@@ -479,15 +491,15 @@ local shared = {
         local ok, v = pcall(view, snap)
         if ok then view_failed = nil; return model.published(v) end
         if v ~= view_failed then
-            print(chat.header(addon.name) .. chat.error('Settings view for another session failed: ' .. tostring(v)))
+            say(chat.error, 'Settings view for another session failed: %s', tostring(v))
             view_failed = v
         end
         error(v, 0)
     end,
     apply = function (from, call)
-        local ok, done = pcall(model.apply, model.actions(cfg, status, changed, tracking, share.send), cfg, call, cat.list)
+        local ok, done = pcall(model.apply, acts(), cfg, call, cat.list)
         if not ok then
-            print(chat.header(addon.name) .. chat.error(('%s\'s session sent %s, which failed: %s'):format(from, tostring(call[1]), tostring(done))))
+            say(chat.error, '%s\'s session sent %s, which failed: %s', from, tostring(call[1]), tostring(done))
         elseif done and call[1] == 'run' then
             printf('Automation %s from %s\'s session.', status.running and 'started' or 'stopped', from)
         end
@@ -502,6 +514,7 @@ local shared = {
 ashita.events.register('d3d_present', 'sidekick3_present', function ()
     local g, fresh = refresh(os.clock())
     if fresh then
+        stale()
         tick(g)
         status.sessions = share.tick(g, g.now, status, shared)
         status.views = share.views
@@ -532,67 +545,59 @@ local HELP = '/sk3 opens or closes the window. Commands: widget, start [name|all
     .. 'buff [name] [me p1..p5 b0..c5 <tracked>|off], focus <name|off>, follow <name|off>, rest [on|off], '
     .. 'track [name], untrack <name|all>, profile [name|default], afk [on|off|minutes], catalog [unknown], log, dump, help'
 
--- ponytail: /sk3 while v2 is still installed and owns /sk; switch to /sk at cutover.
-ashita.events.register('command', 'sidekick3_command', function (e)
-    local args = e.command:args()
-    if #args == 0 or args[1]:lower() ~= '/sk3' then return end
-    e.blocked = true
+-- A command's name argument, or '' for none or `off`.
+local function name_or_off(args) return args[3] and args[3]:lower() ~= 'off' and args[3] or '' end
 
-    local sub = (args[2] or ''):lower()
-    if sub == 'dump' then
+-- /sk3 commands that need nothing loaded: (args).
+local ANYTIME = {
+    dump = function ()
         local ok, result = pcall(require('tools.dump').run, addon.path)
         if ok then
             printf('Dumped %d spells, %d abilities, %d statuses to tests/data/', result.spells, result.abilities, result.statuses)
         else
-            print(chat.header(addon.name) .. chat.error('Dump failed: ' .. tostring(result)))
+            say(chat.error, 'Dump failed: %s', tostring(result))
         end
-        return
-    elseif sub == 'catalog' then
-        show_catalog((args[3] or ''):lower())
-        return
-    elseif sub == 'log' then
+    end,
+    catalog = function (args) show_catalog((args[3] or ''):lower()) end,
+    log = function ()
         status.log = not status.log
         printf('Action log %s.', status.log and 'on' or 'off')
-        return
-    elseif sub == 'help' then
-        printf('%s', HELP)
-        return
-    end
+    end,
+    help = function () printf('%s', HELP) end,
+}
 
-    local g = refresh(os.clock())
-    -- Stop goes through while you load (a zone): your file keeps carrying calls for share.LOADING seconds.
-    if sub == 'stop' and (g.loading or not cfg) then run_command(share.me(), false, args[3]); return end
-    if g.loading or not cfg then printf('Waiting for the game to load your job.'); return end
-    if sub == '' then
+-- The rest, once the game has loaded your job: (args, g).
+local COMMANDS = {
+    [''] = function ()
         status.open, status.failed = not status.open, nil
         cfg.ui.open = status.open
         settings.save()
-    elseif sub == 'widget' then
+    end,
+    widget = function ()
         cfg.ui.widget, status.failed = not cfg.ui.widget, nil
         settings.save()
         printf('Widget %s.', cfg.ui.widget and 'on' or 'off')
-    elseif sub == 'start' or sub == 'stop' then
-        run_command(g.me.name, sub == 'start', args[3])
-    elseif sub == 'plan' then
-        show_plan(g)
-    elseif sub == 'state' then
-        show_state(g)
-    elseif sub == 'buff' then
-        buff_command(args)
-    elseif sub == 'profile' then
-        profile_command(args)
-    elseif sub == 'focus' then
-        local name = args[3] and args[3]:lower() ~= 'off' and args[3] or ''
+    end,
+    start = function (args, g) run_command(g.me.name, true, args[3]) end,
+    stop = function (args, g) run_command(g.me.name, false, args[3]) end,
+    plan = function (_, g) show_plan(g) end,
+    state = function (_, g) show_state(g) end,
+    buff = buff_command,
+    profile = profile_command,
+    focus = function (args)
+        local name = name_or_off(args)
         cfg.heal.focus = name
         settings.save()
         if name == '' then printf('Focus off.') else printf('Focus: %s.', name) end
-    elseif sub == 'follow' then
-        local name = args[3] and args[3]:lower() ~= 'off' and args[3] or ''
+    end,
+    follow = function (args)
+        local name = name_or_off(args)
         cfg.follow.on = name ~= ''
         if name ~= '' then cfg.follow.target = name end
         settings.save()
         if name == '' then printf('Follow off.') else printf('Following %s past %d yalms.', name, cfg.follow.distance) end
-    elseif sub == 'track' then
+    end,
+    track = function (args, g)
         -- With no name it only adds your target when it's someone new: one already
         -- tracked is re-checked by name, so no one is examined by accident.
         local new = g.target
@@ -607,7 +612,8 @@ ashita.events.register('command', 'sidekick3_command', function (e)
                 .. (t.auto and (' from ' .. t.auto) or '')
         end
         printf('Tracking: %s. Target another player to add them.', table.concat(list, ', '))
-    elseif sub == 'untrack' then
+    end,
+    untrack = function (args)
         if not args[3] then printf('/sk3 untrack <name|all>'); return end
         if args[3]:lower() ~= 'all' or tracked_named('all') then untrack(args[3]); return end
         local declined = {}
@@ -619,14 +625,28 @@ ashita.events.register('command', 'sidekick3_command', function (e)
         if declined[1] then
             printf('Other sessions\' players kept off until tracked by hand (/sk3 track <name>): %s.', table.concat(declined, ', '))
         end
-    elseif sub == 'afk' then
-        afk_command((args[3] or ''):lower(), g)
-    elseif sub == 'rest' then
+    end,
+    afk = function (args, g) afk_command((args[3] or ''):lower(), g) end,
+    rest = function (args)
         local w = (args[3] or ''):lower()
         cfg.rest.on = w == 'on' or (w ~= 'off' and not cfg.rest.on)
         settings.save()
         printf('Resting %s.', cfg.rest.on and 'on' or 'off')
-    else
-        printf('%s', HELP)
-    end
+    end,
+}
+
+-- ponytail: /sk3 while v2 is still installed and owns /sk; switch to /sk at cutover.
+ashita.events.register('command', 'sidekick3_command', function (e)
+    local args = e.command:args()
+    if #args == 0 or args[1]:lower() ~= '/sk3' then return end
+    e.blocked = true
+    stale()
+    local sub = (args[2] or ''):lower()
+    if ANYTIME[sub] then return ANYTIME[sub](args) end
+    local g = refresh(os.clock())
+    -- Stop goes through while you load (a zone): your file keeps carrying calls for share.LOADING seconds.
+    if sub == 'stop' and (g.loading or not cfg) then run_command(share.me(), false, args[3]); return end
+    if g.loading or not cfg then printf('Waiting for the game to load your job.'); return end
+    local command = COMMANDS[sub] or ANYTIME.help
+    command(args, g)
 end)

@@ -7,11 +7,7 @@ local fake = require('tests.fake')
 local cat = fake.catalog(3, 75, 4, 37, { 'Divine Seal', 'Martyr' })
 local snap = fake.snap
 
-local function decide(g, cfg, mem, list)
-    local intent, why = engine.decide(g, list or cat, cfg or settings.defaults(), mem or {})
-    if not intent then return nil, why end
-    return engine.command(intent, cfg or settings.defaults()), intent
-end
+local function decide(g, cfg, mem, list) return fake.decide(g, list or cat, cfg, mem) end
 
 -- Healing (behaviors/heal.lua). Members have 1000 HP; WHM 75 table potencies x 1.25.
 local heal = require('behaviors.heal')
@@ -207,11 +203,12 @@ test('danger fires Accession when a spread Cure IV beats every single cure', fun
 end)
 
 test('a stratagem with its timer running but a charge banked is usable', function ()
-    eq({ stratagems.charge_wait(100, 75), stratagems.charge_wait(200, 75), stratagems.charge_wait(100, 37) }, { 0, 8, 0 })
+    local pool = stratagems.POOL
+    eq({ pool:wait(100, 75), pool:wait(200, 75), pool:wait(100, 37), pool:wait(100, 5) }, { 0, 8, 0, 100 })
     local accession
     for _, a in ipairs(sch) do if a.name == 'Accession' and a.role == 'emergency' then accession = a end end
     local g = with(snap({}), { LIGHT_ARTS })
-    g.recast = function () return stratagems.charge_wait(100, 75) end
+    g.recast = function () return stratagems.POOL:wait(100, 75) end
     eq(can.use(accession, g), true)
 end)
 

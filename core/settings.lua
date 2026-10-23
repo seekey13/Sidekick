@@ -19,6 +19,8 @@
     client runs in Japanese, which is the install's and not a job's.
 ]]--
 
+local util = require('core.util')
+
 local settings = {}
 
 local DEFAULTS = {
@@ -117,15 +119,8 @@ function settings.mods(cat, cfg, a)
     return out
 end
 
-local function copy(t)
-    local out = {}
-    for k, v in pairs(t) do out[k] = type(v) == 'table' and copy(v) or v end
-    return out
-end
-settings.defaults_copy = copy
-
 -- A fresh copy of the defaults, for tests and new files.
-function settings.defaults() return copy(DEFAULTS) end
+function settings.defaults() return util.copy(DEFAULTS) end
 
 -- Ashita's settings library, loaded only in game. The job pair's file holds
 -- everything but `ui`, which loads from and saves to its own file.
@@ -142,7 +137,7 @@ function settings.load(job_pair)
     -- what is written into the settings (a profile, a skipped name) stays out of them.
     local function detach(defaults)
         for k, v in pairs(defaults) do
-            if type(v) == 'table' then defaults[k] = T_(settings.defaults_copy(v)) end
+            if type(v) == 'table' then defaults[k] = T_(util.copy(v)) end
         end
     end
     local d = T_(settings.defaults())

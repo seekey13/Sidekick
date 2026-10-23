@@ -12,11 +12,7 @@ local HASTE, FURY, BLAZE, ENTRUST = 580, 549, 569, 584  -- statuses
 local JAS = { 'Full Circle', 'Blaze of Glory', 'Entrust', 'Radial Arcana' }
 local cat = fake.catalog(GEO, 75, nil, 0, JAS)
 
-local function named(list, name, role)
-    for _, a in ipairs(list) do
-        if a.name == name and (not role or a.role == role) then return a end
-    end
-end
+local named = fake.named
 
 -- GEO 75 with `others` in slots 1..n; `pet` (a luopan) at `pet_at` yalms along x from you.
 local function snap(others, over, waits, pet_at)
@@ -34,11 +30,7 @@ local function cfg_with(rows, geo)
     return cfg
 end
 
-local function decide(g, cfg, mem)
-    local intent, why = engine.decide(g, cat, cfg, mem)
-    if not intent then return nil, why end
-    return engine.command(intent, cfg), intent
-end
+local function decide(g, cfg, mem) return fake.decide(g, cat, cfg, mem) end
 
 local function step(g, cfg, mem)
     local cmd, intent = decide(g, cfg, mem)

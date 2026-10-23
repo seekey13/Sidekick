@@ -421,8 +421,10 @@ local POPUP_COLOURS = {
     { ImGuiCol_FrameBg, kit.rgba(P.well) }, { ImGuiCol_FrameBgHovered, kit.rgba(P.well) }, { ImGuiCol_FrameBgActive, kit.rgba(P.well) },
 }
 
--- ImGui's own popups (a drop-down's list, a typed number) in the palette, with the padding the windows here take away.
-function kit.push_popup_style()
+-- ImGui's popup `id` (a drop-down's list, a typed number), in the palette with the padding the windows here
+-- take away and its text at `px`, `body()` inside it while it's open. A Lua error in `body` still closes every
+-- scope it opened (ImGui asserts on one left open), then is raised again.
+function kit.popup(id, px, body)
     for _, c in ipairs(POPUP_COLOURS) do imgui.PushStyleColor(c[1], c[2]) end
     imgui.PushStyleVar(ImGuiStyleVar_WindowPadding, { S(10), S(8) })
     imgui.PushStyleVar(ImGuiStyleVar_PopupRounding, S(5))
@@ -430,11 +432,17 @@ function kit.push_popup_style()
     imgui.PushStyleVar(ImGuiStyleVar_FramePadding, { S(8), S(4) })
     imgui.PushStyleVar(ImGuiStyleVar_FrameRounding, S(4))
     imgui.PushStyleVar(ImGuiStyleVar_ItemSpacing, { S(8), S(6) })
-end
-
-function kit.pop_popup_style()
+    local open, ok, err = imgui.BeginPopup(id), true, nil
+    if open then
+        kit.push_font(kit.fonts.text, px)
+        ok, err = pcall(body)
+        kit.pop_font()
+        imgui.EndPopup()
+    end
     imgui.PopStyleVar(6)
     imgui.PopStyleColor(#POPUP_COLOURS)
+    if not ok then error(err, 0) end
+    return open
 end
 
 -- A child window `w` by `h` at the cursor, scrolling its own items (EndChild after, whatever it returns).
@@ -478,9 +486,7 @@ local numbers = {}  -- a slider's id -> its typed number's text ({ s }), while t
 local function number_box(id, min, max)
     local key, typed = kit.prefix .. id, nil
     local buf = numbers[key]
-    kit.push_popup_style()
-    if imgui.BeginPopup(id .. '.number') then
-        kit.push_font(kit.fonts.text, S(kit.SMALL + 1))
+    local open = kit.popup(id .. '.number', S(kit.SMALL + 1), function ()
         if buf.focus then
             imgui.SetKeyboardFocusHere()
             buf.focus = false
@@ -493,12 +499,8 @@ local function number_box(id, min, max)
         end
         imgui.PopItemWidth()
         imgui.TextDisabled(('%d to %d'):format(min, max))
-        kit.pop_font()
-        imgui.EndPopup()
-    else
-        numbers[key] = nil  -- shut: clicked away, or Escape
-    end
-    kit.pop_popup_style()
+    end)
+    if not open then numbers[key] = nil end  -- shut: clicked away, or Escape
     return typed
 end
 
@@ -591,14 +593,7 @@ function kit.dropdown(id, x, cy, w, shown, enabled, alpha, body)
     if clicked and on then imgui.OpenPopup(list) end
     imgui.SetNextWindowPos({ x, y + h + S(2) })
     imgui.SetNextWindowSizeConstraints({ w, 0 }, { math.max(w, S(360)), S(420) })
-    kit.push_popup_style()
-    if imgui.BeginPopup(list) then
-        kit.push_font(kit.fonts.text, S(kit.BODY - 1))
-        body()
-        kit.pop_font()
-        imgui.EndPopup()
-    end
-    kit.pop_popup_style()
+    kit.popup(list, S(kit.BODY - 1), body)
     return hovered
 end
 
