@@ -14,7 +14,7 @@ When `ui/custom.lua` exists, Sidekick uses it instead of `ui/window.lua`. If it 
 
 ## The contract
 
-A UI file returns a table with one function:
+A UI file returns a table with one function (and, optionally, `load`: below):
 
 ```lua
 local ui = {}
@@ -33,6 +33,7 @@ return ui
 - **State of its own** (which page is showing, a collapsed panel) lives in locals in the file and lasts until the addon reloads. To keep a preference across reloads, save it under `ui.` with `act.set('ui.<name>', value)` and read it back from `view.ui.<name>`.
 - **Draw nothing but a widget of your own while `view.ui.open` is false.** Sidekick also calls `render` with the UI closed while `view.ui.widget` is on, so a widget can stay up on its own (the standard UI's does). A UI with no widget returns at once then, as the example does.
 - `/sk3` opening and closing the window, the commands, and automation itself don't depend on the UI. A UI with no Start button still runs with `/sk3 start`.
+- **`ui.load()`, if the UI has one, is called once from Ashita's `load` event**, before the first frame. That is where to add fonts: Ashita 4.16's ImGui (1.81) takes none mid-frame. The standard UI's adds Segoe UI there (`kit.bake`).
 
 ## `view`
 
@@ -232,7 +233,7 @@ Sidekick saves after any `act` call that changes a setting, once no ImGui widget
 - **Labels are ids.** Two widgets with the same label in one window clash; add a unique suffix after `##` (`'On##heal'`), which isn't shown. Use `###` to keep the id when the label changes (`'Recent (3)###recent'`).
 - **Close what you open.** `Begin` and `BeginChild` always need `End` and `EndChild`. `BeginTable`, `BeginCombo`, `BeginTabBar`, `BeginTabItem` and `BeginPopup*` need their `End*` only when they returned true. Every `Push*` needs its `Pop*`.
 - **Constants** like `ImGuiWindowFlags_NoDecoration` are globals `require('imgui')` defines. When you use a new one, add it to `read_globals` in `.luacheckrc`: luacheck then accepts it, and the test below defines it.
-- **Two ImGui versions.** Ashita 4.30's libraries (VanaCore's default) are ImGui 1.92 (`IMGUI_VERSION_NUM` 19223), Ashita 4.16's are 1.81 (18000), and some calls differ between them: `BeginChild`'s third argument, the corner flags of `AddRectFilled`, `PushFont`'s size. `ui/kit.lua` handles them; use it, or check `IMGUI_VERSION_NUM` yourself.
+- **Two ImGui versions.** Ashita 4.30's libraries (VanaCore's default) are ImGui 1.92 (`IMGUI_VERSION_NUM` 19223), Ashita 4.16's are 1.81 (18000), and some calls differ between them: `BeginChild`'s third argument, the corner flags of `AddRectFilled`, `PushFont`'s size (1.81 takes the font alone: `kit.push_font` sizes it with `SetWindowFontScale`). `ui/kit.lua` handles them; use it, or check `IMGUI_VERSION_NUM` yourself.
 
 ## Test it
 

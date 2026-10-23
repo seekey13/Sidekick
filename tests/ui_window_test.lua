@@ -19,7 +19,7 @@ end
 local CLOSER = {
     Begin = 'End', BeginChild = 'EndChild', BeginTable = 'EndTable', BeginCombo = 'EndCombo', BeginTabBar = 'EndTabBar',
     BeginTabItem = 'EndTabItem', BeginPopup = 'EndPopup', BeginPopupContextItem = 'EndPopup', BeginPopupContextWindow = 'EndPopup',
-    PushStyleColor = 'PopStyleColor', PushItemWidth = 'PopItemWidth',
+    BeginTooltip = 'EndTooltip', PushStyleColor = 'PopStyleColor', PushItemWidth = 'PopItemWidth',
 }
 local ALWAYS = { Begin = true, BeginChild = true, PushStyleColor = true, PushItemWidth = true }
 local IDS = { Checkbox = true, Button = true, InvisibleButton = true, SliderInt = true, BeginCombo = true,
@@ -79,6 +79,20 @@ local handlers = {
     TextColored = function (color, fmt) assert(#color == 4); shown(fmt) end,
     TextDisabled = function (fmt) shown(fmt) end,
     SetTooltip = function (fmt) shown(fmt) end,
+    TextUnformatted = function (s)
+        assert(type(s) == 'string', 'text must be a string')
+        frame.texts[#frame.texts + 1] = s
+    end,
+    -- The fake is ImGui 1.81 (no IMGUI_VERSION_NUM), whose PushFont takes the face alone.
+    PushFont = function (font, px)
+        assert(font ~= nil and px == nil, 'PushFont: the face alone on 1.81')
+        table.insert(frame.stack, 'PopFont')
+    end,
+    PopFont = function () pop('PopFont') end,
+    SetWindowFontScale = function (k)
+        frame.font_scales = frame.font_scales or {}
+        frame.font_scales[#frame.font_scales + 1] = k
+    end,
     IsItemHovered = function () return true end,
     -- The HUD's chrome reads this. A test sets clicks.hover = false for the faded frame.
     IsWindowHovered = function () return frame.hover ~= false end,
@@ -1331,4 +1345,30 @@ end)
 test('the kit cuts text to fit with an ellipsis, never inside a character', function ()
     eq({ kit.fit('Kupipi', 42, 'font', 13), kit.fit('Kupipi', 41, 'font', 13) }, { 'Kupipi', 'Ku...' })
     eq({ kit.fit('a\195\169bc', 28, 'font', 13), kit.fit('\195\169a', 10, 'font', 13) }, { 'a...', '...' })
+end)
+
+-- Last, as Segoe UI stays in once it's baked. The fake is ImGui 1.81, as Ashita 4.16's.
+test('on ImGui 1.81 Segoe UI is added at load and drawn; a tooltip\'s is sized by its window\'s font scale', function ()
+    close_settings()
+    local added, real_open = {}, io.open
+    handlers.AddFontFromFileTTF = function (path, px)
+        local file = path:match('[^\\/]+$')
+        added[#added + 1] = file .. ' ' .. px
+        return file
+    end
+    rawset(io, 'open', function () return { close = function () end } end)  -- every face is there
+    local ok, err = pcall(window.load)
+    rawset(io, 'open', real_open)
+    assert(ok, err)
+    eq(added, { 'segoeui.ttf 18', 'seguisb.ttf 18', 'segoeuiz.ttf 18', 'seguisbi.ttf 18' })
+    render(settings.defaults(), status())
+    local faces = {}
+    for _, d in ipairs(calls('AddText')) do
+        if type(d.args[1]) == 'string' then faces[d.args[1]] = true end
+    end
+    eq({ kit.custom, faces['seguisb.ttf'], faces.font }, { true, true, nil }, 'the HUD drawn in Segoe semibold')
+    eq(tipped('A\nHP 62%  MP 100%  TP 0  5.0y\nProtect\nShell'), true)
+    local scales = frame.font_scales or {}
+    eq({ has(scales, kit.S(kit.SMALL + 0.5) / 18), scales[#scales] }, { true, 1 }, 'its 18px bake scaled, then put back')
+    eq(kit.fit('Kupipi', 41, 'font', 13), 'Ku...', 'no \226\128\166 in a Latin-1 bake')
 end)

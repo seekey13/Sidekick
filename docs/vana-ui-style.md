@@ -19,8 +19,8 @@ made or endorsed by Vekien.
 **Why it works in Sidekick3:** under VanaCore, an Ashita addon's `require('imgui')` loads Ashita 4.30's `imgui.lua`.
 That file forwards every call to `AshitaCore:GetGuiManager()`, and VanaCore's `compat\ashita.lua` sets that to
 `vana.imgui`. So Sidekick3 has the same ImGui as vana, with `PushFont(font, size)`, `AddFontFromFileTTF`, draw lists
-and `InvisibleButton`. On the stock CatsEyeXI Ashita 4.16 client (ImGui 1.81) the fonts part doesn't work; see
-[In Sidekick3](#in-sidekick3).
+and `InvisibleButton`. On the stock CatsEyeXI Ashita 4.16 client (ImGui 1.81) fonts work differently: they can only
+be added outside a frame and are drawn from one baked size; see [In Sidekick3](#in-sidekick3).
 
 ---
 
@@ -732,7 +732,7 @@ What differs from vana:
 | Font Awesome icons | Icons drawn in shapes (`kit.icon`: close, play, stop, cog, the chevrons), so no font has to carry them |
 | A typed number in a window beside the main one | A popup by the value (`kit.slider`) |
 | Raw ImGui numbers | The constants `require('imgui')` defines, each listed in `.luacheckrc`'s `read_globals` |
-| ImGui 1.92 only | 1.81 too (Ashita 4.16): ImGui's own font at every size, measured by scaling `CalcTextSize`; `BeginChild`'s border bool; 1.81's corner flags. `IMGUI_VERSION_NUM` decides |
+| ImGui 1.92 only | 1.81 too (Ashita 4.16): Segoe UI added in Ashita's `load` event (`window.load` → `kit.bake`), as 1.81 locks its atlas during a frame; draw-list text drawn from the 18px bake at the size asked, measured by scaling `CalcTextSize`; ImGui's own items (tooltips, popups, the text field) sized with `SetWindowFontScale` inside their window (`kit.push_font`); `...` for the ellipsis, as the bake holds Latin-1 alone; `BeginChild`'s border bool; 1.81's corner flags. `IMGUI_VERSION_NUM` decides |
 | Sizes of §5 | `ui/window.lua`'s constants: a 390-wide page, fixed for every job, rows of 30 |
 | Search, sub-tabs, presets, section resets | Not drawn: Sidekick3's pages are short, and its view has no defaults to reset to |
 

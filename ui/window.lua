@@ -22,9 +22,9 @@
     and the job, then Start/Stop, the state, Settings and Track for your target. It
     shows with the HUD closed too (`view.ui.open` false), as v2's did.
 
-    Ashita's binding: widget values are one-element tables ({ 'text' }), and
-    SetTooltip takes a printf format (kit.tooltip doubles any '%'). Draw-list text
-    is drawn as is.
+    Ashita's binding: widget values are one-element tables ({ 'text' }), and Text
+    takes a printf format (kit.esc doubles any '%'). Draw-list text and kit.tooltip's
+    are drawn as is.
 ]]--
 
 local imgui = require('imgui')
@@ -1372,6 +1372,9 @@ local function remote_window(r, index)
     if not (open[1] and not err) then act.watch(r.name, false) end  -- a view that won't draw isn't drawn again
     return err
 end
+
+-- Once, at load, before any frame: Segoe UI, which ImGui 1.81 (Ashita 4.16) takes only then.
+function window.load() kit.bake() end
 
 -- One frame. A Lua error raised while drawing is raised again after the windows
 -- are ended, so ImGui stays balanced and Sidekick reports it.
