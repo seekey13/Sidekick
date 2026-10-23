@@ -218,12 +218,13 @@ test('section switches and plain values, a UI\'s own under ui', function ()
     eq(cfg.ui.mp_width, 220)
 end)
 
-test('run changes the session only; close also remembers it in the settings', function ()
+test('run and log change the session only; close also remembers it in the settings', function ()
     local cfg, st = settings.defaults(), status({ open = true })
     cfg.ui.open = true
     local act, writes = actions(cfg, st)
     act.run(true)
-    eq({ st.running, st.log, writes[1] }, { true, true, 0 })  -- the log is not a setting
+    act.log(false)  -- a custom UI's switch; the standard one has none
+    eq({ st.running, st.log, writes[1], build(whm, cfg, nil, st).log }, { true, false, 0, false })
     act.close()
     eq({ st.open, cfg.ui.open, writes[1] }, { false, false, 1 })
 end)
@@ -506,7 +507,7 @@ test('act.remote sends each call to its session; act.watch shows its Sidekick Se
     r.pick('Protect', nil)
     r.run(true)
     eq(sent, { { 'A', call('set', 'heal.danger', 60) }, { 'A', call('pick', 'Protect', nil) }, { 'A', call('run', true) } })
-    eq({ r.close, r.log, r.watch, r.remote }, { nil, nil, nil, nil })  -- the HUD's are each session's own; there is no log action
+    eq({ r.close, r.log, r.watch, r.remote }, { nil, nil, nil, nil })  -- the HUD's and the log are each session's own
     act.watch('A', true)
     eq(st.watching, { A = true })
     act.watch('A', false)

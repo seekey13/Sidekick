@@ -530,9 +530,11 @@ ashita.events.register('d3d_present', 'sidekick3_present', function ()
     end
 end)
 
--- The UI's fonts, outside any frame (ImGui 1.81 takes none mid-frame).
+-- The UI's fonts, outside any frame (ImGui 1.81 takes none mid-frame). An error is reported, and the UI still drawn.
 ashita.events.register('load', 'sidekick3_load', function ()
-    if ui.load then ui.load() end
+    if not ui.load then return end
+    local ok, err = pcall(ui.load)
+    if not ok then say(chat.error, 'The UI failed at load: %s', tostring(err)) end
 end)
 
 ashita.events.register('unload', 'sidekick3_unload', share.close)

@@ -37,7 +37,7 @@ local window = {}
 local P, S = kit.P, kit.S
 local BODY, SMALL = kit.BODY, kit.SMALL
 
--- { label, key, min, max, help, unit } for view.ui: sizes in pixels, the opacity in %.
+-- { label, key, min, max, help, unit } for view.ui: sizes in pixels.
 local UI_SLIDERS = {
     { 'HP bar width', 'hp_width', 80, 600, 'Pixels.', 'px' },
     { 'HP bar height', 'hp_height', 10, 120, 'Pixels.', 'px' },
@@ -49,8 +49,6 @@ local UI_SLIDERS = {
     { 'Text font size', 'text_size', 8, 48, 'Pixels: the title, the tags, the alliance\'s names and the action labels; '
         .. 'the buttons follow it, as far as the HP bar fits them.', 'px' },
     { 'Spacing', 'gap', 0, 40, 'Pixels between members.', 'px' },
-    { 'Background opacity', 'opacity', 0, 100,
-        'How solid the panel behind the bars is while the mouse is over it, %. It fades out until then.', '%' },
 }
 
 local JOINED = { party = '  (in your party)', alliance = '  (in your alliance)' }  -- a tracked player's note
@@ -67,10 +65,10 @@ local user_scale = 1         -- Sidekick Settings' size (view.ui.scale), taken u
 
 local HUD_PAD, BAR_GAP, ROUND = 8, 3, 4  -- the panel's padding, between bars, the bars' corners (pixels)
 local BAR_FILL = 0.7                     -- the fill lets the game show through, as the reference bar
-local BAR_TRACK_A = 0.7                   -- bar background stays at 70%: gray hovered, black while not
-local BAR_EDGE = 1                         -- the stroke around each bar
-local BAR_EDGE_A = 0.7                     -- that stroke is black at 70%, and it does not fade with the panel
-local BAR_OFF = '#0c0c0c'                  -- the background while the pointer is off the panel; the stroke is always this
+local BAR_TRACK_A = 0.7                  -- bar background stays at 70%: gray hovered, black while not
+local BAR_EDGE = 1                       -- the stroke around each bar
+local BAR_EDGE_A = 0.7                   -- that stroke is black at 70%, and it does not fade with the panel
+local BAR_OFF = '#0c0c0c'                -- the background while the pointer is off the panel; the stroke is always this
 local TITLE = 'Sidekick3'
 
 local HUD_FLAGS = ImGuiWindowFlags_NoTitleBar + ImGuiWindowFlags_NoResize + ImGuiWindowFlags_NoScrollbar
@@ -329,11 +327,11 @@ local function draw_hud(view)
         below = below + ui.mp_height
     end
     local ph = below + HUD_PAD
-    -- Last frame's window rect is what IsWindowHovered reads. The bars stay solid.
+    -- The panel is solid while the mouse is over the window (last frame's rect, as IsWindowHovered reads it) and gone
+    -- off it. The bars stay.
     local chrome = kit.ease('chrome', imgui.IsWindowHovered() and 1 or 0)
-    local opacity = ui.opacity / 100 * chrome
-    kit.fill(dl, x0, y0, pw, ph, P.bg, 6, opacity)
-    kit.outline(dl, x0, y0, pw, ph, P.border, 6, opacity)
+    kit.fill(dl, x0, y0, pw, ph, P.bg, 6, chrome)
+    kit.outline(dl, x0, y0, pw, ph, P.border, 6, chrome)
     title_row(dl, view, ui.text_size, x0, y0, pw, th, s, chrome)
     for i, c in ipairs(cards) do
         local p, y = c.p, y0 + th + (i - 1) * (ch + ui.gap)
@@ -958,7 +956,7 @@ end
 -- Sidekick Settings' size, % of the size for the screen: view.ui.scale, held to its slider's range.
 local function ui_scale(ui) return math.min(math.max(math.floor(tonumber(ui and ui.scale) or 100), 50), 200) end
 
--- Another session's shows only what it sent: its HUD and log are its own.
+-- Another session's shows only what it sent: its HUD is its own.
 local function draw_ui(view, pg)
     if view.session then return draw_recent(view, pg) end
     subheader(pg, 'HUD')
@@ -1375,6 +1373,7 @@ function window.render(view, act_)
         end
         kit.prefix = ''
     end
+    kit.tooltips()
     if err then error(err, 0) end
 end
 

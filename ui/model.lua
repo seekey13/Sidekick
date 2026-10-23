@@ -574,7 +574,7 @@ function model.build(g, cat, cfg, status, names)
         maneuver = maneuvers(g, cat, cfg),
         -- Your target, by name, when it's a player who could be tracked: not in the party, not tracked yet.
         track = { target = g.target and not known[g.target.sid] and g.target.name or nil },
-        japanese = cfg.ui.japanese, ui = {},
+        japanese = cfg.ui.japanese, log = status.log, ui = {},
         profiles = { active = profiles.active(cfg), names = profiles.names(cfg) },
     }
     view.party, view.alliance = party(g, cfg, names, by_sid(status))
@@ -626,7 +626,7 @@ end
 
 -- Actions: everything a UI can change. The caller saves after changed(). -------
 
--- The act calls another session may make here: all but act.close,
+-- The act calls another session may make here: all but act.close, act.log,
 -- the HUD's settings (`ui.*`, the Japanese client) and tracking your target.
 -- Each one's arguments, by the types each may be ('|' between them), checked as it
 -- arrives. Chips come with the state they're set to: a toggle sent from a view a
@@ -735,13 +735,14 @@ end
 
 function model.actions(cfg, status, changed, tracking, send)
     local act = {}
-    -- This session only: automation always starts stopped.
+    -- This session only: automation always starts stopped, the log as set (/sk3 log; the
+    -- standard UI has no switch for it, a custom one may).
     -- A start also wakes AFK sleep and starts its wait over (Sidekick3.lua), as v2.
-    -- The action log is not a setting: /sk3 log turns it on for debugging.
     function act.run(on)
         status.running = on
         if on then status.restart = true end
     end
+    function act.log(on) status.log = on end
     function act.close()
         status.open, cfg.ui.open = false, false
         changed()

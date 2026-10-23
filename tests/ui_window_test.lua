@@ -79,9 +79,10 @@ local handlers = {
     TextColored = function (color, fmt) assert(#color == 4); shown(fmt) end,
     TextDisabled = function (fmt) shown(fmt) end,
     SetTooltip = function (fmt) shown(fmt) end,
-    TextUnformatted = function (s)
+    TextUnformatted = function (s)  -- the kit's tooltips, the one drawn each frame
         assert(type(s) == 'string', 'text must be a string')
         frame.texts[#frame.texts + 1] = s
+        frame.tips[#frame.tips + 1] = s
     end,
     -- The fake is ImGui 1.81 (no IMGUI_VERSION_NUM), whose PushFont takes the face alone.
     PushFont = function (font, px)
@@ -203,6 +204,16 @@ local P = kit.P
 local tick = 0
 kit.clock = function () tick = tick + 1; return tick end
 kit.dragged = function (id) local v = frame.clicks[id]; return type(v) == 'number' and v or nil end
+-- The fake hovers everything, so every tooltip is asked for each frame and, as in game, only the last is drawn:
+-- each one asked for is kept with the texts too (frame.asked), so a test can find any.
+local tooltip = kit.tooltip
+kit.tooltip = function (s)
+    if s and s ~= '' then
+        frame.texts[#frame.texts + 1] = tostring(s)
+        frame.asked[#frame.asked + 1] = tostring(s)
+    end
+    tooltip(s)
+end
 
 local cat = fake.catalog(3, 75, 4, 37, { 'Divine Seal', 'Martyr' })
 local NAMES = { job = function (id) return ({ [3] = 'WHM', [4] = 'BLM' })[id] end, statuses = fake.res.statuses }
@@ -251,7 +262,7 @@ end
 -- settings writes. `view` defaults to the model's.
 local function draw(ui, cfg, st, clicks, view)
     frame = { stack = {}, vars = 0, texts = {}, ids = {}, args = {}, flags = {}, columns = {},
-              drawn = {}, extent = {}, clicks = clicks or {} }
+              drawn = {}, extent = {}, clicks = clicks or {}, asked = {}, tips = {} }
     frame.hover = frame.clicks.hover ~= false
     local writes = 0
     local act = model.actions(cfg, st, function () writes = writes + 1 end, TRACKING, send)
@@ -386,10 +397,10 @@ end
 test('the panel and bars follow the UI settings', function ()
     close_settings()
     local cfg = settings.defaults()
-    cfg.ui.hp_width, cfg.ui.opacity = 300, 50
+    cfg.ui.hp_width = 300
     render(cfg, status())
     local panel = calls('AddRectFilled')[1].args
-    eq({ panel[1], panel[2][1], panel[3] }, { { 100, 50 }, 100 + 2 * 8 + 300, u32(P.bg, 0.5) })
+    eq({ panel[1], panel[2][1], panel[3] }, { { 100, 50 }, 100 + 2 * 8 + 300, u32(P.bg) })  -- hovered: solid
     -- Title 25, then cards 40 + 3 + 18 + 3 + 8 high and 8 apart: A's, the third (under yours and your pet's), from
     -- y 235; 62% of 300.
     eq(hp_fill(108, 235), { 108 + 186, 235 + 40 })
@@ -425,7 +436,7 @@ test('the panel, frame, title and close fade out until the mouse is over the win
             and d.args[2][2] == 75 + 40 and d.args[3] == u32(BAR_OFF, BAR_TRACK_A))
     end
     eq({ rose, hp_fill(108, 75) ~= nil, back, bar_edge(108, 75, 220, 40) }, { true, true, true, true })
-    render(cfg, status())  -- over it again: back to the Background opacity
+    render(cfg, status())  -- over it again: solid
     eq({ calls('AddRectFilled')[1].args[3], fill('Sidekick3') }, { u32(P.bg), u32(P.white) })
 end)
 
@@ -439,10 +450,9 @@ end)
 test('sizes out of their sliders\' range, set by hand or by a custom UI, are held to it', function ()
     close_settings()  -- its sliders would show the values as they are
     local cfg = settings.defaults()
-    cfg.ui.text_size, cfg.ui.hp_width, cfg.ui.opacity = 0, 5000, -20  -- a zero text size would make zero-size buttons
+    cfg.ui.text_size, cfg.ui.hp_width = 0, 5000  -- a zero text size would make zero-size buttons
     render(cfg, status())
-    local panel = calls('AddRectFilled')[1].args
-    eq({ panel[2][1], panel[3] }, { 100 + 2 * 8 + 600, u32(P.bg, 0) })
+    eq(calls('AddRectFilled')[1].args[2][1], 100 + 2 * 8 + 600)
 end)
 
 test('a name turns yellow at 75% HP, orange at 50% and red at 25%; away greys it, low MP the tag', function ()
@@ -633,6 +643,17 @@ test('a button\'s tooltip replaces the card\'s', function ()
     render(settings.defaults(), status())  -- the fake hovers everything: the buttons win
     eq({ tipped('Start automation'), tipped('Settings'), tipped('Me\nHP') }, { true, true, false })
     eq(tipped('A\nHP 62%'), true)
+end)
+
+-- A row's help covers its label's half, where a ward's switch, a rune or a Risk segment can sit with a tooltip of its
+-- own: two in one frame show one, never both stacked.
+test('only the last tooltip asked for in a frame is drawn, as SetTooltip shows one', function ()
+    close_settings()
+    render(settings.defaults(), status())
+    eq({ #frame.asked > 1, frame.tips }, { true, { frame.asked[#frame.asked] } })
+    kit.tooltip('Left over')  -- asked for after a UI's last kit.tooltips: the next kit.frame draws it
+    render(settings.defaults(), status())
+    eq({ frame.tips[1], #frame.tips }, { 'Left over', 2 })
 end)
 
 test('the run button starts and stops automation, for this session only', function ()
@@ -975,9 +996,9 @@ test('UI / Log: the sliders size the HUD and Sidekick Settings, Lock position ke
     local cfg, st = settings.defaults(), status()
     eq(render(cfg, st, on('UI / Log', { ['HP bar width##sk3_ui_hp_width'] = 300, ['Name font size##sk3_ui_name_size'] = 30,
         ['TP bar width##sk3_ui_tp_width'] = 250, ['TP bar height##sk3_ui_tp_height'] = 12,
-        ['Background opacity##sk3_ui_opacity'] = 50, ['Size##sk3_ui_scale'] = 150 })), 6)
-    eq({ cfg.ui.hp_width, cfg.ui.name_size, cfg.ui.tp_width, cfg.ui.tp_height, cfg.ui.opacity, cfg.ui.scale },
-       { 300, 30, 250, 12, 50, 150 })
+        ['Size##sk3_ui_scale'] = 150 })), 5)
+    eq({ cfg.ui.hp_width, cfg.ui.name_size, cfg.ui.tp_width, cfg.ui.tp_height, cfg.ui.scale }, { 300, 30, 250, 12, 150 })
+    eq(button('Background opacity##sk3_ui_opacity'), false)  -- the panel is solid while hovered: nothing to set
     local free = frame.flags.Sidekick3
     eq(render(cfg, st, on('UI / Log', { ['Lock position##sk3_ui_locked'] = true })), 1)
     eq(cfg.ui.locked, true)

@@ -341,6 +341,7 @@ function kit.frame(user)
         if kit.dynamic then kit.bake() end
     end
     set_scale(user)
+    kit.tooltips()  -- one a UI left asked for last frame, a frame late
 end
 
 -- `id`'s value moved towards `target` a share of the way each frame (`speed` a second: 18 lands in about a sixth).
@@ -390,10 +391,21 @@ end
 local TOOLTIP_COLOURS = { { ImGuiCol_PopupBg, kit.rgba(P.popup, 0.97) }, { ImGuiCol_Border, kit.rgba(P.border) },
                           { ImGuiCol_Text, kit.rgba(P.text) } }
 
--- A tooltip by the mouse, in the palette, wrapped, drawn as is (TextUnformatted: no '%' doubling). Its font goes on
--- inside it, as 1.81 sizes a font by the window it's in. (1.92's BeginTooltip says whether to draw; 1.81's says nothing.)
+local tip_pending  -- the tooltip asked for last this frame, for kit.tooltips
+
+-- A tooltip by the mouse. Only the last asked for in a frame shows, as with SetTooltip (BeginTooltip would stack
+-- them all): kit.tooltips draws it once the windows are, or the next kit.frame does.
 function kit.tooltip(s)
-    if not s or s == '' then return end
+    if s and s ~= '' then tip_pending = tostring(s) end
+end
+
+-- Once a frame, after every window: the tooltip asked for last, in the palette, wrapped, drawn as is
+-- (TextUnformatted: no '%' doubling). Its font goes on inside it, as 1.81 sizes a font by the window it's in.
+-- (1.92's BeginTooltip says whether to draw; 1.81's says nothing.)
+function kit.tooltips()
+    local s = tip_pending
+    if not s then return end
+    tip_pending = nil
     for _, c in ipairs(TOOLTIP_COLOURS) do imgui.PushStyleColor(c[1], c[2]) end
     imgui.PushStyleVar(ImGuiStyleVar_WindowPadding, { S(9), S(6) })
     imgui.PushStyleVar(ImGuiStyleVar_WindowRounding, S(4))
@@ -401,7 +413,7 @@ function kit.tooltip(s)
     imgui.PushStyleVar(ImGuiStyleVar_PopupBorderSize, 1)
     if imgui.BeginTooltip() ~= false then
         kit.push_font(kit.fonts.text, S(kit.SMALL + 0.5))
-        imgui.TextUnformatted(wrap_chars(tostring(s), 72))
+        imgui.TextUnformatted(wrap_chars(s, 72))
         kit.pop_font()
         imgui.EndTooltip()
     end
