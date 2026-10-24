@@ -425,6 +425,11 @@ function game.recast(action)
     return math.max(0, READY_DELAY - (os.clock() - ready_since[key]))
 end
 
+-- Whether the client lists ability `action` now (an ability the server lists only at times: core/catalog.lua).
+function game.listed(action)
+    return AshitaCore:GetMemoryManager():GetPlayer():HasAbility(action.id)
+end
+
 -- Forget `action`'s ready stamp once it's sent, so its next recast gets the full delay.
 function game.sent(action)
     if not action.recast then return end  -- /heal, /follow: no recast
@@ -557,7 +562,7 @@ function game.read(now, idle)
         incapacitated = any(me.buffs, INCAPACITATED),
         silenced = any(me.buffs, SILENCED),
         amnesia = me.buffs[AMNESIA] == true,
-        recast = game.recast, owned = game.owned,
+        recast = game.recast, owned = game.owned, listed = game.listed,
         learned = observed.learned, day = day(), weather = weather(),
     }
 end

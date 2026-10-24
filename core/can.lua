@@ -115,6 +115,9 @@ function can.use(a, g)
         if a.pet_range and (g.pet.dist or math.huge) > a.pet_range then return false, 'pet too far' end
         if type(a.pet) == 'table' and not can.holds(a.pet, g.pet.name) then return false, 'wrong pet' end
     end
+    -- Catalogued by level though the server lists it only at times (core/catalog.lua):
+    -- goes only once the client lists it (a jug's Ready move it lacks, a merit not taken).
+    if a.hidden and g.listed and not g.listed(a) then return false, 'not listed' end
     if can.at_enemy(a) then
         if not (g.bt and g.bt.mob) then return false, 'no battle target' end
         if g.bt.dist > can.yalms(a.range) then return false, 'target out of range' end

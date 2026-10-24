@@ -49,6 +49,14 @@
     area       overrides the DAT's area: 0 for blue magic the DAT gives an area (15)
                though it lands on you alone (Battery Charge, Occultation...)
     main_only  never from a subjob
+    learn      { [job] = level (or one per tier) }: an ability the server lists only
+               while it can be used, so HasAbility misses it: a pet command, blood
+               pact or Ready move with no such pet out, a stratagem outside its Arts
+               (LSB's addType). Catalogued from the job's level anyway, shown in
+               settings, and sent only while the client lists it (core/catalog.lua,
+               can.use)
+    first      goes ahead of every behavior, healing too: a lasting stance the
+               rest is cheaper or possible under (Light Arts, Composure; behaviors/buff.lua)
     pet        needs a pet out (true) or one of these pets
     kind       'ma' | 'ja' | 'pet': this use only for that command kind
     label      UI name when one action has several uses
@@ -96,6 +104,9 @@ local SHURIKEN = { 17301, 17302, 17303, 17304, 18712, 22999 }
 local PANACEA = { 4, 11, 12, 21, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142,
     144, 145, 147, 148, 149, 167, 168, 174, 175 }
 
+-- Jobs, for `learn`.
+local BST, SMN, PUP, SCH = 9, 15, 18, 20
+
 local LIGHT = { 'Light Arts', 'Addendum: White' }
 local DARK = { 'Dark Arts', 'Addendum: Black' }
 local SAMBA = { role = 'buff', gate = 'combat', pick_one = 'samba', blocked_by = 'Fan Dance' }
@@ -111,10 +122,11 @@ local K = {
     ['Magic Fruit']       = { role = 'heal', wakes = true, potency = { 300 } },
     ['Plenilune Embrace'] = { role = 'heal', wakes = true, potency = { 650 } },
     ['Vivacious Pulse']   = { role = 'heal' },
-    ['Healing Ruby']      = { role = 'heal', wakes = true, pet = { 'Carbuncle' }, potency = { 250, 250 } },
+    ['Healing Ruby']      = { role = 'heal', wakes = true, pet = { 'Carbuncle' }, potency = { 250, 250 }, learn = { [SMN] = { 1, 65 } } },
     ['Wild Carrot']       = {
         { kind = 'ma', role = 'heal', wakes = true, potency = { 120 } },
-        { kind = 'pet', role = 'heal', pet = { 'KeenearedSteffi', 'Rabbit' }, potency = { 120 }, mob_skill = 3903 },
+        { kind = 'pet', role = 'heal', pet = { 'KeenearedSteffi', 'Rabbit' }, potency = { 120 }, mob_skill = 3903,
+          learn = { [BST] = 25 } },
     },
     ['Chakra'] = {
         { role = 'heal' },
@@ -136,13 +148,14 @@ local K = {
     ['Martyr']       = { role = 'emergency' },
     ['Contradance']  = { role = 'emergency', boost = { 'waltz', 2 } },
     ['Apogee']       = { role = 'emergency', pet = { 'Carbuncle' } },
-    ['Rapture']      = { role = 'emergency', requires = LIGHT, boost = { 'healing', 1.5 } },
+    ['Rapture']      = { role = 'emergency', requires = LIGHT, boost = { 'healing', 1.5 }, learn = { [SCH] = 55 } },
     ['Accession'] = {
-        { role = 'emergency', requires = LIGHT, boost = { 'healing', area = 10, mp = 2, tiers = 4 } },
+        { role = 'emergency', requires = LIGHT, boost = { 'healing', area = 10, mp = 2, tiers = 4 }, learn = { [SCH] = 40 } },
         { role = 'modifier', requires = LIGHT, applies = sch.spreads, spreads = { area = 10, mp = 2 },
-          chip = 'Acc', note = 'on everyone near you, at twice the MP' },
+          chip = 'Acc', note = 'on everyone near you, at twice the MP', learn = { [SCH] = 40 } },
     },
-    ['Tranquility']  = { role = 'emergency', requires = LIGHT },
+    -- A merit: listed at 75 whether merited or not, sent only once the client lists it.
+    ['Tranquility']  = { role = 'emergency', requires = LIGHT, learn = { [SCH] = 75 } },
 
     -- remove -------------------------------------------------------------------
     ['Poisona']       = { role = 'remove', removes = 'Poison' },
@@ -193,9 +206,9 @@ local K = {
     -- The server's Reward takes pet food only (no Pet Poultice or Roborant); each one also gives Regen.
     ['Reward']        = { role = 'pet_heal', pet = true, ammo = PET_FOOD },
     -- Send the pet at your battle target.
-    ['Assault'] = { role = 'pet_send', pet = true },
-    ['Fight']   = { role = 'pet_send', pet = true },
-    ['Deploy']  = { role = 'pet_send', pet = true },
+    ['Assault'] = { role = 'pet_send', pet = true, learn = { [SMN] = 1 } },
+    ['Fight']   = { role = 'pet_send', pet = true, learn = { [BST] = 1 } },
+    ['Deploy']  = { role = 'pet_send', pet = true, learn = { [PUP] = 1 } },
 
     -- buff: white / enhancing magic ---------------------------------------------
     ['Protect']   = { role = 'buff', duration = 1800 },
@@ -224,11 +237,11 @@ local K = {
     ['Dread Spikes'] = { role = 'buff' },
 
     -- modifier: Scholar's stratagems, fired just before the spell (jobs/sch.lua) --
-    ['Penury']      = { role = 'modifier', requires = LIGHT, applies = sch.white, chip = 'Pen', note = 'half the MP' },
-    ['Celerity']    = { role = 'modifier', requires = LIGHT, applies = sch.white, chip = 'Cel', note = 'half the casting time' },
-    ['Perpetuance'] = { role = 'modifier', requires = LIGHT, applies = sch.enhancing, chip = 'Per', note = 'longer duration' },
-    ['Parsimony']   = { role = 'modifier', requires = DARK, applies = sch.black, chip = 'Par', note = 'half the MP' },
-    ['Alacrity']    = { role = 'modifier', requires = DARK, applies = sch.black, chip = 'Ala', note = 'half the casting time' },
+    ['Penury']      = { role = 'modifier', requires = LIGHT, applies = sch.white, chip = 'Pen', note = 'half the MP', learn = { [SCH] = 10 } },
+    ['Celerity']    = { role = 'modifier', requires = LIGHT, applies = sch.white, chip = 'Cel', note = 'half the casting time', learn = { [SCH] = 25 } },
+    ['Perpetuance'] = { role = 'modifier', requires = LIGHT, applies = sch.enhancing, chip = 'Per', note = 'longer duration', learn = { [SCH] = 87 } },
+    ['Parsimony']   = { role = 'modifier', requires = DARK, applies = sch.black, chip = 'Par', note = 'half the MP', learn = { [SCH] = 10 } },
+    ['Alacrity']    = { role = 'modifier', requires = DARK, applies = sch.black, chip = 'Ala', note = 'half the casting time', learn = { [SCH] = 25 } },
     -- No chip: fired by itself for an Addendum spell you lack the Addendum for (core/catalog.lua).
     -- Under Dark Arts, as v2: under Light Arts, Addendum: White is the way in.
     ['Enlightenment'] = { role = 'modifier', requires = DARK, main_only = true },
@@ -249,10 +262,13 @@ local K = {
     ['Embolden']  = { role = 'modifier', applies = sch.enhancing, chip = 'Emb', note = 'more potent' },
 
     -- buff: Scholar -------------------------------------------------------------
-    ['Light Arts']      = { role = 'buff', pick_one = 'arts', priority = 100, status = LIGHT },
+    -- Light Arts first, ahead of healing: it makes white magic cheaper and opens
+    -- the stratagems; Addendum: White then opens its spells (Raise, Erase, the -na).
+    ['Light Arts']      = { role = 'buff', pick_one = 'arts', priority = 100, status = LIGHT, first = true },
     ['Dark Arts']       = { role = 'buff', pick_one = 'arts', priority = 100, status = { 'Dark Arts', 'Addendum: Black' } },
-    ['Addendum: White'] = { role = 'buff', pick_one = 'addendum', requires = 'Light Arts' },
-    ['Addendum: Black'] = { role = 'buff', pick_one = 'addendum', requires = 'Dark Arts' },
+    ['Addendum: White'] = { role = 'buff', pick_one = 'addendum', priority = 90, requires = 'Light Arts', first = true,
+                            learn = { [SCH] = 10 } },
+    ['Addendum: Black'] = { role = 'buff', pick_one = 'addendum', requires = 'Dark Arts', learn = { [SCH] = 30 } },
     ['Sublimation'] = {
         { role = 'buff', priority = 50, status = { 'Sublimation: Activated', 'Sublimation: Complete' } },
         { role = 'recover', requires = { 'Sublimation: Activated', 'Sublimation: Complete' } },
@@ -372,11 +388,11 @@ local K = {
     ['Spectral Jig'] = { role = 'buff', gate = 'idle', travel = true, priority = -20, status = { 'Sneak', 'Invisible' } },
 
     -- buff: job abilities ---------------------------------------------------------
-    ['Composure']  = { role = 'buff', priority = 100 },
+    ['Composure']  = { role = 'buff', priority = 100, first = true },  -- RDM: x3 enhancing on you, for 2 hours
     ['Majesty']    = { role = 'buff', priority = 100, boost = { 'cure', potency = 25, area = 10 } },
     ['Boost']      = { role = 'buff', status = false },
-    ['Avatar\'s Favor'] = { role = 'buff', pet = true },
-    ['Shining Ruby']    = { role = 'buff', pet = { 'Carbuncle' } },
+    ['Avatar\'s Favor'] = { role = 'buff', pet = true, learn = { [SMN] = 55 } },
+    ['Shining Ruby']    = { role = 'buff', pet = { 'Carbuncle' }, learn = { [SMN] = 24 } },
     ['Spirit Bond']     = { role = 'buff', gate = 'combat', pet = true },
     ['Hasso']  = { role = 'buff', pick_one = 'sam_stance' },
     ['Seigan'] = { role = 'buff', pick_one = 'sam_stance' },
@@ -447,7 +463,7 @@ end
 -- Puppetmaster's maneuvers: each shows the status named like it; Overload stops them all.
 for _, e in ipairs({ 'Fire', 'Ice', 'Wind', 'Earth', 'Thunder', 'Water', 'Light', 'Dark' }) do
     local name = e .. ' Maneuver'
-    K[name] = { role = 'maneuver', pet = true, status = name, blocked_by = 'Overload' }
+    K[name] = { role = 'maneuver', pet = true, status = name, blocked_by = 'Overload', learn = { [PUP] = 1 } }
 end
 
 -- Rune Fencer's runes: each shows the status named like it.

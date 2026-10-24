@@ -23,6 +23,7 @@
     on you for EXPECT seconds, so the next decision sends the spell.
 ]]--
 
+local buff = require('behaviors.buff')
 local can = require('core.can')
 local pet = require('behaviors.pet')
 local util = require('core.util')
@@ -32,6 +33,8 @@ local engine = {}
 -- Priority order. `quick` behaviors still run while a cure is held for; `setting`
 -- is the cfg table whose `on` switches it, when not its name.
 engine.BEHAVIORS = {
+    -- Light Arts, Composure: ahead of healing, which is cheaper under them (behaviors/buff.lua).
+    { name = 'first', run = buff.first, setting = 'buff' },
     { name = 'heal', run = require('behaviors.heal').want },
     { name = 'remove', run = require('behaviors.remove'), quick = true },
     { name = 'wake', run = require('behaviors.wake'), quick = true },
@@ -41,7 +44,7 @@ engine.BEHAVIORS = {
     { name = 'roll', run = require('jobs.cor').want },
     { name = 'rune', run = require('jobs.run').want, quick = true },
     { name = 'geo', run = require('jobs.geo').want },
-    { name = 'buff', run = require('behaviors.buff').want },
+    { name = 'buff', run = buff.want },
     { name = 'song', run = require('jobs.brd').want },
     { name = 'pet_send', run = pet.send, setting = 'pet', quick = true },
     { name = 'maneuver', run = require('jobs.pup').want, quick = true },

@@ -271,3 +271,51 @@ test('a held row says what it waits for', function ()
     end
     eq({ row.ready, row.avail }, { false, 'waits for Pen: needs Light Arts' })
 end)
+
+-- The client lists the stratagems only under their Arts (LSB's addType): a SCH
+-- loaded outside either still has them, each waiting on its Arts.
+local bare = fake.catalog(SCH, 75, RDM, 37, { 'Light Arts', 'Dark Arts', 'Enlightenment' })
+
+test('loaded outside either Arts: the stratagems are still there, each waiting on its Arts', function ()
+    local names = { job = function () return 'SCH' end, statuses = fake.res.statuses }
+    local view = model.build(snap({}), bare, settings.defaults(), { running = false, sent = {} }, names)
+    local rows = {}
+    for _, s in ipairs(view.sections) do
+        for _, r in ipairs(s.rows or {}) do rows[r.key] = r end
+    end
+    local chips = {}
+    for i, m in ipairs(rows.Protect.mods) do chips[i] = m.label end
+    eq(chips, { 'Pen', 'Cel', 'Acc' })
+    eq({ rows.Rapture.ready, rows.Rapture.avail, rows.addendum.avail }, { false, 'needs Light Arts', 'pick one' })
+    eq(view.heal.stratagems, true)
+    -- Under Light Arts, but the client doesn't list it (a merit not taken): never sent.
+    local g = snap({ LIGHT_ARTS })
+    g.listed = function (a) return a.name ~= 'Tranquility' end
+    eq({ can.use(named(bare, 'Tranquility'), g) }, { false, 'not listed' })
+    eq(can.use(named(bare, 'Rapture'), g), true)
+end)
+
+test('Light Arts goes first, ahead of healing; then the cure', function ()
+    local cfg = cfg_with({ arts = { on = true, pick = 'Light Arts' }, Regen = { on = false } })
+    local hurt = { { name = 'A', hpp = 60 } }
+    local cmd, intent = decide(snap({}, hurt), cfg, {})
+    eq({ cmd, intent.behavior }, { '/ja "Light Arts" <me>', 'first' })
+    eq(decide(snap({ LIGHT_ARTS }, hurt), cfg, {}):match('^/ma "Cure'), '/ma "Cure')
+    -- On recast, or with the buff section off, healing doesn't wait for it.
+    eq(decide(snap({}, hurt, { ['Light Arts'] = 30 }), cfg, {}):match('^/ma "Cure'), '/ma "Cure')
+    cfg.buff.on = false
+    eq(decide(snap({}, hurt), cfg, {}):match('^/ma "Cure'), '/ma "Cure')
+    -- Dark Arts picked keeps its place among the buffs, after healing.
+    cfg = cfg_with({ arts = { on = true, pick = 'Dark Arts' }, Regen = { on = false } })
+    eq(decide(snap({}, hurt), cfg, {}):match('^/ma "Cure'), '/ma "Cure')
+end)
+
+test('Addendum: White goes first too, once Light Arts is up', function ()
+    local cfg = cfg_with({ arts = { on = true, pick = 'Light Arts' }, addendum = { on = true, pick = 'Addendum: White' },
+                          Regen = { on = false } })
+    local hurt = { { name = 'A', hpp = 60 } }
+    eq(decide(snap({}, hurt), cfg, {}), '/ja "Light Arts" <me>')
+    local cmd, intent = decide(snap({ LIGHT_ARTS }, hurt), cfg, {})
+    eq({ cmd, intent.behavior }, { '/ja "Addendum: White" <me>', 'first' })
+    eq(decide(snap({ ADDENDUM_WHITE }, hurt), cfg, {}):match('^/ma "Cure'), '/ma "Cure')
+end)

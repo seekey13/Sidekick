@@ -306,6 +306,19 @@ test('a pick_one group casts only its pick; an area buff covers those near you',
     eq(decide(g, cfg), '/ma "Barfira" <me>')
 end)
 
+test('Composure goes first, ahead of healing, and only once it is on', function ()
+    local RDM, COMPOSURE = 5, 419
+    local rdm = fake.catalog(RDM, 75, 3, 37, { 'Composure' })
+    local hurt = { { name = 'A', hpp = 60 } }
+    local g = snap(hurt, { main = RDM, sub = 3 })
+    local cfg = no_regen()
+    eq(decide(g, cfg, nil, rdm):match('^/ma "Cure'), '/ma "Cure')  -- opt-in, as every buff
+    cfg.rows.Composure = { on = true }
+    local cmd, intent = decide(g, cfg, nil, rdm)
+    eq({ cmd, intent.behavior }, { '/ja "Composure" <me>', 'first' })
+    eq(decide(with(snap(hurt, { main = RDM, sub = 3 }), { COMPOSURE }), cfg, nil, rdm):match('^/ma "Cure'), '/ma "Cure')
+end)
+
 test('gates stop everything', function ()
     eq({ decide(snap({ { name = 'A', hpp = 50, hp = 500 } }, { casting = true })) }, { nil, 'casting' })
     eq({ decide(snap({ { name = 'A', hpp = 50, hp = 500 } }, { silenced = true })) }, { nil, 'nothing to do' })

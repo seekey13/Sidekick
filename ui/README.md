@@ -109,7 +109,7 @@ Text that may contain `%` (names, `why` text) must be escaped before it's drawn:
 
 ### `view.sections[i]`
 
-In this order. A section with rows is left out when your job has none for it (Pet shows only for a pet job), Wake sleepers only shows when one of your heals wakes (a cure or waltz; not a pet's), Rolls only when you have a roll (Corsair), Songs only when you have a song (Bard, main or sub), Geomancy only when you have a Geo- spell (a Geomancer main job), Runes only when you have a rune (Rune Fencer, main or sub), and Maneuvers for a Puppetmaster, main or sub, automaton out or not (none goes until one is).
+In this order. A section with rows is left out when your job has none for it (Pet shows only for a pet job), Wake sleepers only shows when one of your heals wakes (a cure or waltz; not a pet's), Rolls only when you have a roll (Corsair), Songs only when you have a song (Bard, main or sub), Geomancy only when you have a Geo- spell (a Geomancer main job), Runes only when you have a rune (Rune Fencer, main or sub), and Maneuvers for a Puppetmaster, main or sub, automaton out or not (none goes until one is). Rows for abilities the client lists only at times (pet commands, pacts and Ready moves with no pet out, stratagems outside their Arts) are there from the job's level, `ready` false with why (`no pet`, `needs Light Arts`, `not listed`).
 
 | `id` | `title` | `header` | Its settings |
 |---|---|---|---|
