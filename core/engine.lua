@@ -34,7 +34,7 @@ local engine = {}
 -- is the cfg table whose `on` switches it, when not its name; `shown` the name its
 -- intents go by (the HUD's 'Buff:', the log), when not its own.
 engine.BEHAVIORS = {
-    -- Light Arts, Composure: ahead of healing, which is cheaper under them (behaviors/buff.lua).
+    -- Light Arts: ahead of healing, which is cheaper under it, but for a critical member (behaviors/buff.lua).
     { name = 'first', run = buff.first, setting = 'buff', shown = 'buff' },
     { name = 'heal', run = require('behaviors.heal').want },
     { name = 'remove', run = require('behaviors.remove'), quick = true },

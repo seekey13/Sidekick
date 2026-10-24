@@ -305,6 +305,16 @@ test('Light Arts goes first, ahead of healing; then the cure', function ()
     eq(decide(snap({}, hurt, { ['Light Arts'] = 30 }), cfg, {}):match('^/ma "Cure'), '/ma "Cure')
     cfg.buff.on = false
     eq(decide(snap({}, hurt), cfg, {}):match('^/ma "Cure'), '/ma "Cure')
+    -- Someone critical: their cure goes at once, Light Arts once they're out of it (or with no cure that can go).
+    cfg.buff.on = true
+    local critical = { { name = 'A', hpp = 10 } }
+    eq(decide(snap({}, critical), cfg, {}):match('^/ma "Cure'), '/ma "Cure')
+    local none = {}
+    for _, a in ipairs(cat) do if a.role == 'heal' then none[a.name] = 60 end end
+    eq(decide(snap({}, critical, none), cfg, {}),
+       '/ja "Light Arts" <me>')
+    cfg.heal.on = false
+    eq(decide(snap({}, critical), cfg, {}), '/ja "Light Arts" <me>')
     -- Dark Arts picked keeps its place among the buffs, after healing.
     cfg = cfg_with({ arts = { on = true, pick = 'Dark Arts' }, Regen = { on = false } })
     eq(decide(snap({}, hurt), cfg, {}):match('^/ma "Cure'), '/ma "Cure')

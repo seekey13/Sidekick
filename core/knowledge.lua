@@ -55,8 +55,9 @@
                (LSB's addType). Catalogued from the job's level anyway, shown in
                settings, and sent only while the client lists it (core/catalog.lua,
                can.use)
-    first      goes ahead of every behavior, healing too: a lasting stance the
-               rest is cheaper or possible under (Light Arts, Composure; behaviors/buff.lua)
+    first      goes ahead of every behavior, healing too, but for a critical
+               member's: a lasting stance healing is cheaper or possible under
+               (Light Arts, Addendum: White; behaviors/buff.lua)
     pet        needs a pet out (true) or one of these pets
     kind       'ma' | 'ja' | 'pet': this use only for that command kind
     label      UI name when one action has several uses
@@ -388,7 +389,7 @@ local K = {
     ['Spectral Jig'] = { role = 'buff', gate = 'idle', travel = true, priority = -20, status = { 'Sneak', 'Invisible' } },
 
     -- buff: job abilities ---------------------------------------------------------
-    ['Composure']  = { role = 'buff', priority = 100, first = true },  -- RDM: x3 enhancing on you, for 2 hours
+    ['Composure']  = { role = 'buff', priority = 100 },
     ['Majesty']    = { role = 'buff', priority = 100, boost = { 'cure', potency = 25, area = 10 } },
     ['Boost']      = { role = 'buff', status = false },
     ['Avatar\'s Favor'] = { role = 'buff', pet = true, learn = { [SMN] = 55 } },

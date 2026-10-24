@@ -321,6 +321,13 @@ local function context(g, cat, cfg, emergencies)
     return ctx
 end
 
+-- The worst off under their critical line, or nil (behaviors/buff.lua's first
+-- stage gives way to them).
+function heal.critical(g, cfg)
+    local _, list = members_of('critical', { g = g, s = cfg.heal, focus = util.named(g.units, cfg.heal.focus) })
+    return list[1]
+end
+
 function heal.want(g, cat, cfg)
     local emergencies = settings.enabled(cat, cfg, 'emergency')
     local ctx = context(g, cat, cfg, emergencies)
