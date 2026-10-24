@@ -431,13 +431,15 @@ function game.sent(action)
     ready_since[ready_key(action)] = nil
 end
 
--- The snapshot. { loading = true } until the client has the player's job.
-function game.read(now)
+-- The snapshot. { loading = true } until the client has the player's job, and while zoning.
+-- `idle` (automation stopped or asleep): no battle target is looked for, nor in a safe zone. Finding
+-- <bt> calls into the client, so it's done only when something may act on it.
+function game.read(now, idle)
     init()
     local mm = AshitaCore:GetMemoryManager()
     local player, party, em = mm:GetPlayer(), mm:GetParty(), mm:GetEntity()
     local zone = party:GetMemberZone(0)
-    if player:GetMainJobLevel() == 0 or zone == 0 then return { loading = true, now = now } end
+    if player:GetMainJobLevel() == 0 or zone == 0 or packets.zoning(now) then return { loading = true, now = now } end
     local jobs = jobs_of(player)
 
     local units, allied, tracks, listed = {}, {}, {}, {}
@@ -498,7 +500,9 @@ function game.read(now)
     end
     for _, u in ipairs(allied) do units[#units + 1] = u end
 
-    local bt = battle_target(em) or allied[1] and claimed_target(em, listed, now) or nil
+    local event = event_ptr ~= 0 and ashita.memory.read_uint32(event_ptr + 1) or 0
+    local safe = SAFE_ZONES[zone] == true or (event ~= 0 and ashita.memory.read_uint8(event) == 1)
+    local bt = not (idle or safe) and (battle_target(em) or allied[1] and claimed_target(em, listed, now)) or nil
     if bt and bt.mob then last_combat = now end
     if move.zone ~= zone then move.x, move.zone = nil, zone end  -- a zone or teleport isn't you moving (AFK sleep)
     local is_moving = moving(em, me.tidx, now)  -- before moved_at is read
@@ -533,7 +537,6 @@ function game.read(now)
         if not tracks[sid] then buffs.forget(sid) end
     end
     fed = tracks
-    local event = event_ptr ~= 0 and ashita.memory.read_uint32(event_ptr + 1) or 0
     local finished, spell_finish = packets.last_finish()
     local casting, cast_at = packets.casting(now)
 
@@ -547,7 +550,7 @@ function game.read(now)
         casting = casting, cast_at = cast_at,
         moving = is_moving, moved_at = move.moved,
         combat = now - last_combat < COMBAT_GRACE, combat_at = last_combat,
-        safe = SAFE_ZONES[zone] == true or (event ~= 0 and ashita.memory.read_uint8(event) == 1),
+        safe = safe,
         mounted = me.status == MOUNTED_STATUS or me.buffs[MOUNTED_BUFF] == true,
         dead = not me.alive,
         resting = me.status == RESTING,

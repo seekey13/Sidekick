@@ -33,6 +33,9 @@ local FINISH = { [2] = true, [3] = true, [4] = true, [5] = true, [6] = true, [14
 local CAST_BEGIN, ITEM_BEGIN, SPELL_FINISH = 8, 9, 4
 -- A cast whose finish packet never arrived (zoning, lost packet) unlocks after this.
 local CAST_TIMEOUT = 16
+-- Zoning: from the zone-out 0x00B until ZONE_SETTLE seconds after the zone-in 0x00A
+-- (the client is still building the zone), ZONE_TIMEOUT at most if 0x00A goes missing.
+local ZONE_SETTLE, ZONE_TIMEOUT = 3, 60
 
 -- 0x028 per-target messages. Gains (param = the status): buffs and enfeebles from
 -- spells, abilities and TP moves, and the variants an area one shows its other targets.
@@ -55,6 +58,7 @@ local GAINS_029 = {
 local LOSES_029 = { [204] = true, [206] = true, [343] = true }  -- wears off / disappears
 
 local cast = { active = false, since = 0, finished = -math.huge, spell = false }
+local zone = { out = nil, settle = -math.huge }  -- when you zoned out (nil once back); when that settles
 
 -- 0x028 action packet: header plus each target's results (bit-packed, big endian).
 local function parse_action(e)
@@ -185,7 +189,10 @@ function packets.handle(e, ctx, now)
         on_check(e)
     elseif e.id == 0x044 then
         on_extended_job(e)
+    elseif e.id == 0x00B then  -- zoning out: the client tears the zone down
+        zone.out = now
     elseif e.id == 0x00A then  -- zoning: a cast in flight is cancelled with no packet
+        zone.out, zone.settle = nil, now + ZONE_SETTLE
         cast.active = false
         buffs.clear()
         observed.clear()
@@ -197,6 +204,13 @@ end
 function packets.casting(now)
     if cast.active and now - cast.since > CAST_TIMEOUT then cast.active = false end
     return cast.active, cast.active and cast.since or nil
+end
+
+-- True while you zone: the client's actors are being torn down or rebuilt, and
+-- calling into it then crashes the game (core/game.lua's battle target).
+function packets.zoning(now)
+    if zone.out and now - zone.out > ZONE_TIMEOUT then zone.out = nil end
+    return zone.out ~= nil or now < zone.settle
 end
 
 -- When your last action resolved, and whether it was a spell (longer lockout).

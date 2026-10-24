@@ -116,7 +116,7 @@ local packet_ctx = {
 local snap = { loading = true, now = 0, tracks = {} }
 local function refresh(now)
     if now - snap.now < 0.1 and not snap.loading then return snap, false end
-    snap = game.read(now)
+    snap = game.read(now, not status.running or mem.afk and mem.afk.asleep)
     if not snap.loading then
         current_catalog()
         packet_ctx.me, packet_ctx.pet, packet_ctx.tracks = snap.me.sid, snap.pet and snap.pet.sid, snap.tracks
