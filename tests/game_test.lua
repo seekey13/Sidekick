@@ -84,9 +84,9 @@ local function unit(g, sid)
 end
 
 local now = 1000  -- past other files' zone packets (cor_test.lua): not zoning here
-local function read(dt)
+local function read(dt, idle)
     now = now + (dt or 0.1)
-    return game.read(now)
+    return game.read(now, idle)
 end
 
 test('a tracked player in range: HP % from their entity, max HP from their level, else yours', function ()
@@ -236,6 +236,17 @@ test('with no <bt>, a mob another party of the alliance claimed is your battle t
     eq(read(0.5).bt.name, 'Snail')
     world.ents[0x103].hpp = 0
     eq({ read().bt, read(0.5).bt.name }, { nil, 'Crab' })  -- dead: dropped at once, the next look finds another
+end)
+
+test('no battle target looked for while automation is stopped or asleep, nor in a safe zone', function ()
+    reset()
+    world.ents[0x100] = { sid = 0x1000010, name = 'Crab', hpp = 80, dist = 10, flags = 0x10, claim = 600 }
+    world.party[7] = { sid = 600, tidx = 0x500, name = 'Bea', hpp = 100, hp = 1000, mpp = 0, mp = 0 }
+    eq({ read(1, true).bt, read(1).bt.name }, { nil, 'Crab' })
+    local zone = party.GetMemberZone
+    party.GetMemberZone = const(230)  -- Southern San d'Oria
+    eq(read(1).bt, nil)
+    party.GetMemberZone = zone
 end)
 
 test('another unit moving: for half a second after its position last changed; seen first, it stands', function ()
