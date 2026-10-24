@@ -31,10 +31,11 @@ local util = require('core.util')
 local engine = {}
 
 -- Priority order. `quick` behaviors still run while a cure is held for; `setting`
--- is the cfg table whose `on` switches it, when not its name.
+-- is the cfg table whose `on` switches it, when not its name; `shown` the name its
+-- intents go by (the HUD's 'Buff:', the log), when not its own.
 engine.BEHAVIORS = {
     -- Light Arts, Composure: ahead of healing, which is cheaper under them (behaviors/buff.lua).
-    { name = 'first', run = buff.first, setting = 'buff' },
+    { name = 'first', run = buff.first, setting = 'buff', shown = 'buff' },
     { name = 'heal', run = require('behaviors.heal').want },
     { name = 'remove', run = require('behaviors.remove'), quick = true },
     { name = 'wake', run = require('behaviors.wake'), quick = true },
@@ -103,7 +104,7 @@ function engine.decide(g, cat, cfg, mem)
                 holding = true
             elseif intent then
                 intent = modifier(intent, g) or intent
-                intent.behavior = b.name
+                intent.behavior = b.shown or b.name
                 return intent
             end
         end

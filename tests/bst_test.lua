@@ -71,3 +71,25 @@ test('Wild Carrot only in danger: its charges are kept for the pet\'s attacks on
     eq(decide(snap(danger + 10, WAR, 3), war), nil)  -- no MP heal, and still no carrot over the danger line
     eq(decide(snap(danger - 1, WAR, 3), war), '/pet "Wild Carrot" <me>')
 end)
+
+-- The client lists a Ready move only for the jug that has it (core/catalog.lua's `learn`).
+test('Wild Carrot the client doesn\'t list is never sent, and healing goes on without it', function ()
+    local cat = fake.catalog(BST, 75, WHM, 37, {})  -- no Ready move listed when the catalog was built
+    eq(named(cat, 'Wild Carrot', 'heal') ~= nil, true)
+    eq(decide(snap(40, WHM, 3), cat), '/pet "Wild Carrot" <me>')
+    local g = snap(40, WHM, 3)
+    g.listed = function (a) return a.name ~= 'Wild Carrot' end
+    eq(decide(g, cat):match('^/ma '), '/ma ')
+end)
+
+test('sending the pet in: one the client doesn\'t list (Deploy for a jug) gives way to the next', function ()
+    local PUP = 18
+    local cat = fake.catalog(BST, 75, PUP, 37, {})
+    local cfg = settings.defaults()
+    cfg.rows.Deploy, cfg.rows.Fight = { on = true }, { on = true }
+    local g = snap(100, PUP, 3, { bt = { mob = true, hpp = 100, dist = 3, name = 'Crab', sid = 9 }, combat = true })
+    g.listed = function (a) return a.name == 'Fight' end
+    eq(decide(g, cat, cfg), '/pet "Fight" <bt>')
+    g.listed = function () return false end
+    eq(decide(g, cat, cfg), nil)
+end)

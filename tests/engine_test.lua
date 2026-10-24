@@ -315,7 +315,7 @@ test('Composure goes first, ahead of healing, and only once it is on', function 
     eq(decide(g, cfg, nil, rdm):match('^/ma "Cure'), '/ma "Cure')  -- opt-in, as every buff
     cfg.rows.Composure = { on = true }
     local cmd, intent = decide(g, cfg, nil, rdm)
-    eq({ cmd, intent.behavior }, { '/ja "Composure" <me>', 'first' })
+    eq({ cmd, intent.behavior }, { '/ja "Composure" <me>', 'buff' })
     eq(decide(with(snap(hurt, { main = RDM, sub = 3 }), { COMPOSURE }), cfg, nil, rdm):match('^/ma "Cure'), '/ma "Cure')
 end)
 

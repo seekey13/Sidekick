@@ -297,3 +297,12 @@ test('ui: Deploy, Assault and the pacts are in settings with no pet out, each wa
     g.listed = function () return true end
     eq(rows(g, smn).Assault.avail, 'no battle target')  -- listed: on to the next gate
 end)
+
+test('a maneuver the client doesn\'t list is never sent (the pet out isn\'t the automaton it thought)', function ()
+    local cfg = cfg_with({ 'Fire Maneuver' })
+    local g = snap()
+    g.listed = function () return false end
+    eq({ decide(g, cfg) }, { nil, 'nothing to do' })
+    g.listed = function () return true end
+    eq(decide(g, cfg), '/pet "Fire Maneuver" <me>')
+end)

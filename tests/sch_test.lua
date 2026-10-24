@@ -299,7 +299,7 @@ test('Light Arts goes first, ahead of healing; then the cure', function ()
     local cfg = cfg_with({ arts = { on = true, pick = 'Light Arts' }, Regen = { on = false } })
     local hurt = { { name = 'A', hpp = 60 } }
     local cmd, intent = decide(snap({}, hurt), cfg, {})
-    eq({ cmd, intent.behavior }, { '/ja "Light Arts" <me>', 'first' })
+    eq({ cmd, intent.behavior }, { '/ja "Light Arts" <me>', 'buff' })
     eq(decide(snap({ LIGHT_ARTS }, hurt), cfg, {}):match('^/ma "Cure'), '/ma "Cure')
     -- On recast, or with the buff section off, healing doesn't wait for it.
     eq(decide(snap({}, hurt, { ['Light Arts'] = 30 }), cfg, {}):match('^/ma "Cure'), '/ma "Cure')
@@ -316,6 +316,6 @@ test('Addendum: White goes first too, once Light Arts is up', function ()
     local hurt = { { name = 'A', hpp = 60 } }
     eq(decide(snap({}, hurt), cfg, {}), '/ja "Light Arts" <me>')
     local cmd, intent = decide(snap({ LIGHT_ARTS }, hurt), cfg, {})
-    eq({ cmd, intent.behavior }, { '/ja "Addendum: White" <me>', 'first' })
+    eq({ cmd, intent.behavior }, { '/ja "Addendum: White" <me>', 'buff' })
     eq(decide(snap({ ADDENDUM_WHITE }, hurt), cfg, {}):match('^/ma "Cure'), '/ma "Cure')
 end)
