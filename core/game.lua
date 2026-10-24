@@ -431,13 +431,13 @@ function game.sent(action)
     ready_since[ready_key(action)] = nil
 end
 
--- The snapshot. { loading = true } until the client has the player's job.
+-- The snapshot. { loading = true } until the client has the player's job, and while zoning.
 function game.read(now)
     init()
     local mm = AshitaCore:GetMemoryManager()
     local player, party, em = mm:GetPlayer(), mm:GetParty(), mm:GetEntity()
     local zone = party:GetMemberZone(0)
-    if player:GetMainJobLevel() == 0 or zone == 0 then return { loading = true, now = now } end
+    if player:GetMainJobLevel() == 0 or zone == 0 or packets.zoning(now) then return { loading = true, now = now } end
     local jobs = jobs_of(player)
 
     local units, allied, tracks, listed = {}, {}, {}, {}

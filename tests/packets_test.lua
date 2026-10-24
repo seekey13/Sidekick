@@ -78,3 +78,13 @@ test('your song is stamped on who its finish says it landed on, doubled under Tr
     packets.action(action(ME, SPELL, 43, { { ME, 230, 40 } }), c, 6)
     eq(next(brd.stamps()), nil)
 end)
+
+test('zoning: from the zone-out until the zone-in settles, or a minute without it', function ()
+    local function at(id, now) packets.handle({ id = id, data = '' }, ctx(), now) end
+    at(0x00B, 100)
+    eq({ packets.zoning(101), packets.zoning(110) }, { true, true })
+    at(0x00A, 110)
+    eq({ packets.zoning(112), packets.zoning(113.5) }, { true, false })
+    at(0x00B, 200)
+    eq({ packets.zoning(259), packets.zoning(261), packets.zoning(262) }, { true, false, false })
+end)

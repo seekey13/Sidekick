@@ -83,7 +83,7 @@ local function unit(g, sid)
     for _, u in ipairs(g.units) do if u.sid == sid then return u end end
 end
 
-local now = 0
+local now = 1000  -- past other files' zone packets (cor_test.lua): not zoning here
 local function read(dt)
     now = now + (dt or 0.1)
     return game.read(now)
