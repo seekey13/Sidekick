@@ -20,7 +20,7 @@
     it, once you're within RADIUS of it. A dear one is recalled first (Full Circle
     gives MP back) and a Geo-Voidance put down on you to spend instead, as v2;
     begun, that sequence keeps the slot for SEQUENCE seconds, whatever your MP does.
-    Nothing goes while you're Invisible or under Sneak (core/engine.lua).
+    Nothing goes while you're Invisible (core/engine.lua).
 ]]--
 
 local can = require('core.can')

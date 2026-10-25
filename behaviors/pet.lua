@@ -2,7 +2,7 @@
     Your pet: heal it under the pet HP line and clear what ails it (care), and
     send it at your battle target when it isn't fighting (send, opt-in per row:
     Assault, Fight, Deploy). Both go out as /ja or /pet on <me> or <bt>, never
-    while you're Invisible or under Sneak (core/engine.lua).
+    while you're Invisible (core/engine.lua).
     A care row that needs ammo worn (Repair's and Maintenance's oil, Reward's pet
     food) and would go with it first equips it (core/ammo.lua), and the next row
     waits while it goes on.

@@ -17,7 +17,7 @@
     Vallation would replace a party-wide Valiance with less (v2's rule).
     Lunge, Swipe, Gambit and Rayke spend runes: they are yours to use; the
     runes are put back after. Nothing goes while you're Invisible
-    or under Sneak (core/engine.lua).
+    (core/engine.lua).
 ]]--
 
 local can = require('core.can')

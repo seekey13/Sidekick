@@ -26,7 +26,7 @@
     off on its own, as v2). Of two songs of one kind with one up,
     the one sung less lately goes (new: v2 sang the first picked, which may be
     the one up).
-    Nothing goes while you're Invisible or under Sneak (core/engine.lua). With buff.hold_aoe on, an
+    Nothing goes while you're Invisible (core/engine.lua). With buff.hold_aoe on, an
     area song is held while a player in your party who lacks it, with no song
     picked for them alone, is out of its reach (or not drawn); trusts follow.
 

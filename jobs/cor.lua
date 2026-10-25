@@ -14,7 +14,7 @@
     and no total older than the last send is doubled. A new roll waits until
     the last one is settled, so its chase isn't cut short; while it waits,
     mem.busy_until keeps resting from starting (behaviors/rest.lua).
-    Nothing goes while you're Invisible or under Sneak (core/engine.lua).
+    Nothing goes while you're Invisible (core/engine.lua).
     With buff.hold_aoe on, a roll is held like an area buff spell until the
     party's players who lack it are inside its area (the DAT's, about 8 yalms).
 ]]--

@@ -8,7 +8,7 @@
     for the job even while it's dismissed (the client drops these pet commands
     from its ability list then), so Maneuvers stays on the Pet page. None goes
     under Overload (it would only add to it), and none while you're
-    Invisible or under Sneak (core/engine.lua).
+    Invisible (core/engine.lua).
     Only on the automaton: a jug pet, avatar, wyvern or luopan (BST/PUP...) would
     refuse them. Your automaton's name comes in the server's job packet (0x044,
     core/packets.lua) on login, zoning and job changes; until one has, the pet is
