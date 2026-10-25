@@ -387,6 +387,7 @@ local K = {
     -- ponytail: five taken as full; a max finishing move bonus (gear) would allow more.
     ['No Foot Rise'] = { role = 'buff', status = FINISHING_5 },
     ['Presto']       = { role = 'buff', gate = 'combat' },  -- for your next Step, by hand
+    -- Does nothing while Sneak or Invisible is up (it won't overwrite either): used once both are off.
     ['Spectral Jig'] = { role = 'buff', gate = 'idle', travel = true, priority = -20, status = { 'Sneak', 'Invisible' } },
 
     -- buff: job abilities ---------------------------------------------------------
