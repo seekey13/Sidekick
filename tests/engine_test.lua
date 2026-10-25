@@ -277,6 +277,14 @@ test('removal: the specific -na first, Erase for what only it clears', function 
     eq(decide(g), '/ma "Erase" 101')
 end)
 
+test('removal goes after danger healing, ahead of efficient healing', function ()
+    local g = snap({ { name = 'A', hpp = 70, buffs = { [4] = true } } })  -- Paralysis
+    eq(decide(g), '/ma "Paralyna" 101')
+    g = snap({ { name = 'A', hpp = 40, buffs = { [4] = true } } })
+    local cmd, intent = decide(g)
+    eq({ cmd ~= nil, intent.why:match('^%a+') }, { true, 'danger' })
+end)
+
 test('revive: the best raise, idle only, and not again while they decide', function ()
     local mem = {}
     local g = snap({ { name = 'Dead', hpp = 0 } })

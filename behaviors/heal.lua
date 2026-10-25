@@ -31,7 +31,7 @@ local util = require('core.util')
 
 local heal = {}
 
-local BANDS = { 'critical', 'danger', 'efficient' }
+local URGENT, EFFICIENT = { 'critical', 'danger' }, { 'efficient' }
 local HOLD_MAX = 15        -- seconds: a heal this close to ready is worth waiting for
 local CURE_POWER = 1.25    -- CatsEyeXI's bonus on healing magic, blue magic and waltzes
 local GEAR_CAP = 50        -- the server caps cure and waltz potency from gear at +50%
@@ -329,7 +329,7 @@ function heal.critical(g, cfg)
     return list[1]
 end
 
-function heal.want(g, cat, cfg)
+local function want(g, cat, cfg, bands)
     local emergencies = settings.enabled(cat, cfg, 'emergency')
     local ctx = context(g, cat, cfg, emergencies)
     local ready, waiting = {}, {}
@@ -344,7 +344,7 @@ function heal.want(g, cat, cfg)
     for _, u in ipairs(g.units) do ctx.regen_for[u] = regen_for(u, ctx) end
 
     local invisible = g.me.buffs[status.INVISIBLE]
-    for _, band in ipairs(BANDS) do
+    for _, band in ipairs(bands) do
         local members, list = members_of(band, ctx)
         if list[1] and not (invisible and band == 'efficient') then
             local best = best_of(band, ctx, ready, members)
@@ -359,5 +359,9 @@ function heal.want(g, cat, cfg)
         end
     end
 end
+
+-- Critical and danger, which go ahead of removal; efficient after it (core/engine.lua).
+function heal.urgent(g, cat, cfg) return want(g, cat, cfg, URGENT) end
+function heal.efficient(g, cat, cfg) return want(g, cat, cfg, EFFICIENT) end
 
 return heal
