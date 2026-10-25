@@ -11,9 +11,10 @@
     While you're Invisible, which any action breaks, only the behaviors marked
     `invisible` run: healing, for a member under their danger line alone, and
     buffs, for the travel buffs alone (Sneak, Invisible, Tonko, Monomi, Spectral
-    Jig). Following goes on, and resting may still stand, but none starts. Sneak
+    Jig). Following and resting go on (resting doesn't break it). Sneak
     breaks on nothing, so it stops nothing. Your own Invisible goes last of all
-    (buff.last), once everything else, members' travel buffs too, is done.
+    (buff.last), once everything else, members' travel buffs too, is done, or
+    briefly waited for.
     A buff held for the group to gather (behaviors/buff.lua) leaves mem.gather,
     which engine.gather turns into a party chat line.
     An intent may name a status of yours to cancel a moment into its cast
@@ -60,7 +61,7 @@ engine.BEHAVIORS = {
     -- Your own Invisible (Tonko, Spectral Jig): nothing else goes under it (behaviors/buff.lua).
     { name = 'last', run = buff.last, setting = 'buff', shown = 'buff', invisible = true },
     { name = 'follow', run = require('behaviors.follow').want, invisible = true },
-    { name = 'rest', run = require('behaviors.rest'), resting = true },
+    { name = 'rest', run = require('behaviors.rest'), resting = true, invisible = true },
 }
 
 local GATES = { 'loading', 'dead', 'mounted', 'safe', 'afk', 'incapacitated', 'casting', 'moving' }
@@ -108,7 +109,7 @@ function engine.decide(g, cat, cfg, mem)
     end
     local holding, invisible = false, g.me.buffs[status.INVISIBLE]
     for _, b in ipairs(engine.BEHAVIORS) do
-        if (b.resting or not g.resting) and (b.invisible or not invisible or b.resting and g.resting)
+        if (b.resting or not g.resting) and (b.invisible or not invisible)
             and cfg[b.setting or b.name].on and (b.quick or not holding) then
             local intent = b.run(g, cat, cfg, mem)
             if intent and intent.hold then

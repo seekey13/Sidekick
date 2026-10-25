@@ -20,8 +20,6 @@
     status     what a buff shows: status name (lowest id with that name wins), id,
                or a list (any one counts). Omitted = the status named like the
                action, else like its family. false = nothing readable.
-    every      the buff gives all of its list of statuses: recast while any is off
-               (Spectral Jig: an action breaks its Invisible, not its Sneak)
     removes    statuses a removal clears
     potency    HP healed per tier, before gear and CatsEyeXI's x1.25: a prior until
                a cast is seen (core/observed.lua)
@@ -389,7 +387,7 @@ local K = {
     -- ponytail: five taken as full; a max finishing move bonus (gear) would allow more.
     ['No Foot Rise'] = { role = 'buff', status = FINISHING_5 },
     ['Presto']       = { role = 'buff', gate = 'combat' },  -- for your next Step, by hand
-    ['Spectral Jig'] = { role = 'buff', gate = 'idle', travel = true, priority = -20, status = { 'Sneak', 'Invisible' }, every = true },
+    ['Spectral Jig'] = { role = 'buff', gate = 'idle', travel = true, priority = -20, status = { 'Sneak', 'Invisible' } },
 
     -- buff: job abilities ---------------------------------------------------------
     ['Composure']  = { role = 'buff', priority = 100 },

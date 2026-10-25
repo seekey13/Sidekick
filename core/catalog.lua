@@ -135,7 +135,7 @@ function catalog.build(res, player, K)
                     ammo = use.ammo, pet_range = use.pet_range, tool = use.tool, last_shadow = use.last_shadow,
                     applies = use.applies, spreads = use.spreads, chip = use.chip, addendum = addendum or nil,
                     lucky = use.lucky, unlucky = use.unlucky, luopan = use.luopan, rune = use.rune,
-                    priority = use.priority or 0, pet = use.pet, travel = use.travel, every = use.every, mob_skill = use.mob_skill,
+                    priority = use.priority or 0, pet = use.pet, travel = use.travel, mob_skill = use.mob_skill,
                     hidden = use.learn ~= nil or nil, first = use.first,
                     -- the client blocks casts by this cost, so it is the one to trust
                     mp = (kind == 'ja' and CHARGES[row.type] or row.type == READY_MOVE) and 0 or row.mp,

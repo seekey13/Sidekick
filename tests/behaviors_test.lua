@@ -323,14 +323,16 @@ test('your own Invisible goes last: members first, your Sneak and other buffs be
     eq({ decide(with({ PROTECT, SNEAK, INVISIBLE }, all), cfg, whm) }, { nil, 'invisible' })
 end)
 
-test('Spectral Jig is used again once either its Sneak or its Invisible is off', function ()
+test('Spectral Jig is used again only once both its Sneak and its Invisible are off', function ()
     local dnc = fake.catalog(19, 75, WHM, 37, { 'Spectral Jig' })
     local cfg = settings.defaults()
     cfg.rows['Spectral Jig'] = { on = true }
+    cfg.rows.Sneak = { on = true, targets = { [0] = true } }
     local g = snap(nil, { main = 19, sub = WHM })
-    eq(decide(g, cfg, dnc), '/ja "Spectral Jig" <me>')
-    eq(decide(under(g, SNEAK), cfg, dnc), '/ja "Spectral Jig" <me>', 'Invisible broken')
-    eq({ decide(under(g, INVISIBLE), cfg, dnc) }, { nil, 'invisible' })
+    eq(decide(g, cfg, dnc), '/ja "Spectral Jig" <me>', 'not Sneak first: the Jig gives it')
+    eq({ decide(under(g, SNEAK), cfg, dnc) }, { nil, 'nothing to do' }, 'Invisible broken: Sneak is still up')
+    g = under(snap(nil, { main = 19, sub = WHM }), INVISIBLE)
+    eq(decide(g, cfg, dnc), '/ma "Sneak" <me>', 'Sneak lost, Invisible up: the Jig would do nothing')
 end)
 
 test('your own Invisible waits for a member\'s Sneak briefly on recast, not a long one', function ()
@@ -348,4 +350,28 @@ test('your own Invisible waits for a member\'s Sneak briefly on recast, not a lo
     local long = g(30)
     long.units[2].buffs[INVISIBLE] = true
     eq(decide(long, cfg, whm), '/ma "Invisible" <me>')
+end)
+
+test('your own Invisible waits at most OTHERS_FIRST seconds for a buff briefly on recast', function ()
+    local cfg = travel_cfg()
+    local mem = {}
+    local g = snap({ { name = 'A', buffs = { [SNEAK] = true, [INVISIBLE] = true } } })
+    g.recast = function (a) return a.name:find('Protect') and 5 or 0 end
+    g.me.buffs[SNEAK] = true
+    eq({ decide(g, cfg, whm, mem) }, { nil, 'nothing to do' }, 'Protect 5s off, A lacks it')
+    g.now = g.now + 14
+    eq({ decide(g, cfg, whm, mem) }, { nil, 'nothing to do' })
+    g.now = g.now + 1
+    eq(decide(g, cfg, whm, mem), '/ma "Invisible" <me>', 'waited long enough')
+    g.recast = function () return 0 end
+    eq(decide(g, cfg, whm, {}), '/ma "Protect IV" <me>')
+    g.recast = function (a) return a.name:find('Protect') and 60 or 0 end
+    eq(decide(g, cfg, whm, {}), '/ma "Invisible" <me>', 'a long recast is not waited for')
+end)
+
+test('resting starts and stops while you are Invisible', function ()
+    local cfg = cfg_with({ ['rest.on'] = true })
+    local g = under(snap(nil, { moved_at = 0 }), INVISIBLE)
+    g.me.mpp = 10
+    eq(decide(g, cfg, whm), '/heal on')
 end)

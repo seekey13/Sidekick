@@ -39,17 +39,10 @@ function can.any(set, ids)
 end
 local any = can.any
 
--- Whether `u` shows none of `a`'s statuses (`ids`, a list, stands in for them
--- when given), or, for one that gives them all (`every`: Spectral Jig), misses
--- any; true for one with no status that can be read (Boost).
-function can.lacks(a, u, ids)
-    ids = ids or a.status
-    if not ids then return true end
-    if a.every then
-        for _, id in ipairs(ids) do if not u.buffs[id] then return true end end
-        return false
-    end
-    return not any(u.buffs, ids)
+-- Whether `u` shows none of `a`'s statuses (`status`, a list, stands in for them
+-- when given); true for one with no status that can be read (Boost).
+function can.lacks(a, u, status)
+    return not (a.status and any(u.buffs, status or a.status))
 end
 
 
