@@ -770,21 +770,42 @@ test('each character\'s pill is red while stopped and green while running', func
     eq(pill_colours(), { u32(kit.P.go), u32(kit.P.go) })
 end)
 
-test('a pill greys while AFK sleep pauses automation, yours and another session\'s, and its tooltip says Asleep', function ()
+test('a pill is blue while something holds automation, yours and another session\'s; its tooltip says what', function ()
     close_settings()
     local cfg, st = widget_cfg(), remote_status({ open = false, running = true })
-    st.sessions.A.running, st.sessions.A.asleep = true, true
+    st.sessions.A.running, st.sessions.A.halted = true, 'mounted'
+    local function blue()
+        local n = 0
+        for _, d in ipairs(calls('AddRectFilled')) do
+            if d.args[3] == u32(kit.P.held) then n = n + 1 end
+        end
+        return n
+    end
     local g = snap()
     g.afk = true
     render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
-    local out = {}
-    for _, d in ipairs(calls('AddRectFilled')) do
-        if d.args[3] == u32(kit.P.asleep) then out[#out + 1] = d end
-    end
-    eq({ #out, tipped('A: Asleep') }, { 2, true })
-    st.sessions.A.running = false  -- stopped: red, whatever its file says of sleep
+    eq({ blue(), tipped('A: Halted (mounted)') }, { 2, true })
+    g.afk, g.mounted = nil, true
     render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
-    eq(tipped('A: Stopped'), true)
+    eq(blue(), 2)
+    g.mounted, g.casting, g.moving = nil, true, true  -- a moment's hold only: still green
+    render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
+    eq(blue(), 1)
+    st.sessions.A.running = false  -- stopped: red, whatever its file says
+    render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
+    eq({ blue(), tipped('A: Stopped') }, { 0, true })
+end)
+
+test('the widget shows every session on this PC from its file, in your party or not', function ()
+    close_settings()
+    local cfg, st = widget_cfg(), remote_status({ open = false })
+    st.sessions.Zed = { running = true, members = { { sid = 950, name = 'Zed' } } }  -- not in any list here
+    render(cfg, st, nil, model.build(snap(), cat, cfg, st, NAMES))
+    eq({ button('##sk3_widget_A_run'), button('##sk3_widget_Zed_run'), tipped('Zed: Running') }, { true, true, true })
+    local g = snap()
+    g.units = { g.units[1] }  -- your party's lines not read yet: A stays
+    render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
+    eq(button('##sk3_widget_A_run'), true)
 end)
 
 test('the widget\'s run button runs this session only; its cog opens and closes Sidekick Settings', function ()

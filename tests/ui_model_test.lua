@@ -579,3 +579,17 @@ test('a remote setting is one of the window\'s, held to its slider\'s range', fu
         eq(cfg[part][key] ~= nil, true, path)
     end
 end)
+
+test('what halts automation, in the engine\'s order, as words; a moment\'s hold (casting, moving) is none', function ()
+    eq({ model.halted({ loading = true }), model.halted({ mounted = true, afk = true }), model.halted({ afk = true }),
+         model.halted({ safe = true }), model.halted({ casting = true, moving = true }) },
+       { 'zoning', 'mounted', 'AFK asleep', 'safe zone', nil })
+end)
+
+test('every other session is listed by name from its file, held only while running', function ()
+    local st = status({ sessions = { B = { running = true, halted = 'mounted', members = { { sid = 2, name = 'B' } } },
+                                     A = { running = false, halted = 'mounted', members = { { sid = 1, name = 'A' } } } },
+                        watching = { B = true } })
+    eq(model.sessions(st), { { name = 'A', running = false, open = false },
+                             { name = 'B', running = true, halted = 'mounted', open = true } })
+end)

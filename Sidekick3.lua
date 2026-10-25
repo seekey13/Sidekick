@@ -473,10 +473,31 @@ local function acts()
     end })
 end
 
+-- The last view built from a snapshot that wasn't loading: while zoning, the widget is drawn from it (never from the
+-- loading snapshot, which holds none of the party), the HUD not at all.
+local good
+
+-- That view while zoning: the HUD closed, your automation as it is now, held by the zone, and the other sessions
+-- as their files say.
+local function zoning_view()
+    local v = {}
+    for k, x in pairs(good) do v[k] = x end
+    v.ui, v.status = {}, {}
+    for k, x in pairs(good.ui) do v.ui[k] = x end
+    for k, x in pairs(good.status) do v.status[k] = x end
+    v.ui.open = false
+    v.status.running = status.running
+    v.status.halted = status.running and 'zoning' or nil
+    v.sessions = model.sessions(status)
+    return v
+end
+
 -- The UI, each frame while open. A Lua error closes it, so it's reported once.
 local function draw(g)
     local ok, err = pcall(function ()
+        if g.loading then return ui.render(zoning_view(), acts()) end
         shown = shown or view(g)
+        good = shown
         ui.render(shown, acts())
     end)
     if ok then return end
@@ -514,6 +535,8 @@ local shared = {
     profiles = function ()
         if cfg then return { active = profiles.active(cfg), names = profiles.names(cfg) } end
     end,
+    -- What holds your automation while it runs (zoning too): the other sessions' widgets turn its pill blue.
+    halted = function () return status.running and model.halted(snap) or nil end,
 }
 
 ashita.events.register('d3d_present', 'sidekick3_present', function ()
@@ -528,8 +551,12 @@ ashita.events.register('d3d_present', 'sidekick3_present', function ()
             if not status.sessions[name] then status.watching[name] = nil end  -- gone: its window closes
         end
     end
-    -- The widget is drawn with the HUD closed too.
-    if (status.open or cfg and cfg.ui.widget and not status.failed) and not g.loading then draw(g) end
+    -- The widget is drawn with the HUD closed too, and while zoning.
+    if not g.loading then
+        if status.open or cfg and cfg.ui.widget and not status.failed then draw(g) end
+    elseif good and cfg and cfg.ui.widget and not status.failed then
+        draw(g)  -- the widget alone, from the last view of the party
+    end
     if unsaved and not imgui.IsAnyItemActive() then
         settings.save()
         unsaved = false

@@ -21,7 +21,7 @@
     from its view.
     The widget (`ui.widget`, `/sk3 widget`) is one row: each character (yours, then
     each other session's) in a pill, green running and red stopped, holding its name,
-    its run button and its cog, `ui.widget_size` pixels high (grey while AFK sleep pauses it); right-click a name to load one of its profiles. It shows with the HUD
+    its run button and its cog, `ui.widget_size` pixels high (blue while something holds it); right-click a name to load one of its profiles. It shows with the HUD
     closed too (`view.ui.open` false), as v2's did.
 
     Ashita's binding: widget values are one-element tables ({ 'text' }), and Text
@@ -366,23 +366,16 @@ local function widget_size(ui)
     return math.min(math.max(math.floor(tonumber(ui and ui.widget_size) or 16), WIDGET_SIZES[1]), WIDGET_SIZES[2])
 end
 
--- The characters the widget shows: you, then each other Sidekick session on a line here (party, tracked or alliance),
--- once each. { name, running, asleep, shown (its Sidekick Settings), profiles (nil while unknown), remote (nil for yours) }.
+-- The characters the widget shows: you, then every other Sidekick session on this PC (view.sessions, by name: from
+-- their files, so a zone leaves them as they were). { name, running, halted, shown (its Sidekick Settings), profiles
+-- (nil while unknown), remote (nil for yours) }.
 local function characters(view)
-    local out, seen = {}, {}
     local me = view.party[1]
-    out[1] = { name = me and me.name or 'You', running = view.status.running, shown = settings_open,
-               asleep = view.status.running and view.afk.asleep or nil,
-               profiles = view.profiles }
-    for _, list in ipairs({ view.party, view.alliance }) do
-        for _, p in ipairs(list) do
-            local r = p.session
-            if r and not seen[r.name] then
-                seen[r.name] = true
-                out[#out + 1] = { name = r.name, running = r.running, asleep = r.asleep, shown = r.open,
-                                  profiles = r.profiles, remote = r }
-            end
-        end
+    local out = { { name = me and me.name or 'You', running = view.status.running, halted = view.status.halted,
+                    shown = settings_open, profiles = view.profiles } }
+    for _, r in ipairs(view.sessions or {}) do
+        out[#out + 1] = { name = r.name, running = r.running, halted = r.halted, shown = r.open, profiles = r.profiles,
+                          remote = r }
     end
     return out
 end
@@ -404,8 +397,8 @@ local function profile_menu(c, id, px)
     end)
 end
 
--- One row on a panel of its own: each character in a pill, green while running (grey while AFK sleep pauses it) and
--- red while stopped, holding its
+-- One row on a panel of its own: each character in a pill, green while running (blue while something holds it: AFK
+-- sleep, a mount, a zone...) and red while stopped, holding its
 -- name, its run button and its cog, `ui.widget_size` pixels high. Right-click a name for its profiles; hover it for
 -- what it's doing.
 local function draw_widget(view)
@@ -431,13 +424,13 @@ local function draw_widget(view)
     for _, c in ipairs(list) do
         local id = c.remote and ('##sk3_widget_' .. c.name) or '##sk3_widget'
         local whose = c.remote and (c.name .. '\'s ') or ''
-        kit.fill(dl, x, y0 + pad, c.pill, pill_h, c.asleep and P.asleep or c.running and P.go or P.halt, pill_h / 2)
+        kit.fill(dl, x, y0 + pad, c.pill, pill_h, c.halted and P.held or c.running and P.go or P.halt, pill_h / 2)
         local nx = x + lead
         kit.text_mid(dl, nx, cy, c.name, P.white, font, h)
         imgui.SetCursorScreenPos({ x, y0 + pad })
         imgui.Dummy({ lead + c.w, pill_h })  -- an item to hover, not a button: the widget still drags by its name
         local menu = id .. '_profiles'
-        local state = c.asleep and 'Asleep' or c.running and 'Running' or 'Stopped'
+        local state = c.halted and ('Halted (%s)'):format(c.halted) or c.running and 'Running' or 'Stopped'
         if imgui.IsItemHovered() then
             if not c.remote then  -- your status's tooltip names the profile already
                 kit.tooltip(status_tip(view) .. '\nRight-click to load a profile.')

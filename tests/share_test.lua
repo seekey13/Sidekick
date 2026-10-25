@@ -48,9 +48,11 @@ test('its profiles read back, Default as no active one; one that won\'t read is 
     eq(share.decode(share.encode({ member(10, 'Box') }, true, 5, { profiles = { active = 3, names = {} } })).profiles, nil)
 end)
 
-test('a session asleep says so', function ()
-    eq(share.decode(share.encode({ member(10, 'Box') }, true, 5, { asleep = true })).asleep, true)
-    eq(share.decode(share.encode({ member(10, 'Box') }, true, 5)).asleep, nil)
+test('what holds a session reads back; nothing, or one that won\'t read, is nil', function ()
+    eq(share.decode(share.encode({ member(10, 'Box') }, true, 5, { halted = 'AFK asleep' })).halted, 'AFK asleep')
+    eq(share.decode(share.encode({ member(10, 'Box') }, true, 5)).halted, nil)
+    local text = share.encode({ member(10, 'Box') }, true, 5):gsub('\nend', '\nhalted 3\nend')
+    eq(share.decode(text).halted, nil)
 end)
 
 test('what its automation just sent reads back, no target when on itself; one that won\'t read is left out', function ()
