@@ -35,9 +35,17 @@ test('a file caught mid-write, empty or of another version reads as nothing', fu
     eq(share.decode(''), nil)
     eq(share.decode(text:sub(1, #text - 12)), nil)  -- the last line cut short
     eq(share.decode(text:sub(1, #text - 6)), nil)   -- cut after the name: the end line is missing
-    eq(share.decode((text:gsub('session 3', 'session 2'))), nil)
-    eq(share.decode('sk3 session 3\n5 0 0\nend\n'), nil)  -- no members
+    eq(share.decode((text:gsub('session 4', 'session 3'))), nil)
+    eq(share.decode('sk3 session 4\n5 0 0\nend\n'), nil)  -- no members
     eq(share.decode((text:gsub('\nend', '\nwhat 1\nend'))), nil)  -- a line of no kind it knows
+end)
+
+test('its profiles read back, Default as no active one; one that won\'t read is left out', function ()
+    local p = { active = 'Two Words', names = { 'Two Words', 'Sky##1' } }
+    eq(share.decode(share.encode({ member(10, 'Box') }, true, 5, { profiles = p })).profiles, p)
+    eq(share.decode(share.encode({ member(10, 'Box') }, true, 5, { profiles = { names = {} } })).profiles, { names = {} })
+    eq(share.decode(share.encode({ member(10, 'Box') }, true, 5)).profiles, nil)
+    eq(share.decode(share.encode({ member(10, 'Box') }, true, 5, { profiles = { active = 3, names = {} } })).profiles, nil)
 end)
 
 test('what its automation just sent reads back, no target when on itself; one that won\'t read is left out', function ()

@@ -387,11 +387,13 @@ local function party(g, cfg, names, sessions)
 end
 
 -- Other Sidekick sessions on this PC (status.sessions, by owner name) by their
--- server id: { name, running, open (its Sidekick Settings shown here) }.
+-- server id: { name, running, open (its Sidekick Settings shown here), profiles = { active, names } }.
 local function by_sid(status)
     local out, watching = {}, status.watching or {}
     for name, s in pairs(status.sessions or {}) do
-        out[s.members[1].sid] = { name = name, running = s.running, open = watching[name] == true }
+        local p = s.profiles or {}
+        out[s.members[1].sid] = { name = name, running = s.running, open = watching[name] == true,
+                                  profiles = { active = p.active, names = p.names or {} } }
     end
     return out
 end

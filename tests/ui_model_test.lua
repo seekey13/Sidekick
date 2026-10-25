@@ -439,7 +439,7 @@ test('a member who is another session says so, running or not and whether its Si
     local st = status({ sessions = sessions(true), watching = { A = true } })
     local view = build(whm, nil, nil, st)
     eq({ view.party[1].session, view.party[2].session, view.party[3].session },
-       { nil, { name = 'A', running = true, open = true }, nil })
+       { nil, { name = 'A', running = true, open = true, profiles = { names = {} } }, nil })
     eq(view.remote, { { name = 'A' } })  -- watched, no view from it yet
     st.views = { A = { job = 'RDM 75', version = model.VIEW } }
     view = build(whm, nil, nil, st)

@@ -86,6 +86,7 @@ local status = {
     running = false,  -- automation on (/sk3 start); never resumed on load
     open = nil,       -- window shown; from cfg.ui.open at the first settings load
     failed = nil,     -- the UI raised an error: not drawn, the widget either, until /sk3 or /sk3 widget
+    widget = nil,     -- the widget is up (cfg.ui.widget, not failed): other sessions' Settings show from it too
     log = false,      -- /sk3 log prints each action to chat; off unless debugging
     intent = nil,     -- the latest decision as a sent-style entry, or nil and...
     why = nil,        -- ...why nothing (a gate, 'nothing to do', 'waiting for a cure')
@@ -509,6 +510,10 @@ local shared = {
         local e = model.landing(status, snap)
         return e and { behavior = e.behavior, action = e.action, target = e.target }
     end,
+    -- Your profiles: the other sessions' widgets list them, to load one here.
+    profiles = function ()
+        if cfg then return { active = profiles.active(cfg), names = profiles.names(cfg) } end
+    end,
 }
 
 ashita.events.register('d3d_present', 'sidekick3_present', function ()
@@ -516,6 +521,7 @@ ashita.events.register('d3d_present', 'sidekick3_present', function ()
     if fresh then
         stale()
         tick(g)
+        status.widget = cfg and cfg.ui.widget and not status.failed  -- its cogs show other sessions' Settings too
         status.sessions = share.tick(g, g.now, status, shared)
         status.views = share.views
         for name in pairs(status.watching) do

@@ -19,9 +19,10 @@
     So does the card of a player who is another Sidekick session on this PC: its
     buttons start and stop that session and open its own Sidekick Settings, drawn here
     from its view.
-    The widget (`ui.widget`, `/sk3 widget`) is v2's floating one: the profile loaded
-    and the job, then Start/Stop, the state, Settings and Track for your target. It
-    shows with the HUD closed too (`view.ui.open` false), as v2's did.
+    The widget (`ui.widget`, `/sk3 widget`) is one row: each character's name (yours,
+    then each other session's), its run button and its cog, `ui.widget_size` pixels
+    high; right-click a name to load one of its profiles. It shows with the HUD
+    closed too (`view.ui.open` false), as v2's did.
 
     Ashita's binding: widget values are one-element tables ({ 'text' }), and Text
     takes a printf format (kit.esc doubles any '%'). Draw-list text and kit.tooltip's
@@ -358,68 +359,88 @@ end
 
 local WIDGET_FLAGS = ImGuiWindowFlags_NoTitleBar + ImGuiWindowFlags_NoResize + ImGuiWindowFlags_AlwaysAutoResize
     + ImGuiWindowFlags_NoScrollbar + ImGuiWindowFlags_NoScrollWithMouse + ImGuiWindowFlags_NoBackground
-local STATES = { 'Stopped', 'Running', 'Asleep' }
+local WIDGET_SIZES = { 10, 48 }  -- view.ui.widget_size's range: its text and icons' height, in pixels
 
--- The state alone, so the widget keeps its width and Track its place: the rest,
--- what it does or why it waits, is the tooltip, as the HUD title's.
-local function short_status(view)
-    local s = view.status
-    if not s.running then return 'Stopped', P.dim end
-    if view.afk.asleep then return 'Asleep', P.dim end
-    return 'Running', s.dim and P.dim or P.teal
+local function widget_size(ui)
+    return math.min(math.max(math.floor(tonumber(ui and ui.widget_size) or 16), WIDGET_SIZES[1]), WIDGET_SIZES[2])
 end
 
--- On a panel of its own, sized as Sidekick Settings is: the profile loaded in a drop-down (its list loads one), then the
--- job; Start/Stop, the state, Settings, then Track for your target.
-local function draw_widget(view)
-    local p, s, t = view.profiles, view.status, view.track.target
-    local dl = imgui.GetWindowDrawList()
-    local x0, y0 = imgui.GetCursorScreenPos()
-    local pad, gap, row, px = S(10), S(8), S(30), S(SMALL + 0.5)
-    local shown = p.active or 'Default'
-    local pick_w = math.min(S(200), math.max(S(110), kit.measure(shown, kit.fonts.text, px) + S(40)))
-    local state, color = short_status(view)
-    local state_w = 0
-    for _, w in ipairs(STATES) do state_w = math.max(state_w, kit.measure(w, kit.fonts.text, px)) end
-    state_w = state_w + S(12)  -- its dot
-    local run, track_label = s.running and 'Stop' or 'Start', t and ('Track ' .. t)
-    local top = pick_w + gap + kit.measure(view.job, kit.fonts.text, px)
-    local bottom = kit.button_width(run) + gap + state_w + gap + kit.button_width('Settings')
-        + (t and gap + kit.button_width(track_label) or 0)
-    local pw, ph = math.ceil(pad * 2 + math.max(top, bottom)), pad * 2 + row * 2
-    kit.fill(dl, x0, y0, pw, ph, P.bg, S(6))
-    kit.outline(dl, x0, y0, pw, ph, P.border, S(6))
+-- The characters the widget shows: you, then each other Sidekick session on a line here (party, tracked or alliance),
+-- once each. { name, running, shown (its Sidekick Settings), profiles, act (the session's own), remote (nil for yours) }.
+local function characters(view)
+    local out, seen = {}, {}
+    local me = view.party[1]
+    out[1] = { name = me and me.name or 'You', running = view.status.running, shown = settings_open,
+               profiles = view.profiles, act = act }
+    for _, list in ipairs({ view.party, view.alliance }) do
+        for _, p in ipairs(list) do
+            local r = p.session
+            if r and not seen[r.name] then
+                seen[r.name] = true
+                out[#out + 1] = { name = r.name, running = r.running, shown = r.open,
+                                  profiles = r.profiles or { names = {} }, act = act.remote(r.name), remote = r }
+            end
+        end
+    end
+    return out
+end
 
-    local x, cy = x0 + pad, y0 + pad + row / 2
-    local hovered = kit.dropdown('##sk3_widget_profile', x, cy, pick_w, shown, true, 1, function ()
-        if imgui.Selectable('Default##sk3_widget_profile_default', p.active == nil) then act.profile(nil) end
-        for i, name in ipairs(p.names) do  -- over a blank row, so a name with '##' in it shows whole
+-- A character's profiles, right-clicking its name: Default, then each saved; a click loads it there.
+local function profile_menu(c, id)
+    kit.popup(id, S(BODY - 1), function ()
+        local p = c.profiles
+        if imgui.Selectable('Default' .. id .. '_default', p.active == nil) then c.act.profile(nil) end
+        for i, name in ipairs(p.names or {}) do  -- over a blank row, so a name with '##' in it shows whole
             local sx = imgui.GetCursorPosX()
-            if imgui.Selectable('##sk3_widget_profile_' .. i, name == p.active) then act.profile(name) end
+            if imgui.Selectable(id .. '_' .. i, name == p.active) then c.act.profile(name) end
             imgui.SameLine(sx)
             imgui.Text(kit.esc(name))
         end
     end)
-    if hovered then kit.tooltip(shown .. '\nLoad a profile. Sidekick Settings saves them.') end
-    kit.text_mid(dl, x + pick_w + gap, cy, view.job, P.text2, kit.fonts.text, px)
+end
 
-    x, cy = x0 + pad, cy + row
-    local clicked, bw = kit.button('##sk3_widget_run', x, cy, run, s.running and 'accent' or 'ghost')
-    kit.tip(run .. ' automation')
-    if clicked then act.run(not s.running) end
-    x = x + bw + gap
-    kit.circle(dl, x + S(3), cy, S(3), s.running and color or P.faint)
-    kit.text_mid(dl, x + S(12), cy, state, color, kit.fonts.text, px)
-    imgui.SetCursorScreenPos({ x, cy - row / 2 })
-    imgui.Dummy({ state_w, row })
-    kit.tip(status_tip(view))
-    x = x + state_w + gap
-    clicked, bw = kit.button('##sk3_widget_settings', x, cy, 'Settings', settings_open and 'accent' or 'ghost')
-    kit.tip('Open or close Sidekick Settings')
-    if clicked then settings_open = not settings_open end
-    if t then
-        if kit.button('##sk3_widget_track', x + bw + gap, cy, track_label, 'ghost') then act.track(t) end
-        kit.tip('Heal, clear, raise and buff them too, with what reaches outside the party. This session only.')
+-- One row on a panel of its own: each character's name, its run button and its cog, `ui.widget_size` pixels high.
+-- Right-click a name for its profiles; hover it for what it's doing.
+local function draw_widget(view)
+    local dl = imgui.GetWindowDrawList()
+    local x0, y0 = imgui.GetCursorScreenPos()
+    local h = widget_size(view.ui)
+    local pad, gap, apart = math.floor(h * 0.5 + 0.5), math.floor(h * 0.3 + 0.5), h
+    local list, font = characters(view), kit.fonts.semi
+    local pw = pad * 2 - apart
+    for _, c in ipairs(list) do
+        c.w = math.ceil(kit.measure(c.name, font, h))
+        pw = pw + c.w + gap + h + gap / 2 + h + apart
+    end
+    local ph = h + pad
+    kit.fill(dl, x0, y0, pw, ph, P.bg, math.floor(h * 0.35))
+    kit.outline(dl, x0, y0, pw, ph, P.border, math.floor(h * 0.35))
+
+    local x, cy = x0 + pad, y0 + ph / 2
+    for _, c in ipairs(list) do
+        local id = c.remote and ('##sk3_widget_' .. c.name) or '##sk3_widget'
+        local whose = c.remote and (c.name .. '\'s ') or ''
+        kit.text_mid(dl, x, cy, c.name, P.text, font, h)
+        imgui.SetCursorScreenPos({ x, y0 })
+        imgui.Dummy({ math.max(1, c.w), ph })  -- an item to hover, not a button: the widget still drags by its name
+        local menu = id .. '_profiles'
+        if imgui.IsItemHovered() then
+            local line = ('Profile: %s\nRight-click to load another.'):format(c.profiles.active or 'Default')
+            kit.tooltip((c.remote and ('%s: %s'):format(c.name, c.running and 'Running' or 'Stopped')
+                or status_tip(view)) .. '\n' .. line)
+            if imgui.IsMouseClicked(1) then imgui.OpenPopup(menu) end
+        end
+        profile_menu(c, menu)
+        x = x + c.w + gap
+        local clicked = disc_button(id .. '_run', x, cy - h / 2, h, c.running and 'stop' or 'play', c.running,
+            (c.running and 'Stop ' or 'Start ') .. whose .. 'automation')
+        if clicked then c.act.run(not c.running) end
+        x = x + h + gap / 2
+        local cog = disc_button(id .. '_cog', x, cy - h / 2, h, 'cog', c.shown,
+            c.remote and ('Settings for ' .. c.name) or 'Open or close Sidekick Settings')
+        if cog and c.remote then act.watch(c.name, not c.shown)
+        elseif cog then settings_open = not settings_open end
+        x = x + h + apart
     end
     imgui.SetCursorScreenPos({ x0, y0 + ph - 1 })
     imgui.Dummy({ pw, 1 })  -- the panel's full size, for the auto-size
@@ -966,11 +987,13 @@ local function draw_ui(view, pg)
     switch(pg, 'Lock position', 'ui.locked', view.ui.locked == true,
         'Keep the HUD and the widget where they are: dragging them no longer moves them.')
     switch(pg, 'Widget', 'ui.widget', view.ui.widget == true,
-        'A small window of its own: the profile loaded (pick another to load it) and your job, then Start/Stop, '
-        .. 'the state, Settings, and Track for your target. Up with the HUD closed too. Also /sk3 widget.')
+        'One row of its own: each character\'s name (yours, then each other Sidekick session\'s), its Start/Stop and its '
+        .. 'Settings. Right-click a name to load a profile. Up with the HUD closed too. Also /sk3 widget.')
+    slider(pg, 'Widget size', 'ui.widget_size', widget_size(view.ui), 'Pixels: the widget\'s text and icons\' height.',
+        'px', WIDGET_SIZES)
     subheader(pg, 'Sidekick Settings')
     slider(pg, 'Size', 'ui.scale', ui_scale(view.ui),
-        'This window\'s size and the widget\'s, % of the size that suits your screen. Taken up once the slider is let go.', '%', { 50, 200 })
+        'This window\'s size, % of the size that suits your screen. Taken up once the slider is let go.', '%', { 50, 200 })
     subheader(pg, 'LOG')
     draw_recent(view, pg)
     subheader(pg, 'CLIENT')
@@ -1366,7 +1389,7 @@ function window.render(view, act_)
     end
     kit.prefix = ''
     if settings_open then err = settings_window(view) or err end
-    if open then
+    if open or view.ui.widget then  -- the widget's cogs open them too
         for i, r in ipairs(view.remote or {}) do
             kit.prefix = r.name .. '|'
             err = remote_window(r, i) or err

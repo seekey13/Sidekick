@@ -7,6 +7,7 @@
                 members = { you first, then your party's players (trusts left out):
                             { sid, name, main, main_lv, sub, sub_lv, hpp, hp, max_hp, mpp, mp, here } },
                 act = { behavior, action, target } or nil,
+                profiles = { active (nil for Default), names } or nil: the widget lists them to load,
                 watch, calls, acks (remote control, below) }
     max_hp is 0 when unknown: a member not yet seen at full HP. `here`: in the
     owner's zone, so their HP is current (a member elsewhere has stale HP).
@@ -47,7 +48,7 @@ local share = {
     PRUNE = 3600,   -- seconds after which a file no one wrote (a crashed session's) is deleted
 }
 
-local VERSION = 'sk3 session 3'
+local VERSION = 'sk3 session 4'
 
 -- Plain data (strings, numbers, booleans and tables of them) as one line of text,
 -- and back: `act` calls and views go through files. Read with a parser of its
@@ -109,7 +110,8 @@ end
 local sorted_keys = util.sorted_keys
 
 -- The file's text for a roster (share.roster), whether it runs, and the os.time()
--- written at. `extra` (optional): { epoch, act = { behavior, action, target }, watch = { [name] = true },
+-- written at. `extra` (optional): { epoch, act = { behavior, action, target }, profiles = { active, names },
+-- watch = { [name] = true },
 -- calls (share.queue's list), acks = { [sender] = { epoch, n } } }.
 function share.encode(members, running, heartbeat, extra)
     extra = extra or {}
@@ -120,6 +122,7 @@ function share.encode(members, running, heartbeat, extra)
             m.here and 1 or 0, m.name)
     end
     if extra.act then lines[#lines + 1] = 'act ' .. share.pack(extra.act) end
+    if extra.profiles then lines[#lines + 1] = 'profiles ' .. share.pack(extra.profiles) end
     for _, name in ipairs(sorted_keys(extra.watch)) do lines[#lines + 1] = 'watch ' .. name end
     for _, c in ipairs(extra.calls or {}) do
         lines[#lines + 1] = ('do %s %d %d %s'):format(c.to, c.epoch, c.n, share.pack(c.call))
@@ -132,6 +135,17 @@ function share.encode(members, running, heartbeat, extra)
     return table.concat(lines, '\n') .. '\n'
 end
 
+-- A `profiles` line's value as { active, names }; nil when it isn't one.
+local function profile_list(t)
+    if type(t) ~= 'table' or type(t.names) ~= 'table' then return nil end
+    if t.active ~= nil and type(t.active) ~= 'string' then return nil end
+    local names = {}
+    for _, name in ipairs(t.names) do
+        if type(name) == 'string' then names[#names + 1] = name end
+    end
+    return { active = t.active, names = names }
+end
+
 -- An `act` line's value as { behavior, action, target }; nil when it isn't one.
 local function action(t)
     if type(t) ~= 'table' or type(t.behavior) ~= 'string' or type(t.action) ~= 'string' then return nil end
@@ -140,7 +154,7 @@ local function action(t)
 end
 
 -- A session from a file's text; nil for none, another version, or one caught mid-write.
--- Besides share.encode's fields: act (nil for none), watch = { [name] = true },
+-- Besides share.encode's fields: act and profiles (nil for none), watch = { [name] = true },
 -- calls = { { to, epoch, n, call } }, acks = { [sender] = { epoch, n } }.
 function share.decode(text)
     if not text then return nil end
@@ -155,6 +169,7 @@ function share.decode(text)
         local line = lines[i]
         local f = { line:match('^(%d+) (%d+) (%d+) (%d+) (%d+) (%d+) (%d+) (%d+) (%d+) (%d+) ([01]) (.+)$') }
         local acted = line:match('^act (.+)$')
+        local listed = line:match('^profiles (.+)$')
         local watch = line:match('^watch (%S+)$')
         local to, to_epoch, n, call = line:match('^do (%S+) (%d+) (%d+) (.+)$')
         local from, from_epoch, acked = line:match('^ack (%S+) (%d+) (%d+)$')
@@ -166,6 +181,8 @@ function share.decode(text)
             }
         elseif acted then  -- one that won't read is left out, as a call
             s.act = action(share.unpack(acted))
+        elseif listed then
+            s.profiles = profile_list(share.unpack(listed))
         elseif watch then
             s.watch[watch] = true
         elseif to then  -- one that won't read is skipped: the next call's ack covers its number
@@ -457,10 +474,11 @@ end
 -- automation runs), and at once when what your automation does changes. `g` is the snapshot
 -- (a loading one republishes the last roster, so a
 -- zone isn't taken for a session gone, for LOADING seconds: past that, as after a
--- logout, your file is deleted). `status` gives `running`, `open` and `watching` (the
--- sessions whose Sidekick Settings you have open: watched only while the HUD is); `hooks.apply(from, call)` applies a
--- call another session sent (never while loading), `hooks.view()` builds the view
--- a watcher draws, `hooks.act()` gives what your automation just sent while it lands, or nil.
+-- logout, your file is deleted). `status` gives `running`, `open`, `widget` and `watching` (the
+-- sessions whose Sidekick Settings you have open: watched only while the HUD or the widget is); `hooks.apply(from, call)`
+-- applies a call another session sent (never while loading), `hooks.view()` builds the view
+-- a watcher draws, `hooks.act()` gives what your automation just sent while it lands, or nil,
+-- and `hooks.profiles()` (optional) your profiles, { active, names }, for the others' widgets.
 function share.tick(g, clock, status, hooks)
     local act = not g.loading and hooks.act() or nil
     local packed = act and share.pack(act) or ''
@@ -486,11 +504,13 @@ function share.tick(g, clock, status, hooks)
     for from, a in pairs(applied) do
         if live[from] then acks[from] = a end
     end
-    for name in pairs(status.open and status.watching or {}) do
+    local shown = status.open or status.widget
+    for name in pairs(shown and status.watching or {}) do
         if live[name] then watch[name] = true end
     end
     local text = share.encode(roster, status.running, os.time(),
-        { epoch = share.epoch, act = act, watch = watch, calls = pending, acks = acks })
+        { epoch = share.epoch, act = act, profiles = hooks.profiles and hooks.profiles() or nil, watch = watch,
+          calls = pending, acks = acks })
     acted = packed  -- one that fails to write goes at the next tick, not at every read until it's written
     if text == written or write(path(me), text) then mine, written = me, text end
     local watched, called = share.watched(live, me)
@@ -502,7 +522,7 @@ function share.tick(g, clock, status, hooks)
     read_views(watch, live)
     local running = false  -- another session's automation: while your HUD shows, read as it acts
     for _, s in pairs(live) do running = running or s.running end
-    if pending[1] or next(watch) or watched or called or status.open and running then next_at = clock + share.FAST end
+    if pending[1] or next(watch) or watched or called or shown and running then next_at = clock + share.FAST end
     if g.loading then return live end
     local listed = {}
     for _, u in ipairs(g.units) do
