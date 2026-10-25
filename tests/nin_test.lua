@@ -76,7 +76,7 @@ test('Tonko and Monomi are idle only, and go while you are Invisible', function 
     eq(decide(snap(items), cfg), '/ma "Monomi: Ichi" <me>')  -- Sneak before Invisible, as v2
     eq(decide(snap(items, { INVISIBLE }), cfg), '/ma "Monomi: Ichi" <me>')
     eq(decide(snap(items, { 71 }), cfg), '/ma "Tonko: Ni" <me>')
-    eq({ decide(snap({ [TABI] = 1 }, { INVISIBLE }), cfg) }, { nil, 'nothing to do' }, 'no Sanjaku-tenugui')
+    eq({ decide(snap({ [TABI] = 1 }, { INVISIBLE }), cfg) }, { nil, 'invisible' }, 'no Sanjaku-tenugui')
     eq({ decide(snap(items, nil, { combat = true }), cfg) }, { nil, 'nothing to do' })
 end)
 

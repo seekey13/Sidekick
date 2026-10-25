@@ -14,14 +14,13 @@
     and no total older than the last send is doubled. A new roll waits until
     the last one is settled, so its chase isn't cut short; while it waits,
     mem.busy_until keeps resting from starting (behaviors/rest.lua).
-    Nothing goes while you're Invisible (a roll would break it), as buffs.
+    Nothing goes while you're Invisible (core/engine.lua).
     With buff.hold_aoe on, a roll is held like an area buff spell until the
     party's players who lack it are inside its area (the DAT's, about 8 yalms).
 ]]--
 
 local buff = require('behaviors.buff')
 local can = require('core.can')
-local status = require('core.status')
 
 local cor = {}
 
@@ -119,7 +118,6 @@ function cor.want(g, cat, cfg, mem)
     mem.cor = st
     local fold, double, snake = named(cat, 'Fold'), named(cat, 'Double-Up'), named(cat, 'Snake Eye')
     local buffs = g.me.buffs
-    if buffs[status.INVISIBLE] then return nil end
 
     -- A Bust takes a roll's place until it wears; Fold frees it at once.
     if buffs[BUST] and ready(fold, g) then return { action = fold, why = 'Bust' } end

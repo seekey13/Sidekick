@@ -45,6 +45,7 @@ function can.lacks(a, u, status)
     return not (a.status and any(u.buffs, status or a.status))
 end
 
+
 -- Yalms between two units (or a unit and the pet); unknown positions are far apart.
 function can.dist(a, b)
     if a == b then return 0 end

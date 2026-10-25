@@ -178,7 +178,7 @@ test('the songs on one member: only one there, alive and in reach; nothing while
     g = snap({ player({ name = 'A', dist = 18 }) }, { PIANISSIMO })
     eq(decide(g, cfg), '/ma "Mage\'s Ballad II" 101')
     g = snap({ player({ name = 'A' }) }, { PIANISSIMO, INVISIBLE })
-    eq(select(2, decide(g, cfg)), 'nothing to do')
+    eq(select(2, decide(g, cfg)), 'invisible')
 end)
 
 test('Hold area buffs: an area song waits for a player who lacks it, the songs on one member with it', function ()

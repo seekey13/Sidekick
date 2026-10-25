@@ -8,6 +8,13 @@
     The first intent wins. A behavior returning { hold = true } (a cure nearly off
     recast) lets only the quick behaviors after it run until the cure goes out.
     While you rest, only resting runs: it alone decides when to stand.
+    While you're Invisible, which any action breaks, only the behaviors marked
+    `invisible` run: healing, for a member under their danger line alone, and
+    buffs, for the travel buffs alone (Sneak, Invisible, Tonko, Monomi, Spectral
+    Jig). Following and resting go on (resting doesn't break it). Sneak
+    breaks on nothing, so it stops nothing. Your own Invisible goes last of all
+    (buff.last), once everything else, members' travel buffs too, is done, or
+    briefly waited for.
     A buff held for the group to gather (behaviors/buff.lua) leaves mem.gather,
     which engine.gather turns into a party chat line.
     An intent may name a status of yours to cancel a moment into its cast
@@ -26,17 +33,19 @@
 local buff = require('behaviors.buff')
 local can = require('core.can')
 local pet = require('behaviors.pet')
+local status = require('core.status')
 local util = require('core.util')
 
 local engine = {}
 
 -- Priority order. `quick` behaviors still run while a cure is held for; `setting`
 -- is the cfg table whose `on` switches it, when not its name; `shown` the name its
--- intents go by (the HUD's 'Buff:', the log), when not its own.
+-- intents go by (the HUD's 'Buff:', the log), when not its own; `invisible` ones
+-- still run while you're Invisible (each narrows itself then).
 engine.BEHAVIORS = {
     -- Light Arts: ahead of healing, which is cheaper under it, but for a critical member (behaviors/buff.lua).
-    { name = 'first', run = buff.first, setting = 'buff', shown = 'buff' },
-    { name = 'heal', run = require('behaviors.heal').want },
+    { name = 'first', run = buff.first, setting = 'buff', shown = 'buff', invisible = true },
+    { name = 'heal', run = require('behaviors.heal').want, invisible = true },
     { name = 'remove', run = require('behaviors.remove'), quick = true },
     { name = 'wake', run = require('behaviors.wake'), quick = true },
     { name = 'recover', run = require('behaviors.recover') },
@@ -45,12 +54,14 @@ engine.BEHAVIORS = {
     { name = 'roll', run = require('jobs.cor').want },
     { name = 'rune', run = require('jobs.run').want, quick = true },
     { name = 'geo', run = require('jobs.geo').want },
-    { name = 'buff', run = buff.want },
+    { name = 'buff', run = buff.want, invisible = true },
     { name = 'song', run = require('jobs.brd').want },
     { name = 'pet_send', run = pet.send, setting = 'pet', quick = true },
     { name = 'maneuver', run = require('jobs.pup').want, quick = true },
-    { name = 'follow', run = require('behaviors.follow').want },
-    { name = 'rest', run = require('behaviors.rest'), resting = true },
+    -- Your own Invisible (Tonko, Spectral Jig): nothing else goes under it (behaviors/buff.lua).
+    { name = 'last', run = buff.last, setting = 'buff', shown = 'buff', invisible = true },
+    { name = 'follow', run = require('behaviors.follow').want, invisible = true },
+    { name = 'rest', run = require('behaviors.rest'), resting = true, invisible = true },
 }
 
 local GATES = { 'loading', 'dead', 'mounted', 'safe', 'afk', 'incapacitated', 'casting', 'moving' }
@@ -96,9 +107,10 @@ function engine.decide(g, cat, cfg, mem)
     for _, gate in ipairs(GATES) do
         if g[gate] then return nil, gate end
     end
-    local holding = false
+    local holding, invisible = false, g.me.buffs[status.INVISIBLE]
     for _, b in ipairs(engine.BEHAVIORS) do
-        if (b.resting or not g.resting) and cfg[b.setting or b.name].on and (b.quick or not holding) then
+        if (b.resting or not g.resting) and (b.invisible or not invisible)
+            and cfg[b.setting or b.name].on and (b.quick or not holding) then
             local intent = b.run(g, cat, cfg, mem)
             if intent and intent.hold then
                 holding = true
@@ -113,7 +125,8 @@ function engine.decide(g, cat, cfg, mem)
     local away = w and (w.who.dist and ('%.1fy away'):format(w.who.dist) or 'not in sight')
     return nil, g.resting and 'resting' or holding and 'waiting for a cure'
         or w and ('holding %s: %s %s'):format(w.action.name, w.who.name, away)
-        or h and ('holding %s for %s'):format(h.action.name, h.mod.name) or 'nothing to do'
+        or h and ('holding %s for %s'):format(h.action.name, h.mod.name)
+        or invisible and 'invisible' or 'nothing to do'
 end
 
 -- The party chat line asking everyone to gather for the buff held on this

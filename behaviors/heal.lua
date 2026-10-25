@@ -10,7 +10,8 @@
       efficient  from the danger line to heal.threshold: HP that lands where it's needed,
                  per share of the MP or TP you have; Regen allowed, and counted while it
                  ticks; never a Ready move, whose charges are kept for the pet's attacks.
-                 Over the threshold, missing HP is left be
+                 Over the threshold, missing HP is left be. Not while you're Invisible:
+                 any action breaks it, so then only critical and danger heal
     The focus member has its own three lines; skipped members count for nothing,
     and so do the alliance's other parties unless heal.alliance is on.
     An area heal lands on the target's party alone, so each party is scored on
@@ -342,9 +343,10 @@ function heal.want(g, cat, cfg)
     end
     for _, u in ipairs(g.units) do ctx.regen_for[u] = regen_for(u, ctx) end
 
+    local invisible = g.me.buffs[status.INVISIBLE]
     for _, band in ipairs(BANDS) do
         local members, list = members_of(band, ctx)
-        if list[1] then
+        if list[1] and not (invisible and band == 'efficient') then
             local best = best_of(band, ctx, ready, members)
             local e = band == 'critical' and not ctx.factor_up and emergency(ctx, list, best, emergencies, ready, members)
             if e then return e end

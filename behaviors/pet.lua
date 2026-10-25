@@ -2,7 +2,7 @@
     Your pet: heal it under the pet HP line and clear what ails it (care), and
     send it at your battle target when it isn't fighting (send, opt-in per row:
     Assault, Fight, Deploy). Both go out as /ja or /pet on <me> or <bt>, never
-    while you're Invisible.
+    while you're Invisible (core/engine.lua).
     A care row that needs ammo worn (Repair's and Maintenance's oil, Reward's pet
     food) and would go with it first equips it (core/ammo.lua), and the next row
     waits while it goes on.
@@ -11,7 +11,6 @@
 local ammo = require('core.ammo')
 local can = require('core.can')
 local settings = require('core.settings')
-local status = require('core.status')
 local util = require('core.util')
 
 local ENGAGED = 1  -- entity status
@@ -34,7 +33,7 @@ end
 
 function pet.care(g, cat, cfg, mem)
     local p = g.pet
-    if not p or p.hpp == 0 or g.me.buffs[status.INVISIBLE] then return nil end
+    if not p or p.hpp == 0 then return nil end
     if p.hpp < cfg.pet.heal then
         for _, a in ipairs(rows(cat, cfg, 'pet_heal')) do
             if can.spare_hp(a, g, cfg) then
@@ -53,9 +52,7 @@ end
 
 function pet.send(g, cat, cfg)
     local p, bt = g.pet, g.bt
-    if not p or p.hpp == 0 or p.status == ENGAGED or not (bt and bt.mob and bt.hpp > 0) or g.me.buffs[status.INVISIBLE] then
-        return nil
-    end
+    if not p or p.hpp == 0 or p.status == ENGAGED or not (bt and bt.mob and bt.hpp > 0) then return nil end
     for _, a in ipairs(settings.enabled(cat, cfg, 'pet_send')) do
         if can.use(a, g) then return { action = a, why = ('%s at %s'):format(p.name, bt.name) } end
     end

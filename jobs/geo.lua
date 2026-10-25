@@ -20,12 +20,11 @@
     it, once you're within RADIUS of it. A dear one is recalled first (Full Circle
     gives MP back) and a Geo-Voidance put down on you to spend instead, as v2;
     begun, that sequence keeps the slot for SEQUENCE seconds, whatever your MP does.
-    Nothing goes while you're Invisible.
+    Nothing goes while you're Invisible (core/engine.lua).
 ]]--
 
 local can = require('core.can')
 local settings = require('core.settings')
-local status = require('core.status')
 local util = require('core.util')
 
 local geo = {}
@@ -147,7 +146,7 @@ local function entrust(g, cat, cfg)
 end
 
 function geo.want(g, cat, cfg, mem)
-    if g.main ~= geo.JOB or g.me.buffs[status.INVISIBLE] then return nil end
+    if g.main ~= geo.JOB then return nil end
     local st = state(g, mem)
     if st.arcana and not (cfg.recover.on and arcana_on(cat, cfg)) then st.arcana = nil end
     if st.arcana then return nil end  -- the slot is Radial Arcana's (geo.arcana)
@@ -196,7 +195,6 @@ end
 
 -- Radial Arcana `a` (a recover row) for behaviors/recover.lua: what to send for it now, or nil.
 function geo.arcana(a, g, cat, cfg, mem)
-    if g.me.buffs[status.INVISIBLE] then return nil end
     local st = state(g, mem)
     local ok, why = can.use(a, g)
     if not st.arcana then

@@ -24,6 +24,17 @@
     equips it (core/ammo.lua). Ninjutsu wait for their tools, and Utsusemi may be
     recast at its last shadow (jobs/nin.lua).
     Bard's songs are jobs/brd.lua's and Corsair's rolls jobs/cor.lua's.
+    While you're Invisible only travel buffs go (core/engine.lua), and any
+    action breaks it, so a buff that makes you Invisible (Invisible, Tonko,
+    Spectral Jig) goes on you last of all (buff.last, run by the engine after
+    every other behavior): members' travel buffs and your Sneak go first, and
+    one a member loses while you're Invisible is put back on them before yours.
+    Yours waits, too, while other work is pending (a buff someone lacks briefly
+    on recast, one held for the group or for its modifier, a roll being
+    doubled), so that work isn't shut out by it or doesn't break it right
+    after: at most OTHERS_FIRST seconds, then it goes anyway. Your own Sneak
+    isn't cast while a buff that makes you Invisible and gives Sneak too
+    (Spectral Jig) is due on you.
     A row whose action goes `first` (Light Arts, Addendum: White) is also
     buff.first's: the engine runs it ahead of healing, since healing is cheaper
     or only possible under it, except while someone is under their critical
@@ -41,6 +52,7 @@ local status = require('core.status')
 local buff = {}
 
 local AREA_RADIUS = 10  -- yalms around you
+local OTHERS_FIRST = 15  -- seconds your own Invisible waits at most for other work pending
 local lacks = can.lacks
 
 -- Each row's action, best tier first, highest priority rows first.
@@ -133,22 +145,48 @@ local function held(c, acc, spreads, g, cfg)
     if spare and charges > spare then return first end
 end
 
--- The first row's intent that is due: of every row, or (`first`) those that go first.
-local function due(g, cat, cfg, mem, first)
+-- Whether `a` makes whoever it lands on Invisible.
+local function veils(a) return can.holds(a.status or {}, status.INVISIBLE) end
+
+-- Whether a buff that makes you Invisible and is due on you gives all of `a`'s
+-- statuses too (Spectral Jig gives Sneak): `a` then needn't go on you first.
+local function covered(a, list, g)
+    if veils(a) or not a.status then return false end
+    for _, c in ipairs(list) do
+        local v = c.action
+        if veils(v) and can.self_only(v) and lacks(v, g.me) then
+            local all = true
+            for _, id in ipairs(a.status) do all = all and can.holds(v.status, id) end
+            if all then return true end
+        end
+    end
+    return false
+end
+
+-- The first row's intent that is due, at `stage`: 'first', the rows that go
+-- first; 'want', every row, but never what makes you Invisible; 'last', just that.
+local function due(g, cat, cfg, mem, stage)
     local invisible = g.me.buffs[status.INVISIBLE]
     local hold = cfg.buff.hold_aoe
     local rows = {}
-    for _, c in ipairs(chosen(cat, cfg, g)) do
-        if not first or c.action.first then rows[#rows + 1] = c end
+    local list = chosen(cat, cfg, g)
+    for _, c in ipairs(list) do
+        local veil = veils(c.action)
+        if stage == 'first' and c.action.first or stage == 'want' or stage == 'last' and veil then
+            c.on_me = (not veil or stage == 'last') and not covered(c.action, list, g)  -- may go on you
+            c.on_others = stage ~= 'last'
+            rows[#rows + 1] = c
+        end
     end
     for _, c in ipairs(rows) do
         local a = c.action
-        if (a.travel or not invisible) and a.ammo and can.self_only(a) and lacks(a, g.me) and not can.use(a, g) then
+        if (a.travel or not invisible) and c.on_me and a.ammo and can.self_only(a) and lacks(a, g.me) and not can.use(a, g) then
             local intent = ammo.equip(a, g, cfg, mem, ('%s lacks it'):format(g.me.name))
             if intent then return intent end
         end
         if (a.travel or not invisible) and can.use(a, g) and sch.spare(a, g, cfg) then
             local acc, mods = spreading(c, g, cfg)
+            if not c.on_me then acc = nil end  -- a spread lands on you too
             -- Accession on, and someone near you it would reach lacks it (for a
             -- self-only spell, someone but you: on you alone it needs no spread).
             local spreads = false
@@ -182,7 +220,7 @@ local function due(g, cat, cfg, mem, first)
                     end
                 elseif can.self_only(a) then
                     local shadows = nin.shadows(a, cfg)
-                    if lacks(a, g.me, shadows) then
+                    if c.on_me and lacks(a, g.me, shadows) then
                         local up = shadows and g.me.buffs[a.last_shadow]
                         local last = up and a.tier == 1 and a.last_shadow or nil  -- Ichi alone needs it gone
                         local why = up and '%s: one shadow left' or '%s lacks it'
@@ -190,7 +228,9 @@ local function due(g, cat, cfg, mem, first)
                     end
                 else
                     for _, u in ipairs(g.units) do
-                        if c.targets[u.slot or u.name] and can.reach(a, u) and lacks(a, u) then
+                        local mine = u.kind == 'self'
+                        if (mine and c.on_me or not mine and c.on_others) and c.targets[u.slot or u.name]
+                            and can.reach(a, u) and lacks(a, u) then
                             return { action = a, target = u, mods = mods, why = u.name }
                         end
                     end
@@ -202,8 +242,46 @@ end
 
 function buff.first(g, cat, cfg, mem)
     if cfg.heal.on and heal.critical(g, cfg) then return nil end
-    return due(g, cat, cfg, mem, true)
+    return due(g, cat, cfg, mem, 'first')
 end
-function buff.want(g, cat, cfg, mem) return due(g, cat, cfg, mem, false) end
+function buff.want(g, cat, cfg, mem) return due(g, cat, cfg, mem, 'want') end
+
+-- Whether other work is pending that your own Invisible would shut out or be
+-- broken by: a buff held this decision (for the group, for its modifier), a step
+-- due soon (mem.busy_until: a Corsair's Double-Up), or a buff row's spell someone
+-- it is for lacks, off recast within OTHERS_FIRST seconds.
+local function pending(g, cat, cfg, mem)
+    if mem.gather or mem.waiting or g.now < (mem.busy_until or -math.huge) then return true end
+    for _, a in ipairs(settings.enabled(cat, cfg, 'buff')) do
+        local row = settings.row(cfg, a)
+        local _, _, wait = can.use(a, g)
+        if wait and wait <= OTHERS_FIRST and (row.pick or a.name) == a.name and not (a.pick_one and not row.pick) then
+            local targets, self_only = row.targets or { [0] = true }, can.self_only(a)
+            for _, u in ipairs(g.units) do
+                local mine = u.kind == 'self'
+                local wanted
+                if self_only then
+                    wanted = mine or a.area > 0 and can.in_party(u) and u.alive and u.in_zone
+                        and (u.dist or math.huge) <= AREA_RADIUS
+                else
+                    wanted = targets[u.slot or u.name] and can.reach(a, u)
+                end
+                if wanted and not (mine and veils(a)) and lacks(a, u) then return true end
+            end
+        end
+    end
+    return false
+end
+
+function buff.last(g, cat, cfg, mem)
+    local intent = due(g, cat, cfg, mem, 'last')
+    if intent and pending(g, cat, cfg, mem) then
+        mem.veil_held = mem.veil_held or g.now
+        if g.now - mem.veil_held < OTHERS_FIRST then return nil end
+    elseif not intent then
+        mem.veil_held = nil
+    end
+    return intent
+end
 
 return buff
