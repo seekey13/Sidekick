@@ -271,3 +271,38 @@ test('ui: a bool set from another session can be switched off as well as on', fu
     eq({ model.apply(act, cfg, { 'set', n = 2, 'buff.gather', false }, cat), cfg.buff.gather }, { true, false })
     eq({ model.apply(act, cfg, { 'set', n = 2, 'buff.gather', true }, cat), cfg.buff.gather }, { true, true })
 end)
+
+-- The client lists pet commands only while the pet is out: Deploy is on the Pet
+-- page anyway, waiting on the automaton, as the SMN's Assault and pacts are on theirs.
+test('ui: Deploy, Assault and the pacts are in settings with no pet out, each waiting on it', function ()
+    local SMN = 15
+    local function rows(g, list)
+        local out = {}
+        for _, s in ipairs(model.build(g, list, settings.defaults(), status(), NAMES).sections) do
+            for _, r in ipairs(s.rows or {}) do out[r.key] = r end
+        end
+        return out
+    end
+    local r = rows(snap(nil, { pet = false }), fake.catalog(PUP, 75, WHM, 37, {}))
+    eq({ r.Deploy.ready, r.Deploy.avail, r.Deploy.on }, { false, 'no pet', false })
+    local smn = fake.catalog(SMN, 75, WHM, 37, {})
+    r = rows(fake.snap({}, { main = SMN, sub = WHM }), smn)
+    eq({ r.Assault.avail, r['Avatar\'s Favor'].avail, r['Healing Ruby'].avail, r['Shining Ruby'].avail },
+       { 'no pet', 'no pet', 'no pet', 'no pet' })
+    -- Out, but the client doesn't list it (Ifrit's pacts aren't Carbuncle's): wrong pet first, else not listed.
+    local g = fake.snap({}, { main = SMN, sub = WHM, pet = automaton({ name = 'Ifrit' }) })
+    g.listed = function () return false end
+    r = rows(g, smn)
+    eq({ r['Healing Ruby'].avail, r.Assault.avail }, { 'wrong pet', 'not listed' })
+    g.listed = function () return true end
+    eq(rows(g, smn).Assault.avail, 'no battle target')  -- listed: on to the next gate
+end)
+
+test('a maneuver the client doesn\'t list is never sent (the pet out isn\'t the automaton it thought)', function ()
+    local cfg = cfg_with({ 'Fire Maneuver' })
+    local g = snap()
+    g.listed = function () return false end
+    eq({ decide(g, cfg) }, { nil, 'nothing to do' })
+    g.listed = function () return true end
+    eq(decide(g, cfg), '/pet "Fire Maneuver" <me>')
+end)

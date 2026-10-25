@@ -25,7 +25,6 @@ local UNBRIDLED = 'Unbridled Learning'
 local SELF = 1   -- valid-target flag: items are used on you
 
 local SCH = 20
-local PUP = 18  -- its maneuvers are pet commands: HasAbility lists those only while a pet is out
 local ADDENDUM = { [1] = { 401, 416 }, [2] = { 402, 416 } }  -- by spell type: white, black; or Enlightenment
 
 -- "Cure IV" -> "Cure", 4; "Utsusemi: Ni" -> "Utsusemi", 2; "Haste" -> "Haste", 1
@@ -137,6 +136,7 @@ function catalog.build(res, player, K)
                     applies = use.applies, spreads = use.spreads, chip = use.chip, addendum = addendum or nil,
                     lucky = use.lucky, unlucky = use.unlucky, luopan = use.luopan, rune = use.rune,
                     priority = use.priority or 0, pet = use.pet, travel = use.travel, mob_skill = use.mob_skill,
+                    hidden = use.learn ~= nil or nil, first = use.first,
                     -- the client blocks casts by this cost, so it is the one to trust
                     mp = (kind == 'ja' and CHARGES[row.type] or row.type == READY_MOVE) and 0 or row.mp,
                     tp = row.tp, charges = row.type == READY_MOVE and row.mp or nil,
@@ -160,19 +160,27 @@ function catalog.build(res, player, K)
             if from then add('ma', id, s, from, level, addendum) end
         end
     end
-    -- A pet command leaves the client's ability list while no pet is out. The
-    -- catalog is rebuilt on a job or level change, not when the automaton is
-    -- called, so a PUP's maneuvers (main or sub) are listed for the job: the
-    -- Maneuvers section stays up, and none goes until an automaton is out
-    -- (jobs/pup.lua, can.use). Anything else still waits on HasAbility.
-    local function listed(id, row)
-        if player.has_ability(id) then return true end
-        local use = K[row.en]
-        return use ~= nil and use.role == 'maneuver' and (player.main == PUP or player.sub == PUP)
+    -- The server lists some abilities only while they can be used: pet commands,
+    -- blood pacts and Ready moves with the right pet out, stratagems under their
+    -- Arts. The catalog is rebuilt on a job or level change, not when a pet is
+    -- called or an Arts goes up, so those are listed by the levels knowledge
+    -- gives them (`learn`): settings show them from the start, and none goes
+    -- until the client lists it (a.hidden, can.use). Anything else waits on HasAbility.
+    local function learns(row, kind)
+        local family, tier = catalog.split(row.en)
+        for _, use in ipairs(uses(K, row.en, family, kind)) do
+            for job, lv in pairs(use.learn or {}) do
+                if type(lv) == 'table' then lv = lv[tier] end
+                if lv and (player.main == job and player.main_lv >= lv
+                           or player.sub == job and (player.sub_lv or 0) >= lv) then return true end
+            end
+        end
+        return false
     end
     for id, a in pairs(res.abilities) do
-        if not SKIP_TYPES[a.type] and listed(id, a) then
-            add(PET_TYPES[a.type] and 'pet' or 'ja', id, a)
+        local kind = PET_TYPES[a.type] and 'pet' or 'ja'
+        if not SKIP_TYPES[a.type] and (player.has_ability(id) or learns(a, kind)) then
+            add(kind, id, a)
         end
     end
 

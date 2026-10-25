@@ -24,10 +24,15 @@
     equips it (core/ammo.lua). Ninjutsu wait for their tools, and Utsusemi may be
     recast at its last shadow (jobs/nin.lua).
     Bard's songs are jobs/brd.lua's and Corsair's rolls jobs/cor.lua's.
+    A row whose action goes `first` (Light Arts, Addendum: White) is also
+    buff.first's: the engine runs it ahead of healing, since healing is cheaper
+    or only possible under it, except while someone is under their critical
+    line: their cure goes at once, and buff.want keeps it up after, as any buff.
 ]]--
 
 local ammo = require('core.ammo')
 local can = require('core.can')
+local heal = require('behaviors.heal')
 local nin = require('jobs.nin')
 local sch = require('jobs.sch')
 local settings = require('core.settings')
@@ -128,10 +133,15 @@ local function held(c, acc, spreads, g, cfg)
     if spare and charges > spare then return first end
 end
 
-function buff.want(g, cat, cfg, mem)
+-- The first row's intent that is due: of every row, or (`first`) those that go first.
+local function due(g, cat, cfg, mem, first)
     local invisible = g.me.buffs[status.INVISIBLE]
     local hold = cfg.buff.hold_aoe
+    local rows = {}
     for _, c in ipairs(chosen(cat, cfg, g)) do
+        if not first or c.action.first then rows[#rows + 1] = c end
+    end
+    for _, c in ipairs(rows) do
         local a = c.action
         if (a.travel or not invisible) and a.ammo and can.self_only(a) and lacks(a, g.me) and not can.use(a, g) then
             local intent = ammo.equip(a, g, cfg, mem, ('%s lacks it'):format(g.me.name))
@@ -189,5 +199,11 @@ function buff.want(g, cat, cfg, mem)
         end
     end
 end
+
+function buff.first(g, cat, cfg, mem)
+    if cfg.heal.on and heal.critical(g, cfg) then return nil end
+    return due(g, cat, cfg, mem, true)
+end
+function buff.want(g, cat, cfg, mem) return due(g, cat, cfg, mem, false) end
 
 return buff

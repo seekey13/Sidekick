@@ -23,6 +23,7 @@
     on you for EXPECT seconds, so the next decision sends the spell.
 ]]--
 
+local buff = require('behaviors.buff')
 local can = require('core.can')
 local pet = require('behaviors.pet')
 local util = require('core.util')
@@ -30,8 +31,11 @@ local util = require('core.util')
 local engine = {}
 
 -- Priority order. `quick` behaviors still run while a cure is held for; `setting`
--- is the cfg table whose `on` switches it, when not its name.
+-- is the cfg table whose `on` switches it, when not its name; `shown` the name its
+-- intents go by (the HUD's 'Buff:', the log), when not its own.
 engine.BEHAVIORS = {
+    -- Light Arts: ahead of healing, which is cheaper under it, but for a critical member (behaviors/buff.lua).
+    { name = 'first', run = buff.first, setting = 'buff', shown = 'buff' },
     { name = 'heal', run = require('behaviors.heal').want },
     { name = 'remove', run = require('behaviors.remove'), quick = true },
     { name = 'wake', run = require('behaviors.wake'), quick = true },
@@ -41,7 +45,7 @@ engine.BEHAVIORS = {
     { name = 'roll', run = require('jobs.cor').want },
     { name = 'rune', run = require('jobs.run').want, quick = true },
     { name = 'geo', run = require('jobs.geo').want },
-    { name = 'buff', run = require('behaviors.buff').want },
+    { name = 'buff', run = buff.want },
     { name = 'song', run = require('jobs.brd').want },
     { name = 'pet_send', run = pet.send, setting = 'pet', quick = true },
     { name = 'maneuver', run = require('jobs.pup').want, quick = true },
@@ -100,7 +104,7 @@ function engine.decide(g, cat, cfg, mem)
                 holding = true
             elseif intent then
                 intent = modifier(intent, g) or intent
-                intent.behavior = b.name
+                intent.behavior = b.shown or b.name
                 return intent
             end
         end
