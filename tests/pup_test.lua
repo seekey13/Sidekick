@@ -79,7 +79,7 @@ test('none without an automaton, under Overload, while Invisible, on recast or s
     eq({ decide(snap(nil, { pet = false }), cfg) }, { nil, 'nothing to do' })
     eq({ decide(snap(nil, { pet = automaton({ hpp = 0 }) }), cfg) }, { nil, 'nothing to do' })
     eq({ decide(snap({ [OVERLOAD] = 1 }), cfg) }, { nil, 'nothing to do' })
-    eq({ decide(snap({ [INVISIBLE] = 1 }), cfg) }, { nil, 'nothing to do' })
+    eq({ decide(snap({ [INVISIBLE] = 1 }), cfg) }, { nil, 'invisible' })
     eq({ decide(snap(nil, nil, { ['Fire Maneuver'] = 4 }), cfg) }, { nil, 'nothing to do' })
     local g = snap()
     g.amnesia = true

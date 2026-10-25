@@ -102,7 +102,7 @@ test('pet: Repair under the pet HP line, only with an oil worn', function ()
     eq({ decide(snap(nil, { pet = automaton({ hpp = 60 }), ammo = OIL }), nil, pup) }, { nil, 'nothing to do' })
     local g = snap(nil, { pet = automaton({ hpp = 40 }), ammo = OIL })
     g.me.buffs[INVISIBLE] = true
-    eq({ decide(g, nil, pup) }, { nil, 'nothing to do' })
+    eq({ decide(g, nil, pup) }, { nil, 'invisible' })
 end)
 
 test('pet: Repair only within 20 yalms of the automaton, as the server allows', function ()
@@ -273,7 +273,7 @@ end)
 local function under(g, id) g.me.buffs[id] = true; return g end
 
 test('Invisible: danger healing goes, efficient healing waits; Sneak stops neither', function ()
-    eq({ decide(under(snap({ { name = 'A', hpp = 60 } }), INVISIBLE), nil, whm) }, { nil, 'nothing to do' })
+    eq({ decide(under(snap({ { name = 'A', hpp = 60 } }), INVISIBLE), nil, whm) }, { nil, 'invisible' })
     local cmd, intent = decide(under(snap({ { name = 'A', hpp = 40 } }), INVISIBLE), nil, whm)
     eq({ cmd ~= nil, intent.behavior, intent.why }, { true, 'heal', 'danger: A 40%' })
     eq(decide(under(snap({ { name = 'A', hpp = 20 } }), INVISIBLE), nil, whm) ~= nil, true, 'critical too')
@@ -295,10 +295,10 @@ test('Invisible: no removal, wake, pet care or other buff, only travel buffs; Sn
                      { name = 'B', buffs = { [SLEEP] = true } } }
     eq(decide(under(snap(others), SNEAK), cfg, whm), '/ma "Poisona" 101')
     eq(decide(under(snap(others), INVISIBLE), cfg, whm), '/ma "Sneak" <me>')
-    eq({ decide(under(under(snap(others), SNEAK), INVISIBLE), cfg, whm) }, { nil, 'nothing to do' })
+    eq({ decide(under(under(snap(others), SNEAK), INVISIBLE), cfg, whm) }, { nil, 'invisible' })
     local g = snap(nil, { pet = automaton({ hpp = 40 }), ammo = OIL })
     eq(decide(under(g, SNEAK), nil, pup), '/ja "Repair" <me>')
-    eq({ decide(under(g, INVISIBLE), nil, pup) }, { nil, 'nothing to do' })
+    eq({ decide(under(g, INVISIBLE), nil, pup) }, { nil, 'invisible' })
     eq(decide(under(snap({ { name = 'A', dist = 12 } }), INVISIBLE), follower(), whm), '/follow <p1>')
 end)
 
@@ -320,7 +320,7 @@ test('your own Invisible goes last: members first, your Sneak and other buffs be
     -- A member loses theirs while you're Invisible: theirs again, then yours.
     eq(decide(with({ PROTECT, SNEAK, INVISIBLE }, { [PROTECT] = true, [SNEAK] = true }), cfg, whm),
         '/ma "Invisible" 101')
-    eq({ decide(with({ PROTECT, SNEAK, INVISIBLE }, all), cfg, whm) }, { nil, 'nothing to do' })
+    eq({ decide(with({ PROTECT, SNEAK, INVISIBLE }, all), cfg, whm) }, { nil, 'invisible' })
 end)
 
 test('Spectral Jig is used again once either its Sneak or its Invisible is off', function ()
@@ -330,5 +330,22 @@ test('Spectral Jig is used again once either its Sneak or its Invisible is off',
     local g = snap(nil, { main = 19, sub = WHM })
     eq(decide(g, cfg, dnc), '/ja "Spectral Jig" <me>')
     eq(decide(under(g, SNEAK), cfg, dnc), '/ja "Spectral Jig" <me>', 'Invisible broken')
-    eq({ decide(under(g, INVISIBLE), cfg, dnc) }, { nil, 'nothing to do' })
+    eq({ decide(under(g, INVISIBLE), cfg, dnc) }, { nil, 'invisible' })
+end)
+
+test('your own Invisible waits for a member\'s Sneak briefly on recast, not a long one', function ()
+    local cfg = travel_cfg()
+    local PROTECT = 40
+    local function g(wait)
+        local s = snap({ { name = 'A', buffs = { [PROTECT] = true } } }, nil, { Sneak = wait })
+        s.me.buffs[PROTECT], s.me.buffs[SNEAK] = true, true
+        return s
+    end
+    eq(decide(g(3), cfg, whm), '/ma "Invisible" 101')
+    local short = g(3)
+    short.units[2].buffs[INVISIBLE] = true
+    eq({ decide(short, cfg, whm) }, { nil, 'nothing to do' }, 'A lacks only Sneak, 3s off')
+    local long = g(30)
+    long.units[2].buffs[INVISIBLE] = true
+    eq(decide(long, cfg, whm), '/ma "Invisible" <me>')
 end)

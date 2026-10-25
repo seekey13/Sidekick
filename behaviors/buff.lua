@@ -29,6 +29,8 @@
     Spectral Jig) goes on you last of all (buff.last, run by the engine after
     every other behavior): members' travel buffs and your Sneak go first, and
     one a member loses while you're Invisible is put back on them before yours.
+    Yours waits, too, while a member's travel buff is only briefly on recast
+    (MEMBERS_FIRST), so it isn't broken right after by theirs.
     A row whose action goes `first` (Light Arts, Addendum: White) is also
     buff.first's: the engine runs it ahead of healing, since healing is cheaper
     or only possible under it, except while someone is under their critical
@@ -46,6 +48,7 @@ local status = require('core.status')
 local buff = {}
 
 local AREA_RADIUS = 10  -- yalms around you
+local MEMBERS_FIRST = 15  -- seconds: your own Invisible waits this long for a member's travel buff off recast
 local lacks = can.lacks
 
 -- Each row's action, best tier first, highest priority rows first.
@@ -222,6 +225,25 @@ function buff.first(g, cat, cfg, mem)
     return due(g, cat, cfg, mem, 'first')
 end
 function buff.want(g, cat, cfg, mem) return due(g, cat, cfg, mem, 'want') end
-function buff.last(g, cat, cfg, mem) return due(g, cat, cfg, mem, 'last') end
+
+-- A member's travel buff they lack that waits only on a short recast: your own
+-- Invisible would be broken by it right after.
+local function members_owed(g, cat, cfg)
+    for _, a in ipairs(settings.enabled(cat, cfg, 'buff')) do
+        local targets = a.travel and not can.self_only(a) and settings.row(cfg, a).targets or {}
+        for _, u in ipairs(g.units) do
+            if u.kind ~= 'self' and targets[u.slot or u.name] and can.reach(a, u) and lacks(a, u) then
+                local _, _, wait = can.use(a, g)
+                if wait and wait <= MEMBERS_FIRST then return true end
+            end
+        end
+    end
+    return false
+end
+
+function buff.last(g, cat, cfg, mem)
+    if members_owed(g, cat, cfg) then return nil end
+    return due(g, cat, cfg, mem, 'last')
+end
 
 return buff

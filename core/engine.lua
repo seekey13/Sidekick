@@ -124,7 +124,8 @@ function engine.decide(g, cat, cfg, mem)
     local away = w and (w.who.dist and ('%.1fy away'):format(w.who.dist) or 'not in sight')
     return nil, g.resting and 'resting' or holding and 'waiting for a cure'
         or w and ('holding %s: %s %s'):format(w.action.name, w.who.name, away)
-        or h and ('holding %s for %s'):format(h.action.name, h.mod.name) or 'nothing to do'
+        or h and ('holding %s for %s'):format(h.action.name, h.mod.name)
+        or invisible and 'invisible' or 'nothing to do'
 end
 
 -- The party chat line asking everyone to gather for the buff held on this

@@ -64,8 +64,8 @@
     kind       'ma' | 'ja' | 'pet': this use only for that command kind
     label      UI name when one action has several uses
     note       short UI hint
-    travel     travel buff (Sneak, Invisible): still cast while you're Invisible or
-               under Sneak, when nothing else but danger healing goes (core/engine.lua)
+    travel     travel buff (Sneak, Invisible): still cast while you're Invisible, when
+               nothing else but danger healing goes (core/engine.lua)
     duration   seconds a buff lasts (or per tier), for statuses read off packets (trusts)
     mob_skill  the id a jug pet's move carries in its action packet (the server's mob skill)
     applies    a modifier's test of a catalog record: which spells a buff row may turn it on for
