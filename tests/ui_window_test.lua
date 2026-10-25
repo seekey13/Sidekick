@@ -139,6 +139,8 @@ local handlers = {
     Selectable = function (label) return frame.clicks[label] == true end,
     -- A right-click is clicks.mouse1 = true: over whatever is hovered, which in the fake is everything.
     IsMouseClicked = function (b) return frame.clicks['mouse' .. b] == true end,
+    -- Every popup is open, so its list draws, unless a test sets clicks[id] = false.
+    IsPopupOpen = function (id) return frame.clicks[id] ~= false end,
     -- Typing: clicks[label] = 'text' types it and presses Enter.
     InputText = function (label, v)
         assert(type(v) == 'table' and type(v[1]) == 'string', label .. ': value must be { string }')
@@ -722,7 +724,7 @@ test('the widget is off at first; on, it is one row: your name, run and cog, wha
     eq({ begun('SK Widget'), drew('Me'), button('##sk3_widget_run'), button('##sk3_widget_cog'), tipped('Start automation') },
        { true, true, true, true, true })
     eq({ drew('WHM 75 / BLM 37'), drew('Stopped'), drew('Default'), button('##sk3_widget_settings') }, { false, false, false, false })
-    eq({ tipped('Stopped: would: Cure IV -> A (heal: A at 62%)'), tipped('Profile: Default\nRight-click') }, { true, true })
+    eq({ tipped('Stopped: would: Cure IV -> A (heal: A at 62%)'), tipped('Right-click to load a profile') }, { true, true })
     eq(frame.flags['SK Widget'] - ImGuiWindowFlags_NoTitleBar - ImGuiWindowFlags_NoResize - ImGuiWindowFlags_AlwaysAutoResize
         - ImGuiWindowFlags_NoScrollbar - ImGuiWindowFlags_NoScrollWithMouse - ImGuiWindowFlags_NoBackground, 0)
     eq(frame.extent['SK Widget'], calls('AddRectFilled')[1].args[2])  -- its items reach its panel's far corner
@@ -796,7 +798,7 @@ test('right-clicking a name lists its profiles: a click loads one, Default goes 
     eq(render(cfg, st, { ['##sk3_widget_profiles_1'] = true }), 1)
     eq({ cfg.profile, cfg.heal.danger }, { 'Sky##1', 20 })
     render(cfg, st)
-    eq({ tipped('Sky##1'), tipped('Profile: Sky##1') }, { true, true })  -- whole, in its list and the name's tooltip
+    eq({ tipped('Sky##1'), tipped('(profile Sky##1)') }, { true, true })  -- whole, in its list and the name's tooltip
     render(cfg, st, { ['Default##sk3_widget_profiles_default'] = true })
     eq({ cfg.profile, cfg.heal.danger }, { '', 40 })
 end)
@@ -823,6 +825,15 @@ test('the widget names each other session after you: its run, its cog and its pr
     eq(begun('Sidekick Settings: A###sk3_settings_A'), true)
     render(cfg, st, { ['##sk3_widget_A_cog'] = true }, view())
     eq(st.watching, {})
+end)
+
+test('a session whose profiles never came has no profile menu, nor says Default', function ()
+    close_settings()
+    local cfg, st = widget_cfg(), remote_status({ open = false })
+    render(cfg, st, { mouse1 = true }, model.build(snap(), cat, cfg, st, NAMES))
+    eq({ has(frame.args.OpenPopup, '##sk3_widget_A_profiles'), has(frame.args.OpenPopup, '##sk3_widget_profiles') },
+       { false, true })
+    eq({ tipped('A: Stopped'), tipped('A: Stopped\nProfile') }, { true, false })
 end)
 
 test('UI / Log turns the widget on and off; Lock position keeps it still too', function ()

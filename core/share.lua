@@ -520,9 +520,10 @@ function share.tick(g, clock, status, hooks)
         publish(me, ok and view or nil)
     end
     read_views(watch, live)
-    local running = false  -- another session's automation: while your HUD shows, read as it acts
+    local running = false  -- another session's automation: while your HUD shows, read as it acts (the widget shows
+                           -- only whether it runs: every second will do)
     for _, s in pairs(live) do running = running or s.running end
-    if pending[1] or next(watch) or watched or called or shown and running then next_at = clock + share.FAST end
+    if pending[1] or next(watch) or watched or called or status.open and running then next_at = clock + share.FAST end
     if g.loading then return live end
     local listed = {}
     for _, u in ipairs(g.units) do

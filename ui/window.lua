@@ -366,33 +366,35 @@ local function widget_size(ui)
 end
 
 -- The characters the widget shows: you, then each other Sidekick session on a line here (party, tracked or alliance),
--- once each. { name, running, shown (its Sidekick Settings), profiles, act (the session's own), remote (nil for yours) }.
+-- once each. { name, running, shown (its Sidekick Settings), profiles (nil while unknown), remote (nil for yours) }.
 local function characters(view)
     local out, seen = {}, {}
     local me = view.party[1]
     out[1] = { name = me and me.name or 'You', running = view.status.running, shown = settings_open,
-               profiles = view.profiles, act = act }
+               profiles = view.profiles }
     for _, list in ipairs({ view.party, view.alliance }) do
         for _, p in ipairs(list) do
             local r = p.session
             if r and not seen[r.name] then
                 seen[r.name] = true
-                out[#out + 1] = { name = r.name, running = r.running, shown = r.open,
-                                  profiles = r.profiles or { names = {} }, act = act.remote(r.name), remote = r }
+                out[#out + 1] = { name = r.name, running = r.running, shown = r.open, profiles = r.profiles, remote = r }
             end
         end
     end
     return out
 end
 
+-- A character's act: yours, or the session's, made only when it's used.
+local function act_of(c) return c.remote and act.remote(c.name) or act end
+
 -- A character's profiles, right-clicking its name: Default, then each saved; a click loads it there.
 local function profile_menu(c, id)
     kit.popup(id, S(BODY - 1), function ()
         local p = c.profiles
-        if imgui.Selectable('Default' .. id .. '_default', p.active == nil) then c.act.profile(nil) end
+        if imgui.Selectable('Default' .. id .. '_default', p.active == nil) then act_of(c).profile(nil) end
         for i, name in ipairs(p.names or {}) do  -- over a blank row, so a name with '##' in it shows whole
             local sx = imgui.GetCursorPosX()
-            if imgui.Selectable(id .. '_' .. i, name == p.active) then c.act.profile(name) end
+            if imgui.Selectable(id .. '_' .. i, name == p.active) then act_of(c).profile(name) end
             imgui.SameLine(sx)
             imgui.Text(kit.esc(name))
         end
@@ -428,20 +430,25 @@ local function draw_widget(view)
         kit.fill(dl, x, y0 + pad, c.pill, pill_h, c.running and P.go or P.halt, pill_h / 2)
         local nx = x + lead
         kit.text_mid(dl, nx, cy, c.name, P.white, font, h)
-        imgui.SetCursorScreenPos({ nx, y0 + pad })
-        imgui.Dummy({ math.max(1, c.w), pill_h })  -- an item to hover, not a button: the widget still drags by its name
+        imgui.SetCursorScreenPos({ x, y0 + pad })
+        imgui.Dummy({ lead + c.w, pill_h })  -- an item to hover, not a button: the widget still drags by its name
         local menu = id .. '_profiles'
         if imgui.IsItemHovered() then
-            local line = ('Profile: %s\nRight-click to load another.'):format(c.profiles.active or 'Default')
-            kit.tooltip((c.remote and ('%s: %s'):format(c.name, c.running and 'Running' or 'Stopped')
-                or status_tip(view)) .. '\n' .. line)
-            if imgui.IsMouseClicked(1) then imgui.OpenPopup(menu) end
+            if not c.remote then  -- your status's tooltip names the profile already
+                kit.tooltip(status_tip(view) .. '\nRight-click to load a profile.')
+            elseif c.profiles then
+                kit.tooltip(('%s: %s\nProfile: %s\nRight-click to load another.'):format(c.name,
+                    c.running and 'Running' or 'Stopped', c.profiles.active or 'Default'))
+            else  -- its profiles never came (its file left them out)
+                kit.tooltip(('%s: %s'):format(c.name, c.running and 'Running' or 'Stopped'))
+            end
+            if c.profiles and imgui.IsMouseClicked(1) then imgui.OpenPopup(menu) end
         end
-        profile_menu(c, menu)
+        if c.profiles and imgui.IsPopupOpen(menu) then profile_menu(c, menu) end
         local bx = nx + c.w + gap
         local clicked = disc_button(id .. '_run', bx, cy - h / 2, h, c.running and 'stop' or 'play', false,
             (c.running and 'Stop ' or 'Start ') .. whose .. 'automation')  -- the pill says which
-        if clicked then c.act.run(not c.running) end
+        if clicked then act_of(c).run(not c.running) end
         bx = bx + h + math.floor(gap / 2)
         local cog = disc_button(id .. '_cog', bx, cy - h / 2, h, 'cog', c.shown,
             c.remote and ('Settings for ' .. c.name) or 'Open or close Sidekick Settings')

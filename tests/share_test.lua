@@ -407,7 +407,10 @@ test('two sessions: a call goes, is applied once and acknowledged; a watched ses
         sa.watching.Beta, sa.open = true, false  -- the HUD closed: its windows with it, so not watched
         both(); both()
         eq({ share.decode(files[DIR .. 'session_Alpha.txt']).watch, files[DIR .. 'view_Beta.txt'] }, { {}, nil })
-        sa.open = true
+        sa.widget = true  -- its cogs open them too: watched with the HUD closed
+        both(); both()
+        eq({ share.decode(files[DIR .. 'session_Alpha.txt']).watch, files[DIR .. 'view_Beta.txt'] ~= nil }, { { Beta = true }, true })
+        sa.widget, sa.open = nil, true
         both(); both()
         eq(a.views.Beta, { job = 'WHM 75', sections = { { id = 'heal', on = true } } })
         fail = true  -- its view fails while still watched: the file goes, and isn't kept as if current
@@ -429,7 +432,7 @@ test('two sessions: a call goes, is applied once and acknowledged; a watched ses
     end)
 end)
 
-test('two sessions: what one\'s automation sends is in its file at once, read four times a second while the other\'s HUD shows', function ()
+test('two sessions: what one\'s automation sends is in its file at once, read four times a second while the other\'s HUD shows, not its widget', function ()
     two_sessions(function (a, b, files, DIR)
         local ga, gb = in_game(1, 'Alpha'), in_game(2, 'Beta')
         local sa, sb = { running = false, open = true, watching = {} }, { running = true, open = false, watching = {} }
@@ -446,7 +449,7 @@ test('two sessions: what one\'s automation sends is in its file at once, read fo
         acting = nil
         b.tick(gb, 2.3, sb, hb)  -- done: off at once too
         eq(share.decode(files[DIR .. 'session_Beta.txt']).act, nil)
-        sa.open = false  -- Alpha's HUD closed: read every second again
+        sa.open, sa.widget = false, true  -- Alpha's HUD closed, the widget up: read every second again
         a.tick(ga, 2.5, sa, ha)
         acting = { behavior = 'song', action = 'Valor Minuet IV' }
         b.tick(gb, 2.6, sb, hb)

@@ -101,7 +101,7 @@ Text that may contain `%` (names, `why` text) must be escaped before it's drawn:
 | `dist` | string | `''` for you, `'away'`, or like `'12.3y'` |
 | `buffs` | string | Its statuses, the first 6 by name and `'+N'` for the rest |
 | `buffs_all` | string | Every status, one per line (for a tooltip) |
-| `session` | table or nil | This player is another Sidekick session on this PC (a party member, a tracked player or one of the alliance; never you or a trust): `{ name, running, open, profiles }`. `running`: its automation is on; `open`: its Sidekick Settings are shown here (`view.remote`); `profiles`: `{ active, names }` as `view.profiles`, that session's (`act.remote(name).profile` loads one there). The standard HUD puts a run icon and a cog on its card, as on yours |
+| `session` | table or nil | This player is another Sidekick session on this PC (a party member, a tracked player or one of the alliance; never you or a trust): `{ name, running, open, profiles }`. `running`: its automation is on; `open`: its Sidekick Settings are shown here (`view.remote`); `profiles`: `{ active, names }` as `view.profiles`, that session's (`act.remote(name).profile` loads one there), or nil while unknown. The standard HUD puts a run icon and a cog on its card, as on yours |
 
 ### `view.heal`
 
