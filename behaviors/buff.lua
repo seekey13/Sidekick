@@ -24,6 +24,7 @@
     equips it (core/ammo.lua). Ninjutsu wait for their tools, and Utsusemi may be
     recast at its last shadow (jobs/nin.lua).
     Bard's songs are jobs/brd.lua's and Corsair's rolls jobs/cor.lua's.
+    While you're Invisible or under Sneak only travel buffs go (core/engine.lua).
     A row whose action goes `first` (Light Arts, Addendum: White) is also
     buff.first's: the engine runs it ahead of healing, since healing is cheaper
     or only possible under it, except while someone is under their critical
@@ -36,7 +37,6 @@ local heal = require('behaviors.heal')
 local nin = require('jobs.nin')
 local sch = require('jobs.sch')
 local settings = require('core.settings')
-local status = require('core.status')
 
 local buff = {}
 
@@ -135,7 +135,7 @@ end
 
 -- The first row's intent that is due: of every row, or (`first`) those that go first.
 local function due(g, cat, cfg, mem, first)
-    local invisible = g.me.buffs[status.INVISIBLE]
+    local hidden = can.hidden(g)
     local hold = cfg.buff.hold_aoe
     local rows = {}
     for _, c in ipairs(chosen(cat, cfg, g)) do
@@ -143,11 +143,11 @@ local function due(g, cat, cfg, mem, first)
     end
     for _, c in ipairs(rows) do
         local a = c.action
-        if (a.travel or not invisible) and a.ammo and can.self_only(a) and lacks(a, g.me) and not can.use(a, g) then
+        if (a.travel or not hidden) and a.ammo and can.self_only(a) and lacks(a, g.me) and not can.use(a, g) then
             local intent = ammo.equip(a, g, cfg, mem, ('%s lacks it'):format(g.me.name))
             if intent then return intent end
         end
-        if (a.travel or not invisible) and can.use(a, g) and sch.spare(a, g, cfg) then
+        if (a.travel or not hidden) and can.use(a, g) and sch.spare(a, g, cfg) then
             local acc, mods = spreading(c, g, cfg)
             -- Accession on, and someone near you it would reach lacks it (for a
             -- self-only spell, someone but you: on you alone it needs no spread).

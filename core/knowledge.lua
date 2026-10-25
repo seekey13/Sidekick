@@ -20,6 +20,8 @@
     status     what a buff shows: status name (lowest id with that name wins), id,
                or a list (any one counts). Omitted = the status named like the
                action, else like its family. false = nothing readable.
+    every      the buff gives all of its list of statuses: recast while any is off
+               (Spectral Jig: an action breaks its Invisible, not its Sneak)
     removes    statuses a removal clears
     potency    HP healed per tier, before gear and CatsEyeXI's x1.25: a prior until
                a cast is seen (core/observed.lua)
@@ -62,7 +64,8 @@
     kind       'ma' | 'ja' | 'pet': this use only for that command kind
     label      UI name when one action has several uses
     note       short UI hint
-    travel     travel buff: still cast while Invisible
+    travel     travel buff (Sneak, Invisible): still cast while you're Invisible or
+               under Sneak, when nothing else but danger healing goes (core/engine.lua)
     duration   seconds a buff lasts (or per tier), for statuses read off packets (trusts)
     mob_skill  the id a jug pet's move carries in its action packet (the server's mob skill)
     applies    a modifier's test of a catalog record: which spells a buff row may turn it on for
@@ -386,7 +389,7 @@ local K = {
     -- ponytail: five taken as full; a max finishing move bonus (gear) would allow more.
     ['No Foot Rise'] = { role = 'buff', status = FINISHING_5 },
     ['Presto']       = { role = 'buff', gate = 'combat' },  -- for your next Step, by hand
-    ['Spectral Jig'] = { role = 'buff', gate = 'idle', travel = true, priority = -20, status = { 'Sneak', 'Invisible' } },
+    ['Spectral Jig'] = { role = 'buff', gate = 'idle', travel = true, priority = -20, status = { 'Sneak', 'Invisible' }, every = true },
 
     -- buff: job abilities ---------------------------------------------------------
     ['Composure']  = { role = 'buff', priority = 100 },

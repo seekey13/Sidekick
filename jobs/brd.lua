@@ -26,7 +26,7 @@
     off on its own, as v2). Of two songs of one kind with one up,
     the one sung less lately goes (new: v2 sang the first picked, which may be
     the one up).
-    Nothing goes while you're Invisible, as buffs. With buff.hold_aoe on, an
+    Nothing goes while you're Invisible or under Sneak (core/engine.lua). With buff.hold_aoe on, an
     area song is held while a player in your party who lacks it, with no song
     picked for them alone, is out of its reach (or not drawn); trusts follow.
 
@@ -59,7 +59,6 @@
 local buff = require('behaviors.buff')
 local can = require('core.can')
 local slots = require('core.slots')
-local status = require('core.status')
 
 local brd = {}
 
@@ -217,7 +216,7 @@ end
 
 function brd.want(g, cat, cfg, mem)
     local n = brd.slots(g)
-    if n == 0 or g.me.buffs[status.INVISIBLE] then return nil end
+    if n == 0 then return nil end
     prune(g)
     local timed = brd.timed(g, cfg)
     local window = g.me.buffs[NIGHTINGALE] and g.me.buffs[TROUBADOUR]

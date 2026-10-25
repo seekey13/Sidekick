@@ -4,7 +4,7 @@ local settings = require('core.settings')
 local fake = require('tests.fake')
 
 local WHM, RDM, PLD, BLM, SAM, PUP, DRG, MNK = 3, 5, 7, 4, 12, 18, 14, 2
-local SLEEP, POISON, INVISIBLE = 2, 3, 69
+local SLEEP, POISON, INVISIBLE, SNEAK = 2, 3, 69, 71
 local OIL = 18731
 local snap = fake.snap
 
@@ -265,4 +265,47 @@ test('Chakra clears only your own poison, not a member\'s near you', function ()
     eq({ decide(g, nil, mnk) }, { nil, 'nothing to do' })
     g.me.buffs[POISON] = true
     eq(decide(g, nil, mnk), '/ja "Chakra" <me>')
+end)
+
+-- Invisible and Sneak -------------------------------------------------------------
+
+-- `g` with `id` on you.
+local function under(g, id) g.me.buffs[id] = true; return g end
+
+test('Invisible or Sneak: danger healing goes, efficient healing waits', function ()
+    for _, id in ipairs({ INVISIBLE, SNEAK }) do
+        eq({ decide(under(snap({ { name = 'A', hpp = 60 } }), id), nil, whm) }, { nil, 'nothing to do' })
+        local cmd, intent = decide(under(snap({ { name = 'A', hpp = 40 } }), id), nil, whm)
+        eq({ cmd ~= nil, intent.behavior, intent.why }, { true, 'heal', 'danger: A 40%' })
+        eq(decide(under(snap({ { name = 'A', hpp = 20 } }), id), nil, whm) ~= nil, true, 'critical too')
+    end
+end)
+
+test('Invisible or Sneak: no removal, wake or other buff; only Sneak and Invisible go', function ()
+    local cfg = settings.defaults()
+    cfg.rows.Protect = { on = true, targets = { [0] = true } }
+    cfg.rows.Sneak = { on = true, targets = { [0] = true } }
+    cfg.rows.Invisible = { on = true, targets = { [0] = true } }
+    local others = { { name = 'A', buffs = { [POISON] = true } }, { name = 'B', buffs = { [SLEEP] = true } } }
+    eq(decide(snap(others), cfg, whm), '/ma "Poisona" 101', 'removal first, as ever')
+    eq(decide(under(snap(others), INVISIBLE), cfg, whm), '/ma "Sneak" <me>')
+    eq(decide(under(snap(others), SNEAK), cfg, whm), '/ma "Invisible" <me>')
+    local g = under(under(snap(others), SNEAK), INVISIBLE)
+    eq({ decide(g, cfg, whm) }, { nil, 'nothing to do' })
+end)
+
+test('Invisible or Sneak: no pet care, no recover; following goes on', function ()
+    local g = under(snap(nil, { pet = automaton({ hpp = 40 }), ammo = OIL }), SNEAK)
+    eq({ decide(g, nil, pup) }, { nil, 'nothing to do' })
+    eq(decide(under(snap({ { name = 'A', dist = 12 } }), INVISIBLE), follower(), whm), '/follow <p1>')
+end)
+
+test('Spectral Jig is used again once either its Sneak or its Invisible is off', function ()
+    local dnc = fake.catalog(19, 75, WHM, 37, { 'Spectral Jig' })
+    local cfg = settings.defaults()
+    cfg.rows['Spectral Jig'] = { on = true }
+    local g = snap(nil, { main = 19, sub = WHM })
+    eq(decide(g, cfg, dnc), '/ja "Spectral Jig" <me>')
+    eq(decide(under(g, SNEAK), cfg, dnc), '/ja "Spectral Jig" <me>', 'Invisible broken')
+    eq({ decide(under(g, INVISIBLE), cfg, dnc) }, { nil, 'nothing to do' })
 end)

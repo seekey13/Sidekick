@@ -6,11 +6,13 @@
       can.together(c, u)       does an area effect aimed at `c` land on `u` (the same party)
       can.command(a, u, j, bt) the chat command that does it
       can.spare_hp(a, g, cfg)  can you pay what `a` costs in HP
+      can.hidden(g)            are you Invisible or under Sneak
     `a` is a catalog record, `u` a unit and `g` the snapshot from core/game.lua.
 ]]--
 
 local dnc = require('jobs.dnc')
 local nin = require('jobs.nin')
+local status = require('core.status')
 local util = require('core.util')
 
 local can = {}
@@ -39,10 +41,23 @@ function can.any(set, ids)
 end
 local any = can.any
 
--- Whether `u` shows none of `a`'s statuses (`status`, a list, stands in for them
--- when given); true for one with no status that can be read (Boost).
-function can.lacks(a, u, status)
-    return not (a.status and any(u.buffs, status or a.status))
+-- Whether `u` shows none of `a`'s statuses (`ids`, a list, stands in for them
+-- when given), or, for one that gives them all (`every`: Spectral Jig), misses
+-- any; true for one with no status that can be read (Boost).
+function can.lacks(a, u, ids)
+    ids = ids or a.status
+    if not ids then return true end
+    if a.every then
+        for _, id in ipairs(ids) do if not u.buffs[id] then return true end end
+        return false
+    end
+    return not any(u.buffs, ids)
+end
+
+-- Whether you're Invisible or under Sneak: then only danger healing and travel
+-- buffs go (core/engine.lua).
+function can.hidden(g)
+    return g.me.buffs[status.INVISIBLE] or g.me.buffs[status.SNEAK] or false
 end
 
 -- Yalms between two units (or a unit and the pet); unknown positions are far apart.

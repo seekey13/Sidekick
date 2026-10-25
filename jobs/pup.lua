@@ -7,7 +7,8 @@
     is out, main or sub (this server lets a PUP subjob call one). They're listed
     for the job even while it's dismissed (the client drops these pet commands
     from its ability list then), so Maneuvers stays on the Pet page. None goes
-    under Overload (it would only add to it), and none while you're Invisible.
+    under Overload (it would only add to it), and none while you're
+    Invisible or under Sneak (core/engine.lua).
     Only on the automaton: a jug pet, avatar, wyvern or luopan (BST/PUP...) would
     refuse them. Your automaton's name comes in the server's job packet (0x044,
     core/packets.lua) on login, zoning and job changes; until one has, the pet is
@@ -16,7 +17,6 @@
 
 local can = require('core.can')
 local slots = require('core.slots')
-local status = require('core.status')
 local run = require('jobs.run')
 
 local pup = {}
@@ -40,7 +40,7 @@ function pup.is_automaton(g)
 end
 
 function pup.want(g, cat, cfg)
-    if not pup.is_automaton(g) or g.me.buffs[status.INVISIBLE] then return nil end
+    if not pup.is_automaton(g) then return nil end
     -- Counted as runes are: the same maneuver twice wants two up.
     local missing = run.missing(slots.picked(cfg.maneuver, 'slot', slots.by_name(cat, 'maneuver'), pup.SLOTS), g.me)
     if missing and can.use(missing, g) then return { action = missing, why = g.pet.name } end

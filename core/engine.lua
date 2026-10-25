@@ -8,6 +8,11 @@
     The first intent wins. A behavior returning { hold = true } (a cure nearly off
     recast) lets only the quick behaviors after it run until the cure goes out.
     While you rest, only resting runs: it alone decides when to stand.
+    While you're Invisible or under Sneak (can.hidden), only the behaviors marked
+    `hidden` run: healing, for a member under their danger line alone, and buffs,
+    for the travel buffs alone (Sneak, Invisible, Tonko, Monomi, Spectral Jig);
+    any action breaks Invisible, and Sneak is kept as quiet. Following goes on,
+    and resting may still stand, but none starts.
     A buff held for the group to gather (behaviors/buff.lua) leaves mem.gather,
     which engine.gather turns into a party chat line.
     An intent may name a status of yours to cancel a moment into its cast
@@ -32,11 +37,12 @@ local engine = {}
 
 -- Priority order. `quick` behaviors still run while a cure is held for; `setting`
 -- is the cfg table whose `on` switches it, when not its name; `shown` the name its
--- intents go by (the HUD's 'Buff:', the log), when not its own.
+-- intents go by (the HUD's 'Buff:', the log), when not its own; `hidden` ones still
+-- run while you're Invisible or under Sneak (each narrows itself then).
 engine.BEHAVIORS = {
     -- Light Arts: ahead of healing, which is cheaper under it, but for a critical member (behaviors/buff.lua).
-    { name = 'first', run = buff.first, setting = 'buff', shown = 'buff' },
-    { name = 'heal', run = require('behaviors.heal').want },
+    { name = 'first', run = buff.first, setting = 'buff', shown = 'buff', hidden = true },
+    { name = 'heal', run = require('behaviors.heal').want, hidden = true },
     { name = 'remove', run = require('behaviors.remove'), quick = true },
     { name = 'wake', run = require('behaviors.wake'), quick = true },
     { name = 'recover', run = require('behaviors.recover') },
@@ -45,11 +51,11 @@ engine.BEHAVIORS = {
     { name = 'roll', run = require('jobs.cor').want },
     { name = 'rune', run = require('jobs.run').want, quick = true },
     { name = 'geo', run = require('jobs.geo').want },
-    { name = 'buff', run = buff.want },
+    { name = 'buff', run = buff.want, hidden = true },
     { name = 'song', run = require('jobs.brd').want },
     { name = 'pet_send', run = pet.send, setting = 'pet', quick = true },
     { name = 'maneuver', run = require('jobs.pup').want, quick = true },
-    { name = 'follow', run = require('behaviors.follow').want },
+    { name = 'follow', run = require('behaviors.follow').want, hidden = true },
     { name = 'rest', run = require('behaviors.rest'), resting = true },
 }
 
@@ -96,9 +102,10 @@ function engine.decide(g, cat, cfg, mem)
     for _, gate in ipairs(GATES) do
         if g[gate] then return nil, gate end
     end
-    local holding = false
+    local holding, hidden = false, can.hidden(g)
     for _, b in ipairs(engine.BEHAVIORS) do
-        if (b.resting or not g.resting) and cfg[b.setting or b.name].on and (b.quick or not holding) then
+        if (b.resting or not g.resting) and (b.hidden or not hidden or b.resting and g.resting)
+            and cfg[b.setting or b.name].on and (b.quick or not holding) then
             local intent = b.run(g, cat, cfg, mem)
             if intent and intent.hold then
                 holding = true
