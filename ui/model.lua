@@ -386,13 +386,38 @@ local function party(g, cfg, names, sessions)
     return out, alliance
 end
 
--- Other Sidekick sessions on this PC (status.sessions, by owner name) by their
--- server id: { name, running, open (its Sidekick Settings shown here) }.
+-- What halts automation while it runs, in the engine's order (its gates, core/engine.lua), as words: zoning, dead,
+-- mounted, in a safe zone, AFK asleep, incapacitated. Not casting or moving, which hold it only a moment.
+local HALTS = { { 'loading', 'zoning' }, { 'dead', 'dead' }, { 'mounted', 'mounted' }, { 'safe', 'safe zone' },
+                { 'afk', 'AFK asleep' }, { 'incapacitated', 'incapacitated' } }
+
+-- The first of HALTS on snapshot `g`, or nil.
+function model.halted(g)
+    for _, h in ipairs(HALTS) do
+        if g[h[1]] then return h[2] end
+    end
+end
+
+-- Another session: { name, running, halted (running, but held by what model.halted names), open (its Sidekick
+-- Settings shown here), profiles = { active, names } or nil (unknown) }.
+local function session_of(name, s, watching)
+    return { name = name, running = s.running, halted = s.running and s.halted or nil, open = watching[name] == true,
+             profiles = s.profiles }
+end
+
+-- Other Sidekick sessions on this PC (status.sessions, by owner name) by their server id.
 local function by_sid(status)
     local out, watching = {}, status.watching or {}
-    for name, s in pairs(status.sessions or {}) do
-        out[s.members[1].sid] = { name = name, running = s.running, open = watching[name] == true }
-    end
+    for name, s in pairs(status.sessions or {}) do out[s.members[1].sid] = session_of(name, s, watching) end
+    return out
+end
+
+-- Every other Sidekick session on this PC, by name: from their files alone, so a zone (yours or theirs) leaves them
+-- as they last were (core/share.lua keeps a loading session's file up).
+function model.sessions(status)
+    local out, watching = {}, status.watching or {}
+    for name, s in pairs(status.sessions or {}) do out[#out + 1] = session_of(name, s, watching) end
+    table.sort(out, function (a, b) return a.name < b.name end)
     return out
 end
 
@@ -579,6 +604,8 @@ function model.build(g, cat, cfg, status, names)
     }
     view.party, view.alliance = party(g, cfg, names, by_sid(status))
     view.remote = remote_views(status)
+    view.sessions = model.sessions(status)
+    view.status.halted = status.running and model.halted(g) or nil
     for k, v in pairs(cfg.ui) do view.ui[k] = v end
     view.ui.open = status.open == true  -- shown now: an error closes it for the session alone
     view.pointer = pointer(status, g, view.party, view.alliance)
@@ -619,7 +646,7 @@ model.VIEW = 5
 function model.published(view)
     local out = {}
     for k, v in pairs(view) do out[k] = v end
-    out.pointer, out.others, out.ui, out.remote = nil, nil, nil, nil
+    out.pointer, out.others, out.ui, out.remote, out.sessions = nil, nil, nil, nil, nil
     out.version = model.VIEW
     return out
 end

@@ -2,7 +2,7 @@
 
 Sidekick3's UI is one replaceable Lua file. Sidekick does all the deciding and acting; a UI only **shows** a table of data (`view`) and **changes** things through a table of functions (`act`). Anything that keeps to that contract can replace the standard UI: a compact HP list, a bar of on/off switches, one big window instead of two.
 
-[window.lua](window.lua) is the standard UI and the reference: a heads-up display of the party's HP, MP and TP, your pet's under yours (the **Sidekick3** window), whose cog on your own card opens **Sidekick Settings**, a page per group of settings listed down its left, and, with `ui.widget` on, **SK Widget**, v2's floating widget: the profile loaded (a click lists the others to load) and the job, then Start/Stop, the status, Settings and Track for your target. It uses nearly every field and every action below. Its look is [kit.lua](kit.lua)'s, after VanaCore's own `/vana` window ([docs/vana-ui-style.md](../docs/vana-ui-style.md)): a palette, and switches, sliders, drop-downs, chips and buttons drawn on ImGui's draw lists over invisible buttons. A custom UI can `require('ui.kit')` for the same look; each control takes its value and returns the new one and whether it changed, and `kit.frame(scale)` must run once a frame before any of them. `kit.tooltips()` after them draws the frame's tooltip: only the last `kit.tooltip` asked for shows, as with `SetTooltip` (without it, the next `kit.frame` draws it, a frame late).
+[window.lua](window.lua) is the standard UI and the reference: a heads-up display of the party's HP, MP and TP, your pet's under yours (the **Sidekick3** window), whose cog on your own card opens **Sidekick Settings**, a page per group of settings listed down its left, and, with `ui.widget` on, **SK Widget**, one row: each character (yours, then each other Sidekick session's) in a pill, green running, blue held (asleep, mounted, zoning...) and red stopped, with its name, its run button and its cog, `ui.widget_size` pixels high; right-click a name to load one of its profiles. It uses nearly every field and every action below. Its look is [kit.lua](kit.lua)'s, after VanaCore's own `/vana` window ([docs/vana-ui-style.md](../docs/vana-ui-style.md)): a palette, and switches, sliders, drop-downs, chips and buttons drawn on ImGui's draw lists over invisible buttons. A custom UI can `require('ui.kit')` for the same look; each control takes its value and returns the new one and whether it changed, and `kit.frame(scale)` must run once a frame before any of them. `kit.tooltips()` after them draws the frame's tooltip: only the last `kit.tooltip` asked for shows, as with `SetTooltip` (without it, the next `kit.frame` draws it, a frame late).
 
 ## Install
 
@@ -67,9 +67,10 @@ Text that may contain `%` (names, `why` text) must be escaped before it's drawn:
 | `japanese` | bool | Spell, ability and item names are sent in Japanese. Shared by every job pair: it's kept in `ui`'s file (`ui.japanese`) |
 | `log` | bool | Each action sent is printed to chat (`/sk3 log`; off at load). The standard UI has no switch for it |
 | `profiles` | table | `{ active, names }`: the profile loaded (nil for Default, the working copy) and every saved profile's name, in order, case aside. Each job pair has its own |
-| `ui` | table | The UI's settings, shared by every job pair: `open` (bool, the UI is shown now: false once `/sk3`, `act.close()` or an error hid it), and any `ui.<name>` your UI saved. The standard HUD's, which yours may ignore: `hp_width`, `mp_width`, `tp_width` (80 to 600), `hp_height` (10 to 120), `mp_height`, `tp_height` (4 to 80), `name_size` (8 to 64), `text_size` (8 to 48), `gap` (0 to 40), all in pixels; `locked` (bool, it and the widget can't be dragged); `widget` (bool, the widget is shown, with the UI closed too: `/sk3 widget` switches it; a UI with no widget may ignore it); Sidekick Settings' `scale` (50 to 200, % of the size that suits the screen; nil for 100); `japanese` (bool, the client's language, as `view.japanese`: not free for a UI's own use) |
+| `ui` | table | The UI's settings, shared by every job pair: `open` (bool, the UI is shown now: false once `/sk3`, `act.close()` or an error hid it), and any `ui.<name>` your UI saved. The standard HUD's, which yours may ignore: `hp_width`, `mp_width`, `tp_width` (80 to 600), `hp_height` (10 to 120), `mp_height`, `tp_height` (4 to 80), `name_size` (8 to 64), `text_size` (8 to 48), `gap` (0 to 40), all in pixels; `locked` (bool, it and the widget can't be dragged); `widget` (bool, the widget is shown, with the UI closed too: `/sk3 widget` switches it; a UI with no widget may ignore it); `widget_size` (10 to 48, the standard widget's text and icons' height in pixels); Sidekick Settings' `scale` (50 to 200, % of the size that suits the screen; nil for 100); `japanese` (bool, the client's language, as `view.japanese`: not free for a UI's own use) |
 | `sections` | list | Every setting, by section, below |
-| `remote` | list | The Sidekick Settings of other Sidekick sessions on this PC you have open (`act.watch`; sent only while your UI is open), by name: `{ name, view, other }`. `view` is the view that session built and sent (nil until its first one comes, about a second): the same fields as yours but `pointer`, `others`, `ui` and `remote`, plus `session` (its name) and `version`. Draw it with `act.remote(name)` in place of `act`. `other` is true (and `view` nil) when that session runs another version of Sidekick3, whose view this one can't draw |
+| `remote` | list | The Sidekick Settings of other Sidekick sessions on this PC you have open (`act.watch`; sent only while your UI or the widget is open), by name: `{ name, view, other }`. `view` is the view that session built and sent (nil until its first one comes, about a second): the same fields as yours but `pointer`, `others`, `ui`, `remote` and `sessions`, plus `session` (its name) and `version`. Draw it with `act.remote(name)` in place of `act`. `other` is true (and `view` nil) when that session runs another version of Sidekick3, whose view this one can't draw |
+| `sessions` | list | Every other Sidekick session on this PC, by name, from their session files (in your party or not; a zone, yours or theirs, leaves each as it was): `{ name, running, halted, open, profiles }`, as `party[i].session` |
 | `session` | string or nil | Only on a view in `remote`: the session it came from. nil on yours |
 
 ### `view.status`
@@ -80,6 +81,7 @@ Text that may contain `%` (names, `why` text) must be escaped before it's drawn:
 | `state` | string | `'Running'` or `'Stopped'` |
 | `text` | string | Running: the last action sent, or `'nothing sent yet'`. Stopped: what it would do now (`'would: Cure IV -> Kupipi (heal: Kupipi at 62%)'`), or why it wouldn't |
 | `dim` | string or nil | Running and not acting: why (`'casting'`, `'safe zone'`, `'AFK asleep'`, `'nothing to do'`...) |
+| `halted` | string or nil | Running, but held by what stops everything for longer than a moment: `'zoning'`, `'dead'`, `'mounted'`, `'safe zone'`, `'AFK asleep'` or `'incapacitated'` (not casting or moving). The standard widget's pill turns blue |
 
 ### `view.party[i]`
 
@@ -101,7 +103,7 @@ Text that may contain `%` (names, `why` text) must be escaped before it's drawn:
 | `dist` | string | `''` for you, `'away'`, or like `'12.3y'` |
 | `buffs` | string | Its statuses, the first 6 by name and `'+N'` for the rest |
 | `buffs_all` | string | Every status, one per line (for a tooltip) |
-| `session` | table or nil | This player is another Sidekick session on this PC (a party member, a tracked player or one of the alliance; never you or a trust): `{ name, running, open }`. `running`: its automation is on; `open`: its Sidekick Settings are shown here (`view.remote`). The standard HUD puts a run icon and a cog on its card, as on yours |
+| `session` | table or nil | This player is another Sidekick session on this PC (a party member, a tracked player or one of the alliance; never you or a trust): `{ name, running, halted, open, profiles }`. `running`: its automation is on; `halted`: it's on but held, as `status.halted` (nil otherwise); `open`: its Sidekick Settings are shown here (`view.remote`); `profiles`: `{ active, names }` as `view.profiles`, that session's (`act.remote(name).profile` loads one there), or nil while unknown. The standard HUD puts a run icon and a cog on its card, as on yours |
 
 ### `view.heal`
 
@@ -215,6 +217,7 @@ In this order. A section with rows is left out when your job has none for it (Pe
 | `'ui.text_size'` | 8 to 48 |
 | `'ui.gap'` | 0 to 40 |
 | `'ui.locked'`, `'ui.widget'` | bool |
+| `'ui.widget_size'` | 10 to 48 |
 | `'ui.scale'` | 50 to 200 |
 | `'ui.<name>'` | your UI's own: a string, number or bool |
 

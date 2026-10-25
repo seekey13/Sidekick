@@ -86,6 +86,7 @@ local status = {
     running = false,  -- automation on (/sk3 start); never resumed on load
     open = nil,       -- window shown; from cfg.ui.open at the first settings load
     failed = nil,     -- the UI raised an error: not drawn, the widget either, until /sk3 or /sk3 widget
+    widget = nil,     -- the widget is up (cfg.ui.widget, not failed): other sessions' Settings show from it too
     log = false,      -- /sk3 log prints each action to chat; off unless debugging
     intent = nil,     -- the latest decision as a sent-style entry, or nil and...
     why = nil,        -- ...why nothing (a gate, 'nothing to do', 'waiting for a cure')
@@ -472,10 +473,31 @@ local function acts()
     end })
 end
 
+-- The last view built from a snapshot that wasn't loading: while zoning, the widget is drawn from it (never from the
+-- loading snapshot, which holds none of the party), the HUD not at all.
+local good
+
+-- That view while zoning: the HUD closed, your automation as it is now, held by the zone, and the other sessions
+-- as their files say.
+local function zoning_view()
+    local v = {}
+    for k, x in pairs(good) do v[k] = x end
+    v.ui, v.status = {}, {}
+    for k, x in pairs(good.ui) do v.ui[k] = x end
+    for k, x in pairs(good.status) do v.status[k] = x end
+    v.ui.open = false
+    v.status.running = status.running
+    v.status.halted = status.running and 'zoning' or nil
+    v.sessions = model.sessions(status)
+    return v
+end
+
 -- The UI, each frame while open. A Lua error closes it, so it's reported once.
 local function draw(g)
     local ok, err = pcall(function ()
+        if g.loading then return ui.render(zoning_view(), acts()) end
         shown = shown or view(g)
+        good = shown
         ui.render(shown, acts())
     end)
     if ok then return end
@@ -509,6 +531,12 @@ local shared = {
         local e = model.landing(status, snap)
         return e and { behavior = e.behavior, action = e.action, target = e.target }
     end,
+    -- Your profiles: the other sessions' widgets list them, to load one here.
+    profiles = function ()
+        if cfg then return { active = profiles.active(cfg), names = profiles.names(cfg) } end
+    end,
+    -- What holds your automation while it runs (zoning too): the other sessions' widgets turn its pill blue.
+    halted = function () return status.running and model.halted(snap) or nil end,
 }
 
 ashita.events.register('d3d_present', 'sidekick3_present', function ()
@@ -516,14 +544,19 @@ ashita.events.register('d3d_present', 'sidekick3_present', function ()
     if fresh then
         stale()
         tick(g)
+        status.widget = cfg and cfg.ui.widget and not status.failed  -- its cogs show other sessions' Settings too
         status.sessions = share.tick(g, g.now, status, shared)
         status.views = share.views
         for name in pairs(status.watching) do
             if not status.sessions[name] then status.watching[name] = nil end  -- gone: its window closes
         end
     end
-    -- The widget is drawn with the HUD closed too.
-    if (status.open or cfg and cfg.ui.widget and not status.failed) and not g.loading then draw(g) end
+    -- The widget is drawn with the HUD closed too, and while zoning.
+    if not g.loading then
+        if status.open or cfg and cfg.ui.widget and not status.failed then draw(g) end
+    elseif good and cfg and cfg.ui.widget and not status.failed then
+        draw(g)  -- the widget alone, from the last view of the party
+    end
     if unsaved and not imgui.IsAnyItemActive() then
         settings.save()
         unsaved = false

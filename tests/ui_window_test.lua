@@ -137,6 +137,10 @@ local handlers = {
         return frame.clicks[label] == true
     end,
     Selectable = function (label) return frame.clicks[label] == true end,
+    -- A right-click is clicks.mouse1 = true: over whatever is hovered, which in the fake is everything.
+    IsMouseClicked = function (b) return frame.clicks['mouse' .. b] == true end,
+    -- Every popup is open, so its list draws, unless a test sets clicks[id] = false.
+    IsPopupOpen = function (id) return frame.clicks[id] ~= false end,
     -- Typing: clicks[label] = 'text' types it and presses Enter.
     InputText = function (label, v)
         assert(type(v) == 'table' and type(v[1]) == 'string', label .. ': value must be { string }')
@@ -697,29 +701,114 @@ end)
 
 -- The widget ------------------------------------------------------------------------
 
+-- A's a session too, for the widget's tests and the remote control's.
+local function remote_status(t)
+    local st = status(t)
+    st.sessions = { A = { running = false, members = { { sid = 101, name = 'A' } } } }
+    st.watching = st.watching or {}
+    return st
+end
+
 local function widget_cfg()
     local cfg = settings.defaults()
     cfg.ui.widget = true
     return cfg
 end
 
-test('the widget is off at first; on, it shows the profile, the job and the state, its whole in the tooltip', function ()
+test('the widget is off at first; on, it is one row: your name, run and cog, what it does in the name\'s tooltip', function ()
     close_settings()
     render(settings.defaults(), status())
     eq(begun('SK Widget'), false)
     local cfg = widget_cfg()
     render(cfg, status({ open = false }))  -- the HUD closed, so the tooltip is the widget's
-    eq({ begun('SK Widget'), button('##sk3_widget_profile'), drew('Default'), drew('WHM 75 / BLM 37'), drew('Stopped'),
-         button('##sk3_widget_run'), drew(' Start ') }, { true, true, true, true, true, true, true })
-    eq(tipped('Stopped: would: Cure IV -> A (heal: A at 62%)'), true)
+    eq({ begun('SK Widget'), drew('Me'), button('##sk3_widget_run'), button('##sk3_widget_cog'), tipped('Start automation') },
+       { true, true, true, true, true })
+    eq({ drew('WHM 75 / BLM 37'), drew('Stopped'), drew('Default'), button('##sk3_widget_settings') }, { false, false, false, false })
+    eq({ tipped('Stopped: would: Cure IV -> A (heal: A at 62%)'), tipped('Right-click to load a profile') }, { true, true })
     eq(frame.flags['SK Widget'] - ImGuiWindowFlags_NoTitleBar - ImGuiWindowFlags_NoResize - ImGuiWindowFlags_AlwaysAutoResize
         - ImGuiWindowFlags_NoScrollbar - ImGuiWindowFlags_NoScrollWithMouse - ImGuiWindowFlags_NoBackground, 0)
     eq(frame.extent['SK Widget'], calls('AddRectFilled')[1].args[2])  -- its items reach its panel's far corner
     render(cfg, status({ open = false, running = true, intent = false, why = 'casting' }))
-    eq({ drew('Running'), tipped('(casting)'), drew(' Stop ') }, { true, true, true })
+    eq({ tipped('(casting)'), tipped('Stop automation') }, { true, true })
 end)
 
-test('the widget\'s Start/Stop runs this session only; Settings opens and closes Sidekick Settings', function ()
+test('the widget\'s height is its size setting, held to its range', function ()
+    close_settings()
+    local cfg = widget_cfg()
+    local function height()
+        render(cfg, status({ open = false }))
+        local r = calls('AddRectFilled')[1].args
+        return r[2][2] - r[1][2]
+    end
+    local base = height()
+    cfg.ui.widget_size = 32
+    eq(height() > base, true)
+    local big = height()
+    cfg.ui.widget_size = 500
+    eq(height(), 48 + 7 * 2 + 14 * 2)  -- its pill's margin round the buttons, the panel's round the pill
+    cfg.ui.widget_size = 'what'
+    eq(height(), base)
+    eq(big, 32 + 5 * 2 + 10 * 2)
+end)
+
+test('each character\'s pill is red while stopped and green while running', function ()
+    close_settings()
+    local cfg, st = widget_cfg(), remote_status({ open = false })
+    local function pill_colours()
+        render(cfg, st, nil, model.build(snap(), cat, cfg, st, NAMES))
+        local out = {}
+        for _, d in ipairs(calls('AddRectFilled')) do  -- yours, then A's; not the panel nor a stop glyph
+            local c = d.args[3]
+            if c == u32(kit.P.go) or c == u32(kit.P.halt) then out[#out + 1] = c end
+        end
+        return out
+    end
+    eq(pill_colours(), { u32(kit.P.halt), u32(kit.P.halt) })
+    st.running = true
+    eq(pill_colours(), { u32(kit.P.go), u32(kit.P.halt) })
+    st.sessions.A.running = true
+    eq(pill_colours(), { u32(kit.P.go), u32(kit.P.go) })
+end)
+
+test('a pill is blue while something holds automation, yours and another session\'s; its tooltip says what', function ()
+    close_settings()
+    local cfg, st = widget_cfg(), remote_status({ open = false, running = true })
+    st.sessions.A.running, st.sessions.A.halted = true, 'mounted'
+    local function blue()
+        local n = 0
+        for _, d in ipairs(calls('AddRectFilled')) do
+            if d.args[3] == u32(kit.P.held) then n = n + 1 end
+        end
+        return n
+    end
+    local g = snap()
+    g.afk = true
+    render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
+    eq({ blue(), tipped('A: Halted (mounted)') }, { 2, true })
+    g.afk, g.mounted = nil, true
+    render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
+    eq(blue(), 2)
+    g.mounted, g.casting, g.moving = nil, true, true  -- a moment's hold only: still green
+    render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
+    eq(blue(), 1)
+    st.sessions.A.running = false  -- stopped: red, whatever its file says
+    render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
+    eq({ blue(), tipped('A: Stopped') }, { 0, true })
+end)
+
+test('the widget shows every session on this PC from its file, in your party or not', function ()
+    close_settings()
+    local cfg, st = widget_cfg(), remote_status({ open = false })
+    st.sessions.Zed = { running = true, members = { { sid = 950, name = 'Zed' } } }  -- not in any list here
+    render(cfg, st, nil, model.build(snap(), cat, cfg, st, NAMES))
+    eq({ button('##sk3_widget_A_run'), button('##sk3_widget_Zed_run'), tipped('Zed: Running') }, { true, true, true })
+    local g = snap()
+    g.units = { g.units[1] }  -- your party's lines not read yet: A stays
+    render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
+    eq(button('##sk3_widget_A_run'), true)
+end)
+
+test('the widget\'s run button runs this session only; its cog opens and closes Sidekick Settings', function ()
     close_settings()
     local cfg, st = widget_cfg(), status()
     remote_calls = {}
@@ -727,37 +816,62 @@ test('the widget\'s Start/Stop runs this session only; Settings opens and closes
     eq({ st.running, remote_calls }, { true, {} })
     eq(render(cfg, st, { ['##sk3_widget_run'] = true }), 0)
     eq(st.running, false)
-    render(cfg, st, { ['##sk3_widget_settings'] = true })
+    render(cfg, st, { ['##sk3_widget_cog'] = true })
     render(cfg, st)
     eq(begun('Sidekick Settings'), true)
-    render(cfg, st, { ['##sk3_widget_settings'] = true })
+    render(cfg, st, { ['##sk3_widget_cog'] = true })
     render(cfg, st)
     eq(begun('Sidekick Settings'), false)
 end)
 
-test('the widget\'s profile drop-down lists the profiles: a click loads one, Default goes back', function ()
+test('right-clicking a name lists its profiles: a click loads one, Default goes back', function ()
     close_settings()
     local cfg, st = widget_cfg(), status()
     cfg.heal.danger = 40
     cfg.profiles['Sky##1'] = { heal = { danger = 20 } }
-    eq(render(cfg, st, { ['##sk3_widget_profile_1'] = true }), 1)
+    render(cfg, st)
+    eq(has(frame.args.OpenPopup, '##sk3_widget_profiles'), false)
+    render(cfg, st, { mouse1 = true })
+    eq(has(frame.args.OpenPopup, '##sk3_widget_profiles'), true)
+    eq(render(cfg, st, { ['##sk3_widget_profiles_1'] = true }), 1)
     eq({ cfg.profile, cfg.heal.danger }, { 'Sky##1', 20 })
     render(cfg, st)
-    eq({ drew('Sky##1'), tipped('Sky##1') }, { true, true })  -- whole, in its box and in its list
-    render(cfg, st, { ['Default##sk3_widget_profile_default'] = true })
+    eq({ tipped('Sky##1'), tipped('(profile Sky##1)') }, { true, true })  -- whole, in its list and the name's tooltip
+    render(cfg, st, { ['Default##sk3_widget_profiles_default'] = true })
     eq({ cfg.profile, cfg.heal.danger }, { '', 40 })
 end)
 
-test('the widget offers Track for a player you target outside the alliance', function ()
+test('the widget names each other session after you: its run, its cog and its profiles reach it', function ()
     close_settings()
-    local g = fake.snap({ { name = 'A' } }, { target = { sid = 900, tidx = 1200, name = 'Stranger' } })
-    local cfg, st = widget_cfg(), status()
-    tracking_calls = {}
-    render(cfg, st, { ['##sk3_widget_track'] = true }, model.build(g, cat, cfg, st, NAMES))
-    eq({ tracking_calls, drew('Track Stranger') }, { { { 'add', 'Stranger' } }, true })
-    g.target = nil
-    render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
-    eq({ button('##sk3_widget_track'), drew('Track Stranger') }, { false, false })
+    local cfg, st = widget_cfg(), remote_status({ open = false })
+    st.sessions.A.profiles = { active = 'Melee', names = { 'Melee', 'Mage' } }
+    local function view() return model.build(snap(), cat, cfg, st, NAMES) end
+    remote_calls = {}
+    render(cfg, st, nil, view())
+    eq({ drew('Me'), drew('A'), button('##sk3_widget_A_run'), button('##sk3_widget_A_cog'), button('##sk3_widget_B_run') },
+       { true, true, true, true, false })  -- B's a trust: no session
+    eq({ tipped('A: Stopped\nProfile: Melee'), tipped('Start A\'s automation') }, { true, true })
+    eq(render(cfg, st, { ['##sk3_widget_A_run'] = true }, view()), 0)
+    eq({ remote_calls, st.running }, { { { 'A', 'run', true } }, false })  -- sent there, not run here
+    remote_calls = {}
+    render(cfg, st, { ['##sk3_widget_A_profiles_2'] = true }, view())
+    render(cfg, st, { ['Default##sk3_widget_A_profiles_default'] = true }, view())
+    eq(remote_calls, { { 'A', 'profile', 'Mage' }, { 'A', 'profile', nil } })
+    render(cfg, st, { ['##sk3_widget_A_cog'] = true }, view())
+    eq(st.watching, { A = true })
+    render(cfg, st, nil, view())  -- the HUD closed, its Sidekick Settings show from the widget
+    eq(begun('Sidekick Settings: A###sk3_settings_A'), true)
+    render(cfg, st, { ['##sk3_widget_A_cog'] = true }, view())
+    eq(st.watching, {})
+end)
+
+test('a session whose profiles never came has no profile menu, nor says Default', function ()
+    close_settings()
+    local cfg, st = widget_cfg(), remote_status({ open = false })
+    render(cfg, st, { mouse1 = true }, model.build(snap(), cat, cfg, st, NAMES))
+    eq({ has(frame.args.OpenPopup, '##sk3_widget_A_profiles'), has(frame.args.OpenPopup, '##sk3_widget_profiles') },
+       { false, true })
+    eq({ tipped('A: Stopped'), tipped('A: Stopped\nProfile') }, { true, false })
 end)
 
 test('UI / Log turns the widget on and off; Lock position keeps it still too', function ()
@@ -775,39 +889,42 @@ test('UI / Log turns the widget on and off; Lock position keeps it still too', f
     close_settings()
 end)
 
-test('with the HUD closed the widget still shows, and its Settings opens Sidekick Settings; closing the HUD closes them', function ()
+test('with the HUD closed the widget still shows, and its cog opens Sidekick Settings; closing the HUD keeps them while it\'s up', function ()
     close_settings()
     local cfg = widget_cfg()
     render(cfg, status({ open = false }))
     eq({ begun('Sidekick3'), begun('SK Widget') }, { false, true })
-    render(cfg, status({ open = false }), { ['##sk3_widget_settings'] = true })
+    render(cfg, status({ open = false }), { ['##sk3_widget_cog'] = true })
     render(cfg, status({ open = false }))
     eq({ begun('Sidekick3'), begun('Sidekick Settings') }, { false, true })
     render(cfg, status())
-    render(cfg, status({ open = false }))  -- /sk3 closed the HUD
+    render(cfg, status({ open = false }))  -- /sk3 closed the HUD: the widget's up, so they stay
+    eq(begun('Sidekick Settings'), true)
+    render(cfg, status(), { ['##sk3_close'] = true })  -- the HUD's own close too
+    render(cfg, status({ open = false }))
+    eq(begun('Sidekick Settings'), true)
+    local plain = settings.defaults()
+    render(plain, status())
+    render(plain, status({ open = false }))  -- no widget: closing the HUD closes them
     eq(begun('Sidekick Settings'), false)
     render(settings.defaults(), status({ open = false }))
     eq({ begun('Sidekick3'), begun('SK Widget'), begun('Sidekick Settings') }, { false, false, false })
     render(settings.defaults(), status())
 end)
 
-test('the widget says the state alone: what it does or why it waits is in its tooltip', function ()
+test('the widget\'s name tooltip says what it does or why it waits; nothing of it is drawn', function ()
     close_settings()
     local cfg = widget_cfg()
     render(cfg, status({ open = false, running = true, intent = false, why = 'holding Valor Minuet IV for Pianissimo' }))
-    eq({ drew('Running'), tipped('(holding Valor Minuet IV for Pianissimo)'), drew('holding') }, { true, true, false })
-    local g = snap()
-    g.afk = true
-    local st = status({ open = false, running = true })
-    render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
-    eq(drew('Asleep'), true)
+    eq({ tipped('Running'), tipped('(holding Valor Minuet IV for Pianissimo)'), drew('holding'), drew('Running') },
+       { true, true, false, false })
 end)
 
 test('a Lua error in the widget still ends every window, then is raised', function ()
     close_settings()
     local cfg, st = widget_cfg(), status()
     local view = model.build(snap(), cat, cfg, st, NAMES)
-    view.track = nil  -- read by the widget alone while Sidekick Settings is closed
+    view.profiles = nil  -- read by the widget (and the HUD title's tooltip)
     local err = draw(window, cfg, st, nil, view)
     eq({ type(err), begun('Sidekick3'), begun('SK Widget') }, { 'string', true, true })
 end)
@@ -1247,14 +1364,7 @@ end)
 
 -- Remote control -------------------------------------------------------------------
 
--- A's a session too: its view as its own session publishes it (with its own settings).
-local function remote_status(t)
-    local st = status(t)
-    st.sessions = { A = { running = false, members = { { sid = 101, name = 'A' } } } }
-    st.watching = st.watching or {}
-    return st
-end
-
+-- A's view as its own session publishes it (with its own settings).
 local function remote_view(cfg)
     local st = status({ running = true, sent = {} })
     return model.published(model.build(snap(), cat, cfg, st, NAMES))

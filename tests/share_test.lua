@@ -35,9 +35,24 @@ test('a file caught mid-write, empty or of another version reads as nothing', fu
     eq(share.decode(''), nil)
     eq(share.decode(text:sub(1, #text - 12)), nil)  -- the last line cut short
     eq(share.decode(text:sub(1, #text - 6)), nil)   -- cut after the name: the end line is missing
-    eq(share.decode((text:gsub('session 3', 'session 2'))), nil)
-    eq(share.decode('sk3 session 3\n5 0 0\nend\n'), nil)  -- no members
+    eq(share.decode((text:gsub('session 4', 'session 3'))), nil)
+    eq(share.decode('sk3 session 4\n5 0 0\nend\n'), nil)  -- no members
     eq(share.decode((text:gsub('\nend', '\nwhat 1\nend'))), nil)  -- a line of no kind it knows
+end)
+
+test('its profiles read back, Default as no active one; one that won\'t read is left out', function ()
+    local p = { active = 'Two Words', names = { 'Two Words', 'Sky##1' } }
+    eq(share.decode(share.encode({ member(10, 'Box') }, true, 5, { profiles = p })).profiles, p)
+    eq(share.decode(share.encode({ member(10, 'Box') }, true, 5, { profiles = { names = {} } })).profiles, { names = {} })
+    eq(share.decode(share.encode({ member(10, 'Box') }, true, 5)).profiles, nil)
+    eq(share.decode(share.encode({ member(10, 'Box') }, true, 5, { profiles = { active = 3, names = {} } })).profiles, nil)
+end)
+
+test('what holds a session reads back; nothing, or one that won\'t read, is nil', function ()
+    eq(share.decode(share.encode({ member(10, 'Box') }, true, 5, { halted = 'AFK asleep' })).halted, 'AFK asleep')
+    eq(share.decode(share.encode({ member(10, 'Box') }, true, 5)).halted, nil)
+    local text = share.encode({ member(10, 'Box') }, true, 5):gsub('\nend', '\nhalted 3\nend')
+    eq(share.decode(text).halted, nil)
 end)
 
 test('what its automation just sent reads back, no target when on itself; one that won\'t read is left out', function ()
@@ -399,7 +414,10 @@ test('two sessions: a call goes, is applied once and acknowledged; a watched ses
         sa.watching.Beta, sa.open = true, false  -- the HUD closed: its windows with it, so not watched
         both(); both()
         eq({ share.decode(files[DIR .. 'session_Alpha.txt']).watch, files[DIR .. 'view_Beta.txt'] }, { {}, nil })
-        sa.open = true
+        sa.widget = true  -- its cogs open them too: watched with the HUD closed
+        both(); both()
+        eq({ share.decode(files[DIR .. 'session_Alpha.txt']).watch, files[DIR .. 'view_Beta.txt'] ~= nil }, { { Beta = true }, true })
+        sa.widget, sa.open = nil, true
         both(); both()
         eq(a.views.Beta, { job = 'WHM 75', sections = { { id = 'heal', on = true } } })
         fail = true  -- its view fails while still watched: the file goes, and isn't kept as if current
@@ -421,7 +439,7 @@ test('two sessions: a call goes, is applied once and acknowledged; a watched ses
     end)
 end)
 
-test('two sessions: what one\'s automation sends is in its file at once, read four times a second while the other\'s HUD shows', function ()
+test('two sessions: what one\'s automation sends is in its file at once, read four times a second while the other\'s HUD shows, not its widget', function ()
     two_sessions(function (a, b, files, DIR)
         local ga, gb = in_game(1, 'Alpha'), in_game(2, 'Beta')
         local sa, sb = { running = false, open = true, watching = {} }, { running = true, open = false, watching = {} }
@@ -438,7 +456,7 @@ test('two sessions: what one\'s automation sends is in its file at once, read fo
         acting = nil
         b.tick(gb, 2.3, sb, hb)  -- done: off at once too
         eq(share.decode(files[DIR .. 'session_Beta.txt']).act, nil)
-        sa.open = false  -- Alpha's HUD closed: read every second again
+        sa.open, sa.widget = false, true  -- Alpha's HUD closed, the widget up: read every second again
         a.tick(ga, 2.5, sa, ha)
         acting = { behavior = 'song', action = 'Valor Minuet IV' }
         b.tick(gb, 2.6, sb, hb)
