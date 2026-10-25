@@ -19,9 +19,9 @@
     So does the card of a player who is another Sidekick session on this PC: its
     buttons start and stop that session and open its own Sidekick Settings, drawn here
     from its view.
-    The widget (`ui.widget`, `/sk3 widget`) is one row: each character's name (yours,
-    then each other session's), its run button and its cog, `ui.widget_size` pixels
-    high; right-click a name to load one of its profiles. It shows with the HUD
+    The widget (`ui.widget`, `/sk3 widget`) is one row: each character (yours, then
+    each other session's) in a pill, green running and red stopped, holding its name,
+    its run button and its cog, `ui.widget_size` pixels high; right-click a name to load one of its profiles. It shows with the HUD
     closed too (`view.ui.open` false), as v2's did.
 
     Ashita's binding: widget values are one-element tables ({ 'text' }), and Text
@@ -399,30 +399,37 @@ local function profile_menu(c, id)
     end)
 end
 
--- One row on a panel of its own: each character's name, its run button and its cog, `ui.widget_size` pixels high.
--- Right-click a name for its profiles; hover it for what it's doing.
+-- One row on a panel of its own: each character in a pill, green while running and red while stopped, holding its
+-- name, its run button and its cog, `ui.widget_size` pixels high. Right-click a name for its profiles; hover it for
+-- what it's doing.
 local function draw_widget(view)
     local dl = imgui.GetWindowDrawList()
     local x0, y0 = imgui.GetCursorScreenPos()
     local h = widget_size(view.ui)
-    local pad, gap, apart = math.floor(h * 0.5 + 0.5), math.floor(h * 0.3 + 0.5), h
+    local function px(k) return math.floor(h * k + 0.5) end
+    local pad, apart, gap = px(0.3), px(0.4), px(0.3)  -- round the pills, between them, between a pill's parts
+    local edge, lead = px(0.15), px(0.45)              -- inside a pill: round its buttons, before its name
     local list, font = characters(view), kit.fonts.semi
+    local pill_h = h + edge * 2
     local pw = pad * 2 - apart
     for _, c in ipairs(list) do
         c.w = math.ceil(kit.measure(c.name, font, h))
-        pw = pw + c.w + gap + h + gap / 2 + h + apart
+        c.pill = lead + c.w + gap + h + math.floor(gap / 2) + h + edge
+        pw = pw + c.pill + apart
     end
-    local ph = h + pad
-    kit.fill(dl, x0, y0, pw, ph, P.bg, math.floor(h * 0.35))
-    kit.outline(dl, x0, y0, pw, ph, P.border, math.floor(h * 0.35))
+    local ph = pill_h + pad * 2
+    kit.fill(dl, x0, y0, pw, ph, P.bg, px(0.5))
+    kit.outline(dl, x0, y0, pw, ph, P.border, px(0.5))
 
     local x, cy = x0 + pad, y0 + ph / 2
     for _, c in ipairs(list) do
         local id = c.remote and ('##sk3_widget_' .. c.name) or '##sk3_widget'
         local whose = c.remote and (c.name .. '\'s ') or ''
-        kit.text_mid(dl, x, cy, c.name, P.text, font, h)
-        imgui.SetCursorScreenPos({ x, y0 })
-        imgui.Dummy({ math.max(1, c.w), ph })  -- an item to hover, not a button: the widget still drags by its name
+        kit.fill(dl, x, y0 + pad, c.pill, pill_h, c.running and P.go or P.halt, pill_h / 2)
+        local nx = x + lead
+        kit.text_mid(dl, nx, cy, c.name, P.white, font, h)
+        imgui.SetCursorScreenPos({ nx, y0 + pad })
+        imgui.Dummy({ math.max(1, c.w), pill_h })  -- an item to hover, not a button: the widget still drags by its name
         local menu = id .. '_profiles'
         if imgui.IsItemHovered() then
             local line = ('Profile: %s\nRight-click to load another.'):format(c.profiles.active or 'Default')
@@ -431,16 +438,16 @@ local function draw_widget(view)
             if imgui.IsMouseClicked(1) then imgui.OpenPopup(menu) end
         end
         profile_menu(c, menu)
-        x = x + c.w + gap
-        local clicked = disc_button(id .. '_run', x, cy - h / 2, h, c.running and 'stop' or 'play', c.running,
-            (c.running and 'Stop ' or 'Start ') .. whose .. 'automation')
+        local bx = nx + c.w + gap
+        local clicked = disc_button(id .. '_run', bx, cy - h / 2, h, c.running and 'stop' or 'play', false,
+            (c.running and 'Stop ' or 'Start ') .. whose .. 'automation')  -- the pill says which
         if clicked then c.act.run(not c.running) end
-        x = x + h + gap / 2
-        local cog = disc_button(id .. '_cog', x, cy - h / 2, h, 'cog', c.shown,
+        bx = bx + h + math.floor(gap / 2)
+        local cog = disc_button(id .. '_cog', bx, cy - h / 2, h, 'cog', c.shown,
             c.remote and ('Settings for ' .. c.name) or 'Open or close Sidekick Settings')
         if cog and c.remote then act.watch(c.name, not c.shown)
         elseif cog then settings_open = not settings_open end
-        x = x + h + apart
+        x = x + c.pill + apart
     end
     imgui.SetCursorScreenPos({ x0, y0 + ph - 1 })
     imgui.Dummy({ pw, 1 })  -- the panel's full size, for the auto-size

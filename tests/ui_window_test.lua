@@ -743,10 +743,29 @@ test('the widget\'s height is its size setting, held to its range', function ()
     eq(height() > base, true)
     local big = height()
     cfg.ui.widget_size = 500
-    eq(height(), math.floor(48 * 1.5 + 0.5))
+    eq(height(), 48 + 7 * 2 + 14 * 2)  -- its pill's margin round the buttons, the panel's round the pill
     cfg.ui.widget_size = 'what'
     eq(height(), base)
-    eq(big, 32 + 16)
+    eq(big, 32 + 5 * 2 + 10 * 2)
+end)
+
+test('each character\'s pill is red while stopped and green while running', function ()
+    close_settings()
+    local cfg, st = widget_cfg(), remote_status({ open = false })
+    local function pill_colours()
+        render(cfg, st, nil, model.build(snap(), cat, cfg, st, NAMES))
+        local out = {}
+        for _, d in ipairs(calls('AddRectFilled')) do  -- yours, then A's; not the panel nor a stop glyph
+            local c = d.args[3]
+            if c == u32(kit.P.go) or c == u32(kit.P.halt) then out[#out + 1] = c end
+        end
+        return out
+    end
+    eq(pill_colours(), { u32(kit.P.halt), u32(kit.P.halt) })
+    st.running = true
+    eq(pill_colours(), { u32(kit.P.go), u32(kit.P.halt) })
+    st.sessions.A.running = true
+    eq(pill_colours(), { u32(kit.P.go), u32(kit.P.go) })
 end)
 
 test('the widget\'s run button runs this session only; its cog opens and closes Sidekick Settings', function ()
