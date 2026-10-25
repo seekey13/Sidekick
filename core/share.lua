@@ -8,6 +8,7 @@
                             { sid, name, main, main_lv, sub, sub_lv, hpp, hp, max_hp, mpp, mp, here } },
                 act = { behavior, action, target } or nil,
                 profiles = { active (nil for Default), names } or nil: the widget lists them to load,
+                asleep (automation running but paused by AFK sleep: the widget's pill greys),
                 watch, calls, acks (remote control, below) }
     max_hp is 0 when unknown: a member not yet seen at full HP. `here`: in the
     owner's zone, so their HP is current (a member elsewhere has stale HP).
@@ -110,7 +111,7 @@ end
 local sorted_keys = util.sorted_keys
 
 -- The file's text for a roster (share.roster), whether it runs, and the os.time()
--- written at. `extra` (optional): { epoch, act = { behavior, action, target }, profiles = { active, names },
+-- written at. `extra` (optional): { epoch, act = { behavior, action, target }, profiles = { active, names }, asleep,
 -- watch = { [name] = true },
 -- calls (share.queue's list), acks = { [sender] = { epoch, n } } }.
 function share.encode(members, running, heartbeat, extra)
@@ -123,6 +124,7 @@ function share.encode(members, running, heartbeat, extra)
     end
     if extra.act then lines[#lines + 1] = 'act ' .. share.pack(extra.act) end
     if extra.profiles then lines[#lines + 1] = 'profiles ' .. share.pack(extra.profiles) end
+    if extra.asleep then lines[#lines + 1] = 'asleep' end
     for _, name in ipairs(sorted_keys(extra.watch)) do lines[#lines + 1] = 'watch ' .. name end
     for _, c in ipairs(extra.calls or {}) do
         lines[#lines + 1] = ('do %s %d %d %s'):format(c.to, c.epoch, c.n, share.pack(c.call))
@@ -154,7 +156,7 @@ local function action(t)
 end
 
 -- A session from a file's text; nil for none, another version, or one caught mid-write.
--- Besides share.encode's fields: act and profiles (nil for none), watch = { [name] = true },
+-- Besides share.encode's fields: act and profiles (nil for none), asleep, watch = { [name] = true },
 -- calls = { { to, epoch, n, call } }, acks = { [sender] = { epoch, n } }.
 function share.decode(text)
     if not text then return nil end
@@ -183,6 +185,8 @@ function share.decode(text)
             s.act = action(share.unpack(acted))
         elseif listed then
             s.profiles = profile_list(share.unpack(listed))
+        elseif line == 'asleep' then
+            s.asleep = true
         elseif watch then
             s.watch[watch] = true
         elseif to then  -- one that won't read is skipped: the next call's ack covers its number
@@ -509,8 +513,8 @@ function share.tick(g, clock, status, hooks)
         if live[name] then watch[name] = true end
     end
     local text = share.encode(roster, status.running, os.time(),
-        { epoch = share.epoch, act = act, profiles = hooks.profiles and hooks.profiles() or nil, watch = watch,
-          calls = pending, acks = acks })
+        { epoch = share.epoch, act = act, profiles = hooks.profiles and hooks.profiles() or nil,
+          asleep = status.running and g.afk == true, watch = watch, calls = pending, acks = acks })
     acted = packed  -- one that fails to write goes at the next tick, not at every read until it's written
     if text == written or write(path(me), text) then mine, written = me, text end
     local watched, called = share.watched(live, me)

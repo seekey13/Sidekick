@@ -770,6 +770,23 @@ test('each character\'s pill is red while stopped and green while running', func
     eq(pill_colours(), { u32(kit.P.go), u32(kit.P.go) })
 end)
 
+test('a pill greys while AFK sleep pauses automation, yours and another session\'s, and its tooltip says Asleep', function ()
+    close_settings()
+    local cfg, st = widget_cfg(), remote_status({ open = false, running = true })
+    st.sessions.A.running, st.sessions.A.asleep = true, true
+    local g = snap()
+    g.afk = true
+    render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
+    local out = {}
+    for _, d in ipairs(calls('AddRectFilled')) do
+        if d.args[3] == u32(kit.P.asleep) then out[#out + 1] = d end
+    end
+    eq({ #out, tipped('A: Asleep') }, { 2, true })
+    st.sessions.A.running = false  -- stopped: red, whatever its file says of sleep
+    render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
+    eq(tipped('A: Stopped'), true)
+end)
+
 test('the widget\'s run button runs this session only; its cog opens and closes Sidekick Settings', function ()
     close_settings()
     local cfg, st = widget_cfg(), status()
@@ -851,7 +868,7 @@ test('UI / Log turns the widget on and off; Lock position keeps it still too', f
     close_settings()
 end)
 
-test('with the HUD closed the widget still shows, and its Settings opens Sidekick Settings; closing the HUD closes them', function ()
+test('with the HUD closed the widget still shows, and its cog opens Sidekick Settings; closing the HUD keeps them while it\'s up', function ()
     close_settings()
     local cfg = widget_cfg()
     render(cfg, status({ open = false }))
@@ -860,7 +877,14 @@ test('with the HUD closed the widget still shows, and its Settings opens Sidekic
     render(cfg, status({ open = false }))
     eq({ begun('Sidekick3'), begun('Sidekick Settings') }, { false, true })
     render(cfg, status())
-    render(cfg, status({ open = false }))  -- /sk3 closed the HUD
+    render(cfg, status({ open = false }))  -- /sk3 closed the HUD: the widget's up, so they stay
+    eq(begun('Sidekick Settings'), true)
+    render(cfg, status(), { ['##sk3_close'] = true })  -- the HUD's own close too
+    render(cfg, status({ open = false }))
+    eq(begun('Sidekick Settings'), true)
+    local plain = settings.defaults()
+    render(plain, status())
+    render(plain, status({ open = false }))  -- no widget: closing the HUD closes them
     eq(begun('Sidekick Settings'), false)
     render(settings.defaults(), status({ open = false }))
     eq({ begun('Sidekick3'), begun('SK Widget'), begun('Sidekick Settings') }, { false, false, false })

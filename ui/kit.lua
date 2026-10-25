@@ -29,7 +29,8 @@ kit.P = {
     tp = '#5FD3B3',                  -- and TP in its teal, as what is ready
     track = '#808080',               -- each HUD bar's background, at 70%, not faded with the panel
     yellow = '#E8C84A', orange = '#E8883A', red = '#E8454E',  -- a name on an HP bar, at 75%, 50% and 25%
-    go = '#2F9E68', halt = '#C23B45',  -- the widget's pill round a character: running, stopped
+    go = '#2F9E68', halt = '#C23B45', asleep = '#5A6075',  -- the widget's pill round a character: running, stopped,
+                                                          -- running but paused by AFK sleep
 }
 local P = kit.P
 

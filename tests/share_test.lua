@@ -48,6 +48,11 @@ test('its profiles read back, Default as no active one; one that won\'t read is 
     eq(share.decode(share.encode({ member(10, 'Box') }, true, 5, { profiles = { active = 3, names = {} } })).profiles, nil)
 end)
 
+test('a session asleep says so', function ()
+    eq(share.decode(share.encode({ member(10, 'Box') }, true, 5, { asleep = true })).asleep, true)
+    eq(share.decode(share.encode({ member(10, 'Box') }, true, 5)).asleep, nil)
+end)
+
 test('what its automation just sent reads back, no target when on itself; one that won\'t read is left out', function ()
     local act = { behavior = 'heal', action = 'Cure IV', target = 'Two Words' }
     local text = share.encode({ member(10, 'Box') }, true, 5, { act = act })

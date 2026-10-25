@@ -21,7 +21,7 @@
     from its view.
     The widget (`ui.widget`, `/sk3 widget`) is one row: each character (yours, then
     each other session's) in a pill, green running and red stopped, holding its name,
-    its run button and its cog, `ui.widget_size` pixels high; right-click a name to load one of its profiles. It shows with the HUD
+    its run button and its cog, `ui.widget_size` pixels high (grey while AFK sleep pauses it); right-click a name to load one of its profiles. It shows with the HUD
     closed too (`view.ui.open` false), as v2's did.
 
     Ashita's binding: widget values are one-element tables ({ 'text' }), and Text
@@ -56,7 +56,8 @@ local JOINED = { party = '  (in your party)', alliance = '  (in your alliance)' 
 
 local act                    -- this frame's actions (another session's, while drawing its Sidekick Settings)
 local settings_open = false  -- Sidekick Settings shown; this session only
-local hud_open = true        -- last frame's view.ui.open: closing the HUD (/sk3) closes Sidekick Settings with it
+local hud_open = true        -- last frame's view.ui.open: closing the HUD (/sk3) closes Sidekick Settings with it,
+                             -- unless the widget is up
 local profile_names = {}     -- per Sidekick Settings window ('' for yours, else the session's name), this session only:
                              -- { typed = { name }, shown }, the name filled in again when the profile loaded changes
 local panes = {}             -- per Sidekick Settings window, as profile_names: { page, folded = { [section id] = true } }
@@ -174,7 +175,7 @@ local function title_row(dl, view, ts, x0, y0, pw, th, s, chrome)
     kit.tip('Close (/sk3 opens it again)')
     if clicked then
         act.close()
-        settings_open = false
+        if not view.ui.widget then settings_open = false end  -- the widget's cogs keep them
     end
 end
 
@@ -366,18 +367,20 @@ local function widget_size(ui)
 end
 
 -- The characters the widget shows: you, then each other Sidekick session on a line here (party, tracked or alliance),
--- once each. { name, running, shown (its Sidekick Settings), profiles (nil while unknown), remote (nil for yours) }.
+-- once each. { name, running, asleep, shown (its Sidekick Settings), profiles (nil while unknown), remote (nil for yours) }.
 local function characters(view)
     local out, seen = {}, {}
     local me = view.party[1]
     out[1] = { name = me and me.name or 'You', running = view.status.running, shown = settings_open,
+               asleep = view.status.running and view.afk.asleep or nil,
                profiles = view.profiles }
     for _, list in ipairs({ view.party, view.alliance }) do
         for _, p in ipairs(list) do
             local r = p.session
             if r and not seen[r.name] then
                 seen[r.name] = true
-                out[#out + 1] = { name = r.name, running = r.running, shown = r.open, profiles = r.profiles, remote = r }
+                out[#out + 1] = { name = r.name, running = r.running, asleep = r.asleep, shown = r.open,
+                                  profiles = r.profiles, remote = r }
             end
         end
     end
@@ -388,8 +391,8 @@ end
 local function act_of(c) return c.remote and act.remote(c.name) or act end
 
 -- A character's profiles, right-clicking its name: Default, then each saved; a click loads it there.
-local function profile_menu(c, id)
-    kit.popup(id, S(BODY - 1), function ()
+local function profile_menu(c, id, px)
+    kit.popup(id, px, function ()
         local p = c.profiles
         if imgui.Selectable('Default' .. id .. '_default', p.active == nil) then act_of(c).profile(nil) end
         for i, name in ipairs(p.names or {}) do  -- over a blank row, so a name with '##' in it shows whole
@@ -401,7 +404,8 @@ local function profile_menu(c, id)
     end)
 end
 
--- One row on a panel of its own: each character in a pill, green while running and red while stopped, holding its
+-- One row on a panel of its own: each character in a pill, green while running (grey while AFK sleep pauses it) and
+-- red while stopped, holding its
 -- name, its run button and its cog, `ui.widget_size` pixels high. Right-click a name for its profiles; hover it for
 -- what it's doing.
 local function draw_widget(view)
@@ -427,24 +431,25 @@ local function draw_widget(view)
     for _, c in ipairs(list) do
         local id = c.remote and ('##sk3_widget_' .. c.name) or '##sk3_widget'
         local whose = c.remote and (c.name .. '\'s ') or ''
-        kit.fill(dl, x, y0 + pad, c.pill, pill_h, c.running and P.go or P.halt, pill_h / 2)
+        kit.fill(dl, x, y0 + pad, c.pill, pill_h, c.asleep and P.asleep or c.running and P.go or P.halt, pill_h / 2)
         local nx = x + lead
         kit.text_mid(dl, nx, cy, c.name, P.white, font, h)
         imgui.SetCursorScreenPos({ x, y0 + pad })
         imgui.Dummy({ lead + c.w, pill_h })  -- an item to hover, not a button: the widget still drags by its name
         local menu = id .. '_profiles'
+        local state = c.asleep and 'Asleep' or c.running and 'Running' or 'Stopped'
         if imgui.IsItemHovered() then
             if not c.remote then  -- your status's tooltip names the profile already
                 kit.tooltip(status_tip(view) .. '\nRight-click to load a profile.')
             elseif c.profiles then
-                kit.tooltip(('%s: %s\nProfile: %s\nRight-click to load another.'):format(c.name,
-                    c.running and 'Running' or 'Stopped', c.profiles.active or 'Default'))
+                kit.tooltip(('%s: %s\nProfile: %s\nRight-click to load another.'):format(c.name, state,
+                    c.profiles.active or 'Default'))
             else  -- its profiles never came (its file left them out)
-                kit.tooltip(('%s: %s'):format(c.name, c.running and 'Running' or 'Stopped'))
+                kit.tooltip(('%s: %s'):format(c.name, state))
             end
             if c.profiles and imgui.IsMouseClicked(1) then imgui.OpenPopup(menu) end
         end
-        if c.profiles and imgui.IsPopupOpen(menu) then profile_menu(c, menu) end
+        if c.profiles and imgui.IsPopupOpen(menu) then profile_menu(c, menu, h) end  -- the row's size, not Settings'
         local bx = nx + c.w + gap
         local clicked = disc_button(id .. '_run', bx, cy - h / 2, h, c.running and 'stop' or 'play', false,
             (c.running and 'Stop ' or 'Start ') .. whose .. 'automation')  -- the pill says which
@@ -1390,7 +1395,7 @@ function window.render(view, act_)
     if not imgui.IsAnyItemActive() then user_scale = ui_scale(view.ui) / 100 end  -- not mid-drag: the window would move under it
     kit.frame(user_scale)
     local open = view.ui.open ~= false
-    if hud_open and not open then settings_open = false end
+    if hud_open and not open and not view.ui.widget then settings_open = false end  -- the widget's cogs keep them
     hud_open = open
     local err
     if open then
