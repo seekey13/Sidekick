@@ -290,7 +290,7 @@ function kit.tri(dl, a, b, c, color, alpha)
 end
 
 -- An icon `size` across centred on (cx, cy), drawn in shapes so no font has to carry it: 'close', 'play', 'stop',
--- 'cog' (its hole in `cut`), 'down', 'right'. In a 24-unit box.
+-- 'cog' (its hole in `cut`), 'down', 'right', 'check'. In a 24-unit box.
 function kit.icon(dl, name, cx, cy, size, color, alpha, cut)
     local k = size / 24
     local function p(x, y) return { cx + (x - 12) * k, cy + (y - 12) * k } end
@@ -320,6 +320,9 @@ function kit.icon(dl, name, cx, cy, size, color, alpha, cut)
     elseif name == 'right' then
         dl:AddLine(p(9, 5), p(16, 12), col, t)
         dl:AddLine(p(16, 12), p(9, 19), col, t)
+    elseif name == 'check' then
+        dl:AddLine(p(5, 12), p(10, 17), col, t)
+        dl:AddLine(p(10, 17), p(19, 7), col, t)
     end
 end
 
@@ -482,6 +485,24 @@ function kit.switch(id, x, cy, on, enabled, alpha)
     if hovered and enabled ~= false then fill(dl, x, y, w, h, '#FFFFFF', h / 2, 0.08 * a) end
     local r = (h - S(4)) / 2
     kit.circle(dl, x + S(2) + r + (w - S(4) - r * 2) * t, cy, r, P.knob, a)
+    return on, changed == true
+end
+
+-- A checkbox, kit.CB by kit.CB, its left edge at x: the accent with a tick when on, a sunken box when off.
+-- Returns on, changed.
+kit.CB = 16
+function kit.checkbox(id, x, cy, on, enabled, alpha)
+    local s = S(kit.CB)
+    local y = cy - s / 2
+    local hovered, clicked = hit(id, x, y, s, s)
+    local changed = clicked and enabled ~= false
+    if changed then on = not on end
+    local t, a = ease(id, on and 1 or 0), faded(enabled, alpha)
+    local dl = imgui.GetWindowDrawList()
+    fill(dl, x, y, s, s, mix(P.well, P.accent, t), S(3), a)
+    outline(dl, x, y, s, s, mix(P.well_edge, P.accent, t), S(3), a)
+    if hovered and enabled ~= false then fill(dl, x, y, s, s, '#FFFFFF', S(3), 0.08 * a) end
+    if t > 0 then kit.icon(dl, 'check', x + s / 2, cy, s, P.bg, a * t) end
     return on, changed == true
 end
 

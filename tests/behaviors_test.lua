@@ -244,6 +244,15 @@ test('items: Doom first, then Silence if you cast, then the one clearing the mos
     eq(decide(g, cfg, blm), '/item "Panacea" <me>')
 end)
 
+test('items: a status left on still makes the Ointment a gamble', function ()
+    local blm, cfg = fake.catalog(BLM, 75, nil, 0), settings.defaults()
+    for _, k in ipairs({ 'Remedy Ointment', 'Remedy' }) do cfg.rows[k] = { on = true } end
+    cfg.remove.skip = { poison = true }
+    local g = snap(nil, { items = { [5356] = 1, [REMEDY] = 1 } })
+    g.me.buffs[POISON], g.me.buffs[BLINDNESS] = true, true
+    eq(decide(g, cfg, blm), '/item "Remedy" <me>')  -- the Ointment could take the Poison left on
+end)
+
 test('items: an /item the server never answered holds the next one 4s', function ()
     local blm, cfg, mem = fake.catalog(BLM, 75, nil, 0), settings.defaults(), {}
     cfg.rows['Echo Drops'] = { on = true }

@@ -14,6 +14,7 @@ local heal = require('behaviors.heal')
 local stratagems = require('jobs.sch')
 local observed = require('core.observed')
 local can = require('core.can')
+local status = require('core.status')
 
 local DNC, SCH, PLD = 19, 20, 7
 local DIVINE_SEAL, LIGHT_ARTS, ACCESSION, MAJESTY, REGEN = 78, 358, 366, 621, 42
@@ -275,6 +276,47 @@ test('removal: the specific -na first, Erase for what only it clears', function 
     eq(decide(g), '/ma "Paralyna" 101')
     g = snap({ { name = 'A', buffs = { [13] = true } } })
     eq(decide(g), '/ma "Erase" 101')
+end)
+
+test('removal: debuffs switched off are left on, and removers unticked are never used', function ()
+    local cfg = settings.defaults()
+    cfg.remove.skip = { paralysis = true }
+    local g = snap({ { name = 'A', buffs = { [4] = true, [13] = true } } })  -- Paralysis, Slow
+    eq(decide(g, cfg), '/ma "Erase" 101')
+    cfg.remove.skip.slow = true
+    eq({ decide(g, cfg) }, { nil, 'nothing to do' })
+    cfg.remove.skip = {}
+    cfg.rows.Paralyna = { on = false }
+    eq(decide(g, cfg), '/ma "Erase" 101')
+end)
+
+test('removal: Doom is removed even with its chip off', function ()
+    local cfg = settings.defaults()
+    cfg.remove.skip = { doom = true }
+    eq(decide(snap({ { name = 'A', buffs = { [15] = true } } }), cfg), '/ma "Cursna" 101')
+end)
+
+test('removal goes after danger healing, ahead of efficient healing', function ()
+    local g = snap({ { name = 'A', hpp = 70, buffs = { [4] = true } } })  -- Paralysis
+    eq(decide(g), '/ma "Paralyna" 101')
+    g = snap({ { name = 'A', hpp = 40, buffs = { [4] = true } } })
+    local cmd, intent = decide(g)
+    eq({ cmd ~= nil, intent.why:match('^%a+') }, { true, 'danger' })
+end)
+
+test('efficient healing goes by heal: shown as it, switched by it, quiet while holding or Invisible', function ()
+    local _, intent = decide(snap({ { name = 'A', hpp = 70 } }))
+    eq({ intent.behavior, intent.why:match('^%a+') }, { 'heal', 'efficient' })
+    local cfg = settings.defaults()
+    cfg.heal.on = false
+    eq({ decide(snap({ { name = 'A', hpp = 70 } }), cfg) }, { nil, 'nothing to do' })
+    eq({ decide(with(snap({ { name = 'A', hpp = 70 } }), { status.INVISIBLE })) }, { nil, 'invisible' })
+    local waits = {}  -- every cure nearly off recast; Regen, which danger never casts, ready for B
+    for _, a in ipairs(cat) do if a.role == 'heal' and not a.tick then waits[a.name] = 5 end end
+    local g = snap({ { name = 'A', hpp = 45 }, { name = 'B', hpp = 70 } }, nil, waits)
+    eq({ decide(g) }, { nil, 'waiting for a cure' })
+    g.units[2].buffs[4] = true  -- Paralysis: removal is quick, so it still goes
+    eq(decide(g), '/ma "Paralyna" 101')
 end)
 
 test('revive: the best raise, idle only, and not again while they decide', function ()

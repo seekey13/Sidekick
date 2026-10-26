@@ -45,8 +45,10 @@ local engine = {}
 engine.BEHAVIORS = {
     -- Light Arts: ahead of healing, which is cheaper under it, but for a critical member (behaviors/buff.lua).
     { name = 'first', run = buff.first, setting = 'buff', shown = 'buff', invisible = true },
-    { name = 'heal', run = require('behaviors.heal').want, invisible = true },
+    { name = 'heal', run = require('behaviors.heal').urgent, invisible = true },
+    -- Removal: after critical and danger healing, ahead of efficient healing.
     { name = 'remove', run = require('behaviors.remove'), quick = true },
+    { name = 'heal_efficient', run = require('behaviors.heal').efficient, setting = 'heal', shown = 'heal' },
     { name = 'wake', run = require('behaviors.wake'), quick = true },
     { name = 'recover', run = require('behaviors.recover') },
     { name = 'pet', run = pet.care, quick = true },
