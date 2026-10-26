@@ -120,7 +120,7 @@ In this order. A section with rows is left out when your job has none for it (Pe
 | `'heal'` | Healing | Heal | `view.heal`, rows |
 | `'revive'` | Revive | Heal | rows |
 | `'wake'` | Wake sleepers | Remove | its switch only |
-| `'remove'` | Debuff removal | Remove | rows: the debuffs your spells, abilities and items clear, then the items |
+| `'remove'` | Debuff removal | Remove | rows: its spells and abilities (`remover`), the debuffs they and its items clear (`debuff`), then the items |
 | `'buff'` | Buffs | Buff | `view.buff`, rows |
 | `'roll'` | Rolls | Buff | `view.roll` (a job with rolls only) |
 | `'song'` | Songs | Buff | `view.song` (a job with songs only) |
@@ -148,7 +148,9 @@ In this order. A section with rows is left out when your job has none for it (Pe
 | `key` | string | The row's id for `act`: a family (`'Cure'`, `'Haste'`), a pick-one group (`'barelement'`, `'minuet'`), an item (`'Echo Drops'`) or, on a `debuff` row, the status's name as the client has it (`'paralysis'`, `'Dia'`) |
 | `label` | string | `'Cure'`, `'Valor Minuet (+ATK)'`, `'Sword Madrigal / Blade Madrigal'` |
 | `on` | bool | Rows start on, except buffs (and a Geomancer's Geo and Geo debuff rows), sending the pet in (Assault, Fight, Deploy) and items |
-| `debuff` | bool or nil | Debuff removal's debuff rows, one per status your removers clear, in status id order (Poison, Paralysis, Blindness...): true. Switched with `act.debuff(key, on)`, not `act.row`; every spell and ability you have that clears it is used, and the items that are on. `ready` and `avail` are by those; `action` names every spell, ability and item that clears it, on or not (`'Paralyna, Esuna, Remedy'`) |
+| `debuff` | bool or nil | Debuff removal's debuff rows, one per status your removers clear, in status id order (Poison, Paralysis, Blindness...): true. Switched with `act.debuff(key, on)`, not `act.row`. `ready` and `avail` are by the removers that are on that clear it; `action` names every spell, ability and item that clears it, on or not (`'Paralyna, Esuna, Remedy'`) |
+| `usable` | bool or nil | `debuff` rows: false while no remover that is on clears it (`avail` `'nothing on removes it'`): the standard window greys it out and its switch can't be flipped |
+| `remover` | bool or nil | Debuff removal's spell and ability rows (Paralyna, Erase, Healing Waltz...), switched with `act.row` as any row: true. The standard window draws them as chips to tick, above the debuffs |
 | `ready` | bool | It could go right now |
 | `avail` | string | `'ready'` (or, for a pet care row or Sange whose ammo you hold but don't wear, `'equips <item>'`: it's equipped first, then the row goes), or why not: `'recast 12s'`, `'MP'`, `'TP'`, `'silenced'`, `'combat only'`, `'idle only'`, `'no ammo'`, `'no tools'`, `'pet too far'`, `'none left'`, `'pick one'`, `'not available'`... |
 | `action` | string or nil | When ready, the spell, ability or item it would use, as the client names it: `'Cure V'` (a `debuff` row: what clears it) |

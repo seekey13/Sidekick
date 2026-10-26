@@ -1017,6 +1017,8 @@ test('a row, its pick and its targets each write and save', function ()
     eq(cfg.rows['Echo Drops'], { on = true })
     eq(render(cfg, st, on('Remove', { ['Paralysis##remove_paralysis'] = true })), 1)  -- a debuff, by name
     eq({ cfg.remove.skip, cfg.rows.paralysis }, { { paralysis = true }, nil })
+    eq(render(cfg, st, on('Remove', { ['Erase##remove_with_Erase'] = true })), 1)  -- a remover, ticked off
+    eq(cfg.rows.Erase, { on = false })
 end)
 
 test('items get a heading of their own, with no pick or targets', function ()
@@ -1024,6 +1026,7 @@ test('items get a heading of their own, with no pick or targets', function ()
     render(settings.defaults(), status(), on('Remove'))
     eq({ drew('I T E M S'), button('Echo Drops (0)###remove_Echo Drops'), button('##pick_remove_Echo Drops') }, { true, true, false })
     eq({ drew('D E B U F F S'), button('Paralysis##remove_paralysis'), button('Paralyna##remove_Paralyna') }, { true, true, false })
+    eq({ drew('R E M O V E   W I T H'), button('Erase##remove_with_Erase') }, { true, true })
     render(settings.defaults(), status(), on('Buff'))
     eq({ button('##pick_buff_Protect'), button('P1##buff_Protect1'), drew('I T E M S') }, { true, true, false })
 end)

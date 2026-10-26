@@ -278,16 +278,16 @@ test('removal: the specific -na first, Erase for what only it clears', function 
     eq(decide(g), '/ma "Erase" 101')
 end)
 
-test('removal: debuffs switched off are left on; every spell and ability you have is used', function ()
+test('removal: debuffs switched off are left on, and removers unticked are never used', function ()
     local cfg = settings.defaults()
     cfg.remove.skip = { paralysis = true }
-    cfg.rows.Paralyna = { on = false }  -- a row saved before debuffs were switched by name: no longer read
     local g = snap({ { name = 'A', buffs = { [4] = true, [13] = true } } })  -- Paralysis, Slow
     eq(decide(g, cfg), '/ma "Erase" 101')
     cfg.remove.skip.slow = true
     eq({ decide(g, cfg) }, { nil, 'nothing to do' })
     cfg.remove.skip = {}
-    eq(decide(g, cfg), '/ma "Paralyna" 101')
+    cfg.rows.Paralyna = { on = false }
+    eq(decide(g, cfg), '/ma "Erase" 101')
 end)
 
 test('removal goes after danger healing, ahead of efficient healing', function ()

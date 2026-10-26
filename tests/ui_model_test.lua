@@ -80,17 +80,22 @@ test('a section with nothing to show is left out: BLM 75 has no raise, no heal t
     eq(items, { 'Antidote', 'Eye Drops', 'Echo Drops', 'Holy Water', 'Tincture',
         'Hallowed Water', 'Remedy Ointment', 'Remedy', 'Panacea' })
     eq({ rows[1].key, rows[1].label, rows[1].on, rows[1].ready, rows[1].avail, rows[1].action },
-        { 'poison', 'Poison', true, false, 'no item on', 'Antidote, Remedy Ointment, Remedy' })  -- items are opt-in
+        { 'poison', 'Poison', true, false, 'nothing on removes it', 'Antidote, Remedy Ointment, Remedy' })  -- items are opt-in
+    eq(rows[1].usable, false)
 end)
 
 test('Debuff removal lists the debuffs your removers clear, worst first, each switched by name', function ()
     local view = build(whm, nil, fake.snap({ { name = 'A' } }))
-    local rows = section(view, 'remove').rows
-    eq({ rows[1].key, rows[2].key, rows[3].key }, { 'poison', 'paralysis', 'blindness' })
+    local rows, removers, debuffs = section(view, 'remove').rows, {}, {}
+    for _, r in ipairs(rows) do
+        if r.remover then removers[#removers + 1] = r.key elseif r.debuff then debuffs[#debuffs + 1] = r.key end
+    end
+    eq(removers, { 'Poisona', 'Paralyna', 'Blindna', 'Silena', 'Stona', 'Viruna', 'Cursna', 'Esuna', 'Erase' })
+    eq({ debuffs[1], debuffs[2], debuffs[3] }, { 'poison', 'paralysis', 'blindness' })
+    eq({ rows[#removers].remover, rows[#removers + 1].debuff }, { true, true })  -- removers, then debuffs, then items
     local para = row(view, 'remove', 'paralysis')
-    eq({ para.label, para.on, para.debuff, para.ready, para.count }, { 'Paralysis', true, true, true, nil })
+    eq({ para.label, para.on, para.debuff, para.usable, para.ready, para.count }, { 'Paralysis', true, true, true, true, nil })
     eq(para.action, 'Paralyna, Esuna, Remedy Ointment, Remedy, Panacea')
-    eq(row(view, 'remove', 'Poisona'), nil)  -- spells and abilities aren't rows of their own
     local cfg, writes = settings.defaults(), 0
     local act = model.actions(cfg, status(), function () writes = writes + 1 end)
     act.debuff('paralysis', false)
@@ -98,6 +103,19 @@ test('Debuff removal lists the debuffs your removers clear, worst first, each sw
         { { paralysis = true }, false })
     act.debuff('paralysis')
     eq({ cfg.remove.skip, writes }, { {}, 2 })
+end)
+
+test('a debuff nothing ticked removes is not usable: unticking Erase greys out what only it clears', function ()
+    local cfg = settings.defaults()
+    local g = fake.snap({ { name = 'A' } })
+    eq({ row(build(whm, cfg, g), 'remove', 'Dia').usable, row(build(whm, cfg, g), 'remove', 'slow').usable }, { true, true })
+    cfg.rows.Erase = { on = false }
+    local view = build(whm, cfg, g)
+    local dia, slow = row(view, 'remove', 'Dia'), row(view, 'remove', 'slow')
+    eq({ dia.usable, dia.ready, dia.avail, dia.on }, { false, false, 'nothing on removes it', true })
+    eq({ slow.usable, row(view, 'remove', 'Erase').on }, { true, false })  -- Esuna still does
+    cfg.rows.Panacea = { on = true }
+    eq(row(build(whm, cfg, g), 'remove', 'Dia').usable, true)  -- an item ticked counts
 end)
 
 test('item rows are opt-in and say how many you carry; none left when you have none', function ()

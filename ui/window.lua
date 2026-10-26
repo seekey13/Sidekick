@@ -1031,10 +1031,13 @@ local function family_row(pg, sid, r)
     if r.mods then items[#items + 1] = { w = kit.chip_width('Hold'), kind = 'hold' } end
     local lines = #items > 0 and flow(items, pg.lx + S(14), pg.right, S(4)) or 0
     local cy = line(pg, nil, nil, S(ROW_H) + lines * S(CHIP_LINE) + (lines > 0 and S(4) or 0))
+    -- A debuff nothing ticked removes is greyed out, its switch kept as it is.
+    local usable = r.usable ~= false
+    local alpha = usable and pg.alpha or pg.alpha * 0.45
 
     -- An item shows how many you carry, ninjutsu their tools; ### keeps its id while the count changes.
     local sx = pg.right - S(kit.SW_W)
-    local on, flipped = kit.switch(n and ('%s (%d)###%s'):format(r.label, n, id) or r.label .. '##' .. id, sx, cy, r.on, true, pg.alpha)
+    local on, flipped = kit.switch(n and ('%s (%d)###%s'):format(r.label, n, id) or r.label .. '##' .. id, sx, cy, r.on, usable, alpha)
     if flipped then (r.debuff and act.debuff or act.row)(r.key, on) end
     local px = S(SMALL + 0.5)
     local aw = kit.measure(r.avail, kit.fonts.text, px)
@@ -1044,8 +1047,8 @@ local function family_row(pg, sid, r)
         kit.tooltip(r.debuff and r.action ~= '' and 'Removed by ' .. r.action or r.action)
     end
     local label = n and ('%s (%d)'):format(r.label, n) or r.label
-    kit.text_mid(pg.dl, pg.lx, cy, kit.fit(label, ax - S(12) - pg.lx, kit.fonts.text, S(BODY)), r.on and P.text or P.dim,
-        kit.fonts.text, S(BODY), pg.alpha)
+    kit.text_mid(pg.dl, pg.lx, cy, kit.fit(label, ax - S(12) - pg.lx, kit.fonts.text, S(BODY)), r.on and usable and P.text or P.dim,
+        kit.fonts.text, S(BODY), alpha)
 
     local any = false
     for _, m in ipairs(r.mods or {}) do any = any or m.on end
@@ -1083,10 +1086,33 @@ local function family_row(pg, sid, r)
     end
 end
 
--- Spells and abilities (Debuff removal's debuffs), then items (rows with a count) under a heading of their own.
+local REMOVER_TIP = 'Untick to never use it: the debuffs only it removes are greyed out below.'
+
+-- Debuff removal's spells and abilities, a chip each to tick.
+local function remover_chips(pg, sid, removers)
+    local items = {}
+    for i, r in ipairs(removers) do items[i] = { w = kit.chip_width(r.label) } end
+    local lines = flow(items, pg.lx, pg.right, S(4))
+    local cy = line(pg, nil, nil, S(ROW_H) + (lines - 1) * S(CHIP_LINE))
+    for i, r in ipairs(removers) do
+        local it = items[i]
+        if kit.chip(r.label .. '##' .. sid .. '_with_' .. r.key, it.x, cy + (it.line - 1) * S(CHIP_LINE), it.w, r.label,
+                r.on and 'on' or 'off', true, pg.alpha) then
+            act.row(r.key, not r.on)
+        end
+        kit.tip(('%s: %s\n%s'):format(r.action or r.label, r.avail, REMOVER_TIP))
+    end
+end
+
+-- Spells and abilities, then items (rows with a count) under a heading of their own. Debuff removal's spells and
+-- abilities are chips to tick, then its debuffs.
 local function section_rows(pg, s, has_body)
-    local acts, items = {}, {}
-    for _, r in ipairs(s.rows) do table.insert(r.count and items or acts, r) end
+    local removers, acts, items = {}, {}, {}
+    for _, r in ipairs(s.rows) do table.insert(r.remover and removers or r.count and items or acts, r) end
+    if #removers > 0 then
+        subheader(pg, 'REMOVE WITH')
+        remover_chips(pg, s.id, removers)
+    end
     if #acts > 0 and (has_body or acts[1].debuff) then subheader(pg, acts[1].debuff and 'DEBUFFS' or 'ACTIONS') end
     for _, r in ipairs(acts) do family_row(pg, s.id, r) end
     if #items > 0 then
@@ -1102,8 +1128,7 @@ local SWITCH_HELP = {
     heal = 'Heal the party with the rows that are on.',
     revive = 'Raise fallen members with the rows that are on.',
     wake = 'Wake a sleeping member with a cure or waltz that is on under Heal; an area one for two or more.',
-    remove = 'Remove the debuffs that are on, with every spell and ability you have that clears them, and the items '
-        .. 'that are on.',
+    remove = 'Remove the debuffs that are on, with the spells, abilities and items ticked.',
     buff = 'Keep the buffs that are on up on their targets.',
     roll = 'Keep the rolls picked up, and Double-Up the last one by the risk picked. Held for the group with '
         .. 'Hold area buffs, as an area buff.',

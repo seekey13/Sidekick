@@ -6,8 +6,8 @@
     only ever on you with no area (Chakra, items) clears only your own; Esuna
     reaches your party only, so the alliance's other parties and tracked
     players get a -na spell or nothing.
-    Debuffs are switched by name (cfg.remove.skip: those left on); every spell and
-    ability you have is used for the rest, and items only as their rows are on.
+    Debuffs are switched by name (cfg.remove.skip: those left on), removers by their
+    rows; items are off until turned on.
     Items go by what they'd clear on you now: Doom first (it kills), then Silence
     if you cast, then the most of your statuses in one use; then cheap and
     specific first. An /item the server never answers (a locked or bazaar stack)
@@ -55,10 +55,7 @@ local function worth(a, me, skip)
 end
 
 return function (g, cat, cfg, mem)
-    local skip, removers, worths = cfg.remove.skip or {}, {}, {}
-    for _, a in ipairs(cat) do
-        if a.role == 'remove' and (a.kind ~= 'item' or settings.row(cfg, a).on) then removers[#removers + 1] = a end
-    end
+    local skip, removers, worths = cfg.remove.skip or {}, settings.enabled(cat, cfg, 'remove'), {}
     for _, a in ipairs(removers) do worths[a] = a.kind == 'item' and worth(a, g.me, skip) or 0 end
     table.sort(removers, function (a, b)
         if rank(a) ~= rank(b) then return rank(a) < rank(b) end

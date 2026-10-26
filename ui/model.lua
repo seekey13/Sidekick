@@ -224,13 +224,13 @@ end
 
 -- Debuff removal's debuff rows: one per status name your removers clear, in status
 -- id order (the worst come first: Sleep, Poison, Paralysis...). `key` is the name, for
--- act.debuff; ready or why not by the spells, abilities and items that are on that
--- clear it; `action` names every one that can.
+-- act.debuff; ready or why not by the removers that are on that clear it, `usable`
+-- false while none is; `action` names every one that can.
 local function debuff_rows(g, cat, cfg)
     local of, order, skip = {}, {}, cfg.remove.skip or {}
     for _, a in ipairs(cat) do
         if a.role == 'remove' then
-            local usable = a.kind ~= 'item' or settings.row(cfg, a).on
+            local usable = settings.row(cfg, a).on
             for _, id in ipairs(a.removes) do
                 local name = a.debuffs and a.debuffs[id] or tostring(id)
                 local d = of[name]
@@ -247,8 +247,9 @@ local function debuff_rows(g, cat, cfg)
     local rows = {}
     for _, name in ipairs(order) do
         local d = of[name]
-        local row = { key = name, label = (name:gsub('^%l', string.upper)), on = not skip[name], debuff = true, ready = false, avail = 'no item on' }
-        if d.acts[1] then row.ready, row.avail = availability(d.acts, {}, g) end
+        local row = { key = name, label = (name:gsub('^%l', string.upper)), on = not skip[name], debuff = true,
+                      usable = d.acts[1] ~= nil, ready = false, avail = 'nothing on removes it' }
+        if row.usable then row.ready, row.avail = availability(d.acts, {}, g) end
         row.action = table.concat(distinct(d.all, 'family'), ', ')
         rows[#rows + 1] = row
     end
@@ -256,13 +257,12 @@ local function debuff_rows(g, cat, cfg)
 end
 
 -- One section's rows, one per settings key, roles in the section's order. Debuff
--- removal's are its debuffs, then its items.
+-- removal's are its spells and abilities (`remover`), then its debuffs, then its items.
 local function build_rows(s, g, cat, cfg, units, outsiders)
     local rows, acts_of, order = {}, {}, {}
-    if s.id == 'remove' then rows = debuff_rows(g, cat, cfg) end
     for _, role in ipairs(s.roles) do
         for _, a in ipairs(cat) do
-            if a.role == role and (s.id ~= 'remove' or a.kind == 'item') then
+            if a.role == role then
                 local key = settings.key(a)
                 if not acts_of[key] then acts_of[key] = {}; order[#order + 1] = key end
                 table.insert(acts_of[key], a)
@@ -275,7 +275,14 @@ local function build_rows(s, g, cat, cfg, units, outsiders)
     end
     for _, key in ipairs(order) do
         local chipped = s.id == 'buff' or s.id == 'geo'
-        rows[#rows + 1] = build_row(key, acts_of[key], cfg, g, units, chipped and modifiers, outsiders)
+        local row = build_row(key, acts_of[key], cfg, g, units, chipped and modifiers, outsiders)
+        if s.id == 'remove' and not row.count then row.remover = true end
+        rows[#rows + 1] = row
+    end
+    if s.id == 'remove' then
+        local at = 1
+        while rows[at] and rows[at].remover do at = at + 1 end
+        for i, d in ipairs(debuff_rows(g, cat, cfg)) do table.insert(rows, at + i - 1, d) end
     end
     return rows
 end
