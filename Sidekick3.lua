@@ -26,6 +26,7 @@ local catalog = require('core.catalog')
 local engine = require('core.engine')
 local game = require('core.game')
 local knowledge = require('core.knowledge')
+local observed = require('core.observed')
 local packets = require('core.packets')
 local profiles = require('core.profiles')
 local resources = require('core.resources')
@@ -50,7 +51,7 @@ end
 
 -- The catalog for the character as it is right now, rebuilt when job, level or
 -- the blue magic set changes (or on demand: a newly learned spell changes none).
-local cat = { key = nil, list = {}, by_spell = {} }
+local cat = { key = nil, list = {}, by_spell = {}, removers = {} }
 -- The blue magic set not known yet: said once, and only when loaded in game
 -- (on login the zone-in 0x044 may come a moment after the job level).
 local said_unset = AshitaCore:GetMemoryManager():GetPlayer():GetMainJobLevel() == 0
@@ -58,7 +59,7 @@ local function current_catalog(force)
     local p = AshitaCore:GetMemoryManager():GetPlayer()
     local key = ('%d/%d/%d/%d/%d'):format(p:GetMainJob(), p:GetMainJobLevel(), p:GetSubJob(), p:GetSubJobLevel(), blu.version())
     if force or key ~= cat.key then
-        cat.key, cat.by_spell = key, {}
+        cat.key, cat.by_spell, cat.removers = key, {}, {}
         local blue = p:GetMainJob() == blu.JOB or p:GetSubJob() == blu.JOB
         if blue and not blu.set() and not said_unset then
             said_unset = true
@@ -73,6 +74,7 @@ local function current_catalog(force)
         }, knowledge)
         for _, a in ipairs(cat.list) do
             if a.kind == 'ma' then cat.by_spell[a.id] = a end
+            if a.role == 'remove' and a.removes then cat.removers[observed.key(a)] = a.removes end
         end
     end
     return cat.list
@@ -110,6 +112,7 @@ local packet_ctx = {
         local a = cat.by_spell[spell_id]
         return a and a.role == 'song' and a or nil
     end,
+    removes = function (key) return cat.removers[key] end,  -- your removers, cleared on their landing
 }
 
 -- Latest game snapshot, at most 10 a second: plenty for a 1.1s action throttle.
