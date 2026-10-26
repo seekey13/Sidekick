@@ -6,8 +6,8 @@
     only ever on you with no area (Chakra, items) clears only your own; Esuna
     reaches your party only, so the alliance's other parties and tracked
     players get a -na spell or nothing.
-    Debuffs are switched by name (cfg.remove.skip: those left on), removers by their
-    rows; items are off until turned on.
+    Debuffs are switched by name (cfg.remove.skip: those left on; never Doom, which
+    kills), removers by their rows; items are off until turned on.
     Items go by what they'd clear on you now: Doom first (it kills), then Silence
     if you cast, then the most of your statuses in one use; then cheap and
     specific first. An /item the server never answers (a locked or bazaar stack)
@@ -16,10 +16,11 @@
 
 local can = require('core.can')
 local settings = require('core.settings')
+local status = require('core.status')
 
 local ESUNA_RADIUS = 10  -- yalms around you
 local ITEM_WAIT = 4      -- seconds, as v2's item cooldown
-local DOOM, SILENCE = 15, 6
+local DOOM, SILENCE = status.DOOM, 6
 
 local function rank(a)
     if a.kind == 'item' then return 3 end
@@ -29,7 +30,7 @@ end
 
 -- Whether `a` clears status `id` and it's one to remove on `u`.
 local function wanted(a, id, u, skip)
-    return u.buffs[id] and not skip[a.debuffs[id]]
+    return u.buffs[id] and (id == DOOM or not skip[a.debuffs[id]])
 end
 
 -- Whether `a` clears something on `u` that's to be removed.

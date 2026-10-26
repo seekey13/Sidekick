@@ -113,6 +113,14 @@ test('debuff labels capitalise each word; a remover that heals too says so', fun
     eq(row(build(whm, nil, fake.snap({ { name = 'A' } })), 'remove', 'Erase').shared, nil)
 end)
 
+test('Doom is locked on, whatever was saved', function ()
+    local cfg = settings.defaults()
+    cfg.remove.skip = { doom = true }
+    local doom = row(build(whm, cfg, fake.snap({ { name = 'A' } })), 'remove', 'doom')
+    eq({ doom.on, doom.locked, doom.usable }, { true, true, true })
+    eq(row(build(whm, cfg, fake.snap({ { name = 'A' } })), 'remove', 'poison').locked, nil)
+end)
+
 test('a debuff nothing ticked removes is not usable: unticking Erase greys out what only it clears', function ()
     local cfg = settings.defaults()
     local g = fake.snap({ { name = 'A' } })

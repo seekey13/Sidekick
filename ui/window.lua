@@ -1107,12 +1107,13 @@ local function debuff_chips(pg, sid, debuffs)
     for i, r in ipairs(debuffs) do
         local it, usable = items[i], r.usable ~= false
         if kit.chip(r.label .. '##' .. sid .. '_' .. r.key, it.x, cy + (it.line - 1) * S(CHIP_LINE), it.w, r.label,
-                not usable and 'empty' or r.on and 'on' or 'off', usable, pg.alpha) then
+                not usable and 'empty' or r.on and 'on' or 'off', usable and not r.locked, pg.alpha) then
             act.debuff(r.key, not r.on)
         end
         local by = r.action ~= '' and 'Removed by ' .. r.action .. '\n' or ''
         local left = not r.on and not usable and '\nSwitched off: left on once something removes it again.' or ''
-        kit.tip(('%s%s\n%s%s'):format(by, r.avail, usable and DEBUFF_TIP or 'Tick something above that removes it.', left))
+        local how = r.locked and 'Always removed: it kills.' or usable and DEBUFF_TIP or 'Tick something above that removes it.'
+        kit.tip(('%s%s\n%s%s'):format(by, r.avail, how, left))
     end
 end
 

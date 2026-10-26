@@ -290,6 +290,12 @@ test('removal: debuffs switched off are left on, and removers unticked are never
     eq(decide(g, cfg), '/ma "Erase" 101')
 end)
 
+test('removal: Doom is removed even with its chip off', function ()
+    local cfg = settings.defaults()
+    cfg.remove.skip = { doom = true }
+    eq(decide(snap({ { name = 'A', buffs = { [15] = true } } }), cfg), '/ma "Cursna" 101')
+end)
+
 test('removal goes after danger healing, ahead of efficient healing', function ()
     local g = snap({ { name = 'A', hpp = 70, buffs = { [4] = true } } })  -- Paralysis
     eq(decide(g), '/ma "Paralyna" 101')

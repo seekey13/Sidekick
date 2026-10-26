@@ -32,6 +32,8 @@ local settings = require('core.settings')
 local slots = require('core.slots')
 local util = require('core.util')
 
+local DOOM = require('core.status').DOOM
+
 local model = {}
 
 -- Settings sections in order, each under its `header` (headers in the order
@@ -225,7 +227,7 @@ end
 -- Debuff removal's debuff rows: one per status name your removers clear, in status
 -- id order (Poison, Paralysis, Blindness...). `key` is the name, for
 -- act.debuff; ready or why not by the removers that are on that clear it, `usable`
--- false while none is; `action` names every one that can.
+-- false while none is; `action` names every one that can. Doom is always removed (`locked`).
 local function debuff_rows(g, cat, cfg)
     local of, order, skip = {}, {}, cfg.remove.skip or {}
     for _, a in ipairs(cat) do
@@ -235,6 +237,7 @@ local function debuff_rows(g, cat, cfg)
                 local name = a.debuffs[id]
                 local d = of[name]
                 if not d then d = { id = id, all = {}, acts = {} }; of[name] = d; order[#order + 1] = name end
+                d.locked = d.locked or id == DOOM or nil
                 d.id = math.min(d.id, id)
                 if d.all[#d.all] ~= a then
                     d.all[#d.all + 1] = a
@@ -247,7 +250,7 @@ local function debuff_rows(g, cat, cfg)
     local rows = {}
     for _, name in ipairs(order) do
         local d = of[name]
-        local row = { key = name, label = (name:gsub('%f[%a]%l', string.upper)), on = not skip[name], debuff = true,
+        local row = { key = name, label = (name:gsub('%f[%a]%l', string.upper)), on = d.locked or not skip[name], debuff = true, locked = d.locked,
                       usable = d.acts[1] ~= nil, ready = false, avail = 'nothing on removes it' }
         if row.usable then row.ready, row.avail = availability(d.acts, {}, g) end
         row.action = table.concat(distinct(d.all, 'family'), ', ')

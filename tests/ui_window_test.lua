@@ -1020,6 +1020,7 @@ test('a row, its pick and its targets each write and save', function ()
     eq(render(cfg, st, on('Remove', { ['Erase##remove_with_Erase'] = true })), 1)  -- a remover's checkbox, unticked
     eq(cfg.rows.Erase, { on = false })
     eq(render(cfg, st, on('Remove', { ['Dia##remove_Dia'] = true })), 0)  -- only Erase removes it: greyed, no click
+    eq(render(cfg, st, on('Remove', { ['Doom##remove_doom'] = true })), 0)  -- locked on
     eq(cfg.remove.skip, { paralysis = true })
 end)
 
