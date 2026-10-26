@@ -223,7 +223,7 @@ local function build_row(key, acts, cfg, g, units, modifiers, outsiders)
 end
 
 -- Debuff removal's debuff rows: one per status name your removers clear, in status
--- id order (the worst come first: Sleep, Poison, Paralysis...). `key` is the name, for
+-- id order (Poison, Paralysis, Blindness...). `key` is the name, for
 -- act.debuff; ready or why not by the removers that are on that clear it, `usable`
 -- false while none is; `action` names every one that can.
 local function debuff_rows(g, cat, cfg)
@@ -232,7 +232,7 @@ local function debuff_rows(g, cat, cfg)
         if a.role == 'remove' then
             local usable = settings.row(cfg, a).on
             for _, id in ipairs(a.removes) do
-                local name = a.debuffs and a.debuffs[id] or tostring(id)
+                local name = a.debuffs[id]
                 local d = of[name]
                 if not d then d = { id = id, all = {}, acts = {} }; of[name] = d; order[#order + 1] = name end
                 d.id = math.min(d.id, id)
@@ -247,7 +247,7 @@ local function debuff_rows(g, cat, cfg)
     local rows = {}
     for _, name in ipairs(order) do
         local d = of[name]
-        local row = { key = name, label = (name:gsub('^%l', string.upper)), on = not skip[name], debuff = true,
+        local row = { key = name, label = (name:gsub('%f[%a]%l', string.upper)), on = not skip[name], debuff = true,
                       usable = d.acts[1] ~= nil, ready = false, avail = 'nothing on removes it' }
         if row.usable then row.ready, row.avail = availability(d.acts, {}, g) end
         row.action = table.concat(distinct(d.all, 'family'), ', ')
@@ -276,7 +276,12 @@ local function build_rows(s, g, cat, cfg, units, outsiders)
     for _, key in ipairs(order) do
         local chipped = s.id == 'buff' or s.id == 'geo'
         local row = build_row(key, acts_of[key], cfg, g, units, chipped and modifiers, outsiders)
-        if s.id == 'remove' and not row.count then row.remover = true end
+        if s.id == 'remove' and not row.count then
+            row.remover = true
+            for _, a in ipairs(cat) do  -- a family with another role (Chakra heals too) shares its row
+                if settings.key(a) == key and a.role ~= 'remove' then row.shared = true end
+            end
+        end
         rows[#rows + 1] = row
     end
     if s.id == 'remove' then

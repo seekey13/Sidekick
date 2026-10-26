@@ -29,7 +29,7 @@ end
 
 -- Whether `a` clears status `id` and it's one to remove on `u`.
 local function wanted(a, id, u, skip)
-    return u.buffs[id] and not skip[a.debuffs and a.debuffs[id] or '']
+    return u.buffs[id] and not skip[a.debuffs[id]]
 end
 
 -- Whether `a` clears something on `u` that's to be removed.
@@ -42,16 +42,18 @@ end
 
 -- What item `a` would do for you now: Doom weighs most, then Silence if you cast,
 -- then one per status it clears. One that clears a single status at random
--- (Remedy Ointment) is sure only when you have just one of its.
+-- (Remedy Ointment) is sure only when you have just one of its; with more, it's
+-- worth the share of them that are to be removed (one left on may be what it takes).
 local function worth(a, me, skip)
-    local w, n = 0, 0
+    local w, n, m = 0, 0, 0
     for _, id in ipairs(a.removes) do
+        if me.buffs[id] then n = n + 1 end
         if wanted(a, id, me, skip) then
-            n = n + 1
+            m = m + 1
             w = w + (id == DOOM and 1000 or id == SILENCE and me.uses_mp and 100 or 1)
         end
     end
-    return a.one_of and n > 1 and 1 or w
+    return a.one_of and n > 1 and m / n or w
 end
 
 return function (g, cat, cfg, mem)

@@ -60,13 +60,14 @@ local function ids(v, idx, what)
 end
 
 -- Status id -> its name, for the ids in these lists: what can.use names as blocking or needed,
--- and a removal's debuffs, which Debuff removal lists and switches by name (behaviors/remove.lua).
+-- and a removal's debuffs, which Debuff removal lists and switches by name (behaviors/remove.lua):
+-- its id as text when the client has no name for it.
 local function names(statuses, ...)
     local out
     for _, list in pairs({ ... }) do
         for _, id in ipairs(list) do
             out = out or {}
-            out[id] = statuses[id] and statuses[id].en
+            out[id] = statuses[id] and statuses[id].en or tostring(id)
         end
     end
     return out

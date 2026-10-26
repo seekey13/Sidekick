@@ -1089,7 +1089,7 @@ local function remover_row(pg, sid, r)
     local cy = line(pg, nil, nil)
     local on, flipped = kit.checkbox(r.label .. '##' .. sid .. '_with_' .. r.key, pg.lx, cy, r.on, true, pg.alpha)
     if flipped then act.row(r.key, on) end
-    kit.tip(REMOVER_TIP)
+    kit.tip(REMOVER_TIP .. (r.shared and '\nIt heals too: unticked here, it is unticked under Heal.' or ''))
     local aw = kit.measure(r.avail, kit.fonts.text, S(SMALL + 0.5))
     readiness(pg, pg.right, cy, r.avail, r.ready)
     if r.action and kit.over(pg.right - aw, cy - S(10), aw, S(20)) then kit.tooltip(r.action) end
@@ -1111,7 +1111,8 @@ local function debuff_chips(pg, sid, debuffs)
             act.debuff(r.key, not r.on)
         end
         local by = r.action ~= '' and 'Removed by ' .. r.action .. '\n' or ''
-        kit.tip(('%s%s\n%s'):format(by, r.avail, usable and DEBUFF_TIP or 'Tick something above that removes it.'))
+        local left = not r.on and not usable and '\nSwitched off: left on once something removes it again.' or ''
+        kit.tip(('%s%s\n%s%s'):format(by, r.avail, usable and DEBUFF_TIP or 'Tick something above that removes it.', left))
     end
 end
 

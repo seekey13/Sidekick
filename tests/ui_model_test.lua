@@ -105,6 +105,14 @@ test('Debuff removal lists the debuffs your removers clear, worst first, each sw
     eq({ cfg.remove.skip, writes }, { {}, 2 })
 end)
 
+test('debuff labels capitalise each word; a remover that heals too says so', function ()
+    eq(row(build(whm, nil, fake.snap({ { name = 'A' } })), 'remove', 'critical hit evasion down').label, 'Critical Hit Evasion Down')
+    local mnk = fake.catalog(2, 75, nil, 0, { 'Chakra' })
+    local view = build(mnk, nil, fake.snap({ { name = 'A' } }))
+    eq({ row(view, 'remove', 'Chakra').remover, row(view, 'remove', 'Chakra').shared }, { true, true })
+    eq(row(build(whm, nil, fake.snap({ { name = 'A' } })), 'remove', 'Erase').shared, nil)
+end)
+
 test('a debuff nothing ticked removes is not usable: unticking Erase greys out what only it clears', function ()
     local cfg = settings.defaults()
     local g = fake.snap({ { name = 'A' } })
