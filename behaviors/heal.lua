@@ -12,6 +12,8 @@
                  ticks; never a Ready move, whose charges are kept for the pet's attacks.
                  Over the threshold, missing HP is left be. Not while you're Invisible:
                  any action breaks it, so then only critical and danger heal
+    Critical and danger (heal.urgent) and efficient (heal.efficient) are behaviors of
+    their own, with debuff removal between them (core/engine.lua).
     The focus member has its own three lines; skipped members count for nothing,
     and so do the alliance's other parties unless heal.alliance is on.
     An area heal lands on the target's party alone, so each party is scored on
