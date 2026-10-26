@@ -549,7 +549,7 @@ function game.read(now, idle)
         finished = finished, spell_finish = spell_finish,
         now = now, zone = zone, me = me, units = units, tracks = tracks, bt = bt, target = player_target(mm, em),
         pet = pet, ammo = ammo(), items = inventory(), stratagems = banked(mm, jobs, sch.POOL), ready = banked(mm, jobs, bst.POOL),
-        roll = cor.last(),
+        roll = cor.last(), roll_totals = cor.totals(),
         automaton = pup.automaton(),
         main = jobs.main, main_lv = jobs.main_lv, sub = jobs.sub, sub_lv = jobs.sub_lv,
         casting = casting, cast_at = cast_at,

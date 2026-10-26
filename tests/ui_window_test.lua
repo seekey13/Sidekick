@@ -1265,7 +1265,7 @@ test('COR: Rolls under Buff picks each roll and the risk; Roll 2 only on a Corsa
     eq(render(cfg, st, on('Buff', { ['Corsair\'s Roll (EXP+)##sk3_roll_first_Corsair\'s Roll'] = true }), view()), 1)
     eq(render(cfg, st, on('Buff', { ['Ninja Roll (EVA+)##sk3_roll_second_Ninja Roll'] = true }), view()), 1)
     eq(render(cfg, st, on('Buff', { ['Highest##sk3_roll_risk_highest'] = true, ['Rolls##sk3_on_roll'] = true }), view()), 2)
-    eq(cfg.roll, { on = false, first = 'Corsair\'s Roll', second = 'Ninja Roll', risk = 'highest' })
+    eq(cfg.roll, { on = false, first = 'Corsair\'s Roll', second = 'Ninja Roll', risk = 'highest', max_at_11 = false })
     eq({ drew('Last: Ninja Roll 4 (lucky)'), tipped('Lucky 5, unlucky 9.'), tipped('Highest: 11 or nothing.') }, { true, true, true })
     cfg.roll.second = cfg.roll.first
     render(cfg, st, on('Buff'), view())
