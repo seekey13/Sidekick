@@ -1123,7 +1123,7 @@ local function section_rows(pg, s, has_body)
         table.insert(r.remover and removers or r.debuff and debuffs or r.count and items or acts, r)
     end
     if #removers > 0 then
-        subheader(pg, 'REMOVE WITH')
+        subheader(pg, 'REMOVERS')
         for _, r in ipairs(removers) do remover_row(pg, s.id, r) end
     end
     if #debuffs > 0 then
