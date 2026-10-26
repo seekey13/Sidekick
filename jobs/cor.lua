@@ -18,7 +18,8 @@
     With roll.max_at_11 on, while one roll picked stands at 11 (the last total
     each roll had, g.roll_totals) the other is doubled at max risk: no die can
     bust it then, so it goes on until it's 11 too. Once the 11 wears, or is
-    rolled again lower, the risk picked is back.
+    rolled again lower, the risk picked is back; a total is forgotten once its
+    roll is seen down, so a re-roll whose packet was lost isn't taken for an 11.
     With buff.hold_aoe on, a roll is held like an area buff spell until the
     party's players who lack it are inside its area (the DAT's, about 8 yalms).
 ]]--
@@ -43,7 +44,7 @@ local UNLUCKY_REROLL_MAX = 8   -- past 8 a die busts more often than not
 -- The roll packets -----------------------------------------------------------
 
 local last  -- { id = catalog id, total, die, at, bust, doubled }: the last roll, as the server said it
-local totals = {}  -- [catalog id] = each roll's last total (none once it busts)
+local totals, totals_at = {}, {}  -- [catalog id] = each roll's last total (none once it busts), and when
 
 -- One of your job ability packets, on your own target entry: `id` the catalog
 -- id (on a Double-Up the server names the roll doubled), `total` its param,
@@ -52,7 +53,7 @@ function cor.rolled(id, total, message, now, die)
     local bust = message == BUSTED or message == BUSTED_SUB or (message == DOUBLED and total > MAX_TOTAL)
     if bust or message == ROLL or message == ROLL_SUB or message == DOUBLED then
         last = { id = id, total = total, die = die, at = now, bust = bust or nil, doubled = message == DOUBLED or nil }
-        totals[id] = not bust and total or nil
+        totals[id], totals_at[id] = not bust and total or nil, now
     end
 end
 
@@ -62,7 +63,12 @@ function cor.totals()
     for id, t in pairs(totals) do out[id] = t end
     return out
 end
-function cor.clear() last, totals = nil, {} end  -- zoning
+-- The roll `id` is seen down: its total goes, but not one newer than WAIT,
+-- whose status may not show yet.
+function cor.forget(id, now)
+    if totals_at[id] and now - totals_at[id] >= cor.WAIT then totals[id], totals_at[id] = nil, nil end
+end
+function cor.clear() last, totals, totals_at = nil, {}, {} end  -- zoning
 
 -- The strategy (v2's lib/core/roll_strategy.lua) -------------------------------
 
@@ -133,6 +139,17 @@ function cor.eleven(g, cat, cfg, but)
     end
 end
 
+-- For the Rolls section: the roll at 11 while the other picked is under it, so is
+-- doubled at max risk.
+function cor.maxed(g, cat, cfg)
+    local rolls = cor.picked(cat, cfg, g.main)
+    for i in ipairs(rolls) do
+        local other = rolls[3 - i]
+        local e = other and (g.roll_totals or {})[other.id] ~= MAX_TOTAL and cor.eleven(g, cat, cfg, other)
+        if e then return e end
+    end
+end
+
 function cor.want(g, cat, cfg, mem)
     local rolls = cor.picked(cat, cfg, g.main)
     if not rolls[1] then return nil end
@@ -140,6 +157,9 @@ function cor.want(g, cat, cfg, mem)
     mem.cor = st
     local fold, double, snake = named(cat, 'Fold'), named(cat, 'Double-Up'), named(cat, 'Snake Eye')
     local buffs = g.me.buffs
+    for _, a in ipairs(rolls) do
+        if not up(a, g) then cor.forget(a.id, g.now) end
+    end
 
     -- A Bust takes a roll's place until it wears; Fold frees it at once.
     if buffs[BUST] and ready(fold, g) then return { action = fold, why = 'Bust' } end

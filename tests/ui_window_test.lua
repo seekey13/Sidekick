@@ -1276,6 +1276,25 @@ test('COR: Rolls under Buff picks each roll and the risk; Roll 2 only on a Corsa
     eq(has(frame.args.Selectable, 'None##sk3_roll_first_none'), true)
     render(cfg, st, on('Buff'), view(13, 17, fake.catalog(13, 75, 17, 37, jas)))  -- NIN / COR
     eq({ drew('Roll 2: Corsair main job only'), button('Roll 2##sk3_roll_second') }, { true, false })
+    eq(button('Max risk while an 11 is up##sk3_roll_max_at_11'), false)
+end)
+
+test('COR: Max risk while an 11 is up, on a Corsair main job; says when it is in effect', function ()
+    open_settings()
+    local cor = fake.catalog(17, 75, 3, 37, { 'Corsair\'s Roll', 'Ninja Roll', 'Double-Up', 'Snake Eye', 'Fold' })
+    local cfg, st = settings.defaults(), status()
+    cfg.roll.first, cfg.roll.second = 'Corsair\'s Roll', 'Ninja Roll'
+    local function view()
+        local g = snap()
+        g.main, g.sub = 17, 3
+        g.roll, g.roll_totals = { id = 626, total = 11, at = 990 }, { [626] = 11 }
+        g.me.buffs[326] = true  -- Corsair's Roll on you, at 11
+        return model.build(g, cor, cfg, st, NAMES)
+    end
+    eq(render(cfg, st, on('Buff', { ['Max risk while an 11 is up##sk3_roll_max_at_11'] = true }), view()), 1)
+    eq(cfg.roll.max_at_11, true)
+    render(cfg, st, on('Buff'), view())
+    eq({ drew('Risk at max: Corsair\'s Roll is at 11'), button('Max risk while an 11 is up##sk3_roll_max_at_11') }, { true, true })
 end)
 
 test('BRD: Songs under Buff: Area and each slot that is filled or has a pick, a drop-down per song slot', function ()

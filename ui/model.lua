@@ -592,7 +592,7 @@ function model.build(g, cat, cfg, status, names)
         buff = { hold_aoe = cfg.buff.hold_aoe, gather = cfg.buff.gather, one_shadow = cfg.buff.one_shadow, shadows = shadows },
         roll = { first = cfg.roll.first, second = cfg.roll.second, risk = cfg.roll.risk, risks = cor.RISKS,
                  two = g.main == cor.JOB, choices = rolls, last = last, max_at_11 = cfg.roll.max_at_11,
-                 eleven = (cor.eleven(g, cat, cfg) or {}).name },
+                 eleven = (cor.maxed(g, cat, cfg) or {}).name },
         geo = { distance = cfg.geo.distance, linger = cfg.geo.linger, entrust = cfg.geo.entrust,
                 entrust_spell = cfg.geo.entrust_spell, indi = indi, names = party_names },
         song = songs(g, cat, cfg, units),

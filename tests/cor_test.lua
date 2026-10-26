@@ -314,6 +314,31 @@ test('max_at_11: while one roll stands at 11, the other is doubled until it is 1
     eq(decide(g_at(9, { [CORSAIRS_ID] = 7, [NINJA_ID] = 9 }), cfg, {}), nil)  -- no 11: lowest again
     eq(decide(g_at(9, eleven, { NINJA, DOUBLE_UP_CHANCE }, { Fold = 200, ['Corsair\'s Roll'] = 50 }), cfg, {}), nil)  -- the 11 wore
     eq(cor.decide(6, 5, 9, 'max', false, false), 'double')
+    eq(cor.decide(10, 5, 9, 'max', false, false), 'double')  -- no Snake Eye: Double-Up all the same
+    -- An 11 on a roll that isn't picked counts for nothing.
+    eq(decide(g_at(9, { [NINJA_ID] = 9, [626 + 1] = 11 }), cfg, {}), nil)
+end)
+
+test('max_at_11 on a Corsair subjob: one roll, so the risk picked', function ()
+    local cfg = cfg_with('Ninja Roll', 'Corsair\'s Roll', 'lowest')
+    cfg.roll.max_at_11 = true
+    local sub = fake.catalog(NIN, 75, COR, 37, JAS)
+    local g = snap({ CORSAIRS, NINJA, DOUBLE_UP_CHANCE }, { id = NINJA_ID, total = 9, at = 990 }, { Fold = 200 }, {},
+        { main = NIN, sub = COR, roll_totals = { [CORSAIRS_ID] = 11, [NINJA_ID] = 9 } })
+    eq(decide(g, cfg, {}, sub), nil)
+end)
+
+test('a roll seen down forgets its total, but not one newer than WAIT: a lost re-roll is no 11', function ()
+    cor.clear()
+    packets.action(roll_packet(ME, CORSAIRS_ID, { { ME, 420, 11 } }), ctx, 998)
+    local cfg = cfg_with('Corsair\'s Roll', 'Ninja Roll')
+    local g = snap({}, nil, nil, {}, { roll_totals = cor.totals() })
+    g.now = 1000  -- 2s on: its status may not show yet
+    decide(g, cfg, {})
+    eq(cor.totals(), { [CORSAIRS_ID] = 11 })
+    g.now = 998 + cor.WAIT
+    decide(g, cfg, {})
+    eq(cor.totals(), {})
 end)
 
 test('packets: each roll\'s last total, none once it busts, cleared on zoning', function ()
@@ -337,4 +362,11 @@ test('the Rolls section says when the risk is at max', function ()
     local act = model.actions(cfg, st, function () end)
     act.set('roll.max_at_11', true)
     eq(model.build(g, cat, cfg, st, NAMES).roll.eleven, 'Corsair\'s Roll')
+    g.roll_totals[NINJA_ID] = 11  -- both at 11: nothing left to double
+    eq(model.build(g, cat, cfg, st, NAMES).roll.eleven, nil)
+    g.roll_totals[NINJA_ID] = nil
+    for _, second in ipairs({ '', 'Corsair\'s Roll' }) do  -- no other roll
+        cfg.roll.second = second
+        eq(model.build(g, cat, cfg, st, NAMES).roll.eleven, nil)
+    end
 end)
