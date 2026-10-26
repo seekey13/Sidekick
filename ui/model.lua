@@ -641,7 +641,8 @@ function model.build(g, cat, cfg, status, names)
         afk = { minutes = cfg.afk.minutes, asleep = g.afk == true, left = g.afk_in },
         buff = { hold_aoe = cfg.buff.hold_aoe, gather = cfg.buff.gather, one_shadow = cfg.buff.one_shadow, shadows = shadows },
         roll = { first = cfg.roll.first, second = cfg.roll.second, risk = cfg.roll.risk, risks = cor.RISKS,
-                 two = g.main == cor.JOB, choices = rolls, last = last },
+                 two = g.main == cor.JOB, choices = rolls, last = last, max_at_11 = cfg.roll.max_at_11,
+                 eleven = (cor.maxed(g, cat, cfg) or {}).name },
         geo = { distance = cfg.geo.distance, linger = cfg.geo.linger, entrust = cfg.geo.entrust,
                 entrust_spell = cfg.geo.entrust_spell, indi = indi, names = party_names },
         song = songs(g, cat, cfg, units),
@@ -729,7 +730,7 @@ model.REMOTE_SET = {
     ['rest.on'] = 'bool', ['rest.delay'] = { 1, 20 }, ['rest.distance'] = { 1, 15 },
     ['afk.on'] = 'bool', ['afk.minutes'] = { afk.MIN, afk.MAX },
     ['buff.hold_aoe'] = 'bool', ['buff.gather'] = 'bool', ['buff.one_shadow'] = 'bool',
-    ['roll.first'] = 'name', ['roll.second'] = 'name', ['roll.risk'] = { list = cor.RISKS },
+    ['roll.first'] = 'name', ['roll.second'] = 'name', ['roll.risk'] = { list = cor.RISKS }, ['roll.max_at_11'] = 'bool',
     ['geo.distance'] = { 3, 30 }, ['geo.linger'] = { 1, 20 }, ['geo.entrust'] = 'name', ['geo.entrust_spell'] = 'name',
     ['song.duration'] = { 0, 300 }, ['song.fast'] = 'bool',
 }

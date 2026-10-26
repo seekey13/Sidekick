@@ -723,6 +723,13 @@ local function draw_rolls(view, pg)
     local picked, moved, over = kit.segments(ids, pg.right - kit.segments_width(labels, px), cy, labels, index, true, pg.alpha, px)
     if over then kit.tooltip(RISKS[r.risks[over]]) end
     if moved then act.set('roll.risk', r.risks[picked]) end
+    if r.two then
+        switch(pg, 'Max risk while an 11 is up', 'roll.max_at_11', r.max_at_11,
+            'While one roll stands at 11, a Bust can\'t happen, so the other is doubled until it is 11 too (rolled again '
+                .. 'when it can no longer be doubled). '
+                .. 'Once no roll at 11 is up, the risk picked is back.')
+        if r.eleven then note(pg, ('Risk at max: %s is at 11'):format(r.eleven), P.teal) end
+    end
     local l = r.last
     if l then
         local word = l.bust and ' (Bust)' or l.total == l.lucky and ' (lucky)' or l.total == 11 and ' (11)'

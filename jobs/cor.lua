@@ -15,6 +15,12 @@
     the last one is settled, so its chase isn't cut short; while it waits,
     mem.busy_until keeps resting from starting (behaviors/rest.lua).
     Nothing goes while you're Invisible (core/engine.lua).
+    With roll.max_at_11 on, while one roll picked stands at 11 (the last total
+    each roll had, g.roll_totals) the other is doubled at max risk: no die can
+    bust it then, so it goes on until it's 11 too; one it can't double (rolled
+    before the 11, or its Double-Up Chance gone) is rolled again. Once the 11 wears, or is
+    rolled again lower, the risk picked is back; a total is forgotten once its
+    roll is seen down, so a re-roll whose packet was lost isn't taken for an 11.
     With buff.hold_aoe on, a roll is held like an area buff spell until the
     party's players who lack it are inside its area (the DAT's, about 8 yalms).
 ]]--
@@ -39,6 +45,7 @@ local UNLUCKY_REROLL_MAX = 8   -- past 8 a die busts more often than not
 -- The roll packets -----------------------------------------------------------
 
 local last  -- { id = catalog id, total, die, at, bust, doubled }: the last roll, as the server said it
+local totals, totals_at = {}, {}  -- [catalog id] = each roll's last total (none once it busts), and when
 
 -- One of your job ability packets, on your own target entry: `id` the catalog
 -- id (on a Double-Up the server names the roll doubled), `total` its param,
@@ -47,11 +54,22 @@ function cor.rolled(id, total, message, now, die)
     local bust = message == BUSTED or message == BUSTED_SUB or (message == DOUBLED and total > MAX_TOTAL)
     if bust or message == ROLL or message == ROLL_SUB or message == DOUBLED then
         last = { id = id, total = total, die = die, at = now, bust = bust or nil, doubled = message == DOUBLED or nil }
+        totals[id], totals_at[id] = not bust and total or nil, now
     end
 end
 
 function cor.last() return last end
-function cor.clear() last = nil end  -- zoning
+function cor.totals()
+    local out = {}
+    for id, t in pairs(totals) do out[id] = t end
+    return out
+end
+-- The roll `id` is seen down: its total goes, but not one newer than WAIT,
+-- whose status may not show yet.
+function cor.forget(id, now)
+    if totals_at[id] and now - totals_at[id] >= cor.WAIT then totals[id], totals_at[id] = nil, nil end
+end
+function cor.clear() last, totals, totals_at = nil, {}, {} end  -- zoning
 
 -- The strategy (v2's lib/core/roll_strategy.lua) -------------------------------
 
@@ -73,8 +91,10 @@ end
 -- 11 while Fold is ready to undo a Bust, else plays as medium. Snake Eye takes 10
 -- to 11 on every risk, and lucky - 1 to lucky but on highest (v2's rule; no roll's
 -- lucky is over 5, so 5 or under doubles first and it never comes up).
+-- 'max' (another roll at 11 with roll.max_at_11: no bust) doubles until 11.
 function cor.decide(total, lucky, unlucky, risk, snake_ready, fold_ready)
     if total >= MAX_TOTAL then return 'stop' end
+    if risk == 'max' then return (snake_ready and total == MAX_TOTAL - 1) and 'snake_eye' or 'double' end
     if total <= ZERO_RISK_MAX then
         return (total == lucky and risk ~= 'highest') and 'stop' or 'double'
     end
@@ -111,6 +131,26 @@ local function busy(mem, t) mem.busy_until = math.max(mem.busy_until or -math.hu
 
 local function up(a, g) return not can.lacks(a, g.me) end
 
+-- The roll picked that stands at 11 while roll.max_at_11 is on, other than
+-- `but`: the risk is 'max' while it's up.
+function cor.eleven(g, cat, cfg, but)
+    if not cfg.roll.max_at_11 then return nil end
+    for _, a in ipairs(cor.picked(cat, cfg, g.main)) do
+        if a ~= but and (g.roll_totals or {})[a.id] == MAX_TOTAL and up(a, g) then return a end
+    end
+end
+
+-- For the Rolls section: the roll at 11 while the other picked is under it, so is
+-- doubled at max risk.
+function cor.maxed(g, cat, cfg)
+    local rolls = cor.picked(cat, cfg, g.main)
+    for i in ipairs(rolls) do
+        local other = rolls[3 - i]
+        local e = other and (g.roll_totals or {})[other.id] ~= MAX_TOTAL and cor.eleven(g, cat, cfg, other)
+        if e then return e end
+    end
+end
+
 function cor.want(g, cat, cfg, mem)
     local rolls = cor.picked(cat, cfg, g.main)
     if not rolls[1] then return nil end
@@ -118,6 +158,9 @@ function cor.want(g, cat, cfg, mem)
     mem.cor = st
     local fold, double, snake = named(cat, 'Fold'), named(cat, 'Double-Up'), named(cat, 'Snake Eye')
     local buffs = g.me.buffs
+    for _, a in ipairs(rolls) do
+        if not up(a, g) then cor.forget(a.id, g.now) end
+    end
 
     -- A Bust takes a roll's place until it wears; Fold frees it at once.
     if buffs[BUST] and ready(fold, g) then return { action = fold, why = 'Bust' } end
@@ -130,7 +173,8 @@ function cor.want(g, cat, cfg, mem)
     for _, a in ipairs(rolls) do if r and not r.bust and a.id == r.id then roll = a end end
     if roll and r.at >= newest and buffs[DOUBLE_UP_CHANCE] and up(roll, g) and double then
         local decision = (buffs[SNAKE_EYE] and r.total < MAX_TOTAL) and 'double'
-            or cor.decide(r.total, roll.lucky, roll.unlucky, cfg.roll.risk, ready(snake, g), ready(fold, g))
+            or cor.decide(r.total, roll.lucky, roll.unlucky, cor.eleven(g, cat, cfg, roll) and 'max' or cfg.roll.risk,
+                ready(snake, g), ready(fold, g))
         if decision ~= 'stop' then
             local gap = math.max(st.doubled or -math.huge, r.doubled and r.at or -math.huge) + cor.DOUBLE_GAP
             local _, _, wait = can.use(double, g)
@@ -145,6 +189,17 @@ function cor.want(g, cat, cfg, mem)
         if g.now - at < cor.WAIT and not (r and r.id == id and r.at >= at) then  -- its total is on its way
             busy(mem, at + cor.WAIT)
             return nil
+        end
+    end
+
+    -- With max_at_11, the other roll up under 11 and past doubling (rolled before the
+    -- 11, or its Double-Up Chance gone) is rolled again, to chase 11 at max risk.
+    for _, a in ipairs(rolls) do
+        local total = (g.roll_totals or {})[a.id]
+        if total and total < MAX_TOTAL and up(a, g) and can.use(a, g) and cor.eleven(g, cat, cfg, a) then
+            local near, away = buff.area(a, g, cfg.buff.hold_aoe, nil, can.yalms(a.area))
+            if away then buff.wait_for(mem, a, near, away); return nil end
+            return { action = a, why = ('at %d, for 11'):format(total), sent = function (now) st.sent[a.id] = now end }
         end
     end
 

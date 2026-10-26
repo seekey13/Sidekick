@@ -38,8 +38,9 @@ local DEFAULTS = {
                 min_tp = 3000 },                   -- Chivalry from this much TP
     pet = { on = true, heal = 50 },        -- heal your pet under this HP%
     -- COR: the rolls kept up (names, '' for none; the second only on a COR main
-    -- job) and how far Double-Up chases a total: 'lowest' | 'medium' | 'highest'.
-    roll = { on = true, first = '', second = '', risk = 'medium' },
+    -- job) and how far Double-Up chases a total: 'lowest' | 'medium' | 'highest';
+    -- `max_at_11`: while one stands at 11, the other is doubled until it's 11 too.
+    roll = { on = true, first = '', second = '', risk = 'medium', max_at_11 = false },
     -- GEO: recall the luopan past `distance` yalms from who it's on, and a debuff's
     -- `linger` seconds after combat; Entrust puts the Indi- spell named on the member named.
     geo = { on = true, distance = 10, linger = 5, entrust = '', entrust_spell = '' },
