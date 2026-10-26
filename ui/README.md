@@ -149,8 +149,8 @@ In this order. A section with rows is left out when your job has none for it (Pe
 | `label` | string | `'Cure'`, `'Valor Minuet (+ATK)'`, `'Sword Madrigal / Blade Madrigal'` |
 | `on` | bool | Rows start on, except buffs (and a Geomancer's Geo and Geo debuff rows), sending the pet in (Assault, Fight, Deploy) and items |
 | `debuff` | bool or nil | Debuff removal's debuff rows, one per status your removers clear, in status id order (Poison, Paralysis, Blindness...): true. Switched with `act.debuff(key, on)`, not `act.row`. `ready` and `avail` are by the removers that are on that clear it; `action` names every spell, ability and item that clears it, on or not (`'Paralyna, Esuna, Remedy'`) |
-| `usable` | bool or nil | `debuff` rows: false while no remover that is on clears it (`avail` `'nothing on removes it'`): the standard window greys it out and its switch can't be flipped |
-| `remover` | bool or nil | Debuff removal's spell and ability rows (Paralyna, Erase, Healing Waltz...), switched with `act.row` as any row: true. The standard window draws them as chips to tick, above the debuffs |
+| `usable` | bool or nil | `debuff` rows: false while no remover that is on clears it (`avail` `'nothing on removes it'`): the standard window draws its chip as an outline that can't be clicked |
+| `remover` | bool or nil | Debuff removal's spell and ability rows (Paralyna, Erase, Healing Waltz...), switched with `act.row` as any row: true. The standard window draws them as checkboxes, above the debuffs, which it draws as chips |
 | `ready` | bool | It could go right now |
 | `avail` | string | `'ready'` (or, for a pet care row or Sange whose ammo you hold but don't wear, `'equips <item>'`: it's equipped first, then the row goes), or why not: `'recast 12s'`, `'MP'`, `'TP'`, `'silenced'`, `'combat only'`, `'idle only'`, `'no ammo'`, `'no tools'`, `'pet too far'`, `'none left'`, `'pick one'`, `'not available'`... |
 | `action` | string or nil | When ready, the spell, ability or item it would use, as the client names it: `'Cure V'` (a `debuff` row: what clears it) |

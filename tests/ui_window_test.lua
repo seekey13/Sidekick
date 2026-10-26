@@ -1017,8 +1017,10 @@ test('a row, its pick and its targets each write and save', function ()
     eq(cfg.rows['Echo Drops'], { on = true })
     eq(render(cfg, st, on('Remove', { ['Paralysis##remove_paralysis'] = true })), 1)  -- a debuff, by name
     eq({ cfg.remove.skip, cfg.rows.paralysis }, { { paralysis = true }, nil })
-    eq(render(cfg, st, on('Remove', { ['Erase##remove_with_Erase'] = true })), 1)  -- a remover, ticked off
+    eq(render(cfg, st, on('Remove', { ['Erase##remove_with_Erase'] = true })), 1)  -- a remover's checkbox, unticked
     eq(cfg.rows.Erase, { on = false })
+    eq(render(cfg, st, on('Remove', { ['Dia##remove_Dia'] = true })), 0)  -- only Erase removes it: greyed, no click
+    eq(cfg.remove.skip, { paralysis = true })
 end)
 
 test('items get a heading of their own, with no pick or targets', function ()

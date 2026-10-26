@@ -1031,24 +1031,19 @@ local function family_row(pg, sid, r)
     if r.mods then items[#items + 1] = { w = kit.chip_width('Hold'), kind = 'hold' } end
     local lines = #items > 0 and flow(items, pg.lx + S(14), pg.right, S(4)) or 0
     local cy = line(pg, nil, nil, S(ROW_H) + lines * S(CHIP_LINE) + (lines > 0 and S(4) or 0))
-    -- A debuff nothing ticked removes is greyed out, its switch kept as it is.
-    local usable = r.usable ~= false
-    local alpha = usable and pg.alpha or pg.alpha * 0.45
 
     -- An item shows how many you carry, ninjutsu their tools; ### keeps its id while the count changes.
     local sx = pg.right - S(kit.SW_W)
-    local on, flipped = kit.switch(n and ('%s (%d)###%s'):format(r.label, n, id) or r.label .. '##' .. id, sx, cy, r.on, usable, alpha)
-    if flipped then (r.debuff and act.debuff or act.row)(r.key, on) end
+    local on, flipped = kit.switch(n and ('%s (%d)###%s'):format(r.label, n, id) or r.label .. '##' .. id, sx, cy, r.on, true, pg.alpha)
+    if flipped then act.row(r.key, on) end
     local px = S(SMALL + 0.5)
     local aw = kit.measure(r.avail, kit.fonts.text, px)
     local ax = sx - S(12) - aw
     readiness(pg, sx - S(12), cy, r.avail, r.ready)
-    if r.action and kit.over(ax, cy - S(10), aw, S(20)) then
-        kit.tooltip(r.debuff and r.action ~= '' and 'Removed by ' .. r.action or r.action)
-    end
+    if r.action and kit.over(ax, cy - S(10), aw, S(20)) then kit.tooltip(r.action) end
     local label = n and ('%s (%d)'):format(r.label, n) or r.label
-    kit.text_mid(pg.dl, pg.lx, cy, kit.fit(label, ax - S(12) - pg.lx, kit.fonts.text, S(BODY)), r.on and usable and P.text or P.dim,
-        kit.fonts.text, S(BODY), alpha)
+    kit.text_mid(pg.dl, pg.lx, cy, kit.fit(label, ax - S(12) - pg.lx, kit.fonts.text, S(BODY)), r.on and P.text or P.dim,
+        kit.fonts.text, S(BODY), pg.alpha)
 
     local any = false
     for _, m in ipairs(r.mods or {}) do any = any or m.on end
@@ -1087,33 +1082,55 @@ local function family_row(pg, sid, r)
 end
 
 local REMOVER_TIP = 'Untick to never use it: the debuffs only it removes are greyed out below.'
+local DEBUFF_TIP = 'Untick to leave it on: worth it for what doesn\'t matter to your job (MP Down on a Warrior).'
 
--- Debuff removal's spells and abilities, a chip each to tick.
-local function remover_chips(pg, sid, removers)
+-- Debuff removal's spells and abilities, a checkbox each: its name, then ready or why not at the right.
+local function remover_row(pg, sid, r)
+    local cy = line(pg, nil, nil)
+    local on, flipped = kit.checkbox(r.label .. '##' .. sid .. '_with_' .. r.key, pg.lx, cy, r.on, true, pg.alpha)
+    if flipped then act.row(r.key, on) end
+    kit.tip(REMOVER_TIP)
+    local aw = kit.measure(r.avail, kit.fonts.text, S(SMALL + 0.5))
+    readiness(pg, pg.right, cy, r.avail, r.ready)
+    if r.action and kit.over(pg.right - aw, cy - S(10), aw, S(20)) then kit.tooltip(r.action) end
+    local lx = pg.lx + S(kit.CB) + S(10)
+    kit.text_mid(pg.dl, lx, cy, kit.fit(r.label, pg.right - aw - S(12) - lx, kit.fonts.text, S(BODY)),
+        r.on and P.text or P.dim, kit.fonts.text, S(BODY), pg.alpha)
+end
+
+-- Debuff removal's debuffs, a chip each: one nothing ticked removes is an outline and can't be clicked.
+local function debuff_chips(pg, sid, debuffs)
     local items = {}
-    for i, r in ipairs(removers) do items[i] = { w = kit.chip_width(r.label) } end
+    for i, r in ipairs(debuffs) do items[i] = { w = kit.chip_width(r.label) } end
     local lines = flow(items, pg.lx, pg.right, S(4))
     local cy = line(pg, nil, nil, S(ROW_H) + (lines - 1) * S(CHIP_LINE))
-    for i, r in ipairs(removers) do
-        local it = items[i]
-        if kit.chip(r.label .. '##' .. sid .. '_with_' .. r.key, it.x, cy + (it.line - 1) * S(CHIP_LINE), it.w, r.label,
-                r.on and 'on' or 'off', true, pg.alpha) then
-            act.row(r.key, not r.on)
+    for i, r in ipairs(debuffs) do
+        local it, usable = items[i], r.usable ~= false
+        if kit.chip(r.label .. '##' .. sid .. '_' .. r.key, it.x, cy + (it.line - 1) * S(CHIP_LINE), it.w, r.label,
+                not usable and 'empty' or r.on and 'on' or 'off', usable, pg.alpha) then
+            act.debuff(r.key, not r.on)
         end
-        kit.tip(('%s: %s\n%s'):format(r.action or r.label, r.avail, REMOVER_TIP))
+        local by = r.action ~= '' and 'Removed by ' .. r.action .. '\n' or ''
+        kit.tip(('%s%s\n%s'):format(by, r.avail, usable and DEBUFF_TIP or 'Tick something above that removes it.'))
     end
 end
 
 -- Spells and abilities, then items (rows with a count) under a heading of their own. Debuff removal's spells and
--- abilities are chips to tick, then its debuffs.
+-- abilities are checkboxes, then its debuffs chips.
 local function section_rows(pg, s, has_body)
-    local removers, acts, items = {}, {}, {}
-    for _, r in ipairs(s.rows) do table.insert(r.remover and removers or r.count and items or acts, r) end
+    local removers, debuffs, acts, items = {}, {}, {}, {}
+    for _, r in ipairs(s.rows) do
+        table.insert(r.remover and removers or r.debuff and debuffs or r.count and items or acts, r)
+    end
     if #removers > 0 then
         subheader(pg, 'REMOVE WITH')
-        remover_chips(pg, s.id, removers)
+        for _, r in ipairs(removers) do remover_row(pg, s.id, r) end
     end
-    if #acts > 0 and (has_body or acts[1].debuff) then subheader(pg, acts[1].debuff and 'DEBUFFS' or 'ACTIONS') end
+    if #debuffs > 0 then
+        subheader(pg, 'DEBUFFS')
+        debuff_chips(pg, s.id, debuffs)
+    end
+    if #acts > 0 and has_body then subheader(pg, 'ACTIONS') end
     for _, r in ipairs(acts) do family_row(pg, s.id, r) end
     if #items > 0 then
         subheader(pg, 'ITEMS')
