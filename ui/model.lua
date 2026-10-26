@@ -32,6 +32,8 @@ local settings = require('core.settings')
 local slots = require('core.slots')
 local util = require('core.util')
 
+local DOOM = require('core.status').DOOM
+
 local model = {}
 
 -- Settings sections in order, each under its `header` (headers in the order
@@ -222,7 +224,43 @@ local function build_row(key, acts, cfg, g, units, modifiers, outsiders)
     return row
 end
 
--- One section's rows, one per settings key, roles in the section's order.
+-- Debuff removal's debuff rows: one per status name your removers clear, in status
+-- id order (Poison, Paralysis, Blindness...). `key` is the name, for
+-- act.debuff; ready or why not by the removers that are on that clear it, `usable`
+-- false while none is; `action` names every one that can. Doom is always removed (`locked`).
+local function debuff_rows(g, cat, cfg)
+    local of, order, skip = {}, {}, cfg.remove.skip or {}
+    for _, a in ipairs(cat) do
+        if a.role == 'remove' then
+            local usable = settings.row(cfg, a).on
+            for _, id in ipairs(a.removes) do
+                local name = a.debuffs[id]
+                local d = of[name]
+                if not d then d = { id = id, all = {}, acts = {} }; of[name] = d; order[#order + 1] = name end
+                d.locked = d.locked or id == DOOM or nil
+                d.id = math.min(d.id, id)
+                if d.all[#d.all] ~= a then
+                    d.all[#d.all + 1] = a
+                    if usable then d.acts[#d.acts + 1] = a end
+                end
+            end
+        end
+    end
+    table.sort(order, function (x, y) return of[x].id < of[y].id end)
+    local rows = {}
+    for _, name in ipairs(order) do
+        local d = of[name]
+        local row = { key = name, label = (name:gsub('%f[%a]%l', string.upper)), on = d.locked or not skip[name], debuff = true, locked = d.locked,
+                      usable = d.acts[1] ~= nil, ready = false, avail = 'nothing on removes it' }
+        if row.usable then row.ready, row.avail = availability(d.acts, {}, g) end
+        row.action = table.concat(distinct(d.all, 'family'), ', ')
+        rows[#rows + 1] = row
+    end
+    return rows
+end
+
+-- One section's rows, one per settings key, roles in the section's order. Debuff
+-- removal's are its spells and abilities (`remover`), then its debuffs, then its items.
 local function build_rows(s, g, cat, cfg, units, outsiders)
     local rows, acts_of, order = {}, {}, {}
     for _, role in ipairs(s.roles) do
@@ -240,7 +278,19 @@ local function build_rows(s, g, cat, cfg, units, outsiders)
     end
     for _, key in ipairs(order) do
         local chipped = s.id == 'buff' or s.id == 'geo'
-        rows[#rows + 1] = build_row(key, acts_of[key], cfg, g, units, chipped and modifiers, outsiders)
+        local row = build_row(key, acts_of[key], cfg, g, units, chipped and modifiers, outsiders)
+        if s.id == 'remove' and not row.count then
+            row.remover = true
+            for _, a in ipairs(cat) do  -- a family with another role (Chakra heals too) shares its row
+                if settings.key(a) == key and a.role ~= 'remove' then row.shared = true end
+            end
+        end
+        rows[#rows + 1] = row
+    end
+    if s.id == 'remove' then
+        local at = 1
+        while rows[at] and rows[at].remover do at = at + 1 end
+        for i, d in ipairs(debuff_rows(g, cat, cfg)) do table.insert(rows, at + i - 1, d) end
     end
     return rows
 end
@@ -642,7 +692,7 @@ end
 -- HUD's (its labels and sizes) and the views it shows of others itself,
 -- with the view's `version`, VIEW: raise it when a field the window draws changes,
 -- so a session still running older code isn't drawn from a view it can't read.
-model.VIEW = 5
+model.VIEW = 6
 function model.published(view)
     local out = {}
     for k, v in pairs(view) do out[k] = v end
@@ -659,7 +709,7 @@ end
 -- arrives. Chips come with the state they're set to: a toggle sent from a view a
 -- moment old could undo a click.
 local REMOTE = {
-    run = { 'boolean' }, section = { 'string', 'boolean' }, row = { 'string', 'boolean' },
+    run = { 'boolean' }, section = { 'string', 'boolean' }, row = { 'string', 'boolean' }, debuff = { 'string', 'boolean' },
     pick = { 'string', 'string|nil' }, target = { 'string', 'number|string', 'boolean' },
     mod = { 'string', 'string', 'boolean' }, hold = { 'string', 'boolean' }, profile = { 'string|nil' }, save_profile = { 'string', 'boolean|nil' },
     new_profile = {}, delete_profile = { 'string' }, track = { 'string' }, untrack = { 'string' },
@@ -782,6 +832,13 @@ function model.actions(cfg, status, changed, tracking, send)
     end
     function act.row(key, on)
         saved_row(cfg, key, on).on = on
+        changed()
+    end
+    -- A debuff (a status name, a Debuff removal row's key) removed or left on; without `on`, toggled.
+    function act.debuff(name, on)
+        cfg.remove.skip = cfg.remove.skip or {}
+        if on == nil then on = cfg.remove.skip[name] == true end
+        cfg.remove.skip[name] = not on or nil
         changed()
     end
     -- name nil = best tier.

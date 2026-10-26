@@ -32,7 +32,7 @@ local DEFAULTS = {
              cure_potency = 0, waltz_potency = 0,  -- +% from gear
              regen_potency = 0,                    -- +HP per Regen tick from gear
              reserve = false },  -- SCH: buff rows leave the last stratagem charge for healing (as v2's, opt-in)
-    remove = { on = true },
+    remove = { on = true, skip = {} },  -- skip = { [status name] = true }: debuffs left on (behaviors/remove.lua)
     wake = { on = true },                  -- wake sleeping members with a heal that wakes
     recover = { on = true, mp = 30, tp = 1000,    -- under your MP% (a member's, for Devotion), your TP
                 min_tp = 3000 },                   -- Chivalry from this much TP

@@ -1081,10 +1081,57 @@ local function family_row(pg, sid, r)
     end
 end
 
--- Spells and abilities, then items (rows with a count) under a heading of their own.
+local REMOVER_TIP = 'Untick to never use it: the debuffs only it removes are greyed out below.'
+local DEBUFF_TIP = 'Untick to leave it on: worth it for what doesn\'t matter to your job (MP Down on a Warrior).'
+
+-- Debuff removal's spells and abilities, a checkbox each: its name, then ready or why not at the right.
+local function remover_row(pg, sid, r)
+    local cy = line(pg, nil, nil)
+    local on, flipped = kit.checkbox(r.label .. '##' .. sid .. '_with_' .. r.key, pg.lx, cy, r.on, true, pg.alpha)
+    if flipped then act.row(r.key, on) end
+    kit.tip(REMOVER_TIP .. (r.shared and '\nIt heals too: unticked here, it is unticked under Heal.' or ''))
+    local aw = kit.measure(r.avail, kit.fonts.text, S(SMALL + 0.5))
+    readiness(pg, pg.right, cy, r.avail, r.ready)
+    if r.action and kit.over(pg.right - aw, cy - S(10), aw, S(20)) then kit.tooltip(r.action) end
+    local lx = pg.lx + S(kit.CB) + S(10)
+    kit.text_mid(pg.dl, lx, cy, kit.fit(r.label, pg.right - aw - S(12) - lx, kit.fonts.text, S(BODY)),
+        r.on and P.text or P.dim, kit.fonts.text, S(BODY), pg.alpha)
+end
+
+-- Debuff removal's debuffs, a chip each: one nothing ticked removes is an outline and can't be clicked.
+local function debuff_chips(pg, sid, debuffs)
+    local items = {}
+    for i, r in ipairs(debuffs) do items[i] = { w = kit.chip_width(r.label) } end
+    local lines = flow(items, pg.lx, pg.right, S(4))
+    local cy = line(pg, nil, nil, S(ROW_H) + (lines - 1) * S(CHIP_LINE))
+    for i, r in ipairs(debuffs) do
+        local it, usable = items[i], r.usable ~= false
+        if kit.chip(r.label .. '##' .. sid .. '_' .. r.key, it.x, cy + (it.line - 1) * S(CHIP_LINE), it.w, r.label,
+                not usable and 'empty' or r.on and 'on' or 'off', usable and not r.locked, pg.alpha) then
+            act.debuff(r.key, not r.on)
+        end
+        local by = r.action ~= '' and 'Removed by ' .. r.action .. '\n' or ''
+        local left = not r.on and not usable and '\nSwitched off: left on once something removes it again.' or ''
+        local how = r.locked and 'Always removed: it kills.' or usable and DEBUFF_TIP or 'Tick something above that removes it.'
+        kit.tip(('%s%s\n%s%s'):format(by, r.avail, how, left))
+    end
+end
+
+-- Spells and abilities, then items (rows with a count) under a heading of their own. Debuff removal's spells and
+-- abilities are checkboxes, then its debuffs chips.
 local function section_rows(pg, s, has_body)
-    local acts, items = {}, {}
-    for _, r in ipairs(s.rows) do table.insert(r.count and items or acts, r) end
+    local removers, debuffs, acts, items = {}, {}, {}, {}
+    for _, r in ipairs(s.rows) do
+        table.insert(r.remover and removers or r.debuff and debuffs or r.count and items or acts, r)
+    end
+    if #removers > 0 then
+        subheader(pg, 'REMOVERS')
+        for _, r in ipairs(removers) do remover_row(pg, s.id, r) end
+    end
+    if #debuffs > 0 then
+        subheader(pg, 'DEBUFFS')
+        debuff_chips(pg, s.id, debuffs)
+    end
     if #acts > 0 and has_body then subheader(pg, 'ACTIONS') end
     for _, r in ipairs(acts) do family_row(pg, s.id, r) end
     if #items > 0 then
@@ -1100,7 +1147,7 @@ local SWITCH_HELP = {
     heal = 'Heal the party with the rows that are on.',
     revive = 'Raise fallen members with the rows that are on.',
     wake = 'Wake a sleeping member with a cure or waltz that is on under Heal; an area one for two or more.',
-    remove = 'Remove debuffs with the rows that are on.',
+    remove = 'Remove the debuffs that are on, with the spells, abilities and items ticked.',
     buff = 'Keep the buffs that are on up on their targets.',
     roll = 'Keep the rolls picked up, and Double-Up the last one by the risk picked. Held for the group with '
         .. 'Hold area buffs, as an area buff.',

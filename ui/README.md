@@ -120,7 +120,7 @@ In this order. A section with rows is left out when your job has none for it (Pe
 | `'heal'` | Healing | Heal | `view.heal`, rows |
 | `'revive'` | Revive | Heal | rows |
 | `'wake'` | Wake sleepers | Remove | its switch only |
-| `'remove'` | Debuff removal | Remove | rows: spells and abilities, then items |
+| `'remove'` | Debuff removal | Remove | rows: its spells and abilities (`remover`), the debuffs they and its items clear (`debuff`), then the items |
 | `'buff'` | Buffs | Buff | `view.buff`, rows |
 | `'roll'` | Rolls | Buff | `view.roll` (a job with rolls only) |
 | `'song'` | Songs | Buff | `view.song` (a job with songs only) |
@@ -145,12 +145,17 @@ In this order. A section with rows is left out when your job has none for it (Pe
 
 | Field | Type | What it is |
 |---|---|---|
-| `key` | string | The row's id for `act`: a family (`'Cure'`, `'Haste'`), a pick-one group (`'barelement'`, `'minuet'`) or an item (`'Echo Drops'`) |
+| `key` | string | The row's id for `act`: a family (`'Cure'`, `'Haste'`), a pick-one group (`'barelement'`, `'minuet'`), an item (`'Echo Drops'`) or, on a `debuff` row, the status's name as the client has it (`'paralysis'`, `'Dia'`) |
 | `label` | string | `'Cure'`, `'Valor Minuet (+ATK)'`, `'Sword Madrigal / Blade Madrigal'` |
 | `on` | bool | Rows start on, except buffs (and a Geomancer's Geo and Geo debuff rows), sending the pet in (Assault, Fight, Deploy) and items |
+| `debuff` | bool or nil | Debuff removal's debuff rows, one per status your removers clear, in status id order (Poison, Paralysis, Blindness...): true. Switched with `act.debuff(key, on)`, not `act.row`. `ready` and `avail` are by the removers that are on that clear it; `action` names every spell, ability and item that clears it, on or not (`'Paralyna, Esuna, Remedy'`) |
+| `locked` | bool or nil | The Doom `debuff` row: true, `on` always; it is removed whatever `act.debuff` sets, since it kills. The standard window's chip can't be clicked |
+| `usable` | bool or nil | `debuff` rows: false while no remover that is on clears it (`avail` `'nothing on removes it'`): the standard window draws its chip as an outline that can't be clicked |
+| `remover` | bool or nil | Debuff removal's spell and ability rows (Paralyna, Erase, Healing Waltz...), switched with `act.row` as any row: true. The standard window draws them as checkboxes, above the debuffs, which it draws as chips |
+| `shared` | bool or nil | `remover` rows whose family has another role too (Chakra heals): true. Its row is one, so unticking it here stops its healing too |
 | `ready` | bool | It could go right now |
 | `avail` | string | `'ready'` (or, for a pet care row or Sange whose ammo you hold but don't wear, `'equips <item>'`: it's equipped first, then the row goes), or why not: `'recast 12s'`, `'MP'`, `'TP'`, `'silenced'`, `'combat only'`, `'idle only'`, `'no ammo'`, `'no tools'`, `'pet too far'`, `'none left'`, `'pick one'`, `'not available'`... |
-| `action` | string or nil | When ready, the spell, ability or item it would use, as the client names it: `'Cure V'` |
+| `action` | string or nil | When ready, the spell, ability or item it would use, as the client names it: `'Cure V'` (a `debuff` row: what clears it) |
 | `count` | number or nil | Item rows (`'Echo Drops'`, `'Remedy'`...): how many you carry |
 | `tools` | number or nil | Ninjutsu rows (Utsusemi, Tonko, Monomi): how many casts the tools in your inventory pay for (their own tool, and Shikanofuda on a NIN main job) |
 | `choices` | list or nil | Buff rows (and the Geomancy section's) with tiers or a pick-one group: `{ label, name }`. A tiered row's first choice is `'Auto (best)'` with `name` nil |
@@ -169,6 +174,7 @@ In this order. A section with rows is left out when your job has none for it (Pe
 | `act.close()` | Hide the UI (remembered); `/sk3` shows it again. A widget stays while `ui.widget` is on |
 | `act.section(id, on)` | A section's switch: `'follow'`, `'heal'`, `'revive'`, `'wake'`, `'remove'`, `'buff'`, `'roll'`, `'song'`, `'geo'`, `'rune'`, `'pet'`, `'maneuver'`, `'recover'`, `'rest'` or `'afk'` |
 | `act.row(key, on)` | A row on or off |
+| `act.debuff(key, on)` | A `debuff` row on (removed) or off (left on); without `on`, toggled |
 | `act.pick(key, name)` | A row's choice: a `choices[i].name`, or nil for Auto |
 | `act.target(key, slot, on)` | Turn a target chip on or off: its `slot`, 0 to 17 or a tracked player's name; `on` true or false sets it, nil toggles it |
 | `act.mod(key, name, on)` | Turn a modifier chip on or off: its `name` (`'Penury'`, `'Accession'`); `on` sets it, nil toggles it |
@@ -182,7 +188,7 @@ In this order. A section with rows is left out when your job has none for it (Pe
 | `act.skip(name, skip)` | Skip a member (or tracked player) in healing (`skip` true), or take them back (false): a `view.heal.members[i].name`; nil toggles |
 | `act.set(path, value)` | A setting by path, below |
 | `act.watch(name, on)` | Show another session's Sidekick Settings (a `party[i].session.name`), or stop: it then sends its view, which comes in `view.remote`. This session only; closed when that session goes |
-| `act.remote(name)` | Another session's `act`, to change it from here: `run`, `section`, `row`, `pick`, `target`, `mod`, `hold`, `profile`, `save_profile`, `new_profile`, `delete_profile`, `track` (by name only), `untrack`, `skip` and `set`. `target`, `mod`, `hold` and `skip` need their state (`true` or `false`), never a toggle: the view you click is a moment old. `target`, `mod` and `hold` are refused there for a row that has no chips in that session (a buff or luopan row of its job). `set` takes only the paths in the table below but `'japanese'` and `'ui.*'` (the HUD is each session's own), a number held to its range. There's no `close`, `log`, `watch` or `remote` (`/sk3 log` on that session turns its log on). Each call goes through the files the sessions share and is made there, through its own `act`, within a second or so (a quarter second while its Sidekick Settings are open); its view in `view.remote` then shows it |
+| `act.remote(name)` | Another session's `act`, to change it from here: `run`, `section`, `row`, `debuff`, `pick`, `target`, `mod`, `hold`, `profile`, `save_profile`, `new_profile`, `delete_profile`, `track` (by name only), `untrack`, `skip` and `set`. `target`, `mod`, `hold`, `skip` and `debuff` need their state (`true` or `false`), never a toggle: the view you click is a moment old. `target`, `mod` and `hold` are refused there for a row that has no chips in that session (a buff or luopan row of its job). `set` takes only the paths in the table below but `'japanese'` and `'ui.*'` (the HUD is each session's own), a number held to its range. There's no `close`, `log`, `watch` or `remote` (`/sk3 log` on that session turns its log on). Each call goes through the files the sessions share and is made there, through its own `act`, within a second or so (a quarter second while its Sidekick Settings are open); its view in `view.remote` then shows it |
 
 `act.set` paths:
 

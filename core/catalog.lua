@@ -59,13 +59,15 @@ local function ids(v, idx, what)
     return out
 end
 
--- Status id -> its name, for the ids in these lists: what can.use names as blocking or needed.
+-- Status id -> its name, for the ids in these lists: what can.use names as blocking or needed,
+-- and a removal's debuffs, which Debuff removal lists and switches by name (behaviors/remove.lua):
+-- its id as text when the client has no name for it.
 local function names(statuses, ...)
     local out
     for _, list in pairs({ ... }) do
         for _, id in ipairs(list) do
             out = out or {}
-            out[id] = statuses[id] and statuses[id].en
+            out[id] = statuses[id] and statuses[id].en or tostring(id)
         end
     end
     return out
@@ -148,6 +150,7 @@ function catalog.build(res, player, K)
                 }
                 local a = out[#out]
                 a.names = names(res.statuses, a.blocked_by or {}, a.requires or {})
+                a.debuffs = names(res.statuses, a.removes or {})
             end
         end
     end
@@ -208,9 +211,10 @@ function catalog.build(res, player, K)
     for name, use in pairs(K) do
         if use.item then
             local r = res.items and res.items[use.item]
+            local removes = ids(use.removes, idx, name)
             items[#items + 1] = {
                 kind = 'item', id = use.item, name = r and r.en or name, jp = r and r.jp or '', family = name, tier = 1,
-                role = use.role, removes = ids(use.removes, idx, name), priority = use.priority or 0,
+                role = use.role, removes = removes, debuffs = names(res.statuses, removes or {}), priority = use.priority or 0,
                 one_of = use.one_of, targets = SELF, range = 0, area = 0, level = 0,
             }
         end

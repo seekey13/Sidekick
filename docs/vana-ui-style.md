@@ -705,7 +705,7 @@ done in a sixth of a second.
 `ui/kit.lua` is this doc in code: the palette (§2, plus `hp`, `mp`, `tp` and `track` for the HUD's bars: the rose and amber
 nearest the old mockup's red and yellow, the teal, and a gray background behind each bar; and `yellow`, `orange` and
 `red` for a name on an HP bar, at 75%, 50% and 25%), `S` and the scale (§3), the fonts and text helpers (§4), the shapes, easing and hit
-boxes (§7), and the controls (§8: switch, slider, segments, drop-down, button, chip, text field). `ui/window.lua` draws
+boxes (§7), and the controls (§8: switch, slider, segments, drop-down, button, chip, text field; and a checkbox of its own, `kit.checkbox`, the accent with a tick when on, a sunken box when off). `ui/window.lua` draws
 everything with it:
 
 - **Sidekick Settings** is the vana window. The sidebar lists a page per group of sections, Profiles and UI / Log at its foot
