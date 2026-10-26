@@ -370,3 +370,21 @@ test('the Rolls section says when the risk is at max', function ()
         eq(model.build(g, cat, cfg, st, NAMES).roll.eleven, nil)
     end
 end)
+
+test('max_at_11: the other roll, rolled before the 11, is rolled again to chase 11', function ()
+    local cfg = cfg_with('Corsair\'s Roll', 'Ninja Roll', 'medium')
+    cfg.roll.max_at_11 = true
+    -- Ninja Roll banked at 5, then Corsair's Roll hit 11: its Double-Up Chance is no use to Ninja Roll.
+    local function g_with(totals, waits)
+        local g = snap({ CORSAIRS, NINJA }, { id = CORSAIRS_ID, total = 11, at = 990 }, waits)
+        g.roll_totals = totals
+        return g
+    end
+    local cmd, intent = decide(g_with({ [CORSAIRS_ID] = 11, [NINJA_ID] = 5 }), cfg, {})
+    eq({ cmd, intent.why }, { '/ja "Ninja Roll" <me>', 'at 5, for 11' })
+    eq(decide(g_with({ [CORSAIRS_ID] = 11, [NINJA_ID] = 5 }, { ['Ninja Roll'] = 50 }), cfg, {}), nil)  -- Phantom Roll's recast
+    eq(decide(g_with({ [CORSAIRS_ID] = 11 }), cfg, {}), nil)  -- its total unknown: left be
+    eq(decide(g_with({ [CORSAIRS_ID] = 11, [NINJA_ID] = 11 }), cfg, {}), nil)
+    cfg.roll.max_at_11 = false
+    eq(decide(g_with({ [CORSAIRS_ID] = 11, [NINJA_ID] = 5 }), cfg, {}), nil)
+end)

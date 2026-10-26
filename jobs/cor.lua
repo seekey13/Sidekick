@@ -17,7 +17,8 @@
     Nothing goes while you're Invisible (core/engine.lua).
     With roll.max_at_11 on, while one roll picked stands at 11 (the last total
     each roll had, g.roll_totals) the other is doubled at max risk: no die can
-    bust it then, so it goes on until it's 11 too. Once the 11 wears, or is
+    bust it then, so it goes on until it's 11 too; one it can't double (rolled
+    before the 11, or its Double-Up Chance gone) is rolled again. Once the 11 wears, or is
     rolled again lower, the risk picked is back; a total is forgotten once its
     roll is seen down, so a re-roll whose packet was lost isn't taken for an 11.
     With buff.hold_aoe on, a roll is held like an area buff spell until the
@@ -188,6 +189,17 @@ function cor.want(g, cat, cfg, mem)
         if g.now - at < cor.WAIT and not (r and r.id == id and r.at >= at) then  -- its total is on its way
             busy(mem, at + cor.WAIT)
             return nil
+        end
+    end
+
+    -- With max_at_11, the other roll up under 11 and past doubling (rolled before the
+    -- 11, or its Double-Up Chance gone) is rolled again, to chase 11 at max risk.
+    for _, a in ipairs(rolls) do
+        local total = (g.roll_totals or {})[a.id]
+        if total and total < MAX_TOTAL and up(a, g) and can.use(a, g) and cor.eleven(g, cat, cfg, a) then
+            local near, away = buff.area(a, g, cfg.buff.hold_aoe, nil, can.yalms(a.area))
+            if away then buff.wait_for(mem, a, near, away); return nil end
+            return { action = a, why = ('at %d, for 11'):format(total), sent = function (now) st.sent[a.id] = now end }
         end
     end
 

@@ -725,7 +725,8 @@ local function draw_rolls(view, pg)
     if moved then act.set('roll.risk', r.risks[picked]) end
     if r.two then
         switch(pg, 'Max risk while an 11 is up', 'roll.max_at_11', r.max_at_11,
-            'While one roll stands at 11, a Bust can\'t happen, so the other is doubled until it is 11 too. '
+            'While one roll stands at 11, a Bust can\'t happen, so the other is doubled until it is 11 too (rolled again '
+                .. 'when it can no longer be doubled). '
                 .. 'Once no roll at 11 is up, the risk picked is back.')
         if r.eleven then note(pg, ('Risk at max: %s is at 11'):format(r.eleven), P.teal) end
     end
