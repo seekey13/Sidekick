@@ -1035,12 +1035,14 @@ local function family_row(pg, sid, r)
     -- An item shows how many you carry, ninjutsu their tools; ### keeps its id while the count changes.
     local sx = pg.right - S(kit.SW_W)
     local on, flipped = kit.switch(n and ('%s (%d)###%s'):format(r.label, n, id) or r.label .. '##' .. id, sx, cy, r.on, true, pg.alpha)
-    if flipped then act.row(r.key, on) end
+    if flipped then (r.debuff and act.debuff or act.row)(r.key, on) end
     local px = S(SMALL + 0.5)
     local aw = kit.measure(r.avail, kit.fonts.text, px)
     local ax = sx - S(12) - aw
     readiness(pg, sx - S(12), cy, r.avail, r.ready)
-    if r.action and kit.over(ax, cy - S(10), aw, S(20)) then kit.tooltip(r.action) end
+    if r.action and kit.over(ax, cy - S(10), aw, S(20)) then
+        kit.tooltip(r.debuff and r.action ~= '' and 'Removed by ' .. r.action or r.action)
+    end
     local label = n and ('%s (%d)'):format(r.label, n) or r.label
     kit.text_mid(pg.dl, pg.lx, cy, kit.fit(label, ax - S(12) - pg.lx, kit.fonts.text, S(BODY)), r.on and P.text or P.dim,
         kit.fonts.text, S(BODY), pg.alpha)
@@ -1081,11 +1083,11 @@ local function family_row(pg, sid, r)
     end
 end
 
--- Spells and abilities, then items (rows with a count) under a heading of their own.
+-- Spells and abilities (Debuff removal's debuffs), then items (rows with a count) under a heading of their own.
 local function section_rows(pg, s, has_body)
     local acts, items = {}, {}
     for _, r in ipairs(s.rows) do table.insert(r.count and items or acts, r) end
-    if #acts > 0 and has_body then subheader(pg, 'ACTIONS') end
+    if #acts > 0 and (has_body or acts[1].debuff) then subheader(pg, acts[1].debuff and 'DEBUFFS' or 'ACTIONS') end
     for _, r in ipairs(acts) do family_row(pg, s.id, r) end
     if #items > 0 then
         subheader(pg, 'ITEMS')
@@ -1100,7 +1102,8 @@ local SWITCH_HELP = {
     heal = 'Heal the party with the rows that are on.',
     revive = 'Raise fallen members with the rows that are on.',
     wake = 'Wake a sleeping member with a cure or waltz that is on under Heal; an area one for two or more.',
-    remove = 'Remove debuffs with the rows that are on.',
+    remove = 'Remove the debuffs that are on, with every spell and ability you have that clears them, and the items '
+        .. 'that are on.',
     buff = 'Keep the buffs that are on up on their targets.',
     roll = 'Keep the rolls picked up, and Double-Up the last one by the risk picked. Held for the group with '
         .. 'Hold area buffs, as an area buff.',

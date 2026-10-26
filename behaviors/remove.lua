@@ -6,6 +6,8 @@
     only ever on you with no area (Chakra, items) clears only your own; Esuna
     reaches your party only, so the alliance's other parties and tracked
     players get a -na spell or nothing.
+    Debuffs are switched by name (cfg.remove.skip: those left on); every spell and
+    ability you have is used for the rest, and items only as their rows are on.
     Items go by what they'd clear on you now: Doom first (it kills), then Silence
     if you cast, then the most of your statuses in one use; then cheap and
     specific first. An /item the server never answers (a locked or bazaar stack)
@@ -25,13 +27,26 @@ local function rank(a)
     return #a.removes > 6 and 1 or 0
 end
 
+-- Whether `a` clears status `id` and it's one to remove on `u`.
+local function wanted(a, id, u, skip)
+    return u.buffs[id] and not skip[a.debuffs and a.debuffs[id] or '']
+end
+
+-- Whether `a` clears something on `u` that's to be removed.
+local function clears(a, u, skip)
+    for _, id in ipairs(a.removes) do
+        if wanted(a, id, u, skip) then return true end
+    end
+    return false
+end
+
 -- What item `a` would do for you now: Doom weighs most, then Silence if you cast,
 -- then one per status it clears. One that clears a single status at random
 -- (Remedy Ointment) is sure only when you have just one of its.
-local function worth(a, me)
+local function worth(a, me, skip)
     local w, n = 0, 0
     for _, id in ipairs(a.removes) do
-        if me.buffs[id] then
+        if wanted(a, id, me, skip) then
             n = n + 1
             w = w + (id == DOOM and 1000 or id == SILENCE and me.uses_mp and 100 or 1)
         end
@@ -40,8 +55,11 @@ local function worth(a, me)
 end
 
 return function (g, cat, cfg, mem)
-    local removers, worths = settings.enabled(cat, cfg, 'remove'), {}
-    for _, a in ipairs(removers) do worths[a] = a.kind == 'item' and worth(a, g.me) or 0 end
+    local skip, removers, worths = cfg.remove.skip or {}, {}, {}
+    for _, a in ipairs(cat) do
+        if a.role == 'remove' and (a.kind ~= 'item' or settings.row(cfg, a).on) then removers[#removers + 1] = a end
+    end
+    for _, a in ipairs(removers) do worths[a] = a.kind == 'item' and worth(a, g.me, skip) or 0 end
     table.sort(removers, function (a, b)
         if rank(a) ~= rank(b) then return rank(a) < rank(b) end
         if worths[a] ~= worths[b] then return worths[a] > worths[b] end
@@ -53,7 +71,7 @@ return function (g, cat, cfg, mem)
     for _, u in ipairs(g.units) do
         if u.alive and u.in_zone then
             for _, a in ipairs(removers) do
-                if can.any(u.buffs, a.removes) and not (unanswered and a.kind == 'item') and can.use(a, g) then
+                if clears(a, u, skip) and not (unanswered and a.kind == 'item') and can.use(a, g) then
                     if can.self_only(a) then
                         if u.kind == 'self' and a.area == 0 then
                             local intent = { action = a, why = u.name }

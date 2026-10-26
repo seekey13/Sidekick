@@ -75,8 +75,29 @@ test('a section with nothing to show is left out: BLM 75 has no raise, no heal t
     end
     local view = build(blm)
     eq(keys(view.sections, 'id'), { 'profile', 'follow', 'heal', 'remove', 'buff', 'recover', 'rest', 'track', 'afk', 'ui' })
-    eq(keys(section(view, 'remove').rows), { 'Antidote', 'Eye Drops', 'Echo Drops', 'Holy Water', 'Tincture',
+    local rows, items = section(view, 'remove').rows, {}
+    for _, r in ipairs(rows) do if r.count then items[#items + 1] = r.key end end
+    eq(items, { 'Antidote', 'Eye Drops', 'Echo Drops', 'Holy Water', 'Tincture',
         'Hallowed Water', 'Remedy Ointment', 'Remedy', 'Panacea' })
+    eq({ rows[1].key, rows[1].label, rows[1].on, rows[1].ready, rows[1].avail, rows[1].action },
+        { 'poison', 'Poison', true, false, 'no item on', 'Antidote, Remedy Ointment, Remedy' })  -- items are opt-in
+end)
+
+test('Debuff removal lists the debuffs your removers clear, worst first, each switched by name', function ()
+    local view = build(whm, nil, fake.snap({ { name = 'A' } }))
+    local rows = section(view, 'remove').rows
+    eq({ rows[1].key, rows[2].key, rows[3].key }, { 'poison', 'paralysis', 'blindness' })
+    local para = row(view, 'remove', 'paralysis')
+    eq({ para.label, para.on, para.debuff, para.ready, para.count }, { 'Paralysis', true, true, true, nil })
+    eq(para.action, 'Paralyna, Esuna, Remedy Ointment, Remedy, Panacea')
+    eq(row(view, 'remove', 'Poisona'), nil)  -- spells and abilities aren't rows of their own
+    local cfg, writes = settings.defaults(), 0
+    local act = model.actions(cfg, status(), function () writes = writes + 1 end)
+    act.debuff('paralysis', false)
+    eq({ cfg.remove.skip, row(build(whm, cfg, fake.snap({ { name = 'A' } })), 'remove', 'paralysis').on },
+        { { paralysis = true }, false })
+    act.debuff('paralysis')
+    eq({ cfg.remove.skip, writes }, { {}, 2 })
 end)
 
 test('item rows are opt-in and say how many you carry; none left when you have none', function ()
@@ -84,7 +105,6 @@ test('item rows are opt-in and say how many you carry; none left when you have n
     local echo, antidote = row(view, 'remove', 'Echo Drops'), row(view, 'remove', 'Antidote')
     eq({ echo.on, echo.count, echo.ready, echo.action }, { false, 12, true, 'Echo Drops' })
     eq({ antidote.count, antidote.ready, antidote.avail }, { 0, false, 'none left' })
-    eq(row(view, 'remove', 'Poisona').count, nil)
 end)
 
 test('heal rows are on by default, with no choices or targets', function ()
@@ -527,6 +547,8 @@ test('another session\'s calls apply through act; the HUD\'s settings, the log a
     eq(cfg.rows.Protect, { on = true, pick = 'Protect II', targets = { [0] = true, [1] = true } })
     eq({ apply('pick', 'Protect', nil), cfg.rows.Protect.pick }, { true, nil })  -- back to Auto
     eq({ apply('section', 'buff', true), cfg.buff.on }, { true, true })
+    eq({ apply('debuff', 'slow', false), cfg.remove.skip }, { true, { slow = true } })
+    eq({ apply('debuff', 'slow', true), cfg.remove.skip }, { true, {} })
     eq({ apply('track', 'Out'), tracks }, { true, { 'Out' } })
     local before = writes
     for _, bad in ipairs({

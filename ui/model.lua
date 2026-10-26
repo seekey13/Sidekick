@@ -222,12 +222,47 @@ local function build_row(key, acts, cfg, g, units, modifiers, outsiders)
     return row
 end
 
--- One section's rows, one per settings key, roles in the section's order.
+-- Debuff removal's debuff rows: one per status name your removers clear, in status
+-- id order (the worst come first: Sleep, Poison, Paralysis...). `key` is the name, for
+-- act.debuff; ready or why not by the spells, abilities and items that are on that
+-- clear it; `action` names every one that can.
+local function debuff_rows(g, cat, cfg)
+    local of, order, skip = {}, {}, cfg.remove.skip or {}
+    for _, a in ipairs(cat) do
+        if a.role == 'remove' then
+            local usable = a.kind ~= 'item' or settings.row(cfg, a).on
+            for _, id in ipairs(a.removes) do
+                local name = a.debuffs and a.debuffs[id] or tostring(id)
+                local d = of[name]
+                if not d then d = { id = id, all = {}, acts = {} }; of[name] = d; order[#order + 1] = name end
+                d.id = math.min(d.id, id)
+                if d.all[#d.all] ~= a then
+                    d.all[#d.all + 1] = a
+                    if usable then d.acts[#d.acts + 1] = a end
+                end
+            end
+        end
+    end
+    table.sort(order, function (x, y) return of[x].id < of[y].id end)
+    local rows = {}
+    for _, name in ipairs(order) do
+        local d = of[name]
+        local row = { key = name, label = (name:gsub('^%l', string.upper)), on = not skip[name], debuff = true, ready = false, avail = 'no item on' }
+        if d.acts[1] then row.ready, row.avail = availability(d.acts, {}, g) end
+        row.action = table.concat(distinct(d.all, 'family'), ', ')
+        rows[#rows + 1] = row
+    end
+    return rows
+end
+
+-- One section's rows, one per settings key, roles in the section's order. Debuff
+-- removal's are its debuffs, then its items.
 local function build_rows(s, g, cat, cfg, units, outsiders)
     local rows, acts_of, order = {}, {}, {}
+    if s.id == 'remove' then rows = debuff_rows(g, cat, cfg) end
     for _, role in ipairs(s.roles) do
         for _, a in ipairs(cat) do
-            if a.role == role then
+            if a.role == role and (s.id ~= 'remove' or a.kind == 'item') then
                 local key = settings.key(a)
                 if not acts_of[key] then acts_of[key] = {}; order[#order + 1] = key end
                 table.insert(acts_of[key], a)
@@ -642,7 +677,7 @@ end
 -- HUD's (its labels and sizes) and the views it shows of others itself,
 -- with the view's `version`, VIEW: raise it when a field the window draws changes,
 -- so a session still running older code isn't drawn from a view it can't read.
-model.VIEW = 5
+model.VIEW = 6
 function model.published(view)
     local out = {}
     for k, v in pairs(view) do out[k] = v end
@@ -659,7 +694,7 @@ end
 -- arrives. Chips come with the state they're set to: a toggle sent from a view a
 -- moment old could undo a click.
 local REMOTE = {
-    run = { 'boolean' }, section = { 'string', 'boolean' }, row = { 'string', 'boolean' },
+    run = { 'boolean' }, section = { 'string', 'boolean' }, row = { 'string', 'boolean' }, debuff = { 'string', 'boolean' },
     pick = { 'string', 'string|nil' }, target = { 'string', 'number|string', 'boolean' },
     mod = { 'string', 'string', 'boolean' }, hold = { 'string', 'boolean' }, profile = { 'string|nil' }, save_profile = { 'string', 'boolean|nil' },
     new_profile = {}, delete_profile = { 'string' }, track = { 'string' }, untrack = { 'string' },
@@ -782,6 +817,13 @@ function model.actions(cfg, status, changed, tracking, send)
     end
     function act.row(key, on)
         saved_row(cfg, key, on).on = on
+        changed()
+    end
+    -- A debuff (a status name, a Debuff removal row's key) removed or left on; without `on`, toggled.
+    function act.debuff(name, on)
+        cfg.remove.skip = cfg.remove.skip or {}
+        if on == nil then on = cfg.remove.skip[name] == true end
+        cfg.remove.skip[name] = not on or nil
         changed()
     end
     -- name nil = best tier.
