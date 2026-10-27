@@ -472,13 +472,18 @@ end
 local shown
 local function stale() shown = nil end
 
--- `act`, each call of which makes the view stale.
+-- `act`, each call of which makes the view stale. Built again only for new settings (another job pair, a relog),
+-- not every frame: cfg is the one thing model.actions is given that changes.
+local act_cfg, act_proxy
 local function acts()
-    local act = model.actions(cfg, status, changed, tracking, share.send)
-    return setmetatable({}, { __index = function (_, k)
-        local f = act[k]
-        return f and function (...) stale(); return f(...) end
-    end })
+    if not act_proxy or act_cfg ~= cfg then
+        local act = model.actions(cfg, status, changed, tracking, share.send)
+        act_cfg, act_proxy = cfg, setmetatable({}, { __index = function (_, k)
+            local f = act[k]
+            return f and function (...) stale(); return f(...) end
+        end })
+    end
+    return act_proxy
 end
 
 -- The last view built from a snapshot that wasn't loading: while zoning, the widget is drawn from it (never from the
