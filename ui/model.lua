@@ -36,12 +36,9 @@ local DOOM = require('core.status').DOOM
 
 local model = {}
 
--- Settings sections in order, each under its `header` (headers in the order
--- their first section comes). 'profile', 'track' and 'ui' have no switch; every
--- other section is switched by cfg[id].on, and all but 'afk' are behaviors; one with roles also has rows. Wake shows only when a heal can wake,
--- Rolls only for a job with rolls, Songs only with a song (BRD, main or sub), Geomancy only
--- with a Geo- spell (a GEO main job), Runes only with a rune (RUN, main or sub), Maneuvers
--- for a PUP, main or sub, automaton out or not (none goes until one is).
+-- Settings sections in order, each under its `header` (headers in the order their first section comes). 'profile',
+-- 'track' and 'ui' have no switch; every other is switched by cfg[id].on, and one with roles has rows. A job's own
+-- sections show only for a job that has what they keep up (model.build's `has`).
 model.SECTIONS = {
     { id = 'profile', title = 'Profiles', header = 'Profiles', switch = false },
     { id = 'follow', title = 'Follow', header = 'Follow' },
@@ -79,8 +76,6 @@ local FOR_PET = { pet = true, pet_send = true }  -- behaviors whose actions are 
 
 -- Rows -----------------------------------------------------------------------
 
-local function by_level(a, b) return (a.level or 0) > (b.level or 0) end
-
 -- Each distinct value of `field` over `acts`, in order.
 local function distinct(acts, field)
     local out, seen = {}, {}
@@ -99,7 +94,7 @@ local function row_label(key, acts, note)
     if a.pick_one then
         local families = distinct(acts, 'family')
         label = #families <= LABEL_FAMILIES and table.concat(families, ' / ')
-            or (key:gsub('_', ' '):gsub('^%l', string.upper))
+            or util.capitalize((key:gsub('_', ' ')))
     end
     return note and ('%s (%s)'):format(label, note) or label
 end
@@ -123,9 +118,8 @@ end
 -- Whether the action this row would use can go now, and if not why.
 local function availability(acts, r, g)
     if acts[1].pick_one and not r.pick then return false, 'pick one' end
-    local sorted = {}
-    for i, a in ipairs(acts) do sorted[i] = a end
-    table.sort(sorted, by_level)
+    local sorted = util.shallow(acts)
+    table.sort(sorted, util.by_level)
     local wait, reason
     for _, a in ipairs(sorted) do
         if not r.pick or r.pick == a.name then
@@ -136,7 +130,7 @@ local function availability(acts, r, g)
             -- Ammo you hold but don't wear is equipped for it (core/ammo.lua).
             local it = why == 'no ammo' and ammo.wearable(a, g)
             if it then
-                ok, why, w = can.use(a, setmetatable({ ammo = it.id }, { __index = g }))
+                ok, why, w = can.use(a, util.overlay(g, { ammo = it.id }))
                 if ok then return true, 'equips ' .. it.en, a.name end
             end
             if w then wait = math.min(wait or w, w) else reason = reason or why end
@@ -525,7 +519,7 @@ local function aim(e, members, allies, member, ally)
     for j, p in ipairs(allies) do
         if p.name == e.target then member, ally = nil, j end
     end
-    local text = ('%s:%s'):format((e.behavior:gsub('_.*', ''):gsub('^%l', string.upper)), e.action)
+    local text = ('%s:%s'):format(util.capitalize((e.behavior:gsub('_.*', ''))), e.action)
     local line = ally and allies[ally] or members[member]
     if e.target and not (line and line.name == e.target) then text = ('%s -> %s'):format(text, e.target) end
     return member, ally, text
@@ -695,8 +689,7 @@ end
 -- so a session still running older code isn't drawn from a view it can't read.
 model.VIEW = 6
 function model.published(view)
-    local out = {}
-    for k, v in pairs(view) do out[k] = v end
+    local out = util.shallow(view)
     out.pointer, out.others, out.ui, out.remote, out.sessions = nil, nil, nil, nil, nil
     out.version = model.VIEW
     return out
@@ -754,10 +747,7 @@ local function settable(path, value)
     end
     if want == 'name' then return type(value) == 'string' and value or nil end
     if type(want) ~= 'table' then return nil end
-    if want.list then
-        for _, v in ipairs(want.list) do if v == value then return value end end
-        return nil
-    end
+    if want.list then return util.contains(want.list, value) and value or nil end
     if type(value) ~= 'number' then return nil end
     return math.min(math.max(math.floor(value), want[1]), want[2])
 end
@@ -811,103 +801,78 @@ local function saved_row(cfg, key, default_on)
     return r
 end
 
+-- `set[key]` true when `on`, cleared when not; without `on`, toggled.
+local function flag(set, key, on)
+    if on == nil then on = not set[key] end
+    set[key] = on or nil
+end
+
 function model.actions(cfg, status, changed, tracking, send)
     local act = {}
-    -- This session only: automation always starts stopped, the log as set (/sk3 log; the
-    -- standard UI has no switch for it, a custom one may).
-    -- A start also wakes AFK sleep and starts its wait over (Sidekick3.lua), as v2.
+    -- `f`, then changed(): for the calls that write the settings.
+    local function saving(f) return function (...) f(...); changed() end end
+
+    -- This session only: automation always starts stopped, and a start wakes AFK sleep and starts its wait over
+    -- (Sidekick3.lua); the log as set (/sk3 log; the standard UI has no switch for it, a custom one may).
     function act.run(on)
         status.running = on
         if on then status.restart = true end
     end
     function act.log(on) status.log = on end
-    function act.close()
-        status.open, cfg.ui.open = false, false
-        changed()
-    end
-    -- id: a section with a switch: 'follow' | 'heal' | 'revive' | 'wake' | 'remove' | 'buff' | 'roll' | 'song' | 'geo' | 'rune' | 'pet' | 'maneuver'
-    -- | 'recover' | 'rest' | 'afk'
-    function act.section(id, on)
-        cfg[id].on = on
-        changed()
-    end
-    function act.row(key, on)
-        saved_row(cfg, key, on).on = on
-        changed()
-    end
+    act.close = saving(function () status.open, cfg.ui.open = false, false end)
+    -- id: a section with a switch: 'follow' | 'heal' | 'revive' | 'wake' | 'remove' | 'buff' | 'roll' | 'song' | 'geo'
+    -- | 'rune' | 'pet' | 'maneuver' | 'recover' | 'rest' | 'afk'
+    act.section = saving(function (id, on) cfg[id].on = on end)
+    act.row = saving(function (key, on) saved_row(cfg, key, on).on = on end)
     -- A debuff (a status name, a Debuff removal row's key) removed or left on; without `on`, toggled.
-    function act.debuff(name, on)
+    act.debuff = saving(function (name, on)
         cfg.remove.skip = cfg.remove.skip or {}
         if on == nil then on = cfg.remove.skip[name] == true end
         cfg.remove.skip[name] = not on or nil
-        changed()
-    end
+    end)
     -- name nil = best tier.
-    function act.pick(key, name)
-        saved_row(cfg, key, false).pick = name
-        changed()
-    end
-    -- slot: a party slot 0-5, an alliance slot 6-17, or a tracked player's name.
-    -- `on` sets it; without it the chip toggles.
-    function act.target(key, slot, on)
+    act.pick = saving(function (key, name) saved_row(cfg, key, false).pick = name end)
+    -- A buff row's chips, on or off by `on` (toggled without it): a target (a party slot 0-5, an alliance slot
+    -- 6-17, or a tracked player's name), or a modifier fired before its spell (a stratagem: 'Penury', 'Accession'...).
+    act.target = saving(function (key, slot, on)
         local r = saved_row(cfg, key, false)
         r.targets = r.targets or { [0] = true }
-        if on == nil then on = not r.targets[slot] end
-        r.targets[slot] = on or nil
-        changed()
-    end
-    -- A modifier (a stratagem: 'Penury', 'Accession'...) fired before the row's spell,
-    -- on or off (`on`; without it, toggled).
-    function act.mod(key, name, on)
+        flag(r.targets, slot, on)
+    end)
+    act.mod = saving(function (key, name, on)
         local r = saved_row(cfg, key, false)
         r.mods = r.mods or {}
-        if on == nil then on = not r.mods[name] end
-        r.mods[name] = on or nil
-        changed()
-    end
-    -- Whether a row's spell waits while one of its modifiers can't go with it
-    -- (Hold), or goes without (the default).
-    function act.hold(key, on)
-        saved_row(cfg, key, false).hold = on or nil
-        changed()
-    end
-    -- Profiles (core/profiles.lua): load one by name, nil for Default; save
-    -- (renames the loaded one when the name differs), save as, new, delete.
-    function act.profile(name)
+        flag(r.mods, name, on)
+    end)
+    -- Whether a row's spell waits while one of its modifiers can't go with it (Hold), or goes without (the default).
+    act.hold = saving(function (key, on) saved_row(cfg, key, false).hold = on or nil end)
+    -- Profiles (core/profiles.lua): load one by name, nil for Default; save (renames the loaded one when the name
+    -- differs), save as, new, delete.
+    act.profile = saving(function (name)
         if name then profiles.load(cfg, name) else profiles.load_default(cfg) end
-        changed()
-    end
+    end)
     function act.save_profile(name, as_new)
         if (as_new and profiles.save_as or profiles.save)(cfg, name) then changed() end
     end
-    function act.new_profile()
-        profiles.new(cfg)
-        changed()
-    end
+    act.new_profile = saving(function () profiles.new(cfg) end)
     function act.delete_profile(name)
         if profiles.delete(cfg, name) then changed() end
     end
     -- Track a player: by name, or your target when nil. This session only, as untracking.
     function act.track(name) tracking.add(name) end
     function act.untrack(name) tracking.remove(name) end
-    -- A member skipped by healing is never healed for their own sake.
-    -- `skip` sets it; without it, toggled.
-    function act.skip(name, skip)
-        if skip == nil then skip = not cfg.heal.skip[name] end
-        cfg.heal.skip[name] = skip or nil
-        changed()
-    end
+    -- A member skipped by healing is never healed for their own sake; `skip` sets it, toggled without it.
+    act.skip = saving(function (name, skip) flag(cfg.heal.skip, name, skip) end)
     -- path: 'heal.danger', 'heal.alliance', 'heal.reserve', 'buff.hold_aoe', 'roll.first', 'roll.risk', 'geo.distance',
     -- 'geo.entrust', 'geo.entrust_spell', 'rune.idle_1', 'maneuver.slot_1', 'song.area_1', 'song.p1_2', 'follow.target',
     -- 'japanese', 'ui.hp_width', or 'ui.<anything>' for a UI's own.
-    function act.set(path, value)
+    act.set = saving(function (path, value)
         if path == 'japanese' then path = 'ui.japanese' end  -- shared by every job pair, as the HUD
         local t = cfg
         local parent, key = path:match('^(.-)%.?([^.]+)$')
         for part in parent:gmatch('[^.]+') do t = t[part] end
         t[key] = value
-        changed()
-    end
+    end)
     -- Another session's Sidekick Settings shown here, or not: this session only.
     function act.watch(name, on)
         status.watching = status.watching or {}

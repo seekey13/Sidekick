@@ -15,6 +15,7 @@
 ]]--
 
 local imgui = require('imgui')
+local util = require('core.util')
 
 local kit = {}
 
@@ -45,34 +46,36 @@ kit.LEFT_CORNERS = ImDrawFlags_RoundCornersLeft or ImDrawCornerFlags_Left
 
 -- Colours --------------------------------------------------------------------------
 
+-- '#RRGGBB' as its red, green and blue, 0 to 255.
+local function rgb(hex) return tonumber(hex:sub(2, 3), 16), tonumber(hex:sub(4, 5), 16), tonumber(hex:sub(6, 7), 16) end
+
 -- '#RRGGBB' and an alpha to an ImU32 (0xAABBGGRR), for a draw list.
 function kit.u32(hex, alpha)
-    local r, g, b = tonumber(hex:sub(2, 3), 16), tonumber(hex:sub(4, 5), 16), tonumber(hex:sub(6, 7), 16)
-    local a = math.floor(math.max(0, math.min(1, alpha or 1)) * 255 + 0.5)
+    local r, g, b = rgb(hex)
+    local a = util.round(util.clamp(alpha or 1, 0, 1) * 255)
     return ((a * 256 + b) * 256 + g) * 256 + r
 end
 
 -- '#RRGGBB' and an alpha to { r, g, b, a }, for PushStyleColor.
 function kit.rgba(hex, alpha)
-    return { tonumber(hex:sub(2, 3), 16) / 255, tonumber(hex:sub(4, 5), 16) / 255, tonumber(hex:sub(6, 7), 16) / 255, alpha or 1 }
+    local r, g, b = rgb(hex)
+    return { r / 255, g / 255, b / 255, alpha or 1 }
 end
 
 -- The colour `t` of the way from `a` to `b`.
 function kit.mix(a, b, t)
-    t = math.max(0, math.min(1, t))
-    local out = '#'
-    for i = 2, 6, 2 do
-        local x, y = tonumber(a:sub(i, i + 1), 16), tonumber(b:sub(i, i + 1), 16)
-        out = out .. ('%02X'):format(math.floor(x + (y - x) * t + 0.5))
-    end
-    return out
+    t = util.clamp(t, 0, 1)
+    local r1, g1, b1 = rgb(a)
+    local r2, g2, b2 = rgb(b)
+    local function at(x, y) return util.round(x + (y - x) * t) end
+    return ('#%02X%02X%02X'):format(at(r1, r2), at(g1, g2), at(b1, b2))
 end
 local mix = kit.mix
 
 -- Scale ----------------------------------------------------------------------------
 
 kit.scale = 1
-function kit.S(n) return math.floor(n * kit.scale + 0.5) end
+function kit.S(n) return util.round(n * kit.scale) end
 local S = kit.S
 
 -- The screen's size, 1920 by 1080 until ImGui says.
@@ -86,7 +89,7 @@ end
 -- 1440 pixels tall is 1.1 (0.825 to 1.76 across screens), times the user's own (0.5 to 2).
 local function set_scale(user)
     local _, h = kit.screen()
-    kit.scale = math.max(0.75, math.min(1.6, h / 1440)) * 1.1 * math.max(0.5, math.min(2, user or 1))
+    kit.scale = util.clamp(h / 1440, 0.75, 1.6) * 1.1 * util.clamp(user or 1, 0.5, 2)
 end
 
 -- Fonts and text -------------------------------------------------------------------
@@ -175,28 +178,23 @@ end
 local measure = kit.measure
 
 -- Segoe UI's line holds a tall ascent and a descent: centred by its box, its letters sit low.
-local function lift(h) return kit.custom and math.floor(h * 0.06 + 0.5) or 0 end
+local function lift(h) return kit.custom and util.round(h * 0.06) or 0 end
 
 function kit.text(dl, x, y, s, color, font, px, alpha)
-    dl:AddText(font, px, { math.floor(x + 0.5), math.floor(y + 0.5) }, kit.u32(color, alpha), s)
+    dl:AddText(font, px, { util.round(x), util.round(y) }, kit.u32(color, alpha), s)
 end
 local text = kit.text
 
+-- Text with its middle at cy, `align` of its width left of x: 0 from x, 1 ending there, 0.5 centred on it.
+local function aligned(dl, x, cy, s, color, font, px, alpha, align)
+    local w, h = measure(s, font, px)
+    text(dl, x - w * align, cy - h / 2 - lift(h), s, color, font, px, alpha)
+end
+
 -- Text with its middle at cy: from x, ending at `right`, or centred on cx.
-function kit.text_mid(dl, x, cy, s, color, font, px, alpha)
-    local _, h = measure(s, font, px)
-    text(dl, x, cy - h / 2 - lift(h), s, color, font, px, alpha)
-end
-
-function kit.text_right(dl, right, cy, s, color, font, px, alpha)
-    local w, h = measure(s, font, px)
-    text(dl, right - w, cy - h / 2 - lift(h), s, color, font, px, alpha)
-end
-
-function kit.text_centred(dl, cx, cy, s, color, font, px, alpha)
-    local w, h = measure(s, font, px)
-    text(dl, cx - w / 2, cy - h / 2 - lift(h), s, color, font, px, alpha)
-end
+function kit.text_mid(dl, x, cy, s, color, font, px, alpha) aligned(dl, x, cy, s, color, font, px, alpha, 0) end
+function kit.text_right(dl, right, cy, s, color, font, px, alpha) aligned(dl, right, cy, s, color, font, px, alpha, 1) end
+function kit.text_centred(dl, cx, cy, s, color, font, px, alpha) aligned(dl, cx, cy, s, color, font, px, alpha, 0.5) end
 
 -- Capitals one glyph at a time, `spacing` pixels apart (ImGui has no tracking).
 -- Tracker's section headers. Returns the width. `dl` nil only measures.
@@ -218,7 +216,7 @@ end
 -- Text over the game or a bar: stamped in black a pixel out each way first, so it reads on anything.
 local AROUND = { { -1, -1 }, { 0, -1 }, { 1, -1 }, { -1, 0 }, { 1, 0 }, { -1, 1 }, { 0, 1 }, { 1, 1 } }
 function kit.halo(dl, x, y, s, color, font, px, alpha)
-    x, y = math.floor(x + 0.5), math.floor(y + 0.5)
+    x, y = util.round(x), util.round(y)
     local dark = kit.u32('#000000', 0.85 * (alpha or 1))
     for _, o in ipairs(AROUND) do dl:AddText(font, px, { x + o[1], y + o[2] }, dark, s) end
     dl:AddText(font, px, { x, y }, kit.u32(color, alpha), s)
@@ -335,7 +333,7 @@ local anim, last, dt = {}, nil, 0
 -- Once a frame, before any window: the time since the last, the fonts, the scale (`user`, 1 for 100%).
 function kit.frame(user)
     local now = kit.clock()
-    dt = last and math.max(0, math.min(0.1, now - last)) or 0  -- capped: a hitch takes one step, not a jump
+    dt = last and util.clamp(now - last, 0, 0.1) or 0  -- capped: a hitch takes one step, not a jump
     last = now
     if fonts_pending then  -- added before this frame: usable from it
         for k, f in pairs(fonts_pending) do kit.fonts[k] = f end
@@ -393,6 +391,18 @@ local function wrap_chars(s, n)
     return table.concat(out, '\n')
 end
 
+-- ImGui style `colours` ({ { ImGuiCol_*, rgba }, ... }) and `vars` ({ { ImGuiStyleVar_*, value }, ... }) pushed;
+-- kit.pop_style pops the same lists.
+function kit.push_style(colours, vars)
+    for _, c in ipairs(colours) do imgui.PushStyleColor(c[1], c[2]) end
+    for _, v in ipairs(vars) do imgui.PushStyleVar(v[1], v[2]) end
+end
+
+function kit.pop_style(colours, vars)
+    imgui.PopStyleVar(#vars)
+    imgui.PopStyleColor(#colours)
+end
+
 local TOOLTIP_COLOURS = { { ImGuiCol_PopupBg, kit.rgba(P.popup, 0.97) }, { ImGuiCol_Border, kit.rgba(P.border) },
                           { ImGuiCol_Text, kit.rgba(P.text) } }
 
@@ -411,19 +421,16 @@ function kit.tooltips()
     local s = tip_pending
     if not s then return end
     tip_pending = nil
-    for _, c in ipairs(TOOLTIP_COLOURS) do imgui.PushStyleColor(c[1], c[2]) end
-    imgui.PushStyleVar(ImGuiStyleVar_WindowPadding, { S(9), S(6) })
-    imgui.PushStyleVar(ImGuiStyleVar_WindowRounding, S(4))
-    imgui.PushStyleVar(ImGuiStyleVar_PopupRounding, S(4))
-    imgui.PushStyleVar(ImGuiStyleVar_PopupBorderSize, 1)
+    local vars = { { ImGuiStyleVar_WindowPadding, { S(9), S(6) } }, { ImGuiStyleVar_WindowRounding, S(4) },
+                   { ImGuiStyleVar_PopupRounding, S(4) }, { ImGuiStyleVar_PopupBorderSize, 1 } }
+    kit.push_style(TOOLTIP_COLOURS, vars)
     if imgui.BeginTooltip() ~= false then
         kit.push_font(kit.fonts.text, S(kit.SMALL + 0.5))
         imgui.TextUnformatted(wrap_chars(s, 72))
         kit.pop_font()
         imgui.EndTooltip()
     end
-    imgui.PopStyleVar(4)
-    imgui.PopStyleColor(#TOOLTIP_COLOURS)
+    kit.pop_style(TOOLTIP_COLOURS, vars)
 end
 
 -- The last item's tooltip, while it's hovered.
@@ -442,13 +449,10 @@ local POPUP_COLOURS = {
 -- take away and its text at `px`, `body()` inside it while it's open. A Lua error in `body` still closes every
 -- scope it opened (ImGui asserts on one left open), then is raised again.
 function kit.popup(id, px, body)
-    for _, c in ipairs(POPUP_COLOURS) do imgui.PushStyleColor(c[1], c[2]) end
-    imgui.PushStyleVar(ImGuiStyleVar_WindowPadding, { S(10), S(8) })
-    imgui.PushStyleVar(ImGuiStyleVar_PopupRounding, S(5))
-    imgui.PushStyleVar(ImGuiStyleVar_PopupBorderSize, 1)
-    imgui.PushStyleVar(ImGuiStyleVar_FramePadding, { S(8), S(4) })
-    imgui.PushStyleVar(ImGuiStyleVar_FrameRounding, S(4))
-    imgui.PushStyleVar(ImGuiStyleVar_ItemSpacing, { S(8), S(6) })
+    local vars = { { ImGuiStyleVar_WindowPadding, { S(10), S(8) } }, { ImGuiStyleVar_PopupRounding, S(5) },
+                   { ImGuiStyleVar_PopupBorderSize, 1 }, { ImGuiStyleVar_FramePadding, { S(8), S(4) } },
+                   { ImGuiStyleVar_FrameRounding, S(4) }, { ImGuiStyleVar_ItemSpacing, { S(8), S(6) } } }
+    kit.push_style(POPUP_COLOURS, vars)
     local open, ok, err = imgui.BeginPopup(id), true, nil
     if open then
         kit.push_font(kit.fonts.text, px)
@@ -456,8 +460,7 @@ function kit.popup(id, px, body)
         kit.pop_font()
         imgui.EndPopup()
     end
-    imgui.PopStyleVar(6)
-    imgui.PopStyleColor(#POPUP_COLOURS)
+    kit.pop_style(POPUP_COLOURS, vars)
     if not ok then error(err, 0) end
     return open
 end
@@ -512,7 +515,7 @@ function kit.dragged(_, x, w, min, max)
     if not imgui.IsItemActive() then return nil end
     local mx = imgui.GetMousePos()
     if type(mx) == 'table' then mx = mx.x or mx[1] end
-    return min + (max - min) * math.max(0, math.min(1, (mx - x) / w))
+    return min + (max - min) * util.clamp((mx - x) / w, 0, 1)
 end
 
 local numbers = {}  -- a slider's id -> its typed number's text ({ s }), while that box is open
@@ -545,7 +548,7 @@ function kit.slider(id, x, cy, w, value, min, max, enabled, alpha, unit)
     local dl, on, a = imgui.GetWindowDrawList(), enabled ~= false, faded(enabled, alpha)
     local value_w = S(52)
     local track = w - value_w - S(10)
-    local function held(v) return math.max(min, math.min(max, math.floor(v + 0.5))) end
+    local function held(v) return util.clamp(util.round(v), min, max) end
     -- the press area runs past the track's ends, so the knob drawn half past either end is still the slider's
     local hovered = hit(id, x - S(4), cy - S(9), track + S(12), S(18))
     local dragged = on and kit.dragged(id, x, track, min, max) or nil
@@ -554,7 +557,7 @@ function kit.slider(id, x, cy, w, value, min, max, enabled, alpha, unit)
         local v = held(dragged)
         if v ~= value then value, changed = v, true end
     end
-    local f, th = max > min and math.max(0, math.min(1, (value - min) / (max - min))) or 0, S(4)
+    local f, th = max > min and util.clamp((value - min) / (max - min), 0, 1) or 0, S(4)
     fill(dl, x, cy - th / 2, track, th, P.off, th / 2, a)
     if f > 0 then fill(dl, x, cy - th / 2, math.max(th, track * f), th, P.accent, th / 2, a) end
     local lit = ease(id .. '.lit', (hovered or dragged) and on and 1 or 0, 22)
@@ -690,7 +693,9 @@ function kit.chip(id, x, cy, w, label, state, enabled, alpha)
     return clicked and on
 end
 
-local FIELD_CLEAR = { 0, 0, 0, 0 }
+local CLEAR = { 0, 0, 0, 0 }
+local FIELD_COLOURS = { { ImGuiCol_FrameBg, CLEAR }, { ImGuiCol_FrameBgHovered, CLEAR }, { ImGuiCol_FrameBgActive, CLEAR },
+                        { ImGuiCol_Text, kit.rgba(P.text) } }
 
 -- A text field `w` wide over a sunken box, `hint` in it while it's empty; `buf` is its { text }. Returns edited.
 function kit.input(id, x, cy, w, buf, max, hint)
@@ -703,19 +708,14 @@ function kit.input(id, x, cy, w, buf, max, hint)
     if hint and buf[1] == '' then kit.text_mid(dl, x + S(9), cy, hint, P.faint, kit.fonts.text, px) end
     local text_h = kit.custom and px or imgui.GetFontSize()
     imgui.SetCursorScreenPos({ x + S(1), y })
-    imgui.PushStyleColor(ImGuiCol_FrameBg, FIELD_CLEAR)
-    imgui.PushStyleColor(ImGuiCol_FrameBgHovered, FIELD_CLEAR)
-    imgui.PushStyleColor(ImGuiCol_FrameBgActive, FIELD_CLEAR)
-    imgui.PushStyleColor(ImGuiCol_Text, kit.rgba(P.text))
-    imgui.PushStyleVar(ImGuiStyleVar_FramePadding, { S(8), math.max(0, (h - text_h) / 2) })
-    imgui.PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0)
+    local vars = { { ImGuiStyleVar_FramePadding, { S(8), math.max(0, (h - text_h) / 2) } }, { ImGuiStyleVar_FrameBorderSize, 0 } }
+    kit.push_style(FIELD_COLOURS, vars)
     kit.push_font(kit.fonts.text, px)
     imgui.PushItemWidth(w - S(2))
     local edited = imgui.InputText(id, buf, max)
     imgui.PopItemWidth()
     kit.pop_font()
-    imgui.PopStyleVar(2)
-    imgui.PopStyleColor(4)
+    kit.pop_style(FIELD_COLOURS, vars)
     return edited == true
 end
 
