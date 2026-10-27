@@ -713,6 +713,9 @@ test('in Japanese the status line, the log and the HUD\'s label name the action,
     eq(v.recent, { { age = 10, text = 'ケアルIV → クピピ', why = '回復: 効率: クピピ 62%' } })
     local rest = { at = 995, action = 'Rest', behavior = 'rest', why = 'MP 40%' }  -- resting's: words, not names
     eq(japanese_view(whm, nil, nil, status({ running = true, sent = { rest } })).recent[1].text, 'ヒーリング')
+    local follow = { at = 995, action = 'Follow', target = 'B', behavior = 'follow', why = 'B 12.3y away' }  -- following's too
+    eq(japanese_view(whm, nil, nil, status({ running = true, sent = { follow } })).recent[1], { age = 5, text = '追従 → B',
+        why = '追従: B 12.3y先' })
 end)
 
 test('in Japanese party lines list statuses by their Japanese names; flags stay words a UI compares', function ()

@@ -415,9 +415,10 @@ end
 local function reason(why) return REASONS[why] or why or '' end
 
 -- An action sent or about to be (`e`: a status entry, or another session's), as shown: a spell's, ability's or item's
--- name (its `jp` the Japanese one, else found by its English one); resting's Rest and Stand, words.
+-- name (its `jp` the Japanese one, else found by its English one); resting's Rest and Stand and following's Follow,
+-- words (core/engine.lua's commands).
 local function action_of(e)
-    if e.behavior == 'rest' then return lang.t(e.action) end
+    if e.behavior == 'rest' or e.behavior == 'follow' then return lang.t(e.action) end
     return lang.name(e.action, e.jp)
 end
 

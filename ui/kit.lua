@@ -306,31 +306,35 @@ function kit.fit(s, room, font, px)
     return s:sub(1, n) .. dots
 end
 
--- Punctuation a line never starts with (Japanese breaks between any two characters, but not before these).
+-- Punctuation a line never starts with, and brackets it never ends with (Japanese breaks between any two characters,
+-- but not before the one nor after the other).
 local CLOSING = { ['、'] = true, ['。'] = true, ['，'] = true, ['．'] = true, ['）'] = true, ['」'] = true, ['』'] = true,
                   ['！'] = true, ['？'] = true, ['ー'] = true, ['・'] = true, ['：'] = true, ['％'] = true }
+local OPENING = { ['（'] = true, ['「'] = true, ['『'] = true }
 
 -- A line's pieces, each a place it may break before: a word (the spaces before it its `gap`, kept unless the line
--- breaks there), or a character of Japanese (from U+3000, three bytes of UTF-8), which closing punctuation joins.
+-- breaks there), or a character of Japanese (from U+3000, three bytes of UTF-8). With no space between, closing
+-- punctuation joins the piece before it, and what follows an opening bracket joins the bracket (`opens`).
 local function pieces(para)
     local out, i, n, gap = {}, 1, #para, ''
     while i <= n do
         local b = para:byte(i)
         if b == 32 then
             gap, i = gap .. ' ', i + 1
-        elseif b >= 0xE3 and b <= 0xEF then
-            local c = para:sub(i, i + 2)
-            if CLOSING[c] and out[1] and gap == '' then out[#out].s = out[#out].s .. c
-            else out[#out + 1] = { s = c, gap = gap } end
-            gap, i = '', i + 3
         else
-            local j = i
-            while j <= n do
-                local c = para:byte(j)
-                if c == 32 or c >= 0xE3 and c <= 0xEF then break end
-                j = j + 1
+            local j = i + 3
+            if b < 0xE3 or b > 0xEF then  -- a word, up to a space or Japanese
+                j = i
+                while j <= n do
+                    local c = para:byte(j)
+                    if c == 32 or c >= 0xE3 and c <= 0xEF then break end
+                    j = j + 1
+                end
             end
-            out[#out + 1] = { s = para:sub(i, j - 1), gap = gap }
+            local s, last = para:sub(i, j - 1), out[#out]
+            if last and gap == '' and (last.opens or CLOSING[s]) then last.s = last.s .. s
+            else last = { s = s, gap = gap }; out[#out + 1] = last end
+            last.opens = OPENING[s]
             gap, i = '', j
         end
     end
@@ -360,9 +364,20 @@ local function broken(s, fits)
     return lines
 end
 
--- `s` broken into lines `width` pixels wide.
+local wrapped, wrapped_n = {}, 0
+
+-- `s` broken into lines `width` pixels wide. Cached, as measure is: a page's notes are wrapped every frame (the lines
+-- are the cache's, to read, not change).
 function kit.wrap(s, font, px, width)
-    return broken(s, function (line) return measure(line, font, px) <= width end)
+    s = tostring(s)
+    local key = tostring(font) .. '|' .. px .. '|' .. width .. '|' .. s
+    local lines = wrapped[key]
+    if not lines then
+        if wrapped_n > 1000 then wrapped, wrapped_n = {}, 0 end  -- live values keep adding strings
+        lines = broken(s, function (line) return measure(line, font, px) <= width end)
+        wrapped[key], wrapped_n = lines, wrapped_n + 1
+    end
+    return lines
 end
 
 -- Shapes ---------------------------------------------------------------------------
@@ -543,6 +558,7 @@ local TOOLTIP_COLOURS = { { ImGuiCol_PopupBg, kit.rgba(P.popup, 0.97) }, { ImGui
                           { ImGuiCol_Text, kit.rgba(P.text) } }
 
 local tip_pending  -- the tooltip asked for last this frame, for kit.tooltips
+local tip_s, tip_plain, tip_text  -- the last one drawn, wrapped and spelt: it's the same one frame after frame
 
 -- A tooltip by the mouse. Only the last asked for in a frame shows, as with SetTooltip (BeginTooltip would stack
 -- them all): kit.tooltips draws it once the windows are, or the next kit.frame does.
@@ -561,7 +577,8 @@ function kit.tooltips()
         S(4), ImGuiStyleVar_PopupRounding, S(4), ImGuiStyleVar_PopupBorderSize, 1)
     if imgui.BeginTooltip() ~= false then
         kit.push_font(kit.fonts.text, S(kit.SMALL + 0.5))
-        imgui.TextUnformatted(spelt(wrap_chars(s, 72)))
+        if s ~= tip_s or plain ~= tip_plain then tip_s, tip_plain, tip_text = s, plain, spelt(wrap_chars(s, 72)) end
+        imgui.TextUnformatted(tip_text)
         kit.pop_font()
         imgui.EndTooltip()
     end

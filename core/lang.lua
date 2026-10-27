@@ -28,7 +28,8 @@ local lang = {}
 
 lang.on = false        -- the UI's text is Japanese now
 lang.drawable = true   -- a Japanese font can draw it (ui/kit.lua): false and the UI stays English
-lang.misses = {}       -- fixed strings asked for in Japanese that core/ja.lua lacks (the tests read it)
+lang.misses = nil      -- a table the tests set: the fixed strings and sentences asked for in Japanese that core/ja.lua
+                       -- lacks, kept there (not in game, where a sentence with a number in it would add one each time)
 
 function lang.use(japanese)
     lang.on = japanese == true and lang.drawable
@@ -132,7 +133,7 @@ function lang.t(s, japanese)
     if not language(japanese) then return s end
     local j = ja.words[s]
     if j then return j end
-    lang.misses[s] = true
+    if lang.misses then lang.misses[s] = true end
     return s
 end
 
@@ -194,7 +195,7 @@ function lang.why(s, japanese)
         end
     end
     -- A name alone ('Kupipi', 'MP 40%') has nothing to translate; two lower-case words in a row are English left over.
-    if s:find('%l%l+ %l%l+') then lang.misses[s] = true end
+    if lang.misses and s:find('%l%l+ %l%l+') then lang.misses[s] = true end
     return s
 end
 

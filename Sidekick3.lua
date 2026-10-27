@@ -627,7 +627,7 @@ local ANYTIME = {
         status.log = not status.log
         printf('Action log %s.', word(status.log and 'on' or 'off'))
     end,
-    help = function () printf(HELP) end,  -- (no '%' in it)
+    help = function () printf('%s', word(HELP)) end,
 }
 
 -- The rest, once the game has loaded your job: (args, g).

@@ -1678,7 +1678,8 @@ test('on ImGui 1.81 the window is Japanese in the font Ashita\'s boot config add
     render(cfg, status(), on('UI / Log'))
 end)
 
-test('the kit wraps Japanese between characters, never before closing punctuation, and keeps a line\'s spaces', function ()
+test('the kit wraps Japanese between characters, never before closing punctuation nor after an opening bracket, and '
+    .. 'keeps a line\'s spaces', function ()
     local s = '回復ラインが危険ライン以下です。効率回復はせず、危険時の回復だけを行います。'
     local lines = kit.wrap(s, 'font', 13, 21 * 10)  -- the fake measures 7 a byte: 10 characters a line
     eq(table.concat(lines), s)
@@ -1687,6 +1688,8 @@ test('the kit wraps Japanese between characters, never before closing punctuatio
         eq(l:sub(1, 3) ~= '。' and l:sub(1, 3) ~= '、', true, l)
     end
     eq(#lines, 4)
+    -- '（' would end the first line, ten characters long: it starts the next one, with what follows it
+    eq(kit.wrap('あいうえおかきくけ（こさしすせそ）', 'font', 13, 21 * 10), { 'あいうえおかきくけ', '（こさしすせそ）' })
     eq(kit.wrap('HP 62%  MP 100%', 'font', 13, 500), { 'HP 62%  MP 100%' })
     eq(kit.wrap('Roll 2 is Roll 1: one roll kept up', 'font', 13, 7 * 12), { 'Roll 2 is', 'Roll 1: one', 'roll kept up' })
 end)

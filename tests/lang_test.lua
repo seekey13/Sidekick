@@ -17,10 +17,14 @@ local function japanese(body)
     if not ok then error(err, 0) end
 end
 
-test('a word or a format is English, or Japanese once the UI is; a word core/ja.lua lacks is noted', function ()
+test('a word or a format is English, or Japanese once the UI is; a word core/ja.lua lacks is noted for the tests', function ()
     lang.use(false)
     eq({ lang.t('Heal under'), lang.f('recast %ds', 12), lang.list({ 'a', 'b' }) }, { 'Heal under', 'recast 12s', 'a, b' })
     japanese(function ()
+        lang.misses = nil  -- in game: none kept, however many sentences no pattern takes
+        eq({ lang.t('Not a word here'), lang.why('waiting on it for 12 more seconds') },
+           { 'Not a word here', 'waiting on it for 12 more seconds' })
+        eq(lang.misses, nil)
         lang.misses = {}
         eq({ lang.t('Heal under'), lang.f('recast %ds', 12), lang.list({ 'a', 'b' }) }, { '回復ライン', 'リキャスト 12秒', 'a、b' })
         eq({ lang.t('Not a word here'), lang.misses['Not a word here'] }, { 'Not a word here', true })
