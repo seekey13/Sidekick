@@ -1,18 +1,12 @@
 --[[
-    Puppetmaster: maneuvers (v2's lib/actions/pet.lua). The eight elemental
-    maneuvers go on you, not the automaton (it reads them off you, as retail),
-    share one recast and stand three at once; a new one pushes the oldest out.
-    Under Maneuvers (cfg.maneuver) each of the three slots picks one by name
-    ('' for none; the same one twice keeps two up), kept up while an automaton
-    is out, main or sub (this server lets a PUP subjob call one). They're listed
-    for the job even while it's dismissed (the client drops these pet commands
-    from its ability list then), so Maneuvers stays on the Pet page. None goes
-    under Overload (it would only add to it), and none while you're
-    Invisible (core/engine.lua).
-    Only on the automaton: a jug pet, avatar, wyvern or luopan (BST/PUP...) would
-    refuse them. Your automaton's name comes in the server's job packet (0x044,
-    core/packets.lua) on login, zoning and job changes; until one has, the pet is
-    taken for it on a PUP main job, or a PUP subjob under a job with no pet of its own.
+    Puppetmaster: maneuvers. The eight go on you, not the automaton (it reads them
+    off you), share one recast and stand three at once; a new one pushes the oldest
+    out. Under Maneuvers (cfg.maneuver) each of the three slots picks one by name
+    ('' for none; the same one twice keeps two up), kept up while your automaton is
+    out, main or sub, never under Overload. Only on the automaton: any other pet
+    would refuse them. Its name comes in the server's job packet (0x044,
+    core/packets.lua); until then the pet is taken for it on a PUP main job, or a
+    PUP subjob under a job with no pet of its own.
 ]]--
 
 local can = require('core.can')

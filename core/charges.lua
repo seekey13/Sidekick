@@ -1,11 +1,9 @@
 --[[
-    Charge pools: abilities that share one recast timer, which counts down to
-    every charge back (SCH's stratagems, BST's Ready moves). A pool is
+    Charge pools: abilities sharing one recast timer that counts down to every
+    charge back (SCH's stratagems, BST's Ready moves):
         { job, kind, recast (the timer's id), tiers = { { level, charges, seconds per charge }, ... } }
-    its tiers by your level in the job, highest first. core/game.lua reads the
-    banked charges into the snapshot and turns a pool's timer into the wait for
-    the charges one action costs (a.charges, 1 if nil), so a move is usable once
-    it has those, not only at a full pool.
+    tiers by your level in the job, highest first. An action is usable once the
+    charges it costs (a.charges, 1 if nil) are back, not only at a full pool.
 ]]--
 
 local charges = {}

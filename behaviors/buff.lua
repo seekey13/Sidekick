@@ -1,44 +1,28 @@
 --[[
-    Keep the buffs you turned on up on the targets you picked. A row's action is
-    its picked tier, else the best tier you can cast now; a pick_one group
-    (bar-elements, enspells...) needs a pick. Self-only buffs go on you; an area
-    self-cast (Protectra) is recast when anyone in your party near you lacks it.
-    With buff.hold_aoe on, an area spell is held while a player in your party
-    who lacks it is out of its reach (or not drawn), so nobody is left out: it
-    goes out once they gather, and mem.gather says what waits on whom (the engine
-    asks the party to gather when someone near lacks it too; otherwise it waits
-    quietly). Trusts follow you and never hold it.
-    A row's targets are party and alliance slots (0-17) and tracked players'
-    names. Statuses that can't be read (Boost) are recast whenever they're off
-    recast.
-    A row's modifiers (SCH's stratagems) go with its spell: the engine fires
-    each first (core/engine.lua). Accession instead spreads the spell from you
-    to the row's targets in your party near you, at twice the MP, whenever one
-    there lacks it (as v2), and is held for the group like an area spell;
-    BLU's Diffusion spreads a blue magic buff on you the same way, at its own
-    MP, but only while someone but you lacks it (jobs/blu.lua). With
-    heal.reserve on, buff rows never spend the last stratagem charge (jobs/sch.lua).
-    A row with Hold on (rows[key].hold, v2's Hold for Stratagem / Embolden) waits
-    while any of its modifiers can't go with the spell; without it the spell goes alone.
-    A row that needs ammo worn (Sange's shuriken) and would go with it first
-    equips it (core/ammo.lua). Ninjutsu wait for their tools, and Utsusemi may be
-    recast at its last shadow (jobs/nin.lua).
-    Bard's songs are jobs/brd.lua's and Corsair's rolls jobs/cor.lua's.
-    While you're Invisible only travel buffs go (core/engine.lua), and any
-    action breaks it, so a buff that makes you Invisible (Invisible, Tonko,
-    Spectral Jig) goes on you last of all (buff.last, run by the engine after
-    every other behavior): members' travel buffs and your Sneak go first, and
-    one a member loses while you're Invisible is put back on them before yours.
-    Yours waits, too, while other work is pending (a buff someone lacks briefly
-    on recast, one held for the group or for its modifier, a roll being
-    doubled), so that work isn't shut out by it or doesn't break it right
-    after: at most OTHERS_FIRST seconds, then it goes anyway. Your own Sneak
-    isn't cast while a buff that makes you Invisible and gives Sneak too
-    (Spectral Jig) is due on you.
-    A row whose action goes `first` (Light Arts, Addendum: White) is also
-    buff.first's: the engine runs it ahead of healing, since healing is cheaper
-    or only possible under it, except while someone is under their critical
-    line: their cure goes at once, and buff.want keeps it up after, as any buff.
+    Keep the buffs you turned on up on the targets you picked. A row's action is its
+    picked tier, else the best tier you can cast now; a pick_one group (bar-elements,
+    enspells...) needs a pick. A row's targets are party and alliance slots (0-17)
+    and tracked players' names; a self-only buff goes on you, and an area self-cast
+    (Protectra) is recast when anyone in your party near you lacks it. A status that
+    can't be read (Boost) is recast whenever it's off recast.
+
+    With buff.hold_aoe on, an area spell waits while a player in your party who
+    lacks it is out of its reach (trusts follow, so never hold it), and mem.gather
+    says what waits on whom: the engine asks the party to gather when someone near
+    lacks it too.
+
+    A row's modifiers (stratagems, Embolden) go with its spell, fired first by the
+    engine. Accession instead spreads the spell from you to the row's targets in
+    your party near you, at twice the MP, and is held for the group like an area
+    spell; Diffusion likewise, but only while someone but you lacks it. With Hold on
+    (rows[key].hold) a row waits while any of its modifiers can't go with it. With
+    heal.reserve on, buff rows never spend the last stratagem charge.
+
+    Stages: buff.first runs the rows whose action goes `first` (Light Arts,
+    Addendum: White) ahead of healing, unless a member is under their critical line;
+    buff.want every row but those that make you Invisible; buff.last those alone,
+    after every other behavior, since any action breaks it. They wait too while
+    other work is pending, OTHERS_FIRST seconds at most.
 ]]--
 
 local ammo = require('core.ammo')
@@ -48,6 +32,7 @@ local nin = require('jobs.nin')
 local sch = require('jobs.sch')
 local settings = require('core.settings')
 local status = require('core.status')
+local util = require('core.util')
 
 local buff = {}
 
@@ -67,7 +52,7 @@ local function chosen(cat, cfg, g)
     for _, key in ipairs(keys) do
         local list = by_key[key]
         local row = settings.row(cfg, list[1])
-        table.sort(list, function (a, b) return (a.level or 0) > (b.level or 0) end)
+        table.sort(list, util.by_level)
         local pick
         for _, a in ipairs(list) do
             if row.pick == a.name or (not row.pick and not a.pick_one and can.use(a, g)) then pick = a; break end
@@ -90,7 +75,7 @@ end
 function buff.area(a, g, hold, wanted, radius)
     local near, count, away = nil, 0, nil
     for _, u in ipairs(g.units) do
-        local here = u.kind == 'self' or (u.dist or math.huge) <= (radius or AREA_RADIUS)
+        local here = can.near(u, radius or AREA_RADIUS)
         if (u.kind == 'self' or can.in_party(u) and u.alive and u.in_zone) and lacks(a, u)
             and (not wanted or wanted[u.slot]) then
             if here then near, count = near or u, count + 1
@@ -146,7 +131,7 @@ local function held(c, acc, spreads, g, cfg)
 end
 
 -- Whether `a` makes whoever it lands on Invisible.
-local function veils(a) return can.holds(a.status or {}, status.INVISIBLE) end
+local function veils(a) return util.contains(a.status or {}, status.INVISIBLE) end
 
 -- Whether a buff that makes you Invisible and is due on you gives all of `a`'s
 -- statuses too (Spectral Jig gives Sneak): `a` then needn't go on you first.
@@ -156,7 +141,7 @@ local function covered(a, list, g)
         local v = c.action
         if veils(v) and can.self_only(v) and lacks(v, g.me) then
             local all = true
-            for _, id in ipairs(a.status) do all = all and can.holds(v.status, id) end
+            for _, id in ipairs(a.status) do all = all and util.contains(v.status, id) end
             if all then return true end
         end
     end
@@ -261,8 +246,7 @@ local function pending(g, cat, cfg, mem)
                 local mine = u.kind == 'self'
                 local wanted
                 if self_only then
-                    wanted = mine or a.area > 0 and can.in_party(u) and u.alive and u.in_zone
-                        and (u.dist or math.huge) <= AREA_RADIUS
+                    wanted = mine or a.area > 0 and can.in_party(u) and u.alive and u.in_zone and can.near(u, AREA_RADIUS)
                 else
                     wanted = targets[u.slot or u.name] and can.reach(a, u)
                 end

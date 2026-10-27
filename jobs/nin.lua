@@ -1,17 +1,12 @@
 --[[
-    Ninja (v2's ninja.lua): the tools ninjutsu spend, and recasting Utsusemi at
-    its last shadow. Utsusemi, Tonko and Monomi each take one of their own tool
-    (knowledge's `tool`: Shihei, Shinobi-tabi, Sanjaku-tenugui) from your
-    inventory, never a wardrobe; on a NIN main job a Shikanofuda stands in for
-    any of them (LSB's battleutils::HasNinjaTool). With neither the server
-    refuses the cast, so the row waits ('no tools') and shows how many you hold.
-    Sange's shuriken is ammo, equipped like a pet's oil (core/ammo.lua).
-    With buff.one_shadow (v2's Cast with 1 Shadow, off by default) Utsusemi is
-    recast while its last shadow is up, not only once it's gone. For Ichi that
-    shadow is cancelled engine.CANCEL_AFTER seconds into the cast, while it's still
-    casting (one cut short before then keeps it), so the new ones land: LSB
-    replaces shadows by tier, so Ichi is refused over Ni's while Ni always lands,
-    and needs no cancel (none is sent for it, so it's never left without one).
+    Ninja: the tools ninjutsu spend, and recasting Utsusemi at its last shadow.
+    Utsusemi, Tonko and Monomi each take one of their own tool (knowledge's `tool`)
+    from your inventory, never a wardrobe; on a NIN main job a Shikanofuda stands in
+    for any of them (LSB's battleutils::HasNinjaTool). With neither the server
+    refuses the cast, so the row waits ('no tools'). With buff.one_shadow Utsusemi is
+    recast while its last shadow is up; for Ichi that shadow is cancelled
+    engine.CANCEL_AFTER seconds into the cast so the new ones land, since LSB
+    replaces shadows by tier: it refuses Ichi over Ni's, while Ni always lands.
 ]]--
 
 local nin = {}

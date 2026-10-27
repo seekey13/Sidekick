@@ -1,27 +1,22 @@
 --[[
-    Healing, by how urgent it is. Every usable heal aimed at every unit it can
-    reach is a candidate, covering the units in its area; a band picks who counts
-    and how candidates rank. Bands run worst first, and one with nothing usable
-    falls through, so a unit out of reach never stalls the rest.
+    Healing, by how urgent it is. Every usable heal aimed at every unit it can reach
+    is a candidate covering the units in its area; a band picks who counts and how
+    candidates rank. Bands run worst first, and one with nothing usable falls
+    through, so a unit out of reach never stalls the rest.
       critical   under heal.critical: a boost first (Divine Seal...), then an aimed
                  save (Martyr), then the danger score over critical units
-      danger     under heal.danger: HP% restored per second locked out; holds for
-                 a heal nearly off recast
-      efficient  from the danger line to heal.threshold: HP that lands where it's needed,
-                 per share of the MP or TP you have; Regen allowed, and counted while it
-                 ticks; never a Ready move, whose charges are kept for the pet's attacks.
-                 Over the threshold, missing HP is left be. Not while you're Invisible:
-                 any action breaks it, so then only critical and danger heal
-    Critical and danger (heal.urgent) and efficient (heal.efficient) are behaviors of
-    their own, with debuff removal between them (core/engine.lua).
-    The focus member has its own three lines; skipped members count for nothing,
-    and so do the alliance's other parties unless heal.alliance is on.
-    An area heal lands on the target's party alone, so each party is scored on
-    its own: one centred on you or a member covers your party, a Cure aimed at
-    someone in another party and spread by Majesty or Accession covers theirs.
-    A tracked player is healed like a member, by a heal aimed at them; their
-    party is unknown, so a spread Cure counts them alone, and Accession is
-    never fired for them.
+      danger     under heal.danger: HP% restored per second locked out; holds for a
+                 heal nearly off recast
+      efficient  from the danger line to heal.threshold: HP that lands where it's
+                 needed, per share of the MP or TP you have; Regen allowed, and
+                 counted while it ticks; never a Ready move, whose charges are kept
+                 for the pet's attacks; not while you're Invisible
+    heal.urgent (critical, danger) and heal.efficient are behaviors of their own,
+    with debuff removal between them. The focus member has its own three lines;
+    skipped members count for nothing, and so do the alliance's other parties
+    unless heal.alliance is on. An area heal lands on its target's party alone, so
+    each party is scored on its own; a tracked player's party is unknown, so a
+    spread Cure counts them alone and Accession is never fired for them.
 ]]--
 
 local can = require('core.can')

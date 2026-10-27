@@ -1,8 +1,7 @@
 --[[
-    Scholar: stratagems. They share one charge pool, recast timer 231
-    (core/charges.lua). Each stratagem changes the next spell, so it is a modifier
-    (core/knowledge.lua): the engine fires it just before the spell a buff row
-    turned it on for (core/engine.lua), and these say which spells it fits.
+    Scholar: stratagems, sharing one charge pool, recast timer 231 (core/charges.lua).
+    Each changes the next spell, so it is a modifier the engine fires just before
+    the spell a buff row turned it on for; these say which spells each fits.
     Enlightenment opens the Addendum spells without the Addendum (core/catalog.lua).
 ]]--
 

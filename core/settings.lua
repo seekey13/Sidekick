@@ -9,14 +9,11 @@
                       mods = { [modifier name] = true },  -- buffs only: stratagems, Embolden fired first
                       hold = true }  -- buffs only: the spell waits while one of its mods can't go
     A tracked player's name stays on the row after they're untracked, so tracking
-    them again brings their buffs back.
-    A row never saved uses its default: on, except buffs (a luopan's Geo- spells
-    too), sending the pet in and items, which are opt-in.
-    `profiles` are named snapshots of the rest (core/profiles.lua).
-    `ui` is shared by every job pair (its own file, ui.lua): the window, so the HUD
-    looks the same whatever you play (shown at load, bar and font sizes in pixels,
-    whether the HUD is locked in place), and whether the
-    client runs in Japanese, which is the install's and not a job's.
+    them again brings their buffs back. A row never saved uses its default: on, but
+    for buffs (a luopan's Geo- spells too), sending the pet in and items.
+    `profiles` are named snapshots of the rest (core/profiles.lua). `ui` is the
+    install's, shared by every job pair in its own file (ui.lua): the HUD's look and
+    whether the client runs in Japanese.
 ]]--
 
 local util = require('core.util')
@@ -124,24 +121,27 @@ end
 -- A fresh copy of the defaults, for tests and new files.
 function settings.defaults() return util.copy(DEFAULTS) end
 
+-- `t` and every table in it as Ashita's T{} tables.
+local function T_(t)
+    for k, v in pairs(t) do if type(v) == 'table' then t[k] = T_(v) end end
+    return T(t)
+end
+
+-- The library fills a key the file lacks with the defaults' own table and keeps
+-- those defaults (for the next character's load): give it copies, so what is
+-- written into the settings (a profile, a skipped name) stays out of them.
+local function detach(defaults)
+    for k, v in pairs(defaults) do
+        if type(v) == 'table' then defaults[k] = T_(util.copy(v)) end
+    end
+end
+
 -- Ashita's settings library, loaded only in game. The job pair's file holds
 -- everything but `ui`, which loads from and saves to its own file.
 local lib, alias, loaded
 function settings.load(job_pair)
     lib = lib or require('settings')
     alias = job_pair
-    local function T_(t)
-        for k, v in pairs(t) do if type(v) == 'table' then t[k] = T_(v) end end
-        return T(t)
-    end
-    -- The library fills a key the file lacks with the defaults' own table and
-    -- keeps those defaults (for the next character's load): give it copies, so
-    -- what is written into the settings (a profile, a skipped name) stays out of them.
-    local function detach(defaults)
-        for k, v in pairs(defaults) do
-            if type(v) == 'table' then defaults[k] = T_(util.copy(v)) end
-        end
-    end
     local d = T_(settings.defaults())
     local ui = d.ui
     d.ui = nil

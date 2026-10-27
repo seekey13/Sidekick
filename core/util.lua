@@ -13,6 +13,17 @@ function util.copy(v)
     return out
 end
 
+-- A copy of table `t`, its values shared.
+function util.shallow(t)
+    local out = {}
+    for k, v in pairs(t) do out[k] = v end
+    return out
+end
+
+-- `over` laid on `base`: its own fields, else base's. A view of `base` with some
+-- fields changed, for one decision, that leaves `base` as it is.
+function util.overlay(base, over) return setmetatable(over, { __index = base }) end
+
 -- `t`'s keys, sorted; none for nil.
 function util.sorted_keys(t)
     local out = {}
@@ -21,10 +32,25 @@ function util.sorted_keys(t)
     return out
 end
 
--- table.sort order for catalog records: higher priority first, then the higher level.
+-- Whether `list` holds `x`.
+function util.contains(list, x)
+    for _, v in ipairs(list) do if v == x then return true end end
+    return false
+end
+
+function util.clamp(v, lo, hi) return math.min(math.max(v, lo), hi) end
+
+function util.round(x) return math.floor(x + 0.5) end
+
+-- `s` with its first letter a capital.
+function util.capitalize(s) return (s:gsub('^%l', string.upper)) end
+
+-- table.sort orders for catalog records: the higher level first; higher priority first, then the higher level.
+function util.by_level(a, b) return (a.level or 0) > (b.level or 0) end
+
 function util.by_priority(a, b)
     if a.priority ~= b.priority then return a.priority > b.priority end
-    return (a.level or 0) > (b.level or 0)
+    return util.by_level(a, b)
 end
 
 -- The first of `list` whose `name` is `name` in any case, else nil. `skip`, when
