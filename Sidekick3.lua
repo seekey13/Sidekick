@@ -74,7 +74,9 @@ local function current_catalog(force)
         }, knowledge)
         for _, a in ipairs(cat.list) do
             if a.kind == 'ma' then cat.by_spell[a.id] = a end
-            if a.role == 'remove' and a.removes then cat.removers[observed.key(a)] = a.removes end
+            if (a.role == 'remove' or a.role == 'pet_remove') and a.removes and a.kind ~= 'item' then
+                cat.removers[observed.key(a)] = a
+            end
         end
     end
     return cat.list
@@ -112,7 +114,10 @@ local packet_ctx = {
         local a = cat.by_spell[spell_id]
         return a and a.role == 'song' and a or nil
     end,
-    removes = function (key) return cat.removers[key] end,  -- your removers, cleared on their landing
+    removes = function (key)  -- your removers, cleared on their landing
+        local a = cat.removers[key]
+        if a then return a.removes, can.self_only(a) and a.area > 0 end
+    end,
 }
 
 -- Latest game snapshot, at most 10 a second: plenty for a 1.1s action throttle.

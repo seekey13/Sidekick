@@ -41,8 +41,11 @@ local ZONE_SETTLE, ZONE_TIMEOUT = 3, 60
 -- spells, abilities and TP moves, and the variants an area one shows its other targets.
 local GAINS_028 = { [186] = true, [230] = true, [236] = true, [237] = true, [242] = true, [243] = true,
                     [266] = true, [277] = true, [278] = true }
--- Effect removed, param = the status: a -na spell, a waltz, Erase, a skill's erase, Cursna's Doom.
+-- Effect removed, param = the status: a -na spell (83), an ability's removal (123: a waltz,
+-- a pet's Remove), a TP move's erase (159), Erase, Dispel or Finale (341), Cursna's Doom (359).
 local LOSES_028 = { [83] = true, [123] = true, [159] = true, [341] = true, [359] = true }
+-- Cursna's 83 names one curse, but it takes every one there.
+local CURSES = { [9] = true, [20] = true, [30] = true }  -- Curse, Curse II, Bane
 -- Recovers HP, param = HP: cures, waltzes, Chakra, blood pacts and their area variants.
 local HEALS_028 = { [7] = true, [24] = true, [102] = true, [238] = true, [263] = true, [318] = true, [367] = true }
 -- Categories whose heals are yours: 4 spell, 6/14/15 job ability; 11/13 your pet's moves.
@@ -102,7 +105,8 @@ end
 -- ctx: { me = your server id, pet = your pet's or nil, tracks = { [server id] = true }
 -- for units whose statuses come from packets, duration = function(spell id) -> seconds or nil,
 -- song = function(spell id) -> the song's catalog record or nil, buffs = yours, slots = your songs per target,
--- removes = function(observed.key) -> the status ids your remover clears, or nil }
+-- removes = function(observed.key) -> the status ids your remover clears and whether it's Esuna's
+-- kind (cast on you, clearing on those near only what you have too), or nil }
 function packets.action(p, ctx, now)
     if p.actor == ctx.me and p.category ~= 1 then  -- 1 = auto-attack, says nothing
         if (p.category == CAST_BEGIN or p.category == ITEM_BEGIN) and p.param ~= INTERRUPT then
@@ -119,7 +123,8 @@ function packets.action(p, ctx, now)
     local key = kind and p.actor == (kind == 'pet' and ctx.pet or ctx.me)
         and kind .. (kind == 'ma' and p.param or p.param + ABILITY_BASE)
     local song = p.actor == ctx.me and p.category == SPELL_FINISH and ctx.song and ctx.song(p.param)
-    local clears = key and kind ~= 'pet' and ctx.removes and ctx.removes(key)  -- your remover's statuses
+    local clears, shared
+    if key and kind ~= 'pet' and ctx.removes then clears, shared = ctx.removes(key) end  -- your remover's
     local sung = {}  -- who your song landed on
     for _, t in ipairs(p.targets) do
         local tracked = ctx.tracks[t.id]
@@ -142,10 +147,16 @@ function packets.action(p, ctx, now)
                 if song then sung[#sung + 1] = t.id end
             elseif LOSES_028[r.message] and tracked then
                 buffs.lose(t.id, r.param)
+                if r.message == 83 and CURSES[r.param] then
+                    for id in pairs(CURSES) do buffs.lose(t.id, id) end
+                end
+            elseif shared and tracked then
+                -- Esuna's success has no message, param = the status; its no effect says
+                -- you had nothing to share, not what's on them.
+                if r.message == 0 and r.param > 0 then buffs.lose(t.id, r.param) end
             elseif clears and tracked then
                 -- Your remover landed without naming a status (no effect: it was gone already,
-                -- its wear-off unseen): one cast clears, so what it removes is gone. Not Doom:
-                -- Cursna can fail on it.
+                -- its wear-off unseen), so what it removes is gone. Not Doom: Cursna can fail on it.
                 for _, id in ipairs(clears) do
                     if id ~= status.DOOM then buffs.lose(t.id, id) end
                 end

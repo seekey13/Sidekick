@@ -1,8 +1,9 @@
 --[[
     Debuff removal. For each member carrying something a removal clears, the most
     specific remover first: a targeted -na spell, then Erase (strips any one
-    erasable status), then Esuna (an area cast on you, reaching those near you),
-    then an item on you (Echo Drops, Remedy...; opt-in, they cost gil). A remover
+    erasable status), then Esuna (an area cast on you, reaching those near you,
+    for what you have too), then an item on you (Echo Drops, Remedy...; opt-in,
+    they cost gil). A remover
     only ever on you with no area (Chakra, items) clears only your own; Esuna
     reaches your party only, so the alliance's other parties and tracked
     players get a -na spell or nothing.
@@ -33,10 +34,12 @@ local function wanted(a, id, u, skip)
     return u.buffs[id] and (id == DOOM or not skip[a.debuffs[id]])
 end
 
--- Whether `a` clears something on `u` that's to be removed.
-local function clears(a, u, skip)
+-- Whether `a` clears something on `u` that's to be removed. Esuna clears on those
+-- near you only what you have too (server esuna.lua), so it's for those alone.
+local function clears(a, u, skip, me)
+    local shared = can.self_only(a) and a.area > 0
     for _, id in ipairs(a.removes) do
-        if wanted(a, id, u, skip) then return true end
+        if wanted(a, id, u, skip) and not (shared and not me.buffs[id]) then return true end
     end
     return false
 end
@@ -71,7 +74,7 @@ return function (g, cat, cfg, mem)
     for _, u in ipairs(g.units) do
         if u.alive and u.in_zone then
             for _, a in ipairs(removers) do
-                if clears(a, u, skip) and not (unanswered and a.kind == 'item') and can.use(a, g) then
+                if clears(a, u, skip, g.me) and not (unanswered and a.kind == 'item') and can.use(a, g) then
                     if can.self_only(a) then
                         if u.kind == 'self' and a.area == 0 then
                             local intent = { action = a, why = u.name }
