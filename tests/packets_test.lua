@@ -33,6 +33,53 @@ test('a TP move\'s poison, on tracked units only', function ()
     eq({ buffs.of(TRUST, 1), buffs.of(STRANGER, 1) }, { { [POISON] = true }, {} })
 end)
 
+test('a removal clears what it names; your remover with no effect clears all it removes but Doom', function ()
+    local PETRIFY, DOOM, CURSE, SLOW = 7, 15, 9, 13
+    local c = ctx()
+    c.removes = function (key)
+        return ({ ma18 = { PETRIFY }, ma20 = { CURSE, DOOM }, ja706 = { POISON, SLOW } })[key]
+    end
+    buffs.clear()
+    packets.action(action(MOB, MOB_SKILL, 1234, { { TRUST, 242, PETRIFY }, { PET, 242, PETRIFY } }), c, 0)
+    packets.action(action(ME, SPELL, 18, { { TRUST, 83, PETRIFY } }), c, 1)  -- Stona: removed
+    packets.action(action(ME, SPELL, 18, { { PET, 75, 0 } }), c, 1)          -- no effect: it wore off unseen
+    eq({ buffs.of(TRUST, 2), buffs.of(PET, 2) }, { {}, {} })
+    -- Cursna with no effect may have failed on Doom: only the curse goes.
+    buffs.gain(TRUST, CURSE, 2); buffs.gain(TRUST, DOOM, 2)
+    packets.action(action(ME, SPELL, 20, { { TRUST, 75, 0 } }), c, 3)
+    eq(buffs.of(TRUST, 4), { [DOOM] = true })
+    packets.action(action(ME, SPELL, 20, { { TRUST, 359, DOOM } }), c, 4)    -- narrowly escapes
+    eq(buffs.of(TRUST, 5), {})
+    -- Erase and a waltz name the one status they took: the rest stays.
+    buffs.gain(TRUST, POISON, 5); buffs.gain(TRUST, SLOW, 5)
+    packets.action(action(ME, 14, 194, { { TRUST, 123, SLOW } }), c, 6)
+    eq(buffs.of(TRUST, 7), { [POISON] = true })
+    packets.action(action(STRANGER, SPELL, 143, { { TRUST, 341, POISON } }), c, 7)
+    eq(buffs.of(TRUST, 8), {})
+    -- Another's spell with no effect says nothing of what's on them.
+    buffs.gain(TRUST, PETRIFY, 8)
+    packets.action(action(STRANGER, SPELL, 18, { { TRUST, 75, 0 } }), c, 9)
+    eq(buffs.of(TRUST, 10), { [PETRIFY] = true })
+end)
+
+test('Cursna takes every curse though it names one; Esuna clears only what it names', function ()
+    local PETRIFY, CURSE, CURSE2, BANE, PARALYSIS = 7, 9, 20, 30, 4
+    local c = ctx()
+    c.removes = function (key)
+        if key == 'ma20' then return { CURSE, 15, CURSE2, BANE }, false end
+        if key == 'ma95' then return { POISON, PARALYSIS, PETRIFY }, true end
+    end
+    buffs.clear()
+    for _, id in ipairs({ CURSE, BANE }) do buffs.gain(TRUST, id, 0) end
+    packets.action(action(ME, SPELL, 20, { { TRUST, 83, CURSE } }), c, 1)
+    eq(buffs.of(TRUST, 2), {})
+    -- Esuna: a success (message 0) names the one it took; no effect says nothing of them.
+    for _, id in ipairs({ POISON, PARALYSIS, PETRIFY }) do buffs.gain(TRUST, id, 2); buffs.gain(PET, id, 2) end
+    packets.action(action(ME, SPELL, 95, { { ME, 0, POISON }, { TRUST, 0, POISON }, { PET, 75, 0 } }), c, 3)
+    eq({ buffs.of(TRUST, 4), buffs.of(PET, 4) },
+       { { [PARALYSIS] = true, [PETRIFY] = true }, { [POISON] = true, [PARALYSIS] = true, [PETRIFY] = true } })
+end)
+
 test('your item in use locks like a cast, until it finishes or is cut off', function ()
     packets.action(action(ME, 9, 24931, {}), ctx(), 10)  -- 24931: an item's start
     eq({ packets.casting(10.5) }, { true, 10 })  -- and when it began
