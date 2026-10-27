@@ -1,23 +1,13 @@
 --[[
-    Rune Fencer: runes (v2's lib/actions/rune.lua). The eight runes share one
-    5s recast and stand together, as many as your RUN level allows (main or
-    sub: 1 at 5, 2 at 35, 3 at 65); a new one pushes the oldest out. Under
-    Runes (cfg.rune) each set picks a rune per slot, by name ('' for none; the
-    same rune twice keeps two up):
-      - Idle: what's kept up the rest of the time.
-      - a set per ward, Vallation, Valiance and Pflug (role 'ward', in their
-        priority order): once the ward is ready (its row on, off recast, not
-        blocked), it takes the slots, its runes go up one at a time, and in
-        combat it fires (out of combat its set waits up, so the ward is ready
-        for the pull, but a 300s recast isn't spent on nothing). None of the
-        three spends a rune, so Idle takes the slots back once it's on recast.
-        A set with nothing picked takes nothing.
-    Vallation and Valiance are blocked by each other and by Liement
-    (core/knowledge.lua): Valiance does nothing on you under Vallation, and
-    Vallation would replace a party-wide Valiance with less (v2's rule).
-    Lunge, Swipe, Gambit and Rayke spend runes: they are yours to use; the
-    runes are put back after. Nothing goes while you're Invisible
-    (core/engine.lua).
+    Rune Fencer: runes. The eight share one 5s recast and stand together, as many
+    as your RUN level allows (run.slots); a new one pushes the oldest out. Under
+    Runes (cfg.rune) each set picks a rune per slot, by name ('' for none; the same
+    rune twice keeps two up): Idle, kept up the rest of the time, and one per ward
+    (Vallation, Valiance, Pflug, in priority order). A ready ward (its row on, off
+    recast, not blocked) takes the slots: its runes go up one at a time, then it
+    fires in combat; out of combat its set waits up for the pull. Once it's on
+    recast Idle takes the slots back, and a set with nothing picked takes nothing.
+    Lunge, Swipe, Gambit and Rayke are yours to use: the runes go back up after.
 ]]--
 
 local can = require('core.can')

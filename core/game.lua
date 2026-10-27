@@ -118,22 +118,16 @@ local rescan_at = -math.huge
 local claim = { at = -math.huge, tidx = nil }  -- the last look for an alliance-claimed mob
 local fed = {}  -- [sid] = true: last read's units whose statuses come from packets
 
-local function set_of(list)
-    local s = {}
-    for _, id in ipairs(list) do if id > 0 and id ~= 255 then s[id] = true end end
-    return s
-end
-
 local any = can.any
 
--- A list of status ids as a set, and how many of each stand (runes stack:
--- jobs/run.lua; so do songs of one kind: jobs/brd.lua).
+-- A list of status ids (0 and 255 for none) as a set, and how many of each stand
+-- (runes stack: jobs/run.lua; so do songs of one kind: jobs/brd.lua).
 local function counted(list)
-    local stacks = {}
+    local set, stacks = {}, {}
     for _, id in ipairs(list) do
-        if id > 0 and id ~= 255 then stacks[id] = (stacks[id] or 0) + 1 end
+        if id > 0 and id ~= 255 then set[id], stacks[id] = true, (stacks[id] or 0) + 1 end
     end
-    return set_of(list), stacks
+    return set, stacks
 end
 
 -- A party player's statuses and their stacks, from the client's party status-icon
@@ -436,6 +430,75 @@ function game.sent(action)
     ready_since[ready_key(action)] = nil
 end
 
+-- Party slot `i` as a unit: 0 you, 1-5 your party and trusts, 6-17 the alliance.
+local function member(party, player, em, i, zone, now)
+    local sid, tidx = party:GetMemberServerId(i), party:GetMemberTargetIndex(i)
+    local u = {
+        slot = i, sid = sid, tidx = tidx, name = party:GetMemberName(i),
+        kind = i == 0 and 'self' or i > 5 and 'alliance' or sid >= TRUST and 'trust' or 'party',
+        tracked = tracked.find(sid) and true,
+        hpp = party:GetMemberHPPercent(i), hp = party:GetMemberHP(i),
+        mpp = party:GetMemberMPPercent(i), mp = party:GetMemberMP(i), tp = party:GetMemberTP(i),
+        in_zone = party:GetMemberZone(i) == zone,
+    }
+    if u.hpp == 100 and u.hp > 0 then max_hp[sid] = u.hp end
+    if i == 0 and player:GetHPMax() > 0 then max_hp[sid] = player:GetHPMax() end
+    u.max_known = max_hp[sid] ~= nil
+    if i <= 5 then
+        u.jobs = { party:GetMemberMainJob(i), party:GetMemberMainJobLevel(i),
+                   party:GetMemberSubJob(i), party:GetMemberSubJobLevel(i) }
+    end
+    if i == 0 then
+        u.uses_mp = player:GetMPMax() > 0
+    else
+        local key = ('%d %d/%d'):format(sid, party:GetMemberMainJob(i), party:GetMemberSubJob(i))
+        if u.mp > 0 then has_mp[key] = true end
+        u.uses_mp = has_mp[key] == true
+    end
+    -- Never seen at full: estimate from HP%. Rough at low HP, good enough to score.
+    u.max_hp = max_hp[sid] or (u.hpp > 0 and u.hp > 0 and math.floor(u.hp * 100 / u.hpp)) or nil
+    -- Only one the client draws: out of its range a member has no entity, and
+    -- would read as 0 yalms away. Then dist and pos are unknown: out of reach.
+    if u.in_zone and tidx > 0 and (i == 0 or present(em, tidx)) then
+        u.status = em:GetStatus(tidx)
+        u.dist, u.pos = i == 0 and 0 or distance(em, tidx), position(em, tidx)
+    end
+    u.alive = u.hpp > 0 and u.status ~= DEAD
+    if u.kind == 'self' then u.buffs, u.stacks = own_buffs(player)
+    elseif u.kind == 'party' then u.buffs, u.stacks = party_buffs(sid)
+    else  -- a trust or the alliance: the client keeps no list
+        if not u.alive then buffs.forget(sid) end  -- a death clears statuses silently
+        u.buffs = buffs.of(sid, now)
+    end
+    u.hot = observed.hot(sid, now, u.buffs[REGEN])
+    return u
+end
+
+-- Your pet, if any. A pet's statuses go silently when it dies or is dismissed, and
+-- the next may reuse its id; a luopan's auras end with it, with no message, so
+-- they're forgotten on those whose statuses come from packets (`tracks`).
+local function read_pet(em, player, me, jobs, units, tracks, now)
+    local pet = entity(em, em:GetPetTargetIndex(me.tidx))
+    if pet_sid and not (pet and pet.sid == pet_sid and pet.hpp > 0) then
+        buffs.forget(pet_sid)
+        if jobs.main == geo.JOB then
+            for sid in pairs(tracks) do
+                for _, id in pairs(geo.AURAS) do buffs.lose(sid, id) end
+            end
+            for _, u in ipairs(units) do  -- already read this time round
+                if tracks[u.sid] then u.buffs = buffs.of(u.sid, now) end
+            end
+        end
+    end
+    local alive = pet and pet.hpp > 0
+    if alive and pet.sid ~= pet_sid then pet_since = now end
+    pet_sid = alive and pet.sid or nil
+    if not pet then return nil end
+    pet.since, pet.mpp, pet.tp = pet_since, player:GetPetMPPercent(), player:GetPetTP()
+    pet.buffs, tracks[pet.sid] = buffs.of(pet.sid, now), true
+    return pet
+end
+
 -- The snapshot. { loading = true } until the client has the player's job, and while zoning.
 -- `idle` (automation stopped or asleep): no battle target is looked for, nor in a safe zone. Finding
 -- <bt> calls into the client, so it's done only when something may act on it.
@@ -450,46 +513,9 @@ function game.read(now, idle)
     local units, allied, tracks, listed = {}, {}, {}, {}
     for i = 0, 17 do
         if party:GetMemberIsActive(i) == 1 then
-            local sid, tidx = party:GetMemberServerId(i), party:GetMemberTargetIndex(i)
-            listed[sid] = true
-            local u = {
-                slot = i, sid = sid, tidx = tidx, name = party:GetMemberName(i),
-                kind = i == 0 and 'self' or i > 5 and 'alliance' or sid >= TRUST and 'trust' or 'party',
-                tracked = tracked.find(sid) and true,
-                hpp = party:GetMemberHPPercent(i), hp = party:GetMemberHP(i),
-                mpp = party:GetMemberMPPercent(i), mp = party:GetMemberMP(i), tp = party:GetMemberTP(i),
-                in_zone = party:GetMemberZone(i) == zone,
-            }
-            if u.hpp == 100 and u.hp > 0 then max_hp[sid] = u.hp end
-            if i == 0 and player:GetHPMax() > 0 then max_hp[sid] = player:GetHPMax() end
-            u.max_known = max_hp[sid] ~= nil
-            if i <= 5 then
-                u.jobs = { party:GetMemberMainJob(i), party:GetMemberMainJobLevel(i),
-                           party:GetMemberSubJob(i), party:GetMemberSubJobLevel(i) }
-            end
-            if i == 0 then
-                u.uses_mp = player:GetMPMax() > 0
-            else
-                local key = ('%d %d/%d'):format(sid, party:GetMemberMainJob(i), party:GetMemberSubJob(i))
-                if u.mp > 0 then has_mp[key] = true end
-                u.uses_mp = has_mp[key] == true
-            end
-            -- Never seen at full: estimate from HP%. Rough at low HP, good enough to score.
-            u.max_hp = max_hp[sid] or (u.hpp > 0 and u.hp > 0 and math.floor(u.hp * 100 / u.hpp)) or nil
-            -- Only one the client draws: out of its range a member has no entity, and
-            -- would read as 0 yalms away. Then dist and pos are unknown: out of reach.
-            if u.in_zone and tidx > 0 and (i == 0 or present(em, tidx)) then
-                u.status = em:GetStatus(tidx)
-                u.dist, u.pos = i == 0 and 0 or distance(em, tidx), position(em, tidx)
-            end
-            u.alive = u.hpp > 0 and u.status ~= DEAD
-            if u.kind == 'self' then u.buffs, u.stacks = own_buffs(player)
-            elseif u.kind == 'party' then u.buffs, u.stacks = party_buffs(sid)
-            else  -- a trust or the alliance: the client keeps no list
-                if not u.alive then buffs.forget(sid) end  -- a death clears statuses silently
-                u.buffs = buffs.of(sid, now); tracks[sid] = true
-            end
-            u.hot = observed.hot(sid, now, u.buffs[REGEN])
+            local u = member(party, player, em, i, zone, now)
+            listed[u.sid] = true
+            if u.kind == 'trust' or u.kind == 'alliance' then tracks[u.sid] = true end  -- statuses from packets
             local list = u.kind == 'alliance' and allied or units
             list[#list + 1] = u
         end
@@ -517,25 +543,7 @@ function game.read(now, idle)
     end
     if bt then bt.moving = on_the_move(seen, bt, now) end
     motion = seen
-    local pet = entity(em, em:GetPetTargetIndex(me.tidx))
-    -- A pet's statuses go silently when it dies or is dismissed, and the next may reuse its id.
-    -- A luopan's auras end with it, with no message: forget them on those whose statuses come from packets.
-    if pet_sid and not (pet and pet.sid == pet_sid and pet.hpp > 0) then
-        buffs.forget(pet_sid)
-        if jobs.main == geo.JOB then
-            for sid in pairs(tracks) do
-                for _, id in pairs(geo.AURAS) do buffs.lose(sid, id) end
-            end
-            for _, u in ipairs(units) do  -- already read this time round
-                if tracks[u.sid] then u.buffs = buffs.of(u.sid, now) end
-            end
-        end
-    end
-    local alive = pet and pet.hpp > 0
-    if alive and pet.sid ~= pet_sid then pet_since = now end
-    if pet then pet.since, pet.mpp, pet.tp = pet_since, player:GetPetMPPercent(), player:GetPetTP() end
-    pet_sid = alive and pet.sid or nil
-    if pet then pet.buffs = buffs.of(pet.sid, now); tracks[pet.sid] = true end
+    local pet = read_pet(em, player, me, jobs, units, tracks, now)
     -- Statuses on one gone since the last read (a trust dismissed, a member who
     -- left the alliance) went silently: if they come back, they start clean.
     for sid in pairs(fed) do

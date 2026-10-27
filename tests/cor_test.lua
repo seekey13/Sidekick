@@ -33,12 +33,7 @@ end
 
 local function decide(g, cfg, mem, list) return fake.decide(g, list or cat, cfg, mem) end
 
--- Decide and, when there is something, send it.
-local function step(g, cfg, mem)
-    local cmd, intent = decide(g, cfg, mem)
-    if cmd then engine.sent(intent, g, mem) end
-    return cmd, intent
-end
+local function step(g, cfg, mem) return fake.step(g, cat, cfg, mem) end
 
 test('catalog: rolls know their lucky and unlucky totals and the status named like them', function ()
     local c, n = named(cat, 'Corsair\'s Roll'), named(cat, 'Ninja Roll')

@@ -1,32 +1,24 @@
 --[[
-    Corsair: Phantom Rolls. The two rolls picked under Rolls (cfg.roll; one on a
-    COR subjob) are kept up on you, and the last one rolled is Double-Upped
-    while the risk picked says it's worth it (cor.decide, v2's rules). Snake Eye
-    is a modifier the engine fires just before a Double-Up (core/engine.lua);
-    Fold clears a Bust whenever it's ready.
+    Corsair: Phantom Rolls. The rolls picked under Rolls (cfg.roll; the second on a
+    COR main job only) are kept up on you, and the last one rolled is Double-Upped
+    while the risk picked says it's worth it (cor.decide). Snake Eye is a modifier
+    the engine fires just before a Double-Up; Fold clears a Bust whenever it's ready.
 
-    The totals come only from your own 0x028 job ability packets
-    (core/packets.lua -> cor.rolled), and the snapshot carries the last one
-    (g.roll = { id, total, die, at, bust, doubled }), so the decision reads the snapshot alone.
-    A Double-Up Chance is for the last roll alone: no other is ever doubled.
-    A roll or Double-Up sent waits for its total; one that never comes (a lost
-    packet) leaves that roll as it is after WAIT seconds, never doubled blind,
-    and no total older than the last send is doubled. A new roll waits until
-    the last one is settled, so its chase isn't cut short; while it waits,
-    mem.busy_until keeps resting from starting (behaviors/rest.lua).
-    Nothing goes while you're Invisible (core/engine.lua).
-    With roll.max_at_11 on, while one roll picked stands at 11 (the last total
-    each roll had, g.roll_totals) the other is doubled at max risk: no die can
-    bust it then, so it goes on until it's 11 too; one it can't double (rolled
-    before the 11, or its Double-Up Chance gone) is rolled again. Once the 11 wears, or is
-    rolled again lower, the risk picked is back; a total is forgotten once its
-    roll is seen down, so a re-roll whose packet was lost isn't taken for an 11.
-    With buff.hold_aoe on, a roll is held like an area buff spell until the
-    party's players who lack it are inside its area (the DAT's, about 8 yalms).
+    The totals come only from your own 0x028 job ability packets (core/packets.lua
+    -> cor.rolled); the snapshot carries the last (g.roll = { id, total, die, at,
+    bust, doubled }) and each roll's (g.roll_totals). A Double-Up Chance is the last
+    roll's alone. A roll or Double-Up sent waits for its total and is never doubled
+    blind: one that never comes leaves the roll as it is after WAIT seconds, and no
+    total older than the last send is doubled. A new roll waits until the last is
+    settled, while mem.busy_until keeps resting from starting. With roll.max_at_11,
+    while one roll picked stands at 11 the other is doubled at max risk (no die can
+    bust it then), or rolled again once it can't be doubled. With buff.hold_aoe on, a
+    roll is held for the group like an area buff spell, within the roll's own area.
 ]]--
 
 local buff = require('behaviors.buff')
 local can = require('core.can')
+local util = require('core.util')
 
 local cor = {}
 
@@ -59,11 +51,7 @@ function cor.rolled(id, total, message, now, die)
 end
 
 function cor.last() return last end
-function cor.totals()
-    local out = {}
-    for id, t in pairs(totals) do out[id] = t end
-    return out
-end
+function cor.totals() return util.shallow_copy(totals) end
 -- The roll `id` is seen down: its total goes, but not one newer than WAIT,
 -- whose status may not show yet.
 function cor.forget(id, now)

@@ -1,37 +1,29 @@
 --[[
-    The standard Sidekick3 UI, and the reference: it uses only the `view` and
-    `act` every UI is given (ui/README.md), so ui/custom.lua can replace it, and
-    takes each setting's range from ui/model.lua's REMOTE_SET, which holds it once.
-    ImGui only; it reads no game state and decides nothing. Everything is drawn
-    on ImGui's draw lists in ui/kit.lua's look (docs/vana-ui-style.md), and SK
-    Settings' sidebar and page layout follow VanaCore's addons/vanacore/vana/vana.lua
-    (Copyright (C) 2026 Vekien, GPL-3.0-or-later). The HUD's panel, frame, title
-    and close fade out until the mouse is over the window, as Tracker's do; the
-    bars stay. Section headers are Tracker's: Segoe semibold italic, small capitals.
+    The standard Sidekick3 UI, and the reference: it uses only the `view` and `act`
+    every UI is given (ui/README.md), so ui/custom.lua can replace it, and takes each
+    setting's range from ui/model.lua's REMOTE_SET. ImGui only: it reads no game
+    state and decides nothing. Everything is drawn on ImGui's draw lists in
+    ui/kit.lua's look (docs/vana-ui-style.md); Sidekick Settings' sidebar and page
+    layout follow VanaCore's addons/vanacore/vana/vana.lua (Copyright (C) 2026
+    Vekien, GPL-3.0-or-later).
 
-    Three kinds of window. Sidekick3 is a heads-up display: the party's HP, MP and TP
-    bars on a dark panel, your pet's under yours (the alliance's other parties as
-    thin HP rows under them), with a label pointing at whoever the next action is
-    for, and one at whoever another Sidekick session on this PC acts on, as it
-    goes. Your own card's HP bar carries the run button and the cog, which opens SK
-    Settings: a page per group of sections, listed down its left, each section
-    under a heading with its switch.
-    So does the card of a player who is another Sidekick session on this PC: its
-    buttons start and stop that session and open its own Sidekick Settings, drawn here
-    from its view.
-    The widget (`ui.widget`, `/sk3 widget`) is one row: each character (yours, then
-    each other session's) in a pill, green running and red stopped, holding its name,
-    its run button and its cog, `ui.widget_size` pixels high (blue while something holds it); right-click a name to load one of its profiles. It shows with the HUD
-    closed too (`view.ui.open` false), as v2's did.
+    Three windows: the HUD (Sidekick3: the party's bars, with a label at whoever
+    this session's next action is for and one at whoever each other session's
+    latest went to; your card's run button and cog, and those of another session's
+    card), the widget (SK Widget, `ui.widget`: a pill per character with its run
+    button and cog, up with the HUD closed too) and Sidekick Settings (a page per
+    group of sections; another session's too, drawn from the view it publishes,
+    its changes sent to it).
 
     Ashita's binding: widget values are one-element tables ({ 'text' }), and Text
-    takes a printf format (kit.esc doubles any '%'). Draw-list text and kit.tooltip's
-    are drawn as is.
+    takes a printf format (kit.esc doubles any '%'). Draw-list text and
+    kit.tooltip's are drawn as is.
 ]]--
 
 local imgui = require('imgui')
 local kit = require('ui.kit')
 local LIMITS = require('ui.model').REMOTE_SET  -- each setting's range, as a session takes it from another
+local util = require('core.util')
 
 local window = {}
 
@@ -115,7 +107,7 @@ end
 local function track(dl, x, y, w, h, f, color, alpha, chrome)
     local r = math.min(ROUND, math.floor(h / 2))
     kit.fill(dl, x, y, w, h, kit.mix(BAR_OFF, P.track, chrome), r, BAR_TRACK_A)
-    local fw = math.max(0, math.min(w, math.floor(w * f + 0.5)))
+    local fw = util.clamp(util.round(w * f), 0, w)
     if fw > 0 then
         kit.fill(dl, x, y, fw, h, color, math.min(r, fw / 2), alpha * BAR_FILL, fw < w and kit.LEFT_CORNERS or nil)
     end
@@ -124,7 +116,7 @@ end
 
 -- A bar: `pct` of its track filled (eased, by `id`).
 local function bar(dl, id, x, y, w, h, pct, color, alpha, chrome)
-    track(dl, x, y, w, h, kit.ease(id, math.min(math.max(pct, 0), 100) / 100, 12), color, alpha, chrome)
+    track(dl, x, y, w, h, kit.ease(id, util.clamp(pct, 0, 100) / 100, 12), color, alpha, chrome)
 end
 
 local TIER, TIERS = 1000, 3  -- TP: a weapon skill's worth, and how many stand
@@ -132,12 +124,12 @@ local TIER, TIERS = 1000, 3  -- TP: a weapon skill's worth, and how many stand
 -- The TP bar: a track per 1000 TP side by side, each filling once the one before is full (eased, by `id`); the one
 -- still filling is drawn faint, as Floaties draws it.
 local function tp_bar(dl, id, x, y, w, h, tp, alpha, chrome)
-    local t = kit.ease(id, math.min(math.max(tp, 0), TIER * TIERS) / TIER, 12)  -- in tiers
+    local t = kit.ease(id, util.clamp(tp, 0, TIER * TIERS) / TIER, 12)  -- in tiers
     local tw = (w - (TIERS - 1) * BAR_GAP) / TIERS
     for i = 1, TIERS do
-        local f = math.min(math.max(t - (i - 1), 0), 1)
-        local tx = math.floor(x + (i - 1) * (tw + BAR_GAP) + 0.5)
-        track(dl, tx, y, math.floor(x + i * tw + (i - 1) * BAR_GAP + 0.5) - tx, h, f, P.tp,
+        local f = util.clamp(t - (i - 1), 0, 1)
+        local tx = util.round(x + (i - 1) * (tw + BAR_GAP))
+        track(dl, tx, y, util.round(x + i * tw + (i - 1) * BAR_GAP) - tx, h, f, P.tp,
             (f < 1 and 0.5 or 1) * alpha, chrome)
     end
 end
@@ -152,6 +144,24 @@ local function disc_button(id, x, y, s, glyph, lit, help)
     kit.circle(dl, x + s / 2, y + s / 2, s / 2, disc)
     kit.icon(dl, glyph, x + s / 2, y + s / 2, s * 0.62, lit and P.ink or P.text, 1, disc)
     return clicked, hovered
+end
+
+-- A character's act: yours, or another session's (`c.remote`), made only when it's used.
+local function act_of(c) return c.remote and act.remote(c.name) or act end
+
+-- A character's run button at (x, y) and its cog `gap` right of it, each `s` across, by the ids in `ids`: `c` is
+-- { name, running, shown (its Sidekick Settings), remote (nil for yours) }. `lit`: the run button is lit while it
+-- runs; `tip`: your own cog's tooltip. Returns whether either is hovered.
+local function run_and_cog(c, ids, x, y, s, gap, lit, tip)
+    local whose = c.remote and (c.name .. '\'s ') or ''
+    local run, over_run = disc_button(ids[1], x, y, s, c.running and 'stop' or 'play', lit and c.running,
+        (c.running and 'Stop ' or 'Start ') .. whose .. 'automation')
+    if run then act_of(c).run(not c.running) end
+    local cog, over_cog = disc_button(ids[2], x + s + gap, y, s, 'cog', c.shown,
+        c.remote and ('Settings for ' .. c.name) or tip)
+    if cog and c.remote then act.watch(c.name, not c.shown)
+    elseif cog then settings_open = not settings_open end
+    return over_run or over_cog
 end
 
 -- Tracker's close: an X, dim until the pointer is on it, then rose. No disc behind it.
@@ -182,22 +192,13 @@ end
 -- Run and the cog at the top right of the HP bar of your card, or of another session's, s pixels across (at most
 -- what the bar fits). Returns whether one is hovered, so the card's own tooltip gives way.
 local function card_icons(view, ui, p, x, y, s)
-    local fx = x + HUD_PAD
     s = math.min(s, ui.hp_height - 4, math.floor((ui.hp_width - 8) / 2))
-    local iy, cog_x = y + 2, fx + ui.hp_width - 2 - s
-    local run_x = cog_x - 4 - s
-    local remote = p.session
-    local running = remote and remote.running or not remote and view.status.running
-    local shown = remote and remote.open or not remote and settings_open
-    local id, whose = remote and ('_' .. remote.name) or '', remote and (remote.name .. '\'s ') or ''
-    local clicked, over_run = disc_button('##sk3_run' .. id, run_x, iy, s, running and 'stop' or 'play', running,
-        (running and 'Stop ' or 'Start ') .. whose .. 'automation')
-    if clicked then (remote and act.remote(remote.name) or act).run(not running) end
-    local cog, over_cog = disc_button('##sk3_cog' .. id, cog_x, iy, s, 'cog', shown,
-        remote and ('Settings for ' .. remote.name) or 'Settings')
-    if cog and remote then act.watch(remote.name, not remote.open)
-    elseif cog then settings_open = not settings_open end
-    return over_run or over_cog
+    local r = p.session
+    local c = r and { name = r.name, running = r.running, shown = r.open, remote = r }
+        or { name = p.name, running = view.status.running, shown = settings_open }
+    local id = r and ('_' .. r.name) or ''
+    return run_and_cog(c, { '##sk3_run' .. id, '##sk3_cog' .. id }, x + HUD_PAD + ui.hp_width - 6 - s * 2, y + 2, s, 4,
+        true, 'Settings')
 end
 
 -- The name on an HP bar. Over 75% it stays white; at 75% it turns yellow, at 50% orange and at 25% red.
@@ -271,7 +272,7 @@ end
 local function hud_sizes(ui)
     local out = {}
     for _, l in ipairs(UI_SLIDERS) do
-        out[l[2]] = math.min(math.max(math.floor(tonumber(ui[l[2]]) or l[3]), l[3]), l[4])
+        out[l[2]] = util.clamp(math.floor(tonumber(ui[l[2]]) or l[3]), l[3], l[4])
     end
     return out
 end
@@ -363,7 +364,7 @@ local WIDGET_FLAGS = ImGuiWindowFlags_NoTitleBar + ImGuiWindowFlags_NoResize + I
 local WIDGET_SIZES = { 10, 48 }  -- view.ui.widget_size's range: its text and icons' height, in pixels
 
 local function widget_size(ui)
-    return math.min(math.max(math.floor(tonumber(ui and ui.widget_size) or 16), WIDGET_SIZES[1]), WIDGET_SIZES[2])
+    return util.clamp(math.floor(tonumber(ui and ui.widget_size) or 16), WIDGET_SIZES[1], WIDGET_SIZES[2])
 end
 
 -- The characters the widget shows: you, then every other Sidekick session on this PC (view.sessions, by name: from
@@ -379,9 +380,6 @@ local function characters(view)
     end
     return out
 end
-
--- A character's act: yours, or the session's, made only when it's used.
-local function act_of(c) return c.remote and act.remote(c.name) or act end
 
 -- A character's profiles, right-clicking its name: Default, then each saved; a click loads it there.
 local function profile_menu(c, id, px)
@@ -405,7 +403,7 @@ local function draw_widget(view)
     local dl = imgui.GetWindowDrawList()
     local x0, y0 = imgui.GetCursorScreenPos()
     local h = widget_size(view.ui)
-    local function px(k) return math.floor(h * k + 0.5) end
+    local function px(k) return util.round(h * k) end
     local pad, apart, gap = px(0.3), px(0.4), px(0.3)  -- round the pills, between them, between a pill's parts
     local edge, lead = px(0.15), px(0.45)              -- inside a pill: round its buttons, before its name
     local list, font = characters(view), kit.fonts.semi
@@ -423,7 +421,6 @@ local function draw_widget(view)
     local x, cy = x0 + pad, y0 + ph / 2
     for _, c in ipairs(list) do
         local id = c.remote and ('##sk3_widget_' .. c.name) or '##sk3_widget'
-        local whose = c.remote and (c.name .. '\'s ') or ''
         kit.fill(dl, x, y0 + pad, c.pill, pill_h, c.halted and P.held or c.running and P.go or P.halt, pill_h / 2)
         local nx = x + lead
         kit.text_mid(dl, nx, cy, c.name, P.white, font, h)
@@ -443,15 +440,9 @@ local function draw_widget(view)
             if c.profiles and imgui.IsMouseClicked(1) then imgui.OpenPopup(menu) end
         end
         if c.profiles and imgui.IsPopupOpen(menu) then profile_menu(c, menu, h) end  -- the row's size, not Settings'
-        local bx = nx + c.w + gap
-        local clicked = disc_button(id .. '_run', bx, cy - h / 2, h, c.running and 'stop' or 'play', false,
-            (c.running and 'Stop ' or 'Start ') .. whose .. 'automation')  -- the pill says which
-        if clicked then act_of(c).run(not c.running) end
-        bx = bx + h + math.floor(gap / 2)
-        local cog = disc_button(id .. '_cog', bx, cy - h / 2, h, 'cog', c.shown,
-            c.remote and ('Settings for ' .. c.name) or 'Open or close Sidekick Settings')
-        if cog and c.remote then act.watch(c.name, not c.shown)
-        elseif cog then settings_open = not settings_open end
+        -- The run button unlit: the pill says whether it runs.
+        run_and_cog(c, { id .. '_run', id .. '_cog' }, nx + c.w + gap, cy - h / 2, h, math.floor(gap / 2), false,
+            'Open or close Sidekick Settings')
         x = x + c.pill + apart
     end
     imgui.SetCursorScreenPos({ x0, y0 + ph - 1 })
@@ -714,7 +705,7 @@ local function draw_rolls(view, pg)
     end
     local labels, ids, index = {}, {}, 0
     for i, risk in ipairs(r.risks) do
-        labels[i] = (risk:gsub('^%l', string.upper))
+        labels[i] = util.capitalize(risk)
         ids[i] = labels[i] .. '##sk3_roll_risk_' .. risk
         if risk == r.risk then index = i end
     end
@@ -906,11 +897,6 @@ local function draw_track(view, pg)
     end
 end
 
-local function has_name(names, name)
-    for _, n in ipairs(names) do if n == name then return true end end
-    return false
-end
-
 -- A profile's line in the list: lit when it's the one in use. Returns clicked.
 local function profile_item(pg, id, name, on, help)
     local ih = S(28)
@@ -941,30 +927,30 @@ local function draw_profiles(view, pg)
     local fw = S(260)
     kit.input('##sk3_profile_name', pg.right - fw, cy, fw, profile_name, 64, 'Name to save under')
     local typed = profile_name[1]:match('^%s*(.-)%s*$')
+    -- { label, id, kind, help, what a click does }
     local buttons = {
         { 'Save', 'save', 'accent', 'Save the settings as they are now under this name. With a profile loaded and the name changed, '
-            .. 'rename that profile instead. Never over another profile: Save as replaces one.' },
-        { 'Save as', 'save_as', 'ghost', 'Save the settings as they are now under this name, over any profile already named so.' },
-        { 'New', 'new', 'ghost', 'Every setting back to its default, on Default. Saved profiles are kept.' },
+            .. 'rename that profile instead. Never over another profile: Save as replaces one.',
+          function () act.save_profile(typed) end },
+        { 'Save as', 'save_as', 'ghost', 'Save the settings as they are now under this name, over any profile already named so.',
+          function () act.save_profile(typed, true) end },
+        { 'New', 'new', 'ghost', 'Every setting back to its default, on Default. Saved profiles are kept.',
+          function () act.new_profile(); profile_name[1] = '' end },
     }
-    if p.active then buttons[#buttons + 1] = { 'Delete', 'delete', 'danger', ('Delete %s, and go back to Default.'):format(p.active) } end
+    if p.active then
+        buttons[#buttons + 1] = { 'Delete', 'delete', 'danger', ('Delete %s, and go back to Default.'):format(p.active),
+                                  function () act.delete_profile(p.active) end }
+    end
     local by = line(pg, nil, nil, S(ROW_H) + S(4))
     local bx = pg.right - (#buttons - 1) * S(6)
     for _, b in ipairs(buttons) do bx = bx - kit.button_width(b[1]) end
     for _, b in ipairs(buttons) do
         local clicked, bw = kit.button(b[1] .. '##sk3_profile_' .. b[2], bx, by, b[1], b[3], true, pg.alpha)
         kit.tip(b[4])
-        if clicked then
-            if b[2] == 'save' then act.save_profile(typed)
-            elseif b[2] == 'save_as' then act.save_profile(typed, true)
-            elseif b[2] == 'new' then
-                act.new_profile()
-                profile_name[1] = ''
-            else act.delete_profile(p.active) end
-        end
+        if clicked then b[5]() end
         bx = bx + bw + S(6)
     end
-    if typed ~= p.active and has_name(p.names, typed) then note(pg, ('%s exists: Save as replaces it.'):format(typed), P.amber) end
+    if typed ~= p.active and util.contains(p.names, typed) then note(pg, ('%s exists: Save as replaces it.'):format(typed), P.amber) end
     subheader(pg, 'SAVED')
     if profile_item(pg, 'Default##sk3_profile_default', 'Default', p.active == nil,
             'The working copy: your settings as they were before a profile was loaded.') then
@@ -994,7 +980,7 @@ local function draw_recent(view, pg)
 end
 
 -- Sidekick Settings' size, % of the size for the screen: view.ui.scale, held to its slider's range.
-local function ui_scale(ui) return math.min(math.max(math.floor(tonumber(ui and ui.scale) or 100), 50), 200) end
+local function ui_scale(ui) return util.clamp(math.floor(tonumber(ui and ui.scale) or 100), 50, 200) end
 
 -- Another session's shows only what it sent: its HUD is its own.
 local function draw_ui(view, pg)
@@ -1365,12 +1351,8 @@ local function settings_shell(label, open, index, body)
     local sw, sh = kit.screen()
     imgui.SetNextWindowPos({ sw / 2 + index * S(36), sh / 2 + index * S(36) }, ImGuiCond_FirstUseEver, { 0.5, 0.5 })
     imgui.SetNextWindowSize({ pw + m * 2, ph + m * 2 }, ImGuiCond_Always)
-    for _, c in ipairs(SETTINGS_COLOURS) do imgui.PushStyleColor(c[1], c[2]) end
-    imgui.PushStyleVar(ImGuiStyleVar_WindowPadding, { 0, 0 })
-    imgui.PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0)
-    imgui.PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0, 0 })
-    imgui.PushStyleVar(ImGuiStyleVar_ScrollbarSize, S(6))
-    imgui.PushStyleVar(ImGuiStyleVar_ScrollbarRounding, S(3))
+    local vars = kit.push_style(SETTINGS_COLOURS, ImGuiStyleVar_WindowPadding, { 0, 0 }, ImGuiStyleVar_WindowBorderSize, 0,
+        ImGuiStyleVar_ItemSpacing, { 0, 0 }, ImGuiStyleVar_ScrollbarSize, S(6), ImGuiStyleVar_ScrollbarRounding, S(3))
     local ok, err = true, nil
     if imgui.Begin(label, open, SETTINGS_FLAGS) then
         local x, y = imgui.GetCursorScreenPos()
@@ -1384,18 +1366,17 @@ local function settings_shell(label, open, index, body)
         ok, err = pcall(body, x, y, side, pw, ph)
     end
     imgui.End()
-    imgui.PopStyleVar(5)
-    imgui.PopStyleColor(#SETTINGS_COLOURS)
+    kit.pop_style(SETTINGS_COLOURS, vars)
     if not ok then return err end
 end
 
 -- The HUD or the widget: a window ImGui draws nothing of, `draw(view)` inside under pcall
 -- (Begin, the body, End); returns the error the body raised.
+local NO_COLOURS = {}
 local function panel(title, flags, draw, view)
-    imgui.PushStyleVar(ImGuiStyleVar_WindowPadding, { 0, 0 })
-    imgui.PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0)
+    local vars = kit.push_style(NO_COLOURS, ImGuiStyleVar_WindowPadding, { 0, 0 }, ImGuiStyleVar_WindowBorderSize, 0)
     local shown = imgui.Begin(title, true, flags + (view.ui.locked and ImGuiWindowFlags_NoMove or 0))
-    imgui.PopStyleVar(2)
+    kit.pop_style(NO_COLOURS, vars)
     local ok, err = true, nil
     if shown then ok, err = pcall(draw, view) end
     imgui.End()  -- ImGui keeps where it was dragged, in imgui.ini

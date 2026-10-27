@@ -1,12 +1,12 @@
 --[[
     Ammo an action needs worn: a pet's oil or food (Repair, Maintenance, Reward),
-    a Ninja's shuriken (Sange). When that alone stops the action it's equipped
-    first, as v2: the best of what you hold in your bag or wardrobes that your
-    main job can wear (the highest level up to yours; of equals, the later one
-    the knowledge table lists, its better). One that doesn't show after TRIES
-    sends is given up on, so what comes next can go, until your ammo slot or how
-    many you hold of it changes. Pet care and buff rows share one ammo slot, so
-    they share the wait in the engine's memory too; the tries are counted per action.
+    a Ninja's shuriken (Sange). When that alone stops the action, the best you
+    hold in your bag or wardrobes that your main job can wear (the highest level
+    up to yours; of equals, the later the knowledge table lists) is equipped
+    first. One that doesn't show after TRIES sends is given up on, so what comes
+    next can go, until your ammo slot or how many you hold of it changes. Pet care
+    and buff rows share one ammo slot, so they share the wait (mem.ammo_at); tries
+    count per action.
 ]]--
 
 local can = require('core.can')
@@ -33,7 +33,7 @@ end
 -- reason); nil when it can't help, and true too while an equip just sent has
 -- yet to show.
 function ammo.equip(a, g, cfg, mem, why)
-    if not a.ammo or can.holds(a.ammo, g.ammo) or not can.use(a, setmetatable({ ammo = a.ammo[1] }, { __index = g })) then
+    if not a.ammo or util.contains(a.ammo, g.ammo) or not can.use(a, util.overlay(g, { ammo = a.ammo[1] })) then
         return nil
     end
     if g.now - (mem.ammo_at or -math.huge) < ammo.WAIT then return nil, true end  -- before walking the bags

@@ -1,19 +1,15 @@
 --[[
-    Players outside your party and alliance you look after too (/sk3 track),
-    this session only, as in v2. core/game.lua makes each a unit of kind
-    'tracked': healed, cleared, woken, raised, followed and buffed like a member,
-    with what reaches outside the party (Cure, Curing Waltz, Protect, Haste, the
-    -na spells, Raise; not Regen, Erase, or an area spell cast from you or a
-    member, which lands on your own party only).
+    Players outside your party and alliance you look after too (/sk3 track), this
+    session only. core/game.lua makes each a unit of kind 'tracked', looked after
+    with what reaches outside the party.
 
     entry = { sid, name, tidx = entity index last seen at, hpp, status = as last seen there,
               main, main_lv, sub, sub_lv = from a /check (packet 0x0C9), nil until one answers,
               auto = the owner's name when core/share.lua tracks them for another session,
               max_hp, shared_hpp = from a session file listing them (core/share.lua) }
-    Only their HP % can be read: their max HP is estimated from that level, unless
-    a session file gives the real one.
-    An auto entry untracked by hand is `declined`: not tracked again by a session
-    file until tracked by hand.
+    Only their HP % can be read, so their max HP is estimated from their level
+    unless a session file gives the real one. An auto entry untracked by hand is
+    `declined`: no session file tracks it again until it's tracked by hand.
 ]]--
 
 local buffs = require('core.buffs')

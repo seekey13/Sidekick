@@ -1,26 +1,19 @@
 --[[
-    Geomancer: the luopan. There is one at a time, from a GEO main job only, and
-    the snapshot's pet is it (core/game.lua). Under Geomancy:
-      - the Geo row's luopan goes on the first of its targets (in slot order) in
-        reach who lacks its aura, while the slot is free. It stays where it lands,
-        so it waits while they move. Who it went on is remembered: once they're
-        further than geo.distance from it (or gone), or the row's pick or targets
-        no longer fit it, Full Circle recalls it, and it goes down again on the
-        first of the row's targets who lacks it (as v2, but for the settings).
-      - the Geo debuff row's luopan goes on your battle target in combat (waiting
-        while it moves), taking the slot from any other luopan with Full Circle.
-        Only while the debuff could follow (in range, off recast, not
-        silenced, the MP short by no more than Full Circle gives back). Once combat is over it's recalled after geo.linger seconds, so a new
-        battle target in that time keeps it (as v2).
-      - Blaze of Glory goes just before either, as a modifier (core/engine.lua).
-      - Entrust, with a member and an Indi- spell picked, puts that Indi- on them
-        whenever they lack its aura within ENTRUST_RANGE (Entrust first, as a modifier).
-    Radial Arcana spends the luopan for MP under your Recover MP line (geo.arcana,
-    for behaviors/recover.lua): one that's cheap, nearly spent or put down for
-    it, once you're within RADIUS of it. A dear one is recalled first (Full Circle
-    gives MP back) and a Geo-Voidance put down on you to spend instead, as v2;
-    begun, that sequence keeps the slot for SEQUENCE seconds, whatever your MP does.
-    Nothing goes while you're Invisible (core/engine.lua).
+    Geomancer: the luopan, one at a time from a GEO main job (the snapshot's pet).
+    Under Geomancy:
+      - the Geo row's luopan goes on the first of its targets in reach who lacks its
+        aura, waiting while they move, since it stays where it lands. Who it went on
+        is remembered: once they're further than geo.distance from it (or gone), or
+        the row's pick or targets no longer fit it, Full Circle recalls it.
+      - the Geo debuff row's goes on your battle target in combat (waiting while it
+        moves), taking the slot from another luopan only while the debuff could
+        follow, and is recalled geo.linger seconds after combat.
+      - Blaze of Glory goes just before either, and Entrust before an Indi- on the
+        member picked whenever they lack its aura, as modifiers.
+    Radial Arcana spends the luopan for MP (geo.arcana, for behaviors/recover.lua):
+    one that's cheap, nearly spent or put down for it, once you're within RADIUS
+    of it; a dear one is recalled first and a Geo-Voidance put down on you to spend
+    instead, the sequence keeping the slot for SEQUENCE seconds once begun.
 ]]--
 
 local can = require('core.can')
@@ -140,7 +133,7 @@ local function entrust(g, cat, cfg)
     end
     if not (indi and can.use(indi, g)) then return nil end
     local u = util.named(g.units, cfg.geo.entrust, g.me)
-    if u and can.in_party(u) and u.alive and u.in_zone and (u.dist or math.huge) <= ENTRUST_RANGE and lacks(indi, u) then
+    if u and can.in_party(u) and u.alive and u.in_zone and can.near(u, ENTRUST_RANGE) and lacks(indi, u) then
         return { action = indi, target = u, mods = { e }, why = ('%s (Entrust)'):format(u.name) }
     end
 end

@@ -1,59 +1,27 @@
 --[[
-    Bard: songs (v2's song passes in lib/actions/buff.lua). One Bard's songs
-    stand two at once on each player (one from a BRD subjob), and a new one
-    pushes that Bard's oldest out; a song sung again refreshes its own. So
-    under Songs (cfg.song) each target has those slots, by name ('' for none):
-      Area (song.area_1, area_2)  sung as they are, on you and everyone in
-                                  your party near you (the DAT's area, about 10 yalms);
-      ME, P1-P5 (song.me_1, p1_1...)  sung on that party slot alone, through
-                                  Pianissimo, which the engine fires first (core/engine.lua);
-                                  without it (under BRD 20) they take no slot.
-    Two songs of one kind (Victory and Advancing March, Valor Minuet IV and III)
-    are two statuses of one id: each pick wants its own, counted on you and your
-    party's players (`stacks`); a trust's statuses come from packets, one per
-    id, so there any one stands for them all.
+    Bard: songs, picked by slot under Songs (cfg.song, by name, '' for none):
+    area_1, area_2 sung as they are on you and your party near you, and each party
+    slot's own (me_1, p1_1...) sung on whoever is in it alone through Pianissimo, a
+    modifier the engine fires first. One Bard's songs stand brd.slots(g) on each
+    player and one more pushes out the oldest, so a member's own picks leave fewer
+    slots for the area songs, and while an area song is owed and can't go the songs
+    on one member wait: it would push them out. Two songs of one kind (Victory and
+    Advancing March) are two statuses of one id, counted with `stacks` on you and
+    your party's players; a trust's come from packets, one per id, so any one
+    stands for them all.
 
-    Area songs go first: one goes when someone near you it counts for lacks it,
-    you included (a member counts only while their own picks leave them a
-    slot, and is short only while they hold fewer of the area songs than that).
-    While one is owed and can't go (its recast, your MP, held for the group
-    while someone near lacks it too), the songs on one member wait too: the
-    area song would push them out once it goes (v2's rule). A member's own
-    songs and the area ones they count for are one set: an area Victory March
-    and their own Advancing March want two Marches. Then each slot's picks, on whoever is there, alive and in
-    reach, whenever they lack one. While Pianissimo is up the area songs wait:
-    the next song lands on one member (one left with no one to sing to wears
-    off on its own, as v2). Of two songs of one kind with one up,
-    the one sung less lately goes (new: v2 sang the first picked, which may be
-    the one up).
-    Nothing goes while you're Invisible (core/engine.lua). With buff.hold_aoe on, an
-    area song is held while a player in your party who lacks it, with no song
-    picked for them alone, is out of its reach (or not drawn); trusts follow.
+    Stamps: each of your songs is stamped on everyone its cast's finish packet says
+    it landed on (core/packets.lua -> brd.landed), doubled under Troubadour. A stamp
+    goes when one more song pushes it out, when its member dies or, on a list we can
+    read, once its kind shows no more VERIFY seconds after it landed. With Song
+    Duration (cfg.song.duration, a BRD main from TIMED_LEVEL) a stamp alone says
+    whether its song is due; while Nightingale and Troubadour are both up, every
+    song stamped without Troubadour is. The stamps also say which of two one-kind
+    songs was sung last.
 
-    Song timers (v2's Song Duration): each of your songs is stamped on everyone
-    your cast's finish packet says it landed on (core/packets.lua -> brd.landed),
-    doubled while Troubadour is up as it lands, and a stamp one more song pushes
-    out goes with it. A stamp is dropped once its member dies, or (you and your
-    party's players, whose lists can be read) once VERIFY seconds on its kind
-    shows on them no more. On a BRD main job from TIMED_LEVEL with Song Duration
-    (cfg.song.duration) set, a stamp decides alone whether its song is due: from
-    that many seconds after it landed (twice that when doubled), so a song is sung
-    again before it wears, while the one it stands for is still up; a song with no
-    stamp is due when it's missing, as without timers. While Nightingale and
-    Troubadour are both up, every song stamped without Troubadour is due, so it's
-    sung again at double length (new: v2 only with Song Duration set). The stamps
-    also say which of two one-kind songs was sung last.
-
-    Pianissimo fast casting (cfg.song.fast, off as v2's opt-in): an area song
-    goes through Pianissimo too, for its shorter cast, and Pianissimo is
-    cancelled engine.CANCEL_AFTER seconds into the cast (packet 0x0F1, as
-    Utsusemi's last shadow), so the song still lands on everyone near you. So
-    while it's on, Pianissimo up doesn't stop the area songs: the next one takes
-    it, unless it can't go now (its recast, MP, held for the group): then a
-    song on one member spends it. With Pianissimo on recast an area song goes
-    without it. None is raised while Nightingale is up, which already shortens
-    the cast (as v2), but one already up still goes to an area song (new: v2
-    held the area songs until it wore).
+    Pianissimo fast casting (cfg.song.fast): an area song goes through Pianissimo
+    too, for its shorter cast, cancelled engine.CANCEL_AFTER seconds into it
+    (intent.cancel) so the song still lands on everyone near you.
 ]]--
 
 local buff = require('behaviors.buff')
@@ -192,7 +160,7 @@ local function voters(a, g, free, owes, hold)
     for _, u in ipairs(g.units) do
         local room = free(u)
         if here(u) and room > 0 then
-            if u.kind == 'self' or (u.dist or math.huge) <= radius then
+            if can.near(u, radius) then
                 if owes(u, a) then near, n = near or u, n + 1 end
             elseif hold and u.kind == 'party' and room == brd.slots(g) and not away and owes(u, a, true) then
                 away = u
@@ -288,7 +256,7 @@ function brd.want(g, cat, cfg, mem)
         for _, a in ipairs(u and here(u) and own[slot] or {}) do
             local d = due(u, a)
             local short = d or d == nil and lacks(u, a, { own[slot], free(u) > 0 and area or {} })
-            local pick = (u.kind == 'self' or (u.dist or math.huge) <= can.yalms(a.range)) and short
+            local pick = can.near(u, can.yalms(a.range)) and short
                 and choose(a, own[slot], u)
             if pick and owed and not up then
                 mem.waiting = mem.waiting or { action = pick, mod = owed }

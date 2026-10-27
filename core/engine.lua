@@ -1,37 +1,32 @@
 --[[
-    Decide the next action. The gates that stop everything are checked once here
-    (AFK sleep among them: core/afk.lua, g.afk set by Sidekick3.lua);
-    then each behavior, in priority order, may return an intent:
+    Decide the next action. The gates that stop everything (GATES, AFK sleep
+    among them) are checked once here; then each behavior, in priority order,
+    may return an intent:
         { action = catalog record, target = unit or nil (you / battle target), why = text }
-    or, for what isn't a spell or ability (/heal, /follow):
+    or, for what isn't a spell or ability (/heal, /follow, /equip):
         { command = text, action = { name = shown name }, why = text }
     The first intent wins. A behavior returning { hold = true } (a cure nearly off
-    recast) lets only the quick behaviors after it run until the cure goes out.
-    While you rest, only resting runs: it alone decides when to stand.
-    While you're Invisible, which any action breaks, only the behaviors marked
-    `invisible` run: healing, for a member under their danger line alone, and
-    buffs, for the travel buffs alone (Sneak, Invisible, Tonko, Monomi, Spectral
-    Jig). Following and resting go on (resting doesn't break it). Sneak
-    breaks on nothing, so it stops nothing. Your own Invisible goes last of all
-    (buff.last), once everything else, members' travel buffs too, is done, or
-    briefly waited for.
-    A buff held for the group to gather (behaviors/buff.lua) leaves mem.gather,
-    which engine.gather turns into a party chat line.
-    An intent may name a status of yours to cancel a moment into its cast
-    (intent.cancel: Utsusemi's last shadow, jobs/nin.lua; Pianissimo under an
-    area song, jobs/brd.lua), which engine.cancel says when to send.
-    Modifiers: an intent may list intent.mods (stratagems a buff row turned on,
-    Snake Eye before a Double-Up, Blaze of Glory before a luopan, Entrust before
-    an Indi- on a member, Embolden before enhancing magic, Pianissimo before a
-    song on one member), and an Addendum
-    spell you lack the Addendum for has action.via (Enlightenment), as an
-    Unbridled spell does (Unbridled Learning, jobs/blu.lua).
-    One whose status isn't on you goes first, alone; its status is then taken as
-    on you for EXPECT seconds, so the next decision sends the spell.
+    recast) lets only the `quick` behaviors after it run until the cure goes out.
+    While you rest only resting runs; while you're Invisible, which any action
+    breaks, only the `invisible` behaviors, each narrowing itself.
+
+    An intent may also carry:
+      mods    modifiers to fire first (stratagems, Snake Eye, Blaze of Glory, Entrust,
+              Embolden, Pianissimo). One not on you that can go now goes first,
+              alone; its status is then taken as on you for EXPECT seconds, so the
+              next decision sends the spell. One that can't go is skipped: the spell
+              goes without it. An action's `via` (Enlightenment for an Addendum spell
+              you lack the Addendum for, Unbridled Learning) goes first the same way.
+      cancel  a status of yours to cancel a moment into the cast (engine.cancel)
+      expect  statuses to take as on you once it's sent
+      sent    function (now), called once it's sent
+    A buff held for the group (behaviors/buff.lua) leaves mem.gather, which
+    engine.gather turns into a party chat line.
 ]]--
 
 local buff = require('behaviors.buff')
 local can = require('core.can')
+local heal = require('behaviors.heal')
 local pet = require('behaviors.pet')
 local status = require('core.status')
 local util = require('core.util')
@@ -45,10 +40,10 @@ local engine = {}
 engine.BEHAVIORS = {
     -- Light Arts: ahead of healing, which is cheaper under it, but for a critical member (behaviors/buff.lua).
     { name = 'first', run = buff.first, setting = 'buff', shown = 'buff', invisible = true },
-    { name = 'heal', run = require('behaviors.heal').urgent, invisible = true },
+    { name = 'heal', run = heal.urgent, invisible = true },
     -- Removal: after critical and danger healing, ahead of efficient healing.
     { name = 'remove', run = require('behaviors.remove'), quick = true },
-    { name = 'heal_efficient', run = require('behaviors.heal').efficient, setting = 'heal', shown = 'heal' },
+    { name = 'heal_efficient', run = heal.efficient, setting = 'heal', shown = 'heal' },
     { name = 'wake', run = require('behaviors.wake'), quick = true },
     { name = 'recover', run = require('behaviors.recover') },
     { name = 'pet', run = pet.care, quick = true },
@@ -95,10 +90,10 @@ local function expecting(g, mem)
         if g.now < until_ then extra = extra or {}; extra[id] = true else mem.expect[id] = nil end
     end
     if not extra then return g end
-    local me = setmetatable({ buffs = setmetatable(extra, { __index = g.me.buffs }) }, { __index = g.me })
+    local me = util.overlay(g.me, { buffs = util.overlay(g.me.buffs, extra) })
     local units = {}
     for i, u in ipairs(g.units) do units[i] = u == g.me and me or u end
-    return setmetatable({ me = me, units = units }, { __index = g })
+    return util.overlay(g, { me = me, units = units })
 end
 
 -- The intent for now, or nil and why not. `mem` is the engine's own memory

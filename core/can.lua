@@ -45,7 +45,6 @@ function can.lacks(a, u, status)
     return not (a.status and any(u.buffs, status or a.status))
 end
 
-
 -- Yalms between two units (or a unit and the pet); unknown positions are far apart.
 function can.dist(a, b)
     if a == b then return 0 end
@@ -54,11 +53,8 @@ function can.dist(a, b)
     return math.sqrt(dx * dx + dy * dy + dz * dz)
 end
 
--- Whether `list` holds `x`.
-function can.holds(list, x)
-    for _, v in ipairs(list) do if v == x then return true end end
-    return false
-end
+-- Whether `u` is within `radius` yalms of you: you always are, one not drawn never.
+function can.near(u, radius) return u.kind == 'self' or (u.dist or math.huge) <= radius end
 
 -- Whether you can pay `a`'s HP price: one that costs HP (Devotion, Spirit Link)
 -- only over your danger line, one that trades HP for MP (Convert) only while it gains.
@@ -99,7 +95,7 @@ function can.use(a, g)
     if (a.kind == 'ja' or a.kind == 'pet') and g.amnesia then return false, 'amnesia' end
     if (a.mp or 0) > g.me.mp then return false, 'MP' end
     if dnc.tp(a, g) > g.me.tp then return false, 'TP' end
-    if a.ammo and not can.holds(a.ammo, g.ammo) then return false, 'no ammo' end
+    if a.ammo and not util.contains(a.ammo, g.ammo) then return false, 'no ammo' end
     if a.tool and nin.tools(a, g) == 0 then return false, 'no tools' end
     if a.kind == 'item' and not (g.items and g.items[a.id]) then return false, 'none left' end
     -- An Addendum spell can go through Enlightenment instead (core/catalog.lua), fired first by the engine.
@@ -114,7 +110,7 @@ function can.use(a, g)
     if a.pet then
         if not g.pet then return false, 'no pet' end
         if a.pet_range and (g.pet.dist or math.huge) > a.pet_range then return false, 'pet too far' end
-        if type(a.pet) == 'table' and not can.holds(a.pet, g.pet.name) then return false, 'wrong pet' end
+        if type(a.pet) == 'table' and not util.contains(a.pet, g.pet.name) then return false, 'wrong pet' end
     end
     -- Catalogued by level though the server lists it only at times (core/catalog.lua):
     -- goes only once the client lists it (a jug's Ready move it lacks, a merit not taken).
@@ -138,8 +134,7 @@ function can.reach(a, u)
         return false
     end
     if u.kind == 'self' then return has(a.targets, SELF) end
-    if not has(a.targets, can.in_party(u) and PARTY or ALLY) then return false end
-    return (u.dist or math.huge) <= can.yalms(a.range)
+    return has(a.targets, can.in_party(u) and PARTY or ALLY) and can.near(u, can.yalms(a.range))
 end
 
 -- '/ma "Cure IV" 12345678': party members by server id, you as <me>, enemies as

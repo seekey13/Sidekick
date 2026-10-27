@@ -2,7 +2,6 @@
 -- target and recalled once they leave it, the Geo debuff's on your battle target
 -- in combat, Blaze of Glory and Entrust as modifiers, Radial Arcana's sequence
 -- (behaviors/recover.lua), and the Geomancy section in ui/model.lua.
-local engine = require('core.engine')
 local settings = require('core.settings')
 local model = require('ui.model')
 local fake = require('tests.fake')
@@ -32,11 +31,7 @@ end
 
 local function decide(g, cfg, mem) return fake.decide(g, cat, cfg, mem) end
 
-local function step(g, cfg, mem)
-    local cmd, intent = decide(g, cfg, mem)
-    if cmd then engine.sent(intent, g, mem) end
-    return cmd, intent
-end
+local function step(g, cfg, mem) return fake.step(g, cat, cfg, mem) end
 
 local TANK = { name = 'Tank', pos = { 2, 0, 0 } }
 local HASTE_ROW = { on = true, pick = 'Geo-Haste', targets = { [1] = true } }

@@ -343,7 +343,7 @@ local function afk_command(w, g)
     if w == 'on' or w == 'off' then
         cfg.afk.on = w == 'on'
     elseif n then
-        cfg.afk.on, cfg.afk.minutes = true, math.min(math.max(math.floor(n), afk.MIN), afk.MAX)
+        cfg.afk.on, cfg.afk.minutes = true, util.clamp(math.floor(n), afk.MIN, afk.MAX)
     elseif w ~= '' then
         printf('/sk3 afk [on | off | minutes (%d to %d)]', afk.MIN, afk.MAX)
         return
@@ -472,13 +472,18 @@ end
 local shown
 local function stale() shown = nil end
 
--- `act`, each call of which makes the view stale.
+-- `act`, each call of which makes the view stale. Built again only for new settings (another job pair, a relog),
+-- not every frame: cfg is the one thing model.actions is given that changes.
+local act_cfg, act_proxy
 local function acts()
-    local act = model.actions(cfg, status, changed, tracking, share.send)
-    return setmetatable({}, { __index = function (_, k)
-        local f = act[k]
-        return f and function (...) stale(); return f(...) end
-    end })
+    if not act_proxy or act_cfg ~= cfg then
+        local act = model.actions(cfg, status, changed, tracking, share.send)
+        act_cfg, act_proxy = cfg, setmetatable({}, { __index = function (_, k)
+            local f = act[k]
+            return f and function (...) stale(); return f(...) end
+        end })
+    end
+    return act_proxy
 end
 
 -- The last view built from a snapshot that wasn't loading: while zoning, the widget is drawn from it (never from the
@@ -488,11 +493,8 @@ local good
 -- That view while zoning: the HUD closed, your automation as it is now, held by the zone, and the other sessions
 -- as their files say.
 local function zoning_view()
-    local v = {}
-    for k, x in pairs(good) do v[k] = x end
-    v.ui, v.status = {}, {}
-    for k, x in pairs(good.ui) do v.ui[k] = x end
-    for k, x in pairs(good.status) do v.status[k] = x end
+    local v = util.shallow_copy(good)
+    v.ui, v.status = util.shallow_copy(good.ui), util.shallow_copy(good.status)
     v.ui.open = false
     v.status.running = status.running
     v.status.halted = status.running and 'zoning' or nil

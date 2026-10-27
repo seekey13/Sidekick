@@ -1,7 +1,6 @@
 -- Beastmaster (jobs/bst.lua): the Ready charge pool, a Ready move's charges
 -- from the DAT, and Wild Carrot healing through the engine on them.
 local bst = require('jobs.bst')
-local engine = require('core.engine')
 local settings = require('core.settings')
 local fake = require('tests.fake')
 
@@ -30,10 +29,7 @@ local function snap(hpp, sub, ready, over)
     return g
 end
 
-local function decide(g, list, cfg)
-    local intent = engine.decide(g, list, cfg or settings.defaults(), {})
-    return intent and engine.command(intent, cfg or settings.defaults()), intent
-end
+local function decide(g, list, cfg) return fake.decide(g, list, cfg) end
 
 test('charges: counted from the pool timer, 30s each of 3; the wait is for the charges a move costs', function ()
     local p = bst.POOL

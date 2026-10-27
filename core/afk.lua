@@ -1,20 +1,14 @@
 --[[
-    AFK sleep, as v2's: automation sleeps once no one in your party (you, its
-    players and trusts, slots 0-5) has moved and you have been out of combat for
-    cfg.afk.minutes, and wakes when you move. A pause, not a stop: automation
-    stays running and nothing is saved.
-
-    Only your own movement wakes it, as v2: a pull is no proof you're back, so a
-    party that fights while you're away leaves you asleep. One exception: with
-    Follow on, the leader getting further than its distance wakes it, so
-    following goes on (asleep, nothing would send /follow; v2 then stopped
-    following once the game's own /follow was lost).
+    AFK sleep: automation sleeps once no one in your party (you, its players and
+    trusts, slots 0-5) has moved and you have been out of combat for
+    cfg.afk.minutes. A pause, not a stop: automation stays running and nothing
+    is saved. Only your own movement wakes it (a pull is no proof you're back),
+    or, with Follow on, the leader getting further than its distance, so
+    following goes on.
 
     Its memory (`st`) is the caller's: when you were last seen active, the
-    minutes counted with, and whether asleep. Sidekick3.lua keeps it in the
-    engine's memory, so a job change starts a full wait, and drops it on a start
-    and while automation is stopped, so a start does too. Changing the minutes
-    starts the wait over too, as v2 (a slider dragged down never sleeps at once).
+    minutes counted with, and whether asleep. Changing the minutes starts the
+    wait over, so a slider dragged down never sleeps at once.
 ]]--
 
 local follow = require('behaviors.follow')
