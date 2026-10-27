@@ -31,7 +31,6 @@ v2 described every job's spells and abilities by hand in 22 job files. v3 reads 
 /sk3 state              what Sidekick reads from the game: party, trusts, buffs, target, flags
 /sk3 catalog [unknown]  what it can automate for your job, by role (or what it can't)
 /sk3 log                print each action as it's sent (off unless debugging)
-/sk3 dump               write the client's spell/ability/status data to tests/data/
 ```
 
 The HUD (`/sk3`) shows the party as Sidekick reads them, and what it will do next:
@@ -97,4 +96,4 @@ luacheck .
 
 Sidekick3 is free software under the GNU General Public License, version 3 or (at your option) any later version: see [LICENSE](LICENSE). Copyright (c) 2026 Seekey.
 
-Its UI kit (`ui/kit.lua`) and Sidekick Settings' layout (`ui/window.lua`) are based on VanaCore's `/vana` window (`addons/vanacore/vana/draw.lua` and `vana.lua`, Copyright (C) 2026 Vekien, GPL-3.0-or-later). Sidekick3 is not VanaCore, and isn't made or endorsed by Vekien; VanaCore's name and logo aren't licensed with it. `tests/data/` is dumped from the game client's data (`/sk3 dump`) and isn't covered by this licence.
+Its UI kit (`ui/kit.lua`) and Sidekick Settings' layout (`ui/window.lua`) are based on VanaCore's `/vana` window (`addons/vanacore/vana/draw.lua` and `vana.lua`, Copyright (C) 2026 Vekien, GPL-3.0-or-later). Sidekick3 is not VanaCore, and isn't made or endorsed by Vekien; VanaCore's name and logo aren't licensed with it. `tests/data/` is dumped from the game client's data and isn't covered by this licence.

@@ -607,21 +607,13 @@ end)
 
 local HELP = '/sk3 opens or closes the window. Commands: widget, start [name|all], stop [name|all], plan, state, '
     .. 'buff [name] [me p1..p5 b0..c5 <tracked>|off], focus <name|off>, follow <name|off>, rest [on|off], '
-    .. 'track [name], untrack <name|all>, profile [name|default], afk [on|off|minutes], catalog [unknown], log, dump, help'
+    .. 'track [name], untrack <name|all>, profile [name|default], afk [on|off|minutes], catalog [unknown], log, help'
 
 -- A command's name argument, or '' for none or `off`.
 local function name_or_off(args) return args[3] and args[3]:lower() ~= 'off' and args[3] or '' end
 
 -- /sk3 commands that need nothing loaded: (args).
 local ANYTIME = {
-    dump = function ()
-        local ok, result = pcall(require('tools.dump').run, addon.path)
-        if ok then
-            printf('Dumped %d spells, %d abilities, %d statuses to tests/data/', result.spells, result.abilities, result.statuses)
-        else
-            say(chat.error, 'Dump failed: %s', tostring(result))
-        end
-    end,
     catalog = function (args) show_catalog((args[3] or ''):lower()) end,
     log = function ()
         status.log = not status.log

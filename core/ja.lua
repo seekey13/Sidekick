@@ -401,8 +401,7 @@ ja.words = {
     ['Automation %s from %s\'s session.'] = '自動操作を%s（%sのセッションから）。',
     ['Settings view for another session failed: %s'] = '他のセッション用の設定画面の作成に失敗しました: %s',
     ['The UI failed at load: %s'] = '読み込み時にUIが失敗しました: %s',
-    ['Dumped %d spells, %d abilities, %d statuses to tests/data/'] = '魔法%d・アビリティ%d・ステータス%dを tests/data/ に書き出しました',
-    ['Dump failed: %s'] = '書き出しに失敗しました: %s', ['Action log %s.'] = 'アクションログ: %s', ['on'] = 'オン',
+    ['Action log %s.'] = 'アクションログ: %s', ['on'] = 'オン',
     ['off'] = 'オフ', ['Widget %s.'] = 'ウィジェット: %s', ['Focus off.'] = 'フォーカス: オフ', ['Focus: %s.'] = 'フォーカス: %s',
     ['Follow off.'] = '追従: オフ', ['Following %s past %d yalms.'] = '%sを追従します（%dヤルムより離れたら）。',
     ['Tracking no one. Target a player, then /sk3 track (or /sk3 track <name>).'] =
@@ -414,10 +413,10 @@ ja.words = {
     ['Resting %s.'] = 'ヒーリング: %s', ['Waiting for the game to load your job.'] = 'ゲームがジョブを読み込むのを待っています。',
     ['/sk3 opens or closes the window. Commands: widget, start [name|all], stop [name|all], plan, state, '
         .. 'buff [name] [me p1..p5 b0..c5 <tracked>|off], focus <name|off>, follow <name|off>, rest [on|off], '
-        .. 'track [name], untrack <name|all>, profile [name|default], afk [on|off|minutes], catalog [unknown], log, dump, help'] =
+        .. 'track [name], untrack <name|all>, profile [name|default], afk [on|off|minutes], catalog [unknown], log, help'] =
         '/sk3 でウィンドウを開閉します。コマンド: widget、start [名前|all]、stop [名前|all]、plan、state、'
         .. 'buff [名前] [me p1..p5 b0..c5 <追跡>|off]、focus <名前|off>、follow <名前|off>、rest [on|off]、'
-        .. 'track [名前]、untrack <名前|all>、profile [名前|default]、afk [on|off|分数]、catalog [unknown]、log、dump、help',
+        .. 'track [名前]、untrack <名前|all>、profile [名前|default]、afk [on|off|分数]、catalog [unknown]、log、help',
 }
 
 -- Sentences built in English elsewhere, tried in order: { Lua pattern, Japanese with %1..%9 for its captures,
