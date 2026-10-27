@@ -27,6 +27,10 @@ local IDS = { Checkbox = true, Button = true, InvisibleButton = true, SliderInt 
 
 local frame  -- { stack, vars, texts, ids, args, flags, columns, drawn, window, cursor, extent, clicks, edited }
 
+-- The fonts Ashita added at its start, as 1.81's GetIO().Fonts.Fonts lists them; a test sets others. Its own has no kana.
+local AGAVE = { FontSize = 18, Glyphs = { { Codepoint = 0x41 }, { Codepoint = 0xF0C0 } } }
+local atlas = { AGAVE }
+
 local function pop(closer)
     local top = table.remove(frame.stack)
     assert(top == closer, ('%s, but %s is open'):format(closer, tostring(top)))
@@ -55,7 +59,7 @@ local function draw_list(list)
             local args = { ... }
             for _, i in ipairs(POINTS[name] or {}) do point(args[i], name) end
             if name == 'AddText' then
-                local at = type(args[1]) == 'table' and 1 or 3
+                local at = type(args[2]) == 'number' and 3 or 1  -- (a font may be a table: Ashita's in the fake)
                 point(args[at], name)
                 assert(type(args[at + 2]) == 'string', 'AddText: text must be a string')
             end
@@ -104,6 +108,7 @@ local handlers = {
     CalcTextSize = function (s) return #s * 7, 13 end,
     GetFontSize = function () return 13 end,
     GetFont = function () return 'font' end,
+    GetIO = function () return { Fonts = { Fonts = atlas } } end,
     GetCursorScreenPos = function () return 100, 50 end,
     GetColorU32 = function (c) assert(#c == 4); return c end,  -- so tests can compare colours
     GetWindowDrawList = function () return WINDOW_LIST end,
@@ -1624,20 +1629,53 @@ test('in Japanese the HUD\'s tooltips and labels are Japanese, and a trust\'s na
     eq({ fill('クピピ') ~= nil, tipped('クピピ (trust)') }, { true, true })  -- in English too: the game's text, readable
 end)
 
-test('without a Japanese font (none in Windows, or ImGui 1.81) the window stays English and UI / Log says why', function ()
+test('without a Japanese font (none in Windows, or in Ashita\'s boot config) the window stays English and UI / Log says why',
+    function ()
     open_settings()
     local cfg = settings.defaults()
     cfg.ui.japanese, kit.ja = true, false
     render(cfg, status(), on('UI / Log'))
     eq({ lang.drawable, lang.on, drew('Japanese client'), drew('This window stays in English') }, { false, false, true, true })
-    kit.ja = nil  -- the fake is ImGui 1.81: no face can be added mid-frame
+    kit.ja = nil  -- the fake is ImGui 1.81, its fonts Ashita's own: no kana
     render(cfg, status(), on('UI / Log'))
-    eq({ kit.ja, lang.drawable }, { false, false })
+    eq({ kit.ja, lang.drawable, drew('Ashita\'s boot config'), drew('couldn\'t be read') }, { false, false, true, false })
     local heal = model.build(snap(), cat, cfg, status(), JA_NAMES).sections[3]
     eq({ heal.id, heal.rows[1].label }, { 'heal', 'Cure' })  -- the next view, English
     cfg.ui.japanese = false
     render(cfg, status(), on('UI / Log'))
     eq({ lang.drawable, drew('This window stays in English') }, { true, false })
+end)
+
+-- A Japanese font as Ashita adds it from its boot config (`is_jp`): `size` pixels, with '→' and '…' when `full` (ImGui
+-- 1.81's Japanese set has neither).
+local function ja_face(size, full)
+    local glyphs = { { Codepoint = 0x41 }, { Codepoint = 0x3042 }, { Codepoint = 0x56DE } }
+    if full then glyphs[4], glyphs[5] = { Codepoint = 0x2192 }, { Codepoint = 0x2026 } end
+    return { FontSize = size, Glyphs = glyphs }
+end
+
+test('on ImGui 1.81 the window is Japanese in the font Ashita\'s boot config added, scaled from its size', function ()
+    open_settings()
+    local cfg = settings.defaults()
+    local text, bold = ja_face(14), ja_face(14)
+    atlas, kit.ja, cfg.ui.japanese = { AGAVE, ja_face(32), text, bold }, nil, true  -- 14 is nearer the 18 baked
+    render(cfg, status(), on('UI / Log'))
+    eq({ kit.ja.text == text, kit.ja.semi == bold, kit.ja.size, lang.drawable }, { true, true, 14, true })
+    render(cfg, status(), on('UI / Log'))
+    eq({ kit.fonts.text == text, drew('日本語クライアント'), drew('This window stays in English') }, { true, true, false })
+    eq({ drew('→'), drew('ケアルIV -> A') }, { false, true })  -- the last action sent, its arrow one the font has
+    kit.push_font(kit.fonts.text, 28)
+    eq(frame.font_scales[#frame.font_scales], 2)  -- 28 pixels from 14
+    kit.pop_font()
+    atlas, kit.ja = { AGAVE, ja_face(18, true) }, nil
+    render(cfg, status(), on('UI / Log'))
+    render(cfg, status(), on('UI / Log'))
+    eq({ kit.ja.size, drew('ケアルIV → A') }, { 18, true })
+    atlas, kit.ja = false, nil  -- a list Lua can't read: UI / Log says why
+    render(cfg, status(), on('UI / Log'))
+    eq({ kit.ja, lang.drawable, drew('Ashita\'s fonts couldn\'t be read') }, { false, false, true })
+    atlas, kit.ja, kit.ja_error, cfg.ui.japanese = { AGAVE }, nil, nil, false
+    render(cfg, status(), on('UI / Log'))
 end)
 
 test('the kit wraps Japanese between characters, never before closing punctuation, and keeps a line\'s spaces', function ()

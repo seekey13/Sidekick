@@ -1035,8 +1035,11 @@ local function draw_ui(view, pg)
         'Send spell, ability and item names in Japanese, and show Sidekick in Japanese, on every job.')
     -- (only ever shown in English: the window can't draw Japanese then)
     if view.japanese and not lang.drawable then
-        note(pg, 'This window stays in English: Japanese needs a Japanese font in Windows\' Fonts (Meiryo, Yu Gothic or '
-            .. 'MS Gothic) and ImGui 1.92, VanaCore\'s libraries. Names still go out in Japanese.', P.amber)
+        local needs = kit.dynamic and 'a Japanese font in Windows\' Fonts (Meiryo, Yu Gothic or MS Gothic)'
+            or 'a Japanese font in Ashita\'s boot config, [ashita.imgui.fonts] with is_jp (Sidekick3\'s README says '
+            .. 'how), and a restart'
+        note(pg, 'This window stays in English: Japanese needs ' .. needs .. '. Names still go out in Japanese.'
+            .. (kit.ja_error and ' (Ashita\'s fonts couldn\'t be read: ' .. kit.ja_error .. ')' or ''), P.amber)
     end
 end
 

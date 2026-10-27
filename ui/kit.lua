@@ -13,9 +13,11 @@
     on 1.81 (Ashita 4.16) from its 18px bake, scaled. Without the font files it's
     ImGui's own font, scaled. Draw-list text is drawn as is: no '%' doubling.
     Japanese (kit.frame's `japanese`) is Meiryo, else Yu Gothic or MS Gothic, as
-    VanaCore's own Japanese windows: added the first frame it's wanted, which only
-    1.92 allows. Where none can be, core/lang.lua is told (lang.drawable) and the
-    UI stays English.
+    VanaCore's own Japanese windows: on 1.92 added the first frame it's wanted. 1.81
+    takes no font mid-frame, nor any kanji unless asked for them when the font is
+    added: there it's the Japanese font Ashita added at its start, from its boot
+    config ([ashita.imgui.fonts] with `is_jp`), scaled from its size. Where there's
+    none, core/lang.lua is told (lang.drawable) and the UI stays English.
 ]]--
 
 local imgui = require('imgui')
@@ -102,10 +104,14 @@ end
 
 kit.fonts = {}      -- text, semi, bold_italic, semi_italic: the faces drawn now, the language's (kit.frame)
 kit.custom = false  -- they're ours (Segoe UI, or the Japanese faces): measured and drawn at the size asked
-kit.ja = nil        -- the Japanese faces once added; false when none can be (no font file, or ImGui 1.81)
+kit.ja = nil        -- the Japanese faces once added (or found); false when there are none
+kit.ja_error = nil  -- why Ashita's fonts couldn't be read (1.81), for UI / Log
 local latin = nil   -- Segoe UI's faces once added
 local fonts_tried, fonts_pending, ja_pending = false, nil, nil
 local BAKE = 18     -- the size each face is added at; 1.81 scales it to the size asked
+local baked, plain = BAKE, nil  -- the faces drawn now: their size, and what of PLAIN they lack (a set's `size`, `plain`)
+-- Characters ImGui 1.81's Japanese set lacks, written as these where a face has no glyph for them.
+local PLAIN = { { 0x2192, '→', '->' }, { 0x2026, '…', '...' } }
 -- The same four faces Tracker loads. Each falls back to the one named last.
 local FACES = {
     { 'text', 'segoeui.ttf' }, { 'semi', 'seguisb.ttf', 'text' },
@@ -147,6 +153,44 @@ local function load_japanese()
     end
 end
 
+-- On 1.81, the Japanese faces Ashita added at its start, known by their kana: of those nearest BAKE in size, the
+-- first for the text and the next for the bold, with their `size` and what of PLAIN they lack (`plain`); nil with none.
+local function ashita_japanese()
+    local ok, faces = pcall(function ()
+        local out, fonts = {}, imgui.GetIO().Fonts.Fonts
+        for i = 1, #fonts do
+            local f = fonts[i]
+            local glyphs, has = f.Glyphs, {}
+            for j = 1, #glyphs do has[glyphs[j].Codepoint] = true end
+            if has[0x3042] then out[#out + 1] = { font = f, size = f.FontSize, has = has } end  -- 'あ'
+        end
+        return out
+    end)
+    if not ok then kit.ja_error = tostring(faces) end
+    if not ok or not faces[1] then return nil end
+    local size = faces[1].size
+    for _, f in ipairs(faces) do
+        if math.abs(f.size - BAKE) < math.abs(size - BAKE) then size = f.size end
+    end
+    local at = {}
+    for _, f in ipairs(faces) do
+        if f.size == size then at[#at + 1] = f end
+    end
+    local lacks = {}
+    for _, p in ipairs(PLAIN) do
+        if not at[1].has[p[1]] then lacks[#lacks + 1] = p end
+    end
+    local text, bold = at[1].font, (at[2] or at[1]).font
+    return { text = text, semi = bold, bold_italic = bold, semi_italic = bold, size = size, plain = lacks[1] and lacks }
+end
+
+-- `s` as the faces drawn now can draw it: what they lack of PLAIN written in its stead.
+local function spelt(s)
+    if not plain or type(s) ~= 'string' or not s:find('\226', 1, true) then return s end  -- (PLAIN's all start so)
+    for _, p in ipairs(plain) do s = s:gsub(p[2], p[3]) end
+    return s
+end
+
 -- Segoe UI, once, from Sidekick's load event (window.load): outside any frame, as ImGui 1.81 locks its font atlas
 -- while one is drawn. 1.92 takes a font mid-frame too (kit.frame adds it then for a UI with no load). The faces are
 -- drawn from the next kit.frame.
@@ -156,16 +200,16 @@ function kit.bake()
     fonts_pending = load_fonts()
 end
 
--- `font` at `px` for ImGui's own items until kit.pop_font (a popup's, a tooltip's, a text field's); nothing until
--- Segoe UI is in. 1.81's PushFont takes no size: the face goes on at its bake and the window's font scale makes up the
--- rest. Nothing else here sets that scale, so the pop puts back 1.
+-- `font` (one of kit.fonts) at `px` for ImGui's own items until kit.pop_font (a popup's, a tooltip's, a text field's);
+-- nothing until Segoe UI is in. 1.81's PushFont takes no size: the face goes on at its bake and the window's font scale
+-- makes up the rest. Nothing else here sets that scale, so the pop puts back 1.
 function kit.push_font(font, px)
     if not kit.custom then return end
     if kit.dynamic then
         imgui.PushFont(font, px)
     else
         imgui.PushFont(font)
-        imgui.SetWindowFontScale(px / BAKE)
+        imgui.SetWindowFontScale(px / baked)
     end
 end
 
@@ -184,6 +228,7 @@ function kit.measure(s, font, px)
     local m = measured[key]
     if not m then
         if measured_n > 4000 then measured, measured_n = {}, 0 end  -- live values keep adding strings
+        s = spelt(s)
         local w, h
         if kit.custom and kit.dynamic then
             imgui.PushFont(font, px)
@@ -207,7 +252,7 @@ local measure = kit.measure
 local function lift(h) return kit.custom and util.round(h * 0.06) or 0 end
 
 function kit.text(dl, x, y, s, color, font, px, alpha)
-    dl:AddText(font, px, { util.round(x), util.round(y) }, kit.u32(color, alpha), s)
+    dl:AddText(font, px, { util.round(x), util.round(y) }, kit.u32(color, alpha), spelt(s))
 end
 local text = kit.text
 
@@ -242,7 +287,7 @@ end
 -- Text over the game or a bar: stamped in black a pixel out each way first, so it reads on anything.
 local AROUND = { { -1, -1 }, { 0, -1 }, { 1, -1 }, { -1, 0 }, { 1, 0 }, { -1, 1 }, { 0, 1 }, { 1, 1 } }
 function kit.halo(dl, x, y, s, color, font, px, alpha)
-    x, y = util.round(x), util.round(y)
+    x, y, s = util.round(x), util.round(y), spelt(s)
     local dark = kit.u32('#000000', 0.85 * (alpha or 1))
     for _, o in ipairs(AROUND) do dl:AddText(font, px, { x + o[1], y + o[2] }, dark, s) end
     dl:AddText(font, px, { x, y }, kit.u32(color, alpha), s)
@@ -397,12 +442,16 @@ kit.clock = os.clock  -- (the tests step it, so every eased value lands at once)
 kit.prefix = ''       -- each window's own: two windows drawing one control keep their own eased state
 local anim, last, dt = {}, nil, 0
 
--- The Japanese faces, the first frame they're wanted: on 1.92 added now, drawn from the next frame; on 1.81, or with
--- no Japanese font in Windows, none (kit.ja false).
+-- The Japanese faces, the first frame they're wanted: on 1.92 added now, drawn from the next frame; on 1.81 Ashita's,
+-- drawn from now. None (kit.ja false) without a Japanese font: in Windows on 1.92, in Ashita's boot config on 1.81.
 local function want_japanese()
     if ja_pending ~= nil or kit.ja ~= nil then return end
-    ja_pending = kit.dynamic and load_japanese() or false
-    if not ja_pending then kit.ja, ja_pending = false, nil end
+    if kit.dynamic then
+        ja_pending = load_japanese()
+        if not ja_pending then kit.ja = false end
+    else
+        kit.ja = ashita_japanese() or false
+    end
 end
 
 -- Once a frame, before any window: the time since the last, the fonts for the language (`japanese`), the scale
@@ -417,12 +466,14 @@ function kit.frame(user, japanese)
     if japanese then want_japanese() end
     local set = japanese and kit.ja or latin
     if set then
-        for k, f in pairs(set) do kit.fonts[k] = f end
+        kit.fonts.text, kit.fonts.semi, kit.fonts.bold_italic, kit.fonts.semi_italic =
+            set.text, set.semi, set.bold_italic, set.semi_italic
     else
         local f = imgui.GetFont()
         kit.fonts.text, kit.fonts.semi, kit.fonts.bold_italic, kit.fonts.semi_italic = f, f, f, f
     end
     kit.custom = set ~= nil
+    baked, plain = set and set.size or BAKE, set and set.plain or nil
     lang.drawable = not japanese or kit.ja ~= false  -- (still on while the faces are added)
     set_scale(user)
     kit.tooltips()  -- one a UI left asked for last frame, a frame late
@@ -510,7 +561,7 @@ function kit.tooltips()
         S(4), ImGuiStyleVar_PopupRounding, S(4), ImGuiStyleVar_PopupBorderSize, 1)
     if imgui.BeginTooltip() ~= false then
         kit.push_font(kit.fonts.text, S(kit.SMALL + 0.5))
-        imgui.TextUnformatted(wrap_chars(s, 72))
+        imgui.TextUnformatted(spelt(wrap_chars(s, 72)))
         kit.pop_font()
         imgui.EndTooltip()
     end
