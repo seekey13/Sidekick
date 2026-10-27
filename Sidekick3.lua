@@ -488,11 +488,8 @@ local good
 -- That view while zoning: the HUD closed, your automation as it is now, held by the zone, and the other sessions
 -- as their files say.
 local function zoning_view()
-    local v = {}
-    for k, x in pairs(good) do v[k] = x end
-    v.ui, v.status = {}, {}
-    for k, x in pairs(good.ui) do v.ui[k] = x end
-    for k, x in pairs(good.status) do v.status[k] = x end
+    local v = util.shallow(good)
+    v.ui, v.status = util.shallow(good.ui), util.shallow(good.status)
     v.ui.open = false
     v.status.running = status.running
     v.status.halted = status.running and 'zoning' or nil

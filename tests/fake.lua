@@ -75,4 +75,11 @@ function fake.decide(g, cat, cfg, mem)
     return engine.command(intent, cfg), intent
 end
 
+-- fake.decide, then its send recorded (engine.sent) when there was one, as in game.
+function fake.step(g, cat, cfg, mem)
+    local cmd, intent = fake.decide(g, cat, cfg, mem)
+    if cmd then engine.sent(intent, g, mem) end
+    return cmd, intent
+end
+
 return fake
