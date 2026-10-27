@@ -3,9 +3,10 @@
     a Ninja's shuriken (Sange). When that alone stops the action, the best you
     hold in your bag or wardrobes that your main job can wear (the highest level
     up to yours; of equals, the later the knowledge table lists) is equipped
-    first. One that doesn't show after TRIES sends is given up on, until your
-    ammo slot or how many you hold of it changes. Pet care and buff rows share
-    one ammo slot, so they share the wait (mem.ammo_at); tries count per action.
+    first. One that doesn't show after TRIES sends is given up on, so what comes
+    next can go, until your ammo slot or how many you hold of it changes. Pet care
+    and buff rows share one ammo slot, so they share the wait (mem.ammo_at); tries
+    count per action.
 ]]--
 
 local can = require('core.can')

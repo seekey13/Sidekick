@@ -14,14 +14,14 @@ function util.copy(v)
 end
 
 -- A copy of table `t`, its values shared.
-function util.shallow(t)
+function util.shallow_copy(t)
     local out = {}
     for k, v in pairs(t) do out[k] = v end
     return out
 end
 
 -- `over` laid on `base`: its own fields, else base's. A view of `base` with some
--- fields changed, for one decision, that leaves `base` as it is.
+-- fields changed that leaves `base` as it is (the engine's expected statuses, an ammo check).
 function util.overlay(base, over) return setmetatable(over, { __index = base }) end
 
 -- `t`'s keys, sorted; none for nil.

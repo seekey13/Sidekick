@@ -62,13 +62,14 @@ function kit.rgba(hex, alpha)
     return { r / 255, g / 255, b / 255, alpha or 1 }
 end
 
+local function lerp(x, y, t) return util.round(x + (y - x) * t) end
+
 -- The colour `t` of the way from `a` to `b`.
 function kit.mix(a, b, t)
     t = util.clamp(t, 0, 1)
     local r1, g1, b1 = rgb(a)
     local r2, g2, b2 = rgb(b)
-    local function at(x, y) return util.round(x + (y - x) * t) end
-    return ('#%02X%02X%02X'):format(at(r1, r2), at(g1, g2), at(b1, b2))
+    return ('#%02X%02X%02X'):format(lerp(r1, r2, t), lerp(g1, g2, t), lerp(b1, b2, t))
 end
 local mix = kit.mix
 
@@ -391,16 +392,22 @@ local function wrap_chars(s, n)
     return table.concat(out, '\n')
 end
 
--- ImGui style `colours` ({ { ImGuiCol_*, rgba }, ... }) and `vars` ({ { ImGuiStyleVar_*, value }, ... }) pushed;
--- kit.pop_style pops the same lists.
-function kit.push_style(colours, vars)
+-- ImGui style `colours` ({ { ImGuiCol_*, rgba }, ... }) pushed, then each ImGuiStyleVar_* after them with its value
+-- (no list built: this runs every frame). Returns how many vars, which kit.pop_style takes with the same colours.
+function kit.push_style(colours, ...)
     for _, c in ipairs(colours) do imgui.PushStyleColor(c[1], c[2]) end
-    for _, v in ipairs(vars) do imgui.PushStyleVar(v[1], v[2]) end
+    local n = select('#', ...)
+    assert(n % 2 == 0, 'push_style: every var needs its value')
+    for i = 1, n, 2 do
+        local var, value = select(i, ...)
+        imgui.PushStyleVar(var, value)
+    end
+    return n / 2
 end
 
 function kit.pop_style(colours, vars)
-    imgui.PopStyleVar(#vars)
-    imgui.PopStyleColor(#colours)
+    if vars > 0 then imgui.PopStyleVar(vars) end
+    if #colours > 0 then imgui.PopStyleColor(#colours) end
 end
 
 local TOOLTIP_COLOURS = { { ImGuiCol_PopupBg, kit.rgba(P.popup, 0.97) }, { ImGuiCol_Border, kit.rgba(P.border) },
@@ -421,9 +428,8 @@ function kit.tooltips()
     local s = tip_pending
     if not s then return end
     tip_pending = nil
-    local vars = { { ImGuiStyleVar_WindowPadding, { S(9), S(6) } }, { ImGuiStyleVar_WindowRounding, S(4) },
-                   { ImGuiStyleVar_PopupRounding, S(4) }, { ImGuiStyleVar_PopupBorderSize, 1 } }
-    kit.push_style(TOOLTIP_COLOURS, vars)
+    local vars = kit.push_style(TOOLTIP_COLOURS, ImGuiStyleVar_WindowPadding, { S(9), S(6) }, ImGuiStyleVar_WindowRounding,
+        S(4), ImGuiStyleVar_PopupRounding, S(4), ImGuiStyleVar_PopupBorderSize, 1)
     if imgui.BeginTooltip() ~= false then
         kit.push_font(kit.fonts.text, S(kit.SMALL + 0.5))
         imgui.TextUnformatted(wrap_chars(s, 72))
@@ -449,10 +455,9 @@ local POPUP_COLOURS = {
 -- take away and its text at `px`, `body()` inside it while it's open. A Lua error in `body` still closes every
 -- scope it opened (ImGui asserts on one left open), then is raised again.
 function kit.popup(id, px, body)
-    local vars = { { ImGuiStyleVar_WindowPadding, { S(10), S(8) } }, { ImGuiStyleVar_PopupRounding, S(5) },
-                   { ImGuiStyleVar_PopupBorderSize, 1 }, { ImGuiStyleVar_FramePadding, { S(8), S(4) } },
-                   { ImGuiStyleVar_FrameRounding, S(4) }, { ImGuiStyleVar_ItemSpacing, { S(8), S(6) } } }
-    kit.push_style(POPUP_COLOURS, vars)
+    local vars = kit.push_style(POPUP_COLOURS, ImGuiStyleVar_WindowPadding, { S(10), S(8) }, ImGuiStyleVar_PopupRounding,
+        S(5), ImGuiStyleVar_PopupBorderSize, 1, ImGuiStyleVar_FramePadding, { S(8), S(4) }, ImGuiStyleVar_FrameRounding, S(4),
+        ImGuiStyleVar_ItemSpacing, { S(8), S(6) })
     local open, ok, err = imgui.BeginPopup(id), true, nil
     if open then
         kit.push_font(kit.fonts.text, px)
@@ -708,8 +713,8 @@ function kit.input(id, x, cy, w, buf, max, hint)
     if hint and buf[1] == '' then kit.text_mid(dl, x + S(9), cy, hint, P.faint, kit.fonts.text, px) end
     local text_h = kit.custom and px or imgui.GetFontSize()
     imgui.SetCursorScreenPos({ x + S(1), y })
-    local vars = { { ImGuiStyleVar_FramePadding, { S(8), math.max(0, (h - text_h) / 2) } }, { ImGuiStyleVar_FrameBorderSize, 0 } }
-    kit.push_style(FIELD_COLOURS, vars)
+    local vars = kit.push_style(FIELD_COLOURS, ImGuiStyleVar_FramePadding, { S(8), math.max(0, (h - text_h) / 2) },
+        ImGuiStyleVar_FrameBorderSize, 0)
     kit.push_font(kit.fonts.text, px)
     imgui.PushItemWidth(w - S(2))
     local edited = imgui.InputText(id, buf, max)

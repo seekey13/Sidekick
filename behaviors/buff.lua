@@ -20,9 +20,10 @@
 
     Stages: buff.first runs the rows whose action goes `first` (Light Arts,
     Addendum: White) ahead of healing, unless a member is under their critical line;
-    buff.want every row but those that make you Invisible; buff.last those alone,
-    after every other behavior, since any action breaks it. They wait too while
-    other work is pending, OTHERS_FIRST seconds at most.
+    buff.want every row, but never one that would make you Invisible (it may still
+    go on others); buff.last just those, on you, after every other behavior, since
+    any action breaks it. Your own Invisible also waits while other work is
+    pending, OTHERS_FIRST seconds at most.
 ]]--
 
 local ammo = require('core.ammo')
@@ -165,6 +166,7 @@ local function due(g, cat, cfg, mem, stage)
     end
     for _, c in ipairs(rows) do
         local a = c.action
+        -- One only its ammo stops (Sange's shuriken) has it equipped first (core/ammo.lua).
         if (a.travel or not invisible) and c.on_me and a.ammo and can.self_only(a) and lacks(a, g.me) and not can.use(a, g) then
             local intent = ammo.equip(a, g, cfg, mem, ('%s lacks it'):format(g.me.name))
             if intent then return intent end

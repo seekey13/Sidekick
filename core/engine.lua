@@ -12,10 +12,11 @@
 
     An intent may also carry:
       mods    modifiers to fire first (stratagems, Snake Eye, Blaze of Glory, Entrust,
-              Embolden, Pianissimo), as its action's `via` is (Enlightenment for an
-              Addendum spell, Unbridled Learning). One whose status isn't on you goes
-              first, alone; its status is then taken as on you for EXPECT seconds, so
-              the next decision sends the spell.
+              Embolden, Pianissimo). One not on you that can go now goes first,
+              alone; its status is then taken as on you for EXPECT seconds, so the
+              next decision sends the spell. One that can't go is skipped: the spell
+              goes without it. An action's `via` (Enlightenment for an Addendum spell
+              you lack the Addendum for, Unbridled Learning) goes first the same way.
       cancel  a status of yours to cancel a moment into the cast (engine.cancel)
       expect  statuses to take as on you once it's sent
       sent    function (now), called once it's sent

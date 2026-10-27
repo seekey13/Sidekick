@@ -12,7 +12,8 @@
     total older than the last send is doubled. A new roll waits until the last is
     settled, while mem.busy_until keeps resting from starting. With roll.max_at_11,
     while one roll picked stands at 11 the other is doubled at max risk (no die can
-    bust it then), or rolled again once it can't be doubled.
+    bust it then), or rolled again once it can't be doubled. With buff.hold_aoe on, a
+    roll is held for the group like an area buff spell, within the roll's own area.
 ]]--
 
 local buff = require('behaviors.buff')
@@ -50,7 +51,7 @@ function cor.rolled(id, total, message, now, die)
 end
 
 function cor.last() return last end
-function cor.totals() return util.shallow(totals) end
+function cor.totals() return util.shallow_copy(totals) end
 -- The roll `id` is seen down: its total goes, but not one newer than WAIT,
 -- whose status may not show yet.
 function cor.forget(id, now)

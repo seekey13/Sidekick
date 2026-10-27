@@ -3,11 +3,12 @@
     castable only while set: the server sends the set in its job packet (0x044,
     core/packets.lua) on login, zoning, a job change and a set change, and the
     catalog takes only the set ones (core/catalog.lua); until a packet has said,
-    none. The Unbridled spells (knowledge's `unbridled`) are never set: they go
-    through Unbridled Learning, which the engine fires first, as Enlightenment for
-    an Addendum spell. Diffusion is a modifier: fired before a blue magic buff that
-    goes on you alone, it spreads it to your party near you, as SCH's Accession
-    does (behaviors/buff.lua), but only while someone but you lacks it.
+    none, as one cast while not set is refused over and over. The Unbridled spells
+    (knowledge's `unbridled`) are never set: they go through Unbridled Learning,
+    which the engine fires first, as Enlightenment for an Addendum spell. Diffusion
+    is a modifier: fired before a blue magic buff that goes on you alone, it spreads
+    it to your party near you, as SCH's Accession does (behaviors/buff.lua), but
+    only while someone but you lacks it.
 ]]--
 
 local blu = {}
@@ -35,6 +36,7 @@ function blu.version() return version end
 
 -- What Diffusion spreads: blue magic that goes on you alone (not one already
 -- an area spell, Diamondhide; the knowledge table's area 0 keeps Battery Charge in).
+-- v2's list (its D button), to check in game against the server's.
 function blu.diffuses(a)
     return a.kind == 'ma' and a.type == blu.MAGIC and a.targets == SELF and a.area == 0
 end

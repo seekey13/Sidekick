@@ -343,7 +343,7 @@ local function afk_command(w, g)
     if w == 'on' or w == 'off' then
         cfg.afk.on = w == 'on'
     elseif n then
-        cfg.afk.on, cfg.afk.minutes = true, math.min(math.max(math.floor(n), afk.MIN), afk.MAX)
+        cfg.afk.on, cfg.afk.minutes = true, util.clamp(math.floor(n), afk.MIN, afk.MAX)
     elseif w ~= '' then
         printf('/sk3 afk [on | off | minutes (%d to %d)]', afk.MIN, afk.MAX)
         return
@@ -488,8 +488,8 @@ local good
 -- That view while zoning: the HUD closed, your automation as it is now, held by the zone, and the other sessions
 -- as their files say.
 local function zoning_view()
-    local v = util.shallow(good)
-    v.ui, v.status = util.shallow(good.ui), util.shallow(good.status)
+    local v = util.shallow_copy(good)
+    v.ui, v.status = util.shallow_copy(good.ui), util.shallow_copy(good.status)
     v.ui.open = false
     v.status.running = status.running
     v.status.halted = status.running and 'zoning' or nil

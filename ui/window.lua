@@ -8,11 +8,12 @@
     Vekien, GPL-3.0-or-later).
 
     Three windows: the HUD (Sidekick3: the party's bars, with a label at whoever
-    this session's and each other session's next action is for; your card's run
-    button and cog, and those of another session's card), the widget (SK Widget,
-    `ui.widget`: a pill per character with its run button and cog, up with the HUD
-    closed too) and Sidekick Settings (a page per group of sections; another
-    session's too, drawn from the view it publishes, its changes sent to it).
+    this session's next action is for and one at whoever each other session's
+    latest went to; your card's run button and cog, and those of another session's
+    card), the widget (SK Widget, `ui.widget`: a pill per character with its run
+    button and cog, up with the HUD closed too) and Sidekick Settings (a page per
+    group of sections; another session's too, drawn from the view it publishes,
+    its changes sent to it).
 
     Ashita's binding: widget values are one-element tables ({ 'text' }), and Text
     takes a printf format (kit.esc doubles any '%'). Draw-list text and
@@ -127,8 +128,8 @@ local function tp_bar(dl, id, x, y, w, h, tp, alpha, chrome)
     local tw = (w - (TIERS - 1) * BAR_GAP) / TIERS
     for i = 1, TIERS do
         local f = util.clamp(t - (i - 1), 0, 1)
-        local tx = math.floor(x + (i - 1) * (tw + BAR_GAP) + 0.5)
-        track(dl, tx, y, math.floor(x + i * tw + (i - 1) * BAR_GAP + 0.5) - tx, h, f, P.tp,
+        local tx = util.round(x + (i - 1) * (tw + BAR_GAP))
+        track(dl, tx, y, util.round(x + i * tw + (i - 1) * BAR_GAP) - tx, h, f, P.tp,
             (f < 1 and 0.5 or 1) * alpha, chrome)
     end
 end
@@ -402,7 +403,7 @@ local function draw_widget(view)
     local dl = imgui.GetWindowDrawList()
     local x0, y0 = imgui.GetCursorScreenPos()
     local h = widget_size(view.ui)
-    local function px(k) return math.floor(h * k + 0.5) end
+    local function px(k) return util.round(h * k) end
     local pad, apart, gap = px(0.3), px(0.4), px(0.3)  -- round the pills, between them, between a pill's parts
     local edge, lead = px(0.15), px(0.45)              -- inside a pill: round its buttons, before its name
     local list, font = characters(view), kit.fonts.semi
@@ -1350,10 +1351,8 @@ local function settings_shell(label, open, index, body)
     local sw, sh = kit.screen()
     imgui.SetNextWindowPos({ sw / 2 + index * S(36), sh / 2 + index * S(36) }, ImGuiCond_FirstUseEver, { 0.5, 0.5 })
     imgui.SetNextWindowSize({ pw + m * 2, ph + m * 2 }, ImGuiCond_Always)
-    local vars = { { ImGuiStyleVar_WindowPadding, { 0, 0 } }, { ImGuiStyleVar_WindowBorderSize, 0 },
-                   { ImGuiStyleVar_ItemSpacing, { 0, 0 } }, { ImGuiStyleVar_ScrollbarSize, S(6) },
-                   { ImGuiStyleVar_ScrollbarRounding, S(3) } }
-    kit.push_style(SETTINGS_COLOURS, vars)
+    local vars = kit.push_style(SETTINGS_COLOURS, ImGuiStyleVar_WindowPadding, { 0, 0 }, ImGuiStyleVar_WindowBorderSize, 0,
+        ImGuiStyleVar_ItemSpacing, { 0, 0 }, ImGuiStyleVar_ScrollbarSize, S(6), ImGuiStyleVar_ScrollbarRounding, S(3))
     local ok, err = true, nil
     if imgui.Begin(label, open, SETTINGS_FLAGS) then
         local x, y = imgui.GetCursorScreenPos()
@@ -1373,11 +1372,11 @@ end
 
 -- The HUD or the widget: a window ImGui draws nothing of, `draw(view)` inside under pcall
 -- (Begin, the body, End); returns the error the body raised.
-local PANEL_VARS = { { ImGuiStyleVar_WindowPadding, { 0, 0 } }, { ImGuiStyleVar_WindowBorderSize, 0 } }
+local NO_COLOURS = {}
 local function panel(title, flags, draw, view)
-    kit.push_style({}, PANEL_VARS)
+    local vars = kit.push_style(NO_COLOURS, ImGuiStyleVar_WindowPadding, { 0, 0 }, ImGuiStyleVar_WindowBorderSize, 0)
     local shown = imgui.Begin(title, true, flags + (view.ui.locked and ImGuiWindowFlags_NoMove or 0))
-    kit.pop_style({}, PANEL_VARS)
+    kit.pop_style(NO_COLOURS, vars)
     local ok, err = true, nil
     if shown then ok, err = pcall(draw, view) end
     imgui.End()  -- ImGui keeps where it was dragged, in imgui.ini

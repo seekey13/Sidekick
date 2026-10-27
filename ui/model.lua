@@ -37,8 +37,9 @@ local DOOM = require('core.status').DOOM
 local model = {}
 
 -- Settings sections in order, each under its `header` (headers in the order their first section comes). 'profile',
--- 'track' and 'ui' have no switch; every other is switched by cfg[id].on, and one with roles has rows. A job's own
--- sections show only for a job that has what they keep up (model.build's `has`).
+-- 'track' and 'ui' have no switch; every other is switched by cfg[id].on, and one with roles has rows. Wake and the
+-- job sections (Rolls, Songs, Geomancy, Runes, Maneuvers) show only when there's something for them (model.build's
+-- `has`); a section with roles, only while it has rows.
 model.SECTIONS = {
     { id = 'profile', title = 'Profiles', header = 'Profiles', switch = false },
     { id = 'follow', title = 'Follow', header = 'Follow' },
@@ -118,7 +119,7 @@ end
 -- Whether the action this row would use can go now, and if not why.
 local function availability(acts, r, g)
     if acts[1].pick_one and not r.pick then return false, 'pick one' end
-    local sorted = util.shallow(acts)
+    local sorted = util.shallow_copy(acts)
     table.sort(sorted, util.by_level)
     local wait, reason
     for _, a in ipairs(sorted) do
@@ -689,7 +690,7 @@ end
 -- so a session still running older code isn't drawn from a view it can't read.
 model.VIEW = 6
 function model.published(view)
-    local out = util.shallow(view)
+    local out = util.shallow_copy(view)
     out.pointer, out.others, out.ui, out.remote, out.sessions = nil, nil, nil, nil, nil
     out.version = model.VIEW
     return out
@@ -749,7 +750,7 @@ local function settable(path, value)
     if type(want) ~= 'table' then return nil end
     if want.list then return util.contains(want.list, value) and value or nil end
     if type(value) ~= 'number' then return nil end
-    return math.min(math.max(math.floor(value), want[1]), want[2])
+    return util.clamp(math.floor(value), want[1], want[2])
 end
 
 local function fits(v, types)

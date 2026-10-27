@@ -3,7 +3,7 @@
     trusts, slots 0-5) has moved and you have been out of combat for
     cfg.afk.minutes. A pause, not a stop: automation stays running and nothing
     is saved. Only your own movement wakes it (a pull is no proof you're back),
-    and with Follow on the leader getting further than its distance, so
+    or, with Follow on, the leader getting further than its distance, so
     following goes on.
 
     Its memory (`st`) is the caller's: when you were last seen active, the
