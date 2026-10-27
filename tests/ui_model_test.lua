@@ -649,3 +649,100 @@ test('every other session is listed by name from its file, held only while runni
     eq(model.sessions(st), { { name = 'A', running = false, open = false },
                              { name = 'B', running = true, halted = 'mounted', open = true } })
 end)
+
+-- On a Japanese client ---------------------------------------------------------------------
+
+local lang = require('core.lang')
+local COR, SCH, NIN = 17, 20, 13
+local JA_NAMES = { job = NAMES.job, statuses = fake.res.statuses, spells = fake.res.spells, abilities = fake.res.abilities }
+
+-- A view built on a Japanese client, a font to draw it assumed; the UI's language put back after.
+local function japanese_view(cat, cfg, g, st)
+    cfg = cfg or settings.defaults()
+    cfg.ui.japanese = true
+    local drawable = lang.drawable
+    lang.drawable = true
+    local ok, v = pcall(model.build, g or fake.snap({ { name = 'A' }, { name = 'B' } }), cat, cfg, st or status(), JA_NAMES)
+    lang.drawable = drawable
+    lang.use(false)
+    if not ok then error(v, 0) end
+    return v
+end
+
+test('in Japanese a row is named from the DAT, its choices and readiness in Japanese; keys and picks stay English', function ()
+    local v = japanese_view(whm)
+    local cure = row(v, 'heal', 'Cure')
+    eq({ cure.key, cure.label, cure.avail, cure.action }, { 'Cure', 'ケアル', '使用可', 'ケアルV' })
+    local protect = row(v, 'buff', 'Protect')
+    eq(keys(protect.choices, 'label'), { '自動（最上位）', 'プロテス', 'プロテスII', 'プロテスIII', 'プロテスIV' })
+    eq({ protect.choices[2].name, protect.choice }, { 'Protect', '自動（最上位）' })
+    local bar = row(v, 'buff', 'barelement')
+    eq({ bar.label, bar.choice, bar.avail }, { 'バ系（属性）', '選択してください', '要選択' })
+    eq(row(v, 'buff', 'Regen (keep up)').label, 'リジェネ（維持）')
+    eq(v.job, '白75/黒37')
+end)
+
+test('in Japanese why a row can\'t go is Japanese: a recast, MP, a pick the job lost', function ()
+    local waits = { ['Cure'] = 20, ['Cure II'] = 9.2, ['Cure III'] = 30, ['Cure IV'] = 30, ['Cure V'] = 30 }
+    eq(row(japanese_view(whm, nil, fake.snap({}, nil, waits)), 'heal', 'Cure').avail, 'リキャスト 10秒')
+    local g = fake.snap({})
+    g.me.mp = 0
+    eq(row(japanese_view(whm, nil, g), 'heal', 'Cure').avail, 'MP不足')
+    local cfg = settings.defaults()
+    cfg.rows.Protect = { on = true, pick = 'Protect V' }
+    local r = row(japanese_view(whm, cfg), 'buff', 'Protect')
+    eq({ r.choice, r.avail, r.pick }, { 'プロテスV（使用不可）', '使用不可', 'Protect V' })
+end)
+
+test('in Japanese a debuff is its status\'s Japanese name, switched by its English one', function ()
+    local para = row(japanese_view(whm), 'remove', 'paralysis')
+    eq({ para.key, para.label }, { 'paralysis', '麻痺' })
+    eq(para.action:sub(1, #'パラナ、エスナ、'), 'パラナ、エスナ、')
+    eq(row(japanese_view(whm), 'remove', 'poison').label, '毒')  -- the status, not the spell Poison (ポイズン)
+end)
+
+test('in Japanese the status line, the log and the HUD\'s label name the action, its target and why', function ()
+    local kupipi = fake.sjis('クピピ')  -- a trust's name, as a Japanese client gives it
+    local e = { at = 990, action = 'Cure IV', jp = fake.res.spells[4].jp, target = kupipi, behavior = 'heal',
+                why = 'efficient: ' .. kupipi .. ' 62%' }
+    local v = japanese_view(whm, nil, nil, status({ intent = e }))
+    eq({ v.status.state, v.status.text }, { 'Stopped', '予定: ケアルIV → クピピ（回復: 効率: クピピ 62%）' })
+    eq(v.pointer.text, '回復:ケアルIV → クピピ')  -- no card of theirs here: named
+    v = japanese_view(whm, nil, nil, status({ running = true, why = 'casting', sent = { e } }))
+    eq({ v.status.state, v.status.dim }, { 'Running', '詠唱中' })
+    eq(v.recent, { { age = 10, text = 'ケアルIV → クピピ', why = '回復: 効率: クピピ 62%' } })
+    local rest = { at = 995, action = 'Rest', behavior = 'rest', why = 'MP 40%' }  -- resting's: words, not names
+    eq(japanese_view(whm, nil, nil, status({ running = true, sent = { rest } })).recent[1].text, 'ヒーリング')
+end)
+
+test('in Japanese party lines list statuses by their Japanese names; flags stay words a UI compares', function ()
+    local g = fake.snap({ { name = 'A', buffs = { [40] = true, [33] = true } } }, { safe = true })
+    local v = japanese_view(whm, nil, g)
+    eq({ v.party[2].name, v.party[2].buffs, v.flags }, { 'A', 'プロテス、ヘイスト', { 'safe zone' } })
+end)
+
+test('in Japanese a job\'s pickers are labelled from the DAT: songs, rolls, stratagem chips', function ()
+    local brd = japanese_view(fake.catalog(BRD, 75, WHM, 37, { 'Pianissimo' }))
+    local valor
+    for _, c in ipairs(brd.song.choices) do if c.name == 'Valor Minuet IV' then valor = c.label end end
+    eq({ valor, brd.song.sets[1].label, brd.song.sets[2].label, brd.song.avail }, { '猛者のメヌエットIV（攻撃力+）', '範囲', 'ME', '使用可' })
+    local cor = japanese_view(fake.catalog(COR, 75, NIN, 37, { 'Corsair\'s Roll', 'Chaos Roll', 'Phantom Roll' }))
+    eq(keys(cor.roll.choices, 'label'), { 'カオスロール（攻撃力+）', 'コルセアズロール（経験値+）' })
+    eq(keys(cor.roll.choices, 'name'), { 'Chaos Roll', 'Corsair\'s Roll' })
+    local sch = japanese_view(fake.catalog(SCH, 75, WHM, 37, { 'Light Arts', 'Penury', 'Celerity', 'Accession' }))
+    eq(keys(row(sch, 'buff', 'Protect').mods, 'label'), { '簡素', '電光', '女神' })
+    eq(keys(row(sch, 'buff', 'Protect').mods, 'name'), { 'Penury', 'Celerity', 'Accession' })
+    eq(row(sch, 'buff', 'Protect').mods[1].note, '消費MP半減')
+end)
+
+test('in Japanese no word the view asks for is missing from core/ja.lua', function ()
+    lang.misses = {}
+    for _, cat in ipairs({ whm, fake.catalog(BRD, 75, WHM, 37, { 'Pianissimo', 'Nightingale' }),
+                           fake.catalog(SCH, 75, WHM, 37, { 'Light Arts', 'Dark Arts', 'Penury', 'Accession', 'Sublimation' }),
+                           fake.catalog(COR, 75, NIN, 37, { 'Corsair\'s Roll', 'Phantom Roll', 'Double-Up', 'Fold' }) }) do
+        japanese_view(cat, nil, fake.snap({ { name = 'A' }, { name = 'B', kind = 'trust' } }, { combat = true, safe = true }),
+            status({ running = true, why = 'nothing to do', sent = { { at = 999, action = 'Haste', target = 'A', behavior = 'buff',
+                                                                         why = 'A lacks it' } } }))
+    end
+    eq(lang.misses, {})
+end)

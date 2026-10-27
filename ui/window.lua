@@ -18,10 +18,16 @@
     Ashita's binding: widget values are one-element tables ({ 'text' }), and Text
     takes a printf format (kit.esc doubles any '%'). Draw-list text and
     kit.tooltip's are drawn as is.
+
+    Its words are English, or Japanese on a Japanese client (core/lang.lua: t and
+    f); ids stay English, so a control keeps its state when the language changes.
+    Names the game gives (a trust's, your pet's, the mob's) are Shift-JIS on a
+    Japanese client: drawn through lang.text, kept as they are for `act`.
 ]]--
 
 local imgui = require('imgui')
 local kit = require('ui.kit')
+local lang = require('core.lang')
 local LIMITS = require('ui.model').REMOTE_SET  -- each setting's range, as a session takes it from another
 local util = require('core.util')
 
@@ -29,6 +35,7 @@ local window = {}
 
 local P, S = kit.P, kit.S
 local BODY, SMALL = kit.BODY, kit.SMALL
+local t, f, game_text = lang.t, lang.f, lang.text
 
 -- { label, key, min, max, help, unit } for view.ui: sizes in pixels.
 local UI_SLIDERS = {
@@ -72,42 +79,47 @@ local HUD_FLAGS = ImGuiWindowFlags_NoTitleBar + ImGuiWindowFlags_NoResize + ImGu
 -- The title's tooltip: the job, what automation is doing, and what may hold it up.
 local function status_tip(view)
     local s = view.status
-    local lines = { view.job, ('%s: %s'):format(s.state, s.text) }
-    if view.profiles.active then lines[1] = ('%s  (profile %s)'):format(view.job, view.profiles.active) end
+    local lines = { view.job, ('%s: %s'):format(t(s.state), s.text) }
+    if view.profiles.active then lines[1] = f('%s  (profile %s)', view.job, view.profiles.active) end
     if s.dim then lines[#lines + 1] = ('(%s)'):format(s.dim) end
-    if #view.flags > 0 then lines[#lines + 1] = '[' .. table.concat(view.flags, '] [') .. ']' end
+    if #view.flags > 0 then
+        local flags = {}
+        for i, flag in ipairs(view.flags) do flags[i] = t(flag) end
+        lines[#lines + 1] = '[' .. table.concat(flags, '] [') .. ']'
+    end
     for _, e in ipairs({ { 'Target', view.bt }, { 'Pet', view.pet } }) do
-        if e[2] then lines[#lines + 1] = ('%s: %s  %d%%  %s'):format(e[1], e[2].name, e[2].hpp, e[2].dist) end
+        if e[2] then lines[#lines + 1] = ('%s: %s  %d%%  %s'):format(t(e[1]), game_text(e[2].name), e[2].hpp, e[2].dist) end
     end
     return table.concat(lines, '\n')
 end
 
 local function member_tip(p)
     local notes = {}
-    if p.kind == 'trust' or p.kind == 'tracked' or p.kind == 'alliance' then notes[#notes + 1] = p.kind end
+    if p.kind == 'trust' or p.kind == 'tracked' or p.kind == 'alliance' then notes[#notes + 1] = t(p.kind) end
     if p.job then notes[#notes + 1] = p.job end
-    if not (p.alive or p.away) then notes[#notes + 1] = 'KO' end
-    if p.away then notes[#notes + 1] = 'away' end
+    if not (p.alive or p.away) then notes[#notes + 1] = t('KO') end
+    if p.away then notes[#notes + 1] = t('away') end
     local line = ('HP %d%%'):format(p.hpp) .. (p.uses_mp and ('  MP %d%%'):format(p.mpp) or '')
         .. (p.kind ~= 'tracked' and ('  TP %d'):format(p.tp) or '')  -- a tracked player's can't be read
     if p.dist ~= '' and not p.away then line = line .. '  ' .. p.dist end
-    local lines = { #notes > 0 and ('%s (%s)'):format(p.name, table.concat(notes, ', ')) or p.name, line }
+    local name = game_text(p.name)
+    local lines = { #notes > 0 and ('%s (%s)'):format(name, lang.list(notes)) or name, line }
     if p.buffs_all ~= '' then lines[#lines + 1] = p.buffs_all end
     return table.concat(lines, '\n')
 end
 
 local function pet_tip(pet)
-    return ('%s (pet)\nHP %d%%  MP %d%%  TP %d  %s'):format(pet.name, pet.hpp, pet.mpp, pet.tp, pet.dist)
+    return f('%s (pet)\nHP %d%%  MP %d%%  TP %d  %s', game_text(pet.name), pet.hpp, pet.mpp, pet.tp, pet.dist)
 end
 
--- A track at (x, y), w by h, `f` (0 to 1) of it filled in `color`. The whole bar has a
+-- A track at (x, y), w by h, `filled` (0 to 1) of it in `color`. The whole bar has a
 -- background at 70% that does not fade with the panel: gray while the pointer is over
 -- it (`chrome` 1), near-black while not. A 1px stroke in that same near-black, at 70%, sits on the edge.
 -- The fill is at 70% too.
-local function track(dl, x, y, w, h, f, color, alpha, chrome)
+local function track(dl, x, y, w, h, filled, color, alpha, chrome)
     local r = math.min(ROUND, math.floor(h / 2))
     kit.fill(dl, x, y, w, h, kit.mix(BAR_OFF, P.track, chrome), r, BAR_TRACK_A)
-    local fw = util.clamp(util.round(w * f), 0, w)
+    local fw = util.clamp(util.round(w * filled), 0, w)
     if fw > 0 then
         kit.fill(dl, x, y, fw, h, color, math.min(r, fw / 2), alpha * BAR_FILL, fw < w and kit.LEFT_CORNERS or nil)
     end
@@ -124,13 +136,13 @@ local TIER, TIERS = 1000, 3  -- TP: a weapon skill's worth, and how many stand
 -- The TP bar: a track per 1000 TP side by side, each filling once the one before is full (eased, by `id`); the one
 -- still filling is drawn faint, as Floaties draws it.
 local function tp_bar(dl, id, x, y, w, h, tp, alpha, chrome)
-    local t = kit.ease(id, util.clamp(tp, 0, TIER * TIERS) / TIER, 12)  -- in tiers
+    local tiers = kit.ease(id, util.clamp(tp, 0, TIER * TIERS) / TIER, 12)
     local tw = (w - (TIERS - 1) * BAR_GAP) / TIERS
     for i = 1, TIERS do
-        local f = util.clamp(t - (i - 1), 0, 1)
+        local filled = util.clamp(tiers - (i - 1), 0, 1)
         local tx = util.round(x + (i - 1) * (tw + BAR_GAP))
-        track(dl, tx, y, util.round(x + i * tw + (i - 1) * BAR_GAP) - tx, h, f, P.tp,
-            (f < 1 and 0.5 or 1) * alpha, chrome)
+        track(dl, tx, y, util.round(x + i * tw + (i - 1) * BAR_GAP) - tx, h, filled, P.tp,
+            (filled < 1 and 0.5 or 1) * alpha, chrome)
     end
 end
 
@@ -153,12 +165,12 @@ local function act_of(c) return c.remote and act.remote(c.name) or act end
 -- { name, running, shown (its Sidekick Settings), remote (nil for yours) }. `lit`: the run button is lit while it
 -- runs; `tip`: your own cog's tooltip. Returns whether either is hovered.
 local function run_and_cog(c, ids, x, y, s, gap, lit, tip)
-    local whose = c.remote and (c.name .. '\'s ') or ''
-    local run, over_run = disc_button(ids[1], x, y, s, c.running and 'stop' or 'play', lit and c.running,
-        (c.running and 'Stop ' or 'Start ') .. whose .. 'automation')
+    local help = c.remote and f(c.running and 'Stop %s\'s automation' or 'Start %s\'s automation', c.name)
+        or t(c.running and 'Stop automation' or 'Start automation')
+    local run, over_run = disc_button(ids[1], x, y, s, c.running and 'stop' or 'play', lit and c.running, help)
     if run then act_of(c).run(not c.running) end
     local cog, over_cog = disc_button(ids[2], x + s + gap, y, s, 'cog', c.shown,
-        c.remote and ('Settings for ' .. c.name) or tip)
+        c.remote and f('Settings for %s', c.name) or t(tip))
     if cog and c.remote then act.watch(c.name, not c.shown)
     elseif cog then settings_open = not settings_open end
     return over_run or over_cog
@@ -182,7 +194,7 @@ local function title_row(dl, view, ts, x0, y0, pw, th, s, chrome)
     imgui.Dummy({ cx - s / 2 - x0, th })
     kit.tip(status_tip(view))
     local clicked = close_mark('##sk3_close', cx, cy, s, chrome)
-    kit.tip('Close (/sk3 opens it again)')
+    kit.tip(t('Close (/sk3 opens it again)'))
     if clicked then
         act.close()
         if not view.ui.widget then settings_open = false end  -- the widget's cogs keep them
@@ -222,9 +234,9 @@ local function card(dl, ui, p, x, y, id, chrome)
     bar(dl, 'hp.' .. id, fx, y, ui.hp_width, ui.hp_height, p.hpp, P.hp, fade, chrome)
     bar(dl, 'mp.' .. id, fx, mp_top, ui.mp_width, ui.mp_height, p.mpp, P.mp, fade, chrome)
     tp_bar(dl, 'tp.' .. id, fx, mp_top + ui.mp_height + BAR_GAP, ui.tp_width, ui.tp_height, p.tp, fade, chrome)
-    local font = kit.fonts.semi
-    local _, nh = kit.measure(p.name, font, ui.name_size)
-    kit.halo(dl, fx + 6, y + ui.hp_height - nh, p.name, name_color(p), font, ui.name_size)
+    local font, name = kit.fonts.semi, game_text(p.name)
+    local _, nh = kit.measure(name, font, ui.name_size)
+    kit.halo(dl, fx + 6, y + ui.hp_height - nh, name, name_color(p), font, ui.name_size)
     local _, th = kit.measure(p.tag, font, ui.text_size)
     kit.halo(dl, fx + 6, mp_top + (ui.mp_height - th) / 2, p.tag,
         p.away and P.dim or p.mp == 'low' and P.rose or P.text2, font, ui.text_size)
@@ -235,7 +247,7 @@ end
 local function ally_row(dl, ui, p, x, top, chrome)
     local fx = x + HUD_PAD
     bar(dl, 'ally.' .. p.name, fx, top, ui.hp_width, ui.mp_height, p.hpp, P.hp, p.away and 0.45 or 1, chrome)
-    local label = p.tag .. ' ' .. p.name
+    local label = p.tag .. ' ' .. game_text(p.name)
     local _, h = kit.measure(label, kit.fonts.semi, ui.text_size)
     kit.halo(dl, fx + 6, top + (ui.mp_height - h) / 2, label, name_color(p), kit.fonts.semi, ui.text_size)
 end
@@ -372,7 +384,7 @@ end
 -- (nil while unknown), remote (nil for yours) }.
 local function characters(view)
     local me = view.party[1]
-    local out = { { name = me and me.name or 'You', running = view.status.running, halted = view.status.halted,
+    local out = { { name = me and me.name or t('You'), running = view.status.running, halted = view.status.halted,
                     shown = settings_open, profiles = view.profiles } }
     for _, r in ipairs(view.sessions or {}) do
         out[#out + 1] = { name = r.name, running = r.running, halted = r.halted, shown = r.open, profiles = r.profiles,
@@ -385,7 +397,7 @@ end
 local function profile_menu(c, id, px)
     kit.popup(id, px, function ()
         local p = c.profiles
-        if imgui.Selectable('Default' .. id .. '_default', p.active == nil) then act_of(c).profile(nil) end
+        if imgui.Selectable(t('Default') .. id .. '_default', p.active == nil) then act_of(c).profile(nil) end
         for i, name in ipairs(p.names or {}) do  -- over a blank row, so a name with '##' in it shows whole
             local sx = imgui.GetCursorPosX()
             if imgui.Selectable(id .. '_' .. i, name == p.active) then act_of(c).profile(name) end
@@ -427,13 +439,13 @@ local function draw_widget(view)
         imgui.SetCursorScreenPos({ x, y0 + pad })
         imgui.Dummy({ lead + c.w, pill_h })  -- an item to hover, not a button: the widget still drags by its name
         local menu = id .. '_profiles'
-        local state = c.halted and ('Halted (%s)'):format(c.halted) or c.running and 'Running' or 'Stopped'
+        local state = c.halted and f('Halted (%s)', t(c.halted)) or t(c.running and 'Running' or 'Stopped')
         if imgui.IsItemHovered() then
             if not c.remote then  -- your status's tooltip names the profile already
-                kit.tooltip(status_tip(view) .. '\nRight-click to load a profile.')
+                kit.tooltip(status_tip(view) .. t('\nRight-click to load a profile.'))
             elseif c.profiles then
-                kit.tooltip(('%s: %s\nProfile: %s\nRight-click to load another.'):format(c.name, state,
-                    c.profiles.active or 'Default'))
+                kit.tooltip(f('%s: %s\nProfile: %s\nRight-click to load another.', c.name, state,
+                    c.profiles.active or t('Default')))
             else  -- its profiles never came (its file left them out)
                 kit.tooltip(('%s: %s'):format(c.name, state))
             end
@@ -464,33 +476,40 @@ local FOOT = { Profiles = true, ['UI / Log'] = true }  -- set apart at the foot 
 --[[ pg: where a page's rows go, from top to bottom: { dl, x, w, y (the next row's top), lx (where labels start),
      right (where controls end), alpha (0.55 under a section switched off) }. ]]--
 
--- A line `h` tall (ROW_H unless given): the band under the mouse, `label` at the left, `help` over the label's half.
+-- A line `h` tall (ROW_H unless given): the band under the mouse, `label` at the left (cut to `room` pixels when
+-- given: a control sits after it), `help` over the label's half, each as given (in the UI's language already).
 -- Returns its first line's middle.
-local function line(pg, label, help, h, color)
+local function line(pg, label, help, h, color, room)
     h = h or S(ROW_H)
     local y = pg.y
     pg.y = y + h
     if kit.over(pg.x + S(4), y, pg.w - S(8), h) then kit.fill(pg.dl, pg.x + S(4), y, pg.w - S(8), h, P.hover, S(3), 0.8) end
     local cy = y + math.min(h, S(ROW_H)) / 2
+    if label and room then label = kit.fit(label, room, kit.fonts.text, S(BODY)) end
     if label then kit.text_mid(pg.dl, pg.lx, cy, label, color or P.text, kit.fonts.text, S(BODY), pg.alpha) end
     if help and kit.over(pg.x, y, pg.w / 2, h) then kit.tooltip(help) end
     return cy
 end
 
--- A control's id from its label and the setting it sets: 'Rest after##sk3_rest_delay'.
+-- A control's id from its label (English, whatever the UI's language) and the setting it sets:
+-- 'Rest after##sk3_rest_delay'.
 local function id_of(label, path) return label .. '##sk3_' .. path:gsub('%.', '_') end
+
+-- The helpers from here to `choice` take their label, help and unit in English and show them in the UI's language.
 
 -- A slider for setting `path` (`value`), over its range in LIMITS unless `range` ({ min, max }) is given.
 local function slider(pg, label, path, value, help, unit, range)
-    local cy = line(pg, label, help)
+    local cy = line(pg, t(label), help and t(help), nil, nil, pg.right - S(SLIDER_W) - S(8) - pg.lx)
     local r = range or LIMITS[path]
-    local v, moved = kit.slider(id_of(label, path), pg.right - S(SLIDER_W), cy, S(SLIDER_W), value, r[1], r[2], true, pg.alpha, unit)
+    local v, moved = kit.slider(id_of(label, path), pg.right - S(SLIDER_W), cy, S(SLIDER_W), value, r[1], r[2], true, pg.alpha,
+        unit and t(unit))
     if moved then act.set(path, v) end
 end
 
 -- A switch: `set(on)` when flipped, else setting `path` (also its id).
 local function switch(pg, label, path, on, help, set)
-    local cy = line(pg, label, help)
+    help = help and t(help)
+    local cy = line(pg, t(label), help)
     local v, flipped = kit.switch(id_of(label, path), pg.right - S(kit.SW_W), cy, on, true, pg.alpha)
     kit.tip(help)
     if flipped then (set or function (x) act.set(path, x) end)(v) end
@@ -498,8 +517,8 @@ end
 
 -- A drop-down at the right of a labelled line; `body` lists its choices.
 local function pick(pg, label, id, shown, body, help, w)
-    local cy = line(pg, label, help)
     w = w or S(PICK_W)
+    local cy = line(pg, t(label), help and t(help), nil, nil, pg.right - w - S(8) - pg.lx)
     kit.dropdown(id, pg.right - w, cy, w, shown, true, pg.alpha, body)
 end
 
@@ -522,7 +541,7 @@ local function subheader(pg, s)
     pg.y = pg.y + S(8)
     local cy = pg.y + S(12)
     local font, px, spacing = kit.fonts.semi_italic, S(SMALL), math.max(1, S(1.2))
-    local title = string.upper(s)
+    local title = string.upper(t(s))
     local tw = kit.text_spaced(pg.dl, pg.lx, cy, title, P.teal, font, px, spacing, pg.alpha)
     local tx = pg.lx + tw + S(10)
     if pg.right > tx then kit.line(pg.dl, tx, cy, pg.right, cy, P.teal, 0.35 * pg.alpha) end
@@ -548,14 +567,15 @@ local function shown_pick(current, choices, field)
     for _, c in ipairs(choices) do
         if c.name == current then return c[field or 'label'] end
     end
-    return current ~= '' and current .. (choices.names and '' or ' (not available)') or 'None'
+    if current == '' then return t('None') end
+    return choices.names and choices.label(current) or f('%s (not available)', lang.name(current))
 end
 
 -- A drop-down's list for setting `path`: None (''), then each of `choices` ({ name, label }) by its
 -- `field` (label), `current` ticked, each with the tooltip `tip(choice)` gives; `id` keeps their ids apart.
 local function options(id, path, current, choices, field, tip)
     return function ()
-        if imgui.Selectable('None##' .. id .. '_none', current == '') then act.set(path, '') end
+        if imgui.Selectable(t('None') .. '##' .. id .. '_none', current == '') then act.set(path, '') end
         for _, c in ipairs(choices) do
             if imgui.Selectable(c[field or 'label'] .. '##' .. id .. '_' .. c.name, c.name == current) then act.set(path, c.name) end
             if tip then kit.tip(tip(c)) end
@@ -563,10 +583,12 @@ local function options(id, path, current, choices, field, tip)
     end
 end
 
--- Names as choices.
-local function named(names)
-    local out = { names = true }
-    for i, n in ipairs(names) do out[i] = { name = n, label = n } end
+-- Names as choices, each shown by `label(name)`: the game's text (a member's name) unless given (a spell's,
+-- lang.name).
+local function named(names, label)
+    label = label or game_text
+    local out = { names = true, label = label }
+    for i, n in ipairs(names) do out[i] = { name = n, label = label(n) } end
     return out
 end
 
@@ -595,17 +617,20 @@ local HEAL_TIP = 'Untick to never heal them for their own sake; an area heal may
 -- other parties starts a line.
 local function heal_members(pg, h)
     if #h.members == 0 then return end
-    local items = {}
-    for i, m in ipairs(h.members) do items[i] = { w = kit.chip_width(m.name), wrap = m.wrap } end
+    local items, tip = {}, t(HEAL_TIP)
+    for i, m in ipairs(h.members) do
+        local name = game_text(m.name)
+        items[i] = { w = kit.chip_width(name), wrap = m.wrap, name = name }
+    end
     local lines = flow(items, pg.lx + S(LABEL_W), pg.right, S(4))
-    local cy = line(pg, 'Heal', HEAL_TIP, S(ROW_H) + (lines - 1) * S(CHIP_LINE))
+    local cy = line(pg, t('Heal'), tip, S(ROW_H) + (lines - 1) * S(CHIP_LINE))
     for i, m in ipairs(h.members) do
         local it = items[i]
-        if kit.chip(m.name .. '##sk3_heal_' .. m.name, it.x, cy + (it.line - 1) * S(CHIP_LINE), it.w, m.name,
+        if kit.chip(m.name .. '##sk3_heal_' .. m.name, it.x, cy + (it.line - 1) * S(CHIP_LINE), it.w, it.name,
                 m.healed and 'on' or 'off', true, pg.alpha) then
             act.skip(m.name, m.healed)
         end
-        kit.tip(HEAL_TIP)
+        kit.tip(tip)
     end
 end
 
@@ -613,13 +638,13 @@ local function draw_heal_settings(view, pg)
     local h = view.heal
     for _, l in ipairs(HEAL_LINES) do slider(pg, l[1], 'heal.' .. l[2], h[l[2]], l[3], '%') end
     -- A heal line at or under its danger line leaves nothing between them: only danger heals go.
-    if h.threshold <= h.danger then note(pg, 'Heal under is at or under Danger under: no efficient heals, only danger ones.', P.amber) end
+    if h.threshold <= h.danger then note(pg, t('Heal under is at or under Danger under: no efficient heals, only danger ones.'), P.amber) end
     choice(pg, 'Focus', 'focus', 'heal.focus', h.focus, named(h.focus_names), 'Heal this member first, on its own lines.')
     for _, l in ipairs(HEAL_LINES) do
         slider(pg, 'Focus ' .. l[1]:lower(), 'heal.focus_' .. l[2], h['focus_' .. l[2]], 'For the focus member: ' .. l[3], '%')
     end
     if h.focus_threshold <= h.focus_danger then
-        note(pg, 'Focus heal under is at or under Focus danger under: the focus member gets danger heals only.', P.amber)
+        note(pg, t('Focus heal under is at or under Focus danger under: the focus member gets danger heals only.'), P.amber)
     end
     slider(pg, 'Cure potency +', 'heal.cure_potency', h.cure_potency, 'Cure potency % from gear, until a cure has been seen healing.', '%')
     slider(pg, 'Waltz potency +', 'heal.waltz_potency', h.waltz_potency, 'Waltz potency % from gear, until a waltz has been seen healing.', '%')
@@ -648,9 +673,9 @@ local function draw_pet_settings(view, pg)
 end
 
 local function draw_follow(view, pg)
-    local f = view.follow
-    choice(pg, 'Leader', 'follow_target', 'follow.target', f.target, named(f.names), 'Who to follow; resting stands up when they leave too.')
-    slider(pg, 'Follow past', 'follow.distance', f.distance, 'Yalms.', 'y')
+    local fo = view.follow
+    choice(pg, 'Leader', 'follow_target', 'follow.target', fo.target, named(fo.names), 'Who to follow; resting stands up when they leave too.')
+    slider(pg, 'Follow past', 'follow.distance', fo.distance, 'Yalms.', 'y')
 end
 
 local function draw_rest(view, pg)
@@ -662,8 +687,8 @@ end
 local function draw_afk(view, pg)
     local a = view.afk
     slider(pg, 'Sleep after', 'afk.minutes', a.minutes, 'Minutes with no one in your party moving and no combat.', 'm')
-    if a.asleep then note(pg, 'Asleep: move to wake.')
-    elseif a.left then note(pg, ('Sleeps in %d min without movement or combat.'):format(math.ceil(a.left / 60))) end
+    if a.asleep then note(pg, t('Asleep: move to wake.'))
+    elseif a.left then note(pg, f('Sleeps in %d min without movement or combat.', math.ceil(a.left / 60))) end
 end
 
 local function draw_buff_settings(view, pg)
@@ -692,40 +717,41 @@ local RISKS = {
 local RISK_HELP = 'How far Double-Up chases a total. Every risk doubles at 5 or under (Lowest and Medium bank a lucky '
     .. 'there), never at 11, and turns 10 into 11 with Snake Eye. Fold clears a Bust whenever it is ready.'
 
-local function lucky(c) return ('Lucky %d, unlucky %d.'):format(c.lucky, c.unlucky) end
+local function lucky(c) return f('Lucky %d, unlucky %d.', c.lucky, c.unlucky) end
 
 local function draw_rolls(view, pg)
     local r = view.roll
     choice(pg, 'Roll 1', 'roll_first', 'roll.first', r.first, r.choices, nil, S(ROLL_W), lucky)
     if r.two then
         choice(pg, 'Roll 2', 'roll_second', 'roll.second', r.second, r.choices, nil, S(ROLL_W), lucky)
-        if r.second ~= '' and r.second == r.first then note(pg, 'Roll 2 is Roll 1: one roll kept up') end
+        if r.second ~= '' and r.second == r.first then note(pg, t('Roll 2 is Roll 1: one roll kept up')) end
     else
-        note(pg, 'Roll 2: Corsair main job only')
+        note(pg, t('Roll 2: Corsair main job only'))
     end
     local labels, ids, index = {}, {}, 0
     for i, risk in ipairs(r.risks) do
-        labels[i] = util.capitalize(risk)
-        ids[i] = labels[i] .. '##sk3_roll_risk_' .. risk
+        local word = util.capitalize(risk)
+        labels[i] = t(word)
+        ids[i] = word .. '##sk3_roll_risk_' .. risk
         if risk == r.risk then index = i end
     end
-    local cy = line(pg, 'Risk', RISK_HELP)
+    local cy = line(pg, t('Risk'), t(RISK_HELP))
     local px = S(BODY - 1)
     local picked, moved, over = kit.segments(ids, pg.right - kit.segments_width(labels, px), cy, labels, index, true, pg.alpha, px)
-    if over then kit.tooltip(RISKS[r.risks[over]]) end
+    if over then kit.tooltip(t(RISKS[r.risks[over]])) end
     if moved then act.set('roll.risk', r.risks[picked]) end
     if r.two then
         switch(pg, 'Max risk while an 11 is up', 'roll.max_at_11', r.max_at_11,
             'While one roll stands at 11, a Bust can\'t happen, so the other is doubled until it is 11 too (rolled again '
                 .. 'when it can no longer be doubled). '
                 .. 'Once no roll at 11 is up, the risk picked is back.')
-        if r.eleven then note(pg, ('Risk at max: %s is at 11'):format(r.eleven), P.teal) end
+        if r.eleven then note(pg, f('Risk at max: %s is at 11', lang.name(r.eleven)), P.teal) end
     end
     local l = r.last
     if l then
         local word = l.bust and ' (Bust)' or l.total == l.lucky and ' (lucky)' or l.total == 11 and ' (11)'
-            or l.total == l.unlucky and ' (unlucky)' or ''
-        note(pg, ('Last: %s %d%s'):format(l.name, l.total, word), l.bust and P.rose or P.text2)
+            or l.total == l.unlucky and ' (unlucky)' or nil
+        note(pg, f('Last: %s %d%s', lang.name(l.name), l.total, word and t(word) or ''), l.bust and P.rose or P.text2)
     end
 end
 
@@ -746,14 +772,15 @@ local function draw_songs(view, pg)
         for i = 1, m.slots do picked = picked or set.picks[i] ~= '' end
         if set.key == 'area' or set.present or picked then
             local dim = set.key ~= 'area' and not (set.present and m.pianissimo)
-            local name = set.key ~= 'area' and (set.name or 'no one') or nil
+            local name = set.key ~= 'area' and (set.name and game_text(set.name) or t('no one')) or nil
             local items = {}
             for i = 1, m.slots do items[i] = { w = box, i = i } end
             local lines = flow(items, pg.lx + col, pg.right, gap)
             -- A name shares the label line, so the picks start on the next one.
             local h = S(ROW_H) + (lines - (name and 0 or 1)) * S(CHIP_LINE)
-            local cy = line(pg, set.label, SONG_HELP[set.key] or ('Sung on %s alone, through Pianissimo, whenever they lack one.')
-                :format(set.name or 'whoever is in this party slot'), h, dim and P.dim or P.text)
+            local help = SONG_HELP[set.key] and t(SONG_HELP[set.key]) or f('Sung on %s alone, through Pianissimo, whenever they lack one.',
+                set.name and game_text(set.name) or t('whoever is in this party slot'))
+            local cy = line(pg, set.label, help, h, dim and P.dim or P.text)
             for _, it in ipairs(items) do
                 local icy = cy + (it.line - (name and 0 or 1)) * S(CHIP_LINE)
                 slot_pick(('sk3_song_%s_%d'):format(set.key, it.i), ('song.%s_%d'):format(set.key, it.i), set.picks[it.i],
@@ -768,11 +795,11 @@ local function draw_songs(view, pg)
     end
     local y = pg.y
     if m.pianissimo then
-        note(pg, 'Pianissimo: ' .. m.avail, m.ready and P.teal or P.dim)
+        note(pg, f('Pianissimo: %s', m.avail), m.ready and P.teal or P.dim)
     else
-        note(pg, 'Songs on one member need Pianissimo (Bard 20)', P.dim)
+        note(pg, t('Songs on one member need Pianissimo (Bard 20)'), P.dim)
     end
-    if kit.over(pg.x, y, pg.w, pg.y - y) then kit.tooltip(SONGS_TIP) end
+    if kit.over(pg.x, y, pg.w, pg.y - y) then kit.tooltip(t(SONGS_TIP)) end
     if m.pianissimo then
         switch(pg, 'Pianissimo fast casting', 'song.fast', m.fast,
             'Fire Pianissimo before an area song too, for its shorter cast, and cancel it a second into the cast '
@@ -796,7 +823,7 @@ local function draw_geo(view, pg)
         'Seconds a debuff luopan waits once combat is over before Full Circle recalls it: a new battle target in that time keeps it.', 's')
     choice(pg, 'Entrust to', 'geo_entrust', 'geo.entrust', g.entrust, named(g.names),
         'With Entrust on, put the Indi- spell picked on this member (within 20 yalms).')
-    choice(pg, 'Entrust spell', 'geo_entrust_spell', 'geo.entrust_spell', g.entrust_spell, named(g.indi),
+    choice(pg, 'Entrust spell', 'geo_entrust_spell', 'geo.entrust_spell', g.entrust_spell, named(g.indi, lang.name),
         'The Indi- spell Entrust puts on that member whenever they lack its aura.')
 end
 
@@ -805,7 +832,7 @@ local SHOWS = { element = 'Each rune by the element it adds to your attacks.',
                 resist = 'Each rune by the element it resists.', ailments = 'Each rune by the ailments it defends against.' }
 
 local function rune_tip(r)
-    return ('%s: adds %s, resists %s, against %s.'):format(r.name, r.element, r.resist, r.ailments)
+    return f('%s: adds %s, resists %s, against %s.', r.label or r.name, r.element, r.resist, r.ailments)
 end
 
 -- A rune for slot `i` of `set`, or None ('').
@@ -813,7 +840,7 @@ local function rune_pick(set, i, runes, x, cy, w, alpha)
     local current = set.picks[i]
     if slot_pick(('sk3_rune_%s_%d'):format(set.key, i), ('rune.%s_%d'):format(set.key, i), current, runes, x, cy, w, alpha,
             set.shows, rune_tip) then
-        kit.tooltip(shown_pick(current, runes, set.shows) .. '\n' .. SHOWS[set.shows])
+        kit.tooltip(shown_pick(current, runes, set.shows) .. '\n' .. t(SHOWS[set.shows]))
     end
 end
 
@@ -826,8 +853,8 @@ local function draw_runes(view, pg)
         local items = {}
         for i = 1, r.slots do items[i] = { w = box, i = i } end
         local lines = flow(items, pg.lx, pg.right, gap)
-        local help = set.ward and ('Once %s is ready, its runes take the slots, then it fires in combat.'):format(set.ward)
-            or 'The runes kept up the rest of the time.'
+        local help = set.ward and f('Once %s is ready, its runes take the slots, then it fires in combat.', set.label)
+            or t('The runes kept up the rest of the time.')
         local cy = line(pg, set.ward and nil or set.label, help, S(ROW_H) + lines * S(CHIP_LINE))
         if set.ward then
             local on, flipped = kit.switch(set.label .. '##sk3_rune_' .. set.key, pg.lx, cy, set.on, true, pg.alpha)
@@ -857,7 +884,7 @@ local function draw_maneuvers(view, pg)
         local i = it.i
         if slot_pick('sk3_maneuver_' .. i, 'maneuver.slot_' .. i, m.picks[i], m.choices, it.x, cy + (it.line - 1) * S(CHIP_LINE),
                 box, pg.alpha) then
-            kit.tooltip('The same element in two slots keeps two up.')
+            kit.tooltip(t('The same element in two slots keeps two up.'))
         end
     end
     readiness(pg, pg.right, cy + (extra == 0 and last.line - 1 or lines) * S(CHIP_LINE), m.avail, m.ready)
@@ -871,29 +898,30 @@ local function draw_track(view, pg)
         for _, p in ipairs(list) do
             if p.tracked then
                 local cy = line(pg, nil, nil)
-                local bw = kit.button_width('Untrack')
-                if kit.button('Untrack##sk3_untrack_' .. p.name, pg.right - bw, cy, 'Untrack', 'ghost', true, pg.alpha) then
+                local untrack = t('Untrack')
+                local bw = kit.button_width(untrack)
+                if kit.button('Untrack##sk3_untrack_' .. p.name, pg.right - bw, cy, untrack, 'ghost', true, pg.alpha) then
                     act.untrack(p.name)
                 end
-                local s = ('%s %s'):format(p.tag, p.name) .. (JOINED[p.kind] or p.job and ('  ' .. p.job) or '')
-                if p.shared and not JOINED[p.kind] then s = s .. '  (from ' .. p.shared .. ')' end
+                local s = ('%s %s'):format(p.tag, game_text(p.name)) .. (JOINED[p.kind] and t(JOINED[p.kind]) or p.job and ('  ' .. p.job) or '')
+                if p.shared and not JOINED[p.kind] then s = s .. f('  (from %s)', p.shared) end
                 local room = pg.right - bw - S(12) - pg.lx
                 kit.text_mid(pg.dl, pg.lx, cy, kit.fit(s, room, kit.fonts.text, px), p.away and P.dim or P.text, kit.fonts.text, px, pg.alpha)
-                local where = p.away and (p.kind == 'tracked' and 'Out of range.' or 'In another zone.') or nil
-                local from = p.shared and ('Tracked while %s\'s session lists them; Untrack keeps them off until tracked again.'):format(p.shared)
+                local where = p.away and t(p.kind == 'tracked' and 'Out of range.' or 'In another zone.') or nil
+                local from = p.shared and f('Tracked while %s\'s session lists them; Untrack keeps them off until tracked again.', p.shared)
                 local help = where and from and (where .. '\n' .. from) or where or from
                 if help and kit.over(pg.lx, cy - S(ROW_H) / 2, room, S(ROW_H)) then kit.tooltip(help) end
             end
         end
     end
-    local t = view.track.target
-    if t then
+    local who = view.track.target
+    if who then
         local cy = line(pg, nil, nil)
-        if kit.button(('Track %s##sk3_track'):format(t), pg.lx, cy, 'Track ' .. t, 'accent', true, pg.alpha) then act.track(t) end
-        kit.tip('Heal, clear, raise and buff them too, with what reaches outside the party. This session only.')
+        if kit.button(('Track %s##sk3_track'):format(who), pg.lx, cy, f('Track %s', who), 'accent', true, pg.alpha) then act.track(who) end
+        kit.tip(t('Heal, clear, raise and buff them too, with what reaches outside the party. This session only.'))
     else
-        note(pg, view.session and ('Target a player outside the alliance in %s\'s game to track them there.'):format(view.session)
-            or 'Target a player outside your alliance to track them, or /sk3 track Name.')
+        note(pg, view.session and f('Target a player outside the alliance in %s\'s game to track them there.', view.session)
+            or t('Target a player outside your alliance to track them, or /sk3 track Name.'))
     end
 end
 
@@ -904,10 +932,10 @@ local function profile_item(pg, id, name, on, help)
     pg.y = y + ih
     local hovered, clicked = kit.hit(id, x, y, w, ih)
     kit.tip(help)
-    local t = kit.ease(id, on and 1 or 0, 20)
-    if t > 0.01 then
-        kit.fill(pg.dl, x, y, w, ih, P.accent_bg, S(3), 0.9 * t)
-        kit.fill(pg.dl, x, y + S(5), S(2), ih - S(10), P.accent, S(1), t)
+    local lit = kit.ease(id, on and 1 or 0, 20)
+    if lit > 0.01 then
+        kit.fill(pg.dl, x, y, w, ih, P.accent_bg, S(3), 0.9 * lit)
+        kit.fill(pg.dl, x, y + S(5), S(2), ih - S(10), P.accent, S(1), lit)
     end
     if hovered and not on then kit.fill(pg.dl, x, y, w, ih, P.hover, S(3), 0.8) end
     kit.text_mid(pg.dl, pg.lx, y + ih / 2, name, on and P.white or P.text, kit.fonts.text, S(BODY))
@@ -923,9 +951,9 @@ local function draw_profiles(view, pg)
     if not state then state = { typed = { '' } }; profile_names[view.session or ''] = state end
     local profile_name = state.typed
     if active ~= state.shown then profile_name[1], state.shown = active, active end
-    local cy = line(pg, 'Name', 'A name for Save or Save as. Each job pair has its own profiles.')
+    local cy = line(pg, t('Name'), t('A name for Save or Save as. Each job pair has its own profiles.'))
     local fw = S(260)
-    kit.input('##sk3_profile_name', pg.right - fw, cy, fw, profile_name, 64, 'Name to save under')
+    kit.input('##sk3_profile_name', pg.right - fw, cy, fw, profile_name, 64, t('Name to save under'))
     local typed = profile_name[1]:match('^%s*(.-)%s*$')
     -- { label, id, kind, help, what a click does }
     local buttons = {
@@ -938,22 +966,23 @@ local function draw_profiles(view, pg)
           function () act.new_profile(); profile_name[1] = '' end },
     }
     if p.active then
-        buttons[#buttons + 1] = { 'Delete', 'delete', 'danger', ('Delete %s, and go back to Default.'):format(p.active),
+        buttons[#buttons + 1] = { 'Delete', 'delete', 'danger', f('Delete %s, and go back to Default.', p.active),
                                   function () act.delete_profile(p.active) end }
     end
+    for _, b in ipairs(buttons) do b.label = t(b[1]) end
     local by = line(pg, nil, nil, S(ROW_H) + S(4))
     local bx = pg.right - (#buttons - 1) * S(6)
-    for _, b in ipairs(buttons) do bx = bx - kit.button_width(b[1]) end
+    for _, b in ipairs(buttons) do bx = bx - kit.button_width(b.label) end
     for _, b in ipairs(buttons) do
-        local clicked, bw = kit.button(b[1] .. '##sk3_profile_' .. b[2], bx, by, b[1], b[3], true, pg.alpha)
-        kit.tip(b[4])
+        local clicked, bw = kit.button(b[1] .. '##sk3_profile_' .. b[2], bx, by, b.label, b[3], true, pg.alpha)
+        kit.tip(b[2] == 'delete' and b[4] or t(b[4]))  -- Delete's is filled in already
         if clicked then b[5]() end
         bx = bx + bw + S(6)
     end
-    if typed ~= p.active and util.contains(p.names, typed) then note(pg, ('%s exists: Save as replaces it.'):format(typed), P.amber) end
+    if typed ~= p.active and util.contains(p.names, typed) then note(pg, f('%s exists: Save as replaces it.', typed), P.amber) end
     subheader(pg, 'SAVED')
-    if profile_item(pg, 'Default##sk3_profile_default', 'Default', p.active == nil,
-            'The working copy: your settings as they were before a profile was loaded.') then
+    if profile_item(pg, 'Default##sk3_profile_default', t('Default'), p.active == nil,
+            t('The working copy: your settings as they were before a profile was loaded.')) then
         act.profile(nil)
     end
     -- (drawn on the draw list, a name with '##' in it is shown whole)
@@ -961,15 +990,15 @@ local function draw_profiles(view, pg)
         if profile_item(pg, '##sk3_profile_' .. i, name, name == p.active) then act.profile(name) end
     end
     pg.y = pg.y + S(6)
-    note(pg, 'Changes save to the settings in use; to a profile only with Save.', P.faint)
+    note(pg, t('Changes save to the settings in use; to a profile only with Save.'), P.faint)
 end
 
 local function draw_recent(view, pg)
-    if #view.recent == 0 then return note(pg, 'Nothing sent yet.') end
+    if #view.recent == 0 then return note(pg, t('Nothing sent yet.')) end
     local px = S(SMALL + 0.5)
     for _, r in ipairs(view.recent) do
         local cy = line(pg, nil, nil, S(24))
-        kit.text_right(pg.dl, pg.lx + S(30), cy, ('%ds'):format(r.age), P.faint, kit.fonts.text, px, pg.alpha)
+        kit.text_right(pg.dl, pg.lx + S(30), cy, f('%ds', r.age), P.faint, kit.fonts.text, px, pg.alpha)
         local tx = pg.lx + S(40)
         kit.text_mid(pg.dl, tx, cy, r.text, P.text, kit.fonts.text, px, pg.alpha)
         local wx = tx + kit.measure(r.text, kit.fonts.text, px) + S(10)
@@ -1003,7 +1032,12 @@ local function draw_ui(view, pg)
     draw_recent(view, pg)
     subheader(pg, 'CLIENT')
     switch(pg, 'Japanese client', 'japanese', view.japanese,
-        'Send spell, ability and item names in Japanese, on every job.')
+        'Send spell, ability and item names in Japanese, and show Sidekick in Japanese, on every job.')
+    -- (only ever shown in English: the window can't draw Japanese then)
+    if view.japanese and not lang.drawable then
+        note(pg, 'This window stays in English: Japanese needs a Japanese font in Windows\' Fonts (Meiryo, Yu Gothic or '
+            .. 'MS Gothic) and ImGui 1.92, VanaCore\'s libraries. Names still go out in Japanese.', P.amber)
+    end
 end
 
 -- Rows ------------------------------------------------------------------------------
@@ -1017,11 +1051,11 @@ local HOLD_TIP = 'Wait while a modifier picked here can\'t go with the spell (on
 local function family_row(pg, sid, r)
     local id = sid .. '_' .. r.key
     local n = r.count or r.tools
-    local items = {}
+    local items, hold = {}, t('Hold')
     if r.choices then items[#items + 1] = { w = S(PICK_W), kind = 'pick' } end
-    for _, t in ipairs(r.targets or {}) do items[#items + 1] = { w = S(CHIP_W), kind = 'target', t = t, wrap = t.wrap } end
+    for _, tg in ipairs(r.targets or {}) do items[#items + 1] = { w = S(CHIP_W), kind = 'target', t = tg, wrap = tg.wrap } end
     for i, m in ipairs(r.mods or {}) do items[#items + 1] = { w = kit.chip_width(m.label), kind = 'mod', m = m, pre = i == 1 and S(8) or nil } end
-    if r.mods then items[#items + 1] = { w = kit.chip_width('Hold'), kind = 'hold' } end
+    if r.mods then items[#items + 1] = { w = kit.chip_width(hold), kind = 'hold' } end
     local lines = #items > 0 and flow(items, pg.lx + S(14), pg.right, S(4)) or 0
     local cy = line(pg, nil, nil, S(ROW_H) + lines * S(CHIP_LINE) + (lines > 0 and S(4) or 0))
 
@@ -1051,25 +1085,25 @@ local function family_row(pg, sid, r)
             end)
         elseif it.kind == 'target' then
             -- An empty slot can't be picked, but a picked one can still be cleared.
-            local t = it.t
-            local empty = not t.present and not t.on
-            if kit.chip(t.label .. '##' .. id .. t.slot, it.x, icy, it.w, t.label, empty and 'empty' or t.on and 'on' or 'off',
+            local tg = it.t
+            local empty = not tg.present and not tg.on
+            if kit.chip(tg.label .. '##' .. id .. tg.slot, it.x, icy, it.w, tg.label, empty and 'empty' or tg.on and 'on' or 'off',
                     not empty, pg.alpha) then
-                act.target(r.key, t.slot, not t.on)
+                act.target(r.key, tg.slot, not tg.on)
             end
-            kit.tip(t.name or 'empty slot')
+            kit.tip(tg.name and game_text(tg.name) or t('empty slot'))
         elseif it.kind == 'mod' then
             local m = it.m
             if kit.chip(m.label .. '##' .. id .. '_mod_' .. m.name, it.x, icy, it.w, m.label, m.on and 'on' or 'off', true, pg.alpha) then
                 act.mod(r.key, m.name, not m.on)
             end
-            kit.tip(m.note and ('%s first: %s'):format(m.name, m.note) or m.name)
+            kit.tip(m.note and f('%s first: %s', lang.name(m.name), m.note) or lang.name(m.name))
         else
             -- With no modifier on, it waits for nothing: an outline, but kept and still clickable.
-            if kit.chip('Hold##' .. id .. '_hold', it.x, icy, it.w, 'Hold', not any and 'empty' or r.hold and 'held' or 'off', true, pg.alpha) then
+            if kit.chip('Hold##' .. id .. '_hold', it.x, icy, it.w, hold, not any and 'empty' or r.hold and 'held' or 'off', true, pg.alpha) then
                 act.hold(r.key, not r.hold)
             end
-            kit.tip(HOLD_TIP .. (any and '' or '\nNo modifier is on here: it waits for nothing.'))
+            kit.tip(t(HOLD_TIP) .. (any and '' or t('\nNo modifier is on here: it waits for nothing.')))
         end
     end
 end
@@ -1082,7 +1116,7 @@ local function remover_row(pg, sid, r)
     local cy = line(pg, nil, nil)
     local on, flipped = kit.checkbox(r.label .. '##' .. sid .. '_with_' .. r.key, pg.lx, cy, r.on, true, pg.alpha)
     if flipped then act.row(r.key, on) end
-    kit.tip(REMOVER_TIP .. (r.shared and '\nIt heals too: unticked here, it is unticked under Heal.' or ''))
+    kit.tip(t(REMOVER_TIP) .. (r.shared and t('\nIt heals too: unticked here, it is unticked under Heal.') or ''))
     local aw = kit.measure(r.avail, kit.fonts.text, S(SMALL + 0.5))
     readiness(pg, pg.right, cy, r.avail, r.ready)
     if r.action and kit.over(pg.right - aw, cy - S(10), aw, S(20)) then kit.tooltip(r.action) end
@@ -1103,10 +1137,10 @@ local function debuff_chips(pg, sid, debuffs)
                 not usable and 'empty' or r.on and 'on' or 'off', usable and not r.locked, pg.alpha) then
             act.debuff(r.key, not r.on)
         end
-        local by = r.action ~= '' and 'Removed by ' .. r.action .. '\n' or ''
-        local left = not r.on and not usable and '\nSwitched off: left on once something removes it again.' or ''
+        local by = r.action ~= '' and f('Removed by %s', r.action) .. '\n' or ''
+        local left = not r.on and not usable and t('\nSwitched off: left on once something removes it again.') or ''
         local how = r.locked and 'Always removed: it kills.' or usable and DEBUFF_TIP or 'Tick something above that removes it.'
-        kit.tip(('%s%s\n%s%s'):format(by, r.avail, how, left))
+        kit.tip(('%s%s\n%s%s'):format(by, r.avail, t(how), left))
     end
 end
 
@@ -1168,18 +1202,18 @@ local BODIES = {
 -- A section's heading: a chevron and its title (a click folds it), a line, its switch at the end. Returns folded.
 local function heading(pane, pg, s)
     local dl, cy = pg.dl, pg.y + S(HEAD_H) / 2
-    local line_end = pg.right
+    local line_end, help = pg.right, SWITCH_HELP[s.id] and t(SWITCH_HELP[s.id])
     if s.on ~= nil then
         local on, flipped = kit.switch(s.title .. '##sk3_on_' .. s.id, line_end - S(kit.SW_W), cy, s.on, true)
-        kit.tip(SWITCH_HELP[s.id])
+        kit.tip(help)
         if flipped then act.section(s.id, on) end
         line_end = line_end - S(kit.SW_W) - S(12)
     end
     local font, px, spacing = kit.fonts.semi_italic, S(SMALL), math.max(1, S(1.2))
-    local title = string.upper(s.title)
+    local title = string.upper(t(s.title))
     local tw = kit.text_spaced(nil, 0, 0, title, nil, font, px, spacing)
     local hovered, clicked = kit.hit('##sk3_fold_' .. s.id, pg.x + S(2), cy - S(12), S(LEFT) - S(2) + tw + S(8), S(24))
-    kit.tip(SWITCH_HELP[s.id])
+    kit.tip(help)
     if clicked then pane.folded[s.id] = not pane.folded[s.id] or nil end
     local folded = pane.folded[s.id] == true
     kit.icon(dl, folded and 'right' or 'down', pg.x + S(GUTTER), cy, S(11), hovered and P.teal or P.faint)
@@ -1235,20 +1269,20 @@ local function nav_item(pane, page, x, y, w, tag)
     local hovered, clicked = kit.hit('##sk3_page_' .. page.name, x, y, w, ih)
     if clicked then pane.page = page.name end
     local active = pane.page == page.name
-    local t = kit.ease('nav.' .. page.name, active and 1 or 0, 20)
-    if t > 0.01 then
-        kit.fill(dl, x, y, w, ih, P.accent_bg, 0, 0.9 * t)
-        kit.fill(dl, x, y, S(2), ih, P.accent, 0, t)
+    local lit = kit.ease('nav.' .. page.name, active and 1 or 0, 20)
+    if lit > 0.01 then
+        kit.fill(dl, x, y, w, ih, P.accent_bg, 0, 0.9 * lit)
+        kit.fill(dl, x, y, S(2), ih, P.accent, 0, lit)
     end
     if hovered and not active then kit.fill(dl, x, y, w, ih, P.hover, 0, 0.7) end
     local cy, dx = y + ih / 2, x + S(PAD) + S(4)
     if page.switches and page.on then kit.circle(dl, dx, cy, S(3.5), P.teal)
     elseif page.switches then kit.ring(dl, dx, cy, S(3.5), P.faint) end
-    if hovered and page.switches and not page.on then kit.tooltip('Every switch here is off.') end
-    local nx, px = x + S(PAD) + S(16), S(BODY + 0.5)
-    kit.text_mid(dl, nx, cy, page.name, active and P.white or P.text, kit.fonts.text, px)
+    if hovered and page.switches and not page.on then kit.tooltip(t('Every switch here is off.')) end
+    local nx, px, name = x + S(PAD) + S(16), S(BODY + 0.5), t(page.name)
+    kit.text_mid(dl, nx, cy, name, active and P.white or P.text, kit.fonts.text, px)
     if tag then
-        local room = x + w - S(PAD) - (nx + kit.measure(page.name, kit.fonts.text, px) + S(8))
+        local room = x + w - S(PAD) - (nx + kit.measure(name, kit.fonts.text, px) + S(8))
         if room > S(20) then
             kit.text_right(dl, x + w - S(PAD), cy, kit.fit(tag, room, kit.fonts.text, S(SMALL)), P.faint, kit.fonts.text, S(SMALL))
         end
@@ -1262,12 +1296,12 @@ local function draw_sidebar(view, pane, pages, name, x, y, w, h)
     local dl, pad = imgui.GetWindowDrawList(), S(PAD)
     local st = view.status
     local title_px, small = S(BODY), S(SMALL)
-    kit.text_mid(dl, x + pad, y + S(24), kit.fit(name or 'Sidekick Settings', w - pad * 2, kit.fonts.semi, title_px), P.white, kit.fonts.semi, title_px)
+    kit.text_mid(dl, x + pad, y + S(24), kit.fit(name or t('Sidekick Settings'), w - pad * 2, kit.fonts.semi, title_px), P.white, kit.fonts.semi, title_px)
     kit.text_mid(dl, x + pad, y + S(46), kit.fit(view.job, w - pad * 2, kit.fonts.text, small), P.dim, kit.fonts.text, small)
     kit.circle(dl, x + pad + S(3), y + S(65), S(3), st.running and P.teal or P.faint)
-    kit.text_mid(dl, x + pad + S(12), y + S(65), st.state, st.running and P.teal or P.dim, kit.fonts.text, small)
+    kit.text_mid(dl, x + pad + S(12), y + S(65), t(st.state), st.running and P.teal or P.dim, kit.fonts.text, small)
     if kit.over(x, y, w, S(78)) then
-        kit.tooltip(name and 'Changes here are sent to that session, which applies them within a second or so.' or status_tip(view))
+        kit.tooltip(name and t('Changes here are sent to that session, which applies them within a second or so.') or status_tip(view))
     end
     local ny = y + S(86)
     kit.line(dl, x + pad, ny - S(6), x + w - pad, ny - S(6), P.border, 0.8)
@@ -1278,7 +1312,7 @@ local function draw_sidebar(view, pane, pages, name, x, y, w, h)
     if #foot == 0 then return end
     local fy = y + h - S(10) - #foot * S(NAV_H)
     kit.line(dl, x + pad, fy - S(26), x + w - pad, fy - S(26), P.border, 0.8)
-    kit.text_mid(dl, x + pad, fy - S(12), 'SETUP', P.faint, kit.fonts.semi, S(SMALL - 1.5))
+    kit.text_mid(dl, x + pad, fy - S(12), t('SETUP'), P.faint, kit.fonts.semi, S(SMALL - 1.5))
     for _, p in ipairs(foot) do
         fy = fy + nav_item(pane, p, x, fy, w, p.name == 'Profiles' and view.profiles.active or nil)
     end
@@ -1298,13 +1332,14 @@ local function title_bar(title, note_, x, y, w, open)
         if room > S(30) then kit.text_mid(dl, nx, cy, kit.fit(note_, room, kit.fonts.text, S(SMALL)), P.faint, kit.fonts.text, S(SMALL)) end
     end
     if close_mark('##sk3_settings_close', cx, cy, box) then open[1] = false end
-    kit.tip('Close')
+    kit.tip(t('Close'))
     kit.line(dl, x, y + S(TITLE_H), x + w, y + S(TITLE_H), P.border)
 end
 
 -- The page's sections, scrolling under its title. A Lua error inside still ends the child, then is raised.
 local function draw_page(view, pane, page, x, y, w, h, open)
-    title_bar(page.name, page.name == 'Profiles' and view.profiles.active and ('loaded: ' .. view.profiles.active) or nil, x, y, w, open)
+    title_bar(t(page.name), page.name == 'Profiles' and view.profiles.active and f('loaded: %s', view.profiles.active) or nil,
+        x, y, w, open)
     imgui.SetCursorScreenPos({ x, y + S(TITLE_H) + 1 })
     local ok, err = true, nil
     if kit.child('##sk3_pane_' .. page.name, w, h - S(TITLE_H) - 1) then
@@ -1402,11 +1437,11 @@ local function remote_window(r, index)
         if r.view and not r.other then return draw_settings(r.view, r.name, r.name, x, y, side, pw, ph, open) end
         local dl = imgui.GetWindowDrawList()
         kit.text_mid(dl, x + S(PAD), y + S(24), kit.fit(r.name, side - S(PAD) * 2, kit.fonts.semi, S(BODY + 2)), P.white, kit.fonts.semi, S(BODY + 2))
-        title_bar('Sidekick Settings', nil, x + side + 1, y, pw - side - 1, open)
+        title_bar(t('Sidekick Settings'), nil, x + side + 1, y, pw - side - 1, open)
         local pg = { dl = dl, x = x + side + 1, w = pw - side - 1, y = y + S(TITLE_H) + S(14), lx = x + side + 1 + S(LEFT),
                      right = x + pw - S(PAD), alpha = 1 }
-        note(pg, r.other and ('%s runs another version of Sidekick3: /addon reload sidekick3 there.'):format(r.name)
-            or ('Waiting for %s\'s session...'):format(r.name))
+        note(pg, r.other and f('%s runs another version of Sidekick3: /addon reload sidekick3 there.', r.name)
+            or f('Waiting for %s\'s session...', r.name))
     end)
     act = mine
     if not (open[1] and not err) then act.watch(r.name, false) end  -- a view that won't draw isn't drawn again
@@ -1417,11 +1452,13 @@ end
 function window.load() kit.bake() end
 
 -- One frame. A Lua error raised while drawing is raised again after the windows
--- are ended, so ImGui stays balanced and Sidekick reports it.
+-- are ended, so ImGui stays balanced and Sidekick reports it. Its words are in the
+-- client's language once the kit has a font for it (Meiryo for Japanese).
 function window.render(view, act_)
     act = act_
     if not imgui.IsAnyItemActive() then user_scale = ui_scale(view.ui) / 100 end  -- not mid-drag: the window would move under it
-    kit.frame(user_scale)
+    kit.frame(user_scale, view.japanese == true)
+    lang.use(view.japanese)
     local open = view.ui.open ~= false
     if hud_open and not open and not view.ui.widget then settings_open = false end  -- the widget's cogs keep them
     hud_open = open

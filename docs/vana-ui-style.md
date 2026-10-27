@@ -180,6 +180,13 @@ if not fonts.ready then
 end
 ```
 
+**Japanese.** Segoe UI has no kana or kanji. On a Japanese client every face is one Japanese family instead, as
+VanaCore's own Japanese windows do: Meiryo (`meiryo.ttc`, its bold `meiryob.ttc` for the semibold and italic faces,
+since Japanese has no italic), else Yu Gothic (`YuGothM.ttc`, `YuGothB.ttc`), else MS Gothic (`msgothic.ttc`). ImGui 1.92
+adds each glyph as it's drawn, so no glyph ranges are given; 1.81 takes fonts only at load and bakes Latin alone, so
+there the UI stays English. Japanese has no spaces: a wrapped line breaks between any two characters, never before
+closing punctuation (、。）」！？ー). Spaced capitals (`text_spaced`) space kanji as they do letters.
+
 **Measuring.** The same labels are measured every frame, so cache `CalcTextSize` by font, size and string. Clear the
 cache when the scale changes, and when it grows past a few thousand entries (live values keep adding new strings).
 

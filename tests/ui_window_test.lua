@@ -1538,3 +1538,117 @@ test('on ImGui 1.81 Segoe UI is added at load and drawn; a tooltip\'s is sized b
     eq({ has(scales, kit.S(kit.SMALL + 0.5) / 18), scales[#scales] }, { true, 1 }, 'its 18px bake scaled, then put back')
     eq(kit.fit('Kupipi', 41, 'font', 13), 'Ku...', 'no \226\128\166 in a Latin-1 bake')
 end)
+
+-- On a Japanese client ----------------------------------------------------------------------
+
+local lang = require('core.lang')
+local JA_FONTS = { text = 'meiryo.ttc', semi = 'meiryob.ttc', bold_italic = 'meiryob.ttc', semi_italic = 'meiryob.ttc' }
+local JA_NAMES = { job = function (id) return ({ [3] = 'WHM', [4] = 'BLM', [10] = 'BRD', [13] = 'NIN', [17] = 'COR',
+                       [18] = 'PUP', [19] = 'DNC', [20] = 'SCH', [21] = 'GEO', [22] = 'RUN', [9] = 'BST' })[id] end,
+                   statuses = fake.res.statuses, spells = fake.res.spells, abilities = fake.res.abilities }
+
+-- One frame of the standard window on a Japanese client, its Japanese faces in (as ImGui 1.92 adds them; a frame
+-- before found them, so the view is built in Japanese): `list` a catalog for `main`/`sub`, the WHM/BLM one unless given.
+local function render_ja(cfg, st, clicks, list, main, sub, over)
+    cfg.ui.japanese, kit.ja, lang.drawable = true, JA_FONTS, true
+    local g = snap()
+    g.main, g.sub = main or g.main, sub or g.sub
+    for k, v in pairs(over or {}) do g[k] = v end
+    return render(cfg, st, clicks, model.build(g, list or cat, cfg, st, JA_NAMES))
+end
+
+-- The pages of a view, by their English names.
+local function headers(view)
+    local out, seen = {}, {}
+    for _, s in ipairs(view.sections) do
+        if not seen[s.header] then seen[s.header] = true; out[#out + 1] = s.header end
+    end
+    return out
+end
+
+test('on a Japanese client every page, tooltip and list is in Japanese, every job\'s too: no word is left English', function ()
+    open_settings()
+    lang.misses = {}
+    local jobs = {
+        { cat },
+        { fake.catalog(10, 75, 3, 37, { 'Pianissimo', 'Nightingale', 'Troubadour' }), 10, 3 },
+        { fake.catalog(17, 75, 13, 37, { 'Corsair\'s Roll', 'Chaos Roll', 'Double-Up', 'Fold', 'Snake Eye' }), 17, 13 },
+        { fake.catalog(20, 75, 3, 37, { 'Light Arts', 'Dark Arts', 'Penury', 'Celerity', 'Accession', 'Addendum: White',
+                                        'Sublimation', 'Rapture' }), 20, 3 },
+        { fake.catalog(22, 75, 13, 37, { 'Ignis', 'Gelus', 'Flabra', 'Vallation', 'Valiance', 'Pflug', 'Embolden' }), 22, 13 },
+        { fake.catalog(18, 75, 19, 37, { 'Fire Maneuver', 'Ice Maneuver', 'Repair', 'Maintenance', 'Deploy' }), 18, 19 },
+        { fake.catalog(21, 75, 3, 37, { 'Full Circle', 'Entrust', 'Blaze of Glory', 'Radial Arcana' }), 21, 3 },
+        { fake.catalog(9, 75, 3, 37, { 'Reward', 'Fight', 'Call Beast' }), 9, 3 },
+    }
+    local cfg = settings.defaults()
+    cfg.ui.widget, cfg.heal.threshold, cfg.heal.focus_threshold = true, 40, 50  -- the notes under the heal lines too
+    cfg.profiles.Healer, cfg.profile = {}, 'Healer'
+    local st = status({ running = true, why = 'nothing to do', sessions = { Other = { running = true, halted = 'mounted',
+        members = { { sid = 900, name = 'Other' } }, act = { behavior = 'buff', action = 'Haste', target = 'A' } } } })
+    for _, j in ipairs(jobs) do
+        local v = model.build(snap(), j[1], cfg, st, JA_NAMES)
+        for _, page in ipairs(headers(v)) do
+            render_ja(cfg, st, on(page), j[1], j[2], j[3], { safe = true })
+            render_ja(cfg, status(), on(page), j[1], j[2], j[3])  -- stopped: what it would do
+        end
+    end
+    eq(lang.misses, {})
+    render_ja(cfg, st, on('Heal'))
+    eq({ drew('回復ライン'), drew('Heal under'), drew('回復'), drew('白75/黒37') }, { true, false, true, true })
+    cfg.ui.japanese, cfg.ui.widget = false, false
+end)
+
+test('in Japanese each control keeps its English id: a click still sets its setting', function ()
+    open_settings()
+    local cfg, st = settings.defaults(), status()
+    eq(render_ja(cfg, st, on('Heal', { ['Heal under##sk3_heal_threshold'] = 60 })), 1)
+    eq(render_ja(cfg, st, on('Buff', { ['Buffs##sk3_on_buff'] = true })), 1)
+    eq({ cfg.heal.threshold, cfg.buff.on }, { 60, false })
+    eq(render_ja(cfg, st, on('Buff', { ['Lowest##sk3_roll_risk_lowest'] = true }),
+        fake.catalog(17, 75, 13, 37, { 'Corsair\'s Roll' }), 17, 13), 1)
+    eq(cfg.roll.risk, 'lowest')
+    eq(drew('最低'), true)
+end)
+
+test('in Japanese the HUD\'s tooltips and labels are Japanese, and a trust\'s name from the game is drawn as UTF-8', function ()
+    close_settings()
+    local cfg = settings.defaults()
+    cfg.ui.japanese, kit.ja, lang.drawable = true, JA_FONTS, true
+    local g = fake.snap({ { name = 'A', hpp = 62 }, { name = fake.sjis('クピピ'), kind = 'trust' } },
+        { bt = { name = fake.sjis('ゴブリン'), hpp = 50, dist = 4.3 }, combat = true })
+    render(cfg, status(), nil, model.build(g, cat, cfg, status(), JA_NAMES))
+    eq({ fill('クピピ') ~= nil, tipped('クピピ (フェイス)'), tipped('ターゲット: ゴブリン  50%  4.3y') }, { true, true, true })
+    eq(tipped('白75/黒37\n停止中: 予定: ケアルIV → A（回復: '), true)
+    cfg.ui.japanese = false
+    render(cfg, status(), nil, model.build(g, cat, cfg, status(), JA_NAMES))
+    eq({ fill('クピピ') ~= nil, tipped('クピピ (trust)') }, { true, true })  -- in English too: the game's text, readable
+end)
+
+test('without a Japanese font (none in Windows, or ImGui 1.81) the window stays English and UI / Log says why', function ()
+    open_settings()
+    local cfg = settings.defaults()
+    cfg.ui.japanese, kit.ja = true, false
+    render(cfg, status(), on('UI / Log'))
+    eq({ lang.drawable, lang.on, drew('Japanese client'), drew('This window stays in English') }, { false, false, true, true })
+    kit.ja = nil  -- the fake is ImGui 1.81: no face can be added mid-frame
+    render(cfg, status(), on('UI / Log'))
+    eq({ kit.ja, lang.drawable }, { false, false })
+    local heal = model.build(snap(), cat, cfg, status(), JA_NAMES).sections[3]
+    eq({ heal.id, heal.rows[1].label }, { 'heal', 'Cure' })  -- the next view, English
+    cfg.ui.japanese = false
+    render(cfg, status(), on('UI / Log'))
+    eq({ lang.drawable, drew('This window stays in English') }, { true, false })
+end)
+
+test('the kit wraps Japanese between characters, never before closing punctuation, and keeps a line\'s spaces', function ()
+    local s = '回復ラインが危険ライン以下です。効率回復はせず、危険時の回復だけを行います。'
+    local lines = kit.wrap(s, 'font', 13, 21 * 10)  -- the fake measures 7 a byte: 10 characters a line
+    eq(table.concat(lines), s)
+    for _, l in ipairs(lines) do
+        eq(kit.measure(l, 'font', 13) <= 21 * 10 or #l <= 6, true, l)
+        eq(l:sub(1, 3) ~= '。' and l:sub(1, 3) ~= '、', true, l)
+    end
+    eq(#lines, 4)
+    eq(kit.wrap('HP 62%  MP 100%', 'font', 13, 500), { 'HP 62%  MP 100%' })
+    eq(kit.wrap('Roll 2 is Roll 1: one roll kept up', 'font', 13, 7 * 12), { 'Roll 2 is', 'Roll 1: one', 'roll kept up' })
+end)

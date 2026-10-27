@@ -183,7 +183,7 @@ test('model: Runes under Buff, Idle then each ward with its switch, its readines
     local cfg = cfg_with({ idle = { 'Ignis', 'Gelus' } })
     local v = view(snap(nil, nil, { Valiance = 30 }), nil, cfg)
     eq(section(v, 'rune').header, 'Buff')
-    eq({ v.rune.slots, #v.rune.runes, v.rune.runes[1] }, { 3, 3, { name = 'Ignis', element = 'Fire', resist = 'Ice', ailments = 'Paralyze / Bind' } })
+    eq({ v.rune.slots, #v.rune.runes, v.rune.runes[1] }, { 3, 3, { name = 'Ignis', label = 'Ignis', element = 'Fire', resist = 'Ice', ailments = 'Paralyze / Bind' } })
     local idle, vallation, valiance = v.rune.sets[1], v.rune.sets[2], v.rune.sets[3]
     eq({ idle.key, idle.label, idle.shows, idle.ward, idle.picks }, { 'idle', 'Idle', 'element', nil, { 'Ignis', 'Gelus', '' } })
     eq({ vallation.ward, vallation.shows, vallation.on, vallation.ready, vallation.avail }, { 'Vallation', 'resist', true, true, 'ready' })
