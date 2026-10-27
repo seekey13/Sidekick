@@ -30,7 +30,7 @@ ja.words = {
     -- Automation's state ---------------------------------------------------------------------
     ['Running'] = '実行中', ['Stopped'] = '停止中', ['Halted (%s)'] = '一時停止中（%s）',
     ['casting'] = '詠唱中', ['moving'] = '移動中', ['combat'] = '戦闘中', ['safe zone'] = '安全エリア',
-    ['AFK asleep'] = '放置スリープ中', ['mounted'] = '騎乗中', ['dead'] = '戦闘不能', ['resting'] = 'ヒーリング中',
+    ['AFK asleep'] = '放置スリープ中', ['mounted'] = 'マウント中', ['dead'] = '戦闘不能', ['resting'] = 'ヒーリング中',
     ['incapacitated'] = '行動不能', ['silenced'] = '静寂', ['amnesia'] = 'アムネジア', ['zoning'] = 'エリア移動中',
     ['loading'] = 'エリア移動中', ['nothing to do'] = 'することがありません', ['waiting for a cure'] = '回復待ち',
     ['invisible'] = 'インビジ中', ['nothing sent yet'] = 'まだ何も送っていません', ['would: %s'] = '予定: %s',
@@ -169,9 +169,9 @@ ja.words = {
     ['Heal the alliance\'s other parties too, with heals that reach outside your party. Raising, waking, '
         .. 'removal and buffs look after them whatever this says, and the focus member is always healed.'] =
         'パーティ外に届く回復で、アライアンスの他のパーティも回復します。蘇生・起こす・弱体回復・強化はこの設定に関係なく行い、フォーカスメンバーは常に回復します。',
-    ['Keep a stratagem for healing'] = '回復用に戦術を1回残す',
+    ['Keep a stratagem for healing'] = '回復用に戦術魔道書を1回残す',
     ['Buff rows never spend the last stratagem charge, so healing has one for Accession or Rapture.'] =
-        '強化の行は最後の戦術チャージを使わず、女神降臨の章や意気昂然の章のために回復用に残します。',
+        '強化の行は戦術魔道書の最後の1回を使わず、女神降臨の章や意気昂然の章のために回復用に残します。',
 
     -- MP and TP, pet, follow, resting, AFK
     ['MP under'] = 'MP回復ライン', ['Recover MP under this MP % (yours; a member\'s for Devotion).'] =
@@ -199,7 +199,7 @@ ja.words = {
     ['While one is held that someone near you lacks too, say "Gather together for <spell>" in party chat, '
         .. 'at most every 5 seconds.'] =
         '待っている範囲強化が近くの誰かにも切れていれば、パーティチャットで「集まってください。 <魔法>」と言います（5秒に1回まで）。',
-    ['Cast Utsusemi at one shadow'] = '分身1枚で空蝉を張り直す',
+    ['Cast Utsusemi at one shadow'] = '分身1枚で空蝉の術を張り直す',
     ['Recast Utsusemi while its last shadow is up, not only once it is gone. For Ichi, which cannot replace '
         .. 'Ni\'s shadows, that shadow is cancelled a second into the cast, so the new ones land.'] =
         '分身が消えてからではなく、最後の1枚があるうちに空蝉の術を張り直します。弐の分身を上書きできない壱では、詠唱の1秒後にその分身を消して新しい分身が付くようにします。',
@@ -324,11 +324,11 @@ ja.words = {
     ['One row of its own: each character\'s name (yours, then each other Sidekick session\'s), its Start/Stop and its '
         .. 'Settings. Right-click a name to load a profile. Up with the HUD closed too. Also /sk3 widget.'] =
         '1行のバー: 各キャラクターの名前（自分、続いて他のSidekickセッション）と開始/停止、設定。名前を右クリックするとプロファイルを読み込めます。HUDを閉じても表示されます。/sk3 widget でも切り替えられます。',
-    ['Widget size'] = 'ウィジェットの大きさ', ['Pixels: the widget\'s text and icons\' height.'] =
+    ['Widget size'] = 'ウィジェットのサイズ', ['Pixels: the widget\'s text and icons\' height.'] =
         'ピクセル: ウィジェットの文字とアイコンの高さ。',
-    ['Size'] = '大きさ',
+    ['Size'] = 'サイズ',
     ['This window\'s size, % of the size that suits your screen. Taken up once the slider is let go.'] =
-        'このウィンドウの大きさ（画面に合った大きさに対する%）。スライダーを離すと反映されます。',
+        'このウィンドウのサイズ（画面に合ったサイズに対する%）。スライダーを離すと反映されます。',
     ['Japanese client'] = '日本語クライアント',
     ['Send spell, ability and item names in Japanese, and show Sidekick in Japanese, on every job.'] =
         '魔法・アビリティ・アイテム名を日本語で送り、Sidekickも日本語で表示します（全ジョブ共通）。',
@@ -337,14 +337,14 @@ ja.words = {
     ['Hold'] = '待機', ['empty slot'] = '空き枠', ['%s first: %s'] = '先に%s: %s',
     ['Wait while a modifier picked here can\'t go with the spell (on recast, too few charges, the wrong Arts, '
         .. 'Accession unable to spread it, or short of MP for it); otherwise the spell goes without it.'] =
-        'ここで選んだ補助（戦術など）を魔法と一緒に使えない間（リキャスト中、チャージ不足、グリモア違い、女神降臨の章で広げられない、MP不足）は待ちます。オフなら補助なしで使います。',
+        'ここで選んだ補助（戦術魔道書など）を魔法と一緒に使えない間（リキャスト中、チャージ不足、グリモア違い、女神降臨の章で広げられない、MP不足）は待ちます。オフなら補助なしで使います。',
     ['\nNo modifier is on here: it waits for nothing.'] = '\nここでオンの補助がないので、何も待ちません。',
     ['REMOVERS'] = '回復手段', ['DEBUFFS'] = '弱体', ['ACTIONS'] = 'アクション', ['ITEMS'] = 'アイテム',
     ['Untick to never use it: the debuffs only it removes are greyed out below.'] =
         'オフにすると使いません。これでしか回復できない弱体は下で灰色になります。',
     ['\nIt heals too: unticked here, it is unticked under Heal.'] = '\n回復にも使います。ここでオフにすると回復でもオフになります。',
     ['Untick to leave it on: worth it for what doesn\'t matter to your job (MP Down on a Warrior).'] =
-        'オフにすると回復しません。ジョブに関係のない弱体（戦士のMPダウンなど）に。',
+        'オフにすると回復しません。ジョブに関係のない弱体（戦士のMPmaxダウンなど）に。',
     ['Removed by %s'] = '回復手段: %s',
     ['\nSwitched off: left on once something removes it again.'] = '\nオフ: 回復手段がまた使えるようになっても、そのままにします。',
     ['Always removed: it kills.'] = '常に回復します（死に至るため）。',
