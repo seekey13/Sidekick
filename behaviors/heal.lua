@@ -20,7 +20,6 @@
 ]]--
 
 local can = require('core.can')
-local dnc = require('jobs.dnc')
 local observed = require('core.observed')
 local settings = require('core.settings')
 local status = require('core.status')
@@ -137,7 +136,7 @@ end
 local function share(a, f, g)
     if f.mp > 0 then return f.mp / g.me.mp end
     if waltz(a) then
-        local tp = dnc.tp(a, g)
+        local tp = can.tp(a, g)
         return (tp == 0 or g.me.tp >= TP_CAP) and 0 or tp / g.me.tp
     end
     return 0

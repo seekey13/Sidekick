@@ -127,9 +127,8 @@ local packet_ctx = {
         local a = cat.by_spell[spell_id]
         return a and a.duration
     end,
-    song = function (spell_id)  -- your songs are stamped on who they land on (jobs/brd.lua)
-        local a = cat.by_spell[spell_id]
-        return a and a.role == 'song' and a or nil
+    spell = function (spell_id)  -- for the job modules: your songs are stamped on who they land on (jobs/brd.lua)
+        return cat.by_spell[spell_id]
     end,
     removes = function (key)  -- your removers, cleared on their landing
         local a = cat.removers[key]

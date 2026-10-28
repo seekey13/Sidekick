@@ -8,11 +8,10 @@
 ]]--
 
 local can = require('core.can')
-local dnc = require('jobs.dnc')
 local settings = require('core.settings')
 local status = require('core.status')
 
-local function cost(a, g) return (a.mp or 0) + dnc.tp(a, g) end
+local function cost(a, g) return (a.mp or 0) + can.tp(a, g) end
 
 -- Sleepers you can help, the focus member first.
 local function sleepers(g, cfg)

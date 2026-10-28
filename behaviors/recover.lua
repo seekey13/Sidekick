@@ -4,12 +4,11 @@
     under it for a member, Devotion on the lowest; under your TP line in combat,
     Meditate or Reverse Flourish.
     Highest priority first, then the best tier. Whatever costs HP waits while
-    you're under your danger line. Radial Arcana spends the luopan, so
-    jobs/geo.lua says when and how.
+    you're under your danger line. A row with its own `decide` (Radial Arcana,
+    which spends the luopan) says itself when and what to send.
 ]]--
 
 local can = require('core.can')
-local geo = require('jobs.geo')
 local settings = require('core.settings')
 local util = require('core.util')
 
@@ -29,8 +28,8 @@ return function (g, cat, cfg, mem)
     local list = settings.enabled(cat, cfg, 'recover')
     table.sort(list, util.by_priority)
     for _, a in ipairs(list) do
-        if a.luopan then
-            local intent = geo.arcana(a, g, cat, cfg, mem)
+        if a.decide then
+            local intent = a.decide(a, g, cat, cfg, mem)
             if intent then return intent end
         elseif can.use(a, g) and can.spare_hp(a, g, cfg) then
             if a.gives == 'tp' then

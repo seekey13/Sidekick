@@ -5,8 +5,8 @@
     the engine fires just before a Double-Up; Fold clears a Bust whenever it's ready.
 
     The totals come only from your own 0x028 job ability packets (core/packets.lua
-    -> cor.rolled); the snapshot carries the last (g.roll = { id, total, die, at,
-    bust, doubled }) and each roll's (g.roll_totals). A Double-Up Chance is the last
+    -> cor.ability); the snapshot carries the last (g.roll = { id, total, die, at,
+    bust, doubled }) and each roll's (g.roll_totals), cor.read. A Double-Up Chance is the last
     roll's alone. A roll or Double-Up sent waits for its total and is never doubled
     blind: one that never comes leaves the roll as it is after WAIT seconds, and no
     total older than the last send is doubled. A new roll waits until the last is
@@ -18,6 +18,7 @@
 
 local buff = require('behaviors.buff')
 local can = require('core.can')
+local lang = require('core.lang')
 local util = require('core.util')
 
 local cor = {}
@@ -50,6 +51,7 @@ function cor.rolled(id, total, message, now, die)
     end
 end
 
+cor.ability = cor.rolled
 function cor.last() return last end
 function cor.totals() return util.shallow_copy(totals) end
 -- The roll `id` is seen down: its total goes, but not one newer than WAIT,
@@ -57,7 +59,9 @@ function cor.totals() return util.shallow_copy(totals) end
 function cor.forget(id, now)
     if totals_at[id] and now - totals_at[id] >= cor.WAIT then totals[id], totals_at[id] = nil, nil end
 end
-function cor.clear() last, totals, totals_at = nil, {}, {} end  -- zoning
+function cor.clear() last, totals, totals_at = nil, {}, {} end
+cor.zone = cor.clear
+function cor.read(g) g.roll, g.roll_totals = last, cor.totals() end
 
 -- The strategy (v2's lib/core/roll_strategy.lua) -------------------------------
 
@@ -204,6 +208,69 @@ function cor.want(g, cat, cfg, mem)
             return { action = a, why = 'not up', sent = function (now) st.sent[a.id] = now end }
         end
     end
+end
+
+-- Knowledge (core/knowledge.lua says what each field means) --------------------
+
+-- Kept up and Double-Upped here, not as buff rows. The note is what the roll gives;
+-- Double-Up and Fold are found by name.
+local K = {
+    ['Double-Up'] = { role = 'roll' },
+    ['Fold']      = { role = 'roll' },
+    ['Snake Eye'] = { role = 'modifier', note = 'the next die rolls 1' },  -- fired before a Double-Up
+}
+-- Phantom Rolls: { note, lucky, unlucky } (v2's table). Each shows the status named like it.
+for name, r in pairs({
+    ['Corsair\'s Roll'] = { 'EXP+', 5, 9 },      ['Ninja Roll'] = { 'EVA+', 4, 8 },
+    ['Hunter\'s Roll'] = { 'ACC+', 4, 8 },       ['Chaos Roll'] = { 'ATK+', 4, 8 },
+    ['Magus\'s Roll'] = { 'MDEF+', 2, 6 },       ['Healer\'s Roll'] = { 'Cure+', 3, 7 },
+    ['Drachen Roll'] = { 'PACC+', 4, 8 },        ['Choral Roll'] = { 'SIR-', 2, 6 },
+    ['Monk\'s Roll'] = { 'SB+', 3, 7 },          ['Beast Roll'] = { 'PATK+', 4, 8 },
+    ['Samurai Roll'] = { 'STP+', 2, 6 },         ['Evoker\'s Roll'] = { 'Refresh+', 5, 9 },
+    ['Rogue\'s Roll'] = { 'CRIT+', 5, 9 },       ['Warlock\'s Roll'] = { 'MACC+', 4, 8 },
+    ['Fighter\'s Roll'] = { 'DA+', 5, 9 },       ['Puppet Roll'] = { 'PMAG+', 3, 7 },
+    ['Gallant\'s Roll'] = { 'DMG Reflect', 3, 7 }, ['Wizard\'s Roll'] = { 'MATK+', 5, 9 },
+    ['Dancer\'s Roll'] = { 'Regen+', 3, 7 },     ['Scholar\'s Roll'] = { 'CMP+', 2, 6 },
+    ['Naturalist\'s Roll'] = { 'Enhancing+', 3, 7 }, ['Runeist\'s Roll'] = { 'MEVA+', 4, 8 },
+    ['Companion\'s Roll'] = { 'Pet Regain & Regen', 2, 10 }, ['Bolter\'s Roll'] = { 'Move Speed+', 3, 9 },
+    ['Caster\'s Roll'] = { 'Fast Cast+', 2, 7 },
+}) do
+    K[name] = { role = 'roll', note = r[1], lucky = r[2], unlucky = r[3] }
+end
+cor.knowledge = K
+
+cor.behaviors = { { name = 'roll', run = cor.want, before = 'buff' } }
+
+-- The rolls kept up (names, '' for none; the second only on a COR main job) and
+-- how far Double-Up chases a total: 'lowest' | 'medium' | 'highest';
+-- `max_at_11`: while one stands at 11, the other is doubled until it's 11 too.
+cor.settings = { roll = { on = true, first = '', second = '', risk = 'medium', max_at_11 = false } }
+
+-- Sidekick Settings: Rolls, for a job with rolls (ui/model.lua).
+cor.ui = {
+    section = { id = 'roll', title = 'Rolls', header = 'Buff', before = 'pet' },
+    set = { ['roll.first'] = 'name', ['roll.second'] = 'name', ['roll.risk'] = { list = cor.RISKS },
+            ['roll.max_at_11'] = 'bool' },
+}
+
+-- The view's `roll`: the rolls to pick from, the last one's total and the one at 11
+-- doubling the other at max risk; and whether it's shown.
+function cor.ui.view(cat, cfg, g)
+    local rolls, done = {}, nil
+    for _, a in ipairs(cat) do
+        if a.lucky then
+            rolls[#rolls + 1] = { name = a.name, label = lang.f('%s (%s)', lang.name(a.name, a.jp), lang.t(a.note)),
+                                  lucky = a.lucky, unlucky = a.unlucky }
+            -- While it's on you, or just busted (it's gone then).
+            if g.roll and g.roll.id == a.id and (g.roll.bust or can.any(g.me.buffs, a.status)) then
+                done = { name = a.name, total = g.roll.total, lucky = a.lucky, unlucky = a.unlucky, bust = g.roll.bust == true }
+            end
+        end
+    end
+    table.sort(rolls, function (x, y) return x.label < y.label end)  -- as shown: by name, its note after it
+    return { first = cfg.roll.first, second = cfg.roll.second, risk = cfg.roll.risk, risks = cor.RISKS,
+             two = g.main == cor.JOB, choices = rolls, last = done, max_at_11 = cfg.roll.max_at_11,
+             eleven = (cor.maxed(g, cat, cfg) or {}).name }, rolls[1] ~= nil
 end
 
 return cor

@@ -289,6 +289,13 @@ test('a GEO\'s luopan gone: its auras are forgotten on those whose statuses come
     eq({ first.pet.since, read().pet.since }, { first.now, first.now })  -- when it was first seen
     world.pet = nil
     eq(unit(read(), TRUST).buffs, { [PROTECT] = true })  -- on the read that finds it gone
+    -- Off GEO (pet_auras is the main job's): another pet gone leaves the same status be.
+    world.main = 15
+    world.pet, world.ents[0x700] = 0x700, { sid = PET, name = 'Carbuncle', hpp = 100, dist = 2 }
+    buffs.gain(TRUST, 580, now)
+    read()
+    world.pet = nil
+    eq(unit(read(), TRUST).buffs, { [580] = true, [PROTECT] = true })
 end)
 
 reset()
@@ -363,6 +370,21 @@ test('BST: Ready charges from the pool timer; a Ready move waits only for the ch
     eq(game.recast({ kind = 'ma', recast = 102 }), 8)  -- Enaero, spell 102: its own recast, no charges
     world.main = 3
     eq(read().ready, nil)  -- off BST
+end)
+
+test('the job modules\' reads: SCH\'s stratagems, COR\'s last roll and totals, PUP\'s automaton', function ()
+    reset()
+    local cor, pup = require('jobs.cor'), require('jobs.pup')
+    world.main, world.timers = 20, { { 231, 60 } }  -- five at 75, one back each 48s: 3 banked
+    cor.clear()
+    cor.rolled(98, 5, 420, now, 5)  -- a roll (message 420) of 5
+    pup.named('Ziggy')
+    local g = read()
+    eq({ g.stratagems, g.roll.id, g.roll.total, g.roll_totals, g.automaton }, { 3, 98, 5, { [98] = 5 }, 'Ziggy' })
+    world.main = 3
+    eq(read().stratagems, nil)  -- off SCH
+    cor.clear()
+    pup.named('')
 end)
 
 rawset(_G, 'AshitaCore', nil)

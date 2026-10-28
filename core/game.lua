@@ -31,18 +31,16 @@
     what healing scores with: learned potency, the day and the weather;
     the item in your ammo slot and what's in your inventory (and `owned`, the ammo
     you hold where it can be worn from, read when asked); when you last moved and
-    last had a battle target; your last Phantom Roll's total (`roll`, jobs/cor.lua);
-    your automaton's name (`automaton`, jobs/pup.lua), nil until the server says it.
+    last had a battle target; and the job modules' own fields (core/jobs.lua:
+    `read`): stratagem (`stratagems`) and Ready (`ready`) charges, your Phantom
+    Rolls' totals (`roll`, `roll_totals`), your automaton's name (`automaton`, nil
+    until the server says it).
 ]]--
 
 local ffi = require('ffi')
 local buffs = require('core.buffs')
-local bst = require('jobs.bst')
-local cor = require('jobs.cor')
-local geo = require('jobs.geo')
-local pup = require('jobs.pup')
-local sch = require('jobs.sch')
 local can = require('core.can')
+local job_modules = require('core.jobs')
 local observed = require('core.observed')
 local packets = require('core.packets')
 local status = require('core.status')
@@ -379,14 +377,12 @@ local function jobs_of(player)
              sub = player:GetSubJob(), sub_lv = player:GetSubJobLevel() }
 end
 
--- Charges banked now in `pool` (core/charges.lua); nil off its job.
-local function banked(mm, jobs, pool)
-    local lv = util.level(jobs, pool.job)
-    if lv == 0 then return nil end
-    return pool:banked(ability_timer(mm:GetRecast(), pool.recast) / 60, lv)
-end
+-- Seconds left on ability recast timer `id`.
+local function recast_left(id) return ability_timer(AshitaCore:GetMemoryManager():GetRecast(), id) / 60 end
 
-local POOLS = { sch.POOL, bst.POOL }
+-- The job modules' charge pools (core/charges.lua; core/jobs.lua: `POOL`).
+local POOLS = {}
+for _, pool in job_modules.each('POOL') do POOLS[#POOLS + 1] = pool end
 
 -- Where `action`'s ready stamp is kept: by its recast, and for a pool's by the charges it costs too.
 local function ready_key(action) return action.kind .. action.recast .. (action.charges and ':' .. action.charges or '') end
@@ -481,10 +477,14 @@ local function read_pet(em, player, me, jobs, units, tracks, now)
     local pet = entity(em, em:GetPetTargetIndex(me.tidx))
     if pet_sid and not (pet and pet.sid == pet_sid and pet.hpp > 0) then
         buffs.forget(pet_sid)
-        if jobs.main == geo.JOB then
+        local gone = false
+        for _, auras in job_modules.each('pet_auras', jobs.main) do  -- core/jobs.lua
+            gone = true
             for sid in pairs(tracks) do
-                for _, id in pairs(geo.AURAS) do buffs.lose(sid, id) end
+                for _, id in ipairs(auras) do buffs.lose(sid, id) end
             end
+        end
+        if gone then
             for _, u in ipairs(units) do  -- already read this time round
                 if tracks[u.sid] then u.buffs = buffs.of(u.sid, now) end
             end
@@ -553,12 +553,10 @@ function game.read(now, idle)
     local finished, spell_finish = packets.last_finish()
     local casting, cast_at = packets.casting(now)
 
-    return {
+    local g = {
         finished = finished, spell_finish = spell_finish,
         now = now, zone = zone, me = me, units = units, tracks = tracks, bt = bt, target = player_target(mm, em),
-        pet = pet, ammo = ammo(), items = inventory(), stratagems = banked(mm, jobs, sch.POOL), ready = banked(mm, jobs, bst.POOL),
-        roll = cor.last(), roll_totals = cor.totals(),
-        automaton = pup.automaton(),
+        pet = pet, ammo = ammo(), items = inventory(),
         main = jobs.main, main_lv = jobs.main_lv, sub = jobs.sub, sub_lv = jobs.sub_lv,
         casting = casting, cast_at = cast_at,
         moving = is_moving, moved_at = move.moved,
@@ -573,6 +571,8 @@ function game.read(now, idle)
         recast = game.recast, owned = game.owned, listed = game.listed,
         learned = observed.learned, day = day(), weather = weather(),
     }
+    for _, f in job_modules.each('read') do f(g, recast_left) end
+    return g
 end
 
 return game
