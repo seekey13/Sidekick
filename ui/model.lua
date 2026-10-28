@@ -56,11 +56,16 @@ model.SECTIONS = {
     { id = 'afk', title = 'AFK sleep', header = 'AFK' },
     { id = 'ui', title = 'UI / Log', header = 'UI / Log', switch = false },
 }
-for spec in job_modules.each('ui') do
+for _, spec in job_modules.each('ui') do
     local s, at = spec.section, nil
-    for i, x in ipairs(model.SECTIONS) do if x.id == s.before then at = i end end
+    for i, x in ipairs(model.SECTIONS) do
+        assert(x.id ~= s.id, 'a job module repeats a section: ' .. tostring(s.id))
+        if x.id == s.before then at = i end
+    end
     assert(at, 'a job section goes before an unknown one: ' .. tostring(s.before))
-    table.insert(model.SECTIONS, at, { id = s.id, title = s.title, roles = s.roles, header = s.header })
+    local e = util.shallow_copy(s)
+    e.before = nil
+    table.insert(model.SECTIONS, at, e)
 end
 model.FLAGS = { 'casting', 'moving', 'combat', 'safe', 'afk', 'mounted', 'dead', 'resting', 'incapacitated', 'silenced', 'amnesia' }
 
@@ -552,7 +557,7 @@ end
 
 -- Whether `a` spends what heal.reserve keeps for healing (core/jobs.lua: `reserves`).
 local function reserved(a)
-    for f in job_modules.each('reserves') do
+    for _, f in job_modules.each('reserves') do
         if f(a) then return true end
     end
     return false
@@ -624,7 +629,7 @@ function model.build(g, cat, cfg, status, names)
     }
     local job_shown = {}  -- [section id] = whether a job module's section is shown
     local help = { party = party_names, units = units, ready = availability }
-    for spec in job_modules.each('ui') do
+    for _, spec in job_modules.each('ui') do
         local id = spec.section.id
         view[id], job_shown[id] = spec.view(cat, cfg, g, help)
     end
@@ -705,8 +710,11 @@ model.REMOTE_SET = {
     ['afk.on'] = 'bool', ['afk.minutes'] = { afk.MIN, afk.MAX },
     ['buff.hold_aoe'] = 'bool', ['buff.gather'] = 'bool', ['buff.one_shadow'] = 'bool',
 }
-for spec in job_modules.each('ui') do
-    for path, want in pairs(spec.set or {}) do model.REMOTE_SET[path] = want end
+for _, spec in job_modules.each('ui') do
+    for path, want in pairs(spec.set or {}) do
+        assert(model.REMOTE_SET[path] == nil, 'a job module repeats a remote setting: ' .. path)
+        model.REMOTE_SET[path] = want
+    end
 end
 
 -- `value` for act.set's `path` from another session, held to its range; nil when

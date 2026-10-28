@@ -58,7 +58,7 @@ engine.BEHAVIORS = {
 }
 -- The job modules' behaviors, each before the one it names (core/jobs.lua): Rolls, runes
 -- and Geomancy before buffs, songs after them, maneuvers after sending the pet in.
-for list in jobs.each('behaviors') do
+for _, list in jobs.each('behaviors') do
     for _, b in ipairs(list) do
         local at
         for i, x in ipairs(engine.BEHAVIORS) do if x.name == b.before then at = i end end

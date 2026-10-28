@@ -36,20 +36,25 @@ local util = require('core.util')
 
 local buff = {}
 
--- core.jobs is required in these, not above: a job module (jobs/cor.lua) requires this file.
+-- core.jobs is required on first use, not above: a job module (jobs/cor.lua) requires this file.
+local jobs
+local function hooks(field)
+    jobs = jobs or require('core.jobs')
+    return jobs.each(field)
+end
 
 -- Whether a buff row may spend `a` now, by every job module's `spare` (core/jobs.lua).
 local function spare(a, g, cfg)
-    for f in require('core.jobs').each('spare') do
+    for _, f in hooks('spare') do
         if not f(a, g, cfg) then return false end
     end
     return true
 end
 
--- Of modifiers `mods` fired together, the first there aren't charges enough for, by
--- every job module's `short` (core/jobs.lua); nil when there are.
+-- When modifiers `mods` fired together need more charges than there are, the one to
+-- name, by every job module's `short` (core/jobs.lua); nil when there are enough.
 local function short(mods, g, cfg)
-    for f in require('core.jobs').each('short') do
+    for _, f in hooks('short') do
         local m = f(mods, g, cfg)
         if m then return m end
     end
@@ -58,7 +63,7 @@ end
 -- A self buff `a` up on you that's due again anyway (Utsusemi at its last shadow), by
 -- the job modules' `renew` (core/jobs.lua): why, and a status to cancel into the cast.
 local function renew(a, g, cfg)
-    for f in require('core.jobs').each('renew') do
+    for _, f in hooks('renew') do
         local why, cancel = f(a, g, cfg)
         if why then return why, cancel end
     end

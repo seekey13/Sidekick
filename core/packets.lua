@@ -100,7 +100,7 @@ end
 
 -- How long your spell `a` lasts as it lands, when a job module knows (core/jobs.lua: `lasts`).
 local function lasting(a, ctx)
-    for f in jobs.each('lasts') do
+    for _, f in jobs.each('lasts') do
         local s = f(a, ctx)
         if s then return s end
     end
@@ -135,7 +135,7 @@ function packets.action(p, ctx, now)
         local tracked = ctx.tracks[t.id]
         for _, r in ipairs(t.results) do
             if kind == 'ja' and p.actor == ctx.me and t.id == ctx.me then
-                for f in jobs.each('ability') do f(p.param + ABILITY_BASE, r.param, r.message, now, r.info) end
+                for _, f in jobs.each('ability') do f(p.param + ABILITY_BASE, r.param, r.message, now, r.info) end
             end
             if HEALS_028[r.message] then
                 if key then
@@ -170,7 +170,7 @@ function packets.action(p, ctx, now)
     end
     if key then observed.done(key) end
     if landed[1] then
-        for f in jobs.each('spell') do f(mine, landed, now, ctx) end
+        for _, f in jobs.each('spell') do f(mine, landed, now, ctx) end
     end
 end
 
@@ -200,7 +200,7 @@ end
 local function on_extended_job(e)
     local d = e.data
     if #d < 0x04 + 1 then return end
-    for f in jobs.each('extended', d:byte(0x04 + 1)) do f(d) end
+    for _, f in jobs.each('extended', d:byte(0x04 + 1)) do f(d) end
 end
 
 function packets.handle(e, ctx, now)
@@ -220,7 +220,7 @@ function packets.handle(e, ctx, now)
         cast.active = false
         buffs.clear()
         observed.clear()
-        for f in jobs.each('zone') do f() end
+        for _, f in jobs.each('zone') do f() end
     end
 end
 

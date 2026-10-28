@@ -22,7 +22,7 @@ local function code(s)  -- without comments, so a comment may still point at job
     return (s:gsub('%-%-%[(=*)%[.-%]%1%]', ''):gsub('%-%-[^\n]*', ''))
 end
 
-test('core, behaviors and ui never require a job module or name a job (core/jobs.lua does)', function ()
+test('core, behaviors and ui never require a job module or read its JOB (core/jobs.lua does)', function ()
     local found = {}
     for _, dir in ipairs({ 'core', 'behaviors', 'ui' }) do
         for _, path in ipairs(lua_files(dir)) do
@@ -41,7 +41,7 @@ local FIELDS = { JOB = 'number', knowledge = 'table', behaviors = 'table', setti
                  zone = 'function', pet_auras = 'table', tp = 'function', tools = 'function', renew = 'function',
                  spare = 'function', short = 'function', reserves = 'function', ui = 'table' }
 
-test('every job module is in core/jobs.lua\'s list, and its contract fields are the documented ones', function ()
+test('every job module is in core/jobs.lua\'s list, and its contract fields are of the documented kinds', function ()
     local listed, wrong = {}, {}
     for _, j in ipairs(jobs.all) do listed[j] = true end
     for _, path in ipairs(lua_files('jobs')) do

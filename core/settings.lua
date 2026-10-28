@@ -101,7 +101,7 @@ end
 -- core.jobs is required here, not above: the job modules require this file.
 function settings.defaults()
     local out = util.copy(DEFAULTS)
-    for sections in require('core.jobs').each('settings') do
+    for _, sections in require('core.jobs').each('settings') do
         for k, v in pairs(sections) do
             assert(out[k] == nil, 'a job module repeats a setting: ' .. k)
             out[k] = util.copy(v)

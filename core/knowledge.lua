@@ -374,7 +374,7 @@ K['Absorb-Attri'] = { role = 'buff', pick_one = 'absorb', status = false }
 K['Absorb-TP']    = { role = 'buff', pick_one = 'absorb', status = false }
 
 -- The job modules' own rows (core/jobs.lua).
-for rows in jobs.each('knowledge') do
+for _, rows in jobs.each('knowledge') do
     for name, row in pairs(rows) do
         assert(K[name] == nil, 'a job module repeats a knowledge row: ' .. name)
         K[name] = row

@@ -89,12 +89,17 @@ function can.together(centre, u)
     return p ~= nil and p == can.party(u)
 end
 
--- core.jobs is required in these, not above: the job modules require this file.
+-- core.jobs is required on first use, not above: the job modules require this file.
+local jobs
+local function hooks(field)
+    jobs = jobs or require('core.jobs')
+    return jobs.each(field)
+end
 
 -- The TP `a` needs from you now: its own, unless a job module waives some
 -- (core/jobs.lua: `tp`, Trance's).
 function can.tp(a, g)
-    for f in require('core.jobs').each('tp') do
+    for _, f in hooks('tp') do
         local tp = f(a, g)
         if tp then return tp end
     end
@@ -104,7 +109,7 @@ end
 -- How many casts of `a` (one with a `tool`) the tools you carry pay for
 -- (core/jobs.lua: `tools`); else the tool itself, counted in your inventory.
 function can.tools(a, g)
-    for f in require('core.jobs').each('tools') do
+    for _, f in hooks('tools') do
         local n = f(a, g)
         if n then return n end
     end

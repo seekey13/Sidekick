@@ -382,7 +382,7 @@ local function recast_left(id) return ability_timer(AshitaCore:GetMemoryManager(
 
 -- The job modules' charge pools (core/charges.lua; core/jobs.lua: `POOL`).
 local POOLS = {}
-for pool in job_modules.each('POOL') do POOLS[#POOLS + 1] = pool end
+for _, pool in job_modules.each('POOL') do POOLS[#POOLS + 1] = pool end
 
 -- Where `action`'s ready stamp is kept: by its recast, and for a pool's by the charges it costs too.
 local function ready_key(action) return action.kind .. action.recast .. (action.charges and ':' .. action.charges or '') end
@@ -478,7 +478,7 @@ local function read_pet(em, player, me, jobs, units, tracks, now)
     if pet_sid and not (pet and pet.sid == pet_sid and pet.hpp > 0) then
         buffs.forget(pet_sid)
         local gone = false
-        for auras in job_modules.each('pet_auras', jobs.main) do  -- core/jobs.lua
+        for _, auras in job_modules.each('pet_auras', jobs.main) do  -- core/jobs.lua
             gone = true
             for sid in pairs(tracks) do
                 for _, id in ipairs(auras) do buffs.lose(sid, id) end
@@ -571,7 +571,7 @@ function game.read(now, idle)
         recast = game.recast, owned = game.owned, listed = game.listed,
         learned = observed.learned, day = day(), weather = weather(),
     }
-    for f in job_modules.each('read') do f(g, recast_left) end
+    for _, f in job_modules.each('read') do f(g, recast_left) end
     return g
 end
 
