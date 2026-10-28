@@ -6,7 +6,12 @@
     model.build(g, cat, cfg, status, names) -> view     everything a UI shows
         g       snapshot (core/game.lua)        cat     catalog list
         cfg     settings (core/settings.lua)    status  Sidekick3.lua's status table
-        names   { job = function (id) -> 'WHM', statuses = { [id] = { en = } } }
+        names   { job = function (id) -> 'WHM', statuses = { [id] = { en, jp } },
+                  spells, abilities = { [id] = { en, jp } } or nil: names to find by their English one }
+        On a Japanese client (cfg.ui.japanese) what it writes for a UI to show is Japanese (core/lang.lua): names
+        of spells, abilities, items, statuses and jobs from the DATs, its own words from core/ja.lua. What a UI
+        passes back to `act` or compares (keys, names, slots, state, flags, halted, section ids and titles) stays
+        English.
     model.actions(cfg, status, changed, tracking, send) -> act    every change a UI makes
         changed() is called after each settings write; the caller saves.
         tracking = { add = function (name or nil: your target), remove = function (name) }
@@ -23,6 +28,7 @@ local ammo = require('core.ammo')
 local brd = require('jobs.brd')
 local can = require('core.can')
 local cor = require('jobs.cor')
+local lang = require('core.lang')
 local nin = require('jobs.nin')
 local profiles = require('core.profiles')
 local pup = require('jobs.pup')
@@ -87,17 +93,43 @@ local function distinct(acts, field)
     return out
 end
 
+-- `a`'s family as shown: in Japanese its Japanese name, a tier's numeral cut off ('ケアルIV' -> 'ケアル',
+-- '空蝉の術:壱' -> '空蝉の術').
+local function family_of(a)
+    local s = lang.name(a.name, a.jp)
+    if s == a.name then return a.family end  -- English, or no Japanese name
+    if a.name == a.family then return s end
+    return s:match('^(.-)%s*[IVX]+$') or s:match('^(.-)%s*:') or s:match('^(.-)%s*：') or s
+end
+
+-- `a`'s label ('Regen (keep up)') or family as shown: in Japanese the name in it is the DAT's.
+local function label_of(a)
+    if not a.label then return family_of(a) end
+    local base, note = a.label:match('^(.-) %((.+)%)$')
+    if not lang.on or not (base == a.name or base == a.family) then return lang.on and lang.t(a.label) or a.label end
+    return lang.f('%s (%s)', base == a.name and lang.name(a.name, a.jp) or family_of(a), lang.t(note))
+end
+
+-- Each distinct family of `acts`, as shown.
+local function families_of(acts)
+    local out, seen = {}, {}
+    for _, a in ipairs(acts) do
+        if not seen[a.family] then seen[a.family] = true; out[#out + 1] = family_of(a) end
+    end
+    return out
+end
+
 -- "Valor Minuet (+ATK)": the family, or a pick-one group's families (its key
 -- when there are many), with the note every action shares.
 local function row_label(key, acts, note)
     local a = acts[1]
-    local label = a.label or a.family
+    local label = label_of(a)
     if a.pick_one then
-        local families = distinct(acts, 'family')
+        local families = families_of(acts)
         label = #families <= LABEL_FAMILIES and table.concat(families, ' / ')
-            or util.capitalize((key:gsub('_', ' ')))
+            or lang.t(util.capitalize((key:gsub('_', ' '))))
     end
-    return note and ('%s (%s)'):format(label, note) or label
+    return note and lang.f('%s (%s)', label, lang.t(note)) or label
 end
 
 -- A buff row's choices { label, name }: tiers after "Auto (best)" (name nil), or
@@ -105,20 +137,20 @@ end
 local function choices(acts, note)
     local names = distinct(acts, 'name')
     if not acts[1].pick_one and #names < 2 then return nil end
-    local out = acts[1].pick_one and {} or { { label = 'Auto (best)' } }
+    local out = acts[1].pick_one and {} or { { label = lang.t('Auto (best)') } }
     for _, name in ipairs(names) do
         local a
         for _, x in ipairs(acts) do if x.name == name then a = x; break end end
-        local label = a.label or a.name
-        if a.note and not note then label = ('%s (%s)'):format(label, a.note) end
+        local label = a.label and label_of(a) or lang.name(a.name, a.jp)
+        if a.note and not note then label = lang.f('%s (%s)', label, lang.t(a.note)) end
         out[#out + 1] = { label = label, name = name }
     end
     return out
 end
 
--- Whether the action this row would use can go now, and if not why.
+-- Whether the action this row would use can go now, and if not why; when it can, the action as shown.
 local function availability(acts, r, g)
-    if acts[1].pick_one and not r.pick then return false, 'pick one' end
+    if acts[1].pick_one and not r.pick then return false, lang.t('pick one') end
     local sorted = util.shallow_copy(acts)
     table.sort(sorted, util.by_level)
     local wait, reason
@@ -127,18 +159,18 @@ local function availability(acts, r, g)
             local ok, why, w = can.use(a, g)
             -- Radial Arcana with no luopan out puts one down to spend (jobs/geo.lua).
             if a.luopan == 'spend' and why == 'no pet' and g.recast(a) == 0 then ok = true end
-            if ok then return true, 'ready', a.name end
+            if ok then return true, lang.t('ready'), lang.name(a.name, a.jp) end
             -- Ammo you hold but don't wear is equipped for it (core/ammo.lua).
             local it = why == 'no ammo' and ammo.wearable(a, g)
             if it then
                 ok, why, w = can.use(a, util.overlay(g, { ammo = it.id }))
-                if ok then return true, 'equips ' .. it.en, a.name end
+                if ok then return true, lang.f('equips %s', lang.name(it.en, it.jp)), lang.name(a.name, a.jp) end
             end
             if w then wait = math.min(wait or w, w) else reason = reason or why end
         end
     end
-    if wait then return false, ('recast %ds'):format(math.ceil(wait)) end
-    return false, reason or 'not available'
+    if wait then return false, lang.f('recast %ds', math.ceil(wait)) end
+    return false, reason and lang.why(reason) or lang.t('not available')
 end
 
 -- Target chips ME, P1-P5 for a buff that can go on others. When it can go
@@ -174,6 +206,16 @@ local function chips(acts, r, units, outsiders)
     return out
 end
 
+-- A modifier's chip as shown: its abbreviation ('Pen'); in Japanese its name's first two characters ('簡素' of
+-- 簡素清貧の章), three when it starts with kana ('エンボ' of エンボルド).
+local function chip_of(m)
+    local s = lang.name(m.name, m.jp)
+    if s == m.name then return m.chip or m.name end
+    local kanji = s:byte(1) >= 0xE4 and s:byte(1) <= 0xE9  -- U+4E00 to U+9FFF
+    return s:match(kanji and '^[\224-\239][\128-\191][\128-\191][\224-\239][\128-\191][\128-\191]'
+        or '^[\224-\239][\128-\191][\128-\191][\224-\239][\128-\191][\128-\191][\224-\239][\128-\191][\128-\191]') or s
+end
+
 -- Modifier chips (SCH's stratagems, RUN's Embolden): each one in the catalog that fits one of
 -- the row's spells.
 local function mod_chips(acts, r, modifiers)
@@ -181,7 +223,9 @@ local function mod_chips(acts, r, modifiers)
     for _, m in ipairs(modifiers) do
         local fits = false
         for _, a in ipairs(acts) do fits = fits or m.applies(a) end
-        if fits then out[#out + 1] = { name = m.name, label = m.chip or m.name, note = m.note, on = on[m.name] == true } end
+        if fits then
+            out[#out + 1] = { name = m.name, label = chip_of(m), note = m.note and lang.t(m.note), on = on[m.name] == true }
+        end
     end
     return out[1] and out or nil
 end
@@ -200,8 +244,8 @@ local function build_row(key, acts, cfg, g, units, modifiers, outsiders)
     end
     if row.choices then
         row.pick = r.pick
-        row.choice = acts[1].pick_one and 'Pick one' or 'Auto (best)'
-        if r.pick then row.choice = r.pick .. ' (not available)' end
+        row.choice = lang.t(acts[1].pick_one and 'Pick one' or 'Auto (best)')
+        if r.pick then row.choice = lang.f('%s (not available)', lang.name(r.pick)) end
         for _, c in ipairs(row.choices) do
             if c.name == r.pick then row.choice = c.label end
         end
@@ -211,7 +255,7 @@ local function build_row(key, acts, cfg, g, units, modifiers, outsiders)
     for _, m in ipairs(row.hold and modifiers or {}) do
         if row.ready and (r.mods or {})[m.name] and not can.any(g.me.buffs, m.status) then
             local ok, why = can.use(m, g)
-            if not ok then row.ready, row.avail = false, ('waits for %s: %s'):format(m.chip or m.name, why) end
+            if not ok then row.ready, row.avail = false, lang.f('waits for %s: %s', chip_of(m), lang.why(why)) end
         end
     end
     if acts[1].kind == 'item' then row.count = g.items and g.items[acts[1].id] or 0 end
@@ -223,7 +267,8 @@ end
 -- id order (Poison, Paralysis, Blindness...). `key` is the name, for
 -- act.debuff; ready or why not by the removers that are on that clear it, `usable`
 -- false while none is; `action` names every one that can. Doom is always removed (`locked`).
-local function debuff_rows(g, cat, cfg)
+-- Each is labelled by its status (`statuses`, by id: its Japanese name in Japanese).
+local function debuff_rows(g, cat, cfg, statuses)
     local of, order, skip = {}, {}, cfg.remove.skip or {}
     for _, a in ipairs(cat) do
         if a.role == 'remove' then
@@ -245,10 +290,13 @@ local function debuff_rows(g, cat, cfg)
     local rows = {}
     for _, name in ipairs(order) do
         local d = of[name]
-        local row = { key = name, label = (name:gsub('%f[%a]%l', string.upper)), on = d.locked or not skip[name], debuff = true, locked = d.locked,
-                      usable = d.acts[1] ~= nil, ready = false, avail = 'nothing on removes it' }
+        local status = statuses and statuses[d.id]
+        -- (by its status alone: by name, 'Poison' would find the spell)
+        local label = lang.name((name:gsub('%f[%a]%l', string.upper)), status and status.en == name and status.jp or false)
+        local row = { key = name, label = label, on = d.locked or not skip[name], debuff = true, locked = d.locked,
+                      usable = d.acts[1] ~= nil, ready = false, avail = lang.t('nothing on removes it') }
         if row.usable then row.ready, row.avail = availability(d.acts, {}, g) end
-        row.action = table.concat(distinct(d.all, 'family'), ', ')
+        row.action = lang.list(families_of(d.all))
         rows[#rows + 1] = row
     end
     return rows
@@ -256,7 +304,7 @@ end
 
 -- One section's rows, one per settings key, roles in the section's order. Debuff
 -- removal's are its spells and abilities (`remover`), then its debuffs, then its items.
-local function build_rows(s, g, cat, cfg, units, outsiders)
+local function build_rows(s, g, cat, cfg, units, outsiders, statuses)
     local rows, acts_of, order = {}, {}, {}
     for _, role in ipairs(s.roles) do
         for _, a in ipairs(cat) do
@@ -285,7 +333,7 @@ local function build_rows(s, g, cat, cfg, units, outsiders)
     if s.id == 'remove' then
         local at = 1
         while rows[at] and rows[at].remover do at = at + 1 end
-        for i, d in ipairs(debuff_rows(g, cat, cfg)) do table.insert(rows, at + i - 1, d) end
+        for i, d in ipairs(debuff_rows(g, cat, cfg, statuses)) do table.insert(rows, at + i - 1, d) end
     end
     return rows
 end
@@ -299,8 +347,8 @@ local function runes(g, cat, cfg)
     for _, r in ipairs(run.RUNES) do
         local a = mine[r[1]]
         if a then
-            out.runes[#out.runes + 1] = { name = a.name, element = a.rune.element, resist = a.rune.resist,
-                                          ailments = a.rune.ailments }
+            out.runes[#out.runes + 1] = { name = a.name, label = lang.name(a.name, a.jp), element = lang.t(a.rune.element),
+                                          resist = lang.t(a.rune.resist), ailments = lang.t(a.rune.ailments) }
         end
     end
     if not out.runes[1] then return out end
@@ -309,7 +357,7 @@ local function runes(g, cat, cfg)
     for _, set in ipairs(run.SETS) do
         local w = set.ward and ward[set.ward]
         if not set.ward or w then
-            local e = { key = set.key, label = set.label or set.ward, shows = set.shows, ward = w and w.name,
+            local e = { key = set.key, label = set.label and lang.t(set.label) or lang.name(w.name, w.jp), shows = set.shows, ward = w and w.name,
                         picks = slots.names(cfg.rune, set.key, run.SLOTS) }
             if w then
                 local r = settings.row(cfg, w)
@@ -327,7 +375,7 @@ local function maneuvers(g, cat, cfg)
     local out, first = { choices = {}, picks = slots.names(cfg.maneuver, 'slot', pup.SLOTS) }, nil
     for _, a in ipairs(cat) do  -- in id order: the game's element order
         if a.role == 'maneuver' then
-            out.choices[#out.choices + 1] = { name = a.name, label = (a.name:gsub(' Maneuver$', '')) }
+            out.choices[#out.choices + 1] = { name = a.name, label = lang.t((a.name:gsub(' Maneuver$', ''))) }
             first = first or a
         end
     end
@@ -345,12 +393,13 @@ local function songs(g, cat, cfg, units)
                   timed = brd.timer_job(g), duration = cfg.song.duration, fast = cfg.song.fast }
     for _, a in ipairs(cat) do  -- in id order: each kind's tiers together
         if mine[a.name] == a then
-            out.choices[#out.choices + 1] = { name = a.name, label = ('%s (%s)'):format(a.name, a.note) }
+            out.choices[#out.choices + 1] = { name = a.name, label = lang.f('%s (%s)', lang.name(a.name, a.jp), lang.t(a.note)) }
         end
     end
     if not out.choices[1] then return out end
     for _, set in ipairs(brd.SETS) do
-        local e = { key = set.key, label = set.label, picks = slots.names(cfg.song, set.key, brd.SLOTS) }
+        local e = { key = set.key, label = set.slot and set.label or lang.t(set.label),  -- Area; a slot's tag as it is
+                    picks = slots.names(cfg.song, set.key, brd.SLOTS) }
         if set.slot then
             local u = units[set.slot]
             e.name, e.present = u and u.name, u ~= nil
@@ -365,10 +414,19 @@ end
 
 local function reason(why) return REASONS[why] or why or '' end
 
--- "Cure IV -> Kupipi (heal: Kupipi at 62%)" for a status entry.
+-- An action sent or about to be (`e`: a status entry, or another session's), as shown: a spell's, ability's or item's
+-- name (its `jp` the Japanese one, else found by its English one); resting's Rest and Stand and following's Follow,
+-- words (core/engine.lua's commands).
+local function action_of(e)
+    if e.behavior == 'rest' or e.behavior == 'follow' then return lang.t(e.action) end
+    return lang.name(e.action, e.jp)
+end
+
+-- "Cure IV -> Kupipi (heal: Kupipi at 62%)" for a status entry, as shown.
 function model.action_text(e, with_why)
-    local text = e.target and ('%s -> %s'):format(e.action, e.target) or e.action
-    if with_why then text = ('%s (%s: %s)'):format(text, e.behavior, e.why) end
+    local action = action_of(e)
+    local text = e.target and lang.f('%s -> %s', action, lang.text(e.target)) or action
+    if with_why then text = lang.f('%s (%s: %s)', text, lang.t(e.behavior), lang.why(e.why)) end
     return text
 end
 
@@ -376,20 +434,23 @@ local function status_line(status)
     if status.running then
         local last = status.sent[1]
         return { state = 'Running', running = true,
-                 text = last and model.action_text(last, true) or 'nothing sent yet',
-                 dim = not status.intent and reason(status.why) or nil }
+                 text = last and model.action_text(last, true) or lang.t('nothing sent yet'),
+                 dim = not status.intent and lang.why(reason(status.why)) or nil }
     end
     return { state = 'Stopped', running = false,
-             text = status.intent and ('would: ' .. model.action_text(status.intent, true)) or reason(status.why) }
+             text = status.intent and lang.f('would: %s', model.action_text(status.intent, true)) or lang.why(reason(status.why)) }
 end
 
 local function buff_names(buffs, statuses)
     local list = {}
-    for id in pairs(buffs) do list[#list + 1] = statuses[id] and statuses[id].en or tostring(id) end
+    for id in pairs(buffs) do
+        local s = statuses[id]
+        list[#list + 1] = s and lang.name(s.en, s.jp or false) or tostring(id)
+    end
     table.sort(list)
     local shown = {}
     for i = 1, math.min(#list, BUFFS_SHOWN) do shown[i] = list[i] end
-    local text = table.concat(shown, ', ')
+    local text = lang.list(shown)
     if #list > BUFFS_SHOWN then text = ('%s +%d'):format(text, #list - BUFFS_SHOWN) end
     return text, table.concat(list, '\n')
 end
@@ -401,10 +462,10 @@ local function hp_state(u, h)
     return u.hpp < (focus and h.focus_danger or h.danger) and 'low' or 'ok'
 end
 
--- 'WHM 75 / BLM 37', or 'WAR 75' with no subjob.
+-- 'WHM 75 / BLM 37', or 'WAR 75' with no subjob; in Japanese '白75/黒37'.
 local function jobs(job, main, main_lv, sub, sub_lv)
-    if (sub_lv or 0) > 0 then return ('%s %d / %s %d'):format(job(main), main_lv, job(sub), sub_lv) end
-    return ('%s %d'):format(job(main), main_lv)
+    if (sub_lv or 0) > 0 then return lang.f('%s %d / %s %d', lang.job(job(main)), main_lv, lang.job(job(sub)), sub_lv) end
+    return lang.f('%s %d', lang.job(job(main)), main_lv)
 end
 
 -- Everyone: party slots ME, P1-P5 and tracked players T1... with their jobs once
@@ -520,9 +581,9 @@ local function aim(e, members, allies, member, ally)
     for j, p in ipairs(allies) do
         if p.name == e.target then member, ally = nil, j end
     end
-    local text = ('%s:%s'):format(util.capitalize((e.behavior:gsub('_.*', ''))), e.action)
+    local text = ('%s:%s'):format(lang.t(util.capitalize((e.behavior:gsub('_.*', '')))), action_of(e))
     local line = ally and allies[ally] or members[member]
-    if e.target and not (line and line.name == e.target) then text = ('%s -> %s'):format(text, e.target) end
+    if e.target and not (line and line.name == e.target) then text = lang.f('%s -> %s', text, lang.text(e.target)) end
     return member, ally, text
 end
 
@@ -566,6 +627,8 @@ end
 -- The view ---------------------------------------------------------------------
 
 function model.build(g, cat, cfg, status, names)
+    lang.use(cfg.ui.japanese)
+    lang.learn(cat, names.spells, names.abilities, names.statuses)  -- the catalog's first: its items are in no other
     local units, outsiders, known = {}, {}, {}
     for _, u in ipairs(g.units) do
         if u.slot then units[u.slot] = u end
@@ -598,7 +661,8 @@ function model.build(g, cat, cfg, status, names)
     local rolls, last = {}, nil            -- COR: the rolls to pick from, and the last one's total
     for _, a in ipairs(cat) do
         if a.lucky then
-            rolls[#rolls + 1] = { name = a.name, label = ('%s (%s)'):format(a.name, a.note), lucky = a.lucky, unlucky = a.unlucky }
+            rolls[#rolls + 1] = { name = a.name, label = lang.f('%s (%s)', lang.name(a.name, a.jp), lang.t(a.note)),
+                                  lucky = a.lucky, unlucky = a.unlucky }
             -- While it's on you, or just busted (it's gone then).
             if g.roll and g.roll.id == a.id and (g.roll.bust or can.any(g.me.buffs, a.status)) then
                 last = { name = a.name, total = g.roll.total, lucky = a.lucky, unlucky = a.unlucky, bust = g.roll.bust == true }
@@ -612,7 +676,7 @@ function model.build(g, cat, cfg, status, names)
         wakes = wakes or a.role == 'heal' and a.wakes == true and not a.pet
     end
 
-    table.sort(rolls, function (x, y) return x.name < y.name end)
+    table.sort(rolls, function (x, y) return x.label < y.label end)  -- as shown: by name, its note after it
     table.sort(indi)
     local party_names = {}  -- your party but you: who Entrust can go on
     for _, u in ipairs(g.units) do
@@ -661,7 +725,7 @@ function model.build(g, cat, cfg, status, names)
     end
     for _, e in ipairs(status.sent) do
         view.recent[#view.recent + 1] = { age = math.floor(g.now - e.at), text = model.action_text(e),
-                                          why = ('%s: %s'):format(e.behavior, e.why) }
+                                          why = lang.f('%s: %s', lang.t(e.behavior), lang.why(e.why)) }
     end
     -- Sections shown only for a job that has what they keep up; any other with rows only while it has some.
     local has = { wake = wakes, roll = rolls[1] ~= nil, song = view.song.choices[1] ~= nil, geo = luopans,
@@ -670,7 +734,7 @@ function model.build(g, cat, cfg, status, names)
         local section = { id = s.id, title = s.title, header = s.header }
         if s.switch ~= false then section.on = cfg[s.id].on end  -- cfg.ui.on would be a UI's own
         if s.roles then
-            section.rows = build_rows(s, g, cat, cfg, units, outsiders)
+            section.rows = build_rows(s, g, cat, cfg, units, outsiders, names.statuses)
             for _, r in ipairs(section.rows) do
                 section.has_choices = section.has_choices or r.choices ~= nil
                 section.has_targets = section.has_targets or r.targets ~= nil

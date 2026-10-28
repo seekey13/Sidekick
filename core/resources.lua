@@ -1,17 +1,10 @@
 --[[
-    Client resources as plain tables: { [id] = row }. The runtime catalog and
-    /sk3 dump both read through here, so the offline tests (tests/data/*.lua)
-    see exactly the shape the game produces.
+    Client resources as plain tables: { [id] = row }, the runtime catalog's
+    source. The offline tests' data (tests/data/*.lua) was dumped in this
+    shape, so keep a row's fields as they are.
 ]]--
 
 local resources = {}
-
--- Field order for each table; /sk3 dump writes rows in this order.
-resources.FIELDS = {
-    spells    = { 'en', 'jp', 'type', 'skill', 'element', 'targets', 'mp', 'cast', 'recast', 'range', 'area', 'req', 'lv' },
-    abilities = { 'en', 'jp', 'type', 'element', 'mp', 'tp', 'recast_id', 'targets', 'range', 'area' },
-    statuses  = { 'en', 'jp' },
-}
 
 function resources.spells(rm)
     local out = {}
