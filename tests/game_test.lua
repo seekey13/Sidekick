@@ -56,7 +56,8 @@ local party = {
 }
 local player = {
     GetMainJob = function () return world.main end, GetMainJobLevel = const(75), GetSubJob = const(4), GetSubJobLevel = const(37),
-    GetMPMax = const(500), GetHPMax = function () return world.hp_max or 0 end, GetBuffs = const({}),
+    GetMPMax = const(500), GetHPMax = function () return world.hp_max or 0 end, GetBuffs = function () return world.buffs or {} end,
+    GetPetMPPercent = function () return world.pet_mpp or 0 end, GetPetTP = function () return world.pet_tp or 0 end,
 }
 -- While you pick a sub-target, index 0 is the one being picked and 1 your target.
 local target = {
@@ -67,8 +68,14 @@ local target = {
     end,
 }
 local inventory = { GetEquippedItem = const({ Index = 0 }), GetContainerCountMax = const(0) }
+-- Ability timers by recast id, in seconds (the client's are in 60ths).
+local recast = {
+    GetAbilityTimerId = function (_, i) return (world.timers or {})[i + 1] and world.timers[i + 1][1] or 0 end,
+    GetAbilityTimer = function (_, i) return (world.timers or {})[i + 1] and world.timers[i + 1][2] * 60 or 0 end,
+    GetSpellTimer = function (_, id) return ((world.spell_timers or {})[id] or 0) * 60 end,
+}
 local mm = { GetPlayer = const(player), GetParty = const(party), GetEntity = const(em), GetTarget = const(target),
-             GetInventory = const(inventory) }
+             GetInventory = const(inventory), GetRecast = const(recast) }
 rawset(_G, 'AshitaCore', { GetMemoryManager = const(mm), GetPointerManager = const({ Get = const(0) }) })
 rawset(_G, 'ashita', { memory = { find = const(0), read_uint32 = const(0), read_uint8 = const(0) } })
 
@@ -76,10 +83,10 @@ local function unit(g, sid)
     for _, u in ipairs(g.units) do if u.sid == sid then return u end end
 end
 
-local now = 0
-local function read(dt)
+local now = 1000  -- past other files' zone packets (cor_test.lua): not zoning here
+local function read(dt, idle)
     now = now + (dt or 0.1)
-    return game.read(now)
+    return game.read(now, idle)
 end
 
 test('a tracked player in range: HP % from their entity, max HP from their level, else yours', function ()
@@ -208,6 +215,14 @@ test('a trust\'s and the pet\'s statuses last across reads; a trust dismissed is
     eq({ unit(read(), TRUST).buffs, read().pet.buffs }, { {}, { [PROTECT] = true } })
 end)
 
+test('your pet: its HP % from its entity, its MP % and TP as the client reads them for you', function ()
+    reset()
+    world.pet, world.ents[0x700] = 0x700, { sid = PET, name = 'Ifrit', hpp = 80, dist = 2 }
+    world.pet_mpp, world.pet_tp = 60, 1500
+    local p = read().pet
+    eq({ p.name, p.hpp, p.mpp, p.tp }, { 'Ifrit', 80, 60, 1500 })
+end)
+
 test('with no <bt>, a mob another party of the alliance claimed is your battle target: the nearest in 21y', function ()
     reset()
     local function mob(name, dist, claimer) return { sid = 0x1000000 + dist, name = name, hpp = 80, dist = dist, flags = 0x10, claim = claimer } end
@@ -223,6 +238,17 @@ test('with no <bt>, a mob another party of the alliance claimed is your battle t
     eq({ read().bt, read(0.5).bt.name }, { nil, 'Crab' })  -- dead: dropped at once, the next look finds another
 end)
 
+test('no battle target looked for while automation is stopped or asleep, nor in a safe zone', function ()
+    reset()
+    world.ents[0x100] = { sid = 0x1000010, name = 'Crab', hpp = 80, dist = 10, flags = 0x10, claim = 600 }
+    world.party[7] = { sid = 600, tidx = 0x500, name = 'Bea', hpp = 100, hp = 1000, mpp = 0, mp = 0 }
+    eq({ read(1, true).bt, read(1).bt.name }, { nil, 'Crab' })
+    local zone = party.GetMemberZone
+    party.GetMemberZone = const(230)  -- Southern San d'Oria
+    eq(read(1).bt, nil)
+    party.GetMemberZone = zone
+end)
+
 test('another unit moving: for half a second after its position last changed; seen first, it stands', function ()
     reset()
     world.party[2] = { sid = 101, tidx = 0x401, name = 'Tank', hpp = 100, hp = 1000, mpp = 0, mp = 0 }
@@ -233,6 +259,21 @@ test('another unit moving: for half a second after its position last changed; se
     eq(unit(read(0.3), 101).moving, true)   -- no new position yet: their packets come apart
     eq(unit(read(0.3), 101).moving, false)
     eq(unit(read(), ME).moving, nil)  -- you: the moving gate
+end)
+
+test('you moving: a zone or teleport isn\'t, so it never wakes AFK sleep', function ()
+    reset()
+    read(1)
+    world.ents[0x400].dist = 3
+    eq(read(1).moving, true)
+    eq(read(1).moving, false)
+    local zone = party.GetMemberZone
+    party.GetMemberZone = const(101)
+    world.ents[0x400].dist = 50  -- Teleport-Holla: somewhere else
+    eq(read(1).moving, false)
+    world.ents[0x400].dist = 51
+    eq(read(1).moving, true)  -- walking in the new zone still is
+    party.GetMemberZone = zone
 end)
 
 test('a GEO\'s luopan gone: its auras are forgotten on those whose statuses come from packets', function ()
@@ -276,5 +317,74 @@ test('sessions: a player another session lists has its max HP, and its HP while 
     eq(unit(read(), OUT).hpp, 90)  -- drawn: their entity, not the file
 end)
 
+test('your statuses: a set, and how many of each stand (runes stack); empty slots counted as none', function ()
+    reset()
+    world.buffs = { 523, 523, 524, 0, 255, -1 }
+    local me = unit(read(), ME)
+    eq({ me.buffs, me.stacks }, { { [523] = true, [524] = true }, { [523] = 2, [524] = 1 } })
+end)
+
+test('a party player\'s statuses from the status-icon block, and their stacks: two songs of one kind stand twice', function ()
+    reset()
+    world.ents[0x450] = { sid = OUT, name = 'Out', hpp = 90, dist = 5 }
+    world.party[2] = { sid = OUT, tidx = 0x450, name = 'Out', hpp = 90, hp = 900, mpp = 50, mp = 100 }
+    -- Entry 1 is theirs: March (214) twice, Minuet (198), and 300 (high bits 1, low 44); the rest empty (255).
+    local POINTER, BASE = 0x10, 0x1000
+    local entry, bytes = BASE + 0x30, {}
+    for j, id in ipairs({ 214, 214, 198, 300 }) do
+        local k = j - 1
+        bytes[entry + 16 + k] = id % 256
+        local at = entry + 8 + math.floor(k / 4)
+        bytes[at] = (bytes[at] or 0) + math.floor(id / 256) * 4 ^ (k % 4)
+    end
+    for k = 4, 31 do bytes[entry + 16 + k] = 255 end
+    local core, ash = rawget(_G, 'AshitaCore'), rawget(_G, 'ashita')
+    rawset(_G, 'AshitaCore', { GetMemoryManager = const(mm), GetPointerManager = const({ Get = const(POINTER) }) })
+    rawset(_G, 'ashita', { memory = { find = const(0),
+        read_uint32 = function (addr) return addr == POINTER and BASE or addr == entry and OUT or 0 end,
+        read_uint8 = function (addr) return bytes[addr] or 0 end } })
+    local u = unit(read(), OUT)
+    rawset(_G, 'AshitaCore', core)
+    rawset(_G, 'ashita', ash)
+    eq({ u.buffs, u.stacks }, { { [214] = true, [198] = true, [300] = true }, { [214] = 2, [198] = 1, [300] = 1 } })
+end)
+
+test('BST: Ready charges from the pool timer; a Ready move waits only for the charges it costs', function ()
+    reset()
+    world.main, world.timers = 9, { { 102, 45 } }  -- one charge back in 15s: 1 banked
+    local g = read()
+    eq(g.ready, 1)
+    -- A charge back waits the half-second delay a recast run out does, then reads ready.
+    local function soon(a) local w = game.recast(a); return w > 0 and w <= 0.5 end
+    eq({ soon({ kind = 'pet', recast = 102, charges = 1 }), game.recast({ kind = 'pet', recast = 102, charges = 2 }) },
+        { true, 15 })
+    eq(soon({ kind = 'pet', recast = 102 }), true)  -- Sic: one charge
+    world.spell_timers = { [102] = 8 }
+    eq(game.recast({ kind = 'ma', recast = 102 }), 8)  -- Enaero, spell 102: its own recast, no charges
+    world.main = 3
+    eq(read().ready, nil)  -- off BST
+end)
+
 rawset(_G, 'AshitaCore', nil)
 rawset(_G, 'ashita', nil)
+
+test('owned ammo: your bag before the wardrobes, by the number /equip names each, its DAT level and jobs', function ()
+    local bags = { [0] = { { Id = 18731, Count = 0 } }, [8] = { { Id = 18731, Count = 3 } },
+                   [10] = { { Id = 18731, Count = 1 }, { Id = 19185, Count = 2 } } }
+    local items = { [18731] = { Name = { 'Automaton Oil', 'oil' }, Level = 1, Jobs = 2 ^ 18 },
+                    [19185] = { Name = { 'Automat. Oil +3', 'oil3' }, Level = 1, Jobs = 2 ^ 18 } }
+    inventory.GetContainerCountMax = function (_, c) return bags[c] and #bags[c] or 0 end
+    inventory.GetContainerItem = function (_, c, i) return bags[c] and bags[c][i] end
+    local core = rawget(_G, 'AshitaCore')
+    rawset(_G, 'AshitaCore', { GetMemoryManager = const(mm), GetResourceManager = const({ GetItemById = function (_, id) return items[id] end }) })
+    eq(game.owned({ 19185, 17016, 18731 }), {
+        { id = 19185, en = 'Automat. Oil +3', jp = 'oil3', level = 1, jobs = 2 ^ 18, bag = 2, count = 2 },  -- Mog Wardrobe 2
+        { id = 18731, en = 'Automaton Oil', jp = 'oil', level = 1, jobs = 2 ^ 18, bag = 1, count = 4 },  -- the empty stack in your bag skipped
+    })
+    local ids = { 18731 }
+    eq(#game.owned(ids), 1)
+    bags[10] = {}
+    eq(#game.owned(ids), 1, 'kept a second')
+    inventory.GetContainerCountMax, inventory.GetContainerItem = const(0), nil
+    rawset(_G, 'AshitaCore', core)
+end)

@@ -1,31 +1,34 @@
 --[[
-    Healing, by how urgent it is. Every usable heal aimed at every unit it can
-    reach is a candidate, covering the units in its area; a band picks who counts
-    and how candidates rank. Bands run worst first, and one with nothing usable
-    falls through, so a unit out of reach never stalls the rest.
+    Healing, by how urgent it is. Every usable heal aimed at every unit it can reach
+    is a candidate covering the units in its area; a band picks who counts and how
+    candidates rank. Bands run worst first, and one with nothing usable falls
+    through, so a unit out of reach never stalls the rest.
       critical   under heal.critical: a boost first (Divine Seal...), then an aimed
                  save (Martyr), then the danger score over critical units
-      danger     under heal.danger: HP% restored per second locked out; holds for
-                 a heal nearly off recast
-      efficient  from the danger line to full HP: HP that lands where it's needed, per
-                 share of the MP or TP you have; Regen allowed, and counted while it ticks
-    The focus member has its own two lines; skipped members count for nothing,
-    and so do the alliance's other parties unless heal.alliance is on.
-    An area heal lands on the target's party alone, so each party is scored on
-    its own: one centred on you or a member covers your party, a Cure aimed at
-    someone in another party and spread by Majesty or Accession covers theirs.
-    A tracked player is healed like a member, by a heal aimed at them; their
-    party is unknown, so a spread Cure counts them alone, and Accession is
-    never fired for them.
+      danger     under heal.danger: HP% restored per second locked out; holds for a
+                 heal nearly off recast
+      efficient  from the danger line to heal.threshold: HP that lands where it's
+                 needed, per share of the MP or TP you have; Regen allowed, and
+                 counted while it ticks; never a Ready move, whose charges are kept
+                 for the pet's attacks; not while you're Invisible
+    heal.urgent (critical, danger) and heal.efficient are behaviors of their own,
+    with debuff removal between them. The focus member has its own three lines;
+    skipped members count for nothing, and so do the alliance's other parties
+    unless heal.alliance is on. An area heal lands on its target's party alone, so
+    each party is scored on its own; a tracked player's party is unknown, so a
+    spread Cure counts them alone and Accession is never fired for them.
 ]]--
 
 local can = require('core.can')
+local dnc = require('jobs.dnc')
 local observed = require('core.observed')
 local settings = require('core.settings')
+local status = require('core.status')
+local util = require('core.util')
 
 local heal = {}
 
-local BANDS = { 'critical', 'danger', 'efficient' }
+local URGENT, EFFICIENT = { 'critical', 'danger' }, { 'efficient' }
 local HOLD_MAX = 15        -- seconds: a heal this close to ready is worth waiting for
 local CURE_POWER = 1.25    -- CatsEyeXI's bonus on healing magic, blue magic and waltzes
 local GEAR_CAP = 50        -- the server caps cure and waltz potency from gear at +50%
@@ -33,7 +36,7 @@ local HEALING, BLUE = 33, 43  -- spell skills
 local LIGHT = 6            -- element: the day and weather bonus is on light heals only
 local TP_CAP = 3000        -- TP past this is lost, so a heal spending it is free
 local AURORASTORM = { 184, 595 }
-local REGENS = { 42, 539 } -- Regen, and the GEO aura
+local REGENS = { status.REGEN, 539 }  -- Regen, and the GEO aura
 local THEIRS = 125         -- HP taken as still to come from a Regen not yours: a whole Regen I
 local AURAS, STELLAR, GLOOM, DARKNESS = 16, 17, 18, 19
 local LIGHTSDAY, DARKSDAY = 6, 7
@@ -133,7 +136,10 @@ end
 
 local function share(a, f, g)
     if f.mp > 0 then return f.mp / g.me.mp end
-    if waltz(a) then return g.me.tp >= TP_CAP and 0 or a.tp / g.me.tp end
+    if waltz(a) then
+        local tp = dnc.tp(a, g)
+        return (tp == 0 or g.me.tp >= TP_CAP) and 0 or tp / g.me.tp
+    end
     return 0
 end
 
@@ -192,11 +198,12 @@ end
 
 -- The best candidate for the band. A heal with no amount (Vivacious Pulse) goes
 -- only when nothing else can, and never in efficient. Efficient sends nothing
--- while every heal would overheal: chip damage waits.
+-- while every heal would overheal: chip damage waits. A Ready move (Wild Carrot)
+-- keeps its charges for the pet's attacks unless someone is in danger.
 local function best_of(band, ctx, ready, members)
     local best, fallback, fits = nil, nil, band ~= 'efficient'
     for _, a in ipairs(ready) do
-        if not a.tick or band == 'efficient' then
+        if (not a.tick or band == 'efficient') and not (a.charges and band == 'efficient') then
             local amt, m = amount(a, ctx)
             for _, f in ipairs(forms(a, ctx, band)) do
                 for _, centre in ipairs(centres(a, ctx.g)) do
@@ -241,21 +248,22 @@ end
 
 local function lines(u, ctx)
     local s = ctx.s
-    if u == ctx.focus then return s.focus_critical, s.focus_danger end
-    return s.critical, s.danger
+    if u == ctx.focus then return s.focus_critical, s.focus_danger, s.focus_threshold end
+    return s.critical, s.danger, s.threshold
 end
 
 -- The band's members as a set and worst first. Danger includes critical; efficient
--- starts at the danger line and leaves out whoever your ticking Regen will fill.
+-- runs from the danger line to the threshold and leaves out whoever a ticking Regen
+-- will bring over it.
 local function members_of(band, ctx)
     local set, list = {}, {}
     for _, u in ipairs(ctx.g.units) do
         if u.alive and u.in_zone and u.max_hp and not skipped(u, ctx) then
-            local critical, danger = lines(u, ctx)
+            local critical, danger, threshold = lines(u, ctx)
             local inside
             if band == 'critical' then inside = u.hpp < critical
             elseif band == 'danger' then inside = u.hpp < danger
-            else inside = u.hpp >= danger and u.hp + pending(u) < u.max_hp end
+            else inside = u.hpp >= danger and u.hpp < threshold and (u.hp + pending(u)) * 100 < threshold * u.max_hp end
             if inside then set[u] = true; list[#list + 1] = u end
         end
     end
@@ -295,14 +303,9 @@ local function emergency(ctx, list, best, emergencies, ready, members)
     end
 end
 
-local function focus_of(g, s)
-    if s.focus == '' then return nil end
-    for _, u in ipairs(g.units) do if u.name:lower() == s.focus:lower() then return u end end
-end
-
 -- What's up on you (boosts by status) and what healing may fire (Accession).
 local function context(g, cat, cfg, emergencies)
-    local ctx = { g = g, s = cfg.heal, up = {}, sky = heal.sky(g), focus = focus_of(g, cfg.heal) }
+    local ctx = { g = g, s = cfg.heal, up = {}, sky = heal.sky(g), focus = util.named(g.units, cfg.heal.focus) }
     for _, a in ipairs(cat) do
         if a.boost and any(g.me.buffs, a.status) then
             ctx.up[#ctx.up + 1] = a.boost
@@ -316,7 +319,14 @@ local function context(g, cat, cfg, emergencies)
     return ctx
 end
 
-function heal.want(g, cat, cfg)
+-- The worst off under their critical line, or nil (behaviors/buff.lua's first
+-- stage gives way to them).
+function heal.critical(g, cfg)
+    local _, list = members_of('critical', { g = g, s = cfg.heal, focus = util.named(g.units, cfg.heal.focus) })
+    return list[1]
+end
+
+local function want(g, cat, cfg, bands)
     local emergencies = settings.enabled(cat, cfg, 'emergency')
     local ctx = context(g, cat, cfg, emergencies)
     local ready, waiting = {}, {}
@@ -330,9 +340,10 @@ function heal.want(g, cat, cfg)
     end
     for _, u in ipairs(g.units) do ctx.regen_for[u] = regen_for(u, ctx) end
 
-    for _, band in ipairs(BANDS) do
+    local invisible = g.me.buffs[status.INVISIBLE]
+    for _, band in ipairs(bands) do
         local members, list = members_of(band, ctx)
-        if list[1] then
+        if list[1] and not (invisible and band == 'efficient') then
             local best = best_of(band, ctx, ready, members)
             local e = band == 'critical' and not ctx.factor_up and emergency(ctx, list, best, emergencies, ready, members)
             if e then return e end
@@ -345,5 +356,9 @@ function heal.want(g, cat, cfg)
         end
     end
 end
+
+-- Critical and danger, which go ahead of removal; efficient after it (core/engine.lua).
+function heal.urgent(g, cat, cfg) return want(g, cat, cfg, URGENT) end
+function heal.efficient(g, cat, cfg) return want(g, cat, cfg, EFFICIENT) end
 
 return heal

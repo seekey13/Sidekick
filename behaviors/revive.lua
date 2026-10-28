@@ -6,13 +6,14 @@
 
 local can = require('core.can')
 local settings = require('core.settings')
+local util = require('core.util')
 
 local RAISE_WAIT = 60
 
 return function (g, cat, cfg, mem)
     mem.raised = mem.raised or {}
     local raises = settings.enabled(cat, cfg, 'revive')
-    table.sort(raises, function (a, b) return (a.level or 0) > (b.level or 0) end)  -- Arise, Raise III, II, I
+    table.sort(raises, util.by_level)  -- Arise, Raise III, II, I
     for _, u in ipairs(g.units) do
         if u.alive then
             mem.raised[u.sid] = nil

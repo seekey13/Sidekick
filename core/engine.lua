@@ -1,55 +1,81 @@
 --[[
-    Decide the next action. The gates that stop everything are checked once here;
-    then each behavior, in priority order, may return an intent:
+    Decide the next action. The gates that stop everything (GATES, AFK sleep
+    among them) are checked once here; then each behavior, in priority order,
+    may return an intent:
         { action = catalog record, target = unit or nil (you / battle target), why = text }
-    or, for what isn't a spell or ability (/heal, /follow):
+    or, for what isn't a spell or ability (/heal, /follow, /equip):
         { command = text, action = { name = shown name }, why = text }
     The first intent wins. A behavior returning { hold = true } (a cure nearly off
-    recast) lets only the quick behaviors after it run until the cure goes out.
-    While you rest, only resting runs: it alone decides when to stand.
-    A buff held for the group to gather (behaviors/buff.lua) leaves mem.gather,
-    which engine.gather turns into a party chat line.
-    Modifiers: an intent may list intent.mods (stratagems a buff row turned on,
-    Snake Eye before a Double-Up, Blaze of Glory before a luopan, Entrust before
-    an Indi- on a member), and an Addendum spell you lack the Addendum for has
-    action.via (Enlightenment).
-    One whose status isn't on you goes first, alone; its status is then taken as
-    on you for EXPECT seconds, so the next decision sends the spell.
+    recast) lets only the `quick` behaviors after it run until the cure goes out.
+    While you rest only resting runs; while you're Invisible, which any action
+    breaks, only the `invisible` behaviors, each narrowing itself.
+
+    An intent may also carry:
+      mods    modifiers to fire first (stratagems, Snake Eye, Blaze of Glory, Entrust,
+              Embolden, Pianissimo). One not on you that can go now goes first,
+              alone; its status is then taken as on you for EXPECT seconds, so the
+              next decision sends the spell. One that can't go is skipped: the spell
+              goes without it. An action's `via` (Enlightenment for an Addendum spell
+              you lack the Addendum for, Unbridled Learning) goes first the same way.
+      cancel  a status of yours to cancel a moment into the cast (engine.cancel)
+      expect  statuses to take as on you once it's sent
+      sent    function (now), called once it's sent
+    A buff held for the group (behaviors/buff.lua) leaves mem.gather, which
+    engine.gather turns into a party chat line.
 ]]--
 
+local buff = require('behaviors.buff')
 local can = require('core.can')
+local heal = require('behaviors.heal')
 local jobs = require('core.jobs')
 local pet = require('behaviors.pet')
+local status = require('core.status')
+local util = require('core.util')
 
 local engine = {}
 
 -- Priority order. `quick` behaviors still run while a cure is held for; `setting`
--- is the cfg table whose `on` switches it, when not its name.
+-- is the cfg table whose `on` switches it, when not its name; `shown` the name its
+-- intents go by (the HUD's 'Buff:', the log), when not its own; `invisible` ones
+-- still run while you're Invisible (each narrows itself then).
 engine.BEHAVIORS = {
-    { name = 'heal', run = require('behaviors.heal').want },
+    -- Light Arts: ahead of healing, which is cheaper under it, but for a critical member (behaviors/buff.lua).
+    { name = 'first', run = buff.first, setting = 'buff', shown = 'buff', invisible = true },
+    { name = 'heal', run = heal.urgent, invisible = true },
+    -- Removal: after critical and danger healing, ahead of efficient healing.
     { name = 'remove', run = require('behaviors.remove'), quick = true },
+    { name = 'heal_efficient', run = heal.efficient, setting = 'heal', shown = 'heal' },
     { name = 'wake', run = require('behaviors.wake'), quick = true },
     { name = 'recover', run = require('behaviors.recover') },
     { name = 'pet', run = pet.care, quick = true },
     { name = 'revive', run = require('behaviors.revive') },
-    { name = 'buff', run = require('behaviors.buff').want },
+    { name = 'rune', run = require('jobs.run').want, quick = true },
+    { name = 'buff', run = buff.want, invisible = true },
+    { name = 'song', run = require('jobs.brd').want },
     { name = 'pet_send', run = pet.send, setting = 'pet', quick = true },
-    { name = 'follow', run = require('behaviors.follow').want },
-    { name = 'rest', run = require('behaviors.rest'), resting = true },
+    { name = 'maneuver', run = require('jobs.pup').want, quick = true },
+    -- Your own Invisible (Tonko, Spectral Jig): nothing else goes under it (behaviors/buff.lua).
+    { name = 'last', run = buff.last, setting = 'buff', shown = 'buff', invisible = true },
+    { name = 'follow', run = require('behaviors.follow').want, invisible = true },
+    { name = 'rest', run = require('behaviors.rest'), resting = true, invisible = true },
 }
--- The job modules' behaviors, each before the one it names (core/jobs.lua): Rolls, then Geomancy, before buffs.
+-- The job modules' behaviors, each before the one it names (core/jobs.lua): Rolls, then runes, then Geomancy, before buffs.
 for list in jobs.each('behaviors') do
     for _, b in ipairs(list) do
         local at
         for i, x in ipairs(engine.BEHAVIORS) do if x.name == b.before then at = i end end
         assert(at, 'a job behavior goes before an unknown one: ' .. tostring(b.before))
-        table.insert(engine.BEHAVIORS, at, { name = b.name, run = b.run, setting = b.setting, quick = b.quick })
+        local e = util.shallow_copy(b)
+        e.before = nil
+        table.insert(engine.BEHAVIORS, at, e)
     end
 end
 
-local GATES = { 'loading', 'dead', 'mounted', 'safe', 'incapacitated', 'casting', 'moving' }
+local GATES = { 'loading', 'dead', 'mounted', 'safe', 'afk', 'incapacitated', 'casting', 'moving' }
 engine.EXPECT = 2  -- seconds a modifier's status is taken as on you once it's sent
 engine.GATHER_EVERY = 5  -- seconds between asks to gather, as v2
+engine.CANCEL_AFTER = 1    -- seconds into the cast to cancel intent.cancel, as v2
+engine.CANCEL_UNTIL = 1.1  -- ...or as soon as the cast shows until then (can.THROTTLE: no send comes sooner)
 -- 集まってください。 in Shift-JIS, the game's chat encoding (as the names from the DATs).
 local GATHER_JP = '\x8f\x57\x82\xdc\x82\xc1\x82\xc4\x82\xad\x82\xbe\x82\xb3\x82\xa2\x81\x42'
 
@@ -74,37 +100,40 @@ local function expecting(g, mem)
         if g.now < until_ then extra = extra or {}; extra[id] = true else mem.expect[id] = nil end
     end
     if not extra then return g end
-    local me = setmetatable({ buffs = setmetatable(extra, { __index = g.me.buffs }) }, { __index = g.me })
+    local me = util.overlay(g.me, { buffs = util.overlay(g.me.buffs, extra) })
     local units = {}
     for i, u in ipairs(g.units) do units[i] = u == g.me and me or u end
-    return setmetatable({ me = me, units = units }, { __index = g })
+    return util.overlay(g, { me = me, units = units })
 end
 
 -- The intent for now, or nil and why not. `mem` is the engine's own memory
 -- between ticks (behaviors keep theirs in it too).
 function engine.decide(g, cat, cfg, mem)
-    mem.gather = nil
+    mem.gather, mem.waiting = nil, nil
     g = expecting(g, mem)
     for _, gate in ipairs(GATES) do
         if g[gate] then return nil, gate end
     end
-    local holding = false
+    local holding, invisible = false, g.me.buffs[status.INVISIBLE]
     for _, b in ipairs(engine.BEHAVIORS) do
-        if (b.resting or not g.resting) and cfg[b.setting or b.name].on and (b.quick or not holding) then
+        if (b.resting or not g.resting) and (b.invisible or not invisible)
+            and cfg[b.setting or b.name].on and (b.quick or not holding) then
             local intent = b.run(g, cat, cfg, mem)
             if intent and intent.hold then
                 holding = true
             elseif intent then
                 intent = modifier(intent, g) or intent
-                intent.behavior = b.name
+                intent.behavior = b.shown or b.name
                 return intent
             end
         end
     end
-    local w = mem.gather
+    local w, h = mem.gather, mem.waiting
     local away = w and (w.who.dist and ('%.1fy away'):format(w.who.dist) or 'not in sight')
     return nil, g.resting and 'resting' or holding and 'waiting for a cure'
-        or w and ('holding %s: %s %s'):format(w.action.name, w.who.name, away) or 'nothing to do'
+        or w and ('holding %s: %s %s'):format(w.action.name, w.who.name, away)
+        or h and ('holding %s for %s'):format(h.action.name, h.mod.name)
+        or invisible and 'invisible' or 'nothing to do'
 end
 
 -- The party chat line asking everyone to gather for the buff held on this
@@ -115,7 +144,7 @@ function engine.gather(g, cfg, mem)
     if not (w and w.ask and cfg.buff.gather) or g.now - (mem.gathered_at or -math.huge) < engine.GATHER_EVERY then return nil end
     mem.gathered_at = g.now
     local a = w.action
-    if cfg.ui.japanese then return '/p ' .. GATHER_JP .. '  ' .. ((a.jp or '') ~= '' and a.jp or a.name) end
+    if cfg.ui.japanese then return '/p ' .. GATHER_JP .. '  ' .. util.spelled(a.name, a.jp, true) end
     return '/p Gather together for ' .. a.name
 end
 
@@ -129,14 +158,27 @@ end
 -- The chat command for `intent`; `g` names a battle target the client has no <bt> for.
 -- The second result is true when a Japanese client is sent an English name (can.command).
 function engine.command(intent, cfg, g)
-    if intent.command then return intent.command end
+    if intent.command then return intent.command, intent.english end  -- an equip may name its item in English
     return can.command(intent.action, intent.target, cfg.ui.japanese, g and g.bt)
 end
 
--- Record a send: the throttle restarts, a modifier's status is expected, and
--- the intent's behavior is told.
+-- The status of yours to cancel now for the intent last sent, or nil: once
+-- CANCEL_AFTER seconds have passed since the send, and only while that cast goes
+-- on (one cut short before then keeps it); a cast that shows late (lag) is waited
+-- for until CANCEL_UNTIL. Cleared once sent or past that.
+function engine.cancel(g, mem)
+    local c = mem.cancel
+    if not c or g.now - c.at < engine.CANCEL_AFTER then return nil end
+    if not g.casting and g.now - c.at < engine.CANCEL_UNTIL then return nil end  -- not shown yet
+    mem.cancel = nil
+    if g.casting and g.me.buffs[c.id] then return c.id end
+end
+
+-- Record a send: the throttle restarts, a modifier's status is expected, a
+-- status to cancel mid-cast is noted (engine.cancel), and the intent's behavior is told.
 function engine.sent(intent, g, mem)
     mem.sent_at = g.now
+    mem.cancel = intent.cancel and { id = intent.cancel, at = g.now } or nil
     for _, id in ipairs(intent.expect or {}) do
         mem.expect = mem.expect or {}
         mem.expect[id] = g.now + engine.EXPECT

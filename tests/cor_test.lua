@@ -14,9 +14,7 @@ local CORSAIRS_ID, NINJA_ID = 626, 622  -- catalog ids: the server's ability id 
 local JAS = { 'Corsair\'s Roll', 'Ninja Roll', 'Chaos Roll', 'Double-Up', 'Snake Eye', 'Fold' }
 local cat = fake.catalog(COR, 75, WHM, 37, JAS)
 
-local function named(list, name)
-    for _, a in ipairs(list) do if a.name == name then return a end end
-end
+local named = fake.named
 
 -- COR 75 / WHM 37 with these statuses on you and this last roll; others in slots 1..n.
 local function snap(buffs, roll, waits, others, over)
@@ -33,18 +31,9 @@ local function cfg_with(first, second, risk)
     return cfg
 end
 
-local function decide(g, cfg, mem, list)
-    local intent, why = engine.decide(g, list or cat, cfg, mem)
-    if not intent then return nil, why end
-    return engine.command(intent, cfg), intent
-end
+local function decide(g, cfg, mem, list) return fake.decide(g, list or cat, cfg, mem) end
 
--- Decide and, when there is something, send it.
-local function step(g, cfg, mem)
-    local cmd, intent = decide(g, cfg, mem)
-    if cmd then engine.sent(intent, g, mem) end
-    return cmd, intent
-end
+local function step(g, cfg, mem) return fake.step(g, cat, cfg, mem) end
 
 test('catalog: rolls know their lucky and unlucky totals and the status named like them', function ()
     local c, n = named(cat, 'Corsair\'s Roll'), named(cat, 'Ninja Roll')
@@ -300,5 +289,97 @@ test('the Rolls section: only for a job with rolls; picks, risk, the second for 
     act.set('roll.second', 'Chaos Roll')
     act.set('roll.risk', 'lowest')
     act.section('roll', false)
-    eq(cfg.roll, { on = false, first = 'Ninja Roll', second = 'Chaos Roll', risk = 'lowest' })
+    eq(cfg.roll, { on = false, first = 'Ninja Roll', second = 'Chaos Roll', risk = 'lowest', max_at_11 = false })
+end)
+
+test('max_at_11: while one roll stands at 11, the other is doubled until it is 11 too; then the risk picked', function ()
+    local cfg = cfg_with('Corsair\'s Roll', 'Ninja Roll', 'lowest')
+    local function g_at(total, totals, buffs, waits)
+        local g = snap(buffs or { CORSAIRS, NINJA, DOUBLE_UP_CHANCE }, { id = NINJA_ID, total = total, at = 990 }, waits or { Fold = 200 })
+        g.roll_totals = totals
+        return g
+    end
+    local eleven = { [CORSAIRS_ID] = 11, [NINJA_ID] = 9 }
+    eq(decide(g_at(9, eleven), cfg, {}), nil)  -- off: lowest stops at 9
+    cfg.roll.max_at_11 = true
+    eq(decide(g_at(9, eleven), cfg, {}), '/ja "Double-Up" <me>')  -- no Bust with an 11 up, Fold down or not
+    eq(decide(g_at(4, eleven), cfg, {}), '/ja "Double-Up" <me>')  -- past lucky 4 too
+    eq(decide(g_at(10, eleven), cfg, {}), '/ja "Snake Eye" <me>')
+    eq(decide(g_at(11, { [CORSAIRS_ID] = 11, [NINJA_ID] = 11 }), cfg, {}), nil)  -- both at 11
+    eq(decide(g_at(9, { [CORSAIRS_ID] = 7, [NINJA_ID] = 9 }), cfg, {}), nil)  -- no 11: lowest again
+    eq(decide(g_at(9, eleven, { NINJA, DOUBLE_UP_CHANCE }, { Fold = 200, ['Corsair\'s Roll'] = 50 }), cfg, {}), nil)  -- the 11 wore
+    eq(cor.decide(6, 5, 9, 'max', false, false), 'double')
+    eq(cor.decide(10, 5, 9, 'max', false, false), 'double')  -- no Snake Eye: Double-Up all the same
+    -- An 11 on a roll that isn't picked counts for nothing.
+    eq(decide(g_at(9, { [NINJA_ID] = 9, [626 + 1] = 11 }), cfg, {}), nil)
+end)
+
+test('max_at_11 on a Corsair subjob: one roll, so the risk picked', function ()
+    local cfg = cfg_with('Ninja Roll', 'Corsair\'s Roll', 'lowest')
+    cfg.roll.max_at_11 = true
+    local sub = fake.catalog(NIN, 75, COR, 37, JAS)
+    local g = snap({ CORSAIRS, NINJA, DOUBLE_UP_CHANCE }, { id = NINJA_ID, total = 9, at = 990 }, { Fold = 200 }, {},
+        { main = NIN, sub = COR, roll_totals = { [CORSAIRS_ID] = 11, [NINJA_ID] = 9 } })
+    eq(decide(g, cfg, {}, sub), nil)
+end)
+
+test('a roll seen down forgets its total, but not one newer than WAIT: a lost re-roll is no 11', function ()
+    cor.clear()
+    packets.action(roll_packet(ME, CORSAIRS_ID, { { ME, 420, 11 } }), ctx, 998)
+    local cfg = cfg_with('Corsair\'s Roll', 'Ninja Roll')
+    local g = snap({}, nil, nil, {}, { roll_totals = cor.totals() })
+    g.now = 1000  -- 2s on: its status may not show yet
+    decide(g, cfg, {})
+    eq(cor.totals(), { [CORSAIRS_ID] = 11 })
+    g.now = 998 + cor.WAIT
+    decide(g, cfg, {})
+    eq(cor.totals(), {})
+end)
+
+test('packets: each roll\'s last total, none once it busts, cleared on zoning', function ()
+    cor.clear()
+    packets.action(roll_packet(ME, CORSAIRS_ID, { { ME, 420, 11 } }), ctx, 10)
+    packets.action(roll_packet(ME, NINJA_ID, { { ME, 420, 6 } }), ctx, 20)
+    packets.action(roll_packet(ME, NINJA_ID, { { ME, 424, 9 } }), ctx, 26)
+    eq(cor.totals(), { [CORSAIRS_ID] = 11, [NINJA_ID] = 9 })
+    packets.action(roll_packet(ME, NINJA_ID, { { ME, 424, 14 } }), ctx, 32)
+    eq(cor.totals(), { [CORSAIRS_ID] = 11 })
+    packets.handle({ id = 0x00A }, ctx, 40)
+    eq(cor.totals(), {})
+end)
+
+test('the Rolls section says when the risk is at max', function ()
+    local NAMES = { job = function (id) return ({ [COR] = 'COR', [WHM] = 'WHM' })[id] end, statuses = fake.res.statuses }
+    local st = { running = false, log = true, sent = {} }
+    local cfg = cfg_with('Corsair\'s Roll', 'Ninja Roll')
+    local g = snap({ CORSAIRS }, { id = CORSAIRS_ID, total = 11, at = 990 }, nil, {}, { roll_totals = { [CORSAIRS_ID] = 11 } })
+    eq({ model.build(g, cat, cfg, st, NAMES).roll.max_at_11, model.build(g, cat, cfg, st, NAMES).roll.eleven }, { false, nil })
+    local act = model.actions(cfg, st, function () end)
+    act.set('roll.max_at_11', true)
+    eq(model.build(g, cat, cfg, st, NAMES).roll.eleven, 'Corsair\'s Roll')
+    g.roll_totals[NINJA_ID] = 11  -- both at 11: nothing left to double
+    eq(model.build(g, cat, cfg, st, NAMES).roll.eleven, nil)
+    g.roll_totals[NINJA_ID] = nil
+    for _, second in ipairs({ '', 'Corsair\'s Roll' }) do  -- no other roll
+        cfg.roll.second = second
+        eq(model.build(g, cat, cfg, st, NAMES).roll.eleven, nil)
+    end
+end)
+
+test('max_at_11: the other roll, rolled before the 11, is rolled again to chase 11', function ()
+    local cfg = cfg_with('Corsair\'s Roll', 'Ninja Roll', 'medium')
+    cfg.roll.max_at_11 = true
+    -- Ninja Roll banked at 5, then Corsair's Roll hit 11: its Double-Up Chance is no use to Ninja Roll.
+    local function g_with(totals, waits)
+        local g = snap({ CORSAIRS, NINJA }, { id = CORSAIRS_ID, total = 11, at = 990 }, waits)
+        g.roll_totals = totals
+        return g
+    end
+    local cmd, intent = decide(g_with({ [CORSAIRS_ID] = 11, [NINJA_ID] = 5 }), cfg, {})
+    eq({ cmd, intent.why }, { '/ja "Ninja Roll" <me>', 'at 5, for 11' })
+    eq(decide(g_with({ [CORSAIRS_ID] = 11, [NINJA_ID] = 5 }, { ['Ninja Roll'] = 50 }), cfg, {}), nil)  -- Phantom Roll's recast
+    eq(decide(g_with({ [CORSAIRS_ID] = 11 }), cfg, {}), nil)  -- its total unknown: left be
+    eq(decide(g_with({ [CORSAIRS_ID] = 11, [NINJA_ID] = 11 }), cfg, {}), nil)
+    cfg.roll.max_at_11 = false
+    eq(decide(g_with({ [CORSAIRS_ID] = 11, [NINJA_ID] = 5 }), cfg, {}), nil)
 end)

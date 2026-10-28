@@ -9,6 +9,10 @@
     `a` is a catalog record, `u` a unit and `g` the snapshot from core/game.lua.
 ]]--
 
+local dnc = require('jobs.dnc')
+local nin = require('jobs.nin')
+local util = require('core.util')
+
 local can = {}
 
 can.THROTTLE = 1.1        -- the server's lockout after any action
@@ -35,6 +39,12 @@ function can.any(set, ids)
 end
 local any = can.any
 
+-- Whether `u` shows none of `a`'s statuses (`status`, a list, stands in for them
+-- when given); true for one with no status that can be read (Boost).
+function can.lacks(a, u, status)
+    return not (a.status and any(u.buffs, status or a.status))
+end
+
 -- Yalms between two units (or a unit and the pet); unknown positions are far apart.
 function can.dist(a, b)
     if a == b then return 0 end
@@ -43,11 +53,8 @@ function can.dist(a, b)
     return math.sqrt(dx * dx + dy * dy + dz * dz)
 end
 
--- Whether `list` holds `x`.
-function can.holds(list, x)
-    for _, v in ipairs(list) do if v == x then return true end end
-    return false
-end
+-- Whether `u` is within `radius` yalms of you: you always are, one not drawn never.
+function can.near(u, radius) return u.kind == 'self' or (u.dist or math.huge) <= radius end
 
 -- Whether you can pay `a`'s HP price: one that costs HP (Devotion, Spirit Link)
 -- only over your danger line, one that trades HP for MP (Convert) only while it gains.
@@ -87,25 +94,27 @@ function can.use(a, g)
     if a.kind == 'ma' and g.silenced then return false, 'silenced' end
     if (a.kind == 'ja' or a.kind == 'pet') and g.amnesia then return false, 'amnesia' end
     if (a.mp or 0) > g.me.mp then return false, 'MP' end
-    if (a.tp or 0) > 0 and a.tp > g.me.tp then return false, 'TP' end
-    if a.ammo and not can.holds(a.ammo, g.ammo) then return false, 'no ammo' end
+    if dnc.tp(a, g) > g.me.tp then return false, 'TP' end
+    if a.ammo and not util.contains(a.ammo, g.ammo) then return false, 'no ammo' end
+    if a.tool and nin.tools(a, g) == 0 then return false, 'no tools' end
     if a.kind == 'item' and not (g.items and g.items[a.id]) then return false, 'none left' end
     -- An Addendum spell can go through Enlightenment instead (core/catalog.lua), fired first by the engine.
     if a.requires and not any(g.me.buffs, a.requires) and not (a.via and can.use(a.via, g)) then
-        return false, 'needs a status'
+        return false, 'needs ' .. (a.names and a.names[a.requires[1]] or 'a status')
     end
-    if any(g.me.buffs, a.blocked_by) then return false, 'blocked by a status' end
+    for _, id in ipairs(a.blocked_by or {}) do
+        if g.me.buffs[id] then return false, 'blocked by ' .. (a.names and a.names[id] or 'a status') end
+    end
     if a.gate == 'combat' and not g.combat then return false, 'combat only' end
     if a.gate == 'idle' and g.combat then return false, 'idle only' end
     if a.pet then
         if not g.pet then return false, 'no pet' end
         if a.pet_range and (g.pet.dist or math.huge) > a.pet_range then return false, 'pet too far' end
-        if type(a.pet) == 'table' then
-            local named = false
-            for _, n in ipairs(a.pet) do named = named or n == g.pet.name end
-            if not named then return false, 'wrong pet' end
-        end
+        if type(a.pet) == 'table' and not util.contains(a.pet, g.pet.name) then return false, 'wrong pet' end
     end
+    -- Catalogued by level though the server lists it only at times (core/catalog.lua):
+    -- goes only once the client lists it (a jug's Ready move it lacks, a merit not taken).
+    if a.hidden and g.listed and not g.listed(a) then return false, 'not listed' end
     if can.at_enemy(a) then
         if not (g.bt and g.bt.mob) then return false, 'no battle target' end
         if g.bt.dist > can.yalms(a.range) then return false, 'target out of range' end
@@ -125,8 +134,7 @@ function can.reach(a, u)
         return false
     end
     if u.kind == 'self' then return has(a.targets, SELF) end
-    if not has(a.targets, can.in_party(u) and PARTY or ALLY) then return false end
-    return (u.dist or math.huge) <= can.yalms(a.range)
+    return has(a.targets, can.in_party(u) and PARTY or ALLY) and can.near(u, can.yalms(a.range))
 end
 
 -- '/ma "Cure IV" 12345678': party members by server id, you as <me>, enemies as
@@ -135,8 +143,7 @@ end
 -- Japanese one; the second result is true when there is none, so the English
 -- one went instead (the Japanese client won't take it).
 function can.command(a, u, japanese, bt)
-    local english = japanese and (a.jp or '') == ''
-    local name = japanese and not english and a.jp or a.name
+    local name, english = util.spelled(a.name, a.jp, japanese)
     local enemy = bt and bt.claimed and tostring(bt.sid) or '<bt>'
     local target = can.at_enemy(a) and enemy or (u == nil or u.kind == 'self') and '<me>' or tostring(u.sid)
     return ('/%s "%s" %s'):format(a.kind, name, target), english

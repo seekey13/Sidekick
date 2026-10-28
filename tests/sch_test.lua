@@ -27,24 +27,11 @@ local function cfg_with(rows)
     return cfg
 end
 
-local function decide(g, cfg, mem, list)
-    local intent, why = engine.decide(g, list or cat, cfg, mem)
-    if not intent then return nil, why end
-    return engine.command(intent, cfg), intent
-end
+local function decide(g, cfg, mem, list) return fake.decide(g, list or cat, cfg, mem) end
 
--- Decide and, when there is something, send it.
-local function step(g, cfg, mem)
-    local cmd, intent = decide(g, cfg, mem)
-    if cmd then engine.sent(intent, g, mem) end
-    return cmd, intent
-end
+local function step(g, cfg, mem) return fake.step(g, cat, cfg, mem) end
 
-local function named(list, name, role)
-    for _, a in ipairs(list) do
-        if a.name == name and (not role or a.role == role) then return a end
-    end
-end
+local named = fake.named
 
 test('catalog: the stratagems are modifiers that say which spells they fit', function ()
     local pen, per, acc, par = named(cat, 'Penury', 'modifier'), named(cat, 'Perpetuance'),
@@ -65,8 +52,8 @@ end)
 test('can.use: under Dark Arts an Addendum spell is usable while Enlightenment is', function ()
     local raise = named(cat, 'Raise II')
     eq(can.use(raise, snap({ DARK_ARTS })), true)
-    eq(select(2, can.use(raise, snap({ DARK_ARTS }, {}, { Enlightenment = 200 }))), 'needs a status')
-    eq(select(2, can.use(raise, snap({ LIGHT_ARTS }))), 'needs a status')  -- Addendum: White is the way in there
+    eq(select(2, can.use(raise, snap({ DARK_ARTS }, {}, { Enlightenment = 200 }))), 'needs Addendum: White')
+    eq(select(2, can.use(raise, snap({ LIGHT_ARTS }))), 'needs Addendum: White')  -- Addendum: White is the way in there
     eq(can.use(raise, snap({ LIGHT_ARTS, ADDENDUM_WHITE })), true)
 end)
 
@@ -193,8 +180,9 @@ end)
 
 test('charges: counted from the pool timer and your SCH level', function ()
     local sch = require('jobs.sch')
-    eq({ sch.charges(0, 75), sch.charges(1, 75), sch.charges(100, 75), sch.charges(240, 75), sch.charges(0, 37) },
-       { 5, 4, 2, 0, 2 })
+    local p = sch.POOL
+    eq({ p:banked(0, 75), p:banked(1, 75), p:banked(100, 75), p:banked(240, 75), p:banked(0, 37), p:banked(0, 5) },
+       { 5, 4, 2, 0, 2, 0 })
 end)
 
 test('heal.reserve: buff rows leave the last charge for healing', function ()
@@ -232,4 +220,107 @@ test('expected statuses stay out of the snapshot the HUD and /sk3 state read', f
     local mem = { expect = { [ENLIGHTENMENT] = 1001 } }
     eq(decide(g, settings.defaults(), mem), '/ma "Raise II" 101')
     eq({ g.me.buffs[ENLIGHTENMENT], g.units[1].buffs[ENLIGHTENMENT] }, { nil, nil })
+end)
+
+test('Hold on a row: its spell waits while a stratagem picked can\'t go (wrong Arts, no charge); without, it goes alone', function ()
+    local cfg = cfg_with({ Protect = { on = true, mods = { Penury = true }, hold = true } })
+    eq(decide(snap({ DARK_ARTS }), cfg, {}), nil)
+    eq(decide(snap({ LIGHT_ARTS }), cfg, {}), '/ja "Penury" <me>')
+    cfg.rows.Protect.hold = nil
+    eq(decide(snap({ DARK_ARTS }), cfg, {}), '/ma "Protect IV" <me>')
+end)
+
+test('Hold counts the charges: it waits while there are more stratagems to fire than charges to spend', function ()
+    local cfg = cfg_with({ Protect = { on = true, mods = { Penury = true, Celerity = true }, hold = true } })
+    local function with(charges, reserve, over)
+        local g = snap({ LIGHT_ARTS })
+        g.stratagems = charges
+        for _, id in ipairs(over or {}) do g.me.buffs[id] = true end
+        cfg.heal.reserve = reserve
+        return decide(g, cfg, {})
+    end
+    eq({ with(1) }, { nil, 'holding Protect IV for Penury' })
+    eq(with(2), '/ja "Penury" <me>')
+    eq(with(2, true), nil, 'the reserve leaves one: too few for two')
+    eq(with(1, false, { 360 }), '/ja "Celerity" <me>', 'Penury up already: one to fire, one charge')
+    eq(with(nil), '/ja "Penury" <me>', 'charges unknown: not counted')
+end)
+
+test('Hold and Accession: waits only when the spell would spread to someone it reaches', function ()
+    local cfg = cfg_with({ Protect = { on = true, targets = { [0] = false, [1] = true }, mods = { Accession = true }, hold = true } })
+    local function with(others, waits)
+        local g = snap({ LIGHT_ARTS }, others, waits)
+        return (decide(g, cfg, {}))
+    end
+    eq(with({ { name = 'A' } }, { Accession = 30 }), nil, 'A near and lacking it: waits for Accession')
+    eq(with({ { name = 'A', dist = 15 } }, { Accession = 30 }), '/ma "Protect IV" 101', 'A too far to spread to: goes alone')
+end)
+
+test('a held row says what it waits for', function ()
+    local cfg = cfg_with({ Protect = { on = true, mods = { Penury = true }, hold = true } })
+    local v = model.build(snap({ DARK_ARTS }), cat, cfg, { running = false, sent = {} },
+        { job = function () return 'SCH' end, statuses = fake.res.statuses })
+    local row
+    for _, s in ipairs(v.sections) do
+        for _, r in ipairs(s.rows or {}) do if r.key == 'Protect' then row = r end end
+    end
+    eq({ row.ready, row.avail }, { false, 'waits for Pen: needs Light Arts' })
+end)
+
+-- The client lists the stratagems only under their Arts (LSB's addType): a SCH
+-- loaded outside either still has them, each waiting on its Arts.
+local bare = fake.catalog(SCH, 75, RDM, 37, { 'Light Arts', 'Dark Arts', 'Enlightenment' })
+
+test('loaded outside either Arts: the stratagems are still there, each waiting on its Arts', function ()
+    local names = { job = function () return 'SCH' end, statuses = fake.res.statuses }
+    local view = model.build(snap({}), bare, settings.defaults(), { running = false, sent = {} }, names)
+    local rows = {}
+    for _, s in ipairs(view.sections) do
+        for _, r in ipairs(s.rows or {}) do rows[r.key] = r end
+    end
+    local chips = {}
+    for i, m in ipairs(rows.Protect.mods) do chips[i] = m.label end
+    eq(chips, { 'Pen', 'Cel', 'Acc' })
+    eq({ rows.Rapture.ready, rows.Rapture.avail, rows.addendum.avail }, { false, 'needs Light Arts', 'pick one' })
+    eq(view.heal.stratagems, true)
+    -- Under Light Arts, but the client doesn't list it (a merit not taken): never sent.
+    local g = snap({ LIGHT_ARTS })
+    g.listed = function (a) return a.name ~= 'Tranquility' end
+    eq({ can.use(named(bare, 'Tranquility'), g) }, { false, 'not listed' })
+    eq(can.use(named(bare, 'Rapture'), g), true)
+end)
+
+test('Light Arts goes first, ahead of healing; then the cure', function ()
+    local cfg = cfg_with({ arts = { on = true, pick = 'Light Arts' }, Regen = { on = false } })
+    local hurt = { { name = 'A', hpp = 60 } }
+    local cmd, intent = decide(snap({}, hurt), cfg, {})
+    eq({ cmd, intent.behavior }, { '/ja "Light Arts" <me>', 'buff' })
+    eq(decide(snap({ LIGHT_ARTS }, hurt), cfg, {}):match('^/ma "Cure'), '/ma "Cure')
+    -- On recast, or with the buff section off, healing doesn't wait for it.
+    eq(decide(snap({}, hurt, { ['Light Arts'] = 30 }), cfg, {}):match('^/ma "Cure'), '/ma "Cure')
+    cfg.buff.on = false
+    eq(decide(snap({}, hurt), cfg, {}):match('^/ma "Cure'), '/ma "Cure')
+    -- Someone critical: their cure goes at once, Light Arts once they're out of it (or with no cure that can go).
+    cfg.buff.on = true
+    local critical = { { name = 'A', hpp = 10 } }
+    eq(decide(snap({}, critical), cfg, {}):match('^/ma "Cure'), '/ma "Cure')
+    local none = {}
+    for _, a in ipairs(cat) do if a.role == 'heal' then none[a.name] = 60 end end
+    eq(decide(snap({}, critical, none), cfg, {}),
+       '/ja "Light Arts" <me>')
+    cfg.heal.on = false
+    eq(decide(snap({}, critical), cfg, {}), '/ja "Light Arts" <me>')
+    -- Dark Arts picked keeps its place among the buffs, after healing.
+    cfg = cfg_with({ arts = { on = true, pick = 'Dark Arts' }, Regen = { on = false } })
+    eq(decide(snap({}, hurt), cfg, {}):match('^/ma "Cure'), '/ma "Cure')
+end)
+
+test('Addendum: White goes first too, once Light Arts is up', function ()
+    local cfg = cfg_with({ arts = { on = true, pick = 'Light Arts' }, addendum = { on = true, pick = 'Addendum: White' },
+                          Regen = { on = false } })
+    local hurt = { { name = 'A', hpp = 60 } }
+    eq(decide(snap({}, hurt), cfg, {}), '/ja "Light Arts" <me>')
+    local cmd, intent = decide(snap({ LIGHT_ARTS }, hurt), cfg, {})
+    eq({ cmd, intent.behavior }, { '/ja "Addendum: White" <me>', 'buff' })
+    eq(decide(snap({ ADDENDUM_WHITE }, hurt), cfg, {}):match('^/ma "Cure'), '/ma "Cure')
 end)

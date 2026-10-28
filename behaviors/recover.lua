@@ -10,6 +10,7 @@
 
 local can = require('core.can')
 local settings = require('core.settings')
+local util = require('core.util')
 
 -- The member under the MP line with the least, that `a` can reach.
 local function drained(a, g, line)
@@ -25,10 +26,7 @@ end
 return function (g, cat, cfg, mem)
     local r = cfg.recover
     local list = settings.enabled(cat, cfg, 'recover')
-    table.sort(list, function (a, b)
-        if a.priority ~= b.priority then return a.priority > b.priority end
-        return (a.level or 0) > (b.level or 0)
-    end)
+    table.sort(list, util.by_priority)
     for _, a in ipairs(list) do
         if a.decide then
             local intent = a.decide(a, g, cat, cfg, mem)

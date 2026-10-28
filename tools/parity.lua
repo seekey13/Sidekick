@@ -8,9 +8,11 @@
     For every job at level 75 (all spells and abilities known) each v2 entry in a
     generic category must appear in the catalog with the same role, and agree on
     status, removes, potency, gates, level and MP; rolls on their lucky and unlucky
-    totals too. The other job-mechanic categories (runes, maneuvers, geo, precast)
-    belong to job modules and are not checked here; the luopan's (v2's geo and its
-    Geo buff group) are, as v3's geo role.
+    totals too. The other job-mechanic categories (geo, precast) belong to job
+    modules and are not checked here; the luopan's (v2's geo and its Geo buff
+    group) are, as v3's geo role, the runes and wards, as its rune and ward roles,
+    the maneuvers, as its maneuver role, and the songs, as its song role (their
+    groups aren't: v3 picks songs by slot, jobs/brd.lua).
 ]]--
 
 local sk3 = arg[0]:gsub('[\\/]tools[\\/]parity%.lua$', '')
@@ -29,7 +31,8 @@ local ROLE = {
     heal = 'heal', heal_aoe = 'heal', heal_pet = 'pet_heal', debuff_removal = 'remove',
     pet_debuff_removal = 'pet_remove', critical = 'emergency', revive = 'revive',
     recover_mp = 'recover', recover_tp = 'recover', recover_party_mp = 'recover', buff = 'buff',
-    pet_control = 'pet_send', roll = 'roll', roll_control = 'roll', geo = 'geo',
+    pet_control = 'pet_send', roll = 'roll', roll_control = 'roll', geo = 'geo', rune = 'rune', rune_ja = 'ward',
+    maneuver = 'maneuver',
 }
 -- v2 entries a v3 job module owns instead of the generic role.
 local MODULE_OWNED = {}
@@ -44,6 +47,17 @@ local ACCEPTED = {
     ['scholar|Accession|EXTRA'] = 'same ability, as a healing boost',
     ['corsair|Snake Eye|MISSING'] = 'a modifier fired before a Double-Up (jobs/cor.lua)',
     ['geomancer|Blaze of Glory|status'] = 'a modifier before a luopan: its status says it is waiting (jobs/geo.lua)',
+    -- Finishing moves past five show one status, Finishing Move (6+) (jobs/dnc.lua).
+    ['dancer|No Foot Rise|status'] = 'five or more finishing moves: 385 or 588',
+    ['dancer|Reverse Flourish|requires'] = 'five or more finishing moves: 385 or 588',
+    -- Decided 2026-10-18: in combat only (v2 kept them up idle, for nothing).
+    ['dancer|Aspir Samba|gate'] = 'a samba works on your melee hits only',
+    ['dancer|Aspir Samba II|gate'] = 'a samba works on your melee hits only',
+    ['dancer|Drain Samba|gate'] = 'a samba works on your melee hits only',
+    ['dancer|Drain Samba II|gate'] = 'a samba works on your melee hits only',
+    ['dancer|Drain Samba III|gate'] = 'a samba works on your melee hits only',
+    ['dancer|Haste Samba|gate'] = 'a samba works on your melee hits only',
+    ['dancer|Presto|gate'] = 'for a Step, which only you fire',
     -- v2 sent the pet at <t> by default (<bt> by option); v3 always at the battle target.
     ['beastmaster|Fight|enemy'] = 'sent at <bt>',
     ['puppetmaster|Deploy|enemy'] = 'sent at <bt>',
@@ -51,6 +65,10 @@ local ACCEPTED = {
     -- CatsEyeXI's Reward refuses Pet Poultice and Pet Roborant: it takes pet food only.
     ['beastmaster|Reward (Regen)|MISSING'] = 'the server refuses Pet Poultice; every Reward gives Regen',
     ['beastmaster|Reward (Erase)|MISSING'] = 'the server refuses Pet Roborant; Reward never erases',
+    -- Ammo v2 didn't list but the server takes (core/knowledge.lua).
+    ['beastmaster|Reward|ammo'] = 'Pet Food Eta and Theta Biscuit too',
+    ['puppetmaster|Repair|ammo'] = 'Automaton Oil +3 too',
+    ['puppetmaster|Maintenance|ammo'] = 'Automaton Oil +3 too',
     -- v2 copied the server's spell_list cost; the client blocks the cast by its own
     -- (reported to the CatsEyeXI devs as a server/client mismatch).
     ['white_mage|Arise|mp'] = 'client 150, server 300',
@@ -104,7 +122,9 @@ for _, job in ipairs(jobs) do
     local seen = {}
     for cat, entries in pairs(def.abilities) do
         for _, e in ipairs(ROLE[cat] and entries or {}) do
-            local role = cat == 'buff' and e.group == 'Geo' and 'geo' or ROLE[cat]  -- a luopan
+            -- A luopan's, or a song (jobs/brd.lua's slots, so its v2 group is no row: not compared).
+            local role = cat == 'buff' and e.group == 'Geo' and 'geo' or cat == 'buff' and e.magic == 'song' and 'song'
+                or ROLE[cat]
             local cmd = type(e.command) == 'function' and e.command('<t>') or e.command
             local real = cmd:match('"(.-)"')
             if not MODULE_OWNED[role .. '|' .. real] then
@@ -130,12 +150,18 @@ for _, job in ipairs(jobs) do
                     cmp('blocked_by', list(e.blocked_by), list(a.blocked_by))
                     cmp('requires', list(e.requires_buff), list(a.requires))
                     cmp('priority', e.priority or 0, a.priority)
+                    cmp('charges', e.ready_charge_cost or e.requires_ready_charge and 1 or nil, a.charges)
+                    -- v2's tools list the family's own first, then Shikanofuda (jobs/nin.lua's).
+                    cmp('tool', e.requires_item and e.requires_item[1].id, a.tool)
+                    local worn = {}
+                    for i, it in ipairs(e.requires_equipped_ammo or {}) do worn[i] = it.id end
+                    cmp('ammo', list(e.requires_equipped_ammo and worn), list(a.ammo))
                     local enemy = cmd:find('<bt>') ~= nil
                     cmp('gate', e.combat_only and not enemy and 'combat' or e.idle_only and 'idle' or nil, a.gate)
                     cmp('enemy', enemy, a.targets == 32)
                     cmp('pet', list(e.requires_pet_name) or e.pet_required, type(a.pet) == 'table' and list(a.pet) or a.pet)
                     -- Grouping: one v2 group <-> one v3 group (pick_one, else the family).
-                    if e.group then
+                    if e.group and role ~= 'song' then
                         local v2g, v3g = job .. '|' .. role .. '|' .. e.group, a.pick_one or a.family
                         groups[v2g] = groups[v2g] or {}
                         groups[v2g][v3g] = true

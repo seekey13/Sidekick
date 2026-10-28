@@ -1,26 +1,25 @@
 --[[
-    Corsair: Phantom Rolls. The two rolls picked under Rolls (cfg.roll; one on a
-    COR subjob) are kept up on you, and the last one rolled is Double-Upped
-    while the risk picked says it's worth it (cor.decide, v2's rules). Snake Eye
-    is a modifier the engine fires just before a Double-Up (core/engine.lua);
-    Fold clears a Bust whenever it's ready.
+    Corsair: Phantom Rolls. The rolls picked under Rolls (cfg.roll; the second on a
+    COR main job only) are kept up on you, and the last one rolled is Double-Upped
+    while the risk picked says it's worth it (cor.decide). Snake Eye is a modifier
+    the engine fires just before a Double-Up; Fold clears a Bust whenever it's ready.
 
-    The totals come only from your own 0x028 job ability packets
-    (core/packets.lua -> cor.ability), and the snapshot carries the last one
-    (g.roll = { id, total, die, at, bust, doubled }), so the decision reads the snapshot alone.
-    A Double-Up Chance is for the last roll alone: no other is ever doubled.
-    A roll or Double-Up sent waits for its total; one that never comes (a lost
-    packet) leaves that roll as it is after WAIT seconds, never doubled blind,
-    and no total older than the last send is doubled. A new roll waits until
-    the last one is settled, so its chase isn't cut short; while it waits,
-    mem.busy_until keeps resting from starting (behaviors/rest.lua).
-    Nothing goes while you're Invisible (a roll would break it), as buffs.
-    With buff.hold_aoe on, a roll is held like an area buff spell until the
-    party's players who lack it are inside its area (the DAT's, about 8 yalms).
+    The totals come only from your own 0x028 job ability packets (core/packets.lua
+    -> cor.ability); the snapshot carries the last (g.roll = { id, total, die, at,
+    bust, doubled }) and each roll's (g.roll_totals), cor.read. A Double-Up Chance is the last
+    roll's alone. A roll or Double-Up sent waits for its total and is never doubled
+    blind: one that never comes leaves the roll as it is after WAIT seconds, and no
+    total older than the last send is doubled. A new roll waits until the last is
+    settled, while mem.busy_until keeps resting from starting. With roll.max_at_11,
+    while one roll picked stands at 11 the other is doubled at max risk (no die can
+    bust it then), or rolled again once it can't be doubled. With buff.hold_aoe on, a
+    roll is held for the group like an area buff spell, within the roll's own area.
 ]]--
 
 local buff = require('behaviors.buff')
 local can = require('core.can')
+local lang = require('core.lang')
+local util = require('core.util')
 
 local cor = {}
 
@@ -29,7 +28,7 @@ cor.RISKS = { 'lowest', 'medium', 'highest' }
 cor.DOUBLE_GAP = 6  -- seconds between Double-Ups, from the send and from its total (in-game proven, v2)
 cor.WAIT = 5        -- seconds a roll or Double-Up sent waits for its total
 
-local INVISIBLE, DOUBLE_UP_CHANCE, BUST, SNAKE_EYE = 69, 308, 309, 357  -- statuses
+local DOUBLE_UP_CHANCE, BUST, SNAKE_EYE = 308, 309, 357  -- statuses
 local ROLL, ROLL_SUB, DOUBLED, BUSTED, BUSTED_SUB = 420, 421, 424, 426, 427  -- 0x028 messages
 
 local MAX_TOTAL = 11           -- 12 or more busts
@@ -39,6 +38,7 @@ local UNLUCKY_REROLL_MAX = 8   -- past 8 a die busts more often than not
 -- The roll packets -----------------------------------------------------------
 
 local last  -- { id = catalog id, total, die, at, bust, doubled }: the last roll, as the server said it
+local totals, totals_at = {}, {}  -- [catalog id] = each roll's last total (none once it busts), and when
 
 -- One of your job ability packets, on your own target entry: `id` the catalog
 -- id (on a Double-Up the server names the roll doubled), `total` its param,
@@ -47,14 +47,21 @@ function cor.rolled(id, total, message, now, die)
     local bust = message == BUSTED or message == BUSTED_SUB or (message == DOUBLED and total > MAX_TOTAL)
     if bust or message == ROLL or message == ROLL_SUB or message == DOUBLED then
         last = { id = id, total = total, die = die, at = now, bust = bust or nil, doubled = message == DOUBLED or nil }
+        totals[id], totals_at[id] = not bust and total or nil, now
     end
 end
 
 cor.ability = cor.rolled
 function cor.last() return last end
-function cor.clear() last = nil end
+function cor.totals() return util.shallow_copy(totals) end
+-- The roll `id` is seen down: its total goes, but not one newer than WAIT,
+-- whose status may not show yet.
+function cor.forget(id, now)
+    if totals_at[id] and now - totals_at[id] >= cor.WAIT then totals[id], totals_at[id] = nil, nil end
+end
+function cor.clear() last, totals, totals_at = nil, {}, {} end
 cor.zone = cor.clear
-function cor.read(g) g.roll = last end
+function cor.read(g) g.roll, g.roll_totals = last, cor.totals() end
 
 -- The strategy (v2's lib/core/roll_strategy.lua) -------------------------------
 
@@ -76,8 +83,10 @@ end
 -- 11 while Fold is ready to undo a Bust, else plays as medium. Snake Eye takes 10
 -- to 11 on every risk, and lucky - 1 to lucky but on highest (v2's rule; no roll's
 -- lucky is over 5, so 5 or under doubles first and it never comes up).
+-- 'max' (another roll at 11 with roll.max_at_11: no bust) doubles until 11.
 function cor.decide(total, lucky, unlucky, risk, snake_ready, fold_ready)
     if total >= MAX_TOTAL then return 'stop' end
+    if risk == 'max' then return (snake_ready and total == MAX_TOTAL - 1) and 'snake_eye' or 'double' end
     if total <= ZERO_RISK_MAX then
         return (total == lucky and risk ~= 'highest') and 'stop' or 'double'
     end
@@ -112,7 +121,27 @@ local function ready(a, g) return a ~= nil and (can.use(a, g)) end
 -- Busy until `t`: a step of COR's is due then, so resting mustn't start before it.
 local function busy(mem, t) mem.busy_until = math.max(mem.busy_until or -math.huge, t) end
 
-local function up(a, g) return can.any(g.me.buffs, a.status) end
+local function up(a, g) return not can.lacks(a, g.me) end
+
+-- The roll picked that stands at 11 while roll.max_at_11 is on, other than
+-- `but`: the risk is 'max' while it's up.
+function cor.eleven(g, cat, cfg, but)
+    if not cfg.roll.max_at_11 then return nil end
+    for _, a in ipairs(cor.picked(cat, cfg, g.main)) do
+        if a ~= but and (g.roll_totals or {})[a.id] == MAX_TOTAL and up(a, g) then return a end
+    end
+end
+
+-- For the Rolls section: the roll at 11 while the other picked is under it, so is
+-- doubled at max risk.
+function cor.maxed(g, cat, cfg)
+    local rolls = cor.picked(cat, cfg, g.main)
+    for i in ipairs(rolls) do
+        local other = rolls[3 - i]
+        local e = other and (g.roll_totals or {})[other.id] ~= MAX_TOTAL and cor.eleven(g, cat, cfg, other)
+        if e then return e end
+    end
+end
 
 function cor.want(g, cat, cfg, mem)
     local rolls = cor.picked(cat, cfg, g.main)
@@ -121,7 +150,9 @@ function cor.want(g, cat, cfg, mem)
     mem.cor = st
     local fold, double, snake = named(cat, 'Fold'), named(cat, 'Double-Up'), named(cat, 'Snake Eye')
     local buffs = g.me.buffs
-    if buffs[INVISIBLE] then return nil end
+    for _, a in ipairs(rolls) do
+        if not up(a, g) then cor.forget(a.id, g.now) end
+    end
 
     -- A Bust takes a roll's place until it wears; Fold frees it at once.
     if buffs[BUST] and ready(fold, g) then return { action = fold, why = 'Bust' } end
@@ -134,7 +165,8 @@ function cor.want(g, cat, cfg, mem)
     for _, a in ipairs(rolls) do if r and not r.bust and a.id == r.id then roll = a end end
     if roll and r.at >= newest and buffs[DOUBLE_UP_CHANCE] and up(roll, g) and double then
         local decision = (buffs[SNAKE_EYE] and r.total < MAX_TOTAL) and 'double'
-            or cor.decide(r.total, roll.lucky, roll.unlucky, cfg.roll.risk, ready(snake, g), ready(fold, g))
+            or cor.decide(r.total, roll.lucky, roll.unlucky, cor.eleven(g, cat, cfg, roll) and 'max' or cfg.roll.risk,
+                ready(snake, g), ready(fold, g))
         if decision ~= 'stop' then
             local gap = math.max(st.doubled or -math.huge, r.doubled and r.at or -math.huge) + cor.DOUBLE_GAP
             local _, _, wait = can.use(double, g)
@@ -149,6 +181,17 @@ function cor.want(g, cat, cfg, mem)
         if g.now - at < cor.WAIT and not (r and r.id == id and r.at >= at) then  -- its total is on its way
             busy(mem, at + cor.WAIT)
             return nil
+        end
+    end
+
+    -- With max_at_11, the other roll up under 11 and past doubling (rolled before the
+    -- 11, or its Double-Up Chance gone) is rolled again, to chase 11 at max risk.
+    for _, a in ipairs(rolls) do
+        local total = (g.roll_totals or {})[a.id]
+        if total and total < MAX_TOTAL and up(a, g) and can.use(a, g) and cor.eleven(g, cat, cfg, a) then
+            local near, away = buff.area(a, g, cfg.buff.hold_aoe, nil, can.yalms(a.area))
+            if away then buff.wait_for(mem, a, near, away); return nil end
+            return { action = a, why = ('at %d, for 11'):format(total), sent = function (now) st.sent[a.id] = now end }
         end
     end
 
@@ -196,33 +239,38 @@ for name, r in pairs({
 end
 cor.knowledge = K
 
-cor.behaviors = { { name = 'roll', run = cor.want, before = 'buff' } }
+cor.behaviors = { { name = 'roll', run = cor.want, before = 'rune' } }
 
 -- The rolls kept up (names, '' for none; the second only on a COR main job) and
--- how far Double-Up chases a total: 'lowest' | 'medium' | 'highest'.
-cor.settings = { roll = { on = true, first = '', second = '', risk = 'medium' } }
+-- how far Double-Up chases a total: 'lowest' | 'medium' | 'highest';
+-- `max_at_11`: while one stands at 11, the other is doubled until it's 11 too.
+cor.settings = { roll = { on = true, first = '', second = '', risk = 'medium', max_at_11 = false } }
 
--- SK Settings: Rolls, for a job with rolls (ui/model.lua).
+-- Sidekick Settings: Rolls, for a job with rolls (ui/model.lua).
 cor.ui = {
-    section = { id = 'roll', title = 'Rolls', header = 'Buff', before = 'pet' },
-    set = { ['roll.first'] = 'name', ['roll.second'] = 'name', ['roll.risk'] = { list = cor.RISKS } },
+    section = { id = 'roll', title = 'Rolls', header = 'Buff', before = 'song' },
+    set = { ['roll.first'] = 'name', ['roll.second'] = 'name', ['roll.risk'] = { list = cor.RISKS },
+            ['roll.max_at_11'] = 'bool' },
 }
 
--- The view's `roll`: the rolls to pick from, and the last one's total; and whether it's shown.
+-- The view's `roll`: the rolls to pick from, the last one's total and the one at 11
+-- doubling the other at max risk; and whether it's shown.
 function cor.ui.view(cat, cfg, g)
     local rolls, done = {}, nil
     for _, a in ipairs(cat) do
         if a.lucky then
-            rolls[#rolls + 1] = { name = a.name, label = ('%s (%s)'):format(a.name, a.note), lucky = a.lucky, unlucky = a.unlucky }
+            rolls[#rolls + 1] = { name = a.name, label = lang.f('%s (%s)', lang.name(a.name, a.jp), lang.t(a.note)),
+                                  lucky = a.lucky, unlucky = a.unlucky }
             -- While it's on you, or just busted (it's gone then).
             if g.roll and g.roll.id == a.id and (g.roll.bust or can.any(g.me.buffs, a.status)) then
                 done = { name = a.name, total = g.roll.total, lucky = a.lucky, unlucky = a.unlucky, bust = g.roll.bust == true }
             end
         end
     end
-    table.sort(rolls, function (x, y) return x.name < y.name end)
+    table.sort(rolls, function (x, y) return x.label < y.label end)  -- as shown: by name, its note after it
     return { first = cfg.roll.first, second = cfg.roll.second, risk = cfg.roll.risk, risks = cor.RISKS,
-             two = g.main == cor.JOB, choices = rolls, last = done }, rolls[1] ~= nil
+             two = g.main == cor.JOB, choices = rolls, last = done, max_at_11 = cfg.roll.max_at_11,
+             eleven = (cor.maxed(g, cat, cfg) or {}).name }, rolls[1] ~= nil
 end
 
 return cor

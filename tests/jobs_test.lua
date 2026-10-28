@@ -37,8 +37,8 @@ test('core, behaviors and ui never require a job module or name a job (core/jobs
 end)
 
 local FIELDS = { JOB = 'number', knowledge = 'table', behaviors = 'table', settings = 'table', read = 'function',
-                 recast = 'function', ability = 'function', zone = 'function', pet_auras = 'table',
-                 spare = 'function', ui = 'table' }
+                 POOL = 'table', ability = 'function', zone = 'function', pet_auras = 'table',
+                 spare = 'function', short = 'function', reserves = 'function', ui = 'table' }
 
 test('every job module is in core/jobs.lua\'s list, and its contract fields are the documented ones', function ()
     local listed, wrong = {}, {}
@@ -67,10 +67,12 @@ test('the modules plug in where the shared code had them: rows, behaviors, setti
        { 'Pen', 5, 'buff', 'function' })
     local names = {}
     for _, b in ipairs(require('core.engine').BEHAVIORS) do names[#names + 1] = b.name end
-    eq(names, { 'heal', 'remove', 'wake', 'recover', 'pet', 'revive', 'roll', 'geo', 'buff', 'pet_send', 'follow', 'rest' })
+    eq(names, { 'first', 'heal', 'remove', 'heal_efficient', 'wake', 'recover', 'pet', 'revive', 'roll', 'rune', 'geo',
+                'buff', 'song', 'pet_send', 'maneuver', 'last', 'follow', 'rest' })
     local d = require('core.settings').defaults()
-    eq({ d.roll.risk, d.geo.distance }, { 'medium', 10 })
+    eq({ d.roll.risk, d.roll.max_at_11, d.geo.distance }, { 'medium', false, 10 })
     local ids = {}
     for _, s in ipairs(require('ui.model').SECTIONS) do ids[#ids + 1] = s.id end
-    eq(ids, { 'profile', 'follow', 'heal', 'revive', 'wake', 'remove', 'buff', 'roll', 'geo', 'pet', 'recover', 'rest', 'track', 'ui' })
+    eq(ids, { 'profile', 'follow', 'heal', 'revive', 'wake', 'remove', 'buff', 'roll', 'song', 'geo', 'rune', 'pet',
+              'maneuver', 'recover', 'rest', 'track', 'afk', 'ui' })
 end)

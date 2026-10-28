@@ -8,23 +8,20 @@
 
     Never in a snapshot, and never changed by a load: the profiles themselves, the
     HUD and the client's language (`ui`, its own file), and who the party is now:
-    following, the focus member, the members healing skips and who Entrust goes on.
+    following, the focus member, the members healing skips and who Entrust goes on;
+    and AFK sleep, the box's and not a profile's (new: v2's profiles carried it).
 ]]--
 
 local settings = require('core.settings')
+local util = require('core.util')
 
 local profiles = {}
 
 -- true: the whole key is kept; a table: those keys inside it.
-local KEPT = { profiles = true, profile = true, parked = true, ui = true, follow = true,
+local KEPT = { profiles = true, profile = true, parked = true, ui = true, follow = true, afk = true,
                heal = { focus = true, skip = true }, geo = { entrust = true } }
 
-local function copy(v)
-    if type(v) ~= 'table' then return v end
-    local out = {}
-    for k, x in pairs(v) do out[k] = copy(x) end
-    return out
-end
+local copy = util.copy
 
 -- The defaults under every key `t` lacks, as Ashita's library fills a file
 -- saved before newer settings existed.
@@ -95,6 +92,14 @@ function profiles.find(cfg, name)
     end
 end
 
+-- Save as: the settings as they are now under `name`, over any profile of that name.
+function profiles.save_as(cfg, name)
+    if not valid(name) then return false end
+    cfg.profiles[name] = snapshot(cfg)
+    cfg.profile = name
+    return true
+end
+
 -- Save: under the loaded profile's name, the settings as they are now; under
 -- another name while one is loaded, that profile renamed (not saved again);
 -- with Default loaded, a new profile. False for a name a profile can't have,
@@ -103,19 +108,8 @@ function profiles.save(cfg, name)
     if not valid(name) then return false end
     local active = profiles.active(cfg)
     if cfg.profiles[name] and name ~= active then return false end
-    if active and active ~= name then
-        cfg.profiles[name], cfg.profiles[active] = cfg.profiles[active], nil
-    else
-        cfg.profiles[name] = snapshot(cfg)
-    end
-    cfg.profile = name
-    return true
-end
-
--- Save as: the settings as they are now under `name`, over any profile of that name.
-function profiles.save_as(cfg, name)
-    if not valid(name) then return false end
-    cfg.profiles[name] = snapshot(cfg)
+    if not active or active == name then return profiles.save_as(cfg, name) end
+    cfg.profiles[name], cfg.profiles[active] = cfg.profiles[active], nil
     cfg.profile = name
     return true
 end

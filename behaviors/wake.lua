@@ -8,18 +8,18 @@
 ]]--
 
 local can = require('core.can')
+local dnc = require('jobs.dnc')
 local settings = require('core.settings')
+local status = require('core.status')
 
-local SLEEP = { 2, 19 }  -- Sleep, Sleep II
-
-local function cost(a) return (a.mp or 0) + math.max(a.tp or 0, 0) end
+local function cost(a, g) return (a.mp or 0) + dnc.tp(a, g) end
 
 -- Sleepers you can help, the focus member first.
 local function sleepers(g, cfg)
     local out = {}
     local focus = cfg.heal.focus:lower()
     for _, u in ipairs(g.units) do
-        if u.kind ~= 'self' and u.alive and u.in_zone and can.any(u.buffs, SLEEP) then
+        if u.kind ~= 'self' and u.alive and u.in_zone and can.any(u.buffs, status.SLEEP) then
             if focus ~= '' and u.name:lower() == focus then table.insert(out, 1, u) else out[#out + 1] = u end
         end
     end
@@ -47,7 +47,7 @@ return function (g, cat, cfg)
     for _, a in ipairs(settings.enabled(cat, cfg, 'heal')) do
         if a.wakes and not a.pet and not can.at_enemy(a) and can.use(a, g) then heals[#heals + 1] = a end
     end
-    table.sort(heals, function (a, b) return cost(a) < cost(b) end)
+    table.sort(heals, function (a, b) return cost(a, g) < cost(b, g) end)
 
     if list[2] then
         local best, most

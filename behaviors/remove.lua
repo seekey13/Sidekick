@@ -1,23 +1,23 @@
 --[[
     Debuff removal. For each member carrying something a removal clears, the most
-    specific remover first: a targeted -na spell, then Erase (strips any one
-    erasable status), then Esuna (an area cast on you, reaching those near you),
-    then an item on you (Echo Drops, Remedy...; opt-in, they cost gil). A remover
-    only ever on you with no area (Chakra, items) clears only your own; Esuna
-    reaches your party only, so the alliance's other parties and tracked
-    players get a -na spell or nothing.
-    Items go by what they'd clear on you now: Doom first (it kills), then Silence
-    if you cast, then the most of your statuses in one use; then cheap and
-    specific first. An /item the server never answers (a locked or bazaar stack)
-    holds items back ITEM_WAIT seconds instead of going out every throttle.
+    specific remover first: a targeted -na spell, then Erase, then Esuna (an area
+    cast on you, clearing on those near you only what you have too), then an item
+    on you (opt-in: they cost gil). A remover only ever on you with no area
+    (Chakra, items) clears only your own; Esuna reaches your party only. Debuffs are
+    switched by name (cfg.remove.skip: those left on; never Doom, which kills).
+    Items go by what they'd clear on you now: Doom first, then Silence if you cast,
+    then the most of your statuses in one use; then cheap and specific first. An
+    /item the server never answers (a locked or bazaar stack) holds items back
+    ITEM_WAIT seconds.
 ]]--
 
 local can = require('core.can')
 local settings = require('core.settings')
+local status = require('core.status')
 
 local ESUNA_RADIUS = 10  -- yalms around you
 local ITEM_WAIT = 4      -- seconds, as v2's item cooldown
-local DOOM, SILENCE = 15, 6
+local DOOM, SILENCE = status.DOOM, 6
 
 local function rank(a)
     if a.kind == 'item' then return 3 end
@@ -25,28 +25,40 @@ local function rank(a)
     return #a.removes > 6 and 1 or 0
 end
 
-local function clears(a, u)
-    for _, id in ipairs(a.removes) do if u.buffs[id] then return true end end
+-- Whether `a` clears status `id` and it's one to remove on `u`.
+local function wanted(a, id, u, skip)
+    return u.buffs[id] and (id == DOOM or not skip[a.debuffs[id]])
+end
+
+-- Whether `a` clears something on `u` that's to be removed. Esuna clears on those
+-- near you only what you have too (server esuna.lua), so it's for those alone.
+local function clears(a, u, skip, me)
+    local shared = can.self_only(a) and a.area > 0
+    for _, id in ipairs(a.removes) do
+        if wanted(a, id, u, skip) and not (shared and not me.buffs[id]) then return true end
+    end
     return false
 end
 
 -- What item `a` would do for you now: Doom weighs most, then Silence if you cast,
 -- then one per status it clears. One that clears a single status at random
--- (Remedy Ointment) is sure only when you have just one of its.
-local function worth(a, me)
-    local w, n = 0, 0
+-- (Remedy Ointment) is sure only when you have just one of its; with more, it's
+-- worth the share of them that are to be removed (one left on may be what it takes).
+local function worth(a, me, skip)
+    local w, n, m = 0, 0, 0
     for _, id in ipairs(a.removes) do
-        if me.buffs[id] then
-            n = n + 1
+        if me.buffs[id] then n = n + 1 end
+        if wanted(a, id, me, skip) then
+            m = m + 1
             w = w + (id == DOOM and 1000 or id == SILENCE and me.uses_mp and 100 or 1)
         end
     end
-    return a.one_of and n > 1 and 1 or w
+    return a.one_of and n > 1 and m / n or w
 end
 
 return function (g, cat, cfg, mem)
-    local removers, worths = settings.enabled(cat, cfg, 'remove'), {}
-    for _, a in ipairs(removers) do worths[a] = a.kind == 'item' and worth(a, g.me) or 0 end
+    local skip, removers, worths = cfg.remove.skip or {}, settings.enabled(cat, cfg, 'remove'), {}
+    for _, a in ipairs(removers) do worths[a] = a.kind == 'item' and worth(a, g.me, skip) or 0 end
     table.sort(removers, function (a, b)
         if rank(a) ~= rank(b) then return rank(a) < rank(b) end
         if worths[a] ~= worths[b] then return worths[a] > worths[b] end
@@ -58,13 +70,13 @@ return function (g, cat, cfg, mem)
     for _, u in ipairs(g.units) do
         if u.alive and u.in_zone then
             for _, a in ipairs(removers) do
-                if clears(a, u) and not (unanswered and a.kind == 'item') and can.use(a, g) then
+                if clears(a, u, skip, g.me) and not (unanswered and a.kind == 'item') and can.use(a, g) then
                     if can.self_only(a) then
                         if u.kind == 'self' and a.area == 0 then
                             local intent = { action = a, why = u.name }
                             if a.kind == 'item' then intent.sent = function (now) mem.item_at = now end end
                             return intent
-                        elseif a.area > 0 and can.in_party(u) and (u.dist or math.huge) <= ESUNA_RADIUS then
+                        elseif a.area > 0 and can.in_party(u) and can.near(u, ESUNA_RADIUS) then
                             return { action = a, why = ('%s near you'):format(u.name) }
                         end
                     elseif can.reach(a, u) then

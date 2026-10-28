@@ -6,47 +6,67 @@
     use ("Regen (keep up)", when one family has several):
         rows[key] = { on = bool, pick = action name or nil (= best tier),
                       targets = { [party or alliance slot] = true, [tracked name] = true },  -- buffs only
-                      mods = { [modifier name] = true } }  -- buffs only: stratagems fired first
+                      mods = { [modifier name] = true },  -- buffs only: stratagems, Embolden fired first
+                      hold = true }  -- buffs only: the spell waits while one of its mods can't go
     A tracked player's name stays on the row after they're untracked, so tracking
-    them again brings their buffs back.
-    A row never saved uses its default: on, except buffs (a luopan's Geo- spells
-    too), sending the pet in and items, which are opt-in.
-    `profiles` are named snapshots of the rest (core/profiles.lua).
-    `ui` is shared by every job pair (its own file, ui.lua): the window, so the HUD
-    looks the same whatever you play (shown at load, bar and font sizes in pixels,
-    the panel's opacity in %, whether the HUD is locked in place), and whether the
-    client runs in Japanese, which is the install's and not a job's.
+    them again brings their buffs back. A row never saved uses its default: on, but
+    for buffs (a luopan's Geo- spells too), sending the pet in and items.
+    `profiles` are named snapshots of the rest (core/profiles.lua). `ui` is the
+    install's, shared by every job pair in its own file (ui.lua): the HUD's look and
+    whether the client runs in Japanese.
 ]]--
+
+local util = require('core.util')
 
 local settings = {}
 
 local DEFAULTS = {
-    -- HP% lines: danger, critical; efficient above danger (behaviors/heal.lua);
+    -- HP% lines: efficient under threshold, danger, critical (behaviors/heal.lua);
     -- the focus member has its own. skip = { [name] = true }: never healed for their sake;
     -- alliance: the alliance's other parties healed too (v2's default: off).
-    heal = { on = true, danger = 50, critical = 30,
-             focus = '', focus_danger = 60, focus_critical = 40, skip = {}, alliance = false,
+    heal = { on = true, threshold = 75, danger = 50, critical = 30,
+             focus = '', focus_threshold = 85, focus_danger = 60, focus_critical = 40, skip = {}, alliance = false,
              cure_potency = 0, waltz_potency = 0,  -- +% from gear
              regen_potency = 0,                    -- +HP per Regen tick from gear
              reserve = false },  -- SCH: buff rows leave the last stratagem charge for healing (as v2's, opt-in)
-    remove = { on = true },
+    remove = { on = true, skip = {} },  -- skip = { [status name] = true }: debuffs left on (behaviors/remove.lua)
     wake = { on = true },                  -- wake sleeping members with a heal that wakes
     recover = { on = true, mp = 30, tp = 1000,    -- under your MP% (a member's, for Devotion), your TP
                 min_tp = 3000 },                   -- Chivalry from this much TP
     pet = { on = true, heal = 50 },        -- heal your pet under this HP%
     -- The job modules' sections (roll, geo) come from their `settings` (core/jobs.lua).
+    -- RUN: each set's rune per slot, by name ('' for none): idle_1..3, then
+    -- vallation_, valiance_ and pflug_ (jobs/run.lua). Every slot starts empty.
+    rune = { on = true },
+    -- PUP: the maneuver per slot, by name ('' for none; jobs/pup.lua). Every slot starts empty.
+    maneuver = { on = true, slot_1 = '', slot_2 = '', slot_3 = '' },
+    -- BRD: each target's songs by name ('' for none): area_1, area_2, then each
+    -- party slot's, me_ and p1_ to p5_ (jobs/brd.lua). Every slot starts empty.
+    -- `duration`: Song Duration, seconds after a song lands to sing it again (BRD 75 main; 0 off);
+    -- `fast`: Pianissimo fast casting, an area song through Pianissimo cancelled mid-cast.
+    song = { on = true, duration = 0, fast = false },
     buff = { on = true,
-             hold_aoe = false,  -- hold an area buff spell (Protectra, songs) until the party's players gather
-             gather = true },   -- ...and ask them to in party chat
+             hold_aoe = false,  -- hold an area buff spell (Protectra, songs, rolls) until the party's players gather
+             gather = true,     -- ...and ask them to in party chat
+             one_shadow = false },  -- NIN: recast Utsusemi at its last shadow (v2's Cast with 1 Shadow)
     revive = { on = true },
     follow = { on = false, target = '', distance = 5 },  -- /follow them past this many yalms
     rest = { on = false, delay = 5, distance = 7 },  -- /heal after this many quiet seconds; up past distance from follow.target
+    afk = { on = true, minutes = 10 },  -- sleep after this long with no party movement or combat (core/afk.lua; v2's, on)
     rows = {},
     profiles = {}, profile = '', parked = {},  -- named snapshots (core/profiles.lua)
-    ui = { open = false, hp_width = 220, hp_height = 40, mp_width = 220, mp_height = 18,
-           name_size = 22, text_size = 14, gap = 8, opacity = 100, locked = false,
+    ui = { open = false, hp_width = 220, hp_height = 40, mp_width = 220, mp_height = 18, tp_width = 220, tp_height = 8,
+           name_size = 22, text_size = 14, gap = 8, locked = false,
+           widget = false,  -- the widget, v2's floating one (/sk3 widget)
+           widget_size = 16,  -- its text and icons' height, in pixels
            japanese = false },  -- send spell, ability and item names in Japanese
 }
+for _, set in ipairs({ 'idle', 'vallation', 'valiance', 'pflug' }) do
+    for i = 1, 3 do DEFAULTS.rune[set .. '_' .. i] = '' end
+end
+for _, set in ipairs({ 'area', 'me', 'p1', 'p2', 'p3', 'p4', 'p5' }) do
+    for i = 1, 2 do DEFAULTS.song[set .. '_' .. i] = '' end
+end
 local UI_FILE = 'ui'
 
 -- pick_one before label: labelled members of one group (geo_ja) stay one row.
@@ -92,24 +112,32 @@ function settings.mods(cat, cfg, a)
     return out
 end
 
-local function copy(t)
-    local out = {}
-    for k, v in pairs(t) do out[k] = type(v) == 'table' and copy(v) or v end
-    return out
-end
-settings.defaults_copy = copy
-
 -- A fresh copy of the defaults, the job modules' sections too, for tests and new files.
 -- core.jobs is required here, not above: the job modules require this file.
 function settings.defaults()
-    local out = copy(DEFAULTS)
+    local out = util.copy(DEFAULTS)
     for sections in require('core.jobs').each('settings') do
         for k, v in pairs(sections) do
             assert(out[k] == nil, 'a job module repeats a setting: ' .. k)
-            out[k] = copy(v)
+            out[k] = util.copy(v)
         end
     end
     return out
+end
+
+-- `t` and every table in it as Ashita's T{} tables.
+local function T_(t)
+    for k, v in pairs(t) do if type(v) == 'table' then t[k] = T_(v) end end
+    return T(t)
+end
+
+-- The library fills a key the file lacks with the defaults' own table and keeps
+-- those defaults (for the next character's load): give it copies, so what is
+-- written into the settings (a profile, a skipped name) stays out of them.
+local function detach(defaults)
+    for k, v in pairs(defaults) do
+        if type(v) == 'table' then defaults[k] = T_(util.copy(v)) end
+    end
 end
 
 -- Ashita's settings library, loaded only in game. The job pair's file holds
@@ -118,18 +146,6 @@ local lib, alias, loaded
 function settings.load(job_pair)
     lib = lib or require('settings')
     alias = job_pair
-    local function T_(t)
-        for k, v in pairs(t) do if type(v) == 'table' then t[k] = T_(v) end end
-        return T(t)
-    end
-    -- The library fills a key the file lacks with the defaults' own table and
-    -- keeps those defaults (for the next character's load): give it copies, so
-    -- what is written into the settings (a profile, a skipped name) stays out of them.
-    local function detach(defaults)
-        for k, v in pairs(defaults) do
-            if type(v) == 'table' then defaults[k] = T_(settings.defaults_copy(v)) end
-        end
-    end
     local d = T_(settings.defaults())
     local ui = d.ui
     d.ui = nil

@@ -4,16 +4,11 @@ local settings = require('core.settings')
 local fake = require('tests.fake')
 
 local WHM, RDM, PLD, BLM, SAM, PUP, DRG, MNK = 3, 5, 7, 4, 12, 18, 14, 2
-local SLEEP, POISON, INVISIBLE = 2, 3, 69
+local SLEEP, POISON, INVISIBLE, SNEAK = 2, 3, 69, 71
 local OIL = 18731
 local snap = fake.snap
 
-local function decide(g, cfg, list, mem)
-    cfg = cfg or settings.defaults()
-    local intent, why = engine.decide(g, list, cfg, mem or {})
-    if not intent then return nil, why end
-    return engine.command(intent, cfg), intent
-end
+local function decide(g, cfg, list, mem) return fake.decide(g, list, cfg, mem) end
 
 local function cfg_with(t)
     local cfg = settings.defaults()
@@ -107,7 +102,7 @@ test('pet: Repair under the pet HP line, only with an oil worn', function ()
     eq({ decide(snap(nil, { pet = automaton({ hpp = 60 }), ammo = OIL }), nil, pup) }, { nil, 'nothing to do' })
     local g = snap(nil, { pet = automaton({ hpp = 40 }), ammo = OIL })
     g.me.buffs[INVISIBLE] = true
-    eq({ decide(g, nil, pup) }, { nil, 'nothing to do' })
+    eq({ decide(g, nil, pup) }, { nil, 'invisible' })
 end)
 
 test('pet: Repair only within 20 yalms of the automaton, as the server allows', function ()
@@ -249,6 +244,15 @@ test('items: Doom first, then Silence if you cast, then the one clearing the mos
     eq(decide(g, cfg, blm), '/item "Panacea" <me>')
 end)
 
+test('items: a status left on still makes the Ointment a gamble', function ()
+    local blm, cfg = fake.catalog(BLM, 75, nil, 0), settings.defaults()
+    for _, k in ipairs({ 'Remedy Ointment', 'Remedy' }) do cfg.rows[k] = { on = true } end
+    cfg.remove.skip = { poison = true }
+    local g = snap(nil, { items = { [5356] = 1, [REMEDY] = 1 } })
+    g.me.buffs[POISON], g.me.buffs[BLINDNESS] = true, true
+    eq(decide(g, cfg, blm), '/item "Remedy" <me>')  -- the Ointment could take the Poison left on
+end)
+
 test('items: an /item the server never answered holds the next one 4s', function ()
     local blm, cfg, mem = fake.catalog(BLM, 75, nil, 0), settings.defaults(), {}
     cfg.rows['Echo Drops'] = { on = true }
@@ -270,4 +274,113 @@ test('Chakra clears only your own poison, not a member\'s near you', function ()
     eq({ decide(g, nil, mnk) }, { nil, 'nothing to do' })
     g.me.buffs[POISON] = true
     eq(decide(g, nil, mnk), '/ja "Chakra" <me>')
+end)
+
+-- Invisible and Sneak -------------------------------------------------------------
+
+-- `g` with `id` on you.
+local function under(g, id) g.me.buffs[id] = true; return g end
+
+test('Invisible: danger healing goes, efficient healing waits; Sneak stops neither', function ()
+    eq({ decide(under(snap({ { name = 'A', hpp = 60 } }), INVISIBLE), nil, whm) }, { nil, 'invisible' })
+    local cmd, intent = decide(under(snap({ { name = 'A', hpp = 40 } }), INVISIBLE), nil, whm)
+    eq({ cmd ~= nil, intent.behavior, intent.why }, { true, 'heal', 'danger: A 40%' })
+    eq(decide(under(snap({ { name = 'A', hpp = 20 } }), INVISIBLE), nil, whm) ~= nil, true, 'critical too')
+    eq(select(2, decide(under(snap({ { name = 'A', hpp = 60 } }), SNEAK), nil, whm)).why, 'efficient: A 60%')
+end)
+
+-- Sneak, Invisible and Protect kept up on you and P1.
+local function travel_cfg()
+    local cfg = settings.defaults()
+    for _, key in ipairs({ 'Protect', 'Sneak', 'Invisible' }) do
+        cfg.rows[key] = { on = true, targets = { [0] = true, [1] = true } }
+    end
+    return cfg
+end
+
+test('Invisible: no removal, wake, pet care or other buff, only travel buffs; Sneak stops none', function ()
+    local cfg = travel_cfg()
+    local others = { { name = 'A', buffs = { [POISON] = true, [SNEAK] = true, [INVISIBLE] = true } },
+                     { name = 'B', buffs = { [SLEEP] = true } } }
+    eq(decide(under(snap(others), SNEAK), cfg, whm), '/ma "Poisona" 101')
+    eq(decide(under(snap(others), INVISIBLE), cfg, whm), '/ma "Sneak" <me>')
+    eq({ decide(under(under(snap(others), SNEAK), INVISIBLE), cfg, whm) }, { nil, 'invisible' })
+    local g = snap(nil, { pet = automaton({ hpp = 40 }), ammo = OIL })
+    eq(decide(under(g, SNEAK), nil, pup), '/ja "Repair" <me>')
+    eq({ decide(under(g, INVISIBLE), nil, pup) }, { nil, 'invisible' })
+    eq(decide(under(snap({ { name = 'A', dist = 12 } }), INVISIBLE), follower(), whm), '/follow <p1>')
+end)
+
+test('your own Invisible goes last: members first, your Sneak and other buffs before it', function ()
+    local cfg = travel_cfg()
+    local function with(mine, theirs)
+        local g = snap({ { name = 'A', buffs = theirs } })
+        for _, id in ipairs(mine) do g.me.buffs[id] = true end
+        return g
+    end
+    local PROTECT = 40
+    eq(decide(with({}, {}), cfg, whm), '/ma "Protect IV" <me>')
+    eq(decide(with({ PROTECT }, { [PROTECT] = true }), cfg, whm), '/ma "Sneak" <me>')
+    eq(decide(with({ PROTECT, SNEAK }, { [PROTECT] = true }), cfg, whm), '/ma "Sneak" 101')
+    eq(decide(with({ PROTECT, SNEAK }, { [PROTECT] = true, [SNEAK] = true }), cfg, whm), '/ma "Invisible" 101')
+    local all = { [PROTECT] = true, [SNEAK] = true, [INVISIBLE] = true }
+    local cmd, intent = decide(with({ PROTECT, SNEAK }, all), cfg, whm)
+    eq({ cmd, intent.behavior }, { '/ma "Invisible" <me>', 'buff' })
+    -- A member loses theirs while you're Invisible: theirs again, then yours.
+    eq(decide(with({ PROTECT, SNEAK, INVISIBLE }, { [PROTECT] = true, [SNEAK] = true }), cfg, whm),
+        '/ma "Invisible" 101')
+    eq({ decide(with({ PROTECT, SNEAK, INVISIBLE }, all), cfg, whm) }, { nil, 'invisible' })
+end)
+
+test('Spectral Jig is used again only once both its Sneak and its Invisible are off', function ()
+    local dnc = fake.catalog(19, 75, WHM, 37, { 'Spectral Jig' })
+    local cfg = settings.defaults()
+    cfg.rows['Spectral Jig'] = { on = true }
+    cfg.rows.Sneak = { on = true, targets = { [0] = true } }
+    local g = snap(nil, { main = 19, sub = WHM })
+    eq(decide(g, cfg, dnc), '/ja "Spectral Jig" <me>', 'not Sneak first: the Jig gives it')
+    eq({ decide(under(g, SNEAK), cfg, dnc) }, { nil, 'nothing to do' }, 'Invisible broken: Sneak is still up')
+    g = under(snap(nil, { main = 19, sub = WHM }), INVISIBLE)
+    eq(decide(g, cfg, dnc), '/ma "Sneak" <me>', 'Sneak lost, Invisible up: the Jig would do nothing')
+end)
+
+test('your own Invisible waits for a member\'s Sneak briefly on recast, not a long one', function ()
+    local cfg = travel_cfg()
+    local PROTECT = 40
+    local function g(wait)
+        local s = snap({ { name = 'A', buffs = { [PROTECT] = true } } }, nil, { Sneak = wait })
+        s.me.buffs[PROTECT], s.me.buffs[SNEAK] = true, true
+        return s
+    end
+    eq(decide(g(3), cfg, whm), '/ma "Invisible" 101')
+    local short = g(3)
+    short.units[2].buffs[INVISIBLE] = true
+    eq({ decide(short, cfg, whm) }, { nil, 'nothing to do' }, 'A lacks only Sneak, 3s off')
+    local long = g(30)
+    long.units[2].buffs[INVISIBLE] = true
+    eq(decide(long, cfg, whm), '/ma "Invisible" <me>')
+end)
+
+test('your own Invisible waits at most OTHERS_FIRST seconds for a buff briefly on recast', function ()
+    local cfg = travel_cfg()
+    local mem = {}
+    local g = snap({ { name = 'A', buffs = { [SNEAK] = true, [INVISIBLE] = true } } })
+    g.recast = function (a) return a.name:find('Protect') and 5 or 0 end
+    g.me.buffs[SNEAK] = true
+    eq({ decide(g, cfg, whm, mem) }, { nil, 'nothing to do' }, 'Protect 5s off, A lacks it')
+    g.now = g.now + 14
+    eq({ decide(g, cfg, whm, mem) }, { nil, 'nothing to do' })
+    g.now = g.now + 1
+    eq(decide(g, cfg, whm, mem), '/ma "Invisible" <me>', 'waited long enough')
+    g.recast = function () return 0 end
+    eq(decide(g, cfg, whm, {}), '/ma "Protect IV" <me>')
+    g.recast = function (a) return a.name:find('Protect') and 60 or 0 end
+    eq(decide(g, cfg, whm, {}), '/ma "Invisible" <me>', 'a long recast is not waited for')
+end)
+
+test('resting starts and stops while you are Invisible', function ()
+    local cfg = cfg_with({ ['rest.on'] = true })
+    local g = under(snap(nil, { moved_at = 0 }), INVISIBLE)
+    g.me.mpp = 10
+    eq(decide(g, cfg, whm), '/heal on')
 end)

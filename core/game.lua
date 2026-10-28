@@ -12,6 +12,8 @@
              jobs = { main, main_lv, sub, sub_lv } (you and your party's players),
              in_zone, dist, pos = { x, y, z },
              status (entity), alive, buffs = { [id] = true },
+             stacks = { [id] = how many stand } (you and your party's players: runes
+             and songs of one kind stack; nil for a player the client's list has no entry for yet),
              moving (others: moved in the last half second),
              hot = HP still to come from your Regen, nil if none }
     Slots: 0 you, 1-5 your party, 6-11 and 12-17 the alliance's other parties
@@ -21,30 +23,37 @@
     says), max_hp from a session file, else estimated from their /check level (else
     yours), and main, main_lv, sub, sub_lv once a /check or a session file has
     answered; `auto` names the session whose file tracks them (core/share.lua). A member (or alliance member) you also track has tracked = true.
-    The pet is { sid, tidx, name, hpp, dist, pos, status (1 engaged), buffs, since (first seen) }; the
+    The pet is { sid, tidx, name, hpp, mpp, tp, dist, pos, status (1 engaged), buffs, since (first seen) }; the
     battle target `bt` { sid, tidx, name, hpp, dist, pos, mob, claimed, moving }, `claimed`
     when it's a mob another party of the alliance claimed (the client has no <bt>).
     `target` is your current target when it's another player: { tidx, sid, name }.
     Plus when your cast began (cast_at, while casting);
     what healing scores with: learned potency, the day and the weather;
-    the item in your ammo slot and what's in your inventory; when you last moved and
-    last had a battle target; and the job modules' own fields (core/jobs.lua: `read`):
-    stratagem charges, your last Phantom Roll's total.
+    the item in your ammo slot and what's in your inventory (and `owned`, the ammo
+    you hold where it can be worn from, read when asked); when you last moved and
+    last had a battle target; your Ready charges (`ready`, jobs/bst.lua); your
+    automaton's name (`automaton`, jobs/pup.lua), nil until the server says it; and
+    the job modules' own fields (core/jobs.lua: `read`): stratagem charges, your
+    Phantom Rolls' totals.
 ]]--
 
 local ffi = require('ffi')
 local buffs = require('core.buffs')
+local bst = require('jobs.bst')
+local pup = require('jobs.pup')
 local can = require('core.can')
 local job_modules = require('core.jobs')
 local observed = require('core.observed')
 local packets = require('core.packets')
+local status = require('core.status')
 local tracked = require('core.tracked')
+local util = require('core.util')
 
 local game = {}
 
 local TRUST = 0x1000000  -- server ids from here up are NPCs; in a party slot, a trust
 local DEAD, MOUNTED_STATUS, RESTING = 3, 5, 33  -- entity status
-local MOUNTED_BUFF, AMNESIA, REGEN = 252, 16, 42
+local MOUNTED_BUFF, AMNESIA, REGEN = 252, 16, status.REGEN
 local SILENCED = { 6, 29 }                          -- Silence, Mute
 local INCAPACITATED = { 2, 7, 10, 14, 17, 19, 28 }  -- Sleep, Petrify, Stun, Charm x2, Sleep II, Terror
 local COMBAT_GRACE = 5      -- seconds "in combat" lasts after the battle target goes (multi-mob pulls)
@@ -109,19 +118,25 @@ local rescan_at = -math.huge
 local claim = { at = -math.huge, tidx = nil }  -- the last look for an alliance-claimed mob
 local fed = {}  -- [sid] = true: last read's units whose statuses come from packets
 
-local function set_of(list)
-    local s = {}
-    for _, id in ipairs(list) do if id > 0 and id ~= 255 then s[id] = true end end
-    return s
-end
-
 local any = can.any
 
--- A party player's statuses, from the client's party status-icon block
--- (5 entries of 0x30 bytes: server id, 2 high bits per icon, 32 low bytes).
+-- A list of status ids (0 and 255 for none) as a set, and how many of each stand
+-- (runes stack: jobs/run.lua; so do songs of one kind: jobs/brd.lua).
+local function counted(list)
+    local set, stacks = {}, {}
+    for _, id in ipairs(list) do
+        if id > 0 and id ~= 255 then set[id], stacks[id] = true, (stacks[id] or 0) + 1 end
+    end
+    return set, stacks
+end
+
+-- A party player's statuses and their stacks, from the client's party status-icon
+-- block (5 entries of 0x30 bytes: server id, 2 high bits per icon, 32 low bytes);
+-- no stacks while they aren't in it yet (just joined, just zoned), so nothing
+-- reads that as every status gone (jobs/brd.lua's stamps).
 local function party_buffs(sid)
     local base = ashita.memory.read_uint32(AshitaCore:GetPointerManager():Get('party.statusicons'))
-    if base == 0 then return {} end
+    if base == 0 then return {}, nil end
     for i = 0, 4 do
         local entry = base + 0x30 * i
         if ashita.memory.read_uint32(entry) == sid then
@@ -130,10 +145,10 @@ local function party_buffs(sid)
                 local high = bit.band(bit.rshift(ashita.memory.read_uint8(entry + 8 + math.floor(j / 4)), (j % 4) * 2), 3)
                 list[#list + 1] = high * 256 + ashita.memory.read_uint8(entry + 16 + j)
             end
-            return set_of(list)
+            return counted(list)
         end
     end
-    return {}
+    return {}, nil
 end
 
 -- The item id in your ammo slot, 0 for none. The equipment entry's Index packs
@@ -145,6 +160,43 @@ local function ammo()
     local item = inv:GetContainerItem(math.floor(eq.Index / 256), eq.Index % 256)
     local id = item and item.Id or 0
     return (id == -1 or id == 65535) and 0 or id
+end
+
+-- Where ammo can be worn from: your bag, then the Mog Wardrobes, each as
+-- { container, the number /equip names it by }.
+local EQUIP_FROM = { { 0, 0 }, { 8, 1 }, { 10, 2 }, { 11, 3 }, { 12, 4 }, { 13, 5 }, { 14, 6 }, { 15, 7 }, { 16, 8 } }
+
+-- The items of `ids` you hold where they can be worn from, in the order of `ids`:
+-- { { id, en, jp, level, jobs (bit n: job n wears it), bag (for /equip), count (all bags) }, ... }.
+-- Read when asked (rows wanting their ammo: pet care's, Sange), not every tick: it
+-- walks every bag, so a list's answer is kept OWNED_KEPT seconds (as v2 kept its counts).
+local OWNED_KEPT = 1
+local owned_cache = setmetatable({}, { __mode = 'k' })
+function game.owned(ids)
+    local now = os.clock()
+    local hit = owned_cache[ids]
+    if hit and now - hit.at < OWNED_KEPT then return hit.out end
+    local inv, rm, want, bag, count = AshitaCore:GetMemoryManager():GetInventory(), AshitaCore:GetResourceManager(), {}, {}, {}
+    for _, id in ipairs(ids) do want[id] = true end
+    for _, c in ipairs(EQUIP_FROM) do
+        for i = 1, inv:GetContainerCountMax(c[1]) do
+            local item = inv:GetContainerItem(c[1], i)
+            if item and want[item.Id] and item.Count > 0 then
+                bag[item.Id] = bag[item.Id] or c[2]
+                count[item.Id] = (count[item.Id] or 0) + item.Count
+            end
+        end
+    end
+    local out = {}
+    for _, id in ipairs(ids) do
+        local r = bag[id] and rm:GetItemById(id)
+        if r then
+            out[#out + 1] = { id = id, en = r.Name[1], jp = r.Name[2], level = r.Level, jobs = r.Jobs, bag = bag[id],
+                              count = count[id] }
+        end
+    end
+    owned_cache[ids] = { at = now, out = out }
+    return out
 end
 
 -- What's in your inventory: { [item id] = count }. Slot 0 is gil.
@@ -159,18 +211,24 @@ local function inventory()
     return out
 end
 
+-- Your statuses, and how many of each stand.
 local function own_buffs(player)
     local raw, list = player:GetBuffs(), {}
     for i = 1, 32 do list[i] = raw[i] or 0 end
-    return set_of(list)
+    return counted(list)
 end
+
+local function position(em, i)
+    return { em:GetLocalPositionX(i), em:GetLocalPositionY(i), em:GetLocalPositionZ(i) }
+end
+
+local function distance(em, i) return math.sqrt(em:GetDistance(i)) end
 
 local function entity(em, tidx)
     if not tidx or tidx == 0 then return nil end
     return {
         tidx = tidx, sid = em:GetServerId(tidx), name = em:GetName(tidx), hpp = em:GetHPPercent(tidx),
-        dist = math.sqrt(em:GetDistance(tidx)), status = em:GetStatus(tidx),
-        pos = { em:GetLocalPositionX(tidx), em:GetLocalPositionY(tidx), em:GetLocalPositionZ(tidx) },
+        dist = distance(em, tidx), status = em:GetStatus(tidx), pos = position(em, tidx),
     }
 end
 
@@ -234,8 +292,7 @@ local function tracked_unit(em, t, me, now)
     if u.in_zone then
         local i = t.tidx
         t.hpp, t.status = em:GetHPPercent(i), em:GetStatus(i)
-        u.tidx, u.dist = i, math.sqrt(em:GetDistance(i))
-        u.pos = { em:GetLocalPositionX(i), em:GetLocalPositionY(i), em:GetLocalPositionZ(i) }
+        u.tidx, u.dist, u.pos = i, distance(em, i), position(em, i)
     elseif t.shared_hpp then  -- not drawn: their own session's client still reads them
         t.hpp, t.status = t.shared_hpp, nil
     end
@@ -277,7 +334,7 @@ local function claimed_target(em, listed, now)
         local best = CLAIM_RANGE
         for i = MOB_FIRST, MOB_LAST do
             if fought(i) then
-                local d = math.sqrt(em:GetDistance(i))
+                local d = distance(em, i)
                 if d <= best then best, claim.tidx = d, i end
             end
         end
@@ -291,7 +348,7 @@ end
 
 local function moving(em, tidx, now)
     if now - move.at < MOVE_SAMPLE then return now - move.moved < MOVE_SAMPLE end
-    local x, y, z = em:GetLocalPositionX(tidx), em:GetLocalPositionY(tidx), em:GetLocalPositionZ(tidx)
+    local x, y, z = unpack(position(em, tidx))
     if move.x and (x ~= move.x or y ~= move.y or z ~= move.z) then move.moved = now end
     move.at, move.x, move.y, move.z = now, x, y, z
     return now - move.moved < MOVE_SAMPLE
@@ -316,87 +373,151 @@ local function ability_timer(recast, id)
     return 0
 end
 
+-- Your jobs and levels, as the snapshot carries them.
+local function jobs_of(player)
+    return { main = player:GetMainJob(), main_lv = player:GetMainJobLevel(),
+             sub = player:GetSubJob(), sub_lv = player:GetSubJobLevel() }
+end
+
+-- Seconds left on ability recast timer `id`.
+local function recast_left(id) return ability_timer(AshitaCore:GetMemoryManager():GetRecast(), id) / 60 end
+
+-- The charge pools (core/charges.lua): BST's, and the job modules' (core/jobs.lua: `POOL`).
+local POOLS = { bst.POOL }
+for pool in job_modules.each('POOL') do POOLS[#POOLS + 1] = pool end
+
+-- Where `action`'s ready stamp is kept: by its recast, and for a pool's by the charges it costs too.
+local function ready_key(action) return action.kind .. action.recast .. (action.charges and ':' .. action.charges or '') end
+
 -- Seconds until `action` (a catalog record) is off recast; 0 = ready.
 function game.recast(action)
     if not action.recast then return 0 end  -- items
     local mm = AshitaCore:GetMemoryManager()
     local recast = mm:GetRecast()
-    local key, timer = action.kind .. action.recast, 0
+    local timer = 0
     if action.kind == 'ma' then
         timer = recast:GetSpellTimer(action.recast)
-    elseif action.recast and action.recast > 0 then
+    elseif action.recast > 0 then
         timer = ability_timer(recast, action.recast)
     end
-    if timer > 0 then
-        ready_since[key] = nil
-        for f in job_modules.each('recast') do
-            local wait = f(action, timer / 60, mm:GetPlayer())
-            if wait then return wait end
+    local wait = timer / 60
+    -- Charge pools: usable once the charges it costs are back, not the whole pool,
+    -- and then after the same delay as a recast run out.
+    for _, pool in ipairs(POOLS) do
+        if timer > 0 and pool:spends(action) then
+            wait = pool:wait(wait, util.level(jobs_of(mm:GetPlayer()), pool.job), action.charges)
         end
-        return timer / 60
+    end
+    local key = ready_key(action)
+    if wait > 0 then
+        ready_since[key] = nil
+        return wait
     end
     ready_since[key] = ready_since[key] or os.clock()
     return math.max(0, READY_DELAY - (os.clock() - ready_since[key]))
 end
 
+-- Whether the client lists ability `action` now (an ability the server lists only at times: core/catalog.lua).
+function game.listed(action)
+    return AshitaCore:GetMemoryManager():GetPlayer():HasAbility(action.id)
+end
+
 -- Forget `action`'s ready stamp once it's sent, so its next recast gets the full delay.
 function game.sent(action)
     if not action.recast then return end  -- /heal, /follow: no recast
-    ready_since[action.kind .. action.recast] = nil
+    ready_since[ready_key(action)] = nil
 end
 
--- The snapshot. { loading = true } until the client has the player's job.
-function game.read(now)
+-- Party slot `i` as a unit: 0 you, 1-5 your party and trusts, 6-17 the alliance.
+local function member(party, player, em, i, zone, now)
+    local sid, tidx = party:GetMemberServerId(i), party:GetMemberTargetIndex(i)
+    local u = {
+        slot = i, sid = sid, tidx = tidx, name = party:GetMemberName(i),
+        kind = i == 0 and 'self' or i > 5 and 'alliance' or sid >= TRUST and 'trust' or 'party',
+        tracked = tracked.find(sid) and true,
+        hpp = party:GetMemberHPPercent(i), hp = party:GetMemberHP(i),
+        mpp = party:GetMemberMPPercent(i), mp = party:GetMemberMP(i), tp = party:GetMemberTP(i),
+        in_zone = party:GetMemberZone(i) == zone,
+    }
+    if u.hpp == 100 and u.hp > 0 then max_hp[sid] = u.hp end
+    if i == 0 and player:GetHPMax() > 0 then max_hp[sid] = player:GetHPMax() end
+    u.max_known = max_hp[sid] ~= nil
+    if i <= 5 then
+        u.jobs = { party:GetMemberMainJob(i), party:GetMemberMainJobLevel(i),
+                   party:GetMemberSubJob(i), party:GetMemberSubJobLevel(i) }
+    end
+    if i == 0 then
+        u.uses_mp = player:GetMPMax() > 0
+    else
+        local key = ('%d %d/%d'):format(sid, party:GetMemberMainJob(i), party:GetMemberSubJob(i))
+        if u.mp > 0 then has_mp[key] = true end
+        u.uses_mp = has_mp[key] == true
+    end
+    -- Never seen at full: estimate from HP%. Rough at low HP, good enough to score.
+    u.max_hp = max_hp[sid] or (u.hpp > 0 and u.hp > 0 and math.floor(u.hp * 100 / u.hpp)) or nil
+    -- Only one the client draws: out of its range a member has no entity, and
+    -- would read as 0 yalms away. Then dist and pos are unknown: out of reach.
+    if u.in_zone and tidx > 0 and (i == 0 or present(em, tidx)) then
+        u.status = em:GetStatus(tidx)
+        u.dist, u.pos = i == 0 and 0 or distance(em, tidx), position(em, tidx)
+    end
+    u.alive = u.hpp > 0 and u.status ~= DEAD
+    if u.kind == 'self' then u.buffs, u.stacks = own_buffs(player)
+    elseif u.kind == 'party' then u.buffs, u.stacks = party_buffs(sid)
+    else  -- a trust or the alliance: the client keeps no list
+        if not u.alive then buffs.forget(sid) end  -- a death clears statuses silently
+        u.buffs = buffs.of(sid, now)
+    end
+    u.hot = observed.hot(sid, now, u.buffs[REGEN])
+    return u
+end
+
+-- Your pet, if any. A pet's statuses go silently when it dies or is dismissed, and
+-- the next may reuse its id; a luopan's auras end with it, with no message, so
+-- they're forgotten on those whose statuses come from packets (`tracks`).
+local function read_pet(em, player, me, jobs, units, tracks, now)
+    local pet = entity(em, em:GetPetTargetIndex(me.tidx))
+    if pet_sid and not (pet and pet.sid == pet_sid and pet.hpp > 0) then
+        buffs.forget(pet_sid)
+        local gone = false
+        for auras in job_modules.each('pet_auras', jobs.main) do  -- core/jobs.lua
+            gone = true
+            for sid in pairs(tracks) do
+                for _, id in ipairs(auras) do buffs.lose(sid, id) end
+            end
+        end
+        if gone then
+            for _, u in ipairs(units) do  -- already read this time round
+                if tracks[u.sid] then u.buffs = buffs.of(u.sid, now) end
+            end
+        end
+    end
+    local alive = pet and pet.hpp > 0
+    if alive and pet.sid ~= pet_sid then pet_since = now end
+    pet_sid = alive and pet.sid or nil
+    if not pet then return nil end
+    pet.since, pet.mpp, pet.tp = pet_since, player:GetPetMPPercent(), player:GetPetTP()
+    pet.buffs, tracks[pet.sid] = buffs.of(pet.sid, now), true
+    return pet
+end
+
+-- The snapshot. { loading = true } until the client has the player's job, and while zoning.
+-- `idle` (automation stopped or asleep): no battle target is looked for, nor in a safe zone. Finding
+-- <bt> calls into the client, so it's done only when something may act on it.
+function game.read(now, idle)
     init()
     local mm = AshitaCore:GetMemoryManager()
     local player, party, em = mm:GetPlayer(), mm:GetParty(), mm:GetEntity()
     local zone = party:GetMemberZone(0)
-    if player:GetMainJobLevel() == 0 or zone == 0 then return { loading = true, now = now } end
+    if player:GetMainJobLevel() == 0 or zone == 0 or packets.zoning(now) then return { loading = true, now = now } end
+    local jobs = jobs_of(player)
 
     local units, allied, tracks, listed = {}, {}, {}, {}
     for i = 0, 17 do
         if party:GetMemberIsActive(i) == 1 then
-            local sid, tidx = party:GetMemberServerId(i), party:GetMemberTargetIndex(i)
-            listed[sid] = true
-            local u = {
-                slot = i, sid = sid, tidx = tidx, name = party:GetMemberName(i),
-                kind = i == 0 and 'self' or i > 5 and 'alliance' or sid >= TRUST and 'trust' or 'party',
-                tracked = tracked.find(sid) and true,
-                hpp = party:GetMemberHPPercent(i), hp = party:GetMemberHP(i),
-                mpp = party:GetMemberMPPercent(i), mp = party:GetMemberMP(i), tp = party:GetMemberTP(i),
-                in_zone = party:GetMemberZone(i) == zone,
-            }
-            if u.hpp == 100 and u.hp > 0 then max_hp[sid] = u.hp end
-            if i == 0 and player:GetHPMax() > 0 then max_hp[sid] = player:GetHPMax() end
-            u.max_known = max_hp[sid] ~= nil
-            if i <= 5 then
-                u.jobs = { party:GetMemberMainJob(i), party:GetMemberMainJobLevel(i),
-                           party:GetMemberSubJob(i), party:GetMemberSubJobLevel(i) }
-            end
-            if i == 0 then
-                u.uses_mp = player:GetMPMax() > 0
-            else
-                local jobs = ('%d %d/%d'):format(sid, party:GetMemberMainJob(i), party:GetMemberSubJob(i))
-                if u.mp > 0 then has_mp[jobs] = true end
-                u.uses_mp = has_mp[jobs] == true
-            end
-            -- Never seen at full: estimate from HP%. Rough at low HP, good enough to score.
-            u.max_hp = max_hp[sid] or (u.hpp > 0 and u.hp > 0 and math.floor(u.hp * 100 / u.hpp)) or nil
-            -- Only one the client draws: out of its range a member has no entity, and
-            -- would read as 0 yalms away. Then dist and pos are unknown: out of reach.
-            if u.in_zone and tidx > 0 and (i == 0 or present(em, tidx)) then
-                u.status = em:GetStatus(tidx)
-                u.dist = i == 0 and 0 or math.sqrt(em:GetDistance(tidx))
-                u.pos = { em:GetLocalPositionX(tidx), em:GetLocalPositionY(tidx), em:GetLocalPositionZ(tidx) }
-            end
-            u.alive = u.hpp > 0 and u.status ~= DEAD
-            if u.kind == 'self' then u.buffs = own_buffs(player)
-            elseif u.kind == 'party' then u.buffs = party_buffs(sid)
-            else  -- a trust or the alliance: the client keeps no list
-                if not u.alive then buffs.forget(sid) end  -- a death clears statuses silently
-                u.buffs = buffs.of(sid, now); tracks[sid] = true
-            end
-            u.hot = observed.hot(sid, now, u.buffs[REGEN])
+            local u = member(party, player, em, i, zone, now)
+            listed[u.sid] = true
+            if u.kind == 'trust' or u.kind == 'alliance' then tracks[u.sid] = true end  -- statuses from packets
             local list = u.kind == 'alliance' and allied or units
             list[#list + 1] = u
         end
@@ -412,8 +533,11 @@ function game.read(now)
     end
     for _, u in ipairs(allied) do units[#units + 1] = u end
 
-    local bt = battle_target(em) or allied[1] and claimed_target(em, listed, now) or nil
+    local event = event_ptr ~= 0 and ashita.memory.read_uint32(event_ptr + 1) or 0
+    local safe = SAFE_ZONES[zone] == true or (event ~= 0 and ashita.memory.read_uint8(event) == 1)
+    local bt = not (idle or safe) and (battle_target(em) or allied[1] and claimed_target(em, listed, now)) or nil
     if bt and bt.mob then last_combat = now end
+    if move.zone ~= zone then move.x, move.zone = nil, zone end  -- a zone or teleport isn't you moving (AFK sleep)
     local is_moving = moving(em, me.tidx, now)  -- before moved_at is read
     local seen = {}
     for _, u in ipairs(units) do
@@ -421,60 +545,36 @@ function game.read(now)
     end
     if bt then bt.moving = on_the_move(seen, bt, now) end
     motion = seen
-    local pet = entity(em, em:GetPetTargetIndex(me.tidx))
-    -- A pet's statuses go silently when it dies or is dismissed, and the next may reuse its id.
-    -- A luopan's auras end with it, with no message: forget them on those whose statuses come from packets.
-    if pet_sid and not (pet and pet.sid == pet_sid and pet.hpp > 0) then
-        buffs.forget(pet_sid)
-        local gone = false
-        for auras in job_modules.each('pet_auras', player:GetMainJob()) do
-            gone = true
-            for sid in pairs(tracks) do
-                for _, id in ipairs(auras) do buffs.lose(sid, id) end
-            end
-        end
-        if gone then
-            for _, u in ipairs(units) do  -- already read this time round
-                if tracks[u.sid] then u.buffs = buffs.of(u.sid, now) end
-            end
-        end
-    end
-    local alive = pet and pet.hpp > 0
-    if alive and pet.sid ~= pet_sid then pet_since = now end
-    if pet then pet.since = pet_since end
-    pet_sid = alive and pet.sid or nil
-    if pet then pet.buffs = buffs.of(pet.sid, now); tracks[pet.sid] = true end
+    local pet = read_pet(em, player, me, jobs, units, tracks, now)
     -- Statuses on one gone since the last read (a trust dismissed, a member who
     -- left the alliance) went silently: if they come back, they start clean.
     for sid in pairs(fed) do
         if not tracks[sid] then buffs.forget(sid) end
     end
     fed = tracks
-    local event = event_ptr ~= 0 and ashita.memory.read_uint32(event_ptr + 1) or 0
     local finished, spell_finish = packets.last_finish()
     local casting, cast_at = packets.casting(now)
 
     local g = {
         finished = finished, spell_finish = spell_finish,
         now = now, zone = zone, me = me, units = units, tracks = tracks, bt = bt, target = player_target(mm, em),
-        pet = pet, ammo = ammo(), items = inventory(),
-        main = player:GetMainJob(), main_lv = player:GetMainJobLevel(),
-        sub = player:GetSubJob(), sub_lv = player:GetSubJobLevel(),
+        pet = pet, ammo = ammo(), items = inventory(), ready = bst.POOL:now(jobs, recast_left),
+        automaton = pup.automaton(),
+        main = jobs.main, main_lv = jobs.main_lv, sub = jobs.sub, sub_lv = jobs.sub_lv,
         casting = casting, cast_at = cast_at,
         moving = is_moving, moved_at = move.moved,
         combat = now - last_combat < COMBAT_GRACE, combat_at = last_combat,
-        safe = SAFE_ZONES[zone] == true or (event ~= 0 and ashita.memory.read_uint8(event) == 1),
+        safe = safe,
         mounted = me.status == MOUNTED_STATUS or me.buffs[MOUNTED_BUFF] == true,
         dead = not me.alive,
         resting = me.status == RESTING,
         incapacitated = any(me.buffs, INCAPACITATED),
         silenced = any(me.buffs, SILENCED),
         amnesia = me.buffs[AMNESIA] == true,
-        recast = game.recast,
+        recast = game.recast, owned = game.owned, listed = game.listed,
         learned = observed.learned, day = day(), weather = weather(),
     }
-    local function timer(id) return ability_timer(mm:GetRecast(), id) end
-    for f in job_modules.each('read') do f(g, player, timer) end
+    for f in job_modules.each('read') do f(g, recast_left) end
     return g
 end
 

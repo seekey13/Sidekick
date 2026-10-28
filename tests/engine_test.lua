@@ -7,17 +7,14 @@ local fake = require('tests.fake')
 local cat = fake.catalog(3, 75, 4, 37, { 'Divine Seal', 'Martyr' })
 local snap = fake.snap
 
-local function decide(g, cfg, mem, list)
-    local intent, why = engine.decide(g, list or cat, cfg or settings.defaults(), mem or {})
-    if not intent then return nil, why end
-    return engine.command(intent, cfg or settings.defaults()), intent
-end
+local function decide(g, cfg, mem, list) return fake.decide(g, list or cat, cfg, mem) end
 
 -- Healing (behaviors/heal.lua). Members have 1000 HP; WHM 75 table potencies x 1.25.
 local heal = require('behaviors.heal')
 local stratagems = require('jobs.sch')
 local observed = require('core.observed')
 local can = require('core.can')
+local status = require('core.status')
 
 local DNC, SCH, PLD = 19, 20, 7
 local DIVINE_SEAL, LIGHT_ARTS, ACCESSION, MAJESTY, REGEN = 78, 358, 366, 621, 42
@@ -48,21 +45,35 @@ test('efficient: the best HP per MP, never paying for overheal', function ()
     eq({ cmd, intent.why }, { '/ma "Cure III" 101', 'efficient: A 70%' })  -- 250 of 300 for 46 MP
 end)
 
-test('efficient runs from the danger line up to full HP', function ()
-    local cmd, intent = decide(snap({ { name = 'A', hpp = 90 } }))
+-- The heal line raised to `n`, for tests about what goes on near full HP.
+local function heal_under(n)
+    local cfg = settings.defaults()
+    cfg.heal.threshold = n
+    return cfg
+end
+
+test('efficient runs from the danger line up to the heal line; the focus member has its own', function ()
+    eq(decide(snap({ { name = 'A', hpp = 74 } })), '/ma "Regen II" 101')           -- under 75: 240 of 260
+    eq({ decide(snap({ { name = 'A', hpp = 76 } })) }, { nil, 'nothing to do' })  -- over it: left be
+    local cfg = settings.defaults()
+    cfg.heal.focus = 'A'
+    eq(decide(snap({ { name = 'A', hpp = 80 } }), cfg), '/ma "Regen" 101')           -- under the focus line, 85
+    eq({ decide(snap({ { name = 'A', hpp = 86 } }), cfg) }, { nil, 'nothing to do' })
+    local cmd, intent = decide(snap({ { name = 'A', hpp = 90 } }), heal_under(99))
     eq({ cmd, intent.why }, { '/ma "Cure" 101', 'efficient: A 90%' })  -- 37.5 of 100 for 8 MP
-    eq({ decide(snap({ { name = 'A', hpp = 100 } })) }, { nil, 'nothing to do' })
+    eq({ decide(snap({ { name = 'A', hpp = 100 } }), heal_under(99)) }, { nil, 'nothing to do' })
 end)
 
 test('efficient waits while every heal would overheal', function ()
-    eq({ decide(snap({ { name = 'A', hpp = 98 } })) }, { nil, 'nothing to do' })  -- 20 missing: Cure is 37.5
-    eq(decide(snap({ { name = 'A', hpp = 96 } })), '/ma "Cure" 101')              -- 40 missing: Cure fits
-    eq(decide(snap({ { name = 'A', hpp = 49 }, { name = 'B', hpp = 98 } }, nil, { Cure = 5 })),
+    local cfg = heal_under(99)
+    eq({ decide(snap({ { name = 'A', hpp = 98 } }), cfg) }, { nil, 'nothing to do' })  -- 20 missing: Cure is 37.5
+    eq(decide(snap({ { name = 'A', hpp = 96 } }), cfg), '/ma "Cure" 101')              -- 40 missing: Cure fits
+    eq(decide(snap({ { name = 'A', hpp = 49 }, { name = 'B', hpp = 98 } }, nil, { Cure = 5 }), cfg),
         '/ma "Cure V" 101')  -- danger is untouched
 end)
 
 test('Regen: the biggest whose whole total lands', function ()
-    eq(decide(snap({ { name = 'A', hpp = 85 } })), '/ma "Regen" 101')      -- 125 of 150 for 15 MP
+    eq(decide(snap({ { name = 'A', hpp = 85 } }), heal_under(90)), '/ma "Regen" 101')  -- 125 of 150 for 15 MP
     eq(decide(snap({ { name = 'A', hpp = 70 } })), '/ma "Regen II" 101')   -- 240 of 300 for 36 MP
     eq(decide(snap({ { name = 'A', hpp = 60 } })), '/ma "Regen III" 101')  -- 400 of 400 for 64 MP
 end)
@@ -76,12 +87,14 @@ end)
 
 test('a Regen not yours counts as a whole Regen I still to come', function ()
     local theirs = function (hpp) return { { name = 'A', hpp = hpp, buffs = { [REGEN] = true } } } end
-    eq({ decide(snap(theirs(90))) }, { nil, 'nothing to do' })  -- 100 missing, 125 on its way
-    eq(decide(snap(theirs(70))), '/ma "Cure" 101')              -- 300 missing: the other 175
-    eq(decide(snap(theirs(45))), '/ma "Cure V" 101')            -- danger ignores it
-    eq({ decide(snap({ { name = 'A', hpp = 90, buffs = { [539] = true } } })) }, { nil, 'nothing to do' })  -- GEO aura
+    local full = heal_under(99)
+    eq({ decide(snap(theirs(90)), full) }, { nil, 'nothing to do' })  -- 100 missing, 125 on its way
+    eq(decide(snap(theirs(70)), full), '/ma "Cure" 101')              -- 300 missing: the other 175
+    eq({ decide(snap(theirs(70))) }, { nil, 'nothing to do' })        -- on the heal line (75), 700 + 125 is over it
+    eq(decide(snap(theirs(45))), '/ma "Cure V" 101')                  -- danger ignores it
+    eq({ decide(snap({ { name = 'A', hpp = 90, buffs = { [539] = true } } }), full) }, { nil, 'nothing to do' })  -- GEO aura
     -- Yours on its last tick (or stretched past the table by gear) has nothing left to come.
-    eq(decide(snap({ { name = 'A', hpp = 90, hot = 0, buffs = { [REGEN] = true } } })), '/ma "Cure" 101')
+    eq(decide(snap({ { name = 'A', hpp = 90, hot = 0, buffs = { [REGEN] = true } } }), full), '/ma "Cure" 101')
 end)
 
 test('a Regen sent is counted once it lands, tick by tick', function ()
@@ -191,11 +204,12 @@ test('danger fires Accession when a spread Cure IV beats every single cure', fun
 end)
 
 test('a stratagem with its timer running but a charge banked is usable', function ()
-    eq({ stratagems.charge_wait(100, 75), stratagems.charge_wait(200, 75), stratagems.charge_wait(100, 37) }, { 0, 8, 0 })
+    local pool = stratagems.POOL
+    eq({ pool:wait(100, 75), pool:wait(200, 75), pool:wait(100, 37), pool:wait(100, 5) }, { 0, 8, 0, 100 })
     local accession
     for _, a in ipairs(sch) do if a.name == 'Accession' and a.role == 'emergency' then accession = a end end
     local g = with(snap({}), { LIGHT_ARTS })
-    g.recast = function () return stratagems.charge_wait(100, 75) end
+    g.recast = function () return stratagems.POOL:wait(100, 75) end
     eq(can.use(accession, g), true)
 end)
 
@@ -264,6 +278,47 @@ test('removal: the specific -na first, Erase for what only it clears', function 
     eq(decide(g), '/ma "Erase" 101')
 end)
 
+test('removal: debuffs switched off are left on, and removers unticked are never used', function ()
+    local cfg = settings.defaults()
+    cfg.remove.skip = { paralysis = true }
+    local g = snap({ { name = 'A', buffs = { [4] = true, [13] = true } } })  -- Paralysis, Slow
+    eq(decide(g, cfg), '/ma "Erase" 101')
+    cfg.remove.skip.slow = true
+    eq({ decide(g, cfg) }, { nil, 'nothing to do' })
+    cfg.remove.skip = {}
+    cfg.rows.Paralyna = { on = false }
+    eq(decide(g, cfg), '/ma "Erase" 101')
+end)
+
+test('removal: Doom is removed even with its chip off', function ()
+    local cfg = settings.defaults()
+    cfg.remove.skip = { doom = true }
+    eq(decide(snap({ { name = 'A', buffs = { [15] = true } } }), cfg), '/ma "Cursna" 101')
+end)
+
+test('removal goes after danger healing, ahead of efficient healing', function ()
+    local g = snap({ { name = 'A', hpp = 70, buffs = { [4] = true } } })  -- Paralysis
+    eq(decide(g), '/ma "Paralyna" 101')
+    g = snap({ { name = 'A', hpp = 40, buffs = { [4] = true } } })
+    local cmd, intent = decide(g)
+    eq({ cmd ~= nil, intent.why:match('^%a+') }, { true, 'danger' })
+end)
+
+test('efficient healing goes by heal: shown as it, switched by it, quiet while holding or Invisible', function ()
+    local _, intent = decide(snap({ { name = 'A', hpp = 70 } }))
+    eq({ intent.behavior, intent.why:match('^%a+') }, { 'heal', 'efficient' })
+    local cfg = settings.defaults()
+    cfg.heal.on = false
+    eq({ decide(snap({ { name = 'A', hpp = 70 } }), cfg) }, { nil, 'nothing to do' })
+    eq({ decide(with(snap({ { name = 'A', hpp = 70 } }), { status.INVISIBLE })) }, { nil, 'invisible' })
+    local waits = {}  -- every cure nearly off recast; Regen, which danger never casts, ready for B
+    for _, a in ipairs(cat) do if a.role == 'heal' and not a.tick then waits[a.name] = 5 end end
+    local g = snap({ { name = 'A', hpp = 45 }, { name = 'B', hpp = 70 } }, nil, waits)
+    eq({ decide(g) }, { nil, 'waiting for a cure' })
+    g.units[2].buffs[4] = true  -- Paralysis: removal is quick, so it still goes
+    eq(decide(g), '/ma "Paralyna" 101')
+end)
+
 test('revive: the best raise, idle only, and not again while they decide', function ()
     local mem = {}
     local g = snap({ { name = 'Dead', hpp = 0 } })
@@ -291,6 +346,21 @@ test('a pick_one group casts only its pick; an area buff covers those near you',
     eq({ decide(g, cfg) }, { nil, 'nothing to do' })
     cfg.rows.barelement.pick = 'Barfira'
     eq(decide(g, cfg), '/ma "Barfira" <me>')
+end)
+
+test('Composure is the first buff, after healing', function ()
+    local RDM, COMPOSURE = 5, 419
+    local rdm = fake.catalog(RDM, 75, 3, 37, { 'Composure' })
+    local hurt = { { name = 'A', hpp = 60 } }
+    local g = snap(hurt, { main = RDM, sub = 3 })
+    local cfg = no_regen()
+    eq(decide(g, cfg, nil, rdm):match('^/ma "Cure'), '/ma "Cure')  -- opt-in, as every buff
+    cfg.rows.Composure, cfg.rows.Protect = { on = true }, { on = true }
+    eq(decide(g, cfg, nil, rdm):match('^/ma "Cure'), '/ma "Cure')
+    local cmd, intent = decide(snap({ { name = 'A' } }, { main = RDM, sub = 3 }), cfg, nil, rdm)
+    eq({ cmd, intent.behavior }, { '/ja "Composure" <me>', 'buff' })  -- ahead of Protect
+    eq(decide(with(snap({ { name = 'A' } }, { main = RDM, sub = 3 }), { COMPOSURE }), cfg, nil, rdm):match('^/ma "Protect'),
+       '/ma "Protect')
 end)
 
 test('gates stop everything', function ()

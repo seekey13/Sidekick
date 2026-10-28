@@ -15,7 +15,13 @@ local TIERS = { II = 2, III = 3, IV = 4, V = 5, VI = 6, Ichi = 1, Ni = 2, San = 
 -- 3 weapon skill, 4 trait, 20 monstrosity are not actions here.
 local PET_TYPES  = { [2] = true, [6] = true, [10] = true, [18] = true }
 local SKIP_TYPES = { [3] = true, [4] = true, [20] = true }
+-- Ability types the DAT gives a cost of 1 MP they don't have: charges (Quick Draw,
+-- stratagems) and runes, each 0 MP in game.
+local CHARGES = { [9] = true, [15] = true, [21] = true }
+local READY_MOVE = 18  -- a jug pet's move: the DAT's MP is the Ready charges it costs (jobs/bst.lua)
 local TRUST = 8  -- spell type; calling trusts is not support automation
+local BLUE_MAGIC = 6  -- spell type: castable only while set, or through Unbridled Learning (jobs/blu.lua)
+local UNBRIDLED = 'Unbridled Learning'
 local SELF = 1   -- valid-target flag: items are used on you
 
 local SCH = 20
@@ -53,6 +59,20 @@ local function ids(v, idx, what)
     return out
 end
 
+-- Status id -> its name, for the ids in these lists: what can.use names as blocking or needed,
+-- and a removal's debuffs, which Debuff removal lists and switches by name (behaviors/remove.lua):
+-- its id as text when the client has no name for it.
+local function names(statuses, ...)
+    local out
+    for _, list in pairs({ ... }) do
+        for _, id in ipairs(list) do
+            out = out or {}
+            out[id] = statuses[id] and statuses[id].en or tostring(id)
+        end
+    end
+    return out
+end
+
 -- Knowledge uses for one action: exact name beats family; a use may be kind-specific.
 local function uses(K, name, family, kind)
     local row = K[name] or K[family]
@@ -80,7 +100,8 @@ end
 -- Build the catalog.
 --   res    { spells, abilities, statuses, items = { [id] = { en, jp } } or nil }
 --          from core/resources.lua or tests/data
---   player { main, main_lv, sub, sub_lv, has_spell(id), has_ability(id) }
+--   player { main, main_lv, sub, sub_lv, has_spell(id), has_ability(id),
+--            set_spells = { [id] = true } or nil: the blue magic set; nil takes every one learned }
 --   K      core/knowledge.lua
 -- Returns a list of actions, one per use, sorted by kind then id; items last.
 function catalog.build(res, player, K)
@@ -90,6 +111,8 @@ function catalog.build(res, player, K)
     local function add(kind, id, row, from, level, addendum)
         local family, tier = catalog.split(row.en)
         for _, use in ipairs(uses(K, row.en, family, kind)) do
+            -- `requires` is one any-of list, and an Addendum spell's is its Addendum or Enlightenment.
+            assert(not (addendum and use.requires), ('%s: an Addendum spell can\'t require more'):format(row.en))
             if not (use.main_only and from == 'sub') then
                 local status = use.status
                 if status == nil and (use.role == 'buff' or use.role == 'modifier' or use.lucky or use.boost) then
@@ -101,51 +124,79 @@ function catalog.build(res, player, K)
                     status = ids(status, idx, row.en),
                     removes = ids(use.removes, idx, row.en),
                     blocked_by = ids(use.blocked_by, idx, row.en),
-                    -- ponytail: no knowledge row sets requires on an Addendum spell; merge if one ever does.
-                    requires = addendum and ADDENDUM[row.type] or ids(use.requires, idx, row.en),
+                    requires = addendum and ADDENDUM[row.type] or ids(use.unbridled and UNBRIDLED or use.requires, idx, row.en),
+                    unbridled = use.unbridled,
                     potency = use.potency and use.potency[tier],
                     tick = use.tick and (use.tick[tier] or 0),  -- 0: a tier with no known value
                     boost = use.boost and { kind = use.boost[1], factor = use.boost[2] or 1,
                                             potency = use.boost.potency, area = use.boost.area,
                                             mp = use.boost.mp or 1, tiers = use.boost.tiers },
                     duration = type(use.duration) == 'table' and use.duration[tier] or use.duration,
-                    wakes = use.wakes, gives = use.gives, gate = use.gate, pick_one = use.pick_one,
+                    wakes = use.wakes, trance = use.trance, gives = use.gives, gate = use.gate, pick_one = use.pick_one,
                     costs_hp = use.costs_hp, swaps = use.swaps, spends_tp = use.spends_tp,
-                    ammo = use.ammo, pet_range = use.pet_range,
+                    ammo = use.ammo, pet_range = use.pet_range, tool = use.tool, last_shadow = use.last_shadow,
                     applies = use.applies, spreads = use.spreads, chip = use.chip, addendum = addendum or nil,
-                    lucky = use.lucky, unlucky = use.unlucky, luopan = use.luopan, decide = use.decide,
+                    lucky = use.lucky, unlucky = use.unlucky, luopan = use.luopan, decide = use.decide, rune = use.rune,
                     priority = use.priority or 0, pet = use.pet, travel = use.travel, mob_skill = use.mob_skill,
-                    mp = row.mp, tp = row.tp,  -- the client blocks casts by this cost, so it is the one to trust
+                    hidden = use.learn ~= nil or nil, first = use.first,
+                    -- the client blocks casts by this cost, so it is the one to trust
+                    mp = (kind == 'ja' and CHARGES[row.type] or row.type == READY_MOVE) and 0 or row.mp,
+                    tp = row.tp, charges = row.type == READY_MOVE and row.mp or nil,
                     recast = kind == 'ma' and id or row.recast_id,  -- spell id, or ability recast timer id
                     targets = row.targets, range = row.range, area = use.area or row.area,
                     cast = row.cast and row.cast / 4,  -- seconds; spells only
                     element = row.element, skill = row.skill, type = row.type,
                     from = from, level = level,
                 }
+                local a = out[#out]
+                a.names = names(res.statuses, a.blocked_by or {}, a.requires or {})
+                a.debuffs = names(res.statuses, a.removes or {})
             end
         end
     end
 
     for id, s in pairs(res.spells) do
-        if s.type ~= TRUST and player.has_spell(id) then
+        if s.type ~= TRUST and player.has_spell(id)
+            and not (s.type == BLUE_MAGIC and player.set_spells and not player.set_spells[id]
+                     and not (K[s.en] and K[s.en].unbridled)) then
             local from, level, addendum = spell_source(s, player)
             if from then add('ma', id, s, from, level, addendum) end
         end
     end
+    -- The server lists some abilities only while they can be used: pet commands,
+    -- blood pacts and Ready moves with the right pet out, stratagems under their
+    -- Arts. The catalog is rebuilt on a job or level change, not when a pet is
+    -- called or an Arts goes up, so those are listed by the levels knowledge
+    -- gives them (`learn`): settings show them from the start, and none goes
+    -- until the client lists it (a.hidden, can.use). Anything else waits on HasAbility.
+    local function learns(row, kind)
+        local family, tier = catalog.split(row.en)
+        for _, use in ipairs(uses(K, row.en, family, kind)) do
+            for job, lv in pairs(use.learn or {}) do
+                if type(lv) == 'table' then lv = lv[tier] end
+                if lv and (player.main == job and player.main_lv >= lv
+                           or player.sub == job and (player.sub_lv or 0) >= lv) then return true end
+            end
+        end
+        return false
+    end
     for id, a in pairs(res.abilities) do
-        if not SKIP_TYPES[a.type] and player.has_ability(id) then
-            add(PET_TYPES[a.type] and 'pet' or 'ja', id, a)
+        local kind = PET_TYPES[a.type] and 'pet' or 'ja'
+        if not SKIP_TYPES[a.type] and (player.has_ability(id) or learns(a, kind)) then
+            add(kind, id, a)
         end
     end
 
-    -- Enlightenment is an Addendum spell's way in without the Addendum: can.use
-    -- counts it, and the engine fires it first.
-    local enlightenment
+    -- Enlightenment is an Addendum spell's way in without the Addendum, and
+    -- Unbridled Learning an Unbridled spell's: can.use counts it, and the engine
+    -- fires it first.
+    local via = {}
     for _, a in ipairs(out) do
-        if a.role == 'modifier' and a.name == 'Enlightenment' then enlightenment = a end
+        if a.role == 'modifier' and (a.name == 'Enlightenment' or a.name == UNBRIDLED) then via[a.name] = a end
     end
     for _, a in ipairs(out) do
-        if a.addendum then a.via = enlightenment end
+        if a.addendum then a.via = via.Enlightenment end
+        if a.unbridled then a.via = via[UNBRIDLED] end
     end
 
     table.sort(out, function (a, b)
@@ -160,9 +211,10 @@ function catalog.build(res, player, K)
     for name, use in pairs(K) do
         if use.item then
             local r = res.items and res.items[use.item]
+            local removes = ids(use.removes, idx, name)
             items[#items + 1] = {
                 kind = 'item', id = use.item, name = r and r.en or name, jp = r and r.jp or '', family = name, tier = 1,
-                role = use.role, removes = ids(use.removes, idx, name), priority = use.priority or 0,
+                role = use.role, removes = removes, debuffs = names(res.statuses, removes or {}), priority = use.priority or 0,
                 one_of = use.one_of, targets = SELF, range = 0, area = 0, level = 0,
             }
         end
