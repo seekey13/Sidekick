@@ -7,7 +7,7 @@
                 members = { you first, then your party's players (trusts left out):
                             { sid, name, main, main_lv, sub, sub_lv, hpp, hp, max_hp, mpp, mp, here } },
                 act = { behavior, action, target } or nil,
-                pet = { sid, mpp, tp } or nil: its live pet's MP % and TP (below),
+                pet = { sid, mpp, tp, uses_mp } or nil: its live pet's MP % and TP, and whether it has MP (below),
                 profiles = { active (nil for Default), names } or nil: the widget lists them to load,
                 halted (automation running but held: 'mounted', 'AFK asleep'... (ui/model.lua's model.halted), or nil),
                 watch, calls, acks (remote control, below) }
@@ -24,7 +24,8 @@
 
     Pets: the client reads MP % and TP for one pet only, yours; another player's is
     an entity, an HP % alone. So each session lists its own live pet's server id,
-    MP % and TP, as Floaties' petshare does, and another's HUD gives them to the pet
+    MP % and TP, as Floaties' petshare does, and whether it has MP at all (a wyvern
+    or a jug pet has none), and another's HUD gives them to the pet
     it draws under that session's card while the ids match (a pet swapped for
     another keeps no one's numbers until the next write). Its HP isn't listed: the
     client draws a live HP % for anyone's pet, and a second one could only disagree.
@@ -59,7 +60,7 @@ local share = {
     PRUNE = 3600,   -- seconds after which a file no one wrote (a crashed session's) is deleted
 }
 
-local VERSION = 'sk3 session 5'
+local VERSION = 'sk3 session 6'
 
 -- Plain data (strings, numbers, booleans and tables of them) as one line of text,
 -- and back: `act` calls and views go through files. Read with a parser of its
@@ -121,7 +122,7 @@ end
 local sorted_keys = util.sorted_keys
 
 -- The file's text for a roster (share.roster), whether it runs, and the os.time()
--- written at. `extra` (optional): { epoch, act = { behavior, action, target }, pet = { sid, mpp, tp },
+-- written at. `extra` (optional): { epoch, act = { behavior, action, target }, pet = { sid, mpp, tp, uses_mp },
 -- profiles = { active, names }, halted, watch = { [name] = true },
 -- calls (share.queue's list), acks = { [sender] = { epoch, n } } }.
 function share.encode(members, running, heartbeat, extra)
@@ -133,7 +134,10 @@ function share.encode(members, running, heartbeat, extra)
             m.here and 1 or 0, m.name)
     end
     if extra.act then lines[#lines + 1] = 'act ' .. share.pack(extra.act) end
-    if extra.pet then lines[#lines + 1] = ('pet %d %d %d'):format(extra.pet.sid, extra.pet.mpp, extra.pet.tp) end
+    if extra.pet then
+        local p = extra.pet
+        lines[#lines + 1] = ('pet %d %d %d %d'):format(p.sid, p.mpp, p.tp, p.uses_mp and 1 or 0)
+    end
     if extra.profiles then lines[#lines + 1] = 'profiles ' .. share.pack(extra.profiles) end
     if extra.halted then lines[#lines + 1] = 'halted ' .. share.pack(extra.halted) end
     for _, name in ipairs(sorted_keys(extra.watch)) do lines[#lines + 1] = 'watch ' .. name end
@@ -182,7 +186,7 @@ function share.decode(text)
         local line = lines[i]
         local f = { line:match('^(%d+) (%d+) (%d+) (%d+) (%d+) (%d+) (%d+) (%d+) (%d+) (%d+) ([01]) (.+)$') }
         local acted = line:match('^act (.+)$')
-        local pet = { line:match('^pet (%d+) (%d+) (%d+)$') }
+        local pet = { line:match('^pet (%d+) (%d+) (%d+) ([01])$') }
         local listed = line:match('^profiles (.+)$')
         local held = line:match('^halted (.+)$')
         local watch = line:match('^watch (%S+)$')
@@ -197,7 +201,7 @@ function share.decode(text)
         elseif acted then  -- one that won't read is left out, as a call
             s.act = action(share.unpack(acted))
         elseif pet[1] then
-            s.pet = { sid = tonumber(pet[1]), mpp = tonumber(pet[2]), tp = tonumber(pet[3]) }
+            s.pet = { sid = tonumber(pet[1]), mpp = tonumber(pet[2]), tp = tonumber(pet[3]), uses_mp = pet[4] == '1' }
         elseif listed then
             s.profiles = profile_list(share.unpack(listed))
         elseif held then
@@ -238,11 +242,11 @@ function share.roster(g)
 end
 
 -- What your session publishes of your pet, from the snapshot: its MP % and TP, which
--- only your client reads, by its server id; nil with none out, or one at 0% (a dead
--- or dismissed pet lingers a while).
+-- only your client reads, and whether it has MP, by its server id; nil with none out,
+-- or one at 0% (a dead or dismissed pet lingers a while).
 function share.pet(g)
     local p = g.pet
-    if p and p.hpp > 0 then return { sid = p.sid, mpp = p.mpp or 0, tp = p.tp or 0 } end
+    if p and p.hpp > 0 then return { sid = p.sid, mpp = p.mpp or 0, tp = p.tp or 0, uses_mp = p.uses_mp == true } end
 end
 
 -- The other sessions still alive at os.time() `now`, by name.

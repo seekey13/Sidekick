@@ -35,8 +35,8 @@ test('a file caught mid-write, empty or of another version reads as nothing', fu
     eq(share.decode(''), nil)
     eq(share.decode(text:sub(1, #text - 12)), nil)  -- the last line cut short
     eq(share.decode(text:sub(1, #text - 6)), nil)   -- cut after the name: the end line is missing
-    eq(share.decode((text:gsub('session 5', 'session 4'))), nil)
-    eq(share.decode('sk3 session 5\n5 0 0\nend\n'), nil)  -- no members
+    eq(share.decode((text:gsub('session 6', 'session 5'))), nil)
+    eq(share.decode('sk3 session 6\n5 0 0\nend\n'), nil)  -- no members
     eq(share.decode((text:gsub('\nend', '\nwhat 1\nend'))), nil)  -- a line of no kind it knows
 end)
 
@@ -68,17 +68,21 @@ test('what its automation just sent reads back, no target when on itself; one th
     end
 end)
 
-test('its pet\'s MP % and TP read back by the pet\'s id; none, and a pet line that won\'t read is no file', function ()
-    local pet = { sid = 0x1000700, mpp = 47, tp = 1750 }
+test('its pet\'s MP % and TP, and whether it has MP, read back by the pet\'s id; none, and a pet line that won\'t read is no file', function ()
+    local pet = { sid = 0x1000700, mpp = 47, tp = 1750, uses_mp = true }
     local text = share.encode({ member(10, 'Box') }, true, 5, { pet = pet })
     eq(share.decode(text).pet, pet)
+    local wyvern = { sid = 0x1000701, mpp = 0, tp = 300, uses_mp = false }
+    eq(share.decode(share.encode({ member(10, 'Box') }, true, 5, { pet = wyvern })).pet, wyvern)
     eq(share.decode(share.encode({ member(10, 'Box') }, true, 5)).pet, nil)
-    eq(share.decode((text:gsub('pet [^\n]+', 'pet 16777984 47'))), nil)  -- cut short: as any line of no kind it knows
+    eq(share.decode((text:gsub('pet [^\n]+', 'pet 16777984 47 1750'))), nil)  -- cut short: as any line of no kind it knows
 end)
 
-test('your pet is published while it lives: its id, MP % and TP; none out, or one at 0%, is none', function ()
-    eq(share.pet(fake.snap({}, { pet = { sid = 0x1000700, name = 'Ifrit', hpp = 80, mpp = 60, tp = 1500 } })),
-       { sid = 0x1000700, mpp = 60, tp = 1500 })
+test('your pet is published while it lives: its id, MP % and TP, whether it has MP; none out, or one at 0%, is none', function ()
+    eq(share.pet(fake.snap({}, { pet = { sid = 0x1000700, name = 'Ifrit', hpp = 80, mpp = 60, tp = 1500, uses_mp = true } })),
+       { sid = 0x1000700, mpp = 60, tp = 1500, uses_mp = true })
+    eq(share.pet(fake.snap({}, { pet = { sid = 0x1000700, name = 'Wyvern', hpp = 80, mpp = 0, tp = 1500 } })),
+       { sid = 0x1000700, mpp = 0, tp = 1500, uses_mp = false })
     eq(share.pet(fake.snap({}, { pet = { sid = 0x1000700, name = 'Ifrit', hpp = 0, mpp = 60, tp = 0 } })), nil)
     eq(share.pet(fake.snap({})), nil)
 end)
@@ -489,9 +493,9 @@ test('two sessions: one\'s pet is in its file, read four times a second while th
         local ga, gb = in_game(1, 'Alpha'), in_game(2, 'Beta')
         local sa, sb = { running = false, open = true, watching = {} }, { running = false, open = false, watching = {} }
         local h = { apply = function () end, view = function () end, act = idle }
-        gb.pet = { sid = 0x1000700, name = 'Ifrit', hpp = 80, mpp = 60, tp = 500 }
+        gb.pet = { sid = 0x1000700, name = 'Ifrit', hpp = 80, mpp = 60, tp = 500, uses_mp = true }
         a.tick(ga, 1, sa, h); b.tick(gb, 1, sb, h)
-        eq(share.decode(files[DIR .. 'session_Beta.txt']).pet, { sid = 0x1000700, mpp = 60, tp = 500 })
+        eq(share.decode(files[DIR .. 'session_Beta.txt']).pet, { sid = 0x1000700, mpp = 60, tp = 500, uses_mp = true })
         a.tick(ga, 2, sa, h)  -- Alpha has read it: neither runs, but Beta's pet is out and Alpha's HUD shows
         gb.pet.tp = 1200
         b.tick(gb, 2, sb, h)

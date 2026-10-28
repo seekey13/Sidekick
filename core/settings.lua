@@ -48,6 +48,7 @@ local DEFAULTS = {
     profiles = {}, profile = '', parked = {},  -- named snapshots (core/profiles.lua)
     ui = { open = false, hp_width = 220, hp_height = 40, mp_width = 220, mp_height = 18, tp_width = 220, tp_height = 8,
            name_size = 22, text_size = 14, gap = 8, locked = false,
+           hide_mp = true,  -- leave out the MP bar of a member or pet with no MP (0/0)
            widget = false,  -- the widget, v2's floating one (/sk3 widget)
            widget_size = 16,  -- its text and icons' height, in pixels
            japanese = false },  -- send spell, ability and item names in Japanese

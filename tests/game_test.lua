@@ -237,6 +237,23 @@ test('your pet: its HP % from its entity, its MP % and TP as the client reads th
     eq({ p.name, p.hpp, p.mpp, p.tp }, { 'Ifrit', 80, 60, 1500 })
 end)
 
+test('your pet has MP once seen with some: a wyvern\'s 0% is none, a spent one\'s still some; the next starts again', function ()
+    reset()
+    read()  -- no pet
+    world.pet, world.ents[0x700], world.pet_mpp = 0x700, { sid = PET, name = 'Wyvern', hpp = 100, dist = 2 }, 0
+    eq(read().pet.uses_mp, false)
+    world.pet = nil
+    read()
+    world.pet, world.ents[0x700], world.pet_mpp = 0x700, { sid = PET, name = 'Ifrit', hpp = 100, dist = 2 }, 60
+    eq(read().pet.uses_mp, true)
+    world.pet_mpp = 0  -- spent
+    eq(read().pet.uses_mp, true)
+    world.pet = nil
+    read()
+    world.pet, world.ents[0x700] = 0x700, { sid = PET, name = 'Wyvern', hpp = 100, dist = 2 }  -- the same id again
+    eq(read().pet.uses_mp, false)
+end)
+
 test('a party member\'s pet and a tracked player\'s: the entity drawn, HP % alone; none at 0%, or not drawn', function ()
     reset()
     world.party[2] = { sid = 101, tidx = 0x401, name = 'Box', hpp = 100, hp = 1000, mpp = 50, mp = 100 }

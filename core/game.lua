@@ -25,7 +25,8 @@
     says), max_hp from a session file, else estimated from their /check level (else
     yours), and main, main_lv, sub, sub_lv once a /check or a session file has
     answered; `auto` names the session whose file tracks them (core/share.lua). A member (or alliance member) you also track has tracked = true.
-    The pet is { sid, tidx, name, hpp, mpp, tp, dist, pos, status (1 engaged), buffs, since (first seen) }; the
+    The pet is { sid, tidx, name, hpp, mpp, tp, uses_mp (seen with MP), dist, pos, status (1 engaged), buffs,
+    since (first seen) }; the
     battle target `bt` { sid, tidx, name, hpp, dist, pos, mob, claimed, moving }, `claimed`
     when it's a mob another party of the alliance claimed (the client has no <bt>), or
     any the alliance claimed while a trust is in another party (the client's isn't asked).
@@ -114,6 +115,7 @@ local motion = {}  -- [sid] = { x, y, z, moved }: where each other unit and the 
 local last_combat = -math.huge
 local pet_sid  -- the live pet last seen: its statuses are forgotten once it's gone or dead
 local pet_since  -- when that pet was first seen: a new one (it may reuse the id) comes after a read without one
+local pet_mp_since  -- pet_since of the last pet seen with MP: a wyvern's or a jug pet's 0% isn't an empty tank
 local ready_since = {}  -- [recast key] = when its timer first read 0
 local rescan_at = -math.huge
 local claim = { at = -math.huge, tidx = nil }  -- the last look for an alliance-claimed mob
@@ -511,6 +513,8 @@ local function read_pet(em, player, me, jobs, units, tracks, now)
     pet_sid = alive and pet.sid or nil
     if not pet then return nil end
     pet.since, pet.mpp, pet.tp = pet_since, player:GetPetMPPercent(), player:GetPetTP()
+    if pet.mpp > 0 then pet_mp_since = pet_since end
+    pet.uses_mp = pet_since ~= nil and pet_mp_since == pet_since
     pet.buffs, tracks[pet.sid] = buffs.of(pet.sid, now), true
     return pet
 end

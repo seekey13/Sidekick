@@ -401,20 +401,21 @@ local function entity(e)
     return e and { name = e.name, hpp = e.hpp, dist = ('%.1fy'):format(e.dist or 0) }
 end
 
--- Your pet: as the battle target, with its MP % and TP (`pools`: known, as the client reads them for yours).
+-- Your pet: as the battle target, with its MP % and TP (`pools`: known, as the client reads them for yours) and
+-- whether it has MP.
 local function pet_line(e)
     local p = entity(e)
-    if p then p.mpp, p.tp, p.pools = e.mpp or 0, e.tp or 0, true end
+    if p then p.mpp, p.tp, p.pools, p.uses_mp = e.mpp or 0, e.tp or 0, true, e.uses_mp == true end
     return p
 end
 
 -- Another session's pet as the client draws it (`e`: an HP % alone), with its MP % and TP from that session's file
--- (`s`) while the file names this pet. Until then (just called, or swapped for another until the next write) `pools`
--- is false and they're 0, as a tracked player's: another pet's MP would be worse than none.
+-- (`s`) while the file names this pet, and whether it has MP. Until then (just called, or swapped for another until
+-- the next write) `pools` is false and they're 0, as a tracked player's: another pet's MP would be worse than none.
 local function their_pet(e, s)
     local p, f = entity(e), s.pet
     p.pools = f ~= nil and f.sid == e.sid
-    p.mpp, p.tp = p.pools and f.mpp or 0, p.pools and f.tp or 0
+    p.mpp, p.tp, p.uses_mp = p.pools and f.mpp or 0, p.pools and f.tp or 0, p.pools and f.uses_mp == true
     return p
 end
 

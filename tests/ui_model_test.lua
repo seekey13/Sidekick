@@ -331,11 +331,14 @@ test('party MP is low under the Recover MP line, only for those who use MP', fun
     eq(keys(view.party, 'uses_mp'), { true, true, false, true })
 end)
 
-test('each party line has its TP; your pet its HP %, MP % and TP', function ()
-    local g = fake.snap({ { name = 'A', tp = 1500 } }, { pet = { name = 'Ifrit', hpp = 80, mpp = 60, tp = 2100, dist = 2 } })
+test('each party line has its TP; your pet its HP %, MP % and TP, and whether it has MP', function ()
+    local g = fake.snap({ { name = 'A', tp = 1500 } },
+        { pet = { name = 'Ifrit', hpp = 80, mpp = 60, tp = 2100, dist = 2, uses_mp = true } })
     local view = build(whm, nil, g)
     eq(keys(view.party, 'tp'), { 0, 1500 })
-    eq(view.pet, { name = 'Ifrit', hpp = 80, mpp = 60, tp = 2100, dist = '2.0y', pools = true })
+    eq(view.pet, { name = 'Ifrit', hpp = 80, mpp = 60, tp = 2100, dist = '2.0y', pools = true, uses_mp = true })
+    g.pet = { name = 'Wyvern', hpp = 80, mpp = 0, tp = 2100, dist = 2, uses_mp = false }
+    eq(build(whm, nil, g).pet.uses_mp, false)
     eq(build(whm).pet, nil)
 end)
 
@@ -537,11 +540,12 @@ test('another session\'s pet is on its line: the HP % drawn, its MP % and TP fro
     local st = status({ sessions = sessions(true) })
     local carbuncle = { sid = 0x1000701, tidx = 0x701, name = 'Carbuncle', hpp = 70, dist = 6 }
     local g = fake.snap({ { name = 'A', pet = carbuncle }, { name = 'B', pet = carbuncle } })  -- B is no session
-    eq(build(whm, nil, g, st).party[2].pet, { name = 'Carbuncle', hpp = 70, dist = '6.0y', mpp = 0, tp = 0, pools = false })
-    st.sessions.A.pet = { sid = 0x1000701, mpp = 47, tp = 1750 }
+    eq(build(whm, nil, g, st).party[2].pet,
+       { name = 'Carbuncle', hpp = 70, dist = '6.0y', mpp = 0, tp = 0, pools = false, uses_mp = false })
+    st.sessions.A.pet = { sid = 0x1000701, mpp = 47, tp = 1750, uses_mp = true }
     local view = build(whm, nil, g, st)
     eq({ view.party[2].pet, view.party[3].pet, view.pet },
-       { { name = 'Carbuncle', hpp = 70, dist = '6.0y', mpp = 47, tp = 1750, pools = true } })
+       { { name = 'Carbuncle', hpp = 70, dist = '6.0y', mpp = 47, tp = 1750, pools = true, uses_mp = true } })
     st.sessions.A.pet.sid = 0x1000700  -- its file still names the pet it swapped out: no one's numbers
     eq(build(whm, nil, g, st).party[2].pet.pools, false)
 end)

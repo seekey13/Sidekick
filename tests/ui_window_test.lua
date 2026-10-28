@@ -238,7 +238,8 @@ local function snap()
     return fake.snap({
         { name = 'A', hpp = 62, buffs = { [40] = true, [41] = true } },
         { name = 'B', kind = 'trust', in_zone = false },
-    }, { bt = { name = 'Crab', hpp = 50, dist = 4.3 }, pet = { name = 'Carbuncle', hpp = 100, dist = 2 }, combat = true })
+    }, { bt = { name = 'Crab', hpp = 50, dist = 4.3 }, pet = { name = 'Carbuncle', hpp = 100, dist = 2, uses_mp = true },
+         combat = true })
 end
 
 local function has(list, x)
@@ -516,7 +517,7 @@ end)
 test('your pet\'s card sits under yours, before P1: its HP, MP and TP, and its own tooltip', function ()
     close_settings()
     local cfg, st = settings.defaults(), status()
-    local g = fake.snap({ { name = 'A' } }, { pet = { name = 'Ifrit', hpp = 50, mpp = 40, tp = 1000, dist = 3 } })
+    local g = fake.snap({ { name = 'A' } }, { pet = { name = 'Ifrit', hpp = 50, mpp = 40, tp = 1000, dist = 3, uses_mp = true } })
     render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
     -- Its three bars an alliance row's size, 220 by 18, 3 apart, from y 155; A's card 8 under them.
     eq({ hp_fill(108, 75), hp_fill(108, 155), hp_fill(108, 223) }, { { 328, 115 }, { 108 + 110, 173 }, { 328, 263 } })
@@ -530,6 +531,59 @@ test('your pet\'s card sits under yours, before P1: its HP, MP and TP, and its o
     g.pet = nil
     render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
     eq({ fill('PET'), hp_fill(108, 155) }, { nil, { 328, 195 } })  -- no pet: A's card under yours
+end)
+
+-- Where `s` was last drawn: its fill's top left.
+local function at(s)
+    local p
+    for _, d in ipairs(calls('AddText')) do
+        if d.args[5] == s then p = d.args[3] end
+    end
+    return p
+end
+
+-- Tag `s`'s top, centred on a bar `top` down and `h` high.
+local function tag_top(s, top, h)
+    local _, th = kit.measure(s, kit.fonts.semi, 14)
+    return math.floor(top + (h - th) / 2 + 0.5)
+end
+
+test('a member with no MP (0/0) has no MP bar, its TP bar up under its HP bar; each tag is on its TP bar', function ()
+    close_settings()
+    local cfg, st = settings.defaults(), status()
+    local g = fake.snap({ { name = 'War', mpp = 0, uses_mp = false, tp = 1500 }, { kind = 'tracked', name = 'Out' } })
+    render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
+    -- Yours from y 75, its TP bar from 139; War's from 155, its TP bar from 198, 3 under its HP bar; Out's from 214.
+    eq({ at('ME'), at('P1') }, { { 114, tag_top('ME', 139, 8) }, { 114, tag_top('P1', 198, 8) } })
+    eq({ bar_edge(108, 198, 220, 18) or false, bar_edge(108, 198, 71, 8) }, { false, true })
+    eq(tp_fills()[1], { { 108, 198 }, { 179, 206 }, u32(P.tp, BAR_FILL) })
+    eq(bar_edge(108, 257, 220, 18), true)  -- a tracked player's MP can't be read: its bar stays, empty
+    eq(frame.extent.Sidekick3, { 100 + 236, 50 + 25 + 72 + 51 + 72 + 2 * 8 + 8 })
+    eq(tipped('War\nHP 100%  TP 1500  5.0y'), true)
+    cfg.ui.hide_mp = false  -- HUD settings' switch off: every card keeps its MP bar
+    render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
+    eq({ bar_edge(108, 198, 220, 18), at('P1') }, { true, { 114, tag_top('P1', 219, 8) } })
+    eq(frame.extent.Sidekick3, { 100 + 236, 50 + 25 + 3 * 72 + 2 * 8 + 8 })
+end)
+
+test('a pet with no MP, as a wyvern, has no MP bar; another session\'s once its file says so', function ()
+    close_settings()
+    local cfg, st = settings.defaults(), status({ intent = false, sent = {} })
+    local g = fake.snap({ { name = 'A' } },
+        { pet = { name = 'Wyvern', hpp = 100, mpp = 0, tp = 1000, dist = 2, uses_mp = false } })
+    render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
+    -- Its HP bar from y 155, its TP bar 3 under it with the tag on it; A's card 8 under that.
+    eq({ hp_fill(108, 155), bar_edge(108, 176, 220, 18) or false, at('PET') }, { { 328, 173 }, false, { 114, tag_top('PET', 176, 18) } })
+    eq({ tp_fills()[1], hp_fill(108, 202) }, { { { 108, 176 }, { 179, 194 }, u32(P.tp, BAR_FILL) }, { 328, 242 } })
+    eq(tipped('Wyvern (pet)\nHP 100%  TP 1000  2.0y'), true)
+    g.pet = nil
+    st.sessions = { A = { running = false, members = { { sid = 101, name = 'A' } } } }
+    g.units[2].pet = { sid = 0x1000701, tidx = 0x701, name = 'Wyvern', hpp = 100, dist = 6 }
+    render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
+    eq(bar_edge(108, 256, 220, 18), true)  -- A's, its file not naming it yet: unknown, so it stays
+    st.sessions.A.pet = { sid = 0x1000701, mpp = 0, tp = 0, uses_mp = false }
+    render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
+    eq({ bar_edge(108, 256, 220, 18) or false, frame.extent.Sidekick3 }, { false, { 100 + 236, 50 + 25 + 2 * 72 + 39 + 2 * 8 + 8 } })
 end)
 
 test('the arrow points at your pet\'s card for its care and sending it in', function ()
@@ -619,7 +673,7 @@ test('another session\'s pet has a card under that session\'s: its MP and TP onc
        { { 328, 195 }, { 108 + 110, 253 }, u32(P.orange), u32(P.text2) })
     eq({ mp_fill(256), tp_fills(), tipped('Garuda (pet)\nHP 50%  6.0y') }, { nil, {}, true })  -- not known yet: empty
     eq(frame.extent.Sidekick3, { 100 + 236, 50 + 25 + 2 * 72 + 60 + 2 * 8 + 8 })  -- yours, A's and its pet's
-    st.sessions.A.pet = { sid = 0x1000701, mpp = 40, tp = 1000 }
+    st.sessions.A.pet = { sid = 0x1000701, mpp = 40, tp = 1000, uses_mp = true }
     st.sessions.A.act = { behavior = 'pet', action = 'Healing Ruby' }
     render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
     eq({ mp_fill(256), tp_fills(), tipped('Garuda (pet)\nHP 50%  MP 40%  TP 1000  6.0y') },
@@ -1167,6 +1221,8 @@ test('UI / Log: the sliders size the HUD and Sidekick Settings, Lock position ke
     eq(cfg.ui.locked, true)
     render(cfg, st)
     eq(frame.flags.Sidekick3 - free, ImGuiWindowFlags_NoMove)
+    eq(render(cfg, st, on('UI / Log', { ['Hide unused MP bars##sk3_ui_hide_mp'] = true })), 1)
+    eq(cfg.ui.hide_mp, false)
     cfg.ui.scale = nil
     render(cfg, st)
 end)
