@@ -70,6 +70,7 @@ local BAR_TRACK_A = 0.7                  -- bar background stays at 70%: gray ho
 local BAR_EDGE = 1                       -- the stroke around each bar
 local BAR_EDGE_A = 0.7                   -- that stroke is black at 70%, and it does not fade with the panel
 local BAR_OFF = '#0c0c0c'                -- the background while the pointer is off the panel; the stroke is always this
+local PET_WELL = '#C2FFFF'               -- your pet's name over 75% HP, where a member's is white
 local TITLE = 'Sidekick3'
 
 local HUD_FLAGS = ImGuiWindowFlags_NoTitleBar + ImGuiWindowFlags_NoResize + ImGuiWindowFlags_NoScrollbar
@@ -213,15 +214,15 @@ local function card_icons(view, ui, p, x, y, s)
         true, 'Settings')
 end
 
--- The name on an HP bar. Over 75% it stays white; at 75% it turns yellow, at 50% orange and at 25% red.
--- Away, it greys with the bars.
-local function name_color(p)
+-- The name on an HP bar. Over 75% it stays `well` (white, unless given); at 75% it turns yellow, at 50% orange and at
+-- 25% red. Away, it greys with the bars.
+local function name_color(p, well)
     if p.away then return P.dim end
     local hpp = p.hpp or 100
     if hpp <= 25 then return P.red end
     if hpp <= 50 then return P.orange end
     if hpp <= 75 then return P.yellow end
-    return P.white
+    return well or P.white
 end
 
 -- A member's card at (x, y): the HP bar over the MP bar over the TP bar, the name on the first and the tag on the
@@ -240,6 +241,22 @@ local function card(dl, ui, p, x, y, id, chrome)
     local _, th = kit.measure(p.tag, font, ui.text_size)
     kit.halo(dl, fx + 6, mp_top + (ui.mp_height - th) / 2, p.tag,
         p.away and P.dim or p.mp == 'low' and P.rose or P.text2, font, ui.text_size)
+end
+
+-- Your pet's card at (x, y): its HP bar over its MP bar over its TP bar, each an alliance row's size (the HP bar's
+-- width, the MP bar's height), its name on the first and its tag on the second, at the text's size. The name is
+-- coloured as a card's, but pale cyan while healthy. `id` keeps the bars' eased fills apart.
+local function pet_card(dl, ui, p, x, y, id, chrome)
+    local fx, w, h = x + HUD_PAD, ui.hp_width, ui.mp_height
+    local mp_top = y + h + BAR_GAP
+    bar(dl, 'hp.' .. id, fx, y, w, h, p.hpp, P.hp, 1, chrome)
+    bar(dl, 'mp.' .. id, fx, mp_top, w, h, p.mpp, P.mp, 1, chrome)
+    tp_bar(dl, 'tp.' .. id, fx, mp_top + h + BAR_GAP, w, h, p.tp, 1, chrome)
+    local font, name = kit.fonts.semi, game_text(p.name)
+    local _, nh = kit.measure(name, font, ui.text_size)
+    kit.halo(dl, fx + 6, y + (h - nh) / 2, name, name_color(p, PET_WELL), font, ui.text_size)
+    local _, th = kit.measure(p.tag, font, ui.text_size)
+    kit.halo(dl, fx + 6, mp_top + (h - th) / 2, p.tag, P.text2, font, ui.text_size)
 end
 
 -- An alliance member's row, its bar's top at `top`: a thin HP bar (the MP bar's height) with the tag and name on
@@ -332,9 +349,13 @@ local function draw_hud(view)
                         math.ceil(HUD_PAD + kit.measure(TITLE, kit.fonts.semi, ui.text_size) + 8 + s + HUD_PAD))  -- the title row fits
     local ch = ui.hp_height + BAR_GAP + ui.mp_height + BAR_GAP + ui.tp_height
     local cards = cards_of(view)
-    local n = #cards
+    local below = th + math.max(#cards - 1, 0) * ui.gap
+    for _, c in ipairs(cards) do  -- each card `h` high: your pet's, three bars an alliance row high
+        c.h = c.pet and 3 * ui.mp_height + 2 * BAR_GAP or ch
+        below = below + c.h
+    end
     -- Under the cards, the alliance's rows: B0-B5, then C0-C5, each party after a gap; `rows` holds each bar's top.
-    local below, rows, last = th + n * ch + math.max(n - 1, 0) * ui.gap, {}, nil
+    local rows, last = {}, nil
     for j, p in ipairs(view.alliance) do
         local party = p.tag:sub(1, 1)
         below = below + (party ~= last and math.max(ui.gap, BAR_GAP) or BAR_GAP)
@@ -348,14 +369,16 @@ local function draw_hud(view)
     kit.fill(dl, x0, y0, pw, ph, P.bg, 6, chrome)
     kit.outline(dl, x0, y0, pw, ph, P.border, 6, chrome)
     title_row(dl, view, ui.text_size, x0, y0, pw, th, s, chrome)
-    for i, c in ipairs(cards) do
-        local p, y = c.p, y0 + th + (i - 1) * (ch + ui.gap)
-        card(dl, ui, p, x0, y, c.id, chrome)
+    local y = y0 + th
+    for _, c in ipairs(cards) do
+        local p = c.p
+        if c.pet then pet_card(dl, ui, p, x0, y, c.id, chrome) else card(dl, ui, p, x0, y, c.id, chrome) end
         local on_icon = (p.kind == 'self' or p.session) and card_icons(view, ui, p, x0, y, s)
         imgui.SetCursorScreenPos({ x0 + HUD_PAD, y })
-        imgui.Dummy({ pw - 2 * HUD_PAD, ch })
+        imgui.Dummy({ pw - 2 * HUD_PAD, c.h })
         if not on_icon then kit.tip(c.pet and pet_tip(view.pet) or member_tip(p)) end
-        draw_labels(labels_at(view, c), ui.text_size, x0 + pw, y + ch / 2)
+        draw_labels(labels_at(view, c), ui.text_size, x0 + pw, y + c.h / 2)
+        y = y + c.h + ui.gap
     end
     for j, p in ipairs(view.alliance) do
         local top = y0 + rows[j]

@@ -410,19 +410,19 @@ test('the panel and bars follow the UI settings', function ()
     render(cfg, status())
     local panel = calls('AddRectFilled')[1].args
     eq({ panel[1], panel[2][1], panel[3] }, { { 100, 50 }, 100 + 2 * 8 + 300, u32(P.bg) })  -- hovered: solid
-    -- Title 25, then cards 40 + 3 + 18 + 3 + 8 high and 8 apart: A's, the third (under yours and your pet's), from
-    -- y 235; 62% of 300.
-    eq(hp_fill(108, 235), { 108 + 186, 235 + 40 })
+    -- Title 25, then cards 40 + 3 + 18 + 3 + 8 high (your pet's 18 + 3 + 18 + 3 + 18) and 8 apart: A's, the third
+    -- (under yours and your pet's), from y 223; 62% of 300.
+    eq(hp_fill(108, 223), { 108 + 186, 223 + 40 })
     local rest, glow = false, false  -- the whole bar has a 70% gray background and a 1px near-black stroke, no bloom
     for _, d in ipairs(calls('AddRectFilled')) do
-        rest = rest or (d.args[1][1] == 108 and d.args[1][2] == 235 and d.args[2][1] == 108 + 300
-            and d.args[2][2] == 235 + 40 and d.args[3] == u32(P.track, BAR_TRACK_A))
+        rest = rest or (d.args[1][1] == 108 and d.args[1][2] == 223 and d.args[2][1] == 108 + 300
+            and d.args[2][2] == 223 + 40 and d.args[3] == u32(P.track, BAR_TRACK_A))
     end
     for _, d in ipairs(calls('AddRect')) do
         local x, y = d.args[1][1], d.args[1][2]
-        glow = glow or (x >= 105 and x < 108 and y >= 232 and y < 235)
+        glow = glow or (x >= 105 and x < 108 and y >= 220 and y < 223)
     end
-    eq({ rest, glow, bar_edge(108, 235, 300, 40) }, { true, false, true })
+    eq({ rest, glow, bar_edge(108, 223, 300, 40) }, { true, false, true })
     cfg.ui.tp_width = 400  -- the widest bar sets the panel's width
     render(cfg, status())
     eq(calls('AddRectFilled')[1].args[2][1], 100 + 2 * 8 + 400)
@@ -453,7 +453,7 @@ test('the HUD\'s items reach exactly the panel\'s far corner, so its auto-size f
     close_settings()
     render(settings.defaults(), status())
     eq(frame.extent.Sidekick3, calls('AddRectFilled')[1].args[2])
-    eq(frame.extent.Sidekick3, { 100 + 236, 50 + 25 + 4 * 72 + 3 * 8 + 8 })  -- yours, your pet's, A's and B's cards
+    eq(frame.extent.Sidekick3, { 100 + 236, 50 + 25 + 3 * 72 + 60 + 3 * 8 + 8 })  -- yours, your pet's, A's and B's cards
 end)
 
 test('sizes out of their sliders\' range, set by hand or by a custom UI, are held to it', function ()
@@ -518,10 +518,15 @@ test('your pet\'s card sits under yours, before P1: its HP, MP and TP, and its o
     local cfg, st = settings.defaults(), status()
     local g = fake.snap({ { name = 'A' } }, { pet = { name = 'Ifrit', hpp = 50, mpp = 40, tp = 1000, dist = 3 } })
     render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
-    eq({ hp_fill(108, 75), hp_fill(108, 155), hp_fill(108, 235) }, { { 328, 115 }, { 108 + 110, 195 }, { 328, 275 } })
+    -- Its three bars an alliance row's size, 220 by 18, 3 apart, from y 155; A's card 8 under them.
+    eq({ hp_fill(108, 75), hp_fill(108, 155), hp_fill(108, 223) }, { { 328, 115 }, { 108 + 110, 173 }, { 328, 263 } })
+    eq({ bar_edge(108, 155, 220, 18), bar_edge(108, 176, 220, 18) }, { true, true })
     eq({ fill('Ifrit'), fill('PET') }, { u32(P.orange), u32(P.text2) })  -- 50% HP: the name is orange
-    eq(tp_fills(), { { { 108, 155 + 64 }, { 179, 155 + 72 }, u32(P.tp, BAR_FILL) } })  -- 1000 TP: one part, full
+    eq(tp_fills(), { { { 108, 197 }, { 179, 215 }, u32(P.tp, BAR_FILL) } })  -- 1000 TP: one part, full
     eq(tipped('Ifrit (pet)\nHP 50%  MP 40%  TP 1000  3.0y'), true)
+    g.pet.hpp = 76
+    render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
+    eq({ fill('Ifrit'), fill('Me') }, { u32('#C2FFFF'), u32(P.white) })  -- healthy: pale cyan, where yours is white
     g.pet = nil
     render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
     eq({ fill('PET'), hp_fill(108, 155) }, { nil, { 328, 195 } })  -- no pet: A's card under yours
@@ -534,7 +539,7 @@ test('the arrow points at your pet\'s card for its care and sending it in', func
         local st = status({ intent = { at = 990, action = 'Healing Ruby', behavior = b, why = 'Carbuncle at 40%' } })
         render(cfg, st, nil, model.build(snap(), cat, cfg, st, NAMES))
         local arrow = calls('AddTriangleFilled', 'background')
-        eq({ #arrow, arrow[1].args[1][2] }, { 1, b == 'heal' and 75 + 36 or 155 + 36 }, b)  -- yours for a heal of no one
+        eq({ #arrow, arrow[1].args[1][2] }, { 1, b == 'heal' and 75 + 36 or 155 + 30 }, b)  -- yours for a heal of no one
     end
 end)
 
@@ -560,7 +565,7 @@ test('the arrow\'s label points at the card the next action is for: amber runnin
     close_settings()
     render(settings.defaults(), status())
     local arrow = calls('AddTriangleFilled', 'background')[1].args
-    eq({ arrow[1], arrow[4] }, { { 100 + 236 + 2, 50 + 25 + 2 * 80 + 36 }, u32(P.seg) })  -- A's card, under your pet's: its middle
+    eq({ arrow[1], arrow[4] }, { { 100 + 236 + 2, 50 + 25 + 80 + 68 + 36 }, u32(P.seg) })  -- A's card, under your pet's: its middle
     eq(fill('Heal:Cure IV', 'background'), u32(P.text2))
     render(settings.defaults(), status({ running = true }))
     eq(calls('AddTriangleFilled', 'background')[1].args[4], u32(P.amber))
