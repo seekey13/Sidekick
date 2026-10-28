@@ -2,6 +2,7 @@
 -- entity index and again after zoning, as last seen out of range, a member
 -- while in your party or alliance; the alliance's other parties; your target
 -- when it's a player; a player by name.
+local ffi = require('ffi')
 local buffs = require('core.buffs')
 local can = require('core.can')
 local game = require('core.game')
@@ -76,8 +77,20 @@ local recast = {
 }
 local mm = { GetPlayer = const(player), GetParty = const(party), GetEntity = const(em), GetTarget = const(target),
              GetInventory = const(inventory), GetRecast = const(recast) }
+-- The client's <bt> (SeekBattleActor): the entity `world.bt`, each ask counted in
+-- `world.asked`. A callback can't be called from compiled code: no JIT in this file.
+jit.off()
+local actor = ffi.new('sk3_battle_actor[1]')
+local seek_bt = ffi.cast('sk3_seek_battle_actor', function ()
+    world.asked = (world.asked or 0) + 1
+    if not world.bt then return nil end
+    actor[0].GuideNo = world.bt
+    return actor
+end)
+local BT_SIG = '66A1????????83EC186685C053565774??0FBFC08B0C85'
+local function find(_, _, sig) return sig == BT_SIG and tonumber(ffi.cast('uintptr_t', seek_bt)) or 0 end
 rawset(_G, 'AshitaCore', { GetMemoryManager = const(mm), GetPointerManager = const({ Get = const(0) }) })
-rawset(_G, 'ashita', { memory = { find = const(0), read_uint32 = const(0), read_uint8 = const(0) } })
+rawset(_G, 'ashita', { memory = { find = find, read_uint32 = const(0), read_uint8 = const(0) } })
 
 local function unit(g, sid)
     for _, u in ipairs(g.units) do if u.sid == sid then return u end end
@@ -249,6 +262,20 @@ test('no battle target looked for while automation is stopped or asleep, nor in 
     party.GetMemberZone = zone
 end)
 
+test('a trust in another party of the alliance: the client\'s <bt> isn\'t asked (it crashes), the alliance\'s claim stands in', function ()
+    reset()
+    world.ents[0x100] = { sid = 0x1000010, name = 'Crab', hpp = 80, dist = 10, flags = 0x10, claim = ME }
+    world.bt, world.asked = 0x100, 0
+    local g = read(1)
+    eq({ g.bt.name, g.bt.claimed, world.asked }, { 'Crab', nil, 1 })  -- your party's: the client's <bt>
+    -- Called past a full party: slot 6, B0, not drawn (in another zone).
+    world.party[7] = { sid = TRUST, tidx = 0x101, name = 'Kupipi', hpp = 100, hp = 900, mpp = 100, mp = 500 }
+    g = read(1)
+    eq({ g.bt.name, g.bt.claimed, world.asked }, { 'Crab', true, 1 })
+    world.party[7] = nil
+    eq({ read(1).bt.claimed, world.asked }, { nil, 2 })
+end)
+
 test('another unit moving: for half a second after its position last changed; seen first, it stands', function ()
     reset()
     world.party[2] = { sid = 101, tidx = 0x401, name = 'Tank', hpp = 100, hp = 1000, mpp = 0, mp = 0 }
@@ -388,3 +415,5 @@ test('owned ammo: your bag before the wardrobes, by the number /equip names each
     inventory.GetContainerCountMax, inventory.GetContainerItem = const(0), nil
     rawset(_G, 'AshitaCore', core)
 end)
+
+jit.on()

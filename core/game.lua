@@ -25,7 +25,8 @@
     answered; `auto` names the session whose file tracks them (core/share.lua). A member (or alliance member) you also track has tracked = true.
     The pet is { sid, tidx, name, hpp, mpp, tp, dist, pos, status (1 engaged), buffs, since (first seen) }; the
     battle target `bt` { sid, tidx, name, hpp, dist, pos, mob, claimed, moving }, `claimed`
-    when it's a mob another party of the alliance claimed (the client has no <bt>).
+    when it's a mob another party of the alliance claimed (the client has no <bt>), or
+    any the alliance claimed while a trust is in another party (the client's isn't asked).
     `target` is your current target when it's another player: { tidx, sid, name }.
     Plus when your cast began (cast_at, while casting);
     what healing scores with: learned potency, the day and the weather;
@@ -306,8 +307,12 @@ local function tracked_unit(em, t, me, now)
     return u
 end
 
-local function battle_target(em)
-    if not seek_bt then return nil end
+-- The client's <bt>. Retail never puts a trust in another party of the alliance,
+-- but trusts called past a full party land there, and the client's lookup then
+-- jumps to a bad pointer, crashing Sidekick3: while one is there it isn't asked,
+-- and the mob comes from the alliance's claims (claimed_target).
+local function battle_target(em, trust_allied)
+    if not seek_bt or trust_allied then return nil end
     local actor = seek_bt()
     if actor == nil then return nil end  -- NULL pointer: no battle target
     local bt = entity(em, actor.GuideNo)
@@ -511,10 +516,12 @@ function game.read(now, idle)
     local jobs = jobs_of(player)
 
     local units, allied, tracks, listed = {}, {}, {}, {}
+    local trust_allied = false  -- a trust in slots 6-17 (battle_target)
     for i = 0, 17 do
         if party:GetMemberIsActive(i) == 1 then
             local u = member(party, player, em, i, zone, now)
             listed[u.sid] = true
+            if i > 5 and u.sid >= TRUST then trust_allied = true end
             if u.kind == 'trust' or u.kind == 'alliance' then tracks[u.sid] = true end  -- statuses from packets
             local list = u.kind == 'alliance' and allied or units
             list[#list + 1] = u
@@ -533,7 +540,7 @@ function game.read(now, idle)
 
     local event = event_ptr ~= 0 and ashita.memory.read_uint32(event_ptr + 1) or 0
     local safe = SAFE_ZONES[zone] == true or (event ~= 0 and ashita.memory.read_uint8(event) == 1)
-    local bt = not (idle or safe) and (battle_target(em) or allied[1] and claimed_target(em, listed, now)) or nil
+    local bt = not (idle or safe) and (battle_target(em, trust_allied) or allied[1] and claimed_target(em, listed, now)) or nil
     if bt and bt.mob then last_combat = now end
     if move.zone ~= zone then move.x, move.zone = nil, zone end  -- a zone or teleport isn't you moving (AFK sleep)
     local is_moving = moving(em, me.tidx, now)  -- before moved_at is read
