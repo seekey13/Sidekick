@@ -39,7 +39,8 @@ local em = {
     GetLocalPositionY = const(0), GetLocalPositionZ = const(0),
     GetRenderFlags0 = function (_, i) return (world.ents[i] and world.ents[i].shown ~= false) and 0x200 or 0 end,
     GetRawEntity = function (_, i) return world.ents[i] and {} or nil end,
-    GetPetTargetIndex = function () return world.pet or 0 end,
+    -- `world.pet` is yours; `world.pets` = { [owner's index] = its pet's } another player's.
+    GetPetTargetIndex = function (_, i) return (world.pets or {})[i] or i == member(0).tidx and world.pet or 0 end,
     GetSpawnFlags = function (_, i) return ent(i).flags or 0 end,
     GetClaimStatus = function (_, i) return ent(i).claim or 0 end,
 }
@@ -234,6 +235,27 @@ test('your pet: its HP % from its entity, its MP % and TP as the client reads th
     world.pet_mpp, world.pet_tp = 60, 1500
     local p = read().pet
     eq({ p.name, p.hpp, p.mpp, p.tp }, { 'Ifrit', 80, 60, 1500 })
+end)
+
+test('a party member\'s pet and a tracked player\'s: the entity drawn, HP % alone; none at 0%, or not drawn', function ()
+    reset()
+    world.party[2] = { sid = 101, tidx = 0x401, name = 'Box', hpp = 100, hp = 1000, mpp = 50, mp = 100 }
+    world.ents[0x401] = { sid = 101, name = 'Box', dist = 5 }
+    world.pets, world.ents[0x701] = { [0x401] = 0x701 }, { sid = PET + 1, name = 'Carbuncle', hpp = 70, dist = 6 }
+    local g = read()
+    local p = unit(g, 101).pet
+    eq({ p.sid, p.tidx, p.name, p.hpp, p.dist, p.mpp, unit(g, ME).pet, g.pet }, { PET + 1, 0x701, 'Carbuncle', 70, 6 })
+    world.ents[0x701].hpp = 0  -- dead or dismissed: it lingers a while
+    eq(unit(read(), 101).pet, nil)
+    world.ents[0x701].hpp, world.ents[0x701].shown = 70, false
+    eq(unit(read(), 101).pet, nil)
+    world.ents[0x701].shown, world.ents[0x401].shown = nil, false  -- its owner out of range
+    eq(unit(read(), 101).pet, nil)
+    world.party[2], world.ents[0x401].shown = nil, nil  -- left the party, and tracked
+    tracked.add(101, 'Box', 0x401)
+    eq(unit(read(), 101).pet.name, 'Carbuncle')
+    world.ents[0x401].shown = false
+    eq(unit(read(), 101).pet, nil)
 end)
 
 test('with no <bt>, a mob another party of the alliance claimed is your battle target: the nearest in 21y', function ()

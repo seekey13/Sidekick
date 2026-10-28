@@ -7,6 +7,7 @@
                 members = { you first, then your party's players (trusts left out):
                             { sid, name, main, main_lv, sub, sub_lv, hpp, hp, max_hp, mpp, mp, here } },
                 act = { behavior, action, target } or nil,
+                pet = { sid, mpp, tp } or nil: its live pet's MP % and TP (below),
                 profiles = { active (nil for Default), names } or nil: the widget lists them to load,
                 halted (automation running but held: 'mounted', 'AFK asleep'... (ui/model.lua's model.halted), or nil),
                 watch, calls, acks (remote control, below) }
@@ -20,6 +21,15 @@
     its pet or the enemy. The file is rewritten as soon as it changes, and read four
     times a second while your HUD is open and another session's automation runs, so
     your HUD points at what the others do as it goes.
+
+    Pets: the client reads MP % and TP for one pet only, yours; another player's is
+    an entity, an HP % alone. So each session lists its own live pet's server id,
+    MP % and TP, as Floaties' petshare does, and another's HUD gives them to the pet
+    it draws under that session's card while the ids match (a pet swapped for
+    another keeps no one's numbers until the next write). Its HP isn't listed: the
+    client draws a live HP % for anyone's pet, and a second one could only disagree.
+    While your HUD is open and another session has a pet out, files are read four
+    times a second, so its TP moves as it goes.
 
     Auto-track: each session tracks the players other sessions list (core/tracked.lua,
     `auto` = the owner's name), but those in its own party or alliance, with no /check:
@@ -49,7 +59,7 @@ local share = {
     PRUNE = 3600,   -- seconds after which a file no one wrote (a crashed session's) is deleted
 }
 
-local VERSION = 'sk3 session 4'
+local VERSION = 'sk3 session 5'
 
 -- Plain data (strings, numbers, booleans and tables of them) as one line of text,
 -- and back: `act` calls and views go through files. Read with a parser of its
@@ -111,8 +121,8 @@ end
 local sorted_keys = util.sorted_keys
 
 -- The file's text for a roster (share.roster), whether it runs, and the os.time()
--- written at. `extra` (optional): { epoch, act = { behavior, action, target }, profiles = { active, names }, halted,
--- watch = { [name] = true },
+-- written at. `extra` (optional): { epoch, act = { behavior, action, target }, pet = { sid, mpp, tp },
+-- profiles = { active, names }, halted, watch = { [name] = true },
 -- calls (share.queue's list), acks = { [sender] = { epoch, n } } }.
 function share.encode(members, running, heartbeat, extra)
     extra = extra or {}
@@ -123,6 +133,7 @@ function share.encode(members, running, heartbeat, extra)
             m.here and 1 or 0, m.name)
     end
     if extra.act then lines[#lines + 1] = 'act ' .. share.pack(extra.act) end
+    if extra.pet then lines[#lines + 1] = ('pet %d %d %d'):format(extra.pet.sid, extra.pet.mpp, extra.pet.tp) end
     if extra.profiles then lines[#lines + 1] = 'profiles ' .. share.pack(extra.profiles) end
     if extra.halted then lines[#lines + 1] = 'halted ' .. share.pack(extra.halted) end
     for _, name in ipairs(sorted_keys(extra.watch)) do lines[#lines + 1] = 'watch ' .. name end
@@ -156,7 +167,7 @@ local function action(t)
 end
 
 -- A session from a file's text; nil for none, another version, or one caught mid-write.
--- Besides share.encode's fields: act, profiles and halted (nil for none), watch = { [name] = true },
+-- Besides share.encode's fields: act, pet, profiles and halted (nil for none), watch = { [name] = true },
 -- calls = { { to, epoch, n, call } }, acks = { [sender] = { epoch, n } }.
 function share.decode(text)
     if not text then return nil end
@@ -171,6 +182,7 @@ function share.decode(text)
         local line = lines[i]
         local f = { line:match('^(%d+) (%d+) (%d+) (%d+) (%d+) (%d+) (%d+) (%d+) (%d+) (%d+) ([01]) (.+)$') }
         local acted = line:match('^act (.+)$')
+        local pet = { line:match('^pet (%d+) (%d+) (%d+)$') }
         local listed = line:match('^profiles (.+)$')
         local held = line:match('^halted (.+)$')
         local watch = line:match('^watch (%S+)$')
@@ -184,6 +196,8 @@ function share.decode(text)
             }
         elseif acted then  -- one that won't read is left out, as a call
             s.act = action(share.unpack(acted))
+        elseif pet[1] then
+            s.pet = { sid = tonumber(pet[1]), mpp = tonumber(pet[2]), tp = tonumber(pet[3]) }
         elseif listed then
             s.profiles = profile_list(share.unpack(listed))
         elseif held then
@@ -221,6 +235,14 @@ function share.roster(g)
         end
     end
     return out
+end
+
+-- What your session publishes of your pet, from the snapshot: its MP % and TP, which
+-- only your client reads, by its server id; nil with none out, or one at 0% (a dead
+-- or dismissed pet lingers a while).
+function share.pet(g)
+    local p = g.pet
+    if p and p.hpp > 0 then return { sid = p.sid, mpp = p.mpp or 0, tp = p.tp or 0 } end
 end
 
 -- The other sessions still alive at os.time() `now`, by name.
@@ -477,7 +499,7 @@ end
 
 -- Publish, read and sync, at most every EVERY seconds (FAST while watching or
 -- watched, while calls wait either way, or while your HUD is open and another session's
--- automation runs), and at once when what your automation does changes. `g` is the snapshot
+-- automation runs or its pet is out), and at once when what your automation does changes. `g` is the snapshot
 -- (a loading one republishes the last roster, so a
 -- zone isn't taken for a session gone, for LOADING seconds: past that, as after a
 -- logout, your file is deleted). `status` gives `running`, `open`, `widget` and `watching` (the
@@ -516,7 +538,8 @@ function share.tick(g, clock, status, hooks)
         if live[name] then watch[name] = true end
     end
     local text = share.encode(roster, status.running, os.time(),
-        { epoch = share.epoch, act = act, profiles = hooks.profiles and hooks.profiles() or nil,
+        { epoch = share.epoch, act = act, pet = not g.loading and share.pet(g) or nil,
+          profiles = hooks.profiles and hooks.profiles() or nil,
           halted = hooks.halted and hooks.halted() or nil, watch = watch, calls = pending, acks = acks })
     acted = packed  -- one that fails to write goes at the next tick, not at every read until it's written
     if text == written or write(path(me), text) then mine, written = me, text end
@@ -527,10 +550,10 @@ function share.tick(g, clock, status, hooks)
         publish(me, ok and view or nil)
     end
     read_views(watch, live)
-    local running = false  -- another session's automation: while your HUD shows, read as it acts (the widget shows
-                           -- only whether it runs: every second will do)
-    for _, s in pairs(live) do running = running or s.running end
-    if pending[1] or next(watch) or watched or called or status.open and running then next_at = clock + share.FAST end
+    local busy = false  -- another session's automation, or its pet: while your HUD shows, read as it acts and as the
+                        -- pet's TP moves (the widget shows only whether it runs: every second will do)
+    for _, s in pairs(live) do busy = busy or s.running or s.pet ~= nil end
+    if pending[1] or next(watch) or watched or called or status.open and busy then next_at = clock + share.FAST end
     if g.loading then return live end
     local listed = {}
     for _, u in ipairs(g.units) do

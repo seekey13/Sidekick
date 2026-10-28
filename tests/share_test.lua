@@ -35,8 +35,8 @@ test('a file caught mid-write, empty or of another version reads as nothing', fu
     eq(share.decode(''), nil)
     eq(share.decode(text:sub(1, #text - 12)), nil)  -- the last line cut short
     eq(share.decode(text:sub(1, #text - 6)), nil)   -- cut after the name: the end line is missing
-    eq(share.decode((text:gsub('session 4', 'session 3'))), nil)
-    eq(share.decode('sk3 session 4\n5 0 0\nend\n'), nil)  -- no members
+    eq(share.decode((text:gsub('session 5', 'session 4'))), nil)
+    eq(share.decode('sk3 session 5\n5 0 0\nend\n'), nil)  -- no members
     eq(share.decode((text:gsub('\nend', '\nwhat 1\nend'))), nil)  -- a line of no kind it knows
 end)
 
@@ -66,6 +66,21 @@ test('what its automation just sent reads back, no target when on itself; one th
         local s = share.decode((text:gsub('act [^\n]+', bad)))
         eq({ s.name, s.act }, { 'Box', nil }, bad)
     end
+end)
+
+test('its pet\'s MP % and TP read back by the pet\'s id; none, and a pet line that won\'t read is no file', function ()
+    local pet = { sid = 0x1000700, mpp = 47, tp = 1750 }
+    local text = share.encode({ member(10, 'Box') }, true, 5, { pet = pet })
+    eq(share.decode(text).pet, pet)
+    eq(share.decode(share.encode({ member(10, 'Box') }, true, 5)).pet, nil)
+    eq(share.decode((text:gsub('pet [^\n]+', 'pet 16777984 47'))), nil)  -- cut short: as any line of no kind it knows
+end)
+
+test('your pet is published while it lives: its id, MP % and TP; none out, or one at 0%, is none', function ()
+    eq(share.pet(fake.snap({}, { pet = { sid = 0x1000700, name = 'Ifrit', hpp = 80, mpp = 60, tp = 1500 } })),
+       { sid = 0x1000700, mpp = 60, tp = 1500 })
+    eq(share.pet(fake.snap({}, { pet = { sid = 0x1000700, name = 'Ifrit', hpp = 0, mpp = 60, tp = 0 } })), nil)
+    eq(share.pet(fake.snap({})), nil)
 end)
 
 test('remote control lines read back: who it watches, its calls and its acknowledgements, its epoch', function ()
@@ -464,6 +479,34 @@ test('two sessions: what one\'s automation sends is in its file at once, read fo
         eq(a.sessions.Beta.act, nil)
         a.tick(ga, 3.5, sa, ha)
         eq(a.sessions.Beta.act, acting)
+        a.close()
+        b.close()
+    end)
+end)
+
+test('two sessions: one\'s pet is in its file, read four times a second while the other\'s HUD shows, stopped or not', function ()
+    two_sessions(function (a, b, files, DIR)
+        local ga, gb = in_game(1, 'Alpha'), in_game(2, 'Beta')
+        local sa, sb = { running = false, open = true, watching = {} }, { running = false, open = false, watching = {} }
+        local h = { apply = function () end, view = function () end, act = idle }
+        gb.pet = { sid = 0x1000700, name = 'Ifrit', hpp = 80, mpp = 60, tp = 500 }
+        a.tick(ga, 1, sa, h); b.tick(gb, 1, sb, h)
+        eq(share.decode(files[DIR .. 'session_Beta.txt']).pet, { sid = 0x1000700, mpp = 60, tp = 500 })
+        a.tick(ga, 2, sa, h)  -- Alpha has read it: neither runs, but Beta's pet is out and Alpha's HUD shows
+        gb.pet.tp = 1200
+        b.tick(gb, 2, sb, h)
+        a.tick(ga, 2.25, sa, h)
+        eq(a.sessions.Beta.pet.tp, 1200)
+        gb.pet = nil  -- dismissed: off at its next write, and Alpha back to every second
+        b.tick(gb, 3, sb, h)
+        a.tick(ga, 3.25, sa, h)
+        eq(a.sessions.Beta.pet, nil)
+        gb.pet = { sid = 0x1000701, name = 'Garuda', hpp = 100, mpp = 90, tp = 0 }
+        b.tick(gb, 4, sb, h)
+        a.tick(ga, 4, sa, h)
+        eq(a.sessions.Beta.pet, nil)  -- not due: it read no pet at 3.25, so every second again
+        a.tick(ga, 4.25, sa, h)
+        eq(a.sessions.Beta.pet.sid, 0x1000701)
         a.close()
         b.close()
     end)

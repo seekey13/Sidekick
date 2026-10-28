@@ -335,7 +335,7 @@ test('each party line has its TP; your pet its HP %, MP % and TP', function ()
     local g = fake.snap({ { name = 'A', tp = 1500 } }, { pet = { name = 'Ifrit', hpp = 80, mpp = 60, tp = 2100, dist = 2 } })
     local view = build(whm, nil, g)
     eq(keys(view.party, 'tp'), { 0, 1500 })
-    eq(view.pet, { name = 'Ifrit', hpp = 80, mpp = 60, tp = 2100, dist = '2.0y' })
+    eq(view.pet, { name = 'Ifrit', hpp = 80, mpp = 60, tp = 2100, dist = '2.0y', pools = true })
     eq(build(whm).pet, nil)
 end)
 
@@ -531,6 +531,30 @@ test('another session\'s action on the alliance, or from it, is at the alliance\
     eq(build(whm, nil, alliance_snap(), st).others, { { session = 'Bea', text = 'Buff:Protect IV', member = 2 } })
     st.sessions.Bea.act = { behavior = 'buff', action = 'Protectra V' }
     eq(build(whm, nil, alliance_snap(), st).others, { { session = 'Bea', text = 'Buff:Protectra V', ally = 1 } })
+end)
+
+test('another session\'s pet is on its line: the HP % drawn, its MP % and TP from its file while it names that pet', function ()
+    local st = status({ sessions = sessions(true) })
+    local carbuncle = { sid = 0x1000701, tidx = 0x701, name = 'Carbuncle', hpp = 70, dist = 6 }
+    local g = fake.snap({ { name = 'A', pet = carbuncle }, { name = 'B', pet = carbuncle } })  -- B is no session
+    eq(build(whm, nil, g, st).party[2].pet, { name = 'Carbuncle', hpp = 70, dist = '6.0y', mpp = 0, tp = 0, pools = false })
+    st.sessions.A.pet = { sid = 0x1000701, mpp = 47, tp = 1750 }
+    local view = build(whm, nil, g, st)
+    eq({ view.party[2].pet, view.party[3].pet, view.pet },
+       { { name = 'Carbuncle', hpp = 70, dist = '6.0y', mpp = 47, tp = 1750, pools = true } })
+    st.sessions.A.pet.sid = 0x1000700  -- its file still names the pet it swapped out: no one's numbers
+    eq(build(whm, nil, g, st).party[2].pet.pools, false)
+end)
+
+test('another session\'s pet care, or sending it in, is at its pet\'s card while its line has one', function ()
+    local st = status({ sessions = sessions(true) })
+    st.sessions.A.act = { behavior = 'pet', action = 'Healing Ruby' }
+    local g = fake.snap({ { name = 'A', pet = { sid = 0x1000701, name = 'Carbuncle', hpp = 40, dist = 3 } } })
+    eq(build(whm, nil, g, st).others, { { session = 'A', text = 'Pet:Healing Ruby', member = 2, pet = true } })
+    st.sessions.A.act = { behavior = 'pet', action = 'Healing Ruby', target = 'Me' }  -- on someone: not its pet's
+    eq(build(whm, nil, g, st).others, { { session = 'A', text = 'Pet:Healing Ruby', member = 1 } })
+    st.sessions.A.act = { behavior = 'heal', action = 'Cure IV' }  -- on itself: its own card
+    eq(build(whm, nil, g, st).others, { { session = 'A', text = 'Heal:Cure IV', member = 2 } })
 end)
 
 test('landing: the last send for a moment, or while it is cast; nothing while stopped', function ()

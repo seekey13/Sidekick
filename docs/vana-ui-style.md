@@ -726,8 +726,8 @@ everything with it:
   bars with a background at 70% that does not fade (gray while the pointer is over the panel, near-black while it
   is not), a 1px near-black border at that same 70% that does not fade, and a fill at 70% that eases to each new value,
   round buttons filled in the accent while on, and the next action's label as
-  a pill (amber running, grey stopped). Each card is HP over MP over TP, your pet's card under yours (each of its bars an alliance row's size, its name
-  pale cyan, `#C2FFFF`, while healthy); the TP bar is
+  a pill (amber running, grey stopped). Each card is HP over MP over TP, your pet's card under yours and another session's under its card (each of its
+  bars an alliance row's size, its name pale cyan, `#C2FFFF`, while healthy); the TP bar is
   three parts of 1000 TP, each solid once full and at half alpha while it fills (as Floaties draws it). Its
   text keeps a dark halo, as it sits on bars and, with the panel see-through, on the game. The panel, its frame, the
   title and the close mark fade out until the mouse is over the window (Tracker's chrome) and fade back in, solid,

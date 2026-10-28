@@ -7,7 +7,8 @@
     layout follow VanaCore's addons/vanacore/vana/vana.lua (Copyright (C) 2026
     Vekien, GPL-3.0-or-later).
 
-    Three windows: the HUD (Sidekick3: the party's bars, with a label at whoever
+    Three windows: the HUD (Sidekick3: the party's bars, a pet's under its owner's (yours,
+    and another session's), with a label at whoever
     this session's next action is for and one at whoever each other session's
     latest went to; your card's run button and cog, and those of another session's
     card), the widget (SK Widget, `ui.widget`: a pill per character with its run
@@ -109,7 +110,9 @@ local function member_tip(p)
     return table.concat(lines, '\n')
 end
 
+-- A pet's tooltip: its MP % and TP only while known (another session's, once its file names that pet).
 local function pet_tip(pet)
+    if not pet.pools then return f('%s (pet)\nHP %d%%  %s', game_text(pet.name), pet.hpp, pet.dist) end
     return f('%s (pet)\nHP %d%%  MP %d%%  TP %d  %s', game_text(pet.name), pet.hpp, pet.mpp, pet.tp, pet.dist)
 end
 
@@ -243,9 +246,9 @@ local function card(dl, ui, p, x, y, id, chrome)
         p.away and P.dim or p.mp == 'low' and P.rose or P.text2, font, ui.text_size)
 end
 
--- Your pet's card at (x, y): its HP bar over its MP bar over its TP bar, each an alliance row's size (the HP bar's
--- width, the MP bar's height), its name on the first and its tag on the second, at the text's size. The name is
--- coloured as a card's, but pale cyan while healthy. `id` keeps the bars' eased fills apart.
+-- A pet's card at (x, y), yours or another session's: its HP bar over its MP bar over its TP bar, each an alliance
+-- row's size (the HP bar's width, the MP bar's height), its name on the first and its tag on the second, at the text's
+-- size. The name is coloured as a card's, but pale cyan while healthy. `id` keeps the bars' eased fills apart.
 local function pet_card(dl, ui, p, x, y, id, chrome)
     local fx, w, h = x + HUD_PAD, ui.hp_width, ui.mp_height
     local mp_top = y + h + BAR_GAP
@@ -306,16 +309,17 @@ local function hud_sizes(ui)
     return out
 end
 
--- The cards from the top: each party line's (`member`, its index) and, under yours, your pet's (`pet`), drawn from a
--- line of the same shape tagged PET; `id` keeps their eased fills apart.
+-- The cards from the top: each party line's (`member`, its index) and a pet's under its owner's (`pet`, its line, with
+-- its owner's `member`): yours (view.pet), and another session's (its line's `pet`), drawn from a line of the same
+-- shape tagged PET; `id` keeps their eased fills apart, two sessions' Carbuncles too.
 local function cards_of(view)
     local out = {}
     for i, p in ipairs(view.party) do
         out[#out + 1] = { p = p, id = p.name, member = i }
-        local pet = i == 1 and view.pet
+        local pet = i == 1 and view.pet or p.pet
         if pet then
             out[#out + 1] = { p = { name = pet.name, tag = 'PET', hpp = pet.hpp, mpp = pet.mpp, tp = pet.tp },
-                              id = 'pet.' .. pet.name, pet = true }
+                              id = ('pet.%s.%s'):format(p.name, pet.name), member = i, pet = pet }
         end
     end
     return out
@@ -326,16 +330,17 @@ local function pointed(view, c)
     local ptr = view.pointer
     if not ptr then return false end
     local to_pet = ptr.pet == true and view.pet ~= nil
-    if c.pet then return to_pet end
+    if c.pet then return to_pet and ptr.member == c.member end
     return not to_pet and ptr.member == c.member
 end
 
--- The labels at card `c`, or at the alliance's row `j`: this session's first, then each other session's there.
+-- The labels at card `c`, or at the alliance's row `j`: this session's first, then each other session's there (its
+-- pet's own at its pet's card).
 local function labels_at(view, c, j)
     local ptr, out = view.pointer, {}
     if c and pointed(view, c) or j and ptr and ptr.ally == j then out[1] = ptr end
     for _, o in ipairs(view.others) do
-        if c and not c.pet and o.member == c.member or j and o.ally == j then out[#out + 1] = o end
+        if c and o.member == c.member and (not o.pet) == (not c.pet) or j and o.ally == j then out[#out + 1] = o end
     end
     return out
 end
@@ -376,7 +381,7 @@ local function draw_hud(view)
         local on_icon = (p.kind == 'self' or p.session) and card_icons(view, ui, p, x0, y, s)
         imgui.SetCursorScreenPos({ x0 + HUD_PAD, y })
         imgui.Dummy({ pw - 2 * HUD_PAD, c.h })
-        if not on_icon then kit.tip(c.pet and pet_tip(view.pet) or member_tip(p)) end
+        if not on_icon then kit.tip(c.pet and pet_tip(c.pet) or member_tip(p)) end
         draw_labels(labels_at(view, c), ui.text_size, x0 + pw, y + c.h / 2)
         y = y + c.h + ui.gap
     end

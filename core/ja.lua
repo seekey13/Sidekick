@@ -87,6 +87,7 @@ ja.words = {
     ['%s  (profile %s)'] = '%s  （プロファイル %s）', ['Target'] = 'ターゲット', ['trust'] = 'フェイス',
     ['tracked'] = '追跡', ['alliance'] = 'アライアンス', ['KO'] = '戦闘不能', ['away'] = '圏外',
     ['%s (pet)\nHP %d%%  MP %d%%  TP %d  %s'] = '%s（ペット）\nHP %d%%  MP %d%%  TP %d  %s',
+    ['%s (pet)\nHP %d%%  %s'] = '%s（ペット）\nHP %d%%  %s',
     ['Stop automation'] = '自動操作を停止', ['Start automation'] = '自動操作を開始',
     ['Stop %s\'s automation'] = '%sの自動操作を停止', ['Start %s\'s automation'] = '%sの自動操作を開始',
     ['Settings for %s'] = '%sの設定', ['Settings'] = '設定', ['Close (/sk3 opens it again)'] = '閉じる（/sk3 で再び開きます）',

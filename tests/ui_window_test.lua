@@ -602,6 +602,33 @@ test('another session\'s label is blue, after its name: after yours on the same 
     eq({ #tri, tri[1].args[1], tri[1].args[4], #pills(P.amber) }, { 1, { 100 + 236 + 2, 75 + 36 }, u32(P.accent), 0 })
 end)
 
+test('another session\'s pet has a card under that session\'s: its MP and TP once its file names it; its care points there', function ()
+    close_settings()
+    local cfg, st = settings.defaults(), status({ intent = false, sent = {} })
+    st.sessions = { A = { running = false, members = { { sid = 101, name = 'A' } } } }
+    local g = fake.snap({ { name = 'A' } })
+    g.units[2].pet = { sid = 0x1000701, tidx = 0x701, name = 'Garuda', hpp = 50, dist = 6 }
+    local function mp_fill(y)
+        for _, d in ipairs(calls('AddRectFilled')) do
+            if d.args[1][1] == 108 and d.args[1][2] == y and d.args[3] == u32(P.mp, BAR_FILL) then return d.args[2] end
+        end
+    end
+    render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
+    -- Yours from y 75, A's from 155 and its pet's three bars from 235, each 220 by 18, 3 apart.
+    eq({ hp_fill(108, 155), hp_fill(108, 235), fill('Garuda'), fill('PET') },
+       { { 328, 195 }, { 108 + 110, 253 }, u32(P.orange), u32(P.text2) })
+    eq({ mp_fill(256), tp_fills(), tipped('Garuda (pet)\nHP 50%  6.0y') }, { nil, {}, true })  -- not known yet: empty
+    eq(frame.extent.Sidekick3, { 100 + 236, 50 + 25 + 2 * 72 + 60 + 2 * 8 + 8 })  -- yours, A's and its pet's
+    st.sessions.A.pet = { sid = 0x1000701, mpp = 40, tp = 1000 }
+    st.sessions.A.act = { behavior = 'pet', action = 'Healing Ruby' }
+    render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
+    eq({ mp_fill(256), tp_fills(), tipped('Garuda (pet)\nHP 50%  MP 40%  TP 1000  6.0y') },
+       { { 108 + 88, 274 }, { { { 108, 277 }, { 179, 295 }, u32(P.tp, BAR_FILL) } }, true })
+    local theirs = pills(P.accent)
+    eq({ #theirs, (theirs[1][1][2] + theirs[1][2][2]) / 2 }, { 1, 235 + 30 })  -- the pet card's middle
+    eq(calls('AddTriangleFilled', 'background')[1].args[1][2], 235 + 30)
+end)
+
 -- The round buttons and glyphs drawn: their discs' centres and colours, in the order drawn.
 local function discs()
     local out = {}

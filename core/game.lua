@@ -15,7 +15,9 @@
              stacks = { [id] = how many stand } (you and your party's players: runes
              and songs of one kind stack; nil for a player the client's list has no entry for yet),
              moving (others: moved in the last half second),
-             hot = HP still to come from your Regen, nil if none }
+             hot = HP still to come from your Regen, nil if none,
+             pet (a party member's or a tracked player's, while the client draws both: an entity as
+             `bt`'s, { sid, tidx, name, hpp, dist, pos, status }, its HP % alone; never one at 0%) }
     Slots: 0 you, 1-5 your party, 6-11 and 12-17 the alliance's other parties
     (kind 'alliance', their statuses from packets as a trust's).
     A tracked player has no slot and no MP; in_zone while the client draws them
@@ -237,6 +239,14 @@ local function present(em, i)
     return em:GetRawEntity(i) ~= nil and bit.band(flags, 0x200) ~= 0 and bit.band(flags, 0x4000) == 0
 end
 
+-- Another player's pet while the client draws it. Its MP and TP the client reads for
+-- your pet only (core/share.lua brings another session's); one at 0% is gone, as a
+-- dead or dismissed pet lingers a while.
+local function their_pet(em, owner)
+    local pet = entity(em, em:GetPetTargetIndex(owner))
+    if pet and pet.hpp > 0 and present(em, pet.tidx) then return pet end
+end
+
 local function player_at(em, i)
     return { tidx = i, sid = em:GetServerId(i), name = em:GetName(i) }
 end
@@ -291,7 +301,7 @@ local function tracked_unit(em, t, me, now)
     if u.in_zone then
         local i = t.tidx
         t.hpp, t.status = em:GetHPPercent(i), em:GetStatus(i)
-        u.tidx, u.dist, u.pos = i, distance(em, i), position(em, i)
+        u.tidx, u.dist, u.pos, u.pet = i, distance(em, i), position(em, i), their_pet(em, i)
     elseif t.shared_hpp then  -- not drawn: their own session's client still reads them
         t.hpp, t.status = t.shared_hpp, nil
     end
@@ -463,6 +473,7 @@ local function member(party, player, em, i, zone, now)
     if u.in_zone and tidx > 0 and (i == 0 or present(em, tidx)) then
         u.status = em:GetStatus(tidx)
         u.dist, u.pos = i == 0 and 0 or distance(em, tidx), position(em, tidx)
+        if u.kind == 'party' then u.pet = their_pet(em, tidx) end  -- yours is the snapshot's (read_pet)
     end
     u.alive = u.hpp > 0 and u.status ~= DEAD
     if u.kind == 'self' then u.buffs, u.stacks = own_buffs(player)
