@@ -239,7 +239,7 @@ for name, r in pairs({
 end
 cor.knowledge = K
 
-cor.behaviors = { { name = 'roll', run = cor.want, before = 'rune' } }
+cor.behaviors = { { name = 'roll', run = cor.want, before = 'buff' } }
 
 -- The rolls kept up (names, '' for none; the second only on a COR main job) and
 -- how far Double-Up chases a total: 'lowest' | 'medium' | 'highest';
@@ -248,7 +248,7 @@ cor.settings = { roll = { on = true, first = '', second = '', risk = 'medium', m
 
 -- Sidekick Settings: Rolls, for a job with rolls (ui/model.lua).
 cor.ui = {
-    section = { id = 'roll', title = 'Rolls', header = 'Buff', before = 'song' },
+    section = { id = 'roll', title = 'Rolls', header = 'Buff', before = 'pet' },
     set = { ['roll.first'] = 'name', ['roll.second'] = 'name', ['roll.risk'] = { list = cor.RISKS },
             ['roll.max_at_11'] = 'bool' },
 }

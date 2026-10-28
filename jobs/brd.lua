@@ -11,7 +11,7 @@
     stands for them all.
 
     Stamps: each of your songs is stamped on everyone its cast's finish packet says
-    it landed on (core/packets.lua -> brd.landed), doubled under Troubadour. A stamp
+    it landed on (core/packets.lua -> brd.spell), doubled under Troubadour. A stamp
     goes when one more song pushes it out, when its member dies or, on a list we can
     read, once its kind shows no more VERIFY seconds after it landed. With Song
     Duration (cfg.song.duration, a BRD main from TIMED_LEVEL) a stamp alone says
@@ -26,6 +26,7 @@
 
 local buff = require('behaviors.buff')
 local can = require('core.can')
+local lang = require('core.lang')
 local slots = require('core.slots')
 
 local brd = {}
@@ -55,9 +56,11 @@ function brd.timed(g, cfg)
     return brd.timer_job(g) and s > 0 and s or nil
 end
 
--- How long song `a` lasts as it lands now, by its base duration: twice that under Troubadour.
-function brd.lasts(a, buffs)
-    return a.duration * ((buffs or {})[TROUBADOUR] and 2 or 1)
+-- How long your song `a` lasts as it lands now (`ctx`: core/packets.lua's, with your
+-- buffs), by its base duration: twice that under Troubadour. nil for another spell.
+function brd.lasts(a, ctx)
+    if a.role ~= 'song' then return nil end
+    return a.duration * ((ctx.buffs or {})[TROUBADOUR] and 2 or 1)
 end
 
 -- Your songs' stamps: stamps[server id][song name] = { at, id = its status, double }.
@@ -85,6 +88,12 @@ function brd.landed(a, sids, now, buffs, stand)
         end
         rows[a.name] = { at = now, id = a.status[1], double = (buffs or {})[TROUBADOUR] == true or nil }
     end
+end
+
+-- Your spell `a` landed on `sids` (core/packets.lua; `ctx` its, with your buffs and
+-- `slots`, how many songs stand on each): a song is stamped on them.
+function brd.spell(a, sids, now, ctx)
+    if a.role == 'song' then brd.landed(a, sids, now, ctx.buffs, ctx.slots) end
 end
 
 function brd.stamps() return stamps end
@@ -270,6 +279,108 @@ function brd.want(g, cat, cfg, mem)
             end
         end
     end
+end
+
+-- Knowledge (core/knowledge.lua says what each field means) --------------------
+
+-- Sung on you and everyone near you, or on one member through Pianissimo, not as
+-- buff rows. The status is the song's kind (Minuet...). The duration (120s, LSB's
+-- base) is what a trust's statuses expire by: their wear-offs go missing.
+local function SONG(status, note) return { role = 'song', status = status, note = note, duration = 120 } end
+brd.knowledge = {
+    ['Valor Minuet']       = SONG('Minuet', '+ATK'),
+    ['Knight\'s Minne']    = SONG('Minne', '+DEF'),
+    ['Army\'s Paeon']      = SONG('Paeon', '+Regen'),
+    ['Mage\'s Ballad']     = SONG('Ballad', '+Refresh'),
+    ['Sword Madrigal']     = SONG('Madrigal', '+ACC'),
+    ['Blade Madrigal']     = SONG('Madrigal', '++ACC'),
+    ['Hunter\'s Prelude']  = SONG('Prelude', '+Rng Acc.'),
+    ['Archer\'s Prelude']  = SONG('Prelude', '++Rng Acc.'),
+    ['Advancing March']    = SONG('March', '+Haste'),
+    ['Victory March']      = SONG('March', '++Haste'),
+    ['Sheepfoe Mambo']     = SONG('Mambo', '+EVA'),
+    ['Dragonfoe Mambo']    = SONG('Mambo', '++EVA'),
+    ['Raptor Mazurka']     = SONG('Mazurka', '+Move Spd.'),
+    ['Chocobo Mazurka']    = SONG('Mazurka', '+Move Spd.'),
+    ['Adventurer\'s Dirge'] = SONG('Dirge', '-Enmity'),
+    ['Foe Sirvente']       = SONG('Sirvente', '+Enmity'),
+    ['Goddess\'s Hymnus']  = SONG('Hymnus', 'Reraise'),
+    ['Fowl Aubade']        = SONG('Aubade', '+Slow Res.'),
+    ['Herb Pastoral']      = SONG('Pastoral', '+Poison Res.'),
+    ['Shining Fantasia']   = SONG('Fantasia', '+Blind Res.'),
+    ['Scop\'s Operetta']   = SONG('Operetta', '+Silence Res.'),
+    ['Puppet\'s Operetta'] = SONG('Operetta', '+Silence Res.'),
+    ['Gold Capriccio']     = SONG('Capriccio', '+Pet. Res.'),
+    ['Warding Round']      = SONG('Round', '+Curse Res.'),
+    ['Goblin Gavotte']     = SONG('Gavotte', '+Bind Res.'),
+    ['Fire Carol']         = SONG('Carol', '+Fire Res.'),
+    ['Ice Carol']          = SONG('Carol', '+Ice Res.'),
+    ['Wind Carol']         = SONG('Carol', '+Wind Res.'),
+    ['Earth Carol']        = SONG('Carol', '+Earth Res.'),
+    ['Lightning Carol']    = SONG('Carol', '+Lightning Res.'),
+    ['Water Carol']        = SONG('Carol', '+Water Res.'),
+    ['Light Carol']        = SONG('Carol', '+Light Res.'),
+    ['Dark Carol']         = SONG('Carol', '+Dark Res.'),
+    ['Sinewy Etude']       = SONG('Etude', '+STR'),
+    ['Dextrous Etude']     = SONG('Etude', '+DEX'),
+    ['Vivacious Etude']    = SONG('Etude', '+VIT'),
+    ['Quick Etude']        = SONG('Etude', '+AGI'),
+    ['Learned Etude']      = SONG('Etude', '+INT'),
+    ['Spirited Etude']     = SONG('Etude', '+MND'),
+    ['Enchanting Etude']   = SONG('Etude', '+CHR'),
+    ['Herculean Etude']    = SONG('Etude', '++STR'),
+    ['Uncanny Etude']      = SONG('Etude', '++DEX'),
+    ['Vital Etude']        = SONG('Etude', '++VIT'),
+    ['Swift Etude']        = SONG('Etude', '++AGI'),
+    ['Sage Etude']         = SONG('Etude', '++INT'),
+    ['Logical Etude']      = SONG('Etude', '++MND'),
+    ['Bewitching Etude']   = SONG('Etude', '++CHR'),
+    ['Pianissimo'] = { role = 'modifier', note = 'the next song on one member' },  -- fired before a song
+}
+
+brd.behaviors = { { name = 'song', run = brd.want, before = 'pet_send' } }
+
+-- Each target's songs by name ('' for none): area_1, area_2, then each party
+-- slot's, me_ and p1_ to p5_. Every slot starts empty. `duration`: Song Duration,
+-- seconds after a song lands to sing it again (BRD 75 main; 0 off); `fast`:
+-- Pianissimo fast casting, an area song through Pianissimo cancelled mid-cast.
+brd.settings = { song = { on = true, duration = 0, fast = false } }
+for _, set in ipairs(brd.SETS) do
+    for i = 1, brd.SLOTS do brd.settings.song[set.key .. '_' .. i] = '' end
+end
+
+-- Sidekick Settings: Songs, for a Bard, main or sub (ui/model.lua). A song slot
+-- takes a 'name': one the job lacks is skipped.
+brd.ui = { section = { id = 'song', title = 'Songs', header = 'Buff', before = 'pet' },
+           set = { ['song.duration'] = { 0, 300 }, ['song.fast'] = 'bool' } }
+for _, set in ipairs(brd.SETS) do
+    for i = 1, brd.SLOTS do brd.ui.set[slots.path('song', set.key, i)] = 'name' end
+end
+
+-- The view's `song`: the songs to pick from, and each target's picks: Area, then
+-- each party slot with who is in it; `pianissimo` false when you have none (under
+-- BRD 20), so the songs on one member can't go. And whether it's shown.
+function brd.ui.view(cat, cfg, g, help)
+    local mine, pianissimo = brd.actions(cat)
+    local out = { slots = brd.slots(g), choices = {}, sets = {}, pianissimo = pianissimo ~= nil,
+                  timed = brd.timer_job(g), duration = cfg.song.duration, fast = cfg.song.fast }
+    for _, a in ipairs(cat) do  -- in id order: each kind's tiers together
+        if mine[a.name] == a then
+            out.choices[#out.choices + 1] = { name = a.name, label = lang.f('%s (%s)', lang.name(a.name, a.jp), lang.t(a.note)) }
+        end
+    end
+    if not out.choices[1] then return out, false end
+    for _, set in ipairs(brd.SETS) do
+        local e = { key = set.key, label = set.slot and set.label or lang.t(set.label),  -- Area; a slot's tag as it is
+                    picks = slots.names(cfg.song, set.key, brd.SLOTS) }
+        if set.slot then
+            local u = help.units[set.slot]
+            e.name, e.present = u and u.name, u ~= nil
+        end
+        out.sets[#out.sets + 1] = e
+    end
+    if pianissimo then out.ready, out.avail = help.ready({ pianissimo }, {}, g) end
+    return out, true
 end
 
 return brd

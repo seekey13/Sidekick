@@ -37,7 +37,8 @@ test('core, behaviors and ui never require a job module or name a job (core/jobs
 end)
 
 local FIELDS = { JOB = 'number', knowledge = 'table', behaviors = 'table', settings = 'table', read = 'function',
-                 POOL = 'table', ability = 'function', zone = 'function', pet_auras = 'table',
+                 POOL = 'table', ability = 'function', spell = 'function', lasts = 'function', extended = 'function',
+                 zone = 'function', pet_auras = 'table', tp = 'function', tools = 'function', renew = 'function',
                  spare = 'function', short = 'function', reserves = 'function', ui = 'table' }
 
 test('every job module is in core/jobs.lua\'s list, and its contract fields are the documented ones', function ()
@@ -63,14 +64,20 @@ end)
 
 test('the modules plug in where the shared code had them: rows, behaviors, settings, sections', function ()
     local K = require('core.knowledge')
-    eq({ K['Penury'].chip, K['Corsair\'s Roll'].lucky, K['Geo-Regen'].luopan, type(K['Radial Arcana'].decide) },
-       { 'Pen', 5, 'buff', 'function' })
-    local names = {}
-    for _, b in ipairs(require('core.engine').BEHAVIORS) do names[#names + 1] = b.name end
+    eq({ K['Penury'].chip, K['Corsair\'s Roll'].lucky, K['Geo-Regen'].luopan, type(K['Radial Arcana'].decide),
+         K['Ignis'].rune.element, K['Embolden'].chip, K['Valor Minuet'].role, K['Fire Maneuver'].role, K['Diffusion'].chip },
+       { 'Pen', 5, 'buff', 'function', 'Fire', 'Emb', 'song', 'maneuver', 'Dif' })
+    local quick, names = {}, {}
+    for _, b in ipairs(require('core.engine').BEHAVIORS) do
+        names[#names + 1] = b.name
+        if b.quick then quick[#quick + 1] = b.name end
+    end
     eq(names, { 'first', 'heal', 'remove', 'heal_efficient', 'wake', 'recover', 'pet', 'revive', 'roll', 'rune', 'geo',
                 'buff', 'song', 'pet_send', 'maneuver', 'last', 'follow', 'rest' })
+    eq(quick, { 'remove', 'wake', 'pet', 'rune', 'pet_send', 'maneuver' })
     local d = require('core.settings').defaults()
-    eq({ d.roll.risk, d.roll.max_at_11, d.geo.distance }, { 'medium', false, 10 })
+    eq({ d.roll.risk, d.roll.max_at_11, d.geo.distance, d.rune.pflug_3, d.maneuver.slot_3, d.song.p5_2, d.song.duration },
+       { 'medium', false, 10, '', '', '', 0 })
     local ids = {}
     for _, s in ipairs(require('ui.model').SECTIONS) do ids[#ids + 1] = s.id end
     eq(ids, { 'profile', 'follow', 'heal', 'revive', 'wake', 'remove', 'buff', 'roll', 'song', 'geo', 'rune', 'pet',

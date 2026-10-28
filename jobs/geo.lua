@@ -250,12 +250,12 @@ geo.settings = { geo = { on = true, distance = 10, linger = 5, entrust = '', ent
 
 -- Sidekick Settings: Geomancy, only with a Geo- spell (a GEO main job) (ui/model.lua).
 geo.ui = {
-    section = { id = 'geo', title = 'Geomancy', roles = { 'geo' }, header = 'Buff', before = 'rune' },
+    section = { id = 'geo', title = 'Geomancy', roles = { 'geo' }, header = 'Buff', before = 'pet' },
     set = { ['geo.distance'] = { 3, 30 }, ['geo.linger'] = { 1, 20 }, ['geo.entrust'] = 'name', ['geo.entrust_spell'] = 'name' },
 }
 
 -- The view's `geo`: the Indi- spells Entrust can put on a member, and who; and whether it's shown.
-function geo.ui.view(cat, cfg, _, party_names)
+function geo.ui.view(cat, cfg, _, help)
     local indi, luopans = {}, false
     for _, a in ipairs(cat) do
         if a.pick_one == 'indi' then indi[#indi + 1] = a.name end
@@ -264,7 +264,7 @@ function geo.ui.view(cat, cfg, _, party_names)
     table.sort(indi)
     local c = cfg.geo
     return { distance = c.distance, linger = c.linger, entrust = c.entrust, entrust_spell = c.entrust_spell,
-             indi = indi, names = party_names }, luopans
+             indi = indi, names = help.party }, luopans
 end
 
 return geo

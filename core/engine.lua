@@ -49,17 +49,15 @@ engine.BEHAVIORS = {
     { name = 'recover', run = require('behaviors.recover') },
     { name = 'pet', run = pet.care, quick = true },
     { name = 'revive', run = require('behaviors.revive') },
-    { name = 'rune', run = require('jobs.run').want, quick = true },
     { name = 'buff', run = buff.want, invisible = true },
-    { name = 'song', run = require('jobs.brd').want },
     { name = 'pet_send', run = pet.send, setting = 'pet', quick = true },
-    { name = 'maneuver', run = require('jobs.pup').want, quick = true },
     -- Your own Invisible (Tonko, Spectral Jig): nothing else goes under it (behaviors/buff.lua).
     { name = 'last', run = buff.last, setting = 'buff', shown = 'buff', invisible = true },
     { name = 'follow', run = require('behaviors.follow').want, invisible = true },
     { name = 'rest', run = require('behaviors.rest'), resting = true, invisible = true },
 }
--- The job modules' behaviors, each before the one it names (core/jobs.lua): Rolls, then runes, then Geomancy, before buffs.
+-- The job modules' behaviors, each before the one it names (core/jobs.lua): Rolls, runes
+-- and Geomancy before buffs, songs after them, maneuvers after sending the pet in.
 for list in jobs.each('behaviors') do
     for _, b in ipairs(list) do
         local at

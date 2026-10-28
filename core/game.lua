@@ -31,16 +31,14 @@
     what healing scores with: learned potency, the day and the weather;
     the item in your ammo slot and what's in your inventory (and `owned`, the ammo
     you hold where it can be worn from, read when asked); when you last moved and
-    last had a battle target; your Ready charges (`ready`, jobs/bst.lua); your
-    automaton's name (`automaton`, jobs/pup.lua), nil until the server says it; and
-    the job modules' own fields (core/jobs.lua: `read`): stratagem charges, your
-    Phantom Rolls' totals.
+    last had a battle target; and the job modules' own fields (core/jobs.lua:
+    `read`): stratagem (`stratagems`) and Ready (`ready`) charges, your Phantom
+    Rolls' totals (`roll`, `roll_totals`), your automaton's name (`automaton`, nil
+    until the server says it).
 ]]--
 
 local ffi = require('ffi')
 local buffs = require('core.buffs')
-local bst = require('jobs.bst')
-local pup = require('jobs.pup')
 local can = require('core.can')
 local job_modules = require('core.jobs')
 local observed = require('core.observed')
@@ -382,8 +380,8 @@ end
 -- Seconds left on ability recast timer `id`.
 local function recast_left(id) return ability_timer(AshitaCore:GetMemoryManager():GetRecast(), id) / 60 end
 
--- The charge pools (core/charges.lua): BST's, and the job modules' (core/jobs.lua: `POOL`).
-local POOLS = { bst.POOL }
+-- The job modules' charge pools (core/charges.lua; core/jobs.lua: `POOL`).
+local POOLS = {}
 for pool in job_modules.each('POOL') do POOLS[#POOLS + 1] = pool end
 
 -- Where `action`'s ready stamp is kept: by its recast, and for a pool's by the charges it costs too.
@@ -558,8 +556,7 @@ function game.read(now, idle)
     local g = {
         finished = finished, spell_finish = spell_finish,
         now = now, zone = zone, me = me, units = units, tracks = tracks, bt = bt, target = player_target(mm, em),
-        pet = pet, ammo = ammo(), items = inventory(), ready = bst.POOL:now(jobs, recast_left),
-        automaton = pup.automaton(),
+        pet = pet, ammo = ammo(), items = inventory(),
         main = jobs.main, main_lv = jobs.main_lv, sub = jobs.sub, sub_lv = jobs.sub_lv,
         casting = casting, cast_at = cast_at,
         moving = is_moving, moved_at = move.moved,

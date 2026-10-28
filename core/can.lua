@@ -6,11 +6,11 @@
       can.together(c, u)       does an area effect aimed at `c` land on `u` (the same party)
       can.command(a, u, j, bt) the chat command that does it
       can.spare_hp(a, g, cfg)  can you pay what `a` costs in HP
+      can.tp(a, g)             the TP `a` needs from you now
+      can.tools(a, g)          how many casts of `a` the tools you carry pay for
     `a` is a catalog record, `u` a unit and `g` the snapshot from core/game.lua.
 ]]--
 
-local dnc = require('jobs.dnc')
-local nin = require('jobs.nin')
 local util = require('core.util')
 
 local can = {}
@@ -89,14 +89,36 @@ function can.together(centre, u)
     return p ~= nil and p == can.party(u)
 end
 
+-- core.jobs is required in these, not above: the job modules require this file.
+
+-- The TP `a` needs from you now: its own, unless a job module waives some
+-- (core/jobs.lua: `tp`, Trance's).
+function can.tp(a, g)
+    for f in require('core.jobs').each('tp') do
+        local tp = f(a, g)
+        if tp then return tp end
+    end
+    return math.max(a.tp or 0, 0)
+end
+
+-- How many casts of `a` (one with a `tool`) the tools you carry pay for
+-- (core/jobs.lua: `tools`); else the tool itself, counted in your inventory.
+function can.tools(a, g)
+    for f in require('core.jobs').each('tools') do
+        local n = f(a, g)
+        if n then return n end
+    end
+    return (g.items or {})[a.tool] or 0
+end
+
 -- Whether `a` can be used now, else false and why.
 function can.use(a, g)
     if a.kind == 'ma' and g.silenced then return false, 'silenced' end
     if (a.kind == 'ja' or a.kind == 'pet') and g.amnesia then return false, 'amnesia' end
     if (a.mp or 0) > g.me.mp then return false, 'MP' end
-    if dnc.tp(a, g) > g.me.tp then return false, 'TP' end
+    if can.tp(a, g) > g.me.tp then return false, 'TP' end
     if a.ammo and not util.contains(a.ammo, g.ammo) then return false, 'no ammo' end
-    if a.tool and nin.tools(a, g) == 0 then return false, 'no tools' end
+    if a.tool and can.tools(a, g) == 0 then return false, 'no tools' end
     if a.kind == 'item' and not (g.items and g.items[a.id]) then return false, 'none left' end
     -- An Addendum spell can go through Enlightenment instead (core/catalog.lua), fired first by the engine.
     if a.requires and not any(g.me.buffs, a.requires) and not (a.via and can.use(a.via, g)) then

@@ -12,10 +12,8 @@
 
     role       heal | pet_heal | remove | pet_remove | pet_send | emergency | revive | roll |
                recover | buff | modifier | geo | rune | ward | maneuver | song
-               (roll and geo: a job module's, jobs/cor.lua and jobs/geo.lua)
-               (rune, ward: Rune Fencer's runes and the abilities that read them, jobs/run.lua's)
-               (maneuver: Puppetmaster's, on you for the automaton, jobs/pup.lua's)
-               (song: Bard's songs, jobs/brd.lua's)
+               (roll, geo, rune, ward, maneuver and song: a job module's, jobs/cor.lua,
+               geo.lua, run.lua, pup.lua and brd.lua)
                (a modifier is a JA fired just before the spell it changes: core/engine.lua)
                (a heal's area comes from the DAT: Curaga is a heal like Cure)
     status     what a buff shows: status name (lowest id with that name wins), id,
@@ -83,10 +81,7 @@
                against, as Runes shows it (jobs/run.lua)
 ]]--
 
-local blu = require('jobs.blu')
 local jobs = require('core.jobs')
-local run = require('jobs.run')
-local sch = require('jobs.sch')
 
 -- Status sets for removals (ids: several names repeat in the status table).
 local CURSE    = { 9, 15, 20, 30 }  -- Curse, Doom, Curse II, Bane
@@ -115,7 +110,6 @@ local BST, SMN, PUP, SCH = 9, 15, 18, 20
 local LIGHT = { 'Light Arts', 'Addendum: White' }
 local DARK = { 'Dark Arts', 'Addendum: Black' }
 local SAMBA = { role = 'buff', gate = 'combat', pick_one = 'samba', blocked_by = 'Fan Dance' }
-local function SONG(status, note) return { role = 'song', status = status, note = note, duration = 120 } end
 local FINISHING_5 = { 'Finishing Move (5)', 'Finishing Move (6+)' }  -- five or more (jobs/dnc.lua)
 
 local K = {
@@ -243,14 +237,7 @@ local K = {
 
     -- Corsair's Phantom Rolls, Double-Up, Fold and Snake Eye are jobs/cor.lua's.
 
-    -- Rune Fencer: the wards read the runes up (jobs/run.lua), in priority order as v2.
-    -- Valiance does nothing on you under Vallation; Vallation would replace a
-    -- party-wide Valiance with less (v2's rule); Liement stops both.
-    ['Vallation'] = { role = 'ward', priority = 3, status = 'Vallation', blocked_by = { 'Valiance', 'Liement' } },
-    ['Valiance']  = { role = 'ward', priority = 2, status = 'Valiance', blocked_by = { 'Vallation', 'Liement' } },
-    ['Pflug']     = { role = 'ward', priority = 1, status = 'Pflug' },
-    -- Fired before white enhancing magic, as a stratagem (not the Spikes, which are black).
-    ['Embolden']  = { role = 'modifier', applies = sch.enhancing, chip = 'Emb', note = 'more potent' },
+    -- Rune Fencer's runes, wards and Embolden are jobs/run.lua's.
 
     -- buff: Scholar -------------------------------------------------------------
     -- Light Arts first, ahead of healing: it makes white magic cheaper and opens
@@ -266,57 +253,7 @@ local K = {
     },
     -- Storms: below.
 
-    -- song: Bard's songs, sung on you and everyone near you, or on one member through
-    -- Pianissimo (jobs/brd.lua's, not buff rows). The status is the song's kind (Minuet...).
-    -- The duration (120s, LSB's base) is what a trust's statuses expire by: their wear-offs go missing.
-    ['Valor Minuet']       = SONG('Minuet', '+ATK'),
-    ['Knight\'s Minne']    = SONG('Minne', '+DEF'),
-    ['Army\'s Paeon']      = SONG('Paeon', '+Regen'),
-    ['Mage\'s Ballad']     = SONG('Ballad', '+Refresh'),
-    ['Sword Madrigal']     = SONG('Madrigal', '+ACC'),
-    ['Blade Madrigal']     = SONG('Madrigal', '++ACC'),
-    ['Hunter\'s Prelude']  = SONG('Prelude', '+Rng Acc.'),
-    ['Archer\'s Prelude']  = SONG('Prelude', '++Rng Acc.'),
-    ['Advancing March']    = SONG('March', '+Haste'),
-    ['Victory March']      = SONG('March', '++Haste'),
-    ['Sheepfoe Mambo']     = SONG('Mambo', '+EVA'),
-    ['Dragonfoe Mambo']    = SONG('Mambo', '++EVA'),
-    ['Raptor Mazurka']     = SONG('Mazurka', '+Move Spd.'),
-    ['Chocobo Mazurka']    = SONG('Mazurka', '+Move Spd.'),
-    ['Adventurer\'s Dirge'] = SONG('Dirge', '-Enmity'),
-    ['Foe Sirvente']       = SONG('Sirvente', '+Enmity'),
-    ['Goddess\'s Hymnus']  = SONG('Hymnus', 'Reraise'),
-    ['Fowl Aubade']        = SONG('Aubade', '+Slow Res.'),
-    ['Herb Pastoral']      = SONG('Pastoral', '+Poison Res.'),
-    ['Shining Fantasia']   = SONG('Fantasia', '+Blind Res.'),
-    ['Scop\'s Operetta']   = SONG('Operetta', '+Silence Res.'),
-    ['Puppet\'s Operetta'] = SONG('Operetta', '+Silence Res.'),
-    ['Gold Capriccio']     = SONG('Capriccio', '+Pet. Res.'),
-    ['Warding Round']      = SONG('Round', '+Curse Res.'),
-    ['Goblin Gavotte']     = SONG('Gavotte', '+Bind Res.'),
-    ['Fire Carol']         = SONG('Carol', '+Fire Res.'),
-    ['Ice Carol']          = SONG('Carol', '+Ice Res.'),
-    ['Wind Carol']         = SONG('Carol', '+Wind Res.'),
-    ['Earth Carol']        = SONG('Carol', '+Earth Res.'),
-    ['Lightning Carol']    = SONG('Carol', '+Lightning Res.'),
-    ['Water Carol']        = SONG('Carol', '+Water Res.'),
-    ['Light Carol']        = SONG('Carol', '+Light Res.'),
-    ['Dark Carol']         = SONG('Carol', '+Dark Res.'),
-    ['Sinewy Etude']       = SONG('Etude', '+STR'),
-    ['Dextrous Etude']     = SONG('Etude', '+DEX'),
-    ['Vivacious Etude']    = SONG('Etude', '+VIT'),
-    ['Quick Etude']        = SONG('Etude', '+AGI'),
-    ['Learned Etude']      = SONG('Etude', '+INT'),
-    ['Spirited Etude']     = SONG('Etude', '+MND'),
-    ['Enchanting Etude']   = SONG('Etude', '+CHR'),
-    ['Herculean Etude']    = SONG('Etude', '++STR'),
-    ['Uncanny Etude']      = SONG('Etude', '++DEX'),
-    ['Vital Etude']        = SONG('Etude', '++VIT'),
-    ['Swift Etude']        = SONG('Etude', '++AGI'),
-    ['Sage Etude']         = SONG('Etude', '++INT'),
-    ['Logical Etude']      = SONG('Etude', '++MND'),
-    ['Bewitching Etude']   = SONG('Etude', '++CHR'),
-    ['Pianissimo'] = { role = 'modifier', note = 'the next song on one member' },  -- fired before a song (jobs/brd.lua)
+    -- Bard's songs and Pianissimo are jobs/brd.lua's.
     ['Troubadour']  = { role = 'buff', priority = 100 },
     ['Nightingale'] = { role = 'buff', priority = 100 },
 
@@ -343,9 +280,7 @@ local K = {
     ['Barrier Tusk']    = { role = 'buff', status = 'Physical Shield', area = 0 },
     ['O. Counterstance']= { role = 'buff', status = 'Counterstance' },
     ['Pyric Bulwark']   = { role = 'buff', unbridled = true },
-    -- Fired before a blue magic buff on you alone, it lands on your party near you (jobs/blu.lua).
-    ['Diffusion'] = { role = 'modifier', applies = blu.diffuses, spreads = { area = 10, mp = 1, others = true },
-                      chip = 'Dif', note = 'on everyone near you' },
+    -- Diffusion: jobs/blu.lua
     -- No chip: fired by itself before an Unbridled spell (core/catalog.lua); level 75 on CatsEyeXI.
     ['Unbridled Learning'] = { role = 'modifier', main_only = true },
 
@@ -426,17 +361,6 @@ for _, name in ipairs({
     'Warding Circle', 'Third Eye', 'Swordplay',
 }) do
     K[name] = { role = 'buff', gate = 'combat' }
-end
-
--- Puppetmaster's maneuvers: each shows the status named like it; Overload stops them all.
-for _, e in ipairs({ 'Fire', 'Ice', 'Wind', 'Earth', 'Thunder', 'Water', 'Light', 'Dark' }) do
-    local name = e .. ' Maneuver'
-    K[name] = { role = 'maneuver', pet = true, status = name, blocked_by = 'Overload', learn = { [PUP] = 1 } }
-end
-
--- Rune Fencer's runes: each shows the status named like it.
-for _, r in ipairs(run.RUNES) do
-    K[r[1]] = { role = 'rune', status = r[1], rune = { element = r[2], resist = r[3], ailments = r[4] } }
 end
 
 -- Absorb- spells (DRK): drain a stat off your battle target onto you.

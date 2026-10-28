@@ -34,17 +34,8 @@ local DEFAULTS = {
     recover = { on = true, mp = 30, tp = 1000,    -- under your MP% (a member's, for Devotion), your TP
                 min_tp = 3000 },                   -- Chivalry from this much TP
     pet = { on = true, heal = 50 },        -- heal your pet under this HP%
-    -- The job modules' sections (roll, geo) come from their `settings` (core/jobs.lua).
-    -- RUN: each set's rune per slot, by name ('' for none): idle_1..3, then
-    -- vallation_, valiance_ and pflug_ (jobs/run.lua). Every slot starts empty.
-    rune = { on = true },
-    -- PUP: the maneuver per slot, by name ('' for none; jobs/pup.lua). Every slot starts empty.
-    maneuver = { on = true, slot_1 = '', slot_2 = '', slot_3 = '' },
-    -- BRD: each target's songs by name ('' for none): area_1, area_2, then each
-    -- party slot's, me_ and p1_ to p5_ (jobs/brd.lua). Every slot starts empty.
-    -- `duration`: Song Duration, seconds after a song lands to sing it again (BRD 75 main; 0 off);
-    -- `fast`: Pianissimo fast casting, an area song through Pianissimo cancelled mid-cast.
-    song = { on = true, duration = 0, fast = false },
+    -- The job modules' sections (roll, song, geo, rune, maneuver) come from their
+    -- `settings` (core/jobs.lua).
     buff = { on = true,
              hold_aoe = false,  -- hold an area buff spell (Protectra, songs, rolls) until the party's players gather
              gather = true,     -- ...and ask them to in party chat
@@ -61,12 +52,6 @@ local DEFAULTS = {
            widget_size = 16,  -- its text and icons' height, in pixels
            japanese = false },  -- send spell, ability and item names in Japanese
 }
-for _, set in ipairs({ 'idle', 'vallation', 'valiance', 'pflug' }) do
-    for i = 1, 3 do DEFAULTS.rune[set .. '_' .. i] = '' end
-end
-for _, set in ipairs({ 'area', 'me', 'p1', 'p2', 'p3', 'p4', 'p5' }) do
-    for i = 1, 2 do DEFAULTS.song[set .. '_' .. i] = '' end
-end
 local UI_FILE = 'ui'
 
 -- pick_one before label: labelled members of one group (geo_ja) stay one row.

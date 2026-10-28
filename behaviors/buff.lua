@@ -30,7 +30,6 @@
 local ammo = require('core.ammo')
 local can = require('core.can')
 local heal = require('behaviors.heal')
-local nin = require('jobs.nin')
 local settings = require('core.settings')
 local status = require('core.status')
 local util = require('core.util')
@@ -53,6 +52,15 @@ local function short(mods, g, cfg)
     for f in require('core.jobs').each('short') do
         local m = f(mods, g, cfg)
         if m then return m end
+    end
+end
+
+-- A self buff `a` up on you that's due again anyway (Utsusemi at its last shadow), by
+-- the job modules' `renew` (core/jobs.lua): why, and a status to cancel into the cast.
+local function renew(a, g, cfg)
+    for f in require('core.jobs').each('renew') do
+        local why, cancel = f(a, g, cfg)
+        if why then return why, cancel end
     end
 end
 
@@ -222,12 +230,9 @@ local function due(g, cat, cfg, mem, stage)
                         return { action = a, mods = mods, why = ('%s lacks it'):format(near.name) }
                     end
                 elseif can.self_only(a) then
-                    local shadows = nin.shadows(a, cfg)
-                    if c.on_me and lacks(a, g.me, shadows) then
-                        local up = shadows and g.me.buffs[a.last_shadow]
-                        local last = up and a.tier == 1 and a.last_shadow or nil  -- Ichi alone needs it gone
-                        local why = up and '%s: one shadow left' or '%s lacks it'
-                        return { action = a, mods = mods, why = why:format(g.me.name), cancel = last }
+                    local why, cancel = renew(a, g, cfg)
+                    if c.on_me and (why or lacks(a, g.me)) then
+                        return { action = a, mods = mods, why = (why or '%s lacks it'):format(g.me.name), cancel = cancel }
                     end
                 else
                     for _, u in ipairs(g.units) do

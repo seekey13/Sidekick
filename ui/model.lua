@@ -25,16 +25,11 @@
 
 local afk = require('core.afk')
 local ammo = require('core.ammo')
-local brd = require('jobs.brd')
 local can = require('core.can')
 local job_modules = require('core.jobs')
 local lang = require('core.lang')
-local nin = require('jobs.nin')
 local profiles = require('core.profiles')
-local pup = require('jobs.pup')
-local run = require('jobs.run')
 local settings = require('core.settings')
-local slots = require('core.slots')
 local util = require('core.util')
 
 local DOOM = require('core.status').DOOM
@@ -44,8 +39,8 @@ local model = {}
 -- Settings sections in order, each under its `header` (headers in the order their first section comes). 'profile',
 -- 'track' and 'ui' have no switch; every other is switched by cfg[id].on, and one with roles has rows. Wake and the
 -- job sections (Rolls, Songs, Geomancy, Runes, Maneuvers) show only when there's something for them (model.build's
--- `has`); a section with roles, only while it has rows. A job module's section (Rolls, Geomancy) goes in before
--- the one it names and shows when its `view` says (core/jobs.lua).
+-- `has`, and a job module's `view`); a section with roles, only while it has rows. A job module's section goes
+-- in before the one it names (core/jobs.lua).
 model.SECTIONS = {
     { id = 'profile', title = 'Profiles', header = 'Profiles', switch = false },
     { id = 'follow', title = 'Follow', header = 'Follow' },
@@ -54,10 +49,7 @@ model.SECTIONS = {
     { id = 'wake', title = 'Wake sleepers', header = 'Remove' },
     { id = 'remove', title = 'Debuff removal', roles = { 'remove' }, header = 'Remove' },
     { id = 'buff', title = 'Buffs', roles = { 'buff' }, header = 'Buff' },
-    { id = 'song', title = 'Songs', header = 'Buff' },
-    { id = 'rune', title = 'Runes', header = 'Buff' },
     { id = 'pet', title = 'Pet', roles = { 'pet_heal', 'pet_remove', 'pet_send' }, header = 'Pet' },
-    { id = 'maneuver', title = 'Maneuvers', header = 'Pet' },
     { id = 'recover', title = 'Recovery', roles = { 'recover' }, header = 'Recover' },
     { id = 'rest', title = 'Resting', header = 'Recover' },
     { id = 'track', title = 'Tracked players', header = 'Tracked', switch = false },
@@ -263,7 +255,7 @@ local function build_row(key, acts, cfg, g, units, modifiers, outsiders)
         end
     end
     if acts[1].kind == 'item' then row.count = g.items and g.items[acts[1].id] or 0 end
-    if acts[1].tool then row.tools = nin.tools(acts[1], g) end
+    if acts[1].tool then row.tools = can.tools(acts[1], g) end
     return row
 end
 
@@ -340,78 +332,6 @@ local function build_rows(s, g, cat, cfg, units, outsiders, statuses)
         for i, d in ipairs(debuff_rows(g, cat, cfg, statuses)) do table.insert(rows, at + i - 1, d) end
     end
     return rows
-end
-
--- RUN: the runes to pick from, and each set's picks (jobs/run.lua): Idle, then
--- each ward you have, with its switch (its row) and whether it's ready.
-local function runes(g, cat, cfg)
-    local mine, wards = run.actions(cat)
-    local lv = util.level(g, run.JOB)
-    local out = { slots = lv > 0 and run.slots(lv) or 0, runes = {}, sets = {} }
-    for _, r in ipairs(run.RUNES) do
-        local a = mine[r[1]]
-        if a then
-            out.runes[#out.runes + 1] = { name = a.name, label = lang.name(a.name, a.jp), element = lang.t(a.rune.element),
-                                          resist = lang.t(a.rune.resist), ailments = lang.t(a.rune.ailments) }
-        end
-    end
-    if not out.runes[1] then return out end
-    local ward = {}
-    for _, w in ipairs(wards) do ward[w.name] = w end
-    for _, set in ipairs(run.SETS) do
-        local w = set.ward and ward[set.ward]
-        if not set.ward or w then
-            local e = { key = set.key, label = set.label and lang.t(set.label) or lang.name(w.name, w.jp), shows = set.shows, ward = w and w.name,
-                        picks = slots.names(cfg.rune, set.key, run.SLOTS) }
-            if w then
-                local r = settings.row(cfg, w)
-                e.on = r.on == true
-                e.ready, e.avail = availability({ w }, r, g)
-            end
-            out.sets[#out.sets + 1] = e
-        end
-    end
-    return out
-end
-
--- PUP: the maneuvers to pick from, by element, and each slot's pick (jobs/pup.lua).
-local function maneuvers(g, cat, cfg)
-    local out, first = { choices = {}, picks = slots.names(cfg.maneuver, 'slot', pup.SLOTS) }, nil
-    for _, a in ipairs(cat) do  -- in id order: the game's element order
-        if a.role == 'maneuver' then
-            out.choices[#out.choices + 1] = { name = a.name, label = lang.t((a.name:gsub(' Maneuver$', ''))) }
-            first = first or a
-        end
-    end
-    -- They share one recast and every gate, so one says whether they can go.
-    if first then out.ready, out.avail = availability({ first }, {}, g) end
-    return out
-end
-
--- BRD: the songs to pick from, and each target's picks (jobs/brd.lua): Area, then
--- each party slot with who is in it; `pianissimo` false when you have none (under
--- BRD 20), so the songs on one member can't go.
-local function songs(g, cat, cfg, units)
-    local mine, pianissimo = brd.actions(cat)
-    local out = { slots = brd.slots(g), choices = {}, sets = {}, pianissimo = pianissimo ~= nil,
-                  timed = brd.timer_job(g), duration = cfg.song.duration, fast = cfg.song.fast }
-    for _, a in ipairs(cat) do  -- in id order: each kind's tiers together
-        if mine[a.name] == a then
-            out.choices[#out.choices + 1] = { name = a.name, label = lang.f('%s (%s)', lang.name(a.name, a.jp), lang.t(a.note)) }
-        end
-    end
-    if not out.choices[1] then return out end
-    for _, set in ipairs(brd.SETS) do
-        local e = { key = set.key, label = set.slot and set.label or lang.t(set.label),  -- Area; a slot's tag as it is
-                    picks = slots.names(cfg.song, set.key, brd.SLOTS) }
-        if set.slot then
-            local u = units[set.slot]
-            e.name, e.present = u and u.name, u ~= nil
-        end
-        out.sets[#out.sets + 1] = e
-    end
-    if pianissimo then out.ready, out.avail = availability({ pianissimo }, {}, g) end
-    return out
 end
 
 -- Status and party -----------------------------------------------------------
@@ -697,18 +617,16 @@ function model.build(g, cat, cfg, status, names)
         rest = { on = cfg.rest.on, delay = cfg.rest.delay, distance = cfg.rest.distance },
         afk = { minutes = cfg.afk.minutes, asleep = g.afk == true, left = g.afk_in },
         buff = { hold_aoe = cfg.buff.hold_aoe, gather = cfg.buff.gather, one_shadow = cfg.buff.one_shadow, shadows = shadows },
-        song = songs(g, cat, cfg, units),
-        rune = runes(g, cat, cfg),
-        maneuver = maneuvers(g, cat, cfg),
         -- Your target, by name, when it's a player who could be tracked: not in the party, not tracked yet.
         track = { target = g.target and not known[g.target.sid] and g.target.name or nil },
         japanese = cfg.ui.japanese, log = status.log, ui = {},
         profiles = { active = profiles.active(cfg), names = profiles.names(cfg) },
     }
     local job_shown = {}  -- [section id] = whether a job module's section is shown
+    local help = { party = party_names, units = units, ready = availability }
     for spec in job_modules.each('ui') do
         local id = spec.section.id
-        view[id], job_shown[id] = spec.view(cat, cfg, g, party_names)
+        view[id], job_shown[id] = spec.view(cat, cfg, g, help)
     end
     view.party, view.alliance = party(g, cfg, names, by_sid(status))
     view.remote = remote_views(status)
@@ -726,8 +644,7 @@ function model.build(g, cat, cfg, status, names)
                                           why = lang.f('%s: %s', lang.t(e.behavior), lang.why(e.why)) }
     end
     -- Sections shown only for a job that has what they keep up; any other with rows only while it has some.
-    local has = { wake = wakes, song = view.song.choices[1] ~= nil,
-                  rune = view.rune.runes[1] ~= nil, maneuver = view.maneuver.choices[1] ~= nil }
+    local has = { wake = wakes }
     for id, shown in pairs(job_shown) do has[id] = shown end
     for _, s in ipairs(model.SECTIONS) do
         local section = { id = s.id, title = s.title, header = s.header }
@@ -776,8 +693,8 @@ local REMOTE = {
 
 -- The settings act.set may change from another session: a number's range (the
 -- one source of it: the standard window's sliders take theirs from here), 'bool', 'name' (a member, a spell, a roll or ''),
--- 'maneuver' (a maneuver's name or ''), or a list of the values it takes. A song
--- slot takes a 'name': one the job lacks is skipped, as a rune's.
+-- 'maneuver' (a maneuver's name or ''), or a list of the values it takes. The job modules' sections
+-- add theirs (core/jobs.lua: `ui.set`).
 model.REMOTE_SET = {
     ['heal.threshold'] = { 1, 99 }, ['heal.danger'] = { 1, 99 }, ['heal.critical'] = { 1, 99 },
     ['heal.focus_threshold'] = { 1, 99 }, ['heal.focus_danger'] = { 1, 99 }, ['heal.focus_critical'] = { 1, 99 }, ['heal.cure_potency'] = { 0, 50 }, ['heal.waltz_potency'] = { 0, 50 },
@@ -787,16 +704,9 @@ model.REMOTE_SET = {
     ['rest.on'] = 'bool', ['rest.delay'] = { 1, 20 }, ['rest.distance'] = { 1, 15 },
     ['afk.on'] = 'bool', ['afk.minutes'] = { afk.MIN, afk.MAX },
     ['buff.hold_aoe'] = 'bool', ['buff.gather'] = 'bool', ['buff.one_shadow'] = 'bool',
-    ['song.duration'] = { 0, 300 }, ['song.fast'] = 'bool',
 }
 for spec in job_modules.each('ui') do
     for path, want in pairs(spec.set or {}) do model.REMOTE_SET[path] = want end
-end
-for _, s in ipairs({ { 'rune', run.SETS, run.SLOTS, 'name' }, { 'song', brd.SETS, brd.SLOTS, 'name' },
-                    { 'maneuver', { { key = 'slot' } }, pup.SLOTS, 'maneuver' } }) do
-    for _, set in ipairs(s[2]) do
-        for i = 1, s[3] do model.REMOTE_SET[slots.path(s[1], set.key, i)] = s[4] end
-    end
 end
 
 -- `value` for act.set's `path` from another session, held to its range; nil when
