@@ -27,6 +27,7 @@
 local buff = require('behaviors.buff')
 local can = require('core.can')
 local heal = require('behaviors.heal')
+local jobs = require('core.jobs')
 local pet = require('behaviors.pet')
 local status = require('core.status')
 local util = require('core.util')
@@ -48,18 +49,25 @@ engine.BEHAVIORS = {
     { name = 'recover', run = require('behaviors.recover') },
     { name = 'pet', run = pet.care, quick = true },
     { name = 'revive', run = require('behaviors.revive') },
-    { name = 'roll', run = require('jobs.cor').want },
-    { name = 'rune', run = require('jobs.run').want, quick = true },
-    { name = 'geo', run = require('jobs.geo').want },
     { name = 'buff', run = buff.want, invisible = true },
-    { name = 'song', run = require('jobs.brd').want },
     { name = 'pet_send', run = pet.send, setting = 'pet', quick = true },
-    { name = 'maneuver', run = require('jobs.pup').want, quick = true },
     -- Your own Invisible (Tonko, Spectral Jig): nothing else goes under it (behaviors/buff.lua).
     { name = 'last', run = buff.last, setting = 'buff', shown = 'buff', invisible = true },
     { name = 'follow', run = require('behaviors.follow').want, invisible = true },
     { name = 'rest', run = require('behaviors.rest'), resting = true, invisible = true },
 }
+-- The job modules' behaviors, each before the one it names (core/jobs.lua): Rolls, runes
+-- and Geomancy before buffs, songs after them, maneuvers after sending the pet in.
+for _, list in jobs.each('behaviors') do
+    for _, b in ipairs(list) do
+        local at
+        for i, x in ipairs(engine.BEHAVIORS) do if x.name == b.before then at = i end end
+        assert(at, 'a job behavior goes before an unknown one: ' .. tostring(b.before))
+        local e = util.shallow_copy(b)
+        e.before = nil
+        table.insert(engine.BEHAVIORS, at, e)
+    end
+end
 
 local GATES = { 'loading', 'dead', 'mounted', 'safe', 'afk', 'incapacitated', 'casting', 'moving' }
 engine.EXPECT = 2  -- seconds a modifier's status is taken as on you once it's sent

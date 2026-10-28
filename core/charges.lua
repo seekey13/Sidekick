@@ -6,6 +6,8 @@
     charges it costs (a.charges, 1 if nil) are back, not only at a full pool.
 ]]--
 
+local util = require('core.util')
+
 local charges = {}
 charges.__index = charges
 
@@ -24,6 +26,14 @@ function charges:spends(a) return a.kind == self.kind and a.recast == self.recas
 function charges:banked(seconds, lv)
     local t = self:tier(lv)
     return t and math.max(0, t[2] - math.ceil(seconds / t[3])) or 0
+end
+
+-- Charges banked now, for a snapshot's jobs `g` and `timer(id)`, the seconds left on
+-- ability recast timer `id`; nil off the job.
+function charges:now(g, timer)
+    local lv = util.level(g, self.job)
+    if lv == 0 then return nil end
+    return self:banked(timer(self.recast), lv)
 end
 
 -- The wait until `n` charges (1 if nil) are banked, from the pool timer's seconds.

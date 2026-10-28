@@ -1,0 +1,8 @@
+# Release builds hold only what Sidekick3 runs on, its README and LICENSE:
+#   git archive --format=zip --prefix=Sidekick3/ -o Sidekick3.zip HEAD
+/.gitattributes export-ignore
+/.gitignore export-ignore
+/.luacheckrc export-ignore
+/docs export-ignore
+/tests export-ignore
+/tools export-ignore

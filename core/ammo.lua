@@ -45,7 +45,7 @@ function ammo.equip(a, g, cfg, mem, why)
     local tried = mem.ammo_tried[a.name]
     if tried and tried.into == into and tried.n >= ammo.TRIES then return nil end
     local name, english = util.spelled(it.en, it.jp, cfg.ui.japanese)
-    return { command = ('/equip ammo "%s" %d'):format(name, it.bag), english = english or nil, action = { name = it.en },
+    return { command = ('/equip ammo "%s" %d'):format(name, it.bag), english = english or nil, action = { name = it.en, jp = it.jp },
              why = ('for %s: %s'):format(a.name, why),
              sent = function (now)
                  mem.ammo_at = now

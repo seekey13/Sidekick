@@ -180,6 +180,15 @@ if not fonts.ready then
 end
 ```
 
+**Japanese.** Segoe UI has no kana or kanji. On a Japanese client every face is one Japanese family instead, as
+VanaCore's own Japanese windows do: Meiryo (`meiryo.ttc`, its bold `meiryob.ttc` for the semibold and italic faces,
+since Japanese has no italic), else Yu Gothic (`YuGothM.ttc`, `YuGothB.ttc`), else MS Gothic (`msgothic.ttc`). ImGui 1.92
+adds each glyph as it's drawn, so no glyph ranges are given. 1.81 takes fonts only at load and bakes no kanji unless
+asked for them then, so there every face is the Japanese font Ashita's boot config adds (`[ashita.imgui.fonts]` with
+`is_jp`), found by its kana; without one the UI stays English. Japanese has no spaces: a wrapped line breaks between
+any two characters, never before closing punctuation (、。）」！？ー) nor after an opening bracket (（「『). Spaced
+capitals (`text_spaced`) space kanji as they do letters.
+
 **Measuring.** The same labels are measured every frame, so cache `CalcTextSize` by font, size and string. Clear the
 cache when the scale changes, and when it grows past a few thousand entries (live values keep adding new strings).
 
@@ -733,7 +742,7 @@ What differs from vana:
 | Font Awesome icons | Icons drawn in shapes (`kit.icon`: close, play, stop, cog, the chevrons), so no font has to carry them |
 | A typed number in a window beside the main one | A popup by the value (`kit.slider`) |
 | Raw ImGui numbers | The constants `require('imgui')` defines, each listed in `.luacheckrc`'s `read_globals` |
-| ImGui 1.92 only | 1.81 too (Ashita 4.16): Segoe UI added in Ashita's `load` event (`window.load` → `kit.bake`), as 1.81 locks its atlas during a frame; draw-list text drawn from the 18px bake at the size asked, measured by scaling `CalcTextSize`; ImGui's own items (tooltips, popups, the text field) sized with `SetWindowFontScale` inside their window (`kit.push_font`); `...` for the ellipsis, as the bake holds Latin-1 alone; `BeginChild`'s border bool; 1.81's corner flags. `IMGUI_VERSION_NUM` decides |
+| ImGui 1.92 only | 1.81 too (Ashita 4.16): Segoe UI added in Ashita's `load` event (`window.load` → `kit.bake`), as 1.81 locks its atlas during a frame; draw-list text drawn from the 18px bake at the size asked, measured by scaling `CalcTextSize`; ImGui's own items (tooltips, popups, the text field) sized with `SetWindowFontScale` inside their window (`kit.push_font`); `...` for the ellipsis, as the bake holds Latin-1 alone; Japanese in the font Ashita added at its start from its boot config (`[ashita.imgui.fonts]` with `is_jp`), found in `GetIO().Fonts.Fonts` by its kana and scaled from its size, `->` and `...` written where it lacks `→` and `…` (1.81's Japanese set does); `BeginChild`'s border bool; 1.81's corner flags. `IMGUI_VERSION_NUM` decides |
 | Sizes of §5 | `ui/window.lua`'s constants: a 390-wide page, fixed for every job, rows of 30 |
 | Search, sub-tabs, presets, section resets | Not drawn: Sidekick3's pages are short, and its view has no defaults to reset to |
 

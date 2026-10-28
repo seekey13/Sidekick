@@ -31,7 +31,6 @@ v2 described every job's spells and abilities by hand in 22 job files. v3 reads 
 /sk3 state              what Sidekick reads from the game: party, trusts, buffs, target, flags
 /sk3 catalog [unknown]  what it can automate for your job, by role (or what it can't)
 /sk3 log                print each action as it's sent (off unless debugging)
-/sk3 dump               write the client's spell/ability/status data to tests/data/
 ```
 
 The HUD (`/sk3`) shows the party as Sidekick reads them, and what it will do next:
@@ -59,7 +58,16 @@ Drag the HUD where you want it; Lock position keeps it there. Its panel, title a
 - **Recover**: MP and TP lines (and the TP Chivalry spends from); resting for MP out of combat after a few quiet seconds, standing at full MP or when the leader leaves.
 - **Tracked**: the players you track, each with Untrack, and Track for your target when it's a player outside your party and alliance.
 - **AFK**: **AFK sleep** (on by default, as v2's), while running, pauses automation once no one in your party (you, its players and trusts) has moved and there has been no combat for Sleep after (10 minutes), and says so in chat; your own movement wakes it, never a pull, since a fight is no proof you're back; with Follow on, so does the leader getting further than its distance, so you keep following. A pause, not a stop: automation stays running and nothing is saved. The section says how long is left, and the HUD's title tooltip says `[AFK asleep]` while it sleeps. The wait starts over when you start automation (from another box too, which wakes it), change job or change the minutes; being zoned or teleported by someone else doesn't wake it.
-- **UI / Log**: the HUD's bar and font sizes, spacing and lock; the widget and its size; Sidekick Settings' size (100% suits your screen); the last 10 actions sent, and why; Japanese client, shared by every job pair as the HUD is: spell, ability and item names (and the gather line) go out in Japanese, and Sidekick warns once in chat about any name the client has no Japanese spelling for, since it then goes out in English.
+- **UI / Log**: the HUD's bar and font sizes, spacing and lock; the widget and its size; Sidekick Settings' size (100% suits your screen); the last 10 actions sent, and why; Japanese client, shared by every job pair as the HUD is: spell, ability and item names (and the gather line) go out in Japanese, and Sidekick warns once in chat about any name the client has no Japanese spelling for, since it then goes out in English. Sidekick is then in Japanese too: the HUD, the widget and Sidekick Settings (every label, tooltip and button, the spells, abilities, items and statuses by the client's own Japanese names, jobs as 白75/黒37), and its chat replies. Under VanaCore's default libraries (ImGui 1.92) the window draws Japanese in Meiryo, else Yu Gothic or MS Gothic, from Windows' fonts. On Ashita 4.16 (ImGui 1.81) an addon can't add a font with kana and kanji itself, so Ashita has to, at its start: copy `meiryo.ttc` (or `YuGothM.ttc`) from `C:\Windows\Fonts` to `Ashita\resources\fonts\`, add this to your boot config (`Ashita\config\boot\<yours>.ini`) and restart the game. Agave at its three sizes is Ashita's own font, listed first so every other addon looks as it did; a second Japanese font at the same size (`meiryob.ttc`) is taken for the bold. Ashita loads ImGui 1.81's Japanese set, the 2,999 common kanji, so a word with a rarer one shows `?` for it (麻痺, 空蝉の術, 咆哮: 37 of the client's 2,840 spell, ability and status names), and Sidekick writes `->` and `...` for the `→` and `…` it lacks. Without a Japanese font the window stays in English and UI / Log says why, while names still go out in Japanese. The commands keep their English words (`/sk3 start`, `buff`, `track`...). A trust's, pet's or mob's name, which a Japanese client gives in Japanese, shows as it should in either language.
+
+  ```ini
+  [ashita.imgui.fonts]
+  font0.family = Agave
+  font0.size   = 18,24,32
+  font1.family = meiryo.ttc
+  font1.size   = 18
+  font1.is_jp  = true
+  ```
 
 Each row turns a family on or off and says whether it's ready or why not.
 
@@ -88,4 +96,4 @@ luacheck .
 
 Sidekick3 is free software under the GNU General Public License, version 3 or (at your option) any later version: see [LICENSE](LICENSE). Copyright (c) 2026 Seekey.
 
-Its UI kit (`ui/kit.lua`) and Sidekick Settings' layout (`ui/window.lua`) are based on VanaCore's `/vana` window (`addons/vanacore/vana/draw.lua` and `vana.lua`, Copyright (C) 2026 Vekien, GPL-3.0-or-later). Sidekick3 is not VanaCore, and isn't made or endorsed by Vekien; VanaCore's name and logo aren't licensed with it. `tests/data/` is dumped from the game client's data (`/sk3 dump`) and isn't covered by this licence.
+Its UI kit (`ui/kit.lua`) and Sidekick Settings' layout (`ui/window.lua`) are based on VanaCore's `/vana` window (`addons/vanacore/vana/draw.lua` and `vana.lua`, Copyright (C) 2026 Vekien, GPL-3.0-or-later). Sidekick3 is not VanaCore, and isn't made or endorsed by Vekien; VanaCore's name and logo aren't licensed with it. `tests/data/` is dumped from the game client's data and isn't covered by this licence.

@@ -4,17 +4,16 @@
     One row per family (the name without its tier: "Cure IV" -> Cure), shared by
     every job, so the Cure row covers WHM, RDM, PLD and SCH alike. Level, cost,
     recast, range, targets, element and SCH's Addendum gate all come from the
-    DATs; see core/catalog.lua. A family with no row is not automated.
+    DATs; see core/catalog.lua. A family with no row is not automated. Rows a job
+    module acts on itself, or that need its code, are in the module (core/jobs.lua).
 
     A row is one use, or a list of uses when one action does several jobs
     (Chakra heals and cures). An exact name ("Healing Ruby II") beats its family.
 
     role       heal | pet_heal | remove | pet_remove | pet_send | emergency | revive | roll |
                recover | buff | modifier | geo | rune | ward | maneuver | song
-               (geo: the luopan's spells and abilities, jobs/geo.lua's)
-               (rune, ward: Rune Fencer's runes and the abilities that read them, jobs/run.lua's)
-               (maneuver: Puppetmaster's, on you for the automaton, jobs/pup.lua's)
-               (song: Bard's songs, jobs/brd.lua's)
+               (roll, geo, rune, ward, maneuver and song: a job module's, jobs/cor.lua,
+               geo.lua, run.lua, pup.lua and brd.lua)
                (a modifier is a JA fired just before the spell it changes: core/engine.lua)
                (a heal's area comes from the DAT: Curaga is a heal like Cure)
     status     what a buff shows: status name (lowest id with that name wins), id,
@@ -73,17 +72,16 @@
     unbridled  blue magic cast through Unbridled Learning, never set (jobs/blu.lua)
     chip       a modifier's short label on a buff row
     luopan     'buff' | 'debuff': a Geo- spell, put down as a luopan; 'spend': spends
-               the luopan (Radial Arcana), which jobs/geo.lua decides when
+               the luopan (Radial Arcana)
+    decide     function (a, g, cat, cfg, mem): a recover row that decides for itself
+               what to send for it (Radial Arcana, jobs/geo.lua)
     lucky      a Phantom Roll's lucky and unlucky totals (jobs/cor.lua)
     unlucky
     rune       { element, resist, ailments }: what a rune adds, resists and defends
                against, as Runes shows it (jobs/run.lua)
 ]]--
 
-local blu = require('jobs.blu')
-local geo = require('jobs.geo')
-local run = require('jobs.run')
-local sch = require('jobs.sch')
+local jobs = require('core.jobs')
 
 -- Status sets for removals (ids: several names repeat in the status table).
 local CURSE    = { 9, 15, 20, 30 }  -- Curse, Doom, Curse II, Bane
@@ -112,7 +110,6 @@ local BST, SMN, PUP, SCH = 9, 15, 18, 20
 local LIGHT = { 'Light Arts', 'Addendum: White' }
 local DARK = { 'Dark Arts', 'Addendum: Black' }
 local SAMBA = { role = 'buff', gate = 'combat', pick_one = 'samba', blocked_by = 'Fan Dance' }
-local function SONG(status, note) return { role = 'song', status = status, note = note, duration = 120 } end
 local FINISHING_5 = { 'Finishing Move (5)', 'Finishing Move (6+)' }  -- five or more (jobs/dnc.lua)
 
 local K = {
@@ -151,11 +148,7 @@ local K = {
     ['Contradance']  = { role = 'emergency', boost = { 'waltz', 2 } },
     ['Apogee']       = { role = 'emergency', pet = { 'Carbuncle' } },
     ['Rapture']      = { role = 'emergency', requires = LIGHT, boost = { 'healing', 1.5 }, learn = { [SCH] = 55 } },
-    ['Accession'] = {
-        { role = 'emergency', requires = LIGHT, boost = { 'healing', area = 10, mp = 2, tiers = 4 }, learn = { [SCH] = 40 } },
-        { role = 'modifier', requires = LIGHT, applies = sch.spreads, spreads = { area = 10, mp = 2 },
-          chip = 'Acc', note = 'on everyone near you, at twice the MP', learn = { [SCH] = 40 } },
-    },
+    -- Accession: jobs/sch.lua
     -- A merit: listed at 75 whether merited or not, sent only once the client lists it.
     ['Tranquility']  = { role = 'emergency', requires = LIGHT, learn = { [SCH] = 75 } },
 
@@ -192,8 +185,7 @@ local K = {
     ['Convert']          = { role = 'recover', priority = 100, costs_hp = true, swaps = true },
     ['Chivalry']         = { role = 'recover', spends_tp = true },
     ['Devotion']         = { role = 'recover', costs_hp = true },
-    -- Spends the luopan: jobs/geo.lua decides when, for behaviors/recover.lua.
-    ['Radial Arcana']    = { role = 'recover', main_only = true, pet = true, priority = 90, luopan = 'spend' },
+    -- Radial Arcana: jobs/geo.lua
     ['Meditate']         = { role = 'recover', gives = 'tp', priority = 100, status = 801 },
     ['Reverse Flourish'] = { role = 'recover', gives = 'tp', priority = 100, requires = FINISHING_5 },
 
@@ -238,30 +230,14 @@ local K = {
     -- Bar-spells, enspells, spikes: below. Enspell II shows its own status ("Enfire II"), found by the full name.
     ['Dread Spikes'] = { role = 'buff' },
 
-    -- modifier: Scholar's stratagems, fired just before the spell (jobs/sch.lua) --
-    ['Penury']      = { role = 'modifier', requires = LIGHT, applies = sch.white, chip = 'Pen', note = 'half the MP', learn = { [SCH] = 10 } },
-    ['Celerity']    = { role = 'modifier', requires = LIGHT, applies = sch.white, chip = 'Cel', note = 'half the casting time', learn = { [SCH] = 25 } },
-    ['Perpetuance'] = { role = 'modifier', requires = LIGHT, applies = sch.enhancing, chip = 'Per', note = 'longer duration', learn = { [SCH] = 87 } },
-    ['Parsimony']   = { role = 'modifier', requires = DARK, applies = sch.black, chip = 'Par', note = 'half the MP', learn = { [SCH] = 10 } },
-    ['Alacrity']    = { role = 'modifier', requires = DARK, applies = sch.black, chip = 'Ala', note = 'half the casting time', learn = { [SCH] = 25 } },
+    -- modifier: Scholar's stratagems (Penury, Accession...) are jobs/sch.lua's.
     -- No chip: fired by itself for an Addendum spell you lack the Addendum for (core/catalog.lua).
     -- Under Dark Arts, as v2: under Light Arts, Addendum: White is the way in.
     ['Enlightenment'] = { role = 'modifier', requires = DARK, main_only = true },
 
-    -- Corsair: Phantom Rolls, kept up and Double-Upped by jobs/cor.lua, not as buff rows.
-    -- The note is what the roll gives; Double-Up and Fold are found by name.
-    ['Double-Up'] = { role = 'roll' },
-    ['Fold']      = { role = 'roll' },
-    ['Snake Eye'] = { role = 'modifier', note = 'the next die rolls 1' },  -- fired before a Double-Up
+    -- Corsair's Phantom Rolls, Double-Up, Fold and Snake Eye are jobs/cor.lua's.
 
-    -- Rune Fencer: the wards read the runes up (jobs/run.lua), in priority order as v2.
-    -- Valiance does nothing on you under Vallation; Vallation would replace a
-    -- party-wide Valiance with less (v2's rule); Liement stops both.
-    ['Vallation'] = { role = 'ward', priority = 3, status = 'Vallation', blocked_by = { 'Valiance', 'Liement' } },
-    ['Valiance']  = { role = 'ward', priority = 2, status = 'Valiance', blocked_by = { 'Vallation', 'Liement' } },
-    ['Pflug']     = { role = 'ward', priority = 1, status = 'Pflug' },
-    -- Fired before white enhancing magic, as a stratagem (not the Spikes, which are black).
-    ['Embolden']  = { role = 'modifier', applies = sch.enhancing, chip = 'Emb', note = 'more potent' },
+    -- Rune Fencer's runes, wards and Embolden are jobs/run.lua's.
 
     -- buff: Scholar -------------------------------------------------------------
     -- Light Arts first, ahead of healing: it makes white magic cheaper and opens
@@ -277,57 +253,7 @@ local K = {
     },
     -- Storms: below.
 
-    -- song: Bard's songs, sung on you and everyone near you, or on one member through
-    -- Pianissimo (jobs/brd.lua's, not buff rows). The status is the song's kind (Minuet...).
-    -- The duration (120s, LSB's base) is what a trust's statuses expire by: their wear-offs go missing.
-    ['Valor Minuet']       = SONG('Minuet', '+ATK'),
-    ['Knight\'s Minne']    = SONG('Minne', '+DEF'),
-    ['Army\'s Paeon']      = SONG('Paeon', '+Regen'),
-    ['Mage\'s Ballad']     = SONG('Ballad', '+Refresh'),
-    ['Sword Madrigal']     = SONG('Madrigal', '+ACC'),
-    ['Blade Madrigal']     = SONG('Madrigal', '++ACC'),
-    ['Hunter\'s Prelude']  = SONG('Prelude', '+Rng Acc.'),
-    ['Archer\'s Prelude']  = SONG('Prelude', '++Rng Acc.'),
-    ['Advancing March']    = SONG('March', '+Haste'),
-    ['Victory March']      = SONG('March', '++Haste'),
-    ['Sheepfoe Mambo']     = SONG('Mambo', '+EVA'),
-    ['Dragonfoe Mambo']    = SONG('Mambo', '++EVA'),
-    ['Raptor Mazurka']     = SONG('Mazurka', '+Move Spd.'),
-    ['Chocobo Mazurka']    = SONG('Mazurka', '+Move Spd.'),
-    ['Adventurer\'s Dirge'] = SONG('Dirge', '-Enmity'),
-    ['Foe Sirvente']       = SONG('Sirvente', '+Enmity'),
-    ['Goddess\'s Hymnus']  = SONG('Hymnus', 'Reraise'),
-    ['Fowl Aubade']        = SONG('Aubade', '+Slow Res.'),
-    ['Herb Pastoral']      = SONG('Pastoral', '+Poison Res.'),
-    ['Shining Fantasia']   = SONG('Fantasia', '+Blind Res.'),
-    ['Scop\'s Operetta']   = SONG('Operetta', '+Silence Res.'),
-    ['Puppet\'s Operetta'] = SONG('Operetta', '+Silence Res.'),
-    ['Gold Capriccio']     = SONG('Capriccio', '+Pet. Res.'),
-    ['Warding Round']      = SONG('Round', '+Curse Res.'),
-    ['Goblin Gavotte']     = SONG('Gavotte', '+Bind Res.'),
-    ['Fire Carol']         = SONG('Carol', '+Fire Res.'),
-    ['Ice Carol']          = SONG('Carol', '+Ice Res.'),
-    ['Wind Carol']         = SONG('Carol', '+Wind Res.'),
-    ['Earth Carol']        = SONG('Carol', '+Earth Res.'),
-    ['Lightning Carol']    = SONG('Carol', '+Lightning Res.'),
-    ['Water Carol']        = SONG('Carol', '+Water Res.'),
-    ['Light Carol']        = SONG('Carol', '+Light Res.'),
-    ['Dark Carol']         = SONG('Carol', '+Dark Res.'),
-    ['Sinewy Etude']       = SONG('Etude', '+STR'),
-    ['Dextrous Etude']     = SONG('Etude', '+DEX'),
-    ['Vivacious Etude']    = SONG('Etude', '+VIT'),
-    ['Quick Etude']        = SONG('Etude', '+AGI'),
-    ['Learned Etude']      = SONG('Etude', '+INT'),
-    ['Spirited Etude']     = SONG('Etude', '+MND'),
-    ['Enchanting Etude']   = SONG('Etude', '+CHR'),
-    ['Herculean Etude']    = SONG('Etude', '++STR'),
-    ['Uncanny Etude']      = SONG('Etude', '++DEX'),
-    ['Vital Etude']        = SONG('Etude', '++VIT'),
-    ['Swift Etude']        = SONG('Etude', '++AGI'),
-    ['Sage Etude']         = SONG('Etude', '++INT'),
-    ['Logical Etude']      = SONG('Etude', '++MND'),
-    ['Bewitching Etude']   = SONG('Etude', '++CHR'),
-    ['Pianissimo'] = { role = 'modifier', note = 'the next song on one member' },  -- fired before a song (jobs/brd.lua)
+    -- Bard's songs and Pianissimo are jobs/brd.lua's.
     ['Troubadour']  = { role = 'buff', priority = 100 },
     ['Nightingale'] = { role = 'buff', priority = 100 },
 
@@ -354,20 +280,13 @@ local K = {
     ['Barrier Tusk']    = { role = 'buff', status = 'Physical Shield', area = 0 },
     ['O. Counterstance']= { role = 'buff', status = 'Counterstance' },
     ['Pyric Bulwark']   = { role = 'buff', unbridled = true },
-    -- Fired before a blue magic buff on you alone, it lands on your party near you (jobs/blu.lua).
-    ['Diffusion'] = { role = 'modifier', applies = blu.diffuses, spreads = { area = 10, mp = 1, others = true },
-                      chip = 'Dif', note = 'on everyone near you' },
+    -- Diffusion: jobs/blu.lua
     -- No chip: fired by itself before an Unbridled spell (core/catalog.lua); level 75 on CatsEyeXI.
     ['Unbridled Learning'] = { role = 'modifier', main_only = true },
 
-    -- buff: Geomancer's Indi- auras and the luopan's Geo- ones are filled in below, from geo.AURAS.
+    -- buff: Geomancer's Indi- auras and the luopan's Geo- ones are jobs/geo.lua's.
     ['Lasting Emanation']  = { role = 'buff', pick_one = 'geo_ja', label = 'Lasting Emanation (Duration)', main_only = true, pet = true, status = false },
     ['Ecliptic Attrition'] = { role = 'buff', pick_one = 'geo_ja', label = 'Ecliptic Attrition (Effect)', main_only = true, pet = true, status = false },
-
-    -- geo: Geomancer's luopan (jobs/geo.lua) ------------------------------------
-    ['Full Circle']    = { role = 'geo', main_only = true, pet = true, note = 'recall the luopan' },
-    ['Blaze of Glory'] = { role = 'geo', main_only = true, status = 'Blaze of Glory', note = 'before a luopan' },
-    ['Entrust']        = { role = 'geo', main_only = true, status = 'Entrust', note = 'an Indi- on a member' },
 
     -- buff: Ninja -----------------------------------------------------------------
     -- Each cast spends a tool from your inventory (Shihei, Shinobi-tabi, Sanjaku-tenugui; jobs/nin.lua).
@@ -444,49 +363,6 @@ for _, name in ipairs({
     K[name] = { role = 'buff', gate = 'combat' }
 end
 
--- Phantom Rolls: { note, lucky, unlucky } (v2's table). Each shows the status named like it.
-for name, r in pairs({
-    ['Corsair\'s Roll'] = { 'EXP+', 5, 9 },      ['Ninja Roll'] = { 'EVA+', 4, 8 },
-    ['Hunter\'s Roll'] = { 'ACC+', 4, 8 },       ['Chaos Roll'] = { 'ATK+', 4, 8 },
-    ['Magus\'s Roll'] = { 'MDEF+', 2, 6 },       ['Healer\'s Roll'] = { 'Cure+', 3, 7 },
-    ['Drachen Roll'] = { 'PACC+', 4, 8 },        ['Choral Roll'] = { 'SIR-', 2, 6 },
-    ['Monk\'s Roll'] = { 'SB+', 3, 7 },          ['Beast Roll'] = { 'PATK+', 4, 8 },
-    ['Samurai Roll'] = { 'STP+', 2, 6 },         ['Evoker\'s Roll'] = { 'Refresh+', 5, 9 },
-    ['Rogue\'s Roll'] = { 'CRIT+', 5, 9 },       ['Warlock\'s Roll'] = { 'MACC+', 4, 8 },
-    ['Fighter\'s Roll'] = { 'DA+', 5, 9 },       ['Puppet Roll'] = { 'PMAG+', 3, 7 },
-    ['Gallant\'s Roll'] = { 'DMG Reflect', 3, 7 }, ['Wizard\'s Roll'] = { 'MATK+', 5, 9 },
-    ['Dancer\'s Roll'] = { 'Regen+', 3, 7 },     ['Scholar\'s Roll'] = { 'CMP+', 2, 6 },
-    ['Naturalist\'s Roll'] = { 'Enhancing+', 3, 7 }, ['Runeist\'s Roll'] = { 'MEVA+', 4, 8 },
-    ['Companion\'s Roll'] = { 'Pet Regain & Regen', 2, 10 }, ['Bolter\'s Roll'] = { 'Move Speed+', 3, 9 },
-    ['Caster\'s Roll'] = { 'Fast Cast+', 2, 7 },
-}) do
-    K[name] = { role = 'roll', note = r[1], lucky = r[2], unlucky = r[3] }
-end
-
--- Puppetmaster's maneuvers: each shows the status named like it; Overload stops them all.
-for _, e in ipairs({ 'Fire', 'Ice', 'Wind', 'Earth', 'Thunder', 'Water', 'Light', 'Dark' }) do
-    local name = e .. ' Maneuver'
-    K[name] = { role = 'maneuver', pet = true, status = name, blocked_by = 'Overload', learn = { [PUP] = 1 } }
-end
-
--- Rune Fencer's runes: each shows the status named like it.
-for _, r in ipairs(run.RUNES) do
-    K[r[1]] = { role = 'rune', status = r[1], rune = { element = r[2], resist = r[3], ailments = r[4] } }
-end
-
--- Geomancer: an Indi- aura is on you, a Geo- one on a luopan (jobs/geo.lua); both show
--- the same status. An offensive Indi- shows only "Colure Active" on you; an offensive
--- Geo- goes on your battle target, where nothing can be read.
-for name, status in pairs(geo.AURAS) do
-    local priority = name == 'Refresh' and 50 or nil
-    K['Indi-' .. name] = { role = 'buff', pick_one = 'indi', status = status, priority = priority }
-    K['Geo-' .. name] = { role = 'geo', pick_one = 'geo', luopan = 'buff', main_only = true, status = status, priority = priority }
-end
-for _, name in ipairs(geo.DEBUFFS) do
-    K['Indi-' .. name] = { role = 'buff', pick_one = 'indi', status = geo.COLURE }
-    K['Geo-' .. name] = { role = 'geo', pick_one = 'geo_debuff', luopan = 'debuff', main_only = true, status = false }
-end
-
 -- Absorb- spells (DRK): drain a stat off your battle target onto you.
 for name, status in pairs({
     STR = 'STR Boost', DEX = 'DEX Boost', VIT = 'VIT Boost', AGI = 'AGI Boost',
@@ -496,5 +372,13 @@ for name, status in pairs({
 end
 K['Absorb-Attri'] = { role = 'buff', pick_one = 'absorb', status = false }
 K['Absorb-TP']    = { role = 'buff', pick_one = 'absorb', status = false }
+
+-- The job modules' own rows (core/jobs.lua).
+for _, rows in jobs.each('knowledge') do
+    for name, row in pairs(rows) do
+        assert(K[name] == nil, 'a job module repeats a knowledge row: ' .. name)
+        K[name] = row
+    end
+end
 
 return K

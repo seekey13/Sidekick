@@ -15,8 +15,9 @@
     engine. Accession instead spreads the spell from you to the row's targets in
     your party near you, at twice the MP, and is held for the group like an area
     spell; Diffusion likewise, but only while someone but you lacks it. With Hold on
-    (rows[key].hold) a row waits while any of its modifiers can't go with it. With
-    heal.reserve on, buff rows never spend the last stratagem charge.
+    (rows[key].hold) a row waits while any of its modifiers can't go with it, or
+    while there aren't charges for them all (a job module's `short`). With
+    heal.reserve on, buff rows never spend the last stratagem charge (a job module's `spare`).
 
     Stages: buff.first runs the rows whose action goes `first` (Light Arts,
     Addendum: White) ahead of healing, unless a member is under their critical line;
@@ -29,13 +30,44 @@
 local ammo = require('core.ammo')
 local can = require('core.can')
 local heal = require('behaviors.heal')
-local nin = require('jobs.nin')
-local sch = require('jobs.sch')
 local settings = require('core.settings')
 local status = require('core.status')
 local util = require('core.util')
 
 local buff = {}
+
+-- core.jobs is required on first use, not above: a job module (jobs/cor.lua) requires this file.
+local jobs
+local function hooks(field)
+    jobs = jobs or require('core.jobs')
+    return jobs.each(field)
+end
+
+-- Whether a buff row may spend `a` now, by every job module's `spare` (core/jobs.lua).
+local function spare(a, g, cfg)
+    for _, f in hooks('spare') do
+        if not f(a, g, cfg) then return false end
+    end
+    return true
+end
+
+-- When modifiers `mods` fired together need more charges than there are, the one to
+-- name, by every job module's `short` (core/jobs.lua); nil when there are enough.
+local function short(mods, g, cfg)
+    for _, f in hooks('short') do
+        local m = f(mods, g, cfg)
+        if m then return m end
+    end
+end
+
+-- A self buff `a` up on you that's due again anyway (Utsusemi at its last shadow), by
+-- the job modules' `renew` (core/jobs.lua): why, and a status to cancel into the cast.
+local function renew(a, g, cfg)
+    for _, f in hooks('renew') do
+        local why, cancel = f(a, g, cfg)
+        if why then return why, cancel end
+    end
+end
 
 local AREA_RADIUS = 10  -- yalms around you
 local OTHERS_FIRST = 15  -- seconds your own Invisible waits at most for other work pending
@@ -100,35 +132,32 @@ end
 local function spreading(c, g, cfg)
     local others, acc = {}, nil
     for _, m in ipairs(c.mods) do
-        if m.spreads then acc = m elseif sch.spare(m, g, cfg) then others[#others + 1] = m end
+        if m.spreads then acc = m elseif spare(m, g, cfg) then others[#others + 1] = m end
     end
     local a = c.action
     if acc and not can.reach(a, g.me) then acc = nil end
-    if acc and not can.any(g.me.buffs, acc.status) and not (sch.spare(acc, g, cfg) and can.use(acc, g)
+    if acc and not can.any(g.me.buffs, acc.status) and not (spare(acc, g, cfg) and can.use(acc, g)
         and (a.mp or 0) * acc.spreads.mp <= g.me.mp) then acc = nil end
     return acc, others
 end
 
 -- With its Hold on, the modifier a row waits for, or nil: one not on you that
--- isn't spare and usable, or more stratagems to fire than charges to spend
--- (as v2). Accession counts only when the spell would spread (`spreads`); `acc`
--- is it when it can.
+-- isn't spare and usable, or more to fire than charges to spend (as v2).
+-- Accession counts only when the spell would spread (`spreads`); `acc` is it
+-- when it can.
 local function held(c, acc, spreads, g, cfg)
     if not c.hold then return nil end
-    local charges, first = 0, nil
+    local firing = {}
     for _, m in ipairs(c.mods) do
         local up = can.any(g.me.buffs, m.status)
         if m.spreads then
             if spreads and not acc then return m end
-        elseif not up and not (sch.spare(m, g, cfg) and can.use(m, g)) then
+        elseif not up and not (spare(m, g, cfg) and can.use(m, g)) then
             return m
         end
-        if not up and sch.POOL:spends(m) and (spreads or not m.spreads) then
-            charges, first = charges + 1, first or m
-        end
+        if not up and (spreads or not m.spreads) then firing[#firing + 1] = m end
     end
-    local spare = g.stratagems and g.stratagems - (cfg.heal.reserve and 1 or 0)
-    if spare and charges > spare then return first end
+    return short(firing, g, cfg)
 end
 
 -- Whether `a` makes whoever it lands on Invisible.
@@ -171,7 +200,7 @@ local function due(g, cat, cfg, mem, stage)
             local intent = ammo.equip(a, g, cfg, mem, ('%s lacks it'):format(g.me.name))
             if intent then return intent end
         end
-        if (a.travel or not invisible) and can.use(a, g) and sch.spare(a, g, cfg) then
+        if (a.travel or not invisible) and can.use(a, g) and spare(a, g, cfg) then
             local acc, mods = spreading(c, g, cfg)
             if not c.on_me then acc = nil end  -- a spread lands on you too
             -- Accession on, and someone near you it would reach lacks it (for a
@@ -206,12 +235,9 @@ local function due(g, cat, cfg, mem, stage)
                         return { action = a, mods = mods, why = ('%s lacks it'):format(near.name) }
                     end
                 elseif can.self_only(a) then
-                    local shadows = nin.shadows(a, cfg)
-                    if c.on_me and lacks(a, g.me, shadows) then
-                        local up = shadows and g.me.buffs[a.last_shadow]
-                        local last = up and a.tier == 1 and a.last_shadow or nil  -- Ichi alone needs it gone
-                        local why = up and '%s: one shadow left' or '%s lacks it'
-                        return { action = a, mods = mods, why = why:format(g.me.name), cancel = last }
+                    local why, cancel = renew(a, g, cfg)
+                    if c.on_me and (why or lacks(a, g.me)) then
+                        return { action = a, mods = mods, why = (why or '%s lacks it'):format(g.me.name), cancel = cancel }
                     end
                 else
                     for _, u in ipairs(g.units) do

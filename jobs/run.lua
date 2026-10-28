@@ -11,6 +11,8 @@
 ]]--
 
 local can = require('core.can')
+local lang = require('core.lang')
+local sch = require('jobs.sch')
 local settings = require('core.settings')
 local slots = require('core.slots')
 local util = require('core.util')
@@ -87,6 +89,72 @@ function run.want(g, cat, cfg)
     end
     local missing = run.missing(slots.picked(cfg.rune, 'idle', runes, n), g.me)
     if missing and can.use(missing, g) then return { action = missing, why = 'idle' } end
+end
+
+-- Knowledge (core/knowledge.lua says what each field means) --------------------
+
+local K = {
+    -- The wards read the runes up, in priority order as v2. Valiance does nothing on
+    -- you under Vallation; Vallation would replace a party-wide Valiance with less
+    -- (v2's rule); Liement stops both.
+    ['Vallation'] = { role = 'ward', priority = 3, status = 'Vallation', blocked_by = { 'Valiance', 'Liement' } },
+    ['Valiance']  = { role = 'ward', priority = 2, status = 'Valiance', blocked_by = { 'Vallation', 'Liement' } },
+    ['Pflug']     = { role = 'ward', priority = 1, status = 'Pflug' },
+    -- Fired before white enhancing magic, as a stratagem (not the Spikes, which are black).
+    ['Embolden']  = { role = 'modifier', applies = sch.enhancing, chip = 'Emb', note = 'more potent' },
+}
+-- The runes: each shows the status named like it.
+for _, r in ipairs(run.RUNES) do
+    K[r[1]] = { role = 'rune', status = r[1], rune = { element = r[2], resist = r[3], ailments = r[4] } }
+end
+run.knowledge = K
+
+-- Runes before the luopan, as v2.
+run.behaviors = { { name = 'rune', run = run.want, before = 'geo', quick = true } }
+
+-- Each set's rune per slot, by name ('' for none): idle_1..3, then vallation_,
+-- valiance_ and pflug_. Every slot starts empty.
+run.settings = { rune = { on = true } }
+for _, set in ipairs(run.SETS) do
+    for i = 1, run.SLOTS do run.settings.rune[set.key .. '_' .. i] = '' end
+end
+
+-- Sidekick Settings: Runes, for a job with runes (ui/model.lua).
+run.ui = { section = { id = 'rune', title = 'Runes', header = 'Buff', before = 'pet' }, set = {} }
+for _, set in ipairs(run.SETS) do
+    for i = 1, run.SLOTS do run.ui.set[slots.path('rune', set.key, i)] = 'name' end
+end
+
+-- The view's `rune`: the runes to pick from, and each set's picks: Idle, then each
+-- ward you have, with its switch (its row) and whether it's ready; and whether it's shown.
+function run.ui.view(cat, cfg, g, help)
+    local mine, wards = run.actions(cat)
+    local lv = util.level(g, run.JOB)
+    local out = { slots = lv > 0 and run.slots(lv) or 0, runes = {}, sets = {} }
+    for _, r in ipairs(run.RUNES) do
+        local a = mine[r[1]]
+        if a then
+            out.runes[#out.runes + 1] = { name = a.name, label = lang.name(a.name, a.jp), element = lang.t(a.rune.element),
+                                          resist = lang.t(a.rune.resist), ailments = lang.t(a.rune.ailments) }
+        end
+    end
+    if not out.runes[1] then return out, false end
+    local ward = {}
+    for _, w in ipairs(wards) do ward[w.name] = w end
+    for _, set in ipairs(run.SETS) do
+        local w = set.ward and ward[set.ward]
+        if not set.ward or w then
+            local e = { key = set.key, label = set.label and lang.t(set.label) or lang.name(w.name, w.jp), shows = set.shows, ward = w and w.name,
+                        picks = slots.names(cfg.rune, set.key, run.SLOTS) }
+            if w then
+                local r = settings.row(cfg, w)
+                e.on = r.on == true
+                e.ready, e.avail = help.ready({ w }, r, g)
+            end
+            out.sets[#out.sets + 1] = e
+        end
+    end
+    return out, true
 end
 
 return run

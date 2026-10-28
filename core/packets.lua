@@ -6,22 +6,19 @@
         (core/buffs.lua),
       - what your own heals restored and where your Regens landed (core/observed.lua),
       - a /check's answer: a tracked player's jobs and levels (core/tracked.lua),
-      - your Phantom Rolls' totals (jobs/cor.lua),
-      - who your songs landed on (jobs/brd.lua),
-      - your automaton's name (jobs/pup.lua),
-      - your Blue Mage's set spells (jobs/blu.lua).
+      - for the job modules (core/jobs.lua): your own job abilities' results on you
+        (`ability`: Phantom Rolls), who your spells landed on and for how long
+        (`spell`, `lasts`: songs), and your jobs' extended data (`extended`: your
+        automaton's name, your Blue Mage's set spells).
     Message ids and bit layouts verified against the CatsEyeXI server
     (src/map/packets/s2c/0x028_battle2.cpp, 0x0c9_equip_inspect_general.h, 0x044_extended_job_pup.h, 0x044_extended_job_blu.h,
     msg_std.h / msg_basic.h).
 ]]--
 
-local blu = require('jobs.blu')
-local brd = require('jobs.brd')
 local buffs = require('core.buffs')
-local cor = require('jobs.cor')
+local jobs = require('core.jobs')
 local observed = require('core.observed')
 local players = require('core.tracked')  -- the players you track
-local pup = require('jobs.pup')
 local status = require('core.status')
 
 local packets = {}
@@ -101,11 +98,19 @@ local function parse_action(e)
     return limit ~= 0 and p or nil
 end
 
+-- How long your spell `a` lasts as it lands, when a job module knows (core/jobs.lua: `lasts`).
+local function lasting(a, ctx)
+    for _, f in jobs.each('lasts') do
+        local s = f(a, ctx)
+        if s then return s end
+    end
+end
+
 -- A parsed 0x028 (tests hand one in directly).
 -- ctx: { me = your server id, pet = your pet's or nil, tracks = { [server id] = true }
 -- for units whose statuses come from packets, duration = function(spell id) -> seconds or nil,
--- song = function(spell id) -> the song's catalog record or nil, buffs = yours, slots = your songs per target,
--- removes = function(observed.key) -> the status ids your remover clears and whether it's Esuna's
+-- spell = function(spell id) -> your spell's catalog record or nil, buffs = yours, slots = your songs per target
+-- (jobs/brd.lua), removes = function(observed.key) -> the status ids your remover clears and whether it's Esuna's
 -- kind (cast on you, clearing on those near only what you have too), or nil }
 function packets.action(p, ctx, now)
     if p.actor == ctx.me and p.category ~= 1 then  -- 1 = auto-attack, says nothing
@@ -122,15 +127,15 @@ function packets.action(p, ctx, now)
     local kind = KIND[p.category]
     local key = kind and p.actor == (kind == 'pet' and ctx.pet or ctx.me)
         and kind .. (kind == 'ma' and p.param or p.param + ABILITY_BASE)
-    local song = p.actor == ctx.me and p.category == SPELL_FINISH and ctx.song and ctx.song(p.param)
+    local mine = p.actor == ctx.me and p.category == SPELL_FINISH and ctx.spell and ctx.spell(p.param)
     local clears, shared
     if key and kind ~= 'pet' and ctx.removes then clears, shared = ctx.removes(key) end  -- your remover's
-    local sung = {}  -- who your song landed on
+    local landed = {}  -- who your spell landed on
     for _, t in ipairs(p.targets) do
         local tracked = ctx.tracks[t.id]
         for _, r in ipairs(t.results) do
             if kind == 'ja' and p.actor == ctx.me and t.id == ctx.me then
-                cor.rolled(p.param + ABILITY_BASE, r.param, r.message, now, r.info)
+                for _, f in jobs.each('ability') do f(p.param + ABILITY_BASE, r.param, r.message, now, r.info) end
             end
             if HEALS_028[r.message] then
                 if key then
@@ -141,10 +146,10 @@ function packets.action(p, ctx, now)
                 -- Only a spell's id names a catalog duration; an ability's or TP move's doesn't.
                 local spell = p.category == SPELL_FINISH
                 -- Your song lasts twice as long under Troubadour (jobs/brd.lua).
-                local lasts = song and brd.lasts(song, ctx.buffs) or spell and ctx.duration(p.param) or nil
+                local lasts = mine and lasting(mine, ctx) or spell and ctx.duration(p.param) or nil
                 if tracked then buffs.gain(t.id, r.param, now, lasts) end
                 if key and spell then observed.landed(key, t.id, now) end
-                if song then sung[#sung + 1] = t.id end
+                if mine then landed[#landed + 1] = t.id end
             elseif LOSES_028[r.message] and tracked then
                 buffs.lose(t.id, r.param)
                 if r.message == 83 and CURSES[r.param] then
@@ -164,7 +169,9 @@ function packets.action(p, ctx, now)
         end
     end
     if key then observed.done(key) end
-    if sung[1] then brd.landed(song, sung, now, ctx.buffs, ctx.slots) end
+    if landed[1] then
+        for _, f in jobs.each('spell') do f(mine, landed, now, ctx) end
+    end
 end
 
 local function on_message(e, ctx, now)
@@ -188,16 +195,12 @@ local function on_check(e)
         d:byte(0x22 + 1), d:byte(0x24 + 1), d:byte(0x23 + 1), d:byte(0x25 + 1))
 end
 
--- 0x044, the extended job data, one per job (main, then sub): for PUP the
--- automaton's name, 16 bytes at 0x58, NUL-padded (none when it's 16 long); for
--- BLU the set spells, a byte per slot at 0x08.
+-- 0x044, the extended job data, one per job (main, then sub), the job at 0x04:
+-- its module reads the rest (core/jobs.lua: `extended`).
 local function on_extended_job(e)
-    local d, job = e.data, e.data:byte(0x04 + 1)
-    if job == pup.JOB and #d >= 0x58 + 16 then
-        pup.named((d:sub(0x58 + 1, 0x58 + 16):match('^[^%z]*')))
-    elseif job == blu.JOB and #d >= 0x08 + blu.SLOTS then
-        blu.slots({ d:byte(0x08 + 1, 0x08 + blu.SLOTS) })
-    end
+    local d = e.data
+    if #d < 0x04 + 1 then return end
+    for _, f in jobs.each('extended', d:byte(0x04 + 1)) do f(d) end
 end
 
 function packets.handle(e, ctx, now)
@@ -217,7 +220,7 @@ function packets.handle(e, ctx, now)
         cast.active = false
         buffs.clear()
         observed.clear()
-        cor.clear()
+        for _, f in jobs.each('zone') do f() end
     end
 end
 
