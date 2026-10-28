@@ -239,6 +239,28 @@ test('stamps: one per song on each it landed on; one more than the slots pushes 
     eq(brd.stamps()[101], { ['Victory March'] = { at = 50, id = MARCH } })
 end)
 
+test('stamps: of two that would wear at once, the first by name goes, whatever the table\'s order', function ()
+    local real = pairs
+    for _, backwards in ipairs({ false, true }) do
+        rawset(_G, 'pairs', function (t)  -- the table's keys in order, or backwards
+            local keys = {}
+            for k in real(t) do keys[#keys + 1] = k end
+            table.sort(keys, function (x, y) if backwards then return x > y end return x < y end)
+            local i = 0
+            return function () i = i + 1; return keys[i], t[keys[i]] end
+        end)
+        local ok, err = pcall(function ()
+            brd.clear()
+            brd.landed(song('Valor Minuet IV'), { 1 }, 10, { [TROUBADOUR] = true }, 2)  -- doubled: ends 250
+            brd.landed(song('Victory March'), { 1 }, 130, {}, 2)                         -- ends 250 too
+            brd.landed(song('Mage\'s Ballad II'), { 1 }, 140, {}, 2)
+        end)
+        rawset(_G, 'pairs', real)
+        assert(ok, err)
+        eq({ brd.stamps()[1]['Valor Minuet IV'], brd.stamps()[1]['Victory March'].at }, { nil, 130 })
+    end
+end)
+
 test('Song Duration: a song is sung again that long after it landed, while it\'s still up', function ()
     local cfg = cfg_with({ area_1 = 'Valor Minuet IV' })
     cfg.song.duration = 100

@@ -79,9 +79,9 @@ function brd.landed(a, sids, now, buffs, stand)
             for _ in pairs(rows) do n = n + 1 end
             while n >= math.max(stand or brd.SLOTS, 1) do
                 local first, ends = nil, math.huge
-                for name, r in pairs(rows) do
+                for name, r in pairs(rows) do  -- two that end at once: the first by name, not by pairs' order
                     local e = r.at + a.duration * (r.double and 2 or 1)
-                    if e < ends then first, ends = name, e end
+                    if e < ends or e == ends and name < first then first, ends = name, e end
                 end
                 rows[first], n = nil, n - 1
             end
