@@ -18,10 +18,11 @@
     /sk3 "Bolter's Roll" (a roll's name; the quotes are optional) arms that roll now
     and Double-Ups it at lowest, so a Bust cannot happen: it stops on the lucky
     number, and otherwise on the highest total no die can bust, and Snake Eye still
-    turns a 10 into an 11. It goes with automation stopped and with Rolls switched
-    off, ahead of healing; between Double-Ups the rest goes as usual. While it runs,
-    the rolls kept up wait. Once it holds, that same total is not gambled on by a
-    higher Risk. mem.cor.shot is the roll until then; mem.cor.safe is the total held.
+    turns a 10 into an 11. It goes with automation stopped, in a town, and while
+    AFK sleep has paused it, and with Rolls switched off, ahead of healing; between
+    Double-Ups the rest goes as usual. While it runs, the rolls kept up wait. Once
+    it holds, that same total is not gambled on by a higher Risk. mem.cor.shot is
+    the roll until then; mem.cor.safe is the total held.
 ]]--
 
 local buff = require('behaviors.buff')
@@ -161,7 +162,8 @@ local function busy(mem, t) mem.busy_until = math.max(mem.busy_until or -math.hu
 local function up(a, g) return not can.lacks(a, g.me) end
 
 -- One commanded roll (/sk3 "Bolter's Roll"): cast it, then Double-Up at lowest until
--- it holds. Runs ahead of healing and while you rest, and with Rolls switched off.
+-- it holds. Runs ahead of healing, while you rest, with Rolls switched off, and
+-- while a town or AFK sleep has paused automation: you named it.
 -- A Bust already up is Folded first so the roll has a slot; a Bust of this roll ends
 -- it (Folded when Fold can go now). The total it holds is mem.cor.safe, so the risk
 -- picked does not gamble on that same roll.
@@ -345,8 +347,9 @@ cor.knowledge = K
 
 cor.behaviors = {
     -- Ahead of healing: the command asked for it now. `always` so Rolls may be off;
-    -- `resting` so it still goes while /heal is on (the roll stands you up).
-    { name = 'roll_shot', run = cor.shot, before = 'first', always = true, resting = true, shown = 'roll' },
+    -- `resting` so it still goes while /heal is on (the roll stands you up);
+    -- `manual` so a town or AFK sleep, the pauses, does not hold a roll you just named.
+    { name = 'roll_shot', run = cor.shot, before = 'first', always = true, resting = true, manual = true, shown = 'roll' },
     { name = 'roll', run = cor.want, before = 'buff' },
 }
 

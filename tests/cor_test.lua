@@ -483,6 +483,26 @@ test('the rolls kept up wait for a commanded roll\'s total, then go on without i
     eq(cor.pending(mem), false)
 end)
 
+test('a commanded roll goes in town and while AFK sleep has paused automation; the pause holds the rest', function ()
+    local hurt = { { name = 'A', hpp = 40 } }
+    for _, pause in ipairs({ 'safe', 'afk' }) do
+        local cfg, mem = cfg_with('Corsair\'s Roll'), {}
+        local g = snap({}, nil, nil, hurt, { [pause] = true })
+        eq({ decide(g, cfg, {}, shot_cat) }, { nil, pause }, pause)  -- the roll kept up, and the cure, stay paused
+        order(mem)
+        local cmd, intent = step(g, cfg, mem, shot_cat)
+        eq({ cmd, intent.once }, { '/ja "Bolter\'s Roll" <me>', true }, pause)
+        g = snap({ BOLTER, DOUBLE_UP_CHANCE }, { id = BOLTER_ID, total = 2, at = 1000.5 }, nil, hurt, { [pause] = true })
+        g.now = 1002
+        eq(step(g, cfg, mem, shot_cat), '/ja "Double-Up" <me>', pause)
+        g.now = 1004
+        eq({ decide(g, cfg, mem, shot_cat) }, { nil, pause }, pause)  -- between Double-Ups the pause holds the cure
+        eq(cor.pending(mem), true, pause)
+        g.casting = true
+        eq({ decide(g, cfg, mem, shot_cat) }, { nil, 'casting' }, pause)
+    end
+end)
+
 test('a commanded roll stays armed through its recast and through Invisible, and goes while you rest', function ()
     local cfg, mem = quiet(), {}
     order(mem)

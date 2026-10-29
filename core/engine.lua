@@ -1,6 +1,8 @@
 --[[
-    Decide the next action. The gates that stop everything (GATES, AFK sleep
-    among them) are checked once here; then each behavior, in priority order,
+    Decide the next action. The gates that stop everything (GATES) are checked
+    once here. A town and AFK sleep pause automation; a `manual` behavior still
+    runs through that pause (a roll you just named). Then each behavior, in priority
+    order,
     may return an intent:
         { action = catalog record, target = unit or nil (you / battle target), why = text }
     or, for what isn't a spell or ability (/heal, /follow, /equip):
@@ -38,9 +40,9 @@ local engine = {}
 
 -- Priority order. `quick` behaviors still run while a cure is held for; `setting`
 -- is the cfg table whose `on` switches it, when not its name; `always` runs with
--- that switch off; `shown` the name its intents go by (the HUD's 'Buff:', the log),
--- when not its own; `invisible` ones still run while you're Invisible (each narrows
--- itself then).
+-- that switch off; `manual` runs through a pause (a town, AFK sleep); `shown`
+-- the name its intents go by (the HUD's 'Buff:', the log), when not its own;
+-- `invisible` ones still run while you're Invisible (each narrows itself then).
 engine.BEHAVIORS = {
     -- Light Arts: ahead of healing, which is cheaper under it, but for a critical member (behaviors/buff.lua).
     { name = 'first', run = buff.first, setting = 'buff', shown = 'buff', invisible = true },
@@ -73,6 +75,7 @@ for _, list in jobs.each('behaviors') do
 end
 
 local GATES = { 'loading', 'dead', 'mounted', 'safe', 'afk', 'incapacitated', 'casting', 'moving' }
+local PAUSE = { safe = true, afk = true }  -- a town, AFK sleep: a manual behavior still runs
 engine.EXPECT = 2  -- seconds a modifier's status is taken as on you once it's sent
 engine.GATHER_EVERY = 5  -- seconds between asks to gather, as v2
 engine.CANCEL_AFTER = 1    -- seconds into the cast to cancel intent.cancel, as v2
@@ -113,12 +116,16 @@ end
 function engine.decide(g, cat, cfg, mem)
     mem.gather, mem.waiting = nil, nil
     g = expecting(g, mem)
+    local pause  -- the first of a town or AFK sleep; the reason while a manual behavior has nothing
     for _, gate in ipairs(GATES) do
-        if g[gate] then return nil, gate end
+        if g[gate] then
+            if not PAUSE[gate] then return nil, gate end
+            pause = pause or gate
+        end
     end
     local holding, invisible = false, g.me.buffs[status.INVISIBLE]
     for _, b in ipairs(engine.BEHAVIORS) do
-        if (b.resting or not g.resting) and (b.invisible or not invisible)
+        if (not pause or b.manual) and (b.resting or not g.resting) and (b.invisible or not invisible)
             and (b.always or cfg[b.setting or b.name].on) and (b.quick or not holding) then
             local intent = b.run(g, cat, cfg, mem)
             if intent and intent.hold then
@@ -132,7 +139,7 @@ function engine.decide(g, cat, cfg, mem)
     end
     local w, h = mem.gather, mem.waiting
     local away = w and (w.who.dist and ('%.1fy away'):format(w.who.dist) or 'not in sight')
-    return nil, g.resting and 'resting' or holding and 'waiting for a cure'
+    return nil, pause or g.resting and 'resting' or holding and 'waiting for a cure'
         or w and ('holding %s: %s %s'):format(w.action.name, w.who.name, away)
         or h and ('holding %s for %s'):format(h.action.name, h.mod.name)
         or invisible and 'invisible' or 'nothing to do'
