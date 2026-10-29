@@ -542,11 +542,13 @@ test('another session\'s pet is on its line: the HP % drawn, its MP % and TP fro
     local g = fake.snap({ { name = 'A', pet = carbuncle }, { name = 'B', pet = carbuncle } })  -- B is no session
     eq(build(whm, nil, g, st).party[2].pet,
        { name = 'Carbuncle', hpp = 70, dist = '6.0y', mpp = 0, tp = 0, pools = false, uses_mp = false })
-    st.sessions.A.pet = { sid = 0x1000701, mpp = 47, tp = 1750, uses_mp = true }
+    st.sessions.A.pet = { sid = 0x1000701, name = 'Carbuncle', mpp = 47, tp = 1750, uses_mp = true }
     local view = build(whm, nil, g, st)
     eq({ view.party[2].pet, view.party[3].pet, view.pet },
        { { name = 'Carbuncle', hpp = 70, dist = '6.0y', mpp = 47, tp = 1750, pools = true, uses_mp = true } })
     st.sessions.A.pet.sid = 0x1000700  -- its file still names the pet it swapped out: no one's numbers
+    eq(build(whm, nil, g, st).party[2].pet.pools, false)
+    st.sessions.A.pet.sid, st.sessions.A.pet.name = 0x1000701, 'Ifrit'  -- swapped out under the same id: nor here
     eq(build(whm, nil, g, st).party[2].pet.pools, false)
 end)
 

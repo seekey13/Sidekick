@@ -100,13 +100,13 @@ Text that may contain `%` (names, `why` text) must be escaped before it's drawn:
 | `hpp`, `mpp` | number | HP and MP, 0 to 100 |
 | `tp` | number | TP, 0 to 3000. Never a tracked player's: their TP can't be read (0). The standard HUD draws it as a bar of three parts, 1000 TP each, under the MP bar (under the HP bar when the MP bar is left out: `ui.hide_mp`), with `tag` on it |
 | `hp` | string | `'ok'`, `'low'` (under the danger line) or `'critical'` (under the critical line); the focus member's own lines for them |
-| `uses_mp` | bool | It has MP: yours when your max MP is over 0; another member's once it has been seen with MP on its current jobs. Never a tracked player's: their MP can't be read (`mpp` is 0) |
+| `uses_mp` | bool | It has MP: yours when your max MP is over 0; another member's when its main job or its sub job (at a level over 0) has MP (WHM, BLM, RDM, PLD, DRK, SMN, BLU, SCH, GEO, RUN), at 0 MP too, or once it has been seen with MP on its current jobs; the alliance's once seen with MP. Never a tracked player's: their MP can't be read (`mpp` is 0) |
 | `mp` | string | `'low'` when it uses MP and is under the Recover MP line (`view.recover.mp`), else `'ok'` |
 | `dist` | string | `''` for you, `'away'`, or like `'12.3y'` |
 | `buffs` | string | Its statuses, the first 6 by name and `'+N'` for the rest |
 | `buffs_all` | string | Every status, one per line (for a tooltip) |
 | `session` | table or nil | This player is another Sidekick session on this PC (a party member, a tracked player or one of the alliance; never you or a trust): `{ name, running, halted, open, profiles }`. `running`: its automation is on; `halted`: it's on but held, as `status.halted` (nil otherwise); `open`: its Sidekick Settings are shown here (`view.remote`); `profiles`: `{ active, names }` as `view.profiles`, that session's (`act.remote(name).profile` loads one there), or nil while unknown. The standard HUD puts a run icon and a cog on its card, as on yours |
-| `pet` | table or nil | Only on a line with `session` (not of the alliance): its pet, while your client draws it, `{ name, hpp, mpp, tp, dist, pools, uses_mp }` as `view.pet`. `hpp` and `dist` are your client's; `mpp`, `tp` and `uses_mp` come from that session's file, with `pools` true, while the file names this pet; until then (just called, or swapped for another) they're 0 and false, and `pools` false. The client reads MP and TP for your own pet only. The standard HUD gives it a card under that session's, as yours |
+| `pet` | table or nil | Only on a line with `session` (not of the alliance): its pet, while your client draws it, `{ name, hpp, mpp, tp, dist, pools, uses_mp }` as `view.pet`. `hpp` and `dist` are your client's; `mpp`, `tp` and `uses_mp` come from that session's file, with `pools` true, while the file names this pet (its id and name: a new pet may reuse the id); until then (just called, or swapped for another) they're 0 and false, and `pools` false. The client reads MP and TP for your own pet only. The standard HUD gives it a card under that session's, as yours |
 
 ### `view.heal`
 

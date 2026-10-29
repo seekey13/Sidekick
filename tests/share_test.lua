@@ -68,22 +68,25 @@ test('what its automation just sent reads back, no target when on itself; one th
     end
 end)
 
-test('its pet\'s MP % and TP, and whether it has MP, read back by the pet\'s id; none, and a pet line that won\'t read is no file', function ()
-    local pet = { sid = 0x1000700, mpp = 47, tp = 1750, uses_mp = true }
+test('its pet\'s MP % and TP, and whether it has MP, read back by the pet\'s id and name; none, and a pet line that won\'t read is no file', function ()
+    local pet = { sid = 0x1000700, name = 'Ifrit', mpp = 47, tp = 1750, uses_mp = true }
     local text = share.encode({ member(10, 'Box') }, true, 5, { pet = pet })
     eq(share.decode(text).pet, pet)
-    local wyvern = { sid = 0x1000701, mpp = 0, tp = 300, uses_mp = false }
-    eq(share.decode(share.encode({ member(10, 'Box') }, true, 5, { pet = wyvern })).pet, wyvern)
+    local sheep = { sid = 0x1000701, name = 'Wild Sheep', mpp = 0, tp = 300, uses_mp = false }  -- charmed: a name of two words
+    eq(share.decode(share.encode({ member(10, 'Box') }, true, 5, { pet = sheep })).pet, sheep)
     eq(share.decode(share.encode({ member(10, 'Box') }, true, 5)).pet, nil)
-    eq(share.decode((text:gsub('pet [^\n]+', 'pet 16777984 47 1750'))), nil)  -- cut short: as any line of no kind it knows
+    for _, cut in ipairs({ 'pet 16777984 47 1750', 'pet 16777984 47 1750 1', 'pet 16777984 47 1750 1 ' }) do
+        eq(share.decode((text:gsub('pet [^\n]+', cut))), nil, cut)  -- cut short: as any line of no kind it knows
+    end
 end)
 
-test('your pet is published while it lives: its id, MP % and TP, whether it has MP; none out, or one at 0%, is none', function ()
+test('your pet is published while it lives: its id, name, MP % and TP, whether it has MP; none out, one at 0%, or one not named yet, is none', function ()
     eq(share.pet(fake.snap({}, { pet = { sid = 0x1000700, name = 'Ifrit', hpp = 80, mpp = 60, tp = 1500, uses_mp = true } })),
-       { sid = 0x1000700, mpp = 60, tp = 1500, uses_mp = true })
+       { sid = 0x1000700, name = 'Ifrit', mpp = 60, tp = 1500, uses_mp = true })
     eq(share.pet(fake.snap({}, { pet = { sid = 0x1000700, name = 'Wyvern', hpp = 80, mpp = 0, tp = 1500 } })),
-       { sid = 0x1000700, mpp = 0, tp = 1500, uses_mp = false })
+       { sid = 0x1000700, name = 'Wyvern', mpp = 0, tp = 1500, uses_mp = false })
     eq(share.pet(fake.snap({}, { pet = { sid = 0x1000700, name = 'Ifrit', hpp = 0, mpp = 60, tp = 0 } })), nil)
+    eq(share.pet(fake.snap({}, { pet = { sid = 0x1000700, name = '', hpp = 80, mpp = 60, tp = 0 } })), nil)
     eq(share.pet(fake.snap({})), nil)
 end)
 
@@ -488,20 +491,30 @@ test('two sessions: what one\'s automation sends is in its file at once, read fo
     end)
 end)
 
-test('two sessions: one\'s pet is in its file, read four times a second while the other\'s HUD shows, stopped or not', function ()
+-- `g` with `name` (server id `sid`) in its party.
+local function with(g, sid, name)
+    g.units[#g.units + 1] = fake.unit({ kind = 'party', slot = #g.units, sid = sid, name = name })
+    return g
+end
+
+test('two sessions in a party: one\'s pet is in its file, written and read four times a second while the other\'s HUD shows', function ()
     two_sessions(function (a, b, files, DIR)
-        local ga, gb = in_game(1, 'Alpha'), in_game(2, 'Beta')
+        local ga, gb = with(in_game(1, 'Alpha'), 2, 'Beta'), with(in_game(2, 'Beta'), 1, 'Alpha')
         local sa, sb = { running = false, open = true, watching = {} }, { running = false, open = false, watching = {} }
         local h = { apply = function () end, view = function () end, act = idle }
         gb.pet = { sid = 0x1000700, name = 'Ifrit', hpp = 80, mpp = 60, tp = 500, uses_mp = true }
         a.tick(ga, 1, sa, h); b.tick(gb, 1, sb, h)
-        eq(share.decode(files[DIR .. 'session_Beta.txt']).pet, { sid = 0x1000700, mpp = 60, tp = 500, uses_mp = true })
-        a.tick(ga, 2, sa, h)  -- Alpha has read it: neither runs, but Beta's pet is out and Alpha's HUD shows
+        eq(share.decode(files[DIR .. 'session_Beta.txt']).pet,
+           { sid = 0x1000700, name = 'Ifrit', mpp = 60, tp = 500, uses_mp = true })
         gb.pet.tp = 1200
+        b.tick(gb, 1.25, sb, h)  -- Beta has read Alpha, in its party: its pet's TP is written as it moves
+        a.tick(ga, 2, sa, h)  -- Alpha has read it: neither runs, but Beta's pet is out and Alpha's HUD shows
+        eq(a.sessions.Beta.pet.tp, 1200)
+        gb.pet.tp = 1500
         b.tick(gb, 2, sb, h)
         a.tick(ga, 2.25, sa, h)
-        eq(a.sessions.Beta.pet.tp, 1200)
-        gb.pet = nil  -- dismissed: off at its next write, and Alpha back to every second
+        eq(a.sessions.Beta.pet.tp, 1500)
+        gb.pet = nil  -- dismissed: off at its next write, and both back to every second
         b.tick(gb, 3, sb, h)
         a.tick(ga, 3.25, sa, h)
         eq(a.sessions.Beta.pet, nil)
@@ -511,6 +524,14 @@ test('two sessions: one\'s pet is in its file, read four times a second while th
         eq(a.sessions.Beta.pet, nil)  -- not due: it read no pet at 3.25, so every second again
         a.tick(ga, 4.25, sa, h)
         eq(a.sessions.Beta.pet.sid, 0x1000701)
+        ga.units[2], gb.units[2] = nil, nil  -- apart: Alpha's HUD draws no pet of Beta's, so each every second again
+        b.tick(gb, 4.25, sb, h); a.tick(ga, 4.5, sa, h)
+        gb.pet.tp = 300
+        b.tick(gb, 4.5, sb, h)
+        eq(share.decode(files[DIR .. 'session_Beta.txt']).pet.tp, 0)  -- not due
+        b.tick(gb, 5.25, sb, h)
+        a.tick(ga, 4.75, sa, h); a.tick(ga, 5.25, sa, h)
+        eq(a.sessions.Beta.pet.tp, 0)  -- written, but not due
         a.close()
         b.close()
     end)

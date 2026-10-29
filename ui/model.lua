@@ -410,11 +410,12 @@ local function pet_line(e)
 end
 
 -- Another session's pet as the client draws it (`e`: an HP % alone), with its MP % and TP from that session's file
--- (`s`) while the file names this pet, and whether it has MP. Until then (just called, or swapped for another until
--- the next write) `pools` is false and they're 0, as a tracked player's: another pet's MP would be worse than none.
+-- (`s`) while the file names this pet, by id and name (a new pet may reuse the id), and whether it has MP. Until then
+-- (just called, or swapped for another until the next write) `pools` is false and they're 0, as a tracked player's:
+-- another pet's MP would be worse than none.
 local function their_pet(e, s)
     local p, f = entity(e), s.pet
-    p.pools = f ~= nil and f.sid == e.sid
+    p.pools = f ~= nil and f.sid == e.sid and f.name == e.name
     p.mpp, p.tp, p.uses_mp = p.pools and f.mpp or 0, p.pools and f.tp or 0, p.pools and f.uses_mp == true
     return p
 end

@@ -7,7 +7,8 @@
     decides from this snapshot alone, so tests can hand it a fake one.
 
     unit = { slot, sid, tidx, name, kind = 'self'|'party'|'trust'|'alliance'|'tracked', hpp, hp, max_hp,
-             mpp, mp, tp, uses_mp (yours: max MP > 0; others: seen with MP on these jobs),
+             mpp, mp, tp, uses_mp (yours: max MP > 0; your party's: a job with MP, main or
+             sub, or seen with MP on these jobs; the alliance's: seen with MP),
              max_known (max_hp is real: yours, or seen at full HP),
              jobs = { main, main_lv, sub, sub_lv } (you and your party's players),
              in_zone, dist, pos = { x, y, z },
@@ -54,6 +55,9 @@ local util = require('core.util')
 local game = {}
 
 local TRUST = 0x1000000  -- server ids from here up are NPCs; in a party slot, a trust
+-- The jobs with MP of their own: WHM, BLM, RDM, PLD, DRK, SMN, BLU, SCH, GEO, RUN.
+local MP_JOBS = { [3] = true, [4] = true, [5] = true, [7] = true, [8] = true, [15] = true, [16] = true, [20] = true,
+                  [21] = true, [22] = true }
 local DEAD, MOUNTED_STATUS, RESTING = 3, 5, 33  -- entity status
 local MOUNTED_BUFF, AMNESIA, REGEN = 252, 16, status.REGEN
 local SILENCED = { 6, 29 }                          -- Silence, Mute
@@ -464,9 +468,11 @@ local function member(party, player, em, i, zone, now)
     if i == 0 then
         u.uses_mp = player:GetMPMax() > 0
     else
+        -- A job with MP, main or sub: at 0 MP (just loaded, out of zone) a mage still has some. Else once seen with it.
         local key = ('%d %d/%d'):format(sid, party:GetMemberMainJob(i), party:GetMemberSubJob(i))
         if u.mp > 0 then has_mp[key] = true end
-        u.uses_mp = has_mp[key] == true
+        local j = u.jobs or {}
+        u.uses_mp = has_mp[key] == true or MP_JOBS[j[1]] == true or (j[4] or 0) > 0 and MP_JOBS[j[3]] == true
     end
     -- Never seen at full: estimate from HP%. Rough at low HP, good enough to score.
     u.max_hp = max_hp[sid] or (u.hpp > 0 and u.hp > 0 and math.floor(u.hp * 100 / u.hpp)) or nil
@@ -531,12 +537,12 @@ function game.read(now, idle)
     local jobs = jobs_of(player)
 
     local units, allied, tracks, listed = {}, {}, {}, {}
-    local trust_allied = false  -- a trust in slots 6-17 (battle_target)
+    local trust_allied = false  -- a trust in slots 6-17, or one there whose id isn't read yet (battle_target)
     for i = 0, 17 do
         if party:GetMemberIsActive(i) == 1 then
             local u = member(party, player, em, i, zone, now)
             listed[u.sid] = true
-            if i > 5 and u.sid >= TRUST then trust_allied = true end
+            if i > 5 and (u.sid >= TRUST or u.sid == 0) then trust_allied = true end
             if u.kind == 'trust' or u.kind == 'alliance' then tracks[u.sid] = true end  -- statuses from packets
             local list = u.kind == 'alliance' and allied or units
             list[#list + 1] = u

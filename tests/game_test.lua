@@ -53,8 +53,10 @@ local party = {
     GetMemberHP = function (_, i) return member(i).hp end,
     GetMemberMPPercent = function (_, i) return member(i).mpp end,
     GetMemberMP = function (_, i) return member(i).mp end,
-    GetMemberTP = const(0), GetMemberZone = const(100), GetMemberMainJob = const(3), GetMemberSubJob = const(4),
-    GetMemberMainJobLevel = const(75), GetMemberSubJobLevel = const(37),
+    GetMemberTP = const(0), GetMemberZone = const(100),
+    GetMemberMainJob = function (_, i) return member(i).main or 3 end,  -- WHM75/BLM37 unless set
+    GetMemberSubJob = function (_, i) return member(i).sub or 4 end,
+    GetMemberMainJobLevel = const(75), GetMemberSubJobLevel = function (_, i) return member(i).sub_lv or 37 end,
 }
 local player = {
     GetMainJob = function () return world.main end, GetMainJobLevel = const(75), GetSubJob = const(4), GetSubJobLevel = const(37),
@@ -313,6 +315,22 @@ test('a trust in another party of the alliance: the client\'s <bt> isn\'t asked 
     eq({ g.bt.name, g.bt.claimed, world.asked }, { 'Crab', true, 1 })
     world.party[7] = nil
     eq({ read(1).bt.claimed, world.asked }, { nil, 2 })
+    -- Active there before its id is read (zoning in): it may be a trust, so not asked either.
+    world.party[7] = { sid = 0, tidx = 0, name = '', hpp = 0, hp = 0, mpp = 0, mp = 0 }
+    eq({ read(1).bt.claimed, world.asked }, { true, 2 })
+end)
+
+test('a party member has MP on a job with it, main or sub, at 0 MP too; on others once seen with some', function ()
+    reset()
+    local WAR, WHM = 1, 3
+    local function uses_mp(main, sub, sub_lv, mp)
+        world.party[2] = { sid = 101, tidx = 0x401, name = 'A', main = main, sub = sub, sub_lv = sub_lv, hpp = 100,
+                           hp = 1000, mpp = mp > 0 and 50 or 0, mp = mp }
+        return unit(read(), 101).uses_mp
+    end
+    eq({ uses_mp(WHM, WAR, 37, 0), uses_mp(WAR, WHM, 37, 0), uses_mp(WAR, WHM, 0, 0), uses_mp(WAR, WAR, 37, 0) },
+       { true, true, false, false })
+    eq({ uses_mp(WAR, WAR, 37, 200), uses_mp(WAR, WAR, 37, 0) }, { true, true })  -- seen with some: kept
 end)
 
 test('another unit moving: for half a second after its position last changed; seen first, it stands', function ()

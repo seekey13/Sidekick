@@ -581,7 +581,7 @@ test('a pet with no MP, as a wyvern, has no MP bar; another session\'s once its 
     g.units[2].pet = { sid = 0x1000701, tidx = 0x701, name = 'Wyvern', hpp = 100, dist = 6 }
     render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
     eq(bar_edge(108, 256, 220, 18), true)  -- A's, its file not naming it yet: unknown, so it stays
-    st.sessions.A.pet = { sid = 0x1000701, mpp = 0, tp = 0, uses_mp = false }
+    st.sessions.A.pet = { sid = 0x1000701, name = 'Wyvern', mpp = 0, tp = 0, uses_mp = false }
     render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
     eq({ bar_edge(108, 256, 220, 18) or false, frame.extent.Sidekick3 }, { false, { 100 + 236, 50 + 25 + 2 * 72 + 39 + 2 * 8 + 8 } })
 end)
@@ -673,7 +673,7 @@ test('another session\'s pet has a card under that session\'s: its MP and TP onc
        { { 328, 195 }, { 108 + 110, 253 }, u32(P.orange), u32(P.text2) })
     eq({ mp_fill(256), tp_fills(), tipped('Garuda (pet)\nHP 50%  6.0y') }, { nil, {}, true })  -- not known yet: empty
     eq(frame.extent.Sidekick3, { 100 + 236, 50 + 25 + 2 * 72 + 60 + 2 * 8 + 8 })  -- yours, A's and its pet's
-    st.sessions.A.pet = { sid = 0x1000701, mpp = 40, tp = 1000, uses_mp = true }
+    st.sessions.A.pet = { sid = 0x1000701, name = 'Garuda', mpp = 40, tp = 1000, uses_mp = true }
     st.sessions.A.act = { behavior = 'pet', action = 'Healing Ruby' }
     render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
     eq({ mp_fill(256), tp_fills(), tipped('Garuda (pet)\nHP 50%  MP 40%  TP 1000  6.0y') },
@@ -681,6 +681,35 @@ test('another session\'s pet has a card under that session\'s: its MP and TP onc
     local theirs = pills(P.accent)
     eq({ #theirs, (theirs[1][1][2] + theirs[1][2][2]) / 2 }, { 1, 235 + 30 })  -- the pet card's middle
     eq(calls('AddTriangleFilled', 'background')[1].args[1][2], 235 + 30)
+end)
+
+test('your pet\'s care points at your pet\'s card alone, not at another session\'s pet', function ()
+    close_settings()
+    local cfg = settings.defaults()
+    local st = status({ intent = { at = 990, action = 'Healing Ruby', behavior = 'pet', why = 'Carbuncle at 40%' } })
+    st.sessions = { A = { running = false, members = { { sid = 101, name = 'A' } } } }
+    local g = snap()
+    g.units[2].pet = { sid = 0x1000701, tidx = 0x701, name = 'Garuda', hpp = 50, dist = 6 }
+    render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
+    -- Yours from y 75, your pet's from 155, A's from 223 and its pet's from 303: one arrow, at your pet's middle.
+    local arrow = calls('AddTriangleFilled', 'background')
+    eq({ #arrow, arrow[1].args[1][2] }, { 1, 155 + 30 })
+end)
+
+test('two sessions\' pets of one name keep their own bars', function ()
+    close_settings()
+    local cfg, st = settings.defaults(), status({ intent = false, sent = {} })
+    st.sessions = { A = { running = false, members = { { sid = 101, name = 'A' } } },
+                    B = { running = false, members = { { sid = 102, name = 'B' } } } }
+    local g = fake.snap({ { name = 'A' }, { name = 'B' } })
+    g.units[2].pet = { sid = 0x1000701, tidx = 0x701, name = 'Fenrir', hpp = 30, dist = 6 }
+    g.units[3].pet = { sid = 0x1000702, tidx = 0x702, name = 'Fenrir', hpp = 90, dist = 6 }
+    local step = kit.clock
+    kit.clock = function () return tick end  -- time stands: a fill the two shared would show the first's at both
+    render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
+    kit.clock = step
+    -- A's pet's HP bar from y 235, B's card from 303 and its pet's HP bar from 383, each 220 wide.
+    eq({ hp_fill(108, 235), hp_fill(108, 383) }, { { 108 + 66, 253 }, { 108 + 198, 401 } })
 end)
 
 -- The round buttons and glyphs drawn: their discs' centres and colours, in the order drawn.
