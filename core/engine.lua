@@ -20,6 +20,8 @@
       cancel  a status of yours to cancel a moment into the cast (engine.cancel)
       expect  statuses to take as on you once it's sent
       sent    function (now), called once it's sent
+      once    set when the intent is a commanded roll (jobs/cor.lua): Sidekick sends
+              it while automation is stopped, and nothing else
     A buff held for the group (behaviors/buff.lua) leaves mem.gather, which
     engine.gather turns into a party chat line.
 ]]--
@@ -35,9 +37,10 @@ local util = require('core.util')
 local engine = {}
 
 -- Priority order. `quick` behaviors still run while a cure is held for; `setting`
--- is the cfg table whose `on` switches it, when not its name; `shown` the name its
--- intents go by (the HUD's 'Buff:', the log), when not its own; `invisible` ones
--- still run while you're Invisible (each narrows itself then).
+-- is the cfg table whose `on` switches it, when not its name; `always` runs with
+-- that switch off; `shown` the name its intents go by (the HUD's 'Buff:', the log),
+-- when not its own; `invisible` ones still run while you're Invisible (each narrows
+-- itself then).
 engine.BEHAVIORS = {
     -- Light Arts: ahead of healing, which is cheaper under it, but for a critical member (behaviors/buff.lua).
     { name = 'first', run = buff.first, setting = 'buff', shown = 'buff', invisible = true },
@@ -87,7 +90,8 @@ local function modifier(intent, g)
     end
     if not first then return nil end
     local on = intent.target and (' -> ' .. intent.target.name) or ''
-    return { action = first, expect = first.status, why = ('for %s%s: %s'):format(a.name, on, intent.why) }
+    return { action = first, expect = first.status, once = intent.once,
+             why = ('for %s%s: %s'):format(a.name, on, intent.why) }
 end
 
 -- `g` with the statuses expected from modifiers just sent on you: a copy for
@@ -115,7 +119,7 @@ function engine.decide(g, cat, cfg, mem)
     local holding, invisible = false, g.me.buffs[status.INVISIBLE]
     for _, b in ipairs(engine.BEHAVIORS) do
         if (b.resting or not g.resting) and (b.invisible or not invisible)
-            and cfg[b.setting or b.name].on and (b.quick or not holding) then
+            and (b.always or cfg[b.setting or b.name].on) and (b.quick or not holding) then
             local intent = b.run(g, cat, cfg, mem)
             if intent and intent.hold then
                 holding = true

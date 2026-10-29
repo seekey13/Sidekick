@@ -33,7 +33,7 @@ end
 
 local function decide(g, cfg, mem, list) return fake.decide(g, list or cat, cfg, mem) end
 
-local function step(g, cfg, mem) return fake.step(g, cat, cfg, mem) end
+local function step(g, cfg, mem, list) return fake.step(g, list or cat, cfg, mem) end
 
 test('catalog: rolls know their lucky and unlucky totals and the status named like them', function ()
     local c, n = named(cat, 'Corsair\'s Roll'), named(cat, 'Ninja Roll')
@@ -382,4 +382,184 @@ test('max_at_11: the other roll, rolled before the 11, is rolled again to chase 
     eq(decide(g_with({ [CORSAIRS_ID] = 11, [NINJA_ID] = 11 }), cfg, {}), nil)
     cfg.roll.max_at_11 = false
     eq(decide(g_with({ [CORSAIRS_ID] = 11, [NINJA_ID] = 5 }), cfg, {}), nil)
+end)
+
+-- /sk3 "Bolter's Roll": that roll now, then Double-Up at lowest (jobs/cor.lua). Its own
+-- catalog, so the Rolls section's choices above stay the three rolls they name.
+local BOLTER, BOLTER_ID = 330, 630
+local shot_cat = fake.catalog(COR, 75, WHM, 37, { 'Bolter\'s Roll', 'Corsair\'s Roll', 'Ninja Roll', 'Chaos Roll',
+    'Double-Up', 'Snake Eye', 'Fold' })
+
+local function order(mem, name) cor.order(mem, named(shot_cat, name or 'Bolter\'s Roll')) end
+
+-- Rolls switched off, so only the commanded roll can go.
+local function quiet()
+    local cfg = cfg_with('', '', 'highest')
+    cfg.roll.on = false
+    return cfg
+end
+
+test('a roll\'s name: the apostrophe and case aside, or its Japanese name; nothing else', function ()
+    local b = named(shot_cat, 'Bolter\'s Roll')
+    eq(cor.roll_named(shot_cat, 'Bolter\'s Roll'), b)
+    eq(cor.roll_named(shot_cat, '"bolter\'s roll"'), b)
+    eq(cor.roll_named(shot_cat, 'bolters roll'), b)
+    eq(cor.roll_named(shot_cat, b.jp), b)
+    eq(cor.roll_named(shot_cat, 'Chaos Roll').name, 'Chaos Roll')
+    eq(cor.roll_named(shot_cat, 'Bolter Roll'), nil)  -- the s is part of the name
+    eq(cor.roll_named(shot_cat, 'Double-Up'), nil)
+    eq(cor.roll_named(shot_cat, 'Cure'), nil)
+end)
+
+test('/sk3 "Bolter\'s Roll": the roll now, then Double-Up at lowest until lucky, with Rolls off', function ()
+    local cfg, mem = quiet(), {}
+    order(mem)
+    local cmd, intent = step(snap({}), cfg, mem, shot_cat)
+    eq({ cmd, intent.behavior, intent.why, intent.once }, { '/ja "Bolter\'s Roll" <me>', 'roll', 'asked', true })
+    local g = snap({ BOLTER, DOUBLE_UP_CHANCE }, { id = BOLTER_ID, total = 2, at = 1000.5 })
+    g.now = 1002
+    cmd, intent = step(g, cfg, mem, shot_cat)
+    eq({ cmd, intent.why, intent.once }, { '/ja "Double-Up" <me>', 'Bolter\'s Roll at 2', true })
+    g = snap({ BOLTER, DOUBLE_UP_CHANCE }, { id = BOLTER_ID, total = 3, at = 1003, doubled = true })
+    g.now = 1004  -- inside the Double-Up gap: lucky stops anyway
+    eq(decide(g, cfg, mem, shot_cat), nil)
+    eq({ cor.pending(mem), mem.cor.safe }, { false, { id = BOLTER_ID, at = 1003 } })
+    cfg.roll.on, cfg.roll.first, cfg.roll.risk = true, 'Bolter\'s Roll', 'highest'
+    eq(decide(g, cfg, mem, shot_cat), nil)  -- that same total: highest would roll through lucky
+    g = snap({ BOLTER, DOUBLE_UP_CHANCE }, { id = BOLTER_ID, total = 3, at = 1020 })
+    g.now = 1021
+    eq(decide(g, cfg, mem, shot_cat), '/ja "Double-Up" <me>')  -- a later roll of it is the risk's again
+end)
+
+test('a commanded roll keeps doubling a missed lucky while no die can bust', function ()
+    local cfg, mem = quiet(), {}
+    order(mem)
+    step(snap({}), cfg, mem, shot_cat)
+    local g = snap({ BOLTER, DOUBLE_UP_CHANCE }, { id = BOLTER_ID, total = 4, at = 1000.5 })
+    g.now = 1002
+    eq(step(g, cfg, mem, shot_cat), '/ja "Double-Up" <me>')
+    eq(cor.pending(mem), true)
+end)
+
+test('a commanded roll stops where a die could bust, and that total is not gambled on', function ()
+    local cfg, mem = quiet(), {}
+    cfg.roll.max_at_11 = true
+    order(mem)
+    step(snap({}), cfg, mem, shot_cat)
+    local g = snap({ BOLTER, CORSAIRS, DOUBLE_UP_CHANCE }, { id = BOLTER_ID, total = 6, at = 1001 }, nil, {},
+        { roll_totals = { [CORSAIRS_ID] = 11, [BOLTER_ID] = 6 } })
+    g.now = 1002
+    eq(decide(g, cfg, mem, shot_cat), nil)  -- an 11 up would be max risk; this command still stops
+    eq(cor.pending(mem), false)
+    cfg = cfg_with('Bolter\'s Roll', '', 'highest')
+    eq(decide(g, cfg, mem, shot_cat), nil)  -- highest, Fold ready: it would Double-Up a 6
+end)
+
+test('a commanded 10 spends Snake Eye, then Double-Ups once that die is coming', function ()
+    local cfg, mem = quiet(), {}
+    order(mem)
+    step(snap({}), cfg, mem, shot_cat)
+    local g = snap({ BOLTER, DOUBLE_UP_CHANCE }, { id = BOLTER_ID, total = 10, at = 1000.5 })
+    g.now = 1002
+    local cmd, intent = step(g, cfg, mem, shot_cat)
+    eq({ cmd, intent.once, intent.behavior, intent.why },
+       { '/ja "Snake Eye" <me>', true, 'roll', 'for Double-Up: Bolter\'s Roll at 10' })
+    g = snap({ BOLTER, DOUBLE_UP_CHANCE }, { id = BOLTER_ID, total = 10, at = 1000.5 }, { ['Snake Eye'] = 60 })
+    g.now = 1002.5
+    cmd, intent = step(g, cfg, mem, shot_cat)
+    eq({ cmd, intent.once, intent.why }, { '/ja "Double-Up" <me>', true, 'Bolter\'s Roll at 10' })
+end)
+
+test('the rolls kept up wait for a commanded roll\'s total, then go on without it', function ()
+    local cfg, mem = cfg_with('Corsair\'s Roll'), {}
+    order(mem)
+    eq(step(snap({}), cfg, mem, shot_cat), '/ja "Bolter\'s Roll" <me>')
+    local g = snap({}, nil, { ['Bolter\'s Roll'] = 60 })
+    g.now = 1003
+    eq(decide(g, cfg, mem, shot_cat), nil)
+    eq(cor.pending(mem), true)
+    g.now = 1000 + cor.WAIT
+    eq(decide(g, cfg, mem, shot_cat), '/ja "Corsair\'s Roll" <me>')
+    eq(cor.pending(mem), false)
+end)
+
+test('a commanded roll stays armed through its recast and through Invisible, and goes while you rest', function ()
+    local cfg, mem = quiet(), {}
+    order(mem)
+    eq(decide(snap({}, nil, { ['Bolter\'s Roll'] = 12 }), cfg, mem, shot_cat), nil)
+    eq(cor.pending(mem), true)
+    eq(decide(snap({ 69 }), cfg, mem, shot_cat), nil)
+    eq(cor.pending(mem), true)
+    eq(step(snap({}, nil, nil, {}, { resting = true }), cfg, mem, shot_cat), '/ja "Bolter\'s Roll" <me>')
+end)
+
+test('a commanded roll is not held for the group', function ()
+    local cfg, mem = quiet(), {}
+    cfg.buff.hold_aoe = true
+    order(mem)
+    local g = snap({}, nil, nil, { { name = 'B', dist = 30 } })
+    eq(step(g, cfg, mem, shot_cat), '/ja "Bolter\'s Roll" <me>')
+end)
+
+test('a Bust already up is Folded before the commanded roll; a Bust of that roll ends it', function ()
+    local cfg, mem = quiet(), {}
+    order(mem)
+    local cmd, intent = step(snap({ BUST }), cfg, mem, shot_cat)
+    eq({ cmd, intent.why, intent.once }, { '/ja "Fold" <me>', 'Bust', true })
+    eq(cor.pending(mem), true)
+    eq(step(snap({}), cfg, mem, shot_cat), '/ja "Bolter\'s Roll" <me>')
+
+    mem = {}
+    order(mem)
+    eq(decide(snap({ BUST }, nil, { Fold = 40 }), cfg, mem, shot_cat), nil)  -- Fold's recast: stay armed
+    eq(cor.pending(mem), true)
+
+    mem = {}
+    order(mem)
+    step(snap({}), cfg, mem, shot_cat)
+    local g = snap({ BUST }, { id = BOLTER_ID, total = 13, at = 1001, bust = true })
+    g.now = 1002
+    cmd, intent = step(g, cfg, mem, shot_cat)
+    eq({ cmd, intent.why, intent.once }, { '/ja "Fold" <me>', 'Bust', true })
+    eq(cor.pending(mem), false)
+
+    mem = {}
+    order(mem)
+    step(snap({}), cfg, mem, shot_cat)
+    g = snap({ BUST }, { id = BOLTER_ID, total = 13, at = 1001, bust = true }, { Fold = 40 })
+    g.now = 1002
+    eq(decide(g, cfg, mem, shot_cat), nil)  -- Fold not ready: leave the Bust to the rolls kept up
+    eq(cor.pending(mem), false)
+end)
+
+test('a Bust with no Fold to clear it drops the commanded roll', function ()
+    local bare = fake.catalog(COR, 75, WHM, 37, { 'Bolter\'s Roll', 'Double-Up', 'Snake Eye' })
+    local mem = {}
+    cor.order(mem, named(bare, 'Bolter\'s Roll'))
+    eq(decide(snap({ BUST }), quiet(), mem, bare), nil)
+    eq(cor.pending(mem), false)
+end)
+
+test('a commanded roll goes ahead of a cure; between Double-Ups the cure goes', function ()
+    local cfg, mem = quiet(), {}
+    local hurt = { { name = 'A', hpp = 40 } }
+    order(mem)
+    local cmd, intent = step(snap({}, nil, nil, hurt), cfg, mem, shot_cat)
+    eq({ cmd, intent.behavior }, { '/ja "Bolter\'s Roll" <me>', 'roll' })
+    local g = snap({ BOLTER, DOUBLE_UP_CHANCE }, { id = BOLTER_ID, total = 2, at = 1000.5 }, nil, hurt)
+    g.now = 1002
+    eq(step(g, cfg, mem, shot_cat), '/ja "Double-Up" <me>')
+    g = snap({ BOLTER, DOUBLE_UP_CHANCE }, { id = BOLTER_ID, total = 2, at = 1000.5 }, nil, hurt)
+    g.now = 1004
+    intent = select(2, decide(g, cfg, mem, shot_cat))
+    eq({ intent.behavior, cor.pending(mem) }, { 'heal', true })
+end)
+
+test('naming another roll replaces the one armed, and a total already held', function ()
+    local mem = {}
+    order(mem)
+    mem.cor.safe = { id = BOLTER_ID, at = 1 }
+    order(mem, 'Chaos Roll')
+    eq({ mem.cor.safe, mem.cor.shot.id }, { nil, named(shot_cat, 'Chaos Roll').id })
+    eq(step(snap({}), quiet(), mem, shot_cat), '/ja "Chaos Roll" <me>')
 end)

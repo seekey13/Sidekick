@@ -72,8 +72,8 @@ test('the modules plug in where the shared code had them: rows, behaviors, setti
         names[#names + 1] = b.name
         if b.quick then quick[#quick + 1] = b.name end
     end
-    eq(names, { 'first', 'heal', 'remove', 'heal_efficient', 'wake', 'recover', 'pet', 'revive', 'roll', 'rune', 'geo',
-                'buff', 'song', 'pet_send', 'maneuver', 'last', 'follow', 'rest' })
+    eq(names, { 'roll_shot', 'first', 'heal', 'remove', 'heal_efficient', 'wake', 'recover', 'pet', 'revive', 'roll',
+                'rune', 'geo', 'buff', 'song', 'pet_send', 'maneuver', 'last', 'follow', 'rest' })
     eq(quick, { 'remove', 'wake', 'pet', 'rune', 'pet_send', 'maneuver' })
     local d = require('core.settings').defaults()
     eq({ d.roll.risk, d.roll.max_at_11, d.geo.distance, d.rune.pflug_3, d.maneuver.slot_3, d.song.p5_2, d.song.duration },
