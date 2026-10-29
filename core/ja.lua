@@ -87,6 +87,8 @@ ja.words = {
     ['%s  (profile %s)'] = '%s  （プロファイル %s）', ['Target'] = 'ターゲット', ['trust'] = 'フェイス',
     ['tracked'] = '追跡', ['alliance'] = 'アライアンス', ['KO'] = '戦闘不能', ['away'] = '圏外',
     ['%s (pet)\nHP %d%%  MP %d%%  TP %d  %s'] = '%s（ペット）\nHP %d%%  MP %d%%  TP %d  %s',
+    ['%s (pet)\nHP %d%%  TP %d  %s'] = '%s（ペット）\nHP %d%%  TP %d  %s',
+    ['%s (pet)\nHP %d%%  %s'] = '%s（ペット）\nHP %d%%  %s',
     ['Stop automation'] = '自動操作を停止', ['Start automation'] = '自動操作を開始',
     ['Stop %s\'s automation'] = '%sの自動操作を停止', ['Start %s\'s automation'] = '%sの自動操作を開始',
     ['Settings for %s'] = '%sの設定', ['Settings'] = '設定', ['Close (/sk3 opens it again)'] = '閉じる（/sk3 で再び開きます）',
@@ -317,6 +319,11 @@ ja.words = {
         .. 'the buttons follow it, as far as the HP bar fits them.'] =
         'ピクセル。タイトル、タグ、アライアンスの名前、アクションのラベル。ボタンもHPバーに収まる範囲でこの大きさになります。',
     ['Pixels between members.'] = 'メンバー間のピクセル数。',
+    ['Hide unused MP bars'] = '使わないMPバーを隠す',
+    ['Leave out the MP bar of a member or pet with no MP (0/0): a job without it, a wyvern, a jug pet. '
+        .. 'A tracked player\'s stays: their MP can\'t be read.'] =
+        'MPのない（0/0）メンバーやペットのMPバーを表示しません（MPのないジョブ、飛竜、呼び出したペットなど）。'
+        .. '追跡中のプレイヤーのMPは読めないため、バーはそのまま残ります。',
     ['Lock position'] = '位置を固定',
     ['Keep the HUD and the widget where they are: dragging them no longer moves them.'] =
         'HUDとウィジェットを今の位置に固定します。ドラッグしても動きません。',

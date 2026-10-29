@@ -7,7 +7,8 @@
     decides from this snapshot alone, so tests can hand it a fake one.
 
     unit = { slot, sid, tidx, name, kind = 'self'|'party'|'trust'|'alliance'|'tracked', hpp, hp, max_hp,
-             mpp, mp, tp, uses_mp (yours: max MP > 0; others: seen with MP on these jobs),
+             mpp, mp, tp, uses_mp (yours: max MP > 0; your party's: a job with MP, main or
+             sub, or seen with MP on these jobs; the alliance's: seen with MP),
              max_known (max_hp is real: yours, or seen at full HP),
              jobs = { main, main_lv, sub, sub_lv } (you and your party's players),
              in_zone, dist, pos = { x, y, z },
@@ -15,7 +16,9 @@
              stacks = { [id] = how many stand } (you and your party's players: runes
              and songs of one kind stack; nil for a player the client's list has no entry for yet),
              moving (others: moved in the last half second),
-             hot = HP still to come from your Regen, nil if none }
+             hot = HP still to come from your Regen, nil if none,
+             pet (a party member's or a tracked player's, while the client draws both: an entity as
+             `bt`'s, { sid, tidx, name, hpp, dist, pos, status }, its HP % alone; never one at 0%) }
     Slots: 0 you, 1-5 your party, 6-11 and 12-17 the alliance's other parties
     (kind 'alliance', their statuses from packets as a trust's).
     A tracked player has no slot and no MP; in_zone while the client draws them
@@ -23,9 +26,11 @@
     says), max_hp from a session file, else estimated from their /check level (else
     yours), and main, main_lv, sub, sub_lv once a /check or a session file has
     answered; `auto` names the session whose file tracks them (core/share.lua). A member (or alliance member) you also track has tracked = true.
-    The pet is { sid, tidx, name, hpp, mpp, tp, dist, pos, status (1 engaged), buffs, since (first seen) }; the
+    The pet is { sid, tidx, name, hpp, mpp, tp, uses_mp (seen with MP), dist, pos, status (1 engaged), buffs,
+    since (first seen) }; the
     battle target `bt` { sid, tidx, name, hpp, dist, pos, mob, claimed, moving }, `claimed`
-    when it's a mob another party of the alliance claimed (the client has no <bt>).
+    when it's a mob another party of the alliance claimed (the client has no <bt>), or
+    any the alliance claimed while a trust is in another party (the client's isn't asked).
     `target` is your current target when it's another player: { tidx, sid, name }.
     Plus when your cast began (cast_at, while casting);
     what healing scores with: learned potency, the day and the weather;
@@ -50,6 +55,9 @@ local util = require('core.util')
 local game = {}
 
 local TRUST = 0x1000000  -- server ids from here up are NPCs; in a party slot, a trust
+-- The jobs with MP of their own: WHM, BLM, RDM, PLD, DRK, SMN, BLU, SCH, GEO, RUN.
+local MP_JOBS = { [3] = true, [4] = true, [5] = true, [7] = true, [8] = true, [15] = true, [16] = true, [20] = true,
+                  [21] = true, [22] = true }
 local DEAD, MOUNTED_STATUS, RESTING = 3, 5, 33  -- entity status
 local MOUNTED_BUFF, AMNESIA, REGEN = 252, 16, status.REGEN
 local SILENCED = { 6, 29 }                          -- Silence, Mute
@@ -111,6 +119,7 @@ local motion = {}  -- [sid] = { x, y, z, moved }: where each other unit and the 
 local last_combat = -math.huge
 local pet_sid  -- the live pet last seen: its statuses are forgotten once it's gone or dead
 local pet_since  -- when that pet was first seen: a new one (it may reuse the id) comes after a read without one
+local pet_mp_since  -- pet_since of the last pet seen with MP: a wyvern's or a jug pet's 0% isn't an empty tank
 local ready_since = {}  -- [recast key] = when its timer first read 0
 local rescan_at = -math.huge
 local claim = { at = -math.huge, tidx = nil }  -- the last look for an alliance-claimed mob
@@ -236,6 +245,14 @@ local function present(em, i)
     return em:GetRawEntity(i) ~= nil and bit.band(flags, 0x200) ~= 0 and bit.band(flags, 0x4000) == 0
 end
 
+-- Another player's pet while the client draws it. Its MP and TP the client reads for
+-- your pet only (core/share.lua brings another session's); one at 0% is gone, as a
+-- dead or dismissed pet lingers a while.
+local function their_pet(em, owner)
+    local pet = entity(em, em:GetPetTargetIndex(owner))
+    if pet and pet.hpp > 0 and present(em, pet.tidx) then return pet end
+end
+
 local function player_at(em, i)
     return { tidx = i, sid = em:GetServerId(i), name = em:GetName(i) }
 end
@@ -290,7 +307,7 @@ local function tracked_unit(em, t, me, now)
     if u.in_zone then
         local i = t.tidx
         t.hpp, t.status = em:GetHPPercent(i), em:GetStatus(i)
-        u.tidx, u.dist, u.pos = i, distance(em, i), position(em, i)
+        u.tidx, u.dist, u.pos, u.pet = i, distance(em, i), position(em, i), their_pet(em, i)
     elseif t.shared_hpp then  -- not drawn: their own session's client still reads them
         t.hpp, t.status = t.shared_hpp, nil
     end
@@ -304,8 +321,12 @@ local function tracked_unit(em, t, me, now)
     return u
 end
 
-local function battle_target(em)
-    if not seek_bt then return nil end
+-- The client's <bt>. Retail never puts a trust in another party of the alliance,
+-- but trusts called past a full party land there, and the client's lookup then
+-- jumps to a bad pointer, crashing Sidekick3: while one is there it isn't asked,
+-- and the mob comes from the alliance's claims (claimed_target).
+local function battle_target(em, trust_allied)
+    if not seek_bt or trust_allied then return nil end
     local actor = seek_bt()
     if actor == nil then return nil end  -- NULL pointer: no battle target
     local bt = entity(em, actor.GuideNo)
@@ -447,9 +468,11 @@ local function member(party, player, em, i, zone, now)
     if i == 0 then
         u.uses_mp = player:GetMPMax() > 0
     else
+        -- A job with MP, main or sub: at 0 MP (just loaded, out of zone) a mage still has some. Else once seen with it.
         local key = ('%d %d/%d'):format(sid, party:GetMemberMainJob(i), party:GetMemberSubJob(i))
         if u.mp > 0 then has_mp[key] = true end
-        u.uses_mp = has_mp[key] == true
+        local j = u.jobs or {}
+        u.uses_mp = has_mp[key] == true or MP_JOBS[j[1]] == true or (j[4] or 0) > 0 and MP_JOBS[j[3]] == true
     end
     -- Never seen at full: estimate from HP%. Rough at low HP, good enough to score.
     u.max_hp = max_hp[sid] or (u.hpp > 0 and u.hp > 0 and math.floor(u.hp * 100 / u.hpp)) or nil
@@ -458,6 +481,7 @@ local function member(party, player, em, i, zone, now)
     if u.in_zone and tidx > 0 and (i == 0 or present(em, tidx)) then
         u.status = em:GetStatus(tidx)
         u.dist, u.pos = i == 0 and 0 or distance(em, tidx), position(em, tidx)
+        if u.kind == 'party' then u.pet = their_pet(em, tidx) end  -- yours is the snapshot's (read_pet)
     end
     u.alive = u.hpp > 0 and u.status ~= DEAD
     if u.kind == 'self' then u.buffs, u.stacks = own_buffs(player)
@@ -495,6 +519,8 @@ local function read_pet(em, player, me, jobs, units, tracks, now)
     pet_sid = alive and pet.sid or nil
     if not pet then return nil end
     pet.since, pet.mpp, pet.tp = pet_since, player:GetPetMPPercent(), player:GetPetTP()
+    if pet.mpp > 0 then pet_mp_since = pet_since end
+    pet.uses_mp = pet_since ~= nil and pet_mp_since == pet_since
     pet.buffs, tracks[pet.sid] = buffs.of(pet.sid, now), true
     return pet
 end
@@ -511,10 +537,12 @@ function game.read(now, idle)
     local jobs = jobs_of(player)
 
     local units, allied, tracks, listed = {}, {}, {}, {}
+    local trust_allied = false  -- a trust in slots 6-17, or one there whose id isn't read yet (battle_target)
     for i = 0, 17 do
         if party:GetMemberIsActive(i) == 1 then
             local u = member(party, player, em, i, zone, now)
             listed[u.sid] = true
+            if i > 5 and (u.sid >= TRUST or u.sid == 0) then trust_allied = true end
             if u.kind == 'trust' or u.kind == 'alliance' then tracks[u.sid] = true end  -- statuses from packets
             local list = u.kind == 'alliance' and allied or units
             list[#list + 1] = u
@@ -533,7 +561,7 @@ function game.read(now, idle)
 
     local event = event_ptr ~= 0 and ashita.memory.read_uint32(event_ptr + 1) or 0
     local safe = SAFE_ZONES[zone] == true or (event ~= 0 and ashita.memory.read_uint8(event) == 1)
-    local bt = not (idle or safe) and (battle_target(em) or allied[1] and claimed_target(em, listed, now)) or nil
+    local bt = not (idle or safe) and (battle_target(em, trust_allied) or allied[1] and claimed_target(em, listed, now)) or nil
     if bt and bt.mob then last_combat = now end
     if move.zone ~= zone then move.x, move.zone = nil, zone end  -- a zone or teleport isn't you moving (AFK sleep)
     local is_moving = moving(em, me.tidx, now)  -- before moved_at is read

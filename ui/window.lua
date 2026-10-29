@@ -7,7 +7,8 @@
     layout follow VanaCore's addons/vanacore/vana/vana.lua (Copyright (C) 2026
     Vekien, GPL-3.0-or-later).
 
-    Three windows: the HUD (Sidekick3: the party's bars, with a label at whoever
+    Three windows: the HUD (Sidekick3: the party's bars, a pet's under its owner's (yours,
+    and another session's), with a label at whoever
     this session's next action is for and one at whoever each other session's
     latest went to; your card's run button and cog, and those of another session's
     card), the widget (SK Widget, `ui.widget`: a pill per character with its run
@@ -70,6 +71,7 @@ local BAR_TRACK_A = 0.7                  -- bar background stays at 70%: gray ho
 local BAR_EDGE = 1                       -- the stroke around each bar
 local BAR_EDGE_A = 0.7                   -- that stroke is black at 70%, and it does not fade with the panel
 local BAR_OFF = '#0c0c0c'                -- the background while the pointer is off the panel; the stroke is always this
+local PET_WELL = '#C2FFFF'               -- your pet's name over 75% HP, where a member's is white
 local TITLE = 'Sidekick3'
 
 local HUD_FLAGS = ImGuiWindowFlags_NoTitleBar + ImGuiWindowFlags_NoResize + ImGuiWindowFlags_NoScrollbar
@@ -108,7 +110,11 @@ local function member_tip(p)
     return table.concat(lines, '\n')
 end
 
+-- A pet's tooltip: its MP % and TP only while known (another session's, once its file names that pet), its MP %
+-- only while it has MP.
 local function pet_tip(pet)
+    if not pet.pools then return f('%s (pet)\nHP %d%%  %s', game_text(pet.name), pet.hpp, pet.dist) end
+    if not pet.uses_mp then return f('%s (pet)\nHP %d%%  TP %d  %s', game_text(pet.name), pet.hpp, pet.tp, pet.dist) end
     return f('%s (pet)\nHP %d%%  MP %d%%  TP %d  %s', game_text(pet.name), pet.hpp, pet.mpp, pet.tp, pet.dist)
 end
 
@@ -213,33 +219,53 @@ local function card_icons(view, ui, p, x, y, s)
         true, 'Settings')
 end
 
--- The name on an HP bar. Over 75% it stays white; at 75% it turns yellow, at 50% orange and at 25% red.
--- Away, it greys with the bars.
-local function name_color(p)
+-- The name on an HP bar. Over 75% it stays `well` (white, unless given); at 75% it turns yellow, at 50% orange and at
+-- 25% red. Away, it greys with the bars.
+local function name_color(p, well)
     if p.away then return P.dim end
     local hpp = p.hpp or 100
     if hpp <= 25 then return P.red end
     if hpp <= 50 then return P.orange end
     if hpp <= 75 then return P.yellow end
-    return P.white
+    return well or P.white
 end
 
 -- A member's card at (x, y): the HP bar over the MP bar over the TP bar, the name on the first and the tag on the
--- second, the % of each (TP's number) only in its tooltip. A tracked player's MP and TP can't be read: their bars stay
--- empty. The name turns yellow at 75% HP, orange at 50% and red at 25%; MP under the Recover line turns the tag
--- rose. Away, the bars fade and the text greys. `id` keeps the bars' eased fills apart.
-local function card(dl, ui, p, x, y, id, chrome)
+-- last, the % of each (TP's number) only in its tooltip. `no_mp` leaves the MP bar out, the TP bar up under the HP
+-- bar. A tracked player's MP and TP can't be read: their bars stay empty. The name turns yellow at 75% HP, orange at
+-- 50% and red at 25%; MP under the Recover line turns the tag rose. Away, the bars fade and the text greys. `id`
+-- keeps the bars' eased fills apart.
+local function card(dl, ui, p, x, y, id, chrome, no_mp)
     local fx, mp_top = x + HUD_PAD, y + ui.hp_height + BAR_GAP
+    local tp_top = no_mp and mp_top or mp_top + ui.mp_height + BAR_GAP
     local fade = p.away and 0.45 or 1
     bar(dl, 'hp.' .. id, fx, y, ui.hp_width, ui.hp_height, p.hpp, P.hp, fade, chrome)
-    bar(dl, 'mp.' .. id, fx, mp_top, ui.mp_width, ui.mp_height, p.mpp, P.mp, fade, chrome)
-    tp_bar(dl, 'tp.' .. id, fx, mp_top + ui.mp_height + BAR_GAP, ui.tp_width, ui.tp_height, p.tp, fade, chrome)
+    if not no_mp then bar(dl, 'mp.' .. id, fx, mp_top, ui.mp_width, ui.mp_height, p.mpp, P.mp, fade, chrome) end
+    tp_bar(dl, 'tp.' .. id, fx, tp_top, ui.tp_width, ui.tp_height, p.tp, fade, chrome)
     local font, name = kit.fonts.semi, game_text(p.name)
     local _, nh = kit.measure(name, font, ui.name_size)
     kit.halo(dl, fx + 6, y + ui.hp_height - nh, name, name_color(p), font, ui.name_size)
     local _, th = kit.measure(p.tag, font, ui.text_size)
-    kit.halo(dl, fx + 6, mp_top + (ui.mp_height - th) / 2, p.tag,
+    kit.halo(dl, fx + 6, tp_top + (ui.tp_height - th) / 2, p.tag,
         p.away and P.dim or p.mp == 'low' and P.rose or P.text2, font, ui.text_size)
+end
+
+-- A pet's card at (x, y), yours or another session's: its HP bar over its MP bar over its TP bar, each an alliance
+-- row's size (the HP bar's width, the MP bar's height), its name on the first and its tag on the last, at the text's
+-- size; `no_mp` leaves the MP bar out, as a card's. The name is coloured as a card's, but pale cyan while healthy.
+-- `id` keeps the bars' eased fills apart.
+local function pet_card(dl, ui, p, x, y, id, chrome, no_mp)
+    local fx, w, h = x + HUD_PAD, ui.hp_width, ui.mp_height
+    local mp_top = y + h + BAR_GAP
+    local tp_top = no_mp and mp_top or mp_top + h + BAR_GAP
+    bar(dl, 'hp.' .. id, fx, y, w, h, p.hpp, P.hp, 1, chrome)
+    if not no_mp then bar(dl, 'mp.' .. id, fx, mp_top, w, h, p.mpp, P.mp, 1, chrome) end
+    tp_bar(dl, 'tp.' .. id, fx, tp_top, w, h, p.tp, 1, chrome)
+    local font, name = kit.fonts.semi, game_text(p.name)
+    local _, nh = kit.measure(name, font, ui.text_size)
+    kit.halo(dl, fx + 6, y + (h - nh) / 2, name, name_color(p, PET_WELL), font, ui.text_size)
+    local _, th = kit.measure(p.tag, font, ui.text_size)
+    kit.halo(dl, fx + 6, tp_top + (h - th) / 2, p.tag, P.text2, font, ui.text_size)
 end
 
 -- An alliance member's row, its bar's top at `top`: a thin HP bar (the MP bar's height) with the tag and name on
@@ -289,19 +315,30 @@ local function hud_sizes(ui)
     return out
 end
 
--- The cards from the top: each party line's (`member`, its index) and, under yours, your pet's (`pet`), drawn from a
--- line of the same shape tagged PET; `id` keeps their eased fills apart.
+-- The cards from the top: each party line's (`member`, its index) and a pet's under its owner's (`pet`, its line, with
+-- its owner's `member`): yours (view.pet), and another session's (its line's `pet`), drawn from a line of the same
+-- shape tagged PET; `id` keeps their eased fills apart, two sessions' Carbuncles too. `no_mp`: its MP bar is left out
+-- (`ui.hide_mp`), as it has no MP (0/0). Not a tracked player's, nor that of another session's pet its file doesn't
+-- name yet: theirs can't be read, and stays empty.
 local function cards_of(view)
-    local out = {}
+    local out, hide = {}, view.ui.hide_mp ~= false
     for i, p in ipairs(view.party) do
-        out[#out + 1] = { p = p, id = p.name, member = i }
-        local pet = i == 1 and view.pet
+        out[#out + 1] = { p = p, id = p.name, member = i, no_mp = hide and p.kind ~= 'tracked' and not p.uses_mp }
+        local pet = i == 1 and view.pet or p.pet
         if pet then
             out[#out + 1] = { p = { name = pet.name, tag = 'PET', hpp = pet.hpp, mpp = pet.mpp, tp = pet.tp },
-                              id = 'pet.' .. pet.name, pet = true }
+                              id = ('pet.%s.%s'):format(p.name, pet.name), member = i, pet = pet,
+                              no_mp = hide and pet.pools and not pet.uses_mp }
         end
     end
     return out
+end
+
+-- Card `c`'s height: its three bars, a pet's each an alliance row high, or two with its MP bar left out.
+local function card_height(ui, c)
+    local hp, mp, tp = ui.hp_height, ui.mp_height, ui.tp_height
+    if c.pet then hp, tp = mp, mp end
+    return hp + BAR_GAP + (c.no_mp and 0 or mp + BAR_GAP) + tp
 end
 
 -- Whether the arrow points at card `c`: your pet's for its own actions, else the member's.
@@ -309,16 +346,17 @@ local function pointed(view, c)
     local ptr = view.pointer
     if not ptr then return false end
     local to_pet = ptr.pet == true and view.pet ~= nil
-    if c.pet then return to_pet end
+    if c.pet then return to_pet and ptr.member == c.member end
     return not to_pet and ptr.member == c.member
 end
 
--- The labels at card `c`, or at the alliance's row `j`: this session's first, then each other session's there.
+-- The labels at card `c`, or at the alliance's row `j`: this session's first, then each other session's there (its
+-- pet's own at its pet's card).
 local function labels_at(view, c, j)
     local ptr, out = view.pointer, {}
     if c and pointed(view, c) or j and ptr and ptr.ally == j then out[1] = ptr end
     for _, o in ipairs(view.others) do
-        if c and not c.pet and o.member == c.member or j and o.ally == j then out[#out + 1] = o end
+        if c and o.member == c.member and (not o.pet) == (not c.pet) or j and o.ally == j then out[#out + 1] = o end
     end
     return out
 end
@@ -330,11 +368,14 @@ local function draw_hud(view)
     local th, s = math.floor(ui.text_size * 1.8), math.floor(ui.text_size * 1.25)
     local pw = math.max(2 * HUD_PAD + math.max(ui.hp_width, ui.mp_width, ui.tp_width),
                         math.ceil(HUD_PAD + kit.measure(TITLE, kit.fonts.semi, ui.text_size) + 8 + s + HUD_PAD))  -- the title row fits
-    local ch = ui.hp_height + BAR_GAP + ui.mp_height + BAR_GAP + ui.tp_height
     local cards = cards_of(view)
-    local n = #cards
+    local below = th + math.max(#cards - 1, 0) * ui.gap
+    for _, c in ipairs(cards) do  -- each card `h` high
+        c.h = card_height(ui, c)
+        below = below + c.h
+    end
     -- Under the cards, the alliance's rows: B0-B5, then C0-C5, each party after a gap; `rows` holds each bar's top.
-    local below, rows, last = th + n * ch + math.max(n - 1, 0) * ui.gap, {}, nil
+    local rows, last = {}, nil
     for j, p in ipairs(view.alliance) do
         local party = p.tag:sub(1, 1)
         below = below + (party ~= last and math.max(ui.gap, BAR_GAP) or BAR_GAP)
@@ -348,14 +389,16 @@ local function draw_hud(view)
     kit.fill(dl, x0, y0, pw, ph, P.bg, 6, chrome)
     kit.outline(dl, x0, y0, pw, ph, P.border, 6, chrome)
     title_row(dl, view, ui.text_size, x0, y0, pw, th, s, chrome)
-    for i, c in ipairs(cards) do
-        local p, y = c.p, y0 + th + (i - 1) * (ch + ui.gap)
-        card(dl, ui, p, x0, y, c.id, chrome)
+    local y = y0 + th
+    for _, c in ipairs(cards) do
+        local p = c.p
+        if c.pet then pet_card(dl, ui, p, x0, y, c.id, chrome, c.no_mp) else card(dl, ui, p, x0, y, c.id, chrome, c.no_mp) end
         local on_icon = (p.kind == 'self' or p.session) and card_icons(view, ui, p, x0, y, s)
         imgui.SetCursorScreenPos({ x0 + HUD_PAD, y })
-        imgui.Dummy({ pw - 2 * HUD_PAD, ch })
-        if not on_icon then kit.tip(c.pet and pet_tip(view.pet) or member_tip(p)) end
-        draw_labels(labels_at(view, c), ui.text_size, x0 + pw, y + ch / 2)
+        imgui.Dummy({ pw - 2 * HUD_PAD, c.h })
+        if not on_icon then kit.tip(c.pet and pet_tip(c.pet) or member_tip(p)) end
+        draw_labels(labels_at(view, c), ui.text_size, x0 + pw, y + c.h / 2)
+        y = y + c.h + ui.gap
     end
     for j, p in ipairs(view.alliance) do
         local top = y0 + rows[j]
@@ -1018,6 +1061,9 @@ local function draw_ui(view, pg)
     for _, l in ipairs(UI_SLIDERS) do
         slider(pg, l[1], 'ui.' .. l[2], view.ui[l[2]], l[5], l[6], { l[3], l[4] })
     end
+    switch(pg, 'Hide unused MP bars', 'ui.hide_mp', view.ui.hide_mp ~= false,
+        'Leave out the MP bar of a member or pet with no MP (0/0): a job without it, a wyvern, a jug pet. '
+        .. 'A tracked player\'s stays: their MP can\'t be read.')
     switch(pg, 'Lock position', 'ui.locked', view.ui.locked == true,
         'Keep the HUD and the widget where they are: dragging them no longer moves them.')
     switch(pg, 'Widget', 'ui.widget', view.ui.widget == true,

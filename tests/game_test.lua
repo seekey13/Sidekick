@@ -2,6 +2,7 @@
 -- entity index and again after zoning, as last seen out of range, a member
 -- while in your party or alliance; the alliance's other parties; your target
 -- when it's a player; a player by name.
+local ffi = require('ffi')
 local buffs = require('core.buffs')
 local can = require('core.can')
 local game = require('core.game')
@@ -38,7 +39,8 @@ local em = {
     GetLocalPositionY = const(0), GetLocalPositionZ = const(0),
     GetRenderFlags0 = function (_, i) return (world.ents[i] and world.ents[i].shown ~= false) and 0x200 or 0 end,
     GetRawEntity = function (_, i) return world.ents[i] and {} or nil end,
-    GetPetTargetIndex = function () return world.pet or 0 end,
+    -- `world.pet` is yours; `world.pets` = { [owner's index] = its pet's } another player's.
+    GetPetTargetIndex = function (_, i) return (world.pets or {})[i] or i == member(0).tidx and world.pet or 0 end,
     GetSpawnFlags = function (_, i) return ent(i).flags or 0 end,
     GetClaimStatus = function (_, i) return ent(i).claim or 0 end,
 }
@@ -51,8 +53,10 @@ local party = {
     GetMemberHP = function (_, i) return member(i).hp end,
     GetMemberMPPercent = function (_, i) return member(i).mpp end,
     GetMemberMP = function (_, i) return member(i).mp end,
-    GetMemberTP = const(0), GetMemberZone = const(100), GetMemberMainJob = const(3), GetMemberSubJob = const(4),
-    GetMemberMainJobLevel = const(75), GetMemberSubJobLevel = const(37),
+    GetMemberTP = const(0), GetMemberZone = const(100),
+    GetMemberMainJob = function (_, i) return member(i).main or 3 end,  -- WHM75/BLM37 unless set
+    GetMemberSubJob = function (_, i) return member(i).sub or 4 end,
+    GetMemberMainJobLevel = const(75), GetMemberSubJobLevel = function (_, i) return member(i).sub_lv or 37 end,
 }
 local player = {
     GetMainJob = function () return world.main end, GetMainJobLevel = const(75), GetSubJob = const(4), GetSubJobLevel = const(37),
@@ -76,8 +80,20 @@ local recast = {
 }
 local mm = { GetPlayer = const(player), GetParty = const(party), GetEntity = const(em), GetTarget = const(target),
              GetInventory = const(inventory), GetRecast = const(recast) }
+-- The client's <bt> (SeekBattleActor): the entity `world.bt`, each ask counted in
+-- `world.asked`. A callback can't be called from compiled code: no JIT in this file.
+jit.off()
+local actor = ffi.new('sk3_battle_actor[1]')
+local seek_bt = ffi.cast('sk3_seek_battle_actor', function ()
+    world.asked = (world.asked or 0) + 1
+    if not world.bt then return nil end
+    actor[0].GuideNo = world.bt
+    return actor
+end)
+local BT_SIG = '66A1????????83EC186685C053565774??0FBFC08B0C85'
+local function find(_, _, sig) return sig == BT_SIG and tonumber(ffi.cast('uintptr_t', seek_bt)) or 0 end
 rawset(_G, 'AshitaCore', { GetMemoryManager = const(mm), GetPointerManager = const({ Get = const(0) }) })
-rawset(_G, 'ashita', { memory = { find = const(0), read_uint32 = const(0), read_uint8 = const(0) } })
+rawset(_G, 'ashita', { memory = { find = find, read_uint32 = const(0), read_uint8 = const(0) } })
 
 local function unit(g, sid)
     for _, u in ipairs(g.units) do if u.sid == sid then return u end end
@@ -223,6 +239,44 @@ test('your pet: its HP % from its entity, its MP % and TP as the client reads th
     eq({ p.name, p.hpp, p.mpp, p.tp }, { 'Ifrit', 80, 60, 1500 })
 end)
 
+test('your pet has MP once seen with some: a wyvern\'s 0% is none, a spent one\'s still some; the next starts again', function ()
+    reset()
+    read()  -- no pet
+    world.pet, world.ents[0x700], world.pet_mpp = 0x700, { sid = PET, name = 'Wyvern', hpp = 100, dist = 2 }, 0
+    eq(read().pet.uses_mp, false)
+    world.pet = nil
+    read()
+    world.pet, world.ents[0x700], world.pet_mpp = 0x700, { sid = PET, name = 'Ifrit', hpp = 100, dist = 2 }, 60
+    eq(read().pet.uses_mp, true)
+    world.pet_mpp = 0  -- spent
+    eq(read().pet.uses_mp, true)
+    world.pet = nil
+    read()
+    world.pet, world.ents[0x700] = 0x700, { sid = PET, name = 'Wyvern', hpp = 100, dist = 2 }  -- the same id again
+    eq(read().pet.uses_mp, false)
+end)
+
+test('a party member\'s pet and a tracked player\'s: the entity drawn, HP % alone; none at 0%, or not drawn', function ()
+    reset()
+    world.party[2] = { sid = 101, tidx = 0x401, name = 'Box', hpp = 100, hp = 1000, mpp = 50, mp = 100 }
+    world.ents[0x401] = { sid = 101, name = 'Box', dist = 5 }
+    world.pets, world.ents[0x701] = { [0x401] = 0x701 }, { sid = PET + 1, name = 'Carbuncle', hpp = 70, dist = 6 }
+    local g = read()
+    local p = unit(g, 101).pet
+    eq({ p.sid, p.tidx, p.name, p.hpp, p.dist, p.mpp, unit(g, ME).pet, g.pet }, { PET + 1, 0x701, 'Carbuncle', 70, 6 })
+    world.ents[0x701].hpp = 0  -- dead or dismissed: it lingers a while
+    eq(unit(read(), 101).pet, nil)
+    world.ents[0x701].hpp, world.ents[0x701].shown = 70, false
+    eq(unit(read(), 101).pet, nil)
+    world.ents[0x701].shown, world.ents[0x401].shown = nil, false  -- its owner out of range
+    eq(unit(read(), 101).pet, nil)
+    world.party[2], world.ents[0x401].shown = nil, nil  -- left the party, and tracked
+    tracked.add(101, 'Box', 0x401)
+    eq(unit(read(), 101).pet.name, 'Carbuncle')
+    world.ents[0x401].shown = false
+    eq(unit(read(), 101).pet, nil)
+end)
+
 test('with no <bt>, a mob another party of the alliance claimed is your battle target: the nearest in 21y', function ()
     reset()
     local function mob(name, dist, claimer) return { sid = 0x1000000 + dist, name = name, hpp = 80, dist = dist, flags = 0x10, claim = claimer } end
@@ -247,6 +301,36 @@ test('no battle target looked for while automation is stopped or asleep, nor in 
     party.GetMemberZone = const(230)  -- Southern San d'Oria
     eq(read(1).bt, nil)
     party.GetMemberZone = zone
+end)
+
+test('a trust in another party of the alliance: the client\'s <bt> isn\'t asked (it crashes), the alliance\'s claim stands in', function ()
+    reset()
+    world.ents[0x100] = { sid = 0x1000010, name = 'Crab', hpp = 80, dist = 10, flags = 0x10, claim = ME }
+    world.bt, world.asked = 0x100, 0
+    local g = read(1)
+    eq({ g.bt.name, g.bt.claimed, world.asked }, { 'Crab', nil, 1 })  -- your party's: the client's <bt>
+    -- Called past a full party: slot 6, B0, not drawn (in another zone).
+    world.party[7] = { sid = TRUST, tidx = 0x101, name = 'Kupipi', hpp = 100, hp = 900, mpp = 100, mp = 500 }
+    g = read(1)
+    eq({ g.bt.name, g.bt.claimed, world.asked }, { 'Crab', true, 1 })
+    world.party[7] = nil
+    eq({ read(1).bt.claimed, world.asked }, { nil, 2 })
+    -- Active there before its id is read (zoning in): it may be a trust, so not asked either.
+    world.party[7] = { sid = 0, tidx = 0, name = '', hpp = 0, hp = 0, mpp = 0, mp = 0 }
+    eq({ read(1).bt.claimed, world.asked }, { true, 2 })
+end)
+
+test('a party member has MP on a job with it, main or sub, at 0 MP too; on others once seen with some', function ()
+    reset()
+    local WAR, WHM = 1, 3
+    local function uses_mp(main, sub, sub_lv, mp)
+        world.party[2] = { sid = 101, tidx = 0x401, name = 'A', main = main, sub = sub, sub_lv = sub_lv, hpp = 100,
+                           hp = 1000, mpp = mp > 0 and 50 or 0, mp = mp }
+        return unit(read(), 101).uses_mp
+    end
+    eq({ uses_mp(WHM, WAR, 37, 0), uses_mp(WAR, WHM, 37, 0), uses_mp(WAR, WHM, 0, 0), uses_mp(WAR, WAR, 37, 0) },
+       { true, true, false, false })
+    eq({ uses_mp(WAR, WAR, 37, 200), uses_mp(WAR, WAR, 37, 0) }, { true, true })  -- seen with some: kept
 end)
 
 test('another unit moving: for half a second after its position last changed; seen first, it stands', function ()
@@ -410,3 +494,5 @@ test('owned ammo: your bag before the wardrobes, by the number /equip names each
     inventory.GetContainerCountMax, inventory.GetContainerItem = const(0), nil
     rawset(_G, 'AshitaCore', core)
 end)
+
+jit.on()

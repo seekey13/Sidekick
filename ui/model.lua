@@ -397,16 +397,41 @@ local function jobs(job, main, main_lv, sub, sub_lv)
     return lang.f('%s %d', lang.job(job(main)), main_lv)
 end
 
+local function entity(e)
+    return e and { name = e.name, hpp = e.hpp, dist = ('%.1fy'):format(e.dist or 0) }
+end
+
+-- Your pet: as the battle target, with its MP % and TP (`pools`: known, as the client reads them for yours) and
+-- whether it has MP.
+local function pet_line(e)
+    local p = entity(e)
+    if p then p.mpp, p.tp, p.pools, p.uses_mp = e.mpp or 0, e.tp or 0, true, e.uses_mp == true end
+    return p
+end
+
+-- Another session's pet as the client draws it (`e`: an HP % alone), with its MP % and TP from that session's file
+-- (`s`) while the file names this pet, by id and name (a new pet may reuse the id), and whether it has MP. Until then
+-- (just called, or swapped for another until the next write) `pools` is false and they're 0, as a tracked player's:
+-- another pet's MP would be worse than none.
+local function their_pet(e, s)
+    local p, f = entity(e), s.pet
+    p.pools = f ~= nil and f.sid == e.sid and f.name == e.name
+    p.mpp, p.tp, p.uses_mp = p.pools and f.mpp or 0, p.pools and f.tp or 0, p.pools and f.uses_mp == true
+    return p
+end
+
 -- Everyone: party slots ME, P1-P5 and tracked players T1... with their jobs once
 -- a /check answers; then the alliance's other parties, B0-B5 and C0-C5, apart.
--- A player who is another Sidekick session (`sessions`, by server id) says so.
-local function party(g, cfg, names, sessions)
+-- A player who is another Sidekick session (`sessions`, by server id) says so, and has
+-- its pet while the client draws one (`files`: their session files, by the same).
+local function party(g, cfg, names, sessions, files)
     local out, alliance, n = {}, {}, 0
     for _, u in ipairs(g.units) do
         local buffs, all = buff_names(u.buffs, names.statuses)
         local tag = TAGS[u.slot]
         if u.kind == 'tracked' then n = n + 1; tag = 'T' .. n end
         local list = u.kind == 'alliance' and alliance or out
+        local session = u.kind ~= 'self' and u.kind ~= 'trust' and sessions[u.sid] or nil
         list[#list + 1] = {
             tag = tag, kind = u.kind, name = u.name, alive = u.alive, away = not u.in_zone,
             tracked = u.kind == 'tracked' or u.tracked == true, shared = u.auto,
@@ -415,7 +440,7 @@ local function party(g, cfg, names, sessions)
             mp = u.uses_mp and u.mpp < cfg.recover.mp and 'low' or 'ok',
             dist = not u.in_zone and 'away' or u.kind == 'self' and '' or ('%.1fy'):format(u.dist or 0),
             buffs = buffs, buffs_all = all,
-            session = u.kind ~= 'self' and u.kind ~= 'trust' and sessions[u.sid] or nil,
+            session = session, pet = session and u.pet and their_pet(u.pet, files[u.sid]) or nil,
         }
     end
     return out, alliance
@@ -440,11 +465,14 @@ local function session_of(name, s, watching)
              profiles = s.profiles }
 end
 
--- Other Sidekick sessions on this PC (status.sessions, by owner name) by their server id.
+-- Other Sidekick sessions on this PC (status.sessions, by owner name) by their server id, and their files by the same.
 local function by_sid(status)
-    local out, watching = {}, status.watching or {}
-    for name, s in pairs(status.sessions or {}) do out[s.members[1].sid] = session_of(name, s, watching) end
-    return out
+    local out, files, watching = {}, {}, status.watching or {}
+    for name, s in pairs(status.sessions or {}) do
+        local sid = s.members[1].sid
+        out[sid], files[sid] = session_of(name, s, watching), s
+    end
+    return out, files
 end
 
 -- Every other Sidekick session on this PC, by name: from their files alone, so a zone (yours or theirs) leaves them
@@ -471,17 +499,6 @@ local function remote_views(status)
     end
     table.sort(out, function (a, b) return a.name < b.name end)
     return out
-end
-
-local function entity(e)
-    return e and { name = e.name, hpp = e.hpp, dist = ('%.1fy'):format(e.dist or 0) }
-end
-
--- Your pet: as the battle target, with its MP % and TP.
-local function pet_line(e)
-    local p = entity(e)
-    if p then p.mpp, p.tp = e.mpp or 0, e.tp or 0 end
-    return p
 end
 
 -- Your cast now is the one `e` sent: it is a spell or item, and the cast began
@@ -533,7 +550,8 @@ end
 -- What the other Sidekick sessions on this PC are doing as it goes (each one's
 -- `act`, from its file), by name: a label each, as the pointer's, at its target's
 -- line, else at the line of the session's own player (its action on itself, its
--- pet or the enemy); none when neither has a line here.
+-- pet or the enemy; `pet` for its pet's own while that line has its pet); none when
+-- neither has a line here.
 local function others(status, members, allies)
     local out = {}
     for name, s in pairs(status.sessions or {}) do
@@ -546,7 +564,10 @@ local function others(status, members, allies)
                 if p.session and p.session.name == name then own_ally = j end
             end
             local member, ally, text = aim(s.act, members, allies, own, own_ally)
-            if member or ally then out[#out + 1] = { session = name, text = text, member = member, ally = ally } end
+            local pet = FOR_PET[s.act.behavior] and not s.act.target and member and members[member].pet ~= nil or nil
+            if member or ally then
+                out[#out + 1] = { session = name, text = text, member = member, ally = ally, pet = pet }
+            end
         end
     end
     table.sort(out, function (a, b) return a.session < b.session end)
@@ -633,7 +654,8 @@ function model.build(g, cat, cfg, status, names)
         local id = spec.section.id
         view[id], job_shown[id] = spec.view(cat, cfg, g, help)
     end
-    view.party, view.alliance = party(g, cfg, names, by_sid(status))
+    local sessions, files = by_sid(status)
+    view.party, view.alliance = party(g, cfg, names, sessions, files)
     view.remote = remote_views(status)
     view.sessions = model.sessions(status)
     view.status.halted = status.running and model.halted(g) or nil
