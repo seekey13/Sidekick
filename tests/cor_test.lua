@@ -498,9 +498,19 @@ test('a commanded roll goes in town and while AFK sleep has paused automation; t
         g.now = 1004
         eq({ decide(g, cfg, mem, shot_cat) }, { nil, pause }, pause)  -- between Double-Ups the pause holds the cure
         eq(cor.pending(mem), true, pause)
-        g.casting = true
-        eq({ decide(g, cfg, mem, shot_cat) }, { nil, 'casting' }, pause)
+        g.now, g.casting = 1008, true  -- the next Double-Up is due, but not mid-cast; the pause stays the reason
+        eq({ decide(g, cfg, mem, shot_cat) }, { nil, pause }, pause)
+        g.casting = nil
+        eq(decide(g, cfg, mem, shot_cat), '/ja "Double-Up" <me>', pause)
     end
+end)
+
+test('an event, a safe zone too, holds a commanded roll until it ends', function ()
+    local cfg, mem = quiet(), {}
+    order(mem)
+    eq({ decide(snap({}, nil, nil, {}, { safe = true, event = true }), cfg, mem, shot_cat) }, { nil, 'safe' })
+    eq(cor.pending(mem), true)
+    eq(step(snap({}, nil, nil, {}, { safe = true }), cfg, mem, shot_cat), '/ja "Bolter\'s Roll" <me>')
 end)
 
 test('a commanded roll stays armed through its recast and through Invisible, and goes while you rest', function ()
@@ -552,12 +562,17 @@ test('a Bust already up is Folded before the commanded roll; a Bust of that roll
     eq(cor.pending(mem), false)
 end)
 
-test('a Bust with no Fold to clear it drops the commanded roll', function ()
+test('a Bust with no Fold to clear it is waited out, and the reply says so', function ()
     local bare = fake.catalog(COR, 75, WHM, 37, { 'Bolter\'s Roll', 'Double-Up', 'Snake Eye' })
     local mem = {}
     cor.order(mem, named(bare, 'Bolter\'s Roll'))
+    eq({ cor.bust_waits(snap({ BUST }), bare), cor.bust_waits(snap({}), bare) }, { true, false })
     eq(decide(snap({ BUST }), quiet(), mem, bare), nil)
-    eq(cor.pending(mem), false)
+    eq(cor.pending(mem), true)
+    eq(step(snap({}), quiet(), mem, bare), '/ja "Bolter\'s Roll" <me>')
+    -- With Fold: it waits only while Fold is on recast.
+    eq({ cor.bust_waits(snap({ BUST }), shot_cat), cor.bust_waits(snap({ BUST }, nil, { Fold = 40 }), shot_cat) },
+       { false, true })
 end)
 
 test('a commanded roll goes ahead of a cure; between Double-Ups the cure goes', function ()

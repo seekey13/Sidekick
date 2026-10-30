@@ -3,7 +3,8 @@
     (core/tracked.lua), then your alliance's other two parties, as one list of
     units (behaviors go down it in that order, as v2 did); your battle target
     and pet, and the flags that stop automation
-    (casting, moving, mounted, dead, incapacitated, safe zone...). The engine
+    (casting, moving, mounted, dead, incapacitated, safe zone...; `event`, a cutscene
+    or an NPC you're talking to, is a safe zone too). The engine
     decides from this snapshot alone, so tests can hand it a fake one.
 
     unit = { slot, sid, tidx, name, kind = 'self'|'party'|'trust'|'alliance'|'tracked', hpp, hp, max_hp,
@@ -560,7 +561,8 @@ function game.read(now, idle)
     for _, u in ipairs(allied) do units[#units + 1] = u end
 
     local event = event_ptr ~= 0 and ashita.memory.read_uint32(event_ptr + 1) or 0
-    local safe = SAFE_ZONES[zone] == true or (event ~= 0 and ashita.memory.read_uint8(event) == 1)
+    local in_event = event ~= 0 and ashita.memory.read_uint8(event) == 1
+    local safe = SAFE_ZONES[zone] == true or in_event
     local bt = not (idle or safe) and (battle_target(em, trust_allied) or allied[1] and claimed_target(em, listed, now)) or nil
     if bt and bt.mob then last_combat = now end
     if move.zone ~= zone then move.x, move.zone = nil, zone end  -- a zone or teleport isn't you moving (AFK sleep)
@@ -589,7 +591,7 @@ function game.read(now, idle)
         casting = casting, cast_at = cast_at,
         moving = is_moving, moved_at = move.moved,
         combat = now - last_combat < COMBAT_GRACE, combat_at = last_combat,
-        safe = safe,
+        safe = safe, event = in_event,
         mounted = me.status == MOUNTED_STATUS or me.buffs[MOUNTED_BUFF] == true,
         dead = not me.alive,
         resting = me.status == RESTING,

@@ -422,6 +422,7 @@ ja.words = {
     ['%s, then Double-Up at lowest.'] = '%s、続いてダブルアップ（最低リスク）。',
     ['%s when it can (%s), then Double-Up at lowest.'] = '%sは使えるようになってから（%s）、続いてダブルアップ（最低リスク）。',
     ['%s once Invisible wears, then Double-Up at lowest.'] = 'インビジが切れてから%s、続いてダブルアップ（最低リスク）。',
+    ['%s once Bust is gone, then Double-Up at lowest.'] = 'バストが消えてから%s、続いてダブルアップ（最低リスク）。',
     ['No roll "%s". /sk3 help lists the commands.'] = 'ファントムロール「%s」はありません。/sk3 help でコマンド一覧。',
     ['/sk3 opens or closes the window. Commands: widget, start [name|all], stop [name|all], plan, state, '
         .. 'buff [name] [me p1..p5 b0..c5 <tracked>|off], focus <name|off>, follow <name|off>, rest [on|off], '

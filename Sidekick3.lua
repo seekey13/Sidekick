@@ -712,6 +712,8 @@ local function roll_command(roll, g)
     local ok, why = can.use(roll, g)
     if g.me.buffs[effects.INVISIBLE] then
         printf('%s once Invisible wears, then Double-Up at lowest.', named(roll))
+    elseif cor.bust_waits(g, cat.list) then
+        printf('%s once Bust is gone, then Double-Up at lowest.', named(roll))
     elseif not ok then
         printf('%s when it can (%s), then Double-Up at lowest.', named(roll), sentence(why))
     else

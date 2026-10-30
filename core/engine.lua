@@ -1,9 +1,8 @@
 --[[
     Decide the next action. The gates that stop everything (GATES) are checked
     once here. A town and AFK sleep pause automation; a `manual` behavior still
-    runs through that pause (a roll you just named). Then each behavior, in priority
-    order,
-    may return an intent:
+    runs through that pause (a roll you just named), but not through an event.
+    Then each behavior, in priority order, may return an intent:
         { action = catalog record, target = unit or nil (you / battle target), why = text }
     or, for what isn't a spell or ability (/heal, /follow, /equip):
         { command = text, action = { name = shown name }, why = text }
@@ -75,7 +74,9 @@ for _, list in jobs.each('behaviors') do
 end
 
 local GATES = { 'loading', 'dead', 'mounted', 'safe', 'afk', 'incapacitated', 'casting', 'moving' }
-local PAUSE = { safe = true, afk = true }  -- a town, AFK sleep: a manual behavior still runs
+-- A town, AFK sleep: a manual behavior still runs. Not an event (a cutscene, an NPC
+-- you're talking to), a safe zone too, where the client takes no action.
+local PAUSE = { safe = true, afk = true }
 engine.EXPECT = 2  -- seconds a modifier's status is taken as on you once it's sent
 engine.GATHER_EVERY = 5  -- seconds between asks to gather, as v2
 engine.CANCEL_AFTER = 1    -- seconds into the cast to cancel intent.cancel, as v2
@@ -116,10 +117,10 @@ end
 function engine.decide(g, cat, cfg, mem)
     mem.gather, mem.waiting = nil, nil
     g = expecting(g, mem)
-    local pause  -- the first of a town or AFK sleep; the reason while a manual behavior has nothing
+    local pause  -- the first of a town or AFK sleep: the reason given, over any gate after it
     for _, gate in ipairs(GATES) do
         if g[gate] then
-            if not PAUSE[gate] then return nil, gate end
+            if not PAUSE[gate] or g.event then return nil, pause or gate end
             pause = pause or gate
         end
     end

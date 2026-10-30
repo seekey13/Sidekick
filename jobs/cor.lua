@@ -17,7 +17,7 @@
 
     /sk3 "Bolter's Roll" (a roll's name; the quotes are optional) arms that roll now
     and Double-Ups it at lowest, so a Bust cannot happen: it stops on the lucky
-    number, and otherwise on the highest total no die can bust, and Snake Eye still
+    number, and otherwise once a die could bust it (over 5), and Snake Eye still
     turns a 10 into an 11. It goes with automation stopped, in a town, and while
     AFK sleep has paused it, and with Rolls switched off, ahead of healing; between
     Double-Ups the rest goes as usual. While it runs, the rolls kept up wait. Once
@@ -161,12 +161,16 @@ local function busy(mem, t) mem.busy_until = math.max(mem.busy_until or -math.hu
 
 local function up(a, g) return not can.lacks(a, g.me) end
 
+-- Whether a roll named now waits for a Bust to go: one is up and Fold can't clear it now.
+function cor.bust_waits(g, cat) return g.me.buffs[BUST] == true and not ready(named(cat, 'Fold'), g) end
+
 -- One commanded roll (/sk3 "Bolter's Roll"): cast it, then Double-Up at lowest until
 -- it holds. Runs ahead of healing, while you rest, with Rolls switched off, and
 -- while a town or AFK sleep has paused automation: you named it.
--- A Bust already up is Folded first so the roll has a slot; a Bust of this roll ends
--- it (Folded when Fold can go now). The total it holds is mem.cor.safe, so the risk
--- picked does not gamble on that same roll.
+-- A Bust already up is Folded first so the roll has a slot, or waited out while Fold
+-- can't go (none, or on recast; cor.bust_waits); a Bust of this roll ends it (Folded
+-- when Fold can go now). The total it holds is mem.cor.safe, so the risk picked does
+-- not gamble on that same roll.
 function cor.shot(g, cat, _, mem)
     local st = mem.cor
     local shot = st and st.shot
@@ -187,8 +191,7 @@ function cor.shot(g, cat, _, mem)
             return { action = fold, once = true, why = 'Bust',
                      sent = ours and function () st.shot = nil end or nil }
         end
-        if not fold then st.shot = nil end  -- no Fold: the roll cannot take the slot
-        return nil
+        return nil  -- the Bust holds the slot until Fold is ready or it wears
     end
 
     if not shot.sent then
