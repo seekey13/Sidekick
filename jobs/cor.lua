@@ -14,6 +14,15 @@
     while one roll picked stands at 11 the other is doubled at max risk (no die can
     bust it then), or rolled again once it can't be doubled. With buff.hold_aoe on, a
     roll is held for the group like an area buff spell, within the roll's own area.
+
+    /sk3 "Bolter's Roll" (a roll's name; the quotes are optional) arms that roll now
+    and Double-Ups it at lowest, so a Bust cannot happen: it stops on the lucky
+    number, and otherwise once a die could bust it (over 5), and Snake Eye still
+    turns a 10 into an 11. It goes with automation stopped, in a town, and while
+    AFK sleep has paused it, and with Rolls switched off, ahead of healing; between
+    Double-Ups the rest goes as usual. While it runs, the rolls kept up wait. Once
+    it holds, that same total is not gambled on by a higher Risk. mem.cor.shot is
+    the roll until then; mem.cor.safe is the total held.
 ]]--
 
 local buff = require('behaviors.buff')
@@ -105,6 +114,35 @@ local function named(cat, name)
     end
 end
 
+-- A typed roll name: case and the apostrophe aside ("bolters roll", "\"Bolter's Roll\""),
+-- or the ability's Japanese name as the DAT spells it.
+local function norm_name(s)
+    return (s:lower():gsub('^"+', ''):gsub('"+$', ''):gsub('\'', ''):gsub('%s+', ' '):gsub('^%s+', ''):gsub('%s+$', ''))
+end
+
+function cor.roll_named(cat, name)
+    if not name or name == '' then return nil end
+    local want = norm_name(name)
+    if want == '' then return nil end
+    for _, a in ipairs(cat) do
+        if a.lucky and (norm_name(a.name) == want or (a.jp or '') ~= '' and norm_name(a.jp) == want) then return a end
+    end
+end
+
+-- Arm `roll` (a catalog record): the next decisions cast it, then Double-Up at lowest.
+-- A roll already armed is replaced. `mem` is the engine's memory.
+function cor.order(mem, roll)
+    local st = mem.cor or { sent = {} }
+    mem.cor = st
+    st.shot = { id = roll.id }
+    st.safe = nil
+end
+
+function cor.pending(mem)
+    local st = mem.cor
+    return st ~= nil and st.shot ~= nil
+end
+
 -- The rolls picked, as catalog records: the second only on a COR main job, and
 -- never the first again.
 function cor.picked(cat, cfg, main)
@@ -122,6 +160,74 @@ local function ready(a, g) return a ~= nil and (can.use(a, g)) end
 local function busy(mem, t) mem.busy_until = math.max(mem.busy_until or -math.huge, t) end
 
 local function up(a, g) return not can.lacks(a, g.me) end
+
+-- Whether a roll named now waits for a Bust to go: one is up and Fold can't clear it now.
+function cor.bust_waits(g, cat) return g.me.buffs[BUST] == true and not ready(named(cat, 'Fold'), g) end
+
+-- One commanded roll (/sk3 "Bolter's Roll"): cast it, then Double-Up at lowest until
+-- it holds. Runs ahead of healing, while you rest, with Rolls switched off, and
+-- while a town or AFK sleep has paused automation: you named it.
+-- A Bust already up is Folded first so the roll has a slot, or waited out while Fold
+-- can't go (none, or on recast; cor.bust_waits); a Bust of this roll ends it (Folded
+-- when Fold can go now). The total it holds is mem.cor.safe, so the risk picked does
+-- not gamble on that same roll.
+function cor.shot(g, cat, _, mem)
+    local st = mem.cor
+    local shot = st and st.shot
+    if not shot then return nil end
+    local roll
+    for _, a in ipairs(cat) do
+        if a.id == shot.id and a.lucky then roll = a end
+    end
+    if not roll then st.shot = nil; return nil end
+    local fold, double, snake = named(cat, 'Fold'), named(cat, 'Double-Up'), named(cat, 'Snake Eye')
+    local buffs = g.me.buffs
+    local r = g.roll
+    local ours = shot.sent and r and r.id == shot.id and r.at >= shot.sent
+
+    if buffs[BUST] or (ours and r.bust) then
+        if ours and r.bust and not ready(fold, g) then st.shot = nil; return nil end
+        if ready(fold, g) then
+            return { action = fold, once = true, why = 'Bust',
+                     sent = ours and function () st.shot = nil end or nil }
+        end
+        return nil  -- the Bust holds the slot until Fold is ready or it wears
+    end
+
+    if not shot.sent then
+        if not can.use(roll, g) then return nil end
+        return { action = roll, once = true, why = 'asked',
+                 sent = function (now) shot.sent, st.sent[roll.id] = now, now end }
+    end
+
+    if not ours then
+        if g.now - shot.sent < cor.WAIT then busy(mem, shot.sent + cor.WAIT); return nil end
+        st.shot = nil  -- its total never came: leave the roll as it is
+        return nil
+    end
+
+    -- Same gap as the rolls kept up. lowest, never the risk picked and never max_at_11:
+    -- a Bust is not a risk this command takes.
+    if buffs[DOUBLE_UP_CHANCE] and up(roll, g) and double then
+        local decision = (buffs[SNAKE_EYE] and r.total < MAX_TOTAL) and 'double'
+            or cor.decide(r.total, roll.lucky, roll.unlucky, 'lowest', ready(snake, g), ready(fold, g))
+        if decision == 'stop' then
+            st.safe, st.shot = { id = r.id, at = r.at }, nil
+            return nil
+        end
+        local gap = math.max(st.doubled or -math.huge, r.doubled and r.at or -math.huge) + cor.DOUBLE_GAP
+        local _, _, wait = can.use(double, g)
+        if g.now < gap or wait then busy(mem, math.max(gap, g.now + (wait or 0))); return nil end
+        if not ready(double, g) then return nil end
+        return { action = double, once = true, mods = decision == 'snake_eye' and { snake } or nil,
+                 why = ('%s at %d'):format(roll.name, r.total),
+                 sent = function (now) st.sent[roll.id], st.doubled = now, now end }
+    end
+    -- The total is in and the chance is not, yet: the buff can trail the packet.
+    if g.now - r.at < cor.WAIT then busy(mem, r.at + cor.WAIT); return nil end
+    st.shot = nil
+    return nil
+end
 
 -- The roll picked that stands at 11 while roll.max_at_11 is on, other than
 -- `but`: the risk is 'max' while it's up.
@@ -153,17 +259,20 @@ function cor.want(g, cat, cfg, mem)
     for _, a in ipairs(rolls) do
         if not up(a, g) then cor.forget(a.id, g.now) end
     end
+    if st.shot then return nil end  -- a commanded roll owns doubling until it holds or gives up
 
     -- A Bust takes a roll's place until it wears; Fold frees it at once.
     if buffs[BUST] and ready(fold, g) then return { action = fold, why = 'Bust' } end
 
     -- The last roll, doubled while it's worth it; until it's settled, no new roll.
     -- Only a total newer than every send: a roll sent since may own the Double-Up Chance.
+    -- A total /sk3 "<roll>" already held at lowest is not gambled on by the risk picked.
     local r = g.roll
     local roll, newest = nil, -math.huge
     for _, at in pairs(st.sent) do newest = math.max(newest, at) end
     for _, a in ipairs(rolls) do if r and not r.bust and a.id == r.id then roll = a end end
-    if roll and r.at >= newest and buffs[DOUBLE_UP_CHANCE] and up(roll, g) and double then
+    if st.safe and not (r and st.safe.id == r.id and st.safe.at == r.at and not r.bust) then st.safe = nil end
+    if not st.safe and roll and r.at >= newest and buffs[DOUBLE_UP_CHANCE] and up(roll, g) and double then
         local decision = (buffs[SNAKE_EYE] and r.total < MAX_TOTAL) and 'double'
             or cor.decide(r.total, roll.lucky, roll.unlucky, cor.eleven(g, cat, cfg, roll) and 'max' or cfg.roll.risk,
                 ready(snake, g), ready(fold, g))
@@ -239,7 +348,13 @@ for name, r in pairs({
 end
 cor.knowledge = K
 
-cor.behaviors = { { name = 'roll', run = cor.want, before = 'buff' } }
+cor.behaviors = {
+    -- Ahead of healing: the command asked for it now. `always` so Rolls may be off;
+    -- `resting` so it still goes while /heal is on (the roll stands you up);
+    -- `manual` so a town or AFK sleep, the pauses, does not hold a roll you just named.
+    { name = 'roll_shot', run = cor.shot, before = 'first', always = true, resting = true, manual = true, shown = 'roll' },
+    { name = 'roll', run = cor.want, before = 'buff' },
+}
 
 -- The rolls kept up (names, '' for none; the second only on a COR main job) and
 -- how far Double-Up chases a total: 'lowest' | 'medium' | 'highest';

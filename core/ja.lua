@@ -418,12 +418,20 @@ ja.words = {
     ['Other sessions\' players kept off until tracked by hand (/sk3 track <name>): %s.'] =
         '他のセッションのプレイヤーは、手動で追跡するまで外したままにします（/sk3 track <名前>）: %s',
     ['Resting %s.'] = 'ヒーリング: %s', ['Waiting for the game to load your job.'] = 'ゲームがジョブを読み込むのを待っています。',
+    ['asked'] = '指定',
+    ['%s, then Double-Up at lowest.'] = '%s、続いてダブルアップ（最低リスク）。',
+    ['%s when it can (%s), then Double-Up at lowest.'] = '%sは使えるようになってから（%s）、続いてダブルアップ（最低リスク）。',
+    ['%s once Invisible wears, then Double-Up at lowest.'] = 'インビジが切れてから%s、続いてダブルアップ（最低リスク）。',
+    ['%s once Bust is gone, then Double-Up at lowest.'] = 'バストが消えてから%s、続いてダブルアップ（最低リスク）。',
+    ['No roll "%s". /sk3 help lists the commands.'] = 'ファントムロール「%s」はありません。/sk3 help でコマンド一覧。',
     ['/sk3 opens or closes the window. Commands: widget, start [name|all], stop [name|all], plan, state, '
         .. 'buff [name] [me p1..p5 b0..c5 <tracked>|off], focus <name|off>, follow <name|off>, rest [on|off], '
-        .. 'track [name], untrack <name|all>, profile [name|default], afk [on|off|minutes], catalog [unknown], log, help'] =
+        .. 'track [name], untrack <name|all>, profile [name|default], afk [on|off|minutes], catalog [unknown], log, help. '
+        .. 'A Phantom Roll\'s name (Bolter\'s Roll) rolls it now, then Double-Ups at Lowest'] =
         '/sk3 でウィンドウを開閉します。コマンド: widget、start [名前|all]、stop [名前|all]、plan、state、'
         .. 'buff [名前] [me p1..p5 b0..c5 <追跡>|off]、focus <名前|off>、follow <名前|off>、rest [on|off]、'
-        .. 'track [名前]、untrack <名前|all>、profile [名前|default]、afk [on|off|分数]、catalog [unknown]、log、help',
+        .. 'track [名前]、untrack <名前|all>、profile [名前|default]、afk [on|off|分数]、catalog [unknown]、log、help。'
+        .. 'ファントムロールの名前（ボルターズロール）で今すぐロールし、最低リスクでダブルアップします',
 }
 
 -- Sentences built in English elsewhere, tried in order: { Lua pattern, Japanese with %1..%9 for its captures,

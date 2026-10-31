@@ -38,6 +38,8 @@ local util = require('core.util')
 local imgui = require('imgui')
 local blu = require('jobs.blu')
 local brd = require('jobs.brd')
+local cor = require('jobs.cor')
+local effects = require('core.status')
 local model = require('ui.model')
 
 local cfg, cfg_pair    -- settings for the current job pair
@@ -194,8 +196,10 @@ local function say_roll(g)
 end
 
 -- Decide on each fresh snapshot: to act when running and the server will take a
--- command, and while the window is open, to show what it would do. A decision
--- that isn't sent changes nothing (revive marks a raise only through intent.sent).
+-- command, and while the window is open, to show what it would do. A commanded
+-- roll (/sk3 "Bolter's Roll") is sent while automation is stopped too; nothing
+-- else is. A decision that isn't sent changes nothing (revive marks a raise only
+-- through intent.sent).
 local function tick(g)
     if g.loading then return end
     say_roll(g)
@@ -205,13 +209,14 @@ local function tick(g)
     if off then
         AshitaCore:GetPacketManager():AddOutgoingPacket(0xF1, { 0xF1, 0x04, 0x00, 0x00, off % 256, math.floor(off / 256), 0x00, 0x00 })
     end
-    local act = status.running and engine.ready(g, mem)
+    local act = (status.running or cor.pending(mem)) and engine.ready(g, mem)
     if not (act or status.open or cfg.ui.widget) then return end
     local intent, why = engine.decide(g, cat.list, cfg, mem)
     status.intent, status.why = intent and entry(intent, g), why
     local gather = status.running and engine.gather(g, cfg, mem)
     if gather then AshitaCore:GetChatManager():QueueCommand(1, gather) end
     if not (act and intent) then return end
+    if not status.running and not intent.once then return end
     AshitaCore:GetChatManager():QueueCommand(0, status.intent.command)
     if status.intent.english and not warned_english[status.intent.action] then
         warned_english[status.intent.action] = true
@@ -606,7 +611,8 @@ end)
 
 local HELP = '/sk3 opens or closes the window. Commands: widget, start [name|all], stop [name|all], plan, state, '
     .. 'buff [name] [me p1..p5 b0..c5 <tracked>|off], focus <name|off>, follow <name|off>, rest [on|off], '
-    .. 'track [name], untrack <name|all>, profile [name|default], afk [on|off|minutes], catalog [unknown], log, help'
+    .. 'track [name], untrack <name|all>, profile [name|default], afk [on|off|minutes], catalog [unknown], log, help. '
+    .. 'A Phantom Roll\'s name (Bolter\'s Roll) rolls it now, then Double-Ups at Lowest'
 
 -- A command's name argument, or '' for none or `off`.
 local function name_or_off(args) return args[3] and args[3]:lower() ~= 'off' and args[3] or '' end
@@ -690,6 +696,31 @@ local COMMANDS = {
     end,
 }
 
+-- The words after /sk3, quotes around a roll's name stripped ("Bolter's Roll").
+local function roll_text(args)
+    local parts = {}
+    for i = 2, #args do
+        local w = args[i]:gsub('^"+', ''):gsub('"+$', '')
+        if w ~= '' then parts[#parts + 1] = w end
+    end
+    return table.concat(parts, ' ')
+end
+
+-- /sk3 "Bolter's Roll": that roll now, then Double-Up at lowest (jobs/cor.lua).
+local function roll_command(roll, g)
+    cor.order(mem, roll)
+    local ok, why = can.use(roll, g)
+    if g.me.buffs[effects.INVISIBLE] then
+        printf('%s once Invisible wears, then Double-Up at lowest.', named(roll))
+    elseif cor.bust_waits(g, cat.list) then
+        printf('%s once Bust is gone, then Double-Up at lowest.', named(roll))
+    elseif not ok then
+        printf('%s when it can (%s), then Double-Up at lowest.', named(roll), sentence(why))
+    else
+        printf('%s, then Double-Up at lowest.', named(roll))
+    end
+end
+
 -- ponytail: /sk3 while v2 is still installed and owns /sk; switch to /sk at cutover.
 ashita.events.register('command', 'sidekick3_command', function (e)
     local args = e.command:args()
@@ -702,6 +733,14 @@ ashita.events.register('command', 'sidekick3_command', function (e)
     -- Stop goes through while you load (a zone): your file keeps carrying calls for share.LOADING seconds.
     if sub == 'stop' and (g.loading or not cfg) then run_command(share.me(), false, args[3]); return end
     if g.loading or not cfg then printf('Waiting for the game to load your job.'); return end
-    local command = COMMANDS[sub] or ANYTIME.help
-    command(args, g)
+    if COMMANDS[sub] then return COMMANDS[sub](args, g) end
+    local name = roll_text(args)
+    local roll = cor.roll_named(cat.list, name)
+    if roll then return roll_command(roll, g) end
+    if name:lower():find('roll', 1, true) then
+        for _, a in ipairs(cat.list) do
+            if a.lucky then printf('No roll "%s". /sk3 help lists the commands.', name); return end
+        end
+    end
+    ANYTIME.help()
 end)

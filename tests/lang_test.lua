@@ -79,6 +79,7 @@ local REASONS = {
     { 'A left', 'Aが離れた' },
     { 'B near you', 'B（近く）' },
     { '2 asleep', '2人が睡眠中' },
+    { 'asked', '指定' },
     { 'Corsair\'s Roll at 7', 'コルセアズロール: 7' },
     { 'at 10, for 11', '10 → 11狙い' },
     { 'A (Entrust)', 'A（エントラスト）' },
