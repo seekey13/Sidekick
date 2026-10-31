@@ -188,7 +188,3 @@ test('a raw 0x028: tracked targets read, others skipped unparsed, an auto-attack
         eq({ packets.casting(13), packets.last_finish() }, { false, 12, true })
     end)
 end)
-
-test('only the packets it reads are wanted', function ()
-    eq(packets.wanted, { [0x028] = true, [0x029] = true, [0x0C9] = true, [0x044] = true, [0x00B] = true, [0x00A] = true })
-end)

@@ -62,8 +62,7 @@ local cast = { active = false, since = 0, finished = -math.huge, spell = false }
 local zone = { out = nil, settle = -math.huge }  -- when you zoned out (nil once back); when that settles
 
 -- The 0x028 being read: its bytes, the next bit, and where it ends (0 once a read ran
--- past it: the packet is malformed). Module state, not a closure per packet: this runs
--- for every action in sight, and LuaJIT won't compile a function that makes a closure.
+-- past it: the packet is malformed).
 local raw, at, limit = nil, 0, 0
 local function bits(n)
     if at + n > limit then limit = 0; return 0 end
@@ -198,17 +197,13 @@ function packets.action(p, ctx, now)
 end
 
 local function on_message(e, ctx, now)
-    local d = e.data
-    if #d < 0x1A then return end
-    -- Most 0x029s (damage, misses, synth results...) are none of these: the message first.
-    local message = struct.unpack('H', d, 0x18 + 1) % 0x8000
-    local gain = GAINS_029[message]
-    if not (gain or LOSES_029[message]) then return end
-    local target = struct.unpack('i4', d, 0x08 + 1)
-    if not ctx.tracks[target] then return end
-    local id = struct.unpack('i4', d, 0x0C + 1)
-    if id <= 0 or id == 255 then return end
-    if gain then buffs.gain(target, id, now) else buffs.lose(target, id) end
+    if #e.data < 0x1A then return end
+    local target = struct.unpack('i4', e.data, 0x08 + 1)
+    local id = struct.unpack('i4', e.data, 0x0C + 1)
+    local message = struct.unpack('H', e.data, 0x18 + 1) % 0x8000
+    if not ctx.tracks[target] or id <= 0 or id == 255 then return end
+    if GAINS_029[message] then buffs.gain(target, id, now)
+    elseif LOSES_029[message] then buffs.lose(target, id) end
 end
 
 -- 0x0C9 comes twice per /check: equipment (flag 3), then the general part
@@ -229,10 +224,6 @@ local function on_extended_job(e)
     if #d < 0x04 + 1 then return end
     for _, f in jobs.each('extended', d:byte(0x04 + 1)) do f(d) end
 end
-
--- The incoming packets packets.handle reads; the hook in Sidekick3.lua passes it only
--- these, so the many it doesn't (entity updates above all) cost one lookup.
-packets.wanted = { [0x028] = true, [0x029] = true, [0x0C9] = true, [0x044] = true, [0x00B] = true, [0x00A] = true }
 
 function packets.handle(e, ctx, now)
     if e.id == 0x028 then
