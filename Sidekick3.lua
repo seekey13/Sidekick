@@ -605,8 +605,11 @@ end)
 
 ashita.events.register('unload', 'sidekick3_unload', share.close)
 
+-- Every incoming packet comes through here, hundreds a second in a crowd: only those
+-- core/packets.lua reads go on, and only they read the clock.
+local wanted = packets.wanted
 ashita.events.register('packet_in', 'sidekick3_packet_in', function (e)
-    packets.handle(e, packet_ctx, os.clock())
+    if wanted[e.id] then packets.handle(e, packet_ctx, os.clock()) end
 end)
 
 local HELP = '/sk3 opens or closes the window. Commands: widget, start [name|all], stop [name|all], plan, state, '

@@ -61,39 +61,62 @@ local LOSES_029 = { [204] = true, [206] = true, [343] = true }  -- wears off / d
 local cast = { active = false, since = 0, finished = -math.huge, spell = false }
 local zone = { out = nil, settle = -math.huge }  -- when you zoned out (nil once back); when that settles
 
--- 0x028 action packet: header plus each target's results (bit-packed, big endian).
-local function parse_action(e)
-    local data, offset, limit = e.data_raw, 40, e.size * 8
-    local function bits(n)
-        if offset + n > limit then limit = 0; return 0 end  -- malformed: whole packet is trash
-        local v = ashita.bits.unpack_be(data, 0, offset, n)
-        offset = offset + n
-        return v
-    end
-    local p = { actor = bits(32) }
+-- The 0x028 being read: its bytes, the next bit, and where it ends (0 once a read ran
+-- past it: the packet is malformed). Module state, not a closure per packet: this runs
+-- for every action in sight, and LuaJIT won't compile a function that makes a closure.
+local raw, at, limit = nil, 0, 0
+local function bits(n)
+    if at + n > limit then limit = 0; return 0 end
+    local v = ashita.bits.unpack_be(raw, 0, at, n)
+    at = at + n
+    return v
+end
+local function skip(n)
+    if at + n > limit then limit = 0 else at = at + n end
+end
+
+-- A result's fields up to its two optional parts: resolution, kind, animation, info,
+-- scale, knockback, param, message, flags.
+local RESULT_BITS = 3 + 2 + 12 + 5 + 2 + 3 + 17 + 10 + 31
+local MELEE = 1  -- auto-attack: no message packets.action reads (damage, miss, shadows...)
+
+-- 0x028 action packet: header plus each target's results (bit-packed, big endian), or nil
+-- when it's malformed or can't matter to packets.action: an auto-attack, or another's
+-- action on no unit in ctx.tracks. Of another's action, only the tracked targets are read:
+-- the rest are skipped, not parsed, since packets.action does nothing with them.
+local function parse_action(e, ctx)
+    raw, at, limit = e.data_raw, 40, e.size * 8
+    local actor = bits(32)
     local count = bits(6)
-    offset = offset + 4
-    p.category = bits(4)
-    p.param = bits(16)  -- spell/ability id on a finish; a marker (or INTERRUPT) on a begin
-    bits(16)
-    bits(32)            -- recast
-    p.targets = {}
+    skip(4)
+    local category = bits(4)
+    if category == MELEE then return nil end
+    local tracks = ctx.tracks
+    local all = actor == ctx.me or actor == ctx.pet  -- your own and your pet's: every target
+    if not all and next(tracks) == nil then return nil end
+    local p = { actor = actor, category = category, param = bits(16), targets = {} }
+    skip(16 + 32)  -- recast
     for _ = 1, count do
-        local t = { id = bits(32), results = {} }
+        local id = bits(32)
         local n = bits(4)
         if n == 0 then break end
+        local t = (all or tracks[id]) and { id = id, results = {} }
         for _ = 1, n do
-            bits(3 + 2 + 12)                     -- resolution, kind, animation
-            local r = { info = bits(5) }         -- COR: the die
-            bits(2 + 3)                          -- scale, knockback
-            r.param = bits(17)
-            r.message = bits(10)
-            bits(31)                             -- flags
-            if bits(1) == 1 then bits(10 + 17 + 10) end  -- additional effect
-            if bits(1) == 1 then bits(10 + 14 + 10) end  -- spikes
-            t.results[#t.results + 1] = r
+            if t then
+                skip(3 + 2 + 12)                     -- resolution, kind, animation
+                local r = { info = bits(5) }         -- COR: the die
+                skip(2 + 3)                          -- scale, knockback
+                r.param = bits(17)
+                r.message = bits(10)
+                skip(31)                             -- flags
+                t.results[#t.results + 1] = r
+            else
+                skip(RESULT_BITS)
+            end
+            if bits(1) == 1 then skip(10 + 17 + 10) end  -- additional effect
+            if bits(1) == 1 then skip(10 + 14 + 10) end  -- spikes
         end
-        p.targets[#p.targets + 1] = t
+        if t then p.targets[#p.targets + 1] = t end
     end
     return limit ~= 0 and p or nil
 end
@@ -175,13 +198,17 @@ function packets.action(p, ctx, now)
 end
 
 local function on_message(e, ctx, now)
-    if #e.data < 0x1A then return end
-    local target = struct.unpack('i4', e.data, 0x08 + 1)
-    local id = struct.unpack('i4', e.data, 0x0C + 1)
-    local message = struct.unpack('H', e.data, 0x18 + 1) % 0x8000
-    if not ctx.tracks[target] or id <= 0 or id == 255 then return end
-    if GAINS_029[message] then buffs.gain(target, id, now)
-    elseif LOSES_029[message] then buffs.lose(target, id) end
+    local d = e.data
+    if #d < 0x1A then return end
+    -- Most 0x029s (damage, misses, synth results...) are none of these: the message first.
+    local message = struct.unpack('H', d, 0x18 + 1) % 0x8000
+    local gain = GAINS_029[message]
+    if not (gain or LOSES_029[message]) then return end
+    local target = struct.unpack('i4', d, 0x08 + 1)
+    if not ctx.tracks[target] then return end
+    local id = struct.unpack('i4', d, 0x0C + 1)
+    if id <= 0 or id == 255 then return end
+    if gain then buffs.gain(target, id, now) else buffs.lose(target, id) end
 end
 
 -- 0x0C9 comes twice per /check: equipment (flag 3), then the general part
@@ -203,9 +230,13 @@ local function on_extended_job(e)
     for _, f in jobs.each('extended', d:byte(0x04 + 1)) do f(d) end
 end
 
+-- The incoming packets packets.handle reads; the hook in Sidekick3.lua passes it only
+-- these, so the many it doesn't (entity updates above all) cost one lookup.
+packets.wanted = { [0x028] = true, [0x029] = true, [0x0C9] = true, [0x044] = true, [0x00B] = true, [0x00A] = true }
+
 function packets.handle(e, ctx, now)
     if e.id == 0x028 then
-        local p = parse_action(e)
+        local p = parse_action(e, ctx)
         if p then packets.action(p, ctx, now) end
     elseif e.id == 0x029 then
         on_message(e, ctx, now)

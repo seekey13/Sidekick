@@ -136,3 +136,59 @@ test('zoning: from the zone-out until the zone-in settles, or a minute without i
     at(0x00B, 200)
     eq({ packets.zoning(259), packets.zoning(261), packets.zoning(262) }, { true, false, false })
 end)
+
+-- A raw 0x028 as the server packs it, read through a stand-in for ashita.bits (bits kept
+-- one per entry, a field's high bit first). targets = { { sid, { { message, param }, ... } } }.
+local function raw_action(actor, category, param, targets)
+    local d = {}
+    local function put(n, v) for i = n - 1, 0, -1 do d[#d + 1] = math.floor(v / 2 ^ i) % 2 end end
+    put(40, 0); put(32, actor); put(6, #targets); put(4, 0); put(4, category); put(16, param); put(16, 0); put(32, 0)
+    for _, t in ipairs(targets) do
+        put(32, t[1]); put(4, #t[2])
+        for _, r in ipairs(t[2]) do
+            put(17, 0); put(5, 0); put(5, 0); put(17, r[2]); put(10, r[1]); put(31, 0)
+            put(1, 1); put(37, 12345)  -- an additional effect: skipped
+            put(1, 0)
+        end
+    end
+    return { id = 0x028, data_raw = d, size = math.ceil(#d / 8) }
+end
+
+local function with_bits(fn)
+    local was, reads = ashita, 0
+    ashita = { bits = { unpack_be = function (d, _, at, n)
+        reads = reads + 1
+        local v = 0
+        for i = 1, n do v = v * 2 + (d[at + i] or 0) end
+        return v
+    end } }
+    local ok, err = pcall(fn, function () local r = reads; reads = 0; return r end)
+    ashita = was
+    if not ok then error(err, 0) end
+end
+
+test('a raw 0x028: tracked targets read, others skipped unparsed, an auto-attack not read past its header', function ()
+    with_bits(function (reads)
+        buffs.clear()
+        packets.handle(raw_action(MOB, MOB_SKILL, 1234, { { STRANGER, { { 242, POISON } } }, { TRUST, { { 242, POISON } } },
+                                                          { PET, { { 242, SLEEP }, { 242, POISON } } } }), ctx(), 0)
+        eq({ buffs.of(TRUST, 1), buffs.of(PET, 1), buffs.of(STRANGER, 1) },
+           { { [POISON] = true }, { [SLEEP] = true, [POISON] = true }, {} })
+        -- Nothing tracked: another's action stops at its actor and category.
+        reads()
+        local none = ctx(); none.tracks = {}
+        packets.handle(raw_action(MOB, MOB_SKILL, 1234, { { STRANGER, { { 242, POISON } } } }), none, 0)
+        eq(reads(), 3)
+        packets.handle(raw_action(MOB, 1, 0, { { TRUST, { { 1, 50 } } } }), ctx(), 0)
+        eq(reads(), 3)
+        -- Your own: the cast lock, with nothing tracked too.
+        packets.handle(raw_action(ME, 8, 0, { { MOB, { { 0, 0 } } } }), none, 10)
+        eq(packets.casting(11), true)
+        packets.handle(raw_action(ME, SPELL, 0, { { MOB, { { 0, 0 } } } }), none, 12)
+        eq({ packets.casting(13), packets.last_finish() }, { false, 12, true })
+    end)
+end)
+
+test('only the packets it reads are wanted', function ()
+    eq(packets.wanted, { [0x028] = true, [0x029] = true, [0x0C9] = true, [0x044] = true, [0x00B] = true, [0x00A] = true })
+end)
