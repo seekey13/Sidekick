@@ -1635,6 +1635,31 @@ test('a drop-down whose list raises closes every scope it opened, then raises th
     eq({ ok, err, frame.stack, frame.vars }, { false, 'boom', {}, 0 })
 end)
 
+test('a drop-down\'s list is as high as its rows setting, held to its range, and scrolls past it', function ()
+    close_settings()
+    local cfg = settings.defaults()
+    local function rows(n)
+        cfg.ui.list_rows = n
+        render(cfg, status())
+        return kit.list_rows
+    end
+    eq({ rows(nil), rows(4), rows(500), rows(1), rows('what') }, { 8, 4, 30, 3, 8 })
+    local real, high = handlers.SetNextWindowSizeConstraints, nil
+    handlers.SetNextWindowSizeConstraints = function (_, max) high = max[2] end
+    local function height(n)
+        kit.list_rows = n
+        frame = { stack = {}, vars = 0, texts = {}, ids = {}, args = {}, flags = {}, columns = {}, drawn = {}, extent = {},
+                  clicks = {}, window = 'T' }
+        kit.dropdown('##sk3_rows', 0, 10, 100, 'x', true, 1, function () end)
+        return high
+    end
+    local eight, three = height(8), height(3)
+    handlers.SetNextWindowSizeConstraints = real
+    kit.list_rows = 8
+    eq(eight - three, 5 * (13 + kit.S(6)))  -- five more lines of the fake's 13-pixel font, each with its spacing
+    eq(three, 3 * 13 + 2 * kit.S(6) + 2 * kit.S(8))
+end)
+
 -- Last, as Segoe UI stays in once it's baked. The fake is ImGui 1.81, as Ashita 4.16's.
 test('on ImGui 1.81 Segoe UI is added at load and drawn; a tooltip\'s is sized by its window\'s font scale', function ()
     close_settings()

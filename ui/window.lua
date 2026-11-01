@@ -1054,6 +1054,11 @@ end
 -- Sidekick Settings' size, % of the size for the screen: view.ui.scale, held to its slider's range.
 local function ui_scale(ui) return util.clamp(math.floor(tonumber(ui and ui.scale) or 100), 50, 200) end
 
+-- The most choices a drop-down's list shows before it scrolls: view.ui.list_rows, held to its slider's range.
+local function list_rows(ui)
+    return util.clamp(math.floor(tonumber(ui and ui.list_rows) or 8), kit.LIST_ROWS[1], kit.LIST_ROWS[2])
+end
+
 -- Another session's shows only what it sent: its HUD is its own.
 local function draw_ui(view, pg)
     if view.session then return draw_recent(view, pg) end
@@ -1074,6 +1079,9 @@ local function draw_ui(view, pg)
     subheader(pg, 'Sidekick Settings')
     slider(pg, 'Size', 'ui.scale', ui_scale(view.ui),
         'This window\'s size, % of the size that suits your screen. Taken up once the slider is let go.', '%', { 50, 200 })
+    slider(pg, 'Drop-down rows', 'ui.list_rows', list_rows(view.ui),
+        'The most choices a drop-down shows at once; scroll its list for the rest. Lower it on a small screen.', nil,
+        kit.LIST_ROWS)
     subheader(pg, 'LOG')
     draw_recent(view, pg)
     subheader(pg, 'CLIENT')
@@ -1507,6 +1515,7 @@ function window.render(view, act_)
     act = act_
     if not imgui.IsAnyItemActive() then user_scale = ui_scale(view.ui) / 100 end  -- not mid-drag: the window would move under it
     kit.frame(user_scale, view.japanese == true)
+    kit.list_rows = list_rows(view.ui)
     lang.use(view.japanese)
     local open = view.ui.open ~= false
     if hud_open and not open and not view.ui.widget then settings_open = false end  -- the widget's cogs keep them

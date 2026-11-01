@@ -51,6 +51,7 @@ local DEFAULTS = {
            hide_mp = true,  -- leave out the MP bar of a member or pet with no MP (0/0)
            widget = false,  -- the widget, v2's floating one (/sk3 widget)
            widget_size = 16,  -- its text and icons' height, in pixels
+           list_rows = 8,  -- the most choices a drop-down's list shows before it scrolls
            japanese = false },  -- send spell, ability and item names in Japanese
 }
 local UI_FILE = 'ui'

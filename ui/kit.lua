@@ -763,8 +763,18 @@ function kit.segments(ids, x, cy, labels, index, enabled, alpha, px)
     return index, changed, over
 end
 
+kit.LIST_ROWS = { 3, 30 }  -- kit.list_rows' range
+kit.list_rows = 8          -- the most choices a drop-down's list shows at once; it scrolls for the rest (view.ui.list_rows)
+
+-- How high a drop-down's list may grow to show `rows` choices at `px` (each a line, ItemSpacing apart, inside its padding).
+function kit.list_height(rows, px)
+    local line = kit.custom and px or imgui.GetFontSize()
+    return rows * line + (rows - 1) * S(6) + S(8) * 2
+end
+
 -- A drop-down `w` wide showing `shown` (whole in a tooltip when it's cut to fit); a click opens its list, ImGui's popup,
--- which `body()` fills with Selectables (a pick closes it). Returns whether its box is hovered.
+-- which `body()` fills with Selectables (a pick closes it), kit.list_rows of them high before it scrolls.
+-- Returns whether its box is hovered.
 function kit.dropdown(id, x, cy, w, shown, enabled, alpha, body)
     local h, pad = S(24), S(8)
     local y = cy - h / 2
@@ -781,8 +791,9 @@ function kit.dropdown(id, x, cy, w, shown, enabled, alpha, body)
     kit.icon(dl, open and 'right' or 'down', x + w - pad - S(4), cy, S(11), P.dim, a)
     if clicked and on then imgui.OpenPopup(list) end
     imgui.SetNextWindowPos({ x, y + h + S(2) })
-    imgui.SetNextWindowSizeConstraints({ w, 0 }, { math.max(w, S(360)), S(420) })
-    kit.popup(list, S(kit.BODY - 1), body)
+    local list_px = S(kit.BODY - 1)
+    imgui.SetNextWindowSizeConstraints({ w, 0 }, { math.max(w, S(360)), kit.list_height(kit.list_rows, list_px) })
+    kit.popup(list, list_px, body)
     return hovered
 end
 
