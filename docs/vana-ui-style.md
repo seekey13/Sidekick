@@ -745,6 +745,7 @@ What differs from vana:
 | A typed number in a window beside the main one | A popup by the value (`kit.slider`) |
 | Raw ImGui numbers | The constants `require('imgui')` defines, each listed in `.luacheckrc`'s `read_globals` |
 | ImGui 1.92 only | 1.81 too (Ashita 4.16): Segoe UI added in Ashita's `load` event (`window.load` → `kit.bake`), as 1.81 locks its atlas during a frame; draw-list text drawn from the 18px bake at the size asked, measured by scaling `CalcTextSize`; ImGui's own items (tooltips, popups, the text field) sized with `SetWindowFontScale` inside their window (`kit.push_font`); `...` for the ellipsis, as the bake holds Latin-1 alone; Japanese in the font Ashita added at its start from its boot config (`[ashita.imgui.fonts]` with `is_jp`), found in `GetIO().Fonts.Fonts` by its kana and scaled from its size, `->` and `...` written where it lacks `→` and `…` (1.81's Japanese set does); `BeginChild`'s border bool; 1.81's corner flags. `IMGUI_VERSION_NUM` decides |
+| A drop-down's list at most 420 px tall | At most `kit.list_rows` choices tall (8; Drop-down rows under UI / Log), scrolled to the ticked one as it opens |
 | Sizes of §5 | `ui/window.lua`'s constants: a 390-wide page, fixed for every job, rows of 30 |
 | Search, sub-tabs, presets, section resets | Not drawn: Sidekick3's pages are short, and its view has no defaults to reset to |
 

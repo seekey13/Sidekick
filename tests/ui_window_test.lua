@@ -1635,29 +1635,65 @@ test('a drop-down whose list raises closes every scope it opened, then raises th
     eq({ ok, err, frame.stack, frame.vars }, { false, 'boom', {}, 0 })
 end)
 
-test('a drop-down\'s list is as high as its rows setting, held to its range, and scrolls past it', function ()
+test('UI / Log: Drop-down rows sets how many choices a drop-down shows, held to its range', function ()
+    open_settings()
+    local cfg, st = settings.defaults(), status()
+    eq(render(cfg, st, on('UI / Log', { ['Drop-down rows##sk3_ui_list_rows'] = 5 })), 1)
+    eq(cfg.ui.list_rows, 5)
     close_settings()
-    local cfg = settings.defaults()
+    render(cfg, st)  -- taken up the next frame, before any window draws
+    eq(kit.list_rows, 5)
     local function rows(n)
         cfg.ui.list_rows = n
-        render(cfg, status())
+        render(cfg, st)
         return kit.list_rows
     end
     eq({ rows(nil), rows(4), rows(500), rows(1), rows('what') }, { 8, 4, 30, 3, 8 })
-    local real, high = handlers.SetNextWindowSizeConstraints, nil
-    handlers.SetNextWindowSizeConstraints = function (_, max) high = max[2] end
-    local function height(n)
-        kit.list_rows = n
-        frame = { stack = {}, vars = 0, texts = {}, ids = {}, args = {}, flags = {}, columns = {}, drawn = {}, extent = {},
-                  clicks = {}, window = 'T' }
-        kit.dropdown('##sk3_rows', 0, 10, 100, 'x', true, 1, function () end)
-        return high
-    end
-    local eight, three = height(8), height(3)
-    handlers.SetNextWindowSizeConstraints = real
-    kit.list_rows = 8
-    eq(eight - three, 5 * (13 + kit.S(6)))  -- five more lines of the fake's 13-pixel font, each with its spacing
-    eq(three, 3 * 13 + 2 * kit.S(6) + 2 * kit.S(8))
+end)
+
+-- `fn()` with the fake's `name` calls going to `handler`, and kit.list_rows and kit.custom put back after, a failure too.
+local function with_handler(name, handler, fn)
+    local real, rows, custom = handlers[name], kit.list_rows, kit.custom
+    handlers[name] = handler
+    local ok, err = pcall(fn)
+    handlers[name], kit.list_rows, kit.custom = real, rows, custom
+    if not ok then error(err, 0) end
+end
+
+local function bare_frame()
+    frame = { stack = {}, vars = 0, texts = {}, ids = {}, args = {}, flags = {}, columns = {}, drawn = {}, extent = {},
+              clicks = {}, window = 'T' }
+end
+
+test('a drop-down\'s list grows to kit.list_rows lines, in its own font or ImGui\'s, then scrolls', function ()
+    local high
+    with_handler('SetNextWindowSizeConstraints', function (_, max) high = max[2] end, function ()
+        local function height(n, custom)
+            kit.list_rows, kit.custom = n, custom
+            bare_frame()
+            kit.dropdown('##sk3_rows', 0, 10, 100, 'x', true, 1, function () end)
+            return high
+        end
+        local pad, gap, line = 2 * kit.S(8), kit.S(6), kit.S(kit.BODY - 1)  -- kit.popup's padding and spacing
+        eq({ height(8, false), height(3, false) }, { 8 * 13 + 7 * gap + pad, 3 * 13 + 2 * gap + pad })  -- the fake's 13px
+        eq(height(8, true), 8 * line + 7 * gap + pad)  -- Segoe UI's, drawn at the size asked
+        eq({ height(nil, false), height('x', false), height(99, false) },
+            { height(8, false), height(8, false), height(30, false) })  -- a custom UI's bad value is held too
+    end)
+end)
+
+test('a drop-down\'s list opens scrolled to its ticked choice, and only as it opens', function ()
+    local scrolled, appearing = {}, true
+    with_handler('SetScrollHereY', function (k) scrolled[#scrolled + 1] = k end, function ()
+        with_handler('IsWindowAppearing', function () return appearing end, function ()
+            bare_frame()
+            kit.selectable('a', false)
+            kit.selectable('b', true)
+            appearing = false
+            kit.selectable('b', true)
+        end)
+    end)
+    eq(scrolled, { 0.5 })
 end)
 
 -- Last, as Segoe UI stays in once it's baked. The fake is ImGui 1.81, as Ashita 4.16's.

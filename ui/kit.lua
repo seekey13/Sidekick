@@ -763,8 +763,13 @@ function kit.segments(ids, x, cy, labels, index, enabled, alpha, px)
     return index, changed, over
 end
 
-kit.LIST_ROWS = { 3, 30 }  -- kit.list_rows' range
-kit.list_rows = 8          -- the most choices a drop-down's list shows at once; it scrolls for the rest (view.ui.list_rows)
+kit.LIST_ROWS = { 3, 30, default = 8 }  -- kit.list_rows' range, and its value unless a UI sets it
+kit.list_rows = kit.LIST_ROWS.default  -- the most choices a drop-down's list shows at once; it scrolls for the rest
+
+-- `n` as a number of rows for a list: a whole one in kit.LIST_ROWS' range, its default when it's no number.
+function kit.rows(n)
+    return util.clamp(math.floor(tonumber(n) or kit.LIST_ROWS.default), kit.LIST_ROWS[1], kit.LIST_ROWS[2])
+end
 
 -- How high a drop-down's list may grow to show `rows` choices at `px` (each a line, ItemSpacing apart, inside its padding).
 function kit.list_height(rows, px)
@@ -773,7 +778,8 @@ function kit.list_height(rows, px)
 end
 
 -- A drop-down `w` wide showing `shown` (whole in a tooltip when it's cut to fit); a click opens its list, ImGui's popup,
--- which `body()` fills with Selectables (a pick closes it), kit.list_rows of them high before it scrolls.
+-- which `body()` fills with Selectables (a pick closes it), kit.list_rows of them high before it scrolls
+-- (kit.selectable scrolls to the ticked one as it opens).
 -- Returns whether its box is hovered.
 function kit.dropdown(id, x, cy, w, shown, enabled, alpha, body)
     local h, pad = S(24), S(8)
@@ -792,9 +798,16 @@ function kit.dropdown(id, x, cy, w, shown, enabled, alpha, body)
     if clicked and on then imgui.OpenPopup(list) end
     imgui.SetNextWindowPos({ x, y + h + S(2) })
     local list_px = S(kit.BODY - 1)
-    imgui.SetNextWindowSizeConstraints({ w, 0 }, { math.max(w, S(360)), kit.list_height(kit.list_rows, list_px) })
+    imgui.SetNextWindowSizeConstraints({ w, 0 }, { math.max(w, S(360)), kit.list_height(kit.rows(kit.list_rows), list_px) })
     kit.popup(list, list_px, body)
     return hovered
+end
+
+-- A choice in a drop-down's list, ticked while `selected`; the list opens scrolled to the ticked one. Returns clicked.
+function kit.selectable(label, selected)
+    local clicked = imgui.Selectable(label, selected)
+    if selected and imgui.IsWindowAppearing() then imgui.SetScrollHereY(0.5) end
+    return clicked
 end
 
 function kit.button_width(label)

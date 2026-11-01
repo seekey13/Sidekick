@@ -618,9 +618,9 @@ end
 -- `field` (label), `current` ticked, each with the tooltip `tip(choice)` gives; `id` keeps their ids apart.
 local function options(id, path, current, choices, field, tip)
     return function ()
-        if imgui.Selectable(t('None') .. '##' .. id .. '_none', current == '') then act.set(path, '') end
+        if kit.selectable(t('None') .. '##' .. id .. '_none', current == '') then act.set(path, '') end
         for _, c in ipairs(choices) do
-            if imgui.Selectable(c[field or 'label'] .. '##' .. id .. '_' .. c.name, c.name == current) then act.set(path, c.name) end
+            if kit.selectable(c[field or 'label'] .. '##' .. id .. '_' .. c.name, c.name == current) then act.set(path, c.name) end
             if tip then kit.tip(tip(c)) end
         end
     end
@@ -1055,9 +1055,7 @@ end
 local function ui_scale(ui) return util.clamp(math.floor(tonumber(ui and ui.scale) or 100), 50, 200) end
 
 -- The most choices a drop-down's list shows before it scrolls: view.ui.list_rows, held to its slider's range.
-local function list_rows(ui)
-    return util.clamp(math.floor(tonumber(ui and ui.list_rows) or 8), kit.LIST_ROWS[1], kit.LIST_ROWS[2])
-end
+local function list_rows(ui) return kit.rows(ui and ui.list_rows) end
 
 -- Another session's shows only what it sent: its HUD is its own.
 local function draw_ui(view, pg)
@@ -1137,7 +1135,7 @@ local function family_row(pg, sid, r)
         if it.kind == 'pick' then
             kit.dropdown('##pick_' .. id, it.x, icy, it.w, r.choice, true, pg.alpha, function ()
                 for _, c in ipairs(r.choices) do
-                    if imgui.Selectable(c.label, c.name == r.pick) then act.pick(r.key, c.name) end
+                    if kit.selectable(c.label, c.name == r.pick) then act.pick(r.key, c.name) end
                 end
             end)
         elseif it.kind == 'target' then
