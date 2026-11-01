@@ -61,40 +61,66 @@ local LOSES_029 = { [204] = true, [206] = true, [343] = true }  -- wears off / d
 local cast = { active = false, since = 0, finished = -math.huge, spell = false }
 local zone = { out = nil, settle = -math.huge }  -- when you zoned out (nil once back); when that settles
 
--- 0x028 action packet: header plus each target's results (bit-packed, big endian).
-local function parse_action(e)
-    local data, offset, limit = e.data_raw, 40, e.size * 8
-    local function bits(n)
-        if offset + n > limit then limit = 0; return 0 end  -- malformed: whole packet is trash
-        local v = ashita.bits.unpack_be(data, 0, offset, n)
-        offset = offset + n
-        return v
-    end
-    local p = { actor = bits(32) }
+-- The 0x028 being read: its bytes, the next bit, and where it ends (0 once a read ran
+-- past it: the packet is malformed).
+local raw, at, limit = nil, 0, 0
+local function bits(n)
+    if at + n > limit then limit = 0; return 0 end
+    local v = ashita.bits.unpack_be(raw, 0, at, n)
+    at = at + n
+    return v
+end
+local function skip(n)
+    if at + n > limit then limit = 0 else at = at + n end
+end
+
+-- A result's fields up to its two optional parts: resolution, kind, animation, info,
+-- scale, knockback, param, message, flags.
+local RESULT_BITS = 3 + 2 + 12 + 5 + 2 + 3 + 17 + 10 + 31
+-- Auto-attack. The server builds it only in its attack round (entities/battleentity.cpp), with
+-- main messages 0, 1, 15, 30-32, 67, 70, 352, 353 and 373: none packets.action reads. Enspells,
+-- spikes and status procs come in the additional effect and spikes parts, never read.
+local MELEE = 1
+
+-- 0x028 action packet: header plus each target's results (bit-packed, big endian), or nil
+-- when it's malformed or can't matter to packets.action: an auto-attack, or another's
+-- action on no unit in ctx.tracks. Of another's action, only the tracked targets are read:
+-- the rest are skipped, not parsed, since packets.action does nothing with them.
+local function parse_action(e, ctx)
+    raw, at, limit = e.data_raw, 40, e.size * 8
+    local actor = bits(32)
     local count = bits(6)
-    offset = offset + 4
-    p.category = bits(4)
-    p.param = bits(16)  -- spell/ability id on a finish; a marker (or INTERRUPT) on a begin
-    bits(16)
-    bits(32)            -- recast
-    p.targets = {}
+    skip(4)
+    local category = bits(4)
+    if category == MELEE then return nil end
+    local tracks = ctx.tracks
+    local all = actor == ctx.me or actor == ctx.pet  -- your own and your pet's: every target
+    if not all and next(tracks) == nil then return nil end
+    local p = { actor = actor, category = category, param = bits(16), targets = {} }
+    skip(16 + 32)  -- recast
     for _ = 1, count do
-        local t = { id = bits(32), results = {} }
+        local id = bits(32)
         local n = bits(4)
         if n == 0 then break end
+        local t = (all or tracks[id]) and { id = id, results = {} }
         for _ = 1, n do
-            bits(3 + 2 + 12)                     -- resolution, kind, animation
-            local r = { info = bits(5) }         -- COR: the die
-            bits(2 + 3)                          -- scale, knockback
-            r.param = bits(17)
-            r.message = bits(10)
-            bits(31)                             -- flags
-            if bits(1) == 1 then bits(10 + 17 + 10) end  -- additional effect
-            if bits(1) == 1 then bits(10 + 14 + 10) end  -- spikes
-            t.results[#t.results + 1] = r
+            if t then
+                skip(3 + 2 + 12)                     -- resolution, kind, animation
+                local r = { info = bits(5) }         -- COR: the die
+                skip(2 + 3)                          -- scale, knockback
+                r.param = bits(17)
+                r.message = bits(10)
+                skip(31)                             -- flags
+                t.results[#t.results + 1] = r
+            else
+                skip(RESULT_BITS)
+            end
+            if bits(1) == 1 then skip(10 + 17 + 10) end  -- additional effect
+            if bits(1) == 1 then skip(10 + 14 + 10) end  -- spikes
         end
-        p.targets[#p.targets + 1] = t
+        if t then p.targets[#p.targets + 1] = t end
     end
+    if not (all or p.targets[1]) then return nil end  -- another's, on no one tracked
     return limit ~= 0 and p or nil
 end
 
@@ -113,7 +139,7 @@ end
 -- (jobs/brd.lua), removes = function(observed.key) -> the status ids your remover clears and whether it's Esuna's
 -- kind (cast on you, clearing on those near only what you have too), or nil }
 function packets.action(p, ctx, now)
-    if p.actor == ctx.me and p.category ~= 1 then  -- 1 = auto-attack, says nothing
+    if p.actor == ctx.me and p.category ~= MELEE then
         if (p.category == CAST_BEGIN or p.category == ITEM_BEGIN) and p.param ~= INTERRUPT then
             cast.active, cast.since = true, now
         else
@@ -205,7 +231,7 @@ end
 
 function packets.handle(e, ctx, now)
     if e.id == 0x028 then
-        local p = parse_action(e)
+        local p = parse_action(e, ctx)
         if p then packets.action(p, ctx, now) end
     elseif e.id == 0x029 then
         on_message(e, ctx, now)
