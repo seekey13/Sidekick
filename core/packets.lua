@@ -77,7 +77,10 @@ end
 -- A result's fields up to its two optional parts: resolution, kind, animation, info,
 -- scale, knockback, param, message, flags.
 local RESULT_BITS = 3 + 2 + 12 + 5 + 2 + 3 + 17 + 10 + 31
-local MELEE = 1  -- auto-attack: no message packets.action reads (damage, miss, shadows...)
+-- Auto-attack. The server builds it only in its attack round (entities/battleentity.cpp), with
+-- main messages 0, 1, 15, 30-32, 67, 70, 352, 353 and 373: none packets.action reads. Enspells,
+-- spikes and status procs come in the additional effect and spikes parts, never read.
+local MELEE = 1
 
 -- 0x028 action packet: header plus each target's results (bit-packed, big endian), or nil
 -- when it's malformed or can't matter to packets.action: an auto-attack, or another's
