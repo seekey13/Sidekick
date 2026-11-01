@@ -1,6 +1,7 @@
 -- core/packets.lua on parsed 0x028s: statuses landing on trusts and your pet.
 local buffs = require('core.buffs')
 local packets = require('core.packets')
+local observed = require('core.observed')
 
 local ME, TRUST, PET, MOB, STRANGER = 1, 0x1000001, 0x1000002, 0x1000100, 0x1000200
 local SLEEP, POISON, PROTECT = 2, 3, 40
@@ -137,8 +138,9 @@ test('zoning: from the zone-out until the zone-in settles, or a minute without i
     eq({ packets.zoning(259), packets.zoning(261), packets.zoning(262) }, { true, false, false })
 end)
 
--- A raw 0x028 as the server packs it, read through a stand-in for ashita.bits (bits kept
--- one per entry, a field's high bit first). targets = { { sid, { { message, param }, ... } } }.
+-- A raw 0x028 with the server's field widths, read through a stand-in for ashita.bits (bits
+-- kept one per entry, a field's high bit first). targets = { { sid, { { message, param,
+-- spikes }, ... } } }; every result has an additional effect, a result with `spikes` spikes too.
 local function raw_action(actor, category, param, targets)
     local d = {}
     local function put(n, v) for i = n - 1, 0, -1 do d[#d + 1] = math.floor(v / 2 ^ i) % 2 end end
@@ -148,7 +150,7 @@ local function raw_action(actor, category, param, targets)
         for _, r in ipairs(t[2]) do
             put(17, 0); put(5, 0); put(5, 0); put(17, r[2]); put(10, r[1]); put(31, 0)
             put(1, 1); put(37, 12345)  -- an additional effect: skipped
-            put(1, 0)
+            if r[3] then put(1, 1); put(34, 6789) else put(1, 0) end
         end
     end
     return { id = 0x028, data_raw = d, size = math.ceil(#d / 8) }
@@ -167,10 +169,10 @@ local function with_bits(fn)
     if not ok then error(err, 0) end
 end
 
-test('a raw 0x028: tracked targets read, others skipped unparsed, an auto-attack not read past its header', function ()
+test('a raw 0x028: tracked targets read past untracked ones, an auto-attack not read past its header', function ()
     with_bits(function (reads)
         buffs.clear()
-        packets.handle(raw_action(MOB, MOB_SKILL, 1234, { { STRANGER, { { 242, POISON } } }, { TRUST, { { 242, POISON } } },
+        packets.handle(raw_action(MOB, MOB_SKILL, 1234, { { STRANGER, { { 242, POISON, true } } }, { TRUST, { { 242, POISON } } },
                                                           { PET, { { 242, SLEEP }, { 242, POISON } } } }), ctx(), 0)
         eq({ buffs.of(TRUST, 1), buffs.of(PET, 1), buffs.of(STRANGER, 1) },
            { { [POISON] = true }, { [SLEEP] = true, [POISON] = true }, {} })
@@ -186,5 +188,19 @@ test('a raw 0x028: tracked targets read, others skipped unparsed, an auto-attack
         eq(packets.casting(11), true)
         packets.handle(raw_action(ME, SPELL, 0, { { MOB, { { 0, 0 } } } }), none, 12)
         eq({ packets.casting(13), packets.last_finish() }, { false, 12, true })
+    end)
+end)
+
+test('a raw 0x028: your own and your pet\'s heals are read on untracked targets too', function ()
+    with_bits(function ()
+        local none = ctx(); none.tracks = {}
+        observed.clear()
+        local cure, ruby = 'ma1', 'pet' .. (595 + 512)  -- Cure; a pet's move, its id + 512 (observed.key)
+        observed.sent(cure, { need = { [STRANGER] = 500 }, mult = 1, at = 0 })
+        observed.sent(ruby, { need = { [STRANGER] = 500 }, mult = 1, at = 0 })
+        packets.handle(raw_action(ME, SPELL, 1, { { STRANGER, { { 7, 100, true } } } }), none, 1)
+        packets.handle(raw_action(PET, 13, 595, { { STRANGER, { { 7, 80 } } } }), none, 1)
+        eq({ observed.learned[cure], observed.learned[ruby] }, { 100, 80 })
+        observed.learned[cure], observed.learned[ruby] = nil, nil
     end)
 end)

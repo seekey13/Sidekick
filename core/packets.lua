@@ -117,6 +117,7 @@ local function parse_action(e, ctx)
         end
         if t then p.targets[#p.targets + 1] = t end
     end
+    if not (all or p.targets[1]) then return nil end  -- another's, on no one tracked
     return limit ~= 0 and p or nil
 end
 
@@ -135,7 +136,7 @@ end
 -- (jobs/brd.lua), removes = function(observed.key) -> the status ids your remover clears and whether it's Esuna's
 -- kind (cast on you, clearing on those near only what you have too), or nil }
 function packets.action(p, ctx, now)
-    if p.actor == ctx.me and p.category ~= 1 then  -- 1 = auto-attack, says nothing
+    if p.actor == ctx.me and p.category ~= MELEE then
         if (p.category == CAST_BEGIN or p.category == ITEM_BEGIN) and p.param ~= INTERRUPT then
             cast.active, cast.since = true, now
         else
