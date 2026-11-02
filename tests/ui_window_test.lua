@@ -1674,11 +1674,29 @@ test('a drop-down\'s list grows to kit.list_rows lines, in its own font or ImGui
             kit.dropdown('##sk3_rows', 0, 10, 100, 'x', true, 1, function () end)
             return high
         end
-        local pad, gap, line = 2 * kit.S(8), kit.S(6), kit.S(kit.BODY - 1)  -- kit.popup's padding and spacing
-        eq({ height(8, false), height(3, false) }, { 8 * 13 + 7 * gap + pad, 3 * 13 + 2 * gap + pad })  -- the fake's 13px
-        eq(height(8, true), 8 * line + 7 * gap + pad)  -- Segoe UI's, drawn at the size asked
+        -- kit.popup's top padding and spacing, the list ending half a spacing under its last line
+        local pad, gap, line = kit.S(8), kit.S(6), kit.S(kit.BODY - 1)
+        local tail = gap - math.floor(gap / 2)
+        eq({ height(8, false), height(3, false) },
+            { pad + 8 * 13 + 7 * gap + tail, pad + 3 * 13 + 2 * gap + tail })  -- the fake's 13px font
+        eq(height(8, true), pad + 8 * line + 7 * gap + tail)  -- Segoe UI's, drawn at the size asked
         eq({ height(nil, false), height('x', false), height(99, false) },
             { height(8, false), height(8, false), height(30, false) })  -- a custom UI's bad value is held too
+    end)
+end)
+
+test('the widget\'s profile menu is as tall as Drop-down rows, at the widget\'s size, then scrolls', function ()
+    close_settings()
+    local cfg, st = widget_cfg(), status()
+    cfg.ui.list_rows = 4
+    for i = 1, 12 do cfg.profiles['P' .. i] = { heal = {} } end
+    local high
+    with_handler('SetNextWindowSizeConstraints', function (_, max) high = max[2] end, function ()
+        render(cfg, st, { mouse1 = true })
+        render(cfg, st)
+        eq(high, kit.list_height(4, 16))  -- (the fake's own font: its 13px, whatever the size asked)
+        kit.custom = true
+        eq(kit.list_height(4, 16) - kit.list_height(3, 16), 16 + kit.S(6))  -- a line of the widget's 16px a row
     end)
 end)
 

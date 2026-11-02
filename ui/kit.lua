@@ -771,10 +771,17 @@ function kit.rows(n)
     return util.clamp(math.floor(tonumber(n) or kit.LIST_ROWS.default), kit.LIST_ROWS[1], kit.LIST_ROWS[2])
 end
 
--- How high a drop-down's list may grow to show `rows` choices at `px` (each a line, ItemSpacing apart, inside its padding).
+-- How high a list (kit.popup's) may grow to show `rows` choices at `px`: each a line, ItemSpacing apart, below its
+-- padding. It ends half a spacing under the last, as ImGui clips a window at its border, not its padding: a full
+-- padding would show the top of the next row's highlight. So a list of exactly `rows` scrolls those few pixels.
 function kit.list_height(rows, px)
-    local line = kit.custom and px or imgui.GetFontSize()
-    return rows * line + (rows - 1) * S(6) + S(8) * 2
+    local line, gap = kit.custom and px or imgui.GetFontSize(), S(6)
+    return S(8) + rows * (line + gap) - math.floor(gap / 2)
+end
+
+-- The next kit.popup grows no taller than kit.list_rows lines at `px`, then scrolls; at least `w` wide, at most `max_w`.
+function kit.list_size(px, w, max_w)
+    imgui.SetNextWindowSizeConstraints({ w, 0 }, { max_w, kit.list_height(kit.rows(kit.list_rows), px) })
 end
 
 -- A drop-down `w` wide showing `shown` (whole in a tooltip when it's cut to fit); a click opens its list, ImGui's popup,
@@ -798,7 +805,7 @@ function kit.dropdown(id, x, cy, w, shown, enabled, alpha, body)
     if clicked and on then imgui.OpenPopup(list) end
     imgui.SetNextWindowPos({ x, y + h + S(2) })
     local list_px = S(kit.BODY - 1)
-    imgui.SetNextWindowSizeConstraints({ w, 0 }, { math.max(w, S(360)), kit.list_height(kit.rows(kit.list_rows), list_px) })
+    kit.list_size(list_px, w, math.max(w, S(360)))
     kit.popup(list, list_px, body)
     return hovered
 end

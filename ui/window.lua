@@ -436,14 +436,16 @@ local function characters(view)
     return out
 end
 
--- A character's profiles, right-clicking its name: Default, then each saved; a click loads it there.
+-- A character's profiles, right-clicking its name: Default, then each saved; a click loads it there. As tall as a
+-- drop-down's list (Drop-down rows), then it scrolls, opening at the one loaded.
 local function profile_menu(c, id, px)
+    kit.list_size(px, 0, S(1200))
     kit.popup(id, px, function ()
         local p = c.profiles
-        if imgui.Selectable(t('Default') .. id .. '_default', p.active == nil) then act_of(c).profile(nil) end
+        if kit.selectable(t('Default') .. id .. '_default', p.active == nil) then act_of(c).profile(nil) end
         for i, name in ipairs(p.names or {}) do  -- over a blank row, so a name with '##' in it shows whole
             local sx = imgui.GetCursorPosX()
-            if imgui.Selectable(id .. '_' .. i, name == p.active) then act_of(c).profile(name) end
+            if kit.selectable(id .. '_' .. i, name == p.active) then act_of(c).profile(name) end
             imgui.SameLine(sx)
             imgui.Text(kit.esc(name))
         end
@@ -1078,7 +1080,8 @@ local function draw_ui(view, pg)
     slider(pg, 'Size', 'ui.scale', ui_scale(view.ui),
         'This window\'s size, % of the size that suits your screen. Taken up once the slider is let go.', '%', { 50, 200 })
     slider(pg, 'Drop-down rows', 'ui.list_rows', list_rows(view.ui),
-        'The most choices a drop-down shows at once; scroll its list for the rest. Lower it on a small screen.', nil,
+        'The most choices a drop-down or the widget\'s profile menu shows at once; scroll for the rest. Lower it on a '
+        .. 'small screen.', nil,
         kit.LIST_ROWS)
     subheader(pg, 'LOG')
     draw_recent(view, pg)

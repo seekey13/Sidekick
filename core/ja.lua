@@ -335,8 +335,9 @@ ja.words = {
         'ピクセル: ウィジェットの文字とアイコンの高さ。',
     ['Size'] = 'サイズ',
     ['Drop-down rows'] = 'ドロップダウンの行数',
-    ['The most choices a drop-down shows at once; scroll its list for the rest. Lower it on a small screen.'] =
-        'ドロップダウンに一度に表示する選択肢の最大数。残りはスクロールで表示されます。小さい画面では下げてください。',
+    ['The most choices a drop-down or the widget\'s profile menu shows at once; scroll for the rest. Lower it on a '
+        .. 'small screen.'] =
+        'ドロップダウンとウィジェットのプロファイルメニューに一度に表示する選択肢の最大数。残りはスクロールで表示されます。小さい画面では下げてください。',
     ['This window\'s size, % of the size that suits your screen. Taken up once the slider is let go.'] =
         'このウィンドウのサイズ（画面に合ったサイズに対する%）。スライダーを離すと反映されます。',
     ['Japanese client'] = '日本語クライアント',
