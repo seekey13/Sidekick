@@ -42,7 +42,7 @@ end
 
 test('efficient: the best HP per MP, never paying for overheal', function ()
     local cmd, intent = decide(snap({ { name = 'A', hpp = 70 } }), no_regen())
-    eq({ cmd, intent.why }, { '/ma "Cure III" 101', 'efficient: A 70%' })  -- 250 of 300 for 46 MP
+    eq({ cmd, intent.why }, { '/ma "Cure III" A', 'efficient: A 70%' })    -- 250 of 300 for 46 MP
 end)
 
 -- The heal line raised to `n`, for tests about what goes on near full HP.
@@ -53,48 +53,48 @@ local function heal_under(n)
 end
 
 test('efficient runs from the danger line up to the heal line; the focus member has its own', function ()
-    eq(decide(snap({ { name = 'A', hpp = 74 } })), '/ma "Regen II" 101')           -- under 75: 240 of 260
+    eq(decide(snap({ { name = 'A', hpp = 74 } })), '/ma "Regen II" A')             -- under 75: 240 of 260
     eq({ decide(snap({ { name = 'A', hpp = 76 } })) }, { nil, 'nothing to do' })  -- over it: left be
     local cfg = settings.defaults()
     cfg.heal.focus = 'A'
-    eq(decide(snap({ { name = 'A', hpp = 80 } }), cfg), '/ma "Regen" 101')           -- under the focus line, 85
+    eq(decide(snap({ { name = 'A', hpp = 80 } }), cfg), '/ma "Regen" A')             -- under the focus line, 85
     eq({ decide(snap({ { name = 'A', hpp = 86 } }), cfg) }, { nil, 'nothing to do' })
     local cmd, intent = decide(snap({ { name = 'A', hpp = 90 } }), heal_under(99))
-    eq({ cmd, intent.why }, { '/ma "Cure" 101', 'efficient: A 90%' })  -- 37.5 of 100 for 8 MP
+    eq({ cmd, intent.why }, { '/ma "Cure" A', 'efficient: A 90%' })    -- 37.5 of 100 for 8 MP
     eq({ decide(snap({ { name = 'A', hpp = 100 } }), heal_under(99)) }, { nil, 'nothing to do' })
 end)
 
 test('efficient waits while every heal would overheal', function ()
     local cfg = heal_under(99)
     eq({ decide(snap({ { name = 'A', hpp = 98 } }), cfg) }, { nil, 'nothing to do' })  -- 20 missing: Cure is 37.5
-    eq(decide(snap({ { name = 'A', hpp = 96 } }), cfg), '/ma "Cure" 101')              -- 40 missing: Cure fits
+    eq(decide(snap({ { name = 'A', hpp = 96 } }), cfg), '/ma "Cure" A')                -- 40 missing: Cure fits
     eq(decide(snap({ { name = 'A', hpp = 49 }, { name = 'B', hpp = 98 } }, nil, { Cure = 5 }), cfg),
-        '/ma "Cure V" 101')  -- danger is untouched
+        '/ma "Cure V" A')    -- danger is untouched
 end)
 
 test('Regen: the biggest whose whole total lands', function ()
-    eq(decide(snap({ { name = 'A', hpp = 85 } }), heal_under(90)), '/ma "Regen" 101')  -- 125 of 150 for 15 MP
-    eq(decide(snap({ { name = 'A', hpp = 70 } })), '/ma "Regen II" 101')   -- 240 of 300 for 36 MP
-    eq(decide(snap({ { name = 'A', hpp = 60 } })), '/ma "Regen III" 101')  -- 400 of 400 for 64 MP
+    eq(decide(snap({ { name = 'A', hpp = 85 } }), heal_under(90)), '/ma "Regen" A')    -- 125 of 150 for 15 MP
+    eq(decide(snap({ { name = 'A', hpp = 70 } })), '/ma "Regen II" A')     -- 240 of 300 for 36 MP
+    eq(decide(snap({ { name = 'A', hpp = 60 } })), '/ma "Regen III" A')    -- 400 of 400 for 64 MP
 end)
 
 test('Regen wins a big enough gap; while it ticks efficient waits, danger does not', function ()
-    eq(decide(snap({ { name = 'A', hpp = 60 } })), '/ma "Regen III" 101')  -- 400 over 60s for 64 MP
+    eq(decide(snap({ { name = 'A', hpp = 60 } })), '/ma "Regen III" A')    -- 400 over 60s for 64 MP
     local pending = { name = 'A', hpp = 60, hot = 400, buffs = { [REGEN] = true } }
     eq({ decide(snap({ pending })) }, { nil, 'nothing to do' })
-    eq(decide(snap({ { name = 'A', hpp = 45, hot = 400, buffs = { [REGEN] = true } } })), '/ma "Cure V" 101')
+    eq(decide(snap({ { name = 'A', hpp = 45, hot = 400, buffs = { [REGEN] = true } } })), '/ma "Cure V" A')
 end)
 
 test('a Regen not yours counts as a whole Regen I still to come', function ()
     local theirs = function (hpp) return { { name = 'A', hpp = hpp, buffs = { [REGEN] = true } } } end
     local full = heal_under(99)
     eq({ decide(snap(theirs(90)), full) }, { nil, 'nothing to do' })  -- 100 missing, 125 on its way
-    eq(decide(snap(theirs(70)), full), '/ma "Cure" 101')              -- 300 missing: the other 175
+    eq(decide(snap(theirs(70)), full), '/ma "Cure" A')                -- 300 missing: the other 175
     eq({ decide(snap(theirs(70))) }, { nil, 'nothing to do' })        -- on the heal line (75), 700 + 125 is over it
-    eq(decide(snap(theirs(45))), '/ma "Cure V" 101')                  -- danger ignores it
+    eq(decide(snap(theirs(45))), '/ma "Cure V" A')                    -- danger ignores it
     eq({ decide(snap({ { name = 'A', hpp = 90, buffs = { [539] = true } } }), full) }, { nil, 'nothing to do' })  -- GEO aura
     -- Yours on its last tick (or stretched past the table by gear) has nothing left to come.
-    eq(decide(snap({ { name = 'A', hpp = 90, hot = 0, buffs = { [REGEN] = true } } }), full), '/ma "Cure" 101')
+    eq(decide(snap({ { name = 'A', hpp = 90, hot = 0, buffs = { [REGEN] = true } } }), full), '/ma "Cure" A')
 end)
 
 test('a Regen sent is counted once it lands, tick by tick', function ()
@@ -110,35 +110,35 @@ end)
 test('Curaga for a bunched group, a single heal once they spread', function ()
     local cmd, intent = decide(snap(four(70)))
     eq({ cmd, intent.why }, { '/ma "Curaga III" <me>', 'efficient: P1 70% +3' })  -- 1200 HP for 180 MP
-    eq(decide(snap(four(70, true))), '/ma "Regen II" 101')
+    eq(decide(snap(four(70, true))), '/ma "Regen II" P1')
 end)
 
 test('each member helped weighs in: Curaga for three, one at a time for two', function ()
     local three = { { name = 'P1', hpp = 70 }, { name = 'P2', hpp = 70 }, { name = 'P3', hpp = 70 } }
     eq(decide(snap(three)), '/ma "Curaga III" <me>')  -- 900 for 180 MP x sqrt 3 beats Regen II's 240 for 36
     table.remove(three)
-    eq(decide(snap(three)), '/ma "Regen II" 101')     -- 600 for 180 MP x sqrt 2 does not
+    eq(decide(snap(three)), '/ma "Regen II" P1')      -- 600 for 180 MP x sqrt 2 does not
 end)
 
 test('danger: an instant waltz before a slower, bigger cure', function ()
     local g = snap({ { name = 'A', hpp = 45 } })
     g.me.tp = 400
     local cmd, intent = decide(g, nil, nil, dnc)
-    eq({ cmd, intent.why }, { '/ja "Curing Waltz II" 101', 'danger: A 45%' })
+    eq({ cmd, intent.why }, { '/ja "Curing Waltz II" A', 'danger: A 45%' })
 end)
 
 test('critical: Divine Seal, then the boosted cure that does the job cheapest', function ()
     local g = snap({ { name = 'A', hpp = 20 } })
     eq(decide(g), '/ja "Divine Seal" <me>')
-    eq(decide(with(g, { DIVINE_SEAL })), '/ma "Cure IV" 101')  -- x2 caps IV and V at 800: the cheaper
-    eq(decide(snap({ { name = 'A', hpp = 20 } }, nil, { ['Divine Seal'] = 600 })), '/ja "Martyr" 101')
+    eq(decide(with(g, { DIVINE_SEAL })), '/ma "Cure IV" A')    -- x2 caps IV and V at 800: the cheaper
+    eq(decide(snap({ { name = 'A', hpp = 20 } }, nil, { ['Divine Seal'] = 600 })), '/ja "Martyr" A')
 end)
 
 test('critical: no Divine Seal when a waltz would still be the heal', function ()
     local whm_dnc = fake.catalog(3, 75, DNC, 37, { 'Divine Seal', 'Curing Waltz', 'Curing Waltz II' })
     local g = snap({ { name = 'A', hpp = 20 } })
     g.me.tp = 1000
-    eq(decide(g, nil, nil, whm_dnc), '/ja "Curing Waltz II" 101')
+    eq(decide(g, nil, nil, whm_dnc), '/ja "Curing Waltz II" A')
 end)
 
 test('critical: Divine Seal boosts a blue magic cure too', function ()
@@ -155,13 +155,13 @@ test('a pet\'s area heal goes off around the pet', function ()
     local cmd, intent = decide(g, nil, nil, smn)
     eq({ cmd, intent.why }, { '/pet "Healing Ruby II" <me>', 'danger: P1 45% +3' })
     g = snap(four(45), { pet = { name = 'Carbuncle', pos = { 50, 0, 0 } } })
-    eq(decide(g, nil, nil, smn), '/pet "Healing Ruby" 101')
+    eq(decide(g, nil, nil, smn), '/pet "Healing Ruby" P1')
 end)
 
 test('learned potency replaces the table; a reading under Divine Seal is halved', function ()
     local g = snap({ { name = 'A', hpp = 60 } })
     g.learned = { ma3 = 400 }
-    eq(decide(g), '/ma "Cure III" 101')  -- Regen III without it
+    eq(decide(g), '/ma "Cure III" A')    -- Regen III without it
     local _, intent = decide(with(snap({ { name = 'A', hpp = 20 } }), { DIVINE_SEAL }))
     intent.sent(0)
     observed.healed('ma4', 101, 800, 1)  -- capped at the 800 missing: says nothing
@@ -185,7 +185,7 @@ test('Majesty spreads one Cure over a bunched group, and is divided out of a rea
     local cmd, intent = decide(with(snap(four(70)), { MAJESTY }), nil, nil, pld)
     eq({ cmd, intent.why }, { '/ma "Cure III" <me>', 'efficient: P1 70% +3' })
     cmd, intent = decide(with(snap(four(70, true)), { MAJESTY }), nil, nil, pld)
-    eq({ cmd, intent.why }, { '/ma "Cure III" 101', 'efficient: P1 70%' })
+    eq({ cmd, intent.why }, { '/ma "Cure III" P1', 'efficient: P1 70%' })
     intent.sent(0)
     observed.healed('ma3', 101, 250, 1)
     eq(observed.learned.ma3, 200)  -- 250 / 1.25
@@ -195,8 +195,8 @@ test('danger fires Accession when a spread Cure IV beats every single cure', fun
     local three = { four(45)[1], four(45)[2], four(45)[3] }
     local cmd, intent = decide(with(snap(three), { LIGHT_ARTS }), nil, nil, sch)
     eq({ cmd, intent.why }, { '/ja "Accession" <me>', 'danger: P1 45% +2, for Cure IV' })
-    eq(decide(with(snap({ { name = 'A', hpp = 45 } }), { LIGHT_ARTS }), nil, nil, sch), '/ma "Cure IV" 101')
-    eq(decide(with(snap(four(70)), { LIGHT_ARTS }), no_regen(), nil, sch), '/ma "Cure III" 101')  -- efficient: no charge
+    eq(decide(with(snap({ { name = 'A', hpp = 45 } }), { LIGHT_ARTS }), nil, nil, sch), '/ma "Cure IV" A')
+    eq(decide(with(snap(four(70)), { LIGHT_ARTS }), no_regen(), nil, sch), '/ma "Cure III" P1')   -- efficient: no charge
     -- Up (by hand or from the line above): Cure I-IV spread, Cure V never does.
     local whm_sch = fake.catalog(3, 75, SCH, 37, { 'Accession' })
     three = { four(45)[1], four(45)[2], four(45)[3] }
@@ -225,17 +225,17 @@ end)
 test('low on MP, a TP heal beats an MP heal by share of what you have', function ()
     local g = snap({ { name = 'A', hpp = 70 } })
     g.me.tp, g.me.mp = 1000, 60
-    eq(decide(g, no_regen(), nil, dnc), '/ja "Curing Waltz II" 101')
+    eq(decide(g, no_regen(), nil, dnc), '/ja "Curing Waltz II" A')
     g.me.mp = 1000
-    eq(decide(g, no_regen(), nil, dnc), '/ma "Cure III" 101')
+    eq(decide(g, no_regen(), nil, dnc), '/ma "Cure III" A')
 end)
 
 test('TP at the cap is free: a waltz then; at 2650 TP the cure again', function ()
     local g = snap({ { name = 'A', hpp = 70 } })
     g.me.tp = 3000
-    eq(decide(g, no_regen(), nil, dnc), '/ja "Curing Waltz II" 101')
+    eq(decide(g, no_regen(), nil, dnc), '/ja "Curing Waltz II" A')
     g.me.tp = 2650
-    eq(decide(g, no_regen(), nil, dnc), '/ma "Cure III" 101')
+    eq(decide(g, no_regen(), nil, dnc), '/ma "Cure III" A')
 end)
 
 test('a heal nearly off recast holds in danger (not debuff removal), never in efficient', function ()
@@ -246,13 +246,13 @@ test('a heal nearly off recast holds in danger (not debuff removal), never in ef
     local g = snap({ { name = 'A', hpp = 45 } }, nil, waits)
     eq({ decide(g, cfg) }, { nil, 'waiting for a cure' })
     g.units[2].buffs[3] = true  -- poisoned
-    eq(decide(g, cfg), '/ma "Poisona" 101')
-    eq(decide(snap({ { name = 'A', hpp = 70 } }, nil, waits), cfg), '/ma "Protect IV" 101')
+    eq(decide(g, cfg), '/ma "Poisona" A')
+    eq(decide(snap({ { name = 'A', hpp = 70 } }, nil, waits), cfg), '/ma "Protect IV" A')
 end)
 
 test('a member out of reach is skipped, not the end of healing', function ()
     local g = snap({ { name = 'Far', hpp = 20, dist = 30, pos = { 100, 0, 0 } }, { name = 'Near', hpp = 60 } })
-    eq(decide(g), '/ma "Regen III" 102')
+    eq(decide(g), '/ma "Regen III" Near')
 end)
 
 test('the focus member enters danger at 59% while others wait for 49%', function ()
@@ -260,7 +260,7 @@ test('the focus member enters danger at 59% while others wait for 49%', function
     cfg.heal.focus = 'Tank'
     local g = snap({ { name = 'A', hpp = 55 }, { name = 'Tank', hpp = 59 } })
     local cmd, intent = decide(g, cfg)
-    eq({ cmd, intent.why }, { '/ma "Cure IV" 102', 'danger: Tank 59%' })
+    eq({ cmd, intent.why }, { '/ma "Cure IV" Tank', 'danger: Tank 59%' })
     intent = select(2, decide(g))
     eq(intent.why:match('^%a+'), 'efficient')
 end)
@@ -273,32 +273,32 @@ end)
 
 test('removal: the specific -na first, Erase for what only it clears', function ()
     local g = snap({ { name = 'A', buffs = { [4] = true, [13] = true } } })  -- Paralysis, Slow
-    eq(decide(g), '/ma "Paralyna" 101')
+    eq(decide(g), '/ma "Paralyna" A')
     g = snap({ { name = 'A', buffs = { [13] = true } } })
-    eq(decide(g), '/ma "Erase" 101')
+    eq(decide(g), '/ma "Erase" A')
 end)
 
 test('removal: debuffs switched off are left on, and removers unticked are never used', function ()
     local cfg = settings.defaults()
     cfg.remove.skip = { paralysis = true }
     local g = snap({ { name = 'A', buffs = { [4] = true, [13] = true } } })  -- Paralysis, Slow
-    eq(decide(g, cfg), '/ma "Erase" 101')
+    eq(decide(g, cfg), '/ma "Erase" A')
     cfg.remove.skip.slow = true
     eq({ decide(g, cfg) }, { nil, 'nothing to do' })
     cfg.remove.skip = {}
     cfg.rows.Paralyna = { on = false }
-    eq(decide(g, cfg), '/ma "Erase" 101')
+    eq(decide(g, cfg), '/ma "Erase" A')
 end)
 
 test('removal: Doom is removed even with its chip off', function ()
     local cfg = settings.defaults()
     cfg.remove.skip = { doom = true }
-    eq(decide(snap({ { name = 'A', buffs = { [15] = true } } }), cfg), '/ma "Cursna" 101')
+    eq(decide(snap({ { name = 'A', buffs = { [15] = true } } }), cfg), '/ma "Cursna" A')
 end)
 
 test('removal goes after danger healing, ahead of efficient healing', function ()
     local g = snap({ { name = 'A', hpp = 70, buffs = { [4] = true } } })  -- Paralysis
-    eq(decide(g), '/ma "Paralyna" 101')
+    eq(decide(g), '/ma "Paralyna" A')
     g = snap({ { name = 'A', hpp = 40, buffs = { [4] = true } } })
     local cmd, intent = decide(g)
     eq({ cmd ~= nil, intent.why:match('^%a+') }, { true, 'danger' })
@@ -316,14 +316,14 @@ test('efficient healing goes by heal: shown as it, switched by it, quiet while h
     local g = snap({ { name = 'A', hpp = 45 }, { name = 'B', hpp = 70 } }, nil, waits)
     eq({ decide(g) }, { nil, 'waiting for a cure' })
     g.units[2].buffs[4] = true  -- Paralysis: removal is quick, so it still goes
-    eq(decide(g), '/ma "Paralyna" 101')
+    eq(decide(g), '/ma "Paralyna" A')
 end)
 
 test('revive: the best raise, idle only, and not again while they decide', function ()
     local mem = {}
     local g = snap({ { name = 'Dead', hpp = 0 } })
     local cmd, intent = decide(g, nil, mem)
-    eq(cmd, '/ma "Arise" 101')
+    eq(cmd, '/ma "Arise" Dead')
     engine.sent(intent, g, mem)
     eq({ decide(g, nil, mem) }, { nil, 'nothing to do' })
     eq({ decide(snap({ { name = 'Dead', hpp = 0 } }, { combat = true })) }, { nil, 'nothing to do' })
@@ -334,7 +334,7 @@ test('buffs are opt-in, and go only where they are missing', function ()
     eq({ decide(g) }, { nil, 'nothing to do' })
     local cfg = settings.defaults()
     cfg.rows.Protect = { on = true, targets = { [1] = true } }
-    eq(decide(g, cfg), '/ma "Protect IV" 101')
+    eq(decide(g, cfg), '/ma "Protect IV" A')
     g.units[2].buffs[40] = true
     eq({ decide(g, cfg) }, { nil, 'nothing to do' })
 end)
@@ -382,14 +382,26 @@ test('in Japanese, spells, abilities and items go by their Japanese names; an En
     cfg.ui.japanese = true
     local function named(n) for _, a in ipairs(cat) do if a.name == n then return a end end end
     local cure, seal = named('Cure IV'), named('Divine Seal')
-    local me, p1 = { kind = 'self' }, { kind = 'party', sid = 12345678 }
-    eq({ engine.command({ action = cure, target = p1 }, cfg) }, { '/ma "\131P\131A\131\139IV" 12345678', false })
+    local me, p1 = { kind = 'self' }, { kind = 'party', slot = 1, sid = 12345678, name = 'Tank' }
+    eq({ engine.command({ action = cure, target = p1 }, cfg) }, { '/ma "\131P\131A\131\139IV" Tank', false })
     eq({ engine.command({ action = seal }, cfg) }, { '/ja "\143\151\144_\130\204\136\243" <me>', false })
     eq({ can.command({ kind = 'item', name = 'Echo Drops', jp = '\131G\131R\129[\131h\131\141\131b\131v' }, me, true) },
         { '/item "\131G\131R\129[\131h\131\141\131b\131v" <me>', false })
     eq({ can.command({ kind = 'item', name = 'Rmdy. Ointment', jp = '' }, me, true) }, { '/item "Rmdy. Ointment" <me>', true })
     eq({ can.command({ kind = 'ma', name = 'Custom' }, me, true) }, { '/ma "Custom" <me>', true })
     cfg.ui.japanese = false
-    eq({ engine.command({ action = cure, target = p1 }, cfg) }, { '/ma "Cure IV" 12345678', false })
+    eq({ engine.command({ action = cure, target = p1 }, cfg) }, { '/ma "Cure IV" Tank', false })
     eq({ engine.command({ command = '/heal on', action = { name = 'Rest' } }, cfg) }, { '/heal on' })
+end)
+
+test('others go by name, never server id (the client refuses it); a name with a space by its party slot', function ()
+    local cure = fake.named(cat, 'Cure IV')
+    local function to(u) return (can.command(cure, u, false)) end
+    eq({ to({ kind = 'party', slot = 1, sid = 101, name = 'Tank' }), to({ kind = 'tracked', sid = 201, name = 'Out' }),
+         to({ kind = 'self', slot = 0, sid = 1, name = 'Me' }), to(nil) },
+       { '/ma "Cure IV" Tank', '/ma "Cure IV" Out', '/ma "Cure IV" <me>', '/ma "Cure IV" <me>' })
+    eq({ to({ kind = 'trust', slot = 2, sid = 0x1000002, name = 'Shantotto II' }),
+         to({ kind = 'alliance', slot = 7, sid = 302, name = 'Ark Angel EV' }),
+         to({ kind = 'alliance', slot = 12, sid = 307, name = 'Ark Angel HM' }) },
+       { '/ma "Cure IV" <p2>', '/ma "Cure IV" <a11>', '/ma "Cure IV" <a20>' })
 end)

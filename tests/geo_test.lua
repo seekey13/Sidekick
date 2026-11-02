@@ -62,7 +62,7 @@ test('the Geo row: Blaze of Glory, then the luopan on its target; the slot full,
     local cfg, mem = cfg_with({ geo = HASTE_ROW }), {}
     local cmd, intent = step(snap({ TANK }), cfg, mem)
     eq({ cmd, intent.behavior, intent.why }, { '/ja "Blaze of Glory" <me>', 'geo', 'for Geo-Haste -> Tank: Tank' })
-    eq(step(snap({ TANK }, nil, { ['Blaze of Glory'] = 600 }), cfg, mem), '/ma "Geo-Haste" 101')
+    eq(step(snap({ TANK }, nil, { ['Blaze of Glory'] = 600 }), cfg, mem), '/ma "Geo-Haste" Tank')
     eq({ decide(snap({ TANK }, { now = 1003 }), cfg, mem) }, { nil, 'nothing to do' })  -- landing
     eq({ decide(snap({ TANK }, { now = 1003 }, nil, 2), cfg, mem) }, { nil, 'nothing to do' })  -- up
 end)
@@ -72,7 +72,7 @@ test('the Geo row: a target on the move waits; one with the aura is passed over;
     local cfg = cfg_with({ geo = row, ['Blaze of Glory'] = { on = false } })
     local moving = { name = 'Tank', moving = true }
     eq({ decide(snap({ moving }), cfg, {}) }, { nil, 'nothing to do' })
-    eq(decide(snap({ { name = 'Tank', buffs = { [HASTE] = true } }, { name = 'Mage' } }), cfg, {}), '/ma "Geo-Haste" 102')
+    eq(decide(snap({ { name = 'Tank', buffs = { [HASTE] = true } }, { name = 'Mage' } }), cfg, {}), '/ma "Geo-Haste" Mage')
     eq({ decide(snap({ TANK }), cfg_with({ geo = { on = false, pick = 'Geo-Haste' } }), {}) }, { nil, 'nothing to do' })
 end)
 
@@ -83,7 +83,7 @@ test('drift: once who it went on is past geo.distance from it, Full Circle; then
     eq({ decide(snap({ { name = 'Tank', pos = { 9, 0, 0 } } }, { now = 1003 }, nil, 1), cfg, mem) }, { nil, 'nothing to do' })
     local cmd, intent = step(snap({ far }, { now = 1004 }, nil, 1), cfg, mem)
     eq({ cmd, intent.why }, { '/ja "Full Circle" <me>', 'Tank 13.0y from it' })
-    eq(step(snap({ far }, { now = 1006 }), cfg, mem), '/ma "Geo-Haste" 101')
+    eq(step(snap({ far }, { now = 1006 }), cfg, mem), '/ma "Geo-Haste" Tank')
     -- Not sent here (a reload): measured from the row's first target.
     eq(decide(snap({ far }, nil, nil, 1), cfg, {}), '/ja "Full Circle" <me>')
     eq(decide(snap({ { name = 'Tank' } }, nil, nil, 1), cfg_with({}), {}), nil)  -- no row: left alone
@@ -116,7 +116,7 @@ test('the Geo debuff\'s luopan, combat over: kept geo.linger seconds, then recal
        { nil, 'nothing to do' })  -- a new battle target keeps it
     local cmd, intent = step(snap({ TANK }, { now = 1011, combat_at = 1005 }, nil, 6), cfg, mem)
     eq({ cmd, intent.why }, { '/ja "Full Circle" <me>', 'combat over' })
-    eq(decide(snap({ TANK }, { now = 1013, combat_at = 1005 }), cfg, mem), '/ma "Geo-Haste" 101')
+    eq(decide(snap({ TANK }, { now = 1013, combat_at = 1005 }), cfg, mem), '/ma "Geo-Haste" Tank')
 end)
 
 test('Blaze of Glory goes before the debuff too, and only when the luopan can go', function ()
@@ -131,7 +131,7 @@ test('Entrust: then the Indi- picked on the member, while they lack its aura and
     local cfg, mem = cfg_with({}, { entrust = 'tank', entrust_spell = 'Indi-Fury' }), {}
     local cmd, intent = step(snap({ TANK }), cfg, mem)
     eq({ cmd, intent.why }, { '/ja "Entrust" <me>', 'for Indi-Fury -> Tank: Tank (Entrust)' })
-    eq(step(snap({ TANK }, nil, { Entrust = 300 }), cfg, mem), '/ma "Indi-Fury" 101')
+    eq(step(snap({ TANK }, nil, { Entrust = 300 }), cfg, mem), '/ma "Indi-Fury" Tank')
     eq(decide(snap({ { name = 'Tank', buffs = { [FURY] = true } } }), cfg, {}), nil)
     eq(decide(snap({ { name = 'Tank', dist = 21 } }), cfg, {}), nil)
     eq(decide(snap({ TANK }, nil, { Entrust = 300 }), cfg, {}), nil)  -- on recast, not up

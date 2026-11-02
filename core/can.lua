@@ -164,15 +164,32 @@ function can.reach(a, u)
     return has(a.targets, can.in_party(u) and PARTY or ALLY) and can.near(u, can.yalms(a.range))
 end
 
--- '/ma "Cure IV" 12345678': party members by server id, you as <me>, enemies as
--- <bt>; by server id when the client has none for it (`bt` claimed by another
--- party of the alliance, core/game.lua). In Japanese, the name is the DAT's
--- Japanese one; the second result is true when there is none, so the English
--- one went instead (the Japanese client won't take it).
+-- A member of your party (slots 1-5) or of the alliance's other parties (6-17) as the client's placeholder:
+-- <p1>-<p5>, <a10>-<a15>, <a20>-<a25>.
+local function slot_tag(slot)
+    if slot <= 5 then return '<p' .. slot .. '>' end
+    return ('<a%d%d>'):format(1 + math.floor((slot - 6) / 6), (slot - 6) % 6)
+end
+
+-- '/ma "Cure IV" Tank': others by name, you as <me>, enemies as <bt>. The client
+-- takes no server id as a target ("...A command error occurred.", in game on
+-- 2026-11-02, a player's and an NPC's alike); a name with a space in it (a
+-- trust's) can't go either, so a member's goes as their party slot. A mob another
+-- party of the alliance claimed (`bt.claimed`, core/game.lua) has no <bt> and goes
+-- by server id. In Japanese, the name is the DAT's Japanese one; the second result
+-- is true when there is none, so the English one went instead (the Japanese client
+-- won't take it).
+-- ponytail: that claimed mob's server id is refused as the players' were; it needs another way to name it.
 function can.command(a, u, japanese, bt)
     local name, english = util.spelled(a.name, a.jp, japanese)
-    local enemy = bt and bt.claimed and tostring(bt.sid) or '<bt>'
-    local target = can.at_enemy(a) and enemy or (u == nil or u.kind == 'self') and '<me>' or tostring(u.sid)
+    local target
+    if can.at_enemy(a) then
+        target = bt and bt.claimed and tostring(bt.sid) or '<bt>'
+    elseif u == nil or u.kind == 'self' then
+        target = '<me>'
+    else
+        target = u.name:find(' ', 1, true) and (u.slot or 0) > 0 and slot_tag(u.slot) or u.name
+    end
     return ('/%s "%s" %s'):format(a.kind, name, target), english
 end
 
