@@ -65,7 +65,7 @@ test('revive under Dark Arts: Enlightenment first, then the raise while its stat
     -- The JA is on recast now and its status not read yet: still the raise.
     g = snap({ DARK_ARTS }, { { name = 'A', hpp = 0 } }, { Enlightenment = 300 })
     g.now = 1001
-    eq(step(g, cfg, mem), '/ma "Raise II" 101')
+    eq(step(g, cfg, mem), '/ma "Raise II" A')
     -- No status after the window: the raise can't go.
     g = snap({ DARK_ARTS }, { { name = 'A', hpp = 0 } }, { Enlightenment = 300 })
     g.now = 1000 + engine.EXPECT + 0.1
@@ -218,7 +218,7 @@ end)
 test('expected statuses stay out of the snapshot the HUD and /sk3 state read', function ()
     local g = snap({ DARK_ARTS }, { { name = 'A', hpp = 0 } })
     local mem = { expect = { [ENLIGHTENMENT] = 1001 } }
-    eq(decide(g, settings.defaults(), mem), '/ma "Raise II" 101')
+    eq(decide(g, settings.defaults(), mem), '/ma "Raise II" A')
     eq({ g.me.buffs[ENLIGHTENMENT], g.units[1].buffs[ENLIGHTENMENT] }, { nil, nil })
 end)
 
@@ -253,7 +253,7 @@ test('Hold and Accession: waits only when the spell would spread to someone it r
         return (decide(g, cfg, {}))
     end
     eq(with({ { name = 'A' } }, { Accession = 30 }), nil, 'A near and lacking it: waits for Accession')
-    eq(with({ { name = 'A', dist = 15 } }, { Accession = 30 }), '/ma "Protect IV" 101', 'A too far to spread to: goes alone')
+    eq(with({ { name = 'A', dist = 15 } }, { Accession = 30 }), '/ma "Protect IV" A', 'A too far to spread to: goes alone')
 end)
 
 test('a held row says what it waits for', function ()

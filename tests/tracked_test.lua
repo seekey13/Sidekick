@@ -79,8 +79,8 @@ end)
 
 test('heal: a tracked player gets a heal aimed at them, by server id; Regen cannot go on them', function ()
     local cmd, intent = decide(snap({ out({ hpp = 70 }) }))
-    eq({ cmd, intent.why }, { '/ma "Cure III" 201', 'efficient: Out 70%' })
-    eq(decide(snap({ out({ hpp = 45 }) })), '/ma "Cure V" 201')
+    eq({ cmd, intent.why }, { '/ma "Cure III" Out', 'efficient: Out 70%' })
+    eq(decide(snap({ out({ hpp = 45 }) })), '/ma "Cure V" Out')
 end)
 
 test('heal: what lands on a tracked player teaches no potency, as their max HP is a guess', function ()
@@ -95,7 +95,7 @@ test('heal: an area heal counts only your party, never a tracked player beside t
     local three = { { name = 'P1', hpp = 70 }, { name = 'P2', hpp = 70 }, { name = 'P3', hpp = 70 } }
     eq(decide(snap(three)), '/ma "Curaga III" <me>')
     three[3] = out({ hpp = 70 })
-    eq(decide(snap(three)), '/ma "Regen II" 101')  -- two in the party: one at a time, as for two
+    eq(decide(snap(three)), '/ma "Regen II" P1')   -- two in the party: one at a time, as for two
 end)
 
 test('heal: Accession never spreads a Cure around a tracked player, nor counts one', function ()
@@ -103,7 +103,7 @@ test('heal: Accession never spreads a Cure around a tracked player, nor counts o
     local g = snap({ { name = 'A', hpp = 45, pos = { 30, 0, 0 } }, out({ hpp = 45, pos = { 30, 0, 0 } }) })
     g.me.buffs[LIGHT_ARTS] = true
     local cmd = decide(g, nil, sch)
-    eq(cmd:match('^/ma "Cure[ IV]*" [12]01$') ~= nil, true, cmd)  -- one at a time
+    eq(cmd:match('^/ma "Cure[ IV]*" A$') or cmd:match('^/ma "Cure[ IV]*" Out$'), cmd, cmd)  -- one at a time
     g.units[3] = fake.unit({ name = 'B', slot = 2, sid = 102, hpp = 45, pos = { 30, 0, 0 } })
     eq(decide(g, nil, sch), '/ja "Accession" <me>')  -- two in the party together: spread it
 end)
@@ -112,33 +112,33 @@ test('heal: with Majesty or Accession up, a Cure aimed at a tracked player still
     local pld = fake.catalog(PLD, 75, WHM, 37, { 'Majesty' })
     local g = snap({ out({ hpp = 40 }) })
     local plain = decide(g, nil, pld)
-    eq(plain:match('^/ma "Cure[ IV]*" 201$') ~= nil, true, plain)
+    eq(plain:match('^/ma "Cure[ IV]*" Out$') ~= nil, true, plain)
     g.me.buffs[MAJESTY] = true
     eq(decide(g, nil, pld), plain)
     local sch = fake.catalog(SCH, 75, nil, 0, { 'Accession' })
     g = snap({ out({ hpp = 45 }) })
     g.me.buffs[LIGHT_ARTS], g.me.buffs[ACCESSION] = true, true
     local cmd = decide(g, nil, sch)
-    eq(cmd and cmd:match('^/ma "Cure[ IV]*" 201$') ~= nil, true, cmd)
+    eq(cmd and cmd:match('^/ma "Cure[ IV]*" Out$') ~= nil, true, cmd)
 end)
 
 test('heal: a tracked player can be the focus, and skipped', function ()
     local cfg = settings.defaults()
     cfg.heal.focus = 'out'
-    eq(decide(snap({ { name = 'A', hpp = 55 }, out({ hpp = 55 }) }), cfg), '/ma "Cure IV" 202')  -- under their 60 line
+    eq(decide(snap({ { name = 'A', hpp = 55 }, out({ hpp = 55 }) }), cfg), '/ma "Cure IV" Out')  -- under their 60 line
     cfg.heal.focus, cfg.heal.skip = '', { Out = true }
     eq({ decide(snap({ out({ hpp = 40 }) }), cfg) }, { nil, 'nothing to do' })
 end)
 
 test('removal: a -na spell on a tracked player; Erase and Esuna do not reach them', function ()
-    eq(decide(snap({ out({ buffs = { [PARALYSIS] = true } }) })), '/ma "Paralyna" 201')
+    eq(decide(snap({ out({ buffs = { [PARALYSIS] = true } }) })), '/ma "Paralyna" Out')
     eq({ decide(snap({ out({ buffs = { [SLOW] = true } }) })) }, { nil, 'nothing to do' })
 end)
 
 test('wake: a tracked sleeper gets a heal aimed at them; an area heal counts only the party', function ()
-    eq(decide(snap({ out({ buffs = { [SLEEP] = true } }) })), '/ma "Cure" 201')
+    eq(decide(snap({ out({ buffs = { [SLEEP] = true } }) })), '/ma "Cure" Out')
     local cmd, intent = decide(snap({ { name = 'A', buffs = { [SLEEP] = true } }, out({ buffs = { [SLEEP] = true } }) }))
-    eq({ cmd, intent.why }, { '/ma "Cure" 101', 'A asleep' })  -- one in the party: no Curaga
+    eq({ cmd, intent.why }, { '/ma "Cure" A', 'A asleep' })    -- one in the party: no Curaga
     local blu = fake.catalog(BLU, 75, nil, 0)  -- Healing Breeze goes off around you, Magic Fruit is party only
     eq({ decide(snap({ out({ buffs = { [SLEEP] = true } }) }), nil, blu) }, { nil, 'nothing to do' })
 end)
@@ -146,7 +146,7 @@ end)
 test('buff: a row\'s targets include tracked players by name, when the spell can go outside the party', function ()
     local cfg = settings.defaults()
     cfg.rows.Haste = { on = true, targets = { Out = true } }
-    eq(decide(snap({ out() }), cfg), '/ma "Haste" 201')
+    eq(decide(snap({ out() }), cfg), '/ma "Haste" Out')
     eq({ decide(snap({ out({ buffs = { [HASTE] = true } }) }), cfg) }, { nil, 'nothing to do' })
     cfg.rows.Haste = nil
     cfg.rows['Regen (keep up)'] = { on = true, targets = { Out = true } }
@@ -164,7 +164,7 @@ test('buff: an area self-cast is recast for the party near you, not for a tracke
 end)
 
 test('revive: a fallen tracked player is raised', function ()
-    eq(decide(snap({ out({ hpp = 0 }) })), '/ma "Arise" 201')
+    eq(decide(snap({ out({ hpp = 0 }) })), '/ma "Arise" Out')
 end)
 
 test('follow: a tracked leader by name, as they have no party slot', function ()

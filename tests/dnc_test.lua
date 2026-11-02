@@ -44,9 +44,9 @@ end)
 test('Saber Dance: no waltz, and the row says why; the subjob cure heals instead', function ()
     local g = snap(1000, { SABER }, { { name = 'A', hpp = 45 } })
     eq({ can.use(named(cat, 'Curing Waltz II'), g) }, { false, 'blocked by Saber Dance' })
-    eq(decide(g), '/ma "Cure III" 101')
+    eq(decide(g), '/ma "Cure III" A')
     g.me.buffs[SABER] = nil
-    eq(decide(g), '/ja "Curing Waltz IV" 101')
+    eq(decide(g), '/ja "Curing Waltz IV" A')
 end)
 
 test('Fan Dance: no samba', function ()
@@ -57,17 +57,17 @@ end)
 
 test('Trance: a waltz at no TP, the biggest one, since it costs nothing', function ()
     local g = snap(0, {}, { { name = 'A', hpp = 45 } })
-    eq(decide(g), '/ma "Cure III" 101')  -- no TP, no waltz
+    eq(decide(g), '/ma "Cure III" A')    -- no TP, no waltz
     g.me.buffs[TRANCE] = true
     eq(can.use(named(cat, 'Curing Waltz IV'), g), true)
-    eq(decide(g), '/ja "Curing Waltz IV" 101')
+    eq(decide(g), '/ja "Curing Waltz IV" A')
 end)
 
 test('Trance: a free waltz beats Regen for chip damage', function ()
     local g = snap(0, {}, { { name = 'A', hpp = 70 } })
-    eq(decide(g), '/ma "Regen" 101')
+    eq(decide(g), '/ma "Regen" A')
     g.me.buffs[TRANCE] = true
-    eq(decide(g), '/ja "Curing Waltz III" 101')
+    eq(decide(g), '/ja "Curing Waltz III" A')
 end)
 
 test('Trance: Aspir Samba at no TP; Drain and Haste Samba still want theirs', function ()
@@ -88,9 +88,9 @@ end)
 
 test('Trance: a sleeper is woken with a free waltz rather than a cure', function ()
     local g = snap(1000, {}, { { name = 'A', buffs = { [2] = true } } })
-    eq(decide(g), '/ma "Cure" 101')  -- 8 MP beats 200 TP
+    eq(decide(g), '/ma "Cure" A')    -- 8 MP beats 200 TP
     g.me.buffs[TRANCE] = true
-    eq(decide(g), '/ja "Curing Waltz" 101')
+    eq(decide(g), '/ja "Curing Waltz" A')
 end)
 
 test('finishing moves: Reverse Flourish at five or more, No Foot Rise under five', function ()
