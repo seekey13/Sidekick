@@ -92,8 +92,9 @@ local function fits(line)
 end
 
 -- The line as a say chat packet (0x0B5): the server reads a line starting with '!' before anyone hears it, and never
--- says a GM's. Not typed through the chat box, which drops a line sent within about 1.5 seconds of the last ("A
--- command error occurred") and echoes each: packets go as fast as a scene needs, several in one frame.
+-- says a GM's; a non-GM's it says aloud to everyone near, unseen by the sender (docs/gm-commands.md). Not typed
+-- through the chat box, which drops a line sent within about 1.5 seconds of the last ("A command error occurred") and
+-- echoes each: packets go as fast as a scene needs, several in one frame.
 local function send(line)
     fits(line)
     local b = { 0xB5, 0, 0, 0, 0x00, 0x00 }  -- header (its size below; the game numbers it), say, padding
@@ -116,6 +117,7 @@ local function present(em, i)
     local flags = em:GetRenderFlags0(i)
     return em:GetRawEntity(i) ~= nil and bit.band(flags, 0x200) ~= 0 and bit.band(flags, 0x4000) == 0
 end
+gm.present = present
 
 -- What the client reads of player `who`, with their server id (sid) and entity index: a member of your party or
 -- alliance (HP, MP and TP in points and %, max HP and MP: yours exact, a member's from HP and HP %, exact at 100%), or
@@ -251,8 +253,10 @@ function gm.bring(who) return send('!bring ' .. player(who)) end
 function gm.go(who) return send('!goto ' .. player(who)) end
 function gm.zone(id) return send(('!zone %d'):format(whole(id, 1, 298, 'zone id'))) end
 function gm.homepoint(who) return send('!homepoint ' .. player(who)) end
+-- A coordinate to the 4 places !pos prints, less trailing zeros: 1234.5678 whole, -76.5 not -76.5000.
+local function coord(n, what) return (('%.4f'):format(number(n, what)):gsub('%.?0+$', '')) end
 function gm.pos(who, x, y, z, zone)
-    local at = ('%g %g %g'):format(number(x, 'x'), number(y, 'y'), number(z, 'z'))
+    local at = ('%s %s %s'):format(coord(x, 'x'), coord(y, 'y'), coord(z, 'z'))
     zone = zone and whole(zone, 1, 298, 'zone id') or nil
     return send(('!pos %s %s%s'):format(at, zone and (zone .. ' ') or '', player(who)))
 end

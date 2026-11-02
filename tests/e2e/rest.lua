@@ -33,6 +33,8 @@ return {
             t.check(sent.at - last.at >= cfg.rest.delay - 0.2, 'rested %.1fs after its last %s, before its %ds',
                 sent.at - last.at, last.type, cfg.rest.delay)
             t.note('rested %.1fs after its last %s', sent.at - last.at, last.type)
+        else
+            t.note('no send or cast of its own before the rest in this scenario: its delay not checked')
         end
     end,
 }

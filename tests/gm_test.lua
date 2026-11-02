@@ -168,6 +168,7 @@ test('moving people and mobs', function ()
     eq({ gm.pos('Test', -76.5, 32, -4), gm.pos('me', 1, 2, 3, 178), gm.zone(230), gm.bring('Test'), gm.go('Test'),
          gm.homepoint('Test') },
        { '!pos -76.5 32 -4 Test', '!pos 1 2 3 178 Dev', '!zone 230', '!bring Test', '!goto Test', '!homepoint Test' })
+    eq(gm.pos('Test', 1234.5678, -0.25, 100), '!pos 1234.5678 -0.25 100 Test')  -- 4 places, as !pos prints them
     eq({ gm.spawn(17187111), gm.mobhere(17187111), gm.despawn(17187111) },
        { '!spawnmob 17187111', '!mobhere 17187111', '!despawnmob 17187111' })
 end)

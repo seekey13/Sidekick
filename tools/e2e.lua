@@ -15,7 +15,7 @@
       - what went to the server: your actions (0x01A), item uses (0x037) and /heal (0x0E8);
       - what came back for your own actions (0x028): a cast or item begun, finished, interrupted, on whom;
       - while a scenario runs, the chat log's lines (the server's answers to GM commands).
-    Everything a scene changes is undone after it, whatever the result: see `t.gm`.
+    Everything a scene changes is undone after it, whatever the result (see `t.gm`), unless Sidekick3 unloads first.
 ]]--
 
 local catalog = require('core.catalog')
@@ -220,7 +220,7 @@ local function context(r)
 
     -- Waiting: each a frame at a time, never past the scenario's time (or its cleanup's), nor an abort.
     local function frame()
-        if r.aborted and not r.cleaning then stop('fail', 'aborted') end
+        if r.aborted and not r.cleaning then stop(r.fault and 'error' or 'fail', r.fault or 'aborted') end
         if clock() > r.deadline then stop('fail', r.cleaning and 'cleanup ran out of time' or 'ran out of time') end
         coroutine.yield()
     end
@@ -289,8 +289,9 @@ local function context(r)
         return seen.cfg
     end
     -- A setting for this scenario only: `path` 'rest.on', or a list of keys ({ 'rows', 'Protect' }) for a key with a
-    -- dot or space in it. Set in Sidekick3's own settings and saved, as Sidekick Settings would; the value it had is
-    -- put back and saved after.
+    -- dot or space in it. Set in Sidekick3's own settings, which it reads as it decides, but not saved: a scenario cut
+    -- short (Sidekick3 reloaded) leaves the file as it was. The value it had is put back after, and saved, in case
+    -- something else saved meanwhile.
     function t.setting(path, value)
         local keys = type(path) == 'table' and path or {}
         if type(path) == 'string' then for k in path:gmatch('[^.]+') do keys[#keys + 1] = k end end
@@ -298,7 +299,6 @@ local function context(r)
         for i = 1, #keys - 1 do parent = parent[keys[i]] end
         local last, old = keys[#keys], parent[keys[#keys]]
         parent[last] = value
-        settings.save()
         t.finally(function () parent[last] = old; settings.save() end)
         t.note('%s set for this scenario', table.concat(keys, '.'))
     end
@@ -356,9 +356,10 @@ local function context(r)
         mobhere = function (id) return function () gm.despawn(id) end end,
         spawn = function (id) return function () gm.despawn(id) end end,
     }
+    local READS = { who = true, mob = true, cursor = true, me = true, present = true }  -- no scene: as they are
     t.gm = setmetatable({}, { __index = function (_, k)
         local f = gm[k]
-        if type(f) ~= 'function' then return f end
+        if type(f) ~= 'function' or READS[k] then return f end
         return function (...)
             local out = f(...)
             if UNDO[k] then t.finally(UNDO[k](...)) end
@@ -384,9 +385,7 @@ local function context(r)
     -- Whether `who` stands near you (the client draws them).
     function t.here(who)
         local u = gm.who(who)
-        local em = AshitaCore:GetMemoryManager():GetEntity()
-        return u ~= nil and u.index ~= nil and u.index > 0 and em:GetRawEntity(u.index) ~= nil
-            and bit.band(em:GetRenderFlags0(u.index), 0x200) ~= 0
+        return u ~= nil and u.index ~= nil and u.index > 0 and gm.present(AshitaCore:GetMemoryManager():GetEntity(), u.index)
     end
 
     -- Everyone near at full HP and MP, then Sidekick3 quiet: a scene starts from nothing to do.
@@ -507,6 +506,7 @@ local function start(name)
 end
 
 local function finish(r)
+    if r.fault and r.result == 'pass' then r.result, r.why = 'error', r.fault end  -- a fault in its cleanup
     local out = { name = r.name, about = r.about, result = r.result, why = r.why, notes = r.notes, timings = r.timings,
                   seconds = math.floor((clock() - r.began) * 10 + 0.5) / 10, trail = r.trail, sidekick = r.sidekick }
     if r.result ~= 'pass' and not out.trail then  -- it never ran (it didn't load), or the runner failed it
@@ -589,26 +589,32 @@ end
 
 function e2e.clear() results = {} end
 
--- Unhook: Sidekick3's functions back as they were, the events dropped.
+-- Unhook: Sidekick3's functions back as they were, the events dropped; true when done. Not while a scenario runs,
+-- whose cleanup needs the frames: it's aborted instead, and false returned. Unwatch again once status() shows none.
 function e2e.unwatch()
     e2e.abort()
+    if run then return false end
     if share.e2e_tick then share.tick, share.e2e_tick = share.e2e_tick, nil end
     if engine.e2e_decide then engine.decide, engine.e2e_decide = engine.e2e_decide, nil end
     for _, ev in ipairs({ 'packet_in', 'packet_out', 'text_in', 'd3d_present' }) do
         pcall(ashita.events.unregister, ev, 'sidekick3_e2e_' .. ev)
     end
+    return true
 end
 
 -- A step that fails ends the scenario running as an error, never the game's frame: an error a frame for five
--- seconds would unload Sidekick3 (VanaCore's rule).
-local function guarded(fn)
+-- seconds would unload Sidekick3 (VanaCore's rule). The scenario fails at its next wait, so its cleanup still runs;
+-- should the frame's own step (`drives`) fail again, as it would every frame, it ends there, its cleanup cut short.
+local function guarded(fn, drives)
     return function (...)
         local ok, err = pcall(fn, ...)
-        if not ok and run then
-            run.result, run.why = 'error', 'runner: ' .. tostring(err)
-            run.co = nil
+        if ok or not run then return end
+        if drives and run.fault then
+            run.result, run.why, run.co = 'error', run.fault, nil
             finish(run)
             run = nil
+        elseif not run.fault then
+            run.fault, run.aborted = 'runner: ' .. tostring(err), true
         end
     end
 end
@@ -620,7 +626,7 @@ if ashita and ashita.events then
     ashita.events.register('text_in', 'sidekick3_e2e_text_in', guarded(function (e)
         if run then record({ type = 'line', mode = bit.band(e.mode, 0xFF), text = (e.message:gsub('[\30\31\127].', '')) }) end
     end))
-    ashita.events.register('d3d_present', 'sidekick3_e2e_d3d_present', guarded(step))
+    ashita.events.register('d3d_present', 'sidekick3_e2e_d3d_present', guarded(step, true))
 end
 
 return e2e

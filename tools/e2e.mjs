@@ -13,6 +13,16 @@ const argv = process.argv.slice(2);
 let port = 47800;
 if (argv[0] === '--port') { port = Number(argv[1]); argv.splice(0, 2); }
 const [verb = 'help', ...names] = argv;
+if (!Number.isInteger(port) || port < 1 || port > 65535) {
+  console.error(`not a port: ${port}`);
+  process.exit(2);
+}
+for (const n of names) {
+  if (!/^[a-z0-9_]+$/.test(n)) {
+    console.error(`not a scenario name: ${n}`);
+    process.exit(2);
+  }
+}
 const url = `http://127.0.0.1:${port}/mcp`;
 let session = null;
 let nextId = 1;
@@ -23,6 +33,7 @@ async function post(body) {
   const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
   session = res.headers.get('mcp-session-id') || session;
   const text = await res.text();
+  if (!res.ok) throw new Error(`the MCP answered HTTP ${res.status}: ${text.slice(0, 200)}`);
   if (!text) return null;
   if ((res.headers.get('content-type') || '').includes('text/event-stream')) {
     let last = null;
@@ -106,7 +117,6 @@ async function main() {
     for (const r of list(await lua(json('e2e.report()')))) show(r);
   } else if (verb === 'run') {
     const wanted = names.length ? names : ['all'];
-    for (const n of wanted) if (!/^[a-z0-9_]+$/.test(n)) throw new Error(`not a scenario name: ${n}`);
     await tool('lua', { addon: 'Sidekick3', code: FRESH });
     const before = (await lua(json('e2e.status()'))).finished;
     await lua(`e2e.run(${wanted.map((n) => `'${n}'`).join(', ')}) ${json('e2e.status()')}`);
@@ -115,6 +125,10 @@ async function main() {
     for (;;) {
       await sleep(2000);
       const s = await lua(json('e2e.status()'));
+      // Results gone, or nothing running, queued or finished: Sidekick3 (or the runner) loaded again mid-run.
+      if (s.finished < shown || (!s.running && count(s.queued) === 0 && s.finished <= before)) {
+        throw new Error('the run is gone: Sidekick3 (or the runner) was loaded again mid-run');
+      }
       if (s.finished > shown) {
         for (const r of list(await lua(json(`e2e.report(${shown + 1})`)))) show(r);
         shown = s.finished;

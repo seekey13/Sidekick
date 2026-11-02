@@ -234,9 +234,61 @@ test('aborted: the queue emptied, the scenario running stopped at its next wait,
        { 1, 'aborted', nil, { '!hp 100 Test', '!hp 99999 Test', '!mp 99999 Test' } })
 end)
 
+test('a fault in the runner ends the scenario as an error at its next wait, its cleanup still run', function ()
+    packets = {}
+    scenario('fake_long', { run = function (t) t.gm.hp('Test', 100); t.wait(30) end })
+    e2e.clear()
+    e2e.run('fake_long')
+    frames(1)
+    handlers.packet_in({ id = 0x028, size = 100 })  -- no bytes: the parse fails
+    frames(1)
+    local r = e2e.report()[1]
+    eq({ r.result, r.why:match('^runner: ') ~= nil, e2e.status().running, packets },
+       { 'error', true, nil, { '!hp 100 Test', '!hp 99999 Test', '!mp 99999 Test' } })
+end)
+
+test('a setting for the scenario: not saved while it runs, put back and saved after', function ()
+    local settings = require('core.settings')
+    local save, saves, during = settings.save, 0, nil
+    settings.save = function () saves = saves + 1 end
+    local cfg
+    scenario('fake_setting', { run = function (t)
+        cfg = t.cfg()
+        t.setting('heal.alliance', true)
+        during = { cfg.heal.alliance, saves }
+    end })
+    run_to_end('fake_setting')
+    settings.save = save
+    eq({ during, cfg.heal.alliance, saves }, { { true, 0 }, false, 1 })
+end)
+
+test('a read through t.gm (who, cursor...) is no scene: the scene\'s moment stays', function ()
+    scenario('fake_read', { run = function (t)
+        t.gm.hp('Test', 100)
+        local since = t.since
+        now = now + 1
+        t.note(tostring(t.gm.who('Test').name))
+        t.check(t.since == since, 'a read moved the scene\'s moment')
+    end })
+    local r = run_to_end('fake_read')[1]
+    eq({ r.result, r.why, r.notes[1] }, { 'pass', nil, 'Test' })
+end)
+
+test('unwatch waits for a scenario running: aborted, cleaned up, then unhooked', function ()
+    packets = {}
+    e2e.clear()
+    e2e.run('fake_long')
+    frames(1)
+    eq(e2e.unwatch(), false)
+    eq(handlers.d3d_present ~= nil, true)  -- still hooked: its cleanup needs the frames
+    frames(1)
+    eq({ e2e.report()[1].why, e2e.status().running, packets },
+       { 'aborted', nil, { '!hp 100 Test', '!hp 99999 Test', '!mp 99999 Test' } })
+end)
+
 test('unwatch hands Sidekick3 its own functions back', function ()
     local tick, decide = share.e2e_tick, engine.e2e_decide
-    e2e.unwatch()
+    eq(e2e.unwatch(), true)
     eq({ share.tick == tick, engine.decide == decide, share.e2e_tick, engine.e2e_decide, handlers.d3d_present },
        { true, true, nil, nil, nil })
 end)
