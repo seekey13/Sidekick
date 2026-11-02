@@ -400,12 +400,13 @@ test('others go by name, never server id (the client refuses it); a trust, whose
     eq({ to({ kind = 'party', slot = 1, sid = 101, name = 'Tank' }), to({ kind = 'alliance', slot = 7, sid = 302, name = 'Ally' }),
          to({ kind = 'tracked', sid = 201, name = 'Out' }), to({ kind = 'self', slot = 0, sid = 1, name = 'Me' }), to(nil) },
        { '/ma "Cure IV" Tank', '/ma "Cure IV" Ally', '/ma "Cure IV" Out', '/ma "Cure IV" <me>', '/ma "Cure IV" <me>' })
-    -- As the server names them: no spaces (Shantotto II is 'Shantotto' too), and the same for every caller.
+    -- As the server names them: no spaces (Shantotto II is 'Shantotto' too), and the same for every caller. Only ever
+    -- in your party: none is called in an alliance, nor an alliance formed with one (scripts/globals/trust.lua).
     eq({ to({ kind = 'trust', slot = 2, sid = 0x1000002, name = 'Kupipi' }),
-         to({ kind = 'alliance', slot = 7, sid = 0x1000007, name = 'Shantotto' }),
-         to({ kind = 'alliance', slot = 12, sid = 0x100000C, name = 'D.Shantotto' }) },
-       { '/ma "Cure IV" <p2>', '/ma "Cure IV" <a11>', '/ma "Cure IV" <a20>' })
+         to({ kind = 'trust', slot = 5, sid = 0x1000005, name = 'D.Shantotto' }) },
+       { '/ma "Cure IV" <p2>', '/ma "Cure IV" <p5>' })
     -- No name yet (just joined, zoning): the slot, never a command with no target.
-    eq({ to({ kind = 'party', slot = 5, sid = 105, name = '' }), to({ kind = 'alliance', slot = 17, sid = 317 }) },
-       { '/ma "Cure IV" <p5>', '/ma "Cure IV" <a25>' })
+    eq({ to({ kind = 'party', slot = 5, sid = 105, name = '' }), to({ kind = 'alliance', slot = 6, sid = 306, name = '' }),
+         to({ kind = 'alliance', slot = 12, sid = 312, name = '' }), to({ kind = 'alliance', slot = 17, sid = 317 }) },
+       { '/ma "Cure IV" <p5>', '/ma "Cure IV" <a10>', '/ma "Cure IV" <a20>', '/ma "Cure IV" <a25>' })
 end)
