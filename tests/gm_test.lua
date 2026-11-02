@@ -54,8 +54,8 @@ local target = {
     end,
 }
 local mm = { GetParty = const(party), GetEntity = const(em), GetPlayer = const(player), GetTarget = const(target) }
-local chat = { QueueCommand = function (_, mode, line) said[#said + 1] = { mode, line } end }
-rawset(_G, 'AshitaCore', { GetMemoryManager = const(mm), GetChatManager = const(chat) })
+local pm = { AddOutgoingPacket = function (_, id, bytes) said[#said + 1] = { id, bytes } end }
+rawset(_G, 'AshitaCore', { GetMemoryManager = const(mm), GetPacketManager = const(pm) })
 rawset(_G, 'ashita', { events = { register = function (event, _, fn) handlers[event] = fn end } })
 local in_range = true
 rawset(_G, 'vana', { game = { set_target = function (i) targeted[#targeted + 1] = i; return in_range end } })
@@ -63,10 +63,17 @@ rawset(_G, 'vana', { game = { set_target = function (i) targeted[#targeted + 1] 
 package.loaded['tools.gm'] = nil
 local gm = require('tools.gm')
 
--- What went out since the last call, as typed.
+-- The text of each chat packet sent since the last call.
 local function sent()
     local out = {}
-    for i, s in ipairs(said) do out[i] = s[2] end
+    for i, s in ipairs(said) do
+        local chars = {}
+        for k = 7, #s[2] do
+            if s[2][k] == 0 then break end
+            chars[#chars + 1] = string.char(s[2][k])
+        end
+        out[i] = table.concat(chars)
+    end
     said = {}
     return out
 end
@@ -85,13 +92,21 @@ local function pos_packet(index)
     return { id = 0x015, data = string.char(unpack(b)) }
 end
 
-test('vitals name the player, yours as "me", and go out as /say', function ()
+test('a line goes as a say chat packet: its size in 4-byte units, the text ended and padded with zeros', function ()
+    sent()
+    gm.hp('Test', 0)  -- '!hp 0 Test': 10 bytes after 6 of header, kind and padding, one zero, 4 more to 20
+    eq(said, { { 0xB5, { 0xB5, 10, 0, 0, 0, 0, 33, 104, 112, 32, 48, 32, 84, 101, 115, 116, 0, 0, 0, 0 } } })
+    gm.uneffect('Test', 3)  -- '!deleffect Test 3': 17 bytes, 23 with the zero, padded to 24
+    eq({ #said[2][2], said[2][2][2], said[2][2][24] }, { 24, 12, 0 })
+    sent()
+end)
+
+test('vitals name the player, yours as "me"', function ()
     sent()
     eq({ gm.hp('Test', 0), gm.mp('me', 50), gm.tp('Test', 1000), gm.kill('Tracked') },
        { '!hp 0 Test', '!mp 50 Dev', '!tp 1000 Test', '!hp 0 Tracked' })
     eq(gm.full('Test'), { '!hp 99999 Test', '!mp 99999 Test' })
-    eq(sent(), { '/say !hp 0 Test', '/say !mp 50 Dev', '/say !tp 1000 Test', '/say !hp 0 Tracked',
-                 '/say !hp 99999 Test', '/say !mp 99999 Test' })
+    eq(sent(), { '!hp 0 Test', '!mp 50 Dev', '!tp 1000 Test', '!hp 0 Tracked', '!hp 99999 Test', '!mp 99999 Test' })
     eq(said, {})
 end)
 
@@ -125,10 +140,12 @@ test('% of the max: yours exact, a member\'s from HP and HP %, else refused', fu
     sent()
     eq({ gm.hp_pct('me', 50), gm.hp_pct('Test', 40), gm.hp_pct('Test', 1), gm.mp_pct('Test', 10), gm.hp_pct('test', 0) },
        { '!hp 450 Dev', '!hp 480 Test', '!hp 12 Test', '!mp 40 Test', '!hp 0 Test' })
-    eq(refused(gm.hp_pct, 'Tracked', 50), 'Tracked\'s max HP is unknown here: set it in points')
+    -- Outside the alliance the client has HP % only: the server sets it from its own max.
+    eq(gm.hp_pct('Tracked', 40), '!exec local p=GetPlayerByName(\'Tracked\') p:setHP(math.ceil(p:getMaxHP()*40/100))')
+    eq(gm.mp_pct('Tracked', 5), '!exec local p=GetPlayerByName(\'Tracked\') p:setMP(math.ceil(p:getMaxMP()*5/100))')
     eq(refused(gm.hp_pct, 'Nobody', 50), 'Nobody isn\'t in your party or near you')
     refused(gm.hp_pct, 'Test', 101)
-    eq(#sent(), 5)
+    eq(#sent(), 7)
 end)
 
 test('raise, immortal, recasts, levels, spells and items', function ()
@@ -159,6 +176,7 @@ test('server Lua: one line, no <t> for the client to fill in, within what the se
     eq(gm.exec('player:setHP(1)'), '!exec player:setHP(1)')
     refused(gm.exec, 'target:setHP(0) -- <t>')
     refused(gm.exec, 'a=1\nb=2')
+    eq(refused(gm.exec, 'print("\226\152\133")'), 'ASCII only: !exec print("\226\152\133")')
     eq(refused(gm.exec, ('x'):rep(gm.MAX_LINE)), ('%d bytes, more than the server reads whole (%d): !exec %s')
         :format(gm.MAX_LINE + 6, gm.MAX_LINE, ('x'):rep(gm.MAX_LINE)))
     eq(gm.probe(), { '!where', '!exec player:printToPlayer(\'Sidekick3 gm: level 4 or more\')' })
@@ -211,7 +229,7 @@ test('a command on the targeted mob waits for the server to hear of it', functio
     eq(refused(gm.mob_hp, 0), 'target a mob first (gm.target)')
     world.target = 0
     refused(gm.mob_level, 1)
-    eq(sent(), { '/say !hp 0', '/say !setmoblevel 1' })
+    eq(sent(), { '!hp 0', '!setmoblevel 1' })
 end)
 
 package.loaded['tools.gm'] = nil

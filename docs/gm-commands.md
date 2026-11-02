@@ -6,7 +6,8 @@ Researched on 2026-11-02 for [issue #56](https://github.com/seekey13/Sidekick3/i
 
 ## How the server takes a command
 
-- **A chat line starting with `!`, in any chat mode.** The server reads it before anyone hears it. A GM's `!` line is never sent on as chat, even a mistyped one (`src/map/packets/c2s/0x0b5_chat_std.cpp`). `tools/gm.lua` sends each line as `/say !...`. Commands don't work from jail.
+- **A chat line starting with `!`, in any chat mode.** The server reads it before anyone hears it. A GM's `!` line is never sent on as chat, even a mistyped one (`src/map/packets/c2s/0x0b5_chat_std.cpp`). Commands don't work from jail.
+- **Typed lines are rate-limited by the client, packets aren't.** The client's chat box drops a line sent within about 1.5 s of the last ("...A command error occurred."), and shows your own line in your chat log. `tools/gm.lua` doesn't type: it injects the say packet (0x0B5) itself, so a scene's lines go out together, in one frame if need be.
 - **Failures are silent.** If a command doesn't exist, or is above your GM level, you get no answer: only the server's log notes it. Many commands that work say nothing either, such as `!hp` on yourself or `!deleffect` on yourself. So a test checks the result, not the chat.
 - **Arguments split on spaces, and numbers are read with `atoi`.** A word that isn't a number becomes 0, so `!hp abc Test` sets Test's HP to 0. A command whose one argument is text takes the rest of the line (`!exec`, `!immortal`).
 - **128 bytes a line.** That is the packet's `Str[128]`. `tools/gm.lua` keeps lines to 120 bytes.
@@ -140,7 +141,7 @@ It runs in Sidekick3's own state, which the MCP's `lua` tool reaches by the addo
 - **Reading:** `me()`, `who(name)` (HP, MP and TP of a party or alliance member in points and %, or a nearby player's HP %), `mob(name)` (the nearest live mob of that name)
 - **Server Lua and level:** `exec(code)`, `probe()`
 
-`hp_pct` and `mp_pct` work from what the client reads. Yours are exact. A member's max is HP ÷ HP %, which is exact only at full. So call `gm.full` first, and `hp_pct` a moment later in a separate call, once the client has the server's answer.
+`hp_pct` and `mp_pct` work from what the client reads. Yours are exact. A member's max is HP ÷ HP %, which is exact only at full. So call `gm.full` first, and `hp_pct` a moment later in a separate call, once the client has the server's answer. For a player outside your alliance, whose HP the client shows only as a %, they set it on the server from its own max, through `!exec` (GM 4).
 
 ## Setting a scene
 
@@ -177,11 +178,16 @@ These parts of a test aren't GM commands:
 - `gm.despawn` the mobs;
 - `/sk3 stop`.
 
-## To check in the first session
+## Checked in game
 
-- What GM level `Test` and `Dev` each have: `gm.probe()` and the chat log.
-- The cursor guard: after `gm.target('<mob>')`, `gm.cursor().ready` should turn true within a second. That confirms VanaCore raises Ashita's `packet_out` for 0x015, and that the target index is at 0x16.
-- That `vana.game.set_target` works from Sidekick3's state.
+On 2026-11-02, through the MCP on `Dev`:
+
+- `Dev` is GM level 4 or more: `gm.probe()` got both answers.
+- `vana.game.set_target` works from Sidekick3's state. After `gm.target('Tracked')`, `gm.cursor().ready` turned true within a second: VanaCore raises Ashita's `packet_out` for 0x015, and the target index is at 0x16.
+- Typed `/say !...` lines fail within about 1.5 s of each other; injected 0x0B5 packets don't, three in one frame.
+- The exact `!exec` fallback set Tracked's HP from their server max.
+
+Still open:
+
 - Whether `!hp 0` kills a player under `!immortal` (`setHP` sets 0 outright).
-- How to take the raise menu through the MCP: no GM command does it.
-- The longest chat line the client sends whole (120 bytes is assumed).
+- The raise menu is taken by the dead player's own game (0x01A, action 0x0D). A character with no MCP of its own can be revived with `!homepoint <name>`: a warp revives the dead at full HP and MP (`charutils::HomePoint(PChar, PChar->isDead())`). `!bring <name>` then brings them back.

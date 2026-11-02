@@ -4,8 +4,8 @@
 
         lua  addon = "Sidekick3"  code = "return require('tools.gm').hp_pct('Test', 40)"
 
-    then reads the server's answer with `chat_log`. Nothing in Sidekick3 requires this file, and release zips leave
-    tools/ out. docs/gm-commands.md has the commands, the scenes they make and what's left to check in game.
+    then reads the server's answer with `chat_log`. tools/e2e.lua runs scenarios built on it. Nothing in Sidekick3
+    requires this file, and release zips leave tools/ out. docs/gm-commands.md has the commands and their quirks.
 
     Each command, its arguments and whom it acts on are the server's own (scripts/commands/*.lua in the CatsEyeXI
     server). The server answers a command it doesn't know, or one above your GM level, with nothing at all, and reads
@@ -87,12 +87,20 @@ end
 
 local function fits(line)
     if #line > gm.MAX_LINE then fail('%d bytes, more than the server reads whole (%d): %s', #line, gm.MAX_LINE, line) end
+    if line:find('[^\32-\126]') then fail('ASCII only: %s', line) end
     return line
 end
 
--- The line, as /say: the server reads a line starting with '!' before anyone hears it, and never says a GM's.
+-- The line as a say chat packet (0x0B5): the server reads a line starting with '!' before anyone hears it, and never
+-- says a GM's. Not typed through the chat box, which drops a line sent within about 1.5 seconds of the last ("A
+-- command error occurred") and echoes each: packets go as fast as a scene needs, several in one frame.
 local function send(line)
-    AshitaCore:GetChatManager():QueueCommand(1, '/say ' .. fits(line))
+    fits(line)
+    local b = { 0xB5, 0, 0, 0, 0x00, 0x00 }  -- header (its size below; the game numbers it), say, padding
+    for i = 1, #line do b[#b + 1] = line:byte(i) end
+    repeat b[#b + 1] = 0 until #b % 4 == 0
+    b[2] = #b / 4 * 2  -- the size in 4-byte units, above the id's ninth bit
+    AshitaCore:GetPacketManager():AddOutgoingPacket(0xB5, b)
     return line
 end
 
@@ -165,12 +173,17 @@ function gm.kill(who) return gm.hp(who, 0) end
 function gm.full(who) return all({ ('!hp 99999 %s'):format(player(who)), ('!mp 99999 %s'):format(player(who)) }) end
 
 -- HP or MP to a % of the max, from what the client reads (gm.who): you and your party or alliance. Start from full
--- for a member, whose max is exact only then.
+-- for a member, whose max is exact only then. Anyone else (a player outside your alliance shows HP % only): the
+-- server's own max, through !exec (GM level 4).
 local function pct(who, p, kind)
     whole(p, 0, 100, kind .. ' %')
     local u = gm.who(who)
     if not u then fail('%s isn\'t in your party or near you', player(who)) end
     local max = kind == 'HP' and u.max_hp or u.max_mp
+    if u.slot == nil then
+        return send(('!exec local p=GetPlayerByName(\'%s\') p:set%s(math.ceil(p:getMax%s()*%d/100))')
+            :format(u.name, kind, kind, p))
+    end
     if not max or max == 0 then fail('%s\'s max %s is unknown here: set it in points', u.name, kind) end
     local n = math.ceil(max * p / 100)
     return kind == 'HP' and gm.hp(u.name, n) or gm.mp(u.name, n)
@@ -293,8 +306,8 @@ end
 function gm.mob_hp(n) return on_mob(('!hp %d'):format(whole(n, 0, 9999999, 'HP'))) end
 function gm.mob_level(lv) return on_mob(('!setmoblevel %d'):format(whole(lv, 1, 255, 'level'))) end
 
--- Lua on the server (GM level 4), `player` and `target` (your cursor's) defined: one line, no <...> (the client
--- would fill in its own <t>, <me>), within gm.MAX_LINE.
+-- Lua on the server (GM level 4), `player` and `target` (your cursor's) defined: one line of ASCII within
+-- gm.MAX_LINE, no <...> (typed in the chat box, the client would fill in its own <t>, <me>).
 function gm.exec(code)
     if type(code) ~= 'string' or code == '' or code:find('[\r\n]') or code:find('<%w+>') then
         fail('one line of Lua, with no <...> in it')
