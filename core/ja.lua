@@ -116,6 +116,8 @@ ja.words = {
         '回復でオンのケアルやワルツで、睡眠中のメンバーを起こします。2人以上なら範囲で起こします。',
     ['Remove the debuffs that are on, with the spells, abilities and items ticked.'] =
         'オンの弱体を、チェックした魔法・アビリティ・アイテムで回復します。',
+    ['Remove the debuffs that are on for the players that are on, with the spells, abilities and items ticked.'] =
+        'オンのプレイヤーの、オンの弱体を、チェックした魔法・アビリティ・アイテムで回復します。',
     ['Keep the buffs that are on up on their targets.'] = 'オンの強化を対象に維持します。',
     ['Keep the rolls picked up, and Double-Up the last one by the risk picked. Held for the group with '
         .. 'Hold area buffs, as an area buff.'] =
@@ -356,6 +358,13 @@ ja.words = {
     ['\nIt heals too: unticked here, it is unticked under Heal.'] = '\n回復にも使います。ここでオフにすると回復でもオフになります。',
     ['Untick to leave it on: worth it for what doesn\'t matter to your job (MP Down on a Warrior).'] =
         'オフにすると回復しません。ジョブに関係のない弱体（戦士のMPmaxダウンなど）に。',
+    ['All'] = 'すべて',
+    ['No player selected above.'] = '上でプレイヤーが選ばれていません。',
+    ['Remove every debuff on this player.'] = 'このプレイヤーの弱体をすべて回復します。',
+    ['Leave every debuff on this player. Doom is still removed.'] =
+        'このプレイヤーの弱体はすべてそのままにします。死に至るものは回復します。',
+    ['Untick to never clear debuffs on them. An empty slot is included once someone is there.'] =
+        'オフにすると、その枠の弱体は回復しません。空き枠は誰かが入ると対象になります。',
     ['Removed by %s'] = '回復手段: %s',
     ['\nSwitched off: left on once something removes it again.'] = '\nオフ: 回復手段がまた使えるようになっても、そのままにします。',
     ['Always removed: it kills.'] = '常に回復します（死に至るため）。',

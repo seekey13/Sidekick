@@ -70,7 +70,7 @@ e2e.say = function () end
 local function frame(dt)
     now = now + (dt or 0.1)
     share.tick({}, now, status, {})
-    engine.decide({ units = {} }, { { name = 'Poisona' } }, { heal = { alliance = false }, remove = { on = true, skip = {} } }, {})
+    engine.decide({ units = {} }, { { name = 'Poisona' } }, { buff = { hold_aoe = false }, remove = { on = true, skip = {} } }, {})
     handlers.d3d_present()
 end
 local function frames(seconds) for _ = 1, math.ceil(seconds / 0.1) do frame() end end
@@ -206,12 +206,12 @@ test('nothing sent when nothing should be; a send then fails it', function ()
 end)
 
 test('skipped for want of a setting, an error with its traceback, a missing scenario, the time running out', function ()
-    scenario('fake_skip', { run = function (t) t.need(t.cfg().heal.alliance, 'alliance healing is off') end })
+    scenario('fake_skip', { run = function (t) t.need(t.cfg().buff.hold_aoe, 'area buffs are not held') end })
     scenario('fake_bug', { run = function () local x = nil; return x.y end })
     scenario('fake_slow', { timeout = 2, run = function (t) t.wait(10) end })
     local r = run_to_end('fake_skip', 'fake_bug', 'no_such_scenario', 'fake_slow')
     eq({ r[1].result, r[1].why, r[2].result, r[3].result, r[4].result, r[4].why },
-       { 'skip', 'alliance healing is off', 'error', 'error', 'fail', 'ran out of time' })
+       { 'skip', 'area buffs are not held', 'error', 'error', 'fail', 'ran out of time' })
     eq(r[2].why:find('attempt to index', 1, true) ~= nil and r[2].why:find('stack traceback', 1, true) ~= nil, true)
 end)
 
@@ -254,12 +254,12 @@ test('a setting for the scenario: not saved while it runs, put back and saved af
     local cfg
     scenario('fake_setting', { run = function (t)
         cfg = t.cfg()
-        t.setting('heal.alliance', true)
-        during = { cfg.heal.alliance, saves }
+        t.setting('buff.hold_aoe', true)
+        during = { cfg.buff.hold_aoe, saves }
     end })
     run_to_end('fake_setting')
     settings.save = save
-    eq({ during, cfg.heal.alliance, saves }, { { true, 0 }, false, 1 })
+    eq({ during, cfg.buff.hold_aoe, saves }, { { true, 0 }, false, 1 })
 end)
 
 test('a read through t.gm (who, cursor...) is no scene: the scene\'s moment stays', function ()

@@ -22,14 +22,17 @@ local settings = {}
 
 local DEFAULTS = {
     -- HP% lines: efficient under threshold, danger, critical (behaviors/heal.lua);
-    -- the focus member has its own. skip = { [name] = true }: never healed for their sake;
-    -- alliance: the alliance's other parties healed too (v2's default: off).
+    -- the focus member has its own. skip = { [name] = true }: never healed for their sake.
+    -- The alliance's other parties are healed whenever a heal reaches them.
     heal = { on = true, threshold = 75, danger = 50, critical = 30,
-             focus = '', focus_threshold = 85, focus_danger = 60, focus_critical = 40, skip = {}, alliance = false,
+             focus = '', focus_threshold = 85, focus_danger = 60, focus_critical = 40, skip = {},
              cure_potency = 0, waltz_potency = 0,  -- +% from gear
              regen_potency = 0,                    -- +HP per Regen tick from gear
              reserve = false },  -- SCH: buff rows leave the last stratagem charge for healing (as v2's, opt-in)
-    remove = { on = true, skip = {} },  -- skip = { [status name] = true }: debuffs left on (behaviors/remove.lua)
+    -- skip = { [status name] = true }: debuffs left on, until a player has their own set.
+    -- off = { [slot or tracked name] = true }: removal does not run there.
+    -- own = { [slot] = { set = true, skip = { [status] = true } } }: that player's debuffs, instead of skip.
+    remove = { on = true, skip = {}, off = {}, own = {} },
     wake = { on = true },                  -- wake sleeping members with a heal that wakes
     recover = { on = true, mp = 30, tp = 1000,    -- under your MP% (a member's, for Devotion), your TP
                 min_tp = 3000 },                   -- Chivalry from this much TP

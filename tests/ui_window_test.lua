@@ -1135,20 +1135,22 @@ test('a row, its pick and its targets each write and save', function ()
     eq(cfg.rows.Cure, { on = false })
     eq(render(cfg, st, on('Remove', { ['Echo Drops (0)###remove_Echo Drops'] = true })), 1)  -- an item, with how many you carry
     eq(cfg.rows['Echo Drops'], { on = true })
-    eq(render(cfg, st, on('Remove', { ['Paralysis##remove_paralysis'] = true })), 1)  -- a debuff, by name
-    eq({ cfg.remove.skip, cfg.rows.paralysis }, { { paralysis = true }, nil })
+    eq(render(cfg, st, on('Remove', { ['Paralysis##remove_0_paralysis'] = true })), 1)  -- ME's tab, a debuff by name
+    eq({ cfg.remove.skip, cfg.remove.own[0].skip, cfg.rows.paralysis }, { {}, { paralysis = true }, nil })
     eq(render(cfg, st, on('Remove', { ['Erase##remove_with_Erase'] = true })), 1)  -- a remover's checkbox, unticked
     eq(cfg.rows.Erase, { on = false })
-    eq(render(cfg, st, on('Remove', { ['Dia##remove_Dia'] = true })), 0)  -- only Erase removes it: greyed, no click
-    eq(render(cfg, st, on('Remove', { ['Doom##remove_doom'] = true })), 0)  -- locked on
-    eq(cfg.remove.skip, { paralysis = true })
+    eq(render(cfg, st, on('Remove', { ['Dia##remove_0_Dia'] = true })), 0)  -- only Erase removes it: greyed, no click
+    eq(render(cfg, st, on('Remove', { ['Doom##remove_0_doom'] = true })), 0)  -- locked on
+    eq(cfg.remove.own[0].skip, { paralysis = true })
 end)
 
 test('items get a heading of their own, with no pick or targets', function ()
     open_settings()
     render(settings.defaults(), status(), on('Remove'))
     eq({ drew('I T E M S'), button('Echo Drops (0)###remove_Echo Drops'), button('##pick_remove_Echo Drops') }, { true, true, false })
-    eq({ drew('D E B U F F S'), button('Paralysis##remove_paralysis'), button('Paralyna##remove_Paralyna') }, { true, true, false })
+    eq({ drew('D E B U F F S'), button('None##remove_debuff_none'), button('All##remove_debuff_all'),
+         button('Paralysis##remove_0_paralysis'), button('ME##remove_tab_0'), button('Paralyna##remove_Paralyna') },
+       { true, true, true, true, true, false })
     eq({ drew('R E M O V E R S'), button('Erase##remove_with_Erase') }, { true, true })
     render(settings.defaults(), status(), on('Buff'))
     eq({ button('##pick_buff_Protect'), button('P1##buff_Protect1'), drew('I T E M S') }, { true, true, false })
@@ -1231,10 +1233,11 @@ end)
 test('a member switched off under Heal is skipped by healing', function ()
     open_settings()
     local cfg, st = settings.defaults(), status()
-    eq(render(cfg, st, on('Heal', { ['A##sk3_heal_A'] = true })), 1)
+    eq(render(cfg, st, on('Heal', { ['P1##sk3_heal_1'] = true })), 1)
     eq(cfg.heal.skip, { A = true })
-    eq(render(cfg, st, on('Heal', { ['A##sk3_heal_A'] = true })), 1)
+    eq(render(cfg, st, on('Heal', { ['P1##sk3_heal_1'] = true })), 1)
     eq(cfg.heal.skip, {})
+    eq(render(cfg, st, on('Heal', { ['P4##sk3_heal_4'] = true })), 0)  -- empty slot
 end)
 
 test('UI / Log: the sliders size the HUD and Sidekick Settings, Lock position keeps the HUD still', function ()
@@ -1294,19 +1297,36 @@ test('a tracked player\'s card has its tag; Tracked lists them to untrack, and o
     eq(drew('Target a player outside your alliance to track them, or /sk3 track Name.'), true)
 end)
 
-test('Heal the alliance writes heal.alliance; alliance chips write their slot; Tracked lists one in the alliance', function ()
+test('alliance slots are always listed under Heal and Buff; Tracked lists one in the alliance', function ()
     local g = fake.snap({ { name = 'A' }, { kind = 'alliance', name = 'Bea', tracked = true } })
     local cfg, st = settings.defaults(), status()
     open_settings()
-    eq(render(cfg, st, on('Heal', { ['Heal the alliance##sk3_heal_alliance'] = true })), 1)
-    eq(cfg.heal.alliance, true)
+    eq(render(cfg, st, on('Heal', { ['B0##sk3_heal_6'] = true }), model.build(g, cat, cfg, st, NAMES)), 1)
+    eq(cfg.heal.skip, { Bea = true })
     eq(render(cfg, st, on('Buff', { ['B0##buff_Haste6'] = true }), model.build(g, cat, cfg, st, NAMES)), 1)
     eq(cfg.rows.Haste.targets, { [0] = true, [6] = true })
     eq({ fill('Bea'), fill('B0 Bea') }, { nil, u32(P.white) })  -- no card in the HUD: a row
     render(cfg, st, on('Tracked'), model.build(g, cat, cfg, st, NAMES))
     eq(drew('B0 Bea  (in your alliance)'), true)
-    eq(render(cfg, st, on('Heal', { ['Bea##sk3_heal_Bea'] = true }), model.build(g, cat, cfg, st, NAMES)), 1)  -- listed: heal.alliance is on
-    eq(cfg.heal.skip, { Bea = true })
+    eq(button('Heal the alliance##sk3_heal_alliance'), false)
+end)
+
+test('Remove: a tab per player that is on, and None and All for that player', function ()
+    open_settings()
+    local cfg, st = settings.defaults(), status()
+    eq(render(cfg, st, on('Remove', { ['P1##sk3_remove_who_1'] = true })), 1)
+    eq(cfg.remove.off, { [1] = true })
+    render(cfg, st, on('Remove'))
+    eq(button('P1##remove_tab_1'), false)  -- unticked: no tab
+    eq(render(cfg, st, on('Remove', { ['Paralysis##remove_0_paralysis'] = true })), 1)
+    eq(cfg.remove.own[0].skip.paralysis, true)
+    eq(render(cfg, st, on('Remove', { ['P2##remove_tab_2'] = true })), 0)  -- the tab is this window's, not a setting
+    eq(render(cfg, st, on('Remove', { ['None##remove_debuff_none'] = true })), 1)
+    eq({ cfg.remove.own[2].set, cfg.remove.own[2].skip.paralysis, cfg.remove.own[2].skip.doom, cfg.remove.own[0].skip.paralysis },
+       { true, true, nil, true })
+    eq(render(cfg, st, on('Remove', { ['All##remove_debuff_all'] = true })), 1)
+    eq(cfg.remove.own[2].skip, {})
+    eq(render(cfg, st, on('Remove', { ['ME##remove_tab_0'] = true })), 0)  -- back to ME for the tests after this
 end)
 
 local function profiles_named(cfg) return require('core.profiles').names(cfg) end
@@ -1615,7 +1635,7 @@ test('chips and Heal members send the state they\'re set to, here and to another
     st.views = { A = remote_view(settings.defaults()) }
     remote_calls = {}
     render(cfg, st, on('Buff', { ['P1##buff_Protect1'] = true }), model.build(snap(), cat, cfg, st, NAMES))
-    render(cfg, st, on('Heal', { ['A##sk3_heal_A'] = true }), model.build(snap(), cat, cfg, st, NAMES))
+    render(cfg, st, on('Heal', { ['P1##sk3_heal_1'] = true }), model.build(snap(), cat, cfg, st, NAMES))
     eq({ cfg.rows.Protect.targets, cfg.heal.skip }, { { [0] = true, [1] = true }, { A = true } })
     eq(remote_calls, { { 'A', 'target', 'Protect', 1, true }, { 'A', 'skip', 'A', true } })
     st.watching = {}

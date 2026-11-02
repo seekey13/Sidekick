@@ -13,8 +13,8 @@
                  for the pet's attacks; not while you're Invisible
     heal.urgent (critical, danger) and heal.efficient are behaviors of their own,
     with debuff removal between them. The focus member has its own three lines;
-    skipped members count for nothing, and so do the alliance's other parties
-    unless heal.alliance is on. An area heal lands on its target's party alone, so
+    skipped members count for nothing. The alliance's other parties are healed
+    whenever a heal reaches them. An area heal lands on its target's party alone, so
     each party is scored on its own; a tracked player's party is unknown, so a
     spread Cure counts them alone and Accession is never fired for them.
 ]]--
@@ -142,10 +142,10 @@ local function share(a, f, g)
     return 0
 end
 
--- Never healed for their own sake: a member skipped by name, and the alliance's
--- other parties while heal.alliance is off (the focus member is still healed).
+-- Never healed for their own sake: a member skipped by name. A skip still wins
+-- for the focus member.
 local function skipped(u, ctx)
-    return ctx.s.skip[u.name] or u.kind == 'alliance' and not ctx.s.alliance and u ~= ctx.focus
+    return ctx.s.skip[u.name] == true
 end
 
 -- One candidate: `a` in form `f` aimed at `centre`. Nil unless it reaches a band member.

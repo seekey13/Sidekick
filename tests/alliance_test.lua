@@ -21,13 +21,6 @@ local function ally(t)
     return u
 end
 
--- Settings healing the alliance too.
-local function healing_them()
-    local cfg = settings.defaults()
-    cfg.heal.alliance = true
-    return cfg
-end
-
 local function action(name)
     for _, a in ipairs(cat) do if a.name == name then return assert(a, name) end end
 end
@@ -55,14 +48,16 @@ end)
 
 -- Healing --------------------------------------------------------------------------
 
-test('heal: the alliance is healed only with heal.alliance on, by a heal aimed at them', function ()
-    eq({ decide(snap({ ally({ hpp = 45 }) })) }, { nil, 'nothing to do' })  -- v2's default: their own healers
-    local cmd, intent = decide(snap({ ally({ hpp = 45 }) }), healing_them())
+test('heal: an alliance member is healed by a heal aimed at them, unless skipped by name', function ()
+    local cmd, intent = decide(snap({ ally({ hpp = 45 }) }))
     eq({ cmd, intent.why }, { '/ma "Cure V" Bob', 'danger: Bob 45%' })
-    eq(decide(snap({ ally({ hpp = 70 }) }), healing_them()), '/ma "Cure III" Bob')  -- no Regen: party only
+    eq(decide(snap({ ally({ hpp = 70 }) })), '/ma "Cure III" Bob')  -- no Regen: party only
+    local cfg = settings.defaults()
+    cfg.heal.skip = { Bob = true }
+    eq({ decide(snap({ ally({ hpp = 45 }) }), cfg) }, { nil, 'nothing to do' })
 end)
 
-test('heal: an alliance member who is the focus is healed with heal.alliance off', function ()
+test('heal: an alliance member who is the focus is healed on the focus lines', function ()
     local cfg = settings.defaults()
     cfg.heal.focus = 'bob'
     eq(decide(snap({ ally({ hpp = 55 }) }), cfg), '/ma "Cure IV" Bob')  -- under the focus member's 60 line
@@ -70,9 +65,9 @@ end)
 
 test('heal: Curaga covers your party only, never the alliance member beside them', function ()
     local three = { { name = 'P1', hpp = 70 }, { name = 'P2', hpp = 70 }, { name = 'P3', hpp = 70 } }
-    eq(decide(snap(three), healing_them()), '/ma "Curaga III" <me>')
+    eq(decide(snap(three)), '/ma "Curaga III" <me>')
     three[3] = ally({ hpp = 70 })
-    eq(decide(snap(three), healing_them()), '/ma "Regen II" P1')   -- two in the party: one at a time, as for two
+    eq(decide(snap(three)), '/ma "Regen II" P1')   -- two in the party: one at a time, as for two
 end)
 
 -- Two hurt together 30 yalms from you, the second in `second`'s party; SCH under Light Arts.
@@ -85,25 +80,27 @@ end
 
 test('heal: Accession spreads a Cure over another party of the alliance, counted on its own', function ()
     local b1 = ally({ name = 'B1', slot = 7, sid = 302, hpp = 45, pos = { 30, 0, 0 } })
-    local cmd, intent = decide(pair(b1), healing_them(), sch)
+    local cmd, intent = decide(pair(b1), nil, sch)
     eq({ cmd, intent.why }, { '/ja "Accession" <me>', 'danger: B0 45% +1, for Cure IV' })
-    cmd, intent = decide(pair(b1, { ACCESSION }), healing_them(), sch)
+    cmd, intent = decide(pair(b1, { ACCESSION }), nil, sch)
     eq({ cmd, intent.why }, { '/ma "Cure IV" B0', 'danger: B0 45% +1' })
-    eq({ decide(pair(b1), nil, sch) }, { nil, 'nothing to do' })  -- heal.alliance off
+    local cfg = settings.defaults()
+    cfg.heal.skip = { B0 = true, B1 = true }
+    eq({ decide(pair(b1), cfg, sch) }, { nil, 'nothing to do' })
 end)
 
 test('heal: a Cure spread around one party never counts another\'s, yours included', function ()
     local c0 = ally({ name = 'C0', slot = 12, sid = 303, hpp = 45, pos = { 30, 0, 0 } })
-    local cmd, intent = decide(pair(c0), healing_them(), sch)
+    local cmd, intent = decide(pair(c0), nil, sch)
     eq({ cmd, intent.why }, { '/ma "Cure IV" B0', 'danger: B0 45%' })   -- B0 and C0: one at a time, no Accession
     local mine = { name = 'A', slot = 1, sid = 101, hpp = 45, pos = { 30, 0, 0 } }
-    cmd, intent = decide(pair(mine, { ACCESSION }), healing_them(), sch)
+    cmd, intent = decide(pair(mine, { ACCESSION }), nil, sch)
     eq({ cmd, intent.why }, { '/ma "Cure IV" B0', 'danger: B0 45%' })   -- spread, but A beside B0 isn't counted
 end)
 
 test('heal: what lands on the alliance teaches potency, as their HP is read like a member\'s', function ()
     local observed = require('core.observed')
-    local _, intent = decide(snap({ ally({ hpp = 70 }) }), healing_them())
+    local _, intent = decide(snap({ ally({ hpp = 70 }) }))
     observed.learned.ma3 = nil
     intent.sent(0)
     observed.healed('ma3', 301, 200, 1)
@@ -111,7 +108,7 @@ test('heal: what lands on the alliance teaches potency, as their HP is read like
     observed.learned.ma3 = nil
 end)
 
--- The other behaviors, with heal.alliance off ------------------------------------------
+-- The other behaviors -------------------------------------------------------------------
 
 test('removal: a -na spell on an alliance member; Erase and Esuna do not reach them', function ()
     eq(decide(snap({ ally({ buffs = { [PARALYSIS] = true } }) })), '/ma "Paralyna" Bob')

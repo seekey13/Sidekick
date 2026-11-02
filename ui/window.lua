@@ -60,7 +60,7 @@ local hud_open = true        -- last frame's view.ui.open: closing the HUD (/sk3
                              -- unless the widget is up
 local profile_names = {}     -- per Sidekick Settings window ('' for yours, else the session's name), this session only:
                              -- { typed = { name }, shown }, the name filled in again when the profile loaded changes
-local panes = {}             -- per Sidekick Settings window, as profile_names: { page, folded = { [section id] = true } }
+local panes = {}             -- per Sidekick Settings window: { page, folded = { [section id] = true }, debuff = slot }
 local user_scale = 1         -- Sidekick Settings' size (view.ui.scale), taken up while nothing is held
 
 -- HUD -----------------------------------------------------------------------------
@@ -514,7 +514,7 @@ end
 -- below and wrap onto the next line; the window does not grow to fit a job.
 local SIDE_W, PAGE_W, WIN_H, MARGIN = 160, 390, 580, 6  -- unscaled, as every size from here
 local TITLE_H, HEAD_H, ROW_H, NAV_H, CHIP_LINE = 44, 28, 30, 28, 26
-local LEFT, PAD, GUTTER, LABEL_W = 24, 18, 12, 120
+local LEFT, PAD, GUTTER = 24, 18, 12
 local SLIDER_W, PICK_W, ROLL_W, RUNE_W, MANEUVER_W, SONG_W, CHIP_W = 180, 220, 286, 168, 90, 248, 30
 local FOOT = { Profiles = true, ['UI / Log'] = true }  -- set apart at the foot of the list of pages
 
@@ -657,26 +657,66 @@ local HEAL_LINES = {
     { 'Critical under', 'critical', 'Under this HP %, boost the heal first (Divine Seal) or save them (Martyr).' },
 }
 local HEAL_TIP = 'Untick to never heal them for their own sake; an area heal may still land on them.'
+local WHO_TIP = 'Untick to never clear debuffs on them. An empty slot is included once someone is there.'
 
--- Who healing looks after, a chip each: one switched off is never healed for its own sake. Each of the alliance's
--- other parties starts a line.
-local function heal_members(pg, h)
-    if #h.members == 0 then return end
-    local items, tip = {}, t(HEAL_TIP)
-    for i, m in ipairs(h.members) do
-        local name = game_text(m.name)
-        items[i] = { w = kit.chip_width(name), wrap = m.wrap, name = name }
+-- Player chips, one row each: your party, alliance party B (group 'a'), alliance party C (group 'b'), then tracked.
+local SLOT_GROUPS = { 'party', 'a', 'b', 'tracked' }
+
+local function slot_groups(chips)
+    local by, out = {}, {}
+    for _, name in ipairs(SLOT_GROUPS) do by[name] = {} end
+    for _, tg in ipairs(chips or {}) do
+        local list = by[tg.group]
+        if list then list[#list + 1] = tg end
     end
-    local lines = flow(items, pg.lx + S(LABEL_W), pg.right, S(4))
-    local cy = line(pg, t('Heal'), tip, S(ROW_H) + (lines - 1) * S(CHIP_LINE))
-    for i, m in ipairs(h.members) do
-        local it = items[i]
-        if kit.chip(m.name .. '##sk3_heal_' .. m.name, it.x, cy + (it.line - 1) * S(CHIP_LINE), it.w, it.name,
-                m.healed and 'on' or 'off', true, pg.alpha) then
-            act.skip(m.name, m.healed)
+    for _, name in ipairs(SLOT_GROUPS) do
+        if by[name][1] then out[#out + 1] = by[name] end
+    end
+    return out
+end
+
+-- 'empty' and not clickable when nobody is there and the chip is not already on
+-- (or, for removal, not already switched off). Otherwise 'on' or 'off'.
+local function slot_look(tg)
+    local empty = not tg.present and not tg.on and not tg.excluded
+    return empty and 'empty' or tg.on and 'on' or 'off', not empty
+end
+
+-- `chips` in their rows, from pg.lx. `make_id`, `tip_of` and `on_click` take the chip.
+local function draw_slot_rows(pg, chips, make_id, tip_of, on_click)
+    local laid, lines = {}, 0
+    for _, group in ipairs(slot_groups(chips)) do
+        local items = {}
+        for j, tg in ipairs(group) do items[j] = { w = S(CHIP_W), t = tg } end
+        local n = flow(items, pg.lx, pg.right, S(4))
+        laid[#laid + 1] = { items = items, at = lines }
+        lines = lines + n
+    end
+    if lines == 0 then return end
+    local y = pg.y
+    line(pg, nil, nil, lines * S(CHIP_LINE))
+    for _, g in ipairs(laid) do
+        for _, it in ipairs(g.items) do
+            local tg = it.t
+            local state, enabled = slot_look(tg)
+            if kit.chip(make_id(tg), it.x, y + (g.at + it.line - 0.5) * S(CHIP_LINE), it.w, tg.label, state, enabled, pg.alpha) then
+                on_click(tg)
+            end
+            kit.tip(tip_of(tg))
         end
-        kit.tip(tip)
     end
+end
+
+-- Who healing looks after: ME and P1-P5, then B0-B5, C0-C5 and tracked players. An empty slot can't be picked.
+local function heal_targets(pg, h)
+    local tip = t(HEAL_TIP)
+    draw_slot_rows(pg, h.targets, function (tg)
+        return tg.label .. '##sk3_heal_' .. tg.slot
+    end, function (tg)
+        return tg.name and game_text(tg.name) .. '\n' .. tip or t('empty slot')
+    end, function (tg)
+        if tg.name then act.skip(tg.name, tg.on) end
+    end)
 end
 
 local function draw_heal_settings(view, pg)
@@ -694,14 +734,11 @@ local function draw_heal_settings(view, pg)
     slider(pg, 'Cure potency +', 'heal.cure_potency', h.cure_potency, 'Cure potency % from gear, until a cure has been seen healing.', '%')
     slider(pg, 'Waltz potency +', 'heal.waltz_potency', h.waltz_potency, 'Waltz potency % from gear, until a waltz has been seen healing.', '%')
     slider(pg, 'Regen potency +', 'heal.regen_potency', h.regen_potency, 'HP per Regen tick from gear.')
-    switch(pg, 'Heal the alliance', 'heal.alliance', h.alliance,
-        'Heal the alliance\'s other parties too, with heals that reach outside your party. Raising, waking, '
-        .. 'removal and buffs look after them whatever this says, and the focus member is always healed.')
     if h.stratagems then
         switch(pg, 'Keep a stratagem for healing', 'heal.reserve', h.reserve,
             'Buff rows never spend the last stratagem charge, so healing has one for Accession or Rapture.')
     end
-    heal_members(pg, h)
+    heal_targets(pg, h)
 end
 
 local function draw_recover_settings(view, pg)
@@ -1103,18 +1140,26 @@ end
 local HOLD_TIP = 'Wait while a modifier picked here can\'t go with the spell (on recast, too few charges, the wrong Arts, '
     .. 'Accession unable to spread it, or short of MP for it); otherwise the spell goes without it.'
 
--- One row per settings key: its name (and how many you carry), ready or why not, its switch; under them, when it has
--- any, its pick, its targets (ME, P1-P5, T1...; B0-B5 and C0-C5 each on a line of their own) and its modifiers fired
--- before its spell (Pen, Cel, Acc, Emb...), then Hold: wait for them.
+-- One row per settings key: its name (and how many you carry), ready or why not, its switch. Under that, on their
+-- own lines: its pick, then its targets a row at a time (ME P1-P5, then B0-B5, C0-C5 and tracked), then its
+-- modifiers fired before its spell (Pen, Cel, Acc, Emb...) and Hold.
 local function family_row(pg, sid, r)
     local id = sid .. '_' .. r.key
     local n = r.count or r.tools
-    local items, hold = {}, t('Hold')
-    if r.choices then items[#items + 1] = { w = S(PICK_W), kind = 'pick' } end
-    for _, tg in ipairs(r.targets or {}) do items[#items + 1] = { w = S(CHIP_W), kind = 'target', t = tg, wrap = tg.wrap } end
-    for i, m in ipairs(r.mods or {}) do items[#items + 1] = { w = kit.chip_width(m.label), kind = 'mod', m = m, pre = i == 1 and S(8) or nil } end
-    if r.mods then items[#items + 1] = { w = kit.chip_width(hold), kind = 'hold' } end
-    local lines = #items > 0 and flow(items, pg.lx + S(14), pg.right, S(4)) or 0
+    local hold = t('Hold')
+    local laid, tlines = {}, 0
+    for _, group in ipairs(slot_groups(r.targets)) do
+        local items = {}
+        for j, tg in ipairs(group) do items[j] = { w = S(CHIP_W), t = tg } end
+        laid[#laid + 1] = { items = items, at = tlines }
+        tlines = tlines + flow(items, pg.lx, pg.right, S(4))
+    end
+    local mods = {}
+    for _, m in ipairs(r.mods or {}) do mods[#mods + 1] = { w = kit.chip_width(m.label), m = m } end
+    if r.mods then mods[#mods + 1] = { w = kit.chip_width(hold), hold = true } end
+    local mod_lines = #mods > 0 and flow(mods, pg.lx, pg.right, S(4)) or 0
+    local pick_lines = r.choices and 1 or 0
+    local lines = pick_lines + tlines + mod_lines
     local cy = line(pg, nil, nil, S(ROW_H) + lines * S(CHIP_LINE) + (lines > 0 and S(4) or 0))
 
     -- An item shows how many you carry, ninjutsu their tools; ### keeps its id while the count changes.
@@ -1132,36 +1177,42 @@ local function family_row(pg, sid, r)
 
     local any = false
     for _, m in ipairs(r.mods or {}) do any = any or m.on end
-    local top = cy + S(ROW_H) / 2 + S(CHIP_LINE) / 2 - S(2)  -- the first line of chips' middle
-    for _, it in ipairs(items) do
-        local icy = top + (it.line - 1) * S(CHIP_LINE)
-        if it.kind == 'pick' then
-            kit.dropdown('##pick_' .. id, it.x, icy, it.w, r.choice, true, pg.alpha, function ()
-                for _, c in ipairs(r.choices) do
-                    if kit.selectable(c.label, c.name == r.pick) then act.pick(r.key, c.name) end
-                end
-            end)
-        elseif it.kind == 'target' then
-            -- An empty slot can't be picked, but a picked one can still be cleared.
+    local top = cy + S(ROW_H) / 2 + S(CHIP_LINE) / 2 - S(2)  -- the first line under the name
+    local line_i = 0
+    if r.choices then
+        line_i = 1
+        kit.dropdown('##pick_' .. id, pg.lx, top, S(PICK_W), r.choice, true, pg.alpha, function ()
+            for _, c in ipairs(r.choices) do
+                if kit.selectable(c.label, c.name == r.pick) then act.pick(r.key, c.name) end
+            end
+        end)
+    end
+    for _, g in ipairs(laid) do
+        for _, it in ipairs(g.items) do
             local tg = it.t
-            local empty = not tg.present and not tg.on
-            if kit.chip(tg.label .. '##' .. id .. tg.slot, it.x, icy, it.w, tg.label, empty and 'empty' or tg.on and 'on' or 'off',
-                    not empty, pg.alpha) then
+            local state, enabled = slot_look(tg)
+            local icy = top + (line_i + g.at + it.line - 1) * S(CHIP_LINE)
+            if kit.chip(tg.label .. '##' .. id .. tg.slot, it.x, icy, it.w, tg.label, state, enabled, pg.alpha) then
                 act.target(r.key, tg.slot, not tg.on)
             end
             kit.tip(tg.name and game_text(tg.name) or t('empty slot'))
-        elseif it.kind == 'mod' then
-            local m = it.m
-            if kit.chip(m.label .. '##' .. id .. '_mod_' .. m.name, it.x, icy, it.w, m.label, m.on and 'on' or 'off', true, pg.alpha) then
-                act.mod(r.key, m.name, not m.on)
-            end
-            kit.tip(m.note and f('%s first: %s', lang.name(m.name), m.note) or lang.name(m.name))
-        else
+        end
+    end
+    line_i = line_i + tlines
+    for _, it in ipairs(mods) do
+        local icy = top + (line_i + it.line - 1) * S(CHIP_LINE)
+        if it.hold then
             -- With no modifier on, it waits for nothing: an outline, but kept and still clickable.
             if kit.chip('Hold##' .. id .. '_hold', it.x, icy, it.w, hold, not any and 'empty' or r.hold and 'held' or 'off', true, pg.alpha) then
                 act.hold(r.key, not r.hold)
             end
             kit.tip(t(HOLD_TIP) .. (any and '' or t('\nNo modifier is on here: it waits for nothing.')))
+        else
+            local m = it.m
+            if kit.chip(m.label .. '##' .. id .. '_mod_' .. m.name, it.x, icy, it.w, m.label, m.on and 'on' or 'off', true, pg.alpha) then
+                act.mod(r.key, m.name, not m.on)
+            end
+            kit.tip(m.note and f('%s first: %s', lang.name(m.name), m.note) or lang.name(m.name))
         end
     end
 end
@@ -1183,31 +1234,92 @@ local function remover_row(pg, sid, r)
         r.on and P.text or P.dim, kit.fonts.text, S(BODY), pg.alpha)
 end
 
--- Debuff removal's debuffs, a chip each: one nothing ticked removes is an outline and can't be clicked.
-local function debuff_chips(pg, sid, debuffs)
+-- The players removal runs on, then a tab for each one that is on, then None, All and that player's debuffs.
+local function debuff_panel(pg, pane, debuffs, who)
+    local tabs = {}
+    for _, tg in ipairs(who or {}) do
+        if tg.on then tabs[#tabs + 1] = tg end
+    end
+    if #tabs == 0 then
+        note(pg, t('No player selected above.'))
+        return
+    end
+    local active = pane.debuff
+    local found = false
+    for _, tg in ipairs(tabs) do
+        if tg.slot == active then found = true end
+    end
+    if not found then active = tabs[1].slot end
+    pane.debuff = active
     local items = {}
-    for i, r in ipairs(debuffs) do items[i] = { w = kit.chip_width(r.label) } end
-    local lines = flow(items, pg.lx, pg.right, S(4))
-    local cy = line(pg, nil, nil, S(ROW_H) + (lines - 1) * S(CHIP_LINE))
-    for i, r in ipairs(debuffs) do
-        local it, usable = items[i], r.usable ~= false
-        if kit.chip(r.label .. '##' .. sid .. '_' .. r.key, it.x, cy + (it.line - 1) * S(CHIP_LINE), it.w, r.label,
-                not usable and 'empty' or r.on and 'on' or 'off', usable and not r.locked, pg.alpha) then
-            act.debuff(r.key, not r.on)
+    for i, tg in ipairs(tabs) do items[i] = { w = S(CHIP_W), t = tg } end
+    local n = flow(items, pg.lx, pg.right, S(4))
+    local y = pg.y
+    line(pg, nil, nil, n * S(CHIP_LINE))
+    for _, it in ipairs(items) do
+        local tg = it.t
+        if kit.chip(tg.label .. '##remove_tab_' .. tg.slot, it.x, y + (it.line - 0.5) * S(CHIP_LINE), it.w, tg.label,
+                tg.slot == active and 'on' or 'off', true, pg.alpha) then
+            active, pane.debuff = tg.slot, tg.slot
         end
-        local by = r.action ~= '' and f('Removed by %s', r.action) .. '\n' or ''
-        local left = not r.on and not usable and t('\nSwitched off: left on once something removes it again.') or ''
-        local how = r.locked and 'Always removed: it kills.' or usable and DEBUFF_TIP or 'Tick something above that removes it.'
-        kit.tip(('%s%s\n%s%s'):format(by, r.avail, t(how), left))
+        kit.tip(tg.name and game_text(tg.name) or tg.label)
+    end
+    local none, all, names = t('None'), t('All'), {}
+    local chips = { { w = kit.button_width(none), kind = 'none' }, { w = kit.button_width(all), kind = 'all' } }
+    for _, r in ipairs(debuffs) do
+        chips[#chips + 1] = { w = kit.chip_width(r.label), r = r }
+        if not r.locked then names[#names + 1] = r.key end
+    end
+    local clines = flow(chips, pg.lx, pg.right, S(4))
+    local cy0 = pg.y
+    line(pg, nil, nil, clines * S(CHIP_LINE))
+    for _, it in ipairs(chips) do
+        local icy = cy0 + (it.line - 0.5) * S(CHIP_LINE)
+        if it.kind == 'none' then
+            if kit.button('None##remove_debuff_none', it.x, icy, none, 'ghost', true, pg.alpha) then
+                act.debuffs(active, names, false)
+            end
+            kit.tip(t('Leave every debuff on this player. Doom is still removed.'))
+        elseif it.kind == 'all' then
+            if kit.button('All##remove_debuff_all', it.x, icy, all, 'ghost', true, pg.alpha) then
+                act.debuffs(active, names, true)
+            end
+            kit.tip(t('Remove every debuff on this player.'))
+        else
+            local r = it.r
+            local on = r.on
+            if r.locked then on = true
+            elseif r.own and r.own[active] ~= nil then on = r.own[active] end
+            local usable = r.usable ~= false
+            if kit.chip(r.label .. '##remove_' .. active .. '_' .. r.key, it.x, icy, it.w, r.label,
+                    not usable and 'empty' or on and 'on' or 'off', usable and not r.locked, pg.alpha) then
+                act.debuff(active, r.key, not on)
+            end
+            local by = r.action ~= '' and f('Removed by %s', r.action) .. '\n' or ''
+            local left = not on and not usable and t('\nSwitched off: left on once something removes it again.') or ''
+            local how = r.locked and 'Always removed: it kills.' or usable and DEBUFF_TIP or 'Tick something above that removes it.'
+            kit.tip(('%s%s\n%s%s'):format(by, r.avail, t(how), left))
+        end
     end
 end
 
--- Spells and abilities, then items (rows with a count) under a heading of their own. Debuff removal's spells and
--- abilities are checkboxes, then its debuffs chips.
-local function section_rows(pg, s, has_body)
+-- Spells and abilities, then items (rows with a count) under a heading of their own. Debuff removal lists who it
+-- runs on, then its spells and abilities as checkboxes, then a tab of debuff chips for each player that is on.
+local function section_rows(pg, s, has_body, pane)
     local removers, debuffs, acts, items = {}, {}, {}, {}
     for _, r in ipairs(s.rows) do
         table.insert(r.remover and removers or r.debuff and debuffs or r.count and items or acts, r)
+    end
+    if s.who then
+        local tip = t(WHO_TIP)
+        draw_slot_rows(pg, s.who, function (tg)
+            return tg.label .. '##sk3_remove_who_' .. tg.slot
+        end, function (tg)
+            if not tg.present and not tg.excluded then return t('empty slot') end
+            return (tg.name and game_text(tg.name) .. '\n' or '') .. tip
+        end, function (tg)
+            act.who(tg.slot, not tg.on)
+        end)
     end
     if #removers > 0 then
         subheader(pg, 'REMOVERS')
@@ -1215,7 +1327,7 @@ local function section_rows(pg, s, has_body)
     end
     if #debuffs > 0 then
         subheader(pg, 'DEBUFFS')
-        debuff_chips(pg, s.id, debuffs)
+        debuff_panel(pg, pane, debuffs, s.who)
     end
     if #acts > 0 and has_body then subheader(pg, 'ACTIONS') end
     for _, r in ipairs(acts) do family_row(pg, s.id, r) end
@@ -1232,7 +1344,7 @@ local SWITCH_HELP = {
     heal = 'Heal the party with the rows that are on.',
     revive = 'Raise fallen members with the rows that are on.',
     wake = 'Wake a sleeping member with a cure or waltz that is on under Heal; an area one for two or more.',
-    remove = 'Remove the debuffs that are on, with the spells, abilities and items ticked.',
+    remove = 'Remove the debuffs that are on for the players that are on, with the spells, abilities and items ticked.',
     buff = 'Keep the buffs that are on up on their targets.',
     roll = 'Keep the rolls picked up, and Double-Up the last one by the risk picked. Held for the group with '
         .. 'Hold area buffs, as an area buff.',
@@ -1290,7 +1402,7 @@ local function draw_section(view, pane, pg, s, page)
     pg.alpha = s.on == false and 0.55 or 1
     local body = BODIES[s.id]
     if body then body(view, pg) end
-    if s.rows then section_rows(pg, s, body ~= nil) end
+    if s.rows then section_rows(pg, s, body ~= nil, pane) end
     pg.alpha = 1
     pg.y = pg.y + S(14)
 end

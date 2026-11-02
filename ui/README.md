@@ -110,7 +110,7 @@ Text that may contain `%` (names, `why` text) must be escaped before it's drawn:
 
 ### `view.heal`
 
-`threshold`, `danger`, `critical`, `focus_threshold`, `focus_danger`, `focus_critical` (HP %, 1 to 99: efficient heals run from `danger` up to `threshold`); `focus` (a member's name, `''` for none); `alliance` (bool: the alliance's other parties are healed too; the focus member always is); `cure_potency`, `waltz_potency` (+% from gear, 0 to 50); `regen_potency` (+HP per Regen tick from gear, 0 to 30); `reserve` (bool: buff rows leave the last stratagem charge for healing) and `stratagems` (bool: your job has stratagems, so `reserve` is worth showing); `focus_names` (the members that can be the focus, you excluded, the alliance's and tracked players included); `members` (`{ name, healed, wrap }` for each member and tracked player, you excluded, and the alliance's while `alliance` is on; `healed` false when skipped; `wrap` true on the first of each of the alliance's parties, where the standard window starts a line).
+`threshold`, `danger`, `critical`, `focus_threshold`, `focus_danger`, `focus_critical` (HP %, 1 to 99: efficient heals run from `danger` up to `threshold`); `focus` (a member's name, `''` for none); `cure_potency`, `waltz_potency` (+% from gear, 0 to 50); `regen_potency` (+HP per Regen tick from gear, 0 to 30); `reserve` (bool: buff rows leave the last stratagem charge for healing) and `stratagems` (bool: your job has stratagems, so `reserve` is worth showing); `focus_names` (the members that can be the focus, you excluded, the alliance's and tracked players included); `targets`, the slot chips healing runs on (the same shape as a buff row's `targets`, below: you included, both alliance parties always, empty slots included, tracked players last). A chip is `on` while that person is present and not skipped by name (`act.skip`). The alliance's other parties are always healed when a heal reaches them.
 
 ### `view.sections[i]`
 
@@ -123,7 +123,7 @@ In this order. A section with rows is left out when your job has none for it (Pe
 | `'heal'` | Healing | Heal | `view.heal`, rows |
 | `'revive'` | Revive | Heal | rows |
 | `'wake'` | Wake sleepers | Remove | its switch only |
-| `'remove'` | Debuff removal | Remove | rows: its spells and abilities (`remover`), the debuffs they and its items clear (`debuff`), then the items |
+| `'remove'` | Debuff removal | Remove | `who` (the slot chips removal runs on), rows: its spells and abilities (`remover`), the debuffs they and its items clear (`debuff`), then the items |
 | `'buff'` | Buffs | Buff | `view.buff`, rows |
 | `'roll'` | Rolls | Buff | `view.roll` (a job with rolls only) |
 | `'song'` | Songs | Buff | `view.song` (a job with songs only) |
@@ -143,6 +143,7 @@ In this order. A section with rows is left out when your job has none for it (Pe
 | `on` | bool or nil | The section's switch (`act.section`); every section has one but `profile`, `track` and `ui` |
 | `rows` | list or nil | One per spell family, pick-one group or item, below; nil for the sections without rows |
 | `has_choices`, `has_targets`, `has_mods` | bool or nil | Some row in the section has `choices` / `targets` / `mods` (to lay out columns) |
+| `who` | list or nil | Debuff removal: the slot chips it runs on, the same shape as `targets` below, plus `excluded` (true when that slot is switched off, nil otherwise). `on` is true for a person who is there and not excluded. An empty slot is `on` false; `excluded` makes it clickable so it can be switched back on before anyone is there. `act.who(slot, on)` sets it. Present players start on |
 
 ### `view.sections[i].rows[j]`
 
@@ -151,7 +152,7 @@ In this order. A section with rows is left out when your job has none for it (Pe
 | `key` | string | The row's id for `act`: a family (`'Cure'`, `'Haste'`), a pick-one group (`'barelement'`, `'minuet'`), an item (`'Echo Drops'`) or, on a `debuff` row, the status's name as the client has it (`'paralysis'`, `'Dia'`) |
 | `label` | string | `'Cure'`, `'Valor Minuet (+ATK)'`, `'Sword Madrigal / Blade Madrigal'` |
 | `on` | bool | Rows start on, except buffs (and a Geomancer's Geo and Geo debuff rows), sending the pet in (Assault, Fight, Deploy) and items |
-| `debuff` | bool or nil | Debuff removal's debuff rows, one per status your removers clear, in status id order (Poison, Paralysis, Blindness...): true. Switched with `act.debuff(key, on)`, not `act.row`. `ready` and `avail` are by the removers that are on that clear it; `action` names every spell, ability and item that clears it, on or not (`'Paralyna, Esuna, Remedy'`) |
+| `debuff` | bool or nil | Debuff removal's debuff rows, one per status your removers clear, in status id order (Poison, Paralysis, Blindness...): true. `on` is the global list (removed, unless `cfg.remove.skip` names it). `own[slot]` is that player's chip when they have their own set (`false` is stored: they leave it on); a slot with no entry still uses `on`. Switched with `act.debuff(slot, key, on)`, not `act.row`. `ready` and `avail` are by the removers that are on that clear it; `action` names every spell, ability and item that clears it, on or not (`'Paralyna, Esuna, Remedy'`) |
 | `locked` | bool or nil | The Doom `debuff` row: true, `on` always; it is removed whatever `act.debuff` sets, since it kills. The standard window's chip can't be clicked |
 | `usable` | bool or nil | `debuff` rows: false while no remover that is on clears it (`avail` `'nothing on removes it'`): the standard window draws its chip as an outline that can't be clicked |
 | `remover` | bool or nil | Debuff removal's spell and ability rows (Paralyna, Erase, Healing Waltz...), switched with `act.row` as any row: true. The standard window draws them as checkboxes, above the debuffs, which it draws as chips |
@@ -164,7 +165,7 @@ In this order. A section with rows is left out when your job has none for it (Pe
 | `choices` | list or nil | Buff rows (and the Geomancy section's) with tiers or a pick-one group: `{ label, name }`. A tiered row's first choice is `'Auto (best)'` with `name` nil |
 | `pick` | string or nil | The chosen `name`; nil is Auto |
 | `choice` | string or nil | The label to show for the current pick: `'Auto (best)'`, `'Pick one'`, `'Protect II'`, `'Protect V (not available)'` |
-| `targets` | list or nil | Buff rows that can go on others (and the Geo row: its luopan goes on the first of them who lacks it): 6 chips `{ slot, label, present, name, on, wrap }`, `slot` 0 (you, `'ME'`) to 5 (`'P5'`). `present` is false for an empty party slot (`name` is then nil). When the row's spells can go outside the party (Protect, Haste; not Regen), a chip follows for each tracked player, `'T1'` on, its `slot` their name; then 6 for each of the alliance's other parties that is there or has a chip on, `'B0'` to `'B5'` (`slot` 6 to 11) and `'C0'` to `'C5'` (12 to 17). `wrap` is true on `'B0'` and `'C0'`: the standard window starts a new line there |
+| `targets` | list or nil | Buff rows that can go on others (and the Geo row: its luopan goes on the first of them who lacks it): chips `{ slot, label, group, present, name, on, wrap }`. Your party is always there, `slot` 0 (you, `'ME'`) to 5 (`'P5'`), `group` `'party'`. `present` is false for an empty slot (`name` is then nil). When the row's spells can go outside the party (Protect, Haste; not Regen, which stops at the six party chips), both of the alliance's other parties are always listed, empty slots included: `'B0'` to `'B5'` (`slot` 6 to 11, `group` `'a'`) then `'C0'` to `'C5'` (12 to 17, `group` `'b'`). Then one chip per tracked player, `'T1'` on, `group` `'tracked'`, its `slot` their name. `wrap` is true on the first chip of `'a'`, `'b'` and `'tracked'`. The standard window draws one row per `group` |
 | `mods` | list or nil | Buff rows a modifier fits (SCH's stratagems, RUN's Embolden): `{ name, label, note, on }`, as `{ 'Penury', 'Pen', 'half the MP', false }`. One that is on is fired just before the row's spell when its status isn't on you; Accession (`'Acc'`) instead spreads the spell from you to the row's targets near you whenever one there lacks it. nil for other rows and jobs |
 | `hold` | bool or nil | Rows with `mods`: the spell waits while one of the modifiers on for it can't go with it (on recast, fewer charges than stratagems to fire, the wrong Arts, Accession unable to spread it to someone it would reach, or short of MP for it), as v2's Hold for Stratagem; false, it goes without. A held row's `ready` is false and `avail` says what it waits for (`'waits for Emb: recast 120.0s'`). nil for rows without `mods` |
 
@@ -177,7 +178,9 @@ In this order. A section with rows is left out when your job has none for it (Pe
 | `act.close()` | Hide the UI (remembered); `/sk3` shows it again. A widget stays while `ui.widget` is on |
 | `act.section(id, on)` | A section's switch: `'follow'`, `'heal'`, `'revive'`, `'wake'`, `'remove'`, `'buff'`, `'roll'`, `'song'`, `'geo'`, `'rune'`, `'pet'`, `'maneuver'`, `'recover'`, `'rest'` or `'afk'` |
 | `act.row(key, on)` | A row on or off |
-| `act.debuff(key, on)` | A `debuff` row on (removed) or off (left on); without `on`, toggled |
+| `act.who(slot, on)` | Removal runs on this slot (`on` true) or not. `slot` is 0 to 17 or a tracked player's name, a `who` chip's `slot`. Nil toggles. An empty slot switched off stays off until it is switched back on |
+| `act.debuff(slot, key, on)` | A debuff removed (`on` true) or left on for one slot. The first change for that slot copies the global skip into the player's own set, and later changes stay there. Doom is ignored. Nil toggles |
+| `act.debuffs(slot, names, on)` | For one slot, remove every status in `names` (`on` true) or leave them all (`on` false). Doom is left out of `names` and is still removed. Replaces that player's set |
 | `act.pick(key, name)` | A row's choice: a `choices[i].name`, or nil for Auto |
 | `act.target(key, slot, on)` | Turn a target chip on or off: its `slot`, 0 to 17 or a tracked player's name; `on` true or false sets it, nil toggles it |
 | `act.mod(key, name, on)` | Turn a modifier chip on or off: its `name` (`'Penury'`, `'Accession'`); `on` sets it, nil toggles it |
@@ -188,10 +191,10 @@ In this order. A section with rows is left out when your job has none for it (Pe
 | `act.save_profile(name, as_new)` | Save the settings as they are now under `name`. Without `as_new`, while another profile is loaded, that profile is renamed to `name` instead (as v2). A blank name, `'Default'`, or another profile's name saves nothing: only `as_new` replaces a profile. Changes after a load go to the settings, never the profile, until it's saved |
 | `act.new_profile()` | Every setting back to its default (but those a profile never changes), on Default; profiles are kept |
 | `act.delete_profile(name)` | Delete a profile; deleting the loaded one goes back to Default |
-| `act.skip(name, skip)` | Skip a member (or tracked player) in healing (`skip` true), or take them back (false): a `view.heal.members[i].name`; nil toggles |
+| `act.skip(name, skip)` | Skip a person in healing (`skip` true), or take them back (false): a `view.heal.targets` chip's `name`. Nil toggles. An empty slot has no name and cannot be skipped ahead of time |
 | `act.set(path, value)` | A setting by path, below |
 | `act.watch(name, on)` | Show another session's Sidekick Settings (a `party[i].session.name`), or stop: it then sends its view, which comes in `view.remote`. This session only; closed when that session goes |
-| `act.remote(name)` | Another session's `act`, to change it from here: `run`, `section`, `row`, `debuff`, `pick`, `target`, `mod`, `hold`, `profile`, `save_profile`, `new_profile`, `delete_profile`, `track` (by name only), `untrack`, `skip` and `set`. `target`, `mod`, `hold`, `skip` and `debuff` need their state (`true` or `false`), never a toggle: the view you click is a moment old. `target`, `mod` and `hold` are refused there for a row that has no chips in that session (a buff or luopan row of its job). `set` takes only the paths in the table below but `'japanese'` and `'ui.*'` (the HUD is each session's own), a number held to its range. There's no `close`, `log`, `watch` or `remote` (`/sk3 log` on that session turns its log on). Each call goes through the files the sessions share and is made there, through its own `act`, within a second or so (a quarter second while its Sidekick Settings are open); its view in `view.remote` then shows it |
+| `act.remote(name)` | Another session's `act`, to change it from here: `run`, `section`, `row`, `who`, `debuff`, `debuffs`, `pick`, `target`, `mod`, `hold`, `profile`, `save_profile`, `new_profile`, `delete_profile`, `track` (by name only), `untrack`, `skip` and `set`. `target`, `mod`, `hold`, `skip`, `who`, `debuff` and `debuffs` need their state (`true` or `false`), never a toggle: the view you click is a moment old. `who`, `debuff` and `debuffs` take the slot first (0 to 17, or a tracked name). `target`, `mod` and `hold` are refused there for a row that has no chips in that session (a buff or luopan row of its job). `set` takes only the paths in the table below but `'japanese'` and `'ui.*'` (the HUD is each session's own), a number held to its range. There's no `close`, `log`, `watch` or `remote` (`/sk3 log` on that session turns its log on). Each call goes through the files the sessions share and is made there, through its own `act`, within a second or so (a quarter second while its Sidekick Settings are open); its view in `view.remote` then shows it |
 
 `act.set` paths:
 
@@ -203,7 +206,7 @@ In this order. A section with rows is left out when your job has none for it (Pe
 | `'heal.regen_potency'` | 0 to 30 |
 | `'recover.mp'`, `'pet.heal'` | 1 to 99 |
 | `'recover.tp'`, `'recover.min_tp'` | 0 to 3000 |
-| `'follow.on'`, `'rest.on'`, `'afk.on'`, `'heal.alliance'`, `'heal.reserve'`, `'buff.hold_aoe'`, `'buff.gather'`, `'song.fast'` | bool |
+| `'follow.on'`, `'rest.on'`, `'afk.on'`, `'heal.reserve'`, `'buff.hold_aoe'`, `'buff.gather'`, `'song.fast'` | bool |
 | `'follow.target'` | a name from `view.follow.names`, or `''` |
 | `'roll.first'`, `'roll.second'` | a name from `view.roll.choices`, or `''` |
 | `'roll.risk'` | one of `view.roll.risks` |
