@@ -436,14 +436,16 @@ local function characters(view)
     return out
 end
 
--- A character's profiles, right-clicking its name: Default, then each saved; a click loads it there.
+-- A character's profiles, right-clicking its name: Default, then each saved; a click loads it there. As tall as a
+-- drop-down's list (Drop-down rows), then it scrolls, opening at the one loaded.
 local function profile_menu(c, id, px)
+    kit.list_size(px, 0, S(1200))
     kit.popup(id, px, function ()
         local p = c.profiles
-        if imgui.Selectable(t('Default') .. id .. '_default', p.active == nil) then act_of(c).profile(nil) end
+        if kit.selectable(t('Default') .. id .. '_default', p.active == nil) then act_of(c).profile(nil) end
         for i, name in ipairs(p.names or {}) do  -- over a blank row, so a name with '##' in it shows whole
             local sx = imgui.GetCursorPosX()
-            if imgui.Selectable(id .. '_' .. i, name == p.active) then act_of(c).profile(name) end
+            if kit.selectable(id .. '_' .. i, name == p.active) then act_of(c).profile(name) end
             imgui.SameLine(sx)
             imgui.Text(kit.esc(name))
         end
@@ -618,9 +620,9 @@ end
 -- `field` (label), `current` ticked, each with the tooltip `tip(choice)` gives; `id` keeps their ids apart.
 local function options(id, path, current, choices, field, tip)
     return function ()
-        if imgui.Selectable(t('None') .. '##' .. id .. '_none', current == '') then act.set(path, '') end
+        if kit.selectable(t('None') .. '##' .. id .. '_none', current == '') then act.set(path, '') end
         for _, c in ipairs(choices) do
-            if imgui.Selectable(c[field or 'label'] .. '##' .. id .. '_' .. c.name, c.name == current) then act.set(path, c.name) end
+            if kit.selectable(c[field or 'label'] .. '##' .. id .. '_' .. c.name, c.name == current) then act.set(path, c.name) end
             if tip then kit.tip(tip(c)) end
         end
     end
@@ -1054,6 +1056,9 @@ end
 -- Sidekick Settings' size, % of the size for the screen: view.ui.scale, held to its slider's range.
 local function ui_scale(ui) return util.clamp(math.floor(tonumber(ui and ui.scale) or 100), 50, 200) end
 
+-- The most choices a drop-down's list shows before it scrolls: view.ui.list_rows, held to its slider's range.
+local function list_rows(ui) return kit.rows(ui and ui.list_rows) end
+
 -- Another session's shows only what it sent: its HUD is its own.
 local function draw_ui(view, pg)
     if view.session then return draw_recent(view, pg) end
@@ -1074,6 +1079,10 @@ local function draw_ui(view, pg)
     subheader(pg, 'Sidekick Settings')
     slider(pg, 'Size', 'ui.scale', ui_scale(view.ui),
         'This window\'s size, % of the size that suits your screen. Taken up once the slider is let go.', '%', { 50, 200 })
+    slider(pg, 'Drop-down rows', 'ui.list_rows', list_rows(view.ui),
+        'The most choices a drop-down or the widget\'s profile menu shows at once; scroll for the rest. Lower it on a '
+        .. 'small screen.', nil,
+        kit.LIST_ROWS)
     subheader(pg, 'LOG')
     draw_recent(view, pg)
     subheader(pg, 'CLIENT')
@@ -1129,7 +1138,7 @@ local function family_row(pg, sid, r)
         if it.kind == 'pick' then
             kit.dropdown('##pick_' .. id, it.x, icy, it.w, r.choice, true, pg.alpha, function ()
                 for _, c in ipairs(r.choices) do
-                    if imgui.Selectable(c.label, c.name == r.pick) then act.pick(r.key, c.name) end
+                    if kit.selectable(c.label, c.name == r.pick) then act.pick(r.key, c.name) end
                 end
             end)
         elseif it.kind == 'target' then
@@ -1507,6 +1516,7 @@ function window.render(view, act_)
     act = act_
     if not imgui.IsAnyItemActive() then user_scale = ui_scale(view.ui) / 100 end  -- not mid-drag: the window would move under it
     kit.frame(user_scale, view.japanese == true)
+    kit.list_rows = list_rows(view.ui)
     lang.use(view.japanese)
     local open = view.ui.open ~= false
     if hud_open and not open and not view.ui.widget then settings_open = false end  -- the widget's cogs keep them

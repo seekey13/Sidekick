@@ -1635,6 +1635,85 @@ test('a drop-down whose list raises closes every scope it opened, then raises th
     eq({ ok, err, frame.stack, frame.vars }, { false, 'boom', {}, 0 })
 end)
 
+test('UI / Log: Drop-down rows sets how many choices a drop-down shows, held to its range', function ()
+    open_settings()
+    local cfg, st = settings.defaults(), status()
+    eq(render(cfg, st, on('UI / Log', { ['Drop-down rows##sk3_ui_list_rows'] = 5 })), 1)
+    eq(cfg.ui.list_rows, 5)
+    close_settings()
+    render(cfg, st)  -- taken up the next frame, before any window draws
+    eq(kit.list_rows, 5)
+    local function rows(n)
+        cfg.ui.list_rows = n
+        render(cfg, st)
+        return kit.list_rows
+    end
+    eq({ rows(nil), rows(4), rows(500), rows(1), rows('what') }, { 8, 4, 30, 3, 8 })
+end)
+
+-- `fn()` with the fake's `name` calls going to `handler`, and kit.list_rows and kit.custom put back after, a failure too.
+local function with_handler(name, handler, fn)
+    local real, rows, custom = handlers[name], kit.list_rows, kit.custom
+    handlers[name] = handler
+    local ok, err = pcall(fn)
+    handlers[name], kit.list_rows, kit.custom = real, rows, custom
+    if not ok then error(err, 0) end
+end
+
+local function bare_frame()
+    frame = { stack = {}, vars = 0, texts = {}, ids = {}, args = {}, flags = {}, columns = {}, drawn = {}, extent = {},
+              clicks = {}, window = 'T' }
+end
+
+test('a drop-down\'s list grows to kit.list_rows lines, in its own font or ImGui\'s, then scrolls', function ()
+    local high
+    with_handler('SetNextWindowSizeConstraints', function (_, max) high = max[2] end, function ()
+        local function height(n, custom)
+            kit.list_rows, kit.custom = n, custom
+            bare_frame()
+            kit.dropdown('##sk3_rows', 0, 10, 100, 'x', true, 1, function () end)
+            return high
+        end
+        -- kit.popup's top padding and spacing, the list ending half a spacing under its last line
+        local pad, gap, line = kit.S(8), kit.S(6), kit.S(kit.BODY - 1)
+        local tail = gap - math.floor(gap / 2)
+        eq({ height(8, false), height(3, false) },
+            { pad + 8 * 13 + 7 * gap + tail, pad + 3 * 13 + 2 * gap + tail })  -- the fake's 13px font
+        eq(height(8, true), pad + 8 * line + 7 * gap + tail)  -- Segoe UI's, drawn at the size asked
+        eq({ height(nil, false), height('x', false), height(99, false) },
+            { height(8, false), height(8, false), height(30, false) })  -- a custom UI's bad value is held too
+    end)
+end)
+
+test('the widget\'s profile menu is as tall as Drop-down rows, at the widget\'s size, then scrolls', function ()
+    close_settings()
+    local cfg, st = widget_cfg(), status()
+    cfg.ui.list_rows = 4
+    for i = 1, 12 do cfg.profiles['P' .. i] = { heal = {} } end
+    local high
+    with_handler('SetNextWindowSizeConstraints', function (_, max) high = max[2] end, function ()
+        render(cfg, st, { mouse1 = true })
+        render(cfg, st)
+        eq(high, kit.list_height(4, 16))  -- (the fake's own font: its 13px, whatever the size asked)
+        kit.custom = true
+        eq(kit.list_height(4, 16) - kit.list_height(3, 16), 16 + kit.S(6))  -- a line of the widget's 16px a row
+    end)
+end)
+
+test('a drop-down\'s list opens scrolled to its ticked choice, and only as it opens', function ()
+    local scrolled, appearing = {}, true
+    with_handler('SetScrollHereY', function (k) scrolled[#scrolled + 1] = k end, function ()
+        with_handler('IsWindowAppearing', function () return appearing end, function ()
+            bare_frame()
+            kit.selectable('a', false)
+            kit.selectable('b', true)
+            appearing = false
+            kit.selectable('b', true)
+        end)
+    end)
+    eq(scrolled, { 0.5 })
+end)
+
 -- Last, as Segoe UI stays in once it's baked. The fake is ImGui 1.81, as Ashita 4.16's.
 test('on ImGui 1.81 Segoe UI is added at load and drawn; a tooltip\'s is sized by its window\'s font scale', function ()
     close_settings()
