@@ -157,6 +157,8 @@ These parts of a test aren't GM commands:
 
   A spell's result line in the chat comes about 5 s after its finish packet, so never time anything from the chat.
 
+`tools/e2e.lua` runs most of these as scenarios, with their cleanup ([e2e.md](e2e.md)). Item removal, combat and zoning have no scenario yet.
+
 | Check | Scene | Expect |
 |---|---|---|
 | Heal band | `gm.full('Test')`, then a moment later `gm.hp_pct('Test', 40)` | A Cure on Test, and Test's HP back up |
@@ -186,8 +188,8 @@ On 2026-11-02, through the MCP on `Dev`:
 - `vana.game.set_target` works from Sidekick3's state. After `gm.target('Tracked')`, `gm.cursor().ready` turned true within a second: VanaCore raises Ashita's `packet_out` for 0x015, and the target index is at 0x16.
 - Typed `/say !...` lines fail within about 1.5 s of each other; injected 0x0B5 packets don't, three in one frame.
 - The exact `!exec` fallback set Tracked's HP from their server max.
+- `!hp 0 Test` killed Test. `!homepoint Test` then revived Test at their home point, at full HP and MP (`charutils::HomePoint(PChar, PChar->isDead())`), and `!bring Test` brought them back. That's how a scenario's cleanup revives a character whose game has no MCP of its own to take the raise menu (0x01A, action 0x0D).
 
 Still open:
 
 - Whether `!hp 0` kills a player under `!immortal` (`setHP` sets 0 outright).
-- The raise menu is taken by the dead player's own game (0x01A, action 0x0D). A character with no MCP of its own can be revived with `!homepoint <name>`: a warp revives the dead at full HP and MP (`charutils::HomePoint(PChar, PChar->isDead())`). `!bring <name>` then brings them back.
