@@ -117,9 +117,9 @@ local function present(em, i)
     return em:GetRawEntity(i) ~= nil and bit.band(flags, 0x200) ~= 0 and bit.band(flags, 0x4000) == 0
 end
 
--- What the client reads of player `who`: a member of your party or alliance (HP, MP and TP in points and %, max HP
--- and MP: yours exact, a member's from HP and HP %, exact at 100%), or else a player near you (HP % only). Nil when
--- neither.
+-- What the client reads of player `who`, with their server id (sid) and entity index: a member of your party or
+-- alliance (HP, MP and TP in points and %, max HP and MP: yours exact, a member's from HP and HP %, exact at 100%), or
+-- else a player near you (HP % only). Nil when neither.
 function gm.who(who)
     local name = player(who):lower()
     local mm = AshitaCore:GetMemoryManager()
@@ -127,8 +127,9 @@ function gm.who(who)
     for i = 0, 17 do
         if party:GetMemberIsActive(i) == 1 and (party:GetMemberName(i) or ''):lower() == name then
             local hp, hpp, mp, mpp = party:GetMemberHP(i), party:GetMemberHPPercent(i), party:GetMemberMP(i), party:GetMemberMPPercent(i)
-            local u = { name = party:GetMemberName(i), slot = i, index = party:GetMemberTargetIndex(i), hp = hp, hpp = hpp,
-                        mp = mp, mpp = mpp, tp = party:GetMemberTP(i), dead = hpp == 0 }
+            local u = { name = party:GetMemberName(i), slot = i, sid = party:GetMemberServerId(i),
+                        index = party:GetMemberTargetIndex(i), hp = hp, hpp = hpp, mp = mp, mpp = mpp,
+                        tp = party:GetMemberTP(i), dead = hpp == 0 }
             if i == 0 then
                 local p = mm:GetPlayer()
                 u.max_hp, u.max_mp = p:GetHPMax(), p:GetMPMax()
@@ -142,7 +143,8 @@ function gm.who(who)
     for i = PC_FIRST, PC_LAST do
         if present(em, i) and (em:GetName(i) or ''):lower() == name then
             local hpp = em:GetHPPercent(i)
-            return { name = em:GetName(i), index = i, hpp = hpp, dead = hpp == 0 or em:GetStatus(i) == DEAD }
+            return { name = em:GetName(i), sid = em:GetServerId(i), index = i, hpp = hpp,
+                     dead = hpp == 0 or em:GetStatus(i) == DEAD }
         end
     end
 end

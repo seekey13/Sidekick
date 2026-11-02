@@ -6,12 +6,12 @@ local MOB = 0x10
 local said, handlers, targeted = {}, {}, {}
 local world = {
     party = {  -- by slot, 0 (you) first
-        { name = 'Dev', tidx = 0x400, hp = 900, hpp = 100, mp = 400, mpp = 100, tp = 0 },
-        { name = 'Test', tidx = 0x401, hp = 600, hpp = 50, mp = 300, mpp = 75, tp = 1000 },
+        { name = 'Dev', sid = 1, tidx = 0x400, hp = 900, hpp = 100, mp = 400, mpp = 100, tp = 0 },
+        { name = 'Test', sid = 2, tidx = 0x401, hp = 600, hpp = 50, mp = 300, mpp = 75, tp = 1000 },
     },
     ents = {
         [0x400] = { name = 'Dev', hpp = 100 }, [0x401] = { name = 'Test', hpp = 50 },
-        [0x450] = { name = 'Tracked', hpp = 80 },
+        [0x450] = { name = 'Tracked', sid = 3, hpp = 80 },
         [0x020] = { name = 'Forest Hare', sid = 17187100, hpp = 100, dist = 12, flags = MOB },
         [0x030] = { name = 'Forest Hare', sid = 17187101, hpp = 100, dist = 5, flags = MOB },
         [0x040] = { name = 'Forest Hare', sid = 17187102, hpp = 0, dist = 2, flags = MOB },   -- dead
@@ -27,6 +27,7 @@ local function member(i) return world.party[i + 1] or {} end
 local party = {
     GetMemberIsActive = function (_, i) return world.party[i + 1] and 1 or 0 end,
     GetMemberName = function (_, i) return member(i).name end,
+    GetMemberServerId = function (_, i) return member(i).sid end,
     GetMemberTargetIndex = function (_, i) return member(i).tidx end,
     GetMemberHP = function (_, i) return member(i).hp end,
     GetMemberHPPercent = function (_, i) return member(i).hpp end,
@@ -184,11 +185,11 @@ test('server Lua: one line, no <t> for the client to fill in, within what the se
 end)
 
 test('who: a member in points and %, a player near you by HP % alone', function ()
-    eq(gm.who('test'), { name = 'Test', slot = 1, index = 0x401, hp = 600, hpp = 50, mp = 300, mpp = 75, tp = 1000,
+    eq(gm.who('test'), { name = 'Test', slot = 1, sid = 2, index = 0x401, hp = 600, hpp = 50, mp = 300, mpp = 75, tp = 1000,
                          dead = false, max_hp = 1200, max_mp = 400 })
-    eq(gm.who('me'), { name = 'Dev', slot = 0, index = 0x400, hp = 900, hpp = 100, mp = 400, mpp = 100, tp = 0,
+    eq(gm.who('me'), { name = 'Dev', slot = 0, sid = 1, index = 0x400, hp = 900, hpp = 100, mp = 400, mpp = 100, tp = 0,
                        dead = false, max_hp = 900, max_mp = 400 })
-    eq(gm.who('Tracked'), { name = 'Tracked', index = 0x450, hpp = 80, dead = false })
+    eq(gm.who('Tracked'), { name = 'Tracked', sid = 3, index = 0x450, hpp = 80, dead = false })
     eq(gm.who('Nobody'), nil)
 end)
 
