@@ -394,14 +394,18 @@ test('in Japanese, spells, abilities and items go by their Japanese names; an En
     eq({ engine.command({ command = '/heal on', action = { name = 'Rest' } }, cfg) }, { '/heal on' })
 end)
 
-test('others go by name, never server id (the client refuses it); a name with a space by its party slot', function ()
+test('others go by name, never server id (the client refuses it); a trust, whose name is not its own, by its party slot', function ()
     local cure = fake.named(cat, 'Cure IV')
     local function to(u) return (can.command(cure, u, false)) end
-    eq({ to({ kind = 'party', slot = 1, sid = 101, name = 'Tank' }), to({ kind = 'tracked', sid = 201, name = 'Out' }),
-         to({ kind = 'self', slot = 0, sid = 1, name = 'Me' }), to(nil) },
-       { '/ma "Cure IV" Tank', '/ma "Cure IV" Out', '/ma "Cure IV" <me>', '/ma "Cure IV" <me>' })
-    eq({ to({ kind = 'trust', slot = 2, sid = 0x1000002, name = 'Shantotto II' }),
-         to({ kind = 'alliance', slot = 7, sid = 302, name = 'Ark Angel EV' }),
-         to({ kind = 'alliance', slot = 12, sid = 307, name = 'Ark Angel HM' }) },
+    eq({ to({ kind = 'party', slot = 1, sid = 101, name = 'Tank' }), to({ kind = 'alliance', slot = 7, sid = 302, name = 'Ally' }),
+         to({ kind = 'tracked', sid = 201, name = 'Out' }), to({ kind = 'self', slot = 0, sid = 1, name = 'Me' }), to(nil) },
+       { '/ma "Cure IV" Tank', '/ma "Cure IV" Ally', '/ma "Cure IV" Out', '/ma "Cure IV" <me>', '/ma "Cure IV" <me>' })
+    -- As the server names them: no spaces (Shantotto II is 'Shantotto' too), and the same for every caller.
+    eq({ to({ kind = 'trust', slot = 2, sid = 0x1000002, name = 'Kupipi' }),
+         to({ kind = 'alliance', slot = 7, sid = 0x1000007, name = 'Shantotto' }),
+         to({ kind = 'alliance', slot = 12, sid = 0x100000C, name = 'D.Shantotto' }) },
        { '/ma "Cure IV" <p2>', '/ma "Cure IV" <a11>', '/ma "Cure IV" <a20>' })
+    -- No name yet (just joined, zoning): the slot, never a command with no target.
+    eq({ to({ kind = 'party', slot = 5, sid = 105, name = '' }), to({ kind = 'alliance', slot = 17, sid = 317 }) },
+       { '/ma "Cure IV" <p5>', '/ma "Cure IV" <a25>' })
 end)
