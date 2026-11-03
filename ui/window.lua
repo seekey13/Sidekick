@@ -537,7 +537,7 @@ local function line(pg, label, help, h, color, room)
 end
 
 -- A control's id from its label (English, whatever the UI's language) and the setting it sets:
--- 'Rest after##sk3_rest_delay'.
+-- 'Rest under##sk3_rest_mp'.
 local function id_of(label, path) return label .. '##sk3_' .. path:gsub('%.', '_') end
 
 -- The helpers from here to `choice` take their label, help and unit in English and show them in the UI's language.
@@ -756,9 +756,12 @@ local function draw_follow(view, pg)
     slider(pg, 'Follow past', 'follow.distance', fo.distance, 'Yalms.', 'y')
 end
 
+-- The leader is Follow's (follow.target), shown here too.
 local function draw_rest(view, pg)
-    local r = view.rest
-    slider(pg, 'Rest after', 'rest.delay', r.delay, 'Seconds of nothing to do.', 's')
+    local r, fo = view.rest, view.follow
+    slider(pg, 'Rest under', 'rest.mp', r.mp, 'Rest when your MP falls under this %, until it is full.', '%')
+    choice(pg, 'Leader', 'rest_leader', 'follow.target', fo.target, named(fo.names),
+        'Stand up when they are further than Stand past. The same leader as Follow\'s.')
     slider(pg, 'Stand past', 'rest.distance', r.distance, 'Yalms from the leader.', 'y')
 end
 
@@ -1368,7 +1371,7 @@ local SWITCH_HELP = {
     pet = 'Look after your pet, and send it in, with the rows that are on.',
     maneuver = 'Keep the maneuvers picked up on you while your automaton is out (none under Overload).',
     recover = 'Get MP and TP back with the rows that are on.',
-    rest = 'Rest for MP out of combat once nothing else has happened for a while; stand at full MP.',
+    rest = 'Rest for MP out of combat once it falls under a line; stand at full MP, or when the leader leaves.',
     afk = 'While running, pause automation once no one in your party has moved and there has been no combat for '
         .. 'a while; your own movement wakes it (a pull doesn\'t), and so does the leader leaving with Follow on. '
         .. 'Nothing is stopped or saved.',

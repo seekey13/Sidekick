@@ -189,7 +189,7 @@ end)
 
 test('resting waits while a Double-Up is due, then may start once the roll is settled', function ()
     local cfg, mem = cfg_with('Corsair\'s Roll'), {}
-    cfg.rest.on = true
+    cfg.rest.on, cfg.rest.mp = true, 70
     local over = { finished = 990 }
     local g = snap({ CORSAIRS, DOUBLE_UP_CHANCE }, { id = CORSAIRS_ID, total = 2, at = 990 }, nil, {}, over)
     g.me.mpp = 60

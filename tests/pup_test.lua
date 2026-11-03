@@ -165,6 +165,19 @@ test('the oil is equipped only when Repair could then go, and once in a while', 
     eq(decide(g, cfg, cat, mem), '/equip ammo "Automaton Oil" 0')
 end)
 
+test('resting doesn\'t sit while the oil has yet to show (pet care\'s nothing then), so Repair goes', function ()
+    local items = { [OIL] = { 'Automaton Oil', 1 } }
+    local mem, cfg = {}, settings.defaults()
+    cfg.rest.on = true
+    local g = snap(nil, { pet = automaton({ hpp = 40 }), owned = owned(items) })
+    g.me.mpp = 20
+    eq(fake.step(g, cat, cfg, mem), '/equip ammo "Automaton Oil" 0')
+    g.now = g.now + 1.1
+    eq({ decide(g, cfg, cat, mem) }, { nil, 'nothing to do' })
+    g.now, g.ammo = g.now + 0.5, OIL
+    eq(decide(g, cfg, cat, mem), '/ja "Repair" <me>')
+end)
+
 test('an equip that never shows is given up on after 3, so the next row goes, until the slot or the count changes', function ()
     local items = { [OIL] = { 'Automaton Oil', 1 } }
     local mem, cfg = {}, settings.defaults()

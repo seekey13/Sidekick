@@ -168,7 +168,7 @@ These parts of a test aren't GM commands:
 | Doom | `gm.effect('Test', 'doom', 1, 30)` | Cursna, while Doom's chip is on and Test is ticked under Remove |
 | Wake | `gm.effect('Test', 'sleep', 1, 60)` | A heal that wakes (Cure, Curaga) on Test |
 | Buff upkeep | `/sk3 buff Protect p1` until it lands, then `gm.uneffect('Test', 'protect')` | Protect on Test again |
-| Rest | `/sk3 rest on`, then `gm.mp_pct('me', 10)` out of combat, standing still | `/heal on` after 5 quiet seconds |
+| Rest | `/sk3 rest on`, then `gm.mp_pct('me', 10)` out of combat, standing still | `/heal on` within seconds (10% is under Rest under's line; it waits 3 s after your last move or its last send) |
 | Item removal | `gm.item(4151, 3)`, then `gm.effect('me', 'silence', 1, 120)` | Echo Drops on you |
 | A tracked player | Test out of the party, `/sk3 track Test`, `gm.hp('Test', <points>)` | A Cure on Test |
 | Combat | `gm.mobhere(id)`, `gm.target('<mob>')`, `gm.mob_level(1)`, then engage | The combat-gated actions |

@@ -85,7 +85,7 @@ test('a profile saved before newer settings existed gets their defaults', functi
     local cfg = cfg_with()
     cfg.profiles.Old = { heal = { danger = 35 }, rows = {} }
     profiles.load(cfg, 'Old')
-    eq({ cfg.heal.danger, cfg.heal.critical, cfg.buff.hold_aoe, cfg.rest.delay }, { 35, 30, false, 5 })
+    eq({ cfg.heal.danger, cfg.heal.critical, cfg.buff.hold_aoe, cfg.rest.mp }, { 35, 30, false, 50 })
 end)
 
 test('save under another name while one is loaded renames it; with Default loaded it adds one', function ()

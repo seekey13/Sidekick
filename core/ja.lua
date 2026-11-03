@@ -134,8 +134,8 @@ ja.words = {
     ['Keep the maneuvers picked up on you while your automaton is out (none under Overload).'] =
         'オートマトンがいる間、選んだマニューバを維持します（オーバーロード中は使いません）。',
     ['Get MP and TP back with the rows that are on.'] = 'オンの行でMPとTPを回復します。',
-    ['Rest for MP out of combat once nothing else has happened for a while; stand at full MP.'] =
-        'しばらく何もなければ、戦闘外でMP回復のためヒーリングし、MPが満タンになったら立ちます。',
+    ['Rest for MP out of combat once it falls under a line; stand at full MP, or when the leader leaves.'] =
+        'MPがラインを下回ったら戦闘外でヒーリングし、MPが満タンになるか、リーダーが離れたら立ちます。',
     ['While running, pause automation once no one in your party has moved and there has been no combat for '
         .. 'a while; your own movement wakes it (a pull doesn\'t), and so does the leader leaving with Follow on. '
         .. 'Nothing is stopped or saved.'] =
@@ -185,7 +185,10 @@ ja.words = {
     ['Leader'] = 'リーダー', ['Who to follow; resting stands up when they leave too.'] =
         '追従する相手。この人が離れたらヒーリングもやめて立ちます。',
     ['Follow past'] = '追従する距離', ['Yalms.'] = 'ヤルム。',
-    ['Rest after'] = 'ヒーリングまで', ['Seconds of nothing to do.'] = '何もすることがない秒数。',
+    ['Rest under'] = 'ヒーリングライン', ['Rest when your MP falls under this %, until it is full.'] =
+        'MPがこの%未満になったらヒーリングし、満タンまで続けます。',
+    ['Stand up when they are further than Stand past. The same leader as Follow\'s.'] =
+        'この人が「立つ距離」より離れたら立ちます。追従のリーダーと同じです。',
     ['Stand past'] = '立つ距離', ['Yalms from the leader.'] = 'リーダーからのヤルム数。',
     ['Sleep after'] = 'スリープまで', ['Minutes with no one in your party moving and no combat.'] =
         'パーティの誰も動かず、戦闘もない分数。',

@@ -23,7 +23,7 @@ Sidekick3 is a ground-up rewrite of [Sidekick](https://github.com/seekey13/Sidek
 - **Wake, raise and buff**: wakes sleepers, raises the KO'd and keeps up the buffs you choose on the targets you choose.
 - **Recovery**: MP and TP through Convert, Devotion, Aspir, Chivalry, Meditate, resting and more.
 - **Pet care**: Repair, Spirit Link, Reward, sending your pet in, and auto-equipping oils and pet food.
-- **Follow, rest and AFK sleep**: follows a leader, rests when idle, and pauses itself if the party goes quiet.
+- **Follow, rest and AFK sleep**: follows a leader, rests when MP runs low, and pauses itself if the party goes quiet.
 - **Alliance and tracked players**: looks after all three parties, plus players outside your alliance.
 - **Multiboxing**: every Sidekick3 session on one PC sees the others and can start, stop and configure them.
 - **Profiles**: named settings snapshots per job pair (Dynamis, EXP...).
@@ -50,7 +50,7 @@ Automation always starts **off** after a load. Healing, removal, waking, raising
 | `/sk3 buff <spell> <targets>` | Keep a buff up (`me`, `p1`–`p5`, `b0`–`c5`, a tracked name); `off` to stop |
 | `/sk3 focus <Name>` \| `off` | Heal this member first |
 | `/sk3 follow <Name>` \| `off` | Follow a member |
-| `/sk3 rest` / `afk` `[on\|off]` | Rest when idle / AFK sleep |
+| `/sk3 rest` / `afk` `[on\|off]` | Rest when MP runs low / AFK sleep |
 | `/sk3 track` / `untrack` `[Name]` | Look after a player outside your alliance |
 | `/sk3 profile [Name]` | Load a profile, or list them |
 | `/sk3 widget` | Toggle the compact status widget |
