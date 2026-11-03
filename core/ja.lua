@@ -169,6 +169,14 @@ ja.words = {
     ['Waltz potency +'] = 'ワルツ回復量+', ['Waltz potency % from gear, until a waltz has been seen healing.'] =
         '装備によるワルツ回復量%。ワルツの実際の回復量がわかるまで使います。',
     ['Regen potency +'] = 'リジェネ効果+', ['HP per Regen tick from gear.'] = '装備によるリジェネ1回あたりのHP。',
+    ['EFFICIENCY'] = '効率', ['no estimate'] = '不明', ['%d HP'] = 'HP%d', ['%d HP over %ds'] = 'HP%d（%d秒）',
+    ['%s (seen)'] = '%s（実測）', ['%s, %s'] = '%s、%s', ['%.1f HP/MP'] = 'MP1あたりHP%.1f', ['%.1f HP/100 TP'] = 'TP100あたりHP%.1f',
+    ['Untick to never use it; the other tiers on its row still go.'] = 'オフにすると使いません。同じ行の他の段階は使います。',
+    ['What one cast heals one target now, as efficient healing scores it: seen from your own casts, '
+        .. 'else the table\'s guess with potency from gear. A Regen\'s is its whole total, counted only when it all lands. '
+        .. 'Then HP for each MP, or each 100 TP. Efficient healing also weighs how much is missing and how many an area heal reaches.'] =
+        '効率回復が見積もる、1回で1人を回復する量です。自分の詠唱から実測した値、なければ表の目安に装備の回復量を加えた値。リジェネは全回復量で、すべて回復しきれるときだけ数えます。続けてMP1（またはTP100）あたりのHP。効率回復は減っているHPと範囲回復が届く人数も考えます。',
+    ['\nIts row is off below: it goes only once that is on.'] = '\n下の行がオフです。行をオンにするまで使いません。',
     ['Heal the alliance'] = 'アライアンスも回復',
     ['Heal the alliance\'s other parties too, with heals that reach outside your party. Raising, waking, '
         .. 'removal and buffs look after them whatever this says, and the focus member is always healed.'] =

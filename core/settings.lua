@@ -24,8 +24,9 @@ local DEFAULTS = {
     -- HP% lines: efficient under threshold, danger, critical (behaviors/heal.lua);
     -- the focus member has its own. skip = { [name] = true }: never healed for their sake.
     -- The alliance's other parties are healed whenever a heal reaches them.
+    -- off = { [spell or ability name] = true }: that one heal is never used, its row's other tiers still are.
     heal = { on = true, threshold = 75, danger = 50, critical = 30,
-             focus = '', focus_threshold = 85, focus_danger = 60, focus_critical = 40, skip = {},
+             focus = '', focus_threshold = 85, focus_danger = 60, focus_critical = 40, skip = {}, off = {},
              cure_potency = 0, waltz_potency = 0,  -- +% from gear
              regen_potency = 0,                    -- +HP per Regen tick from gear
              reserve = false },  -- SCH: buff rows leave the last stratagem charge for healing (as v2's, opt-in)
@@ -83,11 +84,17 @@ function settings.buff_named(cat, name)
     end
 end
 
--- The catalog's actions for `role` whose row is on.
+-- Whether heal `a` (a Cure II, a Regen) is unticked on its own under Heal (heal.off), its row aside.
+function settings.heal_off(cfg, a)
+    local off = cfg.heal and cfg.heal.off
+    return a.role == 'heal' and type(off) == 'table' and off[a.name] == true
+end
+
+-- The catalog's actions for `role` whose row is on (and, for a heal, not unticked on its own).
 function settings.enabled(cat, cfg, role)
     local out = {}
     for _, a in ipairs(cat) do
-        if a.role == role and settings.row(cfg, a).on then out[#out + 1] = a end
+        if a.role == role and settings.row(cfg, a).on and not settings.heal_off(cfg, a) then out[#out + 1] = a end
     end
     return out
 end

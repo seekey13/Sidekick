@@ -839,3 +839,30 @@ test('in Japanese no word the view asks for is missing from core/ja.lua', functi
     end
     eq(lang.misses, {})
 end)
+
+test('healing lists each heal, most HP for the MP first, tickable on its own', function ()
+    local cfg = settings.defaults()
+    local act, writes = actions(cfg)
+    local g = fake.snap({ { name = 'A' }, { name = 'B' } })
+    g.learned = { ma1 = 90 }  -- Cure seen healing 90
+    local spells = build(whm, cfg, g).heal.spells
+    local by = {}
+    for _, sp in ipairs(spells) do by[sp.name] = sp end
+    eq(spells[1].name, 'Cure')  -- 90 for 8 MP: 11.3, over Regen's 8.3
+    eq({ by.Cure.hp, by.Cure.learned, by.Cure.per, by.Cure.unit, by.Cure.on, by.Cure.row_on }, { 90, true, 11.3, 'MP', true, true })
+    eq({ by['Regen II'].hp, by['Regen II'].regen, by['Regen II'].seconds, by['Regen II'].per }, { 240, true, 60, 6.7 })
+    eq({ by.Curaga.area, by['Cure II'].learned }, { true, false })
+    for i = 2, #spells do
+        eq(spells[i].per == nil or spells[i - 1].per ~= nil and spells[i - 1].per >= spells[i].per, true, spells[i].name)
+    end
+    act.heal_spell('Cure', false)
+    eq({ cfg.heal.off, writes[1] }, { { Cure = true }, 1 })
+    for _, sp in ipairs(build(whm, cfg, g).heal.spells) do
+        if sp.name == 'Cure' then eq(sp.on, false) end
+    end
+    act.heal_spell('Cure')  -- a toggle
+    eq(cfg.heal.off, {})
+    local remote = model.actions(cfg, status(), function () end)
+    eq({ model.apply(remote, cfg, { 'heal_spell', 'Regen', false, n = 2 }, whm), cfg.heal.off }, { true, { Regen = true } })
+    eq(model.apply(remote, cfg, { 'heal_spell', 'Regen', n = 1 }, whm), false)  -- a bare toggle: never from afar
+end)

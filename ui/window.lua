@@ -719,6 +719,42 @@ local function heal_targets(pg, h)
     end)
 end
 
+local SPELL_TIP = 'Untick to never use it; the other tiers on its row still go.'
+local ESTIMATE_TIP = 'What one cast heals one target now, as efficient healing scores it: seen from your own casts, '
+    .. 'else the table\'s guess with potency from gear. A Regen\'s is its whole total, counted only when it all lands. '
+    .. 'Then HP for each MP, or each 100 TP. Efficient healing also weighs how much is missing and how many an area heal reaches.'
+
+-- What a heal restores and for what: '240 HP over 60s, 6.7 HP/MP', '(seen)' once a cast was.
+local function estimate_text(sp)
+    if not sp.hp then return t('no estimate') end
+    local hp = sp.regen and f('%d HP over %ds', sp.hp, sp.seconds or 0) or f('%d HP', sp.hp)
+    if sp.learned then hp = f('%s (seen)', hp) end
+    if not sp.per then return hp end
+    return f('%s, %s', hp, f(sp.unit == 'TP' and '%.1f HP/100 TP' or '%.1f HP/MP', sp.per))
+end
+
+-- Healing's spells and abilities, a checkbox each, most HP for the MP first: its name, then what it heals and for what.
+local function heal_spells(pg, h)
+    if not (h.spells and h.spells[1]) then return end
+    subheader(pg, 'EFFICIENCY')
+    local tip = t(SPELL_TIP) .. '\n' .. t(ESTIMATE_TIP)
+    for _, sp in ipairs(h.spells) do
+        local cy = line(pg, nil, nil)
+        local on, flipped = kit.checkbox(sp.label .. '##sk3_heal_spell_' .. sp.name, pg.lx, cy, sp.on, true, pg.alpha)
+        if flipped then act.heal_spell(sp.name, on) end
+        kit.tip(sp.row_on and tip or tip .. t('\nIts row is off below: it goes only once that is on.'))
+        local text = estimate_text(sp)
+        local px = S(SMALL + 0.5)
+        local aw = kit.measure(text, kit.fonts.text, px)
+        local lit = sp.on and sp.row_on
+        kit.text_right(pg.dl, pg.right, cy, text, lit and sp.per and P.teal or P.dim, kit.fonts.text, px, pg.alpha)
+        if kit.over(pg.right - aw, cy - S(10), aw, S(20)) then kit.tooltip(t(ESTIMATE_TIP)) end
+        local lx = pg.lx + S(kit.CB) + S(10)
+        kit.text_mid(pg.dl, lx, cy, kit.fit(sp.label, pg.right - aw - S(12) - lx, kit.fonts.text, S(BODY)),
+            lit and P.text or P.dim, kit.fonts.text, S(BODY), pg.alpha)
+    end
+end
+
 local function draw_heal_settings(view, pg)
     local h = view.heal
     for _, l in ipairs(HEAL_LINES) do slider(pg, l[1], 'heal.' .. l[2], h[l[2]], l[3], '%') end
@@ -739,6 +775,7 @@ local function draw_heal_settings(view, pg)
             'Buff rows never spend the last stratagem charge, so healing has one for Accession or Rapture.')
     end
     heal_targets(pg, h)
+    heal_spells(pg, h)
 end
 
 local function draw_recover_settings(view, pg)

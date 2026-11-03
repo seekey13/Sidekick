@@ -26,6 +26,7 @@
 local afk = require('core.afk')
 local ammo = require('core.ammo')
 local can = require('core.can')
+local heal = require('behaviors.heal')
 local job_modules = require('core.jobs')
 local lang = require('core.lang')
 local profiles = require('core.profiles')
@@ -592,6 +593,30 @@ end
 
 -- The view ---------------------------------------------------------------------
 
+-- Healing's spells and abilities, each one tickable on its own (heal.off), most HP for the MP or TP first: what
+-- each heals now and for what (behaviors/heal.lua's estimates). One per name (Wild Carrot, blue magic or a Ready move).
+local function heal_spells(g, cat, cfg)
+    local out, seen = {}, {}
+    for _, e in ipairs(heal.estimates(g, cat, cfg)) do
+        local a = e.a
+        if not seen[a.name] then
+            seen[a.name] = true
+            out[#out + 1] = {
+                name = a.name, label = lang.name(a.name, a.jp), on = not settings.heal_off(cfg, a),
+                row_on = settings.row(cfg, a).on == true, hp = e.hp and math.floor(e.hp + 0.5), learned = e.learned,
+                cost = e.cost, unit = e.unit, per = e.per and math.floor(e.per * 10 + 0.5) / 10,
+                regen = a.tick ~= nil or nil, seconds = a.tick and a.duration or nil, area = (a.area or 0) > 0 or nil,
+            }
+        end
+    end
+    table.sort(out, function (x, y)
+        if (x.per ~= nil) ~= (y.per ~= nil) then return x.per ~= nil end
+        if x.per and x.per ~= y.per then return x.per > y.per end
+        return x.name < y.name
+    end)
+    return out
+end
+
 -- Whether `a` spends what heal.reserve keeps for healing (core/jobs.lua: `reserves`).
 local function reserved(a)
     for _, f in job_modules.each('reserves') do
@@ -645,7 +670,7 @@ function model.build(g, cat, cfg, status, names)
                  focus_threshold = h.focus_threshold, focus_danger = h.focus_danger, focus_critical = h.focus_critical,
                  cure_potency = h.cure_potency, waltz_potency = h.waltz_potency, regen_potency = h.regen_potency,
                  reserve = h.reserve, stratagems = stratagems,
-                 focus_names = focus_names, targets = heal_targets },
+                 focus_names = focus_names, targets = heal_targets, spells = heal_spells(g, cat, cfg) },
         recover = { mp = cfg.recover.mp, tp = cfg.recover.tp, min_tp = cfg.recover.min_tp, spends_tp = spends_tp },
         pet_heal = cfg.pet.heal,
         follow = { on = cfg.follow.on, target = cfg.follow.target, distance = cfg.follow.distance, names = focus_names },
@@ -713,7 +738,7 @@ end
 -- HUD's (its labels and sizes) and the views it shows of others itself,
 -- with the view's `version`, VIEW: raise it when a field the window draws changes,
 -- so a session still running older code isn't drawn from a view it can't read.
-model.VIEW = 7
+model.VIEW = 8
 function model.published(view)
     local out = util.shallow_copy(view)
     out.pointer, out.others, out.ui, out.remote, out.sessions = nil, nil, nil, nil, nil
@@ -735,7 +760,7 @@ local REMOTE = {
     pick = { 'string', 'string|nil' }, target = { 'string', 'number|string', 'boolean' },
     mod = { 'string', 'string', 'boolean' }, hold = { 'string', 'boolean' }, profile = { 'string|nil' }, save_profile = { 'string', 'boolean|nil' },
     new_profile = {}, delete_profile = { 'string' }, track = { 'string' }, untrack = { 'string' },
-    skip = { 'string', 'boolean' }, set = { 'string', 'boolean|number|string' },
+    skip = { 'string', 'boolean' }, heal_spell = { 'string', 'boolean' }, set = { 'string', 'boolean|number|string' },
 }
 
 -- The settings act.set may change from another session: a number's range (the
@@ -949,6 +974,13 @@ function model.actions(cfg, status, changed, tracking, send)
     function act.untrack(name) tracking.remove(name) end
     -- A member skipped by healing is never healed for their own sake; `skip` sets it, toggled without it.
     act.skip = saving(function (name, skip) flag(cfg.heal.skip, name, skip) end)
+    -- One heal (a `view.heal.spells` name: 'Cure II', 'Regen') used by healing (`on` true) or never (false), its row's
+    -- other tiers as they were. Nil toggles.
+    act.heal_spell = saving(function (name, on)
+        cfg.heal.off = cfg.heal.off or {}
+        if on == nil then on = cfg.heal.off[name] == true end
+        cfg.heal.off[name] = not on or nil
+    end)
     -- path: 'heal.danger', 'heal.reserve', 'buff.hold_aoe', 'roll.first', 'roll.risk', 'geo.distance',
     -- 'geo.entrust', 'geo.entrust_spell', 'rune.idle_1', 'maneuver.slot_1', 'song.area_1', 'song.p1_2', 'follow.target',
     -- 'japanese', 'ui.hp_width', or 'ui.<anything>' for a UI's own.
