@@ -45,7 +45,7 @@ return function (g, cat, cfg)
     local heals = {}
     -- every heal whose row is on, those healing never uses (heal.never) too: the cheapest wakes
     for _, a in ipairs(settings.enabled(cat, cfg, 'heal')) do
-        if a.wakes and not a.pet and not can.at_enemy(a) and can.use(a, g) then heals[#heals + 1] = a end
+        if can.wakes(a) and can.use(a, g) then heals[#heals + 1] = a end
     end
     table.sort(heals, function (a, b) return cost(a, g) < cost(b, g) end)
 

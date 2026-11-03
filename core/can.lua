@@ -71,6 +71,8 @@ function can.at_enemy(a) return a.targets == ENEMY end
 function can.self_only(a) return a.targets == SELF end
 -- Can go on a player outside your party (the alliance's other parties, a tracked player).
 function can.outside(a) return has(a.targets, ALLY) end
+-- A heal that wakes a sleeper it lands on (behaviors/wake.lua): not a pet's, nor one aimed at the enemy (Drain).
+function can.wakes(a) return a.wakes == true and not a.pet and not can.at_enemy(a) end
 
 -- Which party of the alliance `u` is in: 1 yours (you, members, trusts, your
 -- pet), 2 for slots 6-11, 3 for 12-17; nil for a tracked player, whose party

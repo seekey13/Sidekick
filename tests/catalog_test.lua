@@ -102,6 +102,12 @@ test('heal fields: cast seconds, Regen ticks, boosts with their status', functio
         { kind = 'healing', factor = 1, area = 10, mp = 2, tiers = 4 })
 end)
 
+test('a Regen tier past the table (a 99 WHM\'s Regen IV) has no tick nor duration, not the whole list', function ()
+    local cat = build(WHM, 99)
+    local iii, iv = find(cat, 'Regen III', 'heal'), find(cat, 'Regen IV', 'heal')
+    eq({ iii.tick, iii.duration, iv.tick, iv.duration }, { 20, 60, 0, nil })
+end)
+
 test('items: last, used on you, specific first, spelled as the client does', function ()
     local named = { spells = res.spells, abilities = res.abilities, statuses = res.statuses,
                     items = { [5356] = { en = 'Rmdy. Ointment', jp = '' } } }
