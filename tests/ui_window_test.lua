@@ -1139,6 +1139,8 @@ test('a row, its pick and its targets each write and save', function ()
     eq({ cfg.remove.skip, cfg.remove.own, cfg.rows.paralysis }, { { paralysis = true }, {}, nil })
     eq(render(cfg, st, on('Remove', { ['Erase##remove_with_Erase'] = true })), 1)  -- a remover's checkbox, unticked
     eq(cfg.rows.Erase, { on = false })
+    eq(render(cfg, st, on('Heal', { ['Cure II##sk3_heal_spell_Cure II'] = true })), 1)  -- one heal, its row aside
+    eq(cfg.heal.never, { ['Cure II'] = true })
     eq(render(cfg, st, on('Remove', { ['Dia##remove_*_Dia'] = true })), 0)  -- only Erase removes it: greyed, no click
     eq(render(cfg, st, on('Remove', { ['Doom##remove_*_doom'] = true })), 1)  -- Doom too
     eq(cfg.remove.skip, { paralysis = true, doom = true })

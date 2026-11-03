@@ -415,3 +415,58 @@ test('others go by name, never server id (the client refuses it); a trust, whose
          to({ kind = 'alliance', slot = 12, sid = 312, name = '' }), to({ kind = 'alliance', slot = 17, sid = 317 }) },
        { '/ma "Cure IV" <p5>', '/ma "Cure IV" <a10>', '/ma "Cure IV" <a20>', '/ma "Cure IV" <a25>' })
 end)
+
+test('a heal unticked on its own (heal.never) never heals; its row\'s other tiers still do', function ()
+    local cfg = no_regen()
+    cfg.heal.never = { ['Cure III'] = true }
+    eq(decide(snap({ { name = 'A', hpp = 70 } }), cfg), '/ma "Cure" A')   -- Cure III's 250 of 300 gone: Cure ties Cure II, cheaper
+    cfg = settings.defaults()
+    cfg.heal.never = { ['Regen II'] = true }
+    eq(decide(snap({ { name = 'A', hpp = 70 } }), cfg), '/ma "Regen" A')     -- Regen II's 240 of 300 gone
+    cfg = no_regen()
+    cfg.heal.never = { Cure = true, ['Cure II'] = true, ['Cure III'] = true, ['Cure IV'] = true, ['Cure V'] = true }
+    eq(decide(snap({ { name = 'A', hpp = 40 } }), cfg), '/ma "Curaga IV" <me>')  -- in danger too: a Curaga then
+end)
+
+test('Cures seen healing more than the table can outscore Regen per MP', function ()
+    -- A 75 WHM's real Cure and Cure II (learned): 90 for 8 MP, 190 for 24, both over Regen II's 240 for 36.
+    local g = snap({ { name = 'A', hpp = 70 } })
+    g.learned = { ma1 = 90, ma2 = 190 }
+    eq(decide(g), '/ma "Cure" A')
+    local cfg = settings.defaults()
+    cfg.heal.never = { ['Cure'] = true, ['Cure II'] = true }
+    eq(decide(g, cfg), '/ma "Regen II" A')
+end)
+
+test('estimates: what each heal restores now and for what', function ()
+    local g = snap({ { name = 'A', hpp = 70 } })
+    g.learned = { ma2 = 190 }
+    local by = {}
+    for _, e in ipairs(heal.estimates(g, cat, settings.defaults())) do by[e.a.name] = e end
+    eq({ by['Cure'].hp, by['Cure'].learned, by['Cure'].unit, by['Cure'].cost }, { 37.5, false, 'MP', 8 })
+    eq({ by['Cure II'].hp, by['Cure II'].learned, by['Cure II'].per }, { 190, true, 190 / 24 })
+    eq({ by['Regen II'].hp, by['Regen II'].per }, { 240, 240 / 36 })
+end)
+
+test('estimates: a waltz per 100 TP, with nothing to pay under Trance', function ()
+    local TRANCE = 376
+    local g = snap({ { name = 'A', hpp = 70 } })
+    local function waltz_ii()
+        for _, e in ipairs(heal.estimates(g, dnc, settings.defaults())) do
+            if e.a.name == 'Curing Waltz II' then return e end
+        end
+    end
+    local e = waltz_ii()
+    eq({ e.hp, e.unit, e.cost, e.per }, { 175, 'TP', 350, 50 })
+    with(g, { TRANCE })
+    e = waltz_ii()
+    eq({ e.hp, e.unit, e.cost, e.per }, { 175, 'TP', 0, nil })
+end)
+
+test('estimates: a Regen tier past the table (a 99 WHM\'s Regen IV) has none, nor a duration', function ()
+    local by = {}
+    for _, e in ipairs(heal.estimates(snap({ { name = 'A', hpp = 70 } }), fake.catalog(3, 99, 4, 49), settings.defaults())) do
+        by[e.a.name] = e
+    end
+    eq({ by['Regen IV'].hp, by['Regen IV'].per, by['Regen IV'].a.duration, by['Regen III'].hp }, { nil, nil, nil, 400 })
+end)

@@ -24,8 +24,10 @@ local DEFAULTS = {
     -- HP% lines: efficient under threshold, danger, critical (behaviors/heal.lua);
     -- the focus member has its own. skip = { [name] = true }: never healed for their sake.
     -- The alliance's other parties are healed whenever a heal reaches them.
+    -- never = { [spell or ability name] = true }: healing never uses that one, its row's other tiers
+    -- still; waking still does.
     heal = { on = true, threshold = 75, danger = 50, critical = 30,
-             focus = '', focus_threshold = 85, focus_danger = 60, focus_critical = 40, skip = {},
+             focus = '', focus_threshold = 85, focus_danger = 60, focus_critical = 40, skip = {}, never = {},
              cure_potency = 0, waltz_potency = 0,  -- +% from gear
              regen_potency = 0,                    -- +HP per Regen tick from gear
              reserve = false },  -- SCH: buff rows leave the last stratagem charge for healing (as v2's, opt-in)
@@ -81,6 +83,13 @@ function settings.buff_named(cat, name)
             if spell or x.family:lower() == name or settings.key(x):lower() == name then return x, spell end
         end
     end
+end
+
+-- Whether healing never uses heal `a` (a Cure II, a Regen): unticked on its own under Heal
+-- (heal.never), its row aside. Waking still may.
+function settings.never_heal(cfg, a)
+    local never = cfg.heal and cfg.heal.never
+    return a.role == 'heal' and type(never) == 'table' and never[a.name] == true
 end
 
 -- The catalog's actions for `role` whose row is on.

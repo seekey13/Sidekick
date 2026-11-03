@@ -26,6 +26,7 @@
 local afk = require('core.afk')
 local ammo = require('core.ammo')
 local can = require('core.can')
+local heal = require('behaviors.heal')
 local job_modules = require('core.jobs')
 local lang = require('core.lang')
 local profiles = require('core.profiles')
@@ -253,7 +254,16 @@ local function build_row(key, acts, cfg, g, units, modifiers, outsiders)
             if c.name == r.pick then row.choice = c.label end
         end
     end
-    row.ready, row.avail, row.action = availability(acts, r, g)
+    -- Only the heals left ticked under Heal (heal.never) can go.
+    local live = {}
+    for _, a in ipairs(acts) do
+        if not settings.never_heal(cfg, a) then live[#live + 1] = a end
+    end
+    if live[1] then
+        row.ready, row.avail, row.action = availability(live, r, g)
+    else
+        row.ready, row.avail = false, lang.t('unticked above')
+    end
     -- Held: a modifier on for it that can't go says why it waits.
     for _, m in ipairs(row.hold and modifiers or {}) do
         if row.ready and (r.mods or {})[m.name] and not can.any(g.me.buffs, m.status) then
@@ -585,6 +595,49 @@ end
 
 -- The view ---------------------------------------------------------------------
 
+-- Where a heal sorts: MP heals by HP per MP, then TP heals by HP per 100 TP (a free one,
+-- under Trance, first), then those with no estimate.
+local function heal_rank(sp)
+    if sp.per then return sp.unit == 'MP' and 1 or 2, sp.per end
+    if sp.hp and sp.cost == 0 then return 2, math.huge end
+    return 3, 0
+end
+
+-- Healing's spells and abilities that share their row with another tier, each tickable on its own (heal.never): what
+-- each heals now and for what (behaviors/heal.lua's estimates), in heal_rank's order. One per name (Wild Carrot is
+-- blue magic and a Ready move). One alone on its row has the row's switch, and a Ready move (spent only in danger)
+-- its row's: neither is listed but once unticked, so it can be ticked again.
+local function heal_spells(g, cat, cfg)
+    local list, tiers, counted = heal.estimates(g, cat, cfg), {}, {}
+    for _, e in ipairs(list) do
+        local a, key = e.a, settings.key(e.a)
+        local id = key .. '/' .. a.name
+        if not (a.charges or counted[id]) then counted[id], tiers[key] = true, (tiers[key] or 0) + 1 end
+    end
+    local out, seen = {}, {}
+    for _, e in ipairs(list) do
+        local a = e.a
+        local never = settings.never_heal(cfg, a)
+        if not seen[a.name] and (never or not a.charges and (tiers[settings.key(a)] or 0) > 1) then
+            seen[a.name] = true
+            out[#out + 1] = {
+                name = a.name, label = lang.name(a.name, a.jp), on = not never,
+                row_on = settings.row(cfg, a).on == true, hp = e.hp and math.floor(e.hp + 0.5), learned = e.learned,
+                cost = e.cost, unit = e.unit, per = e.per and math.floor(e.per * 10 + 0.5) / 10,
+                regen = a.tick ~= nil or nil, seconds = a.tick and a.duration or nil, area = (a.area or 0) > 0 or nil,
+            }
+        end
+    end
+    table.sort(out, function (x, y)
+        local gx, px = heal_rank(x)
+        local gy, py = heal_rank(y)
+        if gx ~= gy then return gx < gy end
+        if px ~= py then return px > py end
+        return x.name < y.name
+    end)
+    return out
+end
+
 -- Whether `a` spends what heal.reserve keeps for healing (core/jobs.lua: `reserves`).
 local function reserved(a)
     for _, f in job_modules.each('reserves') do
@@ -638,7 +691,7 @@ function model.build(g, cat, cfg, status, names)
                  focus_threshold = h.focus_threshold, focus_danger = h.focus_danger, focus_critical = h.focus_critical,
                  cure_potency = h.cure_potency, waltz_potency = h.waltz_potency, regen_potency = h.regen_potency,
                  reserve = h.reserve, stratagems = stratagems,
-                 focus_names = focus_names, targets = heal_targets },
+                 focus_names = focus_names, targets = heal_targets, spells = heal_spells(g, cat, cfg) },
         recover = { mp = cfg.recover.mp, tp = cfg.recover.tp, min_tp = cfg.recover.min_tp, spends_tp = spends_tp },
         pet_heal = cfg.pet.heal,
         follow = { on = cfg.follow.on, target = cfg.follow.target, distance = cfg.follow.distance, names = focus_names },
@@ -703,7 +756,7 @@ end
 -- HUD's (its labels and sizes) and the views it shows of others itself,
 -- with the view's `version`, VIEW: raise it when a field the window draws changes,
 -- so a session still running older code isn't drawn from a view it can't read.
-model.VIEW = 7
+model.VIEW = 8
 function model.published(view)
     local out = util.shallow_copy(view)
     out.pointer, out.others, out.ui, out.remote, out.sessions = nil, nil, nil, nil, nil
@@ -725,7 +778,7 @@ local REMOTE = {
     pick = { 'string', 'string|nil' }, target = { 'string', 'number|string', 'boolean' },
     mod = { 'string', 'string', 'boolean' }, hold = { 'string', 'boolean' }, profile = { 'string|nil' }, save_profile = { 'string', 'boolean|nil' },
     new_profile = {}, delete_profile = { 'string' }, track = { 'string' }, untrack = { 'string' },
-    skip = { 'string', 'boolean' }, set = { 'string', 'boolean|number|string' },
+    skip = { 'string', 'boolean' }, heal_spell = { 'string', 'boolean' }, set = { 'string', 'boolean|number|string' },
 }
 
 -- The settings act.set may change from another session: a number's range (the
@@ -929,6 +982,13 @@ function model.actions(cfg, status, changed, tracking, send)
     function act.untrack(name) tracking.remove(name) end
     -- A member skipped by healing is never healed for their own sake; `skip` sets it, toggled without it.
     act.skip = saving(function (name, skip) flag(cfg.heal.skip, name, skip) end)
+    -- One heal (a `view.heal.spells` name: 'Cure II', 'Regen') used by healing (`on` true) or never (false), its row's
+    -- other tiers as they were; waking uses it either way. Nil toggles.
+    act.heal_spell = saving(function (name, on)
+        cfg.heal.never = cfg.heal.never or {}
+        if on == nil then on = cfg.heal.never[name] == true end
+        cfg.heal.never[name] = not on or nil
+    end)
     -- path: 'heal.danger', 'heal.reserve', 'buff.hold_aoe', 'roll.first', 'roll.risk', 'geo.distance',
     -- 'geo.entrust', 'geo.entrust_spell', 'rune.idle_1', 'maneuver.slot_1', 'song.area_1', 'song.p1_2', 'follow.target',
     -- 'japanese', 'ui.hp_width', or 'ui.<anything>' for a UI's own.

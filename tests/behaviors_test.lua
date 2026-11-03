@@ -41,6 +41,13 @@ test('wake: two asleep together get one area heal; spread, the focus member firs
     eq(decide(two(true), cfg_with({ ['heal.focus'] = 'B' }), whm), '/ma "Cure" B')
 end)
 
+test('wake: the cheapest that wakes, one healing never uses (heal.never) too', function ()
+    local never = cfg_with({ ['heal.never'] = { Cure = true, Curaga = true } })
+    eq(decide(snap({ { name = 'A', buffs = { [SLEEP] = true } } }), never, whm), '/ma "Cure" A')
+    eq(decide(snap({ { name = 'A', buffs = { [SLEEP] = true } }, { name = 'B', buffs = { [SLEEP] = true } } }), never, whm),
+        '/ma "Curaga" A')
+end)
+
 -- Recover ---------------------------------------------------------------------------
 
 test('recover: Convert under the MP line, only while it gains and you are out of danger', function ()
