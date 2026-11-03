@@ -43,6 +43,7 @@ return function (g, cat, cfg)
     local list = sleepers(g, cfg)
     if not list[1] then return nil end
     local heals = {}
+    -- every heal whose row is on, those healing never uses (heal.never) too: the cheapest wakes
     for _, a in ipairs(settings.enabled(cat, cfg, 'heal')) do
         if a.wakes and not a.pet and not can.at_enemy(a) and can.use(a, g) then heals[#heals + 1] = a end
     end

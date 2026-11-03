@@ -330,7 +330,11 @@ local function want(g, cat, cfg, bands)
     local ctx = context(g, cat, cfg, emergencies)
     local ready, waiting = {}, {}
     ctx.regens, ctx.regen_for = {}, {}
+    local heals = {}
     for _, a in ipairs(settings.enabled(cat, cfg, 'heal')) do
+        if not settings.never_heal(cfg, a) then heals[#heals + 1] = a end  -- unticked on its own: waking's only
+    end
+    for _, a in ipairs(heals) do
         local ok, _, wait = can.use(a, g)
         if a.tick then
             if ok and a.tick > 0 then ready[#ready + 1] = a; ctx.regens[#ctx.regens + 1] = a end

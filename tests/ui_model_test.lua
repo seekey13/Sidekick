@@ -869,25 +869,50 @@ test('healing lists each heal, most HP for the MP first, tickable on its own', f
         eq(spells[i].per == nil or spells[i - 1].per ~= nil and spells[i - 1].per >= spells[i].per, true, spells[i].name)
     end
     act.heal_spell('Cure', false)
-    eq({ cfg.heal.off, writes[1] }, { { Cure = true }, 1 })
+    eq({ cfg.heal.never, writes[1] }, { { Cure = true }, 1 })
     for _, sp in ipairs(build(whm, cfg, g).heal.spells) do
         if sp.name == 'Cure' then eq(sp.on, false) end
     end
     act.heal_spell('Cure')  -- a toggle
-    eq(cfg.heal.off, {})
+    eq(cfg.heal.never, {})
     local remote = model.actions(cfg, status(), function () end)
-    eq({ model.apply(remote, cfg, { 'heal_spell', 'Regen', false, n = 2 }, whm), cfg.heal.off }, { true, { Regen = true } })
+    eq({ model.apply(remote, cfg, { 'heal_spell', 'Regen', false, n = 2 }, whm), cfg.heal.never }, { true, { Regen = true } })
     eq(model.apply(remote, cfg, { 'heal_spell', 'Regen', n = 1 }, whm), false)  -- a bare toggle: never from afar
 end)
 
 test('a heal row goes by the tiers left ticked; with none, it says so', function ()
     local cfg = settings.defaults()
-    cfg.heal.off = { ['Cure V'] = true }
+    cfg.heal.never = { ['Cure V'] = true }
     local r = row(build(whm, cfg), 'heal', 'Cure')
     eq({ r.ready, r.action }, { true, 'Cure IV' })
-    for _, n in ipairs({ 'Cure', 'Cure II', 'Cure III', 'Cure IV' }) do cfg.heal.off[n] = true end
+    for _, n in ipairs({ 'Cure', 'Cure II', 'Cure III', 'Cure IV' }) do cfg.heal.never[n] = true end
     r = row(build(whm, cfg), 'heal', 'Cure')
     eq({ r.on, r.ready, r.avail, r.action }, { true, false, 'unticked above', nil })
+end)
+
+test('healing\'s list: MP heals, then TP heals, a free one first; alone on its row or a Ready move, only once unticked', function ()
+    local DNC, BST, TRANCE = 19, 9, 376
+    local function names(cat, cfg, g)
+        return keys(build(cat, cfg, g or fake.snap({ { name = 'A' } })).heal.spells, 'name')
+    end
+    local whm_dnc = fake.catalog(WHM, 75, DNC, 37, { 'Curing Waltz', 'Curing Waltz II', 'Divine Waltz' })
+    local cures = names(whm)
+    eq({ cures[1], cures[#cures], #cures }, { 'Regen', 'Curaga', 12 })  -- Drain (alone on its row) left out
+    local g = fake.snap({ { name = 'A' } })
+    g.me.tp = 1000
+    local list = names(whm_dnc, nil, g)
+    eq({ list[12], list[13], list[14], list[15] }, { 'Curaga', 'Curing Waltz II', 'Curing Waltz', nil })  -- 50, 43.8 per 100 TP; no Divine Waltz
+    g.me.buffs[TRANCE] = true
+    list = names(whm_dnc, nil, g)
+    eq({ list[13], list[14] }, { 'Curing Waltz', 'Curing Waltz II' })  -- free under Trance: ahead, by name
+    local whm_bst = fake.catalog(WHM, 75, BST, 37)
+    eq(#names(whm_bst), 12)  -- no Wild Carrot, a Ready move
+    local cfg = settings.defaults()
+    cfg.heal.never = { ['Wild Carrot'] = true, Drain = true }
+    local listed = {}
+    for _, n in ipairs(names(whm_bst, cfg)) do listed[n] = true end
+    for _, n in ipairs(names(whm, cfg)) do listed[n] = true end
+    eq({ listed['Wild Carrot'], listed.Drain }, { true, true })  -- unticked: listed, to tick again
 end)
 
 test('a Regen tier past the table (a 99 WHM\'s Regen IV) lists with no estimate', function ()

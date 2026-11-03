@@ -254,10 +254,10 @@ local function build_row(key, acts, cfg, g, units, modifiers, outsiders)
             if c.name == r.pick then row.choice = c.label end
         end
     end
-    -- Only the heals left ticked under Heal (heal.off) can go.
+    -- Only the heals left ticked under Heal (heal.never) can go.
     local live = {}
     for _, a in ipairs(acts) do
-        if not settings.heal_off(cfg, a) then live[#live + 1] = a end
+        if not settings.never_heal(cfg, a) then live[#live + 1] = a end
     end
     if live[1] then
         row.ready, row.avail, row.action = availability(live, r, g)
@@ -595,16 +595,33 @@ end
 
 -- The view ---------------------------------------------------------------------
 
--- Healing's spells and abilities, each one tickable on its own (heal.off), most HP for the MP or TP first: what
--- each heals now and for what (behaviors/heal.lua's estimates). One per name (Wild Carrot, blue magic or a Ready move).
+-- Where a heal sorts: MP heals by HP per MP, then TP heals by HP per 100 TP (a free one,
+-- under Trance, first), then those with no estimate.
+local function heal_rank(sp)
+    if sp.per then return sp.unit == 'MP' and 1 or 2, sp.per end
+    if sp.hp and sp.cost == 0 then return 2, math.huge end
+    return 3, 0
+end
+
+-- Healing's spells and abilities that share their row with another tier, each tickable on its own (heal.never): what
+-- each heals now and for what (behaviors/heal.lua's estimates), in heal_rank's order. One per name (Wild Carrot is
+-- blue magic and a Ready move). One alone on its row has the row's switch, and a Ready move (spent only in danger)
+-- its row's: neither is listed but once unticked, so it can be ticked again.
 local function heal_spells(g, cat, cfg)
+    local list, tiers, counted = heal.estimates(g, cat, cfg), {}, {}
+    for _, e in ipairs(list) do
+        local a, key = e.a, settings.key(e.a)
+        local id = key .. '/' .. a.name
+        if not (a.charges or counted[id]) then counted[id], tiers[key] = true, (tiers[key] or 0) + 1 end
+    end
     local out, seen = {}, {}
-    for _, e in ipairs(heal.estimates(g, cat, cfg)) do
+    for _, e in ipairs(list) do
         local a = e.a
-        if not seen[a.name] then
+        local never = settings.never_heal(cfg, a)
+        if not seen[a.name] and (never or not a.charges and (tiers[settings.key(a)] or 0) > 1) then
             seen[a.name] = true
             out[#out + 1] = {
-                name = a.name, label = lang.name(a.name, a.jp), on = not settings.heal_off(cfg, a),
+                name = a.name, label = lang.name(a.name, a.jp), on = not never,
                 row_on = settings.row(cfg, a).on == true, hp = e.hp and math.floor(e.hp + 0.5), learned = e.learned,
                 cost = e.cost, unit = e.unit, per = e.per and math.floor(e.per * 10 + 0.5) / 10,
                 regen = a.tick ~= nil or nil, seconds = a.tick and a.duration or nil, area = (a.area or 0) > 0 or nil,
@@ -612,8 +629,10 @@ local function heal_spells(g, cat, cfg)
         end
     end
     table.sort(out, function (x, y)
-        if (x.per ~= nil) ~= (y.per ~= nil) then return x.per ~= nil end
-        if x.per and x.per ~= y.per then return x.per > y.per end
+        local gx, px = heal_rank(x)
+        local gy, py = heal_rank(y)
+        if gx ~= gy then return gx < gy end
+        if px ~= py then return px > py end
         return x.name < y.name
     end)
     return out
@@ -964,11 +983,11 @@ function model.actions(cfg, status, changed, tracking, send)
     -- A member skipped by healing is never healed for their own sake; `skip` sets it, toggled without it.
     act.skip = saving(function (name, skip) flag(cfg.heal.skip, name, skip) end)
     -- One heal (a `view.heal.spells` name: 'Cure II', 'Regen') used by healing (`on` true) or never (false), its row's
-    -- other tiers as they were. Nil toggles.
+    -- other tiers as they were; waking uses it either way. Nil toggles.
     act.heal_spell = saving(function (name, on)
-        cfg.heal.off = cfg.heal.off or {}
-        if on == nil then on = cfg.heal.off[name] == true end
-        cfg.heal.off[name] = not on or nil
+        cfg.heal.never = cfg.heal.never or {}
+        if on == nil then on = cfg.heal.never[name] == true end
+        cfg.heal.never[name] = not on or nil
     end)
     -- path: 'heal.danger', 'heal.reserve', 'buff.hold_aoe', 'roll.first', 'roll.risk', 'geo.distance',
     -- 'geo.entrust', 'geo.entrust_spell', 'rune.idle_1', 'maneuver.slot_1', 'song.area_1', 'song.p1_2', 'follow.target',

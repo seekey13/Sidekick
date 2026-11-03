@@ -719,7 +719,7 @@ local function heal_targets(pg, h)
     end)
 end
 
-local SPELL_TIP = 'Untick to never use it; the other tiers on its row still go.'
+local SPELL_TIP = 'Untick to never heal with it; the other tiers on its row still go, and it still wakes a sleeper.'
 local ESTIMATE_TIP = 'What one cast heals one target now, as efficient healing scores it: seen from the heals Sidekick sent '
     .. 'this session, else the table\'s guess with potency from gear (so an unticked one keeps the guess). A Regen\'s is its whole total, counted only when it all lands. '
     .. 'Then HP for each MP, or each 100 TP. Efficient healing also weighs how much is missing and how many an area heal reaches.'
@@ -733,7 +733,7 @@ local function estimate_text(sp)
     return f('%s, %s', hp, f(sp.unit == 'TP' and '%.1f HP/100 TP' or '%.1f HP/MP', sp.per))
 end
 
--- Healing's spells and abilities, a checkbox each, most HP for the MP first: its name, then what it heals and for what.
+-- Healing's spells and abilities, a checkbox each, in the view's order: its name, then what it heals and for what.
 local function heal_spells(pg, h)
     if not (h.spells and h.spells[1]) then return end
     subheader(pg, 'EFFICIENCY')

@@ -416,13 +416,16 @@ test('others go by name, never server id (the client refuses it); a trust, whose
        { '/ma "Cure IV" <p5>', '/ma "Cure IV" <a10>', '/ma "Cure IV" <a20>', '/ma "Cure IV" <a25>' })
 end)
 
-test('a heal unticked on its own (heal.off) is never used; its row\'s other tiers still are', function ()
+test('a heal unticked on its own (heal.never) never heals; its row\'s other tiers still do', function ()
     local cfg = no_regen()
-    cfg.heal.off = { ['Cure III'] = true }
+    cfg.heal.never = { ['Cure III'] = true }
     eq(decide(snap({ { name = 'A', hpp = 70 } }), cfg), '/ma "Cure" A')   -- Cure III's 250 of 300 gone: Cure ties Cure II, cheaper
     cfg = settings.defaults()
-    cfg.heal.off = { ['Regen II'] = true }
+    cfg.heal.never = { ['Regen II'] = true }
     eq(decide(snap({ { name = 'A', hpp = 70 } }), cfg), '/ma "Regen" A')     -- Regen II's 240 of 300 gone
+    cfg = no_regen()
+    cfg.heal.never = { Cure = true, ['Cure II'] = true, ['Cure III'] = true, ['Cure IV'] = true, ['Cure V'] = true }
+    eq(decide(snap({ { name = 'A', hpp = 40 } }), cfg), '/ma "Curaga IV" <me>')  -- in danger too: a Curaga then
 end)
 
 test('Cures seen healing more than the table can outscore Regen per MP', function ()
@@ -431,7 +434,7 @@ test('Cures seen healing more than the table can outscore Regen per MP', functio
     g.learned = { ma1 = 90, ma2 = 190 }
     eq(decide(g), '/ma "Cure" A')
     local cfg = settings.defaults()
-    cfg.heal.off = { ['Cure'] = true, ['Cure II'] = true }
+    cfg.heal.never = { ['Cure'] = true, ['Cure II'] = true }
     eq(decide(g, cfg), '/ma "Regen II" A')
 end)
 

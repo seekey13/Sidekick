@@ -24,9 +24,10 @@ local DEFAULTS = {
     -- HP% lines: efficient under threshold, danger, critical (behaviors/heal.lua);
     -- the focus member has its own. skip = { [name] = true }: never healed for their sake.
     -- The alliance's other parties are healed whenever a heal reaches them.
-    -- off = { [spell or ability name] = true }: that one heal is never used, its row's other tiers still are.
+    -- never = { [spell or ability name] = true }: healing never uses that one, its row's other tiers
+    -- still; waking still does.
     heal = { on = true, threshold = 75, danger = 50, critical = 30,
-             focus = '', focus_threshold = 85, focus_danger = 60, focus_critical = 40, skip = {}, off = {},
+             focus = '', focus_threshold = 85, focus_danger = 60, focus_critical = 40, skip = {}, never = {},
              cure_potency = 0, waltz_potency = 0,  -- +% from gear
              regen_potency = 0,                    -- +HP per Regen tick from gear
              reserve = false },  -- SCH: buff rows leave the last stratagem charge for healing (as v2's, opt-in)
@@ -84,17 +85,18 @@ function settings.buff_named(cat, name)
     end
 end
 
--- Whether heal `a` (a Cure II, a Regen) is unticked on its own under Heal (heal.off), its row aside.
-function settings.heal_off(cfg, a)
-    local off = cfg.heal and cfg.heal.off
-    return a.role == 'heal' and type(off) == 'table' and off[a.name] == true
+-- Whether healing never uses heal `a` (a Cure II, a Regen): unticked on its own under Heal
+-- (heal.never), its row aside. Waking still may.
+function settings.never_heal(cfg, a)
+    local never = cfg.heal and cfg.heal.never
+    return a.role == 'heal' and type(never) == 'table' and never[a.name] == true
 end
 
--- The catalog's actions for `role` whose row is on (and, for a heal, not unticked on its own).
+-- The catalog's actions for `role` whose row is on.
 function settings.enabled(cat, cfg, role)
     local out = {}
     for _, a in ipairs(cat) do
-        if a.role == role and settings.row(cfg, a).on and not settings.heal_off(cfg, a) then out[#out + 1] = a end
+        if a.role == role and settings.row(cfg, a).on then out[#out + 1] = a end
     end
     return out
 end
