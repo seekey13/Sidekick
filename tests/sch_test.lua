@@ -65,7 +65,7 @@ test('revive under Dark Arts: Enlightenment first, then the raise while its stat
     -- The JA is on recast now and its status not read yet: still the raise.
     g = snap({ DARK_ARTS }, { { name = 'A', hpp = 0 } }, { Enlightenment = 300 })
     g.now = 1001
-    eq(step(g, cfg, mem), '/ma "Raise II" A')
+    eq(step(g, cfg, mem), '/ma "Raise II" 101')
     -- No status after the window: the raise can't go.
     g = snap({ DARK_ARTS }, { { name = 'A', hpp = 0 } }, { Enlightenment = 300 })
     g.now = 1000 + engine.EXPECT + 0.1
@@ -81,11 +81,11 @@ test('a buff row\'s stratagem goes first, then the spell; never when it can\'t',
     g.now = 1001.5
     eq(step(g, cfg, mem), '/ja "Perpetuance" <me>')
     g = snap({ LIGHT_ARTS, PERPETUANCE })  -- Penury's status read, Perpetuance's expected
-    eq(step(g, cfg, mem), '/ma "Protect IV" <me>')
+    eq(step(g, cfg, mem), '/ma "Protect IV" 1')
     -- Dark Arts: no white stratagem, so the spell alone.
-    eq(decide(snap({ DARK_ARTS }), cfg, {}), '/ma "Protect IV" <me>')
+    eq(decide(snap({ DARK_ARTS }), cfg, {}), '/ma "Protect IV" 1')
     -- No charge left: the spell alone.
-    eq(decide(snap({ LIGHT_ARTS }, {}, { Penury = 30, Perpetuance = 30 }), cfg, {}), '/ma "Protect IV" <me>')
+    eq(decide(snap({ LIGHT_ARTS }, {}, { Penury = 30, Perpetuance = 30 }), cfg, {}), '/ma "Protect IV" 1')
     -- A stratagem that doesn't fit the spell is never fired for it.
     cfg = cfg_with({ spikes = { on = true, pick = 'Blaze Spikes', mods = { Penury = true } } })
     eq(decide(snap({ LIGHT_ARTS }), cfg, {}), '/ma "Blaze Spikes" <me>')
@@ -110,7 +110,7 @@ test('Accession spreads a buff from you whenever one of its targets near lacks i
     -- Not the MP for twice the cost: one at a time.
     g = snap({ LIGHT_ARTS }, others)
     g.me.mp = 100
-    eq(decide(g, cfg, {}), '/ma "Protect IV" <me>')
+    eq(decide(g, cfg, {}), '/ma "Protect IV" 1')
     -- Untargeted members don't count: with only them lacking it, nothing to do.
     cfg.rows.Protect.targets = { [0] = true }
     eq(decide(snap({ LIGHT_ARTS, PROTECT }, others), cfg, {}), nil)
@@ -199,7 +199,7 @@ test('heal.reserve: buff rows leave the last charge for healing', function ()
     eq({ with(protect, 1, false), with(protect, 2, true) }, { '/ja "Penury" <me>', '/ja "Penury" <me>' })
     eq({ with(addendum, 1, false), with(addendum, 2, true) }, { '/ja "Addendum: White" <me>', '/ja "Addendum: White" <me>' })
     -- One left: no Penury, no Accession, the spell alone; no Addendum.
-    eq({ with(protect, 1, true), with(addendum, 1, true) }, { '/ma "Protect IV" <me>', nil })
+    eq({ with(protect, 1, true), with(addendum, 1, true) }, { '/ma "Protect IV" 1', nil })
     -- Charges unknown (no SCH): nothing held back.
     eq(with(protect, nil, true), '/ja "Penury" <me>')
 end)
@@ -218,7 +218,7 @@ end)
 test('expected statuses stay out of the snapshot the HUD and /sk3 state read', function ()
     local g = snap({ DARK_ARTS }, { { name = 'A', hpp = 0 } })
     local mem = { expect = { [ENLIGHTENMENT] = 1001 } }
-    eq(decide(g, settings.defaults(), mem), '/ma "Raise II" A')
+    eq(decide(g, settings.defaults(), mem), '/ma "Raise II" 101')
     eq({ g.me.buffs[ENLIGHTENMENT], g.units[1].buffs[ENLIGHTENMENT] }, { nil, nil })
 end)
 
@@ -227,7 +227,7 @@ test('Hold on a row: its spell waits while a stratagem picked can\'t go (wrong A
     eq(decide(snap({ DARK_ARTS }), cfg, {}), nil)
     eq(decide(snap({ LIGHT_ARTS }), cfg, {}), '/ja "Penury" <me>')
     cfg.rows.Protect.hold = nil
-    eq(decide(snap({ DARK_ARTS }), cfg, {}), '/ma "Protect IV" <me>')
+    eq(decide(snap({ DARK_ARTS }), cfg, {}), '/ma "Protect IV" 1')
 end)
 
 test('Hold counts the charges: it waits while there are more stratagems to fire than charges to spend', function ()
@@ -253,7 +253,7 @@ test('Hold and Accession: waits only when the spell would spread to someone it r
         return (decide(g, cfg, {}))
     end
     eq(with({ { name = 'A' } }, { Accession = 30 }), nil, 'A near and lacking it: waits for Accession')
-    eq(with({ { name = 'A', dist = 15 } }, { Accession = 30 }), '/ma "Protect IV" A', 'A too far to spread to: goes alone')
+    eq(with({ { name = 'A', dist = 15 } }, { Accession = 30 }), '/ma "Protect IV" 101', 'A too far to spread to: goes alone')
 end)
 
 test('a held row says what it waits for', function ()

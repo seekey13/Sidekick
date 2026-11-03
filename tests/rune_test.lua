@@ -155,18 +155,18 @@ test('Embolden on a buff row goes just before the spell', function ()
     cfg.rows.Protect = { on = true, mods = { Embolden = true } }
     local cmd, intent = decide(snap(), cfg)
     eq({ cmd, intent.expect }, { '/ja "Embolden" <me>', { EMBOLDEN } })
-    eq(decide(snap({ [EMBOLDEN] = 1 }), cfg), '/ma "Protect III" <me>')
-    eq(decide(snap(nil, nil, { Embolden = 200 }), cfg), '/ma "Protect III" <me>', 'on recast, the spell goes unboosted')
+    eq(decide(snap({ [EMBOLDEN] = 1 }), cfg), '/ma "Protect III" 1')
+    eq(decide(snap(nil, nil, { Embolden = 200 }), cfg), '/ma "Protect III" 1', 'on recast, the spell goes unboosted')
 end)
 
 test('Hold on its row: the spell waits while Embolden can\'t go with it', function ()
     local cfg = settings.defaults()
     cfg.rows.Protect = { on = true, mods = { Embolden = true }, hold = true }
     eq(decide(snap(nil, nil, { Embolden = 200 }), cfg), nil)
-    eq(decide(snap({ [EMBOLDEN] = 1 }, nil, { Embolden = 200 }), cfg), '/ma "Protect III" <me>', 'up already: it goes')
+    eq(decide(snap({ [EMBOLDEN] = 1 }, nil, { Embolden = 200 }), cfg), '/ma "Protect III" 1', 'up already: it goes')
     eq(decide(snap(), cfg), '/ja "Embolden" <me>')
     cfg.rows.Shell = { on = true }
-    eq(decide(snap(nil, nil, { Embolden = 200 }), cfg), '/ma "Shell IV" <me>', 'only that row waits')
+    eq(decide(snap(nil, nil, { Embolden = 200 }), cfg), '/ma "Shell IV" 1', 'only that row waits')
 end)
 
 local NAMES = { job = function (id) return ({ [22] = 'RUN', [4] = 'BLM', [1] = 'WAR', [3] = 'WHM' })[id] end,

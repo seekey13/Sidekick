@@ -25,7 +25,7 @@ local whm = fake.catalog(WHM, 75, BLM, 37)
 
 test('wake: the cheapest heal that wakes, on a sleeper at full HP', function ()
     local cmd, intent = decide(snap({ { name = 'A', buffs = { [SLEEP] = true } } }), nil, whm)
-    eq({ cmd, intent.behavior, intent.why }, { '/ma "Cure" A', 'wake', 'A asleep' })
+    eq({ cmd, intent.behavior, intent.why }, { '/ma "Cure" 101', 'wake', 'A asleep' })
     eq({ decide(snap({ { name = 'A', buffs = { [SLEEP] = true } } }), cfg_with({ ['wake.on'] = false }), whm) },
         { nil, 'nothing to do' })
 end)
@@ -36,16 +36,16 @@ test('wake: two asleep together get one area heal; spread, the focus member firs
                       { name = 'B', buffs = { [SLEEP] = true }, pos = spread and { 30, 0, 0 } or nil } })
     end
     local cmd, intent = decide(two(false), nil, whm)
-    eq({ cmd, intent.why }, { '/ma "Curaga" A', '2 asleep' })
-    eq(decide(two(true), nil, whm), '/ma "Cure" A')
-    eq(decide(two(true), cfg_with({ ['heal.focus'] = 'B' }), whm), '/ma "Cure" B')
+    eq({ cmd, intent.why }, { '/ma "Curaga" 101', '2 asleep' })
+    eq(decide(two(true), nil, whm), '/ma "Cure" 101')
+    eq(decide(two(true), cfg_with({ ['heal.focus'] = 'B' }), whm), '/ma "Cure" 102')
 end)
 
 test('wake: the cheapest that wakes, one healing never uses (heal.never) too', function ()
     local never = cfg_with({ ['heal.never'] = { Cure = true, Curaga = true } })
-    eq(decide(snap({ { name = 'A', buffs = { [SLEEP] = true } } }), never, whm), '/ma "Cure" A')
+    eq(decide(snap({ { name = 'A', buffs = { [SLEEP] = true } } }), never, whm), '/ma "Cure" 101')
     eq(decide(snap({ { name = 'A', buffs = { [SLEEP] = true } }, { name = 'B', buffs = { [SLEEP] = true } } }), never, whm),
-        '/ma "Curaga" A')
+        '/ma "Curaga" 101')
 end)
 
 -- Recover ---------------------------------------------------------------------------
@@ -66,9 +66,9 @@ end)
 test('recover: Devotion on the member lowest on MP, never one with no MP', function ()
     local cat = fake.catalog(WHM, 75, nil, 0, { 'Devotion' })
     local g = snap({ { name = 'A', mpp = 25 }, { name = 'B', mpp = 10 }, { name = 'War', mpp = 0, uses_mp = false } })
-    eq(decide(g, nil, cat), '/ja "Devotion" B')
+    eq(decide(g, nil, cat), '/ja "Devotion" 102')
     g.units[3].mpp = 50
-    eq(decide(g, nil, cat), '/ja "Devotion" A')
+    eq(decide(g, nil, cat), '/ja "Devotion" 101')
 end)
 
 test('recover: Meditate in combat under the TP line; Chivalry from its own TP line', function ()
@@ -219,7 +219,7 @@ test('items: a spell that can go first; then the most specific item you carry, f
     local carried = { [ANTIDOTE] = 1, [REMEDY] = 1, [PANACEA] = 1 }
     local g = snap(nil, { items = carried })
     g.me.buffs[POISON] = true
-    eq(decide(g, cfg, whm), '/ma "Poisona" <me>')
+    eq(decide(g, cfg, whm), '/ma "Poisona" 1')
     local blm = fake.catalog(BLM, 75, nil, 0)
     g = snap({ { name = 'A', buffs = { [POISON] = true } } }, { items = carried })
     eq({ decide(g, cfg, blm) }, { nil, 'nothing to do' })
@@ -258,15 +258,15 @@ test('removal: a player switched off is skipped, and their own debuffs replace e
     eq({ decide(g, cfg, whm) }, { nil, 'nothing to do' })
     cfg.remove.off = { A = true }
     cfg.remove.skip = {}
-    eq(decide(g, cfg, whm), '/ma "Paralyna" B')
+    eq(decide(g, cfg, whm), '/ma "Paralyna" 102')
     -- It stays with A: whoever takes their slot is looked after.
-    eq(decide(snap({ { name = 'C', buffs = { [PARALYSIS] = true } } }), cfg, whm), '/ma "Paralyna" C')
+    eq(decide(snap({ { name = 'C', buffs = { [PARALYSIS] = true } } }), cfg, whm), '/ma "Paralyna" 101')
     cfg.remove.off = {}
     cfg.remove.own = { A = { set = true, skip = { paralysis = true } } }
-    eq(decide(g, cfg, whm), '/ma "Paralyna" B')
+    eq(decide(g, cfg, whm), '/ma "Paralyna" 102')
     cfg.remove.skip = { paralysis = true }
     cfg.remove.own = { A = { set = true, skip = {} } }
-    eq(decide(g, cfg, whm), '/ma "Paralyna" A')
+    eq(decide(g, cfg, whm), '/ma "Paralyna" 101')
     eq({ decide(snap({ { name = 'C', buffs = { [PARALYSIS] = true } } }), cfg, whm) }, { nil, 'nothing to do' })
 end)
 
@@ -328,8 +328,8 @@ test('Invisible: no removal, wake, pet care or other buff, only travel buffs; Sn
     local cfg = travel_cfg()
     local others = { { name = 'A', buffs = { [POISON] = true, [SNEAK] = true, [INVISIBLE] = true } },
                      { name = 'B', buffs = { [SLEEP] = true } } }
-    eq(decide(under(snap(others), SNEAK), cfg, whm), '/ma "Poisona" A')
-    eq(decide(under(snap(others), INVISIBLE), cfg, whm), '/ma "Sneak" <me>')
+    eq(decide(under(snap(others), SNEAK), cfg, whm), '/ma "Poisona" 101')
+    eq(decide(under(snap(others), INVISIBLE), cfg, whm), '/ma "Sneak" 1')
     eq({ decide(under(under(snap(others), SNEAK), INVISIBLE), cfg, whm) }, { nil, 'invisible' })
     local g = snap(nil, { pet = automaton({ hpp = 40 }), ammo = OIL })
     eq(decide(under(g, SNEAK), nil, pup), '/ja "Repair" <me>')
@@ -345,16 +345,16 @@ test('your own Invisible goes last: members first, your Sneak and other buffs be
         return g
     end
     local PROTECT = 40
-    eq(decide(with({}, {}), cfg, whm), '/ma "Protect IV" <me>')
-    eq(decide(with({ PROTECT }, { [PROTECT] = true }), cfg, whm), '/ma "Sneak" <me>')
-    eq(decide(with({ PROTECT, SNEAK }, { [PROTECT] = true }), cfg, whm), '/ma "Sneak" A')
-    eq(decide(with({ PROTECT, SNEAK }, { [PROTECT] = true, [SNEAK] = true }), cfg, whm), '/ma "Invisible" A')
+    eq(decide(with({}, {}), cfg, whm), '/ma "Protect IV" 1')
+    eq(decide(with({ PROTECT }, { [PROTECT] = true }), cfg, whm), '/ma "Sneak" 1')
+    eq(decide(with({ PROTECT, SNEAK }, { [PROTECT] = true }), cfg, whm), '/ma "Sneak" 101')
+    eq(decide(with({ PROTECT, SNEAK }, { [PROTECT] = true, [SNEAK] = true }), cfg, whm), '/ma "Invisible" 101')
     local all = { [PROTECT] = true, [SNEAK] = true, [INVISIBLE] = true }
     local cmd, intent = decide(with({ PROTECT, SNEAK }, all), cfg, whm)
-    eq({ cmd, intent.behavior }, { '/ma "Invisible" <me>', 'buff' })
+    eq({ cmd, intent.behavior }, { '/ma "Invisible" 1', 'buff' })
     -- A member loses theirs while you're Invisible: theirs again, then yours.
     eq(decide(with({ PROTECT, SNEAK, INVISIBLE }, { [PROTECT] = true, [SNEAK] = true }), cfg, whm),
-        '/ma "Invisible" A')
+        '/ma "Invisible" 101')
     eq({ decide(with({ PROTECT, SNEAK, INVISIBLE }, all), cfg, whm) }, { nil, 'invisible' })
 end)
 
@@ -367,7 +367,7 @@ test('Spectral Jig is used again only once both its Sneak and its Invisible are 
     eq(decide(g, cfg, dnc), '/ja "Spectral Jig" <me>', 'not Sneak first: the Jig gives it')
     eq({ decide(under(g, SNEAK), cfg, dnc) }, { nil, 'nothing to do' }, 'Invisible broken: Sneak is still up')
     g = under(snap(nil, { main = 19, sub = WHM }), INVISIBLE)
-    eq(decide(g, cfg, dnc), '/ma "Sneak" <me>', 'Sneak lost, Invisible up: the Jig would do nothing')
+    eq(decide(g, cfg, dnc), '/ma "Sneak" 1', 'Sneak lost, Invisible up: the Jig would do nothing')
 end)
 
 test('your own Invisible waits for a member\'s Sneak briefly on recast, not a long one', function ()
@@ -378,13 +378,13 @@ test('your own Invisible waits for a member\'s Sneak briefly on recast, not a lo
         s.me.buffs[PROTECT], s.me.buffs[SNEAK] = true, true
         return s
     end
-    eq(decide(g(3), cfg, whm), '/ma "Invisible" A')
+    eq(decide(g(3), cfg, whm), '/ma "Invisible" 101')
     local short = g(3)
     short.units[2].buffs[INVISIBLE] = true
     eq({ decide(short, cfg, whm) }, { nil, 'nothing to do' }, 'A lacks only Sneak, 3s off')
     local long = g(30)
     long.units[2].buffs[INVISIBLE] = true
-    eq(decide(long, cfg, whm), '/ma "Invisible" <me>')
+    eq(decide(long, cfg, whm), '/ma "Invisible" 1')
 end)
 
 test('your own Invisible waits at most OTHERS_FIRST seconds for a buff briefly on recast', function ()
@@ -397,11 +397,11 @@ test('your own Invisible waits at most OTHERS_FIRST seconds for a buff briefly o
     g.now = g.now + 14
     eq({ decide(g, cfg, whm, mem) }, { nil, 'nothing to do' })
     g.now = g.now + 1
-    eq(decide(g, cfg, whm, mem), '/ma "Invisible" <me>', 'waited long enough')
+    eq(decide(g, cfg, whm, mem), '/ma "Invisible" 1', 'waited long enough')
     g.recast = function () return 0 end
-    eq(decide(g, cfg, whm, {}), '/ma "Protect IV" <me>')
+    eq(decide(g, cfg, whm, {}), '/ma "Protect IV" 1')
     g.recast = function (a) return a.name:find('Protect') and 60 or 0 end
-    eq(decide(g, cfg, whm, {}), '/ma "Invisible" <me>', 'a long recast is not waited for')
+    eq(decide(g, cfg, whm, {}), '/ma "Invisible" 1', 'a long recast is not waited for')
 end)
 
 test('resting starts and stops while you are Invisible', function ()
