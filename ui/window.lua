@@ -720,8 +720,8 @@ local function heal_targets(pg, h)
 end
 
 local SPELL_TIP = 'Untick to never use it; the other tiers on its row still go.'
-local ESTIMATE_TIP = 'What one cast heals one target now, as efficient healing scores it: seen from your own casts, '
-    .. 'else the table\'s guess with potency from gear. A Regen\'s is its whole total, counted only when it all lands. '
+local ESTIMATE_TIP = 'What one cast heals one target now, as efficient healing scores it: seen from the heals Sidekick sent '
+    .. 'this session, else the table\'s guess with potency from gear (so an unticked one keeps the guess). A Regen\'s is its whole total, counted only when it all lands. '
     .. 'Then HP for each MP, or each 100 TP. Efficient healing also weighs how much is missing and how many an area heal reaches.'
 
 -- What a heal restores and for what: '240 HP over 60s, 6.7 HP/MP', '(seen)' once a cast was.

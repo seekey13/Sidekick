@@ -369,8 +369,8 @@ function heal.estimates(g, cat, cfg)
     local ctx = context(g, cat, cfg, {})
     for _, a in ipairs(cat) do
         if a.role == 'heal' then
-            local hp = amount(a, ctx)
-            if a.tick and a.tick <= 0 then hp = nil end
+            -- a Regen tier with no known value (Regen IV, V: tick 0, no duration) says nothing
+            local hp = not (a.tick and a.tick <= 0) and amount(a, ctx) or nil
             local e = { a = a, hp = hp, learned = not a.tick and g.learned[observed.key(a)] ~= nil }
             if (a.mp or 0) > 0 then e.cost, e.unit = a.mp, 'MP'
             elseif waltz(a) then e.cost, e.unit = can.tp(a, g), 'TP' end

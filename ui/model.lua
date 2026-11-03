@@ -254,7 +254,16 @@ local function build_row(key, acts, cfg, g, units, modifiers, outsiders)
             if c.name == r.pick then row.choice = c.label end
         end
     end
-    row.ready, row.avail, row.action = availability(acts, r, g)
+    -- Only the heals left ticked under Heal (heal.off) can go.
+    local live = {}
+    for _, a in ipairs(acts) do
+        if not settings.heal_off(cfg, a) then live[#live + 1] = a end
+    end
+    if live[1] then
+        row.ready, row.avail, row.action = availability(live, r, g)
+    else
+        row.ready, row.avail = false, lang.t('unticked above')
+    end
     -- Held: a modifier on for it that can't go says why it waits.
     for _, m in ipairs(row.hold and modifiers or {}) do
         if row.ready and (r.mods or {})[m.name] and not can.any(g.me.buffs, m.status) then

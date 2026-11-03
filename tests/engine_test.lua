@@ -444,3 +444,26 @@ test('estimates: what each heal restores now and for what', function ()
     eq({ by['Cure II'].hp, by['Cure II'].learned, by['Cure II'].per }, { 190, true, 190 / 24 })
     eq({ by['Regen II'].hp, by['Regen II'].per }, { 240, 240 / 36 })
 end)
+
+test('estimates: a waltz per 100 TP, with nothing to pay under Trance', function ()
+    local TRANCE = 376
+    local g = snap({ { name = 'A', hpp = 70 } })
+    local function waltz_ii()
+        for _, e in ipairs(heal.estimates(g, dnc, settings.defaults())) do
+            if e.a.name == 'Curing Waltz II' then return e end
+        end
+    end
+    local e = waltz_ii()
+    eq({ e.hp, e.unit, e.cost, e.per }, { 175, 'TP', 350, 50 })
+    with(g, { TRANCE })
+    e = waltz_ii()
+    eq({ e.hp, e.unit, e.cost, e.per }, { 175, 'TP', 0, nil })
+end)
+
+test('estimates: a Regen tier past the table (a 99 WHM\'s Regen IV) has none, nor a duration', function ()
+    local by = {}
+    for _, e in ipairs(heal.estimates(snap({ { name = 'A', hpp = 70 } }), fake.catalog(3, 99, 4, 49), settings.defaults())) do
+        by[e.a.name] = e
+    end
+    eq({ by['Regen IV'].hp, by['Regen IV'].per, by['Regen IV'].a.duration, by['Regen III'].hp }, { nil, nil, nil, 400 })
+end)

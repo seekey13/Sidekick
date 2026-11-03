@@ -879,3 +879,19 @@ test('healing lists each heal, most HP for the MP first, tickable on its own', f
     eq({ model.apply(remote, cfg, { 'heal_spell', 'Regen', false, n = 2 }, whm), cfg.heal.off }, { true, { Regen = true } })
     eq(model.apply(remote, cfg, { 'heal_spell', 'Regen', n = 1 }, whm), false)  -- a bare toggle: never from afar
 end)
+
+test('a heal row goes by the tiers left ticked; with none, it says so', function ()
+    local cfg = settings.defaults()
+    cfg.heal.off = { ['Cure V'] = true }
+    local r = row(build(whm, cfg), 'heal', 'Cure')
+    eq({ r.ready, r.action }, { true, 'Cure IV' })
+    for _, n in ipairs({ 'Cure', 'Cure II', 'Cure III', 'Cure IV' }) do cfg.heal.off[n] = true end
+    r = row(build(whm, cfg), 'heal', 'Cure')
+    eq({ r.on, r.ready, r.avail, r.action }, { true, false, 'unticked above', nil })
+end)
+
+test('a Regen tier past the table (a 99 WHM\'s Regen IV) lists with no estimate', function ()
+    local by = {}
+    for _, sp in ipairs(build(fake.catalog(WHM, 99, BLM, 49), settings.defaults()).heal.spells) do by[sp.name] = sp end
+    eq({ by['Regen IV'].hp, by['Regen IV'].per, by['Regen IV'].seconds, by['Regen III'].hp }, { nil, nil, nil, 400 })
+end)

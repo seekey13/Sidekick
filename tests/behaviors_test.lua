@@ -41,6 +41,11 @@ test('wake: two asleep together get one area heal; spread, the focus member firs
     eq(decide(two(true), cfg_with({ ['heal.focus'] = 'B' }), whm), '/ma "Cure" B')
 end)
 
+test('wake: never with a heal unticked under Heal (heal.off), its row\'s other tiers still', function ()
+    local asleep = snap({ { name = 'A', buffs = { [SLEEP] = true } } })
+    eq(decide(asleep, cfg_with({ ['heal.off'] = { Cure = true } }), whm), '/ma "Cure II" A')
+end)
+
 -- Recover ---------------------------------------------------------------------------
 
 test('recover: Convert under the MP line, only while it gains and you are out of danger', function ()

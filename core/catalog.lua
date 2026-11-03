@@ -59,6 +59,12 @@ local function ids(v, idx, what)
     return out
 end
 
+-- One value for every tier, or a list by tier: nil for a tier past its end (Regen IV's duration).
+local function per_tier(v, tier)
+    if type(v) == 'table' then return v[tier] end
+    return v
+end
+
 -- Status id -> its name, for the ids in these lists: what can.use names as blocking or needed,
 -- and a removal's debuffs, which Debuff removal lists and switches by name (behaviors/remove.lua):
 -- its id as text when the client has no name for it.
@@ -131,7 +137,7 @@ function catalog.build(res, player, K)
                     boost = use.boost and { kind = use.boost[1], factor = use.boost[2] or 1,
                                             potency = use.boost.potency, area = use.boost.area,
                                             mp = use.boost.mp or 1, tiers = use.boost.tiers },
-                    duration = type(use.duration) == 'table' and use.duration[tier] or use.duration,
+                    duration = per_tier(use.duration, tier),
                     wakes = use.wakes, trance = use.trance, gives = use.gives, gate = use.gate, pick_one = use.pick_one,
                     costs_hp = use.costs_hp, swaps = use.swaps, spends_tp = use.spends_tp,
                     ammo = use.ammo, pet_range = use.pet_range, tool = use.tool, last_shadow = use.last_shadow,
