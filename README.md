@@ -1,100 +1,174 @@
+<div align="center">
+
 # Sidekick3
 
-Ground-up rewrite of [Sidekick](https://github.com/seekey13/Sidekick), the support-automation addon for Ashita v4 on [CatsEyeXI](https://www.catseyexi.com/).
+**Support-job automation for Ashita v4 on [CatsEyeXI](https://www.catseyexi.com/).**
 
-**Status: in development.** It heals by urgency: the most HP for your MP or TP when someone is hurt, the fastest heal when they're in danger, a boost (Divine Seal, Accession...) when they're critical. It weighs area cures and Regen against single cures, learns what your cures really heal, and has a focus target. It also removes debuffs (with items too, when you turn them on), wakes sleepers, raises, keeps up buffs you turn on, recovers MP and TP (Convert, Devotion, Aspir, Meditate...), looks after your pet (Repair, Spirit Link, sending it in, equipping its oil or food) and heals the party with a rabbit's Wild Carrot on its Ready charges and keeps a Puppetmaster's maneuvers up, keeps a Corsair's rolls up and Double-Ups them, keeps a Geomancer's luopan where it's needed, keeps a Rune Fencer's runes up, keeps a Ninja's shadows up with the tools you carry, casts only the blue magic a Blue Mage has set and spreads its buffs with Diffusion, heals with a Dancer's waltzes around the stance you keep up, and can follow a member and rest when there's nothing to do (and sleeps while you're AFK), for you, your party and trusts, your alliance, and players outside it you track. Sidekick v2 can stay loaded alongside it, but don't run both at once.
+Heals, cures, buffs, raises and recovers for you, your party, your alliance and anyone you track.
 
-## What's different
+[![License: GPL v3](https://img.shields.io/badge/license-GPL--3.0--or--later-blue.svg)](LICENSE)
+![Ashita v4](https://img.shields.io/badge/Ashita-v4-8a2be2.svg)
+![Status](https://img.shields.io/badge/status-in%20development-orange.svg)
 
-v2 described every job's spells and abilities by hand in 22 job files. v3 reads them from the game: the client's spell and ability data gives levels, costs, recasts, ranges and targets, and the server's learned-spell and ability lists say what your character has. All that's left by hand is [core/knowledge.lua](core/knowledge.lua), one row per spell family describing what it is *for* (heal, buff, cure a status...), shared by every job.
+</div>
 
-## Use
+---
 
+Sidekick3 is a ground-up rewrite of [Sidekick](https://github.com/seekey13/Sidekick). Instead of hand-written job files, it reads your spells and abilities straight from the game client and server, so it knows exactly what your character can do at any level, on any job pair.
+
+## Features
+
+- **Urgency-based healing**: the most HP per MP when someone is hurt, the fastest cure when they're in danger, a boost (Divine Seal, Accession, Majesty) when they're critical. Weighs area cures and Regen against single-target, and learns what your cures actually heal.
+- **Status removal**: -na spells, Erase, Esuna, waltzes and (opt-in) items, with per-player, per-debuff control.
+- **Wake, raise and buff**: wakes sleepers, raises the KO'd and keeps up the buffs you choose on the targets you choose.
+- **Recovery**: MP and TP through Convert, Devotion, Aspir, Chivalry, Meditate, resting and more.
+- **Pet care**: Repair, Spirit Link, Reward, sending your pet in, and auto-equipping oils and pet food.
+- **Follow, rest and AFK sleep**: follows a leader, rests when idle, and pauses itself if the party goes quiet.
+- **Alliance and tracked players**: looks after all three parties, plus players outside your alliance.
+- **Multiboxing**: every Sidekick3 session on one PC sees the others and can start, stop and configure them.
+- **Profiles**: named settings snapshots per job pair (Dynamis, EXP...).
+- **Japanese client support**: commands go out in Japanese and the whole UI can be shown in Japanese.
+
+## Installation
+
+1. Download or clone this repository into `Ashita/addons/sidekick3`.
+2. In game: `/addon load sidekick3`
+3. Open the HUD with `/sk3`, click the cog on your card to configure, and press run.
+
+Automation always starts **off** after a load. Healing, removal, waking, raising, recovery and pet care are on by default; buffs, items, following and resting are opt-in.
+
+> [!NOTE]
+> Sidekick v2 can stay loaded alongside Sidekick3, but don't run both at once.
+
+## Commands
+
+| Command | Description |
+| --- | --- |
+| `/sk3` | Open or close the HUD |
+| `/sk3 start` \| `stop` `[Name\|all]` | Automation on/off, for this or another session on this PC |
+| `/sk3 plan` | Show what it would do right now, without doing it |
+| `/sk3 buff <spell> <targets>` | Keep a buff up (`me`, `p1`–`p5`, `b0`–`c5`, a tracked name); `off` to stop |
+| `/sk3 focus <Name>` \| `off` | Heal this member first |
+| `/sk3 follow <Name>` \| `off` | Follow a member |
+| `/sk3 rest` / `afk` `[on\|off]` | Rest when idle / AFK sleep |
+| `/sk3 track` / `untrack` `[Name]` | Look after a player outside your alliance |
+| `/sk3 profile [Name]` | Load a profile, or list them |
+| `/sk3 widget` | Toggle the compact status widget |
+| `/sk3 catalog` | What it can automate for your job |
+| `/sk3 help` | Full command list |
+
+## Interface
+
+- **HUD**: a card per party member and pet with HP/MP/TP bars, the alliance below, and a label showing the next action and who it's for.
+- **Widget**: a compact pill per character with run/stop and settings, handy beside another party list.
+- **Sidekick Settings**: one page per behavior (Heal, Remove, Buff, Pet, Recover, Follow, AFK...), with on/off switches per section.
+
+The UI is a single replaceable file; see [ui/README.md](ui/README.md) to build your own.
+
+## Job logic
+
+Every job gets healing, removal, buffs and recovery from what it knows. These jobs also have logic of their own.
+
+<details>
+<summary><b>Bard</b></summary>
+
+Keeps the songs you pick up, as **Area** songs on everyone nearby or per-slot songs through Pianissimo. Tracks each song's age to re-sing the oldest first, re-sings before expiry with **Song Duration**, and handles Nightingale/Troubadour and optional Pianissimo fast casting.
+</details>
+
+<details>
+<summary><b>Beastmaster</b></summary>
+
+A rabbit's **Wild Carrot** joins your heals once two Ready charges are banked, used only when someone is in danger so chip damage leaves charges for attacks.
+</details>
+
+<details>
+<summary><b>Blue Mage</b></summary>
+
+Casts only the blue magic you have set. **Unbridled Learning** fires for the spells that need it, and a **Diffusion** chip spreads self-buffs to the party when they need it.
+</details>
+
+<details>
+<summary><b>Corsair</b></summary>
+
+Keeps your chosen rolls up and **Double-Ups** by your chosen risk, using Snake Eye and Fold to land lucky numbers and undo Busts. `/sk3 "Bolter's Roll"` rolls one on demand.
+</details>
+
+<details>
+<summary><b>Dancer</b></summary>
+
+Heals with waltzes, with free waltzes under **Trance**, and keeps sambas and Saber/Fan Dance up as buffs, working around the moves each one blocks. Uses No Foot Rise and Reverse Flourish to manage finishing moves.
+</details>
+
+<details>
+<summary><b>Geomancer</b></summary>
+
+Places your **Geo** luopan on the right target, or a debuff luopan on your battle target in combat, and recalls it with **Full Circle** when it's out of place. Supports Blaze of Glory, **Entrust**, and **Radial Arcana** for MP.
+</details>
+
+<details>
+<summary><b>Ninja</b></summary>
+
+Keeps **Utsusemi** shadows up with the tools you carry, and shows how many casts you have left. Can recast at one shadow, and equips shuriken for Sange.
+</details>
+
+<details>
+<summary><b>Puppetmaster</b></summary>
+
+Keeps your chosen **maneuvers** up while the automaton is out, skipping them under Overload. Equips the best oil for Repair and Maintenance.
+</details>
+
+<details>
+<summary><b>Rune Fencer</b></summary>
+
+Keeps your chosen **runes** up with separate sets for idle, **Vallation**, **Valiance** and **Pflug**, firing wards in combat. An **Embolden** chip boosts enhancing spells.
+</details>
+
+<details>
+<summary><b>Scholar</b></summary>
+
+Handles **Light/Dark Arts** and Addendum automatically, fires **stratagems** (Penury, Celerity, Perpetuance, Accession...) just before the spells you tag, and can save the last charge for emergency healing.
+</details>
+
+<details>
+<summary><b>Other jobs</b></summary>
+
+White Mage, Red Mage, Paladin, Summoner, Dragoon and the rest are handled by the shared engine: Divine Seal and Martyr, Convert, Majesty and Chivalry, Healing Ruby, Spirit Link and more, all read from the game.
+</details>
+
+## Configuration
+
+Settings are saved per character and job pair in `config/addons/sidekick3/<character>/`, profiles included. The HUD layout is shared across job pairs.
+
+<details>
+<summary><b>Japanese font on Ashita 4.16</b></summary>
+
+Ashita 4.16 must load the Japanese font itself. Copy `meiryo.ttc` from `C:\Windows\Fonts` to `Ashita\resources\fonts\`, add this to your boot config, and restart the game:
+
+```ini
+[ashita.imgui.fonts]
+font0.family = Agave
+font0.size   = 18,24,32
+font1.family = meiryo.ttc
+font1.size   = 18
+font1.is_jp  = true
 ```
-/addon load sidekick3
-/sk3                    open or close the window
-/sk3 widget             show or hide the widget, with or without the HUD
-/sk3 help               the command list
-/sk3 plan               what it would do right now, without doing it
-/sk3 start | stop       automation on / off (always off after a load)
-/sk3 start | stop Name  the same for another Sidekick3 session on this PC, by its character's name; "all" for this one and every other
-/sk3 buff Haste p1 b0   keep a buff up on those targets (me, p1-p5, b0-c5 for the alliance, a tracked player's name); "off" turns it off
-/sk3 buff Barfira       for pick-one groups (bar-elements, enspells, storms) name the spell; a Japanese client may name it in Japanese
-/sk3 buff               list the buffs that are on
-/sk3 focus Name | off   heal this member first, on its own HP lines
-/sk3 follow Name | off  follow this member
-/sk3 rest [on | off]    rest for MP when there's nothing to do
-/sk3 afk [on | off | N] AFK sleep on, off, or after N minutes (1 to 60); with nothing, how it stands
-/sk3 profile [Name]     load a settings profile (default: back to your own settings); with no name, list them
-/sk3 track [Name]       look after a player outside your alliance too: your target, or by name; else list them
-/sk3 untrack Name | all stop tracking them
-/sk3 state              what Sidekick reads from the game: party, trusts, buffs, target, flags
-/sk3 catalog [unknown]  what it can automate for your job, by role (or what it can't)
-/sk3 log                print each action as it's sent (off unless debugging)
-/sk3 "Bolter's Roll"    roll that Phantom Roll, then Double-Up at Lowest (lucky, or the safest total; a Bust can't happen)
-```
 
-The HUD (`/sk3`) shows the party as Sidekick reads them, and what it will do next:
+Under VanaCore (ImGui 1.92) no setup is needed.
+</details>
 
-- **A card per member**: HP, MP and TP bars, the name on the HP bar and the slot (ME, P1-P5) on the TP bar, then one per tracked player (T1, T2..., HP only). A member with no MP (0/0: a job without it) has no MP bar, its TP bar right under its HP bar; Hide unused MP bars under UI / Log (on by default) switches that off. A member on a job with MP, main or sub, keeps its MP bar at 0 MP too; on others, it shows once Sidekick has seen it with some on those jobs. The name turns yellow at 75% HP, orange at 50% and red at 25%, the slot rose under your Recover MP line; a member in another zone is greyed, its bars faded. The TP bar comes in three parts of 1000 TP, each filling once the one before is full, solid when full and faint while it fills. Hover a card for its HP and MP %, TP, distance and statuses, and whether it's a trust, tracked, KO or away. Your own card's HP bar has the round buttons that start and stop automation and open Sidekick Settings, each filled blue while automation runs or its settings show; so does the card of another Sidekick3 session on this PC, for that session (see Boxing).
-- **Your pet's card**, under yours and before P1 (tagged PET), while you have a pet out: its HP, MP and TP bars; hover it for the numbers and its distance. A pet with no MP (a wyvern, a jug pet: one never seen with any) has no MP bar, as a member's. Another Sidekick3 session's pet (see Boxing) gets the same card under that session's card while your game draws it: its HP as your game sees it, its MP and TP from that session's file. For the moment after it's called or swapped for another, until the file names it, its MP and TP bars stay empty and its tooltip leaves them out.
-- **The alliance's other parties** under the cards: a thin HP bar each, with its slot (B0-B5, C0-C5) and name in the same HP colours, each party after a gap; hover one for its HP %.
-- **A label** pointing at the member the next action is for, like `Heal:Cure IV`: amber while running, grey while stopped (what it would do). Pet care and sending your pet in point at its card; any other action on you, your pet or the enemy, at your own. Another Sidekick3 session on this PC (see Boxing) gets a blue label of its own as its automation acts, its character's name then the action, after yours: at the member it's for, at its pet's card for its pet's care and sending it in, or at that session's own card for any other action on itself, its pet or the enemy. It stays up as long as that session's own label would.
-- **The title row**: hover it for your job, what Sidekick is doing or why it's waiting (casting, moving, safe zone...), your battle target and pet. Its × closes the HUD.
+## Development
 
-While you're Invisible (from the spell, Tonko or Spectral Jig), any action breaks it, so Sidekick keeps quiet: it only heals a member under their danger line and keeps the travel buffs up (Sneak, Invisible, Tonko, Monomi, Spectral Jig); it still follows and rests, but nothing else goes. Sneak breaks on nothing, so it stops nothing. Your own Invisible goes up last of all, once everything else is done, members' Sneak and Invisible and your own Sneak too; it waits up to 15 seconds for a buff someone lacks that's about to come off recast, one held for the group, or a roll being doubled, then goes anyway. When a member loses theirs while you're Invisible, theirs goes back on first, then yours. Spectral Jig is used again once both its Sneak and its Invisible are gone, and while it's due your own Sneak isn't cast first.
+Requires `luajit` and `luacheck`.
 
-Drag the HUD where you want it; Lock position keeps it there. Its panel, title and × show while the mouse is over it and fade out off it, leaving the bars. The HUD, the widget and Sidekick Settings take the look of VanaCore's own `/vana` window ([docs/vana-ui-style.md](docs/vana-ui-style.md)), in Segoe UI. Under VanaCore (or Ashita 4.30's libraries) it's drawn sharp at any size; on Ashita 4.16 it's scaled from an 18px bake, so text set larger than 18px (the HUD's names are 22 by default) is slightly soft.
-
-**The widget** (`/sk3 widget`, or Widget under UI / Log; off by default): one row in a small window of its own (drag it where you want it): each character (yours, then every other Sidekick session on this PC, by name) in a pill: green while its automation runs, blue while something holds it (zoning, dead, mounted, a safe zone, AFK asleep, incapacitated; not a moment's cast or step) and red while it's stopped, holding its name, its run button (Start/Stop) and its cog (its Sidekick Settings). Hover a name for what it's doing and the profile loaded; right-click it to load one of that character's profiles, or Default. Widget size under UI / Log sets its text and icons' height in pixels. It stays up with the HUD closed (`/sk3` or its close icon), so you can keep just the widget beside another party list; `/sk3 widget` hides it again. While you zone it stays up as it last was, your pill blue, and other characters' pills come from their own session files, so neither your zone nor theirs blanks or reshuffles it. While it's up, closing the HUD leaves any Sidekick Settings open (yours and other characters') up too; its right-click menu takes its size. Drag it by its body or a name (Lock position keeps it still too). Track for your target is under Sidekick Settings.
-
-**Sidekick Settings**, from the cog on your card, lists its pages down its left, Profiles and UI / Log at the foot (a teal dot by a page while one of its switches is on, a ring when they're all off). Each section of a page sits under its heading, its on/off switch at the right; a click on the heading folds the section. A section switched off still shows its settings, faded. Click a slider's value to type it.
-
-- **Profiles**: named snapshots of your settings (Dynamis, EXP...), each job pair with its own. Type a name and Save (with a profile loaded, a new name renames it; never over another profile), Save as (over one of that name too), New (every setting back to its default) or Delete; click one to load it. Your settings stay the working copy: changes after a load are kept, but reach the profile only when you Save it, and Default brings back the settings you had before you loaded one. A profile never changes the HUD, the Japanese client, following, AFK sleep, the focus member, who healing skips, who removal leaves alone and each player's own debuffs, or who Entrust goes on.
-- **Follow**: who to follow and how far they may get.
-- **Heal**: healing, with its HP lines (heal, danger and critical, and the focus member's own three: over the heal line, missing HP is left be), gear potency and who to heal, four rows of slots: ME and P1-P5, then the alliance's other parties B0-B5 and C0-C5 (empty slots shown, and healed once someone is there), then each tracked player. Untick a person to never heal them for their own sake. The alliance is always healed when a heal reaches them. Under each heal row with more than one tier (Cure, Curaga, Regen, the waltzes, Drain, Healing Ruby), a checkbox for each tier: untick one to never heal with it, while the row's other tiers still go and waking still may use it (if it wakes: not a Regen, Drain or a pet's) (a row with every tier unticked says `every tier unticked`). Raising is on this page too.
-- **Remove**: waking sleepers with the cheapest of your heals that can, an area one for two or more (its row on, even a tier unticked under Heal), and debuff removal. Who it runs on is the same four rows of slots as Heal (ME and P1-P5, B0-B5, C0-C5, then tracked): everyone present starts on, an empty slot is included once someone is there, and unticking a player leaves them alone, Doom too, for when someone else sees to them. It goes by name, as Heal's does, so it follows them to any slot. Then your spells and abilities that remove debuffs (Paralyna, Erase, Esuna, Healing Waltz...) as checkboxes, all ticked at first. Under Debuffs, an Everyone tab, then a tab for each player that is on, each with a chip for each debuff your removers and items can clear (all on at first, so turn off what doesn't matter, MP Down on a Warrior; Doom too, though it kills). Everyone's chips are for each player you have not set, whoever joins included; changing a player's chips gives them a set of their own, starting from Everyone's. None and All at the start of those chips clear or select every debuff on the tab. The chips are in the game's status order (Poison, Paralysis, Blindness, Silence...), each saying whether it can be removed now and, under the mouse, what removes it. A debuff nothing ticked removes is an empty outline that can't be clicked: untick Erase and the stat downs and DoTs only it clears empty out. Then the items (Echo Drops, Remedy...), off until you turn them on, with how many you carry. Removal goes after healing a member under their danger line, but ahead of topping up anyone between the danger and heal lines.
-- **Buff**: Hold area buffs for the group, so Protectra, a bar-element or a song waits until the players in your party who lack it are near you (trusts follow and never hold it), and, while one waits that someone near you lacks too, says "Gather together for <spell>" in party chat every 5 seconds (one far player missing it is waited for quietly; untick Ask them to gather to always hold quietly); then each row picks a tier ("Auto" casts the best you can) or, for pick-one groups like bar-elements and enspells, the spell; and the targets, on their own lines under the spell: ME and P1-P5, and when the spell can go outside the party, B0-B5 and C0-C5 (empty slots shown) and then T1... for tracked players. A spell that stays in the party (Regen) lists only ME and P1-P5. On a Scholar, a row's stratagem chips fire one just before its spell: Pen (Penury) and Cel (Celerity) for white magic, Per (Perpetuance) for white enhancing, Par (Parsimony) and Ala (Alacrity) for black, each only under its Arts and while a charge is left; Acc (Accession) instead casts the spell on you for everyone in your party near you whenever one of the row's targets there lacks it (as v2), and waits for the group like an area buff. **Hold**, after a row's chips, makes its spell wait while one of them can't go with it (on recast, too few charges for all of them, the wrong Arts), as v2's Hold for Stratagem; the row then says what it waits for; without it (the default) the spell goes alone. Under Heal, Keep a stratagem for healing (off by default) stops buff rows spending the last charge, so healing has one for Accession or Rapture. A spell that needs an Addendum you don't have up (Raise II, Reraise, Cursna...) goes through Enlightenment under Dark Arts, fired for it by itself. The stratagems and their chips show even outside either Arts (the client lists them only under their Arts), each waiting on it. Light Arts (picked on its row) and Addendum: White go ahead of everything, healing too, since healing is cheaper or only possible under them, except while someone is under their critical line: that cure goes at once, and Light Arts right after. Dark Arts keeps its place among the buffs. On a Corsair, **Rolls** keeps the rolls you pick up on you (Roll 2 on a Corsair main job only; none is picked at first) and Double-Ups the last one rolled by the Risk you pick, as v2: Lowest banks the lucky number and never risks a Bust past 5; Medium (the default) also chases lucky while it's one die away and doubles off the unlucky number up to 8; Highest goes for 11 while Fold is ready to undo a Bust. Every risk turns 10 into 11 with Snake Eye, and Fold clears a Bust whenever it's ready. On a Corsair main job, **Max risk while an 11 is up** (off by default) doubles the other roll until it's 11 too while one roll stands at 11, since no Bust can happen then, and rolls it again when it can no longer be doubled (it was rolled before the 11, or its Double-Up Chance is gone); once no roll at 11 is up (it wore, or was rolled again lower), the risk you picked is back. Nothing rolls while you're Invisible. A new roll waits until the last one is done doubling, and Hold area buffs for the group holds a roll too, for the players in your party within its area (about 8 yalms). `/sk3 Bolter's Roll` (a Phantom Roll's name; quotes optional) rolls that one now and Double-Ups it at Lowest, so it stops on the lucky number or once a die could bust it (over 5; a 10 still becomes an 11 with Snake Eye). It goes with automation stopped, in town, and while AFK sleep has paused automation, and with Rolls switched off, ahead of healing, and between Double-Ups healing carries on; a Bust up first is Folded, or waited out while Fold can't go; the rolls you keep up wait while it does, and a higher Risk does not gamble on the total it held. Each die, total and Bust is printed while `/sk3 log` is on, and resting waits while a roll is still being doubled. On a Bard (main or sub), **Songs** keeps the songs you pick up, by name, two per target on a Bard main job and one on a subjob (a Bard's songs stand that many on each player; one more pushes out its oldest), as v2's Area and ME/P1-P5 buttons: **Area** songs are sung as they are, on you and everyone in your party near you (about 10 yalms), whenever someone there lacks one; **ME** and **P1**-**P5** are each party slot's own, sung on whoever is in it alone through Pianissimo (Bard 20), fired just before the song. A member with songs of their own keeps only the slots those leave for the area ones, so with two of their own no area song is sung for them; without Pianissimo their own take no slot. A member's own songs and the area ones count together, so an area Victory March and their own Advancing March want two Marches. Two songs of one kind (Victory and Advancing March, Valor Minuet IV and III) stand side by side, each wanted on its own; with one of them up, the one sung less lately goes. Area songs come first: while one is owed and can't go (its recast, or held for the group while someone near you lacks it too), the songs on one member wait, since it would push them out; while Pianissimo is up, the area songs wait for the song it is for. Nothing is sung while you're Invisible, and Hold area buffs for the group holds an area song for the players in your party who lack it and have no song of their own picked. A Pianissimo left up with no one to sing to (they walked off, or you fired it by hand) is left to wear, and the area songs wait for it (with Pianissimo fast casting on, the next area song takes it instead). Songs kept up as buff rows before the Songs section are not carried over: pick them again under Songs. Nightingale and Troubadour stay buff rows, kept up before the songs. Each song is stamped on everyone it landed on when its cast finishes (twice as long when sung under Troubadour), so with two of one kind up, the one sung less lately is the one sung again. On a Bard main job from 75, **Song Duration** (0, off, by default) sings each song again that many seconds after it landed, before it wears, as v2: set it just under your songs' real duration, gear included. A song with no stamp (one that landed before Sidekick was loaded, or a member who just joined) is sung once it's missing, and a stamp goes once its member dies or, on you and your party's players, once their statuses stop showing it. While Nightingale and Troubadour are both up, every song sung without Troubadour is sung again, at double length, with or without Song Duration. A far player whose song is due but still up doesn't hold a re-sing for Hold area buffs; one who lacks it still does. Soul Voice and Marcato aren't counted: a song they lengthened is sung again at its usual time. **Pianissimo fast casting** (off by default, as v2's) fires Pianissimo before an area song too, for its shorter cast, and cancels it a second into the cast so the song still lands on everyone near you (v2 needed the Debuff addon for this; Sidekick sends the cancel itself). No Pianissimo is raised for it while Nightingale is up, whose casts are short already (one already up still goes to the next area song); with Pianissimo on recast the area song goes without it; and with Pianissimo up while the area song owed can't go yet (its recast, your MP, waiting for the group), a member's own song spends it instead of letting it wear. On a Geomancer main job, **Geomancy** keeps a luopan down: the **Geo** row's (pick the spell, and its targets: the luopan goes on the first of them who lacks its aura, and waits while they're on the move, since it stays where it lands) or, in combat, the **Geo debuff** row's on your battle target (waiting while it moves; Full Circle first takes the slot from another luopan, only when the debuff could follow: in range, off recast, and short of MP by no more than Full Circle gives back). **Full Circle** recalls the luopan once whoever it went on is further than Recall past (10 yalms) from it (or has left), or once it no longer fits the Geo row's spell or targets after you change them, so it goes down again on the first of the Geo row's targets who lacks it, and a debuff's once combat has been over for Keep after combat (5 seconds; a new battle target in that time keeps it). **Blaze of Glory** goes just before a luopan, and **Entrust**, with a member and an Indi- spell picked, puts that Indi- on them whenever they lack its aura within 20 yalms. The Geo rows are off until you turn them on; Indi- spells on you stay buff rows. Under Recover, **Radial Arcana** spends the luopan for MP under your MP line, as v2: one that's cheap (75 MP or less), nearly spent or put down for it, once you're within 10 yalms of it; a dearer one is recalled first (Full Circle gives MP back) and a Geo-Voidance put down on you to spend instead. On a Rune Fencer (main or sub), **Runes** keeps the runes you pick up, one per slot your RUN level gives (1 at 5, 2 at 35, 3 at 65; the same rune twice keeps two up), each slot naming the rune by what it does: **Idle** by the element it adds, the rest of the time; then a set each for **Vallation**, **Valiance** and **Pflug** (by the element it resists, or for Pflug the ailments), as v2. Once a ward is ready, its set takes the slots: its runes go up one at a time, and in combat the ward fires (out of combat its set waits up for the pull, so a long recast isn't spent on nothing); with it on recast, Idle takes them back. Untick a ward to leave it to you; a set with nothing picked takes nothing. Valiance waits while Vallation is up (it would do nothing), Vallation while Valiance is (it would replace it with less), both under Liement. Lunge, Swipe, Gambit and Rayke are yours: the runes go back up after. Nothing goes while you're Invisible. On a Rune Fencer main job, a row of white enhancing magic (Protect, Phalanx, a bar-element...) has an Emb chip that fires **Embolden** just before its spell; while it's on recast the spell goes without, or waits with the row's Hold on (v2's Hold for Embolden). On a Ninja (main or sub), Utsusemi, Tonko and Monomi each spend their tool from your inventory (Shihei, Shinobi-tabi, Sanjaku-tenugui; not the wardrobes), or on a Ninja main job a Shikanofuda: the row shows how many casts you carry and waits with none. **Cast Utsusemi at one shadow** (off by default, as v2's Cast with 1 Shadow) recasts it while its last shadow is up instead of once it's gone; for Ichi, which can't replace Ni's shadows, that shadow is cancelled a second into the cast so the new ones land. Sange needs shuriken worn: the best you hold that you can wear is equipped first in combat, as a pet's oil. On a Blue Mage (main or sub), only the blue magic you have set shows and is cast: the server sends the set when you zone or change a spell, so after loading Sidekick mid-session there is none until then. Harden Shell, Pyric Bulwark and Carcharian Verve are never set: on a Blue Mage main job Unbridled Learning goes just before each, by itself, and the spell waits while it's on recast. On a Blue Mage main job, a row of blue magic that goes on you alone (Cocoon, Refueling, Memento Mori...; not Diamondhide, already an area spell) has a Dif chip that fires **Diffusion** just before its spell, so it lands on everyone in your party near you whenever one of them lacks it, as Acc does for a Scholar; when only you lack it the spell goes without, keeping Diffusion for when the party needs it. While Diffusion is on recast the spell goes on you alone, or, with the row's Hold on, waits while someone else near you lacks it. On a Dancer, Saber Dance and Fan Dance are buff rows (in combat; either one up counts for both, as v2) and so are the sambas (one picked, in combat only, as Presto is); while Saber Dance is up no waltz goes, and while Fan Dance is up no samba, since the server refuses them: their rows say `blocked by Saber Dance` and healing uses your other heals. Under Trance the waltzes and Aspir Samba need no TP, as on the server, so a waltz then heals at any TP and costs nothing. No Foot Rise tops up your finishing moves and Reverse Flourish (under Recover) spends them at five or more.
-- **Pet**, for a pet job: its HP line, and its care and send rows. Sending the pet in is opt-in, row by row. Repair, Maintenance and Reward need their oil or pet food in your ammo slot: when one would go but for that, the best you hold in your bag or a Mog Wardrobe that your main job can wear is equipped first (the highest level up to yours), as v2; oils are worn on a Puppetmaster main job only. On a Puppetmaster (main or sub), **Maneuvers** keeps the maneuvers you pick up on you while your automaton is out, one per slot, by element (the same element twice keeps two up; none is picked at first), as v2: none under Overload, none while you're Invisible, and only on your automaton (a jug pet, avatar, wyvern or luopan out under a PUP subjob gets none). Pet commands and pacts (Deploy, Fight, Assault, Avatar's Favor, Healing Ruby, Wild Carrot, the maneuvers) show from your job's level with no pet out, though the client lists them only while one is, and wait for it (`no pet`, `wrong pet`). A care row whose ammo you hold says it equips it; one that doesn't show after three tries is given up on, so the next row can go. On a Beastmaster (main or sub), a rabbit's Wild Carrot is one of your heals (under Heal) once two Ready charges are banked (3 at most, one back every 30 seconds): it heals everyone near the pet, only when someone is under your danger line, so chip damage leaves the charges for the pet's attacks.
-- **Recover**: MP and TP lines (and the TP Chivalry spends from); resting for MP out of combat after a few quiet seconds, standing at full MP or when the leader leaves.
-- **Tracked**: the players you track, each with Untrack, and Track for your target when it's a player outside your party and alliance.
-- **AFK**: **AFK sleep** (on by default, as v2's), while running, pauses automation once no one in your party (you, its players and trusts) has moved and there has been no combat for Sleep after (10 minutes), and says so in chat; your own movement wakes it, never a pull, since a fight is no proof you're back; with Follow on, so does the leader getting further than its distance, so you keep following. A pause, not a stop: automation stays running and nothing is saved. The section says how long is left, and the HUD's title tooltip says `[AFK asleep]` while it sleeps. The wait starts over when you start automation (from another box too, which wakes it), change job or change the minutes; being zoned or teleported by someone else doesn't wake it.
-- **UI / Log**: the HUD's bar and font sizes, spacing and lock; the widget and its size; Sidekick Settings' size (100% suits your screen); Drop-down rows, the most choices a drop-down's list (and the widget's profile menu) shows before it scrolls (8; 3 to 30: lower it on a small screen); the last 10 actions sent, and why; Japanese client, shared by every job pair as the HUD is: spell, ability and item names (and the gather line) go out in Japanese, and Sidekick warns once in chat about any name the client has no Japanese spelling for, since it then goes out in English. Sidekick is then in Japanese too: the HUD, the widget and Sidekick Settings (every label, tooltip and button, the spells, abilities, items and statuses by the client's own Japanese names, jobs as 白75/黒37), and its chat replies. Under VanaCore's default libraries (ImGui 1.92) the window draws Japanese in Meiryo, else Yu Gothic or MS Gothic, from Windows' fonts. On Ashita 4.16 (ImGui 1.81) an addon can't add a font with kana and kanji itself, so Ashita has to, at its start: copy `meiryo.ttc` (or `YuGothM.ttc`) from `C:\Windows\Fonts` to `Ashita\resources\fonts\`, add this to your boot config (`Ashita\config\boot\<yours>.ini`) and restart the game. Agave at its three sizes is Ashita's own font, listed first so every other addon looks as it did; a second Japanese font at the same size (`meiryob.ttc`) is taken for the bold. Ashita loads ImGui 1.81's Japanese set, the 2,999 common kanji, so a word with a rarer one shows `?` for it (麻痺, 空蝉の術, 咆哮: 37 of the client's 2,840 spell, ability and status names), and Sidekick writes `->` and `...` for the `→` and `…` it lacks. Without a Japanese font the window stays in English and UI / Log says why, while names still go out in Japanese. The commands keep their English words (`/sk3 start`, `buff`, `track`...). A trust's, pet's or mob's name, which a Japanese client gives in Japanese, shows as it should in either language.
-
-  ```ini
-  [ashita.imgui.fonts]
-  font0.family = Agave
-  font0.size   = 18,24,32
-  font1.family = meiryo.ttc
-  font1.size   = 18
-  font1.is_jp  = true
-  ```
-
-Each row turns a family on or off and says whether it's ready or why not.
-
-**Tracked players** are looked after like members with whatever reaches outside a party: Cure and Curing Waltz, Protect, Shell, Haste, the -na spells, raises, following. Regen, Refresh, Erase and Healing Waltz can't go on them, and an area spell cast from you or a member (Curaga, Esuna, Protectra) lands on your own party only, so it never counts them. Only their HP % can be read: Sidekick `/check`s them for their level to estimate their max HP (they see that you examined them, as in v2; an /anon player is sized like you). Tracking lasts until Sidekick3 is reloaded; a buff row remembers them by name, so tracking them again brings their buffs back.
-
-**Boxing:** every Sidekick3 session on one PC writes a session file under `config/addons/sidekick3/` (its character's server id, jobs and levels, HP, MP and max HP, whether it's running and what its automation just did, and the same for its party's players; and its pet's MP and TP), rewritten every second and at once when its automation acts, read every second (four times a second while one controls another, below, or while your HUD is open and another session's automation runs; and while a session has its pet out and another is in its party, it writes and that one's HUD reads four times a second), and taken as gone after 5 seconds without a write. **Pets:** the game tells each client the MP and TP of its own pet only, and of anyone else's just the HP, so each session lists its pet's, by the pet's id and name, and the others' HUDs show them on its card while the pet they draw is that one; the HP is the one your game draws, never the file's, so the two can't disagree. Sessions only see each other while they run the same version of Sidekick3: after an update, reload it in every game. Each session tracks the players another session lists, but not those in its own party or alliance, with no `/check`: their levels and real max HP come from the file, and so does their HP while your client doesn't draw them. They are untracked 15 seconds after that session closes or stops listing them (at once if they join your party or alliance); players you track yourself are never untracked for you. A session that's zoning keeps its party listed for up to a minute. Untrack one it tracked and it stays off until you track them again. **Remote control:** a member's card (or a tracked player's) that is another session has the run icon and cog too: run starts and stops that session's automation, and the cog opens its own Sidekick Settings, every setting of its own job as that session shows it (titled with its name), where changes go to that session and are applied there within a second or so. Its HUD sizes and Japanese client are its own and stay out of it; you can control any session from any other. `/sk3 start Name` and `/sk3 stop Name` do what that session's run icon does, by its character's name, and `/sk3 start all` and `/sk3 stop all` start or stop this session and every other one, so one macro runs them all. Each session says so in its own chat once it takes the call. Stop works while you're zoning too.
-
-**The alliance's other two parties** are looked after with the same spells: raised, woken, cleared with the -na spells, buffed on their chips, and healed whenever a heal reaches them, ranked by urgency alone, like your party. Untick someone under Heal to never heal them for their own sake, or under Remove to leave their debuffs alone. An area spell lands on its target's party alone, so each party is weighed on its own: Curaga, Esuna and Protectra cast from you or a member never reach them, while a Cure spread by Majesty or Accession and aimed at one of them covers their party near them. Their statuses come from what the game reports around you, as a trust's do. A mob another party of the alliance claimed has no `<bt>` in the client, though you fight it too: Sidekick then takes the nearest one within 21 yalms claimed by anyone in the alliance as your battle target, as v2 did, and aims at it by its id.
-
-The UI is one replaceable file: put your own in `ui/custom.lua` and it's used instead. [ui/README.md](ui/README.md) documents what a UI is given and what it can change, with an example.
-
-Settings are kept per job pair in `config/addons/sidekick3/<character>/WHM_BLM.lua` (its profiles too), and the HUD's in `ui.lua` beside them, shared by every job pair. Healing, removal, waking, raising, recovery and pet care are on by default; buffs, items, sending the pet in, following and resting only when you turn them on.
-
-## Develop
-
-Needs `luajit` and `luacheck`.
-
-```
-luajit tests/run.lua      unit tests, against the dumped client data in tests/data/
+```sh
+luajit tests/run.lua   # unit tests (offline, no game needed)
 luacheck .
 ```
 
-`tools/parity.lua` checks the catalog against v2's job files. Run it from a v2 checkout next to this one: `cd ../Sidekick && luajit ../Sidekick3/tools/parity.lua`.
+See [docs/e2e.md](docs/e2e.md) for in-game end-to-end tests.
 
-## Licence
+## License
 
-Sidekick3 is free software under the GNU General Public License, version 3 or (at your option) any later version: see [LICENSE](LICENSE). Copyright (c) 2026 Seekey.
+Sidekick3 is released under the [GNU GPL v3 or later](LICENSE). Copyright © 2026 Seekey.
 
-Its UI kit (`ui/kit.lua`) and Sidekick Settings' layout (`ui/window.lua`) are based on VanaCore's `/vana` window (`addons/vanacore/vana/draw.lua` and `vana.lua`, Copyright (C) 2026 Vekien, GPL-3.0-or-later). Sidekick3 is not VanaCore, and isn't made or endorsed by Vekien; VanaCore's name and logo aren't licensed with it. `tests/data/` is dumped from the game client's data and isn't covered by this licence.
+The UI kit (`ui/kit.lua`) and settings layout (`ui/window.lua`) are based on VanaCore's `/vana` window (Copyright © 2026 Vekien, GPL-3.0-or-later). Sidekick3 is not affiliated with or endorsed by VanaCore or Vekien. `tests/data/` is dumped from the game client and isn't covered by this license.
