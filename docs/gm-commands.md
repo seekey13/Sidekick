@@ -165,7 +165,7 @@ These parts of a test aren't GM commands:
 | Heal band | `gm.full('Test')`, then a moment later `gm.hp_pct('Test', 40)` | A Cure on Test, and Test's HP back up |
 | Death and Raise | `gm.kill('Test')` | A Raise on Test (Test's game takes the menu) |
 | A -na spell | `gm.effect('Test', 'poison', 10, 120)` | Poisona, then `gm.effects('Test')` without Poison |
-| Doom | `gm.effect('Test', 'doom', 1, 30)` | Cursna, whatever the Debuff switches say |
+| Doom | `gm.effect('Test', 'doom', 1, 30)` | Cursna, while Doom's chip is on and Test is ticked under Remove |
 | Wake | `gm.effect('Test', 'sleep', 1, 60)` | A heal that wakes (Cure, Curaga) on Test |
 | Buff upkeep | `/sk3 buff Protect p1` until it lands, then `gm.uneffect('Test', 'protect')` | Protect on Test again |
 | Rest | `/sk3 rest on`, then `gm.mp_pct('me', 10)` out of combat, standing still | `/heal on` after 5 quiet seconds |

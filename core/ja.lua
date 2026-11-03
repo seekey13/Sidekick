@@ -114,8 +114,6 @@ ja.words = {
     ['Raise fallen members with the rows that are on.'] = 'オンの行で戦闘不能のメンバーを蘇生します。',
     ['Wake a sleeping member with a cure or waltz that is on under Heal; an area one for two or more.'] =
         '回復でオンのケアルやワルツで、睡眠中のメンバーを起こします。2人以上なら範囲で起こします。',
-    ['Remove the debuffs that are on, with the spells, abilities and items ticked.'] =
-        'オンの弱体を、チェックした魔法・アビリティ・アイテムで回復します。',
     ['Remove the debuffs that are on for the players that are on, with the spells, abilities and items ticked.'] =
         'オンのプレイヤーの、オンの弱体を、チェックした魔法・アビリティ・アイテムで回復します。',
     ['Keep the buffs that are on up on their targets.'] = 'オンの強化を対象に維持します。',
@@ -169,10 +167,6 @@ ja.words = {
     ['Waltz potency +'] = 'ワルツ回復量+', ['Waltz potency % from gear, until a waltz has been seen healing.'] =
         '装備によるワルツ回復量%。ワルツの実際の回復量がわかるまで使います。',
     ['Regen potency +'] = 'リジェネ効果+', ['HP per Regen tick from gear.'] = '装備によるリジェネ1回あたりのHP。',
-    ['Heal the alliance'] = 'アライアンスも回復',
-    ['Heal the alliance\'s other parties too, with heals that reach outside your party. Raising, waking, '
-        .. 'removal and buffs look after them whatever this says, and the focus member is always healed.'] =
-        'パーティ外に届く回復で、アライアンスの他のパーティも回復します。蘇生・起こす・弱体回復・強化はこの設定に関係なく行い、フォーカスメンバーは常に回復します。',
     ['Keep a stratagem for healing'] = '回復用に戦術魔道書を1回残す',
     ['Buff rows never spend the last stratagem charge, so healing has one for Accession or Rapture.'] =
         '強化の行は戦術魔道書の最後の1回を使わず、女神降臨の章や意気昂然の章のために回復用に残します。',
@@ -358,16 +352,15 @@ ja.words = {
     ['\nIt heals too: unticked here, it is unticked under Heal.'] = '\n回復にも使います。ここでオフにすると回復でもオフになります。',
     ['Untick to leave it on: worth it for what doesn\'t matter to your job (MP Down on a Warrior).'] =
         'オフにすると回復しません。ジョブに関係のない弱体（戦士のMPmaxダウンなど）に。',
-    ['All'] = 'すべて',
-    ['No player selected above.'] = '上でプレイヤーが選ばれていません。',
-    ['Remove every debuff on this player.'] = 'このプレイヤーの弱体をすべて回復します。',
-    ['Leave every debuff on this player. Doom is still removed.'] =
-        'このプレイヤーの弱体はすべてそのままにします。死に至るものは回復します。',
-    ['Untick to never clear debuffs on them. An empty slot is included once someone is there.'] =
-        'オフにすると、その枠の弱体は回復しません。空き枠は誰かが入ると対象になります。',
+    ['All'] = 'すべて', ['Everyone'] = '全員',
+    ['Everyone without a set of their own, and whoever joins. A player\'s first change gives them their own.'] =
+        '個別の設定がない全員と、新しく入った人。プレイヤーのチップを変えると、その人だけの設定になります。',
+    ['Remove all of these debuffs.'] = 'これらの弱体をすべて回復します。',
+    ['Leave all of these debuffs on.'] = 'これらの弱体はすべてそのままにします。',
+    ['Untick to never clear debuffs on them, Doom too: someone else sees to them.'] =
+        'オフにすると、この人の弱体は死の宣告も含めて回復しません（ほかの人に任せます）。',
     ['Removed by %s'] = '回復手段: %s',
     ['\nSwitched off: left on once something removes it again.'] = '\nオフ: 回復手段がまた使えるようになっても、そのままにします。',
-    ['Always removed: it kills.'] = '常に回復します（死に至るため）。',
     ['Tick something above that removes it.'] = '上で回復手段をオンにしてください。',
 
     -- Chat (Sidekick3.lua) ---------------------------------------------------------------------

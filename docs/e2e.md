@@ -64,7 +64,7 @@ As run on 2026-11-02, with Dev a WHM75, Test in its party, Alliance in the allia
 | `heal` | Test at 40%: a heal on Test that lands | pass: Cure V sent 0.4–0.8 s after, landed 2.9–3.2 s after that |
 | `heal_self` | You at 40% | pass: Cure IV / Cure V on Dev |
 | `heal_tracked` | Tracked at 40% (set from the server's max) | pass: Cure V on Tracked, by name |
-| `heal_alliance` | Alliance at 40%, with Heal > Alliance set both ways for the scenario: on, a heal that lands; off, none for 8 s | not run since it tests both ways (before: pass with it off, so none sent) |
+| `heal_alliance` | Alliance at 40%: a heal that lands (no switch: the alliance is always healed) | not run since the switch went (before: pass with it off, so none sent) |
 | `remove` | Poison on Test: Poisona, and the Poison goes | pass: sent 0.4 s after, landed 1.2 s after that |
 | `wake` | Sleep on Test at full HP: a heal that wakes | pass: Cure |
 | `doom` | Doom on Test: Cursna, and again while the Doom stays | pass: the first had no effect, a second went at its recast |

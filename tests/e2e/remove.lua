@@ -6,8 +6,10 @@ return {
     run = function (t)
         local who = t.member()
         t.need(t.action('Poisona'), 'no Poisona among Sidekick3\'s actions for this job')
-        local cfg = t.cfg()
-        t.need(cfg.remove.on and not cfg.remove.skip.Poison, 'Poison removal is off (Debuffs)')
+        local rm = t.cfg().remove
+        local mine = (rm.own or {})[who]
+        local skip = mine and mine.set and mine.skip or rm.skip or {}
+        t.need(rm.on and not (rm.off or {})[who] and not skip.poison, 'Poison removal is off for %s (Remove)', who)
         t.start()
         t.settle()
         t.gm.effect(who, 'poison', 1, 120)  -- 1 HP a tick: nothing for a heal to do

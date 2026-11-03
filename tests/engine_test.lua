@@ -290,10 +290,15 @@ test('removal: debuffs switched off are left on, and removers unticked are never
     eq(decide(g, cfg), '/ma "Erase" A')
 end)
 
-test('removal: Doom is removed even with its chip off', function ()
+test('removal: Doom goes as any debuff, left with its chip off or on a player switched off', function ()
     local cfg = settings.defaults()
+    local g = snap({ { name = 'A', buffs = { [15] = true } } })
+    eq(decide(g, cfg), '/ma "Cursna" A')
     cfg.remove.skip = { doom = true }
-    eq(decide(snap({ { name = 'A', buffs = { [15] = true } } }), cfg), '/ma "Cursna" A')
+    eq({ decide(g, cfg) }, { nil, 'nothing to do' })
+    cfg.remove.skip = {}
+    cfg.remove.off = { A = true }
+    eq({ decide(g, cfg) }, { nil, 'nothing to do' })
 end)
 
 test('removal goes after danger healing, ahead of efficient healing', function ()
