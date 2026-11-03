@@ -244,6 +244,22 @@ test('items: Doom first, then Silence if you cast, then the one clearing the mos
     eq(decide(g, cfg, blm), '/item "Panacea" <me>')
 end)
 
+test('removal: a slot switched off is skipped, and a player\'s own debuffs replace the global ones', function ()
+    local cfg = settings.defaults()
+    cfg.remove.skip = { paralysis = true }
+    local g = snap({ { name = 'A', buffs = { [PARALYSIS] = true } }, { name = 'B', buffs = { [PARALYSIS] = true } } })
+    eq({ decide(g, cfg, whm) }, { nil, 'nothing to do' })
+    cfg.remove.off = { [1] = true }
+    cfg.remove.skip = {}
+    eq(decide(g, cfg, whm), '/ma "Paralyna" B')
+    cfg.remove.off = {}
+    cfg.remove.own = { [1] = { set = true, skip = { paralysis = true } } }
+    eq(decide(g, cfg, whm), '/ma "Paralyna" B')
+    cfg.remove.skip = { paralysis = true }
+    cfg.remove.own = { [1] = { set = true, skip = {} } }
+    eq(decide(g, cfg, whm), '/ma "Paralyna" A')
+end)
+
 test('items: a status left on still makes the Ointment a gamble', function ()
     local blm, cfg = fake.catalog(BLM, 75, nil, 0), settings.defaults()
     for _, k in ipairs({ 'Remedy Ointment', 'Remedy' }) do cfg.rows[k] = { on = true } end

@@ -3,9 +3,10 @@
     specific remover first: a targeted -na spell, then Erase, then Esuna (an area
     cast on you, clearing on those near you only what you have too), then an item
     on you (opt-in: they cost gil). A remover only ever on you with no area
-    (Chakra, items) clears only your own; Esuna reaches your party only. Debuffs are
-    switched by name (cfg.remove.skip: those left on; never Doom, which kills).
-    Items go by what they'd clear on you now: Doom first, then Silence if you cast,
+    (Chakra, items) clears only your own; Esuna reaches your party only. A slot in
+    cfg.remove.off is left alone. Debuffs are switched by name (cfg.remove.skip:
+    those left on everyone, unless that player has cfg.remove.own[slot]; never Doom,
+    which kills). Items go by what they'd clear on you now: Doom first, then Silence if you cast,
     then the most of your statuses in one use; then cheap and specific first. An
     /item the server never answers (a locked or bazaar stack) holds items back
     ITEM_WAIT seconds.
@@ -18,6 +19,24 @@ local status = require('core.status')
 local ESUNA_RADIUS = 10  -- yalms around you
 local ITEM_WAIT = 4      -- seconds, as v2's item cooldown
 local DOOM, SILENCE = status.DOOM, 6
+
+-- A unit's removal key: its party or alliance slot, else a tracked player's name.
+local function key_of(u)
+    if u.slot ~= nil then return u.slot end
+    return u.name
+end
+
+-- Removal runs on a unit until its slot is switched off.
+local function served(rm, u)
+    return (rm.off or {})[key_of(u)] ~= true
+end
+
+-- The statuses left on `u`: their own set when they have one, else the global skip.
+local function skip_of(rm, u)
+    local mine = (rm.own or {})[key_of(u)]
+    if type(mine) == 'table' and mine.set then return mine.skip or {} end
+    return rm.skip or {}
+end
 
 local function rank(a)
     if a.kind == 'item' then return 3 end
@@ -57,8 +76,10 @@ local function worth(a, me, skip)
 end
 
 return function (g, cat, cfg, mem)
-    local skip, removers, worths = cfg.remove.skip or {}, settings.enabled(cat, cfg, 'remove'), {}
-    for _, a in ipairs(removers) do worths[a] = a.kind == 'item' and worth(a, g.me, skip) or 0 end
+    local rm = cfg.remove or {}
+    local removers, worths = settings.enabled(cat, cfg, 'remove'), {}
+    local mine = skip_of(rm, g.me)
+    for _, a in ipairs(removers) do worths[a] = a.kind == 'item' and worth(a, g.me, mine) or 0 end
     table.sort(removers, function (a, b)
         if rank(a) ~= rank(b) then return rank(a) < rank(b) end
         if worths[a] ~= worths[b] then return worths[a] > worths[b] end
@@ -68,7 +89,8 @@ return function (g, cat, cfg, mem)
     -- The last /item, while nothing has come back from it (a finish or an interrupt).
     local unanswered = mem.item_at and (g.finished or -math.huge) < mem.item_at and g.now - mem.item_at < ITEM_WAIT
     for _, u in ipairs(g.units) do
-        if u.alive and u.in_zone then
+        if u.alive and u.in_zone and served(rm, u) then
+            local skip = skip_of(rm, u)
             for _, a in ipairs(removers) do
                 if clears(a, u, skip, g.me) and not (unanswered and a.kind == 'item') and can.use(a, g) then
                     if can.self_only(a) then

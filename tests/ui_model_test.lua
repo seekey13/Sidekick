@@ -33,6 +33,21 @@ local function keys(list, field)
     return out
 end
 
+-- ME P1-P5, then B0-B5 and C0-C5, then any extra labels (tracked).
+local function slot_labels(extra)
+    local out = { 'ME', 'P1', 'P2', 'P3', 'P4', 'P5' }
+    for i = 0, 5 do out[#out + 1] = 'B' .. i end
+    for i = 0, 5 do out[#out + 1] = 'C' .. i end
+    for _, s in ipairs(extra or {}) do out[#out + 1] = s end
+    return out
+end
+
+local function flags(n, at)
+    local out = {}
+    for i = 1, n do out[i] = i == at end
+    return out
+end
+
 local function copy(t)
     if type(t) ~= 'table' then return t end
     local out = {}
@@ -98,11 +113,12 @@ test('Debuff removal lists the debuffs your removers clear, worst first, each sw
     eq(para.action, 'Paralyna, Esuna, Remedy Ointment, Remedy, Panacea')
     local cfg, writes = settings.defaults(), 0
     local act = model.actions(cfg, status(), function () writes = writes + 1 end)
-    act.debuff('paralysis', false)
-    eq({ cfg.remove.skip, row(build(whm, cfg, fake.snap({ { name = 'A' } })), 'remove', 'paralysis').on },
-        { { paralysis = true }, false })
-    act.debuff('paralysis')
-    eq({ cfg.remove.skip, writes }, { {}, 2 })
+    act.debuff(0, 'paralysis', false)
+    para = row(build(whm, cfg, fake.snap({ { name = 'A' } })), 'remove', 'paralysis')
+    eq({ cfg.remove.skip, cfg.remove.own[0], para.on, para.own[0] },
+        { {}, { set = true, skip = { paralysis = true } }, true, false })
+    act.debuff(0, 'paralysis')
+    eq({ cfg.remove.own[0].skip, writes }, { {}, 2 })
 end)
 
 test('debuff labels capitalise each word; a remover that heals too says so', function ()
@@ -119,6 +135,26 @@ test('Doom is locked on, whatever was saved', function ()
     local doom = row(build(whm, cfg, fake.snap({ { name = 'A' } })), 'remove', 'doom')
     eq({ doom.on, doom.locked, doom.usable }, { true, true, true })
     eq(row(build(whm, cfg, fake.snap({ { name = 'A' } })), 'remove', 'poison').locked, nil)
+    local writes = 0
+    model.actions(cfg, status(), function () writes = writes + 1 end).debuff(0, 'doom', false)
+    eq({ writes, cfg.remove.own[0] }, { 0, nil })
+end)
+
+test('removal runs on every present player until a slot is off, and a player\'s debuffs replace the global ones', function ()
+    local who = section(build(whm), 'remove').who
+    eq(#who, 18)
+    eq({ who[1].label, who[1].on, who[1].group, who[2].name, who[2].on, who[7].label, who[7].present, who[7].on, who[7].excluded },
+       { 'ME', true, 'party', 'A', true, 'B0', false, false, nil })
+    local cfg = settings.defaults()
+    cfg.remove.off = { [1] = true, [6] = true }
+    cfg.remove.skip = { poison = true }
+    cfg.remove.own = { [0] = { set = true, skip = {} } }
+    local view = build(whm, cfg)
+    who = section(view, 'remove').who
+    eq({ who[1].on, who[2].on, who[2].excluded, who[7].on, who[7].excluded }, { true, false, true, false, true })
+    local poison = row(view, 'remove', 'poison')
+    eq({ poison.on, poison.own[0], row(view, 'remove', 'paralysis').own[0], row(view, 'remove', 'doom').own },
+       { false, true, true, nil })
 end)
 
 test('a debuff nothing ticked removes is not usable: unticking Erase greys out what only it clears', function ()
@@ -151,9 +187,11 @@ test('a tier buff: off, Auto then each tier, targets on you by default', functio
     eq(r.on, false)
     eq(keys(r.choices, 'label'), { 'Auto (best)', 'Protect', 'Protect II', 'Protect III', 'Protect IV' })
     eq(r.choice, 'Auto (best)')
-    eq(keys(r.targets, 'label'), { 'ME', 'P1', 'P2', 'P3', 'P4', 'P5' })
-    eq(keys(r.targets, 'on'), { true, false, false, false, false, false })
-    eq(keys(r.targets, 'present'), { true, true, true, false, false, false })
+    eq(keys(r.targets, 'label'), slot_labels())
+    eq(keys(r.targets, 'on'), flags(18, 1))
+    local present = { true, true, true }
+    for i = 4, 18 do present[i] = false end
+    eq(keys(r.targets, 'present'), present)
     eq(r.targets[2].name, 'A')
 end)
 
@@ -247,7 +285,7 @@ test('row actions create a row on first touch, from its default, and report each
     eq(writes[1], 6)
     local view = build(whm, cfg)
     eq({ row(view, 'heal', 'Cure').on, row(view, 'buff', 'Haste').on }, { false, true })
-    eq(keys(row(view, 'buff', 'Haste').targets, 'on'), { false, false, true, false, false, false })
+    eq(keys(row(view, 'buff', 'Haste').targets, 'on'), flags(18, 3))
 end)
 
 test('section switches and plain values, a UI\'s own under ui', function ()
@@ -288,7 +326,10 @@ test('healing skips a member by name, and takes them back', function ()
     local act, writes = actions(cfg)
     act.skip('A')
     eq(cfg.heal.skip, { A = true })
-    eq(build(whm, cfg).heal.members, { { name = 'A', healed = false }, { name = 'B', healed = true } })
+    local targets = build(whm, cfg).heal.targets
+    eq(#targets, 18)
+    eq({ targets[1].label, targets[1].on, targets[2].name, targets[2].on, targets[3].name, targets[3].on, targets[7].group },
+       { 'ME', true, 'A', false, 'B', true, 'a' })
     act.skip('A')
     eq({ cfg.heal.skip, writes[1] }, { {}, 2 })
 end)
@@ -416,13 +457,14 @@ end)
 test('buff rows reaching outside the party get a chip per tracked player, its slot their name', function ()
     local view = build(whm, nil, tracked_snap())
     local haste = row(view, 'buff', 'Haste')
-    eq(keys(haste.targets, 'label'), { 'ME', 'P1', 'P2', 'P3', 'P4', 'P5', 'T1', 'T2' })
-    eq(haste.targets[7], { slot = 'Out', label = 'T1', present = true, name = 'Out', on = false })
+    eq(keys(haste.targets, 'label'), slot_labels({ 'T1', 'T2' }))
+    eq(haste.targets[7], { slot = 6, label = 'B0', group = 'a', present = false, on = false, wrap = true })
+    eq(haste.targets[19], { slot = 'Out', label = 'T1', group = 'tracked', present = true, name = 'Out', on = false, wrap = true })
     eq(#row(view, 'buff', 'Regen (keep up)').targets, 6)  -- party only
     local cfg = settings.defaults()
     model.actions(cfg, status(), function () end).target('Haste', 'Out')
     eq(cfg.rows.Haste.targets, { [0] = true, Out = true })
-    eq(row(build(whm, cfg, tracked_snap()), 'buff', 'Haste').targets[7].on, true)
+    eq(row(build(whm, cfg, tracked_snap()), 'buff', 'Haste').targets[19].on, true)
 end)
 
 test('Track is offered for your target only when it is a player not in the party or tracked', function ()
@@ -456,13 +498,20 @@ test('the alliance\'s other parties are listed apart, B0-B5 and C0-C5, to focus 
     eq({ keys(view.party, 'tag'), keys(view.alliance, 'tag'), keys(view.alliance, 'kind') },
        { { 'ME', 'P1' }, { 'B0', 'B2' }, { 'alliance', 'alliance' } })
     eq({ view.heal.focus_names, view.follow.names }, { { 'A', 'Bea', 'Bo' }, { 'A', 'Bea', 'Bo' } })
-    eq({ view.heal.members, view.heal.alliance }, { { { name = 'A', healed = true } }, false })
+    local function on_at(targets, slot)
+        for _, c in ipairs(targets) do if c.slot == slot then return c.on end end
+    end
+    eq({ on_at(view.heal.targets, 0), on_at(view.heal.targets, 1), on_at(view.heal.targets, 6), on_at(view.heal.targets, 8),
+         #view.heal.targets }, { true, true, true, true, 18 })
     local cfg = settings.defaults()
-    cfg.heal.alliance, cfg.heal.skip = true, { Bo = true }
+    cfg.heal.skip = { Bo = true }
     local g = alliance_snap()
     g.units[#g.units + 1] = fake.unit({ kind = 'alliance', name = 'Cy', slot = 12, sid = 303 })
-    eq(build(whm, cfg, g).heal.members, { { name = 'A', healed = true }, { name = 'Bea', healed = true, wrap = true },
-        { name = 'Bo', healed = false }, { name = 'Cy', healed = true, wrap = true } })  -- a line per party, to skip
+    local targets = build(whm, cfg, g).heal.targets
+    local cy
+    for _, c in ipairs(targets) do if c.slot == 12 then cy = c end end
+    eq({ on_at(targets, 1), on_at(targets, 6), on_at(targets, 8), cy.label, cy.group, cy.wrap, cy.name, cy.on },
+       { true, true, false, 'C0', 'b', true, 'Cy', true })
     eq(model.TAGS[17], 'C5')
     local e = { at = 990, action = 'Cure IV', target = 'Bea', behavior = 'heal', why = 'danger: Bea 45%' }
     eq(build(whm, nil, alliance_snap(), status({ intent = e })).pointer, { text = 'Heal:Cure IV', ally = 1, live = false })
@@ -471,9 +520,10 @@ end)
 test('buff rows reaching outside the party get a line of chips per party of the alliance there', function ()
     local view = build(whm, nil, alliance_snap())
     local haste = row(view, 'buff', 'Haste')
-    eq(keys(haste.targets, 'label'), { 'ME', 'P1', 'P2', 'P3', 'P4', 'P5', 'B0', 'B1', 'B2', 'B3', 'B4', 'B5' })
-    eq(haste.targets[7], { slot = 6, label = 'B0', present = true, name = 'Bea', on = false, wrap = true })
-    eq({ haste.targets[8].present, haste.targets[8].wrap, haste.targets[9].name }, { false, nil, 'Bo' })
+    eq(keys(haste.targets, 'label'), slot_labels())
+    eq(haste.targets[7], { slot = 6, label = 'B0', group = 'a', present = true, name = 'Bea', on = false, wrap = true })
+    eq({ haste.targets[8].present, haste.targets[8].wrap, haste.targets[9].name, haste.targets[13].label },
+       { false, nil, 'Bo', 'C0' })
     eq(#row(view, 'buff', 'Regen (keep up)').targets, 6)  -- party only
     local cfg = settings.defaults()
     local act = model.actions(cfg, status(), function () end)
@@ -481,8 +531,8 @@ test('buff rows reaching outside the party get a line of chips per party of the 
     act.target('Haste', 14)
     eq(cfg.rows.Haste.targets, { [0] = true, [6] = true, [14] = true })
     haste = row(build(whm, cfg, alliance_snap()), 'buff', 'Haste')
-    eq({ haste.targets[7].on, haste.targets[13].label, haste.targets[15].on, haste.targets[15].present },
-       { true, 'C0', true, false })  -- party C gone, but a chip of it on: still shown, to clear
+    eq({ haste.targets[7].on, haste.targets[13].label, haste.targets[15].on, haste.targets[15].present, haste.targets[15].group },
+       { true, 'C0', true, false, 'b' })  -- an empty C slot stays listed, and a chip on it can be cleared
 end)
 
 -- Remote control -------------------------------------------------------------------
@@ -611,8 +661,16 @@ test('another session\'s calls apply through act; the HUD\'s settings, the log a
     eq(cfg.rows.Protect, { on = true, pick = 'Protect II', targets = { [0] = true, [1] = true } })
     eq({ apply('pick', 'Protect', nil), cfg.rows.Protect.pick }, { true, nil })  -- back to Auto
     eq({ apply('section', 'buff', true), cfg.buff.on }, { true, true })
-    eq({ apply('debuff', 'slow', false), cfg.remove.skip }, { true, { slow = true } })
-    eq({ apply('debuff', 'slow', true), cfg.remove.skip }, { true, {} })
+    eq({ apply('debuff', 0, 'slow', false), cfg.remove.own[0] }, { true, { set = true, skip = { slow = true } } })
+    eq(cfg.remove.skip, {})
+    eq({ apply('debuff', 0, 'slow', true), cfg.remove.own[0].skip }, { true, {} })
+    eq({ apply('who', 1, false), cfg.remove.off }, { true, { [1] = true } })
+    eq({ apply('who', 1, true), cfg.remove.off }, { true, {} })
+    eq({ apply('debuffs', 2, { 'poison', 'paralysis' }, false), cfg.remove.own[2].skip }, { true, { poison = true, paralysis = true } })
+    eq({ apply('debuffs', 2, { 'poison' }, true), cfg.remove.own[2] }, { true, { set = true, skip = {} } })
+    local before_doom = writes
+    eq(apply('debuff', 0, 'doom', false), true)  -- accepted, and it changes nothing
+    eq({ writes, cfg.remove.own[0].skip.doom }, { before_doom, nil })
     eq({ apply('track', 'Out'), tracks }, { true, { 'Out' } })
     local before = writes
     for _, bad in ipairs({
@@ -621,6 +679,8 @@ test('another session\'s calls apply through act; the HUD\'s settings, the log a
         call('set', 'heal.danger', 'high'), call('set', 'heal.skip', {}), call('set', 'danger', 1), call('section', 'ui', true),
         call('section', 'nope', true), call('section', 'heal', 'yes'), call('row', 5, true), call('target', 'Protect', true, true),
         call('target', 'Protect', 1), call('mod', 'Protect', 'Penury'), call('skip', 'A'),  -- a bare toggle: never from afar
+        call('debuff', 'slow', false), call('who', 1), call('who', 18, true), call('debuff', 0, 'slow'),
+        call('debuffs', 0, { 'poison', 1 }, false), call('debuffs', '', { 'poison' }, false),
         call('set', 'profiles.X.heal.danger', 50), call('set', 'parked.heal.danger', 50), call('set', 'roll.risk', 'wild'),
         call('set', 'follow.on', 1),
         { 'run', true }, { 42 },
@@ -658,7 +718,7 @@ test('a remote setting is one of the window\'s, held to its slider\'s range', fu
     local function set(path, v) return model.apply(act, cfg, call('set', path, v), whm) end
     eq({ set('heal.danger', -5), cfg.heal.danger, set('recover.tp', 1e300), cfg.recover.tp, set('geo.distance', 12.7), cfg.geo.distance },
        { true, 1, true, 3000, true, 12 })
-    eq({ set('roll.risk', 'highest'), cfg.roll.risk, set('heal.alliance', true), cfg.heal.alliance, set('heal.focus', 'A') },
+    eq({ set('roll.risk', 'highest'), cfg.roll.risk, set('buff.hold_aoe', true), cfg.buff.hold_aoe, set('heal.focus', 'A') },
        { true, 'highest', true, true, true })
     for path in pairs(model.REMOTE_SET) do  -- every one is a real setting
         local part, key = path:match('^(%w+)%.(.+)$')
