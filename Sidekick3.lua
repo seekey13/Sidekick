@@ -514,11 +514,12 @@ end
 local good
 
 -- That view while zoning: the HUD closed, your automation as it is now, held by the zone, and the other sessions
--- as their files say.
+-- as their files say. No target to track: the widget's Add Tracked would do nothing till the zone is in.
 local function zoning_view()
     local v = util.shallow_copy(good)
     v.ui, v.status = util.shallow_copy(good.ui), util.shallow_copy(good.status)
     v.ui.open = false
+    v.track = {}
     v.status.running = status.running
     v.status.halted = status.running and 'zoning' or nil
     v.sessions = model.sessions(status)

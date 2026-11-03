@@ -59,8 +59,8 @@ Automation always starts **off** after a load. Healing, removal, waking, raising
 
 ## Interface
 
-- **HUD**: a card per party member and pet with HP/MP/TP bars, the alliance below, and a label showing the next action and who it's for.
-- **Widget**: a compact pill per character with run/stop and settings, handy beside another party list.
+- **HUD**: a card per party member and pet with HP/MP/TP bars, the alliance below, and a label showing the next action and who it's for. Target a player outside your alliance and an **Add Tracked** pill at your card tracks them in one click.
+- **Widget**: a compact pill per character with run/stop and settings, handy beside another party list, and the same Add Tracked pill.
 - **Sidekick Settings**: one page per behavior (Heal, Remove, Buff, Pet, Recover, Follow, AFK...), with on/off switches per section.
 
 The UI is a single replaceable file; see [ui/README.md](ui/README.md) to build your own.

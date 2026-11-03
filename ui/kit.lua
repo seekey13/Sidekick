@@ -415,7 +415,7 @@ function kit.tri(dl, a, b, c, color, alpha)
 end
 
 -- An icon `size` across centred on (cx, cy), drawn in shapes so no font has to carry it: 'close', 'play', 'stop',
--- 'cog' (its hole in `cut`), 'down', 'right', 'check'. In a 24-unit box.
+-- 'cog' (its hole in `cut`), 'down', 'right', 'check', 'plus_circle' (its plus in `cut`). In a 24-unit box.
 function kit.icon(dl, name, cx, cy, size, color, alpha, cut)
     local k = size / 24
     local function p(x, y) return { cx + (x - 12) * k, cy + (y - 12) * k } end
@@ -448,6 +448,12 @@ function kit.icon(dl, name, cx, cy, size, color, alpha, cut)
     elseif name == 'check' then
         dl:AddLine(p(5, 12), p(10, 17), col, t)
         dl:AddLine(p(10, 17), p(19, 7), col, t)
+    elseif name == 'plus_circle' then
+        -- Material Design Icons' plus-circle: a disc of 10, its plus cut out, arms 7 to 17 and 2 thick
+        dl:AddCircleFilled({ cx, cy }, 10 * k, col, 24)
+        local hole = kit.u32(cut or P.bg)
+        dl:AddRectFilled(p(7, 11), p(17, 13), hole)
+        dl:AddRectFilled(p(11, 7), p(13, 17), hole)
     end
 end
 

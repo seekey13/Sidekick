@@ -283,7 +283,7 @@ ja.words = {
     ['  (from %s)'] = '  （%sから）', ['Out of range.'] = '範囲外です。', ['In another zone.'] = '別のエリアにいます。',
     ['Tracked while %s\'s session lists them; Untrack keeps them off until tracked again.'] =
         '%sのセッションが載せている間は追跡します。追跡解除すると、再び追跡するまで外したままにします。',
-    ['Track %s'] = '%sを追跡',
+    ['Track %s'] = '%sを追跡', ['Add Tracked'] = '追跡に追加',
     ['Heal, clear, raise and buff them too, with what reaches outside the party. This session only.'] =
         'パーティ外に届くもので、このプレイヤーも回復・弱体回復・蘇生・強化します。このセッションのみ。',
     ['Target a player outside the alliance in %s\'s game to track them there.'] =
