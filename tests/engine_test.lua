@@ -414,8 +414,9 @@ test('everyone goes by server id, you and trusts included, as v2 aims; an action
     -- An id the client hasn't filled in yet (just joined, zoning): the slot, never a command with no target.
     eq({ to({ kind = 'party', slot = 5, sid = 0, name = '' }), to({ kind = 'alliance', slot = 6, sid = 0, name = '' }),
          to({ kind = 'alliance', slot = 12, sid = 0, name = '' }), to({ kind = 'alliance', slot = 17, sid = 0 }),
-         to({ kind = 'party', slot = 3, sid = 103, name = '' }) },
-       { '/ma "Cure IV" <p5>', '/ma "Cure IV" <a10>', '/ma "Cure IV" <a20>', '/ma "Cure IV" <a25>', '/ma "Cure IV" 103' })
+         to({ kind = 'party', slot = 3, sid = 103, name = '' }), to({ kind = 'self', slot = 0, sid = 0, name = 'Me' }) },
+       { '/ma "Cure IV" <p5>', '/ma "Cure IV" <a10>', '/ma "Cure IV" <a20>', '/ma "Cure IV" <a25>', '/ma "Cure IV" 103',
+         '/ma "Cure IV" <me>' })
 end)
 
 test('a heal unticked on its own (heal.never) never heals; its row\'s other tiers still do', function ()

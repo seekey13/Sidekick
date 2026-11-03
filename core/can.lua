@@ -182,7 +182,7 @@ end
 -- goes by server id too. In Japanese, the name is the DAT's Japanese one; the
 -- second result is true when there is none, so the English one went instead
 -- (the Japanese client won't take it).
--- ponytail: in game on 2026-11-02 the client refused /ma "Cure V" 2 (a dev-server player's id) with "...A command error occurred."; v2 aims by id under Ashita. Confirm ids land under VanaCore.
+-- ponytail: in game on 2026-11-02 under VanaCore the client refused every numeric target with "...A command error occurred.", a player's (/ma "Cure V" 2) and an NPC's long id alike (6561657); v2 aims by id under Ashita. Confirm ids land under VanaCore, judging by a command's first send (tools/gm.lua: the chat box refuses a line within ~1.5 s of the last, and a refused one is resent every 1.1 s).
 function can.command(a, u, japanese, bt)
     local name, english = util.spelled(a.name, a.jp, japanese)
     local target
