@@ -30,9 +30,9 @@ local DEFAULTS = {
              cure_potency = 0, waltz_potency = 0,  -- +% from gear
              regen_potency = 0,                    -- +HP per Regen tick from gear
              reserve = false },  -- SCH: buff rows leave the last stratagem charge for healing (as v2's, opt-in)
-    -- skip = { [status name] = true }: debuffs left on, until a player has their own set.
-    -- off = { [slot or tracked name] = true }: removal does not run there.
-    -- own = { [slot] = { set = true, skip = { [status] = true } } }: that player's debuffs, instead of skip.
+    -- skip = { [status name] = true }: debuffs left on everyone without a set of their own.
+    -- off = { [name] = true }: removal leaves that player alone, Doom too.
+    -- own = { [name] = { set = true, skip = { [status] = true } } }: that player's debuffs, instead of skip.
     remove = { on = true, skip = {}, off = {}, own = {} },
     wake = { on = true },                  -- wake sleeping members with a heal that wakes
     recover = { on = true, mp = 30, tp = 1000,    -- under your MP% (a member's, for Devotion), your TP

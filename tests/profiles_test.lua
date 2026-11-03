@@ -23,15 +23,19 @@ test('a profile never holds the profiles, the HUD, the language, following, the 
         c.ui.japanese, c.follow.on, c.follow.target, c.heal.focus, c.heal.skip.Kupipi = true, true, 'A', 'B', true
         c.geo.entrust, c.geo.entrust_spell = 'Tank', 'Indi-Fury'
         c.rows.Haste = { on = true, targets = { [0] = true, [3] = true } }
+        c.remove.off.Kupipi, c.remove.own.A, c.remove.skip.slow = true, { set = true, skip = { poison = true } }, true
     end)
     profiles.save(cfg, 'EXP')
     profiles.save_as(cfg, 'Two')
     local snap = cfg.profiles.Two
     eq({ snap.profiles, snap.profile, snap.parked, snap.ui, snap.follow, snap.heal.focus, snap.heal.skip },
         { nil, nil, nil, nil, nil, nil, nil })
+    eq({ snap.remove.off, snap.remove.own, snap.remove.skip }, { nil, nil, { slow = true } })  -- who, not which debuffs
     eq(snap.rows.Haste, { on = true, targets = { [0] = true, [3] = true } })
     eq({ snap.geo.entrust, snap.geo.entrust_spell }, { nil, 'Indi-Fury' })
     eq(snap.heal.danger, 50)
+    profiles.new(cfg)
+    eq({ cfg.remove.off, cfg.remove.own.A, cfg.remove.skip }, { { Kupipi = true }, { set = true, skip = { poison = true } }, {} })
 end)
 
 test('loading from Default parks the working copy; Default brings it back, and loads keep what is kept', function ()

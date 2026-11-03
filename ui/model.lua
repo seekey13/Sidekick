@@ -33,8 +33,6 @@ local profiles = require('core.profiles')
 local settings = require('core.settings')
 local util = require('core.util')
 
-local DOOM = require('core.status').DOOM
-
 local model = {}
 
 -- Settings sections in order, each under its `header` (headers in the order their first section comes). 'profile',
@@ -179,13 +177,13 @@ end
 -- the alliance's other parties (B0-B5 group 'a', C0-C5 group 'b', empty slots
 -- included) and one chip per tracked player (group 'tracked', slot their name).
 -- `wrap` is set on the first chip of each of those rows. `on(slot, unit)` says
--- whether the chip is on.
+-- whether the chip is on. A member with no name yet has `name` nil, as an empty slot.
 local function player_chips(units, outsiders, outside, on)
     local out = {}
     local function add(slot, group, u, label, wrap)
         out[#out + 1] = {
             slot = slot, label = label, group = group, present = u ~= nil,
-            name = u and u.name, on = on(slot, u) == true, wrap = wrap,
+            name = u and u.name ~= '' and u.name or nil, on = on(slot, u) == true, wrap = wrap,
         }
     end
     for slot = 0, 5 do add(slot, 'party', units[slot], TAGS[slot]) end
@@ -272,10 +270,10 @@ end
 -- Debuff removal's debuff rows: one per status name your removers clear, in status
 -- id order (Poison, Paralysis, Blindness...). `key` is the name, for
 -- act.debuff; ready or why not by the removers that are on that clear it, `usable`
--- false while none is; `action` names every one that can. Doom is always removed (`locked`).
+-- false while none is; `action` names every one that can.
 -- Each is labelled by its status (`statuses`, by id: its Japanese name in Japanese).
--- `on` is the global skip. `own[slot]` is that player's chip when they have their own set
--- (false stored: a status they leave on). Players without a set use `on`.
+-- `on` is everyone's (cfg.remove.skip). `own[name]` is that player's chip when they have
+-- their own set (false stored: a status they leave on). Players without a set use `on`.
 local function debuff_rows(g, cat, cfg, statuses)
     local of, order, skip, own = {}, {}, cfg.remove.skip or {}, cfg.remove.own or {}
     for _, a in ipairs(cat) do
@@ -285,7 +283,6 @@ local function debuff_rows(g, cat, cfg, statuses)
                 local name = a.debuffs[id]
                 local d = of[name]
                 if not d then d = { id = id, all = {}, acts = {} }; of[name] = d; order[#order + 1] = name end
-                d.locked = d.locked or id == DOOM or nil
                 d.id = math.min(d.id, id)
                 if d.all[#d.all] ~= a then
                     d.all[#d.all + 1] = a
@@ -301,17 +298,13 @@ local function debuff_rows(g, cat, cfg, statuses)
         local status = statuses and statuses[d.id]
         -- (by its status alone: by name, 'Poison' would find the spell)
         local label = lang.name((name:gsub('%f[%a]%l', string.upper)), status and status.en == name and status.jp or false)
-        local row = { key = name, label = label, on = d.locked or not skip[name], debuff = true, locked = d.locked,
+        local row = { key = name, label = label, on = not skip[name], debuff = true,
                       usable = d.acts[1] ~= nil, ready = false, avail = lang.t('nothing on removes it') }
-        if not d.locked then
-            local mine_on
-            for slot, mine in pairs(own) do
-                if type(mine) == 'table' and mine.set then
-                    mine_on = mine_on or {}
-                    mine_on[slot] = not (type(mine.skip) == 'table' and mine.skip[name] == true)
-                end
+        for who, mine in pairs(own) do
+            if type(who) == 'string' and type(mine) == 'table' and mine.set then
+                row.own = row.own or {}
+                row.own[who] = not (type(mine.skip) == 'table' and mine.skip[name] == true)
             end
-            row.own = mine_on
         end
         if row.usable then row.ready, row.avail = availability(d.acts, {}, g) end
         row.action = lang.list(families_of(d.all))
@@ -720,12 +713,9 @@ function model.build(g, cat, cfg, status, names)
         end
         if s.id == 'remove' then
             local off = cfg.remove.off or {}
-            local who = player_chips(units, outsiders, true, function () return false end)
-            for _, c in ipairs(who) do
-                c.excluded = off[c.slot] == true or nil
-                c.on = c.present and not c.excluded or false
-            end
-            section.who = who
+            section.who = player_chips(units, outsiders, true, function (_, u)
+                return u ~= nil and off[u.name] ~= true
+            end)
         end
         local shown = has[s.id]
         if shown == nil then shown = not section.rows or #section.rows > 0 end
@@ -755,8 +745,8 @@ end
 -- moment old could undo a click.
 local REMOTE = {
     run = { 'boolean' }, section = { 'string', 'boolean' }, row = { 'string', 'boolean' },
-    who = { 'number|string', 'boolean' }, debuff = { 'number|string', 'string', 'boolean' },
-    debuffs = { 'number|string', 'table', 'boolean' },
+    who = { 'string', 'boolean' }, debuff = { 'string', 'boolean', 'string|nil' },
+    debuffs = { 'table', 'boolean', 'string|nil' },
     pick = { 'string', 'string|nil' }, target = { 'string', 'number|string', 'boolean' },
     mod = { 'string', 'string', 'boolean' }, hold = { 'string', 'boolean' }, profile = { 'string|nil' }, save_profile = { 'string', 'boolean|nil' },
     new_profile = {}, delete_profile = { 'string' }, track = { 'string' }, untrack = { 'string' },
@@ -832,15 +822,12 @@ function model.apply(act, cfg, call, cat)
     local a, b = call[2], call[3]
     if fn == 'section' and (a == 'ui' or type(cfg[a]) ~= 'table' or type(cfg[a].on) ~= 'boolean') then return false end
     if CHIPS[fn] and not chipped(cat, a) then return false end
-    -- A slot is an integer 0-17, or a tracked player's name. target's is the second
-    -- argument; who's, debuff's and debuffs' is the first.
-    local function whole_slot(slot)
-        return type(slot) ~= 'number' or slot % 1 == 0 and slot >= 0 and slot <= 17
-    end
-    if fn == 'target' and not whole_slot(b) then return false end
-    if (fn == 'who' or fn == 'debuff' or fn == 'debuffs') and (not whole_slot(a) or a == '') then return false end
+    -- A target's slot is an integer 0-17, or a tracked player's name.
+    if fn == 'target' and type(b) == 'number' and (b % 1 ~= 0 or b < 0 or b > 17) then return false end
+    -- A player is named, never ''; debuff's and debuffs' name is the third argument.
+    if fn == 'who' and a == '' or (fn == 'debuff' or fn == 'debuffs') and call[4] == '' then return false end
     if fn == 'debuffs' then
-        for _, name in ipairs(b) do
+        for _, name in ipairs(a) do
             if type(name) ~= 'string' then return false end
         end
     end
@@ -885,60 +872,53 @@ function model.actions(cfg, status, changed, tracking, send)
     -- | 'rune' | 'pet' | 'maneuver' | 'recover' | 'rest' | 'afk'
     act.section = saving(function (id, on) cfg[id].on = on end)
     act.row = saving(function (key, on) saved_row(cfg, key, on).on = on end)
-    -- A party slot 0-17, or a tracked player's name. Nil when it isn't one.
-    local function player_slot(slot)
-        if type(slot) == 'number' and slot % 1 == 0 and slot >= 0 and slot <= 17 then return slot end
-        if type(slot) == 'string' and slot ~= '' then return slot end
-    end
-    -- That player's own debuff set, copied from the global skip the first time.
-    local function ensure_own(slot)
+    -- The debuffs left on for `name`: that player's own set, made from everyone's the
+    -- first time; without a name, everyone's (cfg.remove.skip). Nil for '' or a non-name.
+    local function skip_set(name)
         local rm = cfg.remove
+        if name == nil then
+            rm.skip = rm.skip or {}
+            return rm.skip
+        end
+        if type(name) ~= 'string' or name == '' then return nil end
         rm.own = rm.own or {}
-        local mine = rm.own[slot]
+        local mine = rm.own[name]
         if type(mine) ~= 'table' or not mine.set then
-            local skip = {}
+            mine = { set = true, skip = {} }
             for k, v in pairs(rm.skip or {}) do
-                if type(k) == 'string' and v == true and k ~= 'doom' then skip[k] = true end
+                if type(k) == 'string' and v == true then mine.skip[k] = true end
             end
-            mine = { set = true, skip = skip }
-            rm.own[slot] = mine
+            rm.own[name] = mine
         end
         mine.skip = mine.skip or {}
-        return mine
+        return mine.skip
     end
-    -- Removal runs on this slot (`on` true), or not. Nil toggles. An empty slot
-    -- switched off stays off until it is switched back on.
-    function act.who(slot, on)
-        slot = player_slot(slot)
-        if not slot then return end
+    -- Removal runs on this player (`on` true), or leaves them alone, Doom too. By name,
+    -- as healing's skips. Nil toggles.
+    function act.who(name, on)
+        if type(name) ~= 'string' or name == '' then return end
         cfg.remove.off = cfg.remove.off or {}
-        if on == nil then on = cfg.remove.off[slot] == true end
-        cfg.remove.off[slot] = not on or nil
+        if on == nil then on = cfg.remove.off[name] == true end
+        cfg.remove.off[name] = not on or nil
         changed()
     end
-    -- A debuff (a status name) removed or left on for one slot. Doom is never stored.
-    -- The first change copies the global skip into that player's set. Nil toggles.
-    function act.debuff(slot, name, on)
-        slot = player_slot(slot)
-        if not slot or type(name) ~= 'string' or name == 'doom' then return end
-        local mine = ensure_own(slot)
-        if on == nil then on = mine.skip[name] == true end
-        mine.skip[name] = not on or nil
+    -- A debuff (a status name, a Debuff removal row's key) removed or left on: for
+    -- `name`'s own set when named (its first change copies everyone's), else everyone's.
+    -- Nil `on` toggles.
+    function act.debuff(key, on, name)
+        local skip = type(key) == 'string' and skip_set(name)
+        if not skip then return end
+        if on == nil then on = skip[key] == true end
+        skip[key] = not on or nil
         changed()
     end
-    -- Every debuff in `names` for one slot: `on` true removes them all, false leaves
-    -- them all (Doom stays removed either way). Replaces that player's set.
-    function act.debuffs(slot, names, on)
-        slot = player_slot(slot)
-        if not slot or type(names) ~= 'table' or type(on) ~= 'boolean' then return end
-        local skip = {}
-        if not on then
-            for _, name in ipairs(names) do
-                if type(name) == 'string' and name ~= 'doom' then skip[name] = true end
-            end
+    -- Every debuff in `names` removed (`on` true) or left on (false), for `name` or everyone.
+    function act.debuffs(names, on, name)
+        local skip = type(names) == 'table' and type(on) == 'boolean' and skip_set(name)
+        if not skip then return end
+        for _, key in ipairs(names) do
+            if type(key) == 'string' then skip[key] = not on or nil end
         end
-        cfg.remove.own = cfg.remove.own or {}
-        cfg.remove.own[slot] = { set = true, skip = skip }
         changed()
     end
     -- name nil = best tier.
