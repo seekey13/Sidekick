@@ -1135,13 +1135,13 @@ test('a row, its pick and its targets each write and save', function ()
     eq(cfg.rows.Cure, { on = false })
     eq(render(cfg, st, on('Remove', { ['Echo Drops (0)###remove_Echo Drops'] = true })), 1)  -- an item, with how many you carry
     eq(cfg.rows['Echo Drops'], { on = true })
-    eq(render(cfg, st, on('Remove', { ['Paralysis##remove_0_paralysis'] = true })), 1)  -- ME's tab, a debuff by name
-    eq({ cfg.remove.skip, cfg.remove.own[0].skip, cfg.rows.paralysis }, { {}, { paralysis = true }, nil })
+    eq(render(cfg, st, on('Remove', { ['Paralysis##remove_*_paralysis'] = true })), 1)  -- Everyone's tab, a debuff by name
+    eq({ cfg.remove.skip, cfg.remove.own, cfg.rows.paralysis }, { { paralysis = true }, {}, nil })
     eq(render(cfg, st, on('Remove', { ['Erase##remove_with_Erase'] = true })), 1)  -- a remover's checkbox, unticked
     eq(cfg.rows.Erase, { on = false })
-    eq(render(cfg, st, on('Remove', { ['Dia##remove_0_Dia'] = true })), 0)  -- only Erase removes it: greyed, no click
-    eq(render(cfg, st, on('Remove', { ['Doom##remove_0_doom'] = true })), 0)  -- locked on
-    eq(cfg.remove.own[0].skip, { paralysis = true })
+    eq(render(cfg, st, on('Remove', { ['Dia##remove_*_Dia'] = true })), 0)  -- only Erase removes it: greyed, no click
+    eq(render(cfg, st, on('Remove', { ['Doom##remove_*_doom'] = true })), 1)  -- Doom too
+    eq(cfg.remove.skip, { paralysis = true, doom = true })
 end)
 
 test('items get a heading of their own, with no pick or targets', function ()
@@ -1149,8 +1149,9 @@ test('items get a heading of their own, with no pick or targets', function ()
     render(settings.defaults(), status(), on('Remove'))
     eq({ drew('I T E M S'), button('Echo Drops (0)###remove_Echo Drops'), button('##pick_remove_Echo Drops') }, { true, true, false })
     eq({ drew('D E B U F F S'), button('None##remove_debuff_none'), button('All##remove_debuff_all'),
-         button('Paralysis##remove_0_paralysis'), button('ME##remove_tab_0'), button('Paralyna##remove_Paralyna') },
-       { true, true, true, true, true, false })
+         button('Paralysis##remove_*_paralysis'), button('Everyone##remove_tab_*'), button('ME##remove_tab_0'),
+         button('Paralyna##remove_Paralyna') },
+       { true, true, true, true, true, true, false })
     eq({ drew('R E M O V E R S'), button('Erase##remove_with_Erase') }, { true, true })
     render(settings.defaults(), status(), on('Buff'))
     eq({ button('##pick_buff_Protect'), button('P1##buff_Protect1'), drew('I T E M S') }, { true, true, false })
@@ -1311,22 +1312,24 @@ test('alliance slots are always listed under Heal and Buff; Tracked lists one in
     eq(button('Heal the alliance##sk3_heal_alliance'), false)
 end)
 
-test('Remove: a tab per player that is on, and None and All for that player', function ()
+test('Remove: a tab for everyone and one per player that is on, and None and All for the tab picked', function ()
     open_settings()
     local cfg, st = settings.defaults(), status()
     eq(render(cfg, st, on('Remove', { ['P1##sk3_remove_who_1'] = true })), 1)
-    eq(cfg.remove.off, { [1] = true })
+    eq(cfg.remove.off, { A = true })  -- by name
     render(cfg, st, on('Remove'))
-    eq(button('P1##remove_tab_1'), false)  -- unticked: no tab
-    eq(render(cfg, st, on('Remove', { ['Paralysis##remove_0_paralysis'] = true })), 1)
-    eq(cfg.remove.own[0].skip.paralysis, true)
+    eq({ button('Everyone##remove_tab_*'), button('P1##remove_tab_1'), button('P2##remove_tab_2') }, { true, false, true })
+    eq(render(cfg, st, on('Remove', { ['Paralysis##remove_*_paralysis'] = true })), 1)
+    eq(cfg.remove.skip, { paralysis = true })
     eq(render(cfg, st, on('Remove', { ['P2##remove_tab_2'] = true })), 0)  -- the tab is this window's, not a setting
     eq(render(cfg, st, on('Remove', { ['None##remove_debuff_none'] = true })), 1)
-    eq({ cfg.remove.own[2].set, cfg.remove.own[2].skip.paralysis, cfg.remove.own[2].skip.doom, cfg.remove.own[0].skip.paralysis },
-       { true, true, nil, true })
+    eq({ cfg.remove.own.B.set, cfg.remove.own.B.skip.paralysis, cfg.remove.own.B.skip.doom, cfg.remove.skip },
+       { true, true, true, { paralysis = true } })
     eq(render(cfg, st, on('Remove', { ['All##remove_debuff_all'] = true })), 1)
-    eq(cfg.remove.own[2].skip, {})
-    eq(render(cfg, st, on('Remove', { ['ME##remove_tab_0'] = true })), 0)  -- back to ME for the tests after this
+    eq(cfg.remove.own.B.skip, {})
+    eq(render(cfg, st, on('Remove', { ['Paralysis##remove_B_paralysis'] = true })), 1)
+    eq({ cfg.remove.own.B.skip, cfg.remove.skip }, { { paralysis = true }, { paralysis = true } })
+    eq(render(cfg, st, on('Remove', { ['Everyone##remove_tab_*'] = true })), 0)  -- back to Everyone for the tests after this
 end)
 
 local function profiles_named(cfg) return require('core.profiles').names(cfg) end

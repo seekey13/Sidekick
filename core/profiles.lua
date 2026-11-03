@@ -8,8 +8,9 @@
 
     Never in a snapshot, and never changed by a load: the profiles themselves, the
     HUD and the client's language (`ui`, its own file), and who the party is now:
-    following, the focus member, the members healing skips and who Entrust goes on;
-    and AFK sleep, the box's and not a profile's (new: v2's profiles carried it).
+    following, the focus member, the members healing skips, the players removal leaves
+    alone and their own debuff sets, and who Entrust goes on; and AFK sleep, the box's
+    and not a profile's (new: v2's profiles carried it).
 ]]--
 
 local settings = require('core.settings')
@@ -19,7 +20,7 @@ local profiles = {}
 
 -- true: the whole key is kept; a table: those keys inside it.
 local KEPT = { profiles = true, profile = true, parked = true, ui = true, follow = true, afk = true,
-               heal = { focus = true, skip = true }, geo = { entrust = true } }
+               heal = { focus = true, skip = true }, remove = { off = true, own = true }, geo = { entrust = true } }
 
 local copy = util.copy
 

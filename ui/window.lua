@@ -657,7 +657,7 @@ local HEAL_LINES = {
     { 'Critical under', 'critical', 'Under this HP %, boost the heal first (Divine Seal) or save them (Martyr).' },
 }
 local HEAL_TIP = 'Untick to never heal them for their own sake; an area heal may still land on them.'
-local WHO_TIP = 'Untick to never clear debuffs on them. An empty slot is included once someone is there.'
+local WHO_TIP = 'Untick to never clear debuffs on them, Doom too: someone else sees to them.'
 
 -- Player chips, one row each: your party, alliance party B (group 'a'), alliance party C (group 'b'), then tracked.
 local SLOT_GROUPS = { 'party', 'a', 'b', 'tracked' }
@@ -675,10 +675,10 @@ local function slot_groups(chips)
     return out
 end
 
--- 'empty' and not clickable when nobody is there and the chip is not already on
--- (or, for removal, not already switched off). Otherwise 'on' or 'off'.
+-- 'empty' and not clickable when nobody is there and the chip is not already on.
+-- Otherwise 'on' or 'off'.
 local function slot_look(tg)
-    local empty = not tg.present and not tg.on and not tg.excluded
+    local empty = not tg.present and not tg.on
     return empty and 'empty' or tg.on and 'on' or 'off', not empty
 end
 
@@ -1234,41 +1234,41 @@ local function remover_row(pg, sid, r)
         r.on and P.text or P.dim, kit.fonts.text, S(BODY), pg.alpha)
 end
 
--- The players removal runs on, then a tab for each one that is on, then None, All and that player's debuffs.
+-- A tab for everyone, then one for each player removal runs on, then None, All and the
+-- tab's debuffs. Everyone's are those of each player without a set of their own.
 local function debuff_panel(pg, pane, debuffs, who)
-    local tabs = {}
+    local everyone = t('Everyone')
+    local tabs = { { label = everyone, id = '*', w = kit.chip_width(everyone),
+                     tip = t('Everyone without a set of their own, and whoever joins. A player\'s first change gives them their own.') } }
     for _, tg in ipairs(who or {}) do
-        if tg.on then tabs[#tabs + 1] = tg end
+        if tg.on and tg.name then
+            tabs[#tabs + 1] = { label = tg.label, id = tg.slot, name = tg.name, w = S(CHIP_W), tip = game_text(tg.name) }
+        end
     end
-    if #tabs == 0 then
-        note(pg, t('No player selected above.'))
-        return
+    local active = tabs[1]
+    for _, tab in ipairs(tabs) do
+        if tab.name ~= nil and tab.name == pane.debuff then active = tab end
     end
-    local active = pane.debuff
-    local found = false
-    for _, tg in ipairs(tabs) do
-        if tg.slot == active then found = true end
-    end
-    if not found then active = tabs[1].slot end
-    pane.debuff = active
+    pane.debuff = active.name
     local items = {}
-    for i, tg in ipairs(tabs) do items[i] = { w = S(CHIP_W), t = tg } end
+    for i, tab in ipairs(tabs) do items[i] = { w = tab.w, t = tab } end
     local n = flow(items, pg.lx, pg.right, S(4))
     local y = pg.y
     line(pg, nil, nil, n * S(CHIP_LINE))
     for _, it in ipairs(items) do
-        local tg = it.t
-        if kit.chip(tg.label .. '##remove_tab_' .. tg.slot, it.x, y + (it.line - 0.5) * S(CHIP_LINE), it.w, tg.label,
-                tg.slot == active and 'on' or 'off', true, pg.alpha) then
-            active, pane.debuff = tg.slot, tg.slot
+        local tab = it.t
+        if kit.chip(tab.label .. '##remove_tab_' .. tab.id, it.x, y + (it.line - 0.5) * S(CHIP_LINE), it.w,
+                tab.label, tab == active and 'on' or 'off', true, pg.alpha) then
+            active, pane.debuff = tab, tab.name
         end
-        kit.tip(tg.name and game_text(tg.name) or tg.label)
+        kit.tip(tab.tip)
     end
+    local whose = active.name or '*'
     local none, all, names = t('None'), t('All'), {}
     local chips = { { w = kit.button_width(none), kind = 'none' }, { w = kit.button_width(all), kind = 'all' } }
     for _, r in ipairs(debuffs) do
         chips[#chips + 1] = { w = kit.chip_width(r.label), r = r }
-        if not r.locked then names[#names + 1] = r.key end
+        names[#names + 1] = r.key
     end
     local clines = flow(chips, pg.lx, pg.right, S(4))
     local cy0 = pg.y
@@ -1277,34 +1277,34 @@ local function debuff_panel(pg, pane, debuffs, who)
         local icy = cy0 + (it.line - 0.5) * S(CHIP_LINE)
         if it.kind == 'none' then
             if kit.button('None##remove_debuff_none', it.x, icy, none, 'ghost', true, pg.alpha) then
-                act.debuffs(active, names, false)
+                act.debuffs(names, false, active.name)
             end
-            kit.tip(t('Leave every debuff on this player. Doom is still removed.'))
+            kit.tip(t('Leave all of these debuffs on.'))
         elseif it.kind == 'all' then
             if kit.button('All##remove_debuff_all', it.x, icy, all, 'ghost', true, pg.alpha) then
-                act.debuffs(active, names, true)
+                act.debuffs(names, true, active.name)
             end
-            kit.tip(t('Remove every debuff on this player.'))
+            kit.tip(t('Remove all of these debuffs.'))
         else
             local r = it.r
             local on = r.on
-            if r.locked then on = true
-            elseif r.own and r.own[active] ~= nil then on = r.own[active] end
+            if active.name and r.own and r.own[active.name] ~= nil then on = r.own[active.name] end
             local usable = r.usable ~= false
-            if kit.chip(r.label .. '##remove_' .. active .. '_' .. r.key, it.x, icy, it.w, r.label,
-                    not usable and 'empty' or on and 'on' or 'off', usable and not r.locked, pg.alpha) then
-                act.debuff(active, r.key, not on)
+            if kit.chip(r.label .. '##remove_' .. whose .. '_' .. r.key, it.x, icy, it.w, r.label,
+                    not usable and 'empty' or on and 'on' or 'off', usable, pg.alpha) then
+                act.debuff(r.key, not on, active.name)
             end
             local by = r.action ~= '' and f('Removed by %s', r.action) .. '\n' or ''
             local left = not on and not usable and t('\nSwitched off: left on once something removes it again.') or ''
-            local how = r.locked and 'Always removed: it kills.' or usable and DEBUFF_TIP or 'Tick something above that removes it.'
+            local how = usable and DEBUFF_TIP or 'Tick something above that removes it.'
             kit.tip(('%s%s\n%s%s'):format(by, r.avail, t(how), left))
         end
     end
 end
 
 -- Spells and abilities, then items (rows with a count) under a heading of their own. Debuff removal lists who it
--- runs on, then its spells and abilities as checkboxes, then a tab of debuff chips for each player that is on.
+-- runs on, then its spells and abilities as checkboxes, then a tab of debuff chips for everyone and for each player
+-- it runs on.
 local function section_rows(pg, s, has_body, pane)
     local removers, debuffs, acts, items = {}, {}, {}, {}
     for _, r in ipairs(s.rows) do
@@ -1315,10 +1315,9 @@ local function section_rows(pg, s, has_body, pane)
         draw_slot_rows(pg, s.who, function (tg)
             return tg.label .. '##sk3_remove_who_' .. tg.slot
         end, function (tg)
-            if not tg.present and not tg.excluded then return t('empty slot') end
-            return (tg.name and game_text(tg.name) .. '\n' or '') .. tip
+            return tg.name and game_text(tg.name) .. '\n' .. tip or t('empty slot')
         end, function (tg)
-            act.who(tg.slot, not tg.on)
+            if tg.name then act.who(tg.name, not tg.on) end
         end)
     end
     if #removers > 0 then

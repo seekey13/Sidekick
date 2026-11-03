@@ -3,10 +3,10 @@
     specific remover first: a targeted -na spell, then Erase, then Esuna (an area
     cast on you, clearing on those near you only what you have too), then an item
     on you (opt-in: they cost gil). A remover only ever on you with no area
-    (Chakra, items) clears only your own; Esuna reaches your party only. A slot in
-    cfg.remove.off is left alone. Debuffs are switched by name (cfg.remove.skip:
-    those left on everyone, unless that player has cfg.remove.own[slot]; never Doom,
-    which kills). Items go by what they'd clear on you now: Doom first, then Silence if you cast,
+    (Chakra, items) clears only your own; Esuna reaches your party only. A player
+    named in cfg.remove.off is left alone, Doom too (someone else may see to them).
+    Debuffs are switched by name (cfg.remove.skip: those left on everyone, unless that
+    player has cfg.remove.own[name]). Items go by what they'd clear on you now: Doom first, then Silence if you cast,
     then the most of your statuses in one use; then cheap and specific first. An
     /item the server never answers (a locked or bazaar stack) holds items back
     ITEM_WAIT seconds.
@@ -20,20 +20,15 @@ local ESUNA_RADIUS = 10  -- yalms around you
 local ITEM_WAIT = 4      -- seconds, as v2's item cooldown
 local DOOM, SILENCE = status.DOOM, 6
 
--- A unit's removal key: its party or alliance slot, else a tracked player's name.
-local function key_of(u)
-    if u.slot ~= nil then return u.slot end
-    return u.name
-end
-
--- Removal runs on a unit until its slot is switched off.
+-- Removal runs on a unit until they're switched off, by name as healing's skips:
+-- it follows them from slot to slot.
 local function served(rm, u)
-    return (rm.off or {})[key_of(u)] ~= true
+    return (rm.off or {})[u.name] ~= true
 end
 
--- The statuses left on `u`: their own set when they have one, else the global skip.
+-- The statuses left on `u`: their own set when they have one, else everyone's.
 local function skip_of(rm, u)
-    local mine = (rm.own or {})[key_of(u)]
+    local mine = (rm.own or {})[u.name]
     if type(mine) == 'table' and mine.set then return mine.skip or {} end
     return rm.skip or {}
 end
@@ -46,7 +41,7 @@ end
 
 -- Whether `a` clears status `id` and it's one to remove on `u`.
 local function wanted(a, id, u, skip)
-    return u.buffs[id] and (id == DOOM or not skip[a.debuffs[id]])
+    return u.buffs[id] and not skip[a.debuffs[id]]
 end
 
 -- Whether `a` clears something on `u` that's to be removed. Esuna clears on those

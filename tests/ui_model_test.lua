@@ -113,12 +113,18 @@ test('Debuff removal lists the debuffs your removers clear, worst first, each sw
     eq(para.action, 'Paralyna, Esuna, Remedy Ointment, Remedy, Panacea')
     local cfg, writes = settings.defaults(), 0
     local act = model.actions(cfg, status(), function () writes = writes + 1 end)
-    act.debuff(0, 'paralysis', false)
-    para = row(build(whm, cfg, fake.snap({ { name = 'A' } })), 'remove', 'paralysis')
-    eq({ cfg.remove.skip, cfg.remove.own[0], para.on, para.own[0] },
-        { {}, { set = true, skip = { paralysis = true } }, true, false })
-    act.debuff(0, 'paralysis')
-    eq({ cfg.remove.own[0].skip, writes }, { {}, 2 })
+    local g = fake.snap({ { name = 'A' } })
+    act.debuff('paralysis', false)  -- everyone's
+    eq({ cfg.remove.skip, row(build(whm, cfg, g), 'remove', 'paralysis').on }, { { paralysis = true }, false })
+    act.debuff('silence', false, 'A')  -- A's own, made from everyone's
+    view = build(whm, cfg, g)
+    eq({ cfg.remove.own.A, row(view, 'remove', 'silence').on, row(view, 'remove', 'silence').own.A,
+         row(view, 'remove', 'paralysis').own.A },
+       { { set = true, skip = { paralysis = true, silence = true } }, true, false, false })
+    act.debuff('paralysis', nil, 'A')  -- toggled, for A alone
+    eq({ cfg.remove.own.A.skip, cfg.remove.skip, writes }, { { silence = true }, { paralysis = true }, 3 })
+    act.debuff('paralysis', true, '')  -- no one
+    eq(writes, 3)
 end)
 
 test('debuff labels capitalise each word; a remover that heals too says so', function ()
@@ -129,32 +135,36 @@ test('debuff labels capitalise each word; a remover that heals too says so', fun
     eq(row(build(whm, nil, fake.snap({ { name = 'A' } })), 'remove', 'Erase').shared, nil)
 end)
 
-test('Doom is locked on, whatever was saved', function ()
+test('Doom is switched as any debuff, for everyone or a player', function ()
     local cfg = settings.defaults()
-    cfg.remove.skip = { doom = true }
-    local doom = row(build(whm, cfg, fake.snap({ { name = 'A' } })), 'remove', 'doom')
-    eq({ doom.on, doom.locked, doom.usable }, { true, true, true })
-    eq(row(build(whm, cfg, fake.snap({ { name = 'A' } })), 'remove', 'poison').locked, nil)
-    local writes = 0
-    model.actions(cfg, status(), function () writes = writes + 1 end).debuff(0, 'doom', false)
-    eq({ writes, cfg.remove.own[0] }, { 0, nil })
+    local g = fake.snap({ { name = 'A' } })
+    local doom = row(build(whm, cfg, g), 'remove', 'doom')
+    eq({ doom.on, doom.locked, doom.usable }, { true, nil, true })
+    local act = model.actions(cfg, status(), function () end)
+    act.debuff('doom', false)
+    act.debuffs({ 'doom', 'poison' }, false, 'A')
+    doom = row(build(whm, cfg, g), 'remove', 'doom')
+    eq({ cfg.remove.skip, cfg.remove.own.A.skip, doom.on, doom.own.A },
+       { { doom = true }, { doom = true, poison = true }, false, false })
 end)
 
-test('removal runs on every present player until a slot is off, and a player\'s debuffs replace the global ones', function ()
+test('removal runs on every present player until they are off, by name, and a player\'s debuffs replace everyone\'s', function ()
     local who = section(build(whm), 'remove').who
     eq(#who, 18)
-    eq({ who[1].label, who[1].on, who[1].group, who[2].name, who[2].on, who[7].label, who[7].present, who[7].on, who[7].excluded },
-       { 'ME', true, 'party', 'A', true, 'B0', false, false, nil })
+    eq({ who[1].label, who[1].on, who[1].group, who[2].name, who[2].on, who[7].label, who[7].present, who[7].on },
+       { 'ME', true, 'party', 'A', true, 'B0', false, false })
     local cfg = settings.defaults()
-    cfg.remove.off = { [1] = true, [6] = true }
+    cfg.remove.off = { A = true }
     cfg.remove.skip = { poison = true }
-    cfg.remove.own = { [0] = { set = true, skip = {} } }
+    cfg.remove.own = { B = { set = true, skip = {} } }
     local view = build(whm, cfg)
     who = section(view, 'remove').who
-    eq({ who[1].on, who[2].on, who[2].excluded, who[7].on, who[7].excluded }, { true, false, true, false, true })
+    eq({ who[1].on, who[2].name, who[2].on, who[3].name, who[3].on, who[7].on }, { true, 'A', false, 'B', true, false })
     local poison = row(view, 'remove', 'poison')
-    eq({ poison.on, poison.own[0], row(view, 'remove', 'paralysis').own[0], row(view, 'remove', 'doom').own },
-       { false, true, true, nil })
+    eq({ poison.on, poison.own.B, row(view, 'remove', 'paralysis').own.B, poison.own.A }, { false, true, true, nil })
+    -- Whoever takes A's slot is on: it was A who was switched off.
+    who = section(build(whm, cfg, fake.snap({ { name = 'C' } })), 'remove').who
+    eq({ who[2].name, who[2].on }, { 'C', true })
 end)
 
 test('a debuff nothing ticked removes is not usable: unticking Erase greys out what only it clears', function ()
@@ -512,6 +522,11 @@ test('the alliance\'s other parties are listed apart, B0-B5 and C0-C5, to focus 
     for _, c in ipairs(targets) do if c.slot == 12 then cy = c end end
     eq({ on_at(targets, 1), on_at(targets, 6), on_at(targets, 8), cy.label, cy.group, cy.wrap, cy.name, cy.on },
        { true, true, false, 'C0', 'b', true, 'Cy', true })
+    -- A member with no name yet has none on the chip, so a click can't skip '' (everyone nameless).
+    g.units[#g.units + 1] = fake.unit({ kind = 'alliance', name = '', slot = 13, sid = 304 })
+    local nameless
+    for _, c in ipairs(build(whm, cfg, g).heal.targets) do if c.slot == 13 then nameless = c end end
+    eq({ nameless.present, nameless.name, nameless.on }, { true, nil, true })
     eq(model.TAGS[17], 'C5')
     local e = { at = 990, action = 'Cure IV', target = 'Bea', behavior = 'heal', why = 'danger: Bea 45%' }
     eq(build(whm, nil, alliance_snap(), status({ intent = e })).pointer, { text = 'Heal:Cure IV', ally = 1, live = false })
@@ -661,16 +676,13 @@ test('another session\'s calls apply through act; the HUD\'s settings, the log a
     eq(cfg.rows.Protect, { on = true, pick = 'Protect II', targets = { [0] = true, [1] = true } })
     eq({ apply('pick', 'Protect', nil), cfg.rows.Protect.pick }, { true, nil })  -- back to Auto
     eq({ apply('section', 'buff', true), cfg.buff.on }, { true, true })
-    eq({ apply('debuff', 0, 'slow', false), cfg.remove.own[0] }, { true, { set = true, skip = { slow = true } } })
-    eq(cfg.remove.skip, {})
-    eq({ apply('debuff', 0, 'slow', true), cfg.remove.own[0].skip }, { true, {} })
-    eq({ apply('who', 1, false), cfg.remove.off }, { true, { [1] = true } })
-    eq({ apply('who', 1, true), cfg.remove.off }, { true, {} })
-    eq({ apply('debuffs', 2, { 'poison', 'paralysis' }, false), cfg.remove.own[2].skip }, { true, { poison = true, paralysis = true } })
-    eq({ apply('debuffs', 2, { 'poison' }, true), cfg.remove.own[2] }, { true, { set = true, skip = {} } })
-    local before_doom = writes
-    eq(apply('debuff', 0, 'doom', false), true)  -- accepted, and it changes nothing
-    eq({ writes, cfg.remove.own[0].skip.doom }, { before_doom, nil })
+    eq({ apply('debuff', 'slow', false), cfg.remove.skip }, { true, { slow = true } })  -- everyone's
+    eq({ apply('debuff', 'slow', true, 'A'), cfg.remove.own.A }, { true, { set = true, skip = {} } })
+    eq({ apply('debuff', 'slow', true), cfg.remove.skip }, { true, {} })
+    eq({ apply('who', 'A', false), cfg.remove.off }, { true, { A = true } })
+    eq({ apply('who', 'A', true), cfg.remove.off }, { true, {} })
+    eq({ apply('debuffs', { 'poison', 'paralysis' }, false, 'B'), cfg.remove.own.B.skip }, { true, { poison = true, paralysis = true } })
+    eq({ apply('debuffs', { 'poison' }, true, 'B'), cfg.remove.own.B.skip }, { true, { paralysis = true } })
     eq({ apply('track', 'Out'), tracks }, { true, { 'Out' } })
     local before = writes
     for _, bad in ipairs({
@@ -679,8 +691,9 @@ test('another session\'s calls apply through act; the HUD\'s settings, the log a
         call('set', 'heal.danger', 'high'), call('set', 'heal.skip', {}), call('set', 'danger', 1), call('section', 'ui', true),
         call('section', 'nope', true), call('section', 'heal', 'yes'), call('row', 5, true), call('target', 'Protect', true, true),
         call('target', 'Protect', 1), call('mod', 'Protect', 'Penury'), call('skip', 'A'),  -- a bare toggle: never from afar
-        call('debuff', 'slow', false), call('who', 1), call('who', 18, true), call('debuff', 0, 'slow'),
-        call('debuffs', 0, { 'poison', 1 }, false), call('debuffs', '', { 'poison' }, false),
+        call('debuff', 'slow'), call('debuff', 0, 'slow', false), call('debuff', 'slow', false, ''), call('debuff', 'slow', false, 5),
+        call('who', 'A'), call('who', 1, false), call('who', '', true),
+        call('debuffs', { 'poison', 1 }, false), call('debuffs', { 'poison' }, false, ''), call('debuffs', 'poison', false),
         call('set', 'profiles.X.heal.danger', 50), call('set', 'parked.heal.danger', 50), call('set', 'roll.risk', 'wild'),
         call('set', 'follow.on', 1),
         { 'run', true }, { 42 },

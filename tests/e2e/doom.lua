@@ -1,4 +1,4 @@
--- Doom on a party member: Cursna on them whatever the Debuff switches say, and again once its recast allows while the
+-- Doom on a party member: Cursna on them while Doom's chip is on for them, and again once its recast allows while the
 -- Doom stays (Cursna takes it off (10 + healing skill / 30)% of the time: one in five at WHM75's skill). 60 seconds
 -- of Doom; the cleanup takes it off, or raises them should it run out.
 local DOOM = 15
@@ -9,6 +9,10 @@ return {
     run = function (t)
         local who = t.member()
         t.need(t.action('Cursna'), 'no Cursna among Sidekick3\'s actions for this job')
+        local rm = t.cfg().remove
+        local mine = (rm.own or {})[who]
+        local skip = mine and mine.set and mine.skip or rm.skip or {}
+        t.need(rm.on and not (rm.off or {})[who] and not skip.doom, 'Doom removal is off for %s (Remove)', who)
         t.start()
         t.settle()
         t.gm.effect(who, 'doom', 10, 60)
