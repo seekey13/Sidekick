@@ -53,26 +53,26 @@ end)
 test('Wild Carrot heals the party in danger on a BST with no MP, once two charges are banked', function ()
     local cat = fake.catalog(BST, 75, WAR, 37, JAS)
     local cmd, intent = decide(snap(40, WAR, 2), cat)
-    eq({ cmd, intent.behavior }, { '/pet "Wild Carrot" <me>', 'heal' })
+    eq({ cmd, intent.behavior }, { '/pet "Wild Carrot" 1', 'heal' })
     eq(decide(snap(40, WAR, 1), cat), nil)  -- one charge: not enough
     eq(decide(snap(40, WAR, 3, { pet = rabbit({ name = 'FunguarFamiliar' }) }), cat), nil)  -- not a rabbit
 end)
 
 test('Wild Carrot only in danger: its charges are kept for the pet\'s attacks on chip damage', function ()
     local cat = fake.catalog(BST, 75, WHM, 37, JAS)
-    eq(decide(snap(70, WHM, 3), cat), '/ma "Regen" P1')   -- chip damage, under the heal line: MP, not charges
-    eq(decide(snap(40, WHM, 3), cat), '/pet "Wild Carrot" <me>')
+    eq(decide(snap(70, WHM, 3), cat), '/ma "Regen" 101')   -- chip damage, under the heal line: MP, not charges
+    eq(decide(snap(40, WHM, 3), cat), '/pet "Wild Carrot" 1')
     local war = fake.catalog(BST, 75, WAR, 37, JAS)
     local danger = settings.defaults().heal.danger
     eq(decide(snap(danger + 10, WAR, 3), war), nil)  -- no MP heal, and still no carrot over the danger line
-    eq(decide(snap(danger - 1, WAR, 3), war), '/pet "Wild Carrot" <me>')
+    eq(decide(snap(danger - 1, WAR, 3), war), '/pet "Wild Carrot" 1')
 end)
 
 -- The client lists a Ready move only for the jug that has it (core/catalog.lua's `learn`).
 test('Wild Carrot the client doesn\'t list is never sent, and healing goes on without it', function ()
     local cat = fake.catalog(BST, 75, WHM, 37, {})  -- no Ready move listed when the catalog was built
     eq(named(cat, 'Wild Carrot', 'heal') ~= nil, true)
-    eq(decide(snap(40, WHM, 3), cat), '/pet "Wild Carrot" <me>')
+    eq(decide(snap(40, WHM, 3), cat), '/pet "Wild Carrot" 1')
     local g = snap(40, WHM, 3)
     g.listed = function (a) return a.name ~= 'Wild Carrot' end
     eq(decide(g, cat):match('^/ma '), '/ma ')

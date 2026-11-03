@@ -74,7 +74,7 @@ end)
 test('on: a held row lets the rows after it go', function ()
     local g, cfg = setup()
     cfg.rows.Sneak = { on = true, targets = { [1] = true } }  -- below Protectra in priority
-    eq(decide(g, cfg), '/ma "Sneak" A')
+    eq(decide(g, cfg), '/ma "Sneak" 101')
     g.units[2].buffs[SNEAK] = true
     eq({ decide(g, cfg) }, { nil, 'holding Protectra V: B 15.0y away' })
     cfg.buff.hold_aoe = false

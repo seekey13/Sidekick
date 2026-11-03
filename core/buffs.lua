@@ -13,9 +13,12 @@ buffs.DEFAULT_SECONDS = 300
 
 local store = {}  -- [server id] = { [status id] = expires at (os.clock seconds) }
 
-function buffs.gain(sid, status, now, seconds)
+-- `stacks`: several of it can stand at once (your songs: two Marches are one id),
+-- so it lasts as long as the one that wears last.
+function buffs.gain(sid, status, now, seconds, stacks)
     store[sid] = store[sid] or {}
-    store[sid][status] = now + (seconds or buffs.DEFAULT_SECONDS)
+    local expires = now + (seconds or buffs.DEFAULT_SECONDS)
+    store[sid][status] = stacks and math.max(store[sid][status] or expires, expires) or expires
 end
 
 function buffs.lose(sid, status)

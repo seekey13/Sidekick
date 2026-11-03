@@ -660,6 +660,8 @@ local HEAL_TIP = 'Untick to never heal them for their own sake; an area heal may
 local WHO_TIP = 'Untick to never clear debuffs on them, Doom too: someone else sees to them.'
 
 -- Player chips, one row each: your party, alliance party B (group 'a'), alliance party C (group 'b'), then tracked.
+-- An empty slot is left out, a row with none there too; but not a buff's target still on in one, so it can be
+-- switched off before whoever takes the slot gets it.
 local SLOT_GROUPS = { 'party', 'a', 'b', 'tracked' }
 
 local function slot_groups(chips)
@@ -667,7 +669,7 @@ local function slot_groups(chips)
     for _, name in ipairs(SLOT_GROUPS) do by[name] = {} end
     for _, tg in ipairs(chips or {}) do
         local list = by[tg.group]
-        if list then list[#list + 1] = tg end
+        if list and (tg.present or tg.on) then list[#list + 1] = tg end
     end
     for _, name in ipairs(SLOT_GROUPS) do
         if by[name][1] then out[#out + 1] = by[name] end
@@ -675,12 +677,7 @@ local function slot_groups(chips)
     return out
 end
 
--- 'empty' and not clickable when nobody is there and the chip is not already on.
--- Otherwise 'on' or 'off'.
-local function slot_look(tg)
-    local empty = not tg.present and not tg.on
-    return empty and 'empty' or tg.on and 'on' or 'off', not empty
-end
+local function slot_look(tg) return tg.on and 'on' or 'off' end
 
 -- `chips` in their rows, from pg.lx. `make_id`, `tip_of` and `on_click` take the chip.
 local function draw_slot_rows(pg, chips, make_id, tip_of, on_click)
@@ -698,8 +695,7 @@ local function draw_slot_rows(pg, chips, make_id, tip_of, on_click)
     for _, g in ipairs(laid) do
         for _, it in ipairs(g.items) do
             local tg = it.t
-            local state, enabled = slot_look(tg)
-            if kit.chip(make_id(tg), it.x, y + (g.at + it.line - 0.5) * S(CHIP_LINE), it.w, tg.label, state, enabled, pg.alpha) then
+            if kit.chip(make_id(tg), it.x, y + (g.at + it.line - 0.5) * S(CHIP_LINE), it.w, tg.label, slot_look(tg), true, pg.alpha) then
                 on_click(tg)
             end
             kit.tip(tip_of(tg))
@@ -707,7 +703,7 @@ local function draw_slot_rows(pg, chips, make_id, tip_of, on_click)
     end
 end
 
--- Who healing looks after: ME and P1-P5, then B0-B5, C0-C5 and tracked players. An empty slot can't be picked.
+-- Who healing looks after: ME and P1-P5, then B0-B5, C0-C5 and tracked players, as far as someone is there.
 local function heal_targets(pg, h)
     local tip = t(HEAL_TIP)
     draw_slot_rows(pg, h.targets, function (tg)
@@ -1144,7 +1140,7 @@ local TIER_TIP = 'Untick to never heal with it; the other tiers still go.'
 local WAKE_TIP = 'Untick to never heal with it; the other tiers still go, and it still wakes a sleeper.'
 
 -- One row per settings key: its name (and how many you carry), ready or why not, its switch. Under that, on their
--- own lines: its pick, then its targets a row at a time (ME P1-P5, then B0-B5, C0-C5 and tracked), then its
+-- own lines: its pick, then its targets a row at a time (ME P1-P5, then B0-B5, C0-C5 and tracked; no empty slot), then its
 -- modifiers fired before its spell (Pen, Cel, Acc, Emb...) and Hold, then a heal's tiers as checkboxes.
 local function family_row(pg, sid, r)
     local id = sid .. '_' .. r.key
@@ -1198,9 +1194,8 @@ local function family_row(pg, sid, r)
     for _, g in ipairs(laid) do
         for _, it in ipairs(g.items) do
             local tg = it.t
-            local state, enabled = slot_look(tg)
             local icy = top + (line_i + g.at + it.line - 1) * S(CHIP_LINE)
-            if kit.chip(tg.label .. '##' .. id .. tg.slot, it.x, icy, it.w, tg.label, state, enabled, pg.alpha) then
+            if kit.chip(tg.label .. '##' .. id .. tg.slot, it.x, icy, it.w, tg.label, slot_look(tg), true, pg.alpha) then
                 act.target(r.key, tg.slot, not tg.on)
             end
             kit.tip(tg.name and game_text(tg.name) or t('empty slot'))

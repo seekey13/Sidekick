@@ -102,7 +102,7 @@ test('a song on one member: Pianissimo first, then the song on them', function (
     eq({ cmd, intent.why }, { '/ja "Pianissimo" <me>', 'for Mage\'s Ballad II -> A: A' })
     engine.sent(intent, g, mem)
     cmd, intent = decide(g, cfg, mem)
-    eq({ cmd, intent.target.name }, { '/ma "Mage\'s Ballad II" A', 'A' })
+    eq({ cmd, intent.target.name }, { '/ma "Mage\'s Ballad II" 101', 'A' })
     g = snap({ player({ name = 'A' }, { BALLAD }) })
     eq(select(2, decide(g, cfg, {})), 'nothing to do')
 end)
@@ -132,7 +132,7 @@ end)
 test('Pianissimo up: the area songs wait, the next song lands on one member', function ()
     local cfg = cfg_with({ area_1 = 'Valor Minuet IV', p1_1 = 'Mage\'s Ballad II' })
     local g = snap({ player({ name = 'A' }) }, { PIANISSIMO })
-    eq(decide(g, cfg), '/ma "Mage\'s Ballad II" A')
+    eq(decide(g, cfg), '/ma "Mage\'s Ballad II" 101')
     cfg = cfg_with({ area_1 = 'Valor Minuet IV' })
     eq(select(2, decide(g, cfg)), 'nothing to do')
 end)
@@ -154,12 +154,49 @@ test('a member\'s own songs leave them fewer slots for the area ones', function 
     eq(select(2, decide(g, cfg)), 'nothing to do')
 end)
 
-test('a trust\'s statuses come one per id: any one stands for them all', function ()
+test('a trust\'s statuses come one per id: your stamps there say how many of a kind stand', function ()
     local cfg = cfg_with({ area_1 = 'Victory March', area_2 = 'Advancing March' })
-    local g = snap({ { name = 'Kupipi', kind = 'trust', buffs = { [MARCH] = true } } }, { MARCH, MARCH })
-    eq(select(2, decide(g, cfg)), 'nothing to do')
-    g = snap({ { name = 'Kupipi', kind = 'trust' } }, { MARCH, MARCH })
+    local victory, advancing = named(cat, 'Victory March'), named(cat, 'Advancing March')
+    local function K() return { name = 'Kupipi', kind = 'trust', buffs = { [MARCH] = true } } end
+    -- Called after both went up on you, with another's March: one stands, so both go.
+    local cmd, intent = decide(snap({ K() }, { MARCH, MARCH }), cfg)
+    eq({ cmd, intent.why }, { '/ma "Victory March" <me>', 'Kupipi lacks it' })
+    brd.landed(victory, { 1, 101 }, 1004, {}, 2)
+    cmd, intent = decide(snap({ K() }, { MARCH, MARCH }, { now = 1010 }), cfg)
+    eq({ cmd, intent.why }, { '/ma "Advancing March" <me>', 'Kupipi lacks it' })
+    brd.landed(advancing, { 1, 101 }, 1014, {}, 2)
+    eq(select(2, decide(snap({ K() }, { MARCH, MARCH }, { now = 1020 }), cfg)), 'nothing to do')
+    -- A stamp past its song's 120s stands no more: Victory went on again, Advancing wore unseen.
+    brd.landed(victory, { 1, 101 }, 1130, {}, 2)
+    eq(decide(snap({ K() }, { MARCH, MARCH }, { now = 1135 }), cfg), '/ma "Advancing March" <me>')
+    -- None showing: none stand, whatever the stamps.
+    local g = snap({ { name = 'Kupipi', kind = 'trust' } }, { MARCH, MARCH }, { now = 1135 })
     eq(select(2, decide(g, cfg)).why, 'Kupipi lacks it')
+end)
+
+test('a trust\'s own two songs of one kind: the second goes once the first is up', function ()
+    local cfg = cfg_with({ p1_1 = 'Victory March', p1_2 = 'Advancing March' })
+    brd.landed(named(cat, 'Victory March'), { 101 }, 1000, {}, 2)
+    local g = snap({ { name = 'Kupipi', kind = 'trust', buffs = { [MARCH] = true } } }, { PIANISSIMO }, { now = 1010 })
+    eq(decide(g, cfg), '/ma "Advancing March" 101')
+end)
+
+test('an area song and their own of one kind, on a trust or a player: their own goes once, not again', function ()
+    -- Their one slot for the area songs went to Minuet, so Victory doesn't fit: one March is all.
+    local cfg = cfg_with({ area_1 = 'Valor Minuet IV', area_2 = 'Victory March', p1_1 = 'Advancing March' })
+    local function trust(b)
+        local t = { name = 'Kupipi', kind = 'trust', buffs = {} }
+        for _, id in ipairs(b) do t.buffs[id] = true end
+        return t
+    end
+    for _, who in ipairs({ trust, function (b) return player({ name = 'A' }, b) end }) do
+        brd.clear()
+        eq(decide(snap({ who({}) }, { MINUET, MARCH }), cfg), '/ma "Valor Minuet IV" <me>')
+        brd.landed(named(cat, 'Valor Minuet IV'), { 1, 101 }, 1004, {}, 2)
+        eq(decide(snap({ who({ MINUET }) }, { MINUET, MARCH, PIANISSIMO }, { now = 1010 }), cfg), '/ma "Advancing March" 101')
+        brd.landed(named(cat, 'Advancing March'), { 101 }, 1014, {}, 2)
+        eq(select(2, decide(snap({ who({ MINUET, MARCH }) }, { MINUET, MARCH }, { now = 1020 }), cfg)), 'nothing to do')
+    end
 end)
 
 test('on a BRD subjob, one slot per target', function ()
@@ -176,7 +213,7 @@ test('the songs on one member: only one there, alive and in reach; nothing while
     quiet.revive.on = false  -- B would be raised
     eq(select(2, decide(g, quiet)), 'nothing to do')
     g = snap({ player({ name = 'A', dist = 18 }) }, { PIANISSIMO })
-    eq(decide(g, cfg), '/ma "Mage\'s Ballad II" A')
+    eq(decide(g, cfg), '/ma "Mage\'s Ballad II" 101')
     g = snap({ player({ name = 'A' }) }, { PIANISSIMO, INVISIBLE })
     eq(select(2, decide(g, cfg)), 'invisible')
 end)
@@ -201,7 +238,7 @@ test('a member\'s own songs and the area ones of one kind are one set', function
     eq(decide(snap({}, { MARCH }), cfg), '/ja "Pianissimo" <me>')
     -- An area Ballad on A, and A's own Ballad II.
     cfg = cfg_with({ area_1 = 'Mage\'s Ballad', p1_1 = 'Mage\'s Ballad II' })
-    eq(decide(snap({ player({ name = 'A' }, { BALLAD }) }, { BALLAD, PIANISSIMO }), cfg), '/ma "Mage\'s Ballad II" A')
+    eq(decide(snap({ player({ name = 'A' }, { BALLAD }) }, { BALLAD, PIANISSIMO }), cfg), '/ma "Mage\'s Ballad II" 101')
     -- One song in both: one Ballad.
     cfg = cfg_with({ area_1 = 'Mage\'s Ballad II', p1_1 = 'Mage\'s Ballad II' })
     eq(select(2, decide(snap({ player({ name = 'A' }, { BALLAD }) }, { BALLAD }), cfg)), 'nothing to do')
@@ -229,14 +266,15 @@ test('stamps: one per song on each it landed on; one more than the slots pushes 
     brd.landed(song('Valor Minuet IV'), { 1, 101 }, 10, {}, 2)
     brd.landed(song('Victory March'), { 1 }, 20, { [TROUBADOUR] = true }, 2)
     brd.landed(song('Valor Minuet IV'), { 1 }, 30, {}, 2)  -- sung again: its own refreshed, nothing pushed
-    eq(brd.stamps()[1], { ['Valor Minuet IV'] = { at = 30, id = MINUET }, ['Victory March'] = { at = 20, id = MARCH, double = true } })
+    eq(brd.stamps()[1], { ['Valor Minuet IV'] = { at = 30, id = MINUET, ends = 150 },
+                          ['Victory March'] = { at = 20, id = MARCH, double = true, ends = 260 } })
     -- The one that would wear first goes, as the server's: Minuet (ends 150), not
     -- the doubled March that landed before it (ends 260).
     brd.landed(song('Mage\'s Ballad II'), { 1, 101 }, 40, {}, 2)
     eq({ brd.stamps()[1]['Valor Minuet IV'], brd.stamps()[1]['Victory March'].at, brd.stamps()[101]['Valor Minuet IV'].at },
        { nil, 20, 10 })
     brd.landed(song('Victory March'), { 101 }, 50, {}, 1)  -- a subjob's one slot
-    eq(brd.stamps()[101], { ['Victory March'] = { at = 50, id = MARCH } })
+    eq(brd.stamps()[101], { ['Victory March'] = { at = 50, id = MARCH, ends = 170 } })
 end)
 
 test('stamps: of two that would wear at once, the first by name goes, whatever the table\'s order', function ()
@@ -384,7 +422,7 @@ end)
 test('fast casting: Pianissimo up takes the area song first, then the songs on one member', function ()
     local cfg = fast_cfg({ area_1 = 'Valor Minuet IV', p1_1 = 'Mage\'s Ballad II' })
     eq(decide(snap({ player({ name = 'A' }) }, { PIANISSIMO }), cfg), '/ma "Valor Minuet IV" <me>')
-    eq(decide(snap({ player({ name = 'A' }, { MINUET }) }, { MINUET, PIANISSIMO }), cfg), '/ma "Mage\'s Ballad II" A')
+    eq(decide(snap({ player({ name = 'A' }, { MINUET }) }, { MINUET, PIANISSIMO }), cfg), '/ma "Mage\'s Ballad II" 101')
 end)
 
 test('fast casting: with Pianissimo on recast the area song goes without it, cancelling nothing', function ()
@@ -417,7 +455,7 @@ end)
 test('fast casting: Pianissimo up and the owed area song can\'t go now: a song on one member spends it', function ()
     local cfg = fast_cfg({ area_1 = 'Valor Minuet IV', p1_1 = 'Mage\'s Ballad II' })
     local waits = { ['Valor Minuet IV'] = 10 }
-    eq(decide(snap({ player({ name = 'A' }) }, { PIANISSIMO }, nil, waits), cfg), '/ma "Mage\'s Ballad II" A')
+    eq(decide(snap({ player({ name = 'A' }) }, { PIANISSIMO }, nil, waits), cfg), '/ma "Mage\'s Ballad II" 101')
     -- Without Pianissimo up, the member's song still waits for the area song.
     eq(select(2, decide(snap({ player({ name = 'A' }) }, {}, nil, waits), cfg)), 'holding Mage\'s Ballad II for Valor Minuet IV')
 end)

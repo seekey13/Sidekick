@@ -50,8 +50,8 @@ end)
 
 test('heal: an alliance member is healed by a heal aimed at them, unless skipped by name', function ()
     local cmd, intent = decide(snap({ ally({ hpp = 45 }) }))
-    eq({ cmd, intent.why }, { '/ma "Cure V" Bob', 'danger: Bob 45%' })
-    eq(decide(snap({ ally({ hpp = 70 }) })), '/ma "Cure III" Bob')  -- no Regen: party only
+    eq({ cmd, intent.why }, { '/ma "Cure V" 301', 'danger: Bob 45%' })
+    eq(decide(snap({ ally({ hpp = 70 }) })), '/ma "Cure III" 301')  -- no Regen: party only
     local cfg = settings.defaults()
     cfg.heal.skip = { Bob = true }
     eq({ decide(snap({ ally({ hpp = 45 }) }), cfg) }, { nil, 'nothing to do' })
@@ -60,14 +60,14 @@ end)
 test('heal: an alliance member who is the focus is healed on the focus lines', function ()
     local cfg = settings.defaults()
     cfg.heal.focus = 'bob'
-    eq(decide(snap({ ally({ hpp = 55 }) }), cfg), '/ma "Cure IV" Bob')  -- under the focus member's 60 line
+    eq(decide(snap({ ally({ hpp = 55 }) }), cfg), '/ma "Cure IV" 301')  -- under the focus member's 60 line
 end)
 
 test('heal: Curaga covers your party only, never the alliance member beside them', function ()
     local three = { { name = 'P1', hpp = 70 }, { name = 'P2', hpp = 70 }, { name = 'P3', hpp = 70 } }
-    eq(decide(snap(three)), '/ma "Curaga III" <me>')
+    eq(decide(snap(three)), '/ma "Curaga III" 1')
     three[3] = ally({ hpp = 70 })
-    eq(decide(snap(three)), '/ma "Regen II" P1')   -- two in the party: one at a time, as for two
+    eq(decide(snap(three)), '/ma "Regen II" 101')   -- two in the party: one at a time, as for two
 end)
 
 -- Two hurt together 30 yalms from you, the second in `second`'s party; SCH under Light Arts.
@@ -83,7 +83,7 @@ test('heal: Accession spreads a Cure over another party of the alliance, counted
     local cmd, intent = decide(pair(b1), nil, sch)
     eq({ cmd, intent.why }, { '/ja "Accession" <me>', 'danger: B0 45% +1, for Cure IV' })
     cmd, intent = decide(pair(b1, { ACCESSION }), nil, sch)
-    eq({ cmd, intent.why }, { '/ma "Cure IV" B0', 'danger: B0 45% +1' })
+    eq({ cmd, intent.why }, { '/ma "Cure IV" 301', 'danger: B0 45% +1' })
     local cfg = settings.defaults()
     cfg.heal.skip = { B0 = true, B1 = true }
     eq({ decide(pair(b1), cfg, sch) }, { nil, 'nothing to do' })
@@ -92,10 +92,10 @@ end)
 test('heal: a Cure spread around one party never counts another\'s, yours included', function ()
     local c0 = ally({ name = 'C0', slot = 12, sid = 303, hpp = 45, pos = { 30, 0, 0 } })
     local cmd, intent = decide(pair(c0), nil, sch)
-    eq({ cmd, intent.why }, { '/ma "Cure IV" B0', 'danger: B0 45%' })   -- B0 and C0: one at a time, no Accession
+    eq({ cmd, intent.why }, { '/ma "Cure IV" 301', 'danger: B0 45%' })   -- B0 and C0: one at a time, no Accession
     local mine = { name = 'A', slot = 1, sid = 101, hpp = 45, pos = { 30, 0, 0 } }
     cmd, intent = decide(pair(mine, { ACCESSION }), nil, sch)
-    eq({ cmd, intent.why }, { '/ma "Cure IV" B0', 'danger: B0 45%' })   -- spread, but A beside B0 isn't counted
+    eq({ cmd, intent.why }, { '/ma "Cure IV" 301', 'danger: B0 45%' })   -- spread, but A beside B0 isn't counted
 end)
 
 test('heal: what lands on the alliance teaches potency, as their HP is read like a member\'s', function ()
@@ -111,21 +111,21 @@ end)
 -- The other behaviors -------------------------------------------------------------------
 
 test('removal: a -na spell on an alliance member; Erase and Esuna do not reach them', function ()
-    eq(decide(snap({ ally({ buffs = { [PARALYSIS] = true } }) })), '/ma "Paralyna" Bob')
+    eq(decide(snap({ ally({ buffs = { [PARALYSIS] = true } }) })), '/ma "Paralyna" 301')
     eq({ decide(snap({ ally({ buffs = { [SLOW] = true } }) })) }, { nil, 'nothing to do' })
 end)
 
 test('wake: an alliance sleeper gets a heal aimed at them; Curaga wakes your party only', function ()
     local cmd, intent = decide(snap({ ally({ buffs = { [SLEEP] = true } }) }))
-    eq({ cmd, intent.why }, { '/ma "Cure" Bob', 'Bob asleep' })
+    eq({ cmd, intent.why }, { '/ma "Cure" 301', 'Bob asleep' })
     cmd, intent = decide(snap({ { name = 'A', buffs = { [SLEEP] = true } }, ally({ buffs = { [SLEEP] = true } }) }))
-    eq({ cmd, intent.why }, { '/ma "Cure" A', 'A asleep' })    -- one in the party: no Curaga
+    eq({ cmd, intent.why }, { '/ma "Cure" 101', 'A asleep' })    -- one in the party: no Curaga
 end)
 
 test('buff: a row\'s targets take alliance slots, when the spell can go outside the party', function ()
     local cfg = settings.defaults()
     cfg.rows.Haste = { on = true, targets = { [6] = true } }
-    eq(decide(snap({ ally() }), cfg), '/ma "Haste" Bob')
+    eq(decide(snap({ ally() }), cfg), '/ma "Haste" 301')
     eq({ decide(snap({ ally({ buffs = { [HASTE] = true } }) }), cfg) }, { nil, 'nothing to do' })
     cfg.rows.Haste = nil
     cfg.rows['Regen (keep up)'] = { on = true, targets = { [6] = true } }
@@ -141,7 +141,7 @@ test('buff: an area self-cast is recast for your party near you, not the allianc
 end)
 
 test('revive: a fallen alliance member is raised', function ()
-    eq(decide(snap({ ally({ hpp = 0 }) })), '/ma "Arise" Bob')
+    eq(decide(snap({ ally({ hpp = 0 }) })), '/ma "Arise" 301')
 end)
 
 test('recover: Devotion is for your party only', function ()
@@ -150,7 +150,7 @@ test('recover: Devotion is for your party only', function ()
     eq({ decide(g) }, { nil, 'nothing to do' })
     g = snap({ { name = 'A', mpp = 10 } })
     g.me.mpp = 80
-    eq(decide(g), '/ja "Devotion" A')
+    eq(decide(g), '/ja "Devotion" 101')
 end)
 
 test('an enemy action on a mob another party claimed names it by server id, as the client has no <bt> for it', function ()

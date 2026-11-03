@@ -1,4 +1,4 @@
--- A tracked player (outside your party and alliance), under the danger line: a heal that reaches them, by name.
+-- A tracked player (outside your party and alliance), under the danger line: a heal that reaches them, by server id.
 -- Their HP is set from the server's own max (!exec): the client shows theirs as a % only.
 return {
     about = 'a tracked player at 40% HP gets a heal that lands',

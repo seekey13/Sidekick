@@ -23,8 +23,6 @@ can.SPELL_THROTTLE = 3.1  -- ...and after a spell, counted from when it lands
 -- Raise have it; Regen, Erase, Curaga don't.
 local SELF, PARTY, ALLY, ENEMY, CORPSE = 1, 4, 8, 32, 128
 
-local TRUST = 0x1000000  -- server ids from here up are NPCs; in a party slot, a trust (core/game.lua)
-
 -- Range index -> yalms: index * multiplier (the client's lookup); 13+ are self-range.
 local RANGE_MULT = { [2] = 1.70, [3] = 1.490909, [4] = 1.44, [5] = 1.377778, [6] = 1.30, [7] = 1.20,
     [8] = 1.30, [9] = 1.377778, [10] = 1.45, [11] = 1.490909, [12] = 1.70 }
@@ -175,26 +173,29 @@ local function slot_tag(slot)
     return ('<a%d%d>'):format(1 + math.floor((slot - 6) / 6), (slot - 6) % 6)
 end
 
--- '/ma "Cure IV" Tank': others by name, you as <me>, enemies as <bt>. The client
--- takes no server id as a target ("...A command error occurred.", in game on
--- 2026-11-02, a player's and an NPC's alike). A player's name is theirs alone;
--- a trust's isn't (another player's Kupipi, the NPC Kupipi), and one the client
--- hasn't filled in yet (just joined, zoning) is none: those members go as their
--- party slot. A mob another party of the alliance claimed (`bt.claimed`,
--- core/game.lua) has no <bt> and goes by server id. In Japanese, the name is the
--- DAT's Japanese one; the second result is true when there is none, so the
--- English one went instead (the Japanese client won't take it).
--- ponytail: that claimed mob's server id is refused as the players' were; it needs another way to name it.
+-- '/ma "Cure IV" 12345678': everyone by server id, you included, as v2 aims its
+-- single-target heals and buffs (a trust's name isn't its own: another player's
+-- Kupipi, the NPC Kupipi); an action only ever on you (Divine Seal) as <me>,
+-- enemies as <bt>. One whose id the client hasn't filled in yet (just joined,
+-- zoning) goes as their party slot, you as <me>. A mob another
+-- party of the alliance claimed (`bt.claimed`, core/game.lua) has no <bt> and
+-- goes by server id too. In Japanese, the name is the DAT's Japanese one; the
+-- second result is true when there is none, so the English one went instead
+-- (the Japanese client won't take it).
+-- ponytail: in game on 2026-11-02 under VanaCore the client refused every numeric target with "...A command error occurred.", a player's (/ma "Cure V" 2) and an NPC's long id alike (6561657); v2 aims by id under Ashita. Confirm ids land under VanaCore, judging by a command's first send (tools/gm.lua: the chat box refuses a line within ~1.5 s of the last, and a refused one is resent every 1.1 s).
 function can.command(a, u, japanese, bt)
     local name, english = util.spelled(a.name, a.jp, japanese)
     local target
     if can.at_enemy(a) then
         target = bt and bt.claimed and tostring(bt.sid) or '<bt>'
-    elseif u == nil or u.kind == 'self' then
+    elseif u == nil or u.kind == 'self' and can.self_only(a) then
+        target = '<me>'
+    elseif (u.sid or 0) > 0 then
+        target = tostring(u.sid)
+    elseif u.kind == 'self' then
         target = '<me>'
     else
-        local who = u.name or ''
-        target = (who == '' or (u.sid or 0) >= TRUST) and (u.slot or 0) > 0 and slot_tag(u.slot) or who
+        target = (u.slot or 0) > 0 and slot_tag(u.slot) or u.name or ''
     end
     return ('/%s "%s" %s'):format(a.kind, name, target), english
 end

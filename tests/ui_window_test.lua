@@ -1130,7 +1130,7 @@ test('a row, its pick and its targets each write and save', function ()
     eq(render(cfg, st, on('Buff', { ['P1##buff_Protect1'] = true })), 1)
     eq(cfg.rows.Protect.targets, { [0] = true, [1] = true })
     eq(render(cfg, st, on('Buff', { ['P4##buff_Protect4'] = true })), 0)  -- empty slot
-    eq(cfg.rows.Protect.targets, { [0] = true, [1] = true })
+    eq({ cfg.rows.Protect.targets, button('P4##buff_Protect4') }, { { [0] = true, [1] = true }, false })
     eq(render(cfg, st, on('Heal', { ['Cure##heal_Cure'] = true })), 1)
     eq(cfg.rows.Cure, { on = false })
     eq(render(cfg, st, on('Remove', { ['Echo Drops (0)###remove_Echo Drops'] = true })), 1)  -- an item, with how many you carry
@@ -1241,6 +1241,26 @@ test('a member switched off under Heal is skipped by healing', function ()
     eq(render(cfg, st, on('Heal', { ['P1##sk3_heal_1'] = true })), 1)
     eq(cfg.heal.skip, {})
     eq(render(cfg, st, on('Heal', { ['P4##sk3_heal_4'] = true })), 0)  -- empty slot
+    eq(button('P4##sk3_heal_4'), false)
+end)
+
+test('Heal, Remove and Buff leave empty slots out, but not a buff target still on in one', function ()
+    open_settings()
+    local cfg, st = settings.defaults(), status()
+    render(cfg, st, on('Heal'))
+    eq({ button('ME##sk3_heal_0'), button('P2##sk3_heal_2'), button('P3##sk3_heal_3'), button('B0##sk3_heal_6') },
+       { true, true, false, false })
+    render(cfg, st, on('Remove'))
+    eq({ button('P1##sk3_remove_who_1'), button('P3##sk3_remove_who_3'), button('C0##sk3_remove_who_12') },
+       { true, false, false })
+    render(cfg, st, on('Buff'))
+    eq({ button('P1##buff_Haste1'), button('P5##buff_Haste5'), button('B0##buff_Haste6') }, { true, false, false })
+    cfg.rows.Haste = { on = true, targets = { [0] = true, [5] = true } }  -- P5 picked, and since gone
+    eq(render(cfg, st, on('Buff', { ['P5##buff_Haste5'] = true })), 1)
+    eq(cfg.rows.Haste.targets, { [0] = true })
+    eq(button('P5##buff_Haste5'), true)  -- drawn the frame it's clicked off; gone from the next
+    render(cfg, st, on('Buff'))
+    eq(button('P5##buff_Haste5'), false)
 end)
 
 test('UI / Log: the sliders size the HUD and Sidekick Settings, Lock position keeps the HUD still', function ()
@@ -1300,12 +1320,13 @@ test('a tracked player\'s card has its tag; Tracked lists them to untrack, and o
     eq(drew('Target a player outside your alliance to track them, or /sk3 track Name.'), true)
 end)
 
-test('alliance slots are always listed under Heal and Buff; Tracked lists one in the alliance', function ()
+test('alliance members are listed under Heal and Buff; Tracked lists one in the alliance', function ()
     local g = fake.snap({ { name = 'A' }, { kind = 'alliance', name = 'Bea', tracked = true } })
     local cfg, st = settings.defaults(), status()
     open_settings()
     eq(render(cfg, st, on('Heal', { ['B0##sk3_heal_6'] = true }), model.build(g, cat, cfg, st, NAMES)), 1)
     eq(cfg.heal.skip, { Bea = true })
+    eq({ button('B1##sk3_heal_7'), button('C0##sk3_heal_12') }, { false, false })  -- their empty slots aren't
     eq(render(cfg, st, on('Buff', { ['B0##buff_Haste6'] = true }), model.build(g, cat, cfg, st, NAMES)), 1)
     eq(cfg.rows.Haste.targets, { [0] = true, [6] = true })
     eq({ fill('Bea'), fill('B0 Bea') }, { nil, u32(P.white) })  -- no card in the HUD: a row
