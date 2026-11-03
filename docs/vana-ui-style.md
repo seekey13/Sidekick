@@ -728,7 +728,7 @@ everything with it:
   round buttons filled in the accent while on, and the next action's label as
   a pill (amber running, grey stopped). While your target is a player you could track, an **Add Tracked** pill goes
   first at your card, in vana's pill colours (`accent_bg`, edged `accent_lo`, its words and plus-circle `accent2`;
-  under the pointer they ease to white and the fill towards `accent_lo`), in a window just its size so its click
+  under the pointer they ease to white, the edge to `accent` and the fill towards `accent_lo`), in a window just its size so its click
   reaches ImGui, not the game; the widget ends its row with the same pill. Each card is HP over MP over TP, its tag on the TP bar (with no MP, while `ui.hide_mp` is on, the MP bar is left
   out and the TP bar sits under the HP bar), your pet's card under yours and another session's under its card (each of its
   bars an alliance row's size, its name pale cyan, `#C2FFFF`, while healthy); the TP bar is

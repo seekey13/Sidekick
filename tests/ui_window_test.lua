@@ -688,6 +688,9 @@ test('targeting a player you could track, Add Tracked points at your card first,
     local x, y, w, h = pill[1][1], pill[1][2], pill[2][1] - pill[1][1], pill[2][2] - pill[1][2]
     eq({ x, y, h }, { 100 + 236 + 2 + 9, 75 + 36 - 11, 22 })  -- at your card's middle, an action label's size at text 14
     eq({ frame.window_pos, frame.window_size, frame.extent['Sidekick3 Add Tracked'] }, { { x, y }, { w, h }, { x + w, y + h } })
+    -- The HUD's window, kept where it's put, out of imgui.ini and taking no focus as it comes.
+    eq(frame.flags['Sidekick3 Add Tracked'] - frame.flags.Sidekick3,
+       ImGuiWindowFlags_NoMove + ImGuiWindowFlags_NoSavedSettings + ImGuiWindowFlags_NoFocusOnAppearing)
     eq({ fill('Add Tracked'), tipped('Track Stranger\nHeal, clear, raise and buff them too') }, { u32(P.white), true })
     local plus = calls('AddCircleFilled')
     eq({ plus[#plus].args[3], plus[#plus].args[1][1] < x + w, plus[#plus].args[1][2] }, { u32(P.white), true, y + h / 2 })
@@ -696,14 +699,27 @@ test('targeting a player you could track, Add Tracked points at your card first,
     eq({ #tri, tri[1].args[1], tri[1].args[4] }, { 1, { 100 + 236 + 2, 75 + 36 }, u32(P.accent_lo) })
     local grey = pills(P.seg)
     eq({ #grey, grey[1][1] }, { 1, { x + w + 6, y } })
-    eq(render(cfg, st, { ['##sk3_add_tracked'] = true }, model.build(g, cat, cfg, st, NAMES)), 0)
+    eq(render(cfg, st, { ['##sk3_add_tracked_Stranger'] = true }, model.build(g, cat, cfg, st, NAMES)), 0)
     eq(tracking_calls, { { 'add', 'Stranger' } })
+    -- Down once clicked, till a snapshot shows them tracked: a second click before it would /check them again.
+    render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
+    eq({ begun('Sidekick3 Add Tracked'), add_pill(), #pills(P.seg), pills(P.seg)[1][1] }, { false, nil, 1, { x, y } })
+    g.target = nil  -- tracked (or no one targeted); untracked and targeted again, it's back
+    render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
+    g.target = STRANGER
     st.intent = false
     render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
     eq({ #calls('AddTriangleFilled', 'background'), add_pill()[1] }, { 1, { x, y } })  -- alone at your card, where it was
     cfg.ui.text_size = 11  -- labels 17 high at your card's middle, y 105: their top half a pixel off a whole one
+    st.intent = { at = 990, action = 'Cure IV', target = 'Me', behavior = 'heal', why = 'Me at 50%' }
     render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
-    eq({ frame.window_pos[2], add_pill()[1][2], frame.window_size[2] }, { 96, 96, 17 })  -- its window's, as ImGui floors it
+    tri, grey = calls('AddTriangleFilled', 'background'), pills(P.seg)
+    -- Its window's top as ImGui floors it, and the action after it on that pixel too, the point at their middle.
+    eq({ frame.window_pos[2], add_pill()[1][2], frame.window_size[2], grey[1][1][2], tri[1].args[1][2] },
+       { 96, 96, 17, 96, 96 + 17 / 2 })
+    g.target = nil  -- no one to track now: no pill, nor its window
+    render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
+    eq({ begun('Sidekick3 Add Tracked'), add_pill(), drew('Add Tracked'), #pills(P.seg) }, { false, nil, false, 1 })
 end)
 
 test('another session\'s pet has a card under that session\'s: its MP and TP once its file names it; its care points there', function ()
@@ -1097,21 +1113,27 @@ test('targeting a player you could track, the widget ends its row with Add Track
     local g = snap()
     render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
     local narrow = calls('AddRectFilled')[1].args[2]  -- the panel's far corner
-    eq({ button('##sk3_widget_track'), drew('Add Tracked') }, { false, false })
+    eq({ button('##sk3_widget_track_Stranger'), drew('Add Tracked') }, { false, false })
     g.target = STRANGER
     tracking_calls = {}
     eq(render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES)), 0)
-    eq({ button('##sk3_widget_track'), begun('Sidekick3 Add Tracked'), fill('Add Tracked'), tracking_calls },
+    eq({ button('##sk3_widget_track_Stranger'), begun('Sidekick3 Add Tracked'), fill('Add Tracked'), tracking_calls },
        { true, false, u32(P.white), {} })
     local panel, mine, pill = calls('AddRectFilled')[1].args[2], pills(P.halt, 'window')[1], add_pill()
     eq({ panel[1] > narrow[1], panel[2], frame.extent['SK Widget'] }, { true, narrow[2], panel })  -- wider; it fits it
     eq({ pill[1][1], pill[1][2], pill[2][2] }, { mine[2][1] + 6, mine[1][2], mine[2][2] })  -- after yours, in line
     eq(tipped('Track Stranger\nHeal, clear, raise and buff them too'), true)
-    eq(render(cfg, st, { ['##sk3_widget_track'] = true }, model.build(g, cat, cfg, st, NAMES)), 0)
+    eq(render(cfg, st, { ['##sk3_widget_track_Stranger'] = true }, model.build(g, cat, cfg, st, NAMES)), 0)
     eq(tracking_calls, { { 'add', 'Stranger' } })
-    st.open = true  -- the HUD up too: a pill in each, either tracks
+    st.open = true  -- the HUD up too: clicked in either, neither shows it again till a snapshot shows them tracked
     render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
-    eq({ button('##sk3_widget_track'), begun('Sidekick3 Add Tracked') }, { true, true })
+    eq({ button('##sk3_widget_track_Stranger'), begun('Sidekick3 Add Tracked'), frame.extent['SK Widget'] },
+       { false, false, narrow })  -- the widget as narrow as without it
+    g.target = nil
+    render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
+    g.target = STRANGER  -- untracked and targeted again: a pill in each, either tracks
+    render(cfg, st, nil, model.build(g, cat, cfg, st, NAMES))
+    eq({ button('##sk3_widget_track_Stranger'), begun('Sidekick3 Add Tracked') }, { true, true })
 end)
 
 test('a Lua error in the widget still ends every window, then is raised', function ()

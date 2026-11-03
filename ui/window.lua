@@ -281,6 +281,14 @@ local function ally_row(dl, ui, p, x, top, chrome)
 end
 
 local ADD_TRACKED = 'Add Tracked'
+local asked  -- the target Add Tracked was clicked for, while still your target and not yet shown tracked
+
+-- Your target while Add Tracked is up for them: not once it's clicked, as the snapshot that shows them tracked comes up
+-- to a tenth of a second later, and a second click then would /check them again.
+local function trackable(view)
+    local who = view.track.target
+    return who ~= asked and who or nil
+end
 
 -- The Add Tracked pill `ph` high, its words at `px`: its width, then from its left its words' and its icon's, and the
 -- icon's size (the pill's height less a margin above and below, that margin after it too).
@@ -293,7 +301,9 @@ end
 
 -- Add Tracked at (x, y), `ph` high with its words at `px`, then Material Design's plus-circle: a pill in vana's pill
 -- colours, lit under the pointer. A click anywhere on it tracks `who`, your target, as Tracked's Track button does.
+-- Each target's its own control, as there: a new one's pill starts unlit, not as the last was left when clicked.
 local function add_tracked(id, x, y, ph, px, who)
+    id = id .. '_' .. who
     local w, lead, ix, icon = add_tracked_size(ph, px)
     local hovered, clicked, held = kit.hit(id, x, y, w, ph)
     kit.tip(f('Track %s', who) .. '\n'
@@ -305,7 +315,7 @@ local function add_tracked(id, x, y, ph, px, who)
     kit.outline(dl, x, y, w, ph, kit.mix(P.accent_lo, P.accent, lit), ph / 2)
     kit.text_mid(dl, x + lead, cy, t(ADD_TRACKED), fg, kit.fonts.semi, px)
     kit.icon(dl, 'plus_circle', x + ix + icon / 2, cy, icon, fg, 1, body)
-    if clicked then act.track(who) end
+    if clicked then asked = who; act.track(who) end
 end
 
 local hud_add  -- where the HUD's Add Tracked pill goes this frame, { x, y, ph, px, who }: nil while it has none
@@ -320,6 +330,7 @@ local function draw_labels(list, ts, right, cy)
     local dl = imgui.GetBackgroundDrawList()
     local font = kit.fonts.semi
     local h, pad = math.floor(ts * 1.6), math.floor(ts * 0.6)
+    cy = math.floor(cy - h / 2) + h / 2  -- their tops on whole pixels, as Add Tracked's window is: all in line
     local x = right + 2 + math.floor(h * 0.45)  -- the first pill's left, after its point
     for i, l in ipairs(list) do
         local who = l.session
@@ -392,7 +403,8 @@ end
 -- pet's own at its pet's card).
 local function labels_at(view, c, j)
     local ptr, out = view.pointer, {}
-    if c and c.p.kind == 'self' and view.track.target then out[1] = { track = view.track.target } end
+    local who = c and c.p.kind == 'self' and trackable(view)
+    if who then out[1] = { track = who } end
     if c and pointed(view, c) or j and ptr and ptr.ally == j then out[#out + 1] = ptr end
     for _, o in ipairs(view.others) do
         if c and o.member == c.member and (not o.pet) == (not c.pet) or j and o.ally == j then out[#out + 1] = o end
@@ -510,7 +522,7 @@ local function draw_widget(view)
         c.pill = lead + c.w + gap + h + math.floor(gap / 2) + h + edge
         pw = pw + c.pill + apart
     end
-    local who = view.track.target  -- last, so the characters' pills stay put as it comes and goes
+    local who = trackable(view)  -- last, so the characters' pills stay put as it comes and goes
     if who then pw = pw + add_tracked_size(pill_h, h) + apart end
     local ph = pill_h + pad * 2
     kit.fill(dl, x0, y0, pw, ph, P.bg, px(0.5))
@@ -1710,6 +1722,7 @@ function window.render(view, act_)
     local open = view.ui.open ~= false
     if hud_open and not open and not view.ui.widget then settings_open = false end  -- the widget's cogs keep them
     hud_open = open
+    if view.track.target ~= asked then asked = nil end  -- shown tracked, or someone else targeted: Add Tracked's back
     local err
     if open then
         kit.prefix = 'hud|'
