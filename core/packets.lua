@@ -173,7 +173,7 @@ function packets.action(p, ctx, now)
                 local spell = p.category == SPELL_FINISH
                 -- Your song lasts twice as long under Troubadour (jobs/brd.lua).
                 local lasts = mine and lasting(mine, ctx) or spell and ctx.duration(p.param) or nil
-                if tracked then buffs.gain(t.id, r.param, now, lasts) end
+                if tracked then buffs.gain(t.id, r.param, now, lasts, mine and mine.role == 'song') end
                 if key and spell then observed.landed(key, t.id, now) end
                 if mine then landed[#landed + 1] = t.id end
             elseif LOSES_028[r.message] and tracked then
