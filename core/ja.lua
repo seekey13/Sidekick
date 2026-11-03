@@ -170,6 +170,7 @@ ja.words = {
     ['Regen potency +'] = 'リジェネ効果+', ['HP per Regen tick from gear.'] = '装備によるリジェネ1回あたりのHP。',
     ['Untick to never heal with it; the other tiers still go, and it still wakes a sleeper.'] =
         'オフにすると回復には使いません。他の段階は使います。睡眠中のメンバーを起こすのには使います。',
+    ['Untick to never heal with it; the other tiers still go.'] = 'オフにすると回復には使いません。他の段階は使います。',
     ['Keep a stratagem for healing'] = '回復用に戦術魔道書を1回残す',
     ['Buff rows never spend the last stratagem charge, so healing has one for Accession or Rapture.'] =
         '強化の行は戦術魔道書の最後の1回を使わず、女神降臨の章や意気昂然の章のために回復用に残します。',

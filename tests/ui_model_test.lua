@@ -860,7 +860,8 @@ test('a heal row with more than one tier lists each, tickable on its own', funct
     eq(keys(row(view, 'heal', 'Cure').tiers, 'name'), { 'Cure', 'Cure II', 'Cure III', 'Cure IV', 'Cure V' })
     eq(keys(row(view, 'heal', 'Curaga').tiers, 'name'), { 'Curaga', 'Curaga II', 'Curaga III', 'Curaga IV' })
     eq(keys(row(view, 'heal', 'Regen').tiers, 'name'), { 'Regen', 'Regen II', 'Regen III' })
-    eq(row(view, 'heal', 'Cure').tiers[1].on, true)
+    eq({ row(view, 'heal', 'Cure').tiers[1].on, row(view, 'heal', 'Cure').tiers[1].wakes }, { true, true })
+    eq(row(view, 'heal', 'Regen').tiers[1].wakes, false)  -- a Regen wakes no one
     act.heal_spell('Cure', false)
     eq({ cfg.heal.never, writes[1] }, { { Cure = true }, 1 })
     eq(row(build(whm, cfg), 'heal', 'Cure').tiers[1].on, false)
@@ -890,8 +891,11 @@ test('tiers: waltzes too; a heal alone on its row or a Ready move only once unti
     local whm_bst = fake.catalog(WHM, 75, BST, 37)
     eq(row(build(whm_bst), 'heal', 'Wild Carrot').tiers, nil)
     local cfg = settings.defaults()
-    cfg.heal.never = { ['Wild Carrot'] = true }
+    cfg.heal.never = { ['Wild Carrot'] = true, Drain = true }
     local tiers = row(build(whm_bst, cfg), 'heal', 'Wild Carrot').tiers
-    eq({ keys(tiers, 'name'), tiers[1].on }, { { 'Wild Carrot' }, false })  -- unticked: listed, to tick again
+    eq({ keys(tiers, 'name'), tiers[1].on, tiers[1].wakes }, { { 'Wild Carrot' }, false, false })  -- unticked: listed, to tick again
+    local drain = row(build(whm, cfg), 'heal', 'Drain')  -- alone on its row (BLM 37: no Drain II), unticked
+    eq({ keys(drain.tiers, 'name'), drain.tiers[1].on, drain.tiers[1].wakes, drain.avail },
+        { { 'Drain' }, false, false, 'every tier unticked' })
     eq(row(build(whm), 'revive', 'Raise').tiers, nil)
 end)

@@ -233,9 +233,10 @@ local function mod_chips(acts, r, modifiers)
     return out[1] and out or nil
 end
 
--- A heal row's tiers, a checkbox each (heal.never): healing uses only those left ticked, waking any of them. Only
--- for a row with more than one (Cure, Curaga, Regen, Curing Waltz), in the catalog's order, one per name. A Ready
--- move (spent only in danger) doesn't count as a tier; an unticked one alone on its row is listed, to tick again.
+-- A heal row's tiers, a checkbox each (heal.never): healing uses only those left ticked, waking any of them that
+-- wakes. Only for a row with more than one (Cure, Curaga, Regen, the waltzes, Drain, Healing Ruby), in the catalog's
+-- order, one per name. A Ready move (spent only in danger) doesn't count as a tier; an unticked one alone on its row
+-- is listed, to tick again.
 local function heal_tiers(acts, cfg)
     local out, seen, count, never = {}, {}, 0, false
     for _, a in ipairs(acts) do
@@ -243,7 +244,7 @@ local function heal_tiers(acts, cfg)
             seen[a.name] = true
             local off = settings.never_heal(cfg, a)
             if not a.charges or off then
-                out[#out + 1] = { name = a.name, label = lang.name(a.name, a.jp), on = not off }
+                out[#out + 1] = { name = a.name, label = lang.name(a.name, a.jp), on = not off, wakes = can.wakes(a) }
                 if not a.charges then count = count + 1 end
                 never = never or off
             end
@@ -614,9 +615,6 @@ end
 
 -- The view ---------------------------------------------------------------------
 
--- Where a heal sorts: MP heals by HP per MP, then TP heals by HP per 100 TP (a free one,
--- under Trance, first), then those with no estimate.
-
 -- Whether `a` spends what heal.reserve keeps for healing (core/jobs.lua: `reserves`).
 local function reserved(a)
     for _, f in job_modules.each('reserves') do
@@ -735,7 +733,7 @@ end
 -- HUD's (its labels and sizes) and the views it shows of others itself,
 -- with the view's `version`, VIEW: raise it when a field the window draws changes,
 -- so a session still running older code isn't drawn from a view it can't read.
-model.VIEW = 8
+model.VIEW = 9
 function model.published(view)
     local out = util.shallow_copy(view)
     out.pointer, out.others, out.ui, out.remote, out.sessions = nil, nil, nil, nil, nil

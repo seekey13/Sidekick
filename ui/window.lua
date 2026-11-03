@@ -1140,11 +1140,12 @@ end
 local HOLD_TIP = 'Wait while a modifier picked here can\'t go with the spell (on recast, too few charges, the wrong Arts, '
     .. 'Accession unable to spread it, or short of MP for it); otherwise the spell goes without it.'
 
+local TIER_TIP = 'Untick to never heal with it; the other tiers still go.'
+local WAKE_TIP = 'Untick to never heal with it; the other tiers still go, and it still wakes a sleeper.'
+
 -- One row per settings key: its name (and how many you carry), ready or why not, its switch. Under that, on their
 -- own lines: its pick, then its targets a row at a time (ME P1-P5, then B0-B5, C0-C5 and tracked), then its
--- modifiers fired before its spell (Pen, Cel, Acc, Emb...) and Hold.
-local TIER_TIP = 'Untick to never heal with it; the other tiers still go, and it still wakes a sleeper.'
-
+-- modifiers fired before its spell (Pen, Cel, Acc, Emb...) and Hold, then a heal's tiers as checkboxes.
 local function family_row(pg, sid, r)
     local id = sid .. '_' .. r.key
     local n = r.count or r.tools
@@ -1225,9 +1226,9 @@ local function family_row(pg, sid, r)
     line_i = line_i + mod_lines
     for _, it in ipairs(tiers) do
         local tr, icy = it.tr, top + (line_i + it.line - 1) * S(CHIP_LINE)
-        local on, flipped = kit.checkbox(tr.label .. '##sk3_heal_spell_' .. tr.name, it.x, icy, tr.on, true, pg.alpha)
-        if flipped then act.heal_spell(tr.name, on) end
-        kit.tip(t(TIER_TIP))
+        local ticked, ticks = kit.checkbox(tr.label .. '##sk3_heal_spell_' .. tr.name, it.x, icy, tr.on, true, pg.alpha)
+        if ticks then act.heal_spell(tr.name, ticked) end
+        kit.tip(t(tr.wakes and WAKE_TIP or TIER_TIP))
         kit.text_mid(pg.dl, it.x + S(kit.CB) + S(6), icy, tr.label, r.on and tr.on and P.text2 or P.dim, kit.fonts.text,
             px_tier, pg.alpha)
     end
