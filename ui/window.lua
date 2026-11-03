@@ -11,8 +11,10 @@
     and another session's), with a label at whoever
     this session's next action is for and one at whoever each other session's
     latest went to; your card's run button and cog, and those of another session's
-    card), the widget (SK Widget, `ui.widget`: a pill per character with its run
-    button and cog, up with the HUD closed too) and Sidekick Settings (a page per
+    card; at your card, while your target is a player you could track, Add Tracked,
+    in a little window of its own to take the click), the widget (SK Widget,
+    `ui.widget`: a pill per character with its run button and cog, then Add
+    Tracked as the HUD's, up with the HUD closed too) and Sidekick Settings (a page per
     group of sections; another session's too, drawn from the view it publishes,
     its changes sent to it).
 
@@ -278,10 +280,41 @@ local function ally_row(dl, ui, p, x, top, chrome)
     kit.halo(dl, fx + 6, top + (ui.mp_height - h) / 2, label, name_color(p), kit.fonts.semi, ui.text_size)
 end
 
+local ADD_TRACKED = 'Add Tracked'
+
+-- The Add Tracked pill `ph` high, its words at `px`: its width, then from its left its words' and its icon's, and the
+-- icon's size (the pill's height less a margin above and below, that margin after it too).
+local function add_tracked_size(ph, px)
+    local margin, lead = util.round(ph * 0.12), util.round(ph * 0.36)
+    local icon = ph - margin * 2
+    local ix = lead + math.ceil(kit.measure(t(ADD_TRACKED), kit.fonts.semi, px)) + util.round(ph * 0.23)
+    return ix + icon + margin, lead, ix, icon
+end
+
+-- Add Tracked at (x, y), `ph` high with its words at `px`, then Material Design's plus-circle: a pill in vana's pill
+-- colours, lit under the pointer. A click anywhere on it tracks `who`, your target, as Tracked's Track button does.
+local function add_tracked(id, x, y, ph, px, who)
+    local w, lead, ix, icon = add_tracked_size(ph, px)
+    local hovered, clicked, held = kit.hit(id, x, y, w, ph)
+    kit.tip(f('Track %s', who) .. '\n'
+        .. t('Heal, clear, raise and buff them too, with what reaches outside the party. This session only.'))
+    local lit = kit.ease(id, hovered and 1 or 0, 22)
+    local body = kit.mix(kit.mix(P.accent_bg, P.accent_lo, lit * 0.6), '#000000', held and 0.15 or 0)
+    local fg, dl, cy = kit.mix(P.accent2, P.white, lit), imgui.GetWindowDrawList(), y + ph / 2
+    kit.fill(dl, x, y, w, ph, body, ph / 2)
+    kit.outline(dl, x, y, w, ph, kit.mix(P.accent_lo, P.accent, lit), ph / 2)
+    kit.text_mid(dl, x + lead, cy, t(ADD_TRACKED), fg, kit.fonts.semi, px)
+    kit.icon(dl, 'plus_circle', x + ix + icon / 2, cy, icon, fg, 1, body)
+    if clicked then act.track(who) end
+end
+
+local hud_add  -- where the HUD's Add Tracked pill goes this frame, { x, y, ph, px, who }: nil while it has none
+
 -- Labels in pills side by side, the first's point just right of the panel at `cy`: this session's amber while running
 -- (what goes), grey while stopped (what would); another session's blue, after its name on a darker part. On the
 -- background list: they sit outside the window without widening it, as a transparent window area would block the
--- game's clicks.
+-- game's clicks. Add Tracked (`track`, your target's name) only has its shadow and point here: it's drawn and clicked
+-- in a window of its own (add_window), once the HUD's is done.
 local function draw_labels(list, ts, right, cy)
     if not list[1] then return end
     local dl = imgui.GetBackgroundDrawList()
@@ -291,16 +324,20 @@ local function draw_labels(list, ts, right, cy)
     for i, l in ipairs(list) do
         local who = l.session
         local nw = who and kit.measure(who, font, ts) + pad * 2 or 0  -- the name's part
-        local w = nw + kit.measure(l.text, font, ts) + pad * 2
-        local color = who and P.accent or l.live and P.amber or P.seg
+        local w = l.track and add_tracked_size(h, ts) or nw + kit.measure(l.text, font, ts) + pad * 2
+        local color = l.track and P.accent_lo or who and P.accent or l.live and P.amber or P.seg
         kit.fill(dl, x, cy - h / 2 + 2, w, h, '#000000', h / 2, 0.3)  -- its shadow
         if i == 1 then kit.tri(dl, { right + 2, cy }, { x + h / 4, cy - h * 0.32 }, { x + h / 4, cy + h * 0.32 }, color) end
-        kit.fill(dl, x, cy - h / 2, w, h, color, h / 2)
-        if who then
-            kit.fill(dl, x, cy - h / 2, nw, h, P.accent_lo, h / 2, 1, kit.LEFT_CORNERS)
-            kit.text_mid(dl, x + pad, cy, who, P.white, font, ts)
+        if l.track then
+            hud_add = { x = x, y = cy - h / 2, ph = h, px = ts, who = l.track }
+        else
+            kit.fill(dl, x, cy - h / 2, w, h, color, h / 2)
+            if who then
+                kit.fill(dl, x, cy - h / 2, nw, h, P.accent_lo, h / 2, 1, kit.LEFT_CORNERS)
+                kit.text_mid(dl, x + pad, cy, who, P.white, font, ts)
+            end
+            kit.text_mid(dl, x + nw + pad, cy, l.text, (who or l.live) and P.ink or P.text2, font, ts)
         end
-        kit.text_mid(dl, x + nw + pad, cy, l.text, (who or l.live) and P.ink or P.text2, font, ts)
         x = x + w + math.floor(h * 0.3)
     end
 end
@@ -350,11 +387,13 @@ local function pointed(view, c)
     return not to_pet and ptr.member == c.member
 end
 
--- The labels at card `c`, or at the alliance's row `j`: this session's first, then each other session's there (its
+-- The labels at card `c`, or at the alliance's row `j`: at your own card Add Tracked first while your target is a player
+-- you could track (first, so it stays put to be clicked), then this session's, then each other session's there (its
 -- pet's own at its pet's card).
 local function labels_at(view, c, j)
     local ptr, out = view.pointer, {}
-    if c and pointed(view, c) or j and ptr and ptr.ally == j then out[1] = ptr end
+    if c and c.p.kind == 'self' and view.track.target then out[1] = { track = view.track.target } end
+    if c and pointed(view, c) or j and ptr and ptr.ally == j then out[#out + 1] = ptr end
     for _, o in ipairs(view.others) do
         if c and o.member == c.member and (not o.pet) == (not c.pet) or j and o.ally == j then out[#out + 1] = o end
     end
@@ -455,7 +494,7 @@ end
 -- One row on a panel of its own: each character in a pill, green while running (blue while something holds it: AFK
 -- sleep, a mount, a zone...) and red while stopped, holding its
 -- name, its run button and its cog, `ui.widget_size` pixels high. Right-click a name for its profiles; hover it for
--- what it's doing.
+-- what it's doing. After them, while your target is a player you could track, Add Tracked.
 local function draw_widget(view)
     local dl = imgui.GetWindowDrawList()
     local x0, y0 = imgui.GetCursorScreenPos()
@@ -471,6 +510,8 @@ local function draw_widget(view)
         c.pill = lead + c.w + gap + h + math.floor(gap / 2) + h + edge
         pw = pw + c.pill + apart
     end
+    local who = view.track.target  -- last, so the characters' pills stay put as it comes and goes
+    if who then pw = pw + add_tracked_size(pill_h, h) + apart end
     local ph = pill_h + pad * 2
     kit.fill(dl, x0, y0, pw, ph, P.bg, px(0.5))
     kit.outline(dl, x0, y0, pw, ph, P.border, px(0.5))
@@ -502,6 +543,7 @@ local function draw_widget(view)
             'Open or close Sidekick Settings')
         x = x + c.pill + apart
     end
+    if who then add_tracked('##sk3_widget_track', x, y0 + pad, pill_h, h, who) end
     imgui.SetCursorScreenPos({ x0, y0 + ph - 1 })
     imgui.Dummy({ pw, 1 })  -- the panel's full size, for the auto-size
 end
@@ -1602,6 +1644,27 @@ local function panel(title, flags, draw, view)
     if not ok then return err end
 end
 
+local ADD_FLAGS = HUD_FLAGS + ImGuiWindowFlags_NoMove + ImGuiWindowFlags_NoSavedSettings + ImGuiWindowFlags_NoFocusOnAppearing
+
+-- The HUD's Add Tracked pill (`at`, from draw_labels), in a window of its own put on it each frame and just its size:
+-- the HUD's labels sit outside the HUD's window, where a click goes to the game, and this one's has to come here. No
+-- minimum size or rounding, so it's no bigger than the pill and takes no click beside it. On whole pixels, as ImGui
+-- floors a window's place: a pill half a pixel lower would lose its bottom edge to its window's clip. Returns the error
+-- it raised.
+local function add_window(at)
+    local x, y, w = math.floor(at.x), math.floor(at.y), add_tracked_size(at.ph, at.px)
+    imgui.SetNextWindowPos({ x, y }, ImGuiCond_Always)
+    imgui.SetNextWindowSize({ w, at.ph }, ImGuiCond_Always)
+    local vars = kit.push_style(NO_COLOURS, ImGuiStyleVar_WindowPadding, { 0, 0 }, ImGuiStyleVar_WindowBorderSize, 0,
+        ImGuiStyleVar_WindowMinSize, { 1, 1 }, ImGuiStyleVar_WindowRounding, 0)
+    local shown = imgui.Begin('Sidekick3 Add Tracked', true, ADD_FLAGS)
+    kit.pop_style(NO_COLOURS, vars)
+    local ok, err = true, nil
+    if shown then ok, err = pcall(add_tracked, '##sk3_add_tracked', x, y, at.ph, at.px, at.who) end
+    imgui.End()
+    if not ok then return err end
+end
+
 local function settings_window(view)
     local open = { true }
     local err = settings_shell('Sidekick Settings', open, 0, function (x, y, side, pw, ph)
@@ -1650,7 +1713,9 @@ function window.render(view, act_)
     local err
     if open then
         kit.prefix = 'hud|'
+        hud_add = nil
         err = panel('Sidekick3', HUD_FLAGS, draw_hud, view)
+        if hud_add then err = add_window(hud_add) or err end
     end
     if view.ui.widget then
         kit.prefix = 'widget|'

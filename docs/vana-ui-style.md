@@ -726,7 +726,10 @@ everything with it:
   bars with a background at 70% that does not fade (gray while the pointer is over the panel, near-black while it
   is not), a 1px near-black border at that same 70% that does not fade, and a fill at 70% that eases to each new value,
   round buttons filled in the accent while on, and the next action's label as
-  a pill (amber running, grey stopped). Each card is HP over MP over TP, its tag on the TP bar (with no MP, while `ui.hide_mp` is on, the MP bar is left
+  a pill (amber running, grey stopped). While your target is a player you could track, an **Add Tracked** pill goes
+  first at your card, in vana's pill colours (`accent_bg`, edged `accent_lo`, its words and plus-circle `accent2`;
+  under the pointer they ease to white and the fill towards `accent_lo`), in a window just its size so its click
+  reaches ImGui, not the game; the widget ends its row with the same pill. Each card is HP over MP over TP, its tag on the TP bar (with no MP, while `ui.hide_mp` is on, the MP bar is left
   out and the TP bar sits under the HP bar), your pet's card under yours and another session's under its card (each of its
   bars an alliance row's size, its name pale cyan, `#C2FFFF`, while healthy); the TP bar is
   three parts of 1000 TP, each solid once full and at half alpha while it fills (as Floaties draws it). Its
@@ -741,7 +744,7 @@ What differs from vana:
 
 | vana | Sidekick3 |
 |---|---|
-| Font Awesome icons | Icons drawn in shapes (`kit.icon`: close, play, stop, cog, the chevrons), so no font has to carry them |
+| Font Awesome icons | Icons drawn in shapes (`kit.icon`: close, play, stop, cog, the chevrons, and Material Design Icons' plus-circle), so no font has to carry them |
 | A typed number in a window beside the main one | A popup by the value (`kit.slider`) |
 | Raw ImGui numbers | The constants `require('imgui')` defines, each listed in `.luacheckrc`'s `read_globals` |
 | ImGui 1.92 only | 1.81 too (Ashita 4.16): Segoe UI added in Ashita's `load` event (`window.load` → `kit.bake`), as 1.81 locks its atlas during a frame; draw-list text drawn from the 18px bake at the size asked, measured by scaling `CalcTextSize`; ImGui's own items (tooltips, popups, the text field) sized with `SetWindowFontScale` inside their window (`kit.push_font`); `...` for the ellipsis, as the bake holds Latin-1 alone; Japanese in the font Ashita added at its start from its boot config (`[ashita.imgui.fonts]` with `is_jp`), found in `GetIO().Fonts.Fonts` by its kana and scaled from its size, `->` and `...` written where it lacks `→` and `…` (1.81's Japanese set does); `BeginChild`'s border bool; 1.81's corner flags. `IMGUI_VERSION_NUM` decides |
