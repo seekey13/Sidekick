@@ -7,8 +7,9 @@
     slots for the area songs, and while an area song is owed and can't go the songs
     on one member wait: it would push them out. Two songs of one kind (Victory and
     Advancing March) are two statuses of one id, counted with `stacks` on you and
-    your party's players; a trust's come from packets, one per id, so any one
-    stands for them all.
+    your party's players; a trust's come from packets, one per id, so while its
+    kind shows, your stamps of that kind there that haven't worn say how many
+    stand (one at least: another's song).
 
     Stamps: each of your songs is stamped on everyone its cast's finish packet says
     it landed on (core/packets.lua -> brd.spell), doubled under Troubadour. A stamp
@@ -63,14 +64,16 @@ function brd.lasts(a, ctx)
     return a.duration * ((ctx.buffs or {})[TROUBADOUR] and 2 or 1)
 end
 
--- Your songs' stamps: stamps[server id][song name] = { at, id = its status, double }.
+-- Your songs' stamps: stamps[server id][song name] = { at, id = its status, double,
+-- ends = when it wears by its base duration, as a trust's status does }.
 local stamps = {}
 
 -- Song `a` (a catalog record) landed on these server ids at `now`, from your own
 -- spell finish; `buffs` are yours (Troubadour doubles it), `stand` how many songs
 -- stand on each: one more pushes out the one that would wear first (LSB's
--- ApplyBardEffect), by when it landed and whether it was doubled.
+-- ApplyBardEffect).
 function brd.landed(a, sids, now, buffs, stand)
+    local double = (buffs or {})[TROUBADOUR] == true or nil
     for _, sid in ipairs(sids) do
         local rows = stamps[sid] or {}
         stamps[sid] = rows
@@ -80,13 +83,12 @@ function brd.landed(a, sids, now, buffs, stand)
             while n >= math.max(stand or brd.SLOTS, 1) do
                 local first, ends = nil, math.huge
                 for name, r in pairs(rows) do  -- two that end at once: the first by name, not by pairs' order
-                    local e = r.at + a.duration * (r.double and 2 or 1)
-                    if e < ends or e == ends and name < first then first, ends = name, e end
+                    if r.ends < ends or r.ends == ends and name < first then first, ends = name, r.ends end
                 end
                 rows[first], n = nil, n - 1
             end
         end
-        rows[a.name] = { at = now, id = a.status[1], double = (buffs or {})[TROUBADOUR] == true or nil }
+        rows[a.name] = { at = now, id = a.status[1], double = double, ends = now + a.duration * (double and 2 or 1) }
     end
 end
 
@@ -128,30 +130,37 @@ end
 -- slot with none (or one you lack) is skipped, and a song picked twice is one.
 function brd.picked(cfg, key, songs, n) return slots.picked(cfg.song, key, songs, n, true) end
 
--- How many of status `id` stand on `u`; a trust's (no stacks) stand for all.
-local function count(u, id)
+-- How many of status `id` stand on `u` at `now`. A trust's (no stacks) show one
+-- per id: while it shows, as many as your stamps of it there that haven't worn,
+-- one at least (another's song).
+local function count(u, id, now)
     if u.stacks then return u.stacks[id] or 0 end
-    return u.buffs[id] and math.huge or 0
+    if not u.buffs[id] then return 0 end
+    local n = 0
+    for _, r in pairs(stamps[u.sid] or {}) do
+        if r.id == id and now < r.ends then n = n + 1 end
+    end
+    return math.max(n, 1)
 end
 
 -- Whether `u` lacks `a` among the songs `sets` pick for them together (their
 -- own, and the area ones while they count for those): songs of one kind want
 -- one status each, a song picked in two of them one.
-local function lacks(u, a, sets)
+local function lacks(u, a, sets, now)
     local id, want, seen = a.status[1], 0, {}
     for _, set in ipairs(sets) do
         for _, s in ipairs(set) do
             if s.status[1] == id and not seen[s] then seen[s], want = true, want + 1 end
         end
     end
-    return count(u, id) < want
+    return count(u, id, now) < want
 end
 
 -- How many of the area songs `u` holds (each kind no more times than it's picked).
-local function held(u, area)
+local function held(u, area, now)
     local want, out = {}, 0
     for _, a in ipairs(area) do want[a.status[1]] = (want[a.status[1]] or 0) + 1 end
-    for id, n in pairs(want) do out = out + math.min(count(u, id), n) end
+    for id, n in pairs(want) do out = out + math.min(count(u, id, now), n) end
     return out
 end
 
@@ -228,7 +237,7 @@ function brd.want(g, cat, cfg, mem)
     local function owes(u, a, lacking)
         local d = not lacking and due(u, a)
         if not lacking and d ~= nil then return d end
-        return lacks(u, a, { area, mine(u) }) and held(u, area) < free(u)
+        return lacks(u, a, { area, mine(u) }, g.now) and held(u, area, g.now) < free(u)
     end
 
     -- Area songs, unless the next song would land on one member (with fast
@@ -264,7 +273,7 @@ function brd.want(g, cat, cfg, mem)
         local u = by_slot[slot]
         for _, a in ipairs(u and here(u) and own[slot] or {}) do
             local d = due(u, a)
-            local short = d or d == nil and lacks(u, a, { own[slot], free(u) > 0 and area or {} })
+            local short = d or d == nil and lacks(u, a, { own[slot], free(u) > 0 and area or {} }, g.now)
             local pick = can.near(u, can.yalms(a.range)) and short
                 and choose(a, own[slot], u)
             if pick and owed and not up then

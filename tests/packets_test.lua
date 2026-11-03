@@ -118,7 +118,8 @@ test('your song is stamped on who its finish says it landed on, doubled under Tr
     -- On you and a trust; a stranger it had no effect on (75) isn't stamped.
     packets.action(action(ME, SPELL, 397, { { ME, 230, 198 }, { TRUST, 266, 198 }, { STRANGER, 75, 198 } }), c, 5)
     eq({ brd.stamps()[ME], brd.stamps()[TRUST], brd.stamps()[STRANGER] },
-       { { ['Valor Minuet IV'] = { at = 5, id = 198, double = true } }, { ['Valor Minuet IV'] = { at = 5, id = 198, double = true } }, nil })
+       { { ['Valor Minuet IV'] = { at = 5, id = 198, double = true, ends = 245 } },
+         { ['Valor Minuet IV'] = { at = 5, id = 198, double = true, ends = 245 } }, nil })
     -- The trust's status, read from packets, lasts twice its 120s too.
     eq({ buffs.of(TRUST, 5 + 239)[198], buffs.of(TRUST, 5 + 241)[198] }, { true, nil })
     -- Another's song, or your other spells, stamp nothing.
