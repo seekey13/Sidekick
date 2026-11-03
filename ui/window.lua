@@ -719,42 +719,6 @@ local function heal_targets(pg, h)
     end)
 end
 
-local SPELL_TIP = 'Untick to never heal with it; the other tiers on its row still go, and it still wakes a sleeper.'
-local ESTIMATE_TIP = 'What one cast heals one target now, as efficient healing scores it: seen from the heals Sidekick sent '
-    .. 'this session, else the table\'s guess with potency from gear (so an unticked one keeps the guess). A Regen\'s is its whole total, counted only when it all lands. '
-    .. 'Then HP for each MP, or each 100 TP. Efficient healing also weighs how much is missing and how many an area heal reaches.'
-
--- What a heal restores and for what: '240 HP over 60s, 6.7 HP/MP', '(seen)' once a cast was.
-local function estimate_text(sp)
-    if not sp.hp then return t('no estimate') end
-    local hp = sp.regen and f('%d HP over %ds', sp.hp, sp.seconds or 0) or f('%d HP', sp.hp)
-    if sp.learned then hp = f('%s (seen)', hp) end
-    if not sp.per then return hp end
-    return f('%s, %s', hp, f(sp.unit == 'TP' and '%.1f HP/100 TP' or '%.1f HP/MP', sp.per))
-end
-
--- Healing's spells and abilities, a checkbox each, in the view's order: its name, then what it heals and for what.
-local function heal_spells(pg, h)
-    if not (h.spells and h.spells[1]) then return end
-    subheader(pg, 'EFFICIENCY')
-    local tip = t(SPELL_TIP) .. '\n' .. t(ESTIMATE_TIP)
-    for _, sp in ipairs(h.spells) do
-        local cy = line(pg, nil, nil)
-        local on, flipped = kit.checkbox(sp.label .. '##sk3_heal_spell_' .. sp.name, pg.lx, cy, sp.on, true, pg.alpha)
-        if flipped then act.heal_spell(sp.name, on) end
-        kit.tip(sp.row_on and tip or tip .. t('\nIts row is off below: it goes only once that is on.'))
-        local text = estimate_text(sp)
-        local px = S(SMALL + 0.5)
-        local aw = kit.measure(text, kit.fonts.text, px)
-        local lit = sp.on and sp.row_on
-        kit.text_right(pg.dl, pg.right, cy, text, lit and sp.per and P.teal or P.dim, kit.fonts.text, px, pg.alpha)
-        if kit.over(pg.right - aw, cy - S(10), aw, S(20)) then kit.tooltip(t(ESTIMATE_TIP)) end
-        local lx = pg.lx + S(kit.CB) + S(10)
-        kit.text_mid(pg.dl, lx, cy, kit.fit(sp.label, pg.right - aw - S(12) - lx, kit.fonts.text, S(BODY)),
-            lit and P.text or P.dim, kit.fonts.text, S(BODY), pg.alpha)
-    end
-end
-
 local function draw_heal_settings(view, pg)
     local h = view.heal
     for _, l in ipairs(HEAL_LINES) do slider(pg, l[1], 'heal.' .. l[2], h[l[2]], l[3], '%') end
@@ -775,7 +739,6 @@ local function draw_heal_settings(view, pg)
             'Buff rows never spend the last stratagem charge, so healing has one for Accession or Rapture.')
     end
     heal_targets(pg, h)
-    heal_spells(pg, h)
 end
 
 local function draw_recover_settings(view, pg)
@@ -1180,6 +1143,8 @@ local HOLD_TIP = 'Wait while a modifier picked here can\'t go with the spell (on
 -- One row per settings key: its name (and how many you carry), ready or why not, its switch. Under that, on their
 -- own lines: its pick, then its targets a row at a time (ME P1-P5, then B0-B5, C0-C5 and tracked), then its
 -- modifiers fired before its spell (Pen, Cel, Acc, Emb...) and Hold.
+local TIER_TIP = 'Untick to never heal with it; the other tiers still go, and it still wakes a sleeper.'
+
 local function family_row(pg, sid, r)
     local id = sid .. '_' .. r.key
     local n = r.count or r.tools
@@ -1195,8 +1160,13 @@ local function family_row(pg, sid, r)
     for _, m in ipairs(r.mods or {}) do mods[#mods + 1] = { w = kit.chip_width(m.label), m = m } end
     if r.mods then mods[#mods + 1] = { w = kit.chip_width(hold), hold = true } end
     local mod_lines = #mods > 0 and flow(mods, pg.lx, pg.right, S(4)) or 0
+    local tiers, px_tier = {}, S(SMALL + 0.5)
+    for _, tr in ipairs(r.tiers or {}) do
+        tiers[#tiers + 1] = { w = S(kit.CB) + S(6) + kit.measure(tr.label, kit.fonts.text, px_tier), pre = S(8), tr = tr }
+    end
+    local tier_lines = #tiers > 0 and flow(tiers, pg.lx, pg.right, S(4)) or 0
     local pick_lines = r.choices and 1 or 0
-    local lines = pick_lines + tlines + mod_lines
+    local lines = pick_lines + tlines + mod_lines + tier_lines
     local cy = line(pg, nil, nil, S(ROW_H) + lines * S(CHIP_LINE) + (lines > 0 and S(4) or 0))
 
     -- An item shows how many you carry, ninjutsu their tools; ### keeps its id while the count changes.
@@ -1251,6 +1221,15 @@ local function family_row(pg, sid, r)
             end
             kit.tip(m.note and f('%s first: %s', lang.name(m.name), m.note) or lang.name(m.name))
         end
+    end
+    line_i = line_i + mod_lines
+    for _, it in ipairs(tiers) do
+        local tr, icy = it.tr, top + (line_i + it.line - 1) * S(CHIP_LINE)
+        local on, flipped = kit.checkbox(tr.label .. '##sk3_heal_spell_' .. tr.name, it.x, icy, tr.on, true, pg.alpha)
+        if flipped then act.heal_spell(tr.name, on) end
+        kit.tip(t(TIER_TIP))
+        kit.text_mid(pg.dl, it.x + S(kit.CB) + S(6), icy, tr.label, r.on and tr.on and P.text2 or P.dim, kit.fonts.text,
+            px_tier, pg.alpha)
     end
 end
 

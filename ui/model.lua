@@ -26,7 +26,6 @@
 local afk = require('core.afk')
 local ammo = require('core.ammo')
 local can = require('core.can')
-local heal = require('behaviors.heal')
 local job_modules = require('core.jobs')
 local lang = require('core.lang')
 local profiles = require('core.profiles')
@@ -234,6 +233,25 @@ local function mod_chips(acts, r, modifiers)
     return out[1] and out or nil
 end
 
+-- A heal row's tiers, a checkbox each (heal.never): healing uses only those left ticked, waking any of them. Only
+-- for a row with more than one (Cure, Curaga, Regen, Curing Waltz), in the catalog's order, one per name. A Ready
+-- move (spent only in danger) doesn't count as a tier; an unticked one alone on its row is listed, to tick again.
+local function heal_tiers(acts, cfg)
+    local out, seen, count, never = {}, {}, 0, false
+    for _, a in ipairs(acts) do
+        if a.role == 'heal' and not seen[a.name] then
+            seen[a.name] = true
+            local off = settings.never_heal(cfg, a)
+            if not a.charges or off then
+                out[#out + 1] = { name = a.name, label = lang.name(a.name, a.jp), on = not off }
+                if not a.charges then count = count + 1 end
+                never = never or off
+            end
+        end
+    end
+    return (count > 1 or never) and out or nil
+end
+
 -- `modifiers` (a list, maybe empty) only for buff and luopan rows.
 local function build_row(key, acts, cfg, g, units, modifiers, outsiders)
     local r = settings.row(cfg, acts[1])
@@ -254,7 +272,7 @@ local function build_row(key, acts, cfg, g, units, modifiers, outsiders)
             if c.name == r.pick then row.choice = c.label end
         end
     end
-    -- Only the heals left ticked under Heal (heal.never) can go.
+    -- Only the heals left ticked (heal.never) can go.
     local live = {}
     for _, a in ipairs(acts) do
         if not settings.never_heal(cfg, a) then live[#live + 1] = a end
@@ -262,7 +280,7 @@ local function build_row(key, acts, cfg, g, units, modifiers, outsiders)
     if live[1] then
         row.ready, row.avail, row.action = availability(live, r, g)
     else
-        row.ready, row.avail = false, lang.t('unticked above')
+        row.ready, row.avail = false, lang.t('every tier unticked')
     end
     -- Held: a modifier on for it that can't go says why it waits.
     for _, m in ipairs(row.hold and modifiers or {}) do
@@ -271,6 +289,7 @@ local function build_row(key, acts, cfg, g, units, modifiers, outsiders)
             if not ok then row.ready, row.avail = false, lang.f('waits for %s: %s', chip_of(m), lang.why(why)) end
         end
     end
+    row.tiers = heal_tiers(acts, cfg)
     if acts[1].kind == 'item' then row.count = g.items and g.items[acts[1].id] or 0 end
     if acts[1].tool then row.tools = can.tools(acts[1], g) end
     return row
@@ -597,46 +616,6 @@ end
 
 -- Where a heal sorts: MP heals by HP per MP, then TP heals by HP per 100 TP (a free one,
 -- under Trance, first), then those with no estimate.
-local function heal_rank(sp)
-    if sp.per then return sp.unit == 'MP' and 1 or 2, sp.per end
-    if sp.hp and sp.cost == 0 then return 2, math.huge end
-    return 3, 0
-end
-
--- Healing's spells and abilities that share their row with another tier, each tickable on its own (heal.never): what
--- each heals now and for what (behaviors/heal.lua's estimates), in heal_rank's order. One per name (Wild Carrot is
--- blue magic and a Ready move). One alone on its row has the row's switch, and a Ready move (spent only in danger)
--- its row's: neither is listed but once unticked, so it can be ticked again.
-local function heal_spells(g, cat, cfg)
-    local list, tiers, counted = heal.estimates(g, cat, cfg), {}, {}
-    for _, e in ipairs(list) do
-        local a, key = e.a, settings.key(e.a)
-        local id = key .. '/' .. a.name
-        if not (a.charges or counted[id]) then counted[id], tiers[key] = true, (tiers[key] or 0) + 1 end
-    end
-    local out, seen = {}, {}
-    for _, e in ipairs(list) do
-        local a = e.a
-        local never = settings.never_heal(cfg, a)
-        if not seen[a.name] and (never or not a.charges and (tiers[settings.key(a)] or 0) > 1) then
-            seen[a.name] = true
-            out[#out + 1] = {
-                name = a.name, label = lang.name(a.name, a.jp), on = not never,
-                row_on = settings.row(cfg, a).on == true, hp = e.hp and math.floor(e.hp + 0.5), learned = e.learned,
-                cost = e.cost, unit = e.unit, per = e.per and math.floor(e.per * 10 + 0.5) / 10,
-                regen = a.tick ~= nil or nil, seconds = a.tick and a.duration or nil, area = (a.area or 0) > 0 or nil,
-            }
-        end
-    end
-    table.sort(out, function (x, y)
-        local gx, px = heal_rank(x)
-        local gy, py = heal_rank(y)
-        if gx ~= gy then return gx < gy end
-        if px ~= py then return px > py end
-        return x.name < y.name
-    end)
-    return out
-end
 
 -- Whether `a` spends what heal.reserve keeps for healing (core/jobs.lua: `reserves`).
 local function reserved(a)
@@ -691,7 +670,7 @@ function model.build(g, cat, cfg, status, names)
                  focus_threshold = h.focus_threshold, focus_danger = h.focus_danger, focus_critical = h.focus_critical,
                  cure_potency = h.cure_potency, waltz_potency = h.waltz_potency, regen_potency = h.regen_potency,
                  reserve = h.reserve, stratagems = stratagems,
-                 focus_names = focus_names, targets = heal_targets, spells = heal_spells(g, cat, cfg) },
+                 focus_names = focus_names, targets = heal_targets },
         recover = { mp = cfg.recover.mp, tp = cfg.recover.tp, min_tp = cfg.recover.min_tp, spends_tp = spends_tp },
         pet_heal = cfg.pet.heal,
         follow = { on = cfg.follow.on, target = cfg.follow.target, distance = cfg.follow.distance, names = focus_names },
@@ -982,7 +961,7 @@ function model.actions(cfg, status, changed, tracking, send)
     function act.untrack(name) tracking.remove(name) end
     -- A member skipped by healing is never healed for their own sake; `skip` sets it, toggled without it.
     act.skip = saving(function (name, skip) flag(cfg.heal.skip, name, skip) end)
-    -- One heal (a `view.heal.spells` name: 'Cure II', 'Regen') used by healing (`on` true) or never (false), its row's
+    -- One heal (a heal row's `tiers` name: 'Cure II', 'Regen') used by healing (`on` true) or never (false), its row's
     -- other tiers as they were; waking uses it either way. Nil toggles.
     act.heal_spell = saving(function (name, on)
         cfg.heal.never = cfg.heal.never or {}

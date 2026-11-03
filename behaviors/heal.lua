@@ -360,31 +360,6 @@ local function want(g, cat, cfg, bands)
     end
 end
 
--- What each of your heals restores now, for Sidekick Settings: every heal in `cat`,
--- its row on or not, as { a, hp, learned, cost, unit, per }. hp is what efficient
--- healing scores it at (one target's, before overheal; a Regen's whole total,
--- gear's ticks in it), nil when nothing says; learned when a cast was seen.
--- cost is its MP ('MP') or TP ('TP'); per is hp for each MP, or for each 100 TP;
--- nil when it costs neither (a pet's move) or hp is unknown.
-function heal.estimates(g, cat, cfg)
-    local out = {}
-    if not (g and g.me) then return out end
-    g = util.overlay(g, { learned = g.learned or {}, units = g.units or {} })
-    local ctx = context(g, cat, cfg, {})
-    for _, a in ipairs(cat) do
-        if a.role == 'heal' then
-            -- a Regen tier with no known value (Regen IV, V: tick 0, no duration) says nothing
-            local hp = not (a.tick and a.tick <= 0) and amount(a, ctx) or nil
-            local e = { a = a, hp = hp, learned = not a.tick and g.learned[observed.key(a)] ~= nil }
-            if (a.mp or 0) > 0 then e.cost, e.unit = a.mp, 'MP'
-            elseif waltz(a) then e.cost, e.unit = can.tp(a, g), 'TP' end
-            if hp and e.cost and e.cost > 0 then e.per = e.unit == 'TP' and hp / e.cost * 100 or hp / e.cost end
-            out[#out + 1] = e
-        end
-    end
-    return out
-end
-
 -- Critical and danger, which go ahead of removal; efficient after it (core/engine.lua).
 function heal.urgent(g, cat, cfg) return want(g, cat, cfg, URGENT) end
 function heal.efficient(g, cat, cfg) return want(g, cat, cfg, EFFICIENT) end

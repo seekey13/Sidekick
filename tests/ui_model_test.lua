@@ -853,26 +853,17 @@ test('in Japanese no word the view asks for is missing from core/ja.lua', functi
     eq(lang.misses, {})
 end)
 
-test('healing lists each heal, most HP for the MP first, tickable on its own', function ()
+test('a heal row with more than one tier lists each, tickable on its own', function ()
     local cfg = settings.defaults()
     local act, writes = actions(cfg)
-    local g = fake.snap({ { name = 'A' }, { name = 'B' } })
-    g.learned = { ma1 = 90 }  -- Cure seen healing 90
-    local spells = build(whm, cfg, g).heal.spells
-    local by = {}
-    for _, sp in ipairs(spells) do by[sp.name] = sp end
-    eq(spells[1].name, 'Cure')  -- 90 for 8 MP: 11.3, over Regen's 8.3
-    eq({ by.Cure.hp, by.Cure.learned, by.Cure.per, by.Cure.unit, by.Cure.on, by.Cure.row_on }, { 90, true, 11.3, 'MP', true, true })
-    eq({ by['Regen II'].hp, by['Regen II'].regen, by['Regen II'].seconds, by['Regen II'].per }, { 240, true, 60, 6.7 })
-    eq({ by.Curaga.area, by['Cure II'].learned }, { true, false })
-    for i = 2, #spells do
-        eq(spells[i].per == nil or spells[i - 1].per ~= nil and spells[i - 1].per >= spells[i].per, true, spells[i].name)
-    end
+    local view = build(whm, cfg)
+    eq(keys(row(view, 'heal', 'Cure').tiers, 'name'), { 'Cure', 'Cure II', 'Cure III', 'Cure IV', 'Cure V' })
+    eq(keys(row(view, 'heal', 'Curaga').tiers, 'name'), { 'Curaga', 'Curaga II', 'Curaga III', 'Curaga IV' })
+    eq(keys(row(view, 'heal', 'Regen').tiers, 'name'), { 'Regen', 'Regen II', 'Regen III' })
+    eq(row(view, 'heal', 'Cure').tiers[1].on, true)
     act.heal_spell('Cure', false)
     eq({ cfg.heal.never, writes[1] }, { { Cure = true }, 1 })
-    for _, sp in ipairs(build(whm, cfg, g).heal.spells) do
-        if sp.name == 'Cure' then eq(sp.on, false) end
-    end
+    eq(row(build(whm, cfg), 'heal', 'Cure').tiers[1].on, false)
     act.heal_spell('Cure')  -- a toggle
     eq(cfg.heal.never, {})
     local remote = model.actions(cfg, status(), function () end)
@@ -887,36 +878,20 @@ test('a heal row goes by the tiers left ticked; with none, it says so', function
     eq({ r.ready, r.action }, { true, 'Cure IV' })
     for _, n in ipairs({ 'Cure', 'Cure II', 'Cure III', 'Cure IV' }) do cfg.heal.never[n] = true end
     r = row(build(whm, cfg), 'heal', 'Cure')
-    eq({ r.on, r.ready, r.avail, r.action }, { true, false, 'unticked above', nil })
+    eq({ r.on, r.ready, r.avail, r.action }, { true, false, 'every tier unticked', nil })
 end)
 
-test('healing\'s list: MP heals, then TP heals, a free one first; alone on its row or a Ready move, only once unticked', function ()
-    local DNC, BST, TRANCE = 19, 9, 376
-    local function names(cat, cfg, g)
-        return keys(build(cat, cfg, g or fake.snap({ { name = 'A' } })).heal.spells, 'name')
-    end
+test('tiers: waltzes too; a heal alone on its row or a Ready move only once unticked', function ()
+    local DNC, BST = 19, 9
     local whm_dnc = fake.catalog(WHM, 75, DNC, 37, { 'Curing Waltz', 'Curing Waltz II', 'Divine Waltz' })
-    local cures = names(whm)
-    eq({ cures[1], cures[#cures], #cures }, { 'Regen', 'Curaga', 12 })  -- Drain (alone on its row) left out
-    local g = fake.snap({ { name = 'A' } })
-    g.me.tp = 1000
-    local list = names(whm_dnc, nil, g)
-    eq({ list[12], list[13], list[14], list[15] }, { 'Curaga', 'Curing Waltz II', 'Curing Waltz', nil })  -- 50, 43.8 per 100 TP; no Divine Waltz
-    g.me.buffs[TRANCE] = true
-    list = names(whm_dnc, nil, g)
-    eq({ list[13], list[14] }, { 'Curing Waltz', 'Curing Waltz II' })  -- free under Trance: ahead, by name
+    local view = build(whm_dnc)
+    eq(keys(row(view, 'heal', 'Curing Waltz').tiers, 'name'), { 'Curing Waltz', 'Curing Waltz II' })
+    eq(row(view, 'heal', 'Divine Waltz').tiers, nil)
     local whm_bst = fake.catalog(WHM, 75, BST, 37)
-    eq(#names(whm_bst), 12)  -- no Wild Carrot, a Ready move
+    eq(row(build(whm_bst), 'heal', 'Wild Carrot').tiers, nil)
     local cfg = settings.defaults()
-    cfg.heal.never = { ['Wild Carrot'] = true, Drain = true }
-    local listed = {}
-    for _, n in ipairs(names(whm_bst, cfg)) do listed[n] = true end
-    for _, n in ipairs(names(whm, cfg)) do listed[n] = true end
-    eq({ listed['Wild Carrot'], listed.Drain }, { true, true })  -- unticked: listed, to tick again
-end)
-
-test('a Regen tier past the table (a 99 WHM\'s Regen IV) lists with no estimate', function ()
-    local by = {}
-    for _, sp in ipairs(build(fake.catalog(WHM, 99, BLM, 49), settings.defaults()).heal.spells) do by[sp.name] = sp end
-    eq({ by['Regen IV'].hp, by['Regen IV'].per, by['Regen IV'].seconds, by['Regen III'].hp }, { nil, nil, nil, 400 })
+    cfg.heal.never = { ['Wild Carrot'] = true }
+    local tiers = row(build(whm_bst, cfg), 'heal', 'Wild Carrot').tiers
+    eq({ keys(tiers, 'name'), tiers[1].on }, { { 'Wild Carrot' }, false })  -- unticked: listed, to tick again
+    eq(row(build(whm), 'revive', 'Raise').tiers, nil)
 end)
