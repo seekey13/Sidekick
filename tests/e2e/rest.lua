@@ -1,13 +1,15 @@
--- Resting on: with your MP low, out of combat and standing still, Sidekick3 rests (/heal) once rest.delay seconds have
--- passed since anything happened (its last send, a cast finishing, a move, combat: behaviors/rest.lua), not since the
--- MP fell, and you sit. Resting is turned on for the scenario if it's off; you stand again after.
+-- Resting on: with your MP dropped under Rest under's line (rest.mp), out of combat and standing still, Sidekick3
+-- rests (/heal) within seconds (behaviors/rest.lua: 3 s after your last move or its last send), and you sit. Resting is turned on for the scenario if it's off, and the
+-- line raised over the 10% the scene drops you to if it's under; you stand again after.
 local RESTING = 33  -- entity status
+local SOON = 5      -- seconds: the MP drop reaching the client, and a tick
 
 return {
-    about = 'low MP with resting on: /heal, the quiet seconds after the last action',
+    about = 'low MP with resting on: /heal within seconds under the MP line',
     run = function (t)
         local cfg = t.cfg()
         if not cfg.rest.on then t.setting('rest.on', true) end
+        if cfg.rest.mp <= 10 then t.setting('rest.mp', 50) end
         local me = t.me()
         local function resting()
             local mm = AshitaCore:GetMemoryManager()
@@ -23,18 +25,9 @@ return {
             end
         end)
         t.gm.mp_pct(me, 10)
-        local sent = t.expect({ behavior = 'rest' }, cfg.rest.delay + 10)
+        local sent = t.expect({ behavior = 'rest' }, 10)
         t.wait_for(resting, 5, 'resting')
-        local last  -- what came before it: Sidekick3's last send, or the last cast it finished
-        for _, ev in ipairs(t.events()) do
-            if ev.seq < sent.seq and (ev.type == 'sent' or ev.type == 'finish') then last = ev end
-        end
-        if last then
-            t.check(sent.at - last.at >= cfg.rest.delay - 0.2, 'rested %.1fs after its last %s, before its %ds',
-                sent.at - last.at, last.type, cfg.rest.delay)
-            t.note('rested %.1fs after its last %s', sent.at - last.at, last.type)
-        else
-            t.note('no send or cast of its own before the rest in this scenario: its delay not checked')
-        end
+        t.check(sent.after <= SOON, 'rested %.1fs after the MP drop, not within %ds', sent.after, SOON)
+        t.note('rested %.1fs after the MP drop', sent.after)
     end,
 }

@@ -167,21 +167,63 @@ test('follow: past the distance, by party slot; not while moving', function ()
     eq({ decide(snap({ { name = 'A', dist = 8 } }, { moving = true }), follower(), whm) }, { nil, 'moving' })
 end)
 
-test('rest: after the quiet delay, out of combat, MP not full', function ()
+test('rest: under the MP line, out of combat, 3s after your last move and send', function ()
+    local cfg = cfg_with({ ['rest.on'] = true, ['rest.mp'] = 40 })
+    local g = snap(nil, { moved_at = 997, combat_at = 994, finished = 999.5 })
+    g.me.mpp = 40
+    eq({ decide(g, cfg, whm) }, { nil, 'nothing to do' }, 'at the line, not under it')
+    g.me.mpp = 39
+    local cmd, intent = decide(g, cfg, whm, { sent_at = 997 })
+    eq({ cmd, intent.why }, { '/heal on', 'MP 39%' })
+    eq({ decide(g, cfg, whm, { sent_at = 997.5 }) }, { nil, 'nothing to do' }, 'a send just before')
+    g.moved_at = 997.5
+    eq({ decide(g, cfg, whm) }, { nil, 'nothing to do' }, 'a move just before')
+    g.moved_at, g.combat = 997, true
+    eq({ decide(g, cfg, whm) }, { nil, 'nothing to do' })
+    g.combat, g.me.uses_mp = false, false
+    eq({ decide(g, cfg, whm) }, { nil, 'nothing to do' })
+end)
+
+test('rest: a /heal on that did not sit you down goes again only after a while', function ()
     local cfg = cfg_with({ ['rest.on'] = true })
-    local g = snap(nil, { moved_at = 990 })
-    g.me.mpp = 50
-    local cmd, intent = decide(g, cfg, whm)
-    eq({ cmd, intent.why }, { '/heal on', 'MP 50%' })
-    eq({ decide(g, cfg, whm, { sent_at = 997 }) }, { nil, 'nothing to do' })
-    g.moved_at = 998
+    local g, mem = snap(), {}
+    g.me.mpp = 20
+    eq(fake.step(g, whm, cfg, mem), '/heal on')
+    g.now = g.now + 4
+    eq({ fake.step(g, whm, cfg, mem) }, { nil, 'nothing to do' })
+    g.now = g.now + 1
+    eq(fake.step(g, whm, cfg, mem), '/heal on')
+end)
+
+test('rest: not in a follower\'s short stop, the leader close', function ()
+    local cfg = cfg_with({ ['rest.on'] = true, ['follow.on'] = true, ['follow.target'] = 'A' })
+    local g = snap({ { name = 'A', dist = 3 } }, { moved_at = 999.5 })
+    g.me.mpp = 20
     eq({ decide(g, cfg, whm) }, { nil, 'nothing to do' })
-    g.moved_at, g.combat = 990, true
+    g.now = 1002.5
+    eq(decide(g, cfg, whm), '/heal on')
+end)
+
+test('rest: not with a pet out as a SMN, main or sub (the server takes no /heal under an avatar)', function ()
+    local cfg = cfg_with({ ['rest.on'] = true })
+    local g = snap(nil, { pet = automaton({ name = 'Carbuncle' }), sub = 15 })
+    g.me.mpp = 20
     eq({ decide(g, cfg, whm) }, { nil, 'nothing to do' })
-    g.combat, g.combat_at = false, 997  -- the fight just ended
+    g.sub, g.main = 4, 15
     eq({ decide(g, cfg, whm) }, { nil, 'nothing to do' })
-    g.combat_at, g.me.uses_mp = nil, false
+    g.main = WHM
+    eq(decide(g, cfg, whm), '/heal on', 'another job\'s pet')
+    g.sub, g.pet = 15, nil
+    eq(decide(g, cfg, whm), '/heal on', 'no pet out')
+end)
+
+test('rest: not while the leader is past Stand past; at once when they come back', function ()
+    local cfg = cfg_with({ ['rest.on'] = true, ['follow.target'] = 'A' })
+    local g = snap({ { name = 'A', dist = 9 } })
+    g.me.mpp = 20
     eq({ decide(g, cfg, whm) }, { nil, 'nothing to do' })
+    g.units[2].dist = 6
+    eq(decide(g, cfg, whm), '/heal on')
 end)
 
 test('resting: nothing else runs; stand at full MP or when the leader leaves', function ()

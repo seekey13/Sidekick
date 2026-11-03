@@ -47,7 +47,7 @@ local DEFAULTS = {
              one_shadow = false },  -- NIN: recast Utsusemi at its last shadow (v2's Cast with 1 Shadow)
     revive = { on = true },
     follow = { on = false, target = '', distance = 5 },  -- /follow them past this many yalms
-    rest = { on = false, delay = 5, distance = 7 },  -- /heal after this many quiet seconds; up past distance from follow.target
+    rest = { on = false, mp = 50, distance = 7 },  -- /heal under this MP% until full; up past distance from follow.target
     afk = { on = true, minutes = 10 },  -- sleep after this long with no party movement or combat (core/afk.lua; v2's, on)
     rows = {},
     profiles = {}, profile = '', parked = {},  -- named snapshots (core/profiles.lua)

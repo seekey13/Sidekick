@@ -63,7 +63,7 @@ Text that may contain `%` (names, `why` text) must be escaped before it's drawn:
 | `geo` | table | Geomancer's luopan: `{ distance, linger, entrust, entrust_spell, indi, names }`. Full Circle recalls the luopan once who it went on is further than `distance` yalms from it (3 to 30), and a debuff's `linger` seconds after combat (1 to 20). Entrust puts the Indi- spell `entrust_spell` (a name from `indi`, every Indi- you have, or `''`) on the member `entrust` (a name from `names`, your party but you, or `''`) |
 | `rune` | table | Rune Fencer's runes: `{ slots, runes, sets }`. `slots` is how many runes stand at once at your RUN level, main or sub (1 to 3). `runes` lists every rune you have, `{ name, label, element, resist, ailments }`, as `{ name = 'Ignis', label = 'Ignis', element = 'Fire', resist = 'Ice', ailments = 'Paralyze / Bind' }` (`label` the name as shown, `イグニス` in Japanese): what it adds to your attacks, the element it resists, the ailments it defends against. `sets` are Idle, then each ward you have (Vallation, Valiance, Pflug): `{ key, label, shows, ward, on, ready, avail, picks }`. `picks` holds a rune name (or `''`) for each of the 3 slots, though only the first `slots` count; set slot `i` with `act.set('rune.<key>_<i>', name)`. `shows` is the field of `runes` the set's picks are best named by (`'element'` for Idle, `'resist'` for Vallation and Valiance, `'ailments'` for Pflug). A ward's set also has `ward` (its name, the row key for `act.row`), `on` (its row), `ready` and `avail` as a row's. Off RUN, `slots` is 0 and `runes` and `sets` are empty |
 | `maneuver` | table | Puppetmaster's maneuvers: `{ choices, picks, ready, avail }`. `choices` lists every maneuver you have, in element order, `{ name, label }`, as `{ name = 'Fire Maneuver', label = 'Fire' }`. `picks` holds a maneuver name (or `''`) for each of the 3 slots; the same one twice keeps two up. Set slot `i` with `act.set('maneuver.slot_<i>', name)`. `ready` and `avail` as a row's, for them all (they share one recast and gate: `'no pet'` without an automaton out, `'blocked by a status'` under Overload). Off PUP, `choices` is empty and `ready` and `avail` nil |
-| `rest` | table | `{ on, delay, distance }`: rest after `delay` seconds with nothing to do; stand when the follow target is further than `distance` yalms |
+| `rest` | table | `{ on, mp, distance }`: rest as soon as your MP falls under `mp` %, until it's full; stand when the follow target (`follow.target`, shown in Resting too) is further than `distance` yalms |
 | `afk` | table | `{ minutes, asleep, left }`: AFK sleep pauses automation once no one in your party has moved and there has been no combat for `minutes` (1 to 60), and your own movement wakes it; its switch is the `'afk'` section's. `asleep` is true while it sleeps; `left` is the seconds until it would, nil while it's off, asleep or automation is stopped (it counts only while running) |
 | `track` | table | `{ target }`: your current target's name when it's a player you could track (not in your party or alliance, not tracked yet), else nil |
 | `japanese` | bool | A Japanese client: spell, ability and item names are sent in Japanese, and the view's text is Japanese (see Language, above). Shared by every job pair: it's kept in `ui`'s file (`ui.japanese`) |
@@ -205,7 +205,7 @@ In this order. A section with rows is left out when your job has none for it (Pe
 | `'heal.focus'` | a name from `view.heal.focus_names`, or `''` |
 | `'heal.cure_potency'`, `'heal.waltz_potency'` | 0 to 50 |
 | `'heal.regen_potency'` | 0 to 30 |
-| `'recover.mp'`, `'pet.heal'` | 1 to 99 |
+| `'recover.mp'`, `'rest.mp'`, `'pet.heal'` | 1 to 99 |
 | `'recover.tp'`, `'recover.min_tp'` | 0 to 3000 |
 | `'follow.on'`, `'rest.on'`, `'afk.on'`, `'heal.reserve'`, `'buff.hold_aoe'`, `'buff.gather'`, `'song.fast'` | bool |
 | `'follow.target'` | a name from `view.follow.names`, or `''` |
@@ -220,7 +220,6 @@ In this order. A section with rows is left out when your job has none for it (Pe
 | `'song.area_1'`, `'song.area_2'`, `'song.me_1'`, `'song.me_2'`, `'song.p1_1'` to `'song.p5_2'` | a name from `view.song.choices`, or `''` |
 | `'song.duration'` | 0 to 300 |
 | `'follow.distance'`, `'rest.distance'` | 1 to 15 |
-| `'rest.delay'` | 1 to 20 |
 | `'afk.minutes'` | 1 to 60 |
 | `'japanese'` | bool |
 | `'ui.hp_width'`, `'ui.mp_width'`, `'ui.tp_width'` | 80 to 600 |

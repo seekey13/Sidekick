@@ -672,7 +672,7 @@ function model.build(g, cat, cfg, status, names)
         recover = { mp = cfg.recover.mp, tp = cfg.recover.tp, min_tp = cfg.recover.min_tp, spends_tp = spends_tp },
         pet_heal = cfg.pet.heal,
         follow = { on = cfg.follow.on, target = cfg.follow.target, distance = cfg.follow.distance, names = focus_names },
-        rest = { on = cfg.rest.on, delay = cfg.rest.delay, distance = cfg.rest.distance },
+        rest = { on = cfg.rest.on, mp = cfg.rest.mp, distance = cfg.rest.distance },
         afk = { minutes = cfg.afk.minutes, asleep = g.afk == true, left = g.afk_in },
         buff = { hold_aoe = cfg.buff.hold_aoe, gather = cfg.buff.gather, one_shadow = cfg.buff.one_shadow, shadows = shadows },
         -- Your target, by name, when it's a player who could be tracked: not in the party, not tracked yet.
@@ -733,7 +733,7 @@ end
 -- HUD's (its labels and sizes) and the views it shows of others itself,
 -- with the view's `version`, VIEW: raise it when a field the window draws changes,
 -- so a session still running older code isn't drawn from a view it can't read.
-model.VIEW = 9
+model.VIEW = 10
 function model.published(view)
     local out = util.shallow_copy(view)
     out.pointer, out.others, out.ui, out.remote, out.sessions = nil, nil, nil, nil, nil
@@ -768,7 +768,7 @@ model.REMOTE_SET = {
     ['heal.regen_potency'] = { 0, 30 }, ['heal.focus'] = 'name', ['heal.reserve'] = 'bool',
     ['recover.mp'] = { 1, 99 }, ['recover.tp'] = { 0, 3000 }, ['recover.min_tp'] = { 0, 3000 }, ['pet.heal'] = { 1, 99 },
     ['follow.on'] = 'bool', ['follow.target'] = 'name', ['follow.distance'] = { 1, 15 },
-    ['rest.on'] = 'bool', ['rest.delay'] = { 1, 20 }, ['rest.distance'] = { 1, 15 },
+    ['rest.on'] = 'bool', ['rest.mp'] = { 1, 99 }, ['rest.distance'] = { 1, 15 },
     ['afk.on'] = 'bool', ['afk.minutes'] = { afk.MIN, afk.MAX },
     ['buff.hold_aoe'] = 'bool', ['buff.gather'] = 'bool', ['buff.one_shadow'] = 'bool',
 }

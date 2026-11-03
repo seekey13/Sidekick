@@ -69,7 +69,7 @@ As run on 2026-11-02, with Dev a WHM75, Test in its party, Alliance in the allia
 | `wake` | Sleep on Test at full HP: a heal that wakes | pass: Cure |
 | `doom` | Doom on Test: Cursna, and again while the Doom stays | pass: the first had no effect, a second went at its recast |
 | `buff` | A row's buff taken off Test goes back on (a Protect row for Test for the scenario, if none is on) | pass: Protect IV |
-| `rest` | Low MP with resting on (on for the scenario): `/heal` after the quiet seconds | pass |
+| `rest` | Low MP with resting on (on for the scenario): `/heal` within seconds under Rest under's MP line | not run since the MP line replaced the quiet delay (before: pass) |
 | `revive` | Test dies: a Raise that lands | **fail**: "Dev cannot cast Arise." (below) |
 
 ### What they found
