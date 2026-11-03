@@ -18,7 +18,8 @@
     Duration (cfg.song.duration, a BRD main from TIMED_LEVEL) a stamp alone says
     whether its song is due; while Nightingale and Troubadour are both up, every
     song stamped without Troubadour is. The stamps also say which of two one-kind
-    songs was sung last.
+    songs was sung last, and that a member's own song still stands: one short of
+    its kind (an area song that didn't fit) isn't sung it again, only refreshed.
 
     Pianissimo fast casting (cfg.song.fast): an area song goes through Pianissimo
     too, for its shorter cast, cancelled engine.CANCEL_AFTER seconds into it
@@ -141,6 +142,14 @@ local function count(u, id, now)
         if r.id == id and now < r.ends then n = n + 1 end
     end
     return math.max(n, 1)
+end
+
+-- Whether your song `a` stands on `u` by its stamp there, unworn while its kind
+-- shows: sung again, it would refresh itself and add none of its kind. (A dispel
+-- that takes one of two of a kind goes unseen here until the stamp wears.)
+local function stands(u, a, now)
+    local r = (stamps[u.sid] or {})[a.name]
+    return r ~= nil and now < r.ends and count(u, r.id, now) > 0
 end
 
 -- Whether `u` lacks `a` among the songs `sets` pick for them together (their
@@ -273,7 +282,8 @@ function brd.want(g, cat, cfg, mem)
         local u = by_slot[slot]
         for _, a in ipairs(u and here(u) and own[slot] or {}) do
             local d = due(u, a)
-            local short = d or d == nil and lacks(u, a, { own[slot], free(u) > 0 and area or {} }, g.now)
+            local short = d or d == nil and not stands(u, a, g.now)
+                and lacks(u, a, { own[slot], free(u) > 0 and area or {} }, g.now)
             local pick = can.near(u, can.yalms(a.range)) and short
                 and choose(a, own[slot], u)
             if pick and owed and not up then

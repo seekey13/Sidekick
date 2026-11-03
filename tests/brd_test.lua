@@ -181,6 +181,24 @@ test('a trust\'s own two songs of one kind: the second goes once the first is up
     eq(decide(g, cfg), '/ma "Advancing March" 101')
 end)
 
+test('an area song and their own of one kind, on a trust or a player: their own goes once, not again', function ()
+    -- Their one slot for the area songs went to Minuet, so Victory doesn't fit: one March is all.
+    local cfg = cfg_with({ area_1 = 'Valor Minuet IV', area_2 = 'Victory March', p1_1 = 'Advancing March' })
+    local function trust(b)
+        local t = { name = 'Kupipi', kind = 'trust', buffs = {} }
+        for _, id in ipairs(b) do t.buffs[id] = true end
+        return t
+    end
+    for _, who in ipairs({ trust, function (b) return player({ name = 'A' }, b) end }) do
+        brd.clear()
+        eq(decide(snap({ who({}) }, { MINUET, MARCH }), cfg), '/ma "Valor Minuet IV" <me>')
+        brd.landed(named(cat, 'Valor Minuet IV'), { 1, 101 }, 1004, {}, 2)
+        eq(decide(snap({ who({ MINUET }) }, { MINUET, MARCH, PIANISSIMO }, { now = 1010 }), cfg), '/ma "Advancing March" 101')
+        brd.landed(named(cat, 'Advancing March'), { 101 }, 1014, {}, 2)
+        eq(select(2, decide(snap({ who({ MINUET, MARCH }) }, { MINUET, MARCH }, { now = 1020 }), cfg)), 'nothing to do')
+    end
+end)
+
 test('on a BRD subjob, one slot per target', function ()
     local sub = fake.catalog(WHM, 75, BRD, 37, { 'Pianissimo' })
     local cfg = cfg_with({ area_1 = 'Valor Minuet III', area_2 = 'Army\'s Paeon III' })
