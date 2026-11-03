@@ -69,38 +69,71 @@ The UI is a single replaceable file; see [ui/README.md](ui/README.md) to build y
 
 Every job gets healing, removal, buffs and recovery from what it knows. These jobs also have logic of their own.
 
-### Bard
+<details>
+<summary><b>Bard</b></summary>
+
 Keeps the songs you pick up, as **Area** songs on everyone nearby or per-slot songs through Pianissimo. Tracks each song's age to re-sing the oldest first, re-sings before expiry with **Song Duration**, and handles Nightingale/Troubadour and optional Pianissimo fast casting.
+</details>
 
-### Beastmaster
+<details>
+<summary><b>Beastmaster</b></summary>
+
 A rabbit's **Wild Carrot** joins your heals once two Ready charges are banked, used only when someone is in danger so chip damage leaves charges for attacks.
+</details>
 
-### Blue Mage
+<details>
+<summary><b>Blue Mage</b></summary>
+
 Casts only the blue magic you have set. **Unbridled Learning** fires for the spells that need it, and a **Diffusion** chip spreads self-buffs to the party when they need it.
+</details>
 
-### Corsair
+<details>
+<summary><b>Corsair</b></summary>
+
 Keeps your chosen rolls up and **Double-Ups** by your chosen risk, using Snake Eye and Fold to land lucky numbers and undo Busts. `/sk3 "Bolter's Roll"` rolls one on demand.
+</details>
 
-### Dancer
+<details>
+<summary><b>Dancer</b></summary>
+
 Heals with waltzes, with free waltzes under **Trance**, and keeps sambas and Saber/Fan Dance up as buffs, working around the moves each one blocks. Uses No Foot Rise and Reverse Flourish to manage finishing moves.
+</details>
 
-### Geomancer
+<details>
+<summary><b>Geomancer</b></summary>
+
 Places your **Geo** luopan on the right target, or a debuff luopan on your battle target in combat, and recalls it with **Full Circle** when it's out of place. Supports Blaze of Glory, **Entrust**, and **Radial Arcana** for MP.
+</details>
 
-### Ninja
+<details>
+<summary><b>Ninja</b></summary>
+
 Keeps **Utsusemi** shadows up with the tools you carry, and shows how many casts you have left. Can recast at one shadow, and equips shuriken for Sange.
+</details>
 
-### Puppetmaster
+<details>
+<summary><b>Puppetmaster</b></summary>
+
 Keeps your chosen **maneuvers** up while the automaton is out, skipping them under Overload. Equips the best oil for Repair and Maintenance.
+</details>
 
-### Rune Fencer
+<details>
+<summary><b>Rune Fencer</b></summary>
+
 Keeps your chosen **runes** up with separate sets for idle, **Vallation**, **Valiance** and **Pflug**, firing wards in combat. An **Embolden** chip boosts enhancing spells.
+</details>
 
-### Scholar
+<details>
+<summary><b>Scholar</b></summary>
+
 Handles **Light/Dark Arts** and Addendum automatically, fires **stratagems** (Penury, Celerity, Perpetuance, Accession...) just before the spells you tag, and can save the last charge for emergency healing.
+</details>
 
-### Other jobs
+<details>
+<summary><b>Other jobs</b></summary>
+
 White Mage, Red Mage, Paladin, Summoner, Dragoon and the rest are handled by the shared engine: Divine Seal and Martyr, Convert, Majesty and Chivalry, Healing Ruby, Spirit Link and more, all read from the game.
+</details>
 
 ## Configuration
 
