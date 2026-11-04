@@ -65,6 +65,11 @@ for _, spec in job_modules.each('ui') do
     e.before = nil
     table.insert(model.SECTIONS, at, e)
 end
+-- The section a role's rows are under (a job module's too): a song, a roll, a rune has none.
+local SECTION_OF = {}
+for _, s in ipairs(model.SECTIONS) do
+    for _, role in ipairs(s.roles or {}) do SECTION_OF[role] = s end
+end
 model.FLAGS = { 'casting', 'moving', 'combat', 'safe', 'afk', 'mounted', 'dead', 'resting', 'incapacitated', 'silenced', 'amnesia' }
 
 -- Party slots' tags: ME, P1-P5, then the alliance's other parties, B0-B5 and C0-C5 (as v2).
@@ -72,7 +77,7 @@ model.TAGS = { [0] = 'ME', 'P1', 'P2', 'P3', 'P4', 'P5' }
 for i = 0, 5 do model.TAGS[6 + i], model.TAGS[12 + i] = 'B' .. i, 'C' .. i end
 local TAGS = model.TAGS
 local REASONS = { safe = 'safe zone', afk = 'AFK asleep' }  -- engine gate -> words
-local LABEL_FAMILIES = 3                -- a pick-one group named by more families is named by its key
+local LABEL_FAMILIES = settings.LABEL_FAMILIES  -- a pick-one group named by more families is named by its key
 local BUFFS_SHOWN = 6                   -- status names on a party line; the rest in its tooltip
 local POINTED = 2                       -- seconds the pointer stays on what was just sent...
 local POINTED_CAST = 15                 -- ...or while it is still being cast, up to this
@@ -126,7 +131,7 @@ local function row_label(key, acts, note)
     if a.pick_one then
         local families = families_of(acts)
         label = #families <= LABEL_FAMILIES and table.concat(families, ' / ')
-            or lang.t(util.capitalize((key:gsub('_', ' '))))
+            or lang.t(settings.name(key, acts))
     end
     return note and lang.f('%s (%s)', label, lang.t(note)) or label
 end
@@ -209,25 +214,15 @@ local function chips(acts, r, units, outsiders)
     return player_chips(units, outsiders, outside, function (slot) return chosen[slot] == true end)
 end
 
--- A modifier's chip as shown: its abbreviation ('Pen'); in Japanese its name's first two characters ('簡素' of
--- 簡素清貧の章), three when it starts with kana ('エンボ' of エンボルド).
-local function chip_of(m)
-    local s = lang.name(m.name, m.jp)
-    if s == m.name then return m.chip or m.name end
-    local kanji = s:byte(1) >= 0xE4 and s:byte(1) <= 0xE9  -- U+4E00 to U+9FFF
-    return s:match(kanji and '^[\224-\239][\128-\191][\128-\191][\224-\239][\128-\191][\128-\191]'
-        or '^[\224-\239][\128-\191][\128-\191][\224-\239][\128-\191][\128-\191][\224-\239][\128-\191][\128-\191]') or s
-end
-
 -- Modifier chips (SCH's stratagems, RUN's Embolden): each one in the catalog that fits one of
--- the row's spells.
+-- the row's spells, labelled with its full name ('Penury', 簡素清貧の章).
 local function mod_chips(acts, r, modifiers)
     local on, out = r.mods or {}, {}
     for _, m in ipairs(modifiers) do
         local fits = false
         for _, a in ipairs(acts) do fits = fits or m.applies(a) end
         if fits then
-            out[#out + 1] = { name = m.name, label = chip_of(m), note = m.note and lang.t(m.note), on = on[m.name] == true }
+            out[#out + 1] = { name = m.name, label = lang.name(m.name, m.jp), note = m.note and lang.t(m.note), on = on[m.name] == true }
         end
     end
     return out[1] and out or nil
@@ -253,12 +248,34 @@ local function heal_tiers(acts, cfg)
     return (count > 1 or never) and out or nil
 end
 
+-- The gate every one of `acts` has built in (can.built_gate), when they share one; nil when any has none.
+local function built_gate(acts)
+    local gate = can.built_gate(acts[1])
+    for _, a in ipairs(acts) do
+        if can.built_gate(a) ~= gate then return nil end
+    end
+    return gate
+end
+
+-- A row's gate: built in (`gate_fixed`: Berserk, Spectral Jig, an action on the enemy), else the one set on it
+-- (cfg.gates), else nil.
+local function gate_of(row, acts, cfg)
+    local built = built_gate(acts)
+    if built then
+        row.gate, row.gate_fixed = built, true
+    else
+        local set = (cfg.gates or {})[row.key]
+        row.gate = (set == 'combat' or set == 'idle') and set or nil
+    end
+end
+
 -- `modifiers` (a list, maybe empty) only for buff and luopan rows.
 local function build_row(key, acts, cfg, g, units, modifiers, outsiders)
     local r = settings.row(cfg, acts[1])
     local notes = distinct(acts, 'note')
     local note = #notes == 1 and notes[1] or nil
     local row = { key = key, label = row_label(key, acts, note), on = r.on == true }
+    gate_of(row, acts, cfg)
     if modifiers then
         row.choices = choices(acts, note)
         row.targets = chips(acts, r, units, outsiders)
@@ -287,7 +304,7 @@ local function build_row(key, acts, cfg, g, units, modifiers, outsiders)
     for _, m in ipairs(row.hold and modifiers or {}) do
         if row.ready and (r.mods or {})[m.name] and not can.any(g.me.buffs, m.status) then
             local ok, why = can.use(m, g)
-            if not ok then row.ready, row.avail = false, lang.f('waits for %s: %s', chip_of(m), lang.why(why)) end
+            if not ok then row.ready, row.avail = false, lang.f('waits for %s: %s', lang.name(m.name, m.jp), lang.why(why)) end
         end
     end
     row.tiers = heal_tiers(acts, cfg)
@@ -342,7 +359,8 @@ local function debuff_rows(g, cat, cfg, statuses)
     return rows
 end
 
--- One section's rows, one per settings key, roles in the section's order. Debuff
+-- One section's rows, one per settings key, roles in the section's order, each role's in the catalog's order
+-- (abilities, spells, then pet commands, by id; items last). Buffs' are in the order they're cast (settings.buff_order). Debuff
 -- removal's are its spells and abilities (`remover`), then its debuffs, then its items.
 local function build_rows(s, g, cat, cfg, units, outsiders, statuses)
     local rows, acts_of, order = {}, {}, {}
@@ -355,13 +373,16 @@ local function build_rows(s, g, cat, cfg, units, outsiders, statuses)
             end
         end
     end
-    local modifiers = {}
+    local modifiers, elsewhere = {}, {}  -- elsewhere: key -> the other section it has a row under (Sublimation's)
     for _, a in ipairs(cat) do
         if a.role == 'modifier' and a.applies then modifiers[#modifiers + 1] = a end
+        local other = SECTION_OF[a.role]
+        if other and other.id ~= s.id then elsewhere[settings.key(a)] = other.title end
     end
     for _, key in ipairs(order) do
         local chipped = s.id == 'buff' or s.id == 'geo'
         local row = build_row(key, acts_of[key], cfg, g, units, chipped and modifiers, outsiders)
+        row.also = elsewhere[key]  -- its `on` and gate are that row's too: one key
         if s.id == 'remove' and not row.count then
             row.remover = true
             for _, a in ipairs(cat) do  -- a family with another role (Chakra heals too) shares its row
@@ -369,6 +390,10 @@ local function build_rows(s, g, cat, cfg, units, outsiders, statuses)
             end
         end
         rows[#rows + 1] = row
+    end
+    if s.id == 'buff' then
+        local place = settings.buff_order(cat, cfg)
+        table.sort(rows, function (x, y) return place[x.key] < place[y.key] end)
     end
     if s.id == 'remove' then
         local at = 1
@@ -624,6 +649,7 @@ local function reserved(a)
 end
 
 function model.build(g, cat, cfg, status, names)
+    g = util.overlay(g, { gates = cfg.gates })  -- the rows' Combat and Idle, for can.gate (as engine.decide)
     lang.use(cfg.ui.japanese)
     lang.learn(cat, names.spells, names.abilities, names.statuses)  -- the catalog's first: its items are in no other
     local units, outsiders, known = {}, {}, {}
@@ -733,7 +759,7 @@ end
 -- HUD's (its labels and sizes) and the views it shows of others itself,
 -- with the view's `version`, VIEW: raise it when a field the window draws changes,
 -- so a session still running older code isn't drawn from a view it can't read.
-model.VIEW = 10
+model.VIEW = 11
 function model.published(view)
     local out = util.shallow_copy(view)
     out.pointer, out.others, out.ui, out.remote, out.sessions = nil, nil, nil, nil, nil
@@ -753,7 +779,8 @@ local REMOTE = {
     who = { 'string', 'boolean' }, debuff = { 'string', 'boolean', 'string|nil' },
     debuffs = { 'table', 'boolean', 'string|nil' },
     pick = { 'string', 'string|nil' }, target = { 'string', 'number|string', 'boolean' },
-    mod = { 'string', 'string', 'boolean' }, hold = { 'string', 'boolean' }, profile = { 'string|nil' }, save_profile = { 'string', 'boolean|nil' },
+    mod = { 'string', 'string', 'boolean' }, hold = { 'string', 'boolean' }, gate = { 'string', 'string|nil' },
+    profile = { 'string|nil' }, save_profile = { 'string', 'boolean|nil' },
     new_profile = {}, delete_profile = { 'string' }, track = { 'string' }, untrack = { 'string' },
     skip = { 'string', 'boolean' }, heal_spell = { 'string', 'boolean' }, set = { 'string', 'boolean|number|string' },
 }
@@ -813,6 +840,16 @@ local function chipped(cat, key)
     return false
 end
 
+-- Whether `key` is a row of this job's whose gate can be set: one of its actions makes a row (SECTION_OF: a song has
+-- none) and has no gate built in (a modifier, a chip and not a row, never takes one: can.gate).
+local function gated(cat, key)
+    for _, a in ipairs(cat or {}) do
+        if SECTION_OF[a.role] and settings.key(a) == key and not can.built_gate(a) then return true end
+    end
+    return false
+end
+local GATES = { combat = true, idle = true }
+
 -- Make `call` ({ fn, n = #args, args... }), sent by another session, through `act`,
 -- when it's one REMOTE lists with arguments of the right types (`n` of them, no
 -- more than it takes); whether it was. Only those arguments are passed on.
@@ -827,6 +864,7 @@ function model.apply(act, cfg, call, cat)
     local a, b = call[2], call[3]
     if fn == 'section' and (a == 'ui' or type(cfg[a]) ~= 'table' or type(cfg[a].on) ~= 'boolean') then return false end
     if CHIPS[fn] and not chipped(cat, a) then return false end
+    if fn == 'gate' and not (gated(cat, a) and (b == nil or GATES[b])) then return false end
     -- A target's slot is an integer 0-17, or a tracked player's name.
     if fn == 'target' and type(b) == 'number' and (b % 1 ~= 0 or b < 0 or b > 17) then return false end
     -- A player is named, never ''; debuff's and debuffs' name is the third argument.
@@ -942,6 +980,12 @@ function model.actions(cfg, status, changed, tracking, send)
     end)
     -- Whether a row's spell waits while one of its modifiers can't go with it (Hold), or goes without (the default).
     act.hold = saving(function (key, on) saved_row(cfg, key, false).hold = on or nil end)
+    -- A row's gate: 'combat' (it goes only in combat), 'idle' (only out of it) or nil (any time); setting one clears
+    -- the other. Kept in cfg.gates, so a row is never made here (core/settings.lua).
+    act.gate = saving(function (key, gate)
+        cfg.gates = cfg.gates or {}
+        cfg.gates[key] = GATES[gate] and gate or nil
+    end)
     -- Profiles (core/profiles.lua): load one by name, nil for Default; save (renames the loaded one when the name
     -- differs), save as, new, delete.
     act.profile = saving(function (name)

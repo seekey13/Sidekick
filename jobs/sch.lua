@@ -71,13 +71,13 @@ sch.knowledge = {
     ['Accession'] = {
         { role = 'emergency', requires = LIGHT, boost = { 'healing', area = 10, mp = 2, tiers = 4 }, learn = { [SCH] = 40 } },
         { role = 'modifier', requires = LIGHT, applies = sch.spreads, spreads = { area = 10, mp = 2 },
-          chip = 'Acc', note = 'on everyone near you, at twice the MP', learn = { [SCH] = 40 } },
+          note = 'on everyone near you, at twice the MP', learn = { [SCH] = 40 } },
     },
-    ['Penury']      = { role = 'modifier', requires = LIGHT, applies = sch.white, chip = 'Pen', note = 'half the MP', learn = { [SCH] = 10 } },
-    ['Celerity']    = { role = 'modifier', requires = LIGHT, applies = sch.white, chip = 'Cel', note = 'half the casting time', learn = { [SCH] = 25 } },
-    ['Perpetuance'] = { role = 'modifier', requires = LIGHT, applies = sch.enhancing, chip = 'Per', note = 'longer duration', learn = { [SCH] = 87 } },
-    ['Parsimony']   = { role = 'modifier', requires = DARK, applies = sch.black, chip = 'Par', note = 'half the MP', learn = { [SCH] = 10 } },
-    ['Alacrity']    = { role = 'modifier', requires = DARK, applies = sch.black, chip = 'Ala', note = 'half the casting time', learn = { [SCH] = 25 } },
+    ['Penury']      = { role = 'modifier', requires = LIGHT, applies = sch.white, note = 'half the MP', learn = { [SCH] = 10 } },
+    ['Celerity']    = { role = 'modifier', requires = LIGHT, applies = sch.white, note = 'half the casting time', learn = { [SCH] = 25 } },
+    ['Perpetuance'] = { role = 'modifier', requires = LIGHT, applies = sch.enhancing, note = 'longer duration', learn = { [SCH] = 87 } },
+    ['Parsimony']   = { role = 'modifier', requires = DARK, applies = sch.black, note = 'half the MP', learn = { [SCH] = 10 } },
+    ['Alacrity']    = { role = 'modifier', requires = DARK, applies = sch.black, note = 'half the casting time', learn = { [SCH] = 25 } },
 }
 
 return sch

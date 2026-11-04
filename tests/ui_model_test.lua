@@ -227,13 +227,46 @@ test('BRD 75 / WHM 37: Songs under Buff, Area then each party slot; no song is a
     eq(keys(s.sets), { 'area', 'me', 'p1', 'p2', 'p3', 'p4', 'p5' })
     eq({ s.sets[1].picks, s.sets[1].name, s.sets[3].picks, s.sets[3].name, s.sets[3].present, s.sets[5].present },
        { { 'Valor Minuet IV', '' }, nil, { '', 'Mage\'s Ballad II' }, 'A', true, false })
-    eq(keys(section(view, 'buff').rows), { 'Nightingale', 'Protect', 'Shell', 'Blink', 'Stoneskin', 'Aquaveil',
-        'barelement', 'barstatus', 'Regen (keep up)', 'Protectra', 'Shellra', 'Reraise', 'Invisible', 'Sneak', 'Deodorize' },
+    -- by priority (Nightingale 100, Sneak -10, Deodorize -15, Invisible -20), then by name as shown ('Barelement')
+    eq(keys(section(view, 'buff').rows), { 'Nightingale', 'Aquaveil', 'barelement', 'barstatus', 'Blink',
+        'Protect', 'Protectra', 'Regen (keep up)', 'Reraise', 'Shell', 'Shellra', 'Stoneskin', 'Sneak', 'Deodorize',
+        'Invisible' },
         'no song rows')
     g.main, g.sub = WHM, BRD
     eq({ build(fake.catalog(WHM, 75, BRD, 15), cfg, g).song.pianissimo, build(fake.catalog(WHM, 75, BRD, 15), cfg, g).song.timed },
        { false, false })  -- under BRD 20; Song Duration on a BRD main job alone
     eq(section(build(whm), 'song'), nil)
+end)
+
+test('the Buffs list reads in casting order: by priority, then by name, not the catalog\'s order', function ()
+    local cfg = settings.defaults()
+    local on = { 'Stoneskin', 'Reraise', 'Haste', 'Aquaveil', 'Shell', 'Blink', 'Protect' }
+    for _, key in ipairs(on) do cfg.rows[key] = { on = true, targets = { [0] = true } } end
+    local g = fake.snap({})
+    local listed, cast = {}, {}
+    for _, r in ipairs(section(build(whm, cfg, g), 'buff').rows) do
+        if r.on then listed[#listed + 1] = r.key end
+    end
+    for _ = 1, #on + 1 do
+        local cmd, intent = fake.decide(g, whm, cfg)
+        if not cmd then break end
+        cast[#cast + 1] = settings.key(intent.action)
+        for _, id in ipairs(intent.action.status or {}) do g.me.buffs[id] = true end
+    end
+    eq(listed, { 'Haste', 'Aquaveil', 'Blink', 'Protect', 'Reraise', 'Shell', 'Stoneskin' }, 'Haste at 25, the rest at 0')
+    eq(cast, listed)
+end)
+
+test('a Buffs row with a pick goes by its pick\'s priority: Addendum: White\'s 90, Black\'s 0', function ()
+    local sch = fake.catalog(20, 75, RDM, 37, { 'Light Arts', 'Dark Arts', 'Sublimation' })
+    local cfg = settings.defaults()
+    local p = settings.buff_order(sch, cfg)
+    eq(p.addendum, p.arts + 1, 'no pick: its highest, next after the Arts at 100')
+    cfg.rows.addendum = { on = true, pick = 'Addendum: White' }
+    eq(settings.buff_order(sch, cfg).addendum, p.arts + 1)
+    cfg.rows.addendum.pick = 'Addendum: Black'
+    p = settings.buff_order(sch, cfg)
+    eq(p.addendum > p.Sublimation, true, 'below Sublimation at 50')
 end)
 
 test('RDM 75 / WHM 37: a family reaching others at any tier gets targets', function ()
@@ -739,6 +772,70 @@ test('a remote setting is one of the window\'s, held to its slider\'s range', fu
     end
 end)
 
+test('a row\'s gate: none at first, else the one set; one built in (Raise, an action on the enemy) is fixed', function ()
+    local view = build(whm)
+    local haste, raise, drain = row(view, 'buff', 'Haste'), row(view, 'revive', 'Raise'), row(view, 'heal', 'Drain')
+    eq({ haste.gate, haste.gate_fixed, raise.gate, raise.gate_fixed, drain.gate, drain.gate_fixed },
+       { nil, nil, 'idle', true, 'combat', true })
+    local paralysis = row(view, 'remove', 'paralysis')  -- a debuff, not an action: no gate
+    eq({ paralysis.debuff, paralysis.gate, paralysis.gate_fixed }, { true, nil, nil })
+    local cfg = settings.defaults()
+    cfg.gates.Haste, cfg.gates.Erase, cfg.gates.Raise = 'combat', 'idle', 'combat'
+    view = build(whm, cfg)
+    eq({ row(view, 'buff', 'Haste').gate, row(view, 'remove', 'Erase').gate, row(view, 'revive', 'Raise').gate },
+       { 'combat', 'idle', 'idle' })  -- Raise's own wins
+    eq({ row(view, 'buff', 'Haste').avail, row(view, 'remove', 'Erase').avail }, { 'combat only', 'ready' })
+    view = build(whm, cfg, fake.snap({}, { combat = true }))
+    eq({ row(view, 'buff', 'Haste').avail, row(view, 'remove', 'Erase').avail }, { 'ready', 'idle only' })
+    cfg.gates.Haste = 'always'  -- not a gate: none
+    eq(row(build(whm, cfg), 'buff', 'Haste').gate, nil)
+end)
+
+test('act.gate sets a row\'s gate, the other going, and clears it; no row is made, so Cure stays on', function ()
+    local cfg = settings.defaults()
+    local act, writes = actions(cfg)
+    act.gate('Cure', 'combat')
+    eq({ cfg.gates, cfg.rows.Cure }, { { Cure = 'combat' }, nil })
+    act.gate('Cure', 'idle')
+    eq(cfg.gates, { Cure = 'idle' })
+    act.gate('Cure', nil)
+    eq(cfg.gates, {})
+    act.gate('Cure', 'sometimes')
+    eq({ cfg.gates, writes[1] }, { {}, 4 })
+    eq(row(build(whm, cfg), 'heal', 'Cure').on, true)
+end)
+
+test('a row whose key has a row under another section too names that section: one setting, both rows\'', function ()
+    local view = build(fake.catalog(20, 75, WHM, 37, { 'Sublimation', 'Light Arts', 'Accession' }))
+    eq({ row(view, 'buff', 'Sublimation').also, row(view, 'recover', 'Sublimation').also, row(view, 'buff', 'Protect').also,
+         row(view, 'heal', 'Accession').also }, { 'Recovery', 'Buffs', nil, nil })  -- Accession's modifier is no row
+    view = build(fake.catalog(2, 75, WHM, 37, { 'Chakra' }))
+    eq({ row(view, 'heal', 'Chakra').also, row(view, 'remove', 'Chakra').also }, { 'Debuff removal', 'Healing' })
+end)
+
+test('another session sets a row\'s gate to the state sent; never one built in, an unknown row or another word', function ()
+    local cfg = settings.defaults()
+    local act = model.actions(cfg, status(), function () end)
+    local function apply(...) return model.apply(act, cfg, call(...), whm) end
+    eq({ apply('gate', 'Haste', 'combat'), apply('gate', 'Cure', 'idle'), apply('gate', 'Cure', 'idle') }, { true, true, true })
+    eq(cfg.gates, { Haste = 'combat', Cure = 'idle' })
+    eq({ apply('gate', 'Haste', nil), cfg.gates }, { true, { Cure = 'idle' } })
+    for _, bad in ipairs({ call('gate', 'Raise', 'combat'), call('gate', 'Drain', 'idle'), call('gate', 'Nope', 'idle'),
+                           call('gate', 'Cure', 'sometimes'), call('gate', 'Cure', true), call('gate', 5, 'idle'),
+                           call('gate', 'Cure', 'idle', 'extra') }) do
+        eq(model.apply(act, cfg, bad, whm), false, tostring(bad[2]) .. ' ' .. tostring(bad[3]))
+    end
+    eq(cfg.gates, { Cure = 'idle' })
+    local brd = fake.catalog(BRD, 75, WHM, 37, { 'Pianissimo' })  -- a song has no row, so no gate; a heal does
+    eq({ model.apply(act, cfg, call('gate', 'Valor Minuet', 'idle'), brd),
+         model.apply(act, cfg, call('gate', 'Cure', 'combat'), brd) }, { false, true })
+    eq(cfg.gates, { Cure = 'combat' })
+    local sent = {}
+    local mine = model.actions(cfg, status(), function () end, nil, function (name, c) sent[#sent + 1] = { name, c } end)
+    mine.remote('A').gate('Haste', 'idle')
+    eq(sent, { { 'A', call('gate', 'Haste', 'idle') } })
+end)
+
 test('what halts automation, in the engine\'s order, as words; a moment\'s hold (casting, moving) is none', function ()
     eq({ model.halted({ loading = true }), model.halted({ mounted = true, afk = true }), model.halted({ afk = true }),
          model.halted({ safe = true }), model.halted({ casting = true, moving = true }) },
@@ -783,6 +880,10 @@ test('in Japanese a row is named from the DAT, its choices and readiness in Japa
     eq({ bar.label, bar.choice, bar.avail }, { 'バ系（属性）', '選択してください', '要選択' })
     eq(row(v, 'buff', 'Regen (keep up)').label, 'リジェネ（維持）')
     eq(v.job, '白75/黒37')
+end)
+
+test('in Japanese the Buffs list keeps the casting order, by the English names', function ()
+    eq(keys(section(japanese_view(whm), 'buff').rows), keys(section(build(whm), 'buff').rows))
 end)
 
 test('in Japanese why a row can\'t go is Japanese: a recast, MP, a pick the job lost', function ()
@@ -836,7 +937,7 @@ test('in Japanese a job\'s pickers are labelled from the DAT: songs, rolls, stra
     eq(keys(cor.roll.choices, 'label'), { 'カオスロール（攻撃力+）', 'コルセアズロール（経験値+）' })
     eq(keys(cor.roll.choices, 'name'), { 'Chaos Roll', 'Corsair\'s Roll' })
     local sch = japanese_view(fake.catalog(SCH, 75, WHM, 37, { 'Light Arts', 'Penury', 'Celerity', 'Accession' }))
-    eq(keys(row(sch, 'buff', 'Protect').mods, 'label'), { '簡素', '電光', '女神' })
+    eq(keys(row(sch, 'buff', 'Protect').mods, 'label'), { '簡素清貧の章', '電光石火の章', '女神降臨の章' })
     eq(keys(row(sch, 'buff', 'Protect').mods, 'name'), { 'Penury', 'Celerity', 'Accession' })
     eq(row(sch, 'buff', 'Protect').mods[1].note, '消費MP半減')
 end)

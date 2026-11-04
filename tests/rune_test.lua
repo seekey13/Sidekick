@@ -42,7 +42,7 @@ test('catalog: runes, wards in priority order with their blocks, Embolden for wh
     local _, wards = run.actions(cat)
     eq({ wards[1].name, wards[2].name, wards[3].name }, { 'Vallation', 'Valiance', 'Pflug' })
     local e = named(cat, 'Embolden')
-    eq({ e.role, e.status, e.chip }, { 'modifier', { EMBOLDEN }, 'Emb' })
+    eq({ e.role, e.status }, { 'modifier', { EMBOLDEN } })
     eq({ e.applies(named(cat, 'Protect')), e.applies(named(cat, 'Blaze Spikes')) }, { true, false })
 end)
 
@@ -196,11 +196,11 @@ test('model: Runes under Buff, Idle then each ward with its switch, its readines
     eq({ sub.rune.slots, #sub.rune.sets, sub.rune.sets[2].ward }, { 2, 2, 'Vallation' })
 end)
 
-test('model: a buff row of white enhancing magic gets an Emb chip', function ()
+test('model: a buff row of white enhancing magic gets an Embolden chip', function ()
     local v = view(snap())
     local protect
     for _, r in ipairs(section(v, 'buff').rows) do if r.key == 'Protect' then protect = r end end
-    eq(protect.mods, { { name = 'Embolden', label = 'Emb', note = 'more potent', on = false } })
+    eq(protect.mods, { { name = 'Embolden', label = 'Embolden', note = 'more potent', on = false } })
     eq(protect.hold, false)
     local cfg = settings.defaults()
     local act = model.actions(cfg, { running = false, sent = {} }, function () end)

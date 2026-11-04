@@ -116,6 +116,19 @@ test('Accession spreads a buff from you whenever one of its targets near lacks i
     eq(decide(snap({ LIGHT_ARTS, PROTECT }, others), cfg, {}), nil)
 end)
 
+test('Heal\'s Accession row gated to Combat leaves the buff\'s Accession chip alone, held or not', function ()
+    local cfg = cfg_with({ Protect = { on = true, targets = { [0] = true, [1] = true }, mods = { Accession = true } } })
+    cfg.gates.Accession = 'combat'
+    local others = { { name = 'A' } }
+    eq(decide(snap({ LIGHT_ARTS }, others), cfg, {}), '/ja "Accession" <me>', 'out of combat: still spreads')
+    cfg.rows.Protect.hold = true
+    eq(decide(snap({ LIGHT_ARTS }, others), cfg, {}), '/ja "Accession" <me>', 'held: no wait on the heal row\'s gate')
+    -- Another session may gate the heal row, never a modifier that is only a chip.
+    local act = model.actions(cfg, { running = false, sent = {} }, function () end)
+    local function apply(key, gate) return model.apply(act, cfg, { 'gate', key, gate, n = 2 }, cat) end
+    eq({ apply('Accession', 'idle'), apply('Penury', 'idle') }, { true, false })
+end)
+
 test('Accession: held for the group like an area spell, and only for the row\'s targets', function ()
     local cfg = cfg_with({ Protect = { on = true, targets = { [0] = true, [1] = true, [2] = true },
                                        mods = { Accession = true } } })
@@ -149,7 +162,8 @@ test('UI: a buff row shows the stratagems that fit it, and act.mod turns one on 
     end
     local r = rows()
     eq({ r.has_mods, chips(r.Protect), chips(r.spikes), chips(r.storm), r['Light Arts'] and r['Light Arts'].mods },
-       { true, { 'Pen', 'Cel', 'Acc', 'Per' }, { 'Par', 'Ala' }, { 'Pen', 'Cel', 'Acc', 'Per' }, nil })
+       { true, { 'Penury', 'Celerity', 'Accession', 'Perpetuance' }, { 'Parsimony', 'Alacrity' },
+         { 'Penury', 'Celerity', 'Accession', 'Perpetuance' }, nil })
     eq(r.Protect.mods[3].note, 'on everyone near you, at twice the MP')
     local function heal_view(list)
         return model.build(fake.snap({}), list, cfg, { running = false, sent = {} }, names).heal
@@ -159,7 +173,7 @@ test('UI: a buff row shows the stratagems that fit it, and act.mod turns one on 
     local n = 0
     local act = model.actions(cfg, {}, function () n = n + 1 end)
     act.mod('Protect', 'Accession')
-    eq({ cfg.rows.Protect, chips(rows().Protect) }, { { on = false, mods = { Accession = true } }, { 'Pen', 'Cel', 'Acc+', 'Per' } })
+    eq({ cfg.rows.Protect, chips(rows().Protect) }, { { on = false, mods = { Accession = true } }, { 'Penury', 'Celerity', 'Accession+', 'Perpetuance' } })
     act.mod('Protect', 'Accession')
     eq({ cfg.rows.Protect.mods, n }, { {}, 2 })
     -- Jobs without stratagems: no chips.
@@ -264,7 +278,7 @@ test('a held row says what it waits for', function ()
     for _, s in ipairs(v.sections) do
         for _, r in ipairs(s.rows or {}) do if r.key == 'Protect' then row = r end end
     end
-    eq({ row.ready, row.avail }, { false, 'waits for Pen: needs Light Arts' })
+    eq({ row.ready, row.avail }, { false, 'waits for Penury: needs Light Arts' })
 end)
 
 -- The client lists the stratagems only under their Arts (LSB's addType): a SCH
@@ -280,7 +294,7 @@ test('loaded outside either Arts: the stratagems are still there, each waiting o
     end
     local chips = {}
     for i, m in ipairs(rows.Protect.mods) do chips[i] = m.label end
-    eq(chips, { 'Pen', 'Cel', 'Acc' })
+    eq(chips, { 'Penury', 'Celerity', 'Accession' })
     eq({ rows.Rapture.ready, rows.Rapture.avail, rows.addendum.avail }, { false, 'needs Light Arts', 'pick one' })
     eq(view.heal.stratagems, true)
     -- Under Light Arts, but the client doesn't list it (a merit not taken): never sent.

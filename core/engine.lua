@@ -116,7 +116,7 @@ end
 -- between ticks (behaviors keep theirs in it too).
 function engine.decide(g, cat, cfg, mem)
     mem.gather, mem.waiting = nil, nil
-    g = expecting(g, mem)
+    g = expecting(util.overlay(g, { gates = cfg.gates }), mem)  -- the rows' Combat and Idle, for can.gate
     local pause  -- the first of a town or AFK sleep: the reason given, over any gate after it
     for _, gate in ipairs(GATES) do
         if g[gate] then

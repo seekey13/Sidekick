@@ -50,8 +50,7 @@ end
 -- Knowledge (core/knowledge.lua says what each field means): fired before a blue
 -- magic buff on you alone, Diffusion lands it on your party near you.
 blu.knowledge = {
-    ['Diffusion'] = { role = 'modifier', applies = blu.diffuses, spreads = { area = 10, mp = 1, others = true },
-                      chip = 'Dif', note = 'on everyone near you' },
+    ['Diffusion'] = { role = 'modifier', applies = blu.diffuses, spreads = { area = 10, mp = 1, others = true }, note = 'on everyone near you' },
 }
 
 return blu

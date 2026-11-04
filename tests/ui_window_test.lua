@@ -99,6 +99,8 @@ local handlers = {
         frame.font_scales[#frame.font_scales + 1] = k
     end,
     IsItemHovered = function () return true end,
+    -- The pointer is over no box of a window (kit.over) unless a test sets clicks.over = true: then over every one.
+    IsMouseHoveringRect = function () return frame.clicks.over == true end,
     -- The HUD's chrome reads this. A test sets clicks.hover = false for the faded frame.
     IsWindowHovered = function () return frame.hover ~= false end,
     SetNextWindowSize = function (size)
@@ -142,6 +144,7 @@ local handlers = {
     -- A click is clicks[label] = true; a slider is dragged to clicks[label] = n (kit.dragged, below).
     InvisibleButton = function (label, size)
         placed(size, label)
+        if frame.cursor and frame.at then frame.at[label] = { frame.cursor[1], frame.cursor[2], size[1], size[2] } end
         assert(size[1] > 0 and size[2] > 0, label .. ': ImGui asserts on a zero size')
         return frame.clicks[label] == true
     end,
@@ -279,7 +282,7 @@ end
 -- settings writes. `view` defaults to the model's.
 local function draw(ui, cfg, st, clicks, view)
     frame = { stack = {}, vars = 0, texts = {}, ids = {}, args = {}, flags = {}, columns = {},
-              drawn = {}, extent = {}, clicks = clicks or {}, asked = {}, tips = {} }
+              drawn = {}, extent = {}, clicks = clicks or {}, asked = {}, tips = {}, at = {} }
     frame.hover = frame.clicks.hover ~= false
     local writes = 0
     local act = model.actions(cfg, st, function () writes = writes + 1 end, TRACKING, send)
@@ -351,6 +354,12 @@ end
 
 -- A widget's button was made: its id among this frame's invisible buttons.
 local function button(id) return has(frame.args.InvisibleButton, id) end
+
+-- Where a widget's button was made this frame: { x, y, w, h }, and its middle's height.
+local function box(id)
+    local b = assert(frame.at[id], 'no button ' .. id)
+    return b, b[2] + b[4] / 2
+end
 
 local u32 = kit.u32
 
@@ -1515,15 +1524,15 @@ test('SCH: a buff row\'s stratagem chips follow its targets and each toggles', f
     local sch = fake.catalog(20, 75, 5, 37, { 'Light Arts', 'Penury', 'Celerity', 'Accession', 'Perpetuance' })
     local cfg, st = settings.defaults(), status()
     local function view() return model.build(snap(), sch, cfg, st, NAMES) end
-    eq(render(cfg, st, on('Buff', { ['Acc##buff_Protect_mod_Accession'] = true }), view()), 1)
+    eq(render(cfg, st, on('Buff', { ['Accession##buff_Protect_mod_Accession'] = true }), view()), 1)
     eq(cfg.rows.Protect, { on = false, mods = { Accession = true } })
-    eq(button('Pen##buff_Protect_mod_Penury'), true)
-    eq(render(cfg, st, on('Buff', { ['Acc##buff_Protect_mod_Accession'] = true }), view()), 1)
+    eq(button('Penury##buff_Protect_mod_Penury'), true)
+    eq(render(cfg, st, on('Buff', { ['Accession##buff_Protect_mod_Accession'] = true }), view()), 1)
     eq(cfg.rows.Protect.mods, {})
     eq(render(cfg, st, on('Buff', { ['Hold##buff_Protect_hold'] = true }), view()), 1)
     eq({ cfg.rows.Protect.hold, tipped('No modifier is on here: it waits for nothing.') }, { true, true })
     render(cfg, st, on('Buff'))
-    eq({ button('Pen##buff_Protect_mod_Penury'), button('Hold##buff_Protect_hold') }, { false, false })  -- WHM: no stratagems
+    eq({ button('Penury##buff_Protect_mod_Penury'), button('Hold##buff_Protect_hold') }, { false, false })  -- WHM: no stratagems
 end)
 
 test('SCH: Keep a stratagem for healing, under Heal, only for a job with stratagems', function ()
@@ -1772,6 +1781,121 @@ test('chips and Heal members send the state they\'re set to, here and to another
     render(cfg, st, on('Heal', { ['P1##sk3_heal_1'] = true }), model.build(snap(), cat, cfg, st, NAMES))
     eq({ cfg.rows.Protect.targets, cfg.heal.skip }, { { [0] = true, [1] = true }, { A = true } })
     eq(remote_calls, { { 'A', 'target', 'Protect', 1, true }, { 'A', 'skip', 'A', true } })
+    st.watching = {}
+    close_settings()
+end)
+
+test('a row hovered shows Combat then Idle after its name; a click sets one, the other goes, again clears it', function ()
+    open_settings()
+    local cfg, st = settings.defaults(), status()
+    render(cfg, st, on('Buff'))
+    eq({ button('Combat##buff_Haste_gate'), button('Idle##buff_Haste_gate') }, { false, false })  -- neither set: none
+    render(cfg, st, on('Buff', { over = true }))
+    eq({ button('Combat##buff_Haste_gate'), button('Idle##buff_Haste_gate') }, { true, true })
+    local switch, scy = box('Haste##buff_Haste')
+    local combat, ccy = box('Combat##buff_Haste_gate')
+    local idle, icy = box('Idle##buff_Haste_gate')
+    eq({ ccy, icy }, { scy, scy })  -- on the name's line
+    eq(combat[1] < idle[1] and idle[1] + idle[3] < switch[1], true)
+    eq(render(cfg, st, on('Buff', { over = true, ['Combat##buff_Haste_gate'] = true })), 1)
+    eq({ cfg.gates, cfg.rows.Haste }, { { Haste = 'combat' }, nil })  -- no row made: Haste stays as it was
+    eq(render(cfg, st, on('Buff', { over = true, ['Idle##buff_Haste_gate'] = true })), 1)
+    eq(cfg.gates, { Haste = 'idle' })  -- one or the other, never both
+    render(cfg, st, on('Buff', { over = true }))  -- the pointer still there: neither moved from under it
+    eq({ box('Combat##buff_Haste_gate')[1], box('Idle##buff_Haste_gate')[1] }, { combat[1], idle[1] })
+    eq(render(cfg, st, on('Buff', { over = true, ['Idle##buff_Haste_gate'] = true })), 1)  -- so a second click clears it
+    eq(cfg.gates, {})
+    render(cfg, st, on('Buff', { over = true, ['Idle##buff_Haste_gate'] = true }))
+    render(cfg, st, on('Buff'))  -- the pointer gone: the one set alone, first; Haste off, dimmed as its name
+    eq({ button('Combat##buff_Haste_gate'), button('Idle##buff_Haste_gate'), fill('Idle') },
+       { false, true, u32(P.teal, 0.5) })
+    eq(box('Idle##buff_Haste_gate')[1], combat[1])
+    render(cfg, st, on('Buff', { over = true }))  -- back: the one set stays put, first, the other after it
+    eq({ box('Idle##buff_Haste_gate')[1], box('Combat##buff_Haste_gate')[1] > combat[1] }, { combat[1], true })
+    eq(render(cfg, st, on('Buff', { over = true, ['Idle##buff_Haste_gate'] = true })), 1)  -- clicked again: any time
+    eq(cfg.gates, {})
+    cfg.gates.Haste, cfg.rows.Haste = 'combat', { on = true }  -- on: lit
+    render(cfg, st, on('Buff'))
+    eq({ fill('Combat'), tipped('Only in combat'), tipped('Click again to let it go any time.') }, { u32(P.rose), true, true })
+end)
+
+test('a held row\'s long reason gives way, cut: its name stays, its gate pills keep clear of it', function ()
+    open_settings()
+    local sch = fake.catalog(20, 75, 5, 37, { 'Light Arts', 'Penury', 'Celerity', 'Accession', 'Perpetuance' })
+    local cfg, st = settings.defaults(), status()
+    cfg.rows.Protect = { on = true, targets = { [0] = true }, mods = { Perpetuance = true }, hold = true }
+    local view = model.build(snap(), sch, cfg, st, NAMES)
+    local avail
+    for _, s in ipairs(view.sections) do
+        for _, r in ipairs(s.id == 'buff' and s.rows or {}) do if r.key == 'Protect' then avail = r.avail end end
+    end
+    eq(avail:find('^waits for Perpetuance: ') ~= nil, true)
+    render(cfg, st, on('Buff', { over = true }), view)
+    local idle = box('Idle##buff_Protect_gate')
+    local reason, name
+    for _, d in ipairs(calls('AddText')) do
+        local s = d.args[5]
+        if s:find('^waits for') then reason = d end
+        if s:find('^Prot') and math.abs(d.args[3][2] - idle[2]) < kit.S(12) then name = s end
+    end
+    eq({ reason.args[5] ~= avail, reason.args[3][1] > idle[1] + idle[3], name }, { true, true, 'Protect' })
+end)
+
+test('a row with a pick has its gate\'s pills on its name\'s line, not the drop-down\'s', function ()
+    open_settings()
+    local cfg, st = settings.defaults(), status()
+    render(cfg, st, on('Buff', { over = true }))
+    local switch, scy = box('Protect##buff_Protect')
+    local pick, pcy = box('##pick_buff_Protect')
+    local combat, ccy = box('Combat##buff_Protect_gate')
+    local idle = box('Idle##buff_Protect_gate')
+    eq({ ccy, ccy < pcy, idle[1] > combat[1], idle[1] + idle[3] < switch[1] }, { scy, true, true, true })
+    eq(pick[3], kit.S(220))  -- the drop-down its full width (PICK_W), with nothing beside it
+    eq(render(cfg, st, on('Buff', { over = true, ['Idle##buff_Protect_gate'] = true })), 1)
+    eq(cfg.gates, { Protect = 'idle' })
+end)
+
+test('a gate built in shows its pill always, hovered or not, and nothing changes it; nor the other shows', function ()
+    open_settings()
+    local cfg, st = settings.defaults(), status()
+    render(cfg, st, on('Buff'))
+    eq({ button('Idle##buff_Sneak_gate'), fill('Idle') }, { true, u32(P.teal, 0.5) })  -- Sneak: out of combat, built in; off
+    eq(render(cfg, st, on('Buff', { over = true, ['Idle##buff_Sneak_gate'] = true, ['Combat##buff_Sneak_gate'] = true })), 0)
+    eq({ button('Idle##buff_Sneak_gate'), button('Combat##buff_Sneak_gate'), cfg.gates },
+       { true, false, {} })
+    eq(tipped('Built in: it only goes out of combat.'), true)
+    render(cfg, st, on('Heal', { over = true }))
+    eq({ button('Combat##heal_Drain_gate'), button('Idle##heal_Drain_gate') }, { true, false })  -- on the enemy: combat
+    eq(tipped('Built in: it only goes in combat.'), true)
+end)
+
+test('Debuff removal\'s spells have a gate too, after the name by their checkbox; items theirs', function ()
+    open_settings()
+    local cfg, st = settings.defaults(), status()
+    render(cfg, st, on('Remove', { over = true }))
+    local _, kcy = box('Erase##remove_with_Erase')
+    local _, ccy = box('Combat##remove_Erase_gate')
+    eq({ ccy, button('Idle##remove_Erase_gate'), button('Idle##remove_Echo Drops_gate') }, { kcy, true, true })
+    eq(render(cfg, st, on('Remove', { over = true, ['Combat##remove_Erase_gate'] = true })), 1)
+    eq(render(cfg, st, on('Remove', { over = true, ['Idle##remove_Echo Drops_gate'] = true })), 1)
+    eq({ cfg.gates, cfg.rows.Erase, cfg.rows['Echo Drops'] }, { { Erase = 'combat', ['Echo Drops'] = 'idle' }, nil, nil })
+    render(cfg, st, on('Remove', { over = true }))
+    eq({ button('Combat##remove_paralysis_gate'), button('Idle##remove_*_paralysis_gate') }, { false, false })  -- a debuff: none
+end)
+
+test('another session\'s rows set its gate, to the state clicked', function ()
+    open_settings()
+    local cfg, st = settings.defaults(), remote_status({ watching = { A = true } })
+    local theirs = settings.defaults()
+    theirs.gates.Haste = 'combat'
+    st.views = { A = remote_view(theirs) }
+    remote_calls = {}
+    render(cfg, st, on('Buff', { over = true, ['Idle##buff_Haste_gate'] = true }), model.build(snap(), cat, cfg, st, NAMES))
+    eq(cfg.gates, { Haste = 'idle' })  -- yours, with none set
+    eq(remote_calls, { { 'A', 'gate', 'Haste', 'idle' } })  -- theirs, set to combat: to idle
+    remote_calls = {}
+    render(cfg, st, on('Buff', { over = true, ['Combat##buff_Haste_gate'] = true }), model.build(snap(), cat, cfg, st, NAMES))
+    eq({ cfg.gates, remote_calls }, { { Haste = 'combat' }, { { 'A', 'gate', 'Haste', nil } } })  -- theirs cleared
     st.watching = {}
     close_settings()
 end)
@@ -2043,4 +2167,17 @@ test('the kit wraps Japanese between characters, never before closing punctuatio
     eq(kit.wrap('あいうえおかきくけ（こさしすせそ）', 'font', 13, 21 * 10), { 'あいうえおかきくけ', '（こさしすせそ）' })
     eq(kit.wrap('HP 62%  MP 100%', 'font', 13, 500), { 'HP 62%  MP 100%' })
     eq(kit.wrap('Roll 2 is Roll 1: one roll kept up', 'font', 13, 7 * 12), { 'Roll 2 is', 'Roll 1: one', 'roll kept up' })
+end)
+
+test('in Japanese a row\'s Combat and Idle are Japanese, their ids English: a click still sets the gate', function ()
+    open_settings()
+    lang.misses = {}
+    local cfg, st = settings.defaults(), status()
+    eq(render_ja(cfg, st, on('Buff', { over = true, ['Combat##buff_Haste_gate'] = true })), 1)
+    render_ja(cfg, st, on('Remove', { over = true }))
+    render_ja(cfg, st, on('Heal', { over = true }))
+    eq({ cfg.gates, lang.misses }, { { Haste = 'combat' }, {} })
+    render_ja(cfg, st, on('Buff', { over = true }))
+    eq({ drew('戦闘中'), drew('戦闘外'), drew('Combat'), drew('Idle') }, { true, true, false, false })  -- not the rune set's 通常時
+    cfg.ui.japanese = false
 end)

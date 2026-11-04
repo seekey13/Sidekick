@@ -141,7 +141,7 @@ function catalog.build(res, player, K)
                     wakes = use.wakes, trance = use.trance, gives = use.gives, gate = use.gate, pick_one = use.pick_one,
                     costs_hp = use.costs_hp, swaps = use.swaps, spends_tp = use.spends_tp,
                     ammo = use.ammo, pet_range = use.pet_range, tool = use.tool, last_shadow = use.last_shadow,
-                    applies = use.applies, spreads = use.spreads, chip = use.chip, addendum = addendum or nil,
+                    applies = use.applies, spreads = use.spreads, addendum = addendum or nil,
                     lucky = use.lucky, unlucky = use.unlucky, luopan = use.luopan, decide = use.decide, rune = use.rune,
                     priority = use.priority or 0, pet = use.pet, travel = use.travel, mob_skill = use.mob_skill,
                     hidden = use.learn ~= nil or nil, first = use.first,

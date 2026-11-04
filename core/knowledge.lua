@@ -39,7 +39,8 @@
     pet_range  yalms your pet may be from you (the server refuses Repair past 20)
     item       an inventory item's id: used on you with /item (opt-in: items cost gil)
     one_of     clears just one of `removes` per use, at random (Remedy Ointment)
-    gate       'combat' | 'idle' (enemy-targeted actions are combat-only anyway)
+    gate       'combat' | 'idle' (enemy-targeted actions are combat-only anyway); built in: a row's
+               own Combat or Idle (cfg.gates, can.gate) can't change it
     pick_one   families sharing a key keep one selection (enspells, storms, bar-elements)
     blocked_by skip while you have any of these statuses
     trance     no TP needed under Trance (waltzes, Aspir Samba: jobs/dnc.lua)
@@ -61,7 +62,7 @@
     kind       'ma' | 'ja' | 'pet': this use only for that command kind
     label      UI name when one action has several uses
     note       short UI hint
-    travel     travel buff (Sneak, Invisible): still cast while you're Invisible, when
+    travel     travel buff (Sneak, Deodorize, Invisible): still cast while you're Invisible, when
                nothing else but danger healing goes (core/engine.lua)
     duration   seconds a buff lasts (or per tier), for statuses read off packets (trusts)
     mob_skill  the id a jug pet's move carries in its action packet (the server's mob skill)
@@ -70,7 +71,6 @@
                in your party within `area` yalms of you, at `mp` x the cost (Accession, Diffusion);
                `others`: only while someone but you lacks it (Diffusion's long recast)
     unbridled  blue magic cast through Unbridled Learning, never set (jobs/blu.lua)
-    chip       a modifier's short label on a buff row
     luopan     'buff' | 'debuff': a Geo- spell, put down as a luopan; 'spend': spends
                the luopan (Radial Arcana)
     decide     function (a, g, cat, cfg, mem): a recover row that decides for itself
@@ -226,7 +226,7 @@ local K = {
     ['Afflatus Misery'] = { role = 'buff', pick_one = 'afflatus' },
     ['Sneak']     = { role = 'buff', gate = 'idle', travel = true, priority = -10 },
     ['Invisible'] = { role = 'buff', gate = 'idle', travel = true, priority = -20 },
-    ['Deodorize'] = { role = 'buff', gate = 'idle' },
+    ['Deodorize'] = { role = 'buff', gate = 'idle', travel = true, priority = -15 },
     -- Bar-spells, enspells, spikes: below. Enspell II shows its own status ("Enfire II"), found by the full name.
     ['Dread Spikes'] = { role = 'buff' },
 
