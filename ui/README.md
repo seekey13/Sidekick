@@ -141,7 +141,7 @@ In this order. A section with rows is left out when your job has none for it (Pe
 |---|---|---|
 | `id`, `title`, `header` | string | As above. `header` is the collapsing header Sidekick Settings puts it under, headers in the order their first section comes |
 | `on` | bool or nil | The section's switch (`act.section`); every section has one but `profile`, `track` and `ui` |
-| `rows` | list or nil | One per spell family, pick-one group or item, below; nil for the sections without rows |
+| `rows` | list or nil | One per spell family, pick-one group or item, below; nil for the sections without rows. In the catalog's order (abilities, then spells, by id; items last), but Buffs' by priority, highest first, then by `label` |
 | `has_choices`, `has_targets`, `has_mods` | bool or nil | Some row in the section has `choices` / `targets` / `mods` (to lay out columns) |
 | `who` | list or nil | Debuff removal: the slot chips it runs on, the same shape as `targets` below. `on` is true for a player who is there and not switched off by name (`cfg.remove.off`); an empty slot, or a member with no name yet, can't be switched (the standard window draws no chip for an empty slot). `act.who(name, on)` sets it, so it follows them from slot to slot. Present players start on |
 

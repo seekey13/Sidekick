@@ -227,8 +227,9 @@ test('BRD 75 / WHM 37: Songs under Buff, Area then each party slot; no song is a
     eq(keys(s.sets), { 'area', 'me', 'p1', 'p2', 'p3', 'p4', 'p5' })
     eq({ s.sets[1].picks, s.sets[1].name, s.sets[3].picks, s.sets[3].name, s.sets[3].present, s.sets[5].present },
        { { 'Valor Minuet IV', '' }, nil, { '', 'Mage\'s Ballad II' }, 'A', true, false })
-    eq(keys(section(view, 'buff').rows), { 'Nightingale', 'Protect', 'Shell', 'Blink', 'Stoneskin', 'Aquaveil',
-        'barelement', 'barstatus', 'Regen (keep up)', 'Protectra', 'Shellra', 'Reraise', 'Invisible', 'Sneak', 'Deodorize' },
+    -- by priority (Nightingale 100, Sneak -10, Invisible -20), then by name as shown ('Barelement')
+    eq(keys(section(view, 'buff').rows), { 'Nightingale', 'Aquaveil', 'barelement', 'barstatus', 'Blink', 'Deodorize',
+        'Protect', 'Protectra', 'Regen (keep up)', 'Reraise', 'Shell', 'Shellra', 'Stoneskin', 'Sneak', 'Invisible' },
         'no song rows')
     g.main, g.sub = WHM, BRD
     eq({ build(fake.catalog(WHM, 75, BRD, 15), cfg, g).song.pianissimo, build(fake.catalog(WHM, 75, BRD, 15), cfg, g).song.timed },

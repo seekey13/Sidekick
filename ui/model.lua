@@ -364,7 +364,24 @@ local function debuff_rows(g, cat, cfg, statuses)
     return rows
 end
 
--- One section's rows, one per settings key, roles in the section's order. Debuff
+-- Buffs' rows: the higher priority first (its highest action's, core/knowledge.lua), then by name as shown.
+local function sort_buffs(rows, acts_of)
+    local rank = {}
+    for _, row in ipairs(rows) do
+        local p = -math.huge
+        for _, a in ipairs(acts_of[row.key]) do p = math.max(p, a.priority or 0) end
+        rank[row.key] = p
+    end
+    table.sort(rows, function (x, y)
+        if rank[x.key] ~= rank[y.key] then return rank[x.key] > rank[y.key] end
+        local a, b = x.label:lower(), y.label:lower()
+        if a ~= b then return a < b end
+        return x.key < y.key
+    end)
+end
+
+-- One section's rows, one per settings key, roles in the section's order, each role's in the catalog's order
+-- (abilities, then spells, by id; items last). Buffs' go by priority and name (sort_buffs). Debuff
 -- removal's are its spells and abilities (`remover`), then its debuffs, then its items.
 local function build_rows(s, g, cat, cfg, units, outsiders, statuses)
     local rows, acts_of, order = {}, {}, {}
@@ -392,6 +409,7 @@ local function build_rows(s, g, cat, cfg, units, outsiders, statuses)
         end
         rows[#rows + 1] = row
     end
+    if s.id == 'buff' then sort_buffs(rows, acts_of) end
     if s.id == 'remove' then
         local at = 1
         while rows[at] and rows[at].remover do at = at + 1 end
