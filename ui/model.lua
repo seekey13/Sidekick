@@ -72,7 +72,7 @@ model.TAGS = { [0] = 'ME', 'P1', 'P2', 'P3', 'P4', 'P5' }
 for i = 0, 5 do model.TAGS[6 + i], model.TAGS[12 + i] = 'B' .. i, 'C' .. i end
 local TAGS = model.TAGS
 local REASONS = { safe = 'safe zone', afk = 'AFK asleep' }  -- engine gate -> words
-local LABEL_FAMILIES = 3                -- a pick-one group named by more families is named by its key
+local LABEL_FAMILIES = settings.LABEL_FAMILIES  -- a pick-one group named by more families is named by its key
 local BUFFS_SHOWN = 6                   -- status names on a party line; the rest in its tooltip
 local POINTED = 2                       -- seconds the pointer stays on what was just sent...
 local POINTED_CAST = 15                 -- ...or while it is still being cast, up to this
@@ -126,7 +126,7 @@ local function row_label(key, acts, note)
     if a.pick_one then
         local families = families_of(acts)
         label = #families <= LABEL_FAMILIES and table.concat(families, ' / ')
-            or lang.t(util.capitalize((key:gsub('_', ' '))))
+            or lang.t(settings.name(key, acts))
     end
     return note and lang.f('%s (%s)', label, lang.t(note)) or label
 end
@@ -364,24 +364,8 @@ local function debuff_rows(g, cat, cfg, statuses)
     return rows
 end
 
--- Buffs' rows: the higher priority first (its highest action's, core/knowledge.lua), then by name as shown.
-local function sort_buffs(rows, acts_of)
-    local rank = {}
-    for _, row in ipairs(rows) do
-        local p = -math.huge
-        for _, a in ipairs(acts_of[row.key]) do p = math.max(p, a.priority or 0) end
-        rank[row.key] = p
-    end
-    table.sort(rows, function (x, y)
-        if rank[x.key] ~= rank[y.key] then return rank[x.key] > rank[y.key] end
-        local a, b = x.label:lower(), y.label:lower()
-        if a ~= b then return a < b end
-        return x.key < y.key
-    end)
-end
-
 -- One section's rows, one per settings key, roles in the section's order, each role's in the catalog's order
--- (abilities, then spells, by id; items last). Buffs' go by priority and name (sort_buffs). Debuff
+-- (abilities, then spells, by id; items last). Buffs' are in the order they're cast (settings.buff_order). Debuff
 -- removal's are its spells and abilities (`remover`), then its debuffs, then its items.
 local function build_rows(s, g, cat, cfg, units, outsiders, statuses)
     local rows, acts_of, order = {}, {}, {}
@@ -409,7 +393,10 @@ local function build_rows(s, g, cat, cfg, units, outsiders, statuses)
         end
         rows[#rows + 1] = row
     end
-    if s.id == 'buff' then sort_buffs(rows, acts_of) end
+    if s.id == 'buff' then
+        local place = settings.buff_order(cat, cfg)
+        table.sort(rows, function (x, y) return place[x.key] < place[y.key] end)
+    end
     if s.id == 'remove' then
         local at = 1
         while rows[at] and rows[at].remover do at = at + 1 end

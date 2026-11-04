@@ -107,6 +107,55 @@ function settings.enabled(cat, cfg, role)
     return out
 end
 
+-- A pick-one group named by more families than this is named by its key ('Barelement').
+settings.LABEL_FAMILIES = 3
+
+-- Row `key`'s name in English as the list shows it, its note aside: its label ('Regen (keep up)') or family,
+-- a pick-one group's families ('Light Arts / Dark Arts'), or its key for more than LABEL_FAMILIES. `acts`: its actions.
+function settings.name(key, acts)
+    local a = acts[1]
+    if not a.pick_one then return a.label or a.family end
+    local families, seen = {}, {}
+    for _, x in ipairs(acts) do
+        if not seen[x.family] then seen[x.family] = true; families[#families + 1] = x.family end
+    end
+    if #families <= settings.LABEL_FAMILIES then return table.concat(families, ' / ') end
+    return util.capitalize((key:gsub('_', ' ')))
+end
+
+-- The buff rows' order, the Buffs list's and the order buffs are cast in alike: the higher priority first
+-- (core/knowledge.lua), then by name (settings.name; in English on any client, so casting never follows the
+-- UI's language). A row's priority is its pick's (Addendum: Black's 0, Indi-Refresh's 50), else its highest
+-- action's. -> { [key] = place, 1 first }
+function settings.buff_order(cat, cfg)
+    local acts_of, keys = {}, {}
+    for _, a in ipairs(cat) do
+        if a.role == 'buff' then
+            local key = settings.key(a)
+            if not acts_of[key] then acts_of[key] = {}; keys[#keys + 1] = key end
+            table.insert(acts_of[key], a)
+        end
+    end
+    local priority, name = {}, {}
+    for _, key in ipairs(keys) do
+        local acts = acts_of[key]
+        local pick, best, picked = settings.row(cfg, acts[1]).pick, -math.huge, nil
+        for _, a in ipairs(acts) do
+            best = math.max(best, a.priority or 0)
+            if a.name == pick then picked = a.priority or 0 end
+        end
+        priority[key], name[key] = picked or best, settings.name(key, acts):lower()
+    end
+    table.sort(keys, function (x, y)
+        if priority[x] ~= priority[y] then return priority[x] > priority[y] end
+        if name[x] ~= name[y] then return name[x] < name[y] end
+        return x < y
+    end)
+    local place = {}
+    for i, key in ipairs(keys) do place[key] = i end
+    return place
+end
+
 -- The modifiers (Penury, Accession...) turned on for `a`'s row that fit `a`.
 function settings.mods(cat, cfg, a)
     local on, out = settings.row(cfg, a).mods, {}

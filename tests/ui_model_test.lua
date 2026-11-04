@@ -238,6 +238,37 @@ test('BRD 75 / WHM 37: Songs under Buff, Area then each party slot; no song is a
     eq(section(build(whm), 'song'), nil)
 end)
 
+test('the Buffs list reads in casting order: by priority, then by name, not the catalog\'s order', function ()
+    local cfg = settings.defaults()
+    local on = { 'Stoneskin', 'Reraise', 'Haste', 'Aquaveil', 'Shell', 'Blink', 'Protect' }
+    for _, key in ipairs(on) do cfg.rows[key] = { on = true, targets = { [0] = true } } end
+    local g = fake.snap({})
+    local listed, cast = {}, {}
+    for _, r in ipairs(section(build(whm, cfg, g), 'buff').rows) do
+        if r.on then listed[#listed + 1] = r.key end
+    end
+    for _ = 1, #on + 1 do
+        local cmd, intent = fake.decide(g, whm, cfg)
+        if not cmd then break end
+        cast[#cast + 1] = settings.key(intent.action)
+        for _, id in ipairs(intent.action.status or {}) do g.me.buffs[id] = true end
+    end
+    eq(listed, { 'Haste', 'Aquaveil', 'Blink', 'Protect', 'Reraise', 'Shell', 'Stoneskin' }, 'Haste at 25, the rest at 0')
+    eq(cast, listed)
+end)
+
+test('a Buffs row with a pick goes by its pick\'s priority: Addendum: White\'s 90, Black\'s 0', function ()
+    local sch = fake.catalog(20, 75, RDM, 37, { 'Light Arts', 'Dark Arts', 'Sublimation' })
+    local cfg = settings.defaults()
+    local p = settings.buff_order(sch, cfg)
+    eq(p.addendum, p.arts + 1, 'no pick: its highest, next after the Arts at 100')
+    cfg.rows.addendum = { on = true, pick = 'Addendum: White' }
+    eq(settings.buff_order(sch, cfg).addendum, p.arts + 1)
+    cfg.rows.addendum.pick = 'Addendum: Black'
+    p = settings.buff_order(sch, cfg)
+    eq(p.addendum > p.Sublimation, true, 'below Sublimation at 50')
+end)
+
 test('RDM 75 / WHM 37: a family reaching others at any tier gets targets', function ()
     local view = build(fake.catalog(RDM, 75, WHM, 37))
     local r = row(view, 'buff', 'Phalanx')  -- Phalanx is self-only, Phalanx II is not
@@ -837,6 +868,10 @@ test('in Japanese a row is named from the DAT, its choices and readiness in Japa
     eq({ bar.label, bar.choice, bar.avail }, { 'バ系（属性）', '選択してください', '要選択' })
     eq(row(v, 'buff', 'Regen (keep up)').label, 'リジェネ（維持）')
     eq(v.job, '白75/黒37')
+end)
+
+test('in Japanese the Buffs list keeps the casting order, by the English names', function ()
+    eq(keys(section(japanese_view(whm), 'buff').rows), keys(section(build(whm), 'buff').rows))
 end)
 
 test('in Japanese why a row can\'t go is Japanese: a recast, MP, a pick the job lost', function ()

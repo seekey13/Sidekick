@@ -73,7 +73,7 @@ local AREA_RADIUS = 10  -- yalms around you
 local OTHERS_FIRST = 15  -- seconds your own Invisible waits at most for other work pending
 local lacks = can.lacks
 
--- Each row's action, best tier first, highest priority rows first.
+-- Each row's action, its best tier first, rows in the Buffs list's order (settings.buff_order).
 local function chosen(cat, cfg, g)
     local by_key, keys = {}, {}
     for _, a in ipairs(settings.enabled(cat, cfg, 'buff')) do
@@ -97,7 +97,8 @@ local function chosen(cat, cfg, g)
                               hold = row.hold == true }
         end
     end
-    table.sort(out, function (x, y) return x.action.priority > y.action.priority end)
+    local place = settings.buff_order(cat, cfg)
+    table.sort(out, function (x, y) return place[settings.key(x.action)] < place[settings.key(y.action)] end)
     return out
 end
 
