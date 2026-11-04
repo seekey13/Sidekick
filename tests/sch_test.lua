@@ -116,6 +116,19 @@ test('Accession spreads a buff from you whenever one of its targets near lacks i
     eq(decide(snap({ LIGHT_ARTS, PROTECT }, others), cfg, {}), nil)
 end)
 
+test('Heal\'s Accession row gated to Combat leaves the buff\'s Accession chip alone, held or not', function ()
+    local cfg = cfg_with({ Protect = { on = true, targets = { [0] = true, [1] = true }, mods = { Accession = true } } })
+    cfg.gates.Accession = 'combat'
+    local others = { { name = 'A' } }
+    eq(decide(snap({ LIGHT_ARTS }, others), cfg, {}), '/ja "Accession" <me>', 'out of combat: still spreads')
+    cfg.rows.Protect.hold = true
+    eq(decide(snap({ LIGHT_ARTS }, others), cfg, {}), '/ja "Accession" <me>', 'held: no wait on the heal row\'s gate')
+    -- Another session may gate the heal row, never a modifier that is only a chip.
+    local act = model.actions(cfg, { running = false, sent = {} }, function () end)
+    local function apply(key, gate) return model.apply(act, cfg, { 'gate', key, gate, n = 2 }, cat) end
+    eq({ apply('Accession', 'idle'), apply('Penury', 'idle') }, { true, false })
+end)
+
 test('Accession: held for the group like an area spell, and only for the row\'s targets', function ()
     local cfg = cfg_with({ Protect = { on = true, targets = { [0] = true, [1] = true, [2] = true },
                                        mods = { Accession = true } } })

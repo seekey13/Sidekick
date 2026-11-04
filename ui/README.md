@@ -187,7 +187,7 @@ In this order. A section with rows is left out when your job has none for it (Pe
 | `act.target(key, slot, on)` | Turn a target chip on or off: its `slot`, 0 to 17 or a tracked player's name; `on` true or false sets it, nil toggles it |
 | `act.mod(key, name, on)` | Turn a modifier chip on or off: its `name` (`'Penury'`, `'Accession'`); `on` sets it, nil toggles it |
 | `act.hold(key, on)` | A row's Hold: `true`, its spell waits while a modifier on for it can't go with it; `false` (the default), it goes without |
-| `act.gate(key, gate)` | A row's gate: `'combat'` (it goes only in combat), `'idle'` (only out of it) or nil (any time). Setting one replaces the other. Saved apart from the row (`gates`, by row key), so it never makes a row nor changes its `on`. Does nothing to a row with `gate_fixed` |
+| `act.gate(key, gate)` | A row's gate: `'combat'` (it goes only in combat), `'idle'` (only out of it) or nil (any time). Setting one replaces the other. Saved apart from the row (`gates`, by row key), so it never makes a row nor changes its `on`. Has no effect on a row with `gate_fixed`: its own gate wins. A modifier chip (Penury, Accession on a buff row) never takes one |
 | `act.track(name)` | Track a player outside your party and alliance: by name, or your current target when nil (`view.track.target` names it). This session only |
 | `act.untrack(name)` | Stop tracking a player, by name. Their buff chips stay set for when they're tracked again |
 | `act.profile(name)` | Load a profile: a `view.profiles.names[i]`, or nil for Default (the settings as they were before a profile was loaded). Loading one never changes `ui`, `japanese`, following, AFK sleep, the focus or who healing skips |

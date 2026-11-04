@@ -128,9 +128,10 @@ end
 
 -- When `a` may go: 'combat' (only in combat), 'idle' (only out of it) or nil (any time). Its own gate, else the one
 -- its row is set to (cfg.gates by row key, core/settings.lua), which engine.decide and model.build lay on the snapshot
--- as `g.gates`. One aimed at the enemy takes none: its battle target already says.
+-- as `g.gates`. One aimed at the enemy takes none: its battle target already says. Nor does a modifier (a chip on a
+-- buff row, not a row): SCH's Accession shares its key with Heal's Accession row, whose gate isn't the buff's.
 function can.gate(a, g)
-    if a.gate or can.at_enemy(a) then return a.gate end
+    if a.gate or can.at_enemy(a) or a.role == 'modifier' then return a.gate end
     return g.gates and g.gates[settings.key(a)] or nil
 end
 

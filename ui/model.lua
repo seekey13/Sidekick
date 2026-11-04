@@ -837,10 +837,11 @@ local function chipped(cat, key)
     return false
 end
 
--- Whether `key` is a row of this job's whose gate can be set: one of its actions has none built in.
+-- Whether `key` is a row of this job's whose gate can be set: one of its actions has none built in (a modifier, a
+-- chip and not a row, never takes one: can.gate).
 local function gated(cat, key)
     for _, a in ipairs(cat or {}) do
-        if settings.key(a) == key and not can.built_gate(a) then return true end
+        if settings.key(a) == key and a.role ~= 'modifier' and not can.built_gate(a) then return true end
     end
     return false
 end
