@@ -362,6 +362,8 @@ ja.words = {
     ['Built in: it only goes in combat.'] = '固定: 戦闘中のみ使います。',
     ['Built in: it only goes out of combat.'] = '固定: 戦闘外のみ使います。',
     ['\nClick again to let it go any time.'] = '\nもう一度クリックすると、いつでも使います。',
+    ['\nShared with its row under %s: set here, it is set there too.'] =
+        '\n%sの行と共通です。ここで設定すると、そちらでも設定されます。',
     ['REMOVERS'] = '回復手段', ['DEBUFFS'] = '弱体', ['ACTIONS'] = 'アクション', ['ITEMS'] = 'アイテム',
     ['Untick to never use it: the debuffs only it removes are greyed out below.'] =
         'オフにすると使いません。これでしか回復できない弱体は下で灰色になります。',

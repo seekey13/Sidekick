@@ -1801,18 +1801,44 @@ test('a row hovered shows Combat then Idle after its name; a click sets one, the
     eq({ cfg.gates, cfg.rows.Haste }, { { Haste = 'combat' }, nil })  -- no row made: Haste stays as it was
     eq(render(cfg, st, on('Buff', { over = true, ['Idle##buff_Haste_gate'] = true })), 1)
     eq(cfg.gates, { Haste = 'idle' })  -- one or the other, never both
-    render(cfg, st, on('Buff', { over = true }))
-    local first = box('Idle##buff_Haste_gate')
-    eq({ first[1], box('Combat##buff_Haste_gate')[1] > first[1] }, { combat[1], true })  -- the one set stays put, first
-    render(cfg, st, on('Buff'))  -- the pointer gone: the one set alone, where it was; Haste off, dimmed as its name
+    render(cfg, st, on('Buff', { over = true }))  -- the pointer still there: neither moved from under it
+    eq({ box('Combat##buff_Haste_gate')[1], box('Idle##buff_Haste_gate')[1] }, { combat[1], idle[1] })
+    eq(render(cfg, st, on('Buff', { over = true, ['Idle##buff_Haste_gate'] = true })), 1)  -- so a second click clears it
+    eq(cfg.gates, {})
+    render(cfg, st, on('Buff', { over = true, ['Idle##buff_Haste_gate'] = true }))
+    render(cfg, st, on('Buff'))  -- the pointer gone: the one set alone, first; Haste off, dimmed as its name
     eq({ button('Combat##buff_Haste_gate'), button('Idle##buff_Haste_gate'), fill('Idle') },
        { false, true, u32(P.teal, 0.5) })
-    eq(box('Idle##buff_Haste_gate')[1], first[1])
+    eq(box('Idle##buff_Haste_gate')[1], combat[1])
+    render(cfg, st, on('Buff', { over = true }))  -- back: the one set stays put, first, the other after it
+    eq({ box('Idle##buff_Haste_gate')[1], box('Combat##buff_Haste_gate')[1] > combat[1] }, { combat[1], true })
     eq(render(cfg, st, on('Buff', { over = true, ['Idle##buff_Haste_gate'] = true })), 1)  -- clicked again: any time
     eq(cfg.gates, {})
     cfg.gates.Haste, cfg.rows.Haste = 'combat', { on = true }  -- on: lit
     render(cfg, st, on('Buff'))
     eq({ fill('Combat'), tipped('Only in combat'), tipped('Click again to let it go any time.') }, { u32(P.rose), true, true })
+end)
+
+test('a held row\'s long reason gives way, cut: its name stays, its gate pills keep clear of it', function ()
+    open_settings()
+    local sch = fake.catalog(20, 75, 5, 37, { 'Light Arts', 'Penury', 'Celerity', 'Accession', 'Perpetuance' })
+    local cfg, st = settings.defaults(), status()
+    cfg.rows.Protect = { on = true, targets = { [0] = true }, mods = { Perpetuance = true }, hold = true }
+    local view = model.build(snap(), sch, cfg, st, NAMES)
+    local avail
+    for _, s in ipairs(view.sections) do
+        for _, r in ipairs(s.id == 'buff' and s.rows or {}) do if r.key == 'Protect' then avail = r.avail end end
+    end
+    eq(avail:find('^waits for Perpetuance: ') ~= nil, true)
+    render(cfg, st, on('Buff', { over = true }), view)
+    local idle = box('Idle##buff_Protect_gate')
+    local reason, name
+    for _, d in ipairs(calls('AddText')) do
+        local s = d.args[5]
+        if s:find('^waits for') then reason = d end
+        if s:find('^Prot') and math.abs(d.args[3][2] - idle[2]) < kit.S(12) then name = s end
+    end
+    eq({ reason.args[5] ~= avail, reason.args[3][1] > idle[1] + idle[3], name }, { true, true, 'Protect' })
 end)
 
 test('a row with a pick has its gate\'s pills on its name\'s line, not the drop-down\'s', function ()

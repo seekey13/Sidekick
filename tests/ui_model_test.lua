@@ -805,6 +805,14 @@ test('act.gate sets a row\'s gate, the other going, and clears it; no row is mad
     eq(row(build(whm, cfg), 'heal', 'Cure').on, true)
 end)
 
+test('a row whose key has a row under another section too names that section: one setting, both rows\'', function ()
+    local view = build(fake.catalog(20, 75, WHM, 37, { 'Sublimation', 'Light Arts', 'Accession' }))
+    eq({ row(view, 'buff', 'Sublimation').also, row(view, 'recover', 'Sublimation').also, row(view, 'buff', 'Protect').also,
+         row(view, 'heal', 'Accession').also }, { 'Recovery', 'Buffs', nil, nil })  -- Accession's modifier is no row
+    view = build(fake.catalog(2, 75, WHM, 37, { 'Chakra' }))
+    eq({ row(view, 'heal', 'Chakra').also, row(view, 'remove', 'Chakra').also }, { 'Debuff removal', 'Healing' })
+end)
+
 test('another session sets a row\'s gate to the state sent; never one built in, an unknown row or another word', function ()
     local cfg = settings.defaults()
     local act = model.actions(cfg, status(), function () end)
@@ -818,6 +826,10 @@ test('another session sets a row\'s gate to the state sent; never one built in, 
         eq(model.apply(act, cfg, bad, whm), false, tostring(bad[2]) .. ' ' .. tostring(bad[3]))
     end
     eq(cfg.gates, { Cure = 'idle' })
+    local brd = fake.catalog(BRD, 75, WHM, 37, { 'Pianissimo' })  -- a song has no row, so no gate; a heal does
+    eq({ model.apply(act, cfg, call('gate', 'Valor Minuet', 'idle'), brd),
+         model.apply(act, cfg, call('gate', 'Cure', 'combat'), brd) }, { false, true })
+    eq(cfg.gates, { Cure = 'combat' })
     local sent = {}
     local mine = model.actions(cfg, status(), function () end, nil, function (name, c) sent[#sent + 1] = { name, c } end)
     mine.remote('A').gate('Haste', 'idle')

@@ -58,6 +58,10 @@ local ACCEPTED = {
     ['dancer|Drain Samba III|gate'] = 'a samba works on your melee hits only',
     ['dancer|Haste Samba|gate'] = 'a samba works on your melee hits only',
     ['dancer|Presto|gate'] = 'for a Step, which only you fire',
+    -- A travel buff, cast after the others, between Sneak (-10) and Invisible (-20); v2 cast it among them.
+    ['red_mage|Deodorize|priority'] = 'a travel buff: after Sneak, before Invisible',
+    ['scholar|Deodorize|priority'] = 'a travel buff: after Sneak, before Invisible',
+    ['white_mage|Deodorize|priority'] = 'a travel buff: after Sneak, before Invisible',
     -- v2 sent the pet at <t> by default (<bt> by option); v3 always at the battle target.
     ['beastmaster|Fight|enemy'] = 'sent at <bt>',
     ['puppetmaster|Deploy|enemy'] = 'sent at <bt>',

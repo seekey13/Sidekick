@@ -65,6 +65,11 @@ for _, spec in job_modules.each('ui') do
     e.before = nil
     table.insert(model.SECTIONS, at, e)
 end
+-- The section a role's rows are under (a job module's too): a song, a roll, a rune has none.
+local SECTION_OF = {}
+for _, s in ipairs(model.SECTIONS) do
+    for _, role in ipairs(s.roles or {}) do SECTION_OF[role] = s end
+end
 model.FLAGS = { 'casting', 'moving', 'combat', 'safe', 'afk', 'mounted', 'dead', 'resting', 'incapacitated', 'silenced', 'amnesia' }
 
 -- Party slots' tags: ME, P1-P5, then the alliance's other parties, B0-B5 and C0-C5 (as v2).
@@ -355,7 +360,7 @@ local function debuff_rows(g, cat, cfg, statuses)
 end
 
 -- One section's rows, one per settings key, roles in the section's order, each role's in the catalog's order
--- (abilities, then spells, by id; items last). Buffs' are in the order they're cast (settings.buff_order). Debuff
+-- (abilities, spells, then pet commands, by id; items last). Buffs' are in the order they're cast (settings.buff_order). Debuff
 -- removal's are its spells and abilities (`remover`), then its debuffs, then its items.
 local function build_rows(s, g, cat, cfg, units, outsiders, statuses)
     local rows, acts_of, order = {}, {}, {}
@@ -368,13 +373,16 @@ local function build_rows(s, g, cat, cfg, units, outsiders, statuses)
             end
         end
     end
-    local modifiers = {}
+    local modifiers, elsewhere = {}, {}  -- elsewhere: key -> the other section it has a row under (Sublimation's)
     for _, a in ipairs(cat) do
         if a.role == 'modifier' and a.applies then modifiers[#modifiers + 1] = a end
+        local other = SECTION_OF[a.role]
+        if other and other.id ~= s.id then elsewhere[settings.key(a)] = other.title end
     end
     for _, key in ipairs(order) do
         local chipped = s.id == 'buff' or s.id == 'geo'
         local row = build_row(key, acts_of[key], cfg, g, units, chipped and modifiers, outsiders)
+        row.also = elsewhere[key]  -- its `on` and gate are that row's too: one key
         if s.id == 'remove' and not row.count then
             row.remover = true
             for _, a in ipairs(cat) do  -- a family with another role (Chakra heals too) shares its row
@@ -832,11 +840,11 @@ local function chipped(cat, key)
     return false
 end
 
--- Whether `key` is a row of this job's whose gate can be set: one of its actions has none built in (a modifier, a
--- chip and not a row, never takes one: can.gate).
+-- Whether `key` is a row of this job's whose gate can be set: one of its actions makes a row (SECTION_OF: a song has
+-- none) and has no gate built in (a modifier, a chip and not a row, never takes one: can.gate).
 local function gated(cat, key)
     for _, a in ipairs(cat or {}) do
-        if settings.key(a) == key and a.role ~= 'modifier' and not can.built_gate(a) then return true end
+        if SECTION_OF[a.role] and settings.key(a) == key and not can.built_gate(a) then return true end
     end
     return false
 end
