@@ -722,7 +722,7 @@ everything with it:
   child, each section a heading (§9) with its switch, each setting a row: label at the left, control at the right.
   Spell and ability rows put their name, readiness and switch on one line and their pick, target chips and modifier
   chips on the lines under it. A row's gate is a pill (`kit.pill`: vana's pill, 18 high to click, semibold at 12)
-  after its name, or after its pick when it has one: Combat in `rose`, Idle in `teal`, each a wash of its colour at
+  after its name, on the name's line even when it has a pick: Combat in `rose`, Idle in `teal`, each a wash of its colour at
   18% edged at 60% when set; unset, a `well` pill with `dim` words that warm towards the colour under the pointer.
   The one set always shows; with the pointer over the row the other fades in after it (speed 22), so the one set
   stays put, and the name always leaves room for both. On a row that's off they're at half alpha, as its name is

@@ -1815,13 +1815,16 @@ test('a row hovered shows Combat then Idle after its name; a click sets one, the
     eq({ fill('Combat'), tipped('Only in combat'), tipped('Click again to let it go any time.') }, { u32(P.rose), true, true })
 end)
 
-test('a row with a pick has its gate\'s pills after the drop-down, on its line', function ()
+test('a row with a pick has its gate\'s pills on its name\'s line, not the drop-down\'s', function ()
     open_settings()
     local cfg, st = settings.defaults(), status()
     render(cfg, st, on('Buff', { over = true }))
+    local switch, scy = box('Protect##buff_Protect')
     local pick, pcy = box('##pick_buff_Protect')
     local combat, ccy = box('Combat##buff_Protect_gate')
-    eq({ ccy, combat[1] > pick[1] + pick[3], box('Idle##buff_Protect_gate')[1] > combat[1] }, { pcy, true, true })
+    local idle = box('Idle##buff_Protect_gate')
+    eq({ ccy, ccy < pcy, idle[1] > combat[1], idle[1] + idle[3] < switch[1] }, { scy, true, true, true })
+    eq(pick[3], kit.S(220))  -- the drop-down its full width (PICK_W), with nothing beside it
     eq(render(cfg, st, on('Buff', { over = true, ['Idle##buff_Protect_gate'] = true })), 1)
     eq(cfg.gates, { Protect = 'idle' })
 end)

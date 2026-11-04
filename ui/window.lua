@@ -1196,7 +1196,7 @@ local HOLD_TIP = 'Wait while a modifier picked here can\'t go with the spell (on
 local TIER_TIP = 'Untick to never heal with it; the other tiers still go.'
 local WAKE_TIP = 'Untick to never heal with it; the other tiers still go, and it still wakes a sleeper.'
 
--- A row's gate, as a pill after its name (or its pick): Combat in the palette's rose, Idle in its teal. `word`, when
+-- A row's gate, as a pill after its name: Combat in the palette's rose, Idle in its teal. `word`, when
 -- there, is its key in core/ja.lua: Idle's there is the rune set's 通常時, a gate's 戦闘外.
 local GATES = {
     combat = { label = 'Combat', tint = P.rose,
@@ -1254,7 +1254,7 @@ end
 -- One row per settings key: its name (and how many you carry), ready or why not, its switch. Under that, on their
 -- own lines: its pick, then its targets a row at a time (ME P1-P5, then B0-B5, C0-C5 and tracked; no empty slot), then its
 -- modifiers fired before its spell (Pen, Cel, Acc, Emb...) and Hold, then a heal's tiers as checkboxes. Its gate's
--- pills (Combat, Idle) follow its pick, or its name when it has none.
+-- pills (Combat, Idle) follow its name, pick or not.
 local function family_row(pg, sid, r)
     local id = sid .. '_' .. r.key
     local n = r.count or r.tools
@@ -1293,11 +1293,9 @@ local function family_row(pg, sid, r)
     readiness(pg, sx - S(12), cy, r.avail, r.ready)
     if r.action and kit.over(ax, cy - S(10), aw, S(20)) then kit.tooltip(r.action) end
     local label = n and ('%s (%d)'):format(r.label, n) or r.label
-    local inline = not r.choices and pills[1] ~= nil  -- the gate's pills after the name; with a pick, after that
-    local name = kit.fit(label, ax - S(12) - pg.lx - (not r.choices and room > 0 and room + S(8) or 0), kit.fonts.text,
-        S(BODY))
+    local name = kit.fit(label, ax - S(12) - pg.lx - (room > 0 and room + S(8) or 0), kit.fonts.text, S(BODY))
     kit.text_mid(pg.dl, pg.lx, cy, name, r.on and P.text or P.dim, kit.fonts.text, S(BODY), pg.alpha)
-    if inline then
+    if pills[1] then
         draw_gates(id, r, pills, pg.lx + kit.measure(name, kit.fonts.text, S(BODY)) + S(8), cy, reveal, pg.alpha)
     end
 
@@ -1307,13 +1305,11 @@ local function family_row(pg, sid, r)
     local line_i = 0
     if r.choices then
         line_i = 1
-        local pick_w = math.min(S(PICK_W), pg.right - pg.lx - (room > 0 and room + S(8) or 0))
-        kit.dropdown('##pick_' .. id, pg.lx, top, pick_w, r.choice, true, pg.alpha, function ()
+        kit.dropdown('##pick_' .. id, pg.lx, top, S(PICK_W), r.choice, true, pg.alpha, function ()
             for _, c in ipairs(r.choices) do
                 if kit.selectable(c.label, c.name == r.pick) then act.pick(r.key, c.name) end
             end
         end)
-        draw_gates(id, r, pills, pg.lx + pick_w + S(8), top, reveal, pg.alpha)
     end
     for _, g in ipairs(laid) do
         for _, it in ipairs(g.items) do
