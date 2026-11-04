@@ -725,7 +725,8 @@ everything with it:
   after its name, or after its pick when it has one: Combat in `rose`, Idle in `teal`, each a wash of its colour at
   18% edged at 60% when set; unset, a `well` pill with `dim` words that warm towards the colour under the pointer.
   The one set always shows; with the pointer over the row the other fades in after it (speed 22), so the one set
-  stays put. A gate built in (Berserk, Sneak, an action on the enemy) shows its pill alone, and takes no click.
+  stays put, and the name always leaves room for both. On a row that's off they're at half alpha, as its name is
+  dimmed. In Japanese, Combat is 戦闘中 and Idle 戦闘外 (not the rune set's 通常時). A gate built in (Berserk, Sneak, an action on the enemy) shows its pill alone, and takes no click.
 - **The HUD** keeps its layout and the sizes set under UI / Log, in the palette: a dark rounded panel, rounded
   bars with a background at 70% that does not fade (gray while the pointer is over the panel, near-black while it
   is not), a 1px near-black border at that same 70% that does not fade, and a fill at 70% that eases to each new value,

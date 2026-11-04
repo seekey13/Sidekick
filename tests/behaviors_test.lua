@@ -48,6 +48,16 @@ test('wake: the cheapest that wakes, one healing never uses (heal.never) too', f
         '/ma "Curaga" 101')
 end)
 
+test('wake: a heal gated to Idle or Combat (cfg.gates) still wakes, in combat or out', function ()
+    local cfg = cfg_with({})
+    cfg.gates.Cure, cfg.gates.Curaga = 'idle', 'idle'
+    local g = snap({ { name = 'A', buffs = { [SLEEP] = true } } })
+    g.combat = true
+    eq(decide(g, cfg, whm), '/ma "Cure" 101')
+    cfg.gates.Cure, cfg.gates.Curaga = 'combat', 'combat'
+    eq(decide(snap({ { name = 'A', buffs = { [SLEEP] = true } } }), cfg, whm), '/ma "Cure" 101')
+end)
+
 -- Recover ---------------------------------------------------------------------------
 
 test('recover: Convert under the MP line, only while it gains and you are out of danger', function ()

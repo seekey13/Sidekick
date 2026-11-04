@@ -14,7 +14,8 @@
     gates[key] = 'combat' | 'idle': the row goes only in combat, or only out of it
     (can.gate), one or the other; none, any time. Kept apart from `rows` so setting
     one never makes a row whose `on` would have to be guessed. An action's own gate
-    (Berserk, Spectral Jig: core/knowledge.lua) comes first.
+    (Berserk, Spectral Jig: core/knowledge.lua) comes first. Waking ignores it
+    (behaviors/wake.lua), and so does a modifier sharing the key (SCH's Accession).
     `profiles` are named snapshots of the rest (core/profiles.lua). `ui` is the
     install's, shared by every job pair in its own file (ui.lua): the HUD's look and
     whether the client runs in Japanese.

@@ -353,8 +353,8 @@ ja.words = {
         .. 'Accession unable to spread it, or short of MP for it); otherwise the spell goes without it.'] =
         'ここで選んだ補助（戦術魔道書など）を魔法と一緒に使えない間（リキャスト中、チャージ不足、グリモア違い、女神降臨の章で広げられない、MP不足）は待ちます。オフなら補助なしで使います。',
     ['\nNo modifier is on here: it waits for nothing.'] = '\nここでオンの補助がないので、何も待ちません。',
-    -- a row's gate ('Idle' is the rune set's word above: 通常時)
-    ['Combat'] = '戦闘中',
+    -- a row's gate (its Idle pill is 'Idle (gate)': 'Idle' is the rune set's word above, 通常時)
+    ['Combat'] = '戦闘中', ['Idle (gate)'] = '戦闘外',
     ['Only in combat: while there is a battle target, and for a few seconds after.'] =
         '戦闘中のみ: 戦闘対象がいる間と、いなくなってから数秒の間。',
     ['Only out of combat: once the battle target has been gone a few seconds.'] =

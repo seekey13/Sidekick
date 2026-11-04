@@ -1804,11 +1804,13 @@ test('a row hovered shows Combat then Idle after its name; a click sets one, the
     render(cfg, st, on('Buff', { over = true }))
     local first = box('Idle##buff_Haste_gate')
     eq({ first[1], box('Combat##buff_Haste_gate')[1] > first[1] }, { combat[1], true })  -- the one set stays put, first
-    render(cfg, st, on('Buff'))  -- the pointer gone: the one set alone
-    eq({ button('Combat##buff_Haste_gate'), button('Idle##buff_Haste_gate'), fill('Idle') }, { false, true, u32(P.teal) })
+    render(cfg, st, on('Buff'))  -- the pointer gone: the one set alone, where it was; Haste off, dimmed as its name
+    eq({ button('Combat##buff_Haste_gate'), button('Idle##buff_Haste_gate'), fill('Idle') },
+       { false, true, u32(P.teal, 0.5) })
+    eq(box('Idle##buff_Haste_gate')[1], first[1])
     eq(render(cfg, st, on('Buff', { over = true, ['Idle##buff_Haste_gate'] = true })), 1)  -- clicked again: any time
     eq(cfg.gates, {})
-    cfg.gates.Haste = 'combat'
+    cfg.gates.Haste, cfg.rows.Haste = 'combat', { on = true }  -- on: lit
     render(cfg, st, on('Buff'))
     eq({ fill('Combat'), tipped('Only in combat'), tipped('Click again to let it go any time.') }, { u32(P.rose), true, true })
 end)
@@ -1828,7 +1830,7 @@ test('a gate built in shows its pill always, hovered or not, and nothing changes
     open_settings()
     local cfg, st = settings.defaults(), status()
     render(cfg, st, on('Buff'))
-    eq({ button('Idle##buff_Sneak_gate'), fill('Idle') }, { true, u32(P.teal) })  -- Sneak: out of combat, built in
+    eq({ button('Idle##buff_Sneak_gate'), fill('Idle') }, { true, u32(P.teal, 0.5) })  -- Sneak: out of combat, built in; off
     eq(render(cfg, st, on('Buff', { over = true, ['Idle##buff_Sneak_gate'] = true, ['Combat##buff_Sneak_gate'] = true })), 0)
     eq({ button('Idle##buff_Sneak_gate'), button('Combat##buff_Sneak_gate'), cfg.gates },
        { true, false, {} })
@@ -2147,6 +2149,6 @@ test('in Japanese a row\'s Combat and Idle are Japanese, their ids English: a cl
     render_ja(cfg, st, on('Heal', { over = true }))
     eq({ cfg.gates, lang.misses }, { { Haste = 'combat' }, {} })
     render_ja(cfg, st, on('Buff', { over = true }))
-    eq({ drew('戦闘中'), drew('通常時'), drew('Combat'), drew('Idle') }, { true, true, false, false })
+    eq({ drew('戦闘中'), drew('戦闘外'), drew('Combat'), drew('Idle') }, { true, true, false, false })  -- not the rune set's 通常時
     cfg.ui.japanese = false
 end)

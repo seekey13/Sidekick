@@ -4,12 +4,14 @@
     to cover the most; otherwise the cheapest heal that reaches the first sleeper.
     The focus member is woken first. An area heal wakes its target's party
     only: you or a member yours, so the alliance's other parties and tracked
-    players need one aimed at them.
+    players need one aimed at them. A row's Combat or Idle (cfg.gates) is
+    healing's, not waking's: a gated Cure still wakes, as heal.never's does.
 ]]--
 
 local can = require('core.can')
 local settings = require('core.settings')
 local status = require('core.status')
+local util = require('core.util')
 
 local function cost(a, g) return (a.mp or 0) + can.tp(a, g) end
 
@@ -43,9 +45,10 @@ return function (g, cat, cfg)
     local list = sleepers(g, cfg)
     if not list[1] then return nil end
     local heals = {}
-    -- every heal whose row is on, those healing never uses (heal.never) too: the cheapest wakes
+    -- every heal whose row is on, those healing never uses (heal.never) or gates (cfg.gates) too: the cheapest wakes
+    local ungated = util.overlay(g, { gates = false })
     for _, a in ipairs(settings.enabled(cat, cfg, 'heal')) do
-        if can.wakes(a) and can.use(a, g) then heals[#heals + 1] = a end
+        if can.wakes(a) and can.use(a, ungated) then heals[#heals + 1] = a end
     end
     table.sort(heals, function (a, b) return cost(a, g) < cost(b, g) end)
 
