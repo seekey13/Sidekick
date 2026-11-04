@@ -441,3 +441,51 @@ test('Cures seen healing more than the table can outscore Regen per MP', functio
     eq(decide(g, cfg), '/ma "Regen II" 101')
 end)
 
+
+-- A row's own gate: Combat or Idle (cfg.gates, can.gate) ------------------------------------
+
+test('a row set to Combat goes only in combat, one set to Idle only out of it, whichever tier it picks', function ()
+    local cfg = settings.defaults()
+    cfg.rows.Protect = { on = true, targets = { [1] = true } }
+    cfg.gates.Protect = 'combat'
+    eq({ decide(snap({ { name = 'A' } }), cfg) }, { nil, 'nothing to do' })
+    eq(decide(snap({ { name = 'A' } }, { combat = true }), cfg), '/ma "Protect IV" 101')
+    cfg.gates.Protect = 'idle'
+    eq(decide(snap({ { name = 'A' } }), cfg), '/ma "Protect IV" 101')
+    eq({ decide(snap({ { name = 'A' } }, { combat = true }), cfg) }, { nil, 'nothing to do' })
+    cfg.rows.Protect.pick = 'Protect II'
+    eq({ decide(snap({ { name = 'A' } }, { combat = true }), cfg) }, { nil, 'nothing to do' })
+    eq(decide(snap({ { name = 'A' } }), cfg), '/ma "Protect II" 101')
+    cfg.gates.Protect = nil  -- any time again
+    eq(decide(snap({ { name = 'A' } }, { combat = true }), cfg), '/ma "Protect II" 101')
+end)
+
+test('a heal row set to Idle leaves combat to the other rows: Curaga heals instead of Cure, in danger too', function ()
+    local cfg = no_regen()
+    eq(decide(snap({ { name = 'A', hpp = 70 } }, { combat = true }), cfg), '/ma "Cure III" 101')
+    cfg.gates.Cure = 'idle'
+    eq(decide(snap({ { name = 'A', hpp = 70 } }, { combat = true }), cfg), '/ma "Curaga III" 1')
+    eq(decide(snap({ { name = 'A', hpp = 45 } }, { combat = true }), cfg), '/ma "Curaga IV" 1')
+    eq(decide(snap({ { name = 'A', hpp = 70 } }), cfg), '/ma "Cure III" 101')
+end)
+
+test('a gate built in wins over the row\'s; an action on the enemy takes none, its battle target says', function ()
+    local raise, drain, protect = fake.named(cat, 'Raise'), fake.named(cat, 'Drain'), fake.named(cat, 'Protect IV')
+    eq({ can.gate(raise, { gates = { Raise = 'combat' } }), can.built_gate(raise) }, { 'idle', 'idle' })
+    eq({ can.gate(drain, { gates = { Drain = 'idle' } }), can.built_gate(drain) }, { nil, 'combat' })
+    eq({ can.gate(protect, { gates = { Protect = 'idle' } }), can.gate(protect, {}), can.built_gate(protect) },
+       { 'idle', nil, nil })
+    eq({ can.use(protect, snap({}, { combat = true, gates = { Protect = 'idle' } })) }, { false, 'idle only' })
+    eq({ can.use(protect, snap({}, { gates = { Protect = 'combat' } })) }, { false, 'combat only' })
+    local cfg = settings.defaults()
+    cfg.gates.Raise, cfg.gates.Arise = 'combat', 'combat'
+    eq({ decide(snap({ { name = 'Dead', hpp = 0 } }, { combat = true }), cfg) }, { nil, 'nothing to do' })
+    eq(decide(snap({ { name = 'Dead', hpp = 0 } }), cfg), '/ma "Arise" 101')
+end)
+
+test('the gates are laid on a copy of the snapshot for the decision: the snapshot itself is left as it was', function ()
+    local cfg, g = settings.defaults(), snap({ { name = 'A' } })
+    cfg.gates.Protect = 'idle'
+    decide(g, cfg)
+    eq(rawget(g, 'gates'), nil)
+end)

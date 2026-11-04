@@ -353,6 +353,15 @@ ja.words = {
         .. 'Accession unable to spread it, or short of MP for it); otherwise the spell goes without it.'] =
         'ここで選んだ補助（戦術魔道書など）を魔法と一緒に使えない間（リキャスト中、チャージ不足、グリモア違い、女神降臨の章で広げられない、MP不足）は待ちます。オフなら補助なしで使います。',
     ['\nNo modifier is on here: it waits for nothing.'] = '\nここでオンの補助がないので、何も待ちません。',
+    -- a row's gate ('Idle' is the rune set's word above: 通常時)
+    ['Combat'] = '戦闘中',
+    ['Only in combat: while there is a battle target, and for a few seconds after.'] =
+        '戦闘中のみ: 戦闘対象がいる間と、いなくなってから数秒の間。',
+    ['Only out of combat: once the battle target has been gone a few seconds.'] =
+        '戦闘外のみ: 戦闘対象がいなくなって数秒たってから。',
+    ['Built in: it only goes in combat.'] = '固定: 戦闘中のみ使います。',
+    ['Built in: it only goes out of combat.'] = '固定: 戦闘外のみ使います。',
+    ['\nClick again to let it go any time.'] = '\nもう一度クリックすると、いつでも使います。',
     ['REMOVERS'] = '回復手段', ['DEBUFFS'] = '弱体', ['ACTIONS'] = 'アクション', ['ITEMS'] = 'アイテム',
     ['Untick to never use it: the debuffs only it removes are greyed out below.'] =
         'オフにすると使いません。これでしか回復できない弱体は下で灰色になります。',

@@ -8,9 +8,11 @@
       can.spare_hp(a, g, cfg)  can you pay what `a` costs in HP
       can.tp(a, g)             the TP `a` needs from you now
       can.tools(a, g)          how many casts of `a` the tools you carry pay for
+      can.gate(a, g)           'combat' | 'idle' | nil: when `a` may go, built in or set on its row
     `a` is a catalog record, `u` a unit and `g` the snapshot from core/game.lua.
 ]]--
 
+local settings = require('core.settings')
 local util = require('core.util')
 
 local can = {}
@@ -118,6 +120,20 @@ function can.tools(a, g)
     return (g.items or {})[a.tool] or 0
 end
 
+-- The gate `a` has built in, which no setting changes: its own (core/knowledge.lua: Berserk in combat, Spectral Jig
+-- out of it), or combat for one aimed at the enemy, which needs a battle target anyway. nil when it has none.
+function can.built_gate(a)
+    return a.gate or can.at_enemy(a) and 'combat' or nil
+end
+
+-- When `a` may go: 'combat' (only in combat), 'idle' (only out of it) or nil (any time). Its own gate, else the one
+-- its row is set to (cfg.gates by row key, core/settings.lua), which engine.decide and model.build lay on the snapshot
+-- as `g.gates`. One aimed at the enemy takes none: its battle target already says.
+function can.gate(a, g)
+    if a.gate or can.at_enemy(a) then return a.gate end
+    return g.gates and g.gates[settings.key(a)] or nil
+end
+
 -- Whether `a` can be used now, else false and why.
 function can.use(a, g)
     if a.kind == 'ma' and g.silenced then return false, 'silenced' end
@@ -134,8 +150,9 @@ function can.use(a, g)
     for _, id in ipairs(a.blocked_by or {}) do
         if g.me.buffs[id] then return false, 'blocked by ' .. (a.names and a.names[id] or 'a status') end
     end
-    if a.gate == 'combat' and not g.combat then return false, 'combat only' end
-    if a.gate == 'idle' and g.combat then return false, 'idle only' end
+    local gate = can.gate(a, g)
+    if gate == 'combat' and not g.combat then return false, 'combat only' end
+    if gate == 'idle' and g.combat then return false, 'idle only' end
     if a.pet then
         if not g.pet then return false, 'no pet' end
         if a.pet_range and (g.pet.dist or math.huge) > a.pet_range then return false, 'pet too far' end

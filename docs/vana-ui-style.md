@@ -721,7 +721,11 @@ everything with it:
   under SETUP, with a teal dot (or a ring when every switch is off) where vana has an icon. Each page is a scrolling
   child, each section a heading (§9) with its switch, each setting a row: label at the left, control at the right.
   Spell and ability rows put their name, readiness and switch on one line and their pick, target chips and modifier
-  chips on the lines under it.
+  chips on the lines under it. A row's gate is a pill (`kit.pill`: vana's pill, 18 high to click, semibold at 12)
+  after its name, or after its pick when it has one: Combat in `rose`, Idle in `teal`, each a wash of its colour at
+  18% edged at 60% when set; unset, a `well` pill with `dim` words that warm towards the colour under the pointer.
+  The one set always shows; with the pointer over the row the other fades in after it (speed 22), so the one set
+  stays put. A gate built in (Berserk, Sneak, an action on the enemy) shows its pill alone, and takes no click.
 - **The HUD** keeps its layout and the sizes set under UI / Log, in the palette: a dark rounded panel, rounded
   bars with a background at 70% that does not fade (gray while the pointer is over the panel, near-black while it
   is not), a 1px near-black border at that same 70% that does not fade, and a fill at 70% that eases to each new value,

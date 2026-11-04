@@ -881,6 +881,31 @@ function kit.chip(id, x, cy, w, label, state, enabled, alpha)
     return clicked and on
 end
 
+kit.PILL_H = 18
+local PILL_PX = kit.SMALL - 1.5
+
+function kit.pill_width(label)
+    return measure(label, kit.fonts.semi, S(PILL_PX)) + S(16)
+end
+
+-- A pill, vana's "DX12" a little larger to click: kit.pill_width(label) wide, fully rounded, semibold. While `on` it's
+-- in `tint` (a palette colour): a wash of it, edged and lettered in it; off, a sunken grey whose edge and words warm
+-- towards it under the mouse. `enabled` false takes no click (still a hit box, so a press doesn't drag the window).
+-- Returns clicked.
+function kit.pill(id, x, cy, label, tint, on, enabled, alpha)
+    local w, h = kit.pill_width(label), S(kit.PILL_H)
+    local y = cy - h / 2
+    local hovered, clicked, held = hit(id, x, y, w, h)
+    local dl, live, a = imgui.GetWindowDrawList(), enabled ~= false, alpha or 1
+    local t = ease(id, on and 1 or 0)
+    local lit = ease(id .. '.hover', hovered and live and 1 or 0, 22)
+    fill(dl, x, y, w, h, mix(mix(P.well, tint, 0.06 * lit), mix(P.well, tint, 0.18), t), h / 2, a)
+    outline(dl, x, y, w, h, mix(mix(P.well_edge, tint, 0.35 * lit), mix(P.well, tint, 0.6), t), h / 2, a)
+    if held and live then fill(dl, x, y, w, h, '#000000', h / 2, 0.15 * a) end
+    kit.text_centred(dl, x + w / 2, cy, label, mix(mix(P.dim, tint, 0.6 * lit), tint, t), kit.fonts.semi, S(PILL_PX), a)
+    return clicked and live
+end
+
 local CLEAR = { 0, 0, 0, 0 }
 local FIELD_COLOURS = { { ImGuiCol_FrameBg, CLEAR }, { ImGuiCol_FrameBgHovered, CLEAR }, { ImGuiCol_FrameBgActive, CLEAR },
                         { ImGuiCol_Text, kit.rgba(P.text) } }

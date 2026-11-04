@@ -11,6 +11,10 @@
     A tracked player's name stays on the row after they're untracked, so tracking
     them again brings their buffs back. A row never saved uses its default: on, but
     for buffs (a luopan's Geo- spells too), sending the pet in and items.
+    gates[key] = 'combat' | 'idle': the row goes only in combat, or only out of it
+    (can.gate), one or the other; none, any time. Kept apart from `rows` so setting
+    one never makes a row whose `on` would have to be guessed. An action's own gate
+    (Berserk, Spectral Jig: core/knowledge.lua) comes first.
     `profiles` are named snapshots of the rest (core/profiles.lua). `ui` is the
     install's, shared by every job pair in its own file (ui.lua): the HUD's look and
     whether the client runs in Japanese.
@@ -50,6 +54,7 @@ local DEFAULTS = {
     rest = { on = false, mp = 50, distance = 7 },  -- /heal under this MP% until full; up past distance from follow.target
     afk = { on = true, minutes = 10 },  -- sleep after this long with no party movement or combat (core/afk.lua; v2's, on)
     rows = {},
+    gates = {},  -- [row key] = 'combat' | 'idle' (the header)
     profiles = {}, profile = '', parked = {},  -- named snapshots (core/profiles.lua)
     ui = { open = false, hp_width = 220, hp_height = 40, mp_width = 220, mp_height = 18, tp_width = 220, tp_height = 8,
            name_size = 22, text_size = 14, gap = 8, locked = false,

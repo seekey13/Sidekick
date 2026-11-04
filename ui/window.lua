@@ -1196,9 +1196,61 @@ local HOLD_TIP = 'Wait while a modifier picked here can\'t go with the spell (on
 local TIER_TIP = 'Untick to never heal with it; the other tiers still go.'
 local WAKE_TIP = 'Untick to never heal with it; the other tiers still go, and it still wakes a sleeper.'
 
+-- A row's gate, as a pill after its name (or its pick): Combat in the palette's rose, Idle in its teal.
+local GATES = {
+    combat = { label = 'Combat', tint = P.rose,
+               help = 'Only in combat: while there is a battle target, and for a few seconds after.',
+               fixed = 'Built in: it only goes in combat.' },
+    idle = { label = 'Idle', tint = P.teal,
+             help = 'Only out of combat: once the battle target has been gone a few seconds.',
+             fixed = 'Built in: it only goes out of combat.' },
+}
+local GATE_ORDER = { 'combat', 'idle' }
+local GATE_GAP = 4
+
+-- The gate pills row `r` shows: the one it's set to (or has built in), then, while the row is hovered (`reveal`, eased:
+-- they fade out as it ends) and its gate isn't built in, the other, so the one set stays put. `all` lists every one it
+-- could show, to make room for them. Each { gate, label, w }; and their width together.
+local function gate_pills(r, reveal, all)
+    local out, w = {}, 0
+    local function add(gate)
+        local label = t(GATES[gate].label)
+        out[#out + 1] = { gate = gate, label = label, w = kit.pill_width(label) }
+        w = w + out[#out].w + (#out > 1 and S(GATE_GAP) or 0)
+    end
+    if r.gate then add(r.gate) end
+    if (all or reveal > 0) and not r.gate_fixed then
+        for _, gate in ipairs(GATE_ORDER) do
+            if gate ~= r.gate then add(gate) end
+        end
+    end
+    return out, w
+end
+
+-- `pills` (gate_pills) from x, centred on cy: a click on one sets the row's gate to it (the other goes), a click on the
+-- one set clears it. The one not set is drawn at `reveal`. Ids by the English words, whatever the language.
+local function draw_gates(id, r, pills, x, cy, reveal, alpha)
+    for _, p in ipairs(pills) do
+        local spec, set = GATES[p.gate], p.gate == r.gate
+        if kit.pill(spec.label .. '##' .. id .. '_gate', x, cy, p.label, spec.tint, set, not r.gate_fixed,
+                alpha * (set and 1 or reveal)) then
+            act.gate(r.key, not set and p.gate or nil)
+        end
+        if r.gate_fixed then kit.tip(t(spec.fixed))
+        else kit.tip(t(spec.help) .. (set and t('\nClick again to let it go any time.') or '')) end
+        x = x + p.w + S(GATE_GAP)
+    end
+end
+
+-- How far the pointer's being over a row's band (`y`, `h` tall) has eased in, for its gate pills.
+local function revealed(pg, id, y, h)
+    return kit.ease(id .. '_gates', kit.over(pg.x + S(4), y, pg.w - S(8), h) and 1 or 0, 22)
+end
+
 -- One row per settings key: its name (and how many you carry), ready or why not, its switch. Under that, on their
 -- own lines: its pick, then its targets a row at a time (ME P1-P5, then B0-B5, C0-C5 and tracked; no empty slot), then its
--- modifiers fired before its spell (Pen, Cel, Acc, Emb...) and Hold, then a heal's tiers as checkboxes.
+-- modifiers fired before its spell (Pen, Cel, Acc, Emb...) and Hold, then a heal's tiers as checkboxes. Its gate's
+-- pills (Combat, Idle) follow its pick, or its name when it has none.
 local function family_row(pg, sid, r)
     local id = sid .. '_' .. r.key
     local n = r.count or r.tools
@@ -1221,7 +1273,10 @@ local function family_row(pg, sid, r)
     local tier_lines = #tiers > 0 and flow(tiers, pg.lx, pg.right, S(4)) or 0
     local pick_lines = r.choices and 1 or 0
     local lines = pick_lines + tlines + mod_lines + tier_lines
-    local cy = line(pg, nil, nil, S(ROW_H) + lines * S(CHIP_LINE) + (lines > 0 and S(4) or 0))
+    local y0, h = pg.y, S(ROW_H) + lines * S(CHIP_LINE) + (lines > 0 and S(4) or 0)
+    local cy = line(pg, nil, nil, h)
+    local reveal = revealed(pg, id, y0, h)
+    local pills, pills_w = gate_pills(r, reveal)
 
     -- An item shows how many you carry, ninjutsu their tools; ### keeps its id while the count changes.
     local sx = pg.right - S(kit.SW_W)
@@ -1233,8 +1288,12 @@ local function family_row(pg, sid, r)
     readiness(pg, sx - S(12), cy, r.avail, r.ready)
     if r.action and kit.over(ax, cy - S(10), aw, S(20)) then kit.tooltip(r.action) end
     local label = n and ('%s (%d)'):format(r.label, n) or r.label
-    kit.text_mid(pg.dl, pg.lx, cy, kit.fit(label, ax - S(12) - pg.lx, kit.fonts.text, S(BODY)), r.on and P.text or P.dim,
-        kit.fonts.text, S(BODY), pg.alpha)
+    local inline = not r.choices and pills[1] ~= nil  -- the gate's pills after the name; with a pick, after that
+    local name = kit.fit(label, ax - S(12) - pg.lx - (inline and pills_w + S(8) or 0), kit.fonts.text, S(BODY))
+    kit.text_mid(pg.dl, pg.lx, cy, name, r.on and P.text or P.dim, kit.fonts.text, S(BODY), pg.alpha)
+    if inline then
+        draw_gates(id, r, pills, pg.lx + kit.measure(name, kit.fonts.text, S(BODY)) + S(8), cy, reveal, pg.alpha)
+    end
 
     local any = false
     for _, m in ipairs(r.mods or {}) do any = any or m.on end
@@ -1242,11 +1301,14 @@ local function family_row(pg, sid, r)
     local line_i = 0
     if r.choices then
         line_i = 1
-        kit.dropdown('##pick_' .. id, pg.lx, top, S(PICK_W), r.choice, true, pg.alpha, function ()
+        local _, room = gate_pills(r, 0, true)  -- the drop-down leaves room for both, hovered or not
+        local pick_w = math.min(S(PICK_W), pg.right - pg.lx - (room > 0 and room + S(8) or 0))
+        kit.dropdown('##pick_' .. id, pg.lx, top, pick_w, r.choice, true, pg.alpha, function ()
             for _, c in ipairs(r.choices) do
                 if kit.selectable(c.label, c.name == r.pick) then act.pick(r.key, c.name) end
             end
         end)
+        draw_gates(id, r, pills, pg.lx + pick_w + S(8), top, reveal, pg.alpha)
     end
     for _, g in ipairs(laid) do
         for _, it in ipairs(g.items) do
@@ -1291,7 +1353,10 @@ local DEBUFF_TIP = 'Untick to leave it on: worth it for what doesn\'t matter to 
 
 -- Debuff removal's spells and abilities, a checkbox each: its name, then ready or why not at the right.
 local function remover_row(pg, sid, r)
+    local id, y0 = sid .. '_' .. r.key, pg.y
     local cy = line(pg, nil, nil)
+    local reveal = revealed(pg, id, y0, S(ROW_H))
+    local pills, pills_w = gate_pills(r, reveal)
     local on, flipped = kit.checkbox(r.label .. '##' .. sid .. '_with_' .. r.key, pg.lx, cy, r.on, true, pg.alpha)
     if flipped then act.row(r.key, on) end
     kit.tip(t(REMOVER_TIP) .. (r.shared and t('\nIt heals too: unticked here, it is unticked under Heal.') or ''))
@@ -1299,8 +1364,9 @@ local function remover_row(pg, sid, r)
     readiness(pg, pg.right, cy, r.avail, r.ready)
     if r.action and kit.over(pg.right - aw, cy - S(10), aw, S(20)) then kit.tooltip(r.action) end
     local lx = pg.lx + S(kit.CB) + S(10)
-    kit.text_mid(pg.dl, lx, cy, kit.fit(r.label, pg.right - aw - S(12) - lx, kit.fonts.text, S(BODY)),
-        r.on and P.text or P.dim, kit.fonts.text, S(BODY), pg.alpha)
+    local name = kit.fit(r.label, pg.right - aw - S(12) - lx - (pills[1] and pills_w + S(8) or 0), kit.fonts.text, S(BODY))
+    kit.text_mid(pg.dl, lx, cy, name, r.on and P.text or P.dim, kit.fonts.text, S(BODY), pg.alpha)
+    if pills[1] then draw_gates(id, r, pills, lx + kit.measure(name, kit.fonts.text, S(BODY)) + S(8), cy, reveal, pg.alpha) end
 end
 
 -- A tab for everyone, then one for each player removal runs on, then None, All and the

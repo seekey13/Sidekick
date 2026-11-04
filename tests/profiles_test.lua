@@ -81,6 +81,17 @@ test('a Save from Default parks nothing, so the next load parks the working copy
     eq(cfg.heal.danger, 43)
 end)
 
+test('a profile keeps each row\'s Combat or Idle, and loading one brings them back', function ()
+    local cfg = cfg_with(function (c) c.gates.Haste, c.gates.Cure = 'combat', 'idle' end)
+    profiles.save(cfg, 'Dynamis')
+    eq(cfg.profiles.Dynamis.gates, { Haste = 'combat', Cure = 'idle' })
+    profiles.load_default(cfg)
+    profiles.new(cfg)
+    eq(cfg.gates, {})
+    profiles.load(cfg, 'Dynamis')
+    eq(cfg.gates, { Haste = 'combat', Cure = 'idle' })
+end)
+
 test('a profile saved before newer settings existed gets their defaults', function ()
     local cfg = cfg_with()
     cfg.profiles.Old = { heal = { danger = 35 }, rows = {} }

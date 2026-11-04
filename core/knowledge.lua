@@ -39,7 +39,8 @@
     pet_range  yalms your pet may be from you (the server refuses Repair past 20)
     item       an inventory item's id: used on you with /item (opt-in: items cost gil)
     one_of     clears just one of `removes` per use, at random (Remedy Ointment)
-    gate       'combat' | 'idle' (enemy-targeted actions are combat-only anyway)
+    gate       'combat' | 'idle' (enemy-targeted actions are combat-only anyway); built in: a row's
+               own Combat or Idle (cfg.gates, can.gate) can't change it
     pick_one   families sharing a key keep one selection (enspells, storms, bar-elements)
     blocked_by skip while you have any of these statuses
     trance     no TP needed under Trance (waltzes, Aspir Samba: jobs/dnc.lua)

@@ -739,6 +739,58 @@ test('a remote setting is one of the window\'s, held to its slider\'s range', fu
     end
 end)
 
+test('a row\'s gate: none at first, else the one set; one built in (Raise, an action on the enemy) is fixed', function ()
+    local view = build(whm)
+    local haste, raise, drain = row(view, 'buff', 'Haste'), row(view, 'revive', 'Raise'), row(view, 'heal', 'Drain')
+    eq({ haste.gate, haste.gate_fixed, raise.gate, raise.gate_fixed, drain.gate, drain.gate_fixed },
+       { nil, nil, 'idle', true, 'combat', true })
+    local paralysis = row(view, 'remove', 'paralysis')  -- a debuff, not an action: no gate
+    eq({ paralysis.debuff, paralysis.gate, paralysis.gate_fixed }, { true, nil, nil })
+    local cfg = settings.defaults()
+    cfg.gates.Haste, cfg.gates.Erase, cfg.gates.Raise = 'combat', 'idle', 'combat'
+    view = build(whm, cfg)
+    eq({ row(view, 'buff', 'Haste').gate, row(view, 'remove', 'Erase').gate, row(view, 'revive', 'Raise').gate },
+       { 'combat', 'idle', 'idle' })  -- Raise's own wins
+    eq({ row(view, 'buff', 'Haste').avail, row(view, 'remove', 'Erase').avail }, { 'combat only', 'ready' })
+    view = build(whm, cfg, fake.snap({}, { combat = true }))
+    eq({ row(view, 'buff', 'Haste').avail, row(view, 'remove', 'Erase').avail }, { 'ready', 'idle only' })
+    cfg.gates.Haste = 'always'  -- not a gate: none
+    eq(row(build(whm, cfg), 'buff', 'Haste').gate, nil)
+end)
+
+test('act.gate sets a row\'s gate, the other going, and clears it; no row is made, so Cure stays on', function ()
+    local cfg = settings.defaults()
+    local act, writes = actions(cfg)
+    act.gate('Cure', 'combat')
+    eq({ cfg.gates, cfg.rows.Cure }, { { Cure = 'combat' }, nil })
+    act.gate('Cure', 'idle')
+    eq(cfg.gates, { Cure = 'idle' })
+    act.gate('Cure', nil)
+    eq(cfg.gates, {})
+    act.gate('Cure', 'sometimes')
+    eq({ cfg.gates, writes[1] }, { {}, 4 })
+    eq(row(build(whm, cfg), 'heal', 'Cure').on, true)
+end)
+
+test('another session sets a row\'s gate to the state sent; never one built in, an unknown row or another word', function ()
+    local cfg = settings.defaults()
+    local act = model.actions(cfg, status(), function () end)
+    local function apply(...) return model.apply(act, cfg, call(...), whm) end
+    eq({ apply('gate', 'Haste', 'combat'), apply('gate', 'Cure', 'idle'), apply('gate', 'Cure', 'idle') }, { true, true, true })
+    eq(cfg.gates, { Haste = 'combat', Cure = 'idle' })
+    eq({ apply('gate', 'Haste', nil), cfg.gates }, { true, { Cure = 'idle' } })
+    for _, bad in ipairs({ call('gate', 'Raise', 'combat'), call('gate', 'Drain', 'idle'), call('gate', 'Nope', 'idle'),
+                           call('gate', 'Cure', 'sometimes'), call('gate', 'Cure', true), call('gate', 5, 'idle'),
+                           call('gate', 'Cure', 'idle', 'extra') }) do
+        eq(model.apply(act, cfg, bad, whm), false, tostring(bad[2]) .. ' ' .. tostring(bad[3]))
+    end
+    eq(cfg.gates, { Cure = 'idle' })
+    local sent = {}
+    local mine = model.actions(cfg, status(), function () end, nil, function (name, c) sent[#sent + 1] = { name, c } end)
+    mine.remote('A').gate('Haste', 'idle')
+    eq(sent, { { 'A', call('gate', 'Haste', 'idle') } })
+end)
+
 test('what halts automation, in the engine\'s order, as words; a moment\'s hold (casting, moving) is none', function ()
     eq({ model.halted({ loading = true }), model.halted({ mounted = true, afk = true }), model.halted({ afk = true }),
          model.halted({ safe = true }), model.halted({ casting = true, moving = true }) },

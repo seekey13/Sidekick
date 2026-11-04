@@ -253,12 +253,34 @@ local function heal_tiers(acts, cfg)
     return (count > 1 or never) and out or nil
 end
 
+-- The gate every one of `acts` has built in (can.built_gate), when they share one; nil when any has none.
+local function built_gate(acts)
+    local gate = can.built_gate(acts[1])
+    for _, a in ipairs(acts) do
+        if can.built_gate(a) ~= gate then return nil end
+    end
+    return gate
+end
+
+-- A row's gate: built in (`gate_fixed`: Berserk, Spectral Jig, an action on the enemy), else the one set on it
+-- (cfg.gates), else nil.
+local function gate_of(row, acts, cfg)
+    local built = built_gate(acts)
+    if built then
+        row.gate, row.gate_fixed = built, true
+    else
+        local set = (cfg.gates or {})[row.key]
+        row.gate = (set == 'combat' or set == 'idle') and set or nil
+    end
+end
+
 -- `modifiers` (a list, maybe empty) only for buff and luopan rows.
 local function build_row(key, acts, cfg, g, units, modifiers, outsiders)
     local r = settings.row(cfg, acts[1])
     local notes = distinct(acts, 'note')
     local note = #notes == 1 and notes[1] or nil
     local row = { key = key, label = row_label(key, acts, note), on = r.on == true }
+    gate_of(row, acts, cfg)
     if modifiers then
         row.choices = choices(acts, note)
         row.targets = chips(acts, r, units, outsiders)
@@ -624,6 +646,7 @@ local function reserved(a)
 end
 
 function model.build(g, cat, cfg, status, names)
+    g = util.overlay(g, { gates = cfg.gates })  -- the rows' Combat and Idle, for can.gate (as engine.decide)
     lang.use(cfg.ui.japanese)
     lang.learn(cat, names.spells, names.abilities, names.statuses)  -- the catalog's first: its items are in no other
     local units, outsiders, known = {}, {}, {}
@@ -733,7 +756,7 @@ end
 -- HUD's (its labels and sizes) and the views it shows of others itself,
 -- with the view's `version`, VIEW: raise it when a field the window draws changes,
 -- so a session still running older code isn't drawn from a view it can't read.
-model.VIEW = 10
+model.VIEW = 11
 function model.published(view)
     local out = util.shallow_copy(view)
     out.pointer, out.others, out.ui, out.remote, out.sessions = nil, nil, nil, nil, nil
@@ -753,7 +776,8 @@ local REMOTE = {
     who = { 'string', 'boolean' }, debuff = { 'string', 'boolean', 'string|nil' },
     debuffs = { 'table', 'boolean', 'string|nil' },
     pick = { 'string', 'string|nil' }, target = { 'string', 'number|string', 'boolean' },
-    mod = { 'string', 'string', 'boolean' }, hold = { 'string', 'boolean' }, profile = { 'string|nil' }, save_profile = { 'string', 'boolean|nil' },
+    mod = { 'string', 'string', 'boolean' }, hold = { 'string', 'boolean' }, gate = { 'string', 'string|nil' },
+    profile = { 'string|nil' }, save_profile = { 'string', 'boolean|nil' },
     new_profile = {}, delete_profile = { 'string' }, track = { 'string' }, untrack = { 'string' },
     skip = { 'string', 'boolean' }, heal_spell = { 'string', 'boolean' }, set = { 'string', 'boolean|number|string' },
 }
@@ -813,6 +837,15 @@ local function chipped(cat, key)
     return false
 end
 
+-- Whether `key` is a row of this job's whose gate can be set: one of its actions has none built in.
+local function gated(cat, key)
+    for _, a in ipairs(cat or {}) do
+        if settings.key(a) == key and not can.built_gate(a) then return true end
+    end
+    return false
+end
+local GATES = { combat = true, idle = true }
+
 -- Make `call` ({ fn, n = #args, args... }), sent by another session, through `act`,
 -- when it's one REMOTE lists with arguments of the right types (`n` of them, no
 -- more than it takes); whether it was. Only those arguments are passed on.
@@ -827,6 +860,7 @@ function model.apply(act, cfg, call, cat)
     local a, b = call[2], call[3]
     if fn == 'section' and (a == 'ui' or type(cfg[a]) ~= 'table' or type(cfg[a].on) ~= 'boolean') then return false end
     if CHIPS[fn] and not chipped(cat, a) then return false end
+    if fn == 'gate' and not (gated(cat, a) and (b == nil or GATES[b])) then return false end
     -- A target's slot is an integer 0-17, or a tracked player's name.
     if fn == 'target' and type(b) == 'number' and (b % 1 ~= 0 or b < 0 or b > 17) then return false end
     -- A player is named, never ''; debuff's and debuffs' name is the third argument.
@@ -942,6 +976,12 @@ function model.actions(cfg, status, changed, tracking, send)
     end)
     -- Whether a row's spell waits while one of its modifiers can't go with it (Hold), or goes without (the default).
     act.hold = saving(function (key, on) saved_row(cfg, key, false).hold = on or nil end)
+    -- A row's gate: 'combat' (it goes only in combat), 'idle' (only out of it) or nil (any time); setting one clears
+    -- the other. Kept in cfg.gates, so a row is never made here (core/settings.lua).
+    act.gate = saving(function (key, gate)
+        cfg.gates = cfg.gates or {}
+        cfg.gates[key] = GATES[gate] and gate or nil
+    end)
     -- Profiles (core/profiles.lua): load one by name, nil for Default; save (renames the loaded one when the name
     -- differs), save as, new, delete.
     act.profile = saving(function (name)
