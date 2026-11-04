@@ -101,7 +101,7 @@ local K = {
     ['Valiance']  = { role = 'ward', priority = 2, status = 'Valiance', blocked_by = { 'Vallation', 'Liement' } },
     ['Pflug']     = { role = 'ward', priority = 1, status = 'Pflug' },
     -- Fired before white enhancing magic, as a stratagem (not the Spikes, which are black).
-    ['Embolden']  = { role = 'modifier', applies = sch.enhancing, chip = 'Emb', note = 'more potent' },
+    ['Embolden']  = { role = 'modifier', applies = sch.enhancing, note = 'more potent' },
 }
 -- The runes: each shows the status named like it.
 for _, r in ipairs(run.RUNES) do

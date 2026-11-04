@@ -1253,8 +1253,8 @@ end
 
 -- One row per settings key: its name (and how many you carry), ready or why not, its switch. Under that, on their
 -- own lines: its pick, then its targets a row at a time (ME P1-P5, then B0-B5, C0-C5 and tracked; no empty slot), then its
--- modifiers fired before its spell (Pen, Cel, Acc, Emb...) and Hold, then a heal's tiers as checkboxes. Its gate's
--- pills (Combat, Idle) follow its name, pick or not.
+-- modifiers fired before its spell (Penury, Celerity, Accession, Embolden...) and Hold, then a heal's tiers as
+-- checkboxes. Its gate's pills (Combat, Idle) follow its name, pick or not.
 local function family_row(pg, sid, r)
     local id = sid .. '_' .. r.key
     local n = r.count or r.tools

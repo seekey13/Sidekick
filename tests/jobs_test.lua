@@ -64,9 +64,9 @@ end)
 
 test('the modules plug in where the shared code had them: rows, behaviors, settings, sections', function ()
     local K = require('core.knowledge')
-    eq({ K['Penury'].chip, K['Corsair\'s Roll'].lucky, K['Geo-Regen'].luopan, type(K['Radial Arcana'].decide),
-         K['Ignis'].rune.element, K['Embolden'].chip, K['Valor Minuet'].role, K['Fire Maneuver'].role, K['Diffusion'].chip },
-       { 'Pen', 5, 'buff', 'function', 'Fire', 'Emb', 'song', 'maneuver', 'Dif' })
+    eq({ K['Penury'].note, K['Corsair\'s Roll'].lucky, K['Geo-Regen'].luopan, type(K['Radial Arcana'].decide),
+         K['Ignis'].rune.element, K['Embolden'].note, K['Valor Minuet'].role, K['Fire Maneuver'].role, K['Diffusion'].note },
+       { 'half the MP', 5, 'buff', 'function', 'Fire', 'more potent', 'song', 'maneuver', 'on everyone near you' })
     local quick, names = {}, {}
     for _, b in ipairs(require('core.engine').BEHAVIORS) do
         names[#names + 1] = b.name

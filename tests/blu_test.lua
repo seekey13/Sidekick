@@ -101,7 +101,7 @@ end)
 
 test('catalog: Diffusion fits blue magic that goes on you alone', function ()
     local dif = named(cat, 'Diffusion')
-    eq({ dif.role, dif.status, dif.chip, dif.spreads }, { 'modifier', { DIFFUSION }, 'Dif', { area = 10, mp = 1, others = true } })
+    eq({ dif.role, dif.status, dif.spreads }, { 'modifier', { DIFFUSION }, { area = 10, mp = 1, others = true } })
     eq({ dif.applies(named(cat, 'Cocoon')), dif.applies(named(cat, 'Refueling')), dif.applies(named(cat, 'Battery Charge')),
          dif.applies(named(cat, 'Protect')) }, { true, true, true, false })
     -- Already an area spell (Diamondhide), or not on you alone (Magic Fruit): nothing to spread.
@@ -142,7 +142,7 @@ test('Diffusion on recast: the spell goes alone, or waits with Hold on', functio
     eq(decide(snap({}, {}, { Diffusion = 300 }), cfg), '/ma "Cocoon" <me>')
 end)
 
-test('UI: a blue magic buff row has a Dif chip; other rows don\'t', function ()
+test('UI: a blue magic buff row has a Diffusion chip; other rows don\'t', function ()
     local names = { job = function () return 'BLU' end, statuses = fake.res.statuses }
     local view = model.build(fake.snap({}), cat, settings.defaults(), { running = false, sent = {} }, names)
     local rows = {}
@@ -150,5 +150,5 @@ test('UI: a blue magic buff row has a Dif chip; other rows don\'t', function ()
         if s.id == 'buff' then for _, r in ipairs(s.rows) do rows[r.key] = r end end
     end
     eq({ rows.Cocoon.mods[1].label, rows.Cocoon.mods[1].note, rows.Protect ~= nil, rows.Protect.mods == nil },
-       { 'Dif', 'on everyone near you', true, true })
+       { 'Diffusion', 'on everyone near you', true, true })
 end)

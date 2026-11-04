@@ -71,7 +71,6 @@
                in your party within `area` yalms of you, at `mp` x the cost (Accession, Diffusion);
                `others`: only while someone but you lacks it (Diffusion's long recast)
     unbridled  blue magic cast through Unbridled Learning, never set (jobs/blu.lua)
-    chip       a modifier's short label on a buff row
     luopan     'buff' | 'debuff': a Geo- spell, put down as a luopan; 'spend': spends
                the luopan (Radial Arcana)
     decide     function (a, g, cat, cfg, mem): a recover row that decides for itself

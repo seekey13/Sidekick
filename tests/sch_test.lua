@@ -162,7 +162,8 @@ test('UI: a buff row shows the stratagems that fit it, and act.mod turns one on 
     end
     local r = rows()
     eq({ r.has_mods, chips(r.Protect), chips(r.spikes), chips(r.storm), r['Light Arts'] and r['Light Arts'].mods },
-       { true, { 'Pen', 'Cel', 'Acc', 'Per' }, { 'Par', 'Ala' }, { 'Pen', 'Cel', 'Acc', 'Per' }, nil })
+       { true, { 'Penury', 'Celerity', 'Accession', 'Perpetuance' }, { 'Parsimony', 'Alacrity' },
+         { 'Penury', 'Celerity', 'Accession', 'Perpetuance' }, nil })
     eq(r.Protect.mods[3].note, 'on everyone near you, at twice the MP')
     local function heal_view(list)
         return model.build(fake.snap({}), list, cfg, { running = false, sent = {} }, names).heal
@@ -172,7 +173,7 @@ test('UI: a buff row shows the stratagems that fit it, and act.mod turns one on 
     local n = 0
     local act = model.actions(cfg, {}, function () n = n + 1 end)
     act.mod('Protect', 'Accession')
-    eq({ cfg.rows.Protect, chips(rows().Protect) }, { { on = false, mods = { Accession = true } }, { 'Pen', 'Cel', 'Acc+', 'Per' } })
+    eq({ cfg.rows.Protect, chips(rows().Protect) }, { { on = false, mods = { Accession = true } }, { 'Penury', 'Celerity', 'Accession+', 'Perpetuance' } })
     act.mod('Protect', 'Accession')
     eq({ cfg.rows.Protect.mods, n }, { {}, 2 })
     -- Jobs without stratagems: no chips.
@@ -277,7 +278,7 @@ test('a held row says what it waits for', function ()
     for _, s in ipairs(v.sections) do
         for _, r in ipairs(s.rows or {}) do if r.key == 'Protect' then row = r end end
     end
-    eq({ row.ready, row.avail }, { false, 'waits for Pen: needs Light Arts' })
+    eq({ row.ready, row.avail }, { false, 'waits for Penury: needs Light Arts' })
 end)
 
 -- The client lists the stratagems only under their Arts (LSB's addType): a SCH
@@ -293,7 +294,7 @@ test('loaded outside either Arts: the stratagems are still there, each waiting o
     end
     local chips = {}
     for i, m in ipairs(rows.Protect.mods) do chips[i] = m.label end
-    eq(chips, { 'Pen', 'Cel', 'Acc' })
+    eq(chips, { 'Penury', 'Celerity', 'Accession' })
     eq({ rows.Rapture.ready, rows.Rapture.avail, rows.addendum.avail }, { false, 'needs Light Arts', 'pick one' })
     eq(view.heal.stratagems, true)
     -- Under Light Arts, but the client doesn't list it (a merit not taken): never sent.

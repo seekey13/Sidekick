@@ -1524,15 +1524,15 @@ test('SCH: a buff row\'s stratagem chips follow its targets and each toggles', f
     local sch = fake.catalog(20, 75, 5, 37, { 'Light Arts', 'Penury', 'Celerity', 'Accession', 'Perpetuance' })
     local cfg, st = settings.defaults(), status()
     local function view() return model.build(snap(), sch, cfg, st, NAMES) end
-    eq(render(cfg, st, on('Buff', { ['Acc##buff_Protect_mod_Accession'] = true }), view()), 1)
+    eq(render(cfg, st, on('Buff', { ['Accession##buff_Protect_mod_Accession'] = true }), view()), 1)
     eq(cfg.rows.Protect, { on = false, mods = { Accession = true } })
-    eq(button('Pen##buff_Protect_mod_Penury'), true)
-    eq(render(cfg, st, on('Buff', { ['Acc##buff_Protect_mod_Accession'] = true }), view()), 1)
+    eq(button('Penury##buff_Protect_mod_Penury'), true)
+    eq(render(cfg, st, on('Buff', { ['Accession##buff_Protect_mod_Accession'] = true }), view()), 1)
     eq(cfg.rows.Protect.mods, {})
     eq(render(cfg, st, on('Buff', { ['Hold##buff_Protect_hold'] = true }), view()), 1)
     eq({ cfg.rows.Protect.hold, tipped('No modifier is on here: it waits for nothing.') }, { true, true })
     render(cfg, st, on('Buff'))
-    eq({ button('Pen##buff_Protect_mod_Penury'), button('Hold##buff_Protect_hold') }, { false, false })  -- WHM: no stratagems
+    eq({ button('Penury##buff_Protect_mod_Penury'), button('Hold##buff_Protect_hold') }, { false, false })  -- WHM: no stratagems
 end)
 
 test('SCH: Keep a stratagem for healing, under Heal, only for a job with stratagems', function ()

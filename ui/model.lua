@@ -209,25 +209,15 @@ local function chips(acts, r, units, outsiders)
     return player_chips(units, outsiders, outside, function (slot) return chosen[slot] == true end)
 end
 
--- A modifier's chip as shown: its abbreviation ('Pen'); in Japanese its name's first two characters ('簡素' of
--- 簡素清貧の章), three when it starts with kana ('エンボ' of エンボルド).
-local function chip_of(m)
-    local s = lang.name(m.name, m.jp)
-    if s == m.name then return m.chip or m.name end
-    local kanji = s:byte(1) >= 0xE4 and s:byte(1) <= 0xE9  -- U+4E00 to U+9FFF
-    return s:match(kanji and '^[\224-\239][\128-\191][\128-\191][\224-\239][\128-\191][\128-\191]'
-        or '^[\224-\239][\128-\191][\128-\191][\224-\239][\128-\191][\128-\191][\224-\239][\128-\191][\128-\191]') or s
-end
-
 -- Modifier chips (SCH's stratagems, RUN's Embolden): each one in the catalog that fits one of
--- the row's spells.
+-- the row's spells, labelled with its full name ('Penury', 簡素清貧の章).
 local function mod_chips(acts, r, modifiers)
     local on, out = r.mods or {}, {}
     for _, m in ipairs(modifiers) do
         local fits = false
         for _, a in ipairs(acts) do fits = fits or m.applies(a) end
         if fits then
-            out[#out + 1] = { name = m.name, label = chip_of(m), note = m.note and lang.t(m.note), on = on[m.name] == true }
+            out[#out + 1] = { name = m.name, label = lang.name(m.name, m.jp), note = m.note and lang.t(m.note), on = on[m.name] == true }
         end
     end
     return out[1] and out or nil
@@ -309,7 +299,7 @@ local function build_row(key, acts, cfg, g, units, modifiers, outsiders)
     for _, m in ipairs(row.hold and modifiers or {}) do
         if row.ready and (r.mods or {})[m.name] and not can.any(g.me.buffs, m.status) then
             local ok, why = can.use(m, g)
-            if not ok then row.ready, row.avail = false, lang.f('waits for %s: %s', chip_of(m), lang.why(why)) end
+            if not ok then row.ready, row.avail = false, lang.f('waits for %s: %s', lang.name(m.name, m.jp), lang.why(why)) end
         end
     end
     row.tiers = heal_tiers(acts, cfg)

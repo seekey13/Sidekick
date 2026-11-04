@@ -925,7 +925,7 @@ test('in Japanese a job\'s pickers are labelled from the DAT: songs, rolls, stra
     eq(keys(cor.roll.choices, 'label'), { 'カオスロール（攻撃力+）', 'コルセアズロール（経験値+）' })
     eq(keys(cor.roll.choices, 'name'), { 'Chaos Roll', 'Corsair\'s Roll' })
     local sch = japanese_view(fake.catalog(SCH, 75, WHM, 37, { 'Light Arts', 'Penury', 'Celerity', 'Accession' }))
-    eq(keys(row(sch, 'buff', 'Protect').mods, 'label'), { '簡素', '電光', '女神' })
+    eq(keys(row(sch, 'buff', 'Protect').mods, 'label'), { '簡素清貧の章', '電光石火の章', '女神降臨の章' })
     eq(keys(row(sch, 'buff', 'Protect').mods, 'name'), { 'Penury', 'Celerity', 'Accession' })
     eq(row(sch, 'buff', 'Protect').mods[1].note, '消費MP半減')
 end)

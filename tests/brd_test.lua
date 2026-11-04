@@ -49,7 +49,7 @@ test('catalog: songs are their own role, by the kind they show; Pianissimo a mod
     eq({ m.role, m.status, m.duration, m.note, m.pick_one }, { 'song', { MINUET }, 120, '+ATK', nil })
     eq({ named(cat, 'Victory March').status, named(cat, 'Advancing March').status }, { { MARCH }, { MARCH } })
     local p = named(cat, 'Pianissimo')
-    eq({ p.role, p.status, p.chip, p.applies }, { 'modifier', { PIANISSIMO }, nil, nil })
+    eq({ p.role, p.status, p.applies }, { 'modifier', { PIANISSIMO }, nil })
     eq(named(cat, 'Nightingale').role, 'buff')  -- still a buff row
     eq({ brd.slots(snap()), brd.slots(snap(nil, nil, { main = WHM, sub = BRD })), brd.slots(snap(nil, nil, { main = WHM, sub = 4 })) },
        { 2, 1, 0 })
