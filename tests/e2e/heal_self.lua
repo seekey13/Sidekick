@@ -1,4 +1,4 @@
--- You, under the danger line: Sidekick3 heals you, the heal lands, your HP comes up.
+-- You, under the danger line: Sidekick heals you, the heal lands, your HP comes up.
 return {
     about = 'you at 40% HP get a heal that lands',
     run = function (t)

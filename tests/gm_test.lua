@@ -181,7 +181,7 @@ test('server Lua: one line, no <t> for the client to fill in, within what the se
     eq(refused(gm.exec, 'print("\226\152\133")'), 'ASCII only: !exec print("\226\152\133")')
     eq(refused(gm.exec, ('x'):rep(gm.MAX_LINE)), ('%d bytes, more than the server reads whole (%d): !exec %s')
         :format(gm.MAX_LINE + 6, gm.MAX_LINE, ('x'):rep(gm.MAX_LINE)))
-    eq(gm.probe(), { '!where', '!exec player:printToPlayer(\'Sidekick3 gm: level 4 or more\')' })
+    eq(gm.probe(), { '!where', '!exec player:printToPlayer(\'Sidekick gm: level 4 or more\')' })
     eq(#sent(), 3)
 end)
 

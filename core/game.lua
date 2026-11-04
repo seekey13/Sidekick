@@ -83,8 +83,8 @@ for _, z in ipairs({
 }) do SAFE_ZONES[z] = true end
 
 ffi.cdef[[
-    typedef struct { uint8_t padding00[116]; uint32_t GuideNo; uint32_t UniqueNo; } sk3_battle_actor;
-    typedef sk3_battle_actor* (__stdcall* sk3_seek_battle_actor)(void);
+    typedef struct { uint8_t padding00[116]; uint32_t GuideNo; uint32_t UniqueNo; } sk_battle_actor;
+    typedef sk_battle_actor* (__stdcall* sk_seek_battle_actor)(void);
 ]]
 
 -- Client functions found once, on first read (none of this exists offline).
@@ -92,7 +92,7 @@ local seek_bt, event_ptr, weather_ptr, clock_ptr  -- false / 0 when the signatur
 local function init()
     if seek_bt ~= nil then return end
     local bt = ashita.memory.find('FFXiMain.dll', 0, '66A1????????83EC186685C053565774??0FBFC08B0C85', 0, 0)
-    seek_bt = bt and bt ~= 0 and ffi.cast('sk3_seek_battle_actor', bt) or false
+    seek_bt = bt and bt ~= 0 and ffi.cast('sk_seek_battle_actor', bt) or false
     event_ptr = ashita.memory.find('FFXiMain.dll', 0,
         'A0????????84C0741AA1????????85C0741166A1????????663B05????????0F94C0C3', 0, 0) or 0
     -- The same signatures as LuAshitacast and v2's lib/core/vanadiel.lua.
@@ -324,7 +324,7 @@ end
 
 -- The client's <bt>. Retail never puts a trust in another party of the alliance,
 -- but trusts called past a full party land there, and the client's lookup then
--- jumps to a bad pointer, crashing Sidekick3: while one is there it isn't asked,
+-- jumps to a bad pointer, crashing Sidekick: while one is there it isn't asked,
 -- and the mob comes from the alliance's claims (claimed_target).
 local function battle_target(em, trust_allied)
     if not seek_bt or trust_allied then return nil end

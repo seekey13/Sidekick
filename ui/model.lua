@@ -5,7 +5,7 @@
 
     model.build(g, cat, cfg, status, names) -> view     everything a UI shows
         g       snapshot (core/game.lua)        cat     catalog list
-        cfg     settings (core/settings.lua)    status  Sidekick3.lua's status table
+        cfg     settings (core/settings.lua)    status  Sidekick.lua's status table
         names   { job = function (id) -> 'WHM', statuses = { [id] = { en, jp } },
                   spells, abilities = { [id] = { en, jp } } or nil: names to find by their English one }
         On a Japanese client (cfg.ui.japanese) what it writes for a UI to show is Japanese (core/lang.lua): names
@@ -904,7 +904,7 @@ function model.actions(cfg, status, changed, tracking, send)
     local function saving(f) return function (...) f(...); changed() end end
 
     -- This session only: automation always starts stopped, and a start wakes AFK sleep and starts its wait over
-    -- (Sidekick3.lua); the log as set (/sk3 log; the standard UI has no switch for it, a custom one may).
+    -- (Sidekick.lua); the log as set (/sk log; the standard UI has no switch for it, a custom one may).
     function act.run(on)
         status.running = on
         if on then status.restart = true end

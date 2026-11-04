@@ -1,11 +1,11 @@
--- Poison on a party member: Poisona on them, and it clears (as Sidekick3 reads their statuses).
+-- Poison on a party member: Poisona on them, and it clears (as Sidekick reads their statuses).
 local POISON = 3
 
 return {
     about = 'a poisoned party member gets Poisona, and the Poison goes',
     run = function (t)
         local who = t.member()
-        t.need(t.action('Poisona'), 'no Poisona among Sidekick3\'s actions for this job')
+        t.need(t.action('Poisona'), 'no Poisona among Sidekick\'s actions for this job')
         local rm = t.cfg().remove
         local mine = (rm.own or {})[who]
         local skip = mine and mine.set and mine.skip or rm.skip or {}

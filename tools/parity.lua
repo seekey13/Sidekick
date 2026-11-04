@@ -3,7 +3,7 @@
     Delete this (and the v2 dependency) once it reports clean.
 
     Run from the v2 repo root, which provides the job files and their fake client:
-        cd ../Sidekick && luajit ../Sidekick3/tools/parity.lua
+        cd ../Sidekick2 && luajit ../Sidekick/tools/parity.lua
 
     For every job at level 75 (all spells and abilities known) each v2 entry in a
     generic category must appear in the catalog with the same role, and agree on
@@ -15,16 +15,16 @@
     groups aren't: v3 picks songs by slot, jobs/brd.lua).
 ]]--
 
-local sk3 = arg[0]:gsub('[\\/]tools[\\/]parity%.lua$', '')
-package.path = './?.lua;' .. sk3 .. '/?.lua;' .. package.path
+local root = arg[0]:gsub('[\\/]tools[\\/]parity%.lua$', '')
+package.path = './?.lua;' .. root .. '/?.lua;' .. package.path
 require('tests.ashita')  -- v2's fake client, so its job files load
 
 local catalog = require('core.catalog')
 local K = require('core.knowledge')
 local res = {
-    spells = dofile(sk3 .. '/tests/data/spells.lua'),
-    abilities = dofile(sk3 .. '/tests/data/abilities.lua'),
-    statuses = dofile(sk3 .. '/tests/data/statuses.lua'),
+    spells = dofile(root .. '/tests/data/spells.lua'),
+    abilities = dofile(root .. '/tests/data/abilities.lua'),
+    statuses = dofile(root .. '/tests/data/statuses.lua'),
 }
 
 local ROLE = {

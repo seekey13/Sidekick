@@ -1,5 +1,5 @@
 --[[
-    Players outside your party and alliance you look after too (/sk3 track), this
+    Players outside your party and alliance you look after too (/sk track), this
     session only. core/game.lua makes each a unit of kind 'tracked', looked after
     with what reaches outside the party.
 

@@ -1,4 +1,4 @@
-# Sidekick3
+# Sidekick
 
 ## In-game tests through the MCP
 

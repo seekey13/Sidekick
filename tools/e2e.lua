@@ -1,21 +1,21 @@
 --[[
     End-to-end tests in game (issue #56). A scenario (tests/e2e/<name>.lua) sets a scene with GM commands
-    (tools/gm.lua), lets Sidekick3 act on it, and checks what it sent and what landed. The runner lives in Sidekick3's
+    (tools/gm.lua), lets Sidekick act on it, and checks what it sent and what landed. The runner lives in Sidekick's
     own state, started and read through the VanaCore MCP's `lua` tool (or tools/e2e.mjs from a terminal):
 
-        lua  addon = "Sidekick3"  code = "return require('tools.e2e').run('heal')"     ('all': the suite)
-        lua  addon = "Sidekick3"  code = "return require('tools.e2e').status()"        (while it runs)
-        lua  addon = "Sidekick3"  code = "return require('tools.e2e').report()"        (each scenario's result)
+        lua  addon = "Sidekick"  code = "return require('tools.e2e').run('heal')"     ('all': the suite)
+        lua  addon = "Sidekick"  code = "return require('tools.e2e').status()"        (while it runs)
+        lua  addon = "Sidekick"  code = "return require('tools.e2e').report()"        (each scenario's result)
 
-    Nothing in Sidekick3 requires this file, and release zips leave tools/ out. Once loaded it watches, until
-    Sidekick3 unloads (or e2e.unwatch()):
-      - Sidekick3 itself, as it hands things on: `status` from share.tick (automation running, its intent and why, the
+    Nothing in Sidekick requires this file, and release zips leave tools/ out. Once loaded it watches, until
+    Sidekick unloads (or e2e.unwatch()):
+      - Sidekick itself, as it hands things on: `status` from share.tick (automation running, its intent and why, the
         sends it made, in English) and from engine.decide the snapshot, catalog and settings it decided on. Both are
         wrapped where they live, in their modules, and passed on untouched;
       - what went to the server: your actions (0x01A), item uses (0x037) and /heal (0x0E8);
       - what came back for your own actions (0x028): a cast or item begun, finished, interrupted, on whom;
       - while a scenario runs, the chat log's lines (the server's answers to GM commands).
-    Everything a scene changes is undone after it, whatever the result (see `t.gm`), unless Sidekick3 unloads first.
+    Everything a scene changes is undone after it, whatever the result (see `t.gm`), unless Sidekick unloads first.
 ]]--
 
 local catalog = require('core.catalog')
@@ -66,9 +66,9 @@ function e2e.events(since, kind)
 end
 
 ---------------------------------------------------------------------------------------------------------------------
--- Watching Sidekick3
+-- Watching Sidekick
 
--- What Sidekick3 holds, caught as it hands it on: status (share.tick), and the snapshot `g`, catalog `list` and
+-- What Sidekick holds, caught as it hands it on: status (share.tick), and the snapshot `g`, catalog `list` and
 -- settings `cfg` it last decided on (engine.decide).
 local seen = {}
 e2e.seen = seen
@@ -96,7 +96,7 @@ local function utf8(s)
     return s
 end
 
--- Sidekick3's new sends, oldest first, as `sent` events: its action's English name, kind, target, behavior and why.
+-- Sidekick's new sends, oldest first, as `sent` events: its action's English name, kind, target, behavior and why.
 local function new_sends()
     local sent = seen.status and seen.status.sent or {}
     for i = #sent, 1, -1 do
@@ -271,7 +271,7 @@ local function context(r)
             local u = gm.who(x.name)
             if u and not u.slot then return x.name end
         end
-        t.skip('no tracked player near you (/sk3 track <name>)')
+        t.skip('no tracked player near you (/sk track <name>)')
     end
     function t.who(name) return gm.who(name) end
     function t.sid(name)
@@ -280,17 +280,17 @@ local function context(r)
         return u.sid
     end
 
-    -- Sidekick3 as it sees things: its settings, its catalog's action named `name` (else nil), its unit for a name.
+    -- Sidekick as it sees things: its settings, its catalog's action named `name` (else nil), its unit for a name.
     function t.cfg()
         if not seen.cfg then
-            t.sk3('plan')  -- decides once, which shows them
-            t.wait_for(function () return seen.cfg end, 3, 'Sidekick3\'s settings')
+            t.sk('plan')  -- decides once, which shows them
+            t.wait_for(function () return seen.cfg end, 3, 'Sidekick\'s settings')
         end
         return seen.cfg
     end
     -- A setting for this scenario only: `path` 'rest.on', or a list of keys ({ 'rows', 'Protect' }) for a key with a
-    -- dot or space in it. Set in Sidekick3's own settings, which it reads as it decides, but not saved: a scenario cut
-    -- short (Sidekick3 reloaded) leaves the file as it was. The value it had is put back after, and saved, in case
+    -- dot or space in it. Set in Sidekick's own settings, which it reads as it decides, but not saved: a scenario cut
+    -- short (Sidekick reloaded) leaves the file as it was. The value it had is put back after, and saved, in case
     -- something else saved meanwhile.
     function t.setting(path, value)
         local keys = type(path) == 'table' and path or {}
@@ -316,16 +316,16 @@ local function context(r)
     end
     function t.status() return seen.status end
 
-    -- A /sk3 command, as typed.
-    function t.sk3(args) AshitaCore:GetChatManager():QueueCommand(1, '/sk3 ' .. args) end
+    -- A /sk command, as typed.
+    function t.sk(args) AshitaCore:GetChatManager():QueueCommand(1, '/sk ' .. args) end
     -- Automation on, from now (a start wakes AFK sleep too); off again afterwards if it was.
     function t.start()
-        local s = t.wait_for(function () return seen.status end, 3, 'Sidekick3\'s status')
-        if not s.running then t.finally(function () t.sk3('stop') end) end
-        t.sk3('start')
+        local s = t.wait_for(function () return seen.status end, 3, 'Sidekick\'s status')
+        if not s.running then t.finally(function () t.sk('stop') end) end
+        t.sk('start')
         t.wait_for(function () return s.running end, 3, 'automation on')
     end
-    -- Until Sidekick3 has sent nothing for `quiet` seconds (3).
+    -- Until Sidekick has sent nothing for `quiet` seconds (3).
     function t.idle(quiet, timeout)
         quiet = quiet or 3
         local start = clock()
@@ -333,10 +333,10 @@ local function context(r)
             local last = start
             for _, ev in ipairs(e2e.events(r.first, 'sent')) do last = math.max(last, ev.at) end
             return clock() - last >= quiet
-        end, timeout or 30, ('Sidekick3 quiet for %gs'):format(quiet))
+        end, timeout or 30, ('Sidekick quiet for %gs'):format(quiet))
     end
 
-    -- The scene: tools/gm.lua's commands, each the moment Sidekick3's answer is timed from (t.since), and each undone
+    -- The scene: tools/gm.lua's commands, each the moment Sidekick's answer is timed from (t.since), and each undone
     -- after the scenario: HP and MP back to full (a death revived first), a status given taken off (and its death, a
     -- Doom's, undone), immortal toggled back, a mob brought or spawned gone.
     local function restore(who)
@@ -388,7 +388,7 @@ local function context(r)
         return u ~= nil and u.index ~= nil and u.index > 0 and gm.present(AshitaCore:GetMemoryManager():GetEntity(), u.index)
     end
 
-    -- Everyone near at full HP and MP, then Sidekick3 quiet: a scene starts from nothing to do.
+    -- Everyone near at full HP and MP, then Sidekick quiet: a scene starts from nothing to do.
     function t.settle()
         local names = { gm.me() }
         local party = AshitaCore:GetMemoryManager():GetParty()
@@ -404,7 +404,7 @@ local function context(r)
         t.since = clock()
     end
 
-    -- Sidekick3's next send matching `want` since the scene changed (t.since), within `timeout` seconds; its time
+    -- Sidekick's next send matching `want` since the scene changed (t.since), within `timeout` seconds; its time
     -- after the scene is timed as `label` (want.label, else the behavior).
     function t.expect(want, timeout)
         local ev, took = t.wait_for(function ()
@@ -486,7 +486,7 @@ local function start(name)
         end, t)
         if okr then r.result = 'pass' else r.result, r.why = err.kind, err.why end
         if r.result ~= 'pass' then
-            -- What led up to it, before the cleanup: the last events, and what Sidekick3 thought then.
+            -- What led up to it, before the cleanup: the last events, and what Sidekick thought then.
             local trail = e2e.events(r.first)
             r.trail = { unpack(trail, math.max(1, #trail - 14)) }
             local s = seen.status
@@ -518,7 +518,7 @@ local function finish(r)
     e2e.say(('[e2e] %s: %s%s'):format(r.name, r.result, r.why and (' - ' .. r.why:match('^[^\n]*')) or ''))
 end
 
--- Each frame: Sidekick3's new sends, then the scenario running (or the next one queued) a step on.
+-- Each frame: Sidekick's new sends, then the scenario running (or the next one queued) a step on.
 local function step()
     new_sends()
     if not run then
@@ -582,14 +582,14 @@ function e2e.status()
 end
 
 -- The finished scenarios' results, oldest first (from the `from`th; all by default): result (pass, fail, skip,
--- error), why, seconds, notes, timings; for one that didn't pass, its last events and what Sidekick3 thought.
+-- error), why, seconds, notes, timings; for one that didn't pass, its last events and what Sidekick thought.
 function e2e.report(from)
     return { unpack(results, from or 1) }
 end
 
 function e2e.clear() results = {} end
 
--- Unhook: Sidekick3's functions back as they were, the events dropped; true when done. Not while a scenario runs,
+-- Unhook: Sidekick's functions back as they were, the events dropped; true when done. Not while a scenario runs,
 -- whose cleanup needs the frames: it's aborted instead, and false returned. Unwatch again once status() shows none.
 function e2e.unwatch()
     e2e.abort()
@@ -597,13 +597,13 @@ function e2e.unwatch()
     if share.e2e_tick then share.tick, share.e2e_tick = share.e2e_tick, nil end
     if engine.e2e_decide then engine.decide, engine.e2e_decide = engine.e2e_decide, nil end
     for _, ev in ipairs({ 'packet_in', 'packet_out', 'text_in', 'd3d_present' }) do
-        pcall(ashita.events.unregister, ev, 'sidekick3_e2e_' .. ev)
+        pcall(ashita.events.unregister, ev, 'sidekick_e2e_' .. ev)
     end
     return true
 end
 
 -- A step that fails ends the scenario running as an error, never the game's frame: an error a frame for five
--- seconds would unload Sidekick3 (VanaCore's rule). The scenario fails at its next wait, so its cleanup still runs;
+-- seconds would unload Sidekick (VanaCore's rule). The scenario fails at its next wait, so its cleanup still runs;
 -- should the frame's own step (`drives`) fail again, as it would every frame, it ends there, its cleanup cut short.
 local function guarded(fn, drives)
     return function (...)
@@ -621,12 +621,12 @@ end
 
 if ashita and ashita.events then
     watch()
-    ashita.events.register('packet_in', 'sidekick3_e2e_packet_in', guarded(e2e.packet_in))
-    ashita.events.register('packet_out', 'sidekick3_e2e_packet_out', guarded(e2e.packet_out))
-    ashita.events.register('text_in', 'sidekick3_e2e_text_in', guarded(function (e)
+    ashita.events.register('packet_in', 'sidekick_e2e_packet_in', guarded(e2e.packet_in))
+    ashita.events.register('packet_out', 'sidekick_e2e_packet_out', guarded(e2e.packet_out))
+    ashita.events.register('text_in', 'sidekick_e2e_text_in', guarded(function (e)
         if run then record({ type = 'line', mode = bit.band(e.mode, 0xFF), text = (e.message:gsub('[\30\31\127].', '')) }) end
     end))
-    ashita.events.register('d3d_present', 'sidekick3_e2e_d3d_present', guarded(step, true))
+    ashita.events.register('d3d_present', 'sidekick_e2e_d3d_present', guarded(step, true))
 end
 
 return e2e

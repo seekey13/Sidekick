@@ -8,7 +8,7 @@ return {
     about = 'a Doomed party member gets Cursna, and again while the Doom stays',
     run = function (t)
         local who = t.member()
-        t.need(t.action('Cursna'), 'no Cursna among Sidekick3\'s actions for this job')
+        t.need(t.action('Cursna'), 'no Cursna among Sidekick\'s actions for this job')
         local rm = t.cfg().remove
         local mine = (rm.own or {})[who]
         local skip = mine and mine.set and mine.skip or rm.skip or {}

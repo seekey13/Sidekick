@@ -36,7 +36,7 @@ test('a file caught mid-write, empty or of another version reads as nothing', fu
     eq(share.decode(text:sub(1, #text - 12)), nil)  -- the last line cut short
     eq(share.decode(text:sub(1, #text - 6)), nil)   -- cut after the name: the end line is missing
     eq(share.decode((text:gsub('session 6', 'session 5'))), nil)
-    eq(share.decode('sk3 session 6\n5 0 0\nend\n'), nil)  -- no members
+    eq(share.decode('sk session 6\n5 0 0\nend\n'), nil)  -- no members
     eq(share.decode((text:gsub('\nend', '\nwhat 1\nend'))), nil)  -- a line of no kind it knows
 end)
 
@@ -283,7 +283,7 @@ end)
 
 local function call(fn, ...) return { fn, n = select('#', ...), ... } end
 
-test('/sk3 start|stop reaches you, a session by name in any case, or you and every session with all', function ()
+test('/sk start|stop reaches you, a session by name in any case, or you and every session with all', function ()
     local live = { Beta = session('Beta', 1, { member(2, 'Beta') }), Gamma = session('Gamma', 1, { member(3, 'Gamma') }) }
     eq({ share.reach(live, 'Alpha', nil) }, { true, {} })
     eq({ share.reach(live, 'Alpha', 'alpha') }, { true, {} })
@@ -368,7 +368,7 @@ local function two_sessions(fn)
     local files = {}
     local real = { open = io.open, remove = os.remove, rename = os.rename, AshitaCore = rawget(_G, 'AshitaCore'),
                    ashita = rawget(_G, 'ashita') }
-    local DIR = 'X:\\config\\addons\\sidekick3\\'
+    local DIR = 'X:\\config\\addons\\sidekick\\'
     rawset(io, 'open', function (p, mode)
         if mode == 'r' and not files[p] then return nil end
         local buf = {}
@@ -426,7 +426,7 @@ test('two sessions: a call goes, is applied once and acknowledged; a watched ses
         local function both() clock = clock + 1; a.tick(ga, clock, sa, ha); b.tick(gb, clock, sb, hb) end
         both(); both()
         eq({ a.sessions.Beta ~= nil, b.sessions.Alpha ~= nil, a.send('Nobody', { 'run', n = 1, true }) }, { true, true, false })
-        eq({ a.me(), b.me() }, { 'Alpha', 'Beta' })  -- /sk3 stop reaches others while loading by it
+        eq({ a.me(), b.me() }, { 'Alpha', 'Beta' })  -- /sk stop reaches others while loading by it
         eq(a.send('Beta', { 'run', n = 1, true }), true)
         both()
         eq({ got, sb.running }, { { { 'Alpha', 'run' } }, true })

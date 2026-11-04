@@ -51,7 +51,7 @@ test('catalog: Geo- spells are luopans, the luopan\'s abilities its own role; Ra
     eq({ named(sub, 'Geo-Fury'), named(sub, 'Indi-Fury').role }, { nil, 'buff' })
 end)
 
-test('settings: luopan rows are opt-in; /sk3 buff finds a Geo- buff', function ()
+test('settings: luopan rows are opt-in; /sk buff finds a Geo- buff', function ()
     local cfg = settings.defaults()
     eq({ settings.row(cfg, named(cat, 'Geo-Haste')).on, settings.row(cfg, named(cat, 'Geo-Frailty')).on,
          settings.row(cfg, named(cat, 'Full Circle')).on }, { false, false, true })

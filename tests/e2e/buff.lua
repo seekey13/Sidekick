@@ -1,5 +1,5 @@
--- A buff row on for a party member: once Sidekick3 has it on them, it's taken off, and Sidekick3 puts it back. The
--- first row on for them whose status Sidekick3 can tell; with none, a Protect row on for them for this scenario.
+-- A buff row on for a party member: once Sidekick has it on them, it's taken off, and Sidekick puts it back. The
+-- first row on for them whose status Sidekick can tell; with none, a Protect row on for them for this scenario.
 local settings = require('core.settings')
 
 return {

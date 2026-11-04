@@ -99,7 +99,7 @@ local function modifier(intent, g)
 end
 
 -- `g` with the statuses expected from modifiers just sent on you: a copy for
--- this decision only, so the HUD and /sk3 state still show what the game says.
+-- this decision only, so the HUD and /sk state still show what the game says.
 local function expecting(g, mem)
     local extra = nil
     for id, until_ in pairs(mem.expect or {}) do

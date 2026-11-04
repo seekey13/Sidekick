@@ -1,5 +1,5 @@
 --[[
-    Settings: one file per job pair (config/addons/sidekick3/<character>/WHM_BLM.lua),
+    Settings: one file per job pair (config/addons/sidekick/<character>/WHM_BLM.lua),
     and the row rule shared by the engine and the UI.
 
     A row is a spell family ("Cure"), a pick_one group ("barelement") or a labelled
@@ -60,7 +60,7 @@ local DEFAULTS = {
     ui = { open = false, hp_width = 220, hp_height = 40, mp_width = 220, mp_height = 18, tp_width = 220, tp_height = 8,
            name_size = 22, text_size = 14, gap = 8, locked = false,
            hide_mp = true,  -- leave out the MP bar of a member or pet with no MP (0/0)
-           widget = false,  -- the widget, v2's floating one (/sk3 widget)
+           widget = false,  -- the widget, v2's floating one (/sk widget)
            widget_size = 16,  -- its text and icons' height, in pixels
            list_rows = 8,  -- the most choices a drop-down's list shows before it scrolls (kit.LIST_ROWS.default)
            japanese = false },  -- send spell, ability and item names in Japanese

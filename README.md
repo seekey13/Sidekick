@@ -1,6 +1,6 @@
 <div align="center">
 
-# Sidekick3
+# Sidekick
 
 **Support-job automation for Ashita v4 on [CatsEyeXI](https://www.catseyexi.com/).**
 
@@ -14,7 +14,7 @@ Heals, cures, buffs, raises and recovers for you, your party, your alliance and 
 
 ---
 
-Sidekick3 is a ground-up rewrite of [Sidekick](https://github.com/seekey13/Sidekick). Instead of hand-written job files, it reads your spells and abilities straight from the game client and server, so it knows exactly what your character can do at any level, on any job pair.
+Sidekick v3 is a ground-up rewrite of Sidekick v2. Instead of hand-written job files, it reads your spells and abilities straight from the game client and server, so it knows exactly what your character can do at any level, on any job pair.
 
 ## Features
 
@@ -25,37 +25,37 @@ Sidekick3 is a ground-up rewrite of [Sidekick](https://github.com/seekey13/Sidek
 - **Pet care**: Repair, Spirit Link, Reward, sending your pet in, and auto-equipping oils and pet food.
 - **Follow, rest and AFK sleep**: follows a leader, rests when MP runs low, and pauses itself if the party goes quiet.
 - **Alliance and tracked players**: looks after all three parties, plus players outside your alliance.
-- **Multiboxing**: every Sidekick3 session on one PC sees the others and can start, stop and configure them.
+- **Multiboxing**: every Sidekick session on one PC sees the others and can start, stop and configure them.
 - **Profiles**: named settings snapshots per job pair (Dynamis, EXP...).
 - **Japanese client support**: commands go out in Japanese and the whole UI can be shown in Japanese.
 
 ## Installation
 
-1. Download or clone this repository into `Ashita/addons/sidekick3`.
-2. In game: `/addon load sidekick3`
-3. Open the HUD with `/sk3`, click the cog on your card to configure, and press run.
+1. Download or clone this repository into `Ashita/addons/sidekick`.
+2. In game: `/addon load sidekick`
+3. Open the HUD with `/sk`, click the cog on your card to configure, and press run.
 
 Automation always starts **off** after a load. Healing, removal, waking, raising, recovery and pet care are on by default; buffs, items, following and resting are opt-in.
 
 > [!NOTE]
-> Sidekick v2 can stay loaded alongside Sidekick3, but don't run both at once.
+> v3 replaces Sidekick v2: both answer `/sk`, so don't load them together. Installing over v2? Delete its folder first (v2's `lib/` would otherwise stay behind). v2's settings in `config/addons/sidekick/` are left as they are and never read.
 
 ## Commands
 
 | Command | Description |
 | --- | --- |
-| `/sk3` | Open or close the HUD |
-| `/sk3 start` \| `stop` `[Name\|all]` | Automation on/off, for this or another session on this PC |
-| `/sk3 plan` | Show what it would do right now, without doing it |
-| `/sk3 buff <spell> <targets>` | Keep a buff up (`me`, `p1`–`p5`, `b0`–`c5`, a tracked name); `off` to stop |
-| `/sk3 focus <Name>` \| `off` | Heal this member first |
-| `/sk3 follow <Name>` \| `off` | Follow a member |
-| `/sk3 rest` / `afk` `[on\|off]` | Rest when MP runs low / AFK sleep |
-| `/sk3 track` / `untrack` `[Name]` | Look after a player outside your alliance |
-| `/sk3 profile [Name]` | Load a profile, or list them |
-| `/sk3 widget` | Toggle the compact status widget |
-| `/sk3 catalog` | What it can automate for your job |
-| `/sk3 help` | Full command list |
+| `/sk` | Open or close the HUD |
+| `/sk start` \| `stop` `[Name\|all]` | Automation on/off, for this or another session on this PC |
+| `/sk plan` | Show what it would do right now, without doing it |
+| `/sk buff <spell> <targets>` | Keep a buff up (`me`, `p1`–`p5`, `b0`–`c5`, a tracked name); `off` to stop |
+| `/sk focus <Name>` \| `off` | Heal this member first |
+| `/sk follow <Name>` \| `off` | Follow a member |
+| `/sk rest` / `afk` `[on\|off]` | Rest when MP runs low / AFK sleep |
+| `/sk track` / `untrack` `[Name]` | Look after a player outside your alliance |
+| `/sk profile [Name]` | Load a profile, or list them |
+| `/sk widget` | Toggle the compact status widget |
+| `/sk catalog` | What it can automate for your job |
+| `/sk help` | Full command list |
 
 ## Interface
 
@@ -90,7 +90,7 @@ Casts only the blue magic you have set. **Unbridled Learning** fires for the spe
 <details>
 <summary><b>Corsair</b></summary>
 
-Keeps your chosen rolls up and **Double-Ups** by your chosen risk, using Snake Eye and Fold to land lucky numbers and undo Busts. `/sk3 "Bolter's Roll"` rolls one on demand.
+Keeps your chosen rolls up and **Double-Ups** by your chosen risk, using Snake Eye and Fold to land lucky numbers and undo Busts. `/sk "Bolter's Roll"` rolls one on demand.
 </details>
 
 <details>
@@ -137,7 +137,7 @@ White Mage, Red Mage, Paladin, Summoner, Dragoon and the rest are handled by the
 
 ## Configuration
 
-Settings are saved per character and job pair in `config/addons/sidekick3/<character>/`, profiles included. The HUD layout is shared across job pairs.
+Settings are saved per character and job pair in `config/addons/sidekick/<character>/`, profiles included. The HUD layout is shared across job pairs.
 
 <details>
 <summary><b>Japanese font on Ashita 4.16</b></summary>
@@ -169,6 +169,6 @@ See [docs/e2e.md](docs/e2e.md) for in-game end-to-end tests.
 
 ## License
 
-Sidekick3 is released under the [GNU GPL v3 or later](LICENSE). Copyright © 2026 Seekey.
+Sidekick is released under the [GNU GPL v3 or later](LICENSE). Copyright © 2026 Seekey.
 
-The UI kit (`ui/kit.lua`) and settings layout (`ui/window.lua`) are based on VanaCore's `/vana` window (Copyright © 2026 Vekien, GPL-3.0-or-later). Sidekick3 is not affiliated with or endorsed by VanaCore or Vekien. `tests/data/` is dumped from the game client and isn't covered by this license.
+The UI kit (`ui/kit.lua`) and settings layout (`ui/window.lua`) are based on VanaCore's `/vana` window (Copyright © 2026 Vekien, GPL-3.0-or-later). Sidekick is not affiliated with or endorsed by VanaCore or Vekien. `tests/data/` is dumped from the game client and isn't covered by this license.

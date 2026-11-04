@@ -15,7 +15,7 @@
     bust it then), or rolled again once it can't be doubled. With buff.hold_aoe on, a
     roll is held for the group like an area buff spell, within the roll's own area.
 
-    /sk3 "Bolter's Roll" (a roll's name; the quotes are optional) arms that roll now
+    /sk "Bolter's Roll" (a roll's name; the quotes are optional) arms that roll now
     and Double-Ups it at lowest, so a Bust cannot happen: it stops on the lucky
     number, and otherwise once a die could bust it (over 5), and Snake Eye still
     turns a 10 into an 11. It goes with automation stopped, in a town, and while
@@ -164,7 +164,7 @@ local function up(a, g) return not can.lacks(a, g.me) end
 -- Whether a roll named now waits for a Bust to go: one is up and Fold can't clear it now.
 function cor.bust_waits(g, cat) return g.me.buffs[BUST] == true and not ready(named(cat, 'Fold'), g) end
 
--- One commanded roll (/sk3 "Bolter's Roll"): cast it, then Double-Up at lowest until
+-- One commanded roll (/sk "Bolter's Roll"): cast it, then Double-Up at lowest until
 -- it holds. Runs ahead of healing, while you rest, with Rolls switched off, and
 -- while a town or AFK sleep has paused automation: you named it.
 -- A Bust already up is Folded first so the roll has a slot, or waited out while Fold
@@ -266,7 +266,7 @@ function cor.want(g, cat, cfg, mem)
 
     -- The last roll, doubled while it's worth it; until it's settled, no new roll.
     -- Only a total newer than every send: a roll sent since may own the Double-Up Chance.
-    -- A total /sk3 "<roll>" already held at lowest is not gambled on by the risk picked.
+    -- A total /sk "<roll>" already held at lowest is not gambled on by the risk picked.
     local r = g.roll
     local roll, newest = nil, -math.huge
     for _, at in pairs(st.sent) do newest = math.max(newest, at) end

@@ -7,7 +7,7 @@
 //
 // `run` exits 1 when a scenario failed or erred (skips don't count). The game needs VanaCore's MCP on
 // ([mcp] enabled=1 in vanacore.ini, or /vana > Client > AI MCP; each game takes the next free port from 47800) and
-// Sidekick3 loaded. docs/e2e.md has the scenarios and how to write one.
+// Sidekick loaded. docs/e2e.md has the scenarios and how to write one.
 
 const argv = process.argv.slice(2);
 let port = 47800;
@@ -54,19 +54,19 @@ async function tool(name, args) {
 async function connect() {
   try {
     await post({ jsonrpc: '2.0', id: nextId++, method: 'initialize', params: {
-      protocolVersion: '2025-03-26', capabilities: {}, clientInfo: { name: 'sidekick3-e2e', version: '1.0' } } });
+      protocolVersion: '2025-03-26', capabilities: {}, clientInfo: { name: 'sidekick-e2e', version: '1.0' } } });
   } catch (e) {
     throw new Error(`no VanaCore MCP at ${url} (${e.cause?.code || e.message}): is the game up with the MCP on?`);
   }
   await post({ jsonrpc: '2.0', method: 'notifications/initialized' });
-  await tool('hello', { name: 'Sidekick3 e2e tests' });
+  await tool('hello', { name: 'Sidekick e2e tests' });
 }
 
-// Lua in Sidekick3's state; what it prints between @@ marks comes back as JSON.
+// Lua in Sidekick's state; what it prints between @@ marks comes back as JSON.
 async function lua(code) {
-  const text = await tool('lua', { addon: 'Sidekick3', code: `local e2e = require('tools.e2e') ${code}` });
+  const text = await tool('lua', { addon: 'Sidekick', code: `local e2e = require('tools.e2e') ${code}` });
   const m = text.match(/@@([\s\S]*)@@/);
-  if (!m) throw new Error(`Sidekick3 answered:\n${text}`);
+  if (!m) throw new Error(`Sidekick answered:\n${text}`);
   return JSON.parse(m[1]);
 }
 const json = (expr) => `print('@@' .. vana.json.encode(${expr}) .. '@@') return true`;
@@ -88,7 +88,7 @@ function show(r) {
   if (r.why) console.log(`      ${r.why.split('\n')[0]}`);
   for (const n of list(r.notes)) console.log(`      - ${n}`);
   if (r.result === 'pass' || r.result === 'skip') return;
-  if (r.sidekick) console.log(`      Sidekick3: running ${r.sidekick.running}, ${r.sidekick.why || ''}${r.sidekick.intent ? `, next ${r.sidekick.intent}` : ''}`);
+  if (r.sidekick) console.log(`      Sidekick: running ${r.sidekick.running}, ${r.sidekick.why || ''}${r.sidekick.intent ? `, next ${r.sidekick.intent}` : ''}`);
   for (const e of list(r.trail)) {
     const { type, at, seq, ...rest } = e;
     const fields = Object.entries(rest).map(([k, v]) =>
@@ -106,7 +106,7 @@ async function main() {
   }
   await connect();
   if (verb === 'list') {
-    await tool('lua', { addon: 'Sidekick3', code: FRESH });
+    await tool('lua', { addon: 'Sidekick', code: FRESH });
     for (const s of list(await lua(json('e2e.list()')))) console.log(`${s.name.padEnd(14)} ${s.about}`);
   } else if (verb === 'status') {
     console.log(JSON.stringify(await lua(json('e2e.status()')), null, 2));
@@ -117,7 +117,7 @@ async function main() {
     for (const r of list(await lua(json('e2e.report()')))) show(r);
   } else if (verb === 'run') {
     const wanted = names.length ? names : ['all'];
-    await tool('lua', { addon: 'Sidekick3', code: FRESH });
+    await tool('lua', { addon: 'Sidekick', code: FRESH });
     const before = (await lua(json('e2e.status()'))).finished;
     await lua(`e2e.run(${wanted.map((n) => `'${n}'`).join(', ')}) ${json('e2e.status()')}`);
     let shown = before;
@@ -125,9 +125,9 @@ async function main() {
     for (;;) {
       await sleep(2000);
       const s = await lua(json('e2e.status()'));
-      // Results gone, or nothing running, queued or finished: Sidekick3 (or the runner) loaded again mid-run.
+      // Results gone, or nothing running, queued or finished: Sidekick (or the runner) loaded again mid-run.
       if (s.finished < shown || (!s.running && count(s.queued) === 0 && s.finished <= before)) {
-        throw new Error('the run is gone: Sidekick3 (or the runner) was loaded again mid-run');
+        throw new Error('the run is gone: Sidekick (or the runner) was loaded again mid-run');
       }
       if (s.finished > shown) {
         for (const r of list(await lua(json(`e2e.report(${shown + 1})`)))) show(r);

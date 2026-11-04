@@ -229,7 +229,7 @@ test('heal\'s own Accession is expected too, so a lagging status read spends no 
     eq(cmd:match('^/ma "Cure'), '/ma "Cure')
 end)
 
-test('expected statuses stay out of the snapshot the HUD and /sk3 state read', function ()
+test('expected statuses stay out of the snapshot the HUD and /sk state read', function ()
     local g = snap({ DARK_ARTS }, { { name = 'A', hpp = 0 } })
     local mem = { expect = { [ENLIGHTENMENT] = 1001 } }
     eq(decide(g, settings.defaults(), mem), '/ma "Raise II" 101')

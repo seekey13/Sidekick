@@ -23,7 +23,7 @@ ja.words = {
     ['buff'] = '強化', ['song'] = '歌', ['maneuver'] = 'マニューバ', ['follow'] = '追従', ['rest'] = 'ヒーリング',
     ['Wake'] = '起こす', ['Roll'] = 'ロール', ['Rune'] = 'ルーン', ['Geo'] = '風水', ['Song'] = '歌',
     ['Maneuver'] = 'マニューバ', ['Rest'] = 'ヒーリング', ['Stand'] = '立つ',
-    -- /sk3 catalog's roles, besides those
+    -- /sk catalog's roles, besides those
     ['emergency'] = '緊急', ['modifier'] = '補助', ['ward'] = 'ワード', ['pet_heal'] = 'ペット回復',
     ['pet_remove'] = 'ペット治療', ['unknown'] = '対象外',
 
@@ -92,7 +92,7 @@ ja.words = {
     ['%s (pet)\nHP %d%%  %s'] = '%s（ペット）\nHP %d%%  %s',
     ['Stop automation'] = '自動操作を停止', ['Start automation'] = '自動操作を開始',
     ['Stop %s\'s automation'] = '%sの自動操作を停止', ['Start %s\'s automation'] = '%sの自動操作を開始',
-    ['Settings for %s'] = '%sの設定', ['Settings'] = '設定', ['Close (/sk3 opens it again)'] = '閉じる（/sk3 で再び開きます）',
+    ['Settings for %s'] = '%sの設定', ['Settings'] = '設定', ['Close (/sk opens it again)'] = '閉じる（/sk で再び開きます）',
 
     -- The widget -------------------------------------------------------------------------------
     ['You'] = 'あなた', ['Default'] = 'デフォルト', ['\nRight-click to load a profile.'] = '\n右クリックでプロファイルを読み込みます。',
@@ -104,8 +104,8 @@ ja.words = {
     ['Every switch here is off.'] = 'ここのスイッチはすべてオフです。',
     ['Changes here are sent to that session, which applies them within a second or so.'] =
         'ここでの変更はそのセッションに送られ、1秒ほどで反映されます。',
-    ['%s runs another version of Sidekick3: /addon reload sidekick3 there.'] =
-        '%sは別のバージョンのSidekick3を実行しています。そちらで /addon reload sidekick3 を実行してください。',
+    ['%s runs another version of Sidekick: /addon reload sidekick there.'] =
+        '%sは別のバージョンのSidekickを実行しています。そちらで /addon reload sidekick を実行してください。',
     ['Waiting for %s\'s session...'] = '%sのセッションを待っています…',
     ['px'] = 'px', ['%'] = '%', ['y'] = 'y', ['s'] = '秒', ['m'] = '分',
 
@@ -288,8 +288,8 @@ ja.words = {
         'パーティ外に届くもので、このプレイヤーも回復・弱体回復・蘇生・強化します。このセッションのみ。',
     ['Target a player outside the alliance in %s\'s game to track them there.'] =
         '%sのゲームでアライアンス外のプレイヤーをターゲットすると、そこで追跡できます。',
-    ['Target a player outside your alliance to track them, or /sk3 track Name.'] =
-        'アライアンス外のプレイヤーをターゲットすると追跡できます（/sk3 track 名前 でも可）。',
+    ['Target a player outside your alliance to track them, or /sk track Name.'] =
+        'アライアンス外のプレイヤーをターゲットすると追跡できます（/sk track 名前 でも可）。',
 
     -- Profiles
     ['Name'] = '名前', ['A name for Save or Save as. Each job pair has its own profiles.'] =
@@ -332,8 +332,8 @@ ja.words = {
         'HUDとウィジェットを今の位置に固定します。ドラッグしても動きません。',
     ['Widget'] = 'ウィジェット',
     ['One row of its own: each character\'s name (yours, then each other Sidekick session\'s), its Start/Stop and its '
-        .. 'Settings. Right-click a name to load a profile. Up with the HUD closed too. Also /sk3 widget.'] =
-        '1行のバー: 各キャラクターの名前（自分、続いて他のSidekickセッション）と開始/停止、設定。名前を右クリックするとプロファイルを読み込めます。HUDを閉じても表示されます。/sk3 widget でも切り替えられます。',
+        .. 'Settings. Right-click a name to load a profile. Up with the HUD closed too. Also /sk widget.'] =
+        '1行のバー: 各キャラクターの名前（自分、続いて他のSidekickセッション）と開始/停止、設定。名前を右クリックするとプロファイルを読み込めます。HUDを閉じても表示されます。/sk widget でも切り替えられます。',
     ['Widget size'] = 'ウィジェットのサイズ', ['Pixels: the widget\'s text and icons\' height.'] =
         'ピクセル: ウィジェットの文字とアイコンの高さ。',
     ['Size'] = 'サイズ',
@@ -381,34 +381,34 @@ ja.words = {
     ['\nSwitched off: left on once something removes it again.'] = '\nオフ: 回復手段がまた使えるようになっても、そのままにします。',
     ['Tick something above that removes it.'] = '上で回復手段をオンにしてください。',
 
-    -- Chat (Sidekick3.lua) ---------------------------------------------------------------------
+    -- Chat (Sidekick.lua) ---------------------------------------------------------------------
     ['No blue magic until the server sends your set spells: it does when you zone or change one.'] =
         'サーバーからセット中の青魔法が届くまで青魔法は使いません（エリア移動か魔法の変更で届きます）。',
     ['No Japanese name for "%s": sent in English, which the Japanese client won\'t take.'] =
         '「%s」の日本語名がないため英語で送りました。日本語クライアントでは使えません。',
     ['%s: Bust'] = '%s: バスト', ['%s: %d (total %d)%s'] = '%s: %d（合計 %d）%s', [': lucky!'] = ': ラッキー！',
     [': 11!'] = ': 11！', [': unlucky'] = ': アンラッキー',
-    ['%d more with no automation; /sk3 catalog unknown lists them.'] = 'ほかに自動化しないものが%d個あります。/sk3 catalog unknown で一覧します。',
+    ['%d more with no automation; /sk catalog unknown lists them.'] = 'ほかに自動化しないものが%d個あります。/sk catalog unknown で一覧します。',
     ['Would send %s  (%s: %s)'] = '送信予定: %s  （%s: %s）', ['Nothing to do now: %s.'] = '今はすることがありません: %s。',
     ['(still inside the post-action lockout)'] = '（行動後の待ち時間中）',
-    ['No buffs on. /sk3 buff Haste p1 p2 turns one on; /sk3 catalog lists them.'] =
-        'オンの強化はありません。/sk3 buff Haste p1 p2 でオンにできます。/sk3 catalog で一覧します。',
-    ['No buff "%s" for this job. /sk3 catalog lists them.'] = 'このジョブに強化「%s」はありません。/sk3 catalog で一覧します。',
-    ['Not tracking "%s": /sk3 track %s first.'] = '「%s」は追跡していません。先に /sk3 track %s を実行してください。',
-    ['%s  (%s: %s)'] = '%s  （%s: %s）', ['  %s%s -> %s'] = '  %s%s → %s', ['%s off.'] = '%s: オフ',['%s on, but pick one: /sk3 buff <spell name>.'] = '%s: オン。ただし魔法を選んでください: /sk3 buff <魔法名>',
+    ['No buffs on. /sk buff Haste p1 p2 turns one on; /sk catalog lists them.'] =
+        'オンの強化はありません。/sk buff Haste p1 p2 でオンにできます。/sk catalog で一覧します。',
+    ['No buff "%s" for this job. /sk catalog lists them.'] = 'このジョブに強化「%s」はありません。/sk catalog で一覧します。',
+    ['Not tracking "%s": /sk track %s first.'] = '「%s」は追跡していません。先に /sk track %s を実行してください。',
+    ['%s  (%s: %s)'] = '%s  （%s: %s）', ['  %s%s -> %s'] = '  %s%s → %s', ['%s off.'] = '%s: オフ',['%s on, but pick one: /sk buff <spell name>.'] = '%s: オン。ただし魔法を選んでください: /sk buff <魔法名>',
     ['%s on%s.'] = '%s: オン%s', [' (%s)'] = '（%s）',
     ['%s can\'t go on players outside your party: not on %s.'] = '%sはパーティ外のプレイヤーにはかけられません: %sには使いません。',
-    ['/sk3 afk [on | off | minutes (%d to %d)]'] = '/sk3 afk [on | off | 分数 (%d～%d)]',
+    ['/sk afk [on | off | minutes (%d to %d)]'] = '/sk afk [on | off | 分数 (%d～%d)]',
     ['AFK sleep off.'] = '放置スリープ: オフ', ['counts only while running'] = '実行中のみ数えます',
     ['asleep: move to wake'] = 'スリープ中: 動くと再開します', ['sleeps in %d min'] = '%d分後にスリープ',
     ['starts counting now'] = '今から数えます',
     ['AFK sleep after %d min with no party movement or combat (%s).'] = 'パーティの移動も戦闘もなく%d分で放置スリープ（%s）。',
     ['Profiles for %s (loaded: %s): Default%s'] = '%sのプロファイル（使用中: %s）: デフォルト%s',
-    ['Profile: Default.'] = 'プロファイル: デフォルト', ['No profile "%s" for %s. /sk3 profile lists them.'] =
-        'プロファイル「%s」は%sにありません。/sk3 profile で一覧します。',
+    ['Profile: Default.'] = 'プロファイル: デフォルト', ['No profile "%s" for %s. /sk profile lists them.'] =
+        'プロファイル「%s」は%sにありません。/sk profile で一覧します。',
     ['Profile loaded: %s.'] = 'プロファイルを読み込みました: %s',
     ['No player "%s" near you.'] = '近くにプレイヤー「%s」はいません。',
-    ['Target a player first, or /sk3 track <name>.'] = '先にプレイヤーをターゲットしてください（または /sk3 track <名前>）。',
+    ['Target a player first, or /sk track <name>.'] = '先にプレイヤーをターゲットしてください（または /sk track <名前>）。',
     ['%s is in your %s.'] = '%sは%sにいます。', ['party'] = 'パーティ',
     ['Tracking %s: healed, cleared, raised and buffed (buff rows pick them by name).%s'] =
         '%sを追跡します: 回復・弱体回復・蘇生・強化します（強化の行では名前で選べます）。%s',
@@ -416,15 +416,15 @@ ja.words = {
     ['Tracking %s yourself now: kept when %s\'s session stops listing them.'] =
         '%sを自分で追跡します: %sのセッションが外しても追跡を続けます。',
     ['Already tracking %s%s.'] = '%sはすでに追跡しています%s。', ['; checking their level again'] = '。レベルを再確認します',
-    ['No Sidekick3 session "%s" on this PC (%s).'] = 'このPCにSidekick3のセッション「%s」はありません（%s）。',
+    ['No Sidekick session "%s" on this PC (%s).'] = 'このPCにSidekickのセッション「%s」はありません（%s）。',
     ['sessions: %s'] = 'セッション: %s', ['no other sessions'] = '他のセッションはありません',
     ['Automation %s.'] = '自動操作を%s。', ['started'] = '開始しました', ['stopped'] = '停止しました',
     ['Other sessions can\'t be reached until your game has loaded.'] = 'ゲームの読み込みが終わるまで他のセッションに送れません。',
     ['Sent %s to %s.'] = '%sを%sに送りました。', ['start'] = '開始', ['stop'] = '停止',
-    ['No other Sidekick3 sessions on this PC.'] = 'このPCに他のSidekick3のセッションはありません。',
+    ['No other Sidekick sessions on this PC.'] = 'このPCに他のSidekickのセッションはありません。',
     ['Not tracking "%s".'] = '「%s」は追跡していません。',
-    ['Stopped tracking %s (from %s\'s session) until /sk3 track %s.'] =
-        '%sの追跡をやめました（%sのセッションから）。/sk3 track %s で再開します。',
+    ['Stopped tracking %s (from %s\'s session) until /sk track %s.'] =
+        '%sの追跡をやめました（%sのセッションから）。/sk track %s で再開します。',
     ['Stopped tracking %s.'] = '%sの追跡をやめました。',
     ['ui/custom.lua failed to load, using the standard window: %s'] = 'ui/custom.lua を読み込めないため、標準のウィンドウを使います: %s',
     ['Window closed on an error: %s'] = 'エラーのためウィンドウを閉じました: %s',
@@ -435,24 +435,24 @@ ja.words = {
     ['Action log %s.'] = 'アクションログ: %s', ['on'] = 'オン',
     ['off'] = 'オフ', ['Widget %s.'] = 'ウィジェット: %s', ['Focus off.'] = 'フォーカス: オフ', ['Focus: %s.'] = 'フォーカス: %s',
     ['Follow off.'] = '追従: オフ', ['Following %s past %d yalms.'] = '%sを追従します（%dヤルムより離れたら）。',
-    ['Tracking no one. Target a player, then /sk3 track (or /sk3 track <name>).'] =
-        '誰も追跡していません。プレイヤーをターゲットして /sk3 track（または /sk3 track <名前>）。',
+    ['Tracking no one. Target a player, then /sk track (or /sk track <name>).'] =
+        '誰も追跡していません。プレイヤーをターゲットして /sk track（または /sk track <名前>）。',
     ['Tracking: %s. Target another player to add them.'] = '追跡中: %s。他のプレイヤーをターゲットすると追加できます。',
-    ['/sk3 untrack <name|all>'] = '/sk3 untrack <名前|all>', ['Tracking no one.'] = '誰も追跡していません。',
-    ['Other sessions\' players kept off until tracked by hand (/sk3 track <name>): %s.'] =
-        '他のセッションのプレイヤーは、手動で追跡するまで外したままにします（/sk3 track <名前>）: %s',
+    ['/sk untrack <name|all>'] = '/sk untrack <名前|all>', ['Tracking no one.'] = '誰も追跡していません。',
+    ['Other sessions\' players kept off until tracked by hand (/sk track <name>): %s.'] =
+        '他のセッションのプレイヤーは、手動で追跡するまで外したままにします（/sk track <名前>）: %s',
     ['Resting %s.'] = 'ヒーリング: %s', ['Waiting for the game to load your job.'] = 'ゲームがジョブを読み込むのを待っています。',
     ['asked'] = '指定',
     ['%s, then Double-Up at lowest.'] = '%s、続いてダブルアップ（最低リスク）。',
     ['%s when it can (%s), then Double-Up at lowest.'] = '%sは使えるようになってから（%s）、続いてダブルアップ（最低リスク）。',
     ['%s once Invisible wears, then Double-Up at lowest.'] = 'インビジが切れてから%s、続いてダブルアップ（最低リスク）。',
     ['%s once Bust is gone, then Double-Up at lowest.'] = 'バストが消えてから%s、続いてダブルアップ（最低リスク）。',
-    ['No roll "%s". /sk3 help lists the commands.'] = 'ファントムロール「%s」はありません。/sk3 help でコマンド一覧。',
-    ['/sk3 opens or closes the window. Commands: widget, start [name|all], stop [name|all], plan, state, '
+    ['No roll "%s". /sk help lists the commands.'] = 'ファントムロール「%s」はありません。/sk help でコマンド一覧。',
+    ['/sk opens or closes the window. Commands: widget, start [name|all], stop [name|all], plan, state, '
         .. 'buff [name] [me p1..p5 b0..c5 <tracked>|off], focus <name|off>, follow <name|off>, rest [on|off], '
         .. 'track [name], untrack <name|all>, profile [name|default], afk [on|off|minutes], catalog [unknown], log, help. '
         .. 'A Phantom Roll\'s name (Bolter\'s Roll) rolls it now, then Double-Ups at Lowest'] =
-        '/sk3 でウィンドウを開閉します。コマンド: widget、start [名前|all]、stop [名前|all]、plan、state、'
+        '/sk でウィンドウを開閉します。コマンド: widget、start [名前|all]、stop [名前|all]、plan、state、'
         .. 'buff [名前] [me p1..p5 b0..c5 <追跡>|off]、focus <名前|off>、follow <名前|off>、rest [on|off]、'
         .. 'track [名前]、untrack <名前|all>、profile [名前|default]、afk [on|off|分数]、catalog [unknown]、log、help。'
         .. 'ファントムロールの名前（ボルターズロール）で今すぐロールし、最低リスクでダブルアップします',

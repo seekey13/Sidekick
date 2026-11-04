@@ -83,8 +83,8 @@ local mm = { GetPlayer = const(player), GetParty = const(party), GetEntity = con
 -- The client's <bt> (SeekBattleActor): the entity `world.bt`, each ask counted in
 -- `world.asked`. A callback can't be called from compiled code: no JIT in this file.
 jit.off()
-local actor = ffi.new('sk3_battle_actor[1]')
-local seek_bt = ffi.cast('sk3_seek_battle_actor', function ()
+local actor = ffi.new('sk_battle_actor[1]')
+local seek_bt = ffi.cast('sk_seek_battle_actor', function ()
     world.asked = (world.asked or 0) + 1
     if not world.bt then return nil end
     actor[0].GuideNo = world.bt

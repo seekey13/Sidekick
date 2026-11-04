@@ -1,10 +1,10 @@
 --[[
     GM commands that set the scene for in-game tests on the dev server (issue #56). A session drives the game through
-    the VanaCore MCP and runs these in Sidekick3's own Lua state with the MCP's `lua` tool:
+    the VanaCore MCP and runs these in Sidekick's own Lua state with the MCP's `lua` tool:
 
-        lua  addon = "Sidekick3"  code = "return require('tools.gm').hp_pct('Test', 40)"
+        lua  addon = "Sidekick"  code = "return require('tools.gm').hp_pct('Test', 40)"
 
-    then reads the server's answer with `chat_log`. tools/e2e.lua runs scenarios built on it. Nothing in Sidekick3
+    then reads the server's answer with `chat_log`. tools/e2e.lua runs scenarios built on it. Nothing in Sidekick
     requires this file, and release zips leave tools/ out. docs/gm-commands.md has the commands and their quirks.
 
     Each command, its arguments and whom it acts on are the server's own (scripts/commands/*.lua in the CatsEyeXI
@@ -30,7 +30,7 @@ local DEAD = 3                          -- entity status
 gm.JOBS = { WAR = 1, MNK = 2, WHM = 3, BLM = 4, RDM = 5, THF = 6, PLD = 7, DRK = 8, BST = 9, BRD = 10, RNG = 11,
             SAM = 12, NIN = 13, DRG = 14, SMN = 15, BLU = 16, COR = 17, PUP = 18, DNC = 19, SCH = 20, GEO = 21, RUN = 22 }
 
--- Status ids by the server's names (xi.effect, scripts/enum/effect.lua) in lower case: what Sidekick3 removes, wakes
+-- Status ids by the server's names (xi.effect, scripts/enum/effect.lua) in lower case: what Sidekick removes, wakes
 -- from and keeps up. Always sent as the id: !deleffect with a player's name reads the status with atoi, so 'poison'
 -- would be 0, which it takes as 1 (Weakness).
 gm.EFFECTS = {
@@ -270,7 +270,7 @@ function gm.despawn(id) return send(('!despawnmob %d'):format(whole(id, 1, 0x7FF
 -- Your target as the server last heard of it: the target index in your last position packet.
 local heard
 if ashita and ashita.events then
-    ashita.events.register('packet_out', 'sidekick3_gm_packet_out', function (e)
+    ashita.events.register('packet_out', 'sidekick_gm_packet_out', function (e)
         if e.id == 0x015 and #e.data >= 0x18 then heard = e.data:byte(0x16 + 1) + e.data:byte(0x16 + 2) * 256 end
     end)
 end
@@ -324,7 +324,7 @@ end
 -- Your GM level as far as tests go: !where shows your position for level 1 or more, !exec says so for 4 or more. No
 -- answer in the chat log at all: not a GM here.
 function gm.probe()
-    return all({ '!where', '!exec player:printToPlayer(\'Sidekick3 gm: level 4 or more\')' })
+    return all({ '!where', '!exec player:printToPlayer(\'Sidekick gm: level 4 or more\')' })
 end
 
 return gm
